@@ -1304,11 +1304,11 @@ int enif_get_atom(
         ErlNifCharEncoding encoding);
 ```
 
-Writes a `NULL`\-terminated string in the buffer pointed to by `buf` of size
+Writes a NUL\-terminated string in the buffer pointed to by `buf` of size
 `size` bytes, consisting of the string representation of the atom `term` with
 [encoding](erl_nif.md#ErlNifCharEncoding).
 
-Returns the number of bytes written (including terminating `NULL` character) or
+Returns the number of bytes written (including terminating NUL byte), or
 `0` if `term` is not an atom with maximum length of `size-1` bytes in
 `encoding`.
 
@@ -1324,8 +1324,8 @@ int enif_get_atom_length(
         ErlNifCharEncoding encoding);
 ```
 
-Sets `*len` to the length (number of bytes excluding terminating `NULL`
-character) of the atom `term` with [encoding](erl_nif.md#ErlNifCharEncoding).
+Sets `*len` to the length (number of bytes excluding terminating NUL
+byte) of the atom `term` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 Returns `true` on success, or `false` if `term` is not an atom or if the atom
 cannot be encoded using `encoding`.
@@ -1521,18 +1521,18 @@ int enif_get_string(
         ErlNifCharEncoding encoding);
 ```
 
-Writes a `NULL`\-terminated string in the buffer pointed to by `buf` with size
+Writes a NUL\-terminated string in the buffer pointed to by `buf` with size
 `size`, consisting of the characters in the string `list`. The characters are
 written using [encoding](erl_nif.md#ErlNifCharEncoding).
 
 Returns one of the following:
 
-- The number of bytes written (including terminating `NULL` character)
+- The number of bytes written (including the terminating NUL byte)
 - `-size` if the string was truncated because of buffer space
 - `0` if `list` is not a string that can be encoded with `encoding` or if `size`
   was < `1`.
 
-The written string is always `NULL`\-terminated, unless buffer `size` is < `1`.
+The written string is always NUL\-terminated, unless buffer `size` is `0`.
 
 Available since OTP R13B04
 
@@ -1546,8 +1546,8 @@ int enif_get_string_length(
         ErlNifCharEncoding encoding);
 ```
 
-Sets `*len` to the length (number of bytes excluding terminating `NULL`
-character) of the string `list` with [encoding](erl_nif.md#ErlNifCharEncoding).
+Sets `*len` to the length (number of bytes excluding terminating NUL
+byte) of the string `list` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 Returns `true` on success, or `false` if `list` is not a string that can be
 encoded with `encoding`.
@@ -2101,7 +2101,7 @@ ERL_NIF_TERM enif_make_atom(
         const char *name);
 ```
 
-Creates an atom term from the `NULL`\-terminated C-string `name` with ISO
+Creates an atom term from the NUL\-terminated C-string `name` with ISO
 Latin-1 encoding. If the length of `name` exceeds the maximum length allowed for
 an atom (255 characters), `enif_make_atom` invokes
 [`enif_make_badarg`](erl_nif.md#enif_make_badarg).
@@ -2116,7 +2116,7 @@ ERL_NIF_TERM enif_make_atom_len(
 ```
 
 Create an atom term from the string `name` with length `len` and ISO Latin-1
-encoding. `NULL` characters are treated as any other characters. If `len`
+encoding. `NUL` bytes are treated as any other characters. If `len`
 exceeds the maximum length allowed for an atom (255 characters),
 `enif_make_atom` invokes [`enif_make_badarg` ](erl_nif.md#enif_make_badarg).
 
@@ -2198,7 +2198,7 @@ int enif_make_existing_atom(
         ErlNifCharEncoding encoding);
 ```
 
-Tries to create the term of an already existing atom from the `NULL`\-terminated
+Tries to create the term of an already existing atom from the NUL\-terminated
 C-string `name` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 If the atom already exists, this function stores the term in `*atom` and returns
@@ -2220,8 +2220,8 @@ int enif_make_existing_atom_len(
 ```
 
 Tries to create the term of an already existing atom from the string `name` with
-length `len` bytes and [encoding](erl_nif.md#ErlNifCharEncoding). `NULL`
-characters are treated as any other characters.
+length `len` bytes and [encoding](erl_nif.md#ErlNifCharEncoding). `NUL`
+bytes are treated as any other characters.
 
 If the atom already exists, this function stores the term in `*atom` and returns
 `true`, otherwise returns `false`. It also returns `false` if the string `name`
@@ -2489,7 +2489,7 @@ int enif_make_new_atom(
         ErlNifCharEncoding encoding);
 ```
 
-Creates an atom term from the `NULL`\-terminated C-string `name` with
+Creates an atom term from the NUL\-terminated C-string `name` with
 [encoding](erl_nif.md#ErlNifCharEncoding).
 
 If successful, `true` is returned and the atom term is stored in `*atom`.
@@ -2674,7 +2674,7 @@ ERL_NIF_TERM enif_make_string(
         ErlNifCharEncoding encoding);
 ```
 
-Creates a list containing the characters of the `NULL`\-terminated string
+Creates a list containing the characters of the NUL\-terminated string
 `string` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 ## enif_make_string_len()
@@ -2688,7 +2688,7 @@ ERL_NIF_TERM enif_make_string_len(
 ```
 
 Creates a list containing the characters of the string `string` with length
-`len` and [encoding](erl_nif.md#ErlNifCharEncoding). `NULL` characters are
+`len` and [encoding](erl_nif.md#ErlNifCharEncoding). NUL bytes are
 treated as any other characters.
 
 Available since OTP R14B
