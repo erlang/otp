@@ -21,3 +21,4 @@
 %%
 
 {groups,"../megaco_test",megaco_examples_SUITE,[bench]}.
+{groups,"../megaco_test",megaco_load_SUITE,[bench]}.
