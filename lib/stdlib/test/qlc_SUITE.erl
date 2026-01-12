@@ -2371,7 +2371,7 @@ filter(Config) when is_list(Config) ->
 
        <<"%% One more of the same kind.
           etsc(fun(E) ->
-                      QH = qlc:q([{X,Y} || {X,_} <- ets:table(E), 
+                      QH = qlc:q([{X,Y} || {X=Y,_} <- ets:table(E), 
                                            (Y=X) =:= (Y=1+1)]),
                       {'EXIT', {{badmatch,2},_}} = (catch qlc:e(QH)),
                       false = lookup_keys(QH)
@@ -4889,7 +4889,7 @@ join_merge(Config) when is_list(Config) ->
           R = lists:sort(qlc:e(Q)),
           ets:delete(E1),
           ets:delete(E2),
-          true = [{Y,Y} || X <- lists:seq(5, 10), {} =/= (Y = {X,X})] =:= R
+          true = [{Y,Y} || X <- lists:seq(5, 10), Y <- [{X,X}]] =:= R
        ">>,
 
        <<"E1 = create_ets(1, 10),
@@ -4902,7 +4902,7 @@ join_merge(Config) when is_list(Config) ->
           R = lists:sort(qlc:e(Q)),
           ets:delete(E1),
           ets:delete(E2),
-          true = [{Y,Y} || X <- lists:seq(5, 10), {} =/= (Y = {X,X})] =:= R
+          true = [{Y,Y} || X <- lists:seq(5, 10), Y <- [{X,X}]] =:= R
        ">>,
 
        <<"E1 = create_ets(1, 10),
@@ -4925,7 +4925,7 @@ join_merge(Config) when is_list(Config) ->
           R = lists:sort(qlc:e(Q)),
           ets:delete(E1),
           ets:delete(E2),
-          true = [{Y,Y} || X <- lists:seq(5, 10), {} =/= (Y = {{X,X}})] =:= R
+          true = [{Y,Y} || X <- lists:seq(5, 10), Y <- [{{X,X}}]] =:= R
        ">>,
 
        <<"L1 = [{1,a},{2,a},{1,b},{2,b},{1,c},{2,c}],
@@ -7281,7 +7281,8 @@ manpage(Config) when is_list(Config) ->
     %% ets(3)
     MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
     ETs = [
-        [<<"true = ets:insert(Tab = ets:new(t, []),[{1,a},{2,b},{3,c},{4,d}]),
+        [<<"Tab = ets:new(t, []),
+            true = ets:insert(Tab,[{1,a},{2,b},{3,c},{4,d}]),
             MS = ">>, io_lib:format("~w", [MS]), <<",
             QH1 = ets:table(Tab, [{traverse, {select, MS}}]),
 
@@ -8004,7 +8005,6 @@ compile(Config, Tests, Fun) ->
 compile_file(Config, Test0, Opts0) ->
     {File, Mod} = compile_file_mod(Config),
     Test = list_to_binary(["-module(", atom_to_list(Mod), "). "
-                           "-compile(nowarn_export_var_subexpr). "
                            "-import(qlc_SUITE, [i/1,i/2,format_info/2]). "
                            "-import(qlc_SUITE, [etsc/2, etsc/3]). "
                            "-import(qlc_SUITE, [create_ets/2]). "

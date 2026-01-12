@@ -31,8 +31,6 @@
 -module(dialyzer_utils).
 -moduledoc false.
 
--compile(nowarn_export_var_subexpr).
-
 -export([
 	 format_sig/1,
 	 format_sig/2,
@@ -1118,9 +1116,9 @@ refold_concrete_pat(Val) ->
 	false -> label(cerl:c_tuple_skel(Els))
       end;
     [H|T] ->
-      case  cerl:is_literal(HP=refold_concrete_pat(H))
-	and cerl:is_literal(TP=refold_concrete_pat(T))
-      of
+      HP = refold_concrete_pat(H),
+      TP = refold_concrete_pat(T),
+      case  cerl:is_literal(HP) and cerl:is_literal(TP) of
 	true -> cerl:abstract(Val);
 	false -> label(cerl:c_cons_skel(HP, TP))
       end;

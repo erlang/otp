@@ -32,8 +32,6 @@
 -module(dialyzer_typesig).
 -moduledoc false.
 
--compile(nowarn_export_var_subexpr).
-
 -export([analyze_scc/7]).
 -export([get_safe_underapprox/2]).
 
@@ -1148,7 +1146,8 @@ get_safe_underapprox_1([Pat0|Left], Acc, Map) ->
       %% Some assertions in case the syntax gets more premissive in the future
       true = #{} =:= cerl:concrete(cerl:map_arg(Pat)),
       true = lists:all(fun(P) ->
-			   cerl:is_literal(Op = cerl:map_pair_op(P)) andalso
+                           Op = cerl:map_pair_op(P),
+			   cerl:is_literal(Op) andalso
 			     exact =:= cerl:concrete(Op)
 		       end, cerl:map_es(Pat)),
       KeyTrees = lists:map(fun cerl:map_pair_key/1, cerl:map_es(Pat)),
@@ -1164,7 +1163,8 @@ get_safe_underapprox_1([Pat0|Left], Acc, Map) ->
       %% We need to deal with duplicates ourselves
       SquashDuplicates =
 	fun SquashDuplicates([{K,First},{K,Second}|List]) ->
-	    case t_is_none(Inf = t_inf(First, Second)) of
+            Inf = t_inf(First, Second),
+	    case t_is_none(Inf) of
 	      true -> throw(dont_know);
 	      false -> [{K, Inf}|SquashDuplicates(List)]
 	    end;
@@ -1192,7 +1192,8 @@ get_safe_overapprox(Pats) ->
   lists:map(fun get_safe_overapprox_1/1, Pats).
 
 get_safe_overapprox_1(Pat) ->
-  case cerl:is_literal(Lit = cerl:fold_literal(Pat)) of
+  Lit = cerl:fold_literal(Pat),
+  case cerl:is_literal(Lit) of
     true  -> t_from_term(cerl:concrete(Lit));
     false -> t_any()
   end.

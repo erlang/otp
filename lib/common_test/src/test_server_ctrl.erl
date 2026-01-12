@@ -83,8 +83,6 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--compile(nowarn_export_var_subexpr).
-
 -include("test_server_internal.hrl").
 -include_lib("kernel/include/file.hrl").
 -define(suite_ext, "_SUITE").
@@ -5778,13 +5776,15 @@ write_html_file(File,Content) ->
 %% The 'major' log file, which is a pure text file is also written
 %% with utf8 encoding
 open_utf8_file(File) ->
-    case file:open(File,AllOpts=[write,{encoding,utf8}]) of
+    AllOpts = [write,{encoding,utf8}],
+    case file:open(File,AllOpts) of
 	{error,Reason} -> {error,{Reason,{File,AllOpts}}};
 	Result         -> Result
     end.
 
 open_utf8_file(File,Opts) ->
-    case file:open(File,AllOpts=[{encoding,utf8}|Opts]) of
+    AllOpts = [{encoding,utf8}|Opts],
+    case file:open(File,AllOpts) of
 	{error,Reason} -> {error,{Reason,{File,AllOpts}}};
 	Result         -> Result
     end.

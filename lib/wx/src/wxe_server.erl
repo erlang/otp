@@ -32,8 +32,6 @@
 -moduledoc false.
 -behaviour(gen_server).
 
--compile(nowarn_export_var_subexpr).
-
 %% API
 -export([start/1, stop/0, register_me/1, set_debug/2]).
 
@@ -64,7 +62,8 @@ start(SilentStart) ->
 	    case gen_server:start(?MODULE, [SilentStart], []) of
 		{ok, Pid}  ->
 		    {ok, Ref} = gen_server:call(Pid, get_env, infinity),
-		    wx:set_env(Env = #wx_env{ref=Ref,sv=Pid}),
+                    Env = #wx_env{ref=Ref,sv=Pid},
+		    wx:set_env(Env),
 		    Env;
 		{error, {Reason, _Stack}} ->
 		    erlang:error(Reason)

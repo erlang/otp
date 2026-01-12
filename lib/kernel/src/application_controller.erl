@@ -23,7 +23,6 @@
 -moduledoc false.
 
 -compile(nowarn_deprecated_catch).
--compile(nowarn_export_var_subexpr).
 
 %% External exports
 -export([start/1, 
@@ -1071,7 +1070,8 @@ handle_info({ac_load_application_reply, AppName, Res}, S) ->
 
 handle_info({ac_start_application_reply, AppName, Res}, S) ->
     Start_req = S#state.start_req,
-    case lists:keyfind(AppName, 1, Starting = S#state.starting) of
+    Starting = S#state.starting,
+    case lists:keyfind(AppName, 1, Starting) of
 	{_AppName, RestartType, Type, From} ->
 	    case Res of
 		start_it ->

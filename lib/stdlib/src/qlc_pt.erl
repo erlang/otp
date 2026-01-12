@@ -23,7 +23,6 @@
 -moduledoc false.
 
 -compile(nowarn_deprecated_catch).
--compile(nowarn_export_var_subexpr).
 
 %%% Purpose: Implements the qlc Parse Transform.
 
@@ -913,8 +912,8 @@ join_quals(JoinInfo, QCs, Anno, LcNo, ExtraConstants, AllVars) ->
                 H2 = join_handle(AP2, Anno, Aux, Cs2),
                 %% Op is not used.
                 Join = {join,Op,QId1#qid.no,QId2#qid.no,H1,H2,Cs1,Cs2},
-                G = {NQId=QId#qid{no = QId#qid.no + 1},
-                     {QIVs,{{gen,{cons,Anno,P1,P2},Join,GV1},GoI,SI}}},
+                NQId=QId#qid{no = QId#qid.no + 1},
+                G = {NQId, {QIVs,{{gen,{cons,Anno,P1,P2},Join,GV1},GoI,SI}}},
                 A = {NQId, GoI + 3, SI + 2},
                 {G, A}
         end,
@@ -1057,7 +1056,8 @@ template_cols(ColumnClasses) ->
                    Class <- ColumnClasses,
                    {IdNo,Col} <- Class,
                    IdNo =/= ?TNO,
-                   [] =/= (Cs = [C || {?TNO,C} <- Class])]).
+                   Cs <- [[C || {?TNO,C} <- Class]],
+                   [] =/= Cs]).
 
 template_as_pattern(E) ->
     P = simple_template(E),
@@ -1317,21 +1317,22 @@ lu_skip(ColConstants, FilterData, PatternFrame, PatternVars,
     ColFil = [{Column, FId#qid.no} ||
                  {FId,{fil,Fil}} <-
                      filter_list(FilterData, Dependencies, State),
-                 [] =/= (SFs = safe_filter(reset_anno(Fil), PatternFrames,
-                                           BindFun, State, Imported)),
+                 SFs <- [safe_filter(reset_anno(Fil), PatternFrames,
+                                     BindFun, State, Imported)],
+                 [] =/= SFs,
                  {GId,PV} <- PatternVars,
-                 [] =/=
-                    (Cols = hd(frames_to_columns(SFs, [{GId, PV}],
-                                                 deref_lu_skip(LookupOp,
-                                                               Imported),
-                                                 const_selector(Imported),
-                                                 Imported, LookupOp))),
+                 Cols <- [hd(frames_to_columns(SFs, [{GId, PV}],
+                                               deref_lu_skip(LookupOp, Imported),
+                                               const_selector(Imported),
+                                               Imported, LookupOp))],
+                 [] =/= Cols,
                  %% The filter must not test more than one column (unless the
                  %% pattern has already done the test):
                  %% Note: if the pattern and the filter test the same
                  %% column, the filter will not be skipped.
                  %% (an example: {X=1} <- ..., X =:= 1).
-                 length(D = Cols -- PatternColumns) =:= 1,
+                 D <- [Cols -- PatternColumns],
+                 length(D) =:= 1,
                  {{_,Col} = Column, Constants} <- D,
                  %% Check that the following holds for all frames.
                  lists:all(
@@ -1828,8 +1829,10 @@ frames2cols(Fs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ->
                         %% seen as a bug.) Note: matching tables
                         %% cannot skip the filter, but looking up
                         %% one of the values should be OK.
-                        tl(Consts = DerefFun(V, F)) =:= [],
-                        (Const = (SelectorFun(F))(hd(Consts))) =/= no],
+                        Consts <- [DerefFun(V, F)],
+                        tl(Consts) =:= [],
+                        Const <- [(SelectorFun(F))(hd(Consts))],
+                        Const =/= no],
                sofs:relation(RL) % possibly empty
             end || F <- Fs && PatSz <- PatSizes],
     Ss = sofs:from_sets(Rs),
@@ -1858,7 +1861,8 @@ col_ignore(Vs, '==') ->
 pattern_sizes(PatternVars, Fs) ->
     [{QId#qid.no, Size} ||
         {QId,PV} <- PatternVars,
-        undefined =/= (Size = pattern_size(Fs, {var,anno0(),PV}, true))].
+        Size <- [pattern_size(Fs, {var,anno0(),PV}, true)],
+        undefined =/= (Size)].
 
 pattern_size(Fs, PatternVar, Exact) ->
     Fun = fun(F) -> (deref_pattern(_Imported = []))(PatternVar, F) end,
@@ -2177,7 +2181,8 @@ deref_binding(Bind, Frame, BFun, Imp) ->
     #bind{value = Value, op = Op0} = Bind,
     [{Val, Op} ||
         {Val, _Op}=ValOp <- deref(Value, Frame, BFun, Imp),
-        BFun(Val, Op = value_op(ValOp, Op0, Imp))].
+        Op <- [value_op(ValOp, Op0, Imp)],
+        BFun(Val, Op)].
 
 deref_list(L) ->
     Op = case lists:usort([Op || {_Val, Op} <- L]) of

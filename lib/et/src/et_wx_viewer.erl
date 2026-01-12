@@ -26,8 +26,6 @@
 -module(et_wx_viewer).
 -moduledoc false.
 
--compile(nowarn_export_var_subexpr).
-
 -behaviour(gen_server).
 
 %% External exports
@@ -1414,18 +1412,19 @@ create_filter_menu(S=#state{filter_menu = {Menu,Data}}, ActiveFilterName, Filter
 		    Label = lists:concat([pad_string(F#filter.name, 20), "(", N, ")"]),
 		    {N+1, [menuitem(Menu, ?wxID_ANY, Label, {data, F})|Acc]}
 	    end,
-     D1 = [I1 = wxMenu:append(Menu, ?wxID_ANY, "Same Filter New Scale"),
-	   wxMenu:appendSeparator(Menu)],
+     I1 = wxMenu:append(Menu, ?wxID_ANY, "Same Filter New Scale"),
+     D1 = [I1, wxMenu:appendSeparator(Menu)],
      wxMenuItem:enable(I1, [{enable,false}]),
      {value, Filter} = lists:keysearch(ActiveFilterName, #filter.name, Filters),
      Same    = lists:concat([pad_string(ActiveFilterName, 20), "(=) same    scale"]),
      Larger  = lists:concat([pad_string(ActiveFilterName, 20), "(+) bigger  scale"]),
      Smaller = lists:concat([pad_string(ActiveFilterName, 20), "(-) smaller scale"]),
+     I2 = wxMenu:append(Menu, ?wxID_ANY, "New Filter Same Scale"),
      D2 = [menuitem(Menu, ?wxID_ANY, Same, {data, Filter, 0}),
 	   menuitem(Menu, ?wxID_ANY, Smaller, {data, Filter, -1}),
 	   menuitem(Menu, ?wxID_ANY, Larger, {data, Filter, 1}),
 	   wxMenu:appendSeparator(Menu),
-	   I2 = wxMenu:append(Menu, ?wxID_ANY, "New Filter Same Scale"),
+	   I2,
 	   wxMenu:appendSeparator(Menu)],
      _ = wxMenuItem:enable(I2, [{enable,false}]),
      {_,D3} = lists:foldl(Item, {1,[]}, Filters),
