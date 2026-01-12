@@ -591,7 +591,7 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
                     } else {
                         Eterm value = def_values[i];
                         if (is_catch(value)) {
-                            HRelease(BIF_P, hp_end, hp);
+                            HRelease(BIF_P, hp_end, (Eterm *)instance);
                             BIF_P->fvalue = defp->keys[i];
                             BIF_ERROR(BIF_P, EXC_NOVALUE);
                         }
@@ -600,7 +600,7 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
                 }
 
                 if (ks != &sentinel) {
-                    HRelease(BIF_P, hp_end, hp);
+                    HRelease(BIF_P, hp_end, (Eterm *)instance);
                     BIF_P->fvalue = ks[0];
                     BIF_ERROR(BIF_P, EXC_BADFIELD);
                 }
@@ -642,7 +642,7 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
                     } else {
                         Eterm value = def_values[i];
                         if (is_catch(value)) {
-                            HRelease(BIF_P, hp_end, hp);
+                            HRelease(BIF_P, hp_end, (Eterm *)instance);
                             BIF_P->fvalue = defp->keys[i];
                             erts_free(ERTS_ALC_T_TMP, tmp_array);
                             BIF_ERROR(BIF_P, EXC_NOVALUE);
@@ -652,7 +652,7 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
                 }
 
                 if (fields != &sentinel) {
-                    HRelease(BIF_P, hp_end, hp);
+                    HRelease(BIF_P, hp_end, (Eterm *)instance);
                     BIF_P->fvalue = fields[0].key;
                     erts_free(ERTS_ALC_T_TMP, tmp_array);
                     BIF_ERROR(BIF_P, EXC_BADFIELD);
@@ -762,7 +762,7 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
         }
 
         if (ks != &sentinel) {
-            HRelease(BIF_P, hp_end, hp);
+            HRelease(BIF_P, hp_end, (Eterm *)instance);
             BIF_P->fvalue = ks[0];
             BIF_ERROR(BIF_P, EXC_BADFIELD);
         }
@@ -805,7 +805,7 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
         }
 
         if (fields != &sentinel) {
-            HRelease(BIF_P, hp_end, hp);
+            HRelease(BIF_P, hp_end, (Eterm *)instance);
             BIF_P->fvalue = fields[0].key;
             erts_free(ERTS_ALC_T_TMP, tmp_array);
             BIF_ERROR(BIF_P, EXC_BADFIELD);
