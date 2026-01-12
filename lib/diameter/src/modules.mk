@@ -97,24 +97,6 @@ INTERNAL_HRLS = \
 BINS = \
 	diameterc
 
-# Released files relative to ../examples.
-EXAMPLES = \
-	code/GNUmakefile \
-	code/client.erl \
-	code/client_cb.erl \
-	code/server.erl \
-	code/server_cb.erl \
-	code/relay.erl \
-	code/relay_cb.erl \
-	code/redirect.erl \
-	code/redirect_cb.erl \
-	dict/rfc4004_mip.dia \
-	dict/rfc4005_nas.dia \
-	dict/rfc4006_cc.dia \
-	dict/rfc4072_eap.dia \
-	dict/rfc4590_digest.dia \
-	dict/rfc4740_sip.dia
-
 # Registered server names.
 
 REGISTERED = \
