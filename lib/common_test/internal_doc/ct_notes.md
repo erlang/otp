@@ -251,3 +251,34 @@ mindmap
     questions
         why call_end_conf not called when init/end_per_testcase not defined?
 ```
+
+
+
+## Comment in hooks
+
+This table presents information about where `ct:comment/1-2` prints to, depending on how the hook was installed:
+
+| Hook function              | Install in: `ct_run`, `ct:run_test/1`, Test Specification | Install in: suite/0, init_per_suite/1, init_per_group/2 |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------- |
+| id/1                       | init_per_suite row                                        | init_per_suite row                                      |
+| init/2                     | nowhere                                                   | init_per_suite row                                      |
+| post_all/3                 | nowhere                                                   | nowhere                                                 |
+| post_groups/4              | nowhere                                                   | nowhere                                                 |
+| pre_init_per_suite/3       | init_per_suite row                                        | init_per_suite row                                      |
+| post_init_per_suite/4      | init_per_suite row                                        | init_per_suite row                                      |
+| pre_init_per_group/3,4     | init_per_group row                                        | init_per_group row                                      |
+| post_init_per_group/4,5    | init_per_group row                                        | init_per_group row                                      |
+| pre_init_per_testcase/3,4  | testcase row                                              | testcase row                                            |
+| post_init_per_testcase/4,5 | testcase row                                              | testcase row                                            |
+| post_init_per_testcase/4,5 | testcase row                                              | testcase row                                            |
+| pre_end_per_testcase/3,4   | testcase row                                              | testcase row                                            |
+| post_end_per_testcase/4,5  | testcase row                                              | testcase row                                            |
+| pre_end_per_group/3,4      | end_per_group row                                         | end_per_group row                                       |
+| post_end_per_group/4,5     | end_per_group row                                         | end_per_group row                                       |
+| pre_end_per_suite/3        | end_per_suite row                                         | end_per_suite row                                       |
+| post_end_per_suite/4       | end_per_suite row                                         | end_per_suite row                                       |
+| on_tc_skip/4               | testcase row                                              | testcase row                                            |
+| on_tc_fail/4               | nowhere                                                   | nowhere                                                 |
+| terminate/1                | nowhere                                                   | end_per_suite row                                       |
+
+_Table: Behavior of `ct:comment/1-2` depending on hook installation method_
