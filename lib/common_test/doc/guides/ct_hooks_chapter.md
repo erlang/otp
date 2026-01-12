@@ -281,6 +281,26 @@ After any post hook has been executed for all installed CTHs,
 skipped, respectively. You cannot affect the outcome of the tests any further at
 this point.
 
+[](){: #comment }
+
+### Comment in hooks
+
+Be aware that there are limitations on processes from which `ct:comment/1-2` can be called.
+They are explained in `ct:comment/1`.
+
+In addition to that the behavior of `ct:comment/1-2` when called from hook functions
+[init/2](`c:ct_hooks:init/2`) and [terminate/1](`c:ct_hooks:terminate/1`) depends on the hook's
+[scope](#scope).
+
+If hook is installed in a way that scope begins before
+[pre_init_per_suite/3](`c:ct_hooks:pre_init_per_suite/3`) is called, then calling `ct:comment/1-2`
+from a process running either `init/2` or `terminate/1` does not result in the comment being printed anywhere.
+
+Otherwise the comment is printed in the same place a process running the
+[`init_per_suite`](`c:ct_suite:init_per_suite/1`) or [`end_per_suite`](`c:ct_suite:end_per_suite/1`)
+functions would print it
+(respectively init_per_suite and end_per_suite rows in generated Common Test HTML logs).
+
 [](){: #synchronizing }
 
 ## Synchronizing External User Applications with Common Test
