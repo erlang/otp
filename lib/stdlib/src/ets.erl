@@ -2388,7 +2388,14 @@ tab2file(TabArg, File, Options) ->
 		     end, 
 		     true}
 	    end,
-	    ets:safe_fixtable(Table,true),
+            try
+                ets:safe_fixtable(Table,true)
+            catch
+                error:badarg ->
+                    %% Table is probably someone else's private.
+                    %% Be consistent and return error tuple.
+                    throw(badtab)
+            end,
 	    {NewState1,Num} = try
 				  NewState = LogFun(InitState,Info),
 				  dump_file(
