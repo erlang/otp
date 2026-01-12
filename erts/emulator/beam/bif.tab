@@ -813,7 +813,6 @@ bif erts_internal:processes_next/1
 bif code:get_debug_info/1
 bif erlang:exit/3
 bif erlang:link/2
-
 bif erl_debugger:supported/0
 bif erl_debugger:instrumentations/0
 bif erl_debugger:toggle_instrumentations/1
@@ -834,6 +833,11 @@ bif erl_debugger:peek_xreg/3
 #
 bif erts_debug:unaligned_bitstring/2
 bif re:import/1
+
+#
+# New in 28.4
+#
+bif persistent_term:put_new/2
 
 #
 # New in 29.
