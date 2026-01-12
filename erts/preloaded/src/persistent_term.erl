@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -261,7 +261,7 @@ If the value `Value` is equal to the value previously stored for the key,
 If there existed a previous persistent term associated with key `Key`, the
 function fails with a `badarg` exception.
 """.
--doc(#{since => <<"OTP 28.1">>}).
+-doc(#{since => <<"OTP @OTP-19908@">>}).
 -spec put_new(Key, Value) -> 'ok' when
       Key :: key(),
       Value :: value().
