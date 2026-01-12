@@ -66,7 +66,7 @@ atom undefined_lambda
 #
 atom nil no none
 
-# All other atoms.  Try to keep the order alphabetic.
+# All other atoms.  Try to keep the order alphabetical.
 #
 atom DOWN='DOWN'
 atom UP='UP'
@@ -354,6 +354,7 @@ atom Gt='>'
 atom grun
 atom group_leader
 atom handle
+atom has_key
 atom have_dt_utag
 atom heap_block_size
 atom heap_size

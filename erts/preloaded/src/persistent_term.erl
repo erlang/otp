@@ -139,7 +139,7 @@ tables are stored as a single persistent term:
 """.
 -moduledoc(#{since => "OTP 21.2"}).
 
--export([erase/1,get/0,get/1,get/2,info/0,put/2, put_new/2]).
+-export([erase/1,get/0,get/1,get/2,has_key/1,info/0,put/2,put_new/2]).
 
 -doc "Any Erlang term.".
 -type key() :: term().
@@ -213,6 +213,19 @@ process.
       Default :: value(),
       Value :: value().
 get(_Key, _Default) ->
+    erlang:nif_error(undef).
+
+-doc """
+Check if a persistent term associated with the key `Key` exists.
+
+The lookup will be made in constant time and the value will not be copied to the
+heap of the calling process.
+
+Returns a boolean.
+""".
+-doc(#{since => <<"OTP ...">>}).
+-spec has_key(Key :: key()) -> boolean().
+has_key(_Key) ->
     erlang:nif_error(undef).
 
 -doc """
