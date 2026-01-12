@@ -585,7 +585,7 @@ do_single_user_load(SCO,
                         %% if a failed loader managed any requests...
                         Perf = NumCalls div MSec,
                         io:format("~nMultiple loaders result: ~n"
-                                  "   Number of successfull:     ~w~n"
+                                  "   Number of successful:      ~w~n"
                                   "   Number of failure:         ~w~n"
                                   "   Time:                      ~w msec~n"
                                   "   (successful) Calls / msec: ~w~n~n", 
@@ -605,9 +605,9 @@ do_single_user_load(SCO,
                         Sec  = Time div 10000000,
                         Perf = NumCalls div Sec,
                         io:format("~nMultiple loaders result: ~n"
-                                  "   Number of successfull:    ~w~n"
-                                  "   Number of failure:        ~w~n"
-                                  "   Time:                     ~w sec~n"
+                                  "   Number of successful: ~w~n"
+                                  "   Number of failure:    ~w~n"
+                                  "   Time:                 ~w sec~n"
                                   "   (successful) Calls / sec: ~w~n~n", 
                                   [Ok, Err, Sec, Perf]),
                         {
@@ -896,9 +896,9 @@ multi_load_collector_calc(Time, Oks) ->
             %% or equal to one (1).
             Perf  = NumCalls div MSec,
             io:format("~nTotal multiple loaders result: ~n"
-                      "   Number of successfull: ~w~n"
-                      "   Number of failure:     ~w~n"
-                      "   Time:                  ~w msec~n"
+                      "   Number of successful: ~w~n"
+                      "   Number of failure:    ~w~n"
+                      "   Time:                 ~w msec~n"
                       "   Total (successful) Calls / msec: ~w~n~n", 
                       [Succs, Fails, MSec, Perf]),
             {
@@ -916,9 +916,9 @@ multi_load_collector_calc(Time, Oks) ->
             Sec   = Time div 10000000,
             Perf  = NumCalls div Sec,
             io:format("~nTotal multiple loaders result: ~n"
-                      "   Number of successfull: ~w~n"
-                      "   Number of failure:     ~w~n"
-                      "   Time:                  ~w sec~n"
+                      "   Number of successful: ~w~n"
+                      "   Number of failure:    ~w~n"
+                      "   Time:                 ~w sec~n"
                       "   Total (successful) Calls / sec: ~w~n~n", 
                       [Succs, Fails, Sec, Perf]),
             {
@@ -927,9 +927,9 @@ multi_load_collector_calc(Time, Oks) ->
             };
         true ->
             io:format("~nTotal multiple loaders result: ~n"
-                      "   Number of successfull: ~w~n"
-                      "   Number of failure:     ~w~n"
-                      "   Time:                  ~w usec~n~n", 
+                      "   Number of successful: ~w~n"
+                      "   Number of failure:    ~w~n"
+                      "   Time:                 ~w usec~n~n", 
                       [Succs, Fails, Time]),
             {
              {comment, "No successful calls"},
