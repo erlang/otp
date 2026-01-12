@@ -1808,11 +1808,13 @@ update_element(_, _, _, _) ->
 -doc """
 This function returns the `t:tid/0` of the named table identified by
 `TableName`, or `undefined` if no such table exists. The `t:tid/0` can be used
-in place of the table name in all operations, which is slightly faster since the
-name does not have to be resolved on each call.
+in place of the table name in all operations, which is slightly faster since
+the name does not have to be resolved on each call.
 
-If the table is deleted, the `t:tid/0` will be invalid even if another named
-table is created with the same name.
+Another reason for using `whereis/1` is to make sure a sequence of calls are
+accessing the same table even if the table is (concurrently) deleted and
+recreated with the same name. When the table is deleted, its `t:tid/0` will be
+invalid even if another table is created with the same name.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec whereis(TableName) -> tid() | undefined when
