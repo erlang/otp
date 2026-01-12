@@ -17,7 +17,6 @@
     "versionInfo": "dc585039bbd426829e3433002023a93f9bedd0c2",
     "sha": "dc585039bbd426829e3433002023a93f9bedd0c2",
     "path": [
-            "./lib/wx/src/wx.erl",
             "./lib/wx/src/gen/gl.erl",
             "./lib/wx/src/gen/glu.erl",
             "./lib/wx/src/gen/vendor.info",
