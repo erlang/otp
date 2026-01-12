@@ -149,6 +149,8 @@
          pkix_dsa_sha2_oid/1,
          pkix_crl/0,
          pkix_crl/1,
+         pkix_crl_verify_eddsa/0,
+         pkix_crl_verify_eddsa/1,
          pkix_pss_params_in_signalg/0,
          pkix_pss_params_in_signalg/1,
          general_name/0,
@@ -220,6 +222,7 @@ all() ->
      pkix_rsa_md2_oid,
      pkix_dsa_sha2_oid,
      pkix_crl,
+     pkix_crl_verify_eddsa,
      pkix_pss_params_in_signalg,
      pkix_hash_type,
      general_name,
@@ -313,7 +316,8 @@ init_per_testcase(rsa_pss_sign_verify, Config) ->
             {skip, not_supported_by_crypto}
     end;
 
-init_per_testcase(eddsa_sign_verify_24_compat, Config) ->
+init_per_testcase(TestCase, Config) when TestCase == eddsa_sign_verify_24_compat;
+                                         TestCase == pkix_crl_verify_eddsa ->
     case lists:member(eddsa, crypto:supports(public_keys)) of
         true ->
             Config;
@@ -1760,6 +1764,27 @@ pkix_crl(Config) when is_list(Config) ->
     #'DistributionPoint'{cRLIssuer = asn1_NOVALUE,
 			 reasons = asn1_NOVALUE,
 			 distributionPoint =  Point} = public_key:pkix_dist_point(OTPIDPCert).
+
+%%--------------------------------------------------------------------
+
+pkix_crl_verify_eddsa() ->
+    [{doc, "test pkix_crl_verify with EdDSA certificate"}].
+
+pkix_crl_verify_eddsa(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, PemCRL} = file:read_file(filename:join(Datadir, "eddsa_crl.pem")),
+    [{_, CRL, _}] = public_key:pem_decode(PemCRL),
+
+    {ok, SignPemCert} = file:read_file(filename:join(Datadir, "eddsa_crl_signer.pem")),
+    [{_, SignCert, _}] = public_key:pem_decode(SignPemCert),
+
+    OTPSignCert = public_key:pkix_decode_cert(SignCert, otp),
+    ERLCRL = public_key:der_decode('CertificateList',CRL),
+
+    true = public_key:pkix_crl_verify(CRL, SignCert),
+    true = public_key:pkix_crl_verify(ERLCRL, OTPSignCert).
+
+%%--------------------------------------------------------------------
 
 general_name() ->
     [{doc, "Test that decoding of general name filed may have other values"
