@@ -45,6 +45,7 @@
 -type index()        :: non_neg_integer().
 -type literals()     :: gb_trees:tree(index(), term()).
 -type types()        :: gb_trees:tree(index(), term()).
+-type location()     :: {string(), integer()}.
 -type symbolic_tag() :: 'a' | 'f' | 'h' | 'i' | 'u' | 'x' | 'y' | 'z'.
 -type disasm_tag()   :: symbolic_tag() | 'fr' | 'atom' | 'float' | 'literal'.
 -type disasm_term()  :: 'nil' | {disasm_tag(), _}.
@@ -200,8 +201,6 @@ process_chunks(F) ->
 	    Literals = gb_trees:from_orddict(Literals1),
 	    TypeBin = optional_chunk(F, "Type"),
 	    Types = beam_disasm_types(TypeBin),
-	    Code = beam_disasm_code(CodeBin, Atoms, mk_imports(ImportsList),
-				    StrBin, Lambdas, Literals, Types, Module),
 	    Attributes =
 		case optional_chunk(F, attributes) of
 		    none -> [];
@@ -213,6 +212,16 @@ process_chunks(F) ->
 		    CompInfoBin when is_binary(CompInfoBin) ->
 			binary_to_term(CompInfoBin)
 		end,
+	    Lines =
+		case optional_chunk(F, "Line") of
+		    none -> none;
+		    LineBin when is_binary(LineBin) ->
+                        Source = filename:basename(proplists:get_value(source, CompInfo, "")),
+                        {Ls, _, _} = beam_disasm_lines(LineBin, Source),
+                        {lines, array:from_list(Ls)}
+		end,
+	    Code = beam_disasm_code(CodeBin, Atoms, mk_imports(ImportsList),
+				    StrBin, Lambdas, Literals, Types, Lines, Module),
 	    #beam_file{module = Module,
 		       labeled_exports = Exports,
 		       attributes = Attributes,
@@ -278,6 +287,54 @@ disasm_types(Types0, Index) ->
     end.
 
 %%-----------------------------------------------------------------------
+%% Disassembles the line table of a BEAM file.
+%%-----------------------------------------------------------------------
+
+%% see beam_asm.erl
+-define(BEAMFILE_EXECUTABLE_LINE, 1).
+-define(BEAMFILE_FORCE_LINE_COUNTERS, 2).
+
+-spec beam_disasm_lines(binary(), string()) ->
+          {[location()], boolean(), boolean()}.
+beam_disasm_lines(<<Ver:32, LineBin/binary>>, Source) ->
+    beam_disasm_lines(Ver, Source, LineBin).
+
+beam_disasm_lines(Ver, Source, LineBin) when Ver =:= 0 ->
+    beam_disasm_lines_v0(LineBin, Source);
+beam_disasm_lines(Ver, _Source, _LineBin) when Ver =:= 0 ->
+    ?NO_DEBUG("beam_disasm_lines(~p,~p) failed~n", [Ver, _Source, _LineBin]),
+    ?exit({unknown_line_chunk_version, Ver}).
+
+beam_disasm_lines_v0(<<Bits:32, _NumLineInstrs:32, NumLines:32, _NumFnames:32,
+                       Rest/binary>>, Source) ->
+    RestBs = binary_to_list(Rest),
+    {Lines0, FnamesBs} = decode_lines(NumLines, RestBs),
+    LSize = length(RestBs) - length(FnamesBs),
+    <<_:LSize/binary, FnamesBin/binary>> = Rest,
+    Fnames = array:from_list([Source] ++ [unicode:characters_to_list(F)
+                                          || <<L:16,F:L/binary>> <= FnamesBin]),
+    ExecLine = ((Bits band ?BEAMFILE_EXECUTABLE_LINE) =:= 1),
+    ForceCounters = ((Bits band ?BEAMFILE_FORCE_LINE_COUNTERS) =:= 1),
+    Lines = [{array:get(F, Fnames), L} || {F,L} <- Lines0],
+    {Lines, ExecLine, ForceCounters}.
+
+decode_lines(N, Bs) ->
+    decode_lines(N, 0, [], Bs).
+
+decode_lines(N, F, Acc, Bs0) when N > 0 ->
+    %% line entries will be tagged as `i` and function entries as `a`
+    %% but the a-tagged entries are not included in the count
+    case decode_arg(Bs0) of
+        {{'a',F1},Bs1} ->
+            {{'i',L},Bs} = decode_arg(Bs1),
+            decode_lines(N-1, F1, [{F1,L}|Acc], Bs);
+        {{'i',L},Bs} ->
+            decode_lines(N-1, F, [{F,L}|Acc], Bs)
+    end;
+decode_lines(0, _F, Acc, Bs) ->
+    {lists:reverse(Acc),Bs}.
+
+%%-----------------------------------------------------------------------
 %% Disassembles the code chunk of a BEAM file:
 %%   - The code is first disassembled into a long list of instructions.
 %%   - This list is then split into functions and all names are resolved.
@@ -288,7 +345,7 @@ beam_disasm_code(<<_SS:32, % Sub-Size (length of information before code)
 		  _OM:32,  % Opcode Max
 		  _L:32,_F:32,
 		  CodeBin/binary>>, Atoms, Imports,
-		 Str, Lambdas, Literals, Types, M) ->
+		 Str, Lambdas, Literals, Types, Lines, M) ->
     Code = binary_to_list(CodeBin),
     try disasm_code(Code, Atoms, Literals, Types) of
 	DisasmCode ->
@@ -296,7 +353,7 @@ beam_disasm_code(<<_SS:32, % Sub-Size (length of information before code)
 	    Labels = mk_labels(local_labels(Functions)),
 	    [function__code_update(Function,
 				   resolve_names(Is, Imports, Str,
-						 Labels, Lambdas, Literals, M))
+						 Labels, Lambdas, Literals, Lines, M))
 	     || Function = #function{code=Is} <:- Functions]
     catch
 	error:Rsn ->
@@ -329,8 +386,9 @@ disasm_code([], _, _, _) ->
 
 get_function_chunks([]) ->
     ?exit(empty_code_segment);
-get_function_chunks(Code) ->
-    get_funs(labels_r(Code, [])).
+get_function_chunks(Code0) ->
+    {LsR,Code} = labels_r(Code0, []),
+    get_funs({lists:reverse(LsR),Code}).
 
 labels_r([], R) -> {R, []};
 labels_r([{label,_}=I|Is], R) ->
@@ -342,20 +400,20 @@ labels_r(Is, R) -> {R, Is}.
 get_funs({[],[]}) -> [];
 get_funs({_,[]}) ->
     ?exit(no_func_info_in_code_segment);
-get_funs({LsR0,[{func_info,[{atom,M}=AtomM,{atom,F}=AtomF,ArityArg]}|Code0]})
+get_funs({Ls0,[{func_info,[{atom,M}=AtomM,{atom,F}=AtomF,ArityArg]}|Code0]})
   when is_atom(M), is_atom(F) ->
     Arity = resolve_arg_unsigned(ArityArg),
-    {LsR,Code,RestCode} = get_fun(Code0, []),
+    {Ls,Code,RestCode} = get_fun(Code0, []),
     [{label,[{u,Entry}]}|_] = Code,
     [#function{name=F,
 	       arity=Arity,
 	       entry=Entry,
-	       code=lists:reverse(LsR0, [{func_info,AtomM,AtomF,Arity}|Code])}
-     |get_funs({LsR,RestCode})].
+	       code=Ls0 ++ [{func_info,AtomM,AtomF,Arity}|Code]}
+     |get_funs({Ls,RestCode})].
 
 get_fun([{func_info,_}|_]=Is, R0) ->
-    {LsR,R} = labels_r(R0, []),
-    {LsR,lists:reverse(R),Is};
+    {Ls,R} = labels_r(R0, []),
+    {Ls,lists:reverse(R),Is};
 get_fun([{int_code_end,[]}], R) ->
     {[],lists:reverse(R),[]};
 get_fun([I|Is], R) ->
@@ -745,6 +803,7 @@ decode_tag(?tag_z) -> z.
 %%   actual values by using string table
 %%    (note: string table should be passed as a BINARY so that we can
 %%    use binary_to_list/3!)
+%% - replace line and file references with the actual values
 %% - convert instruction to its readable form ...
 %% 
 %% Currently, only the first three are done (systematically, at least).
@@ -753,8 +812,8 @@ decode_tag(?tag_z) -> z.
 %%  representation means it is simpler to iterate over all args, etc.
 %%-----------------------------------------------------------------------
 
-resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
-    [resolve_inst(Instr, Imports, Str, Lbls, Lambdas, Literals, M) || Instr <- Fun].
+resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, Lines, M) ->
+    [resolve_inst(Instr, Imports, Str, Lbls, Lambdas, Literals, Lines, M) || Instr <- Fun].
 
 %%
 %% Instructions that need to look up an entry in the Lambda table.
@@ -766,18 +825,18 @@ resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
 %% - call_fun2/3 (OTP 25)
 %%
 
-resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
+resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, _, M) ->
     [OldIndex] = resolve_args(Args),
     {OldIndex,{F,A,_Lbl,_Index,NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun2,{M,F,A},OldIndex,OldUniq,NumFree};
-resolve_inst({make_fun3,[Fun,Dst,{{z,1},{u,_},Env0}]}, _, _, _, Lambdas, _, M) ->
+resolve_inst({make_fun3,[Fun,Dst,{{z,1},{u,_},Env0}]}, _, _, _, Lambdas, _, _, M) ->
     OldIndex = resolve_arg(Fun),
     Env1 = resolve_args(Env0),
     {OldIndex,{F,A,_Lbl,_Index,_NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun3,{M,F,A},OldIndex,OldUniq,Dst,{list,Env1}};
-resolve_inst({call_fun2,Args}, _, _, _, Lambdas, _, _) ->
+resolve_inst({call_fun2,Args}, _, _, _, Lambdas, _, _, _) ->
     [Tag0,Arity,Func] = resolve_args(Args),
     Tag = case Tag0 of
               Index when is_integer(Index) ->
@@ -788,7 +847,15 @@ resolve_inst({call_fun2,Args}, _, _, _, Lambdas, _, _) ->
                   Tag0
           end,
     {call_fun2,Tag,Arity,Func};
-resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
+resolve_inst({line,[{u,Index}]}, _, _, _, _, _, Lines, _) ->
+    case Lines of
+        {lines, Array} when Index =/= 0 ->
+            {F,L} = array:get(Index-1, Array),
+            {line,[{location,F,L}]};
+        _ ->
+            {line,[]}
+    end;
+resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _Lines, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).
 
