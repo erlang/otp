@@ -1393,23 +1393,23 @@ The following example uses an explicit match specification to traverse the
 table:
 
 ```erlang
-1> dets:open_file(t, []),
-ok = dets:insert(t, [{1,a},{2,b},{3,c},{4,d}]),
-MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
-QH1 = dets:table(t, [{traverse, {select, MS}}]).
+1> {ok, t} = dets:open_file(t, []).
+2> ok = dets:insert(t, [{1, a}, {2, b}, {3, c}, {4, d}, {5, e}]).
+3> MS = ets:fun2ms(fun({X, Y}) when X > 1 andalso X < 5 -> {Y} end).
+4> QH1 = dets:table(t, [{traverse, {select, MS}}]).
 ```
 
 An example with implicit match specification:
 
 ```erlang
-2> QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), (X > 1) or (X < 5)]).
+5> QH2 = qlc:q([{Y} || {X, Y} <- dets:table(t), X > 1 andalso X < 5]).
 ```
 
 The latter example is equivalent to the former, which can be verified using
 function `qlc:info/1`:
 
 ```erlang
-3> qlc:info(QH1) =:= qlc:info(QH2).
+6> qlc:info(QH1) =:= qlc:info(QH2).
 true
 ```
 
@@ -3228,8 +3228,8 @@ fopen_existing_file(Tab, OpenArgs) ->
                Auto, access = Acc, debug = Debug} =
         OpenArgs,
     {ok, Fd, FH} = read_file_header(Fname, Acc, Ram),
-    MinF = (MinSlots =:= default) or (MinSlots =:= FH#fileheader.min_no_slots),
-    MaxF = (MaxSlots =:= default) or (MaxSlots =:= FH#fileheader.max_no_slots),
+    MinF = MinSlots =:= default orelse MinSlots =:= FH#fileheader.min_no_slots,
+    MaxF = MaxSlots =:= default orelse MaxSlots =:= FH#fileheader.max_no_slots,
     Wh = case dets_v9:check_file_header(FH, Fd) of
 	     {ok, Head} when Rep =:= force, Acc =:= read_write,
                              FH#fileheader.no_colls =/= undefined,

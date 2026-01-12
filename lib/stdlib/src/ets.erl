@@ -1605,21 +1605,16 @@ _Example:_
 ```erlang
 1> T = ets:new(x,[ordered_set]).
 2> [ ets:insert(T,{N}) || N <- lists:seq(1,10) ].
-...
 3> {R0,C0} = ets:select_reverse(T,[{'_',[],['$_']}],4).
-...
 4> R0.
 [{10},{9},{8},{7}]
 5> {R1,C1} = ets:select_reverse(C0).
-...
 6> R1.
 [{6},{5},{4},{3}]
 7> {R2,C2} = ets:select_reverse(C1).
-...
 8> R2.
 [{2},{1}]
 9> '$end_of_table' = ets:select_reverse(C2).
-...
 ```
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -3112,22 +3107,23 @@ _Examples:_
 An explicit match specification is here used to traverse the table:
 
 ```erlang
-9> true = ets:insert(Table = ets:new(t, []), [{1,a},{2,b},{3,c},{4,d}]),
-MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
-QH1 = ets:table(Table, [{traverse, {select, MS}}]).
+1> T = ets:new(t, []).
+2> true = ets:insert(T, [{1, a}, {2, b}, {3, c}, {4, d}, {5, e}]).
+3> MS = ets:fun2ms(fun({X, Y}) when X > 1 andalso X < 5 -> {Y} end).
+4> QH1 = ets:table(T, [{traverse, {select, MS}}]).
 ```
 
 An example with an implicit match specification:
 
 ```erlang
-10> QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Table), (X > 1) or (X < 5)]).
+5> QH2 = qlc:q([{Y} || {X, Y} <- ets:table(T), X > 1 andalso X < 5]).
 ```
 
 The latter example is equivalent to the former, which can be verified using
 function `qlc:info/1`:
 
 ```erlang
-11> qlc:info(QH1) =:= qlc:info(QH2).
+6> qlc:info(QH1) =:= qlc:info(QH2).
 true
 ```
 
