@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2086,7 +2086,8 @@ shuffle_init_bitstream(R, #{max:=Mask, next:=Next}) ->
 %%
 -dialyzer({no_improper_lists, shuffle_init_bitstream/4}).
 shuffle_init_bitstream(R, Next, Shift, Mask0) ->
-    Mask = ?MASK(58, Mask0),    % Limit the mask to avoid bignum
+    Mask1 = Mask0 bsr Shift,    % Adjust mask for weak low bits
+    Mask = ?MASK(58, Mask1),    % Limit the mask to avoid bignum
     P = 1,                      % Marker for out of random bits
     W = {Next,Shift,Mask},      % Generator
     S = [R|W],                  % Generator state
