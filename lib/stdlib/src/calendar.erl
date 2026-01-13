@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,12 +44,16 @@ Protestant parts of Germany and the Netherlands adopted it in 1698, England
 followed in 1752, and Russia in 1918 (the October revolution of 1917 took place
 in November according to the Gregorian calendar).
 
-The Gregorian calendar in this module is extended back to year 0 and also
-supports negative years (proleptic Gregorian calendar). For a given date, the
-_gregorian days_ is the number of days up to and including the date specified.
-Negative years use astronomical year numbering where year 0 = 1 BCE, year -1 =
-2 BCE, etc. Similarly, the _gregorian seconds_ for a specified date and time
-is the number of seconds up to and including the specified date and time.
+The Gregorian calendar in this module is extended back (proleptic
+Gregorian calendar) beyond year 0 to negative years. For a given date,
+the _gregorian days_ is the number of days from Jan 1 year 0 up to
+the date specified. Similarly, the _gregorian seconds_ for a specified
+date and time is the number of seconds from 0:00 Jan 1 year 0 up to
+the specified date and time.
+
+Non-positive years use astronomical year numbering where year 0 = 1 BCE/BC,
+year -1 = 2 BCE/BC, and so on, because in the CE+BCE and AD+BC year numberings
+there is no year 0. Instead 1 CE (AD 1) is preceded by 1 BCE (1 BC).
 
 For computing differences between epochs in time, use the functions counting
 gregorian days or seconds. If epochs are specified as local time, they must be
