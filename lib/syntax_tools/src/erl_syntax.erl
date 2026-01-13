@@ -665,6 +665,7 @@ type(Node) ->
 	{remote, _, _, _} -> module_qualifier;
 	{'try', _, _, _, _, _} -> try_expr;
 	{tuple, _, _} -> tuple;
+	{sigil, _, _, _, _} -> sigil;
 
         %% Type types
         {ann_type, _, _} -> annotated_type;
@@ -8015,7 +8016,9 @@ subtrees(T) ->
                     [[user_type_application_name(T)],
                      user_type_application_arguments(T)];
 		zip_generator ->
-		    [zip_generator_body(T)]
+		    [zip_generator_body(T)];
+                sigil ->
+                    []
 	    end
     end.
 

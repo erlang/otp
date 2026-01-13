@@ -619,7 +619,8 @@ format_error_1({bad_dialyzer_option,Term}) ->
     {~"unknown dialyzer warning option: ~tw", [Term]};
 %% --- obsolete? unused? ---
 format_error_1({format_error, {Fmt, Args}}) ->
-    {Fmt, Args}.
+    {Fmt, Args};
+format_error_1(invalid_sigil) -> ~"invalid sigil".
 
 gen_type_paren(Arity) when is_integer(Arity), Arity >= 0 ->
     gen_type_paren_1(Arity, ")").
@@ -2929,7 +2930,9 @@ expr({remote,_Anno,M,_F}, _Vt, St) ->
 expr({executable_line,_,_}, _Vt, St) ->
     {[], St};
 expr({ssa_check_when,_Anno,_WantedResult,_Args,_Tag,_Exprs}, _Vt, St) ->
-    {[], St}.
+    {[], St};
+expr({sigil,Anno,_Type,_String,_Suffix}, _Vt, St) ->
+    {[], add_error(Anno, invalid_sigil, St)}.
 
 %% Check a call to function without a module name. This can be a call
 %% to a BIF or a local function.
