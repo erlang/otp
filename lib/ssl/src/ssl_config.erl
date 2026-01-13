@@ -2082,14 +2082,14 @@ max_session_cache_size(server) ->
     application_int(session_cache_server_max, ?DEFAULT_MAX_SESSION_CACHE).
 
 session_cb_opts(client = Role)->
-    case application_atom(session_cb, ssl_client_session_cache_db) of
+    case application_atom(client_session_cb, ssl_client_session_cache_db) of
         ssl_client_session_cache_db = ClientCb ->
             {ClientCb, []};
         ClientCb ->
             {ClientCb, session_cb_init_args(Role)}
     end;
 session_cb_opts(server = Role) ->
-    case application_atom(session_cb, ssl_server_session_cache_db) of
+    case application_atom(server_session_cb, ssl_server_session_cache_db) of
         ssl_server_session_cache_db = ServerCb ->
             {ServerCb, []};
         ServerCb ->
