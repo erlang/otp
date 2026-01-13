@@ -69,23 +69,30 @@ defmodule Anchors do
     nil
   end
 
-  def validate_href(_file, "http://" <> _href, _anchors) do
+  def validate_href(file, href, _anchors, content)
+      when (href === "" or href === :href) and content != [] do
+    warn(file, "found empty href")
     nil
   end
 
-  def validate_href(_file, "https://" <> _href, _anchors) do
+  def validate_href(_file, "http://" <> _href, _anchors, _content) do
     nil
   end
 
-  def validate_href(file, "`" <> _ = href, _anchors) do
+  def validate_href(_file, "https://" <> _href, _anchors, _content) do
+    nil
+  end
+
+  def validate_href(file, "`" <> _ = href, _anchors, _content) do
     warn(file, "found #{href}")
+    nil
   end
 
-  def validate_href(file, <<"#">> <> _anchor = href, anchors) do
-    validate_href(file, Path.basename(file) <> href, anchors)
+  def validate_href(file, <<"#">> <> _anchor = href, anchors, content) do
+    validate_href(file, Path.basename(file) <> href, anchors, content)
   end
 
-  def validate_href(file, href, anchors) do
+  def validate_href(file, href, anchors, _content) do
     target = Path.dirname(file) |> Path.join(href) |> Path.expand()
 
     case String.split(target, "#", parts: 2) do
@@ -142,10 +149,10 @@ defmodule Anchors do
 
       # Check anchors with href
       Floki.find(document, "a[href]")
-      |> Enum.reduce(seen, fn {_, attr, _}, seen ->
+      |> Enum.reduce(seen, fn {_, attr, content}, seen ->
         href = :proplists.get_value("href", attr)
 
-        case validate_href(file, href, anchors) do
+        case validate_href(file, href, anchors, content) do
           {target, anchor} ->
             {_, seen} =
               Map.get_and_update(seen, target, fn
