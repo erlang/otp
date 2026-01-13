@@ -553,7 +553,8 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
   following signature:
 
   ```erlang
-  fun (DistCtrlr, Node, DHandle) -> void()
+  fun (DistCtrlr, Node, DHandle) -> void() |
+  fun (DistCtrlr, Node, DHandle, HsData) -> void()
   ```
 
   where `DistCtrlr` is the identifier of the distribution controller, `Node` is
@@ -569,6 +570,11 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
   This function is called when the handshake has completed and the distribution
   channel is up. The distribution controller can begin dispatching traffic over
   the channel. This function is optional.
+
+  If a 4-arity function is provided, the final argument `HsData` will be passed
+  which includes information like the "chosen flags" in `#hs_data.other_flags`
+  or the remote node's `#hs_data.other_creation` once the handshake has
+  completed.
 
   Only used during handshake phase.
 
