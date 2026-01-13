@@ -1,6 +1,4 @@
 
-asn1ct.erl:1224:2: Body yields the type atom() | ets:tid() which violates the opacity of the other clauses.
-asn1ct.erl:1227:2: Body yields the type 'ok' which violates the opacity of the other clauses.
 asn1ct.erl:1500:2: The variable Err can never match since previous clauses completely covered the type #type{}
 asn1ct.erl:1596:2: The variable _ can never match since previous clauses completely covered the type 'ber_bin_v2'
 asn1ct.erl:1673:2: The pattern 'all' can never match the type 'asn1_module' | 'exclusive_decode' | 'partial_decode'

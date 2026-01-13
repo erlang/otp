@@ -1,3 +1,1 @@
 
-ets_use.erl:12:9: Guard test is_integer(T::atom() | ets:tid()) can never succeed
-ets_use.erl:7:9: Guard test is_integer(T::ets:tid()) can never succeed

@@ -270,8 +270,13 @@ Opaque continuation used by [`select/1,3`](`select/1`),
                        | {table(),integer(),integer(),compiled_match_spec(),list(),integer()}
                        | {table(),_,_,integer(),compiled_match_spec(),list(),integer(),integer()}.
 
--doc "A table identifier, as returned by `new/2`.".
--opaque tid()         :: reference().
+-doc """
+A table identifier, as returned by `new/2`.
+
+The actual type of `tid()` is undefined and can change at any time.
+No assumptions can be made, except it cannot be an atom.
+""".
+-nominal tid()         :: dynamic().
 
 -type match_pattern() :: atom() | tuple().
 -doc "A match specification, see [Match Specifications](`m:ets#match_spec`).".

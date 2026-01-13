@@ -1,3 +1,2 @@
 
-gcpFlowControl.erl:130:1: Body yields the type atom() | ets:tid() which violates the opacity of the other clauses.
 gcpFlowControl.erl:171:2: The pattern <Key, 'errors', X> can never match the type <_,'available' | 'bucket' | 'rejectable' | 'rejects' | 'window',0 | 1 | 20>
