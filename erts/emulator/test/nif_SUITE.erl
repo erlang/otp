@@ -81,7 +81,8 @@
          match_state_arg/1,
          pid/1,
          id/1,
-         nif_term_type/1
+         nif_term_type/1,
+         nif_dist_ctrl/1
 	]).
 
 -export([many_args_100/100]).
@@ -198,7 +199,8 @@
        compare_pids_nif/2,
        term_type_nif/1,
        dynamic_resource_call/4,
-       msa_find_y_nif/1
+       msa_find_y_nif/1,
+       dist_ctrl_put_data_nif/2
       ]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
@@ -251,7 +253,8 @@ all() ->
      nif_ioq,
      match_state_arg,
      pid,
-     nif_term_type].
+     nif_term_type,
+     nif_dist_ctrl].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -4533,6 +4536,36 @@ nif_term_type(Config) ->
 
     ok.
 
+nif_dist_ctrl(Config) ->
+    ensure_lib_loaded(Config),
+    {Pid, MRef} = spawn_monitor(fun() ->
+        Node = 'nif_dist_ctrl@localhost',
+        {erts_dflags, _, Mandatory, _, _, _} = erts_internal:get_dflags(),
+        Creation = erts_internal:get_creation(),
+        DHandle = erts_internal:new_connection(Node),
+        Port = InputHandler = FromPid = ToPid = self(),
+        DHandle = erlang:setnode(Node, Port, {Mandatory, Creation}),
+        ok = erlang:dist_ctrl_input_handler(DHandle, InputHandler),
+        Tag = make_ref(),
+        PassThroughFrame = iolist_to_binary([
+            $p,
+            term_to_binary({22, FromPid, ToPid}),
+            term_to_binary(Tag)
+        ]),
+        1 = dist_ctrl_put_data_nif(DHandle, PassThroughFrame),
+        ok = receive Tag -> ok end,
+        InvalidFrame = iolist_to_binary([
+            $p,
+            term_to_binary({22, FromPid, ToPid, Tag})
+        ]),
+        0 = dist_ctrl_put_data_nif(DHandle, InvalidFrame),
+        % process is scheduled to be killed in erts_net_message by misc aux work
+        erlang:yield(),
+        exit(unreachable)
+    end),
+    {'DOWN', MRef, process, Pid, killed} = receive_any(),
+    ok.
+
 %% Verify match state arguments are not passed to declared NIFs.
 match_state_arg(Config) ->
     ensure_lib_loaded(Config),
@@ -4686,6 +4719,8 @@ compare_pids_nif(_, _) -> ?nif_stub.
 term_type_nif(_) -> ?nif_stub.
 
 dynamic_resource_call(_,_,_,_) -> ?nif_stub.
+
+dist_ctrl_put_data_nif(_,_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

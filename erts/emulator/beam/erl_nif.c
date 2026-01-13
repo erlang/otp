@@ -2327,6 +2327,58 @@ int enif_is_port_alive(ErlNifEnv *env, ErlNifPort *port)
     }
 }
 
+int
+enif_dist_ctrl_put_data(ErlNifEnv *env, ERL_NIF_TERM dist_handle, ErlNifBinary *bin)
+{
+    Process *proc = NULL;
+    int sched;
+    DistEntry *dep = NULL;
+    Eterm input_handler;
+    Uint32 conn_id;
+    int retval = 0;
+
+    (void)execution_state(env, &proc, &sched);
+
+    if (proc == NULL || sched <= 0) {
+        return 0;
+    }
+
+    if (bin == NULL || bin->data == NULL) {
+        return 0;
+    }
+
+    dep = erts_dhandle_to_dist_entry(dist_handle, &conn_id);
+    if (dep == NULL) {
+        return 0;
+    }
+
+    input_handler = (Eterm)erts_atomic_read_nob(&dep->input_handler);
+
+    if (input_handler != proc->common.id) {
+        return 0;
+    }
+
+    (void)erts_atomic64_inc_nob(&dep->in);
+
+    if (bin->size == 0) {
+        return 1;
+    }
+
+    (void)erts_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
+
+    if (erts_net_message(NULL, dep, conn_id, NULL, 0, (Binary *)(bin->ref_bin), bin->data, bin->size) != 0) {
+        retval = 0;
+    } else {
+        retval = 1;
+    }
+
+    (void)erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
+
+    BUMP_REDS(proc, 5);
+
+    return retval;
+}
+
 ERL_NIF_TERM
 enif_now_time(ErlNifEnv *env)
 {
