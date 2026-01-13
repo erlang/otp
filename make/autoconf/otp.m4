@@ -3083,6 +3083,8 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     aarch*)	ARCH=arm;;
     tile)	ARCH=tile;;
     e2k)        ARCH=e2k;;
+    riscv32)	ARCH=riscv32;;
+    riscv64)	ARCH=riscv64;;
     *)	 	ARCH=noarch;;
     esac
     AC_MSG_RESULT($ARCH)
@@ -3120,6 +3122,10 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     arm-8)
 	AC_MSG_RESULT(yes: adjusting ARCH=arm to ARCH=arm64)
 	ARCH=arm64
+	;;
+    riscv64)
+	AC_MSG_RESULT(yes: adjusting ARCH=riscv32 to ARCH=riscv64)
+	ARCH=riscv64
 	;;
     *)
 	AC_MSG_RESULT(no: ARCH is $ARCH)
