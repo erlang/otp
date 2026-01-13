@@ -668,6 +668,9 @@ these macros have no effect when testing is also disabled; see
   `assertException` with a `ClassPattern` of `error`, `exit`, or `throw`,
   respectively.
 
+- **`assertNotException(ClassPattern, TermPattern)`** - The inverse case
+  of assertException, for convenience.
+
   Examples:
 
   ```text
