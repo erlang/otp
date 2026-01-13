@@ -286,6 +286,12 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if (EVP_CipherUpdate(ctx, NULL, &len, aad.data, (int)aad.size) != 1)
         {ret = EXCP_BADARG_N(env, 4, "Can't set AAD"); goto done;}
 
+    /* For GCM-SIV decryption, set tag BEFORE decrypting */
+    if (!encflg && (cipherp->flags & GCM_SIV_MODE)) {
+        if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_set_tag, (int)tag_len, tag_data) != 1)
+            {ret = atom_error; goto done;}
+    }
+
     /* Set the plain text and get the crypto text (or vice versa :) ) */
     if (encflg && argc == 4)
         len = in_len+tag_len;
@@ -333,10 +339,13 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         {
 #if defined(HAVE_GCM) || defined(HAVE_CHACHA20_POLY1305)
             /* Check the Tag before returning. CCM_MODE does this previously. */
-            if (!(cipherp->flags & CCM_MODE)) { /* That is, CHACHA20_POLY1305 or GCM_MODE */ 
-                if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_set_tag, (int)tag_len, tag_data) != 1)
-                    /* Decrypt error */
-                    {ret = atom_error; goto done;}
+            if (!(cipherp->flags & CCM_MODE)) { /* That is, CHACHA20_POLY1305 or GCM_MODE */
+                /* For GCM-SIV, tag was already set before decryption */
+                if (!(cipherp->flags & GCM_SIV_MODE)) {
+                    if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_set_tag, (int)tag_len, tag_data) != 1)
+                        /* Decrypt error */
+                        {ret = atom_error; goto done;}
+                }
                 /* CCM dislikes EVP_DecryptFinal_ex on decrypting for pre 1.1.1, so we do it only here */
                 if (EVP_DecryptFinal_ex(ctx, outp+len, &len) != 1)
                     /* Decrypt error */
