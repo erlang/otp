@@ -21,6 +21,16 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.20.1
+
+### Fixed Bugs and Malfunctions
+
+- Add missing git ignore for SLH-DSA  generates.
+
+  Own Id: OTP-19897 Aux Id: [PR-10458]
+
+[PR-10458]: https://github.com/erlang/otp/pull/10458
+
 ## Public_Key 1.20
 
 ### Fixed Bugs and Malfunctions

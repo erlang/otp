@@ -27,6 +27,16 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.25.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug where `mnesia:del_table_copy/3` could fail when deleting a node that had tables which was not active anywhere.
+
+  Own Id: OTP-19890 Aux Id: ERIERL-1268, [PR-10482]
+
+[PR-10482]: https://github.com/erlang/otp/pull/10482
+
 ## Mnesia 4.25
 
 ### Fixed Bugs and Malfunctions

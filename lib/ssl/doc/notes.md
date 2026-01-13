@@ -23,6 +23,27 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.5.1
+
+### Fixed Bugs and Malfunctions
+
+- Correct TLS-1.3 alert handling so server will always send the alert with the encryption keys that the client is expecting, that is if for instance if client certification fails the alert will be sent using application traffic encryption keys.
+
+  Own Id: OTP-19795 Aux Id: [PR-10465]
+
+- Correct TLS-1.3 session tickets documentation.
+
+  Own Id: OTP-19891 Aux Id: [PR-10481]
+
+- Corrected app environment handling for session callback that was broken In 
+  OTP-23.
+
+  Own Id: OTP-19893 Aux Id: [PR-10480]
+
+[PR-10465]: https://github.com/erlang/otp/pull/10465
+[PR-10481]: https://github.com/erlang/otp/pull/10481
+[PR-10480]: https://github.com/erlang/otp/pull/10480
+
 ## SSL 11.5
 
 ### Fixed Bugs and Malfunctions
