@@ -875,7 +875,7 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
 	    ?SAFE(unlink(whereis(?MODULE))),
 	    {atomic, Value};
 	{do_abort, Reason} ->
-	    check_exit(Fun, Args, Factor, Retries, {aborted, Reason}, Type);
+	    check_exit(Fun, Args, Factor, Retries, {aborted, Reason}, [], Type);
 	{nested_atomic, Value} ->
 	    mnesia_lib:incr_counter(trans_commits),
 	    {atomic, Value}
@@ -883,9 +883,11 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
 	    Reason = {aborted, {throw, Value}},
 	    return_abort(Fun, Args, Reason);
 	  error:Reason:ST ->
-	    check_exit(Fun, Args, Factor, Retries, {Reason,ST}, Type);
-	  _:Reason ->
-	    check_exit(Fun, Args, Factor, Retries, Reason, Type)
+	    check_exit(Fun, Args, Factor, Retries, Reason, ST, Type);
+          exit:{aborted, _R} = Reason:ST ->
+            check_exit(Fun, Args, Factor, Retries, Reason, ST, Type);
+	  _:Reason:ST ->
+	    check_exit(Fun, Args, Factor, Retries, Reason, ST, Type)
     end.
 
 apply_fun(Fun, Args, Type) ->
@@ -901,7 +903,7 @@ apply_fun(Fun, Args, Type) ->
 	    Abort
     end.
 
-check_exit(Fun, Args, Factor, Retries, Reason, Type) ->
+check_exit(Fun, Args, Factor, Retries, Reason, ST, Type) ->
     case Reason of
 	{aborted, C = #cyclic{}} ->
 	    maybe_restart(Fun, Args, Factor, Retries, Type, C);
@@ -910,7 +912,7 @@ check_exit(Fun, Args, Factor, Retries, Reason, Type) ->
 	{aborted, {bad_commit, N}} ->
 	    maybe_restart(Fun, Args, Factor, Retries, Type, {bad_commit, N});
 	_ ->
-	    return_abort(Fun, Args, Reason)
+	    return_abort(Fun, Args, Reason, ST)
     end.
 
 maybe_restart(Fun, Args, Factor, Retries, Type, Why) ->
@@ -1012,10 +1014,12 @@ decr(infinity) -> infinity;
 decr(X) when is_integer(X), X > 1 -> X - 1;
 decr(_X) -> 0.
 
-return_abort(Fun, Args, Reason)  ->
+
+return_abort(Fun, Args, Reason) ->
+    return_abort(Fun, Args, Reason, []).
+
+return_abort(Fun, Args, Reason, ST)  ->
     {_Mod, Tid, Ts} = get(mnesia_activity_state),
-    dbg_out("Transaction ~p calling ~tp with ~tp failed: ~n ~tp~n",
-	    [Tid, Fun, Args, Reason]),
     OldStore = Ts#tidstore.store,
     Nodes = get_elements(nodes, OldStore),
     intercept_friends(Tid, Ts),
@@ -1023,6 +1027,8 @@ return_abort(Fun, Args, Reason)  ->
     Level = Ts#tidstore.level,
     if
 	Level == 1 ->
+            verbose("Transaction ~p calling ~tp with ~tp failed: ~n ~tp~n ~tp~n",
+                    [Tid, Fun, Args, Reason, ST]),
 	    mnesia_locker:async_release_tid(Nodes, Tid),
 	    ?SAFE(?MODULE ! {delete_transaction, Tid}),
 	    erase(mnesia_activity_state),
@@ -1812,9 +1818,10 @@ commit_participant(Protocol, Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 		    mnesia_schema:undo_prepare_commit(Tid, C0),
 		    ?eval_debug_fun({?MODULE, commit_participant, pre_commit_undo_prepare}, [{tid, Tid}])
 	    end
-    catch _:Reason ->
+    catch _:Reason:ST ->
 	    ?eval_debug_fun({?MODULE, commit_participant, vote_no},
 			    [{tid, Tid}]),
+            verbose("~w:~w:  VOTE_NO: ~w ~w~n",[?MODULE, ?LINE, Reason, ST]),
 	    reply(Coord, {vote_no, Tid, Reason}),
 	    mnesia_schema:undo_prepare_commit(Tid, C0)
     end,

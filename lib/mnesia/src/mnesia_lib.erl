@@ -906,12 +906,12 @@ vcore_elem({_Item, Info}) ->
     show("~tp~n", [Info]).
 
 fix_error(X) ->
-    set(last_error, X), %% for debugabililty
+    set(last_error, X), %% for debugging
     case X of
 	{aborted, Reason} -> Reason;
 	{abort, Reason} -> Reason;
 	Y when is_atom(Y) -> Y;
-	{'EXIT', {_Reason, {Mod, _, _}}} when is_atom(Mod) ->
+	{_Reason, [{Mod, _, _}|_]} when is_atom(Mod) ->
 	    save(X),
 	    case atom_to_list(Mod) of
 		[$m, $n, $e|_] -> badarg;
