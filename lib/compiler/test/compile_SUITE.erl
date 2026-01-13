@@ -240,8 +240,8 @@ forms_2(Config) when is_list(Config) ->
     AbsSrc = filename:absname(Src),
     {ok,[],SimpleCode} = compile:file(Simple, [to_abstr,binary]),
 
-    {ok,simple,Bin1} = compile:forms(SimpleCode, [binary,{source,Src}]),
-    {ok,simple,_} = compile:forms(SimpleCode,
+    {ok,simple,Bin1} = compile_forms(SimpleCode, [binary,{source,Src}]),
+    {ok,simple,_} = compile_forms(SimpleCode,
                                   [binary,{error_location,line},{source,Src}]),
 
     %% Cover option not in a list (undocumented feature).
@@ -270,10 +270,10 @@ forms_2(Config) when is_list(Config) ->
 	{unix,_} -> os:cmd("rm -rf " ++ WorkDir);
 	_ -> ok
     end,
-    {ok,simple,Bin2} = compile:forms(SimpleCodeNoDoc),
+    {ok,simple,Bin2} = compile_forms(SimpleCodeNoDoc, []),
     undefined = forms_load_code(simple, "ignore", Bin2),
 
-    {ok,simple,Bin3} = compile:forms(SimpleCodeNoDoc, [{source,Src},report]),
+    {ok,simple,Bin3} = compile_forms(SimpleCodeNoDoc, [{source,Src},report]),
     case forms_load_code(simple, "ignore", Bin3) of
 	Src ->					%Unix.
 	    ok;
@@ -281,10 +281,10 @@ forms_2(Config) when is_list(Config) ->
 	    ok
     end,
 
-    {ok,simple,Core} = compile:forms(SimpleCodeNoDoc, [to_core0,binary]),
+    {ok,simple,Core} = compile_forms(SimpleCodeNoDoc, [to_core0,binary]),
     forms_compile_and_load(Core, [from_core]),
 
-    {ok,simple,Asm} = compile:forms(SimpleCodeNoDoc, [to_asm,binary]),
+    {ok,simple,Asm} = compile_forms(SimpleCodeNoDoc, [to_asm,binary]),
     forms_compile_and_load(Asm, [from_asm]),
 
     %% The `from_abstr` option is redundant when compiling from forms,
@@ -292,8 +292,8 @@ forms_2(Config) when is_list(Config) ->
     forms_compile_and_load(SimpleCodeNoDoc, [from_abstr]),
 
     %% Cover the error handling code.
-    error = compile:forms(bad_core, [from_core,report]),
-    error = compile:forms(bad_asm, [from_asm,report]),
+    error = compile_forms(bad_core, [from_core,report]),
+    error = compile_forms(bad_asm, [from_asm,report]),
 
     ok.
 
@@ -304,7 +304,7 @@ forms_load_code(Mod, Src, Bin) ->
     SourceOption = proplists:get_value(source, Info),
 
     %% Ensure that the options are not polluted with 'source'.
-    [] = proplists:get_value(options, Info),
+    false = proplists:is_defined(source, proplists:get_value(options, Info, [])),
 
     %% Cleanup.
     true = code:delete(simple),
@@ -314,7 +314,7 @@ forms_load_code(Mod, Src, Bin) ->
 
 forms_compile_and_load(Code, Opts) ->
     Mod = simple,
-    {ok,Mod,Bin} = compile:forms(Code, Opts),
+    {ok,Mod,Bin} = compile_forms(Code, Opts),
     {module,Mod} = code:load_binary(Mod, "ignore", Bin),
     _ = Mod:module_info(),
     true = code:delete(simple),
@@ -492,8 +492,8 @@ no_core_prepare(_Config) ->
                              {c_literal,[],true},
                              {c_receive,[],[],{c_literal,[],0},{c_literal,[],ok}}}]}}}]},
 
-    {ok,sample_receive,_,_} = compile:forms(Mod, [from_core,binary,return]),
-    {error,_,_} = compile:forms(Mod, [from_core,binary,return,no_core_prepare]),
+    {ok,sample_receive,_,_} = compile_forms(Mod, [from_core,binary,return]),
+    {error,_,_} = compile_forms(Mod, [from_core,binary,return,no_core_prepare]),
     ok.
 
 cond_and_ifdef(Config) when is_list(Config) ->
@@ -628,20 +628,20 @@ other_output(Config) when is_list(Config) ->
     true = is_list(Expand),
     {attribute,_,module,simple} = lists:keyfind(module, 3, Expand),
     io:put_chars("to_exp (forms)"),
-    {ok,[],Expand} = compile:forms(PP, [to_exp,binary,time]),
+    {ok,[],Expand} = compile_forms(PP, [to_exp,binary,time]),
 
     io:put_chars("to_core (file)"),
     {ok,simple,Core} = compile:file(Simple, [to_core,binary,time]),
     c_module = element(1, Core),
     {ok,_} = core_lint:module(Core),
     io:put_chars("to_core (forms)"),
-    {ok,simple,Core} = compile:forms(PP, [to_core,binary,time]),
+    {ok,simple,Core} = compile_forms(PP, [to_core,binary,time]),
 
     io:put_chars("to_asm (file)"),
     {ok,simple,Asm} = compile:file(Simple, [to_asm,binary,time]),
     {simple,_,_,_,_} = Asm,
     io:put_chars("to_asm (forms)"),
-    {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
+    {ok,simple,Asm} = compile_forms(PP, [to_asm,binary,time]),
 
     ok.
 
@@ -859,14 +859,14 @@ custom_compile_info(Config) when is_list(Config) ->
     Forms = [{attribute,Anno,module,custom_compile_info}],
     Opts = [binary,{compile_info,[{another,version}]}],
 
-    {ok,custom_compile_info,Bin} = compile:forms(Forms, Opts),
+    {ok,custom_compile_info,Bin} = compile_forms(Forms, Opts),
     {ok,{custom_compile_info,[{compile_info,CompileInfo}]}} =
 	beam_lib:chunks(Bin, [compile_info]),
     version = proplists:get_value(another, CompileInfo),
     CompileOpts = proplists:get_value(options, CompileInfo),
     undefined = proplists:get_value(compile_info, CompileOpts),
 
-    {ok,custom_compile_info,DetBin} = compile:forms(Forms, [deterministic|Opts]),
+    {ok,custom_compile_info,DetBin} = compile_forms(Forms, [deterministic|Opts]),
     {ok,{custom_compile_info,[{compile_info,DetInfo}]}} =
 	beam_lib:chunks(DetBin, [compile_info]),
     version = proplists:get_value(another, DetInfo).
@@ -972,7 +972,7 @@ do_utf8_atom(Atom) ->
              {attribute,Anno,compile,[export_all]},
 	     {function,Anno,atom,0,[{clause,Anno,[],[],[{atom,Anno,Atom}]}]}],
 
-    {ok,Mod,Utf8AtomBin} = compile:forms(Forms, [binary,report]),
+    {ok,Mod,Utf8AtomBin} = compile_forms(Forms, [binary,report]),
     {ok,{Mod,[{atoms,_}]}} = beam_lib:chunks(Utf8AtomBin, [atoms]),
 
     code:load_binary(Mod, "compile_SUITE", Utf8AtomBin),
@@ -993,21 +993,21 @@ utf8_functions(Config) when is_list(Config) ->
 
     Utf8FunctionForms = [{attribute,Anno,module,utf8_function}|Forms],
     {ok,utf8_function,Utf8FunctionBin} =
-	compile:forms(Utf8FunctionForms, [binary]),
+	compile_forms(Utf8FunctionForms, [binary]),
     {ok,{utf8_function,[{atoms,_}]}} =
 	beam_lib:chunks(Utf8FunctionBin, [atoms]),
     code:load_binary(utf8_function, "compile_SUITE", Utf8FunctionBin),
     world = utf8_function:Atom(),
 
     NoUtf8FunctionForms = [{attribute,Anno,module,no_utf8_function}|Forms],
-    error = compile:forms(NoUtf8FunctionForms, [binary, r19]).
+    error = compile_forms(NoUtf8FunctionForms, [binary, r19]).
 
 extra_chunks(Config) when is_list(Config) ->
     Anno = erl_anno:new(1),
     Forms = [{attribute,Anno,module,extra_chunks}],
 
     {ok,extra_chunks,ExtraChunksBinary} =
-	compile:forms(Forms, [binary, {extra_chunks, [{<<"ExCh">>, <<"Contents">>}]}]),
+	compile_forms(Forms, [binary, {extra_chunks, [{<<"ExCh">>, <<"Contents">>}]}]),
     {ok,{extra_chunks,[{"ExCh",<<"Contents">>}]}} =
 	beam_lib:chunks(ExtraChunksBinary, ["ExCh"]).
 
@@ -1024,14 +1024,14 @@ tuple_calls(Config) when is_list(Config) ->
                  [{atom,Anno,key},{atom,Anno,value}]}]}]}],
 
     TupleCallsFalse = [{attribute,Anno,module,tuple_calls_false}|Forms],
-    {ok,_,TupleCallsFalseBinary} = compile:forms(TupleCallsFalse, [binary]),
+    {ok,_,TupleCallsFalseBinary} = compile_forms(TupleCallsFalse, [binary]),
     code:load_binary(tuple_calls_false, "compile_SUITE.erl", TupleCallsFalseBinary),
     {'EXIT',{badarg,_}} = (catch tuple_calls_false:store(dict())),
     {'EXIT',{badarg,_}} = (catch tuple_calls_false:size(dict())),
     {'EXIT',{badarg,_}} = (catch tuple_calls_false:size(empty_tuple())),
 
     TupleCallsTrue = [{attribute,Anno,module,tuple_calls_true}|Forms],
-    {ok,_,TupleCallsTrueBinary} = compile:forms(TupleCallsTrue, [binary,tuple_calls]),
+    {ok,_,TupleCallsTrueBinary} = compile_forms(TupleCallsTrue, [binary,tuple_calls]),
     code:load_binary(tuple_calls_true, "compile_SUITE.erl", TupleCallsTrueBinary),
     Dict = tuple_calls_true:store(dict()),
     1 = tuple_calls_true:size(Dict),
@@ -1084,9 +1084,9 @@ env_1(Simple, Target) ->
 
     %% Cover error handling.
     true = os:putenv("ERL_COMPILER_OPTIONS", "'unterminated_atom"),
-    {ok,[]} = compile:forms(Forms, [basic_validation]),
+    {ok,[]} = compile_forms(Forms, [basic_validation]),
     true = os:putenv("ERL_COMPILER_OPTIONS", ",,,"),
-    {ok,[]} = compile:forms(Forms, [basic_validation]),
+    {ok,[]} = compile_forms(Forms, [basic_validation]),
     {ok,simple,<<"FOR1",_/binary>>} = compile:noenv_forms(Forms, no_postopt),
 
     ok.
@@ -1120,7 +1120,7 @@ do_core_pp({M,A}, Outdir) ->
     end.
 
 do_core_pp_1(M, A, Outdir) ->
-    {ok,M,Core0} = compile:forms(A, [to_core]),
+    {ok,M,Core0} = compile_forms(A, [to_core]),
     CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
     CorePP = core_pp:format(Core0),
     ok = file:write_file(CoreFile, unicode:characters_to_binary(CorePP)),
@@ -1133,7 +1133,7 @@ do_core_pp_1(M, A, Outdir) ->
     ok = file:delete(CoreFile),
 
     %% Compile as usual (including optimizations).
-    compile_forms(M, Core, [clint,ssalint,from_core,binary]),
+    {ok,M,_} = compile_forms(Core, [clint,ssalint,from_core,binary]),
 
     %% Don't optimize to test that we are not dependent
     %% on the Core Erlang optimization passes.
@@ -1142,15 +1142,13 @@ do_core_pp_1(M, A, Outdir) ->
     %% records; if sys_core_fold was run it would fix
     %% that; if sys_core_fold was not run v3_kernel would
     %% crash.)
-    compile_forms(M, Core, [clint,ssalint,from_core,no_copt,binary]),
+    {ok,M,_} = compile_forms(Core, [clint,ssalint,from_core,no_copt,binary]),
 
     ok.
 
-compile_forms(Mod, Forms, Opts) ->
-    case compile:forms(Forms, [report_errors|Opts]) of
-	{ok,Mod,_} ->  ok;
-	Other -> throw({error,Other})
-    end.
+compile_forms(Forms, Opts) ->
+    Feat = erl_features:configurable(),
+    compile:forms(Forms, [report_errors,{features,Feat}|Opts]).
 
 %% Pretty-print core and read it back. Should be identical.
 
@@ -1180,7 +1178,7 @@ do_core_roundtrip(Beam, Outdir) ->
     end.
 
 do_core_roundtrip_1(Mod, Abstr, Outdir) ->
-    {ok,Mod,Core0} = compile:forms(Abstr, [to_core0]),
+    {ok,Mod,Core0} = compile_forms(Abstr, [to_core0]),
     do_core_roundtrip_2(Mod, Core0, Outdir),
 
     %% Primarily, test that annotations are accepted for all
@@ -1190,7 +1188,7 @@ do_core_roundtrip_1(Mod, Abstr, Outdir) ->
 
     %% Run the inliner to force generation of variables
     %% with numeric names.
-    {ok,Mod,Core2} = compile:forms(Abstr, [inline,to_core]),
+    {ok,Mod,Core2} = compile_forms(Abstr, [inline,to_core]),
     do_core_roundtrip_2(Mod, Core2, Outdir).
 
 do_core_roundtrip_2(M, Core0, Outdir) ->
@@ -1368,7 +1366,7 @@ do_asm(Beam, Outdir) ->
 	beam_lib:chunks(Beam, [abstract_code]),
     try
         Opts = test_lib:opt_opts(M),
-	{ok,M,Asm} = compile:forms(A, ['S'|Opts]),
+	{ok,M,Asm} = compile_forms(A, ['S'|Opts]),
 	AsmFile = filename:join(Outdir, atom_to_list(M)++".S"),
 	{ok,Fd} = file:open(AsmFile, [write,{encoding,utf8}]),
 	beam_listing:module(Fd, Asm),
@@ -1475,7 +1473,7 @@ beam_ssa_pp(Beam, Outdir) ->
 
 beam_ssa_pp_1(Mod, Abstr, Outdir) ->
     Opts = test_lib:opt_opts(Mod),
-    {ok,Mod,SSA} = compile:forms(Abstr, [dssaopt|Opts]),
+    {ok,Mod,SSA} = compile_forms(Abstr, [dssaopt|Opts]),
     ListFile = filename:join(Outdir, atom_to_list(Mod) ++ ".ssaopt"),
     {ok,Fd} = file:open(ListFile, [write,{encoding,utf8}]),
     beam_listing:module(Fd, SSA),

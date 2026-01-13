@@ -115,12 +115,13 @@ do_smoke(Beam, Node, HasDbgSupport, ExtraOpts) ->
         %% beam_validator will check for each `debug_line` instruction
         %% that the frame size is correct and that all referenced BEAM
         %% registers are valid.
+        Feat = {features,erl_features:configurable()},
         {ok,Mod,Code} = compile:forms(Abstr0,
                                       [beam_debug_info,binary,
-                                       report_errors|ExtraOpts]),
+                                       report_errors,Feat|ExtraOpts]),
         {ok,_,Abstr} = compile:forms(Abstr0,
                                      [beam_debug_info,dexp,binary,
-                                      report_errors|ExtraOpts]),
+                                      report_errors,Feat|ExtraOpts]),
         SrcVars = source_variables(Abstr),
         IndexToFunctionMap = abstr_debug_lines(Abstr),
 
