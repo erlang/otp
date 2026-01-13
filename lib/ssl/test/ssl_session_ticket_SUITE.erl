@@ -532,12 +532,13 @@ basic_stateless_stateful_anti_replay(Config) when is_list(Config) ->
 basic_stateful_stateless_faulty_ticket() ->
     [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
 basic_stateful_stateless_faulty_ticket(Config) when is_list(Config) ->
+    SNI = net_adm:localhost(),
     do_test_mixed(Config,
                   [{session_tickets, auto},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, manual},
-                   {use_ticket, [<<131,100,0,12,"faultyticket">>,
-                                 <<"faulty ticket">>]},
+                   {use_ticket, [#{sni => SNI,
+                                   ticket => <<"faultyticket">>}]},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateless},
                    {anti_replay, '10k'},
@@ -548,12 +549,13 @@ basic_stateful_stateless_faulty_ticket(Config) when is_list(Config) ->
 basic_stateless_stateful_faulty_ticket() ->
     [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
 basic_stateless_stateful_faulty_ticket(Config) when is_list(Config) ->
+    SNI = net_adm:localhost(),
     do_test_mixed(Config,
                   [{session_tickets, auto},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, manual},
-                   {use_ticket, [<<"faulty ticket">>,
-                                 <<131,100,0,12,"faultyticket">>]},
+                   {use_ticket, [#{sni => SNI,
+                                   ticket => <<"faultyticket">>}]},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateless},
                    {anti_replay, '10k'},
