@@ -245,8 +245,10 @@ call that initiates an ssh connection.
 -doc(#{group => <<"Options">>}).
 -type key() :: public_key:public_key() | public_key:private_key() .
 -doc(#{group => <<"Options">>}).
--type experimental_openssh_key_v1() :: [{key(), openssh_key_v1_attributes()}].
--doc "Types for the experimental implementaition of the `openssh_key_v1` format.".
+-type experimental_openssh_key_v1() :: [{[{public_key:public_key(), public_key:private_key(), binary()} |
+                                          {public_key:private_key(), binary()}],
+                                         openssh_key_v1_attributes()}].
+-doc "Types for the experimental implementation of the `openssh_key_v1` format.".
 -doc(#{group => <<"Options">>}).
 -type openssh_key_v1_attributes() :: [{atom(),term()}].
 
@@ -1448,7 +1450,7 @@ check_padding(Bin, BlockSize) ->
     end.
 
 %%%----------------------------------------------------------------
-%% KeyPairs :: [ {Pub,Priv,Comment} ]
+%% KeyPairs :: [ {Pub,Priv,Comment} | {Priv,Comment} ]
 openssh_key_v1_encode(KeyPairs) ->
     CipherName = <<"none">>,
     BlockSize = ?NON_CRYPT_BLOCKSIZE, % Cipher dependent
