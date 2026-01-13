@@ -25,8 +25,8 @@ system_guides =
     line |> String.split(":") |> Enum.at(0)
   end)
 
-# Root /configure creates artifact /lib/SKIP-APPLICATIONS containing all apps
-# not built for various reasons. We can't build documentation for them either.
+# $ERL_TOP/configure creates artifact lib/SKIP-APPLICATIONS containing all apps
+# skipped by user request (via command line). We can't build documentation for them.
 skipped_apps_from_file =
   with erl_top when is_binary(erl_top) <- System.get_env("ERL_TOP"),
        skip_path <- Path.join([erl_top, "lib", "SKIP-APPLICATIONS"]),
@@ -40,11 +40,31 @@ skipped_apps_from_file =
     _ -> MapSet.new()
   end
 
+# Failed lib/*/configure writes a file called 'SKIP', find names of such apps.
+skipped_apps_from_SKIP = fn ->
+  with erl_top when is_binary(erl_top) <- System.get_env("ERL_TOP"),
+       lib_path <- Path.join([erl_top, "lib"]) do
+    Path.wildcard(Path.join([lib_path, "*", "SKIP"]))
+    |> Enum.map(fn skip_file ->
+      skip_file
+      |> Path.dirname()
+      |> Path.basename()
+      |> String.downcase()
+    end)
+    |> MapSet.new()
+  else
+    _ -> MapSet.new()
+  end
+end
+
 apps =
   Path.wildcard("{core,database,oam,interfaces,tools,testing,documentation}/*.md")
   |> Enum.map(&Path.basename/1)
   |> Enum.map(&Path.rootname/1)
-  |> Enum.reject(fn app -> skipped_apps_from_file |> MapSet.member?(app) end)
+  |> Enum.reject(fn app ->
+    MapSet.member?(skipped_apps_from_file, app) or
+      MapSet.member?(skipped_apps_from_SKIP.(), app)
+  end)
 
 redirects =
   Enum.map(apps, fn
