@@ -26,7 +26,7 @@
 -module(test_server_sup).
 -moduledoc false.
 -export([timetrap/2, timetrap/3, timetrap/4,
-	 timetrap_cancel/1, capture_get/1, messages_get/1,
+	 timetrap_cancel/1, messages_get/1,
 	 timecall/3, call_crash/5, app_test/2, check_new_crash_dumps/0,
 	 cleanup_crash_dumps/0, crash_dump_dir/0, tar_crash_dumps/0,
 	 get_username/0, get_os_family/0, 
@@ -111,14 +111,6 @@ timetrap_cancel(Handle) ->
 	2000 ->
 	    erlang:demonitor(MonRef, [flush]),
 	    ok
-    end.
-
-capture_get(Msgs) ->
-    receive
-	{captured,Msg} ->
-	    capture_get([Msg|Msgs])
-    after 0 ->
-	    lists:reverse(Msgs)
     end.
 
 messages_get(Msgs) ->

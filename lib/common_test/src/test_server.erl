@@ -1877,10 +1877,9 @@ log(Msg) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% @see test_server_gl:capture_start/2
-
+%% @see test_server_gl:capture_start/1
 capture_start() ->
-    test_server_gl:capture_start(group_leader(), self()).
+    test_server_gl:capture_start(group_leader()).
 
 %% @see test_server_gl:capture_stop/1
 capture_stop() ->
@@ -1896,7 +1895,7 @@ capture_stop() ->
 %% by capture_get/0. It is not necessary to call capture_stop/0 before
 %% retrieving the output.
 capture_get() ->
-    test_server_sup:capture_get([]).
+    test_server_gl:capture_get(group_leader()).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% messages_get() -> Messages
