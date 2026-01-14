@@ -97,7 +97,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 
 ERL_COMPILE_FLAGS += -Werror
-ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_missing_spec
+ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_missing_spec +warn_obsolete_bool_op
 
 # ----------------------------------------------------
 # Targets

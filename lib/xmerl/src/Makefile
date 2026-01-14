@@ -127,7 +127,7 @@ TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
 		-I ../include \
-		+warn_unused_vars
+		+warn_unused_vars +warn_obsolete_bool_op
 
 #		+bin_opt_info 
 

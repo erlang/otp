@@ -22,6 +22,7 @@
 -module(file_io_server).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% A simple file server for io to one file instance per server instance.

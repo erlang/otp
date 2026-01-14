@@ -54,6 +54,8 @@
 %% Simulate logger process for use without ct environment running
 -export([simulate/0]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("ct.hrl").
 -include("ct_event.hrl").
 -include("ct_util.hrl").

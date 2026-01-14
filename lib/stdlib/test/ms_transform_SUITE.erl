@@ -22,6 +22,8 @@
 -module(ms_transform_SUITE).
 -author('pan@erix.ericsson.se').
 
+-compile(nowarn_obsolete_bool_op).
+
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

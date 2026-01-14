@@ -25,6 +25,8 @@
 
 -module(et_demo).
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([
          sim_trans/0, sim_trans/1,
          live_trans/0, live_trans/1,

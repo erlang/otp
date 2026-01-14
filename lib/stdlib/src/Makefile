@@ -176,7 +176,7 @@ endif
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += -Werror  +warn_deprecated_catch
+ERL_COMPILE_FLAGS += -Werror  +warn_deprecated_catch +warn_obsolete_bool_op
 ERL_COMPILE_FLAGS += -I../include -I../../kernel/include
 
 ifeq ($(ERL_DETERMINISTIC),yes)

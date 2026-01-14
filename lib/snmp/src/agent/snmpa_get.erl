@@ -25,6 +25,7 @@
 
 -behaviour(snmpa_get_mechanism).
 
+-compile(nowarn_obsolete_bool_op).
 
 %%%-----------------------------------------------------------------
 %%% snmpa_get_mechanism exports

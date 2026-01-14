@@ -66,6 +66,7 @@ list `[]`. This can be relied on when writing functions that operate on syntax
 trees.
 """.
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 -export([type/1,

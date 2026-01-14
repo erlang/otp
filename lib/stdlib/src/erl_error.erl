@@ -35,6 +35,8 @@ The following functions are to be exported from an Error Info handler.
 """.
 -moduledoc(#{since => "OTP 24.0"}).
 
+-compile(nowarn_obsolete_bool_op).
+
 %% Supported and documented exported functions in this module.
 -export([format_exception/3, format_exception/4]).
 

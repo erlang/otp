@@ -23,6 +23,8 @@
 
 %%-define(debug, true).
 
+-compile(nowarn_obsolete_bool_op).
+
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
 -define(line, put(line, ?LINE), ).

@@ -38,6 +38,7 @@ This module contains utility functions for working with the abstract data type
 defined in the module `m:erl_syntax`.
 """.
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 -export([analyze_application/1, analyze_attribute/1,

@@ -23,6 +23,8 @@
 
 -module(supervisor_SUITE).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Testserver specific export

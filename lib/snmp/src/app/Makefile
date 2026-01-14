@@ -82,7 +82,7 @@ endif
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin +warn_obsolete_bool_op
 
 ifeq ($(SNMP_WARNING_AS_ERROR),)
   ERL_COMPILE_FLAGS += -Werror

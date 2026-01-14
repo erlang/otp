@@ -35,6 +35,7 @@ a program to run on most platforms.
 > Types" section.
 """.
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% Provides a common operating system interface.

@@ -32,6 +32,8 @@
 
 -export([start/0]).
 
+-compile(nowarn_obsolete_bool_op).
+
 %%%Lots of IDs to declare!
 -define(menuID_FILE_QUIT,           ?wxID_EXIT).
 -define(menuID_FILE_CLEAR_LOG,      100).

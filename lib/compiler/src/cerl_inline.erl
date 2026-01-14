@@ -39,6 +39,8 @@
 -module(cerl_inline).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([core_transform/2, transform/1, transform/2]).
 
 -import(cerl, [abstract/1, alias_pat/1, alias_var/1, apply_args/1,

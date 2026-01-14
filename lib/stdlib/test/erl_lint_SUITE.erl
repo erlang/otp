@@ -21,6 +21,8 @@
 %%
 -module(erl_lint_SUITE).
 
+-compile(nowarn_obsolete_bool_op).
+
 %%-define(debug, true).
 
 -ifdef(debug).
@@ -623,7 +625,7 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                           (C == <<A:A>>) and (<<17:B>> == D)
                   end.
            ">>,
-           [warn_unused_vars],
+           [warn_unused_vars,nowarn_obsolete_bool_op],
            {warnings,[{{1,24},erl_lint,{unused_var,'A'}},
                       {{2,23},erl_lint,{unused_var,'A'}},
                       {{2,23},erl_lint,{shadowed_var,'A','fun'}},
@@ -1906,7 +1908,7 @@ guard(Config) when is_list(Config) ->
               t3(A) when is_tuple(A) or is_tuple(A) ->
                   is_tuple.
            ">>,
-           [nowarn_obsolete_guard],
+           [nowarn_obsolete_guard,nowarn_obsolete_bool_op],
            []}],
     [] = run(Config, Ts),
     Ts1 = [{guard5,
@@ -1959,7 +1961,7 @@ guard(Config) when is_list(Config) ->
                [X || X <- [1,#apa{},3], (3+is_record(X, apa)) or 
                                         (is_record(X, apa)*2)].
             ">>,
-            [],
+            [nowarn_obsolete_bool_op],
             []},
 	   {guard8,
 	    <<"t(A) when erlang:is_foobar(A) -> ok;
@@ -3033,7 +3035,7 @@ otp_5878(Config) when is_list(Config) ->
              {{5,30},erl_lint,illegal_guard_expr},
              {{7,30},erl_lint,illegal_guard_expr}],
            []} =
-        run_test2(Config, Ill2, [warn_unused_record]),
+        run_test2(Config, Ill2, [warn_unused_record,nowarn_obsolete_bool_op]),
 
     Ill3 = <<"t() -> ok.">>,
     {errors,[{{1,1},erl_lint,undefined_module}],[]} =

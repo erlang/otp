@@ -28,6 +28,8 @@
 -include("snmp_usm.hrl").
 -include("snmp_internal.hrl").
 
+-compile(nowarn_obsolete_bool_op).
+
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
 -export([config/0]).

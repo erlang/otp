@@ -30,6 +30,8 @@ sub-agent).
 
 -behaviour(supervisor).
 
+-compile(nowarn_obsolete_bool_op).
+
 %% External exports
 -export([start_link/2, stop/0, stop/1]).
 -export([start_sub_sup/1, start_master_sup/1]).

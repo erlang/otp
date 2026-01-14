@@ -28,6 +28,8 @@
 -module(megaco_erl_dist_encoder).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -behaviour(megaco_encoder).
 
 -export([encode_message/3, decode_message/3,
