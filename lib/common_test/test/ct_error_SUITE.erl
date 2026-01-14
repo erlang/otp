@@ -50,7 +50,7 @@ init_per_suite(Config) ->
     DataDir = ?config(data_dir, Config),
     TestDir = filename:join(DataDir, "error/test/"),
     CTH = filename:join(TestDir, "verify_config.erl"),
-    ct:pal("Compiling ~p: ~p",
+    ct:log("Compiling ~p: ~p",
 	   [CTH,compile:file(CTH,[{outdir,TestDir},debug_info])]),
     ct_test_support:init_per_suite([{path_dirs,[TestDir]} | Config]).
 
