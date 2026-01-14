@@ -687,23 +687,23 @@ ssh2_privkey_encode(#'DSAPrivateKey'
     >>;
 
 ssh2_privkey_encode(#'ECPrivateKey'
-                    {version = ecPrivkeyVer1, % Found this in public_key:ec_key/2 ..
+                    {version = Version,
                      parameters = {namedCurve,OID},
                      privateKey = Priv,
-                     publicKey = Pub
-                    }) when OID == ?'id-Ed25519' orelse
-                            OID == ?'id-Ed448' ->
+                     publicKey = Pub})
+  when OID =:= ?'id-Ed25519' orelse OID =:= ?'id-Ed448',
+       Version =:= ecPrivkeyVer1 orelse Version =:= 1 -> % currently used atom and legacy value 1
     {CurveName,_} = oid2ssh_curvename(OID),
     <<?STRING(CurveName),
       ?STRING(Pub),
       ?STRING(Priv)>>;
 
 ssh2_privkey_encode(#'ECPrivateKey'
-                    {version = ecPrivkeyVer1, % Found this in public_key:ec_key/2 ..
+                    {version = Version,
                      parameters = {namedCurve,OID},
                      privateKey = Priv,
-                     publicKey = Q
-                    }) ->
+                     publicKey = Q})
+  when Version =:= ecPrivkeyVer1 orelse Version =:= 1 -> % currently used atom and legacy value 1
     {CurveName,_} = oid2ssh_curvename(OID),
     <<?STRING(CurveName),
       ?STRING(CurveName), % SIC!
