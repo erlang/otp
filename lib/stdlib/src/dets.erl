@@ -1526,6 +1526,10 @@ to_ets(DTab, ETabArg) ->
             foldl(Fun, ETabArg, DTab)
     end.
 
+%% This dialyzer suppression can be removed when/if type ets:tid()
+%% is changed from opaque to nominal.
+-dialyzer({no_opaque_union, ensure_ets_tid/1}).
+
 ensure_ets_tid(EtsTabName) when is_atom(EtsTabName) ->
     ets:whereis(EtsTabName);
 ensure_ets_tid(EtsTid) ->
