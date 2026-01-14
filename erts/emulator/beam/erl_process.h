@@ -286,8 +286,7 @@ typedef enum {
 
 /*
  * Keep ERTS_SSI_AUX_WORK flags ordered in expected frequency
- * order relative each other. Most frequent at lowest at lowest
- * index.
+ * order relative each other. Most frequent at lowest index.
  *
  * ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX *need* to be
  * highest index...

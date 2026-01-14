@@ -705,7 +705,7 @@ leader_update(ErtsThrPrgrData *tpd)
 	chk_next_ix = tpd->leader_state.chk_next_ix;
 	no_managed = intrnl->managed.no;
 	ASSERT(0 <= chk_next_ix && chk_next_ix <= no_managed);
-	/* Check manged threads */
+	/* Check managed threads */
 	if (chk_next_ix < no_managed) {
 	    for (ix = chk_next_ix; ix < no_managed; ix++) {
 		ErtsThrPrgrVal tmp;
@@ -720,7 +720,7 @@ leader_update(ErtsThrPrgrData *tpd)
 	    }
 	}
 
-	/* Check unmanged threads */
+	/* Check unmanaged threads */
 	waiting_unmanaged = tpd->leader_state.umrefc_ix.waiting != -1;
 	umrefc_ix = (waiting_unmanaged
 		     ? tpd->leader_state.umrefc_ix.waiting
@@ -1546,4 +1546,3 @@ void erts_thr_progress_dbg_print_state(void)
     
 
 }
-
