@@ -5799,6 +5799,7 @@ Also see the description of `ielm-prompt-read-only'."
 The following special commands are available:
 \\{erlang-shell-mode-map}"
   (erlang-mode-variables)
+  (kill-local-variable 'indent-line-function)
   ;; Needed when compiling directly from the Erlang shell.
   (setq next-error-last-buffer (current-buffer))
   (setq comint-prompt-regexp "^[^>=]*> *")
