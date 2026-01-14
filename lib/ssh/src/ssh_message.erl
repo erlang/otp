@@ -687,7 +687,7 @@ ssh2_privkey_encode(#'DSAPrivateKey'
     >>;
 
 ssh2_privkey_encode(#'ECPrivateKey'
-                    {version = 1,
+                    {version = ecPrivkeyVer1, % Found this in public_key:ec_key/2 ..
                      parameters = {namedCurve,OID},
                      privateKey = Priv,
                      publicKey = Pub
@@ -699,7 +699,7 @@ ssh2_privkey_encode(#'ECPrivateKey'
       ?STRING(Priv)>>;
 
 ssh2_privkey_encode(#'ECPrivateKey'
-                    {version = 1,
+                    {version = ecPrivkeyVer1, % Found this in public_key:ec_key/2 ..
                      parameters = {namedCurve,OID},
                      privateKey = Priv,
                      publicKey = Q
