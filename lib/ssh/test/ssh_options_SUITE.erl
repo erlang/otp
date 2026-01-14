@@ -80,6 +80,7 @@
 	 connectfun4_server/1,
 	 disconnectfun2_client/1,
 	 disconnectfun2_server/1,
+	 disconnectfun2_kexinit_error/1,
 	 hostkey_fingerprint_check/1,
 	 hostkey_fingerprint_check_md5/1,
 	 hostkey_fingerprint_check_sha/1,
@@ -125,6 +126,7 @@ all() ->
      connectfun4_server,
      disconnectfun2_client,
      disconnectfun2_server,
+     disconnectfun2_kexinit_error,
      connectfun_disconnectfun_client,
      server_password_option,
      server_userpassword_option,
@@ -795,46 +797,25 @@ connectfun_disconnectfun_server(Config) ->
 	    {fail, "No connectfun action"}
     end.
 
-
 %%--------------------------------------------------------------------
 connectfun4_server(Config) ->
-    UserDir = proplists:get_value(user_dir, Config),
-    SysDir = proplists:get_value(data_dir, Config),
-
-    Parent = self(),
     Ref = make_ref(),
-    ConnFun = fun(User,_,Method,ConnInfo) -> Parent ! {connect,Ref,User,Method,ConnInfo} end,
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-					     {failfun, fun ssh_test_lib:failfun/2},
-					     {connectfun, ConnFun}]),
-    ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "foo"},
-					  {password, "morot"},
-					  {user_dir, UserDir},
-					  {user_interaction, false}]),
-    [{user_auth, "keyboard-interactive"}] =
-	ssh:connection_info(ConnectionRef, [user_auth]),
-
-    receive
-	{connect,Ref,User,Method,ConnInfo} ->
-            "foo" = User,
-            "foo" = proplists:get_value(user, ConnInfo),
-            "keyboard-interactive" = Method,
-            Keys = [client_version, server_version, peer, user, sockname, options, algorithms],
-            true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
-	    ssh:close(ConnectionRef),
-            ssh:stop_daemon(Pid)
-    after 10000 ->
-	    receive
-		X -> ct:log("received ~p",[X])
-	    after 0 -> ok
-	    end,
-	    {fail, "No connectfun action"}
-    end.
+    Event = connect,
+    ConnFun = send_connect_data(self(), Ref, Event),
+    DaemonOpts = [{connectfun, ConnFun}, {password, "morot"}, {failfun, fun ssh_test_lib:failfun/2}],
+    with_daemon(Config, DaemonOpts,
+                fun(Pid, Host, Port, UserDir) ->
+                        ClientOpts = client_opts(#{user_dir => UserDir}),
+                        ConnectionRef = ssh_test_lib:connect(Host, Port, ClientOpts),
+                        [{user_auth, "keyboard-interactive"}] =
+                            ssh:connection_info(ConnectionRef, [user_auth]),
+                        {User, Method, ConnInfo} = receive_event(Ref, Event),
+                        "foo" = User = proplists:get_value(user, ConnInfo),
+                        "keyboard-interactive" = Method,
+                        Keys = [client_version, server_version, peer, user, sockname, options, algorithms],
+                                true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+                        ssh:close(ConnectionRef)
+                end).
 
 %%--------------------------------------------------------------------
 bannerfun_server(Config) ->
@@ -908,97 +889,149 @@ connectfun_disconnectfun_client(Config) ->
 %%--------------------------------------------------------------------
 %% The client disconnects due to the server
 disconnectfun2_client(Config) ->
-    UserDir = proplists:get_value(user_dir, Config),
-    SysDir = proplists:get_value(data_dir, Config),
-
-    Parent = self(),
     Ref = make_ref(),
-    DiscFun = fun(R, Extra) -> Parent ! {disconnect,Ref,R,Extra} end,
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
-    _ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "foo"},
-					  {password, "morot"},
-					  {user_dir, UserDir},
-					  {disconnectfun, DiscFun},
-					  {user_interaction, false}]),
-    ssh:stop_daemon(Pid),
-    receive
-	{disconnect,Ref,R,Extra} ->
-            disconnect_received = R,
-            %% Code is only available when a disconnect message is sent
-            #{code := undefined, details := _Details, connection_info := ConnInfo} = Extra,
-            Keys = [client_version, server_version, peer, user, sockname, options,
-                    algorithms, user_auth],
-            true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
-	    ct:log("Disconnect result: ~p ~p",[R, Extra])
-    after 2000 ->
-	    {fail, "No disconnectfun action"}
-    end.
+    Event = disconnect,
+    DiscFun = send_disconnect_data(self(), Ref, Event),
+    DaemonOpts = [{password, "morot"}, {failfun, fun ssh_test_lib:failfun/2}],
+    with_daemon(Config, DaemonOpts,
+                fun(Pid, Host, Port, UserDir) ->
+                        ClientOpts = client_opts(#{user_dir => UserDir,
+                                                   disconnectfun => DiscFun}),
+                        _ConnectionRef =
+                            ssh_test_lib:connect(Host, Port, ClientOpts),
+                        ssh:stop_daemon(Pid),
+                        {FailType, DisconnectInfo} = receive_event(Ref, Event),
+                        disconnect_received = FailType,
+                        #{disconnect_context := DisconnectContext,
+                          connection_info := ConnInfo} = DisconnectInfo,
+                        #{code := undefined} = DisconnectContext,
+                        true = verify_conn_info(ConnInfo),
+                        ok
+                end).
 
 %%--------------------------------------------------------------------
 %% Password authentication fails and there's no more authentication
 %% methods to try so the client disconnects with
 %% SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE
 disconnectfun2_server(Config) ->
-    UserDir = proplists:get_value(user_dir, Config),
-    SysDir = proplists:get_value(data_dir, Config),
-
-    Parent = self(),
     Ref = make_ref(),
-    DiscFunS = fun(R, Extra) -> Parent ! {disconnect_server,Ref,R,Extra} end,
-    DiscFunC = fun(R, Extra) -> Parent ! {disconnect_client,Ref,R,Extra} end,
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-                                             {disconnectfun, DiscFunS},
-					     {password, "morot"}]),
-    {error, Reason} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
-                                 {save_accepted_host, false},
-                                 {user, "foo"},
-                                 {password, "wrong_password"},
-                                 {user_dir, UserDir},
-                                 {user_interaction, false},
-                                 {disconnectfun, DiscFunC}]),
-    ct:log("Error reason: ~p", [Reason]),
-    Res =
-        receive
-            {disconnect_client,Ref,R,Extra} ->
-                %% Code 14 is SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE
-                %% https://datatracker.ietf.org/doc/html/rfc4253#section-11.1
-                #{code := 14, details := Details, connection_info := ConnInfo} = Extra,
-                <<"User auth failed for: \"foo\"">> = iolist_to_binary(Details),
-                disconnect_sent = R,
-                Keys = [client_version, server_version, peer, user, sockname, options,
-                        algorithms, user_auth],
-                true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
-                ct:log("Disconnect result client: ~p ~p",[R, Extra]),
-                receive
-                    {disconnect_server,RefS,RS,ExtraS} ->
+    Events = [disconnect_server, disconnect_client],
+    [DiscFunS, DiscFunC] = [send_disconnect_data(self(), Ref, E) || E <- Events],
+    DaemonOpts = [{disconnectfun, DiscFunS}, {password, "morot"}],
+    with_daemon(Config, DaemonOpts,
+                fun(_Pid, Host, Port, UserDir) ->
+                        ClientOpts = client_opts(#{password => "wrong_password",
+                                                   user_dir => UserDir,
+                                                   disconnectfun => DiscFunC}),
+                        {error, Reason} = ssh:connect(Host, Port, ClientOpts),
+                        ?CT_LOG("Error reason: ~p", [Reason]),
+                        [{FailtTypeS, DisconnectInfoS}, {FailtTypeC, DisconnectInfoC}] =
+                            [receive_event(Ref, E) || E <- Events],
+                        %% RFC4253 Code 14 is SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE
+                        disconnect_sent = FailtTypeC,
+                        #{disconnect_context := ContextC,
+                          connection_info := ConnInfoC} = DisconnectInfoC,
+                        #{code := 14} = ContextC,
+                        <<"User auth failed for: \"foo\"">> = iolist_to_binary(details(ContextC)),
+                        disconnect_received = FailtTypeS,
                         %% Code is only available when a disconnect message is sent
-                        #{code := undefined,
-                          details := DetailsS,
-                          connection_info := ConnInfoS} = ExtraS,
+                        #{disconnect_context := ContextS,
+                          connection_info := ConnInfoS} = DisconnectInfoS,
+                        #{code := undefined} = ContextS,
                         <<"Received disconnect: "
                           "Unable to connect using the available authentication methods">> =
-                            iolist_to_binary(DetailsS),
-                        disconnect_received = RS,
-                        KeysS = [client_version, server_version, peer, user, sockname, options,
-                                algorithms, user_auth],
-                        true = lists:all(fun({K, _}) -> lists:member(K, KeysS) end, ConnInfoS),
-                        ct:log("Disconnect result server: ~p ~p",[RS, ExtraS])
-                after 2000 ->
-                        {fail, "No disconnectfun action for server"}
-                end
-        after 2000 ->
-                {fail, "No disconnectfun action"}
-        end,
-    ssh:stop_daemon(Pid),
-    Res.
+                            iolist_to_binary(details(ContextS)),
+                        [true = verify_conn_info(CI) || CI <- [ConnInfoC, ConnInfoS]],
+                        ok
+                end).
+
+%%--------------------------------------------------------------------
+disconnectfun2_kexinit_error(Config) ->
+    Ref = make_ref(),
+    Events = [disconnect_server, disconnect_client],
+    [DiscFunS, DiscFunC] = [send_disconnect_data(self(), Ref, E) || E <- Events],
+    [A1, A2 | _] = ssh_transport:default_algorithms(kex),
+    DaemonOpts = [{disconnectfun, DiscFunS}, {password, "morot"},
+                  {preferred_algorithms, [{kex, [A1]}]}],
+    with_daemon(Config, DaemonOpts,
+                fun(_Pid, Host, Port, UserDir) ->
+                        ClientOpts = client_opts(#{preferred_algorithms => [{kex, [A2]}],
+                                                   user_dir => UserDir,
+                                                   disconnectfun => DiscFunC}),
+                        {error, Reason} = ssh:connect(Host, Port, ClientOpts),
+                        ?CT_LOG("Error reason: ~p", [Reason]),
+                        [{FailTypeS, DisconnectInfoS}, {FailTypeC, DisconnectInfoC}] =
+                            [receive_event(Ref, E) || E <- Events],
+                        %% RFC4253 Code 3 is SSH_DISCONNECT_KEY_EXCHANGE_FAILED
+                        #{disconnect_context := ContextC,
+                          connection_info := ConnInfoC} = DisconnectInfoC,
+                        #{disconnect_context := ContextS,
+                          connection_info := ConnInfoS} = DisconnectInfoS,
+                        [#{code := 3} = C || C <- [ContextS, ContextC]],
+                        [begin
+                             disconnect_sent = maps:get(type, Context),
+                             <<"No common key exchange algorithm">> =
+                                 iolist_to_binary(details(Context)),
+                             true = maps:is_key(own_proposal, Context),
+                             true = maps:is_key(peer_proposal, Context)
+                         end ||
+                            Context <- [ContextC, ContextS]],
+                        [disconnect_sent = FT || FT <- [FailTypeC, FailTypeS]],
+                        [true = verify_conn_info(CI) || CI <- [ConnInfoC, ConnInfoS]],
+                        ok
+                end).
+
+client_opts(AppendOpts) ->
+    BaseOpts =
+        #{silently_accept_hosts => true,
+          save_accepted_host => false,
+          user => "foo",
+          password => "morot",
+          user_interaction => false},
+    proplists:from_map(maps:merge(BaseOpts, AppendOpts)).
+
+receive_event(Ref, E) ->
+    receive
+        {E, Ref, FailType, DisconnectInfo} ->
+            ?CT_LOG("Event = ~p Fail type = ~p~nDisconnectInfo =~n~p",
+                    [E, FailType, DisconnectInfo]),
+            {FailType, DisconnectInfo};
+        {E, Ref, User, Method, ConnInfo} ->
+            ?CT_LOG("Event = ~p User = ~p~nMethod =~n~pConnInfo =~n~p",
+                    [E, User, Method, ConnInfo]),
+            {User, Method, ConnInfo}
+    after 2000 ->
+            ct:fail({event_not_received, E})
+    end.
+
+send_connect_data(Recipient, Ref, Event) ->
+    fun(User, _, Method, ConnInfo) ->
+            Recipient ! {Event, Ref, User, Method, ConnInfo}
+    end.
+
+send_disconnect_data(Recipient, Ref, Event) ->
+    fun(FailType, DisconnectInfo) ->
+            Recipient ! {Event, Ref, FailType, DisconnectInfo}
+    end.
+
+verify_conn_info(ConnInfo) ->
+    Keys = [client_version, server_version, peer, user, sockname, options,
+            algorithms, user_auth],
+    true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo).
+
+details(#{details := Details}) ->
+    Details.
+
+with_daemon(Config, DaemonOpts, TestFun) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon(
+        [{system_dir, SysDir}, {user_dir, UserDir} | DaemonOpts]),
+    try
+        TestFun(Pid, Host, Port, UserDir)
+    after
+        [ssh:stop_daemon(Pid) || is_process_alive(Pid)]
+    end.
 
 %%--------------------------------------------------------------------
 %%% validate client that uses the 'ssh_msg_debug_fun' option

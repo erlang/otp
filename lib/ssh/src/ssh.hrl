@@ -1401,6 +1401,6 @@ Experimental options that should not to be used in products.
         (fun() ->
                 #{level := __Level} = logger:get_primary_config(),
                 __Fun(__Level)
-        end)()).
+         end)()).
 
 -endif. % SSH_HRL defined

@@ -79,10 +79,9 @@ handle_event(internal, #ssh_msg_userauth_success{}, {userauth,client}, D0=#data{
 %%---- userauth failure response to clientfrom the server
 handle_event(internal, #ssh_msg_userauth_failure{}, {userauth,client}=StateName,
 	     #data{ssh_params = #ssh{userauth_methods = []}} = D0) ->
+    Details = io_lib:format("User auth failed for: ~p",[D0#data.auth_user]),
     {Shutdown, D} =
-        ?send_disconnect(?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE, 
-                         io_lib:format("User auth failed for: ~p",[D0#data.auth_user]),
-                         StateName, D0),
+        ?SEND_DISCONNECT(?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE, Details, StateName, D0),
     {stop, Shutdown, D};
 
 handle_event(internal, #ssh_msg_userauth_failure{authentications = Methods}, StateName={userauth,client},
@@ -94,14 +93,13 @@ handle_event(internal, #ssh_msg_userauth_failure{authentications = Methods}, Sta
 		   Ssh0#ssh{userauth_methods = string:tokens(Methods, ",")};
 	       _ ->
 		   %% We already know...
-		   Ssh0 
+		   Ssh0
 	   end,
     case ssh_auth:userauth_request_msg(Ssh1) of
         {send_disconnect, Code, Ssh} ->
+            Details = io_lib:format("User auth failed for: ~p",[D0#data.auth_user]),
             {Shutdown, D} =
-                ?send_disconnect(Code, 
-                                 io_lib:format("User auth failed for: ~p",[D0#data.auth_user]),
-                                 StateName, D0#data{ssh_params = Ssh}),
+                ?SEND_DISCONNECT(Code, Details, StateName, D0#data{ssh_params = Ssh}),
 	    {stop, Shutdown, D};
 	{"keyboard-interactive", {Msg, Ssh2}} ->
             Ssh = Ssh2#ssh{last_userauth_tried = "keyboard-interactive"},

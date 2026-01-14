@@ -407,15 +407,14 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
         Algorithms
     of
 	Algos ->
-	    key_exchange_first_msg(Algos#alg.kex, 
+	    key_exchange_first_msg(Algos#alg.kex,
 				   Ssh#ssh{algorithms = Algos})
     catch
         Class:Reason0 ->
             Reason = ssh_lib:trim_reason(Reason0),
-            Msg = kexinit_error(Class, Reason, client, Own, CounterPart, Ssh),
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
+            DisconnectContext = kexinit_error(Class, Reason, client, Own, CounterPart, Ssh),
+            ?DISCONNECT_CONTEXT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, DisconnectContext)
         end;
-
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
                    #ssh{role = server} = Ssh, ReNeg) ->
     try
@@ -430,13 +429,13 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
     catch
         Class:Reason0 ->
             Reason = ssh_lib:trim_reason(Reason0),
-            Msg = kexinit_error(Class, Reason, server, Own, CounterPart, Ssh),
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
+            DisconnectContext = kexinit_error(Class, Reason, server, Own, CounterPart, Ssh),
+            ?DISCONNECT_CONTEXT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, DisconnectContext)
     end.
 
-kexinit_error(Class, Error, Role, Own, CounterPart, Ssh) ->
+kexinit_error(Class, Reason, Role, Own, CounterPart, Ssh) ->
     {Fmt,Args} =
-        case {Class,Error} of
+        case {Class,Reason} of
             {error, {badmatch,{false,Alg}}} ->
                 {Txt,W,C} = alg_info(Role, Alg),
                 MsgFun =
@@ -452,15 +451,19 @@ kexinit_error(Class, Error, Role, Own, CounterPart, Ssh) ->
                     end,
                 ?SELECT_MSG(MsgFun);
             _ ->
-                {"Kexinit failed in ~p: ~p:~p", [Role,Class,Error]}
+                {"Kexinit failed in ~p: ~p:~p", [Role,Class,Reason]}
         end,
-    try io_lib:format(Fmt, Args, [{chars_limit, ssh_lib:max_log_len(Ssh)}]) of
-        R -> R
-    catch
-        _:_ ->
-            io_lib:format("Kexinit failed in ~p: ~p:~p", [Role, Class, Error],
-                          [{chars_limit, ssh_lib:max_log_len(Ssh)}])
-    end.
+    Details =
+        try io_lib:format(Fmt, Args, [{chars_limit, ssh_lib:max_log_len(Ssh)}]) of
+            R -> R
+        catch
+            _:_ ->
+                io_lib:format("Kexinit failed in ~p: ~p:~p", [Role, Class, Reason],
+                              [{chars_limit, ssh_lib:max_log_len(Ssh)}])
+        end,
+    #{own_proposal => Own,
+      peer_proposal => CounterPart,
+      details => Details}.
 
 alg_info(client, Alg) ->
     alg_info(Alg);
@@ -677,10 +680,10 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 		     keyex_info = {Min0, Max0, NBits}
 		    }};
 	{error,_} ->
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("No possible diffie-hellman-group-exchange group found",[],
-                                      [{chars_limit, ssh_lib:max_log_len(Opts)}])
-                       )
+            Details =
+                io_lib:format("No possible diffie-hellman-group-exchange group found",[],
+                              [{chars_limit, ssh_lib:max_log_len(Opts)}]),
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Details)
     end;
 
 handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits}, 

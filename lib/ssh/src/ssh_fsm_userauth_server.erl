@@ -115,10 +115,9 @@ handle_event(internal,
 	%% {ServiceName,      Expected, Method} when Expected =/= ServiceName -> Do what?
 
 	{ServiceName, _, _} when ServiceName =/= "ssh-connection" ->
-            {Shutdown, D} =  
-                ?send_disconnect(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-                                 io_lib:format("Unknown service: ~p",[ServiceName]),
-                                 StateName, D1),
+            Details = io_lib:format("Unknown service: ~p",[ServiceName]),
+            {Shutdown, D} =
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE, Details, StateName, D1),
             {stop, Shutdown, D}
     end;
 
