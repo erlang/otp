@@ -38,7 +38,7 @@ behavior when system time changes.
 > If you have old code in the system that is not time warp safe, you now
 > explicitly need to start the system in
 > [no time warp mode](time_correction.md#no-time-warp-mode) (or
-> [singe time warp mode](time_correction.md#single-time-warp-mode) if it is
+> [single time warp mode](time_correction.md#single-time-warp-mode) if it is
 > partially time warp safe) in order to avoid problems. When starting the system
 > in no time warp mode, the system behaves as it did prior to the introduction
 > of the extended time functionality introduced in OTP 18.
