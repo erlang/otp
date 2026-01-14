@@ -164,8 +164,9 @@ no_debug_info(Config) when is_list(Config) ->
 
     TestDir = filename:join(DataDir, "error/test/"),
     ModFile = filename:join(TestDir, "misc_error_1_SUITE.erl"),
-    ct:pal("Compiling ~p: ~p",
-	   [ModFile,compile:file(ModFile,[{outdir,TestDir},deterministic])]),
+    Result = compile:file(ModFile,[{outdir,TestDir},deterministic]),
+    ct:log("Compiling ~p: ~p", [ModFile,Result]),
+    ok = element(1,Result), %% Ensure compile succeeded.
 
     try
     Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
@@ -182,7 +183,7 @@ no_debug_info(Config) when is_list(Config) ->
     TestEvents = events_to_check(misc_errors),
     ok = ct_test_support:verify_events(TestEvents, Events, Config)
     after
-        ct:pal("Removing ~p", [ModFile]),
+        ct:log("Removing ~p", [ModFile]),
         code:delete(misc_error_1_SUITE),
         file:delete(filename:join(TestDir, "misc_error_1_SUITE.beam"))
     end.
