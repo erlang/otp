@@ -410,7 +410,7 @@ dsa_pem(Config) when is_list(Config) ->
     DSAPubKey = public_key:pem_entry_decode(PubEntry0),
     true = check_entry_type(DSAPubKey, 'DSAPublicKey'),
     PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', DSAPubKey),
-    DSAPubPemNoEndNewLines = strip_superfluous_newlines(DSAPubPem),
+    DSAPubPemNoEndNewLines = strip_licence(strip_superfluous_newlines(DSAPubPem)),
     DSAPubPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])).
 
 dsa_priv_pkcs8() ->
@@ -423,7 +423,7 @@ dsa_priv_pkcs8(Config) when is_list(Config) ->
     DSAKey = public_key:pem_entry_decode(Entry0),
     true = check_entry_type(DSAKey, 'DSAPrivateKey'),
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', DSAKey),
-    DSAPemNoEndNewLines = strip_superfluous_newlines(DsaPem),
+    DSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(DsaPem)),
     DSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 %%--------------------------------------------------------------------
@@ -451,14 +451,14 @@ rsa_pem(Config) when is_list(Config) ->
     RSAPubKey = public_key:pem_entry_decode(PubEntry0),
     true = check_entry_type(RSAPubKey, 'RSAPublicKey'),
     PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey),
-    RSAPubPemNoEndNewLines = strip_superfluous_newlines(RSAPubPem),
+    RSAPubPemNoEndNewLines = strip_licence(strip_superfluous_newlines(RSAPubPem)),
     RSAPubPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])),
 
     {ok, RSARawPem} = file:read_file(filename:join(Datadir, "rsa_pub_key.pem")),
     [{'RSAPublicKey', _, _} = PubEntry1] =
         public_key:pem_decode(RSARawPem),
     RSAPubKey = public_key:pem_entry_decode(PubEntry1),
-    RSARawPemNoEndNewLines = strip_superfluous_newlines(RSARawPem),
+    RSARawPemNoEndNewLines = strip_licence(strip_superfluous_newlines(RSARawPem)),
     RSARawPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry1])).
 
 rsa_pss_pss_pem() ->
@@ -471,7 +471,7 @@ rsa_pss_pss_pem(Config) when is_list(Config) ->
     {RSAKey, Parms} = public_key:pem_entry_decode(Entry0),
     true = check_entry_type(RSAKey, 'RSAPrivateKey'),
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', {RSAKey, Parms}),
-    RSAPemNoEndNewLines = strip_superfluous_newlines(RsaPem),
+    RSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(RsaPem)),
     RSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 rsa_pss_default_pem() ->
@@ -485,7 +485,7 @@ rsa_pss_default_pem(Config) when is_list(Config) ->
     {RSAKey, Parms} = public_key:pem_entry_decode(Entry0),
     true = check_entry_type(RSAKey, 'RSAPrivateKey'),
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', {RSAKey, Parms}),
-    RSAPemNoEndNewLines = strip_superfluous_newlines(RsaPem),
+    RSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(RsaPem)),
     RSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 rsa_priv_pkcs8() ->
@@ -498,7 +498,7 @@ rsa_priv_pkcs8(Config) when is_list(Config) ->
     RSAKey = public_key:pem_entry_decode(Entry0),
     true = check_entry_type(RSAKey, 'RSAPrivateKey'),
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', RSAKey),
-    RSAPemNoEndNewLines = strip_superfluous_newlines(RsaPem),
+    RSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(RsaPem)),
     RSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 %%--------------------------------------------------------------------
@@ -513,7 +513,7 @@ ec_pem(Config) when is_list(Config) ->
     ECPubKey = public_key:pem_entry_decode(PubEntry0),
     true = check_entry_type(ECPubKey, 'ECPoint'),
     PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', ECPubKey),
-    ECPubPemNoEndNewLines = strip_superfluous_newlines(ECPubPem),
+    ECPubPemNoEndNewLines = strip_licence(strip_superfluous_newlines(ECPubPem)),
     ECPubPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])),
 
     {ok, ECPrivPem} = file:read_file(filename:join(Datadir, "ec_key.pem")),
@@ -525,7 +525,7 @@ ec_pem(Config) when is_list(Config) ->
     ECPrivKey = public_key:pem_entry_decode(Entry2),
     true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
-    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_licence(strip_superfluous_newlines(ECPrivPem)),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
 
 -ifdef('EXPLICIT_EC_PARAMS').
@@ -545,7 +545,7 @@ ec_pem2(Config) when is_list(Config) ->
     ECPrivKey = public_key:pem_entry_decode(Entry2),
     true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
-    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_licence(strip_superfluous_newlines(ECPrivPem)),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
 -endif.
 
@@ -559,7 +559,7 @@ ec_priv_pkcs8(Config) when is_list(Config) ->
     true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', ECPrivKey),
-    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_licence(strip_superfluous_newlines(ECPrivPem)),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 eddsa_priv_pkcs8() ->
@@ -573,7 +573,7 @@ eddsa_priv_pkcs8(Config) when is_list(Config) ->
     true = ECPrivKey#'ECPrivateKey'.parameters == {namedCurve, ?'id-Ed25519'},
     true = size(ECPrivKey#'ECPrivateKey'.privateKey) == 32,
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', ECPrivKey),
-    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_licence(strip_superfluous_newlines(ECPrivPem)),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 eddsa_priv_rfc5958() ->
@@ -587,7 +587,7 @@ eddsa_priv_rfc5958(Config) when is_list(Config) ->
     true = ECPrivKey#'ECPrivateKey'.parameters == {namedCurve, ?'id-Ed25519'},
     true = size(ECPrivKey#'ECPrivateKey'.privateKey) == 32,
     PrivEntry0 = public_key:pem_entry_encode('OneAsymmetricKey', ECPrivKey),
-    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_licence(strip_superfluous_newlines(ECPrivPem)),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 eddsa_pub() ->
@@ -601,7 +601,7 @@ eddsa_pub(Config) when is_list(Config) ->
     true = check_entry_type(EDDSAPubKey, 'ECPoint'),
     {_, {namedCurve, ?'id-Ed25519'}} = EDDSAPubKey,
     PemEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
-    ECPemNoEndNewLines = strip_superfluous_newlines(EDDSAPubPem),
+    ECPemNoEndNewLines = strip_licence(strip_superfluous_newlines(EDDSAPubPem)),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PemEntry0])).
 
 mldsa_priv_pkcs8() ->
