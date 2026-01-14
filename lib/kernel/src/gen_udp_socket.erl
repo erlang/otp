@@ -1055,6 +1055,8 @@ opt_categories(Tag) when is_atom(Tag) ->
         %% open_opts is for the 'Opts' argument of the socket:open call
         debug       -> #{socket => [], start    => [], open_opts => []};
         ipv6_v6only -> #{socket => [], pre_bind => []};
+        reuseport   -> #{socket => [], pre_bind => []};
+        reuseport_lb-> #{socket => [], pre_bind => []};
 
         %% Some options may trigger us to choose recvmsg (instead of recvfrom)
         %% Or trigger us to choose recvfrom *if* was previously selected
@@ -1137,6 +1139,8 @@ socket_opt() ->
       %% The second can be seen as a side effect...
       recbuf           => [{socket, rcvbuf}, {otp, rcvbuf}],
       reuseaddr        => {socket, reuseaddr},
+      reuseport        => {socket, reuseport},
+      reuseport_lb     => {socket, reuseport_lb},
       sndbuf           => {socket, sndbuf},
 
       %%
