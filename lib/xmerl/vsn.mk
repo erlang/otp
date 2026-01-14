@@ -1,4 +1,4 @@
-XMERL_VSN = 2.1.7
+XMERL_VSN = 2.1.8
 
 # %CopyrightBegin%
 #
