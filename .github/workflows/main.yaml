@@ -194,7 +194,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
     env:
-      WXWIDGETS_VERSION: 3.2.8.1
+      WXWIDGETS_VERSION: 3.2.9
       MACOS_VERSION: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
@@ -206,7 +206,7 @@ jobs:
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # ratchet:actions/cache@v4.2.4
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
@@ -842,7 +842,7 @@ jobs:
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
       - name: Overwrite scan results using reuse
-        run: |          
+        run: |
           cp $HOME/.ort/ort-results/scan-result.json $HOME/.ort/ort-results/scan-result.scanned.json
           docker run -v $PWD/:/github -v $HOME:$HOME otp \
                "/github/.github/scripts/ort-scanner.es scan -t reuse -s overwrite \
@@ -998,7 +998,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
         with:
           name: otp_doc_man
-    
+
       ## We add the correct version name into the file names
       ## and create the hash files for all assets
       - name: Create pre-build and doc archives
@@ -1012,7 +1012,7 @@ jobs:
           FILES=$(ls {*.tar.gz,*.txt})
           md5sum $FILES > MD5.txt
           sha256sum $FILES > SHA256.txt
-    
+
       - name: Download SBoM
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
         with:
