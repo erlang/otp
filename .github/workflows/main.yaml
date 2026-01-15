@@ -201,7 +201,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.c-code-changes
     env:
-      WXWIDGETS_VERSION: 3.2.6
+      WXWIDGETS_VERSION: 3.2.9
       MACOS_VERSION: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
@@ -213,7 +213,7 @@ jobs:
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # ratchet:actions/cache@v4.2.3
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # ratchet:actions/cache@v4.2.4
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
