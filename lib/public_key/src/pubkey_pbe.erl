@@ -24,8 +24,6 @@
 -module(pubkey_pbe).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -include("PKCS-FRAME.hrl").
 -include("PKCS-1.hrl").
 -include("CMSAesRsaesOaep-2009.hrl").
@@ -285,14 +283,14 @@ pseudo_output_length(?'id-hmacWithSHA512') ->
 
 derived_key_length(_, Len) when is_integer(Len) ->
     Len;
-derived_key_length(Cipher,_) when (Cipher == ?'desCBC') or 
-				  (Cipher == "DES-CBC") ->
+derived_key_length(Cipher,_) when Cipher == ?'desCBC';
+				  Cipher == "DES-CBC" ->
     8;
-derived_key_length(Cipher,_) when (Cipher == ?'rc2CBC') or 
-				  (Cipher == "RC2-CBC") ->
+derived_key_length(Cipher,_) when Cipher == ?'rc2CBC';
+				  Cipher == "RC2-CBC" ->
     16;
-derived_key_length(Cipher,_) when (Cipher == ?'des-EDE3-CBC') or 
-				  (Cipher == "DES-EDE3-CBC") ->
+derived_key_length(Cipher,_) when Cipher == ?'des-EDE3-CBC';
+				  Cipher == "DES-EDE3-CBC" ->
     24;
 
 derived_key_length(Cipher,_) when (Cipher == "AES-128-CBC");

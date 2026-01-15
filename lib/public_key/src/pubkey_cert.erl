@@ -55,8 +55,6 @@
          x509_pkix_sign_types/1,
          root_cert/2]).
 
--compile(nowarn_obsolete_bool_op).
-
 -include("public_key_internal.hrl").
 
 %%====================================================================
@@ -185,7 +183,7 @@ parse_and_check_validity_dates(OtpCert) ->
         
         % Expiration check
         if
-            ((NotBefore =< Now) and (Now =< NotAfter)) -> ok;
+            NotBefore =< Now, Now =< NotAfter -> ok;
             true -> expired
         end
 
