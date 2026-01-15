@@ -5,7 +5,7 @@
 %% Tests with suffix x should not give warnings.
 %%
 
--module(and_bug).
+-module(guard_warnings).
 
 -compile(export_all).
 
@@ -105,11 +105,11 @@ test47(X) when (X == true) and (X == false) -> never.
 
 test48(X) when is_boolean(X) and (X =:= true) and (X =/= true) -> never.
 
-test49_x(X) when not (X or X) -> maybe.
+test49_x(X) when not (X or X) -> 'maybe'.
 
-test50_x(X) when not (X and X) -> maybe.
+test50_x(X) when not (X and X) -> 'maybe'.
 
-test51_x(X) when not (not X) -> maybe.
+test51_x(X) when not (not X) -> 'maybe'.
 
 test52_w(X) when is_boolean(X) and (X =/= true) and (X =:= true) -> never.
 

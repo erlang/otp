@@ -1,4 +1,10 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,35 +16,47 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
+%% %CopyrightEnd%
 
 -module(syntax_tools_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
-         revert_map_type/1,wrapped_subtrees/1,
+         revert_map_type/1,revert_preserve_pos_changes/1,
+         wrapped_subtrees/1,
          t_abstract_type/1,t_erl_parse_type/1,t_type/1,
          t_epp_dodger/1,t_epp_dodger_clever/1,
-         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1]).
+         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1,
+         test_maybe_expr_ann/1,test_mc_ann/1,test_zip_ann/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
+     revert_preserve_pos_changes,
      wrapped_subtrees,
      t_abstract_type,t_erl_parse_type,t_type,
      t_epp_dodger,t_epp_dodger_clever,
-     t_comment_scan,t_prettypr,test_named_fun_bind_ann].
+     t_comment_scan,t_prettypr,test_named_fun_bind_ann,
+     test_maybe_expr_ann,test_mc_ann,test_zip_ann].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -89,7 +107,7 @@ print_error_markers(F, File) ->
 	_ ->
 	    ok
     end.
-    
+
 
 %% Read with erl_parse, wrap and revert with erl_syntax and check for equality.
 revert(Config) when is_list(Config) ->
@@ -113,8 +131,13 @@ revert_file(File, Path) ->
             Fs2 = erl_syntax_lib:map(fun (Node) -> Node end, Fs1),
             Fs3 = erl_syntax:form_list_elements(Fs2),
             Fs4 = [ erl_syntax:revert(Form) || Form <- Fs3 ],
-            {ok,_} = compile:forms(Fs4, [report,strong_validation]),
-            ok
+            case compile:forms(Fs4, [report,return,strong_validation]) of
+                {ok,_,_} -> ok;
+                {error, [{_, [{_, epp, {moduledoc, file, _}}]}],[]} ->
+                    ok;
+                {error, [{_, [{_, epp, {doc, file, _}}]}],[]} ->
+                    ok
+            end
     end.
 
 %% Testing bug fix for reverting map_field_assoc
@@ -145,6 +168,20 @@ revert_map_type(Config) when is_list(Config) ->
                  [{type,5,map_field_assoc,[{atom,5,y},{atom,5,z}]}]}}]}},
     Mapped2 = erl_syntax_lib:map(fun(X) -> X end, Form2),
     Form2 = erl_syntax:revert(Mapped2),
+    test_server:timetrap_cancel(Dog).
+
+revert_preserve_pos_changes(Config) when is_list(Config) ->
+    Dog = test_server:timetrap(test_server:minutes(1)),
+    Pos0 = 1,
+    Var0 = {var, Pos0, 'Var'},
+    %% Adding any user annotation makes erl_syntax change to it's internal
+    %% representation
+    Var1 = erl_syntax:add_ann({env, []}, Var0),
+    %% Change the `pos' of the node
+    Pos1 = erl_anno:set_generated(true, Pos0),
+    Var2 = erl_syntax:set_pos(Var1, Pos1),
+    %% The must be equal when reverted
+    {var, Pos1, 'Var'} = erl_syntax:revert(Var2),
     test_server:timetrap_cancel(Dog).
 
 %% Read with erl_parse, wrap each tree node with erl_syntax and check that
@@ -311,9 +348,20 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"#{ a:=1, b:=2 }", map_expr,false},
 		     {"M#{ a=>1, b=>2 }", map_expr,false},
 		     {"[V||V <- Vs]", list_comp,false},
+		     {"[V||V <:- Vs]", list_comp,false},
 		     {"[catch V||V <- Vs]", list_comp,false},
 		     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+		     {"<< <<B>> || <<B>> <:= Bs>>", binary_comp,false},
 		     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
+		     {"#{K => V || {K,V} <- KVs}", map_comp,false},
+		     {"#{K => V || {K,V} <:- KVs}", map_comp,false},
+		     {"#{K => (catch V) || {K,V} <- KVs}", map_comp,false},
+                     {"[V+W||V <- Vs && W <- Ws]", list_comp,false},
+                     {"[catch V+W||V <- Vs && W <- Ws]", list_comp,false},
+                     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+                     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
+                     {"<< <<B:8,C:8>> || <<B>> <= Bs && <<C>> <= Cs>>", binary_comp,false},
+		     {"<< (catch <<B:8,C:8>>) || <<B>> <= Bs && <<C>> <= Cs>>", binary_comp,false},
 		     {"#state{ a = A, b = B}", record_expr,false},
 		     {"#state{}", record_expr,false},
 		     {"#s{ a = #def{ a=A }, b = B}", record_expr,false},
@@ -381,6 +429,94 @@ test_named_fun_bind_ann(Config) when is_list(Config) ->
     {'env',[Name]} = CEnv,
     {'bound',['Test']} = CBound,
     {'free', []} = CFree.
+
+%% Test annotation of maybe_expr, maybe_match_expr and else_expr (PR #8811)
+test_maybe_expr_ann(Config) when is_list(Config) ->
+    %% maybe
+    %%  ok ?= Test,
+    %%  What ?= ok,
+    %%  Var = What,
+    %% else
+    %%  Error -> Error
+    %% end.
+    MaybeMatch1 = erl_syntax:maybe_match_expr(
+                    erl_syntax:atom(ok),
+                    erl_syntax:variable('Test')),
+    MaybeMatch2 = erl_syntax:maybe_match_expr(
+                    erl_syntax:variable('What'),
+                    erl_syntax:atom(ok)),
+    Match1 = erl_syntax:maybe_match_expr(
+                    erl_syntax:variable('Var'),
+                    erl_syntax:variable('What')),
+    Else = erl_syntax:else_expr(
+             [erl_syntax:clause(
+                [erl_syntax:variable('Err')],
+                'none',
+               [erl_syntax:variable('Err')])
+             ]),
+    Maybe = erl_syntax:maybe_expr([MaybeMatch1, MaybeMatch2, Match1], Else),
+
+    MaybeAnn = erl_syntax_lib:annotate_bindings(Maybe, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(MaybeAnn),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',['Test']} = Free,
+
+    [MaybeMatchAnn1, MaybeMatchAnn2, MatchAnn1] = erl_syntax:maybe_expr_body(MaybeAnn),
+    [Env1, Bound1, Free1] = erl_syntax:get_ann(MaybeMatchAnn1),
+    {'env',[]} = Env1,
+    {'bound',[]} = Bound1,
+    {'free',['Test']} = Free1,
+    [Env2, Bound2, Free2] = erl_syntax:get_ann(MaybeMatchAnn2),
+    {'env',[]} = Env2,
+    {'bound',['What']} = Bound2,
+    {'free',[]} = Free2,
+    [Env3, Bound3, Free3] = erl_syntax:get_ann(MatchAnn1),
+    {'env',['What']} = Env3,
+    {'bound',['Var']} = Bound3,
+    {'free',['What']} = Free3,
+
+    ElseAnn = erl_syntax:maybe_expr_else(MaybeAnn),
+    [Env4, Bound4, Free4] = erl_syntax:get_ann(ElseAnn),
+    {'env',[]} = Env4,
+    {'bound',[]} = Bound4,
+    {'free',[]} = Free4,
+
+    %% Test that it also works when there is no else clause
+    MaybeNoElse = erl_syntax:maybe_expr([MaybeMatch1, MaybeMatch2, Match1]),
+    MaybeNoElseAnn = erl_syntax_lib:annotate_bindings(MaybeNoElse, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(MaybeNoElseAnn),
+    [MaybeMatchAnn1, MaybeMatchAnn2, MatchAnn1] = erl_syntax:maybe_expr_body(MaybeNoElseAnn),
+    NoElseAnn = erl_syntax:maybe_expr_else(MaybeNoElseAnn),
+    [] = erl_syntax:get_ann(NoElseAnn),
+
+    ok.
+
+test_mc_ann(Config) when is_list(Config) ->
+    Expr = {mc,1,
+            {map_field_assoc,1,{var,1,'X'},{var,1,'Y'}},
+            [{generate,1,
+                        {tuple,1,[{var,1,'X'},{var,1,'Y'}]},
+                        {var,1,'Pairs'}}]},
+    ZipAnn = erl_syntax_lib:annotate_bindings(Expr, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(ZipAnn),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',['Pairs']} = Free,
+    ok.
+
+test_zip_ann(Config) when is_list(Config) ->
+    Expr = {lc,1,
+            {tuple,1,[{var,1,'A'},{var,1,'B'}]},
+            [{zip,1,
+                [{generate,1,{var,1,'A'},{var,1,'X'}},
+                    {generate_strict,1,{var,1,'B'},{var,1,'Y'}}]}]},
+    ZipAnn = erl_syntax_lib:annotate_bindings(Expr, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(ZipAnn),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',['X','Y']} = Free,
+    ok.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),

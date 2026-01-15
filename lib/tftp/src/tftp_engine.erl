@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 %%-------------------------------------------------------------------
@@ -22,6 +24,7 @@
 %%-------------------------------------------------------------------
 
 -module(tftp_engine).
+-moduledoc false.
 
 %%%-------------------------------------------------------------------
 %%% Interface
@@ -73,6 +76,14 @@
 %%% Info
 %%%-------------------------------------------------------------------
 
+-spec info(Procs) -> [{Pid, Result}] when
+    Procs   :: daemons | servers,
+    Pid     :: pid(),
+    Result  :: term();
+          (Pid) -> Result when
+    Pid     :: pid(),
+    Result  :: term().
+
 info(daemons) ->
     Daemons = supervisor:which_children(tftp_sup),
     [{Pid, info(Pid)} || {_, Pid, _, _} <- Daemons];
@@ -81,6 +92,18 @@ info(servers) ->
                          {server, Pid}   <- DeamonInfo];
 info(ToPid) when is_pid(ToPid) ->
     call(info, ToPid, timer:seconds(10)).
+
+-spec change_config(Procs, Options) -> [{Pid, Result}] when
+    Procs   :: daemons | servers,
+    Options :: [tftp:option()],
+    Pid     :: pid(),
+    Result  :: ok | {error, Reason},
+    Reason  :: term();
+                   (Pid, Options) -> Result when
+    Pid     :: pid(),
+    Options :: [tftp:option()],
+    Result  :: ok | {error, Reason},
+    Reason  :: term().
 
 change_config(daemons, Options) ->
     Daemons = supervisor:which_children(tftp_sup),
@@ -625,7 +648,7 @@ common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, 
     end;
 common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, Prepared) 
   when ActualBlockNo =< ExpectedBlockNo, is_record(Prepared, prepared) ->
-    %% error_logger:error_msg("TFTP READ ~s: Expected block ~p but got block ~p - IGNORED\n",
+    %% logger:error("TFTP READ ~s: Expected block ~p but got block ~p - IGNORED\n",
     %%                     [Req#tftp_msg_req.filename, ExpectedBlockNo, ActualBlockNo]),
     case Prepared of
         #prepared{status = more, prev_data = Data} when is_binary(Data) ->
@@ -686,7 +709,7 @@ common_write(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo,
     common_ack(Config, Callback, Req, LocalAccess, ExpectedBlockNo - 1, Prepared);
 common_write(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, Data, Prepared)
   when ActualBlockNo =< ExpectedBlockNo, is_binary(Data), is_record(Prepared, prepared) ->
-    %% error_logger:error_msg("TFTP WRITE ~s: Expected block ~p but got block ~p - IGNORED\n",
+    %% logger:error("TFTP WRITE ~s: Expected block ~p but got block ~p - IGNORED\n",
     %% [Req#tftp_msg_req.filename, ExpectedBlockNo, ActualBlockNo]),
     Reply = #tftp_msg_ack{block_no = ExpectedBlockNo},
     {Config2, Callback2, TransferRes} = 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -317,6 +319,10 @@ coverage(Config) ->
 
     {'EXIT',{badarg,_}} = catch coverage_4(a, b),
 
+    ~"true" = coverage_5(id(latin1), id(true)),
+    ~"true" = coverage_5(id(utf8), id(false)),
+    {'EXIT',{badarg,_}} = catch coverage_5(id(42), id(42)),
+
     ok.
 
 coverage_1() ->
@@ -346,6 +352,9 @@ coverage_4(A, B) ->
 
 do_coverage_4(_, _, _, _) ->
     ok.
+
+coverage_5(B, A) ->
+    atom_to_binary((A or A) == A, B).
 
 %%%
 %%% Common functions.

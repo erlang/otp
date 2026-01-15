@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +30,7 @@
 #include "global.h"
 #include "hash.h"
 #include "atom.h"
+#include "erl_global_literals.h"
 
 
 #define ATOM_SIZE  3000
@@ -48,19 +51,6 @@ static erts_rwmtx_t atom_table_lock;
 static erts_atomic_t atom_put_ops;
 #endif
 
-/* Functions for allocating space for the ext of atoms. We do not
- * use malloc for each atom to prevent excessive memory fragmentation
- */
-
-typedef struct _atom_text {
-    struct _atom_text* next;
-    unsigned char text[ATOM_TEXT_SIZE];
-} AtomText;
-
-static AtomText* text_list;	/* List of text buffers */
-static byte *atom_text_pos;
-static byte *atom_text_end;
-static Uint reserved_atom_space;	/* Total amount of atom text space */
 static Uint atom_space;		/* Amount of atom text space used */
 
 /*
@@ -81,44 +71,8 @@ void atom_info(fmtfn_t to, void *to_arg)
 	atom_read_unlock();
 }
 
-/*
- * Allocate an atom text segment.
- */
-static void
-more_atom_space(void)
-{
-    AtomText* ptr;
 
-    ptr = (AtomText*) erts_alloc(ERTS_ALC_T_ATOM_TXT, sizeof(AtomText));
 
-    ptr->next = text_list;
-    text_list = ptr;
-
-    atom_text_pos = ptr->text;
-    atom_text_end = atom_text_pos + ATOM_TEXT_SIZE;
-    reserved_atom_space += sizeof(AtomText);
-
-    VERBOSE(DEBUG_SYSTEM,("Allocated %d atom space\n",ATOM_TEXT_SIZE));
-}
-
-/*
- * Allocate string space within an atom text segment.
- */
-
-static byte*
-atom_text_alloc(int bytes)
-{
-    byte *res;
-
-    ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
-    if (atom_text_pos + bytes >= atom_text_end) {
-	more_atom_space();
-    }
-    res = atom_text_pos;
-    atom_text_pos += bytes;
-    atom_space    += bytes;
-    return res;
-}
 
 /*
  * Calculate atom hash value (using the hash algorithm
@@ -128,7 +82,7 @@ atom_text_alloc(int bytes)
 static HashValue
 atom_hash(Atom* obj)
 {
-    byte* p = obj->name;
+    byte* p = obj->u.name;
     int len = obj->len;
     HashValue h = 0, g;
     byte v;
@@ -150,12 +104,23 @@ atom_hash(Atom* obj)
     return h;
 }
 
+const byte *erts_atom_get_name(const Atom *atom)
+{
+    byte *name;
+    Uint size;
+    Uint offset;
+    ERTS_GET_BITSTRING(atom->u.bin, name, offset, size);
+    ASSERT(offset == 0 && (size % 8) == 0);
+    (void) size;
+    (void) offset;
+    return name;
+}
 
 static int 
 atom_cmp(Atom* tmpl, Atom* obj)
 {
     if (tmpl->len == obj->len &&
-	sys_memcmp(tmpl->name, obj->name, tmpl->len) == 0)
+	sys_memcmp(tmpl->u.name, erts_atom_get_name(obj), tmpl->len) == 0)
 	return 0;
     return 1;
 }
@@ -164,13 +129,39 @@ atom_cmp(Atom* tmpl, Atom* obj)
 static Atom*
 atom_alloc(Atom* tmpl)
 {
-    Atom* obj = (Atom*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(Atom));
+    Atom *obj = (Atom*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(Atom));
 
-    obj->name = atom_text_alloc(tmpl->len);
-    sys_memcpy(obj->name, tmpl->name, tmpl->len);
+    {
+        Eterm *hp;
+        Uint heap_size = 0;
+        ErtsHeapFactory factory;
+        ErlOffHeap oh;
+        struct erl_off_heap_header **literal_ohp;
+        
+        if (tmpl->len <= ERL_ONHEAP_BINARY_LIMIT) {
+            heap_size = heap_bits_size(NBITS(tmpl->len));
+        } else {
+            heap_size = ERL_REFC_BITS_SIZE;
+        }
+
+        hp = erts_global_literal_allocate(heap_size, &literal_ohp);
+        ERTS_INIT_OFF_HEAP(&oh);
+        oh.first = *literal_ohp;
+        
+        erts_factory_static_init(&factory, hp, heap_size, &oh);
+        *literal_ohp = oh.first;
+        obj->u.bin = erts_hfact_new_binary_from_data(&factory, 
+                                                    0, 
+                                                    tmpl->len, 
+                                                    tmpl->u.name);
+        erts_global_literal_register(&obj->u.bin);
+    }
+    
     obj->len = tmpl->len;
     obj->latin1_chars = tmpl->latin1_chars;
     obj->slot.index = -1;
+    atom_space += tmpl->len;
+    
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
@@ -186,7 +177,7 @@ atom_alloc(Atom* tmpl)
 
 	j = (tmpl->len < 4) ? tmpl->len : 4;
 	for(i = 0; i < j; ++i)
-	    c[i] = tmpl->name[i];
+	    c[i] = tmpl->u.name[i];
 	for(; i < 4; ++i)
 	    c[i] = '\0';
 	obj->ord0 = (c[0] << 23) + (c[1] << 15) + (c[2] << 7) + (c[3] >> 1);
@@ -246,6 +237,8 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     Atom a;
     int aix;
 
+    ERTS_UNDEF(no_latin1_chars, -1);
+
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_atomic_inc_nob(&atom_put_ops);
 #endif
@@ -293,7 +286,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     }
 
     a.len = tlen;
-    a.name = (byte *) text;
+    a.u.name = (byte *) text;
     atom_read_lock();
     aix = index_get(&erts_atom_table, (void*) &a);
     atom_read_unlock();
@@ -333,7 +326,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 
     a.len = tlen;
     a.latin1_chars = (Sint16) no_latin1_chars;
-    a.name = (byte *) text;
+    a.u.name = (byte *) text;
     atom_write_lock();
     aix = index_put(&erts_atom_table, (void*) &a);
     atom_write_unlock();
@@ -400,7 +393,7 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
 
         latin1_to_utf8(utf8_copy, sizeof(utf8_copy), (const byte**)&name, &len);
 
-        a.name = (byte*)name;
+        a.u.name = (byte*)name;
         a.len = (Sint16)len;
         break;
     case ERTS_ATOM_ENC_7BIT_ASCII:
@@ -415,7 +408,7 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
         }
 
         a.len = (Sint16)len;
-        a.name = (byte*)name;
+        a.u.name = (byte*)name;
         break;
     case ERTS_ATOM_ENC_UTF8:
         if (len > MAX_ATOM_SZ_LIMIT) {
@@ -427,7 +420,7 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
          * name will fail. */
 
         a.len = (Sint16)len;
-        a.name = (byte*)name;
+        a.u.name = (byte*)name;
         break;
     }
 
@@ -446,7 +439,7 @@ erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
     if (lock)
 	atom_read_lock();
     if (reserved)
-	*reserved = reserved_atom_space;
+	*reserved = atom_space;
     if (used)
 	*used = atom_space;
     if (lock)
@@ -479,33 +472,28 @@ init_atom_table(void)
     f.meta_free = (HMFREE_FUN) erts_free;
     f.meta_print = (HMPRINT_FUN) erts_print;
 
-    atom_text_pos = NULL;
-    atom_text_end = NULL;
-    reserved_atom_space = 0;
-    atom_space = 0;
-    text_list = NULL;
-
     erts_index_init(ERTS_ALC_T_ATOM_TABLE, &erts_atom_table,
 		    "atom_tab", ATOM_SIZE, erts_atom_table_size, f);
-    more_atom_space();
 
-    /* Ordinary atoms */
+    /* Ordinary atoms. a is a template for creating an entry in the atom table */
     for (i = 0; erl_atom_names[i] != 0; i++) {
 	int ix;
 	a.len = sys_strlen(erl_atom_names[i]);
 	a.latin1_chars = a.len;
-	a.name = (byte*)erl_atom_names[i];
+	a.u.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;
+
+
 #ifdef DEBUG
 	/* Verify 7-bit ascii */
 	for (ix = 0; ix < a.len; ix++) {
-	    ASSERT((a.name[ix] & 0x80) == 0);
+	    ASSERT((a.u.name[ix] & 0x80) == 0);
 	}
 #endif
 	ix = index_put(&erts_atom_table, (void*) &a);
-	atom_text_pos -= a.len;
-	atom_space -= a.len;
-	atom_tab(ix)->name = (byte*)erl_atom_names[i];
+    (void) ix;
+    /* Assert that the entry in the atom table is not a template */
+    ASSERT(erts_atom_get_name(atom_tab(ix)));
     }
 
 }

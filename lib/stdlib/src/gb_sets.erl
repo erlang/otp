@@ -1,3 +1,11 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright (C) 1999-2001 Richard Carlsson
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,153 +18,68 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% %CopyrightEnd%
+%%
 %% =====================================================================
 %% Ordered Sets implemented as General Balanced Trees
-%%
-%% Copyright (C) 1999-2001 Richard Carlsson
 %%
 %% An implementation of ordered sets using Prof. Arne Andersson's
 %% General Balanced Trees. This can be much more efficient than using
 %% ordered lists, for larger sets, but depends on the application. See
 %% notes below for details.
 %% ---------------------------------------------------------------------
-%% Notes:
-%%
-%% The complexity on set operations is bounded by either O(|S|) or O(|T|
-%% * log(|S|)), where S is the largest given set, depending on which is
-%% fastest for any particular function call. For operating on sets of
-%% almost equal size, this implementation is about 3 times slower than
-%% using ordered-list sets directly. For sets of very different sizes,
-%% however, this solution can be arbitrarily much faster; in practical
-%% cases, often between 10 and 100 times. This implementation is
-%% particularly suited for ackumulating elements a few at a time,
-%% building up a large set (more than 100-200 elements), and repeatedly
-%% testing for membership in the current set.
-%%
-%% As with normal tree structures, lookup (membership testing),
-%% insertion and deletion have logarithmic complexity.
-%%
-%% Operations:
-%%
-%% - empty(): returns empty set.
-%%
-%%   Alias: new(), for compatibility with `sets'.
-%%
-%% - is_empty(S): returns 'true' if S is an empty set, and 'false'
-%%   otherwise.
-%%
-%% - size(S): returns the number of nodes in the set as an integer.
-%%   Returns 0 (zero) if the set is empty.
-%%
-%% - singleton(X): returns a set containing only the element X.
-%%
-%% - is_member(X, S): returns `true' if element X is a member of set S,
-%%   and `false' otherwise.
-%%
-%%   Alias: is_element(), for compatibility with `sets'.
-%%
-%% - insert(X, S): inserts element X into set S; returns the new set.
-%%   *Assumes that the element is not present in S.*
-%%
-%% - add(X, S): adds element X to set S; returns the new set. If X is
-%%   already an element in S, nothing is changed.
-%%
-%%   Alias: add_element(), for compatibility with `sets'.
-%%
-%% - delete(X, S): removes element X from set S; returns new set.
-%%   Assumes that the element exists in the set.
-%%
-%% - delete_any(X, S): removes key X from set S if the key is present
-%%   in the set, otherwise does nothing; returns new set.
-%%
-%%   Alias: del_element(), for compatibility with `sets'.
-%%
-%% - balance(S): rebalances the tree representation of S. Note that this
-%%   is rarely necessary, but may be motivated when a large number of
-%%   elements have been deleted from the tree without further
-%%   insertions. Rebalancing could then be forced in order to minimise
-%%   lookup times, since deletion only does not rebalance the tree.
-%%
-%% - union(S1, S2): returns a new set that contains each element that is
-%%   in either S1 or S2 or both, and no other elements.
-%%
-%% - union(Ss): returns a new set that contains each element that is in
-%%   at least one of the sets in the list Ss, and no other elements.
-%%
-%% - intersection(S1, S2): returns a new set that contains each element
-%%   that is in both S1 and S2, and no other elements.
-%%
-%% - intersection(Ss): returns a new set that contains each element that
-%%   is in all of the sets in the list Ss, and no other elements.
-%%
-%% - is_disjoint(S1, S2): returns `true' if none of the elements in S1
-%%   occurs in S2.
-%%
-%% - difference(S1, S2): returns a new set that contains each element in
-%%   S1 that is not also in S2, and no other elements.
-%%
-%%   Alias: subtract(), for compatibility with `sets'.
-%%
-%% - is_subset(S1, S2): returns `true' if each element in S1 is also a
-%%   member of S2, and `false' otherwise.
-%%
-%% - to_list(S): returns an ordered list of all elements in set S. The
-%%   list never contains duplicates.
-%%
-%% - from_list(List): creates a set containing all elements in List,
-%%   where List may be unordered and contain duplicates.
-%%
-%% - from_ordset(L): turns an ordered-set list L into a set. The list
-%%   must not contain duplicates.
-%%
-%% - smallest(S): returns the smallest element in set S. Assumes that
-%%   the set S is nonempty.
-%%
-%% - largest(S): returns the largest element in set S. Assumes that the
-%%   set S is nonempty.
-%%
-%% - take_smallest(S): returns {X, S1}, where X is the smallest element
-%%   in set S, and S1 is the set S with element X deleted. Assumes that
-%%   the set S is nonempty.
-%%
-%% - take_largest(S): returns {X, S1}, where X is the largest element in
-%%   set S, and S1 is the set S with element X deleted. Assumes that the
-%%   set S is nonempty.
-%%
-%% - iterator(S): returns an iterator that can be used for traversing
-%%   the entries of set S; see `next'. The implementation of this is
-%%   very efficient; traversing the whole set using `next' is only
-%%   slightly slower than getting the list of all elements using
-%%   `to_list' and traversing that. The main advantage of the iterator
-%%   approach is that it does not require the complete list of all
-%%   elements to be built in memory at one time.
-%%
-%% - iterator_from(X, S): returns an iterator that can be used for
-%%   traversing the elements of set S greater than or equal to X;
-%%   see `next'.
-%%
-%% - next(T): returns {X, T1} where X is the smallest element referred
-%%   to by the iterator T, and T1 is the new iterator to be used for
-%%   traversing the remaining elements, or the atom `none' if no
-%%   elements remain.
-%%
-%% - filter(P, S): Filters set S using predicate function P. Included
-%%   for compatibility with `sets'.
-%%
-%% - fold(F, A, S): Folds function F over set S with A as the initial
-%%   ackumulator. Included for compatibility with `sets'.
-%%
-%% - is_set(S): returns 'true' if S appears to be a set, and 'false'
-%%   otherwise. Not recommended; included for compatibility with `sets'.
 
 -module(gb_sets).
+-moduledoc """
+Sets represented by general balanced trees.
+
+This module provides ordered sets using Prof. Arne Andersson's General Balanced
+Trees. Ordered sets can be much more efficient than using ordered lists, for
+larger sets, but depends on the application.
+
+The data representing a set as used by this module is to be regarded as opaque
+by other modules. In abstract terms, the representation is a composite type of
+existing Erlang terms. See note on
+[data types](`e:system:data_types.md#no_user_types`). Any code assuming
+knowledge of the format is running on thin ice.
+
+This module considers two elements as different if and only if they do not
+compare equal (`==`).
+
+## Complexity Note
+
+The complexity on set operations is bounded by either _O(|S|)_ or _O(|T| _
+log(|S|))\*, where S is the largest given set, depending on which is fastest for
+any particular function call. For operating on sets of almost equal size, this
+implementation is about 3 times slower than using ordered-list sets directly.
+For sets of very different sizes, however, this solution can be arbitrarily much
+faster; in practical cases, often 10-100 times. This implementation is
+particularly suited for accumulating elements a few at a time, building up a
+large set (> 100-200 elements), and repeatedly testing for membership in the
+current set.
+
+As with normal tree structures, lookup (membership testing), insertion, and
+deletion have logarithmic complexity.
+
+## Compatibility
+
+See the [Compatibility Section in the `sets` module](`m:sets#module-compatibility`)
+for information about the compatibility of the different implementations of sets
+in the Standard Library.
+
+## See Also
+
+`m:gb_trees`, `m:ordsets`, `m:sets`
+""".
 
 -export([empty/0, is_empty/1, size/1, singleton/1, is_member/2,
 	 insert/2, add/2, delete/2, delete_any/2, balance/1, union/2,
-	 union/1, intersection/2, intersection/1, is_disjoint/2, difference/2,
-	 is_subset/2, to_list/1, from_list/1, from_ordset/1, smallest/1,
-	 largest/1, take_smallest/1, take_largest/1, iterator/1,
-         iterator_from/2, next/1, filter/2, fold/3, is_set/1]).
+	 union/1, intersection/2, intersection/1, is_equal/2,
+	 is_disjoint/2, difference/2, is_subset/2, to_list/1,
+	 from_list/1, from_ordset/1, smallest/1, largest/1,
+	 take_smallest/1, take_largest/1, smaller/2, larger/2,
+         iterator/1, iterator/2, iterator_from/2, iterator_from/3,
+         next/1, filter/2, fold/3, map/2, filtermap/2, is_set/1]).
 
 %% `sets' compatibility aliases:
 
@@ -181,13 +104,13 @@
 %% Behaviour is logarithmic (as it should be).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Some macros. 
+%% Some macros.
 
 -define(p, 2). % It seems that p = 2 is optimal for sorted keys
 
 -define(pow(A, _), A * A). % correct with exponent as defined above.
 
--define(div2(X), X bsr 1). 
+-define(div2(X), X bsr 1).
 
 -define(mul2(X), X bsl 1).
 
@@ -197,24 +120,58 @@
 -export_type([set/0, set/1, iter/0, iter/1]).
 
 -type gb_set_node(Element) :: 'nil' | {Element, _, _}.
+-doc "A general balanced set.".
 -opaque set(Element) :: {non_neg_integer(), gb_set_node(Element)}.
 -type set() :: set(_).
--opaque iter(Element) :: [gb_set_node(Element)].
+-doc "A general balanced set iterator.".
+-opaque iter(Element) :: {ordered | reversed, [gb_set_node(Element)]}.
 -type iter() :: iter(_).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns a new empty set.
+
+## Examples
+
+```erlang
+1> gb_sets:to_list(gb_sets:empty()).
+[]
+```
+""".
 -spec empty() -> Set when
       Set :: set(none()).
 
 empty() ->
     {0, nil}.
 
+-doc """
+Returns a new empty set.
+
+## Examples
+
+```erlang
+1> gb_sets:to_list(gb_sets:new()).
+[]
+```
+""".
 -spec new() -> Set when
       Set :: set(none()).
 
 new() -> empty().
 
+-doc """
+Returns `true` if `Set` is an empty set; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> gb_sets:is_empty(gb_sets:new()).
+true
+2> gb_sets:is_empty(gb_sets:singleton(1)).
+false
+```
+""".
 -spec is_empty(Set) -> boolean() when
       Set :: set().
 
@@ -223,23 +180,103 @@ is_empty({0, nil}) ->
 is_empty(_) ->
     false.
 
+-doc """
+Returns the number of elements in `Set`.
+
+## Examples
+
+```erlang
+1> gb_sets:size(gb_sets:new()).
+0
+2> gb_sets:size(gb_sets:from_list([4,5,6])).
+3
+```
+""".
 -spec size(Set) -> non_neg_integer() when
       Set :: set().
 
 size({Size, _}) ->
     Size.
 
+-doc """
+Returns `true` if `Set1` and `Set2` are equal, that is, if every element
+of one set is also a member of the other set; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> Empty = gb_sets:new().
+2> S = gb_sets:from_list([a,b]).
+3> gb_sets:is_equal(S, S)
+true
+4> gb_sets:is_equal(S, Empty)
+false
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec is_equal(Set1, Set2) -> boolean() when
+      Set1 :: set(),
+      Set2 :: set().
+
+is_equal({Size, S1}, {Size, _} = S2)  ->
+    try is_equal_1(S1, to_list(S2)) of
+        [] ->
+            true
+    catch
+        throw:not_equal ->
+            false
+    end;
+is_equal({_, _}, {_, _}) ->
+    false.
+
+is_equal_1(nil, Keys) ->
+    Keys;
+is_equal_1({Key1, Smaller, Bigger}, Keys0) ->
+    [Key2 | Keys] = is_equal_1(Smaller, Keys0),
+    if
+        Key1 == Key2 ->
+            is_equal_1(Bigger, Keys);
+        true ->
+            throw(not_equal)
+    end.
+
+-doc """
+Returns a set containing only element `Element`.
+
+## Examples
+
+```erlang
+1> S = gb_sets:singleton(42).
+2> gb_sets:to_list(S).
+[42]
+```
+""".
 -spec singleton(Element) -> set(Element).
 
 singleton(Key) ->
     {1, {Key, nil, nil}}.
 
+-doc(#{equiv => is_member(Element, Set)}).
 -spec is_element(Element, Set) -> boolean() when
       Set :: set(Element).
 
 is_element(Key, S) ->
     is_member(Key, S).
 
+-doc """
+Returns `true` if `Element` is an element of `Set`; otherwise, returns
+`false`.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([a,b,c]).
+2> gb_sets:is_member(42, S).
+false
+3> gb_sets:is_member(b, S).
+true
+```
+""".
 -spec is_member(Element, Set) -> boolean() when
       Set :: set(Element).
 
@@ -255,6 +292,25 @@ is_member_1(_, {_, _, _}) ->
 is_member_1(_, nil) ->
     false.
 
+-doc """
+Returns a new set formed from `Set1` with `Element` inserted,
+assuming `Element` is not already present.
+
+Use `add/2` for inserting into a set where `Element` is potentially
+already present.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:new().
+2> S1 = gb_sets:insert(7, S0).
+3> gb_sets:to_list(S1).
+[7]
+4> S2 = gb_sets:insert(42, S1).
+5> gb_sets:to_list(S2).
+[7,42]
+```
+""".
 -spec insert(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -263,7 +319,7 @@ insert(Key, {S, T}) when is_integer(S), S >= 0 ->
     S1 = S + 1,
     {S1, insert_1(Key, T, ?pow(S1, ?p))}.
 
-insert_1(Key, {Key1, Smaller, Bigger}, S) when Key < Key1 -> 
+insert_1(Key, {Key1, Smaller, Bigger}, S) when Key < Key1 ->
     case insert_1(Key, Smaller, ?div2(S)) of
 	{T1, H1, S1} when is_integer(H1), is_integer(S1) ->
 	    T = {Key1, T1, Bigger},
@@ -280,7 +336,7 @@ insert_1(Key, {Key1, Smaller, Bigger}, S) when Key < Key1 ->
 	T1 ->
 	    {Key1, T1, Bigger}
     end;
-insert_1(Key, {Key1, Smaller, Bigger}, S) when Key > Key1 -> 
+insert_1(Key, {Key1, Smaller, Bigger}, S) when Key > Key1 ->
     case insert_1(Key, Bigger, ?div2(S)) of
 	{T1, H1, S1} when is_integer(H1), is_integer(S1) ->
 	    T = {Key1, Smaller, T1},
@@ -313,6 +369,25 @@ count({_, Sm, Bi}) ->
 count(nil) ->
     {1, 0}.
 
+-doc """
+Rebalances the tree representation of `Set1`.
+
+This is rarely necessary, but can be motivated when a large number of
+elements have been deleted from the tree without further
+insertions. Forcing rebalancing can minimize lookup times, as deletion
+does not rebalance the tree.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_ordset(lists:seq(1, 100)).
+2> Delete = fun(E, Set) -> gb_sets:delete(E, Set) end.
+3> S1 = lists:foldl(Delete, S0, lists:seq(1, 50)).
+4> gb_sets:size(S1).
+50
+5> S2 = gb_sets:balance(S1).
+```
+""".
 -spec balance(Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -340,6 +415,24 @@ balance_list_1([Key | L], 1) ->
 balance_list_1(L, 0) ->
     {nil, L}.
 
+-doc """
+Returns a new set formed from `Set1` with `Element` inserted.
+
+If `Element` is already an element in `Set1`, nothing is changed.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:new().
+2> S1 = gb_sets:add_element(7, S0).
+3> gb_sets:to_list(S1).
+[7]
+4> S2 = gb_sets:add_element(42, S1).
+5> S2 = gb_sets:add_element(42, S1).
+6> gb_sets:to_list(S2).
+[7,42]
+```
+""".
 -spec add_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -347,6 +440,7 @@ balance_list_1(L, 0) ->
 add_element(X, S) ->
     add(X, S).
 
+-doc(#{equiv => add_element(Element, Set1)}).
 -spec add(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -359,6 +453,18 @@ add(X, S) ->
 	    insert(X, S)
     end.
 
+-doc """
+Returns a set of the elements in `List`, where `List` can be unordered and
+contain duplicates.
+
+## Examples
+
+```erlang
+1> Unordered = [x,y,a,x,y,b,b,z]
+2> gb_sets:to_list(gb_sets:from_list(Unordered)).
+[a,b,x,y,z]
+```
+""".
 -spec from_list(List) -> Set when
       List :: [Element],
       Set :: set(Element).
@@ -366,6 +472,20 @@ add(X, S) ->
 from_list(L) ->
     from_ordset(ordsets:from_list(L)).
 
+-doc """
+Turns an ordered list without duplicates `List` into a set.
+
+See `from_list/1` for a function that accepts unordered lists with
+duplicates.
+
+## Examples
+
+```erlang
+1> Ordset = [1,2,3].
+2> gb_sets:to_list(gb_sets:from_ordset(Ordset)).
+[1,2,3]
+```
+""".
 -spec from_ordset(List) -> Set when
       List :: [Element],
       Set :: set(Element).
@@ -374,6 +494,7 @@ from_ordset(L) ->
     S = length(L),
     {S, balance_list(L, S)}.
 
+-doc(#{equiv => delete_any(Element, Set1)}).
 -spec del_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -381,6 +502,20 @@ from_ordset(L) ->
 del_element(Key, S) ->
     delete_any(Key, S).
 
+-doc """
+Returns a new set formed from `Set1` with `Element` removed.
+
+If `Element` is not an element in `Set1`, nothing is changed.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([a,b]).
+2> gb_sets:to_list(gb_sets:delete_any(b, S)).
+[a]
+3> S = gb_sets:delete_any(x, S).
+```
+""".
 -spec delete_any(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -393,6 +528,21 @@ delete_any(Key, S) ->
  	    S
     end.
 
+-doc """
+Returns a new set formed from `Set1` with `Element` removed, assuming
+`Element` is present in `Set1`.
+
+Use `delete_any/2` when deleting from a set where `Element` is potentially
+missing.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([a,b]).
+2> gb_sets:to_list(gb_sets:delete(b, S)).
+[a]
+```
+""".
 -spec delete(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -417,6 +567,23 @@ merge(Smaller, Larger) ->
     {Key, Larger1} = take_smallest1(Larger),
     {Key, Smaller, Larger1}.
 
+-doc """
+Returns `{Element, Set2}`, where `Element` is the smallest element in
+`Set1`, and `Set2` is this set with `Element` deleted.
+
+Assumes that `Set1` is not empty.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c]).
+2> {Smallest,S1} = gb_sets:take_smallest(S0).
+3> Smallest.
+a
+4> gb_sets:to_list(S1).
+[b,c]
+```
+""".
 -spec take_smallest(Set1) -> {Element, Set2} when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -431,6 +598,19 @@ take_smallest1({Key, Smaller, Larger}) ->
     {Key1, Smaller1} = take_smallest1(Smaller),
     {Key1, {Key, Smaller1, Larger}}.
 
+-doc """
+Returns the smallest element in `Set`.
+
+Assumes that `Set` is not empty.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([a,b,c]).
+2> gb_sets:smallest(S).
+a
+```
+""".
 -spec smallest(Set) -> Element when
       Set :: set(Element).
 
@@ -442,6 +622,23 @@ smallest_1({Key, nil, _Larger}) ->
 smallest_1({_Key, Smaller, _Larger}) ->
     smallest_1(Smaller).
 
+-doc """
+Returns `{Element, Set2}`, where `Element` is the largest element in
+`Set1`, and `Set2` is this set with `Element` deleted.
+
+Assumes that `Set1` is not empty.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c]).
+2> {Largest,S1} = gb_sets:take_largest(S0).
+3> Largest.
+c
+4> gb_sets:to_list(S1).
+[a,b]
+```
+""".
 -spec take_largest(Set1) -> {Element, Set2} when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -456,6 +653,19 @@ take_largest1({Key, Smaller, Larger}) ->
     {Key1, Larger1} = take_largest1(Larger),
     {Key1, {Key, Smaller, Larger1}}.
 
+-doc """
+Returns the largest element in `Set`.
+
+Assumes that `Set` is not empty.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([a,b,c]).
+2> gb_sets:largest(S).
+c
+```
+""".
 -spec largest(Set) -> Element when
       Set :: set(Element).
 
@@ -467,6 +677,92 @@ largest_1({Key, _Smaller, nil}) ->
 largest_1({_Key, _Smaller, Larger}) ->
     largest_1(Larger).
 
+-doc """
+Returns `{found, Element2}`, where `Element2` is the greatest element strictly
+less than `Element1`.
+
+Returns `none` if no such element exists.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([a,b,c]).
+2> gb_sets:smaller(b, S).
+{found,a}
+3> gb_sets:smaller(z, S).
+{found,c}
+4> gb_sets:smaller(a, S).
+none
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec smaller(Element1, Set) -> none | {found, Element2} when
+    Element1 :: Element,
+    Element2 :: Element,
+    Set :: set(Element).
+smaller(Key, {_, T}) ->
+    smaller_1(Key, T).
+
+smaller_1(_Key, nil) ->
+    none;
+smaller_1(Key, {Key1, _Smaller, Larger}) when Key > Key1 ->
+    case smaller_1(Key, Larger) of
+        none ->
+            {found, Key1};
+        Found ->
+            Found
+    end;
+smaller_1(Key, {_Key, Smaller, _Larger}) ->
+    smaller_1(Key, Smaller).
+
+-doc """
+Returns `{found, Element2}`, where `Element2` is the least element strictly
+greater than `Element1`.
+
+Returns `none` if no such element exists.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([10,20,30]).
+2> gb_sets:larger(1, S).
+{found,10}
+3> gb_sets:larger(10, S).
+{found,20}
+4> gb_sets:larger(19, S).
+{found,20}
+5> gb_sets:larger(30, S).
+none
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec larger(Element1, Set) -> none | {found, Element2} when
+    Element1 :: Element,
+    Element2 :: Element,
+    Set :: set(Element).
+larger(Key, {_, T}) ->
+    larger_1(Key, T).
+
+larger_1(_Key, nil) ->
+    none;
+larger_1(Key, {Key1, Smaller, _Larger}) when Key < Key1 ->
+    case larger_1(Key, Smaller) of
+        none ->
+            {found, Key1};
+        Found ->
+            Found
+    end;
+larger_1(Key, {_Key, _Smaller, Larger}) ->
+    larger_1(Key, Larger).
+
+-doc """
+Returns the elements of `Set` as an ordered list.
+
+```erlang
+1> gb_sets:to_list(gb_sets:from_list([4,3,5,1,2])).
+[1,2,3,4,5]
+```
+""".
 -spec to_list(Set) -> List when
       Set :: set(Element),
       List :: [Element].
@@ -480,46 +776,165 @@ to_list({Key, Small, Big}, L) ->
     to_list(Small, [Key | to_list(Big, L)]);
 to_list(nil, L) -> L.
 
+-doc """
+Returns an iterator that can be used for traversing the entries of `Set`; see
+`next/1`.
+
+Equivalent to [`iterator(Set, ordered)`](`iterator/2`).
+""".
 -spec iterator(Set) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element).
 
-iterator({_, T}) ->
-    iterator(T, []).
+iterator(Set) ->
+    iterator(Set, ordered).
+
+-doc """
+Returns an iterator that can be used for traversing the entries of `Set` in
+either `ordered` or `reversed` direction; see `next/1`.
+
+The implementation is very efficient; traversing the whole set using
+[`next/1`](`next/1`) is only slightly slower than getting the list of
+all elements using `to_list/1` and traversing that. The main advantage
+of the iterator approach is that it avoids building the complete list
+of all elements to be built in memory at once.
+
+```erlang
+1> S = gb_sets:from_ordset([1,2,3,4,5]).
+2> Iter0 = gb_sets:iterator(S, ordered).
+3> element(1, gb_sets:next(Iter0)).
+1
+4> Iter1 = gb_sets:iterator(S, reversed).
+5> element(1, gb_sets:next(Iter1)).
+5
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec iterator(Set, Order) -> Iter when
+      Set :: set(Element),
+      Iter :: iter(Element),
+      Order :: ordered | reversed.
+
+iterator({_, T}, ordered) ->
+    {ordered, iterator_1(T, [])};
+iterator({_, T}, reversed) ->
+    {reversed, iterator_r(T, [])}.
 
 %% The iterator structure is really just a list corresponding to the
 %% call stack of an in-order traversal. This is quite fast.
 
-iterator({_, nil, _} = T, As) ->
+iterator_1({_, nil, _} = T, As) ->
     [T | As];
-iterator({_, L, _} = T, As) ->
-    iterator(L, [T | As]);
-iterator(nil, As) ->
+iterator_1({_, L, _} = T, As) ->
+    iterator_1(L, [T | As]);
+iterator_1(nil, As) ->
     As.
 
+iterator_r({_, _, nil} = T, As) ->
+    [T | As];
+iterator_r({_, _, R} = T, As) ->
+    iterator_r(R, [T | As]);
+iterator_r(nil, As) ->
+    As.
+
+-doc """
+Returns an iterator that can be used for traversing the entries of `Set`; see
+`next/1`.
+
+Unlike the iterator returned by `iterator/1` or `iterator/2`, this
+iterator starts with the first element greater than or equal to
+`Element`.
+
+Equivalent to [`iterator_from(Element, Set, ordered)`](`iterator_from/3`).
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_ordset([10,20,30,40,50]).
+2> Iter = gb_sets:iterator_from(17, S).
+3> element(1, gb_sets:next(Iter)).
+20
+```
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec iterator_from(Element, Set) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element).
 
-iterator_from(S, {_, T}) ->
-    iterator_from(S, T, []).
+iterator_from(Element, Set) ->
+    iterator_from(Element, Set, ordered).
 
-iterator_from(S, {K, _, T}, As) when K < S ->
-    iterator_from(S, T, As);
-iterator_from(_, {_, nil, _} = T, As) ->
+-doc """
+Returns an iterator that can be used for traversing the entries of `Set`; see
+`next/1`.
+
+Unlike the iterator returned by `iterator/1` or `iterator/2`, this
+iterator starts with the first element greater than or equal to
+`Element`.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_ordset([10,20,30,40,50]).
+2> Iter = gb_sets:iterator_from(17, S, reversed).
+3> element(1, gb_sets:next(Iter)).
+10
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec iterator_from(Element, Set, Order) -> Iter when
+      Set :: set(Element),
+      Iter :: iter(Element),
+      Order :: ordered | reversed.
+
+iterator_from(S, {_, T}, ordered) ->
+    {ordered, iterator_from_1(S, T, [])};
+iterator_from(S, {_, T}, reversed) ->
+    {reversed, iterator_from_r(S, T, [])}.
+
+iterator_from_1(S, {K, _, T}, As) when K < S ->
+    iterator_from_1(S, T, As);
+iterator_from_1(_, {_, nil, _} = T, As) ->
     [T | As];
-iterator_from(S, {_, L, _} = T, As) ->
-    iterator_from(S, L, [T | As]);
-iterator_from(_, nil, As) ->
+iterator_from_1(S, {_, L, _} = T, As) ->
+    iterator_from_1(S, L, [T | As]);
+iterator_from_1(_, nil, As) ->
     As.
 
+iterator_from_r(S, {K, T, _}, As) when K > S ->
+    iterator_from_r(S, T, As);
+iterator_from_r(_, {_, _, nil} = T, As) ->
+    [T | As];
+iterator_from_r(S, {_, _, R} = T, As) ->
+    iterator_from_r(S, R, [T | As]);
+iterator_from_r(_, nil, As) ->
+    As.
+
+-doc """
+Returns `{Element, Iter2}`, where `Element` is the first element referred to
+by iterator `Iter1`, and `Iter2` is the new iterator to be used for traversing
+the remaining elements, or the atom `none` if no elements remain.
+
+```erlang
+1> S = gb_sets:from_ordset([1,2,3,4,5]).
+2> Iter0 = gb_sets:iterator(S).
+3> {Element0, Iter1} = gb_sets:next(Iter0).
+4> Element0.
+1
+5> {Element1, Iter2} = gb_sets:next(Iter1).
+6> Element1.
+2
+```
+""".
 -spec next(Iter1) -> {Element, Iter2} | 'none' when
       Iter1 :: iter(Element),
       Iter2 :: iter(Element).
 
-next([{X, _, T} | As]) ->
-    {X, iterator(T, As)};
-next([]) ->
+next({ordered, [{X, _, T} | As]}) ->
+    {X, {ordered, iterator_1(T, As)}};
+next({reversed, [{X, T, _} | As]}) ->
+    {X, {reversed, iterator_r(T, As)}};
+next({_, []}) ->
     none.
 
 
@@ -545,6 +960,22 @@ next([]) ->
 %% traversing the elements can be devised, but they all have higher
 %% overhead.
 
+-doc """
+Returns the union of `Set1` and `Set2`.
+
+The union of two sets is a new set that contains all the elements from
+both sets, without duplicates.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c,d]).
+2> S1 = gb_sets:from_list([c,d,e,f]).
+3> Union = gb_sets:union(S0, S1).
+4> gb_sets:to_list(Union).
+[a,b,c,d,e,f]
+```
+""".
 -spec union(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -650,6 +1081,24 @@ balance_revlist_1([Key | L], 1) ->
 balance_revlist_1(L, 0) ->
     {nil, L}.
 
+-doc """
+Returns the union of a list of sets.
+
+The union of multiple sets is a new set that contains all the elements from
+all sets, without duplicates.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c,d]).
+2> S1 = gb_sets:from_list([d,e,f]).
+3> S2 = gb_sets:from_list([q,r])
+4> Sets = [S0, S1, S2].
+5> Union = gb_sets:union(Sets).
+6> gb_sets:to_list(Union).
+[a,b,c,d,e,f,q,r]
+```
+""".
 -spec union(SetList) -> Set when
       SetList :: [set(Element),...],
       Set :: set(Element).
@@ -665,6 +1114,24 @@ union_list(S, []) -> S.
 
 %% The rest is modelled on the above.
 
+-doc """
+Returns the intersection of `Set1` and `Set2`.
+
+The intersection of two sets is a new set that contains only the
+elements that are present in both sets.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c,d]).
+2> S1 = gb_sets:from_list([c,d,e,f]).
+3> S2 = gb_sets:from_list([q,r]).
+4> gb_sets:to_list(gb_sets:intersection(S0, S1)).
+[c,d]
+5> gb_sets:to_list(gb_sets:intersection(S1, S2)).
+[]
+```
+""".
 -spec intersection(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -716,6 +1183,27 @@ intersection_2([], _, As, S) ->
 intersection_2(_, [], As, S) ->
     {S, balance_revlist(As, S)}.
 
+-doc """
+Returns the intersection of the non-empty list of sets.
+
+The intersection of multiple sets is a new set that contains only the
+elements that are present in all sets.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c,d]).
+2> S1 = gb_sets:from_list([d,e,f]).
+3> S2 = gb_sets:from_list([q,r])
+4> Sets = [S0, S1, S2].
+5> gb_sets:to_list(gb_sets:intersection([S0, S1, S2])).
+[]
+6> gb_sets:to_list(gb_sets:intersection([S0, S1])).
+[d]
+7> gb_sets:intersection([]).
+** exception error: no function clause matching gb_sets:intersection([])
+```
+""".
 -spec intersection(SetList) -> Set when
       SetList :: [set(Element),...],
       Set :: set(Element).
@@ -727,6 +1215,27 @@ intersection_list(S, [S1 | Ss]) ->
     intersection_list(intersection(S, S1), Ss);
 intersection_list(S, []) -> S.
 
+-doc """
+Returns `true` if `Set1` and `Set2` are disjoint; otherwise, returns
+`false`.
+
+Two sets are disjoint if they have no elements in common.
+
+This function is equivalent to `gb_sets:intersection(Set1, Set2) =:= []`,
+but faster.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c,d]).
+2> S1 = gb_sets:from_list([d,e,f]).
+3> S2 = gb_sets:from_list([q,r])
+4> gb_sets:is_disjoint(S0, S1).
+false
+5> gb_sets:is_disjoint(S1, S2).
+true
+```
+""".
 -spec is_disjoint(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -757,6 +1266,21 @@ is_disjoint_1(_, nil) ->
 %% the sets. Therefore, we always build a new tree, and thus we need to
 %% traverse the whole element list of the left operand.
 
+-doc """
+Returns a new set containing the elements of `Set1`
+that are not elements in `Set2`.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c,d]).
+2> S1 = gb_sets:from_list([c,d,e,f]).
+3> gb_sets:to_list(gb_sets:subtract(S0, S1)).
+[a,b]
+4> gb_sets:to_list(gb_sets:subtract(S1, S0)).
+[e,f]
+```
+""".
 -spec subtract(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -765,6 +1289,7 @@ is_disjoint_1(_, nil) ->
 subtract(S1, S2) ->
     difference(S1, S2).
 
+-doc(#{equiv => subtract(Set1, Set2)}).
 -spec difference(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -817,6 +1342,23 @@ difference_2(Xs, [], As, S) ->
 %% Subset testing is much the same thing as set difference, but
 %% without the construction of a new set.
 
+-doc """
+Returns `true` when every element of `Set1` is also a member of `Set2`;
+otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> S0 = gb_sets:from_list([a,b,c,d]).
+2> S1 = gb_sets:from_list([c,d]).
+3> gb_sets:is_subset(S1, S0).
+true
+4> gb_sets:is_subset(S0, S1).
+false
+5> gb_sets:is_subset(S0, S0).
+true
+```
+""".
 -spec is_subset(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -861,6 +1403,30 @@ is_subset_2(_, []) ->
 
 %% For compatibility with `sets':
 
+-doc """
+Returns `true` if `Term` appears to be a set; otherwise, returns `false`.
+
+> #### Note {: .info }
+>
+> This function will return `true` for any term that coincides with the
+> representation of a `gb_set`, while not really being a `gb_set`, thus
+> it might return false positive results. See also note on [data
+> types](`e:system:data_types.md#no_user_types`).
+>
+> Furthermore, since gb_sets are opaque, calling this function on terms
+> that are not gb_sets could result in `m:dialyzer` warnings.
+
+## Examples
+
+```erlang
+1> gb_sets:is_set(gb_sets:new()).
+true
+2> gb_sets:is_set(gb_sets:singleton(42)).
+true
+3> gb_sets:is_set(0).
+false
+```
+""".
 -spec is_set(Term) -> boolean() when
       Term :: term().
 
@@ -868,6 +1434,19 @@ is_set({0, nil}) -> true;
 is_set({N, {_, _, _}}) when is_integer(N), N >= 0 -> true;
 is_set(_) -> false.
 
+-doc """
+Filters elements in `Set1` using predicate function `Pred`.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([1,2,3,4,5,6,7]).
+2> IsEven = fun(N) -> N rem 2 =:= 0 end.
+3> Filtered = gb_sets:filter(IsEven, S).
+4> gb_sets:to_list(Filtered).
+[2,4,6]
+```
+""".
 -spec filter(Pred, Set1) -> Set2 when
       Pred :: fun((Element) -> boolean()),
       Set1 :: set(Element),
@@ -876,6 +1455,95 @@ is_set(_) -> false.
 filter(F, S) when is_function(F, 1) ->
     from_ordset([X || X <- to_list(S), F(X)]).
 
+-doc """
+Maps elements in `Set1` with mapping function `Fun`.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([1,2,3,4,5,6,7]).
+2> F = fun(N) -> N div 2 end.
+3> Mapped = gb_sets:map(F, S).
+4> gb_sets:to_list(Mapped).
+[0,1,2,3]
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec map(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> Element2),
+      Set1 :: set(Element1),
+      Set2 :: set(Element2).
+
+map(F, {_, T}) when is_function(F, 1) ->
+    from_list(map_1(T, F, [])).
+
+map_1({Key, Small, Big}, F, L) ->
+    map_1(Small, F, [F(Key) | map_1(Big, F, L)]);
+map_1(nil, _F, L) -> L.
+
+-doc """
+Calls `Fun(Elem)` for each `Elem` of `Set1` to update or remove
+elements from `Set1`.
+
+`Fun/1` must return either a Boolean or a tuple `{true, Value}`. The
+function returns the set of elements for which `Fun` returns a new
+value, with `true` being equivalent to `{true, Elem}`.
+
+`gb_sets:filtermap/2` behaves as if it were defined as follows:
+
+```erlang
+filtermap(Fun, Set1) ->
+    gb_sets:from_list(lists:filtermap(Fun, Set1)).
+```
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([2,4,5,6,8,9])
+2> F = fun(X) ->
+           case X rem 2 of
+               0 -> {true, X div 2};
+               1 -> false
+           end
+        end.
+3> Set = gb_sets:filtermap(F, S).
+4> gb_sets:to_list(Set).
+[1,2,3,4]
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec filtermap(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> boolean() | {true, Element2}),
+      Set1 :: set(Element1),
+      Set2 :: set(Element1 | Element2).
+
+filtermap(F, {_, T}) when is_function(F, 1) ->
+    from_list(filtermap_1(T, F, [])).
+
+filtermap_1({Key, Small, Big}, F, L) ->
+    case F(Key) of
+        true ->
+            filtermap_1(Small, F, [Key | filtermap_1(Big, F, L)]);
+        {true,Val} ->
+            filtermap_1(Small, F, [Val | filtermap_1(Big, F, L)]);
+        false ->
+            filtermap_1(Small, F, filtermap_1(Big, F, L))
+    end;
+filtermap_1(nil, _F, L) -> L.
+
+-doc """
+Folds `Function` over every element in `Set` and returns the final value of
+the accumulator.
+
+## Examples
+
+```erlang
+1> S = gb_sets:from_list([1,2,3,4]).
+2> Plus = fun erlang:'+'/2.
+3> gb_sets:fold(Plus, 0, S).
+10
+```
+""".
 -spec fold(Function, Acc0, Set) -> Acc1 when
       Function :: fun((Element, AccIn) -> AccOut),
       Acc0 :: Acc,

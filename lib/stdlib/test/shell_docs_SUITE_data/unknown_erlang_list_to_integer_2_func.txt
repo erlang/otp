@@ -1,9 +1,17 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec list_to_integer(String, Base) -> integer()[0m
-  [;1m                         when String :: string(), Base :: 2..36.[0m
+[;1m  list_to_integer(String, Base)[0m
 
   Returns an integer whose text representation in base [;;4mBase[0m is [;;4m[0m
-  [;;4mString[0m, for example:
+  [;;4mString[0m.
+
+  For example:
 
     > list_to_integer("3FF", 16).
     1023

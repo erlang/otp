@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2024. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2017-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -148,14 +150,15 @@ i_bs_get_binary_all2.fetch(Ctx) {
 }
 
 i_bs_get_binary_all2.execute(Fail, Live, Unit, Dst) {
-    ErlBinMatchBuffer *_mb;
+    ErlSubBits *sb;
     Eterm _result;
 
-    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
-    _mb = ms_matchbuffer(context);
-    if (((_mb->size - _mb->offset) % $Unit) == 0) {
+    $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
+    sb = (ErlSubBits*)bitstring_val(context);
+
+    if (((sb->end - sb->start) % $Unit) == 0) {
         LIGHT_SWAPOUT;
-        _result = erts_bs_get_binary_all_2(c_p, _mb);
+        _result = erts_bs_get_binary_all_2(c_p, sb);
         LIGHT_SWAPIN;
         HEAP_SPACE_VERIFIED(0);
         ASSERT(is_value(_result));
@@ -176,15 +179,15 @@ i_bs_get_binary2.fetch(Ctx) {
     context = $Ctx;
 }
 
-i_bs_get_binary2.execute(Fail, Live, Sz, Flags, Dst) {
-    ErlBinMatchBuffer *_mb;
+i_bs_get_binary2.execute(Fail, Live, Sz, Unit, Dst) {
+    ErlSubBits *sb;
     Eterm _result;
     Uint _size;
-    $BS_GET_FIELD_SIZE($Sz, (($Flags) >> 3), $FAIL($Fail), _size);
-    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
-    _mb = ms_matchbuffer(context);
+    $BS_GET_FIELD_SIZE($Sz, $Unit, $FAIL($Fail), _size);
+    $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
+    sb = (ErlSubBits*)bitstring_val(context);
     LIGHT_SWAPOUT;
-    _result = erts_bs_get_binary_2(c_p, _size, $Flags, _mb);
+    _result = erts_bs_get_binary_2(c_p, _size, sb);
     LIGHT_SWAPIN;
     HEAP_SPACE_VERIFIED(0);
     if (is_non_value(_result)) {
@@ -205,13 +208,13 @@ i_bs_get_binary_imm2.fetch(Ctx) {
     context = $Ctx;
 }
 
-i_bs_get_binary_imm2.execute(Fail, Live, Sz, Flags, Dst) {
-    ErlBinMatchBuffer *_mb;
+i_bs_get_binary_imm2.execute(Fail, Live, Sz, Dst) {
+    ErlSubBits *sb;
     Eterm _result;
-    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
-    _mb = ms_matchbuffer(context);
+    $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
+    sb = (ErlSubBits*)bitstring_val(context);
     LIGHT_SWAPOUT;
-    _result = erts_bs_get_binary_2(c_p, $Sz, $Flags, _mb);
+    _result = erts_bs_get_binary_2(c_p, $Sz, sb);
     LIGHT_SWAPIN;
     HEAP_SPACE_VERIFIED(0);
     if (is_non_value(_result)) {
@@ -232,7 +235,7 @@ i_bs_get_float2.fetch(Ctx) {
 }
 
 i_bs_get_float2.execute(Fail, Live, Sz, Flags, Dst) {
-    ErlBinMatchBuffer *_mb;
+    ErlSubBits *sb;
     Eterm _result;
     Sint _size;
 
@@ -241,9 +244,9 @@ i_bs_get_float2.execute(Fail, Live, Sz, Flags, Dst) {
     }
     _size *= (($Flags) >> 3);
     $GC_TEST_PRESERVE(FLOAT_SIZE_OBJECT, $Live, context);
-    _mb = ms_matchbuffer(context);
+    sb = (ErlSubBits*)bitstring_val(context);
     LIGHT_SWAPOUT;
-    _result = erts_bs_get_float_2(c_p, _size, ($Flags), _mb);
+    _result = erts_bs_get_float_2(c_p, _size, ($Flags), sb);
     LIGHT_SWAPIN;
     HEAP_SPACE_VERIFIED(0);
     if (is_non_value(_result)) {
@@ -266,553 +269,23 @@ i_bs_skip_bits2.fetch(Ctx, Bits) {
 }
 
 i_bs_skip_bits2.execute(Fail, Unit) {
-    ErlBinMatchBuffer *_mb;
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     size_t new_offset;
     Uint _size;
 
-    _mb = ms_matchbuffer(context);
     $BS_GET_FIELD_SIZE(bits, $Unit, $FAIL($Fail), _size);
-    new_offset = _mb->offset + _size;
-    if (new_offset <= _mb->size) {
-        _mb->offset = new_offset;
+    new_offset = sb->start + _size;
+    if (new_offset <= sb->end) {
+        sb->start = new_offset;
     } else {
         $FAIL($Fail);
     }
-}
-
-i_bs_skip_bits_imm2(Fail, Ms, Bits) {
-    ErlBinMatchBuffer *_mb;
-    size_t new_offset;
-    _mb = ms_matchbuffer($Ms);
-    new_offset = _mb->offset + ($Bits);
-    if (new_offset <= _mb->size) {
-        _mb->offset = new_offset;
-    } else {
-        $FAIL($Fail);
-    }
-}
-
-i_new_bs_put_binary(Fail, Sz, Flags, Src) {
-    Eterm sz = $Sz;
-    Sint _size;
-    $BS_GET_UNCHECKED_FIELD_SIZE(sz, (($Flags) >> 3), $BADARG($Fail), _size);
-    c_p->fcalls = FCALLS;
-    if (!erts_new_bs_put_binary(c_p, $Src, _size)) {
-        $BADARG($Fail);
-    }
-    FCALLS = c_p->fcalls;
-}
-
-i_new_bs_put_binary_all := i_new_bs_put_binary_all.fetch.execute;
-
-i_new_bs_put_binary_all.head() {
-    Eterm src;
-}
-
-i_new_bs_put_binary_all.fetch(Src) {
-    src = $Src;
-}
-
-i_new_bs_put_binary_all.execute(Fail, Unit) {
-    c_p->fcalls = FCALLS;
-    if (!erts_new_bs_put_binary_all(c_p, src, ($Unit))) {
-        $BADARG($Fail);
-    }
-    FCALLS = c_p->fcalls;
-}
-
-i_new_bs_put_binary_imm(Fail, Sz, Src) {
-    c_p->fcalls = FCALLS;
-    if (!erts_new_bs_put_binary(c_p, ($Src), ($Sz))) {
-        $BADARG($Fail);
-    }
-    FCALLS = c_p->fcalls;
-}
-
-i_new_bs_put_float(Fail, Sz, Flags, Src) {
-    Eterm sz = $Sz;
-    Eterm flags = $Flags;
-    Sint _size;
-    $BS_GET_UNCHECKED_FIELD_SIZE(sz, (flags >> 3), $BADARG($Fail), _size);
-    if (is_value(erts_new_bs_put_float(c_p, ($Src), _size, flags))) {
-        $BADARG($Fail);
-    }
-}
-
-i_new_bs_put_float_imm(Fail, Sz, Flags, Src) {
-    if (is_value(erts_new_bs_put_float(c_p, ($Src), ($Sz), ($Flags)))) {
-        $BADARG($Fail);
-    }
-}
-
-i_new_bs_put_integer(Fail, Sz, Flags, Src) {
-    Eterm sz = $Sz;
-    Eterm flags = $Flags;
-    Sint _size;
-    $BS_GET_UNCHECKED_FIELD_SIZE(sz, (flags >> 3), $BADARG($Fail), _size);
-    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(($Src), _size, flags))) {
-        $BADARG($Fail);
-    }
-}
-
-i_new_bs_put_integer_imm := i_new_bs_put_integer_imm.fetch.execute;
-
-i_new_bs_put_integer_imm.head() {
-    Eterm src;
-}
-
-i_new_bs_put_integer_imm.fetch(Src) {
-    src = $Src;
-}
-
-i_new_bs_put_integer_imm.execute(Fail, Sz, Flags) {
-    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(src, ($Sz), ($Flags)))) {
-        $BADARG($Fail);
-    }
-}
-
-#
-# i_bs_init*
-#
-
-i_bs_init_fail_heap := bs_init.fail_heap.verify.execute;
-i_bs_init_fail := bs_init.fail.verify.execute;
-i_bs_init := bs_init.plain.execute;
-i_bs_init_heap := bs_init.heap.execute;
-
-bs_init.head() {
-    Eterm BsOp1;
-    Eterm BsOp2;
-}
-
-bs_init.fail_heap(Size, HeapAlloc) {
-    BsOp1 = $Size;
-    BsOp2 = $HeapAlloc;
-}
-
-bs_init.fail(Size) {
-    BsOp1 = $Size;
-    BsOp2 = 0;
-}
-
-bs_init.plain(Size) {
-    BsOp1 = $Size;
-    BsOp2 = 0;
-}
-
-bs_init.heap(Size, HeapAlloc) {
-    BsOp1 = $Size;
-    BsOp2 = $HeapAlloc;
-}
-
-bs_init.verify(Fail) {
-    if (is_small(BsOp1)) {
-        Sint size = signed_val(BsOp1);
-        if (size < 0) {
-            $BADARG($Fail);
-        }
-        BsOp1 = (Eterm) size;
-    } else {
-        Uint bytes;
-
-        if (!term_to_Uint(BsOp1, &bytes)) {
-            c_p->freason = bytes;
-            $FAIL_HEAD_OR_BODY($Fail);
-        }
-        if ((bytes >> (8*sizeof(Uint)-3)) != 0) {
-            $SYSTEM_LIMIT($Fail);
-        }
-        BsOp1 = (Eterm) bytes;
-    }
-}
-
-bs_init.execute(Live, Dst) {
-    erts_bin_offset = 0;
-
-    if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
-        ErlHeapBin* hb;
-        Uint bin_need;
-
-        bin_need = heap_bin_size(BsOp1);
-        $GC_TEST(0, bin_need+BsOp2+ERL_SUB_BIN_SIZE, $Live);
-        hb = (ErlHeapBin *) HTOP;
-        HTOP += bin_need;
-        hb->thing_word = header_heap_bin(BsOp1);
-        hb->size = BsOp1;
-        erts_current_bin = (byte *) hb->data;
-        $Dst = make_binary(hb);
-    } else {
-        Binary* bptr;
-        ProcBin* pb;
-
-        $TEST_BIN_VHEAP(BsOp1 / sizeof(Eterm), BsOp2 + PROC_BIN_SIZE, $Live);
-
-        /*
-         * Allocate the binary struct itself.
-         */
-        bptr = erts_bin_nrml_alloc(BsOp1);
-        erts_current_bin = (byte *) bptr->orig_bytes;
-
-        /*
-         * Now allocate the ProcBin on the heap.
-         */
-        pb = (ProcBin *) HTOP;
-        HTOP += PROC_BIN_SIZE;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = BsOp1;
-        pb->next = MSO(c_p).first;
-        MSO(c_p).first = (struct erl_off_heap_header*) pb;
-        pb->val = bptr;
-        pb->bytes = (byte*) bptr->orig_bytes;
-        pb->flags = 0;
-
-        OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
-
-        $Dst = make_binary(pb);
-    }
-}
-
-#
-# i_bs_init_bits*
-#
-
-i_bs_init_bits           := bs_init_bits.plain.execute;
-i_bs_init_bits_heap      := bs_init_bits.heap.execute;
-i_bs_init_bits_fail      := bs_init_bits.fail.verify.execute;
-i_bs_init_bits_fail_heap := bs_init_bits.fail_heap.verify.execute;
-
-bs_init_bits.head() {
-    Eterm num_bits_term;
-    Uint num_bits;
-    Uint alloc;
-}
-
-bs_init_bits.plain(NumBits) {
-    num_bits = $NumBits;
-    alloc = 0;
-}
-
-bs_init_bits.heap(NumBits, Alloc) {
-    num_bits = $NumBits;
-    alloc = $Alloc;
-}
-
-bs_init_bits.fail(NumBitsTerm) {
-    num_bits_term = $NumBitsTerm;
-    alloc = 0;
-}
-
-bs_init_bits.fail_heap(NumBitsTerm, Alloc) {
-    num_bits_term = $NumBitsTerm;
-    alloc = $Alloc;
-}
-
-bs_init_bits.verify(Fail) {
-    if (is_small(num_bits_term)) {
-        Sint size = signed_val(num_bits_term);
-        if (size < 0) {
-            $BADARG($Fail);
-        }
-        num_bits = (Uint) size;
-    } else {
-        Uint bits;
-
-        if (!term_to_Uint(num_bits_term, &bits)) {
-            c_p->freason = bits;
-            $FAIL_HEAD_OR_BODY($Fail);
-        }
-        num_bits = (Uint) bits;
-    }
-}
-
-bs_init_bits.execute(Live, Dst) {
-     Eterm new_binary;
-     Uint num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
-
-     if (num_bits & 7) {
-	 alloc += ERL_SUB_BIN_SIZE;
-     }
-     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-	 alloc += heap_bin_size(num_bytes);
-     } else {
-	 alloc += PROC_BIN_SIZE;
-     }
-
-     erts_bin_offset = 0;
-
-     /* num_bits = Number of bits to build
-      * num_bytes = Number of bytes to allocate in the binary
-      * alloc = Total number of words to allocate on heap
-      * Operands: NotUsed NotUsed Dst
-      */
-     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-	 ErlHeapBin* hb;
-
-         $test_heap(alloc, $Live);
-	 hb = (ErlHeapBin *) HTOP;
-	 HTOP += heap_bin_size(num_bytes);
-	 hb->thing_word = header_heap_bin(num_bytes);
-	 hb->size = num_bytes;
-	 erts_current_bin = (byte *) hb->data;
-	 new_binary = make_binary(hb);
-     } else {
-	 Binary* bptr;
-	 ProcBin* pb;
-
-         $TEST_BIN_VHEAP(num_bytes / sizeof(Eterm), alloc, $Live);
-
-	 /*
-	  * Allocate the binary struct itself.
-	  */
-	 bptr = erts_bin_nrml_alloc(num_bytes);
-	 erts_current_bin = (byte *) bptr->orig_bytes;
-
-	 /*
-	  * Now allocate the ProcBin on the heap.
-	  */
-	 pb = (ProcBin *) HTOP;
-	 HTOP += PROC_BIN_SIZE;
-	 pb->thing_word = HEADER_PROC_BIN;
-	 pb->size = num_bytes;
-	 pb->next = MSO(c_p).first;
-	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
-	 pb->val = bptr;
-	 pb->bytes = (byte*) bptr->orig_bytes;
-	 pb->flags = 0;
-	 OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
-	 new_binary = make_binary(pb);
-     }
-
-     if (num_bits & 7) {
-         ErlSubBin* sb;
-
-         sb = (ErlSubBin *) HTOP;
-         HTOP += ERL_SUB_BIN_SIZE;
-         sb->thing_word = HEADER_SUB_BIN;
-         sb->size = num_bytes - 1;
-         sb->bitsize = num_bits & 7;
-         sb->offs = 0;
-         sb->bitoffs = 0;
-         sb->is_writable = 0;
-         sb->orig = new_binary;
-         new_binary = make_binary(sb);
-     }
-     HEAP_SPACE_VERIFIED(0);
-     $Dst = new_binary;
-}
-
-bs_add(Fail, Src1, Src2, Unit, Dst) {
-    Eterm Op1 = $Src1;
-    Eterm Op2 = $Src2;
-    Uint unit = $Unit;
-
-    if (is_both_small(Op1, Op2)) {
-        Sint Arg1 = signed_val(Op1);
-        Sint Arg2 = signed_val(Op2);
-
-        if (Arg1 >= 0 && Arg2 >= 0) {
-            $BS_SAFE_MUL(Arg2, unit, $SYSTEM_LIMIT($Fail), Op1);
-            Op1 += Arg1;
-
-#ifdef ARCH_32
-        store_bs_add_result:
-#endif
-            if (Op1 <= MAX_SMALL) {
-                Op1 = make_small(Op1);
-            } else {
-                /*
-                 * May generate a heap fragment, but in this
-                 * particular case it is OK, since the value will be
-                 * stored into an x register (the GC will scan x
-                 * registers for references to heap fragments) and
-                 * there is no risk that value can be stored into a
-                 * location that is not scanned for heap-fragment
-                 * references (such as the heap).
-                 */
-                SWAPOUT;
-                Op1 = erts_make_integer(Op1, c_p);
-                HTOP = HEAP_TOP(c_p);
-            }
-            $Dst = Op1;
-            $NEXT0();
-        }
-        $BADARG($Fail);
-    } else {
-#ifdef ARCH_64
-        /* The size must fit into a small on 64-bit platforms, which can't
-         * happen if either operand is a bignum. */
-        if (((is_small(Op1) && signed_val(Op1) >= 0) ||
-             (is_big(Op1) && !big_sign(Op1))) &&
-            ((is_small(Op2) && signed_val(Op2) >= 0) ||
-             (is_big(Op2) && !big_sign(Op2)))) {
-            $SYSTEM_LIMIT($Fail);
-        } else {
-            $BADARG($Fail);
-        }
-#else
-        Uint a;
-        Uint b;
-        Uint c;
-
-        /*
-         * Now we know that one of the arguments is
-         * not a small. We must convert both arguments
-         * to Uints and check for errors at the same time.
-         *
-         * Error checking is tricky.
-         *
-         * If one of the arguments is not numeric or
-         * not positive, the error reason is BADARG.
-         *
-         * Otherwise if both arguments are numeric,
-         * but at least one argument does not fit in
-         * an Uint, the reason is SYSTEM_LIMIT.
-         */
-
-        if (!term_to_Uint(Op1, &a)) {
-            if (a == BADARG) {
-                c_p->freason = a;
-                $FAIL_HEAD_OR_BODY($Fail);
-            }
-            if (!term_to_Uint(Op2, &b)) {
-                c_p->freason = b;
-                $FAIL_HEAD_OR_BODY($Fail);
-            }
-            $SYSTEM_LIMIT($Fail);
-        } else if (!term_to_Uint(Op2, &b)) {
-            c_p->freason = b;
-            $FAIL_HEAD_OR_BODY($Fail);
-        }
-
-        /*
-         * The arguments are now correct and stored in a and b.
-         */
-
-        $BS_SAFE_MUL(b, unit, $SYSTEM_LIMIT($Fail), c);
-        Op1 = a + c;
-        if (Op1 < a) {
-            /*
-             * If the result is less than one of the
-             * arguments, there must have been an overflow.
-             */
-            $SYSTEM_LIMIT($Fail);
-        }
-        goto store_bs_add_result;
-#endif
-    }
-    /* No fallthrough */
-    ASSERT(0);
-}
-
-bs_put_string(Len, Ptr) {
-    erts_new_bs_put_string(ERL_BITS_ARGS_2((byte *) $Ptr, $Len));
-}
-
-i_bs_append(Fail, ExtraHeap, Live, Unit, Size, Dst) {
-    Uint live = $Live;
-    Uint res;
-
-    HEAVY_SWAPOUT;
-    reg[live] = x(SCRATCH_X_REG);
-    res = erts_bs_append(c_p, reg, live, $Size, $ExtraHeap, $Unit);
-    HEAVY_SWAPIN;
-    if (is_non_value(res)) {
-        $MAYBE_EXIT_AFTER_GC();
-
-        /* c_p->freason is already set (to BADARG or SYSTEM_LIMIT). */
-        $FAIL_HEAD_OR_BODY($Fail);
-    }
-    $Dst = res;
-}
-
-i_bs_private_append(Fail, Unit, Size, Src, Dst) {
-    Eterm res;
-
-    c_p->fcalls = FCALLS;
-    res = erts_bs_private_append(c_p, $Src, $Size, $Unit);
-    if (is_non_value(res)) {
-        /* c_p->freason is already set (to BADARG or SYSTEM_LIMIT). */
-        $FAIL_HEAD_OR_BODY($Fail);
-    }
-    FCALLS = c_p->fcalls;
-    $Dst = res;
 }
 
 bs_init_writable() {
     HEAVY_SWAPOUT;
-    r(0) = erts_bs_init_writable(c_p, r(0));
+    x(0) = erts_bs_init_writable(c_p, x(0));
     HEAVY_SWAPIN;
-}
-
-i_bs_utf8_size(Src, Dst) {
-    Eterm arg = $Src;
-    Eterm result;
-
-    /*
-     * Calculate the number of bytes needed to encode the source
-     * operand to UTF-8. If the source operand is invalid (e.g. wrong
-     * type or range) we return a nonsense integer result (0 or 4). We
-     * can get away with that because we KNOW that bs_put_utf8 will do
-     * full error checking.
-     */
-
-    if (arg < make_small(0x80UL)) {
-        result = make_small(1);
-    } else if (arg < make_small(0x800UL)) {
-        result = make_small(2);
-    } else if (arg < make_small(0x10000UL)) {
-        result = make_small(3);
-    } else {
-        result = make_small(4);
-    }
-    $Dst = result;
-}
-
-i_bs_put_utf8(Fail, Src) {
-    if (!erts_bs_put_utf8(ERL_BITS_ARGS_1($Src))) {
-        $BADARG($Fail);
-    }
-}
-
-i_bs_utf16_size(Src, Dst) {
-    Eterm arg = $Src;
-    Eterm result = make_small(2);
-
-    /*
-     * Calculate the number of bytes needed to encode the source
-     * operarand to UTF-16. If the source operand is invalid (e.g. wrong
-     * type or range) we return a nonsense integer result (2 or 4). We
-     * can get away with that because we KNOW that bs_put_utf16 will do
-     * full error checking.
-     */
-
-    if (arg >= make_small(0x10000UL)) {
-        result = make_small(4);
-    }
-    $Dst = result;
-}
-
-i_bs_put_utf16(Fail, Flags, Src) {
-    if (!erts_bs_put_utf16(ERL_BITS_ARGS_2($Src, $Flags))) {
-        $BADARG($Fail);
-    }
-}
-
-// Validate a value about to be stored in a binary.
-i_bs_validate_unicode(Fail, Src) {
-    Eterm val = $Src;
-
-    /*
-     * There is no need to untag the integer, but it IS necessary
-     * to make sure it is small (if the term is a bignum, it could
-     * slip through the test, and there is no further test that
-     * would catch it, since bit syntax construction silently masks
-     * too big numbers).
-     */
-    if (is_not_small(val) || val > make_small(0x10FFFFUL) ||
-        (make_small(0xD800UL) <= val && val <= make_small(0xDFFFUL))) {
-        $BADARG($Fail);
-    }
 }
 
 // Validate a value that has been matched out.
@@ -826,12 +299,10 @@ i_bs_validate_unicode_retract(Fail, Src, Ms) {
     Eterm i = $Src;
     if (is_not_small(i) || i > make_small(0x10FFFFUL) ||
         (make_small(0xD800UL) <= i && i <= make_small(0xDFFFUL))) {
-        Eterm ms = $Ms;		/* Match context */
-        ErlBinMatchBuffer* mb;
+        ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ms);
 
         /* Invalid value. Retract the position in the binary. */
-        mb = ms_matchbuffer(ms);
-        mb->offset -= 32;
+        sb->start -= 32;
         $BADARG($Fail);
     }
 }
@@ -891,13 +362,13 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
     const BeamInstr* p_start = $NEXT_INSTRUCTION;
     const BeamInstr* p_end = p_start + n;
     const BeamInstr* p;
-    Uint num_bytes;
     Uint alloc = $Alloc;
     Eterm new_binary;
+    ErlBitsState* EBS = ERL_BITS_EBS_FROM_REG(reg);
 
     /* We count the total number of bits in an unsigned integer. To avoid
-     * having to check for overflow when adding to `num_bits`, we ensure that the
-     * signed size of each segment fits in a word. */
+     * having to check for overflow when adding to `num_bits`, we ensure that
+     * the signed size of each segment fits in a word. */
     Uint num_bits = 0;
 
     /* Calculate size of binary in bits. */
@@ -913,22 +384,21 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             break;
         case BSC_BINARY_ALL:
             {
-                Uint byte_size;
                 Uint bit_size;
 
                 $BS_LOAD_SRC(p, Src);
-                if (is_not_binary(Src)) {
+                if (is_not_bitstring(Src)) {
                     $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
                 }
-                byte_size = binary_size(Src);
+
+                bit_size = bitstring_size(Src);
 #ifndef ARCH_64
-                if ((byte_size >> 28) != 0) {
-                    /* The size of the binary in bits will not fit in
-                     * a 32-bit signed integer. */
+                if (bit_size >= ERTS_SINT_MAX) {
+                    /* The size of the binary in bits will not fit in a 32-bit
+                     * signed integer. */
                     $BS_FAIL_INFO($Fail, SYSTEM_LIMIT, am_binary, am_size);
                 }
 #endif
-                bit_size = (byte_size << 3) + binary_bitsize(Src);
                 num_bits += bit_size;
             }
             break;
@@ -1085,88 +555,62 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         }
         p_start += BSC_NUM_ARGS;
     } else if (p[0] == BSC_PRIVATE_APPEND) {
-        Uint unit;
         Eterm Src;
 
-        if (alloc) {
-            $test_heap(alloc, $Live);
-        }
+        $test_heap(alloc, $Live);
 
-        $BS_LOAD_UNIT(p, unit);
         $BS_LOAD_SRC(p, Src);
-        new_binary = erts_bs_private_append_checked(c_p, Src, num_bits, unit);
+
+        new_binary = erts_bs_private_append_checked(EBS, c_p, Src, num_bits);
+
         if (is_non_value(new_binary)) {
             $BS_FAIL_INFO($Fail, c_p->freason, c_p->fvalue, Src);
         }
         p_start += BSC_NUM_ARGS;
     } else {
-        num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
-        if (num_bits & 7) {
-            alloc += ERL_SUB_BIN_SIZE;
-        }
-        if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-            alloc += heap_bin_size(num_bytes);
+        if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+            alloc += heap_bits_size(num_bits);
         } else {
-            alloc += PROC_BIN_SIZE;
+            alloc += ERL_REFC_BITS_SIZE;
         }
 
         /* num_bits = Number of bits to build
-         * num_bytes = Number of bytes to allocate in the binary
          * alloc = Total number of words to allocate on heap
          */
-        erts_bin_offset = 0;
-        if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-            ErlHeapBin* hb;
+        EBS->erts_bin_offset = 0;
+        if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+            ErlHeapBits *hb;
 
             $test_heap(alloc, $Live);
-            hb = (ErlHeapBin *) HTOP;
-            HTOP += heap_bin_size(num_bytes);
-            hb->thing_word = header_heap_bin(num_bytes);
-            hb->size = num_bytes;
-            erts_current_bin = (byte *) hb->data;
-            new_binary = make_binary(hb);
+            hb = (ErlHeapBits *) HTOP;
+            HTOP += heap_bits_size(num_bits);
+            hb->thing_word = header_heap_bits(num_bits);
+            hb->size = num_bits;
+            EBS->erts_current_bin = (byte *) hb->data;
+            new_binary = make_bitstring(hb);
         } else {
             Binary* bptr;
-            ProcBin* pb;
 
-            $TEST_BIN_VHEAP(num_bytes / sizeof(Eterm), alloc, $Live);
+            $TEST_BIN_VHEAP(NBYTES(num_bits) / sizeof(Eterm),
+                            alloc + ERL_REFC_BITS_SIZE,
+                            $Live);
 
-            /*
-             * Allocate the binary struct itself.
-             */
-            bptr = erts_bin_nrml_alloc(num_bytes);
-            erts_current_bin = (byte *) bptr->orig_bytes;
+            bptr = erts_bin_nrml_alloc(NBYTES(num_bits));
+            EBS->erts_current_bin = (byte *)bptr->orig_bytes;
 
-            /*
-             * Now allocate the ProcBin on the heap.
-             */
-            pb = (ProcBin *) HTOP;
-            HTOP += PROC_BIN_SIZE;
-            pb->thing_word = HEADER_PROC_BIN;
-            pb->size = num_bytes;
-            pb->next = MSO(c_p).first;
-            MSO(c_p).first = (struct erl_off_heap_header*) pb;
-            pb->val = bptr;
-            pb->bytes = (byte*) bptr->orig_bytes;
-            pb->flags = 0;
-            OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
-            new_binary = make_binary(pb);
+            LIGHT_SWAPOUT;
+
+            new_binary = erts_wrap_refc_bitstring(&MSO(c_p).first,
+                                                  &MSO(c_p).overhead,
+                                                  &HEAP_TOP(c_p),
+                                                  bptr,
+                                                  EBS->erts_current_bin,
+                                                  0,
+                                                  num_bits);
+
+            LIGHT_SWAPIN;
         }
 
-        if (num_bits & 7) {
-            ErlSubBin* sb;
-
-            sb = (ErlSubBin *) HTOP;
-            HTOP += ERL_SUB_BIN_SIZE;
-            sb->thing_word = HEADER_SUB_BIN;
-            sb->size = num_bytes - 1;
-            sb->bitsize = num_bits & 7;
-            sb->offs = 0;
-            sb->bitoffs = 0;
-            sb->is_writable = 0;
-            sb->orig = new_binary;
-            new_binary = make_binary(sb);
-        }
         HEAP_SPACE_VERIFIED(0);
     }
 
@@ -1184,7 +628,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             byte* string;
             $BS_LOAD_STRING_SRC(p, string);
             $BS_LOAD_FIXED_SIZE(p, Size);
-            erts_new_bs_put_string(ERL_BITS_ARGS_2(string, Size));
+            erts_bs_put_string(EBS, string, Size);
             continue;
         }
 
@@ -1193,7 +637,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         switch (p[0]) {
         case BSC_BINARY_ALL:
             $BS_LOAD_UNIT(p, unit);
-            if (!erts_new_bs_put_binary_all(c_p, Src, unit)) {
+            if (!erts_bs_put_binary_all(EBS, c_p, Src, unit)) {
                 $BS_FAIL_INFO($Fail, BADARG, am_unit, Src);
             }
             break;
@@ -1202,15 +646,15 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             $BS_LOAD_FLAGS(p, flags);
             $BS_LOAD_SIZE(p, Size);
             $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
-            if (!erts_new_bs_put_binary(c_p, Src, _size)) {
-                Eterm reason = is_binary(Src) ? am_short : am_type;
+            if (!erts_bs_put_binary(EBS, c_p, Src, _size)) {
+                Eterm reason = is_bitstring(Src) ? am_short : am_type;
                 $BS_FAIL_INFO($Fail, BADARG, reason, Src);
             }
             break;
         case BSC_BINARY_FIXED_SIZE:
             $BS_LOAD_FIXED_SIZE(p, Size);
-            if (!erts_new_bs_put_binary(c_p, Src, Size)) {
-                Eterm reason = is_binary(Src) ? am_short : am_type;
+            if (!erts_bs_put_binary(EBS, c_p, Src, Size)) {
+                Eterm reason = is_bitstring(Src) ? am_short : am_type;
                 $BS_FAIL_INFO($Fail, BADARG, reason, Src);
             }
             break;
@@ -1219,7 +663,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             $BS_LOAD_FLAGS(p, flags);
             $BS_LOAD_SIZE(p, Size);
             $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
-            Src = erts_new_bs_put_float(c_p, Src, _size, flags);
+            Src = erts_bs_put_float(EBS, c_p, Src, _size, flags);
             if (is_value(Src)) {
                 $BS_FAIL_INFO($Fail, BADARG, c_p->fvalue, Src);
             }
@@ -1227,7 +671,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         case BSC_FLOAT_FIXED_SIZE:
             $BS_LOAD_FLAGS(p, flags);
             $BS_LOAD_FIXED_SIZE(p, Size);
-            Src = erts_new_bs_put_float(c_p, Src, Size, flags);
+            Src = erts_bs_put_float(EBS, c_p, Src, Size, flags);
             if (is_value(Src)) {
                 $BS_FAIL_INFO($Fail, BADARG, c_p->fvalue, Src);
             }
@@ -1235,33 +679,48 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         case BSC_INTEGER:
             {
                 Sint _size;
+                int result;
 
                 $BS_LOAD_UNIT(p, unit);
                 $BS_LOAD_FLAGS(p, flags);
                 $BS_LOAD_SIZE(p, Size);
                 $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
-                if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(Src, _size, flags))) {
+                if (flags & BSF_LITTLE) {
+                    result = erts_bs_put_integer_le(EBS, Src, _size);
+                } else {
+                    result = erts_bs_put_integer_be(EBS, Src, _size);
+                }
+                if (!result) {
                     $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
                 }
             }
             break;
         case BSC_INTEGER_FIXED_SIZE:
         case BSC_UTF32:
-            $BS_LOAD_FLAGS(p, flags);
-            $BS_LOAD_FIXED_SIZE(p, Size);
-            if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(Src, Size, flags))) {
-                $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+            {
+                int result;
+
+                $BS_LOAD_FLAGS(p, flags);
+                $BS_LOAD_FIXED_SIZE(p, Size);
+                if (flags & BSF_LITTLE) {
+                    result = erts_bs_put_integer_le(EBS, Src, Size);
+                } else {
+                    result = erts_bs_put_integer_be(EBS, Src, Size);
+                }
+                if (!result) {
+                    $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+                }
             }
             break;
         case BSC_UTF8:
-            if (!erts_bs_put_utf8(ERL_BITS_ARGS_1(Src))) {
+            if (!erts_bs_put_utf8(EBS, Src)) {
                 $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
             }
             break;
         case BSC_UTF16:
             $BS_LOAD_FLAGS(p, flags);
             $BS_LOAD_SRC(p, Src);
-            if (!erts_bs_put_utf16(ERL_BITS_ARGS_2(Src, flags))) {
+            if (!erts_bs_put_utf16(EBS, Src, flags)) {
                 $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
             }
             break;
@@ -1285,33 +744,29 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
 //
 
 bs_test_zero_tail2(Fail, Ctx) {
-    ErlBinMatchBuffer *_mb;
-    _mb = (ErlBinMatchBuffer*) ms_matchbuffer($Ctx);
-    if (_mb->size != _mb->offset) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
+    if (sb->end != sb->start) {
         $FAIL($Fail);
     }
 }
 
 bs_test_tail_imm2(Fail, Ctx, Offset) {
-    ErlBinMatchBuffer *_mb;
-    _mb = ms_matchbuffer($Ctx);
-    if (_mb->size - _mb->offset != $Offset) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
+    if (sb->end - sb->start != $Offset) {
         $FAIL($Fail);
     }
 }
 
 bs_test_unit(Fail, Ctx, Unit) {
-    ErlBinMatchBuffer *_mb;
-    _mb = ms_matchbuffer($Ctx);
-    if ((_mb->size - _mb->offset) % $Unit) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
+    if ((sb->end - sb->start) % $Unit) {
         $FAIL($Fail);
     }
 }
 
 bs_test_unit8(Fail, Ctx) {
-    ErlBinMatchBuffer *_mb;
-    _mb = ms_matchbuffer($Ctx);
-    if ((_mb->size - _mb->offset) & 7) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
+    if ((sb->end - sb->start) & 7) {
         $FAIL($Fail);
     }
 }
@@ -1327,17 +782,18 @@ i_bs_get_integer_8.fetch(Ctx) {
 }
 
 i_bs_get_integer_8.execute(Fail, Dst) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Eterm _result;
-    ErlBinMatchBuffer* _mb = ms_matchbuffer(context);
 
-    if (_mb->size - _mb->offset < 8) {
+    if (sb->end - sb->start < 8) {
         $FAIL($Fail);
     }
-    if (BIT_OFFSET(_mb->offset) != 0) {
-        _result = erts_bs_get_integer_2(c_p, 8, 0, _mb);
+    if (BIT_OFFSET(sb->start) != 0) {
+        _result = erts_bs_get_integer_2(c_p, 8, 0, sb);
     } else {
-        _result = make_small(_mb->base[BYTE_OFFSET(_mb->offset)]);
-        _mb->offset += 8;
+        _result = make_small(*(erl_sub_bits_get_base(sb) +
+                                BYTE_OFFSET(sb->start)));
+        sb->start += 8;
     }
     $Dst = _result;
 }
@@ -1353,17 +809,18 @@ i_bs_get_integer_16.fetch(Ctx) {
 }
 
 i_bs_get_integer_16.execute(Fail, Dst) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Eterm _result;
-    ErlBinMatchBuffer* _mb = ms_matchbuffer(context);
 
-    if (_mb->size - _mb->offset < 16) {
+    if (sb->end - sb->start < 16) {
         $FAIL($Fail);
     }
-    if (BIT_OFFSET(_mb->offset) != 0) {
-        _result = erts_bs_get_integer_2(c_p, 16, 0, _mb);
+    if (BIT_OFFSET(sb->start) != 0) {
+        _result = erts_bs_get_integer_2(c_p, 16, 0, sb);
     } else {
-        _result = make_small(get_int16(_mb->base+BYTE_OFFSET(_mb->offset)));
-        _mb->offset += 16;
+        _result = make_small(get_int16(erl_sub_bits_get_base(sb) +
+                                        BYTE_OFFSET(sb->start)));
+        sb->start += 16;
     }
     $Dst = _result;
 }
@@ -1380,18 +837,19 @@ i_bs_get_integer_32.fetch(Ctx) {
 }
 
 i_bs_get_integer_32.execute(Fail, Dst) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Uint32 _integer;
-    ErlBinMatchBuffer* _mb = ms_matchbuffer(context);
 
-    if (_mb->size - _mb->offset < 32) {
+    if (sb->end - sb->start < 32) {
         $FAIL($Fail);
     }
-    if (BIT_OFFSET(_mb->offset) != 0) {
-        _integer = erts_bs_get_unaligned_uint32(_mb);
+    if (BIT_OFFSET(sb->start) != 0) {
+        _integer = erts_bs_get_unaligned_uint32(sb);
     } else {
-        _integer = get_int32(_mb->base + _mb->offset/8);
+        _integer = get_int32(erl_sub_bits_get_base(sb) +
+                              BYTE_OFFSET(sb->start));
     }
-    _mb->offset += 32;
+    sb->start += 32;
     $Dst = make_small(_integer);
 }
 %endif
@@ -1404,8 +862,8 @@ bs_get_integer.head() {
 }
 
 bs_get_integer.fetch(Ctx, Size, Live) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
     Uint wordsneeded;
-    ErlBinMatchBuffer* mb;
     Ms = $Ctx;
     Sz = $Size;
     wordsneeded = 1+WSIZE(NBYTES(Sz));
@@ -1414,8 +872,7 @@ bs_get_integer.fetch(Ctx, Size, Live) {
      * and then realize we don't need the allocated space (if the
      * op fails).
      */
-    mb = ms_matchbuffer(Ms);
-    if (mb->size - mb->offset >= Sz) {
+    if (sb->end - sb->start >= Sz) {
         $GC_TEST_PRESERVE(wordsneeded, $Live, Ms);
     }
 }
@@ -1426,12 +883,11 @@ bs_get_integer.fetch_small(Ctx, Size) {
 }
 
 bs_get_integer.execute(Fail, Flags, Dst) {
-    ErlBinMatchBuffer* mb;
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(Ms);
     Eterm result;
 
-    mb = ms_matchbuffer(Ms);
     LIGHT_SWAPOUT;
-    result = erts_bs_get_integer_2(c_p, Sz, $Flags, mb);
+    result = erts_bs_get_integer_2(c_p, Sz, $Flags, sb);
     LIGHT_SWAPIN;
     HEAP_SPACE_VERIFIED(0);
     if (is_non_value(result)) {
@@ -1451,9 +907,9 @@ i_bs_get_integer.fetch(Ctx) {
 }
 
 i_bs_get_integer.execute(Fail, Live, FlagsAndUnit, Sz, Dst) {
+    ErlSubBits *sb;
     Uint flags;
     Uint size;
-    ErlBinMatchBuffer* mb;
     Eterm result;
 
     flags = $FlagsAndUnit;
@@ -1464,21 +920,24 @@ i_bs_get_integer.execute(Fail, Live, FlagsAndUnit, Sz, Dst) {
          * We do not want a gc and then realize we don't need
          * the allocated space (i.e. if the op fails).
          *
-         * Remember to re-acquire the matchbuffer after gc.
+         * Remember to re-acquire the match context after gc.
          */
 
-        mb = ms_matchbuffer(context);
-        if (mb->size - mb->offset < size) {
+        sb = (ErlSubBits*)bitstring_val(context);
+        if (sb->end - sb->start < size) {
             $FAIL($Fail);
         }
         wordsneeded = 1+WSIZE(NBYTES((Uint) size));
         $GC_TEST_PRESERVE(wordsneeded, $Live, context);
         $REFRESH_GEN_DEST();
     }
-    mb = ms_matchbuffer(context);
+
+    sb = (ErlSubBits*)bitstring_val(context);
+
     LIGHT_SWAPOUT;
-    result = erts_bs_get_integer_2(c_p, size, flags, mb);
+    result = erts_bs_get_integer_2(c_p, size, flags, sb);
     LIGHT_SWAPIN;
+
     HEAP_SPACE_VERIFIED(0);
     if (is_non_value(result)) {
         $FAIL($Fail);
@@ -1497,21 +956,21 @@ i_bs_get_utf8.fetch(Ctx) {
 }
 
 i_bs_get_utf8.execute(Fail, Dst) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Eterm result;
-    ErlBinMatchBuffer* mb = ms_matchbuffer(context);
 
-    if (mb->size - mb->offset < 8) {
+    if (sb->end - sb->start < 8) {
         $FAIL($Fail);
     }
-    if (BIT_OFFSET(mb->offset) != 0) {
-        result = erts_bs_get_utf8(mb);
+    if (BIT_OFFSET(sb->start) != 0) {
+        result = erts_bs_get_utf8(sb);
     } else {
-        byte b = mb->base[BYTE_OFFSET(mb->offset)];
+        byte b = *(erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start));
         if (b < 128) {
             result = make_small(b);
-            mb->offset += 8;
+            sb->start += 8;
         } else {
-            result = erts_bs_get_utf8(mb);
+            result = erts_bs_get_utf8(sb);
         }
     }
     if (is_non_value(result)) {
@@ -1532,8 +991,8 @@ i_bs_get_utf16.fetch(Ctx) {
 }
 
 i_bs_get_utf16.execute(Fail, Flags, Dst) {
-    ErlBinMatchBuffer* mb = ms_matchbuffer(context);
-    Eterm result = erts_bs_get_utf16(mb, $Flags);
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
+    Eterm result = erts_bs_get_utf16(sb, $Flags);
 
     if (is_non_value(result)) {
         $FAIL($Fail);
@@ -1543,24 +1002,28 @@ i_bs_get_utf16.execute(Fail, Flags, Dst) {
 }
 
 i_bs_match_string(Ctx, Fail, Bits, Ptr) {
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
     byte* bytes = (byte *) $Ptr;
-    Uint bits = $Bits;
-    ErlBinMatchBuffer* mb;
+    Uint size = $Bits;
     Uint offs;
 
-    mb = ms_matchbuffer($Ctx);
-    if (mb->size - mb->offset < bits) {
+    if (sb->end - sb->start < size) {
         $FAIL($Fail);
     }
-    offs = mb->offset & 7;
-    if (offs == 0 && (bits & 7) == 0) {
-        if (sys_memcmp(bytes, mb->base+(mb->offset>>3), bits>>3)) {
+    offs = BIT_OFFSET(sb->start);
+    if (offs == 0 && TAIL_BITS(size) == 0) {
+        if (sys_memcmp(bytes,
+                       erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start),
+                       BYTE_SIZE(size))) {
             $FAIL($Fail);
         }
-    } else if (erts_cmp_bits(bytes, 0, mb->base+(mb->offset>>3), mb->offset & 7, bits)) {
+    } else if (erts_cmp_bits(bytes, 0,
+                             erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start),
+                             BIT_OFFSET(sb->start),
+                             size)) {
         $FAIL($Fail);
     }
-    mb->offset += bits;
+    sb->start += size;
 }
 
 bs_get_tail := bs_get_tail.fetch.execute;
@@ -1574,19 +1037,21 @@ bs_get_tail.fetch(Src) {
 }
 
 bs_get_tail.execute(Dst, Live) {
-    ErlBinMatchBuffer* mb;
     Eterm bin, *htop;
+    ErlSubBits *sb;
 
-    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
-
-    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
+    $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
 
     htop = HTOP;
 
-    mb = ms_matchbuffer(context);
+    sb = (ErlSubBits*)bitstring_val(context);
 
-    bin = erts_extract_sub_binary(&htop,mb->orig,mb->base,
-                                  mb->offset,mb->size - mb->offset);
+    bin = erts_build_sub_bitstring(&htop,
+                                   sb->orig & TAG_PTR_MASK__,
+                                   (BinRef*)boxed_val(sb->orig),
+                                   erl_sub_bits_get_base(sb),
+                                   sb->start,
+                                   sb->end - sb->start);
     HTOP = htop;
 
     $REFRESH_GEN_DEST();
@@ -1607,8 +1072,8 @@ i_bs_start_match3_gp.fetch(Src) {
 }
 
 i_bs_start_match3_gp.execute(Live, Fail, Dst, Pos) {
-    Eterm header;
     Uint position, live;
+    Eterm header;
 
     live = $Live;
 
@@ -1618,30 +1083,32 @@ i_bs_start_match3_gp.execute(Live, Fail, Dst, Pos) {
 
     header = *boxed_val(context);
 
-    if (header_is_bin_matchstate(header)) {
-        ErlBinMatchBuffer *mb;
+    if (is_bitstring_header(header)) {
+        ErlSubBits *sb;
+        int reuse = 0;
 
-        ASSERT(HEADER_NUM_SLOTS(header) == 0);
+        if (header == HEADER_SUB_BITS) {
+            sb = (ErlSubBits*)bitstring_val(context);
+            reuse = erl_sub_bits_is_match_context(sb);
+        }
 
-        mb = ms_matchbuffer(context);
-        position = mb->offset;
+        if (!reuse) {
+            $GC_TEST_PRESERVE(ERL_SUB_BITS_SIZE, live, context);
 
-        $Dst = context;
-    } else if (is_binary_header(header)) {
-        ErlBinMatchState *ms;
-
-        $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(0), live, context);
-        HEAP_TOP(c_p) = HTOP;
+            HEAP_TOP(c_p) = HTOP;
 #ifdef DEBUG
-        c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
+            c_p->stop = E;        /* Needed for checking in HeapOnlyAlloc(). */
 #endif
-        ms = erts_bs_start_match_3(c_p, context);
-        HTOP = HEAP_TOP(c_p);
-        HEAP_SPACE_VERIFIED(0);
+            sb = erts_bs_start_match_3(c_p, context);
+            HTOP = HEAP_TOP(c_p);
+            HEAP_SPACE_VERIFIED(0);
 
-        $REFRESH_GEN_DEST();
-        $Dst = make_matchstate(ms);
-        position = ms->mb.offset;
+            $REFRESH_GEN_DEST();
+            context = make_bitstring(sb);
+        }
+
+        position = sb->start;
+        $Dst = context;
     } else {
         $FAIL($Fail);
     }
@@ -1650,84 +1117,18 @@ i_bs_start_match3_gp.execute(Live, Fail, Dst, Pos) {
     $Pos = make_small(position);
 }
 
-i_bs_start_match3 := i_bs_start_match3.fetch.execute;
-
-i_bs_start_match3.head() {
-    Eterm context;
-}
-
-i_bs_start_match3.fetch(Src) {
-    context = $Src;
-}
-
-i_bs_start_match3.execute(Live, Fail, Dst) {
-    Eterm header;
-    Uint live;
-
-    live = $Live;
-
-    if (!is_boxed(context)) {
-        $FAIL($Fail);
-    }
-
-    header = *boxed_val(context);
-
-    if (header_is_bin_matchstate(header)) {
-        ASSERT(HEADER_NUM_SLOTS(header) == 0);
-        $Dst = context;
-    } else if (is_binary_header(header)) {
-        ErlBinMatchState *ms;
-
-        $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(0), live, context);
-        HEAP_TOP(c_p) = HTOP;
-#ifdef DEBUG
-        c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
-#endif
-        ms = erts_bs_start_match_3(c_p, context);
-        HTOP = HEAP_TOP(c_p);
-        HEAP_SPACE_VERIFIED(0);
-
-        $REFRESH_GEN_DEST();
-        $Dst = make_matchstate(ms);
-    } else {
-        $FAIL($Fail);
-    }
-}
-
 bs_set_position(Ctx, Pos) {
-    ErlBinMatchBuffer* mb;
-    Eterm context;
-
-    context = $Ctx;
-    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
-
-    mb = ms_matchbuffer(context);
-    mb->offset = unsigned_val($Pos);
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
+    sb->start = unsigned_val($Pos);
 }
 
 i_bs_get_position(Ctx, Dst) {
-    ErlBinMatchBuffer* mb;
-    Eterm context;
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
 
-    context = $Ctx;
-    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
-
-    mb = ms_matchbuffer(context);
-    $Dst = make_small(mb->offset);
+    $Dst = make_small(sb->start);
 }
 
 %else
-
-#
-# Unlike their 64-bit counterparts, the 32-bit position instructions operate on
-# an offset from the "base position" of the context because storing raw
-# positions would lead to the creation of far too many bigints.
-#
-# When a match context is reused we check whether its position fits into an
-# immediate, and create a new match context if it does not. This means we only
-# have to allocate stuff roughly once every 16MB rather than every time we
-# match at a position beyond 16MB.
-#
 
 bs_set_position := bs_set_position.fetch.execute;
 
@@ -1741,16 +1142,13 @@ bs_set_position.fetch(Ctx, Pos) {
 }
 
 bs_set_position.execute() {
-    ErlBinMatchState *ms;
-
-    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
-    ms = (ErlBinMatchState*)boxed_val(context);
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
 
     if (ERTS_LIKELY(is_small(position))) {
-        ms->mb.offset = ms->save_offset[0] + unsigned_val(position);
+        sb->start = unsigned_val(position);
     } else {
         ASSERT(is_big(position));
-        ms->mb.offset = ms->save_offset[0] + *BIG_V(big_val(position));
+        sb->start = *BIG_V(big_val(position));
     }
 }
 
@@ -1765,13 +1163,8 @@ bs_get_position.fetch(Ctx) {
 }
 
 bs_get_position.execute(Dst, Live) {
-    ErlBinMatchState *ms;
-    Uint position;
-
-    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
-    ms = (ErlBinMatchState*)boxed_val(context);
-
-    position = ms->mb.offset - ms->save_offset[0];
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
+    Uint position = sb->start;
 
     if (ERTS_LIKELY(IS_USMALL(0, position))) {
         $Dst = make_small(position);
@@ -1791,6 +1184,8 @@ bs_get_position.execute(Dst, Live) {
     }
 }
 
+%endif
+
 i_bs_start_match3 := i_bs_start_match3.fetch.execute;
 
 i_bs_start_match3.head() {
@@ -1813,59 +1208,35 @@ i_bs_start_match3.execute(Live, Fail, Dst) {
 
     header = *boxed_val(context);
 
-    if (header_is_bin_matchstate(header)) {
-        ErlBinMatchState *current_ms;
-        Uint position;
+    if (is_bitstring_header(header)) {
+        ErlSubBits *sb;
+        int reuse = 0;
 
-        ASSERT(HEADER_NUM_SLOTS(header) == 1);
+        if (header == HEADER_SUB_BITS) {
+            sb = (ErlSubBits*)bitstring_val(context);
+            reuse = erl_sub_bits_is_match_context(sb);
+        }
 
-        current_ms = (ErlBinMatchState*)boxed_val(context);
-        position = current_ms->mb.offset - current_ms->save_offset[0];
+        if (!reuse) {
+            $GC_TEST_PRESERVE(ERL_SUB_BITS_SIZE, live, context);
 
-        if (ERTS_LIKELY(IS_USMALL(0, position))) {
-            $Dst = context;
-        } else {
-            ErlBinMatchState *new_ms;
-
-            $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(1), live, context);
-            current_ms = (ErlBinMatchState*)boxed_val(context);
-
-            new_ms = (ErlBinMatchState*)HTOP;
-            HTOP += ERL_BIN_MATCHSTATE_SIZE(1);
-
-            new_ms->thing_word = HEADER_BIN_MATCHSTATE(1);
-            new_ms->save_offset[0] = current_ms->mb.offset;
-            new_ms->mb = current_ms->mb;
+            HEAP_TOP(c_p) = HTOP;
+#ifdef DEBUG
+            c_p->stop = E;        /* Needed for checking in HeapOnlyAlloc(). */
+#endif
+            sb = erts_bs_start_match_3(c_p, context);
+            HTOP = HEAP_TOP(c_p);
+            HEAP_SPACE_VERIFIED(0);
 
             $REFRESH_GEN_DEST();
-            $Dst = make_matchstate(new_ms);
+            context = make_bitstring(sb);
         }
-    } else if (is_binary_header(header)) {
-        Eterm result;
 
-        $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(1), live, context);
-        HEAP_TOP(c_p) = HTOP;
-
-#ifdef DEBUG
-        c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
-#endif
-
-        /* We intentionally use erts_bs_start_match_2 so that we can use
-         * save_offset as a base for all saved positions on this context,
-         * allowing us to avoid bigints for much longer. */
-        result = erts_bs_start_match_2(c_p, context, 1);
-
-        HTOP = HEAP_TOP(c_p);
-        HEAP_SPACE_VERIFIED(0);
-
-        $REFRESH_GEN_DEST();
-        $Dst = result;
+        $Dst = context;
     } else {
         $FAIL($Fail);
     }
 }
-
-%endif
 
 //
 // New instructions introduced in OTP 26 for matching of integers and
@@ -1887,9 +1258,9 @@ i_bs_ensure_bits.fetch(Src) {
 }
 
 i_bs_ensure_bits.execute(NumBits, Fail) {
-    ErlBinMatchBuffer* mb = ms_matchbuffer(context);
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Uint size = $NumBits;
-    if (mb->size - mb->offset < size) {
+    if (sb->end - sb->start < size) {
         $FAIL($Fail);
     }
 }
@@ -1909,11 +1280,11 @@ i_bs_ensure_bits_unit.fetch(Src) {
 }
 
 i_bs_ensure_bits_unit.execute(NumBits, Unit, Fail) {
-    ErlBinMatchBuffer* mb = ms_matchbuffer(context);
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Uint size = $NumBits;
     Uint diff;
 
-    if ((diff = mb->size - mb->offset) < size) {
+    if ((diff = sb->end - sb->start) < size) {
         $FAIL($Fail);
     }
     if ((diff - size) % $Unit != 0) {
@@ -1930,24 +1301,24 @@ i_bs_read_bits := i_bs_read_bits.fetch.execute;
 i_bs_ensure_bits_read := i_bs_read_bits.fetch.ensure_bits.execute;
 
 i_bs_read_bits.head() {
-    ErlBinMatchBuffer* mb;
+    ErlSubBits *sb;
     Uint size;
 }
 
 i_bs_read_bits.fetch(Src, NumBits) {
-    mb = ms_matchbuffer($Src);
+    sb = (ErlSubBits*)bitstring_val($Src);
     size = $NumBits;
 }
 
 i_bs_read_bits.ensure_bits(Fail) {
-    if (mb->size - mb->offset < size) {
+    if (sb->end - sb->start < size) {
         $FAIL($Fail);
     }
 }
 
 i_bs_read_bits.execute() {
-    byte *byte_ptr;
-    Uint bit_offset = mb->offset % 8;
+    const byte *byte_ptr;
+    Uint bit_offset = sb->start % 8;
     Uint num_bytes_to_read = (size + 7) / 8;
     Uint num_partial = size % 8;
 
@@ -1957,28 +1328,28 @@ i_bs_read_bits.execute() {
     }
 
     bitdata = 0;
-    byte_ptr = mb->base + (mb->offset >> 3);
-    mb->offset += size;
+    byte_ptr = erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start);
+    sb->start += size;
     switch (num_bytes_to_read) {
 #ifdef ARCH_64
     case 9:
     case 8:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 7:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 6:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 5:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
 #else
     case 5:
 #endif
     case 4:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 3:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 2:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 1:
         bitdata = bitdata << 8 | *byte_ptr++;
     }
@@ -2016,13 +1387,13 @@ i_bs_extract_integer(NumBits, Dst) {
 
 // i_bs_read_integer_8 Ctx Dst
 i_bs_read_integer_8(Ctx, Dst) {
-    ErlBinMatchBuffer* mb = ms_matchbuffer($Ctx);
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ctx);
     byte *byte_ptr;
-    Uint bit_offset = mb->offset % 8;
+    Uint bit_offset = sb->start % 8;
     Eterm result;
 
-    byte_ptr = mb->base + (mb->offset >> 3);
-    mb->offset += 8;
+    byte_ptr = erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start);
+    sb->start += 8;
     result = byte_ptr[0];
     if (bit_offset != 0) {
         result = result << 8 | byte_ptr[1];
@@ -2047,15 +1418,15 @@ i_bs_get_fixed_integer.fetch(Src) {
 }
 
 i_bs_get_fixed_integer.execute(Size, Flags, Dst) {
-    ErlBinMatchBuffer* mb;
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Uint size = $Size;
     Eterm result;
 
-    mb = ms_matchbuffer(context);
     LIGHT_SWAPOUT;
-    result = erts_bs_get_integer_2(c_p, size, $Flags, mb);
+    result = erts_bs_get_integer_2(c_p, size, $Flags, sb);
     LIGHT_SWAPIN;
     HEAP_SPACE_VERIFIED(0);
+
     $Dst = result;
 }
 
@@ -2074,20 +1445,21 @@ i_bs_get_fixed_binary.fetch(Src) {
 }
 
 i_bs_get_fixed_binary.execute(Size, Dst) {
-    ErlBinMatchBuffer* mb;
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Uint size = $Size;
     Eterm* htop;
     Eterm result;
 
-    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
-
     htop = HTOP;
-    mb = ms_matchbuffer(context);
-    result = erts_extract_sub_binary(&htop, mb->orig, mb->base,
-                                     mb->offset, size);
+    result = erts_build_sub_bitstring(&htop,
+                                      sb->orig & TAG_PTR_MASK__,
+                                      (BinRef*)boxed_val(sb->orig),
+                                      erl_sub_bits_get_base(sb),
+                                      sb->start,
+                                      size);
     HTOP = htop;
 
-    mb->offset += size;
+    sb->start += size;
 
     $Dst = result;
 }
@@ -2107,16 +1479,17 @@ i_bs_get_tail.fetch(Src) {
 }
 
 i_bs_get_tail.execute(Dst) {
-    ErlBinMatchBuffer* mb;
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Eterm* htop;
     Eterm result;
 
-    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
-
     htop = HTOP;
-    mb = ms_matchbuffer(context);
-    result = erts_extract_sub_binary(&htop, mb->orig, mb->base,
-                                     mb->offset, mb->size - mb->offset);
+    result = erts_build_sub_bitstring(&htop,
+                                      sb->orig & TAG_PTR_MASK__,
+                                      (BinRef*)boxed_val(sb->orig),
+                                      erl_sub_bits_get_base(sb),
+                                      sb->start,
+                                      sb->end - sb->start);
     HTOP = htop;
 
     $Dst = result;
@@ -2137,12 +1510,10 @@ i_bs_skip.fetch(Src) {
 }
 
 i_bs_skip.execute(Size) {
-    ErlBinMatchBuffer* mb;
+    ErlSubBits *sb = (ErlSubBits*)bitstring_val(context);
     Uint size = $Size;
 
-    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
-    mb = ms_matchbuffer(context);
-    mb->offset += size;
+    sb->start += size;
 }
 
 // i_bs_drop Size

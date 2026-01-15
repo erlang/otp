@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_sockopt_SUITE).
@@ -239,64 +241,113 @@ simple(Config) when is_list(Config) ->
 
 
 do_simple(Config, _) when is_list(Config) ->
-    XOpt = case os:type() of
-	       {unix,_} -> [{reuseaddr,true}];
-	       _ -> []
-	   end,
-    Opt = [{nodelay,true},
-	   {keepalive,true},{packet,4},
-	   {active,false}|XOpt],
-    OptTags = [X || {X,_} <- Opt],
-    {S1,S2} = create_socketpair(Config, Opt, Opt),
-    {ok,Opt} = inet:getopts(S1, OptTags),
-    {ok,Opt} = inet:getopts(S2, OptTags),
+    ?P("begin"),
+    XOpts = case os:type() of
+                {unix,_} -> [{reuseaddr,true}];
+                _ -> []
+            end,
+    Opts      = [{nodelay,   true},
+                 {keepalive, true},
+                 {packet,    4},
+                 {active,    false} | XOpts],
+    Tags   = [X || {X,_} <- Opts],
+
+    ?P("create socket pair"),
+    {S1, S2}  = create_socketpair(Config, Opts, Opts),
+    ?P("socket pair created: "
+       "~n   S1:      ~p"
+       "~n   S1 info: ~p"
+       "~n   S2:      ~p"
+       "~n   S2 info: ~p", [S1, inet:info(S1), S2, inet:info(S2)]),
+
+    ?P("S1: get options: "
+       "~n   ~p", [Tags]),
+    case inet:getopts(S1, Tags) of
+        {ok, Opts} ->
+            ?P("S1 (getopts) success");
+        {ok, Opts_S1_Invalid_1} ->
+            ?P("S1 incorrect (getopts) success: "
+               "~n  Expected opts:          ~p"
+               "~n  UnExpected opts:        ~p"
+               "~n  Exp Opts -- UnExp Opts: ~p"
+               "~n  UnExp Opts -- Exp Opts: ~p",
+               [Opts, Opts_S1_Invalid_1,
+                Opts -- Opts_S1_Invalid_1,
+                Opts_S1_Invalid_1 -- Opts]),
+            ct:fail({incorrect_success, s1, 1, Opts, Opts_S1_Invalid_1});
+        {error, Reason_S1_1} ->
+            ?P("<ERROR> Failed get S1 options: "
+               "~n  Reason: ~p", [Reason_S1_1]),
+            ct:fail({unexpected_failure, s1, 1, Reason_S1_1})
+    end,
+
+    ?P("S2: get options: "
+       "~n   ~p", [Tags]),
+    case inet:getopts(S2, Tags) of
+        {ok, Opts} ->
+            ?P("S2 (getopts) success");
+        {ok, Opts_S2_Invalid_1} ->
+            ?P("S2 incorrect (getopts) success: "
+               "~n  Expected opts:   ~p"
+               "~n  UnExpected opts: ~p", [Opts, Opts_S2_Invalid_1]),
+            ct:fail({incorrect_success, s2, 1, Opts, Opts_S2_Invalid_1});
+        {error, Reason_S2_1} ->
+            ?P("<ERROR> Failed get S2 options: "
+               "~n  Reason: ~p", [Reason_S2_1]),
+            ct:fail({unexpected_failure, s2, 1, Reason_S2_1})
+    end,
+
     NoPushOpt = case os:type() of
                     {unix, Osname} when Osname =:= linux;
                                         Osname =:= freebsd -> {nopush, true};
                     {_,_} -> {nopush, false}
                 end,
     COpt = [{X,case X of nodelay -> false;_ -> Y end} ||
-               {X,Y} <- [NoPushOpt|Opt]],
+               {X,Y} <- [NoPushOpt|Opts]],
     COptTags = [X || {X,_} <- COpt],
     ?P("S1: set options:"
        "~n   ~p", [COpt]),
     inet:setopts(S1,COpt),
+
     ?P("S1: get options: "
        "~n   ~p", [COptTags]),
-    %% {ok,COpt} = inet:getopts(S1,COptTags),
-    case inet:getopts(S1,COptTags) of
-        {ok,COpt} ->
-            ?P("S1: success"),
+    case inet:getopts(S1, COptTags) of
+        {ok, COpt} ->
+            ?P("S1: (getopts) success"),
             ok;
-        {ok, COptErr} ->
-            ?P("S1: incorrect success:"
+        {ok, COptErr_S1} ->
+            ?P("S1: incorrect (getopts) success:"
                "~n   Expected: ~p"
-               "~n   Received: ~p", [COpt, COptErr]),
-            ct:fail({incorrect_success, COpt, COptErr});
-        {error, CReason} ->
+               "~n   Received: ~p", [COpt, COptErr_S1]),
+            ct:fail({incorrect_success, s1, 2, COpt, COptErr_S1});
+        {error, Reason_S1_2} ->
             ?P("S1: unexpected failure:"
-               "~n   ~p", [CReason]),
-            ct:fail({unexpected_failure, CReason})
+               "~n   ~p", [Reason_S1_2]),
+            ct:fail({unexpected_failure, s1, 2, Reason_S1_2})
     end,
+
     ?P("S2: get options: "
-       "~n   ~p", [OptTags]),
-    %% {ok,Opt} = inet:getopts(S2,OptTags),
-    case inet:getopts(S2,OptTags) of
-        {ok, Opt} ->
-            ?P("S2: success"),
+       "~n   ~p", [Tags]),
+    case inet:getopts(S2,Tags) of
+        {ok, Opts} ->
+            ?P("S2: (getopts) success"),
             ok;
-        {ok, OptErr} ->
-            ?P("S2: incorrect success:"
+        {ok, OptErr_S2} ->
+            ?P("S2: incorrect (getopts) success:"
                "~n   Expected: ~p"
-               "~n   Received: ~p", [Opt, OptErr]),
-            ct:fail({incorrect_success, Opt, OptErr});
-        {error, Reason} ->
+               "~n   Received: ~p", [Opts, OptErr_S2]),
+            ct:fail({incorrect_success, s2, 2, Opts, OptErr_S2});
+        {error, Reason_S2_2} ->
             ?P("S2: unexpected failure:"
-               "~n   ~p", [Reason]),
-            ct:fail({unexpected_failure, Reason})
+               "~n   ~p", [Reason_S2_2]),
+            ct:fail({unexpected_failure, s2, 2, Reason_S2_2})
     end,
+
+    ?P("cleanup"),
     gen_tcp:close(S1),
     gen_tcp:close(S2),
+
+    ?P("done"),
     ok.
 
 %% Loop through all socket options and check that they work.

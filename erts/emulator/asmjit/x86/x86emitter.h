@@ -139,16 +139,18 @@ struct EmitterExplicitT {
 
   // These two are unfortunately reported by the sanitizer. We know what we do, however, the sanitizer doesn't.
   // I have tried to use reinterpret_cast instead, but that would generate bad code when compiled by MSC.
-  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF inline This* _emitter() noexcept { return static_cast<This*>(this); }
-  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF inline const This* _emitter() const noexcept { return static_cast<const This*>(this); }
+  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF ASMJIT_INLINE_NODEBUG This* _emitter() noexcept { return static_cast<This*>(this); }
+  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF ASMJIT_INLINE_NODEBUG const This* _emitter() const noexcept { return static_cast<const This*>(this); }
 
   //! \endcond
 
   //! \name Native Registers
   //! \{
 
-  //! Returns either GPD or GPQ register of the given `id` depending on the emitter's architecture.
+  //! Returns either 32-bit or 64-bit GP register of the given `id` depending on the emitter's architecture.
   inline Gp gpz(uint32_t id) const noexcept { return Gp(_emitter()->_gpSignature, id); }
+  //! Clones the given `reg` to either 32-bit or 64-bit GP register depending on the emitter's architecture.
+  inline Gp gpz(const Gp& reg) const noexcept { return Gp(_emitter()->_gpSignature, reg.id()); }
 
   inline Gp zax() const noexcept { return Gp(_emitter()->_gpSignature, Gp::kIdAx); }
   inline Gp zcx() const noexcept { return Gp(_emitter()->_gpSignature, Gp::kIdCx); }
@@ -471,7 +473,6 @@ public:
   ASMJIT_INST_3x(idiv, Idiv, Gp, Gp, Mem)                              // ANY [EXPLICIT] xDX[Rem]:xAX[Quot] <- xDX:xAX / m16|m32|m64
   ASMJIT_INST_2x(imul, Imul, Gp, Gp)                                   // ANY [EXPLICIT] AX <- AL * r8 | ra <- ra * rb
   ASMJIT_INST_2x(imul, Imul, Gp, Mem)                                  // ANY [EXPLICIT] AX <- AL * m8 | ra <- ra * m16|m32|m64
-  ASMJIT_INST_2x(imul, Imul, Gp, Imm)                                  // ANY
   ASMJIT_INST_3x(imul, Imul, Gp, Gp, Imm)                              // ANY
   ASMJIT_INST_3x(imul, Imul, Gp, Mem, Imm)                             // ANY
   ASMJIT_INST_3x(imul, Imul, Gp, Gp, Gp)                               // ANY [EXPLICIT] xDX:xAX <- xAX * r16|r32|r64
@@ -633,6 +634,14 @@ public:
 
   //! \}
 
+  //! \name Core Instructions (Aliases)
+  //! \{
+
+  //! The `imul(Gp, Imm)` instruction is an alias of `imul(Gp, Gp, Imm)` instruction.
+  inline Error imul(const Gp& o0, const Imm& o1) { return _emitter()->_emitI(Inst::kIdImul, o0, o0, o1); }
+
+  //! \}
+
   //! \name Deprecated 32-bit Instructions
   //! \{
 
@@ -657,7 +666,6 @@ public:
   //! \{
 
   // NOTE: For some reason Doxygen is messed up here and thinks we are in cond.
-  //! \endcond
 
   ASMJIT_INST_2x(in, In, Gp_ZAX, Imm)                                  // ANY
   ASMJIT_INST_2x(in, In, Gp_ZAX, Gp_DX)                                // ANY
@@ -679,14 +687,6 @@ public:
 
   //! \}
 
-  //! \name LAHF/SAHF Instructions
-  //! \{
-
-  ASMJIT_INST_1x(lahf, Lahf, Gp_AH)                                    // LAHFSAHF [EXPLICIT] AH <- EFL
-  ASMJIT_INST_1x(sahf, Sahf, Gp_AH)                                    // LAHFSAHF [EXPLICIT] EFL <- AH
-
-  //! \}
-
   //! \name ADX Instructions
   //! \{
 
@@ -697,13 +697,18 @@ public:
 
   //! \}
 
-  //! \name LZCNT/POPCNT Instructions
+  //! \name CPUID Instruction
   //! \{
 
-  ASMJIT_INST_2x(lzcnt, Lzcnt, Gp, Gp)                                 // LZCNT
-  ASMJIT_INST_2x(lzcnt, Lzcnt, Gp, Mem)                                // LZCNT
-  ASMJIT_INST_2x(popcnt, Popcnt, Gp, Gp)                               // POPCNT
-  ASMJIT_INST_2x(popcnt, Popcnt, Gp, Mem)                              // POPCNT
+  ASMJIT_INST_4x(cpuid, Cpuid, Gp_EAX, Gp_EBX, Gp_ECX, Gp_EDX)         // I486 [EXPLICIT] EAX:EBX:ECX:EDX <- CPUID[EAX:ECX]
+
+  //! \}
+
+  //! \name LAHF/SAHF Instructions
+  //! \{
+
+  ASMJIT_INST_1x(lahf, Lahf, Gp_AH)                                    // LAHFSAHF [EXPLICIT] AH <- EFL
+  ASMJIT_INST_1x(sahf, Sahf, Gp_AH)                                    // LAHFSAHF [EXPLICIT] EFL <- AH
 
   //! \}
 
@@ -747,27 +752,36 @@ public:
 
   //! \}
 
-  //! \name TBM Instructions
+  //! \name CMPCCXADD Instructions
   //! \{
 
-  ASMJIT_INST_2x(blcfill, Blcfill, Gp, Gp)                             // TBM
-  ASMJIT_INST_2x(blcfill, Blcfill, Gp, Mem)                            // TBM
-  ASMJIT_INST_2x(blci, Blci, Gp, Gp)                                   // TBM
-  ASMJIT_INST_2x(blci, Blci, Gp, Mem)                                  // TBM
-  ASMJIT_INST_2x(blcic, Blcic, Gp, Gp)                                 // TBM
-  ASMJIT_INST_2x(blcic, Blcic, Gp, Mem)                                // TBM
-  ASMJIT_INST_2x(blcmsk, Blcmsk, Gp, Gp)                               // TBM
-  ASMJIT_INST_2x(blcmsk, Blcmsk, Gp, Mem)                              // TBM
-  ASMJIT_INST_2x(blcs, Blcs, Gp, Gp)                                   // TBM
-  ASMJIT_INST_2x(blcs, Blcs, Gp, Mem)                                  // TBM
-  ASMJIT_INST_2x(blsfill, Blsfill, Gp, Gp)                             // TBM
-  ASMJIT_INST_2x(blsfill, Blsfill, Gp, Mem)                            // TBM
-  ASMJIT_INST_2x(blsic, Blsic, Gp, Gp)                                 // TBM
-  ASMJIT_INST_2x(blsic, Blsic, Gp, Mem)                                // TBM
-  ASMJIT_INST_2x(t1mskc, T1mskc, Gp, Gp)                               // TBM
-  ASMJIT_INST_2x(t1mskc, T1mskc, Gp, Mem)                              // TBM
-  ASMJIT_INST_2x(tzmsk, Tzmsk, Gp, Gp)                                 // TBM
-  ASMJIT_INST_2x(tzmsk, Tzmsk, Gp, Mem)                                // TBM
+  ASMJIT_INST_3x(cmpbexadd, Cmpbexadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpbxadd, Cmpbxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmplexadd, Cmplexadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmplxadd, Cmplxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpnbexadd, Cmpnbexadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpnbxadd, Cmpnbxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpnlexadd, Cmpnlexadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpnlxadd, Cmpnlxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpnoxadd, Cmpnoxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpnpxadd, Cmpnpxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpnsxadd, Cmpnsxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpnzxadd, Cmpnzxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpoxadd, Cmpoxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmppxadd, Cmppxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpsxadd, Cmpsxadd, Mem, Gp, Gp)
+  ASMJIT_INST_3x(cmpzxadd, Cmpzxadd, Mem, Gp, Gp)
+
+  //! \}
+
+  //! \name CacheLine Instructions
+  //! \{
+
+  ASMJIT_INST_1x(cldemote, Cldemote, Mem)                              // CLDEMOTE
+  ASMJIT_INST_1x(clflush, Clflush, Mem)                                // CLFLUSH
+  ASMJIT_INST_1x(clflushopt, Clflushopt, Mem)                          // CLFLUSH_OPT
+  ASMJIT_INST_1x(clwb, Clwb, Mem)                                      // CLWB
+  ASMJIT_INST_1x(clzero, Clzero, DS_ZAX)                               // CLZERO [EXPLICIT]
 
   //! \}
 
@@ -776,6 +790,23 @@ public:
 
   ASMJIT_INST_2x(crc32, Crc32, Gp, Gp)                                 // SSE4_2
   ASMJIT_INST_2x(crc32, Crc32, Gp, Mem)                                // SSE4_2
+
+  //! \}
+
+  //! \name FENCE Instructions (SSE and SSE2)
+  //! \{
+
+  ASMJIT_INST_0x(lfence, Lfence)                                       // SSE2
+  ASMJIT_INST_0x(mfence, Mfence)                                       // SSE2
+  ASMJIT_INST_0x(sfence, Sfence)                                       // SSE
+
+  //! \}
+
+  //! \name LZCNT Instructions
+  //! \{
+
+  ASMJIT_INST_2x(lzcnt, Lzcnt, Gp, Gp)                                 // LZCNT
+  ASMJIT_INST_2x(lzcnt, Lzcnt, Gp, Mem)                                // LZCNT
 
   //! \}
 
@@ -803,12 +834,11 @@ public:
 
   //! \}
 
-  //! \name FENCE Instructions (SSE and SSE2)
+  //! \name POPCNT Instructions
   //! \{
 
-  ASMJIT_INST_0x(lfence, Lfence)                                       // SSE2
-  ASMJIT_INST_0x(mfence, Mfence)                                       // SSE2
-  ASMJIT_INST_0x(sfence, Sfence)                                       // SSE
+  ASMJIT_INST_2x(popcnt, Popcnt, Gp, Gp)                               // POPCNT
+  ASMJIT_INST_2x(popcnt, Popcnt, Gp, Mem)                              // POPCNT
 
   //! \}
 
@@ -825,28 +855,21 @@ public:
 
   //! \}
 
-  //! \name CPUID Instruction
+  //! \name PREFETCHI Instructions
   //! \{
 
-  ASMJIT_INST_4x(cpuid, Cpuid, Gp_EAX, Gp_EBX, Gp_ECX, Gp_EDX)         // I486 [EXPLICIT] EAX:EBX:ECX:EDX <- CPUID[EAX:ECX]
+  ASMJIT_INST_1x(prefetchit0, Prefetchit0, Mem)
+  ASMJIT_INST_1x(prefetchit1, Prefetchit1, Mem)
 
   //! \}
 
-  //! \name CacheLine Instructions
+  //! \name RAO_INT Instructions
   //! \{
 
-  ASMJIT_INST_1x(cldemote, Cldemote, Mem)                              // CLDEMOTE
-  ASMJIT_INST_1x(clflush, Clflush, Mem)                                // CLFLUSH
-  ASMJIT_INST_1x(clflushopt, Clflushopt, Mem)                          // CLFLUSH_OPT
-  ASMJIT_INST_1x(clwb, Clwb, Mem)                                      // CLWB
-  ASMJIT_INST_1x(clzero, Clzero, DS_ZAX)                               // CLZERO [EXPLICIT]
-
-  //! \}
-
-  //! \name SERIALIZE Instruction
-  //! \{
-
-  ASMJIT_INST_0x(serialize, Serialize)                                 // SERIALIZE
+  ASMJIT_INST_2x(aadd, Aadd, Mem, Gp)
+  ASMJIT_INST_2x(aand, Aand, Mem, Gp)
+  ASMJIT_INST_2x(aor, Aor, Mem, Gp)
+  ASMJIT_INST_2x(axor, Axor, Mem, Gp)
 
   //! \}
 
@@ -870,6 +893,37 @@ public:
 
   ASMJIT_INST_2x(rdtsc, Rdtsc, Gp_EDX, Gp_EAX)                         // RDTSC     [EXPLICIT] EDX:EAX     <- Counter
   ASMJIT_INST_3x(rdtscp, Rdtscp, Gp_EDX, Gp_EAX, Gp_ECX)               // RDTSCP    [EXPLICIT] EDX:EAX:EXC <- Counter
+
+  //! \}
+
+  //! \name SERIALIZE Instruction
+  //! \{
+
+  ASMJIT_INST_0x(serialize, Serialize)                                 // SERIALIZE
+
+  //! \}
+
+  //! \name TBM Instructions
+  //! \{
+
+  ASMJIT_INST_2x(blcfill, Blcfill, Gp, Gp)                             // TBM
+  ASMJIT_INST_2x(blcfill, Blcfill, Gp, Mem)                            // TBM
+  ASMJIT_INST_2x(blci, Blci, Gp, Gp)                                   // TBM
+  ASMJIT_INST_2x(blci, Blci, Gp, Mem)                                  // TBM
+  ASMJIT_INST_2x(blcic, Blcic, Gp, Gp)                                 // TBM
+  ASMJIT_INST_2x(blcic, Blcic, Gp, Mem)                                // TBM
+  ASMJIT_INST_2x(blcmsk, Blcmsk, Gp, Gp)                               // TBM
+  ASMJIT_INST_2x(blcmsk, Blcmsk, Gp, Mem)                              // TBM
+  ASMJIT_INST_2x(blcs, Blcs, Gp, Gp)                                   // TBM
+  ASMJIT_INST_2x(blcs, Blcs, Gp, Mem)                                  // TBM
+  ASMJIT_INST_2x(blsfill, Blsfill, Gp, Gp)                             // TBM
+  ASMJIT_INST_2x(blsfill, Blsfill, Gp, Mem)                            // TBM
+  ASMJIT_INST_2x(blsic, Blsic, Gp, Gp)                                 // TBM
+  ASMJIT_INST_2x(blsic, Blsic, Gp, Mem)                                // TBM
+  ASMJIT_INST_2x(t1mskc, T1mskc, Gp, Gp)                               // TBM
+  ASMJIT_INST_2x(t1mskc, T1mskc, Gp, Mem)                              // TBM
+  ASMJIT_INST_2x(tzmsk, Tzmsk, Gp, Gp)                                 // TBM
+  ASMJIT_INST_2x(tzmsk, Tzmsk, Gp, Mem)                                // TBM
 
   //! \}
 
@@ -1122,6 +1176,14 @@ public:
 
   //! \}
 
+  //! \name INVLPGB Instructions
+  //! \{
+
+  ASMJIT_INST_3x(invlpgb, Invlpgb, Gp_EAX, Gp_EDX, Gp_ECX)
+  ASMJIT_INST_0x(tlbsync, Tlbsync)
+
+  //! \}
+
   //! \name MONITOR Instructions (Privileged)
   //! \{
 
@@ -1172,6 +1234,7 @@ public:
   ASMJIT_INST_0x(vmresume, Vmresume)                                   // VMX
   ASMJIT_INST_2x(vmwrite, Vmwrite, Gp, Mem)                            // VMX
   ASMJIT_INST_2x(vmwrite, Vmwrite, Gp, Gp)                             // VMX
+  ASMJIT_INST_0x(vmxoff, Vmxoff)                                       // VMX
   ASMJIT_INST_1x(vmxon, Vmxon, Mem)                                    // VMX
 
   //! \}
@@ -1185,6 +1248,13 @@ public:
   ASMJIT_INST_0x(vmmcall, Vmmcall)                                     // SVM
   ASMJIT_INST_1x(vmrun, Vmrun, Gp)                                     // SVM       [EXPLICIT] <zax>
   ASMJIT_INST_1x(vmsave, Vmsave, Gp)                                   // SVM       [EXPLICIT] <zax>
+
+  //! \}
+
+  //! \name SEV_ES Instructions
+  //! \{
+
+  ASMJIT_INST_0x(vmgexit, Vmgexit)
 
   //! \}
 
@@ -2092,9 +2162,6 @@ public:
   //! \name GFNI Instructions
   //! \{
 
-  // NOTE: For some reason Doxygen is messed up here and thinks we are in cond.
-  //! \endcond
-
   ASMJIT_INST_3x(gf2p8affineinvqb, Gf2p8affineinvqb, Xmm, Xmm, Imm)    // GFNI
   ASMJIT_INST_3x(gf2p8affineinvqb, Gf2p8affineinvqb, Xmm, Mem, Imm)    // GFNI
   ASMJIT_INST_3x(gf2p8affineqb, Gf2p8affineqb, Xmm, Xmm, Imm)          // GFNI
@@ -2762,7 +2829,7 @@ public:
   ASMJIT_INST_3x(vpand, Vpand, Vec, Vec, Mem)                          // AVX+
   ASMJIT_INST_3x(vpandd, Vpandd, Vec, Vec, Vec)                        //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpandd, Vpandd, Vec, Vec, Mem)                        //      AVX512_F{kz|b32}
-  ASMJIT_INST_3x(vpandn, Vpandn, Vec, Vec, Vec)                        // AV+
+  ASMJIT_INST_3x(vpandn, Vpandn, Vec, Vec, Vec)                        // AVX+
   ASMJIT_INST_3x(vpandn, Vpandn, Vec, Vec, Mem)                        // AVX+
   ASMJIT_INST_3x(vpandnd, Vpandnd, Vec, Vec, Vec)                      //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpandnd, Vpandnd, Vec, Vec, Mem)                      //      AVX512_F{kz|b32}
@@ -3121,7 +3188,7 @@ public:
   ASMJIT_INST_2x(vpopcntq, Vpopcntq, Vec, Mem)                         //      AVX512_VPOPCNTDQ{kz|b64}
   ASMJIT_INST_2x(vpopcntw, Vpopcntw, Vec, Vec)                         //      AVX512_BITALG{kz|b32}
   ASMJIT_INST_2x(vpopcntw, Vpopcntw, Vec, Mem)                         //      AVX512_BITALG{kz|b32}
-  ASMJIT_INST_3x(vpor, Vpor, Vec, Vec, Vec)                            // AV+
+  ASMJIT_INST_3x(vpor, Vpor, Vec, Vec, Vec)                            // AVX+
   ASMJIT_INST_3x(vpor, Vpor, Vec, Vec, Mem)                            // AVX+
   ASMJIT_INST_3x(vpord, Vpord, Vec, Vec, Vec)                          //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpord, Vpord, Vec, Vec, Mem)                          //      AVX512_F{kz|b32}
@@ -3659,6 +3726,83 @@ public:
 
   //! \}
 
+  //! \name AVX_NE_CONVERT Instructions
+  //! \{
+
+  ASMJIT_INST_2x(vbcstnebf162ps, Vbcstnebf162ps, Vec, Mem)
+  ASMJIT_INST_2x(vbcstnesh2ps, Vbcstnesh2ps, Vec, Mem)
+  ASMJIT_INST_2x(vcvtneebf162ps, Vcvtneebf162ps, Vec, Mem)
+  ASMJIT_INST_2x(vcvtneeph2ps, Vcvtneeph2ps, Vec, Mem)
+  ASMJIT_INST_2x(vcvtneobf162ps, Vcvtneobf162ps, Vec, Mem)
+  ASMJIT_INST_2x(vcvtneoph2ps, Vcvtneoph2ps, Vec, Mem)
+
+  //! \}
+
+  //! \name AVX_VNNI_INT8 Instructions
+  //! \{
+
+  ASMJIT_INST_3x(vpdpbssd, Vpdpbssd, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpbssd, Vpdpbssd, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpbssds, Vpdpbssds, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpbssds, Vpdpbssds, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpbsud, Vpdpbsud, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpbsud, Vpdpbsud, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpbsuds, Vpdpbsuds, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpbsuds, Vpdpbsuds, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpbuud, Vpdpbuud, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpbuud, Vpdpbuud, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpbuuds, Vpdpbuuds, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpbuuds, Vpdpbuuds, Vec, Vec, Mem)
+
+  //! \}
+
+  //! \name AVX_VNNI_INT16 Instructions
+  //! \{
+
+  ASMJIT_INST_3x(vpdpwsud, Vpdpwsud, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpwsud, Vpdpwsud, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpwsuds, Vpdpwsuds, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpwsuds, Vpdpwsuds, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpwusd, Vpdpwusd, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpwusd, Vpdpwusd, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpwusds, Vpdpwusds, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpwusds, Vpdpwusds, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpwuud, Vpdpwuud, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpwuud, Vpdpwuud, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vpdpwuuds, Vpdpwuuds, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vpdpwuuds, Vpdpwuuds, Vec, Vec, Mem)
+
+  //! \}
+
+  //! \name AVX+SHA512 Instructions
+  //! \{
+  ASMJIT_INST_2x(vsha512msg1, Vsha512msg1, Vec, Vec)
+  ASMJIT_INST_2x(vsha512msg2, Vsha512msg2, Vec, Vec)
+  ASMJIT_INST_3x(vsha512rnds2, Vsha512rnds2, Vec, Vec, Vec)
+  //! \}
+
+  //! \name AVX+SM3 Instructions
+  //! \{
+
+  ASMJIT_INST_3x(vsm3msg1, Vsm3msg1, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vsm3msg1, Vsm3msg1, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vsm3msg2, Vsm3msg2, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vsm3msg2, Vsm3msg2, Vec, Vec, Mem)
+  ASMJIT_INST_4x(vsm3rnds2, Vsm3rnds2, Vec, Vec, Vec, Imm)
+  ASMJIT_INST_4x(vsm3rnds2, Vsm3rnds2, Vec, Vec, Mem, Imm)
+
+  //! \}
+
+  //! \name AVX+SM4 Instructions
+  //! \{
+
+  ASMJIT_INST_3x(vsm4key4, Vsm4key4, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vsm4key4, Vsm4key4, Vec, Vec, Mem)
+  ASMJIT_INST_3x(vsm4rnds4, Vsm4rnds4, Vec, Vec, Vec)
+  ASMJIT_INST_3x(vsm4rnds4, Vsm4rnds4, Vec, Vec, Mem)
+
+  //! \}
+
   //! \name AVX512_FP16 Instructions
   //! \{
 
@@ -3880,22 +4024,48 @@ public:
 
   //! \}
 
-  //! \name AMX Instructions
+  //! \name AMX_TILE Instructions
   //! \{
 
-  ASMJIT_INST_1x(ldtilecfg, Ldtilecfg, Mem)                            // AMX_TILE
-  ASMJIT_INST_1x(sttilecfg, Sttilecfg, Mem)                            // AMX_TILE
-  ASMJIT_INST_2x(tileloadd, Tileloadd, Tmm, Mem)                       // AMX_TILE
-  ASMJIT_INST_2x(tileloaddt1, Tileloaddt1, Tmm, Mem)                   // AMX_TILE
-  ASMJIT_INST_0x(tilerelease, Tilerelease)                             // AMX_TILE
-  ASMJIT_INST_2x(tilestored, Tilestored, Mem, Tmm)                     // AMX_TILE
-  ASMJIT_INST_1x(tilezero, Tilezero, Tmm)                              // AMX_TILE
+  ASMJIT_INST_1x(ldtilecfg, Ldtilecfg, Mem)
+  ASMJIT_INST_1x(sttilecfg, Sttilecfg, Mem)
+  ASMJIT_INST_2x(tileloadd, Tileloadd, Tmm, Mem)
+  ASMJIT_INST_2x(tileloaddt1, Tileloaddt1, Tmm, Mem)
+  ASMJIT_INST_0x(tilerelease, Tilerelease)
+  ASMJIT_INST_2x(tilestored, Tilestored, Mem, Tmm)
+  ASMJIT_INST_1x(tilezero, Tilezero, Tmm)
 
-  ASMJIT_INST_3x(tdpbf16ps, Tdpbf16ps, Tmm, Tmm, Tmm)                  // AMX_BF16
-  ASMJIT_INST_3x(tdpbssd, Tdpbssd, Tmm, Tmm, Tmm)                      // AMX_INT8
-  ASMJIT_INST_3x(tdpbsud, Tdpbsud, Tmm, Tmm, Tmm)                      // AMX_INT8
-  ASMJIT_INST_3x(tdpbusd, Tdpbusd, Tmm, Tmm, Tmm)                      // AMX_INT8
-  ASMJIT_INST_3x(tdpbuud, Tdpbuud, Tmm, Tmm, Tmm)                      // AMX_INT8
+  //! \}
+
+  //! \name AMX_BF16 Instructions
+  //! \{
+
+  ASMJIT_INST_3x(tdpbf16ps, Tdpbf16ps, Tmm, Tmm, Tmm)
+
+  //! \}
+
+  //! \name AMX_COMPLEX Instructions
+  //! \{
+
+  ASMJIT_INST_3x(tcmmimfp16ps, Tcmmimfp16ps, Tmm, Tmm, Tmm)
+  ASMJIT_INST_3x(tcmmrlfp16ps, Tcmmrlfp16ps, Tmm, Tmm, Tmm)
+
+  //! \}
+
+  //! \name AMX_FP16 Instructions
+  //! \{
+
+  ASMJIT_INST_3x(tdpfp16ps, Tdpfp16ps, Tmm, Tmm, Tmm)
+
+  //! \}
+
+  //! \name AMX_INT8 Instructions
+  //! \{
+
+  ASMJIT_INST_3x(tdpbssd, Tdpbssd, Tmm, Tmm, Tmm)
+  ASMJIT_INST_3x(tdpbsud, Tdpbsud, Tmm, Tmm, Tmm)
+  ASMJIT_INST_3x(tdpbusd, Tdpbusd, Tmm, Tmm, Tmm)
+  ASMJIT_INST_3x(tdpbuud, Tdpbuud, Tmm, Tmm, Tmm)
 
   //! \}
 };
@@ -4164,6 +4334,16 @@ struct EmitterImplicitT : public EmitterExplicitT<This> {
   //! \endcond
 
   ASMJIT_INST_1x(hreset, Hreset, Imm)                                  // HRESET    [IMPLICIT]
+
+  //! \}
+
+  //! \name SEAM Instructions
+  //! \{
+
+  ASMJIT_INST_0x(seamcall, Seamcall)
+  ASMJIT_INST_0x(seamops, Seamops)
+  ASMJIT_INST_0x(seamret, Seamret)
+  ASMJIT_INST_0x(tdcall, Tdcall)
 
   //! \}
 

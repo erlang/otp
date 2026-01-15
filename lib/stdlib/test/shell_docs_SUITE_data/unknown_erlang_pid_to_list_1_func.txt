@@ -1,13 +1,22 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec pid_to_list(Pid) -> string() when Pid :: pid().[0m
+[;1m  pid_to_list(Pid)[0m
 
   Returns a string corresponding to the text representation of [;;4mPid[0m.
-  Example:
+
+  For example:
 
     > erlang:pid_to_list(self()).
     "<0.85.0>"
 
-  Note:
+  [;;4mNote[0m
+
     The creation for the node is not included in the list
     representation of [;;4mPid[0m. This means that processes in
     different incarnations of a node with a specific name can get

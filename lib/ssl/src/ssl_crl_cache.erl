@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,15 +24,25 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_crl_cache).
+-moduledoc """
+CRL cache
+
+Implements an internal CRL (Certificate Revocation List) cache. In addition to
+implementing the `m:ssl_crl_cache_api` behaviour the following functions are
+available.
+""".
+-moduledoc(#{since => "OTP 18.0"}).
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 -behaviour(ssl_crl_cache_api).
 
--export_type([crl_src/0, uri/0]).
+-export_type([crl_src/0]).
+-doc """
+A source to input CRLs
+""".
 -type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
--type uri()     :: uri_string:uri_string().
 
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
@@ -39,6 +51,7 @@
 %% Cache callback API
 %%====================================================================
 
+-doc false.
 lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
        _Issuer,
        CRLDbInfo) ->
@@ -46,6 +59,7 @@ lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
 lookup(_,_,_) ->
     not_available.
 
+-doc false.
 select(GenNames, CRLDbHandle) when is_list(GenNames) ->
     lists:flatmap(fun({directoryName, Issuer}) ->
                           select(Issuer, CRLDbHandle);
@@ -60,6 +74,7 @@ select(Issuer, {{_Cache, Mapping},_}) ->
 	    CRLs
     end.
 
+-doc false.
 fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
     case get_crls(Names, undefined) of
 	not_available ->
@@ -73,18 +88,25 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
+-doc(#{equiv => insert/2}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec insert(CRLSrc) -> ok | {error, Reason} when
       CRLSrc :: crl_src(),
-      Reason :: term().
+      Reason :: ssl:reason().
 %%--------------------------------------------------------------------
 insert(CRLSrc) ->
     insert(?NO_DIST_POINT, CRLSrc).
 
 %%--------------------------------------------------------------------
+-doc """
+Insert CRLs into the ssl applications local cache, with or without a
+distribution point reference URI
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec insert(DistPointURI, CRLSrc) -> ok | {error, Reason} when
       DistPointURI :: uri_string:uri_string(),
       CRLSrc :: crl_src(),
-      Reason :: term().
+      Reason :: ssl:reason().
 %%--------------------------------------------------------------------
 insert(DistPointURI, {file, File}) when is_list(DistPointURI) ->
     case file:read_file(File) of
@@ -100,9 +122,13 @@ insert(DistPointURI, {der, CRLs}) ->
     do_insert(DistPointURI, CRLs).
 
 %%--------------------------------------------------------------------
+-doc """
+Delete CRLs from the ssl applications local cache.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec delete(Entries) -> ok | {error, Reason} when
       Entries :: crl_src() | uri_string:uri_string(),
-      Reason :: term().
+      Reason :: ssl:reason().
 %%--------------------------------------------------------------------
 delete({file, File}) ->
     case file:read_file(File) of
@@ -119,8 +145,12 @@ delete({der, CRLs}) ->
 
 delete(URI) ->
     case uri_string:normalize(URI, [return_map]) of
-	#{scheme := "http", path := Path} ->
-	    ssl_manager:delete_crls(string:trim(Path, leading, "/"));
+	#{scheme := "http",
+          host := Host,
+          path := Path} = Map ->
+            Port = maps:get(port, Map, 80),
+            Key = make_key(Host, Port, Path),
+	    ssl_manager:delete_crls(Key);
 	_ ->
 	    {error, {only_http_distribution_points_supported, URI}}
     end.
@@ -130,8 +160,12 @@ delete(URI) ->
 %%--------------------------------------------------------------------
 do_insert(URI, CRLs) ->
     case uri_string:normalize(URI, [return_map]) of
-	#{scheme := "http", path := Path} ->
-	    ssl_manager:insert_crls(string:trim(Path, leading, "/"), CRLs);
+	#{scheme := "http", 
+          host := Host,
+          path := Path} = Map ->
+            Port = maps:get(port, Map, 80),
+            Key = make_key(Host, Port, Path),
+	    ssl_manager:insert_crls(Key, CRLs);
 	_ ->
 	    {error, {only_http_distribution_points_supported, URI}}
     end.
@@ -187,8 +221,11 @@ http_get(URL, Rest, CRLDbInfo, Timeout) ->
 cache_lookup(_, undefined) ->
     [];
 cache_lookup(URL, {{Cache, _}, _}) ->
-    #{path :=  Path} = uri_string:normalize(URL, [return_map]),
-    case ssl_pkix_db:lookup(string:trim(Path, leading, "/"), Cache) of
+    #{path :=  Path,
+      host := Host} = Map = uri_string:normalize(URL, [return_map]),
+    Port = maps:get(port, Map, 80),
+    Key = make_key(Host, Port, Path),
+    case ssl_pkix_db:lookup(Key, Cache) of
 	undefined ->
 	    [];
 	[CRLs] ->
@@ -205,3 +242,6 @@ handle_http(URI, Rest, {_,  [{http, Timeout}]} = CRLDbInfo) ->
 handle_http(_, Rest, CRLDbInfo) ->
     get_crls(Rest, CRLDbInfo).
 
+
+make_key(Host, Port, Path) -> 
+    Host ++ ":" ++ integer_to_list(Port) ++ Path.

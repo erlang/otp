@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +22,7 @@
 
 #include "hash.h"
 #include "digest.h"
+#include "info.h"
 
 #ifdef HAVE_MD5
 #  define MD5_CTX_LEN       (sizeof(MD5_CTX))
@@ -48,9 +51,10 @@ static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
 }
 #endif
 
-int init_hash_ctx(ErlNifEnv* env) {
+int init_hash_ctx(ErlNifEnv* env, ErlNifBinary* rt_buf) {
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
+    evp_md_ctx_rtype = enif_open_resource_type(env, NULL,
+                                               resource_name("EVP_MD_CTX", rt_buf),
                                                (ErlNifResourceDtor*) evp_md_ctx_dtor,
                                                ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                NULL);
@@ -71,27 +75,26 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
     struct digest_type_t *digp = NULL;
     const EVP_MD         *md;
-    ERL_NIF_TERM         ret;
+    ERL_NIF_TERM keys[3] = { atom_type, atom_size, atom_block_size };
+    ERL_NIF_TERM values[3];
+    ERL_NIF_TERM ret;
+    int ok;
 
     ASSERT(argc == 1);
 
     if ((digp = get_digest_type(argv[0])) == NULL)
         return enif_make_badarg(env);
     if (DIGEST_FORBIDDEN_IN_FIPS(digp))
-        return atom_notsup;
+        return RAISE_NOTSUP(env);
 
     if ((md = digp->md.p) == NULL)
-        return atom_notsup;
+        return RAISE_NOTSUP(env);
 
-    ret = enif_make_new_map(env);
-
-    enif_make_map_put(env, ret, atom_type,
-        enif_make_int(env, EVP_MD_type(md)), &ret);
-    enif_make_map_put(env, ret, atom_size,
-        enif_make_int(env, EVP_MD_size(md)), &ret);
-    enif_make_map_put(env, ret, atom_block_size,
-        enif_make_int(env, EVP_MD_block_size(md)), &ret);
-
+    values[0] = enif_make_int(env, EVP_MD_type(md));
+    values[1] = enif_make_int(env, EVP_MD_size(md));
+    values[2] = enif_make_int(env, EVP_MD_block_size(md));
+    ok = enif_make_map_from_arrays(env, keys, values, 3, &ret);
+    ASSERT(ok); (void)ok;
     return ret;
 }
 
@@ -114,6 +117,36 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         return EXCP_BADARG_N(env, 1, "Not iolist");
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
+    /* Set xoflen for SHAKE digests if needed */
+    if (digp->xof_default_length) {
+        EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        OSSL_PARAM params[2];
+
+        if (!ctx) {
+            return EXCP_ERROR(env, "EVP_MD_CTX_new failed");
+        }
+        params[0] = OSSL_PARAM_construct_uint("xoflen", &digp->xof_default_length);
+        params[1] = OSSL_PARAM_construct_end();
+        if (EVP_DigestInit_ex2(ctx, md, params) != 1) {
+            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestInit failed"));
+        }
+        ret_size = digp->xof_default_length;
+        if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL) {
+            assign_goto(ret, done, EXCP_ERROR(env, "Can't allocate binary"));
+        }
+        if (EVP_DigestUpdate(ctx, data.data, data.size) != 1) {
+            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestUpdate failed"));
+        }
+        if (EVP_DigestFinalXOF(ctx, outp, ret_size) != 1) {
+            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestFinalXOF failed"));
+        }
+        CONSUME_REDS(env, data);
+    done:
+        EVP_MD_CTX_free(ctx);
+        return ret;
+    }
+#endif
 
     ret_size = (unsigned)EVP_MD_size(md);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
@@ -152,6 +185,21 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
     if (EVP_DigestInit(ctx->ctx, digp->md.p) != 1)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestInit failed"));
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
+    /*
+     * The default digest length for shake128 and shake256 was removed
+     * in OpenSSL 3.4, so we set them to be backward compatible with ourself.
+     */
+    if (digp->xof_default_length) {
+        OSSL_PARAM params[2];
+        params[0] = OSSL_PARAM_construct_uint("xoflen", &digp->xof_default_length);
+        params[1] = OSSL_PARAM_construct_end();
+        if (!EVP_MD_CTX_set_params(ctx->ctx, params)) {
+            assign_goto(ret, done, EXCP_ERROR(env, "Can't set param xoflen"));
+        }
+    }
+#endif
 
     ret = enif_make_resource(env, ctx);
 

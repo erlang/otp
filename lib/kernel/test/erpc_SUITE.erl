@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +25,8 @@
 	 init_per_group/2,end_per_group/2]).
 -export([call/1, call_against_old_node/1,
          call_from_old_node/1,
-         call_reqtmo/1, call_against_ei_node/1, cast/1,
+         call_reqtmo/1, call_against_ei_node/1,
+	 call_always_spawn/1, cast/1,
          send_request/1, send_request_fun/1,
          send_request_receive_reqtmo/1,
          send_request_wait_reqtmo/1,
@@ -36,6 +39,7 @@
          multicall_recv_opt/1,
          multicall_recv_opt2/1,
          multicall_recv_opt3/1,
+	 multicall_always_spawn/1,
          multicast/1,
          timeout_limit/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -65,6 +69,7 @@ all() ->
      call_from_old_node,
      call_reqtmo,
      call_against_ei_node,
+     call_always_spawn,
      cast,
      send_request,
      send_request_fun,
@@ -80,6 +85,7 @@ all() ->
      multicall_recv_opt,
      multicall_recv_opt2,
      multicall_recv_opt3,
+     multicall_always_spawn,
      multicast,
      timeout_limit].
 
@@ -466,6 +472,19 @@ reqtmo_test(Test) ->
     {comment,
      "Timeout = " ++ integer_to_list(Timeout)
      ++ " Actual = " ++ integer_to_list(Time)}.
+
+call_always_spawn(Config) when is_list(Config) ->
+    case self() =:= erpc:call(node(), erlang, self, [],
+			      #{timeout => infinity,
+				always_spawn => false}) of
+	true ->
+	    false = self() =:= erpc:call(node(), erlang, self, [],
+					#{timeout => infinity,
+					  always_spawn => true}),
+	    ok;
+	false ->
+	    {skip, local_call_spawned}
+    end.
 
 cast(Config) when is_list(Config) ->
     %% silently fail
@@ -1731,6 +1750,21 @@ do_time_multicall(undefined, Nodes, Fun, Tmo, N) ->
 do_time_multicall(Expect, Nodes, Fun, Tmo, N) ->
     Expect = erpc:multicall(Nodes, Fun, Tmo),
     do_time_multicall(Expect, Nodes, Fun, Tmo, N-1).
+
+multicall_always_spawn(Config) when is_list(Config) ->
+    Replies1 = erpc:multicall([node(), node()], erlang, self, [],
+			      #{timeout => infinity,
+				always_spawn => false}),
+    case lists:any(fun({ok, Pid}) -> self() =:= Pid end, Replies1) of
+	true ->
+	    Replies2 = erpc:multicall([node(), node()], erlang, self, [],
+				      #{timeout => infinity,
+					always_spawn => true}),
+	    false = lists:any(fun({ok, Pid}) -> self() =:= Pid end, Replies2),
+	    ok;
+	false ->
+	    {skip, all_local_calls_spawned}
+    end.
 
 multicast(Config) when is_list(Config) ->
     {ok, _Peer, Node} = ?CT_PEER(),

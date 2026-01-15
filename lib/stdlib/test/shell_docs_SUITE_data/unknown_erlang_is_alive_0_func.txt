@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec is_alive() -> boolean().[0m
+[;1m  is_alive()[0m
 
   Returns [;;4mtrue[0m if the local node is alive (that is, if the node
   can be part of a distributed system), otherwise [;;4mfalse[0m. A node is

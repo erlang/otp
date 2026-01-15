@@ -1,10 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type stacktrace() ::[0m
-  [;1m          [{module(),[0m
-  [;1m            atom(),[0m
-  [;1m            arity() | [term()],[0m
-  [;1m            [stacktrace_extrainfo()]} |[0m
-  [;1m           {function(), arity() | [term()], [stacktrace_extrainfo()]}].[0m
+[;1m  stacktrace()[0m
 
   An Erlang stacktrace as described by Errors and Error Handling
   section in the Erlang Reference Manual.

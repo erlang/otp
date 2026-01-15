@@ -1,10 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec read_link_info(Name, Opts) -> {ok, FileInfo} | {error, Reason}[0m
-  [;1m                        when[0m
-  [;1m                            Name :: name_all(),[0m
-  [;1m                            Opts :: [file_info_option()],[0m
-  [;1m                            FileInfo :: file_info(),[0m
-  [;1m                            Reason :: posix() | badarg.[0m
+[;1m  read_link_info(Name, Opts)[0m
 
 [;;4mSince[0m:
   OTP R15B

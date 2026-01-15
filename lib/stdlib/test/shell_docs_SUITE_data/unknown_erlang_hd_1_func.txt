@@ -1,6 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec hd(List) -> Head[0m
-  [;1m            when List :: nonempty_maybe_improper_list(), Head :: term().[0m
+[;1m  hd(List)[0m
 
   Returns the head of [;;4mList[0m, that is, the first element.
 
@@ -13,7 +19,5 @@
 
     > hd([first, second, third, so_on | improper_end]).
     first
-
-  Allowed in guard tests.
 
   Failure: [;;4mbadarg[0m if [;;4mList[0m is an empty list [;;4m[][0m.

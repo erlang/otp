@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -36,6 +38,7 @@
   	 to_list_test/1,
   	 sparse_to_list_test/1,
   	 from_list_test/1,
+         from_test/1,
   	 to_orddict_test/1,
   	 sparse_to_orddict_test/1,
   	 from_orddict_test/1,
@@ -44,15 +47,18 @@
   	 foldl_test/1,
   	 sparse_foldl_test/1,
   	 foldr_test/1,
-  	 sparse_foldr_test/1
+  	 sparse_foldr_test/1,
+         import_export/1,
+         doctests/1
 	]).
 
 
 -export([t/0,t/1,extract_tests/0]).
 
--import(array, 
+-import(array,
 	[new/0, new/1, new/2, is_array/1, set/3, get/2, %size/1,
 	 sparse_size/1, default/1, reset/2, to_list/1, sparse_to_list/1,
+         from/2, from/3,
 	 from_list/1, from_list/2, to_orddict/1, sparse_to_orddict/1,
 	 from_orddict/1, from_orddict/2, map/2, sparse_map/2, foldl/3,
 	 foldr/3, sparse_foldl/3, sparse_foldr/3, fix/1, relax/1, is_fix/1,
@@ -65,15 +71,16 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
     [new_test, fix_test, relax_test, resize_test,
      set_get_test, to_list_test, sparse_to_list_test,
+     from_test,
      from_list_test, to_orddict_test, sparse_to_orddict_test,
      from_orddict_test, map_test, sparse_map_test,
-     foldl_test, sparse_foldl_test, foldr_test,
-     sparse_foldr_test].
+     foldl_test, sparse_foldl_test, foldr_test, sparse_foldr_test,
+     import_export, doctests].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -448,6 +455,37 @@ from_list_test_() ->
      ?_assertError(badarg, from_list(no_array))     
     ].
 
+from_test_() ->
+    Seq = fun({N,Max}) ->
+                  if N =< Max -> {N, {N+1, Max}};
+                     true -> done
+                  end
+          end,
+    N0 = ?LEAFSIZE,
+    N1 = ?NODESIZE*N0,
+    N2 = ?NODESIZE*N1,
+    N3 = ?NODESIZE*N2,
+    N4 = ?NODESIZE*N3,
+    [?_assert(array:size(from(Seq, {1,0})) =:= 0),
+     ?_assert(array:is_fix(from(Seq, {1,0})) =:= false),
+     ?_assert(array:size(from(Seq, {1,1})) =:= 1),
+     ?_assert(array:is_fix(from(Seq, {1,1})) =:= false),
+     ?_assert(to_list(from(Seq, {1,N0-1})) =:= lists:seq(1,N0-1)),
+     ?_assert(to_list(from(Seq, {1,N0})) =:= lists:seq(1,N0)),
+     ?_assert(to_list(from(Seq, {1,N0+1})) =:= lists:seq(1,N0+1)),
+     ?_assert(to_list(from(Seq, {1,N0+2})) =:= lists:seq(1,N0+2)),
+     ?_assert(to_list(from(Seq, {1,N2-1})) =:= lists:seq(1,N2-1)),
+     ?_assert(to_list(from(Seq, {1,N2})) =:= lists:seq(1,N2)),
+     ?_assert(to_list(from(Seq, {1,N2+1})) =:= lists:seq(1,N2+1)),
+     ?_assert(to_list(from(Seq, {0,N3})) =:= lists:seq(0,N3)),
+     ?_assert(to_list(from(Seq, {0,N4})) =:= lists:seq(0,N4)),
+     ?_assert(array:size(from(Seq, {1,N1})) =:= N1),
+     ?_assertError(badarg, from(fun(A) -> A end, foo)),
+     ?_assertError(badarg, from(no_fun, foo))
+    ].
+
+
+
 to_orddict_test_() ->
     N0 = ?LEAFSIZE,
     [?_assert([] =:= to_orddict(new())),
@@ -756,6 +794,36 @@ sparse_foldr_test_() ->
 				   set(0,0,new())))))     
     ].
 
+import_export(_Config) ->
+    %% Some examples of usages
+    FloatBin = << <<N:32/float-native>> || N <- lists:seq(1, 20000)>>,
+    ToFloat32 = fun(_K, V, Acc) when is_binary(Acc) ->
+                        <<Acc/binary, V:32/float-native>>
+                end,
+    FromFloat32 = fun(<<N:32/float-native, Rest/binary>>) ->
+                          {N, Rest};
+                     (<<>>) ->
+                          done
+                  end,
+
+    ?_assert(FloatBin =:= array:foldl(ToFloat32, <<>>, array:from(FromFloat32, FloatBin))),
+    RGBBin = << <<N:8, N:8, N:8>> || N <- lists:seq(1, 256)>>,
+    RGB2Bin = fun(_K, {R,G,B}, Acc) ->
+                      <<Acc/binary, R:8, G:8, B:8>>
+              end,
+    Bin2RGB = fun(<<R:8,G:8,B:8, Rest/binary>>) ->
+                      {{R,G,B}, Rest};
+                 (<<>>) ->
+                      done
+              end,
+    ?_assert(RGBBin =:= array:foldl(RGB2Bin, <<>>, array:from(Bin2RGB, RGBBin))),
+
+    ok.
+
+doctests(Config) when is_list(Config) ->
+    shell_docs:test(array, []).
+
+
 new_test(Config) when is_list(Config) -> new_test_(), ok.
 fix_test(Config) when is_list(Config) -> fix_test_(), ok.
 relax_test(Config) when is_list(Config) -> relax_test_(), ok.
@@ -773,3 +841,4 @@ foldl_test(Config) when is_list(Config) -> foldl_test_(), ok.
 sparse_foldl_test(Config) when is_list(Config) -> sparse_foldl_test_(), ok.
 foldr_test(Config) when is_list(Config) -> foldr_test_(), ok.
 sparse_foldr_test(Config) when is_list(Config) -> sparse_foldr_test_(), ok.
+from_test(Config) when is_list(Config) -> from_test_(), ok.

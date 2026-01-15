@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +32,7 @@
 
 #include "hmac.h"
 #include "digest.h"
+#include "info.h"
 
 #if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
 
@@ -44,8 +47,9 @@ static ErlNifResourceType* hmac_context_rtype;
 
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
 
-int init_hmac_ctx(ErlNifEnv *env) {
-    hmac_context_rtype = enif_open_resource_type(env, NULL, "hmac_context",
+int init_hmac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
+    hmac_context_rtype = enif_open_resource_type(env, NULL,
+                                                 resource_name("hmac_context", rt_buf),
 						 (ErlNifResourceDtor*) hmac_context_dtor,
 						 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
 						 NULL);

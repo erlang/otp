@@ -1,6 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:fun_to_list(Fun) -> String :: string()[0m
-  [;1m                            when Fun :: function().[0m
+[;1m  fun_to_list(Fun)[0m
 
   Returns [;;4mString[0m that represents the code that created [;;4mFun[0m.
 
@@ -9,28 +15,29 @@
 
   [;;4m"fun ModuleName:FuncName/Arity"[0m
 
-  The form of [;;4mString[0m when [;;4mFun[0m is created from other types of 
-  fun expressions differs depending on if the fun expression was
+  The form of [;;4mString[0m when [;;4mFun[0m is created from other types of fun
+  expressions differs depending on if the fun expression was
   executed while executing compiled code or if the fun expression
   was executed while executing uncompiled code (uncompiled escripts,
   the Erlang shell, and other code executed by the erl_eval module):
 
-  [;;4mcompiled code[0m:
-    [;;4m"#Fun<M.I.U>"[0m, where M, I and U correspond to the values
-    named [;;4mmodule[0m, [;;4mindex[0m and [;;4muniq[0m in the result of [;;4m[0m
-    [;;4merlang:fun_info(Fun)[0m.
+   • compiled code - [;;4m"#Fun<M.I.U>"[0m, where M, I and U
+     correspond to the values named [;;4mmodule[0m, [;;4mindex[0m and [;;4muniq[0m
+     in the result of [;;4merlang:fun_info(Fun)[0m.
 
-  [;;4muncompiled code[0m:
-    All funs created from fun expressions in uncompiled code with
-    the same arity are mapped to the same list by [;;4mfun_to_list/1[0m.
+   • uncompiled code - All funs created from fun expressions in
+     uncompiled code with the same arity are mapped to the same
+     list by [;;4mfun_to_list/1[0m.
 
-  Note:
+  [;;4mNote[0m
+
     Generally, one can not use [;;4mfun_to_list/1[0m to check if two
     funs are equal as [;;4mfun_to_list/1[0m does not take the fun's
     environment into account. See [;;4merlang:fun_info/1[0m for how to
     get the environment of a fun.
 
-  Change:
+  [;;4mChange[0m
+
     The output of [;;4mfun_to_list/1[0m can differ between Erlang
     implementations and may change in future versions.
 
@@ -60,7 +67,7 @@
   Explanation: The string representations differ because the funs
   come from different fun expressions.
 
-    > {fun() -> 1 end, fun() -> 1 end}. > 
+    > {fun() -> 1 end, fun() -> 1 end}. >
     {#Fun<erl_eval.45.97283095>,#Fun<erl_eval.45.97283095>}
 
   Explanation: All funs created from fun expressions of this form in

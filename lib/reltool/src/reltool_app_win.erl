@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_app_win).
+-moduledoc false.
 
 %% Public
 -export([start_link/4, raise/1, refresh/1, open_mod/2]).
@@ -826,8 +829,8 @@ app_to_mods(#state{xref_pid = Xref, app = App}) ->
 			{true, M}
 		end
         end,
-    UsedByMods = lists:zf(GetMod, App#app.used_by_mods),
-    UsesMods = lists:zf(GetMod, App#app.uses_mods),
+    UsedByMods = lists:filtermap(GetMod, App#app.used_by_mods),
+    UsesMods = lists:filtermap(GetMod, App#app.uses_mods),
     {
      [select_image(source,    M) || M <- SourceMods],
      [select_image(whitelist, M) || M <- WhiteMods],

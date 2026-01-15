@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,6 +113,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom auto
 atom auto_connect
 atom await_exit
 atom await_microstate_accounting_modifications
@@ -169,6 +172,7 @@ atom caller_line
 atom capture
 atom case_clause
 atom caseless
+atom catch
 atom catchlevel
 atom cause
 atom cd
@@ -214,9 +218,11 @@ atom current_location
 atom current_stacktrace
 atom data
 atom debug_flags
+atom debugger_event
 atom decentralized_counters
 atom decimals
 atom default
+atom debug_hash_fixed_number_of_locks
 atom delay_trap
 atom demonitor
 atom deterministic
@@ -260,6 +266,7 @@ atom emulator
 atom enable_trace
 atom enabled
 atom endian
+atom entry
 atom env
 atom ensure_at_least ensure_exactly
 atom eof
@@ -295,6 +302,7 @@ atom existing_processes
 atom existing_ports
 atom existing
 atom exiting
+atom export
 atom exports
 atom extended
 atom external
@@ -307,12 +315,14 @@ atom firstline
 atom flags
 atom flush
 atom flush_monitor_messages
+atom flush_timeout
 atom force
 atom format_bs_fail
 atom format_cpu_topology
 atom free
 atom fullsweep_after
 atom function
+atom function_counters
 atom functions
 atom function_clause
 atom garbage_collect
@@ -372,6 +382,7 @@ atom info_trap
 atom inherit
 atom init
 atom initial_call
+atom inplace
 atom input
 atom integer
 atom internal
@@ -382,6 +393,8 @@ atom is_constant
 atom is_seq_trace
 atom iterator
 atom io
+atom iolist_size_continue
+atom iolist_to_iovec_continue
 atom iodata
 atom iovec
 atom keypos
@@ -395,14 +408,17 @@ atom last_calls
 atom latin1
 atom ldflags
 atom Le='=<'
+atom legacy
 atom lf
 atom line
+atom line_breakpoint
+atom line_counters
 atom line_delimiter
 atom line_length
 atom linked_in_driver
 atom links
 atom list
-atom list_to_binary_continue
+atom list_to_bitstring_continue
 atom little
 atom loaded
 atom load_cancelled
@@ -410,6 +426,7 @@ atom load_failure
 atom local
 atom logger
 atom long_gc
+atom long_message_queue
 atom long_schedule
 atom low
 atom Lt='<'
@@ -478,6 +495,7 @@ atom new_processes
 atom new_ports
 atom new_uniq
 atom newline
+atom nifs
 atom no
 atom nomatch
 atom none
@@ -515,6 +533,7 @@ atom notempty_atstart
 atom notify
 atom notsup
 atom nouse_stdio
+atom nul
 atom off_heap
 atom offset
 atom ok
@@ -563,6 +582,7 @@ atom prepare
 atom prepare_on_load
 atom print
 atom priority
+atom priority_messages
 atom private
 atom private_append
 atom process
@@ -570,6 +590,8 @@ atom processes
 atom processes_used
 atom process_count
 atom process_display
+atom DollarProcessLabel='$process_label'
+atom process_limit
 atom process_limit
 atom process_dump
 atom procs
@@ -579,9 +601,11 @@ atom protected
 atom protection
 atom ptab_list_continue
 atom public
+atom put_common_trap
 atom queue_size
 atom raw
 atom re
+atom re_exported_pattern
 atom re_pattern
 atom re_run_trap
 atom read_concurrency
@@ -640,6 +664,7 @@ atom sensitive
 atom sequential_tracer
 atom sequential_trace_token
 atom serial
+atom session
 atom set
 atom set_cpu_topology
 atom set_on_first_link
@@ -664,10 +689,14 @@ atom sigstop
 atom sigint
 atom sigsegv
 atom sigtstp
+atom sigcont
 atom sigquit
+atom sigwinch
+atom siginfo
 atom silent
 atom size
 atom skip
+atom slots
 atom spawn_executable
 atom spawn_driver
 atom spawn_init
@@ -716,6 +745,7 @@ atom total_run_queue_lengths_all
 atom tpkt
 atom trace traced
 atom trace_control_word
+atom trace_info_finish
 atom trace_status
 atom tracer
 atom trap_exit
@@ -744,6 +774,7 @@ atom unloaded
 atom unloaded_only
 atom unload_cancelled
 atom unsafe
+atom unsupported
 atom value
 atom version
 atom visible
@@ -754,10 +785,9 @@ atom warning
 atom warning_msg
 atom wordsize
 atom write_concurrency
+atom x
 atom xor
 atom x86
+atom y
 atom yes
 atom yield
-atom nifs
-atom auto
-atom debug_hash_fixed_number_of_locks

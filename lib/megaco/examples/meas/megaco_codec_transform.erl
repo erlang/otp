@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,6 +57,16 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_codec_transform).
+-moduledoc """
+Megaco message transformation utility.
+
+This module implements a simple megaco message transformation utility.
+
+_Note_ that this module is _not_ included in the runtime part of the
+application.
+
+[](){: #export_messages }
+""".
 
 -include_lib("kernel/include/file.hrl").
 
@@ -69,15 +81,19 @@
 -define(ALL_CODECS, [pretty, compact, per, ber, erlang]).
 -define(V3, v3).
 
+-doc false.
 codecs() ->
     ?ALL_CODECS.
 
+-doc false.
 default_message_package() ->
     ?DEFAULT_MESSAGE_PACKAGE.
 
+-doc false.
 messages() ->
     messages(?DEFAULT_MESSAGE_PACKAGE).
 
+-doc false.
 messages(MessagePackage) when is_atom(MessagePackage) ->
     %% Try the CWD first, and if that does not work try the installation directory
     case load_messages(".", MessagePackage) of
@@ -121,8 +137,28 @@ messages(BaseCodec, Msgs) ->
     transform_messages(BaseCodec, Msgs, OutCodecs).
     
 
+-doc(#{equiv => export_messages/1}).
 export_messages() ->
     export_messages(?DEFAULT_MESSAGE_PACKAGE).
+
+-doc """
+Export the messages in the `MessagePackage` (default is `time_test`).
+
+The output produced by this function is a directory structure with the following
+structure:
+
+```text
+<message package>/pretty/<message-files>
+                  compact/<message-files>
+                  per/<message-files>
+                  ber/<message-files>
+                  erlang/<message-files>
+```
+""".
+
+-spec export_messages(MessagePackage) -> ok | {error, Reason} when
+      MessagePackage :: atom(),
+      Reason         :: term().
 
 export_messages(MessagePackage) when is_atom(MessagePackage) ->
     case messages(MessagePackage) of
@@ -193,7 +229,7 @@ em(MessagePackage, Codec, Name, Extension, Bin) ->
                     ok;
                 {error, Reason} ->
                     S = format("failed writing ~w message ~w (~p bytes): ~p",
-                               [Codec, Name, size(Bin), Reason]),
+                               [Codec, Name, byte_size(Bin), Reason]),
                     file:close(Fd),
                     throw({error, S})
             end;

@@ -27,6 +27,9 @@ enum class ConstPoolScope : uint32_t {
 };
 
 //! Constant pool.
+//!
+//! Constant pool is designed to hold 1, 2, 4, 8, 16, 32, and 64 byte constants. It's not designed to hold constants
+//! having arbitrary length like strings and arrays.
 class ConstPool {
 public:
   ASMJIT_NONCOPYABLE(ConstPool)
@@ -65,12 +68,12 @@ public:
     //! Data offset from the beginning of the pool.
     uint32_t _offset;
 
-    inline Node(size_t offset, bool shared) noexcept
+    ASMJIT_INLINE_NODEBUG Node(size_t offset, bool shared) noexcept
       : ZoneTreeNodeT<Node>(),
         _shared(shared),
         _offset(uint32_t(offset)) {}
 
-    inline void* data() const noexcept {
+    ASMJIT_INLINE_NODEBUG void* data() const noexcept {
       return static_cast<void*>(const_cast<ConstPool::Node*>(this) + 1);
     }
   };
@@ -80,14 +83,14 @@ public:
   public:
     size_t _dataSize;
 
-    inline Compare(size_t dataSize) noexcept
+    ASMJIT_INLINE_NODEBUG Compare(size_t dataSize) noexcept
       : _dataSize(dataSize) {}
 
-    inline int operator()(const Node& a, const Node& b) const noexcept {
+    ASMJIT_INLINE_NODEBUG int operator()(const Node& a, const Node& b) const noexcept {
       return ::memcmp(a.data(), b.data(), _dataSize);
     }
 
-    inline int operator()(const Node& a, const void* data) const noexcept {
+    ASMJIT_INLINE_NODEBUG int operator()(const Node& a, const void* data) const noexcept {
       return ::memcmp(a.data(), data, _dataSize);
     }
   };
@@ -101,30 +104,30 @@ public:
     //! Size of the data.
     size_t _dataSize;
 
-    inline explicit Tree(size_t dataSize = 0) noexcept
+    ASMJIT_INLINE_NODEBUG explicit Tree(size_t dataSize = 0) noexcept
       : _tree(),
         _size(0),
         _dataSize(dataSize) {}
 
-    inline void reset() noexcept {
+    ASMJIT_INLINE_NODEBUG void reset() noexcept {
       _tree.reset();
       _size = 0;
     }
 
-    inline bool empty() const noexcept { return _size == 0; }
-    inline size_t size() const noexcept { return _size; }
+    ASMJIT_INLINE_NODEBUG bool empty() const noexcept { return _size == 0; }
+    ASMJIT_INLINE_NODEBUG size_t size() const noexcept { return _size; }
 
     inline void setDataSize(size_t dataSize) noexcept {
       ASMJIT_ASSERT(empty());
       _dataSize = dataSize;
     }
 
-    inline Node* get(const void* data) noexcept {
+    ASMJIT_INLINE_NODEBUG Node* get(const void* data) noexcept {
       Compare cmp(_dataSize);
       return _tree.get(data, cmp);
     }
 
-    inline void insert(Node* node) noexcept {
+    ASMJIT_INLINE_NODEBUG void insert(Node* node) noexcept {
       Compare cmp(_dataSize);
       _tree.insert(node, cmp);
       _size++;
@@ -167,7 +170,7 @@ public:
       Node* node = zone->allocT<Node>(sizeof(Node) + size);
       if (ASMJIT_UNLIKELY(!node)) return nullptr;
 
-      node = new(node) Node(offset, shared);
+      node = new(Support::PlacementNew{node}) Node(offset, shared);
       memcpy(node->data(), data, size);
       return node;
     }
@@ -199,9 +202,17 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  ASMJIT_API ConstPool(Zone* zone) noexcept;
+  //! Creates a new constant pool that would use `zone` as a memory allocator.
+  ASMJIT_API explicit ConstPool(Zone* zone) noexcept;
+  //! Destroys this constant pool.
   ASMJIT_API ~ConstPool() noexcept;
 
+  //! \}
+
+  //! \name Reset
+  //! \{
+
+  //! Resets this constant pool and its allocator to `zone`.
   ASMJIT_API void reset(Zone* zone) noexcept;
 
   //! \}
@@ -210,13 +221,13 @@ public:
   //! \{
 
   //! Tests whether the constant-pool is empty.
-  inline bool empty() const noexcept { return _size == 0; }
+  ASMJIT_INLINE_NODEBUG bool empty() const noexcept { return _size == 0; }
   //! Returns the size of the constant-pool in bytes.
-  inline size_t size() const noexcept { return _size; }
+  ASMJIT_INLINE_NODEBUG size_t size() const noexcept { return _size; }
   //! Returns minimum alignment.
-  inline size_t alignment() const noexcept { return _alignment; }
+  ASMJIT_INLINE_NODEBUG size_t alignment() const noexcept { return _alignment; }
   //! Returns the minimum size of all items added to the constant pool.
-  inline size_t minItemSize() const noexcept { return _minItemSize; }
+  ASMJIT_INLINE_NODEBUG size_t minItemSize() const noexcept { return _minItemSize; }
 
   //! \}
 

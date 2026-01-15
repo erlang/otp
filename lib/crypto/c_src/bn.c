@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -196,7 +198,7 @@ ERL_NIF_TERM bn2term(ErlNifEnv* env, size_t size, const BIGNUM *bn)
 
 #ifdef HAS_3_0_API
 
-int get_ossl_octet_string_param_from_bin(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest)
+int get_ossl_octet_string_param_from_bin(ErlNifEnv* env, const char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest)
 {
     ErlNifBinary tmp;
 
@@ -207,13 +209,14 @@ int get_ossl_octet_string_param_from_bin(ErlNifEnv* env, char* key, ERL_NIF_TERM
 }
 
 
-int get_ossl_BN_param_from_bin(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest)
+int get_ossl_BN_param_from_bin_x(ErlNifEnv* env, char* key, ERL_NIF_TERM bin,
+                                 OSSL_PARAM *dest, BIGNUM** bn_out)
 {
-    return get_ossl_BN_param_from_bin_sz(env, key, bin, dest, NULL);
+    return get_ossl_BN_param_from_bin_sz_x(env, key, bin, dest, NULL, bn_out);
 }
 
-int get_ossl_BN_param_from_bin_sz(ErlNifEnv* env, char* key, ERL_NIF_TERM bin,
-                                  OSSL_PARAM *dest, size_t *size)
+int get_ossl_BN_param_from_bin_sz_x(ErlNifEnv* env, char* key, ERL_NIF_TERM bin,
+                                    OSSL_PARAM *dest, size_t *size, BIGNUM** bn_out)
 {
     BIGNUM *bn = NULL;
     int ok = 0;
@@ -222,7 +225,11 @@ int get_ossl_BN_param_from_bin_sz(ErlNifEnv* env, char* key, ERL_NIF_TERM bin,
         return 0;
 
     ok = get_ossl_BN_param_from_bn(env, key, bn, dest);
-    BN_free(bn);
+    if (ok && bn_out) {
+        *bn_out = bn;
+    } else {
+        BN_free(bn);
+    }
     return ok;
 }
 
@@ -244,13 +251,15 @@ int get_ossl_BN_param_from_bn(ErlNifEnv* env, char* key, const BIGNUM* bn,
 
 
 
-int get_ossl_param_from_bin_in_list(ErlNifEnv* env, char* key, ERL_NIF_TERM *listcell, OSSL_PARAM *dest)
+int get_ossl_param_from_bin_in_list_x(ErlNifEnv* env, char* key,
+                                      ERL_NIF_TERM *listcell, OSSL_PARAM *dest,
+                                      BIGNUM** bn_out)
 {
     ERL_NIF_TERM head;
     
     return
         enif_get_list_cell(env, *listcell, &head, listcell) &&
-        get_ossl_BN_param_from_bin(env, key, head, dest);
+        get_ossl_BN_param_from_bin_x(env, key, head, dest, bn_out);
 }
 
 #endif

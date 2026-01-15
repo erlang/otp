@@ -1,10 +1,16 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec self() -> pid().[0m
+[;1m  self()[0m
 
-  Returns the process identifier of the calling process, for
-  example:
+  Returns the process identifier of the calling process.
+
+  For example:
 
     > self().
     <0.26.0>
-
-  Allowed in guard tests.

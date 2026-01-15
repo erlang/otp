@@ -1,3 +1,24 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
 -module(xmerl_test).
 
 -compile(export_all).
@@ -21,19 +42,21 @@ test2() ->
 test3() ->
     FetchFun = fun(_DTDSpec, S) -> {ok, not_fetched,S} end,
     {A, _} = xmerl_scan:string(html(),
-			    [{fetch_fun,FetchFun}]),
+			    [{fetch_fun,FetchFun},
+                             {allow_entities, true}]),
     io:format("From xmerl_scan:string/2~n ~p~n", [A]),
     B = xmerl:export([A], xmerl_html),
     io:format("From xmerl:export/2 xmerl_html filter~n ~p~n", [B]),
     C = xmerl:export([A], xmerl_text),
     io:format("From xmerl:export/2 xmerl_text filter~n ~p~n", [C]).
-    
+
 
 test4() ->
     FetchFun = fun(_DTDSpec, S) -> {ok, not_fetched, S} end,
     {A,_} = xmerl_scan:string(xml_namespace(),
 			    [{fetch_fun,FetchFun},
-			     {namespace_conformant,true}]),
+			     {namespace_conformant,true},
+                             {allow_entities, true}]),
     io:format("From xmerl_scan:string/2~n ~p~n", [A]).
 
 test5() ->
@@ -52,20 +75,21 @@ test6() ->
     FetchFun = fun(_DTDSpec, S) -> {ok, {string,""}, S} end,
     {Doc, _} = xmerl_scan:string(xml_namespace(),
 				 [{fetch_fun, FetchFun},
-				  {namespace_conformant, true}]),
+				  {namespace_conformant, true},
+                                  {allow_entities, true}]),
     E = xmerl_xpath:string("child::title[position()=1]", Doc),
     io:format("From xmerl_scan:string/2~n E=~p~n", [E]).
 
 
 simple() ->
-    [{document, 
+    [{document,
       [{title, ["Doc Title"]},
        {author, ["Ulf Wiger"]},
        {section,[{heading, ["heading1"]},
 		 {'P', ["This is a paragraph of text."]},
 		 {section,[{heading, ["heading2"]},
 			   {'P', ["This is another paragraph."]},
-			   {table,[{border, ["1"]}, 
+			   {table,[{border, ["1"]},
 				   {heading,[{col, ["head1"]},
 					     {col, ["head2"]}]},
 				   {row, [{col, ["col11"]},
@@ -155,7 +179,7 @@ w3cvalidate() ->
 
 %    String = ucs:to_unicode(binary_to_list(Bin), 'utf-8'),
 %    case xmerl_scan:string(String, [{xmlbase, TestDir}]) of
-    case xmerl_scan:string(binary_to_list(Bin), [{xmlbase, TestDir}]) of
+    case xmerl_scan:string(binary_to_list(Bin), [{xmlbase, TestDir}, {allow_entities, true}]) of
 	{error, Reason} ->
 	    io:format("ERROR xmerl:scan_file/2 Reason=~w~n", [Reason]);
 	{A, _Res} ->
@@ -163,7 +187,7 @@ w3cvalidate() ->
 	    C = xmerl:export([A], xmerl_test),
 	    io:format("From xmerl:export/2 xmerl_text filter~n ~p~n", [C])
     end.
-    
+
 
 'TESTSUITE'(_Data, Attrs, _Parents, _E) ->
     _Profile = find_attribute('PROFILE', Attrs),
@@ -183,7 +207,7 @@ w3cvalidate() ->
     Id = find_attribute('ID', Attrs),
     io:format("Test: ~p ",[Id]),
     Entities = find_attribute('ENTITIES', Attrs), % Always handle all entities
-    Output1 = find_attribute('OUTPUT', Attrs), % 
+    Output1 = find_attribute('OUTPUT', Attrs), %
     Output3 = find_attribute('OUTPUT3', Attrs), % FIXME!
     Sections = find_attribute('SECTIONS', Attrs),
     Recommendation = find_attribute('RECOMMENDATION', Attrs), % FIXME!
@@ -250,18 +274,18 @@ test_valid(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res, Tail}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	Error ->
 	    print_error(Error, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end,
     io:format("validating ", []),
     case validating_parser_q(URI) of
@@ -274,18 +298,18 @@ test_valid(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res2, Tail2}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	Error2 ->
 	    print_error(Error2, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end.
 
 
@@ -304,18 +328,18 @@ test_invalid(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res, Tail}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	Error ->
 	    print_error(Error, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end,
     io:format("validating ", []),
     case validating_parser_q(URI) of
@@ -328,18 +352,18 @@ test_invalid(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res2, Tail2}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	{error, enoent} ->
 	    print_error("Testfile not found", URI, Sections, Entities, OutputForm,
 			Recommendation, Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	_Error2 ->
 	    io:format("OK~n", []),
 	    ok
@@ -360,18 +384,18 @@ test_notwf(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res, Tail}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	{error,enoent} ->
 	    print_error("Testfile not found",URI,Sections,Entities,OutputForm,
 			Recommendation,Version,Namespace,Data),
-	    if
-		?CONT==false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	_Error ->
 	    io:format("OK ",[]),
 	    ok
@@ -387,18 +411,18 @@ test_notwf(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res2, Tail2}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	{error,enoent} ->
 	    print_error("Testfile not found", URI, Sections, Entities, OutputForm,
 			Recommendation, Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	_Error2 ->
 	    io:format("OK~n", []),
 	    ok
@@ -415,17 +439,17 @@ test_error(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 	{error, enoent} ->
 	    print_error("Testfile not found", URI, Sections, Entities, OutputForm,
 			Recommendation, Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	Res ->
 	    print_error(Res, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end,
     io:format("validating ", []),
     case validating_parser_q(URI) of
@@ -435,38 +459,38 @@ test_error(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 	{error, enoent} ->
 	    print_error("Testfile not found", URI, Sections, Entities, OutputForm,
 			Recommendation, Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	Res2 ->
 	    print_error(Res2, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end.
 
 
 %%% Use xmerl as nonvalidating XML parser
 nonvalidating_parser(URI) ->
-    (catch xmerl_scan:file(URI, [])).
+    (catch xmerl_scan:file(URI, [{allow_entities, true}])).
 
 
 %%% Use xmerl as nonvalidating XML parser
 nonvalidating_parser_q(URI) ->
-    (catch xmerl_scan:file(URI, [{quiet, true}])).
+    (catch xmerl_scan:file(URI, [{quiet, true}, {allow_entities, true}])).
 
 
 %%% Use xmerl as validating XML parser
 validating_parser(URI) ->
-    (catch xmerl_scan:file(URI, [{validation, true}])).
+    (catch xmerl_scan:file(URI, [{validation, true}, {allow_entities, true}])).
 
 
 %%% Use xmerl as validating XML parser
 validating_parser_q(URI) ->
-    (catch xmerl_scan:file(URI, [{validation, true}, {quiet, true}])).
+    (catch xmerl_scan:file(URI, [{validation, true}, {quiet, true}, {allow_entities, true}])).
 
 
 is_whitespace([]) ->
@@ -503,10 +527,10 @@ print_error(Error, URI, Sections, Entities, OutputForm, Recommendation, Version,
     io:format(Data).
 
 
-    
-    
-    
-	
+
+
+
+
 
 
 
@@ -518,5 +542,3 @@ para(_Data, _Attrs, US) ->
 	Int when is_integer(Int) -> Int+1;
 	undefined -> 1
     end.
-
-

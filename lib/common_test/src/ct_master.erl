@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,12 @@
 %%
 
 -module(ct_master).
+-moduledoc """
+Distributed test execution control for `Common Test`.
+
+This module exports functions for running `Common Test` nodes on multiple hosts
+in parallel.
+""".
 
 -export([run/1,run/3,run/4]).
 -export([run_on_node/2,run_on_node/3]).
@@ -35,6 +43,9 @@
 -include("ct_event.hrl").
 -include("ct_util.hrl").
 
+-doc "Filename of test spec to be executed.".
+-type test_spec() :: file:name_all().
+
 -record(state, {node_ctrl_pids=[],
 		logdirs=[],
 		results=[],
@@ -42,14 +53,119 @@
 		blocked=[]
 		}).
 
+-export_type([test_spec/0]).
+
+-doc """
+Tests are spawned on `Node` using `ct:run_test/1`
+""".
+-spec run_test(Node, Opts) -> 'ok'
+        when Node :: node(),
+            Opts :: [OptTuples],
+            OptTuples :: {'dir', TestDirs}
+                        | {'suite', Suites}
+                        | {'group', Groups}
+                        | {'testcase', Cases}
+                        | {'spec', TestSpecs}
+                        | {'join_specs', boolean()}
+                        | {'label', Label}
+                        | {'config', CfgFiles}
+                        | {'userconfig', UserConfig}
+                        | {'allow_user_terms', boolean()}
+                        | {'logdir', LogDir}
+                        | {'silent_connections', Conns}
+                        | {'stylesheet', CSSFile}
+                        | {'cover', CoverSpecFile}
+                        | {'cover_stop', boolean()}
+                        | {'step', StepOpts}
+                        | {'event_handler', EventHandlers}
+                        | {'include', InclDirs}
+                        | {'auto_compile', boolean()}
+                        | {'abort_if_missing_suites', boolean()}
+                        | {'create_priv_dir', CreatePrivDir}
+                        | {'multiply_timetraps', M}
+                        | {'scale_timetraps', boolean()}
+                        | {'repeat', N}
+                        | {'duration', DurTime}
+                        | {'until', StopTime}
+                        | {'force_stop', ForceStop}
+                        | {'decrypt', DecryptKeyOrFile}
+                        | {'refresh_logs', LogDir}
+                        | {'logopts', LogOpts}
+                        | {'verbosity', VLevels}
+                        | {'basic_html', boolean()}
+                        | {'esc_chars', boolean()}
+                        | {'keep_logs',KeepSpec}
+                        | {'ct_hooks', CTHs}
+                        | {'ct_hooks_order', CTHsOrder}
+                        | {'enable_builtin_hooks', boolean()}
+                        | {'release_shell', boolean()},
+            TestDirs :: [string()] | string(),
+            Suites :: [string()] | [atom()] | string() | atom(),
+            Cases :: [atom()] | atom(),
+            Groups :: GroupNameOrPath | [GroupNameOrPath],
+            GroupNameOrPath :: [atom()] | atom() | 'all',
+            TestSpecs :: [string()] | string(),
+            Label :: string() | atom(),
+            CfgFiles :: [string()] | string(),
+            UserConfig :: [{CallbackMod, CfgStrings}] | {CallbackMod, CfgStrings},
+            CallbackMod :: atom(),
+            CfgStrings :: [string()] | string(),
+            LogDir :: string(),
+            Conns :: 'all' | [atom()],
+            CSSFile :: string(),
+            CoverSpecFile :: string(),
+            StepOpts :: [StepOpt],
+            StepOpt :: 'config' | 'keep_inactive',
+            EventHandlers :: EH | [EH],
+            EH :: atom() | {atom(), InitArgs} | {[atom()], InitArgs},
+            InitArgs :: [term()],
+            InclDirs :: [string()] | string(),
+            CreatePrivDir :: 'auto_per_run' | 'auto_per_tc' | 'manual_per_tc',
+            M :: integer(),
+            N :: integer(),
+            DurTime :: HHMMSS,
+            HHMMSS :: string(),
+            StopTime :: YYMoMoDDHHMMSS | HHMMSS,
+            YYMoMoDDHHMMSS :: string(),
+            ForceStop :: 'skip_rest' | boolean(),
+            DecryptKeyOrFile :: {'key', DecryptKey} | {'file', DecryptFile},
+            DecryptKey :: string(),
+            DecryptFile :: string(),
+            LogOpts :: [LogOpt],
+            LogOpt :: 'no_nl' | 'no_src',
+            VLevels :: VLevel | [{Category, VLevel}],
+            VLevel :: integer(),
+            Category :: atom(),
+            KeepSpec :: 'all' | pos_integer(),
+            CTHs :: [CTHModule | {CTHModule, CTHInitArgs}],
+            CTHsOrder :: atom(),
+            CTHModule :: atom(),
+            CTHInitArgs :: term().
 run_test(Node,Opts) ->
     run_test([{Node,Opts}]).
 
+-doc false.
 run_test({Node,Opts}) ->
     run_test([{Node,Opts}]);
 run_test(NodeOptsList) when is_list(NodeOptsList) ->
     start_master(NodeOptsList).
 
+-doc """
+Tests are spawned on the nodes as specified in `TestSpecs`. Each specification
+in `TestSpec` is handled separately. However, it is also possible to specify a
+list of specifications to be merged into one specification before the tests are
+executed. Any test without a particular node specification is also executed on
+the nodes in `InclNodes`. Nodes in the `ExclNodes` list are excluded from the
+test.
+""".
+-spec run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   AllowUserTerms :: boolean(),
+                   InclNodes :: [node()],
+                   ExclNodes :: [node()],
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run([TS|TestSpecs],AllowUserTerms,InclNodes,ExclNodes) when is_list(TS),
 							    is_list(InclNodes),
 							    is_list(ExclNodes) ->
@@ -89,9 +205,31 @@ run(TS,AllowUserTerms,InclNodes,ExclNodes) when is_list(InclNodes),
 						is_list(ExclNodes) ->
     run([TS],AllowUserTerms,InclNodes,ExclNodes).
 
+-doc(#{equiv => run(TestSpecs, false, InclNodes, ExclNodes)}).
+-spec run(TestSpecs, InclNodes, ExclNodes) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   InclNodes :: [node()],
+                   ExclNodes :: [node()],
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run(TestSpecs,InclNodes,ExclNodes) ->
     run(TestSpecs,false,InclNodes,ExclNodes).
 
+-doc """
+Run tests on spawned nodes as specified in `TestSpecs` (see `run/4`).
+
+Equivalent to [`run(TestSpecs, false, [], [])`](`run/4`) if
+called with TestSpecs being list of strings;
+
+Equivalent to [`run([TS], false, [], [])`](`run/4`) if
+called with TS being string.
+""".
+-spec run(TestSpecs) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run(TestSpecs=[TS|_]) when is_list(TS) ->
     run(TestSpecs,false,[],[]);
 run(TS) ->
@@ -104,6 +242,16 @@ exclude_nodes([],RunSkipPerNode) ->
     RunSkipPerNode.
 
 
+-doc """
+Tests are spawned on `Node` according to `TestSpecs`.
+""".
+-spec run_on_node(TestSpecs, AllowUserTerms, Node) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   AllowUserTerms :: boolean(),
+                   Node :: node(),
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run_on_node([TS|TestSpecs],AllowUserTerms,Node) when is_list(TS),is_atom(Node) ->
     case catch ct_testspec:collect_tests_from_file([TS],[Node],
 						   AllowUserTerms) of
@@ -133,6 +281,13 @@ run_on_node([],_,_) ->
 run_on_node(TS,AllowUserTerms,Node) when is_atom(Node) ->
     run_on_node([TS],AllowUserTerms,Node).
 
+-doc(#{equiv => run_on_node(TestSpecs, false, Node)}).
+-spec run_on_node(TestSpecs, Node) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   Node :: node(),
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run_on_node(TestSpecs,Node) ->
     run_on_node(TestSpecs,false,Node).
 
@@ -196,25 +351,62 @@ run_all([],AllLogDirs,_,AllEvHs,_AllIncludes,
     ok.
     
 
+-doc """
+Stops all running tests.
+""".
+-spec abort() -> 'ok'.
 abort() ->
     call(abort).
 
+-doc """
+Stops tests on specified nodes.
+""".
+-spec abort(Nodes) -> 'ok'
+              when Nodes :: Node | [Node],
+                   Node :: node().
 abort(Nodes) when is_list(Nodes) ->
     call({abort,Nodes});
 
 abort(Node) when is_atom(Node) ->
     abort([Node]).
     
+-doc """
+Returns test progress. If `Status` is `ongoing`, tests are running on the node
+and are not yet finished.
+""".
+-spec progress() -> [{Node, Status}]
+              when Node :: node(),
+                   Status :: atom().
 progress() ->
     call(progress).
 
+-doc """
+Gets a reference to the `Common Test` master event manager. The reference can be
+used to, for example, add a user-specific event handler while tests are running.
+
+_Example:_
+
+```erlang
+gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])
+```
+""".
+-doc(#{since => <<"OTP 17.5">>}).
+-spec get_event_mgr_ref() -> atom().
 get_event_mgr_ref() ->
     ?CT_MEVMGR_REF.
 
+-doc """
+If set to `true`, the `ct_master logs` are written on a primitive HTML format,
+not using the `Common Test` CSS style sheet.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec basic_html(Bool) -> 'ok'
+              when Bool :: boolean().
 basic_html(Bool) ->
     application:set_env(common_test_master, basic_html, Bool),
     ok.
 
+-doc false.
 esc_chars(Bool) ->
     application:set_env(common_test_master, esc_chars, Bool),
     ok.
@@ -233,6 +425,7 @@ start_master(NodeOptsList,EvHandlers,MasterLogDir,LogDirs,InitOptions,Specs) ->
 	{Master,Result} -> Result
     end.	    
 
+-doc false.
 init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,
 	    InitOptions,Specs) ->
     case whereis(ct_master) of
@@ -579,6 +772,7 @@ refresh_logs([],Refreshed) ->
 %%%-----------------------------------------------------------------
 %%% NODE CONTROLLER, runs and controls tests on a test node.
 %%%-----------------------------------------------------------------
+-doc false.
 init_node_ctrl(MasterPid,Cookie,Opts) ->
     %% make sure tests proceed even if connection to master is lost
     process_flag(trap_exit, true),
@@ -633,6 +827,7 @@ start_ct_event() ->
 %%%-----------------------------------------------------------------
 %%% Event handling
 %%%-----------------------------------------------------------------
+-doc false.
 status(MasterPid,Event=#event{name=start_make}) ->
     call(MasterPid,Event);
 status(MasterPid,Event=#event{name=finished_make}) ->

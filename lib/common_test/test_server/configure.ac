@@ -1,9 +1,11 @@
 dnl Process this file with autoconf to produce a configure script for Erlang.
 dnl
 dnl %CopyrightBegin%
-dnl 
-dnl Copyright Ericsson AB 1997-2021. All Rights Reserved.
-dnl 
+dnl
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
+dnl Copyright Ericsson AB 1997-2025. All Rights Reserved.
+dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
 dnl You may obtain a copy of the License at
@@ -15,13 +17,13 @@ dnl distributed under the License is distributed on an "AS IS" BASIS,
 dnl WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 dnl See the License for the specific language governing permissions and
 dnl limitations under the License.
-dnl 
+dnl
 dnl %CopyrightEnd%
 dnl 
 
 AC_INIT
 AC_CONFIG_SRCDIR([conf_vars.in])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 AC_CANONICAL_HOST
 
@@ -69,6 +71,9 @@ if test X${enable_m32_build} = Xyes; then
 	CFLAGS="-m32 $CFLAGS"
 	LDFLAGS="-m32 $LDFLAGS"
 fi
+
+# Large file support and 8-byte time_t by default
+AC_SYS_YEAR2038_RECOMMENDED
 
 AC_CHECK_LIB(m, sin)
 
@@ -170,7 +175,6 @@ AS_CASE([$system],
 	        AC_MSG_ERROR(don't know how to link 32-bit dynamic drivers)
 	    fi
 	fi
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [*-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*],
@@ -195,14 +199,13 @@ AS_CASE([$system],
 	    SHLIB_SUFFIX=""
 	    AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
 	])
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [*-solaris2*|*-sysv4*],
     [
 	SHLIB_CFLAGS="-KPIC"
-	SHLIB_LD="/usr/ccs/bin/ld"
-	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -z text"
+	SHLIB_LD="${CC}"
+	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -Wl,-z,text"
 	if test X${enable_m64_build} = Xyes; then
 	   SHLIB_LDFLAGS="-64 $SHLIB_LDFLAGS"
 	fi
@@ -210,7 +213,6 @@ AS_CASE([$system],
 	   AC_MSG_ERROR(don't know how to link 32-bit dynamic drivers)
 	fi
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL="-z allextract"
     ],
 
     [*darwin*],
@@ -219,7 +221,6 @@ AS_CASE([$system],
 	SHLIB_LD="cc"
 	SHLIB_LDFLAGS="$LDFLAGS -bundle -flat_namespace -undefined suppress"
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [*osf1*],
@@ -234,7 +235,6 @@ AS_CASE([$system],
 	   AC_MSG_ERROR(don't know how to link 32-bit dynamic drivers)
 	fi
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [*osf5*],
@@ -243,7 +243,6 @@ AS_CASE([$system],
 	SHLIB_LD="${CC} -shared"
 	SHLIB_LDFLAGS="$LDFLAGS"
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [
@@ -253,7 +252,6 @@ AS_CASE([$system],
 	SHLIB_LDFLAGS=""
 	SHLIB_LDLIBS=""
 	SHLIB_SUFFIX=""
-	SHLIB_EXTRACT_ALL=""
 	AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
     ])
 
@@ -305,7 +303,6 @@ AC_SUBST(SHLIB_LDFLAGS)
 AC_SUBST(SHLIB_LDLIBS)
 AC_SUBST(SHLIB_CFLAGS)
 AC_SUBST(SHLIB_SUFFIX)
-AC_SUBST(SHLIB_EXTRACT_ALL)
 AC_SUBST(EI_CFLAGS)
 
 #--------------------------------------------------------------------
@@ -495,7 +492,7 @@ if test -n "$JAVAC"; then
   :
 fi
 
-AC_CHECK_PROGS([make_command], [make gmake], [false])
+AC_CHECK_PROGS([make_command], [gmake make], [false])
 AC_SUBST(make_command)
 
 if test "$GCC" = yes; then

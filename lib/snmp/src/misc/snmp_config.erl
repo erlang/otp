@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,10 +21,14 @@
 %% 
 
 -module(snmp_config).
+-moduledoc false.
 
 -include_lib("kernel/include/file.hrl").
 -include("snmp_types.hrl").
 -include("snmp_usm.hrl").
+-include("snmp_internal.hrl").
+
+-compile(nowarn_obsolete_bool_op).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -1674,7 +1680,7 @@ print_q(Q, Default) when is_list(Default) ->
 %% Defval = string() | mandatory
 ask(Q, Default, Verify) when is_list(Q) andalso is_function(Verify) ->
     print_q(Q, Default),
-    PrelAnsw = io:get_line(''),
+    PrelAnsw = conv_bin_to_list(io:get_line('')),
     Answer = 
 	case remove_newline(PrelAnsw) of
 	    "" when Default =/= mandatory -> Default;
@@ -1737,7 +1743,12 @@ guess_engine_name() ->
 % 	{_,_} -> "user_id"
 %     end.
 
-    
+% This is neccessary as in Elixir io:get_line returns a binary
+conv_bin_to_list(Bin) when is_binary(Bin) ->
+	binary:bin_to_list(Bin);
+conv_bin_to_list(Str) ->
+	Str.
+
 remove_newline(Str) -> 
     lists:delete($\n, Str).
 
@@ -1803,8 +1814,8 @@ write_agent_snmp_files(
       NotifyType         :: trap | inform,
       SecType            :: none | minimum | {semi, des | aes},
       Passwd             :: list(),
-      EngineID           :: snmp:engine_id(),
-      MMS                :: snmp:mms();
+      EngineID           :: snmp_framework_mib:engine_id(),
+      MMS                :: snmp_framework_mib:max_message_size();
 
                             (Dir, Vsns,
                              TransportDomain, ManagerAddr, AgentAddr,
@@ -1820,8 +1831,8 @@ write_agent_snmp_files(
       NotifyType         :: trap | inform,
       SecType            :: none | minimum | {semi, des | aes},
       Passwd             :: list(),
-      EngineID           :: snmp:engine_id(),
-      MMS                :: snmp:mms().
+      EngineID           :: snmp_framework_mib:engine_id(),
+      MMS                :: snmp_framework_mib:max_message_size().
 
 write_agent_snmp_files(
   Dir, Vsns, TransportDomain, ManagerAddr, AgentPreTransports, SysName,
@@ -1927,28 +1938,50 @@ write_agent_snmp_files(
 
 write_agent_snmp_conf(Dir, Transports, EngineID, MMS) ->
     Conf =
-	[{intAgentTransports,       Transports},
-	 {snmpEngineID,             EngineID},
-	 {snmpEngineMaxMessageSize, MMS}],
+	[snmpa_conf:agent_entry(intAgentTransports,       Transports),
+	 snmpa_conf:agent_entry(snmpEngineID,             EngineID),
+	 snmpa_conf:agent_entry(snmpEngineMaxMessageSize, MMS)],
     do_write_agent_snmp_conf(Dir, Conf).
 
 write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS)
   when is_atom(Domain) ->
-    {AgentIP, AgentUDP} = AgentAddr,
+    Transport =
+        case Domain of
+            snmpUDPDomain ->
+                {transportDomainUdpIpv4, AgentAddr};
+            _ ->
+                {Domain, AgentAddr}
+        end,
     Conf =
-	[{intAgentTransportDomain,  Domain},
-	 {intAgentUDPPort,          AgentUDP},
-	 {intAgentIpAddress,        AgentIP},
-	 {snmpEngineID,             EngineID},
-	 {snmpEngineMaxMessageSize, MMS}],
+	[snmpa_conf:agent_entry(intAgentTransports,       [Transport]),
+	 snmpa_conf:agent_entry(snmpEngineID,             EngineID),
+	 snmpa_conf:agent_entry(snmpEngineMaxMessageSize, MMS)],
     do_write_agent_snmp_conf(Dir, Conf);
 write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS)
   when is_integer(AgentUDP) ->
+    AgentAddr = {AgentIP, AgentUDP},
+    Domain =
+        if
+            is_tuple(AgentIP) ->
+                case tuple_size(AgentIP) of
+                    4 ->
+                        transportDomainUdpIpv4;
+                    8 ->
+                        transportDomainUdpIpv6
+                end;
+            is_list(AgentIP) ->
+                case length(AgentIP) of
+                    4 ->
+                        transportDomainUdpIpv4;
+                    8 ->
+                        transportDomainUdpIpv6
+                end
+        end,
+    Transport = {Domain, AgentAddr},
     Conf =
-	[{intAgentUDPPort,          AgentUDP},
-	 {intAgentIpAddress,        AgentIP},
-	 {snmpEngineID,             EngineID},
-	 {snmpEngineMaxMessageSize, MMS}],
+	[snmpa_conf:agent_entry(intAgentTransports,       [Transport]),
+	 snmpa_conf:agent_entry(snmpEngineID,             EngineID),
+	 snmpa_conf:agent_entry(snmpEngineMaxMessageSize, MMS)],
     do_write_agent_snmp_conf(Dir, Conf);
 write_agent_snmp_conf(_Dir, Domain, AgentAddr, _EngineID, _MMS) ->
     error({bad_address, {Domain, AgentAddr}}).
@@ -1996,7 +2029,7 @@ write_agent_snmp_context_conf(Dir) ->
 "%% \"bridge2\".\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf = [""],
+    Conf = [snmpa_conf:context_entry("")],
     write_agent_context_config(Dir, Hdr, Conf).
 
 write_agent_context_config(Dir, Hdr, Conf) ->
@@ -2023,9 +2056,12 @@ write_agent_snmp_community_conf(Dir) ->
 "%% {\"3\", \"bridge1\", \"initial\", \"bridge1\", \"\"}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf = [{"public", "public", "initial", "", ""}, 
-	    {"all-rights", "all-rights", "all-rights", "", ""}, 
-	    {"standard trap", "standard trap", "initial", "", ""}], 
+    Conf = [snmpa_conf:community_entry("public",
+                                       "public", "initial", "", ""),
+	    snmpa_conf:community_entry("all-rights",
+                                       "all-rights", "all-rights", "", ""), 
+	    snmpa_conf:community_entry("standard trap",
+                                       "standard trap", "initial", "", "")], 
     write_agent_community_config(Dir, Hdr, Conf).
 
 write_agent_community_config(Dir, Hdr, Conf) ->
@@ -2054,13 +2090,22 @@ write_agent_snmp_standard_conf(Dir, SysName) ->
 "%% {snmpEnableAuthenTraps, enabled}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf = [{sysDescr,              "Erlang SNMP agent"},
-	    {sysObjectID,           [1,2,3]},
-	    {sysContact,            "{mbj,eklas}@erlang.ericsson.se"},
-	    {sysLocation,           "erlang"}, 
-	    {sysServices,           72}, 
-	    {snmpEnableAuthenTraps, enabled},
-	    {sysName,               SysName}],
+    Conf =
+        [
+         snmpa_conf:standard_entry(
+           sysDescr,              "Erlang SNMP agent"),
+         snmpa_conf:standard_entry(
+           sysObjectID,           [1,2,3]),
+         snmpa_conf:standard_entry(
+           sysContact,            "{mbj,eklas}@erlang.ericsson.se"),
+         snmpa_conf:standard_entry(
+           sysLocation,           "erlang"),
+         snmpa_conf:standard_entry(
+           sysServices,           72),
+         snmpa_conf:standard_entry(
+           snmpEnableAuthenTraps, enabled),
+         snmpa_conf:standard_entry(
+           sysName,               SysName)],
     write_agent_standard_config(Dir, Hdr, Conf).
 
 write_agent_standard_config(Dir, Hdr, Conf) ->
@@ -2105,45 +2150,81 @@ write_agent_snmp_target_addr_conf(
 "%%  [127,0,0,0],  2048}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf =
-	lists:foldl(
-	  fun ({Domain_or_Ip, Addr_or_Port} = Address, OuterAcc) ->
-		  lists:foldl(
-		    fun(v1 = Vsn, Acc) ->
-			    [{mk_name(Address, Vsn),
-			      Domain_or_Ip, Addr_or_Port,
-			      Timeout, RetryCount,
-			      "std_trap", mk_param(Vsn), "",
-			      [], 2048}| Acc];
-		       (v2 = Vsn, Acc) ->
-			    [{mk_name(Address, Vsn),
-			      Domain_or_Ip, Addr_or_Port,
-			      Timeout, RetryCount,
-			      "std_trap", mk_param(Vsn), "",
-			      [], 2048},
-			       {lists:flatten(
-				  io_lib:format(
-				    "~s.2", [mk_name(Address, Vsn)])),
-				Domain_or_Ip, Addr_or_Port,
-				Timeout, RetryCount,
-				"std_inform", mk_param(Vsn), "",
-				[], 2048}| Acc];
-		       (v3 = Vsn, Acc) ->
-			    [{mk_name(Address, Vsn),
-			      Domain_or_Ip, Addr_or_Port,
-			      Timeout, RetryCount,
-			      "std_trap", mk_param(Vsn), "",
-			      [], 2048},
-			     {lists:flatten(
-				io_lib:format(
-				  "~s.3", [mk_name(Address, Vsn)])),
-			      Domain_or_Ip, Addr_or_Port,
-			      Timeout, RetryCount,
-			      "std_inform", mk_param(Vsn), "mgrEngine",
-			      [], 2048} | Acc]
-		    end, OuterAcc, Vsns)
-	  end, [], Addresses),
+    Conf = process_ata_addresses(Addresses, Timeout, RetryCount, Vsns),
     write_agent_target_addr_config(Dir, Hdr, Conf).
+
+process_ata_addresses(Addresses, Timeout, RetryCount, Vsns) ->
+    process_ata_addresses(Addresses, Timeout, RetryCount, Vsns, []).
+
+process_ata_addresses([], _Timeout, _RetryCount, _Vsns, Acc) ->
+    lists:reverse(lists:flatten(Acc));
+process_ata_addresses([Address|Addresses], Timeout, RetryCount, Vsns, Acc) ->
+    VAddrs = process_ata_vsns(Address, Timeout, RetryCount, Vsns),
+    process_ata_addresses(Addresses, Timeout, RetryCount, Vsns, [VAddrs | Acc]).
+
+process_ata_vsns(Address, Timeout, RetryCount, Vsns) ->
+    process_ata_vsns(Address, Timeout, RetryCount, Vsns, []).
+
+process_ata_vsns(_Address, _Timeout, _RetryCount, [], Acc) ->
+    lists:reverse(Acc);
+process_ata_vsns(Address, Timeout, RetryCount, [v1 = Vsn|Vsns], Acc) ->
+    {Domain, Addr} = process_ata_address(Address),
+    Name           = mk_name(Address, Vsn),
+    ParamsName     = mk_param(Vsn),
+    process_ata_vsns(
+      Address, Timeout, RetryCount, Vsns,
+      [snmpa_conf:target_addr_entry(Name,
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_trap", ParamsName, "",
+                                    [], 2048) | Acc]);
+process_ata_vsns(Address, Timeout, RetryCount, [v2 = Vsn|Vsns], Acc) ->
+    {Domain, Addr} = process_ata_address(Address),
+    Name           = mk_name(Address, Vsn),
+    ParamsName     = mk_param(Vsn),
+    process_ata_vsns(
+      Address, Timeout, RetryCount, Vsns,
+      [snmpa_conf:target_addr_entry(Name,
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_trap", ParamsName, "",
+                                    [], 2048),
+       snmpa_conf:target_addr_entry(f("~s.2", [Name]),
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_inform", ParamsName, "",
+                                    [], 2048) | Acc]);
+process_ata_vsns(Address, Timeout, RetryCount, [v3 = Vsn|Vsns], Acc) ->
+    {Domain, Addr} = process_ata_address(Address),
+    Name           = mk_name(Address, Vsn),
+    ParamsName     = mk_param(Vsn),
+    process_ata_vsns(
+      Address, Timeout, RetryCount, Vsns,
+      [snmpa_conf:target_addr_entry(Name,
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_trap", ParamsName, "",
+                                    [], 2048),
+       snmpa_conf:target_addr_entry(f("~s.3", [Name]),
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_inform", ParamsName, "mgrEngine",
+                                    [], 2048) | Acc]).
+
+process_ata_address(Address) ->
+    case Address of
+        {D, _} when is_atom(D) ->
+            Address;
+        {A, P} when ?ip4(A) andalso ?port(P) ->
+            {transportDomainUdpIpv4, Address};
+        {A, P} when ?ip6(A) andalso ?port(P) ->
+            {transportDomainUdpIpv6, Address};
+        _ when ?ip4(Address) ->
+            {transportDomainUdpIpv4, Address};
+        _ when ?ip6(Address) ->
+            {transportDomainUdpIpv6, Address}
+    end.
+    
 
 write_agent_snmp_target_addr_conf(
   Dir, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, Vsns) ->
@@ -2192,7 +2273,8 @@ write_agent_snmp_target_params_conf(Dir, Vsns) ->
 			 end,
 		    Name = lists:flatten(
 			     io_lib:format("target_~w", [V])),
-		    {Name, MP, SM, "initial", noAuthNoPriv}
+		    snmpa_conf:target_params_entry(Name, MP, SM,
+                                                   "initial", noAuthNoPriv)
 	    end(Vsn) || Vsn <- Vsns],
     write_agent_target_params_config(Dir, Hdr, Conf).
 
@@ -2220,7 +2302,7 @@ write_agent_snmp_notify_conf(Dir, NotifyType) ->
 "%% {\"standard inform\", \"std_inform\", inform}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment, 
-    Conf = [{"standard trap", "std_trap", NotifyType}],
+    Conf = [snmpa_conf:notify_entry("standard trap", "std_trap", NotifyType)],
     write_agent_notify_config(Dir, Hdr, Conf).
 
 write_agent_notify_config(Dir, Hdr, Conf) ->
@@ -2259,10 +2341,10 @@ write_agent_snmp_usm_conf(Dir, EngineID, SecType, Passwd) ->
     write_agent_usm_config(Dir, Hdr, Conf).
 
 write_agent_snmp_usm_conf2(EngineID, none, _Passwd) ->
-    [{EngineID, "initial", "initial", zeroDotZero, 
-      usmNoAuthProtocol, "", "", 
-      usmNoPrivProtocol, "", "", 
-      "", "", ""}];
+    [snmpa_conf:usm_entry(EngineID, "initial", "initial", zeroDotZero,
+                          usmNoAuthProtocol, "", "", 
+                          usmNoPrivProtocol, "", "", 
+                          "", "", "")];
 write_agent_snmp_usm_conf2(EngineID, SecType, Passwd) ->
     Secret16 = agent_snmp_mk_secret(md5, Passwd, EngineID),
     Secret20 = agent_snmp_mk_secret(sha, Passwd, EngineID),
@@ -2275,20 +2357,20 @@ write_agent_snmp_usm_conf2(EngineID, SecType, Passwd) ->
 	    {semi, aes} ->
 		{usmAesCfb128Protocol, Secret16}
 	end,
-    [{EngineID, "initial", "initial", zeroDotZero, 
-      usmHMACMD5AuthProtocol, "", "", 
-      PrivProt, "", "", 
-      "", Secret16, PrivSecret},
+    [snmpa_conf:usm_entry(EngineID, "initial", "initial", zeroDotZero, 
+                          usmHMACMD5AuthProtocol, "", "", 
+                          PrivProt, "", "", 
+                          "", Secret16, PrivSecret),
      
-     {EngineID, "templateMD5", "templateMD5", zeroDotZero, 
-      usmHMACMD5AuthProtocol, "", "", 
-      PrivProt, "", "", 
-      "", Secret16, PrivSecret}, 
+     snmpa_conf:usm_entry(EngineID, "templateMD5", "templateMD5", zeroDotZero, 
+                          usmHMACMD5AuthProtocol, "", "", 
+                          PrivProt, "", "", 
+                          "", Secret16, PrivSecret), 
 
-     {EngineID, "templateSHA", "templateSHA", zeroDotZero, 
-      usmHMACSHAAuthProtocol, "", "", 
-      PrivProt, "", "", 
-      "", Secret20, PrivSecret}].
+     snmpa_conf:usm_entry(EngineID, "templateSHA", "templateSHA", zeroDotZero, 
+                          usmHMACSHAAuthProtocol, "", "", 
+                          PrivProt, "", "", 
+                          "", Secret20, PrivSecret)].
 
 write_agent_usm_config(Dir, Hdr, Conf) ->
     snmpa_conf:write_usm_config(Dir, Hdr, Conf).
@@ -2322,45 +2404,42 @@ write_agent_snmp_vacm_conf(Dir, Vsns, SecType) ->
 "%% {vacmViewTreeFamily, \"internet\", [1,3,6,1], included, null}.\n"
 "%%\n\n",
     Hdr = lists:flatten(header()) ++ Comment,
+    S2GF = fun(SM, SN, GN) -> snmpa_conf:vacm_s2g_entry(SM, SN, GN) end,
+    ACCF = fun(GN, P, SM, SL, M, RV, WV, NV) ->
+                   snmpa_conf:vacm_acc_entry(GN, P, SM, SL, M, RV, WV, NV)
+           end,
+    VTFF = fun(VN, VS, VT, VM) ->
+                   snmpa_conf:vacm_vtf_entry(VN, VS, VT, VM)
+           end,
     Groups = 
 	lists:foldl(
 	  fun(V, Acc) ->
-		  [{vacmSecurityToGroup, vacm_ver(V), 
-		    "initial",    "initial"},
-		   {vacmSecurityToGroup, vacm_ver(V), 
-		    "all-rights", "all-rights"}|
-		   Acc]
+		  [S2GF(vacm_ver(V), "initial",    "initial"),
+		   S2GF(vacm_ver(V), "all-rights", "all-rights") | Acc]
 	  end, [], Vsns),
     Acc = 
-	[{vacmAccess, "initial", "", any, noAuthNoPriv, exact, 
-	  "restricted", "", "restricted"}, 
-	 {vacmAccess, "initial", "", usm, authNoPriv, exact, 
-	  "internet", "internet", "internet"}, 
-	 {vacmAccess, "initial", "", usm, authPriv, exact, 
-	  "internet", "internet", "internet"}, 
-	 {vacmAccess, "all-rights", "", any, noAuthNoPriv, exact, 
-	  "internet", "internet", "internet"}],
+	[ACCF("initial", "", any, noAuthNoPriv, exact,
+              "restricted", "", "restricted"),
+	 ACCF("initial", "", usm, authNoPriv, exact,
+              "internet", "internet", "internet"),
+	 ACCF("initial", "", usm, authPriv, exact,
+              "internet", "internet", "internet"),
+	 ACCF("all-rights", "", any, noAuthNoPriv, exact, 
+              "internet", "internet", "internet")],
     VTF0 = 
 	case SecType of
 	    none ->
-		[{vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1], included, null}];
+		[VTFF("restricted", [1,3,6,1], included, null)];
 	    minimum ->
-		[{vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1], included, null}];
+		[VTFF("restricted", [1,3,6,1], included, null)];
 	    {semi, _} ->
-		[{vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,2,1,1], included, null},
-		 {vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,2,1,11], included, null},
-		 {vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,6,3,10,2,1], included, null},
-		 {vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,6,3,11,2,1], included, null},
-		 {vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,6,3,15,1,1], included, null}]
+		[VTFF("restricted", [1,3,6,1,2,1,1],      included, null),
+		 VTFF("restricted", [1,3,6,1,2,1,11],     included, null),
+		 VTFF("restricted", [1,3,6,1,6,3,10,2,1], included, null),
+		 VTFF("restricted", [1,3,6,1,6,3,11,2,1], included, null),
+		 VTFF("restricted", [1,3,6,1,6,3,15,1,1], included, null)]
 	end,
-    VTF = VTF0 ++ [{vacmViewTreeFamily,"internet",[1,3,6,1],included,null}],
+    VTF = VTF0 ++ [VTFF("internet",[1,3,6,1],included,null)],
     write_agent_vacm_config(Dir, Hdr, Groups ++ Acc ++ VTF).
 
 vacm_ver(v1) -> v1;
@@ -2419,12 +2498,20 @@ write_manager_snmp_conf(Dir, Transports, MMS, EngineID) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     Conf =
-	[{transports,       Transports},
-	 {engine_id,        EngineID},
-	 {max_message_size, MMS}],
+	[snmpm_conf:manager_entry(transports,       Transports),
+	 snmpm_conf:manager_entry(engine_id,        EngineID),
+	 snmpm_conf:manager_entry(max_message_size, MMS)],
     write_manager_config(Dir, Hdr, Conf).
 
-write_manager_snmp_conf(Dir, Domain_or_IP, Addr_or_Port, MMS, EngineID) ->
+write_manager_snmp_conf(Dir, TDomain, {_IP, Port} = TAddr, MMS, EngineID)
+  when is_atom(TDomain) andalso is_integer(Port) ->
+    Transports = [{TDomain, TAddr}],
+    write_manager_snmp_conf(Dir, Transports, MMS, EngineID);
+%% Backward compatibility
+write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID) when is_integer(Port) ->
+
+    %% IP :: inet:ip_address() | [non_neg_integer()]
+
     Comment = 
 "%% This file defines the Manager local configuration info\n"
 "%% Each row is a 2-tuple:\n"
@@ -2437,19 +2524,10 @@ write_manager_snmp_conf(Dir, Domain_or_IP, Addr_or_Port, MMS, EngineID) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     Conf =
-	case Addr_or_Port of
-	    {IP, Port} when is_integer(Port), is_atom(Domain_or_IP) ->
-		[{domain,  Domain_or_IP},
-		 {port,    Port},
-		 {address, IP}];
-	    _ when is_integer(Addr_or_Port) ->
-		[{port,    Addr_or_Port},
-		 {address, Domain_or_IP}];
-	    _ ->
-		error({bad_address, {Domain_or_IP, Addr_or_Port}})
-	end ++
-	[{engine_id,        EngineID},
-	 {max_message_size, MMS}],
+        [snmpm_conf:manager_entry(port,             Port),
+         snmpm_conf:manager_entry(address,          IP),
+         snmpm_conf:manager_entry(engine_id,        EngineID),
+         snmpm_conf:manager_entry(max_message_size, MMS)],
     write_manager_config(Dir, Hdr, Conf).
 
 write_manager_config(Dir, Hdr, Conf) ->

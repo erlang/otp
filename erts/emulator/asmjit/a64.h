@@ -18,25 +18,24 @@
 //! ### Supported Instructions
 //!
 //!   - Emitters:
-//!     - \ref a64::EmitterExplicitT - Provides all instructions that use explicit
-//!       operands, provides also utility functions. The member functions provided
-//!       are part of all ARM/AArch64 emitters.
+//!     - \ref a64::EmitterExplicitT - Provides all instructions that use explicit operands, provides also utility
+//!       functions. The member functions provided are part of all AArch64 emitters.
 //!
 //!   - Instruction representation:
 //!     - \ref a64::Inst::Id - instruction identifiers.
 //!
 //! ### Register Operands
 //!
-//!   - \ref arm::Reg - Base class for any AArch32/AArch64 register.
-//!     - \ref arm::Gp - General purpose register:
-//!       - \ref arm::GpW - 32-bit register.
-//!       - \ref arm::GpX - 64-bit register.
-//!     - \ref arm::Vec - Vector (SIMD) register:
-//!       - \ref arm::VecB - 8-bit SIMD register (AArch64 only).
-//!       - \ref arm::VecH - 16-bit SIMD register (AArch64 only).
-//!       - \ref arm::VecS - 32-bit SIMD register.
-//!       - \ref arm::VecD - 64-bit SIMD register.
-//!       - \ref arm::VecV - 128-bit SIMD register.
+//!   - \ref arm::Reg - Base class of all AArch32/AArch64 registers.
+//!     - \ref a64::Gp - General purpose register (AArch64):
+//!       - \ref a64::GpW - 32-bit general purpose register (AArch64).
+//!       - \ref a64::GpX - 64-bit general purpose register (AArch64).
+//!     - \ref a64::Vec - Vector (SIMD) register:
+//!       - \ref a64::VecB - 8-bit SIMD register.
+//!       - \ref a64::VecH - 16-bit SIMD register.
+//!       - \ref a64::VecS - 32-bit SIMD register.
+//!       - \ref a64::VecD - 64-bit SIMD register.
+//!       - \ref a64::VecV - 128-bit SIMD register.
 //!
 //! ### Memory Operands
 //!
@@ -46,7 +45,7 @@
 //! ### Other
 //!
 //!   - \ref arm::Shift - Shift operation and value.
-//!   - \ref a64::Utils - Utilities that can help during code generation for AArch64.
+//!   - \ref arm::Utils - Utilities that can help during code generation for AArch32 and AArch64.
 
 #include "./arm.h"
 #include "./arm/a64assembler.h"
@@ -56,7 +55,6 @@
 #include "./arm/a64globals.h"
 #include "./arm/a64instdb.h"
 #include "./arm/a64operand.h"
-#include "./arm/a64utils.h"
 
 #endif // ASMJIT_A64_H_INCLUDED
 

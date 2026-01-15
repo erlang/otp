@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 %%
 
 -module(diameter_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 
@@ -77,7 +80,8 @@ ets_new(List)
     lists:foreach(fun ets_new/1, List);
 
 ets_new({Table, Opts}) ->
-    ets:new(Table, [named_table, public | Opts]).
+    ets:new(Table, [named_table, public | Opts]),
+    ok.
 
 %% tree/0
 

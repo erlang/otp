@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1073,7 +1075,13 @@ normalize_map(_Config) ->
                                host => <<"localhost">>}),
     <<"yeti://localhost">> =
         uri_string:normalize(#{scheme => <<"yeti">>,port => undefined,path => <<>>,
-                               host => <<"localhost">>}).
+                               host => <<"localhost">>}),
+    <<"yeti://localhost">> =
+        uri_string:normalize(#{scheme => <<"yeti">>,port => undefined,
+                               host => <<"localhost">>}),
+    "yeti://localhost" =
+        uri_string:normalize(#{scheme => "yeti",port => undefined,
+                               host => "localhost"}).
 
 normalize_return_map(_Config) ->
     #{scheme := "http",path := "/a/g",host := "localhost-örebro"} =
@@ -1376,13 +1384,6 @@ quote(_Config) ->
 
     TestQuoteUnquote =
         fun(Unquoted) ->
-                %% case below should be removed when functions used are removed
-                case Head(Unquoted) =< 127 of
-                    true ->
-                        Unquoted = http_uri:decode(http_uri:encode(Unquoted));
-                    _ ->
-                        ok
-                end,
                 Unquoted = uri_string:unquote(uri_string:quote(Unquoted))
         end,
     [TestQuoteUnquote(U) || #{unquoted := U} <- get_quote_data()],
@@ -1392,13 +1393,6 @@ quote(_Config) ->
         fun(Unquoted, Quoted) ->
                 Safe = "!$()*", %% characters not encoded by old http_uri:encode
                 Result = uri_string:quote(Unquoted, Safe),
-                %% case below should be removed when function used are removed
-                case Head(Unquoted) =< 127 of
-                    true ->
-                        Result = http_uri:encode(Unquoted);
-                    _ ->
-                        ok
-                end,
                 case lists:member(Head(Unquoted), Safe) of
                     true ->
                         Unquoted = Result;

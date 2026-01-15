@@ -1,0 +1,28 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+
+[;1m  cpu_topology()[0m
+
+  The current cpu topology.
+
+  [;;4mnode[0m refers to Non-Uniform Memory Access (NUMA) nodes. [;;4mthread[0m
+  refers to hardware threads (for example, Intel hyper-threads).
+
+  A level in term [;;4mCpuTopology[0m can be omitted if only one entry
+  exists and [;;4mInfoList[0m is empty.
+
+  [;;4mthread[0m can only be a sublevel to [;;4mcore[0m. [;;4mcore[0m can be a sublevel
+  to [;;4mprocessor[0m or [;;4mnode[0m. [;;4mprocessor[0m can be on the top level or a
+  sublevel to [;;4mnode[0m. [;;4mnode[0m can be on the top level or a sublevel
+  to [;;4mprocessor[0m. That is, NUMA nodes can be processor internal or
+  processor external. A CPU topology can consist of a mix of
+  processor internal and external NUMA nodes, as long as each
+  logical CPU belongs to one NUMA node. Cache hierarchy is not
+  part of the [;;4mCpuTopology[0m type, but will be in a future release.
+  Other things can also make it into the CPU topology in a future
+  release. So, expect the [;;4mCpuTopology[0m type to change.

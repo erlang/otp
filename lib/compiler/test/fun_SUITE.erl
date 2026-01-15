@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(fun_SUITE).
@@ -24,7 +26,7 @@
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
          external/1,eep37/1,badarity/1,badfun/1,
          duplicated_fun/1,unused_fun/1,parallel_scopes/1,
-         coverage/1,leaky_environment/1]).
+         coverage/1,leaky_environment/1,chain/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -38,7 +40,7 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
+      [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,chain,
        badarity,badfun,duplicated_fun,unused_fun,
        parallel_scopes,
        coverage,leaky_environment]}].
@@ -202,13 +204,16 @@ external(Config) when is_list(Config) ->
 
     42 = (fun erlang:abs/1)(-42),
     42 = (id(fun erlang:abs/1))(-42),
+    42 = id(fun erlang:abs/1)(-42),
     42 = apply(fun erlang:abs/1, [-42]),
     42 = apply(id(fun erlang:abs/1), [-42]),
     6 = (fun lists:sum/1)([1,2,3]),
     6 = (id(fun lists:sum/1))([1,2,3]),
+    6 = id(fun lists:sum/1)([1,2,3]),
 
     {'EXIT',{{badarity,_},_}} = (catch (fun lists:sum/1)(1, 2, 3)),
     {'EXIT',{{badarity,_},_}} = (catch (id(fun lists:sum/1))(1, 2, 3)),
+    {'EXIT',{{badarity,_},_}} = (catch id(fun lists:sum/1)(1, 2, 3)),
     {'EXIT',{{badarity,_},_}} = (catch apply(fun lists:sum/1, [1,2,3])),
 
     {'EXIT',{badarg,_}} = (catch bad_external_fun()),
@@ -222,6 +227,11 @@ bad_external_fun() ->
     V0 = idea,
     fun V0:V0/V0,                               %Should fail.
     never_reached.
+
+chain(_Config) ->
+    F3 = fun (A, B, C) -> {ok, (A + B) * C} end,
+    F0 = fun (A) -> fun (B) -> fun (C) -> F3(A,B,C) end end end,
+    {ok, 42} = F0(-2)(9)(6).
 
 %% Named funs.
 eep37(_Config) ->
@@ -241,7 +251,9 @@ eep37_basic() ->
 
 eep37_dup() ->
     dup1 = (dup1())(),
+    dup1 = dup1()(),
     dup2 = (dup2())(),
+    dup2 = dup2()(),
     ok.
 
 dup1() ->

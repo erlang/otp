@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_handshake).
+-moduledoc false.
 
 -include("tls_handshake.hrl").
 -include("tls_handshake_1_3.hrl").
@@ -45,7 +48,7 @@
 -export([get_tls_handshakes/4, decode_handshake/3]).
 
 %% Handshake helper
--export([ocsp_nonce/1]).
+-export([ocsp_nonce/1, get_signature_ext/3]).
 
 -type tls_handshake() :: #client_hello{} | ssl_handshake:ssl_handshake().
 
@@ -56,8 +59,9 @@
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
 		   ssl_options(), binary(), boolean(),
                    #key_share_client_hello{} | undefined, tuple() | undefined,
-                   binary() | undefined, db_handle() | undefined, certdb_ref() | undefined) ->
-			  #client_hello{}.
+                   binary() | undefined, ssl_manager:db_handle() |
+                   undefined, ssl_manager:certdb_ref() | undefined) ->
+          #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
@@ -95,14 +99,13 @@ client_hello(_Host, _Port, ConnectionStates,
     #client_hello{session_id = Id,
 		  client_version = LegacyVersion,
 		  cipher_suites = CipherSuites,
-		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 		  extensions = Extensions
 		 }.
 
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{}, ssl_options(),
-	    ssl_record:connection_states() | {inet:port_number(), #session{}, db_handle(),
+	    ssl_record:connection_states() | {inet:port_number(), #session{}, ssl_manager:db_handle(),
 				    atom(), ssl_record:connection_states(), 
 				    binary() | undefined, ssl:kex_algo()},
 	    boolean(), #session{}) ->
@@ -155,7 +158,6 @@ hello(#server_hello{server_version = {Major, Minor},
 hello(#server_hello{server_version = LegacyVersion,
                     random = Random,
 		    cipher_suite = CipherSuite,
-		    compression_method = Compression,
 		    session_id = SessionId,
                     extensions =
                         #{server_hello_selected_version :=
@@ -163,7 +165,6 @@ hello(#server_hello{server_version = LegacyVersion,
                                  selected_version = Version}} = HelloExt},
       #{versions := SupportedVersions} = SslOpt,
       ConnectionStates0, Renegotiation, OldId) ->
-    Stapling = maps:get(ocsp_stapling, SslOpt, ?DEFAULT_OCSP_STAPLING),
     %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
     %% number for TLS 1.2.
@@ -180,13 +181,15 @@ hello(#server_hello{server_version = LegacyVersion,
                             IsNew = ssl_session:is_new(OldId, SessionId),
                             %% TLS 1.2 ServerHello with "supported_versions" (special case)
                             handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-                                                           Compression, HelloExt, SslOpt,
+                                                           HelloExt, SslOpt,
                                                            ConnectionStates0, Renegotiation, IsNew);
                         SelectedVersion ->
-                            %% TLS 1.3
+                            %% TLS 1.3 status_request and OCSP
+                            %% responses provided in Certificate
+                            %% messages
                             {next_state, wait_sh, SelectedVersion,
-                             #{ocsp_stapling => Stapling,
-                               ocsp_expect => ocsp_expect(Stapling)}}
+                             #{configured => maps:is_key(stapling, SslOpt),
+                               status => not_negotiated}}
                     end;
                 false ->
                     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
@@ -196,7 +199,6 @@ hello(#server_hello{server_version = LegacyVersion,
 hello(#server_hello{server_version = Version,
                     random = Random,
 		    cipher_suite = CipherSuite,
-		    compression_method = Compression,
 		    session_id = SessionId,
                     extensions = HelloExt},
       #{versions := SupportedVersions} = SslOpt,
@@ -205,7 +207,7 @@ hello(#server_hello{server_version = Version,
     case tls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
 	    handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-					   Compression, HelloExt, SslOpt, 
+					   HelloExt, SslOpt,
                                            ConnectionStates0, Renegotiation, IsNew);
 	false ->
 	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
@@ -242,11 +244,11 @@ hello(#client_hello{client_version = _ClientVersion,
                     extensions = #{client_hello_versions :=
                                        #client_hello_versions{versions = ClientVersions}
                                   }} = Hello,
-      #{versions := Versions} = SslOpts,
-      Info, Renegotiation) ->
+      #{versions := Versions = [Version |_]} = SslOpts,
+      Info, Renegotiation) when ?TLS_GTE(Version, ?TLS_1_2)->
     try
-        Version = ssl_handshake:select_supported_version(ClientVersions, Versions),
-        do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
+        SelectedVersion = ssl_handshake:select_supported_version(ClientVersions, Versions),
+        do_hello(SelectedVersion, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
     catch
 	error:Reason:ST ->
             ?SSL_LOG(info, handshake_error, [{reason,Reason}, {stacktrace, ST}]),
@@ -313,9 +315,9 @@ get_tls_handshakes(Version, Data, Buffer, Options) ->
 %% Description: Get an OCSP nonce
 %%--------------------------------------------------------------------
 ocsp_nonce(SslOpts) ->
-    case maps:get(ocsp_stapling, SslOpts, disabled) of
+    case maps:get(stapling, SslOpts, disabled) of
         #{ocsp_nonce := true} ->
-            public_key:der_encode('Nonce', crypto:strong_rand_bytes(8));
+            public_key:der_encode('Nonce', crypto:strong_rand_bytes(32)); %RFC8954 2.1
         _ ->
             undefined
     end.
@@ -326,7 +328,6 @@ ocsp_nonce(SslOpts) ->
 handle_client_hello(Version, 
                     #client_hello{session_id = SugesstedId,
                                   cipher_suites = CipherSuites,
-                                  compression_methods = Compressions,
                                   random = Random,
                                   extensions = HelloExt},
 		    #{versions := Versions,
@@ -336,17 +337,18 @@ handle_client_hello(Version,
                     Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
-            SupportedHashSigns = supported_hashsigns(maps:get(signature_algs, SslOpts, undefined)),
+            SigAlgs = ssl_handshake:supported_hashsigns(maps:get(signature_algs, SslOpts, undefined)),
+            SigAlgsCert = signature_algs_cert(Version, SslOpts, SigAlgs),
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = get_signature_ext(signature_algs, HelloExt, Version),
             ClientSignatureSchemes = get_signature_ext(signature_algs_cert, HelloExt, Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
-				   ClientHashSigns, SupportedHashSigns, Version),
+				   ClientHashSigns, SigAlgs, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite,
                             own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites,
-                                               AvailableHashSigns, Compressions,
+                                               AvailableHashSigns,
 					       SessIdTracker, Session0#session{ecc = ECCCurve},
                                                Version, SslOpts, CertKeyPairs),
 	    case CipherSuite of
@@ -356,7 +358,7 @@ handle_client_hello(Version,
 		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
                     case ssl_handshake:select_hashsign({ClientHashSigns, ClientSignatureSchemes},
                                                        OwnCert, KeyExAlg,
-                                                       SupportedHashSigns,
+                                                       SigAlgsCert,
                                                        Version) of
 			#alert{} = Alert ->
 			    throw(Alert);
@@ -372,11 +374,16 @@ handle_client_hello(Version,
 	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
     end.
 
-supported_hashsigns(undefined) ->
-    undefined;
-supported_hashsigns(SigAlgs) ->
-    ssl_cipher:signature_schemes_1_2(SigAlgs).
-
+signature_algs_cert(Version, SslOpts, SigAlgs)  when ?TLS_GTE(Version, ?TLS_1_2) ->
+    case maps:get(signature_algs_cert, SslOpts, undefined) of
+        undefined ->
+            SigAlgs;
+        SigAlgsCert ->
+            ssl_handshake:supported_hashsigns(SigAlgsCert)
+    end;
+signature_algs_cert(_,_,_) ->
+    undefined.
+    
 handle_client_hello_extensions(Version, Type, Random, CipherSuites,
                                HelloExt, SslOpts, Session0, ConnectionStates0, 
                                Renegotiation, HashSign) ->
@@ -389,13 +396,13 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
     {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}.
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-                               Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
-    {ConnectionStates, ProtoExt, Protocol, OcspState} =
+                               HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
+    {ConnectionStates, ProtoExt, Protocol, StaplingState} =
         ssl_handshake:handle_server_hello_extensions(tls_record, Random, CipherSuite,
-                                                     Compression, HelloExt, Version,
+                                                     HelloExt, Version,
                                                      SslOpt, ConnectionStates0,
                                                      Renegotiation, IsNew),
-    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
+    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, StaplingState}.
 
 do_hello(undefined, _Versions, _CipherSuites, _Hello, _SslOpts, _Info, _Renegotiation) ->
     throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION));
@@ -420,10 +427,9 @@ enc_handshake(#client_hello{client_version = ServerVersion,
 		     random = Random,
 		     session_id = SessionID,
 		     cipher_suites = CipherSuites,
-		     compression_methods = CompMethods, 
 		     extensions = HelloExtensions}, _Version) ->
     SIDLength = byte_size(SessionID),
-    BinCompMethods = list_to_binary(CompMethods),
+    BinCompMethods = list_to_binary([?NO_COMPRESSION]),
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
@@ -463,7 +469,7 @@ decode_handshake(Version, ?CLIENT_HELLO,
                  <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
                    ?BYTE(SID_length), Session_ID:SID_length/binary,
                    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
-                   ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
+                   ?BYTE(Cm_length), _CompMethods:Cm_length/binary,
                    Extensions/binary>>) ->
     Exts = ssl_handshake:decode_vector(Extensions),
     DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, Version, {Major, Minor},
@@ -473,19 +479,12 @@ decode_handshake(Version, ?CLIENT_HELLO,
        random = Random,
        session_id = Session_ID,
        cipher_suites = ssl_handshake:decode_suites('2_bytes', CipherSuites),
-       compression_methods = erlang:binary_to_list(Comp_methods),
        extensions = DecodedExtensions
       };
 decode_handshake(?TLS_1_3, Tag, Msg) ->
     tls_handshake_1_3:decode_handshake(Tag, Msg);
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
-
-
-ocsp_expect(true) ->
-    staple;
-ocsp_expect(_) ->
-    no_staple.
 
 get_signature_ext(Ext, HelloExt, ?TLS_1_2) ->
     case maps:get(Ext, HelloExt, undefined) of

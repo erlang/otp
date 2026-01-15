@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,8 +44,8 @@ get_context(_Config) ->
     {term} = edlin_context:get_context(lists:reverse("h(file,open), h(file")),
     {term} = edlin_context:get_context(lists:reverse("h(file,open), h(file,open")),
     {term, [{call, "h(file,open)"}], {call, "h(file,open)"}} = edlin_context:get_context(lists:reverse("h(file,open), h(file,open)")),
-    {function} = edlin_context:get_context(lists:reverse("file:")),
-    {function} = edlin_context:get_context(lists:reverse("file:open")),
+    {function, "file"} = edlin_context:get_context(lists:reverse("file:")),
+    {function, "file"} = edlin_context:get_context(lists:reverse("file:open")),
     {function, "file", "open", [], [], []} = edlin_context:get_context(lists:reverse("file:open(")),
     {string} = edlin_context:get_context(lists:reverse("file:open(\"")),
     {string} = edlin_context:get_context(lists:reverse("file:open(\"/")),
@@ -186,4 +188,12 @@ get_context(_Config) ->
     {term,[{integer,"2"}],{operation,"1 + 3"}} = edlin_context:get_context(lists:reverse("receive X -> 2, 1+3")),
     {term,[],{integer,"-1"}} = edlin_context:get_context(lists:reverse("-1")),
     {term,[],{float,"-1.2"}} = edlin_context:get_context(lists:reverse("-1.2")),
+    {term,[],{tuple, "{hej, svej}"}} = edlin_context:get_context(lists:reverse("begin {hej, svej}")),
+    {term,[],[]} = edlin_context:get_context(lists:reverse("begin {hej, svej} = {")),
+    {fun_} = edlin_context:get_context(lists:reverse("fun(")),
+    {fun_} = edlin_context:get_context(lists:reverse("maps:map(fun(")),
+    {term} = edlin_context:get_context(lists:reverse("/")),
+    {term} = edlin_context:get_context(lists:reverse("Foo/")),
+    {fun_, "user_defined", "a"} = edlin_context:get_context(lists:reverse("a/")),
+    {term} = edlin_context:get_context(lists:reverse("Foo(")),
     ok.

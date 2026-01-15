@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_server).
+-moduledoc false.
 
 %% Public
 -export([
@@ -1771,16 +1774,10 @@ libs_to_dirs(RootDir, LibDirs) ->
                 [] ->
                     Fun = fun(Base) ->
                                   AppDir = filename:join([RootLibDir, Base]),
-                                  case filelib:is_dir(filename:join([AppDir,
-								     "ebin"]),
-						      erl_prim_loader) of
-                                      true ->
-                                          AppDir;
-                                      false ->
-                                          filename:join([RootDir,
-							 Base,
-							 "preloaded"])
-                                  end
+                                  true = filelib:is_dir(
+                                           filename:join([AppDir, "ebin"]),
+                                           erl_prim_loader),
+                                  AppDir
                           end,
                     ErtsFiles = [{erts, Fun(F)} || F <- RootFiles,
 						   lists:prefix("erts", F)],
@@ -1811,7 +1808,7 @@ app_dirs2([Lib | Libs], Acc) ->
                                 false
                         end
                 end,
-            Files2 = lists:zf(Filter, Files),
+            Files2 = lists:filtermap(Filter, Files),
             app_dirs2(Libs, [Files2 | Acc]);
         {error, Reason} ->
 	    reltool_utils:throw_error("Illegal library ~tp: ~ts",
@@ -2183,18 +2180,8 @@ find_dir(Dir, [Info | _], [Dir | _]) ->
 find_dir(Dir, [_ | MoreInfo], [_ | MoreDirs]) ->
     find_dir(Dir, MoreInfo, MoreDirs).
 
-get_base(Name, Dir) ->
-    case Name of
-        erts ->
-            case filename:basename(Dir) of
-                "preloaded" ->
-                    filename:basename(filename:dirname(Dir));
-                TmpBase ->
-                    TmpBase
-            end;
-        _ ->
-            filename:basename(Dir)
-    end.
+get_base(_Name, Dir) ->
+    filename:basename(Dir).
 
 sys_all_apps(#state{app_tab=AppTab, sys=Sys}) ->
     Sys#sys{apps = ets:match_object(AppTab,'_')}.

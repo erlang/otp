@@ -2,7 +2,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,8 +39,6 @@
 	     dialyzer_dataflow,
 	     dialyzer_dep,
 	     dialyzer_dot,
-	     dialyzer_explanation,
-	     dialyzer_gui_wx,
 	     dialyzer_incremental,
 	     dialyzer_options,
 	     dialyzer_plt,
@@ -56,6 +56,6 @@
   {registered, []},
   {applications, [compiler, kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["wx-2.0","syntax_tools-2.0","stdlib-5.0",
+  {runtime_dependencies, ["syntax_tools-2.0","stdlib-5.0",
 			  "kernel-8.0","erts-12.0",
 			  "compiler-8.0"]}]}.

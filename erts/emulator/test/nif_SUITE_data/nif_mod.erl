@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -23,7 +25,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([load_nif_lib/2, load_nif_lib/3, start/0,
-         lib_version/0, lib_version_check/0,
+         lib_version/0, lib_version_check/0, trace_me/1,
 	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2,
          monitor_process/3]).
 
@@ -32,7 +34,7 @@
 -define(nif_stub,nif_stub_error(?LINE)).
 
 -ifdef(USE_NIFS_ATTRIB).
--nifs([lib_version/0, nif_api_version/0, get_priv_data_ptr/0]).
+-nifs([lib_version/0, nif_api_version/0, get_priv_data_ptr/0, trace_me/1]).
 -if(?USE_NIFS_ATTRIB > 1).
 -nifs([make_new_resource/2, get_resource/2, monitor_process/3]).
 -if(?USE_NIFS_ATTRIB > 2).
@@ -48,7 +50,8 @@ on_load() ->
     [{data_dir, Path}] = ets:lookup(nif_SUITE, data_dir),
     [{lib_version, Ver}] = ets:lookup(nif_SUITE, lib_version),
     [{nif_api_version, API}] = ets:lookup(nif_SUITE, nif_api_version),
-    R = erlang:load_nif(filename:join(Path,libname(Ver,API)), []),
+    [{tester, Tester}] = ets:lookup(nif_SUITE, tester),
+    R = erlang:load_nif(filename:join(Path,libname(Ver,API)), [{tester,Tester}]),
     check_api_version(R, API).
 
 -endif.
@@ -102,6 +105,9 @@ get_priv_data_ptr() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
 monitor_process(_,_,_) -> ?nif_stub.
+
+trace_me(_) ->  % NIF
+    undefined.
 
 lib_version_check() ->
     %% Do a recursive call to test that we are able to return

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -39,7 +41,7 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, maps/1,
+	 otp_7078/1, maps/1, zlc/1,
          side_effects/1]).
 
 init_per_testcase(_Case, Config) ->
@@ -55,7 +57,7 @@ suite() ->
 all() -> 
     [attributes, expr, guard, init,
      pattern, strict, update, maps,
-     side_effects, {group, tickets}].
+     side_effects, zlc, {group, tickets}].
 
 groups() -> 
     [{tickets, [],
@@ -223,21 +225,60 @@ guard(Config) when is_list(Config) ->
 %% Wildcard initialisation.
 init(Config) when is_list(Config) ->
     Ts = [
-      <<"
-         -record(r, {a,b,c,d = foo}).
+          ~"""
+          -record(r, {a,b,c,d = foo}).
 
-         t() ->
-             R = #r{_ = init, b = b},
-             #r{c = init, b = b, a = init} = R,
-             case R of
-                 #r{b = b, _ = init} -> ok;
-                 _ -> not_ok
-             end.
-      ">>
-      ],
+          t() ->
+              R = #r{_ = init, b = b},
+              #r{c = init, b = b, a = init} = R,
+              case R of
+                  #r{b = b, _ = init} -> ok;
+                  _ -> not_ok
+              end.
+          """,
+          ~"""
+            -record(r0, {a}).
+            -record(r1, {rf1 = (#r0{a = #{ok => ok || ok}})}).
+
+            t() ->
+                catch <<0 || #r1{}>>,
+                ok.
+            """,
+          ~"""
+            -record(r0, {a}).
+            -record(r1, {
+                         rf1 = fun
+                                   (+0.0) ->
+                                       (list_to_bitstring(ok))#r0.a;
+                                   (_) when ok ->
+                                       ok
+                               end
+                        }).
+
+            t() ->
+                catch <<0 || (#r1{})>>,
+                ok.
+            """,
+          ~"""
+           -record(r0, {a}).
+           -record(r1, {
+                        a = {
+                             ((ok)#r0{})#r0.a,
+                             case whatever of
+                                   _ when cucumber ->
+                                       banan
+                               end
+                              }
+                       }).
+
+           t() ->
+               catch #{ok => ok || #r1{}},
+               ok.
+           """
+         ],
     run(Config, Ts),
     ok.
-    
+
 %% Some patterns.
 pattern(Config) when is_list(Config) ->
     Ts = [
@@ -415,6 +456,15 @@ maps(Config) when is_list(Config) ->
                      #{#rr{a=1,b=2,c=3} => R1}#{#rr{a=1,b=2,c=3} := R0},
                  ok.
 
+             id(X) -> X.
+            ">>],
+    run(Config, Ts, [strict_record_tests]),
+    ok.
+
+zlc(Config) when is_list(Config) ->
+    Ts = [<<"-record(rr, {a,b,c}).
+             t() -> R0 = id(#rr{a=[{X,Y}||X <- [1,2] && Y <- [a,b]]}),
+             ok.
              id(X) -> X.
             ">>],
     run(Config, Ts, [strict_record_tests]),

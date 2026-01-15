@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_iplt.erl
@@ -22,6 +31,7 @@
 %%%               analyses.
 %%%-------------------------------------------------------------------
 -module(dialyzer_iplt).
+-moduledoc false.
 
 -export([check_incremental_plt/3,
          included_modules/1,
@@ -261,7 +271,7 @@ to_file_custom_vsn(
   Info = maps:from_list(dialyzer_utils:ets_tab2list(ETSInfo)),
   Types = dialyzer_utils:ets_tab2list(ETSTypes),
   Contracts = maps:from_list(dialyzer_utils:ets_tab2list(ETSContracts)),
-  ExpTypes = sets:from_list([E || {E} <- dialyzer_utils:ets_tab2list(ETSExpTypes)], [{version, 2}]),
+  ExpTypes = sets:from_list([E || {E} <- dialyzer_utils:ets_tab2list(ETSExpTypes)]),
   Record = #ifile_plt{version = Vsn,
                       module_md5_list = MD5,
                       info = term_to_binary(Info, [{compressed,9}]),
@@ -401,26 +411,18 @@ compute_new_md5_1(Entries, InitDiffs, ModuleToPathLookup) ->
   ExistingHashes = [Md5 || {_Module, Md5} <- Entries],
   Files = [maps:get(Module, ModuleToPathLookup) || Module <- Modules],
   NewHashes = dialyzer_utils:p_map(fun compute_md5_from_file/1, Files),
-  Diffs =
-    lists:zipwith3(
-      fun (Module, BeforeHash, AfterHash) ->
-          case BeforeHash of
-            AfterHash ->
-              none;
-            _ ->
-              {differ, Module}
-          end
-      end,
-      Modules,
-      ExistingHashes,
-      NewHashes),
-  Diffs1 = InitDiffs ++ lists:filter(fun ({differ,_}) -> true; (none) -> false end, Diffs),
-  case Diffs1 of
+  Diffs = InitDiffs ++
+    [{differ, Module} ||
+      Module <- Modules &&
+        BeforeHash <- ExistingHashes &&
+        AfterHash <- NewHashes,
+      BeforeHash =/= AfterHash],
+  case Diffs of
     [] ->
       ok;
     _ ->
       ModuleHashes = lists:zip(Modules, NewHashes),
-      {differ, lists:keysort(1, ModuleHashes), Diffs1}
+      {differ, lists:sort(ModuleHashes), Diffs}
   end.
 
 -spec implementation_module_paths() -> module_file_path_lookup().

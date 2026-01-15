@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-[;1m  fun_info_mfa/1[0m
+[;1m  fun_info_mfa(Fun)[0m
 
   The documentation for fun_info_mfa/1 is hidden. This probably
   means that it is internal and not to be used by other

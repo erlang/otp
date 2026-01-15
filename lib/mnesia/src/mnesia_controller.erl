@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +41,9 @@
 %% We processes the load request queue as a "background" job..
 
 -module(mnesia_controller).
+-moduledoc false.
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
+-compile(nowarn_obsolete_bool_op).
 
 -behaviour(gen_server).
 
@@ -99,7 +103,7 @@
 	 dump_and_reply/2,
 	 load_and_reply/2,
 	 send_and_reply/2,
-	 wait_for_tables_init/2,
+	 wait_for_tables_init/3,
 	 connect_nodes2/3
 	]).
 
@@ -232,13 +236,16 @@ wait_for_tables(Tabs, Timeout) ->
 do_wait_for_tables(Tabs, 0) ->
     reply_wait(Tabs);
 do_wait_for_tables(Tabs, Timeout) ->
-    Pid = spawn_link(?MODULE, wait_for_tables_init, [self(), Tabs]),
+    Alias = alias([reply]),
+    Pid = spawn_link(?MODULE, wait_for_tables_init, [self(), Alias, Tabs]),
     receive
-	{?SERVER_NAME, Pid, Res} ->
+	{?SERVER_NAME, Alias, Res} ->
 	    Res;
 	{'EXIT', Pid, _} ->
+	    unalias(Alias),
 	    reply_wait(Tabs)
     after Timeout ->
+	    ?unalias_and_flush_msg(Alias, {?SERVER_NAME, Alias, _}),
 	    unlink(Pid),
 	    exit(Pid, timeout),
 	    reply_wait(Tabs)
@@ -256,10 +263,10 @@ reply_wait(Tabs) ->
     catch exit:_ -> {error, {node_not_running, node()}}
     end.
 
-wait_for_tables_init(From, Tabs) ->
+wait_for_tables_init(From, Alias, Tabs) ->
     process_flag(trap_exit, true),
     Res = wait_for_init(From, Tabs, whereis(?SERVER_NAME)),
-    From ! {?SERVER_NAME, self(), Res},
+    Alias ! {?SERVER_NAME, Alias, Res},
     unlink(From),
     exit(normal).
 
@@ -1306,7 +1313,7 @@ handle_info(Msg = {'EXIT', Pid, R}, State) when R /= wait_for_tables_timeout ->
     end;
 
 handle_info({From, get_state}, State) ->
-    From ! {?SERVER_NAME, State},
+    From ! {?SERVER_NAME, From, State},
     noreply(State);
 
 %% No real need for buffering
@@ -1489,17 +1496,25 @@ orphan_tables([Tab | Tabs], Node, Ns, Local, Remote) ->
 orphan_tables([], _, _, LocalOrphans, RemoteMasters) ->
     {LocalOrphans, RemoteMasters}.
 
-node_has_tabs([Tab | Tabs], Node, State) when Node /= node() ->
-    State2 =
-	try update_whereabouts(Tab, Node, State) of
-	    State1 = #state{} -> State1
-	catch exit:R -> %% Tab was just deleted?
-		case ?catch_val({Tab, cstruct}) of
-		    {'EXIT', _} -> State; % yes
-		    _ ->  erlang:error(R)
-		end
-	end,
-    node_has_tabs(Tabs, Node, State2);
+node_has_tabs([Tab | Tabs], Node, State0) when Node /= node() ->
+    State = try
+                case ?catch_val({Tab, cstruct}) of
+                    {'EXIT', _} -> State0;
+                    Cs ->
+                        case mnesia_lib:cs_to_storage_type(Node, Cs) of
+                            unknown ->   %% handle_early_msgs may come with obsolete
+                                State0;  %% information, if irrelevant ignore it.
+                            _ ->
+                                #state{} = update_whereabouts(Tab, Node, State0)
+                        end
+                end
+            catch exit:R:ST -> %% Tab was just deleted?
+                    case ?catch_val({Tab, cstruct}) of
+                        {'EXIT', _} -> State0; % yes
+                        _ ->  erlang:error({R, ST})
+                    end
+            end,
+    node_has_tabs(Tabs, Node, State);
 node_has_tabs([Tab | Tabs], Node, State) ->
     user_sync_tab(Tab),
     node_has_tabs(Tabs, Node, State);
@@ -1586,7 +1601,7 @@ initial_safe_loads() ->
 	    Downs = [],
 	    Tabs = val({schema, local_tables}) -- [schema],
 	    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	    lists:zf(LastC, Tabs);
+	    lists:filtermap(LastC, Tabs);
 
 	disc_copies ->
 	    Downs = mnesia_recover:get_mnesia_downs(),
@@ -1594,7 +1609,7 @@ initial_safe_loads() ->
 
 	    Tabs = val({schema, local_tables}) -- [schema],
 	    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	    lists:zf(LastC, Tabs)
+	    lists:filtermap(LastC, Tabs)
     end.
 
 last_consistent_replica(Tab, Downs) ->
@@ -1799,6 +1814,7 @@ update_where_to_wlock(Tab) ->
 %% This code is rpc:call'ed from the tab_copier process
 %% when it has *not* released it's table lock
 unannounce_add_table_copy(Tab, To) ->
+    verbose("unannounce_add_table_copy ~w ~w~n", [Tab,To]),
     ?CATCH(del_active_replica(Tab, To)),
     try To = val({Tab , where_to_read}),
 	 mnesia_lib:set_remote_where_to_read(Tab)
@@ -1860,12 +1876,14 @@ get_info(Timeout) ->
 	undefined ->
 	    {timeout, Timeout};
 	Pid ->
-	    Pid ! {self(), get_state},
+	    Alias = alias([reply]),
+	    Pid ! {Alias, get_state},
 	    receive
-		{?SERVER_NAME, State = #state{loader_queue=LQ,late_loader_queue=LLQ}} ->
+		{?SERVER_NAME, Alias, State = #state{loader_queue=LQ,late_loader_queue=LLQ}} ->
 		    {info,State#state{loader_queue=gb_trees:to_list(LQ),
 				      late_loader_queue=gb_trees:to_list(LLQ)}}
 	    after Timeout ->
+		    ?unalias_and_flush_msg(Alias, {?SERVER_NAME, Alias, _}),
 		    {timeout, Timeout}
 	    end
     end.
@@ -1875,11 +1893,13 @@ get_workers(Timeout) ->
 	undefined ->
 	    {timeout, Timeout};
 	Pid ->
-	    Pid ! {self(), get_state},
+	    Alias = alias([reply]),
+	    Pid ! {Alias, get_state},
 	    receive
-		{?SERVER_NAME, State = #state{}} ->
+		{?SERVER_NAME, Alias, State = #state{}} ->
 		    {workers, get_loaders(State), get_senders(State), State#state.dumper_pid}
 	    after Timeout ->
+		    ?unalias_and_flush_msg(Alias, {?SERVER_NAME, Alias, _}),
 		    {timeout, Timeout}
 	    end
     end.

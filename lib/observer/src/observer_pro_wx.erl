@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,6 +19,7 @@
 %%
 %% %CopyrightEnd%
 -module(observer_pro_wx).
+-moduledoc false.
 
 -behaviour(wx_object).
 
@@ -132,7 +135,7 @@ create_pro_menu(Parent, Holder) ->
 				  type=check,
 				  check=call(Holder, {get_accum, self()})},
 		     separator,
-		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl-R"},
+		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl+R"},
 		     #create_menu{id=?ID_REFRESH_INTERVAL, text="Refresh Interval"}]},
 		   {"Trace",
 		    [#create_menu{id=?ID_TRACE_PIDS, text="Trace processes"},
@@ -165,7 +168,7 @@ create_list_box(Panel, Holder) ->
 		   end,
     Scale = observer_wx:get_scale(),
     ListItems = [{"Pid", ?wxLIST_FORMAT_CENTRE,  Scale*120},
-		 {"Name or Initial Func", ?wxLIST_FORMAT_LEFT, Scale*200},
+		 {"Description", ?wxLIST_FORMAT_LEFT, Scale*200},
 %%		 {"Time", ?wxLIST_FORMAT_CENTRE, Scale*50},
 		 {"Reds", ?wxLIST_FORMAT_RIGHT, Scale*100},
 		 {"Memory", ?wxLIST_FORMAT_RIGHT, Scale*100},
@@ -665,29 +668,61 @@ merge_fun(Col) ->
     fun(A,B) -> lists:keymerge(KeyField, A, B) end.
 
 
+%% Assumes that there are many undescribed MFA processes.
+%% So we sort them separately, to not create temporary bin-strings
+%% that will create a lot of garbage
+
 sort_name(#etop_proc_info{name={_,_,_}=A}, #etop_proc_info{name={_,_,_}=B}) ->
     A =< B;
 sort_name(#etop_proc_info{name=A}, #etop_proc_info{name=B})
   when is_atom(A), is_atom(B) ->
     A =< B;
-sort_name(#etop_proc_info{name=Reg}, #etop_proc_info{name={M,_F,_A}})
-  when is_atom(Reg) ->
-    Reg < M;
-sort_name(#etop_proc_info{name={M,_,_}}, #etop_proc_info{name=Reg})
-  when is_atom(Reg) ->
-    M < Reg.
+sort_name(#etop_proc_info{name=A}, #etop_proc_info{name=B})
+  when is_binary(A), is_binary(B) ->
+    A =< B;
+sort_name(#etop_proc_info{name=A}, #etop_proc_info{name=B})
+  when is_binary(A), is_atom(B) ->
+    A =< atom_to_binary(B);
+sort_name(#etop_proc_info{name=A}, #etop_proc_info{name=B})
+  when is_binary(B), is_atom(A) ->
+    atom_to_binary(A) =< B;
+sort_name(_, #etop_proc_info{name={_,_,_}}) ->
+    true;
+sort_name(#etop_proc_info{name={_,_,_}}, _) ->
+    false.
+
+%% sort_name(#etop_proc_info{name=Reg}, #etop_proc_info{name={M,_F,_A}})
+%%   when is_atom(Reg) ->
+%%     Reg < M;
+%% sort_name(#etop_proc_info{name={M,_,_}}, #etop_proc_info{name=Reg})
+%%   when is_atom(Reg) ->
+%%     M < Reg.
 
 sort_name_rev(#etop_proc_info{name={_,_,_}=A}, #etop_proc_info{name={_,_,_}=B}) ->
     A >= B;
 sort_name_rev(#etop_proc_info{name=A}, #etop_proc_info{name=B})
   when is_atom(A), is_atom(B) ->
     A >= B;
-sort_name_rev(#etop_proc_info{name=Reg}, #etop_proc_info{name={M,_F,_A}})
-  when is_atom(Reg) ->
-    Reg >= M;
-sort_name_rev(#etop_proc_info{name={M,_,_}}, #etop_proc_info{name=Reg})
-  when is_atom(Reg) ->
-    M >= Reg.
+sort_name_rev(#etop_proc_info{name=A}, #etop_proc_info{name=B})
+  when is_binary(A), is_binary(B) ->
+    A >= B;
+sort_name_rev(#etop_proc_info{name=A}, #etop_proc_info{name=B})
+  when is_binary(A), is_atom(B) ->
+    A >= atom_to_binary(B);
+sort_name_rev(#etop_proc_info{name=A}, #etop_proc_info{name=B})
+  when is_binary(B), is_atom(A) ->
+    atom_to_binary(A) >= B;
+sort_name_rev(_, #etop_proc_info{name={_,_,_}}) ->
+    false;
+sort_name_rev(#etop_proc_info{name={_,_,_}}, _) ->
+    true.
+
+%% sort_name_rev(#etop_proc_info{name=Reg}, #etop_proc_info{name={M,_F,_A}})
+%%   when is_atom(Reg) ->
+%%     Reg >= M;
+%% sort_name_rev(#etop_proc_info{name={M,_,_}}, #etop_proc_info{name=Reg})
+%%   when is_atom(Reg) ->
+%%     M >= Reg.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -707,6 +742,7 @@ get_pids(From, Indices, ProcInfo) ->
 
 get_name_or_pid(From, Indices, ProcInfo) ->
     Get = fun(#etop_proc_info{name=Name}) when is_atom(Name) -> Name;
+             (#etop_proc_info{name=Name}) when is_atom(Name) -> Name;
 	     (#etop_proc_info{pid=Pid}) -> Pid
 	  end,
     Processes = [Get(array:get(I, ProcInfo)) || I <- Indices],
@@ -718,6 +754,20 @@ get_row(From, Row, pid, Info) ->
 	      false -> {ok, get_procinfo_data(?COL_PID, array:get(Row, Info))}
 	  end,
     From ! {self(), Pid};
+get_row(From, Row, ?COL_NAME, Info) ->
+    String = case Row >= array:size(Info) of
+                 true ->
+                     "";
+                 false ->
+                     ProcInfo = array:get(Row, Info),
+                     case get_procinfo_data(?COL_NAME, ProcInfo) of
+                         Name when is_binary(Name) ->
+                             Name;
+                         AtomOrMFA ->
+                             observer_lib:to_str(AtomOrMFA)
+                     end
+             end,
+    From ! {self(), String};
 get_row(From, Row, Col, Info) ->
     Data = case Row >= array:size(Info) of
 	       true ->

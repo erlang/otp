@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +29,7 @@
 
 %% @hidden
 -module(wxe_server).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% API
@@ -44,7 +47,7 @@
 -define(log(S,A), log(?MODULE_STRING,?LINE,S,A)).
 
 -include("wxe.hrl").
--include("../include/wx.hrl").
+-include_lib("wx/include/wx.hrl").
 
 %%====================================================================
 %% API
@@ -59,7 +62,8 @@ start(SilentStart) ->
 	    case gen_server:start(?MODULE, [SilentStart], []) of
 		{ok, Pid}  ->
 		    {ok, Ref} = gen_server:call(Pid, get_env, infinity),
-		    wx:set_env(Env = #wx_env{ref=Ref,sv=Pid}),
+                    Env = #wx_env{ref=Ref,sv=Pid},
+		    wx:set_env(Env),
 		    Env;
 		{error, {Reason, _Stack}} ->
 		    erlang:error(Reason)

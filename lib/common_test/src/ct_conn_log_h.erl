@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(ct_conn_log_h).
+-moduledoc false.
 
 %%%
 %%% A handler that can be connected to the error_logger event
@@ -30,8 +33,7 @@
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
-
--record(state, {logs=[], default_gl}).
+-record(state, {logs=[], default_gl, prefix=disabled}).
 
 -define(WIDTH,80).
 
@@ -39,8 +41,10 @@
 
 %%%-----------------------------------------------------------------
 %%% Callbacks
-init({GL,ConnLogs}) ->
-    open_files(GL,ConnLogs,#state{default_gl=GL}).
+init({GL,ConnLogs,Opts}) ->
+    open_files(GL,ConnLogs,
+               #state{default_gl = GL,
+                      prefix = proplists:get_value(prefix, Opts, disabled)}).
 
 open_files(GL,[{ConnMod,{LogType,LogFiles}}|T],State=#state{logs=Logs}) ->
     case do_open_files(LogFiles,[]) of
@@ -103,6 +107,10 @@ terminate(_,#state{logs=Logs}) ->
 
 %%%-----------------------------------------------------------------
 %%% Writing reports
+write_report(Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,
+             #state{prefix=PrefixType}=State)
+  when PrefixType==full;PrefixType==short ->
+    write_report_with_header(Info, GL, State, ConnMod, Data, Time);
 write_report(_Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,State) ->
     case get_log(Info,GL,State) of
 	{silent,_,_} ->
@@ -113,8 +121,14 @@ write_report(_Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,State) ->
 		  end,
 	    io:format(Fd,Str,[format_data(ConnMod,LogType,Data)])
     end;
+write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State0) ->
+    %% setting to full so output matches with legacy behavior when
+    %% header field is set to true
+    State = State0#state{prefix=full},
+    write_report_with_header(Info, GL, State, ConnMod, Data, Time).
 
-write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State) ->
+write_report_with_header(Info, GL,#state{prefix=PrefixType}=State,
+                         ConnMod, Data, Time) ->
     case get_log(Info,GL,State) of
 	{silent,_,_} ->
 	    ok;
@@ -128,13 +142,17 @@ write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State) ->
 			     true ->
 				  "~n~ts~ts~ts"
 			  end,
-		    io:format(Fd,Str,[format_head(ConnMod,LogType,Time),
-				      format_title(LogType,Info),
-				      FormattedData])
+		    io:format(Fd,Str,
+                              [format_head(ConnMod,LogType,PrefixType,Time),
+                               format_title(LogType,PrefixType,Info),
+                               FormattedData])
 	    end
     end.
 
 write_error(Time,#conn_log{module=ConnMod}=Info,Report,GL,State) ->
+    %% this function was including all prefix data no matter what
+    %% header field value is - leaving behavior as is it was
+    PrefixType = full,
     case get_log(Info,GL,State) of
 	{LogType,_,_} when LogType==html; LogType==silent ->
 	    %% The error will anyway be written in the html log by the
@@ -144,8 +162,8 @@ write_error(Time,#conn_log{module=ConnMod}=Info,Report,GL,State) ->
 	    Str = if LogType == html, Dest == gl -> ["$tc_html","~n~ts~ts~ts"];
 		     true                        -> "~n~ts~ts~ts"
 		  end,
-	    io:format(Fd,Str,[format_head(ConnMod,LogType,Time," ERROR"),
-			      format_title(LogType,Info),
+	    io:format(Fd,Str,[format_head(ConnMod,LogType,PrefixType,Time," ERROR"),
+			      format_title(LogType,PrefixType,Info),
 			      format_error(LogType,Report)])
     end.
 
@@ -176,18 +194,22 @@ get_fd(#conn_log{name=ConnName},Fds) ->
 
 %%%-----------------------------------------------------------------
 %%% Formatting
-format_head(ConnMod,LogType,Time) ->
-    format_head(ConnMod,LogType,Time,"").
+format_head(ConnMod,LogType,PrefixType,Time) ->
+    format_head(ConnMod,LogType,PrefixType,Time,"").
 
-format_head(ConnMod,raw,Time,Text) ->
+format_head(_ConnMod,raw,short,Time,_Text) ->
+    io_lib:format("~n~s, ",[pretty_head(now_to_time(Time))]);
+format_head(ConnMod,raw,_,Time,Text) ->
     io_lib:format("~n~w, ~w~ts, ",[now_to_time(Time),ConnMod,Text]);
-format_head(ConnMod,_,Time,Text) ->
+format_head(ConnMod,_,_,Time,Text) ->
     Head = pad_char_end(?WIDTH,pretty_head(now_to_time(Time),ConnMod,Text),$=),
     io_lib:format("~n~ts",[Head]).
 
-format_title(raw,#conn_log{client=Client}=Info) ->
+format_title(raw,short,_Info) ->
+    "";
+format_title(raw,full,#conn_log{client=Client}=Info) ->
     io_lib:format("Client ~tw ~s ~ts",[Client,actionstr(Info),serverstr(Info)]);
-format_title(_,Info) ->
+format_title(_,_,Info) ->
     Title = pad_char_end(?WIDTH,pretty_title(Info),$=),
     io_lib:format("~n~ts", [Title]).
 
@@ -227,6 +249,11 @@ pretty_head({{{Y,Mo,D},{H,Mi,S}},MicroS},ConnMod,Text0) ->
     Text = string:uppercase(atom_to_list(ConnMod) ++ Text0),
     io_lib:format("= ~s ==== ~s-~s-~w::~s:~s:~s,~s ",
 		  [Text,t(D),month(Mo),Y,t(H),t(Mi),t(S),
+		   micro2milli(MicroS)]).
+
+pretty_head({{{Y,Mo,D},{H,Mi,S}},MicroS}) ->
+    io_lib:format("~s-~s-~w::~s:~s:~s,~s ",
+		  [t(D),month(Mo),Y,t(H),t(Mi),t(S),
 		   micro2milli(MicroS)]).
 
 pretty_title(#conn_log{client=Client}=Info) ->

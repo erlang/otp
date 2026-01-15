@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type nonempty_string() :: [char(), ...].[0m
+[;1m  nonempty_string()[0m
 
-  A string() that contains some characters.
+  A [;;4mstring/0[0m that contains some characters.

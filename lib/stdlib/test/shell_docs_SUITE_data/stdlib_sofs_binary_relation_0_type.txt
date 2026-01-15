@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type binary_relation() :: relation().[0m
+[;1m  binary_relation()[0m
 
   A binary relation.

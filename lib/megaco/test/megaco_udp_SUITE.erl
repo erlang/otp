@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2000-2023 All Rights Reserved.
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -704,7 +706,7 @@ block_unblock(Config) when is_list(Config) ->
            end,
     try_tc(block_unblock, Pre, Case, Post).
 
-do_block_unblock(Config, Factor, [ServerNode, ClientNode]) ->
+do_block_unblock(Config, Factor, [ServerNode, _ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
     TOCalc = fun(BaseTO) -> to_calc(Factor, BaseTO) end,
@@ -719,7 +721,8 @@ do_block_unblock(Config, Factor, [ServerNode, ClientNode]) ->
     p("start command handlers"),
     Server = server_start_command_handler(ServerNode, ServerCmds),
     p("server command handler started: ~p", [Server]),
-    Client = client_start_command_handler(ClientNode, ClientCmds),
+    Client = client_start_command_handler(node(), % ClientNode,
+                                          ClientCmds),
     p("client command handler started: ~p", [Client]),
 
     %% Wait for the server to become ready for operation
@@ -893,22 +896,8 @@ block_unblock_client_commands(Config, TO, ServerPort, ServerHost) ->
 	       end},
 
      #{id   => 8,
-       desc => "Pre-Block info",
+       desc => "Socket info before block",
        cmd  => fun(#{socket := Socket} = State) -> 
-                       p("Socket Info: "
-                         "~n      Port Info: ~p", [inet:info(Socket)]),
-		       {ok, State}
-	       end},
-
-     #{id   => 9,
-       desc => "Block",
-       cmd  => fun(State) -> 
-		       client_block(State) 
-	       end},
-
-     #{id   => 10,
-       desc => "Post-Block info",
-       cmd  => fun(#{socket := Socket} = State) ->
                        Active =
                            case inet:getopts(Socket, [active]) of
                                {ok, [{active, Act}]} ->
@@ -917,10 +906,47 @@ block_unblock_client_commands(Config, TO, ServerPort, ServerHost) ->
                                    undefined
                            end,
                        p("Socket Info: "
-                         "~n      Active:    ~p"
-                         "~n      Port Info: ~p",
+                         "~n      Active:      ~p"
+                         "~n      Socket Info: ~p",
                          [Active, inet:info(Socket)]),
 		       {ok, State}
+	       end},
+
+     #{id   => 9,
+       desc => "Block",
+       cmd  => fun(#{socket := Socket} = State) ->
+                       p("block: enable debug"),
+                       ok = enable_socket_debug(Socket),
+                       p("block: try block"),
+		       Res = client_block(State),
+                       p("block: done:"
+                         "~n      ~p", [Res]),
+                       Res
+	       end},
+
+     #{id   => 10,
+       desc => "Ensure blocked",
+       cmd  => fun(#{socket := Socket} = State) ->
+                       p("ensure blocked: try read active"),
+                       case inet:getopts(Socket, [active]) of
+                           {ok, [{active, false}]} ->
+                               p("Expacted: socket blocked"),
+                               {ok, State};
+                           {ok, [{active, Active}]} ->
+                               p("Unexpected: socket *not* blocked"
+                                 "~n   Socket:      ~p"
+                                 "~n   Active:      ~p"
+                                 "~n   Socket Info: ~p",
+                                 [Socket, Active, inet:info(Socket)]),
+                               {error, {invalid_active, Active}};
+                           {error, Reason} = ERROR ->
+                               p("Failed get active: "
+                                 "~n   Socket:      ~p"
+                                 "~n   Reason:      ~p"
+                                 "~n   Socket Info: ~p",
+                                 [Socket, Reason, inet:info(Socket)]),
+                               ERROR
+                       end
 	       end},
 
      #{id   => 11,
@@ -969,7 +995,10 @@ block_unblock_client_commands(Config, TO, ServerPort, ServerHost) ->
 
      #{id   => 14,
        desc => "Unblock",
-       cmd  => fun(State) -> 
+       cmd  => fun(#{socket := Socket} = State) -> 
+                       p("unblock: disable debug"),
+                       ok = disable_socket_debug(Socket),
+                       p("unblock: try unblock"),
 		       client_unblock(State) 
 	       end},
 
@@ -1102,7 +1131,7 @@ server_start_command_handler(Node, Commands) ->
 server_start_transport(State) when is_map(State) ->
     case (catch megaco_udp:start_transport()) of
 	{ok, Ref} ->
-            p("Transport started: ~p", [Ref]),
+            p("~w -> Transport started: ~p", [?FUNCTION_NAME, Ref]),
 	    {ok, State#{transport_ref => Ref}};
 	Error ->
 	    Error
@@ -1113,9 +1142,9 @@ server_open(Config, #{transport_ref := Ref} = State, Options)
     Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
     try ?OPEN(Config, Ref, Opts) of
 	{ok, Socket, ControlPid} ->
-            p("opened: "
+            p("~w -> opened: "
               "~n      Socket:     ~p"
-              "~n      ControlPid: ~p", [Socket, ControlPid]),
+              "~n      ControlPid: ~p", [?FUNCTION_NAME, Socket, ControlPid]),
 	    {ok, State#{handle      => {socket, Socket},  % Temporary
 			control_pid => ControlPid}};
 	{error, {could_not_open_udp_port, SkipReason}}
@@ -1136,11 +1165,11 @@ server_notify_operational(#{parent := Parent} = State) ->
 server_await_continue_signal(#{parent := Parent} = State, Timeout) ->
     receive
 	{continue, Parent} ->
-            p("received expected continue signal"),
+            p("~w -> received expected continue signal", [?FUNCTION_NAME]),
 	    {ok, State};
         Any ->
-            p("received UNEXPECTED message: "
-              "~n   ~p", [Any]),
+            p("~w -> received UNEXPECTED message: "
+              "~n      ~p", [?FUNCTION_NAME, Any]),
             {error, {unexpected, Any}}
     after Timeout ->
 	    {error, timeout}
@@ -1150,14 +1179,28 @@ server_await_initial_message(State, InitialMessage, Timeout)
   when is_map(State) ->
     receive 
 	{receive_message, {ControlPid, Handle, InitialMessage}} ->
-	    p("received expected event with: "
-	      "~n   ControlPid: ~p"
-	      "~n   Handle:     ~p", [ControlPid, Handle]),
+	    p("~w -> received expected event with: "
+	      "~n      ControlPid: ~p"
+	      "~n      Handle:     ~p", [?FUNCTION_NAME, ControlPid, Handle]),
 	    NewState = State#{handle => Handle},
 	    {ok, NewState};
 
+	{receive_message,
+         {OtherControlPid, OtherHandle, OtherInitialMessage}} = OtherMsg ->
+	    p("~w -> received unexpected message with: "
+	      "~n      ControlPid: ~p"
+	      "~n      Handle:     ~p"
+	      "~n      Expected Initial Message:"
+              "~n         ~p"
+	      "~n      Actual Initial Message:"
+              "~n         ~p", [?FUNCTION_NAME,
+                                OtherControlPid,
+                                OtherHandle,
+                                InitialMessage, OtherInitialMessage]),
+	    {error, {unexpected_message, OtherMsg}};
+
 	Any ->
-	    p("received unexpected event: ~p", [Any]),
+	    p("~w -> received unexpected event: ~p", [?FUNCTION_NAME, Any]),
 	    {error, {unexpected_event, Any}}
 
     after Timeout ->
@@ -1178,7 +1221,8 @@ server_await_nothing(State, Timeout)
   when is_map(State) ->
     receive 
 	Any ->
-	    p("received unexpected event: ~p", [Any]),
+	    p("~w -> received unexpected event: "
+              "~n      ~p", [?FUNCTION_NAME, Any]),
 	    {error, {unexpected_event, Any}}
 
     after Timeout ->
@@ -1189,11 +1233,12 @@ server_await_message(State, ExpectMessage, Timeout)
   when is_map(State) ->
     receive
 	{receive_message, {_, _, ExpectMessage}} ->
-	    p("received expected message [~p]", [ExpectMessage]),
+	    p("~w -> received expected message [~p]",
+              [?FUNCTION_NAME, ExpectMessage]),
 	    {ok, State};
 
 	Any ->
-	    p("received unexpected event: ~p", [Any]),
+	    p("~w -> received unexpected event: ~p", [?FUNCTION_NAME, Any]),
 	    {error, {unexpected_event, Any}}
 
     after Timeout ->
@@ -1265,7 +1310,8 @@ client_await_nothing(State, Fail, Timeout)
   when is_map(State) andalso is_function(Fail, 1) ->
     receive 
 	Any ->
-	    p("received unexpected event: ~p", [Any]),
+	    p("~w -> received unexpected event: "
+              "~n      ~p", [?FUNCTION_NAME, Any]),
             (catch Fail(Any)),
 	    {error, {unexpected_event, Any}}
     after Timeout ->
@@ -1293,7 +1339,7 @@ client_await_message(State, ExpectMessage, Timeout)
 	    {ok, State};
 
 	Any ->
-	    p("received unexpected event: ~p", [Any]),
+	    p("~w -> received unexpected event: ~p", [?FUNCTION_NAME, Any]),
 	    {error, {unexpected_event, Any}}
 
     after Timeout ->
@@ -1302,11 +1348,15 @@ client_await_message(State, ExpectMessage, Timeout)
 
 client_block(#{handle := Handle} = State) 
   when (Handle =/= undefined) ->
+    p("~w -> entry with"
+      "~n      Handle: ~p", [?FUNCTION_NAME, Handle]),
     ok = megaco_udp:block(Handle),
     {ok, State}.
 
 client_unblock(#{handle := Handle} = State) 
   when (Handle =/= undefined) ->
+    p("~w -> entry with"
+      "~n      Handle: ~p", [?FUNCTION_NAME, Handle]),
     ok = megaco_udp:unblock(Handle),
     {ok, State}.
 
@@ -1363,6 +1413,16 @@ to_calc(Factor, BaseTO) when is_integer(Factor) andalso (Factor > 0) andalso
     trunc( ((Factor + 1) / 2) * BaseTO ).
 
 
+enable_socket_debug(Socket) ->
+    update_socket_debug(Socket, true).
+
+disable_socket_debug(Socket) ->
+    update_socket_debug(Socket, false).
+
+update_socket_debug(Socket, Debug) ->
+    inet:setopts(Socket, [{debug, Debug}]).
+
+
 p(F) ->
     p(F, []).
 
@@ -1381,5 +1441,4 @@ p(_S, F, A) ->
 
 %% ms() ->
 %%     erlang:monotonic_time(milli_seconds).
-    
 

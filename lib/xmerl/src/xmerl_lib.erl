@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -22,11 +24,13 @@
 %%%----------------------------------------------------------------------
 
 -module(xmerl_lib).
+-moduledoc false.
 
 -export([normalize_content/1, normalize_content/3, expand_content/1,
 	 expand_content/3, normalize_element/1, normalize_element/3,
 	 expand_element/1, expand_element/3, expand_attributes/1,
-	 expand_attributes/3, export_text/1, flatten_text/1,
+	 expand_attributes/3, export_text/1, flatten_text/1, export_cdata/1,
+	 export_comment/1,
 	 export_attribute/1, markup/2, markup/3, simplify_element/1,
 	 simplify_content/1, start_tag/1, start_tag/2, end_tag/1,
 	 empty_tag/1, empty_tag/2,is_empty_data/1, find_attribute/2,
@@ -84,6 +88,37 @@ flatten_text([], []) ->
     [];
 flatten_text(Bin, Cont) ->
     flatten_text(binary_to_list(Bin), Cont).
+
+%% Export CDATA
+export_cdata(T) ->
+    R = "<![CDATA[" ++ export_cdata(T, []),
+    R ++ "]]>".
+
+export_cdata([C | T], Cont) when is_integer(C) ->
+    [C | export_cdata(T, Cont)];
+export_cdata([T | T1], Cont) ->
+    export_cdata(T, [T1 | Cont]);
+export_cdata([], [T | Cont]) ->
+    export_cdata(T, Cont);
+export_cdata([], []) ->
+    [];
+export_cdata(Bin, Cont) ->
+    export_cdata(binary_to_list(Bin), Cont).
+
+%% Export comment
+export_comment(T) ->
+    R = "<!--" ++ export_comment(T, []),
+    R ++ "-->".
+export_comment([C | T], Cont) when is_integer(C) ->
+    [C | export_comment(T, Cont)];
+export_comment([T | T1], Cont) ->
+    export_comment(T, [T1 | Cont]);
+export_comment([], [T | Cont]) ->
+    export_comment(T, Cont);
+export_comment([], []) ->
+    [];
+export_comment(Bin, Cont) ->
+    export_comment(binary_to_list(Bin), Cont).
 
 %% Convert attribute value to a flat string, escaping characters `"',
 %% `<' and `&'. (Note that single-quote characters are not escaped; the
@@ -416,25 +451,23 @@ mapfoldxml(Fun, Accu, List) when is_list(List) ->
 mapfoldxml(Fun, Accu, E) ->
     Fun(E,Accu).
 
+-type charset_info() :: {auto,'iso-10646-utf-1',Content::list()} |
+                        {external,'iso-10646-utf-1',Content::list()} |
+                        {undefined,undefined,Content::list()} |
+                        {external,ExtCharset::atom(),Content::list()}.
 
-%%% @spec detect_charset(T::list()) -> charset_info()
-%%% @equiv detect_charset(undefined,T)
+-spec detect_charset(Content::list()) -> charset_info().
+-doc #{equiv => detect_charset(undefined,Content)}.
 detect_charset(Content) ->
     detect_charset(undefined,Content).
 
-%%% FIXME! Whatabout aliases etc? Shouldn't transforming with ucs be optional?
-%%% @spec detect_charset(ExtCharset::atom(),T::list()) -> charset_info()
-%%% @doc Automatically decides character set used in XML document.
-%%%  charset_info() is
-%%%  <table>
-%%%    <tr><td><code>{auto,'iso-10646-utf-1',Content} |</code></td></tr>
-%%%    <tr><td><code>{external,'iso-10646-utf-1',Content} |</code></td></tr>
-%%%    <tr><td><code>{undefined,undefined,Content} |</code></td></tr>
-%%%    <tr><td><code>{external,ExtCharset,Content}</code></td></tr>
-%%%  </table>
+%%% Automatically decides character set used in XML document.
 %%%   ExtCharset is any externally declared character set (e.g. in HTTP
 %%%   Content-Type header) and Content is an XML Document.
-%%% 
+%%% FIXME! Whatabout aliases etc? Shouldn't transforming with ucs be optional?
+
+-spec detect_charset(ExtCharset::atom(), Content::list()) -> charset_info().
+
 detect_charset(ExtCharset,Content) when is_list(ExtCharset) ->
     %% FIXME! Don't allow both atom and list for character set names
     detect_charset(list_to_atom(ExtCharset),Content);

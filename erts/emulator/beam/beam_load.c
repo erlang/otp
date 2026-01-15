@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,12 +99,12 @@ Eterm
 erts_preload_module(Process *c_p,
                     ErtsProcLocks c_p_locks,
                     Eterm group_leader, /* Group leader or NIL if none. */
-                    Eterm* modp,        /*
+                    Eterm *modp,        /*
                                          * Module name as an atom (NIL to not
                                          * check). On return, contains the
                                          * actual module name.
                                          */
-                    byte* code,         /* Points to the code to load */
+                    const byte* code,   /* Points to the code to load */
                     Uint size)          /* Size of code to load. */
 {
     Binary* magic = erts_alloc_loader_state();
@@ -121,7 +123,7 @@ erts_preload_module(Process *c_p,
 
 Eterm
 erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
-                     Eterm* modp, byte* code, Uint unloaded_size)
+                     Eterm* modp, const byte *code, Uint unloaded_size)
 {
     enum beamfile_read_result read_result;
     Eterm retval = am_badfile;
@@ -170,6 +172,8 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
         BeamLoadError0(stp, "corrupt locals table");
     case BEAMFILE_READ_CORRUPT_TYPE_TABLE:
         BeamLoadError0(stp, "corrupt type table");
+    case BEAMFILE_READ_CORRUPT_DEBUG_TABLE:
+        BeamLoadError0(stp, "corrupt BEAM debug information table");
     case BEAMFILE_READ_SUCCESS:
         break;
     }
@@ -188,6 +192,31 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
                        "  (Use of opcode %d; this emulator supports "
                        "only up to %d.)",
                        stp->beam.code.max_opcode, MAX_GENERIC_OPCODE);
+    } else if (stp->beam.code.max_opcode < genop_swap_2) {
+        /*
+         * This BEAM file was produced by OTP 22 or earlier.
+         *
+         * We know that because OTP 23/24/25/26 artifically set the
+         * highest used op code to the op code for the `swap`
+         * instruction introduced in OTP 23.
+         *
+         * OTP 27 artificially sets the highest op code to `make_fun3`
+         * introduced in OTP 24.
+         *
+         * OTP 28 artificially sets the highest op code to `bs_create_bin`
+         * introduced in OTP 25.
+         *
+         * Old BEAM files produced by OTP R12 and earlier may be
+         * incompatible with the current runtime system. We used to
+         * reject such BEAM files using transformation rules that
+         * specifically targeted the known problematic constructs, but
+         * rejecting them this way is much easier.
+         */
+        BeamLoadError0(stp,
+                       "This BEAM file was compiled for an old version of "
+                       "the runtime system.\n"
+                       "  To fix this, please re-compile this module with "
+                       "Erlang/OTP 25 or later.\n");
     }
 
     if (!load_code(stp)) {
@@ -250,7 +279,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
                     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
                     ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 
-                    erts_clear_export_break(mod_tab_p, ep);
+                    erts_clear_all_export_break(mod_tab_p, ep);
 
                     ep->dispatch.addresses[code_ix] =
                         (ErtsCodePtr)ep->trampoline.breakpoint.address;
@@ -261,6 +290,8 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
                 ASSERT(ep->trampoline.breakpoint.address == 0);
             }
+            ASSERT(!erts_export_is_bif_traced(ep));
+            ep->is_bif_traced = 0;
         }
         ASSERT(mod_tab_p->curr.num_breakpoints == 0);
         ASSERT(mod_tab_p->curr.num_traced_exports == 0);
@@ -417,7 +448,7 @@ static int load_code(LoaderState* stp)
 
     do_transform:
         ASSERT(stp->genop != NULL);
-        if (gen_opc[stp->genop->op].transform != -1) {
+        if (gen_opc[stp->genop->op].transform) {
             if (stp->genop->next == NULL) {
                 /*
                  * Simple heuristic: Most transformations requires
@@ -472,16 +503,30 @@ static int load_code(LoaderState* stp)
 	     * Use bit masks to quickly find the most specific of the
 	     * the possible specific instructions associated with this
 	     * specific instruction.
+             *
+             * Note that currently only instructions having no more
+             * than 6 operands are supported.
 	     */
             int specific, arity, arg, i;
             Uint32 mask[3] = {0, 0, 0};
 
-            arity = gen_opc[tmp_op->op].arity;
+            ERTS_UNDEF(arity, 0); /* Suppress warning. */
 
-            for (arg = 0; arg < arity; arg++) {
-                int type = tmp_op->a[arg].type;
+            if (num_specific != 0) {
+                /* The `bs_append` instruction made obsolete in
+                 * Erlang/OTP 28 has 8 operands. Therefore, the if
+                 * statement preventing the loop that follows to be
+                 * entered is necessary to prevent writing beyond the
+                 * last entry of the mask array. */
+                arity = gen_opc[tmp_op->op].arity;
 
-                mask[arg / 2] |= (1u << type) << ((arg % 2) << 4);
+                ASSERT(2 * (sizeof(mask) / sizeof(mask[0])) >= arity);
+
+                for (arg = 0; arg < arity; arg++) {
+                    int type = tmp_op->a[arg].type;
+
+                    mask[arg / 2] |= (1u << type) << ((arg % 2) << 4);
+                }
             }
 
             specific = gen_opc[tmp_op->op].specific;
@@ -547,7 +592,7 @@ static int load_code(LoaderState* stp)
                  * No specific operations and no transformations means that
                  * the instruction is obsolete.
                  */
-                if (num_specific == 0 && gen_opc[tmp_op->op].transform == -1) {
+                if (num_specific == 0 && gen_opc[tmp_op->op].transform == 0) {
                     BeamLoadError0(stp, PLEASE_RECOMPILE);
                 }
 
@@ -556,8 +601,6 @@ static int load_code(LoaderState* stp)
                  * error message.
                  */
                 switch (stp->genop->op) {
-                case genop_too_old_compiler_0:
-                    BeamLoadError0(stp, PLEASE_RECOMPILE);
                 case genop_unsupported_guard_bif_3:
                     {
                         Eterm Mod = (Eterm) stp->genop->a[0].val;
@@ -638,23 +681,10 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
 
     while (oh) {
         switch (thing_subtag(oh->thing_word)) {
-        case REFC_BINARY_SUBTAG:
+        case BIN_REF_SUBTAG:
             {
-                Binary* bptr = ((ProcBin*)oh)->val;
-                erts_bin_release(bptr);
-                break;
-            }
-        case FUN_SUBTAG:
-            {
-                /* We _KNOW_ that this is a local fun, otherwise it would not
-                 * be part of the off-heap list. */
-                ErlFunEntry* fe = ((ErlFunThing*)oh)->entry.fun;
-
-                ASSERT(is_local_fun((ErlFunThing*)oh));
-
-                if (erts_refc_dectest(&fe->refc, 0) == 0) {
-                    erts_erase_fun_entry(fe);
-                }
+                Binary *bin = ((BinRef*)oh)->val;
+                erts_bin_release(bin);
                 break;
             }
         case REF_SUBTAG:

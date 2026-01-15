@@ -1,10 +1,19 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec garbage_collect() -> true.[0m
+[;1m  garbage_collect()[0m
 
   Forces an immediate garbage collection of the executing process.
+
   The function is not to be used unless it has been noticed (or
   there are good reasons to suspect) that the spontaneous garbage
   collection will occur too late or not at all.
 
-  Warning:
+  [;;4mWarning[0m
+
     Improper use can seriously degrade system performance.

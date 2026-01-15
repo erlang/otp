@@ -1,0 +1,100 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: BSD-3-Clause
+--
+-- Copyright (c) 2010 IETF Trust and the persons identified as the document authors.  All rights reserved.
+-- Copyright Ericsson AB 2025. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+--
+-- 1. Redistributions of source code must retain the above copyright notice,
+--    this list of conditions and the following disclaimer.
+--
+-- 2. Redistributions in binary form must reproduce the above copyright notice,
+--    this list of conditions and the following disclaimer in the documentation
+--    and/or other materials provided with the distribution.
+--
+-- 3. Neither the name of the copyright holder nor the names of its contributors
+--    may be used to endorse or promote products derived from this software
+--    without specific prior written permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-- ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+-- LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+-- CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+-- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+-- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+-- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+-- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+--
+-- %CopyrightEnd%
+
+KEMAlgorithmInformation-2023
+     { iso(1) identified-organization(3) dod(6) internet(1)
+       security(5) mechanisms(5) pkix(7) id-mod(0)
+           id-mod-kemAlgorithmInformation-2023(109) }
+
+   DEFINITIONS EXPLICIT TAGS ::=
+   BEGIN
+   -- EXPORTS ALL;
+   IMPORTS
+     ParamOptions, PUBLIC-KEY, SMIME-CAPS
+     FROM AlgorithmInformation-2009
+       { iso(1) identified-organization(3) dod(6) internet(1)
+         security(5) mechanisms(5) pkix(7) id-mod(0)
+         id-mod-algorithmInformation-02(58) } ;
+
+   -- KEM-ALGORITHM
+   --
+   -- Describes the basic properties of a KEM algorithm
+   --
+   -- Suggested prefix for KEM algorithm objects is: kema-
+   --
+   --  &id - contains the OID identifying the KEM algorithm
+   --  &Value - if present, contains a type definition for the kemct;
+   --               if absent, implies that no ASN.1 encoding is
+   --               performed on the kemct value
+   --  &Params - if present, contains the type for the algorithm
+   --               parameters; if absent, implies no parameters
+   --  &paramPresence - parameter presence requirement
+   --  &PublicKeySet - specifies which public keys are used with
+   --               this algorithm
+   --  &Ukm - if absent, type for user keying material
+   --  &ukmPresence - specifies the requirements to define the UKM
+   --               field
+   --  &smimeCaps - contains the object describing how the S/MIME
+   --               capabilities are presented.
+   --
+   -- Example:
+   -- kema-kem-rsa KEM-ALGORITHM ::= {
+   --    IDENTIFIER id-kem-rsa
+   --    PARAMS TYPE RsaKemParameters ARE optional
+   --    PUBLIC-KEYS { pk-rsa | pk-rsa-kem }
+   --    UKM ARE optional
+   --    SMIME-CAPS { TYPE GenericHybridParameters
+   --        IDENTIFIED BY id-rsa-kem }
+   -- }
+
+   KEM-ALGORITHM ::= CLASS {
+     &id             OBJECT IDENTIFIER UNIQUE,
+     &Value          OPTIONAL,
+     &Params         OPTIONAL,
+     &paramPresence  ParamOptions DEFAULT absent,
+     &PublicKeySet   PUBLIC-KEY OPTIONAL,
+     &Ukm            OPTIONAL,
+     &ukmPresence    ParamOptions DEFAULT absent,
+     &smimeCaps      SMIME-CAPS OPTIONAL
+   } WITH SYNTAX {
+     IDENTIFIER &id
+     [VALUE &Value]
+     [PARAMS [TYPE &Params] ARE &paramPresence]
+     [PUBLIC-KEYS &PublicKeySet]
+     [UKM [TYPE &Ukm] ARE &ukmPresence]
+     [SMIME-CAPS &smimeCaps]
+   }
+
+   END

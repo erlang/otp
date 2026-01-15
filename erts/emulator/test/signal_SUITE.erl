@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +32,7 @@
 
 %-define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("kernel/include/dist.hrl").
 -export([all/0, suite/0,init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([groups/0, init_per_group/2, end_per_group/2]).
@@ -59,15 +62,22 @@
          copy_literal_area_signal_recv/1,
          copy_literal_area_signal_exit/1,
          copy_literal_area_signal_recv_exit/1,
+         copy_literal_area_signal_registers/1,
          simultaneous_signals_basic/1,
          simultaneous_signals_recv/1,
          simultaneous_signals_exit/1,
          simultaneous_signals_recv_exit/1,
          parallel_signal_enqueue_race_1/1,
          parallel_signal_enqueue_race_2/1,
-         dirty_schedule/1]).
+         dirty_schedule/1,
+         priority_messages_link_enable_disable/1,
+         priority_messages_monitor_enable_disable/1,
+         priority_messages_alias_enable_disable/1,
+         priority_messages_order/1,
+         priority_messages_hopefull_encoding/1,
+         priority_messages_old_nodes/1]).
 
--export([spawn_spammers/3]).
+-export([check_literal_conversion/1, spawn_spammers/3]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -108,7 +118,8 @@ all() ->
      parallel_signal_enqueue_race_1,
      parallel_signal_enqueue_race_2,
      dirty_schedule,
-     {group, adjust_message_queue}].
+     {group, adjust_message_queue},
+     {group, priority_messages}].
 
 groups() ->
     [{adjust_message_queue, [],
@@ -120,10 +131,18 @@ groups() ->
        copy_literal_area_signal_recv,
        copy_literal_area_signal_exit,
        copy_literal_area_signal_recv_exit,
+       copy_literal_area_signal_registers,
        simultaneous_signals_basic,
        simultaneous_signals_recv,
        simultaneous_signals_exit,
-       simultaneous_signals_recv_exit]}].
+       simultaneous_signals_recv_exit]},
+     {priority_messages, [],
+      [priority_messages_link_enable_disable,
+       priority_messages_monitor_enable_disable,
+       priority_messages_alias_enable_disable,
+       priority_messages_order,
+       priority_messages_hopefull_encoding,
+       priority_messages_old_nodes]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -1067,6 +1086,48 @@ copy_literal_area_signal_exit(Config) when is_list(Config) ->
 copy_literal_area_signal_recv_exit(Config) when is_list(Config) ->
     copy_literal_area_signal_test(true, true).
 
+%% Tests the case where the literal is only present in the process' saved
+%% registers. This is easy to provoke with hibernation, but can also occur
+%% if a process happens to be scheduled out on e.g. a function call with a
+%% literal argument just as it's being purged.
+copy_literal_area_signal_registers(Config) when is_list(Config) ->
+    persistent_term:put({?MODULE, ?FUNCTION_NAME}, [make_ref()]),
+    LiteralArgs = persistent_term:get({?MODULE, ?FUNCTION_NAME}),
+    true = is_list(LiteralArgs),
+    0 = erts_debug:size_shared(LiteralArgs), %% Should be a literal...
+
+    Self = self(),
+
+    {Pid, Monitor} =
+        spawn_monitor(fun() ->
+                              Self ! {sync, LiteralArgs},
+                              erlang:hibernate(?MODULE,
+                                               check_literal_conversion,
+                                               LiteralArgs)
+                      end),
+
+    receive
+        {sync, LiteralArgs} ->
+            receive after 500 ->
+                {current_function,{erlang,hibernate,3}} =
+                    process_info(Pid, current_function)
+            end
+    end,
+
+    persistent_term:erase({?MODULE, ?FUNCTION_NAME}),
+    receive after 1 -> ok end,
+
+    literal_area_collector_test:check_idle(),
+
+    false = (0 =:= erts_debug:size_shared(LiteralArgs)),
+    Pid ! check_literal_conversion,
+
+    receive
+        {'DOWN', Monitor, process, Pid, R} ->
+            normal = R,
+            ok
+    end.
+
 copy_literal_area_signal_test(RecvPair, Exit) ->
     persistent_term:put({?MODULE, ?FUNCTION_NAME}, make_ref()),
     Literal = persistent_term:get({?MODULE, ?FUNCTION_NAME}),
@@ -1080,12 +1141,7 @@ copy_literal_area_signal_test(RecvPair, Exit) ->
                        true ->
                             ok
                     end,
-                    receive check_literal_conversion -> ok end,
-                    receive
-                        Literal ->
-                            %% Should not be a literal anymore...
-                            false = (0 == erts_debug:size_shared(Literal))
-                    end
+                    check_literal_conversion(Literal)
             end,
     PMs = lists:map(fun (_) ->
                             spawn_opt(ProcF, [link, monitor])
@@ -1135,6 +1191,15 @@ copy_literal_area_signal_test(RecvPair, Exit) ->
                           end
                   end, PMs),
     ok.
+
+%% Exported for optional use with hibernate/3
+check_literal_conversion(Literal) ->
+    receive
+        check_literal_conversion ->
+            %% Should not be a literal anymore...
+            false = (0 == erts_debug:size_shared(Literal)),
+            ok
+    end.
 
 simultaneous_signals_basic(Config) when is_list(Config) ->
     simultaneous_signals_test(false, false).
@@ -1233,7 +1298,6 @@ simultaneous_signals_test(RecvPairs, Exit) ->
                           end
                   end, PMs),
     ok.
-    
 
 wait_traced_not_running(Tmo) ->
     receive
@@ -1499,9 +1563,742 @@ dirty_schedule_test() ->
     false = is_process_alive(Proc),
     ok.
 
+priority_messages_link_enable_disable(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process~n", []),
+    priority_messages_link_enable_disable_test(node()),
+    ct:log("Testing against local process succeeded~n", []),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    ct:log("Testing against remote process~n", []),
+    priority_messages_link_enable_disable_test(Node),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    P1 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                   [{link, [priority]}]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    peer:stop(Peer),
+    receive {'EXIT', P1, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    P2 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                   [{link, [priority]}]),
+    receive {'EXIT', P2, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against remote process succeeded~n", []),
+
+    ok.
+
+priority_messages_link_enable_disable_test(Node) ->
+    P1 = spawn(Node, fun () -> receive bye -> ok end end),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    link(P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    link(P1, []),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    link(P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    unlink(P1),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    link(P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    P1 ! bye,
+    receive {'EXIT', P1, normal} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    P2 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                   [{link, [priority]}]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    exit(P2, bye),
+    receive {'EXIT', P2, bye} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    erlang:yield(),
+    M = spawn_request(Node, fun () -> ok end, [{link, [priority]}]),
+    case spawn_request_abandon(M) of
+        true ->
+            ct:log("spawn request abandoned"),
+            ok;
+        false ->
+            ct:log("spawn request not abandoned"),
+            receive
+                {spawn_reply, M, ok, P3} ->
+                    receive
+                        {'EXIT', P3, Reason} ->
+                            normal = Reason
+                    end;
+                {spawn_reply, M, error, Error} ->
+                    ct:fail({spawn_error, Error})
+            end
+    end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ok.
+
+priority_messages_monitor_enable_disable(Config) when is_list(Config) ->
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process~n", []),
+    priority_messages_monitor_enable_disable_test(node()),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    M1 = monitor(time_offset, clock_service, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    demonitor(M1),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process succeeded~n", []),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    ct:log("Testing against remote process~n", []),
+    priority_messages_monitor_enable_disable_test(Node),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    {P1, M2} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                         [{monitor, [priority]}]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    peer:stop(Peer),
+    receive {'DOWN', M2, process, P1, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    M3 = monitor(process, P1),
+    receive {'DOWN', M3, process, P1, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    {P2, M4} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                         [{monitor, [priority]}]),
+    receive {'DOWN', M4, process, P2, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against remote process succeeded~n", []),
+
+    ok.
+
+priority_messages_monitor_enable_disable_test(Node) ->
+    P1 = spawn(Node, fun () -> receive bye -> ok end end),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    M1 = monitor(process, P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    demonitor(M1),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    M2 = monitor(process, P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    P1 ! bye,
+    receive {'DOWN', M2, process, P1, normal} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    {P2, M3} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                         [{monitor, [priority]}]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    exit(P2, bye),
+    receive {'DOWN', M3, process, P2, bye} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    erlang:yield(),
+    M4 = spawn_request(Node, fun () -> ok end, [{monitor, [priority]}]),
+    case spawn_request_abandon(M4) of
+        true ->
+            ct:log("spawn request abandoned"),
+            ok;
+        false ->
+            ct:log("spawn request not abandoned"),
+            receive
+                {spawn_reply,M4,ok,P3} ->
+                    receive
+                        {'DOWN', M4, process, P3, Reason} ->
+                            normal = Reason
+                    end;
+                {spawn_reply,M4,error,Error} ->
+                    ct:fail({spawn_error, Error})
+            end
+    end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ok.
+
+priority_messages_alias_enable_disable(Config) when is_list(Config) ->
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process~n", []),
+    priority_messages_alias_enable_disable_test(node()),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process succeeded~n", []),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    ct:log("Testing against remote process~n", []),
+    priority_messages_alias_enable_disable_test(Node),
+    peer:stop(Peer),
+    ct:log("Testing against remote process succeeded~n", []),
+
+    ok.
+
+priority_messages_alias_enable_disable_test(Node) ->
+    process_flag(trap_exit, true),
+    {PS, MS} = spawn_opt(Node, fun SendPrioAlias () ->
+                                       receive
+                                           A -> erlang:send(A, A, [priority])
+                                       end,
+                                       SendPrioAlias()
+                               end, [monitor,link]),
+    {PE, ME} = spawn_opt(Node, fun ExitPrioAlias () ->
+                                       receive
+                                           A -> erlang:exit(A, A, [priority])
+                                       end,
+                                       ExitPrioAlias()
+                               end, [monitor,link]),
+
+    {priority_messages, false} = process_info(self(), priority_messages),
+    A1 = alias([explicit_unalias, priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PE ! A1,
+    receive {'EXIT', PE, A1} -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PS ! A1,
+    receive A1 -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    unalias(A1),
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    A2 = alias([priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PE ! A2,
+    receive {'EXIT', PE, A2} -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PS ! A2,
+    receive A2 -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    unalias(A2),
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    A3 = alias([reply, priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PE ! A3,
+    receive {'EXIT', PE, A3} -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PS ! A3,
+    receive A3 -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    unlink(PS),
+    unlink(PE),
+    exit(PS, kill),
+    exit(PE, kill),
+    receive {'DOWN', MS, process, PS, killed} -> ok end,
+    receive {'DOWN', ME, process, PE, killed} -> ok end.
+
+priority_messages_order(Config) when is_list(Config) ->
+    ct:log("Testing against local process~n", []),
+    priority_messages_order_test(node()),
+    ct:log("Testing against local process succeeded~n", []),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ct:log("Testing against remote process~n", []),
+    priority_messages_order_test(Node),
+    ct:log("Testing against remote process succeeded~n", []),
+    peer:stop(Peer),
+    ok.
+
+priority_messages_order_test(Node) ->
+    Parent = self(),
+    LinkProc1 = spawn(fun () -> receive after infinity -> ok end end),
+    LinkProc2 = spawn(fun () -> receive after infinity -> ok end end),
+    LinkProc3 = spawn(fun () -> receive after infinity -> ok end end),
+    LinkProc4 = spawn(fun () -> receive after infinity -> ok end end),
+    MonProc1 = spawn(fun () -> receive after infinity -> ok end end),
+    MonProc2 = spawn(fun () -> receive after infinity -> ok end end),
+    MonProc3 = spawn(fun () -> receive after infinity -> ok end end),
+    MonProc4 = spawn(fun () -> receive after infinity -> ok end end),
+    Rcvr = spawn_link(Node,
+                      fun () ->
+                              link(LinkProc1, [priority]),
+                              link(LinkProc2, []),
+                              link(LinkProc3, [priority]),
+                              link(LinkProc4),
+                              Mon1 = monitor(process, MonProc1, [priority]),
+                              Mon2 = monitor(process, MonProc2, []),
+                              Mon3 = monitor(process, MonProc3, [priority]),
+                              Mon4 = monitor(process, MonProc4),
+                              Parent ! {monitors, Mon1, Mon2, Mon3, Mon4},
+                              process_flag(trap_exit, true),
+                              PAlias = alias([priority]),
+                              Parent ! {priority_alias, PAlias},
+                              receive {Parent, go} -> ok end,
+                              Msgs = get_all_msgs(),
+                              unalias(PAlias),
+                              Parent ! {self(), messages, Msgs},
+                              receive {Parent, go} -> ok end,
+                              Msgs2 = get_all_msgs(),
+                              Parent ! {self(), messages, Msgs2},
+                              receive after infinity -> ok end
+                      end),
+    {monitors, Mon1, Mon2, Mon3, Mon4}
+        = receive
+              {monitors, _, _, _, _} = Monitors ->
+                  Monitors
+          end,
+
+    {priority_messages, true} = proc_info(Rcvr, priority_messages),
+
+    {priority_alias, PrioAlias} = receive {priority_alias, _} = PA -> PA end,
+
+    {priority_messages, true} = proc_info(Rcvr, priority_messages),
+
+    Rcvr ! {msg, 1},
+    wait_until(fun () -> msg_received(Rcvr, {msg, 1}) end),
+    exit(LinkProc2, link_exit_1),
+    wait_until(fun () -> exit_received(Rcvr, LinkProc2) end),
+    exit(LinkProc1, prio_link_exit_1),
+    wait_until(fun () -> exit_received(Rcvr, LinkProc1) end),
+    exit(MonProc2, down_1),
+    wait_until(fun () -> down_received(Rcvr, MonProc2) end),
+    exit(MonProc1, prio_down_1),
+    wait_until(fun () -> down_received(Rcvr, MonProc1) end),
+    Rcvr ! {msg, 2},
+    Rcvr ! {msg, 3},
+    exit(PrioAlias, func_exit_1),
+    Rcvr ! {msg, 4},
+    exit(PrioAlias, prio_func_exit_1, [priority]),
+    exit(Rcvr, {func_exit, 2}, [priority]),
+    exit(PrioAlias, func_exit_3),
+    Rcvr ! {msg, 5},
+    PrioAlias ! {msg, 6},
+    erlang:send(PrioAlias, {prio_msg, 1}, [priority]),
+    erlang:send(PrioAlias, {msg, 7}, []),
+    erlang:send(PrioAlias, prio_msg_2, [priority]),
+    erlang:send(Rcvr, {msg, 8}, [priority]),
+    wait_until(fun () -> msg_received(Rcvr, {msg, 8}) end),
+    exit(LinkProc4, {link_exit, 2}),
+    wait_until(fun () -> exit_received(Rcvr, LinkProc4) end),
+    exit(LinkProc3, {prio_link_exit, 2}),
+    wait_until(fun () -> exit_received(Rcvr, LinkProc3) end),
+    exit(MonProc4, {down, 2}),
+    wait_until(fun () -> down_received(Rcvr, MonProc4) end),
+    exit(MonProc3, {prio_down, 2}),
+    wait_until(fun () -> down_received(Rcvr, MonProc3) end),
+
+    Expect = [
+              %% Priority messages
+              {'EXIT', LinkProc1, prio_link_exit_1},
+              {'DOWN', Mon1, process, MonProc1, prio_down_1},
+              {'EXIT', Parent, prio_func_exit_1},
+              {prio_msg, 1},
+              prio_msg_2,
+              {'EXIT', LinkProc3, {prio_link_exit, 2}},
+              {'DOWN', Mon3, process, MonProc3, {prio_down, 2}},
+
+              %% Ordinary messages
+              {msg, 1},
+              {'EXIT', LinkProc2, link_exit_1},
+              {'DOWN', Mon2, process, MonProc2, down_1},
+              {msg, 2},
+              {msg, 3},
+              {'EXIT', Parent, func_exit_1},
+              {msg, 4},
+              {'EXIT', Parent, {func_exit, 2}},
+              {'EXIT', Parent, func_exit_3},
+              {msg, 5},
+              {msg, 6},
+              {msg, 7},
+              {msg, 8},
+              {'EXIT', LinkProc4, {link_exit, 2}},
+              {'DOWN', Mon4, process, MonProc4, {down, 2}}],
+
+    {messages, PIMessages} = proc_info(Rcvr, messages),
+
+    case Expect =:= PIMessages of
+        true ->
+            ct:log("Process-info messages as expected!~n", []);
+        false ->
+            ct:log("Expected:~n ~p~n~nGot process info messages:~n ~p~n", [Expect, PIMessages]),
+            ct:fail(invalid_message_queue)
+    end,
+
+    Rcvr ! {self(), go},
+
+    RecvMessages = receive
+                       {Rcvr, messages, Msgs} ->
+                           Msgs
+                   end,
+
+    case Expect =:= RecvMessages of
+        true ->
+            ct:log("Received messages as expected!~n", []);
+        false ->
+            ct:log("Expected:~n ~p~n~nGot received messages:~n ~p~n", [Expect, RecvMessages]),
+            ct:fail(invalid_message_queue)
+    end,
+
+    {priority_messages, false} = proc_info(Rcvr, priority_messages),
+
+    Rcvr ! a_message,
+
+    exit(PrioAlias, {prio_func_exit, 2}, [priority]),
+    exit(PrioAlias, {func_exit, 2}),
+    erlang:send(PrioAlias, {prio_msg, 3}, [priority]),
+    erlang:send(PrioAlias, {msg, 9}, []),
+
+    Rcvr ! {self(), go},
+
+    [a_message] = receive
+                       {Rcvr, messages, Msgs2} ->
+                           Msgs2
+                   end,
+
+    unlink(Rcvr),
+    exit(Rcvr, kill),
+    ok.
+
+priority_messages_hopefull_encoding(Config) when is_list(Config) ->
+    ct:log("Removing DFLAG_ALTACT_SIG test~n", []),
+    priority_messages_hopefull_encoding_test(?DFLAG_ALTACT_SIG, false),
+    ct:log("Removing DFLAG_ALTACT_SIG and DFLAG_SEND_SENDER test~n", []),
+    priority_messages_hopefull_encoding_test(?DFLAG_ALTACT_SIG bor ?DFLAG_SEND_SENDER, false),
+    ct:log("Removing DFLAG_ALTACT_SIG and DFLAG_EXIT_PAYLOAD test~n", []),
+    priority_messages_hopefull_encoding_test(?DFLAG_ALTACT_SIG bor ?DFLAG_EXIT_PAYLOAD, false),
+
+    ct:log("Removing DFLAG_ALTACT_SIG test run with seq-trace~n", []),
+    priority_messages_hopefull_encoding_test(?DFLAG_ALTACT_SIG, true),
+    ct:log("Removing DFLAG_ALTACT_SIG and DFLAG_SEND_SENDER test run with seq-trace~n", []),
+    priority_messages_hopefull_encoding_test(?DFLAG_ALTACT_SIG bor ?DFLAG_SEND_SENDER, true),
+    ct:log("Removing DFLAG_ALTACT_SIG and DFLAG_EXIT_PAYLOAD test run with seq-trace~n", []),
+    priority_messages_hopefull_encoding_test(?DFLAG_ALTACT_SIG bor ?DFLAG_EXIT_PAYLOAD, true),
+    ct:log("Done~n", []),
+    ok.
+
+priority_messages_hopefull_encoding_test(RmDFlags, SeqTrace) ->
+    Self = self(),
+    {ok, Peer, Node} = ?CT_PEER(#{connection => 0}),
+    peer:call(Peer, erts_debug, set_internal_state, [available_internal_state, true]),
+    peer:call(Peer, erts_debug, set_internal_state, [remove_dflags, RmDFlags]),
+    verify_dflags_removed(Peer, RmDFlags),
+    Fun = fun () ->
+                  register(hopefull_enc_recv__,self()),
+                  process_flag(trap_exit, true),
+                  Alias = alias([priority]),
+                  put(my_alias, Alias),
+                  self() ! msg_1,
+                  receive after infinity -> ok end
+          end,
+    Pid = peer:call(Peer, erlang, spawn, [erlang, apply, [Fun, []]]),
+    wait_until(fun () ->
+                       {{dictionary, my_alias}, undefined}
+                           /= peer:call(Peer, erlang, process_info,
+                                        [Pid, {dictionary, my_alias}])
+               end),
+    {{dictionary, my_alias}, Alias} = peer:call(Peer, erlang, process_info,
+                                                 [Pid, {dictionary, my_alias}]),
+
+    ST1 = setup_seq_trace(SeqTrace, 1),
+    false = lists:member(Node, nodes()),
+    erlang:send(Alias, prio_msg_1, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_1) end),
+    erlang:send(Alias, prio_msg_2, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_2) end),
+    {messages, [msg_1, prio_msg_1, prio_msg_2]} = proc_info(Pid, messages),
+    finish_seq_trace(ST1),
+
+    node_disconnect(Node),
+    ST2 = setup_seq_trace(SeqTrace, 2),
+    erlang:send(Pid, prio_msg_3, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_3) end),
+    erlang:send(Pid, prio_msg_4, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_4) end),
+    {messages, [msg_1, prio_msg_1, prio_msg_2, prio_msg_3, prio_msg_4]}
+        = proc_info(Pid, messages),
+    finish_seq_trace(ST2),
+
+    node_disconnect(Node),
+    ST3 = setup_seq_trace(SeqTrace, 3),
+    erlang:send({hopefull_enc_recv__, Node}, prio_msg_5, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_5) end),
+    erlang:send({hopefull_enc_recv__, Node}, prio_msg_6, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_6) end),
+    {messages, [msg_1, prio_msg_1, prio_msg_2, prio_msg_3, prio_msg_4,
+                prio_msg_5, prio_msg_6]}
+        = proc_info(Pid, messages),
+    finish_seq_trace(ST3),
+
+    node_disconnect(Node),
+    ST4 = setup_seq_trace(SeqTrace, 4),
+    exit(Alias, prio_exit_1, [priority]),
+    wait_until(fun () -> lists:member(Node, nodes()) end),
+    exit(Alias, prio_exit_2, [priority]),
+    finish_seq_trace(ST4),
+
+    node_disconnect(Node),
+    ST5 = setup_seq_trace(SeqTrace, 5),
+    exit(Pid, prio_exit_3, [priority]),
+    wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_3}) end),
+    exit(Pid, prio_exit_4, [priority]),
+    wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_4}) end),
+    {messages, [msg_1, prio_msg_1, prio_msg_2, prio_msg_3, prio_msg_4,
+                prio_msg_5, prio_msg_6, {'EXIT', Self, prio_exit_3},
+                {'EXIT', Self, prio_exit_4}]}
+        = proc_info(Pid, messages),
+    finish_seq_trace(ST5),
+
+    peer:stop(Peer),
+
+    ok.
+
+setup_seq_trace(false, _Label) ->
+    undefined;
+setup_seq_trace(true, Label) ->
+    Tracer = spawn_link(fun () ->
+                                receive
+                                    {get_seq_trace, Label, From} ->
+                                        From ! {seq_trace, Label, get_all_msgs()}
+                                end
+                        end),
+    seq_trace:set_system_tracer(Tracer),
+    seq_trace:reset_trace(),
+    0 = seq_trace:set_token(label,Label),
+    false = seq_trace:set_token(send,true),
+    {label, Label} = seq_trace:get_token(label),
+    {send, true} = seq_trace:get_token(send),
+    {Tracer, Label}.
+
+finish_seq_trace(undefined) ->
+    ok;
+finish_seq_trace({Tracer, Label}) when is_pid(Tracer) ->
+    Tracer ! {get_seq_trace, Label, self()},
+    SeqTrace = receive
+                   {seq_trace, Label, Msgs} ->
+                       Msgs
+               end,
+    ct:log("Seq-trace ~p:~n~n~p~n", [Label, SeqTrace]),
+    ok.
+
+verify_dflags_removed(Peer, DFlags) ->
+    {erts_dflags, Default, Mandatory, Addable, Rejectable, StrictOrder}
+        = peer:call(Peer, erts_internal, get_dflags, []),
+    0 = Default band DFlags,
+    0 = Mandatory band DFlags,
+    0 = Addable band DFlags,
+    0 = Rejectable band DFlags,
+    0 = StrictOrder band DFlags,
+    ok.
+
+priority_messages_old_nodes(Config) when is_list(Config) ->
+    ct:log("Running test against current release~n", []),
+    {ok, PeerThis, NodeThis} = ?CT_PEER(#{connection => 0}),
+    priority_messages_old_nodes_test(Config, NodeThis),
+    peer:stop(PeerThis),
+    ct:log("ok~n", []),
+    {OldRelName1, OldRel1} = release_names(-1),
+    ct:log("Running test against ~s release~n", [OldRel1]),
+    C1 = case ?CT_PEER_REL(#{connection => 0},
+                           OldRelName1,
+                           proplists:get_value(priv_dir, Config)) of
+             not_available ->
+                 Cmt1 = " Not able to start an OTP "++OldRel1++" node.",
+                 ct:log("~s~n", [Cmt1]),
+                 Cmt1;
+             {ok, PeerOld1, NodeOld1} ->
+                 priority_messages_old_nodes_test(Config, NodeOld1),
+                 peer:stop(PeerOld1),
+                 ct:log("ok~n", []),
+                 []
+         end,
+    {OldRelName2, OldRel2} = release_names(-2),
+    ct:log("Running test against ~s release~n", [OldRel2]),
+    C2 = case ?CT_PEER_REL(#{connection => 0},
+                           OldRelName2,
+                           proplists:get_value(priv_dir, Config)) of
+             not_available ->
+                 Cmt2 = " Not able to start an OTP "++OldRel2++" node.",
+                 ct:log("~s~n", [Cmt2]),
+                 Cmt2;
+             {ok, PeerOld2, NodeOld2} ->
+                 priority_messages_old_nodes_test(Config, NodeOld2),
+                 peer:stop(PeerOld2),
+                 ct:log("ok~n", []),
+                 []
+         end,
+    case C1++C2 of
+        [] ->
+            ok;
+        Comment ->
+            {comment, Comment}
+    end.
+
+priority_messages_old_nodes_test(Config, Node) ->
+    Self = self(),
+    Self ! ordinary_message,
+    MyPrioAlias = alias([priority]),
+    PrioMsgSupport = try
+                         erpc:call(Node, erlang, send,
+                                   [MyPrioAlias, prio_message, [priority]]),
+                         prio_message = get_one_msg(1000),
+                         true
+                     catch
+                         _ : _ ->
+                             false
+                     end,
+    try
+        ordinary_message = get_one_msg()
+    catch
+        error:no_message ->
+            halt(abort)
+    end,
+    unalias(MyPrioAlias),
+
+    SrcFile = filename:join(proplists:get_value(priv_dir, Config),
+                            "prio_messages_old_nodes_code.erl"),
+    ok = file:write_file(SrcFile,
+                         """
+       -module(prio_messages_old_nodes_code).
+       -export([proc/2]).
+       proc(Tester, AliasArgs) ->
+           register(hopefull_enc_recv__,self()),
+           process_flag(trap_exit, true),
+           Alias = alias(AliasArgs),
+           put(my_alias, Alias),
+           self() ! msg_1,
+           Tester ! {self(), initialized},
+           receive after infinity -> ok end.
+       """),
+
+    {ok, prio_messages_old_nodes_code, BeamCode} = erpc:call(Node, compile, file,
+                                                             [SrcFile, [binary]]),
+    {module, prio_messages_old_nodes_code} = erpc:call(Node, code, load_binary,
+                                                       [prio_messages_old_nodes_code,
+                                                        SrcFile, BeamCode]),
+
+    Pid = spawn(Node,
+                prio_messages_old_nodes_code,
+                proc,
+                [Self,
+                 case PrioMsgSupport of
+                     true -> [priority];
+                     false -> []
+                 end]),
+
+    receive {Pid, initialized} -> ok end,
+
+    Alias = try
+                {{dictionary, my_alias}, Alias1}
+                    = proc_info(Pid, {dictionary, my_alias}),
+                Alias1
+            catch
+                _:_ ->
+                    {dictionary, Dict} = proc_info(Pid, dictionary),
+                    {my_alias, Alias2} = lists:keyfind(my_alias, 1, Dict),
+                    Alias2
+            end,
+
+    node_disconnect(Node),
+    erlang:send(Alias, prio_msg_1, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_1) end),
+    erlang:send(Alias, prio_msg_2, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_2) end),
+    case PrioMsgSupport of
+        true ->
+            {messages, [prio_msg_1, prio_msg_2, msg_1]} = proc_info(Pid, messages);
+        false ->
+            {messages, [msg_1, prio_msg_1, prio_msg_2]} = proc_info(Pid, messages)
+    end,
+
+    node_disconnect(Node),
+    erlang:send(Pid, prio_msg_3, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_3) end),
+    erlang:send(Pid, prio_msg_4, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_4) end),
+    case PrioMsgSupport of
+        true ->
+            {messages, [prio_msg_1, prio_msg_2, msg_1, prio_msg_3, prio_msg_4]}
+                = proc_info(Pid, messages);
+        false ->
+            {messages, [msg_1, prio_msg_1, prio_msg_2, prio_msg_3, prio_msg_4]}
+                = proc_info(Pid, messages)
+    end,
+
+    node_disconnect(Node),
+    erlang:send({hopefull_enc_recv__, Node}, prio_msg_5, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_5) end),
+    erlang:send({hopefull_enc_recv__, Node}, prio_msg_6, [priority]),
+    wait_until(fun () -> msg_received(Pid, prio_msg_6) end),
+    case PrioMsgSupport of
+        true ->
+            {messages, [prio_msg_1, prio_msg_2, msg_1, prio_msg_3, prio_msg_4,
+                        prio_msg_5, prio_msg_6]}
+                = proc_info(Pid, messages);
+        false ->
+            {messages, [msg_1, prio_msg_1, prio_msg_2, prio_msg_3, prio_msg_4,
+                        prio_msg_5, prio_msg_6]}
+                = proc_info(Pid, messages)
+    end,
+
+    node_disconnect(Node),
+    exit(Alias, prio_exit_1, [priority]),
+    wait_until(fun () -> lists:member(Node, nodes()) end),
+    exit(Alias, prio_exit_2, [priority]),
+    Pid ! msg_2,
+    wait_until(fun () -> msg_received(Pid, msg_2) end),
+
+    node_disconnect(Node),
+    exit(Pid, prio_exit_3, [priority]),
+    wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_3}) end),
+    exit(Pid, prio_exit_4, [priority]),
+    wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_4}) end),
+    case PrioMsgSupport of
+        true ->
+            {messages, [prio_msg_1, prio_msg_2, {'EXIT', Self, prio_exit_1},
+                        {'EXIT', Self, prio_exit_2}, msg_1, prio_msg_3,
+                        prio_msg_4, prio_msg_5, prio_msg_6, msg_2,
+                        {'EXIT', Self, prio_exit_3}, {'EXIT', Self, prio_exit_4}]}
+                = proc_info(Pid, messages);
+        false ->
+            {messages, [msg_1, prio_msg_1, prio_msg_2, prio_msg_3, prio_msg_4,
+                        prio_msg_5, prio_msg_6, msg_2,
+                        {'EXIT', Self, prio_exit_3}, {'EXIT', Self, prio_exit_4}]}
+                = proc_info(Pid, messages)
+    end,
+
+    ok.
+
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+node_disconnect(Node) ->
+    erlang:disconnect_node(Node),
+    wait_until(fun () ->
+                       false == lists:member(Node, nodes())
+               end).
+
+msg_received(Pid, Msg) ->
+    {messages, Msgs} = proc_info(Pid, messages),
+    try
+        lists:foreach(fun (M) when M == Msg ->
+                              throw(true);
+                          (_) ->
+                              ok
+                      end, Msgs),
+        false
+    catch
+        throw:true ->
+            true
+    end.
+
+exit_received(Pid, From) ->
+    {messages, Msgs} = proc_info(Pid, messages),
+    try
+        lists:foreach(fun ({'EXIT', P, _}) when P == From ->
+                              throw(true);
+                          (_) ->
+                              ok
+                      end, Msgs),
+        false
+    catch
+        throw:true ->
+            true
+    end.
+
+down_received(Pid, From) ->
+    {messages, Msgs} = proc_info(Pid, messages),
+    try
+        lists:foreach(fun ({'DOWN', _, process, P, _}) when P == From ->
+                              throw(true);
+                          (_) ->
+                              ok
+                      end, Msgs),
+        false
+    catch
+        throw:true ->
+            true
+    end.
+
+proc_info(Pid, What) when node(Pid) == node() ->
+    process_info(Pid, What);
+proc_info(Pid, What) ->
+    erpc:call(node(Pid), erlang, process_info, [Pid, What]).
 
 match(X,X) -> ok.
 
@@ -1636,3 +2433,29 @@ busy_wait_until(Fun) ->
 id(X) ->
     X.
 
+get_one_msg() ->
+    get_one_msg(0).
+
+get_one_msg(Tmo) ->
+    receive
+        Msg ->
+            Msg
+    after Tmo ->
+            error(no_message)
+    end.
+
+get_all_msgs() ->
+    get_all_msgs([]).
+
+get_all_msgs(Msgs) ->
+    receive
+        Msg ->
+            get_all_msgs([Msg|Msgs])
+    after
+        0 ->
+            lists:reverse(Msgs)
+    end.
+
+release_names(N) ->
+    OldRel = integer_to_list(list_to_integer(erlang:system_info(otp_release))+N),
+    {OldRel++"_latest", OldRel}.

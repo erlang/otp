@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_flex_scanner_handler).
+-moduledoc false.
 
 -behaviour(gen_server).
 
@@ -93,9 +96,7 @@ init(_Opts) ->
 	    {ok, #state{conf = {flex, PortOrPorts}}};
 	{error, Reason} ->
 	    %% {stop, {failed_starting_scanner, Reason, Opts}};
-	    {stop, {failed_starting_scanner, Reason, []}};
-	Else ->
-	    {stop, {failed_starting_scanner, Else}}
+	    {stop, {failed_starting_scanner, Reason, []}}
     end.
 
 

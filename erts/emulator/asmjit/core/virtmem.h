@@ -10,6 +10,7 @@
 #ifndef ASMJIT_NO_JIT
 
 #include "../core/globals.h"
+#include "../core/support.h"
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -18,6 +19,21 @@ ASMJIT_BEGIN_NAMESPACE
 
 //! Virtual memory management.
 namespace VirtMem {
+
+//! Describes whether instruction cache should be flushed after a write operation.
+enum class CachePolicy : uint32_t {
+  //! Default policy.
+  //!
+  //! In some places this would mean `kFlushAfterWrite` and in some places it would mean `kNeverFlush`.
+  //! For example if it's known that an address has never been used before to execute code.
+  kDefault = 0,
+
+  //! Flush instruction cache after a write operation.
+  kFlushAfterWrite = 1,
+
+  //! Avoid flushing instruction cache after a write operation.
+  kNeverFlush = 2
+};
 
 //! Flushes instruction cache in the given region.
 //!
@@ -36,6 +52,15 @@ struct Info {
 //! Returns virtual memory information, see `VirtMem::Info` for more details.
 ASMJIT_API Info info() noexcept;
 
+//! Returns the size of the smallest large page supported.
+//!
+//! AsmJit only uses the smallest large page at the moment as these are usually perfectly sized for executable
+//! memory allocation (standard size is 2MB, but different sizes are possible).
+//!
+//! Returns either the detected large page size or 0, if large page support is either not supported by AsmJit
+//! or not accessible to the process.
+ASMJIT_API size_t largePageSize() noexcept;
+
 //! Virtual memory access and mmap-specific flags.
 enum class MemoryFlags : uint32_t {
   //! No flags.
@@ -50,58 +75,79 @@ enum class MemoryFlags : uint32_t {
   //! Memory is executable.
   kAccessExecute = 0x00000004u,
 
-  //! A combination of \ref MemoryFlags::kAccessRead and \ref MemoryFlags::kAccessWrite.
+  //! A combination of \ref kAccessRead and \ref kAccessWrite.
   kAccessReadWrite = kAccessRead | kAccessWrite,
 
-  //! A combination of \ref MemoryFlags::kAccessRead, \ref MemoryFlags::kAccessWrite.
+  //! A combination of \ref kAccessRead, \ref kAccessWrite.
   kAccessRW = kAccessRead | kAccessWrite,
 
-  //! A combination of \ref MemoryFlags::kAccessRead and \ref MemoryFlags::kAccessExecute.
+  //! A combination of \ref kAccessRead and \ref kAccessExecute.
   kAccessRX = kAccessRead | kAccessExecute,
 
-  //! A combination of \ref MemoryFlags::kAccessRead, \ref MemoryFlags::kAccessWrite, and
-  //! \ref MemoryFlags::kAccessExecute.
+  //! A combination of \ref kAccessRead, \ref kAccessWrite, and \ref kAccessExecute.
   kAccessRWX = kAccessRead | kAccessWrite | kAccessExecute,
 
-  //! Use a `MAP_JIT` flag available on Apple platforms (introduced by Mojave), which allows JIT code to be executed
-  //! in MAC bundles. This flag is not turned on by default, because when a process uses `fork()` the child process
-  //! has no access to the pages mapped with `MAP_JIT`, which could break code that doesn't expect this behavior.
+  //! Use a `MAP_JIT` flag available on Apple platforms (introduced by Mojave), which allows JIT code to be
+  //! executed in a MAC bundle.
+  //!
+  //! This flag may be turned on by the allocator if there is no other way of allocating executable memory.
   //!
   //! \note This flag can only be used with \ref VirtMem::alloc(), `MAP_JIT` only works on OSX and not on iOS.
+  //! When a process uses `fork()` the child process has no access to the pages mapped with `MAP_JIT`.
   kMMapEnableMapJit = 0x00000010u,
 
-  //! Pass `PROT_MAX(PROT_READ)` to mmap() on platforms that support `PROT_MAX`.
+  //! Pass `PROT_MAX(PROT_READ)` or `PROT_MPROTECT(PROT_READ)` to `mmap()` on platforms that support it.
   //!
-  //! \note This flag can only be used with \ref VirtMem::alloc().
+  //! This flag allows to set a "maximum access" that the memory page can get during its lifetime. Use
+  //! \ref VirtMem::protect() to change the access flags.
+  //!
+  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::allocDualMapping().
+  //! However \ref VirtMem::allocDualMapping() may automatically use this if \ref kAccessRead is used.
   kMMapMaxAccessRead = 0x00000020u,
-  //! Pass `PROT_MAX(PROT_WRITE)` to mmap() on platforms that support `PROT_MAX`.
+
+  //! Pass `PROT_MAX(PROT_WRITE)` or `PROT_MPROTECT(PROT_WRITE)` to `mmap()` on platforms that support it.
   //!
-  //! \note This flag can only be used with \ref VirtMem::alloc().
+  //! This flag allows to set a "maximum access" that the memory page can get during its lifetime. Use
+  //! \ref VirtMem::protect() to change the access flags.
+  //!
+  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::allocDualMapping().
+  //! However \ref VirtMem::allocDualMapping() may automatically use this if \ref kAccessWrite is used.
   kMMapMaxAccessWrite = 0x00000040u,
-  //! Pass `PROT_MAX(PROT_EXEC)` to mmap() on platforms that support `PROT_MAX`.
+
+  //! Pass `PROT_MAX(PROT_EXEC)` or `PROT_MPROTECT(PROT_EXEC)` to `mmap()` on platforms that support it.
   //!
-  //! \note This flag can only be used with \ref VirtMem::alloc().
+  //! This flag allows to set a "maximum access" that the memory page can get during its lifetime. Use
+  //! \ref VirtMem::protect() to change the access flags.
+  //!
+  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::allocDualMapping().
+  //! However \ref VirtMem::allocDualMapping() may automatically use this if \ref kAccessExecute is used.
   kMMapMaxAccessExecute = 0x00000080u,
 
-  //! A combination of \ref MemoryFlags::kMMapMaxAccessRead and \ref MemoryFlags::kMMapMaxAccessWrite.
+  //! A combination of \ref kMMapMaxAccessRead and \ref kMMapMaxAccessWrite.
   kMMapMaxAccessReadWrite = kMMapMaxAccessRead | kMMapMaxAccessWrite,
 
-  //! A combination of \ref MemoryFlags::kMMapMaxAccessRead and \ref MemoryFlags::kMMapMaxAccessWrite.
+  //! A combination of \ref kMMapMaxAccessRead and \ref kMMapMaxAccessWrite.
   kMMapMaxAccessRW = kMMapMaxAccessRead | kMMapMaxAccessWrite,
 
-  //! A combination of \ref MemoryFlags::kMMapMaxAccessRead and \ref MemoryFlags::kMMapMaxAccessExecute.
+  //! A combination of \ref kMMapMaxAccessRead and \ref kMMapMaxAccessExecute.
   kMMapMaxAccessRX = kMMapMaxAccessRead | kMMapMaxAccessExecute,
 
-  //! A combination of \ref MemoryFlags::kMMapMaxAccessRead, \ref MemoryFlags::kMMapMaxAccessWrite, \ref
-  //! MemoryFlags::kMMapMaxAccessExecute.
+  //! A combination of \ref kMMapMaxAccessRead, \ref kMMapMaxAccessWrite, \ref kMMapMaxAccessExecute.
   kMMapMaxAccessRWX = kMMapMaxAccessRead | kMMapMaxAccessWrite | kMMapMaxAccessExecute,
 
   //! Use `MAP_SHARED` when calling mmap().
   //!
-  //! \note In some cases `MAP_SHARED` may be set automatically. For example when using dual mapping it's important to
-  //! to use `MAP_SHARED` instead of `MAP_PRIVATE` to ensure that the OS would not copy pages on write (that would mean
-  //! updating only the RW mapped region and not RX mapped one).
+  //! \note In some cases `MAP_SHARED` may be set automatically. For example, some dual mapping implementations must
+  //! use `MAP_SHARED` instead of `MAP_PRIVATE` to ensure that the OS would not apply copy on write on RW page, which
+  //! would cause RX page not having the updated content.
   kMapShared = 0x00000100u,
+
+  //! Request large memory mapped pages.
+  //!
+  //! \remarks If this option is used and large page(s) cannot be mapped, the allocation will fail. Fallback to
+  //! regular pages must be done by the user in this case. Higher level API such as \ref JitAllocator provides an
+  //! additional mechanism to allocate regular page(s) when large page(s) allocation fails.
+  kMMapLargePages = 0x00000200u,
 
   //! Not an access flag, only used by `allocDualMapping()` to override the default allocation strategy to always use
   //! a 'tmp' directory instead of "/dev/shm" (on POSIX platforms). Please note that this flag will be ignored if the
@@ -170,15 +216,31 @@ enum class HardenedRuntimeFlags : uint32_t {
   //! architecture.
   kEnabled = 0x00000001u,
 
-  //! Read+Write+Execute can only be allocated with MAP_JIT flag (Apple specific, only available on OSX).
-  kMapJit = 0x00000002u
+  //! Read+Write+Execute can only be allocated with MAP_JIT flag (Apple specific, only available on Apple platforms).
+  kMapJit = 0x00000002u,
+
+  //! Read+Write+Execute can be allocated with dual mapping approach (one region with RW and the other with RX).
+  kDualMapping = 0x00000004u
 };
 ASMJIT_DEFINE_ENUM_FLAGS(HardenedRuntimeFlags)
 
 //! Hardened runtime information.
 struct HardenedRuntimeInfo {
+  //! \name Members
+  //! \{
+
   //! Hardened runtime flags.
   HardenedRuntimeFlags flags;
+
+  //! \}
+
+  //! \name Accessors
+  //! \{
+
+  //! Tests whether the hardened runtime `flag` is set.
+  ASMJIT_INLINE_NODEBUG bool hasFlag(HardenedRuntimeFlags flag) const noexcept { return Support::test(flags, flag); }
+
+  //! \}
 };
 
 //! Returns runtime features provided by the OS.
@@ -194,7 +256,7 @@ enum class ProtectJitAccess : uint32_t {
 
 //! Protects access of memory mapped with MAP_JIT flag for the current thread.
 //!
-//! \note This feature is only available on Apple hardware (AArch64) at the moment and and uses a non-portable
+//! \note This feature is only available on Apple hardware (AArch64) at the moment and uses a non-portable
 //! `pthread_jit_write_protect_np()` call when available.
 //!
 //! This function must be called before and after a memory mapped with MAP_JIT flag is modified. Example:
@@ -219,24 +281,40 @@ ASMJIT_API void protectJitMemory(ProtectJitAccess access) noexcept;
 //! in destructor. The purpose of this class is to make writing to JIT memory easier.
 class ProtectJitReadWriteScope {
 public:
+  ASMJIT_NONCOPYABLE(ProtectJitReadWriteScope)
+
+  //! \name Members
+  //! \{
+
   void* _rxPtr;
   size_t _size;
+  CachePolicy _policy;
+
+  //! \}
+
+  //! \name Construction & Destruction
+  //! \{
 
   //! Makes the given memory block RW protected.
-  ASMJIT_FORCE_INLINE ProtectJitReadWriteScope(void* rxPtr, size_t size) noexcept
+  ASMJIT_FORCE_INLINE ProtectJitReadWriteScope(
+    void* rxPtr,
+    size_t size,
+    CachePolicy policy = CachePolicy::kDefault) noexcept
     : _rxPtr(rxPtr),
-      _size(size) {
+      _size(size),
+      _policy(policy) {
     protectJitMemory(ProtectJitAccess::kReadWrite);
   }
-
-  // Not copyable.
-  ProtectJitReadWriteScope(const ProtectJitReadWriteScope& other) = delete;
 
   //! Makes the memory block RX protected again and flushes instruction cache.
   ASMJIT_FORCE_INLINE  ~ProtectJitReadWriteScope() noexcept {
     protectJitMemory(ProtectJitAccess::kReadExecute);
-    flushInstructionCache(_rxPtr, _size);
+
+    if (_policy != CachePolicy::kNeverFlush)
+      flushInstructionCache(_rxPtr, _size);
   }
+
+  //! \}
 };
 
 } // VirtMem

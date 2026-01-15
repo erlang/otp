@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%----------------------------------------------------------------------
@@ -26,6 +28,44 @@
 %%%----------------------------------------------------------------------
 
 -module(tags).
+-moduledoc """
+Generate Emacs TAGS file from Erlang source files
+
+A `TAGS` file is used by Emacs to find function and variable definitions in any
+source file in large projects. This module can generate a `TAGS` file from
+Erlang source files. It recognises functions, records, and macro definitions.
+
+## Options
+
+The functions in this module have an optional argument `Options`. It
+is a list which can contain the following elements:
+
+- `{outfile, NameOfTAGSFile}` Create a `TAGS` file named `NameOfTAGSFile`.
+- `{outdir, NameOfDirectory}` Create a file named `TAGS` in the directory
+  `NameOfDirectory`.
+
+The default behaviour is to create a file named `TAGS` in the current directory.
+
+## Examples
+
+- `tags:root([{outfile, "root.TAGS"}]).`
+
+  This command will create a file named `root.TAGS` in the current directory.
+  The file will contain references to all Erlang source files in the Erlang
+  distribution.
+
+- `tags:files(["foo.erl", "bar.erl", "baz.erl"], [{outdir, "../projectdir"}]).`
+
+  This command will create a file named `TAGS` placed it in the
+  directory `../projectdir`. The file contains information about the
+  functions, records, and macro definitions of the three files.
+
+## See Also
+
+- Richard M. Stallman. GNU Emacs Manual, chapter "Editing Programs", section
+  "Tag Tables". Free Software Foundation, 1995.
+- Anders Lindgren. The Erlang editing mode for Emacs. Ericsson, 1998.
+""".
 
 -export([file/1, file/2, files/1, files/2, dir/1, dir/2, 
 	 dirs/1, dirs/2, subdir/1, subdir/2, subdirs/1, subdirs/2, 
@@ -76,31 +116,37 @@
 
 %%% External interface
 
+-doc #{equiv => root([])}.
 -spec root() -> 'ok' | 'error'.
 
 root() -> root([]).
 
+-doc "Create a `TAGS` file covering all files in the Erlang distribution.".
 -spec root(Options) -> 'ok' | 'error' when
       Options :: [option()].
 
 root(Options) -> subdir(code:root_dir(), Options).
 
+-doc #{equiv => dir(Dir, [])}.
 -spec dir(Dir) -> 'ok' | 'error' when
       Dir :: file:filename().
 
 dir(Dir) -> dir(Dir, []).
 
+-doc "Create a `TAGS` file for all files in directory `Dir`.".
 -spec dir(Dir, Options) -> 'ok' | 'error' when
       Dir :: file:filename(),
       Options :: [option()].
 
 dir(Dir, Options) -> dirs([Dir], Options).
 
+-doc #{equiv => dirs(Dirs, [])}.
 -spec dirs(DirList) -> 'ok' | 'error' when
       DirList :: [file:filename()].
 
 dirs(Dirs) -> dirs(Dirs, []).
 
+-doc "Create a `TAGS` file for all files in any directory in `DirList`.".
 -spec dirs(DirList, Options) -> 'ok' | 'error' when
       DirList :: [file:filename()],
       Options :: [option()].
@@ -108,22 +154,32 @@ dirs(Dirs) -> dirs(Dirs, []).
 dirs(Dirs, Options) ->
     files(collect_dirs(Dirs, false), Options).
 
+-doc #{equiv => subdir(Dir, [])}.
 -spec subdir(Dir) -> 'ok' | 'error' when
       Dir :: file:filename().
 
 subdir(Dir) -> subdir(Dir, []).
 
+-doc """
+Descend recursively into the directory `Dir` and create a `TAGS` file based on
+all files found.
+""".
 -spec subdir(Dir, Options) -> 'ok' | 'error' when
       Dir :: file:filename(),
       Options :: [option()].
 
 subdir(Dir, Options) -> subdirs([Dir], Options).
 
+-doc #{equiv => subdirs(Dirs, [])}.
 -spec subdirs(DirList) -> 'ok' | 'error' when
       DirList :: [file:filename()].
 
 subdirs(Dirs) -> subdirs(Dirs, []).
 
+-doc """
+Descend recursively into the directories in `DirList` and create a `TAGS`
+file based on all files found.
+""".
 -spec subdirs(DirList, Options) -> 'ok' | 'error' when
       DirList :: [file:filename()],
       Options :: [option()].
@@ -134,22 +190,26 @@ subdirs(Dirs, Options) ->
 -type option() :: {'outfile', NameOfTAGSFile :: file:filename()}
                 | {'outdir', NameOfDirectory :: file:filename()}.
 
+-doc #{equiv => file(Name, [])}.
 -spec file(File) -> 'ok' | 'error' when
       File :: file:filename().
 
 file(Name) -> file(Name, []).
 
+-doc "Create a `TAGS` file for the file `File`.".
 -spec file(File, Options) -> 'ok' | 'error' when
       File :: file:filename(),
       Options :: [option()].
 
 file(Name, Options) -> files([Name], Options).
 
+-doc #{equiv => files(Files, [])}.
 -spec files(FileList) -> 'ok' | 'error' when
       FileList :: [file:filename()].
 
 files(Files) -> files(Files, []).
 
+-doc "Create a `TAGS` file for the files in the list `FileList`.".
 -spec files(FileList, Options) -> 'ok' | 'error' when
       FileList :: [file:filename()],
       Options :: [option()].

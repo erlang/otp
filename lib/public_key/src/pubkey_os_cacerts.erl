@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,10 +23,12 @@
 %%
 
 -module(pubkey_os_cacerts).
+-moduledoc false.
 
 -include("public_key.hrl").
 -include_lib("kernel/include/file.hrl").
--export([load/0, load/1, get/0, clear/0]).
+-include_lib("kernel/include/logger.hrl").
+-export([load/0, load/1, get/0, clear/0, format_error/2]).
 
 -on_load(on_load/0).
 -nifs([os_cacerts/0]).
@@ -36,8 +40,24 @@
 get() ->
     case persistent_term:get(?MODULE, not_loaded) of
         not_loaded ->
-            ok = load(),
-            persistent_term:get(?MODULE);
+            _ = application:load(public_key),
+
+            Result =
+                case application:get_env(public_key, cacerts_path) of
+                    {ok, EnvVar} -> load([EnvVar]);
+                    undefined -> load()
+                end,
+
+            case Result of
+                ok ->
+                    persistent_term:get(?MODULE);
+                {error, Reason} ->
+                    erlang:error(
+                        {failed_load_cacerts, conv_error_reason(Reason)},
+                        none,
+                        [{error_info, #{cause => Reason, module => ?MODULE}}]
+                    )
+            end;
         CaCerts ->
             CaCerts
     end.
@@ -45,17 +65,20 @@ get() ->
 %% (Re)Load default os cacerts and cache result.
 -spec load() ->  ok | {error, Reason::term()}.
 load() ->
+    DefError = {error, no_cacerts_found},
     case os:type() of
         {unix, linux} ->
-            load(linux_paths(), undefined);
+            load(linux_paths(), DefError);
         {unix, openbsd} ->
-            load(bsd_paths(), undefined);
+            load(bsd_paths(), DefError);
         {unix, freebsd} ->
-            load(bsd_paths(), undefined);
+            load(bsd_paths(), DefError);
+        {unix, dragonfly} ->
+            load(bsd_paths(), DefError);
         {unix, netbsd} ->
-            load(bsd_paths(), undefined);
+            load(bsd_paths(), DefError);
         {unix, sunos} ->
-            load(sunos_paths(), undefined);
+            load(sunos_paths(), DefError);
         {win32, _} ->
             load_win32();
 	{unix, darwin} ->
@@ -125,7 +148,11 @@ decode_result(Binary) ->
                                [#cert{der=Der, otp=Decoded}|Acc]
                            catch _:_ ->
                                    Acc
-                           end
+                           end;
+                      (Wrong, Acc) ->
+                           ?LOG_WARNING("PUBKEY cacerts load: Ignored content of type: ~w",
+                                        [element(1, Wrong)]),
+                           Acc
                    end,
         Certs = lists:foldl(MakeCert, [], pubkey_pem:decode(Binary)),
         store(Certs)
@@ -159,11 +186,27 @@ load_win32() ->
     store(lists:foldl(Dec, [], os_cacerts())).
 
 load_darwin() ->
+    SystemRootsKeyChainFile = "/System/Library/Keychains/SystemRootCertificates.keychain",
+    case get_darwin_certs(SystemRootsKeyChainFile) of
+         {ok, Bin1} ->
+            SystemKeyChainFile = "/Library/Keychains/System.keychain",
+            case get_darwin_certs(SystemKeyChainFile) of
+                 {ok, Bin2} ->
+                    decode_result(<<Bin1/binary, Bin2/binary>>);
+                  Err ->
+                    ?LOG_WARNING(
+                        "Unable to load additional OS certificates from System.keychain : ~p~n", [Err]),
+                    decode_result(Bin1)
+             end;
+          Err ->
+            Err
+    end.
+
+get_darwin_certs(KeyChainFile) ->
     %% Could/should probably be re-written to use Keychain Access API
-    KeyChainFile = "/System/Library/Keychains/SystemRootCertificates.keychain",
     Args = ["export", "-t",  "certs", "-f", "pemseq", "-k", KeyChainFile],
     try run_cmd("/usr/bin/security", Args) of
-        {ok, Bin} -> decode_result(Bin);
+        {ok, _} = Res -> Res;
         Err -> Err
     catch error:Reason ->
             {error, {eopnotsupp, Reason}}
@@ -232,7 +275,11 @@ load_nif() ->
     case erlang:load_nif(Lib, 0) of
         ok -> ok;
         {error, {load_failed, _}}=Error1 ->
-            Arch = erlang:system_info(system_architecture),
+            Arch = case os:type() of
+                       {win32, _} -> win32;
+                       _ ->
+                           erlang:system_info(system_architecture)
+                   end,
             ArchLibDir = filename:join([PrivDir, "lib", Arch]),
             Candidate =
                 filelib:wildcard(
@@ -246,3 +293,35 @@ load_nif() ->
             end;
         Error1 -> Error1
     end.
+
+%%%
+%%% Error Handling
+%%%
+
+conv_error_reason(enoent) -> enoent;
+conv_error_reason({enotsup, _OS}) -> enotsup;
+conv_error_reason({eopnotsupp, _Reason}) -> eopnotsupp;
+conv_error_reason({eopnotsupp, _Status, _Acc}) -> eopnotsupp.
+
+-spec format_error(Reason, StackTrace) -> ErrorMap when
+      Reason :: term(),
+      StackTrace :: erlang:stacktrace(),
+      ErrorMap :: #{pos_integer() => unicode:chardata(),
+                    general => unicode:chardata(),
+                    reason => unicode:chardata()}.
+
+format_error(Reason, [{_M, _F, _As, Info} | _]) ->
+    ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
+    Cause = maps:get(cause, ErrorInfoMap, none),
+    Message = case Cause of
+        enoent ->
+            "operating system CA bundle could not be located";
+        {enotsup, OS} ->
+            io_lib:format("operating system ~p is not supported", [OS]);
+        {eopnotsupp, SubReason} ->
+            io_lib:format("operation failed because of ~p", [SubReason]);
+        {eopnotsupp, Status, _Acc} ->
+            io_lib:format("operation failed with status ~B", [Status])
+    end,
+    #{general => io_lib:format("Failed to load cacerts: ~s", [Message]),
+      reason => io_lib:format("~p: ~p", [?MODULE, Reason])}.

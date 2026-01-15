@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -611,10 +613,10 @@ inet_backend_socket_cases() ->
 %% group end!
 major_cases() ->
     [
-     {group, misc}, 
-     {group, test_v1}, 
+     {group, misc},
+     {group, test_v1},
      {group, test_v2},
-     {group, test_v1_v2}, 
+     {group, test_v1_v2},
      {group, test_v3},
      {group, test_v1_ipv6},
      {group, test_v2_ipv6},
@@ -744,22 +746,41 @@ end_per_suite(Config0) when is_list(Config0) ->
 %%
 
 init_per_group(GroupName, Config0) ->
-    ?IPRINT("init_per_group -> entry with"
+    ?IPRINT("~w -> entry with"
             "~n      GroupName: ~p"
             "~n      Config:    ~p"
             "~n   when"
             "~n      Nodes:     ~p",
-            [GroupName, Config0, nodes()]),
+            [?FUNCTION_NAME, GroupName, Config0, nodes()]),
 
-    Config1 = init_per_group2(GroupName, Config0),
+    try init_per_group2(GroupName, Config0) of
+        Config1 when is_list(Config1) ->
 
-    ?IPRINT("init_per_group -> done when"
-            "~n      GroupName: ~p"
-            "~n      Config:    ~p"
-            "~n      Nodes:     ~p",
-            [GroupName, Config1, nodes()]),
+            ?IPRINT("~w(~w) -> done when"
+                    "~n      Config: ~p"
+                    "~n      Nodes:  ~p",
+                    [?FUNCTION_NAME, GroupName, Config1, nodes()]),
 
-    Config1.
+            Config1;
+
+        {skip, SkipReason} = SKIP ->
+
+            ?IPRINT("~w(~w) -> done when SKIP"
+                    "~n      Skip Reason: ~p"
+                    "~n      Nodes:       ~p",
+                    [?FUNCTION_NAME, GroupName, SkipReason, nodes()]),
+
+            SKIP
+    catch
+        Class:{skip, SkipReason} = SKIP ->
+
+            ?IPRINT("~w(~w) -> done when SKIP (~w)"
+                    "~n      Skip Reason: ~p"
+                    "~n      Nodes:       ~p",
+                    [?FUNCTION_NAME, GroupName, Class, SkipReason, nodes()]),
+
+            SKIP
+    end.
 
 
 init_per_group2(inet_backend_default = _GroupName, Config0) ->
@@ -847,13 +868,15 @@ init_per_group2(test_v2 = GroupName, Config) ->
 init_per_group2(test_v1 = GroupName, Config) -> 
     init_v1(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group2(test_v1_ipv6 = GroupName, Config) ->
-    init_per_group_ipv6(GroupName, Config, fun init_v1/1);
+    ?IPRINT("init_per_group2(test_v1_ipv6) -> entry"),
+    init_per_group_ipv6(GroupName, Config, fun init_v1/1, fun finish_v1/1);
 init_per_group2(test_v2_ipv6 = GroupName, Config) ->
-    init_per_group_ipv6(GroupName, Config, fun init_v2/1);
+    init_per_group_ipv6(GroupName, Config, fun init_v2/1, fun finish_v2/1);
 init_per_group2(test_v1_v2_ipv6 = GroupName, Config) ->
-    init_per_group_ipv6(GroupName, Config, fun init_v1_v2/1);
+    init_per_group_ipv6(GroupName, Config,
+                        fun init_v1_v2/1, fun finish_v1_v2/1);
 init_per_group2(test_v3_ipv6 = GroupName, Config) ->
-    init_per_group_ipv6(GroupName, Config, fun init_v3/1);
+    init_per_group_ipv6(GroupName, Config, fun init_v3/1, fun finish_v3/1);
 init_per_group2(misc = GroupName, Config) -> 
     init_misc(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group2(mib_storage_varm_mnesia = GroupName, Config) -> 
@@ -899,11 +922,12 @@ init_per_group2(otp16649_ipv4 = GroupName, Config) ->
 init_per_group2(otp16649_ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName,
                         [{tdomain,  transportDomainUdpIpv6} | Config],
+                        fun(C) -> C end,
                         fun(C) -> C end);
 init_per_group2(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
-init_per_group_ipv6(GroupName, Config, Init) ->
+init_per_group_ipv6(GroupName, Config, Init, Finish) ->
     %% <OS-CONDITIONAL-SKIP>
     %% This is a highly questionable test.
     %% But until we have time to figure out what IPv6 issues
@@ -929,14 +953,48 @@ init_per_group_ipv6(GroupName, Config, Init) ->
         false ->
             %% Even if this host supports IPv6 we don't use it unless its
             %% one of the configured/supported IPv6 hosts...
+            ?IPRINT("check if host has IPv6 support"),
             case ?HAS_SUPPORT_IPV6() of
                 true ->
-                    Init(
-                      snmp_test_lib:init_group_top_dir(
-                        GroupName,
+                    ?IPRINT("~w(~w) -> IPv6 supported",
+                            [?FUNCTION_NAME, GroupName]),
+                    Config2 =
                         [{ipfamily, inet6},
-                         {ip, ?LOCALHOST(inet6)}
-                         | lists:keydelete(ip, 1, Config)]));
+                         {ip,       ?LOCALHOST(inet6)} |
+                         lists:keydelete(ip, 1, Config)],
+                    Config3 = snmp_test_lib:init_group_top_dir(GroupName,
+                                                               Config2),
+                    try Init(Config3)
+                    catch
+                        exit:{suite_failed, {start_failed, net_if, {udp_open, Info, Reason}}, _M, _L} ->
+                            ?WPRINT("~w -> Failed starting agent net-if: "
+                                    "~n   Info:   ~p"
+                                    "~n   Reason: ~p",
+				    [?FUNCTION_NAME, Info, Reason]),
+                            %% If we get here there is a good chance we got
+                            %% part way through the initiation...
+                            %% And since the 'end_per_group is *not* called
+                            %% if we skip, we must do that here!!
+                            %% The assumption is that "nothing" happened if
+                            %% we skip...
+                            (catch Finish(Config3)),
+                            {skip, "IPv6 not fully supported"};
+                        C:E:S ->
+                            ?WPRINT("~w -> Failed starting agent net-if: "
+                                    "~n   Error Class: ~p"
+                                    "~n   Error:       ~p"
+                                    "~n   StackTrace:  ~p",
+                                    [?FUNCTION_NAME, C, E, S]),
+                            %% If we get here there is a good chance we got
+                            %% part way through the initiation...
+                            %% And since the 'end_per_group is *not* called
+                            %% if we skip, we must do that here!!
+                            %% The assumption is that "nothing" happened if
+                            %% we skip...
+                            (catch Finish(Config3)),
+                            {skip, "Failed initiating"}
+                    end;
+                        
                 false ->
                     {skip, "Host does not support IPv6"}
             end
@@ -1044,14 +1102,29 @@ init_per_testcase(Case, Config) when is_list(Config) ->
             "~n   Config: ~p"
             "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
-    Result = init_per_testcase1(Case, Config),
+    try init_per_testcase1(Case, Config) of
+        Result ->
+            snmp_test_global_sys_monitor:reset_events(),
 
-    snmp_test_global_sys_monitor:reset_events(),
-
-    ?IPRINT("init_per_testcase -> done when"
-            "~n      Result: ~p"
-            "~n      Nodes:  ~p", [Result, erlang:nodes()]),
-    Result.
+            ?IPRINT("init_per_testcase -> done when"
+                    "~n      Result: ~p"
+                    "~n      Nodes:  ~p", [Result, erlang:nodes()]),
+            Result
+    catch
+        exit:{suite_failed, {start_failed, net_if, {What, Info, Reason}}, _M, _L} ->
+            ?IPRINT("~w -> Failed starting agent - net-if"
+                    "~n      What:   ~p"
+                    "~n      Info:   ~p"
+                    "~n      Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
+            {skip, ?F("Failed start agent - net-if: ~w, ~w", [What, Reason])};
+        C:E:S ->
+            ?IPRINT("~w -> catched"
+                    "~n      C:   ~p"
+                    "~n      E:   ~p"
+                    "~n      S: ~p", [?FUNCTION_NAME, C, E, S]),
+            {skip, "Failed start agent"}
+            
+    end.
 
 init_per_testcase1(otp8395 = Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
@@ -1334,6 +1407,7 @@ finish_all(Conf) ->
     ?ALIB:finish_all(Conf).
 
 start_v1_agent(Config) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
     ?ALIB:start_v1_agent(Config).
 
 start_v1_agent(Config, Opts) ->
@@ -2272,6 +2346,7 @@ v1_cases_ipv6() ->
     ].
 
 init_v1(Config) when is_list(Config) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
     SaNode = ?config(snmp_sa, Config),
     create_tables(SaNode),
     AgentConfDir = ?config(agent_conf_dir, Config),
@@ -8098,13 +8173,13 @@ otp16649(N, Config) ->
                   length(AgentRawTransports), length(TIs)})
     end,
 
-    ?IPRINT("validate transports"),
+    ?IPRINT("validate agent transports"),
     otp16649_validate_transports(AgentRawTransports, TIs),
 
-    ?IPRINT("which req-responder port-no"),
+    ?IPRINT("which agent req-responder port-no"),
     AgentReqPortNo = otp16649_which_req_port_no(TIs),
 
-    ?IPRINT("which trap-sender port-no"),
+    ?IPRINT("which agent trap-sender port-no"),
     AgentTrapPortNo = otp16649_which_trap_port_no(TIs),
 
     ?IPRINT("(mgr) register user"),
@@ -8116,13 +8191,15 @@ otp16649(N, Config) ->
     TrapTarget = TargetBase ++ "trap",
 
     ok = otp16649_mgr_reg_agent(ManagerNode,
-                                      ?config(ipfamily, Config),
-                                      ?config(tdomain, Config),
-                                      ReqTarget, AgentReqPortNo),
+                                ?config(ipfamily, Config),
+                                ?config(ip,       Config),
+                                ?config(tdomain,  Config),
+                                ReqTarget, AgentReqPortNo),
     ok = otp16649_mgr_reg_agent(ManagerNode,
-                                      ?config(ipfamily, Config),
-                                      ?config(tdomain, Config),
-                                      TrapTarget, AgentTrapPortNo),
+                                ?config(ipfamily, Config),
+                                ?config(ip,       Config),
+                                ?config(tdomain,  Config),
+                                TrapTarget, AgentTrapPortNo),
 
     ?IPRINT("(mgr) simple (sync) get request"),
     Oids     = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
@@ -8224,7 +8301,7 @@ otp16649_init(N, AgentPreTransports, Config) ->
     Host              = snmp_test_lib:hostname(), 
     Ip                = ?config(ip, Config),
     %% We should really "extract" the address from the hostnames,
-    %% but because on some OSes (Ubuntu) adds 12.7.0.1.1 to its hosts file,
+    %% but because on some OSes (Ubuntu) adds 127.0.1.1 to its hosts file,
     %% this does not work. We want a "proper" address.
     %% Also, since both nodes (agent and manager) are both started locally,
     %% we can use 'Ip' for both!
@@ -8450,20 +8527,30 @@ otp16649_mgr_reg_user(Node) ->
     rpc:call(Node, snmpm, register_user,
              [otp16649, snmp_otp16649_user, self()]).
 
-otp16649_mgr_reg_agent(Node, IPFam, TDomain, Target, PortNo) ->
+otp16649_mgr_reg_agent(Node, IPFam, IP, TDomain, Target, PortNo) ->
     ?IPRINT("otp16649_mgr_reg_agent -> entry with"
             "~n      Node:    ~p"
             "~n      IPFam:   ~p"
+            "~n      IP:      ~p"
             "~n      TDomain: ~p"
             "~n      Target:  ~p"
             "~n      PortNo:  ~p",
-            [Node, IPFam, TDomain, Target, PortNo]),
-    Localhost  = ?LOCALHOST(IPFam),
-    Config     = [{address,   Localhost},
+            [Node, IPFam, IP, TDomain, Target, PortNo]),
+    Version   = v1,
+    EngineId  = "agentEngine",
+    ?IPRINT("otp16649_mgr_reg_agent -> register agent:"
+            "~n      Target:   ~p"
+            "~n      Address:  ~p"
+            "~n      Port:     ~p"
+            "~n      Version:  ~p"
+            "~n      TDomain:  ~p"
+            "~n      EngineId: ~p",
+            [Target, IP, PortNo, Version, TDomain, EngineId]),    
+    Config     = [{address,   IP},
                   {port,      PortNo},
-                  {version,   v1},
+                  {version,   Version},
                   {tdomain,   TDomain},
-                  {engine_id, "agentEngine"}],
+                  {engine_id, EngineId}],
     rpc:call(Node, snmpm, register_agent,
               [otp16649, Target, Config]).
 
@@ -8589,7 +8676,22 @@ process_options(Defaults, _Opts) ->
 
 
 start_standalone_agent(Node, Config)  ->
-    rpc:call(Node, ?MODULE, start_standalone_agent, [Config]).
+    case rpc:call(Node, ?MODULE, start_standalone_agent, [Config]) of
+        {ok, _} = OK ->
+	    ?IPRINT("~w -> agent started", [?FUNCTION_NAME]),
+            OK;
+        {error, {net_if, error, {What, Info, Reason} = Details}} ->
+	    ?EPRINT("~w -> failed start agent - net-if: "
+                    "~n   What:   ~p"
+                    "~n   Info:   ~p"
+                    "~n   Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
+	    ?FAIL({start_failed, net_if, Details});            
+        {error, _} = ERROR ->
+            ERROR;
+
+        {badrpc, _Reason} = BADRPC ->
+            BADRPC
+    end.
 
 start_standalone_agent(Config)  ->
     case snmpa_supervisor:start_link(normal, Config) of
@@ -8598,6 +8700,12 @@ start_standalone_agent(Config)  ->
             {ok, AgentTopSup};
         {error, {already_started, AgentTopSup}} ->
             {ok, AgentTopSup};
+        %% {error, {net_if, error, {What, Info, Reason} = Details}} ->
+	%%     ?EPRINT("~w -> failed start agent - net-if: "
+        %%             "~n   What:   ~p"
+        %%             "~n   Info:   ~p"
+        %%             "~n   Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
+	%%     ?FAIL({start_failed, net_if, Details});            
         {error, _} = ERROR ->
             ERROR
     end.

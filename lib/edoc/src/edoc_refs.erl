@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2003 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,8 +28,9 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%%
 %% @private
-%% @copyright 2003 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @see edoc_parse_ref
@@ -140,12 +150,12 @@ docgen_uri({module, M}) ->
 docgen_uri({module, M, Ref}) ->
     [atom_to_list(M), docgen_uri(Ref)];
 docgen_uri({function, F, A}) ->
-    ["#", atom_to_list(F), "/", integer_to_list(A)];
+    ["#", escape_uri(atom_to_list(F)), "/", integer_to_list(A)];
 docgen_uri({type, T}) ->
-    ["#", atom_to_list(T), "/0"];
+    ["#", escape_uri(atom_to_list(T)), "/0"];
 docgen_uri({type, T, A}) ->
     %% This case is not used yet, but since types also have arity it should be in the future.
-    ["#", atom_to_list(T), "/", integer_to_list(A)].
+    ["#", escape_uri(atom_to_list(T)), "/", integer_to_list(A)].
 
 get_uri({app, App}, Env) ->
     join_uri(app_ref(App, Env), ?INDEX_FILE);

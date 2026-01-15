@@ -3,30 +3,12 @@
 // See asmjit.h or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-// ----------------------------------------------------------------------------
-// IMPORTANT: AsmJit now uses an external instruction database to populate
-// static tables within this file. Perform the following steps to regenerate
-// all tables enclosed by ${...}:
-//
-//   1. Install node.js environment <https://nodejs.org>
-//   2. Go to asmjit/tools directory
-//   3. Get the latest asmdb from <https://github.com/asmjit/asmdb> and
-//      copy/link the `asmdb` directory to `asmjit/tools/asmdb`.
-//   4. Execute `node tablegen-x86.js`
-//
-// Instruction encoding and opcodes were added to the `x86inst.cpp` database
-// manually in the past and they are not updated by the script as it became
-// tricky. However, everything else is updated including instruction operands
-// and tables required to validate them, instruction read/write information
-// (including registers and flags), and all indexes to all tables.
-// ----------------------------------------------------------------------------
-
 #include "../core/api-build_p.h"
 #if !defined(ASMJIT_NO_X86)
 
 #include "../core/cpuinfo.h"
+#include "../core/instdb_p.h"
 #include "../core/misc_p.h"
-#include "../core/support_p.h"
 #include "../x86/x86instapi_p.h"
 #include "../x86/x86instdb_p.h"
 #include "../x86/x86opcode_p.h"
@@ -34,63 +16,21 @@
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
+namespace InstInternal {
+
 // x86::InstInternal - Text
 // ========================
 
 #ifndef ASMJIT_NO_TEXT
-Error InstInternal::instIdToString(Arch arch, InstId instId, String& output) noexcept {
-  DebugUtils::unused(arch);
-
+Error instIdToString(InstId instId, String& output) noexcept {
   if (ASMJIT_UNLIKELY(!Inst::isDefinedId(instId)))
     return DebugUtils::errored(kErrorInvalidInstruction);
 
-  char nameData[32];
-  size_t nameSize = Support::decodeInstName(nameData, InstDB::_instNameIndexTable[instId], InstDB::_instNameStringTable);
-
-  return output.append(nameData, nameSize);
+  return InstNameUtils::decode(output, InstDB::_instNameIndexTable[instId], InstDB::_instNameStringTable);
 }
 
-InstId InstInternal::stringToInstId(Arch arch, const char* s, size_t len) noexcept {
-  DebugUtils::unused(arch);
-
-  if (ASMJIT_UNLIKELY(!s))
-    return Inst::kIdNone;
-
-  if (len == SIZE_MAX)
-    len = strlen(s);
-
-  if (ASMJIT_UNLIKELY(len == 0 || len > InstDB::kMaxNameSize))
-    return Inst::kIdNone;
-
-  uint32_t prefix = uint32_t(s[0]) - 'a';
-  if (ASMJIT_UNLIKELY(prefix > 'z' - 'a'))
-    return Inst::kIdNone;
-
-  size_t base = InstDB::instNameIndex[prefix].start;
-  size_t end = InstDB::instNameIndex[prefix].end;
-
-  if (ASMJIT_UNLIKELY(!base))
-    return Inst::kIdNone;
-
-  char nameData[32];
-  for (size_t lim = end - base; lim != 0; lim >>= 1) {
-    size_t instId = base + (lim >> 1);
-    size_t nameSize = Support::decodeInstName(nameData, InstDB::_instNameIndexTable[instId], InstDB::_instNameStringTable);
-
-    int result = Support::compareStringViews(s, len, nameData, nameSize);
-    if (result < 0)
-      continue;
-
-    if (result > 0) {
-      base = instId + 1;
-      lim--;
-      continue;
-    }
-
-    return InstId(instId);
-  }
-
-  return Inst::kIdNone;
+InstId stringToInstId(const char* s, size_t len) noexcept {
+  return InstNameUtils::find(s, len, InstDB::instNameIndex, InstDB::_instNameIndexTable, InstDB::_instNameStringTable);
 }
 #endif // !ASMJIT_NO_TEXT
 
@@ -184,7 +124,7 @@ static const X86ValidationData _x64ValidationData = {
 #undef REG_MASK_FROM_REG_TYPE_X86
 
 static ASMJIT_FORCE_INLINE bool x86IsZmmOrM512(const Operand_& op) noexcept {
-  return Reg::isZmm(op) || (op.isMem() && op.size() == 64);
+  return Reg::isZmm(op) || (op.isMem() && op.x86RmSize() == 64);
 }
 
 static ASMJIT_FORCE_INLINE bool x86CheckOSig(const InstDB::OpSignature& op, const InstDB::OpSignature& ref, bool& immOutOfRange) noexcept {
@@ -216,20 +156,11 @@ static ASMJIT_FORCE_INLINE bool x86CheckOSig(const InstDB::OpSignature& op, cons
   return true;
 }
 
-ASMJIT_FAVOR_SIZE Error InstInternal::validate(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, ValidationFlags validationFlags) noexcept {
-  // Only called when `arch` matches X86 family.
-  ASMJIT_ASSERT(Environment::isFamilyX86(arch));
-
-  const X86ValidationData* vd;
-  if (arch == Arch::kX86)
-    vd = &_x86ValidationData;
-  else
-    vd = &_x64ValidationData;
-
+static ASMJIT_FAVOR_SIZE Error validate(InstDB::Mode mode, const BaseInst& inst, const Operand_* operands, size_t opCount, ValidationFlags validationFlags) noexcept {
   uint32_t i;
-  InstDB::Mode mode = InstDB::modeFromArch(arch);
 
   // Get the instruction data.
+  const X86ValidationData* vd = (mode == InstDB::Mode::kX86) ? &_x86ValidationData : &_x64ValidationData;
   InstId instId = inst.id();
   InstOptions options = inst.options();
 
@@ -717,6 +648,15 @@ Next:
 
   return kErrorOk;
 }
+
+Error validateX86(const BaseInst& inst, const Operand_* operands, size_t opCount, ValidationFlags validationFlags) noexcept {
+  return validate(InstDB::Mode::kX86, inst, operands, opCount, validationFlags);
+}
+
+Error validateX64(const BaseInst& inst, const Operand_* operands, size_t opCount, ValidationFlags validationFlags) noexcept {
+  return validate(InstDB::Mode::kX64, inst, operands, opCount, validationFlags);
+}
+
 #endif // !ASMJIT_NO_VALIDATION
 
 // x86::InstInternal - QueryRWInfo
@@ -785,7 +725,7 @@ static ASMJIT_FORCE_INLINE bool hasSameRegType(const BaseReg* regs, size_t opCou
   return true;
 }
 
-Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, InstRWInfo* out) noexcept {
+Error queryRWInfo(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, InstRWInfo* out) noexcept {
   // Only called when `arch` matches X86 family.
   ASMJIT_ASSERT(Environment::isFamilyX86(arch));
 
@@ -827,7 +767,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
   constexpr OpRWFlags RegPhys = OpRWFlags::kRegPhysId;
   constexpr OpRWFlags MibRead = OpRWFlags::kMemBaseRead | OpRWFlags::kMemIndexRead;
 
-  if (instRwInfo.category == InstDB::RWInfo::kCategoryGeneric) {
+  if (instRwInfo.category <= uint32_t(InstDB::RWInfo::kCategoryGenericEx)) {
     uint32_t i;
     uint32_t rmOpsMask = 0;
     uint32_t rmMaxSize = 0;
@@ -852,8 +792,8 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
       uint64_t rByteMask = rwOpData.rByteMask;
       uint64_t wByteMask = rwOpData.wByteMask;
 
-      if (op.isRead()  && !rByteMask) rByteMask = Support::lsbMask<uint64_t>(srcOp.size());
-      if (op.isWrite() && !wByteMask) wByteMask = Support::lsbMask<uint64_t>(srcOp.size());
+      if (op.isRead()  && !rByteMask) rByteMask = Support::lsbMask<uint64_t>(srcOp.x86RmSize());
+      if (op.isWrite() && !wByteMask) wByteMask = Support::lsbMask<uint64_t>(srcOp.x86RmSize());
 
       op._readByteMask = rByteMask;
       op._writeByteMask = wByteMask;
@@ -876,7 +816,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
         }
 
         // Aggregate values required to calculate valid Reg/M info.
-        rmMaxSize  = Support::max(rmMaxSize, srcOp.size());
+        rmMaxSize  = Support::max(rmMaxSize, srcOp.x86RmSize());
         rmOpsMask |= Support::bitMask<uint32_t>(i);
       }
       else {
@@ -919,8 +859,8 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
       }
     }
 
-    rmOpsMask &= instRmInfo.rmOpsMask;
-    if (rmOpsMask) {
+    rmOpsMask &= uint32_t(instRmInfo.rmOpsMask);
+    if (rmOpsMask && !inst.hasOption(InstOptions::kX86_ER)) {
       Support::BitWordIterator<uint32_t> it(rmOpsMask);
       do {
         i = it.next();
@@ -933,7 +873,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
             op.setRmSize(instRmInfo.fixedSize);
             break;
           case InstDB::RWInfoRm::kCategoryConsistent:
-            op.setRmSize(operands[i].size());
+            op.setRmSize(operands[i].x86RmSize());
             break;
           case InstDB::RWInfoRm::kCategoryHalf:
             op.setRmSize(rmMaxSize / 2u);
@@ -946,6 +886,27 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
             break;
         }
       } while (it.hasNext());
+    }
+
+    // Special cases per instruction.
+    if (instRwInfo.category == InstDB::RWInfo::kCategoryGenericEx) {
+      switch (inst.id()) {
+        case Inst::kIdVpternlogd:
+        case Inst::kIdVpternlogq: {
+          if (opCount == 4 && operands[3].isImm()) {
+            uint32_t predicate = operands[3].as<Imm>().valueAs<uint8_t>();
+
+            if ((predicate >> 4) == (predicate & 0xF)) {
+              out->_operands[0].clearOpFlags(OpRWFlags::kRead);
+              out->_operands[0].setReadByteMask(0);
+            }
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
     }
 
     return rwHandleAVX512(inst, commonInfo, out);
@@ -966,8 +927,8 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
           const Reg& o1 = operands[1].as<Reg>();
 
           if (o0.isGp() && o1.isGp()) {
-            out->_operands[0].reset(W | RegM, operands[0].size());
-            out->_operands[1].reset(R | RegM, operands[1].size());
+            out->_operands[0].reset(W | RegM, operands[0].x86RmSize());
+            out->_operands[1].reset(R | RegM, operands[1].x86RmSize());
 
             rwZeroExtendGp(out->_operands[0], operands[0].as<Gp>(), nativeGpSize);
             out->_instFlags |= InstRWFlags::kMovOp;
@@ -1114,14 +1075,14 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
 
       if (opCount == 2) {
         if (operands[0].isReg() && operands[1].isImm()) {
-          out->_operands[0].reset(X, operands[0].size());
+          out->_operands[0].reset(X, operands[0].as<Reg>().size());
           out->_operands[1].reset();
 
           rwZeroExtendGp(out->_operands[0], operands[0].as<Gp>(), nativeGpSize);
           return kErrorOk;
         }
 
-        if (Reg::isGpw(operands[0]) && operands[1].size() == 1) {
+        if (Reg::isGpw(operands[0]) && operands[1].x86RmSize() == 1) {
           // imul ax, r8/m8 <- AX = AL * r8/m8
           out->_operands[0].reset(X | RegPhys, 2, Gp::kIdAx);
           out->_operands[0].setReadByteMask(Support::lsbMask<uint64_t>(1));
@@ -1129,8 +1090,8 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
         }
         else {
           // imul r?, r?/m?
-          out->_operands[0].reset(X, operands[0].size());
-          out->_operands[1].reset(R | RegM, operands[0].size());
+          out->_operands[0].reset(X, operands[0].as<Gp>().size());
+          out->_operands[1].reset(R | RegM, operands[0].as<Gp>().size());
           rwZeroExtendGp(out->_operands[0], operands[0].as<Gp>(), nativeGpSize);
         }
 
@@ -1141,8 +1102,8 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
 
       if (opCount == 3) {
         if (operands[2].isImm()) {
-          out->_operands[0].reset(W, operands[0].size());
-          out->_operands[1].reset(R | RegM, operands[1].size());
+          out->_operands[0].reset(W, operands[0].x86RmSize());
+          out->_operands[1].reset(R | RegM, operands[1].x86RmSize());
           out->_operands[2].reset();
 
           rwZeroExtendGp(out->_operands[0], operands[0].as<Gp>(), nativeGpSize);
@@ -1151,9 +1112,9 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
           return kErrorOk;
         }
         else {
-          out->_operands[0].reset(W | RegPhys, operands[0].size(), Gp::kIdDx);
-          out->_operands[1].reset(X | RegPhys, operands[1].size(), Gp::kIdAx);
-          out->_operands[2].reset(R | RegM, operands[2].size());
+          out->_operands[0].reset(W | RegPhys, operands[0].x86RmSize(), Gp::kIdDx);
+          out->_operands[1].reset(X | RegPhys, operands[1].x86RmSize(), Gp::kIdAx);
+          out->_operands[2].reset(R | RegM, operands[2].x86RmSize());
 
           rwZeroExtendGp(out->_operands[0], operands[0].as<Gp>(), nativeGpSize);
           rwZeroExtendGp(out->_operands[1], operands[1].as<Gp>(), nativeGpSize);
@@ -1230,18 +1191,18 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
       // Special case for 'vmaskmovpd|vmaskmovps|vpmaskmovd|vpmaskmovq' instructions.
       if (opCount == 3) {
         if (BaseReg::isVec(operands[0]) && BaseReg::isVec(operands[1]) && operands[2].isMem()) {
-          out->_operands[0].reset(W, operands[0].size());
-          out->_operands[1].reset(R, operands[1].size());
-          out->_operands[2].reset(R | MibRead, operands[1].size());
+          out->_operands[0].reset(W, operands[0].x86RmSize());
+          out->_operands[1].reset(R, operands[1].x86RmSize());
+          out->_operands[2].reset(R | MibRead, operands[1].x86RmSize());
 
           rwZeroExtendAvxVec(out->_operands[0], operands[0].as<Vec>());
           return kErrorOk;
         }
 
         if (operands[0].isMem() && BaseReg::isVec(operands[1]) && BaseReg::isVec(operands[2])) {
-          out->_operands[0].reset(X | MibRead, operands[1].size());
-          out->_operands[1].reset(R, operands[1].size());
-          out->_operands[2].reset(R, operands[2].size());
+          out->_operands[0].reset(X | MibRead, operands[1].x86RmSize());
+          out->_operands[1].reset(R, operands[1].x86RmSize());
+          out->_operands[2].reset(R, operands[2].x86RmSize());
           return kErrorOk;
         }
       }
@@ -1254,7 +1215,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
       // operand, respectively.
       if (opCount == 2) {
         if (BaseReg::isVec(operands[0]) && BaseReg::isVec(operands[1])) {
-          uint32_t o0Size = operands[0].size();
+          uint32_t o0Size = operands[0].x86RmSize();
           uint32_t o1Size = o0Size == 16 ? 8 : o0Size;
 
           out->_operands[0].reset(W, o0Size);
@@ -1266,7 +1227,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
         }
 
         if (BaseReg::isVec(operands[0]) && operands[1].isMem()) {
-          uint32_t o0Size = operands[0].size();
+          uint32_t o0Size = operands[0].x86RmSize();
           uint32_t o1Size = o0Size == 16 ? 8 : o0Size;
 
           out->_operands[0].reset(W, o0Size);
@@ -1286,7 +1247,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
         if (BaseReg::isGp(operands[0]) && BaseReg::isVec(operands[1])) {
           out->_operands[0].reset(W, 1);
           out->_operands[0].setExtendByteMask(Support::lsbMask<uint32_t>(nativeGpSize - 1) << 1);
-          out->_operands[1].reset(R, operands[1].size());
+          out->_operands[1].reset(R, operands[1].x86RmSize());
           return kErrorOk;
         }
       }
@@ -1324,7 +1285,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
         }
 
         if (operands[0].isReg() && operands[1].isReg()) {
-          uint32_t size1 = operands[1].size();
+          uint32_t size1 = operands[1].x86RmSize();
           uint32_t size0 = size1 >> shift;
 
           out->_operands[0].reset(W, size0);
@@ -1351,16 +1312,20 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
         }
 
         if (operands[0].isReg() && operands[1].isMem()) {
-          uint32_t size1 = operands[1].size() ? operands[1].size() : uint32_t(16);
+          uint32_t size1 = operands[1].x86RmSize() ? operands[1].x86RmSize() : uint32_t(16);
           uint32_t size0 = size1 >> shift;
 
           out->_operands[0].reset(W, size0);
           out->_operands[1].reset(R | MibRead, size1);
+
+          if (BaseReg::isVec(operands[0]))
+            rwZeroExtendAvxVec(out->_operands[0], operands[0].as<Vec>());
+
           return kErrorOk;
         }
 
         if (operands[0].isMem() && operands[1].isReg()) {
-          uint32_t size1 = operands[1].size();
+          uint32_t size1 = operands[1].x86RmSize();
           uint32_t size0 = size1 >> shift;
 
           out->_operands[0].reset(W | MibRead, size0);
@@ -1401,11 +1366,14 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
           out->_operands[2].reset();
         }
 
-        uint32_t size0 = operands[0].size();
+        uint32_t size0 = operands[0].x86RmSize();
         uint32_t size1 = size0 >> shift;
 
         out->_operands[0].reset(W, size0);
         out->_operands[1].reset(R, size1);
+
+        if (BaseReg::isVec(operands[0]))
+          rwZeroExtendAvxVec(out->_operands[0], operands[0].as<Vec>());
 
         if (operands[0].isReg() && operands[1].isReg()) {
           if (instRmInfo.rmOpsMask & 0x1) {
@@ -1481,7 +1449,9 @@ static inline uint32_t InstInternal_usesAvx512(InstOptions instOptions, const Re
   return hasEvex | hasKMask | hasKOrZmm;
 }
 
-Error InstInternal::queryFeatures(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, CpuFeatures* out) noexcept {
+Error queryFeatures(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, CpuFeatures* out) noexcept {
+  typedef CpuFeatures::X86 Ext;
+
   // Only called when `arch` matches X86 family.
   DebugUtils::unused(arch);
   ASMJIT_ASSERT(Environment::isFamilyX86(arch));
@@ -1514,19 +1484,19 @@ Error InstInternal::queryFeatures(Arch arch, const BaseInst& inst, const Operand
     RegAnalysis regAnalysis = InstInternal_regAnalysis(operands, opCount);
 
     // Handle MMX vs SSE overlap.
-    if (out->has(CpuFeatures::X86::kMMX) || out->has(CpuFeatures::X86::kMMX2)) {
+    if (out->has(Ext::kMMX) || out->has(Ext::kMMX2)) {
       // Only instructions defined by SSE and SSE2 overlap. Instructions introduced by newer instruction sets like
       // SSE3+ don't state MMX as they require SSE3+.
-      if (out->has(CpuFeatures::X86::kSSE) || out->has(CpuFeatures::X86::kSSE2)) {
+      if (out->has(Ext::kSSE) || out->has(Ext::kSSE2)) {
         if (!regAnalysis.hasRegType(RegType::kX86_Xmm)) {
           // The instruction doesn't use XMM register(s), thus it's MMX/MMX2 only.
-          out->remove(CpuFeatures::X86::kSSE);
-          out->remove(CpuFeatures::X86::kSSE2);
-          out->remove(CpuFeatures::X86::kSSE4_1);
+          out->remove(Ext::kSSE);
+          out->remove(Ext::kSSE2);
+          out->remove(Ext::kSSE4_1);
         }
         else {
-          out->remove(CpuFeatures::X86::kMMX);
-          out->remove(CpuFeatures::X86::kMMX2);
+          out->remove(Ext::kMMX);
+          out->remove(Ext::kMMX2);
         }
 
         // Special case: PEXTRW instruction is MMX/SSE2 instruction. However, MMX/SSE version cannot access memory
@@ -1535,30 +1505,30 @@ Error InstInternal::queryFeatures(Arch arch, const BaseInst& inst, const Operand
         // is, of course, not compatible with MMX/SSE2 and would #UD if SSE4.1 is not supported.
         if (instId == Inst::kIdPextrw) {
           if (opCount >= 1 && operands[0].isMem())
-            out->remove(CpuFeatures::X86::kSSE2);
+            out->remove(Ext::kSSE2);
           else
-            out->remove(CpuFeatures::X86::kSSE4_1);
+            out->remove(Ext::kSSE4_1);
         }
       }
     }
 
     // Handle PCLMULQDQ vs VPCLMULQDQ.
-    if (out->has(CpuFeatures::X86::kVPCLMULQDQ)) {
+    if (out->has(Ext::kVPCLMULQDQ)) {
       if (regAnalysis.hasRegType(RegType::kX86_Zmm) || Support::test(options, InstOptions::kX86_Evex)) {
         // AVX512_F & VPCLMULQDQ.
-        out->remove(CpuFeatures::X86::kAVX, CpuFeatures::X86::kPCLMULQDQ);
+        out->remove(Ext::kAVX, Ext::kPCLMULQDQ);
       }
       else if (regAnalysis.hasRegType(RegType::kX86_Ymm)) {
-        out->remove(CpuFeatures::X86::kAVX512_F, CpuFeatures::X86::kAVX512_VL);
+        out->remove(Ext::kAVX512_F, Ext::kAVX512_VL);
       }
       else {
         // AVX & PCLMULQDQ.
-        out->remove(CpuFeatures::X86::kAVX512_F, CpuFeatures::X86::kAVX512_VL, CpuFeatures::X86::kVPCLMULQDQ);
+        out->remove(Ext::kAVX512_F, Ext::kAVX512_VL, Ext::kVPCLMULQDQ);
       }
     }
 
     // Handle AVX vs AVX2 overlap.
-    if (out->has(CpuFeatures::X86::kAVX) && out->has(CpuFeatures::X86::kAVX2)) {
+    if (out->has(Ext::kAVX) && out->has(Ext::kAVX2)) {
       bool isAVX2 = true;
       // Special case: VBROADCASTSS and VBROADCASTSD were introduced in AVX, but only version that uses memory as a
       // source operand. AVX2 then added support for register source operand.
@@ -1575,172 +1545,287 @@ Error InstInternal::queryFeatures(Arch arch, const BaseInst& inst, const Operand
       }
 
       if (isAVX2)
-        out->remove(CpuFeatures::X86::kAVX);
+        out->remove(Ext::kAVX);
       else
-        out->remove(CpuFeatures::X86::kAVX2);
+        out->remove(Ext::kAVX2);
     }
 
-    // Handle AVX|AVX2|FMA|F16C vs AVX512 overlap.
-    if (out->has(CpuFeatures::X86::kAVX) || out->has(CpuFeatures::X86::kAVX2) || out->has(CpuFeatures::X86::kFMA) || out->has(CpuFeatures::X86::kF16C)) {
-      // Only AVX512-F|BW|DQ allow to encode AVX/AVX2/FMA/F16C instructions
-      if (out->has(CpuFeatures::X86::kAVX512_F) || out->has(CpuFeatures::X86::kAVX512_BW) || out->has(CpuFeatures::X86::kAVX512_DQ)) {
-        uint32_t usesAvx512 = InstInternal_usesAvx512(options, inst.extraReg(), regAnalysis);
-        uint32_t mustUseEvex = 0;
+    // Handle AVX vs AVX512 overlap.
+    //
+    // In general, non-AVX encoding is preferred, however, AVX encoded instructions that were initially provided
+    // as AVX-512 instructions must naturally prefer AVX-512 encoding, as that was the first one provided.
+    if (out->hasAny(Ext::kAVX,
+                    Ext::kAVX_IFMA,
+                    Ext::kAVX_NE_CONVERT,
+                    Ext::kAVX_VNNI,
+                    Ext::kAVX2,
+                    Ext::kF16C,
+                    Ext::kFMA)
+        &&
+        out->hasAny(Ext::kAVX512_BF16,
+                    Ext::kAVX512_BW,
+                    Ext::kAVX512_DQ,
+                    Ext::kAVX512_F,
+                    Ext::kAVX512_IFMA,
+                    Ext::kAVX512_VNNI)) {
 
-        switch (instId) {
-          // Special case: VPBROADCAST[B|D|Q|W] only supports r32/r64 with EVEX prefix.
-          case Inst::kIdVpbroadcastb:
-          case Inst::kIdVpbroadcastd:
-          case Inst::kIdVpbroadcastq:
-          case Inst::kIdVpbroadcastw:
-            mustUseEvex = opCount >= 2 && x86::Reg::isGp(operands[1]);
-            break;
+      uint32_t useEvex = InstInternal_usesAvx512(options, inst.extraReg(), regAnalysis) | regAnalysis.highVecUsed;
+      switch (instId) {
+        // Special case: VPBROADCAST[B|D|Q|W] only supports r32/r64 with EVEX prefix.
+        case Inst::kIdVpbroadcastb:
+        case Inst::kIdVpbroadcastd:
+        case Inst::kIdVpbroadcastq:
+        case Inst::kIdVpbroadcastw:
+          useEvex |= uint32_t(opCount >= 2 && x86::Reg::isGp(operands[1]));
+          break;
 
-          case Inst::kIdVcvtpd2dq:
-          case Inst::kIdVcvtpd2ps:
-          case Inst::kIdVcvttpd2dq:
-            mustUseEvex = opCount >= 2 && Reg::isYmm(operands[0]);
-            break;
+        case Inst::kIdVcvtpd2dq:
+        case Inst::kIdVcvtpd2ps:
+        case Inst::kIdVcvttpd2dq:
+          useEvex |= uint32_t(opCount >= 2 && Reg::isYmm(operands[0]));
+          break;
 
-          // Special case: These instructions only allow `reg, reg. imm` combination in AVX|AVX2 mode, then
-          // AVX-512 introduced `reg, reg/mem, imm` combination that uses EVEX prefix. This means that if
-          // the second operand is memory then this is AVX-512_BW instruction and not AVX/AVX2 instruction.
-          case Inst::kIdVpslldq:
-          case Inst::kIdVpslld:
-          case Inst::kIdVpsllq:
-          case Inst::kIdVpsllw:
-          case Inst::kIdVpsrad:
-          case Inst::kIdVpsraq:
-          case Inst::kIdVpsraw:
-          case Inst::kIdVpsrld:
-          case Inst::kIdVpsrldq:
-          case Inst::kIdVpsrlq:
-          case Inst::kIdVpsrlw:
-            mustUseEvex = opCount >= 2 && operands[1].isMem();
-            break;
+        case Inst::kIdVgatherdpd:
+        case Inst::kIdVgatherdps:
+        case Inst::kIdVgatherqpd:
+        case Inst::kIdVgatherqps:
+        case Inst::kIdVpgatherdd:
+        case Inst::kIdVpgatherdq:
+        case Inst::kIdVpgatherqd:
+        case Inst::kIdVpgatherqq:
+          useEvex |= uint32_t(opCount == 2);
+          break;
 
-          // Special case: VPERMPD - AVX2 vs AVX512-F case.
-          case Inst::kIdVpermpd:
-            mustUseEvex = opCount >= 3 && !operands[2].isImm();
-            break;
+        // Special case: These instructions only allow `reg, reg. imm` combination in AVX|AVX2 mode, then
+        // AVX-512 introduced `reg, reg/mem, imm` combination that uses EVEX prefix. This means that if
+        // the second operand is memory then this is AVX-512_BW instruction and not AVX/AVX2 instruction.
+        case Inst::kIdVpslldq:
+        case Inst::kIdVpslld:
+        case Inst::kIdVpsllq:
+        case Inst::kIdVpsllw:
+        case Inst::kIdVpsrad:
+        case Inst::kIdVpsraq:
+        case Inst::kIdVpsraw:
+        case Inst::kIdVpsrld:
+        case Inst::kIdVpsrldq:
+        case Inst::kIdVpsrlq:
+        case Inst::kIdVpsrlw:
+          useEvex |= uint32_t(opCount >= 2 && operands[1].isMem());
+          break;
 
-          // Special case: VPERMQ - AVX2 vs AVX512-F case.
-          case Inst::kIdVpermq:
-            mustUseEvex = opCount >= 3 && (operands[1].isMem() || !operands[2].isImm());
-            break;
-        }
+        // Special case: VPERMPD - AVX2 vs AVX512-F case.
+        case Inst::kIdVpermpd:
+          useEvex |= uint32_t(opCount >= 3 && !operands[2].isImm());
+          break;
 
-        if (!(usesAvx512 | mustUseEvex | regAnalysis.highVecUsed))
-          out->remove(CpuFeatures::X86::kAVX512_F, CpuFeatures::X86::kAVX512_BW, CpuFeatures::X86::kAVX512_DQ, CpuFeatures::X86::kAVX512_VL);
-        else
-          out->remove(CpuFeatures::X86::kAVX, CpuFeatures::X86::kAVX2, CpuFeatures::X86::kFMA, CpuFeatures::X86::kF16C);
+        // Special case: VPERMQ - AVX2 vs AVX512-F case.
+        case Inst::kIdVpermq:
+          useEvex |= uint32_t(opCount >= 3 && (operands[1].isMem() || !operands[2].isImm()));
+          break;
       }
-    }
 
-    // Handle AVX_VNNI vs AVX512_VNNI overlap.
-    if (out->has(CpuFeatures::X86::kAVX512_VNNI)) {
-      // By default the AVX512_VNNI instruction should be used, because it was introduced first. However, VEX|VEX3
-      // prefix can be used to force AVX_VNNI instead.
-      uint32_t usesAvx512 = InstInternal_usesAvx512(options, inst.extraReg(), regAnalysis);
+      if (instInfo.commonInfo().preferEvex() && !Support::test(options, InstOptions::kX86_Vex | InstOptions::kX86_Vex3))
+        useEvex = 1;
 
-      if (!usesAvx512 && Support::test(options, InstOptions::kX86_Vex | InstOptions::kX86_Vex3))
-        out->remove(CpuFeatures::X86::kAVX512_VNNI, CpuFeatures::X86::kAVX512_VL);
-      else
-        out->remove(CpuFeatures::X86::kAVX_VNNI);
+      if (useEvex) {
+        out->remove(Ext::kAVX,
+                    Ext::kAVX_IFMA,
+                    Ext::kAVX_NE_CONVERT,
+                    Ext::kAVX_VNNI,
+                    Ext::kAVX2,
+                    Ext::kF16C,
+                    Ext::kFMA);
+      }
+      else {
+        out->remove(Ext::kAVX512_BF16,
+                    Ext::kAVX512_BW,
+                    Ext::kAVX512_DQ,
+                    Ext::kAVX512_F,
+                    Ext::kAVX512_IFMA,
+                    Ext::kAVX512_VL,
+                    Ext::kAVX512_VNNI);
+      }
     }
 
     // Clear AVX512_VL if ZMM register is used.
     if (regAnalysis.hasRegType(RegType::kX86_Zmm))
-      out->remove(CpuFeatures::X86::kAVX512_VL);
+      out->remove(Ext::kAVX512_VL);
   }
 
   return kErrorOk;
 }
 #endif // !ASMJIT_NO_INTROSPECTION
 
+} // {InstInternal}
+
 // x86::InstInternal - Tests
 // =========================
 
 #if defined(ASMJIT_TEST)
+#ifndef ASMJIT_NO_TEXT
 UNIT(x86_inst_api_text) {
   // All known instructions should be matched.
   INFO("Matching all X86 instructions");
   for (uint32_t a = 1; a < Inst::_kIdCount; a++) {
     StringTmp<128> aName;
-    EXPECT(InstInternal::instIdToString(Arch::kX86, a, aName) == kErrorOk,
-           "Failed to get the name of instruction #%u", a);
+    EXPECT_EQ(InstInternal::instIdToString(a, aName), kErrorOk)
+      .message("Failed to get the name of instruction #%u", a);
 
-    uint32_t b = InstInternal::stringToInstId(Arch::kX86, aName.data(), aName.size());
+    uint32_t b = InstInternal::stringToInstId(aName.data(), aName.size());
     StringTmp<128> bName;
-    InstInternal::instIdToString(Arch::kX86, b, bName);
-
-    EXPECT(a == b,
-           "Instructions do not match \"%s\" (#%u) != \"%s\" (#%u)", aName.data(), a, bName.data(), b);
+    InstInternal::instIdToString(b, bName);
+    EXPECT_EQ(a, b)
+      .message("Instructions do not match \"%s\" (#%u) != \"%s\" (#%u)", aName.data(), a, bName.data(), b);
   }
 }
+#endif // !ASMJIT_NO_TEXT
 
+#ifndef ASMJIT_NO_INTROSPECTION
 template<typename... Args>
-static Error queryRWInfoSimple(InstRWInfo* out, Arch arch, InstId instId, InstOptions options, Args&&... args) {
-  BaseInst inst(instId);
-  inst.addOptions(options);
+static Error queryFeaturesInline(CpuFeatures* out, Arch arch, BaseInst inst, Args&&... args) {
+  Operand_ opArray[] = { std::forward<Args>(args)... };
+  return InstInternal::queryFeatures(arch, inst, opArray, sizeof...(args), out);
+}
+
+UNIT(x86_inst_api_cpu_features) {
+  INFO("Verifying whether SSE2+ features are reported correctly for legacy instructions");
+  {
+    CpuFeatures f;
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdPaddd), xmm1, xmm2);
+    EXPECT_TRUE(f.x86().hasSSE2());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdAddsubpd), xmm1, xmm2);
+    EXPECT_TRUE(f.x86().hasSSE3());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdPshufb), xmm1, xmm2);
+    EXPECT_TRUE(f.x86().hasSSSE3());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdBlendpd), xmm1, xmm2, Imm(1));
+    EXPECT_TRUE(f.x86().hasSSE4_1());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdCrc32), eax, al);
+    EXPECT_TRUE(f.x86().hasSSE4_2());
+  }
+
+  INFO("Verifying whether AVX+ features are reported correctly for AVX instructions");
+  {
+    CpuFeatures f;
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpaddd), xmm1, xmm2, xmm3);
+    EXPECT_TRUE(f.x86().hasAVX());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpaddd), ymm1, ymm2, ymm3);
+    EXPECT_TRUE(f.x86().hasAVX2());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVaddsubpd), xmm1, xmm2, xmm3);
+    EXPECT_TRUE(f.x86().hasAVX());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVaddsubpd), ymm1, ymm2, ymm3);
+    EXPECT_TRUE(f.x86().hasAVX());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpshufb), xmm1, xmm2, xmm3);
+    EXPECT_TRUE(f.x86().hasAVX());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpshufb), ymm1, ymm2, ymm3);
+    EXPECT_TRUE(f.x86().hasAVX2());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVblendpd), xmm1, xmm2, xmm3, Imm(1));
+    EXPECT_TRUE(f.x86().hasAVX());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVblendpd), ymm1, ymm2, ymm3, Imm(1));
+    EXPECT_TRUE(f.x86().hasAVX());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpunpcklbw), xmm1, xmm2, xmm3);
+    EXPECT_TRUE(f.x86().hasAVX());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpunpcklbw), ymm1, ymm2, ymm3);
+    EXPECT_TRUE(f.x86().hasAVX2());
+  }
+
+  INFO("Verifying whether AVX2 / AVX512 features are reported correctly for vpgatherxx instructions");
+  {
+    CpuFeatures f;
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpgatherdd), xmm1, ptr(rax, xmm2), xmm3);
+    EXPECT_TRUE(f.x86().hasAVX2());
+    EXPECT_FALSE(f.x86().hasAVX512_F());
+
+    // NOTE: This instruction is unencodable, but sometimes this signature is used to check the support (without the {k}).
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpgatherdd), xmm1, ptr(rax, xmm2));
+    EXPECT_FALSE(f.x86().hasAVX2());
+    EXPECT_TRUE(f.x86().hasAVX512_F());
+
+    queryFeaturesInline(&f, Arch::kX64, BaseInst(Inst::kIdVpgatherdd, InstOptions::kNone, k1), xmm1, ptr(rax, xmm2));
+    EXPECT_FALSE(f.x86().hasAVX2());
+    EXPECT_TRUE(f.x86().hasAVX512_F());
+  }
+}
+#endif // !ASMJIT_NO_INTROSPECTION
+
+#ifndef ASMJIT_NO_INTROSPECTION
+template<typename... Args>
+static Error queryRWInfoInline(InstRWInfo* out, Arch arch, BaseInst inst, Args&&... args) {
   Operand_ opArray[] = { std::forward<Args>(args)... };
   return InstInternal::queryRWInfo(arch, inst, opArray, sizeof...(args), out);
 }
 
-UNIT(x86_inst_api_rm_feature) {
+UNIT(x86_inst_api_rm_features) {
   INFO("Verifying whether RM/feature is reported correctly for PEXTRW instruction");
   {
     InstRWInfo rwi;
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdPextrw, InstOptions::kNone, eax, mm1, imm(1));
-    EXPECT(rwi.rmFeature() == 0);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdPextrw), eax, mm1, imm(1));
+    EXPECT_EQ(rwi.rmFeature(), 0u);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdPextrw, InstOptions::kNone, eax, xmm1, imm(1));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kSSE4_1);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdPextrw), eax, xmm1, imm(1));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kSSE4_1);
   }
 
   INFO("Verifying whether RM/feature is reported correctly for AVX512 shift instructions");
   {
     InstRWInfo rwi;
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpslld, InstOptions::kNone, xmm1, xmm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_F);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpslld), xmm1, xmm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_F);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsllq, InstOptions::kNone, ymm1, ymm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_F);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsllq), ymm1, ymm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_F);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsrad, InstOptions::kNone, xmm1, xmm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_F);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsrad), xmm1, xmm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_F);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsrld, InstOptions::kNone, ymm1, ymm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_F);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsrld), ymm1, ymm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_F);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsrlq, InstOptions::kNone, xmm1, xmm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_F);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsrlq), xmm1, xmm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_F);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpslldq, InstOptions::kNone, xmm1, xmm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_BW);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpslldq), xmm1, xmm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_BW);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsllw, InstOptions::kNone, ymm1, ymm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_BW);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsllw), ymm1, ymm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_BW);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsraw, InstOptions::kNone, xmm1, xmm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_BW);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsraw), xmm1, xmm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_BW);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsrldq, InstOptions::kNone, ymm1, ymm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_BW);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsrldq), ymm1, ymm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_BW);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsrlw, InstOptions::kNone, xmm1, xmm2, imm(8));
-    EXPECT(rwi.rmFeature() == CpuFeatures::X86::kAVX512_BW);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsrlw), xmm1, xmm2, imm(8));
+    EXPECT_EQ(rwi.rmFeature(), CpuFeatures::X86::kAVX512_BW);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpslld, InstOptions::kNone, xmm1, xmm2, xmm3);
-    EXPECT(rwi.rmFeature() == 0);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpslld), xmm1, xmm2, xmm3);
+    EXPECT_EQ(rwi.rmFeature(), 0u);
 
-    queryRWInfoSimple(&rwi, Arch::kX64, Inst::kIdVpsllw, InstOptions::kNone, xmm1, xmm2, xmm3);
-    EXPECT(rwi.rmFeature() == 0);
+    queryRWInfoInline(&rwi, Arch::kX64, BaseInst(Inst::kIdVpsllw), xmm1, xmm2, xmm3);
+    EXPECT_EQ(rwi.rmFeature(), 0u);
   }
 }
-#endif
+#endif // !ASMJIT_NO_INTROSPECTION
+
+#endif // ASMJIT_TEST
 
 ASMJIT_END_SUB_NAMESPACE
 

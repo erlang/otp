@@ -1,0 +1,126 @@
+/*
+  %CopyrightBegin%
+
+  SPDX-License-Identifier: Apache-2.0
+
+  Copyright Ericsson AB 2025. All Rights Reserved.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  %CopyrightEnd%
+
+  Renovate is a github app that we use to keep various components updated.
+  The app is installed in the erlang/otp repo and schedules updates of
+  components. We use the [Forking Renovate](https://github.com/apps/forking-renovate)
+  App as it does not need write permissions to the otp repository.
+
+  There is a permanent issue with the status here: https://github.com/erlang/otp/issue/9908
+  You can view the status from renovates perspective here: https://developer.mend.io/github/erlang/otp
+
+  Renovate will open PRs to update:
+  * All github action versions
+  * All 3pps defined in vendor.info files.
+
+*/
+{
+    "extends": ["config:recommended"],
+    "description": "Renovate configuration for vendored dependencies and GitHub Actions.",
+    "prHourlyLimit": 0,
+    "prConcurrentLimit": 10,
+    "labels": ["team:VM"],
+    "assignees": ["garazdawi", "kikofernandez"],
+    // config:recommended ignores files in "*test*" which we do not want
+    // and for now we ignore any dockerfile dependencies
+    "ignorePaths": [".github/dockerfiles/", "lib/wx/"],
+    "packageRules": [
+        {
+            "matchManagers": ["github-actions"],
+            "groupName": "github-actions",
+            "matchFileNames": [
+                ".github/workflows/*.yml",
+                ".github/workflows/*.yaml",
+                ".github/actions/*/*.yml",
+                ".github/actions/*/*.yaml"
+            ]
+        },
+        // This is used to match out the current version from vendor.info
+        {
+            "matchFileNames": ["**/vendor.info"],
+            "extractVersion": "^\\s*\"versionInfo\"\\s*:\\s*\"(?<currentValue>[^\"]+)\""
+        },
+
+        // The patterns below are used to match out the X.Y.Z version of the github tag
+        {
+            "matchPackageNames": ["facebook/zstd", "jquery/jquery", "Mottie/tablesorter"],
+            "extractVersion": "^(?<version>v?.*)"
+        },
+        {
+            "matchPackageNames": ["openssl/openssl"],
+            "extractVersion": "^openssl-(?<version>.*)"
+        },
+        {
+            "matchPackageNames": ["microsoft/STL"],
+            "extractVersion": "^vs-[0-9]+-(?<version>.*)"
+        },
+        {
+            "matchPackageNames": ["PCRE2Project/pcre2"],
+            "extractVersion": "^pcre2-(?<version>.*)"
+        }
+    ],
+    "customManagers": [
+        {
+            // STL uses the tag "vs-YYYY-V.S.N", so we need to special case it to
+            // only match the V.S.N part.
+            "customType": "regex",
+            "managerFilePatterns": ["erts/emulator/ryu/vendor.info"],
+            "matchStrings": [
+                "\"downloadLocation\"\\s*:\\s*\"https://github.com/microsoft/STL\"[\\s\\S]*?\"versionInfo\"\\s*:\\s*\"vs-[0-9]+-(?<currentValue>[^\"]+)\""
+            ],
+            "datasourceTemplate": "github-releases",
+            "depNameTemplate": "microsoft/STL"
+        },
+        {
+            // pcre2 uses the tag "pcre2-V.S.N", so we need to special case it to
+            // only match the V.S.N part.
+            "customType": "regex",
+            "managerFilePatterns": ["erts/emulator/pcre/vendor.info"],
+            "matchStrings": [
+                "\"downloadLocation\"\\s*:\\s*\"https://github.com/PCRE2Project/pcre2\"[\\s\\S]*?\"versionInfo\"\\s*:\\s*\"pcre2-(?<currentValue>[^\"]+)\""
+            ],
+            "datasourceTemplate": "github-releases",
+            "depNameTemplate": "PCRE2Project/pcre2"
+        },
+        {
+            "customType": "regex",
+            "managerFilePatterns": ["**/vendor.info"],
+            "matchStrings": [
+                "\"downloadLocation\"\\s*:\\s*\"https://github.com/(?<depName>[^/]+/[^/\"]+)\"[\\s\\S]*?\"versionInfo\"\\s*:\\s*\"(?<currentValue>[^\"]+)\""
+            ],
+            "datasourceTemplate": "github-tags",
+            "depNameTemplate": "{{depName}}"
+        },
+        {
+            "customType": "regex",
+            "managerFilePatterns": ["**/vendor.info"],
+            "matchStrings": [
+                "\"downloadLocation\"\\s*:\\s*\"(?<packageName>https://github.com/(?<depName>[^/]+/[^/\"]+))\"[\\s\\S]*?\"versionInfo\"\\s*:\\s*\"(?<currentDigest>[a-f0-9]+)\""
+            ],
+            "currentValueTemplate": "master",
+            "depNameTemplate": "{{depName}}",
+            "packageNameTemplate": "{{packageName}}",
+            "datasourceTemplate": "git-refs"
+          }
+    ],
+    "baseBranches": ["master","maint","maint-28","maint-27","maint-26"],
+    "schedule": ["after 2am on monday"]
+}

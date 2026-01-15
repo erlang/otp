@@ -1,13 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec bit_size(Bitstring) -> non_neg_integer()[0m
-  [;1m                  when Bitstring :: bitstring().[0m
+[;1m  bit_size(Bitstring)[0m
 
-  Returns an integer that is the size in bits of [;;4mBitstring[0m, for
-  example:
+  Returns an integer that is the size in bits of [;;4mBitstring[0m.
+
+  For example:
 
     > bit_size(<<433:16,3:3>>).
     19
     > bit_size(<<1,2,3>>).
     24
-
-  Allowed in guard tests.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(raw_file_io_list).
+-moduledoc false.
 
 -export([close/1, sync/1, datasync/1, truncate/1, advise/4, allocate/3,
          position/2, write/2, pwrite/2, pwrite/3,

@@ -4,7 +4,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2021. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,6 +89,10 @@ V_EMU_CC = $(emu_cc_verbose)$(EMU_CC)
 erlc_verbose_0 = @echo " ERLC	"$@;
 erlc_verbose = $(erlc_verbose_$(V))
 V_ERLC = $(erlc_verbose)$(ERLC)
+
+erl_verbose_0 = @echo " ERL	"$@;
+erl_verbose = $(erl_verbose_$(V))
+V_ERL = $(erlc_verbose)$(ERL)
 
 gen_verbose_0 = @echo " GEN	"$@;
 gen_verbose = $(gen_verbose_$(V))

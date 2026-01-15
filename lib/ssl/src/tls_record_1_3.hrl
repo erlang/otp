@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,11 +48,6 @@
 -define(LEGACY_VERSION, ?TLS_1_2).
 -define(OPAQUE_TYPE, 23).
 
--record(inner_plaintext, {
-                          content, %% data
-                          type, %% Contentype
-                          zeros %% padding "uint8 zeros[length_of_padding]"
-                         }). 
 -record(tls_cipher_text, {  %% Equivalent of encrypted version of #ssl_tls from previous versions
                             %% decrypted version will still use #ssl_tls for code reuse purposes
                             %% with real values for content type and version

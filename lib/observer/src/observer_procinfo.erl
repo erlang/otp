@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 
 -module(observer_procinfo).
+-moduledoc false.
 
 -behaviour(wx_object).
 
@@ -54,12 +57,8 @@ start(Process, ParentFrame, Parent) ->
 init([Pid, ParentFrame, Parent]) ->
     try
 	Table = ets:new(observer_expand,[set,public]),
-	Title=case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
-		  [] -> io_lib:format("~p",[Pid]);
-		  {registered_name, Registered} -> io_lib:format("~tp (~p)",[Registered, Pid]);
-		  undefined -> throw(process_undefined)
-	      end,
-    Scale = observer_wx:get_scale(),
+	Title = get_name(Pid),
+        Scale = observer_wx:get_scale(),
 	Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [atom_to_list(node(Pid)), $:, Title],
 			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {Scale * 850, Scale * 600}}]),
 	MenuBar = wxMenuBar:new(),
@@ -368,7 +367,7 @@ init_log_page(Parent, Pid, Table) ->
 
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},
-	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl-R"}]}],
+	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl+R"}]}],
     observer_lib:create_menus(Menus, MenuBar, new_window).
 
 process_info_fields(Pid, WSz) ->
@@ -448,6 +447,34 @@ filter_monitor_info() ->
 	    Ms = proplists:get_value(monitors, Data),
 	    [Id || {_Type, Id} <- Ms] % Type is process or port
     end.
+
+%% NOTE: intentionally throws error
+get_name(Pid) ->
+    case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
+        [] ->
+            case observer_wx:try_rpc(node(Pid), proc_lib, get_label, [Pid]) of
+                {error, _} ->
+                    io_lib:format("~w",[Pid]);
+                undefined ->
+                    io_lib:format("~w",[Pid]);
+                Label ->
+                    format_label(Label, Pid)
+            end;
+        {registered_name, Registered} ->
+            io_lib:format("~0.tp ~w",[Registered, Pid]);
+        undefined ->
+            throw(process_undefined)
+    end.
+
+format_label(Id, Pid) when is_list(Id); is_binary(Id) ->
+    case unicode:characters_to_binary(Id) of
+        {error, _, _} ->
+            io_lib:format("~0.tp ~w", [Id, Pid]);
+        BinString ->
+            io_lib:format("~ts ~w", [BinString, Pid])
+    end;
+format_label(Id, Pid) ->
+    io_lib:format("~0.tp ~w", [Id, Pid]).
 
 stringify_bins(Data) ->
     Bins = proplists:get_value(binary, Data),

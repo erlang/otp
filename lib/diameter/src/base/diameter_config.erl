@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +38,7 @@
 %%
 
 -module(diameter_config).
+-moduledoc false.
 -behaviour(gen_server).
 
 -export([start_service/2,
@@ -147,7 +150,7 @@ start_service(SvcName, Opts)
 
 start_rc({ok = T, _Pid}) ->
     T;
-start_rc({error, _} = No) ->
+start_rc({error, _R} = No) ->
     No;
 start_rc(timeout) ->
     {error, application_not_started}.
@@ -905,6 +908,7 @@ init_app({application, Opts} = T) ->
     M = get_opt(call_mutates_state, Opts, false, [true]),
     A = get_opt(answer_errors, Opts, discard, [callback, report]),
     P = get_opt(request_errors, Opts, answer_3xxx, [answer, callback]),
+
     #diameter_app{alias = Alias,
                   dictionary = Dict,
                   id = cb(Dict, id),

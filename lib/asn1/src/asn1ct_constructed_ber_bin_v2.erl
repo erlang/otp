@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,11 +16,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 -module(asn1ct_constructed_ber_bin_v2).
+-moduledoc false.
 
 -export([gen_encode_sequence/3]).
 -export([gen_decode_sequence/3]).
@@ -170,9 +173,9 @@ enc_match_input(#gen{pack=record}, ValName, CompList) ->
 enc_match_input(#gen{pack=map}, ValName, CompList) ->
     Len = length(CompList),
     Vars = [lists:concat(["Cindex",N]) || N <- lists:seq(1, Len)],
-    Zipped = lists:zip(CompList, Vars),
     M = [[{asis,Name},":=",Var] ||
-            {#'ComponentType'{prop=mandatory,name=Name},Var} <- Zipped],
+            #'ComponentType'{prop=mandatory,name=Name} <- CompList &&
+                Var <- Vars],
     case M of
         [] ->
             ok;
@@ -180,7 +183,8 @@ enc_match_input(#gen{pack=map}, ValName, CompList) ->
             emit(["#{",lists:join(",", M),"} = ",ValName,com,nl])
     end,
     Os0 = [{Name,Var} ||
-              {#'ComponentType'{prop=Prop,name=Name},Var} <- Zipped,
+              #'ComponentType'{prop=Prop,name=Name} <- CompList &&
+                  Var <- Vars,
               Prop =/= mandatory],
     F = fun({Name,Var}) ->
                 [Var," = case ",ValName," of\n"
@@ -315,8 +319,8 @@ dec_external(#gen{pack=map}, _RecordName) ->
     Vars = asn1ct_name:all(term),
     Names = ['direct-reference','indirect-reference',
              'data-value-descriptor',encoding],
-    Zipped = lists:zip(Names, Vars),
-    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] || {N,V} <- Zipped]),
+    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] ||
+                                  N <- Names && V <- Vars]),
     emit(["OldFormat = #{",MapInit,"}",com,nl,
           "ASN11994Format =",nl,
           {call,ext,transform_to_EXTERNAL1994_maps,
@@ -1194,14 +1198,23 @@ gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand,DecObjInf)  ->
 			    Pdec;
 
 			_ ->
-			    emit(["[{",{asis,FirstTag},
-				  ",",{curr,v},"}|Temp",
-				  {curr,tlv},
-				  "] ->",nl]),
+                            DecTag =
+                                case asn1ct:get_gen_state_field(namelist) of
+                                    [{Cname,undecoded}|_] ->
+                                        emit(["[",{curr,v},"|Temp",{curr,tlv},"] ",
+                                              "when is_binary(",{curr,v},") ->",nl]),
+                                        Tag;
+                                    _ ->
+                                        emit(["[{",{asis,FirstTag},
+                                              ",",{curr,v},"}|Temp",
+                                              {curr,tlv},
+                                              "] ->",nl]),
+                                        RestTag
+                                end,
 			    emit([indent(4),"{"]),
 			    Pdec= 
 				gen_dec_call(InnerType,Erules,TopType,Cname,
-					     Type,BytesVar,RestTag,mandatory,
+					     Type,BytesVar,DecTag,mandatory,
 					     ", mandatory, ",DecObjInf,
 					     OptOrMand),
 			    
@@ -1358,10 +1371,9 @@ gen_dec_call1(WhatKind, _, TopType, Cname, Type, BytesVar, Tag) ->
 		    %% This is to prepare SEQUENCE OF value in
 		    %% partial incomplete decode for a later
 		    %% part-decode, i.e. skip %% the tag.
-		    asn1ct:add_generated_refed_func({[Cname|TopType],
-						     parts,
-						     [],Type}),
-		    emit(["{'",asn1ct_gen:list2name([Cname|TopType]),"',"]),
+                    Id = [parts,Cname|TopType],
+		    asn1ct:add_generated_refed_func({Id,parts,[],Type}),
+		    emit(["{'",asn1ct_gen:list2name(Id),"',"]),
 		    asn1ct_func:need({ber,match_tags,2}),
 		    EmitDecFunCall("match_tags"),
 		    emit("}");

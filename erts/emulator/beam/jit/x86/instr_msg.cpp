@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,55 +32,11 @@ extern "C"
 #endif
 }
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-
-static void recv_mark(Process *p) {
-    /* inlined here... */
-    erts_msgq_recv_marker_insert_bind(p, erts_old_recv_marker_id);
-}
-
-static void recv_mark_set(Process *p) {
-    /* inlined here... */
-    erts_msgq_recv_marker_set_save(p, erts_old_recv_marker_id);
-}
-
-void BeamModuleAssembler::emit_i_recv_mark() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * Save the current end of message queue
-     */
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark);
-
-    emit_leave_runtime();
-}
-
-void BeamModuleAssembler::emit_i_recv_set() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * If previously saved recv mark, set save pointer to it
-     */
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark_set);
-
-    emit_leave_runtime();
-}
-
-#endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
-
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(erts_msgq_recv_marker_insert);
+    runtime_call<Eterm (*)(Process *), erts_msgq_recv_marker_insert>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
@@ -93,7 +51,8 @@ void BeamModuleAssembler::emit_recv_marker_bind(const ArgRegister &Marker,
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_msgq_recv_marker_bind);
+    runtime_call<void (*)(Process *, Eterm, Eterm),
+                 erts_msgq_recv_marker_bind>();
 
     emit_leave_runtime();
 }
@@ -104,7 +63,7 @@ void BeamModuleAssembler::emit_recv_marker_clear(const ArgRegister &Reference) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_msgq_recv_marker_clear);
+    runtime_call<void (*)(Process *, Eterm), erts_msgq_recv_marker_clear>();
 
     emit_leave_runtime();
 }
@@ -115,7 +74,7 @@ void BeamModuleAssembler::emit_recv_marker_use(const ArgRegister &Reference) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_msgq_recv_marker_set_save);
+    runtime_call<void (*)(Process *, Eterm), erts_msgq_recv_marker_set_save>();
 
     emit_leave_runtime();
 }
@@ -171,7 +130,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         /* Want asserts in erts_msgq_peek_msg()... */
         emit_enter_runtime();
         a.mov(ARG1, c_p);
-        runtime_call<1>(erts_msgq_peek_msg);
+        runtime_call<ErtsMessage *(*)(Process *), erts_msgq_peek_msg>();
         emit_leave_runtime();
         a.mov(ARG1, RET);
 #else
@@ -187,14 +146,16 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
         a.mov(message_ptr, imm(0));
         a.mov(ARG1, c_p);
-        a.mov(ARG2, FCALLS);
+        a.mov(ARG2d, FCALLS);
         mov_imm(ARG3, 0);
         a.lea(ARG4, message_ptr);
         a.lea(ARG5, get_out);
 #ifdef ERTS_ENABLE_LOCK_CHECK
-        runtime_call<5>(erts_lc_proc_sig_receive_helper);
+        runtime_call<int (*)(Process *, int, int, ErtsMessage **, int *),
+                     erts_lc_proc_sig_receive_helper>();
 #else
-        runtime_call<5>(erts_proc_sig_receive_helper);
+        runtime_call<int (*)(Process *, int, int, ErtsMessage **, int *),
+                     erts_proc_sig_receive_helper>();
 #endif
 
         /* erts_proc_sig_receive_helper merely inspects FCALLS, so we don't
@@ -205,7 +166,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
          * index. */
         emit_leave_runtime<Update::eHeapAlloc | Update::eCodeIndex>();
 
-        a.sub(FCALLS, RET);
+        a.sub(FCALLS, RETd);
 
         /* Need to spill message_ptr to ARG1 as check_is_distributed uses it */
         a.mov(ARG1, message_ptr);
@@ -232,7 +193,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         /* We either ran out of reductions or received an exit signal; schedule
          * ourselves out. The yield address (`c_p->i`) was set on ingress. */
         a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), imm(~F_DELAY_GC));
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
+        a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), imm(0));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
 
         emit_unwind_frame();
@@ -253,7 +214,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
         a.mov(ARG2, ARG1);
         a.mov(ARG1, c_p);
-        runtime_call<2>(beam_jit_decode_dist);
+        runtime_call<ErtsMessage *(*)(Process *, ErtsMessage *),
+                     beam_jit_decode_dist>();
 
         emit_leave_runtime();
 
@@ -294,10 +256,11 @@ void BeamModuleAssembler::emit_remove_message() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    a.mov(ARG2, FCALLS);
+    a.mov(ARG2d, FCALLS);
     a.mov(ARG5, active_code_ix);
-    runtime_call<5>(beam_jit_remove_message);
-    a.mov(FCALLS, RET);
+    runtime_call<Sint32 (*)(Process *, Sint32, Eterm *, Eterm *, Uint32),
+                 beam_jit_remove_message>();
+    a.mov(FCALLS, RETd);
 
     emit_leave_runtime();
 }
@@ -306,7 +269,7 @@ void BeamModuleAssembler::emit_loop_rec_end(const ArgLabel &Dest) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(erts_msgq_set_save_next);
+    runtime_call<void (*)(Process *), erts_msgq_set_save_next>();
 
     emit_leave_runtime();
 
@@ -319,7 +282,7 @@ void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
 
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(resolve_beam_label(Dest)));
-    runtime_call<2>(beam_jit_wait_unlocked);
+    runtime_call<void (*)(Process *, ErtsCodePtr), beam_jit_wait_unlocked>();
 
     emit_leave_runtime();
 
@@ -331,7 +294,7 @@ void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
 
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(resolve_beam_label(Dest)));
-    runtime_call<2>(beam_jit_wait_locked);
+    runtime_call<void (*)(Process *, ErtsCodePtr), beam_jit_wait_locked>();
 
     emit_leave_runtime();
 
@@ -343,7 +306,7 @@ void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(beam_jit_take_receive_lock);
+    runtime_call<void (*)(Process *), beam_jit_take_receive_lock>();
 
     emit_leave_runtime();
 
@@ -360,7 +323,8 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
 
     a.mov(ARG1, c_p);
     a.lea(ARG3, x86::qword_ptr(next));
-    runtime_call<3>(beam_jit_wait_timeout);
+    runtime_call<enum beam_jit_tmo_ret (*)(Process *, Eterm, ErtsCodePtr),
+                 beam_jit_wait_timeout>();
 
     emit_leave_runtime();
 
@@ -386,7 +350,7 @@ void BeamModuleAssembler::emit_timeout_locked() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(beam_jit_timeout_locked);
+    runtime_call<void (*)(Process *), beam_jit_timeout_locked>();
 
     emit_leave_runtime();
 }
@@ -395,7 +359,7 @@ void BeamModuleAssembler::emit_timeout() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(beam_jit_timeout);
+    runtime_call<void (*)(Process *), beam_jit_timeout>();
 
     emit_leave_runtime();
 }

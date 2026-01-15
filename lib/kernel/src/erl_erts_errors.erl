@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 
 -module(erl_erts_errors).
+-moduledoc false.
 -export([format_error/2, format_bs_fail/2]).
 
 -spec format_error(Reason, StackTrace) -> ErrorMap when
@@ -376,9 +379,16 @@ format_erlang_error(element, [Index, Tuple], _) ->
      end,
      must_be_tuple(Tuple)];
 format_erlang_error(exit, [_,_], _) ->
-    [not_pid];
+    [bad_destination];
+format_erlang_error(exit, [_,_,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [[],[],must_be_list(Options, bad_option)];
+        _ ->
+            [bad_destination]
+    end;
 format_erlang_error(exit_signal, [_,_], _) ->
-    [not_pid];
+    [bad_destination];
 format_erlang_error(external_size, [_Term,Options], _) ->
     [[],must_be_option_list(Options)];
 format_erlang_error(float, [_], _) ->
@@ -467,10 +477,12 @@ format_erlang_error(is_function, [_,Arity], _) ->
          is_integer(Arity) -> range;
          true -> not_integer
      end];
+format_erlang_error(is_integer, [_,_,_], _) ->
+    [not_integer];
 format_erlang_error(is_map_key, [_,_], _) ->
     [[],not_map];
-format_erlang_error(is_process_alive, [_], _) ->
-    [not_pid];
+format_erlang_error(is_process_alive, [Arg], _) ->
+    [must_be_local_pid(Arg)];
 format_erlang_error(is_record, [_,_], _) ->
     [not_atom];
 format_erlang_error(is_record, [_,Tag,Size], _) ->
@@ -480,7 +492,19 @@ format_erlang_error(length, [_], _) ->
 format_erlang_error(link, [Pid], _) ->
     if
         is_pid(Pid) -> [dead_process];
-        true -> [not_pid]
+        is_port(Pid) -> [dead_port];
+        true -> [not_pid_or_port]
+    end;
+format_erlang_error(link, [Pid,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [[],must_be_list(Options, bad_option)];
+        _ ->
+            if
+                is_pid(Pid) -> [dead_process];
+                is_port(Pid) -> [dead_port];
+                true -> [not_pid_or_port]
+            end
     end;
 format_erlang_error(list_to_atom, [List], _) ->
     [must_be_list(List, not_string)];
@@ -683,9 +707,9 @@ format_erlang_error(open_port, [Name, Settings], Cause) ->
             must_be_tuple(Name)
     end;
 format_erlang_error(phash, [_,N], _) ->
-    [must_be_pos_int(N)];
+    [[], must_be_pos_int(N)];
 format_erlang_error(phash2, [_,N], _) ->
-    [must_be_pos_int(N)];
+    [[], must_be_pos_int(N)];
 format_erlang_error(posixtime_to_universaltime, [_], _) ->
     [not_integer];
 format_erlang_error(pid_to_list, [_], _) ->
@@ -732,6 +756,8 @@ format_erlang_error(process_display, [Pid,_], Cause) ->
         _ ->
             [must_be_local_pid(Pid, dead_process)]
     end;
+format_erlang_error(processes_next, [_], _Cause) ->
+    [~"invalid processes iterator"];
 format_erlang_error(process_flag, [_,_], Cause) ->
     case Cause of
         badopt ->
@@ -1501,6 +1527,8 @@ expand_error(beyond_end_time) ->
     <<"exceeds the maximum supported time value">>;
 expand_error(dead_process) ->
     <<"the pid does not refer to an existing process">>;
+expand_error(dead_port) ->
+    <<"the port identifier does not refer to an existing port">>;
 expand_error({not_encodable,Type}) ->
     [<<"not a textual representation of ">>,Type];
 expand_error(non_existing_atom) ->
@@ -1541,6 +1569,8 @@ expand_error(not_pid) ->
     <<"not a pid">>;
 expand_error(not_port) ->
     <<"not a port">>;
+expand_error(not_pid_or_port) ->
+    <<"not a pid or a port">>;
 expand_error(not_ref) ->
     <<"not a reference">>;
 expand_error(not_string) ->

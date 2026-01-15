@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ms_transform).
+-moduledoc({file, "../doc/src/ms_transform.md"}).
+
+-compile(nowarn_obsolete_bool_op).
+-compile(nowarn_deprecated_catch).
 
 -export([format_error/1,transform_from_shell/3,
          parse_transform/2,parse_transform_info/0]).
@@ -69,6 +75,10 @@
 %% Called by compiler or ets/dbg:fun2ms when errors/warnings occur
 %%
 
+-doc """
+Takes an error code returned by one of the other functions in the module and
+creates a textual description of the error.
+""".
 -spec(format_error(Error) -> Chars when
       Error :: {error, module(), term()},
       Chars :: io_lib:chars()).
@@ -190,6 +200,7 @@ format_error({?ERR_BODYMULTIFIELD,RName,FName}) ->
 format_error(Else) ->
     lists:flatten(io_lib:format("Unknown error code ~tw",[Else])).
 
+-doc false.
 -spec parse_transform_info() -> #{'error_location' => 'column'}.
 
 parse_transform_info() ->
@@ -199,6 +210,13 @@ parse_transform_info() ->
 %% Called when translating in shell
 %%
 
+-doc """
+Implements the transformation when the `fun2ms/1` functions are called from the
+shell. In this case, the abstract form is for one single fun (parsed by the
+Erlang shell). All imported variables are to be in the key-value list passed as
+`BoundEnvironment`. The result is a term, normalized, that is, not in abstract
+format.
+""".
 -spec transform_from_shell(Dialect, Clauses, BoundEnvironment) -> term() when
       Dialect :: ets | dbg,
       Clauses :: [erl_parse:abstract_clause()],
@@ -230,6 +248,17 @@ transform_from_shell(Dialect, Clauses, BoundEnvironment) ->
 %% Called when translating during compiling
 %%
 
+-doc """
+Implements the transformation at compile time. This function is called by the
+compiler to do the source code transformation if and when header file
+`ms_transform.hrl` is included in the source code.
+
+For information about how to use this parse transformation, see `m:ets` and
+`dbg:fun2ms/1`.
+
+For a description of match specifications, see section
+[Match Specification in Erlang](`e:erts:match_spec.md`) in ERTS User's Guide.
+""".
 -spec parse_transform(Forms, Options) -> Forms2 | Errors | Warnings when
       Forms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       Forms2 :: [erl_parse:abstract_form() | erl_parse:form_info()],

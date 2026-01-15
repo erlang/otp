@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -66,6 +68,7 @@ CT_MODULES= \
 	asn1ct_tok \
 	asn1ct_parser2 \
 	asn1ct_table \
+	asn1ct_partial_decode \
 	$(EVAL_CT_MODULES)
 
 RT_MODULES= \
@@ -197,34 +200,7 @@ $(EVAL_CT_MODULES:%=%.erl): prepare_templates.$(EMULATOR) \
 			    $(EBIN)/asn1ct_rtt.$(EMULATOR) \
 			    $(EBIN)/asn1ct_func.$(EMULATOR) \
 
-#
+# ----------------------------------------------------
 # Dependencies
-#
-
-$(EBIN)/asn1_app.beam: asn1_app.erl
-$(EBIN)/asn1_db.beam: asn1_db.erl
-$(EBIN)/asn1ct.beam: asn1ct.erl asn1_records.hrl
-$(EBIN)/asn1ct_check.beam: asn1ct_check.erl asn1_records.hrl
-$(EBIN)/asn1ct_constructed_ber_bin_v2.beam: asn1ct_constructed_ber_bin_v2.erl \
-  asn1_records.hrl
-$(EBIN)/asn1ct_constructed_per.beam: asn1ct_constructed_per.erl asn1_records.hrl
-$(EBIN)/asn1ct_func.beam: asn1ct_func.erl
-$(EBIN)/asn1ct_gen.beam: asn1ct_gen.erl asn1_records.hrl
-$(EBIN)/asn1ct_gen_ber_bin_v2.beam: asn1ct_gen_ber_bin_v2.erl asn1_records.hrl
-$(EBIN)/asn1ct_gen_check.beam: asn1_records.hrl
-$(EBIN)/asn1ct_gen_per.beam: asn1ct_gen_per.erl asn1_records.hrl
-$(EBIN)/asn1ct_gen_per_rt2ct.beam: asn1ct_gen_per_rt2ct.erl asn1_records.hrl
-$(EBIN)/asn1ct_imm.beam: asn1ct_imm.erl
-$(EBIN)/asn1ct_name.beam: asn1ct_name.erl
-$(EBIN)/asn1ct_parser2.beam: asn1ct_parser2.erl asn1_records.hrl
-$(EBIN)/asn1ct_pretty_format.beam: asn1ct_pretty_format.erl
-$(EBIN)/asn1ct_table.beam: asn1ct_table.erl
-$(EBIN)/asn1ct_tok.beam: asn1ct_tok.erl
-$(EBIN)/asn1ct_value.beam: asn1ct_value.erl asn1_records.hrl
-$(EBIN)/asn1rt.beam: asn1rt.erl
-$(EBIN)/asn1rt_ber_bin.beam: asn1rt_ber_bin.erl asn1_records.hrl
-$(EBIN)/asn1rt_ber_bin_v2.beam: asn1rt_ber_bin_v2.erl
-$(EBIN)/asn1rt_check.beam: asn1rt_check.erl
-$(EBIN)/asn1rt_nif.beam: asn1rt_nif.erl
-$(EBIN)/asn1rt_per_bin_rt2ct.beam: asn1rt_per_bin_rt2ct.erl asn1_records.hrl
-$(EBIN)/asn1rt_uper_bin.beam: asn1rt_uper_bin.erl asn1_records.hrl
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,8 @@
 %%% Purpose:Test Suite for the 'erl_pp' module.
 %%%-----------------------------------------------------------------
 -module(erl_pp_SUITE).
+
+-compile(nowarn_obsolete_bool_op).
 
 %%-define(debug, true).
 
@@ -1339,11 +1343,14 @@ otp_16435(_Config) ->
     CheckF("f() ->\n    << \n      (catch <<1:4>>) ||\n"
            "          A <- []\n    >>.\n"),
     CheckF("f() ->\n    [ \n     catch foo ||\n         A <- []\n    ].\n"),
-    CheckF("f() ->\n    1 = catch 1.\n"),
-    CheckF("f() ->\n    catch 1 = catch 1.\n"),
-    CheckF("f() ->\n    A = catch 1 / 0.\n"),
+    CheckF("f() ->\n    1 = (catch 1).\n"),
+    CheckF("f() ->\n    catch 1 = (catch 1).\n"),
+    CheckF("f() ->\n    A = (catch 1 / 0).\n"),
     CheckF("f() when erlang:float(3.0) ->\n    true.\n"),
     CheckF("f() ->\n    (catch 16)#{}.\n"),
+    CheckF("f() ->\n    (catch throw(false)) =/= true.\n"),
+    CheckF("f() ->\n    (catch throw(2)) + 1.\n"),
+    CheckF("f() ->\n    (catch throw(Pid)) ! stop.\n"),
 
     Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
     Check("5 #r4.f1"),

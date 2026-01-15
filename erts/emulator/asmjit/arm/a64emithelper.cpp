@@ -169,7 +169,7 @@ Error EmitHelper::emitArgMove(
 
   if (TypeUtils::isInt(dstTypeId)) {
     if (TypeUtils::isInt(srcTypeId)) {
-      uint32_t x = dstSize == 8;
+      uint32_t x = uint32_t(dstSize == 8);
 
       dst.setSignature(OperandSignature{x ? uint32_t(GpX::kSignature) : uint32_t(GpW::kSignature)});
       _emitter->setInlineComment(comment);
@@ -186,7 +186,7 @@ Error EmitHelper::emitArgMove(
           case TypeId::kInt16: instId = Inst::kIdLdrsh; break;
           case TypeId::kUInt16: instId = Inst::kIdLdrh; break;
           case TypeId::kInt32: instId = x ? Inst::kIdLdrsw : Inst::kIdLdr; break;
-          case TypeId::kUInt32: instId = Inst::kIdLdr; x = 0; break;
+          case TypeId::kUInt32: instId = Inst::kIdLdr; break;
           case TypeId::kInt64: instId = Inst::kIdLdr; break;
           case TypeId::kUInt64: instId = Inst::kIdLdr; break;
           default:
@@ -312,6 +312,12 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
     { Inst::kIdStr_v, Inst::kIdStp_v }
   }};
 
+  // Emit: 'bti' (indirect branch protection).
+  if (frame.hasIndirectBranchProtection()) {
+    // TODO: The instruction is not available at the moment (would be ABI break).
+    // ASMJIT_PROPAGATE(emitter->bti());
+  }
+
   uint32_t adjustInitialOffset = pei.sizeTotal;
 
   for (RegGroup group : Support::EnumValues<RegGroup, RegGroup::kGp, RegGroup::kVec>{}) {
@@ -339,7 +345,7 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
       else
         ASMJIT_PROPAGATE(emitter->emit(insts.pairInstId, regs[0], regs[1], mem));
 
-      mem.resetToFixedOffset();
+      mem.resetOffsetMode();
 
       if (i == 0 && frame.hasPreservedFP()) {
         ASMJIT_PROPAGATE(emitter->mov(x29, sp));
@@ -421,7 +427,7 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitEpilog(const FuncFrame& frame) {
       else
         ASMJIT_PROPAGATE(emitter->emit(insts.pairInstId, regs[0], regs[1], mem));
 
-      mem.resetToFixedOffset();
+      mem.resetOffsetMode();
     }
   }
 

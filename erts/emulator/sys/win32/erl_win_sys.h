@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2022. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -75,12 +77,6 @@
  * Various configuration options, used to be in the Makefile.
  */
 
-#define NO_ASINH
-#define NO_ACOSH
-#define NO_ATANH
-#define NO_ERF
-#define NO_ERFC
-
 #define NO_SYSCONF
 #define NO_DAEMON
 #define NO_PWD
@@ -138,6 +134,7 @@ time_t sys_mktime( struct tm *ptm);
 #define gmtime_r sys_gmtime_r
 #define HAVE_GMTIME_R
 #define mktime sys_mktime
+extern int sys_daylight;
 
 typedef struct {
     erts_time_t tv_sec;

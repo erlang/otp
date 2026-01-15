@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2012-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -184,13 +186,15 @@ Sint erts_cmp_compound(Eterm, Eterm, int, int);
 
 #define erts_float_comp(x,y) (((x)<(y)) ? -1 : (((x)==(y)) ? 0 : 1))
 
+ERTS_GLB_INLINE Uint64 erts_float_exact_sortable(const FloatDef *value);
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
     Atom *aa = atom_tab(atom_val(a));
     Atom *bb = atom_tab(atom_val(b));
 
-    byte *name_a, *name_b;
+    const byte *name_a, *name_b;
     int len_a, len_b, diff;
 
     diff = aa->ord0 - bb->ord0;
@@ -199,8 +203,8 @@ ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
         return diff;
     }
 
-    name_a = &aa->name[3];
-    name_b = &bb->name[3];
+    name_a = &erts_atom_get_name(aa)[3];
+    name_b = &erts_atom_get_name(bb)[3];
     len_a = aa->len-3;
     len_b = bb->len-3;
 
@@ -215,6 +219,22 @@ ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
     return len_a - len_b;
 }
 
+/* Provides a sortable integer from the raw bits of a floating-point number.
+ *
+ * When these are compared, they return the exact same result as a floating-
+ * point comparison of the inputs aside from the fact that -0.0 < +0.0, making
+ * it suitable for use in term equivalence operators and map key order. */
+ERTS_GLB_INLINE Uint64 erts_float_exact_sortable(const FloatDef *value) {
+    static const Uint64 sign_bit = ((Uint64)1) << 63;
+    Uint64 float_bits = value->fdw;
+
+    if (float_bits & sign_bit) {
+        return ~float_bits;
+    }
+
+    return float_bits ^ sign_bit;
+}
+
 ERTS_GLB_INLINE Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only) {
     if (is_atom(a) && is_atom(b)) {
         return erts_cmp_atoms(a, b);
@@ -226,7 +246,16 @@ ERTS_GLB_INLINE Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only) {
         GET_DOUBLE(a, af);
         GET_DOUBLE(b, bf);
 
-        return erts_float_comp(af.fd, bf.fd);
+        if (exact) {
+            Uint64 sortable_a, sortable_b;
+
+            sortable_a = erts_float_exact_sortable(&af);
+            sortable_b = erts_float_exact_sortable(&bf);
+
+            return erts_float_comp(sortable_a, sortable_b);
+        } else {
+            return erts_float_comp(af.fd, bf.fd);
+        }
     }
 
     return erts_cmp_compound(a,b,exact,eq_only);

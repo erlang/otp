@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,7 +73,7 @@ init_per_testcase(TestCase,Config) ->
 end_per_testcase(_Func,_Config) ->
     ok.
 
-%% ID Constranints. Very naive test of identity constraint
+%% ID Constraints. Very naive test of identity constraint
 'Sun-idc001.nogen'(Config) when is_list(Config) ->
   STResList0 = [],
 
@@ -88,7 +90,7 @@ end_per_testcase(_Func,_Config) ->
 
   xmerl_xsd_lib:compare_test_results(Config,STResList1,ITResList3).
 
-%% ID Constranints. Reference to an undeclared key
+%% ID Constraints. Reference to an undeclared key
 'Sun-idc002.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
@@ -98,7 +100,7 @@ end_per_testcase(_Func,_Config) ->
 
   xmerl_xsd_lib:compare_test_results(Config,STResList1,[]).
 
-%% ID Constranints. Reference to an undeclared key in an undeclared namespace
+%% ID Constraints. Reference to an undeclared key in an undeclared namespace
 'Sun-idc002b.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
@@ -108,7 +110,7 @@ end_per_testcase(_Func,_Config) ->
 
   xmerl_xsd_lib:compare_test_results(Config,STResList1,[]).
 
-%% ID Constranints. Reference to non-key constraint.
+%% ID Constraints. Reference to non-key constraint.
 'Sun-idc003.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
@@ -118,7 +120,7 @@ end_per_testcase(_Func,_Config) ->
 
   xmerl_xsd_lib:compare_test_results(Config,STResList1,[]).
 
-%% ID Constranints.
+%% ID Constraints.
 'Sun-idc004.nogen'(Config) when is_list(Config) ->
   STResList0 = [],
 

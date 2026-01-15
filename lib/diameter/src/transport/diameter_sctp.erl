@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,21 @@
 %%
 
 -module(diameter_sctp).
+-moduledoc """
+Diameter transport over SCTP.
+
+This module implements diameter transport over SCTP using `m:gen_sctp`. It can
+be specified as the value of a transport_module option to
+`diameter:add_transport/2` and implements the behaviour documented in
+`m:diameter_transport`.
+
+[](){: #start }
+
+## SEE ALSO
+
+`m:diameter`, `m:diameter_transport`, `m:gen_sctp`, `m:inet`
+""".
+-moduledoc(#{since => "OTP R14B03"}).
 -behaviour(gen_server).
 
 %% interface
@@ -145,6 +162,63 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
+-doc """
+The start function required by `m:diameter_transport`.
+
+Options `raddr` and `rport` specify the remote address and port for a connecting
+transport and not valid for a listening transport: the former is required while
+latter defaults to 3868 if unspecified. Multiple `raddr` options can be
+specified, in which case the connecting transport in question attempts each in
+sequence until an association is established.
+
+Option `accept` specifies remote addresses for a listening transport and is not
+valid for a connecting transport. If specified, a remote address that does not
+match one of the specified addresses causes the association to be aborted.
+Multiple `accept` options can be specified. A string-valued `Match` that does
+not parse as an address is interpreted as a regular expression.
+
+Option `unordered` specifies whether or not to use unordered delivery, integer
+`N` being equivalent to `N =< OS`, where `OS` is the number of outbound streams
+negotiated on the association in question. Regardless of configuration, sending
+is ordered on stream 0 until reception of a second incoming message, to ensure
+that a peer receives capabilities exchange messages before any other. Defaults
+to `false`.
+
+Option `packet` determines how/if an incoming message is packaged into a
+diameter_packet record. If `false` then messages are received as binary(). If
+`true` then as a record with the binary() message in the `bin` field and a
+`{stream, Id}` tuple in the `transport_data` field, where `Id` is the identifier
+of the inbound stream the message was received on. If `raw` then as a record
+with the received ancillary sctp_sndrcvinfo record in the `transport_data`
+field. Defaults to `true`.
+
+Options `message_cb` and `sender` have semantics identical to those documented
+in [diameter_tcp(3)](`m:diameter_tcp#sender`), but with the message argument to
+a `recv` callback being as directed by the `packet` option.
+
+An `{outstream, Id}` tuple in the `transport_data` field of a outgoing
+diameter_packet record sets the outbound stream on which the message is sent,
+modulo the negotiated number of outbound streams. Any other value causes
+successive such sends to cycle though all outbound streams.
+
+Remaining options are any accepted by `gen_sctp:open/1`, with the exception of
+options `mode`, `binary`, `list`, `active` and `sctp_events`. Note that options
+`ip` and `port` specify the local address and port respectively.
+
+Multiple `ip` options can be specified for a multihomed peer. If none are
+specified then the values of `Host-IP-Address` in the `diameter_service` record
+are used. Option `port` defaults to 3868 for a listening transport and 0 for a
+connecting transport.
+
+> #### Warning {: .warning }
+>
+> An small receive buffer may result in a peer having to resend incoming
+> messages: set the `m:inet` option `recbuf` to increase the buffer size.
+>
+> An small send buffer may result in outgoing messages being discarded: set the
+> `m:inet` option `sndbuf` to increase the buffer size.
+""".
+-doc(#{since => <<"OTP R14B03">>}).
 -spec start({accept, Ref}, #diameter_service{}, [listen_option()])
    -> {ok, pid(), [inet:ip_address()]}
  when Ref :: diameter:transport_ref();
@@ -152,14 +226,14 @@
    -> {ok, pid(), [inet:ip_address()]}
  when Ref :: diameter:transport_ref().
 
-start(T, Svc, Opts)
-  when is_list(Opts) ->
+start(TypeRef, Svc, Options)
+  when is_list(Options) ->
     #diameter_service{capabilities = Caps,
                       pid = Pid}
         = Svc,
     diameter_sctp_sup:start(),  %% start supervisors on demand
     Addrs = Caps#diameter_caps.host_ip_address,
-    s(T, Addrs, Pid, Opts).
+    s(TypeRef, Addrs, Pid, Options).
 
 %% A listener spawns transports either as a consequence of this call
 %% when there is not yet an association to assign it, or at comm_up on
@@ -185,6 +259,7 @@ s({connect = C, Ref}, Addrs, _SvcPid, Opts) ->
 
 %% start_link/1
 
+-doc false.
 start_link(T) ->
     proc_lib:start_link(?MODULE,
                         init,
@@ -196,6 +271,7 @@ start_link(T) ->
 %% # info/1
 %% ---------------------------------------------------------------------------
 
+-doc false.
 info({gen_sctp, Sock}) ->
     lists:flatmap(fun(K) -> info(K, Sock) end,
                   [{socket, socknames},
@@ -229,6 +305,7 @@ map(_, V) ->
 %% # init/1
 %% ---------------------------------------------------------------------------
 
+-doc false.
 init(T) ->
     gen_server:enter_loop(?MODULE, [], i(T)).
 
@@ -346,6 +423,7 @@ listener(Ref, T) ->
                        infinity,
                        infinity).
 
+-doc false.
 listener({Ref, T}) ->
     l(diameter_reg:match({?MODULE, listener, {Ref, '_'}}), Ref, T).
 
@@ -422,11 +500,13 @@ gen_opts(Opts) ->
 %% # ports/0-1
 %% ---------------------------------------------------------------------------
 
+-doc false.
 ports() ->
     Ts = diameter_reg:match({?MODULE, '_', '_'}),
     [{type(T), N, Pid} || {{?MODULE, T, {_, {_, S}}}, Pid} <- Ts,
                           {ok, N} <- [inet:port(S)]].
 
+-doc false.
 ports(Ref) ->
     Ts = diameter_reg:match({?MODULE, '_', {Ref, '_'}}),
     [{type(T), N, Pid} || {{?MODULE, T, {R, {_, S}}}, Pid} <- Ts,
@@ -442,6 +522,7 @@ type(T) ->
 %% # handle_call/3
 %% ---------------------------------------------------------------------------
 
+-doc false.
 handle_call({{accept, Ref}, Pid}, _, #listener{ref = Ref} = S) ->
     {TPid, NewS} = accept(Ref, Pid, S),
     {reply, {ok, TPid}, NewS};
@@ -457,6 +538,7 @@ handle_call(_, _, State) ->
 %% # handle_cast/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 handle_cast(_, State) ->
     {noreply, State}.
 
@@ -464,6 +546,7 @@ handle_cast(_, State) ->
 %% # handle_info/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 handle_info(T, #transport{} = S) ->
     {noreply, #transport{} = t(T,S)};
 
@@ -487,6 +570,7 @@ handle_info(T, #monitor{} = S) ->
 %% # code_change/3
 %% ---------------------------------------------------------------------------
 
+-doc false.
 code_change(_, State, _) ->
     {ok, State}.
 
@@ -494,6 +578,7 @@ code_change(_, State, _) ->
 %% # terminate/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 terminate(_, #monitor{}) ->
     ok;
 
@@ -995,7 +1080,7 @@ actions([Dir | As], _, S)
 actions([Msg | As], send = Dir, S)
   when is_record(Msg, diameter_packet);
        is_binary(Msg) ->
-    actions(As, Dir, send(Msg, S));
+    send(Msg, actions(As, Dir, S));
 
 actions([Msg | As], recv = Dir, #transport{parent = Pid} = S)
   when is_record(Msg, diameter_packet);

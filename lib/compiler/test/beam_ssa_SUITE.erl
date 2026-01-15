@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +20,6 @@
 %% %CopyrightEnd%
 %%
 -module(beam_ssa_SUITE).
--feature(maybe_expr, enable).
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -28,7 +29,7 @@
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
          coverage/1,normalize/1,
-         trycatch/1]).
+         trycatch/1,gh_6599/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -51,7 +52,8 @@ groups() ->
        redundant_br,
        coverage,
        normalize,
-       trycatch
+       trycatch,
+       gh_6599
       ]}].
 
 init_per_suite(Config) ->
@@ -75,6 +77,11 @@ calls(Config) ->
     {'EXIT',{badarg,_}} = (catch call_error()),
     {'EXIT',{badarg,_}} = (catch call_error(42)),
     5 = start_it([erlang,length,1,2,3,4,5]),
+
+    {_,ok} = cover_call(id(true)),
+    {_,ok} = cover_call(id(false)),
+    {'EXIT',{{case_clause,ok},_}} = catch cover_call(id(ok)),
+
     ok.
 
 fun_call(Fun, X0) ->
@@ -104,6 +111,16 @@ start_it([_|_]=MFA) ->
     case MFA of
 	[M,F|Args] -> M:F(Args)
     end.
+
+cover_call(A) ->
+    case A =/= ok of
+        B ->
+            {(term_to_binary(ok)),
+             case ok of
+                 _  when B -> ok
+             end}
+    end.
+
 
 tuple_matching(_Config) ->
     do_tuple_matching({tag,42}),
@@ -456,6 +473,10 @@ maps(_Config) ->
 
     [] = maps_3(),
 
+    {'EXIT',{{badmap,true},_}} = catch maps_4(id(true), id(true)),
+    error = maps_4(id(#{}), id(true)),
+    error = maps_4(id(#{}), id(#{})),
+
     ok.
 
 maps_1(K) ->
@@ -536,6 +557,16 @@ maps_3() ->
              _ ->
                  []
          end -- [].
+
+maps_4(A, B = A) when B; A ->
+    A#{ok := ok},
+    try A of
+        B -> B
+    after
+        ok
+    end#{ok := ok};
+maps_4(_, _) ->
+    error.
 
 -record(wx_ref, {type=any_type,ref=any_ref}).
 
@@ -910,6 +941,11 @@ grab_bag(_Config) ->
 
     false = grab_bag_22(),
 
+    {reply,{ok,foo_bar},#{page_title := foo_bar}} =
+        grab_bag_23(id(#{page_title => unset})),
+
+    ok = grab_bag_24(),
+
     ok.
 
 grab_bag_1() ->
@@ -1198,6 +1234,39 @@ grab_bag_22() ->
         bar ?= id(42)
     end.
 
+%% GH-8296: When the cse pass in beam_ssa_opt was changed to
+%% eliminate unreachable phi nodes, it failed to fix up phi nodes
+%% that reference eliminated blocks.
+grab_bag_23(#{page_title := unset} = State1) ->
+    State2 = State1#{page_title := foo_bar},
+    {reply,
+     {ok,
+      case State2 of
+          #{page_title := Val} -> Val;
+          _ -> lists:flatten([State2])
+      end},
+     State2}.
+
+
+-record(test, {a,b,c}).
+-record(test_a, {a}).
+
+%% GH-8818: The CSE pass in beam_ssa_opt failed to intersect candidates on
+%% the failure path, crashing the type optimization pass.
+grab_bag_24() ->
+    {'EXIT', _} = catch do_grab_bag_24(id(0), id(0), id(0), id(0)),
+    ok.
+
+do_grab_bag_24(A, B, C, D) ->
+    A#test.a,
+    {E, F} = ext:ernal(D#test_a.a),
+    if
+        D#test_a.a == 0 andalso (B < E * A#test.a) orelse (B > F * A#test.a) ->
+            false;
+        (C =:= A#test.b) orelse (C =:= A#test.a) ->
+            true
+    end.
+
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
     {true,[[a,b,c]]} = redundant_br_1(id([[[a,b,c]]])),
@@ -1406,6 +1475,88 @@ trycatch_3(A) ->
     after
         ok
     end.
+
+%% GH-6599. beam_validator would not realize that the code was safe.
+gh_6599(_Config) ->
+    ok = gh_6599_1(id(42), id(42)),
+    #{ok := ok} = gh_6599_1(id(#{ok => 0}), id(#{ok => 0})),
+
+    {'EXIT',{{try_clause,#{ok:=ok}},_}} =
+        catch gh_6599_2(id(whatever), id(#{0 => whatever})),
+
+    ok = gh_6599_3(id(true), id(true)),
+    {'EXIT',{function_clause,_}} = catch gh_6599_3(id(false), id(false)),
+    0.0 = gh_6599_3(id(0.0), id(0.0)),
+
+    {'EXIT',{{badmatch,true},_}} = catch gh_6599_4(id(false)),
+
+    {'EXIT',{{badmatch,ok},_}} = catch gh_6599_5(id([a]), id(#{0 => [a]}), id([a])),
+
+    #{ok := ok} = gh_6599_6(id(#{}), id(#{})),
+    {'EXIT',{{badmap,a},_}} = catch gh_6599_6(id(a), id(a)),
+
+    {'EXIT',{{badarg,ok},_}} = catch gh_6599_7(id([a]), id([a])),
+
+    ok.
+
+gh_6599_1(X, X) when is_integer(X) ->
+    ok;
+gh_6599_1(Y, Y = #{}) ->
+    Y#{ok := ok}.
+
+gh_6599_2(X, #{0 := X, 0 := Y}) ->
+    try #{ok => ok} of
+        Y ->
+            bnot (Y = X)
+    after
+        ok
+    end.
+
+gh_6599_3(X, X) when X ->
+    ok;
+gh_6599_3(X, X = 0.0) ->
+    X + X.
+
+gh_6599_4(X) ->
+    Y =
+        try
+            false = X
+        catch
+            _ ->
+                ok
+        end /= ok,
+    X = Y,
+    false = Y,
+    0 = ok.
+
+%% Crashes in beam_ssa_type because a type assertion fails.
+gh_6599_5(X, #{0 := X, 0 := Y}, Y=[_ | _]) ->
+    try
+        Y = ok
+    catch
+        _ ->
+            [_ | []] = Y = X
+    end.
+
+gh_6599_6(A, B = A) ->
+    A#{},
+    case A of B -> B end#{ok => ok}.
+
+gh_6599_7(X, Y) ->
+    try Y of
+        X ->
+            (id(
+                try ([_ | _] = Y) of
+                    X ->
+                        ok
+                after
+                    ok
+                end
+            ) orelse X) bsl 0
+    after
+        ok
+    end.
+
 
 %% The identity function.
 id(I) -> I.

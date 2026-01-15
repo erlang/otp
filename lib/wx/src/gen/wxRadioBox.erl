@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,81 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxRadioBox).
+-moduledoc """
+A radio box item is used to select one of number of mutually exclusive choices.
+
+It is displayed as a vertical column or horizontal row of labelled buttons.
+
+## Styles
+
+This class supports the following styles:
+
+* wxRA_SPECIFY_ROWS: The major dimension parameter refers to the maximum number of rows.
+
+* wxRA_SPECIFY_COLS: The major dimension parameter refers to the maximum number of columns.
+
+See:
+* [Overview events](https://docs.wxwidgets.org/3.2/overview_events.html#overview_events)
+
+* `m:wxRadioButton`
+
+* `m:wxCheckBox`
+
+This class is derived, and can use functions, from:
+
+* `m:wxControl`
+
+* `m:wxWindow`
+
+* `m:wxEvtHandler`
+
+wxWidgets docs: [wxRadioBox](https://docs.wxwidgets.org/3.2/classwx_radio_box.html)
+
+## Events
+
+Event types emitted from this class:
+
+* [`command_radiobox_selected`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/7,create/8,destroy/1,enable/1,enable/2,enable/3,getColumnCount/1,
   getItemFromPoint/2,getItemHelpText/2,getItemToolTip/2,getRowCount/1,
@@ -65,13 +138,13 @@
 
 -type wxRadioBox() :: wx:wx_object().
 -export_type([wxRadioBox/0]).
-%% @hidden
+-doc false.
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @equiv new(Parent,Id,Label,Pos,Size,Choices, [])
+-doc(#{equiv => new(Parent,Id,Label,Pos,Size,Choices, [])}).
 -spec new(Parent, Id, Label, Pos, Size, Choices) -> wxRadioBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
@@ -79,7 +152,11 @@ new(Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   new(Parent,Id,Label,Pos,Size,Choices, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxwxradiobox">external documentation</a>.
+-doc """
+Constructor, creating and showing a radiobox.
+
+See: `create/8`
+""".
 -spec new(Parent, Id, Label, Pos, Size, Choices, [Option]) -> wxRadioBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {'majorDim', integer()}
@@ -99,7 +176,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size
   wxe_util:queue_cmd(Parent,Id,Label_UC,Pos,Size,Choices_UCA, Opts,?get_env(),?wxRadioBox_new),
   wxe_util:rec(?wxRadioBox_new).
 
-%% @equiv create(This,Parent,Id,Label,Pos,Size,Choices, [])
+-doc(#{equiv => create(This,Parent,Id,Label,Pos,Size,Choices, [])}).
 -spec create(This, Parent, Id, Label, Pos, Size, Choices) -> boolean() when
 	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
@@ -107,7 +184,11 @@ create(This,Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Label),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Label,Pos,Size,Choices, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxcreate">external documentation</a>.
+-doc """
+Creates the radiobox for two-step construction.
+
+See `new/7` for further details.
+""".
 -spec create(This, Parent, Id, Label, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {'majorDim', integer()}
@@ -128,7 +209,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label,{PosX,PosY
   wxe_util:queue_cmd(This,Parent,Id,Label_UC,Pos,Size,Choices_UCA, Opts,?get_env(),?wxRadioBox_Create),
   wxe_util:rec(?wxRadioBox_Create).
 
-%% @equiv enable(This, [])
+-doc(#{equiv => enable(This, [])}).
 -spec enable(This) -> boolean() when
 	This::wxRadioBox().
 
@@ -136,12 +217,11 @@ enable(This)
  when is_record(This, wx_ref) ->
   enable(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxenable">external documentation</a>.
-%% <br /> Also:<br />
-%% enable(This, [Option]) -> boolean() when<br />
-%% 	This::wxRadioBox(),<br />
-%% 	Option :: {'enable', boolean()}.<br />
-%% 
+-doc """
+Enables or disables the radiobox.
+
+See: `wxWindow:enable/2`
+""".
 -spec enable(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer();
       (This, [Option]) -> boolean() when
@@ -160,7 +240,11 @@ enable(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxRadioBox_Enable_1),
   wxe_util:rec(?wxRadioBox_Enable_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxenable">external documentation</a>.
+-doc """
+Enables or disables an individual button in the radiobox.
+
+See: `wxWindow:enable/2`
+""".
 -spec enable(This, N, [Option]) -> boolean() when
 	This::wxRadioBox(), N::integer(),
 	Option :: {'enable', boolean()}.
@@ -173,7 +257,19 @@ enable(#wx_ref{type=ThisT}=This,N, Options)
   wxe_util:queue_cmd(This,N, Opts,?get_env(),?wxRadioBox_Enable_2),
   wxe_util:rec(?wxRadioBox_Enable_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetselection">external documentation</a>.
+-doc """
+Returns the index of the selected item or `wxNOT\_FOUND` if no item is selected.
+
+Return: The position of the current selection.
+
+Remark: This method can be used with single selection list boxes only, you should use `wxListBox:getSelections/1`
+for the list boxes with wxLB_MULTIPLE style.
+
+See:
+* `setSelection/2`
+
+* `wxControlWithItems:getStringSelection/1`
+""".
 -spec getSelection(This) -> integer() when
 	This::wxRadioBox().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -181,7 +277,11 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxRadioBox_GetSelection),
   wxe_util:rec(?wxRadioBox_GetSelection).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetstring">external documentation</a>.
+-doc """
+Returns the label of the item with the given index.
+
+Return: The label of the item or an empty string if the position was invalid.
+""".
 -spec getString(This, N) -> unicode:charlist() when
 	This::wxRadioBox(), N::integer().
 getString(#wx_ref{type=ThisT}=This,N)
@@ -190,7 +290,12 @@ getString(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxRadioBox_GetString),
   wxe_util:rec(?wxRadioBox_GetString).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetselection">external documentation</a>.
+-doc """
+Sets the selection to the given item.
+
+Notice that a radio box always has selection, so `n` must be valid here and passing `wxNOT_FOUND`
+is not allowed.
+""".
 -spec setSelection(This, N) -> 'ok' when
 	This::wxRadioBox(), N::integer().
 setSelection(#wx_ref{type=ThisT}=This,N)
@@ -198,7 +303,7 @@ setSelection(#wx_ref{type=ThisT}=This,N)
   ?CLASS(ThisT,wxRadioBox),
   wxe_util:queue_cmd(This,N,?get_env(),?wxRadioBox_SetSelection).
 
-%% @equiv show(This,Item, [])
+-doc(#{equiv => show(This,Item, [])}).
 -spec show(This, Item) -> boolean() when
 	This::wxRadioBox(), Item::integer().
 
@@ -206,7 +311,14 @@ show(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
   show(This,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxshow">external documentation</a>.
+-doc """
+Shows or hides individual buttons.
+
+Return: true if the item has been shown or hidden or false if nothing was done because it
+already was in the requested state.
+
+See: `show/3`
+""".
 -spec show(This, Item, [Option]) -> boolean() when
 	This::wxRadioBox(), Item::integer(),
 	Option :: {'show', boolean()}.
@@ -219,7 +331,7 @@ show(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:queue_cmd(This,Item, Opts,?get_env(),?wxRadioBox_Show),
   wxe_util:rec(?wxRadioBox_Show).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetcolumncount">external documentation</a>.
+-doc "Returns the number of columns in the radiobox.".
 -spec getColumnCount(This) -> integer() when
 	This::wxRadioBox().
 getColumnCount(#wx_ref{type=ThisT}=This) ->
@@ -227,7 +339,11 @@ getColumnCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxRadioBox_GetColumnCount),
   wxe_util:rec(?wxRadioBox_GetColumnCount).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetitemhelptext">external documentation</a>.
+-doc """
+Returns the helptext associated with the specified `item` if any or `wxEmptyString`.
+
+See: `setItemHelpText/3`
+""".
 -spec getItemHelpText(This, Item) -> unicode:charlist() when
 	This::wxRadioBox(), Item::integer().
 getItemHelpText(#wx_ref{type=ThisT}=This,Item)
@@ -236,7 +352,14 @@ getItemHelpText(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxRadioBox_GetItemHelpText),
   wxe_util:rec(?wxRadioBox_GetItemHelpText).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetitemtooltip">external documentation</a>.
+-doc """
+Returns the tooltip associated with the specified `item` if any or NULL.
+
+See:
+* `setItemToolTip/3`
+
+* `wxWindow:getToolTip/1`
+""".
 -spec getItemToolTip(This, Item) -> wxToolTip:wxToolTip() when
 	This::wxRadioBox(), Item::integer().
 getItemToolTip(#wx_ref{type=ThisT}=This,Item)
@@ -245,7 +368,10 @@ getItemToolTip(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxRadioBox_GetItemToolTip),
   wxe_util:rec(?wxRadioBox_GetItemToolTip).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetitemfrompoint">external documentation</a>.
+-doc """
+Returns a radio box item under the point, a zero-based item index, or `wxNOT\_FOUND` if
+no item is under the point.
+""".
 -spec getItemFromPoint(This, Pt) -> integer() when
 	This::wxRadioBox(), Pt::{X::integer(), Y::integer()}.
 getItemFromPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
@@ -254,7 +380,7 @@ getItemFromPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxRadioBox_GetItemFromPoint),
   wxe_util:rec(?wxRadioBox_GetItemFromPoint).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetrowcount">external documentation</a>.
+-doc "Returns the number of rows in the radiobox.".
 -spec getRowCount(This) -> integer() when
 	This::wxRadioBox().
 getRowCount(#wx_ref{type=ThisT}=This) ->
@@ -262,7 +388,12 @@ getRowCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxRadioBox_GetRowCount),
   wxe_util:rec(?wxRadioBox_GetRowCount).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxisitemenabled">external documentation</a>.
+-doc """
+Returns true if the item is enabled or false if it was disabled using `enable/3`.
+
+This function is currently only implemented in wxMSW, wxGTK, wxQT and wxUniversal and
+always returns true in the other ports.
+""".
 -spec isItemEnabled(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer().
 isItemEnabled(#wx_ref{type=ThisT}=This,N)
@@ -271,7 +402,15 @@ isItemEnabled(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxRadioBox_IsItemEnabled),
   wxe_util:rec(?wxRadioBox_IsItemEnabled).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxisitemshown">external documentation</a>.
+-doc """
+Returns true if the item is currently shown or false if it was hidden using `show/3`.
+
+Note that this function returns true for an item which hadn't been hidden even if the
+entire radiobox is not currently shown.
+
+This function is currently only implemented in wxMSW, wxGTK, wxQT and wxUniversal and
+always returns true in the other ports.
+""".
 -spec isItemShown(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer().
 isItemShown(#wx_ref{type=ThisT}=This,N)
@@ -280,7 +419,13 @@ isItemShown(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxRadioBox_IsItemShown),
   wxe_util:rec(?wxRadioBox_IsItemShown).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetitemhelptext">external documentation</a>.
+-doc """
+Sets the helptext for an item.
+
+Empty string erases any existing helptext.
+
+See: `getItemHelpText/2`
+""".
 -spec setItemHelpText(This, Item, Helptext) -> 'ok' when
 	This::wxRadioBox(), Item::integer(), Helptext::unicode:chardata().
 setItemHelpText(#wx_ref{type=ThisT}=This,Item,Helptext)
@@ -289,7 +434,17 @@ setItemHelpText(#wx_ref{type=ThisT}=This,Item,Helptext)
   Helptext_UC = unicode:characters_to_binary(Helptext),
   wxe_util:queue_cmd(This,Item,Helptext_UC,?get_env(),?wxRadioBox_SetItemHelpText).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetitemtooltip">external documentation</a>.
+-doc """
+Sets the tooltip text for the specified item in the radio group.
+
+This function is currently only implemented in wxMSW and wxGTK2 and does nothing in the
+other ports.
+
+See:
+* `getItemToolTip/2`
+
+* `wxWindow:setToolTip/2`
+""".
 -spec setItemToolTip(This, Item, Text) -> 'ok' when
 	This::wxRadioBox(), Item::integer(), Text::unicode:chardata().
 setItemToolTip(#wx_ref{type=ThisT}=This,Item,Text)
@@ -298,370 +453,370 @@ setItemToolTip(#wx_ref{type=ThisT}=This,Item,Text)
   Text_UC = unicode:characters_to_binary(Text),
   wxe_util:queue_cmd(This,Item,Text_UC,?get_env(),?wxRadioBox_SetItemToolTip).
 
-%% @doc Destroys this object, do not use object again
+-doc "Destroys the object".
 -spec destroy(This::wxRadioBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxRadioBox),
   wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxControl
-%% @hidden
+-doc false.
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
-%% @hidden
+-doc false.
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
-%% @hidden
+-doc false.
 getDPI(This) -> wxWindow:getDPI(This).
-%% @hidden
+-doc false.
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
-%% @hidden
+-doc false.
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
-%% @hidden
+-doc false.
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
-%% @hidden
+-doc false.
 canSetTransparent(This) -> wxWindow:canSetTransparent(This).
-%% @hidden
+-doc false.
 setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
-%% @hidden
+-doc false.
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
-%% @hidden
+-doc false.
 validate(This) -> wxWindow:validate(This).
-%% @hidden
+-doc false.
 updateWindowUI(This, Options) -> wxWindow:updateWindowUI(This, Options).
-%% @hidden
+-doc false.
 updateWindowUI(This) -> wxWindow:updateWindowUI(This).
-%% @hidden
+-doc false.
 update(This) -> wxWindow:update(This).
-%% @hidden
+-doc false.
 transferDataToWindow(This) -> wxWindow:transferDataToWindow(This).
-%% @hidden
+-doc false.
 transferDataFromWindow(This) -> wxWindow:transferDataFromWindow(This).
-%% @hidden
+-doc false.
 thaw(This) -> wxWindow:thaw(This).
-%% @hidden
+-doc false.
 shouldInheritColours(This) -> wxWindow:shouldInheritColours(This).
-%% @hidden
+-doc false.
 setWindowVariant(This,Variant) -> wxWindow:setWindowVariant(This,Variant).
-%% @hidden
+-doc false.
 setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
-%% @hidden
+-doc false.
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
-%% @hidden
+-doc false.
 setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
-%% @hidden
+-doc false.
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
-%% @hidden
+-doc false.
 setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
-%% @hidden
+-doc false.
 setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
-%% @hidden
+-doc false.
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
-%% @hidden
+-doc false.
 setSizerAndFit(This,Sizer) -> wxWindow:setSizerAndFit(This,Sizer).
-%% @hidden
+-doc false.
 setSizer(This,Sizer, Options) -> wxWindow:setSizer(This,Sizer, Options).
-%% @hidden
+-doc false.
 setSizer(This,Sizer) -> wxWindow:setSizer(This,Sizer).
-%% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH, Options) -> wxWindow:setSizeHints(This,MinW,MinH, Options).
-%% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH) -> wxWindow:setSizeHints(This,MinW,MinH).
-%% @hidden
+-doc false.
 setSizeHints(This,MinSize) -> wxWindow:setSizeHints(This,MinSize).
-%% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height, Options) -> wxWindow:setSize(This,X,Y,Width,Height, Options).
-%% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height) -> wxWindow:setSize(This,X,Y,Width,Height).
-%% @hidden
+-doc false.
 setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
-%% @hidden
+-doc false.
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
-%% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
-%% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
-%% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
-%% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
-%% @hidden
+-doc false.
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
-%% @hidden
+-doc false.
 setName(This,Name) -> wxWindow:setName(This,Name).
-%% @hidden
+-doc false.
 setId(This,Winid) -> wxWindow:setId(This,Winid).
-%% @hidden
+-doc false.
 setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
-%% @hidden
+-doc false.
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
-%% @hidden
+-doc false.
 setFont(This,Font) -> wxWindow:setFont(This,Font).
-%% @hidden
+-doc false.
 setFocusFromKbd(This) -> wxWindow:setFocusFromKbd(This).
-%% @hidden
+-doc false.
 setFocus(This) -> wxWindow:setFocus(This).
-%% @hidden
+-doc false.
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
-%% @hidden
+-doc false.
 setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
-%% @hidden
+-doc false.
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
-%% @hidden
+-doc false.
 setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
-%% @hidden
+-doc false.
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
-%% @hidden
+-doc false.
 setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
-%% @hidden
+-doc false.
 setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
-%% @hidden
+-doc false.
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
-%% @hidden
+-doc false.
 setContainingSizer(This,Sizer) -> wxWindow:setContainingSizer(This,Sizer).
-%% @hidden
+-doc false.
 setClientSize(This,Width,Height) -> wxWindow:setClientSize(This,Width,Height).
-%% @hidden
+-doc false.
 setClientSize(This,Size) -> wxWindow:setClientSize(This,Size).
-%% @hidden
+-doc false.
 setCaret(This,Caret) -> wxWindow:setCaret(This,Caret).
-%% @hidden
+-doc false.
 setBackgroundStyle(This,Style) -> wxWindow:setBackgroundStyle(This,Style).
-%% @hidden
+-doc false.
 setBackgroundColour(This,Colour) -> wxWindow:setBackgroundColour(This,Colour).
-%% @hidden
+-doc false.
 setAutoLayout(This,AutoLayout) -> wxWindow:setAutoLayout(This,AutoLayout).
-%% @hidden
+-doc false.
 setAcceleratorTable(This,Accel) -> wxWindow:setAcceleratorTable(This,Accel).
-%% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy, Options) -> wxWindow:scrollWindow(This,Dx,Dy, Options).
-%% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy) -> wxWindow:scrollWindow(This,Dx,Dy).
-%% @hidden
+-doc false.
 scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
-%% @hidden
+-doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
-%% @hidden
+-doc false.
 screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
-%% @hidden
+-doc false.
 screenToClient(This) -> wxWindow:screenToClient(This).
-%% @hidden
+-doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
-%% @hidden
+-doc false.
 removeChild(This,Child) -> wxWindow:removeChild(This,Child).
-%% @hidden
+-doc false.
 releaseMouse(This) -> wxWindow:releaseMouse(This).
-%% @hidden
+-doc false.
 refreshRect(This,Rect, Options) -> wxWindow:refreshRect(This,Rect, Options).
-%% @hidden
+-doc false.
 refreshRect(This,Rect) -> wxWindow:refreshRect(This,Rect).
-%% @hidden
+-doc false.
 refresh(This, Options) -> wxWindow:refresh(This, Options).
-%% @hidden
+-doc false.
 refresh(This) -> wxWindow:refresh(This).
-%% @hidden
+-doc false.
 raise(This) -> wxWindow:raise(This).
-%% @hidden
+-doc false.
 popupMenu(This,Menu,X,Y) -> wxWindow:popupMenu(This,Menu,X,Y).
-%% @hidden
+-doc false.
 popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
-%% @hidden
+-doc false.
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
-%% @hidden
+-doc false.
 pageUp(This) -> wxWindow:pageUp(This).
-%% @hidden
+-doc false.
 pageDown(This) -> wxWindow:pageDown(This).
-%% @hidden
+-doc false.
 navigate(This, Options) -> wxWindow:navigate(This, Options).
-%% @hidden
+-doc false.
 navigate(This) -> wxWindow:navigate(This).
-%% @hidden
+-doc false.
 moveBeforeInTabOrder(This,Win) -> wxWindow:moveBeforeInTabOrder(This,Win).
-%% @hidden
+-doc false.
 moveAfterInTabOrder(This,Win) -> wxWindow:moveAfterInTabOrder(This,Win).
-%% @hidden
+-doc false.
 move(This,X,Y, Options) -> wxWindow:move(This,X,Y, Options).
-%% @hidden
+-doc false.
 move(This,X,Y) -> wxWindow:move(This,X,Y).
-%% @hidden
+-doc false.
 move(This,Pt) -> wxWindow:move(This,Pt).
-%% @hidden
+-doc false.
 lower(This) -> wxWindow:lower(This).
-%% @hidden
+-doc false.
 lineUp(This) -> wxWindow:lineUp(This).
-%% @hidden
+-doc false.
 lineDown(This) -> wxWindow:lineDown(This).
-%% @hidden
+-doc false.
 layout(This) -> wxWindow:layout(This).
-%% @hidden
+-doc false.
 isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
-%% @hidden
+-doc false.
 isTopLevel(This) -> wxWindow:isTopLevel(This).
-%% @hidden
+-doc false.
 isShown(This) -> wxWindow:isShown(This).
-%% @hidden
+-doc false.
 isRetained(This) -> wxWindow:isRetained(This).
-%% @hidden
+-doc false.
 isExposed(This,X,Y,W,H) -> wxWindow:isExposed(This,X,Y,W,H).
-%% @hidden
+-doc false.
 isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
-%% @hidden
+-doc false.
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
-%% @hidden
+-doc false.
 isEnabled(This) -> wxWindow:isEnabled(This).
-%% @hidden
+-doc false.
 isFrozen(This) -> wxWindow:isFrozen(This).
-%% @hidden
+-doc false.
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
-%% @hidden
+-doc false.
 initDialog(This) -> wxWindow:initDialog(This).
-%% @hidden
+-doc false.
 inheritAttributes(This) -> wxWindow:inheritAttributes(This).
-%% @hidden
+-doc false.
 hide(This) -> wxWindow:hide(This).
-%% @hidden
+-doc false.
 hasTransparentBackground(This) -> wxWindow:hasTransparentBackground(This).
-%% @hidden
+-doc false.
 hasScrollbar(This,Orient) -> wxWindow:hasScrollbar(This,Orient).
-%% @hidden
+-doc false.
 hasCapture(This) -> wxWindow:hasCapture(This).
-%% @hidden
+-doc false.
 getWindowVariant(This) -> wxWindow:getWindowVariant(This).
-%% @hidden
+-doc false.
 getWindowStyleFlag(This) -> wxWindow:getWindowStyleFlag(This).
-%% @hidden
+-doc false.
 getVirtualSize(This) -> wxWindow:getVirtualSize(This).
-%% @hidden
+-doc false.
 getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
-%% @hidden
+-doc false.
 getToolTip(This) -> wxWindow:getToolTip(This).
-%% @hidden
+-doc false.
 getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
-%% @hidden
+-doc false.
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
-%% @hidden
+-doc false.
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
-%% @hidden
+-doc false.
 getSizer(This) -> wxWindow:getSizer(This).
-%% @hidden
+-doc false.
 getSize(This) -> wxWindow:getSize(This).
-%% @hidden
+-doc false.
 getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
-%% @hidden
+-doc false.
 getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
-%% @hidden
+-doc false.
 getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
-%% @hidden
+-doc false.
 getScreenRect(This) -> wxWindow:getScreenRect(This).
-%% @hidden
+-doc false.
 getScreenPosition(This) -> wxWindow:getScreenPosition(This).
-%% @hidden
+-doc false.
 getRect(This) -> wxWindow:getRect(This).
-%% @hidden
+-doc false.
 getPosition(This) -> wxWindow:getPosition(This).
-%% @hidden
+-doc false.
 getParent(This) -> wxWindow:getParent(This).
-%% @hidden
+-doc false.
 getName(This) -> wxWindow:getName(This).
-%% @hidden
+-doc false.
 getMinSize(This) -> wxWindow:getMinSize(This).
-%% @hidden
+-doc false.
 getMaxSize(This) -> wxWindow:getMaxSize(This).
-%% @hidden
+-doc false.
 getId(This) -> wxWindow:getId(This).
-%% @hidden
+-doc false.
 getHelpText(This) -> wxWindow:getHelpText(This).
-%% @hidden
+-doc false.
 getHandle(This) -> wxWindow:getHandle(This).
-%% @hidden
+-doc false.
 getGrandParent(This) -> wxWindow:getGrandParent(This).
-%% @hidden
+-doc false.
 getForegroundColour(This) -> wxWindow:getForegroundColour(This).
-%% @hidden
+-doc false.
 getFont(This) -> wxWindow:getFont(This).
-%% @hidden
+-doc false.
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
-%% @hidden
+-doc false.
 getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
-%% @hidden
+-doc false.
 getDropTarget(This) -> wxWindow:getDropTarget(This).
-%% @hidden
+-doc false.
 getCursor(This) -> wxWindow:getCursor(This).
-%% @hidden
+-doc false.
 getContainingSizer(This) -> wxWindow:getContainingSizer(This).
-%% @hidden
+-doc false.
 getClientSize(This) -> wxWindow:getClientSize(This).
-%% @hidden
+-doc false.
 getChildren(This) -> wxWindow:getChildren(This).
-%% @hidden
+-doc false.
 getCharWidth(This) -> wxWindow:getCharWidth(This).
-%% @hidden
+-doc false.
 getCharHeight(This) -> wxWindow:getCharHeight(This).
-%% @hidden
+-doc false.
 getCaret(This) -> wxWindow:getCaret(This).
-%% @hidden
+-doc false.
 getBestSize(This) -> wxWindow:getBestSize(This).
-%% @hidden
+-doc false.
 getBackgroundStyle(This) -> wxWindow:getBackgroundStyle(This).
-%% @hidden
+-doc false.
 getBackgroundColour(This) -> wxWindow:getBackgroundColour(This).
-%% @hidden
+-doc false.
 getAcceleratorTable(This) -> wxWindow:getAcceleratorTable(This).
-%% @hidden
+-doc false.
 freeze(This) -> wxWindow:freeze(This).
-%% @hidden
+-doc false.
 fitInside(This) -> wxWindow:fitInside(This).
-%% @hidden
+-doc false.
 fit(This) -> wxWindow:fit(This).
-%% @hidden
+-doc false.
 findWindow(This,Id) -> wxWindow:findWindow(This,Id).
-%% @hidden
+-doc false.
 dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
-%% @hidden
+-doc false.
 disable(This) -> wxWindow:disable(This).
-%% @hidden
+-doc false.
 destroyChildren(This) -> wxWindow:destroyChildren(This).
-%% @hidden
+-doc false.
 convertPixelsToDialog(This,Sz) -> wxWindow:convertPixelsToDialog(This,Sz).
-%% @hidden
+-doc false.
 convertDialogToPixels(This,Sz) -> wxWindow:convertDialogToPixels(This,Sz).
-%% @hidden
+-doc false.
 close(This, Options) -> wxWindow:close(This, Options).
-%% @hidden
+-doc false.
 close(This) -> wxWindow:close(This).
-%% @hidden
+-doc false.
 clientToScreen(This,X,Y) -> wxWindow:clientToScreen(This,X,Y).
-%% @hidden
+-doc false.
 clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
-%% @hidden
+-doc false.
 clearBackground(This) -> wxWindow:clearBackground(This).
-%% @hidden
+-doc false.
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
-%% @hidden
+-doc false.
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
-%% @hidden
+-doc false.
 centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
+-doc false.
 centerOnParent(This) -> wxWindow:centerOnParent(This).
-%% @hidden
+-doc false.
 centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
+-doc false.
 center(This, Options) -> wxWindow:center(This, Options).
-%% @hidden
+-doc false.
 centre(This) -> wxWindow:centre(This).
-%% @hidden
+-doc false.
 center(This) -> wxWindow:center(This).
-%% @hidden
+-doc false.
 captureMouse(This) -> wxWindow:captureMouse(This).
-%% @hidden
+-doc false.
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
  %% From wxEvtHandler
-%% @hidden
+-doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
-%% @hidden
+-doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
-%% @hidden
+-doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
-%% @hidden
+-doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
-%% @hidden
+-doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

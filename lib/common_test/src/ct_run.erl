@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 
 -module(ct_run).
+-moduledoc false.
 
 %% Script interface
 -export([script_start/0,script_usage/0]).
@@ -29,6 +32,8 @@
 
 %% Misc internal API functions
 -export([variables_file_name/1,script_start1/2,run_test2/1, run_make/3]).
+
+-compile(nowarn_obsolete_bool_op).
 
 -include("ct.hrl").
 -include("ct_event.hrl").
@@ -59,6 +64,7 @@
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
+	       ct_hooks_order,
 	       enable_builtin_hooks,
 	       include = [],
 	       auto_compile,
@@ -248,6 +254,10 @@ script_start1(Parent, Args) ->
 				  end, Args),
     EvHandlers = event_handler_args2opts(Args),
     CTHooks = ct_hooks_args2opts(Args),
+    CTHooksOrder = get_start_opt(ct_hooks_order,
+                                 fun([CTHO]) -> list_to_atom(CTHO);
+                                    ([]) -> undefined
+                                 end, undefined, Args),
     EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
 				       fun([CT]) -> list_to_atom(CT);
 					  ([]) -> undefined
@@ -301,7 +311,7 @@ script_start1(Parent, Args) ->
     AbortIfMissing = get_start_opt(abort_if_missing_suites,
 				   fun([]) -> true;
 				      ([Bool]) -> list_to_atom(Bool)
-				   end, false, Args),
+				   end, true, Args),
     %% silent connections
     SilentConns =
 	get_start_opt(silent_connections,
@@ -352,6 +362,7 @@ script_start1(Parent, Args) ->
 		 verbosity = Verbosity,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
+                 ct_hooks_order = CTHooksOrder,
 		 enable_builtin_hooks = EnableBuiltinHooks,
 		 auto_compile = AutoCompile,
 		 abort_if_missing_suites = AbortIfMissing,
@@ -539,6 +550,10 @@ combine_test_opts(TS, Specs, Opts) ->
 		   [Opts#opts.ct_hooks,
 		    TSOpts#opts.ct_hooks]),
 
+    AllCTHooksOrder =
+        choose_val(Opts#opts.ct_hooks_order,
+                   TSOpts#opts.ct_hooks_order),
+
     EnableBuiltinHooks =
 	choose_val(
 	  Opts#opts.enable_builtin_hooks,
@@ -603,6 +618,7 @@ combine_test_opts(TS, Specs, Opts) ->
 	      config = TSOpts#opts.config,
 	      event_handlers = AllEvHs,
 	      ct_hooks = AllCTHooks,
+              ct_hooks_order = AllCTHooksOrder,
 	      enable_builtin_hooks = EnableBuiltinHooks,
 	      stylesheet = Stylesheet,
 	      auto_compile = AutoCompile,
@@ -614,14 +630,16 @@ combine_test_opts(TS, Specs, Opts) ->
 
 check_and_install_configfiles(
   Configs, LogDir, #opts{
-	     event_handlers = EvHandlers,
-	     ct_hooks = CTHooks,
-	     enable_builtin_hooks = EnableBuiltinHooks} ) ->
+                      event_handlers = EvHandlers,
+                      ct_hooks = CTHooks,
+                      ct_hooks_order = CTHooksOrder,
+                      enable_builtin_hooks = EnableBuiltinHooks} ) ->
     case ct_config:check_config_files(Configs) of
 	false ->
 	    install([{config,Configs},
 		     {event_handler,EvHandlers},
 		     {ct_hooks,CTHooks},
+		     {ct_hooks_order,CTHooksOrder},
 		     {enable_builtin_hooks,EnableBuiltinHooks}], LogDir);
 	{value,{error,{nofile,File}}} ->
 	    {error,{cant_read_config_file,File}};
@@ -754,6 +772,7 @@ script_usage() ->
 	      "\n\t [-cover_stop Bool]"
 	      "\n\t [-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
 	      "\n\t [-ct_hooks CTHook1 CTHook2 .. CTHookN]"
+	      "\n\t [-ct_hooks_order test | config]"
 	      "\n\t [-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t [-no_auto_compile]"
 	      "\n\t [-abort_if_missing_suites]"
@@ -959,6 +978,11 @@ run_test2(StartOpts) ->
 
     %% CT Hooks
     CTHooks = get_start_opt(ct_hooks, value, [], StartOpts),
+    CTHooksOrder = get_start_opt(ct_hooks_order,
+                                 fun(CHO) when CHO == test;
+                                               CHO == config ->
+                                         CHO
+                                 end, undefined, StartOpts),
     EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
 				       fun(EBH) when EBH == true;
 						     EBH == false ->
@@ -1016,7 +1040,7 @@ run_test2(StartOpts) ->
 	end,
 
     %% abort test run if some suites can't be compiled
-    AbortIfMissing = get_start_opt(abort_if_missing_suites, value, false,
+    AbortIfMissing = get_start_opt(abort_if_missing_suites, value, true,
 				   StartOpts),
 
     %% decrypt config file
@@ -1075,6 +1099,7 @@ run_test2(StartOpts) ->
 		 verbosity = Verbosity,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
+                 ct_hooks_order = CTHooksOrder,
 		 enable_builtin_hooks = EnableBuiltinHooks,
 		 auto_compile = AutoCompile,
 		 abort_if_missing_suites = AbortIfMissing,
@@ -1202,6 +1227,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 		     config = CfgFiles,
 		     event_handlers = EvHandlers,
 		     ct_hooks = CTHook,
+                     ct_hooks_order = CTHooksOrder,
 		     enable_builtin_hooks = EnableBuiltinHooks},
 	StartOpts) ->
     LogDir1 = which(logdir, LogDir),
@@ -1228,6 +1254,7 @@ run_dir(Opts = #opts{logdir = LogDir,
     case install([{config,AbsCfgFiles},
 		  {event_handler,EvHandlers},
 		  {ct_hooks, CTHook},
+                  {ct_hooks_order, CTHooksOrder},
 		  {enable_builtin_hooks,EnableBuiltinHooks}], LogDir1) of
 	ok -> ok;
 	{error,_IReason} = IError -> exit(IError)
@@ -1419,6 +1446,7 @@ get_data_for_node(#testspec{label = Labels,
 			    userconfig = UsrCfgs,
 			    event_handler = EvHs,
 			    ct_hooks = CTHooks,
+                            ct_hooks_order = CTHooksOrder,
 			    enable_builtin_hooks = EnableBuiltinHooks,
 			    auto_compile = ACs,
 			    abort_if_missing_suites = AiMSs,
@@ -1473,6 +1501,7 @@ get_data_for_node(#testspec{label = Labels,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
 	  ct_hooks = FiltCTHooks,
+          ct_hooks_order = CTHooksOrder,
 	  enable_builtin_hooks = EnableBuiltinHooks,
 	  auto_compile = AutoCompile,
 	  abort_if_missing_suites = AbortIfMissing,

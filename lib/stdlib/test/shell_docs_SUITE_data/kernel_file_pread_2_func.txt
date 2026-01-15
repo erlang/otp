@@ -1,13 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec pread(IoDevice, LocNums) -> {ok, DataL} | eof | {error, Reason}[0m
-  [;1m               when[0m
-  [;1m                   IoDevice :: io_device(),[0m
-  [;1m                   LocNums ::[0m
-  [;1m                       [{Location :: location(),[0m
-  [;1m                         Number :: non_neg_integer()}],[0m
-  [;1m                   DataL :: [Data],[0m
-  [;1m                   Data :: string() | binary() | eof,[0m
-  [;1m                   Reason :: posix() | badarg | terminated.[0m
+[;1m  pread(IoDevice, LocNums)[0m
 
   Performs a sequence of [;;4mpread/3[0m in one operation, which is more
   efficient than calling them one at a time. Returns [;;4m{ok, [Data,[0m

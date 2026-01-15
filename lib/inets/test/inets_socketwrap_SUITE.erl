@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,11 +73,11 @@ start_httpd_fd(Config) when is_list(Config) ->
 	    Skip;
 	{Node, NodeArg} ->
 	    InetPort = inets_test_lib:inet_port(node()),
-	    ct:pal("Node: ~p  Port ~p~n", [Node, InetPort]),
+	    ct:log("Node: ~p  Port ~p~n", [Node, InetPort]),
       	    Wrapper = filename:join(DataDir, "setuid_socket_wrap"),
             Args = ["-s","-httpd_80,0:" ++ integer_to_list(InetPort),
                     "-p",os:find_executable("erl"),"--" | NodeArg],
-	    ct:pal("cmd: ~p ~p~n", [Wrapper, Args]),
+	    ct:log("cmd: ~p ~p~n", [Wrapper, Args]),
 	    case open_port({spawn_executable, Wrapper},
                            [stderr_to_stdout,{args,Args}]) of
 	    	Port when is_port(Port) ->
@@ -112,7 +114,7 @@ setup_node_info(Node) ->
 wait_node_up(Node, 0) ->
     ct:fail({failed_to_start_node, Node});
 wait_node_up(Node, N) ->
-    ct:pal("(Node ~p: net_adm:ping(~p)~n", [node(), Node]),
+    ct:log("(Node ~p: net_adm:ping(~p)~n", [node(), Node]),
     case net_adm:ping(Node) of
 	pong ->
 	    ok;

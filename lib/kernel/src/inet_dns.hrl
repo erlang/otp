@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -24,20 +26,11 @@
 %%
 %% Currently defined opcodes
 %%
--define(QUERY,    16#0).          %% standard query
--define(IQUERY,   16#1).	      %% inverse query 
--define(STATUS,   16#2).	      %% nameserver status query 
-%% -define(xxx,   16#3)  %% 16#3 reserved
-%%  non standard
--define(UPDATEA,  16#9).	       %% add resource record
--define(UPDATED,  16#a).	       %% delete a specific resource record
--define(UPDATEDA, 16#b).	       %% delete all nemed resource record
--define(UPDATEM,  16#c).	       %% modify a specific resource record
--define(UPDATEMA, 16#d).	       %% modify all named resource record
-
--define(ZONEINIT, 16#e).	       %% initial zone transfer 
--define(ZONEREF,  16#f).	       %% incremental zone referesh
-
+-define(QUERY,    16#0).	%% standard query
+-define(IQUERY,   16#1).	%% inverse query
+-define(STATUS,   16#2).	%% nameserver status query
+-define(NOTIFY,   16#4).	%% notify
+-define(UPDATE,   16#5).	%% dynamic update
 
 %%
 %% Currently defined response codes
@@ -48,9 +41,16 @@
 -define(NXDOMAIN, 3).		%% non existent domain
 -define(NOTIMP,	  4).		%% not implemented
 -define(REFUSED,  5).		%% query refused
-%%	non standard 
--define(NOCHANGE, 16#f).		%% update failed to change db
--define(BADVERS,  16).
+-define(YXDOMAIN, 6).		%% name exists when it should not (DDNS)
+-define(YXRRSET,  7).		%% RR set exists when it should not (DDNS)
+-define(NXRRSET,  8).		%% RR set that should exist does not (DDNS)
+-define(NOTAUTH,  9).		%% server not authoritative for zone (DDNS)
+-define(NOTZONE,  10).		%% name not contained in zone (DDNS)
+-define(BADVERS,  16).		%% bad version EDNS pseudo-rr RFC6891: 6.1.3
+-define(BADSIG,   16).		%% TSIG Signature Failure (TSIG)
+-define(BADKEY,   17).		%% Key not recognized (TSIG)
+-define(BADTIME,  18).		%% Signature out of time window (TSIG)
+-define(BADTRUNC, 22).		%% Bad Truncation (TSIG)
 
 %%
 %% Type values for resources and queries
@@ -86,8 +86,9 @@
 -define(T_UID,		101).		%% user ID
 -define(T_GID,		102).		%% group ID
 -define(T_UNSPEC,	103).		%% Unspecified format (binary data)
-%%	Query type values which do not appear in resource records
--define(T_AXFR,		252).		%% transfer zone of authority
+-define(T_TSIG,		250).		%% transaction signature
+-define(T_IXFR,		251).		%% incremental zone transfer
+-define(T_AXFR,		252).		%% zone transfer
 -define(T_MAILB,	253).		%% transfer mailbox records
 -define(T_MAILA,	254).		%% transfer mail agent records
 -define(T_ANY,		255).		%% wildcard match
@@ -130,8 +131,9 @@
 -define(S_UID,		uid).		%% user ID
 -define(S_GID,		gid).		%% group ID
 -define(S_UNSPEC,	unspec).        %% Unspecified format (binary data)
-%%	Query type values which do not appear in resource records
--define(S_AXFR,		axfr).		%% transfer zone of authority
+-define(S_TSIG,		tsig).		%% transaction signature
+-define(S_IXFR,		ixfr).		%% incremental zone transfer
+-define(S_AXFR,		axfr).		%% zone transfer
 -define(S_MAILB,	mailb).		%% transfer mailbox records
 -define(S_MAILA,	maila).		%% transfer mail agent records
 -define(S_ANY,		any).		%% wildcard match
@@ -143,16 +145,38 @@
 %%
 %% Values for class field
 %%
-
 -define(C_IN,		1).      	%% the arpa internet
 -define(C_CHAOS,	3).		%% for chaos net at MIT
 -define(C_HS,		4).		%% for Hesiod name server at MIT
-%%  Query class values which do not appear in resource records
--define(C_ANY,		255).		%% wildcard match 
+-define(C_NONE,		254).		%% for DDNS (RFC2136, section 2.4)
+-define(C_ANY,		255).		%% wildcard match
 
-
-%% indirection mask for compressed domain names
--define(INDIR_MASK, 16#c0).
+%%
+%% TSIG Algorithms and Identifiers (RFC8945, section 6)
+%%
+-define(T_TSIG_HMAC_MD5,		"HMAC-MD5.SIG-ALG.REG.INT").
+-define(T_TSIG_GSS_TSIG,		"gss-tsig").
+-define(T_TSIG_HMAC_SHA1,		"hmac-sha1").
+-define(T_TSIG_HMAC_SHA1_96,		"hmac-sha1_96").
+-define(T_TSIG_HMAC_SHA224,		"hmac-sha224").
+-define(T_TSIG_HMAC_SHA256,		"hmac-sha256").
+-define(T_TSIG_HMAC_SHA256_128,		"hmac-sha256-128").
+-define(T_TSIG_HMAC_SHA384,		"hmac-sha384").
+-define(T_TSIG_HMAC_SHA384_192,		"hmac-sha384-192").
+-define(T_TSIG_HMAC_SHA512,		"hmac-sha512").
+-define(T_TSIG_HMAC_SHA512_256,		"hmac-sha512-256").
+% map mostly to crypto:hmac_hash_algorithm()
+-define(S_TSIG_HMAC_MD5,		md5).
+-define(S_TSIG_GSS_TSIG,		gss_tsig).
+-define(S_TSIG_HMAC_SHA1,		sha).
+-define(S_TSIG_HMAC_SHA1_96,		{sha,96}).
+-define(S_TSIG_HMAC_SHA224,		sha224).
+-define(S_TSIG_HMAC_SHA256,		sha256).
+-define(S_TSIG_HMAC_SHA256_128,		{sha256,128}).
+-define(S_TSIG_HMAC_SHA384,		sha384).
+-define(S_TSIG_HMAC_SHA384_192,		{sha384,192}).
+-define(S_TSIG_HMAC_SHA512,		sha512).
+-define(S_TSIG_HMAC_SHA512_256,		{sha512,256}).
 
 %%
 %% Structure for query header, the order of the fields is machine and
@@ -160,15 +184,15 @@
 %% least significant first, while the order of transmission is most
 %% significant first.  This requires a somewhat confusing rearrangement.
 %%
--record(dns_header, 
+-record(dns_header,
 	{
-	 id = 0,       %% ushort query identification number 
+	 id = 0,       %% ushort query identification number
 	 %% byte F0
 	 qr = 0,       %% :1   response flag
 	 opcode = 0,   %% :4   purpose of message
 	 aa = 0,       %% :1   authoritative answer
 	 tc = 0,       %% :1   truncated message
-	 rd = 0,       %% :1   recursion desired 
+	 rd = 0,       %% :1   recursion desired
 	 %% byte F1
 	 ra = 0,       %% :1   recursion available
 	 pr = 0,       %% :1   primary server required (non standard)
@@ -179,9 +203,9 @@
 -record(dns_rec,
 	{
 	 header,       %% dns_header record
-	 qdlist = [],  %% list of question entries
-	 anlist = [],  %% list of answer entries
-	 nslist = [],  %% list of authority entries
+	 qdlist = [],  %% list of question (for UPDATE 'zone') entries
+	 anlist = [],  %% list of answer (for UPDATE 'prequisites') entries
+	 nslist = [],  %% list of authority (for UPDATE 'update') entries
 	 arlist = []   %% list of resource entries
 	}).
 
@@ -190,7 +214,7 @@
 	{
 	 domain = "",   %% resource domain
 	 type = any,    %% resource type
-	 class = in,    %% reource class
+	 class = in,    %% resource class
 	 cnt = 0,       %% access count
 	 ttl = 0,       %% time to live
 	 data = [],     %% raw data
@@ -215,6 +239,21 @@
 	  z = 0,              %% RFC6891(6.1.3 Z)
 	  data = [],          %% RFC6891(6.1.2 RDATA)
           do = false          %% RFC6891(6.1.3 DO)
+	 }).
+
+-record(dns_rr_tsig,          %% TSIG RR OPT (RFC8945), dns_rr{type=tsig}
+	{
+	  domain = "",        %% name of the key
+	  type = tsig,
+	  offset,             %% position of RR in packet
+	  %% RFC8945(4.2 TSIG Record Format)
+	  algname,
+	  now,
+	  fudge,
+	  mac,
+	  original_id = #dns_header{}#dns_header.id,
+	  error = #dns_header{}#dns_header.rcode,
+	  other_data = <<>>
 	 }).
 
 -record(dns_query,

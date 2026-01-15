@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,53 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxToolTip).
+-moduledoc """
+This class holds information about a tooltip associated with a window (see `wxWindow:setToolTip/2`).
+
+The four static methods, `enable/1`, `setDelay/1` `wxToolTip::SetAutoPop()` (not implemented in wx) and `wxToolTip::SetReshow()`
+(not implemented in wx) can be used to globally alter tooltips behaviour.
+
+wxWidgets docs: [wxToolTip](https://docs.wxwidgets.org/3.2/classwx_tool_tip.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,enable/1,getTip/1,getWindow/1,new/1,setDelay/1,setTip/2]).
 
@@ -27,24 +72,32 @@
 
 -type wxToolTip() :: wx:wx_object().
 -export_type([wxToolTip/0]).
-%% @hidden
+-doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipenable">external documentation</a>.
+-doc """
+Enable or disable tooltips globally.
+
+Note: May not be supported on all platforms (eg. wxCocoa).
+""".
 -spec enable(Flag) -> 'ok' when
 	Flag::boolean().
 enable(Flag)
  when is_boolean(Flag) ->
   wxe_util:queue_cmd(Flag,?get_env(),?wxToolTip_Enable).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipsetdelay">external documentation</a>.
+-doc """
+Set the delay after which the tooltip appears.
+
+Note: May not be supported on all platforms.
+""".
 -spec setDelay(Msecs) -> 'ok' when
 	Msecs::integer().
 setDelay(Msecs)
  when is_integer(Msecs) ->
   wxe_util:queue_cmd(Msecs,?get_env(),?wxToolTip_SetDelay).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipwxtooltip">external documentation</a>.
+-doc "Constructor.".
 -spec new(Tip) -> wxToolTip() when
 	Tip::unicode:chardata().
 new(Tip)
@@ -53,7 +106,7 @@ new(Tip)
   wxe_util:queue_cmd(Tip_UC,?get_env(),?wxToolTip_new),
   wxe_util:rec(?wxToolTip_new).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipsettip">external documentation</a>.
+-doc "Set the tooltip text.".
 -spec setTip(This, Tip) -> 'ok' when
 	This::wxToolTip(), Tip::unicode:chardata().
 setTip(#wx_ref{type=ThisT}=This,Tip)
@@ -62,7 +115,7 @@ setTip(#wx_ref{type=ThisT}=This,Tip)
   Tip_UC = unicode:characters_to_binary(Tip),
   wxe_util:queue_cmd(This,Tip_UC,?get_env(),?wxToolTip_SetTip).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipgettip">external documentation</a>.
+-doc "Get the tooltip text.".
 -spec getTip(This) -> unicode:charlist() when
 	This::wxToolTip().
 getTip(#wx_ref{type=ThisT}=This) ->
@@ -70,7 +123,7 @@ getTip(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxToolTip_GetTip),
   wxe_util:rec(?wxToolTip_GetTip).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipgetwindow">external documentation</a>.
+-doc "Get the associated window.".
 -spec getWindow(This) -> wxWindow:wxWindow() when
 	This::wxToolTip().
 getWindow(#wx_ref{type=ThisT}=This) ->
@@ -78,7 +131,7 @@ getWindow(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxToolTip_GetWindow),
   wxe_util:rec(?wxToolTip_GetWindow).
 
-%% @doc Destroys this object, do not use object again
+-doc "Destroys the object".
 -spec destroy(This::wxToolTip()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxToolTip),

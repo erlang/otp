@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1999-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +65,7 @@ static struct {
 
 Process *erts_code_purger = NULL;
 
-static void set_default_trace_pattern(Eterm module);
+static void set_on_load_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, int *redsp, int fcalls);
 static void delete_code(Module* modp);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
@@ -165,45 +167,29 @@ erts_internal_beamfile_chunk_2(BIF_ALIST_2)
     IFF_Chunk chunk;
     IFF_File iff;
 
-    byte* temp_alloc;
-    byte* start;
-    Eterm Bin;
+    const byte *temp_alloc = NULL, *start;
+    Eterm binary;
+    Uint size;
     Eterm res;
 
     res = am_undefined;
-    temp_alloc = NULL;
-    Bin = BIF_ARG_1;
+    binary = BIF_ARG_1;
 
     if (!read_iff_list(BIF_ARG_2, &search_iff)) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if ((start = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+    start = erts_get_aligned_binary_bytes(binary, &size, &temp_alloc);
+    if (start == NULL) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (iff_init(start, binary_size(Bin), &iff)) {
+    if (iff_init(start, size, &iff)) {
         if (iff_read_chunk(&iff, search_iff, &chunk) && chunk.size > 0) {
-            Sint offset, bitoffs, bitsize;
-            Eterm real_bin;
-
-            ERTS_GET_REAL_BIN(Bin, real_bin, offset, bitoffs, bitsize);
-
-            if (bitoffs) {
-                res = new_binary(BIF_P, (byte*)chunk.data, chunk.size);
-            } else {
-                ErlSubBin *sb = (ErlSubBin*)HAlloc(BIF_P, ERL_SUB_BIN_SIZE);
-
-                sb->thing_word = HEADER_SUB_BIN;
-                sb->orig = real_bin;
-                sb->size = chunk.size;
-                sb->bitsize = 0;
-                sb->bitoffs = 0;
-                sb->offs = offset + (chunk.data - start);
-                sb->is_writable = 0;
-
-                res = make_binary(sb);
-            }
+            res = erts_make_sub_binary(BIF_P,
+                                       binary,
+                                       (chunk.data - start),
+                                       chunk.size);
         }
     }
 
@@ -216,22 +202,20 @@ erts_internal_beamfile_chunk_2(BIF_ALIST_2)
 BIF_RETTYPE
 erts_internal_beamfile_module_md5_1(BIF_ALIST_1)
 {
-    byte* temp_alloc;
-    byte* bytes;
-
+    const byte *temp_alloc = NULL, *bytes;
     BeamFile beam;
-    Eterm Bin;
+    Uint size;
     Eterm res;
 
-    temp_alloc = NULL;
-    Bin = BIF_ARG_1;
-
-    if ((bytes = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &size, &temp_alloc);
+    if (bytes == NULL) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (beamfile_read(bytes, binary_size(Bin), &beam) == BEAMFILE_READ_SUCCESS) {
-        res = new_binary(BIF_P, beam.checksum, sizeof(beam.checksum));
+    if (beamfile_read(bytes, size, &beam) == BEAMFILE_READ_SUCCESS) {
+        res = erts_new_binary_from_data(BIF_P,
+                                        sizeof(beam.checksum),
+                                        beam.checksum);
         beamfile_free(&beam);
     } else {
         res = am_undefined;
@@ -245,33 +229,34 @@ erts_internal_beamfile_module_md5_1(BIF_ALIST_1)
 BIF_RETTYPE
 erts_internal_prepare_loading_2(BIF_ALIST_2)
 {
-    byte* temp_alloc = NULL;
-    byte* code;
-    Uint sz;
+    const byte *temp_alloc = NULL, *code;
+    Uint size;
     Binary* magic;
     Eterm reason;
     Eterm* hp;
     Eterm res;
 
     if (is_not_atom(BIF_ARG_1)) {
-    error:
-	erts_free_aligned_binary_bytes(temp_alloc);
-	BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(BIF_P, BADARG);
     }
-    if ((code = erts_get_aligned_binary_bytes(BIF_ARG_2, &temp_alloc)) == NULL) {
-	goto error;
+
+    code = erts_get_aligned_binary_bytes(BIF_ARG_2, &size, &temp_alloc);
+    if (code == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
     }
 
     magic = erts_alloc_loader_state();
-    sz = binary_size(BIF_ARG_2);
     reason = erts_prepare_loading(magic, BIF_P, BIF_P->group_leader,
-				  &BIF_ARG_1, code, sz);
+                                  &BIF_ARG_1, code, size);
+
     erts_free_aligned_binary_bytes(temp_alloc);
+
     if (reason != NIL) {
-	hp = HAlloc(BIF_P, 3);
-	res = TUPLE2(hp, am_error, reason);
-	BIF_RET(res);
+        hp = HAlloc(BIF_P, 3);
+        res = TUPLE2(hp, am_error, reason);
+        BIF_RET(res);
     }
+
     hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
     res = erts_mk_magic_ref(&hp, &MSO(BIF_P), magic);
     erts_refc_dec(&magic->intern.refc, 1);
@@ -475,7 +460,7 @@ finish_loading_1(BIF_ALIST_1)
     for (i = 0; i < n; i++) {
 	if (p[i].modp->curr.num_breakpoints > 0 ||
 	    p[i].modp->curr.num_traced_exports > 0 ||
-	    erts_is_default_trace_enabled()) {
+	    erts_is_on_load_trace_enabled()) {
 	    /* tracing needs thread blocking */
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_thr_progress_block();
@@ -534,7 +519,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
             for (i=0; i < nmods; i++) {
                 if (mods[i].modp->curr.code_hdr
                      && mods[i].exception != am_on_load) {
-                    set_default_trace_pattern(mods[i].module);
+                    set_on_load_trace_pattern(mods[i].module);
                 }
             }
 
@@ -865,7 +850,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	ASSERT(modp && modp->on_load && modp->on_load->code_hdr
 	       && ((modp->on_load)->code_hdr)->on_load);
 
-        if (erts_is_default_trace_enabled()) {
+        if (erts_is_on_load_trace_enabled()) {
 
             erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_thr_progress_block();
@@ -954,28 +939,35 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 }
 
 static void
-set_default_trace_pattern(Eterm module)
+set_on_load_trace_pattern(Eterm module)
 {
-    int trace_pattern_is_on;
-    Binary *match_spec;
-    Binary *meta_match_spec;
-    struct trace_pattern_flags trace_pattern_flags;
-    ErtsTracer meta_tracer;
-
-    erts_get_default_trace_pattern(&trace_pattern_is_on,
-				   &match_spec,
-				   &meta_match_spec,
-				   &trace_pattern_flags,
-				   &meta_tracer);
-    if (trace_pattern_is_on) {
-        ErtsCodeMFA mfa;
-        mfa.module = module;
-	(void) erts_set_trace_pattern(0, &mfa, 1,
-				      match_spec,
-				      meta_match_spec,
-				      1, trace_pattern_flags,
-				      meta_tracer, 1);
+    // int trace_pattern_is_on;
+    // Binary *match_spec;
+    // Binary *meta_match_spec;
+    // struct trace_pattern_flags trace_pattern_flags;
+    // ErtsTracer meta_tracer;
+    /* iterate through all trace sessions,
+     * the trace session is referenced in the match spec
+     * so this should be easy?
+    */
+    ErtsTraceSession *s_p;
+    ERTS_LC_ASSERT(erts_has_code_mod_permission() ||
+                   erts_thr_progress_is_blocking());
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for(s_p = &erts_trace_session_0; s_p; s_p = s_p->next){
+        if (s_p->on_load_trace_pattern_is_on){
+            ErtsCodeMFA mfa;
+            mfa.module = module;
+            erts_staging_trace_session = s_p;
+            (void) erts_set_trace_pattern(&mfa, 1,
+                                          s_p->on_load_match_spec,
+                                          s_p->on_load_meta_match_spec,
+                                          1, s_p->on_load_trace_pattern_flags,
+                                          s_p->on_load_meta_tracer, 1);
+        }
     }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+    erts_staging_trace_session = NULL;
 }
 
 int
@@ -1092,7 +1084,24 @@ erts_check_copy_literals_gc_need(Process *c_p, int *redsp,
 		goto done;
 	}
     }
-    
+
+    /* Check if there are any *direct* references to literals in the process'
+     * registers.
+     *
+     * These are not guaranteed to be kept up to date, but as we can only land
+     * here during signal handling we KNOW that these are either up to date, or
+     * they are not actually live (effective arity is 0 in a `receive`). Should
+     * any of these registers contain garbage, we merely risk scheduling a
+     * pointless garbage collection as `any_heap_ref_ptrs` doesn't follow
+     * pointers, it just range-checks them. */
+    scanned += c_p->arity;
+    if (any_heap_ref_ptrs(&c_p->arg_reg[0],
+                          &c_p->arg_reg[c_p->arity],
+                          literals,
+                          lit_bsize)) {
+        goto done;
+    }
+
     res = 0; /* no need for gc */
 
 done: {
@@ -1242,21 +1251,155 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    if (!header_is_transparent(val)) {
-		Eterm* new_p;
-                if (header_is_bin_matchstate(val)) {
-                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
-                    ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (ErtsInArea(mb->orig, mod_start, mod_size)) {
+                Eterm* new_p;
+
+                if (val == HEADER_SUB_BITS) {
+                    ErlSubBits *sb = (ErlSubBits*) p;
+
+                    if (ErtsInArea(sb->orig, mod_start, mod_size)) {
                         return 1;
                     }
                 }
-		new_p = p + thing_arityval(val);
-		ASSERT(start <= new_p && new_p < end);
-		p = new_p;
-	    }
-	}
+
+                new_p = p + thing_arityval(val);
+                ASSERT(start <= new_p && new_p < end);
+                p = new_p;
+            }
+        }
     }
     return 0;
+}
+
+BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
+{
+#ifdef BEAMASM
+    ErtsCodeIndex code_ix;
+    Module* modp;
+    const BeamCodeHeader* hdr;
+    const BeamCodeLineTab* lt;
+    const BeamDebugTab* debug;
+    Sint i;
+    Uint alloc_size;
+    Eterm result = NIL;
+    Eterm* hp;
+    Eterm* hend;
+
+    if (is_not_atom(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    code_ix = erts_active_code_ix();
+    modp = erts_get_module(BIF_ARG_1, code_ix);
+    if (modp == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    hdr = modp->curr.code_hdr;
+    if (hdr == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    lt = hdr->line_table;
+
+    debug = hdr->debug;
+    if (debug == NULL) {
+        return am_none;
+    }
+
+    alloc_size = 0;
+
+    for (i = 0; i < debug->item_count; i++) {
+        /* [ {Line, {FrameSize, Pairs}} ] */
+        alloc_size += 2 + 3 + 3;
+        /* Pairs = [{Name, Value}], where Value is an atom or 2-tuple.
+         *
+         * Assume they are all 2-tuples and HRelease() the excess
+         * later. */
+        alloc_size += debug->items[i].num_vars * (2 + 3 + 3);
+    }
+
+    hp = HAlloc(BIF_P, alloc_size);
+    hend = hp + alloc_size;
+
+    for (i = debug->item_count-1; i >= 0; i--) {
+        BeamDebugItem* items = &debug->items[i];
+        Sint frame_size = items->frame_size;
+        Uint num_vars = items->num_vars;
+        Eterm *tp = &items->first[2 * (num_vars - 1)];
+        Uint32 location_index, location;
+        Eterm frame_size_term;
+        Eterm var_list = NIL;
+        Eterm tmp;
+
+        location_index = items->location_index;
+
+        if (location_index == ERTS_UINT32_MAX) {
+            continue;
+        }
+        if (lt->loc_size == 2) {
+            location = lt->loc_tab.p2[location_index];
+        } else {
+            ASSERT(lt->loc_size == 4);
+            location = lt->loc_tab.p4[location_index];
+        }
+
+        switch (frame_size) {
+        case BEAMFILE_FRAMESIZE_ENTRY:
+            frame_size_term = am_entry;
+            break;
+        case BEAMFILE_FRAMESIZE_NONE:
+            frame_size_term = am_none;
+            break;
+        default:
+            ASSERT(frame_size >= 0);
+            frame_size_term = make_small(frame_size);
+            break;
+        }
+
+        while (num_vars-- != 0) {
+            Eterm val;
+            Eterm tag;
+
+            switch(loader_tag(tp[1])) {
+            case LOADER_X_REG:
+                tag = am_x;
+                val = make_small(loader_x_reg_index(tp[1]));
+                break;
+            case LOADER_Y_REG:
+                tag = am_y;
+                val = make_small(loader_y_reg_index(tp[1]));
+                break;
+            default:
+                tag = am_value;
+                val = tp[1];
+                break;
+            }
+            tmp = TUPLE2(hp, tag, val);
+            hp += 3;
+
+            tmp = TUPLE2(hp, tp[0], tmp);
+            hp += 3;
+
+            tp -= 2;
+
+            var_list = CONS(hp, tmp, var_list);
+            hp += 2;
+        }
+
+        tmp = TUPLE2(hp, frame_size_term, var_list);
+        hp += 3;
+
+        tmp = TUPLE2(hp, make_small(LOC_LINE(location)), tmp);
+        hp += 3;
+
+        result = CONS(hp, tmp, result);
+        hp += 2;
+    }
+
+    ASSERT(hp <= hend);
+    HRelease(BIF_P, hend, hp);
+    return result;
+#endif
+
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 /*
@@ -1770,8 +1913,9 @@ erts_purge_state_add_fun(ErlFunEntry *fe)
     purge_state.funs[purge_state.fe_count++] = fe;
 }
 
-Export *
-erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
+const Export *
+erts_suspend_process_on_pending_purge_lambda(Process *c_p,
+                                             const ErlFunEntry* fe)
 {
     erts_mtx_lock(&purge_state.mtx);
     if (purge_state.module == fe->module) {
@@ -2074,6 +2218,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                               modp->old.code_hdr->are_nifs);
                 }
 
+                beam_load_purge_aux(modp->old.code_hdr);
 #ifndef BEAMASM
                 erts_free(ERTS_ALC_T_CODE, (void *) modp->old.code_hdr);
 #else
@@ -2081,6 +2226,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                 __lsan_unregister_root_region(modp->old.code_hdr,
                                               modp->old.code_length);
 #   endif
+                beamasm_unregister_metadata(modp->old.metadata);
                 beamasm_purge_module(modp->old.executable_region,
                                      modp->old.writable_region,
                                      modp->old.code_length);
@@ -2218,7 +2364,7 @@ delete_code(Module* modp)
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    DBG_TRACE_MFA_P(&ep->info.mfa,
 				  "export trace cleared, code_ix=%d", code_ix);
-		    erts_clear_export_break(modp, ep);
+		    erts_clear_all_export_break(modp, ep);
 		}
 		else {
                     ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler) ||
@@ -2226,10 +2372,8 @@ delete_code(Module* modp)
                 }
             }
 
-            if (ep->bif_number != -1 && ep->is_bif_traced) {
-                /* Code unloading kills both global and local call tracing. */
-                ep->is_bif_traced = 0;
-            }
+            ASSERT(!erts_export_is_bif_traced(ep));
+            ep->is_bif_traced = 0;
 
             ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
             ep->trampoline.not_loaded.deferred = 0;

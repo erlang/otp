@@ -1,7 +1,9 @@
 #                                               -*- Autoconf -*-
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2000-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,9 +29,11 @@ dnl m4_define(EI_VERSION,regexp(m4_include(VERSION),[version \([-.0-9A-Za-z]+\)]
 
 AC_INIT
 AC_CONFIG_SRCDIR([include/ei.h])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 m4_include([otp.m4])
+
+ERL_PUSH_WERROR
 
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
@@ -101,9 +105,25 @@ AC_PROG_CPP
 AC_PROG_EGREP
 dnl AC_PROG_LIBTOOL
 AC_PROG_RANLIB
-AC_CHECK_PROGS(LD, ld.sh)
-AC_CHECK_TOOL(LD, ld, '$(CC)')
+LM_PROG_LD
 AC_SUBST(LD)
+
+ERL_DED_FLAT_BUNDLE=true
+ERL_DED_FLAGS
+
+# Subst flags for libs
+
+AC_SUBST(LIB_CFLAGS)
+AC_SUBST(LIB_LD)
+AC_SUBST(LIB_LDFLAGS)
+AC_SUBST(LIB_LD_FLAG_RUNTIME_LIBRARY_PATH)
+AC_SUBST(LIB_EXT)
+
+LIB_CFLAGS="$DED_BASIC_CFLAGS $DED_THR_DEFS"
+LIB_LD="$DED_LD"
+LIB_LDFLAGS="$DED_LDFLAGS"
+LIB_LD_FLAG_RUNTIME_LIBRARY_PATH="$DED_LD_FLAG_RUNTIME_LIBRARY_PATH"
+LIB_EXT="$DED_EXT"
 
 AC_CHECK_SIZEOF(short)
 AC_CHECK_SIZEOF(int)
@@ -119,6 +139,7 @@ dnl We set EI_64BIT mode when long is 8 bytes, this makes things
 dnl work on windows and unix correctly
 if test $ac_cv_sizeof_long = 8; then
   CFLAGS="$CFLAGS -DEI_64BIT"
+  LIB_CFLAGS="$LIB_CFLAGS -DEI_64BIT"
 fi
 
 LM_HARDWARE_ARCH
@@ -193,8 +214,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 # Checks for library functions.
 AC_FUNC_ALLOCA
 dnl AC_FUNC_FORK
-# FIXME check that this isn't set in normal cases
-AC_PROG_GCC_TRADITIONAL
 # Check if malloc(0) is ok 
 dnl AC_FUNC_MALLOC
 dnl AC_FUNC_REALLOC
@@ -233,6 +252,7 @@ AS_IF([test "x$with_gmp" = "xyes"],
 	AC_CHECK_HEADER($dir/include/gmp.h, ac_cv_gmp=yes, ac_cv_gmp=no)
 	if test $ac_cv_gmp = yes ; then
 	    CFLAGS="$CFLAGS -I$dir/include -L$dir/lib"
+	    LIB_CFLAGS="$LIB_CFLAGS -I$dir/include -L$dir/lib"
 	    AC_DEFINE(HAVE_GMP_H, [], [Define if you have "gmp.h"])
 	    break
 	fi
@@ -250,6 +270,7 @@ elif test "x$with_gmp" != "xno" -a -n "$with_gmp" ;then
     fi
     AC_MSG_RESULT(yes)
     CFLAGS="$CFLAGS -I$with_gmp/include -L$with_gmp/lib"
+    LIB_CFLAGS="$LIB_CFLAGS -I$with_gmp/include -L$with_gmp/lib"
     AC_DEFINE(HAVE_GMP_H, [], [Define if you have "gmp.h"])
     AC_CHECK_LIB(gmp, __gmpz_export)
     # FIXME return ERROR if no lib
@@ -307,59 +328,19 @@ AS_CASE(["$threads_disabled"],
 # ---------------------------------------------------------------------------
 AC_SUBST(WFLAGS)
 
+WFLAGS="$WERRORFLAGS $DED_WERRORFLAGS $DED_WARN_FLAGS"
 AS_IF([test "x$GCC" = xyes],
- [
-  # Treat certain GCC warnings as errors
-  LM_TRY_ENABLE_CFLAG([-Werror=return-type], [WERRORFLAGS])
-  WFLAGS="-Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Winline"
-  # check which GCC version
-  GCC_VERSION=`$CC -v 2>&1 | sed -n 's/gcc version //p'`
-  # GCC 3.3 and later supports C99 strict aliasing
-  # until all source is compliant with strict aliasing we disable it
-  case "$GCC_VERSION" in
-    1*) ;;
-    2*) ;;
-    3.0*) ;; 
-    3.1*) ;;
-    3.2*) ;;
-    *)
-        WFLAGS="$WFLAGS -fno-strict-aliasing";;
-  esac
-  CFLAGS="$WERRORFLAGS $CFLAGS"
+      [WFLAGS="$WFLAGS -Wmissing-declarations -Wnested-externs -Winline"])
 
-  # Use -fno-common for gcc, that is link error if multiple definitions of
-  # global variables are encountered. This is ISO C compliant.
-  # Until version 10, gcc has had -fcommon as default, which allows and merges
-  # such dubious duplicates.
-  LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
- ],
- [
-  WFLAGS=""
-  WERRORFLAGS=""
- ])
+ERL_OSSF_FLAGS
 
-# ---------------------------------------------------------------------------
-# FIXME We want to use libtool but until then....
-# ---------------------------------------------------------------------------
+# Use -fno-common for gcc, that is link error if multiple definitions of
+# global variables are encountered. This is ISO C compliant.
+# Until version 10, gcc has had -fcommon as default, which allows and merges
+# such dubious duplicates.
+LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
 
-AC_SUBST(LIB_CFLAGS)
-
-if test "X$host" = "Xwin32"; then
-  LIB_CFLAGS="$CFLAGS"
-else
-  if test "x$GCC" = xyes; then
-        # Remove all PIE stuff
-        CFLAGS=`echo $CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
-        LDFLAGS=`echo $LDFLAGS | sed 's/-\(no-\)\?pie//g'`
-
-	LIB_CFLAGS="$CFLAGS -fPIC"
-  else
-	LIB_CFLAGS="$CFLAGS"
-  fi
-fi
-
-ERL_DED_FLAT_BUNDLE=true
-ERL_DED_FLAGS
+ERL_POP_WERROR
 
 # ---------------------------------------------------------------------------
 # XXX

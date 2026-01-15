@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,7 @@
 %% See also: $ERL_TOP/lib/kernel/AUTHORS
 %%
 -module(inet_sctp).
+-moduledoc false.
 
 %% This module provides functions for communicating with
 %% sockets using the SCTP protocol.  The implementation assumes that
@@ -68,10 +71,26 @@ listen(S, Flag) ->
 
 peeloff(S, AssocId) ->
     case prim_inet:peeloff(S, AssocId) of
-	{ok, NewS}=Result ->
+	{ok, NewS} ->
 	    inet_db:register_socket(NewS, ?MODULE),
-	    Result;
+	    peeloff_opts(S, NewS);
 	Error -> Error
+    end.
+
+peeloff_opts(S, NewS) ->
+    InheritOpts =
+        [active, sctp_nodelay, priority, linger, reuseaddr,
+         tos, ttl, recvtos, recvttl],
+    case prim_inet:getopts(S, InheritOpts) of
+        {ok, Opts} ->
+            case prim_inet:setopts(NewS, Opts) of
+                ok ->
+                    {ok, NewS};
+                Error1 ->
+                    close(NewS), Error1
+            end;
+        Error2 ->
+            close(NewS), Error2
     end.
 
 

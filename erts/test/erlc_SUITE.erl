@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,8 +130,8 @@ compile_erl(Config) when is_list(Config) ->
     FileName = filename:join(SrcDir, "erl_test_ok.erl"),
 
     %% By default, warnings are now turned on.
-    run(Config, Cmd, FileName, "",
-        ["Warning: function foo/0 is unused\$", "_OK_"]),
+    run_stderr(Config, Cmd, FileName, "",
+               ["Warning: function foo/0 is unused\$", "_OK_"]),
 
     %% Test that the compiled file is where it should be,
     %% and that it is runnable.
@@ -144,15 +146,16 @@ compile_erl(Config) when is_list(Config) ->
 
     %% Try treating warnings as errors.
 
-    run(Config, Cmd, FileName, "-Werror",
-        ["compile: warnings being treated as errors\$",
-         "function foo/0 is unused\$", "_ERROR_"]),
+    run_stderr(Config, Cmd, FileName, "-Werror",
+               ["compile: warnings being treated as errors\$",
+                "function foo/0 is unused\$", "_ERROR_"]),
 
     %% Check a bad file.
 
     BadFile = filename:join(SrcDir, "erl_test_bad.erl"),
-    run(Config, Cmd, BadFile, "", ["function non_existing/1 undefined\$",
-                                   "_ERROR_"]),
+    run_stderr(Config, Cmd, BadFile, "",
+               ["function non_existing/1 undefined\$",
+                "_ERROR_"]),
     ok.
 
 %% Test that compiling yecc source code works.
@@ -165,11 +168,11 @@ compile_yecc(Config) when is_list(Config) ->
     true = exists(filename:join(OutDir, "yecc_test_ok.erl")),
 
     BadFile = filename:join(SrcDir, "yecc_test_bad.yrl"),
-    run(Config, Cmd, BadFile, "-W0",
-        ["Nonterminals is missing\$",
-         "rootsymbol form is not a nonterminal\$",
-         "undefined nonterminal: form\$",
-         "_ERROR_"]),
+    run_stderr(Config, Cmd, BadFile, "-W0",
+               ["Nonterminals is missing\$",
+                "rootsymbol form is not a nonterminal\$",
+                "undefined nonterminal: form\$",
+                "_ERROR_"]),
     exists(filename:join(OutDir, "yecc_test_ok.erl")),
     ok.
 
@@ -182,7 +185,7 @@ compile_script(Config) when is_list(Config) ->
     true = exists(filename:join(OutDir, "start_ok.boot")),
 
     BadFile = filename:join(SrcDir, "start_bad.script"),
-    run(Config, Cmd, BadFile, "", ["syntax error before:", "_ERROR_"]),
+    run_stderr(Config, Cmd, BadFile, "", ["syntax error before:", "_ERROR_"]),
     ok.
 
 %% Test that compiling SNMP mibs works.
@@ -206,9 +209,9 @@ compile_mib(Config) when is_list(Config) ->
     ok = file:delete(Output),
     case os:type() of
         {unix,_} ->
-            run(Config, Cmd, FileName, "-W +'{verbosity,info}'",
-                ["\\[GOOD-MIB[.]mib\\]\\[INF\\]: No accessfunction for 'sysDescr' => using default",
-                 "_OK_"]),
+            run_stderr(Config, Cmd, FileName, "-W +'{verbosity,info}'",
+                       ["\\[GOOD-MIB[.]mib\\]\\[INF\\]: No accessfunction for 'sysDescr' => using default",
+                        "_OK_"]),
             true = exists(Output),
             ok = file:delete(Output);
         _ -> ok				%Don't bother -- too much work.
@@ -217,9 +220,9 @@ compile_mib(Config) when is_list(Config) ->
     %% Try a bad file.
 
     BadFile = filename:join(SrcDir, "BAD-MIB.mib"),
-    run(Config, Cmd, BadFile, "",
-        ["BAD-MIB.mib: 1: syntax error before: mibs\$",
-         "compilation_failed_ERROR_"]),
+    run_stderr(Config, Cmd, BadFile, "",
+               ["BAD-MIB.mib: 1: syntax error before: mibs\$",
+                "compilation_failed_ERROR_"]),
 
     %% Make sure that no -I option works.
 
@@ -373,7 +376,7 @@ make_dep_options(Config) ->
     false = exists(BeamFileName),
 
     %% Test -M -MT Target
-    run(Config, Cmd, FileName, "-M -MT target", DepRETarget),
+    run_stdout(Config, Cmd, FileName, "-M -MT target", DepRETarget),
     false = exists(BeamFileName),
 
     %% Test -MF File -MT Target
@@ -395,16 +398,16 @@ make_dep_options(Config) ->
     %% Test -M -MQ Target. (Note: Passing a $ on the command line
     %% portably for Unix and Windows is tricky, so we will just test
     %% that MQ works at all.)
-    run(Config, Cmd, FileName, "-M -MQ target", DepRETarget),
+    run_stdout(Config, Cmd, FileName, "-M -MQ target", DepRETarget),
     false = exists(BeamFileName),
 
     %% Test -M -MP
-    run(Config, Cmd, FileName, "-M -MP", DepREMP),
+    run_stdout(Config, Cmd, FileName, "-M -MP", DepREMP),
     false = exists(BeamFileName),
 
     %% Test -M -MG
     MissingHeader = filename:join(SrcDir, "erl_test_missing_header.erl"),
-    run(Config, Cmd, MissingHeader, "-M -MG", DepREMissing),
+    run_stdout(Config, Cmd, MissingHeader, "-M -MG", DepREMissing),
     false = exists(BeamFileName),
 
     %%
@@ -428,7 +431,7 @@ make_dep_options(Config) ->
 
 
     %% Test plain -MMD -M
-    run(Config, Cmd, FileName, "-MMD -M", DepRE_MMD),
+    run_stdout(Config, Cmd, FileName, "-MMD -M", DepRE_MMD),
     true = exists(BeamFileName),
     file:delete(BeamFileName),
 
@@ -449,7 +452,7 @@ make_dep_options(Config) ->
     file:delete(BeamFileName),
 
     %% Test -MMD -M -MT Target
-    run(Config, Cmd, FileName, "-MMD -M -MT target", DepRETarget_MMD),
+    run_stdout(Config, Cmd, FileName, "-MMD -M -MT target", DepRETarget_MMD),
     true = exists(BeamFileName),
     file:delete(BeamFileName),
 
@@ -474,18 +477,18 @@ make_dep_options(Config) ->
     %% Test -MMD -M -MQ Target. (Note: Passing a $ on the command line
     %% portably for Unix and Windows is tricky, so we will just test
     %% that MQ works at all.)
-    run(Config, Cmd, FileName, "-MMD -M -MQ target", DepRETarget_MMD),
+    run_stdout(Config, Cmd, FileName, "-MMD -M -MQ target", DepRETarget_MMD),
     true = exists(BeamFileName),
     file:delete(BeamFileName),
 
     %% Test -MMD -M -MP
-    run(Config, Cmd, FileName, "-MMD -M -MP", DepREMP_MMD),
+    run_stdout(Config, Cmd, FileName, "-MMD -M -MP", DepREMP_MMD),
     true = exists(BeamFileName),
     file:delete(BeamFileName),
 
     %% Test -MMD -M -MG
     MissingHeader = filename:join(SrcDir, "erl_test_missing_header.erl"),
-    run(Config, Cmd, MissingHeader, "-MMD -M -MG", DepREMissing_MMD),
+    run_stdout(Config, Cmd, MissingHeader, "-MMD -M -MG", DepREMissing_MMD),
     false = exists(BeamFileName),
     ok.
 
@@ -717,20 +720,6 @@ features_atom_warnings(Config) when is_list(Config) ->
                     atom_warning(while, experimental_ftr_2),
                     skip_lines])),
 
-    %% Check for keyword warnings.  Not all warnings are checked.
-    %% This file has a -compile attribute for keyword warnings.
-    Compile("ignorant_directive.erl", "",
-            ?OK([atom_warning(ifn, experimental_ftr_1),
-                 skip_lines,
-                 atom_warning(while, experimental_ftr_2),
-                 skip_lines,
-                 atom_warning(until, experimental_ftr_2),
-                 skip_lines])),
-
-    %% Override warning attribute inside file
-    Compile("ignorant_directive.erl", "+nowarn_keywords",
-            ?OK([])),
-
     %% File has quoted atoms which are keywords in experimental_ftr_2.
     %% We should see no warnings.
     Compile("foo.erl", options([longopt(enable, experimental_ftr_2),
@@ -846,7 +835,7 @@ features_macros(Config) when is_list(Config) ->
         erpc:call(Node1, code, load_file, [f_macros]),
     %% Check features enabled during compilation
     [approved_ftr_1, approved_ftr_2, experimental_ftr_1] =
-        erpc:call(Node1, erl_features, used, [f_macros]),
+        lists:sort(erpc:call(Node1, erl_features, used, [f_macros])),
 
     peer:stop(Peer1),
 
@@ -914,7 +903,7 @@ features_all(Config) when is_list(Config) ->
     {Peer0, Node0} = peer(["-pa", OutDir]),
     %% Check features enabled during compilation
     [approved_ftr_1,approved_ftr_2,experimental_ftr_1,experimental_ftr_2] =
-        erpc:call(Node0, erl_features, used, [foo]),
+        lists:sort(erpc:call(Node0, erl_features, used, [foo])),
     peer:stop(Peer0),
 
     Compile("foo.erl", longopt(disable, all),
@@ -1008,8 +997,8 @@ features_runtime(Config) when is_list(Config) ->
     peer:stop(Peer0),
 
     {Peer1, Node1} = peer(["-enable-feature", "experimental_ftr_2"]),
-    [experimental_ftr_2, approved_ftr_2, approved_ftr_1] =
-        erpc:call(Node1, erl_features, enabled, []),
+    [approved_ftr_1, approved_ftr_2, experimental_ftr_2] =
+        lists:sort(erpc:call(Node1, erl_features, enabled, [])),
     [while, until, unless] =  erpc:call(Node1, erl_features, keywords, []),
 
     peer:stop(Peer1),
@@ -1088,12 +1077,36 @@ features_include(Config) when is_list(Config) ->
     {conditional, off, none} = erpc:call(Node3, f_include_exp2, foo, []),
 
     [approved_ftr_1, approved_ftr_2, experimental_ftr_2] =
-        erpc:call(Node3, erl_features, used, [f_include_exp2]),
+        lists:sort(erpc:call(Node3, erl_features, used, [f_include_exp2])),
     peer:stop(Peer3),
 
     ok.
 
 %% Runs a command.
+
+run_stdout(Config, Cmd0, Name, Options, Expect) ->
+    case os:type() of
+        {unix,_} ->
+            %% The output is expected to be printed to stdout.
+            Cmd = Cmd0 ++ " " ++ Options ++ " " ++ Name ++ " 2>/dev/null",
+            io:format("~ts", [Cmd]),
+            Result = run_command(Config, Cmd),
+            verify_result(Result, Expect);
+        _ ->
+            run(Config, Cmd0, Name, Options, Expect)
+    end.
+
+run_stderr(Config, Cmd0, Name, Options, Expect) ->
+    case os:type() of
+        {unix,_} ->
+            %% The output is expected to be printed to stderr.
+            Cmd = Cmd0 ++ " " ++ Options ++ " " ++ Name ++ " >/dev/null",
+            io:format("~ts", [Cmd]),
+            Result = run_command(Config, Cmd),
+            verify_result(Result, Expect);
+        _ ->
+            run(Config, Cmd0, Name, Options, Expect)
+    end.
 
 run(Config, Cmd0, Name, Options, Expect) ->
     Cmd = Cmd0 ++ " " ++ Options ++ " " ++ Name,
@@ -1202,7 +1215,7 @@ run_command(Dir, {win32, _}, Cmd) ->
     {BatchFile,
      Run,
      ["@echo off\r\n",
-      "set ERLC_EMULATOR=", ct:get_progname(), "\r\n",
+      "set ERLC_EMULATOR=", os:find_executable("erl"), "\r\n",
       Cmd, "\r\n",
       "if errorlevel 1 echo _ERROR_\r\n",
       "if not errorlevel 1 echo _OK_\r\n"]};
@@ -1211,7 +1224,7 @@ run_command(Dir, {unix, _}, Cmd) ->
     {Name,
      "/bin/sh " ++ Name,
      ["#!/bin/sh\n",
-      "ERLC_EMULATOR='", ct:get_progname(), "'\n",
+      "ERLC_EMULATOR='",  os:find_executable("erl"), "'\n",
       "export ERLC_EMULATOR\n",
       Cmd, "\n",
       "case $? in\n",

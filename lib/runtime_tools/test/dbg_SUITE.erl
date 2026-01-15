@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +23,8 @@
 
 %% Test functions
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
-         big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
+         groups/0, init_per_group/2, end_per_group/2]).
+-export([big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
 	 send/1, recv/1,
          ip_port/1, file_port/1, file_port2/1, file_tracer/1,
          ip_port_busy/1, wrap_port/1, wrap_port_time/1,
@@ -39,18 +42,29 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() -> 
-    [big, tiny, simple, message, distributed, port, ip_port,
-     send, recv,
-     file_port, file_port2, file_tracer, ip_port_busy,
-     wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
-     local_trace, saved_patterns, tracer_exit_on_stop,
-     erl_tracer, distributed_erl_tracer].
+    [{group, global}].
+
+groups() ->
+    [{global,[],[{group, tests}]},
+     {tests,[],[
+                big, tiny, simple, message, distributed, port, ip_port,
+                send, recv,
+                file_port, file_port2, file_tracer, ip_port_busy,
+                wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
+                local_trace, saved_patterns, tracer_exit_on_stop,
+                erl_tracer, distributed_erl_tracer]}].
 
 init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
     dbg:stop(),
+    ok.
+
+init_per_group(_, Config) ->
+    Config.
+
+end_per_group(_, _Config) ->
     ok.
 
 %% Rudimentary interface test
@@ -397,17 +411,18 @@ distributed(Config) when is_list(Config) ->
         {value, {matched, Node, 1}} = lists:keysearch(Node, 2, Z),
         dbg:cn(Node),
         dbg:tp(dbg,ln,[]),
-        ok = rpc:block_call(Node, dbg, ltp, []),
-        ok = rpc:block_call(Node, dbg, ln, []),
         ok = dbg:ln(),
+        [ok = rpc:block_call(Node, dbg, ltp, []) || _ <- lists:seq(1,100)],
+        ok = rpc:block_call(Node, dbg, ln, []),
         S = self(),
         {TraceSend, TraceCall} =
         lists:partition(fun ({trace,RP,send,_,_}) when RP =:= RexPid -> true;
                             (_) -> false end,
                         flush()),
         [_|_] = TraceSend,
-        [{trace,Pid,call,{dbg,ltp,[]}},
-         {trace,S,call,{dbg,ln,[]}}] = TraceCall,
+        [{trace,S,call,{dbg,ln,[]}} | RemoteCall] = TraceCall,
+        100 = length(RemoteCall),
+        [{trace,Pid,call,{dbg,ltp,[]}}] = lists:uniq(RemoteCall),
         Node = node(Pid),
         %%
         stop()
@@ -478,7 +493,7 @@ port(Config) when is_list(Config) ->
         %% Do a run to get rid of all extra port operations
         port_close(Fun()),
 
-        dbg:p(new,ports),
+        dbg:p(new_ports,ports),
         Port = Fun(),
         port_close(Port),
         stop(),

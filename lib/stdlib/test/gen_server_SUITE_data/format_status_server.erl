@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,8 +50,8 @@ format_status(#{ state := {_,_,Fun} } = S) when is_function(Fun) ->
 format_status(#{ message := Msg } = S) when not is_map_key(state, S) ->
     S#{message := {message,Msg}};
 format_status(#{ reason := _, state := State } = Map) ->
-    ct:pal("format_status(~p)",[Map]),
+    ct:log("format_status(~p)",[Map]),
     Map#{ state => {formatted, State}};
 format_status(Map) ->
-    ct:pal("format_status(~p)",[Map]),
+    ct:log("format_status(~p)",[Map]),
     Map#{ state => format_status_called }.

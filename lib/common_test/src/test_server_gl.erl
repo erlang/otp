@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +26,10 @@
 %% through the test_server_io module/process.
 
 -module(test_server_gl).
+-moduledoc false.
 -export([start_link/1,stop/1,set_minor_fd/3,unset_minor_fd/1,
-	 get_tc_supervisor/1,print/4,set_props/2]).
+	 get_tc_supervisor/1,print/4,set_props/2,
+	 capture_start/2, capture_stop/1]).
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2]).
 
@@ -88,6 +92,24 @@ set_minor_fd(GL, Fd, MFA) ->
 unset_minor_fd(GL) ->
     req(GL, unset_minor_fd).
 
+%% capture_start(GL, Who)
+%%  GL = Pid for the group leader process
+%%  Who = Process that wants to start capturing output
+%%
+%% capture_stop(GL)
+%%  GL = Pid for the group leader process
+%%
+%% Starts/stops capturing all output from io:format, and similar. Capturing
+%% output doesn't stop output from happening. It just makes it possible
+%% to retrieve the output using capture_get/0.
+%% Starting and stopping capture doesn't affect already captured output.
+%% All output is stored as messages in the message queue until retrieved.
+
+capture_start(GL, Who) ->
+    req(GL, {capture, Who}).
+
+capture_stop(GL) ->
+    req(GL, {capture, false}).
 
 %% get_tc_supervisor(GL)
 %%  GL = Pid for the group leader process
@@ -165,7 +187,14 @@ handle_call({set_props,PropList}, _From, St) ->
     {reply,ok,do_set_props(PropList, St)};
 handle_call({print,Detail,Msg,Printer}, {From,_}, St) ->
     output(Detail, Msg, Printer, From, St),
-    {reply,ok,St}.
+    do_gc(),
+    {reply,ok,St};
+handle_call({capture, Who}, {_From, _}, St) ->
+    Cap = case Who of
+	      false -> none;
+	      Pid when is_pid(Pid) -> Pid
+	  end,
+    {reply, ok, St#st{capture=Cap}}.
 
 handle_cast(stop, St) ->
     {stop,normal,St}.
@@ -185,12 +214,6 @@ handle_info({'DOWN',Ref,process,_,_}, #st{tsio_monitor=Ref}=St) ->
     {stop,normal,St};
 handle_info({permit_io,Pid}, #st{permit_io=P}=St) ->
     {noreply,St#st{permit_io=gb_sets:add(Pid, P)}};
-handle_info({capture,Cap0}, St) ->
-    Cap = case Cap0 of
-	      false -> none;
-	      Pid when is_pid(Cap0) -> Pid
-	  end,
-    {noreply,St#st{capture=Cap}};
 handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
     _ = try io_req(Req, From, St) of
 	passthrough ->
@@ -220,16 +243,20 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
 	_:_ ->
 	    From ! {io_reply,ReplyAs,{error,arguments}}
     end,
+    do_gc(),
     {noreply,St};
 handle_info({structured_io,ClientPid,{Detail,Str}}, St) ->
     output(Detail, Str, ClientPid, ClientPid, St),
+    do_gc(),
     {noreply,St};
 handle_info({printout,Detail,["$tc_html",Format],Args}, St) ->
     Str = io_lib:format(Format, Args),
     output(Detail, ["$tc_html",Str], internal, none, St),
+    do_gc(),
     {noreply,St};
 handle_info({printout,Detail,Fun}, St) when is_function(Fun)->
     output(Detail, Fun, internal, none, St),
+    do_gc(),
     {noreply,St};
 handle_info({printout,Detail,Format,Args}, St) ->
     Str = io_lib:format(Format, Args),
@@ -238,6 +265,7 @@ handle_info({printout,Detail,Format,Args}, St) ->
        true ->
 	    output(Detail, Str, internal, none, St)
     end,
+    do_gc(),
     {noreply,St};
 handle_info(Msg, #st{tc_supervisor=Pid}=St) when is_pid(Pid) ->
     %% The process overseeing the testcase process also used to be
@@ -253,6 +281,13 @@ handle_info(_Msg, #st{}=St) ->
 
 terminate(_, _) ->
     ok.
+
+do_gc() ->
+    %% Reduces the amount of memory used, in one example from 6.6 GB to 500MB
+    %% when running testsuites in parallel and doesn't take any longer
+    erlang:garbage_collect(self(), [{async, true}, {type, major}]),
+    ok.
+
 
 do_set_props([{levels,Levels}|Ps], St) ->
     do_set_props(Ps, St#st{levels=Levels});

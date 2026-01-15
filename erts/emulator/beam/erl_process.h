@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,6 +73,9 @@ typedef struct process Process;
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 
+// Included for ERTS_POLL_USE_SCHEDULER_POLLING
+#include "erl_poll.h"
+
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT	0
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT		0
 
@@ -78,7 +83,7 @@ typedef struct process Process;
 #define ERTS_MAX_NO_OF_DIRTY_CPU_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
 #define ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
 
-#define ERTS_DEFAULT_MAX_PROCESSES (1 << 18)
+#define ERTS_DEFAULT_MAX_PROCESSES (1 << 20)
 
 #define ERTS_HEAP_ALLOC(Type, Size)					\
      erts_alloc((Type), (Size))
@@ -95,7 +100,7 @@ struct saved_calls {
    int len;
    int n;
    int cur;
-   Export *ct[1];
+   const Export *ct[1];
 };
 
 extern Export exp_send, exp_receive, exp_timeout;
@@ -160,16 +165,14 @@ extern int erts_dio_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 4))
 #define ERTS_RUNQ_FLG_NONEMPTY \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 5))
-#define ERTS_RUNQ_FLG_PROTECTED \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 #define ERTS_RUNQ_FLG_EXEC \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 #define ERTS_RUNQ_FLG_MSB_EXEC \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 8))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
 #define ERTS_RUNQ_FLG_MISC_OP \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 9))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 8))
 #define ERTS_RUNQ_FLG_HALTING \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 10))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 9))
 
 #define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 12)
 
@@ -283,8 +286,7 @@ typedef enum {
 
 /*
  * Keep ERTS_SSI_AUX_WORK flags ordered in expected frequency
- * order relative each other. Most frequent at lowest at lowest
- * index.
+ * order relative each other. Most frequent at lowest index.
  *
  * ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX *need* to be
  * highest index...
@@ -468,36 +470,36 @@ struct ErtsMigrationPaths_ {
 
 
 struct ErtsRunQueue_ {
-    int ix;
-
     erts_mtx_t mtx;
-    erts_cnd_t cnd;
+    erts_atomic32_t flags;
 
+    struct {
+	ErtsRunQueueInfo prio_info[ERTS_NO_PROC_PRIO_LEVELS];
+	/* We use the same prio queue for low and
+	   normal prio processes */
+	ErtsRunPrioQueue prio[ERTS_NO_PROC_PRIO_LEVELS-1];
+      Uint context_switches;
+      Uint reductions;
+    } procs;
+
+    erts_aint32_t max_len;
+    erts_atomic32_t len;
+
+    /* The fields above are the ones that are commonly accessed by other cores during task stealing
+       They are grouped together to improve cache locality. */
+
+    int ix;
     ErtsSchedulerSleepList sleepers;
 
     ErtsSchedulerData *scheduler;
-    int waiting; /* < 0 in sys schedule; > 0 on cnd variable */
+    int waiting;
     int woken;
-    erts_atomic32_t flags;
     int check_balance_reds;
     int full_reds_history_sum;
     int full_reds_history[ERTS_FULL_REDS_HISTORY_SIZE];
     int out_of_work_count;
-    erts_aint32_t max_len;
-    erts_atomic32_t len;
     int wakeup_other;
     int wakeup_other_reds;
-
-    struct {
-	Uint context_switches;
-	Uint reductions;
-
-	ErtsRunQueueInfo prio_info[ERTS_NO_PROC_PRIO_LEVELS];
-
-	/* We use the same prio queue for low and
-	   normal prio processes */
-	ErtsRunPrioQueue prio[ERTS_NO_PROC_PRIO_LEVELS-1];
-    } procs;
 
     struct {
 	ErtsMiscOpList *start;
@@ -606,6 +608,9 @@ typedef struct ErtsAuxWorkData_ {
 	    void *arg;
 	} wait_completed;
     } debug;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    void* lc_aux_arg;
+#endif
 } ErtsAuxWorkData;
 
 #define ERTS_SCHED_AUX_YIELD_DATA(ESDP, NAME) \
@@ -718,6 +723,9 @@ struct ErtsSchedulerData_ {
 	Uint64 out;
 	Uint64 in;
     } io;
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    ErtsSysFdType nif_select_fds[5]; /* Used by check io */
+#endif
     struct {
         ErtsSignal* sig;
         Eterm to;
@@ -781,11 +789,13 @@ void erts_non_empty_runq(ErtsRunQueue *rq);
 ERTS_GLB_INLINE void erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio);
 ERTS_GLB_INLINE void erts_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio);
 ERTS_GLB_INLINE void erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi);
+ERTS_GLB_INLINE void erts_add_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio, unsigned n);
+ERTS_GLB_INLINE void erts_sub_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio, unsigned n);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void
-erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
+erts_add_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio, unsigned n)
 {
     erts_aint32_t len;
 
@@ -795,7 +805,7 @@ erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 
     if (len == 0)
 	erts_non_empty_runq(rq);
-    len++;
+    len += n;
     if (rq->max_len < len)
 	rq->max_len = len;
     ASSERT(len > 0);
@@ -809,7 +819,7 @@ erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 	erts_atomic32_read_bor_nob(&rq->flags,
 				       (erts_aint32_t) (1 << prio));
     }
-    len++;
+    len += n;
     if (rqi->max_len < len)
 	rqi->max_len = len;
 
@@ -817,19 +827,25 @@ erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 }
 
 ERTS_GLB_INLINE void
-erts_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
+erts_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
+{
+    erts_add_runq_len(rq, rqi, prio, 1);
+}
+
+ERTS_GLB_INLINE void
+erts_sub_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio, unsigned n)
 {
     erts_aint32_t len;
 
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
 
     len = erts_atomic32_read_dirty(&rq->len);
-    len--;
+    len -= n;
     ASSERT(len >= 0);
     erts_atomic32_set_nob(&rq->len, len);
 
     len = erts_atomic32_read_dirty(&rqi->len);
-    len--;
+    len -= n;
     ASSERT(len >= 0);
     if (len == 0) {
 	ASSERT((erts_atomic32_read_nob(&rq->flags)
@@ -838,7 +854,12 @@ erts_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 					~((erts_aint32_t) (1 << prio)));
     }
     erts_atomic32_set_relb(&rqi->len, len);
+}
 
+ERTS_GLB_INLINE void
+erts_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
+{
+    erts_sub_runq_len(rq, rqi, prio, 1);
 }
 
 ERTS_GLB_INLINE void
@@ -876,9 +897,11 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_DIST_ENTRY	                8
 #define ERTS_PSD_CALL_MEMORY_BP	                9
 #define ERTS_PSD_TS_EVENT                       10
-#define ERTS_PSD_PENDING_SUSPEND                11 /* keep last... */
+#define ERTS_PSD_SYSMON_MSGQ_LEN_LOW            11
+#define ERTS_PSD_PRIO_Q_INFO                    12
+#define ERTS_PSD_PENDING_SUSPEND                13 /* keep last... */
 
-#define ERTS_PSD_SIZE				12
+#define ERTS_PSD_SIZE				14
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -899,6 +922,9 @@ typedef struct {
 #define ERTS_PSD_CALL_TIME_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_CALL_TIME_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
+#define ERTS_PSD_CALL_MEMORY_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_CALL_MEMORY_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
 #define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
@@ -916,6 +942,9 @@ typedef struct {
 
 #define ERTS_PSD_TS_EVENT_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_TS_EVENT_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
+#define ERTS_PSD_PRIO_Q_INFO_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_PRIO_Q_INFO_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 #define ERTS_PSD_PENDING_SUSPEND_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_PENDING_SUSPEND_SET_LOCKS ERTS_PROC_LOCK_MAIN
@@ -1014,11 +1043,11 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
 
-    /* Place fields that are frequently used from loaded BEAMASM
-     * instructions near the beginning of this struct so that a
-     * shorter instruction can be used to access them.
-     */
+    /* Place fields that are frequently used from BEAMASM instructions near the
+     * beginning of this struct so that a shorter instruction can be used to
+     * access them. */
 
+    /* These are paired to exploit the STP instruction in the ARM JIT. */
     Eterm *htop;                /* Heap top */
     Eterm *stop;                /* Stack top */
 
@@ -1026,64 +1055,72 @@ struct process {
     Eterm *frame_pointer;       /* Frame pointer */
 #endif
 
-    Sint fcalls;		/* Number of reductions left to execute.
-				 * Only valid for the current process.
-				 */
-    Uint freason;		/* Reason for detected failure */
-    Eterm fvalue;		/* Exit & Throw value (failure reason) */
+    /* These are paired to exploit the STP instruction in the ARM JIT. */
+    Uint freason;               /* Reason for detected failure. */
+    Eterm fvalue;               /* Exit & Throw value (failure reason) */
+
+    Sint32 fcalls;              /* Number of reductions left to execute.
+                                 * Only valid for the current process while it
+                                 * is executing. */
+
+    Uint32 flags;               /* Trap exit, etc */
 
     /* End of frequently used fields by BEAMASM code. */
 
-    Eterm* heap;		/* Heap start */
-    Eterm* hend;		/* Heap end */
+    Uint32 rcount;              /* Suspend count */
+    byte schedule_count;        /* Times left to reschedule a low prio process */
+
+    /* Saved x registers. */
+    byte arity;                 /* Number of live argument registers (only
+                                 * valid when process is *not* running). */
+    byte max_arg_reg;           /* Maximum number of argument registers
+                                 * available. */
+    Eterm* arg_reg;             /* Pointer to argument registers. */
+    Eterm def_arg_reg[6];       /* Default array for argument registers. */
+
+    Eterm* heap;                /* Heap start */
+    Eterm* hend;                /* Heap end */
+
+    /* If abandoned_heap is not a NULL pointer, it points to the heap
+     * that was active when delay_garbage_collection() in erl_gc.c was
+     * called. The high water mark that was active at that time is
+     * saved in p->hend[0].
+     */
+
     Eterm* abandoned_heap;
-    Uint heap_sz;		/* Size of heap in words */
+
+    Uint heap_sz;               /* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
     Uint max_heap_size;         /* Maximum size of heap (in words). */
 
-    /*
-     * Saved x registers.
-     */
-    Uint arity;			/* Number of live argument registers (only valid
-				 * when process is *not* running).
-				 */
-    Eterm* arg_reg;		/* Pointer to argument registers. */
-    unsigned max_arg_reg;	/* Maximum number of argument registers available. */
-    Eterm def_arg_reg[6];	/* Default array for argument registers. */
-
     ErtsCodePtr i;              /* Program counter. */
-    Sint catches;		/* Number of catches on stack */
-    Uint32 rcount;		/* suspend count */
-    int  schedule_count;	/* Times left to reschedule a low prio process */
-    Uint reds;			/* No of reductions for this process  */
-    Uint32 flags;		/* Trap exit, etc */
-    Eterm group_leader;		/* Pid in charge (can be boxed) */
-    Eterm ftrace;		/* Latest exception stack trace dump */
+    Sint catches;               /* Number of catches on stack */
+    Sint return_trace_frames;   /* Number of return trace frames on stack */
+    Uint reds;                  /* No of reductions for this process  */
+    Eterm group_leader;         /* Pid in charge (can be boxed) */
+    Eterm ftrace;               /* Latest exception stack trace dump */
 
-    Process *next;		/* Pointer to next process in run queue */
+    Process *next;              /* Pointer to next process in run queue */
 
-    Sint64 uniq;                /* Used for process unique integer */
+    Sint64 uniq;                 /* Used for process unique integer */
     ErtsSignalPrivQueues sig_qs; /* Signal queues */
-    ErtsBifTimers *bif_timers;	/* Bif timers aiming at this process */
+    ErtsBifTimers *bif_timers;   /* Bif timers aiming at this process */
 
-    ProcDict  *dictionary;       /* Process dictionary, may be NULL */
+    ProcDict *dictionary;        /* Process dictionary, may be NULL */
 
     Uint seq_trace_clock;
     Uint seq_trace_lastcnt;
     Eterm seq_trace_token;	/* Sequential trace token (tuple size 5 see below) */
 
-#ifdef USE_VM_PROBES
-    Eterm dt_utag;              /* Place to store the dynamic trace user tag */
-    Uint dt_utag_flags;         /* flag field for the dt_utag */
-#endif
     union {
         struct process *real_proc;
-	void *terminate;
-	ErtsCodeMFA initial;	/* Initial module(0), function(1), arity(2),
+        void *terminate;
+        ErtsCodeMFA initial;	/* Initial module(0), function(1), arity(2),
                                    often used instead of pointer to funcinfo
                                    instruction. */
     } u;
+
     const ErtsCodeMFA* current; /* Current Erlang function, part of the
                                  * funcinfo:
                                  *
@@ -1096,7 +1133,7 @@ struct process {
     /*
      * Information mainly for post-mortem use (erl crash dump).
      */
-    Eterm parent;		/* Pid of process that created this process. */
+    Eterm parent;               /* Pid of process that created this process. */
 
     Uint32 static_flags;        /* Flags that do *not* change */
 
@@ -1104,12 +1141,12 @@ struct process {
      * architectures, have gone to.
      */
 
+    Uint16 gen_gcs;             /* Number of (minor) generational GCs. */
+    Uint16 max_gen_gcs;         /* Max minor gen GCs before fullsweep. */
     Eterm *high_water;
     Eterm *old_hend;            /* Heap pointers for generational GC. */
     Eterm *old_htop;
     Eterm *old_heap;
-    Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
-    Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
     struct erl_off_heap_header* wrt_bins; /* Writable binaries */
     ErlHeapFragment* mbuf;	/* Pointer to heap fragment list */
@@ -1134,6 +1171,11 @@ struct process {
     erts_proc_lock_t lock;
     ErtsSchedulerData *scheduler_data;
     erts_atomic_t run_queue;
+
+#ifdef USE_VM_PROBES
+    Eterm dt_utag;              /* Place to store the dynamic trace user tag */
+    Uint dt_utag_flags;         /* flag field for the dt_utag */
+#endif
 
 #ifdef CHECK_FOR_HOLES
     Eterm* last_htop;		/* No need to scan the heap below this point. */
@@ -1493,7 +1535,8 @@ typedef struct {
 
     Eterm tag;                  /* spawn_request tag (if SPO_ASYNC is set) */
     Eterm monitor_tag;          /* monitor tag (if SPO_MONITOR is set) */
-    Uint16 monitor_oflags;      /* flags to bitwise-or onto origin flags */
+    Uint32 monitor_oflags;      /* flags to bitwise-or onto origin flags */
+    Uint32 link_oflags;         /* flags to bitwise-or onto origin link flags */
     Eterm opts;                 /* Option list for seq-trace... */
 
     /* Input fields used for distributed spawn only */
@@ -1527,7 +1570,8 @@ typedef struct {
         (SOP)->opts = NIL;                                              \
         (SOP)->tag = am_spawn_reply;                                    \
         (SOP)->monitor_tag = THE_NON_VALUE;                             \
-        (SOP)->monitor_oflags = (Uint16) 0;                             \
+        (SOP)->monitor_oflags = (Uint32) 0;                             \
+        (SOP)->link_oflags = (Uint32) 0;                                \
     } while (0)
 
 /*
@@ -1556,19 +1600,18 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
 
 extern erts_rwmtx_t erts_cpu_bind_rwmtx;
-/* If any of the erts_system_monitor_* variables are set (enabled),
-** erts_system_monitor must be != NIL, to allow testing on just
-** the erts_system_monitor_* variables.
-*/
-extern Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
+
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
+extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_off);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_busy_port_cnt);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_busy_dist_port_cnt);
 struct erts_system_monitor_flags_t {
-	 unsigned int busy_port : 1;
-    unsigned int busy_dist_port : 1;
+    bool busy_port;
+    bool busy_dist_port;
 };
-extern struct erts_system_monitor_flags_t erts_system_monitor_flags;
 
 /* system_profile, same rules as for system_monitor.
 	erts_profile must be != NIL when 
@@ -1620,12 +1663,64 @@ extern int erts_system_profile_ts_type;
 #define FS_UNUSED              (1 << 3) /* Unused */
 #define FS_HANDLING_SIGS       (1 << 4) /* Process is handling signals */
 #define FS_WAIT_HANDLE_SIGS    (1 << 5) /* Process is waiting to handle signals */
-#define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
+#define FS_UNUSED2             (1 << 6) /* Unused */
 #define FS_FLUSHING_SIGS       (1 << 7) /* Currently flushing signals */
 #define FS_FLUSHED_SIGS        (1 << 8) /* Flushing of signals completed */
 #define FS_NON_FETCH_CNT1      (1 << 9) /* First bit of non-fetch signals counter */
 #define FS_NON_FETCH_CNT2      (1 << 10)/* Second bit of non-fetch signals counter */
 #define FS_NON_FETCH_CNT4      (1 << 11)/* Third bit of non-fetch signals counter */
+#define FS_MON_MSGQ_LEN_HIGH   (1 << 12)/* Monitor of msgq high limit for some session(s) */
+#define FS_MON_MSGQ_LEN_LOW    (1 << 13)/* Monitor of msgq low limit for some session(s) */
+#define FS_SET_SAVE_INFO_1     (1 << 14)/* set save info bit 1 */
+#define FS_SET_SAVE_INFO_2     (1 << 15)/* set save info bit 2 */
+#define FS_PRIO_MQ_SAVE        (1 << 16)/* Save points into prio queue */
+#define FS_PRIO_MQ             (1 << 17)/* Prio message queue installed */
+#define FS_PRIO_MQ_END_MARK    (1 << 18)/* Prio message queue end marker in queue */
+
+#define FS_DBG_MQ_PTRS_UNREL   (1 << 31)/* MsgQ pointers unreliable (signal handling) */
+
+/*
+ * The FS_SET_SAVE_INFO_* bits of the signal queue flags map to the following
+ * values. This information determines how to handle the save pointer with
+ * regards to the priority (part of the message) queue.
+ *
+ * - FS_SET_SAVE_INFO_FIRST  - We began searching for messages at the start
+ *                             of the message queue.
+ * - FS_SET_SAVE_INFO_LAST   - We began searching for a message at the current
+ *                             end of the message queue. This is an ERTS
+ *                             internal receive optimization where we trap out
+ *                             to a known receive. When set, the save pointer
+ *                             should always point past the end of the prio
+ *                             queue. 
+ * - FS_SET_SAVE_INFO_RCVM   - We began searching for messages at receive
+ *                             marker identified by the 'set_save_ix' field in
+ *                             the receive marker block.
+ * - FS_SET_SAVE_INFO_MARK   - The prio queue continuation marker is inserted
+ *                             in the message queue. When we reach the end of
+ *                             the prio queue, we should continue at the marker.
+ *                             Information about the previous set save info
+ *                             state can be found in the 'saved_save_info' field
+ *                             in the priority queue info block.
+ */
+
+#define FS_SET_SAVE_INFO_MASK  (FS_SET_SAVE_INFO_1 | FS_SET_SAVE_INFO_2)
+
+#define FS_SET_SAVE_INFO_FIRST (0)
+#define FS_SET_SAVE_INFO_RCVM  (FS_SET_SAVE_INFO_1)
+#define FS_SET_SAVE_INFO_MARK  (FS_SET_SAVE_INFO_2)
+#define FS_SET_SAVE_INFO_LAST  (FS_SET_SAVE_INFO_1 | FS_SET_SAVE_INFO_2)
+
+#define ERTS_MQ_SET_SAVE_INFO(P, SI)                                    \
+    do {                                                                \
+        ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN                              \
+                       & erts_proc_lc_my_proc_locks((P)));              \
+        ASSERT(((SI) & ~FS_SET_SAVE_INFO_MASK) == 0);                   \
+        (P)->sig_qs.flags &= ~FS_SET_SAVE_INFO_MASK;                    \
+        (P)->sig_qs.flags |= (SI);                                      \
+    } while (0)
+
+#define ERTS_MQ_GET_SAVE_INFO(P)                                        \
+    ((P)->sig_qs.flags & FS_SET_SAVE_INFO_MASK)
 
 #define FS_NON_FETCH_CNT_MASK \
     (FS_NON_FETCH_CNT1|FS_NON_FETCH_CNT2|FS_NON_FETCH_CNT4)
@@ -1667,18 +1762,20 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_ARITY_ONLY   F_TRACE_FLAG(12)
 #define F_TRACE_RETURN_TO    F_TRACE_FLAG(13) /* Return_to trace when breakpoint tracing */
 #define F_TRACE_SILENT       F_TRACE_FLAG(14) /* No call trace msg suppress */
-#define F_EXCEPTION_TRACE    F_TRACE_FLAG(15) /* May have exception trace on stack */
-
+#define F_TRACE_DBG_CANARY   F_TRACE_FLAG(15)
 /* port trace flags, currently the same as process trace flags */
 #define F_TRACE_SCHED_PORTS  F_TRACE_FLAG(17) /* Trace of port scheduling */
 #define F_TRACE_SCHED_PROCS  F_TRACE_FLAG(18) /* With virtual scheduling */
 #define F_TRACE_PORTS	     F_TRACE_FLAG(19) /* Ports equivalent to F_TRACE_PROCS */
 #define F_TRACE_SCHED_NO     F_TRACE_FLAG(20) /* Trace with scheduler id */
 #define F_TRACE_SCHED_EXIT   F_TRACE_FLAG(21)
+#define F_TRACE_RETURN_TO_MARK  F_TRACE_FLAG(22) /* temporary marker */
 
-#define F_NUM_FLAGS          (ERTS_TRACE_TS_TYPE_BITS + 22)
+
+#define F_NUM_FLAGS          (ERTS_TRACE_TS_TYPE_BITS + 23)
 #ifdef DEBUG
-#  define F_INITIAL_TRACE_FLAGS (5 << F_NUM_FLAGS)
+// Was there a point with this high 5?
+#  define F_INITIAL_TRACE_FLAGS 0 //(5 << F_NUM_FLAGS)
 #else
 #  define F_INITIAL_TRACE_FLAGS 0
 #endif
@@ -2064,6 +2161,16 @@ void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp
 void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);
 void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
+const char* erts_internal_fun_description_from_pc(ErtsCodePtr);
+
+#define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
+#define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
+#define ERTS_PI_FLAG_WANT_MSGS                          (1 << 2)
+#define ERTS_PI_FLAG_NEED_MSGQ                          (1 << 3)
+#define ERTS_PI_FLAG_FORCE_SIG_SEND                     (1 << 4)
+#define ERTS_PI_FLAG_REQUEST_FOR_OTHER                  (1 << 5)
+#define ERTS_PI_FLAG_KEY_TUPLE2                         (1 << 6)
+
 Eterm erts_process_info(Process *c_p, ErtsHeapFactory *hfact,
                         Process *rp, ErtsProcLocks rp_locks,
                         int *item_ix, Eterm *item_extra, int item_len,
@@ -2291,6 +2398,11 @@ erts_psd_set(Process *p, int ix, void *data)
     ((erts_tse_t *) erts_psd_get((P), ERTS_PSD_TS_EVENT))
 #define ERTS_PROC_SET_TS_EVENT(P, TSE) \
     ((erts_tse_t *) erts_psd_set((P), ERTS_PSD_TS_EVENT, (void *) (TSE)))
+
+#define ERTS_PROC_GET_PRIO_Q_INFO(P) \
+    ((ErtsPrioQInfo *) erts_psd_get((P), ERTS_PSD_PRIO_Q_INFO))
+#define ERTS_PROC_SET_PRIO_Q_INFO(P, PRIO_Q_INFO) \
+    ((ErtsPrioQInfo *) erts_psd_set((P), ERTS_PSD_PRIO_Q_INFO, (void *) (PRIO_Q_INFO)))
 
 #define ERTS_PROC_GET_PENDING_SUSPEND(P) \
     ((void *) erts_psd_get((P), ERTS_PSD_PENDING_SUSPEND))
@@ -2942,9 +3054,16 @@ Uint32 erts_sched_local_random_hash_64_to_32_shift(Uint64 key)
 ERTS_GLB_INLINE
 Uint32 erts_sched_local_random(Uint additional_seed)
 {
+    extern erts_atomic_t erts_sched_local_random_nosched_state;
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    esdp->rand_state++;
-    return erts_sched_local_random_hash_64_to_32_shift(esdp->rand_state
+    Uint64 rand_state;
+
+    if(ERTS_UNLIKELY(esdp == NULL)) {
+        rand_state = erts_atomic_inc_read_nob(&erts_sched_local_random_nosched_state);
+    } else {
+        rand_state = esdp->rand_state++;
+    }
+    return erts_sched_local_random_hash_64_to_32_shift(rand_state
                                                        + additional_seed);
 }
 
@@ -2972,6 +3091,10 @@ float erts_sched_local_random_float(Uint additional_seed)
 #endif
 
 
-void erts_halt(int code);
+void erts_halt(int code, ErtsMonotonicTime tmo);
 extern erts_atomic32_t erts_halt_progress;
 extern int erts_halt_code;
+
+extern Eterm
+erts_build_stacktrace(ErtsHeapFactory *hfact, Process* rp,
+                      Uint reserve_size, int max_depth, int include_i);

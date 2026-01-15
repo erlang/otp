@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +45,7 @@
          open_file_dir_v6/1,
          read_dir/1,
          read_file/1,
+         max_path/1,
          real_path/1,
          relative_path/1,
          relpath/1,
@@ -51,7 +54,6 @@
          retrieve_attributes/1,
          root_with_cwd/1,
          set_attributes/1,
-         sshd_read_file/1,
          ver3_open_flags/1,
          ver3_rename/1,
          ver6_basic/1,
@@ -60,6 +62,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include("ssh_xfer.hrl").
 -include("ssh.hrl").
 -include("ssh_test_lib.hrl").
@@ -68,24 +71,25 @@
 -define(PASSWD, "Sesame").
 %% -define(XFER_PACKET_SIZE, 32768).
 %% -define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
--define(SSH_TIMEOUT, 10000).
+-define(SSH_TIMEOUT, 5000).
 -define(REG_ATTERS, <<0,0,0,0,1>>).
 -define(UNIX_EPOCH,  62167219200).
-
--define(is_set(F, Bits),
-	((F) band (Bits)) == (F)).
+-define(MAX_HANDLES, 10).
+-define(MAX_PATH, 200).
+-define(is_set(F, Bits), ((F) band (Bits)) == (F)).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,40}}].
+    [{timetrap,{seconds,20}}].
 
 all() -> 
     [open_close_file, 
      open_close_dir, 
      read_file, 
+     max_path,
      read_dir,
      write_file, 
      rename_file, 
@@ -97,8 +101,7 @@ all() ->
      links,
      ver3_rename,
      ver3_open_flags,
-     relpath, 
-     sshd_read_file,
+     relpath,
      ver6_basic,
      access_outside_root,
      root_with_cwd,
@@ -180,7 +183,9 @@ init_per_testcase(TestCase, Config) ->
 								  {sftpd_vsn, 6}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
-			  SubSystems = [ssh_sftpd:subsystem_spec([])],
+			  SubSystems = [ssh_sftpd:subsystem_spec(
+                                          [{max_handles, ?MAX_HANDLES},
+                                           {max_path, ?MAX_PATH}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
 		  end,
 
@@ -316,33 +321,62 @@ open_close_dir(Config) when is_list(Config) ->
 read_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
+         {Cm, Channel} = proplists:get_value(sftp, Config),
+    [begin
+         R1 = req_id(),
+         {ok, <<?SSH_FXP_HANDLE, ?UINT32(R1), Handle/binary>>, _} =
+             open_file(FileName, Cm, Channel, R1, ?ACE4_READ_DATA bor ?ACE4_READ_ATTRIBUTES,
+                       ?SSH_FXF_OPEN_EXISTING),
+         R2 = req_id(),
+         {ok, <<?SSH_FXP_DATA, ?UINT32(R2), ?UINT32(_Length), Data/binary>>, _} =
+             read_file(Handle, 1000, 0, Cm, Channel, R2),
+         {ok, Data} = file:read_file(FileName)
+     end || _I <- lists:seq(0, ?MAX_HANDLES-1)],
+    ReqId = req_id(),
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(?SSH_FX_FAILURE),
+           ?UINT32(MsgLen), Msg:MsgLen/binary,
+           ?UINT32(LangTagLen), _LangTag:LangTagLen/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId, ?ACE4_READ_DATA bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING),
+    ct:log("Message: ~s", [Msg]),
+    ok.
 
-    ReqId = 0,
+%%--------------------------------------------------------------------
+max_path(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    FileName = filename:join(PrivDir, "test.txt"),
     {Cm, Channel} = proplists:get_value(sftp, Config),
-
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
-	open_file(FileName, Cm, Channel, ReqId,
+    %% verify max_path limit
+    LongFileName =
+        filename:join(PrivDir,
+                      "t" ++ lists:flatten(lists:duplicate(?MAX_PATH, "e")) ++ "st.txt"),
+    {ok, _} = file:copy(FileName, LongFileName),
+    ReqId1 = req_id(),
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId1), ?UINT32(?SSH_FX_NO_SUCH_PATH),
+	  _/binary>>, _} =
+	open_file(LongFileName, Cm, Channel, ReqId1,
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING),
-
-    NewReqId = 1,
-
-    {ok, <<?SSH_FXP_DATA, ?UINT32(NewReqId), ?UINT32(_Length),
-	  Data/binary>>, _} =
-	read_file(Handle, 100, 0, Cm, Channel, NewReqId),
-
-    {ok, Data} = file:read_file(FileName).
+		  ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
 read_dir(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     {Cm, Channel} = proplists:get_value(sftp, Config),
-    ReqId = 0,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
-	open_dir(PrivDir, Cm, Channel, ReqId),
-    ok = read_dir(Handle, Cm, Channel, ReqId).
+    [begin
+         R1 = req_id(),
+         {ok, <<?SSH_FXP_HANDLE, ?UINT32(R1), Handle/binary>>, _} =
+             open_dir(PrivDir, Cm, Channel, R1),
+         R2 = req_id(),
+         ok = read_dir(Handle, Cm, Channel, R2)
+     end || _I <- lists:seq(0, ?MAX_HANDLES-1)],
+    ReqId = req_id(),
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(?SSH_FX_FAILURE),
+           ?UINT32(MsgLen), Msg:MsgLen/binary,
+           ?UINT32(LangTagLen), _LangTag:LangTagLen/binary>>, _} =
+        open_dir(PrivDir, Cm, Channel, ReqId),
+    ct:log("Message: ~s", [Msg]),
+    ok.
 
-%%--------------------------------------------------------------------
 write_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -357,12 +391,12 @@ write_file(Config) when is_list(Config) ->
 
     NewReqId = 1,
     Data =  list_to_binary("Write file test"),
-
+    DataSize = byte_size(Data),
     {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId), ?UINT32(?SSH_FX_OK),
 	  _/binary>>, _}
 	= write_file(Handle, Data, 0, Cm, Channel, NewReqId),
 
-    {ok, Data} = file:read_file(FileName).
+    {ok, <<Data:DataSize/binary, _/binary>>} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
 remove_file(Config) when is_list(Config) ->
@@ -388,35 +422,33 @@ rename_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
     NewFileName = filename:join(PrivDir, "test1.txt"),
-    ReqId = 0,
+    LongFileName =
+        filename:join(PrivDir,
+                      "t" ++ lists:flatten(lists:duplicate(?MAX_PATH, "e")) ++ "st.txt"),
     {Cm, Channel} = proplists:get_value(sftp, Config),
-
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
-	  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
-	rename(FileName, NewFileName, Cm, Channel, ReqId, 6, 0),
-
-    NewReqId = ReqId + 1,
-
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId),
-	  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
-	rename(NewFileName, FileName, Cm, Channel, NewReqId, 6,
-	       ?SSH_FXP_RENAME_OVERWRITE),
-
-    NewReqId1 = NewReqId + 1,
-    file:copy(FileName, NewFileName),
-
-    %% No overwrite
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId1),
-	  ?UINT32(?SSH_FX_FILE_ALREADY_EXISTS), _/binary>>, _} =
-	rename(FileName, NewFileName, Cm, Channel, NewReqId1, 6,
-	       ?SSH_FXP_RENAME_NATIVE),
-
-    NewReqId2 = NewReqId1 + 1,
-
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId2),
-	  ?UINT32(?SSH_FX_OP_UNSUPPORTED), _/binary>>, _} =
-	rename(FileName, NewFileName, Cm, Channel, NewReqId2, 6,
-	       ?SSH_FXP_RENAME_ATOMIC).
+    Version = 6,
+    [begin
+         case Action of
+             {Code, AFile, BFile, Flags} ->
+                 ReqId = req_id(),
+                 ct:log("ReqId = ~p,~nCode = ~p,~nAFile = ~p,~nBFile = ~p,~nFlags = ~p",
+                        [ReqId, Code, AFile, BFile, Flags]),
+                 {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(Code), _/binary>>, _} =
+                     rename(AFile, BFile, Cm, Channel, ReqId, Version, Flags);
+             {file_copy, AFile, BFile} ->
+                 {ok, _} = file:copy(AFile, BFile)
+         end
+     end ||
+        Action <-
+            [{?SSH_FX_OK, FileName, NewFileName, 0},
+             {?SSH_FX_OK, NewFileName, FileName, ?SSH_FXP_RENAME_OVERWRITE},
+             {file_copy, FileName, NewFileName},
+             %% no overwrite
+             {?SSH_FX_FILE_ALREADY_EXISTS, FileName, NewFileName, ?SSH_FXP_RENAME_NATIVE},
+             {?SSH_FX_OP_UNSUPPORTED, FileName, NewFileName, ?SSH_FXP_RENAME_ATOMIC},
+             %% max_path
+             {?SSH_FX_NO_SUCH_PATH, FileName, LongFileName, 0}]],
+    ok.
 
 %%--------------------------------------------------------------------
 mk_rm_dir(Config) when is_list(Config) ->
@@ -644,27 +676,6 @@ relpath(Config) when is_list(Config) ->
 	    Root = Path
     end.
 
-%%--------------------------------------------------------------------
-sshd_read_file(Config) when is_list(Config) ->
-    PrivDir =  proplists:get_value(priv_dir, Config),
-    FileName = filename:join(PrivDir, "test.txt"),
-
-    ReqId = 0,
-    {Cm, Channel} = proplists:get_value(sftp, Config),
-
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
-	open_file(FileName, Cm, Channel, ReqId,
-		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING),
-
-    NewReqId = 1,
-
-    {ok, <<?SSH_FXP_DATA, ?UINT32(NewReqId), ?UINT32(_Length),
-	  Data/binary>>, _} =
-	read_file(Handle, 100, 0, Cm, Channel, NewReqId),
-
-    {ok, Data} = file:read_file(FileName).
-%%--------------------------------------------------------------------
 ver6_basic(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     %FileName = filename:join(PrivDir, "test.txt"),
@@ -728,25 +739,33 @@ root_with_cwd(Config) when is_list(Config) ->
     FileName = "root_with_cwd.txt",
     FilePath = filename:join(CWD, FileName),
     ok = filelib:ensure_dir(FilePath),
-    ok = file:write_file(FilePath ++ "0", <<>>),
-    ok = file:write_file(FilePath ++ "1", <<>>),
-    ok = file:write_file(FilePath ++ "2", <<>>),
     {Cm, Channel} = proplists:get_value(sftp, Config),
-    ReqId0 = 0,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId0), _Handle0/binary>>, _} =
-	open_file(FileName ++ "0", Cm, Channel, ReqId0,
-		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING),
-    ReqId1 = 1,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId1), _Handle1/binary>>, _} =
-	open_file("./" ++ FileName ++ "1", Cm, Channel, ReqId1,
-		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING),
-    ReqId2 = 2,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId2), _Handle2/binary>>, _} =
-	open_file("/home/" ++ FileName ++ "2", Cm, Channel, ReqId2,
-		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING).
+
+    %% repeat procedure to make sure uniq file handles are generated
+    FileHandles =
+        [begin
+             ReqIdStr = integer_to_list(ReqId),
+             ok = file:write_file(FilePath ++ ReqIdStr, <<>>),
+             {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
+                 open_file(FileName ++ ReqIdStr, Cm, Channel, ReqId,
+                           ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                           ?SSH_FXF_OPEN_EXISTING),
+             Handle
+         end ||
+            ReqId <- lists:seq(0,2)],
+    ?assertEqual(length(FileHandles),
+                 length(lists:uniq(FileHandles))),
+    %% create a gap in file handles
+    [_, MiddleHandle, _] = FileHandles,
+    close(MiddleHandle, 3, Cm, Channel),
+
+    %% check that gap in file handles is is re-used
+    GapReqId = 4,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(GapReqId), MiddleHandle/binary>>, _} =
+        open_file(FileName ++ integer_to_list(1), Cm, Channel, GapReqId,
+                  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING),
+    ok.
 
 %%--------------------------------------------------------------------
 relative_path(Config) when is_list(Config) ->
@@ -1078,3 +1097,12 @@ encode_file_type(Type) ->
 
 not_default_permissions() ->
     8#600. %% User read-write-only
+
+req_id() ->
+    ReqId =
+        case get(req_id) of
+            undefined -> 0;
+            I -> I
+        end,
+    put(req_id, ReqId + 1),
+    ReqId.

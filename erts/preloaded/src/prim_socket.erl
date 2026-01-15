@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 
 -module(prim_socket).
+-moduledoc false.
 
 -compile(no_native).
 
@@ -35,7 +38,7 @@
     connect/1, connect/3,
     listen/2,
     accept/2,
-    send/4, sendto/4, sendto/5, sendmsg/4, sendmsg/5,
+    send/4, sendto/4, sendto/5, sendmsg/4, sendmsg/5, sendv/3,
     sendfile/4, sendfile/5, sendfile_deferred_close/1,
     recv/4, recvfrom/4, recvmsg/5,
     close/1, finalize_close/1,
@@ -47,11 +50,12 @@
     cancel/3
    ]).
 
--export([enc_sockaddr/1, p_get/1]).
+-export([enc_sockaddr/1, p_get/1, rest_iov/2]).
 
 -nifs([nif_info/0, nif_info/1, nif_supports/0, nif_supports/1, nif_command/1,
        nif_open/2, nif_open/4, nif_bind/2, nif_connect/1, nif_connect/3,
-       nif_listen/2, nif_accept/2, nif_send/4, nif_sendto/5, nif_sendmsg/5,
+       nif_listen/2, nif_accept/2,
+       nif_send/4, nif_sendto/5, nif_sendmsg/5, nif_sendv/3,
        nif_sendfile/5, nif_sendfile/4, nif_sendfile/1, nif_recv/4,
        nif_recvfrom/4, nif_recvmsg/5, nif_close/1, nif_shutdown/2,
        nif_setopt/5, nif_getopt/3, nif_getopt/4, nif_sockname/1,
@@ -97,6 +101,7 @@
 -define(ESOCK_OPT_OTP_FD,              1008).
 -define(ESOCK_OPT_OTP_META,            1009).
 -define(ESOCK_OPT_OTP_USE_REGISTRY,    1010).
+-define(ESOCK_OPT_OTP_SELECT_READ,     1011).
 %%
 -define(ESOCK_OPT_OTP_DOMAIN,          1999). % INTERNAL
 %%-define(ESOCK_OPT_OTP_TYPE,            1998). % INTERNAL
@@ -159,28 +164,44 @@ on_load(Extra) when is_map(Extra) ->
     init().
 
 init() ->
-    PT =
-        put_supports_table(protocols,
-			   fun (Protocols) -> protocols_table(Protocols) end),
-    _ = put_supports_table(options,
-			   fun (Options) -> options_table(Options, PT) end),
-    _ = put_supports_table(ioctl_requests,
-			   fun (Requests) -> Requests end),
-    _ = put_supports_table(ioctl_flags, fun (Flags) -> Flags end),
-    _ = put_supports_table(msg_flags, fun (Flags) -> Flags end),
+    put_supports_table(protocols,
+                       fun (Protocols) -> protocols_table(Protocols) end),
+    put_supports_table(options,
+                       fun (Options) -> options_table(Options) end),
+    put_supports_table(ioctl_requests,
+                       fun (Requests) -> Requests end),
+    put_supports_table(ioctl_flags, fun (Flags) -> Flags end),
+    put_supports_table(msg_flags, fun (Flags) -> Flags end),
     ok.
 
 put_supports_table(Tag, MkTable) ->
     Table =
         try nif_supports(Tag) of
             Data ->
-                maps:from_list(MkTable(Data))
+                merge_values(MkTable(Data))
         catch
             error : notsup ->
                 #{}
         end,
-    p_put(Tag, Table),
-    Table.
+    p_put(Tag, Table).
+
+%% Like maps:from_list/1 the last duplicate key wins,
+%% except if both values are lists; append the second to the first.
+%%
+merge_values([]) -> #{};
+merge_values([{Key, Val} | L]) ->
+    M = merge_values(L),
+    case M of
+        #{ Key := Val2 } ->
+            if
+                is_list(Val), is_list(Val2) ->
+                    M#{ Key := Val ++ Val2 };
+                true ->
+                    M
+            end;
+        #{} ->
+            M#{ Key => Val }
+    end.
 
 %% ->
 %% [{Num, [Name, ...]}
@@ -196,41 +217,24 @@ protocols_table(Protocols, [], _Num) ->
     protocols_table(Protocols).
 
 %% ->
-%% [{{socket,Opt}, {socket,OptNum}} |
-%%  {{Level, Opt}, {LevelNum, OptNum}} for all Levels (protocol aliases)]
-options_table([], _PT) ->
+%% [{{socket,Opt}, {socket,OptNum} | undefined} |
+%%  {{Level, Opt}, {LevelNum, OptNum} | undefined}]
+options_table([]) ->
     [];
-options_table([{socket, LevelOpts} | Options], PT) ->
-    options_table(Options, PT, socket, LevelOpts, [socket]);
-options_table([{LevelNum, LevelOpts} | Options], PT) ->
-    Levels = maps:get(LevelNum, PT),
-    options_table(Options, PT, LevelNum, LevelOpts, Levels).
+options_table([{socket = Level, _LevelNum, LevelOpts} | Options]) ->
+    options_table(Options, Level, Level, LevelOpts);
+options_table([{Level, LevelNum, LevelOpts} | Options]) ->
+    options_table(Options, Level, LevelNum, LevelOpts).
 %%
-options_table(Options, PT, _Level, [], _Levels) ->
-    options_table(Options, PT);
-options_table(Options, PT, Level, [LevelOpt | LevelOpts], Levels) ->
-    LevelOptNum =
-        case LevelOpt of
-            {Opt, OptNum} ->
-                {Level,OptNum};
-            Opt when is_atom(Opt) ->
-                undefined
-        end,
-    options_table(
-      Options, PT, Level, LevelOpts, Levels,
-      Opt, LevelOptNum, Levels).
-%%
-options_table(
-  Options, PT, Level, LevelOpts, Levels,
-  _Opt, _LevelOptNum, []) ->
-    options_table(Options, PT, Level, LevelOpts, Levels);
-options_table(
-  Options, PT, Level, LevelOpts, Levels,
-  Opt, LevelOptNum, [L | Ls]) ->
-    [{{L,Opt}, LevelOptNum} |
-     options_table(
-       Options, PT, Level, LevelOpts, Levels,
-       Opt, LevelOptNum, Ls)].
+options_table(Options, _Level, _LevelNum, []) ->
+    options_table(Options);
+options_table(Options, Level, LevelNum, [LevelOpt | LevelOpts]) ->
+    [case LevelOpt of
+         {Opt, OptNum} ->
+             {{Level, Opt}, {LevelNum,OptNum}};
+         Opt when is_atom(Opt) ->
+             {{Level, Opt}, undefined}
+     end | options_table(Options, Level, LevelNum, LevelOpts)].
 
 %% ===========================================================================
 %% API for 'socket'
@@ -328,7 +332,15 @@ is_supported_option(_Option, undefined) ->
     false.
 
 is_supported(Key1) ->
-    get_is_supported(Key1, nif_supports()).
+    case Key1 of
+        ioctl_requests -> true;
+        ioctl_flags    -> true;
+        protocols      -> true;
+        options        -> true;
+        msg_flags      -> true;
+        _ ->
+            get_is_supported(Key1, nif_supports())
+    end.
 
 is_supported(ioctl_requests = Tab, Name) when is_atom(Name) ->
     p_get_is_supported(Tab, Name, fun (_) -> true end);
@@ -643,9 +655,20 @@ sendmsg_result(
             RestIOV = rest_iov(Written, IOV),
             {select, RestIOV, Cont};
 
-        %% Either the message was written or not. No half ways...
+        %% We may have previously been able to send part of
+        %% the message: Depends on how long the I/O vector is!
+        %% A vector of length > IOV_MAX *will* result in a partial
+        %% send (and a return of '{iov, Written}').
+        %% On Windows, IOV_MAX can be as low 16, so there is a
+        %% good chance this will happen (unless the user has
+        %% already pruned the I/O vector).
         completion = C ->
-            C;
+            if
+                HasWritten ->
+                    {C, IOV, undefined};
+                true ->
+                    {C, undefined}
+            end;
 
         {error, Reason} = Error->
             if
@@ -687,6 +710,60 @@ invalid_iov([H|IOV], N) ->
     end;
 invalid_iov(_, N) ->
     {improper_list, N}.
+
+
+sendv(SockRef, IOV, SendRef) ->
+    sendv_result(
+      SockRef, IOV, SendRef, false,
+      nif_sendv(SockRef, IOV, SendRef)).
+
+sendv_result(SockRef, IOV, SendRef, HasWritten, Result) ->
+    case Result of
+        ok ->
+            ok;
+
+        {ok, Written} ->
+            RestIOV = rest_iov(Written, IOV),
+            {ok, RestIOV};
+
+        {iov, Written} ->
+            RestIOV = rest_iov(Written, IOV),
+            sendv_result(
+              SockRef, RestIOV, SendRef, true,
+              nif_sendv(SockRef, RestIOV, SendRef));
+
+        select ->
+            if
+                HasWritten ->
+                    %% Cont is not used for sendv
+                    {select, IOV, undefined};
+                true ->
+                    {select, undefined}
+            end;
+        {select, Written} ->
+            RestIOV = rest_iov(Written, IOV),
+            %% Cont is not used for sendv
+            {select, RestIOV, undefined};
+
+        %% We may have previously been able to send part of
+        %% the message: Depends on how long the I/O vector is!
+        %% A vector of length > IOV_MAX *will* result in a partial
+        %% send (and a return of '{iov, Written}').
+        %% On Windows, IOV_MAX can be as low 16, so there is a
+        %% good chance this will happen (unless the user has
+        %% already pruned the I/O vector).
+        completion = C ->
+            if
+                HasWritten ->
+                    {C, IOV, undefined};
+                true ->
+                    {C, undefined}
+            end;
+
+        {error, _Reason} = Result ->
+            Result
+    end.
+
 
 sendfile(SockRef, Offset, Count, SendRef) ->
     nif_sendfile(SockRef, SendRef, Offset, Count).
@@ -1082,6 +1159,7 @@ enc_sockopt({otp = Level, Opt}, 0 = _NativeValue) ->
             fd                  -> ?ESOCK_OPT_OTP_FD;
             meta                -> ?ESOCK_OPT_OTP_META;
             use_registry        -> ?ESOCK_OPT_OTP_USE_REGISTRY;
+            select_read         -> ?ESOCK_OPT_OTP_SELECT_READ;
             domain              -> ?ESOCK_OPT_OTP_DOMAIN;
             _                   -> invalid
         end
@@ -1177,6 +1255,7 @@ nif_accept(_SockRef, _Ref) -> erlang:nif_error(notsup).
 nif_send(_SockRef, _Bin, _Flags, _SendRef) -> erlang:nif_error(notsup).
 nif_sendto(_SockRef, _Bin, _Dest, _Flags, _SendRef) -> erlang:nif_error(notsup).
 nif_sendmsg(_SockRef, _Msg, _Flags, _SendRef, _IOV) -> erlang:nif_error(notsup).
+nif_sendv(_SockRef, _IOVec, _SendRef) -> erlang:nif_error(notsup).
 
 nif_sendfile(_SockRef, _SendRef, _Offset, _Count, _InFileRef) ->
     erlang:nif_error(notsup).

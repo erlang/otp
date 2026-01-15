@@ -1,18 +1,26 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 [;1m	re[0m
 
 These types are documented in this module:
 
-  [;1m-type mp() :: {re_pattern, _, _, _, _}.[0m
+[;1m  replace_fun()[0m
 
-  [;1m-type nl_spec() :: cr | crlf | lf | anycrlf | any.[0m
+[;1m  capture()[0m
 
-  [;1m-type compile_option() ::[0m
-  [;1m          unicode | anchored | caseless | dollar_endonly | dotall |[0m
-  [;1m          extended | firstline | multiline | no_auto_capture |[0m
-  [;1m          dupnames | ungreedy |[0m
-  [;1m          {newline, nl_spec()} |[0m
-  [;1m          bsr_anycrlf | bsr_unicode | no_start_optimize | ucp |[0m
-  [;1m          never_utf.[0m
+[;1m  option()[0m
 
-  [;1m-type replace_fun() ::[0m
-  [;1m          fun((binary(), [binary()]) -> iodata() | unicode:charlist()).[0m
+[;1m  options()[0m
+
+[;1m  compile_option()[0m
+
+[;1m  compile_options()[0m
+
+[;1m  nl_spec()[0m
+
+[;1m  mp()[0m

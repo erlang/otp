@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_iload).
+-moduledoc false.
 
 -export([load_mod/4]).
 
@@ -66,10 +69,6 @@ load_mod1(Mod, File, Binary, Db) ->
 store_module(Mod, File, Binary, Db) ->
     {interpreter_module, Exp, Abst, Src, MD5} = binary_to_term(Binary),
     Forms0 = case abstr(Abst) of
-                 {abstract_v1,_} ->
-                     exit({Mod,too_old_beam_file});
-                 {abstract_v2,_} ->
-                     exit({Mod,too_old_beam_file});
                  {raw_abstract_v1,Code} ->
                      Code
              end,
@@ -91,7 +90,7 @@ store_module(Mod, File, Binary, Db) ->
     erase(vcount),
     erase(funs),
     erase(fun_count),
-    
+
     NewBinary = store_mod_line_no(Mod, Db, binary_to_list(Src)),
     dbg_idb:insert(Db, mod_bin, NewBinary),
     dbg_idb:insert(Db, mod_raw, <<Src/binary,0:8>>). %% Add eos
@@ -116,7 +115,7 @@ init_calltype_imports([_|T], Ctype) ->
     init_calltype_imports(T, Ctype);
 init_calltype_imports([], Ctype) -> Ctype.
 
-%% Adjust line numbers using the file/2 attribute. 
+%% Adjust line numbers using the file/2 attribute.
 %% Also take the absolute value of line numbers.
 %% This simple fix will make the marker point at the correct line
 %% (assuming the file attributes are correct) in the source; it will
@@ -520,17 +519,24 @@ expr({'maybe',Anno,Es0,{'else',_ElseAnno,Cs0}}, Lc, St) ->
     Cs1 = icr_clauses(Cs0, Lc, St),
     {'maybe',ln(Anno),Es1,Cs1};
 expr({'fun',Anno,{clauses,Cs0}}, _Lc, St) ->
-    %% New R10B-2 format (abstract_v2).
+    %% New R10B-2 format
     Cs = fun_clauses(Cs0, St),
     Name = new_fun_name(),
     {make_fun,ln(Anno),Name,Cs};
 expr({'fun',Anno,{function,F,A}}, _Lc, _St) ->
-    %% New R8 format (abstract_v2).
+    %% New R8 format
     Line = ln(Anno),
-    As = new_vars(A, Line),
-    Name = new_fun_name(),
-    Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
-    {make_fun,Line,Name,Cs};
+    case erl_internal:bif(F, A) of
+        true ->
+            %% Auto-imported BIF. Create an external fun.
+            {value,Line,fun erlang:F/A};
+        false ->
+            %% A local function.
+            As = new_vars(A, Line),
+            Name = new_fun_name(),
+            Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
+            {make_fun,Line,Name,Cs}
+    end;
 expr({named_fun,Anno,FName,Cs0}, _Lc, St) ->
     Cs = fun_clauses(Cs0, St),
     Name = new_fun_name(),
@@ -579,7 +585,7 @@ expr({call,Anno,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}, Lc, St) ->
 	    end
     end;
 expr({call,Anno,{remote,_,Mod0,Func0},As0}, Lc, St) ->
-    %% New R8 format (abstract_v2).
+    %% New R8 format
     Mod = expr(Mod0, false, St),
     Func = expr(Func0, false, St),
     As = consify(expr_list(As0, St)),
@@ -668,7 +674,7 @@ expr({map_field_assoc,L,K0,V0}, _Lc, St) ->
     V = expr(V0, false, St),
     {map_field_assoc,L,K,V}.
 
-consify([A|As]) -> 
+consify([A|As]) ->
     {cons,0,A,consify(As)};
 consify([]) -> {value,0,[]}.
 
@@ -686,17 +692,41 @@ expr_comprehension({Tag,Anno,E0,Gs0}, St) ->
     Gs = [case G of
               ({generate,L,P0,Qs}) ->
                   {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({generate_strict,L,P0,Qs}) ->
+                  {generator,{generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
               ({b_generate,L,P0,Qs}) -> %R12.
                   {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate_strict,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
               ({m_generate,L,P0,Qs}) -> %OTP 26
                   {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate_strict,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({zip,L,Gens}) ->
+                  expr_comprehension({zip,L,Gens}, St);
               (Expr) ->
                   case is_guard_test(Expr, St) of
                       true -> {guard,guard([[Expr]], St)};
                       false -> expr(Expr, false, St)
                   end
           end || G <- Gs0],
-    {Tag,ln(Anno),expr(E0, false, St),Gs}.
+    {Tag,ln(Anno),expr(E0, false, St),Gs};
+expr_comprehension({zip,Anno,Gens}, St) ->
+    Gs = [case G of
+              ({generate,L,P0,Qs}) ->
+                  {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({generate_strict,L,P0,Qs}) ->
+                  {generator,{generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate_strict,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate_strict,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}}
+          end || G <- Gens],
+    {zip,ln(Anno),Gs}.
 
 mc_pattern({map_field_exact,L,KeyP0,ValP0}, St) ->
     KeyP1 = pattern(KeyP0, St),

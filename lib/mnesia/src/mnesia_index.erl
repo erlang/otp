@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +24,7 @@
 %% Purpose: Handles index functionality in mnesia
 
 -module(mnesia_index).
+-moduledoc false.
 -export([read/5,
 	 add_index/6,
 	 delete_index/4,
@@ -195,7 +198,7 @@ merge([], _, _, Ack) ->
 
 realkeys(Tab, Pos, IxKey) ->
     Index = get_index_table(Tab, Pos),
-    db_get(Index, IxKey). % a list on the form [{IxKey, RealKey1} , ....
+    db_get(Index, IxKey). % a list of the form [{IxKey, RealKey1} , ....
 
 dirty_select(Tab, Spec, Pos) when is_integer(Pos) ->
     %% Assume that we are on the node where the replica is

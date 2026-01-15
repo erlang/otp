@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2019-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2019-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,13 +57,20 @@ dest="$2"
 
 cmd cd "$src"
 
+OIFS="$IFS"
+IFS='
+'
 for dir in `find . -type d`; do
+    IFS="$OIFS"
     destdir="$dest"
     [ "$dir" = "." ] || destdir="$dest/$dir"
     cmd $INSTALL_DIR "$destdir"
 done
 
+IFS='
+'
 for file in `find . -type f`; do
+    IFS="$OIFS"
     subdir=`dirname "$file"`
     destdir="$dest"
     [ "$subdir" = "." ] || destdir="$dest/$subdir"

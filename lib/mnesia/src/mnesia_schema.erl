@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +29,9 @@
 %% used by mnesia:start() to initialize the entire schema.
 
 -module(mnesia_schema).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 -export([
          add_backend_type/2,
@@ -558,6 +563,7 @@ read_disc_schema(Keep, IgnoreFallback) ->
             end
     end.
 
+-dialyzer({no_opaque_union, [do_read_disc_schema/2]}).
 do_read_disc_schema(Fname, Keep) ->
     T =
         case Keep of
@@ -1779,7 +1785,10 @@ remove_node_from_tabs([Tab|Rest], Node) ->
 		     remove_node_from_tabs(Rest, Node)];
 		_Ns ->
 		    Cs3 = verify_cstruct(Cs2),
-		    get_tid_ts_and_lock(Tab, write),
+                    case ?catch_val({Tab, active_replicas}) of
+                        [] -> ok;
+                        _ -> get_tid_ts_and_lock(Tab, write)
+                    end,
 		    [{op, del_table_copy, ram_copies, Node, vsn_cs2list(Cs3)}|
 		     remove_node_from_tabs(Rest, Node)]
 	    end
@@ -2840,6 +2849,7 @@ undo_prepare_commit(Tid, Commit) ->
 	[] ->
 	    ignore;
 	Ops ->
+            verbose("undo prepare: ~w:~n ~p~n", [Tid, Ops]),
 	    %% Catch to allow failure mnesia_controller may not be started
 	    ?SAFE(mnesia_controller:release_schema_commit_lock()),
 	    undo_prepare_ops(Tid, Ops)
@@ -3673,7 +3683,13 @@ change_storage_type(N, disc_copies, Cs) ->
     Cs#cstruct{disc_copies = mnesia_lib:uniq(Nodes)};
 change_storage_type(N, disc_only_copies, Cs) ->
     Nodes = [N | Cs#cstruct.disc_only_copies],
-    Cs#cstruct{disc_only_copies = mnesia_lib:uniq(Nodes)}.
+    Cs#cstruct{disc_only_copies = mnesia_lib:uniq(Nodes)};
+change_storage_type(N, {ext, Alias, Mod}, Cs) ->
+    Key = {Alias, Mod},
+    {_, Nodes0} = lists:keyfind(Key, 1, Cs#cstruct.external_copies),
+    Nodes = mnesia_lib:uniq([N | Nodes0]),
+    ExternalCopies = lists:keyreplace(Key, 1, Cs#cstruct.external_copies, {Key, Nodes}),
+    Cs#cstruct{external_copies = ExternalCopies}.
 
 %% BUGBUG: Verify match of frag info; equalit demanded for all but add_node
 

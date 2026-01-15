@@ -2,7 +2,9 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2001-2023. All Rights Reserved.
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
+dnl Copyright Ericsson AB 2001-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -25,7 +27,7 @@ dnl define([AC_CACHE_SAVE], )dnl
 
 AC_INIT
 AC_CONFIG_SRCDIR([vsn.mk])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 m4_include([otp.m4])
 
@@ -33,11 +35,14 @@ AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 ERL_CANONICAL_SYSTEM_TYPE
 
+ERL_PUSH_WERROR
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
 
 AC_PROG_CC
+LM_PROG_LD
 
 LM_WINDOWS_ENVIRONMENT
 
@@ -168,6 +173,8 @@ AC_CHECK_PROG(PERL, perl, perl, no_perl)
 if test "$PERL" = no_perl; then
   AC_MSG_ERROR([Perl is required to build the flex scanner!])
 fi
+
+ERL_POP_WERROR
 
 AC_CONFIG_FILES([examples/meas/Makefile:examples/meas/Makefile.in])
 AC_OUTPUT

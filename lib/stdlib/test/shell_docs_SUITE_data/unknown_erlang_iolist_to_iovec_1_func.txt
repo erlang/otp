@@ -1,8 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:iolist_to_iovec(IoListOrBinary) -> iovec()[0m
-  [;1m                                when[0m
-  [;1m                                    IoListOrBinary ::[0m
-  [;1m                                        iolist() | binary().[0m
+[;1m  iolist_to_iovec(IoListOrBinary)[0m
 
 [;;4mSince[0m:
   OTP 20.1
@@ -13,7 +17,9 @@
   for passing the data to nif functions such as [;;4menif_inspect_iovec[0m
   or do more efficient message passing. The advantage of using this
   function over [;;4miolist_to_binary/1[0m is that it does not have to
-  copy off-heap binaries. Example:
+  copy off-heap binaries.
+
+  For example:
 
     > Bin1 = <<1,2,3>>.
     <<1,2,3>>

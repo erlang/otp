@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2001-2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,8 +28,9 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2001-2006 Richard Carlsson
 %% @see edoc
 %% @end
 %% =====================================================================
@@ -33,6 +43,8 @@
 -module(edoc_layout).
 
 -export([module/2, overview/2, type/1]).
+
+-export([copyright/1, version/1, since/1, authors/1, references/1, sees/1, todos/1]).
 
 -callback module(edoc:edoc_module(), _) -> binary().
 %% Layout entrypoint.
@@ -54,6 +66,12 @@
 -define(FUNCTION_INDEX_LABEL, "index").
 -define(FUNCTIONS_TITLE, "Function Details").
 -define(FUNCTIONS_LABEL, "functions").
+
+-type options() :: [{index_columns, integer()} |
+                    {pretty_printer, atom()} |
+                    {stylesheet, string()} |
+                    {sort_functions, boolean()} |
+                    {xml_export, module()}].
 
 %% @doc The layout function.
 %%
@@ -85,7 +103,7 @@
 %%  </dd>
 %%  <dt>{@type {xml_export, Module::atom()@}}
 %%  </dt>
-%%  <dd>Specifies an {@link //xmerl. `xmerl'} callback module to be
+%%  <dd>Specifies an {@link //xmerl/xmerl. `xmerl'} callback module to be
 %%      used for exporting the documentation. See {@link
 %%      //xmerl/xmerl:export_simple/3} for details.
 %%  </dd>
@@ -94,7 +112,9 @@
 %% @see edoc:layout/2
 
 %% NEW-OPTIONS: xml_export, index_columns, stylesheet
-
+-spec module(Element, Options) -> term() when
+      Element :: edoc:edoc_module(),
+      Options :: options().
 module(Element, Options) ->
     XML = layout_module(Element, init_opts(Element, Options)),
     Export = proplists:get_value(xml_export, Options,
@@ -191,9 +211,9 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
     Desc = get_content(description, Es),
     ShortDesc = get_content(briefDescription, Desc),
     FullDesc = get_content(fullDescription, Desc),
-    Functions = [{function_name(E, Opts), E} ||
-                    E <- get_content(functions, Es)],
-    Types = [{type_name(E, Opts), E} || E <- get_content(typedecls, Es)],
+    Functions = [{function_name(FunE, Opts), FunE} ||
+                    FunE <- get_content(functions, Es)],
+    Types = [{type_name(TypeE, Opts), TypeE} || TypeE <- get_content(typedecls, Es)],
     SortedFs = if Opts#opts.sort_functions -> lists:sort(Functions);
                   true -> Functions
                end,
@@ -630,6 +650,7 @@ fulldesc(Es) ->
 	Desc -> [{p, Desc}, ?NL]
     end.
 
+%% @hidden
 sees(Es) ->
     case get_elem(see, Es) of
 	[] -> [];
@@ -652,10 +673,13 @@ href(E) ->
     case get_attrval(href, E) of
 	"" -> [];
 	URI ->
-	    T = case get_attrval(target, E) of
-		    "" -> [];
-		    S -> [{target, S}]
-		end,
+	    T = lists:flatmap(
+                  fun(K) ->
+                          case get_attrval(K, E) of
+                              "" -> [];
+                              S -> [{K, S}]
+                          end
+                  end, [target, 'docgen-rel', 'docgen-href']),
 	    [{href, URI} | T]
     end.
 
@@ -688,6 +712,7 @@ equiv(Es, P) ->
 	    end
     end.
 
+%% @hidden
 copyright(Es) ->
     case get_content(copyright, Es) of
 	[] -> [];
@@ -695,6 +720,7 @@ copyright(Es) ->
 	    [{p, ["Copyright \251 " | Es1]}, ?NL]
     end.
 
+%% @hidden
 version(Es) ->
     case get_content(version, Es) of
 	[] -> [];
@@ -702,6 +728,7 @@ version(Es) ->
 	    [{p, [{b, ["Version:"]}, " " | Es1]}, ?NL]
     end.
 
+%% @hidden
 since(Es) ->
     case get_content(since, Es) of
 	[] -> [];
@@ -709,6 +736,7 @@ since(Es) ->
 	    [{p, [{b, ["Introduced in:"]}, " " | Es1]}, ?NL]
     end.
 
+%% @hidden
 deprecated(Es, S) ->
     Es1 = get_content(description, get_content(deprecated, Es)),
     case get_content(fullDescription, Es1) of
@@ -759,6 +787,7 @@ callback(E=#xmlElement{}, Opts) ->
     Arity = get_attrval(arity, E),
     [{code, [atom(Name, Opts), "/", Arity]}].
 
+%% @hidden
 authors(Es) ->
     case get_elem(author, Es) of
 	[] -> [];
@@ -797,6 +826,7 @@ author(E=#xmlElement{}) ->
 		 "]"]
 	end).
 
+%% @hidden
 references(Es) ->
     case get_elem(reference, Es) of
 	[] -> [];
@@ -806,6 +836,7 @@ references(Es) ->
 	     ?NL]
     end.
 
+%% @hidden
 todos(Es) ->
     case get_elem(todo, Es) of
 	[] -> [];
@@ -1034,6 +1065,7 @@ xhtml(Title, CSS, Body, Encoding) ->
 
 %% ---------------------------------------------------------------------
 
+-spec type(Element :: term()) -> term().
 type(E) ->
     Opts = init_opts(E, []),
     type(E, [], Opts).
@@ -1042,6 +1074,7 @@ type(E, Ds, Opts) ->
     xmerl:export_simple_content(t_utype_elem(E, Opts) ++ local_defs(Ds, Opts),
 				?HTML_EXPORT).
 
+-spec overview(Element :: term(), Options :: options()) -> term().
 overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Opts = init_opts(E, Options),
     Title = [get_text(title, Es)],

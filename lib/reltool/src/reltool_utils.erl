@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_utils).
+-moduledoc false.
 
 %% Public
 -export([root_dir/0, erl_libs/0, lib_dirs/1,
@@ -120,8 +123,8 @@ prim_consult(Bin) when is_binary(Bin) ->
 	    {error, Module:format_error(Reason)}
     end;
 prim_consult(FullName) when is_list(FullName) ->
-    case erl_prim_loader:get_file(FullName) of
-        {ok, Bin, _} ->
+    case erl_prim_loader:read_file(FullName) of
+        {ok, Bin} ->
 	    prim_consult(Bin);
         error ->
             {error, file:format_error(enoent)}
@@ -396,7 +399,7 @@ select_items(ListCtrl, OldItems, NewItems) ->
 		    false -> false
 		end
 	end,
-    case lists:zf(Filter, OldItems) of
+    case lists:filtermap(Filter, OldItems) of
 	[] ->
 	    %% None of the old selections are valid. Select the first.
 	    select_item(ListCtrl, NewItems);
@@ -575,8 +578,8 @@ recursive_copy_file(From, To) ->
     end.
 
 copy_file(From, To) ->
-    case erl_prim_loader:get_file(From) of
-	{ok, Bin, _} ->
+    case erl_prim_loader:read_file(From) of
+	{ok, Bin} ->
 	    case file:write_file(To, Bin) of
 		ok ->
 		    FromInfo = read_file_info(From),

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,10 @@
 %% %CopyrightEnd%
 %%
 -module(io_lib_fread).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
+-compile(nowarn_deprecated_catch).
 
 %% Formatted input functions of io library.
 

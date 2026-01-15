@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +41,8 @@
 	 overflow/1,
 	 verify_sections/4,
          unicode/1,
-         bad_io_server/1
+         bad_io_server/1,
+         bypass_unicode_conversion/1
 	]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -54,9 +57,10 @@ all() ->
      emulator_flags_no_shebang, two_lines,
      module_script, beam_script, archive_script, epp,
      create_and_extract, foldl, overflow,
-     archive_script_file_access, unicode, bad_io_server].
+     archive_script_file_access, unicode, bad_io_server,
+     bypass_unicode_conversion].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -89,25 +93,28 @@ basic(Config) when is_list(Config) ->
     run(Config, Dir, "factorial_compile_main 7",
 	<<"factorial 7 = 5040\nExitCode:0">>),
     run(Config, Dir, "factorial_warning 20",
-	[data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
-		    "factorial 20 = 2432902008176640000\nExitCode:0">>]),
-    run_with_opts(Config, Dir, "-s", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
-                              "%   12| bar() ->\n"
-                              "%     | ^\n\n"
-                              "ExitCode:0">>]),
-    run_with_opts(Config, Dir, "-s -i", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
-                              "%   12| bar() ->\n"
-                              "%     | ^\n\n"
-                              "ExitCode:0">>]),
-    run_with_opts(Config, Dir, "-c -s", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
-                              "%   12| bar() ->\n"
-                              "%     | ^\n\n"
-                              "ExitCode:0">>]),
+        [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                    "%   12| bar() ->\n"
+                    "%     | ^\n\n"
+                    "factorial 20 = 2432902008176640000\n"
+                    "ExitCode:0">>]),
+    run_with_opts(Config, Dir, "-i", "factorial_warning 20",
+                  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                              "factorial 20 = 2432902008176640000\nExitCode:0">>]),
+    Warnings = [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                           "%   12| bar() ->\n"
+                           "%     | ^\n\n"
+                           "ExitCode:0">>],
+    run_with_opts(Config, Dir, "-s", "factorial_warning", Warnings),
+    run_with_opts(Config, Dir, "-s -i", "factorial_warning", Warnings),
+    run_with_opts(Config, Dir, "-c -s", "factorial_warning", Warnings),
     run(Config, Dir, "filesize "++filename:join(proplists:get_value(data_dir, Config),"filesize"),
-	[data_dir,<<"filesize:11:1: Warning: function id/1 is unused\n324\nExitCode:0">>]),
+	[data_dir,<<"filesize:11:1: Warning: function id/1 is unused\n"
+                    "%   11| id(I) -> I.\n"
+                    "%     | ^\n"
+                    "\n"
+                    "324\n"
+                    "ExitCode:0">>]),
     run(Config, Dir, "test_script_name",
 	[data_dir,<<"test_script_name\nExitCode:0">>]),
     run(Config, Dir, "tail_rec 1000",
@@ -128,18 +135,19 @@ errors(Config) when is_list(Config) ->
 	[data_dir,<<"compile_error:5:12: syntax error before: '*'\n">>,
 	 data_dir,<<"compile_error:8:9: syntax error before: blarf\n">>,
 	 <<"escript: There were compilation errors.\nExitCode:127">>]),
-    run(Config, Dir, "lint_error",
-	[data_dir,<<"lint_error:6:1: function main/1 already defined\n">>,
-	 data_dir,"lint_error:8:10: variable 'ExitCode' is unbound\n",
-	 <<"escript: There were compilation errors.\nExitCode:127">>]),
-    run_with_opts(Config, Dir, "-s", "lint_error",
-		  [data_dir,<<"lint_error:6:1: function main/1 already defined\n"
-                              "%    6| main(Args) ->\n"
-                              "%     | ^\n\n">>,
-		   data_dir,("lint_error:8:10: variable 'ExitCode' is unbound\n"
-                             "%    8|     halt(ExitCode).\n"
-                             "%     |          ^\n\n"),
-		   <<"escript: There were compilation errors.\nExitCode:127">>]),
+    CompileErrors = [data_dir,<<"lint_error:6:1: function main/1 already defined\n"
+                                "%    6| main(Args) ->\n"
+                                "%     | ^\n\n">>,
+                     data_dir,("lint_error:8:10: variable 'ExitCode' is unbound\n"
+                               "%    8|     halt(ExitCode).\n"
+                               "%     |          ^\n\n"),
+                     <<"escript: There were compilation errors.\nExitCode:127">>],
+    run(Config, Dir, "lint_error", CompileErrors),
+    run_with_opts(Config, Dir, "-i", "lint_error",
+                  [data_dir,<<"lint_error:6:1: function main/1 already defined\n">>,
+                   data_dir,"lint_error:8:10: variable 'ExitCode' is unbound\n",
+                   <<"escript: There were compilation errors.\nExitCode:127">>]),
+    run_with_opts(Config, Dir, "-s", "lint_error", CompileErrors),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -973,6 +981,29 @@ bad_io_server(Config) when is_list(Config) ->
            " an arithmetic expression\n  in operator  '/'/2\n     "
            "called as '\\x{400}' / 0\nExitCode:127">>]),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+bypass_unicode_conversion(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    Dir = filename:absname(Data),		%Get rid of trailing slash.
+    ToNull = case os:type() of
+        {win32,_} -> " 1> nul ";
+        _ -> " 1> /dev/null "
+    end,
+    Cmd = fun(Enc) -> "bypass_unicode_conversion "++atom_to_list(Enc)++ToNull end,
+    {TimeLatin1, _} = timer:tc(
+        fun() -> run(Config, Dir, Cmd(latin1), [<<"ExitCode:0">>]) end),
+    {TimeUnicode, _} = timer:tc(
+        fun() -> run(Config, Dir, Cmd(unicode), [<<"ExitCode:0">>]) end),
+    %% Check that Time(latin1) is about the same as Time(unicode)
+    %% Without the bypass, the time difference would be about 5x.
+    %% Turns out that the timing might be a bit unstable, so we allow a 2x difference.
+    io:format("Time(latin1) = ~p ~~= Time(unicode) = ~p~n", [TimeLatin1, TimeUnicode]),
+    true = TimeLatin1 =< TimeUnicode * 2,
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 run(Config, Dir, Cmd, Expected) ->
     run_with_opts(Config, Dir, "", Cmd, Expected).

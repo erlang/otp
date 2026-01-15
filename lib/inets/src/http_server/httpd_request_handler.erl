@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +24,9 @@
 %% 
 
 -module(httpd_request_handler).
-
+-moduledoc false.
+-compile(nowarn_deprecated_callback).
+-compile(nowarn_obsolete_bool_op).
 -behaviour(gen_server).
 
 %% Application internal API
@@ -97,8 +101,19 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     %%link(Manager), 
     %% At this point the function httpd_request_handler:start/2 will return.
     proc_lib:init_ack({ok, self()}),
-    
     {SocketType, Socket} = await_socket_ownership_transfer(AcceptTimeout),
+    ServerName =
+        case httpd_util:lookup(ConfigDB, server_name) of
+            undefined ->
+                %% ERIERL-1190 workaround - on some rare occassions
+                %% server_name can't be read from ets table
+                net_adm:localhost();
+            EtsValue ->
+                EtsValue
+        end,
+    ServerNameBin = erlang:iolist_to_binary(ServerName),
+    Protocol = protocol(SocketType),
+    proc_lib:set_label({Protocol, ServerNameBin}),
     
     Peername = http_transport:peername(SocketType, Socket),
     Sockname = http_transport:sockname(SocketType, Socket),
@@ -773,3 +788,8 @@ setopts(Socket, SocketType, Options) ->
         {error, _} -> %% inet can return einval instead of closed
             self() ! {http_transport:close_tag(SocketType), Socket}
     end.
+
+protocol({ssl,_}) ->
+    https;
+protocol(_) ->
+    http.

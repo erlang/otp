@@ -1,3 +1,26 @@
+<!--
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 Cross Compiling Erlang/OTP
 ==========================
 
@@ -7,10 +30,12 @@ Introduction
 This document describes how to cross compile Erlang/OTP-%OTP-REL%. 
 You are advised to read the whole document before attempting to cross
 compile Erlang/OTP. However, before reading this document, you should read
-the [$ERL_TOP/HOWTO/INSTALL.md][] document which describes building and installing
-Erlang/OTP in general. `$ERL_TOP` is the top directory in the source tree.
+[Building and Installing Erlang/OTP][] which describes building
+and installing Erlang/OTP in general.
 
-### otp\_build Versus configure/make ###
+In the text below `$ERL_TOP` is the top directory in the Erlang/OTP source tree.
+
+### otp_build Versus configure/make ###
 
 Building Erlang/OTP can be done either by using the `$ERL_TOP/otp_build`
 script, or by invoking `$ERL_TOP/configure` and `make` directly. Building using
@@ -19,8 +44,7 @@ procedure is not as flexible as the `configure`/`make` build procedure. Note
 that `otp_build configure` will produce a default configuration that differs
 from what `configure` will produce by default. For example, currently
 `--disable-dynamic-ssl-lib` is added to the `configure` command line arguments
-unless `--enable-dynamic-ssl-lib` has been explicitly passed. The binary
-releases that we deliver are built using `otp_build`.  The defaults used by
+unless `--enable-dynamic-ssl-lib` has been explicitly passed. The defaults used by
 `otp_build configure` may change at any time without prior notice.
 
 ### Cross Configuration ###
@@ -57,7 +81,7 @@ cross compiling.
 The build system, including cross compilation configuration variables used,
 may be subject to non backward compatible changes without prior notice.
 Current cross build system has been tested when cross compiling some Linux/GNU
-systems, but has only been partly tested for more esoteric platforms.
+systems, but has only been partly tested on other platforms.
 
 ### Patches ###
 
@@ -81,15 +105,10 @@ General information on how to submit patches can be found at:
 Build and Install Procedure
 ---------------------------
 
-If you are building in Git, you want to read the [Building in Git][] section
-of [$ERL_TOP/HOWTO/INSTALL.md][] before proceeding.
-
 We will first go through the `configure`/`make` build procedure which people
 probably are most familiar with.
 
 ### Building With configure/make Directly ###
-
-  (1)
 
 Change directory into the top directory of the Erlang/OTP source tree.
 
@@ -102,11 +121,9 @@ be built using this Erlang system, together with the cross compilation tools
 provided.
 
 If you want to build using a compatible Erlang/OTP system in the `$PATH`,
-jump to (3).
+jump to [Cross Building the System].
 
 #### Building a Bootstrap System ####
-
-  (2)
 
     $ ./configure --enable-bootstrap-only
     $ make
@@ -118,9 +135,7 @@ the bootstrap system. If you run `configure` without `--enable-boostrap-only`
 you also have to run make as `make bootstrap`; otherwise, the whole system will
 be built.
 
-#### Cross Building the System ####
-
-  (3)
+#### Cross Building the System #### {: #cross-building-the-system }
 
     $ ./configure --host=<HOST> --build=<BUILD> [Other Config Args]
     $ make
@@ -143,7 +158,9 @@ configuration will fail.
 Pass the cross compilation variables as command line arguments to `configure`
 using a `<VARIABLE>=<VALUE>` syntax.
 
-> *NOTE*: You can *not* pass a configuration file using the `--xcomp-conf`
+> #### Note {: .info }
+>
+> You can *not* pass a configuration file using the `--xcomp-conf`
 > argument when you invoke `configure` directly. The `--xcomp-conf` argument
 > can only be passed to `otp_build configure`.
 
@@ -153,17 +170,18 @@ It is possible, however not recommended, to force the cross compilation even
 though the wrong Erlang/OTP system is used. This by invoking `make` like this:
 `make ERL_XCOMP_FORCE_DIFFERENT_OTP=yes`.
 
-> *WARNING*: Invoking `make ERL_XCOMP_FORCE_DIFFERENT_OTP=yes` might fail,
+> #### Warning {: .warning }
+>
+> Invoking `make ERL_XCOMP_FORCE_DIFFERENT_OTP=yes` might fail,
 > silently produce suboptimal code, or silently produce erroneous code.
 
 #### Installing ####
 
-You can either install using the installation paths determined by `configure`
-(4), or install manually using (5).
+You can either install using the [Installing Using Paths Determined by configure](#installing-using-paths-determined-by-configure), or [install manually](#installing-manually).
+
+[](){: #installing-using-paths-determined-by-configure }
 
 ##### Installing Using Paths Determined by configure #####
-
-  (4)
 
     $ make install DESTDIR=<TEMPORARY_PREFIX>
 
@@ -182,9 +200,9 @@ the system, move it to the target machine, and unpack it. Note that the
 installation will only be working on the target machine at the location
 determined by `configure`.
 
-##### Installing Manually #####
+[](){: #installing-manually }
 
-  (5)
+##### Installing Manually #####
 
     $ make release RELEASE_ROOT=<RELEASE_DIR>
 
@@ -218,9 +236,9 @@ where:
 If neither `-minimal`, nor `-sasl` is passed as argument you will be
 prompted.
 
-You can now either do:
+[](){: #install-release }
 
-  (6)
+You can now either do:
 
 *   Decide where the installation should be located on the target machine,
     run the `Install` script on the build machine, and package the installed
@@ -232,8 +250,6 @@ You can now either do:
 
 or:
 
-  (7)
-
 *   Package the installation in `<RELEASE_DIR>`, place it wherever you want
     on your target machine, and run the `Install` script on your target
     machine:
@@ -241,13 +257,9 @@ or:
         $ cd <ABSOLUTE_INSTALL_DIR_ON_TARGET>
         $ ./Install [-minimal|-sasl] <ABSOLUTE_INSTALL_DIR_ON_TARGET>
 
-### Building With the otp\_build Script ###
-
-  (8)
+### Building With the otp_build Script ###
 
     $ cd $ERL_TOP
-
-  (9)
 
     $ ./otp_build configure --xcomp-conf=<FILE> [Other Config Args]
 
@@ -258,7 +270,7 @@ alternatively:
 If you have your cross compilation configuration in a file, pass it using the
 `--xcomp-conf=<FILE>` command line argument. If not, pass `--host=<HOST>`,
 `--build=<BUILD>`, and the configuration variables using a `<VARIABLE>=<VALUE>`
-syntax on the command line  (same as in (3)). Note that `<HOST>` and `<BUILD>`
+syntax on the command line  (same as in [Cross Building the System]). Note that `<HOST>` and `<BUILD>`
 have to be passed one way or the other; either by using `erl_xcomp_host=<HOST>`
 and `erl_xcomp_build=<BUILD>` in the configuration file, or by using the
 `--host=<HOST>`, and `--build=<BUILD>` command line arguments.
@@ -266,26 +278,23 @@ and `erl_xcomp_build=<BUILD>` in the configuration file, or by using the
 `otp_build configure` will configure both for the bootstrap system on the
 build machine and the cross host system.
 
-  (10)
-
     $ ./otp_build boot -a
 
 `otp_build boot -a` will first build a bootstrap system for the build machine
 and then do the cross build of the system.
 
-  (11)
-
     $ ./otp_build release -a <RELEASE_DIR>
 
-`otp_build release -a` will do the same as (5), and you will after this have
-to do a manual install either by doing (6), or (7).
+`otp_build release -a` will do the same as `make release` in [Installing Manually],
+and you will after this have to do a [manual ./Install](#install-release) on either
+the host or target.
 
 Building and Installing the Documentation
 -----------------------------------------
 
 After the system has been cross built you can build and install the
 documentation the same way as after a native build of the system. See the
-[How to Build the Documentation][] section in the [$ERL_TOP/HOWTO/INSTALL.md][]
+[How to Build the Documentation][] section in the [Building and Installing Erlang/OTP][]
 document for information on how to build the documentation.
 
 Testing the cross compiled system
@@ -304,7 +313,7 @@ or
 
 The tests will be released into `$ERL_TOP/release/tests`. After releasing the
 tests you have to install the tests on the build machine. You supply the same
-xcomp file as to `./otp_build` in (9).
+xcomp file as to `./otp_build` in [Building With the otp_build Script](#building-with-the-otp_build-script).
 
     $ cd $ERL_TOP/release/tests/test_server/
     $ $ERL_TOP/bootstrap/bin/erl -eval 'ts:install([{xcomp,"<FILE>"}])' -s ts compile_testcases -s init stop
@@ -312,7 +321,7 @@ xcomp file as to `./otp_build` in (9).
 You should get a lot of printouts as the testcases are compiled. Once done you
 should copy the entire `$ERL_TOP/release/tests` folder to the cross host system.
 
-Then go to the cross host system and setup the erlang installed in (4) or (5)
+Then go to the cross host system and setup the erlang installed
 to be in your `$PATH`. Then go to what previously was
 `$ERL_TOP/release/tests/test_server` and issue the following command.
 
@@ -330,12 +339,14 @@ visible throughout the whole execution of all `configure` scripts. Other
 variables needs to be defined as arguments to `configure` or exported in
 the environment.
 
-### Variables for otp\_build Only ###
+### Variables for otp_build Only ###
 
 Variables in this section are only used, when configuring Erlang/OTP for
 cross compilation using `$ERL_TOP/otp_build configure`.
 
-> *NOTE*: These variables currently have *no* effect if you configure using
+> #### Note {: .info }
+>
+> These variables currently have *no* effect if you configure using
 > the `configure` script directly.
 
 *   `erl_xcomp_build` - The build system used. This value will be passed as
@@ -363,7 +374,7 @@ not need to set these variables (where `<HOST>` is what has been passed as
 otherwise be identified via variables passed as arguments on the command
 line to `configure`, in then xcomp file, or as environment variables. For
 more information see the [Important Variables Inspected by configure][]
-section of the [$ERL_TOP/HOWTO/INSTALL.md][] document.
+section in [Building and Installing Erlang/OTP][].
 
 ### Cross System Root Locations ###
 
@@ -384,11 +395,15 @@ section of the [$ERL_TOP/HOWTO/INSTALL.md][] document.
 These tests cannot (always) be done automatically when cross compiling. You
 usually do not need to set these variables.
 
-> *WARNING*: Setting these variables wrong may cause hard to detect
+> #### Warning {: .warning }
+>
+> Setting these variables wrong may cause hard to detect
 > runtime errors. If you need to change these values, *really* make sure
 > that the values are correct.
 
-> *NOTE*: Some of these values will override results of tests performed
+> #### Note {: .info }
+>
+> Some of these values will override results of tests performed
 > by `configure`, and some will not be used until `configure` is sure that
 > it cannot figure the result out.
 
@@ -476,10 +491,10 @@ When a variable has been set, no warning will be issued.
     should not use position independent executable.
 
 
-   [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
-   [Building in Git]: INSTALL.md#How-to-Build-and-Install-ErlangOTP
-   [How to Build the Documentation]: INSTALL.md#How-to-Build-and-Install-ErlangOTP_How-to-Build-the-Documentation
-   [Important Variables Inspected by configure]: INSTALL.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Important-Variables-Inspected-by-configure
-   [cross configuration variables]: #Currently-Used-Configuration-Variables
-   [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
-   [?TOC]: true
+[Building and Installing Erlang/OTP]: INSTALL.md
+[How to Build the Documentation]: INSTALL.md#How-to-Build-and-Install-Erlang-OTP_How-to-Build-the-Documentation
+[Important Variables Inspected by configure]: INSTALL.md#advanced-configuration-and-build-of-erlang-otp_Configuring_Important-Variables-Inspected-by-configure
+[cross configuration variables]: #currently-used-configuration-variables
+[DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
+[?TOC]: true
+[Cross Building the System]: #cross-building-the-system

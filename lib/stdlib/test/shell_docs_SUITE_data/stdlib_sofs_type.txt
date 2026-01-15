@@ -1,34 +1,36 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 [;1m	sofs[0m
 
 These types are documented in this module:
 
-  [;1m-type anyset() :: ordset() | a_set().[0m
-
-  [;1m-type binary_relation() :: relation().[0m
-
-  [;1m-type external_set() :: term().[0m
-
-  [;1m-type family() :: a_function().[0m
-
-  [;1m-type a_function() :: relation().[0m
-
-  [;1m-opaque ordset() [0m
-
-  [;1m-type relation() :: a_set().[0m
-
-  [;1m-opaque a_set() [0m
-
-  [;1m-type set_of_sets() :: a_set().[0m
-
-  [;1m-type set_fun() ::[0m
-  [;1m          pos_integer() |[0m
-  [;1m          {external, fun((external_set()) -> external_set())} |[0m
-  [;1m          fun((anyset()) -> anyset()).[0m
-
-  [;1m-type spec_fun() ::[0m
-  [;1m          {external, fun((external_set()) -> boolean())} |[0m
-  [;1m          fun((anyset()) -> boolean()).[0m
-
-  [;1m-type type() :: term().[0m
-
 [;1m  tuple_of(T)[0m
+
+[;1m  type()[0m
+
+[;1m  spec_fun()[0m
+
+[;1m  set_fun()[0m
+
+[;1m  set_of_sets()[0m
+
+[;1m  a_set()[0m
+
+[;1m  relation()[0m
+
+[;1m  ordset()[0m
+
+[;1m  family()[0m
+
+[;1m  a_function()[0m
+
+[;1m  external_set()[0m
+
+[;1m  binary_relation()[0m
+
+[;1m  anyset()[0m

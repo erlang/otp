@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,21 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(snmpa_supervisor).
+-moduledoc """
+A supervisor for the SNMP agent Processes
+
+This is the top supervisor for the agent part of the SNMP application. There is
+always one supervisor at each node with an SNMP agent (master agent or
+sub-agent).
+""".
 
 -behaviour(supervisor).
+
+-compile(nowarn_obsolete_bool_op).
 
 %% External exports
 -export([start_link/2, stop/0, stop/1]).
@@ -76,6 +87,7 @@
 %% in some way.
 %%-----------------------------------------------------------------
 
+-doc false.
 start_link(Type, Opts) ->
     ?d("start_link -> entry with"
       "~n   Type. ~p"
@@ -97,9 +109,11 @@ start_link(master, Opts, {takeover, Node}) ->
     end.
 
 
+-doc false.
 stop() ->
     stop(0).
 
+-doc false.
 stop(Timeout) ->
     case whereis(?SERVER) of
 	Pid when is_pid(Pid) ->
@@ -166,6 +180,23 @@ takeover_mib({_MibName, _Symbolic, FileName}) ->
 
 %% ----------------------------------------------------------------
 
+-doc """
+Starts a supervisor for the SNMP agent system without a master agent. The
+supervisor starts all involved SNMP agent processes, but no agent processes.
+Sub-agents should be started by calling
+[`start_sub_agent/3`](`start_sub_agent/3`).
+
+`db_dir` is mandatory.
+
+See [configuration parameters](snmp_config.md#configuration_params) for a
+description of the options.
+""".
+-spec start_sub_sup(Opts) -> {ok, Pid} | {error, Reason} when
+      Opts   :: [Opt],
+      Opt    :: {db_dir, snmp:dir()} | {atom(), term()},
+      Pid    :: pid(),
+      Reason :: {already_started, Pid} | term().
+
 start_sub_sup(Opts) ->
     ?d("start_sub_sup -> entry with"
       "~n   Opts: ~p", [Opts]),
@@ -175,6 +206,25 @@ do_start_sub_sup(Opts) ->
     verify_mandatory([db_dir], Opts),
     ?d("do_start_sub_sup -> start (sub) supervisor",[]),
     supervisor:start_link({local, ?SERVER}, ?MODULE, [sub, Opts]).  
+
+-doc """
+Starts a supervisor for the SNMP agent system. The supervisor starts all
+involved SNMP processes, including the master agent. Sub-agents should be
+started by calling `start_subagent/3`.
+
+`db_dir` is mandatory.
+
+`dir` in config is mandatory.
+
+See [snmp config](snmp_config.md) for a description of the options.
+""".
+-spec start_master_sup(Opts) -> {ok, Pid} | {error, Reason} when
+      Opts     :: [Opt],
+      Opt      :: {db_dir, string()} | {config, ConfOpts} | {atom(), term()},
+      ConfOpts :: [ConfOpt],
+      ConfOpt  :: {dir, string()} | {atom(), term()},
+      Pid      :: pid(),
+      Reason   :: {already_started, Pid} | term().
 
 start_master_sup(Opts) ->
     (catch do_start_master_sup(Opts)).
@@ -212,6 +262,21 @@ verify_mandatory([Key|Keys], Opts) ->
 
 %% ----------------------------------------------------------------
 
+-doc """
+Starts a sub-agent on the node where the function is called. The
+`snmpa_supervisor` must be running.
+
+If the supervisor is not running, the function fails with the reason `badarg`.
+""".
+-spec start_sub_agent(ParentAgent, Subtree, Mibs) ->
+          {ok, Pid} | {error, Reason} when
+      ParentAgent :: pid(),
+      Subtree     :: snmp:oid(),
+      Mibs        :: [MibName],
+      MibName     :: string(),
+      Pid         :: pid(),
+      Reason      :: term().
+
 start_sub_agent(ParentAgent, Subtree, Mibs) 
   when is_pid(ParentAgent) andalso is_list(Mibs) ->
     ?d("start_sub_agent -> entry with"
@@ -220,12 +285,22 @@ start_sub_agent(ParentAgent, Subtree, Mibs)
       "~n   Mibs:        ~p", [ParentAgent, Subtree, Mibs]),
     snmpa_agent_sup:start_subagent(ParentAgent, Subtree, Mibs).
 
+-doc """
+Stops the sub-agent on the node where the function is called. The
+`snmpa_supervisor` must be running.
+
+If the supervisor is not running, the function fails with the reason `badarg`.
+""".
+-spec stop_sub_agent(SubAgentPid) -> ok | no_such_child when
+      SubAgentPid :: pid().
+
 stop_sub_agent(SubAgentPid) ->
     snmpa_agent_sup:stop_subagent(SubAgentPid).
 
 
 %% ----------------------------------------------------------------
 
+-doc false.
 init([AgentType, Opts]) ->
     ?d("init -> entry with"
       "~n   AgentType: ~p"
@@ -589,6 +664,7 @@ add_mib(DefaultMib, [Mib | T], BaseNames) ->
     end.
 
 
+-doc false.
 config(Vsns, Opts) ->
     ?d("config -> entry with"
       "~n   Vsns. ~p"

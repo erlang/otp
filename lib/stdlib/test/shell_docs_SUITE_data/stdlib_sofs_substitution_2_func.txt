@@ -1,48 +1,74 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec substitution(SetFun, Set1) -> Set2[0m
-  [;1m                      when[0m
-  [;1m                          SetFun :: set_fun(),[0m
-  [;1m                          Set1 :: a_set(),[0m
-  [;1m                          Set2 :: a_set().[0m
+[;1m  substitution(SetFun, Set1)[0m
 
-  Returns a function, the domain of which is [;;4mSet1[0m. The value of an
-  element of the domain is the result of applying [;;4mSetFun[0m to the
-  element.
+  Returns a function with the domain [;;4mSet1[0m, where each element maps
+  to the result of applying [;;4mSetFun[0m to it.
 
-    1> L = [{a,1},{b,2}].
-    [{a,1},{b,2}]
-    2> sofs:to_external(sofs:projection(1,sofs:relation(L))).
+[;1mExamples[0m
+
+    1> R = sofs:relation([{a,1},{b,2}]).
+    2> sofs:to_external(sofs:projection(1, R)).
     [a,b]
-    3> sofs:to_external(sofs:substitution(1,sofs:relation(L))).
+    3> sofs:to_external(sofs:substitution(1, R)).
     [{{a,1},a},{{b,2},b}]
-    4> SetFun = {external, fun({A,_}=E) -> {E,A} end},
-    sofs:to_external(sofs:projection(SetFun,sofs:relation(L))).
+    4> SetFun = {external, fun({A,_}=E) -> {E,A} end}.
+    5> sofs:to_external(sofs:projection(SetFun, R)).
     [{{a,1},a},{{b,2},b}]
 
   The relation of equality between the elements of {a,b,c}:
 
-    1> I = sofs:substitution(fun(A) -> A end, sofs:set([a,b,c])),
-    sofs:to_external(I).
+    1> I = sofs:substitution(fun(A) -> A end, sofs:set([a,b,c])).
+    2> sofs:to_external(I).
     [{a,a},{b,b},{c,c}]
 
   Let [;;4mSetOfSets[0m be a set of sets and [;;4mBinRel[0m a binary relation.
-  The function that maps each element [;;4mSet[0m of [;;4mSetOfSets[0m onto the 
-  image of [;;4mSet[0m under [;;4mBinRel[0m is returned by the following
-  function:
+  The function that maps each element [;;4mSet[0m of [;;4mSetOfSets[0m onto the
+  image of [;;4mSet[0m under [;;4mBinRel[0m is returned by the [;;4mImages[0m fun in
+  the following example.
 
-    images(SetOfSets, BinRel) ->
-       Fun = fun(Set) -> sofs:image(BinRel, Set) end,
-       sofs:substitution(Fun, SetOfSets).
+    1> Images = fun(SetOfSets, BinRel) ->
+                        Fun = fun(Set) -> sofs:image(BinRel, Set) end,
+                        sofs:substitution(Fun, SetOfSets)
+                end.
+    2> S1 = sofs:set([1,2]).
+    3> S2 = sofs:set([1,3,4]).
+    4> S3 = sofs:set([x]).
+    5> SetsOfSets = sofs:from_sets([S1,S2,S3]).
+    6> BinRel = sofs:relation([{1,a}, {2,b}, {3,c}, {4,d}]).
+    7> S4 = Images(SetsOfSets, BinRel).
+    8> sofs:to_external(S4).
+    [{[1,2],[a,b]},{[1,3,4],[a,c,d]},{[x],[]}]
 
   External unordered sets are represented as sorted lists. So,
   creating the image of a set under a relation R can traverse all
   elements of R (to that comes the sorting of results, the image).
-  In [;;4mimage/2[0m, [;;4mBinRel[0m is traversed once for each element of [;;4m[0m
-  [;;4mSetOfSets[0m, which can take too long. The following efficient
-  function can be used instead under the assumption that the image
-  of each element of [;;4mSetOfSets[0m under [;;4mBinRel[0m is non-empty:
+  In the [;;4mImage[0m fun, [;;4mBinRel[0m is traversed once for each element of [;;4m[0m
+  [;;4mSetOfSets[0m.
 
-    images2(SetOfSets, BinRel) ->
-       CR = sofs:canonical_relation(SetOfSets),
-       R = sofs:relative_product1(CR, BinRel),
-       sofs:relation_to_family(R).
+  The following [;;4mImages2[0m fun is more efficient. It can can be used
+  under the assumption that the image of each element of [;;4mSetOfSets[0m
+  under [;;4mBinRel[0m is non-empty.
+
+    1> Images2 = fun(SetOfSets, BinRel) ->
+                     CR = sofs:canonical_relation(SetOfSets),
+                     R = sofs:relative_product1(CR, BinRel),
+                     sofs:relation_to_family(R)
+       end.
+    2> S1 = sofs:set([1,2]).
+    3> S2 = sofs:set([1,3,4]).
+    4> S3 = sofs:set([x]).
+    5> SetsOfSets = sofs:from_sets([S1,S2,S3]).
+    6> BinRel = sofs:relation([{1,a}, {2,b}, {3,c}, {4,d}]).
+    7> S4 = Images2(SetsOfSets, BinRel).
+    8> sofs:to_external(S4).
+    [{[1,2],[a,b]},{[1,3,4],[a,c,d]}]
+
+  Note that [;;4mS3[0m, which has an empty image, is missing from the
+  result.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,89 @@
 %% %CopyrightEnd%
 %%
 -module(logger).
+-moduledoc """
+API module for Logger, the standard logging facility in Erlang/OTP.
+
+This module implements the main API for logging in Erlang/OTP. To create a log
+event, use the [API functions](#logging-api-functions) or the log
+[macros](#module-macros), for example:
+
+```erlang
+?LOG_ERROR("error happened because: ~p", [Reason]).   % With macro
+logger:error("error happened because: ~p", [Reason]). % Without macro
+```
+
+To configure the Logger backend, use
+[Kernel configuration parameters](kernel_app.md#logger) or
+[configuration functions](#configuration-api-functions) in the Logger API.
+
+By default, the Kernel application installs one log handler at system start.
+This handler is named `default`. It receives and processes standard log events
+produced by the Erlang runtime system, standard behaviours and different
+Erlang/OTP applications. The log events are by default printed to the terminal.
+
+If you want your systems logs to be printed to a file instead, you must
+configure the default handler to do so. The simplest way is to include the
+following in your [`sys.config`](config.md):
+
+```erlang
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{config => #{file => "path/to/file.log"}}}]}]}].
+```
+
+For more information about:
+
+- the Logger facility in general, see the [User's Guide](logger_chapter.md).
+- how to configure Logger, see the
+  [Configuration](logger_chapter.md#configuration) section in the User's Guide.
+- the built-in handlers, see `m:logger_std_h` and `m:logger_disk_log_h`.
+- the built-in formatter, see `m:logger_formatter`.
+- built-in filters, see `m:logger_filters`.
+
+## Macros
+
+The following macros are defined in `logger.hrl`, which is included in a module
+with the directive
+
+```erlang
+    -include_lib("kernel/include/logger.hrl").
+```
+
+- `?LOG_EMERGENCY(StringOrReport[,Metadata])`
+- `?LOG_EMERGENCY(FunOrFormat,Args[,Metadata])`
+- `?LOG_ALERT(StringOrReport[,Metadata])`
+- `?LOG_ALERT(FunOrFormat,Args[,Metadata])`
+- `?LOG_CRITICAL(StringOrReport[,Metadata])`
+- `?LOG_CRITICAL(FunOrFormat,Args[,Metadata])`
+- `?LOG_ERROR(StringOrReport[,Metadata])`
+- `?LOG_ERROR(FunOrFormat,Args[,Metadata])`
+- `?LOG_WARNING(StringOrReport[,Metadata])`
+- `?LOG_WARNING(FunOrFormat,Args[,Metadata])`
+- `?LOG_NOTICE(StringOrReport[,Metadata])`
+- `?LOG_NOTICE(FunOrFormat,Args[,Metadata])`
+- `?LOG_INFO(StringOrReport[,Metadata])`
+- `?LOG_INFO(FunOrFormat,Args[,Metadata])`
+- `?LOG_DEBUG(StringOrReport[,Metadata])`
+- `?LOG_DEBUG(FunOrFormat,Args[,Metadata])`
+- `?LOG(Level,StringOrReport[,Metadata])`
+- `?LOG(Level,FunOrFormat,Args[,Metadata])`
+
+All macros expand to a call to Logger, where `Level` is taken from the macro
+name, or from the first argument in the case of the `?LOG` macro. Location data
+is added to the metadata as described under the `t:metadata/0` type definition.
+
+The call is wrapped in a case statement and will be evaluated only if `Level` is
+equal to or below the configured log level.
+
+## See Also
+
+[`config`](config.md), `m:erlang`, `m:io`, `m:logger_disk_log_h`,
+`m:logger_filters`, `m:logger_handler`, `m:logger_formatter`, `m:logger_std_h`,
+`m:unicode`
+""".
+-moduledoc(#{since => "OTP 21.0"}).
 
 %% Log interface
 -export([emergency/1,emergency/2,emergency/3,
@@ -73,24 +158,84 @@
 
 %%%-----------------------------------------------------------------
 %%% Types
+-doc "A log event passed to filters and handlers".
 -type log_event() :: #{level:=level(),
                        msg:={io:format(),[term()]} |
                             {report,report()} |
                             {string,unicode:chardata()},
                        meta:=metadata()}.
+-doc "The severity level for the message to be logged.".
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
--type report() :: map() | [{atom(),term()}].
+-doc "A log report.".
+-type report() :: map() | [{atom(),term()}, ...].
+-doc """
+A fun which converts a [`report()`](`t:report/0`) to a format string and
+arguments, or directly to a string.
+
+See section [Log Message](logger_chapter.md#log-message) in the User's Guide
+for more information.
+""".
 -type report_cb() :: fun((report()) -> {io:format(),[term()]}) |
                      fun((report(),report_cb_config()) -> unicode:chardata()).
+-doc "".
 -type report_cb_config() :: #{depth       := pos_integer() | unlimited,
                               chars_limit := pos_integer() | unlimited,
                               single_line := boolean()}.
+-doc "".
 -type msg_fun() :: fun((term()) -> msg_fun_return() | {msg_fun_return(), metadata()}).
+-doc "".
 -type msg_fun_return() :: {io:format(),[term()]} |
                            report() |
                            unicode:chardata() |
                            ignore.
+-doc """
+Metadata for the log event.
+
+Logger adds the following metadata to each log event:
+
+- `pid => self()`
+- `gl => group_leader()`
+- `time => logger:timestamp()`
+
+When a log macro is used, Logger also inserts location information:
+
+- `mfa => {?MODULE, ?FUNCTION_NAME, ?FUNCTION_ARITY}`
+- `file => ?FILE`
+- `line => ?LINE`
+
+You can add custom metadata, either by:
+
+- specifying a map as the last parameter to any of the log macros or the logger
+  API functions.
+- setting process metadata with `set_process_metadata/1` or
+  `update_process_metadata/1`.
+- setting primary metadata with `set_primary_config/1` or through the kernel
+  configuration parameter [logger_metadata](kernel_app.md#logger_metadata)
+
+> #### Note {: .info }
+>
+> When adding custom metadata, make sure not to use any of the keys mentioned
+> above as that may cause a lot of confusion about the log events.
+
+Logger merges all the metadata maps before forwarding the log event to the
+handlers. If the same keys occur, values from the log call overwrite process
+metadata, which overwrites the primary metadata, which in turn overwrite values
+set by Logger.
+
+The following custom metadata keys have special meaning:
+
+- **`domain`** - The value associated with this key is used by filters for
+  grouping log events originating from, for example, specific functional areas.
+  See `logger_filters:domain/2` for a description of how this field can be used.
+
+- **`report_cb`** - If the log message is specified as a `t:report/0`, the
+  `report_cb` key can be associated with a fun (report callback) that converts
+  the report to a format string and arguments, or directly to a string. See the
+  type definition of `t:report_cb/0`, and section
+  [Log Message](logger_chapter.md#log-message) in the User's Guide for more
+  information about report callbacks.
+""".
 -type metadata() :: #{pid    => pid(),
                       gl     => pid(),
                       time   => timestamp(),
@@ -103,44 +248,72 @@
 -type location() :: #{mfa  := {module(),atom(),non_neg_integer()},
                       file := file:filename(),
                       line := non_neg_integer()}.
--type handler_id() :: atom().
+-doc "A unique identifier for a filter.".
 -type filter_id() :: atom().
+-doc """
+A filter which can be installed as a handler filter, or as a primary filter in
+Logger.
+""".
 -type filter() :: {fun((log_event(),filter_arg()) ->
                               filter_return()),filter_arg()}.
+-doc "The second argument to the filter fun.".
 -type filter_arg() :: term().
+-doc "The return value from the filter fun.".
 -type filter_return() :: stop | ignore | log_event().
+-doc """
+Primary configuration data for Logger. The following default values apply:
+
+- `level => info`
+- `filter_default => log`
+- `filters => []`
+""".
 -type primary_config() :: #{level => level() | all | none,
                             metadata => metadata(),
                             filter_default => log | stop,
                             filters => [{filter_id(),filter()}]}.
--type handler_config() :: #{id => handler_id(),
-                            config => term(),
-                            level => level() | all | none,
-                            module => module(),
-                            filter_default => log | stop,
-                            filters => [{filter_id(),filter()}],
-                            formatter => {module(),formatter_config()}}.
+-doc "A timestamp produced with [`logger:timestamp()`](`timestamp/0`).".
 -type timestamp() :: integer().
+-doc """
+Configuration data for the formatter. See `m:logger_formatter` for an example of
+a formatter implementation.
+""".
 -type formatter_config() :: #{atom() => term()}.
 
--type config_handler() :: {handler, handler_id(), module(), handler_config()}.
+-doc """
+Configuration used when adding or updating a handler.
+""".
+-type config_handler() :: {handler, logger_handler:id(), module(), logger_handler:config()}.
 
 -type config_logger() :: [{handler,default,undefined} |
                           config_handler() |
                           {filters,log | stop,[{filter_id(),filter()}]} |
                           {module_level,level(),[module()]}].
 
--type olp_config() :: #{sync_mode_qlen => non_neg_integer(),
-                        drop_mode_qlen => pos_integer(),
-                        flush_qlen => pos_integer(),
-                        burst_limit_enable => boolean(),
-                        burst_limit_max_count => pos_integer(),
-                        burst_limit_window_time => pos_integer(),
-                        overload_kill_enable => boolean(),
-                        overload_kill_qlen => pos_integer(),
-                        overload_kill_mem_size => pos_integer(),
-                        overload_kill_restart_after =>
-                            non_neg_integer() | infinity}.
+-doc "Overload protection configuration.
+
+> #### Note {: .info }
+>
+> DEPRECATED: Use `t:logger_handler:olp_config/0` instead.
+".
+-type olp_config() :: logger_handler:olp_config().
+
+%% Kept for backwards compatibility
+-doc """
+A unique identifier for a handler instance.
+
+> #### Note {: .info }
+>
+> DEPRECATED: Use `t:logger_handler:id/0` instead.
+""".
+-type handler_id() :: logger_handler:id().
+-doc """
+Handler configuration data for Logger.
+
+> #### Note {: .info }
+>
+> DEPRECATED: Use `t:logger_handler:config/0` instead.
+""".
+-type handler_config() :: logger_handler:config().
 
 -export_type([log_event/0,
               level/0,
@@ -163,105 +336,267 @@
 
 %%%-----------------------------------------------------------------
 %%% API
-emergency(X) ->
-    log(emergency,X).
-emergency(X,Y) ->
-    log(emergency,X,Y).
-emergency(X,Y,Z) ->
-    log(emergency,X,Y,Z).
 
-alert(X) ->
-    log(alert,X).
-alert(X,Y) ->
-    log(alert,X,Y).
-alert(X,Y,Z) ->
-    log(alert,X,Y,Z).
+-define(LOG_DOC_1(Level), (#{equiv => Level(StringOrReport, #{})})).
+-define(LOG_DOC_2(Level), "
+Create a " Level " log event.
 
-critical(X) ->
-    log(critical,X).
-critical(X,Y) ->
-    log(critical,X,Y).
-critical(X,Y,Z) ->
-    log(critical,X,Y,Z).
+Equivalent to [`log(" Level ", StringOrReport, Metadata)`](`log/3`) if called
+as [`" Level "(StringOrReport, Metadata)`](`" Level "/2`).
 
-error(X) ->
-    log(error,X).
-error(X,Y) ->
-    log(error,X,Y).
-error(X,Y,Z) ->
-    log(error,X,Y,Z).
+Equivalent to [`" Level "(FormatOrFun, Args, #{})`](`" Level "/3`) if called as
+[`" Level "(FormatOrFun, Args)`](`" Level "/2`).
+").
+-define(LOG_DOC_3(Level), #{equiv => log(Level, FormatOrFun, Args, Metadata) } ).
 
-warning(X) ->
-    log(warning,X).
-warning(X,Y) ->
-    log(warning,X,Y).
-warning(X,Y,Z) ->
-    log(warning,X,Y,Z).
+-doc ?LOG_DOC_1(emergency).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec emergency(String :: unicode:chardata()) -> ok;
+               (Report :: report()) -> ok.
+emergency(StringOrReport) ->
+    log(emergency,StringOrReport).
 
-notice(X) ->
-    log(notice,X).
-notice(X,Y) ->
-    log(notice,X,Y).
-notice(X,Y,Z) ->
-    log(notice,X,Y,Z).
+-doc ?LOG_DOC_2("emergency").
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec emergency(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+               (Report :: report(), Metadata :: metadata()) -> ok;
+               (Format :: io:format(), Args :: [term()]) -> ok;
+               (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+emergency(FormatOrFun,Args) ->
+    log(emergency,FormatOrFun,Args).
 
-info(X) ->
-    log(info,X).
-info(X,Y) ->
-    log(info,X,Y).
-info(X,Y,Z) ->
-    log(info,X,Y,Z).
+-doc ?LOG_DOC_3(emergency).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec emergency(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+               (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+emergency(FormatOrFun,Args,Metadata) ->
+    log(emergency,FormatOrFun,Args,Metadata).
 
-debug(X) ->
-    log(debug,X).
-debug(X,Y) ->
-    log(debug,X,Y).
-debug(X,Y,Z) ->
-    log(debug,X,Y,Z).
+-doc ?LOG_DOC_1(alert).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec alert(String :: unicode:chardata()) -> ok;
+           (Report :: report()) -> ok.
+alert(StringOrReport) ->
+    log(alert,StringOrReport).
+-doc ?LOG_DOC_2("alert").
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec alert(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+           (Report :: report(), Metadata :: metadata()) -> ok;
+           (Format :: io:format(), Args :: [term()]) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+alert(FormatOrFun,Args) ->
+    log(alert,FormatOrFun,Args).
+-doc ?LOG_DOC_3(alert).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec alert(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+alert(FormatOrFun,Args,Metadata) ->
+    log(alert,FormatOrFun,Args,Metadata).
 
--spec log(Level,StringOrReport) -> ok when
-      Level :: level(),
-      StringOrReport :: unicode:chardata() | report().
+-doc ?LOG_DOC_1(critical).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec critical(String :: unicode:chardata()) -> ok;
+              (Report :: report()) -> ok.
+critical(StringOrReport) ->
+    log(critical,StringOrReport).
+-doc ?LOG_DOC_2("critical").
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec critical(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+              (Report :: report(), Metadata :: metadata()) -> ok;
+              (Format :: io:format(), Args :: [term()]) -> ok;
+              (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+critical(FormatOrFun,Args) ->
+    log(critical,FormatOrFun,Args).
+-doc ?LOG_DOC_3(critical).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec critical(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+              (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+critical(FormatOrFun,Args,Metadata) ->
+    log(critical,FormatOrFun,Args,Metadata).
+
+-doc ?LOG_DOC_1(error).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec error(String :: unicode:chardata()) -> ok;
+           (Report :: report()) -> ok.
+error(StringOrReport) ->
+    log(error,StringOrReport).
+-doc ?LOG_DOC_2("error").
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec error(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+           (Report :: report(), Metadata :: metadata()) -> ok;
+           (Format :: io:format(), Args :: [term()]) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+error(FormatOrFun,Args) ->
+    log(error,FormatOrFun,Args).
+-doc ?LOG_DOC_3(error).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec error(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+error(FormatOrFun,Args,Metadata) ->
+    log(error,FormatOrFun,Args,Metadata).
+
+-doc ?LOG_DOC_1(warning).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec warning(String :: unicode:chardata()) -> ok;
+             (Report :: report()) -> ok.
+warning(StringOrReport) ->
+    log(warning,StringOrReport).
+-doc ?LOG_DOC_2("warning").
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec warning(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+             (Report :: report(), Metadata :: metadata()) -> ok;
+             (Format :: io:format(), Args :: [term()]) -> ok;
+             (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+warning(FormatOrFun,Args) ->
+    log(warning,FormatOrFun,Args).
+-doc ?LOG_DOC_3(warning).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec warning(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+             (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+warning(FormatOrFun,Args,Metadata) ->
+    log(warning,FormatOrFun,Args,Metadata).
+
+-doc ?LOG_DOC_1(notice).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec notice(String :: unicode:chardata()) -> ok;
+            (Report :: report()) -> ok.
+notice(StringOrReport) ->
+    log(notice,StringOrReport).
+-doc ?LOG_DOC_2("notice").
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec notice(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+            (Report :: report(), Metadata :: metadata()) -> ok;
+            (Format :: io:format(), Args :: [term()]) -> ok;
+            (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+notice(FormatOrFun,Args) ->
+    log(notice,FormatOrFun,Args).
+-doc ?LOG_DOC_3(notice).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec notice(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+            (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+notice(FormatOrFun,Args,Metadata) ->
+    log(notice,FormatOrFun,Args,Metadata).
+
+-doc ?LOG_DOC_1(info).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec info(String :: unicode:chardata()) -> ok;
+          (Report :: report()) -> ok.
+info(StringOrReport) ->
+    log(info,StringOrReport).
+-doc ?LOG_DOC_2("info").
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec info(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+          (Report :: report(), Metadata :: metadata()) -> ok;
+          (Format :: io:format(), Args :: [term()]) -> ok;
+          (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+info(FormatOrFun,Args) ->
+    log(info,FormatOrFun,Args).
+-doc ?LOG_DOC_3(info).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec info(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+          (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+info(FormatOrFun,Args,Metadata) ->
+    log(info,FormatOrFun,Args,Metadata).
+
+-doc ?LOG_DOC_1(debug).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec debug(String :: unicode:chardata()) -> ok;
+           (Report :: report()) -> ok.
+debug(StringOrReport) ->
+    log(debug,StringOrReport).
+-doc ?LOG_DOC_2("debug").
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec debug(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+           (Report :: report(), Metadata :: metadata()) -> ok;
+           (Format :: io:format(), Args :: [term()]) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term()) -> ok.
+debug(FormatOrFun,Args) ->
+    log(debug,FormatOrFun,Args).
+-doc ?LOG_DOC_3(debug).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec debug(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+           (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
+debug(FormatOrFun,Args,Metadata) ->
+    log(debug,FormatOrFun,Args,Metadata).
+
+-doc(#{equiv => log(Level, StringOrReport, #{})}).
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec log(Level :: level(), String :: unicode:chardata()) -> ok;
+         (Level :: level(), Report :: report()) -> ok.
 log(Level, StringOrReport) ->
     do_log(Level,StringOrReport,#{}).
 
--spec log(Level,StringOrReport,Metadata) -> ok when
-      Level :: level(),
-      StringOrReport :: unicode:chardata() | report(),
-      Metadata :: metadata();
-         (Level,Format,Args) -> ok when
-      Level :: level(),
-      Format :: io:format(),
-      Args ::[term()];
-         (Level,Fun,FunArgs) -> ok when
-      Level :: level(),
-      Fun :: msg_fun(),
-      FunArgs :: term().
+-doc """
+Create a log event at the given [log level](logger_chapter.md#log-level), with
+the given [message](logger_chapter.md#log-message) to be logged and
+[_metadata_](logger_chapter.md#metadata).
+
+*Example*:
+
+```erlang
+%% A plain string
+1> logger:log(info, "Hello World").
+%% A plain string with metadata
+2> logger:log(debug, "Hello World", #{ meta => data }).
+%% A format string with arguments
+3> logger:log(warning, "The roof is on ~ts",[Cause]).
+%% A report
+4> logger:log(warning, #{ what => roof, cause => Cause }).
+```
+
+Equivalent to [`log(Level, FormatOrFun, Args, #{})`](`log/4`) if called as
+`log(Level, FormatOrFun, Args)`.
+""".
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec log(Level :: level(), String :: unicode:chardata(), Metadata :: metadata()) -> ok;
+         (Level :: level(), Report :: report(), Metadata :: metadata()) -> ok;
+         (Level :: level(), Format :: io:format(), Args :: [term()]) -> ok;
+         (Level :: level(), Fun :: msg_fun(), FunArgs :: term()) -> ok.
 log(Level, StringOrReport, Metadata)
   when is_map(Metadata), not is_function(StringOrReport) ->
     do_log(Level,StringOrReport,Metadata);
 log(Level, FunOrFormat, Args) ->
     do_log(Level,{FunOrFormat,Args},#{}).
 
--spec log(Level,Format, Args, Metadata) -> ok when
-      Level :: level(),
-      Format :: io:format(),
-      Args :: [term()],
-      Metadata :: metadata();
-         (Level,Fun,FunArgs,Metadata) -> ok when
-      Level :: level(),
-      Fun :: msg_fun(),
-      FunArgs :: term(),
-      Metadata :: metadata().
+-doc """
+Create a log event at the given [log level](logger_chapter.md#log-level), with
+the given [message](logger_chapter.md#log-message) to be logged and
+[_metadata_](logger_chapter.md#metadata).
+
+The message and metadata can either be given directly in the arguments, or
+returned from a fun. Passing a fun instead of the message/metadata directly is
+useful in scenarios when the message/metadata is very expensive to compute. This
+is because the fun is only evaluated when the message/metadata is actually
+needed, which may be not at all if the log event is not to be logged. Examples:
+
+```erlang
+%% A plain string with expensive metadata
+1> logger:info(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[]).
+%% An expensive report
+2> logger:debug(fun(What) -> #{ what => What, cause => expensive() } end,roof).
+%% A plain string with expensive metadata and normal metadata
+3> logger:debug(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[],
+               #{ meta => data }).
+```
+
+When metadata is given both as an argument and returned from the fun they are
+merged. If equal keys exists the values are taken from the metadata returned by
+the fun.
+""".
+-doc(#{group => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
+-spec log(Level :: level(), Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
+         (Level :: level(), Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 log(Level, FunOrFormat, Args, Metadata) ->
     do_log(Level,{FunOrFormat,Args},Metadata).
 
+-doc false.
 -spec allow(Level,Module) -> boolean() when
       Level :: level(),
       Module :: module().
 allow(Level,Module) when is_atom(Module) ->
     logger_config:allow(Level,Module).
 
+-doc false.
 -spec macro_log(Location,Level,StringOrReport)  -> ok when
       Location :: location(),
       Level :: level(),
@@ -269,6 +604,7 @@ allow(Level,Module) when is_atom(Module) ->
 macro_log(Location,Level,StringOrReport) ->
     log_allowed(Location,Level,StringOrReport,#{}).
 
+-doc false.
 -spec macro_log(Location,Level,StringOrReport,Meta)  -> ok when
       Location :: location(),
       Level :: level(),
@@ -290,6 +626,7 @@ macro_log(Location,Level,StringOrReport,Meta)
 macro_log(Location,Level,FunOrFormat,Args) ->
     log_allowed(Location,Level,{FunOrFormat,Args},#{}).
 
+-doc false.
 -spec macro_log(Location,Level,Format,Args,Meta)  -> ok when
       Location :: location(),
       Level :: level(),
@@ -305,6 +642,7 @@ macro_log(Location,Level,FunOrFormat,Args) ->
 macro_log(Location,Level,FunOrFormat,Args,Meta) ->
     log_allowed(Location,Level,{FunOrFormat,Args},Meta).
 
+-doc false.
 -spec format_otp_report(Report) -> FormatArgs when
       Report :: report(),
       FormatArgs :: {io:format(),[term()]}.
@@ -313,6 +651,20 @@ format_otp_report(#{label:=_,report:=Report}) ->
 format_otp_report(Report) ->
     format_report(Report).
 
+-doc """
+Convert a log message on report form to `{Format, Args}`. This is the default
+report callback used by `m:logger_formatter` when no custom report callback is
+found. See section [Log Message](logger_chapter.md#log-message) in the Kernel
+User's Guide for information about report callbacks and valid forms of log
+messages.
+
+The function produces lines of `Key: Value` from key-value lists. Strings are
+printed with `~ts` and other terms with `~tp`.
+
+If `Report` is a map, it is converted to a key-value list before formatting as
+such.
+""".
+-doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 21.0">>}).
 -spec format_report(Report) -> FormatArgs when
       Report :: report(),
       FormatArgs :: {io:format(),[term()]}.
@@ -357,53 +709,162 @@ string_p1([]) ->
 string_p1(FlatList) ->
     io_lib:printable_unicode_list(FlatList).
 
+-doc false.
 internal_log(Level,Term) when is_atom(Level) ->
     erlang:display_string("Logger - "++ atom_to_list(Level) ++ ": "),
     erlang:display(Term).
 
+-doc """
+Return a timestamp that can be inserted as the `time` field in the meta data for
+a log event. It is produced with
+[`os:system_time(microsecond)`](`os:system_time/1`).
+
+Notice that Logger automatically inserts a timestamp in the meta data unless it
+already exists. This function is exported for the rare case when the timestamp
+must be taken at a different point in time than when the log event is issued.
+""".
+-doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 21.3">>}).
 -spec timestamp() -> timestamp().
 timestamp() ->
     os:system_time(microsecond).
 
 %%%-----------------------------------------------------------------
 %%% Configuration
+-doc """
+Add a primary filter to Logger.
+
+The filter fun is called with the log event as the first parameter, and the
+specified `filter_args()` as the second parameter.
+
+The return value of the fun specifies if a log event is to be discarded or
+forwarded to the handlers:
+
+- **`t:log_event/0`** - The filter _passed_. The next primary filter, if any, is
+  applied. If no more primary filters exist, the log event is forwarded to the
+  handler part of Logger, where handler filters are applied.
+
+- **`stop`** - The filter _did not pass_, and the log event is immediately
+  discarded.
+
+- **`ignore`** - The filter has no knowledge of the log event. The next primary
+  filter, if any, is applied. If no more primary filters exist, the value of the
+  primary `filter_default` configuration parameter specifies if the log event
+  shall be discarded or forwarded to the handler part.
+
+See section [Filters](logger_chapter.md#filters) in the User's Guide for more
+information about filters.
+
+Some built-in filters exist. These are defined in `m:logger_filters`.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec add_primary_filter(FilterId,Filter) -> ok | {error,term()} when
       FilterId :: filter_id(),
       Filter :: filter().
 add_primary_filter(FilterId,Filter) ->
     logger_server:add_filter(primary,{FilterId,Filter}).
 
+-doc """
+Add a filter to the specified handler.
+
+The filter fun is called with the log event as the first parameter, and the
+specified `filter_args()` as the second parameter.
+
+The return value of the fun specifies if a log event is to be discarded or
+forwarded to the handler callback:
+
+- **`t:log_event/0`** - The filter _passed_. The next handler filter, if any, is
+  applied. If no more filters exist for this handler, the log event is forwarded
+  to the handler callback.
+
+- **`stop`** - The filter _did not pass_, and the log event is immediately
+  discarded.
+
+- **`ignore`** - The filter has no knowledge of the log event. The next handler
+  filter, if any, is applied. If no more filters exist for this handler, the
+  value of the `filter_default` configuration parameter for the handler
+  specifies if the log event shall be discarded or forwarded to the handler
+  callback.
+
+See section [Filters](logger_chapter.md#filters) in the User's Guide for more
+information about filters.
+
+Some built-in filters exist. These are defined in `m:logger_filters`.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec add_handler_filter(HandlerId,FilterId,Filter) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FilterId :: filter_id(),
       Filter :: filter().
 add_handler_filter(HandlerId,FilterId,Filter) ->
     logger_server:add_filter(HandlerId,{FilterId,Filter}).
 
 
+-doc "Remove the primary filter identified by `FilterId` from Logger.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec remove_primary_filter(FilterId) -> ok | {error,term()} when
       FilterId :: filter_id().
 remove_primary_filter(FilterId) ->
     logger_server:remove_filter(primary,FilterId).
 
+-doc """
+Remove the filter identified by `FilterId` from the handler identified by
+`HandlerId`.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec remove_handler_filter(HandlerId,FilterId) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FilterId :: filter_id().
 remove_handler_filter(HandlerId,FilterId) ->
     logger_server:remove_filter(HandlerId,FilterId).
 
+-doc """
+Add a handler with the given configuration.
+
+`HandlerId` is a unique identifier which must be used in all subsequent calls
+referring to this handler.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec add_handler(HandlerId,Module,Config) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Module :: module(),
-      Config :: handler_config().
+      Config :: logger_handler:config().
+add_handler(default = HandlerId, Module, Config)
+        when not is_map_key(filters, Config) ->
+    %% The default handler should have a couple of extra filters
+    %% set on it by default.
+    DefConfig = #{ filter_default => stop,
+                   filters => get_default_handler_filters()},
+    add_handler(HandlerId,Module,maps:merge(DefConfig, Config));
+add_handler(default = HandlerId, Module, Config) ->
+    case logger_server:add_handler(HandlerId,Module,Config) of
+        ok ->
+            %% If a default handler was added we try to remove the simple_logger
+            %% If the simple logger exists it will replay its log events
+            %% to the handler(s) added in the fold above.
+            logger_server:remove_handler(simple),
+            ok;
+        Error ->
+            Error
+    end;
 add_handler(HandlerId,Module,Config) ->
     logger_server:add_handler(HandlerId,Module,Config).
 
+-doc "Remove the handler identified by `HandlerId`.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec remove_handler(HandlerId) -> ok | {error,term()} when
-      HandlerId :: handler_id().
+      HandlerId :: logger_handler:id().
 remove_handler(HandlerId) ->
     logger_server:remove_handler(HandlerId).
 
+-doc """
+Add or update primary configuration data for Logger. If the given `Key` already
+exists, its associated value will be changed to the given value. If it does not
+exist, it will be added.
+
+The `metadata` key was added in OTP 24.0.
+""".
+-doc(#{group => <<"Configuration API functions">>,
+       since => <<"OTP 21.0">>}).
 -spec set_primary_config(level,Level) -> ok | {error,term()} when
       Level :: level() | all | none;
                         (filter_default,FilterDefault) -> ok | {error,term()} when
@@ -415,139 +876,320 @@ remove_handler(HandlerId) ->
 set_primary_config(Key,Value) ->
     logger_server:set_config(primary,Key,Value).
 
+-doc """
+Set primary configuration data for Logger. This overwrites the current
+configuration.
+
+To modify the existing configuration, use `update_primary_config/1`, or, if a
+more complex merge is needed, read the current configuration with
+[`get_primary_config/0` ](`get_primary_config/0`), then do the merge before
+writing the new configuration back with this function.
+
+If a key is removed compared to the current configuration, the default value is
+used.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec set_primary_config(Config) -> ok | {error,term()} when
       Config :: primary_config().
 set_primary_config(Config) ->
     logger_server:set_config(primary,Config).
 
 
+-doc """
+Add or update configuration data for the specified handler. If the given `Key`
+already exists, its associated value will be changed to the given value. If it
+does not exist, it will be added.
+
+If the value is incomplete, which for example can be the case for the `config`
+key, it is up to the handler implementation how the unspecified parts are set.
+For all handlers in the Kernel application, unspecified data for the `config`
+key is set to default values. To update only specified data, and keep the
+existing configuration for the rest, use `update_handler_config/3`.
+
+See the definition of the `t:logger_handler:config/0` type for more information
+about the different parameters.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec set_handler_config(HandlerId,level,Level) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Level :: level() | all | none,
       Return :: ok | {error,term()};
                         (HandlerId,filter_default,FilterDefault) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FilterDefault :: log | stop,
       Return :: ok | {error,term()};
                         (HandlerId,filters,Filters) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Filters :: [{filter_id(),filter()}],
       Return :: ok | {error,term()};
                         (HandlerId,formatter,Formatter) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Formatter :: {module(), formatter_config()},
       Return :: ok | {error,term()};
                         (HandlerId,config,Config) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Config :: term(),
       Return :: ok | {error,term()}.
 set_handler_config(HandlerId,Key,Value) ->
     logger_server:set_config(HandlerId,Key,Value).
 
+-doc """
+Set configuration data for the specified handler. This overwrites the current
+handler configuration.
+
+To modify the existing configuration, use `update_handler_config/2`, or, if a
+more complex merge is needed, read the current configuration with
+[`get_handler_config/1` ](`get_handler_config/1`), then do the merge before
+writing the new configuration back with this function.
+
+If a key is removed compared to the current configuration, and the key is known
+by Logger, the default value is used. If it is a custom key, then it is up to
+the handler implementation if the value is removed or a default value is
+inserted.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec set_handler_config(HandlerId,Config) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
-      Config :: handler_config().
+      HandlerId :: logger_handler:id(),
+      Config :: logger_handler:config().
 set_handler_config(HandlerId,Config) ->
     logger_server:set_config(HandlerId,Config).
 
+-doc """
+Set configuration data for the Logger proxy. This overwrites the current proxy
+configuration. Keys that are not specified in the `Config` map gets default
+values.
+
+To modify the existing configuration, use `update_proxy_config/1`, or, if a more
+complex merge is needed, read the current configuration with
+[`get_proxy_config/0` ](`get_proxy_config/0`), then do the merge before writing
+the new configuration back with this function.
+
+For more information about the proxy, see section
+[Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec set_proxy_config(Config) -> ok | {error,term()} when
       Config :: olp_config().
 set_proxy_config(Config) ->
     logger_server:set_config(proxy,Config).
 
+-doc """
+Update primary configuration data for Logger. This function behaves as if it was
+implemented as follows:
+
+```erlang
+Old = logger:get_primary_config(),
+logger:set_primary_config(maps:merge(Old, Config)).
+```
+
+To overwrite the existing configuration without any merge, use
+[`set_primary_config/1` ](`set_primary_config/1`).
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec update_primary_config(Config) -> ok | {error,term()} when
       Config :: primary_config().
 update_primary_config(Config) ->
     logger_server:update_config(primary,Config).
 
+-doc """
+Add or update configuration data for the specified handler. If the given `Key`
+already exists, its associated value will be changed to the given value. If it
+does not exist, it will be added.
+
+If the value is incomplete, which for example can be the case for the `config`
+key, it is up to the handler implementation how the unspecified parts are set.
+For all handlers in the Kernel application, unspecified data for the `config`
+key is not changed. To reset unspecified data to default values, use
+`set_handler_config/3`.
+
+See the definition of the `t:logger_handler:config/0` type for more information
+about the different parameters.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.2">>}).
 -spec update_handler_config(HandlerId,level,Level) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Level :: level() | all | none,
       Return :: ok | {error,term()};
                         (HandlerId,filter_default,FilterDefault) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FilterDefault :: log | stop,
       Return :: ok | {error,term()};
                         (HandlerId,filters,Filters) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Filters :: [{filter_id(),filter()}],
       Return :: ok | {error,term()};
                         (HandlerId,formatter,Formatter) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Formatter :: {module(), formatter_config()},
       Return :: ok | {error,term()};
                         (HandlerId,config,Config) -> Return when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Config :: term(),
       Return :: ok | {error,term()}.
 update_handler_config(HandlerId,Key,Value) ->
     logger_server:update_config(HandlerId,Key,Value).
 
+-doc """
+Update configuration data for the specified handler. This function behaves as if
+it was implemented as follows:
+
+```erlang
+{ok, {_, Old}} = logger:get_handler_config(HandlerId),
+logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
+```
+
+To overwrite the existing configuration without any merge, use
+[`set_handler_config/2` ](`set_handler_config/2`).
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec update_handler_config(HandlerId,Config) -> ok | {error,term()} when
-      HandlerId :: handler_id(),
-      Config :: handler_config().
+      HandlerId :: logger_handler:id(),
+      Config :: logger_handler:config().
 update_handler_config(HandlerId,Config) ->
     logger_server:update_config(HandlerId,Config).
 
+-doc """
+Update configuration data for the Logger proxy. This function behaves as if it
+was implemented as follows:
+
+```erlang
+Old = logger:get_proxy_config(),
+logger:set_proxy_config(maps:merge(Old, Config)).
+```
+
+To overwrite the existing configuration without any merge, use
+[`set_proxy_config/1` ](`set_proxy_config/1`).
+
+For more information about the proxy, see section
+[Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec update_proxy_config(Config) -> ok | {error,term()} when
       Config :: olp_config().
 update_proxy_config(Config) ->
     logger_server:update_config(proxy,Config).
 
+-doc "Look up the current primary configuration for Logger.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec get_primary_config() -> Config when
       Config :: primary_config().
 get_primary_config() ->
     {ok,Config} = logger_config:get(?LOGGER_TABLE,primary),
     maps:remove(handlers,Config).
 
+-doc "Look up the current configuration for the given handler.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec get_handler_config(HandlerId) -> {ok,Config} | {error,term()} when
-      HandlerId :: handler_id(),
-      Config :: handler_config().
+      HandlerId :: logger_handler:id(),
+      Config :: logger_handler:config().
 get_handler_config(HandlerId) ->
     case logger_config:get(?LOGGER_TABLE,HandlerId) of
-        {ok,#{module:=Module}=Config} ->
-            {ok,try Module:filter_config(Config)
-                catch _:_ -> Config
-                end};
+        {ok, Config} ->
+            {ok, filter_config(Config)};
         Error ->
             Error
     end.
 
--spec get_handler_config() -> [Config] when
-      Config :: handler_config().
-get_handler_config() ->
-    [begin
-         {ok,Config} = get_handler_config(HandlerId),
-         Config
-     end || HandlerId <- get_handler_ids()].
+filter_config(#{module:=Module}=Config) ->
+    try Module:filter_config(Config)
+    catch _:_ -> Config
+    end.
 
+-doc "Look up the current configuration for all handlers.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-spec get_handler_config() -> [Config] when
+      Config :: logger_handler:config().
+get_handler_config() ->
+    Configs0 = logger_config:get(?LOGGER_TABLE),
+    Configs = [filter_config(Config) || Config <- Configs0],
+    lists:sort(fun(#{ id := LHS }, #{ id := RHS }) -> LHS =< RHS end, Configs).
+
+-doc "Look up the identities for all installed handlers.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec get_handler_ids() -> [HandlerId] when
-      HandlerId :: handler_id().
+      HandlerId :: logger_handler:id().
 get_handler_ids() ->
     {ok,#{handlers:=HandlerIds}} = logger_config:get(?LOGGER_TABLE,primary),
-    HandlerIds.
+    lists:sort(HandlerIds).
 
+-doc """
+Look up the current configuration for the Logger proxy.
+
+For more information about the proxy, see section
+[Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec get_proxy_config() -> Config when
       Config :: olp_config().
 get_proxy_config() ->
     {ok,Config} = logger_config:get(?LOGGER_TABLE,proxy),
     Config.
 
+-doc """
+Update the formatter configuration for the specified handler.
+
+The new configuration is merged with the existing formatter configuration.
+
+To overwrite the existing configuration without any merge, use
+
+```erlang
+set_handler_config(HandlerId, formatter,
+	      {FormatterModule, FormatterConfig}).
+```
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec update_formatter_config(HandlerId,FormatterConfig) ->
                                      ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       FormatterConfig :: formatter_config().
 update_formatter_config(HandlerId,FormatterConfig) ->
     logger_server:update_formatter_config(HandlerId,FormatterConfig).
 
+-doc(#{ equiv => update_formatter_config(HandlerId, #{ Key => Value })}).
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec update_formatter_config(HandlerId,Key,Value) ->
                                      ok | {error,term()} when
-      HandlerId :: handler_id(),
+      HandlerId :: logger_handler:id(),
       Key :: atom(),
       Value :: term().
 update_formatter_config(HandlerId,Key,Value) ->
     logger_server:update_formatter_config(HandlerId,#{Key=>Value}).
 
+-doc """
+Set the log level for the specified modules.
+
+The log level for a module overrides the primary log level of Logger for log
+events originating from the module in question. Notice, however, that it does
+not override the level configuration for any handler.
+
+For example: Assume that the primary log level for Logger is `info`, and there
+is one handler, `h1`, with level `info` and one handler, `h2`, with level
+`debug`.
+
+With this configuration, no debug messages will be logged, since they are all
+stopped by the primary log level.
+
+If the level for `mymodule` is now set to `debug`, then debug events from this
+module will be logged by the handler `h2`, but not by handler `h1`.
+
+Debug events from other modules are still not logged.
+
+To change the primary log level for Logger, use
+[`set_primary_config(level, Level)`](`set_primary_config/2`).
+
+To change the log level for a handler, use
+[`set_handler_config(HandlerId, level, Level)` ](`set_handler_config/3`).
+
+> #### Note {: .info }
+>
+> The originating module for a log event is only detected if the key `mfa`
+> exists in the metadata, and is associated with `{Module, Function, Arity}`.
+> When log macros are used, this association is automatically added to all log
+> events. If an API function is called directly, without using a macro, the
+> logging client must explicitly add this information if module levels shall
+> have any effect.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec set_module_level(Modules,Level) -> ok | {error,term()} when
       Modules :: [module()] | module(),
       Level :: level() | all | none.
@@ -556,6 +1198,11 @@ set_module_level(Module,Level) when is_atom(Module) ->
 set_module_level(Modules,Level) ->
     logger_server:set_module_level(Modules,Level).
 
+-doc """
+Remove module specific log settings. After this, the primary log level is used
+for the specified modules.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec unset_module_level(Modules) -> ok when
       Modules :: [module()] | module().
 unset_module_level(Module) when is_atom(Module) ->
@@ -563,10 +1210,23 @@ unset_module_level(Module) when is_atom(Module) ->
 unset_module_level(Modules) ->
     logger_server:unset_module_level(Modules).
 
+-doc """
+Remove module specific log settings. After this, the primary log level is used
+for all modules.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec unset_module_level() -> ok.
 unset_module_level() ->
     logger_server:unset_module_level().
 
+-doc """
+Set the log level for all the modules of the specified application.
+
+This function is a convenience function that calls
+[logger:set_module_level/2](`set_module_level/2`) for each module associated
+with an application.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.1">>}).
 -spec set_application_level(Application,Level) -> ok | {error, not_loaded} when
       Application :: atom(),
       Level :: level() | all | none.
@@ -578,6 +1238,14 @@ set_application_level(App,Level) ->
             {error, {not_loaded, App}}
     end.
 
+-doc """
+Unset the log level for all the modules of the specified application.
+
+This function is a utility function that calls
+[logger:unset_module_level/2](`unset_module_level/1`) for each module associated
+with an application.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.1">>}).
 -spec unset_application_level(Application) ->
          ok | {error, {not_loaded, Application}} when Application :: atom().
 unset_application_level(App) ->
@@ -588,6 +1256,12 @@ unset_application_level(App) ->
             {error, {not_loaded, App}}
     end.
 
+-doc """
+Look up the current level for the given modules. Returns a list containing one
+`{Module,Level}` element for each of the given modules for which the module
+level was previously set with `set_module_level/2`.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec get_module_level(Modules) -> [{Module,Level}] when
       Modules :: [Module] | Module,
       Module :: module(),
@@ -598,6 +1272,12 @@ get_module_level(Modules) when is_list(Modules) ->
     [{M,L} || {M,L} <- get_module_level(),
               lists:member(M,Modules)].
 
+-doc """
+Look up all current module levels. Returns a list containing one
+`{Module,Level}` element for each module for which the module level was
+previously set with `set_module_level/2`.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec get_module_level() -> [{Module,Level}] when
       Module :: module(),
       Level :: level() | all | none.
@@ -606,6 +1286,12 @@ get_module_level() ->
 
 %%%-----------------------------------------------------------------
 %%% Misc
+-doc """
+Compare the severity of two log levels. Returns `gt` if `Level1` is more severe
+than `Level2`, `lt` if `Level1` is less severe, and `eq` if the levels are
+equal.
+""".
+-doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 21.0">>}).
 -spec compare_levels(Level1,Level2) -> eq | gt | lt when
       Level1 :: level() | all | none,
       Level2 :: level() | all | none.
@@ -620,6 +1306,20 @@ compare_levels(Level1,Level2) when ?IS_LEVEL_ALL(Level1), ?IS_LEVEL_ALL(Level2) 
 compare_levels(Level1,Level2) ->
     erlang:error(badarg,[Level1,Level2]).
 
+-doc """
+Set metadata which Logger shall automatically insert in all log events produced
+on the current process.
+
+Location data produced by the log macros, and/or metadata given as argument to
+the log call (API function or macro), are merged with the process metadata. If
+the same keys occur, values from the metadata argument to the log call overwrite
+values from the process metadata, which in turn overwrite values from the
+location data.
+
+Subsequent calls to this function overwrites previous data set. To update
+existing data instead of overwriting it, see `update_process_metadata/1`.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec set_process_metadata(Meta) -> ok when
       Meta :: metadata().
 set_process_metadata(Meta) when is_map(Meta) ->
@@ -628,6 +1328,20 @@ set_process_metadata(Meta) when is_map(Meta) ->
 set_process_metadata(Meta) ->
     erlang:error(badarg,[Meta]).
 
+-doc """
+Set or update metadata to use when logging from current process
+
+If process metadata exists for the current process, this function behaves as if
+it was implemented as follows:
+
+```erlang
+logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
+```
+
+If no process metadata exists, the function behaves as
+[`set_process_metadata/1` ](`set_process_metadata/1`).
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec update_process_metadata(Meta) -> ok when
       Meta :: metadata().
 update_process_metadata(Meta) when is_map(Meta) ->
@@ -641,18 +1355,27 @@ update_process_metadata(Meta) when is_map(Meta) ->
 update_process_metadata(Meta) ->
     erlang:error(badarg,[Meta]).
 
+-doc "Retrieve data set with `set_process_metadata/1` or `update_process_metadata/1`.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec get_process_metadata() -> Meta | undefined when
       Meta :: metadata().
 get_process_metadata() ->
     get(?LOGGER_META_KEY).
 
+-doc "Delete data set with `set_process_metadata/1` or `update_process_metadata/1`.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec unset_process_metadata() -> ok.
 unset_process_metadata() ->
     _ = erase(?LOGGER_META_KEY),
     ok.
 
+-doc """
+Look up all current Logger configuration, including primary, handler, and proxy
+configuration, and module level settings.
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec get_config() -> #{primary=>primary_config(),
-                        handlers=>[handler_config()],
+                        handlers=>[logger_handler:config()],
                         proxy=>olp_config(),
                         module_levels=>[{module(),level() | all | none}]}.
 get_config() ->
@@ -661,6 +1384,8 @@ get_config() ->
       proxy=>get_proxy_config(),
       module_levels=>lists:keysort(1,get_module_level())}.
 
+-doc "Pretty print all Logger configuration.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec i() -> ok.
 i() ->
     #{primary := Primary,
@@ -673,8 +1398,10 @@ i() ->
     i_proxy(Proxy,M),
     i_modules(Modules,M).
 
+-doc "Pretty print the Logger configuration.".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec i(What) -> ok when
-      What :: primary | handlers | proxy | modules | handler_id().
+      What :: primary | handlers | proxy | modules | logger_handler:id().
 i(primary) ->
     i_primary(get_primary_config(),modifier());
 i(handlers) ->
@@ -797,19 +1524,34 @@ print_module_levels(Modules,M) ->
     [print_module_levels(Module,M) || Module <- Modules],
     ok.
 
+-doc """
+Reconfigure Logger using updated `kernel` configuration that was set after
+`kernel` application was loaded.
+
+Beware, that this is meant to be run only by the build tools, not manually
+during application lifetime, as this may cause missing log entries.
+
+Before reconfiguration, `simple` logger handler is added to capture log events
+before the logging infrastructure is started and prints them to standard
+output. After the `default` handler is added again, all log events captured by
+the `simple` handler are replayed to the `default` handler, and the `simple`
+handler is removed. Notice that if you don't add the `default` handler,
+`simple` handler will persist.
+""".
+-doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 24.2">>}).
 -spec reconfigure() -> ok | {error,term()}.
 %% This function is meant to be used by the build tools like Rebar3 or Mix
 %% to ensure that the logger configuration is reset to the expected state
 %% before running main application.
 reconfigure() ->
     try
+        _ = logger:add_handler(simple,logger_simple_h,
+                            #{filter_default=>stop,
+                              filters=>?DEFAULT_HANDLER_FILTERS}),
         [case logger:remove_handler(Id) of
              ok -> ok;
              {error, Reason} -> throw({remove, Id, Reason})
-         end || #{id := Id} <- logger:get_handler_config()],
-        ok=logger:add_handler(simple,logger_simple_h,
-                              #{filter_default=>stop,
-                                filters=>?DEFAULT_HANDLER_FILTERS}),
+         end || Id <- logger:get_handler_ids(), Id =/= simple],
         logger:unset_module_level(),
         internal_init_logger()
     of
@@ -822,6 +1564,7 @@ reconfigure() ->
             {error, Reason}
     end.
 
+-doc false.
 -spec internal_init_logger() -> ok | {error,term()}.
 %% This function is responsible for config of the logger
 %% This is done before add_handlers because we want the
@@ -877,6 +1620,48 @@ init_kernel_handlers(Env) ->
             {error, {bad_config, {kernel, Reason}}}
     end.
 
+-doc """
+Reads the application configuration parameter `logger` and calls
+[`add_handlers/1`](`add_handlers/1`) with its contents.
+
+This function should be used by custom Logger handlers to make configuration
+consistent no matter which handler the system uses. Normal usage is to add a
+call to `logger:add_handlers/1` just after the processes that the handler needs
+are started, and pass the application's `logger` configuration as the argument.
+For example:
+
+```erlang
+-behaviour(application).
+start(_, []) ->
+    case supervisor:start_link({local, my_sup}, my_sup, []) of
+        {ok, Pid} ->
+            ok = logger:add_handlers(my_app),
+            {ok, Pid, []};
+        Error -> Error
+     end.
+```
+
+This reads the `logger` configuration parameter from the `my_app` application
+and starts the configured handlers. The contents of the configuration use the
+same rules as the
+[logger handler configuration](logger_chapter.md#handler-configuration).
+
+If the handler is meant to replace the default handler, the Kernel's default
+handler have to be disabled before the new handler is added. A `sys.config` file
+that disables the Kernel handler and adds a custom handler could look like this:
+
+```erlang
+[{kernel,
+  [{logger,
+    %% Disable the default Kernel handler
+    [{handler, default, undefined}]}]},
+ {my_app,
+  [{logger,
+    %% Enable this handler as the default
+    [{handler, default, my_handler, #{}}]}]}].
+```
+""".
+-doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec add_handlers(Application) -> ok | {error,term()} when
       Application :: atom();
                     (HandlerConfig) -> ok | {error,term()} when
@@ -898,33 +1683,12 @@ add_handlers(kernel) ->
 add_handlers(App) when is_atom(App) ->
     add_handlers(App,get_logger_env(App));
 add_handlers(HandlerConfig) ->
-    add_handlers(application:get_application(),HandlerConfig).
+    add_handlers(undefined,HandlerConfig).
 
 add_handlers(App,HandlerConfig) ->
     try
         check_logger_config(App,HandlerConfig),
-        DefaultAdded =
-            lists:foldl(
-              fun({handler, default = Id, Module, Config}, _)
-                    when not is_map_key(filters, Config) ->
-                      %% The default handler should have a couple of extra filters
-                      %% set on it by default.
-                      DefConfig = #{ filter_default => stop,
-                                     filters => get_default_handler_filters()},
-                      setup_handler(Id, Module, maps:merge(DefConfig,Config)),
-                      true;
-                 ({handler, Id, Module, Config}, Default) ->
-                      setup_handler(Id, Module, Config),
-                      Default orelse Id == default;
-                 (_,Default) -> Default
-              end, false, HandlerConfig),
-        %% If a default handler was added we try to remove the simple_logger
-        %% If the simple logger exists it will replay its log events
-        %% to the handler(s) added in the fold above.
-        [case logger:remove_handler(simple) of
-             ok -> ok;
-             {error,{not_found,simple}} -> ok
-         end || DefaultAdded],
+        [setup_handler(Id,Module,Config) || {handler,Id,Module,Config} <- HandlerConfig],
         ok
     catch throw:Reason0 ->
             Reason =
@@ -1190,6 +1954,7 @@ log_remote(Node,Request) ->
     logger_proxy:log({remote,Node,Request}),
     ok.
 
+-doc false.
 add_default_metadata(Meta) ->
     add_default_metadata([pid,gl,time],Meta).
 
@@ -1214,6 +1979,7 @@ default(gl) -> group_leader();
 default(time) -> timestamp().
 
 %% Remove everything up to and including this module from the stacktrace
+-doc false.
 filter_stacktrace(Module,[{Module,_,_,_}|_]) ->
     [];
 filter_stacktrace(Module,[H|T]) ->

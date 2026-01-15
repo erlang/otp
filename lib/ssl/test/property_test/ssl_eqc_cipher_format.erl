@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,35 +25,7 @@
 
 -compile(export_all).
 
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
-
+-include_lib("common_test/include/ct_property_test.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -define('TLS_v1.3', 'tlsv1.3').
@@ -65,13 +39,7 @@
 
 prop_tls_cipher_suite_rfc_name() ->
     ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, tls_version(), {cipher_suite(Version), Version}),
-            case ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) of
-		CipherSuite ->
-		    true;
-		_ ->
-		    false
-	    end
-	   ).
+            ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) == CipherSuite).
 
 prop_tls_cipher_suite_openssl_name() ->
     ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, tls_version(), {cipher_suite(Version), Version}),
@@ -89,17 +57,14 @@ prop_tls_cipher_suite_openssl_name() ->
 	   ).
 
 prop_tls_anon_cipher_suite_rfc_name() ->
-    ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, pre_tls_1_3_version(), {anon_cipher_suite(Version), Version}),
-            case ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) of
-		CipherSuite ->
-		    true;
-		_ ->
-		    false
-	    end
-	   ).
+    ?FORALL({CipherSuite, _TLSVersion},
+            ?LET(Version, pre_tls_1_3_version(), {anon_cipher_suite(Version), Version}),
+            ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) == CipherSuite
+           ).
 
 prop_tls_anon_cipher_suite_openssl_name() ->
-    ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, pre_tls_1_3_version(), {anon_cipher_suite(Version), Version}),
+    ?FORALL({CipherSuite, _TLSVersion},
+            ?LET(Version, pre_tls_1_3_version(), {anon_cipher_suite(Version), Version}),
             case ssl:str_to_suite(ssl:suite_to_openssl_str(CipherSuite)) of
 		CipherSuite ->
 		    lists:member(ssl:suite_to_openssl_str(CipherSuite), openssl_legacy_names());
@@ -110,8 +75,7 @@ prop_tls_anon_cipher_suite_openssl_name() ->
 
 prop_tls_signature_algs() ->
     ?FORALL(SigAlg, ?LET(SigAlg, sig_alg(), SigAlg),
-            true = lists:member(ssl_cipher:signature_algorithm_to_scheme(SigAlg), sig_schemes())
-	   ).
+            lists:member(ssl_cipher:signature_algorithm_to_scheme(SigAlg), sig_schemes())).
 
 %%--------------------------------------------------------------------
 %% Generators  -----------------------------------------------

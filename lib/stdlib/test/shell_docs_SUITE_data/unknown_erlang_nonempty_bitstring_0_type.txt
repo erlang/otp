@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type nonempty_bitstring() :: <<_:1, _:_*1>>.[0m
+[;1m  nonempty_bitstring()[0m
 
-  A bitstring() that contains some data.
+  A [;;4mbitstring/0[0m that contains some data.

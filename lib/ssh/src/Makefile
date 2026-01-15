@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,6 +75,8 @@ MODULES= \
 	ssh_info \
 	ssh_io \
 	ssh_lib \
+	ssh_lsocket \
+	ssh_lsocket_sup \
 	ssh_message \
 	ssh_no_io \
 	ssh_options \
@@ -80,7 +84,7 @@ MODULES= \
 	ssh_sftpd \
 	ssh_sftpd_file\
 	ssh_shell \
-	ssh_subsystem_sup \
+	ssh_connection_sup \
 	ssh_system_sup \
 	ssh_tcpip_forward_srv \
 	ssh_tcpip_forward_client \
@@ -121,21 +125,10 @@ INTERNAL_HRL_FILES = \
 	ssh_transport.hrl \
 	ssh_xfer.hrl
 
-DEPDIR=$(ERL_TOP)/lib/ssh/src/deps
-DEP_FILE=$(DEPDIR)/ssh.d
-$(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
-
-ifeq ($(TARGET), win32)
-  # Native path without C: ignore driveletter case
-  ERL_TOP_NATIVE = $(shell w32_path.sh -m $(ERL_TOP) | sed "s@[a-zA-Z]:@:@")
-else
-  ERL_TOP_NATIVE = $(ERL_TOP)
-endif
-
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-EXTRA_ERLC_FLAGS = +warn_unused_vars
+EXTRA_ERLC_FLAGS = +warn_unused_vars +nowarn_deprecated_callback +warn_obsolete_bool_op
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 	-pz $(EBIN) \
 	-pz $(ERL_TOP)/lib/public_key/ebin \
@@ -149,17 +142,7 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES_2)
 $(BEHAVIOUR_TARGET_FILES_2): $(BEHAVIOUR_TARGET_FILES_1)
 
-$(DEP_FILE): $(ERL_FILES)
-	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
-	$(gen_verbose)erlc -M $(ERL_FILES) \
-	| perl -pe "s@ [a-zA-Z]?$(ERL_TOP_NATIVE)/(?:bootstrap/)?lib/([^/]+)@ ../../\1@g" 2> /dev/null \
-	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
-	| sed 's@^ssh_@$$(EBIN)/ssh_@' \
-	| sed 's@^sshc_@$$(EBIN)/sshc_@' \
-	| sed 's@^sshd_@$$(EBIN)/sshd_@' \
-	> $(DEP_FILE)
-
-$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
+$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(BEHAVIOUR_TARGET_FILES)
@@ -194,4 +177,4 @@ release_docs_spec:
 # ----------------------------------------------------
 # Dependencies
 # ----------------------------------------------------
--include $(DEP_FILE)
+include $(ERL_TOP)/make/dep.mk

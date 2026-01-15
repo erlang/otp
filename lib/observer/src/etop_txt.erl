@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,20 +16,31 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(etop_txt).
+-moduledoc false.
 -author('siri@erix.ericsson.se').
 
 %%-compile(export_all).
 -export([init/1,stop/1]).
--export([do_update/4]).
+-export([do_update/4, newline/2]).
 
 -include("etop.hrl").
 -include("etop_defs.hrl").
 
 -define(DEFAULT_WIDTH, 89).
+-define(ERASE_ALL, "\e[;H\e[2J").
+
+-define(SYSFORM(IsTerminal, ShellMode),
+        " ~-72w~10s" ++ newline(IsTerminal, ShellMode) ++
+            " Load:  cpu  ~8w               Memory:  total    ~8w    binary   ~8w" ++
+            newline(IsTerminal, ShellMode) ++
+            "        procs~8w                        processes~8w    code     ~8w" ++
+            newline(IsTerminal, ShellMode) ++
+            "        runq ~8w                        atom     ~8w    ets      ~8w" ++
+            newline(IsTerminal, ShellMode)).
 
 -record(field_widths, {cols      :: pos_integer(),
                        used_cols :: pos_integer(),
@@ -45,12 +58,21 @@ init(Config) ->
     loop(#etop_info{},Config).
 
 loop(Prev,Config) ->
-    Info = do_update(Prev,Config),
-    receive 
-	stop -> stopped;
-	{dump,Fd} -> do_update(Fd,Info,Prev,Config), loop(Info,Config);
-	{config,_,Config1} -> loop(Info,Config1)
-    after Config#opts.intv -> loop(Info,Config)
+    try do_update(Prev,Config) of
+        Info ->
+            receive
+                stop -> stopped;
+                {dump,Fd} -> do_update(Fd,Info,Prev,Config), loop(Info,Config);
+                {config,_,Config1} -> loop(Info,Config1)
+            after Config#opts.intv -> loop(Info,Config)
+            end
+    catch error : badarg : ST ->
+            receive
+                %% Accumulator tab could have been already deleted if stop is requested
+                %% Ignore this if we're already stopping
+                stop -> stopped
+            after 0 -> erlang:raise(error, badarg, ST)
+            end
     end.
 
 do_update(Prev,Config) ->
@@ -60,31 +82,49 @@ do_update(Prev,Config) ->
 do_update(Fd,Info,Prev,Config) ->
     {Cpu,NProcs,RQ,Clock} = loadinfo(Info,Prev),
     FieldWidths = calc_field_widths(Info#etop_info.procinfo),
-    io:nl(Fd),
-    writedoubleline(Fd, FieldWidths),
+
+    IsTerminal = proplists:is_defined(terminal, io:getopts(Fd)),
+    ShellMode = Config#opts.shell_mode,
+
+    case IsTerminal of
+        true ->
+            io:fwrite(Fd, ?ERASE_ALL ++ newline(IsTerminal, ShellMode), []);
+        false ->
+            io:fwrite(Fd, newline(IsTerminal, ShellMode), [])
+    end,
+    writedoubleline(Fd, FieldWidths, IsTerminal, ShellMode),
     case Info#etop_info.memi of
 	undefined ->
-	    io:fwrite(Fd, " ~-72w~10s~n"
-		      " Load:  cpu  ~8w~n"
-		      "        procs~8w~n"
-		      "        runq ~8w~n",
+	    io:fwrite(Fd, " ~-72w~10s" ++ newline(IsTerminal, ShellMode) ++
+		      " Load:  cpu  ~8w" ++ newline(IsTerminal, ShellMode) ++
+		      "        procs~8w" ++ newline(IsTerminal, ShellMode) ++
+		      "        runq ~8w" ++ newline(IsTerminal, ShellMode),
 		      [Config#opts.node,Clock,
 		       Cpu,NProcs,RQ]);
 	Memi ->
 	    [Tot,Procs,Atom,Bin,Code,Ets] = 
 		meminfo(Memi, [total,processes,atom,binary,code,ets]),
-	    io:fwrite(Fd, ?SYSFORM,
+	    io:fwrite(Fd, ?SYSFORM(IsTerminal, ShellMode),
 		      [Config#opts.node,Clock,
 		       Cpu,Tot,Bin,
 		       NProcs,Procs,Code,
 		       RQ,Atom,Ets])
     end,
-    io:nl(Fd),
-    writepinfo_header(Fd, FieldWidths),
-    writesingleline(Fd, FieldWidths),
-    writepinfo(Fd, Info#etop_info.procinfo, modifier(Fd), FieldWidths),
-    writedoubleline(Fd, FieldWidths),
-    io:nl(Fd),
+    io:fwrite(Fd, newline(IsTerminal, ShellMode), []),
+    writepinfo_header(Fd, FieldWidths, IsTerminal, ShellMode),
+    writesingleline(Fd, FieldWidths, IsTerminal, ShellMode),
+    writepinfo(Fd, Info#etop_info.procinfo, modifier(Fd), FieldWidths, IsTerminal, ShellMode),
+    writedoubleline(Fd, FieldWidths, IsTerminal, ShellMode),
+    case {IsTerminal, ShellMode} of
+        {true, raw} ->
+            io:fwrite(Fd, newline(IsTerminal, ShellMode) ++ "Press 'q' to stop etop." ++
+                          newline(IsTerminal, ShellMode), []);
+        {true, _} ->
+            io:fwrite(Fd, newline(IsTerminal, ShellMode) ++ "Type Ctrl+G, then enter 'i' to interrupt etop." ++
+                          newline(IsTerminal, ShellMode), []);
+        {false, _} ->
+            ok
+    end,
     Info.
 
 
@@ -176,7 +216,7 @@ get_width(N, ProcInfoL, ColsLeft) ->
 
 
 writepinfo_header(Fd, #field_widths{init_func = InitFunc, reds = Reds,
-                                    mem = Mem, msgq = MsgQ}) ->
+                                    mem = Mem, msgq = MsgQ}, IsTerminal, ShellMode) ->
     %% Add spaces between variable width columns.
     Header =
         "Pid            Name or Initial Func"
@@ -187,15 +227,17 @@ writepinfo_header(Fd, #field_widths{init_func = InitFunc, reds = Reds,
         ++ lists:duplicate(max(Mem - 5, 3), $\s) ++
         "Memory"
         ++ lists:duplicate(max(MsgQ - 3, 5), $\s) ++
-        "MsgQ Current Function\n",
+        "MsgQ Current Function" ++ newline(IsTerminal, ShellMode),
 
     io:fwrite(Fd, Header, []).
 
-writesingleline(Fd, FieldWidths) -> writedupline(Fd, $-, FieldWidths).
-writedoubleline(Fd, FieldWidths) -> writedupline(Fd, $=, FieldWidths).
+writesingleline(Fd, FieldWidths, IsTerminal, ShellMode) ->
+    writedupline(Fd, $-, FieldWidths, IsTerminal, ShellMode).
+writedoubleline(Fd, FieldWidths, IsTerminal, ShellMode) ->
+    writedupline(Fd, $=, FieldWidths, IsTerminal, ShellMode).
 
-writedupline(Fd, Char, #field_widths{used_cols = UsedCols}) ->
-    Line = lists:duplicate(UsedCols, Char) ++ "\n",
+writedupline(Fd, Char, #field_widths{used_cols = UsedCols}, IsTerminal, ShellMode) ->
+    Line = lists:duplicate(UsedCols, Char) ++ newline(IsTerminal, ShellMode),
     io:fwrite(Fd, Line, []).
 
 writepinfo(Fd,[#etop_proc_info{pid=Pid,
@@ -206,26 +248,27 @@ writepinfo(Fd,[#etop_proc_info{pid=Pid,
 			       cf=MFA,
 			       mq=MQ}
 	       |T],
-           Modifier, FieldWidths) ->
-    io:fwrite(Fd,proc_format(Modifier, FieldWidths),
+           Modifier, FieldWidths, IsTerminal, ShellMode) ->
+    io:fwrite(Fd,proc_format(Modifier, FieldWidths, IsTerminal, ShellMode),
               [Pid,to_string(Name,Modifier),Time,Reds,Mem,MQ,
                to_string(MFA,Modifier)]),
-    writepinfo(Fd,T,Modifier, FieldWidths);
-writepinfo(_Fd,[],_,_) ->
+    writepinfo(Fd,T,Modifier, FieldWidths, IsTerminal, ShellMode);
+writepinfo(_Fd,[],_,_,_,_) ->
     ok.
 
 proc_format(Modifier, #field_widths{init_func = InitFunc, reds = Reds,
                                     mem = Mem, msgq = MsgQ,
-                                    curr_func = CurrFunc}) ->
+                                    curr_func = CurrFunc}, IsTerminal, ShellMode) ->
     "~-15w"
     "~-" ++ i2l(InitFunc) ++ Modifier ++ "s"
     "~8w"
     "~" ++ i2l(Reds) ++ "w "
     "~" ++ i2l(Mem) ++"w "
     "~" ++ i2l(MsgQ) ++ "w "
-    "~-" ++ i2l(CurrFunc) ++ Modifier ++ "s~n".
+    "~-" ++ i2l(CurrFunc) ++ Modifier ++ "s" ++ newline(IsTerminal, ShellMode).
 
-
+to_string(Other,_Modifier) when is_binary(Other) ->
+    Other;
 to_string({M,F,A},Modifier) ->
     io_lib:format("~w:~"++Modifier++"w/~w",[M,F,A]);
 to_string(Other,Modifier) ->
@@ -246,4 +289,11 @@ encoding(Device) ->
         _ ->
             latin1
     end.
+
+newline(false, _) ->
+    "~n";
+newline(true, raw) ->
+    "\r\n";
+newline(true, _) ->
+    "~n".
 

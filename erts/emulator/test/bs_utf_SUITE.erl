@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -457,11 +459,8 @@ int_to_utf8(I, 4) ->
     B1 = (I bsr 18),
     <<1:1,1:1,1:1,1:1,0:1,B1:3,1:1,0:1,B2:6,1:1,0:1,B3:6,1:1,0:1,B4:6>>.
 
-make_unaligned(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = byte_size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 fail_check({'EXIT',{badarg,_}}, Str, Vars) ->
     try	evaluate(Str, Vars) of
@@ -490,7 +489,6 @@ get_data_dir(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Opts = [{return,list}],
     Suffixes = ["_no_opt_SUITE",
-                "_r25_SUITE",
                 "_stripped_types_SUITE"],
     lists:foldl(fun(Suffix, Acc) ->
                         Opts = [{return,list}],

@@ -1,8 +1,10 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 -module(snmp_app).
+-moduledoc false.
 
 -behaviour(application).
 
@@ -105,17 +108,15 @@ start_entities(Type, [BadEntity|Entities]) ->
 start_agent() ->
     start_agent(normal).
 
-start_agent(Type) when is_atom(Type) ->
+start_agent(Opts) when is_list(Opts) ->
+    start_agent(normal, Opts);
+start_agent(Type) ->
     case application:get_env(snmp, agent) of
 	{ok, Opts} ->
 	    start_agent(Type, Opts);
 	_ ->
 	    {error, missing_config}
-    end;
-start_agent(Opts) when is_list(Opts) ->
-    start_agent(normal, Opts);
-start_agent(BadArg) ->
-    {error, {bad_arg, BadArg}}.
+    end.
 
 start_agent(Type, Opts) ->
     ?d("start_agent -> entry", []),

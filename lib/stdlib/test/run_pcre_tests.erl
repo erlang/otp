@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,27 +22,45 @@
 -module(run_pcre_tests).
 -export([test/1,gen_split_test/1,gen_repl_test/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
+-define(is_hex_char(C),(((C >= $0) and (C =< $9)) or ((C >= $A) and (C =< $F)) or ((C >= $a) and (C =< $f)))).
+-define(SPACE,32). % space character ($ )
+
 test(RootDir) ->
-    put(verbose,false),
+    %%put(verbose,true),
     erts_debug:set_internal_state(available_internal_state,true),
-    io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(re_loop_limit,10)]),
-    Testfiles0 = ["testoutput1", "testoutput2", "testoutput3", "testoutput4",
-		 "testoutput5", "testoutput6","mod_testoutput8","testoutput10"],
+    io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(re_loop_limit,1)]),
+    Testfiles0 = ["testoutput1",
+                  "testoutput2",
+                  "testoutput4",
+                  "testoutput5",
+                  "mod_testoutput8",
+                  "testoutput10"
+                 ],
     Testfiles = [ filename:join([RootDir,FN]) || FN <- Testfiles0 ], 
-    Res = [ begin io:format("~s~n",[X]), t(X) end || X <- Testfiles ],
+    Res = [ t(X) || X <- Testfiles ],
     io:format("limit was: ~p~n",[ erts_debug:set_internal_state(re_loop_limit,default)]),
-    Res2 = Res ++ [ begin io:format("~s~n",[X]), t(X) end || X <- Testfiles ],
+    Res2 = Res ++ [ t(X) || X <- Testfiles ],
     erts_debug:set_internal_state(available_internal_state,false),
-    put(verbose,true),
     Res2.
+
 t(OneFile) ->
     t(OneFile,infinite).
+
 t(OneFile,Num) ->
+    put(testfile,filename:basename(OneFile)),
     {ok,Bin} = file:read_file(OneFile),
     Lines = splitfile(0,Bin,1),
+    put(re_tested, 0),
+    put(re_skipped, 0),
     Structured = stru(Lines),
+    io:format("~s parsed: ~p regex to test, ~p regex skipped\n",
+              [get(testfile), get(re_tested), get(re_skipped)]),
     put(error_limit,Num),
     put(skipped,0),
+    put(re_run,0),
+    put(re_compile,0),
     Res = 
 	[test(Structured,true,index,false),
 	 test(Structured,false,index,false),
@@ -50,6 +70,8 @@ t(OneFile,Num) ->
 	 test(Structured,false,binary,false),
 	 test(Structured,true,list,false),
 	 test(Structured,false,list,false)],
+    io:format("Done with ~s. Call count:  re:compile ~p, re:run ~p\n",
+              [get(testfile), get(re_compile), get(re_run)]),
     {lists:sum(Res),length(Structured)*6,get(skipped)}.
 
 
@@ -67,11 +89,13 @@ pick_exec_options([]) ->
 
 test([],_,_,_) ->
     0;
-test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
+test([{{replace,_},_,_,_,_}|T],PreCompile,index,REAsList) ->
+    test(T,PreCompile,index,REAsList);
+test([{R,RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
     Unicode = lists:member(unicode,Options0),
     RE = case REAsList of
 	     true ->
-		 if 
+		 if
 		     Unicode -> unicode:characters_to_list(RE0);
 		     true -> binary_to_list(RE0)
 		 end;
@@ -81,19 +105,21 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
     {Options,ExecOptions} = pick_exec_options(Options0),
     {Cres, Xopt} = case PreCompile of
 		       true ->
-			   {re:compile(RE,Options),[]};
+			   {re_compile(RE,Options),[]};
 		       _ ->
+                           erase(re_compile_opts),
 			   {{ok,RE},Options}
 		   end,
     case Cres of
 	{ok,P} ->
-	    case (catch testrun(RE,P,Tests,ExecOptions,Xopt,XMode)) of
+	    try testrun(R, RE,P,Tests,ExecOptions,Xopt,XMode) of
 		N when is_integer(N) ->
-		    N + test(T,PreCompile,XMode,REAsList);
-		limit ->
+		    N + test(T,PreCompile,XMode,REAsList)
+            catch
+		throw:limit ->
 		    io:format("Error limit reached.~n"),
 		    1;
-		skip ->
+		throw:skip ->
 		    case get(skipped) of
 			N when is_integer(N) ->
 			    put(skipped,N+1);
@@ -162,10 +188,14 @@ press([]) ->
 press([H|T]) ->
     H++press(T).
 
-testrun(_,_,[],_,_,_) ->
+testrun(_,_,_,[],_,_,_) ->
     0;
-testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
-    Xopt = clean_duplicates(Xopt0,ExecOpt),
+testrun(ReFun, RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
+    Global = case lists:member(g, EO) of true -> [global]; false -> [] end,
+    ReturnType = if ReFun =:= run -> [{capture,all,XMode}];
+                    true -> [{return,XMode}] end,
+    AcceptNonAscii = lists:member(accept_nonascii,EO),
+    Xopt = clean_duplicates(Xopt0,ExecOpt) ++ ReturnType ++ Global,
 
     case lists:keymember(newline,1,Xopt) of
 	true ->
@@ -176,115 +206,66 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 	false ->
 	    ok
     end,
-	    
-    Res = 
-	case lists:member(g,EO) of
-	    true ->
-		case XMode of
-		    binary ->
-			case re:run(Chal,P,ExecOpt++Xopt++
-				    [global,{capture,all,binary}]) of
-			    nomatch ->
-				nomatch;
-			    {match, Reslist} ->
-				{match,press([bfix(R)|| R <- Reslist])}
-			end;
-		    list ->
-			case re:run(Chal,P,ExecOpt++Xopt++
-				    [global,{capture,all,list}]) of
-			    nomatch ->
-				nomatch;
-			    {match, Reslist} ->
-				UFix = lists:member(unicode,EO),
-				{match,press([bfix([if UFix =:= true -> list_to_utf8(L); true -> list_to_binary(L) end || L <- R]) || R <- Reslist])}
-			end;
-		    index ->
-			case re:run(Chal,P,ExecOpt++Xopt++[global]) of
-			    nomatch ->
-				nomatch;
-			    {match, Reslist} ->
-				{match,press([fixup(Chal,R,0) || R <- Reslist])}
-			end
-		end;
-	    false ->
-		case EO -- [accept_nonascii] of
-		    EO ->
-			case contains_eightbit(Chal) of
-			    true ->
-				info("skipping 8bit without LANG (~p)~n",
-					 [Line]),
-				throw(skip);
-			    false ->
-				ok
-			end,
-
-			case XMode of
-			    binary ->
-				case re:run(Chal,P,ExecOpt++Xopt++
-					    [{capture,all,binary}]) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					{match,bfix(Reslist)}
-				end;
-			    list ->
-				case re:run(Chal,P,ExecOpt++Xopt++
-					    [{capture,all,list}]) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					UFix = lists:member(unicode,EO),
-					{match,bfix([if 
-							 UFix =:= true -> list_to_utf8(L); 
-							 true -> list_to_binary(L) 
-						     end || L <- Reslist])}
-				end;
-			    index ->
-				case re:run(Chal,P,ExecOpt++Xopt) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					{match,fixup(Chal,Reslist,0)}
-				end
-			end;
-		    _LesserOpt ->
-			case XMode of
-			    binary ->
-				case re:run(Chal,P,ExecOpt++Xopt++
-					    [{capture,all,binary}]) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					{match,bfix(Reslist)}
-				end;
-			    list ->
-				case re:run(Chal,P,ExecOpt++Xopt++
-					    [{capture,all,list}]) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					UFix = lists:member(unicode,EO),
-					{match,bfix([if 
-							 UFix =:= true -> list_to_utf8(L); 
-							 true -> list_to_binary(L) 
-						     end || L <- Reslist])}
-				end;
-			    index ->
-				case re:run(Chal,P,ExecOpt++Xopt) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					{match,fixup(Chal,Reslist,0)}
-				end
-			end
-		end
-	end,
+    %% If global and accept_nonascii is not set, and subject has 8bit, skip
+    case not lists:member(g,EO) andalso not AcceptNonAscii andalso contains_eightbit(Chal) of
+    true -> 
+        info("skipping 8bit without LANG (~p)~n",
+                [Line]),
+        throw(skip);
+    false ->
+        ok
+    end,
+    TestFun = case ReFun of
+          run -> fun() -> re_run(Chal, P, ExecOpt++Xopt) end;
+          {replace, Replacement} -> fun() ->
+                {replace, re_replace(Chal, P, Replacement, ExecOpt++Xopt)}
+            end
+    end,
+    Res = case TestFun() of
+        %% Handle replace results
+        {replace, NewChal} when is_binary(NewChal), XMode =:= binary ->
+            {match, [{dont_care, NewChal}]};
+        {replace, NewChal} when is_list(NewChal), XMode =:= list ->
+            UFix = lists:member(unicode,EO),
+            {match, [{dont_care, if
+                UFix -> list_to_utf8(NewChal);
+                true -> list_to_binary(NewChal)
+            end}]};
+        %%  Handle run results
+        nomatch ->
+            nomatch;
+        {match, Reslist} when XMode =:= binary, Global =:= [global] ->
+            {match,press([bfix(R)|| R <- Reslist])};
+        {match, Reslist} when XMode =:= binary ->
+            {match,bfix(Reslist)};
+        {match, Reslist} when XMode =:= list, Global =:= [global] ->
+            UFix = lists:member(unicode,EO),
+            {match,press([bfix([if
+                            UFix -> list_to_utf8(L);
+                            true -> list_to_binary(L)
+                        end || L <- R]) || R <- Reslist])};
+        {match, Reslist} when XMode =:= list ->
+            UFix = lists:member(unicode,EO),
+            {match,bfix([if
+                            UFix -> list_to_utf8(L);
+                            true -> list_to_binary(L)
+                        end || L <- Reslist])};
+        {match, Reslist} when XMode =:= index, Global =:= [global] ->
+            {match,press([fixup(Chal,R,0) || R <- Reslist])};
+        {match, Reslist} when XMode =:= index ->
+            {match,fixup(Chal,Reslist,0)}
+    end,
+	
     case compare_sloppy(Res,Responses) of
 	true ->
-	    testrun(RE,P,T,EO,Xopt0,XMode);
+	    testrun(ReFun, RE,P,T,EO,Xopt0,XMode);
 	false ->
-	    io:format("FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n", 
-		      [Line,RE,Chal,binary_to_list(Chal),{ExecOpt,EO,Xopt},Responses,Res]),
+        case ReFun of
+	        run -> io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
+		      [get(testfile), Line,RE,Chal,binary_to_list(Chal),used_options(),Responses,Res]);
+            {replace, Repl} -> io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nreplace with: ~p, ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
+                [get(testfile), Line,RE,Chal,binary_to_list(Chal),Repl,used_options(),Responses,Res])
+        end,
 	    case get(error_limit) of
 		infinite -> ok;
 		X ->
@@ -297,6 +278,8 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 	    end,
 	    1
     end.
+compare_sloppy([{dont_care, L1}|T1],[{_,L1}|T2]) ->
+    compare_sloppy(T1,T2);
 compare_sloppy({A,L1},{A,L2}) ->
     compare_sloppy(L1,L2);
 compare_sloppy(A,A) ->
@@ -333,19 +316,24 @@ splitfile(N,Bin,_Line) when N >= size(Bin) ->
     [];
 splitfile(N,Bin,Line) ->
     {Res,NewN} = pickline(N,N,Bin),
-    case emptyline(Res) of
-	true ->
+    case linetype(Res,first) of
+	empty ->
 	    [{Line,<<>>}|splitfile(NewN,Bin,Line+1)];
-	false ->
+        comment ->
+	    splitfile(NewN,Bin,Line+1);
+        content ->
 	    [{Line,Res}|splitfile(NewN,Bin,Line+1)]
     end.
 
-emptyline(<<>>) ->
-    true;
-emptyline(<<$ ,R/binary>>) ->
-    emptyline(R);
-emptyline(_) ->
-    false.
+linetype(<<>>, _) ->
+    empty;
+linetype(<<?SPACE,R/binary>>, _) ->
+    linetype(R, space);
+linetype(<<"\\=", _/binary>>, first) ->
+    comment;
+linetype(_, _) ->
+    content.
+
 pickline(Start,Stop,Bin) when Stop >= size(Bin) ->
     Len = Stop - Start - 1,
     <<_:Start/binary,Res:Len/binary,_/binary>> = Bin,
@@ -376,7 +364,7 @@ skip_debug([_|T]) ->
 skip_debug([]) ->
     [].
 
-skip_extra_info([{_,<<$ ,$ ,$ ,_/binary>>}=H|Con]) ->
+skip_extra_info([{_,<<?SPACE,?SPACE,?SPACE,_/binary>>}=H|Con]) ->
     [H|Con];
 skip_extra_info([{_,<<>>}|Con]) ->
     Con;
@@ -385,81 +373,93 @@ skip_extra_info([_|T]) ->
 skip_extra_info([]) ->
     [].
 
+skip_debug_stuff(T0) ->
+    case T0 of
+        [{_,<<$-,_/binary>>}|Con] ->
+            %%Debug output, we skip those
+            T1 = skip_debug(Con),
+            skip_debug_stuff(T1);
+        [{_,<<"Capture",_/binary>>}|_] ->
+            T1 = skip_extra_info(T0),
+            skip_debug_stuff(T1);
+        [{_,<<Bla,_/binary>>}|_] when Bla =/= ?SPACE ->
+            T1 = skip_until_empty(T0),
+            {next, T1};
+        _ ->
+            {continue, T0}
+    end.
+
+
 stru([]) ->
     [];
 stru([{_,<<>>}|T]) ->
     stru(T);
-stru([{_Line,<<"< forbid ", _Rest/binary>>}|T0]) ->
-    %% We do not handle lockout of modifiers from the tests...
+stru([{_Line,<<$#, _/binary>>=_Bin}|T0]) ->
+    info("~p: stru skip comment: ~p\n", [_Line, _Bin]),
     stru(T0);
 stru([{Line,<<Ch,Re0/binary>>}|T0]) ->
-    {T,Re} = find_rest_re(Ch,[{Line,Re0}|T0]),
+    {T1,Re} = find_rest_re(Ch,[{Line,Re0}|T0]),
     {NewRe,<< Ch, Options/binary >>} = end_of_re(Ch,Re),
     case interpret_options_x(backstrip(frontstrip(Options)),NewRe) of
-	{Olist,<<>>} -> 
+	{Olist,[], Extra} ->
 	    U = lists:member(unicode,Olist),
-	    case T of
-		[{_,<<$-,_/binary>>}|Con] ->
-		    %%Debug output, we skip those
-		    TmpT = skip_debug(Con),
-		    {NewT,Matches} = stru2(TmpT,U),
-		    [{NewRe,Line,Olist,Matches}|stru(NewT)];
-		[{_,<<$C,$a,$p,$t,$u,$r,$i,$n,$g,_/binary>>}|_] ->
-		    NewT0 = skip_extra_info(T),
-		    {NewT,Matches} = stru2(NewT0,U),
-		    [{NewRe,Line,Olist,Matches}|stru(NewT)];
-		[{_,<<Bla,_/binary>>}|_] when Bla =/= $  ->
-		    NewT = skip_until_empty(T),
-		    stru(NewT);
-		_ ->
-		    {NewT,Matches} = stru2(T,U),
-		    Matches1 = case U of
-				   true ->
-				       Matches ++
-					   [ {unicode:characters_to_list(E1,unicode),E2,E3,E4} ||
-					       {E1,E2,E3,E4} <- Matches];
-				   false ->
-				       Matches
-			       end,
-		    [{NewRe,Line,Olist,Matches1}|stru(NewT)]
+        case skip_debug_stuff(T1) of
+            {next, T2} ->
+                inc_counter(re_skipped),
+                stru(T2);
+            {continue, T2} ->
+                inc_counter(re_tested),
+                {NewT,Matches} = stru2(T2,U),
+                Matches1 = case U of
+                    true ->
+                        Matches ++
+                        [ {unicode:characters_to_list(E1,unicode),E2,E3,E4} ||
+                            {E1,E2,E3,E4} <- Matches];
+                    false ->
+                        Matches
+                    end,
+                    case proplists:is_defined(replace, Extra) of
+                        true -> [{{replace, proplists:get_value(replace, Extra)},NewRe,Line,Olist,Matches1}|stru(NewT)];
+                        false -> [{run, NewRe,Line,Olist,Matches1}|stru(NewT)]
+                end
 	    end;
-	{_,Rest} ->
-	    NewT = skip_until_empty(T),
-	    info("Skipping options ~s for now (~w)~n",[binary_to_list(Rest),Line]),
-	    case NewT of
-		[{Li,_}|_] ->
-		    info("Skip to line ~p~n",[Li]);
-		_ ->
-		    ok
-	    end,
+	{_,Rest, _} ->
+	    NewT = skip_until_empty(T1),
+	    SkipTo = case NewT of
+                         [{ToLine,_}|_] -> integer_to_list(ToLine);
+                         _ -> "end of file"
+                     end,
+	    info("Skipping options ~p for now, skip from line ~p to ~s\n",
+                 [Rest, Line, SkipTo]),
+            inc_counter(re_skipped),
 	    stru(NewT)
     end.
 
 contains_lang_sens(<<>>) ->
     false;
-contains_lang_sens(<<$\\,$W,_/binary>>) ->
+contains_lang_sens(<<"\\W",_/binary>>) ->
     true;
-contains_lang_sens(<<$\\,$w,_/binary>>) ->
+contains_lang_sens(<<"\\w",_/binary>>) ->
     true;
-contains_lang_sens(<<$\\,$b,_/binary>>) ->
+contains_lang_sens(<<"\\b",_/binary>>) ->
     true;
 contains_lang_sens(<<_,R/binary>>) ->
     contains_lang_sens(R).
 
-
 interpret_options_x(Options,RE) ->
-    {O,R} = interpret_options(Options),
+    {O,R,E} = interpret_options(<<Options/binary, $,>>),
     case (contains_lang_sens(RE) or lists:member(caseless,O)) of
 	false ->
-	    {[{exec_option,accept_nonascii}|O],R};
+	    {[{exec_option,accept_nonascii}|O],R,E};
 	true ->
 	    case lists:member(unicode,O) of
 		true ->
-		    {[{exec_option,accept_nonascii}|O],R};
+		    {[{exec_option,accept_nonascii}|O],R,E};
 		false ->
-		    {O,R}
+		    {O,R,E}
 	    end
     end.
+
 tr_option($i) ->
     [caseless];
 tr_option($I) ->
@@ -474,43 +474,248 @@ tr_option($s) ->
     [dotall];
 tr_option($m) ->
     [multiline];
-tr_option($J) ->
-    [dupnames];
-tr_option($N) ->
+tr_option($n) ->
     [no_auto_capture];
-tr_option($8) ->
-    [unicode];
-tr_option($U) ->
-    [ungreedy];
 tr_option($g) ->
     [{exec_option,g}];
+tr_option($,) ->
+    [];
 tr_option(_) ->
     false.
 
+bsr_opt(<<"anycrlf">>) -> bsr_anycrlf;
+bsr_opt(<<"unicode">>) -> bsr_unicode;
+bsr_opt(_Other) ->
+    false.
 
-interpret_options(<<$<,Rest0/binary>>) ->
-    {Option,Rest} = pinch_cr(Rest0),
-    case Option of
-	{not_supported,{newline,_Offender}} ->
-	    {[],<<$<,Rest0/binary>>};
-	_ ->
-	    {Olist,NRest} = interpret_options(Rest),
-	    {[Option | Olist], NRest}
-    end;
-interpret_options(<<$L,$f,$r,$_,$F,$R,Rest/binary>>) ->
-    info("Accepting (and ignoring) french locale~n",[]),
-    {Olist,NRest} = interpret_options(Rest),
-    {[{exec_option, accept_nonascii}|Olist],NRest};
-interpret_options(<<Ch,Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    case tr_option(Ch) of
-	false ->
-	    {Olist,<<Ch,NRest/binary>>};
-	Option ->
-	     {Option ++ Olist, NRest}
-    end;
 interpret_options(<<>>) ->
-    {[],<<>>}.
+    {[], [], []};
+%% Supported, put in the list of supported options
+interpret_options(<<"newline=",Rest0/binary>>) ->
+    {NewLine, Rest1} = get_modifier(Rest0),
+    {Olist, NRest, Extra} = interpret_options(Rest1),
+    case newline_opt(NewLine) of
+	false ->
+	    {Olist, [NewLine | NRest], Extra};
+	NL ->
+	    {[{newline, NL} | Olist], NRest, Extra}
+    end;
+interpret_options(<<"bsr=",Rest0/binary>>) ->
+    {Word, Rest1} = get_modifier(Rest0),
+    {Olist, NRest, Extra} = interpret_options(Rest1),
+    case bsr_opt(Word) of
+	false ->
+	    {Olist, [Word | NRest], Extra};
+	BSR ->
+	    {[BSR | Olist], NRest, Extra}
+    end;
+interpret_options(<<"utf,",Rest0/binary>>) ->
+    {Olist, NRest, Extra} = interpret_options(Rest0),
+    {[unicode | Olist], NRest, Extra};
+interpret_options(<<"locale=fr_FR,",Rest/binary>>) ->
+    info("Accepting (and ignoring) french locale~n",[]),
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[{exec_option, accept_nonascii}|Olist],NRest, Extra};
+interpret_options(<<"dupnames,",Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[dupnames | Olist], NRest, Extra};
+interpret_options(<<"anchored,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[anchored | Olist], NRest, Extra};
+interpret_options(<<"ungreedy,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[ungreedy | Olist], NRest, Extra};
+interpret_options(<<"caseless,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[caseless | Olist], NRest, Extra};
+interpret_options(<<"dollar_endonly,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[dollar_endonly | Olist], NRest, Extra};
+interpret_options(<<"dotall,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[dotall | Olist], NRest, Extra};
+interpret_options(<<"global,",Rest/binary>>) ->
+    {Olist, NRest, Extra} = interpret_options(Rest),
+    {[{exec_option,g} | Olist], NRest, Extra};
+interpret_options(<<"no_auto_capture,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[no_auto_capture | Olist], NRest, Extra};
+interpret_options(<<"firstline,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[firstline | Olist], NRest, Extra};
+interpret_options(<<"multiline,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[multiline | Olist], NRest, Extra};
+interpret_options(<<"extended,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[extended | Olist], NRest, Extra};
+interpret_options(<<"ucp,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[ucp | Olist], NRest, Extra};
+interpret_options(<<"never_utf,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[never_utf | Olist], NRest, Extra};
+interpret_options(<<"noteol,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[noteol | Olist], NRest, Extra};
+interpret_options(<<"notempty,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[notempty | Olist], NRest, Extra};
+interpret_options(<<"notempty_atstart,", Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[notempty_atstart | Olist], NRest, Extra};
+interpret_options(<<"no_start_optimize,",Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[no_start_optimize | Olist], NRest, Extra};
+%% Support the regex but not the options (silently ignore the option)
+interpret_options(<<"aftertext,",Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {Olist, NRest, Extra};
+interpret_options(<<"mark,",Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {Olist, NRest, Extra};
+interpret_options(<<"get=",Rest0/binary>>) ->
+    {_Word, Rest1} = get_modifier(Rest0),
+    {Olist,NRest, Extra} = interpret_options(Rest1),
+    {Olist, NRest, Extra};
+interpret_options(<<"getall,",Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {Olist, NRest, Extra};
+interpret_options(<<"copy=",Rest0/binary>>) ->
+    {_Word, Rest1} = get_modifier(Rest0),
+    {Olist,NRest, Extra} = interpret_options(Rest1),
+    {Olist, NRest, Extra};
+%% Replace is supported using re:replace, put in Extra
+interpret_options(<<"replace=",Rest0/binary>>) ->
+    {Word, Rest1} = get_modifier(Rest0),
+    {Olist,NRest,Extra} = interpret_options(Rest1),
+    Replacement = (fun F(Word_, Acc) -> case Word_ of
+                <<$,, _/binary>> ->
+                    [];
+                %% do not support [10]
+                <<$[, _/binary>> ->
+                    [];
+                %% do not support $*Mark
+                <<$$, $*, _/binary>> ->
+                    [];
+                %% replace $0 with &, $1 with \\1, ${1} with \\1
+                <<$$, $0, WRest/binary>> ->
+                    F(WRest, <<Acc/binary, $&>>);
+                <<$$, ${, $0, $}, WRest/binary>> ->
+                    F(WRest, <<Acc/binary, $&>>);
+                <<$$, D, WRest/binary>> when $1 =< D, D =< $9 ->
+                    F(WRest, <<Acc/binary, $\\, D>>);
+                <<$$, ${, D, $},WRest/binary>> when $1 =< D, D =< $9 ->
+                    F(WRest, <<Acc/binary, $\\, D>>);
+                <<$$, $$, WRest/binary>> ->
+                    F(WRest, <<Acc/binary, $$>>);
+                %% do not support any other starting with $, ${ i.e. ${Name}
+                <<$$, _/binary>> ->
+                    [];
+                <<C, WRest/binary>> ->
+                    F(WRest, <<Acc/binary, C>>);
+                <<>> ->
+                    Acc
+            end
+        end)(Word, <<>>),
+    case Replacement of
+        [] ->
+            {Olist, ["replace="++Word | NRest], Extra};
+        _ ->
+            {Olist, NRest, [{replace, Replacement}|Extra]}
+    end;
+interpret_options(<<Bin/binary>>) ->
+    [FirstWord, Rest] = binary:split(Bin, <<",">>),
+    {Olist, Failed1, Extra} = interpret_options(Rest),
+    case interpret_not_supported_options(FirstWord) of
+        true ->
+            {Olist, [FirstWord | Failed1], Extra};
+        false ->
+            case short_options(FirstWord, Olist, Failed1) of
+                false ->
+                    {Olist, [FirstWord | Failed1], Extra};
+                {Options, Failed2} ->
+                    {Options ++ Olist, Failed2, Extra}
+            end
+    end.
+interpret_not_supported_options(Word) ->
+    case binary:split(Word, <<"=">>) of
+        [FirstWord, _] ->
+            lists:member(FirstWord, [
+                <<"allaftertext">>,
+                <<"allcaptures">>,
+                <<"allow_empty_class">>,
+                <<"allow_lookaround_bsk">>,
+                <<"allow_surrogate_escapes">>,
+                <<"allvector">>,
+                <<"alt_bsux">>,
+                <<"alt_circumflex">>,
+                <<"alt_verbnames">>,
+                <<"altglobal">>,
+                <<"ascii_all">>,
+                <<"ascii_bsd">>,
+                <<"ascii_bss">>,
+                <<"ascii_bsw">>,
+                <<"ascii_digit">>,
+                <<"ascii_posix">>,
+                <<"auto_callout">>,
+                <<"bad_escape_is_literal">>,
+                <<"bincode">>,
+                <<"callout_info">>,
+                <<"caseless_restrict">>,
+                <<"endanchored">>,
+                <<"escaped_cr_is_lf">>,
+                <<"expand">>,
+                <<"extended_more">>,
+                <<"extra_alt_bsux">>,
+                <<"hex">>,
+                <<"info">>,
+                <<"jitstack">>,
+                <<"literal">>,
+                <<"locale">>,
+                <<"match_invalid_utf">>,
+                <<"match_line">>,
+                <<"match_unset_backref">>,
+                <<"match_word">>,
+                <<"max_pattern_length">>,
+                <<"max_varlookbehind">>,
+                <<"never_backslash_c">>,
+                <<"never_ucp">>,
+                <<"no_auto_possess">>,
+                <<"no_dotstar_anchor">>,
+                <<"no_jit">>,
+                <<"no_utf_check">>,
+                <<"null_context">>,
+                <<"null_pattern">>,
+                <<"ovector">>,
+                <<"parens_nest_limit">>,
+                <<"ph">>,
+                <<"ps">>,
+                <<"stackguard">>,
+                <<"startchar">>,
+                <<"subject_literal">>,
+                <<"substitute_callout">>,
+                <<"substitute_extended">>,
+                <<"substitute_literal">>,
+                <<"tables">>,
+                <<"use_length">>,
+                <<"use_offset_limit">>
+            ]);
+        _ ->
+            false
+    end.
+short_options(<<>>, Olist, Failed) ->
+    {Olist, Failed};
+short_options(<<"xx", Rest/binary>>, Olist0, Failed0) ->
+    %% xx (PCRE2_EXTENDED_MORE) notsup
+    short_options(Rest, Olist0, ["xx" | Failed0]);
+short_options(<<Ch, Rest/binary>>, Olist0, Failed0) ->
+    case tr_option(Ch) of
+        false ->
+            false;
+        Option ->
+            short_options(Rest, Option ++ Olist0, Failed0)
+    end.
 
 find_unsupported([{not_supported,X}|T]) ->
     [X | find_unsupported(T)];
@@ -528,9 +733,9 @@ backslash_end(<<_>>) ->
 backslash_end(<<_,R/binary>>) ->
     backslash_end(R).
 
-stru2([{Line,<<$ ,Rest/binary>>} | T],U) ->
+stru2([{Line,<<?SPACE,Rest/binary>>} | T],U) ->
     %% A challenge
-    case  (catch responses(T,U)) of
+    try responses(T,U) of
 	{NewT,Rlist} ->
 	    {NewNewT,StrList} = stru2(NewT,U),
 	    %% Hack...
@@ -542,24 +747,25 @@ stru2([{Line,<<$ ,Rest/binary>>} | T],U) ->
 		     OFS ->
 			 case backslash_end(OFS) of
 			     true ->
-				 <<OFS/binary,$ >>;
+				 <<OFS/binary,?SPACE>>;
 			     _ ->
 				 OFS
 			 end
 		 end,
-	    {ExecOpts,NFS} = escape(FS,U),
+	    {ExecOpts,NFS} = subject(FS,U),
 	    case find_unsupported(ExecOpts) of
 		[] ->
 		    {NewNewT,[{NFS,Line,ExecOpts,
-			       case 
-				   Rlist of nomatch -> nomatch; 
-				   RR -> {match,RR} 
+			       case Rlist of
+                                   nomatch -> nomatch;
+				   RR -> {match,RR}
 			       end} | StrList]};
 		UList ->
 		    info("WARNING(~w): the exec-option(s) ~p are unsupported, skipping challenge.~n",[Line,UList]),
 		    {NewNewT,StrList}
-	    end;
-	fail ->
+	    end
+
+    catch throw:fail ->
 	    NewT = skip_until_empty(T),
 	    {NewT,[]}
     end;
@@ -567,23 +773,41 @@ stru2([{Line,<<$ ,Rest/binary>>} | T],U) ->
 stru2(X,_) ->
     {X,[]}.
 
-responses([{_Line,<< X:2/binary,$:,$ ,Resp/binary>>}|T],U) ->
+responses([{Line,<<"MK: ",_/binary>>}|T],U) ->
+    info("Skipping mark response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line,<<?SPACE, _D,"C ",_/binary>>}|T],U) ->
+    info("Skipping copy response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line,<<?SPACE, _D,"G ",_/binary>>}|T],U) ->
+    info("Skipping get response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line,<<?SPACE, _D,"L ",_/binary>>}|T],U) ->
+    info("Skipping getall response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line,<<" 0+ ",_/binary>>}|T],U) ->
+    info("Skipping aftertext response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line, <<"Partial match: ",_/binary>>}|T],U) ->
+    info("Skipping partial match response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line,<<?SPACE,_,$(, _, $), " Old",_/binary>>}|T],U) ->
+    info("Skipping substitute response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{_Line,<< X:2/binary,$:,?SPACE,Resp/binary>>}|T],U) ->
     {NT,R2} = responses(T,U),
-    NX=list_to_integer(binary_to_list(frontstrip(X))),
+    NX = binary_to_integer(frontstrip(X)),
     {NT,[{NX,escape2(Resp,U)} | R2]};
-responses([{_Line,<< X:3/binary,$:,$ ,Resp/binary>>}|T],U) ->
+responses([{_Line,<< X:3/binary,$:,?SPACE,Resp/binary>>}|T],U) ->
     {NT,R2} = responses(T,U),
-    NX=list_to_integer(binary_to_list(frontstrip(X))),
+    NX = binary_to_integer(frontstrip(X)),
     {NT,[{NX,escape2(Resp,U)} | R2]};
-responses([{_Line,<<$N,$o,$ ,$m,$a,$t,$c,$h,_/binary>>}|T],_) ->
+responses([{_Line,<<"No match",_/binary>>}|T],_) ->
     {T,nomatch};
-responses([{Line,<<$ ,No,Ch,_/binary>>}|T],U) when No >= $0, No =< $9, Ch >= $A, Ch =< $Z ->
+responses([{Line,<<?SPACE,No,Ch,_/binary>>}|T],U) when No >= $0, No =< $9, Ch >= $A, Ch =< $Z ->
     info("Skipping strange debug response at line ~p~n",[Line]),
     responses(T,U);
-responses([{Line,<<$ ,$ ,Ch,_/binary>>}|T],U) when Ch =:= $G; Ch =:= $C ->
-    info("Skipping stranger debug response at line ~p~n",[Line]),
-    responses(T,U);
-responses([{Line,<<C,_/binary>>=X}|_],_) when C =/= $  ->
+responses([{Line,<<C,_/binary>>=X}|_],_) when C =/= ?SPACE ->
     info("Offending response line(~w)! ~p~n",[Line,X]),
     throw(fail);
 responses(X,_) ->
@@ -603,14 +827,14 @@ end_of_re(C,<<Ch,Rest/binary>>) ->
 
 frontstrip(<<>>) ->
     <<>>;
-frontstrip(<< $ ,Rest/binary>>) ->
+frontstrip(<<?SPACE,Rest/binary>>) ->
     frontstrip(Rest);
 frontstrip(Bin) ->
     Bin.
 
 backstrip(<<>>) ->
     <<>>;
-backstrip(<<$ >>) ->
+backstrip(<<?SPACE>>) ->
     <<>>;
 backstrip(<<X,Rest/binary>>) ->
     case backstrip(Rest) of
@@ -632,78 +856,89 @@ find_rest_re(Ch,[{_,H}|T]) ->
 	    {T,H}
     end.
 
-eopt($A) ->
-    [anchored];
-eopt($B) ->
-    [notbol];
-eopt(X) ->
-    [{not_supported,X}].
+newline_opt(<<"cr">>) -> cr;
+newline_opt(<<"CR">>) -> cr;
+newline_opt(<<"lf">>) -> lf;
+newline_opt(<<"LF">>) -> lf;
+newline_opt(<<"crlf">>) -> crlf;
+newline_opt(<<"CRLF">>) -> crlf;
+newline_opt(<<"anycrlf">>) -> anycrlf;
+newline_opt(<<"ANYCRLF">>) -> anycrlf;
+newline_opt(<<"nul">>) -> nul;
+newline_opt(<<"NUL">>) -> nul;
+newline_opt(<<"any">>) -> any;
+newline_opt(<<"ANY">>) -> any;
+newline_opt(_Other) ->
+    false.
 
-pinch_cr(<<$c,$r,$>,Rest/binary>>) ->
-    {{newline,cr},Rest};
-pinch_cr(<<$l,$f,$>,Rest/binary>>) ->
-    {{newline,lf},Rest};
-pinch_cr(<<$c,$r,$l,$f,$>,Rest/binary>>) ->
-    {{newline,crlf},Rest};
-pinch_cr(<<$C,$R,$>,Rest/binary>>) ->
-    {{newline,cr},Rest};
-pinch_cr(<<$L,$F,$>,Rest/binary>>) ->
-    {{newline,lf},Rest};
-pinch_cr(<<$C,$R,$L,$F,$>,Rest/binary>>) ->
-    {{newline,crlf},Rest};
-pinch_cr(<<$a,$n,$y,$c,$r,$l,$f,$>,Rest/binary>>) ->
-    {{newline,anycrlf},Rest};
-pinch_cr(<<$b,$s,$r,$_,$a,$n,$y,$c,$r,$l,$f,$>,Rest/binary>>) ->
-    {bsr_anycrlf,Rest};
-pinch_cr(<<$b,$s,$r,$_,$u,$n,$i,$c,$o,$d,$e,$>,Rest/binary>>) ->
-    {bsr_unicode,Rest};
-pinch_cr(<<$a,$n,$y,$>,Rest/binary>>) ->
-    {{newline,any},Rest};
-pinch_cr(<<$A,$N,$Y,$>,Rest/binary>>) ->
-    {{newline,any},Rest};
-pinch_cr(Other) ->
-    case splitby($>,Other,<<>>) of
-	{Unk,Rest} ->
-	    {{not_supported,{newline,Unk}},Rest};
-	no ->
-	    {{not_supported,$<},Other}
-    end.
-    
-splitby(_,<<>>,_) ->
-    no;
-splitby(Ch,<<Ch,Rest/binary>>,Acc) ->
-    {Acc,Rest};
-splitby(Ch,<<OCh,Rest/binary>>,Acc) ->
-    splitby(Ch,Rest,<<Acc/binary,OCh>>).
+pick_number(Bin) ->
+    pick_number(0, Bin).
 
 pick_number(N,<<Ch:8,Rest/binary>>) when Ch >= $0, Ch =< $9 ->
     pick_number(N*10+(Ch - $0),Rest);
 pick_number(N,Rest) ->
     {N,Rest}.
 
-pick_offset(Rest) ->
-    {Int,NRest} = pick_number(0,Rest),
-    {{offset,Int},NRest}.
-	    
+pick_octal(Bin) ->
+    pick_octal(0, Bin).
 
-escape(<<>>,_) ->
+pick_octal(N,<<Ch:8,Rest/binary>>) when Ch >= $0, Ch =< $7 ->
+    pick_octal(N*8+(Ch - $0), Rest);
+pick_octal(N,Rest) ->
+    {N,Rest}.
+
+
+get_modifier(Bin) ->
+    get_modifier(1, Bin).
+
+get_modifier(Len, Bin) ->
+    case Bin of
+        <<_:Len/binary>> ->
+            {Bin, <<>>};
+        <<Mod:Len/binary, $,, Rest/binary>> ->
+            {Mod, Rest};
+        _ when Len < byte_size(Bin) ->
+            get_modifier(Len+1, Bin)
+    end.
+
+modifier(<<"anchored">>) ->
+    anchored;
+modifier(<<"notbol">>) ->
+    notbol;
+modifier(<<"offset=", Rest/binary>>) ->
+    {Offs, <<>>} = pick_number(Rest),
+    {offset, Offs};
+%% modifier(<<"ovector=", Rest/binary>>) ->
+%%     {Sz, <<>>} = pick_number(Rest),
+%%     {ovector,Sz};
+modifier(Unknown) ->
+    {not_supported, Unknown}.
+
+subject_modifiers(<<>>) ->
+    [];
+subject_modifiers(Bin) ->
+    {ModBin, Rest} = get_modifier(Bin),
+    [modifier(ModBin) | subject_modifiers(Rest)].
+
+repeat_bin(Bin, 1) ->
+    Bin;
+repeat_bin(Bin, N) when N > 1 ->
+    Prefix = repeat_bin(Bin, N-1),
+    <<Prefix/binary, Bin/binary>>.
+
+subject(<<>>,_) ->
     {[],<<>>};
-escape(<<$\\, Ch, Rest/binary>>,U) when Ch >= $A, Ch =< $Z; Ch =:= $? ->
-    %%Options in the string...
-    NewOpts = eopt(Ch),
-    {MoreOpts,Tail} = escape(Rest,U),
-    {NewOpts ++ MoreOpts,Tail};
-escape(<<$\\, $>, Rest/binary>>,U) ->
-    %%Offset Options in the string...
-    {NewOpt,NewRest} = pick_offset(Rest),
-    {MoreOpts,Tail} = escape(NewRest,U),
-    {[NewOpt|MoreOpts],Tail};
-escape(<<$\\, $<, Rest/binary>>,U) ->
-    %%CR Options in the string...
-    {NewOpt,NewRest} = pinch_cr(Rest),
-    {MoreOpts,Tail} = escape(NewRest,U),
-    {[NewOpt|MoreOpts],Tail};
-escape(<<$\\, Ch, Rest/binary>>,U) ->
+subject(<<"\\=", Modifiers/binary>>, _U) ->
+    {subject_modifiers(Modifiers), <<>>};
+subject(<<"\\[", Rest0/binary>>, U) ->
+    %% Repeat string. Ex: "\[abc]{4}" is "abcabcabcabc"
+    {StrLen, 2} = binary:match(Rest0, <<"]{">>),
+    <<Str:StrLen/binary, "]{", Rest1/binary>> = Rest0,
+    {Count, <<$}, Rest2/binary>>} = pick_number(Rest1),
+    Result = repeat_bin(Str, Count),
+    {Opts, Tail} = subject(Rest2, U),
+    {Opts, <<Result/binary, Tail/binary>>};
+subject(<<$\\, Ch, Rest/binary>>,U) ->
     {C,NR} = case single_esc(Ch) of
 		 no ->
 		     case multi_esc(<<Ch,Rest/binary>>,U) of
@@ -715,24 +950,27 @@ escape(<<$\\, Ch, Rest/binary>>,U) ->
 		 CCC ->
 		     {<<CCC>>,Rest}
 	     end,
-    {MoreOpts,Tail} = escape(NR,U),
+    {MoreOpts,Tail} = subject(NR,U),
     {MoreOpts,<<C/binary,Tail/binary>>};
-escape(<<Ch,Rest/binary>>,U) ->
-    {X,RR} = escape(<<Rest/binary>>,U),
+subject(<<Ch,Rest/binary>>,U) ->
+    {X,RR} = subject(<<Rest/binary>>,U),
     {X,<<Ch,RR/binary>>};
-escape(Any,_) ->
+subject(Any,_) ->
     {[],Any}.
+
 escape2(<<>>,_) ->
     <<>>;
-escape2(<<$\\, Ch, Rest/binary>>,U) ->
-    {C,NR} = case multi_esc(<<Ch,Rest/binary>>,U) of
-		 {CharBin,NewRest} ->
-		     {CharBin,NewRest};
-		 no ->
-		     {<<$\\>>,<<Ch,Rest/binary>>}
-	     end,
-    Tail = escape2(NR,U),
-    <<C/binary,Tail/binary>>;
+escape2(<<$\\, Rest/binary>>,U) ->
+    {CharBin,NewRest} =
+        case multi_hex_esc(Rest,U) of
+            {Ch, _} when (Ch =:= no) or ((Ch >= 32) and (Ch =< 126)) ->
+                {<<$\\>>, Rest};
+
+            {_, Tpl} ->
+                Tpl
+        end,
+    Tail = escape2(NewRest, U),
+    <<CharBin/binary, Tail/binary>>;
 escape2(<<Ch,Rest/binary>>,U) ->
     RR = escape2(<<Rest/binary>>,U),
     <<Ch,RR/binary>>;
@@ -793,87 +1031,66 @@ multi_esc(<<O,Rest/binary>>,_)
    when O  >= $0, O =< $7 ->
     Cha = (O - $0),
     {<<Cha>>,Rest};
+multi_esc(<<"o{", Rest0/binary>>, _) ->
+    {Cha, <<$}, Rest1/binary>>} = pick_octal(Rest0),
+    {int_to_utf8(Cha), Rest1};
+multi_esc(Bin, Unicode) ->
+    {_Cha, Tpl} = multi_hex_esc(Bin, Unicode),
+    Tpl.
 
 
-multi_esc(<<$x,${,N,O,$},Rest/binary>>,Unicode) 
-    when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
-	 ((N >= $a) and (N =< $f))) and 
-	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
-	 ((O >= $a) and (O =< $f)))) -> 
-    Cha = (trx(N) bsl 4) bor trx(O),
-    case Unicode of
-	false ->
-	    {<<Cha:8>>,Rest};
-	_ ->
-	    {int_to_utf8(Cha),Rest}
+multi_hex_esc(<<"x{", Rest0/binary>>, Unicode) ->
+    case hex_num(Rest0, 6) of
+        {Cha, <<$}, Rest1/binary>>} ->
+            case {Unicode, Cha < 256} of
+                {false, true} ->
+                    {Cha, {<<Cha:8>>, Rest1}};
+                _ ->
+                    {Cha, {int_to_utf8(Cha), Rest1}}
+            end;
+        _Error ->
+            {no, no}
     end;
-multi_esc(<<$x,${,N,O,P,$},Rest/binary>>,_) 
-    when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
-	 ((N >= $a) and (N =< $f))) and 
-	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
-	 ((O >= $a) and (O =< $f)))and 
-	(((P >= $0) and (P =< $9)) or ((P >= $A) and (P =< $F)) or 
-	 ((P >= $a) and (P =< $f)))) -> 
-    Cha = (trx(N) bsl 8) bor (trx(O) bsl 4) bor trx(P),
-    {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,${,N,O,P,Q,$},Rest/binary>>,_) 
-    when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
-	 ((N >= $a) and (N =< $f))) and 
-	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
-	 ((O >= $a) and (O =< $f))) and 
-	(((P >= $0) and (P =< $9)) or ((P >= $A) and (P =< $F)) or 
-	 ((P >= $a) and (P =< $f))) and 
-	(((Q >= $0) and (Q =< $9)) or ((Q >= $A) and (Q =< $F)) or 
-	 ((Q >= $a) and (Q =< $f)))) -> 
-    Cha = (trx(N) bsl 12) bor (trx(O) bsl 8) bor (trx(P) bsl 4) bor trx(Q),
-    {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,${,N,O,P,Q,R,$},Rest/binary>>,_) 
-    when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
-	 ((N >= $a) and (N =< $f))) and 
-	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
-	 ((O >= $a) and (O =< $f))) and 
-	(((P >= $0) and (P =< $9)) or ((P >= $A) and (P =< $F)) or 
-	 ((P >= $a) and (P =< $f))) and 
-	(((Q >= $0) and (Q =< $9)) or ((Q >= $A) and (Q =< $F)) or 
-	 ((Q >= $a) and (Q =< $f))) and 
-	(((R >= $0) and (R =< $9)) or ((R >= $A) and (R =< $F)) or 
-	 ((R >= $a) and (R =< $f)))) -> 
-    Cha = (trx(N) bsl 16) bor (trx(O) bsl 12) bor (trx(P) bsl 8) bor (trx(Q) bsl 4) bor trx(R),
-    {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,${,N,O,P,Q,R,S,$},Rest/binary>>,_) 
-    when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
-	 ((N >= $a) and (N =< $f))) and 
-	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
-	 ((O >= $a) and (O =< $f))) and 
-	(((P >= $0) and (P =< $9)) or ((P >= $A) and (P =< $F)) or 
-	 ((P >= $a) and (P =< $f))) and 
-	(((Q >= $0) and (Q =< $9)) or ((Q >= $A) and (Q =< $F)) or 
-	 ((Q >= $a) and (Q =< $f))) and 
-	(((R >= $0) and (R =< $9)) or ((R >= $A) and (R =< $F)) or 
-	 ((R >= $a) and (R =< $f))) and 
-	(((S >= $0) and (S =< $9)) or ((S >= $A) and (S =< $F)) or 
-	 ((S >= $a) and (S =< $f)))) -> 
-    Cha = (trx(N) bsl 20) bor (trx(O) bsl 16) bor (trx(P) bsl 12) bor (trx(Q) bsl 8) bor (trx(R) bsl 4) bor trx(S),
-    {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,N,O,Rest/binary>>,_) 
-  when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
-	 ((N >= $a) and (N =< $f))) and 
-	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
-	 ((O >= $a) and (O =< $f)))) -> 
+multi_hex_esc(<<"N{U+", Rest0/binary>>, Unicode) ->
+    case hex_num(Rest0, 6) of
+        {Cha, <<$}, Rest1/binary>>} ->
+            case {Unicode, Cha < 256} of
+                {false, true} ->
+                    {Cha, {<<Cha:8>>, Rest1}};
+                _ ->
+                    {Cha, {int_to_utf8(Cha), Rest1}}
+            end;
+        _Error ->
+            {no, no}
+    end;
+multi_hex_esc(<<$x,N,O,Rest/binary>>,_) when (?is_hex_char(N) and
+                                              ?is_hex_char(O)) ->
     Cha = (trx(N) bsl 4) bor trx(O),
-    {<<Cha>>,Rest};
-multi_esc(<<$x,N,Rest/binary>>,_) 
-  when (((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
-	 ((N >= $a) and (N =< $f)))  -> 
+    {Cha, {<<Cha>>,Rest}};
+multi_hex_esc(<<$x,N,Rest/binary>>,_) when ?is_hex_char(N) ->
     Cha = trx(N),
-    {<<Cha>>,Rest};
-multi_esc(_,_) ->
-    no.
+    {Cha, {<<Cha>>,Rest}};
+multi_hex_esc(_,_) ->
+    {no, no}.
+
+hex_num(Bin, Maxlen) ->
+    hex_num(Bin, Maxlen, 0, 0).
+
+hex_num(Bin, MaxLen, MaxLen, Acc) ->
+    {Acc, Bin};
+hex_num(<<C, Rest/binary>>, Maxlen, Gotlen, Acc) when ?is_hex_char(C) ->
+    hex_num(Rest, Maxlen, Gotlen+1, (Acc bsl 4) bor trx(C));
+hex_num(Bin, _Maxlen, Gotlen, Acc) when Gotlen > 0 ->
+    {Acc, Bin};
+hex_num(Bin, _, 0, 0) ->
+    {error, "Expected hex number", Bin}.
+
+
 
 single_esc($") ->
     $";
-single_esc($ ) ->
-    $ ;
+single_esc(?SPACE) ->
+    ?SPACE;
 single_esc($') ->
     $';
 single_esc($@) ->
@@ -905,7 +1122,7 @@ single_esc(_) ->
 info(Str,Lst) ->
     case get(verbose) of
 	true ->
-	    io:format(Str,Lst);
+	    io:format("~s: " ++ Str, [get(testfile) | Lst]);
 	_ ->
 	    ok
     end.
@@ -922,6 +1139,7 @@ gen_split_test(OneFile) ->
     ErlModule = "re_"++filename:basename(OneFile)++"_split_test",
     ErlFileName = ErlModule++".erl",
     {ok,F}= file:open(ErlFileName,[write]),
+    file:write(F, copyright_generator:erlang()),
     io:format(F,"-module(~s).~n",[ErlModule]),
     io:format(F,"-export([run/0]).~n",[]),
     io:format(F,"-compile(no_native).~n",[]),
@@ -934,6 +1152,7 @@ gen_split_test(OneFile) ->
     [ io:format(F,"    ~s(),~n",[FunName]) || FunName <- FunList ],
     file:close(F),
     os:cmd("sh "++ PerlShellScript++" 2>/dev/null >> "++ErlFileName),
+    convert_file_to_utf8(ErlFileName),
     io:format("~s~n",[os:cmd("wc -l "++ErlFileName)]),
     ok.
 
@@ -955,43 +1174,43 @@ dodumpsplit(F,[H|T],N,Acc,FunNum) ->
     dumponesplit(F,H),
     dodumpsplit(F,T,N-1,Acc,FunNum).
 
-dumponesplit(F,{RE,Line,O,TS}) ->
+dumponesplit(F,{run,RE,Line,O,TS}) ->
+    %% ScriptFormat is verbatim, however
+    %% ~~ ~s ~w ~n is for io:format and \\ \" \n is for perl.
+    ScriptFormat = """
+        perl -e '
+        $x = join(":",split(/~s/~s,"~s",~w));
+        $x =~~ s/\\/\\\\/g;
+        $x =~~ s/\"/\\"/g;
+        print "    <<\"$x\">> = iolist_to_binary(join(re:split(\"~s\",\"~s\",~w))),\n";'~n
+        """,
     [begin
 	 {NO,_} = pick_exec_options(O++Op),
 	 SSS = opt_to_string(NO),
 	 LLL = unicode:characters_to_list(RE),
 	 case (catch iolist_to_binary(LLL)) of
-	     X when is_binary(X) -> 
-		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\")); "
-			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
-			   "print \"    <<\\\"$x\\\">> = "
-			   "iolist_to_binary(join(re:split(\\\"~s\\\","
-			   "\\\"~s\\\",~p))),\\n\";'~n",
+	     X when is_binary(X) ->
+		 io:format(F, ScriptFormat,
 			   [zsafe(safe(RE)),
 			    SSS,
 			    ysafe(safe(Str)),
+                            0,
 			    dsafe(safe(Str)),
 			    dsafe2(safe(RE)),
 			    NO++[trim]]),
-		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\",2)); "
-			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
-			   "print \"    <<\\\"$x\\\">> = "
-			   "iolist_to_binary(join(re:split(\\\"~s\\\","
-			   "\\\"~s\\\",~p))),\\n\";'~n",
+		 io:format(F, ScriptFormat,
 			   [zsafe(safe(RE)),
 			    SSS,
 			    ysafe(safe(Str)),
+                            2,
 			    dsafe(safe(Str)),
 			    dsafe2(safe(RE)),
 			    NO++[{parts,2}]]),
-		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\",-1)); "
-			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
-			   "print \"    <<\\\"$x\\\">> = "
-			   "iolist_to_binary(join(re:split(\\\"~s\\\","
-			   "\\\"~s\\\",~p))),\\n\";'~n",
+		 io:format(F, ScriptFormat,
 			   [zsafe(safe(RE)),
 			    SSS,
 			    ysafe(safe(Str)),
+                            -1,
 			    dsafe(safe(Str)),
 			    dsafe2(safe(RE)),
 			    NO]);
@@ -1012,6 +1231,7 @@ gen_repl_test(OneFile) ->
     ErlModule = "re_"++filename:basename(OneFile)++"_replacement_test",
     ErlFileName = ErlModule++".erl",
     {ok,F}= file:open(ErlFileName,[write]),
+    file:write(F, copyright_generator:erlang()),
     io:format(F,"-module(~s).~n",[ErlModule]),
     io:format(F,"-export([run/0]).~n",[]),
     io:format(F,"-compile(no_native).~n",[]),
@@ -1021,8 +1241,22 @@ gen_repl_test(OneFile) ->
     [ io:format(F,"    ~s(),~n",[FunName]) || FunName <- FunList ],
     file:close(F),
     os:cmd("sh "++ PerlShellScript++" 2>/dev/null >> "++ErlFileName),
+    convert_file_to_utf8(ErlFileName),
     io:format("~s~n",[os:cmd("wc -l "++ErlFileName)]),
     ok.
+
+convert_file_to_utf8(FileName) ->
+    TmpFile = FileName ++ ".tmp",
+    case os:cmd("iconv -f ISO-8859-1 -t UTF-8 " ++ FileName ++ " > " ++ TmpFile) of
+        [] ->
+            ok = file:rename(TmpFile, FileName);
+        Error ->
+            io:format("ERROR: Convertion from Latin1 to UTF-8 seems to have failed:\n"
+                      "~s\nFile ~w (probably) still in Latin1 format.",
+                      Error, FileName)
+    end.
+
+
 dump(S,Fname) ->
     {ok,F}= file:open(Fname,[write]),
     Res = dodump(F,S,0,[],0),
@@ -1041,15 +1275,41 @@ dodump(F,[H|T],N,Acc,FunNum) ->
     dumpone(F,H),
     dodump(F,T,N-1,Acc,FunNum).
 
-dumpone(F,{RE,Line,O,TS}) ->
+dumpone(F,{run,RE,Line,O,TS}) ->
+    %% ScriptFormat is verbatim, however
+    %% ~~ ~s ~w ~n is for io:format and \\ \" \n is for perl.
+    ScriptFormat = """
+        perl -e '
+        $x = "~s";
+        $x =~~ s/~s/~s/~s;
+        $x =~~ s/\\/\\\\/g;
+        $x =~~ s/\"/\\"/g;
+        print "    <<\"$x\">> = iolist_to_binary(re:replace(\"~s\",\"~s\",\"~s\",~w)),\n";'~n
+        """,
     [begin
 	 {NO,_} = pick_exec_options(O++Op),
 	 SSS = opt_to_string(NO),
 	 RS = ranstring(),
 	 LLL = unicode:characters_to_list(RE),
 	 case (catch iolist_to_binary(LLL)) of
-	     X when is_binary(X) -> io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"    <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO]),
-	 io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/g~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"    <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO++[global]]);
+	     X when is_binary(X) ->
+                 io:format(F, ScriptFormat, [ysafe(safe(Str)),
+                                             zsafe(safe(RE)),
+                                             perlify(binary_to_list(RS)),
+                                             SSS,
+                                             dsafe(safe(Str)),
+                                             dsafe(safe(RE)),
+                                             xsafe(RS),
+                                             NO]),
+                 %% Same again but with global replace
+                 io:format(F, ScriptFormat, [ysafe(safe(Str)),
+                                             zsafe(safe(RE)),
+                                             perlify(binary_to_list(RS)),
+                                             [$g | SSS],
+                                             dsafe(safe(Str)),
+                                             dsafe(safe(RE)),
+                                             xsafe(RS),
+                                             NO++[global]]);
 	     _ -> io:format("Found fishy character at line ~w~n",[Line])
 	 end
      end ||
@@ -1168,3 +1428,59 @@ ranchar() ->
 ranstring() ->
     iolist_to_binary([ranchar() || _ <- lists:duplicate(rand:uniform(20),0) ]).
 
+re_compile(RE, Options) ->
+    inc_counter(re_compile),
+    put(re_compile_opts, Options),
+    case re:compile(RE, Options) of
+        {ok, Local} ->
+            {ok, Exported} = re:compile(RE, [export|Options]),
+            {ok, {Local, Exported}};
+        Error ->
+            Error = re:compile(RE, [export | Options])
+    end.
+
+
+re_run(Subj, {Local, Exported}, Opts) ->
+    Res = re_run(Subj, Local, Opts),
+    Imported1 = re:import(Exported),
+    Res = re_run(Subj, Imported1, Opts),
+    Imported2 = re:import(bump_exported_version(Exported)),
+    Res = re_run(Subj, Imported2, Opts);
+re_run(Subj, RE, Opts) ->
+    %%io:format("re:run(~p, ~p, ~p)\n", [Subj, RE, Opts]),
+    inc_counter(re_run),
+    put(re_run_opts, Opts),
+    re:run(Subj, RE, Opts).
+
+re_replace(Subj, {Local, Exported}, Repl, Opts) ->
+    Res = re_replace(Subj, Local, Repl, Opts),
+    Imported = re:import(Exported),
+    Res = re_replace(Subj, Imported, Repl, Opts);
+re_replace(Subj, RE, Repl, Opts) ->
+    inc_counter(re_replace),
+    put(re_run_opts, Opts),
+    re:replace(Subj, RE, Repl, Opts).
+
+bump_exported_version(Exported1) ->
+    {re_exported_pattern, Hdr1, RE, Opts, Enc1} = Exported1,
+    <<Magic:32, Maj:16, Min:16/little, EncRest/binary>> = Enc1,
+    Enc2 = <<Magic:32, Maj:16, (Min+1):16/little, EncRest/binary>>,
+    <<"re-PCRE2", _CRC1:32, HdrRest/binary>> = Hdr1,
+    CRC2 = erlang:crc32(Enc2),
+    Hdr2 = <<"re-PCRE2", CRC2:32, HdrRest/binary>>,
+    {re_exported_pattern, Hdr2, RE, Opts, Enc2}.
+
+used_options() ->
+    RunOpts = get(re_run_opts),
+    case get(re_compile_opts) of
+        undefined ->
+            {run, RunOpts};
+        CompOpts ->
+            {compile, CompOpts, run, RunOpts}
+    end.
+
+inc_counter(Name) ->
+    case get(Name) of
+        undefined -> put(Name, 1);
+        N -> put(Name, N+1)
+    end.

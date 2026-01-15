@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2013-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2013-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,15 +90,16 @@ typedef struct {
     int sco;    /* super carrier only? */
     UWord scrfsd; /* super carrier reserved free segment descriptors */
     int scrpm; /* super carrier reserve physical memory */
+    int lp; /* try to use large pages? */
 }ErtsMMapInit;
 
 #define ERTS_MMAP_INIT_DEFAULT_INITER \
-    {{NULL, NULL}, {NULL, NULL}, 0, 1, (1 << 16), 1}
+    {{NULL, NULL}, {NULL, NULL}, 0, 1, (1 << 16), 1, 0}
 
 #define ERTS_LITERAL_VIRTUAL_AREA_SIZE (UWORD_CONSTANT(1)*1024*1024*1024)
 
 #define ERTS_MMAP_INIT_LITERAL_INITER \
-    {{NULL, NULL}, {NULL, NULL}, ERTS_LITERAL_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0}
+    {{NULL, NULL}, {NULL, NULL}, ERTS_LITERAL_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0, 0}
 
 
 #define ERTS_SUPERALIGNED_SIZE \
@@ -153,7 +156,6 @@ Eterm erts_mmap_info_options(ErtsMemMapper*,
                              char *prefix, fmtfn_t *print_to_p, void *print_to_arg,
                              Uint **hpp, Uint *szp);
 
-
 #ifdef ERTS_WANT_MEM_MAPPERS
 #  include "erl_alloc_types.h"
 
@@ -181,15 +183,19 @@ void hard_dbg_remove_mseg(void* seg, UWord sz);
 
 #endif /* HAVE_ERTS_MMAP */
 
-/* Marks the given memory region as permanently inaccessible.
- *
+/* Changes the permissions of the given memory region. 
+ * Assumes proper page alignment.
  * Returns 0 on success, and -1 on error. */
-int erts_mem_guard(void *p, UWord size);
+int erts_mem_guard(void *p, UWord size, int readable, int writable);
 
 /* Marks the given memory region as unused without freeing it, letting the OS
  * reclaim its physical memory with the promise that we'll get it back (without
  * its contents) the next time it's accessed. */
 ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
+
+#if defined(HAVE_MADVISE) && defined(MADV_FREE)
+extern int erts_madvise_discard_advice; // MADV_FREE or MADV_DONTNEED
+#endif
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -217,11 +223,8 @@ ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
     #include <sys/mman.h>
 
     ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
-        /* Note that we don't fall back to MADV_DONTNEED since it promises that
-         * the given region will be zeroed on access, which turned out to be
-         * too much of a performance hit. */
     #ifdef MADV_FREE
-        madvise(ptr, size, MADV_FREE);
+        madvise(ptr, size, erts_madvise_discard_advice);
     #else
         (void)ptr;
         (void)size;

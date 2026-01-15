@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,8 +22,10 @@
 %% Purpose: Generate BEAM assembly code from the SSA format.
 
 -module(beam_ssa_codegen).
+-moduledoc false.
 
 -export([module/2]).
+-export([is_original_variable/1]).  %Called from beam_core_to_ssa.
 -export([classify_heap_need/2]).    %Called from beam_ssa_pre_codegen.
 
 -export_type([ssa_register/0]).
@@ -34,21 +38,22 @@
                 splitwith/2,takewhile/2]).
 
 -record(cg, {lcount=1 :: beam_label(),          %Label counter
-	     functable=#{} :: #{fa()=>beam_label()},
-             labels=#{} :: #{ssa_label()=>0|beam_label()},
+	     functable=#{} :: #{fa() => beam_label()},
+             labels=#{} :: #{ssa_label() => 0|beam_label()},
              used_labels=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             regs=#{} :: #{beam_ssa:var_name()=>ssa_register()},
+             regs=#{} :: #{beam_ssa:b_var() => ssa_register()},
              ultimate_fail=1 :: beam_label(),
              catches=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             fc_label=1 :: beam_label()
-             }).
+             fc_label=1 :: beam_label(),
+             debug_info=false :: boolean()
+            }).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
-                    {'ok',beam_asm:module_code()}.
+          {'ok',beam_asm:module_code()}.
 
 module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
-    NoBsMatch = member(no_bs_match, Opts),
-    {Asm,St} = functions(Fs, NoBsMatch, {atom,Mod}),
+    DebugInfo = member(beam_debug_info, Opts),
+    {Asm,St} = functions(Fs, {atom,Mod}, DebugInfo),
     {ok,{Mod,Es,Attrs,Asm,St#cg.lcount}}.
 
 -record(need, {h=0 :: non_neg_integer(),   % heap words
@@ -68,7 +73,7 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
                    stack=none :: 'none' | pos_integer(),
                    words=#need{} :: #need{},
                    live :: 'undefined' | pos_integer(),
-                   def_yregs=[] :: [yreg()]
+                   def_yregs=[] :: [b_var()]
                   }).
 
 -record(cg_br, {bool :: beam_ssa:value(),
@@ -109,12 +114,13 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
 
 -type ssa_register() :: xreg() | yreg() | freg() | zreg().
 
-functions(Forms, NoBsMatch, AtomMod) ->
-    mapfoldl(fun (F, St) -> function(F, NoBsMatch, AtomMod, St) end,
-             #cg{lcount=1}, Forms).
+functions(Forms, AtomMod, DebugInfo) ->
+    mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
+             #cg{lcount=1,debug_info=DebugInfo}, Forms).
 
-function(#b_function{anno=Anno,bs=Blocks}, NoBsMatch, AtomMod, St0) ->
-    #{func_info:={_,Name,Arity}} = Anno,
+function(#b_function{anno=Anno,bs=Blocks,args=Args}, AtomMod, St0) ->
+    #{func_info := {_,Name,Arity}} = Anno,
+    NoBsMatch = not maps:get(bs_ensure_opt, Anno, false),
     try
         assert_exception_block(Blocks),            %Assertion.
         Regs = maps:get(registers, Anno),
@@ -126,11 +132,12 @@ function(#b_function{anno=Anno,bs=Blocks}, NoBsMatch, AtomMod, St0) ->
         Labels = (St4#cg.labels)#{0=>Entry,?EXCEPTION_BLOCK=>0},
         St5 = St4#cg{labels=Labels,used_labels=gb_sets:singleton(Entry),
                      ultimate_fail=Ult},
-        {Body,St} = cg_fun(Blocks, NoBsMatch, St5#cg{fc_label=Fi}),
-        Asm = [{label,Fi},line(Anno),
-               {func_info,AtomMod,{atom,Name},Arity}] ++
+        {Body,St} = cg_fun(Blocks, Args, NoBsMatch, St5#cg{fc_label=Fi}),
+        Asm0 = [{label,Fi},line(Anno),
+                {func_info,AtomMod,{atom,Name},Arity}] ++
                add_parameter_annos(Body, Anno) ++
                [{label,Ult},if_end],
+        Asm = fix_debug_line(Asm0, Arity, St),
         Func = {function,Name,Arity,Entry,Asm},
         {Func,St}
     catch
@@ -138,6 +145,31 @@ function(#b_function{anno=Anno,bs=Blocks}, NoBsMatch, AtomMod, St0) ->
             io:fwrite("Function: ~w/~w\n", [Name,Arity]),
             erlang:raise(Class, Error, Stack)
     end.
+
+fix_debug_line(Is0, Live, #cg{debug_info=true}) ->
+    case Is0 of
+        [{label,_}=FiLbl,
+         {line,_}=Li,
+         {func_info,_,_,_}=Fi,
+         {label,_}=Entry,
+         {debug_line,Location,Index,Live,{none,Args0}}|Is] ->
+            %% Mark this debug_line instruction as being the
+            %% very first instruction in the function.
+            RegToVar = #{Reg => Var || {Var,[{x,_}=Reg|_]} <- Args0},
+            Args = [begin
+                        X = {x,I-1},
+                        case RegToVar of
+                            #{X := Var} -> {Var,[X]};
+                            #{} -> {I,[X]}
+                        end
+                    end || I <- lists:seq(1, Live)],
+            DbgLine = {debug_line,Location,Index,Live,{entry,Args}},
+            [FiLbl,Li,Fi,Entry,DbgLine|Is];
+        _ ->
+            Is0
+    end;
+fix_debug_line(Is, _Arity, #cg{debug_info=false}) ->
+    Is.
 
 assert_exception_block(Blocks) ->
     %% Assertion: ?EXCEPTION_BLOCK must be a call erlang:error(badarg).
@@ -165,7 +197,7 @@ add_parameter_annos([{label, _}=Entry | Body], Anno) ->
 
     [Entry | sort(Annos)] ++ Body.
 
-cg_fun(Blocks, NoBsMatch, St0) ->
+cg_fun(Blocks, Args, NoBsMatch, St0) ->
     Linear0 = linearize(Blocks),
     St1 = collect_catch_labels(Linear0, St0),
     Linear1 = need_heap(Linear0),
@@ -173,7 +205,8 @@ cg_fun(Blocks, NoBsMatch, St0) ->
     Linear3 = liveness(Linear2, St1),
     Linear4 = defined(Linear3, St1),
     Linear5 = opt_allocate(Linear4, St1),
-    Linear = fix_wait_timeout(Linear5),
+    Linear6 = fix_wait_timeout(Linear5),
+    Linear = add_debug_info(Linear6, Args, St1),
     {Asm,St} = cg_linear(Linear, St1),
     case NoBsMatch of
         true -> {Asm,St};
@@ -244,11 +277,16 @@ need_heap_never(_) ->
 need_heap_blks([{L,#cg_blk{is=Is0}=Blk0}|Bs], H0, Acc) ->
     {Is1,H1} = need_heap_is(reverse(Is0), H0, []),
     {Ns,H} = need_heap_terminator(Bs, L, H1),
-    Is = Ns ++ Is1,
+    Is = delay_alloc(Ns ++ Is1),
     Blk = Blk0#cg_blk{is=Is},
     need_heap_blks(Bs, H, [{L,Blk}|Acc]);
 need_heap_blks([], H, Acc) ->
     {Acc,H}.
+
+delay_alloc([#cg_alloc{}=AI,
+             #cg_set{op=debug_line}=ELI|Is2]) ->
+    [ELI|delay_alloc([AI|Is2])];
+delay_alloc(Is) -> Is.
 
 need_heap_is([#cg_alloc{words=Words}=Alloc0|Is], N, Acc) ->
     Alloc = Alloc0#cg_alloc{words=add_heap_words(N, Words)},
@@ -373,8 +411,9 @@ classify_heap_need(Name, _Args) ->
 %%  by classify_heap_need/2.
 
 classify_heap_need(bs_ensure) -> gc;
-classify_heap_need(bs_checked_get) -> gc;
-classify_heap_need(bs_checked_skip) -> gc;
+classify_heap_need(bs_ensured_get) -> gc;
+classify_heap_need(bs_ensured_skip) -> gc;
+classify_heap_need(bs_ensured_match_string) -> gc;
 classify_heap_need(bs_get) -> gc;
 classify_heap_need(bs_get_tail) -> gc;
 classify_heap_need(bs_init_writable) -> gc;
@@ -389,6 +428,8 @@ classify_heap_need(build_stacktrace) -> gc;
 classify_heap_need(call) -> gc;
 classify_heap_need(catch_end) -> gc;
 classify_heap_need(copy) -> neutral;
+classify_heap_need(debug_line) -> gc;
+classify_heap_need(executable_line) -> neutral;
 classify_heap_need(extract) -> gc;
 classify_heap_need(get_hd) -> neutral;
 classify_heap_need(get_map_element) -> neutral;
@@ -403,7 +444,6 @@ classify_heap_need(match_fail) -> gc;
 classify_heap_need(nif_start) -> neutral;
 classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> neutral;
-classify_heap_need(old_make_fun) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
 classify_heap_need(raw_raise) -> gc;
@@ -412,6 +452,7 @@ classify_heap_need(recv_marker_clear) -> neutral;
 classify_heap_need(recv_marker_reserve) -> gc;
 classify_heap_need(recv_next) -> gc;
 classify_heap_need(remove_message) -> neutral;
+classify_heap_need(require_stack) -> neutral;
 classify_heap_need(resume) -> gc;
 classify_heap_need(set_tuple_element) -> gc;
 classify_heap_need(succeeded) -> neutral;
@@ -428,9 +469,9 @@ classify_heap_need(wait_timeout) -> gc.
 %%% since the BEAM interpreter have more optimized instructions
 %%% operating on X registers than on Y registers.
 %%%
-%%% In call and 'call' and 'old_make_fun' instructions there is also the
-%%% possibility that a 'move' instruction can be eliminated because
-%%% a value is already in the correct X register.
+%%% In call instructions there is also the possibility that a 'move'
+%%% instruction can be eliminated because a value is already in the
+%%% correct X register.
 %%%
 %%% Because of the new 'swap' instruction introduced in OTP 23, it
 %%% is always beneficial to prefer X register over Y registers. That
@@ -480,16 +521,15 @@ prefer_xregs_is([#cg_set{op=copy,dst=Dst,args=[Src]}=I|Is], St, Copies0, Acc) ->
 prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St, Copies, Acc) ->
     I = prefer_xregs_call(I0, Copies, St),
     prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
-prefer_xregs_is([#cg_set{op=old_make_fun,dst=Dst}=I0|Is], St, Copies, Acc) ->
-    I = prefer_xregs_call(I0, Copies, St),
-    prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
 prefer_xregs_is([#cg_set{op=Op}=I|Is], St, Copies0, Acc)
-  when Op =:= bs_checked_get;
-       Op =:= bs_checked_skip;
-       Op =:= bs_checked_get_tail;
+  when Op =:= bs_ensured_get;
+       Op =:= bs_ensured_skip;
        Op =:= bs_ensure;
+       Op =:= bs_ensured_match_string;
        Op =:= bs_match_string ->
     Copies = prefer_xregs_prune(I, Copies0, St),
+    prefer_xregs_is(Is, St, Copies, [I|Acc]);
+prefer_xregs_is([#cg_set{op=require_stack}=I|Is], St, Copies, Acc) ->
     prefer_xregs_is(Is, St, Copies, [I|Acc]);
 prefer_xregs_is([#cg_set{args=Args0}=I0|Is], St, Copies0, Acc) ->
     Args = [do_prefer_xreg(A, Copies0, St) || A <- Args0],
@@ -517,7 +557,7 @@ prefer_xregs_prune(#cg_set{dst=Dst}, Copies, St) ->
                     beam_arg(Alias, St) =/= DstReg}.
 
 %% prefer_xregs_call(Instruction, Copies, St) -> Instruction.
-%%  Given a 'call' or 'old_make_fun' instruction rewrite the arguments
+%%  Given a 'call' instruction rewrite the arguments
 %%  to use an X register instead of a Y register if a value is
 %%  is available in both.
 
@@ -684,13 +724,14 @@ need_live_anno(Op) ->
     case Op of
         {bif,_} -> true;
         bs_create_bin -> true;
-        bs_checked_get -> true;
+        bs_ensured_get -> true;
         bs_get -> true;
         bs_get_position -> true;
         bs_get_tail -> true;
         bs_start_match -> true;
         bs_skip -> true;
         call -> true;
+        debug_line -> true;
         put_map -> true;
         update_record -> true;
         _ -> false
@@ -818,6 +859,7 @@ need_y_init(#cg_set{op=bs_skip,args=[#b_literal{val=Type}|_]}) ->
         _ -> false
     end;
 need_y_init(#cg_set{op=bs_start_match}) -> true;
+need_y_init(#cg_set{op=debug_line}) -> true;
 need_y_init(#cg_set{op=put_map}) -> true;
 need_y_init(#cg_set{op=update_record}) -> true;
 need_y_init(#cg_set{}) -> false.
@@ -956,6 +998,254 @@ fix_wait_timeout_is([#cg_set{op=wait_timeout,dst=WaitBool}=WT,
 fix_wait_timeout_is([I|Is], Acc) ->
     fix_wait_timeout_is(Is, [I|Acc]);
 fix_wait_timeout_is([], _Acc) -> no.
+
+%%%
+%%% Gather debug information and add as annotations to `debug_line`
+%%% instructions.
+%%%
+%%% This pass is run when collection of BEAM debug information has
+%%% been requested.
+%%%
+
+add_debug_info(Linear0, Args, #cg{regs=Regs,debug_info=true}) ->
+    Def0 = ordsets:from_list(Args),
+    Linear = anno_defined_regs(Linear0, Def0, Regs),
+    FrameSzMap = #{0 => none},
+    VarMap = #{},
+    add_debug_info_blk(Linear, Regs, FrameSzMap, VarMap);
+add_debug_info(Linear, _Args, #cg{debug_info=false}) ->
+    Linear.
+
+add_debug_info_blk([{L,#cg_blk{is=Is0,last=Last}=Blk0}|Bs],
+                   Regs, FrameSzMap0, VarMap0) ->
+    FrameSize0 = map_get(L, FrameSzMap0),
+    {Is,VarMap,FrameSize} =
+        add_debug_info_is(Is0, Regs, FrameSize0, VarMap0, []),
+    Successors = successors(Last),
+    FrameSzMap = foldl(fun(Succ, Acc) ->
+                               Acc#{Succ => FrameSize}
+                       end, FrameSzMap0, Successors),
+    Blk = Blk0#cg_blk{is=Is},
+    [{L,Blk}|add_debug_info_blk(Bs, Regs, FrameSzMap, VarMap)];
+add_debug_info_blk([], _Regs, _FrameSzMap, _VarMap) ->
+    [].
+
+add_debug_info_is([#cg_alloc{stack=FrameSize}=I|Is],
+                  Regs, FrameSize0, VarMap, Acc) ->
+    if
+        is_integer(FrameSize) ->
+            add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+        true ->
+            add_debug_info_is(Is, Regs, FrameSize0, VarMap, [I|Acc])
+    end;
+add_debug_info_is([#cg_set{anno=#{was_phi := true},op=copy}=I|Is],
+                  Regs, FrameSize, VarMap, Acc) ->
+    %% This copy operation originates from a phi node. The source and
+    %% destination are not equivalent and must not be added to VarMap.
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([#cg_set{anno=Anno,op=copy,dst=#b_var{name=Dst},
+                           args=[#b_var{name=Src}]}=I|Is],
+                  Regs, FrameSize, VarMap0, Acc) ->
+    VarMap = case Anno of
+                 #{delayed_yreg_copy := true} ->
+                     VarMap0#{Src => [Dst]};
+                 #{} ->
+                     VarMap0#{Dst => [Src]}
+             end,
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([#cg_set{anno=Anno0,op=debug_line,args=[Index]}=I0|Is],
+                  Regs, FrameSize, VarMap, Acc) ->
+    #{def_regs := DefRegs,
+      alias := Alias,
+      literals := Literals0,
+      live := NumLive0} = Anno0,
+    AliasMap = maps:merge_with(fun(_, L1, L2) -> L1 ++ L2 end,
+                               VarMap, Alias),
+    Literals1 = [{get_original_names(#b_var{name=Var}, AliasMap),Val} ||
+                    {Val,Var} <:- Literals0],
+    Literals = [{hd(Vars),[{literal,Val}]} ||
+                   {Vars,Val} <:- Literals1, Vars =/= []],
+    RegVarMap = [{map_get(V, Regs),get_original_names(V, AliasMap)} ||
+                    V <- DefRegs,
+                    not is_beam_register(V)],
+    S0 = sofs:family(RegVarMap, [{reg,[variable]}]),
+    S1 = sofs:family_to_relation(S0),
+    S2 = sofs:converse(S1),
+    S3 = sofs:relation_to_family(S2),
+    S = sort(Literals ++ sofs:to_external(S3)),
+    Live = max(NumLive0, num_live(DefRegs, Regs)),
+    Info = {FrameSize,S},
+    I = I0#cg_set{args=[Index,#b_literal{val=Live},#b_literal{val=Info}]},
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([#cg_set{}=I|Is], Regs, FrameSize, VarMap, Acc) ->
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([], _Regs, FrameSize, VarMap, Info) ->
+    {reverse(Info),VarMap,FrameSize}.
+
+get_original_names(#b_var{name=Name}, AliasMap) ->
+    get_original_names_1([Name], AliasMap, sets:new()).
+
+get_original_names_1([Name|Names0], AliasMap, Seen0) ->
+    case sets:is_element(Name, Seen0) of
+        true ->
+            get_original_names_1(Names0, AliasMap, Seen0);
+        false ->
+            Seen = sets:add_element(Name, Seen0),
+            Names = case AliasMap of
+                        #{Name := Vars0} ->
+                            Vars = Vars0 ++ Names0,
+                            get_original_names_1(Vars, AliasMap, Seen);
+                        #{} ->
+                            Names0
+                    end,
+            case is_original_variable(Name) of
+                true ->
+                    [Name|get_original_names_1(Names, AliasMap, Seen)];
+                false ->
+                    get_original_names_1(Names, AliasMap, Seen)
+            end
+    end;
+get_original_names_1([], _, _) ->
+    [].
+
+-spec is_original_variable(Name) -> boolean() when
+      Name :: non_neg_integer() | atom().
+
+%% Test whether the variable name originates from the Erlang source
+%% code, meaning that it was not invented by the compiler. It is
+%% sufficient to check that the first character can legally start an
+%% Erlang variable name, because all new variables inserted by the
+%% compiler always start with an invalid character such as "@" or a
+%% lower-case letter.
+is_original_variable(Name) when is_atom(Name) ->
+    <<C/utf8,_/binary>> = atom_to_binary(Name),
+    if
+        %% A variable name must start with "_" or an upper-case letter
+        %% included in ISO Latin-1.
+        C =:= $_ -> true;
+        $A =< C, C =< $Z -> true;
+        $À =< C, C =< $Þ, C =/= $× -> true;
+        true -> false
+    end;
+is_original_variable(Name) when is_integer(Name) ->
+    false.
+
+%%%
+%%% Annotate `debug_line` instructions with all variables that have
+%%% been defined and are still available in a BEAM register.
+%%%
+
+anno_defined_regs(Linear, Def, Regs) ->
+    def_regs(Linear, #{0 => Def}, Regs).
+
+def_regs([{L,#cg_blk{is=Is0,last=Last}=Blk0}|Bs], DefMap0, Regs) ->
+    Def0 = map_get(L, DefMap0),
+    {Is,Def,MaybeDef} = def_regs_is(Is0, Regs, Def0, []),
+    DefMap = def_successors(Last, Def, MaybeDef, DefMap0),
+    Blk = Blk0#cg_blk{is=Is},
+    [{L,Blk}|def_regs(Bs, DefMap, Regs)];
+def_regs([], _, _) -> [].
+
+def_regs_is([#cg_alloc{live=Live}=I|Is], Regs, Def0, Acc) when is_integer(Live) ->
+    Def = trim_xregs(Def0, Live, Regs),
+    def_regs_is(Is, Regs, Def, [I|Acc]);
+def_regs_is([#cg_set{op=succeeded,args=[Var]}=I], _Regs, Def, Acc) ->
+    %% Var will only be defined on the success branch of the `br`
+    %% for this block.
+    MaybeDef = [Var],
+    {reverse(Acc, [I]),Def,MaybeDef};
+def_regs_is([#cg_set{op=kill_try_tag,args=[#b_var{}=Tag]}=I|Is], Regs, Def0, Acc) ->
+    Def = ordsets:del_element(Tag, Def0),
+    def_regs_is(Is, Regs, Def, [I|Acc]);
+def_regs_is([#cg_set{op=catch_end,dst=Dst,args=[#b_var{}=Tag|_]}=I|Is], Regs, Def0, Acc) ->
+    Def1 = trim_xregs(Def0, 0, Regs),
+    Def2 = kill_regs(Def1, [Dst,Tag], Regs),
+    Def = ordsets:add_element(Dst, Def2),
+    def_regs_is(Is, Regs, Def, [I|Acc]);
+def_regs_is([#cg_set{anno=Anno0,op=debug_line}=I0|Is], Regs, Def0, Acc) ->
+    Alias = map_get(alias, Anno0),
+    %% Handle shadowing of variables. When a variable is defined both
+    %% directly and indirectly through aliases, use the indirect one
+    %% because it is presumably the most recent definition.
+    Vs = [#b_var{name=V} || _ := Vs <- Alias,
+                            V <- Vs,
+                            is_original_variable(V)],
+    Def = Def0 -- Vs,
+    Anno = Anno0#{def_regs => Def},
+    I = I0#cg_set{anno=Anno},
+    def_regs_is(Is, Regs, Def, [I|Acc]);
+def_regs_is([#cg_set{anno=Anno,dst=Dst,op={bif,Bif},args=Args}=I|Is], Regs, Def0, Acc) ->
+    Def1 = case is_gc_bif(Bif, Args) of
+               true ->
+                   #{live := Live} = Anno,
+                   trim_xregs(Def0, Live, Regs);
+               false ->
+                   Def0
+           end,
+    case Regs of
+        #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
+            Def2 = kill_reg(Def1, R, Regs),
+            Def = ordsets:add_element(Dst, Def2),
+            def_regs_is(Is, Regs, Def, [I|Acc]);
+        #{} ->
+            def_regs_is(Is, Regs, Def1, [I|Acc])
+    end;
+def_regs_is([#cg_set{anno=Anno,dst=Dst}=I|Is], Regs, Def0, Acc) ->
+    Def1 = case Anno of
+               #{live := Live} -> trim_xregs(Def0, Live, Regs);
+               #{} -> Def0
+           end,
+    Def2 = case Anno of
+               #{kill_yregs := KillYregs} ->
+                   kill_regs(Def1, KillYregs, Regs);
+               #{} ->
+                   Def1
+           end,
+    case Anno of
+        #{clobbers := true} ->
+            Def3 = trim_xregs(Def2, 0, Regs),
+            Def = case Regs of
+                      #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
+                          Def4 = kill_reg(Def3, R, Regs),
+                          ordsets:add_element(Dst, Def4);
+                      #{} ->
+                          Def3
+                  end,
+            def_regs_is(Is, Regs, Def, [I|Acc]);
+        #{} ->
+            case Regs of
+                #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
+                    Def3 = kill_reg(Def2, R, Regs),
+                    Def = ordsets:add_element(Dst, Def3),
+                    def_regs_is(Is, Regs, Def, [I|Acc]);
+                #{} ->
+                    def_regs_is(Is, Regs, Def1, [I|Acc])
+            end
+    end;
+def_regs_is([], _Regs, Def, Acc) ->
+    {reverse(Acc),Def,[]}.
+
+trim_xregs([V|Vs], Live, Regs) ->
+    case Regs of
+        #{V := {x,R}} when R < Live ->
+            [V|trim_xregs(Vs, Live, Regs)];
+        #{V := {y,_}}->
+            [V|trim_xregs(Vs, Live, Regs)];
+        #{} ->
+            trim_xregs(Vs, Live, Regs)
+    end;
+trim_xregs([], _, _) -> [].
+
+kill_reg([V|Vs], R, Regs) ->
+    case Regs of
+        #{V := R} -> Vs;
+        #{} -> [V|kill_reg(Vs, R, Regs)]
+    end;
+kill_reg([], _, _) -> [].
+
+kill_regs(Defs, KillRegs0, Regs) ->
+    KillRegs = #{map_get(V, Regs) => [] || V <- KillRegs0},
+    [D || D <- Defs, not is_map_key(map_get(D, Regs), KillRegs)].
 
 %%%
 %%% Here follows the main code generation functions.
@@ -1179,6 +1469,27 @@ cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
                end,
     Is = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
     {Is++TypeInfo,St};
+cg_block([#cg_set{op=bs_create_bin,
+                  anno=#{append_string_to_writable := true}=Anno,
+                  dst=Dst0,args=Args0}=I|Is0],
+         Context, St0) ->
+    %% This instruction originates from a literal patched by the
+    %% beam_ssa_destructive_update pass.
+    {Is1,St} = cg_block(Is0, Context, St0),
+    Args1 = typed_args(Args0, Anno, St0),
+    Fail = {f,0},
+    Line = line(Anno),
+    Alloc = map_get(alloc, Anno),
+    Live = get_live(I),
+    Dst = beam_arg(Dst0, St0),
+    Args = bs_args(Args1),
+    Unit = 256,
+    TypeInfo = [{'%',{var_info,Dst,
+                      [{type,#t_bitstring{size_unit=Unit,
+                                          appendable=true}}]}}],
+    Is2 = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
+    Is = Is2 ++ TypeInfo ++ Is1,
+    {Is,St};
 cg_block([#cg_set{op=bs_start_match,
                   dst=Ctx0,
                   args=[#b_literal{val=new},Bin0]}=I,
@@ -1198,8 +1509,9 @@ cg_block([#cg_set{op=bs_ensure,args=Ss0},
 cg_block([#cg_set{op=bs_get}=Set,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     {cg_bs_get(Fail, Set, St),St};
-cg_block([#cg_set{op=bs_match_string,args=[CtxVar,#b_literal{val=String0}]},
-          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
+cg_block([#cg_set{op=Op,args=[CtxVar,#b_literal{val=String0}]},
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St)
+  when Op =:= bs_match_string; Op =:= bs_ensured_match_string ->
     CtxReg = beam_arg(CtxVar, St),
 
     Bits = bit_size(String0),
@@ -1208,7 +1520,7 @@ cg_block([#cg_set{op=bs_match_string,args=[CtxVar,#b_literal{val=String0}]},
                  Rem -> <<String0/bitstring,0:(8-Rem)>>
              end,
 
-    Is = [{test,bs_match_string,Fail,[CtxReg,Bits,{string,String}]}],
+    Is = [{test,Op,Fail,[CtxReg,Bits,{string,String}]}],
     {Is,St};
 cg_block([#cg_set{dst=Dst0,op=landingpad,args=Args0}|T], Context, St0) ->
     [Dst,{atom,Kind},Tag] = beam_args([Dst0|Args0], St0),
@@ -1313,28 +1625,19 @@ cg_block([#cg_set{op=call}=Call|T], Context, St0) ->
     {Is0,St1} = cg_call(Call, body, none, St0),
     {Is1,St} = cg_block(T, Context, St1),
     {Is0++Is1,St};
-cg_block([#cg_set{anno=Anno,op=MakeFun,dst=Dst0,args=[Local|Args0]}|T],
-         Context, St0) when MakeFun =:= make_fun;
-                            MakeFun =:= old_make_fun ->
+cg_block([#cg_set{anno=Anno,op=make_fun,dst=Dst0,args=[Local|Args0]}|T],
+         Context, St0) ->
     #b_local{name=#b_literal{val=Func},arity=Arity} = Local,
     [Dst|Args] = beam_args([Dst0|Args0], St0),
     {FuncLbl,St1} = local_func_label(Func, Arity, St0),
-    Is0 = case MakeFun of
-              make_fun ->
-                  [{make_fun3,{f,FuncLbl},0,0,Dst,{list,Args}}];
-              old_make_fun ->
-                  setup_args(Args) ++
-                      [{make_fun2,{f,FuncLbl},0,0,length(Args)}
-                       | copy({x,0}, Dst)]
-          end,
+    Is0 = [{make_fun3,{f,FuncLbl},0,0,Dst,{list,Args}}],
     Is1 = case Anno of
-             #{ result_type := Type } ->
-                 Info = {var_info, Dst, [{fun_type, Type}]},
-                 Is0 ++ [{'%', Info}];
-             #{} ->
-                 Is0
+              #{result_type := Type} ->
+                  Info = {var_info, Dst, [{fun_type, Type}]},
+                  Is0 ++ [{'%', Info}];
+              #{} ->
+                  Is0
           end,
-
     {Is2,St} = cg_block(T, Context, St1),
     {Is1++Is2,St};
 cg_block([#cg_set{op=copy}|_]=T0, Context, St0) ->
@@ -1385,6 +1688,14 @@ cg_block([#cg_set{op=has_map_field,dst=Dst0,args=Args0,anno=Anno}|T], Context, S
     {Is0,St} = cg_block(T, Context, St0),
     Is = [I|Is0],
     {Is,St};
+cg_block([#cg_set{op=update_record,dst=Dst0,args=Args0,anno=Anno}|T], Context, St0) ->
+    Args = typed_args(Args0, Anno, St0),
+    Dst = beam_arg(Dst0, St0),
+    [Hint,{integer,Size},Src|Ss0] = Args,
+    Ss = cg_update_record_list(Ss0),
+    I = {update_record,Hint,Size,Src,Dst,{list,Ss}},
+    {Is1,St} = cg_block(T, Context, St0),
+    {[I|Is1],St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=Set], none, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     Is = cg_instr(Op, Args, Dst, Set),
@@ -1628,8 +1939,6 @@ is_call([#cg_set{op=call,args=[#b_var{}|Args]}|_]) ->
     {yes,1+length(Args)};
 is_call([#cg_set{op=call,args=[_|Args]}|_]) ->
     {yes,length(Args)};
-is_call([#cg_set{op=old_make_fun,args=[_|Args]}|_]) ->
-    {yes,length(Args)};
 is_call(_) ->
     no.
 
@@ -1807,26 +2116,49 @@ cg_instr(bs_start_match, [{atom,new}, Src0], Dst, Set) ->
     {Src, Pre} = force_reg(Src0, Dst),
     Live = get_live(Set),
     Pre ++ [{bs_start_match4,{atom,no_fail},Live,Src,Dst}];
-cg_instr(bs_checked_get, [Kind,Ctx,{literal,Flags},{integer,Size},{integer,Unit}], Dst, Set) ->
+cg_instr(bs_ensured_get, [Kind,Ctx,{literal,Flags},{integer,Size},{integer,Unit}], Dst, Set) ->
     %% Temporary instruction that will be incorporated into a bs_match
     %% instruction by the bs_translate sub pass.
     Live = get_live(Set),
-    [{bs_checked_get,Live,Kind,Ctx,field_flags(Flags, Set),Size,Unit,Dst}];
-cg_instr(bs_checked_get, [{atom,binary},Ctx,{literal,_Flags},
+    [{bs_ensured_get,Live,Kind,Ctx,field_flags(Flags, Set),Size,Unit,Dst}];
+cg_instr(bs_ensured_get, [{atom,binary},Ctx,{literal,_Flags},
                           {atom,all},{integer,Unit}], Dst, Set) ->
     %% Temporary instruction that will be incorporated into a bs_match
     %% instruction by the bs_translate sub pass.
     Live = get_live(Set),
-    [{bs_checked_get_tail,Live,Ctx,Unit,Dst}];
+    [{bs_ensured_get_tail,Live,Ctx,Unit,Dst}];
 cg_instr(bs_get_tail, [Src], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_tail,Src,Dst,Live}];
 cg_instr(bs_get_position, [Ctx], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_position,Ctx,Dst,Live}];
+cg_instr(executable_line, [{integer,Index}], _Dst, #cg_set{anno=Anno}) ->
+    {line,Location} = line(Anno),
+    [{executable_line,Location,Index}];
+cg_instr(debug_line, [{integer,Index},{integer,Live},{literal,Info}],
+         _Dst, #cg_set{anno=Anno}) ->
+    case line(Anno) of
+        {line,[]} ->
+            [];
+        {line,Location} ->
+            [{debug_line,Location,Index,Live,Info}]
+    end;
 cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
+cg_instr(put_map, [{atom,exact},SrcBadMap|_Ss], _Dst, #cg_set{anno=Anno}=Set) ->
+    %% GH-7283: An exact `put_map` without a failure label was not
+    %% handled. The absence of the failure label can only mean that
+    %% the source is known not to be a valid map. (None of the current
+    %% optimization passes can figure out that the key is always
+    %% present in the map and that the operation therefore can never
+    %% fail.)
+    Live = get_live(Set),
+    [{test_heap,3,Live},
+     {put_tuple2,{x,0},{list,[{atom,badmap},SrcBadMap]}},
+     line(Anno),
+     {call_ext_last,1,{extfunc,erlang,error,1},1}];
 cg_instr(is_nonempty_list, Ss, Dst, Set) ->
     #cg_set{anno=#{was_bif_is_list := true}} = Set, %Assertion.
 
@@ -1838,12 +2170,12 @@ cg_instr(is_nonempty_list, Ss, Dst, Set) ->
 cg_instr(Op, Args, Dst, _Set) ->
     cg_instr(Op, Args, Dst).
 
-cg_instr(bs_checked_skip, [_Type,Ctx,_Flags,{integer,Sz},{integer,U}], {z,_})
+cg_instr(bs_ensured_skip, [_Type,Ctx,_Flags,{integer,Sz},{integer,U}], {z,_})
   when is_integer(Sz) ->
     %% Temporary instruction that will be incorporated into a bs_match
     %% instruction by the bs_translate sub pass.
-    [{bs_checked_skip,Ctx,Sz*U}];
-cg_instr(bs_checked_skip, [_Type,_Ctx,_Flags,{atom,all},{integer,_U}], {z,_}) ->
+    [{bs_ensured_skip,Ctx,Sz*U}];
+cg_instr(bs_ensured_skip, [_Type,_Ctx,_Flags,{atom,all},{integer,_U}], {z,_}) ->
     [];
 cg_instr(bs_init_writable, Args, Dst) ->
     setup_args(Args) ++ [bs_init_writable|copy({x,0}, Dst)];
@@ -1881,11 +2213,10 @@ cg_instr(recv_marker_reserve, [], Dst) ->
     [{recv_marker_reserve, Dst}];
 cg_instr(remove_message, [], _Dst) ->
     [remove_message];
+cg_instr(require_stack, _Args, _Dst) ->
+    [];
 cg_instr(resume, [A,B], _Dst) ->
-    [{bif,raise,{f,0},[A,B],{x,0}}];
-cg_instr(update_record, [Hint, {integer,Size}, Src | Ss0], Dst) ->
-    Ss = cg_update_record_list(Ss0, []),
-    [{update_record,Hint,Size,Src,Dst,{list,Ss}}].
+    [{bif,raise,{f,0},[A,B],{x,0}}].
 
 cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
     Op = case Op0 of
@@ -1909,12 +2240,15 @@ cg_test(raw_raise, _Fail, Args, Dst, _I) ->
 cg_test(resume, _Fail, [_,_]=Args, Dst, _I) ->
     cg_instr(resume, Args, Dst).
 
-cg_update_record_list([{integer, Index}, Value], []) ->
+cg_update_record_list([{integer, Index}, Value]) ->
     [Index, Value];
-cg_update_record_list([{integer, Index}, Value | Updates], Acc) ->
-    cg_update_record_list(Updates, [{Index, Value} | Acc]);
-cg_update_record_list([], Acc) ->
-    append([[Index, Value] || {Index, Value} <- sort(Acc)]).
+cg_update_record_list([_,_|_]=Updates) ->
+    cg_update_record_list_1(Updates, #{}).
+
+cg_update_record_list_1([{integer, Index}, Value | Updates], Acc) ->
+    cg_update_record_list_1(Updates, Acc#{ Index => Value });
+cg_update_record_list_1([], Acc) ->
+    append([[Index, Value] || Index := Value <- maps:iterator(Acc, ordered)]).
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=Args,anno=Anno}=Set, St) ->
     [{atom,Type}|Ss0] = typed_args(Args, Anno, St),
@@ -2018,7 +2352,7 @@ force_reg({Kind,_}=R, _) when Kind =:= x; Kind =:= y ->
 successors(#cg_br{succ=Succ,fail=Fail}) ->
     ordsets:from_list([Succ,Fail]);
 successors(#cg_switch{fail=Fail,list=List}) ->
-    ordsets:from_list([Fail|[Lbl || {_,Lbl} <- List]]);
+    ordsets:from_list([Fail|[Lbl || {_,Lbl} <:- List]]);
 successors(#cg_ret{}) -> [].
 
 %% linearize(Blocks) -> [{BlockLabel,#cg_blk{}}].
@@ -2123,9 +2457,10 @@ translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
     end;
 translate_phis(_, _, _) -> [].
 
-phi_copies([#b_set{dst=Dst,args=PhiArgs}|Sets], L) ->
+phi_copies([#b_set{anno=Anno0,dst=Dst,args=PhiArgs}|Sets], L) ->
     CopyArgs = [V || {V,Target} <- PhiArgs, Target =:= L],
-    [#cg_set{op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
+    Anno = Anno0#{was_phi => true},
+    [#cg_set{anno=Anno,op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
 phi_copies([], _) -> [].
 
 %% opt_move_to_x0([Instruction]) -> [Instruction].
@@ -2324,7 +2659,7 @@ bs_translate_fixup_tail([], Bits) ->
 
 bs_translate_instr({test,bs_ensure,Fail,[Ctx,Size,Unit]}) ->
     {Ctx,Fail,{ensure_at_least,Size,Unit}};
-bs_translate_instr({bs_checked_get,Live,{atom,Type},Ctx,{field_flags,Flags0},
+bs_translate_instr({bs_ensured_get,Live,{atom,Type},Ctx,{field_flags,Flags0},
                     Size,Unit,Dst}) ->
     %% Only keep flags that have a meaning for binary matching and are
     %% distinct from the default value.
@@ -2338,19 +2673,19 @@ bs_translate_instr({bs_checked_get,Live,{atom,Type},Ctx,{field_flags,Flags0},
                          {anno,_} -> false
                      end],
     {Ctx,{f,0},{Type,Live,{literal,Flags},Size,Unit,Dst}};
-bs_translate_instr({bs_checked_skip,Ctx,Stride}) ->
+bs_translate_instr({test,bs_ensured_match_string,Fail,
+                    [Ctx,Bits,{string,String}]}) ->
+    <<Value:Bits,_/bitstring>> = String,
+    Live = nil,
+    {Ctx,Fail,{'=:=',Live,Bits,Value}};
+bs_translate_instr({bs_ensured_skip,Ctx,Stride}) ->
     {Ctx,{f,0},{skip,Stride}};
-bs_translate_instr({bs_checked_get_tail,Live,Ctx,Unit,Dst}) ->
+bs_translate_instr({bs_ensured_get_tail,Live,Ctx,Unit,Dst}) ->
     {Ctx,{f,0},{get_tail,Live,Unit,Dst}};
 bs_translate_instr({bs_get_tail,Ctx,Dst,Live}) ->
     {Ctx,{f,0},{get_tail,Live,1,Dst}};
 bs_translate_instr({test,bs_test_tail2,Fail,[Ctx,Bits]}) ->
     {Ctx,Fail,{test_tail,Bits}};
-bs_translate_instr({test,bs_match_string,Fail,[Ctx,Bits,{string,String}]})
-  when bit_size(String) =< 64 ->
-    <<Value:Bits,_/bitstring>> = String,
-    Live = nil,
-    {Ctx,Fail,{'=:=',Live,Bits,Value}};
 bs_translate_instr(_) -> none.
 
 
@@ -2462,6 +2797,7 @@ is_gc_bif(node, [_]) -> false;
 is_gc_bif(element, [_,_]) -> false;
 is_gc_bif(get, [_]) -> false;
 is_gc_bif(is_map_key, [_,_]) -> false;
+is_gc_bif(is_integer, [_,_,_]) -> false;
 is_gc_bif(map_get, [_,_]) -> false;
 is_gc_bif(tuple_size, [_]) -> false;
 is_gc_bif(Bif, Args) ->

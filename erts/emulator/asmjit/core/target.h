@@ -40,14 +40,14 @@ public:
   //! \{
 
   //! Returns target's environment.
-  inline const Environment& environment() const noexcept { return _environment; }
+  ASMJIT_INLINE_NODEBUG const Environment& environment() const noexcept { return _environment; }
   //! Returns the target architecture.
-  inline Arch arch() const noexcept { return _environment.arch(); }
+  ASMJIT_INLINE_NODEBUG Arch arch() const noexcept { return _environment.arch(); }
   //! Returns the target sub-architecture.
-  inline SubArch subArch() const noexcept { return _environment.subArch(); }
+  ASMJIT_INLINE_NODEBUG SubArch subArch() const noexcept { return _environment.subArch(); }
 
   //! Returns target CPU features.
-  inline const CpuFeatures& cpuFeatures() const noexcept { return _cpuFeatures; }
+  ASMJIT_INLINE_NODEBUG const CpuFeatures& cpuFeatures() const noexcept { return _cpuFeatures; }
 
   //! \}
 };

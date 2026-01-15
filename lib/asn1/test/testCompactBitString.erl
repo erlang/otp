@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -121,6 +123,24 @@ compact_bit_string(Rules) ->
 	_ ->
 	    ok
     end,
+
+
+    %%==========================================================
+    %% BS255 ::= BIT STRING (SIZE (255))
+    %%==========================================================
+
+    roundtrip('BS255', 2#1011_1101, {1,<<2#1011_1101:256/little>>}),
+
+    %%==========================================================
+    %% BSUPTO255 ::= BIT STRING (SIZE (1..255))
+    %%==========================================================
+
+    roundtrip('BSUPTO255', 4, {5,<<2#00100000>>}),
+
+    %%==========================================================
+    %% TransportLayerAddress 	::= BIT STRING (SIZE (1..160, ...))
+    %%==========================================================
+    roundtrip('TransportLayerAddress', 4, {5,<<2#00100000>>}),
 
     ok.
 

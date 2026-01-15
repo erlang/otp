@@ -1,8 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec to_external(AnySet) -> ExternalSet[0m
-  [;1m                     when[0m
-  [;1m                         ExternalSet :: external_set(),[0m
-  [;1m                         AnySet :: anyset().[0m
+[;1m  to_external(AnySet)[0m
 
-  Returns the external set of an atomic, ordered, or unordered
-  set.
+  Returns the external set of an atomic, ordered, or unordered set.
+
+    1> sofs:to_external(sofs:set([2,3,1])).
+    [1,2,3]
+    2> sofs:to_external(sofs:from_term({2,3,1})).
+    {2,3,1}
+    3> sofs:to_external(sofs:from_term(a)).
+    a

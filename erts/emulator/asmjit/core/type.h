@@ -164,74 +164,98 @@ struct TypeData {
 ASMJIT_VARAPI const TypeData _typeData;
 
 //! Returns the scalar type of `typeId`.
-static inline TypeId scalarOf(TypeId typeId) noexcept { return _typeData.scalarOf[uint32_t(typeId)]; }
+static ASMJIT_INLINE_NODEBUG TypeId scalarOf(TypeId typeId) noexcept { return _typeData.scalarOf[uint32_t(typeId)]; }
 
 //! Returns the size [in bytes] of `typeId`.
-static inline uint32_t sizeOf(TypeId typeId) noexcept { return _typeData.sizeOf[uint32_t(typeId)]; }
+static ASMJIT_INLINE_NODEBUG uint32_t sizeOf(TypeId typeId) noexcept { return _typeData.sizeOf[uint32_t(typeId)]; }
 
 //! Tests whether a given type `typeId` is between `a` and `b`.
-static inline constexpr bool isBetween(TypeId typeId, TypeId a, TypeId b) noexcept {
+static ASMJIT_INLINE_NODEBUG constexpr bool isBetween(TypeId typeId, TypeId a, TypeId b) noexcept {
   return Support::isBetween(uint32_t(typeId), uint32_t(a), uint32_t(b));
 }
 
 //! Tests whether a given type `typeId` is \ref TypeId::kVoid.
-static inline constexpr bool isVoid(TypeId typeId) noexcept { return typeId == TypeId::kVoid; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isVoid(TypeId typeId) noexcept { return typeId == TypeId::kVoid; }
 //! Tests whether a given type `typeId` is a valid non-void type.
-static inline constexpr bool isValid(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kIntStart, TypeId::_kVec512End); }
+static ASMJIT_INLINE_NODEBUG constexpr bool isValid(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kIntStart, TypeId::_kVec512End); }
 //! Tests whether a given type `typeId` is scalar (has no vector part).
-static inline constexpr bool isScalar(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kBaseStart, TypeId::_kBaseEnd); }
+static ASMJIT_INLINE_NODEBUG constexpr bool isScalar(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kBaseStart, TypeId::_kBaseEnd); }
 //! Tests whether a given type `typeId` is abstract, which means that its size depends on register size.
-static inline constexpr bool isAbstract(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kIntPtr, TypeId::kUIntPtr); }
+static ASMJIT_INLINE_NODEBUG constexpr bool isAbstract(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kIntPtr, TypeId::kUIntPtr); }
 
 //! Tests whether a given type is a scalar integer (signed or unsigned) of any size.
-static inline constexpr bool isInt(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kIntStart, TypeId::_kIntEnd); }
+static ASMJIT_INLINE_NODEBUG constexpr bool isInt(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kIntStart, TypeId::_kIntEnd); }
 //! Tests whether a given type is a scalar 8-bit integer (signed).
-static inline constexpr bool isInt8(TypeId typeId) noexcept { return typeId == TypeId::kInt8; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isInt8(TypeId typeId) noexcept { return typeId == TypeId::kInt8; }
 //! Tests whether a given type is a scalar 8-bit integer (unsigned).
-static inline constexpr bool isUInt8(TypeId typeId) noexcept { return typeId == TypeId::kUInt8; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isUInt8(TypeId typeId) noexcept { return typeId == TypeId::kUInt8; }
 //! Tests whether a given type is a scalar 16-bit integer (signed).
-static inline constexpr bool isInt16(TypeId typeId) noexcept { return typeId == TypeId::kInt16; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isInt16(TypeId typeId) noexcept { return typeId == TypeId::kInt16; }
 //! Tests whether a given type is a scalar 16-bit integer (unsigned).
-static inline constexpr bool isUInt16(TypeId typeId) noexcept { return typeId == TypeId::kUInt16; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isUInt16(TypeId typeId) noexcept { return typeId == TypeId::kUInt16; }
 //! Tests whether a given type is a scalar 32-bit integer (signed).
-static inline constexpr bool isInt32(TypeId typeId) noexcept { return typeId == TypeId::kInt32; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isInt32(TypeId typeId) noexcept { return typeId == TypeId::kInt32; }
 //! Tests whether a given type is a scalar 32-bit integer (unsigned).
-static inline constexpr bool isUInt32(TypeId typeId) noexcept { return typeId == TypeId::kUInt32; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isUInt32(TypeId typeId) noexcept { return typeId == TypeId::kUInt32; }
 //! Tests whether a given type is a scalar 64-bit integer (signed).
-static inline constexpr bool isInt64(TypeId typeId) noexcept { return typeId == TypeId::kInt64; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isInt64(TypeId typeId) noexcept { return typeId == TypeId::kInt64; }
 //! Tests whether a given type is a scalar 64-bit integer (unsigned).
-static inline constexpr bool isUInt64(TypeId typeId) noexcept { return typeId == TypeId::kUInt64; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isUInt64(TypeId typeId) noexcept { return typeId == TypeId::kUInt64; }
 
-static inline constexpr bool isGp8(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt8, TypeId::kUInt8); }
-static inline constexpr bool isGp16(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt16, TypeId::kUInt16); }
-static inline constexpr bool isGp32(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt32, TypeId::kUInt32); }
-static inline constexpr bool isGp64(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt64, TypeId::kUInt64); }
+//! Tests whether a given type is an 8-bit general purpose register representing either signed or unsigned 8-bit integer.
+static ASMJIT_INLINE_NODEBUG constexpr bool isGp8(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt8, TypeId::kUInt8); }
+//! Tests whether a given type is a 16-bit general purpose register representing either signed or unsigned 16-bit integer
+static ASMJIT_INLINE_NODEBUG constexpr bool isGp16(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt16, TypeId::kUInt16); }
+//! Tests whether a given type is a 32-bit general purpose register representing either signed or unsigned 32-bit integer
+static ASMJIT_INLINE_NODEBUG constexpr bool isGp32(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt32, TypeId::kUInt32); }
+//! Tests whether a given type is a 64-bit general purpose register representing either signed or unsigned 64-bit integer
+static ASMJIT_INLINE_NODEBUG constexpr bool isGp64(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt64, TypeId::kUInt64); }
 
 //! Tests whether a given type is a scalar floating point of any size.
-static inline constexpr bool isFloat(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kFloatStart, TypeId::_kFloatEnd); }
+static ASMJIT_INLINE_NODEBUG constexpr bool isFloat(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kFloatStart, TypeId::_kFloatEnd); }
 //! Tests whether a given type is a scalar 32-bit float.
-static inline constexpr bool isFloat32(TypeId typeId) noexcept { return typeId == TypeId::kFloat32; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isFloat32(TypeId typeId) noexcept { return typeId == TypeId::kFloat32; }
 //! Tests whether a given type is a scalar 64-bit float.
-static inline constexpr bool isFloat64(TypeId typeId) noexcept { return typeId == TypeId::kFloat64; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isFloat64(TypeId typeId) noexcept { return typeId == TypeId::kFloat64; }
 //! Tests whether a given type is a scalar 80-bit float.
-static inline constexpr bool isFloat80(TypeId typeId) noexcept { return typeId == TypeId::kFloat80; }
+static ASMJIT_INLINE_NODEBUG constexpr bool isFloat80(TypeId typeId) noexcept { return typeId == TypeId::kFloat80; }
 
-static inline constexpr bool isMask(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kMaskStart, TypeId::_kMaskEnd); }
-static inline constexpr bool isMask8(TypeId typeId) noexcept { return typeId == TypeId::kMask8; }
-static inline constexpr bool isMask16(TypeId typeId) noexcept { return typeId == TypeId::kMask16; }
-static inline constexpr bool isMask32(TypeId typeId) noexcept { return typeId == TypeId::kMask32; }
-static inline constexpr bool isMask64(TypeId typeId) noexcept { return typeId == TypeId::kMask64; }
+//! Tests whether a given type is a mask register of any size.
+static ASMJIT_INLINE_NODEBUG constexpr bool isMask(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kMaskStart, TypeId::_kMaskEnd); }
+//! Tests whether a given type is an 8-bit mask register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isMask8(TypeId typeId) noexcept { return typeId == TypeId::kMask8; }
+//! Tests whether a given type is an 16-bit mask register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isMask16(TypeId typeId) noexcept { return typeId == TypeId::kMask16; }
+//! Tests whether a given type is an 32-bit mask register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isMask32(TypeId typeId) noexcept { return typeId == TypeId::kMask32; }
+//! Tests whether a given type is an 64-bit mask register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isMask64(TypeId typeId) noexcept { return typeId == TypeId::kMask64; }
 
-static inline constexpr bool isMmx(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kMmxStart, TypeId::_kMmxEnd); }
-static inline constexpr bool isMmx32(TypeId typeId) noexcept { return typeId == TypeId::kMmx32; }
-static inline constexpr bool isMmx64(TypeId typeId) noexcept { return typeId == TypeId::kMmx64; }
+//! Tests whether a given type is an MMX register.
+//!
+//! \note MMX functionality is in general deprecated on X86 architecture. AsmJit provides it just for completeness.
+static ASMJIT_INLINE_NODEBUG constexpr bool isMmx(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kMmxStart, TypeId::_kMmxEnd); }
+//! Tests whether a given type is an MMX register, which only uses the low 32 bits of data (only specific cases).
+//!
+//! \note MMX functionality is in general deprecated on X86 architecture. AsmJit provides it just for completeness.
+static ASMJIT_INLINE_NODEBUG constexpr bool isMmx32(TypeId typeId) noexcept { return typeId == TypeId::kMmx32; }
+//! Tests whether a given type is an MMX register, which uses 64 bits of data (default).
+//!
+//! \note MMX functionality is in general deprecated on X86 architecture. AsmJit provides it just for completeness.
+static ASMJIT_INLINE_NODEBUG constexpr bool isMmx64(TypeId typeId) noexcept { return typeId == TypeId::kMmx64; }
 
-static inline constexpr bool isVec(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec32Start, TypeId::_kVec512End); }
-static inline constexpr bool isVec32(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec32Start, TypeId::_kVec32End); }
-static inline constexpr bool isVec64(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec64Start, TypeId::_kVec64End); }
-static inline constexpr bool isVec128(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec128Start, TypeId::_kVec128End); }
-static inline constexpr bool isVec256(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec256Start, TypeId::_kVec256End); }
-static inline constexpr bool isVec512(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec512Start, TypeId::_kVec512End); }
+//! Tests whether a given type is a vector register of any size.
+static ASMJIT_INLINE_NODEBUG constexpr bool isVec(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec32Start, TypeId::_kVec512End); }
+//! Tests whether a given type is a 32-bit or 32-bit view of a vector register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isVec32(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec32Start, TypeId::_kVec32End); }
+//! Tests whether a given type is a 64-bit or 64-bit view of a vector register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isVec64(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec64Start, TypeId::_kVec64End); }
+//! Tests whether a given type is a 128-bit or 128-bit view of a vector register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isVec128(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec128Start, TypeId::_kVec128End); }
+//! Tests whether a given type is a 256-bit or 256-bit view of a vector register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isVec256(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec256Start, TypeId::_kVec256End); }
+//! Tests whether a given type is a 512-bit or 512-bit view of a vector register.
+static ASMJIT_INLINE_NODEBUG constexpr bool isVec512(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec512Start, TypeId::_kVec512End); }
 
 //! \cond
 enum TypeCategory : uint32_t {
@@ -317,7 +341,7 @@ struct TypeIdOfT<T&> {
 
 //! Returns a corresponding \ref TypeId of `T` type.
 template<typename T>
-static inline constexpr TypeId typeIdOfT() noexcept { return TypeId(TypeIdOfT<T>::kTypeId); }
+static ASMJIT_INLINE_NODEBUG constexpr TypeId typeIdOfT() noexcept { return TypeId(TypeIdOfT<T>::kTypeId); }
 
 //! Returns offset needed to convert a `kIntPtr` and `kUIntPtr` TypeId into a type that matches `registerSize`
 //! (general-purpose register size). If you find such TypeId it's then only about adding the offset to it.
@@ -336,18 +360,18 @@ static inline constexpr TypeId typeIdOfT() noexcept { return TypeId(TypeIdOfT<T>
 //! // The same, but by using TypeUtils::deabstract() function.
 //! typeId = TypeUtils::deabstract(typeId, deabstractDelta);
 //! ```
-static inline constexpr uint32_t deabstractDeltaOfSize(uint32_t registerSize) noexcept {
+static ASMJIT_INLINE_NODEBUG constexpr uint32_t deabstractDeltaOfSize(uint32_t registerSize) noexcept {
   return registerSize >= 8 ? uint32_t(TypeId::kInt64) - uint32_t(TypeId::kIntPtr)
                            : uint32_t(TypeId::kInt32) - uint32_t(TypeId::kIntPtr);
 }
 
 //! Deabstracts a given `typeId` into a native type by using `deabstractDelta`, which was previously
 //! calculated by calling \ref deabstractDeltaOfSize() with a target native register size.
-static inline constexpr TypeId deabstract(TypeId typeId, uint32_t deabstractDelta) noexcept {
+static ASMJIT_INLINE_NODEBUG constexpr TypeId deabstract(TypeId typeId, uint32_t deabstractDelta) noexcept {
   return isAbstract(typeId) ? TypeId(uint32_t(typeId) + deabstractDelta) : typeId;
 }
 
-static inline constexpr TypeId scalarToVector(TypeId scalarTypeId, TypeId vecStartId) noexcept {
+static ASMJIT_INLINE_NODEBUG constexpr TypeId scalarToVector(TypeId scalarTypeId, TypeId vecStartId) noexcept {
   return TypeId(uint32_t(vecStartId) + uint32_t(scalarTypeId) - uint32_t(TypeId::kInt8));
 }
 

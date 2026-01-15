@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,15 +26,46 @@
 %%
 
 -module(erl_boot_server).
+-moduledoc """
+Boot server for other Erlang machines.
+
+This server is used to assist diskless Erlang nodes that fetch all Erlang code
+from another machine.
+
+This server is used to fetch all code, including the start script, if an Erlang
+runtime system is started with command-line flag `-loader inet`. All hosts
+specified with command-line flag `-hosts Host` must have one instance of this
+server running.
+
+This server can be started with the Kernel configuration parameter
+`start_boot_server`.
+
+The `erl_boot_server` can read regular files and files in archives. See `m:code`
+and `m:erl_prim_loader` in ERTS.
+
+> #### Warning {: .warning }
+>
+> The support for loading code from archive files is experimental. It is
+> released before it is ready to obtain early feedback. The file format,
+> semantics, interfaces, and so on, can be changed in a future release.
+
+## SEE ALSO
+
+[`erts:init`](`m:init`), [`erts:erl_prim_loader`](`m:erl_prim_loader`)
+""".
+
+-compile(nowarn_deprecated_catch).
 
 -include("inet_boot.hrl").
 
 -behaviour(gen_server).
 
 %% API functions.
--export([start/1, start_link/1, add_slave/1, delete_slave/1,
-	 add_subnet/2, delete_subnet/2,
-	 which_slaves/0]).
+-export([start/1, start/2,
+         start_link/1, start_link/2,
+         add_slave/1, delete_slave/1,
+         add_subnet/2, delete_subnet/2,
+         which_slaves/0]).
 
 %% Exports for testing (don't remove; tests suites depend on them).
 -export([would_be_booted/1]).
@@ -58,33 +91,86 @@
 
 -define(single_addr_mask, {255, 255, 255, 255}).
 
+-doc """
+The same as [`start(Slaves, #{})`](`start/2`).
+""".
 -spec start(Slaves) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
       Host :: inet:ip_address() | inet:hostname(),
       Pid :: pid(),
-      Reason :: {'badarg', Slaves}.
+      Reason :: any().
 
 start(Slaves) ->
-    case check_arg(Slaves) of
-	{ok, AL} ->
-	    gen_server:start({local,boot_server}, erl_boot_server, AL, []);
-	_ ->
-	    {error, {badarg, Slaves}}
+    start(Slaves, #{}).
+
+-doc """
+Starts the boot server. `Slaves` is a list of IP addresses for hosts, which are
+allowed to use this server as a boot server. `Options` is a map with
+configuration options.
+
+The boot server listening port can be configured with `listen_port`.
+If an empty map is provided, or `listen_port` is zero, then an ephemeral port
+is used.
+""".
+-spec start(Slaves, Options) -> {'ok', Pid} | {'error', Reason} when
+      Slaves :: [Host],
+      Host :: inet:ip_address() | inet:hostname(),
+      Options :: #{listen_port => inet:port_number()},
+      Pid :: pid(),
+      Reason :: any().
+
+start(Slaves, Options) ->
+    case start_args(Slaves, Options) of
+        {ok, StartArgs} ->
+            gen_server:start({local,boot_server}, erl_boot_server, StartArgs, []);
+        {error, _} = Error ->
+            Error
     end.
 
+-doc """
+The same as [`start_link(Slaves, #{})`](`start_link/2`).
+""".
 -spec start_link(Slaves) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
       Host :: inet:ip_address() | inet:hostname(),
       Pid :: pid(),
-      Reason :: {'badarg', Slaves}.
+      Reason :: any().
 
 start_link(Slaves) ->
+    start_link(Slaves, #{}).
+
+-doc """
+The same as [`start(Slaves, Options)`](`start/2`), but it also links to the
+caller.
+""".
+-spec start_link(Slaves, Options) -> {'ok', Pid} | {'error', Reason} when
+      Slaves :: [Host],
+      Host :: inet:ip_address() | inet:hostname(),
+      Options :: #{listen_port => inet:port_number()},
+      Pid :: pid(),
+      Reason :: any().
+
+start_link(Slaves, Options) ->
+    case start_args(Slaves, Options) of
+        {ok, StartArgs} ->
+            gen_server:start_link({local,boot_server}, erl_boot_server, StartArgs, []);
+        {error, _} = Error ->
+            Error
+    end.
+
+start_args(Slaves, Options) ->
     case check_arg(Slaves) of
-	{ok, AL} ->
-	    gen_server:start_link({local,boot_server},
-				  erl_boot_server, AL, []);
-	_ ->
-	    {error, {badarg, Slaves}}
+        {ok, Arg} ->
+            case check_options(Options) of
+                true ->
+                    NewOptions = with_default_options(Options),
+                    ListenPort = maps:get(listen_port, NewOptions),
+                    {ok, #{slaves => Arg, listen_port => ListenPort}};
+                false ->
+                    {error, {badarg, Options}}
+            end;
+        _ ->
+            {error, {badarg, Slaves}}
     end.
 
 check_arg(Slaves) ->
@@ -102,6 +188,19 @@ check_arg([], Result) ->
 check_arg(_, _Result) ->
     error.
 
+check_options(Options) when is_map(Options) ->
+    lists:all(fun valid_option/1, maps:to_list(Options));
+check_options(_) ->
+    false.
+
+valid_option({listen_port, Port}) when is_integer(Port) -> true;
+valid_option({_, _}) -> false.
+
+with_default_options(Options) ->
+    DefaultOptions = #{listen_port => 0},
+    maps:merge(DefaultOptions, Options).
+
+-doc "Adds a `Slave` node to the list of allowed slave hosts.".
 -spec add_slave(Slave) -> 'ok' | {'error', Reason} when
       Slave :: Host,
       Host :: inet:ip_address() | inet:hostname(),
@@ -115,6 +214,7 @@ add_slave(Slave) ->
 	    {error, {badarg, Slave}}
     end.
 
+-doc "Deletes a `Slave` node from the list of allowed slave hosts.".
 -spec delete_slave(Slave) -> 'ok' | {'error', Reason} when
       Slave :: Host,
       Host :: inet:ip_address() | inet:hostname(),
@@ -128,6 +228,7 @@ delete_slave(Slave) ->
 	    {error, {badarg, Slave}}
     end.
 
+-doc false.
 -spec add_subnet(Netmask :: inet:ip_address(), Addr :: inet:ip_address()) ->
 	'ok' | {'error', any()}.
 
@@ -139,12 +240,14 @@ add_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
 	    {error, empty_subnet}
     end.
 
+-doc false.
 -spec delete_subnet(Netmask :: inet:ip_address(),
                     Addr :: inet:ip_address()) -> 'ok'.
 
 delete_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
     gen_server:call(boot_server, {delete, {Mask, Addr}}).
 
+-doc "Returns the current list of allowed slave hosts.".
 -spec which_slaves() -> Slaves when
       Slaves :: [Slave],
       Slave :: {Netmask :: inet:ip_address(), Address :: inet:ip_address()}.
@@ -156,6 +259,7 @@ which_slaves() ->
 %% having that IP address would be accepted for booting, and
 %% false otherwise.  (Convenient for testing.)
 
+-doc false.
 would_be_booted(Addr) ->
     {ok, IP} = inet:getaddr(Addr, inet),
     member_address(IP, which_slaves()).
@@ -182,11 +286,15 @@ member_address(_, []) ->
 %% call-back functions.
 %% ------------------------------------------------------------
 
--spec init([atom()]) -> {'ok', state()}.
+-doc false.
+-spec init(#{slaves      := list(),
+             listen_port := inet:port_number()})
+          -> {'ok', state()}.
 
-init(Slaves) ->
+init(#{slaves      := Slaves,
+       listen_port := ListenPort}) ->
     {ok, U} = gen_udp:open(?EBOOT_PORT, []),
-    {ok, L} = gen_tcp:listen(0, [binary,{packet,4}]),
+    {ok, L} = gen_tcp:listen(ListenPort, [binary,{packet,4}]),
     {ok, Port} = inet:port(L),
     {ok, UPort} = inet:port(U),
     Ref = make_ref(),
@@ -205,6 +313,7 @@ init(Slaves) ->
 		bootp = Pid
 	       }}.
 
+-doc false.
 -spec handle_call('which' | {'add',atom()} | {'delete',atom()}, _, state()) ->
         {'reply', 'ok' | [atom()], state()}.
 
@@ -219,11 +328,13 @@ handle_call({delete,Address}, _, S0) ->
 handle_call(which, _, S0) ->
     {reply, ordsets:to_list(S0#state.slaves), S0}.
 
+-doc false.
 -spec handle_cast(term(), [atom()]) -> {'noreply', [atom()]}.
 
 handle_cast(_, Slaves) ->
     {noreply, Slaves}.
 
+-doc false.
 -spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({udp, U, IP, Port, Data}, S0) ->
@@ -266,11 +377,13 @@ handle_info({udp, U, IP, Port, Data}, S0) ->
 handle_info(_Info, S0) ->
     {noreply,S0}.
 
+-doc false.
 -spec terminate(term(), state()) -> 'ok'.
 
 terminate(_Reason, _S0) ->
     ok.
 
+-doc false.
 -spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_Vsn, State, _Extra) ->
@@ -282,6 +395,7 @@ code_change(_Vsn, State, _Extra) ->
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc false.
 -spec boot_init(reference()) -> no_return().
 
 boot_init(Tag) ->
@@ -309,6 +423,7 @@ boot_main(Listen, Tag, Pid) ->
 	    exit(closed)
     end.
 
+-doc false.
 boot_accept(Server, Listen, Tag) ->
     Reply = gen_tcp:accept(Listen),
     unlink(Server),
@@ -333,7 +448,7 @@ boot_loop(Socket, PS) ->
 handle_command(S, PS, Msg) ->
     case catch binary_to_term(Msg) of
 	{get,File} ->
-	    {Res, PS2} = erl_prim_loader:prim_get_file(PS, File),
+	    {Res, PS2} = erl_prim_loader:prim_read_file(PS, File),
 	    send_file_result(S, get, Res),
 	    PS2;
 	{list_dir,Dir} ->

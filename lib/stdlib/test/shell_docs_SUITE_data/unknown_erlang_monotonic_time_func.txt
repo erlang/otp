@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:monotonic_time() -> integer().[0m
+[;1m  monotonic_time()[0m
 
 [;;4mSince[0m:
   OTP 18.0
@@ -8,12 +15,11 @@
   This is a monotonically increasing time since some unspecified
   point in time.
 
-  Note:
-    This is a monotonically increasing time, but not a 
-    strictly monotonically increasing time. That is, consecutive
-    calls to [;;4merlang:monotonic_time/0[0m can produce the same
-    result.
+  [;;4mNote[0m
 
+    This is a monotonically increasing time, but not a strictly
+    monotonically increasing time. That is, consecutive calls to [;;4m[0m
+    [;;4merlang:monotonic_time/0[0m can produce the same result.
     Different runtime system instances will use different
     unspecified points in time as base for their Erlang monotonic
     clocks. That is, it is pointless comparing monotonic times
@@ -26,13 +32,13 @@
     start can be retrieved by calling [;;4m[0m
     [;;4merlang:system_info(start_time)[0m.
 
-  [;1m-spec erlang:monotonic_time(Unit) -> integer() when Unit :: time_unit().[0m
+[;1m  monotonic_time(Unit)[0m
 
 [;;4mSince[0m:
   OTP 18.0
 
-  Returns the current Erlang monotonic time converted into the [;;4m[0m
-  [;;4mUnit[0m passed as argument.
+  Returns the current Erlang monotonic time converted into the [;;4mUnit[0m
+  passed as argument.
 
   Same as calling [;;4merlang:convert_time_unit[0m[;;4m([0m [;;4m[0m
   [;;4merlang:monotonic_time()[0m[;;4m, native, Unit)[0m, however optimized for

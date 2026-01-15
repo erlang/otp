@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,17 +31,20 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     a.mov(ARG3, a64::x30);
     a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
     mov_imm(TMP1, 1);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, arity)));
+    a.strb(TMP1.w(), arm::Mem(c_p, offsetof(Process, arity)));
     a.b(labels[context_switch_simplified]);
 }
 
-void BeamModuleAssembler::emit_return() {
-    emit_leave_erlang_frame();
-
+void BeamModuleAssembler::emit_dispatch_return(bool set_I) {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
-    emit_validate(ArgVal(ArgVal::Word, 1));
+    emit_validate(ArgVal(ArgVal::Type::Word, 1));
 #endif
+
+    if (erts_alcu_enable_code_atags || set_I) {
+        /* See emit_i_test_yield. */
+        a.str(a64::x30, arm::Mem(c_p, offsetof(Process, i)));
+    }
 
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */
@@ -47,6 +52,22 @@ void BeamModuleAssembler::emit_return() {
     a.b_mi(resolve_fragment(ga->get_dispatch_return(), disp1MB));
 
     a.ret(a64::x30);
+
+    mark_unreachable();
+}
+
+void BeamModuleAssembler::emit_return() {
+    emit_return_do(false);
+}
+
+void BeamModuleAssembler::emit_return_do(bool set_I) {
+    emit_leave_erlang_frame();
+    emit_dispatch_return(set_I);
+}
+
+void BeamModuleAssembler::emit_move_deallocate_return() {
+    a.ldp(XREG0, a64::x30, arm::Mem(E).post(16));
+    emit_dispatch_return(false);
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {
@@ -66,21 +87,37 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
     auto src_index = Src.get();
     Sint deallocate = Deallocate.get() * sizeof(Eterm);
 
-    if (src_index == 0 && Support::isInt9(deallocate)) {
+    if (src_index == 0 && deallocate == 8) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(2 * deallocate);
+        a.ldp(dst.reg, a64::x30, src_ref);
+        flush_var(dst);
+        a.b(resolve_beam_label(CallTarget, disp128MB));
+        mark_unreachable();
+    } else if (src_index == 0 && Support::isInt9(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const arm::Mem src_ref = arm::Mem(E).post(deallocate);
         a.ldr(dst.reg, src_ref);
         flush_var(dst);
+        emit_i_call_only(CallTarget);
+    } else if (src_index + 1 == Deallocate.get()) {
+        auto dst = init_destination(Dst, TMP1);
+        safe_ldp(dst.reg, a64::x30, getArgRef(Src));
+        flush_var(dst);
+        add(E, E, (Deallocate.get() + 1) * sizeof(Eterm));
+        a.b(resolve_beam_label(CallTarget, disp128MB));
+        mark_unreachable();
     } else {
         mov_arg(Dst, Src);
         emit_deallocate(Deallocate);
+        emit_i_call_only(CallTarget);
     }
-    emit_i_call_only(CallTarget);
 }
 
 void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
     emit_leave_erlang_frame();
     a.b(resolve_beam_label(CallTarget, disp128MB));
+    mark_unreachable();
 }
 
 /* Handles save_calls for remote calls. When the active code index is
@@ -96,7 +133,7 @@ void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
 
     a.mov(ARG2, ARG1);
     a.mov(ARG1, c_p);
-    runtime_call<2>(save_calls);
+    runtime_call<void (*)(Process *, const Export *), save_calls>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -123,6 +160,7 @@ void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
     arm::Mem target = emit_setup_dispatchable_call(ARG1);
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
@@ -138,16 +176,35 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
     auto src_index = Src.get();
     Sint deallocate = Deallocate.get() * sizeof(Eterm);
 
-    if (src_index == 0 && Support::isInt9(deallocate)) {
+    if (src_index == 0 && deallocate == 8) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(2 * deallocate);
+        mov_arg(ARG1, Exp);
+        arm::Mem target = emit_setup_dispatchable_call(ARG1);
+        a.ldp(dst.reg, a64::x30, src_ref);
+        flush_var(dst);
+        branch(target);
+        mark_unreachable();
+    } else if (src_index == 0 && Support::isInt9(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const arm::Mem src_ref = arm::Mem(E).post(deallocate);
         a.ldr(dst.reg, src_ref);
         flush_var(dst);
+        emit_i_call_ext_only(Exp);
+    } else if (src_index + 1 == Deallocate.get()) {
+        auto dst = init_destination(Dst, TMP1);
+        mov_arg(ARG1, Exp);
+        arm::Mem target = emit_setup_dispatchable_call(ARG1);
+        safe_ldp(dst.reg, a64::x30, getArgRef(Src));
+        flush_var(dst);
+        add(E, E, (Deallocate.get() + 1) * sizeof(Eterm));
+        branch(target);
+        mark_unreachable();
     } else {
         mov_arg(Dst, Src);
         emit_deallocate(Deallocate);
+        emit_i_call_ext_only(Exp);
     }
-    emit_i_call_ext_only(Exp);
 }
 
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
@@ -172,7 +229,8 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     mov_imm(ARG4, 0);
 
     comment("apply()");
-    runtime_call<4>(apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, ErtsCodePtr, Uint),
+                 apply>();
 
     /* Any number of X registers can be live at this point. */
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
@@ -200,6 +258,7 @@ void BeamModuleAssembler::emit_i_apply_only() {
 
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }
 
 arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
@@ -224,7 +283,8 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     mov_imm(ARG5, 0);
 
-    runtime_call<5>(fixed_apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, Uint, ErtsCodePtr, Uint),
+                 fixed_apply>();
 
     /* We will need to reload all X registers in case there has been
      * an error. */
@@ -252,4 +312,5 @@ void BeamModuleAssembler::emit_apply_last(const ArgWord &Arity,
 
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }

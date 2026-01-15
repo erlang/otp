@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,7 +112,7 @@ ct_run_test(Dir, CommonTestArgs) ->
     end.
 
 %%
-%% Deletes File from Files when File is on the form .../<SUITE>_data/<file>
+%% Deletes File from Files when File is of the form .../<SUITE>_data/<file>
 %% when all of <SUITE> has been skipped in Spec, i.e. there
 %% exists a {skip, {<SUITE>, _}} tuple in Spec.
 %%

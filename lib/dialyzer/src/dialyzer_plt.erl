@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_plt.erl
@@ -22,6 +31,7 @@
 %%% Created : 23 Jul 2004 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_plt).
+-moduledoc false.
 
 -export([contains_mfa/2,
 	 all_modules/1,
@@ -41,8 +51,6 @@
 	 lookup_module/2,
          merge_plts/1,
 	 new/0,
-	 get_specs/1,
-	 get_specs/4,
          delete/1,
          get_all_types/1,
          get_all_contracts/1,
@@ -238,51 +246,6 @@ delete(#plt{info = ETSInfo,
   ok.
 
 %%---------------------------------------------------------------------------
-%% Edoc
-
--spec get_specs(plt()) -> string().
-
-get_specs(#plt{info = Info}) ->
-  %% TODO: Should print contracts as well.
-  L = lists:sort([{MFA, Val} ||
-                   {{_,_,_} = MFA, Val} <- table_to_list(Info)]),
-  lists:flatten(create_specs(L, [])).
-
--spec get_specs(plt(), atom(), atom(), arity_patt()) -> 'none' | string().
-
-get_specs(#plt{info = Info}, M, F, A) when is_atom(M), is_atom(F) ->
-  MFA = {M, F, A},
-  case ets_table_lookup(Info, MFA) of
-    none -> none;
-    {value, Val} -> lists:flatten(create_specs([{MFA, Val}], []))
-  end.
-
-create_specs([{{M, F, _A}, {Ret, Args}}|Left], M) ->
-  [io_lib:format("-spec ~tw(~ts) -> ~ts\n",
-		 [F, expand_args(Args), erl_types:t_to_string(Ret)])
-   | create_specs(Left, M)];
-create_specs(List = [{{M, _F, _A}, {_Ret, _Args}}| _], _M) ->
-  [io_lib:format("\n\n%% ------- Module: ~w -------\n\n", [M])
-   | create_specs(List, M)];
-create_specs([], _) ->
-  [].
-
-expand_args([]) ->
-  [];
-expand_args([ArgType]) ->
-  case erl_types:t_is_any(ArgType) of
-    true -> ["_"];
-    false -> [erl_types:t_to_string(ArgType)]
-  end;
-expand_args([ArgType|Left]) ->
-  [case erl_types:t_is_any(ArgType) of
-     true -> "_";
-     false -> erl_types:t_to_string(ArgType)
-   end ++
-   ","|expand_args(Left)].
-
-
-%%---------------------------------------------------------------------------
 %% Ets table
 
 table_to_list(Plt) ->
@@ -371,9 +334,8 @@ tab_merge('$end_of_table', T1, T2) ->
       tab_merge(Key, T1, T2)
   end;
 tab_merge(K1, T1, T2) ->
-  Vs = ets:lookup(T1, K1),
   NextK1 = ets:next(T1, K1),
-  true = ets:delete(T1, K1),
+  Vs = ets:take(T1, K1),
   true = ets:insert(T2, Vs),
   tab_merge(NextK1, T1, T2).
 

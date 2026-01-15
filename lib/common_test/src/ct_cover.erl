@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,11 +16,16 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(ct_cover).
+-moduledoc """
+`Common Test` framework code coverage support module.
+
+This module exports help functions for performing code coverage analysis.
+""".
 
 -export([get_spec/1, add_nodes/1, remove_nodes/1, cross_cover_analyse/2]).
 
@@ -26,6 +33,17 @@
 
 -include_lib("kernel/include/file.hrl").
 
+-doc """
+Adds nodes to current cover test. Notice that this only works if cover support
+is active.
+
+To have effect, this function is to be called from `init_per_suite/1` (see
+`m:ct_suite`) before any tests are performed.
+""".
+-spec add_nodes(Nodes) -> {'ok', StartedNodes} | {'error', Reason}
+              when Nodes :: node() | [node()],
+                   StartedNodes :: [node()],
+                   Reason :: 'cover_not_running' | term().
 add_nodes([]) ->
     {ok,[]};
 add_nodes(Nodes) ->
@@ -52,6 +70,16 @@ add_nodes(Nodes) ->
 	    end
     end.
 
+-doc """
+Removes nodes from the current cover test.
+
+Call this function to stop cover test on nodes previously added with
+[`ct_cover:add_nodes/1`](`add_nodes/1`). Results on the remote node are
+transferred to the `Common Test` node.
+""".
+-spec remove_nodes(Nodes) -> 'ok' | {'error', Reason}
+              when Nodes :: node() | [node()],
+                   Reason :: 'cover_not_running' | 'not_main_node' | term().
 remove_nodes([]) ->
     ok;
 remove_nodes(Nodes) ->
@@ -77,6 +105,14 @@ remove_nodes(Nodes) ->
 	    end
     end.
     
+-doc """
+Accumulates cover results over multiple tests. See section
+[Cross Cover Analysis](cover_chapter.md#cross_cover) in the User's Guide.
+""".
+-doc(#{since => <<"OTP R16B">>}).
+-spec cross_cover_analyse(Level, Tests) -> 'ok'
+              when Level :: 'overview' | 'details',
+                   Tests :: [{Tag :: atom(), Dir :: file:name_all()}].
 cross_cover_analyse(Level,Tests) ->
     test_server_ctrl:cross_cover_analyse(Level,Tests).
 
@@ -85,6 +121,7 @@ cross_cover_analyse(Level,Tests) ->
 
 %% Read cover specification file and return the parsed info.
 %% -> CoverSpec: {CoverFile,Nodes,Import,Export,AppCoverInfo}
+-doc false.
 get_spec(File) ->
     catch get_spec_test(File).
 

@@ -1,11 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec pwrite(IoDevice, LocBytes) -> ok | {error, {N, Reason}}[0m
-  [;1m                when[0m
-  [;1m                    IoDevice :: io_device(),[0m
-  [;1m                    LocBytes ::[0m
-  [;1m                        [{Location :: location(), Bytes :: iodata()}],[0m
-  [;1m                    N :: non_neg_integer(),[0m
-  [;1m                    Reason :: posix() | badarg | terminated.[0m
+[;1m  pwrite(IoDevice, LocBytes)[0m
 
   Performs a sequence of [;;4mpwrite/3[0m in one operation, which is more
   efficient than calling them one at a time. Returns [;;4mok[0m or [;;4m[0m
@@ -16,12 +17,7 @@
   caution must be taken to set the position on a correct character
   boundary. For details, see [;;4mposition/2[0m.
 
-  [;1m-spec pwrite(IoDevice, Location, Bytes) -> ok | {error, Reason}[0m
-  [;1m                when[0m
-  [;1m                    IoDevice :: io_device(),[0m
-  [;1m                    Location :: location(),[0m
-  [;1m                    Bytes :: iodata(),[0m
-  [;1m                    Reason :: posix() | badarg | terminated.[0m
+[;1m  pwrite(IoDevice, Location, Bytes)[0m
 
   Combines [;;4mposition/2[0m and [;;4mwrite/2[0m in one operation, which is
   more efficient than calling them one at a time.

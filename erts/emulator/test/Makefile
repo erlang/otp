@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,8 +61,10 @@ MODULES= \
 	dirty_nif_SUITE \
 	distribution_SUITE \
 	driver_SUITE \
+	dummy \
 	dump_SUITE \
 	efile_SUITE \
+	erl_debugger_SUITE \
 	erts_debug_SUITE \
 	estone_SUITE \
 	erl_link_SUITE \
@@ -126,6 +130,8 @@ MODULES= \
 	trace_call_time_SUITE \
 	trace_call_memory_SUITE \
 	tracer_SUITE \
+	trace_session_SUITE \
+	trace_sessions \
 	tracer_test \
 	scheduler_SUITE \
 	port_trace_SUITE \
@@ -151,19 +157,6 @@ NO_OPT= bs_bincomp \
 	guard \
 	map
 
-R24= \
-	bs_construct \
-	process_max_heap_size
-
-R25= \
-	bs_bincomp \
-	bs_construct \
-	bs_match_bin \
-	bs_match_int \
-	bs_match_tail \
-	bs_match_misc \
-	bs_utf
-
 STRIPPED_TYPES= \
 	bs_bincomp \
 	bs_construct \
@@ -173,24 +166,16 @@ STRIPPED_TYPES= \
 	bs_match_misc \
 	bs_utf
 
-NATIVE= hibernate
-
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
-
-NATIVE_MODULES= $(NATIVE:%=%_native_SUITE)
-NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
-
-R24_MODULES= $(R24:%=%_r24_SUITE)
-R24_ERL_FILES= $(R24_MODULES:%=%.erl)
-
-R25_MODULES= $(R25:%=%_r25_SUITE)
-R25_ERL_FILES= $(R25_MODULES:%=%.erl)
 
 STRIPPED_TYPES_MODULES= $(STRIPPED_TYPES:%=%_stripped_types_SUITE)
 STRIPPED_TYPES_ERL_FILES= $(STRIPPED_TYPES_MODULES:%=%.erl)
 
-ERL_FILES= $(MODULES:%=%.erl)
+STDLIB_MODULES=error_info_lib
+
+ERL_FILES= $(MODULES:%=%.erl) \
+	$(STDLIB_MODULES:%=$(ERL_TOP)/lib/stdlib/test/%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
@@ -204,6 +189,7 @@ TEST_SPEC_FILES= emulator.spec \
 		 emulator_bench.spec \
 		 emulator_gh.spec \
 		 emulator_smoke.spec \
+		 emulator_trace.spec \
                  emulator_node_container_SUITE.spec
 
 # ----------------------------------------------------
@@ -214,25 +200,20 @@ RELSYSDIR = $(RELEASE_PATH)/emulator_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_MAKE_FLAGS += 
+ERL_MAKE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$($(ERL_COMPILE_FLAGS)))
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES) \
-  $(KERNEL_ERL_FILES) $(R24_ERL_FILES) $(R25_ERL_FILES) $(STRIPPED_TYPES_ERL_FILES)
+make_emakefile: $(NO_OPT_ERL_FILES) \
+  $(KERNEL_ERL_FILES) $(STRIPPED_TYPES_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
-	$(MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
+	$(MODULES) $(STDLIB_MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) \
-	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +r24 \
-        $(ERL_COMPILE_FLAGS) -o$(EBIN) $(R24_MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +r25 \
-        $(ERL_COMPILE_FLAGS) -o$(EBIN) $(R25_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +strip_types \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(STRIPPED_TYPES_MODULES) >> $(EMAKEFILE)
 
@@ -256,13 +237,7 @@ targets: $(TARGET_FILES)
 %_no_opt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
-%_native_SUITE.erl: %_SUITE.erl
-	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
-
-%_r24_SUITE.erl: %_SUITE.erl
-	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
-
-%_r25_SUITE.erl: %_SUITE.erl
+%_r26_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
 %_stripped_types_SUITE.erl: %_SUITE.erl
@@ -280,10 +255,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
 		$(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(KERNEL_ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(R24_ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(R25_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(STRIPPED_TYPES_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)

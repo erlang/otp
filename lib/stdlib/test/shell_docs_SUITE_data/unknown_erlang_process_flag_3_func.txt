@@ -1,10 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec process_flag(Pid, Flag, Value) -> OldValue[0m
-  [;1m                      when[0m
-  [;1m                          Pid :: pid(),[0m
-  [;1m                          Flag :: save_calls,[0m
-  [;1m                          Value :: non_neg_integer(),[0m
-  [;1m                          OldValue :: non_neg_integer().[0m
+[;1m  process_flag(Pid, Flag, Value)[0m
 
   Sets certain flags for the process [;;4mPid[0m, in the same manner as [;;4m[0m
   [;;4mprocess_flag/2[0m. Returns the old value of the flag. The valid

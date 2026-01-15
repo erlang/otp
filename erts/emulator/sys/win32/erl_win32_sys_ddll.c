@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2006-2022. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2006-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -37,6 +39,7 @@
 #include "erl_win_dyn_driver.h"
 
 #include "erl_nif.h"
+#include "erl_internal_test.h"
 
 #define EXT_LEN          4
 #define FILE_EXT_WCHAR   L".dll"
@@ -61,6 +64,7 @@ void erl_sys_ddll_init(void) {
 #include "erl_nif_api_funcs.h"
 #undef ERL_NIF_API_FUNC_DECL
     nif_callbacks.erts_alc_test = erts_alc_test;
+    nif_callbacks.erts_internal_test_ptr = &erts_internal_test_instance;
  
     return;
 }

@@ -1,0 +1,531 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+excludes:
+  paths:
+    - pattern: ".ort/**/*"
+      reason: "TEST_OF"
+      comment: "This directory is not relevant."
+
+    - pattern: "**/.gitignore"
+      reason: "OTHER"
+      comment: "This directory is not relevant."
+
+    - pattern: ".gitattributes"
+      reason: "OTHER"
+      comment: "This file is not present in a release."
+
+    - pattern: ".gitignore"
+      reason: "OTHER"
+      comment: "This file is not present in a release."
+
+# Curations are used to fix wrongly detected licenses
+curations:
+    license_findings:
+
+        #
+        # LICENSE FILES
+        #
+        # License files are marked as NOASSERTION
+        #
+      - path: "LICENSES/*"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "FILE-HEADERS/*"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "**/COPYING"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "**/LICENSE"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "**/LICENSE-*"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+        #
+        # END OF LICENSE FILES
+        #
+
+      - path: "lib/compiler/test/beam_ssa_check_SUITE_data/phis.erl"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Apache-2.0 OR LGPL-2.0-or-later"
+
+      - path: "erts/emulator/test/bs_utf_SUITE_data/NormalizationTest.txt"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/test/unicode_util_SUITE_data/GraphemeBreakTest.txt"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/test/unicode_util_SUITE_data/GraphemeBreakTest.txt"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/test/unicode_util_SUITE_data/LineBreakTest.txt"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/test/unicode_util_SUITE_data/LineBreakTest.txt"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/test/unicode_util_SUITE_data/NormalizationTest.txt"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/test/unicode_util_SUITE_data/NormalizationTest.txt"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/uc_spec/**/*"
+        reason: "INCORRECT"
+        detected_license: "NONE"
+        comment: >-
+          License not included in data files
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/uc_spec/**/*"
+        reason: "INCORRECT"
+        detected_license: "LicenseRef-scancode-unicode"
+        comment: >-
+          Update license to its actual license
+        concluded_license: "Unicode-3.0"
+
+      - path: "bootstrap/bin/no_dot_erlang.boot"
+        reason: "NOT_DETECTED"
+        comment: >-
+          Boot file has cannot have comments to apply license.
+        concluded_license: "Apache-2.0"
+
+      - path: "bootstrap/bin/start.boot"
+        reason: "NOT_DETECTED"
+        comment: >-
+          Boot file has cannot have comments to apply license.
+        concluded_license: "Apache-2.0"
+
+      - path: "bootstrap/bin/start_clean.boot"
+        reason: "NOT_DETECTED"
+        comment: >-
+          Boot file has cannot have comments to apply license.
+        concluded_license: "Apache-2.0"
+
+      - path: "bootstrap/lib/compiler/ebin/beam_opcodes.beam"
+        reason: "NOT_DETECTED"
+        comment: >-
+          Part of auto-generated primary bootstrap, and cannot have comments.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/compiler/test/beam_ssa_check_SUITE_data/phis.erl"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Apache-2.0 OR LGPL-2.0-or-later"
+
+      - path: "OTP_VERSION"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "otp_versions.table"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/stdlib/test/json_SUITE_data/**/*"
+        reason: "NOT_DETECTED"
+        comment: >-
+          The `json` tests have MIT license as they are tested as part of
+          an existing json test suite, https://github.com/nst/JSONTestSuite.
+        concluded_license: "MIT"
+
+      - path: "lib/stdlib/test/re_SUITE_data/**/*"
+        reason: "NOT_DETECTED"
+        comment: >-
+          The tests are believed to be part of PCRE's test suite.
+        concluded_license: "BSD-3-Clause"
+
+      - path: "lib/common_test/priv/jquery.tablesorter.min.js"
+        reason: "NOT_DETECTED"
+        comment: >-
+          The minified version does not contain its license in writing.
+        concluded_license: "MIT OR GPL-2.0-only"
+
+      - path: "erts/autoconf/config.guess"
+        reason: "CODE"
+        comment: >-
+          Wrong license detected as NOASSERTION OR GPL-3.0-or-later
+          WITH Autoconf-exception-generic-3.0 when only the latter applies.
+        concluded_license: "GPL-3.0-or-later WITH Autoconf-exception-generic-3.0"
+
+      - path: "erts/autoconf/config.sub"
+        reason: "CODE"
+        comment: >-
+          Wrong license detected as NOASSERTION OR GPL-3.0-or-later
+          WITH Autoconf-exception-generic-3.0 when only the latter applies.
+        concluded_license: "GPL-3.0-or-later WITH Autoconf-exception-generic-3.0"
+
+      - path: "lib/common_test/test_server/config.guess"
+        reason: "CODE"
+        comment: >-
+          Wrong license detected as NOASSERTION OR GPL-3.0-or-later
+          WITH Autoconf-exception-generic-3.0 when only the latter applies.
+        concluded_license: "GPL-3.0-or-later WITH Autoconf-exception-generic-3.0"
+
+      - path: "lib/common_test/test_server/config.sub"
+        reason: "CODE"
+        comment: >-
+          Wrong license detected as NOASSERTION OR GPL-3.0-or-later
+          WITH Autoconf-exception-generic-3.0 when only the latter applies.
+        concluded_license: "GPL-3.0-or-later WITH Autoconf-exception-generic-3.0"
+
+      - path: "make/autoconf/config.guess"
+        reason: "CODE"
+        comment: >-
+          Wrong license detected as NOASSERTION OR GPL-3.0-or-later
+          WITH Autoconf-exception-generic-3.0 when only the latter applies.
+        concluded_license: "GPL-3.0-or-later WITH Autoconf-exception-generic-3.0"
+
+      - path: "make/autoconf/config.sub"
+        reason: "CODE"
+        comment: >-
+          Wrong license detected as NOASSERTION OR GPL-3.0-or-later
+          WITH Autoconf-exception-generic-3.0 when only the latter applies.
+        concluded_license: "GPL-3.0-or-later WITH Autoconf-exception-generic-3.0"
+
+      - path: "erts/autoconf/install-sh"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license.
+        concluded_license: "MIT"
+
+      - path: ".ort/license-classifications.yml"
+        reason: "CODE"
+        comment: >-
+          The file contains multiple license names
+        concluded_license: "Unlicense"
+
+      - path: "bootstrap/lib/stdlib/ebin/erl_id_trans.beam"
+        reason: "CODE"
+        comment: >-
+          The file cannot contain license comments
+        concluded_license: "Apache-2.0"
+
+      - path: "bootstrap/lib/stdlib/ebin/erl_parse.beam"
+        reason: "CODE"
+        comment: >-
+          The file cannot contain license comments
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/emulator/asmjit.version"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The file cannot contain license comments
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/emulator/asmjit/core/support.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Zlib"
+
+      - path: "erts/emulator/pcre/LICENCE"
+        reason: "INCORRECT"
+        comment: >-
+          The license was incorrectly categorised
+        concluded_license: "BSD-3-Clause"
+
+      - path: "erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/c_src/sha-2/README.md"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Unlicense"
+
+      - path: "lib/common_test/test_server/install-sh"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "MIT"
+
+      - path: "lib/inets/examples/server_root/icons/README"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Unlicense"
+
+      - path: "lib/inets/test/httpd_test_data/server_root/icons/README"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Unlicense"
+
+      - path: "erts/emulator/zlib/inffast.c"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises this as a dual license
+        concluded_license: "Zlib"
+
+      - path: "erts/emulator/zlib/zlib.mk"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises this as a dual license
+        concluded_license: "Apache-2.0"
+
+      - path: "make/autoconf/install-sh"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises this license
+        concluded_license: "MIT"
+
+      - path: "lib/kernel/test/zlib_SUITE_data/zipdoc"
+        reason: "INCORRECT"
+        comment: "We do not know this license"
+        concluded_license: "NOASSERTION"
+
+        #
+        # prebuild.* files are all Apache-2.0 but do not admit comments to add
+        # a license.
+        #
+
+      - path: "erts/prebuild.keep"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/common_test/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/jinterface/prebuild.keep"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/jinterface/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/megaco/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/megaco/src/flex/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/snmp/mibs/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/ssh/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/wx/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "make/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "prebuild.delete"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+        #
+        #
+        # ryu is dual license OR
+        #
+        #
+      - path: "erts/emulator/ryu/common.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0 OR BSL-1.0"
+
+      - path: "erts/emulator/ryu/d2s.c"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0 OR BSL-1.0"
+
+      - path: "erts/emulator/ryu/d2s_full_table.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0 OR BSL-1.0"
+
+      - path: "erts/emulator/ryu/d2s_intrinsics.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0 OR BSL-1.0"
+
+      - path: "erts/emulator/ryu/digit_table.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0 OR BSL-1.0"
+
+      - path: "erts/emulator/ryu/ryu.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0 OR BSL-1.0"
+
+      - path: "erts/emulator/pcre/LICENCE"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner incorrectly reads the license
+        concluded_license: "BSD-3-Clause"
+
+      - path: "erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/c_src/sha-2/README.md"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Unlicense"
+
+      - path: "lib/erl_interface/src/openssl/include/openssl_local/md5.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/erl_interface/src/openssl/include/crypto/md32_common.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/erl_interface/src/openssl/crypto/md5/md5_local.h"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/erl_interface/src/openssl/crypto/md5/md5_dgst.c"
+        reason: "INCORRECT"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/erl_interface/src/openssl/README"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner incorrectly categorises the license
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/emulator/openssl/include/openssl_local/md5.h"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner mixes up the copyright and license notice
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/emulator/openssl/include/crypto/md32_common.h"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner mixes up the copyright and license notice
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/emulator/openssl/crypto/md5/md5_local.h"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner mixes up the copyright and license notice
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/emulator/openssl/crypto/md5/md5_dgst.c"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner mixes up the copyright and license notice
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/emulator/openssl/README"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner mixes up the copyright and license notice
+        concluded_license: "Apache-2.0"
+

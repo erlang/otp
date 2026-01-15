@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_session).
+-moduledoc false.
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
@@ -76,7 +79,7 @@ is_new(_ClientSuggestion, _ServerDecision) ->
 
 %%--------------------------------------------------------------------
 -spec client_select_session({ssl:host(), inet:port_number(), map()},
-                            db_handle(), atom(), #session{}, list()) -> #session{}.
+                            ssl_manager:db_handle(), atom(), #session{}, list()) -> #session{}.
 %%
 %% Description: Should be called by the client side to get an id
 %%              for the client hello message.
@@ -200,14 +203,13 @@ is_resumable(SuggestedSessionId, SessIdTracker,
     case ssl_server_session_cache:reuse_session(SessIdTracker, SuggestedSessionId) of
 	#session{cipher_suite = CipherSuite,
                  own_certificates =  [SessionOwnCert | _],
-		 compression_method = Compression,
 		 is_resumable = IsResumable,
 		 peer_certificate = PeerCert} = Session ->
 	    case resumable(IsResumable)
 		andalso is_owncert(SessionOwnCert, OwnCertKeyPairs)
 		andalso reusable_options(Options, Session)
 		andalso ReuseFun(SuggestedSessionId, PeerCert,
-				 Compression, CipherSuite)
+				 ?NO_COMPRESSION, CipherSuite)
 	    of
 		true  -> {true, Session};
 		false -> {false, undefined}

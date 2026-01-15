@@ -93,6 +93,9 @@
 /* Socket address dl length */
 #undef ESOCK_SDL_LEN
 
+/* Interface hwaddr supported */
+#undef ESOCK_USE_ENADDR
+
 /* Use extended error info */
 #undef ESOCK_USE_EXTENDED_ERROR_INFO
 
@@ -113,6 +116,9 @@
 
 /* Use socket registry by default */
 #undef ESOCK_USE_SOCKET_REGISTRY
+
+/* Use verbose mutex names */
+#undef ESOCK_VERBOSE_MTX_NAMES
 
 /* Define if bigendian */
 #undef ETHR_BIGENDIAN
@@ -435,13 +441,16 @@
 /* Define if x86/x86_64 out of order instructions should be synchronized */
 #undef ETHR_X86_OUT_OF_ORDER
 
+/* Define to 1 if _Float16 can be converted from/to double. */
+#undef FLOAT16_IS_CONVERTIBLE
+
 /* Define to 1 if you have the <arpa/nameser.h> header file. */
 #undef HAVE_ARPA_NAMESER_H
 
-/* Define to 1 if you have the `brk' function. */
+/* Define to 1 if you have the 'brk' function. */
 #undef HAVE_BRK
 
-/* Define to 1 if you have the `clock_getres' function. */
+/* Define to 1 if you have the 'clock_getres' function. */
 #undef HAVE_CLOCK_GETRES
 
 /* define if clock_gettime() works for getting thread time */
@@ -450,10 +459,10 @@
 /* Define if you have clock_gettime(CLOCK_MONOTONIC_RAW, _) */
 #undef HAVE_CLOCK_GETTIME_MONOTONIC_RAW
 
-/* Define to 1 if you have the `clock_get_attributes' function. */
+/* Define to 1 if you have the 'clock_get_attributes' function. */
 #undef HAVE_CLOCK_GET_ATTRIBUTES
 
-/* Define to 1 if you have the `closefrom' function. */
+/* Define to 1 if you have the 'closefrom' function. */
 #undef HAVE_CLOSEFROM
 
 /* Define if you have a decl of fread that conflicts with int fread */
@@ -468,174 +477,178 @@
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
 
-/* Define to 1 if you have the declaration of `getrlimit', and to 0 if you
+/* Define to 1 if you have the declaration of 'daylight', and to 0 if you
+   don't. */
+#undef HAVE_DECL_DAYLIGHT
+
+/* Define to 1 if you have the declaration of 'getrlimit', and to 0 if you
    don't. */
 #undef HAVE_DECL_GETRLIMIT
 
-/* Define to 1 if you have the declaration of `IN6ADDR_ANY_INIT', and to 0 if
+/* Define to 1 if you have the declaration of 'IN6ADDR_ANY_INIT', and to 0 if
    you don't. */
 #undef HAVE_DECL_IN6ADDR_ANY_INIT
 
-/* Define to 1 if you have the declaration of `IN6ADDR_LOOPBACK_INIT', and to
+/* Define to 1 if you have the declaration of 'IN6ADDR_LOOPBACK_INIT', and to
    0 if you don't. */
 #undef HAVE_DECL_IN6ADDR_LOOPBACK_INIT
 
-/* Define to 1 if you have the declaration of `IPV6_V6ONLY', and to 0 if you
+/* Define to 1 if you have the declaration of 'IPV6_V6ONLY', and to 0 if you
    don't. */
 #undef HAVE_DECL_IPV6_V6ONLY
 
-/* Define to 1 if you have the declaration of `posix2time', and to 0 if you
+/* Define to 1 if you have the declaration of 'posix2time', and to 0 if you
    don't. */
 #undef HAVE_DECL_POSIX2TIME
 
-/* Define to 1 if you have the declaration of `RLIMIT_STACK', and to 0 if you
+/* Define to 1 if you have the declaration of 'RLIMIT_STACK', and to 0 if you
    don't. */
 #undef HAVE_DECL_RLIMIT_STACK
 
-/* Define to 1 if you have the declaration of `SCTPS_BOUND', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTPS_BOUND', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTPS_BOUND
 
-/* Define to 1 if you have the declaration of `SCTPS_COOKIE_ECHOED', and to 0
+/* Define to 1 if you have the declaration of 'SCTPS_COOKIE_ECHOED', and to 0
    if you don't. */
 #undef HAVE_DECL_SCTPS_COOKIE_ECHOED
 
-/* Define to 1 if you have the declaration of `SCTPS_COOKIE_WAIT', and to 0 if
+/* Define to 1 if you have the declaration of 'SCTPS_COOKIE_WAIT', and to 0 if
    you don't. */
 #undef HAVE_DECL_SCTPS_COOKIE_WAIT
 
-/* Define to 1 if you have the declaration of `SCTPS_ESTABLISHED', and to 0 if
+/* Define to 1 if you have the declaration of 'SCTPS_ESTABLISHED', and to 0 if
    you don't. */
 #undef HAVE_DECL_SCTPS_ESTABLISHED
 
-/* Define to 1 if you have the declaration of `SCTPS_IDLE', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTPS_IDLE', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTPS_IDLE
 
-/* Define to 1 if you have the declaration of `SCTPS_LISTEN', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTPS_LISTEN', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTPS_LISTEN
 
-/* Define to 1 if you have the declaration of `SCTPS_SHUTDOWN_ACK_SENT', and
+/* Define to 1 if you have the declaration of 'SCTPS_SHUTDOWN_ACK_SENT', and
    to 0 if you don't. */
 #undef HAVE_DECL_SCTPS_SHUTDOWN_ACK_SENT
 
-/* Define to 1 if you have the declaration of `SCTPS_SHUTDOWN_PENDING', and to
+/* Define to 1 if you have the declaration of 'SCTPS_SHUTDOWN_PENDING', and to
    0 if you don't. */
 #undef HAVE_DECL_SCTPS_SHUTDOWN_PENDING
 
-/* Define to 1 if you have the declaration of `SCTPS_SHUTDOWN_RECEIVED', and
+/* Define to 1 if you have the declaration of 'SCTPS_SHUTDOWN_RECEIVED', and
    to 0 if you don't. */
 #undef HAVE_DECL_SCTPS_SHUTDOWN_RECEIVED
 
-/* Define to 1 if you have the declaration of `SCTPS_SHUTDOWN_SENT', and to 0
+/* Define to 1 if you have the declaration of 'SCTPS_SHUTDOWN_SENT', and to 0
    if you don't. */
 #undef HAVE_DECL_SCTPS_SHUTDOWN_SENT
 
-/* Define to 1 if you have the declaration of `SCTP_ABORT', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTP_ABORT', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTP_ABORT
 
-/* Define to 1 if you have the declaration of `SCTP_ADDR_CONFIRMED', and to 0
+/* Define to 1 if you have the declaration of 'SCTP_ADDR_CONFIRMED', and to 0
    if you don't. */
 #undef HAVE_DECL_SCTP_ADDR_CONFIRMED
 
-/* Define to 1 if you have the declaration of `SCTP_ADDR_OVER', and to 0 if
+/* Define to 1 if you have the declaration of 'SCTP_ADDR_OVER', and to 0 if
    you don't. */
 #undef HAVE_DECL_SCTP_ADDR_OVER
 
-/* Define to 1 if you have the declaration of `SCTP_BOUND', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTP_BOUND', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTP_BOUND
 
-/* Define to 1 if you have the declaration of `SCTP_CLOSED', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTP_CLOSED', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTP_CLOSED
 
-/* Define to 1 if you have the declaration of `SCTP_COOKIE_ECHOED', and to 0
+/* Define to 1 if you have the declaration of 'SCTP_COOKIE_ECHOED', and to 0
    if you don't. */
 #undef HAVE_DECL_SCTP_COOKIE_ECHOED
 
-/* Define to 1 if you have the declaration of `SCTP_COOKIE_WAIT', and to 0 if
+/* Define to 1 if you have the declaration of 'SCTP_COOKIE_WAIT', and to 0 if
    you don't. */
 #undef HAVE_DECL_SCTP_COOKIE_WAIT
 
-/* Define to 1 if you have the declaration of `SCTP_DELAYED_ACK_TIME', and to
+/* Define to 1 if you have the declaration of 'SCTP_DELAYED_ACK_TIME', and to
    0 if you don't. */
 #undef HAVE_DECL_SCTP_DELAYED_ACK_TIME
 
-/* Define to 1 if you have the declaration of `SCTP_EMPTY', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTP_EMPTY', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTP_EMPTY
 
-/* Define to 1 if you have the declaration of `SCTP_EOF', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTP_EOF', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTP_EOF
 
-/* Define to 1 if you have the declaration of `SCTP_ESTABLISHED', and to 0 if
+/* Define to 1 if you have the declaration of 'SCTP_ESTABLISHED', and to 0 if
    you don't. */
 #undef HAVE_DECL_SCTP_ESTABLISHED
 
-/* Define to 1 if you have the declaration of `SCTP_LISTEN', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTP_LISTEN', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTP_LISTEN
 
-/* Define to 1 if you have the declaration of `SCTP_SENDALL', and to 0 if you
+/* Define to 1 if you have the declaration of 'SCTP_SENDALL', and to 0 if you
    don't. */
 #undef HAVE_DECL_SCTP_SENDALL
 
-/* Define to 1 if you have the declaration of `SCTP_SHUTDOWN_ACK_SENT', and to
+/* Define to 1 if you have the declaration of 'SCTP_SHUTDOWN_ACK_SENT', and to
    0 if you don't. */
 #undef HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT
 
-/* Define to 1 if you have the declaration of `SCTP_SHUTDOWN_PENDING', and to
+/* Define to 1 if you have the declaration of 'SCTP_SHUTDOWN_PENDING', and to
    0 if you don't. */
 #undef HAVE_DECL_SCTP_SHUTDOWN_PENDING
 
-/* Define to 1 if you have the declaration of `SCTP_SHUTDOWN_RECEIVED', and to
+/* Define to 1 if you have the declaration of 'SCTP_SHUTDOWN_RECEIVED', and to
    0 if you don't. */
 #undef HAVE_DECL_SCTP_SHUTDOWN_RECEIVED
 
-/* Define to 1 if you have the declaration of `SCTP_SHUTDOWN_SENT', and to 0
+/* Define to 1 if you have the declaration of 'SCTP_SHUTDOWN_SENT', and to 0
    if you don't. */
 #undef HAVE_DECL_SCTP_SHUTDOWN_SENT
 
-/* Define to 1 if you have the declaration of `SCTP_UNCONFIRMED', and to 0 if
+/* Define to 1 if you have the declaration of 'SCTP_UNCONFIRMED', and to 0 if
    you don't. */
 #undef HAVE_DECL_SCTP_UNCONFIRMED
 
-/* Define to 1 if you have the declaration of `SCTP_UNORDERED', and to 0 if
+/* Define to 1 if you have the declaration of 'SCTP_UNORDERED', and to 0 if
    you don't. */
 #undef HAVE_DECL_SCTP_UNORDERED
 
-/* Define to 1 if you have the declaration of `setrlimit', and to 0 if you
+/* Define to 1 if you have the declaration of 'setrlimit', and to 0 if you
    don't. */
 #undef HAVE_DECL_SETRLIMIT
 
-/* Define to 1 if you have the declaration of `time2posix', and to 0 if you
+/* Define to 1 if you have the declaration of 'time2posix', and to 0 if you
    don't. */
 #undef HAVE_DECL_TIME2POSIX
 
-/* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
+/* Define to 1 if you have the <dirent.h> header file, and it defines 'DIR'.
    */
 #undef HAVE_DIRENT_H
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
-/* Define to 1 if you have the `dlopen' function. */
+/* Define to 1 if you have the 'dlopen' function. */
 #undef HAVE_DLOPEN
 
-/* Define to 1 if you have the `dlvsym' function. */
+/* Define to 1 if you have the 'dlvsym' function. */
 #undef HAVE_DLVSYM
 
-/* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
+/* Define to 1 if you don't have 'vprintf' but do have '_doprnt.' */
 #undef HAVE_DOPRNT
 
 /* Define to 1 if you have the <elf.h> header file. */
 #undef HAVE_ELF_H
 
-/* Define to 1 if you have the `endprotoent' function. */
+/* Define to 1 if you have the 'endprotoent' function. */
 #undef HAVE_ENDPROTOENT
 
 /* Define if you have the 'end' symbol */
@@ -647,19 +660,19 @@
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
-/* Define to 1 if you have the `fdatasync' function. */
+/* Define to 1 if you have the 'fdatasync' function. */
 #undef HAVE_FDATASYNC
 
-/* Define to 1 if you have the `finite' function. */
+/* Define to 1 if you have the 'finite' function. */
 #undef HAVE_FINITE
 
-/* Define to 1 if you have the `flockfile' function. */
+/* Define to 1 if you have the 'flockfile' function. */
 #undef HAVE_FLOCKFILE
 
-/* Define to 1 if you have the `fpsetmask' function. */
+/* Define to 1 if you have the 'fpsetmask' function. */
 #undef HAVE_FPSETMASK
 
-/* Define to 1 if you have the `fstat' function. */
+/* Define to 1 if you have the 'fstat' function. */
 #undef HAVE_FSTAT
 
 /* Define if you have fwrite_unlocked */
@@ -669,10 +682,14 @@
    '-Waddress-of-packed-member'') */
 #undef HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER
 
+/* define if compiler support _Pragma('GCC diagnostic ignored
+   '-Wformat-nonliteral'') */
+#undef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+
 /* Define to 1 if you have a good `getaddrinfo' function. */
 #undef HAVE_GETADDRINFO
 
-/* Define to 1 if you have the `gethostbyname2' function. */
+/* Define to 1 if you have the 'gethostbyname2' function. */
 #undef HAVE_GETHOSTBYNAME2
 
 /* Define to flavour of gethostbyname_r */
@@ -681,40 +698,40 @@
 /* Define as 1 if function exists */
 #undef HAVE_GETHOSTNAME
 
-/* Define to 1 if you have the `gethrtime' function. */
+/* Define to 1 if you have the 'gethrtime' function. */
 #undef HAVE_GETHRTIME
 
 /* define if gethrvtime() works and uses ioctl() to /proc/self */
 #undef HAVE_GETHRVTIME_PROCFS_IOCTL
 
-/* Define to 1 if you have the `getifaddrs' function. */
+/* Define to 1 if you have the 'getifaddrs' function. */
 #undef HAVE_GETIFADDRS
 
-/* Define to 1 if you have the `getipnodebyaddr' function. */
+/* Define to 1 if you have the 'getipnodebyaddr' function. */
 #undef HAVE_GETIPNODEBYADDR
 
-/* Define to 1 if you have the `getipnodebyname' function. */
+/* Define to 1 if you have the 'getipnodebyname' function. */
 #undef HAVE_GETIPNODEBYNAME
 
 /* Define to 1 if you have a good `getnameinfo' function. */
 #undef HAVE_GETNAMEINFO
 
-/* Define to 1 if you have the `getprotoent' function. */
+/* Define to 1 if you have the 'getprotoent' function. */
 #undef HAVE_GETPROTOENT
 
-/* Define to 1 if you have the `getrusage' function. */
+/* Define to 1 if you have the 'getrusage' function. */
 #undef HAVE_GETRUSAGE
 
-/* Define to 1 if you have the `gettimeofday' function. */
+/* Define to 1 if you have the 'gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
 
-/* Define to 1 if you have the `gmtime_r' function. */
+/* Define to 1 if you have the 'gmtime_r' function. */
 #undef HAVE_GMTIME_R
 
 /* Define to 1 if you have the <ieeefp.h> header file. */
 #undef HAVE_IEEEFP_H
 
-/* Define to 1 if you have the `ieee_handler' function. */
+/* Define to 1 if you have the 'ieee_handler' function. */
 #undef HAVE_IEEE_HANDLER
 
 /* Define to 1 if you have the <ifaddrs.h> header file. */
@@ -753,10 +770,10 @@
 /* Define to 1 if you have the `isfinite' function. */
 #undef HAVE_ISFINITE
 
-/* Define to 1 if you have the `isinf' function. */
+/* Define to 1 if you have the 'isinf' function. */
 #undef HAVE_ISINF
 
-/* Define to 1 if you have the `isnan' function. */
+/* Define to 1 if you have the 'isnan' function. */
 #undef HAVE_ISNAN
 
 /* Define if you have kstat */
@@ -765,25 +782,25 @@
 /* Define to 1 if you have the <langinfo.h> header file. */
 #undef HAVE_LANGINFO_H
 
-/* Define to 1 if you have the `dl' library (-ldl). */
+/* Define to 1 if you have the 'dl' library (-ldl). */
 #undef HAVE_LIBDL
 
-/* Define to 1 if you have the `dlpi' library (-ldlpi). */
+/* Define to 1 if you have the 'dlpi' library (-ldlpi). */
 #undef HAVE_LIBDLPI
 
 /* Define to 1 if you have the <libdlpi.h> header file. */
 #undef HAVE_LIBDLPI_H
 
-/* Define to 1 if you have the `inet' library (-linet). */
+/* Define to 1 if you have the 'inet' library (-linet). */
 #undef HAVE_LIBINET
 
-/* Define to 1 if you have the `m' library (-lm). */
+/* Define to 1 if you have the 'm' library (-lm). */
 #undef HAVE_LIBM
 
-/* Define to 1 if you have the `sctp' library (-lsctp). */
+/* Define to 1 if you have the 'sctp' library (-lsctp). */
 #undef HAVE_LIBSCTP
 
-/* Define to 1 if you have the `util' library (-lutil). */
+/* Define to 1 if you have the 'util' library (-lutil). */
 #undef HAVE_LIBUTIL
 
 /* Define to 1 if you have the <libutil.h> header file. */
@@ -804,13 +821,16 @@
 /* Define if the targeted system supports the `perf` profiler */
 #undef HAVE_LINUX_PERF_SUPPORT
 
+/* Define if the target system is Linux and THP is available */
+#undef HAVE_LINUX_THP
+
 /* Define to 1 if you have the <linux/types.h> header file. */
 #undef HAVE_LINUX_TYPES_H
 
-/* Define to 1 if you have the `localtime_r' function. */
+/* Define to 1 if you have the 'localtime_r' function. */
 #undef HAVE_LOCALTIME_R
 
-/* Define to 1 if you have the `log2' function. */
+/* Define to 1 if you have the 'log2' function. */
 #undef HAVE_LOG2
 
 /* Define to 1 if you have the <lttng/tracepoint-event.h> header file. */
@@ -819,46 +839,46 @@
 /* Define to 1 if you have the <lttng/tracepoint.h> header file. */
 #undef HAVE_LTTNG_TRACEPOINT_H
 
-/* Define to 1 if you have the `madvise' function. */
+/* Define to 1 if you have the 'madvise' function. */
 #undef HAVE_MADVISE
 
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
 
-/* Define to 1 if you have the `mallopt' function. */
+/* Define to 1 if you have the 'mallopt' function. */
 #undef HAVE_MALLOPT
 
-/* Define to 1 if you have the `memcpy' function. */
+/* Define to 1 if you have the 'memcpy' function. */
 #undef HAVE_MEMCPY
 
-/* Define to 1 if you have the `memmove' function. */
+/* Define to 1 if you have the 'memmove' function. */
 #undef HAVE_MEMMOVE
 
-/* Define to 1 if you have the `memrchr' function. */
+/* Define to 1 if you have the 'memrchr' function. */
 #undef HAVE_MEMRCHR
 
 /* Define if the pthread.h header file is in pthread/mit directory. */
 #undef HAVE_MIT_PTHREAD_H
 
-/* Define to 1 if you have the `mlockall' function. */
+/* Define to 1 if you have the 'mlockall' function. */
 #undef HAVE_MLOCKALL
 
-/* Define to 1 if you have the `mmap' function. */
+/* Define to 1 if you have the 'mmap' function. */
 #undef HAVE_MMAP
 
 /* Define if you have a monotonic erts_os_hrtime() implementation */
 #undef HAVE_MONOTONIC_ERTS_SYS_HRTIME
 
-/* Define to 1 if you have the `mprotect' function. */
+/* Define to 1 if you have the 'mprotect' function. */
 #undef HAVE_MPROTECT
 
-/* Define to 1 if you have the `mremap' function. */
+/* Define to 1 if you have the 'mremap' function. */
 #undef HAVE_MREMAP
 
 /* Define if setsockopt() accepts multicast options */
 #undef HAVE_MULTICAST_SUPPORT
 
-/* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
+/* Define to 1 if you have the <ndir.h> header file, and it defines 'DIR'. */
 #undef HAVE_NDIR_H
 
 /* Define to 1 if you have the <netpacket/packet.h> header file. */
@@ -870,40 +890,40 @@
 /* Define to 1 if you have the <net/if_dl.h> header file. */
 #undef HAVE_NET_IF_DL_H
 
-/* Define to 1 if you have the `nl_langinfo' function. */
+/* Define to 1 if you have the 'nl_langinfo' function. */
 #undef HAVE_NL_LANGINFO
 
 /* Define if you don't have a definition of INADDR_LOOPBACK */
 #undef HAVE_NO_INADDR_LOOPBACK
 
-/* Define to 1 if you have the `openpty' function. */
+/* Define to 1 if you have the 'openpty' function. */
 #undef HAVE_OPENPTY
 
-/* Define to 1 if you have the `poll' function. */
+/* Define to 1 if you have the 'poll' function. */
 #undef HAVE_POLL
 
 /* Define to 1 if you have the <poll.h> header file. */
 #undef HAVE_POLL_H
 
-/* Define to 1 if you have the `posix2time' function. */
+/* Define to 1 if you have the 'posix2time' function. */
 #undef HAVE_POSIX2TIME
 
-/* Define to 1 if you have the `posix_fadvise' function. */
+/* Define to 1 if you have the 'posix_fadvise' function. */
 #undef HAVE_POSIX_FADVISE
 
 /* Define if you have a working posix_fallocate() */
 #undef HAVE_POSIX_FALLOCATE
 
-/* Define to 1 if you have the `posix_madvise' function. */
+/* Define to 1 if you have the 'posix_madvise' function. */
 #undef HAVE_POSIX_MADVISE
 
 /* Define to 1 if you have the `posix_memalign' function. */
 #undef HAVE_POSIX_MEMALIGN
 
-/* Define to 1 if you have the `ppoll' function. */
+/* Define to 1 if you have the 'ppoll' function. */
 #undef HAVE_PPOLL
 
-/* Define to 1 if you have the `pread' function. */
+/* Define to 1 if you have the 'pread' function. */
 #undef HAVE_PREAD
 
 /* Define if you have processor_bind functionality */
@@ -921,13 +941,13 @@
 /* Define if you have putc_unlocked */
 #undef HAVE_PUTC_UNLOCKED
 
-/* Define to 1 if you have the `pwrite' function. */
+/* Define to 1 if you have the 'pwrite' function. */
 #undef HAVE_PWRITE
 
-/* Define to 1 if you have the `res_gethostbyname' function. */
+/* Define to 1 if you have the 'res_gethostbyname' function. */
 #undef HAVE_RES_GETHOSTBYNAME
 
-/* Define to 1 if you have the `sbrk' function. */
+/* Define to 1 if you have the 'sbrk' function. */
 #undef HAVE_SBRK
 
 /* Define to 1 if you have the <sched.h> header file. */
@@ -936,52 +956,52 @@
 /* Define if you have sched_getaffinity/sched_setaffinity */
 #undef HAVE_SCHED_xETAFFINITY
 
-/* Define to 1 if you have the `sctp_bindx' function. */
+/* Define to 1 if you have the 'sctp_bindx' function. */
 #undef HAVE_SCTP_BINDX
 
-/* Define to 1 if you have the `sctp_connectx' function. */
+/* Define to 1 if you have the 'sctp_connectx' function. */
 #undef HAVE_SCTP_CONNECTX
 
-/* Define to 1 if you have the `sctp_freeladdrs' function. */
+/* Define to 1 if you have the 'sctp_freeladdrs' function. */
 #undef HAVE_SCTP_FREELADDRS
 
-/* Define to 1 if you have the `sctp_freepaddrs' function. */
+/* Define to 1 if you have the 'sctp_freepaddrs' function. */
 #undef HAVE_SCTP_FREEPADDRS
 
-/* Define to 1 if you have the `sctp_getladdrs' function. */
+/* Define to 1 if you have the 'sctp_getladdrs' function. */
 #undef HAVE_SCTP_GETLADDRS
 
-/* Define to 1 if you have the `sctp_getpaddrs' function. */
+/* Define to 1 if you have the 'sctp_getpaddrs' function. */
 #undef HAVE_SCTP_GETPADDRS
 
 /* Define to 1 if you have the <netinet/sctp.h> header file */
 #undef HAVE_SCTP_H
 
-/* Define to 1 if you have the `sctp_peeloff' function. */
+/* Define to 1 if you have the 'sctp_peeloff' function. */
 #undef HAVE_SCTP_PEELOFF
 
 /* Define to 1 if you have the <sdkddkver.h> header file. */
 #undef HAVE_SDKDDKVER_H
 
-/* Define to 1 if you have the `sendfile' function. */
+/* Define to 1 if you have the 'sendfile' function. */
 #undef HAVE_SENDFILE
 
 /* Define to 1 if you have the `sendfilev' function. */
 #undef HAVE_SENDFILEV
 
-/* Define to 1 if you have the `setlocale' function. */
+/* Define to 1 if you have the 'setlocale' function. */
 #undef HAVE_SETLOCALE
 
-/* Define to 1 if you have the `setns' function. */
+/* Define to 1 if you have the 'setns' function. */
 #undef HAVE_SETNS
 
 /* Define to 1 if you have the <setns.h> header file. */
 #undef HAVE_SETNS_H
 
-/* Define to 1 if you have the `setprotoent' function. */
+/* Define to 1 if you have the 'setprotoent' function. */
 #undef HAVE_SETPROTOENT
 
-/* Define to 1 if you have the `setsid' function. */
+/* Define to 1 if you have the 'setsid' function. */
 #undef HAVE_SETSID
 
 /* Define if we have socklen_t */
@@ -1002,13 +1022,13 @@
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
 
-/* Define to 1 if you have the `strerror' function. */
+/* Define to 1 if you have the 'strerror' function. */
 #undef HAVE_STRERROR
 
-/* Define to 1 if you have the `strerror_r' function. */
+/* Define to 1 if you have the 'strerror_r' function. */
 #undef HAVE_STRERROR_R
 
-/* Define to 1 if you have the `strftime' function. */
+/* Define to 1 if you have the 'strftime' function. */
 #undef HAVE_STRFTIME
 
 /* Define to 1 if you have the <strings.h> header file. */
@@ -1017,63 +1037,63 @@
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
 
-/* Define to 1 if you have the `strlcat' function. */
+/* Define to 1 if you have the 'strlcat' function. */
 #undef HAVE_STRLCAT
 
-/* Define to 1 if you have the `strlcpy' function. */
+/* Define to 1 if you have the 'strlcpy' function. */
 #undef HAVE_STRLCPY
 
-/* Define to 1 if you have the `strncasecmp' function. */
+/* Define to 1 if you have the 'strncasecmp' function. */
 #undef HAVE_STRNCASECMP
 
-/* Define to 1 if `ifr_enaddr' is a member of `struct ifreq'. */
+/* Define to 1 if 'ifr_enaddr' is a member of 'struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_ENADDR
 
-/* Define to 1 if `ifr_hwaddr' is a member of `struct ifreq'. */
+/* Define to 1 if 'ifr_hwaddr' is a member of 'struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_HWADDR
 
-/* Define to 1 if `ifr_ifindex' is a member of `struct ifreq'. */
+/* Define to 1 if 'ifr_ifindex' is a member of 'struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_IFINDEX
 
-/* Define to 1 if `ifr_index' is a member of `struct ifreq'. */
+/* Define to 1 if 'ifr_index' is a member of 'struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_INDEX
 
-/* Define to 1 if `ifr_map' is a member of `struct ifreq'. */
+/* Define to 1 if 'ifr_map' is a member of 'struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_MAP
 
-/* Define to 1 if the system has the type `struct ip_mreqn'. */
+/* Define to 1 if the system has the type 'struct ip_mreqn'. */
 #undef HAVE_STRUCT_IP_MREQN
 
-/* Define to 1 if `assoc_id' is a member of `struct sctp_accoc_value'. */
+/* Define to 1 if 'assoc_id' is a member of 'struct sctp_accoc_value'. */
 #undef HAVE_STRUCT_SCTP_ACCOC_VALUE_ASSOC_ID
 
-/* Define to 1 if `sctp_authentication_event' is a member of `struct
+/* Define to 1 if 'sctp_authentication_event' is a member of 'struct
    sctp_event_subscribe'. */
 #undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT
 
-/* Define to 1 if `sctp_sender_dry_event' is a member of `struct
+/* Define to 1 if 'sctp_sender_dry_event' is a member of 'struct
    sctp_event_subscribe'. */
 #undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT
 
-/* Define to 1 if `spp_flags' is a member of `struct sctp_paddrparams'. */
+/* Define to 1 if 'spp_flags' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS
 
-/* Define to 1 if `spp_pathmtu' is a member of `struct sctp_paddrparams'. */
+/* Define to 1 if 'spp_pathmtu' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_PATHMTU
 
-/* Define to 1 if `spp_sackdelay' is a member of `struct sctp_paddrparams'. */
+/* Define to 1 if 'spp_sackdelay' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
 
-/* Define to 1 if `sre_data' is a member of `struct sctp_remote_error'. */
+/* Define to 1 if 'sre_data' is a member of 'struct sctp_remote_error'. */
 #undef HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA
 
-/* Define to 1 if `ssf_data' is a member of `struct sctp_send_failed'. */
+/* Define to 1 if 'ssf_data' is a member of 'struct sctp_send_failed'. */
 #undef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
 
-/* Define to 1 if `sdl_len' is a member of `struct sockaddr_dl'. */
+/* Define to 1 if 'sdl_len' is a member of 'struct sockaddr_dl'. */
 #undef HAVE_STRUCT_SOCKADDR_DL_SDL_LEN
 
-/* Define to 1 if `sun_path' is a member of `struct sockaddr_un'. */
+/* Define to 1 if 'sun_path' is a member of 'struct sockaddr_un'. */
 #undef HAVE_STRUCT_SOCKADDR_UN_SUN_PATH
 
 /* Define to 1 if you have the <syslog.h> header file. */
@@ -1088,7 +1108,7 @@
 /* Define if you have <sys/devpoll.h> header file. */
 #undef HAVE_SYS_DEVPOLL_H
 
-/* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'.
+/* Define to 1 if you have the <sys/dir.h> header file, and it defines 'DIR'.
    */
 #undef HAVE_SYS_DIR_H
 
@@ -1104,7 +1124,7 @@
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H
 
-/* Define to 1 if you have the <sys/ndir.h> header file, and it defines `DIR'.
+/* Define to 1 if you have the <sys/ndir.h> header file, and it defines 'DIR'.
    */
 #undef HAVE_SYS_NDIR_H
 
@@ -1159,7 +1179,7 @@
 /* Define to 1 if you have the <term.h> header file. */
 #undef HAVE_TERM_H
 
-/* Define to 1 if you have the `time2posix' function. */
+/* Define to 1 if you have the 'time2posix' function. */
 #undef HAVE_TIME2POSIX
 
 /* Define to 1 if you have the <unistd.h> header file. */
@@ -1171,10 +1191,10 @@
 /* Define to 1 if you have the <utmp.h> header file. */
 #undef HAVE_UTMP_H
 
-/* Define to 1 if you have the `vprintf' function. */
+/* Define to 1 if you have the 'vprintf' function. */
 #undef HAVE_VPRINTF
 
-/* Define to 1 if you have the `vsyslog' function. */
+/* Define to 1 if you have the 'vsyslog' function. */
 #undef HAVE_VSYSLOG
 
 /* Define to 1 if you have a `wcwidth' function. */
@@ -1189,7 +1209,7 @@
 /* Define if you have a working posix_openpt implementation */
 #undef HAVE_WORKING_POSIX_OPENPT
 
-/* Define to 1 if you have the `writev' function. */
+/* Define to 1 if you have the 'writev' function. */
 #undef HAVE_WRITEV
 
 /* Define to 1 if you have the <ws2tcpip.h> header file. */
@@ -1198,19 +1218,19 @@
 /* Define if your zlib version defines inflateGetDictionary. */
 #undef HAVE_ZLIB_INFLATEGETDICTIONARY
 
-/* Define to 1 if you have the `_brk' function. */
+/* Define to 1 if you have the '_brk' function. */
 #undef HAVE__BRK
 
 /* Define if you have the '_end' symbol */
 #undef HAVE__END_SYMBOL
 
-/* Define to 1 if you have the `_sbrk' function. */
+/* Define to 1 if you have the '_sbrk' function. */
 #undef HAVE__SBRK
 
-/* Define to 1 if you have the `__brk' function. */
+/* Define to 1 if you have the '__brk' function. */
 #undef HAVE___BRK
 
-/* Define to 1 if you have the `__sbrk' function. */
+/* Define to 1 if you have the '__sbrk' function. */
 #undef HAVE___SBRK
 
 /* Define to monotonic clock id to use */
@@ -1299,49 +1319,49 @@
 /* Define if building a sharing-preserving emulator */
 #undef SHCOPY
 
-/* The size of `AO_t', as computed by sizeof. */
+/* The size of 'AO_t', as computed by sizeof. */
 #undef SIZEOF_AO_T
 
-/* The size of `char', as computed by sizeof. */
+/* The size of 'char', as computed by sizeof. */
 #undef SIZEOF_CHAR
 
-/* The size of `int', as computed by sizeof. */
+/* The size of 'int', as computed by sizeof. */
 #undef SIZEOF_INT
 
-/* The size of `long', as computed by sizeof. */
+/* The size of 'long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* The size of `long long', as computed by sizeof. */
+/* The size of 'long long', as computed by sizeof. */
 #undef SIZEOF_LONG_LONG
 
-/* The size of `off_t', as computed by sizeof. */
+/* The size of 'off_t', as computed by sizeof. */
 #undef SIZEOF_OFF_T
 
-/* The size of `short', as computed by sizeof. */
+/* The size of 'short', as computed by sizeof. */
 #undef SIZEOF_SHORT
 
-/* The size of `size_t', as computed by sizeof. */
+/* The size of 'size_t', as computed by sizeof. */
 #undef SIZEOF_SIZE_T
 
-/* The size of `suseconds_t', as computed by sizeof. */
+/* The size of 'suseconds_t', as computed by sizeof. */
 #undef SIZEOF_SUSECONDS_T
 
-/* The size of `time_t', as computed by sizeof. */
+/* The size of 'time_t', as computed by sizeof. */
 #undef SIZEOF_TIME_T
 
-/* The size of `void *', as computed by sizeof. */
+/* The size of 'void *', as computed by sizeof. */
 #undef SIZEOF_VOID_P
 
-/* The size of `_Float16', as computed by sizeof. */
+/* The size of '_Float16', as computed by sizeof. */
 #undef SIZEOF__FLOAT16
 
-/* The size of `__int128_t', as computed by sizeof. */
+/* The size of '__int128_t', as computed by sizeof. */
 #undef SIZEOF___INT128_T
 
-/* The size of `__int64', as computed by sizeof. */
+/* The size of '__int64', as computed by sizeof. */
 #undef SIZEOF___INT64
 
-/* Define to 1 if all of the C90 standard headers exist (not just the ones
+/* Define to 1 if all of the C89 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for
    backward compatibility; new code need not use it. */
 #undef STDC_HEADERS
@@ -1359,7 +1379,7 @@
    clock_get_time() */
 #undef SYS_HRTIME_USING_MACH_CLOCK_GET_TIME
 
-/* Define to 1 if your <sys/time.h> declares `struct tm'. */
+/* Define to 1 if your <sys/time.h> declares 'struct tm'. */
 #undef TM_IN_SYS_TIME
 
 /* Define if you want to use dtrace for dynamic tracing */
@@ -1392,16 +1412,28 @@
 /* Define if big-endian */
 #undef WORDS_BIGENDIAN
 
-/* Define to empty if `const' does not conform to ANSI C. */
+/* Number of bits in a file offset, on hosts where this is settable. */
+#undef _FILE_OFFSET_BITS
+
+/* Define to 1 on platforms where this makes off_t a 64-bit type. */
+#undef _LARGE_FILES
+
+/* Number of bits in time_t, on hosts where this is settable. */
+#undef _TIME_BITS
+
+/* Define to 1 on platforms where this makes time_t a 64-bit type. */
+#undef __MINGW_USE_VC2005_COMPAT
+
+/* Define to empty if 'const' does not conform to ANSI C. */
 #undef const
 
-/* Define to `long int' if <sys/types.h> does not define. */
+/* Define to 'long int' if <sys/types.h> does not define. */
 #undef off_t
 
 /* Define as a signed integer type capable of holding a process identifier. */
 #undef pid_t
 
-/* Define to `unsigned int' if <sys/types.h> does not define. */
+/* Define as 'unsigned int' if <stddef.h> doesn't define. */
 #undef size_t
 
 

@@ -47,6 +47,7 @@ class InvokeNode;
 //! Check out architecture specific compilers for more details and examples:
 //!
 //!   - \ref x86::Compiler - X86/X64 compiler implementation.
+//!   - \ref a64::Compiler - AArch64 compiler implementation.
 class ASMJIT_VIRTAPI BaseCompiler : public BaseBuilder {
 public:
   ASMJIT_NONCOPYABLE(BaseCompiler)
@@ -77,7 +78,7 @@ public:
   //! Creates a new `BaseCompiler` instance.
   ASMJIT_API BaseCompiler() noexcept;
   //! Destroys the `BaseCompiler` instance.
-  ASMJIT_API virtual ~BaseCompiler() noexcept;
+  ASMJIT_API ~BaseCompiler() noexcept override;
 
   //! \}
 
@@ -95,7 +96,7 @@ public:
   ASMJIT_API Error addFuncRetNode(FuncRetNode** ASMJIT_NONNULL(out), const Operand_& o0, const Operand_& o1);
 
   //! Returns the current function.
-  inline FuncNode* func() const noexcept { return _func; }
+  ASMJIT_INLINE_NODEBUG FuncNode* func() const noexcept { return _func; }
 
   //! Creates a new \ref FuncNode with the given `signature` and returns it.
   inline FuncNode* newFunc(const FuncSignature& signature) {
@@ -162,6 +163,8 @@ public:
   //!
   //! \note This version accepts a snprintf() format `fmt` followed by a variadic arguments.
   ASMJIT_API Error _newRegFmt(BaseReg* ASMJIT_NONNULL(out), TypeId typeId, const char* fmt, ...);
+  //! \overload
+  inline Error _newRegFmt(BaseReg* ASMJIT_NONNULL(out), TypeId typeId) { return _newRegFmt(out, typeId, nullptr); }
 
   //! Creates a new virtual register compatible with the provided reference register `ref`.
   ASMJIT_API Error _newReg(BaseReg* ASMJIT_NONNULL(out), const BaseReg& ref, const char* name = nullptr);
@@ -172,12 +175,12 @@ public:
   ASMJIT_API Error _newRegFmt(BaseReg* ASMJIT_NONNULL(out), const BaseReg& ref, const char* fmt, ...);
 
   //! Tests whether the given `id` is a valid virtual register id.
-  inline bool isVirtIdValid(uint32_t id) const noexcept {
+  ASMJIT_INLINE_NODEBUG bool isVirtIdValid(uint32_t id) const noexcept {
     uint32_t index = Operand::virtIdToIndex(id);
     return index < _vRegArray.size();
   }
   //! Tests whether the given `reg` is a virtual register having a valid id.
-  inline bool isVirtRegValid(const BaseReg& reg) const noexcept {
+  ASMJIT_INLINE_NODEBUG bool isVirtRegValid(const BaseReg& reg) const noexcept {
     return isVirtIdValid(reg.id());
   }
 
@@ -188,16 +191,16 @@ public:
   }
 
   //! Returns \ref VirtReg associated with the given `reg`.
-  inline VirtReg* virtRegByReg(const BaseReg& reg) const noexcept { return virtRegById(reg.id()); }
+  ASMJIT_INLINE_NODEBUG VirtReg* virtRegByReg(const BaseReg& reg) const noexcept { return virtRegById(reg.id()); }
 
   //! Returns \ref VirtReg associated with the given virtual register `index`.
   //!
   //! \note This is not the same as virtual register id. The conversion between id and its index is implemented
   //! by \ref Operand_::virtIdToIndex() and \ref Operand_::indexToVirtId() functions.
-  inline VirtReg* virtRegByIndex(uint32_t index) const noexcept { return _vRegArray[index]; }
+  ASMJIT_INLINE_NODEBUG VirtReg* virtRegByIndex(uint32_t index) const noexcept { return _vRegArray[index]; }
 
   //! Returns an array of all virtual registers managed by the Compiler.
-  inline const ZoneVector<VirtReg*>& virtRegs() const noexcept { return _vRegArray; }
+  ASMJIT_INLINE_NODEBUG const ZoneVector<VirtReg*>& virtRegs() const noexcept { return _vRegArray; }
 
   //! \name Stack
   //! \{
@@ -211,7 +214,7 @@ public:
   ASMJIT_API Error setStackSize(uint32_t virtId, uint32_t newSize, uint32_t newAlignment = 0);
 
   //! Updates the stack size of a stack created by `_newStack()`.
-  inline Error setStackSize(const BaseMem& mem, uint32_t newSize, uint32_t newAlignment = 0) {
+  ASMJIT_INLINE_NODEBUG Error setStackSize(const BaseMem& mem, uint32_t newSize, uint32_t newAlignment = 0) {
     return setStackSize(mem.id(), newSize, newAlignment);
   }
 
@@ -239,7 +242,7 @@ public:
   //! \name Jump Annotations
   //! \{
 
-  inline const ZoneVector<JumpAnnotation*>& jumpAnnotations() const noexcept {
+  ASMJIT_INLINE_NODEBUG const ZoneVector<JumpAnnotation*>& jumpAnnotations() const noexcept {
     return _jumpAnnotations;
   }
 
@@ -286,7 +289,7 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline JumpAnnotation(BaseCompiler* ASMJIT_NONNULL(compiler), uint32_t annotationId) noexcept
+  ASMJIT_INLINE_NODEBUG JumpAnnotation(BaseCompiler* ASMJIT_NONNULL(compiler), uint32_t annotationId) noexcept
     : _compiler(compiler),
       _annotationId(annotationId) {}
 
@@ -296,16 +299,16 @@ public:
   //! \{
 
   //! Returns the compiler that owns this JumpAnnotation.
-  inline BaseCompiler* compiler() const noexcept { return _compiler; }
+  ASMJIT_INLINE_NODEBUG BaseCompiler* compiler() const noexcept { return _compiler; }
   //! Returns the annotation id.
-  inline uint32_t annotationId() const noexcept { return _annotationId; }
+  ASMJIT_INLINE_NODEBUG uint32_t annotationId() const noexcept { return _annotationId; }
   //! Returns a vector of label identifiers that lists all targets of the jump.
-  const ZoneVector<uint32_t>& labelIds() const noexcept { return _labelIds; }
+  ASMJIT_INLINE_NODEBUG const ZoneVector<uint32_t>& labelIds() const noexcept { return _labelIds; }
 
   //! Tests whether the given `label` is a target of this JumpAnnotation.
-  inline bool hasLabel(const Label& label) const noexcept { return hasLabelId(label.id()); }
+  ASMJIT_INLINE_NODEBUG bool hasLabel(const Label& label) const noexcept { return hasLabelId(label.id()); }
   //! Tests whether the given `labelId` is a target of this JumpAnnotation.
-  inline bool hasLabelId(uint32_t labelId) const noexcept { return _labelIds.contains(labelId); }
+  ASMJIT_INLINE_NODEBUG bool hasLabelId(uint32_t labelId) const noexcept { return _labelIds.contains(labelId); }
 
   //! \}
 
@@ -313,9 +316,9 @@ public:
   //! \{
 
   //! Adds the `label` to the list of targets of this JumpAnnotation.
-  inline Error addLabel(const Label& label) noexcept { return addLabelId(label.id()); }
+  ASMJIT_INLINE_NODEBUG Error addLabel(const Label& label) noexcept { return addLabelId(label.id()); }
   //! Adds the `labelId` to the list of targets of this JumpAnnotation.
-  inline Error addLabelId(uint32_t labelId) noexcept { return _labelIds.append(&_compiler->_allocator, labelId); }
+  ASMJIT_INLINE_NODEBUG Error addLabelId(uint32_t labelId) noexcept { return _labelIds.append(&_compiler->_allocator, labelId); }
 
   //! \}
 };
@@ -325,7 +328,7 @@ public:
 //! \note This node should be only used to represent jump where the jump target cannot be deduced by examining
 //! instruction operands. For example if the jump target is register or memory location. This pattern is often
 //! used to perform indirect jumps that use jump table, e.g. to implement `switch{}` statement.
-class JumpNode : public InstNode {
+class JumpNode : public InstNodeWithOperands<InstNode::kBaseOpCapacity> {
 public:
   ASMJIT_NONCOPYABLE(JumpNode)
 
@@ -340,7 +343,7 @@ public:
   //! \{
 
   inline JumpNode(BaseCompiler* ASMJIT_NONNULL(cc), InstId instId, InstOptions options, uint32_t opCount, JumpAnnotation* annotation) noexcept
-    : InstNode(cc, instId, options, opCount, kBaseOpCapacity),
+    : InstNodeWithOperands(cc, instId, options, opCount),
       _annotation(annotation) {
     setType(NodeType::kJump);
   }
@@ -351,11 +354,11 @@ public:
   //! \{
 
   //! Tests whether this JumpNode has associated a \ref JumpAnnotation.
-  inline bool hasAnnotation() const noexcept { return _annotation != nullptr; }
+  ASMJIT_INLINE_NODEBUG bool hasAnnotation() const noexcept { return _annotation != nullptr; }
   //! Returns the \ref JumpAnnotation associated with this jump, or `nullptr`.
-  inline JumpAnnotation* annotation() const noexcept { return _annotation; }
+  ASMJIT_INLINE_NODEBUG JumpAnnotation* annotation() const noexcept { return _annotation; }
   //! Sets the \ref JumpAnnotation associated with this jump to `annotation`.
-  inline void setAnnotation(JumpAnnotation* annotation) noexcept { _annotation = annotation; }
+  ASMJIT_INLINE_NODEBUG void setAnnotation(JumpAnnotation* annotation) noexcept { _annotation = annotation; }
 
   //! \}
 };
@@ -455,35 +458,35 @@ public:
   //! \name Accessors
 
   //! Returns function exit `LabelNode`.
-  inline LabelNode* exitNode() const noexcept { return _exitNode; }
+  ASMJIT_INLINE_NODEBUG LabelNode* exitNode() const noexcept { return _exitNode; }
   //! Returns function exit label.
-  inline Label exitLabel() const noexcept { return _exitNode->label(); }
+  ASMJIT_INLINE_NODEBUG Label exitLabel() const noexcept { return _exitNode->label(); }
 
   //! Returns "End of Func" sentinel node.
-  inline SentinelNode* endNode() const noexcept { return _end; }
+  ASMJIT_INLINE_NODEBUG SentinelNode* endNode() const noexcept { return _end; }
 
   //! Returns function detail.
-  inline FuncDetail& detail() noexcept { return _funcDetail; }
+  ASMJIT_INLINE_NODEBUG FuncDetail& detail() noexcept { return _funcDetail; }
   //! Returns function detail.
-  inline const FuncDetail& detail() const noexcept { return _funcDetail; }
+  ASMJIT_INLINE_NODEBUG const FuncDetail& detail() const noexcept { return _funcDetail; }
 
   //! Returns function frame.
-  inline FuncFrame& frame() noexcept { return _frame; }
+  ASMJIT_INLINE_NODEBUG FuncFrame& frame() noexcept { return _frame; }
   //! Returns function frame.
-  inline const FuncFrame& frame() const noexcept { return _frame; }
+  ASMJIT_INLINE_NODEBUG const FuncFrame& frame() const noexcept { return _frame; }
 
   //! Returns function attributes.
-  inline FuncAttributes attributes() const noexcept { return _frame.attributes(); }
+  ASMJIT_INLINE_NODEBUG FuncAttributes attributes() const noexcept { return _frame.attributes(); }
   //! Adds `attrs` to the function attributes.
-  inline void addAttributes(FuncAttributes attrs) noexcept { _frame.addAttributes(attrs); }
+  ASMJIT_INLINE_NODEBUG void addAttributes(FuncAttributes attrs) noexcept { _frame.addAttributes(attrs); }
 
   //! Returns arguments count.
-  inline uint32_t argCount() const noexcept { return _funcDetail.argCount(); }
+  ASMJIT_INLINE_NODEBUG uint32_t argCount() const noexcept { return _funcDetail.argCount(); }
   //! Returns argument packs.
-  inline ArgPack* argPacks() const noexcept { return _args; }
+  ASMJIT_INLINE_NODEBUG ArgPack* argPacks() const noexcept { return _args; }
 
   //! Tests whether the function has a return value.
-  inline bool hasRet() const noexcept { return _funcDetail.hasRet(); }
+  ASMJIT_INLINE_NODEBUG bool hasRet() const noexcept { return _funcDetail.hasRet(); }
 
   //! Returns argument pack at `argIndex`.
   inline ArgPack& argPack(size_t argIndex) const noexcept {
@@ -531,7 +534,7 @@ public:
 };
 
 //! Function return, used by \ref BaseCompiler.
-class FuncRetNode : public InstNode {
+class FuncRetNode : public InstNodeWithOperands<InstNode::kBaseOpCapacity> {
 public:
   ASMJIT_NONCOPYABLE(FuncRetNode)
 
@@ -539,7 +542,8 @@ public:
   //! \{
 
   //! Creates a new `FuncRetNode` instance.
-  inline FuncRetNode(BaseBuilder* ASMJIT_NONNULL(cb)) noexcept : InstNode(cb, BaseInst::kIdAbstract, InstOptions::kNone, 0) {
+  inline FuncRetNode(BaseBuilder* ASMJIT_NONNULL(cb)) noexcept
+    : InstNodeWithOperands(cb, BaseInst::kIdAbstract, InstOptions::kNone, 0) {
     _any._nodeType = NodeType::kFuncRet;
   }
 
@@ -547,12 +551,12 @@ public:
 };
 
 //! Function invocation, used by \ref BaseCompiler.
-class InvokeNode : public InstNode {
+class InvokeNode : public InstNodeWithOperands<InstNode::kBaseOpCapacity> {
 public:
   ASMJIT_NONCOPYABLE(InvokeNode)
 
   //! Operand pack provides multiple operands that can be associated with a single return value of function
-  //! argument. Sometims this is necessary to express an argument or return value that requires multiple
+  //! argument. Sometimes this is necessary to express an argument or return value that requires multiple
   //! registers, for example 64-bit value in 32-bit mode or passing / returning homogeneous data structures.
   struct OperandPack {
     //! Operands.
@@ -594,7 +598,7 @@ public:
 
   //! Creates a new `InvokeNode` instance.
   inline InvokeNode(BaseBuilder* ASMJIT_NONNULL(cb), InstId instId, InstOptions options) noexcept
-    : InstNode(cb, instId, options, kBaseOpCapacity),
+    : InstNodeWithOperands(cb, instId, options, 0),
       _funcDetail(),
       _args(nullptr) {
     setType(NodeType::kInvoke);
@@ -614,29 +618,29 @@ public:
   }
 
   //! Returns the function detail.
-  inline FuncDetail& detail() noexcept { return _funcDetail; }
+  ASMJIT_INLINE_NODEBUG FuncDetail& detail() noexcept { return _funcDetail; }
   //! Returns the function detail.
-  inline const FuncDetail& detail() const noexcept { return _funcDetail; }
+  ASMJIT_INLINE_NODEBUG const FuncDetail& detail() const noexcept { return _funcDetail; }
 
   //! Returns the target operand.
-  inline Operand& target() noexcept { return _opArray[0].as<Operand>(); }
+  ASMJIT_INLINE_NODEBUG Operand& target() noexcept { return op(0); }
   //! \overload
-  inline const Operand& target() const noexcept { return _opArray[0].as<Operand>(); }
+  ASMJIT_INLINE_NODEBUG const Operand& target() const noexcept { return op(0); }
 
   //! Returns the number of function return values.
-  inline bool hasRet() const noexcept { return _funcDetail.hasRet(); }
+  ASMJIT_INLINE_NODEBUG bool hasRet() const noexcept { return _funcDetail.hasRet(); }
   //! Returns the number of function arguments.
-  inline uint32_t argCount() const noexcept { return _funcDetail.argCount(); }
+  ASMJIT_INLINE_NODEBUG uint32_t argCount() const noexcept { return _funcDetail.argCount(); }
 
   //! Returns operand pack representing function return value(s).
-  inline OperandPack& retPack() noexcept { return _rets; }
+  ASMJIT_INLINE_NODEBUG OperandPack& retPack() noexcept { return _rets; }
   //! Returns operand pack representing function return value(s).
-  inline const OperandPack& retPack() const noexcept { return _rets; }
+  ASMJIT_INLINE_NODEBUG const OperandPack& retPack() const noexcept { return _rets; }
 
   //! Returns the return value at the given `valueIndex`.
-  inline Operand& ret(size_t valueIndex = 0) noexcept { return _rets[valueIndex]; }
+  ASMJIT_INLINE_NODEBUG Operand& ret(size_t valueIndex = 0) noexcept { return _rets[valueIndex]; }
   //! \overload
-  inline const Operand& ret(size_t valueIndex = 0) const noexcept { return _rets[valueIndex]; }
+  ASMJIT_INLINE_NODEBUG const Operand& ret(size_t valueIndex = 0) const noexcept { return _rets[valueIndex]; }
 
   //! Returns operand pack representing function return value(s).
   inline OperandPack& argPack(size_t argIndex) noexcept {
@@ -669,17 +673,17 @@ public:
   }
 
   //! Sets the function return value at `valueIndex` to `reg`.
-  inline void setRet(size_t valueIndex, const BaseReg& reg) noexcept { _setRet(valueIndex, reg); }
+  ASMJIT_INLINE_NODEBUG void setRet(size_t valueIndex, const BaseReg& reg) noexcept { _setRet(valueIndex, reg); }
 
   //! Sets the first function argument in a value-pack at `argIndex` to `reg`.
-  inline void setArg(size_t argIndex, const BaseReg& reg) noexcept { _setArg(argIndex, 0, reg); }
+  ASMJIT_INLINE_NODEBUG void setArg(size_t argIndex, const BaseReg& reg) noexcept { _setArg(argIndex, 0, reg); }
   //! Sets the first function argument in a value-pack at `argIndex` to `imm`.
-  inline void setArg(size_t argIndex, const Imm& imm) noexcept { _setArg(argIndex, 0, imm); }
+  ASMJIT_INLINE_NODEBUG void setArg(size_t argIndex, const Imm& imm) noexcept { _setArg(argIndex, 0, imm); }
 
   //! Sets the function argument at `argIndex` and `valueIndex` to `reg`.
-  inline void setArg(size_t argIndex, size_t valueIndex, const BaseReg& reg) noexcept { _setArg(argIndex, valueIndex, reg); }
+  ASMJIT_INLINE_NODEBUG void setArg(size_t argIndex, size_t valueIndex, const BaseReg& reg) noexcept { _setArg(argIndex, valueIndex, reg); }
   //! Sets the function argument at `argIndex` and `valueIndex` to `imm`.
-  inline void setArg(size_t argIndex, size_t valueIndex, const Imm& imm) noexcept { _setArg(argIndex, valueIndex, imm); }
+  ASMJIT_INLINE_NODEBUG void setArg(size_t argIndex, size_t valueIndex, const Imm& imm) noexcept { _setArg(argIndex, valueIndex, imm); }
 
   //! \}
 };
@@ -701,7 +705,7 @@ public:
   //! \{
 
   //! Returns the associated `BaseCompiler`.
-  inline BaseCompiler* cc() const noexcept { return static_cast<BaseCompiler*>(_cb); }
+  ASMJIT_INLINE_NODEBUG BaseCompiler* cc() const noexcept { return static_cast<BaseCompiler*>(_cb); }
 
   //! \}
 
@@ -712,7 +716,7 @@ public:
   ASMJIT_API Error run(Zone* zone, Logger* logger) override;
 
   //! Called once per `FuncNode`.
-  virtual Error runOnFunction(Zone* zone, Logger* logger, FuncNode* func) = 0;
+  ASMJIT_API virtual Error runOnFunction(Zone* zone, Logger* logger, FuncNode* func);
 
   //! \}
 };

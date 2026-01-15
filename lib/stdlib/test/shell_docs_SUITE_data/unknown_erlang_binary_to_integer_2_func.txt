@@ -1,12 +1,20 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec binary_to_integer(Binary, Base) -> integer()[0m
-  [;1m                           when Binary :: binary(), Base :: 2..36.[0m
+[;1m  binary_to_integer(Binary, Base)[0m
 
 [;;4mSince[0m:
   OTP R16B
 
   Returns an integer whose text representation in base [;;4mBase[0m is [;;4m[0m
-  [;;4mBinary[0m, for example:
+  [;;4mBinary[0m.
+
+  For example:
 
     > binary_to_integer(<<"3FF">>, 16).
     1023

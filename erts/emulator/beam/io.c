@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,9 +57,9 @@
 #include "erl_io_queue.h"
 #include "erl_proc_sig_queue.h"
 #include "erl_global_literals.h"
+#include "erl_iolist.h"
 
 extern ErlDrvEntry fd_driver_entry;
-extern ErlDrvEntry vanilla_driver_entry;
 extern ErlDrvEntry spawn_driver_entry;
 #ifndef __WIN32__
 extern ErlDrvEntry forker_driver_entry;
@@ -77,7 +79,6 @@ const ErlDrvTermData driver_term_nil = (ErlDrvTermData)NIL;
 
 const Port erts_invalid_port = {{ERTS_INVALID_PORT}};
 
-erts_driver_t vanilla_driver;
 erts_driver_t spawn_driver;
 #ifndef __WIN32__
 erts_driver_t forker_driver;
@@ -102,7 +103,7 @@ static void driver_monitor_unlock_pdl(Port *p);
 #define DRV_MONITOR_LOCK_PDL(Port) driver_monitor_lock_pdl(Port)
 #define DRV_MONITOR_UNLOCK_PDL(Port) driver_monitor_unlock_pdl(Port)
 
-#define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BIN_LIMIT)
+#define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BINARY_LIMIT)
 #define SMALL_WRITE_VEC  16
 
 static ERTS_INLINE ErlPortIOQueue*
@@ -208,7 +209,7 @@ static ERTS_INLINE void
 kill_port(Port *pp)
 {
     ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
-    ERTS_TRACER_CLEAR(&ERTS_TRACER(pp));
+    delete_all_trace_refs(&pp->common);
     erts_ptab_delete_element(&erts_port, &pp->common); /* Time of death */
     erts_port_task_free_port(pp);
     /* In non-smp case the port structure may have been deallocated now */
@@ -384,9 +385,6 @@ static Port *create_port(char *name,
     prt->drv_data = (SWord) 0;
     prt->os_pid = -1;
 
-    /* Set default tracing */
-    erts_get_default_port_tracing(&ERTS_TRACE_FLAGS(prt), &ERTS_TRACER(prt));
-
     ERTS_CT_ASSERT(offsetof(Port,common) == 0);
 
 #if !ERTS_PORT_INIT_INSTR_NEED_ID
@@ -417,6 +415,26 @@ static Port *create_port(char *name,
     ASSERT(prt == (Port *) (erts_ptab_pix2intptr_nob(
 				&erts_port,
 				internal_port_index(prt->common.id))));
+
+    ERTS_P_ALL_TRACE_FLAGS(prt) = 0;
+    prt->common.tracee.first_ref = NULL;
+
+    if (erts_refc_read(&erts_new_ports_trace_cnt, 0)) {
+        /* Set new port tracing */
+        erts_rwmtx_rlock(&erts_trace_session_list_lock);
+        for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+            Uint32 trace_flags;
+            ErtsTracer tracer;
+            erts_get_new_port_tracing(s, &trace_flags, &tracer);
+            if (trace_flags) {
+                ErtsTracerRef *ref = new_tracer_ref(&prt->common, s);
+                ref->flags = trace_flags;
+                ref->tracer = tracer;
+            }
+        }
+        erts_rwmtx_runlock(&erts_trace_session_list_lock);
+        ERTS_P_ALL_TRACE_FLAGS(prt) = erts_sum_all_trace_flags(&prt->common);
+    }
 
     initq(prt);
 
@@ -610,7 +628,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     }
 
     if (opts->port_watermarks_set && driver != &spawn_driver
-        && driver != &fd_driver && driver != &vanilla_driver) {
+        && driver != &fd_driver) {
 	erts_rwmtx_runlock(&erts_driver_list_lock);
 	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
     }
@@ -652,7 +670,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	    ERTS_OPEN_DRIVER_RET(NULL, -3, SYSTEM_LIMIT);
     }
     
-    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
+    if (ERTS_IS_P_TRACED_FL(port, F_TRACE_PORTS)) {
 	trace_port_open(port,
 			pid,
 			erts_atom_put((byte *) port->name,
@@ -669,7 +687,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     error_number = error_type = 0;
     if (driver->start) {
         ERTS_MSACC_PUSH_STATE_M();
-	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
+	if (ERTS_IS_P_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_in, am_open);
 	}
 	port->caller = pid;
@@ -711,7 +729,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 
 	ERTS_MSACC_POP_STATE_M();
 	port->caller = NIL;
-	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
+	if (ERTS_IS_P_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_out, am_open);
 	}
 	if (port->xports)
@@ -958,8 +976,8 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
     if (!c_p)
 	reds_left_in = CONTEXT_REDS/10;
     else {
-	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
-	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_out);
+	if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
+	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_out, F_TRACE_SCHED_PROCS);
 	/*
 	 * No status lock held while sending runnable
 	 * proc trace messages. It is however not needed
@@ -984,10 +1002,10 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 
     ERTS_CHK_NO_PROC_LOCKS;
 
-    if (prof_runnable_ports | IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
+    if (prof_runnable_ports | ERTS_IS_P_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
 	if (prof_runnable_ports && !(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
 	    profile_runnable_port(prt, am_active);
-	if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
+	if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
 	    trace_sched_ports_where(prt, am_in, sp->port_op);
 	if (prof_runnable_ports)
 	    erts_port_task_sched_unlock(&prt->sched);
@@ -1020,8 +1038,8 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 					 ~ERTS_PTS_FLG_EXEC_IMM);
     ERTS_LC_ASSERT(act & ERTS_PTS_FLG_EXEC_IMM);
 
-    if (prof_runnable_ports | IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
-	if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
+    if (prof_runnable_ports | ERTS_IS_P_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
+	if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
 	    trace_sched_ports_where(prt, am_out, sp->port_op);
 	if (prof_runnable_ports) {
 	    if (!(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
@@ -1044,8 +1062,8 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	    BUMP_REDS(c_p, bump_reds);
 	}
 
-	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
-	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_in);
+	if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
+	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_in, F_TRACE_SCHED_PROCS);
 	/*
 	 * No status lock held while sending runnable
 	 * proc trace messages. It is however not needed
@@ -1232,7 +1250,7 @@ send_badsig(Port *prt) {
     ERTS_LC_ASSERT(erts_get_scheduler_id());
     ASSERT(is_internal_pid(connected));
     erts_proc_sig_send_exit(&prt->common, prt->common.id, connected,
-                            am_badsig, NIL, 0);
+                            am_badsig, NIL, 0, 0);
 } /* send_badsig */
 
 static void
@@ -1358,7 +1376,7 @@ call_driver_outputv(int bang_op,
 			   || ERTS_IS_CRASH_DUMPING);
 
 
-        if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, caller, am_commandv, evp);
 
 #ifdef USE_VM_PROBES
@@ -1486,7 +1504,7 @@ call_driver_output(int bang_op,
         }
 #endif
 
-        if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, caller, am_command, bufp, size);
 
 	prt->caller = caller;
@@ -2172,7 +2190,7 @@ call_deliver_port_exit(int bang_op,
         erts_link_release(lnk);
     }
 
-    if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
         trace_port_receive(prt, from, am_close);
 
     if (!erts_deliver_port_exit(prt, from, reason, bang_op, broken_link))
@@ -2324,7 +2342,7 @@ set_port_connected(int bang_op,
 	    return ERTS_PORT_OP_DROPPED;
 	}
 
-        if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, from, am_connect, connect);
 
 	ERTS_PORT_SET_CONNECTED(prt, connect);
@@ -2358,8 +2376,8 @@ set_port_connected(int bang_op,
                 erts_link_internal_release(olnk);
                 return ERTS_PORT_OP_DROPPED;
             }
-            if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-                trace_port(prt, am_getting_linked, connect);
+            if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_PORTS))
+                trace_port(prt, am_getting_linked, connect, F_TRACE_PORTS);
         }
 
 #ifdef USE_VM_PROBES
@@ -2379,9 +2397,9 @@ set_port_connected(int bang_op,
 
 	ERTS_PORT_SET_CONNECTED(prt, connect);
 
-        if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, from, am_connect, connect);
-        if (IS_TRACED_FL(prt, F_TRACE_SEND)) {
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND)) {
             Eterm hp[3];
             trace_port_send(prt, from, TUPLE2(hp, prt->common.id, am_connected), 1);
         }
@@ -2490,8 +2508,8 @@ port_unlink(Port *prt, erts_aint32_t state, ErtsSigUnlinkOp *sulnk)
                                                    sulnk->from);
 
         if (ilnk && !ilnk->unlinking) {
-            if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-                trace_port(prt, am_getting_unlinked, sulnk->from);
+            if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_PORTS))
+                trace_port(prt, am_getting_unlinked, sulnk->from, F_TRACE_PORTS);
             erts_link_tree_delete(&ERTS_P_LINKS(prt), &ilnk->link);
             erts_link_internal_release(&ilnk->link);
         }
@@ -2653,8 +2671,8 @@ port_link(Port *prt, erts_aint32_t state, ErtsLink *nlnk)
         lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(prt), nlnk);
         if (lnk)
             erts_link_release(nlnk);
-        else if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_getting_linked, nlnk->other.item);
+        else if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_PORTS))
+            trace_port(prt, am_getting_linked, nlnk->other.item, F_TRACE_PORTS);
     }
 }
 
@@ -3007,7 +3025,6 @@ void erts_init_io(int port_tab_size,
     erts_rwmtx_rwlock(&erts_driver_list_lock);
 
     init_driver(&fd_driver, &fd_driver_entry, NULL);
-    init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
 #ifndef __WIN32__
     init_driver(&forker_driver, &forker_driver_entry, NULL);
@@ -3068,7 +3085,6 @@ static void lcnt_enable_port_lock_count(Port *prt, int enable)
 void erts_lcnt_update_driver_locks(int enable) {
     erts_driver_t *driver;
 
-    lcnt_enable_driver_lock_count(&vanilla_driver, enable);
     lcnt_enable_driver_lock_count(&spawn_driver, enable);
 #ifndef __WIN32__
     lcnt_enable_driver_lock_count(&forker_driver, enable);
@@ -3184,6 +3200,7 @@ static int flush_linebuf(LineBufContext *bp)
 	    resize_linebuf(bp->b);
 	LINEBUF_DATA(*bp)[((*bp->b)->ovlen)++] = '\r';
 	++bp->retlen; /* fall through instead of switching state... */
+        ERTS_FALLTHROUGH();
     case LINEBUF_MAIN:
     case LINEBUF_FULL:
 	(*bp->b)->ovlen = 0;
@@ -3297,7 +3314,7 @@ deliver_result(Port *prt, Eterm sender, Eterm pid, Eterm res)
 	  ? erts_proc_lookup(pid)
 	  : erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_INC_REFC));
 
-    if (prt && IS_TRACED_FL(prt, F_TRACE_SEND)) {
+    if (prt && ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND)) {
         Eterm hp[3];
         trace_port_send(prt, pid, TUPLE2(hp, sender, res), !!rp);
     }
@@ -3346,7 +3363,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     ErlOffHeap *ohp;
     ErtsProcLocks rp_locks = 0;
     int scheduler = erts_get_scheduler_id() != 0;
-    int trace_send = IS_TRACED_FL(prt, F_TRACE_SEND);
+    int trace_send = ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND);
 
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     ERTS_CHK_NO_PROC_LOCKS;
@@ -3357,10 +3374,10 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 	need += 3;
     }
     if ((state & ERTS_PORT_SFLG_BINARY_IO) && buf != NULL) {
-        if (len <= ERL_ONHEAP_BIN_LIMIT)
-            need += heap_bin_size(len);
+        if (len <= ERL_ONHEAP_BINARY_LIMIT)
+            need += heap_bits_size(NBITS(len));
         else
-            need += PROC_BIN_SIZE;
+            need += ERL_REFC_BITS_SIZE;
     } else {
 	need += 2*len;
     }
@@ -3378,20 +3395,20 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     if ((state & ERTS_PORT_SFLG_BINARY_IO) == 0) {
 	listp = buf_to_intlist(&hp, buf, len, listp);
     } else if (buf != NULL) {
-        if (len <= ERL_ONHEAP_BIN_LIMIT) {
-            ErlHeapBin *hbin = (ErlHeapBin *) hp;
-            hbin->thing_word = header_heap_bin(len);
-            hbin->size = (Uint) len;
-            sys_memcpy(hbin->data, buf, len);
-            listp = make_binary(hp);
-            hp += heap_bin_size(len);
-        }
-        else {
+        if (len <= ERL_ONHEAP_BINARY_LIMIT) {
+            listp = HEAP_BITSTRING(hp, buf, 0, NBITS(len));
+            hp += heap_bits_size(NBITS(len));
+        } else {
             Binary* bptr = erts_bin_nrml_alloc(len);
             sys_memcpy(bptr->orig_bytes, buf, len);
 
-            listp = erts_build_proc_bin(ohp, hp, bptr);
-            hp += PROC_BIN_SIZE;
+            listp = erts_wrap_refc_bitstring(&ohp->first,
+                                             &ohp->overhead,
+                                             &hp,
+                                             bptr,
+                                             (byte*)bptr->orig_bytes,
+                                             0,
+                                             NBITS(len));
         }
     }
 
@@ -3492,7 +3509,7 @@ deliver_vec_message(Port* prt,			/* Port */
     ErtsProcLocks rp_locks = 0;
     int scheduler = erts_get_scheduler_id() != 0;
     erts_aint32_t state;
-    int trace_send = IS_TRACED_FL(prt, F_TRACE_SEND);
+    int trace_send = ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND);
 
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     ERTS_CHK_NO_PROC_LOCKS;
@@ -3517,10 +3534,10 @@ deliver_vec_message(Port* prt,			/* Port */
     if (state & ERTS_PORT_SFLG_BINARY_IO) {
         Sint i;
         for (i = 0; i < vsize; i++) {
-            if (iov[i].iov_len <= ERL_ONHEAP_BIN_LIMIT)
-                need += heap_bin_size(iov[i].iov_len);
+            if (iov[i].iov_len <= ERL_ONHEAP_BINARY_LIMIT)
+                need += heap_bits_size(NBITS(iov[i].iov_len));
             else
-                need += PROC_BIN_SIZE;
+                need += ERL_REFC_BITS_SIZE;
         }
 	need += (vsize - 1)*2 + hlen*2;
     } else {
@@ -3547,18 +3564,12 @@ deliver_vec_message(Port* prt,			/* Port */
             iov--;
             binv--;
             bin_size = (Uint) iov->iov_len;
-            
-            if (bin_size <= ERL_ONHEAP_BIN_LIMIT) {
-                ErlHeapBin *hbin = (ErlHeapBin *) hp;
-                hbin->thing_word = header_heap_bin(bin_size);
-                hbin->size = bin_size;
-                sys_memcpy(hbin->data, iov->iov_base, bin_size);
-                bin = make_binary(hp);
-                hp += heap_bin_size(bin_size);
-            }
-            else {
+
+            if (bin_size <= ERL_ONHEAP_BINARY_LIMIT) {
+                bin = HEAP_BITSTRING(hp, iov->iov_base, 0, NBITS(bin_size));
+                hp += heap_bits_size(NBITS(bin_size));
+            } else {
                 ErlDrvBinary* b;
-                ProcBin* pb = (ProcBin*) hp;
                 byte* base;
 
                 if ((b = *binv) == NULL) {
@@ -3570,18 +3581,14 @@ deliver_vec_message(Port* prt,			/* Port */
                     driver_binary_inc_refc(b);
                     base = iov->iov_base;
                 }
-                pb->thing_word = HEADER_PROC_BIN;
-                pb->size = bin_size;
-                pb->next = ohp->first;
-                ohp->first = (struct erl_off_heap_header*)pb;
-                pb->val = ErlDrvBinary2Binary(b);
-                pb->bytes = base;
-                pb->flags = 0;
-                hp += PROC_BIN_SIZE;
-	    
-                OH_OVERHEAD(ohp, bin_size / sizeof(Eterm));
 
-                bin = make_binary(pb);
+                bin = erts_wrap_refc_bitstring(&ohp->first,
+                                               &ohp->overhead,
+                                               &hp,
+                                               ErlDrvBinary2Binary(b),
+                                               base,
+                                               0,
+                                               NBITS(bin_size));
             }
 
 	    if (listp == NIL) {  /* compatible with deliver_bin_message */
@@ -3604,7 +3611,7 @@ deliver_vec_message(Port* prt,			/* Port */
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    if (IS_TRACED_FL(prt, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, to, tuple, 1);
 
     erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
@@ -3663,13 +3670,13 @@ static void flush_port(Port *p)
 #endif
 
 
-        if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_in, am_flush);
 	}
         ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
 	(*p->drv_ptr->flush)((ErlDrvData)p->drv_data);
 	ERTS_MSACC_POP_STATE_M();
-        if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_out, am_flush);
 	}
 	if (p->xports)
@@ -3740,7 +3747,7 @@ terminate_port(Port *prt)
     }
 
     if (is_internal_port(send_closed_port_id)
-        && IS_TRACED_FL(prt, F_TRACE_SEND))
+        && ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, connected_id, am_closed, 1);
 
     if(drv->handle != NULL) {
@@ -3876,8 +3883,8 @@ erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
    state = erts_atomic32_read_bor_mb(&prt->state, set_state_flags);
    state |= set_state_flags;
 
-   if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-        trace_port(prt, am_closed, reason);
+   if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_PORTS))
+        trace_port(prt, am_closed, reason, F_TRACE_PORTS);
 
    erts_trace_check_exiting(prt->common.id);
 
@@ -3898,7 +3905,9 @@ erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
 
    if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
        DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
-       ASSERT(dep);
+
+       ERTS_ASSUME(dep);
+
        erts_do_net_exits(dep, modified_reason);
        erts_deref_dist_entry(dep);
        erts_prtsd_set(prt, ERTS_PRTSD_DIST_ENTRY, NULL);
@@ -4026,7 +4035,7 @@ call_driver_control(Eterm caller,
     }
 #endif
 
-    if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
         trace_port_receive(prt, caller, am_control, command, bufp, size);
 
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
@@ -4055,7 +4064,7 @@ call_driver_control(Eterm caller,
     if (cres < 0)
 	return ERTS_PORT_OP_BADARG;
 
-    if (IS_TRACED_FL(prt, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send_binary(prt, caller, am_control, *resp_bufp, cres);
 
     *from_size = (ErlDrvSizeT) cres;
@@ -4082,18 +4091,22 @@ port_control_result_size(int control_flags,
 			 ErlDrvSizeT *resp_size,
 			 char *pre_alloc_buf)
 {
-    if (!resp_bufp)
-	return (Uint) 0;
+    if (!resp_bufp) {
+        return 0;
+    }
 
     if (control_flags & PORT_CONTROL_FLAG_BINARY) {
-	if (resp_bufp != pre_alloc_buf) {
-	    ErlDrvBinary *dbin = (ErlDrvBinary *) resp_bufp;
-	    *resp_size = dbin->orig_size;
-	    if (*resp_size > ERL_ONHEAP_BIN_LIMIT)
-		return PROC_BIN_SIZE;
-	}
-	ASSERT(*resp_size <= ERL_ONHEAP_BIN_LIMIT);
-	return (Uint) heap_bin_size((*resp_size));
+        if (resp_bufp != pre_alloc_buf) {
+            ErlDrvBinary *dbin = (ErlDrvBinary *) resp_bufp;
+            *resp_size = dbin->orig_size;
+
+            if (*resp_size > ERL_ONHEAP_BINARY_LIMIT) {
+                return ERL_REFC_BITS_SIZE;
+            }
+        }
+
+        ASSERT(*resp_size <= ERL_ONHEAP_BINARY_LIMIT);
+        return (Uint)heap_bits_size(NBITS(*resp_size));
     }
 
     return (Uint) 2*(*resp_size);
@@ -4113,30 +4126,35 @@ write_port_control_result(int control_flags,
     if (control_flags & PORT_CONTROL_FLAG_BINARY) {
 	/* Binary result */
 	ErlDrvBinary *dbin;
-	ErlHeapBin *hbin;
+        Eterm result;
 
-	if (resp_bufp == pre_alloc_buf)
-	    dbin = NULL;
-	else {
-	    dbin = (ErlDrvBinary *) resp_bufp;
-	    if (dbin->orig_size > ERL_ONHEAP_BIN_LIMIT) {
-                res = erts_build_proc_bin(ohp, *hpp, ErlDrvBinary2Binary(dbin));
-		*hpp += PROC_BIN_SIZE;
-                return res;
-	    }
-	    resp_bufp = dbin->orig_bytes;
-	    resp_size = dbin->orig_size;
-	}
+        if (resp_bufp == pre_alloc_buf) {
+            dbin = NULL;
+        } else {
+            dbin = (ErlDrvBinary*)resp_bufp;
+            if (dbin->orig_size > ERL_ONHEAP_BINARY_LIMIT) {
+                Binary *refc_binary = ErlDrvBinary2Binary(dbin);
 
-	hbin = (ErlHeapBin *) *hpp;
-	*hpp += heap_bin_size(resp_size);
-	ASSERT(resp_size <= ERL_ONHEAP_BIN_LIMIT);
-	hbin->thing_word = header_heap_bin(resp_size);
-	hbin->size = resp_size;
-	sys_memcpy(hbin->data, resp_bufp, resp_size);
-	if (dbin)
-	    driver_free_binary(dbin);
-	return make_binary(hbin);
+                return erts_wrap_refc_bitstring(&ohp->first,
+                                                &ohp->overhead,
+                                                hpp,
+                                                refc_binary,
+                                                (byte*)refc_binary->orig_bytes,
+                                                0,
+                                                NBITS(refc_binary->orig_size));
+            }
+            resp_bufp = dbin->orig_bytes;
+            resp_size = dbin->orig_size;
+        }
+
+        result = HEAP_BITSTRING(*hpp, resp_bufp, 0, NBITS(resp_size));
+        *hpp += heap_bits_size(NBITS(resp_size));
+
+        if (dbin) {
+            driver_free_binary(dbin);
+        }
+
+        return result;
     }
 
     /* List result */
@@ -4155,7 +4173,7 @@ port_sig_control(Port *prt,
     ASSERT(sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY);
 
     if (op == ERTS_PROC2PORT_SIG_EXEC) {
-	char resp_buf[ERL_ONHEAP_BIN_LIMIT];
+	char resp_buf[ERL_ONHEAP_BINARY_LIMIT];
 	ErlDrvSizeT resp_size = sizeof(resp_buf);
 	char *resp_bufp = &resp_buf[0];
 	ErtsPortOpResult res;
@@ -4249,14 +4267,14 @@ erts_port_control(Process* c_p,
 		  Eterm data,
 		  Eterm *retvalp)
 {
+    ErtsAlcType_t allocation_type = ERTS_ALC_T_INVALID;
     ErtsPortOpResult res;
-    char *bufp = NULL;
+    byte *basep = NULL;
     ErlDrvSizeT size = 0;
     int try_call;
-    int tmp_alloced = 0;
     erts_aint32_t sched_flags;
     Binary *binp;
-    int copy;
+    BinRef *br;
     ErtsProc2PortSigData *sigdp;
 
     sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
@@ -4265,52 +4283,76 @@ erts_port_control(Process* c_p,
 
     try_call = !(sched_flags & ERTS_PTS_FLGS_FORCE_SCHEDULE_OP);
 
-    if (is_binary(data) && binary_bitoffset(data) == 0) {
-	byte *bytep;
-	ERTS_DECLARE_DUMMY(Uint bitoffs);
-	ERTS_DECLARE_DUMMY(Uint bitsize);
-	ERTS_GET_BINARY_BYTES(data, bytep, bitoffs, bitsize);
-	bufp = (char *) bytep;
-	size = binary_size(data);
+    binp = NULL;
+    ERTS_UNDEF(br, NULL);       /* Suppress warning. */
+
+    if (is_bitstring(data)) {
+        ERTS_DECLARE_DUMMY(Eterm br_flags);
+        Uint offset;
+
+        ERTS_PIN_BITSTRING(data, br_flags, br, basep, offset, size);
+
+        if (TAIL_BITS(size) != 0) {
+            return ERTS_PORT_OP_BADARG;
+        } else if (BIT_OFFSET(offset) != 0) {
+            goto handle_iodata;
+        }
+
+        basep = &basep[BYTE_OFFSET(offset)];
+        size = BYTE_SIZE(size);
+
+        if (br) {
+            binp = br->val;
+        }
     } else {
-	int r;
+        int r;
 
-	if (!try_call) {
-	    if (erts_iolist_size(data, &size))
-		return ERTS_PORT_OP_BADARG;
-	    bufp = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, size);
-	    r = erts_iolist_to_buf(data, bufp, size);
-	    ASSERT(r == 0);
-	}
-	else {
-	    /* Try with an 8KB buffer first (will often be enough I guess). */
-	    size = 8*1024;
-	    bufp = erts_alloc(ERTS_ALC_T_TMP, size);
-	    tmp_alloced = 1;
+    handle_iodata:
+        if (!try_call) {
+            if (erts_iolist_size(data, &size)) {
+                return ERTS_PORT_OP_BADARG;
+            }
 
-	    r = erts_iolist_to_buf(data, bufp, size);
-	    if (ERTS_IOLIST_TO_BUF_SUCCEEDED(r)) {
-		size -= r;
-	    } else {
-		if (r == ERTS_IOLIST_TO_BUF_TYPE_ERROR) { /* Type error */
-		    erts_free(ERTS_ALC_T_TMP, bufp);
-		    return ERTS_PORT_OP_BADARG;
-		}
-		else {
-		    ASSERT(r == ERTS_IOLIST_TO_BUF_OVERFLOW); /* Overflow */
-		    erts_free(ERTS_ALC_T_TMP, bufp);
-		    if (erts_iolist_size(data, &size))
-			return ERTS_PORT_OP_BADARG; /* Type error */
-		}
-		bufp = erts_alloc(ERTS_ALC_T_TMP, size);
-		r = erts_iolist_to_buf(data, bufp, size);
-		ASSERT(r == 0);
-	    }
-	}
+            basep = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, size);
+            allocation_type = ERTS_ALC_T_DRV_CTRL_DATA;
+
+            r = erts_iolist_to_buf(data, (char*)basep, size);
+            ASSERT(r == 0);
+        } else {
+            /* Try with an 8KB buffer first (will often be enough I guess). */
+            size = 8 * 1024;
+            basep = erts_alloc(ERTS_ALC_T_TMP, size);
+            allocation_type = ERTS_ALC_T_TMP;
+
+            r = erts_iolist_to_buf(data, (char*)basep, size);
+            if (ERTS_IOLIST_TO_BUF_SUCCEEDED(r)) {
+                size -= r;
+            } else {
+                erts_free(allocation_type, basep);
+
+                if (r == ERTS_IOLIST_TO_BUF_TYPE_ERROR) {
+                    return ERTS_PORT_OP_BADARG;
+                }
+
+                ASSERT(r == ERTS_IOLIST_TO_BUF_OVERFLOW);
+
+                if (erts_iolist_size(data, &size)) {
+                    return ERTS_PORT_OP_BADARG;
+                }
+
+                basep = erts_alloc(allocation_type, size);
+                r = erts_iolist_to_buf(data, (char*)basep, size);
+                ASSERT(r == 0);
+            }
+        }
     }
 
+    ASSERT(is_bitstring(data) ||
+           ((allocation_type == ERTS_ALC_T_DRV_CTRL_DATA) ^
+            (allocation_type == ERTS_ALC_T_TMP)));
+
     if (try_call) {
-	char resp_buf[ERL_ONHEAP_BIN_LIMIT];
+	char resp_buf[ERL_ONHEAP_BINARY_LIMIT];
 	char* resp_bufp = &resp_buf[0];
 	ErlDrvSizeT resp_size = sizeof(resp_buf);
 	ErtsTryImmDrvCallResult try_call_res;
@@ -4333,7 +4375,7 @@ erts_port_control(Process* c_p,
 	    res = call_driver_control(c_p->common.id,
 				      prt,
 				      command,
-				      bufp,
+				      (char*)basep,
 				      size,
 				      &resp_bufp,
 				      &resp_size);
@@ -4341,8 +4383,9 @@ erts_port_control(Process* c_p,
 	    control_flags = prt->control_flags;
 
 	    finalize_imm_drv_call(&try_call_state);
-	    if (tmp_alloced)
-		erts_free(ERTS_ALC_T_TMP, bufp);
+            if (allocation_type != ERTS_ALC_T_INVALID) {
+                erts_free(allocation_type, basep);
+            }
 	    if (res == ERTS_PORT_OP_BADARG) {
 		return ERTS_PORT_OP_BADARG;
 	    }
@@ -4362,66 +4405,40 @@ erts_port_control(Process* c_p,
 	    return ERTS_PORT_OP_DONE;
 	}
 	case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
-	    if (tmp_alloced)
-		erts_free(ERTS_ALC_T_TMP, bufp);
-	    return ERTS_PORT_OP_BADARG;
+            if (allocation_type != ERTS_ALC_T_INVALID) {
+                erts_free(allocation_type, basep);
+            }
+            return ERTS_PORT_OP_BADARG;
 	default:
 	    /* Schedule control() call instead... */
 	    break;
 	}
     }
 
-    /* Convert data into something that can be scheduled */
+    if (binp) {
+        ASSERT(br && allocation_type == ERTS_ALC_T_INVALID);
+        erts_refc_inc(&binp->intern.refc, 1);
+    } else if (allocation_type != ERTS_ALC_T_DRV_CTRL_DATA) {
+        /* Convert data into something that can be scheduled */
+        byte *old_basep = basep;
 
-    copy = tmp_alloced;
+        basep = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, size);
 
-    binp = NULL;
+        sys_memcpy(basep, old_basep, size);
 
-    if (is_binary(data) && binary_bitoffset(data) == 0) {
-	Eterm *ebinp = binary_val(data);
-	ASSERT(!tmp_alloced);
-	if (*ebinp == HEADER_SUB_BIN)
-	    ebinp = binary_val(((ErlSubBin *) ebinp)->orig);
-
-	if (*ebinp != HEADER_PROC_BIN)
-	    copy = 1;
-	else {
-            ProcBin *pb = (ProcBin *) ebinp;
-            int offset = bufp - pb->val->orig_bytes;
-
-	    ASSERT(pb->val->orig_bytes <= bufp
-		   && bufp + size <= pb->val->orig_bytes + pb->val->orig_size);
-
-            if (pb->flags) {
-                erts_emasculate_writable_binary(pb);
-
-                /* The procbin may have been reallocated, so update bufp */
-                bufp = pb->val->orig_bytes + offset;
-            }
-
-	    binp = pb->val;
-	    ASSERT(bufp <= bufp + size);
-	    ASSERT(binp->orig_bytes <= bufp
-		   && bufp + size <= binp->orig_bytes + binp->orig_size);
-	    erts_refc_inc(&binp->intern.refc, 1);
-	}
-    }
-
-    if (copy) {
-	char *old_bufp = bufp;
-	bufp = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, size);
-	sys_memcpy(bufp, old_bufp, size);
-	if (tmp_alloced)
-	    erts_free(ERTS_ALC_T_TMP, old_bufp);
+        if (allocation_type != ERTS_ALC_T_INVALID) {
+            ASSERT(allocation_type == ERTS_ALC_T_TMP);
+            erts_free(allocation_type, old_basep);
+        }
     }
 
     sigdp = erts_port_task_alloc_p2p_sig_data();
     sigdp->flags = ERTS_P2P_SIG_TYPE_CONTROL;
     sigdp->u.control.binp = binp;
     sigdp->u.control.command = command;
-    sigdp->u.control.bufp = bufp;
+    sigdp->u.control.bufp = (char*)basep;
     sigdp->u.control.size = size;
-    
+
     res = erts_schedule_proc2port_signal(c_p,
 					 prt,
 					 c_p->common.id,
@@ -4472,7 +4489,7 @@ call_driver_call(Eterm caller,
     }
 #endif
 
-    if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
         trace_port_receive(prt, caller, am_call, command, bufp, size);
 
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
@@ -4493,7 +4510,7 @@ call_driver_call(Eterm caller,
 	|| ((byte) (*resp_bufp)[0]) != VERSION_MAGIC)
 	return ERTS_PORT_OP_BADARG;
 
-    if (IS_TRACED_FL(prt, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send_binary(prt, caller, am_call, *resp_bufp, cres);
 
     *from_size = (ErlDrvSizeT) cres;
@@ -5012,7 +5029,7 @@ static int prt_one_monitor(ErtsMonitor *mon, void *vprtd, Sint reds)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
-    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
         erts_print(prtd->to, prtd->arg, "(%p,%T)", mon->other.ptr, mdp->ref);
     else
         erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->other.item, mdp->ref);
@@ -5159,8 +5176,6 @@ print_port_info(Port *p, fmtfn_t to, void *arg)
 
     if (p->drv_ptr == &fd_driver) {
 	erts_print(to, arg, "Port is UNIX fd not opened by emulator: %s\n", p->name);
-    } else if (p->drv_ptr == &vanilla_driver) {
-	erts_print(to, arg, "Port is a file: %s\n",p->name);
     } else if (p->drv_ptr == &spawn_driver) {
 	erts_print(to, arg, "Port controls external process: %s\n",p->name);
 #ifndef __WIN32__
@@ -5422,10 +5437,13 @@ erts_stale_drv_select(Eterm port,
     switch (mode) {
     case ERL_DRV_READ | ERL_DRV_WRITE:
 	type = "Input/Output";
+        break;
     case ERL_DRV_WRITE:
 	type = "Output";
+        break;
     case ERL_DRV_READ:
 	type = "Input";
+        break;
     default:
         type = "";
     }
@@ -5513,7 +5531,7 @@ void driver_report_exit(ErlDrvPort ix, int status)
    ErtsProcLocks rp_locks = 0;
    int scheduler = erts_get_scheduler_id() != 0;
    Port* prt = erts_drvport2port(ix);
-   int trace_send = IS_TRACED_FL(prt, F_TRACE_SEND);
+   int trace_send = ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND);
 
    if (prt == ERTS_INVALID_ERL_DRV_PORT)
        return;
@@ -5536,7 +5554,7 @@ void driver_report_exit(ErlDrvPort ix, int status)
    hp += 3;
    tuple = TUPLE2(hp, prt->common.id, tuple);
 
-    if (IS_TRACED_FL(prt, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, pid, tuple, 1);
 
    erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
@@ -5729,9 +5747,9 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	    offset = ptr[2];
 	    if (!b || size + offset > b->orig_size)
 		ERTS_DDT_FAIL; /* No binary or outside the binary */
-	    need += (size <= ERL_ONHEAP_BIN_LIMIT
-			 ? heap_bin_size(size)
-			 : PROC_BIN_SIZE);
+	    need += (size <= ERL_ONHEAP_BINARY_LIMIT
+			 ? heap_bits_size(NBITS(size))
+			 : ERL_REFC_BITS_SIZE);
 	    ptr += 3;
 	    depth++;
 	    break;
@@ -5743,9 +5761,9 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	    bufp = (byte *) ptr[0];
 	    size = (Uint) ptr[1];
 	    if (!bufp && size > 0) ERTS_DDT_FAIL; 
-	    need += (size <= ERL_ONHEAP_BIN_LIMIT
-		     ? heap_bin_size(size)
-		     : PROC_BIN_SIZE);
+	    need += (size <= ERL_ONHEAP_BINARY_LIMIT
+		     ? heap_bits_size(NBITS(size))
+		     : ERL_REFC_BITS_SIZE);
 	    ptr += 2;
 	    depth++;
 	    break;
@@ -5858,10 +5876,19 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	  ? erts_proc_lookup(to)
 	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_INC_REFC));
     if (!rp) {
-        if (!prt || !IS_TRACED_FL(prt, F_TRACE_SEND))
+        ErtsTracerRef *ref;
+        ErtsTracerRef *next_ref;
+        if (!prt || !ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
             goto done;
-        if (!erts_is_tracer_proc_enabled_send(NULL, 0, &prt->common))
+        for (ref = prt->common.tracee.first_ref; ref; ref = next_ref) {
+            next_ref = ref->next;
+            if (erts_is_tracer_ref_proc_enabled_send(NULL, 0, &prt->common, ref))
+                break;
+        }
+        if (!ref) {
+            /* no tracers left */
             goto done;
+        }
 
 	res = -2;
 
@@ -5874,7 +5901,7 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
         /* We force the creation of a heap fragment (rp == NULL) when send
            tracing so that we don't have the main lock of the process while
            tracing */
-        Process *trace_rp = prt && IS_TRACED_FL(prt, F_TRACE_SEND) ? NULL : rp;
+        Process *trace_rp = prt && ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND) ? NULL : rp;
         (void) erts_factory_message_create(&factory, trace_rp, &rp_locks, need);
         res = 1;
     }
@@ -5945,66 +5972,52 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	    else
 		erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) size);
 
-	    if (size <= ERL_ONHEAP_BIN_LIMIT) {
-		ErlHeapBin* hbp = (ErlHeapBin *) erts_produce_heap(&factory,
-								   heap_bin_size(size), HEAP_EXTRA);
-		hbp->thing_word = header_heap_bin(size);
-		hbp->size = size;
-		if (size > 0) {
-		    sys_memcpy((void *) hbp->data, (void *) (((byte*) b->orig_bytes) + offset), size);
-		}
-		mess = make_binary(hbp);
-	    }
-	    else {
-		ProcBin* pb = (ProcBin *) erts_produce_heap(&factory,
-							    PROC_BIN_SIZE, HEAP_EXTRA);
-		driver_binary_inc_refc(b);  /* caller will free binary */
-		pb->thing_word = HEADER_PROC_BIN;
-		pb->size = size;
-		pb->next = factory.off_heap->first;
-		factory.off_heap->first = (struct erl_off_heap_header*)pb;
-		pb->val = ErlDrvBinary2Binary(b);
-		pb->bytes = ((byte*) b->orig_bytes) + offset;
-		pb->flags = 0;
-		mess =  make_binary(pb);
-		OH_OVERHEAD(factory.off_heap, pb->size / sizeof(Eterm));
-	    }
-	    ptr += 3;
-	    break;
-	}
+	    if (size <= ERL_ONHEAP_BINARY_LIMIT) {
+                Eterm *hp = erts_produce_heap(&factory,
+                                              heap_bits_size(NBITS(size)),
+                                              HEAP_EXTRA);
+                mess = HEAP_BITSTRING(hp,
+                                      &b->orig_bytes[offset],
+                                      0,
+                                      NBITS(size));
+            } else {
+                Eterm *hp = erts_produce_heap(&factory,
+                                              ERL_REFC_BITS_SIZE,
+                                              HEAP_EXTRA);
+                driver_binary_inc_refc(b); /* caller will free binary */
+
+                mess = erts_wrap_refc_bitstring(&factory.off_heap->first,
+                                                &factory.off_heap->overhead,
+                                                &hp,
+                                                ErlDrvBinary2Binary(b),
+                                                (byte*)b->orig_bytes,
+                                                NBITS(offset),
+                                                NBITS(size));
+            }
+
+            ptr += 3;
+            break;
+        }
 
 	case ERL_DRV_BUF2BINARY: { /* char*, size */
-	    byte *bufp = (byte *) ptr[0];
-	    Uint size = (Uint) ptr[1];
+            byte *bufp = (byte *) ptr[0];
+            Uint size = (Uint) ptr[1];
 
-	    if (esdp)
-		esdp->io.in += (Uint64) size;
-	    else
-		erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) size);
+            if (esdp) {
+                esdp->io.in += (Uint64)size;
+            } else {
+                erts_atomic64_add_nob(&bytes_in, (erts_aint64_t)size);
+            }
 
-	    if (size <= ERL_ONHEAP_BIN_LIMIT) {
-		ErlHeapBin* hbp = (ErlHeapBin *) erts_produce_heap(&factory,
-								   heap_bin_size(size),
-								   HEAP_EXTRA);
-		hbp->thing_word = header_heap_bin(size);
-		hbp->size = size;
-		if (size > 0) {
-		    ASSERT(bufp);
-		    sys_memcpy((void *) hbp->data, (void *) bufp, size);
-		}
-		mess = make_binary(hbp);
-	    }
-	    else {
-		Eterm* hp;
-		Binary* bp = erts_bin_nrml_alloc(size);
-		ASSERT(bufp);
-		sys_memcpy((void *) bp->orig_bytes, (void *) bufp, size);
-                hp = erts_produce_heap(&factory, PROC_BIN_SIZE, HEAP_EXTRA);
-                mess = erts_build_proc_bin(factory.off_heap, hp, bp);
-	    }
-	    ptr += 2;
-	    break;
-	}
+            ASSERT(IS_BINARY_SIZE_OK(size));
+            mess = erts_hfact_new_binary_from_data(&factory,
+                                                   HEAP_EXTRA,
+                                                   size,
+                                                   bufp);
+
+            ptr += 2;
+            break;
+        }
 
 	case ERL_DRV_STRING: /* char*, length */
 	    if (esdp)
@@ -6144,8 +6157,8 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	erts_factory_trim_and_close(&factory, &mess, 1);
 
 	if (prt) {
-	    if (IS_TRACED_FL(prt, F_TRACE_SEND)) {
-		trace_port_send(prt, to, mess, 1);
+            if (prt->common.tracee.all_trace_flags & F_TRACE_SEND) {
+                trace_port_send(prt, to, mess, 1);
 	    }
 	    from = prt->common.id;
 	}
@@ -6336,7 +6349,11 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
         DistEntry* dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
+
+        ERTS_ASSUME(dep);
+
         erts_atomic64_inc_nob(&dep->in);
+
 	return erts_net_message(prt,
 				dep,
                                 conn_id,
@@ -6381,7 +6398,11 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
         DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
+
+        ERTS_ASSUME(dep);
+
         erts_atomic64_inc_nob(&dep->in);
+
 	if (len == 0)
 	    return erts_net_message(prt,
 				    dep,
@@ -6506,6 +6527,7 @@ ErlDrvSInt
 driver_binary_get_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
+    ASSERT(!(bp->intern.flags & BIN_FLAG_WRITABLE));
     return (ErlDrvSInt) erts_refc_read(&bp->intern.refc, 1);
 }
 
@@ -6513,6 +6535,7 @@ ErlDrvSInt
 driver_binary_inc_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
+    ASSERT(!(bp->intern.flags & BIN_FLAG_WRITABLE));
     return (ErlDrvSInt) erts_refc_inctest(&bp->intern.refc, 2);
 }
 
@@ -6520,6 +6543,7 @@ ErlDrvSInt
 driver_binary_dec_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
+    ASSERT(!(bp->intern.flags & BIN_FLAG_WRITABLE));
     return (ErlDrvSInt) erts_refc_dectest(&bp->intern.refc, 1);
 }
 

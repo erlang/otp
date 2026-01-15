@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2000-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +27,8 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_map.h"
+#include "erl_bits.h"
+#include "erl_binary.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -44,9 +48,14 @@ erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz)
 	    *hp |= TAG_LITERAL_PTR;
 	    break;
 	case TAG_PRIMARY_HEADER:
-	    if (header_is_thing(*hp)) {
-		hp += thing_arityval(*hp);
-	    }
+	    if (*hp == HEADER_SUB_BITS) {
+                /* Tag the `orig` field as a literal. It's the last field
+                 * inside the thing structure so we can handle it by pretending
+                 * it's not part of the thing. */
+                hp += thing_arityval(*hp) - 1;
+            } else if (header_is_thing(*hp)) {
+                hp += thing_arityval(*hp);
+            }
 	    break;
 	default:
 	    break;
@@ -93,6 +102,60 @@ erts_term_init(void)
     ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Eterm) == sizeof(ErtsORefThing));
     ERTS_CT_ASSERT(ERTS_MAGIC_REF_THING_SIZE*sizeof(Eterm) == sizeof(ErtsMRefThing));
 
+    ERTS_CT_ASSERT((POS_BIG_SUBTAG & _BIG_TAG_MASK)
+                    == POS_BIG_SUBTAG);
+    ERTS_CT_ASSERT((NEG_BIG_SUBTAG & _BIG_TAG_MASK)
+                    == POS_BIG_SUBTAG);
+    ERTS_CT_ASSERT((HEAP_BITS_SUBTAG & _BITSTRING_TAG_MASK)
+                    == HEAP_BITS_SUBTAG);
+    ERTS_CT_ASSERT((SUB_BITS_SUBTAG & _BITSTRING_TAG_MASK)
+                    == HEAP_BITS_SUBTAG);
+    ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PID & _EXTERNAL_TAG_MASK)
+                    == _TAG_HEADER_EXTERNAL_PID);
+    ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PORT & _EXTERNAL_TAG_MASK)
+                    == _TAG_HEADER_EXTERNAL_PID);
+    ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_REF & _EXTERNAL_TAG_MASK)
+                    == _TAG_HEADER_EXTERNAL_PID);
+
+#ifdef DEBUG
+    {
+        /* Check that the tag masks cannot confuse tags outside of their
+         * category. */
+        const Eterm tags[] = {ARITYVAL_SUBTAG,
+                              POS_BIG_SUBTAG,
+                              NEG_BIG_SUBTAG,
+                              REF_SUBTAG,
+                              FUN_SUBTAG,
+                              FLOAT_SUBTAG,
+                              HEAP_BITS_SUBTAG,
+                              SUB_BITS_SUBTAG,
+                              BIN_REF_SUBTAG,
+                              MAP_SUBTAG,
+                              EXTERNAL_PID_SUBTAG,
+                              EXTERNAL_PORT_SUBTAG,
+                              EXTERNAL_REF_SUBTAG};
+
+        for (int i = 0; i < (sizeof(tags) / sizeof(tags[0])); i++) {
+            const Eterm tag = tags[i];
+
+            if ((tag & _EXTERNAL_TAG_MASK) == _TAG_HEADER_EXTERNAL_PID) {
+                ASSERT((tag == EXTERNAL_PID_SUBTAG) ||
+                       (tag == EXTERNAL_PORT_SUBTAG) ||
+                       (tag == EXTERNAL_REF_SUBTAG));
+            }
+
+            if ((tag & _BITSTRING_TAG_MASK) == HEAP_BITS_SUBTAG) {
+                ASSERT((tag == HEAP_BITS_SUBTAG) ||
+                       (tag == SUB_BITS_SUBTAG));
+            }
+
+            if ((tag & _BIG_TAG_MASK) == POS_BIG_SUBTAG) {
+                ASSERT((tag == POS_BIG_SUBTAG) ||
+                       (tag == NEG_BIG_SUBTAG));
+            }
+        }
+    }
+#endif
 }
 
 /*
@@ -109,10 +172,10 @@ FUNTY checked_##FUN(ARGTY x, const char *file, unsigned line) \
 
 ET_DEFINE_CHECKED(Eterm,make_boxed,const Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_boxed,Eterm,!is_header);
-ET_DEFINE_CHECKED(Eterm*,boxed_val,Wterm,_boxed_precond);
+ET_DEFINE_CHECKED(Eterm*,boxed_val,Eterm,_boxed_precond);
 ET_DEFINE_CHECKED(Eterm,make_list,const Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_not_list,Eterm,!is_header);
-ET_DEFINE_CHECKED(Eterm*,list_val,Wterm,_list_precond);
+ET_DEFINE_CHECKED(Eterm*,list_val,Eterm,_list_precond);
 ET_DEFINE_CHECKED(Uint,unsigned_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Sint,signed_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Uint,atom_val,Eterm,is_atom);
@@ -120,31 +183,31 @@ ET_DEFINE_CHECKED(Uint,header_arity,Eterm,is_header);
 ET_DEFINE_CHECKED(Uint,arityval,Eterm,is_sane_arity_value);
 ET_DEFINE_CHECKED(Uint,thing_arityval,Eterm,is_thing);
 ET_DEFINE_CHECKED(Uint,thing_subtag,Eterm,is_thing);
-ET_DEFINE_CHECKED(Eterm*,binary_val,Wterm,is_binary);
-ET_DEFINE_CHECKED(Eterm*,fun_val,Wterm,is_any_fun);
+ET_DEFINE_CHECKED(Eterm*,bitstring_val,Eterm,is_bitstring);
+ET_DEFINE_CHECKED(Eterm*,fun_val,Eterm,is_any_fun);
 ET_DEFINE_CHECKED(int,bignum_header_is_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Eterm,bignum_header_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Uint,bignum_header_arity,Eterm,_is_bignum_header);
-ET_DEFINE_CHECKED(Eterm*,big_val,Wterm,is_big);
-ET_DEFINE_CHECKED(Eterm*,float_val,Wterm,is_float);
-ET_DEFINE_CHECKED(Eterm*,tuple_val,Wterm,is_tuple);
+ET_DEFINE_CHECKED(Eterm*,big_val,Eterm,is_big);
+ET_DEFINE_CHECKED(Eterm*,float_val,Eterm,is_float);
+ET_DEFINE_CHECKED(Eterm*,tuple_val,Eterm,is_tuple);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_pid_node,Eterm,is_internal_pid);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_port_node,Eterm,is_internal_port);
-ET_DEFINE_CHECKED(Eterm*,internal_ref_val,Wterm,is_internal_ref);
-ET_DEFINE_CHECKED(Uint32*,internal_magic_ref_numbers,Wterm,is_internal_magic_ref);
-ET_DEFINE_CHECKED(Uint32*,internal_non_magic_ref_numbers,Wterm,is_internal_non_magic_ref);
+ET_DEFINE_CHECKED(Eterm*,internal_ref_val,Eterm,is_internal_ref);
+ET_DEFINE_CHECKED(Uint32*,internal_magic_ref_numbers,Eterm,is_internal_magic_ref);
+ET_DEFINE_CHECKED(Uint32*,internal_non_magic_ref_numbers,Eterm,is_internal_non_magic_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_ref_node,Eterm,is_internal_ref);
-ET_DEFINE_CHECKED(Eterm*,external_val,Wterm,is_external);
-ET_DEFINE_CHECKED(Uint,external_data_words,Wterm,is_external);
-ET_DEFINE_CHECKED(Uint,external_pid_data_words,Wterm,is_external_pid);
-ET_DEFINE_CHECKED(struct erl_node_*,external_pid_node,Wterm,is_external_pid);
-ET_DEFINE_CHECKED(Uint,external_port_data_words,Wterm,is_external_port);
-ET_DEFINE_CHECKED(Uint*,external_port_data,Wterm,is_external_port);
-ET_DEFINE_CHECKED(struct erl_node_*,external_port_node,Wterm,is_external_port);
-ET_DEFINE_CHECKED(Uint,external_ref_data_words,Wterm,is_external_ref);
-ET_DEFINE_CHECKED(Uint32*,external_ref_data,Wterm,is_external_ref);
+ET_DEFINE_CHECKED(Eterm*,external_val,Eterm,is_external);
+ET_DEFINE_CHECKED(Uint,external_data_words,Eterm,is_external);
+ET_DEFINE_CHECKED(Uint,external_pid_data_words,Eterm,is_external_pid);
+ET_DEFINE_CHECKED(struct erl_node_*,external_pid_node,Eterm,is_external_pid);
+ET_DEFINE_CHECKED(Uint,external_port_data_words,Eterm,is_external_port);
+ET_DEFINE_CHECKED(Uint*,external_port_data,Eterm,is_external_port);
+ET_DEFINE_CHECKED(struct erl_node_*,external_port_node,Eterm,is_external_port);
+ET_DEFINE_CHECKED(Uint,external_ref_data_words,Eterm,is_external_ref);
+ET_DEFINE_CHECKED(Uint32*,external_ref_data,Eterm,is_external_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
-ET_DEFINE_CHECKED(Uint,external_thing_data_words,ExternalThing*,is_thing_ptr);
+ET_DEFINE_CHECKED(Uint,external_thing_data_words,const ExternalThing*,is_thing_ptr);
 
 ET_DEFINE_CHECKED(Eterm,make_cp,ErtsCodePtr,_is_legal_cp);
 ET_DEFINE_CHECKED(ErtsCodePtr,cp_val,Eterm,is_CP);

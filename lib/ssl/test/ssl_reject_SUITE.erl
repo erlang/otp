@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +24,7 @@
 -module(ssl_reject_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_handshake.hrl").
 
@@ -72,11 +74,11 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.3', [], [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1.2', [],  [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1.1', [],  [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1', [], all_tls_version_tests()},
-     {'dtlsv1.2', [], [reject_prev]}
+    [{'tlsv1.3', [parallel], [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.2', [parallel],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.1', [parallel],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1', [parallel], all_tls_version_tests()},
+     {'dtlsv1.2', [parallel], [reject_prev]}
     ].
 
 all_tls_version_tests() ->
@@ -87,8 +89,8 @@ all_tls_version_tests() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config0)
@@ -185,11 +187,17 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
     Allversions = all_versions(),
 
     AllSigAlgs = ssl:signature_algs(all, 'tlsv1.3'),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {options, [{versions, Allversions}, 
-                                                   {signature_algs, AllSigAlgs} | ServerOpts]}]),
+                                                   {signature_algs, AllSigAlgs}, {ciphers, Ciphers} |
+                                                   proplists:delete(versions, ServerOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     %% TLS-1.X Hello with SSL-3.0 record version
@@ -232,7 +240,8 @@ reject_prev(Config) when is_list(Config) ->
 					      {from, self()},
 					      {mfa, {ssl_test_lib,
 						     no_result, []}},
-					      {options,[{versions, [PrevVersion]} | ClientOpts]}]),
+					      {options,[{versions, [PrevVersion]} |
+                                                        proplists:delete(versions, ClientOpts)]}]),
     ssl_test_lib:check_client_alert(Server, Client, protocol_version).
 
 %%--------------------------------------------------------------------

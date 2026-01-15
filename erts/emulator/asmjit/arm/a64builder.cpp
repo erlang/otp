@@ -17,8 +17,6 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 Builder::Builder(CodeHolder* code) noexcept : BaseBuilder() {
   _archMask = uint64_t(1) << uint32_t(Arch::kAArch64);
-  assignEmitterFuncs(this);
-
   if (code)
     code->attach(this);
 }
@@ -28,12 +26,18 @@ Builder::~Builder() noexcept {}
 // =====================
 
 Error Builder::onAttach(CodeHolder* code) noexcept {
-  return Base::onAttach(code);
+  ASMJIT_PROPAGATE(Base::onAttach(code));
+
+  _instructionAlignment = uint8_t(4);
+  assignEmitterFuncs(this);
+
+  return kErrorOk;
 }
 
 Error Builder::onDetach(CodeHolder* code) noexcept {
   return Base::onDetach(code);
 }
+
 
 // a64::Builder - Finalize
 // =======================

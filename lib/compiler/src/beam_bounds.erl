@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +28,7 @@
 %%
 %%
 -module(beam_bounds).
+-moduledoc false.
 -export([bounds/2, bounds/3, relop/3, infer_relop_types/3,
          is_masking_redundant/2]).
 -export_type([range/0]).
@@ -118,6 +121,9 @@ bounds('*', R1, R2) ->
             Min = lists:min(All),
             Max = lists:max(All),
             normalize({Min,Max});
+        {{A,'+inf'}, {C,'+inf'}} when abs(A) bsr ?NUM_BITS =:= 0, A >= 0,
+                                      abs(C) bsr ?NUM_BITS =:= 0, C >= 0 ->
+            {A*C,'+inf'};
         {{A,'+inf'}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
                                  abs(C) bsr ?NUM_BITS =:= 0,
                                  abs(D) bsr ?NUM_BITS =:= 0,
@@ -156,12 +162,13 @@ bounds('band', R1, R2) ->
     end;
 bounds('bor', R1, R2) ->
     case {R1,R2} of
-        {{A,B}, {C,D}} when A bsr ?NUM_BITS =:= 0, A >= 0,
-                            C bsr ?NUM_BITS =:= 0, C >= 0,
-                            is_integer(B), is_integer(D) ->
+        {{A,B}, {C,D}} when A =:= '-inf' orelse abs(A) bsr ?NUM_BITS =:= 0,
+                            C =:= '-inf' orelse abs(C) bsr ?NUM_BITS =:= 0,
+                            B =:= '+inf' orelse abs(B) bsr ?NUM_BITS =:= 0,
+                            D =:= '+inf' orelse abs(D) bsr ?NUM_BITS =:= 0 ->
             Min = min_bor(A, B, C, D),
             Max = max_bor(A, B, C, D),
-            {Min,Max};
+            normalize({Min,Max});
         {_, _} ->
             any
     end;
@@ -186,8 +193,8 @@ bounds('bsr', R1, R2) ->
     end;
 bounds('bsl', R1, R2) ->
     case {R1,R2} of
-        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
-                            abs(B) bsr ?NUM_BITS =:= 0 ->
+        {{A,B}, {C,D}} when A =:= '-inf' orelse abs(A) bsr ?NUM_BITS =:= 0,
+                            B =:= '+inf' orelse abs(B) bsr ?NUM_BITS =:= 0 ->
             Min = inf_min(inf_bsl(A, C), inf_bsl(A, D)),
             Max = inf_max(inf_bsl(B, C), inf_bsl(B, D)),
             normalize({Min,Max});
@@ -195,19 +202,13 @@ bounds('bsl', R1, R2) ->
             any
     end;
 bounds(max, R1, R2) ->
-    case {R1,R2} of
-        {{A,B},{C,D}} ->
-            normalize({inf_max(A, C),inf_max(B, D)});
-        {_,_} ->
-            any
-    end;
+    {A,B} = expand(R1),
+    {C,D} = expand(R2),
+    normalize({inf_max(A, C),inf_max(B, D)});
 bounds(min, R1, R2) ->
-    case {R1,R2} of
-        {{A,B},{C,D}} ->
-            normalize({inf_min(A, C),inf_min(B, D)});
-        {_,_} ->
-            any
-    end.
+    {A,B} = expand(R1),
+    {C,D} = expand(R2),
+    normalize({inf_min(A, C),inf_min(B, D)}).
 
 -spec relop(relop(), range(), range()) -> bool_result().
 
@@ -305,6 +306,10 @@ div_bounds({'-inf',B}, {C,D}) when is_integer(C), C > 0, is_integer(D) ->
     Min = '-inf',
     Max = max(B div C, B div D),
     normalize({Min,Max});
+div_bounds({A,B}, _) when is_integer(A), is_integer(B) ->
+    Max = max(abs(A), abs(B)),
+    Min = -Max,
+    {Min,Max};
 div_bounds(_, _) ->
     any.
 
@@ -320,6 +325,15 @@ rem_bounds(_, {C,D}) when is_integer(C), is_integer(D),
                      C =/= 0 orelse D =/= 0 ->
     Max = max(abs(C), abs(D)) - 1,
     Min = -Max,
+    normalize({Min,Max});
+rem_bounds({A,B}, _) ->
+    %% The sign of the remainder is the same as the sign of the
+    %% left-hand side operand; it does not depend on the sign of the
+    %% right-hand side operand. Therefore, the range of the remainder
+    %% is the range of the left-hand side operand extended to always
+    %% include zero.
+    Min = inf_min(0, A),
+    Max = inf_max(0, B),
     normalize({Min,Max});
 rem_bounds(_, _) ->
     any.
@@ -375,8 +389,13 @@ max_band(A, B, C, D, M) ->
     end.
 
 min_bor(A, B, C, D) ->
-    M = 1 bsl upper_bit(A bxor C),
-    min_bor(A, B, C, D, M).
+    case inf_lt(inf_min(A, C), 0) of
+        true ->
+            '-inf';
+        false ->
+            M = 1 bsl upper_bit(A bxor C),
+            min_bor(A, B, C, D, M)
+    end.
 
 min_bor(A, _B, C, _D, 0) ->
     A bor C;
@@ -400,10 +419,23 @@ min_bor(A, B, C, D, M) ->
             min_bor(A, B, C, D, M bsr 1)
     end.
 
-max_bor(A, B, C, D) ->
-    Intersection = B band D,
-    M = 1 bsl upper_bit(Intersection),
-    max_bor(Intersection, A, B, C, D, M).
+max_bor(A0, B, C0, D) ->
+    A = inf_max(A0, 0),
+    C = inf_max(C0, 0),
+    case inf_max(B, D) of
+        '+inf' ->
+            '+inf';
+        Max when Max < 0 ->
+            %% Both B and D are negative. The intersection would be
+            %% infinite.
+            -1;
+        _ ->
+            %% At least one of B and D are positive. The intersection
+            %% has a finite size.
+            Intersection = B band D,
+            M = 1 bsl upper_bit(Intersection),
+            max_bor(Intersection, A, B, C, D, M)
+    end.
 
 max_bor(_Intersection, _A, B, _C, D, 0) ->
     B bor D;
@@ -483,6 +515,9 @@ infer_relop_types_1('>', {A,B}, {C,D}) ->
 %%% Atoms are greater than all integers. Therefore, we don't
 %%% need any special handling of '+inf'.
 %%%
+
+expand(any) -> {'-inf','+inf'};
+expand({_,_}=R) -> R.
 
 normalize({'-inf','-inf'}) ->
     {'-inf',-1};

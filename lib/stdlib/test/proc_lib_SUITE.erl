@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,8 +32,8 @@
          sync_start_monitor/1, sync_start_monitor_link/1,
          sync_start_timeout/1, sync_start_link_timeout/1,
          sync_start_monitor_link_timeout/1,
-         spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1, sp6/1, sp7/1,
-         sp8/1, sp9/1, sp10/1,
+         spawn_opt/1, sp1/0, sp1_with_label/0, sp2/0, sp3/1, sp4/2,
+         sp5/1, sp6/1, sp7/1, sp8/1, sp9/1, sp10/1,
          '\x{447}'/0, hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
@@ -135,11 +137,18 @@ crash_1(_Config) ->
     ct:sleep(100),
     {?MODULE,sp2,[]} = proc_lib:initial_call(Pid4),
     {?MODULE,sp2,0} = proc_lib:translate_initial_call(Pid4),
+    {test, sp2} = proc_lib:get_label(Pid4),
+    %% Check this, if changed fix c.erl and runtime_tools
+    %% which uses the 'internal' dictionary name as an optimization.
+    {_, {test, sp2}} = process_info(Pid4, {dictionary, '$process_label'}),
+
     Pid4 ! die,
     Exp4 = [{initial_call,{?MODULE,sp2,[]}},
+            {process_label, {test, sp2}},
 	    {ancestors,[self()]},
 	    {error_info,{exit,die,{stacktrace}}}],
-    Links4 = [[{initial_call,{?MODULE,sp1,[]}},
+    Links4 = [[{initial_call,{?MODULE,sp1_with_label,[]}},
+               {process_label, {test, sp1_with_label}},
 	       {ancestors,[Pid4,self()]}]],
     analyse_crash(Pid4, Exp4, Links4),
 
@@ -376,17 +385,38 @@ spawn_opt(Config) when is_list(Config) ->
     FunMFArgs = proc_lib:initial_call(Pid1),
     FunMFArity = proc_lib:translate_initial_call(Pid1),
     Pid1 ! die,
+
+    %% Check modified initial_call
+
+    Pid2 = proc_lib:spawn_opt(fun() ->
+                                      put('$initial_call', undefined),
+                                      receive _ -> ok end
+                              end, [link]),
+    false = proc_lib:initial_call(Pid2),
+    {proc_lib, init_p, 5} = proc_lib:translate_initial_call(Pid2),
+    Dict2 = process_info(Pid2, [{dictionary, '$initial_call'}]),
+    false = proc_lib:initial_call(Dict2),
+    {proc_lib, init_p, 5} = proc_lib:translate_initial_call(Dict2),
+
+    Pid2 ! die,
     ok.
 
 
 sp1() ->
-    receive 
+    receive
 	die -> exit(die);
 	_ -> sp1()
     end.
 
+sp1_with_label() ->
+    ok = proc_lib:set_label({test, ?FUNCTION_NAME}),
+    sp1().
+
 sp2() ->
-    _Pid = proc_lib:spawn_link(?MODULE, sp1, []),
+    ok = proc_lib:set_label({test, ?FUNCTION_NAME}),
+    {test, ?FUNCTION_NAME} = proc_lib:get_label(self()),
+
+    _Pid = proc_lib:spawn_link(?MODULE, sp1_with_label, []),
     receive 
 	die -> exit(die);
 	_ -> sp1()
@@ -680,6 +710,18 @@ stop(_Config) ->
     after 6000 ->
 	timeout
     end,
+
+    %% Ensure that if process stops with same reason just as stop is called,
+    %% stop does not throw an exception.
+    PidNormalStop = proc_lib:spawn(fun() -> timer:sleep(1000) end),
+    ok = proc_lib:stop(PidNormalStop,normal,2000),
+    false = erlang:is_process_alive(PidNormalStop),
+    PidDieStop = proc_lib:spawn(fun() -> timer:sleep(1000), exit(die) end),
+    ok = proc_lib:stop(PidDieStop,die,2000),
+    false = erlang:is_process_alive(PidDieStop),
+    PidDieStopCrash = proc_lib:spawn(fun() -> timer:sleep(1000), exit(die) end),
+    {'EXIT', {die, _}} = catch (proc_lib:stop(PidDieStopCrash,normal,2000)),
+    false = erlang:is_process_alive(PidDieStopCrash),
 
     %% Success case with other reason than 'normal'
     Pid5 = proc_lib:spawn(SysMsgProc),

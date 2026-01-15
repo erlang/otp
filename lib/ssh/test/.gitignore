@@ -1,6 +1,15 @@
 *COVER.html
 
-ssh_sftp_SUITE_data/test_data*
+
+ssh_sftp_SUITE_data/test_data/*
+!ssh_sftp_SUITE_data/test_data/big.txt
+!ssh_sftp_SUITE_data/test_data/f2.txt
+!ssh_sftp_SUITE_data/test_data/f1.txt
+!ssh_sftp_SUITE_data/test_data/d1/f1
+!ssh_sftp_SUITE_data/test_data/d1/
+!ssh_sftp_SUITE_data/test_data/d1/f2
+
+
 
 property_test/ssh_eqc_client_server_dirs/system
 property_test/ssh_eqc_client_server_dirs/user

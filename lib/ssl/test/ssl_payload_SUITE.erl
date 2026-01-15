@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +87,9 @@
          client_echos_active_huge/0,
          client_echos_active_huge/1,
          client_active_once_server_close/0,
-         client_active_once_server_close/1]).
+         client_active_once_server_close/1,
+         buffer_sender/0,buffer_sender/1
+        ]).
 
 %% Apply export
 -export([send/4,
@@ -100,7 +104,10 @@
          echo_recv/2,
          echo_recv_chunk/3,
          echo_active_once/2,
-         echo_active/2]).
+         echo_active/2,
+         slow_reader/1,
+         slow_sender/3
+        ]).
 
 -define(TIMEOUT, {seconds, 20}).
 -define(TIMEOUT_LONG, {seconds, 80}).
@@ -113,15 +120,17 @@ all() ->
      {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}    
+     {group, 'tlsv1'},
+     {group, transport_socket}
     ].
 
 groups() ->
     [
-     {'tlsv1.3', [], payload_tests()},
-     {'tlsv1.2', [], payload_tests()},
-     {'tlsv1.1', [], payload_tests()},
-     {'tlsv1', [], payload_tests()}
+     {'tlsv1.3', [parallel], [buffer_sender | payload_tests()]},
+     {'tlsv1.2', [parallel], payload_tests()},
+     {'tlsv1.1', [parallel], payload_tests()},
+     {'tlsv1', [parallel], payload_tests()},
+     {transport_socket, [parallel], [buffer_sender | payload_tests()]}
     ].
 
 payload_tests() ->
@@ -152,8 +161,8 @@ payload_tests() ->
      client_active_once_server_close].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config)
@@ -169,7 +178,7 @@ init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config). 
 
 end_per_group(GroupName, Config) ->
-  ssl_test_lib:end_per_group(GroupName, Config).
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 
 init_per_testcase(TestCase, Config)
@@ -567,15 +576,117 @@ client_active_once_server_close(Config) when is_list(Config) ->
     Data = binary:copy(<<"1234567890">>, 50000),
     client_active_once_server_close(
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
- 
 
+buffer_sender()  ->
+    [{doc,
+      """
+         Server reads slowly to force sender to be using async socket api
+         if available (for transport sockets), tries to force all
+         branches in the code by sending packets of needed size.
+      """}].
+buffer_sender(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %%
+    Data = binary:copy(<<"1234567890">>, 50000),
+
+    logger:set_application_level(ssl, info),
+
+    Server = ssl_test_lib:start_server(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {?MODULE, slow_reader, []}},
+                {options, [{active, false}, {mode, binary},
+                           {buffer, 7000}, {recbuf, 3000}  %% Decrease buffszs
+                          | ServerOpts]}]),
+    ct:log("Server: ~w~n",[Server]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client(
+               [{node, ClientNode}, {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {mfa, {?MODULE, slow_sender, [Data, Server]}},
+                {options, [{active, false}, {mode, binary},
+                           {key_update_at, 52000},
+                           {sndbuf, 1000}  %% Decrease buffszs
+                          | ClientOpts]}]),
+
+    %%
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    %%
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+slow_reader(Socket) ->
+    ct:log("Server Socket: ~w ~w~n\t~w",
+           [self(), Socket, ssl:getopts(Socket, [buffer, recbuf, sndbuf])]),
+    receive
+        {packet_sz, Client, Sz} ->
+            ct:log("Got packet_sz ~w from ~w",[Sz, Client]),
+            Client ! {self(), go},
+            ok = slow_reader(Socket, Sz, 0, {-1, 0}, 0)
+    end,
+    ok.
+
+slow_reader(Socket, PSz, PsRecv, {Prev, PsClient}, Sz) ->
+    Tmo = case Prev of
+              PsClient -> 0;
+              _ -> 500
+          end,
+    receive
+        {packet, done} ->
+            %% Don't care about rest we are testing sender blocking
+            ssl:send(Socket, <<Sz:32>>);
+        {packet, N} ->
+            slow_reader(Socket, PSz, PsRecv, {Prev, N}, Sz);
+        Msg ->
+            io:format("Reader Have: ~w of ~w~n", [PsRecv, PsClient]),
+            ct:log("Reader got UNEXPECTED msg: ~p", [Msg]),
+            Msg
+    after Tmo ->
+            io:format("Reader: ~w Got: ~w of ~w~n", [time(), PsRecv, PsClient]),
+            {ok, Data} = ssl:recv(Socket, PSz),
+            DataSz = byte_size(Data),
+            Ps = DataSz div PSz,
+            slow_reader(Socket, PSz, PsRecv+Ps, {PsClient, PsClient}, Sz+DataSz)
+    end.
+
+slow_sender(Socket, Data, ServerPid) when is_pid(ServerPid) ->
+    ct:log("Client Socket: ~w ~w~n\t~w",[self(), Socket, ssl:getopts(Socket, [buffer, recbuf, sndbuf])]),
+    {ok, [{sndbuf, BufSz}]} = ssl:getopts(Socket, [sndbuf]),
+    PacketSz = (BufSz div 2) + 500,
+    Packets = split(Data, 1000),
+    ct:log("Client to server ~w packet_sz ~w (~w)", [ServerPid, PacketSz, length(Packets)]),
+    ServerPid ! {packet_sz, self(), PacketSz},
+    receive {ServerPid, go} -> ok
+    end,
+    ok = slow_sender(Socket, Packets, 0, ServerPid),
+    {ok, <<_:32>>} = ssl:recv(Socket, 4),
+    ssl:close(Socket),
+    ok.
+
+slow_sender(Socket, [Packet|Ps], N, ServerPid) ->
+    ServerPid ! {packet, N},
+    ok = ssl:send(Socket, Packet),
+    slow_sender(Socket, Ps, N+1, ServerPid);
+slow_sender(_Socket, [], _N, ServerPid) ->
+    ServerPid ! {packet, done},
+    ok.
+
+split(Data, Sz) when byte_size(Data) > Sz ->
+    <<Bin:Sz/binary, Rest/binary>> = Data,
+    [Bin|split(Rest, Sz+1)];
+split(<<>>, _) ->
+    [];
+split(Bin, _) ->
+    [Bin].
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
-server_echos_passive(
-  Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname) ->
+server_echos_passive(Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname) ->
     Length = byte_size(Data),
     Server =
         ssl_test_lib:start_server(

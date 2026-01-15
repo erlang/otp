@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2008-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,15 +75,19 @@ void setActiveGL(wxeMemEnv *memenv, ErlNifPid caller, wxGLCanvas *canvas, wxGLCo
 {
   ErlNifUInt64 callId = wxe_make_hash(memenv->tmp_env, &caller);
   wxe_glc * entry = glc[callId];
+
   gl_active_index = callId;
   gl_active_pid = caller;
 
   if(!entry) {
-    entry = (wxe_glc *) malloc(sizeof(wxe_glc));
-    entry->canvas = NULL;
-    entry->context = NULL;
+    if(canvas && context) {
+      entry = (wxe_glc *) malloc(sizeof(wxe_glc));
+      entry->canvas = NULL;
+      entry->context = NULL;
+    }
+    else  // canvas or context are NULL ignore
+      return;
   }
-
   if(entry->canvas == canvas && entry->context == context)
     return;
 

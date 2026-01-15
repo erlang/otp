@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -25,22 +27,28 @@
 new(Mod, Eq) ->
     new(Mod, Eq, fun Mod:new/0, fun Mod:from_list/1).
 
-new(Mod, Eq, New, FromList) ->
+new(Mod, Eq0, New, FromList) ->
+    Eq = fun(S1, S2) ->
+             IsEqual = Eq0(S1, S2),
+             IsEqual = Mod:is_equal(S1, S2)
+         end,
     fun	(add_element, {El,S}) -> add_element(Mod, El, S);
 	(del_element, {El,S}) -> del_element(Mod, El, S);
 	(empty, []) -> New();
-	(equal, {S1,S2}) -> Eq(S1, S2);
 	(filter, {F,S}) -> filter(Mod, F, S);
+	(filtermap, {F,S}) -> filtermap(Mod, F, S);
 	(fold, {F,A,S}) -> fold(Mod, F, A, S);
 	(from_list, L) -> FromList(L);
 	(intersection, {S1,S2}) -> intersection(Mod, Eq, S1, S2);
 	(intersection, Ss) -> intersection(Mod, Eq, Ss);
+	(is_equal, {S,Set}) -> Eq(S, Set);
 	(is_disjoint, {S,Set}) -> Mod:is_disjoint(S, Set);
 	(is_empty, S) -> Mod:is_empty(S);
 	(is_set, S) -> Mod:is_set(S);
 	(is_subset, {S,Set}) -> is_subset(Mod, Eq, S, Set);
         (iterator, S) -> Mod:iterator(S);
         (iterator_from, {Start, S}) -> Mod:iterator_from(Start, S);
+	(map, {F, S}) -> map(Mod, F, S);
 	(module, []) -> Mod;
         (next, I) -> Mod:next(I);
 	(singleton, E) -> singleton(Mod, FromList, E);
@@ -121,3 +129,11 @@ fold(Mod, F, A, S) ->
 filter(Mod, F, S) ->
     true = Mod:is_set(S),
     Mod:filter(F, S).
+
+map(Mod, F, S) ->
+    true = Mod:is_set(S),
+    Mod:map(F, S).
+
+filtermap(Mod, F, S) ->
+    true = Mod:is_set(S),
+    Mod:filtermap(F, S).

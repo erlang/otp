@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,12 @@
 %%
 
 -module(ct_testspec).
+-moduledoc """
+Parsing of test specifications for `Common Test`.
+
+This module exports help functions for parsing of test specifications.
+""".
+-moduledoc(#{since => "OTP 19.3"}).
 
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
@@ -26,6 +34,8 @@
          get_tests/1]).
 
 -export([testspec_rec2list/1, testspec_rec2list/2]).
+
+-compile(nowarn_obsolete_bool_op).
 
 -include("ct_util.hrl").
 -define(testspec_fields, record_info(fields, testspec)).
@@ -47,6 +57,7 @@
 %%% Version 1 - extract and return all tests and skips for Node 
 %%%             (incl all_nodes)
 %%%-------------------------------------------------------------------
+-doc false.
 prepare_tests(TestSpec,Node) when is_record(TestSpec,testspec),
 				  is_atom(Node) ->
     case lists:keysearch(Node,1,prepare_tests(TestSpec)) of
@@ -63,6 +74,7 @@ prepare_tests(TestSpec,Node) when is_record(TestSpec,testspec),
 %%% and the tuples in the Skip list will have the form 
 %%% {Dir,Suites,Comment} or {Dir,Suite,Cases,Comment}. 
 %%%-------------------------------------------------------------------
+-doc false.
 prepare_tests(TestSpec) when is_record(TestSpec,testspec) ->
     Tests = TestSpec#testspec.tests,
     %% Sort Tests into "flat" Run and Skip lists (not sorted per node).
@@ -259,9 +271,11 @@ get_skipped_cases1(_,_,_,[]) ->
 
 %%% collect_tests_from_file reads a testspec file and returns a record
 %%% containing the data found.
+-doc false.
 collect_tests_from_file(Specs,Relaxed) ->
     collect_tests_from_file(Specs,[node()],Relaxed).
 
+-doc false.
 collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
     %% [Spec1,Spec2,...] means create one testpec record per Spec file
@@ -409,9 +423,11 @@ create_spec(Terms,TestSpec,JoinedByPrev,Relaxed) ->
     TS#testspec{tests=lists:flatten(Tests),
 		logdir=LogDirs1}.
 
+-doc false.
 collect_tests_from_list(Terms,Relaxed) ->
     collect_tests_from_list(Terms,[node()],Relaxed).
 
+-doc false.
 collect_tests_from_list(Terms,Nodes,Relaxed) when is_list(Nodes) ->
     {ok,Cwd} = file:get_cwd(),
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
@@ -805,6 +821,20 @@ list_nodes(#testspec{nodes=NodeRefs}) ->
 %%% and tests to run/skip.
 %%% [Spec1,Spec2,...] means create separate tests per spec
 %%% [[Spec1,Spec2,...]] means merge all specs into one
+-doc """
+Parse the given test specification files and return the tests to run and skip.
+
+[](){: #add_nodes-1 }
+
+If `SpecsIn=[Spec1,Spec2,...]`, separate tests will be created per
+specification. If `SpecsIn=[[Spec1,Spec2,...]]`, all specifications will be
+merge into one test.
+
+For each test, a `{Specs,Tests}` element is returned, where `Specs` is a list of
+all included test specifications, and `Tests` specifies actual tests to run/skip
+per node.
+""".
+-doc(#{since => <<"OTP 19.3">>}).
 -spec get_tests(Specs) -> {ok,[{Specs,Tests}]} | {error,Reason} when
       Specs :: [string()] | [[string()]],
       Tests :: {Node,Run,Skip},
@@ -980,6 +1010,9 @@ add_tests([{event_handler,Node,HOrHs,Args}|Ts],Spec) ->
 
 add_tests([{enable_builtin_hooks,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{enable_builtin_hooks = Bool});
+
+add_tests([{ct_hooks_order,Order}|Ts],Spec) ->
+    add_tests(Ts, Spec#testspec{ct_hooks_order = Order});
 
 add_tests([{release_shell,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{release_shell = Bool});
@@ -1207,6 +1240,7 @@ per_node([],_,_,_) ->
     [].
 
 %% Change the testspec record "back" to a list of tuples
+-doc false.
 testspec_rec2list(Rec) ->
     {Terms,_} = lists:mapfoldl(fun(unknown, Pos) ->
 				       {element(Pos, Rec),Pos+1};
@@ -1217,6 +1251,7 @@ testspec_rec2list(Rec) ->
 
 %% Extract one or more values from a testspec record and
 %% return the result as a list of tuples
+-doc false.
 testspec_rec2list(Field, Rec) when is_atom(Field) ->
     [Term] = testspec_rec2list([Field], Rec),
     Term;
@@ -1592,6 +1627,7 @@ valid_terms() ->
      {event_handler,4},
      {ct_hooks,2},
      {ct_hooks,3},
+     {ct_hooks_order,2},
      {enable_builtin_hooks,2},
      {release_shell,2},
      {multiply_timetraps,2},

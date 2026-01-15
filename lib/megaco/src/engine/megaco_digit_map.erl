@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -56,13 +58,50 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_digit_map).
+-moduledoc """
+Digit Map utility module.
+
+This is a Digit Map utility module (types).
+
+## Version note
+
+This module has existed in the megaco app for long time,
+but as of 27.0, its also documented.
+""".
+-moduledoc(#{since => "OTP 27.0"}).
+
+-compile(nowarn_obsolete_bool_op).
 
 -export([parse/1, eval/1, eval/2, report/2, test/2]). % Public
 -export([test_eval/2]).                               % Internal
 
+-export_type([
+              value/0,
+              kind/0,
+              event/0,
+              letter/0,
+              pause/0,
+              one_second/0,
+              ten_seconds/0,
+              cancel/0
+             ]).
+
 -include_lib("megaco/src/app/megaco_internal.hrl").
 -include("megaco_message_internal.hrl").
 -include_lib("megaco/src/text/megaco_text_tokens.hrl").
+
+-type value()           :: #'DigitMapValue'{}.
+-type kind()            :: full | unambiguous.
+-type event()           :: letter() | pause() | cancel().
+-doc "`$0..$9 | $a..$k | $A..$K`".
+-type letter()          :: $0 .. $9 | $a .. $k | $A .. $K.
+-type pause()           :: one_second() | ten_seconds().
+-doc "`$s | $S`".
+-type one_second()      :: $s | $S.
+-doc "`$l | $L`".
+-type ten_seconds()     :: $l | $L.
+-doc "`$z | $Z | cancel`".
+-type cancel()          :: $z | $Z | cancel.
 
 -record(state_transition, {mode, next, cont}).
 
@@ -82,6 +121,7 @@
 %% 
 %%----------------------------------------------------------------------
 
+-doc false.
 parse(DigitMapBody) when is_list(DigitMapBody) ->
     ?d("parse -> entry with"
        "~n   DigitMapBody: ~p", [DigitMapBody]),
@@ -277,6 +317,7 @@ parse_digit_letter([], _DL, _DS) ->
 %% Returns {ok, Letters} | {error, Reason}
 %%----------------------------------------------------------------------
      
+-doc false.
 eval(DMV) when is_record(DMV, 'DigitMapValue') ->
     case parse(DMV#'DigitMapValue'.digitMapBody) of
 	{ok, DigitMapBody} ->
@@ -287,6 +328,7 @@ eval(DMV) when is_record(DMV, 'DigitMapValue') ->
 eval(STL) when is_list(STL) ->
      eval(STL, #timers{}).
 	
+-doc false.
 eval(STL, #'DigitMapValue'{startTimer    = Start,
 			   shortTimer    = Short,
 			   longTimer     = Long,
@@ -790,6 +832,7 @@ make_cont(Mode, Next, Cont) ->
 %% Returns ok | {error, Reason}
 %%----------------------------------------------------------------------
 
+-doc false.
 report(Pid, [H | T])->
     case report(Pid, H) of
 	ok ->
@@ -839,6 +882,7 @@ cast(Pid, Event) ->
 %% Returns: {ok, Letters} | {error, Reason}
 %%----------------------------------------------------------------------
 
+-doc false.
 test(DigitMap, Events) ->
     Self = self(),
     Pid = spawn_link(?MODULE, test_eval, [DigitMap, Self]),
@@ -850,6 +894,7 @@ test(DigitMap, Events) ->
 	    {error, {'EXIT', Reason}}
     end.
 
+-doc false.
 test_eval(DigitMap, Parent) ->
     Res = eval(DigitMap),
     unlink(Parent),

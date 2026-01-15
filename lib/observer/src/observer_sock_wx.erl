@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,6 +19,7 @@
 %%
 %% %CopyrightEnd%
 -module(observer_sock_wx).
+-moduledoc false.
 
 %% {ok, S1} = socket:open(inet,  stream,    tcp).
 %% {ok, S2} = socket:open(inet6, stream,    tcp).
@@ -417,9 +420,9 @@ create_menus(Parent) ->
     MenuEntries =
 	[{"View",
 	  [#create_menu{id = ?ID_SOCKET_INFO_SELECTED,
-			text = "Socket info for selected sockets\tCtrl-I"},
+			text = "Socket info for selected sockets\tCtrl+I"},
 	   separator,
-	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
+	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl+R"},
 	   #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh Interval..."}
 	  ]}%% ,
 	 %% {"Debug",

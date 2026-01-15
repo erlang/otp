@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,28 +33,6 @@
 
 #include "socket_int.h"
 #include "socket_dbg.h"
-
-
-/* ********************************************************************* *
- *                              SOCKET and HANDLE                        *
- * ********************************************************************* *
- */
-
-#if defined(__WIN32__)
-
-#define INVALID_EVENT NULL
-#define SOCKET_FORMAT_STR "%lld"
-
-#else
-
-#define INVALID_HANDLE (-1)
-typedef int HANDLE;
-#define INVALID_SOCKET (-1)
-typedef int SOCKET; /* A subset of HANDLE */
-#define INVALID_EVENT INVALID_HANDLE
-#define SOCKET_FORMAT_STR "%d"
-
-#endif
 
 
 /* ********************************************************************* *
@@ -474,10 +454,10 @@ typedef struct {
      */
     ESockRequestor     currentReader;
     ESockRequestor*    currentReaderP; // NULL or &currentReader
+    ErlNifBinary       buf;
 #endif
     ESockRequestQueue  readersQ;
-    ErlNifBinary       rbuffer;      // DO WE NEED THIS
-    Uint32             readCapacity; // DO WE NEED THIS
+
     ESockCounter       readPkgCnt;
     ESockCounter       readPkgMax;
     ESockCounter       readPkgMaxCnt;
@@ -541,6 +521,7 @@ typedef struct {
     SOCKET             sock;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
+    BOOLEAN_T          selectRead; // Try to have read select active
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
     BOOLEAN_T          useReg;
@@ -585,6 +566,11 @@ extern BOOLEAN_T esock_getopt_int(SOCKET sock,
                                   int    level,
                                   int    opt,
                                   int*   valP);
+
+extern BOOLEAN_T esock_getopt_uint(SOCKET        sock,
+                                   int           level,
+                                   int           opt,
+                                   unsigned int *valP);
 
 
 /* ** Socket Registry functions *** */
@@ -813,6 +799,8 @@ extern ESockCmsgSpec* esock_lookup_cmsg_table(int level, size_t *num);
 extern ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
                                              size_t         num,
                                              ERL_NIF_TERM   eType);
+
+
 
 /* *** Sendfile 'stuff' ***
  */

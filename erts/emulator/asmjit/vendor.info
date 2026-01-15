@@ -1,0 +1,24 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+    "ID": "erts-asmjit",
+    "description": "Asmjit library",
+    "copyrightText": "Copyright (c) 2008-2023 The AsmJit Authors",
+    "downloadLocation": "https://github.com/asmjit/asmjit",
+    "homepage": "https://github.com/asmjit/asmjit",
+    "licenseDeclared": "Zlib",
+    "name": "asmjit",
+    "versionInfo": "029075b84bf0161a761beb63e6eda519a29020db",
+    "path": "./erts/emulator/asmjit",
+    "exclude": ["./erts/emulator/asmjit/vendor.info"],
+    "supplier": "Person: Petr Kobalicek",
+    "purl": "pkg:github/asmjit/asmjit",
+    "sha": "029075b84bf0161a761beb63e6eda519a29020db"
+  }
+]

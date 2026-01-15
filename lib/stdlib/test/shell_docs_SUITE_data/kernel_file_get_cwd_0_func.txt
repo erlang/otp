@@ -1,17 +1,23 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec get_cwd() -> {ok, Dir} | {error, Reason}[0m
-  [;1m                 when Dir :: filename(), Reason :: posix().[0m
+[;1m  get_cwd()[0m
 
   Returns [;;4m{ok, Dir}[0m, where [;;4mDir[0m is the current working directory
   of the file server.
 
-  Note:
+  [;;4mNote[0m
+
     In rare circumstances, this function can fail on Unix. It can
     occur if read permission does not exist for the parent
     directories of the current directory.
 
   A typical error reason:
 
-  [;;4m[;;4meacces[0m[0m:
-    Missing read permission for one of the parents of the current
-    directory.
+   • [;;4meacces[0m - Missing read permission for one of the parents of
+     the current directory.

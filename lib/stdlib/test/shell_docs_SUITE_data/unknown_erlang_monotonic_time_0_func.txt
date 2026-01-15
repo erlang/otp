@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:monotonic_time() -> integer().[0m
+[;1m  monotonic_time()[0m
 
 [;;4mSince[0m:
   OTP 18.0
@@ -8,12 +15,11 @@
   This is a monotonically increasing time since some unspecified
   point in time.
 
-  Note:
-    This is a monotonically increasing time, but not a 
-    strictly monotonically increasing time. That is, consecutive
-    calls to [;;4merlang:monotonic_time/0[0m can produce the same
-    result.
+  [;;4mNote[0m
 
+    This is a monotonically increasing time, but not a strictly
+    monotonically increasing time. That is, consecutive calls to [;;4m[0m
+    [;;4merlang:monotonic_time/0[0m can produce the same result.
     Different runtime system instances will use different
     unspecified points in time as base for their Erlang monotonic
     clocks. That is, it is pointless comparing monotonic times

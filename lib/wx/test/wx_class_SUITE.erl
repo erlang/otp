@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +32,7 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([calendarCtrl/1, treeCtrl/1, notebook/1, staticBoxSizer/1,
-         clipboard/1, helpFrame/1, htmlWindow/1, listCtrlSort/1, listCtrlVirtual/1,
+         clipboard/1, helpFrame/1, htmlWindow/1, image/1, listCtrlSort/1, listCtrlVirtual/1,
          radioBox/1, systemSettings/1, taskBarIcon/1, toolbar/1, popup/1, modal/1,
          textCtrl/1, locale/1]).
 
@@ -52,8 +54,8 @@ end_per_testcase(Func,Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 
 all() ->
-    [calendarCtrl, treeCtrl, notebook, staticBoxSizer,
-     clipboard, helpFrame, htmlWindow, listCtrlSort, listCtrlVirtual,
+    [calendarCtrl, treeCtrl, notebook, staticBoxSizer, clipboard,
+     helpFrame, htmlWindow, image, listCtrlSort, listCtrlVirtual,
      radioBox, systemSettings, taskBarIcon, toolbar, popup, modal,
      textCtrl, locale].
 
@@ -147,6 +149,9 @@ treeCtrl(Config) ->
     ?m(true, wxTreeCtrl:isTreeItemIdOk(Item1)),
     ?m({0, _}, wxTreeCtrl:hitTest(Tree, {X0+W0+W0, Y0+H0+4*H0})),
     ?m(false, wxTreeCtrl:isTreeItemIdOk(0)),
+
+    {N, Sels} = wxTreeCtrl:getSelections(Tree),
+    N = length(Sels),
 
     wxFrame:connect(Tree, command_tree_item_expanded),
     wxFrame:connect(Tree, command_tree_item_collapsed),
@@ -621,6 +626,19 @@ locale(_Config) ->
     io:format("initiated ~p~n",[R0]),
     lang_env(),
     ok.
+
+image(_Config) when is_list(_Config) ->
+    wx:new(),
+    Bin = << <<220:8, Row:8, Col:8>> ||
+              Row <- lists:seq(0, 127),
+              Col <- lists:seq(0, 127) >>,
+    Image = wxImage:new(128, 128, Bin),
+    220 = wxImage:getRed(Image, 42, 13),
+    42 = wxImage:getBlue(Image, 42, 13),
+    13 = wxImage:getGreen(Image, 42, 13),
+    ok.
+
+
 %% wx_test_lib:wx_destroy(Frame,Config).
 
 lang_env() ->

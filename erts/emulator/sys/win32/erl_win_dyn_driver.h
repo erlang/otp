@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2003-2021. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2003-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -87,10 +89,6 @@ WDD_TYPEDEF(void *, driver_dl_open, (char *));
 WDD_TYPEDEF(void *, driver_dl_sym, (void *, char *));
 WDD_TYPEDEF(int, driver_dl_close, (void *));
 WDD_TYPEDEF(char *, driver_dl_error, (void));
-WDD_TYPEDEF(ErlDrvUInt, erts_alc_test, (ErlDrvUInt,
-					ErlDrvUInt,
-					ErlDrvUInt,
-					ErlDrvUInt));
 WDD_TYPEDEF(ErlDrvSInt, driver_binary_get_refc, (ErlDrvBinary *dbp));
 WDD_TYPEDEF(ErlDrvSInt, driver_binary_inc_refc, (ErlDrvBinary *dbp));
 WDD_TYPEDEF(ErlDrvSInt, driver_binary_dec_refc, (ErlDrvBinary *dbp));
@@ -209,7 +207,7 @@ typedef struct {
     WDD_FTYPE(driver_dl_sym) *driver_dl_sym;
     WDD_FTYPE(driver_dl_close) *driver_dl_close;
     WDD_FTYPE(driver_dl_error) *driver_dl_error;
-    WDD_FTYPE(erts_alc_test) *erts_alc_test;
+    void* REMOVED_erts_alc_test;
     WDD_FTYPE(driver_binary_get_refc) *driver_binary_get_refc;
     WDD_FTYPE(driver_binary_inc_refc) *driver_binary_inc_refc;
     WDD_FTYPE(driver_binary_dec_refc) *driver_binary_dec_refc;
@@ -322,7 +320,6 @@ extern TWinDynDriverCallbacks WinDynDriverCallbacks;
 #define driver_dl_sym (WinDynDriverCallbacks.driver_dl_sym)
 #define driver_dl_close (WinDynDriverCallbacks.driver_dl_close)
 #define driver_dl_error (WinDynDriverCallbacks.driver_dl_error)
-#define erts_alc_test (WinDynDriverCallbacks.erts_alc_test)
 #define driver_binary_get_refc (WinDynDriverCallbacks.driver_binary_get_refc)
 #define driver_binary_inc_refc (WinDynDriverCallbacks.driver_binary_inc_refc)
 #define driver_binary_dec_refc (WinDynDriverCallbacks.driver_binary_dec_refc)
@@ -460,7 +457,7 @@ do {				                        \
 ((W).driver_dl_sym) =  driver_dl_sym;			\
 ((W).driver_dl_close) =  driver_dl_close;		\
 ((W).driver_dl_error) =  driver_dl_error;		\
-((W).erts_alc_test) = erts_alc_test;			\
+((W).REMOVED_erts_alc_test) = NULL;			\
 ((W).driver_binary_get_refc) = driver_binary_get_refc;	\
 ((W).driver_binary_inc_refc) = driver_binary_inc_refc;	\
 ((W).driver_binary_dec_refc) = driver_binary_dec_refc;	\

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,6 +55,7 @@
 %%%
 
 -module(beam_ssa_bsm).
+-moduledoc false.
 
 -export([module/2, format_error/1]).
 
@@ -314,7 +317,7 @@ alias_matched_binaries(Blocks0, Counter, AliasMap) when AliasMap =/= #{} ->
                    match_aliases = AliasMap,
                    cnt = Counter },
     {Blocks, State} = beam_ssa:mapfold_blocks(fun amb_1/3, RPO, State0,
-                                                  Blocks0),
+                                              Blocks0),
     {amb_insert_promotions(Blocks, State), State#amb.cnt};
 alias_matched_binaries(Blocks, Counter, _AliasMap) ->
     {Blocks, Counter}.
@@ -393,7 +396,7 @@ amb_create_alias(#b_var{}=Arg0, Context, Lbl, State0) ->
             %% promotion will be inserted later by amb_insert_promotions/2.
 
             Counter = State0#amb.cnt,
-            Alias = #b_var{name={'@ssa_bsm_alias', Counter}},
+            Alias = #b_var{name=Counter},
             Promotion = #b_set{op=bs_get_tail,dst=Alias,args=[Context]},
 
             Promotions = maps:put({Lbl, Arg0}, Promotion, Promotions0),
@@ -524,7 +527,7 @@ cm_handle_priors(Src, DstCtx, Bool, Acc, MatchSeq, Lbl, State0) ->
                         %% we can only consider the ones whose success path
                         %% dominate us.
                         Dominators = maps:get(Lbl, State0#cm.dominators, []),
-                        [Ctx || {ValidAfter, Ctx} <- Priors,
+                        [Ctx || {ValidAfter, Ctx} <:- Priors,
                                 member(ValidAfter, Dominators)];
                     error ->
                         []
@@ -767,7 +770,7 @@ aca_cs_is([#b_set{op=Op,
                _ -> aca_cs_args(Args0, VRs0)
            end,
     Counter = Counter0 + 1,
-    Dst = #b_var{name={'@ssa_bsm_aca',Counter}},
+    Dst = #b_var{name=Counter0},
     I = I0#b_set{dst=Dst,args=Args},
     VRs = maps:put(Dst0, Dst, VRs0),
     aca_cs_is(Is, Counter, VRs, BRs, [I | Acc]);
@@ -775,7 +778,7 @@ aca_cs_is([], Counter, VRs, _BRs, Acc) ->
     {VRs, reverse(Acc), Counter}.
 
 aca_cs_last(#b_switch{arg=Arg0,list=Switch0,fail=Fail0}=Sw, VRs, BRs) ->
-    Switch = [{Literal, maps:get(Lbl, BRs)} || {Literal, Lbl} <- Switch0],
+    Switch = [{Literal, maps:get(Lbl, BRs)} || {Literal, Lbl} <:- Switch0],
     Sw#b_switch{arg=aca_cs_arg(Arg0, VRs),
                 fail=maps:get(Fail0, BRs),
                 list=Switch};
@@ -820,7 +823,7 @@ aca_cs_arg(Arg, VRs) ->
 %% contexts to us.
 
 allow_context_passthrough({Fs, ModInfo0}) ->
-    FsUses = [{F, beam_ssa:uses(beam_ssa:rpo(Bs), Bs)} || #b_function{bs=Bs}=F <- Fs],
+    FsUses = [{F, beam_ssa:uses(beam_ssa:rpo(Bs), Bs)} || #b_function{bs=Bs}=F <:- Fs],
     ModInfo = acp_forward_params(FsUses, ModInfo0),
     {Fs, ModInfo}.
 
@@ -894,6 +897,16 @@ skip_outgoing_tail_extraction(#b_function{bs=Blocks0}=F, ModInfo) ->
 
 sote_rewrite_calls(#b_set{op=call,args=Args}=Call, State) ->
     sote_rewrite_call(Call, Args, [], State);
+sote_rewrite_calls(#b_set{op={bif,Safe},args=[Arg]}=Call0, State0)
+  when Safe =:= bit_size;
+       Safe =:= byte_size ->
+    case is_tail_binary(Arg, State0#sote.definitions) of
+        true ->
+            {Ctx, Call, State} = sote_reuse(Arg, Call0, State0),
+            {Call#b_set{args=[Ctx]}, State};
+        false ->
+            {Call0, State0}
+    end;
 sote_rewrite_calls(I, State) ->
     {I, State}.
 
@@ -905,13 +918,7 @@ sote_rewrite_call(Call0, [Arg | ArgsIn], ArgsOut, State0) ->
             CtxChain = context_chain_of(Arg, State0#sote.definitions),
             case check_context_call(Call0, Arg, CtxChain, State0#sote.mod_info) of
                 suitable_for_reuse ->
-                    Ctx = match_context_of(Arg, State0#sote.definitions),
-
-                    MatchAliases0 = State0#sote.match_aliases,
-                    MatchAliases = maps:put(Arg, {0, Ctx}, MatchAliases0),
-                    State = State0#sote{ match_aliases = MatchAliases },
-
-                    Call = beam_ssa:add_anno(bsm_info, context_reused, Call0),
+                    {Ctx, Call, State} = sote_reuse(Arg, Call0, State0),
                     sote_rewrite_call(Call, ArgsIn, [Ctx | ArgsOut], State);
                 Other ->
                     Call = beam_ssa:add_anno(bsm_info, Other, Call0),
@@ -920,6 +927,16 @@ sote_rewrite_call(Call0, [Arg | ArgsIn], ArgsOut, State0) ->
         false ->
             sote_rewrite_call(Call0, ArgsIn, [Arg | ArgsOut], State0)
     end.
+
+sote_reuse(Arg, I0, State0) ->
+    Ctx = match_context_of(Arg, State0#sote.definitions),
+
+    MatchAliases0 = State0#sote.match_aliases,
+    MatchAliases = maps:put(Arg, {0, Ctx}, MatchAliases0),
+    State = State0#sote{ match_aliases = MatchAliases },
+
+    I = beam_ssa:add_anno(bsm_info, context_reused, I0),
+    {Ctx, I, State}.
 
 %% Adds parameter annotations to help the validator determine whether our
 %% optimizations were safe.

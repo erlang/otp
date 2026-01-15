@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,6 +107,13 @@ typedef ERL_NIF_TERM (*ESockIOSendMsg)(ErlNifEnv*       env,
                                        int              flags,
                                        ERL_NIF_TERM     eIOV,
                                        const ESockData* dataP);
+
+typedef ERL_NIF_TERM (*ESockIOSendv)(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     sendRef,
+                                     ERL_NIF_TERM     eIOV,
+                                     const ESockData* dataP);
 
 typedef ERL_NIF_TERM (*ESockIOSendFileStart)(ErlNifEnv*       env,
                                              ESockDescriptor* descP,

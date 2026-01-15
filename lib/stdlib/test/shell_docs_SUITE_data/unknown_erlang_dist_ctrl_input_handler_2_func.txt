@@ -1,26 +1,37 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:dist_ctrl_input_handler(DHandle, InputHandler) -> ok[0m
-  [;1m                                        when[0m
-  [;1m                                            DHandle :: dist_handle(),[0m
-  [;1m                                            InputHandler :: pid().[0m
+[;1m  dist_ctrl_input_handler(DHandle, InputHandler)[0m
 
 [;;4mSince[0m:
   OTP 21.0
 
   Register an alternate input handler process for the distribution
-  channel identified by [;;4mDHandle[0m. Once this function has been
-  called, [;;4mInputHandler[0m is the only process allowed to call [;;4m[0m
-  [;;4merlang:dist_ctrl_put_data(DHandle, Data)[0m with the [;;4mDHandle[0m
-  identifying this distribution channel.
+  channel identified by [;;4mDHandle[0m.
 
-  Note:
-    Only the process registered as distribution controller for the
-    distribution channel identified by [;;4mDHandle[0m is allowed to
-    call this function.
+  Once this function has been called, [;;4mInputHandler[0m is the only
+  process allowed to call [;;4merlang:dist_ctrl_put_data(DHandle, Data)[0m
+  with the [;;4mDHandle[0m identifying this distribution channel.
+
+  [;;4mNote[0m
+
+    When the distribution controller for the distribution channel
+    identified by [;;4mDHandle[0m is a process, it is the only process
+    allowed to call this function. This function is also allowed
+    to be called when the distribution controller for the
+    distribution channel identified by [;;4mDHandle[0m is a port. The
+    data received by the port should in this case be delivered to
+    the process identified by [;;4mInputHandler[0m which in turn should
+    call [;;4merlang:dist_ctrl_put_data/2[0m.
 
   This function is used when implementing an alternative
-  distribution carrier using processes as distribution controllers. [;;4m[0m
-  [;;4mDHandle[0m is retrieved via the callback [;;4mf_handshake_complete[0m.
-  More information can be found in the documentation of ERTS User's
-  Guide ➜ How to implement an Alternative Carrier for the Erlang
-  Distribution ➜ Distribution Module.
+  distribution carrier. [;;4mDHandle[0m is retrieved via the callback [;;4m[0m
+  [;;4mf_handshake_complete[0m. More information can be found in the
+  documentation of ERTS User's Guide ➜ How to implement an
+  Alternative Carrier for the Erlang Distribution ➜ Distribution
+  Module.

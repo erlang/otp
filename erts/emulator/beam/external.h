@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +69,7 @@
 #define ATOM_INTERNAL_REF2 'I'
 #define ATOM_INTERNAL_REF3 'K'
 #define BINARY_INTERNAL_REF 'J'
-#define BIT_BINARY_INTERNAL_REF 'L'
+#define BITSTRING_INTERNAL_REF 'L'
 #define MAGIC_REF_INTERNAL_REF 'N'
 #define COMPRESSED        'P'
 
@@ -114,9 +116,11 @@ typedef struct {
     } cache[ERTS_ATOM_CACHE_SIZE];
 } ErtsAtomCacheMap;
 
+#define ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES 255
+
 typedef struct {
     Uint32 size;
-    Eterm atom[ERTS_ATOM_CACHE_SIZE];
+    Eterm atom[ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES];
 } ErtsAtomTranslationTable;
 
 /*
@@ -136,20 +140,29 @@ typedef struct erl_dist_external_data ErtsDistExternalData;
 struct erl_dist_external_data {
     Uint64 seq_id;
     Uint64 frag_id;
-    byte *extp;
-    byte *ext_endp;
+    const byte *extp;
+    const byte *ext_endp;
     struct binary *binp;
 };
 
 typedef struct erl_dist_external {
+    ErtsDistExternalData *data;
+    Uint32 flags;
+
+    Uint32 connection_id;
     Sint heap_size;
     DistEntry *dep;
-    Uint32 flags;
-    Uint32 connection_id;
-    ErtsDistExternalData *data;
     struct ErtsMonLnkDist__ *mld;   /* copied from DistEntry.mld */
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
+
+/* This fake one is used to impersonate ErtsDistExternal for dec_term()
+ * just for the flags without a large unused ErtsAtomTranslationTable.
+ */
+typedef struct {
+    ErtsDistExternalData *data;
+    Uint32 flags;
+} ErtsDistExternalFake;
 
 typedef struct {
     byte *extp;
@@ -208,8 +221,15 @@ typedef enum {
     ERTS_PREP_DIST_EXT_CLOSED
 } ErtsPrepDistExtRes;
 
-ErtsPrepDistExtRes erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint, struct binary *,
-                                         DistEntry *, Uint32, ErtsAtomCache *);
+ErtsPrepDistExtRes
+erts_prepare_dist_ext(ErtsDistExternal *edep,
+                      const byte *ext,
+                      Uint size,
+                      struct binary *binp,
+                      DistEntry *dep,
+                      Uint32 conn_id,
+                      ErtsAtomCache *cache);
+
 Sint erts_decode_dist_ext_size(ErtsDistExternal *, int, int);
 Eterm erts_decode_dist_ext(ErtsHeapFactory*, ErtsDistExternal *, int);
 

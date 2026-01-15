@@ -884,12 +884,12 @@ gen_dec_choice(Erules,TopType, ChTag, CompList, Ext) ->
     gen_dec_choice_cases(Erules,TopType,CompList),
     case Ext of
 	noext ->
-	    emit([indent(6), {curr,else}," -> ",nl]),
+	    emit([indent(6), {curr,'else'}," -> ",nl]),
 	    emit([indent(9),"case OptOrMand of",nl,
 		  indent(12),"mandatory ->","exit({error,{asn1,",
-		  "{invalid_choice_tag,",{curr,else},"}}});",nl,
+		  "{invalid_choice_tag,",{curr,'else'},"}}});",nl,
 		  indent(12),"_ ->","exit({error,{asn1,{no_optional_tag,",
-		  {curr,else},"}}})",nl,
+		  {curr,'else'},"}}})",nl,
 		  indent(9),"end",nl]);
 	_ ->
 	    emit([indent(6),"_ -> ",nl]),
@@ -898,7 +898,7 @@ gen_dec_choice(Erules,TopType, ChTag, CompList, Ext) ->
     end,
     emit([indent(3),"end"]),
     asn1ct_name:new(tag),
-    asn1ct_name:new(else).
+    asn1ct_name:new('else').
 
 gen_dec_choice_indef_funs(Erules) ->
     emit({indent(3),"IndefEndBytes = fun(indefinite,",indefend_match(Erules,used_var),

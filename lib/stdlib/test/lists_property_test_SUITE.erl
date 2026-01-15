@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -112,7 +114,6 @@ init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
 
 end_per_suite(Config) ->
-    persistent_term:erase({lists_prop, random_atoms}),
     Config.
 
 do_proptest(Prop, Config) ->

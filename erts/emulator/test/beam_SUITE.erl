@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,8 +25,10 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 packed_registers/1, apply_last/1, apply_last_bif/1,
-	 buildo_mucho/1, heap_sizes/1, big_lists/1, fconv/1,
-	 select_val/1, swap_temp_apply/1]).
+	 heap_sizes/1, big_lists/1, fconv/1,
+         select_val/1, select_tuple_arity/1,
+         swap_temp_apply/1, beam_init_yregs/1,
+         beam_register_cache/1]).
 
 -export([applied/2,swap_temp_applied/1]).
 
@@ -35,8 +39,10 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [packed_registers, apply_last, apply_last_bif,
-     buildo_mucho, heap_sizes, big_lists, select_val,
-     swap_temp_apply].
+     heap_sizes, big_lists, fconv,
+     select_val, select_tuple_arity,
+     swap_temp_apply, beam_init_yregs,
+     beam_register_cache].
 
 groups() -> 
     [].
@@ -148,84 +154,15 @@ packed_registers(Config) when is_list(Config) ->
             io:put_chars(Dis)
     end,
 
+    %% Executing the generated code in freshly spawned process makes it much
+    %% more likely to crash if there is a bug in init_yregs.
     CombinedSeq = Seq ++ Seq ++ Seq,
-    CombinedSeq = Mod:f(),
+    CombinedSeq = spawn_exec(fun Mod:f/0),
 
     %% Clean up.
     true = code:delete(Mod),
     false = code:purge(Mod),
     ok.
-
-buildo_mucho(Config) when is_list(Config) ->
-    buildo_mucho_1(),
-    ok.
-
-buildo_mucho_1() ->
-    %% Thanks to Per Gustafsson, HiPE.
-    [{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},
-     {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1}].
 
 heap_sizes(Config) when is_list(Config) ->
     Sizes = erlang:system_info(heap_sizes),
@@ -351,7 +288,10 @@ do_fconv(atom, Float) when is_float(Float) ->
 do_fconv(nil, Float) when is_float(Float) ->
     Float + [];
 do_fconv(tuple_literal, Float) when is_float(Float) ->
-    Float + {a,b}.
+    Float + {a,b};
+do_fconv(A, B) when is_float(A), is_float(B) ->
+    A + B.
+
 
 select_val(Config) when is_list(Config) ->
     Mod = ?FUNCTION_NAME,
@@ -477,6 +417,45 @@ make_func(Name, List) ->
     Cs = [?Q(["(_@I@) -> _@Body@"]) || {I,Body} <- List],
     erl_syntax:function(erl_syntax:atom(Name), Cs).
 
+select_tuple_arity(_Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    {Vs,Cs} = make_tuple_tests(300, [], []),
+    Name = erl_syntax:atom(match_tuple),
+    F = erl_syntax:function(Name, Cs),
+    Code = ?Q(["-module('@Mod@').\n"
+               "-export([match_tuple/1]).\n"]) ++ [F],
+
+    merl:compile_and_load(Code, []),
+
+    %% %% Uncomment the following line to print the generated code.
+    %% merl:print(Code),
+
+    verify_tuple_match(Vs, Mod),
+
+    %% Clean up.
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
+    ok.
+
+make_tuple_tests(0, Clauses, Acc) ->
+    {Acc,Clauses};
+make_tuple_tests(Size, Clauses, Acc) ->
+    V = erlang:phash2(Size),
+    Es = lists:duplicate(Size, erl_syntax:underscore()),
+    Tuple = erl_syntax:tuple(Es),
+    Value = erl_syntax:integer(V),
+    Clause = erl_syntax:clause([Tuple], [], [Value]),
+    make_tuple_tests(Size-1, [Clause|Clauses], [{Size,V}|Acc]).
+
+verify_tuple_match([{Size,Result}|T], Mod) ->
+    Tuple = erlang:make_tuple(Size, a),
+    Result = Mod:match_tuple(Tuple),
+    verify_tuple_match(T, Mod);
+verify_tuple_match([], _) ->
+    ok.
+
 swap_temp_apply(_Config) ->
     {swap_temp_applied,42} = do_swap_temp_apply(41),
     not_an_integer = do_swap_temp_apply(not_an_integer),
@@ -514,3 +493,47 @@ swap_temp_apply_function(_) ->
 
 swap_temp_applied(Int) ->
     Int+1.
+
+beam_init_yregs(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Mod = ?FUNCTION_NAME,
+    File = filename:join(DataDir, Mod),
+    {ok,Mod,Code} = compile:file(File, [from_asm,no_postopt,binary]),
+    {module,Mod} = code:load_binary(Mod, Mod, Code),
+
+    _ = [ok = spawn_exec(fun Mod:Mod/0) || _ <- lists:seq(1, 10)],
+
+    %% Clean up.
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
+    ok.
+
+%% GH-8433: The register cache wasn't properly maintained for certain helper
+%% functions in the ARM JIT.
+beam_register_cache(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Mod = ?FUNCTION_NAME,
+
+    File = filename:join(DataDir, Mod),
+    {ok,Mod,Code} = compile:file(File, [from_asm,no_postopt,binary]),
+    {module,Mod} = code:load_binary(Mod, Mod, Code),
+
+    try
+        ok = Mod:Mod()
+    after
+        %% Clean up.
+        true = code:delete(Mod),
+        false = code:purge(Mod)
+    end,
+
+    ok.
+
+%%% Common utilities.
+spawn_exec(F) ->
+    {Pid,Ref} = spawn_monitor(fun() ->
+                                      exit(F())
+                              end),
+    receive
+        {'DOWN',Ref,process,Pid,Result} -> Result
+    end.

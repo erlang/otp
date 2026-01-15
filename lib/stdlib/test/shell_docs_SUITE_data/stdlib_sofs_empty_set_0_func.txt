@@ -1,5 +1,20 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec empty_set() -> Set when Set :: a_set().[0m
+[;1m  empty_set()[0m
 
-  Returns the untyped empty set. [;;4mempty_set()[0m is equivalent to [;;4m[0m
-  [;;4mfrom_term([], ['_'])[0m.
+  Returns the untyped empty set.
+
+  [;;4mempty_set/0[0m is equivalent to [;;4mfrom_term([], ['_'])[0m.
+
+[;1mExamples[0m
+
+    1> sofs:to_external(sofs:empty_set()).
+    []
+    2> sofs:is_empty_set(sofs:empty_set()).
+    true

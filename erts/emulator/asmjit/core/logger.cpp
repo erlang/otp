@@ -19,6 +19,14 @@ Logger::Logger() noexcept
   : _options() {}
 Logger::~Logger() noexcept {}
 
+// [[pure virtual]]
+Error Logger::_log(const char* data, size_t size) noexcept {
+  DebugUtils::unused(data, size);
+
+  // Do not error in this case - the logger would just sink to /dev/null.
+  return kErrorOk;
+}
+
 Error Logger::logf(const char* fmt, ...) noexcept {
   Error err;
   va_list ap;

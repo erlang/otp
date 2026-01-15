@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2022-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2022-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,14 +30,12 @@ my @beam_global_funcs = qw(
     bif_nif_epilogue
     bif_element_shared
     bif_export_trap
-    bs_add_shared
     bs_create_bin_error_shared
     bs_size_check_shared
     bs_get_tail_shared
     bs_get_utf8_shared
     bs_get_utf8_short_shared
     bs_init_bits_shared
-    bs_init_bits_legacy_shared
     call_bif_shared
     call_light_bif_shared
     call_nif_early
@@ -84,55 +84,66 @@ my @beam_global_funcs = qw(
     i_load_nif_shared
     i_length_guard_shared
     i_length_body_shared
+    i_line_breakpoint_trampoline_shared
     i_loop_rec_shared
     i_test_yield_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
+    is_eq_exact_list_shared
+    is_eq_exact_shallow_boxed_shared
     is_in_range_shared
     is_ge_lt_shared
-    internal_hash_helper
     minus_body_shared
     minus_guard_shared
+    mul_add_body_shared
+    mul_add_guard_shared
+    mul_body_shared
+    mul_guard_shared
     new_map_shared
     plus_body_shared
     plus_guard_shared
     process_exit
     process_main
     raise_exception
+    raise_exception_null_exp
     raise_exception_shared
+    raise_shared
     store_unaligned
-    times_body_shared
-    times_guard_shared
     unary_minus_body_shared
     unary_minus_guard_shared
     unloaded_fun
     update_map_assoc_shared
     update_map_exact_guard_shared
     update_map_exact_body_shared
+    update_map_single_assoc_shared
+    update_map_single_exact_body_shared
     );
 
-# Labels exported from within process_main
-my @process_main_labels = qw(
-    context_switch
-    context_switch_simplified
-    do_schedule
+my @internal_labels = (
+    # Labels exported from within process_main
+    'context_switch',
+    'context_switch_simplified',
+    'do_schedule',
+
+    # Labels exported from within i_line_breakpoint_trampoline_shared
+    'i_line_breakpoint_cleanup',
     );
 
 my $decl_enums =
-    gen_list('        %s,', @beam_global_funcs, '', @process_main_labels);
+    gen_list('        %s,', @beam_global_funcs, '', @internal_labels);
 
 my $decl_emit_funcs =
     gen_list('    void emit_%s(void);', @beam_global_funcs);
 
 my $decl_get_funcs =
     gen_list('    void (*get_%s(void))() { return get(%s); }',
-             @beam_global_funcs, '', @process_main_labels);
+             @beam_global_funcs, '', @internal_labels);
 
 my $decl_emitPtrs =
     gen_list('    {%s, &BeamGlobalAssembler::emit_%s},', @beam_global_funcs);
 
 my $decl_label_names =
-    gen_list('    {%s, "%s"},', @beam_global_funcs, '', @process_main_labels);
+    gen_list('    {%s, "%s"},', @beam_global_funcs, '', @internal_labels);
 
 sub gen_list {
     my ($format, @strings) = @_;
@@ -178,14 +189,15 @@ $decl_enums
 
 $decl_emit_funcs
 
-    template<typename T>
-    void emit_bitwise_fallback_body(T(*func_ptr), const ErtsCodeMFA *mfa);
+    template<typename T, T Func>
+    void emit_bitwise_fallback_body(const ErtsCodeMFA *mfa);
 
-    template<typename T>
-    void emit_bitwise_fallback_guard(T(*func_ptr));
+    template<typename T, T Func>
+    void emit_bitwise_fallback_guard();
 
     x86::Mem emit_i_length_common(Label fail, int state_size);
 
+    void emit_internal_hash_helper();
     void emit_flatmap_get_element();
     void emit_hashmap_get_element();
 
@@ -196,6 +208,9 @@ public:
         ASSERT(ptrs[lbl]);
         return ptrs[lbl];
     }
+
+    enum erts_is_line_breakpoint is_line_breakpoint_trampoline(ErtsCodePtr);
+
 
 $decl_get_funcs
 };

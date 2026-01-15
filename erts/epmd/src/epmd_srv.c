@@ -2,7 +2,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -830,12 +832,12 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 	if (!reply(g, fd, wbuf, replylen))
 	  {
             node_unreg(g, name);
-	    dbg_tty_printf(g,1,"** failed to send ALIVE2_RESP for \"%s\"",
+	    dbg_tty_printf(g,1,"** failed to send EPMD_ALIVE2_RESP for \"%s\"",
 			   name);
 	    return;
 	  }
 
-	dbg_tty_printf(g,1,"** sent ALIVE2_RESP for \"%s\"",name);
+	dbg_tty_printf(g,1,"** sent EPMD_ALIVE2_RESP for \"%s\"",name);
 	s->keep = EPMD_TRUE;		/* Don't close on inactivity */
       }
       break;
@@ -889,26 +891,26 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 		offset += node->extralen;
 		if (!reply(g, fd, wbuf, offset))
 		  {
-		    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (ok) for \"%s\"",name);
+		    dbg_tty_printf(g,1,"** failed to send EPMD_PORT2_RESP (ok) for \"%s\"",name);
 		    return;
 		  }
-		dbg_tty_printf(g,1,"** sent PORT2_RESP (ok) for \"%s\"",name);
+		dbg_tty_printf(g,1,"** sent EPMD_PORT2_RESP (ok) for \"%s\"",name);
 		return;
 	    }
 	}
 	wbuf[1] = 1; /* error */
 	if (!reply(g, fd, wbuf, 2))
 	  {
-	    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (error) for \"%s\"",name);
+	    dbg_tty_printf(g,1,"** failed to send EPMD_PORT2_RESP (error) for \"%s\"",name);
 	    return;
 	  }
-	dbg_tty_printf(g,1,"** sent PORT2_RESP (error) for \"%s\"",name);
+	dbg_tty_printf(g,1,"** sent EPMD_PORT2_RESP (error) for \"%s\"",name);
 	return;
       }
       break;
 
     case EPMD_NAMES_REQ:
-      dbg_printf(g,1,"** got NAMES_REQ");
+      dbg_printf(g,1,"** got EPMD_NAMES_REQ");
       {
 	Node *node;
 
@@ -948,9 +950,9 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
       break;
 
     case EPMD_DUMP_REQ:
-      dbg_printf(g,1,"** got DUMP_REQ");
+      dbg_printf(g,1,"** got EPMD_DUMP_REQ");
       if (!s->local_peer) {
-	   dbg_printf(g,0,"DUMP_REQ from non local address");
+	   dbg_printf(g,0,"EPMD_DUMP_REQ from non local address");
 	   return;
       }
       {
@@ -1015,39 +1017,39 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 
     case EPMD_KILL_REQ:
       if (!s->local_peer) {
-	   dbg_printf(g,0,"KILL_REQ from non local address");
+	   dbg_printf(g,0,"EPMD_KILL_REQ from non local address");
 	   return;
       }
-      dbg_printf(g,1,"** got KILL_REQ");
+      dbg_printf(g,1,"** got EPMD_KILL_REQ");
 
       if (!g->brutal_kill && (g->nodes.reg != NULL)) {
-	  dbg_printf(g,0,"Disallowed KILL_REQ, live nodes");
+	  dbg_printf(g,0,"Disallowed EPMD_KILL_REQ, live nodes");
 	  if (!reply(g, fd,"NO",2))
-	      dbg_printf(g,0,"failed to send reply to KILL_REQ");
+	      dbg_printf(g,0,"failed to send reply to EPMD_KILL_REQ");
 	  return;
       }
 
       if (!reply(g, fd,"OK",2))
-	dbg_printf(g,0,"failed to send reply to KILL_REQ");
+	dbg_printf(g,0,"failed to send reply to EPMD_KILL_REQ");
       dbg_tty_printf(g,1,"epmd killed");
       conn_close_fd(g,fd);	/* We never return to caller so close here */
-      dbg_printf(g,0,"got KILL_REQ - terminates normal");
+      dbg_printf(g,0,"got EPMD_KILL_REQ - terminates normal");
       epmd_cleanup_exit(g,0);			/* Normal exit */
 
     case EPMD_STOP_REQ:
-      dbg_printf(g,1,"** got STOP_REQ");
+      dbg_printf(g,1,"** got EPMD_STOP_REQ");
       if (!s->local_peer) {
-	   dbg_printf(g,0,"STOP_REQ from non local address");
+	   dbg_printf(g,0,"EPMD_STOP_REQ from non local address");
 	   return;
       }
       if (!g->brutal_kill) {
-	  dbg_printf(g,0,"Disallowed STOP_REQ, no relaxed_command_check");
+	  dbg_printf(g,0,"Disallowed EPMD_STOP_REQ, no relaxed_command_check");
 	  return;
       }
 
       if (bsize <= 1 )
 	{
-	  dbg_printf(g,0,"packet too small for request STOP_REQ (%d)",bsize);
+	  dbg_printf(g,0,"packet too small for request EPMD_STOP_REQ (%d)",bsize);
 	  return;
 	}
 

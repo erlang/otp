@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2006-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -595,6 +597,11 @@ reset_executed_io_task_handle(Port *prt, ErtsPortTask *ptp)
                                                   reset_port_task_handle);
                 erts_atomic32_read_band_nob(&prt->state, ~ERTS_PORT_SFLG_CHECK_FD_CLEANUP);
             } else {
+                /* We don't have to call erts_io_notify_port_task_executed for scheduler events
+                   as we will keep the fd in the set. However, if driver_deselect was called in
+                   the ready_input callback, then we do need to call it in order to free the
+                   select structures from the fd state.
+                   */
                 reset_port_task_handle(ptp->u.alive.handle);
             }
         } else
@@ -1099,9 +1106,9 @@ finalize_exec(Port *pp, ErtsPortTask **execq, int processing_busy_q)
 	    break;
     }
 
-    if (prof_runnable_ports | IS_TRACED_FL(pp, F_TRACE_SCHED_PORTS)) {
+    if (prof_runnable_ports | ERTS_IS_P_TRACED_FL(pp, F_TRACE_SCHED_PORTS)) {
 	/* trace port scheduling, out */
-	if (IS_TRACED_FL(pp, F_TRACE_SCHED_PORTS))
+	if (ERTS_IS_P_TRACED_FL(pp, F_TRACE_SCHED_PORTS))
 	    trace_sched_ports(pp, am_out);
 	if (prof_runnable_ports) {
 	    if (!(act & (ERTS_PTS_FLG_EXEC_IMM|ERTS_PTS_FLG_HAVE_TASKS)))
@@ -1704,7 +1711,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_port_lock(pp);
 
     /* trace port scheduling, in */
-    if (IS_TRACED_FL(pp, F_TRACE_SCHED_PORTS)) {
+    if (ERTS_IS_P_TRACED_FL(pp, F_TRACE_SCHED_PORTS)) {
 	trace_sched_ports(pp, am_in);
     }
 
@@ -1748,8 +1755,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 		if (!(state & ERTS_PORT_SFLGS_DEAD)) {
 		    DTRACE_DRIVER(driver_timeout, pp);
 		    LTTNG_DRIVER(driver_timeout, pp);
-                    if (IS_TRACED_FL(pp, F_TRACE_RECEIVE))
-                        trace_port(pp, am_receive, am_timeout);
+                    if (ERTS_IS_P_TRACED_FL(pp, F_TRACE_RECEIVE))
+                        trace_port(pp, am_receive, am_timeout, F_TRACE_RECEIVE);
 		    (*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
 		}
 	    }

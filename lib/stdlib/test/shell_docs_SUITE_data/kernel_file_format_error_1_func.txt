@@ -1,13 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec format_error(Reason) -> Chars[0m
-  [;1m                      when[0m
-  [;1m                          Reason ::[0m
-  [;1m                              posix() |[0m
-  [;1m                              badarg | terminated | system_limit |[0m
-  [;1m                              {Line :: integer(),[0m
-  [;1m                               Mod :: module(),[0m
-  [;1m                               Term :: term()},[0m
-  [;1m                          Chars :: string().[0m
+[;1m  format_error(Reason)[0m
 
   Given the error reason returned by any function in this module,
   returns a descriptive string of the error in English.

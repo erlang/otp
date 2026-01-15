@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +23,10 @@
 %%% Kernel application test suite.
 %%%-----------------------------------------------------------------
 -module(kernel_SUITE).
--include_lib("common_test/include/ct.hrl").
 
--compile(r22).
+-compile(r26).
+
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

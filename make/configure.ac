@@ -2,7 +2,9 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2024. All Rights Reserved.
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
+dnl Copyright Ericsson AB 1998-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -18,13 +20,15 @@ dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 
-AC_PREREQ([2.71])dnl
+AC_PREREQ([2.72])dnl
 
 AC_INIT
 
 m4_include([otp.m4])
 
 LM_PRECIOUS_VARS
+
+ERL_PUSH_WERROR
 
 default_cache_file=./config.cache
 
@@ -119,7 +123,7 @@ dnl Checks for programs.
 
 AC_PROG_CC
 AC_PROG_CXX
-AC_CHECK_TOOL(LD, [ld])
+LM_PROG_LD
 
 LM_WINDOWS_ENVIRONMENT
 
@@ -372,7 +376,8 @@ fi
 
 ERL_DED
 
+ERL_POP_WERROR
+
 AC_CONFIG_FILES([../Makefile output.mk ../make/$host/otp_ded.mk:../make/otp_ded.mk.in])
-AC_CONFIG_FILES([emd2exml], [chmod +x emd2exml])
 
 AC_OUTPUT

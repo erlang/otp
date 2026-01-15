@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2009 Mickaël Rémond, Paul Guyot
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,18 +27,22 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @author Mickaël Rémond <mickael.remond@process-one.net>
-%% @copyright 2009 Mickaël Rémond, Paul Guyot
-%% @see eunit
-%% @doc Surefire reports for EUnit (Format used by Maven and Atlassian
-%% Bamboo for example to integrate test results). Based on initial code
-%% from Paul Guyot.
-%%
-%% Example: Generate XML result file in the current directory:
-%% ```eunit:test([fib, eunit_examples],
-%%               [{report,{eunit_surefire,[{dir,"."}]}}]).'''
+%% %CopyrightEnd%
 
 -module(eunit_surefire).
+-moduledoc """
+Surefire reports for EUnit (Format used by Maven and Atlassian Bamboo for
+example to integrate test results). Based on initial code from Paul Guyot.
+
+Example: Generate XML result file in the current directory:
+
+```text
+     eunit:test([fib, eunit_examples],
+                [{report,{eunit_surefire,[{dir,"."}]}}]).
+```
+
+_See also: _`m:eunit`.
+""".
 
 -behaviour(eunit_listener).
 
@@ -87,12 +100,15 @@
 		testsuites = [] :: [#testsuite{}]
 	       }).
 
+-doc false.
 start() ->
     start([]).
 
+-doc false.
 start(Options) ->
     eunit_listener:start(?MODULE, Options).
 
+-doc false.
 init(Options) ->
     XMLDir = proplists:get_value(dir, Options, ?XMLDIR),
     ensure_xmldir(XMLDir),
@@ -104,6 +120,7 @@ init(Options) ->
 	    St
     end.
 
+-doc false.
 terminate({ok, _Data}, St) ->
     TestSuites = St#state.testsuites,
     XmlDir = St#state.xmldir,
@@ -114,6 +131,7 @@ terminate({error, _Reason}, _St) ->
     %% Just terminate.
     ok.
 
+-doc false.
 handle_begin(Kind, Data, St) when Kind == group; Kind == test ->
     %% Run this code both for groups and tests; test is a bit
     %% surprising: This is a workaround for the fact that we don't get
@@ -132,6 +150,8 @@ handle_begin(Kind, Data, St) when Kind == group; Kind == test ->
 	_ ->
 	    St
     end.
+
+-doc false.
 handle_end(group, Data, St) ->
     %% Retrieve existing test suite:
     case proplists:get_value(id, Data) of
@@ -167,6 +187,7 @@ handle_end(test, Data, St) ->
 
 %% Cancel group does not give information on the individual cancelled test case
 %% We ignore this event...
+-doc false.
 handle_cancel(group, Data, St) ->
     %% ...except when it tells us that a fixture setup or cleanup failed.
     case proplists:get_value(reason, Data) of

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,156 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxAuiManager).
+-moduledoc """
+`m:wxAuiManager` is the central class of the wxAUI class framework.
+
+`m:wxAuiManager` manages the panes associated with it for a particular `m:wxFrame`, using
+a pane's `m:wxAuiPaneInfo` information to determine each pane's docking and floating behaviour.
+
+`m:wxAuiManager` uses wxWidgets' sizer mechanism to plan the layout of each frame. It
+uses a replaceable dock art class to do all drawing, so all drawing is localized in one
+area, and may be customized depending on an application's specific needs.
+
+`m:wxAuiManager` works as follows: the programmer adds panes to the class, or makes
+changes to existing pane properties (dock position, floating state, show state, etc.). To
+apply these changes, `m:wxAuiManager`'s `update/1` function is called. This batch processing can be
+used to avoid flicker, by modifying more than one pane at a time, and then "committing"
+all of the changes at once by calling `update/1`.
+
+Panes can be added quite easily:
+
+Later on, the positions can be modified easily. The following will float an existing pane
+in a tool window:
+
+Layers, Rows and Directions, Positions
+
+Inside wxAUI, the docking layout is figured out by checking several pane parameters. Four
+of these are important for determining where a pane will end up:
+
+* Direction: Each docked pane has a direction, Top, Bottom, Left, Right, or Center. This is
+fairly self-explanatory. The pane will be placed in the location specified by this
+variable.
+
+* Position: More than one pane can be placed inside of a dock. Imagine two panes being
+docked on the left side of a window. One pane can be placed over another. In
+proportionally managed docks, the pane position indicates its sequential position,
+starting with zero. So, in our scenario with two panes docked on the left side, the top
+pane in the dock would have position 0, and the second one would occupy position 1.
+
+* Row: A row can allow for two docks to be placed next to each other. One of the most
+common places for this to happen is in the toolbar. Multiple toolbar rows are allowed, the
+first row being row 0, and the second row 1. Rows can also be used on vertically docked
+panes.
+
+* Layer: A layer is akin to an onion. Layer 0 is the very center of the managed pane. Thus,
+if a pane is in layer 0, it will be closest to the center window (also sometimes known as
+the "content window"). Increasing layers "swallow up" all layers of a lower value. This
+can look very similar to multiple rows, but is different because all panes in a lower
+level yield to panes in higher levels. The best way to understand layers is by running the
+wxAUI sample.
+
+## Styles
+
+This class supports the following styles:
+
+* wxAUI_MGR_ALLOW_FLOATING: Allow a pane to be undocked to take the form of a `m:wxMiniFrame`.
+
+* wxAUI_MGR_ALLOW_ACTIVE_PANE: Change the color of the title bar of the pane when it is
+activated.
+
+* wxAUI_MGR_TRANSPARENT_DRAG: Make the pane transparent during its movement.
+
+* wxAUI_MGR_TRANSPARENT_HINT: The possible location for docking is indicated by a
+translucent area.
+
+* wxAUI_MGR_VENETIAN_BLINDS_HINT: The possible location for docking is indicated by
+gradually appearing partially transparent hint.
+
+* wxAUI_MGR_RECTANGLE_HINT: The possible location for docking is indicated by a rectangular
+outline.
+
+* wxAUI_MGR_HINT_FADE: The translucent area where the pane could be docked appears
+gradually.
+
+* wxAUI_MGR_NO_VENETIAN_BLINDS_FADE: Used in complement of wxAUI_MGR_VENETIAN_BLINDS_HINT
+to show the docking hint immediately.
+
+* wxAUI_MGR_LIVE_RESIZE: When a docked pane is resized, its content is refreshed in live
+(instead of moving the border alone and refreshing the content at the end).
+
+* wxAUI_MGR_DEFAULT: Default behaviour, combines: wxAUI_MGR_ALLOW_FLOATING |
+wxAUI_MGR_TRANSPARENT_HINT | wxAUI_MGR_HINT_FADE | wxAUI_MGR_NO_VENETIAN_BLINDS_FADE.
+
+See:
+* [Overview aui](https://docs.wxwidgets.org/3.2/overview_aui.html#overview_aui)
+
+* `m:wxAuiNotebook`
+
+* `m:wxAuiDockArt`
+
+* `m:wxAuiPaneInfo`
+
+This class is derived, and can use functions, from:
+
+* `m:wxEvtHandler`
+
+wxWidgets docs: [wxAuiManager](https://docs.wxwidgets.org/3.2/classwx_aui_manager.html)
+
+## Events
+
+Event types emitted from this class:
+
+* [`aui_pane_button`](`m:wxAuiManagerEvent`)
+
+* [`aui_pane_close`](`m:wxAuiManagerEvent`)
+
+* [`aui_pane_maximize`](`m:wxAuiManagerEvent`)
+
+* [`aui_pane_restore`](`m:wxAuiManagerEvent`)
+
+* [`aui_pane_activated`](`m:wxAuiManagerEvent`)
+
+* [`aui_render`](`m:wxAuiManagerEvent`)
+""".
 -include("wxe.hrl").
 -export([addPane/2,addPane/3,addPane/4,destroy/1,detachPane/2,getAllPanes/1,
   getArtProvider/1,getDockSizeConstraint/1,getFlags/1,getManagedWindow/1,
@@ -32,17 +180,17 @@
 
 -type wxAuiManager() :: wx:wx_object().
 -export_type([wxAuiManager/0]).
-%% @hidden
+-doc false.
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @equiv new([])
+-doc(#{equiv => new([])}).
 -spec new() -> wxAuiManager().
 
 new() ->
   new([]).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerwxauimanager">external documentation</a>.
+-doc "Constructor.".
 -spec new([Option]) -> wxAuiManager() when
 	Option :: {'managed_wnd', wxWindow:wxWindow()}
 		 | {'flags', integer()}.
@@ -55,7 +203,7 @@ new(Options)
   wxe_util:queue_cmd(Opts,?get_env(),?wxAuiManager_new),
   wxe_util:rec(?wxAuiManager_new).
 
-%% @equiv addPane(This,Window, [])
+-doc(#{equiv => addPane(This,Window, [])}).
 -spec addPane(This, Window) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow().
 
@@ -63,11 +211,14 @@ addPane(This,Window)
  when is_record(This, wx_ref),is_record(Window, wx_ref) ->
   addPane(This,Window, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanageraddpane">external documentation</a>.
-%% <br /> Also:<br />
-%% addPane(This, Window, Pane_info) -> boolean() when<br />
-%% 	This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo().<br />
-%% 
+-doc """
+`addPane/4` tells the frame manager to start managing a child window.
+
+There are several versions of this function. The first version allows the full spectrum
+of pane parameter possibilities. The second version is used for simpler user interfaces
+which do not require as much configuration. The last version allows a drop position to be
+specified, which will determine where the pane will be added.
+""".
 -spec addPane(This, Window, [Option]) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(),
 	Option :: {'direction', integer()}
@@ -91,7 +242,7 @@ addPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,#wx_ref{type=Pane_
   wxe_util:queue_cmd(This,Window,Pane_info,?get_env(),?wxAuiManager_AddPane_2_1),
   wxe_util:rec(?wxAuiManager_AddPane_2_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanageraddpane">external documentation</a>.
+-doc "".
 -spec addPane(This, Window, Pane_info, Drop_pos) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo(), Drop_pos::{X::integer(), Y::integer()}.
 addPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,#wx_ref{type=Pane_infoT}=Pane_info,{Drop_posX,Drop_posY} = Drop_pos)
@@ -102,7 +253,11 @@ addPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,#wx_ref{type=Pane_
   wxe_util:queue_cmd(This,Window,Pane_info,Drop_pos,?get_env(),?wxAuiManager_AddPane_3),
   wxe_util:rec(?wxAuiManager_AddPane_3).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerdetachpane">external documentation</a>.
+-doc """
+Tells the `m:wxAuiManager` to stop managing the pane specified by window.
+
+The window, if in a floated frame, is reparented to the frame managed by `m:wxAuiManager`.
+""".
 -spec detachPane(This, Window) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow().
 detachPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
@@ -111,7 +266,7 @@ detachPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   wxe_util:queue_cmd(This,Window,?get_env(),?wxAuiManager_DetachPane),
   wxe_util:rec(?wxAuiManager_DetachPane).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagergetallpanes">external documentation</a>.
+-doc "Returns an array of all panes managed by the frame manager.".
 -spec getAllPanes(This) -> [wxAuiPaneInfo:wxAuiPaneInfo()] when
 	This::wxAuiManager().
 getAllPanes(#wx_ref{type=ThisT}=This) ->
@@ -119,7 +274,11 @@ getAllPanes(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetAllPanes),
   wxe_util:rec(?wxAuiManager_GetAllPanes).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagergetartprovider">external documentation</a>.
+-doc """
+Returns the current art provider being used.
+
+See: `m:wxAuiDockArt`
+""".
 -spec getArtProvider(This) -> wxAuiDockArt:wxAuiDockArt() when
 	This::wxAuiManager().
 getArtProvider(#wx_ref{type=ThisT}=This) ->
@@ -127,7 +286,11 @@ getArtProvider(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetArtProvider),
   wxe_util:rec(?wxAuiManager_GetArtProvider).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagergetdocksizeconstraint">external documentation</a>.
+-doc """
+Returns the current dock constraint values.
+
+See `setDockSizeConstraint/3` for more information.
+""".
 -spec getDockSizeConstraint(This) -> {Widthpct::number(), Heightpct::number()} when
 	This::wxAuiManager().
 getDockSizeConstraint(#wx_ref{type=ThisT}=This) ->
@@ -135,7 +298,7 @@ getDockSizeConstraint(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetDockSizeConstraint),
   wxe_util:rec(?wxAuiManager_GetDockSizeConstraint).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagergetflags">external documentation</a>.
+-doc "Returns the current ?wxAuiManagerOption's flags.".
 -spec getFlags(This) -> integer() when
 	This::wxAuiManager().
 getFlags(#wx_ref{type=ThisT}=This) ->
@@ -143,7 +306,7 @@ getFlags(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetFlags),
   wxe_util:rec(?wxAuiManager_GetFlags).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagergetmanagedwindow">external documentation</a>.
+-doc "Returns the frame currently being managed by `m:wxAuiManager`.".
 -spec getManagedWindow(This) -> wxWindow:wxWindow() when
 	This::wxAuiManager().
 getManagedWindow(#wx_ref{type=ThisT}=This) ->
@@ -151,7 +314,16 @@ getManagedWindow(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_GetManagedWindow),
   wxe_util:rec(?wxAuiManager_GetManagedWindow).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagergetmanager">external documentation</a>.
+-doc """
+Calling this method will return the `m:wxAuiManager` for a given window.
+
+The `window` parameter should specify any child window or sub-child window of the frame
+or window managed by `m:wxAuiManager`.
+
+The `window` parameter need not be managed by the manager itself, nor does it even need
+to be a child or sub-child of a managed window. It must however be inside the window
+hierarchy underneath the managed window.
+""".
 -spec getManager(Window) -> wxAuiManager() when
 	Window::wxWindow:wxWindow().
 getManager(#wx_ref{type=WindowT}=Window) ->
@@ -159,11 +331,16 @@ getManager(#wx_ref{type=WindowT}=Window) ->
   wxe_util:queue_cmd(Window,?get_env(),?wxAuiManager_GetManager),
   wxe_util:rec(?wxAuiManager_GetManager).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagergetpane">external documentation</a>.
-%% <br /> Also:<br />
-%% getPane(This, Window) -> wxAuiPaneInfo:wxAuiPaneInfo() when<br />
-%% 	This::wxAuiManager(), Window::wxWindow:wxWindow().<br />
-%% 
+-doc """
+`getPane/2` is used to lookup a `m:wxAuiPaneInfo` object either by window pointer or by
+pane name, which acts as a unique id for a window pane.
+
+The returned `m:wxAuiPaneInfo` object may then be modified to change a pane's look, state
+or position. After one or more modifications to `m:wxAuiPaneInfo`, `update/1` should be called to
+commit the changes to the user interface. If the lookup failed (meaning the pane could not
+be found in the manager), a call to the returned `m:wxAuiPaneInfo`'s IsOk() method will
+return false.
+""".
 -spec getPane(This, Name) -> wxAuiPaneInfo:wxAuiPaneInfo() when
 	This::wxAuiManager(), Name::unicode:chardata();
       (This, Window) -> wxAuiPaneInfo:wxAuiPaneInfo() when
@@ -180,14 +357,14 @@ getPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   wxe_util:queue_cmd(This,Window,?get_env(),?wxAuiManager_GetPane_1_1),
   wxe_util:rec(?wxAuiManager_GetPane_1_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerhidehint">external documentation</a>.
+-doc "`hideHint/1` hides any docking hint that may be visible.".
 -spec hideHint(This) -> 'ok' when
 	This::wxAuiManager().
 hideHint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_HideHint).
 
-%% @equiv insertPane(This,Window,Insert_location, [])
+-doc(#{equiv => insertPane(This,Window,Insert_location, [])}).
 -spec insertPane(This, Window, Insert_location) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(), Insert_location::wxAuiPaneInfo:wxAuiPaneInfo().
 
@@ -195,7 +372,17 @@ insertPane(This,Window,Insert_location)
  when is_record(This, wx_ref),is_record(Window, wx_ref),is_record(Insert_location, wx_ref) ->
   insertPane(This,Window,Insert_location, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerinsertpane">external documentation</a>.
+-doc """
+This method is used to insert either a previously unmanaged pane window into the frame
+manager, or to insert a currently managed pane somewhere else.
+
+`insertPane/4` will push all panes, rows, or docks aside and insert the window into the position
+specified by `insert_location`.
+
+Because `insert_location` can specify either a pane, dock row, or dock layer, the `insert_level`
+parameter is used to disambiguate this. The parameter `insert_level` can take a value of
+wxAUI_INSERT_PANE, wxAUI_INSERT_ROW or wxAUI_INSERT_DOCK.
+""".
 -spec insertPane(This, Window, Insert_location, [Option]) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(), Insert_location::wxAuiPaneInfo:wxAuiPaneInfo(),
 	Option :: {'insert_level', integer()}.
@@ -210,7 +397,21 @@ insertPane(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,#wx_ref{type=In
   wxe_util:queue_cmd(This,Window,Insert_location, Opts,?get_env(),?wxAuiManager_InsertPane),
   wxe_util:rec(?wxAuiManager_InsertPane).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerloadpaneinfo">external documentation</a>.
+-doc """
+`loadPaneInfo/3` is similar to LoadPerspective, with the exception that it only loads
+information about a single pane.
+
+This method writes the serialized data into the passed pane. Pointers to UI elements are
+not modified.
+
+Note: This operation also changes the name in the pane information!
+
+See: `loadPerspective/3`
+
+See: `savePaneInfo/2`
+
+See: `savePerspective/1`
+""".
 -spec loadPaneInfo(This, Pane_part, Pane) -> 'ok' when
 	This::wxAuiManager(), Pane_part::unicode:chardata(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 loadPaneInfo(#wx_ref{type=ThisT}=This,Pane_part,#wx_ref{type=PaneT}=Pane)
@@ -220,7 +421,7 @@ loadPaneInfo(#wx_ref{type=ThisT}=This,Pane_part,#wx_ref{type=PaneT}=Pane)
   ?CLASS(PaneT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,Pane_part_UC,Pane,?get_env(),?wxAuiManager_LoadPaneInfo).
 
-%% @equiv loadPerspective(This,Perspective, [])
+-doc(#{equiv => loadPerspective(This,Perspective, [])}).
 -spec loadPerspective(This, Perspective) -> boolean() when
 	This::wxAuiManager(), Perspective::unicode:chardata().
 
@@ -228,7 +429,22 @@ loadPerspective(This,Perspective)
  when is_record(This, wx_ref),?is_chardata(Perspective) ->
   loadPerspective(This,Perspective, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerloadperspective">external documentation</a>.
+-doc """
+Loads a saved perspective.
+
+A perspective is the layout state of an AUI managed window.
+
+All currently existing panes that have an object in "perspective" with the same name
+("equivalent") will receive the layout parameters of the object in "perspective". Existing
+panes that do not have an equivalent in "perspective" remain unchanged, objects in
+"perspective" having no equivalent in the manager are ignored.
+
+See: `loadPaneInfo/3`
+
+See: `loadPerspective/3`
+
+See: `savePerspective/1`
+""".
 -spec loadPerspective(This, Perspective, [Option]) -> boolean() when
 	This::wxAuiManager(), Perspective::unicode:chardata(),
 	Option :: {'update', boolean()}.
@@ -242,7 +458,19 @@ loadPerspective(#wx_ref{type=ThisT}=This,Perspective, Options)
   wxe_util:queue_cmd(This,Perspective_UC, Opts,?get_env(),?wxAuiManager_LoadPerspective),
   wxe_util:rec(?wxAuiManager_LoadPerspective).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersavepaneinfo">external documentation</a>.
+-doc """
+`savePaneInfo/2` is similar to SavePerspective, with the exception that it only saves
+information about a single pane.
+
+Return: The serialized layout parameters of the pane are returned within the string.
+Information about the pointers to UI elements stored in the pane are not serialized.
+
+See: `loadPaneInfo/3`
+
+See: `loadPerspective/3`
+
+See: `savePerspective/1`
+""".
 -spec savePaneInfo(This, Pane) -> unicode:charlist() when
 	This::wxAuiManager(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 savePaneInfo(#wx_ref{type=ThisT}=This,#wx_ref{type=PaneT}=Pane) ->
@@ -251,7 +479,16 @@ savePaneInfo(#wx_ref{type=ThisT}=This,#wx_ref{type=PaneT}=Pane) ->
   wxe_util:queue_cmd(This,Pane,?get_env(),?wxAuiManager_SavePaneInfo),
   wxe_util:rec(?wxAuiManager_SavePaneInfo).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersaveperspective">external documentation</a>.
+-doc """
+Saves the entire user interface layout into an encoded `wxString` (not implemented in
+wx), which can then be stored by the application (probably using wxConfig).
+
+See: `loadPerspective/3`
+
+See: `loadPaneInfo/3`
+
+See: `savePaneInfo/2`
+""".
 -spec savePerspective(This) -> unicode:charlist() when
 	This::wxAuiManager().
 savePerspective(#wx_ref{type=ThisT}=This) ->
@@ -259,7 +496,15 @@ savePerspective(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_SavePerspective),
   wxe_util:rec(?wxAuiManager_SavePerspective).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersetartprovider">external documentation</a>.
+-doc """
+Instructs `m:wxAuiManager` to use art provider specified by parameter `art\_provider` for
+all drawing calls.
+
+This allows pluggable look-and-feel features. The previous art provider object, if any,
+will be deleted by `m:wxAuiManager`.
+
+See: `m:wxAuiDockArt`
+""".
 -spec setArtProvider(This, Art_provider) -> 'ok' when
 	This::wxAuiManager(), Art_provider::wxAuiDockArt:wxAuiDockArt().
 setArtProvider(#wx_ref{type=ThisT}=This,#wx_ref{type=Art_providerT}=Art_provider) ->
@@ -267,7 +512,18 @@ setArtProvider(#wx_ref{type=ThisT}=This,#wx_ref{type=Art_providerT}=Art_provider
   ?CLASS(Art_providerT,wxAuiDockArt),
   wxe_util:queue_cmd(This,Art_provider,?get_env(),?wxAuiManager_SetArtProvider).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersetdocksizeconstraint">external documentation</a>.
+-doc """
+When a user creates a new dock by dragging a window into a docked position, often times
+the large size of the window will create a dock that is unwieldy large.
+
+`m:wxAuiManager` by default limits the size of any new dock to 1/3 of the window size.
+For horizontal docks, this would be 1/3 of the window height. For vertical docks, 1/3 of
+the width.
+
+Calling this function will adjust this constraint value. The numbers must be between 0.0
+and 1.0. For instance, calling SetDockSizeContraint with 0.5, 0.5 will cause new docks to
+be limited to half of the size of the entire managed window.
+""".
 -spec setDockSizeConstraint(This, Widthpct, Heightpct) -> 'ok' when
 	This::wxAuiManager(), Widthpct::number(), Heightpct::number().
 setDockSizeConstraint(#wx_ref{type=ThisT}=This,Widthpct,Heightpct)
@@ -275,7 +531,11 @@ setDockSizeConstraint(#wx_ref{type=ThisT}=This,Widthpct,Heightpct)
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,Widthpct,Heightpct,?get_env(),?wxAuiManager_SetDockSizeConstraint).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersetflags">external documentation</a>.
+-doc """
+This method is used to specify ?wxAuiManagerOption's flags.
+
+`flags` specifies options which allow the frame management behaviour to be modified.
+""".
 -spec setFlags(This, Flags) -> 'ok' when
 	This::wxAuiManager(), Flags::integer().
 setFlags(#wx_ref{type=ThisT}=This,Flags)
@@ -283,7 +543,12 @@ setFlags(#wx_ref{type=ThisT}=This,Flags)
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,Flags,?get_env(),?wxAuiManager_SetFlags).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersetmanagedwindow">external documentation</a>.
+-doc """
+Called to specify the frame or window which is to be managed by `m:wxAuiManager`.
+
+Frame management is not restricted to just frames. Child windows or custom controls are
+also allowed.
+""".
 -spec setManagedWindow(This, Managed_wnd) -> 'ok' when
 	This::wxAuiManager(), Managed_wnd::wxWindow:wxWindow().
 setManagedWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=Managed_wndT}=Managed_wnd) ->
@@ -291,7 +556,13 @@ setManagedWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=Managed_wndT}=Managed_wnd
   ?CLASS(Managed_wndT,wxWindow),
   wxe_util:queue_cmd(This,Managed_wnd,?get_env(),?wxAuiManager_SetManagedWindow).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagershowhint">external documentation</a>.
+-doc """
+This function is used by controls to explicitly show a hint window at the specified
+rectangle.
+
+It is rarely called, and is mostly used by controls implementing custom pane drag/drop
+behaviour. The specified rectangle should be in screen coordinates.
+""".
 -spec showHint(This, Rect) -> 'ok' when
 	This::wxAuiManager(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 showHint(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
@@ -299,34 +570,47 @@ showHint(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,Rect,?get_env(),?wxAuiManager_ShowHint).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanageruninit">external documentation</a>.
+-doc """
+Dissociate the managed window from the manager.
+
+This function may be called before the managed frame or window is destroyed, but, since
+wxWidgets 3.1.4, it's unnecessary to call it explicitly, as it will be called
+automatically when this window is destroyed, as well as when the manager itself is.
+""".
 -spec unInit(This) -> 'ok' when
 	This::wxAuiManager().
 unInit(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_UnInit).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerupdate">external documentation</a>.
+-doc """
+This method is called after any number of changes are made to any of the managed panes.
+
+`update/1` must be invoked after `addPane/4` or `insertPane/4` are called in order to "realize" or "commit" the changes. In
+addition, any number of changes may be made to `m:wxAuiPaneInfo` structures (retrieved
+with `getPane/2`), but to realize the changes, `update/1` must be called. This construction allows pane flicker
+to be avoided by updating the whole layout at one time.
+""".
 -spec update(This) -> 'ok' when
 	This::wxAuiManager().
 update(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManager_Update).
 
-%% @doc Destroys this object, do not use object again
+-doc "Destroys the object".
 -spec destroy(This::wxAuiManager()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiManager),
   wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxEvtHandler
-%% @hidden
+-doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
-%% @hidden
+-doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
-%% @hidden
+-doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
-%% @hidden
+-doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
-%% @hidden
+-doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

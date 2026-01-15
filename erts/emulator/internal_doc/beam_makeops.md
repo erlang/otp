@@ -1,4 +1,26 @@
-The beam\_makeops script
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
+The beam_makeops script
 =======================
 
 This document describes the **beam\_makeops** script.
@@ -39,7 +61,7 @@ specific instructions.  The OTP 20 release has 389 specific
 instructions.
 
 * The implementation of specific instructions for the traditional
-BEAM interpreter. For the [BeamAsm JIT](BeamAsm) introduced
+BEAM interpreter. For the [BeamAsm JIT](BeamAsm.md) introduced
 in OTP 24, the implementation of instructions are defined in emitter
 functions written in C++.
 
@@ -379,20 +401,16 @@ Give the option `-emulator` to produce output files for the emulator.
 The following output files will be generated in the output directory.
 
 * `beam_opcodes.c` - Defines static data used by the loader
-(`beam_load.c`).  Data about generic instructions, specific
-instructions (including how to pack their operands), and
-transformation rules are all part of this file.
+(`beam_load.c`), providing information about generic and specific
+instructions, as well as all C code for the transformation rules.
 
 * `beam_opcodes.h` - Miscellaneous preprocessor definitions, mainly
 used by `beam_load.c` but also by `beam_{hot,warm,cold}.h`.
 
-* `beam_transform.c` - Implementation of guard constraints and generators
-called from transformation rules.
-
 For the traditional BEAM interpreter, the following files are also
 generated:
 
-* `beam_hot.h`, `beam_warm.h`, `beam_cold.`h - Implementation of
+* `beam_hot.h`, `beam_warm.h`, `beam_cold.h` - Implementation of
 instructions.  Included inside the `process_main()` function in
 `beam_emu.c`.
 
@@ -461,7 +479,7 @@ probably never happen in practice.
 #### GC\_REGEXP ####
 
 In `macros.tab`, there is a definition of `GC_REGEXP`.
-It will be described in [a later section](#the-gc_regexp-definition).
+It will be described in [a later section](#the-GC_REGEXP-definition).
 
 #### FORBIDDEN\_TYPES ####
 
@@ -895,10 +913,16 @@ a variable must begin with an uppercase letter.  In constrast to Erlang,
 variables must **not** be repeated.
 
 Variables that have been bound on the left-hand side can be used on
-the right-hand side.  For example, this rule will rewrite all `move`
-instructions to `assign` instructions with the operands swapped:
+the right-hand side or in predicates.  For example, this rule will rewrite all
+`move` instructions to `assign` instructions with the operands swapped:
 
     move Src Dst => assign Dst Src
+
+To help catch issues caused by unused variables (such as GH-8875), they are
+considered errors. If you wish to give an operand a name for documentation
+purposes, prefix it with an underscore (`_Foobar`) to mark the variable as
+intentionally unused. Conversely, using a variable marked in this manner is
+also an error.
 
 If we only want to match operands of a certain type, we can
 use a type constraint.  A type constraint consists of one or more
@@ -1507,6 +1531,8 @@ the wheel.
 
 We will describe a few of the most useful macros here.
 
+[](){: #the-GC_REGEXP-definition }
+
 ##### The GC_REGEXP definition #####
 
 The following line defines a regular expression that will recognize
@@ -2058,6 +2084,8 @@ only a single `emit_fload()` function is allowed:
         .
         .
     }
+
+[](){: #handling-a-variable-number-of-operands }
 
 #### Handling a variable number of operands ####
 

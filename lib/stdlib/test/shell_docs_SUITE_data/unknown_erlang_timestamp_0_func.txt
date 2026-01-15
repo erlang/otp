@@ -1,18 +1,21 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:timestamp() -> Timestamp when Timestamp :: timestamp().[0m
+[;1m  timestamp()[0m
 
 [;;4mSince[0m:
   OTP 18.0
 
-  Types:
-    -type timestamp() ::
-          {MegaSecs :: non_neg_integer(),
-           Secs :: non_neg_integer(),
-           MicroSecs :: non_neg_integer()}.
+  Returns current Erlang system time on the format [;;4m{MegaSecs, Secs,[0m
+  [;;4mMicroSecs}[0m.
 
-  Returns current Erlang system time on the format [;;4m{MegaSecs,[0m
-  [;;4mSecs, MicroSecs}[0m. This format is the same as [;;4mos:timestamp/0[0m and
-  the deprecated [;;4merlang:now/0[0m use. The reason for the existence of [;;4m[0m
+  This format is the same as [;;4mos:timestamp/0[0m and the deprecated [;;4m[0m
+  [;;4merlang:now/0[0m use. The reason for the existence of [;;4m[0m
   [;;4merlang:timestamp()[0m is purely to simplify use for existing code
   that assumes this time stamp format. Current Erlang system time
   can more efficiently be retrieved in the time unit of your choice
@@ -30,7 +33,8 @@
   It, however, uses a native implementation that does not build
   garbage on the heap and with slightly better performance.
 
-  Note:
+  [;;4mNote[0m
+
     This time is not a monotonically increasing time in the
-    general case. For more information, see the documentation of 
+    general case. For more information, see the documentation of
     time warp modes in the User's Guide.

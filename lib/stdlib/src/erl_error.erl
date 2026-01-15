@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,22 @@
 %% %CopyrightEnd%
 %%
 -module(erl_error).
+-moduledoc """
+This module provides functions for pretty-printing errors and exceptions. It is
+used by both the `m:shell` and by `m:proc_lib` to print exceptions.
+
+It is possible for the module raising an error to provide additional information
+by calling [`error/3`](`erlang:error/3`) with extra error information. More
+details about this mechanism is described in
+[EEP-54](https://www.erlang.org/erlang-enhancement-proposals/eep-0054.html).
+
+## Callback Functions
+
+The following functions are to be exported from an Error Info handler.
+""".
+-moduledoc(#{since => "OTP 24.0"}).
+
+-compile(nowarn_obsolete_bool_op).
 
 %% Supported and documented exported functions in this module.
 -export([format_exception/3, format_exception/4]).
@@ -29,14 +47,97 @@
          format_stacktrace/4, format_stacktrace/5,
          format_call/4, format_call/5, format_fun/1, format_fun/2]).
 
+-doc "Start column number. Default is 1.".
 -type column() :: pos_integer().
+-doc """
+A fun used to trim the end of the stacktrace. It is called with module,
+function, and arity from an entry from the stacktrace. The fun is to return
+`true` if the entry should be trimmed, and `false` otherwise. The default value
+is:
+
+```text
+fun(_, _, _) -> false end
+```
+""".
 -type stack_trim_fun() :: fun((module(), atom(), arity()) -> boolean()).
+-doc """
+A fun used to format function arguments for BIF and function calls. By default
+the following fun will be used:
+
+```erlang
+fun(Term, I) -> io_lib:print(Term, I, 80, 30) end
+```
+""".
 -type format_fun() :: fun((term(), column()) -> iolist()).
 
+-doc "A map with formatting options.".
 -type format_options() :: #{column => column(),
                             stack_trim_fun => stack_trim_fun(),
                             format_fun => format_fun()}.
 
+-doc """
+This callback is called when `format_exception/4` or similar functionality wants
+to provide extra information about an error. The `Module`:`Function` called is
+the one specificed by the `error_info` map.
+
+The function should return a map with additional information about what have
+caused the exception. The possible keys of the map are:
+
+- **`ArgumentPosition = pos_integer()`** - The position of the argument that
+  caused the error starting at 1.
+
+- **`general`** - An error that is not associated with any argument caused the
+  error.
+
+- **`reason`** - If the `Reason` should be printed differently than the default
+  way.
+
+If the text returned includes new-lines, `format_exception/4` will indent the
+text correctly.
+
+Example:
+
+```erlang
+-module(my_error_module).
+-export([atom_to_string/1, format_error/2]).
+
+atom_to_string(Arg) when is_atom(Arg) ->
+  atom_to_list(Arg);
+atom_to_string(Arg) ->
+  erlang:error(badarg,[Arg],
+               [{error_info,#{ module => ?MODULE,
+                               cause => #{ 1 => "should be an atom" }}}]).
+
+format_error(Reason, [{_M,_F,_As,Info}|_]) ->
+  ErrorInfo = proplists:get_value(error_info, Info, #{}),
+  ErrorMap = maps:get(cause, ErrorInfo),
+  ErrorMap#{ general => "optional general information",
+             reason => io_lib:format("~p: ~p",[?MODULE, Reason]) }.
+```
+
+```erlang
+1> c(my_error_module).
+{ok,my_error_module}
+2> my_error_module:atom_to_string(1).
+** exception error: my_error_module: badarg
+     in function  my_error_module:atom_to_string/1
+        called as my_error_module:atom_to_string(1)
+        *** argument 1: should be an atom
+        *** optional general information
+```
+""".
+-doc(#{since => <<"OTP 24.0">>}).
+-callback format_error(Reason, StackTrace) -> ErrorDescription when
+      Reason :: term(),
+      StackTrace :: erlang:stacktrace(),
+      ArgumentPosition :: pos_integer(),
+      ErrorDescription :: #{ ArgumentPosition =>
+                                 unicode:chardata(),
+                             general => unicode:chardata(),
+                             reason => unicode:chardata()}.
+
+-doc(#{equiv => format_exception/4}).
+-doc(#{since => <<"OTP 24.0">>}).
 -spec format_exception(Class, Reason, StackTrace) -> unicode:chardata() when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
@@ -45,6 +146,41 @@
 format_exception(Class, Reason, StackTrace) ->
     format_exception(Class, Reason, StackTrace, #{}).
 
+-doc """
+Format the error reason and stack back-trace caught using `try` ... `catch` in
+the same style as the shell formats them.
+
+Example:
+
+```erlang
+try
+    do_something()
+catch
+    C:R:Stk ->
+        Message = erl_error:format_exception(C, R, Stk),
+        io:format(LogFile, "~ts\n", [Message])
+end
+```
+
+If `error_info` is provided with the exception, `format_exception` will use that
+information to provide additional information about the exception.
+
+Example:
+
+```erlang
+try
+  erlang:raise(badarg,[],[{error_info,#{}}])
+catch
+    C:R:Stk ->
+        Message = erl_error:format_exception(C, R, Stk),
+        io:format(LogFile, "~ts\n", [Message])
+end
+```
+
+See `erlang:error/3` for details on how to raise an exception with `error_info`
+included.
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec format_exception(Class, Reason, StackTrace, Options) -> unicode:chardata() when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
@@ -72,16 +208,19 @@ format_exception(Class, Reason, StackTrace, Options) ->
 %% FormatFun = fun(Term, I) -> iolist() formats terms;
 %% StackFun = fun(Mod, Fun, Arity) -> boolean() is used for trimming the
 %%   end of the stack (typically calls to erl_eval are skipped).
+-doc false.
 format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun) ->
     format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun,
                      latin1).
 
 %% -> iolist() | unicode:charlist() (no \n at end)
 %% FormatFun = fun(Term, I) -> iolist() | unicode:charlist().
+-doc false.
 format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun, Encoding) ->
     FF = wrap_format_fun_2(FormatFun),
     format_exception(I, Class, Reason, StackTrace, StackFun, FF, Encoding, -1).
 
+-doc false.
 format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun, Encoding,
                  CharsLimit)
             when is_integer(I), I >= 1, is_function(StackFun, 3), 
@@ -115,10 +254,12 @@ format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun, Encoding,
     end.
 
 %% -> iolist() (no \n at end)
+-doc false.
 format_stacktrace(I, StackTrace, StackFun, FormatFun) ->
     format_stacktrace(I, StackTrace, StackFun, FormatFun, latin1).
 
 %% -> iolist() | unicode:charlist()  (no \n at end)
+-doc false.
 format_stacktrace(I, StackTrace, StackFun, FormatFun, Encoding)
             when is_integer(I), I >= 1, is_function(StackFun, 3), 
                  is_function(FormatFun, 2) ->
@@ -127,20 +268,24 @@ format_stacktrace(I, StackTrace, StackFun, FormatFun, Encoding)
     format_stacktrace1(S, StackTrace, FF, StackFun, Encoding, -1, none).
 
 %% -> iolist() (no \n at end)
+-doc false.
 format_call(I, ForMForFun, As, FormatFun) ->
     format_call(I, ForMForFun, As, FormatFun, latin1).
 
 %% -> iolist() | unicode:charlist()  (no \n at end)
+-doc false.
 format_call(I, ForMForFun, As, FormatFun, Enc)
        when is_integer(I), I >= 1, is_list(As), is_function(FormatFun, 2) ->
     FF = wrap_format_fun_2(FormatFun),
     format_call("", n_spaces(I-1), ForMForFun, As, FF, Enc).
 
 %% -> iolist() (no \n at end)
+-doc false.
 format_fun(Fun) ->
     format_fun(Fun, latin1).
 
 %% -> iolist() (no \n at end)
+-doc false.
 format_fun(Fun, Enc) when is_function(Fun) ->
     {module, M} = erlang:fun_info(Fun, module),
     {name, F} = erlang:fun_info(Fun, name),
@@ -256,6 +401,8 @@ explain_reason({bad_filter,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"bad filter ">>, Cl, PF, S, CL);
 explain_reason({bad_generator,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"bad generator ">>, Cl, PF, S, CL);
+explain_reason({bad_generators,V}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(V, <<"bad generators: ">>, Cl, PF, S, CL);
 explain_reason({unbound,V}, error, [], _PF, _S, _Enc, _CL) ->
     io_lib:fwrite(<<"variable ~w is unbound">>, [V]);
 %% Exit codes local to the shell module (restricted shell):
@@ -385,7 +532,7 @@ location(L) ->
     Line = proplists:get_value(line, L),
     if
 	File =/= undefined, Line =/= undefined ->
-	    io_lib:format("(~ts, line ~w)", [File, Line]);
+	    io_lib:format("(~ts:~w)", [File, Line]);
 	true ->
 	    ""
     end.

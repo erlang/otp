@@ -1,7 +1,9 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2014-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,6 +125,7 @@ init_per_testcase(Func, Conf)
        Func =:= setup_concurrent_13;
        Func =:= payload_13 ->
     try
+        ct:timetrap({minutes, 1}),
         TLSVersion = 'tlsv1.3',
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
@@ -136,6 +139,7 @@ init_per_testcase(Func, Conf)
             {failed, {Class,Reason,Stacktrace}}
     end;
 init_per_testcase(_Func, Conf) ->
+    ct:timetrap({minutes, 1}),
     Conf.
 
 end_per_testcase(_Func, _Conf) ->
@@ -154,6 +158,9 @@ count(Config) ->
 -define(FPROF_SERVER, false).
 -define(EPROF_CLIENT, false).
 -define(EPROF_SERVER, false).
+
+-define(TPROF_CLIENT, false).
+-define(TPROF_SERVER, false). %% untested
 
 %% Current numbers gives roughly a testcase per minute on todays hardware..
 
@@ -276,11 +283,15 @@ do_test(Type, {Func, _}=TC, Loop, ParallellConnections, Server) ->
 			       start_profile(fprof, [self(),new]),
 			   ?EPROF_CLIENT andalso Id =:= 1 andalso
 			       start_profile(eprof, [ssl_connection_sup, ssl_manager]),
+                           ?TPROF_CLIENT andalso Id =:= 1 andalso
+                               start_profile(tprof, []),
 			   ok = ?MODULE:Func(Loop, Type, CData),
 			   ?FPROF_CLIENT andalso Id =:= 1 andalso
 			       stop_profile(fprof, "test_connection_client_res.fprof"),
 			   ?EPROF_CLIENT andalso Id =:= 1 andalso
 			       stop_profile(eprof, "test_connection_client_res.eprof"),
+			   ?TPROF_CLIENT andalso Id =:= 1 andalso
+			       stop_profile(tprof, "test_connection_client_res.tprof"),
 			   Me ! self()
 		   end
 	   end,
@@ -313,6 +324,7 @@ server_init(ssl, {setup_connection, Opts}, _, _, Server, Certs) ->
     ?FPROF_SERVER andalso start_profile(fprof, [whereis(ssl_manager), new]),
     %%?EPROF_SERVER andalso start_profile(eprof, [ssl_connection_sup, ssl_manager]),
     ?EPROF_SERVER andalso start_profile(eprof, [ssl_manager]),
+    ?TPROF_SERVER andalso start_profile(tprof, [ssl_manager]),
     Server ! {self(), {init, Host, Port}},
     Test = fun(TSocket) ->
 		   {ok, Socket} = ssl:handshake(TSocket),
@@ -352,6 +364,7 @@ setup_server_connection(LSocket, Test) ->
     receive quit ->
 	    ?FPROF_SERVER andalso stop_profile(fprof, "test_server_res.fprof"),
 	    ?EPROF_SERVER andalso stop_profile(eprof, "test_server_res.eprof"),
+            ?TPROF_SERVER andalso stop_profile(tprof, "test_server_res.tprof"),
 	    ok
     after 0 ->
 	    case ssl:transport_accept(LSocket, 2000) of
@@ -380,11 +393,21 @@ setup_connection(_, _, _) ->
     ok.
 
 payload(Loop, ssl, D = {Socket, Size}) when Loop > 0 ->
+    ssl:setopts(Socket, [{active, once}]),
     ok = ssl:send(Socket, msg()),
-    {ok, _} = ssl:recv(Socket, Size),
+    fetch_data(Socket, Size),
     payload(Loop-1, ssl, D);
 payload(_, _, {Socket, _}) ->
     ssl:close(Socket).
+
+fetch_data(Socket, Size) ->
+    receive
+        {ssl, Socket, Bin} ->
+            case Size - size(Bin) of
+                0 -> ok;
+                N -> fetch_data(Socket, N)
+            end
+    end.
 
 msg() ->
     <<"Hello", 
@@ -437,7 +460,12 @@ start_profile(eprof, Procs) ->
     io:format("(E)Profiling ...",[]);
 start_profile(fprof, Procs) ->
     fprof:trace([start, {procs, Procs}]),
-    io:format("(F)Profiling ...",[]).
+    io:format("(F)Profiling ...",[]);
+start_profile(tprof, _) ->
+    tprof:start(#{type => call_memory}),
+    tprof:enable_trace({all_children, ssl_sup}),
+    io:format("(T)Profiling ...",[]),
+    tprof:set_pattern('_', '_' , '_').
 
 stop_profile(eprof, File) ->
     profiling_stopped = eprof:stop_profiling(),
@@ -452,7 +480,11 @@ stop_profile(fprof, File) ->
     fprof:analyse([{dest, File},{totals, true}]),
     io:format(".analysed => ~s ~n",[File]),
     fprof:stop(),
-    ok.
+    ok;
+stop_profile(tprof, _File) ->
+    Sample = tprof:collect(),
+    tprof:stop(),
+    tprof:format(tprof:inspect(Sample)).
 
 ssl_opts(listen, Opts, Certs) ->
     [{backlog, 500} | ssl_opts(server_config, Opts, Certs)];

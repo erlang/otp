@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_codeserver.erl
@@ -20,6 +29,7 @@
 %%% Created :  4 Apr 2005 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_codeserver).
+-moduledoc false.
 
 -export([delete/1,
          store_temp_contracts/4,
@@ -123,7 +133,7 @@ ets_set_insert_list(List, Table) ->
 
 ets_set_to_set(Table) ->
   Fold = fun({E}, Set) -> sets:add_element(E, Set) end,
-  ets:foldl(Fold, sets:new([{version, 2}]), Table).
+  ets:foldl(Fold, sets:new(), Table).
 
 %%--------------------------------------------------------------------
 

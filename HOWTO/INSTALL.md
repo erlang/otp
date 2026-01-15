@@ -1,3 +1,26 @@
+<!--
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 Building and Installing Erlang/OTP
 ==================================
 
@@ -10,7 +33,7 @@ including macOS. You are advised to read the whole document
 before attempting to build and install Erlang/OTP.
 
 The source code can be downloaded from the official site of Erlang/OTP or GitHub.
-* <http://www.erlang.org>
+* <http://www.erlang.org/downloads>
 * <https://github.com/erlang/otp>
 
 Required Utilities
@@ -82,23 +105,32 @@ also find the utilities needed for building the documentation.
     Download from <http://sourceforge.net/projects/wxwindows/files/3.0.0/>
     or get it from GitHub: <https://github.com/wxWidgets/wxWidgets>
 
-    Further instructions on wxWidgets, read [Building with wxErlang][].
+    Further instructions on wxWidgets, read [Building with Wx][].
 
 ### Building Documentation ###
 
-*   `xsltproc` -- A command line XSLT processor.
+*   `ex_doc` -- [ExDoc](https://hexdocs.pm/ex_doc/readme.html) is a tool to
+    generate html and epub documentation for Erlang and Elixir projects.
+  
+    Download as an [escript from github](https://github.com/elixir-lang/ex_doc/releases/latest)
+    or get it from GitHub: <https://github.com/elixir-lang/ex_doc> and build
+    your self.
+    
+    ExDoc %EX_DOC_VSN% was used to build the documentation for this release,
+    but any version after that should work just as well.
 
-    A tool for applying XSLT stylesheets
-    to XML documents. Download xsltproc from
-    <http://xmlsoft.org/XSLT/xsltproc2.html>.
-
-*   `fop` -- Apache FOP print formatter (requires Java). Can be downloaded
-    from <http://xmlgraphics.apache.org/fop>.
+    You can also use `./otp_build download_ex_doc` to download the correct version
+    from github. One of the following dependencies are needed to check the documentation:
+    
+    - sha256sum, or
+    - sha1sum, or
+    - shasum
 
 How to Build and Install Erlang/OTP
 -----------------------------------
 
-The following instructions are for building [the released source tar ball][].
+The following instructions are for building [the released source tar ball][]
+or from a [git clone](https://github.com/erlang/otp).
 
 The variable `$ERL_TOP` will be mentioned a lot of times. It refers to
 the top directory in the source tree. More information about `$ERL_TOP`
@@ -110,6 +142,10 @@ Start by unpacking the Erlang/OTP distribution file with your GNU
 compatible TAR program.
 
     $ tar -zxf otp_src_%OTP-VSN%.tar.gz    # Assuming bash/sh
+
+or clone from github:
+
+    $ git clone https://github.com/erlang/otp otp_src_%OTP-VSN%
 
 Now change directory into the base directory and set the `$ERL_TOP` variable.
 
@@ -155,7 +191,9 @@ Now, it's time to start the smoke test.
 To verify that everything is ok you should open `$ERL_TOP/release/tests/test_server/index.html`
 in your web browser and make sure that there are zero failed test cases.
 
-> *NOTE*: On builds without `crypto`, `ssl` and `ssh` there is a failed test case
+> #### Note {: .info }
+>
+> On builds without `crypto`, `ssl` and `ssh` there is a failed test case
 > for undefined functions. Verify that the failed test case log only shows calls
 > to skipped applications.
 
@@ -170,6 +208,8 @@ The following command will install the release on your system.
 
 You should now have a working release of Erlang/OTP!
 Jump to [System Principles][] for instructions on running Erlang/OTP.
+
+[](){: #How-to-Build-and-Install-Erlang-OTP_How-to-Build-the-Documentation }
 
 ### How to Build the Documentation ###
 
@@ -188,35 +228,25 @@ the `$PATH`.
 
     $ export PATH=$ERL_TOP/bin:$PATH     # Assuming bash/sh
 
-For the FOP print formatter, two steps must be taken:
+To build `html` and `epub` docs you need to have [ExDoc %EX_DOC_VSN%](https://github.com/elixir-lang/ex_doc).
+See [Building Documentation](#building-documentation) for information on how to
+install ExDoc.
 
-*   Adding the location of your installation of `fop` in `$FOP_HOME`.
-
-        $ export FOP_HOME=/path/to/fop/dir # Assuming bash/sh
-
-*   Adding the `fop` script (in `$FOP_HOME`) to your `$PATH`, either by adding `$FOP_HOME` to `$PATH`, or by copying the `fop` script to a directory already in your `$PATH`.
-
-Build the documentation.
+Build the documentation using:
 
     $ make docs
 
 It is possible to limit which types of documentation is build by passing the `DOC_TARGETS`
-environment variable to `make docs`. The currently available types are: `html`, `pdf`, `man` and
-`chunks`. Example:
+environment variable to `make docs`.
+
+_Example_:
 
     $ make docs DOC_TARGETS=chunks
 
-#### Build Issues ####
+The currently available types are: `html` and `chunks`. Where:
 
-We have sometimes experienced problems with Oracle's `java` running out of
-memory when running `fop`. Increasing the amount of memory available
-as follows has in our case solved the problem.
-
-    $ export FOP_OPTS="-Xmx<Installed amount of RAM in MB>m"
-
-More information can be found at
-*   <http://xmlgraphics.apache.org/fop/0.95/running.html#memory>.
-
+* *chunks* - Build [EEP-48](`e:kernel:eep48_chapter.md`) documentation chunks.
+* *html* - Build html and epub documentation.
 
 ### How to Install the Documentation ###
 
@@ -243,12 +273,6 @@ environment variable as when building documentation.
 
 After installation you can access the documentation by
 
-*   Reading man pages. Make sure that `erl` is referring to the
-    installed version. For example `/usr/local/bin/erl`.
-    Try viewing at the man page for Mnesia
-
-        $ erl -man mnesia
-
 *   Browsing the html pages by loading the page `/usr/local/lib/erlang/doc/erlang/index.html`
     or `<BaseDir>/lib/erlang/doc/erlang/index.html` if the prefix option has been used.
 
@@ -257,19 +281,12 @@ After installation you can access the documentation by
 
 ### How to Install the Pre-formatted Documentation ###
 
-Pre-formatted [html documentation][] and [man pages][] can be downloaded from
-* <http://www.erlang.org/download.html>.
+Pre-formatted [html documentation][] can be downloaded from <http://www.erlang.org/download.html>.
 
 Extract the html archive in the installation directory.
 
     $ cd <ReleaseDir>
     $ tar -zxf otp_html_%OTP-VSN%.tar.gz
-
-For `erl -man <page>` to work the Unix manual pages have to be
-installed in the same way, i.e.
-
-    $ cd <ReleaseDir>
-    $ tar -zxf otp_man_%OTP-VSN%.tar.gz
 
 Where `<ReleaseDir>` is
 
@@ -287,7 +304,9 @@ Advanced configuration and build of Erlang/OTP
 If you want to tailor your Erlang/OTP build and installation, please read
 on for detailed information about the individual steps.
 
-### make and $ERL\_TOP ###
+[](){: #advanced-configuration-and-build-of-erlang-otp_make-and-ERLTOP }
+
+### make and $ERL_TOP ###
 
 All the makefiles in the entire directory tree use the environment
 variable `ERL_TOP` to find the absolute path of the installation. The
@@ -305,13 +324,15 @@ want to rebuild the application `STDLIB`, then you could do:
 where `<Dir>` would be what you find `ERL_TOP` is set to in the top level
 Makefile.
 
-### otp\_build vs configure/make ###
+### otp_build vs configure/make ###
 
 Building Erlang/OTP can be done either by using the `$ERL_TOP/otp_build`
 script, or by invoking `$ERL_TOP/configure` and `make` directly. Building using
 `otp_build` is easier since it involves fewer steps, but the `otp_build` build
 procedure is not as flexible as the `configure`/`make` build procedure. The binary
 releases for Windows that we deliver are built using `otp_build`.
+
+[]() {: #advanced-configuration-and-build-of-erlang-otp_configuring }
 
 ### Configuring ###
 
@@ -420,11 +441,25 @@ Some of the available `configure` options are:
     scalability and performance of the system.
 *   `--disable-saved-compile-time` - Disable saving of compile date and time
     in the emulator binary.
-*   `--enable-ei-dynamic-lib` - Make erl\_interface build a shared library in addition
+*   `--enable-ei-dynamic-lib` - Make erl_interface build a shared library in addition
     to the archive normally built.
+*   `--disable-year2038` - Don't support timestamps after mid-January 2038. By
+    default `configure` will try to enable support for timestamps after
+    mid-January 2038. If it cannot figure out how to do that, it will fail and
+    abort with an error. If you anyway want to build the system knowing that the
+    system won't function properly after mid-January 2038, you can pass this
+    option which will enable `configure` to continue without support for
+    timestamps after mid-January 2038. This is typically only an issue on 32-bit
+    platforms.
+*   `--disable-security-hardening-flags` - Disable all security hardening
+    flags when compiling Erlang/OTP. This can be useful in some scenarios
+    when the flags either causes Erlang/OTP not to build, or unacceptable
+    performance degradations.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
+
+[](){: #advanced-configuration-and-build-of-erlang-otp_Configuring_Important-Variables-Inspected-by-configure }
 
 #### Important Variables Inspected by configure ####
 
@@ -447,7 +482,9 @@ additional configuration information.
 
 ##### Dynamic Erlang Driver Linking #####
 
-> *NOTE*: Either set all or none of the `DED_LD*` variables (with the exception
+> #### Note {: .info }
+>
+> Either set all or none of the `DED_LD*` variables (with the exception
 > of `DED_LDFLAGS_CONFTEST`).
 
 *   `DED_LD` - Linker for Dynamically loaded Erlang Drivers.
@@ -460,7 +497,9 @@ additional configuration information.
 
 ##### Large File Support #####
 
-> *NOTE*: Either set all or none of the `LFS_*` variables.
+> #### Note {: .info }
+>
+> Either set all or none of the `LFS_*` variables.
 
 *   `LFS_CFLAGS` - Large file support C compiler flags.
 *   `LFS_LDFLAGS` - Large file support linker flags.
@@ -485,6 +524,8 @@ ensure that you have GNU `autoconf` of version 2.69 in your path. Then execute
 `./otp_build update_configure [--no-commit]` in the `$ERL_TOP` directory. The
 `otp_build` script will verify that `autoconf` is of correct version and will
 refuse to update the `configure` scripts if it is of any other version.
+
+[](){: #advanced-configuration-and-build-of-erlang-otp_configuring_atomic-memory-operations-and-the-vm }
 
 #### Atomic Memory Operations and the VM ####
 
@@ -534,12 +575,12 @@ If you've upgraded the source with a patch you may need to clean up from previou
 builds before the new build.
 Make sure to read the [Pre-built Source Release][] section below before doing a `make clean`.
 
-Other useful information can be found at our GitHub wiki:
-* <https://github.com/erlang/otp/wiki>
+Other useful information can be found here:
+* [Erlang/OTP GitHub wiki](https://github.com/erlang/otp/wiki)
+* [Contributing to Erlang/OTP](https://github.com/erlang/otp/blob/master/CONTRIBUTING.md)
+* [Developing Erlang/OTP](https://github.com/erlang/otp/blob/master/HOWTO/DEVELOPMENT.md)
 
-#### Within Git ####
-
-Build the same way as when building the unpacked tar file.
+[](){: #advanced-configuration-and-build-of-erlang-otp_Building_macOS-Darwin }
 
 #### macOS (Darwin) ####
 
@@ -555,7 +596,9 @@ suffix.
 If you have Xcode 4.3, or later, you will also need to download
 "Command Line Tools" via the Downloads preference pane in Xcode.
 
-#### Building with wxErlang ####
+[](){: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-Wx }
+
+#### Building with Wx ####
 
 wxWidgets-3.2.x is recommended for building the `wx` application
 (wxWidgets-3.0.x will also work). Download it from
@@ -582,7 +625,7 @@ On Linux, a static library is built as follows:
     $ make && sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-On macOs, a static library compatible with macOS 13 (Ventura) and later is built
+On macOS, a static library compatible with macOS 13 (Ventura) and later is built
 as follows:
 
     $ ./configure --prefix=/usr/local --with-macosx-version-min=13.0 --disable-shared
@@ -606,6 +649,8 @@ working run the following command:
     $ erl -run wx demo
 
 
+[](){: #advanced-configuration-and-build-of-erlang-otp_Building_Prebuilt-Source-Release }
+
 #### Pre-built Source Release ####
 
 The source release is delivered with a lot of platform independent
@@ -614,7 +659,9 @@ files, invoke `./otp_build remove_prebuilt_files` from the `$ERL_TOP`
 directory. After you have done this, you can build exactly the same way
 as before, but the build process will take a much longer time.
 
-> *WARNING*: Doing `make clean` in an arbitrary directory of the source
+> #### Warning {: .warning }
+>
+> Doing `make clean` in an arbitrary directory of the source
 > tree, may remove files needed for bootstrapping the build.
 >
 > Doing `./otp_build save_bootstrap` from the `$ERL_TOP` directory before
@@ -628,20 +675,25 @@ as before, but the build process will take a much longer time.
 > source files, use `./otp_build update_primary` to create a new commit that
 > contains differences, if any exist.
 
+[](){: #advanced-configuration-and-build-of-erlang-otp_building_how-to-build-a-debug-enabled-erlang-runtime-system }
+
 #### How to Build a Debug Enabled Erlang RunTime System ####
 
 After completing all the normal building steps described above a debug
-enabled runtime system can be built. To do this you have to change
-directory to `$ERL_TOP/erts/emulator` and execute:
+enabled runtime system can be built. To do this you execute:
 
-    $ (cd $ERL_TOP/erts/emulator && make debug)
+    $ make TYPE=debug
 
-This will produce a  beam.smp.debug executable. The
+This will produce a `beam.debug.smp` executable. The
 file are installed along side with the normal (opt) version `beam.smp`.
 
 To start the debug enabled runtime system execute:
 
     $ $ERL_TOP/bin/cerl -debug
+
+or
+
+    $ $ERL_TOP/bin/erl -emu_type debug
 
 The debug enabled runtime system features lock violation checking,
 assert checking and various sanity checks to help a developer ensure
@@ -651,12 +703,15 @@ using appropriate configure options.
 There are other types of runtime systems that can be built as well
 using the similar steps just described.
 
-    $ (cd $ERL_TOP/erts/emulator && make $TYPE)
+    $ make TYPE=$TYPE
 
 where `$TYPE` is `opt`, `gcov`, `gprof`, `debug`, `valgrind`, `asan` or `lcnt`.
 These different beam types are useful for debugging and profiling
 purposes.
 
+You can also release and install the special builds using make release like this:
+
+    $ make release TYPE=$TYPE
 
 ### Installing ###
 
@@ -764,35 +819,33 @@ Architecture
 * x86, x86-64
 * Aarch32, Aarch64
 * powerpc, powerpc64le
+* Apple M1, M2, M2 Pro
 
 Operating system
 
 * Fedora 31
 * FreeBSD
-* macOS 10.4 - 11.2
+* macOS 13 - 14
 * MontaVista 4
 * NetBSD
 * OpenBSD
 * SLES 10, 11, 12
 * SunOS 5.11
-* Ubuntu 10.04 - 20.04
-* Windows 10, Windows Server 2019
+* Ubuntu 10.04 - 22.04
+* Windows 11, Windows 10, Windows Server 2019
 
-   [$ERL_TOP/HOWTO/INSTALL-CROSS.md]: INSTALL-CROSS.md
-   [$ERL_TOP/HOWTO/INSTALL-WIN32.md]: INSTALL-WIN32.md
-   [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
-   [Building in Git]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Within-Git
-   [Advanced Configure]: #Advanced-configuration-and-build-of-ErlangOTP_Configuring
-   [Pre-built Source Release]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Prebuilt-Source-Release
-   [make and $ERL_TOP]: #Advanced-configuration-and-build-of-ErlangOTP_make-and-ERLTOP
-   [html documentation]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_html_%OTP-VSN%.tar.gz
-   [man pages]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_man_%OTP-VSN%.tar.gz
-   [the released source tar ball]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_src_%OTP-VSN%.tar.gz
-   [System Principles]: system/system_principles:system_principles
-   [native build]: #How-to-Build-and-Install-ErlangOTP
-   [cross build]: INSTALL-CROSS.md
-   [Required Utilities]: #Required-Utilities
-   [Optional Utilities]: #Optional-Utilities
-   [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_macOS-Darwin
-   [Building with wxErlang]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Building-with-wxErlang
-   [libatomic_ops]: https://github.com/ivmai/libatomic_ops/
+[DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
+[Building in Git]: #advanced-configuration-and-build-of-erlang-otp_Building_Within-Git
+[Advanced Configure]: #advanced-configuration-and-build-of-erlang-otp_Configuring
+[Pre-built Source Release]: #advanced-configuration-and-build-of-erlang-otp_Building_Prebuilt-Source-Release
+[make and $ERL_TOP]: #advanced-configuration-and-build-of-erlang-otp_make-and-ERLTOP
+[html documentation]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_html_%OTP-VSN%.tar.gz
+[the released source tar ball]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_src_%OTP-VSN%.tar.gz
+[System Principles]: `e:system:system_principles.md`
+[native build]: #how-to-build-and-install-erlang-otp
+[cross build]: INSTALL-CROSS.md
+[Required Utilities]: #Required-Utilities
+[Optional Utilities]: #Optional-Utilities
+[Building on a Mac]: #advanced-configuration-and-build-of-erlang-otp_Building_macOS-Darwin
+[Building with Wx]: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-Wx
+[libatomic_ops]: https://github.com/ivmai/libatomic_ops/

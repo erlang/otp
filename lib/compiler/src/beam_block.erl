@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,11 +22,12 @@
 %% Purpose: Partition BEAM instructions into basic blocks.
 
 -module(beam_block).
+-moduledoc false.
 
 -include("beam_asm.hrl").
 
 -export([module/2]).
--import(lists, [keysort/2,member/2,reverse/1,reverse/2,
+-import(lists, [flatmap/2,keysort/2,member/2,reverse/1,reverse/2,
                 splitwith/2,usort/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
@@ -110,7 +113,6 @@ swap_opt_end(_, _, _, _) -> no.
 
 is_unused(X, [{call,A,_}|_]) when A =< X -> true;
 is_unused(X, [{call_ext,A,_}|_]) when A =< X -> true;
-is_unused(X, [{make_fun2,_,_,_,A}|_]) when A =< X -> true;
 is_unused(X, [{move,Src,Dst}|Is]) ->
     case {Src,Dst} of
         {{x,X},_} -> false;
@@ -132,7 +134,8 @@ blockify([I|Is0]=IsAll, Acc) ->
 	error -> blockify(Is0, [I|Acc]);
 	Instr when is_tuple(Instr) ->
             {Block0,Is} = collect_block(IsAll),
-            Block = sort_moves(Block0),
+            Block1 = sort_moves(Block0),
+            Block = swap_opt_block(Block1, []),
 	    blockify(Is, [{block,Block}|Acc])
     end;
 blockify([], Acc) -> reverse(Acc).
@@ -170,7 +173,17 @@ collect({put_map,{f,0},Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,{f,0}}}};
 collect({fmove,S,D})         -> {set,[D],[S],fmove};
 collect({fconv,S,D})         -> {set,[D],[S],fconv};
+collect({executable_line,_,_}=Line) -> {set,[],[],Line};
+collect({debug_line,_,_,_,_}=Line) -> collect_debug_line(Line);
+collect({swap,D1,D2})        ->
+    Regs = [D1,D2],
+    {set,Regs,Regs,swap};
+collect({make_fun3,F,I,U,D,{list,Ss}}) -> {set,[D],Ss,{make_fun3,F,I,U}};
 collect(_)                   -> error.
+
+collect_debug_line({debug_line,_Loc,_Index,_Live,{_,Vars}}=I) ->
+    Ss = flatmap(fun({_Name,Regs}) -> Regs end, Vars),
+    {set,[],Ss,I}.
 
 %% embed_lines([Instruction]) -> [Instruction]
 %%  Combine blocks that would be split by line/1 instructions.
@@ -222,6 +235,51 @@ sort_on_yreg([{set,[Dst],[Src],move}|_]=Moves) ->
         {{x,_},{y,_}} ->
             keysort(3, Moves)
     end.
+
+%% Attempt to replace a swap instruction with a move instruction.
+swap_opt_block([{set,[D1,D2],_,swap}=I|Is], [{set,[Dst],Ss,Op}|Acc]=Acc0) ->
+    case Op of
+        {get_tuple_element,_} ->
+            %% Don't separate from other get_tuple_element instructions or
+            %% tuple testing instructions.
+            swap_opt_block(Is, [I|Acc0]);
+        {alloc,_,_} ->
+            %% Potentially unsafe.
+            swap_opt_block(Is, [I|Acc0]);
+        get_hd ->
+            %% Don't separate from get_tl.
+            swap_opt_block(Is, [I|Acc0]);
+        get_tl ->
+            %% Don't separate from get_hd.
+            swap_opt_block(Is, [I|Acc0]);
+        _ ->
+            case is_used(Dst, Ss) of
+                true ->
+                    swap_opt_block(Is, [I|Acc0]);
+                false ->
+                    OtherDst = case Dst of
+                                   D1 -> D2;
+                                   D2 -> D1;
+                                   _ -> none
+                               end,
+                    case OtherDst of
+                        none ->
+                            swap_opt_block(Is, [I|Acc0]);
+                        _ ->
+                            swap_opt_block(Is, [{set,[OtherDst],Ss,Op},
+                                                {set,[Dst],[OtherDst],move}|Acc])
+                    end
+            end
+    end;
+swap_opt_block([I|Is], Acc) ->
+    swap_opt_block(Is, [I|Acc]);
+swap_opt_block([], Acc) ->
+    reverse(Acc).
+
+is_used(D, [D|_]) -> true;
+is_used(D, [{tr,D,_}|_]) -> true;
+is_used(D, [_|As]) -> is_used(D, As);
+is_used(_, []) -> false.
 
 %%%
 %%% Coalesce adjacent get_map_elements and has_map_fields instructions.

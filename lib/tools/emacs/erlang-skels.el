@@ -1,7 +1,10 @@
-;;
+;;; erlang-skels.el   -*- lexical-binding: t; -*-
+
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010-2023. All Rights Reserved.
+;; SPDX-License-Identifier: Apache-2.0
+;;
+;; Copyright Ericsson AB 2010-2025. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -16,9 +19,14 @@
 ;; limitations under the License.
 ;;
 ;; %CopyrightEnd%
+
 ;;;
 ;;; Purpose: Provide Erlang code skeletons.
 ;;; See 'erlang-skel-file' variable.
+
+;; (eval-when-compile
+;;   (let ((erlang-skels-loading-for-compilation t))
+;;     (load "erlang")))
 
 (defvar erlang-tempo-tags nil
   "Tempo tags for erlang mode")
@@ -180,7 +188,7 @@ Please see the function `tempo-define-template'.")
   "*The skeleton template to generate a version control attribute.
 The default is to insert nothing.  Example of usage:
 
-    (setq erlang-skel-vc '(& \"-rcs(\\\"$\Id: $ \\\").\") n)
+    (setq erlang-skel-vc \\='(& \"-rcs(\\\"$\Id: $ \\\").\") n)
 
 Please see the function `tempo-define-template'.")
 
@@ -214,7 +222,7 @@ Look in the module `time-stamp' for a battery of functions.")
           (user-full-name)  n))
   "*The template for a copyright line in the header, normally empty.
 This variable should be bound to a `tempo' template, for example:
-  '(& \"%%% Copyright (C) 2000, Yoyodyne, Inc.\" n)
+  \\='(& \"%%% Copyright (C) 2000, Yoyodyne, Inc.\" n)
 Please see the function `tempo-define-template'.")
 
 (defvar erlang-skel-created-comment
@@ -1953,6 +1961,16 @@ Please see the function `tempo-define-template'.")
 ;; This code is based on the package `tempo' which is part of modern
 ;; Emacsen.  (GNU Emacs 19.25 (?) and XEmacs 19.14.)
 
+(declare-function erlang-menu-init "erlang")
+(declare-function erlang-menu-add-above "erlang")
+(declare-function erlang-beginning-of-function "erlang")
+(declare-function erlang-get-function-name "erlang")
+(declare-function erlang-get-function-arguments "erlang")
+
+;; Forward declarations
+(defvar erlang-menu-items)
+(defvar erlang-menu-skel-items)
+
 (defun erlang-skel-init ()
   "Generate the skeleton functions and menu items.
 The variable `erlang-skel' contains the name and descriptions of
@@ -2026,7 +2044,7 @@ package not be present, this function does nothing."
 
 Example of use, assuming that `erlang-skel-func' is defined:
 
- (defvar foo-skeleton '(\"%%% New function:\"
+ (defvar foo-skeleton \\='(\"%%% New function:\"
                         (erlang-skel-include erlang-skel-func)))
 
 Technically, this function returns the `tempo' attribute`(l ...)' which

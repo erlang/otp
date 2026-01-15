@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +20,7 @@
 
 -module(sanity_checks).
 
--compile(no_ssa_opt_private_append).
+-compile(no_ssa_opt_destructive_update).
 
 -export([check_fail/0,
          check_wrong_pass/0,
@@ -37,7 +39,8 @@
          t35/1, t36/0, t37/0, t38/0, t39/1,
          t40/0, t41/0, t42/0, t43/0, t44/0,
 
-         check_env/0]).
+         check_env/0,
+         check_succeeded/1]).
 
 %% Check that we do not trigger on the wrong pass
 check_wrong_pass() ->
@@ -244,7 +247,7 @@ t32(X) ->
 t33(X) ->
 %ssa% (X) when post_ssa_opt ->
 %ssa% A = bif:'=='(X, 1),
-%ssa% br(A, 5, 4).
+%ssa% br(A, 9, 8).
     true = X == 1.
 
 %% Check that we handle a branch and variable labels
@@ -339,3 +342,11 @@ check_env() ->
     A = <<>>,
     B = ex:f(),
     <<A/binary, B/binary>>.
+
+%% Check that succeeded-instructions can be matched.
+check_succeeded(L) ->
+%ssa% (L) when post_ssa_opt ->
+%ssa% X = bif:hd(L),
+%ssa% Y = succeeded:body(X),
+%ssa% ret(X).
+    hd(L).

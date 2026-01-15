@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +24,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/src/logger_internal.hrl").
 
@@ -80,6 +83,7 @@ groups() ->
 
 all() -> 
     [start_stop,
+     start_debug,
      start_crash,
      replace_default,
      replace_file,
@@ -101,6 +105,49 @@ start_stop(_Config) ->
     ok.
 start_stop(cleanup,_Config) ->
     logger:remove_handler(simple).
+
+%% Test that the simple logger works when debug level is used
+start_debug(Config) ->
+
+    ConfigFile = filename:join(proplists:get_value(priv_dir, Config), "sys.config"),
+    LogFile = filename:join(proplists:get_value(priv_dir, Config), "file.log"),
+    SysConfig = [{kernel,[{logger,[{handler,default,logger_std_h,
+                                    #{config => #{file => LogFile}}}]}]}],
+    ok = file:write_file(ConfigFile, io_lib:format("~p.",[SysConfig])),
+
+    Run =
+        fun(Args) ->
+                CmdLine =
+                    lists:flatten(
+                      [ct:get_progname(), " ", Args,
+                       " -config ", filename:rootname(ConfigFile),  " -noshell -s init stop"]),
+                "" = os:cmd(CmdLine),
+                {ok, Bin} = file:read_file(LogFile),
+                Bin
+        end,
+
+    Output = Run(""),
+    LogOutput = re:replace(unicode:characters_to_binary(Output),"\r\n","\n",[global]),
+    ct:log("~ts",[LogOutput]),
+    nomatch = re:run(LogOutput,"^=PROGRESS REPORT====",[global,multiline]),
+
+    InfoOutput = Run("-kernel logger_level info"),
+    InfoLogOutput = re:replace(unicode:characters_to_binary(InfoOutput),"\r\n","\n",[global]),
+    ct:log("~ts",[InfoLogOutput]),
+    {match,InfoNumReports} = re:run(InfoLogOutput,"^=PROGRESS REPORT====",[global,multiline]),
+
+    %% Test that more progress reports are logged for info than default
+    ?assert(0 < length(InfoNumReports)),
+
+    DebugOutput = Run("-kernel logger_level debug"),
+    DebugLogOutput = re:replace(unicode:characters_to_binary(DebugOutput),"\r\n","\n",[global]),
+    ct:log("~ts",[DebugLogOutput]),
+    {match,DebugNumReports} = re:run(DebugLogOutput,"^=PROGRESS REPORT====",[global,multiline]),
+
+    %% Test that more progress reports are logged for debug than info
+    ?assert(length(InfoNumReports) < length(DebugNumReports)),
+
+    ok.
 
 %% Test that the simple logger works during startup crash
 start_crash(_Config) ->

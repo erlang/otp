@@ -1,15 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec setelement(Index, Tuple1, Value) -> Tuple2[0m
-  [;1m                    when[0m
-  [;1m                        Index :: pos_integer(),[0m
-  [;1m                        Tuple1 :: tuple(),[0m
-  [;1m                        Tuple2 :: tuple(),[0m
-  [;1m                        Value :: term().[0m
+[;1m  setelement(Index, Tuple1, Value)[0m
 
   Returns a tuple that is a copy of argument [;;4mTuple1[0m with the
   element specified by integer argument [;;4mIndex[0m (the first element
-  is the element with index 1) replaced by argument [;;4mValue[0m, for
-  example:
+  is the element with index 1) replaced by argument [;;4mValue[0m.
+
+  For example:
 
     > setelement(2, {10, green, bottles}, red).
     {10,red,bottles}

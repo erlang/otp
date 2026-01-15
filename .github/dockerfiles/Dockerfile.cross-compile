@@ -1,3 +1,23 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
 ##
 ## This docker file will build Erlang on 32-bit to 64-bit x86
 ##
@@ -41,6 +61,7 @@ WORKDIR /buildroot/otp
 # We cannot use config.guess for --build since its value clashes with the
 # canonical value of host...
 RUN ./configure --prefix=/otp/ --host=$HOST --build=x86-pc-linux-gnu && \
+    ./otp_build download_gdb_tools && \
     OTP_SMALL_BUILD=true V=1 make && \
     make install
 
@@ -52,7 +73,7 @@ RUN cd release/tests/test_server && \
         -eval "ts:install([{cross,\"yes\"},{crossflags,[{\"host\",\"$HOST\"}]},{crossroot,\"/$ERL_TOP\"}])." \
         -s ts compile_testcases -s init stop
 
-FROM debian as install
+FROM ghcr.io/erlang/otp/debian-base as install
 
 # Install the released application
 COPY --from=build /otp /otp

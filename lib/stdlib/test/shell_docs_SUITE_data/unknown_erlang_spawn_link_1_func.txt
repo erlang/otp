@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec spawn_link(Fun) -> pid() when Fun :: function().[0m
+[;1m  spawn_link(Fun)[0m
 
   Returns the process identifier of a new process started by the
   application of [;;4mFun[0m to the empty list [;;4m[][0m. A link is created

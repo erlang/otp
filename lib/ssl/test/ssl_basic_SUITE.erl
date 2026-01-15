@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -145,8 +147,8 @@ options_tests() ->
      unordered_protocol_versions_client].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config0)
@@ -313,12 +315,18 @@ cipher_suites_mix(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
 
+    ServerCipherSuites =  ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                                   [{key_exchange, fun(srp_rsa) -> false;
+                                                                      (srp_dss) -> false;
+                                                                      (_) -> true
+                                                                   end}]),
+
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, ServerOpts}]),
+					{options, [{ciphers, ServerCipherSuites} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -408,8 +416,8 @@ eccs() ->
     [{doc, "Test API functions eccs/0 and eccs/1"}].
 
 eccs(Config) when is_list(Config) ->
-    [_|_] = All = ssl:eccs(),
-    [_|_] = Tls = ssl:eccs(tlsv1),
+    [_|_] = _All = ssl:eccs(),
+    [_|_] = _Tls = ssl:eccs(tlsv1),
     [_|_] = Tls1 = ssl:eccs('tlsv1.1'),
     [_|_] = Tls2 = ssl:eccs('tlsv1.2'),
     [_|_] = Tls1 = ssl:eccs('dtlsv1'),
@@ -885,7 +893,8 @@ version_info_result(Socket) ->
     {ok, [{version, Version}]} = ssl:connection_information(Socket, [version]),
     {ok, Version}.
 
-min_heap_size_info(#sslsocket{pid = [Receiver, Sender]}) ->
+min_heap_size_info(#sslsocket{connection_handler = Receiver,
+                              payload_sender = Sender}) ->
     {garbage_collection, ReceiverGc} = process_info(Receiver, garbage_collection),
     {garbage_collection, SenderGc} = process_info(Sender, garbage_collection),
     {ok, proplists:get_value(min_heap_size, ReceiverGc), proplists:get_value(min_heap_size, SenderGc)}.
@@ -997,10 +1006,14 @@ anon_chipher_suite_checks(Version) ->
     [_|_] = ssl:cipher_suites(exclusive_anonymous, Version).
 
 chipher_suite_checks(Version) ->
-    MandatoryCipherSuiteTLS1_0TLS1_1 = #{key_exchange => rsa,
-                                         cipher => '3des_ede_cbc',
-                                         mac => sha,
-                                         prf => default_prf},
+    MandatoryCipherSuiteTLS1_0 = #{key_exchange => dhe_dss,
+                                   cipher => '3des_ede_cbc',
+                                   mac => sha,
+                                   prf => default_prf},
+    MandatoryCipherSuiteTLS1_1 = #{key_exchange => rsa,
+                                   cipher => '3des_ede_cbc',
+                                   mac => sha,
+                                   prf => default_prf},
     MandatoryCipherSuiteTLS1_0TLS1_2 = #{key_exchange =>rsa,
                                          cipher => 'aes_128_cbc',
                                          mac => sha,
@@ -1009,6 +1022,7 @@ chipher_suite_checks(Version) ->
     Default = [_|_] = ssl:cipher_suites(default, Version),
     Anonymous = ssl:cipher_suites(anonymous, Version),
     true = length(Default) < length(All),
+
     Filters = [{key_exchange,
                 fun(dhe_rsa) ->
                         true;
@@ -1024,6 +1038,7 @@ chipher_suite_checks(Version) ->
                 end
                },
                {mac,
+
                 fun(sha) ->
                         true;
                    (_) ->
@@ -1037,20 +1052,30 @@ chipher_suite_checks(Version) ->
                prf => default_prf},
     [Cipher] = ssl:filter_cipher_suites(All, Filters),
     [Cipher | Rest0] = ssl:prepend_cipher_suites([Cipher], Default),
-    [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
-    true = lists:member(Cipher, Default),
-    false = lists:member(Cipher, Rest0),
+    case (Version == 'tlsv1') orelse (Version == 'tlsv1.1')  orelse (Version == 'dtlsv1') of
+        true ->
+            true = lists:member(Cipher, Default),
+            [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
+            false = lists:member(Cipher, Rest0);
+        false ->
+            false = lists:member(Cipher, Default)
+    end,
     [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites([Cipher], Default)),
-    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
-    true = lists:member(Cipher, Default),
-    false = lists:member(Cipher, Rest1),
+    case (Version == 'tlsv1') orelse (Version == 'tlsv1.1') orelse (Version == 'dtlsv1') of
+        true ->
+            true = lists:member(Cipher, Default),
+            [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
+            false = lists:member(Cipher, Rest1);
+         false ->
+            false = lists:member(Cipher, Default)
+    end,
     [] = lists:dropwhile(fun(X) -> not lists:member(X, Default) end, Anonymous),
     [] = lists:dropwhile(fun(X) -> not lists:member(X, All) end, Anonymous),
     case Version of
         tlsv1 ->
-            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All);
+           true = lists:member(MandatoryCipherSuiteTLS1_0, All);
         'tlsv1.1' ->
-            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All),
+            true = lists:member(MandatoryCipherSuiteTLS1_1, All),
             true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, All);
         'tlsv1.2' ->
             ok;

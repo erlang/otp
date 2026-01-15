@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
 %%% File    : wxe_util.erl
@@ -25,6 +27,7 @@
 %%%-------------------------------------------------------------------
 %% @hidden
 -module(wxe_util).
+-moduledoc false.
 
 -export([register_pid/1,rec/1,
 	 connect_cb/2,disconnect_cb/2,
@@ -179,7 +182,12 @@ priv_dir(Driver0, Silent) ->
 	{ok, _} ->
 	    {Priv, Priv};
 	{error, _} ->
-	    SrcPriv = filename:join(Priv, erlang:system_info(system_architecture)),
+            Arch = case os:type() of
+                       {win32, _} -> win32;
+                       _ ->
+                           erlang:system_info(system_architecture)
+                   end,
+            SrcPriv = filename:join(Priv, Arch),
 	    case file:read_file_info(filename:join(SrcPriv, Driver)) of
 		{ok, _} ->
 		    {Priv, SrcPriv};

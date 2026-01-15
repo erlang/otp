@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 
 -module(diameter_codegen).
+-moduledoc false.
 
 %%
 %% This module generates erl/hrl files for encode/decode modules from
@@ -142,6 +145,7 @@ gen(erl, ParseD, Mod) ->
 
 erl_forms(Mod, ParseD) ->
     Forms = [[{?attribute, module, Mod},
+              {?attribute, moduledoc, false},
               {?attribute, compile, {parse_transform, diameter_exprecs}},
               {?attribute, compile, nowarn_unused_function},
               {?attribute, dialyzer, no_return}],
@@ -590,9 +594,24 @@ f_enumerated_avp(ParseD) ->
 
 enumerated_avp(ParseD) ->
     Enums = get_value(enum, ParseD),
-    lists:flatmap(fun cs_enumerated_avp/1, Enums)
-        ++ lists:flatmap(fun({M,Es}) -> enumerated_avp(M, Es, Enums) end,
-                         get_value(import_enums, ParseD)).
+    CurrentEnums = lists:flatmap(fun cs_enumerated_avp/1, Enums),
+    ImportedEnums = lists:flatmap(fun({M,Es}) -> enumerated_avp(M, Es, Enums) end,
+                         get_value(import_enums, ParseD)),
+    %% Remove duplicate clauses in the imported enums. This is important to generate correct
+    %% code when multiple dictionaries in the inheritance chain add values to the same
+    %% enumerated AVP. The last in the list is the one that is closest to the current module
+    %% in the inheritance chain and the one which should be kept.
+    Fun = fun({_, Id, [_, {_, _, Name}, _], _, _} = Elem, AccIn) ->
+                  case lists:search(fun({_, SId, [_, {_, _, SName}, _], _, _}) ->
+                                            Id == SId andalso Name == SName end, AccIn) of
+                      {value, Previous} ->
+                          lists:delete(Previous, AccIn) ++ [Elem];
+                      false ->
+                          AccIn ++ [Elem]
+                  end
+          end,
+    FilteredEnums = lists:foldl(Fun, [], ImportedEnums),
+    CurrentEnums ++ FilteredEnums.
 
 enumerated_avp(Mod, Es, Enums) ->
     lists:flatmap(fun({N,_}) ->
@@ -730,7 +749,19 @@ empty_value(ParseD) ->
     Enums = [T || {N,_} = T <- get_value(enum, ParseD),
                   not lists:keymember(N, 1, Imported)]
         ++ Imported,
-    lists:map(fun c_empty_value/1, Groups ++ Enums)
+    %% Here we need to remove duplicate empty_value clauses that are generated when
+    %% multiple dictionaries in the inheritance chain define values for the same
+    %% enumerated AVP.
+    lists:foldl(fun(Elem, AccIn) ->
+                        Name = element(1, Elem),
+                        case lists:any(fun({clause, _, [{_, _, SearchName}, _], _, _}) ->
+                                               ?A(Name) == SearchName end, AccIn) of
+                            true ->
+                                AccIn;
+                            false ->
+                                AccIn ++ [c_empty_value(Elem)]
+                        end
+                end, [], Groups ++ Enums)
         ++ [{?clause, [?VAR('Name'), ?VAR('Opts')],
              [],
              [?CALL(empty, [?VAR('Name'), ?VAR('Opts')])]}].

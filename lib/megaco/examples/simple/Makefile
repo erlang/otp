@@ -1,8 +1,10 @@
 # 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2001-2022. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2001-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 
 include $(ERL_TOP)/make/target.mk
@@ -60,12 +62,14 @@ MEGACO_ROOT_DIR = $(shell (cd .. ; dirname `pwd`))
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
+
 ifeq ($(WARN_UNUSED_WARS),true)
 ERL_COMPILE_FLAGS += +warn_unused_vars
 endif
 
 ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/megaco/ebin \
+	+nowarn_missing_doc +nowarn_missing_spec_documented \
 	-I../../include
 
 ifneq ($(MGC_HOST),)

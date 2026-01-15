@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020-2023. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2020-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +22,7 @@
 //
 
 pred.is_mfa_bif(M, F, A) {
-    Export *e;
+    const Export *e;
 
     ASSERT(M.type == TAG_a && F.type == TAG_a && A.type == TAG_u);
     e = erts_active_export_entry(M.val, F.val, A.val);
@@ -81,6 +83,13 @@ pred.never_fails(Bif) {
     return 0;
 }
 
+pred.consecutive_xregs(A1, A2) {
+    /* The following value must be the same as in beam_asm.hpp. */
+    const Uint num_register_backed_xregs = 6;
+    return A1.type == TAG_x && A2.type == TAG_x &&
+        A1.val + 1 == A2.val && A1.val >= num_register_backed_xregs;
+}
+
 pred.consecutive_words(A1, A2) {
     return A1.type == A2.type && A1.val + 1 == A2.val;
 }
@@ -127,4 +136,36 @@ pred.is_lt_bif(Bif) {
 	return entry->module == am_erlang && entry->function == am_Lt && entry->arity == 2;
     }
     return 0;
+}
+
+pred.is_exit_bif(Bif) {
+    BeamFile_ImportEntry *import;
+
+    if (Bif.type != TAG_u || Bif.val >= S->beam.imports.count) {
+        return 0;
+    }
+
+    import = &S->beam.imports.entries[Bif.val];
+    if (import->module != am_erlang) {
+        return 0;
+    } else {
+        switch (import->function) {
+        case am_error:
+            return 1 <= import->arity && import->arity <= 3;
+        case am_exit:
+            return import->arity == 1;
+        case am_throw:
+            return import->arity == 1;
+        case am_nif_error:
+            return import->arity == 1 || import->arity == 2;
+        default:
+            return 0;
+        }
+    }
+}
+
+// Test whether we are loading a module with line-breakpoint support
+pred.instrumenting_line_breakpoints() {
+    return ERTS_DEBUGGER_IS_ENABLED_IN(S->load_hdr->debugger_flags,
+                                       ERTS_DEBUGGER_LINE_BREAKPOINTS);
 }

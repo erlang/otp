@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %% 	exit/1
 %%	exit/2
 %%	process_info/1,2
+%%      suspend_process/2 (partially)
 %%	register/2 (partially)
 
 -include_lib("stdlib/include/assert.hrl").
@@ -55,6 +58,8 @@
          process_info_self_msgq_len_more/1,
          process_info_msgq_len_no_very_long_delay/1,
          process_info_dict_lookup/1,
+         process_info_label/1,
+         suspend_process_pausing_proc_timer/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -102,7 +107,8 @@
          demonitor_aliasmonitor/1,
          down_aliasmonitor/1,
          monitor_tag/1,
-         no_pid_wrap/1]).
+         no_pid_wrap/1,
+         processes_iter/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -130,6 +136,7 @@ all() ->
      otp_6237,
      {group, spawn_request},
      {group, process_info_bif},
+     {group, suspend_process_bif},
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task},
@@ -162,7 +169,8 @@ groups() ->
        processes_small_tab, processes_this_tab,
        processes_last_call_trap, processes_apply_trap,
        processes_gc_trap, processes_term_proc_list,
-       processes_send_infant]},
+       processes_send_infant,
+       processes_iter]},
      {process_info_bif, [],
       [t_process_info, process_info_messages,
        process_info_other, process_info_other_msg,
@@ -182,7 +190,10 @@ groups() ->
        process_info_self_msgq_len_messages,
        process_info_self_msgq_len_more,
        process_info_msgq_len_no_very_long_delay,
-       process_info_dict_lookup]},
+       process_info_dict_lookup,
+       process_info_label]},
+     {suspend_process_bif, [],
+      [suspend_process_pausing_proc_timer]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1728,6 +1739,25 @@ process_info_dict_lookup(Config) when is_list(Config) ->
     false = is_process_alive(Pid),
     ok.
 
+process_info_label(Config) when is_list(Config) ->
+    Pid = spawn_link(fun proc_dict_helper/0),
+    LabelKey = '$process_label',
+    Ref = make_ref(),
+    Tuple = {make_ref(), erlang:monotonic_time()},
+
+    undefined = pdh(Pid, put, [LabelKey, Tuple]),
+    erlang:garbage_collect(Pid),
+
+    {label,Tuple} = process_info(Pid, label),
+    Self = self(),
+    [{label,Tuple},{registered_name,[]},{links,[Self]}] =
+        process_info(Pid, [label,registered_name,links]),
+
+    put(LabelKey, Ref),
+    {label,Ref} = process_info(self(), label),
+
+    ok.
+
 pdh(Pid, AsyncOp, Args) when AsyncOp == put_async;
                              AsyncOp == erase_async ->
     Pid ! {AsyncOp, Args},
@@ -1753,6 +1783,58 @@ proc_dict_helper() ->
             _ = erase(Key)
     end,
     proc_dict_helper().
+
+suspend_process_pausing_proc_timer(_Config) ->
+    BeforeSuspend = fun(_Pid) -> ok end,
+    AfterResume = fun(_Pid) -> ok end,
+    suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume),
+    ok.
+
+suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume) ->
+    TcProc = self(),
+    Pid = erlang:spawn_link(
+        fun() ->
+            TcProc ! {sync, self()},
+            receive go -> ok
+            after 2_000 -> exit(timer_not_paused)
+            end,
+            TcProc ! {sync, self()},
+            receive _ -> error(unexpected)
+            after 2_000 -> ok
+            end,
+            TcProc ! {sync, self()}
+        end
+    ),
+
+    WaitForSync = fun () ->
+        receive {sync, Pid} -> ok
+        after 10_000 -> error(timeout)
+        end
+    end,
+    EnsureWaiting = fun() ->
+        wait_until(fun () -> process_info(Pid, status) == {status, waiting} end)
+    end,
+
+    WaitForSync(),
+    EnsureWaiting(),
+
+    BeforeSuspend(Pid),
+    true = erlang:suspend_process(Pid),
+    timer:sleep(5_000),
+    true = erlang:resume_process(Pid),
+    AfterResume(Pid),
+    timer:sleep(1_000),
+    Pid ! go,
+
+    WaitForSync(),
+    EnsureWaiting(),
+
+    BeforeSuspend(Pid),
+    true = erlang:suspend_process(Pid),
+    true = erlang:resume_process(Pid),
+    AfterResume(Pid),
+    WaitForSync(),
+    ok.
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
@@ -1860,11 +1942,8 @@ make_sub_binary(Bin) when is_binary(Bin) ->
 make_sub_binary(List) ->
     make_sub_binary(list_to_binary(List)).
 
-make_unaligned_sub_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned_sub_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 %% Tests erlang:yield/1
 yield(Config) when is_list(Config) ->
@@ -2492,7 +2571,14 @@ processes_bif_test() ->
 	    processes()
     end,
 
+    IterProcesses =
+        fun () ->
+                erts_debug:set_internal_state(reds_left, WantReds),
+                iter_all_processes()
+        end,
+
     ok = do_processes_bif_test(WantReds, WillTrap, Processes),
+    ok = do_processes_bif_test(WantReds, false, IterProcesses()),
 
     case WillTrap of
 	false ->
@@ -2529,7 +2615,19 @@ processes_bif_test() ->
 	undefined -> ok;
 	Comment -> {comment, Comment}
     end.
-    
+
+iter_all_processes() ->
+    Iter = erlang:processes_iterator(),
+    iter_all_processes(Iter).
+
+iter_all_processes(Iter0) ->
+    case erlang:processes_next(Iter0) of
+        {Pid, Iter} ->
+            [Pid|iter_all_processes(Iter)];
+        none ->
+            none
+    end.
+
 do_processes_bif_test(WantReds, DieTest, Processes) ->
     Tester = self(),
     SpawnProcesses = fun (Prio) ->
@@ -4177,6 +4275,19 @@ processes_term_proc_list(Config) when is_list(Config) ->
     Run(["+MSe", "true", "+Muatags", "true", "+S1"]),
 
     ok.
+
+processes_iter(Config) when is_list(Config) ->
+    ProcessLimit = erlang:system_info(process_limit),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(ProcessLimit + 1),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(-1),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 32),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 64),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(abc),
+
+    none = erts_internal:processes_next(ProcessLimit),
+
+    ok.
+
 
 %% OTP-18322: Send msg to spawning process pid returned from processes/0
 processes_send_infant(_Config) ->

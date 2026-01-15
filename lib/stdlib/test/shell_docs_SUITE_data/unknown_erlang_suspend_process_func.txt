@@ -1,25 +1,29 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:suspend_process(Suspendee) -> true when Suspendee :: pid().[0m
+[;1m  suspend_process(Suspendee)[0m
 
-  Suspends the process identified by [;;4mSuspendee[0m. The same as
+  Suspends the process identified by [;;4mSuspendee[0m. Equivalent to
   calling [;;4merlang:suspend_process(Suspendee, [])[0m.
 
-  Warning:
+  [;;4mWarning[0m
+
     This BIF is intended for debugging only.
 
-  [;1m-spec erlang:suspend_process(Suspendee, OptList) -> boolean()[0m
-  [;1m                                when[0m
-  [;1m                                    Suspendee :: pid(),[0m
-  [;1m                                    OptList :: [Opt],[0m
-  [;1m                                    Opt ::[0m
-  [;1m                                        unless_suspending |[0m
-  [;1m                                        asynchronous |[0m
-  [;1m                                        {asynchronous, term()}.[0m
+[;1m  suspend_process(Suspendee, OptList)[0m
 
   Increases the suspend count on the process identified by [;;4m[0m
   [;;4mSuspendee[0m and puts it in the suspended state if it is not already
   in that state. A suspended process is not scheduled for execution
-  until the process has been resumed.
+  until the process has been resumed. If the suspended process
+  currently is waiting in a [;;4mreceive ... after[0m expression, the
+  timer for the timeout will, as of OTP 28.0, also be suspended
+  until the process is resumed.
 
   A process can be suspended by multiple processes and can be
   suspended multiple times by a single process. A suspended process
@@ -32,60 +36,57 @@
 
   Options ([;;4mOpt[0ms):
 
-  [;;4m[;;4masynchronous[0m[0m:
-    A suspend request is sent to the process identified by [;;4m[0m
-    [;;4mSuspendee[0m. [;;4mSuspendee[0m eventually suspends unless it is
-    resumed before it could suspend. The caller of [;;4m[0m
-    [;;4merlang:suspend_process/2[0m returns immediately, regardless of
-    whether [;;4mSuspendee[0m has suspended yet or not. The point in
-    time when [;;4mSuspendee[0m suspends cannot be deduced from other
-    events in the system. It is only guaranteed that [;;4mSuspendee[0m 
-    eventually suspends (unless it is resumed). If no [;;4m[0m
-    [;;4masynchronous[0m options has been passed, the caller of [;;4m[0m
-    [;;4merlang:suspend_process/2[0m is blocked until [;;4mSuspendee[0m has
-    suspended.
+   • [;;4masynchronous[0m - A suspend request is sent to the process
+     identified by [;;4mSuspendee[0m. [;;4mSuspendee[0m eventually suspends
+     unless it is resumed before it could suspend. The caller of [;;4m[0m
+     [;;4merlang:suspend_process/2[0m returns immediately, regardless of
+     whether [;;4mSuspendee[0m has suspended yet or not. The point in
+     time when [;;4mSuspendee[0m suspends cannot be deduced from other
+     events in the system. It is only guaranteed that [;;4mSuspendee[0m 
+     eventually suspends (unless it is resumed). If no [;;4m[0m
+     [;;4masynchronous[0m options has been passed, the caller of [;;4m[0m
+     [;;4merlang:suspend_process/2[0m is blocked until [;;4mSuspendee[0m has
+     suspended.
 
-  [;;4m[;;4m{asynchronous, ReplyTag}[0m[0m:
-    A suspend request is sent to the process identified by [;;4m[0m
-    [;;4mSuspendee[0m. When the suspend request has been processed, a
-    reply message is sent to the caller of this function. The
-    reply is on the form [;;4m{ReplyTag, State}[0m where [;;4mState[0m is
-    either:
+   • [;;4m{asynchronous, ReplyTag}[0m - A suspend request is sent to the
+     process identified by [;;4mSuspendee[0m. When the suspend request
+     has been processed, a reply message is sent to the caller of
+     this function. The reply is on the form [;;4m{ReplyTag, State}[0m
+     where [;;4mState[0m is either:
 
-    [;;4m[;;4mexited[0m[0m:
-      [;;4mSuspendee[0m has exited.
+      ￮ [;;4mexited[0m - [;;4mSuspendee[0m has exited.
 
-    [;;4m[;;4msuspended[0m[0m:
-      [;;4mSuspendee[0m is now suspended.
+      ￮ [;;4msuspended[0m - [;;4mSuspendee[0m is now suspended.
 
-    [;;4m[;;4mnot_suspended[0m[0m:
-      [;;4mSuspendee[0m is not suspended. This can only happen when the
-      process that issued this request, have called [;;4m[0m
-      [;;4mresume_process(Suspendee)[0m before getting the reply.
+      ￮ [;;4mnot_suspended[0m - [;;4mSuspendee[0m is not suspended. This
+        can only happen when the process that issued this
+        request, have called [;;4mresume_process(Suspendee)[0m
+        before getting the reply.
 
-    Apart from the reply message, the [;;4m{asynchronous, ReplyTag}[0m
-    option behaves exactly the same as the [;;4masynchronous[0m option
-    without reply tag.
+     Apart from the reply message, the [;;4m{asynchronous, ReplyTag}[0m
+     option behaves exactly the same as the [;;4masynchronous[0m option
+     without reply tag.
 
-  [;;4m[;;4munless_suspending[0m[0m:
-    The process identified by [;;4mSuspendee[0m is suspended unless the
-    calling process already is suspending [;;4mSuspendee[0m. If [;;4m[0m
-    [;;4munless_suspending[0m is combined with option [;;4masynchronous[0m, a
-    suspend request is sent unless the calling process already is
-    suspending [;;4mSuspendee[0m or if a suspend request already has
-    been sent and is in transit. If the calling process already is
-    suspending [;;4mSuspendee[0m, or if combined with option [;;4m[0m
-    [;;4masynchronous[0m and a send request already is in transit, [;;4mfalse[0m
-    is returned and the suspend count on [;;4mSuspendee[0m remains
-    unchanged.
+   • [;;4munless_suspending[0m - The process identified by [;;4mSuspendee[0m
+     is suspended unless the calling process already is
+     suspending [;;4mSuspendee[0m. If [;;4munless_suspending[0m is combined
+     with option [;;4masynchronous[0m, a suspend request is sent unless
+     the calling process already is suspending [;;4mSuspendee[0m or if
+     a suspend request already has been sent and is in transit.
+     If the calling process already is suspending [;;4mSuspendee[0m, or
+     if combined with option [;;4masynchronous[0m and a send request
+     already is in transit, [;;4mfalse[0m is returned and the suspend
+     count on [;;4mSuspendee[0m remains unchanged.
 
   If the suspend count on the process identified by [;;4mSuspendee[0m is
   increased, [;;4mtrue[0m is returned, otherwise [;;4mfalse[0m.
 
-  Warning:
+  [;;4mWarning[0m
+
     This BIF is intended for debugging only.
 
-  Warning:
+  [;;4mWarning[0m
+
     You can easily create deadlocks if processes suspends each
     other (directly or in circles). In ERTS versions prior to ERTS
     version 10.0, the runtime system prevented such deadlocks, but
@@ -94,26 +95,22 @@
 
   Failures:
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If [;;4mSuspendee[0m is not a process identifier.
+   • [;;4mbadarg[0m - If [;;4mSuspendee[0m is not a process identifier.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If the process identified by [;;4mSuspendee[0m is the same process
-    as the process calling [;;4merlang:suspend_process/2[0m.
+   • [;;4mbadarg[0m - If the process identified by [;;4mSuspendee[0m is the
+     same process as the process calling [;;4m[0m
+     [;;4merlang:suspend_process/2[0m.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If the process identified by [;;4mSuspendee[0m is not alive.
+   • [;;4mbadarg[0m - If the process identified by [;;4mSuspendee[0m is not
+     alive.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If the process identified by [;;4mSuspendee[0m resides on another
-    node.
+   • [;;4mbadarg[0m - If the process identified by [;;4mSuspendee[0m resides
+     on another node.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If [;;4mOptList[0m is not a proper list of valid [;;4mOpt[0ms.
+   • [;;4mbadarg[0m - If [;;4mOptList[0m is not a proper list of valid [;;4mOpt[0ms.
 
-  [;;4m[;;4msystem_limit[0m[0m:
-    If the process identified by [;;4mSuspendee[0m has been suspended
-    more times by the calling process than can be represented by
-    the currently used internal data structures. The system limit
-    is greater than 2,000,000,000 suspends and will never be
-    lower.
+   • [;;4msystem_limit[0m - If the process identified by [;;4mSuspendee[0m has
+     been suspended more times by the calling process than can be
+     represented by the currently used internal data structures.
+     The system limit is greater than 2,000,000,000 suspends and
+     will never be lower.

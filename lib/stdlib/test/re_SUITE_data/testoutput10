@@ -1,771 +1,2057 @@
-/-- These are a few representative patterns whose lengths and offsets are to be 
-shown when the link size is 2. This is just a doublecheck test to ensure the 
-sizes don't go horribly wrong when something is changed. The pattern contents 
-are all themselves checked in other tests. Unicode, including property support, 
-is required for these tests. --/
+# This set of tests is for UTF-8 support and Unicode property support, with
+# relevance only for the 8-bit library.
 
-/((?i)b)/BM
-Memory allocation (code space): 17
-------------------------------------------------------------------
-  0  13 Bra
-  3   7 CBra 1
-  8  /i b
- 10   7 Ket
- 13  13 Ket
- 16     End
-------------------------------------------------------------------
+#newline_default lf any anycrlf
 
-/(?s)(.*X|^B)/BM
-Memory allocation (code space): 25
-------------------------------------------------------------------
-  0  21 Bra
-  3   9 CBra 1
-  8     AllAny*
- 10     X
- 12   6 Alt
- 15     ^
- 16     B
- 18  15 Ket
- 21  21 Ket
- 24     End
-------------------------------------------------------------------
+# The next 5 patterns have UTF-8 errors
 
-/(?s:.*X|^B)/BM
-Memory allocation (code space): 23
-------------------------------------------------------------------
-  0  19 Bra
-  3   7 Bra
-  6     AllAny*
-  8     X
- 10   6 Alt
- 13     ^
- 14     B
- 16  13 Ket
- 19  19 Ket
- 22     End
-------------------------------------------------------------------
+/[√]/utf
+Failed: error -8 at offset 1: UTF-8 error: byte 2 top bits not 0x80
+        here: [ |-->| √]
 
-/^[[:alnum:]]/BM
-Memory allocation (code space): 41
-------------------------------------------------------------------
-  0  37 Bra
-  3     ^
-  4     [0-9A-Za-z]
- 37  37 Ket
- 40     End
-------------------------------------------------------------------
+/√/utf
+Failed: error -3 at offset 0: UTF-8 error: 1 byte missing at end
+        here: |-->| √
 
-/#/IxMD
-Memory allocation (code space): 7
-------------------------------------------------------------------
-  0   3 Bra
-  3   3 Ket
-  6     End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-May match empty string
-Options: extended
-No first char
-No need char
+/√√√xxx/utf
+Failed: error -8 at offset 0: UTF-8 error: byte 2 top bits not 0x80
+        here: |-->| √√√xxx
 
-/a#/IxMD
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     a
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: extended
-First char = 'a'
-No need char
+/√ÇÇÇÇÇÇÇÇ√/utf
+Failed: error -22 at offset 2: UTF-8 error: isolated byte with 0x80 bit set
+        here: √Ç |-->| ÇÇÇÇÇÇÇ√
 
-/x?+/BM
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     x?+
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
+/√ÇÇÇÇÇÇÇÇ√/match_invalid_utf
+Failed: error -22 at offset 2: UTF-8 error: isolated byte with 0x80 bit set
+        here: √Ç |-->| ÇÇÇÇÇÇÇ√
 
-/x++/BM
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     x++
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
+# Now test subjects
 
-/x{1,3}+/BM 
-Memory allocation (code space): 13
-------------------------------------------------------------------
-  0   9 Bra
-  3     x
-  5     x{0,2}+
-  9   9 Ket
- 12     End
-------------------------------------------------------------------
+/badutf/utf
+\= Expect UTF-8 errors
+    X\xdf
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 1
+    XX\xef
+Failed: error -4: UTF-8 error: 2 bytes missing at end at offset 2
+    XXX\xef\x80
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 3
+    X\xf7
+Failed: error -5: UTF-8 error: 3 bytes missing at end at offset 1
+    XX\xf7\x80
+Failed: error -4: UTF-8 error: 2 bytes missing at end at offset 2
+    XXX\xf7\x80\x80
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 3
+    \xfb
+Failed: error -6: UTF-8 error: 4 bytes missing at end at offset 0
+    \xfb\x80
+Failed: error -5: UTF-8 error: 3 bytes missing at end at offset 0
+    \xfb\x80\x80
+Failed: error -4: UTF-8 error: 2 bytes missing at end at offset 0
+    \xfb\x80\x80\x80
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 0
+    \xfd
+Failed: error -7: UTF-8 error: 5 bytes missing at end at offset 0
+    \xfd\x80
+Failed: error -6: UTF-8 error: 4 bytes missing at end at offset 0
+    \xfd\x80\x80
+Failed: error -5: UTF-8 error: 3 bytes missing at end at offset 0
+    \xfd\x80\x80\x80
+Failed: error -4: UTF-8 error: 2 bytes missing at end at offset 0
+    \xfd\x80\x80\x80\x80
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 0
+    \xdf\x7f
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 0
+    \xef\x7f\x80
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 0
+    \xef\x80\x7f
+Failed: error -9: UTF-8 error: byte 3 top bits not 0x80 at offset 0
+    \xf7\x7f\x80\x80
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 0
+    \xf7\x80\x7f\x80
+Failed: error -9: UTF-8 error: byte 3 top bits not 0x80 at offset 0
+    \xf7\x80\x80\x7f
+Failed: error -10: UTF-8 error: byte 4 top bits not 0x80 at offset 0
+    \xfb\x7f\x80\x80\x80
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 0
+    \xfb\x80\x7f\x80\x80
+Failed: error -9: UTF-8 error: byte 3 top bits not 0x80 at offset 0
+    \xfb\x80\x80\x7f\x80
+Failed: error -10: UTF-8 error: byte 4 top bits not 0x80 at offset 0
+    \xfb\x80\x80\x80\x7f
+Failed: error -11: UTF-8 error: byte 5 top bits not 0x80 at offset 0
+    \xfd\x7f\x80\x80\x80\x80
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 0
+    \xfd\x80\x7f\x80\x80\x80
+Failed: error -9: UTF-8 error: byte 3 top bits not 0x80 at offset 0
+    \xfd\x80\x80\x7f\x80\x80
+Failed: error -10: UTF-8 error: byte 4 top bits not 0x80 at offset 0
+    \xfd\x80\x80\x80\x7f\x80
+Failed: error -11: UTF-8 error: byte 5 top bits not 0x80 at offset 0
+    \xfd\x80\x80\x80\x80\x7f
+Failed: error -12: UTF-8 error: byte 6 top bits not 0x80 at offset 0
+    \xed\xa0\x80
+Failed: error -16: UTF-8 error: code points 0xd800-0xdfff are not defined at offset 0
+    \xc0\x8f
+Failed: error -17: UTF-8 error: overlong 2-byte sequence at offset 0
+    \xe0\x80\x8f
+Failed: error -18: UTF-8 error: overlong 3-byte sequence at offset 0
+    \xf0\x80\x80\x8f
+Failed: error -19: UTF-8 error: overlong 4-byte sequence at offset 0
+    \xf8\x80\x80\x80\x8f
+Failed: error -20: UTF-8 error: overlong 5-byte sequence at offset 0
+    \xfc\x80\x80\x80\x80\x8f
+Failed: error -21: UTF-8 error: overlong 6-byte sequence at offset 0
+    \x80
+Failed: error -22: UTF-8 error: isolated byte with 0x80 bit set at offset 0
+    \xfe
+Failed: error -23: UTF-8 error: illegal byte (0xfe or 0xff) at offset 0
+    \xff
+Failed: error -23: UTF-8 error: illegal byte (0xfe or 0xff) at offset 0
 
-/(x)*+/BM
-Memory allocation (code space): 18
-------------------------------------------------------------------
-  0  14 Bra
-  3     Braposzero
-  4   7 CBraPos 1
-  9     x
- 11   7 KetRpos
- 14  14 Ket
- 17     End
-------------------------------------------------------------------
+/badutf/utf
+\= Expect UTF-8 errors
+    XX\xfb\x80\x80\x80\x80
+Failed: error -13: UTF-8 error: 5-byte character is not allowed (RFC 3629) at offset 2
+    XX\xfd\x80\x80\x80\x80\x80
+Failed: error -14: UTF-8 error: 6-byte character is not allowed (RFC 3629) at offset 2
+    XX\xf7\xbf\xbf\xbf
+Failed: error -15: UTF-8 error: code points greater than 0x10ffff are not defined at offset 2
 
-/^((a+)(?U)([ab]+)(?-U)([bc]+)(\w*))/BM
-Memory allocation (code space): 120
-------------------------------------------------------------------
-  0 116 Bra
-  3     ^
-  4 109 CBra 1
-  9   7 CBra 2
- 14     a+
- 16   7 Ket
- 19  39 CBra 3
- 24     [ab]+?
- 58  39 Ket
- 61  39 CBra 4
- 66     [bc]+
-100  39 Ket
-103   7 CBra 5
-108     \w*+
-110   7 Ket
-113 109 Ket
-116 116 Ket
-119     End
-------------------------------------------------------------------
+/shortutf/utf
+\= Expect UTF-8 errors
+    XX\xdf\=ph
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 2
+    XX\xef\=ph
+Failed: error -4: UTF-8 error: 2 bytes missing at end at offset 2
+    XX\xef\x80\=ph
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 2
+    \xf7\=ph
+Failed: error -5: UTF-8 error: 3 bytes missing at end at offset 0
+    \xf7\x80\=ph
+Failed: error -4: UTF-8 error: 2 bytes missing at end at offset 0
+    \xf7\x80\x80\=ph
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 0
+    \xfb\=ph
+Failed: error -6: UTF-8 error: 4 bytes missing at end at offset 0
+    \xfb\x80\=ph
+Failed: error -5: UTF-8 error: 3 bytes missing at end at offset 0
+    \xfb\x80\x80\=ph
+Failed: error -4: UTF-8 error: 2 bytes missing at end at offset 0
+    \xfb\x80\x80\x80\=ph
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 0
+    \xfd\=ph
+Failed: error -7: UTF-8 error: 5 bytes missing at end at offset 0
+    \xfd\x80\=ph
+Failed: error -6: UTF-8 error: 4 bytes missing at end at offset 0
+    \xfd\x80\x80\=ph
+Failed: error -5: UTF-8 error: 3 bytes missing at end at offset 0
+    \xfd\x80\x80\x80\=ph
+Failed: error -4: UTF-8 error: 2 bytes missing at end at offset 0
+    \xfd\x80\x80\x80\x80\=ph
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 0
 
-|8J\$WE\<\.rX\+ix\[d1b\!H\#\?vV0vrK\:ZH1\=2M\>iV\;\?aPhFB\<\*vW\@QW\@sO9\}cfZA\-i\'w\%hKd6gt1UJP\,15_\#QY\$M\^Mss_U\/\]\&LK9\[5vQub\^w\[KDD\<EjmhUZ\?\.akp2dF\>qmj\;2\}YWFdYx\.Ap\]hjCPTP\(n28k\+3\;o\&WXqs\/gOXdr\$\:r\'do0\;b4c\(f_Gr\=\"\\4\)\[01T7ajQJvL\$W\~mL_sS\/4h\:x\*\[ZN\=KLs\&L5zX\/\/\>it\,o\:aU\(\;Z\>pW\&T7oP\'2K\^E\:x9\'c\[\%z\-\,64JQ5AeH_G\#KijUKghQw\^\\vea3a\?kka_G\$8\#\`\*kynsxzBLru\'\]k_\[7FrVx\}\^\=\$blx\>s\-N\%j\;D\*aZDnsw\:YKZ\%Q\.Kne9\#hP\?\+b3\(SOvL\,\^\;\&u5\@\?5C5Bhb\=m\-vEh_L15Jl\]U\)0RP6\{q\%L\^_z5E\'Dw6X\b|BM
-Memory allocation (code space): 826
-------------------------------------------------------------------
-  0 822 Bra
-  3     8J$WE<.rX+ix[d1b!H#?vV0vrK:ZH1=2M>iV;?aPhFB<*vW@QW@sO9}cfZA-i'w%hKd6gt1UJP,15_#QY$M^Mss_U/]&LK9[5vQub^w[KDD<EjmhUZ?.akp2dF>qmj;2}YWFdYx.Ap]hjCPTP(n28k+3;o&WXqs/gOXdr$:r'do0;b4c(f_Gr="\4)[01T7ajQJvL$W~mL_sS/4h:x*[ZN=KLs&L5zX//>it,o:aU(;Z>pW&T7oP'2K^E:x9'c[%z-,64JQ5AeH_G#KijUKghQw^\vea3a?kka_G$8#`*kynsxzBLru']k_[7FrVx}^=$blx>s-N%j;D*aZDnsw:YKZ%Q.Kne9#hP?+b3(SOvL,^;&u5@?5C5Bhb=m-vEh_L15Jl]U)0RP6{q%L^_z5E'Dw6X
-821     \b
-822 822 Ket
-825     End
-------------------------------------------------------------------
-
-|\$\<\.X\+ix\[d1b\!H\#\?vV0vrK\:ZH1\=2M\>iV\;\?aPhFB\<\*vW\@QW\@sO9\}cfZA\-i\'w\%hKd6gt1UJP\,15_\#QY\$M\^Mss_U\/\]\&LK9\[5vQub\^w\[KDD\<EjmhUZ\?\.akp2dF\>qmj\;2\}YWFdYx\.Ap\]hjCPTP\(n28k\+3\;o\&WXqs\/gOXdr\$\:r\'do0\;b4c\(f_Gr\=\"\\4\)\[01T7ajQJvL\$W\~mL_sS\/4h\:x\*\[ZN\=KLs\&L5zX\/\/\>it\,o\:aU\(\;Z\>pW\&T7oP\'2K\^E\:x9\'c\[\%z\-\,64JQ5AeH_G\#KijUKghQw\^\\vea3a\?kka_G\$8\#\`\*kynsxzBLru\'\]k_\[7FrVx\}\^\=\$blx\>s\-N\%j\;D\*aZDnsw\:YKZ\%Q\.Kne9\#hP\?\+b3\(SOvL\,\^\;\&u5\@\?5C5Bhb\=m\-vEh_L15Jl\]U\)0RP6\{q\%L\^_z5E\'Dw6X\b|BM
-Memory allocation (code space): 816
-------------------------------------------------------------------
-  0 812 Bra
-  3     $<.X+ix[d1b!H#?vV0vrK:ZH1=2M>iV;?aPhFB<*vW@QW@sO9}cfZA-i'w%hKd6gt1UJP,15_#QY$M^Mss_U/]&LK9[5vQub^w[KDD<EjmhUZ?.akp2dF>qmj;2}YWFdYx.Ap]hjCPTP(n28k+3;o&WXqs/gOXdr$:r'do0;b4c(f_Gr="\4)[01T7ajQJvL$W~mL_sS/4h:x*[ZN=KLs&L5zX//>it,o:aU(;Z>pW&T7oP'2K^E:x9'c[%z-,64JQ5AeH_G#KijUKghQw^\vea3a?kka_G$8#`*kynsxzBLru']k_[7FrVx}^=$blx>s-N%j;D*aZDnsw:YKZ%Q.Kne9#hP?+b3(SOvL,^;&u5@?5C5Bhb=m-vEh_L15Jl]U)0RP6{q%L^_z5E'Dw6X
-811     \b
-812 812 Ket
-815     End
-------------------------------------------------------------------
-
-/(a(?1)b)/BM
-Memory allocation (code space): 22
-------------------------------------------------------------------
-  0  18 Bra
-  3  12 CBra 1
-  8     a
- 10   3 Recurse
- 13     b
- 15  12 Ket
- 18  18 Ket
- 21     End
-------------------------------------------------------------------
-
-/(a(?1)+b)/BM
-Memory allocation (code space): 28
-------------------------------------------------------------------
-  0  24 Bra
-  3  18 CBra 1
-  8     a
- 10   6 Once
- 13   3 Recurse
- 16   6 KetRmax
- 19     b
- 21  18 Ket
- 24  24 Ket
- 27     End
-------------------------------------------------------------------
-
-/a(?P<name1>b|c)d(?P<longername2>e)/BM
-Memory allocation (code space): 36
-------------------------------------------------------------------
-  0  32 Bra
-  3     a
-  5   7 CBra 1
- 10     b
- 12   5 Alt
- 15     c
- 17  12 Ket
- 20     d
- 22   7 CBra 2
- 27     e
- 29   7 Ket
- 32  32 Ket
- 35     End
-------------------------------------------------------------------
-
-/(?:a(?P<c>c(?P<d>d)))(?P<a>a)/BM
-Memory allocation (code space): 45
-------------------------------------------------------------------
-  0  41 Bra
-  3  25 Bra
-  6     a
-  8  17 CBra 1
- 13     c
- 15   7 CBra 2
- 20     d
- 22   7 Ket
- 25  17 Ket
- 28  25 Ket
- 31   7 CBra 3
- 36     a
- 38   7 Ket
- 41  41 Ket
- 44     End
-------------------------------------------------------------------
-
-/(?P<a>a)...(?P=a)bbb(?P>a)d/BM
-Memory allocation (code space): 62
-------------------------------------------------------------------
-  0  30 Bra
-  3   7 CBra 1
-  8     a
- 10   7 Ket
- 13     Any
- 14     Any
- 15     Any
- 16     \1
- 19     bbb
- 25   3 Recurse
- 28     d
- 30  30 Ket
- 33     End
-------------------------------------------------------------------
-
-/abc(?C255)de(?C)f/BM
-Memory allocation (code space): 31
-------------------------------------------------------------------
-  0  27 Bra
-  3     abc
-  9     Callout 255 10 1
- 15     de
- 19     Callout 0 16 1
- 25     f
- 27  27 Ket
- 30     End
-------------------------------------------------------------------
-
-/abcde/CBM
-Memory allocation (code space): 53
-------------------------------------------------------------------
-  0  49 Bra
-  3     Callout 255 0 1
-  9     a
- 11     Callout 255 1 1
- 17     b
- 19     Callout 255 2 1
- 25     c
- 27     Callout 255 3 1
- 33     d
- 35     Callout 255 4 1
- 41     e
- 43     Callout 255 5 0
- 49  49 Ket
- 52     End
-------------------------------------------------------------------
-
-/\x{100}/8BM
-Memory allocation (code space): 10
-------------------------------------------------------------------
-  0   6 Bra
-  3     \x{100}
-  6   6 Ket
-  9     End
-------------------------------------------------------------------
-
-/\x{1000}/8BM
-Memory allocation (code space): 11
-------------------------------------------------------------------
-  0   7 Bra
-  3     \x{1000}
-  7   7 Ket
- 10     End
-------------------------------------------------------------------
-
-/\x{10000}/8BM
-Memory allocation (code space): 12
-------------------------------------------------------------------
-  0   8 Bra
-  3     \x{10000}
-  8   8 Ket
- 11     End
-------------------------------------------------------------------
-
-/\x{100000}/8BM
-Memory allocation (code space): 12
-------------------------------------------------------------------
-  0   8 Bra
-  3     \x{100000}
-  8   8 Ket
- 11     End
-------------------------------------------------------------------
-
-/\x{10ffff}/8BM
-Memory allocation (code space): 12
-------------------------------------------------------------------
-  0   8 Bra
-  3     \x{10ffff}
-  8   8 Ket
- 11     End
-------------------------------------------------------------------
-
-/\x{110000}/8BM
-Failed: character value in \x{} or \o{} is too large at offset 9
-
-/[\x{ff}]/8BM
-Memory allocation (code space): 10
-------------------------------------------------------------------
-  0   6 Bra
-  3     \x{ff}
-  6   6 Ket
-  9     End
-------------------------------------------------------------------
-
-/[\x{100}]/8BM
-Memory allocation (code space): 10
-------------------------------------------------------------------
-  0   6 Bra
-  3     \x{100}
-  6   6 Ket
-  9     End
-------------------------------------------------------------------
-
-/\x80/8BM
-Memory allocation (code space): 10
-------------------------------------------------------------------
-  0   6 Bra
-  3     \x{80}
-  6   6 Ket
-  9     End
-------------------------------------------------------------------
-
-/\xff/8BM
-Memory allocation (code space): 10
-------------------------------------------------------------------
-  0   6 Bra
-  3     \x{ff}
-  6   6 Ket
-  9     End
-------------------------------------------------------------------
-
-/\x{0041}\x{2262}\x{0391}\x{002e}/D8M
-Memory allocation (code space): 18
-------------------------------------------------------------------
-  0  14 Bra
-  3     A\x{2262}\x{391}.
- 14  14 Ket
- 17     End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: utf
-First char = 'A'
-Need char = '.'
+/anything/utf
+\= Expect UTF-8 errors
+    X\xc0\x80
+Failed: error -17: UTF-8 error: overlong 2-byte sequence at offset 1
+    XX\xc1\x8f
+Failed: error -17: UTF-8 error: overlong 2-byte sequence at offset 2
+    XXX\xe0\x9f\x80
+Failed: error -18: UTF-8 error: overlong 3-byte sequence at offset 3
+    \xf0\x8f\x80\x80
+Failed: error -19: UTF-8 error: overlong 4-byte sequence at offset 0
+    \xf8\x87\x80\x80\x80
+Failed: error -20: UTF-8 error: overlong 5-byte sequence at offset 0
+    \xfc\x83\x80\x80\x80\x80
+Failed: error -21: UTF-8 error: overlong 6-byte sequence at offset 0
+    \xfe\x80\x80\x80\x80\x80
+Failed: error -23: UTF-8 error: illegal byte (0xfe or 0xff) at offset 0
+    \xff\x80\x80\x80\x80\x80
+Failed: error -23: UTF-8 error: illegal byte (0xfe or 0xff) at offset 0
+    \xf8\x88\x80\x80\x80
+Failed: error -13: UTF-8 error: 5-byte character is not allowed (RFC 3629) at offset 0
+    \xf9\x87\x80\x80\x80
+Failed: error -13: UTF-8 error: 5-byte character is not allowed (RFC 3629) at offset 0
+    \xfc\x84\x80\x80\x80\x80
+Failed: error -14: UTF-8 error: 6-byte character is not allowed (RFC 3629) at offset 0
+    \xfd\x83\x80\x80\x80\x80
+Failed: error -14: UTF-8 error: 6-byte character is not allowed (RFC 3629) at offset 0
+\= Expect no match
+    \xc3\x8f
+No match
+    \xe0\xaf\x80
+No match
+    \xe1\x80\x80
+No match
+    \xf0\x9f\x80\x80
+No match
+    \xf1\x8f\x80\x80
+No match
+    \xf8\x88\x80\x80\x80\=no_utf_check
+No match
+    \xf9\x87\x80\x80\x80\=no_utf_check
+No match
+    \xfc\x84\x80\x80\x80\x80\=no_utf_check
+No match
+    \xfd\x83\x80\x80\x80\x80\=no_utf_check
+No match
     
-/\x{D55c}\x{ad6d}\x{C5B4}/D8M 
-Memory allocation (code space): 19
+# Similar tests with offsets
+
+/badutf/utf
+\= Expect UTF-8 errors
+    X\xdfabcd
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=1
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+\= Expect no match
+    X\xdfabcd\=offset=2
+No match
+
+/(?<=x)badutf/utf
+\= Expect UTF-8 errors
+    X\xdfabcd
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=1
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=2
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\xdf\=offset=3
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 6
+\= Expect no match
+    X\xdfabcd\=offset=3
+No match
+
+/(?<=xx)badutf/utf
+\= Expect UTF-8 errors
+    X\xdfabcd
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=1
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=2
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=3
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+
+/(?<=xxxx)badutf/utf
+\= Expect UTF-8 errors
+    X\xdfabcd
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=1
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=2
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabcd\=offset=3
+Failed: error -8: UTF-8 error: byte 2 top bits not 0x80 at offset 1
+    X\xdfabc\xdf\=offset=6
+Failed: error -3: UTF-8 error: 1 byte missing at end at offset 5
+    X\xdfabc\xdf\=offset=7
+Failed: error -33: bad offset value
+\= Expect no match
+    X\xdfabcd\=offset=6
+No match
+ 
+/\x{100}/IB,utf
 ------------------------------------------------------------------
-  0  15 Bra
-  3     \x{d55c}\x{ad6d}\x{c5b4}
- 15  15 Ket
- 18     End
+        Bra
+        \x{100}
+        Ket
+        End
 ------------------------------------------------------------------
-Capturing subpattern count = 0
+Capture group count = 0
 Options: utf
-First char = \x{ed}
-Need char = \x{b4}
+First code unit = \xc4
+Last code unit = \x80
+Subject length lower bound = 1
 
-/\x{65e5}\x{672c}\x{8a9e}/D8M
-Memory allocation (code space): 19
+/\x{1000}/IB,utf
 ------------------------------------------------------------------
-  0  15 Bra
-  3     \x{65e5}\x{672c}\x{8a9e}
- 15  15 Ket
- 18     End
+        Bra
+        \x{1000}
+        Ket
+        End
 ------------------------------------------------------------------
-Capturing subpattern count = 0
+Capture group count = 0
 Options: utf
-First char = \x{e6}
-Need char = \x{9e}
+First code unit = \xe1
+Last code unit = \x80
+Subject length lower bound = 1
 
-/[\x{100}]/8BM
-Memory allocation (code space): 10
+/\x{10000}/IB,utf
 ------------------------------------------------------------------
-  0   6 Bra
-  3     \x{100}
-  6   6 Ket
-  9     End
+        Bra
+        \x{10000}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xf0
+Last code unit = \x80
+Subject length lower bound = 1
+
+/\x{100000}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100000}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xf4
+Last code unit = \x80
+Subject length lower bound = 1
+
+/\x{10ffff}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{10ffff}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xf4
+Last code unit = \xbf
+Subject length lower bound = 1
+
+/[\x{ff}]/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{ff}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc3
+Last code unit = \xbf
+Subject length lower bound = 1
+
+/[\x{100}]/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc4
+Last code unit = \x80
+Subject length lower bound = 1
+
+/\x80/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{80}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc2
+Last code unit = \x80
+Subject length lower bound = 1
+
+/\xff/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{ff}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc3
+Last code unit = \xbf
+Subject length lower bound = 1
+
+/\x{D55c}\x{ad6d}\x{C5B4}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{d55c}\x{ad6d}\x{c5b4}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xed
+Last code unit = \xb4
+Subject length lower bound = 3
+    \x{D55c}\x{ad6d}\x{C5B4}
+ 0: \x{d55c}\x{ad6d}\x{c5b4}
+
+/\x{65e5}\x{672c}\x{8a9e}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{65e5}\x{672c}\x{8a9e}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xe6
+Last code unit = \x9e
+Subject length lower bound = 3
+    \x{65e5}\x{672c}\x{8a9e}
+ 0: \x{65e5}\x{672c}\x{8a9e}
+
+/\x{80}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{80}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc2
+Last code unit = \x80
+Subject length lower bound = 1
+
+/\x{084}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{84}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc2
+Last code unit = \x84
+Subject length lower bound = 1
+
+/\x{104}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{104}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc4
+Last code unit = \x84
+Subject length lower bound = 1
+
+/\x{861}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{861}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xe0
+Last code unit = \xa1
+Subject length lower bound = 1
+
+/\x{212ab}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{212ab}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xf0
+Last code unit = \xab
+Subject length lower bound = 1
+
+/[^ab\xC0-\xF0]/IB,utf
+------------------------------------------------------------------
+        Bra
+        [^ab\xc0-\xf0]
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4
+  5 6 7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y
+  Z [ \ ] ^ _ ` c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f
+  \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0
+  \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf
+  \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee
+  \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd
+  \xfe \xff
+Subject length lower bound = 1
+    \x{f1}
+ 0: \x{f1}
+    \x{bf}
+ 0: \x{bf}
+    \x{100}
+ 0: \x{100}
+    \x{1000}
+ 0: \x{1000}
+\= Expect no match
+    \x{c0}
+No match
+    \x{f0}
+No match
+
+/(\x{100}+|x)/IB,utf
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        \x{100}++
+        Alt
+        x
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 1
+Options: utf
+Starting code units: x \xc4
+Subject length lower bound = 1
+
+/(\x{100}*a|x)/IB,utf
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        \x{100}*+
+        a
+        Alt
+        x
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 1
+Options: utf
+Starting code units: a x \xc4
+Subject length lower bound = 1
+
+/(\x{100}{0,2}a|x)/IB,utf
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        \x{100}{0,2}+
+        a
+        Alt
+        x
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 1
+Options: utf
+Starting code units: a x \xc4
+Subject length lower bound = 1
+
+/(\x{100}{1,2}a|x)/IB,utf
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        \x{100}
+        \x{100}{0,1}+
+        a
+        Alt
+        x
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 1
+Options: utf
+Starting code units: x \xc4
+Subject length lower bound = 1
+
+/\x{100}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc4
+Last code unit = \x80
+Subject length lower bound = 1
+
+/a\x{100}\x{101}*/IB,utf
+------------------------------------------------------------------
+        Bra
+        a\x{100}
+        \x{101}*+
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = 'a'
+Last code unit = \x80
+Subject length lower bound = 2
+
+/a\x{100}\x{101}+/IB,utf
+------------------------------------------------------------------
+        Bra
+        a\x{100}
+        \x{101}++
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = 'a'
+Last code unit = \x81
+Subject length lower bound = 3
+
+/[^\x{c4}]/IB
+------------------------------------------------------------------
+        Bra
+        [^\x{c4}] (not)
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Subject length lower bound = 1
+
+/[\x{100}]/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc4
+Last code unit = \x80
+Subject length lower bound = 1
+    \x{100}
+ 0: \x{100}
+    Z\x{100}
+ 0: \x{100}
+    \x{100}Z
+ 0: \x{100}
+
+/[\xff]/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{ff}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc3
+Last code unit = \xbf
+Subject length lower bound = 1
+    >\x{ff}<
+ 0: \x{ff}
+
+/[^\xff]/IB,utf
+------------------------------------------------------------------
+        Bra
+        [^\x{ff}] (not)
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Subject length lower bound = 1
+
+/\x{100}abc(xyz(?1))/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}abc
+        CBra 1
+        xyz
+        Recurse
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 1
+Options: utf
+First code unit = \xc4
+Last code unit = 'z'
+Subject length lower bound = 7
+
+/\777/I,utf
+Capture group count = 0
+Options: utf
+First code unit = \xc7
+Last code unit = \xbf
+Subject length lower bound = 1
+  \x{1ff}
+ 0: \x{1ff}
+  \777
+ 0: \x{1ff}
+
+/\x{100}+\x{200}/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}++
+        \x{200}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc4
+Last code unit = \x80
+Subject length lower bound = 2
+
+/\x{100}+X/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}++
+        X
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc4
+Last code unit = 'X'
+Subject length lower bound = 2
+
+/^[\QƒÄ\E-\Q≈ê\E/B,utf
+Failed: error 106 at offset 15: missing terminating ] for character class
+        here: ...QƒÄ\E-\Q≈ê\E |<--|
+
+# This tests the stricter UTF-8 check according to RFC 3629.
+
+/X/utf
+\= Expect UTF-8 errors
+    \x{d800}
+Failed: error -16: UTF-8 error: code points 0xd800-0xdfff are not defined at offset 0
+    \x{da00}
+Failed: error -16: UTF-8 error: code points 0xd800-0xdfff are not defined at offset 0
+    \x{dfff}
+Failed: error -16: UTF-8 error: code points 0xd800-0xdfff are not defined at offset 0
+    \x{110000}
+Failed: error -15: UTF-8 error: code points greater than 0x10ffff are not defined at offset 0
+    \x{2000000}
+Failed: error -13: UTF-8 error: 5-byte character is not allowed (RFC 3629) at offset 0
+    \x{7fffffff}
+Failed: error -14: UTF-8 error: 6-byte character is not allowed (RFC 3629) at offset 0
+\= Expect no match
+    \x{d800}\=no_utf_check
+No match
+    \x{da00}\=no_utf_check
+No match
+    \x{dfff}\=no_utf_check
+No match
+    \x{110000}\=no_utf_check
+No match
+    \x{2000000}\=no_utf_check
+No match
+    \x{7fffffff}\=no_utf_check
+No match
+
+/(*UTF8)\x{1234}/
+    abcd\x{1234}pqr
+ 0: \x{1234}
+
+/(*CRLF)(*UTF)(*BSR_UNICODE)a\Rb/I
+Capture group count = 0
+Compile options: <none>
+Overall options: utf
+\R matches any Unicode newline
+Forced newline is CRLF
+First code unit = 'a'
+Last code unit = 'b'
+Subject length lower bound = 3
+
+/\h/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \x09 \x20 \xc2 \xe1 \xe2 \xe3
+Subject length lower bound = 1
+    ABC\x{09}
+ 0: \x{09}
+    ABC\x{20}
+ 0:  
+    ABC\x{a0}
+ 0: \x{a0}
+    ABC\x{1680}
+ 0: \x{1680}
+    ABC\x{180e}
+ 0: \x{180e}
+    ABC\x{2000}
+ 0: \x{2000}
+    ABC\x{202f}
+ 0: \x{202f}
+    ABC\x{205f}
+ 0: \x{205f}
+    ABC\x{3000}
+ 0: \x{3000}
+
+/\v/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \x0a \x0b \x0c \x0d \xc2 \xe2
+Subject length lower bound = 1
+    ABC\x{0a}
+ 0: \x{0a}
+    ABC\x{0b}
+ 0: \x{0b}
+    ABC\x{0c}
+ 0: \x{0c}
+    ABC\x{0d}
+ 0: \x{0d}
+    ABC\x{85}
+ 0: \x{85}
+    ABC\x{2028}
+ 0: \x{2028}
+
+/\h*A/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \x09 \x20 A \xc2 \xe1 \xe2 \xe3
+Last code unit = 'A'
+Subject length lower bound = 1
+    CDBABC
+ 0: A
+
+/\v+A/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \x0a \x0b \x0c \x0d \xc2 \xe2
+Last code unit = 'A'
+Subject length lower bound = 2
+
+/\s?xxx\s/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 x
+Last code unit = 'x'
+Subject length lower bound = 4
+
+/\sxxx\s/I,utf,tables=2
+Capture group count = 0
+Options: utf
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 \xc2
+Last code unit = 'x'
+Subject length lower bound = 5
+    AB\x{85}xxx\x{a0}XYZ
+ 0: \x{85}xxx\x{a0}
+    AB\x{a0}xxx\x{85}XYZ
+ 0: \x{a0}xxx\x{85}
+
+/\S \S/I,utf,tables=2
+Capture group count = 0
+Options: utf
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0e \x0f
+  \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a \x1b \x1c \x1d \x1e
+  \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = > ? @ A B C
+  D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a b c d e f g h
+  i j k l m n o p q r s t u v w x y z { | } ~ \x7f \xc0 \xc1 \xc2 \xc3 \xc4
+  \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3
+  \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2
+  \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1
+  \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff
+Last code unit = ' '
+Subject length lower bound = 3
+    \x{a2} \x{84}
+ 0: \x{a2} \x{84}
+    A Z
+ 0: A Z
+
+/a+/utf
+    a\x{123}aa\=offset=1
+ 0: aa
+    a\x{123}aa\=offset=3
+ 0: aa
+    a\x{123}aa\=offset=4
+ 0: a
+\= Expect bad offset value
+    a\x{123}aa\=offset=6
+Failed: error -33: bad offset value
+\= Expect bad UTF-8 offset     
+    a\x{123}aa\=offset=2
+Error -36 (bad UTF-8 offset)
+\= Expect no match
+    a\x{123}aa\=offset=5
+No match
+
+/\x{1234}+/Ii,utf
+Capture group count = 0
+Options: caseless utf
+Starting code units: \xe1
+Subject length lower bound = 1
+
+/\x{1234}+?/Ii,utf
+Capture group count = 0
+Options: caseless utf
+Starting code units: \xe1
+Subject length lower bound = 1
+
+/\x{1234}++/Ii,utf
+Capture group count = 0
+Options: caseless utf
+Starting code units: \xe1
+Subject length lower bound = 1
+
+/\x{1234}{2}/Ii,utf
+Capture group count = 0
+Options: caseless utf
+Starting code units: \xe1
+Subject length lower bound = 2
+
+/[^\x{c4}]/IB,utf
+------------------------------------------------------------------
+        Bra
+        [^\x{c4}] (not)
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Subject length lower bound = 1
+
+/X+\x{200}/IB,utf
+------------------------------------------------------------------
+        Bra
+        X++
+        \x{200}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = 'X'
+Last code unit = \x80
+Subject length lower bound = 2
+
+/\R/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \x0a \x0b \x0c \x0d \xc2 \xe2
+Subject length lower bound = 1
+
+/\777/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{1ff}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = \xc7
+Last code unit = \xbf
+Subject length lower bound = 1
+
+/\w+\x{C4}/B,utf
+------------------------------------------------------------------
+        Bra
+        \w++
+        \x{c4}
+        Ket
+        End
+------------------------------------------------------------------
+    a\x{C4}\x{C4}
+ 0: a\x{c4}
+
+/\w+\x{C4}/B,utf,tables=2
+------------------------------------------------------------------
+        Bra
+        \w+
+        \x{c4}
+        Ket
+        End
+------------------------------------------------------------------
+    a\x{C4}\x{C4}
+ 0: a\x{c4}\x{c4}
+
+/\W+\x{C4}/B,utf
+------------------------------------------------------------------
+        Bra
+        \W+
+        \x{c4}
+        Ket
+        End
+------------------------------------------------------------------
+    !\x{C4}
+ 0: !\x{c4}
+
+/\W+\x{C4}/B,utf,tables=2
+------------------------------------------------------------------
+        Bra
+        \W++
+        \x{c4}
+        Ket
+        End
+------------------------------------------------------------------
+    !\x{C4}
+ 0: !\x{c4}
+
+/\W+\x{A1}/B,utf
+------------------------------------------------------------------
+        Bra
+        \W+
+        \x{a1}
+        Ket
+        End
+------------------------------------------------------------------
+    !\x{A1}
+ 0: !\x{a1}
+
+/\W+\x{A1}/B,utf,tables=2
+------------------------------------------------------------------
+        Bra
+        \W+
+        \x{a1}
+        Ket
+        End
+------------------------------------------------------------------
+    !\x{A1}
+ 0: !\x{a1}
+
+/X\s+\x{A0}/B,utf
+------------------------------------------------------------------
+        Bra
+        X
+        \s++
+        \x{a0}
+        Ket
+        End
+------------------------------------------------------------------
+    X\x20\x{A0}\x{A0}
+ 0: X \x{a0}
+
+/X\s+\x{A0}/B,utf,tables=2
+------------------------------------------------------------------
+        Bra
+        X
+        \s+
+        \x{a0}
+        Ket
+        End
+------------------------------------------------------------------
+    X\x20\x{A0}\x{A0}
+ 0: X \x{a0}\x{a0}
+
+/\S+\x{A0}/B,utf
+------------------------------------------------------------------
+        Bra
+        \S+
+        \x{a0}
+        Ket
+        End
+------------------------------------------------------------------
+    X\x{A0}\x{A0}
+ 0: X\x{a0}\x{a0}
+
+/\S+\x{A0}/B,utf,tables=2
+------------------------------------------------------------------
+        Bra
+        \S++
+        \x{a0}
+        Ket
+        End
+------------------------------------------------------------------
+    X\x{A0}\x{A0}
+ 0: X\x{a0}
+
+/\x{a0}+\s!/B,utf
+------------------------------------------------------------------
+        Bra
+        \x{a0}++
+        \s
+        !
+        Ket
+        End
+------------------------------------------------------------------
+    \x{a0}\x20!
+ 0: \x{a0} !
+
+/\x{a0}+\s!/B,utf,tables=2
+------------------------------------------------------------------
+        Bra
+        \x{a0}+
+        \s
+        !
+        Ket
+        End
+------------------------------------------------------------------
+    \x{a0}\x20!
+ 0: \x{a0} !
+
+/A/utf
+  \x{ff000041}
+** Character \N{U+ff000041} is greater than 0x7fffffff and therefore cannot be encoded as UTF-8
+  \x{7f000041}
+Failed: error -14: UTF-8 error: 6-byte character is not allowed (RFC 3629) at offset 0
+
+/(*UTF8)abc/never_utf
+Failed: error 174 at offset 7: using UTF is disabled by the application
+        here: (*UTF8) |<--| abc
+
+/abc/utf,never_utf
+Failed: error 174 at offset 0: using UTF is disabled by the application
+
+/(*UCP)abc/never_ucp
+Failed: error 175 at offset 6: using UCP is disabled by the application
+        here: (*UCP) |<--| abc
+
+/abc/ucp,never_ucp
+Failed: error 175 at offset 0: using UCP is disabled by the application
+
+/A\x{391}\x{10427}\x{ff3a}\x{1fb0}/IBi,utf
+------------------------------------------------------------------
+        Bra
+     /i A\x{391}\x{10427}\x{ff3a}\x{1fb0}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: caseless utf
+First code unit = 'A' (caseless)
+Subject length lower bound = 5
+
+/A\x{391}\x{10427}\x{ff3a}\x{1fb0}/IB,utf
+------------------------------------------------------------------
+        Bra
+        A\x{391}\x{10427}\x{ff3a}\x{1fb0}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = 'A'
+Last code unit = \xb0
+Subject length lower bound = 5
+
+/AB\x{1fb0}/IB,utf
+------------------------------------------------------------------
+        Bra
+        AB\x{1fb0}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+First code unit = 'A'
+Last code unit = \xb0
+Subject length lower bound = 3
+
+/AB\x{1fb0}/IBi,utf
+------------------------------------------------------------------
+        Bra
+     /i AB\x{1fb0}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: caseless utf
+First code unit = 'A' (caseless)
+Last code unit = 'B' (caseless)
+Subject length lower bound = 3
+
+/\x{401}\x{420}\x{421}\x{422}\x{423}\x{424}\x{425}\x{426}\x{427}\x{428}\x{429}\x{42a}\x{42b}\x{42c}\x{42d}\x{42e}\x{42f}/Ii,utf
+Capture group count = 0
+Options: caseless utf
+Starting code units: \xd0 \xd1
+Subject length lower bound = 17
+    \x{401}\x{420}\x{421}\x{422}\x{423}\x{424}\x{425}\x{426}\x{427}\x{428}\x{429}\x{42a}\x{42b}\x{42c}\x{42d}\x{42e}\x{42f}
+ 0: \x{401}\x{420}\x{421}\x{422}\x{423}\x{424}\x{425}\x{426}\x{427}\x{428}\x{429}\x{42a}\x{42b}\x{42c}\x{42d}\x{42e}\x{42f}
+    \x{451}\x{440}\x{441}\x{442}\x{443}\x{444}\x{445}\x{446}\x{447}\x{448}\x{449}\x{44a}\x{44b}\x{44c}\x{44d}\x{44e}\x{44f}
+ 0: \x{451}\x{440}\x{441}\x{442}\x{443}\x{444}\x{445}\x{446}\x{447}\x{448}\x{449}\x{44a}\x{44b}\x{44c}\x{44d}\x{44e}\x{44f}
+
+/[‚±•]/Bi,utf
+------------------------------------------------------------------
+        Bra
+     /i \x{2c65}
+        Ket
+        End
 ------------------------------------------------------------------
 
-/[Z\x{100}]/8BM
-Memory allocation (code space): 47
+/[^‚±•]/Bi,utf
 ------------------------------------------------------------------
-  0  43 Bra
-  3     [Z\x{100}]
- 43  43 Ket
- 46     End
-------------------------------------------------------------------
-
-/^[\x{100}\E-\Q\E\x{150}]/B8M
-Memory allocation (code space): 18
-------------------------------------------------------------------
-  0  14 Bra
-  3     ^
-  4     [\x{100}-\x{150}]
- 14  14 Ket
- 17     End
+        Bra
+     /i [^\x{2c65}] (not)
+        Ket
+        End
 ------------------------------------------------------------------
 
-/^[\QƒÄ\E-\Q≈ê\E]/B8M
-Memory allocation (code space): 18
+/\h/I
+Capture group count = 0
+Starting code units: \x09 \x20 \xa0
+Subject length lower bound = 1
+
+/\v/I
+Capture group count = 0
+Starting code units: \x0a \x0b \x0c \x0d \x85
+Subject length lower bound = 1
+
+/\R/I
+Capture group count = 0
+Starting code units: \x0a \x0b \x0c \x0d \x85
+Subject length lower bound = 1
+
+/[[:blank:]]/B,ucp
 ------------------------------------------------------------------
-  0  14 Bra
-  3     ^
-  4     [\x{100}-\x{150}]
- 14  14 Ket
- 17     End
+        Bra
+        [\x09 \xa0]
+        Ket
+        End
 ------------------------------------------------------------------
 
-/^[\QƒÄ\E-\Q≈ê\E/B8M
-Failed: missing terminating ] for character class at offset 15
+/\x{212a}+/Ii,utf
+Capture group count = 0
+Options: caseless utf
+Starting code units: K k \xe2
+Subject length lower bound = 1
+    KKkk\x{212a}
+ 0: KKkk\x{212a}
 
-/[\p{L}]/BM
-Memory allocation (code space): 15
+/s+/Ii,utf
+Capture group count = 0
+Options: caseless utf
+Starting code units: S s \xc5
+Subject length lower bound = 1
+    SSss\x{17f}
+ 0: SSss\x{17f}
+
+/\x{100}*A/IB,utf
 ------------------------------------------------------------------
-  0  11 Bra
-  3     [\p{L}]
- 11  11 Ket
- 14     End
+        Bra
+        \x{100}*+
+        A
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: A \xc4
+Last code unit = 'A'
+Subject length lower bound = 1
+    A
+ 0: A
+
+/\x{100}*\d(?R)/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}*+
+        \d
+        Recurse
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: 0 1 2 3 4 5 6 7 8 9 \xc4
+Subject length lower bound = 1
+
+/[Z\x{100}]/IB,utf
+------------------------------------------------------------------
+        Bra
+        [Z\x{100}]
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: Z \xc4
+Subject length lower bound = 1
+    Z\x{100}
+ 0: Z
+    \x{100}
+ 0: \x{100}
+    \x{100}Z
+ 0: \x{100}
+
+/[z-\x{100}]/IB,utf
+------------------------------------------------------------------
+        Bra
+        [z-\xff\x{100}]
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: z { | } ~ \x7f \xc2 \xc3 \xc4
+Subject length lower bound = 1
+
+/[z\Qa-d]ƒÄ\E]/IB,utf
+------------------------------------------------------------------
+        Bra
+        [\-\]adz\x{100}]
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: - ] a d z \xc4
+Subject length lower bound = 1
+    \x{100}
+ 0: \x{100}
+    ƒÄ 
+ 0: \x{100}
+
+/[ab\x{100}]abc(xyz(?1))/IB,utf
+------------------------------------------------------------------
+        Bra
+        [ab\x{100}]
+        abc
+        CBra 1
+        xyz
+        Recurse
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 1
+Options: utf
+Starting code units: a b \xc4
+Last code unit = 'z'
+Subject length lower bound = 7
+
+/\x{100}*\s/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}*+
+        \s
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 \xc4
+Subject length lower bound = 1
+
+/\x{100}*\d/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}*+
+        \d
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: 0 1 2 3 4 5 6 7 8 9 \xc4
+Subject length lower bound = 1
+
+/\x{100}*\w/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}*+
+        \w
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P
+  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z
+  \xc4
+Subject length lower bound = 1
+
+/\x{100}*\D/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}*
+        \D
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / : ; < = >
+  ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a b c
+  d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \xc0 \xc1 \xc2
+  \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0 \xd1
+  \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf \xe0
+  \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee \xef
+  \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe
+  \xff
+Subject length lower bound = 1
+
+/\x{100}*\S/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}*
+        \S
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0e \x0f
+  \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a \x1b \x1c \x1d \x1e
+  \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = > ? @ A B C
+  D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a b c d e f g h
+  i j k l m n o p q r s t u v w x y z { | } ~ \x7f \xc0 \xc1 \xc2 \xc3 \xc4
+  \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3
+  \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2
+  \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1
+  \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff
+Subject length lower bound = 1
+
+/\x{100}*\W/IB,utf
+------------------------------------------------------------------
+        Bra
+        \x{100}*
+        \W
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / : ; < = >
+  ? @ [ \ ] ^ ` { | } ~ \x7f \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9
+  \xca \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8
+  \xd9 \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7
+  \xe8 \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6
+  \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff
+Subject length lower bound = 1
+
+/[\x{105}-\x{109}]/IBi,utf
+------------------------------------------------------------------
+        Bra
+        [\x{104}-\x{109}]
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: caseless utf
+Starting code units: \xc4
+Subject length lower bound = 1
+    \x{104}
+ 0: \x{104}
+    \x{105}
+ 0: \x{105}
+    \x{109}  
+ 0: \x{109}
+\= Expect no match
+    \x{100}
+No match
+    \x{10a} 
+No match
+    
+/[z-\x{100}]/IBi,utf
+------------------------------------------------------------------
+        Bra
+        [Zz-\xff\x{100}-\x{101}\x{178}\x{39c}\x{3bc}\x{1e9e}\x{212b}]
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: caseless utf
+Starting code units: Z z { | } ~ \x7f \xc2 \xc3 \xc4 \xc5 \xce \xe1 \xe2
+Subject length lower bound = 1
+    Z
+ 0: Z
+    z
+ 0: z
+    \x{39c}
+ 0: \x{39c}
+    \x{178}
+ 0: \x{178}
+    |
+ 0: |
+    \x{80}
+ 0: \x{80}
+    \x{ff}
+ 0: \x{ff}
+    \x{100}
+ 0: \x{100}
+    \x{101} 
+ 0: \x{101}
+\= Expect no match
+    \x{102}
+No match
+    Y
+No match
+    y           
+No match
+
+/[z-\x{100}]/IBi,utf
+------------------------------------------------------------------
+        Bra
+        [Zz-\xff\x{100}-\x{101}\x{178}\x{39c}\x{3bc}\x{1e9e}\x{212b}]
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: caseless utf
+Starting code units: Z z { | } ~ \x7f \xc2 \xc3 \xc4 \xc5 \xce \xe1 \xe2
+Subject length lower bound = 1
+
+/\x{3a3}B/IBi,utf
+------------------------------------------------------------------
+        Bra
+        clist 03a3 03c2 03c3
+     /i B
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: caseless utf
+Starting code units: \xce \xcf
+Last code unit = 'B' (caseless)
+Subject length lower bound = 2
+
+/abc/utf,replace=√
+    abc
+Failed: error -3: UTF-8 error: 1 byte missing at end
+
+/(?<=(a)(?-1))x/I,utf
+Capture group count = 1
+Max lookbehind = 2
+Options: utf
+First code unit = 'x'
+Subject length lower bound = 1
+    a\x80zx\=offset=3
+Failed: error -22: UTF-8 error: isolated byte with 0x80 bit set at offset 1
+
+/[\W\p{Any}]/B
+------------------------------------------------------------------
+        Bra
+        AllAny
+        Ket
+        End
+------------------------------------------------------------------
+    abc
+ 0: a
+    123 
+ 0: 1
+
+/[\W\pL]/B
+------------------------------------------------------------------
+        Bra
+        [\x00-/:-^`-\xff\p{L}]
+        Ket
+        End
+------------------------------------------------------------------
+    abc
+ 0: a
+\= Expect no match
+    123     
+No match
+
+/\p{  A·à¥}/utf
+Failed: error 146 at offset 9: malformed \P or \p sequence
+        here: \p{  A·à¥ |<--| }
+
+/\p{BC: A·à¥}/utf
+Failed: error 146 at offset 11: malformed \P or \p sequence
+        here: \p{BC: A·à¥ |<--| }
+
+/(*:*++++++++++++''''''''''''''''''''+''+++'+++x+++++++++++++++++++++++++++++++++++(++++++++++++++++++++:++++++%++:''''''''''''''''''''''''+++++++++++++++++++++++++++++++++++++++++++++++++++++-++++++++k+++++++''''+++'+++++++++++++++++++++++''''++++++++++++':∆ø)/utf
+Failed: error 176 at offset 259: name is too long in (*MARK), (*PRUNE), (*SKIP), or (*THEN)
+        here: ...+++++++':∆ø |<--| )
+
+/[\s[:^ascii:]]/B,ucp
+------------------------------------------------------------------
+        Bra
+        [\x09-\x0d \x80-\xff\p{Xsp}]
+        Ket
+        End
 ------------------------------------------------------------------
 
-/[\p{^L}]/BM
-Memory allocation (code space): 15
-------------------------------------------------------------------
-  0  11 Bra
-  3     [\P{L}]
- 11  11 Ket
- 14     End
-------------------------------------------------------------------
+# A special extra option allows excaped surrogate code points in 8-bit mode,
+# but subjects containing them must not be UTF-checked.
 
-/[\P{L}]/BM
-Memory allocation (code space): 15
-------------------------------------------------------------------
-  0  11 Bra
-  3     [\P{L}]
- 11  11 Ket
- 14     End
-------------------------------------------------------------------
+/\x{d800}/I,utf,allow_surrogate_escapes
+Capture group count = 0
+Options: utf
+Extra options: allow_surrogate_escapes
+First code unit = \xed
+Last code unit = \x80
+Subject length lower bound = 1
+    \x{d800}\=no_utf_check
+ 0: \x{d800}
 
-/[\P{^L}]/BM
-Memory allocation (code space): 15
-------------------------------------------------------------------
-  0  11 Bra
-  3     [\p{L}]
- 11  11 Ket
- 14     End
-------------------------------------------------------------------
+/\udfff\o{157401}/utf,alt_bsux,allow_surrogate_escapes
+    \x{dfff}\x{df01}\=no_utf_check
+ 0: \x{dfff}\x{df01}
+    
+# This has different starting code units in 8-bit mode. 
 
-/[abc\p{L}\x{0660}]/8BM
-Memory allocation (code space): 50
+/^[^ab]/IB,utf
 ------------------------------------------------------------------
-  0  46 Bra
-  3     [a-c\p{L}\x{660}]
- 46  46 Ket
- 49     End
+        Bra
+        ^
+        [^ab]
+        Ket
+        End
 ------------------------------------------------------------------
+Capture group count = 0
+Compile options: utf
+Overall options: anchored utf
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4
+  5 6 7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y
+  Z [ \ ] ^ _ ` c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f
+  \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0
+  \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf
+  \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee
+  \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd
+  \xfe \xff
+Subject length lower bound = 1
+    c
+ 0: c
+    \x{ff}
+ 0: \x{ff}
+    \x{100}
+ 0: \x{100}
+\= Expect no match
+    aaa
+No match
+    
+# Offsets are different in 8-bit mode. 
 
-/[\p{Nd}]/8BM
-Memory allocation (code space): 15
-------------------------------------------------------------------
-  0  11 Bra
-  3     [\p{Nd}]
- 11  11 Ket
- 14     End
-------------------------------------------------------------------
+/(?<=abc)(|def)/g,utf,replace=<$0>,substitute_callout
+    123abc√°yzabcdef789abc·à¥qr
+ 1(2) Old 6 6 "" New 6 8 "<>"
+ 2(2) Old 13 13 "" New 15 17 "<>"
+ 3(2) Old 13 16 "def" New 17 22 "<def>"
+ 4(2) Old 22 22 "" New 28 30 "<>"
+ 4: 123abc<>\x{e1}yzabc<><def>789abc<>\x{1234}qr
+    
+# Check name length with non-ASCII characters 
 
-/[\p{Nd}+-]+/8BM
-Memory allocation (code space): 48
-------------------------------------------------------------------
-  0  44 Bra
-  3     [+\-\p{Nd}]++
- 44  44 Ket
- 47     End
-------------------------------------------------------------------
+/(?'AB√°C678901234567890123456789012012345678901234567890123456789AB012345678901234567890123456789AB012345678901234567890123456789AB'...)/utf
 
-/A\x{391}\x{10427}\x{ff3a}\x{1fb0}/8iBM
-Memory allocation (code space): 25
-------------------------------------------------------------------
-  0  21 Bra
-  3  /i A\x{391}\x{10427}\x{ff3a}\x{1fb0}
- 21  21 Ket
- 24     End
-------------------------------------------------------------------
+/(?'AB√°C6789012345678901234567890123012345678901234567890123456789AB012345678901234567890123456789AB012345678901234567890123456789AB'...)/utf
+Failed: error 148 at offset 132: subpattern name is too long (maximum 128 code units)
+        here: ...23456789AB |<--| '...)
 
-/A\x{391}\x{10427}\x{ff3a}\x{1fb0}/8BM
-Memory allocation (code space): 25
-------------------------------------------------------------------
-  0  21 Bra
-  3     A\x{391}\x{10427}\x{ff3a}\x{1fb0}
- 21  21 Ket
- 24     End
-------------------------------------------------------------------
+/(?'ABZC6789012345678901234567890123012345678901234567890123456789AB012345678901234567890123456789AB012345678901234567890123456789AB'...)/utf
 
-/[\x{105}-\x{109}]/8iBM
-Memory allocation (code space): 17
-------------------------------------------------------------------
-  0  13 Bra
-  3     [\x{104}-\x{109}]
- 13  13 Ket
- 16     End
-------------------------------------------------------------------
+/(?(n/utf
+Failed: error 142 at offset 4: syntax error in subpattern name (missing terminator?)
+        here: (?(n |<--|
 
-/( ( (?(1)0|) )*   )/xBM
-Memory allocation (code space): 38
-------------------------------------------------------------------
-  0  34 Bra
-  3  28 CBra 1
-  8     Brazero
-  9  19 SCBra 2
- 14   8 Cond
- 17   1 Cond ref
- 20     0
- 22   3 Alt
- 25  11 Ket
- 28  19 KetRmax
- 31  28 Ket
- 34  34 Ket
- 37     End
-------------------------------------------------------------------
+/(?(√°/utf
+Failed: error 142 at offset 5: syntax error in subpattern name (missing terminator?)
+        here: (?(√° |<--|
 
-/(  (?(1)0|)*   )/xBM
-Memory allocation (code space): 30
-------------------------------------------------------------------
-  0  26 Bra
-  3  20 CBra 1
-  8     Brazero
-  9   8 SCond
- 12   1 Cond ref
- 15     0
- 17   3 Alt
- 20  11 KetRmax
- 23  20 Ket
- 26  26 Ket
- 29     End
-------------------------------------------------------------------
+/^\cƒ£/utf
+Failed: error 168 at offset 5: \c must be followed by a printable ASCII character
+        here: ^\cƒ£ |<--|
 
-/[a]/BM
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     a
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
+/(?'Ÿ†ABC'...)/utf
+Failed: error 144 at offset 5: subpattern name must start with a non-digit
+        here: (?'Ÿ† |<--| ABC'...)
 
-/[a]/8BM
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     a
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
+# Invalid UTF-8 tests
 
-/[\xaa]/BM
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     \x{aa}
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
+/.../g,match_invalid_utf
+    abcd\x80wxzy\x80pqrs
+ 0: abc
+ 0: wxz
+ 0: pqr
+    abcd\x{80}wxzy\x80pqrs
+ 0: abc
+ 0: d\x{80}w
+ 0: xzy
+ 0: pqr
 
-/[\xaa]/8BM
-Memory allocation (code space): 10
-------------------------------------------------------------------
-  0   6 Bra
-  3     \x{aa}
-  6   6 Ket
-  9     End
-------------------------------------------------------------------
+/abc/match_invalid_utf
+    ab\x80ab\=ph
+Partial match: ab
+\= Expect no match
+    ab\x80cdef\=ph
+No match
 
-/[^a]/BM
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     [^a]
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
+/.a/match_invalid_utf
+    ab\=ph
+Partial match: b
+    ab\=ps
+Partial match: b
+    b\xf0\x91\x88b\=ph
+Partial match: b
+    b\xf0\x91\x88b\=ps
+Partial match: b
+    b\xf0\x91\x88\xb4a
+ 0: \x{11234}a
+\= Expect no match
+    b\x80\=ph
+No match
+    b\x80\=ps
+No match
+    b\xf0\x91\x88\=ph
+No match
+    b\xf0\x91\x88\=ps
+No match
 
-/[^a]/8BM
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     [^a]
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
+/.a$/match_invalid_utf
+    ab\=ph
+Partial match: b
+    ab\=ps
+Partial match: b
+\= Expect no match
+    b\xf0\x91\x98\=ph
+No match
+    b\xf0\x91\x98\=ps
+No match
 
-/[^\xaa]/BM
-Memory allocation (code space): 9
-------------------------------------------------------------------
-  0   5 Bra
-  3     [^\x{aa}]
-  5   5 Ket
-  8     End
-------------------------------------------------------------------
+/ab$/match_invalid_utf
+    ab\x80cdeab
+ 0: ab
+\= Expect no match
+    ab\x80cde
+No match
 
-/[^\xaa]/8BM
-Memory allocation (code space): 10
-------------------------------------------------------------------
-  0   6 Bra
-  3     [^\x{aa}]
-  6   6 Ket
-  9     End
-------------------------------------------------------------------
+/.../g,match_invalid_utf
+    abcd\x{80}wxzy\x80pqrs
+ 0: abc
+ 0: d\x{80}w
+ 0: xzy
+ 0: pqr
 
-/[^\d]/8WB
-------------------------------------------------------------------
-  0  11 Bra
-  3     [^\p{Nd}]
- 11  11 Ket
- 14     End
-------------------------------------------------------------------
+/(?<=x)../g,match_invalid_utf
+    abcd\x{80}wxzy\x80pqrs
+ 0: zy
+    abcd\x{80}wxzy\x80xpqrs
+ 0: zy
+ 0: pq
+    
+/X$/match_invalid_utf
+\= Expect no match
+    X\xc4
+No match
+    
+/(?<=..)X/match_invalid_utf,aftertext
+    AB\x80AQXYZ
+ 0: X
+ 0+ YZ
+    AB\x80AQXYZ\=offset=5
+ 0: X
+ 0+ YZ
+    AB\x80\x80AXYZXC\=offset=5
+ 0: X
+ 0+ C
+\= Expect no match
+    AB\x80XYZ
+No match
+    AB\x80XYZ\=offset=3 
+No match
+    AB\xfeXYZ
+No match
+    AB\xffXYZ\=offset=3 
+No match
+    AB\x80AXYZ
+No match
+    AB\x80AXYZ\=offset=4
+No match
+    AB\x80\x80AXYZ\=offset=5
+No match
 
-/[[:^alpha:][:^cntrl:]]+/8WB
-------------------------------------------------------------------
-  0  51 Bra
-  3     [ -~\x80-\xff\P{L}\x{100}-\x{10ffff}]++
- 51  51 Ket
- 54     End
-------------------------------------------------------------------
+/.../match_invalid_utf
+    AB\xc4CCC
+ 0: CCC
+\= Expect no match
+    A\x{d800}B
+No match
+    A\x{110000}B
+No match
+    A\xc4B  
+No match
 
-/[[:^cntrl:][:^alpha:]]+/8WB
-------------------------------------------------------------------
-  0  51 Bra
-  3     [ -~\x80-\xff\x{100}-\x{10ffff}\P{L}]++
- 51  51 Ket
- 54     End
-------------------------------------------------------------------
+/\bX/match_invalid_utf
+    A\x80X
+ 0: X
 
-/[[:alpha:]]+/8WB
-------------------------------------------------------------------
-  0  12 Bra
-  3     [\p{L}]++
- 12  12 Ket
- 15     End
-------------------------------------------------------------------
+/\BX/match_invalid_utf
+\= Expect no match
+    A\x80X
+No match
+    
+/(?<=...)X/match_invalid_utf
+    AAA\x80BBBXYZ 
+ 0: X
+\= Expect no match
+    AAA\x80BXYZ 
+No match
+    AAA\x80BBXYZ 
+No match
 
-/[[:^alpha:]\S]+/8WB
-------------------------------------------------------------------
-  0  15 Bra
-  3     [\P{L}\P{Xsp}]++
- 15  15 Ket
- 18     End
-------------------------------------------------------------------
+# -------------------------------------
 
-/abc(d|e)(*THEN)x(123(*THEN)4|567(b|q)(*THEN)xx)/B
-------------------------------------------------------------------
-  0  73 Bra
-  3     abc
-  9   7 CBra 1
- 14     d
- 16   5 Alt
- 19     e
- 21  12 Ket
- 24     *THEN
- 25     x
- 27  14 CBra 2
- 32     123
- 38     *THEN
- 39     4
- 41  29 Alt
- 44     567
- 50   7 CBra 3
- 55     b
- 57   5 Alt
- 60     q
- 62  12 Ket
- 65     *THEN
- 66     xx
- 70  43 Ket
- 73  73 Ket
- 76     End
-------------------------------------------------------------------
+/(*UTF)(?=\x{123})/I
+Capture group count = 0
+May match empty string
+Compile options: <none>
+Overall options: utf
+First code unit = \xc4
+Last code unit = \xa3
+Subject length lower bound = 1
 
-/(((a\2)|(a*)\g<-1>))*a?/B
-------------------------------------------------------------------
-  0  57 Bra
-  3     Brazero
-  4  48 SCBra 1
-  9  40 Once
- 12  18 CBra 2
- 17  10 CBra 3
- 22     a
- 24     \2
- 27  10 Ket
- 30  16 Alt
- 33   7 CBra 4
- 38     a*
- 40   7 Ket
- 43  33 Recurse
- 46  34 Ket
- 49  40 Ket
- 52  48 KetRmax
- 55     a?+
- 57  57 Ket
- 60     End
-------------------------------------------------------------------
+/[\x{c1}\x{e1}]X[\x{145}\x{146}]/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \xc3
+Last code unit = 'X'
+Subject length lower bound = 3
 
-/((?+1)(\1))/B
+/[Ûøæü,]/BI,utf
 ------------------------------------------------------------------
-  0  31 Bra
-  3  25 Once
-  6  19 CBra 1
- 11  14 Recurse
- 14   8 CBra 2
- 19     \1
- 22   8 Ket
- 25  19 Ket
- 28  25 Ket
- 31  31 Ket
- 34     End
+        Bra
+        [,\x{fff9f}]
+        Ket
+        End
 ------------------------------------------------------------------
+Capture group count = 0
+Options: utf
+Starting code units: , \xf3
+Subject length lower bound = 1
 
-/.((?2)(?R)\1)()/B
-------------------------------------------------------------------
-  0  35 Bra
-  3     Any
-  4  20 Once
-  7  14 CBra 1
- 12  27 Recurse
- 15   0 Recurse
- 18     \1
- 21  14 Ket
- 24  20 Ket
- 27   5 CBra 2
- 32   5 Ket
- 35  35 Ket
- 38     End
-------------------------------------------------------------------
+/[\x{fff4}-\x{ffff8}]/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \xef \xf0 \xf1 \xf2 \xf3
+Subject length lower bound = 1
 
-/([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00]([00](*ACCEPT)/
-Failed: missing ) at offset 509
+/[\x{fff4}-\x{afff8}\x{10ffff}]/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \xef \xf0 \xf1 \xf2 \xf4
+Subject length lower bound = 1
 
-/-- End of testinput11 --/
+/[\xff\x{ffff}]/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \xc3 \xef
+Subject length lower bound = 1
+
+/[\xff\x{ff}]/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \xc3
+Subject length lower bound = 1
+    abc\x{ff}def
+ 0: \x{ff}
+
+/[\xff\x{ff}]/I
+Capture group count = 0
+First code unit = \xff
+Subject length lower bound = 1
+    abc\x{ff}def
+ 0: \xff
+
+/[Ss]/I
+Capture group count = 0
+First code unit = 'S' (caseless)
+Subject length lower bound = 1
+
+/[Ss]/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: S s
+Subject length lower bound = 1
+
+/(?:\x{ff}|\x{3000})/I,utf
+Capture group count = 0
+Options: utf
+Starting code units: \xc3 \xe3
+Subject length lower bound = 1
+
+/x/utf
+    abxyz
+ 0: x
+    \x80\=startchar
+Failed: error -22: UTF-8 error: isolated byte with 0x80 bit set at offset 0
+    abc\x80\=startchar
+Failed: error -22: UTF-8 error: isolated byte with 0x80 bit set at offset 3
+    abc\x80\=startchar,offset=3
+Error -36 (bad UTF-8 offset)
+
+/\x{c1}+\x{e1}/iIB,ucp
+------------------------------------------------------------------
+        Bra
+     /i \x{c1}+
+     /i \x{e1}
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: caseless ucp
+First code unit = \xc1 (caseless)
+Last code unit = \xe1 (caseless)
+Subject length lower bound = 2
+    \x{c1}\x{c1}\x{c1}
+ 0: \xc1\xc1\xc1
+    \x{e1}\x{e1}\x{e1} 
+ 0: \xe1\xe1\xe1
+
+/a|\x{c1}/iI,ucp
+Capture group count = 0
+Options: caseless ucp
+Starting code units: A a \xc1 \xe1
+Subject length lower bound = 1
+    \x{e1}xxx
+ 0: \xe1
+
+/a|\x{c1}/iI,utf
+Capture group count = 0
+Options: caseless utf
+Starting code units: A a \xc3
+Subject length lower bound = 1
+    \x{e1}xxx
+ 0: \x{e1}
+
+/\x{c1}|\x{e1}/iI,ucp
+Capture group count = 0
+Options: caseless ucp
+First code unit = \xc1 (caseless)
+Subject length lower bound = 1
+
+/X(\x{e1})Y/ucp,replace=>\U$1<,substitute_extended
+    X\x{e1}Y
+ 1: >\xc1<
+
+/X(\x{e1})Y/i,ucp,replace=>\L$1<,substitute_extended
+    X\x{c1}Y
+ 1: >\xe1<
+
+# Without UTF or UCP characters > 127 have only one case in the default locale.
+
+/X(\x{e1})Y/replace=>\U$1<,substitute_extended
+    X\x{e1}Y
+ 1: >\xe1<
+
+/A/utf,match_invalid_utf,caseless
+    \xe5A
+ 0: A
+
+/\bch\b/utf,match_invalid_utf
+    qchq\=ph
+Partial match: 
+    qchq\=ps
+Partial match: 
+
+/line1\nbreak/firstline,utf,match_invalid_utf
+    line1\nbreak
+ 0: line1\x{0a}break
+    line0\nline1\nbreak
+No match
+
+/A\z/utf,match_invalid_utf
+    A\x80\x42\n
+No match
+
+/ab$/match_invalid_utf
+\= Expect no match            
+    ab\x80cde         
+No match
+
+/ab\z/match_invalid_utf
+\= Expect no match            
+    ab\x80cde         
+No match
+
+/ab\Z/match_invalid_utf
+\= Expect no match            
+    ab\x80cde         
+No match
+
+/(..)(*scs:(1)ab\z)/match_invalid_utf
+    ab\x80cde         
+ 0: ab
+ 1: ab
+
+/(..)(*scs:(1)ab\Z)/match_invalid_utf
+    ab\x80cde         
+ 0: ab
+ 1: ab
+
+/(..)(*scs:(1)ab$)/match_invalid_utf
+    ab\x80cde         
+ 0: ab
+ 1: ab
+
+/(.) \1/i,ucp
+    i I
+ 0: i I
+ 1: i
+
+/(.) \1/i,ucp,turkish_casing
+Failed: error 205 at offset 0: PCRE2_EXTRA_TURKISH_CASING requires UTF in 8-bit mode
+
+/[\x60-\x7f]/i,ucp,turkish_casing
+Failed: error 205 at offset 0: PCRE2_EXTRA_TURKISH_CASING requires UTF in 8-bit mode
+    i
+\= Expect no match
+    I
+
+/[\x60-\xc0]/i,ucp,turkish_casing
+Failed: error 205 at offset 0: PCRE2_EXTRA_TURKISH_CASING requires UTF in 8-bit mode
+    i
+\= Expect no match
+    I
+
+/[\x80-\xc0]/i,ucp,turkish_casing
+Failed: error 205 at offset 0: PCRE2_EXTRA_TURKISH_CASING requires UTF in 8-bit mode
+\= Expect no match
+    i
+    I
+
+# python_octal
+
+/\400/
+Failed: error 151 at offset 4: octal value is greater than \377 in 8-bit non-UTF-8 mode
+        here: \400 |<--|
+
+/abc/substitute_extended
+    abc\=replace=\400
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+        here: \400 |<--|
+
+/\400/python_octal
+Failed: error 202 at offset 4: octal value given by \ddd is greater than \377 (forbidden by PCRE2_EXTRA_PYTHON_OCTAL)
+        here: \400 |<--|
+
+/abc/substitute_extended,python_octal
+    abc\=replace=\400
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+        here: \400 |<--|
+
+/\400/utf
+
+/abc/utf,substitute_extended
+    abc\=replace=\400
+ 1: \x{100}
+
+/\400/utf,python_octal
+Failed: error 202 at offset 4: octal value given by \ddd is greater than \377 (forbidden by PCRE2_EXTRA_PYTHON_OCTAL)
+        here: \400 |<--|
+
+/abc/utf,substitute_extended,python_octal
+    abc\=replace=\400
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+        here: \400 |<--|
+
+/[\x00-\x2f\x11-\xff]+/B
+------------------------------------------------------------------
+        Bra
+        AllAny++
+        Ket
+        End
+------------------------------------------------------------------
+    abcd
+ 0: abcd
+
+/[\x00-\x2f\x11-\xff]{4,}/B,utf
+------------------------------------------------------------------
+        Bra
+        [\x00-\xff]{4,}+
+        Ket
+        End
+------------------------------------------------------------------
+    abcd
+ 0: abcd
+
+# End of testinput10

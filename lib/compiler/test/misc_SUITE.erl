@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +26,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 tobias/1,empty_string/1,md5/1,silly_coverage/1,
 	 confused_literals/1,integer_encoding/0,integer_encoding/1,
-	 override_bif/1]).
+	 override_bif/1,catch_precedence/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -69,7 +71,7 @@ all() ->
 groups() -> 
     [{p,[parallel],
       [tobias,empty_string,silly_coverage,
-       confused_literals,override_bif]},
+       confused_literals,override_bif,catch_precedence]},
      {slow,[parallel],[integer_encoding,md5]}].
 
 init_per_suite(Config) ->
@@ -101,7 +103,21 @@ slow_group() ->
             %% Cloned module. Don't run.
             []
     end.
-    
+
+catch_precedence(Config) when is_list(Config) ->
+        %% lower than addition
+        3 = begin (catch throw(2)) + 1 end,
+        2 = begin catch throw(2) + 1 end,
+
+        %% lower than comparison
+        true = begin (catch throw(false)) =/= true end,
+        false = begin catch throw(false) =/= true end,
+
+        %% lower than send (which has the same precedence as =)
+        Pid = spawn_link(fun () -> receive stop -> ok end end),
+        false = is_pid(begin (catch throw(Pid)) ! stop end),
+        true = is_pid(begin catch throw(Pid) ! stop end).
+
 %%
 %% Functions that override new and old bif's
 %%
@@ -179,24 +195,14 @@ silly_coverage(Config) when is_list(Config) ->
                 {function,0,foo,2,[bad_clauses]}],
     expect_error(fun() -> v3_core:module(BadAbstr, []) end),
 
-    %% sys_core_fold, sys_core_alias, sys_core_bsm, v3_kernel
+    %% sys_core_fold, sys_core_alias, sys_core_bsm, beam_core_to_ssa
     BadCoreErlang = {c_module,[],
-		     name,[],[],
+		     {c_literal,[],name},[],[],
 		     [{{c_var,[],{foo,2}},seriously_bad_body}]},
     expect_error(fun() -> sys_core_fold:module(BadCoreErlang, []) end),
     expect_error(fun() -> sys_core_alias:module(BadCoreErlang, []) end),
     expect_error(fun() -> sys_core_bsm:module(BadCoreErlang, []) end),
-    expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
-
-    %% beam_kernel_to_ssa
-    BadKernel = {k_mdef,[],?MODULE,
-		 [{foo,0}],
-		 [],
-		 [{k_fdef,
-		   {k,[],[],[]},
-		   f,0,[],
-		   seriously_bad_body}]},
-    expect_error(fun() -> beam_kernel_to_ssa:module(BadKernel, []) end),
+    expect_error(fun() -> beam_core_to_ssa:module(BadCoreErlang, []) end),
 
     %% beam_ssa_lint
     %% beam_ssa_bool
@@ -294,6 +300,7 @@ cover_beam_ssa_bc_size(N) ->
     cover_beam_ssa_bc_size(N + 1).
 
 bad_ssa_lint_input() ->
+    Ret = {b_var,100},
     {b_module,#{},t,
      [{a,1},{b,1},{c,1},{module_info,0},{module_info,1}],
      [],
@@ -328,14 +335,14 @@ bad_ssa_lint_input() ->
        #{0 =>
              {b_blk,#{},
               [{b_set,#{},
-                {b_var,{'@ssa_ret',3}},
+                Ret,
                 call,
                 [{b_remote,
                   {b_literal,erlang},
                   {b_literal,get_module_info},
                   1},
                  {b_var,'@unknown_variable'}]}],
-              {b_ret,#{},{b_var,{'@ssa_ret',3}}}}},
+              {b_ret,#{},Ret}}},
        4}]}.
 
 expect_error(Fun) ->

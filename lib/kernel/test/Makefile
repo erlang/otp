@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,9 +27,11 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 SOCKET_MODULES = \
+	gen_tcp_socket_SUITE \
 	socket_test_lib \
 	socket_test_logger \
 	socket_test_evaluator \
+	socket_test_ev_proxy \
 	socket_test_profile \
 	socket_test_ttest_lib \
 	socket_test_ttest_tcp_gen \
@@ -41,7 +45,11 @@ SOCKET_MODULES = \
 	socket_test_ttest_tcp_server_gen \
 	socket_test_ttest_tcp_server_gs \
 	socket_test_ttest_tcp_server_socket \
-	socket_SUITE
+	socket_suites \
+	socket_SUITE \
+	socket_api_SUITE \
+	socket_traffic_SUITE \
+	socket_ttest_SUITE
 
 MODULES= \
 	kernel_test_lib \
@@ -65,8 +73,10 @@ MODULES= \
 	appinc2top \
 	appinc2A \
 	appinc2B \
+	block_select_dist \
 	code_SUITE \
 	code_b_test \
+	code_coverage_SUITE \
 	disk_log_SUITE \
 	erl_boot_server_SUITE \
 	erl_distribution_SUITE \
@@ -81,6 +91,10 @@ MODULES= \
 	prim_file_SUITE \
 	ram_file_SUITE \
 	gen_tcp_api_SUITE \
+	test_inet_tcp \
+	test_inet6_tcp \
+	test_inet_udp \
+	test_inet6_udp \
 	gen_tcp_dist \
 	gen_tcp_echo_SUITE \
 	gen_tcp_misc_SUITE \
@@ -108,6 +122,7 @@ MODULES= \
 	logger_stress_SUITE \
 	logger_test_lib \
 	net_SUITE \
+	prim_net_SUITE \
 	os_SUITE \
 	pg_SUITE \
 	rtnode \
@@ -120,6 +135,8 @@ MODULES= \
 	sendfile_SUITE \
 	standard_error_SUITE \
 	multi_load_SUITE \
+	shell_test_lib \
+	group_SUITE \
 	zzz_SUITE
 
 APP_FILES = \
@@ -146,7 +163,8 @@ HRL_FILES= \
 	kernel_test_lib.hrl \
 	socket_test_evaluator.hrl \
 	socket_test_ttest.hrl \
-	socket_test_ttest_client.hrl
+	socket_test_ttest_client.hrl \
+	shell_test_lib.hrl
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
@@ -166,7 +184,7 @@ RELSYSDIR = $(RELEASE_PATH)/kernel_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

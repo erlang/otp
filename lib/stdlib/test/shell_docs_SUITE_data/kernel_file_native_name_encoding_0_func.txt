@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec native_name_encoding() -> latin1 | utf8.[0m
+[;1m  native_name_encoding()[0m
 
 [;;4mSince[0m:
   OTP R14B01

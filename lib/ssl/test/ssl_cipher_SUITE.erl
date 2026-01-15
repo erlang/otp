@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,9 +25,9 @@
 -behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
--include("tls_record.hrl").
--include("ssl_cipher.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/tls_record.hrl").
+-include_lib("ssl/src/ssl_cipher.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -57,7 +59,7 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
 	    Config
     catch _:_  ->

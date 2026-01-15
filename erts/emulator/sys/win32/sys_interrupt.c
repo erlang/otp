@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 1997-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +113,7 @@ BOOL WINAPI ctrl_handler_replace_intr(DWORD dwCtrlType)
 }
 
 
-/* Don't use ctrl-c for break handler but let it be 
+/* Don't use Ctrl+C for break handler but let it be
    used by the shell instead (see user_drv.erl) */
 void erts_replace_intr(void) {
     HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);

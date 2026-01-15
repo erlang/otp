@@ -440,7 +440,7 @@ shutdown_test(Config, TC, Shutdown, BlockTime, StopWhileBlocked, MaxWaitTime) ->
     WaitTime = End - Start,
     BlockTimeLeft = BlockTime + EnsureBlockedWait - (Start - BlockStart),
     Connected = lists:member(Node, nodes(connected)),
-    ct:pal("Connected = ~p~nWaitTime = ~p~nBlockTimeLeft = ~p~n",
+    ct:log("Connected = ~p~nWaitTime = ~p~nBlockTimeLeft = ~p~n",
            [Connected, WaitTime, BlockTimeLeft]),
     true = WaitTime =< MaxWaitTime,
     case StopWhileBlocked of
@@ -602,7 +602,7 @@ build_image(Dir) ->
         "ENTRYPOINT [\"/opt/lambda/erts-" ++ erlang:system_info(version) ++ "/bin/dyn_erl\", \"-boot\", \"/opt/lambda/releases/1.0.0/start\"]\n",
     ok = file:write_file(BuildScript, Dockerfile),
     Output = os:cmd("docker build -t lambda " ++ Dir),
-    ct:pal("Build result: ~s~n", [Output]).
+    ct:log("Build result: ~s~n", [Output]).
 
 docker(Config) when is_list(Config) ->
     case os:find_executable("docker") of

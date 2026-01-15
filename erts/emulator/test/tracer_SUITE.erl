@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,9 +26,10 @@
 %%% Tests the tracer module interface
 %%%
 
--export([all/0, suite/0,groups/0, init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2, init_per_testcase/2,
-         end_per_testcase/2]).
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2]).
 -export([load/1, unload/1, reload/1, invalid_tracers/1]).
 -export([send/1, recv/1, call/1, call_return/1, spawn/1, exit/1,
          link/1, unlink/1, getting_linked/1, getting_unlinked/1,
@@ -37,28 +40,35 @@ suite() -> [{ct_hooks,[ts_install_cth]},
             {timetrap, {minutes, 1}}].
 
 all() ->
-    [load, unload, reload, invalid_tracers, {group, basic}].
+    trace_sessions:all().
 
 groups() ->
-    [{ basic, [], [send, recv, call, call_return, spawn, exit,
-                   link, unlink, getting_linked, getting_unlinked,
-                   register, unregister, in, out, gc_start, gc_end,
-                   seq_trace]}].
+    trace_sessions:groups(testcases()) ++
+        [{ basic, [], [send, recv, call, call_return, spawn, exit,
+                       link, unlink, getting_linked, getting_unlinked,
+                       register, unregister, in, out, gc_start, gc_end,
+                       seq_trace]}].
+
+testcases() ->
+    [load, unload, reload, invalid_tracers, {group, basic}].
+
 
 init_per_suite(Config) ->
     erlang:trace_pattern({'_','_','_'}, false, [local]),
     erlang:trace_pattern({'_','_','_'}, false, []),
     purge(),
-    Config.
 
-end_per_suite(_Config) ->
-    ok.
+    trace_sessions:init_per_suite(Config, ?MODULE).
 
-init_per_group(_GroupName, Config) ->
-    Config.
+end_per_suite(Config) ->
+    trace_sessions:end_per_suite(Config).
 
-end_per_group(_GroupName, Config) ->
-    Config.
+init_per_group(Group, Config) ->
+    trace_sessions:init_per_group(Group, Config).
+
+end_per_group(Group, Config) ->
+    trace_sessions:end_per_group(Group, Config).
+
 
 init_per_testcase(TC, Config) when TC =:= load; TC =:= reload ->
 
@@ -86,15 +96,17 @@ init_per_testcase(_, Config) ->
 common_init_per_testcase(Config) ->
     Killer = erlang:spawn(fun() -> killer_loop([]) end),
     register(killer_process, Killer),
-    Config.
+    trace_sessions:init_per_testcase(Config).
 
-end_per_testcase(TC, _Config) when TC =:= load; TC =:= reload ->
+end_per_testcase(TC, Config) when TC =:= load; TC =:= reload ->
     purge(),
     exit(whereis(tracer_test_config), kill),
-    kill_processes();
-end_per_testcase(_, _Config) ->
+    kill_processes(),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(_, Config) ->
     purge(),
-    kill_processes().
+    kill_processes(),
+    trace_sessions:end_per_testcase(Config).
 
 kill_processes() ->
     killer_process ! {get_pids,self()},
@@ -125,13 +137,27 @@ kill_me(Pid) ->
     killer_process ! {add_pid,Pid},
     Pid.
 
+
+erlang_trace(A,B,C) ->
+    trace_sessions:erlang_trace(A,B,C).
+
+erlang_trace_pattern(A,B) ->
+    trace_sessions:erlang_trace_pattern(A,B).
+
+erlang_trace_pattern(A,B,C) ->
+    trace_sessions:erlang_trace_pattern(A,B,C).
+
+erlang_trace_info(A,B) ->
+    trace_sessions:erlang_trace_info(A,B).
+
+
 %%% Test cases follow.
 
 load(_Config) ->
     purge(),
-    1 = erlang:trace(self(), true, [{tracer, tracer_test, []}, call]),
+    1 = erlang_trace(self(), true, [{tracer, tracer_test, []}, call]),
     purge(),
-    1 = erlang:trace_pattern({?MODULE, all, 0}, [],
+    1 = erlang_trace_pattern({?MODULE, all, 0}, [],
                              [{meta, tracer_test, []}]),
     ok.
 
@@ -157,10 +183,10 @@ unload(_Config) ->
                  trace_delivered(Pid)
          end,
 
-    1 = erlang:trace(Pid, true, [{tracer, tracer_test,
+    1 = erlang_trace(Pid, true, [{tracer, tracer_test,
                                   {#{ call => trace }, self(), []}},
                                  call]),
-    1 = erlang:trace_pattern({?MODULE, all, 0}, [], []),
+    1 = erlang_trace_pattern({?MODULE, all, 0}, [], []),
 
     Tc(1),
     receive _M -> ok after 0 -> ct:fail(timeout) end,
@@ -191,8 +217,8 @@ reload(_Config) ->
     [begin
          Ref = make_ref(),
          State = {#{ call => trace }, Tracer, [Ref]},
-         erlang:trace(Tracee, true, [{tracer, tracer_test,State}, call]),
-         erlang:trace_pattern({?MODULE, all, 0}, []),
+         erlang_trace(Tracee, true, [{tracer, tracer_test,State}, call]),
+         erlang_trace_pattern({?MODULE, all, 0}, []),
 
          false = code:purge(tracer_test),
          {module, _} = code:load_file(tracer_test),
@@ -200,7 +226,7 @@ reload(_Config) ->
          %% There is a race involved in between when the internal nif cache
          %% is purged and when the reload_loop needs the tracer module
          %% so the tracer may be removed or still there.
-         case erlang:trace_info(Tracee, tracer) of
+         case erlang_trace_info(Tracee, tracer) of
              {tracer, []} -> ok;
              {tracer, {tracer_test, State}} -> ok
          end,
@@ -224,7 +250,7 @@ reload_loop() ->
 
 invalid_tracers(_Config) ->
     FailTrace = fun(A) ->
-                        try erlang:trace(self(), true, A) of
+                        try erlang_trace(self(), true, A) of
                             _ -> ct:fail(A)
                         catch _:_ -> ok end
                 end,
@@ -235,7 +261,7 @@ invalid_tracers(_Config) ->
     FailTrace([{tracer, lists, []}, call]),
 
     FailTP = fun(MS,FL) ->
-                     try erlang:trace_pattern({?MODULE,all,0}, MS, FL) of
+                     try erlang_trace_pattern({?MODULE,all,0}, MS, FL) of
                             _ -> ct:fail({MS, FL})
                         catch _:_ -> ok end
                 end,
@@ -291,7 +317,7 @@ call(_Config) ->
                  receive ok -> ok after 100 -> ct:fail(timeout) end
          end,
 
-    erlang:trace_pattern({?MODULE, call_test, 1}, [], [local]),
+    erlang_trace_pattern({?MODULE, call_test, 1}, [], [local]),
 
     Expect = fun(Pid, State, EOpts) ->
                      receive
@@ -310,7 +336,7 @@ call_return(_Config) ->
                  receive ok -> ok after 100 -> ct:fail(timeout) end
          end,
 
-    1 = erlang:trace_pattern({?MODULE, call_test, 1}, [{'_',[],[{return_trace}]}], [local]),
+    1 = erlang_trace_pattern({?MODULE, call_test, 1}, [{'_',[],[{return_trace}]}], [local]),
 
     Expect = fun(Pid, State, EOpts) ->
                      receive
@@ -617,22 +643,22 @@ test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
     %% Test that trace works
     State1 = {#{ Event => trace }, self(), ComplexState},
     Pid1 = start_tracee(),
-    1 = erlang:trace(Pid1, true, [TraceFlag, {tracer, tracer_test, State1}]),
+    1 = erlang_trace(Pid1, true, [TraceFlag, {tracer, tracer_test, State1}]),
     Tc(Pid1),
     ok = trace_delivered(Pid1),
 
     Expect(Pid1, State1, Opts),
     receive M11 -> ct:fail({unexpected, M11}) after 0 -> ok end,
     if not Dies andalso Event /= in ->
-            {flags, [TraceFlag]} = erlang:trace_info(Pid1, flags),
-            {tracer, {tracer_test, State1}} = erlang:trace_info(Pid1, tracer),
-            erlang:trace(Pid1, false, [TraceFlag]);
+            {flags, [TraceFlag]} = erlang_trace_info(Pid1, flags),
+            {tracer, {tracer_test, State1}} = erlang_trace_info(Pid1, tracer),
+            erlang_trace(Pid1, false, [TraceFlag]);
        true -> ok
     end,
 
     %% Test that trace works with scheduler id and timestamp
     Pid1T = start_tracee(),
-    1 = erlang:trace(Pid1T, true, [TraceFlag, {tracer, tracer_test, State1},
+    1 = erlang_trace(Pid1T, true, [TraceFlag, {tracer, tracer_test, State1},
                                    timestamp, scheduler_id]),
     Tc(Pid1T),
     ok = trace_delivered(Pid1T),
@@ -642,23 +668,23 @@ test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
     receive M11T -> ct:fail({unexpected, M11T}) after 0 -> ok end,
     if not Dies andalso Event /= in ->
             {flags, [scheduler_id, TraceFlag, timestamp]}
-                = erlang:trace_info(Pid1T, flags),
-            {tracer, {tracer_test, State1}} = erlang:trace_info(Pid1T, tracer),
-            erlang:trace(Pid1T, false, [TraceFlag]);
+                = erlang_trace_info(Pid1T, flags),
+            {tracer, {tracer_test, State1}} = erlang_trace_info(Pid1T, tracer),
+            erlang_trace(Pid1T, false, [TraceFlag]);
        true -> ok
     end,
 
     %% Test that  discard works
     Pid2 = start_tracee(),
     State2 = {#{ Event => discard }, self(), ComplexState},
-    1 = erlang:trace(Pid2, true, [TraceFlag, {tracer, tracer_test, State2}]),
+    1 = erlang_trace(Pid2, true, [TraceFlag, {tracer, tracer_test, State2}]),
     Tc(Pid2),
     ok = trace_delivered(Pid2),
     receive M2 -> ct:fail({unexpected, M2}) after 0 -> ok end,
     if not Dies andalso Event /= in ->
-            {flags, [TraceFlag]} = erlang:trace_info(Pid2, flags),
-            {tracer, {tracer_test, State2}} = erlang:trace_info(Pid2, tracer),
-            erlang:trace(Pid2, false, [TraceFlag]);
+            {flags, [TraceFlag]} = erlang_trace_info(Pid2, flags),
+            {tracer, {tracer_test, State2}} = erlang_trace_info(Pid2, tracer),
+            erlang_trace(Pid2, false, [TraceFlag]);
        true ->
             ok
     end,

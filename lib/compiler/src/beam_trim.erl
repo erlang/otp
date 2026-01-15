@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,11 +16,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(beam_trim).
+-moduledoc false.
 -export([module/2]).
 
 -import(lists, [any/2,reverse/1,reverse/2,seq/2,sort/1]).
@@ -292,9 +295,6 @@ remap([{recv_marker_clear,Ref}|Is], Remap) ->
 remap([{recv_marker_reserve,Mark}|Is], Remap) ->
     I = {recv_marker_reserve,remap_arg(Mark, Remap)},
     [I|remap(Is, Remap)];
-remap([{swap,Reg1,Reg2}|Is], Remap) ->
-    I = {swap,remap_arg(Reg1, Remap),remap_arg(Reg2, Remap)},
-    [I|remap(Is, Remap)];
 remap([{test,Name,Fail,Ss}|Is], Remap) ->
     I = {test,Name,Fail,remap_args(Ss, Remap)},
     [I|remap(Is, Remap)];
@@ -306,6 +306,12 @@ remap([return|_]=Is, _) ->
 remap([{line,_}=I|Is], Remap) ->
     [I|remap(Is, Remap)].
 
+remap_block([{set,[],Ss0,{debug_line,_,_,_,_}=Info0}|Is], Remap) ->
+    Ss = remap_args(Ss0, Remap),
+    {debug_line,Loc,Index,Live,DebugInfo0} = Info0,
+    DebugInfo = remap_debug_info(DebugInfo0, Remap),
+    Info = {debug_line,Loc,Index,Live,DebugInfo},
+    [{set,[],Ss,Info}|remap_block(Is, Remap)];
 remap_block([{set,[{x,_}]=Ds,Ss0,Info}|Is], Remap) ->
     Ss = remap_args(Ss0, Remap),
     [{set,Ds,Ss,Info}|remap_block(Is, Remap)];
@@ -314,6 +320,12 @@ remap_block([{set,Ds0,Ss0,Info}|Is], Remap) ->
     Ss = remap_args(Ss0, Remap),
     [{set,Ds,Ss,Info}|remap_block(Is, Remap)];
 remap_block([], _) -> [].
+
+remap_debug_info({FrameSize0,Vars0}, {Trim,Map}) ->
+    FrameSize = FrameSize0 - Trim,
+    Vars = [{Name,[remap_arg(Arg, Trim, Map) || Arg <- Args]} ||
+               {Name,Args} <- Vars0],
+    {FrameSize,Vars}.
 
 remap_args(Args, {Trim,Map}) ->
     [remap_arg(Arg, Trim, Map) || Arg <- Args].
@@ -353,7 +365,7 @@ safe_labels([{label,L}|Is], Acc) ->
     end;
 safe_labels([_|Is], Acc) ->
     safe_labels(Is, Acc);
-safe_labels([], Acc) -> sets:from_list(Acc, [{version, 2}]).
+safe_labels([], Acc) -> sets:from_list(Acc).
 
 is_safe_label([{'%',_}|Is]) ->
     is_safe_label(Is);
@@ -375,6 +387,8 @@ is_safe_label([{call_ext,_,{extfunc,M,F,A}}|_]) ->
     erl_bifs:is_exit_bif(M, F, A);
 is_safe_label(_) -> false.
 
+is_safe_label_block([{set,[],_,{debug_line,_,_,_,_}}|_]) ->
+    false;
 is_safe_label_block([{set,Ds,Ss,_}|Is]) ->
     IsYreg = fun(#tr{r={y,_}}) -> true;
                 ({y,_}) -> true;
@@ -396,7 +410,7 @@ frame_layout(N, Killed, {U,_}) ->
     Is = [[{R,{live,R}} || R <- U],
           [{R,{dead,R}} || R <- Dead],
           [{R,{kill,R}} || R <- Killed]],
-    [I || {_,I} <- lists:merge(Is)].
+    [I || {_,I} <:- lists:merge(Is)].
 
 %% usage([Instruction], SafeLabels) -> {FrameSize,[UsedYRegs]}
 %%  Find out the frame size and usage information by looking at the
@@ -547,12 +561,6 @@ do_usage([{recv_marker_clear,Src}|Is], Safe, Regs0, Ns, Acc) ->
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{recv_marker_reserve,Src}|Is], Safe, Regs0, Ns, Acc) ->
     Regs = ordsets:union(Regs0, yregs([Src])),
-    U = {Regs,Ns},
-    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
-do_usage([{swap,R1,R2}|Is], Safe, Regs0, Ns0, Acc) ->
-    Ds = yregs([R1,R2]),
-    Regs = ordsets:union(Regs0, Ds),
-    Ns = ordsets:union(Ns0, Ds),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{test,_,Fail,Ss}|Is], Safe, Regs0, Ns, Acc) ->

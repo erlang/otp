@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +22,9 @@
 
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
-	 already_defined/1,bitstrings/1,
+	 already_defined/1,
+         bad_config_exclusive/1,bad_config_selective/1,
+         bitstrings/1,
 	 classes/1,constraints/1,constructed/1,enumerated/1,
 	 imports_exports/1,instance_of/1,integers/1,objects/1,
 	 object_field_extraction/1,oids/1,rel_oids/1,
@@ -38,6 +42,8 @@ groups() ->
     [{p,parallel(),
       [already_defined,
        bitstrings,
+       bad_config_exclusive,
+       bad_config_selective,
        classes,
        constraints,
        constructed,
@@ -89,6 +95,99 @@ already_defined(Config) ->
       {structured_error,{M,12},asn1ct_check,{already_defined,'i',3}}
      ]
     } = run(P, Config),
+    ok.
+
+bad_config_exclusive(Config) ->
+    M = 'BadConfigExclusive',
+    P = {M,
+         <<"BadConfigExclusive DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+              Seq ::= SEQUENCE {
+                    a INTEGER,
+                    b SEQUENCE OF INTEGER,
+                    c BOOLEAN
+              }
+            END\n">>},
+
+    Conf1 = [{exclusive_decode,{'WrongModuleName',[whatever]}}],
+    {error,{bad_module_name,'WrongModuleName',M}} = run(P, Config, Conf1),
+
+    Conf2 = [{exclusive_decode,wrong}],
+    {error,{bad_exclusive_decode,wrong}} = run(P, Config, Conf2),
+
+    Conf3 = [{exclusive_decode,{M,[wrong]}}],
+    {error,{bad_exclusive_decode,[wrong]}} = run(P, Config, Conf3),
+
+    Conf4 = [{exclusive_decode,{M,{42,[top_type,[]]}}}],
+    {error,{bad_exclusive_decode,_}} = run(P, Config, Conf4),
+
+    Conf5 = [{exclusive_decode,
+              {M, [{exclusive_Seq, ['TopType', [{b,parts}]]}]}}],
+    {error,{undefined_type,'TopType'}} = run(P, Config, Conf5),
+
+    Conf6 = [{exclusive_decode,
+              {M, [{exclusive_Seq, ['Seq', [{d,parts}]]}]}}],
+    {error,{undefined_name,d}} = run(P, Config, Conf6),
+
+    Conf7 = [{exclusive_decode,
+              {M, [{exclusive_Seq, ['Seq', [{b,whatever}]]}]}}],
+    {error,{bad_decode_instruction,{b,whatever}}} = run(P, Config, Conf7),
+
+    Conf8 = [{exclusive_decode,
+              {M, [{exclusive_Seq, ['Seq', [{a,b,c}]]}]}}],
+    {error,{bad_decode_instruction,{a,b,c}}} = run(P, Config, Conf8),
+
+    ok.
+
+bad_config_selective(Config) ->
+    M = 'BadConfigSelective',
+    P = {M,
+         <<"BadConfigSelective DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+              Seq ::= SEQUENCE {
+                    a INTEGER,
+                    b SEQUENCE OF INTEGER,
+                    c BOOLEAN,
+                    cc CHOICE {
+                       ca INTEGER,
+                       cb BOOLEAN
+                    }
+              }
+            END\n">>},
+
+    Conf1 = [{selective_decode,{'WrongModuleName',[whatever]}}],
+    {error,{bad_module_name,'WrongModuleName',M}} = run(P, Config, Conf1),
+
+    Conf2 = [{selective_decode,wrong}],
+    {error,{bad_selective_decode,wrong}} = run(P, Config, Conf2),
+
+    Conf3 = [{selective_decode,{M,[wrong]}}],
+    {error,{bad_selective_decode,wrong}} = run(P, Config, Conf3),
+
+    Conf4 = [{selective_decode,{M,[{f,not_list}]}}],
+    {error,{bad_selective_decode_type_list,not_list}} = run(P, Config, Conf4),
+
+    Conf5 = [{selective_decode,{M,{42,[top_type,[]]}}}],
+    {error,{bad_selective_decode,{42,_}}} = run(P, Config, Conf5),
+
+    Conf6 = [{selective_decode,
+              {M, [{only_Seq_b, ['TopType', [{b,parts}]]}]}}],
+    {error,{undefined_type,'TopType'}} = run(P, Config, Conf6),
+
+    Conf7 = [{selective_decode,
+              {M, [{only_Seq_b, ['Seq', d]}]}}],
+    {error,{undefined_name,d}} = run(P, Config, Conf7),
+
+    Conf8 = [{selective_decode,
+              {M, [{only_Seq_b, ['Seq', b, whatever]}]}}],
+    {error,{bad_selective_decode_element,whatever}} = run(P, Config, Conf8),
+
+    Conf9 = [{selective_decode,
+              {M, [{only_Seq_something, ['Seq', cc, whatever]}]}}],
+    {error,{undefined_name,whatever}} = run(P, Config, Conf9),
+
+    Conf10 = [{selective_decode,
+               {M, [{only_Seq_something, ['Seq', a, x]}]}}],
+    {error,{stepping_into_primitive,[a,x]}} = run(P, Config, Conf10),
+
     ok.
 
 bitstrings(Config) ->
@@ -928,7 +1027,6 @@ values(Config) ->
     } = run(P, Config),
     ok.
 
-
 run({Mod,Spec}, Config) ->
     Base = atom_to_list(Mod) ++ ".asn1",
     File = filename:join(proplists:get_value(priv_dir, Config), Base),
@@ -936,3 +1034,22 @@ run({Mod,Spec}, Config) ->
     Include = filename:join(filename:dirname(Include0), "asn1_SUITE_data"),
     ok = file:write_file(File, Spec),
     asn1ct:compile(File, [{i, Include}]).
+
+run({Mod,Spec}, Config, Asn1ConfigTerm) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    Asn1ConfigFile = filename:join(PrivDir, atom_to_list(Mod) ++ ".asn1config"),
+    Asn1ConfigData = [io_lib:format("~p. \n", [Term]) || Term <- Asn1ConfigTerm],
+    ok = file:write_file(Asn1ConfigFile, Asn1ConfigData),
+
+    Base = atom_to_list(Mod) ++ ".asn1",
+    File = filename:join(PrivDir, Base),
+    ok = file:write_file(File, Spec),
+
+    case asn1ct:compile(File, [{i, PrivDir}, asn1config]) of
+        {error,[{structured_error,{Asn1ConfigFile,none},
+                 asn1ct_partial_decode,Error}]} ->
+            {error,Error};
+        Other ->
+            Other
+    end.

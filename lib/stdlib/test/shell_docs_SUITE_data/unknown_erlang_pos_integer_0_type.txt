@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type pos_integer() :: pos_integer().[0m
+[;1m  pos_integer()[0m
 
   An integer greater than zero.

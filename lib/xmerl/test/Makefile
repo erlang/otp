@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,7 +87,7 @@ RELSYSDIR = $(RELEASE_PATH)/xmerl_test
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 

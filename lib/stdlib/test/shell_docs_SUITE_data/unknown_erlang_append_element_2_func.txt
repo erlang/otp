@@ -1,15 +1,21 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:append_element(Tuple1, Term) -> Tuple2[0m
-  [;1m                               when[0m
-  [;1m                                   Tuple1 :: tuple(),[0m
-  [;1m                                   Tuple2 :: tuple(),[0m
-  [;1m                                   Term :: term().[0m
+[;1m  append_element(Tuple1, Term)[0m
 
   Returns a new tuple that has one element more than [;;4mTuple1[0m, and
   contains the elements in [;;4mTuple1[0m followed by [;;4mTerm[0m as the last
-  element. Semantically equivalent to [;;4m[0m
-  [;;4mlist_to_tuple(tuple_to_list(Tuple1) ++ [Term])[0m, but much faster.
-  Example:
+  element.
+
+  Semantically equivalent to [;;4mlist_to_tuple(tuple_to_list(Tuple1) ++[0m
+  [;;4m[Term])[0m, but much faster.
+
+  For example:
 
     > erlang:append_element({one, two}, three).
     {one,two,three}

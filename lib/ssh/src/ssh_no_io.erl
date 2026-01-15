@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 %%% Description: ssh_io replacement that throws on everything
 
 -module(ssh_no_io).
+-moduledoc false.
 -include("ssh_transport.hrl").
 
 -export([yes_no/2, read_password/2, read_line/2, format/2]).

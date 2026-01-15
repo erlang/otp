@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(inet_config).
+-moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 -include("inet_config.hrl").
 -include("inet.hrl").
@@ -54,36 +59,6 @@ init() ->
 
     OsType = os:type(),
     do_load_resolv(OsType, erl_dist_mode()),
-
-    case OsType of
-	{unix,Type} ->
-	    if Type =:= linux ->
-		    %% It may be the case that the domain name was not set
-		    %% because the hostname was short. But NOW we can look it
-		    %% up and get the long name and the domain name from it.
-		    
-		    %% FIXME: The second call to set_hostname will insert
-		    %% a duplicate entry in the search list.
-		    
-		    case inet_db:res_option(domain) of
-			"" ->
-			    case inet:gethostbyname(inet_db:gethostname()) of
-				{ok,#hostent{h_name = []}} ->
-				    ok;
-				{ok,#hostent{h_name = HostName}} ->
-				    set_hostname({ok,HostName});
-				_ ->
-				    ok
-			    end;
-			_ ->
-			    ok
-		    end;
-	       true -> ok
-	    end,    
-	    add_dns_lookup(inet_db:res_option(lookup));
-	_ ->
-	    ok
-    end,
 
     %% Read inetrc file, if it exists.
     {RcFile,CfgFiles,CfgList} = read_rc(),
@@ -130,6 +105,36 @@ init() ->
 		_ -> ok
 	    end;
 	_ -> ok
+    end, 
+
+    case OsType of
+	{unix,Type} ->
+	    if Type =:= linux ->
+		    %% It may be the case that the domain name was not set
+		    %% because the hostname was short. But NOW we can look it
+		    %% up and get the long name and the domain name from it.
+		    
+		    %% FIXME: The second call to set_hostname will insert
+		    %% a duplicate entry in the search list.
+		    
+		    case inet_db:res_option(domain) of
+			"" ->
+			    case inet:gethostbyname(inet_db:gethostname()) of
+				{ok,#hostent{h_name = []}} ->
+				    ok;
+				{ok,#hostent{h_name = HostName}} ->
+				    set_hostname({ok,HostName});
+				_ ->
+				    ok
+			    end;
+			_ ->
+			    ok
+		    end;
+	       true -> ok
+	    end,    
+	    add_dns_lookup(inet_db:res_option(lookup));
+	_ ->
+	    ok
     end.
 
 
@@ -425,17 +430,15 @@ valid_type(win32) ->             true;
 valid_type(_) ->                 false.
 
 read_inetrc() ->
-   case application:get_env(inetrc) of
-       {ok,File} ->
-	   try_get_rc(File);
-       _ ->
-	   case os:getenv("ERL_INETRC") of
-	       false ->
-		   {nofile,[]};
-	       File ->
-		   try_get_rc(File)
-	   end
-   end.
+    File = case application:get_env(inetrc) of
+               {ok, Value} when is_list(Value) -> Value;
+               {ok, Value} when is_atom(Value) -> atom_to_list(Value);
+               undefined -> os:getenv("ERL_INETRC")
+           end,
+    case is_list(File) of
+        true -> try_get_rc(File);
+        false -> {nofile,[]}
+    end.
 
 try_get_rc(File) ->
     case get_rc(File) of
@@ -458,12 +461,8 @@ get_rc(File) ->
 	    error
     end.
 
-%% XXX Check if we really need to prim load the stuff
 get_file(File) ->
-    case erl_prim_loader:get_file(File) of
-	{ok,Bin,_} -> {ok,Bin};
-	Error -> Error
-    end.
+    erl_prim_loader:read_file(File).
 
 error(Fmt, Args) ->
     error_logger:error_msg("inet_config: " ++ Fmt, Args).

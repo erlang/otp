@@ -1,8 +1,10 @@
 # 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2023. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -24,9 +26,11 @@ APPLICATION ?= $(basename $(notdir $(PWD)))
 
 ifndef NO_TEST_TARGET
 test:
-	TEST_NEEDS_RELEASE=$(TEST_NEEDS_RELEASE) TYPE=$(TYPE) \
+	TEST_NEEDS_RELEASE=$(TEST_NEEDS_RELEASE) TYPE=$(TYPE) MAKE="$(MAKE)" \
 	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 endif
+
+docs: $(filter src java_src, $(SUB_DIRECTORIES))
 
 info:
 	@echo "$(APPLICATION)_VSN:   $(VSN)"
@@ -40,10 +44,11 @@ gclean:
 	git clean -fXd
 
 
-DIA_DEFAULT_PLT_APPS = erts kernel stdlib $(APPLICATION)
+DIA_DEFAULT_PLT_APPS = erts kernel stdlib crypto compiler $(APPLICATION)
 DIA_PLT_DIR  = ./priv/plt
 DIA_PLT      = $(DIA_PLT_DIR)/$(APPLICATION).plt
 DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
+DIA_RUNTIME_DEPS = $(shell erl -noinput -eval '{ok, [{_, _, Keys}]} = file:consult(filelib:wildcard("ebin/*.app")), Deps = [hd(string:split(Deps, "-")) || Deps <- proplists:get_value(runtime_dependencies, Keys)], io:format("~ts",[lists:join(" ", Deps)]), init:stop().')
 
 dialyzer_plt: $(DIA_PLT)
 
@@ -52,15 +57,16 @@ $(DIA_PLT_DIR):
 
 $(DIA_PLT): $(DIA_PLT_DIR)
 	@echo "Building $(APPLICATION) plt file"
-	@dialyzer --build_plt \
+	$(V_at)dialyzer --build_plt \
                   --output_plt $@ \
-		  --apps $(sort $(DIA_PLT_APPS) $(DIA_DEFAULT_PLT_APPS)) \
+		  -Wno_unknown \
+		  --apps $(sort $(DIA_PLT_APPS) $(DIA_RUNTIME_DEPS) $(DIA_DEFAULT_PLT_APPS)) \
 		  --output $(DIA_ANALYSIS) \
                   --verbose
 
 dialyzer: $(DIA_PLT)
 	@echo "Running dialyzer on $(APPLICATION)"
-	@dialyzer --plt $< \
+	$(V_at)dialyzer --plt $< \
                   ../$(APPLICATION)/ebin \
                   --verbose
 

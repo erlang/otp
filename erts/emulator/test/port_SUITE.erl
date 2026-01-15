@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,13 +36,10 @@
 %%         external program. That is not true. It might very well be
 %%         a linked-in program (the notion of 'linked-in driver' is
 %%         silly, since any driver is 'linked-in').
-%%	  [Spawn of external program is tested.]
-%%
-%%       Atom
-%%         Read all contents of Atom, or write to it.
+%%	       [Spawn of external program is tested.]
 %%
 %%       {fd, In, Out}
-%%       Open file descriptors In and Out. [Not tested]
+%%         Open file descriptors In and Out. [Not tested]
 %%
 %%   PortSettings can be
 %%
@@ -77,6 +76,7 @@
 -export([all/0, suite/0, groups/0, init_per_testcase/2, end_per_testcase/2,
          init_per_suite/1, end_per_suite/1]).
 -export([
+    badarg_port_with_atom/1,
     bad_args/1,
     bad_env/1,
     bad_packet/1,
@@ -109,11 +109,10 @@
     mon_port_pid_demonitor/1,
     mon_port_remote_on_remote/1,
     mon_port_driver_die/1,
+    mon_port_down_sig/1,
     mul_basic/1,
     mul_slow_writes/1,
     name1/1,
-    open_input_file_port/1,
-    open_output_file_port/1,
     otp_3906/1,
     otp_4389/1,
     otp_5112/1,
@@ -174,9 +173,8 @@ all() ->
     [otp_6224, {group, stream}, basic_ping, slow_writes,
      bad_packet, bad_port_messages, {group, options},
      {group, multiple_packets}, parallell, dying_port, dropped_commands,
-     port_program_with_path, open_input_file_port,
-     open_output_file_port, name1, env, huge_env, bad_env, cd,
-     cd_relative, pipe_limit_env, bad_args,
+     port_program_with_path, name1, env, huge_env, bad_env, cd,
+     cd_relative, pipe_limit_env, bad_args, badarg_port_with_atom,
      exit_status, iter_max_ports, count_fds, t_exit, {group, tps}, line,
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
@@ -195,6 +193,7 @@ all() ->
      mon_port_pid_demonitor,
      mon_port_name_demonitor,
      mon_port_driver_die,
+     mon_port_down_sig,
      {group, port_exit_signal_race}].
 
 groups() ->
@@ -660,45 +659,19 @@ port_program_with_path(Config) when is_list(Config) ->
     end,
     ok.
 
-
-%% Tests that files can be read using open_port(Filename, [in]).
-%% This used to fail on Windows.
-open_input_file_port(Config) when is_list(Config) ->
+%% Tests that ports can no longer be opened using atoms
+badarg_port_with_atom(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-
-    %% Create a file with the file driver and read it back using
-    %% open_port/2.
-
-    MyFile1 = filename:join(PrivDir, "my_input_file"),
-    FileData1 = "An input file",
-    ok = file:write_file(MyFile1, FileData1),
-    case open_port(MyFile1, [in]) of
-        InputPort when is_port(InputPort) ->
-            receive
-                {InputPort, {data, FileData1}} ->
-                    ok
-            end
+    File = filename:join(PrivDir, "port_file"),
+    case catch open_port(File, [eof]) of
+        {'EXIT', {badarg, _}} ->
+            ok
     end,
-    ok.
 
-%% Tests that files can be written using open_port(Filename, [out]).
-open_output_file_port(Config) when is_list(Config) ->
-    ct:timetrap({minutes, 2}),
-    PrivDir = proplists:get_value(priv_dir, Config),
-
-    %% Create a file with open_port/2 and read it back with
-    %% the file driver.
-
-    MyFile2 = filename:join(PrivDir, "my_output_file"),
-    FileData2_0 = "A file created ",
-    FileData2_1 = "with open_port/2.\n",
-    FileData2 = FileData2_0 ++ FileData2_1,
-    OutputPort = open_port(MyFile2, [out]),
-    OutputPort ! {self(), {command, FileData2_0}},
-    OutputPort ! {self(), {command, FileData2_1}},
-    OutputPort ! {self(), close},
-    {ok, Bin} = file:read_file(MyFile2),
-    FileData2 = binary_to_list(Bin),
+    case catch open_port(atom_port, [eof]) of
+        {'EXIT', {badarg, _}} ->
+            ok
+    end,
     ok.
 
 %% Tests that all appropriate fd's have been closed in the port program
@@ -2552,7 +2525,7 @@ close_deaf_port(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     DataDir = proplists:get_value(data_dir, Config),
     DeadPort = os:find_executable("dead_port", DataDir),
-    Port = open_port({spawn,DeadPort++" 60"},[]),
+    Port = open_port({spawn, DeadPort++" 60"},[]),
     erlang:port_command(Port,"Hello, can you hear me!?!?"),
     port_close(Port),
 
@@ -2807,6 +2780,42 @@ mon_port_driver_die(Config) ->
         {'DOWN', _R, _P, _, _} = M -> ct:fail({got_wrong_down,M})
     after 5000 -> ?assert(false)
     end,
+    ok.
+
+mon_port_down_sig(Config) ->
+    ct:log("By id with immediate reason"),
+    chk_port_down(Config, undefined, bye),
+    ct:log("By id with non-immediate reason"),
+    chk_port_down(Config, undefined, {bye, bye}),
+    ct:log("By name with immediate reason"),
+    chk_port_down(Config, a_port_test_name, bye),
+    ct:log("By name with non-immediate reason"),
+    chk_port_down(Config, another_port_test_name, {bye, bye}),
+    ok.
+
+chk_port_down(Config, Name, Reason) ->
+    Port = create_port(Config, ["-h1", "-q"]), % will close after we send 1 byte
+    true = is_port(Port),
+    {MonWhat, DownItem} = if Name == undefined ->
+                                  {Port, Port};
+                             true ->
+                                  true = register(Name, Port),
+                                  {Name, {Name, node()}}
+                          end,
+    Mon = erlang:monitor(port, MonWhat),
+    unlink(Port),
+    receive after 100 -> ok end,
+    Proc = spawn(fun () ->
+                         link(Port),
+                         exit(Reason)
+                 end),
+    receive
+        {'DOWN', Mon, Type, Item, ExitReason} ->
+            port = Type,
+            Reason = ExitReason,
+            DownItem = Item
+    end,
+    false = is_process_alive(Proc),
     ok.
 
 -ifdef(DISABLED_TESTCASE).

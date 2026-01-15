@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +20,17 @@
 %% %CopyrightEnd%
 %%
 -module(auth).
+-moduledoc """
+Erlang network authentication server.
+
+For a description of the Magic Cookie system, refer
+to [Distributed Erlang](`e:system:distributed.md`) in the Erlang Reference
+Manual.
+""".
+-moduledoc(#{ deprecated => ~"See each function for what to use instead" }).
 -behaviour(gen_server).
+
+-compile(nowarn_deprecated_catch).
 
 -export([start_link/0]).
 
@@ -49,12 +61,13 @@
 	 }).
 -type state() :: #state{}.
 
--include("../include/file.hrl").
+-include_lib("kernel/include/file.hrl").
 
 %%----------------------------------------------------------------------
 %% Exported functions
 %%----------------------------------------------------------------------
 
+-doc false.
 -spec start_link() -> {'ok',pid()} | {'error', term()} | 'ignore'.
 
 start_link() ->
@@ -62,6 +75,15 @@ start_link() ->
 
 %%--Deprecated interface------------------------------------------------
 
+-doc """
+Returns `yes` if communication with `Node` is authorized.
+
+Use [`net_adm:ping(Node)`](`net_adm:ping/1`) instead.
+
+Notice that a connection to `Node` is established in this case. Returns `no` if
+`Node` does not exist or communication is not authorized (it has another cookie
+than `auth` thinks it has).
+""".
 -spec is_auth(Node) -> 'yes' | 'no' when
       Node :: node().
 
@@ -71,12 +93,17 @@ is_auth(Node) ->
 	pang -> no
     end.
 
+-doc "Use [`erlang:get_cookie()`](`erlang:get_cookie/0`) in ERTS instead.".
 -spec cookie() -> Cookie when
       Cookie :: cookie().
 
 cookie() ->
     get_cookie().
 
+-doc """
+Use [`erlang:set_cookie(node(), Cookie)` in ERTS](`erlang:set_cookie/2`)
+instead.
+""".
 -spec cookie(TheCookie) -> 'true' when
       TheCookie :: Cookie | [Cookie],
       Cookie :: cookie().
@@ -86,11 +113,23 @@ cookie([Cookie]) ->
 cookie(Cookie) ->
     set_cookie(Cookie).
 
+-doc """
+node_cookie([Node, Cookie])
+
+Equivalent to [`node_cookie(Node, Cookie)`](`node_cookie/2`).
+""".
 -spec node_cookie(Cookies :: [node() | cookie(),...]) -> 'yes' | 'no'.
 
 node_cookie([Node, Cookie]) ->
     node_cookie(Node, Cookie).
 
+-doc """
+Sets the magic cookie of `Node` to `Cookie` and verifies the status of the
+authorization.
+
+Equivalent to calling [`erlang:set_cookie(Node, Cookie)`](`erlang:set_cookie/2`),
+followed by [`auth:is_auth(Node)`](`is_auth/1`).
+""".
 -spec node_cookie(Node, Cookie) -> 'yes' | 'no' when
       Node :: node(),
       Cookie :: cookie().
@@ -101,6 +140,7 @@ node_cookie(Node, Cookie) ->
 
 %%--"New" interface-----------------------------------------------------
 
+-doc false.
 -spec get_cookie() -> 'nocookie' | cookie().
 
 get_cookie() ->
@@ -111,6 +151,7 @@ get_cookie() ->
             gen_server:call(AuthPid, get_our_cookie, infinity)
     end.
 
+-doc false.
 -spec get_cookie(Node :: node()) -> 'nocookie' | cookie().
 
 get_cookie(Node) when Node =:= node() ->
@@ -123,6 +164,7 @@ get_cookie(Node) ->
             gen_server:call(AuthPid, {get_cookie, Node}, infinity)
     end.
 
+-doc false.
 -spec set_cookie(Cookie :: cookie()) -> 'true'.
 
 set_cookie(Cookie) ->
@@ -133,6 +175,7 @@ set_cookie(Cookie) ->
             gen_server:call(AuthPid, {set_our_cookie, Cookie}, infinity)
     end.
 
+-doc false.
 -spec set_cookie(Node :: node(), Cookie :: cookie()) -> 'true'.
 
 set_cookie(Node, Cookie) when Node =:= node() ->
@@ -145,12 +188,14 @@ set_cookie(Node, Cookie) ->
             gen_server:call(AuthPid, {set_cookie, Node, Cookie}, infinity)
     end.
 
+-doc false.
 -spec sync_cookie() -> any().
 
 sync_cookie() ->
     gen_server:call(auth, sync_cookie, infinity).
 
 
+-doc false.
 -spec print(Node :: node(), Format :: string(), Args :: [_]) -> 'ok'.
 
 print(Node, Format, Args) ->
@@ -158,6 +203,7 @@ print(Node, Format, Args) ->
 
 %%--gen_server callbacks------------------------------------------------
 
+-doc false.
 -spec init([]) -> {'ok', state()}.
 
 init([]) ->
@@ -172,6 +218,7 @@ init([]) ->
                | {'get_cookie', node()}
                | {'set_cookie', node(), term()}.
 
+-doc false.
 -spec handle_call(calls(), {pid(), term()}, state()) ->
         {'reply', 'hello' | 'true' | 'nocookie' | cookie(), state()}.
 
@@ -212,6 +259,7 @@ handle_call(echo, _From, O) ->
 %% handle_cast/2
 %%
 
+-doc false.
 -spec handle_cast({'print', string(), [term()]}, state()) ->
         {'noreply', state()}.
 
@@ -222,6 +270,7 @@ handle_cast({print,What,Args}, O) ->
 
 %% A series of bad messages that may come (from older distribution versions).
 
+-doc false.
 -spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({From,badcookie,net_kernel,{From,spawn,_M,_F,_A,_Gleader}}, O) ->
@@ -271,11 +320,13 @@ handle_info({From,badcookie,Name,Mess}, Opened) ->
 handle_info(_, O) ->   % Ignore anything else especially EXIT signals
     {noreply, O}.
 
+-doc false.
 -spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+-doc false.
 -spec terminate(term(), state()) -> 'ok'.
 
 terminate(_Reason, _State) ->

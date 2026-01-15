@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 
 -module(httpc_handler).
+-moduledoc false.
 
 -behaviour(gen_server).
 
@@ -221,6 +224,8 @@ init([Parent, Request, Options, ProfileName]) ->
 
     %% Do not let initial tcp-connection block the manager-process
     proc_lib:init_ack(Parent, self()),
+    {Host, Port} = Request#request.address,
+    proc_lib:set_label({Request#request.scheme, erlang:iolist_to_binary(Host), Port}),
     handle_verbose(Options#options.verbose),
     ProxyOptions = handle_proxy_options(Request#request.scheme, Options),
     Address = handle_proxy(Request#request.address, ProxyOptions),
@@ -479,7 +484,6 @@ do_handle_info({Proto, _Socket, Data},
   when (Proto =:= tcp) orelse 
        (Proto =:= ssl) orelse 
        (Proto =:= httpc_handler) ->
-
     try Module:Function([Data | Args]) of
 	{ok, Result} ->
 	    handle_http_msg(Result, State); 
@@ -1316,11 +1320,12 @@ handle_server_closing(State = #state{headers = Headers}) ->
         false -> State
     end.
 
-answer_request(#request{id = RequestId, from = From} = Request, Msg, 
-	       #state{session      = Session, 
-		      timers       = Timers, 
-		      profile_name = ProfileName} = State) -> 
-    httpc_response:send(From, Msg),
+answer_request(#request{id = RequestId, from = From, request_options = Options} = Request, Msg,
+               #state{session      = Session,
+                      timers       = Timers,
+                  profile_name = ProfileName} = State) ->
+    Answer = format_answer(Msg, Options),
+    httpc_response:send(From, Answer),
     RequestTimers = Timers#timers.request_timers,
     TimerRef =
 	proplists:get_value(RequestId, RequestTimers, undefined),
@@ -1580,7 +1585,7 @@ tls_tunnel_request(#request{headers = Headers,
 			     id = RequestId,
 			     from = From,
 			     address =  {Host, Port}= Adress,
-			     ipv6_host_with_brackets = IPV6}) ->
+			     ipv6_host_with_brackets = IPV6, request_options = ReqOptions}) ->
     
     URI = Host ++":" ++ integer_to_list(Port),
     
@@ -1593,7 +1598,6 @@ tls_tunnel_request(#request{headers = Headers,
        pquery  = "",
        method = connect,
        headers = #http_request_h{host = host_header(Headers, URI),
-				 te = "",
 				 pragma = "no-cache",
 				 other = [{"Proxy-Connection", " Keep-Alive"}]},
        settings = Options,
@@ -1602,7 +1606,8 @@ tls_tunnel_request(#request{headers = Headers,
        userinfo = "",
        headers_as_is = [],
        started  = http_util:timestamp(),
-       ipv6_host_with_brackets = IPV6       
+       ipv6_host_with_brackets = IPV6,
+       request_options = ReqOptions       
       }.
 
 host_header(#http_request_h{host = Host}, _) ->
@@ -1713,6 +1718,42 @@ format_address({[$[|T], Port}) ->
     {Address, Port};
 format_address(HostPort) ->
     HostPort.
+
+format_answer(Res, Options) ->
+    FullResult = proplists:get_value(full_result, Options, true),
+    Sync = proplists:get_value(sync, Options, true),
+    do_format_answer(Res, FullResult, Sync).
+do_format_answer({Ref, StatusLine}, _, Sync) when is_atom(StatusLine) ->
+    case Sync of
+        true ->
+            {Ref, {ok, StatusLine}};
+        _ ->
+            {Ref, StatusLine}
+    end;
+do_format_answer({Ref, StatusLine, Headers}, _, Sync) when is_atom(StatusLine) ->
+    case Sync of
+        true ->
+            {Ref, {ok, {StatusLine, Headers}}};
+        _ ->
+            {Ref, StatusLine, Headers}
+    end;
+do_format_answer({Ref, {StatusLine, Headers, BinBody}}, true, Sync) ->
+    case Sync of
+        true ->
+            {Ref, {ok, {StatusLine, Headers, BinBody}}};
+        _ ->
+            {Ref, {StatusLine, Headers, BinBody}}
+    end;
+do_format_answer({Ref, {StatusLine, _, BinBody}}, false, Sync) ->
+    {_, Status, _} = StatusLine,
+    case Sync of
+        true ->
+            {Ref, {ok, {Status, BinBody}}};
+        _ ->
+            {Ref, {Status, BinBody}}
+    end;
+do_format_answer({Ref, {error, _Reason} = Error}, _, _) ->
+    {Ref, Error}.
 
 clobber_and_retry(#state{session = #session{id = Id,
                                             type = Type},

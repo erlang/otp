@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -90,9 +92,11 @@
 
 	 change_attribute/1,
 
-         otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1]).
+         otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1,
+        
+         decrease_size_with_chunk_step/1, decrease_size_twice/1]).
 
--export([head_fun/1, hf/0, lserv/1, 
+-export([head_fun/1, hf/0, hf_bin/0, lserv/1, 
 	 measure/0, init_m/1, xx/0]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -167,7 +171,8 @@ groups() ->
      {change_size, [],
       [change_size_before, change_size_during,
        change_size_after, default_size, change_size2,
-       change_size_truncate]}].
+       change_size_truncate, decrease_size_with_chunk_step,
+       decrease_size_twice]}].
 
 init_per_suite(Config) ->
     Config.
@@ -835,8 +840,9 @@ rotate_1(Conf) when is_list(Conf) ->
     ok = disk_log:close(Name),
     del_rot_files(File, 4),
     {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{8000, 3}},
-			     {format,external},
-			     {file, File}]),
+                                {format,external},
+                                {head_func, {?MODULE, hf_bin, []}},
+                                {file, File}]),
     {B1, _T1} = x_mk_bytes(10000), % lost due to rotation 
     {B2, T2} = x_mk_bytes(5000),  % file a.LOG.2.gx 
     {B3, T3} = x_mk_bytes(4000),  % file a.LOG.1.gz 
@@ -847,27 +853,32 @@ rotate_1(Conf) when is_list(Conf) ->
     ok = disk_log:blog(Name, B2),
     ok = disk_log:blog(Name, B3),
     ok = disk_log:blog_terms(a, [B4, B5, B6]),
+    {ok, BinHeader} = hf_bin(),
+    Header = binary_to_list(BinHeader),
+    T20 = Header ++ T2,
     case get_list(File ++ ".2.gz", Name, rotate) of
-        T2 ->
+        T20 ->
             ok;
         E2 ->
             test_server_fail({bad_terms, E2, T2})
     end,
-    T34 = T3 ++ T4,
+    T34 = Header ++ T3 ++ T4,
     case get_list(File ++ ".1.gz", Name, rotate) of
         T34 ->
             ok;
         E34 ->
             test_server_fail({bad_terms, E34, T34})
     end,
+    T50 = Header ++ T5,
     case get_list(File ++ ".0.gz", Name, rotate) of
-        T5 ->
+        T50 ->
             ok;
         E5 ->
             test_server_fail({bad_terms, E5, T5})
     end,
+    T60 = Header ++ T6,
     case get_list(File, Name) of
-        T6 ->
+        T60 ->
             ok;
         E6 ->
             test_server_fail({bad_terms, E6, T6})
@@ -1408,6 +1419,10 @@ head_fun(H) ->
 hf() ->
     ets:update_counter(xxx, wrapc, 1),
     {ok, [1,2,3]}.
+
+hf_bin() ->
+    {ok, <<"1", "2", "3">>}.
+
 
 %% Test head parameter.
 plain_head(Conf) when is_list(Conf) ->
@@ -4408,6 +4423,99 @@ otp_16809(Conf) when is_list(Conf) ->
     ok = disk_log:change_header(Log, {head_func, HeadFunc2}),
     HeadFunc2 = info(Log, head, undef),
     ok = disk_log:close(Log).
+
+decrease_size_with_chunk_step(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = decrease_size_with_chunk_step,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+    {ok, Log} = disk_log:open([{size, {50, 3}}, {name, Log}, {type, wrap},
+                               {file, File}, {notify, true}]),
+    eof = disk_log:chunk(Log, start, 1),
+    {error, end_of_log} = disk_log:chunk_step(Log, start, 1),
+    ok = disk_log:log_terms(Log, [1, 2, 3, 4, 5, 6, 7, 8, 9]),
+    ok = disk_log:close(Log),
+    {ok, Log} = disk_log:open([{name, Log}, {type, wrap}, {file, File},
+                               {notify, true}]),
+    %% Decrease maximum number of files from 3 to 2.
+    ok = disk_log:change_size(Log, {50, 2}),
+    %% The exception error of rem/2 operator should not occur in here.
+    {ok, Cont} = disk_log:chunk_step(Log, start, 2),
+    %% Verify that chunk_step has stepped to old max file (3)
+    {_, [7, 8, 9]} = disk_log:chunk(Log, Cont),
+    %% Continue to append the items to the log in order to make sure it can work
+    %% as normal.
+    ok = disk_log:log_terms(Log, [9, 8, 7, 6, 5, 4, 3, 2, 1]),
+    %% Verify that log files were decreased to 2 after wrapping
+    [6, 5, 4, 3, 2, 1] = get_all_terms(Log),
+    ok = disk_log:close(Log),
+    del(File, 2).
+
+decrease_size_twice(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = decrease_size_twice,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+
+    Data_1 = [1, 2, 3],
+    Data_2 = [4, 5, 6],
+    Data_3 = [7, 8, 9],
+    Data_2_3 = Data_2 ++ Data_3,
+    Data = Data_1 ++ Data_2_3,
+
+    {ok, Log} = disk_log:open([{size, {50, 3}}, {name, Log}, {type, wrap},
+                               {file, File}, {notify, true}]),
+
+    ok = disk_log:log_terms(Log, Data),
+
+    %% Changing size to the same size should make no changes
+    ok = disk_log:change_size(Log, {50, 3}),
+    Data = get_all_terms(Log),
+
+    %% Changing size to smaller and then again to the same smaller size,
+    %% should leave OldMaxF as it was before
+    ok = disk_log:change_size(Log, {50, 2}),
+    ok = disk_log:change_size(Log, {50, 2}),
+    Data = get_all_terms(Log),
+
+    %% After writing data with new (smaller) log size, some terms should be truncated
+    ok = disk_log:log_terms(Log, Data),
+    Data_2_3 = get_all_terms(Log),
+
+    %% Changing size to bigger should remove OldMaxF
+    ok = disk_log:change_size(Log, {50, 3}),
+    ok = disk_log:log_terms(Log, Data),
+    Data = get_all_terms(Log),
+
+    %% Changing size to smaller, and then to even smaller should keep bigger OldMaxF
+    ok = disk_log:change_size(Log, {50, 2}),
+    ok = disk_log:change_size(Log, {50, 1}),
+    Data = get_all_terms(Log),
+
+    %% After writing data with new (even smaller) log size, some terms should be truncated
+    ok = disk_log:log_terms(Log, Data),
+    Data_3 = get_all_terms(Log),
+
+    %% Changing size to bigger should remove OldMaxF
+    ok = disk_log:change_size(Log, {50, 3}),
+    ok = disk_log:log_terms(Log, Data),
+    Data = get_all_terms(Log),
+
+    %% Changing size to smaller, writing some data (but less than required to cause logs to wrap),
+    %% and then to even smaller should keep bigger OldMaxF
+    ok = disk_log:log_terms(Log, lists:seq(1, 7)),
+    ok = disk_log:change_size(Log, {50, 2}),
+    ok = disk_log:log_terms(Log, [8, 9]),
+    ok = disk_log:change_size(Log, {50, 1}),
+    Data = get_all_terms(Log),
+
+    %% Changing size to bigger and than to bigger again, should allow to read all data
+    ok = disk_log:change_size(Log, {50, 2}),
+    Data = get_all_terms(Log),
+    ok = disk_log:change_size(Log, {50, 3}),
+    Data = get_all_terms(Log),
+
+    ok = disk_log:close(Log),
+
+    del(File, 3).
 
 mark(FileName, What) ->
     {ok,Fd} = file:open(FileName, [raw, binary, read, write]),

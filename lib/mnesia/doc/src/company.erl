@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +48,7 @@ init() ->
                                   {attributes, record_info(fields, in_proj)}]).
 
 %0
-    
+
 %1
 
 insert_emp(Emp, DeptId, ProjNames) ->
@@ -64,24 +66,24 @@ mk_projs(Ename, [ProjName|Tail]) ->
     mnesia:write(#in_proj{emp = Ename, proj_name = ProjName}),
     mk_projs(Ename, Tail);
 mk_projs(_, []) -> ok.
-    
+
 
 %1
 
 %2
 females() ->
     F = fun() ->
-		Q = qlc:q([E#employee.name || E <- mnesia:table(employee),
-					      E#employee.sex == female]),
-		qlc:e(Q)
-	end,
+                Q = qlc:q([E#employee.name || E <- mnesia:table(employee),
+                                              E#employee.sex == female]),
+                qlc:e(Q)
+        end,
     mnesia:transaction(F).
 %2
 %20
 all_females() ->
     F = fun() ->
-		Female = #employee{sex = female, name = '$1', _ = '_'},
-		mnesia:select(employee, [{Female, [], ['$1']}])
+                Female = #employee{sex = female, name = '$1', _ = '_'},
+                mnesia:select(employee, [{Female, [], ['$1']}])
         end,
     mnesia:transaction(F).
 %20
@@ -91,17 +93,17 @@ g() -> l.
 %3
 female_bosses() ->
     H1 = qlc:q( [{Atdep#at_dep.dept_id,E} ||
-		    E <- mnesia:table(employee),
-		    E#employee.sex == female,
-		    Atdep <- mnesia:table(at_dep),
-		    Atdep#at_dep.emp == E#employee.emp_no]
+                    E <- mnesia:table(employee),
+                    E#employee.sex == female,
+                    Atdep <- mnesia:table(at_dep),
+                    Atdep#at_dep.emp == E#employee.emp_no]
               ),
 
     H2 = qlc:q( [{Mgr#manager.emp,E} ||
-		    {AtdepDeptId, E} <- H1,
-		    Mgr <- mnesia:table(manager),
-		    AtdepDeptId == Mgr#manager.dept]
-	      ),
+                    {AtdepDeptId, E} <- H1,
+                    Mgr <- mnesia:table(manager),
+                    AtdepDeptId == Mgr#manager.dept]
+              ),
 
     Q = qlc:q( [{E#employee.name, Boss#employee.name} ||
                    {MgrEmp,E} <- H2,
@@ -116,7 +118,7 @@ raise_females(Amount) ->
     F = fun() ->
                 Q = qlc:q([E || E <- mnesia:table(employee),
                                 E#employee.sex == female]),
-		Fs = qlc:e(Q),
+                Fs = qlc:e(Q),
                 over_write(Fs, Amount)
         end,
     mnesia:transaction(F).
@@ -153,16 +155,16 @@ bad_raise(Eno, Raise) ->
         end,
     mnesia:transaction(F).
 %6
-                       
+
 %9
 get_emps(Salary, Dep) ->
-    Q = qlc:q( 
+    Q = qlc:q(
           [E || E <- mnesia:table(employee),
                 At <- mnesia:table(at_dep),
                 E#employee.salary > Salary,
                 E#employee.emp_no == At#at_dep.emp,
                 At#at_dep.dept_id == Dep]
-	 ),
+         ),
     F = fun() -> qlc:e(Q) end,
     mnesia:transaction(F).
 %9
@@ -177,7 +179,7 @@ get_emps2(Salary, Dep) ->
                 filter_deps(High, Alldeps, Dep)
         end,
     mnesia:transaction(F).
-                
+
 
 filter([E|Tail], Salary) ->
     if 
@@ -212,7 +214,7 @@ search_deps(_Name, _Tail, _Dep) ->
 %10
 
 
-                
+
 %11
 bench1() ->
     Me = #employee{emp_no= 104732,
@@ -236,33 +238,33 @@ dotimes(I, F) ->
     F(), dotimes(I-1, F).
 
 %11
-    
-    
 
-    
-            
+
+
+
+
 %12
 
 dist_init() ->
     mnesia:create_table(employee,
-                         [{ram_copies, [a@gin, b@skeppet]},
-                          {attributes, record_info(fields,
-						   employee)}]),
+                        [{ram_copies, [a@gin, b@skeppet]},
+                         {attributes, record_info(fields,
+                                                  employee)}]),
     mnesia:create_table(dept,
-                         [{ram_copies, [a@gin, b@skeppet]},
-                          {attributes, record_info(fields, dept)}]),
+                        [{ram_copies, [a@gin, b@skeppet]},
+                         {attributes, record_info(fields, dept)}]),
     mnesia:create_table(project,
-                         [{ram_copies, [a@gin, b@skeppet]},
-                          {attributes, record_info(fields, project)}]),
-    mnesia:create_table(manager, [{type, bag}, 
+                        [{ram_copies, [a@gin, b@skeppet]},
+                         {attributes, record_info(fields, project)}]),
+    mnesia:create_table(manager, [{type, bag},
                                   {ram_copies, [a@gin, b@skeppet]},
                                   {attributes, record_info(fields,
-							   manager)}]),
+                                                           manager)}]),
     mnesia:create_table(at_dep,
-                         [{ram_copies, [a@gin, b@skeppet]},
-                          {attributes, record_info(fields, at_dep)}]),
+                        [{ram_copies, [a@gin, b@skeppet]},
+                         {attributes, record_info(fields, at_dep)}]),
     mnesia:create_table(in_proj,
-                        [{type, bag}, 
+                        [{type, bag},
                          {ram_copies, [a@gin, b@skeppet]},
                          {attributes, record_info(fields, in_proj)}]).
 %12
@@ -271,8 +273,8 @@ dist_init() ->
 remove_proj(ProjName) ->
     F = fun() ->
                 Ip = qlc:e(qlc:q([X || X <- mnesia:table(in_proj),
-				       X#in_proj.proj_name == ProjName]
-				)),
+                                       X#in_proj.proj_name == ProjName]
+                                )),
                 mnesia:delete({project, ProjName}),
                 del_in_projs(Ip)
         end,
@@ -284,7 +286,7 @@ del_in_projs([Ip|Tail]) ->
 del_in_projs([]) ->
     done.
 %13
-        
+
 %14
 sync() ->
     case mnesia:wait_for_tables(tabs(), 10000) of
@@ -314,69 +316,69 @@ panic(X) -> exit({panic, X}).
 
 
 fill_tables() ->
-    Emps = 
+    Emps =
         [
-	 {employee, 104465, "Johnson Torbjorn",   1, male, 99184, {242,038}},
-	 {employee, 107912, "Carlsson Tuula",     2, female,94556, {242,056}},
-	 {employee, 114872, "Dacker Bjarne",      3, male, 99415, {221,035}},
-	 {employee, 104531, "Nilsson Hans",       3, male, 99495, {222,026}},
-	 {employee, 104659, "Tornkvist Torbjorn", 2, male, 99514, {222,022}},
-	 {employee, 104732, "Wikstrom Claes",     2, male, 99586, {221,015}},
-	 {employee, 117716, "Fedoriw Anna",       1, female,99143, {221,031}},
-	 {employee, 115018, "Mattsson Hakan",     3, male, 99251, {203,348}}
+         {employee, 104465, "Johnson Torbjorn",   1, male, 99184, {242,038}},
+         {employee, 107912, "Carlsson Tuula",     2, female,94556, {242,056}},
+         {employee, 114872, "Dacker Bjarne",      3, male, 99415, {221,035}},
+         {employee, 104531, "Nilsson Hans",       3, male, 99495, {222,026}},
+         {employee, 104659, "Tornkvist Torbjorn", 2, male, 99514, {222,022}},
+         {employee, 104732, "Wikstrom Claes",     2, male, 99586, {221,015}},
+         {employee, 117716, "Fedoriw Anna",       1, female,99143, {221,031}},
+         {employee, 115018, "Mattsson Hakan",     3, male, 99251, {203,348}}
         ],
 
     Dept = [
-	    {dept, 'B/SF',  "Open Telecom Platform"},
-	    {dept, 'B/SFP', "OTP - Product Development"},
-	    {dept, 'B/SFR', "Computer Science Laboratory"}
-	   ],
+            {dept, 'B/SF',  "Open Telecom Platform"},
+            {dept, 'B/SFP', "OTP - Product Development"},
+            {dept, 'B/SFR', "Computer Science Laboratory"}
+           ],
 
     Projects = [
-		{project, erlang, 1},
-		{project, otp, 2},
-		{project, beam, 3},
-		{project, mnesia, 5},
-		{project, wolf, 6},
-		{project, documentation, 7},
-		{project, www, 8}
-	       ],
+                {project, erlang, 1},
+                {project, otp, 2},
+                {project, beam, 3},
+                {project, mnesia, 5},
+                {project, wolf, 6},
+                {project, documentation, 7},
+                {project, www, 8}
+               ],
 
     Manager = [
-	       {manager, 104465, 'B/SF'},
-	       {manager, 104465, 'B/SFP'},
-	       {manager, 114872, 'B/SFR'}
-	      ],
+               {manager, 104465, 'B/SF'},
+               {manager, 104465, 'B/SFP'},
+               {manager, 114872, 'B/SFR'}
+              ],
 
     At_dep = [
-	      {at_dep, 104465, 'B/SF'},
-	      {at_dep, 107912, 'B/SF'},
-	      {at_dep, 114872, 'B/SFR'},
-	      {at_dep, 104531, 'B/SFR'},
-	      {at_dep, 104659, 'B/SFR'},
-	      {at_dep, 104732, 'B/SFR'},
-	      {at_dep, 117716, 'B/SFP'},
-	      {at_dep, 115018, 'B/SFP'}
-	     ],
+              {at_dep, 104465, 'B/SF'},
+              {at_dep, 107912, 'B/SF'},
+              {at_dep, 114872, 'B/SFR'},
+              {at_dep, 104531, 'B/SFR'},
+              {at_dep, 104659, 'B/SFR'},
+              {at_dep, 104732, 'B/SFR'},
+              {at_dep, 117716, 'B/SFP'},
+              {at_dep, 115018, 'B/SFP'}
+             ],
 
     In_proj = [
-	       {in_proj, 104465, otp},
-	       {in_proj, 107912, otp},
-	       {in_proj, 114872, otp},
-	       {in_proj, 104531, otp},
-	       {in_proj, 104531, mnesia},
-	       {in_proj, 104545, wolf},
-	       {in_proj, 104659, otp},
-	       {in_proj, 104659, wolf},
-	       {in_proj, 104732, otp},
-	       {in_proj, 104732, mnesia},
-	       {in_proj, 104732, erlang},
-	       {in_proj, 117716, otp},
-	       {in_proj, 117716, documentation},
-	       {in_proj, 115018, otp},
-	       {in_proj, 115018, mnesia}
-	      ],
-    
+               {in_proj, 104465, otp},
+               {in_proj, 107912, otp},
+               {in_proj, 114872, otp},
+               {in_proj, 104531, otp},
+               {in_proj, 104531, mnesia},
+               {in_proj, 104545, wolf},
+               {in_proj, 104659, otp},
+               {in_proj, 104659, wolf},
+               {in_proj, 104732, otp},
+               {in_proj, 104732, mnesia},
+               {in_proj, 104732, erlang},
+               {in_proj, 117716, otp},
+               {in_proj, 117716, documentation},
+               {in_proj, 115018, otp},
+               {in_proj, 115018, mnesia}
+              ],
+
     [mnesia:dirty_write(W) || W <- Emps],
     [mnesia:dirty_write(W) || W <- Dept],
     [mnesia:dirty_write(W) || W <- Projects],
@@ -384,5 +386,5 @@ fill_tables() ->
     [mnesia:dirty_write(W) || W <- Manager],
     [mnesia:dirty_write(W) || W <- At_dep],
     [mnesia:dirty_write(W) || W <- In_proj],
-    
+
     ok.

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -150,7 +152,7 @@ static ERTS_INLINE TreeDbTerm* new_dbterm(DbTableCommon *tb, Eterm obj)
     return p;
 }
 
-static ERTS_INLINE TreeDbTerm* new_dbterm_no_tab(int compress, int keypos, Eterm obj)
+static ERTS_INLINE TreeDbTerm* new_dbterm_no_tab(bool compress, int keypos, Eterm obj)
 {
     TreeDbTerm* p;
     if (compress) {
@@ -282,7 +284,7 @@ struct select_delete_context {
     Uint accum;
     Binary *mp;
     Eterm end_condition;
-    int erase_lastterm;
+    bool erase_lastterm;
     TreeDbTerm *lastterm;
     Sint32 max;
     int keypos;
@@ -303,9 +305,6 @@ struct select_replace_context {
     Sint replaced;
 };
 
-/* Used by select_replace on analyze_pattern */
-typedef int (*extra_match_validator_t)(int keypos, Eterm match, Eterm guard, Eterm body);
-
 /*
 ** Forward declarations 
 */
@@ -320,7 +319,7 @@ int tree_balance_right(TreeDbTerm **this);
 static int delsub(TreeDbTerm **this); 
 static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root, Sint slot,
                                DbTable *tb, DbTableTree *stack_container,
-                               CATreeRootIterator *iter, int* is_EOT);
+                               CATreeRootIterator *iter, bool* is_EOT);
 static TreeDbTerm *find_node(DbTableCommon *tb, TreeDbTerm *root,
                              Eterm key, DbTableTree *stack_container);
 static TreeDbTerm **find_node2(DbTableCommon *tb, TreeDbTerm **root, Eterm key);
@@ -364,8 +363,11 @@ static enum ms_key_boundness key_boundness(DbTableCommon *tb,
                                            Eterm pattern, Eterm *keyp);
 static Sint do_cmp_partly_bound(Eterm a, Eterm b, int *done);
 
+/* Used by select_replace on analyze_pattern */
+typedef bool ExtraMatchValidatorFn(int keypos, Eterm match, Eterm guard, Eterm body);
+
 static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
-                           extra_match_validator_t extra_validator, /* Optional callback */
+                           ExtraMatchValidatorFn*, /* Optional callback */
                            struct mp_info *mpi);
 static int doit_select(DbTableCommon *tb,
                        TreeDbTerm *this,
@@ -402,14 +404,23 @@ static BIF_RETTYPE ets_select_reverse(BIF_ALIST_3);
 /* Method interface functions */
 static int db_first_tree(Process *p, DbTable *tbl, 
 		  Eterm *ret);
+static int db_first_lookup_tree(Process *p, DbTable *tbl,
+		  Eterm *ret);
 static int db_next_tree(Process *p, DbTable *tbl, 
 			Eterm key, Eterm *ret);
+static int db_next_lookup_tree(Process *p, DbTable *tbl,
+			Eterm key, Eterm *ret);
 static int db_last_tree(Process *p, DbTable *tbl, 
+			Eterm *ret);
+static int db_last_lookup_tree(Process *p, DbTable *tbl,
 			Eterm *ret);
 static int db_prev_tree(Process *p, DbTable *tbl, 
 			Eterm key,
 			Eterm *ret);
-static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail, SWord *consumed_reds_p);
+static int db_prev_lookup_tree(Process *p, DbTable *tbl,
+			Eterm key,
+			Eterm *ret);
+static int db_put_tree(DbTable *tbl, Eterm obj, bool key_clash_fail, SWord *consumed_reds_p);
 static int db_get_tree(Process *p, DbTable *tbl, 
 		       Eterm key,  Eterm *ret);
 static int db_member_tree(DbTable *tbl, Eterm key, Eterm *ret);
@@ -448,7 +459,7 @@ static int db_select_replace_continue_tree(Process *p, DbTable *tbl,
                                            enum DbIterSafety*);
 static int db_take_tree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_tree(fmtfn_t to, void *to_arg,
-			  int show, DbTable *tbl);
+			  bool show, DbTable *tbl);
 static int db_free_empty_table_tree(DbTable *tbl);
 
 static SWord db_free_table_continue_tree(DbTable *tbl, SWord);
@@ -466,7 +477,7 @@ static Eterm db_delete_all_objects_get_nitems_from_holder_tree(Process* p,
 #ifdef HARDDEBUG
 static void db_check_table_tree(DbTable *tbl);
 #endif
-static int
+static bool
 db_lookup_dbterm_tree(Process *, DbTable *, Eterm key, Eterm obj,
                       DbUpdateHandle*);
 static void
@@ -474,7 +485,7 @@ db_finalize_dbterm_tree(int cret, DbUpdateHandle *);
 static int db_get_binary_info_tree(Process*, DbTable*, Eterm key, Eterm *ret);
 static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
                               void* obj,
-                              int key_clash_fail,
+                              bool key_clash_fail,
                               SWord *consumed_reds_p);
 
 /*
@@ -526,7 +537,11 @@ DbTableMethod db_tree =
     db_get_dbterm_key_tree_common,
     db_get_binary_info_tree,
     db_first_tree, /* raw_first same as first */
-    db_next_tree   /* raw_next same as next */
+    db_next_tree,   /* raw_next same as next */
+    db_first_lookup_tree,
+    db_next_lookup_tree,
+    db_last_lookup_tree,
+    db_prev_lookup_tree
 };
 
 
@@ -558,8 +573,40 @@ int db_create_tree(Process *p, DbTable *tbl)
     return DB_ERROR_NONE;
 }
 
+Eterm db_copy_key_tree(Process* p, DbTable* tbl, TreeDbTerm* node)
+{
+    Eterm key = GETKEY(&tbl->common, node->dbterm.tpl);
+    if is_immed(key) return key;
+    else {
+	Uint size = size_object(key);
+	Eterm* hp = HAlloc(p, size);
+	Eterm res = copy_struct(key, size, &hp, &MSO(p));
+	ASSERT(EQ(res,key));
+	return res;
+    }
+}
+
+Eterm db_copy_key_and_object_tree(Process* p, DbTable* tbl, TreeDbTerm* node) {
+    Eterm key = db_copy_key_tree(p, tbl, node);
+    Eterm *hp, *hend, copy, object, res;
+
+    // +2 for CONS and +3 for TUPLE2
+    int size = node->dbterm.size + 2 + 3;
+    hp = HAlloc(p, size);
+	hend = hp + size;
+	copy = db_copy_object_from_ets(&tbl->common, &node->dbterm, &hp, &MSO(p));
+    object = CONS(hp, copy, NIL);
+    hp += 2;
+	res = TUPLE2(hp, key, object);
+    hp += 3;
+    HRelease(p,hend,hp);
+
+    return res;
+}
+
 int db_first_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
-                         Eterm *ret, DbTableTree *stack_container)
+                         Eterm *ret, DbTableTree *stack_container,
+                         Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     DbTreeStack* stack;
     TreeDbTerm *this;
@@ -581,19 +628,26 @@ int db_first_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
 	stack->slot = 1;
 	release_stack(tbl,stack_container,stack);
     }
-    *ret = db_copy_key(p, tbl, &this->dbterm);
+    *ret = (*func)(p, tbl, this);
     return DB_ERROR_NONE;
 }
 
 static int db_first_tree(Process *p, DbTable *tbl, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
-    return db_first_tree_common(p, tbl, tb->root, ret, tb);
+    return db_first_tree_common(p, tbl, tb->root, ret, tb, db_copy_key_tree);
+}
+
+static int db_first_lookup_tree(Process *p, DbTable *tbl, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    return db_first_tree_common(p, tbl, tb->root, ret, tb, db_copy_key_and_object_tree);
 }
 
 int db_next_tree_common(Process *p, DbTable *tbl,
                         TreeDbTerm *root, Eterm key,
-                        Eterm *ret, DbTreeStack* stack)
+                        Eterm *ret, DbTreeStack* stack,
+                        Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     TreeDbTerm *this;
 
@@ -604,7 +658,7 @@ int db_next_tree_common(Process *p, DbTable *tbl,
 	*ret = am_EOT;
 	return DB_ERROR_NONE;
     }
-    *ret = db_copy_key(p, tbl, &this->dbterm);
+    *ret = (*func)(p, tbl, this);
     return DB_ERROR_NONE;
 }
 
@@ -612,13 +666,23 @@ static int db_next_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
     DbTreeStack* stack = get_any_stack(tbl, tb);
-    int ret_val = db_next_tree_common(p, tbl, tb->root, key, ret, stack);
+    int ret_val = db_next_tree_common(p, tbl, tb->root, key, ret, stack, db_copy_key_tree);
+    release_stack(tbl,tb,stack);
+    return ret_val;
+}
+
+static int db_next_lookup_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    DbTreeStack* stack = get_any_stack(tbl, tb);
+    int ret_val = db_next_tree_common(p, tbl, tb->root, key, ret, stack, db_copy_key_and_object_tree);
     release_stack(tbl,tb,stack);
     return ret_val;
 }
 
 int db_last_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
-                        Eterm *ret, DbTableTree *stack_container)
+                        Eterm *ret, DbTableTree *stack_container,
+                        Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     TreeDbTerm *this;
     DbTreeStack* stack;
@@ -641,18 +705,24 @@ int db_last_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
 	stack->slot = NITEMS_CENTRALIZED(tbl);
 	release_stack(tbl,stack_container,stack);
     }
-    *ret = db_copy_key(p, tbl, &this->dbterm);
+    *ret = (*func)(p, tbl, this);
     return DB_ERROR_NONE;
 }
 
 static int db_last_tree(Process *p, DbTable *tbl, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
-    return db_last_tree_common(p, tbl, tb->root, ret, tb);
+    return db_last_tree_common(p, tbl, tb->root, ret, tb, db_copy_key_tree);
+}
+
+static int db_last_lookup_tree(Process *p, DbTable *tbl, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    return db_last_tree_common(p, tbl, tb->root, ret, tb, db_copy_key_and_object_tree);
 }
 
 int db_prev_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root, Eterm key,
-                 Eterm *ret, DbTreeStack* stack)
+                 Eterm *ret, DbTreeStack* stack, Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     TreeDbTerm *this;
 
@@ -663,7 +733,7 @@ int db_prev_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root, Eterm key,
 	*ret = am_EOT;
 	return DB_ERROR_NONE;
     }
-    *ret = db_copy_key(p, tbl, &this->dbterm);
+    *ret = (*func)(p, tbl, this);
     return DB_ERROR_NONE;
 }
 
@@ -671,7 +741,16 @@ static int db_prev_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
     DbTreeStack* stack = get_any_stack(tbl, tb);
-    int res = db_prev_tree_common(p, tbl, tb->root, key, ret, stack);
+    int res = db_prev_tree_common(p, tbl, tb->root, key, ret, stack, db_copy_key_tree);
+    release_stack(tbl,tb,stack);
+    return res;
+}
+
+static int db_prev_lookup_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    DbTreeStack* stack = get_any_stack(tbl, tb);
+    int res = db_prev_tree_common(p, tbl, tb->root, key, ret, stack, db_copy_key_and_object_tree);
     release_stack(tbl,tb,stack);
     return res;
 }
@@ -688,7 +767,7 @@ static ERTS_INLINE int cmp_key_eq(DbTableCommon* tb, Eterm key, TreeDbTerm* obj)
 int db_put_dbterm_tree_common(DbTableCommon *tb,
                               TreeDbTerm **root,
                               TreeDbTerm *value_to_insert,
-                              int key_clash_fail,
+                              bool key_clash_fail,
                               DbTableTree *stack_container)
 {
     /* Non recursive insertion in AVL tree, building our own stack */
@@ -809,7 +888,7 @@ int db_put_dbterm_tree_common(DbTableCommon *tb,
 
 static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
                               void* obj,
-                              int key_clash_fail, /* DB_ERROR_BADKEY if key exists */
+                              bool key_clash_fail, /* DB_ERROR_BADKEY if key exists */
                               SWord *consumed_reds_p)
 {
     DbTableTree *tb = &tbl->tree;
@@ -817,7 +896,7 @@ static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
 }
 
 int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
-                       int key_clash_fail, DbTableTree *stack_container)
+                       bool key_clash_fail, DbTableTree *stack_container)
 {
     /* Non recursive insertion in AVL tree, building our own stack */
     TreeDbTerm **tstack[STACK_NEED];
@@ -930,7 +1009,7 @@ int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
     return DB_ERROR_NONE;
 }
 
-static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail,
+static int db_put_tree(DbTable *tbl, Eterm obj, bool key_clash_fail,
                        SWord *consumed_reds_p)
 {
     DbTableTree *tb = &tbl->tree;
@@ -1066,7 +1145,7 @@ int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
     TreeDbTerm *st;
     Eterm *hp, *hend;
     Eterm copy;
-    int is_EOT = 0;
+    bool is_EOT = false;
     /*
      * The notion of a "slot" is not natural in a tree, but we try to
      * simulate it by giving the n'th node in the tree instead.
@@ -1939,7 +2018,7 @@ int db_select_delete_continue_tree_common(Process *p,
     lastkey = tptr[2];
     end_condition = tptr[3];
 
-    sc.erase_lastterm = 0; /* Before first RET_TO_BIF */
+    sc.erase_lastterm = false; /* Before first RET_TO_BIF */
     sc.lastterm = NULL;
 
     mp = erts_db_get_match_prog_binary_unchecked(tptr[4]);
@@ -2047,7 +2126,7 @@ int db_select_delete_tree_common(Process *p, DbTable *tbl,
     mpi.mp = NULL;
 
     sc.accum = 0;
-    sc.erase_lastterm = 0;
+    sc.erase_lastterm = false;
     sc.lastterm = NULL;
     sc.p = p;
     sc.max = 1000; 
@@ -2433,7 +2512,7 @@ void db_print_tree_common(fmtfn_t to, void *to_arg,
 
 /* Display tree contents (for dump) */
 static void db_print_tree(fmtfn_t to, void *to_arg,
-			  int show,
+                          bool show,
 			  DbTable *tbl)
 {
     DbTableTree *tb = &tbl->tree;
@@ -2675,7 +2754,7 @@ static TreeDbTerm *linkout_object_tree(DbTableCommon *tb,  TreeDbTerm **root,
 ** part of the tree should be searched. Also compiles the match program
 */
 static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
-                           extra_match_validator_t extra_validator, /* Optional callback */
+                           ExtraMatchValidatorFn *extra_validator, /* Optional callback */
                            struct mp_info *mpi)
 {
     Eterm lst, tpl, ttpl;
@@ -2957,7 +3036,7 @@ static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root,
                                Sint slot, DbTable *tb,
                                DbTableTree *stack_container,
                                CATreeRootIterator *iter,
-                               int* is_EOT)
+                               bool* is_EOT)
 {
     TreeDbTerm *this;
     TreeDbTerm *tmp;
@@ -2966,6 +3045,9 @@ static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root,
     TreeDbTerm **pp;
     DbTreeStack* stack;
 
+#ifdef DEBUG
+    lastobj = (TreeDbTerm*)1;
+#endif
     if (iter) {
         /* Find first non-empty tree */
         while (!root) {
@@ -3051,12 +3133,13 @@ static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root,
 next_root:
         if (!iter) {
             if (stack->slot == (slot-1)) {
-                *is_EOT = 1;
+                *is_EOT = true;
             }
             break; /* EOT */
         }
 
         ASSERT(slot > stack->slot);
+        ASSERT(lastobj != (TreeDbTerm*)1);
         if (lastobj) {
             lastkey = GETKEY(tb, lastobj->dbterm.tpl);
             lastobj = NULL;
@@ -3064,7 +3147,7 @@ next_root:
         pp = catree_find_next_root(iter, &lastkey);
         if (!pp) {
             if (stack->slot == (slot-1)) {
-                *is_EOT = 1;
+                *is_EOT = true;
             }
             break; /* EOT */
         }
@@ -3407,7 +3490,7 @@ static TreeDbTerm **find_ptr(DbTableCommon *tb, TreeDbTerm **root,
     return NULL;
 }
 
-int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
+bool db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
                                  Eterm key, Eterm obj, DbUpdateHandle* handle,
                                  DbTableTree *stack_container)
 {
@@ -3450,7 +3533,7 @@ int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
     return 1;
 }
 
-static int
+static bool
 db_lookup_dbterm_tree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                       DbUpdateHandle* handle)
 {
@@ -3526,7 +3609,7 @@ Eterm db_binary_info_tree_common(Process* p, TreeDbTerm* this)
 }
 
 
-void* db_eterm_to_dbterm_tree_common(int compress, int keypos, Eterm obj)
+void* db_eterm_to_dbterm_tree_common(bool compress, int keypos, Eterm obj)
 {
     TreeDbTerm* term = new_dbterm_no_tab(compress, keypos, obj);
     term->left = NULL;
@@ -3558,7 +3641,7 @@ void* db_dbterm_list_remove_first_tree_common(void **list)
  * Frees a TreeDbTerm without updating the memory footprint of the
  * table.
  */
-void db_free_dbterm_tree_common(int compressed, void* obj)
+void db_free_dbterm_tree_common(bool compressed, void* obj)
 {
     TreeDbTerm* p = obj;
     db_free_term_no_tab(compressed, p, offsetof(TreeDbTerm, dbterm));
@@ -3825,6 +3908,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, int *done)
 	    return 0;
 	}
 	/* Drop through */
+        ERTS_FALLTHROUGH();
       default:
 	  return CMP(a,b);
     }
@@ -4143,7 +4227,7 @@ static int doit_select_delete(DbTableCommon *tb, TreeDbTerm *this,
 
     if (sc->erase_lastterm)
 	free_term((DbTable*)tb, sc->lastterm);
-    sc->erase_lastterm = 0;
+    sc->erase_lastterm = false;
     sc->lastterm = this;
     
     if (sc->end_condition != NIL && 
@@ -4154,7 +4238,7 @@ static int doit_select_delete(DbTableCommon *tb, TreeDbTerm *this,
     if (ret == am_true) {
 	key = GETKEY(sc->tb, this->dbterm.tpl);
 	linkout_tree(sc->tb, sc->common.root, key, sc->stack);
-	sc->erase_lastterm = 1;
+	sc->erase_lastterm = true;
 	++sc->accum;
     }
     if (--(sc->max) <= 0) {

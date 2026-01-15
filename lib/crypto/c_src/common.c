@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,19 +63,18 @@ ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, char*
 #endif
 
     /* Make the data for exception */
-    file_info = enif_make_new_map(env);
-    enif_make_map_put(env, file_info,
-                      enif_make_atom(env,"c_file_name"),
-                      enif_make_string(env, file, (ERL_NIF_LATIN1)),
-                      &file_info);
-    enif_make_map_put(env, file_info,
-                      enif_make_atom(env,"c_file_line_num"),
-                      enif_make_int(env, line),
-                      &file_info);
-    enif_make_map_put(env, file_info,
-                      enif_make_atom(env,"c_function_arg_num"),
-                      enif_make_int(env, arg_num),
-                      &file_info);
+    {
+        ERL_NIF_TERM keys[3], vals[3];
+        int ok;
+        keys[0] = enif_make_atom(env,"c_file_name");
+        vals[0] = enif_make_string(env, file, ERL_NIF_LATIN1);
+        keys[1] = enif_make_atom(env,"c_file_line_num");
+        vals[1] = enif_make_int(env, line);
+        keys[2] = enif_make_atom(env,"c_function_arg_num");
+        vals[2] = enif_make_int(env, arg_num);
+        ok = enif_make_map_from_arrays(env, keys, vals, 3, &file_info);
+        ASSERT(ok); (void)ok;
+    }
     exception =
         enif_make_tuple3(env,
                          id,

@@ -1,35 +1,22 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec split(Subject, RE, Options) -> SplitList[0m
-  [;1m               when[0m
-  [;1m                   Subject :: iodata() | unicode:charlist(),[0m
-  [;1m                   RE :: mp() | iodata() | unicode:charlist(),[0m
-  [;1m                   Options :: [Option],[0m
-  [;1m                   Option ::[0m
-  [;1m                       anchored | notbol | noteol | notempty |[0m
-  [;1m                       notempty_atstart |[0m
-  [;1m                       {offset, non_neg_integer()} |[0m
-  [;1m                       {newline, nl_spec()} |[0m
-  [;1m                       {match_limit, non_neg_integer()} |[0m
-  [;1m                       {match_limit_recursion, non_neg_integer()} |[0m
-  [;1m                       bsr_anycrlf | bsr_unicode |[0m
-  [;1m                       {return, ReturnType} |[0m
-  [;1m                       {parts, NumParts} |[0m
-  [;1m                       group | trim | CompileOpt,[0m
-  [;1m                   NumParts :: non_neg_integer() | infinity,[0m
-  [;1m                   ReturnType :: iodata | list | binary,[0m
-  [;1m                   CompileOpt :: compile_option(),[0m
-  [;1m                   SplitList :: [RetData] | [GroupedRetData],[0m
-  [;1m                   GroupedRetData :: [RetData],[0m
-  [;1m                   RetData ::[0m
-  [;1m                       iodata() | unicode:charlist() | binary() | list().[0m
+[;1m  split(Subject, RE, Options)[0m
 
   Splits the input into parts by finding tokens according to the
-  regular expression supplied. The splitting is basically done by
-  running a global regular expression match and dividing the initial
-  string wherever a match occurs. The matching part of the string is
-  removed from the output.
+  regular expression supplied.
 
-  As in [;;4mrun/3[0m, an [;;4mmp()[0m compiled with option [;;4municode[0m requires [;;4m[0m
+  The splitting is basically done by running a global regular
+  expression match and dividing the initial string wherever a match
+  occurs. The matching part of the string is removed from the
+  output.
+
+  As in [;;4mrun/3[0m, an [;;4mmp/0[0m compiled with option [;;4municode[0m requires [;;4m[0m
   [;;4mSubject[0m to be a Unicode [;;4mcharlist()[0m. If compilation is done
   implicitly and the [;;4municode[0m compilation option is specified to
   this function, both the regular expression and [;;4mSubject[0m are to be
@@ -141,43 +128,39 @@
 
   Summary of options not previously described for function [;;4mrun/3[0m:
 
-  [;;4m[;;4m{return,ReturnType}[0m[0m:
-    Specifies how the parts of the original string are presented
-    in the result list. Valid types:
+   • [;;4m{return,ReturnType}[0m - Specifies how the parts of the
+     original string are presented in the result list. Valid
+     types:
 
-    [;;4m[;;4miodata[0m[0m:
-      The variant of [;;4miodata()[0m that gives the least copying of
-      data with the current implementation (often a binary, but
-      do not depend on it).
+      ￮ [;;4miodata[0m - The variant of [;;4miodata/0[0m that gives the
+        least copying of data with the current implementation
+        (often a binary, but do not depend on it).
 
-    [;;4m[;;4mbinary[0m[0m:
-      All parts returned as binaries.
+      ￮ [;;4mbinary[0m - All parts returned as binaries.
 
-    [;;4m[;;4mlist[0m[0m:
-      All parts returned as lists of characters ("strings").
+      ￮ [;;4mlist[0m - All parts returned as lists of characters
+        ("strings").
 
-  [;;4m[;;4mgroup[0m[0m:
-    Groups together the part of the string with the parts of the
-    string matching the subexpressions of the regular expression.
+   • [;;4mgroup[0m - Groups together the part of the string with the
+     parts of the string matching the subexpressions of the
+     regular expression.
 
-    The return value from the function is in this case a [;;4mlist()[0m
-    of [;;4mlist()[0ms. Each sublist begins with the string picked out
-    of the subject string, followed by the parts matching each of
-    the subexpressions in order of occurrence in the regular
-    expression.
+     The return value from the function is in this case a [;;4mlist/0[0m
+     of [;;4mlist/0[0ms. Each sublist begins with the string picked out
+     of the subject string, followed by the parts matching each
+     of the subexpressions in order of occurrence in the regular
+     expression.
 
-  [;;4m[;;4m{parts,N}[0m[0m:
-    Specifies the number of parts the subject string is to be
-    split into.
+   • [;;4m{parts,N}[0m - Specifies the number of parts the subject
+     string is to be split into.
 
-    The number of parts is to be a positive integer for a specific
-    maximum number of parts, and [;;4minfinity[0m for the maximum number
-    of parts possible (the default). Specifying [;;4m{parts,0}[0m gives
-    as many parts as possible disregarding empty parts at the end,
-    the same as specifying [;;4mtrim[0m.
+     The number of parts is to be a positive integer for a
+     specific maximum number of parts, and [;;4minfinity[0m for the
+     maximum number of parts possible (the default). Specifying [;;4m[0m
+     [;;4m{parts,0}[0m gives as many parts as possible disregarding
+     empty parts at the end, the same as specifying [;;4mtrim[0m.
 
-  [;;4m[;;4mtrim[0m[0m:
-    Specifies that empty parts at the end of the result list are
-    to be disregarded. The same as specifying [;;4m{parts,0}[0m. This
-    corresponds to the default behavior of the [;;4msplit[0m built-in
-    function in Perl.
+   • [;;4mtrim[0m - Specifies that empty parts at the end of the result
+     list are to be disregarded. The same as specifying [;;4m[0m
+     [;;4m{parts,0}[0m. This corresponds to the default behavior of the [;;4m[0m
+     [;;4msplit[0m built-in function in Perl.

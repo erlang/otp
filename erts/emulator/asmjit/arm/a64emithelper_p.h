@@ -3,8 +3,8 @@
 // See asmjit.h or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#ifndef ASMJIT_ARM_ARMEMITHELPER_P_H_INCLUDED
-#define ASMJIT_ARM_ARMEMITHELPER_P_H_INCLUDED
+#ifndef ASMJIT_ARM_A64EMITHELPER_P_H_INCLUDED
+#define ASMJIT_ARM_A64EMITHELPER_P_H_INCLUDED
 
 #include "../core/api-config.h"
 
@@ -21,8 +21,10 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 class EmitHelper : public BaseEmitHelper {
 public:
-  inline explicit EmitHelper(BaseEmitter* emitter = nullptr) noexcept
+  ASMJIT_INLINE_NODEBUG explicit EmitHelper(BaseEmitter* emitter = nullptr) noexcept
     : BaseEmitHelper(emitter) {}
+
+  ASMJIT_INLINE_NODEBUG virtual ~EmitHelper() noexcept = default;
 
   Error emitRegMove(
     const Operand_& dst_,
@@ -47,4 +49,4 @@ void assignEmitterFuncs(BaseEmitter* emitter);
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_ARM_ARMEMITHELPER_P_H_INCLUDED
+#endif // ASMJIT_ARM_A64EMITHELPER_P_H_INCLUDED

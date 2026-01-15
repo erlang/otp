@@ -4,7 +4,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +24,7 @@
 #
 # Author: Lars Thorsen
 # ----------------------------------------------------
-.SUFFIXES: .erl .beam .yrl .xrl .bin .mib .hrl .sgml .xml .xmlsrc .html .ps \
-	.3 .1 .fig .dvi .tex .class .java .pdf .fo .psframe .pscrop .el .elc
+.SUFFIXES: .erl .beam .yrl .xrl .bin .mib .hrl .html .class .java .el .elc
 
 # ----------------------------------------------------
 #	Output
@@ -104,7 +105,7 @@ endif
 ifdef PRIMARY_BOOTSTRAP
   ERL_COMPILE_FLAGS += +slim
 else
-  ERL_COMPILE_FLAGS += +debug_info
+  ERL_COMPILE_FLAGS += +debug_info +warn_missing_doc_function +warn_missing_doc_callback +warn_missing_spec_documented
 endif
 ifeq ($(ERL_DETERMINISTIC),yes)
   ERL_COMPILE_FLAGS += +deterministic
@@ -115,6 +116,7 @@ endif
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)
 ERL = erl -boot start_clean
+ESCRIPT = escript@EXEEXT@
 
 ifneq (,$(findstring $(origin EBIN),$(DUBIOUS_ORIGINS)))
 EBIN = ../ebin
@@ -134,7 +136,6 @@ $(EBIN)/%.beam: $(EGEN)/%.erl
 
 $(EBIN)/%.beam: $(ESRC)/%.erl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
-
 
 .erl.beam:
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<
@@ -211,124 +212,23 @@ EMACS_COMPILE_OPTIONS=-q --no-site-file -batch -f batch-byte-compile
 # ----------------------------------------------------
 export VSN
 
-TOPDOCDIR=../../../../doc
+EX_DOC = @EX_DOC@
 
-DOCDIR = ..
-
-PDFDIR=$(DOCDIR)/pdf
-
+DOCDIR=.
 HTMLDIR = $(DOCDIR)/html
-
 MAN1DIR = $(DOCDIR)/man1
-MAN2DIR = $(DOCDIR)/man2
 MAN3DIR = $(DOCDIR)/man3
 MAN4DIR = $(DOCDIR)/man4
-MAN5DIR = $(DOCDIR)/man5
 MAN6DIR = $(DOCDIR)/man6
 MAN7DIR = $(DOCDIR)/man7
-MAN9DIR = $(DOCDIR)/man9
-
-TEXDIR = .
-
-SPECDIR = $(DOCDIR)/specs
-XMLDIR = $(DOCDIR)/xml
 CHUNKSDIR = $(DOCDIR)/chunks
 
-ifeq ($(CSS_FILE),)
-CSS_FILE = otp_doc.css
-endif
-ifeq ($(WINPREFIX),)
-WINPREFIX = Erlang
-endif
 ifeq ($(HTMLLOGO),)
 HTMLLOGO_FILE = erlang-logo.png
 endif
-ifeq ($(PDFLOGO),)
-PDFLOGO_FILE = $(DOCGEN)/priv/images/erlang-logo.gif
-endif
-ifeq ($(PDFCOLOR),)
-PDFCOLOR = \#960003
-endif
 
-# HTML & GIF files that always are generated and must be delivered
-SGML_COLL_FILES = $(SGML_APPLICATION_FILES) $(SGML_PART_FILES)
-XML_COLL_FILES = $(XML_APPLICATION_FILES) $(XML_PART_FILES)
-DEFAULT_HTML_FILES = \
-	$(SGML_COLL_FILES:%.sgml=$(HTMLDIR)/%_frame.html) \
-	$(SGML_COLL_FILES:%.sgml=$(HTMLDIR)/%_first.html) \
-	$(SGML_COLL_FILES:%.sgml=$(HTMLDIR)/%_term.html) \
-	$(SGML_COLL_FILES:%.sgml=$(HTMLDIR)/%_cite.html) \
-	$(SGML_APPLICATION_FILES:%.sgml=$(HTMLDIR)/%_index.html) \
-	$(SGML_APPLICATION_FILES:%.sgml=$(HTMLDIR)/%.kwc) \
-	$(XML_COLL_FILES:%.xml=$(HTMLDIR)/%_frame.html) \
-	$(XML_COLL_FILES:%.xml=$(HTMLDIR)/%_first.html) \
-	$(XML_COLL_FILES:%.xml=$(HTMLDIR)/%_term.html) \
-	$(XML_COLL_FILES:%.xml=$(HTMLDIR)/%_cite.html) \
-	$(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%_index.html) \
-	$(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.kwc) \
-	$(HTMLDIR)/index.html
-
-DEFAULT_GIF_FILES =
-
-#
-# Flags & Commands
-#
-XSLTPROC = @XSLTPROC@
-FOP = @FOP@
-XMLLINT = @XMLLINT@
 CP = @CP@
 MKDIR = @MKDIR@
 
-DOCGEN?=$(ERL_TOP)/lib/erl_docgen
-FOP_CONFIG = $(DOCGEN)/priv/fop.xconf
+EXEEXT = @EXEEXT@
 
-ifneq (,$(findstring $(origin SPECS_ESRC),$(DUBIOUS_ORIGINS)))
-SPECS_ESRC = ../../src
-endif
-SPECS_EXTRACTOR=$(DOCGEN)/priv/bin/specs_gen.escript
-# Extract specifications and types from Erlang source files (-spec, -type)
-$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl $(TOP_SPECS_FILE)
-	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
-$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl $(TOP_SPECS_FILE)
-	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
-
-MANXSLTARGS=--stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities -path .
-
-$(MAN1DIR)/%.1: $(XMLDIR)/%_cmd.xml
-	$(gen_verbose)date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-$(MAN2DIR)/%.2 $(MAN4DIR)/%.4 $(MAN4DIR)/%.5 $(MAN9DIR)/%.9: $(XMLDIR)/%.xml
-	$(gen_verbose)date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-ifneq ($(wildcard $(SPECDIR)),)
-$(MAN3DIR)/%.3: $(XMLDIR)/%.xml $(SPECDIR)/specs_%.xml
-	$(gen_verbose)date=`date +"%B %e, %Y"`; \
-	specs_file=`pwd`/$(SPECDIR)/specs_$*.xml; \
-	xsltproc --output "$@" $(MANXSLTARGS) --stringparam specs_file "$$specs_file" $(DOCGEN)/priv/xsl/db_man.xsl $<
-else
-$(MAN3DIR)/%.3: $(XMLDIR)/%.xml
-	$(gen_verbose)date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
-endif
-
-# left for compatibility
-$(MAN6DIR)/%.6 $(MAN6DIR)/%.7: $(XMLDIR)/%_app.xml
-	$(gen_verbose)date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-$(XMLDIR)/%.xml: $(XMLDIR)/%.xmlsrc
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $(shell pwd) $< $@
-
-$(PDFDIR)/%.pdf: %.fo
-	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@
-
-$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
-
-$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../preloaded/ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
-
-$(CHUNKSDIR)/%.chunk: ../../ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@

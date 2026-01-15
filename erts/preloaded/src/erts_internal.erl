@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +30,7 @@
 %%
 
 -module(erts_internal).
+-moduledoc false.
 
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
@@ -65,7 +68,10 @@
 -export([await_microstate_accounting_modifications/3,
 	 gather_microstate_accounting_result/2]).
 
--export([trace/3, trace_pattern/3]).
+-export([trace/3, trace/4,
+         trace_info/3,
+         trace_pattern/3, trace_pattern/4]).
+-export([trace_session_create/3, trace_session_destroy/1]).
 
 -export([dist_ctrl_put_data/2]).
 
@@ -122,6 +128,12 @@
 -export([dynamic_node_name/0, dynamic_node_name/1]).
 
 -export([term_to_string/1, term_to_string/2]).
+
+-export([system_monitor/1, system_monitor/3]).
+
+-export([processes_next/1]).
+
+-export([breakpoint/4, notify_breakpoint_hit/3]).
 
 %%
 %% Await result of send to port
@@ -604,9 +616,35 @@ microstate_accounting(Ref, Threads) ->
 trace(_PidSpec, _How, _FlagList) ->
     erlang:nif_error(undefined).
 
+-spec trace(Session, PidPortSpec, How, FlagList) -> integer() when
+      Session :: term(),
+      PidPortSpec :: pid() | port()
+                   | all | processes | ports
+                   | existing | existing_processes | existing_ports
+                   | new | new_processes | new_ports,
+      How :: boolean(),
+      FlagList :: list().
+trace(_Session, _PidSpec, _How, _FlagList) ->
+    erlang:nif_error(undefined).
+
+%% trace_info/3
+-spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
+      Session :: term(),
+      PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
+                        | MFA | on_load | send | 'receive'
+                        | any,
+      MFA :: {module(), atom(), arity()},
+      Item :: flags | tracer | traced | match_spec
+            | meta | meta_match_spec | call_count | call_time | call_memory
+            | all
+            | session,
+      Res :: undefined | {atom(), term()} | {tracer, module(), term()}.
+trace_info(_Session, _PidPortFuncEvent, _Item) ->
+    erlang:nif_error(undefined).
+
 -type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
-      {atom(),atom(),arity() | '_'} | on_load.
+      {atom(),atom(),arity() | '_'} | on_load | send | 'receive'.
 -type trace_match_spec() ::
       [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 
@@ -618,6 +656,28 @@ trace(_PidSpec, _How, _FlagList) ->
                  | pause,
       FlagList :: list().
 trace_pattern(_MFA, _MatchSpec, _FlagList) ->
+    erlang:nif_error(undefined).
+
+-spec trace_pattern(Session, MFA, MatchSpec, FlagList) -> non_neg_integer() when
+      Session :: term(),
+      MFA :: trace_pattern_mfa(),
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean()
+                 | restart
+                 | pause,
+      FlagList :: list().
+trace_pattern(_Session, _MFA, _MatchSpec, _FlagList) ->
+    erlang:nif_error(undefined).
+
+-spec trace_session_create(Name, Tracer, Opts) -> term() when
+      Name :: atom(),
+      Tracer :: pid() | port() | {module(), term()},
+      Opts :: [].
+trace_session_create(_Name, _Tracer, _TracerOpts) ->
+    erlang:nif_error(undefined).
+
+-spec trace_session_destroy(term()) -> true | false.
+trace_session_destroy(_TraceSession) ->
     erlang:nif_error(undefined).
 
 -spec dist_ctrl_put_data(DHandle, Data) -> 'ok' when
@@ -1097,4 +1157,46 @@ term_to_string(T) ->
     Limit :: undefined | pos_integer().
 
 term_to_string(_T, _Limit) ->
+    erlang:nif_error(undefined).
+
+-spec system_monitor(Session) -> Return when
+      Session :: term(),
+      Return :: undefined | {pid(), [term()]}.
+system_monitor(_Session) ->
+    erlang:nif_error(undefined).
+
+-spec system_monitor(Session, MonitorPid, Options) -> Return when
+      Session :: term(),
+      MonitorPid :: undefined | session | pid(),
+      Options :: [term()],
+      Return :: undefined | ok | {pid(), Options}.
+system_monitor(_Session, _MonitorPid, _Options) ->
+    erlang:nif_error(undefined).
+
+-spec processes_next(integer()) -> {integer(), [pid()]} | 'none'.
+processes_next(_IterRef) ->
+    erlang:nif_error(undefined).
+
+%%
+%% Internal implementation of breakpoints
+%%
+-spec breakpoint(Module, Function, Arity, Line) -> ok when
+    Module :: atom(),
+    Function :: atom(),
+    Arity:: arity(),
+    Line :: pos_integer().
+breakpoint(Module, Function, Arity, Line) ->
+    Me = self(),
+    ResumeRef = make_ref(),
+    ResumeAction = fun() -> Me ! ResumeRef, ok end,
+    case notify_breakpoint_hit({Module, Function, Arity}, Line, ResumeAction) of
+        ok -> receive ResumeRef -> ok end;
+        _ -> ok
+    end.
+
+-spec notify_breakpoint_hit(MFA, Line, ResumeAction) -> ok | term() when
+    MFA :: mfa(),
+    Line :: pos_integer(),
+    ResumeAction :: fun(() -> ok).
+notify_breakpoint_hit(_, _, _) ->
     erlang:nif_error(undefined).

@@ -2,7 +2,9 @@
 # ----------------------------------------------------
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2021. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2009-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,11 +34,11 @@ DED_CC = @DED_CC@
 DED_GCC = @DED_GCC@
 DED_LD = @DED_LD@
 DED_LDFLAGS = @DED_LDFLAGS@
-DED_BASIC_CFLAGS = @DED_CFLAGS@
+DED_BASIC_CFLAGS = @DED_BASIC_CFLAGS@ @DEFS@
 DED_THR_DEFS = @DED_THR_DEFS@
 DED_WERRORFLAGS = @DED_WERRORFLAGS@
 DED_WARN_FLAGS = @DED_WARN_FLAGS@
-DED_CFLAGS = @DED_CFLAGS@
+DED_CFLAGS = @DED_CFLAGS@ @DEFS@
 DED_LD_FLAG_RUNTIME_LIBRARY_PATH = @DED_LD_FLAG_RUNTIME_LIBRARY_PATH@
 DED_STATIC_CFLAGS = @DED_STATIC_CFLAGS@
 DED_LIBS = @DED_LIBS@

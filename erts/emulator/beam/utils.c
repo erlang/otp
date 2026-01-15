@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,10 +104,8 @@ void ycf_debug_reset_stack_start(void) {
 void *ycf_debug_get_stack_start(void) {
     return erts_tsd_get(erts_ycf_debug_stack_start_tsd_key);
 }
-#include "utils.debug.ycf.h"
-#else
-#include "utils.ycf.h"
 #endif
+#include "utils.ycf.h"
 
 #if defined(DEBUG)
 # define IF_DEBUG(X) X
@@ -405,7 +405,7 @@ int erts_fit_in_bits_uint(Uint value)
 }
 
 int
-erts_print(fmtfn_t to, void *arg, char *format, ...)
+erts_print(fmtfn_t to, void *arg, const char *format, ...)
 {
     int res;
     va_list arg_list;
@@ -1177,37 +1177,53 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
-	    case REFC_BINARY_SUBTAG:
-	    case HEAP_BINARY_SUBTAG:
-	    case SUB_BINARY_SUBTAG:
-		{
-		    byte* a_ptr;
-		    byte* b_ptr;
-		    size_t a_size;
-		    size_t b_size;
-		    Uint a_bitsize;
-		    Uint b_bitsize;
-		    Uint a_bitoffs;
-		    Uint b_bitoffs;
+            case HEAP_BITS_SUBTAG:
+            case SUB_BITS_SUBTAG:
+                {
+                    Uint a_offset, a_size;
+                    byte* a_base;
+                    Uint b_offset, b_size;
+                    byte* b_base;
 
-		    if (!is_binary(b)) {
-			goto not_equal;
-		    }
-		    a_size = binary_size(a);
-		    b_size = binary_size(b);
-		    if (a_size != b_size) {
-			goto not_equal;
-		    }
-		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
-		    ERTS_GET_BINARY_BYTES(b, b_ptr, b_bitoffs, b_bitsize);
-		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
-			if (sys_memcmp(a_ptr, b_ptr, a_size) == 0) goto pop_next;
-		    } else if (a_bitsize == b_bitsize) {
-			if (erts_cmp_bits(a_ptr, a_bitoffs, b_ptr, b_bitoffs,
-					  (a_size << 3) + a_bitsize) == 0) goto pop_next;
-		    }
-		    break; /* not equal */
-		}
+                    if (!is_bitstring(b)) {
+                        goto not_equal;
+                    }
+
+                    ERTS_GET_BITSTRING(a, a_base, a_offset, a_size);
+                    ERTS_GET_BITSTRING(b, b_base, b_offset, b_size);
+
+                    if (a_size == b_size) {
+                        if (erts_cmp_bits(a_base, a_offset,
+                                          b_base, b_offset,
+                                          a_size) == 0) {
+                            goto pop_next;
+                        }
+                    }
+
+                    break; /* not equal */
+                }
+#ifdef DEBUG
+            /* When copying terms, the debug emulator may check that the copy
+             * is strictly equal to the source. As non-term heap objects may be
+             * copied under certain circumstances (e.g. naked fun references to
+             * a module literal area), we'll add a conservative implementation
+             * to cover direct equality checks of non-term heap objects.
+             *
+             * Note that we only need this to handle `eq(BinRef, BinRef)` and
+             * the like: we do not visit the BinRef of any term we see while
+             * testing equality, so we should never land here under normal
+             * normal circumstances. */
+            case BIN_REF_SUBTAG:
+                if (is_bin_ref(b)) {
+                    BinRef *r1 = (BinRef*)boxed_val(a);
+                    BinRef *r2 = (BinRef*)boxed_val(b);
+
+                    if (r1->val == r2->val) {
+                        goto pop_next;
+                    }
+                }
+                break; /* not equal */
+#endif
             case FUN_SUBTAG:
                 {
                     ErlFunThing* f1;
@@ -1220,20 +1236,17 @@ tailrecur_ne:
                     f1 = (ErlFunThing *) fun_val(a);
                     f2 = (ErlFunThing *) fun_val(b);
 
+                    if (f1->thing_word != f2->thing_word) {
+                        goto not_equal;
+                    }
+
                     if (is_local_fun(f1) && is_local_fun(f2)) {
-                        ErlFunEntry *fe1, *fe2;
-
-                        fe1 = f1->entry.fun;
-                        fe2 = f2->entry.fun;
-
-                        if (fe1->module != fe2->module ||
-                            fe1->index != fe2->index ||
-                            fe1->old_uniq != fe2->old_uniq ||
-                            f1->num_free != f2->num_free) {
+                        if (f1->entry.fun != f2->entry.fun) {
                             goto not_equal;
                         }
 
-                        if ((sz = f1->num_free) == 0) {
+                        sz = fun_num_free(f1);
+                        if (sz == 0) {
                             goto pop_next;
                         }
 
@@ -1400,7 +1413,9 @@ tailrecur_ne:
 		    if (is_float(b)) {
 			GET_DOUBLE(a, af);
 			GET_DOUBLE(b, bf);
-			if (af.fd == bf.fd) goto pop_next;
+                        if (af.fdw == bf.fdw) {
+                            goto pop_next;
+                        }
 		    }
 		    break; /* not equal */
 		}
@@ -1437,6 +1452,7 @@ tailrecur_ne:
                         if (aa[0] != bb[0])
                             goto not_equal;
 			aa++; bb++;
+                        ERTS_FALLTHROUGH();
 		    case HAMT_SUBTAG_NODE_BITMAP:
 			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			ASSERT(sz > 0 && sz < 17);
@@ -1511,6 +1527,7 @@ Sint compare_flatmap_atom_keys(const Eterm* a_keys,
     Eterm a, b;
     int ai, bi;
     Sint res;
+    ERTS_UNDEF(res, 0);
 
     ASSERT(n_atoms > 0);
     ASSERT(is_atom(a_keys[0]) && is_atom(b_keys[0]));
@@ -1790,7 +1807,8 @@ tailrecur_ne:
 		goto mixed_types;
 	    }
 	}
-	}
+    }
+    ERTS_ASSERT(0 && "unreachable");
     case TAG_PRIMARY_LIST:
 	if (is_not_list(b)) {
 	    a_tag = LIST_DEF;
@@ -2013,11 +2031,21 @@ tailrecur_ne:
 		    goto mixed_types;
 		} else {
 		    FloatDef af;
-		    FloatDef bf; 
+		    FloatDef bf;
 
-		    GET_DOUBLE(a, af);
-		    GET_DOUBLE(b, bf);
-		    ON_CMP_GOTO(erts_float_comp(af.fd, bf.fd));
+                    GET_DOUBLE(a, af);
+                    GET_DOUBLE(b, bf);
+
+                    if (exact) {
+                        Uint64 sortable_a, sortable_b;
+
+                        sortable_a = erts_float_exact_sortable(&af);
+                        sortable_b = erts_float_exact_sortable(&bf);
+
+                        ON_CMP_GOTO(erts_float_comp(sortable_a, sortable_b));
+                    } else {
+                        ON_CMP_GOTO(erts_float_comp(af.fd, bf.fd));
+                    }
 		}
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -2026,7 +2054,6 @@ tailrecur_ne:
 		    goto mixed_types;
 		}
 		ON_CMP_GOTO(big_comp(a, b));
-
             case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
                 if (is_not_any_fun(b)) {
                     a_tag = FUN_DEF;
@@ -2036,40 +2063,43 @@ tailrecur_ne:
                     ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
 
                     if (is_local_fun(f1) && is_local_fun(f2)) {
-                        ErlFunEntry* fe1 = f1->entry.fun;
-                        ErlFunEntry* fe2 = f2->entry.fun;
+                        const ErlFunEntry *fe1 = f1->entry.fun;
+                        const ErlFunEntry *fe2 = f2->entry.fun;
 
                         Sint diff;
 
-                        diff = erts_cmp_atoms(fe1->module, (fe2)->module);
+                        if (fe1 != fe2) {
+                            diff = erts_cmp_atoms(fe1->module, (fe2)->module);
 
+                            if (diff != 0) {
+                                RETURN_NEQ(diff);
+                            }
+
+                            diff = fe1->index - fe2->index;
+                            if (diff != 0) {
+                                RETURN_NEQ(diff);
+                            }
+
+                            diff = fe1->old_uniq - fe2->old_uniq;
+                            if (diff != 0) {
+                                RETURN_NEQ(diff);
+                            }
+                        }
+
+                        diff = fun_num_free(f1) - fun_num_free(f2);
                         if (diff != 0) {
                             RETURN_NEQ(diff);
                         }
 
-                        diff = fe1->index - fe2->index;
-                        if (diff != 0) {
-                            RETURN_NEQ(diff);
-                        }
-
-                        diff = fe1->old_uniq - fe2->old_uniq;
-                        if (diff != 0) {
-                            RETURN_NEQ(diff);
-                        }
-
-                        diff = f1->num_free - f2->num_free;
-                        if (diff != 0) {
-                            RETURN_NEQ(diff);
-                        }
-
-                        i = f1->num_free;
+                        i = fun_num_free(f1);
                         if (i == 0) goto pop_next;
+
                         aa = f1->env;
                         bb = f2->env;
                         goto term_array;
                     } else if (is_external_fun(f1) && is_external_fun(f2)) {
-                        Export* a_exp = f1->entry.exp;
-                        Export* b_exp = f2->entry.exp;
+                        const Export *a_exp = f1->entry.exp;
+                        const Export *b_exp = f2->entry.exp;
 
                         if ((j = erts_cmp_atoms(a_exp->info.mfa.module,
                                                 b_exp->info.mfa.module)) != 0) {
@@ -2186,45 +2216,34 @@ tailrecur_ne:
 		goto ref_common;
 	    default:
 		/* Must be a binary */
-		ASSERT(is_binary(a));
-		if (!is_binary(b)) {
-		    a_tag = BINARY_DEF;
+		ASSERT(is_bitstring(a));
+		if (!is_bitstring(b)) {
+		    a_tag = BITSTRING_DEF;
 		    goto mixed_types;
 		} else {
-		    Uint a_size = binary_size(a);
-		    Uint b_size = binary_size(b);
-		    Uint a_bitsize;
-		    Uint b_bitsize;
-		    Uint a_bitoffs;
-		    Uint b_bitoffs;
-		    Uint min_size;
-		    int cmp;
-		    byte* a_ptr;
-		    byte* b_ptr;
-		    if (eq_only && a_size != b_size) {
-		        RETURN_NEQ(a_size - b_size);
-		    }
-		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
-		    ERTS_GET_BINARY_BYTES(b, b_ptr, b_bitoffs, b_bitsize);
-		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
-			min_size = (a_size < b_size) ? a_size : b_size;
-			if ((cmp = sys_memcmp(a_ptr, b_ptr, min_size)) != 0) {
-			    RETURN_NEQ(cmp);
-			}
-		    }
-		    else {
-			a_size = (a_size << 3) + a_bitsize;
-			b_size = (b_size << 3) + b_bitsize;
-			min_size = (a_size < b_size) ? a_size : b_size;
-			if ((cmp = erts_cmp_bits(a_ptr,a_bitoffs,
-						 b_ptr,b_bitoffs,min_size)) != 0) {
-			    RETURN_NEQ(cmp);
-			}
-		    }
-		    ON_CMP_GOTO((Sint)(a_size - b_size));
-		}
-	    }
-	}
+                    Uint a_offset, a_size;
+                    byte *a_base;
+                    Uint b_offset, b_size;
+                    byte *b_base;
+                    int cmp;
+
+                    ERTS_GET_BITSTRING(a, a_base, a_offset, a_size);
+                    ERTS_GET_BITSTRING(b, b_base, b_offset, b_size);
+
+                    if (!eq_only || a_size == b_size) {
+                        cmp = erts_cmp_bits(a_base, a_offset,
+                                            b_base, b_offset,
+                                            MIN(a_size, b_size));
+                        if (cmp != 0) {
+                            RETURN_NEQ(cmp);
+                        }
+                    }
+
+                    cmp = a_size < b_size ? -1 : (a_size == b_size ? 0 : 1);
+                    ON_CMP_GOTO(cmp);
+                }
+            }
+        }
     }
 
     /*
@@ -2281,7 +2300,7 @@ tailrecur_ne:
         case FLOAT_BIG:
 	    if (exact) goto exact_fall_through;
 	{
-	    Wterm tmp = aw;
+	    Eterm tmp = aw;
 	    aw = bw;
 	    bw = tmp;
 	}/* fall through */
@@ -2932,484 +2951,6 @@ buf_to_intlist(Eterm** hpp, const char *buf, size_t len, Eterm tail)
 
     *hpp = hp;
     return tail;
-}
-
-/*
-** Write io list in to a buffer.
-**
-** An iolist is defined as:
-**
-** iohead ::= Binary
-**        |   Byte (i.e integer in range [0..255]
-**        |   iolist
-**        ;
-**
-** iotail ::= []
-**        |   Binary  (added by tony)
-**        |   iolist
-**        ;
-**
-** iolist ::= []
-**        |   Binary
-**        |   [ iohead | iotail]
-**        ;
-** 
-** Return remaining bytes in buffer on success
-**        ERTS_IOLIST_TO_BUF_OVERFLOW on overflow
-**        ERTS_IOLIST_TO_BUF_TYPE_ERROR on type error (including that result would not be a whole number of bytes)
-**
-** Note! 
-** Do not detect indata errors in this fiunction that are not detected by erts_iolist_size!
-**
-** A caller should be able to rely on a successful return from erts_iolist_to_buf
-** if erts_iolist_size is previously successfully called and erts_iolist_to_buf 
-** is called with a buffer at least as large as the value given by erts_iolist_size.
-** 
-*/
-
-typedef enum {
-    ERTS_IL2B_BCOPY_OK,
-    ERTS_IL2B_BCOPY_YIELD,
-    ERTS_IL2B_BCOPY_OVERFLOW,
-    ERTS_IL2B_BCOPY_TYPE_ERROR
-} ErtsIL2BBCopyRes;
-
-static ErtsIL2BBCopyRes
-iolist_to_buf_bcopy(ErtsIOList2BufState *state, Eterm obj, int *yield_countp);
-
-static ERTS_INLINE ErlDrvSizeT
-iolist_to_buf(const int yield_support,
-	      ErtsIOList2BufState *state,
-	      Eterm obj,
-	      char* buf,
-	      ErlDrvSizeT alloced_len)
-{
-#undef IOLIST_TO_BUF_BCOPY
-#define IOLIST_TO_BUF_BCOPY(CONSP)					\
-do {									\
-    size_t size = binary_size(obj);					\
-    if (size > 0) {							\
-	Uint bitsize;							\
-	byte* bptr;							\
-	Uint bitoffs;							\
-	Uint num_bits;							\
-	if (yield_support) {						\
-	    size_t max_size = ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT;	\
-	    if (yield_count > 0)					\
-		max_size *= yield_count+1;				\
-	    if (size > max_size) {					\
-		state->objp = CONSP;					\
-		goto L_bcopy_yield;					\
-	    }								\
-	    if (size >= ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT) {	\
-		int cost = (int) size;					\
-		cost /= ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT;	\
-		yield_count -= cost;					\
-	    }								\
-	}								\
-	if (len < size)							\
-	    goto L_overflow;						\
-	ERTS_GET_BINARY_BYTES(obj, bptr, bitoffs, bitsize);		\
-	if (bitsize != 0)						\
-	    goto L_type_error;						\
-	num_bits = 8*size;						\
-	copy_binary_to_buffer(buf, 0, bptr, bitoffs, num_bits);		\
-	buf += size;							\
-	len -= size;							\
-    }									\
-} while (0)
-
-    ErlDrvSizeT res, len;
-    Eterm* objp = NULL;
-    int init_yield_count;
-    int yield_count;
-    DECLARE_ESTACK(s);
-
-    len = (ErlDrvSizeT) alloced_len;
-
-    if (!yield_support) {
-	yield_count = init_yield_count = 0; /* Shut up faulty warning... >:-( */
-	goto L_again;
-    }
-    else {
-
-	if (state->iolist.reds_left <= 0)
-	    return ERTS_IOLIST_TO_BUF_YIELD;
-
-	ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
-	init_yield_count = (ERTS_IOLIST_TO_BUF_YIELD_COUNT_PER_RED
-			   * state->iolist.reds_left);
-	yield_count = init_yield_count;
-
-	if (!state->iolist.estack.start)
-	    goto L_again;
-	else {
-	    int chk_stack;
-	    /* Restart; restore state... */
-	    ESTACK_RESTORE(s, &state->iolist.estack);
-
-	    if (!state->bcopy.bptr)
-		chk_stack = 0;
-	    else {
-		chk_stack = 1;
-		switch (iolist_to_buf_bcopy(state, THE_NON_VALUE, &yield_count)) {
-		case ERTS_IL2B_BCOPY_OK:
-		    break;
-		case ERTS_IL2B_BCOPY_YIELD:
-		    BUMP_ALL_REDS(state->iolist.c_p);
-		    state->iolist.reds_left = 0;
-		    ESTACK_SAVE(s, &state->iolist.estack);
-		    return ERTS_IOLIST_TO_BUF_YIELD;
-		case ERTS_IL2B_BCOPY_OVERFLOW:
-		    goto L_overflow;
-		case ERTS_IL2B_BCOPY_TYPE_ERROR:
-		    goto L_type_error;
-		}
-	    }
-
-	    obj = state->iolist.obj;
-	    buf = state->buf;
-	    len = state->len;
-	    objp = state->objp;
-	    state->objp = NULL;
-	    if (objp)
-		goto L_tail;
-	    if (!chk_stack)
-		goto L_again;
-	    /* check stack */
-	}
-    }
-
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-    L_again:
-	if (is_list(obj)) {
-	    while (1) { /* Tail loop */
-		while (1) { /* Head loop */
-		    if (yield_support && --yield_count <= 0)
-			goto L_yield;
-		    objp = list_val(obj);
-		    obj = CAR(objp);
-		    if (is_byte(obj)) {
-			if (len == 0) {
-			    goto L_overflow;
-			}
-			*buf++ = unsigned_val(obj);
-			len--;
-		    } else if (is_binary(obj)) {
-			IOLIST_TO_BUF_BCOPY(objp);
-		    } else if (is_list(obj)) {
-			ESTACK_PUSH(s, CDR(objp));
-			continue; /* Head loop */
-		    } else if (is_not_nil(obj)) {
-			goto L_type_error;
-		    }
-		    break;
-		}
-
-	    L_tail:
-
-		obj = CDR(objp);
-
-		if (is_list(obj)) {
-		    continue; /* Tail loop */
-		} else if (is_binary(obj)) {
-		    IOLIST_TO_BUF_BCOPY(NULL);
-		} else if (is_not_nil(obj)) {
-		    goto L_type_error;
-		}
-		break;
-	    }
-	} else if (is_binary(obj)) {
-	    IOLIST_TO_BUF_BCOPY(NULL);
-	} else if (is_not_nil(obj)) {
-	    goto L_type_error;
-	} else if (yield_support && --yield_count <= 0)
-	    goto L_yield;
-    }
-
-    res = len;
-
- L_return:
-
-    DESTROY_ESTACK(s);
-
-    if (yield_support) {
-	int reds;
-	CLEAR_SAVED_ESTACK(&state->iolist.estack);
-	reds = ((init_yield_count - yield_count - 1)
-		/ ERTS_IOLIST_TO_BUF_YIELD_COUNT_PER_RED) + 1;
-	BUMP_REDS(state->iolist.c_p, reds);
-	state->iolist.reds_left -= reds;
-	if (state->iolist.reds_left < 0)
-	    state->iolist.reds_left = 0;
-    }
-
-
-    return res;
-
- L_type_error:
-    res = ERTS_IOLIST_TO_BUF_TYPE_ERROR;
-    goto L_return;
-
- L_overflow:
-    res = ERTS_IOLIST_TO_BUF_OVERFLOW;
-    goto L_return;
-
- L_bcopy_yield:
-
-    state->buf = buf;
-    state->len = len;
-
-    switch (iolist_to_buf_bcopy(state, obj, &yield_count)) {
-    case ERTS_IL2B_BCOPY_OK:
-	ERTS_INTERNAL_ERROR("Missing yield");
-    case ERTS_IL2B_BCOPY_YIELD:
-	BUMP_ALL_REDS(state->iolist.c_p);
-	state->iolist.reds_left = 0;
-	ESTACK_SAVE(s, &state->iolist.estack);
-	return ERTS_IOLIST_TO_BUF_YIELD;
-    case ERTS_IL2B_BCOPY_OVERFLOW:
-	goto L_overflow;
-    case ERTS_IL2B_BCOPY_TYPE_ERROR:
-	goto L_type_error;
-    }
-
- L_yield:
-
-    BUMP_ALL_REDS(state->iolist.c_p);
-    state->iolist.reds_left = 0;
-    state->iolist.obj = obj;
-    state->buf = buf;
-    state->len = len;
-    ESTACK_SAVE(s, &state->iolist.estack);
-    return ERTS_IOLIST_TO_BUF_YIELD;
-
-#undef IOLIST_TO_BUF_BCOPY
-}
-
-static ErtsIL2BBCopyRes
-iolist_to_buf_bcopy(ErtsIOList2BufState *state, Eterm obj, int *yield_countp)
-{
-    ErtsIL2BBCopyRes res;
-    char *buf = state->buf;
-    ErlDrvSizeT len = state->len;
-    byte* bptr;
-    size_t size;
-    size_t max_size;
-    Uint bitoffs;
-    Uint num_bits;
-    int yield_count = *yield_countp;
-
-    if (state->bcopy.bptr) {
-	bptr = state->bcopy.bptr;
-	size = state->bcopy.size;
-	bitoffs = state->bcopy.bitoffs;
-	state->bcopy.bptr = NULL;
-    }
-    else {
-	Uint bitsize;
-
-	ASSERT(is_binary(obj));
-
-	size = binary_size(obj);
-	if (size <= 0)
-	    return ERTS_IL2B_BCOPY_OK;
-
-	if (len < size)
-	    return ERTS_IL2B_BCOPY_OVERFLOW;
-
-	ERTS_GET_BINARY_BYTES(obj, bptr, bitoffs, bitsize);
-	if (bitsize != 0)
-	    return ERTS_IL2B_BCOPY_TYPE_ERROR;
-    }
-
-    ASSERT(size > 0);
-    max_size = (size_t) ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT;
-    if (yield_count > 0)
-	max_size *= (size_t) (yield_count+1);
-
-    if (size <= max_size) {
-	if (size >= ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT) {
-	    int cost = (int) size;
-	    cost /= ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT;
-	    yield_count -= cost;
-	}
-	res = ERTS_IL2B_BCOPY_OK;
-    }
-    else {
-	ASSERT(0 < max_size && max_size < size);
-	yield_count = 0;
-	state->bcopy.bptr = bptr + max_size;
-	state->bcopy.bitoffs = bitoffs;
-	state->bcopy.size = size - max_size;
-	size = max_size;
-	res = ERTS_IL2B_BCOPY_YIELD;
-    }
-
-    num_bits = 8*size;
-    copy_binary_to_buffer(buf, 0, bptr, bitoffs, num_bits);
-    state->buf += size;
-    state->len -= size;
-    *yield_countp = yield_count;
-
-    return res;
-}
-
-ErlDrvSizeT erts_iolist_to_buf_yielding(ErtsIOList2BufState *state)
-{
-    return iolist_to_buf(1, state, state->iolist.obj, state->buf, state->len);
-}
-
-ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
-{
-    return iolist_to_buf(0, NULL, obj, buf, alloced_len);
-}
-
-/*
- * Return 0 if successful, and non-zero if unsuccessful.
- *
- * It is vital that if erts_iolist_to_buf would return an error for
- * any type of term data, this function should do so as well.
- * Any input term error detected in erts_iolist_to_buf should also
- * be detected in this function!
- */
-
-static ERTS_INLINE int
-iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj, ErlDrvSizeT* sizep)
-{
-    int res, init_yield_count, yield_count;
-    Eterm* objp;
-    Uint size = (Uint) *sizep;
-    DECLARE_ESTACK(s);
-
-    if (!yield_support)
-	yield_count = init_yield_count = 0; /* Shut up faulty warning... >:-( */
-    else {
-	if (state->reds_left <= 0)
-	    return ERTS_IOLIST_YIELD;
-	ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
-	init_yield_count = ERTS_IOLIST_SIZE_YIELDS_COUNT_PER_RED;
-	init_yield_count *= state->reds_left;
-	yield_count = init_yield_count;
-	if (state->estack.start) {
-	    /* Restart; restore state... */
-	    ESTACK_RESTORE(s, &state->estack);
-	    size = (Uint) state->size;
-	    obj = state->obj;
-	}
-    }
-
-    goto L_again;
-
-#define SAFE_ADD(Var, Val)			\
-    do {					\
-        Uint valvar = (Val);			\
-	Var += valvar;				\
-	if (Var < valvar) {			\
-	    goto L_overflow_error;		\
-	}					\
-    } while (0)
-
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-    L_again:
-	if (is_list(obj)) {
-	    while (1) { /* Tail loop */
-		while (1) { /* Head loop */
-		    if (yield_support && --yield_count <= 0)
-			goto L_yield;
-		    objp = list_val(obj);
-		    /* Head */
-		    obj = CAR(objp);
-		    if (is_byte(obj)) {
-			size++;
-			if (size == 0) {
-			    goto L_overflow_error;
-			}
-		    } else if (is_binary(obj) && binary_bitsize(obj) == 0) {
-			SAFE_ADD(size, binary_size(obj));
-		    } else if (is_list(obj)) {
-			ESTACK_PUSH(s, CDR(objp));
-			continue; /* Head loop */
-		    } else if (is_not_nil(obj)) {
-			goto L_type_error;
-		    }
-		    break;
-		}
-		/* Tail */
-		obj = CDR(objp);
-		if (is_list(obj))
-		    continue; /* Tail loop */
-		else if (is_binary(obj) && binary_bitsize(obj) == 0) {
-		    SAFE_ADD(size, binary_size(obj));
-		} else if (is_not_nil(obj)) {
-		    goto L_type_error;
-		}
-		break;
-	    }
-	} else {
-	    if (yield_support && --yield_count <= 0)
-		goto L_yield;
-	    if (is_binary(obj) && binary_bitsize(obj) == 0) { /* Tail was binary */
-		SAFE_ADD(size, binary_size(obj));
-	    } else if (is_not_nil(obj)) {
-		goto L_type_error;
-	    }
-	}
-    }
-#undef SAFE_ADD
-
-    *sizep = (ErlDrvSizeT) size;
-
-    res = ERTS_IOLIST_OK;
-
- L_return:
-
-    DESTROY_ESTACK(s);
-
-    if (yield_support) {
-	int yc, reds;
-	CLEAR_SAVED_ESTACK(&state->estack);
-	yc = init_yield_count - yield_count;
-	reds = ((yc - 1) / ERTS_IOLIST_SIZE_YIELDS_COUNT_PER_RED) + 1;
-	BUMP_REDS(state->c_p, reds);
-	state->reds_left -= reds;
-	state->size = (ErlDrvSizeT) size;
-	state->have_size = 1;
-    }
-
-    return res;
-
- L_overflow_error:
-    res = ERTS_IOLIST_OVERFLOW;
-    size = 0;
-    goto L_return;
-
- L_type_error:
-    res = ERTS_IOLIST_TYPE;
-    size = 0;
-    goto L_return;
-
- L_yield:
-    BUMP_ALL_REDS(state->c_p);
-    state->reds_left = 0;
-    state->size = size;
-    state->obj = obj;
-    ESTACK_SAVE(s, &state->estack);
-    return ERTS_IOLIST_YIELD;
-}
-
-int erts_iolist_size_yielding(ErtsIOListState *state)
-{
-    ErlDrvSizeT size = state->size;
-    return iolist_size(1, state, state->obj, &size);
-}
-
-int erts_iolist_size(Eterm obj, ErlDrvSizeT* sizep)
-{
-    *sizep = 0;
-    return iolist_size(0, NULL, obj, sizep);
 }
 
 /* return 0 if item is not a non-empty flat list of bytes

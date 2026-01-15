@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +34,7 @@ struct digest_type_t {
         const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
         const EVP_MD* p;              /* after init, NULL if notsup */
     }md;
+    unsigned int xof_default_length;  /* 0 or default digest length for XOF digests */
 };
 
 /* masks in the flags field if digest_type_t */

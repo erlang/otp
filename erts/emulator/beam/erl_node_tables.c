@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1569,8 +1571,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
                     insert_dist_entry(ctx->dep, type, id, 0);
             }
 	    break;
-	case REFC_BINARY_SUBTAG:
-	case FUN_SUBTAG:
+	case BIN_REF_SUBTAG:
 	    break; /* No need to */
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
@@ -1599,7 +1600,7 @@ static void insert_monitor_data(ErtsMonitor *mon, int type, Eterm id)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     if ((mdp->origin.flags & (ERTS_ML_FLG_DBG_VISITED
                               | ERTS_ML_FLG_EXTENDED)) == ERTS_ML_FLG_EXTENDED) {
-        if (mon->type != ERTS_MON_TYPE_NODE) {
+        if (ERTS_ML_GET_TYPE(mon) != ERTS_MON_TYPE_NODE) {
             ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
             ASSERT(mon->flags & ERTS_ML_FLG_EXTENDED);
             if (mdep->uptr.ohhp) {
@@ -2017,6 +2018,7 @@ erts_node_bookkeep(ErlNode *np, Eterm term, int what, char *f, int l)
 static void
 setup_reference_table(void)
 {
+    ErtsTraceSession *s_p;
     DistEntry *dep;
     HashInfo hi;
     int i, max;
@@ -2113,34 +2115,30 @@ setup_reference_table(void)
 			      0);
     }
 
-    { /* Add binaries stored elsewhere ... */
-	ErlOffHeap oh;
-	ProcBin pb[2];
-	int i = 0;
-	Binary *default_match_spec;
-	Binary *default_meta_match_spec;
 
-	oh.first = NULL;
-	/* Only the ProcBin members thing_word, val and next will be inspected
-	   (by insert_offheap()) */
+    /*
+     * Insert on_load tracing match specs
+     */
+    for(s_p = &erts_trace_session_0; s_p; s_p = s_p->next) {
+        ErlOffHeap oh;
+        BinRef bin_ref[2];
+        int i = 0;
+
+        oh.first = NULL;
+        /* Only the BinRef members thing_word, val and next will be inspected
+           (by insert_offheap()) */
 #undef  ADD_BINARY
-#define ADD_BINARY(Bin)				 	     \
-	if ((Bin)) {					     \
-	    pb[i].thing_word = REFC_BINARY_SUBTAG;           \
-	    pb[i].val = (Bin);				     \
-	    pb[i].next = oh.first;		             \
-	    oh.first = (struct erl_off_heap_header*) &pb[i]; \
-	    i++;				             \
-	}
+#define ADD_BINARY(Bin)                                                       \
+        if ((Bin)) {                                                          \
+            bin_ref[i].thing_word = BIN_REF_SUBTAG;                       \
+            bin_ref[i].val = (Bin);                                           \
+            bin_ref[i].next = oh.first;                                       \
+            oh.first = (struct erl_off_heap_header*) &bin_ref[i];             \
+            i++;                                                              \
+        }
 
-	erts_get_default_trace_pattern(NULL,
-				       &default_match_spec,
-				       &default_meta_match_spec,
-				       NULL,
-				       NULL);
-
-	ADD_BINARY(default_match_spec);
-	ADD_BINARY(default_meta_match_spec);
+	ADD_BINARY(s_p->on_load_match_spec);
+	ADD_BINARY(s_p->on_load_meta_match_spec);
 
 	insert_offheap(&oh, BIN_REF, AM_match_spec);
 #undef  ADD_BINARY
@@ -2179,7 +2177,7 @@ setup_reference_table(void)
     }
 
     /* Insert all ets tables */
-    erts_db_foreach_table(insert_ets_table, NULL, 0);
+    erts_db_foreach_table(insert_ets_table, NULL, false);
     erts_db_foreach_thr_prgr_offheap(insert_ets_offheap_thr_prgr, NULL);
 
     /* Insert all bif timers */

@@ -1,13 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()}[0m
-  [;1m                   when[0m
-  [;1m                       Node :: node(),[0m
-  [;1m                       Fun :: function(),[0m
-  [;1m                       Options ::[0m
-  [;1m                           [monitor |[0m
-  [;1m                            {monitor, [monitor_option()]} |[0m
-  [;1m                            link | OtherOption],[0m
-  [;1m                       OtherOption :: term().[0m
+[;1m  spawn_opt(Node, Fun, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
   the application of [;;4mFun[0m to the empty list [;;4m[][0m on [;;4mNode[0m. If [;;4m[0m

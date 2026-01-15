@@ -2,7 +2,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,10 +36,11 @@
     reltool_utils
    ]},
   {registered, []},
-  {applications, [stdlib, kernel]},
+  {applications, [stdlib, kernel, wx, tools, sasl]},
+  {optional_applications, [wx, tools, sasl]},
   {env, []},
   {runtime_dependencies,
    ["wx-2.3","tools-2.6.14",
-    "stdlib-5.0","stdlib-5.0","sasl-4.2.1",
-    "kernel-9.0","erts-14.0"]}
+    "stdlib-5.0","sasl-4.2.1",
+    "kernel-9.0","erts-15.0"]}
  ]}.

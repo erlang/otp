@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +36,7 @@
     'emoji_function🤯'/1,
     map_parameter_function/1,
     map_parameter_function/2,
+     map_variable_parameter_function/2,
     tuple_parameter_function/2,
     list_parameter_function/2,
     non_empty_list_parameter_function/2,
@@ -108,11 +111,15 @@ test_year(_Y) -> 0.
 'emoji_function🤯'(_) -> 0.
 
 -spec map_parameter_function(Map) -> boolean() when
-    Map :: #{a => 1, b => 2, c => 3, d => error}.
+    Map :: #{ integer() := a, a => 1, b => 2, c => 3, d => error}.
 map_parameter_function(_) -> false.
 -spec map_parameter_function(Map, any()) -> boolean() when
     Map :: #{a => 1, b => 2, c => 3, d => error}.
 map_parameter_function(_,_) -> false.
+-spec map_variable_parameter_function(Key, Map) -> Value when
+    Map :: #{ Key => Value, _ => _}.
+map_variable_parameter_function(_, _) ->
+     false.
 
 -spec binary_parameter_function(binary(), any()) -> boolean().
 binary_parameter_function(_,_) -> false.

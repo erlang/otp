@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2014-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,6 +118,7 @@
 %%     check_connection_closed(State).
 %%-----------------------------------------------------------------
 -module(ct_release_test).
+-moduledoc false.
 
 -export([init/1, upgrade/4, cleanup/1, get_app_vsns/2, get_appup/2]).
 

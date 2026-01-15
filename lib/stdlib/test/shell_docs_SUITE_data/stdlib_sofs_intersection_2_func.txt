@@ -1,8 +1,19 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec intersection(Set1, Set2) -> Set3[0m
-  [;1m                      when[0m
-  [;1m                          Set1 :: a_set(),[0m
-  [;1m                          Set2 :: a_set(),[0m
-  [;1m                          Set3 :: a_set().[0m
+[;1m  intersection(Set1, Set2)[0m
 
   Returns the intersection of [;;4mSet1[0m and [;;4mSet2[0m.
+
+[;1mExamples[0m
+
+    1> S1 = sofs:set([a,b,c]).
+    2> S2 = sofs:set([b,c,d]).
+    3> S3 = sofs:intersection(S1, S2).
+    4> sofs:to_external(S3).
+    [b,c]

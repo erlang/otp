@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,7 @@
 %% 
 
 -module(snmp_usm).
+-moduledoc false.
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -28,6 +31,10 @@
 -export([auth_in/4, auth_out/4, set_msg_auth_params/3]).
 -export([des_encrypt/3, des_decrypt/3]).
 -export([aes_encrypt/5, aes_decrypt/5]).
+
+-export_type([
+              algorithm/0
+             ]).
 
 
 -define(SNMP_USE_V3, true).
@@ -63,10 +70,12 @@
 
 -define(BLOCK_CIPHER_DES, des_cbc).
 
+-type algorithm() :: md5 | sha | sha224 | sha256 | sha384 | sha512.
+
 
 %%-----------------------------------------------------------------
 %% Func: passwd2localized_key/3
-%% Types: Alg      = md5 | sha
+%% Types: Alg      = algorithm()
 %%        Passwd   = string()
 %%        EngineID = string()
 %% Purpose: Generates a key that can be used as an authentication
@@ -75,8 +84,6 @@
 %%          The algorithm is described in appendix A.1 2) of
 %%          rfc2274.
 %%-----------------------------------------------------------------
-
--type algorithm() :: md5 | sha | sha224 | sha256 | sha384 | sha512.
 
 -spec passwd2localized_key(Alg      :: algorithm(),
                            Passwd   :: string(),

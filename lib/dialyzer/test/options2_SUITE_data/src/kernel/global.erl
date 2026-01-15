@@ -1868,7 +1868,7 @@ random_sleep(Times) ->
     Tmax = if Times > 5 -> 8000;
 	      true -> ((1 bsl Times) * 1000) div 8
 	   end,
-    T = random:uniform(Tmax),
+    T = rand:uniform(Tmax),
     ?P({random_sleep, node(), self(), Times, T}),
     receive after T -> ok end.
 

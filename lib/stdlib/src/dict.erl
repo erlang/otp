@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -35,6 +37,43 @@
 %% reorder keys within a bucket.
 
 -module(dict).
+-moduledoc """
+A Key-value dictionary.
+
+The representation of a dictionary is not defined.
+
+This module provides the same interface as the `m:orddict` module. One
+difference is that while this module considers two keys as different if they do
+not match (`=:=`), `orddict` considers two keys as different if and only if they
+do not compare equal (`==`).
+
+## Notes
+
+[](){: #notes }
+
+Functions `append` and `append_list` are included so that keyed values can be
+stored in a list _accumulator_, for example:
+
+```erlang
+> D0 = dict:new(),
+  D1 = dict:store(files, [], D0),
+  D2 = dict:append(files, f1, D1),
+  D3 = dict:append(files, f2, D2),
+  D4 = dict:append(files, f3, D3),
+  dict:fetch(files, D4).
+[f1,f2,f3]
+```
+
+This saves the trouble of first fetching a keyed value, appending a new value to
+the list of stored values, and storing the result.
+
+Function `fetch` is to be used if the key is known to be in the dictionary,
+otherwise function `find`.
+
+## See Also
+
+`m:gb_trees`, `m:orddict`
+""".
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Standard interface.
@@ -74,17 +113,20 @@
 
 -type dict() :: dict(_, _).
 
+-doc "Dictionary as returned by `new/0`.".
 -opaque dict(Key, Value) :: #dict{segs :: segs(Key, Value)}.
 
 -define(kv(K,V), [K|V]).			% Key-Value pair format
 %%-define(kv(K,V), {K,V}).			% Key-Value pair format
 
+-doc "Creates a new dictionary.".
 -spec new() -> dict().
 
 new() ->
     Empty = mk_seg(?seg_size),
     #dict{empty=Empty,segs={Empty}}.
 
+-doc "Tests if `Key` is contained in dictionary `Dict`.".
 -spec is_key(Key, Dict) -> boolean() when
       Dict :: dict(Key, Value :: term()).
 
@@ -97,6 +139,7 @@ find_key(K, [?kv(K,_Val)|_]) -> true;
 find_key(K, [_|Bkt]) -> find_key(K, Bkt);
 find_key(_, []) -> false.
 
+-doc "Converts dictionary `Dict` to a list representation.".
 -spec to_list(Dict) -> List when
       Dict :: dict(Key, Value),
       List :: [{Key, Value}].
@@ -104,6 +147,7 @@ find_key(_, []) -> false.
 to_list(D) ->
     fold(fun (Key, Val, List) -> [{Key,Val}|List] end, [], D).
 
+-doc "Converts the `Key`-`Value` list `List` to dictionary `Dict`.".
 -spec from_list(List) -> Dict when
       Dict :: dict(Key, Value),
       List :: [{Key, Value}].
@@ -111,16 +155,26 @@ to_list(D) ->
 from_list(L) ->
     lists:foldl(fun ({K,V}, D) -> store(K, V, D) end, new(), L).
 
+-doc "Returns the number of elements in dictionary `Dict`.".
 -spec size(Dict) -> non_neg_integer() when
       Dict :: dict().
 
 size(#dict{size=N}) when is_integer(N), N >= 0 -> N. 
 
+-doc "Returns `true` if dictionary `Dict` has no elements, otherwise `false`.".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec is_empty(Dict) -> boolean() when
       Dict :: dict().
 
 is_empty(#dict{size=N}) -> N =:= 0.
 
+-doc """
+Returns the value associated with `Key` in dictionary `Dict`. This function
+assumes that `Key` is present in dictionary `Dict`, and an exception is
+generated if `Key` is not in the dictionary.
+
+See also section [Notes](`m:dict#module-notes`).
+""".
 -spec fetch(Key, Dict) -> Value when
       Dict :: dict(Key, Value).
 
@@ -136,6 +190,13 @@ fetch_val(K, [?kv(K,Val)|_]) -> Val;
 fetch_val(K, [_|Bkt]) -> fetch_val(K, Bkt);
 fetch_val(_, []) -> throw(badarg).
 
+-doc """
+Searches for a key in dictionary `Dict`. Returns `{ok, Value}`, where `Value` is
+the value associated with `Key`, or `error` if the key is not present in the
+dictionary.
+
+See also section [Notes](`m:dict#module-notes`).
+""".
 -spec find(Key, Dict) -> {'ok', Value} | 'error' when
       Dict :: dict(Key, Value).
 
@@ -148,6 +209,7 @@ find_val(K, [?kv(K,Val)|_]) -> {ok,Val};
 find_val(K, [_|Bkt]) -> find_val(K, Bkt);
 find_val(_, []) -> error.
 
+-doc "Returns a list of all keys in dictionary `Dict`.".
 -spec fetch_keys(Dict) -> Keys when
       Dict :: dict(Key, Value :: term()),
       Keys :: [Key].
@@ -155,6 +217,7 @@ find_val(_, []) -> error.
 fetch_keys(D) ->
     fold(fun (Key, _Val, Keys) -> [Key|Keys] end, [], D).
 
+-doc "Erases all items with a given key from a dictionary.".
 -spec erase(Key, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
       Dict2 :: dict(Key, Value).
@@ -173,6 +236,11 @@ erase_key(Key, [E|Bkt0]) ->
     {[E|Bkt1],Dc};
 erase_key(_, []) -> {[],0}.
 
+-doc """
+This function returns value from dictionary and a new dictionary without this
+value. Returns `error` if the key is not present in the dictionary.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec take(Key, Dict) -> {Value, Dict1} | error when
       Dict :: dict(Key, Value),
       Dict1 :: dict(Key, Value),
@@ -194,6 +262,10 @@ take_key(Key, [E|Bkt0]) ->
     {[E|Bkt1],Res};
 take_key(_, []) -> {[],error}.
 
+-doc """
+Stores a `Key`-`Value` pair in dictionary `Dict2`. If `Key` already exists in
+`Dict1`, the associated value is replaced by `Value`.
+""".
 -spec store(Key, Value, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
       Dict2 :: dict(Key, Value).
@@ -212,6 +284,11 @@ store_bkt_val(Key, New, [Other|Bkt0]) ->
     {[Other|Bkt1],Ic};
 store_bkt_val(Key, New, []) -> {[?kv(Key,New)],1}.
 
+-doc """
+Appends a new `Value` to the current list of values associated with `Key`.
+
+See also section [Notes](`m:dict#module-notes`).
+""".
 -spec append(Key, Value, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
       Dict2 :: dict(Key, Value).
@@ -230,6 +307,13 @@ append_bkt(Key, Val, [Other|Bkt0]) ->
     {[Other|Bkt1],Ic};
 append_bkt(Key, Val, []) -> {[?kv(Key,[Val])],1}.
 
+-doc """
+Appends a list of values `ValList` to the current list of values associated with
+`Key`. An exception is generated if the initial value associated with `Key` is
+not a list of values.
+
+See also section [Notes](`m:dict#module-notes`).
+""".
 -spec append_list(Key, ValList, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
       Dict2 :: dict(Key, Value),
@@ -303,6 +387,10 @@ app_list_bkt(Key, L, []) -> {[?kv(Key,L)],1}.
 %%     {Bkt1,Dc} = on_key_bkt(Key, F, Bkt0),
 %%     {[Other|Bkt1],Dc}.
 
+-doc """
+Updates a value in a dictionary by calling `Fun` on the value to get a new
+value. An exception is generated if `Key` is not present in the dictionary.
+""".
 -spec update(Key, Fun, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
       Dict2 :: dict(Key, Value),
@@ -325,6 +413,16 @@ update_bkt(Key, F, [Other|Bkt0]) ->
 update_bkt(_Key, _F, []) ->
     throw(badarg).
 
+-doc """
+Updates a value in a dictionary by calling `Fun` on the value to get a new
+value. If `Key` is not present in the dictionary, `Initial` is stored as the
+first value. For example, [`append/3`](`append/3`) can be defined as:
+
+```erlang
+append(Key, Val, D) ->
+    update(Key, fun (Old) -> Old ++ [Val] end, [Val], D).
+```
+""".
 -spec update(Key, Fun, Initial, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
       Dict2 :: dict(Key, Value),
@@ -344,6 +442,18 @@ update_bkt(Key, F, I, [Other|Bkt0]) ->
     {[Other|Bkt1],Ic};
 update_bkt(Key, F, I, []) when is_function(F, 1) -> {[?kv(Key,I)],1}.
 
+-doc """
+Adds `Increment` to the value associated with `Key` and stores this value. If
+`Key` is not present in the dictionary, `Increment` is stored as the first
+value.
+
+This can be defined as follows, but is faster:
+
+```erlang
+update_counter(Key, Incr, D) ->
+    update(Key, fun (Old) -> Old + Incr end, Incr, D).
+```
+""".
 -spec update_counter(Key, Increment, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
       Dict2 :: dict(Key, Value),
@@ -364,6 +474,12 @@ counter_bkt(Key, I, [Other|Bkt0]) ->
     {[Other|Bkt1],Ic};
 counter_bkt(Key, I, []) -> {[?kv(Key,I)],1}.
 
+-doc """
+Calls `Fun` on successive keys and values of dictionary `Dict` together with an
+extra argument `Acc` (short for accumulator). `Fun` must return a new
+accumulator that is passed to the next call. `Acc0` is returned if the
+dictionary is empty. The evaluation order is undefined.
+""".
 -spec fold(Fun, Acc0, Dict) -> Acc1 when
       Fun :: fun((Key, Value, AccIn) -> AccOut),
       Dict :: dict(Key, Value),
@@ -376,6 +492,10 @@ counter_bkt(Key, I, []) -> {[?kv(Key,I)],1}.
 
 fold(F, Acc, D) -> fold_dict(F, Acc, D).
 
+-doc """
+Calls `Fun` on successive keys and values of dictionary `Dict1` to return a new
+value for each key. The evaluation order is undefined.
+""".
 -spec map(Fun, Dict1) -> Dict2 when
       Fun :: fun((Key, Value1) -> Value2),
       Dict1 :: dict(Key, Value1),
@@ -383,6 +503,10 @@ fold(F, Acc, D) -> fold_dict(F, Acc, D).
 
 map(F, D) -> map_dict(F, D).
 
+-doc """
+`Dict2` is a dictionary of all keys and values in `Dict1` for which
+`Pred(Key, Value)` is `true`.
+""".
 -spec filter(Pred, Dict1) -> Dict2 when
       Pred :: fun((Key , Value) -> boolean()),
       Dict1 :: dict(Key, Value),
@@ -390,6 +514,20 @@ map(F, D) -> map_dict(F, D).
 
 filter(F, D) -> filter_dict(F, D).
 
+-doc """
+Merges two dictionaries, `Dict1` and `Dict2`, to create a new dictionary. All
+the `Key`-`Value` pairs from both dictionaries are included in the new
+dictionary. If a key occurs in both dictionaries, `Fun` is called with the key
+and both values to return a new value. `merge` can be defined as follows, but is
+faster:
+
+```erlang
+merge(Fun, D1, D2) ->
+    fold(fun (K, V1, D) ->
+                 update(K, fun (V2) -> Fun(K, V1, V2) end, V1, D)
+         end, D2, D1).
+```
+""".
 -spec merge(Fun, Dict1, Dict2) -> Dict3 when
       Fun :: fun((Key, Value1, Value2) -> Value),
       Dict1 :: dict(Key, Value1),

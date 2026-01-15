@@ -1,0 +1,37 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+    {
+      "ID": "common_test-jquery",
+      "description": "jquery package",
+      "copyrightText": "Copyright OpenJS Foundation and other contributors",
+      "downloadLocation": "https://github.com/jquery/jquery",
+      "homepage": "https://jquery.com",
+      "licenseDeclared": "MIT",
+      "ecosystem": "npm",
+      "name": "jquery",
+      "versionInfo": "3.7.1",
+      "path": ["./lib/common_test/priv/jquery-latest.js"],
+      "supplier": "Organization: The jQuery Team",
+      "purl": "pkg:github/jquery/jquery"
+    },
+    {
+      "ID": "common_test-tablesorter",
+      "description": "tablesorter javascript library",
+      "copyrightText": "Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.",
+      "downloadLocation": "https://github.com/Mottie/tablesorter",
+      "homepage": "https://github.com/Mottie/tablesorter",
+      "licenseDeclared": "BSD-3-Clause OR GPL-2.0-only",
+      "ecosystem": "npm",
+      "name": "tablesorter",
+      "versionInfo": "2.32",
+      "path": ["./lib/common_test/priv/jquery.tablesorter.min.js"],
+      "supplier": "Person: Christian Bach",
+      "purl": "pkg:github/mottie/tablesorter"
+    }
+]

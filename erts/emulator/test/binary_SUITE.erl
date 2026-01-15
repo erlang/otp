@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1566,9 +1568,7 @@ ordering(Config) when is_list(Config) ->
     true = B1 > fun() -> 1 end,
     true = B1 > fun erlang:send/2,
 
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    Port = open_port(AFile, [out]),
+    Port = hd(erlang:ports()),
     true = B1 > Port,
 
     true = B1 >= 0,
@@ -1787,7 +1787,10 @@ gc_test(Config) when is_list(Config) ->
 		gc(),
 		{binary,L1} = process_info(self(), binary),
 		[Binfo1,Binfo2,Binfo3] = L1,
-		{_,192,3} = Binfo1 = Binfo2 = Binfo3,
+		{_,192,Refc} = Binfo1 = Binfo2 = Binfo3,
+                %% This is usually 3 but sharing-preserving can bring this down
+                %% to 2, and in theory even 1.
+                true = Refc =< 3,
 		192 = size(B),
 		68 = size(B1),
 		124 = size(B2),
@@ -1810,11 +1813,14 @@ gc_test1(Pid) ->
 %% Like split binary, but returns REFC binaries. Only useful for gc_test/1.
 
 my_split_binary(B, Pos) ->
-    Self = self(),
-    Ref = make_ref(),
-    spawn(fun() -> Self ! {Ref,split_binary(B, Pos)} end),
+    %% Make sure that all references on the faraway process side are cleaned
+    %% up by receiving the response in a monitor down and waiting "long enough"
+    %% for it to have terminated.
+    {Pid, Mon} = spawn_monitor(fun() -> exit(split_binary(B, Pos)) end),
     receive
-	{Ref,Result} -> Result
+        {'DOWN', Mon, process, Pid, Result} ->
+            timer:sleep(1000),
+            Result
     end.
 
 gc() ->
@@ -1970,7 +1976,7 @@ large(Config) when is_list(Config) ->
     ok.
 
 error_after_yield(Config) when is_list(Config) ->
-    L2BTrap = {erts_internal, list_to_binary_continue, 1},
+    L2BTrap = {erts_internal, list_to_bitstring_continue, 1},
     error_after_yield(badarg, erlang, list_to_binary, 1, fun () -> [[mk_list(1000000), oops]] end, L2BTrap),
     error_after_yield(badarg, erlang, iolist_to_binary, 1, fun () -> [[list2iolist(mk_list(1000000)), oops]] end, L2BTrap),
     error_after_yield(badarg, erlang, list_to_bitstring, 1, fun () -> [[list2bitstrlist(mk_list(1000000)), oops]] end, L2BTrap),
@@ -2201,11 +2207,8 @@ make_sub_binary(Bin) when is_binary(Bin) ->
 make_sub_binary(List) ->
     make_sub_binary(list_to_binary(List)).
 
-make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin;
+make_unaligned_sub_binary(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3);
 make_unaligned_sub_binary(List) ->
     make_unaligned_sub_binary(list_to_binary(List)).
 

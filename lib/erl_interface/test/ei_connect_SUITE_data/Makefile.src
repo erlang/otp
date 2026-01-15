@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2001-2020. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2001-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -27,7 +29,7 @@ LIBEI = @erl_interface_eilib@
 LIBFLAGS = ../all_SUITE_data/ei_runner@obj@ \
 	$(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
 	@erl_interface_threadlib@
-CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
+CFLAGS = @EI_CFLAGS@ $(THR_DEFS) @DEFS@ -I@erl_interface_include@ -I../all_SUITE_data
 EI_CONNECT_OBJS = ei_connect_test@obj@ ei_connect_test_decl@obj@
 EINODE_OBJS = einode@obj@
 
@@ -38,10 +40,10 @@ clean:
 	$(RM) ei_connect_test@exe@ einode@exe@
 
 ei_connect_test@exe@: $(EI_CONNECT_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_CONNECT_OBJS) \
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EI_CONNECT_OBJS) \
 	../all_SUITE_data/my_ussi@obj@ $(LIBFLAGS)
 
 
 einode@exe@: $(EINODE_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EINODE_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EINODE_OBJS) $(LIBFLAGS)
 

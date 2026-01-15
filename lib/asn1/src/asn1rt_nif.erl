@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 %%
 -module(asn1rt_nif).
+-moduledoc false.
 
 %% Nif interface for asn1
 
@@ -64,9 +67,13 @@ load_nif() ->
     Status = case erlang:load_nif(Lib, ?ASN1_NIF_VSN) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
-		     ArchLibDir =
-			 filename:join([PrivDir, "lib",
-					erlang:system_info(system_architecture)]),
+		     Arch = case os:type() of
+                                {win32, _} -> win32;
+                                _ ->
+                                    erlang:system_info(system_architecture)
+                            end,
+                     ArchLibDir =
+                         filename:join([PrivDir, "lib", Arch]),
 		     Candidate =
 			 filelib:wildcard(
                            filename:join([ArchLibDir,LibName ++ "*" ]),

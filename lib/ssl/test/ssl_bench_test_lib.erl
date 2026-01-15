@@ -1,7 +1,9 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +49,6 @@ setup(Name) ->
             PeerOptions =
                 #{name => NameStr,
                   host => Host},
-            ?CT_PAL("PeerOptions: ~p~n", [PeerOptions]),
             {ok, _Pid, Node} =
                 peer:start(
                   case Remote of
@@ -61,7 +62,6 @@ setup(Name) ->
             Path = code:get_path(),
             true = erpc:call(Node, code, set_path, [Path]),
             ok = erpc:call(Node, ?MODULE, setup_server, [node()]),
-            ?CT_PAL("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
             (Node =:= node()) andalso restrict_schedulers(client),
             Node
     end.
@@ -74,7 +74,6 @@ find_executable(Prog) ->
 
 setup_server(ClientNode) ->
     (ClientNode =:= node()) andalso restrict_schedulers(server),
-    ?CT_PAL("Server (~p) using ~ts~n",[node(), code:which(ssl)]),
     ok.
 
 restrict_schedulers(Type) ->

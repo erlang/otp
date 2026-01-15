@@ -20,8 +20,10 @@ class CodeHolder;
 //! \addtogroup asmjit_virtual_memory
 //! \{
 
-//! JIT execution runtime is a special `Target` that is designed to store and
-//! execute the generated code.
+//! JIT execution runtime is a special `Target` that is designed to store and execute a generated code.
+//!
+//! JIT runtime is the easiest way of using AsmJit as it abstracts allocation and deallocation of virtual memory
+//! where executable code can be placed and from which it can be executed as well.
 class ASMJIT_VIRTAPI JitRuntime : public Target {
 public:
   ASMJIT_NONCOPYABLE(JitRuntime)
@@ -35,9 +37,19 @@ public:
   //! Creates a `JitRuntime` instance.
   ASMJIT_API explicit JitRuntime(const JitAllocator::CreateParams* params = nullptr) noexcept;
   //! Destroys the `JitRuntime` instance.
-  ASMJIT_API virtual ~JitRuntime() noexcept;
+  ASMJIT_API ~JitRuntime() noexcept override;
 
-  inline void reset(ResetPolicy resetPolicy = ResetPolicy::kSoft) noexcept {
+  //! \}
+
+  //! \name Accessors
+  //! \{
+
+  //! Resets the \ref JitRuntime, freeing everything that was allocated by it.
+  //!
+  //! Depending on `resetPolicy` the currently held memory can be either freed entirely when ResetPolicy::kHard is used,
+  //! or the allocator can keep some of it for next allocations when ResetPolicy::kSoft is used, which is the default
+  //! behavior.
+  ASMJIT_INLINE_NODEBUG void reset(ResetPolicy resetPolicy = ResetPolicy::kSoft) noexcept {
     _allocator.reset(resetPolicy);
   }
 
@@ -47,7 +59,7 @@ public:
   //! \{
 
   //! Returns the associated `JitAllocator`.
-  inline JitAllocator* allocator() const noexcept { return const_cast<JitAllocator*>(&_allocator); }
+  ASMJIT_INLINE_NODEBUG JitAllocator* allocator() const noexcept { return const_cast<JitAllocator*>(&_allocator); }
 
   //! \}
 
@@ -62,13 +74,13 @@ public:
   //! The beginning of the memory allocated for the function is returned in `dst`. If failed `Error` code is returned
   //! and `dst` is explicitly set to `nullptr`  (this means that you don't have to set it to null before calling `add()`).
   template<typename Func>
-  inline Error add(Func* dst, CodeHolder* code) noexcept {
+  ASMJIT_INLINE_NODEBUG Error add(Func* dst, CodeHolder* code) noexcept {
     return _add(Support::ptr_cast_impl<void**, Func*>(dst), code);
   }
 
   //! Releases `p` which was obtained by calling `add()`.
   template<typename Func>
-  inline Error release(Func p) noexcept {
+  ASMJIT_INLINE_NODEBUG Error release(Func p) noexcept {
     return _release(Support::ptr_cast_impl<void*, Func>(p));
   }
 

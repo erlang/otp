@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +44,8 @@
 %% Seconds before successful auths timeout.
 -define(AUTH_TIMEOUT,5).
 -define(URL_START, "http://").
-
+-define(URL_START_HTTPS, "https://").
+-define(SSL_NO_VERIFY, {ssl, [{verify, verify_none}]}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -133,13 +136,14 @@ groups() ->
      {security, [], [security_1_1, security_1_0]},
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
-     {http_1_1, [], [esi_propagate, esi_atom_leak, {group, http_1_1_parallel}] ++ load()},
+     {http_1_1, [], [esi_propagate, esi_atom_leak, {group, http_1_1_parallel},
+                     cgi_bin_env] ++ load()},
      {http_1_1_parallel, [parallel],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
        esi_put, esi_patch, esi_post, esi_headers]
       ++ http_head() ++ http_get()},
-     {http_1_0, [], [{group, http_1_0_parallel} | load()]},
+     {http_1_0, [], [cgi_bin_env, {group, http_1_0_parallel} | load()]},
      {http_1_0_parallel, [parallel], [host, cgi, trace] ++ http_head() ++ http_get()},
      {http_rel_path_script_alias, [], [cgi]},
      {esi, [], [erl_script_timeout_default,
@@ -228,8 +232,8 @@ init_per_group(Group, Config0) when Group == https_basic;
                                     Group == https_not_sup;
                                     Group == https_alert
 				    ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             init_ssl(Group,  [{http_version, "HTTP/1.0"} | Config0])
     catch
@@ -592,7 +596,7 @@ verify_href(Config) when is_list(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host = proplists:get_value(host, Config),
     Go = fun(Path, User, Password, Opts) ->
-                 ct:pal("Navigating to ~p", [Path]),
+                 ct:log("Navigating to ~p", [Path]),
                  auth_status(auth_request(Path, User, Password, Version, Host),
                              Config, Opts)
          end,
@@ -1291,6 +1295,51 @@ alias(Config) when is_list(Config) ->
     [Test301(T) || T <- TestURIs301],
     ok.
 
+cgi_bin_env() ->
+[{doc, "Test whether HTTP_PROXY header is not applied to an environment
+that runs the cgi script"}].
+cgi_bin_env(Config) ->
+    Proto = case proplists:get_value(type, Config, undefined) =:= ssl of
+                true -> https;
+                _ -> http
+            end,
+    Cgi = case os:type() of
+        {win32, _} ->
+            "printenv.bat";
+        _ ->
+            "printenv.sh"
+    end,
+    HttpOpts = case Proto of
+                   https -> [?SSL_NO_VERIFY];
+                   _ -> []
+               end,
+    RandomString = base64:encode(crypto:strong_rand_bytes(9)),
+    Endpoint = "/cgi-bin/" ++ Cgi,
+    Env = os:env(),
+    %% Grab the value of HTTP_PROXY from the environment before the request
+    HttpProxyEnv = proplists:get_value("HTTP_PROXY", Env, undefined),
+    Url = url(Proto, Endpoint, Config),
+    {ok, {_Status, _Headers, Body}} = httpc:request(get, {Url, [{"PROXY", RandomString},
+                                                                {"proxy", RandomString}]},
+                                                    HttpOpts, []),
+    %% The script prints the system's environment to the body so we need to
+    %% grab the value of interest
+    HttpEnv = re:split(Body, "\n"),
+    BinSize = size(<<"HTTP_PROXY">>) * 8,
+    %% Filter keys of interest, while converting to proplist
+    EnvProp = [{binary_to_list(Key), binary_to_list(Val)} ||
+                  <<Key:BinSize/bitstring, "=", Val/bitstring>> <- HttpEnv,
+                  Key =:= <<"HTTP_PROXY">>],
+    %% EnvProp should only have HTTP_PROXY or be an empty list
+    RespHttpProxyEnv = proplists:get_value("HTTP_PROXY", EnvProp, undefined),
+    case HttpProxyEnv of
+        undefined ->
+            %% HTTP_PROXY was not set before the request
+            ?assertEqual([], EnvProp);
+        _ ->
+            %% HTTP_PROXY was set, so ensure it's the same in the body
+            ?assertEqual(HttpProxyEnv, RespHttpProxyEnv)
+    end.
 %%-------------------------------------------------------------------------
 actions() ->
     [{doc, "Test mod_actions"}].
@@ -1752,7 +1801,7 @@ non_disturbing(Config) when is_list(Config)->
     Transport = type(Type),
     receive 
 	{Transport, Socket, Msg} ->
-	    ct:pal("Received message ~p~n", [Msg]),
+	    ct:log("Received message ~p~n", [Msg]),
 	    ok
     after 2000 ->
 	  ct:fail(timeout)  
@@ -1983,10 +2032,15 @@ tls_alert(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
+url(https, End, Config) ->
+    ?URL_START_HTTPS ++ url(End, Config);
 url(http, End, Config) ->
+    ?URL_START ++ url(End, Config).
+
+url(End, Config) ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
-    ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
+    Host ++ ":" ++ integer_to_list(Port) ++ End.
 
 http_get_url(Port0, HeaderDelay, ChunkDelay, BadChunkDelay) ->
     {ok, Host} = inet:gethostname(),
@@ -2184,7 +2238,7 @@ server_config(http_limit, Config) ->
             {disable_chunked_transfer_encoding_send, true},
 	    %% Make sure option checking code is run
 	    {max_content_length, 100000002}]  ++ server_config(http, Config),
-    ct:pal("Received message ~p~n", [Conf]),
+    ct:log("Received message ~p~n", [Conf]),
     Conf;
 server_config(http_custom, Config) ->
     [{customize, ?MODULE}]  ++ server_config(http, Config);

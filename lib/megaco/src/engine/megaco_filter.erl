@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +27,7 @@
 %%
 
 -module(megaco_filter).
+-moduledoc false.
 
 -export([start/0, start/1, filter/1, raw_filter/1,
 	 pretty_error/1, string_to_term/1]).

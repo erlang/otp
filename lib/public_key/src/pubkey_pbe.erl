@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,13 +22,23 @@
 %% Description: Implements Password Based Encryption PKCS-5, RFC-2898
 
 -module(pubkey_pbe).
+-moduledoc false.
 
--include("public_key.hrl").
+-compile(nowarn_obsolete_bool_op).
+
+-include("PKCS-FRAME.hrl").
+-include("PKCS-1.hrl").
+-include("CMSAesRsaesOaep-2009.hrl").
 
 -export([encode/4, decode/4, decrypt_parameters/1, encrypt_parameters/1]). 
 -export([pbdkdf1/4, pbdkdf2/7]).
 
 -define(ASN1_OCTET_STR_TAG, 4).
+
+-record('EncryptedPrivateKeyInfo_encryptionAlgorithm',
+        {algorithm,
+         parameters
+        }).
 
 %%====================================================================
 %% Internal application API
@@ -105,18 +117,17 @@ pbdkdf2(Password, Salt, Count, DerivedKeyLen, Prf, PrfHash, PrfOutputLen)->
     blocks(NumBlocks, NumLastBlockOctets, 1, Password, Salt, 
 	   Count, Prf, PrfHash, PrfOutputLen, <<>>).
 %%--------------------------------------------------------------------
--spec decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}) -> 
-				{Cipher::string(), #'PBES2-params'{}}.
-%%
+-spec decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}) ->
+          {Cipher::string(), #'PBES2-params'{}}.
+
 %% Description: Performs ANS1-decoding of encryption parameters.
 %%--------------------------------------------------------------------
 decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
 		      algorithm = Oid, parameters = Param}) ->
-     decrypt_parameters(Oid, decode_handle_open_type_wrapper(Param)).
-    
+    decrypt_parameters(Oid, decode_handle_open_type_wrapper(Param)).
 %%--------------------------------------------------------------------
 -spec encrypt_parameters({Cipher::string(), Params::term()}) -> 
-			#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}.
+          #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}.
 %%
 %% Description: Performs ANS1-decoding of encryption parameters.
 %%--------------------------------------------------------------------
@@ -159,8 +170,8 @@ do_pbdkdf1(Prev, Count, Acc, Hash) ->
 
 iv(#'PBES2-params_encryptionScheme'{algorithm = ?'rc2CBC',
 				    parameters =  ASN1IV}) ->
-    {ok, #'RC2-CBC-Parameter'{iv = IV}} 
-	= 'PKCS-FRAME':decode('RC2-CBC-Parameter', decode_handle_open_type_wrapper(ASN1IV)),
+    #'RC2-CBC-Parameter'{iv = IV}
+	= public_key:der_decode('RC2-CBC-Parameter', decode_handle_open_type_wrapper(ASN1IV)),
     iolist_to_binary(IV);
 iv(#'PBES2-params_encryptionScheme'{algorithm = _Algo,
 				    parameters = ASN1IV}) ->
@@ -186,29 +197,29 @@ do_xor_sum(Prf, PrfHash, PrfLen, Prev, Password, Count, Acc)->
     do_xor_sum(Prf, PrfHash, PrfLen, Result, Password, Count-1, crypto:exor(Acc, Result)).
 
 decrypt_parameters(?'id-PBES2', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBES2-params', DekParams),
+    Params = public_key:der_decode('PBES2-params', DekParams),
     {cipher(Params#'PBES2-params'.encryptionScheme), Params};
 decrypt_parameters(?'pbeWithSHA1AndRC2-CBC', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    Params = public_key:der_decode('PBEParameter', DekParams),
     {"RC2-CBC", {Params, sha}};
 decrypt_parameters(?'pbeWithSHA1AndDES-CBC', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    Params = public_key:der_decode('PBEParameter', DekParams),
     {"DES-CBC", {Params, sha}};
 decrypt_parameters(?'pbeWithMD5AndRC2-CBC', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    Params = public_key:der_decode('PBEParameter', DekParams),
     {"RC2-CBC", {Params, md5}};
 decrypt_parameters(?'pbeWithMD5AndDES-CBC', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    Params = public_key:der_decode('PBEParameter', DekParams),
     {"DES-CBC", {Params, md5}}.
 
 encrypt_parameters(_Cipher, #'PBES2-params'{} = Params) ->
-    {ok, Der} ='PKCS-FRAME':encode('PBES2-params', Params),
+    Der = public_key:der_encode('PBES2-params', Params),
     #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
        algorithm = ?'id-PBES2', 
        parameters = encode_handle_open_type_wrapper(Der)};
 
 encrypt_parameters(Cipher, {#'PBEParameter'{} = Params, Hash}) ->
-    {ok, Der} ='PKCS-FRAME':encode('PBEParameter', Params),
+    Der = public_key:der_encode('PBEParameter', Params),
     #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
        algorithm = pbe1_oid(Cipher, Hash), 
        parameters = encode_handle_open_type_wrapper(Der)}.

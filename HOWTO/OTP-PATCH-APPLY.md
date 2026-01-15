@@ -1,3 +1,26 @@
+<!--
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 Patching OTP Applications
 =========================
 
@@ -39,14 +62,18 @@ application, the following must exist:
 Using otp\_patch\_apply
 -----------------------
 
-> *WARNING*: Patching applications is a one-way process.
+> #### Warning {: .warning }
+>
+> Patching applications is a one-way process.
 > Create a backup of your OTP installation directory before
 > proceeding.
 
 First of all, build the OTP source tree at `$ERL_TOP` containing
 the updated applications.
 
-> *NOTE*: Before applying a patch you need to do a *full* build
+> #### Note {: .info }
+>
+> Before applying a patch you need to do a *full* build
 > of OTP in the source directory.
 
 Configure and build all applications in OTP:
@@ -96,10 +123,14 @@ The `otp_patch_apply` syntax:
 	               containing build results of OTP applications.
 	               Multiple paths should be colon separated.
 
-> *NOTE*: The complete build environment is required while running
+> #### Note {: .info }
+>
+> The complete build environment is required while running
 > `otp_patch_apply`.
 
-> *NOTE*: All source directories identified by `-s` and `-l` should
+> #### Note {: .info }
+>
+> All source directories identified by `-s` and `-l` should
 > contain build results of OTP applications.
 
 For example, if the user wants to install patched versions of `mnesia`
@@ -109,7 +140,9 @@ located in `/opt/erlang/my_otp` type
 	$ otp_patch_apply -s /home/me/git/otp -i /opt/erlang/my_otp \
 	  mnesia ssl
 
-> *NOTE*: If the list of applications contains core applications,
+> #### Note {: .info }
+>
+> If the list of applications contains core applications,
 > i.e `erts`, `kernel`, `stdlib` or `sasl`, the `Install` script in
 > the patched Erlang/OTP installation must be rerun.
 
@@ -126,14 +159,16 @@ Application dependencies are verified among installed applications by
 By calling `system_information:sanity_check()` one can validate
 dependencies among applications actually loaded.
 
-	1> system_information:sanity_check().
-        ok
+```
+1> system_information:sanity_check().
+ok
+```
 
 Please take a look at the reference of [sanity_check()][] for more
 information.
 
-[application resource file]: seefile/kernel:app
-[runtime_dependencies]: seefile/kernel:app#runtime_dependencies
+[application resource file]: `e:kernel:app.md`
+[runtime_dependencies]: `e:kernel:app.md#runtime_dependencies`
 [building and installing Erlang/OTP]: INSTALL.md
-[version handling]: system/system_principles:versions
-[sanity_check()]: seemfa/runtime_tools:system_information#sanity_check/0
+[version handling]: `e:system:versions.md`
+[sanity_check()]: `system_information:sanity_check/0`

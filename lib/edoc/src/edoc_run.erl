@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2003 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +28,8 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2003 Richard Carlsson
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @end
@@ -44,6 +54,8 @@
 %% functions.
 
 -module(edoc_run).
+
+-compile(nowarn_deprecated_catch).
 
 -export([file/1, application/1, files/1, toc/1]).
 
@@ -98,6 +110,7 @@ files(Args) ->
     run(F).
 
 %% @hidden Not official yet
+-doc false.
 -spec toc(args()) -> no_return().
 toc(Args) ->
     F = fun () ->

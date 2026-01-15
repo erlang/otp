@@ -1,10 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec binary_part(Subject, PosLen) -> binary()[0m
-  [;1m                     when[0m
-  [;1m                         Subject :: binary(),[0m
-  [;1m                         PosLen ::[0m
-  [;1m                             {Start :: non_neg_integer(),[0m
-  [;1m                              Length :: integer()}.[0m
+[;1m  binary_part(Subject, PosLen)[0m
 
 [;;4mSince[0m:
   OTP R14B
@@ -12,7 +14,9 @@
   Extracts the part of the binary described by [;;4mPosLen[0m.
 
   Negative length can be used to extract bytes at the end of a
-  binary, for example:
+  binary.
+
+  For example:
 
     1> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
     2> binary_part(Bin,{byte_size(Bin), -5}).
@@ -27,6 +31,4 @@
     2> binary_part(Bin,{0,2}).
     <<1,2>>
 
-  For details about the [;;4mPosLen[0m semantics, see [;;4mbinary(3)[0m.
-
-  Allowed in guard tests.
+  For details about the [;;4mPosLen[0m semantics, see [;;4mbinary[0m.

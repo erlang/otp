@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +31,9 @@
 	 pattern_expr/1,
          guard_3/1, guard_4/1,
          lc/1,
+         zlc/1,
+         zbc/1,
+         zmc/1,
          simple_cases/1,
          unary_plus/1,
          apply_atom/1,
@@ -64,7 +69,8 @@ suite() ->
 
 all() -> 
     [guard_1, guard_2, match_pattern, string_plusplus,
-     pattern_expr, match_bin, guard_3, guard_4, lc,
+     pattern_expr, match_bin, guard_3, guard_4,
+     lc, zlc, zbc, zmc,
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, funs, try_catch, eval_expr_5, eep37].
@@ -236,6 +242,160 @@ lc(Config) when is_list(Config) ->
 	  [2,3,4]),
     check(fun() -> [X || X <- [true,false], X] end,
 	  "[X || X <- [true,false], X].", [true]),
+    ok.
+
+zlc(Config) when is_list(Config) ->
+    check(fun() ->
+                  X = 32, Y = 32, [{X, Y} || X <- [1,2,3] && Y <- [4,5,6]]
+          end,
+          "begin X = 32, Y = 32, [{X, Y} || X <- [1,2,3] && Y <- [4,5,6]] end.",
+          [{1,4},{2,5},{3,6}]),
+    check(fun() ->
+                  S1 = [x, y, z], S2 = [5, 10, 15], X = 32, Y = 32,
+                  [{X, Y} || X <- S1 && Y <- S2]
+          end,
+          "begin
+        S1 = [x, y, z], S2 = [5, 10, 15], X = 32, Y = 32,
+          [{X, Y} || X <- S1 && Y <- S2]
+          end.",
+    [{x,5}, {y,10}, {z,15}]),
+    check(fun() ->
+                  [{X, Y, K} || X <- [1,2,3] &&  Y:=K <- #{1=>a, 2=>b, 3=>c}]
+          end,
+          "begin [{X, Y, K} || X <- [1,2,3] &&  Y:=K <- #{1=>a, 2=>b, 3=>c}] end.",
+          [{1,1,a},{2,2,b},{3,3,c}]),
+    check(fun() ->
+                [{X, W+Y} || X <- [a, b, c] && <<Y>> <= <<2, 4, 6>>, W <- [1,2]]
+        end,
+        "begin [{X, W+Y} || X <- [a, b, c] && <<Y>> <= <<2, 4, 6>>, W <- [1,2]] end.",
+        [{a,3}, {a,4}, {b,5}, {b,6}, {c,7}, {c,8}]),
+    check(fun() ->
+            [{X, W+Y} || W <- [0], X <- [a, b, c] && <<Y>> <= <<2, 4, 6>>, Y<4]
+    end,
+    "begin [{X, W+Y} || W <- [0], X <- [a, b, c] && <<Y>> <= <<2, 4, 6>>, Y<4] end.",
+    [{a,2}]),
+    check(fun() ->
+            [{X,Y}|| a=b=X <- [1,2] && Y <-[1,2]] end,
+        "begin [{X,Y}|| a=b=X <- [1,2] && Y <-[1,2]] end.",
+        []),
+    check(fun() ->
+        [{A,B,W} || {Same,W} <- [{a,1}],
+            {Same,A} <- [{a,1},{b,9},{x,10}] && {Same,B} <- [{a,7},{wrong,8},{x,20}]]
+        end,
+        "begin [{A,B,W} || {Same,W} <- [{a,1}],
+            {Same,A} <- [{a,1},{b,9},{x,10}] && {Same,B} <- [{a,7},{wrong,8},{x,20}]]
+        end.",
+        [{1,7,1},{10,20,1}]),
+    error_check("[X || X <- a && Y <- [1]].",{bad_generators,{a,[1]}}),
+    error_check("[{X,Y} || X <- a && <<Y>> <= <<1,2>>].",{bad_generators,{a,<<1,2>>}}),
+    error_check("[{X,V} || X <- a && _K := V <- #{b=>3}].",{bad_generators,{a,#{b=>3}}}),
+    error_check("begin
+        X = 32, Y = 32, [{X, Y} || X <- [1,2,3] && Y <- [4]] end.",
+    {bad_generators,{[2,3],[]}}),
+    error_check("begin
+        X = 32, Y = 32, [{X, Y} || X <- [1,2,3] && Y:=_V <- #{1=>1}] end.",
+    {bad_generators,{[2,3],#{}}}),
+    ok.
+
+zbc(Config) when is_list(Config) ->
+    check(fun() ->
+                  <<3, 4, 5>>
+          end,
+          "begin
+        X = 32, Y = 32,
+          << <<(X+Y)/integer>> || <<X>> <= <<1,2,3>> && <<Y>> <= <<2,2,2>> >>
+              end.",
+        <<3, 4, 5>>),
+    check(fun() ->
+                  <<4,5,6,5,6,7,6,7,8>>
+          end,
+          "begin
+        X = 32, Y = 32, Z = 32,
+          << <<(X+Y+Z)/integer>> || <<X>> <= <<1,2,3>> && <<Y>> <= <<2,2,2>>, Z<-[1,2,3] >>
+              end.",
+        <<4,5,6,5,6,7,6,7,8>>),
+    check(fun() ->
+                  <<4, 5, 6>>
+          end,
+          "begin
+        L1 = <<1, 2, 3>>, L2 = <<1, 1, 1>>, L3 = <<2, 2, 2>>,
+          << <<(X+Y+Z)/integer>> || <<X>> <= L1 && <<Y>> <= L2 && <<Z>> <= L3 >>
+              end.",
+    <<4, 5, 6>>),
+    check(fun() ->
+         << <<(X+Y):64>>|| a=b=X <- [1,2] && Y <- [1,2] >> end,
+        "begin << <<(X+Y):64>>|| a=b=X <- [1,2] && Y <- [1,2] >> end.",
+        <<>>),
+    check(fun() ->
+         << <<(X+Y):64>>|| a=b=X <- [1,2] && <<Y>> <= <<1,2>> >> end,
+        "begin << <<(X+Y):64>>|| a=b=X <- [1,2] && <<Y>> <= <<1,2>> >> end.",
+        <<>>),
+    check(fun() ->
+         << <<(X+V):64>>|| a=b=X <- [1,2] && _K:=V <- #{a=>1,b=>2}>> end,
+        "begin << <<(X+V):64>>|| a=b=X <- [1,2] && _K:=V <- #{a=>1,b=>2}>> end.",
+        <<>>),
+    error_check("begin << <<(X+Y):8>> || <<X:b>> <= <<1,2>> && <<Y>> <= <<1,2>> >> end.",
+        {bad_generators,{<<>>,<<1,2>>}}),
+    error_check("begin << <<X>> || <<X>> <= a && Y <- [1]>> end.",{bad_generators,{a,[1]}}),
+    error_check("begin
+        X = 32, Y = 32,
+                << <<(X+Y)/integer>> || X <- [1,2] && Y <- [1,2,3,4]>>
+                    end.",
+    {bad_generators,{[],[3,4]}}),
+    error_check("begin << <<X:8>> || X <- [1] && Y <- a && <<Z>> <= <<2>> >> end.",
+        {bad_generators,{[1], a, <<2>>}}),
+    ok.
+
+zmc(Config) when is_list(Config) ->
+    check(fun() ->
+                  [{a,b,1,3}]
+          end,
+          "begin
+        M1 = #{a=>1}, M2 = #{b=>3},
+          [{K1, K2, V1, V2} || K1 := V1 <- M1 && K2 := V2 <- M2]
+          end.",
+    [{a,b,1,3}]),
+    check(fun() ->
+                  [A * 4 || A <- lists:seq(1, 50)]
+          end,
+          "begin
+        Seq = lists:seq(1, 50),
+          M1 = maps:iterator(#{X=>X || X <- Seq}, ordered),
+          M2 = maps:iterator(#{X=>X || X <- lists:seq(1,50)}, ordered),
+          [X+Y+Z+W || X := Y <- M1 && Z := W <- M2]
+          end.",
+    [A * 4 || A <- lists:seq(1, 50)]),
+    check(fun() ->
+                  [{A, A*3, A*2, A*4} || A <- lists:seq(1, 50)]
+          end,
+          "begin
+        Seq = lists:seq(1, 50),
+          M3 = maps:iterator(#{X=>X*3 || X <- Seq}, ordered),
+          M4 = maps:iterator(#{X*2=>X*4 || X <- Seq}, ordered),
+          [{X, Y, Z, W} || X := Y <- M3 && Z := W <- M4]
+          end.",
+    [{A, A*3, A*2, A*4} || A <- lists:seq(1, 50)]),
+    check(fun() ->
+                  #{K1 => V1+V2 || K1:=V1 <- #{a=>1} && _K2:=V2 <- #{b=>3}}
+          end,
+          "begin
+        #{K1 => V1+V2 || K1:=V1 <- #{a=>1} && _K2:=V2 <- #{b=>3}}
+          end.",
+    #{a=>4}),
+    check(fun() ->
+                  #{K=>V || a := b <- #{x => y} && K := V <- #{x => y}}
+          end,
+          "begin
+        #{K=>V || a := b <- #{x => y} && K := V <- #{x => y}}
+          end.",
+    #{}),
+    error_check("begin
+        #{K1 => V1+V2 || K1:=V1 <- #{a=>1} &&
+                             _K2:=V2 <- maps:iterator(#{b=>3,c=>4}, ordered)}
+                end.",
+    {bad_generators,{#{},#{c=>4}}}),
+    error_check("begin #{X=>Y || X <- [1] && Y <- a && K1:=V1 <- #{b=>3}} end.",
+        {bad_generators,{[1], a, #{b=>3}}}),
     ok.
 
 %% Simple cases, just to cover some code.
@@ -948,7 +1108,6 @@ funs(Config) when is_list(Config) ->
     error_check("apply(timer, sleep, [1]).", got_it, none, EFH),
     error_check("begin F = fun(T) -> timer:sleep(T) end,F(1) end.",
                       got_it, none, EFH),
-    error_check("fun c/1.", undef),
     error_check("fun a:b/0().", undef),
 
     MaxArgs = 20,

@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2002-2023. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -434,7 +436,7 @@ static int system_properties_fd(void)
 #endif /* __ANDROID__ */
 
 /*
-  If beam is terminated using kill -9 or Ctrl-C when +B is set it may not
+  If beam is terminated using kill -9 or Ctrl+C when +B is set it may not
   cleanup the terminal properly. So to clean it up we save the initial state in
   erl_child_setup and then reset the terminal if we detect that beam terminated.
 
@@ -528,7 +530,7 @@ main(int argc, char *argv[])
 
     SET_CLOEXEC(uds_fd);
 
-    if (isatty(0)) {
+    if (isatty(0) && isatty(1)) {
         ssize_t res = read_all(uds_fd, (char*)&initial_tty_mode, sizeof(struct termios));
         if (res <= 0) {
             ABORT("Failed to read initial_tty_mode: %d (%d)", res, errno);
@@ -560,7 +562,7 @@ main(int argc, char *argv[])
                                     pipes, 3, MSG_DONTWAIT)) < 0) {
                 if (errno == EINTR)
                     continue;
-                if (isatty(0)) {
+                if (isatty(0) && isatty(1)) {
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
@@ -569,7 +571,7 @@ main(int argc, char *argv[])
 
             if (res == 0) {
                 DEBUG_PRINT("uds was closed!");
-                if (isatty(0)) {
+                if (isatty(0) && isatty(1)) {
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
                 _exit(0);

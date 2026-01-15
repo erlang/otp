@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -241,6 +243,7 @@ static int parse_atom_chunk(BeamFile *beam,
     BeamReader reader;
     Sint32 count;
     int i;
+    bool long_counts = false;
 
     ASSERT(beam->atoms.entries == NULL);
     atoms = &beam->atoms;
@@ -248,6 +251,10 @@ static int parse_atom_chunk(BeamFile *beam,
     beamreader_init(chunk->data, chunk->size, &reader);
 
     LoadAssert(beamreader_read_i32(&reader, &count));
+    if (count < 0) {
+        long_counts = true;
+        count = -count;
+    }
     LoadAssert(CHECK_ITEM_COUNT(count, 1, sizeof(atoms->entries[0])));
 
     /* Reserve a slot for the empty list, which is encoded as atom 0 as we
@@ -264,12 +271,21 @@ static int parse_atom_chunk(BeamFile *beam,
 
     for (i = 1; i < count; i++) {
         const byte *string;
-        byte length;
         Eterm atom;
+        Uint length;
 
-        LoadAssert(beamreader_read_u8(&reader, &length));
+        if (long_counts) {
+            TaggedNumber len;
+            LoadAssert(beamreader_read_tagged(&reader, &len));
+            LoadAssert(len.size == 0);
+            length = (Uint) len.word_value;
+        } else {
+            byte len;
+            LoadAssert(beamreader_read_u8(&reader, &len));
+            length = len;
+        }
+
         LoadAssert(beamreader_read_bytes(&reader, length, &string));
-
         atom = erts_atom_put(string, length, ERTS_ATOM_ENC_UTF8, 1);
         LoadAssert(atom != THE_NON_VALUE);
 
@@ -453,8 +469,8 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
      * have to special-case it anywhere else. */
     name_count++;
 
-    /* Flags are unused at the moment. */
-    (void)flags;
+    /* Save flags. */
+    lines->flags = flags;
 
     /* Reserve space for the "undefined location" entry. */
     item_count++;
@@ -522,7 +538,7 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         Eterm name, suffix;
         Eterm *hp;
 
-        suffix = erts_get_global_literal(ERTS_LIT_ERL_FILE_SUFFIX);
+        suffix = ERTS_GLOBAL_LIT_ERL_FILE_SUFFIX;
 
         hp = name_heap;
         name = erts_atom_to_string(&hp, beam->module, suffix);
@@ -601,39 +617,7 @@ static void init_fallback_type_table(BeamFile *beam) {
     types->entries[0].max = MIN_SMALL - 1;
 }
 
-static int parse_type_chunk_otp_25(BeamFile *beam, BeamReader *p_reader) {
-    BeamFile_TypeTable *types;
-
-    Sint32 count;
-    int i;
-
-    types = &beam->types;
-    ASSERT(types->entries == NULL);
-
-    LoadAssert(beamreader_read_i32(p_reader, &count));
-    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(types->entries[0])));
-    LoadAssert(count >= 1);
-
-    types->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                                count * sizeof(types->entries[0]));
-    types->count = count;
-    types->fallback = 0;
-
-    for (i = 0; i < count; i++) {
-        const byte *type_data;
-
-        LoadAssert(beamreader_read_bytes(p_reader, 18, &type_data));
-        LoadAssert(beam_types_decode_otp_25(type_data, 18, &types->entries[i]));
-    }
-
-    /* The first entry MUST be the "any type." */
-    LoadAssert(types->entries[0].type_union == BEAM_TYPE_ANY);
-    LoadAssert(types->entries[0].min > types->entries[0].max);
-
-    return 1;
-}
-
-static int parse_type_chunk_otp_26(BeamFile *beam, BeamReader *p_reader) {
+static int parse_type_chunk_data(BeamFile *beam, BeamReader *p_reader) {
     BeamFile_TypeTable *types;
 
     Sint32 count;
@@ -656,10 +640,10 @@ static int parse_type_chunk_otp_26(BeamFile *beam, BeamReader *p_reader) {
         int extra;
 
         LoadAssert(beamreader_read_bytes(p_reader, 2, &type_data));
-        extra = beam_types_decode_type_otp_26(type_data, &types->entries[i]);
+        extra = beam_types_decode_type(type_data, &types->entries[i]);
         LoadAssert(extra >= 0);
         LoadAssert(beamreader_read_bytes(p_reader, extra, &type_data));
-        beam_types_decode_extra_otp_26(type_data, &types->entries[i]);
+        beam_types_decode_extra(type_data, &types->entries[i]);
     }
 
     /* The first entry MUST be the "any type." */
@@ -676,14 +660,216 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     beamreader_init(chunk->data, chunk->size, &reader);
 
     LoadAssert(beamreader_read_i32(&reader, &version));
-    switch (version) {
-    case 1:                     /* OTP 25 */
-        return parse_type_chunk_otp_25(beam, &reader);
-    case BEAM_TYPES_VERSION:    /* OTP 26 */
-        return parse_type_chunk_otp_26(beam, &reader);
-    default:
+
+    if (version == BEAM_TYPES_VERSION) {
+        return parse_type_chunk_data(beam, &reader);
+    } else {
         /* Incompatible type format. */
         init_fallback_type_table(beam);
+        return 1;
+    }
+}
+
+static int parse_debug_chunk_data(BeamFile *beam, BeamReader *p_reader) {
+    Sint32 count;
+    Sint32 total_num_vars;
+    int i;
+    BeamOpAllocator op_allocator;
+    BeamCodeReader *op_reader;
+    BeamOp* op = NULL;
+    BeamFile_DebugTable *debug = &beam->debug;
+    Eterm *tp;
+    byte *lp;
+
+    LoadAssert(beamreader_read_i32(p_reader, &count));
+    LoadAssert(beamreader_read_i32(p_reader, &total_num_vars));
+
+    beamopallocator_init(&op_allocator);
+
+    op_reader = erts_alloc(ERTS_ALC_T_PREPARED_CODE, sizeof(BeamCodeReader));
+
+    op_reader->allocator = &op_allocator;
+    op_reader->file = beam;
+    op_reader->pending = NULL;
+    op_reader->first = 1;
+    op_reader->reader = *p_reader;
+
+    if (count < 0 || total_num_vars < 0) {
+        goto error;
+    }
+
+    debug->item_count = count;
+    debug->term_count = 2 * total_num_vars;
+    debug->items = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                              count * sizeof(BeamFile_DebugItem));
+    debug->terms = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                              2 * total_num_vars * sizeof(Eterm));
+    debug->is_literal = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                   2 * total_num_vars * sizeof(Eterm));
+
+    tp = debug->terms;
+    lp = debug->is_literal;
+
+    for (i = 0; i < count; i++) {
+        BeamOpArg *arg;
+        int extra_args;
+        Sint32 num_vars;
+
+        if (!beamcodereader_next(op_reader, &op)) {
+            goto error;
+        }
+        if (op->op != genop_call_2) {
+            goto error;
+        }
+
+        debug->items[i].location_index = -1;
+
+        arg = op->a;
+
+        /* Process frame size. */
+        switch (arg->type) {
+        case TAG_n:
+            debug->items[i].frame_size = BEAMFILE_FRAMESIZE_NONE;
+            break;
+        case TAG_a:
+            if (arg->val != am_entry) {
+                goto error;
+            } else {
+                debug->items[i].frame_size = BEAMFILE_FRAMESIZE_ENTRY;
+            }
+            break;
+        case TAG_u:
+            if (arg->val > ERTS_SINT32_MAX) {
+                goto error;
+            }
+            debug->items[i].frame_size = arg->val;
+            break;
+        default:
+            goto error;
+        }
+
+        arg++;
+
+        /* Get and check the number of extra arguments. */
+        if (arg->type != TAG_u) {
+            goto error;
+        }
+        extra_args = arg->val;
+
+        arg++;
+
+        if (extra_args % 2 != 0) {
+            goto error;
+        }
+
+        /* Process the list of variable mappings. */
+
+        num_vars = extra_args / 2;
+        if (num_vars > total_num_vars) {
+            goto error;
+        }
+        total_num_vars -= num_vars;
+
+        debug->items[i].num_vars = num_vars;
+        debug->items[i].first = tp;
+
+        while (extra_args > 0) {
+            Eterm var_name;
+
+            switch (arg[0].type) {
+            case TAG_i:
+                *tp++ = make_small(arg[0].val);
+                *lp++ = 0;
+                break;
+            case TAG_q:
+                var_name = beamfile_get_literal(beam, arg[0].val);
+                if (is_not_bitstring(var_name) ||
+                    TAIL_BITS(bitstring_size(var_name))) {
+                    goto error;
+                }
+                *tp++ = arg[0].val;
+                *lp++ = 1;
+                break;
+            default:
+                goto error;
+            }
+
+            *lp = 0;
+            switch (arg[1].type) {
+            case TAG_i:
+                *tp = make_small(arg[1].val);
+                break;
+            case TAG_a:
+                *tp = arg[1].val;
+                break;
+            case TAG_n:
+                *tp = NIL;
+                break;
+            case TAG_x:
+                *tp = make_loader_x_reg(arg[1].val);
+                break;
+            case TAG_y:
+                *tp = make_loader_y_reg(arg[1].val);
+                break;
+            case TAG_q:
+                *tp = arg[1].val;
+                *lp = 1;
+                break;
+            default:
+                goto error;
+            }
+
+            tp++, lp++;
+            arg += 2;
+            extra_args -= 2;
+        }
+
+        beamopallocator_free_op(&op_allocator, op);
+        op = NULL;
+    }
+
+    if (total_num_vars != 0) {
+        goto error;
+    }
+
+    beamcodereader_close(op_reader);
+    beamopallocator_dtor(&op_allocator);
+
+    return 1;
+
+ error:
+    if (op != NULL) {
+        beamopallocator_free_op(&op_allocator, op);
+    }
+
+    beamcodereader_close(op_reader);
+    beamopallocator_dtor(&op_allocator);
+
+    if (debug->items) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, debug->items);
+        debug->items = NULL;
+    }
+
+    if (debug->terms) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, debug->terms);
+        debug->terms = NULL;
+    }
+
+    return 0;
+}
+
+static int parse_debug_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    BeamReader reader;
+    Sint32 version;
+
+    beamreader_init(chunk->data, chunk->size, &reader);
+
+    LoadAssert(beamreader_read_i32(&reader, &version));
+
+    if (version == 0) {
+        return parse_debug_chunk_data(beam, &reader);
+    } else {
+        /* Silently ignore chunk of wrong version. */
         return 1;
     }
 }
@@ -712,7 +898,7 @@ static void free_literal_fragment(ErlHeapFragment *fragment) {
 }
 
 static int parse_decompressed_literals(BeamFile *beam,
-                                       byte *data,
+                                       const byte *data,
                                        uLongf size) {
     BeamFile_LiteralTable *literals;
     BeamFile_LiteralEntry *entries;
@@ -759,6 +945,11 @@ static int parse_decompressed_literals(BeamFile *beam,
         ErlHeapFragment *fragments;
         Eterm value;
 
+#ifdef DEBUG
+        erts_literal_area_t purge_area;
+        INITIALIZE_LITERAL_PURGE_AREA(purge_area);
+#endif
+
         LoadAssert(beamreader_read_i32(&reader, &ext_size));
         LoadAssert(beamreader_read_bytes(&reader, ext_size, &ext_data));
         term_size = erts_decode_ext_size(ext_data, ext_size);
@@ -774,14 +965,24 @@ static int parse_decompressed_literals(BeamFile *beam,
             erts_factory_close(&factory);
 
             LoadAssert(!is_non_value(value));
+            ASSERT(size_object_litopt(value, &purge_area) > 0);
 
             heap_size += erts_used_frag_sz(factory.heap_frags);
             fragments = factory.heap_frags;
         } else {
             erts_factory_dummy_init(&factory);
             value = erts_decode_ext(&factory, &ext_data, 0);
+
+            /* erts_decode_ext may return terms that are (or contain) global
+             * literals, for instance export funs or the empty tuple. As these
+             * are singleton values that belong to everyone, they can safely be
+             * returned without being copied into a fragment.
+             *
+             * (Note that erts_decode_ext_size does not include said term in
+             * the decoded size) */
             LoadAssert(!is_non_value(value));
-            ASSERT(is_immed(value));
+            ASSERT(size_object_litopt(value, &purge_area) == 0);
+
             fragments = NULL;
         }
 
@@ -798,8 +999,6 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     BeamReader reader;
 
     Sint32 compressed_size, uncompressed_size;
-    uLongf uncompressed_size_z;
-    byte *uncompressed_data;
     int success;
 
     beamreader_init(chunk->data, chunk->size, &reader);
@@ -808,20 +1007,31 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     LoadAssert(beamreader_read_i32(&reader, &uncompressed_size));
     LoadAssert(compressed_size >= 0);
 
-    uncompressed_size_z = uncompressed_size;
-    uncompressed_data = erts_alloc(ERTS_ALC_T_TMP, uncompressed_size);
     success = 0;
 
-    if (erl_zlib_uncompress(uncompressed_data,
-                            &uncompressed_size_z,
-                            reader.head,
-                            compressed_size) == Z_OK) {
+    if (uncompressed_size == 0) {
+        /* Erlang/OTP 28 and later. The literal table is not
+         * compressed. */
         success = parse_decompressed_literals(beam,
-                                              uncompressed_data,
-                                              uncompressed_size_z);
+                                              reader.head,
+                                              reader.end - reader.head);
+    } else {
+        byte *uncompressed_data;
+        uLongf uncompressed_size_z;
+
+        uncompressed_size_z = uncompressed_size;
+        uncompressed_data = erts_alloc(ERTS_ALC_T_TMP, uncompressed_size);
+        if (erl_zlib_uncompress(uncompressed_data,
+                                &uncompressed_size_z,
+                                reader.head,
+                                compressed_size) == Z_OK) {
+            success = parse_decompressed_literals(beam,
+                                                  uncompressed_data,
+                                                  uncompressed_size_z);
+        }
+        erts_free(ERTS_ALC_T_TMP, (void*)uncompressed_data);
     }
 
-    erts_free(ERTS_ALC_T_TMP, (void*)uncompressed_data);
     return success;
 }
 
@@ -917,6 +1127,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MakeIffId('A', 't', 'o', 'm'), /* 11 */
         MakeIffId('T', 'y', 'p', 'e'), /* 12 */
         MakeIffId('M', 'e', 't', 'a'), /* 13 */
+        MakeIffId('D', 'b', 'g', 'B'), /* 14 */
     };
 
     static const int UTF8_ATOM_CHUNK = 0;
@@ -935,6 +1146,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     static const int OBSOLETE_ATOM_CHUNK = 11;
     static const int TYPE_CHUNK = 12;
     static const int META_CHUNK = 13;
+    static const int DEBUG_CHUNK = 14;
 
     static const int NUM_CHUNKS = sizeof(chunk_iffs) / sizeof(chunk_iffs[0]);
 
@@ -1030,6 +1242,13 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         }
     } else {
         init_fallback_type_table(beam);
+    }
+
+    if (chunks[DEBUG_CHUNK].size > 0) {
+        if (!parse_debug_chunk(beam, &chunks[DEBUG_CHUNK])) {
+            error = BEAMFILE_READ_CORRUPT_DEBUG_TABLE;
+            goto error;
+        }
     }
 
     beam->strings.data = chunks[STR_CHUNK].data;
@@ -1172,6 +1391,16 @@ void beamfile_free(BeamFile *beam) {
         beam->types.entries = NULL;
     }
 
+    if (beam->debug.items) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, beam->debug.items);
+        erts_free(ERTS_ALC_T_PREPARED_CODE, beam->debug.terms);
+        erts_free(ERTS_ALC_T_PREPARED_CODE, beam->debug.is_literal);
+
+        beam->debug.items = NULL;
+        beam->debug.terms = NULL;
+        beam->debug.is_literal = NULL;
+    }
+
     if (beam->static_literals.entries) {
         beamfile_literal_dtor(&beam->static_literals);
     }
@@ -1269,16 +1498,24 @@ static void move_literal_entries(BeamFile_LiteralEntry *entries, int count,
     int i;
 
     for (i = 0; i < count; i++) {
-        if (is_not_immed(entries[i].value)) {
-            ASSERT(entries[i].heap_fragments != NULL);
+        if (entries[i].heap_fragments != NULL) {
+            Eterm value = entries[i].value;
+
+#ifdef DEBUG
+            erts_literal_area_t purge_area;
+            INITIALIZE_LITERAL_PURGE_AREA(purge_area);
+#endif
+
+            ASSERT(size_object_litopt(value, &purge_area) > 0);
 
             erts_move_multi_frags(hpp, oh,
-                                  entries[i].heap_fragments, &entries[i].value,
+                                  entries[i].heap_fragments, &value,
                                   1, 1);
-            ASSERT(erts_is_literal(entries[i].value, ptr_val(entries[i].value)));
+            ASSERT(erts_is_literal(value, ptr_val(value)));
 
             free_literal_fragment(entries[i].heap_fragments);
             entries[i].heap_fragments = NULL;
+            entries[i].value = value;
         }
 
         ASSERT(entries[i].heap_fragments == NULL);
@@ -1323,11 +1560,13 @@ int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk)
 void beamfile_init(void) {
     Eterm suffix;
     Eterm *hp;
+    struct erl_off_heap_header **ohp;
 
-    hp = erts_alloc_global_literal(ERTS_LIT_ERL_FILE_SUFFIX, 8);
+    hp = erts_global_literal_allocate(8, &ohp);
     suffix = erts_bin_bytes_to_list(NIL, hp, (byte*)".erl", 4, 0);
 
-    erts_register_global_literal(ERTS_LIT_ERL_FILE_SUFFIX, suffix);
+    erts_global_literal_register(&suffix);
+    ERTS_GLOBAL_LIT_ERL_FILE_SUFFIX = suffix;
 }
 
 /* * * * * * * */
@@ -1508,7 +1747,8 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
 
         LoadAssert(beamreader_read_tagged(reader, &val));
         LoadAssert(val.tag == TAG_u);
-        LoadAssert(val.word_value <= ERTS_SINT32_MAX / FLOAT_SIZE_OBJECT);
+        LoadAssert(val.word_value <= ERTS_SINT32_MAX /
+                   MAX(FLOAT_SIZE_OBJECT, ERL_FUN_SIZE + 1));
         number = val.word_value;
 
         switch(kind) {

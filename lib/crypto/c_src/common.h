@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +32,7 @@
 #include <string.h>
 #include <limits.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <erl_nif.h>
 #include "openssl_config.h"
@@ -39,12 +42,13 @@
 /* All nif functions return a valid value or throws an exception */
 ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, char* explanation, char* file, int Line);
 
-
 #define EXCP_ERROR(Env,  Str)           raise_exception((Env), atom_error,  -1,       (Str), __FILE__, __LINE__)
 #define EXCP_NOTSUP(Env,  Str)          raise_exception((Env), atom_notsup, -1,       (Str), __FILE__, __LINE__)
 #define EXCP_ERROR_N(Env, ArgNum, Str)  raise_exception((Env), atom_error,  (ArgNum), (Str), __FILE__, __LINE__)
 #define EXCP_NOTSUP_N(Env, ArgNum, Str) raise_exception((Env), atom_notsup, (ArgNum), (Str), __FILE__, __LINE__)
 #define EXCP_BADARG_N(Env, ArgNum, Str) raise_exception((Env), atom_badarg, (ArgNum), (Str), __FILE__, __LINE__)
+
+#define RAISE_NOTSUP(Env) enif_raise_exception((Env), atom_notsup)
 
 #define assign_goto(Var, Goto, CALL) {Var = (CALL); goto Goto;}
 

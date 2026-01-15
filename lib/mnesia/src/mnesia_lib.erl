@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 %% anywhere else. Basically everything is exported.
 
 -module(mnesia_lib).
+-moduledoc false.
 
 -include("mnesia.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -72,7 +75,10 @@
 	 db_put/3,
 	 db_select/2,	 
 	 db_select/3,
+	 db_select_rev/2,
+	 db_select_rev/3,
 	 db_select_init/4,
+	 db_select_rev_init/4,
 	 db_select_cont/3,
 	 db_slot/2,
 	 db_slot/3,
@@ -525,7 +531,7 @@ ensure_loaded(Appl) ->
 
 local_active_tables() ->
     Tabs = val({schema, local_tables}),
-    lists:zf(fun(Tab) -> active_here(Tab) end, Tabs).
+    lists:filtermap(fun(Tab) -> active_here(Tab) end, Tabs).
 
 active_tables() ->
     Tabs = val({schema, tables}),
@@ -535,7 +541,7 @@ active_tables() ->
 		    _ -> {true, Tab}
 		end
 	end,
-    lists:zf(F, Tabs).
+    lists:filtermap(F, Tabs).
 
 etype(X) when is_integer(X) -> integer;
 etype([]) -> nil;
@@ -709,7 +715,7 @@ mkcore(CrashInfo) ->
     term_to_binary(Core).
 
 procs() ->
-    Fun = fun(P) -> {P, (?CATCH(lists:zf(fun proc_info/1, process_info(P))))} end,
+    Fun = fun(P) -> {P, (?CATCH(lists:filtermap(fun proc_info/1, process_info(P))))} end,
     lists:map(Fun, processes()).
 
 proc_info({registered_name, Val}) -> {true, Val};
@@ -759,7 +765,7 @@ relatives() ->
 		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
-    lists:zf(Info, mnesia:ms()).
+    lists:filtermap(Info, mnesia:ms()).
 
 workers({workers, Loaders, Senders, Dumper}) ->
     Info = fun({Pid, {send_table, Tab, _Receiver, _St}}) ->
@@ -775,9 +781,9 @@ workers({workers, Loaders, Senders, Dumper}) ->
 		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
-    SInfo = lists:zf(Info, Senders),
-    Linfo = lists:zf(Info, Loaders),
-    [{senders, SInfo},{loader, Linfo}|lists:zf(Info, [{dumper, Dumper}])].
+    SInfo = lists:filtermap(Info, Senders),
+    Linfo = lists:filtermap(Info, Loaders),
+    [{senders, SInfo},{loader, Linfo}|lists:filtermap(Info, [{dumper, Dumper}])].
 
 locking_procs(LockList) when is_list(LockList) ->
     Tids = [element(3, Lock) || Lock <- LockList],
@@ -791,7 +797,7 @@ locking_procs(LockList) when is_list(LockList) ->
 			   false
 		   end
 	   end,
-    lists:zf(Info, UT).
+    lists:filtermap(Info, UT).
 
 proc_dbg_info(Pid) ->
     try
@@ -843,7 +849,7 @@ vcore() ->
     {ok, Cwd} = file:get_cwd(),
     case file:list_dir(Cwd) of
 	{ok, Files}->
-	    CoreFiles = lists:sort(lists:zf(Filter, Files)),
+	    CoreFiles = lists:sort(lists:filtermap(Filter, Files)),
 	    show("Mnesia core files: ~tp~n", [CoreFiles]),
 	    vcore(lists:last(CoreFiles));
 	Error ->
@@ -903,12 +909,12 @@ vcore_elem({_Item, Info}) ->
     show("~tp~n", [Info]).
 
 fix_error(X) ->
-    set(last_error, X), %% for debugabililty
+    set(last_error, X), %% for debugging
     case X of
 	{aborted, Reason} -> Reason;
 	{abort, Reason} -> Reason;
 	Y when is_atom(Y) -> Y;
-	{'EXIT', {_Reason, {Mod, _, _}}} when is_atom(Mod) ->
+	{_Reason, [{Mod, _, _}|_]} when is_atom(Mod) ->
 	    save(X),
 	    case atom_to_list(Mod) of
 		[$m, $n, $e|_] -> badarg;
@@ -1191,6 +1197,21 @@ db_select(Storage, Tab, Pat) ->
 	db_fixtable(Storage, Tab, false)
     end.
 
+db_select_rev(Tab, Pat) ->
+    db_select_rev(val({Tab, storage_type}), Tab, Pat).
+
+db_select_rev(Storage, Tab, Pat) ->
+    db_fixtable(Storage, Tab, true),
+    try
+	case Storage of
+	    disc_only_copies -> dets:select(Tab, Pat);
+	    {ext, Alias, Mod} -> Mod:select_reverse(Alias, Tab, Pat);
+	    _ -> ets:select_reverse(Tab, Pat)
+	end
+    after
+	db_fixtable(Storage, Tab, false)
+    end.
+
 db_select_init({ext, Alias, Mod}, Tab, Pat, Limit) ->
     Mod:select(Alias, Tab, Pat, Limit);
 db_select_init(disc_only_copies, Tab, Pat, Limit) ->
@@ -1220,6 +1241,13 @@ db_fixtable(disc_only_copies, Tab, Bool) ->
     dets:safe_fixtable(Tab, Bool);
 db_fixtable({ext, Alias, Mod}, Tab, Bool) ->
     Mod:fixtable(Alias, Tab, Bool).
+
+db_select_rev_init({ext, Alias, Mod}, Tab, Pat, Limit) ->
+    Mod:select_reverse(Alias, Tab, Pat, Limit);
+db_select_rev_init(disc_only_copies, Tab, Pat, Limit) ->
+    dets:select(Tab, Pat, Limit);
+db_select_rev_init(_, Tab, Pat, Limit) ->
+    ets:select_reverse(Tab, Pat, Limit).
 
 db_erase(Tab, Key) ->
     db_erase(val({Tab, storage_type}), Tab, Key).
@@ -1304,6 +1332,7 @@ db_erase_tab(disc_only_copies, _Tab) -> ignore;
 db_erase_tab({ext, _Alias, _Mod}, _Tab) -> ignore.
 
 %% assuming that Tab is a valid ets-table
+-dialyzer({no_opaque_union, [dets_to_ets/6]}).
 dets_to_ets(Tabname, Tab, File, Type, Rep, Lock) ->
     {Open, Close} = mkfuns(Lock),
     case Open(Tabname, [{file, File}, {type, disk_type(Tab, Type)},
@@ -1316,6 +1345,7 @@ dets_to_ets(Tabname, Tab, File, Type, Rep, Lock) ->
 	    Other
     end.
 
+-dialyzer({no_opaque_union, [trav_ret/2]}).
 trav_ret(Tabname, Tabname) -> loaded;
 trav_ret(Other, _Tabname) -> Other.
 

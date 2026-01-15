@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec binary_to_list(Binary) -> [byte()] when Binary :: binary().[0m
+[;1m  binary_to_list(Binary)[0m
 
   Returns a list of integers corresponding to the bytes of [;;4mBinary[0m.

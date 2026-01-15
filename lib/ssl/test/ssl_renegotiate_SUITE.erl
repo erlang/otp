@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +29,7 @@
 -include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -64,7 +66,9 @@
          renegotiate_dos_mitigate_absolute/0,
          renegotiate_dos_mitigate_absolute/1,
          active_error_disallowed_client_renegotiate/0,
-         active_error_disallowed_client_renegotiate/1
+         active_error_disallowed_client_renegotiate/1,
+         keylog_renegotiate/0,
+         keylog_renegotiate/1
         ]).
 
 %% Apply export
@@ -86,15 +90,20 @@ all() ->
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}
+     {group, 'dtlsv1'},
+     {group, mitigate}
     ].
 
 groups() ->
-    [{'dtlsv1.2', [], renegotiate_tests()},
-     {'dtlsv1',   [], renegotiate_tests()},
-     {'tlsv1.2',  [], renegotiate_tests()},
-     {'tlsv1.1',  [], renegotiate_tests()},
-     {'tlsv1',    [], renegotiate_tests()}
+    [{'dtlsv1.2', [parallel], renegotiate_tests()},
+     {'dtlsv1',   [parallel], renegotiate_tests()},
+     {'tlsv1.2',  [], [{group, transport_socket}]},
+     {transport_socket, [parallel], renegotiate_tests()},
+     {'tlsv1.1',  [parallel], renegotiate_tests()},
+     {'tlsv1',    [parallel], renegotiate_tests()},
+     {mitigate, [parallel], [renegotiate_dos_mitigate_active,
+                             renegotiate_dos_mitigate_passive,
+                             renegotiate_dos_mitigate_absolute]}
     ].
 
 renegotiate_tests() ->
@@ -106,18 +115,15 @@ renegotiate_tests() ->
      server_renegotiate_reused_session,
      client_no_wrap_sequence_number,
      server_no_wrap_sequence_number,
-     renegotiate_dos_mitigate_active,
-     renegotiate_dos_mitigate_passive,
-     renegotiate_dos_mitigate_absolute,
-     active_error_disallowed_client_renegotiate].
+     active_error_disallowed_client_renegotiate,
+     keylog_renegotiate].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    case application:ensure_started(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
-            ssl_test_lib:make_rsa_cert(Config)
-    catch _:_ ->
+            ssl_test_lib:make_rsa_cert(Config);
+        _ ->
 	    {skip, "Crypto did not start"}
     end.
 
@@ -129,12 +135,13 @@ init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config). 
 
 end_per_group(GroupName, Config) ->
-  ssl_test_lib:end_per_group(GroupName, Config).
+    ssl_test_lib:end_per_group(GroupName, Config).
 
-init_per_testcase(TestCase, Config)  when TestCase == renegotiate_dos_mitigate_active;
-                                          TestCase == renegotiate_dos_mitigate_passive;
-                                          TestCase == renegotiate_dos_mitigate_absolute ->
-    ct:timetrap({seconds, 160}),
+init_per_testcase(TestCase, Config)
+  when TestCase == renegotiate_dos_mitigate_active;
+       TestCase == renegotiate_dos_mitigate_passive;
+       TestCase == renegotiate_dos_mitigate_absolute ->
+    ct:timetrap({seconds, 25}),
     Config;
 init_per_testcase(_, Config) ->
     ct:timetrap({seconds, 15}),
@@ -323,7 +330,7 @@ client_no_wrap_sequence_number() ->
     [{doc,"Test that erlang client will renegotiate session when",
      "max sequence number celing is about to be reached. Although"
      "in the testcase we use the test option renegotiate_at"
-     " to lower treashold substantially."}].
+     " to lower threshold substantially."}].
 
 client_no_wrap_sequence_number(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -347,7 +354,7 @@ client_no_wrap_sequence_number(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {ssl_test_lib,
-					       trigger_renegotiate, [[ErlData, treashold(N, Version)]]}},
+					       trigger_renegotiate, [[ErlData, threshold(N, Version)]]}},
 					{options, [{reuse_sessions, false},
 						   {renegotiate_at, N} | ClientOpts]}]),
 
@@ -360,7 +367,7 @@ server_no_wrap_sequence_number() ->
     [{doc, "Test that erlang server will renegotiate session when",
      "max sequence number celing is about to be reached. Although"
      "in the testcase we use the test option renegotiate_at"
-     " to lower treashold substantially."}].
+     " to lower threshold substantially."}].
 
 server_no_wrap_sequence_number(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -400,7 +407,7 @@ renegotiate_dos_mitigate_active(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-				   {options, ServerOpts}]),
+				   {options, [{versions, ['tlsv1.2']}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -408,7 +415,7 @@ renegotiate_dos_mitigate_active(Config) when is_list(Config) ->
 					{from, self()},
 					{mfa, {?MODULE,
 					       renegotiate_immediately, []}},
-					{options, ClientOpts}]),
+					{options, [{versions, ['tlsv1.2']}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Client, ok, Server, ok),
     ssl_test_lib:close(Server),
@@ -428,7 +435,7 @@ renegotiate_dos_mitigate_passive(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options, [{active, false} | ServerOpts]}]),
+				   {options, [{active, false}, {versions, ['tlsv1.2']} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
  
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -436,7 +443,7 @@ renegotiate_dos_mitigate_passive(Config) when is_list(Config) ->
 					{from, self()}, 
 					{mfa, {?MODULE, 
 					       renegotiate_immediately, []}},
-					{options, ClientOpts}]),
+					{options, [{versions, ['tlsv1.2']}|ClientOpts]}]),
     
     ssl_test_lib:check_result(Client, ok, Server, ok), 
     ssl_test_lib:close(Server),
@@ -455,7 +462,8 @@ renegotiate_dos_mitigate_absolute(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-				   {options, [{client_renegotiation, false} | ServerOpts]}]),
+				   {options, [{client_renegotiation, false}, {versions, ['tlsv1.2']}
+                                             | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -464,7 +472,7 @@ renegotiate_dos_mitigate_absolute(Config) when is_list(Config) ->
 					{mfa, {?MODULE,
 					       renegotiate_rejected,
 					       []}},
-					{options, ClientOpts}]),
+					{options, [{versions, ['tlsv1.2']}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Client, ok, Server, ok),
     ssl_test_lib:close(Server),
@@ -477,7 +485,7 @@ active_error_disallowed_client_renegotiate(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -494,6 +502,49 @@ active_error_disallowed_client_renegotiate(Config) when is_list(Config) ->
         {ssl_error, Client, _} ->
             ok
     end.
+
+%%--------------------------------------------------------------------
+keylog_renegotiate() ->
+    [{doc,"Test keylog callback when connection is renegotiated"}].
+keylog_renegotiate(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = "From erlang to erlang",
+
+    Testcase = self(),
+
+    SFun = fun(KeyLogInfo) ->
+                   Testcase ! {server, {keylog, KeyLogInfo}}
+           end,
+                    
+    CFun = fun(KeyLogInfo) ->
+                   Testcase ! {client, {keylog, KeyLogInfo}}
+           end,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE,
+					       renegotiate, [Data]}},
+					{options, [{keep_secrets, {keylog, SFun}} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+					{options, [{reuse_sessions, false},
+                                                   {keep_secrets, {keylog, CFun}}| ClientOpts]}]),
+    true = check_keylog(server),
+    true = check_keylog(client),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -529,16 +580,16 @@ renegotiate_rejected(Socket) ->
     _ = ssl_test_lib:active_recv(Socket, 11),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
-    ct:sleep(?RENEGOTIATION_DISABLE_TIME +1),
+    ct:sleep(?RENEGOTIATION_DISABLE_TIME + ?SLEEP),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ?CT_LOG("Failed to renegotiate again"),
     ssl:send(Socket, "Hello world"),
     ok.
 
 %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-treashold(N, ?TLS_1_0) ->
+threshold(N, ?TLS_1_0) ->
     (N div 2) + 1;
-treashold(N, _) ->
+threshold(N, _) ->
     N + 1.
 
 erlang_ssl_receive(Socket, Data) ->
@@ -548,3 +599,16 @@ erlang_ssl_receive(Socket, Data) ->
         Other ->
             ct:fail({{expected, Data}, {got, Other}})
     end.
+
+check_keylog(From) ->
+   #{items := Initial} =
+        receive
+            {From, {keylog, K0}} ->
+                K0
+        end,
+    #{items := Renegotiated} =
+        receive
+            {From, {keylog, K1}} ->
+                K1
+        end,
+    Initial =/= Renegotiated.

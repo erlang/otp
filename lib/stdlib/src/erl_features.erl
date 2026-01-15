@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +20,14 @@
 %% %CopyrightEnd%
 %%
 -module(erl_features).
--feature(maybe_expr, enable).
+-moduledoc """
+This module contains functions for supporting features that can be
+enabled/disabled in Erlang.
+
+It should be considered as mostly for internal use, although there are some
+functions that might be useful when writing tools.
+""".
+-moduledoc(#{since => "OTP 25.0"}).
 
 -export([all/0,
          configurable/0,
@@ -63,12 +72,19 @@ feature_specs() ->
             description =>
                 "Implementation of the maybe expression proposed in EEP49 -- "
             "Value based error handling.",
-            status => experimental,
+            status => approved,
             experimental => 25,
+            approved => 27,
             keywords => ['maybe', 'else'],
             type => extension}}.
 
 %% Return all currently known features.
+-doc """
+Return a list of all known features. This list will include features that have
+been removed (status `rejected`) and features that are no longer configurable
+(status `permanent`).
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec all() -> [feature()].
 all() ->
     Map = case persistent_term:get({?MODULE, feature_specs}, none) of
@@ -77,6 +93,16 @@ all() ->
           end,
     lists:sort(maps:keys(Map)).
 
+approved() ->
+    [Ftr || Ftr <- all(),
+            maps:get(status, info(Ftr)) =:= approved].
+
+-doc """
+Return a list of all configurable features, that is, features with status
+`experimental` or `approved`. These are the features that can be enabled or
+disabled.
+""".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec configurable() -> [feature()].
 configurable() ->
     [Ftr || Ftr <- all(),
@@ -89,6 +115,7 @@ is_valid(Ftr) ->
 is_configurable(Ftr) ->
     lists:member(Ftr, configurable()).
 
+-doc false.
 -spec short(feature()) -> iolist() | no_return().
 short(Feature) ->
     #{short := Short,
@@ -96,6 +123,7 @@ short(Feature) ->
     #{Status := Release} = Info,
     io_lib:format("~-40s ~-12s (~p)", [Short, Status, Release]).
 
+-doc false.
 -spec long(feature()) -> iolist() | no_return().
 long(Feature) ->
     #{short := Short,
@@ -156,6 +184,8 @@ adjust(Col, [{W, L}| WLs], Ws) ->
     end.
 
 
+-doc "Return a map containing information about the given feature.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec info(feature()) -> FeatureInfoMap | no_return()
               when
       Description :: string(),
@@ -177,6 +207,7 @@ info(Feature) ->
     maps:get(Feature, Map).
 
 %% New keywords introduced by a feature.
+-doc false.
 -spec keywords(feature()) -> [atom()] | no_return().
 keywords(Ftr) ->
     ?VALID_FEATURE(Ftr),
@@ -190,6 +221,7 @@ keywords(Ftr, Map) ->
 
 %% Utilities
 %% Returns list of enabled features and a new keywords function
+-doc false.
 -spec keyword_fun([term()], fun((atom()) -> boolean())) ->
           {'ok', {[feature()], fun((atom()) -> boolean())}}
               | {'error', error()}.
@@ -200,8 +232,7 @@ keyword_fun(Opts, KeywordFun) ->
                (_) -> false
             end,
     FeatureOps = lists:filter(IsFtr, Opts),
-    {AddFeatures, DelFeatures, RawFtrs} = collect_features(FeatureOps),
-
+    {AddFeatures, DelFeatures, RawFtrs} = collect_features(FeatureOps, enabled()),
     case configurable_features(RawFtrs) of
         ok ->
             {ok, Fun} = add_features_fun(AddFeatures, KeywordFun),
@@ -211,6 +242,7 @@ keyword_fun(Opts, KeywordFun) ->
             Error
     end.
 
+-doc false.
 -spec keyword_fun('enable' | 'disable', feature(), [feature()],
                   fun((atom()) -> boolean())) ->
           {'ok', {[feature()], fun((atom()) -> boolean())}}
@@ -290,6 +322,7 @@ feature_error(Features) ->
         end,
     {error, {?MODULE, {Error, Culprits}}}.
 
+-doc false.
 -spec format_error(Reason, StackTrace) -> ErrorDescription
               when Reason :: term(),
                    StackTrace :: erlang:stacktrace(),
@@ -302,6 +335,7 @@ format_error(Reason, [{_M, _F, _Args, Info}| _St]) ->
     ErrorMap = maps:get(cause, ErrorInfo),
     ErrorMap#{reason => io_lib:format("~p: ~p", [?MODULE, Reason])}.
 
+-doc false.
 -spec format_error(Reason) -> iolist()
               when Reason :: term().
 format_error({Error, Features}) ->
@@ -370,7 +404,7 @@ init_features() ->
                 end
         end,
     FOps = lists:filtermap(F, FeatureOps),
-    {Features, _, _} = collect_features(FOps),
+    {Features, _, _} = collect_features(FOps, approved()),
     {Enabled0, Keywords} =
         lists:foldl(fun(Ftr, {Ftrs, Keys}) ->
                             case lists:member(Ftr, Ftrs) of
@@ -407,6 +441,11 @@ ensure_init() ->
     end.
 
 %% Return list of currently enabled features
+-doc """
+Return a list of the features that are currently enabled. Note that the set of
+enabled is set during startup and can then not be changed.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec enabled() -> [feature()].
 enabled() ->
     ensure_init(),
@@ -416,6 +455,7 @@ enabled_features(Ftrs) ->
     persistent_term:put({?MODULE, enabled_features}, Ftrs).
 
 %% Return list of keywords activated by enabled features
+-doc false.
 -spec keywords() -> [atom()].
 keywords() ->
     ensure_init(),
@@ -425,6 +465,13 @@ set_keywords(Words) ->
     persistent_term:put({?MODULE, keywords}, Words).
 
 %% Return features used by module or beam file
+-doc """
+Return the list of features enabled when compiling the module. The module need
+not be loaded, but is found if it exists in the loadpath. If not all features
+used by the module are enabled in the runtime, loading the module is not
+allowed.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec used(module() | file:filename()) -> [feature()].
 used(Module) when is_atom(Module) ->
     case code:get_object_code(Module) of
@@ -448,13 +495,10 @@ features_in(NameOrBin) ->
     end.
 
 %% Interpret feature ops (enable or disable) to build the full set of
-%% features.  The meta feature 'all' is expanded to all known
-%% features.
-collect_features(FOps) ->
-    %% Features enabled by default
-    Enabled = [Ftr || Ftr <- all(),
-            maps:get(status, info(Ftr)) == approved],
-    collect_features(FOps, Enabled, [], []).
+%% features, starting from the given set. The meta feature 'all' is
+%% expanded to all known features.
+collect_features(FOps, Inital) ->
+    collect_features(FOps, Inital, [], []).
 
 collect_features([], Add, Del, Raw) ->
     {Add, Del, Raw};

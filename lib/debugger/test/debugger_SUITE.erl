@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,7 +93,7 @@ no_abstract_code(Config) when is_list(Config) ->
     ok.
 
 encrypted_debug_info(Config) when is_list(Config) ->
-    try	begin crypto:start(), crypto:stop(), ok end of
+    try	begin application:start(crypto), application:stop(crypto), ok end of
 	ok ->
 	    encrypted_debug_info_1(Config)
     catch

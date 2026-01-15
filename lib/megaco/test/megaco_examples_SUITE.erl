@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,23 +35,29 @@
 
          simple/1,
          
-         meas/1,
-         mstone1/1,
-         mstone2/1
+         meas/1,    bench_meas/1,
+         mstone1/1, bench_mstone1/1,
+         mstone2/1, bench_mstone2/1
 
         ]).
 
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 
 -define(TEST_VERBOSITY, debug).
 
+-define(BENCH_SUITE, megaco_examples).
+
 
 %%======================================================================
 %% Common Test interface functions
+%%
+%% The difference between the bench cases and the (standard) meas cases
+%% is simply how the results are reported.
 %%======================================================================
 
 suite() -> 
@@ -63,7 +71,8 @@ all() ->
 
 groups() -> 
     [
-     {meas, [], meas_cases()}
+     {meas,  [], meas_cases()},
+     {bench, [], bench_cases()}
     ].
 
 meas_cases() ->
@@ -73,6 +82,12 @@ meas_cases() ->
      mstone2
     ].
 
+bench_cases() ->
+    [
+     bench_meas,
+     bench_mstone1,
+     bench_mstone2
+    ].
 
 
 %%
@@ -154,7 +169,8 @@ init_per_testcase(simple = Case, Config) ->
 
     megaco_test_lib:init_per_testcase(Case, Config);
 
-init_per_testcase(meas = Case, Config) ->
+init_per_testcase(Case, Config) when (Case =:= meas) orelse
+                                     (Case =:= bench_meas) ->
 
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -168,7 +184,8 @@ init_per_testcase(meas = Case, Config) ->
             ?SKIP(flex_scanner_not_enabled)
     end;
 
-init_per_testcase(mstone1 = Case, Config) ->
+init_per_testcase(Case, Config) when (Case =:= mstone1) orelse
+                                     (Case =:= bench_mstone1) ->
 
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -182,8 +199,9 @@ init_per_testcase(mstone1 = Case, Config) ->
             ?SKIP(flex_scanner_not_enabled)
     end;
 
-init_per_testcase(mstone2 = Case, Config) ->
-
+init_per_testcase(Case, Config) when (Case =:= mstone2) orelse
+                                     (Case =:= bench_mstone2) ->
+    
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
@@ -227,7 +245,8 @@ end_per_testcase(simple = Case, Config) ->
 
     megaco_test_lib:end_per_testcase(Case, Config);
 
-end_per_testcase(meas = Case, Config) ->
+end_per_testcase(Case, Config) when (Case =:= meas) orelse
+                                    (Case =:= bench_meas) ->
 
     p("end_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -238,7 +257,8 @@ end_per_testcase(meas = Case, Config) ->
 
     end_per_testcase_meas(Case, example_meas_meas_modules(), Config);
 
-end_per_testcase(mstone1 = Case, Config) ->
+end_per_testcase(Case, Config) when (Case =:= mstone1) orelse
+                                    (Case =:= bench_mstone1) ->
 
     p("end_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -249,7 +269,8 @@ end_per_testcase(mstone1 = Case, Config) ->
 
     end_per_testcase_meas(Case, example_meas_mstone1_modules(), Config);
 
-end_per_testcase(mstone2 = Case, Config) ->
+end_per_testcase(Case, Config) when (Case =:= mstone2) orelse
+                                    (Case =:= bench_mstone2) ->
 
     p("end_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -611,40 +632,67 @@ users(Proxy) ->
 meas(suite) ->
     [];
 meas(Config) when is_list(Config) ->
+    common_meas(?FUNCTION_NAME, #{bench => false}, Config).
+
+meas_bench_adjust_time(true, Num) ->
+    Num;
+meas_bench_adjust_time(false, Num) when (Num >= 3) ->
+    Num div 3;
+meas_bench_adjust_time(false, Num) ->
+    Num.
+
+meas_bench_adjust_factor(true, Num) ->
+    Num;
+meas_bench_adjust_factor(false, Num) ->
+    Num * 3.
+
+
+common_meas(TC, #{bench := Bench} = Opts0, Config) ->
     Pre  = fun() ->
                    MFactor = ?config(megaco_factor, Config),
                    {Time, Factor} =
                        if
                            (MFactor =:= 1) ->
-                               {3,  100};
+                               {meas_bench_adjust_time(Bench, 3),
+                                meas_bench_adjust_factor(Bench, 100)};
                            (MFactor =:= 2) ->
-                               {4,  100};
+                               {meas_bench_adjust_time(Bench, 4),
+                                meas_bench_adjust_factor(Bench, 100)};
                            (MFactor =:= 3) ->
-                               {4,  200};
+                               {meas_bench_adjust_time(Bench, 4),
+                                meas_bench_adjust_factor(Bench, 200)};
                            (MFactor =:= 4) ->
-                               {5,  300};
+                               {meas_bench_adjust_time(Bench, 5),
+                                meas_bench_adjust_factor(Bench, 300)};
                            (MFactor =:= 5) ->
-                               {5,  400};
+                               {meas_bench_adjust_time(Bench, 5),
+                                meas_bench_adjust_factor(Bench, 400)};
                            (MFactor =:= 6) ->
-                               {6,  500};
+                               {meas_bench_adjust_time(Bench, 6),
+                                meas_bench_adjust_factor(Bench, 500)};
                            true ->
-                               {10, 600}
+                               {meas_bench_adjust_time(Bench, 10),
+                                meas_bench_adjust_factor(Bench, 600)}
                        end,
                    p("Run with: "
-                     "~n      Timetrap: ~p mins"
+                     "~n      Timetrap: ~p (+1) mins"
                      "~n      Factor:   ~p", [Time, Factor]),
-                   ct:timetrap(?MINS(Time)),
+                   ct:timetrap(?MINS(1 + Time)),
                    WorkerNode = ?config(worker_node, Config),
                    {Factor, WorkerNode}
            end,
-    Opts = #{verbose => false},
+    Opts = Opts0#{verbose => false},
     Case = fun({Factor, WorkerNode}) ->
-                   do_meas(WorkerNode, megaco_codec_meas, start, [Factor, Opts])
+                   do_meas(WorkerNode,
+                           meas,
+                           megaco_codec_meas, start, [Factor, Opts])
            end,
     Post = fun(_) -> ok end,
-    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+    try_tc(TC, Pre, Case, Post).
 
-do_meas(Node, Mod, Func, Args) ->
+do_meas(Node,
+        BenchName,
+        Mod, Func, Args) ->
     F = fun() ->
                 exit( rpc:call(Node, Mod, Func, Args) )
         end,
@@ -652,6 +700,11 @@ do_meas(Node, Mod, Func, Args) ->
     {Pid, MRef} = spawn_monitor(F),
     p("await completion"),
     receive
+        {'DOWN', MRef, process, Pid, {bench, Results}} ->
+            p("worker process terminated with bench results: "
+              "~n      ~p", [Results]),
+            publish_bench_results(BenchName, Results);
+
         {'DOWN', MRef, process, Pid,
          {error, {failed_loading_flex_scanner_driver, Reason}}} ->
             p("<ERROR> worker process failed loading flex scanner: "
@@ -676,10 +729,36 @@ do_meas(Node, Mod, Func, Args) ->
               "~n      TC Stack: ~p", [TCTimeout, TCPid, TCSTack]),
             exit(Pid, kill),
             ?SKIP(R)
-    end,
-    ok.
+    end.
 
 
+%%% A list means a list of results, so we cannot return a comment
+publish_bench_results(Pre, Results) when is_list(Results) ->
+    publish_bench_results_multiple(Pre, Results);
+publish_bench_results(Pre, Result) when is_integer(Result) ->
+    Event = ?BENCH_EVENT(Pre, Result),
+    ct_event:notify(Event),
+    {comment, ?F("~w: ~p", [Pre, Result])}.
+
+publish_bench_results_multiple(Pre, Results) ->
+    publish_bench_results_multiple(Pre, Results, 0).
+
+publish_bench_results_multiple(Pre, [], Acc) ->
+    {Time, UnitStr} =
+        if
+            (Acc > 1000) ->
+                {Acc div 1000, "msec"};
+            true ->
+                {Acc, "nsec"}
+        end,
+    {comment, ?F("~w: ~w ~s", [Pre, Time, UnitStr])};
+publish_bench_results_multiple(Pre, [{Name, {_, Enc, Dec}} | Results], Acc) ->
+    Time  = Enc + Dec,
+    Event = ?BENCH_EVENT(list_to_atom(?F("~w_~w", [Pre, Name])), Time),
+    ct_event:notify(Event),
+    publish_bench_results_multiple(Pre, Results, Acc + Time).
+    
+                    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -688,29 +767,36 @@ do_meas(Node, Mod, Func, Args) ->
 mstone1(suite) ->
     [];
 mstone1(Config) when is_list(Config) ->
+    %% We give time in seconds, which is *not* the norm (minutes).
+    %% It will be converted into a run-time string in the form: "10s"
+    common_mstone1(?FUNCTION_NAME, #{run_time => 10, bench => false}, Config).
+
+common_mstone1(TC, #{run_time := RunTime} = Opts, Config)
+  when is_list(Config) ->
     Pre  = fun() ->
                    %% The point of this is to make sure we
                    %% utilize as much of the host as possible...
-                   RunTime   = 1, % Minute
                    NumSched  =
                        try erlang:system_info(schedulers_online) of N -> N
                        catch _:_:_ -> 1
                        end,
                    Factor    = 1 + (NumSched div 12),
-                   ct:timetrap(?MINS(RunTime + 1)),
-                   {RunTime, Factor, ?config(worker_node, Config)}
+                   ct:timetrap(?SECS(10) + ?MINS(1)),
+                   {Factor, ?config(worker_node, Config)}
            end,
-    Case = fun({RunTime, Factor, WorkerNode}) ->
+    Case = fun({Factor, WorkerNode}) ->
                    Mod  = megaco_codec_mstone1,
                    Func = start,
-                   Args = [RunTime, Factor],
+                   Args = [Opts, ?F("~ws", [RunTime]), Factor],
                    p("Run with: "
-                     "~n      Run Time: ~p min(s)"
+                     "~n      Run Time: ~p sec(s)"
                      "~n      Factor:   ~p", [RunTime, Factor]),
-                   do_meas(WorkerNode, Mod, Func, Args)
+                   do_meas(WorkerNode,
+                           mstone1,
+                           Mod, Func, Args)
            end,
     Post = fun(_) -> ok end,
-    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+    try_tc(TC, Pre, Case, Post).
                    
 
 
@@ -721,29 +807,63 @@ mstone1(Config) when is_list(Config) ->
 mstone2(suite) ->
     [];
 mstone2(Config) when is_list(Config) ->
+    common_mstone2(?FUNCTION_NAME, #{run_time => 10, bench => false}, Config).
+
+common_mstone2(TC, #{run_time := RunTime} = Opts, Config)
+  when is_list(Config) ->
     Pre  = fun() ->
-                   RunTime  = 1, % Minutes
                    NumSched =
                        try erlang:system_info(schedulers_online) of N -> N
                        catch _:_:_ -> 1
                        end,
                    Factor   = 1 + (NumSched div 12),
-                   ct:timetrap(?MINS(RunTime + 1)),
-                   {Factor, RunTime, ?config(worker_node, Config)}
+                   ct:timetrap(?SECS(RunTime) + ?MINS(1)),
+                   {Factor, ?config(worker_node, Config)}
            end,
-    Case = fun({Factor, RunTime, WorkerNode}) ->
+    Case = fun({Factor, WorkerNode}) ->
                    Mode = standard,
                    Mod  = megaco_codec_mstone2,
                    Func = start,
-                   Args = [Factor, RunTime, Mode],
+                   Args = [Opts, Factor, ?F("~ws", [RunTime]), Mode],
                    p("Run with: "
                      "~n      Factor:   ~p"
-                     "~n      Run Time: ~p min(s)"
+                     "~n      Run Time: ~p sec(s)"
                      "~n      Mode:     ~p", [Factor, RunTime, Mode]),
-                   do_meas(WorkerNode, Mod, Func, Args)
+                   do_meas(WorkerNode,
+                           mstone2,
+                           Mod, Func, Args)
            end,
     Post = fun(_) -> ok end,
-    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+    try_tc(TC, Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% ------------------ bench:meas ------------------------
+
+bench_meas(suite) ->
+    [];
+bench_meas(Config) when is_list(Config) ->
+    common_meas(?FUNCTION_NAME, #{bench => true}, Config).
+
+
+%% ------------------ bench:mstone1 ---------------------
+
+bench_mstone1(suite) ->
+    [];
+bench_mstone1(Config) when is_list(Config) ->
+    %% We give time in seconds, which is *not* the norm (minutes).
+    %% It will be converted into a run-time string in the form: "60s"
+    common_mstone1(?FUNCTION_NAME, #{run_time => 60, bench => true}, Config).
+
+
+%% ------------------ bench:mstone2 ---------------------
+
+bench_mstone2(suite) ->
+    [];
+bench_mstone2(Config) when is_list(Config) ->
+    common_mstone2(?FUNCTION_NAME, #{run_time => 60, bench => true}, Config).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

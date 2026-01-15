@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +51,7 @@ all() ->
 ].
 
 init_per_suite(Config) ->
-    Server = start_xref_server(daily_xref, functions),
+    Server = start_xref_server(daily_xref, functions, Config),
     [{xref_server,Server}|Config].
 
 end_per_suite(Config) ->
@@ -228,7 +230,7 @@ call_to_size_1(Config) when is_list(Config) ->
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
-    %% Forbid the use of erlang:now/1 in all applications except et.
+    %% Forbid the use of erlang:now/0 in all applications except et.
     Apps = all_otp_applications(Config) -- [et],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
@@ -394,8 +396,8 @@ runtime_dependencies_functions(Config) ->
 %% 'modules' mode (the BEAM files to be released might not contain
 %% debug information).
 
-runtime_dependencies_modules(_Config) ->
-    Server = start_xref_server(?FUNCTION_NAME, modules),
+runtime_dependencies_modules(Config) ->
+    Server = start_xref_server(?FUNCTION_NAME, modules, Config),
     try
         runtime_dependencies(Server)
     after
@@ -713,7 +715,7 @@ app_exists(AppAtom) ->
             end
     end.
 
-start_xref_server(Server, Mode) ->
+start_xref_server(Server, Mode, _Config) ->
     Root = code:root_dir(),
     xref:start(Server, [{xref_mode,Mode}]),
     xref:set_default(Server, [{verbose,false},
@@ -727,17 +729,18 @@ start_xref_server(Server, Mode) ->
             %% an entry for erts.
             ct:fail(no_erts_lib_dir);
         LibDir ->
-            case filelib:is_dir(filename:join(LibDir, "ebin")) of
+            ErtsEbin = lists:flatten(filename:join(LibDir, "ebin")),
+            case lists:member(ErtsEbin, code:get_path()) of
                 false ->
                     %% If we are running the tests in the git repository,
                     %% the preloaded BEAM files for Erts are not in the
                     %% code path. We must add them explicitly.
-                    Erts = filename:join([LibDir,"preloaded","ebin"]),
-                    {ok,_} = xref:add_directory(Server, Erts, []);
+                    {ok,_} = xref:add_directory(Server, ErtsEbin, []);
                 true ->
                     ok
             end
     end,
+
     Server.
 
 read_otp_version_table(DataDir) ->

@@ -1,22 +1,23 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec now() -> Timestamp when Timestamp :: timestamp().[0m
+[;1m  now()[0m
 
 [;;4mDeprecated[0m:
   erlang:now/0 is deprecated; see the "Time and Time Correction in
   Erlang" chapter of the ERTS User's Guide for more information
 
-  Types:
-    -type timestamp() ::
-          {MegaSecs :: non_neg_integer(),
-           Secs :: non_neg_integer(),
-           MicroSecs :: non_neg_integer()}.
+  [;;4mWarning[0m
 
-  Warning:
-    This function is deprecated. Do not use it.
-
-    For more information, see section Time and Time Correction
-    in the User's Guide. Specifically, section Dos and Dont's
-    describes what to use instead of [;;4merlang:now/0[0m.
+    This function is deprecated. Do not use it. For more
+    information, see section Time and Time Correction in the
+    User's Guide. Specifically, section Dos and Dont's describes
+    what to use instead of [;;4merlang:now/0[0m.
 
   Returns the tuple [;;4m{MegaSecs, Secs, MicroSecs}[0m, which is the
   elapsed time since 00:00 GMT, January 1, 1970 (zero hour), if

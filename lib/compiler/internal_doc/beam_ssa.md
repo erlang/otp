@@ -1,3 +1,25 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 Invariants on the Structure and Format of BEAM SSA
 ==================================================
 
@@ -123,28 +145,18 @@ apply:
 Variable Naming
 ---------------
 
-A variable name in BEAM SSA is either an atom, a non-negative integer
-or a tuple: `atom() | non_neg_integer() | {atom() | non_neg_integer(),
-non_neg_integer()}`. In order to generate fresh unused variable names,
-all compiler transforms maintain a counter, the `cnt`-field in the
-`opt_st`-record, which is incremented each time a new variable or
+A variable name in BEAM SSA is either an atom or a non-negative
+integer:
+
+    atom() | non_neg_integer()
+
+In order to generate fresh unused variable names, all compiler
+transforms maintain a counter, the `cnt`-field in the `b_function` and
+`opt_st` records, which is incremented each time a new variable or
 label is created. In the following description the value of the
-`cnt`-field is called `Cnt`.
+`cnt`-field is called `Cnt`. The `Cnt` value is guaranteed to never
+clash with a previously defined variable name. Therefore, value of
+`Cnt` can directly be used as a variable name in the SSA passes.
 
-Due to peculiarities in the BEAM SSA code generator, a compiler
-transformation unfortunately cannot just use the `cnt`-value directly
-as a fresh name. There are three basic strategies for creating fresh
-variable names which can by used by a compiler pass:
-
-1) A name can be derived from an existing name of the form `V ::
-  atom() | non_neg_integer()` by selecting an atom, which is unique to
-  the compiler pass, to form a new name `{A, V}`. The same `A` cannot
-  be used by strategy 3) below.
-
-2) A name can be derived from an existing name of the form `V ::
-  non_neg_integer()` by combining it with the `cnt`-field into `{V,
-  Cnt}`.
-
-3) A fresh name can be created by selecting an atom `A`, which is
-  unique to the compiler pass, to form the new name `{A, Cnt}`. The
-  same `A` cannot be used by strategy 1) above.
+Note that the rules were more complicated before Erlang/OTP 27, because
+the `Cnt` value could clash with other variables.

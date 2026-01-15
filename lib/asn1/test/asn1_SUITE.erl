@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,6 +61,7 @@ all() ->
      test_undecoded_rest,
      specialized_decodes,
      special_decode_performance,
+     exclusive_decode_rest,
 
      testMegaco,
      testConstraints,
@@ -216,24 +219,8 @@ unload_modules(CaseDir) ->
 %% Test runners
 %%------------------------------------------------------------------------------
 
-have_jsonlib() ->
-    case code:which(jsx) of
-        non_existing -> false;
-    _ -> true
-    end.
-
 test(Config, TestF) ->
-    TestJer = case have_jsonlib() of
-                  true -> [jer, {ber, [ber,jer]}];
-                  false -> []
-              end,
-    test(Config, TestF, [per,
-                         uper,
-                         ber] ++ TestJer),
-    case TestJer of
-        [] -> {comment,"skipped JER"};
-        _ -> ok
-    end.
+    test(Config, TestF, [per, uper, ber, jer, {ber,[ber,jer]}]).
 
 test(Config, TestF, Rules) ->
     Fun = fun(C, R, O) ->
@@ -339,7 +326,12 @@ testCompactBitString(Config, Rule, Opts) ->
     testCompactBitString:otp_4869(Rule).
 
 testPrimStrings(Config) ->
-    test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper]).
+    test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper,jer]).
+testPrimStrings(Config, jer=Rule, Opts) ->
+    Files = ["PrimStrings", "BitStr"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    testPrimStrings_cases(Rule, Opts),
+    testPrimStrings:more_strings(Rule);
 testPrimStrings(Config, Rule, Opts) ->
     LegacyOpts = [legacy_erlang_types|Opts],
     Files = ["PrimStrings", "BitStr"],
@@ -358,11 +350,16 @@ testPrimStrings_cases(Rule, Opts) ->
     testPrimStrings:octet_string(Rule),
     testPrimStrings:numeric_string(Rule),
     testPrimStrings:other_strings(Rule),
-    testPrimStrings:universal_string(Rule),
-    testPrimStrings:bmp_string(Rule),
-    testPrimStrings:times(Rule),
-    testPrimStrings:utf8_string(Rule),
-    testPrimStrings:fragmented(Rule).
+    case Rule of
+        jer ->
+            ok;
+        _ ->
+            testPrimStrings:universal_string(Rule),
+            testPrimStrings:bmp_string(Rule),
+            testPrimStrings:times(Rule),
+            testPrimStrings:utf8_string(Rule),
+            testPrimStrings:fragmented(Rule)
+    end.
 
 testExternal(Config) -> test(Config, fun testExternal/3).
 testExternal(Config, Rule, Opts) ->
@@ -454,20 +451,13 @@ testExtensionDefault(Config, Rule, Opts) ->
     end.
 
 testMaps(Config) ->
-    Jer = case have_jsonlib() of
-        true -> [{jer,[maps,no_ok_wrapper]}];
-        false -> []
-    end,
-    RulesAndOptions = 
-         [{ber,[maps,no_ok_wrapper]},
-          {ber,[maps,der,no_ok_wrapper]},
-          {per,[maps,no_ok_wrapper]},
-          {uper,[maps,no_ok_wrapper]}] ++ Jer,
-    test(Config, fun testMaps/3, RulesAndOptions),
-    case Jer of
-        [] -> {comment,"skipped JER"};
-        _ -> ok
-    end.
+    RulesAndOptions =
+        [{ber,[maps,no_ok_wrapper]},
+         {ber,[maps,der,no_ok_wrapper]},
+         {per,[maps,no_ok_wrapper]},
+         {uper,[maps,no_ok_wrapper]},
+         {jer,[maps,no_ok_wrapper]}],
+    test(Config, fun testMaps/3, RulesAndOptions).
 
 testMaps(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(['Maps'], Config, [Rule|Opts]),
@@ -971,11 +961,15 @@ specialized_decodes(Config, Rule, Opts) ->
                                "PartialDecSeq2.asn",
                                "PartialDecSeq3.asn",
                                "PartialDecMyHTTP.asn",
-                               "MEDIA-GATEWAY-CONTROL.asn",
                                "P-Record",
-                               "PartialDecChoExtension.asn"],
+                               "PartialDecChoExtension.asn",
+                               "OCSP-2013-88.asn1",
+                               "PKIX1Explicit88.asn1"],
                               Config,
-			      [Rule,legacy_erlang_types,asn1config|Opts]),
+			      [Rule,asn1config|Opts]),
+    asn1_test_lib:compile("MEDIA-GATEWAY-CONTROL.asn",
+                          Config,
+                          [Rule,legacy_erlang_types,asn1config|Opts]),
     test_partial_incomplete_decode:test(Config),
     test_selective_decode:test().
 
@@ -985,6 +979,13 @@ special_decode_performance(Config, Rule, Opts) ->
     Files = ["MEDIA-GATEWAY-CONTROL", "PartialDecSeq"],
     asn1_test_lib:compile_all(Files, Config, [Rule, asn1config|Opts]),
     test_special_decode_performance:go(all).
+
+exclusive_decode_rest(Config) ->
+    test(Config, fun exclusive_decode_rest/3, [ber]).
+exclusive_decode_rest(Config, Rule, Opts) ->
+    asn1_test_lib:compile("SwCDR.py", Config,
+                          [Rule, undec_rest, asn1config|Opts]),
+    test_exclusive_decode_rest:test().
 
 test_ParamTypeInfObj(Config) ->
     asn1_test_lib:compile("IN-CS-1-Datatypes", Config, [ber]).
@@ -1151,8 +1152,8 @@ testContaining(Config) ->
 testContaining(Config, Rule, Opts) ->
     asn1_test_lib:compile("Containing", Config, [Rule|Opts]),
     testContaining:containing(Rule),
-    case {Rule,have_jsonlib()} of
-        {per,true} ->
+    case Rule of
+        per ->
             io:format("Testing with both per and jer...\n"),
             asn1_test_lib:compile("Containing", Config, [jer,Rule|Opts]),
             testContaining:containing(per_jer);

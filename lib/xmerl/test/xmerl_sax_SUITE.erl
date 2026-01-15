@@ -1,9 +1,11 @@
 %%-*-erlang-*-
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,7 +17,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%----------------------------------------------------------------------
 %% File    : xmerl_sax_SUITE.erl
@@ -38,10 +40,11 @@
 %%----------------------------------------------------------------------
 
 all() ->
-    [{group, bugs}].
+    [{group, basic}, {group, bugs}].
 
 groups() ->
-    [{bugs, [], [ticket_8213, ticket_8214, ticket_11551, 
+    [{basic, [], [discard_ws_before_xml_tag_test]},
+     {bugs, [], [ticket_8213, ticket_8214, ticket_11551, 
                  fragmented_xml_directive,
                  old_dom_event_fun_endDocument_bug, 
                  event_fun_endDocument_error_test,
@@ -188,14 +191,15 @@ external_entities_test(Config) ->
     File1 = filename:join(DataDir, "entity_test_1.xml"),
     File2 = filename:join(DataDir, "entity_test_2.xml"),
     %% Allow all (default)
-    {ok, undefined, <<>>} = xmerl_sax_parser:file(File1, []),
-    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, []),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File1, [{external_entities, all}]),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, all}]),
     %% Allow file
     {ok, undefined, <<>>} = xmerl_sax_parser:file(File1, [{external_entities, file}]),
     {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, file}]),
-    %% Allow none
-    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File1, [{external_entities, none}]),
-    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, none}]), %% Not included but parsed, See if it can be fixed
+    %% Allow none (default)
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File1, []),
+    {error, _} = xmerl_sax_parser:file("NonExistingFileError.xml", []),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, []), %% Not included but parsed, See if it can be fixed
     ok.
 
 %%----------------------------------------------------------------------
@@ -209,6 +213,23 @@ fail_undeclared_ref_test(Config) ->
     {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File, [{external_entities, none}]),
     %% fail_undeclared_ref == false
     {ok, undefined, <<>>} = xmerl_sax_parser:file(File, [{external_entities, none}, {fail_undeclared_ref, false}]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: Test option that allows whitespace before xml tag
+discard_ws_before_xml_tag_test(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "two_messages_with_ws_between.xml"),
+    {ok, Bin} = file:read_file(File),
+    %% Use Bin as stream
+    %% Parse first
+    {ok, undefined, RestBin} = xmerl_sax_parser:stream(Bin, []),
+    %% Parse second that has a number of whitespaces first
+    %% Whithout option
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:stream(RestBin, []),
+    %% Whit option
+    {ok, undefined, _} = xmerl_sax_parser:stream(RestBin, [{discard_ws_before_xml_document, true}]),
     ok.
 
 %%======================================================================

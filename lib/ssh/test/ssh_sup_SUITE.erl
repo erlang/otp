@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,9 +50,10 @@
 
 -define(SSHC_SUP(Pid), {sshc_sup, Pid, supervisor, [supervisor]}).
 -define(SSHD_SUP(Pid), {sshd_sup, Pid, supervisor, [supervisor]}).
+-define(LSOCKET_SUP(Pid), {ssh_lsocket_sup, Pid, supervisor, [ssh_lsocket_sup]}).
 -define(SYSTEM_SUP(Pid,Address),
         {{ssh_system_sup, Address}, Pid, supervisor,[ssh_system_sup]}).
--define(SUB_SYSTEM_SUP(Pid), {_,Pid, supervisor,[ssh_subsystem_sup]}).
+-define(CONNECTION_SUP(Pid), {_,Pid, supervisor,[ssh_connection_sup]}).
 -define(ACCEPTOR_SUP(Pid,Address),
         {{ssh_acceptor_sup,Address},Pid,supervisor,[ssh_acceptor_sup]}).
 -define(ACCEPTOR_WORKER(Pid,Address),
@@ -61,7 +64,7 @@
 %%--------------------------------------------------------------------
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,100}}].
+     {timetrap,{seconds,50}}].
 
 all() ->
     [default_tree, sshc_subtree, sshd_subtree, sshd_subtree_profile,
@@ -116,7 +119,8 @@ default_tree(Config) when is_list(Config) ->
     {value, ?SSHC_SUP(_)} = lists:keysearch(sshc_sup, 1, TopSupChildren),
     {value, ?SSHD_SUP(_)} = lists:keysearch(sshd_sup, 1, TopSupChildren),
     ?wait_match([], supervisor:which_children(sshc_sup)),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([?LSOCKET_SUP(_)],
+                supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 sshc_subtree(Config) when is_list(Config) ->
@@ -129,25 +133,22 @@ sshc_subtree(Config) when is_list(Config) ->
                                              {user, ?USER},
                                              {password, ?PASSWD},
                                              {user_dir, UserDir}]),
-    ?wait_match([?SYSTEM_SUP(SysSup,
-                             #address{address=LocalIP,
-                                      port=LocalPort,
-                                      profile=?DEFAULT_PROFILE})],
+    ?wait_match([?CONNECTION_SUP(ConnectionSup)],
 		supervisor:which_children(sshc_sup),
-                [SysSup, LocalIP, LocalPort]),
-    check_sshc_system_tree(SysSup, Pid1, LocalIP, LocalPort, Config),
+                [ConnectionSup]),
+    check_sshc_system_tree(ConnectionSup, Pid1, Config),
     Pid2 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                              {save_accepted_host, false},
                                              {user_interaction, false},
                                              {user, ?USER},
                                              {password, ?PASSWD},
                                              {user_dir, UserDir}]),
-    ?wait_match([?SYSTEM_SUP(_,_),
-                 ?SYSTEM_SUP(_,_)
+    ?wait_match([?CONNECTION_SUP(_),
+                 ?CONNECTION_SUP(_)
                 ],
 		supervisor:which_children(sshc_sup)),
     ssh:close(Pid1),
-    ?wait_match([?SYSTEM_SUP(_,_)
+    ?wait_match([?CONNECTION_SUP(_)
                 ],
 		supervisor:which_children(sshc_sup)),
     ssh:close(Pid2),
@@ -163,14 +164,15 @@ sshd_subtree(Config) when is_list(Config) ->
     ct:log("Expect HostIP=~p, Port=~p, Daemon=~p",[HostIP,Port,Daemon]),
     ?wait_match([?SYSTEM_SUP(Daemon, #address{address=ListenIP,
                                               port=Port,
-                                              profile=?DEFAULT_PROFILE})],
+                                              profile=?DEFAULT_PROFILE}),
+                 ?LSOCKET_SUP(_)],
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
     check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([?LSOCKET_SUP(_)], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 sshd_subtree_profile(Config) when is_list(Config) ->
@@ -184,14 +186,15 @@ sshd_subtree_profile(Config) when is_list(Config) ->
     ct:log("Expect HostIP=~p, Port=~p, Profile=~p, Daemon=~p",[HostIP,Port,Profile,Daemon]),
     ?wait_match([?SYSTEM_SUP(Daemon, #address{address=ListenIP,
                                               port=Port,
-                                              profile=Profile})],
+                                              profile=Profile}),
+                ?LSOCKET_SUP(_)],
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
     check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port, Profile),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([?LSOCKET_SUP(_)], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 killed_acceptor_restarts(Config) ->
@@ -229,7 +232,7 @@ killed_acceptor_restarts(Config) ->
     ct:log("~s",[lists:flatten(ssh_info:string())]),
 
     %% Make acceptor restart:
-    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [AccPid]),
+    ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [AccPid]),
     exit(AccPid, kill),
     ?wait_match(undefined, process_info(AccPid)),
 
@@ -239,7 +242,7 @@ killed_acceptor_restarts(Config) ->
                 AccPid1,
                 500, 30),
 
-    ct:pal("... now there should not be any SUPERVISOR REPORT.~n", []),
+    ct:log("... now there should not be any SUPERVISOR REPORT.~n", []),
 
     true = (AccPid1 =/= AccPid2),
 
@@ -301,7 +304,7 @@ shell_channel_tree(Config) ->
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
 
-    [SubSysSup,_ChPid|_] = Sups0 = chk_empty_con_daemon(Daemon),
+    [ConnectionSup,_ChPid|_] = Sups0 = chk_empty_con_daemon(Daemon),
 
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh_connection:shell(ConnectionRef,ChannelId0),
@@ -311,7 +314,7 @@ shell_channel_tree(Config) ->
                  {_,ChSup,supervisor,[ssh_channel_sup]},
                  {connection,_,worker,[ssh_connection_handler]}
                 ],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
                 [ChSup]),
     ?wait_match([{_,GroupPid,worker,[ssh_server_channel]}
                 ],
@@ -328,9 +331,9 @@ shell_channel_tree(Config) ->
         {ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"TimeoutShell started!",Rest/binary>>}} ->
             ct:log("TimeoutShell started. Rest = ~p", [Rest]),
             receive
-                %%---- wait for the subsystem to terminate
+                %%---- wait for the connection to terminate
                 {ssh_cm,ConnectionRef,{closed,ChannelId0}} ->
-                    ct:log("Subsystem terminated",[]),
+                    ct:log("Connection terminated",[]),
                     case {chk_empty_con_daemon(Daemon),
                           process_info(GroupPid),
                           process_info(ShellPid)} of
@@ -361,23 +364,23 @@ shell_channel_tree(Config) ->
     end.
 
 chk_empty_con_daemon(Daemon) ->
-    ?wait_match([?SUB_SYSTEM_SUP(SubSysSup),
+    ?wait_match([?CONNECTION_SUP(ConnectionSup),
 		 ?ACCEPTOR_SUP(AccSup,_)
                 ],
 		supervisor:which_children(Daemon),
-                [SubSysSup,AccSup]),
+                [ConnectionSup,AccSup]),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor,[ssh_channel_sup]},
                  {connection,ServerConnPid,worker,[ssh_connection_handler]}
                 ],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
 		[ChSup,FwdAccSup,ServerConnPid]),
     ?wait_match([], supervisor:which_children(FwdAccSup)),
     ?wait_match([], supervisor:which_children(ChSup)),
     ?wait_match([?ACCEPTOR_WORKER(_,_)],
                 supervisor:which_children(AccSup),
                 []),
-    [SubSysSup, ChSup, ServerConnPid, AccSup, FwdAccSup].
+    [ConnectionSup, ChSup, ServerConnPid, AccSup, FwdAccSup].
 
 %%-------------------------------------------------------------------------
 %% Help functions
@@ -389,14 +392,14 @@ check_sshd_system_tree(Daemon, Host, Port, Config) ->
                                                    {user, ?USER},
                                                    {password, ?PASSWD},
                                                    {user_dir, UserDir}]),
-    ?wait_match([?SUB_SYSTEM_SUP(SubSysSup),
+    ?wait_match([?CONNECTION_SUP(ConnectionSup),
 		 ?ACCEPTOR_SUP(AccSup,_)],
 		supervisor:which_children(Daemon),
-                [SubSysSup,AccSup]),
+                [ConnectionSup,AccSup]),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,_,supervisor,[ssh_channel_sup]},
                  {connection,ServerConn,worker,[ssh_connection_handler]}],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
 		[FwdAccSup,ServerConn]),
     ?wait_match([], supervisor:which_children(FwdAccSup)),
     ?wait_match([?ACCEPTOR_WORKER(_,_)], supervisor:which_children(AccSup)),
@@ -404,7 +407,7 @@ check_sshd_system_tree(Daemon, Host, Port, Config) ->
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor,[ssh_channel_sup]},
                  {connection,ServerConn,worker,[ssh_connection_handler]}],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
 		[ChSup,ServerConn]),
 
     ?wait_match([{_,PidS,worker,[ssh_server_channel]}],
@@ -415,15 +418,15 @@ check_sshd_system_tree(Daemon, Host, Port, Config) ->
     ssh:close(ClientConn).
 
 
-check_sshc_system_tree(SysSup, Connection, _LocalIP, _LocalPort, _Config) ->
-    ?wait_match([?SUB_SYSTEM_SUP(SubSysSup)],
-                supervisor:which_children(SysSup),
-                [SubSysSup]),
+check_sshc_system_tree(ConnectionSup, Connection, _Config) ->
+    ?wait_match([?CONNECTION_SUP(ConnectionSup)],
+                supervisor:which_children(sshc_sup),
+                [ConnectionSup]),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,_,supervisor,[ssh_channel_sup]},
                  {connection,Connection,worker,[ssh_connection_handler]}
                 ],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
 		[FwdAccSup]),
     ?wait_match([], supervisor:which_children(FwdAccSup)),
 
@@ -432,7 +435,7 @@ check_sshc_system_tree(SysSup, Connection, _LocalIP, _LocalPort, _Config) ->
                  {_,ChSup,supervisor, [ssh_channel_sup]},
                  {connection,Connection,worker,[ssh_connection_handler]}
                 ],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
 		[ChSup,FwdAccSup]),
 
     ?wait_match([{_,ChPid1,worker,[ssh_client_channel]}
@@ -445,7 +448,7 @@ check_sshc_system_tree(SysSup, Connection, _LocalIP, _LocalPort, _Config) ->
                  {_,ChSup,supervisor, [ssh_channel_sup]},
                  {connection,Connection,worker,[ssh_connection_handler]}
                 ],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
 		[ChSup,FwdAccSup]),
 
     ?wait_match([{_,ChPid2,worker,[ssh_client_channel]},
@@ -454,13 +457,13 @@ check_sshc_system_tree(SysSup, Connection, _LocalIP, _LocalPort, _Config) ->
                 supervisor:which_children(ChSup),
                 [ChPid1,ChPid2]),
 
-    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid1]),
+    ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid1]),
     exit(ChPid1, kill),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor, [ssh_channel_sup]},
                  {connection,Connection,worker,[ssh_connection_handler]}
                 ],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
 		[ChSup,FwdAccSup]),
 
     ?wait_match([{_,ChPid2,worker,[ssh_client_channel]}
@@ -468,18 +471,18 @@ check_sshc_system_tree(SysSup, Connection, _LocalIP, _LocalPort, _Config) ->
                 supervisor:which_children(ChSup),
                 [ChPid2]),
 
-    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid2]),
+    ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid2]),
     exit(ChPid2, kill),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor, [ssh_channel_sup]},
                  {connection,Connection,worker,[ssh_connection_handler]}
                 ],
-		supervisor:which_children(SubSysSup),
+		supervisor:which_children(ConnectionSup),
 		[ChSup,FwdAccSup]),
 
     ?wait_match([], supervisor:which_children(ChSup)),
 
-    ct:pal("... now there should not be any SUPERVISOR REPORT.~n", []).
+    ct:log("... now there should not be any SUPERVISOR REPORT.~n", []).
 
 
 

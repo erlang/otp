@@ -1,8 +1,16 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec list_to_integer(String) -> integer() when String :: string().[0m
+[;1m  list_to_integer(String)[0m
 
-  Returns an integer whose text representation is [;;4mString[0m, for
-  example:
+  Returns an integer whose text representation is [;;4mString[0m.
+
+  For example:
 
     > list_to_integer("123").
     123

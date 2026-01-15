@@ -1,6 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type maybe_improper_list(ContentType, TerminationType) ::[0m
-  [;1m          maybe_improper_list(ContentType, TerminationType).[0m
+[;1m  maybe_improper_list(ContentType, TerminationType)[0m
 
-  An Erlang list, that is not guaranteed to end with a [], and
+  An Erlang list, that is not guaranteed to end with a [;;4m[][0m, and
   where the list elements are of the type [;;4mContentType[0m.

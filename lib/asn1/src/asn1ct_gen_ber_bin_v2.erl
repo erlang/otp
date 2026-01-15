@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 %%
 -module(asn1ct_gen_ber_bin_v2).
+-moduledoc false.
 
 %% Generate erlang module which handles (PER) encode and decode for
 %% all types in an ASN.1 module
@@ -30,7 +33,7 @@
 -export([gen_encode_prim/4]).
 -export([gen_dec_prim/3]).
 -export([gen_objectset_code/2, gen_obj_code/3]).
--export([encode_tag_val/3]).
+-export([encode_tag_val/3,tag_to_integer/1]).
 -export([gen_inc_decode/2,gen_decode_selected/3]).
 -export([extaddgroup2sequence/1]).
 -export([dialyzer_suppressions/1]).
@@ -72,16 +75,33 @@ dialyzer_suppressions(_) ->
 	false -> ok;
 	true -> suppress({ber,encode_bit_string,4})
     end,
-    suppress({ber,decode_selective,2}),
+
+    %% The `no_match` option for dialyzer will suppress clauses whose
+    %% patterns will never match. Here we must ensure that dialyzer
+    %% sees calls to all helper functions to avoid warnings for
+    %% functions that will never be called.
+    %%
+    %% We provide argument lists that avoid dialyzer warnings,
+    %% but stills allows the compiler to do some optimizations.
+
+    Args1 = ["element(5, Arg)", "[skip,{skip_optional,<<0>>},{chosen,<<0>>}]"],
+    suppress({ber,decode_selective,2}, Args1),
+
+    Args2 = ["[{undecoded,0},{alt_parts,0}]", "element(6, Arg)"],
+    suppress({ber,decode_primitive_incomplete,2}, Args2),
+
     emit(["    ok.",nl]).
 
-suppress({M,F,A}=MFA) ->
+suppress({_,_,A}=MFA) ->
+    Args = [lists:concat(["element(",I,", Arg)"]) || I <- lists:seq(1, A)],
+    suppress(MFA, Args).
+
+suppress({M,F,_}=MFA, Args) ->
     case asn1ct_func:is_used(MFA) of
 	false ->
 	    ok;
 	true ->
-	    Args = [lists:concat(["element(",I,", Arg)"]) || I <- lists:seq(1, A)],
-	    emit(["    ",{call,M,F,Args},com,nl])
+	    emit(["    _ = ",{call,M,F,Args},com,nl])
     end.
 
 %%===============================================================================
@@ -218,7 +238,7 @@ gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
 	    asn1ct_name:new(realsize),
 	    emit(["begin",nl,
 		  {curr,realval}," = ",
-		  {call,real_common,ber_encode_real,[Value]},com,nl,
+                  {call,real_common,encode_real,[Value]},com,nl,
 		  {curr,realsize}," = ",
 		  {call,erlang,byte_size,[{curr,realval}]},com,nl,
 		  {call,ber,encode_tags,
@@ -353,19 +373,25 @@ gen_inc_decode(Erules,Type) when is_record(Type,typedef) ->
 gen_decode_selected(Erules,Type,FuncName) ->
     emit([FuncName,"(Bin) ->",nl]),
     Patterns = asn1ct:read_config_data(partial_decode),
-    Pattern = 
-	case lists:keysearch(FuncName,1,Patterns) of
-	    {value,{_,P}} -> P;
-	    false -> exit({error,{internal,no_pattern_saved}})
-	end,
+    {_,Pattern} = lists:keyfind(FuncName, 1, Patterns),
     emit(["  case ",{call,ber,decode_selective,
 		     [{asis,Pattern},"Bin"]}," of",nl,
 	  "    {ok,Bin2} when is_binary(Bin2) ->",nl,
 	  "      {Tlv,_} = ", {call,ber,ber_decode_nif,["Bin2"]},com,nl]),
-    emit("{ok,"),
-    gen_decode_selected_type(Erules,Type),
-    emit(["};",nl,"    Err -> exit({error,{selective_decode,Err}})",nl,
-	  "  end.",nl]).
+    NoOkWrapper = proplists:get_bool(no_ok_wrapper, Erules#gen.options),
+    case NoOkWrapper of
+        true -> ok;
+        false -> emit("{ok,")
+    end,
+    gen_decode_selected_type(Erules, Type),
+    case NoOkWrapper of
+        true ->
+            ok;
+        false ->
+            emit(["};",nl,
+                  "    Err -> exit({error,{selective_decode,Err}})"])
+    end,
+    emit(["  end.",nl]).
 
 gen_decode_selected_type(_Erules,TypeDef) ->
     Def = TypeDef#typedef.typespec,
@@ -382,14 +408,9 @@ gen_decode_selected_type(_Erules,TypeDef) ->
 	    asn1ct_name:new(len),
 	    gen_dec_prim(Def, BytesVar, Tag);
 	{constructed,bif} ->
-	    TopType = case TypeDef#typedef.name of
-			  A when is_atom(A) -> [A];
-			  N -> N
-		      end,
-	    DecFunName = lists:concat(["'",dec,"_",
-				       asn1ct_gen:list2name(TopType),"'"]),
-	    emit([DecFunName,"(",BytesVar,
-		  ", ",{asis,Tag},")"]);
+	    TopType = TypeDef#typedef.name,
+            DecFunName = dec_func(asn1ct_gen:list2name(TopType)),
+            emit([DecFunName,"(",BytesVar,", ",{asis,Tag},")"]);
 	TheType ->
 	    DecFunName = mkfuncname(TheType,dec),
 	    emit([DecFunName,"(",BytesVar,
@@ -1526,6 +1547,10 @@ get_object_field(Name,ObjectFields) ->
 	{value,Field} -> Field;
 	false -> false
     end.
+
+tag_to_integer(#tag{class=Class,number=N})
+  when is_integer(N), 0 =< N, N =< 1 bsl 16 ->
+    decode_class(Class) bsl 10 bor N.
 
 %%encode_tag(TagClass(?UNI, APP etc), Form (?PRIM etx), TagInteger) ->  
 %%     8bit Int | binary 

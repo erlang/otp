@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,95 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(memsup).
+-moduledoc """
+A Memory Supervisor Process
+
+`memsup` is a process which supervises the memory usage for the system and for
+individual processes. It is part of the OS_Mon application, see
+[os_mon](os_mon_app.md). Available for Unix and Windows.
+
+Periodically performs a memory check:
+
+- If more than a certain amount of available system memory is allocated, as
+  reported by the underlying operating system, the alarm
+  `{system_memory_high_watermark, []}` is set. How the amount of available
+  memory is determined depends on the underlying OS and may change as better
+  values become available.
+- If any Erlang process `Pid` in the system has allocated more than a certain
+  amount of total system memory, the alarm
+  `{process_memory_high_watermark, Pid}` is set.
+
+Alarms are reported to the SASL alarm handler, see `m:alarm_handler`. To set an
+alarm, `alarm_handler:set_alarm(Alarm)` is called where `Alarm` is either of the
+alarms specified above.
+
+The alarms are cleared automatically when the alarm cause is no longer valid.
+
+The function [get_memory_data()](`get_memory_data/0`) can be used to retrieve
+the result of the latest periodic memory check.
+
+There is also a interface to system dependent memory data,
+[get_system_memory_data()](`get_system_memory_data/0`). The result is highly
+dependent on the underlying operating system and the interface is targeted
+primarily for systems without virtual memory. However, the output on other
+systems is still valid, although sparse.
+
+A call to `get_system_memory_data/0` is more costly than a call to
+`get_memory_data/0` as data is collected synchronously when this function is
+called.
+
+The total system memory reported under UNIX is the number of physical pages of
+memory times the page size, and the available memory is the number of available
+physical pages times the page size. This is a reasonable measure as swapping
+should be avoided anyway, but the task of defining total memory and available
+memory is difficult because of virtual memory and swapping.
+
+## Configuration
+
+The following configuration parameters can be used to change the default values
+for time intervals and thresholds:
+
+- **`memory_check_interval = int()>0`** - The time interval, in minutes, for the
+  periodic memory check. The default is one minute.
+
+- **`system_memory_high_watermark = float()`** - The threshold, as percentage of
+  system memory, for how much system memory can be allocated before the
+  corresponding alarm is set. The default is 0.80 (80%).
+
+- **`process_memory_high_watermark = float()`** - The threshold, as percentage
+  of system memory, for how much system memory can be allocated by one Erlang
+  process before the corresponding alarm is set. The default is 0.05 (5%).
+
+- **`memsup_helper_timeout = int()>0`** - A timeout, in seconds, for how long
+  the `memsup` process should wait for a result from a memory check. If the
+  timeout expires, a warning message `"OS_MON (memsup) timeout"` is issued via
+  `error_logger` and any pending, synchronous client calls will return a dummy
+  value. Normally, this situation should not occur. There have been cases on
+  Linux, however, where the pseudo file from which system data is read is
+  temporarily unavailable when the system is heavily loaded.
+
+  The default is 30 seconds.
+
+- **`memsup_system_only = bool()`** - Specifies whether the `memsup` process
+  should only check system memory usage (`true`) or not. The default is `false`,
+  meaning that information regarding both system memory usage and Erlang process
+  memory usage is collected.
+
+  It is recommended to set this parameter to `true` on systems with many
+  concurrent processes, as each process memory check makes a traversal of the
+  entire list of processes.
+
+See [config](`e:kernel:config.md`) for information about how to change the
+value of configuration parameters.
+
+## See Also
+
+`m:alarm_handler`, [os_mon](os_mon_app.md)
+""".
 -behaviour(gen_server).
 
 %% API
@@ -35,7 +122,7 @@
 	 terminate/2]).
 
 %% Other exports
--export([format_status/2]).
+-export([format_status/1]).
 
 -include("memsup.hrl").
 
@@ -65,20 +152,113 @@
 %% API
 %%----------------------------------------------------------------------
 
+-doc false.
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
+-doc """
+Returns the wordsize of the current running operating system.
+""".
+-spec get_os_wordsize() -> Wordsize when Wordsize :: 32 | 64 | unsupported_os.
 get_os_wordsize() ->
     os_mon:call(memsup, get_os_wordsize, infinity).
 
+-doc """
+Returns the result of the latest memory check, where `Total` is the total memory
+size and `Allocated` the allocated memory size, in bytes.
+
+`Worst` is the pid and number of allocated bytes of the largest Erlang process
+on the node. If `memsup` should not collect process data, that is if the
+configuration parameter `memsup_system_only` was set to `true`, `Worst` is
+`undefined`.
+
+The function is normally asynchronous in the sense that it does not invoke a
+memory check, but returns the latest available value. The one exception if is
+the function is called before a first memory check is finished, in which case it
+does not return a value until the memory check is finished.
+
+Returns `{0,0,{pid(),0}}` or `{0,0,undefined}` if `memsup` is not available, or
+if all memory checks so far have timed out.
+""".
+-spec get_memory_data() -> {Total, Allocated, Worst} when
+      Total :: integer(),
+      Allocated :: integer(),
+      Worst :: {Pid, PidAllocated} | undefined,
+      Pid :: pid(),
+      PidAllocated :: integer().
 get_memory_data() ->
     os_mon:call(memsup, get_memory_data, infinity).
 
+-doc """
+Invokes a memory check and returns the resulting, system dependent, data as a
+list of tagged tuples, where `Tag` currently can be one of the following:
+
+- **`total_memory`** - The total amount of memory available to the Erlang
+  emulator, allocated and free. May or may not be equal to the amount of memory
+  configured in the system.
+
+- **`available_memory`** - Informs about the amount memory that is available for
+  increased usage if there is an increased memory need. This value is not based
+  on a calculation of the other provided values and should give a better value
+  of the amount of memory that actually is available than calculating a value
+  based on the other values reported. This value is currently only present on
+  newer Linux kernels. If this value is not available on Linux, you can use the
+  sum of `cached_memory`, `buffered_memory`, and `free_memory` as an
+  approximation.
+
+- **`free_memory`** - The amount of free memory available to the Erlang emulator
+  for allocation.
+
+- **`system_total_memory`** - The amount of memory available to the whole
+  operating system. This may well be equal to `total_memory` but not
+  necessarily.
+
+- **`buffered_memory`** - The amount of memory the system uses for temporary
+  storing raw disk blocks.
+
+- **`cached_memory`** - The amount of memory the system uses for cached files
+  read from disk. On Linux, also memory marked as reclaimable in the kernel slab
+  allocator will be added to this value.
+
+- **`total_swap`** - The amount of total amount of memory the system has
+  available for disk swap.
+
+- **`free_swap`** - The amount of memory the system has available for disk swap.
+
+> #### Note {: .info }
+>
+> Note that new tagged tuples may be introduced in the result at any time
+> without prior notice
+
+Note that the order of the tuples in the resulting list is undefined and may
+change at any time.
+
+All memory sizes are presented as number of _bytes_.
+
+Returns the empty list [] if `memsup` is not available, or if the memory check
+times out.
+""".
+-spec get_system_memory_data() -> MemDataList when
+      MemDataList :: [{Tag, Size}],
+      Tag :: atom(),
+      Size :: integer().
 get_system_memory_data() ->
     os_mon:call(memsup, get_system_memory_data, infinity).
 
+-doc """
+Returns the time interval, in milliseconds, for the periodic memory check.
+""".
+-spec get_check_interval() -> Milliseconds :: timer:time().
 get_check_interval() ->
     os_mon:call(memsup, get_check_interval, infinity).
+-doc """
+Changes the time interval, given in minutes, for the periodic memory check.
+
+The change will take effect after the next memory check and is non-persistent.
+That is, in case of a process restart, this value is forgotten and the default
+value will be used. See [Configuration](`m:memsup#module-configuration`).
+""".
+-spec set_check_interval(Minutes :: non_neg_integer()) -> ok.
 set_check_interval(Minutes) ->
     case param_type(memory_check_interval, Minutes) of
 	true ->
@@ -88,8 +268,20 @@ set_check_interval(Minutes) ->
 	    erlang:error(badarg)
     end.
 
+-doc """
+Returns the threshold, in percent, for process memory allocation.
+""".
+-spec get_procmem_high_watermark() -> integer().
 get_procmem_high_watermark() ->
     os_mon:call(memsup, get_procmem_high_watermark, infinity).
+-doc """
+Changes the threshold, given as a float, for process memory allocation.
+
+The change will take effect during the next periodic memory check and is
+non-persistent. That is, in case of a process restart, this value is forgotten
+and the default value will be used. See [Configuration](`m:memsup#module-configuration`).
+""".
+-spec set_procmem_high_watermark(Float :: term()) -> ok.
 set_procmem_high_watermark(Float) ->
     case param_type(process_memory_high_watermark, Float) of
 	true ->
@@ -99,8 +291,21 @@ set_procmem_high_watermark(Float) ->
 	    erlang:error(badarg)
     end.
 
+-doc """
+Returns the threshold, in percent, for system memory allocation.
+""".
+-spec get_sysmem_high_watermark() -> integer().
 get_sysmem_high_watermark() ->
     os_mon:call(memsup, get_sysmem_high_watermark, infinity).
+-doc """
+Changes the threshold, given as a float, for system memory allocation.
+
+The change will take effect during the next periodic memory check and is
+non-persistent. That is, in case of a process restart, this value is forgotten
+and the default value will be used. See [Configuration](`m:memsup#module-configuration`)
+above.
+""".
+-spec set_sysmem_high_watermark(Float :: term()) -> ok.
 set_sysmem_high_watermark(Float) ->
     case param_type(system_memory_high_watermark, Float) of
 	true ->
@@ -110,8 +315,20 @@ set_sysmem_high_watermark(Float) ->
 	    erlang:error(badarg)
     end.
 
+-doc """
+Returns the timeout value, in seconds, for memory checks.
+""".
+-spec get_helper_timeout() -> Seconds :: integer().
 get_helper_timeout() ->
     os_mon:call(memsup, get_helper_timeout, infinity).
+-doc """
+Changes the timeout value, given in seconds, for memory checks.
+
+The change will take effect for the next memory check and is non-persistent.
+That is, in the case of a process restart, this value is forgotten and the
+default value will be used. See [Configuration](`m:memsup#module-configuration`) above.
+""".
+-spec set_helper_timeout(Seconds :: non_neg_integer()) -> ok.
 set_helper_timeout(Seconds) ->
     case param_type(memsup_helper_timeout, Seconds) of
 	true ->
@@ -120,6 +337,7 @@ set_helper_timeout(Seconds) ->
 	    erlang:error(badarg)
     end.
 
+-doc false.
 dummy_reply(get_memory_data) ->
     dummy_reply(get_memory_data,
 		os_mon:get_env(memsup, memsup_system_only));
@@ -148,6 +366,7 @@ dummy_reply(get_memory_data, true) ->
 dummy_reply(get_memory_data, false) ->
     {0,0,{self(),0}}.
 
+-doc false.
 param_type(memsup_system_only, Val) when Val==true; Val==false -> true;
 param_type(memory_check_interval, Val) when is_integer(Val),
                                             Val>0 -> true;
@@ -161,6 +380,7 @@ param_type(process_memory_high_watermark, Val) when is_number(Val),
 						    Val=<1 -> true;
 param_type(_Param, _Val) -> false.
 
+-doc false.
 param_default(memsup_system_only) -> false;
 param_default(memory_check_interval) -> 1;
 param_default(memsup_helper_timeout) -> 30;
@@ -171,6 +391,7 @@ param_default(process_memory_high_watermark) -> 0.05.
 %% gen_server callbacks
 %%----------------------------------------------------------------------
 
+-doc false.
 init([]) ->
     process_flag(trap_exit, true),
     process_flag(priority, low),
@@ -234,6 +455,7 @@ init([]) ->
 
 		pid=Pid}}.
 
+-doc false.
 handle_call(get_os_wordsize, _From, State) ->
     Wordsize = get_os_wordsize(State#state.os),
     {reply, Wordsize, State};
@@ -339,10 +561,12 @@ handle_call({set_pid_hw, HW}, _From, State) ->
 handle_call(get_state, _From, State) ->
     {reply, State, State}.
 
+-doc false.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %% It's time to check memory
+-doc false.
 handle_info(time_to_collect, State) ->
     case State#state.wd_timer of
 	undefined ->
@@ -520,6 +744,7 @@ handle_info({'EXIT', Pid, Reason}, State) when is_pid(Pid) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
+-doc false.
 terminate(_Reason, State) ->
     if
 	State#state.port_mode -> State#state.pid ! close;
@@ -532,19 +757,21 @@ terminate(_Reason, State) ->
 %% Other exports
 %%----------------------------------------------------------------------
 
-format_status(_Opt, [_PDict, #state{timeout=Timeout, mem_usage=MemUsage,
-				    worst_mem_user=WorstMemUser}]) ->
+-doc false.
+format_status(#{ state := #state{timeout=Timeout, mem_usage=MemUsage,
+                                 worst_mem_user=WorstMemUser} } = Status) ->
     {Allocated, Total} = MemUsage,
     WorstMemFormat = case WorstMemUser of
-			 {Pid, Mem} ->
-			     [{"Pid", Pid}, {"Memory", Mem}];
-			 undefined ->
-			     undefined
-		     end,
-    [{data, [{"Timeout", Timeout}]},
-     {items, {"Memory Usage", [{"Allocated", Allocated},
-			       {"Total", Total}]}},
-     {items, {"Worst Memory User", WorstMemFormat}}].
+                         {Pid, Mem} ->
+                             [{"Pid", Pid}, {"Memory", Mem}];
+                         undefined ->
+                             undefined
+                     end,
+    Status#{ state := 
+                 [{"Timeout", Timeout},
+                  {"Memory Usage", [{"Allocated", Allocated},
+                                    {"Total", Total}]},
+                  {"Worst Memory User", WorstMemFormat}] }.
 
 
 %%----------------------------------------------------------------------

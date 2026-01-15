@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +29,6 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-         verify_highest_opcode/1,
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
 	 opt/1,otp_7556/1,float_arith/1,otp_8054/1,
@@ -44,8 +45,7 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [verify_highest_opcode,
-       two,test1,fail,float_bin,in_guard,in_catch,
+      [two,test1,fail,float_bin,in_guard,in_catch,
        nasty_literals,side_effect,opt,otp_7556,float_arith,
        otp_8054,strings,bad_size,private_append]}].
 
@@ -69,28 +69,6 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok.
-
-verify_highest_opcode(_Config) ->
-    case ?MODULE of
-        bs_construct_r24_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 176 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode,TooHigh})
-            end;
-        bs_construct_r25_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 180 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode,TooHigh})
-            end;
-        _ ->
-            ok
-    end.
 
 two(Config) when is_list(Config) ->
     <<0,1,2,3,4,6,7,8,9>> = two_1([0], [<<1,2,3,4>>,<<6,7,8,9>>]),
@@ -763,10 +741,13 @@ private_append(_Config) ->
     <<>> = private_append_2(false),
     {'EXIT', _} = catch private_append_2(true),
 
+    {ok,<<>>} = private_append_3(id(<<>>)),
+    {error,<<"wrong parity">>} = private_append_3(id(<<1>>)),
+
     ok.
 
-%% GH-7121: Alias analysis would not mark fun arguments as aliased, fooling
-%% the beam_ssa_private_append pass.
+%% GH-7121: Alias analysis would not mark fun arguments as aliased,
+%% fooling the beam_ssa_destructive_update pass.
 private_append_1(M) when is_map(M) ->
     maps:fold(fun (K, V, Acc = <<>>) ->
                         <<Acc/binary, K/binary, "=\"", V/binary, "\"">>;
@@ -777,3 +758,21 @@ private_append_1(M) when is_map(M) ->
 %% GH-7142: The private append pass crashed on oddly structured code.
 private_append_2(Boolean) ->
     <<<<(id(Boolean) orelse <<>>)/binary>>/binary>>.
+
+%% GH-10077. Would crash when attempting patch the
+%% {error, <<"wrong parity">>} tuple.
+private_append_3(Input) ->
+    private_append_3(Input, {ok, <<>>}).
+
+private_append_3(_, {error, Msg}) ->
+    {error, Msg};
+private_append_3(<<>>, {ok, Acc}) ->
+    {ok, Acc};
+private_append_3(<<B/bitstring>>, {ok, Acc}) ->
+    case B of
+        <<>> ->
+            private_append_3(<<>>, {ok, <<Acc/bitstring>>});
+        _ ->
+            %% The compiler would fail to patch this tuple.
+            private_append_3(<<>>, {error, <<"wrong parity">>})
+    end.

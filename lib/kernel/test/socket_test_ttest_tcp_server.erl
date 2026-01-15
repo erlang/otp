@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +53,7 @@
 -include_lib("kernel/include/inet.hrl").
 -include("socket_test_ttest.hrl").
 
--define(ACC_TIMEOUT,  5000).
+-define(ACC_TIMEOUT,  1000).
 -define(RECV_TIMEOUT, 5000).
 
 -define(LIB,            socket_test_ttest_lib).
@@ -205,18 +207,6 @@ server_accept(#{mod := Mod, lsock := LSock} = State, Timeout) ->
 	    (catch Mod:close(LSock)),
             exit({accept, AReason})
     end.
-
-%% server_accept(#{mod   := Mod,
-%%                 lsock := LSock} = State) ->
-%%     case Mod:accept(LSock, ?ACC_TIMEOUT) of
-%%         {ok, Sock} ->
-%%             server_handle_accepted(State, Sock);
-%%         {error, timeout} ->
-%%             State;
-%%         {error, AReason} ->
-%% 	    (catch Mod:close(LSock)),
-%%             exit({accept, AReason})
-%%     end.
 
 server_handle_accepted(#{mod      := Mod,
                          lsock    := LSock,
@@ -426,6 +416,7 @@ handler_recv_message(#{mod        := Mod,
                    bcnt       => BCnt + MsgSz,
 		   last_reply => ID};
         {error, closed} ->
+            ?I("client done (socket close)"),
             handler_done(State);
         {error, timeout} ->
 	    ?I("timeout when: "
@@ -460,9 +451,10 @@ handler_recv_message(#{mod        := Mod,
         {error, closed} ->
             if
                 (size(Acc) =:= 0) ->
+                    ?I("client done (socket close)"),
                     handler_done(State);
                 true ->
-                    ?E("client done with partial message: "
+                    ?E("client done (socket close) with partial message: "
                        "~n   Last Reply Sent: ~w"
                        "~n   Message Count:   ~w"
                        "~n   Byte    Count:   ~w"

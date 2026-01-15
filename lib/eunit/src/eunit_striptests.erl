@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2006 Richard Carlsson, Eric Merritt
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,14 +27,12 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @author Eric Merritt <ericbmerritt@gmail.com>
-%% @copyright 2006 Richard Carlsson, Eric Merritt
-%% @private
-%% @see eunit
-%% @doc Parse transform for stripping EUnit test functions.
+%% %CopyrightEnd%
+%%
+%% Parse transform for stripping EUnit test functions.
 
 -module(eunit_striptests).
+-moduledoc false.
 
 -include("eunit_internal.hrl").
 

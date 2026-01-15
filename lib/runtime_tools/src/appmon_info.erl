@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,6 +98,7 @@
 %%
 %%----------------------------------------------------------------------
 -module(appmon_info).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% Exported functions
@@ -710,7 +713,14 @@ format(P) when is_pid(P), node(P) /= node() ->
 format(P) when is_pid(P) ->
     case process_info(P, registered_name) of
 	{registered_name, Name} -> atom_to_list(Name);
-	_ -> pid_to_list(P)
+	_ ->
+            %% Needs to be unique
+            case proc_lib:get_label(P) of
+                undefined ->
+                    pid_to_list(P);
+                Label ->
+                    format_label(Label, P)
+            end
     end;
 format(P) when is_port(P) ->
     case erlang:port_info(P, id) of
@@ -721,6 +731,18 @@ format(P) when is_port(P) ->
 format(X) ->
     io:format("What: ~p~n", [X]),
     "???".
+
+format_label(Id, Pid) when is_list(Id); is_binary(Id) ->
+    try unicode:characters_to_binary(Id) of
+        {error, _, _} ->
+            io_lib:format("~0.tp ~w", [Id, Pid]);
+        BinString ->
+            io_lib:format("~ts ~w", [BinString, Pid])
+    catch _:_ ->
+            io_lib:format("~0.tp ~w", [Id, Pid])
+    end;
+format_label(Id, Pid) ->
+    io_lib:format("~0.tp ~w", [Id, Pid]).
 
 
 %%----------------------------------------------------------------------

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 %%
 -module(asn1_db).
+-moduledoc false.
 
 -export([dbstart/1,dbnew/3,dbload/1,dbload/4,dbsave/2,dbput/2,
 	 dbput/3,dbget/2]).
@@ -106,7 +109,9 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
             loop(State);
         {save, OutFile, Mod} ->
             Mtab = ets:lookup_element(Table, Mod, 2),
-	    TempFile = OutFile ++ ".#temp",
+	    TempFile = OutFile ++
+                integer_to_list(erlang:unique_integer([positive])) ++
+                ".#temp",
             ok = ets:tab2file(Mtab, TempFile),
 	    ok = file:rename(TempFile, OutFile),
             loop(State);

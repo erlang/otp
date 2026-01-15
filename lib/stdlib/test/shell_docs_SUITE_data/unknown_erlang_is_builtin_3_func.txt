@@ -1,9 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:is_builtin(Module, Function, Arity) -> boolean()[0m
-  [;1m                           when[0m
-  [;1m                               Module :: module(),[0m
-  [;1m                               Function :: atom(),[0m
-  [;1m                               Arity :: arity().[0m
+[;1m  is_builtin(Module, Function, Arity)[0m
 
   This BIF is useful for builders of cross-reference tools.
 

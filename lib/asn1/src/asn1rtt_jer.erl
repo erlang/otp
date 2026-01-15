@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,14 +28,19 @@
 %% For typeinfo JER
 -export([encode_jer/3, decode_jer/3]).
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Common code for all JER encoding/decoding
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 encode_jer(Module, Type, Val) ->
     Info = Module:typeinfo(Type),
-    encode_jer(Info, Val).
+    Enc = encode_jer(Info, Val),
+    EncFun = fun({'KV_LIST', Value}, Encode) ->
+                     json:encode_key_value_list(Value, Encode);
+                (Other, Encode) ->
+                     json:encode_value(Other, Encode)
+             end,
+    iolist_to_binary(json:encode(Enc, EncFun)).
 
 %% {sequence,
 %%    Name::atom() % The record name used for the sequence 
@@ -114,7 +121,8 @@ encode_jer({typeinfo,{Module,Type}},Val) ->
 encode_jer({sof,Type},Vals) when is_list(Vals) ->
     [encode_jer(Type,Val)||Val <- Vals];
 encode_jer({choice,Choices},{Alt,Value}) ->
-    case is_map_key(AltBin = atom_to_binary(Alt,utf8),Choices) of
+    AltBin = atom_to_binary(Alt,utf8),
+    case is_map_key(AltBin,Choices) of
         true ->
             EncodedVal = encode_jer(maps:get(AltBin,Choices),Value),
             #{AltBin => EncodedVal};
@@ -125,13 +133,22 @@ encode_jer({choice,Choices},{Alt,Value}) ->
 encode_jer(bit_string,Value) ->
     Str = bitstring2json(Value),
     #{value => Str, length => bit_size(Value)};
+encode_jer({bit_string,{_,_}},Value) ->
+    Str = bitstring2json(Value),
+    #{value => Str, length => bit_size(Value)};
 encode_jer({bit_string,FixedLength},Value) when is_bitstring(Value), is_integer(FixedLength) ->
     Value2 = jer_padbitstr(Value,FixedLength),
     bitstring2json(Value2);
 encode_jer(compact_bit_string,Compact) ->
     BitStr = jer_compact2bitstr(Compact),
     encode_jer(bit_string,BitStr);
-encode_jer({compact_bit_string,FixedLength},Compact = {_Unused,Binary}) when is_binary(Binary) ->
+encode_jer({compact_bit_string,{_,_}},Compact) ->
+    BitStr = jer_compact2bitstr(Compact),
+    encode_jer(bit_string,BitStr);
+encode_jer({compact_bit_string,FixedLength}, {_,Binary}=Compact) when is_binary(Binary) ->
+    BitStr = jer_compact2bitstr(Compact),
+    encode_jer({bit_string,FixedLength},BitStr);
+encode_jer({compact_bit_string,FixedLength}, Compact) when is_integer(Compact) ->
     BitStr = jer_compact2bitstr(Compact),
     encode_jer({bit_string,FixedLength},BitStr);
 encode_jer({bit_string_nnl,NNL},Value) -> 
@@ -171,7 +188,9 @@ encode_jer_component_tab([{Name, Type, _OptOrDefault} | CompInfos], [Value | Res
     encode_jer_component_tab(CompInfos, Rest, Simple, MapAcc#{Name => Enc});
 encode_jer_component_tab([], _, _Simple, MapAcc) ->
     MapAcc.
-encode_jer_component_map([{Name, AName, Type, _OptOrDefault} | CompInfos], MapVal, Acc) when is_map_key(AName,MapVal)->
+
+encode_jer_component_map([{Name, AName, Type, _OptOrDefault} | CompInfos], MapVal, Acc)
+  when is_map_key(AName, MapVal)->
     Value = maps:get(AName, MapVal),
     Enc = encode_jer(Type, Value),
     encode_jer_component_map(CompInfos, MapVal, [{Name,Enc}|Acc]);
@@ -179,14 +198,11 @@ encode_jer_component_map([{_Name, _AName, _Type, 'OPTIONAL'} | CompInfos], MapVa
     encode_jer_component_map(CompInfos, MapVal, Acc);
 encode_jer_component_map([{_Name, _AName, _Type, {'DEFAULT',_}} | CompInfos], MapVal, Acc) ->
     encode_jer_component_map(CompInfos, MapVal, Acc);
-encode_jer_component_map([], MapVal, []) when map_size(MapVal) == 0->
-    #{}; % ensure that it is encoded as an empty object in JSON
-encode_jer_component_map([], MapVal, Acc) when map_size(MapVal) == length(Acc) ->
-    lists:reverse(Acc);
+encode_jer_component_map([], MapVal, Acc) when map_size(MapVal) =:= length(Acc) ->
+    {'KV_LIST', lists:reverse(Acc)};
 encode_jer_component_map(_, MapVal, Acc) ->
     ErroneousKeys = maps:keys(MapVal) -- [K || {K,_V} <- Acc],
     exit({error,{asn1,{{encode,'SEQUENCE'},{erroneous_keys,ErroneousKeys}}}}).
-
 
 encode_jer_component([{_Name, _Type, 'OPTIONAL'} | CompInfos], [asn1_NOVALUE | Rest], Acc) ->
     encode_jer_component(CompInfos, Rest, Acc);
@@ -195,10 +211,9 @@ encode_jer_component([{_Name, _Type, {'DEFAULT',_}} | CompInfos], [asn1_DEFAULT 
 encode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], [Value | Rest], Acc) ->
     Enc = encode_jer(Type, Value),
     encode_jer_component(CompInfos, Rest, [{Name,Enc}|Acc]);
-encode_jer_component([], _, []) ->
-    #{}; % ensure that it is encoded as an empty object in JSON
 encode_jer_component([], _, Acc) ->
-    lists:reverse(Acc).
+    {'KV_LIST', lists:reverse(Acc)}.
+
 
 decode_jer(Module, Type, Val) ->
     TypeInfo = Module:typeinfo(Type),
@@ -262,7 +277,11 @@ decode_jer('NULL',null) ->
     'NULL';
 decode_jer(legacy_octet_string,Str) when is_binary(Str) ->
     json2octetstring2string(binary_to_list(Str));
+decode_jer({legacy_octet_string,_Size},Str) when is_binary(Str) ->
+    json2octetstring2string(binary_to_list(Str));
 decode_jer(octet_string,Str) when is_binary(Str) ->
+    json2octetstring2binary(binary_to_list(Str));
+decode_jer({octet_string,_Size},Str) when is_binary(Str) ->
     json2octetstring2binary(binary_to_list(Str));
 decode_jer({sof,Type},Vals) when is_list(Vals) ->
     [decode_jer(Type,Val)||Val <- Vals];
@@ -279,6 +298,12 @@ decode_jer(bit_string,#{<<"value">> := Str, <<"length">> := Length}) ->
     json2bitstring(binary_to_list(Str),Length);
 decode_jer({bit_string,FixedLength},Str) when is_binary(Str) ->
     json2bitstring(binary_to_list(Str),FixedLength);
+decode_jer({bit_string, {_, _}},
+          #{<<"value">> := Str, <<"length">> := Length}) ->
+    json2bitstring(binary_to_list(Str), Length);
+decode_jer({{bit_string_nnl,NNL},{_,_}},#{<<"value">> := Str, <<"length">> := Length}) ->
+    BitStr = json2bitstring(binary_to_list(Str),Length),
+    jer_bitstr2names(BitStr,NNL);
 decode_jer({bit_string_nnl,NNL},#{<<"value">> := Str, <<"length">> := Length}) -> 
     BitStr = json2bitstring(binary_to_list(Str),Length),
     jer_bitstr2names(BitStr,NNL);
@@ -290,6 +315,9 @@ decode_jer({compact_bit_string_nnl,NNL},Value) ->
 decode_jer({{compact_bit_string_nnl,NNL},FixedLength},Value) ->
     decode_jer({{bit_string_nnl,NNL},FixedLength},Value);
 decode_jer(compact_bit_string,#{<<"value">> := Str, <<"length">> := Length}) ->
+    BitStr = json2bitstring(binary_to_list(Str),Length),
+    jer_bitstr2compact(BitStr);
+decode_jer({compact_bit_string,{_,_}},#{<<"value">> := Str, <<"length">> := Length}) ->
     BitStr = json2bitstring(binary_to_list(Str),Length),
     jer_bitstr2compact(BitStr);
 decode_jer({compact_bit_string,FixedLength},Str) ->

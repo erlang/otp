@@ -1,10 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:insert_element(Index, Tuple1, Term) -> Tuple2[0m
-  [;1m                               when[0m
-  [;1m                                   Index :: pos_integer(),[0m
-  [;1m                                   Tuple1 :: tuple(),[0m
-  [;1m                                   Tuple2 :: tuple(),[0m
-  [;1m                                   Term :: term().[0m
+[;1m  insert_element(Index, Tuple1, Term)[0m
 
 [;;4mSince[0m:
   OTP R16B
@@ -12,7 +14,8 @@
   Returns a new tuple with element [;;4mTerm[0m inserted at position [;;4m[0m
   [;;4mIndex[0m in tuple [;;4mTuple1[0m. All elements from position [;;4mIndex[0m and
   upwards are pushed one step higher in the new tuple [;;4mTuple2[0m.
-  Example:
+
+  For example:
 
     > erlang:insert_element(2, {one, two, three}, new).
     {one,new,two,three}

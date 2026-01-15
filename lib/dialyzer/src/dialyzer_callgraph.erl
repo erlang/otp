@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_callgraph.erl
@@ -20,6 +29,7 @@
 %%% Created : 30 Mar 2005 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_callgraph).
+-moduledoc false.
 
 -export([add_edges/2,
 	 add_edges/3,
@@ -205,7 +215,7 @@ remove_external(#callgraph{digraph = DG} = CG) ->
 
 non_local_calls(#callgraph{digraph = DG}) ->
   Edges = digraph_edges(DG),
-  find_non_local_calls(Edges, sets:new([{version, 2}])).
+  find_non_local_calls(Edges, sets:new()).
 
 -type call_tab() :: sets:set(mfa_call()).
 
@@ -257,7 +267,7 @@ modules(#callgraph{digraph = DG}) ->
 -spec module_postorder(callgraph()) -> {[module()], {'d', digraph:graph()}}.
 
 module_postorder(#callgraph{digraph = DG}) ->
-  Edges = lists:foldl(fun edge_fold/2, sets:new([{version, 2}]), digraph_edges(DG)),
+  Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
   Modules = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new([acyclic]),
   digraph_confirm_vertices(Modules, MDG),
@@ -280,7 +290,7 @@ edge_fold(_, Set) -> Set.
 -spec module_call_deps(callgraph()) -> mod_deps().
 
 module_call_deps(#callgraph{digraph = DG}) ->
-  Edges = lists:foldl(fun edge_fold/2, sets:new([{version, 2}]), digraph_edges(DG)),
+  Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
   Modules = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new(),
   digraph_confirm_vertices(Modules, MDG),

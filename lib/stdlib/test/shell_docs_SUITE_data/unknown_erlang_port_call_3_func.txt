@@ -1,9 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:port_call(Port, Operation, Data) -> term()[0m
-  [;1m                          when[0m
-  [;1m                              Port :: port() | atom(),[0m
-  [;1m                              Operation :: integer(),[0m
-  [;1m                              Data :: term().[0m
+[;1m  port_call(Port, Operation, Data)[0m
 
   Performs a synchronous call to a port. The meaning of [;;4mOperation[0m
   and [;;4mData[0m depends on the port, that is, on the port driver. Not
@@ -21,26 +24,23 @@
 
   Failures:
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If [;;4mPort[0m is not an identifier of an open port, or the
-    registered name of an open port. If the calling process was
-    previously linked to the closed port, identified by [;;4mPort[0m,
-    the exit signal from the port is guaranteed to be delivered
-    before this [;;4mbadarg[0m exception occurs.
+   • [;;4mbadarg[0m - If [;;4mPort[0m is not an identifier of an open port, or
+     the registered name of an open port. If the calling process
+     was previously linked to the closed port, identified by [;;4m[0m
+     [;;4mPort[0m, the exit signal from the port is guaranteed to be
+     delivered before this [;;4mbadarg[0m exception occurs.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If [;;4mOperation[0m does not fit in a 32-bit integer.
+   • [;;4mbadarg[0m - If [;;4mOperation[0m does not fit in a 32-bit integer.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If the port driver does not support synchronous control
-    operations.
+   • [;;4mbadarg[0m - If the port driver does not support synchronous
+     control operations.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If the port driver so decides for any reason (probably
-    something wrong with [;;4mOperation[0m or [;;4mData[0m).
+   • [;;4mbadarg[0m - If the port driver so decides for any reason
+     (probably something wrong with [;;4mOperation[0m or [;;4mData[0m).
 
-    Warning:
-      Do not call [;;4mport_call[0m with an unknown [;;4mPort[0m identifier
-      and expect [;;4mbadarg[0m exception. Any undefined behavior is
-      possible (including node crash) depending on how the port
-      driver interprets the supplied arguments.
+  [;;4mWarning[0m
+
+       Do not call [;;4mport_call[0m with an unknown [;;4mPort[0m
+       identifier and expect [;;4mbadarg[0m exception. Any undefined
+       behavior is possible (including node crash) depending on
+       how the port driver interprets the supplied arguments.

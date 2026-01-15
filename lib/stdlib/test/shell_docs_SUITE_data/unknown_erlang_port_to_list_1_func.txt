@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec port_to_list(Port) -> string() when Port :: port().[0m
+[;1m  port_to_list(Port)[0m
 
   Returns a string corresponding to the text representation of the
   port identifier [;;4mPort[0m.

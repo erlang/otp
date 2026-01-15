@@ -1,0 +1,33 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+
+[;1m  read_file(Filename, Opts)[0m
+
+[;;4mSince[0m:
+  OTP 27.0
+
+  Returns [;;4m{ok, Binary}[0m, where [;;4mBinary[0m is a binary data object
+  that contains the contents of [;;4mFilename[0m, or [;;4m{error, Reason}[0m if
+  an error occurs.
+
+  If the option [;;4mraw[0m is set, the file server is not called.
+
+  Typical error reasons:
+
+   • [;;4menoent[0m - The file does not exist.
+
+   • [;;4meacces[0m - Missing permission for reading the file, or for
+     searching one of the parent directories.
+
+   • [;;4meisdir[0m - The named file is a directory.
+
+   • [;;4menotdir[0m - A component of the filename is not a directory.
+     On some platforms, [;;4menoent[0m is returned instead.
+
+   • [;;4menomem[0m - There is not enough memory for the contents of the
+     file.

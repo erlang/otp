@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2009-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +30,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/uio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #endif
 
 #include "nif_mod.h"
@@ -61,6 +65,9 @@ static ErlNifMutex* dbg_trace_lock;
 #ifndef enif_make_port
 #define enif_make_port(ENV, PORT) ((void)(ENV),(const ERL_NIF_TERM)((PORT)->port_id))
 #endif
+
+static void last_fd_stop_init(void);
+static void last_fd_stop_fini(void);
 
 static int static_cntA; /* zero by default */
 static int static_cntB = NIF_SUITE_LIB_VER * 100;
@@ -256,6 +263,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                                 ioq_resource_dtor,
                                                 ERL_NIF_RT_CREATE, NULL);
 
+    last_fd_stop_init();
+
     atom_false = enif_make_atom(env,"false");
     atom_true = enif_make_atom(env,"true");
     atom_self = enif_make_atom(env,"self");
@@ -336,6 +345,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
 	    NifModPrivData_release(data->nif_mod);
 	}
 	enif_free(priv_data);
+        last_fd_stop_fini();
     }
     DBG_TRACE_FINI;
 }
@@ -2709,6 +2719,42 @@ static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }
 
 /*
+ * Create a read-write socketpair with two fds (to read and to write)
+ */
+static ERL_NIF_TERM socketpair_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct fd_resource* read_rsrc;
+    struct fd_resource* write_rsrc;
+    ERL_NIF_TERM read_fd, write_fd;
+    int fds[2], flags;
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0)
+        return enif_make_string(env, "pipe failed", ERL_NIF_LATIN1);
+
+    flags = fcntl(fds[0], F_GETFL, 0);
+    if (flags == -1) return enif_make_badarg(env);
+    if (fcntl(fds[0], F_SETFL, flags | O_NONBLOCK) == -1) return enif_make_badarg(env);
+    flags = fcntl(fds[1], F_GETFL, 0);
+    if (flags == -1) return enif_make_badarg(env);
+    if (fcntl(fds[1], F_SETFL, flags | O_NONBLOCK) == -1) return enif_make_badarg(env);
+
+    read_rsrc  = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
+    write_rsrc = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
+    read_rsrc->fd  = fds[0];
+    read_rsrc->was_selected = 0;
+    write_rsrc->fd = fds[1];
+    write_rsrc->was_selected = 0;
+    read_fd  = enif_make_resource(env, read_rsrc);
+    write_fd = enif_make_resource(env, write_rsrc);
+    enif_release_resource(read_rsrc);
+    enif_release_resource(write_rsrc);
+
+    return enif_make_tuple2(env,
+               enif_make_tuple2(env, read_fd, make_pointer(env, read_rsrc)),
+               enif_make_tuple2(env, write_fd, make_pointer(env, write_rsrc)));
+}
+
+/*
  * Create (dupe) of a resource with the same fd, to test stealing
  */
 static ERL_NIF_TERM dupe_resource_nif(ErlNifEnv* env, int argc,
@@ -2783,7 +2829,7 @@ static ERL_NIF_TERM read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             }
             return res;
         }
-        else if (n == 0) {
+        else if (n == 0 || errno == ECONNRESET) {
             return atom_eof;
         }
         else if (errno == EAGAIN) {
@@ -2856,10 +2902,24 @@ static void fd_resource_dtor(ErlNifEnv* env, void* obj)
 }
 
 static struct {
+    ErlNifMutex* lock;
     void* obj;
     int was_direct_call;
+    int cnt;
 }last_fd_stop;
-int fd_stop_cnt = 0;
+
+static void last_fd_stop_init(void)
+{
+    last_fd_stop.lock = enif_mutex_create("nif_SUITE:last_fd_stop");
+    last_fd_stop.obj = NULL;
+    last_fd_stop.cnt = 0;
+}
+
+static void last_fd_stop_fini(void)
+{
+    enif_mutex_destroy(last_fd_stop.lock);
+    last_fd_stop.lock = NULL;
+}
 
 static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
                              int is_direct_call)
@@ -2868,9 +2928,11 @@ static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
     assert(fd == fdr->fd);
     assert(fd >= 0);
 
+    enif_mutex_lock(last_fd_stop.lock);
     last_fd_stop.obj = obj;
     last_fd_stop.was_direct_call = is_direct_call;
-    fd_stop_cnt++;
+    last_fd_stop.cnt++;
+    enif_mutex_unlock(last_fd_stop.lock);
 
     close(fd);
     fdr->fd = -1;   /* thread safety ? */
@@ -2892,10 +2954,13 @@ static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
 static ERL_NIF_TERM last_fd_stop_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM last, ret;
+
+    enif_mutex_lock(last_fd_stop.lock);
     last = enif_make_tuple2(env, make_pointer(env, last_fd_stop.obj),
                             enif_make_int(env, last_fd_stop.was_direct_call));
-    ret = enif_make_tuple2(env, enif_make_int(env, fd_stop_cnt), last);
-    fd_stop_cnt = 0;
+    ret = enif_make_tuple2(env, enif_make_int(env, last_fd_stop.cnt), last);
+    last_fd_stop.cnt = 0;
+    enif_mutex_unlock(last_fd_stop.lock);
     return ret;
 }
 
@@ -2949,6 +3014,16 @@ static void monitor_resource_down(ErlNifEnv* env, void* obj, ErlNifPid* pid,
     enif_send(env, &rsrc->receiver, msg_env, msg);
     if (msg_env)
         enif_free_env(msg_env);
+
+    /* OTP-19330 GH-8983:
+     * Verify calling enif_whereis_pid/port in down callback
+     * without lock order violation. */
+    {
+        ErlNifPid pid;
+        ErlNifPort port;
+        enif_whereis_pid(env, atom_null, &pid);
+        enif_whereis_port(env, atom_null, &port);
+    }
 }
 
 static ERL_NIF_TERM alloc_monitor_resource_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -3690,9 +3765,9 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
 }
 
-static ERL_NIF_TERM make_bool(ErlNifEnv* env, int bool)
+static ERL_NIF_TERM make_bool(ErlNifEnv* env, int boolean)
 {
-    return bool ? atom_true : atom_false;
+    return boolean ? atom_true : atom_false;
 }
 
 static ERL_NIF_TERM get_local_pid_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -3881,6 +3956,7 @@ static ErlNifFunc nif_funcs[] =
     {"select_nif", 6, select_nif},
 #ifndef __WIN32__
     {"pipe_nif", 0, pipe_nif},
+    {"socketpair_nif", 0, socketpair_nif},
     {"write_nif", 2, write_nif},
     {"dupe_resource_nif", 1, dupe_resource_nif},
     {"read_nif", 2, read_nif},

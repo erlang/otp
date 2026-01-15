@@ -1,7 +1,9 @@
 dnl -*-Autoconf-*-
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2023. All Rights Reserved.
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
+dnl Copyright Ericsson AB 1998-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -29,12 +31,44 @@ dnl The Local Macros which could be part of autoconf are prefixed LM_,
 dnl macros specific dnl to the Erlang system are prefixed ERL_ (this is
 dnl not always consistently made...).
 dnl
+dnl To make it easier to debug, sprinkle some calls to LM_LOG in the macros
+
+dnl Log a message to config.log
+AC_DEFUN(LM_LOG,
+  [
+    printf "configure:$LINENO: %s\n" $1 >&AS_MESSAGE_LOG_FD
+  ])
+
+
+dnl We check if -Werror was given on command line and if so
+dnl we disable it for the configure and only use it when
+dnl actually building erts
+AC_DEFUN([ERL_PUSH_WERROR],
+[
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi])
+
+AC_DEFUN([ERL_POP_WERROR],
+[
+if test "x$GCC" = xyes; then
+    CFLAGS="$WERRORFLAGS $CFLAGS"
+fi])
 
 AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
 [
     AC_CANONICAL_HOST
     # Adjust for local legacy windows hack...
     AS_CASE([$host],
+            [local-aarch64-*-windows],
+            [
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=aarch64
+            ],
             [local-*-windows],
             [
                 host=win32
@@ -46,6 +80,13 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
     AC_CANONICAL_BUILD
     # Adjust for local legacy windows hack...
     AS_CASE([$build],
+            [local-aarch64-*-windows],
+            [
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=aarch64
+            ],
             [local-*-windows],
             [
                 build=win32
@@ -57,6 +98,13 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
     AC_CANONICAL_TARGET
     # Adjust for local legacy windows hack...
     AS_CASE([$target],
+            [local-aarch64-*-windows],
+            [
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=aarch64
+            ],
             [local-*-windows],
             [
                 target=win32
@@ -65,17 +113,18 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
                 target_cpu=
             ])
 
-    AS_IF([test "$cross_compiling" = "yes" -a "$build" = "$host"],
+    AS_IF([test "$cross_compiling" = "yes" -a "$build" = "$host"  -a "$build_cpu" = "$host_cpu"],
           [AC_MSG_ERROR([
-           Cross compiling with the same canonicalized 'host' value
-           as the canonicalized 'build' value.
+           Cross compiling with the same canonicalized 'host' and 'host_cpu'
+           values as the canonicalized 'build' and 'build_cpu' values
 
            We are cross compiling since the '--host=$host_alias'
            and the '--build=$build_alias' arguments differ. When
            cross compiling Erlang/OTP, also the canonicalized values of
            the '--build' and the '--host' arguments *must* differ. The
            canonicalized values of these arguments however both equals:
-           $host
+           host = build = $host,
+           host_cpu = build_cpu = $host_cpu
 
            You can check the canonical value by passing a value as
            argument to the 'make/autoconf/config.sub' script.
@@ -103,12 +152,10 @@ AC_ARG_VAR(LIBS, [libraries])
 AC_ARG_VAR(DED_LD, [linker for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
 AC_ARG_VAR(DED_LDFLAGS, [linker flags for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
 AC_ARG_VAR(DED_LD_FLAG_RUNTIME_LIBRARY_PATH, [runtime library path linker flag for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
-AC_ARG_VAR(LFS_CFLAGS, [large file support C compiler flags (set all LFS_* variables or none)])
-AC_ARG_VAR(LFS_LDFLAGS, [large file support linker flags (set all LFS_* variables or none)])
-AC_ARG_VAR(LFS_LIBS, [large file support libraries (set all LFS_* variables or none)])
 AC_ARG_VAR(RANLIB, [ranlib])
 AC_ARG_VAR(AR, [ar])
 AC_ARG_VAR(GETCONF, [getconf])
+AC_ARG_VAR(EX_DOC, [Path to ex_doc executable])
 
 dnl Cross system root
 AC_ARG_VAR(erl_xcomp_sysroot, [Absolute cross system root path (only used when cross compiling)])
@@ -280,6 +327,28 @@ else
 fi
 
 fi
+])
+
+
+dnl ----------------------------------------------------------------------
+dnl
+dnl LM_PROG_LD
+dnl
+dnl
+dnl Sets LD to the either ld.sh or '$(CC)'. We force LD to be $CC so that
+dnl we know that LDFLAGS will have to be in the form acceped by $CC and not
+dnl the form used to ld.
+dnl
+dnl Windows is a bit of a special case as we control ld.sh ourselves, so there
+dnl we use ld.sh instead of cc.sh.
+
+AC_DEFUN(LM_PROG_LD,
+  [AC_CHECK_PROGS(LD, ld.sh)
+   AC_CHECK_TOOL(LD, ld, [:])
+   AS_IF([test "$LD" = ":"],
+     [AC_MSG_ERROR([No linker found])],
+     [LM_LOG('setting LD to ${CC}')
+      LD=${CC}])
 ])
 
 dnl ----------------------------------------------------------------------
@@ -2705,15 +2774,6 @@ dnl
 AC_MSG_CHECKING([if gethrvtime works and how to use it])
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
 /* gethrvtime procfs ioctl test */
-/* These need to be undef:ed to not break activation of
- * micro level process accounting on /proc/self 
- */
-#ifdef _LARGEFILE_SOURCE
-#  undef _LARGEFILE_SOURCE
-#endif
-#ifdef _FILE_OFFSET_BITS
-#  undef _FILE_OFFSET_BITS
-#endif
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -2846,20 +2906,22 @@ dnl
 dnl Tries a CFLAG and sees if it can be enabled without compiler errors
 dnl $1: textual cflag to add
 dnl $2: variable to store the modified CFLAG in
+dnl $3: prologue
 dnl Usage example LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
 dnl
 dnl
 AC_DEFUN([LM_TRY_ENABLE_CFLAG], [
     AC_MSG_CHECKING([if we can add $1 to $2 (via CFLAGS)])
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="$1 $$2";
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;]])],[can_enable_flag=true],[can_enable_flag=false])
+    CFLAGS="-Werror $1 $$2";
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([$3], [[return 0;]])],
+        [can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
     AS_IF(
       [test "X$can_enable_flag" = "Xtrue"],
       [
-        AC_MSG_RESULT([yes])
         AS_VAR_SET($2, "$1 $$2")
+        AC_MSG_RESULT([yes])
       ],
       [
         AC_MSG_RESULT([no])
@@ -2869,7 +2931,7 @@ AC_DEFUN([LM_TRY_ENABLE_CFLAG], [
 AC_DEFUN([LM_CHECK_ENABLE_CFLAG], [
     AC_MSG_CHECKING([whether $CC accepts $1...])
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="$1 $CFLAGS";
+    CFLAGS="-Werror $1 $CFLAGS";
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;]])],[can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
     AS_IF(
@@ -2894,7 +2956,7 @@ dnl
 AC_DEFUN([LM_CHECK_RUN_CFLAG], [
     AC_MSG_CHECKING([whether $CC accepts $1...])
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="$1 $CFLAGS";
+    CFLAGS="-Werror $1 $CFLAGS";
     AC_RUN_IFELSE([AC_LANG_SOURCE([[]])],[return 0;],[can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
     AS_IF(
@@ -2905,6 +2967,38 @@ AC_DEFUN([LM_CHECK_RUN_CFLAG], [
       ],
       [
         AS_VAR_SET($2, false)
+        AC_MSG_RESULT([no])
+      ])
+])
+
+dnl ----------------------------------------------------------------------
+dnl
+dnl LM_TRY_ENABLE_LDFLAG
+dnl
+dnl
+dnl Tries a LDFLAG and sees if it can be enabled without compiler errors
+dnl $1: textual ldflag to add
+dnl $2: variable to store the modified LDFLAG in
+dnl Usage example LM_TRY_ENABLE_LDFLAG([-Wl,-z,noexecstack], [LDFLAGS])
+dnl
+AC_DEFUN([LM_TRY_ENABLE_LDFLAG], [
+    AC_MSG_CHECKING([if we can add $1 to $2 (via LDFLAGS)])
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG="$1";
+    LDFLAGS="$saved_LDFLAG $$2";
+    AC_LINK_IFELSE(
+        [AC_LANG_PROGRAM([[]], [[return 0;]])],
+        [can_enable_flag=true],
+        [can_enable_flag=false]
+    )
+    LDFLAGS=$saved_LDFLAGS;
+    AS_IF(
+      [test "X$can_enable_flag" = "Xtrue"],
+      [
+        AS_VAR_SET($2, "$saved_LDFLAG $$2")
+        AC_MSG_RESULT([yes])
+      ],
+      [
         AC_MSG_RESULT([no])
       ])
 ])
@@ -3037,6 +3131,103 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
 
 dnl
 dnl--------------------------------------------------------------------
+dnl Open Source Security Foundation FLAGS
+dnl
+dnl Enable the flags recomended by the OSSF that we think are good for
+dnl Erlang/OTP. See https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C++.md
+dnl for details.
+dnl
+dnl--------------------------------------------------------------------
+
+AC_DEFUN([ERL_OSSF],
+[
+  AS_IF([test "X$host" = "Xwin32"],
+    [ ossf_security_hardening_default=no],
+    [ ossf_security_hardening_default=yes])
+  AC_ARG_ENABLE(security-hardening-flags,
+    AS_HELP_STRING([--disable-security-hardening-flags],
+      [disable Open Source Security Foundation security hardening flags]),
+    [case "$enableval" in
+       no) ossf_security_hardening=no ;;
+       *)  ossf_security_hardening=yes ;;
+     esac], ossf_security_hardening=$ossf_security_hardening_default)
+])
+
+AC_DEFUN([ERL_OSSF_CFLAGS],
+[
+    AS_IF([test "$ossf_security_hardening" = "yes"],
+      [
+        LM_TRY_ENABLE_CFLAG([-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3], [$1], [#include <string.h>])
+        AS_IF([test "X$can_enable_flag" = "Xfalse"],
+          [
+            LM_TRY_ENABLE_CFLAG([-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2], [$1], [#include <string.h>])
+          ])
+        dnl Flags that enable stack protection mechanism
+        LM_TRY_ENABLE_CFLAG([-fstack-clash-protection], [$1])
+        LM_TRY_ENABLE_CFLAG([-fstack-protector-strong], [$1])
+        AS_IF([test "X$can_enable_flag" = "Xfalse"],
+          [
+            LM_TRY_ENABLE_CFLAG([-fstack-protector], [$1], [])
+          ],
+          [
+            # Some systems (solaris) also require this to be part of LDFLAGS
+            LM_TRY_ENABLE_LDFLAG([-fstack-protector-strong], [$2])
+          ]
+        )
+        LM_TRY_ENABLE_CFLAG([-fcf-protection=full], [$1])
+        LM_TRY_ENABLE_CFLAG([-mbranch-protection=standard], [$1])
+        LM_TRY_ENABLE_CFLAG([-fexceptions],[$1])
+
+        dnl Flags that protect against various UB things
+        LM_TRY_ENABLE_CFLAG([-fno-strict-overflow],[$1])
+        LM_TRY_ENABLE_CFLAG([-fno-delete-null-pointer-checks],[$1])
+        LM_TRY_ENABLE_CFLAG([-fno-strict-aliasing],[$1])
+        LM_TRY_ENABLE_CFLAG([-fstrict-flex-arrays=3],[$1])
+        AS_IF([test "X$can_enable_flag" = "Xfalse"],
+          [
+            LM_TRY_ENABLE_CFLAG([-fstrict-flex-arrays=2], [$1])
+          ], [AS_IF([test "X$can_enable_flag" != "Xtrue"], [exit 1])]
+        )
+      ])
+])
+
+AC_DEFUN([ERL_OSSF_CXXFLAGS],
+[
+    AS_IF([test "$ossf_security_hardening" = "yes"],
+      [
+        LM_TRY_ENABLE_CFLAG([-D_GLIBCXX_ASSERTIONS],[$1])
+      ])
+])
+
+AC_DEFUN([ERL_OSSF_LDFLAGS],
+[
+    AS_IF([test "$ossf_security_hardening" = "yes"],
+      [
+        dnl Stack protection
+        LM_TRY_ENABLE_LDFLAG([-Wl,-z,noexecstack],[$1])
+        dnl Disables lazy loading of dynamic libraries
+        dnl and make sthe relocation area read only
+        LM_TRY_ENABLE_LDFLAG([-Wl,-z,relro],[$1])
+        LM_TRY_ENABLE_LDFLAG([-Wl,-z,now],[$1])
+        dnl Only link against dynamic libraries that are used
+        LM_TRY_ENABLE_LDFLAG([-Wl,--as-needed],[$1])
+        dnl Don't load symbols of transative dynamic libraries
+        dnl that is beam.smp should not load libcrypto.so symbols
+        dnl when it is loading crypto.so. Only crypto.so should.
+        LM_TRY_ENABLE_LDFLAG([-Wl,--no-copy-dt-needed-entries],[$1])
+      ])
+])
+
+AC_DEFUN([ERL_OSSF_FLAGS],
+[
+    ERL_OSSF
+    ERL_OSSF_CFLAGS([CFLAGS], [LDFLAGS])
+    ERL_OSSF_CXXFLAGS([CXXFLAGS])
+    ERL_OSSF_LDFLAGS([LDFLAGS])
+])
+
+dnl
+dnl--------------------------------------------------------------------
 dnl Dynamic Erlang Drivers
 dnl
 dnl Linking to produce dynamic Erlang drivers to be loaded by Erlang's
@@ -3078,7 +3269,11 @@ ERL_DED_FLAGS
 AC_DEFUN(ERL_DED_FLAGS,
          [
 
+# Large file support and 8-byte time_t by default
+AC_SYS_YEAR2038_RECOMMENDED
+
 USER_LD=$LD
+AS_IF([ test "$USER_LD" = '$(CC)' ], [USER_LD='$(DED_CC)'])
 USER_LDFLAGS="$LDFLAGS"
 
 DED_CC=$CC
@@ -3086,6 +3281,7 @@ DED_GCC=$GCC
 
 DED_CFLAGS=
 DED_OSTYPE=unix
+
 case $host_os in
      linux*)
 	DED_CFLAGS="-D_GNU_SOURCE" ;;
@@ -3105,7 +3301,7 @@ case "$host_cpu" in
   *)
     DED_WARN_FLAGS="$DED_WARN_FLAGS -Wmissing-prototypes";;
 esac
-  
+
 LM_TRY_ENABLE_CFLAG([-Wdeclaration-after-statement], [DED_WARN_FLAGS])
 
 LM_TRY_ENABLE_CFLAG([-Werror=return-type], [DED_WERRORFLAGS])
@@ -3124,8 +3320,6 @@ AS_IF(
     # Until version 10, gcc has had -fcommon as default, which allows and merges
     # such dubious duplicates.
     LM_TRY_ENABLE_CFLAG([-fno-common], [DED_CFLAGS])
-
-    LM_TRY_ENABLE_CFLAG([-fno-strict-aliasing], [DED_CFLAGS])
 
     DED_STATIC_CFLAGS="$DED_CFLAGS"
     DED_CFLAGS="$DED_CFLAGS -fPIC"
@@ -3168,12 +3362,11 @@ fi
 # to be specified (cross compiling)
 if test "x$DED_LD" = "x"; then
 
-DED_LDFLAGS_CONFTEST=
+  DED_LDFLAGS_CONFTEST=
 
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
-case $host_os in
+  DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+  case $host_os in
 	win32)
-		DED_LD="ld.sh"
 		DED_LDFLAGS="-dll"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
 	;;
@@ -3222,11 +3415,9 @@ case $host_os in
 		    esac
 		  fi
 		fi
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 	;;
 	linux*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
 		if test X${enable_m64_build} = Xyes; then
@@ -3237,7 +3428,6 @@ case $host_os in
 		fi
 	;;	
 	freebsd*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 		if test X${enable_m64_build} = Xyes; then
@@ -3248,7 +3438,6 @@ case $host_os in
 		fi
 	;;	
 	openbsd*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 	;;
@@ -3262,14 +3451,14 @@ case $host_os in
 		DED_LDFLAGS="-shared"
 		# GNU linker has no option for 64bit build, should not propagate -m64
 	;;
-esac
+  esac
 
-if test "$DED_LD" = "" && test "$USER_LD" != ""; then
-    DED_LD="$USER_LD"
-    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
-fi
-
-DED_LIBS=$LIBS
+  if test "x$DED_LD" = "x" && test "$USER_LD" != ""; then
+        LM_LOG("setting DED_LD to $USER_LD")
+        DED_LD="$USER_LD"
+        DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
+  fi
+  DED_LIBS=$LIBS
 
 fi # "x$DED_LD" = "x"
 
@@ -3278,8 +3467,12 @@ test "$DED_LDFLAGS_CONFTEST" != "" || DED_LDFLAGS_CONFTEST="$DED_LDFLAGS"
 AC_CHECK_TOOL(DED_LD, ld, false)
 test "$DED_LD" != "false" || AC_MSG_ERROR([No linker found])
 
+ERL_OSSF
+ERL_OSSF_CFLAGS([DED_CFLAGS], [DED_LDFLAGS])
+ERL_OSSF_LDFLAGS([DED_LDFLAGS])
+
 AC_MSG_CHECKING(for static compiler flags)
-DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WFLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"
+DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"
 AC_MSG_RESULT([$DED_STATIC_CFLAGS])
 AC_MSG_CHECKING(for basic compiler flags for loadable drivers)
 DED_BASIC_CFLAGS=$DED_CFLAGS

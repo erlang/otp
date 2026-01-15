@@ -1,8 +1,10 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -260,7 +262,9 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    loop(S);
 
 	{{register_agent, TargetName, Conf}, From, Ref} ->
-	    d("loop -> received register_agent request"),
+	    d("loop -> received register_agent request: "
+              "~n   TargetName: ~p"
+              "~n   Conf:       ~p", [TargetName, Conf]),
 	    Res = snmpm:register_agent(Id, TargetName, Conf),
 	    reply(From, Res, Ref),
 	    loop(S);

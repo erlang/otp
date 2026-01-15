@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -431,7 +433,7 @@ groups() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     application:stop(crypto),
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
 	    application:start(asn1),
 	    crypto_support_check(Config)
@@ -1501,10 +1503,8 @@ run({Chap, Test, Result, CertsBody}, TA) ->
 	    ?error(" ~p ~p~n  Expected ~p got ~p ~n", [Chap, Test, Result, _OK]),
 	    fail
     catch Type:Reason:Stack ->
-            Str1 = lists:flatten(io_lib:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack])),
-	    Str2 = lists:flatten(io_lib:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result])),
-            erlang:display(Str1),
-            erlang:display(Str2),
+            io:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack]),
+	    io:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result]),
             exit(crash)
     end;
 
@@ -1608,7 +1608,7 @@ crl_options(Chap) ->
     CRLs = crls(CRLNames),
     Paths = lists:map(fun(CRLName) -> crl_path(CRLName) end, CRLNames),
 
-    ct:print("Paths ~p ~n  Names ~p ~n", [Paths, CRLNames]),
+    ct:log("Paths ~p ~n  Names ~p ~n", [Paths, CRLNames]),
     Fun =
 	fun(_,{bad_cert, _} = Reason, _) ->
 		{fail, Reason};
@@ -1653,7 +1653,7 @@ crl_path_db([{_, CRL} |CRLs], [Path | Paths], Acc) ->
     CertPath = lists:flatten(lists:map(fun([]) ->
 					       [];
 					  (CertFile) ->
-					       ct:print("Certfile ~p", [CertFile]),
+					       ct:log("Certfile ~p", [CertFile]),
 					       read_certs(CertFile)
 				       end, Path)),
     crl_path_db(CRLs, Paths, [{CRL, CertPath}| Acc]).

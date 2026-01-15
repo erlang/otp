@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2014-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +28,66 @@
 %%
 
 -module(msacc).
+-moduledoc """
+Convenience functions for microstate accounting
+
+This module implements some convenience functions for analyzing microstate
+accounting data. For details about how to use the basic API and what the
+different states represent, see
+[`erlang:statistics(microstate_accounting)`](`m:erlang#statistics_microstate_accounting`).
+
+[](){: #msacc_print_example }
+
+_Basic Scenario_
+
+```erlang
+1> msacc:start(1000).
+ok
+2> msacc:print().
+Average thread real-time    : 1000513 us
+Accumulated system run-time :    2213 us
+Average scheduler run-time  :    1076 us
+
+        Thread      aux check_io emulator       gc    other     port    sleep
+
+Stats per thread:
+     async( 0)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+     async( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+       aux( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+ scheduler( 1)    0.00%    0.03%    0.13%    0.00%    0.01%    0.00%   99.82%
+ scheduler( 2)    0.00%    0.00%    0.00%    0.00%    0.03%    0.00%   99.97%
+
+Stats per type:
+         async    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+           aux    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+     scheduler    0.00%    0.02%    0.06%    0.00%    0.02%    0.00%   99.89%
+ok
+```
+
+This first command enables microstate accounting for 1000 milliseconds. See
+`start/0`, `stop/0`, `reset/0`, and `start/1` for more details. The second
+command prints the statistics gathered during that time. First three general
+statistics are printed.
+
+- **Average real-time** - The average time spent collecting data in the threads.
+  This should be close to the time which data was collected.
+
+- **System run-time** - The total run-time of all threads in the system. This is
+  what you get if you call `msacc:stats(total_runtime,Stats).`
+
+- **Average scheduler run-time** - The average run-time for the schedulers. This
+  is the average amount of time the schedulers did not sleep.
+
+Then one column per state is printed with a the percentage of time this thread
+spent in the state out of it's own real-time. After the thread specific time,
+the accumulated time for each type of thread is printed in a similar format.
+
+Since we have the average real-time and the percentage spent in each state we
+can easily calculate the time spent in each state by multiplying
+`Average thread real-time` with `Thread state %`, that is, to get the time Scheduler
+1 spent in the emulator state we do `1000513us * 0.13% = 1300us`.
+""".
+-moduledoc(#{since => "OTP 19.0"}).
 -export([available/0, start/0, start/1, stop/0, reset/0, to_file/1,
          from_file/1, stats/0, stats/2, print/0, print/1, print/2,
          print/3]).
@@ -35,13 +97,29 @@
 -type msacc_data_thread() :: #{ '$type' := msacc_data,
                                 type := msacc_type(), id := msacc_id(),
                                 counters := msacc_data_counters() }.
+-doc """
+A map containing the different microstate accounting states and the number of
+microseconds spent in it.
+""".
 -type msacc_data_counters() :: #{ msacc_state() => non_neg_integer()}.
 
 -type msacc_stats() :: [msacc_stats_thread()].
+-doc """
+A map containing information about a specific thread. The percentages in the map
+can be either run-time or real-time depending on if `runtime` or `realtime` was
+requested from `stats/2`. `system` is the percentage of total system time for
+this specific thread.
+""".
 -type msacc_stats_thread() :: #{ '$type' := msacc_stats,
                                  type := msacc_type(), id := msacc_id(),
                                  system := float(),
                                  counters := msacc_stats_counters()}.
+-doc """
+A map containing the different microstate accounting states. Each value in the
+map contains another map with the percentage of time that this thread has spent
+in the specific state. Both the percentage of `system` time and the time for
+that specific `thread` is part of the map.
+""".
 -type msacc_stats_counters() :: #{ msacc_state() => #{ thread := float(),
                                                        system := float()}}.
 
@@ -49,12 +127,20 @@
 -type msacc_type() :: aux | async | dirty_cpu_scheduler
                     | dirty_io_scheduler | poll | scheduler.
 -type msacc_id() :: non_neg_integer().
+-doc """
+The different states that a thread can be in. See
+[erlang:statistics(microstate_accounting)](`m:erlang#statistics_microstate_accounting`)
+for details.
+""".
 -type msacc_state() :: alloc | aux | bif | busy_wait | check_io |
                        emulator | ets | gc | gc_fullsweep | nif |
                        other | port | send | sleep | timers.
 
+-doc "The different options that can be given to `print/2`.".
 -type msacc_print_options() :: #{ system => boolean() }.
 
+-doc "This function checks whether microstate accounting is available or not.".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec available() -> boolean().
 available() ->
     try
@@ -64,18 +150,38 @@ available() ->
             false
     end.
 
+-doc """
+Start microstate accounting. Returns whether it was previously enabled or
+disabled.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec start() -> boolean().
 start() ->
     erlang:system_flag(microstate_accounting, true).
 
+-doc """
+Stop microstate accounting. Returns whether is was previously enabled or
+disabled.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec stop() -> boolean().
 stop() ->
     erlang:system_flag(microstate_accounting, false).
 
+-doc """
+Reset microstate accounting counters. Returns whether is was enabled or
+disabled.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec reset() -> boolean().
 reset() ->
     erlang:system_flag(microstate_accounting, reset).
 
+-doc """
+Resets all counters and then starts microstate accounting for the given
+milliseconds.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec start(Time) -> true when
       Time :: timeout().
 start(Tmo) ->
@@ -83,32 +189,76 @@ start(Tmo) ->
     timer:sleep(Tmo),
     stop().
 
+-doc """
+Dumps the current microstate statistics counters to a file that can be parsed
+with `file:consult/1`.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec to_file(Filename) -> ok | {error, file:posix()} when
       Filename :: file:name_all().
 to_file(Filename) ->
     file:write_file(Filename, io_lib:format("~p.~n",[stats()])).
 
+-doc "Read a file dump produced by [to_file(Filename)](`to_file/1`).".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec from_file(Filename) -> msacc_data() when
       Filename :: file:name_all().
 from_file(Filename) ->
     {ok, [Stats]} = file:consult(Filename),
     Stats.
 
+-doc """
+Prints the current microstate accounting to standard out. Equivalent to
+[`msacc:print(msacc:stats(), #{}).`](`print/1`)
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec print() -> ok.
 print() ->
     print(stats()).
 
+-doc #{equiv => print(DataOrStats, #{})}.
+-doc(#{since => <<"OTP 19.0">>}).
 -spec print(DataOrStats) -> ok when
       DataOrStats :: msacc_data() | msacc_stats().
 print(Stats) ->
     print(Stats, #{}).
 
+-doc """
+Print the given microstate statistics values to standard out. With many states
+this can be verbose. See the top of this reference manual for a brief
+description of what the fields mean.
+
+It is possible to print more specific types of statistics by first manipulating
+the `DataOrStats` using `stats/2`. For instance if you want to print the
+percentage of run-time for each thread you can do:
+
+```erlang
+msacc:print(msacc:stats(runtime, msacc:stats())).
+```
+
+If you want to only print run-time per thread type you can do:
+
+```erlang
+msacc:print(msacc:stats(type, msacc:stats(runtime, msacc:stats()))).
+```
+
+_Options_
+
+- **`system`** - Print percentage of time spent in each state out of system time
+  as well as thread time. Default: false.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec print(DataOrStats, Options) -> ok when
       DataOrStats :: msacc_data() | msacc_stats(),
       Options :: msacc_print_options().
 print(Stats, Options) ->
     print(group_leader(), Stats, Options).
 
+-doc """
+Print the given microstate statistics values to the given file or device. The
+other arguments behave the same way as for `print/2`.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec print(FileOrDevice, DataOrStats, Options) -> ok when
       FileOrDevice :: file:filename() | io:device(),
       DataOrStats :: msacc_data() | msacc_stats(),
@@ -143,6 +293,13 @@ print_int(Device, [#{ '$type' := msacc_stats }|_] = Stats, Options) ->
     io:format(Device, "~s", [print_stats_type(Stats, Options)]).
 
 
+-doc """
+Returns a runtime system independent version of the microstate statistics data
+presented by
+[`erlang:statistics(microstate_accounting)`](`m:erlang#statistics_microstate_accounting`).
+All counters have been normalized to be in microsecond resolution.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec stats() -> msacc_data().
 stats() ->
     Fun = fun F(K,{PerfCount,StateCount}) ->
@@ -158,6 +315,22 @@ stats() ->
                 end, erlang:statistics(microstate_accounting)),
     statssort(UsStats).
 
+-doc """
+Returns the system time for the given microstate statistics values. System time
+is the accumulated time of all threads.
+
+- **`realtime`** - Returns all time recorded for all threads.
+
+- **`runtime`** - Returns all time spent doing work for all threads, i.e. all
+  time not spent in the `sleep` state.
+
+Returns fractions of real-time or run-time spent in the various threads from the
+given microstate statistics values.
+
+Returns a list of microstate statistics values where the values for all threads
+of the same type has been merged.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec stats(Analysis, Stats) -> non_neg_integer() when
       Analysis :: system_realtime | system_runtime,
       Stats :: msacc_data();

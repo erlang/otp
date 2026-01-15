@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,11 +41,17 @@
 
 -import(lists, [foldl/3,reverse/1, filter/2]).
 -import(gen_util, [lowercase/1, lowercase_all/1, uppercase/1,
-		   open_write/1, close/0, erl_copyright/0, w/2,
+		   open_write/1, close/0, erl_wx_copyright/0, erl_copyright/0, w/2,
 		   args/3, args/4]).
 
 gen(Defs) ->
     [put({class,N},C) || C=#class{name=N} <- Defs],
+    Ev2ClassL = [{wx_gen_erl:event_type_name(Ev),Name} ||
+                    #class{name=Name, event=Evs} <- Defs, Evs =/= false, Ev <- Evs],
+    Ev2Class = maps:from_list(Ev2ClassL),
+    true = length(Ev2ClassL) =:= maps:size(Ev2Class),
+    put(ev2class, Ev2Class),
+
     gen_unique_names(Defs),
     gen_event_recs(),
     gen_enums_ints(),
@@ -65,7 +73,7 @@ gen_class(Class) ->
 
 gen_static(Files) ->
     open_write("../src/gen/wx_misc.erl"),
-    erl_copyright(),
+    erl_wx_copyright(),
     w("", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc See external documentation: "
@@ -75,10 +83,16 @@ gen_static(Files) ->
     w("-module(wx_misc).~n", []),
     w("-include(\"wxe.hrl\").~n",[]),
     %% w("-compile(export_all).~n~n", []),            %% XXXX remove ???
+
+    w(~s'\n-moduledoc """\n', []),
+    w("Miscellaneous functions.\n\n", []),
+    w(~s'""".\n', []),
+    put(current_class, "wx_misc"),
     [gen_static_exports(C) || C <- Files],
     {ok, MiscExtra} = file:read_file(filename:join([wx_extra, "wx_misc.erl"])),
     w("~s", [MiscExtra]),
     Classes = [gen_static_methods(C) || C <- Files],
+    erase(current_func),
     close(),
     Classes.
 
@@ -102,7 +116,7 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
     lists:member("ignore", Opts) andalso throw(skipped),
     open_write("../src/gen/"++Name++".erl"),
     put(current_class, Name),
-    erl_copyright(),
+    erl_wx_copyright(),
     w("", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
 
@@ -119,6 +133,8 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 
 	    Parents = parents(Parent),
 	    w("-module(~s).~n", [Name]),
+            wx_gen_doc:module_doc(C),
+
 	    w("-include(\"wxe.hrl\").~n",[]),
 	    Exp = fun(M) -> gen_export(C,M) end,
 	    ExportList = lists:usort(lists:append(lists:map(Exp,reverse(Ms)))),
@@ -164,8 +180,7 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 				end, ",", NoWDepr, 60)])
 	    end,
 
-
-	    w("%% @hidden~n", []),
+	    w("-doc false.~n", []),
 	    parents_check(Parents),
 	    Gen = fun(M) -> gen_method(Name,M) end,
 	    NewMs = lists:map(Gen,reverse(Ms)),
@@ -181,6 +196,7 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 
 parents("root") -> [root];
 parents("object") -> [object];
+parents("static") -> ["static"];
 parents(Parent) ->
     case get({class,Parent}) of
 	#class{parent=GrandParent} ->
@@ -354,7 +370,8 @@ gen_dest(#class{name=CName,abstract=Abs}, Ms) ->
     end.
 
 gen_dest2(Class, Id) ->
-    w("%% @doc Destroys this object, do not use object again~n", []),
+    w("-doc \"Destroys the object\".~n", []),
+    %% wx_gen_doc:func(Ms),
     w("-spec destroy(This::~s()) -> 'ok'.~n", [Class]),
     w("destroy(Obj=#wx_ref{type=Type}) ->~n", []),
     w("  ?CLASS(Type,~s),~n",[Class]),
@@ -387,7 +404,7 @@ gen_inherited_ms([[M=#method{name=Name,alias=A,params=Ps0,where=W,method_type=MT
 			   [Opt || Opt = #param{def=Def,in=In, where=Where} <- Ps,
 				   Def =/= none, In =/= false, Where =/= c]
 		   end,
-	    w("%% @hidden~n", []),
+	    w("-doc false.~n", []),
 	    gen_function_clause(erl_func_name(Name,A),MT,Ps,Opts,[no_guards,name_only]),
 	    w(" -> ~s:", [Class]),
 	    gen_function_clause(erl_func_name(Name,A),MT,Ps,Opts,[no_guards,name_only]),
@@ -685,26 +702,27 @@ guard_test(T) -> ?error({unknown_type,T}).
 
 gen_doc(_Class, [#method{method_type=destructor}]) ->  skip;
 gen_doc(_Class,Ms=[#method{name=N,alias=A,params=Ps,where=erl_no_opt,method_type=MT}])->
-    w("%% @equiv ", []),
+    w("-doc(#{equiv => ", []),
     gen_function_clause(erl_func_name(N,A),MT,Ps,empty_list,[no_guards,name_only]),
-    w("~n-spec ",[]),
+    w("}).~n", []),
+    w("-spec ",[]),
     write_specs(Ms, "\n");
 gen_doc(Class,Ms=[#method{name=N, type=T}|Rest])->
     %%doc_optional(Optional, normal),
-    doc_link(Class, N),
-    gen_overload_doc(Rest),
+    wx_gen_doc:func(Ms),
+    %% gen_overload_doc(Rest),
     Ps = lists:foldl(fun(#method{params=Ps}, Acc) -> Ps ++ Acc end,[],Ms),
     doc_enum_desc(lists:usort(doc_enum(T,Ps))),
     w("-spec ",[]),
     write_specs(Ms, "\n"),
     ok.
 
-gen_overload_doc([]) -> ok;
-%%gen_overload_doc(_) -> ok;
-gen_overload_doc(Cs) ->
-    w("%% <br /> Also:<br />~n%% ",[]),
-    write_specs(Cs, "<br />\n%% "),
-    w("~n", []).
+%% gen_overload_doc([]) -> ok;
+%% %%gen_overload_doc(_) -> ok;
+%% gen_overload_doc(Cs) ->
+%%     w("%% <br /> Also:<br />~n%% ",[]),
+%%     write_specs(Cs, "<br />\n%% "),
+%%     w("~n", []).
 
 write_specs(M=[#method{method_type=constructor}|_], Eol) ->
     w("new", []),
@@ -758,14 +776,14 @@ optional_type(Opts, Eol) ->
 optional_type2(#param{name=Name, def=_Def, type=T}) ->
     "{'" ++ erl_option_name(Name) ++ "', " ++ doc_arg_type2(T) ++ "}". %%   %% Default: " ++ Def.
 
-doc_link("utils", Func) ->
-    w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_miscellany.html#~s\">"
-      "external documentation</a>.~n",
-      [lowercase_all(Func)]);
-doc_link(Class, Func) ->
-    w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_~s.html#~s~s\">"
-      "external documentation</a>.~n",
-      [lowercase_all(Class),lowercase_all(Class),lowercase_all(Func)]).
+%% doc_link("utils", Func) ->
+%%     w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_miscellany.html#~s\">"
+%%       "external documentation</a>.~n",
+%%       [lowercase_all(Func)]);
+%% doc_link(Class, Func) ->
+%%     w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_~s.html#~s~s\">"
+%%       "external documentation</a>.~n",
+%%       [lowercase_all(Class),lowercase_all(Class),lowercase_all(Func)]).
 
 erl_arg_names(Ps0) ->
     Ps = [Name || #param{name=Name, in=In, where=Where} <- Ps0,In =/= false, Where =/= c],
@@ -889,7 +907,7 @@ doc_enum_type(Type, Name) ->
 
 doc_enum_desc([]) -> ok;
 doc_enum_desc([{_Enum,Name,Vs}|R]) ->
-    w("%%<br /> ~s = ~s~n", [erl_arg_name(Name),Vs]),
+    w("%%  ~s = ~s~n", [erl_arg_name(Name),Vs]),
     doc_enum_desc(R).
 
 %% Misc functions prefixed with wx
@@ -1226,7 +1244,7 @@ filter_attrs(#class{name=Name, parent=Parent,attributes=Attrs}) ->
 gen_funcnames() ->
     Ns = get_unique_names(),
     open_write("../src/gen/wxe_funcs.hrl"),
-    erl_copyright(),
+    erl_wx_copyright(),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% We define each id so we don't get huge diffs when adding new funcs/classes~n~n",[]),
     [w("-define(~s_~s, ~p).~n", [Class,Name,Id]) || {Class,Name,_,Id} <- Ns],

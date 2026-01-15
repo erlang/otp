@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,16 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Description: Implements base 64 encode and decode. See RFC4648.
 
 -module(base64).
+-moduledoc """
+Provides base64 encode and decode, see
+[RFC 2045](https://www.ietf.org/rfc/rfc2045.txt).
+""".
 
 -export([encode/1, encode/2,
 	 decode/1, decode/2,
@@ -30,22 +36,92 @@
          format_error/2]).
 
 %% RFC 4648: Base 64 Encoding alphabet
+-doc """
+Base 64 Encoding alphabet, see
+[RFC 4648](https://datatracker.ietf.org/doc/html/rfc4648).
+""".
 -type base64_alphabet() :: $A..$Z | $a..$z | $0..$9 | $+ | $/ | $- | $_ | $=.
 
 %% Selector for the Base 64 alphabet, `standard'  for RFC 4648
 %% Section 4, `urlsafe'  for RFC 4648 Section 5.
+-doc """
+Selector for the Base 64 Encoding alphabet used for [encoding](`encode/2`) and
+[decoding](`decode/2`). See
+[RFC 4648](https://datatracker.ietf.org/doc/html/rfc4648) Sections
+[4](https://datatracker.ietf.org/doc/html/rfc4648#section-4) and
+[5](https://datatracker.ietf.org/doc/html/rfc4648#section-5).
+""".
 -type base64_mode() :: 'standard' | 'urlsafe'.
 
--type options() :: #{padding => boolean(), mode => base64_mode()}.
+-doc """
+Customizes the behaviour of the decode functions.
+
+Default value if omitted entirely or partially is `#{mode => standard, padding => true}`.
+
+The `mode` option can be one of the following:
+
+- **`standard`** - Default. Decode the given string using the standard base64
+  alphabet according to
+  [RFC 4648 Section 4](https://datatracker.ietf.org/doc/html/rfc4648#section-4),
+  that is `"+"` and `"/"` are representing bytes `62` and `63` respectively,
+  while `"-"` and `"_"` are illegal characters.
+
+- **`urlsafe`** - Decode the given string using the alternative "URL and
+  Filename safe" base64 alphabet according to
+  [RFC 4648 Section 5](https://datatracker.ietf.org/doc/html/rfc4648#section-5),
+  that is `"-"` and `"_"` are representing bytes `62` and `63` respectively,
+  while `"+"` and `"/"` are illegal characters.
+
+The `padding` option can be one of the following:
+
+- **`true`** - Default. Checks the correct number of `=` padding characters at
+  the end of the encoded string.
+
+- **`false`** - Accepts an encoded string with missing `=` padding characters at
+  the end.
+
+""".
+-type decode_options() :: #{padding => boolean(), mode => base64_mode()}.
+
+-doc """
+Customizes the behaviour of the encode functions.
+
+Default value if omitted entirely or partially is `#{mode => standard, padding => true}`.
+
+The `mode` option can be one of the following:
+
+- **`standard`** - Default. Encode the given string using the standard base64
+  alphabet according to
+  [RFC 4648 Section 4](https://datatracker.ietf.org/doc/html/rfc4648#section-4).
+
+- **`urlsafe`** - Encode the given string using the alternative "URL and
+  Filename safe" base64 alphabet according to
+  [RFC 4648 Section 5](https://datatracker.ietf.org/doc/html/rfc4648#section-5).
+
+The `padding` option can be one of the following:
+
+- **`true`** - Default. Appends correct number of `=` padding characters to the
+  encoded string.
+
+- **`false`** - Skips appending `=` padding characters to the encoded string.
+
+""".
+-type encode_options() :: #{padding => boolean(), mode => base64_mode()}.
 
 %% The following type is a subtype of string() for return values
 %% of encoding functions.
+-doc "Base 64 encoded string.".
 -type base64_string() :: [base64_alphabet()].
+-doc "Base 64 encoded binary.".
 -type base64_binary() :: binary().
 
 %% Decoded sequence of octets
+-doc "Arbitrary sequences of octets.".
 -type byte_string() :: [byte()].
 
+-doc """
+Equivalent to [`encode(Data)`](`encode/1`), but returns a `t:byte_string/0`.
+""".
 -spec encode_to_string(Data) -> Base64String when
       Data :: byte_string() | binary(),
       Base64String :: base64_string().
@@ -53,9 +129,13 @@
 encode_to_string(Data) ->
     encode_to_string(Data, #{}).
 
+-doc """
+Equivalent to [`encode(Data, Options)`](`encode/2`), but returns a `t:byte_string/0`.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec encode_to_string(Data, Options) -> Base64String when
       Data :: byte_string() | binary(),
-      Options :: options(),
+      Options :: encode_options(),
       Base64String :: base64_string().
 
 encode_to_string(Bin, Options) when is_binary(Bin), is_map(Options) ->
@@ -63,16 +143,23 @@ encode_to_string(Bin, Options) when is_binary(Bin), is_map(Options) ->
 encode_to_string(List, Options) when is_list(List), is_map(Options) ->
     encode_list_to_string(get_encoding_offset(Options), get_padding(Options), List).
 
+-doc(#{ equiv => encode(Data, #{}) }).
 -spec encode(Data) -> Base64 when
       Data :: byte_string() | binary(),
       Base64 :: base64_binary().
-
 encode(Data) ->
     encode(Data, #{}).
 
+-doc """
+Encodes a plain ASCII string into base64 using the alphabet indicated by the
+`mode` option. The result is 33% larger than the data.
+
+See `t:encode_options/0` for details on which options can be passed.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec encode(Data, Options) -> Base64 when
       Data :: byte_string() | binary(),
-      Options :: options(),
+      Options :: encode_options(),
       Base64 :: base64_binary().
 
 encode(Bin, Options) when is_binary(Bin), is_map(Options) ->
@@ -174,6 +261,7 @@ encode_list(ModeOffset, Padding, [B1,B2,B3|Ls], A) ->
 %% mime_decode strips away all characters not Base64 before
 %% converting, whereas decode crashes if an illegal character is found
 
+-doc(#{equiv => decode(Base64, #{})}).
 -spec decode(Base64) -> Data when
       Base64 :: base64_string() | base64_binary(),
       Data :: binary().
@@ -181,9 +269,34 @@ encode_list(ModeOffset, Padding, [B1,B2,B3|Ls], A) ->
 decode(Base64) ->
     decode(Base64, #{}).
 
+-doc """
+Decodes a base64 string encoded using the standard alphabet according to
+[RFC 4648 Section 4](https://datatracker.ietf.org/doc/html/rfc4648#section-4) to
+plain ASCII.
+
+The function will strip away any whitespace characters and check for the
+the correct number of `=` padding characters at the end of the encoded string.
+
+See `t:decode_options/0` for details on which options can be passed.
+
+_Example_:
+```erlang
+1> base64:decode("AQIDBA==").
+<<1,2,3,4>>
+2> base64:decode("AQ ID BA==").
+<<1,2,3,4>>
+3> base64:decode("AQIDBA=").
+** exception error: missing_padding
+     in function  base64:decode_list/7 (base64.erl, line 734)
+        *** data to decode is missing final = padding characters, if this is intended, use the `padding => false` option
+4> base64:decode("AQIDBA=", #{ padding => false }).
+<<1,2,3,4>>
+```
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec decode(Base64, Options) -> Data when
       Base64 :: base64_string() | base64_binary(),
-      Options :: options(),
+      Options :: decode_options(),
       Data :: binary().
 
 decode(Bin, Options) when is_binary(Bin) ->
@@ -191,6 +304,7 @@ decode(Bin, Options) when is_binary(Bin) ->
 decode(List, Options) when is_list(List) ->
     decode_list(get_decoding_offset(Options), get_padding(Options), List, <<>>).
 
+-doc(#{equiv => mime_decode_to_string(Base64, #{})}).
 -spec mime_decode(Base64) -> Data when
       Base64 :: base64_string() | base64_binary(),
       Data :: binary().
@@ -198,9 +312,29 @@ decode(List, Options) when is_list(List) ->
 mime_decode(Base64) ->
     mime_decode(Base64, #{}).
 
+-doc """
+Decodes a base64 "mime" string encoded using the standard alphabet according to
+[RFC 4648 Section 4](https://datatracker.ietf.org/doc/html/rfc4648#section-4) to
+plain ASCII.
+
+The function will strip away any illegal characters. It does *not* check for the
+the correct number of `=` padding characters at the end of the encoded string.
+
+See `t:decode_options/0` for details on which options can be passed.
+
+_Example_:
+```erlang
+1> base64:mime_decode("AQIDBA==").
+<<1,2,3,4>>
+2> base64:mime_decode("AQIDB=A=").
+<<1,2,3,4>>
+```
+
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec mime_decode(Base64, Options) -> Data when
       Base64 :: base64_string() | base64_binary(),
-      Options :: options(),
+      Options :: decode_options(),
       Data :: binary().
 
 mime_decode(Bin, Options) when is_binary(Bin) ->
@@ -212,6 +346,7 @@ mime_decode(List, Options) when is_list(List) ->
 %% converting, whereas decode_to_string crashes if an illegal
 %% character is found
 
+-doc "Equivalent to [`decode(Base64)`](`decode/1`), but returns a `t:byte_string/0`.".
 -spec decode_to_string(Base64) -> DataString when
       Base64 :: base64_string() | base64_binary(),
       DataString :: byte_string().
@@ -219,9 +354,11 @@ mime_decode(List, Options) when is_list(List) ->
 decode_to_string(Base64) ->
     decode_to_string(Base64, #{}).
 
+-doc "Equivalent to [`decode(Base64, Options)`](`decode/2`), but returns a `t:byte_string/0`.".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec decode_to_string(Base64, Options) -> DataString when
       Base64 :: base64_string() | base64_binary(),
-      Options :: options(),
+      Options :: decode_options(),
       DataString :: byte_string().
 
 decode_to_string(Bin, Options) when is_binary(Bin) ->
@@ -229,6 +366,10 @@ decode_to_string(Bin, Options) when is_binary(Bin) ->
 decode_to_string(List, Options) when is_list(List) ->
     decode_list_to_string(get_decoding_offset(Options), get_padding(Options), List).
 
+-doc """
+Equivalent to [`mime_decode(Base64)`](`mime_decode/1`),
+but returns a `t:byte_string/0`.
+""".
 -spec mime_decode_to_string(Base64) -> DataString when
       Base64 :: base64_string() | base64_binary(),
       DataString :: byte_string().
@@ -236,9 +377,14 @@ decode_to_string(List, Options) when is_list(List) ->
 mime_decode_to_string(Base64) ->
     mime_decode_to_string(Base64, #{}).
 
+-doc """
+Equivalent to [`mime_decode(Base64, Options)`](`mime_decode/2`),
+but returns a `t:byte_string/0`.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec mime_decode_to_string(Base64, Options) -> DataString when
       Base64 :: base64_string() | base64_binary(),
-      Options :: options(),
+      Options :: decode_options(),
       DataString :: byte_string().
 
 mime_decode_to_string(Bin, Options) when is_binary(Bin) ->
@@ -622,6 +768,7 @@ only_ws(ModeOffset, Padding, [C | Cs], A) ->
 missing_padding_error() ->
     error(missing_padding, none, [{error_info, #{}}]).
 
+-doc false.
 format_error(missing_padding, _) ->
     #{general => "data to decode is missing final = padding characters, if this is intended, use the `padding => false` option"};
 format_error(_, _) ->

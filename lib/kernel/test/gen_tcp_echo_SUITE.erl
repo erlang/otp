@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen_tcp_echo_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("kernel_test_lib.hrl").
 
 %%-compile(export_all).
 
@@ -35,17 +38,40 @@
 -define(LINE_LENGTH, 1023). % (default value of gen_tcp option 'recbuf') - 1
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,5}}].
+    [{ct_hooks, [ts_install_cth]},
+     {timetrap, {minutes,1}}].
 
-all() -> 
+all() ->
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
+    end.
+
+groups() ->
+    [{inet_backend_default, [{group, read_ahead}, {group, no_read_ahead}]},
+     {inet_backend_socket,  [{group, read_ahead}, {group, no_read_ahead}]},
+     {inet_backend_inet,    [{group, read_ahead}, {group, no_read_ahead}]},
+     %%
+     {read_ahead,       [{group, no_delay_send}, {group, delay_send}]},
+     {no_read_ahead,    [{group, no_delay_send}, {group, delay_send}]},
+     %%
+     {no_delay_send,    testcases()},
+     {delay_send,       testcases()}].
+
+testcases() ->
     [active_echo, passive_echo, active_once_echo,
      slow_active_echo, slow_passive_echo, limit_active_echo,
      limit_passive_echo, large_limit_active_echo,
      large_limit_passive_echo].
 
-groups() -> 
-    [].
 
 init_per_suite(Config) ->
     Config.
@@ -53,140 +79,223 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_group(_GroupName, Config) ->
+
+init_per_group(inet_backend_default = _GroupName, Config) ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            [{socket_create_opts, []} | Config];
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
+init_per_group(inet_backend_inet = _GroupName, Config) ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, inet}]} | Config]
+            end;
+        inet ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config];
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
+init_per_group(inet_backend_socket = _GroupName, Config) ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, socket}]} | Config]
+            end;
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            [{socket_create_opts, [{inet_backend, socket}]} | Config]
+    end;
+init_per_group(Name, Config) ->
+    case Name of
+        no_read_ahead -> [{read_ahead, false} | Config];
+        delay_send    -> [{delay_send, true}  | Config];
+        _ -> Config
+    end.
+
+%% init_per_group_inet_backend(Backend, Config) ->
+%%     case kernel_test_lib:explicit_inet_backend() of
+%%         true ->
+%%             %% Contradicting kernel variables - skip group
+%%             {skip, "explicit inet backend"};
+%%         false ->
+%%             kernel_test_lib:config_inet_backend(Config, Backend)
+%%     end.
+
+end_per_group(Name, Config) ->
+    case Name of
+        no_read_ahead   -> lists:keydelete(read_ahead, 1, Config);
+        delay_send      -> lists:keydelete(delay_send, 1, Config);
+        _ -> Config
+    end.
+
+
+init_per_testcase(Name, Config) ->
+    _ =
+        case Name of
+            slow_active_echo    -> ct:timetrap({minutes, 5});
+            slow_passive_echo   -> ct:timetrap({minutes, 5});
+            _ -> ok
+        end,
     Config.
 
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Func, Config) ->
-    Config.
-
-end_per_testcase(_Func, _Config) ->
+end_per_testcase(_Name, _Config) ->
     ok.
+
+
+sockopts(Config) ->
+    [Option ||
+        {Name, _} = Option <- Config,
+        lists:member(Name, [read_ahead, delay_send])].
+
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active mode).
 active_echo(Config) when is_list(Config) ->
-    echo_test([], fun active_echo/4, [{echo, fun echo_server/0}]).
+    echo_test(Config, [], fun active_echo/4, [{echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in passive mode).
 passive_echo(Config) when is_list(Config) ->
-    echo_test([{active, false}], fun passive_echo/4,
-	      [{echo, fun echo_server/0}]).
+    echo_test(
+      Config, [{active, false}], fun passive_echo/4,
+      [{echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active once mode).
 active_once_echo(Config) when is_list(Config) ->
-    echo_test([{active, once}], fun active_once_echo/4,
-	      [{echo, fun echo_server/0}]).
+    echo_test(
+      Config, [{active, once}], fun active_once_echo/4,
+      [{echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active mode).
 %% The echo server is a special one that delays between every character.
 slow_active_echo(Config) when is_list(Config) ->
-    echo_test([], fun active_echo/4,
-	      [slow_echo, {echo, fun slow_echo_server/0}]).
+    echo_test(
+      Config, [], fun active_echo/4,
+      [slow_echo, {echo, fun slow_echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to an echo server and receiving them again (socket in passive mode).
 %% The echo server is a special one that delays between every character.
 slow_passive_echo(Config) when is_list(Config) ->
-    echo_test([{active, false}], fun passive_echo/4,
-	      [slow_echo, {echo, fun slow_echo_server/0}]).
+    echo_test(
+      Config, [{active, false}], fun passive_echo/4,
+      [slow_echo, {echo, fun slow_echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active mode)
 %% with packet_size limitation.
 limit_active_echo(Config) when is_list(Config) ->
-    echo_test([{packet_size, 10}],
-	      fun active_echo/4,
-	      [{packet_size, 10}, {echo, fun echo_server/0}]).
+    echo_test(
+      Config, [{packet_size, 10}], fun active_echo/4,
+      [{packet_size, 10}, {echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in passive mode)
 %% with packet_size limitation.
 limit_passive_echo(Config) when is_list(Config) ->
-    echo_test([{packet_size, 10},{active, false}],
-	      fun passive_echo/4,
-	      [{packet_size, 10}, {echo, fun echo_server/0}]).
+    echo_test(
+      Config, [{packet_size, 10},{active, false}], fun passive_echo/4,
+      [{packet_size, 10}, {echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active mode)
 %% with large packet_size limitation.
 large_limit_active_echo(Config) when is_list(Config) ->
-    echo_test([{packet_size, 10}],
-	      fun active_echo/4,
-	      [{packet_size, (1 bsl 32)-1},
-	       {echo, fun echo_server/0}]).
+    echo_test(
+      Config, [{packet_size, 10}], fun active_echo/4,
+      [{packet_size, (1 bsl 32)-1}, {echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in passive mode)
 %% with large packet_size limitation.
 large_limit_passive_echo(Config) when is_list(Config) ->
-    echo_test([{packet_size, 10},{active, false}],
-	      fun passive_echo/4,
-	      [{packet_size, (1 bsl 32) -1},
-	       {echo, fun echo_server/0}]).
+    echo_test(
+      Config, [{packet_size, 10},{active, false}], fun passive_echo/4,
+      [{packet_size, (1 bsl 32) -1}, {echo, fun echo_server/0}]).
 
-echo_test(SockOpts, EchoFun, Config0) ->
-    echo_test_1(SockOpts, EchoFun, Config0),
-    io:format("\nrepeating test with {delay_send,true}"),
-    echo_test_1([{delay_send,true}|SockOpts], EchoFun, Config0).
-
-echo_test_1(SockOpts, EchoFun, Config0) ->
-    EchoSrvFun = proplists:get_value(echo, Config0),
+echo_test(Config, SockOpts_0, EchoFun, EchoOpts_0) ->
+    SockOpts = SockOpts_0 ++ sockopts(Config),
+    ct:log("SockOpts = ~p.", [SockOpts]),
+    EchoSrvFun = proplists:get_value(echo, EchoOpts_0),
     {ok, EchoPort} = EchoSrvFun(),
-    Config = [{echo_port, EchoPort}|Config0],
+    EchoOpts = [{echo_port, EchoPort}|EchoOpts_0],
 
-    echo_packet([{packet, 1}|SockOpts], EchoFun, Config),
-    echo_packet([{packet, 2}|SockOpts], EchoFun, Config),
-    echo_packet([{packet, 4}|SockOpts], EchoFun, Config),
-    echo_packet([{packet, sunrm}|SockOpts], EchoFun, Config),
-    echo_packet([{packet, cdr}|SockOpts], EchoFun,
-		[{type, {cdr, big}}|Config]),
-    echo_packet([{packet, cdr}|SockOpts], EchoFun,
-		[{type, {cdr, little}}|Config]),
+    echo_packet(Config, [{packet, 1}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, 2}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, 4}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, sunrm}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, cdr}|SockOpts], EchoFun,
+		[{type, {cdr, big}}|EchoOpts]),
+    echo_packet(Config, [{packet, cdr}|SockOpts], EchoFun,
+		[{type, {cdr, little}}|EchoOpts]),
     case lists:keymember(packet_size, 1, SockOpts) of
 	false ->
 	    %% This is cheating, we should test that packet_size
 	    %% also works for line and http.
-	    echo_packet([{packet, line}|SockOpts], EchoFun, Config),
-	    echo_packet([{packet, http}|SockOpts], EchoFun, Config),
-	    echo_packet([{packet, http_bin}|SockOpts], EchoFun, Config);
+	    echo_packet(
+              Config, [{packet, line}|SockOpts], EchoFun, EchoOpts),
+	    echo_packet(
+              Config, [{packet, http}|SockOpts], EchoFun, EchoOpts),
+	    echo_packet(
+              Config, [{packet, http_bin}|SockOpts], EchoFun, EchoOpts);
 
 	true -> ok
     end,
-    echo_packet([{packet, tpkt}|SockOpts], EchoFun, Config),
+    echo_packet(Config, [{packet, tpkt}|SockOpts], EchoFun, EchoOpts),
 
     ShortTag = [16#E0],
     LongTag = [16#1F, 16#83, 16#27],
-    echo_packet([{packet, asn1}|SockOpts], EchoFun,
-		[{type, {asn1, short, ShortTag}}|Config]),
-    echo_packet([{packet, asn1}|SockOpts], EchoFun,
-		[{type, {asn1, long, ShortTag}}|Config]),
-    echo_packet([{packet, asn1}|SockOpts], EchoFun,
-		[{type, {asn1, short, LongTag}}|Config]),
-    echo_packet([{packet, asn1}|SockOpts], EchoFun,
-		[{type, {asn1, long, LongTag}}|Config]),
+    echo_packet(Config, [{packet, asn1}|SockOpts], EchoFun,
+		[{type, {asn1, short, ShortTag}}|EchoOpts]),
+    echo_packet(Config, [{packet, asn1}|SockOpts], EchoFun,
+		[{type, {asn1, long, ShortTag}}|EchoOpts]),
+    echo_packet(Config, [{packet, asn1}|SockOpts], EchoFun,
+		[{type, {asn1, short, LongTag}}|EchoOpts]),
+    echo_packet(Config, [{packet, asn1}|SockOpts], EchoFun,
+		[{type, {asn1, long, LongTag}}|EchoOpts]),
     ok.
 
-echo_packet(SockOpts, EchoFun, Opts) ->
-    Type = case lists:keysearch(type, 1, Opts) of
-	       {value, {type, T}} ->
+echo_packet(Config, SockOpts, EchoFun, EchoOpts) ->
+    Type = case lists:keyfind(type, 1, EchoOpts) of
+	       {_, T} ->
 		   T;
-	       _ ->
-		   {value, {packet, T}} = lists:keysearch(packet, 1, SockOpts),
+	       false ->
+		   {_, T} = lists:keyfind(packet, 1, SockOpts),
 		   T
 	   end,
 
     %% Connect to the echo server.
-    EchoPort = proplists:get_value(echo_port, Opts),
-    {ok, Echo} = gen_tcp:connect(localhost, EchoPort, SockOpts),
+    EchoPort = proplists:get_value(echo_port, EchoOpts),
+    {ok, Echo} =
+        kernel_test_lib:connect(Config, localhost, EchoPort, SockOpts),
 
-    SlowEcho = lists:member(slow_echo, Opts),
+    ct:pal("Echo socket: ~w", [Echo]),
+
+    SlowEcho = lists:member(slow_echo, EchoOpts),
 
     case Type of
 	http ->
@@ -194,7 +303,7 @@ echo_packet(SockOpts, EchoFun, Opts) ->
 	http_bin ->
 	    echo_packet_http(Echo, Type, EchoFun);
 	_ ->
-	    echo_packet0(Echo, Type, EchoFun, SlowEcho, Opts)
+	    echo_packet0(Echo, Type, EchoFun, SlowEcho, EchoOpts)
     end.
 
 echo_packet_http(Echo, Type, EchoFun) ->
@@ -205,11 +314,11 @@ echo_packet_http(Echo, Type, EchoFun) ->
     P2 = http_response(),
     EchoFun(Echo, Type, P2, http_reply(P2, Type)).
 
-echo_packet0(Echo, Type, EchoFun, SlowEcho, Opts) ->
+echo_packet0(Echo, Type, EchoFun, SlowEcho, EchoOpts) ->
     PacketSize =
-	case lists:keysearch(packet_size, 1, Opts) of
-	    {value,{packet_size,Sz}} when Sz < 10 -> Sz;
-	    {value,{packet_size,_}} -> 10;
+	case lists:keyfind(packet_size, 1, EchoOpts) of
+	    {_,Sz} when Sz < 10 -> Sz;
+	    {_,_} -> 10;
 	    false -> 0
 	end,
     ct:log("echo_packet0[~w] ~p", [self(), PacketSize]),
@@ -265,7 +374,7 @@ echo_packet1(EchoSock, Type, EchoFun, Size) ->
 	false ->
 	    ok;
 	Packet ->
-	    io:format("Type ~p, size ~p, time ~p",
+	    ct:log("Type ~p, size ~p, time ~p",
 		      [Type, Size, time()]),
 	    case EchoFun(EchoSock, Type, Packet, [Packet]) of
 		ok ->
@@ -278,7 +387,7 @@ echo_packet1(EchoSock, Type, EchoFun, Size) ->
 		{error, emsgsize} ->
 		    case Size of
 			{N, Max} when N > Max ->
-			    io:format(" Blocked!");
+			    ct:log(" Blocked!");
 			_ ->
 			    ct:fail(
 			      {packet_blocked, Size})
@@ -301,7 +410,7 @@ active_recv(Sock, Type, [PacketEcho|Tail]) ->
 	      _ -> tcp
 	  end,
     receive Recv->Recv end,
-    %%io:format("Active received: ~p\n",[Recv]),
+    %%ct:log("Active received: ~p\n",[Recv]),
     case Recv of
 	{Tag, Sock, PacketEcho} ->
 	    active_recv(Sock, Type, Tail);
@@ -323,12 +432,12 @@ passive_recv(_, []) ->
     ok;
 passive_recv(Sock, [PacketEcho | Tail]) ->
     Recv = gen_tcp:recv(Sock, 0),
-    %%io:format("Passive received: ~p\n",[Recv]),
+    %%ct:log("Passive received: ~p\n",[Recv]),
     case Recv of
 	{ok, PacketEcho} ->
 	    passive_recv(Sock, Tail);
 	{ok, Bad} ->
-	    io:format("Expected: ~p\nGot: ~p\n",[PacketEcho,Bad]),
+	    ct:log("Expected: ~p\nGot: ~p\n",[PacketEcho,Bad]),
 	    ct:fail({wrong_data, Bad, PacketEcho});
 	{error,PacketEcho} ->
 	    passive_recv(Sock, Tail); % expected error
@@ -575,7 +684,7 @@ http_reply(Bin, Type) ->
 		http_bin -> httph_bin
 	    end,
     Ret = lists:reverse(http_reply(Rest,[Line],HType)),
-    io:format("HTTP: ~p\n",[Ret]),
+    ct:log("HTTP: ~p\n",[Ret]),
     Ret.
 
 http_reply(<<>>, Acc, _) ->

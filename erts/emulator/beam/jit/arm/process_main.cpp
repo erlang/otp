@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +29,8 @@ extern "C"
 #include "code_ix.h"
 #include "export.h"
 }
+
+#undef x
 
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 static Process *erts_debug_schedule(ErtsSchedulerData *esdp,
@@ -70,9 +74,6 @@ void BeamGlobalAssembler::emit_process_main() {
 
     a.mov(scheduler_registers, a64::sp);
 
-    load_erl_bits_state(ARG1);
-    runtime_call<1>(erts_bits_init_state);
-
     /* Save the initial SP of the thread so that we can verify that it
      * doesn't grow. */
 #ifdef JIT_HARD_DEBUG
@@ -93,7 +94,7 @@ void BeamGlobalAssembler::emit_process_main() {
     {
         /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
         a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
-        a.sub(ARG3, TMP1, FCALLS);
+        a.sub(ARG3.w(), TMP1.w(), FCALLS);
         a.b(schedule_next);
     }
 
@@ -106,10 +107,10 @@ void BeamGlobalAssembler::emit_process_main() {
     {
         Sint arity_offset = offsetof(ErtsCodeMFA, arity) - sizeof(ErtsCodeMFA);
 
-        a.ldur(TMP1, arm::Mem(ARG3, arity_offset));
-        a.str(TMP1, arm::Mem(c_p, offsetof(Process, arity)));
+        a.ldur(TMP1.w(), arm::Mem(ARG3, arity_offset));
+        a.strb(TMP1.w(), arm::Mem(c_p, offsetof(Process, arity)));
 
-        a.sub(TMP1, ARG3, imm((Uint)sizeof(ErtsCodeMFA)));
+        a.sub(TMP1, ARG3, imm(sizeof(ErtsCodeMFA)));
         a.str(TMP1, arm::Mem(c_p, offsetof(Process, current)));
 
         /* !! Fall through !! */
@@ -139,7 +140,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
             a.adr(TMP1, labels[process_exit]);
             a.str(TMP1, arm::Mem(c_p, offsetof(Process, i)));
-            a.str(ZERO, arm::Mem(c_p, offsetof(Process, arity)));
+            a.strb(ZERO.w(), arm::Mem(c_p, offsetof(Process, arity)));
             a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
             a.b(do_schedule_local);
         }
@@ -147,16 +148,16 @@ void BeamGlobalAssembler::emit_process_main() {
         a.bind(not_exiting);
 
         /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
-        a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
-        a.sub(FCALLS, TMP1, FCALLS);
+        a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
+        a.sub(FCALLS, TMP1.w(), FCALLS);
 
         comment("Copy out X registers");
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        runtime_call<2>(copy_out_registers);
+        runtime_call<void (*)(Process *, Eterm *), copy_out_registers>();
 
         /* Restore reds_used from FCALLS */
-        a.mov(ARG3, FCALLS);
+        a.mov(ARG3.w(), FCALLS);
 
         /* !! Fall through !! */
     }
@@ -179,7 +180,8 @@ void BeamGlobalAssembler::emit_process_main() {
             a.str(ARG3, start_time);
 
             a.ldr(ARG3, start_time_i);
-            runtime_call<3>(check_monitor_long_schedule);
+            runtime_call<void (*)(Process *, Uint64, ErtsCodePtr),
+                         check_monitor_long_schedule>();
 
             /* Restore reds_used */
             a.ldr(ARG3, start_time);
@@ -189,15 +191,17 @@ void BeamGlobalAssembler::emit_process_main() {
         mov_imm(ARG1, 0);
         a.mov(ARG2, c_p);
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
-        runtime_call<3>(erts_debug_schedule);
+        runtime_call<Process *(*)(ErtsSchedulerData *, Process *, int),
+                     erts_debug_schedule>();
 #else
-        runtime_call<3>(erts_schedule);
+        runtime_call<Process *(*)(ErtsSchedulerData *, Process *, int),
+                     erts_schedule>();
 #endif
         a.mov(c_p, ARG1);
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
         lea(ARG1, erts_msacc_cache);
-        runtime_call<1>(erts_msacc_update_cache);
+        runtime_call<void (*)(ErtsMsAcc **), erts_msacc_update_cache>();
 #endif
 
         a.str(ZERO, start_time);
@@ -207,7 +211,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
         {
             /* Enable long schedule test */
-            runtime_call<0>(erts_timestamp_millis);
+            runtime_call<Uint64 (*)(), erts_timestamp_millis>();
             a.str(ARG1, start_time);
             a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, i)));
             a.str(TMP1, start_time_i);
@@ -219,20 +223,20 @@ void BeamGlobalAssembler::emit_process_main() {
         /* Copy arguments */
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        runtime_call<2>(copy_in_registers);
+        runtime_call<void (*)(Process *, Eterm *), copy_in_registers>();
 
         /* Setup reduction counting */
         a.ldr(FCALLS, arm::Mem(c_p, offsetof(Process, fcalls)));
-        a.str(FCALLS, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
+        a.str(FCALLS.x(), arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
 
 #ifdef DEBUG
-        a.str(FCALLS, a64::Mem(c_p, offsetof(Process, debug_reds_in)));
+        a.str(FCALLS.x(), a64::Mem(c_p, offsetof(Process, debug_reds_in)));
 #endif
 
         comment("check whether save calls is on");
         a.mov(ARG1, c_p);
         mov_imm(ARG2, ERTS_PSD_SAVED_CALLS_BUF);
-        runtime_call<2>(erts_psd_get);
+        runtime_call<void *(*)(Process *, int), erts_psd_get>();
 
         /* Read the active code index, overriding it with
          * ERTS_SAVE_CALLS_CODE_IX when save_calls is enabled (ARG1 != 0). */

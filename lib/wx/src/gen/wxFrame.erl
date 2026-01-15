@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,172 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxFrame).
+-moduledoc """
+A frame is a window whose size and position can (usually) be changed by the user.
+
+It usually has thick borders and a title bar, and can optionally contain a menu bar,
+toolbar and status bar. A frame can contain any window that is not a frame or dialog.
+
+A frame that has a status bar and toolbar, created via the `createStatusBar/2` and `createToolBar/2` functions, manages these
+windows and adjusts the value returned by `wxWindow:getClientSize/1` to reflect the remaining size available to
+application windows.
+
+Remark: An application should normally define an `m:wxCloseEvent` handler for the frame
+to respond to system close events, for example so that related data and subwindows can be
+cleaned up.
+
+Default event processing
+
+`m:wxFrame` processes the following events:
+
+* `wxEVT_SIZE:` if the frame has exactly one child window, not counting the status and
+toolbar, this child is resized to take the entire frame client area. If two or more
+windows are present, they should be laid out explicitly either by manually handling `wxEVT_SIZE`
+or using sizers;
+
+* `wxEVT_MENU_HIGHLIGHT:` the default implementation displays the help string associated
+with the selected item in the first pane of the status bar, if there is one.
+
+## Styles
+
+This class supports the following styles:
+
+* wxDEFAULT_FRAME_STYLE: Defined as wxMINIMIZE_BOX | wxMAXIMIZE_BOX | wxRESIZE_BORDER |
+wxSYSTEM_MENU | wxCAPTION | wxCLOSE_BOX | wxCLIP_CHILDREN.
+
+* wxICONIZE: Display the frame iconized (minimized). Windows only.
+
+* wxCAPTION: Puts a caption on the frame. Notice that this flag is required by
+wxMINIMIZE_BOX, wxMAXIMIZE_BOX and wxCLOSE_BOX on most systems as the corresponding
+buttons cannot be shown if the window has no title bar at all. I.e. if wxCAPTION is not
+specified those styles would be simply ignored.
+
+* wxMINIMIZE: Identical to wxICONIZE. Windows only.
+
+* wxMINIMIZE_BOX: Displays a minimize box on the frame.
+
+* wxMAXIMIZE: Displays the frame maximized. Windows and GTK+ only.
+
+* wxMAXIMIZE_BOX: Displays a maximize box on the frame. Notice that under wxGTK
+wxRESIZE_BORDER must be used as well or this style is ignored.
+
+* wxCLOSE_BOX: Displays a close box on the frame.
+
+* wxSTAY_ON_TOP: Stay on top of all other windows, see also wxFRAME_FLOAT_ON_PARENT.
+
+* wxSYSTEM_MENU: Displays a system menu containing the list of various windows commands in
+the window title bar. Unlike wxMINIMIZE_BOX, wxMAXIMIZE_BOX and wxCLOSE_BOX styles this
+style can be used without wxCAPTION, at least under Windows, and makes the system menu
+available without showing it on screen in this case. However it is recommended to only use
+it together with wxCAPTION for consistent behaviour under all platforms.
+
+* wxRESIZE_BORDER: Displays a resizable border around the window.
+
+* wxFRAME_TOOL_WINDOW: Causes a frame with a small title bar to be created; the frame does
+not appear in the taskbar under Windows or GTK+.
+
+* wxFRAME_NO_TASKBAR: Creates an otherwise normal frame but it does not appear in the
+taskbar under Windows or GTK+ (note that it will minimize to the desktop window under
+Windows which may seem strange to the users and thus it might be better to use this style
+only without wxMINIMIZE_BOX style). In wxGTK, the flag is respected only if the window
+manager supports _NET_WM_STATE_SKIP_TASKBAR hint.
+
+* wxFRAME_FLOAT_ON_PARENT: The frame will always be on top of its parent (unlike
+wxSTAY_ON_TOP). A frame created with this style must have a non-NULL parent.
+
+* wxFRAME_SHAPED: Windows with this style are allowed to have their shape changed with the `wxTopLevelWindow:setShape/2`
+method. The default frame style is for normal, resizable frames. To create a frame which
+cannot be resized by user, you may use the following combination of styles:
+
+See also the overview_windowstyles.
+
+## Extra Styles
+
+This class supports the following extra styles:
+
+* wxFRAME_EX_CONTEXTHELP: Under Windows, puts a query button on the caption. When pressed,
+Windows will go into a context-sensitive help mode and wxWidgets will send a `wxEVT_HELP`
+event if the user clicked on an application window. Note that this is an extended style
+and must be set by calling SetExtraStyle before Create is called (two-step construction).
+You cannot use this style together with wxMAXIMIZE_BOX or wxMINIMIZE_BOX, so you should
+use wxDEFAULT_FRAME_STYLE ~ (wxMINIMIZE_BOX | wxMAXIMIZE_BOX) for the frames having this
+style (the dialogs don't have a minimize or a maximize box by default)
+
+* wxFRAME_EX_METAL: On macOS, frames with this style will be shown with a metallic look.
+This is an extra style.
+
+See:
+* `m:wxMDIParentFrame`
+
+* `m:wxMDIChildFrame`
+
+* `m:wxMiniFrame`
+
+* `m:wxDialog`
+
+This class is derived, and can use functions, from:
+
+* `m:wxTopLevelWindow`
+
+* `m:wxWindow`
+
+* `m:wxEvtHandler`
+
+wxWidgets docs: [wxFrame](https://docs.wxwidgets.org/3.2/classwx_frame.html)
+
+## Events
+
+Event types emitted from this class:
+
+* [`close_window`](`m:wxCloseEvent`)
+
+* [`iconize`](`m:wxIconizeEvent`)
+
+* [`menu_open`](`m:wxMenuEvent`)
+
+* [`menu_close`](`m:wxMenuEvent`)
+
+* [`menu_highlight`](`m:wxMenuEvent`)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,createStatusBar/1,createStatusBar/2,createToolBar/1,
   createToolBar/2,destroy/1,getClientAreaOrigin/1,getMenuBar/1,getStatusBar/1,
@@ -72,19 +236,19 @@
 
 -type wxFrame() :: wx:wx_object().
 -export_type([wxFrame/0]).
-%% @hidden
+-doc false.
 parent_class(wxTopLevelWindow) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframewxframe">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxFrame().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxFrame_new_0),
   wxe_util:rec(?wxFrame_new_0).
 
-%% @equiv new(Parent,Id,Title, [])
+-doc(#{equiv => new(Parent,Id,Title, [])}).
 -spec new(Parent, Id, Title) -> wxFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
@@ -92,7 +256,14 @@ new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
   new(Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframewxframe">external documentation</a>.
+-doc """
+Constructor, creating the window.
+
+Remark: For Motif, MWM (the Motif Window Manager) should be running for any window styles
+to work (otherwise all styles take effect).
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Title, [Option]) -> wxFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -110,7 +281,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:queue_cmd(Parent,Id,Title_UC, Opts,?get_env(),?wxFrame_new_4),
   wxe_util:rec(?wxFrame_new_4).
 
-%% @equiv create(This,Parent,Id,Title, [])
+-doc(#{equiv => create(This,Parent,Id,Title, [])}).
 -spec create(This, Parent, Id, Title) -> boolean() when
 	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
@@ -118,7 +289,11 @@ create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
   create(This,Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreate">external documentation</a>.
+-doc """
+Used in two-step frame construction.
+
+See `new/4` for further details.
+""".
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -137,7 +312,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:queue_cmd(This,Parent,Id,Title_UC, Opts,?get_env(),?wxFrame_Create),
   wxe_util:rec(?wxFrame_Create).
 
-%% @equiv createStatusBar(This, [])
+-doc(#{equiv => createStatusBar(This, [])}).
 -spec createStatusBar(This) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame().
 
@@ -145,7 +320,20 @@ createStatusBar(This)
  when is_record(This, wx_ref) ->
   createStatusBar(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreatestatusbar">external documentation</a>.
+-doc """
+Creates a status bar at the bottom of the frame.
+
+Return: A pointer to the status bar if it was created successfully, NULL otherwise.
+
+Remark: The width of the status bar is the whole width of the frame (adjusted
+automatically when resizing), and the height and text size are chosen by the host
+windowing system.
+
+See:
+* `setStatusText/3`
+
+* `getStatusBar/1`
+""".
 -spec createStatusBar(This, [Option]) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame(),
 	Option :: {'number', integer()}
@@ -162,7 +350,7 @@ createStatusBar(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxFrame_CreateStatusBar),
   wxe_util:rec(?wxFrame_CreateStatusBar).
 
-%% @equiv createToolBar(This, [])
+-doc(#{equiv => createToolBar(This, [])}).
 -spec createToolBar(This) -> wxToolBar:wxToolBar() when
 	This::wxFrame().
 
@@ -170,7 +358,26 @@ createToolBar(This)
  when is_record(This, wx_ref) ->
   createToolBar(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreatetoolbar">external documentation</a>.
+-doc """
+Creates a toolbar at the top or left of the frame.
+
+Return: A pointer to the toolbar if it was created successfully, NULL otherwise.
+
+Remark: By default, the toolbar is an instance of `m:wxToolBar`. To use a different
+class, override `OnCreateToolBar()` (not implemented in wx). When a toolbar has been
+created with this function, or made known to the frame with `setToolBar/2`, the frame will manage the
+toolbar position and adjust the return value from `wxWindow:getClientSize/1` to reflect the available space for
+application windows. Under Pocket PC, you should always use this function for creating the
+toolbar to be managed by the frame, so that wxWidgets can use a combined menubar and
+toolbar. Where you manage your own toolbars, create a `m:wxToolBar` as usual.
+
+See:
+* `createStatusBar/2`
+
+* `setToolBar/2`
+
+* `getToolBar/1`
+""".
 -spec createToolBar(This, [Option]) -> wxToolBar:wxToolBar() when
 	This::wxFrame(),
 	Option :: {'style', integer()}
@@ -185,7 +392,11 @@ createToolBar(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxFrame_CreateToolBar),
   wxe_util:rec(?wxFrame_CreateToolBar).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetclientareaorigin">external documentation</a>.
+-doc """
+Returns the origin of the frame client area (in client coordinates).
+
+It may be different from (0, 0) if the frame has a toolbar.
+""".
 -spec getClientAreaOrigin(This) -> {X::integer(), Y::integer()} when
 	This::wxFrame().
 getClientAreaOrigin(#wx_ref{type=ThisT}=This) ->
@@ -193,7 +404,16 @@ getClientAreaOrigin(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetClientAreaOrigin),
   wxe_util:rec(?wxFrame_GetClientAreaOrigin).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetmenubar">external documentation</a>.
+-doc """
+Returns a pointer to the menubar currently associated with the frame (if any).
+
+See:
+* `setMenuBar/2`
+
+* `m:wxMenuBar`
+
+* `m:wxMenu`
+""".
 -spec getMenuBar(This) -> wxMenuBar:wxMenuBar() when
 	This::wxFrame().
 getMenuBar(#wx_ref{type=ThisT}=This) ->
@@ -201,7 +421,14 @@ getMenuBar(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetMenuBar),
   wxe_util:rec(?wxFrame_GetMenuBar).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetstatusbar">external documentation</a>.
+-doc """
+Returns a pointer to the status bar currently associated with the frame (if any).
+
+See:
+* `createStatusBar/2`
+
+* `m:wxStatusBar`
+""".
 -spec getStatusBar(This) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame().
 getStatusBar(#wx_ref{type=ThisT}=This) ->
@@ -209,7 +436,11 @@ getStatusBar(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetStatusBar),
   wxe_util:rec(?wxFrame_GetStatusBar).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetstatusbarpane">external documentation</a>.
+-doc """
+Returns the status bar pane used to display menu and toolbar help.
+
+See: `setStatusBarPane/2`
+""".
 -spec getStatusBarPane(This) -> integer() when
 	This::wxFrame().
 getStatusBarPane(#wx_ref{type=ThisT}=This) ->
@@ -217,7 +448,16 @@ getStatusBarPane(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetStatusBarPane),
   wxe_util:rec(?wxFrame_GetStatusBarPane).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegettoolbar">external documentation</a>.
+-doc """
+Returns a pointer to the toolbar currently associated with the frame (if any).
+
+See:
+* `createToolBar/2`
+
+* `m:wxToolBar`
+
+* `setToolBar/2`
+""".
 -spec getToolBar(This) -> wxToolBar:wxToolBar() when
 	This::wxFrame().
 getToolBar(#wx_ref{type=ThisT}=This) ->
@@ -225,7 +465,7 @@ getToolBar(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxFrame_GetToolBar),
   wxe_util:rec(?wxFrame_GetToolBar).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframeprocesscommand">external documentation</a>.
+-doc "Simulate a menu command.".
 -spec processCommand(This, Id) -> boolean() when
 	This::wxFrame(), Id::integer().
 processCommand(#wx_ref{type=ThisT}=This,Id)
@@ -234,7 +474,7 @@ processCommand(#wx_ref{type=ThisT}=This,Id)
   wxe_util:queue_cmd(This,Id,?get_env(),?wxFrame_ProcessCommand),
   wxe_util:rec(?wxFrame_ProcessCommand).
 
-%% @equiv sendSizeEvent(This, [])
+-doc(#{equiv => sendSizeEvent(This, [])}).
 -spec sendSizeEvent(This) -> 'ok' when
 	This::wxFrame().
 
@@ -242,7 +482,19 @@ sendSizeEvent(This)
  when is_record(This, wx_ref) ->
   sendSizeEvent(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesendsizeevent">external documentation</a>.
+-doc """
+This function sends a dummy `m:wxSizeEvent` to the window allowing it to re-layout its
+children positions.
+
+It is sometimes useful to call this function after adding or deleting a children after
+the frame creation or if a child size changes. Note that if the frame is using either
+sizers or constraints for the children layout, it is enough to call `wxWindow:layout/1` directly and this
+function should not be used in this case.
+
+If `flags` includes `wxSEND_EVENT_POST` value, this function posts the event, i.e.
+schedules it for later processing, instead of dispatching it directly. You can also use `PostSizeEvent()`
+(not implemented in wx) as a more readable equivalent of calling this function with this flag.
+""".
 -spec sendSizeEvent(This, [Option]) -> 'ok' when
 	This::wxFrame(),
 	Option :: {'flags', integer()}.
@@ -254,7 +506,22 @@ sendSizeEvent(#wx_ref{type=ThisT}=This, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxFrame_SendSizeEvent).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetmenubar">external documentation</a>.
+-doc """
+Tells the frame to show the given menu bar.
+
+Remark: If the frame is destroyed, the menu bar and its menus will be destroyed also, so
+do not delete the menu bar explicitly (except by resetting the frame's menu bar to another
+frame or NULL). Under Windows, a size event is generated, so be sure to initialize data
+members properly before calling `setMenuBar/2`. Note that on some platforms, it is not possible to call
+this function twice for the same frame object.
+
+See:
+* `getMenuBar/1`
+
+* `m:wxMenuBar`
+
+* `m:wxMenu`
+""".
 -spec setMenuBar(This, MenuBar) -> 'ok' when
 	This::wxFrame(), MenuBar::wxMenuBar:wxMenuBar().
 setMenuBar(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuBarT}=MenuBar) ->
@@ -262,7 +529,19 @@ setMenuBar(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuBarT}=MenuBar) ->
   ?CLASS(MenuBarT,wxMenuBar),
   wxe_util:queue_cmd(This,MenuBar,?get_env(),?wxFrame_SetMenuBar).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatusbar">external documentation</a>.
+-doc """
+Associates a status bar with the frame.
+
+If `statusBar` is NULL, then the status bar, if present, is detached from the frame, but `not`
+deleted.
+
+See:
+* `createStatusBar/2`
+
+* `m:wxStatusBar`
+
+* `getStatusBar/1`
+""".
 -spec setStatusBar(This, StatusBar) -> 'ok' when
 	This::wxFrame(), StatusBar::wxStatusBar:wxStatusBar().
 setStatusBar(#wx_ref{type=ThisT}=This,#wx_ref{type=StatusBarT}=StatusBar) ->
@@ -270,7 +549,11 @@ setStatusBar(#wx_ref{type=ThisT}=This,#wx_ref{type=StatusBarT}=StatusBar) ->
   ?CLASS(StatusBarT,wxStatusBar),
   wxe_util:queue_cmd(This,StatusBar,?get_env(),?wxFrame_SetStatusBar).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatusbarpane">external documentation</a>.
+-doc """
+Set the status bar pane used to display menu and toolbar help.
+
+Using -1 disables help display.
+""".
 -spec setStatusBarPane(This, N) -> 'ok' when
 	This::wxFrame(), N::integer().
 setStatusBarPane(#wx_ref{type=ThisT}=This,N)
@@ -278,7 +561,7 @@ setStatusBarPane(#wx_ref{type=ThisT}=This,N)
   ?CLASS(ThisT,wxFrame),
   wxe_util:queue_cmd(This,N,?get_env(),?wxFrame_SetStatusBarPane).
 
-%% @equiv setStatusText(This,Text, [])
+-doc(#{equiv => setStatusText(This,Text, [])}).
 -spec setStatusText(This, Text) -> 'ok' when
 	This::wxFrame(), Text::unicode:chardata().
 
@@ -286,7 +569,19 @@ setStatusText(This,Text)
  when is_record(This, wx_ref),?is_chardata(Text) ->
   setStatusText(This,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatustext">external documentation</a>.
+-doc """
+Sets the status bar text and updates the status bar display.
+
+This is a simple wrapper for `wxStatusBar:setStatusText/3` which doesn't do anything if the frame has no status bar,
+i.e. `getStatusBar/1` returns NULL.
+
+Remark: Use an empty string to clear the status bar.
+
+See:
+* `createStatusBar/2`
+
+* `m:wxStatusBar`
+""".
 -spec setStatusText(This, Text, [Option]) -> 'ok' when
 	This::wxFrame(), Text::unicode:chardata(),
 	Option :: {'number', integer()}.
@@ -299,7 +594,13 @@ setStatusText(#wx_ref{type=ThisT}=This,Text, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This,Text_UC, Opts,?get_env(),?wxFrame_SetStatusText).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatuswidths">external documentation</a>.
+-doc """
+Sets the widths of the fields in the status bar.
+
+Remark: The widths of the variable fields are calculated from the total width of all
+fields, minus the sum of widths of the non-variable fields, divided by the number of
+variable fields.
+""".
 -spec setStatusWidths(This, Widths_field) -> 'ok' when
 	This::wxFrame(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
@@ -307,7 +608,7 @@ setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
   ?CLASS(ThisT,wxFrame),
   wxe_util:queue_cmd(This,Widths_field,?get_env(),?wxFrame_SetStatusWidths).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesettoolbar">external documentation</a>.
+-doc "Associates a toolbar with the frame.".
 -spec setToolBar(This, ToolBar) -> 'ok' when
 	This::wxFrame(), ToolBar::wxToolBar:wxToolBar().
 setToolBar(#wx_ref{type=ThisT}=This,#wx_ref{type=ToolBarT}=ToolBar) ->
@@ -315,424 +616,424 @@ setToolBar(#wx_ref{type=ThisT}=This,#wx_ref{type=ToolBarT}=ToolBar) ->
   ?CLASS(ToolBarT,wxToolBar),
   wxe_util:queue_cmd(This,ToolBar,?get_env(),?wxFrame_SetToolBar).
 
-%% @doc Destroys this object, do not use object again
+-doc "Destroys the object".
 -spec destroy(This::wxFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFrame),
   wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxTopLevelWindow
-%% @hidden
+-doc false.
 showFullScreen(This,Show, Options) -> wxTopLevelWindow:showFullScreen(This,Show, Options).
-%% @hidden
+-doc false.
 showFullScreen(This,Show) -> wxTopLevelWindow:showFullScreen(This,Show).
-%% @hidden
+-doc false.
 setTitle(This,Title) -> wxTopLevelWindow:setTitle(This,Title).
-%% @hidden
+-doc false.
 setShape(This,Region) -> wxTopLevelWindow:setShape(This,Region).
-%% @hidden
+-doc false.
 centreOnScreen(This, Options) -> wxTopLevelWindow:centreOnScreen(This, Options).
-%% @hidden
+-doc false.
 centerOnScreen(This, Options) -> wxTopLevelWindow:centerOnScreen(This, Options).
-%% @hidden
+-doc false.
 centreOnScreen(This) -> wxTopLevelWindow:centreOnScreen(This).
-%% @hidden
+-doc false.
 centerOnScreen(This) -> wxTopLevelWindow:centerOnScreen(This).
-%% @hidden
+-doc false.
 setIcons(This,Icons) -> wxTopLevelWindow:setIcons(This,Icons).
-%% @hidden
+-doc false.
 setIcon(This,Icon) -> wxTopLevelWindow:setIcon(This,Icon).
-%% @hidden
+-doc false.
 requestUserAttention(This, Options) -> wxTopLevelWindow:requestUserAttention(This, Options).
-%% @hidden
+-doc false.
 requestUserAttention(This) -> wxTopLevelWindow:requestUserAttention(This).
-%% @hidden
+-doc false.
 maximize(This, Options) -> wxTopLevelWindow:maximize(This, Options).
-%% @hidden
+-doc false.
 maximize(This) -> wxTopLevelWindow:maximize(This).
-%% @hidden
+-doc false.
 isMaximized(This) -> wxTopLevelWindow:isMaximized(This).
-%% @hidden
+-doc false.
 isIconized(This) -> wxTopLevelWindow:isIconized(This).
-%% @hidden
+-doc false.
 isFullScreen(This) -> wxTopLevelWindow:isFullScreen(This).
-%% @hidden
+-doc false.
 iconize(This, Options) -> wxTopLevelWindow:iconize(This, Options).
-%% @hidden
+-doc false.
 iconize(This) -> wxTopLevelWindow:iconize(This).
-%% @hidden
+-doc false.
 isActive(This) -> wxTopLevelWindow:isActive(This).
-%% @hidden
+-doc false.
 getTitle(This) -> wxTopLevelWindow:getTitle(This).
-%% @hidden
+-doc false.
 getIcons(This) -> wxTopLevelWindow:getIcons(This).
-%% @hidden
+-doc false.
 getIcon(This) -> wxTopLevelWindow:getIcon(This).
  %% From wxWindow
-%% @hidden
+-doc false.
 getDPI(This) -> wxWindow:getDPI(This).
-%% @hidden
+-doc false.
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
-%% @hidden
+-doc false.
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
-%% @hidden
+-doc false.
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
-%% @hidden
+-doc false.
 canSetTransparent(This) -> wxWindow:canSetTransparent(This).
-%% @hidden
+-doc false.
 setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
-%% @hidden
+-doc false.
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
-%% @hidden
+-doc false.
 validate(This) -> wxWindow:validate(This).
-%% @hidden
+-doc false.
 updateWindowUI(This, Options) -> wxWindow:updateWindowUI(This, Options).
-%% @hidden
+-doc false.
 updateWindowUI(This) -> wxWindow:updateWindowUI(This).
-%% @hidden
+-doc false.
 update(This) -> wxWindow:update(This).
-%% @hidden
+-doc false.
 transferDataToWindow(This) -> wxWindow:transferDataToWindow(This).
-%% @hidden
+-doc false.
 transferDataFromWindow(This) -> wxWindow:transferDataFromWindow(This).
-%% @hidden
+-doc false.
 thaw(This) -> wxWindow:thaw(This).
-%% @hidden
+-doc false.
 show(This, Options) -> wxWindow:show(This, Options).
-%% @hidden
+-doc false.
 show(This) -> wxWindow:show(This).
-%% @hidden
+-doc false.
 shouldInheritColours(This) -> wxWindow:shouldInheritColours(This).
-%% @hidden
+-doc false.
 setWindowVariant(This,Variant) -> wxWindow:setWindowVariant(This,Variant).
-%% @hidden
+-doc false.
 setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
-%% @hidden
+-doc false.
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
-%% @hidden
+-doc false.
 setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
-%% @hidden
+-doc false.
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
-%% @hidden
+-doc false.
 setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
-%% @hidden
+-doc false.
 setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
-%% @hidden
+-doc false.
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
-%% @hidden
+-doc false.
 setSizerAndFit(This,Sizer) -> wxWindow:setSizerAndFit(This,Sizer).
-%% @hidden
+-doc false.
 setSizer(This,Sizer, Options) -> wxWindow:setSizer(This,Sizer, Options).
-%% @hidden
+-doc false.
 setSizer(This,Sizer) -> wxWindow:setSizer(This,Sizer).
-%% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH, Options) -> wxWindow:setSizeHints(This,MinW,MinH, Options).
-%% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH) -> wxWindow:setSizeHints(This,MinW,MinH).
-%% @hidden
+-doc false.
 setSizeHints(This,MinSize) -> wxWindow:setSizeHints(This,MinSize).
-%% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height, Options) -> wxWindow:setSize(This,X,Y,Width,Height, Options).
-%% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height) -> wxWindow:setSize(This,X,Y,Width,Height).
-%% @hidden
+-doc false.
 setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
-%% @hidden
+-doc false.
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
-%% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
-%% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
-%% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
-%% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
-%% @hidden
+-doc false.
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
-%% @hidden
+-doc false.
 setName(This,Name) -> wxWindow:setName(This,Name).
-%% @hidden
+-doc false.
 setLabel(This,Label) -> wxWindow:setLabel(This,Label).
-%% @hidden
+-doc false.
 setId(This,Winid) -> wxWindow:setId(This,Winid).
-%% @hidden
+-doc false.
 setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
-%% @hidden
+-doc false.
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
-%% @hidden
+-doc false.
 setFont(This,Font) -> wxWindow:setFont(This,Font).
-%% @hidden
+-doc false.
 setFocusFromKbd(This) -> wxWindow:setFocusFromKbd(This).
-%% @hidden
+-doc false.
 setFocus(This) -> wxWindow:setFocus(This).
-%% @hidden
+-doc false.
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
-%% @hidden
+-doc false.
 setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
-%% @hidden
+-doc false.
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
-%% @hidden
+-doc false.
 setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
-%% @hidden
+-doc false.
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
-%% @hidden
+-doc false.
 setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
-%% @hidden
+-doc false.
 setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
-%% @hidden
+-doc false.
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
-%% @hidden
+-doc false.
 setContainingSizer(This,Sizer) -> wxWindow:setContainingSizer(This,Sizer).
-%% @hidden
+-doc false.
 setClientSize(This,Width,Height) -> wxWindow:setClientSize(This,Width,Height).
-%% @hidden
+-doc false.
 setClientSize(This,Size) -> wxWindow:setClientSize(This,Size).
-%% @hidden
+-doc false.
 setCaret(This,Caret) -> wxWindow:setCaret(This,Caret).
-%% @hidden
+-doc false.
 setBackgroundStyle(This,Style) -> wxWindow:setBackgroundStyle(This,Style).
-%% @hidden
+-doc false.
 setBackgroundColour(This,Colour) -> wxWindow:setBackgroundColour(This,Colour).
-%% @hidden
+-doc false.
 setAutoLayout(This,AutoLayout) -> wxWindow:setAutoLayout(This,AutoLayout).
-%% @hidden
+-doc false.
 setAcceleratorTable(This,Accel) -> wxWindow:setAcceleratorTable(This,Accel).
-%% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy, Options) -> wxWindow:scrollWindow(This,Dx,Dy, Options).
-%% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy) -> wxWindow:scrollWindow(This,Dx,Dy).
-%% @hidden
+-doc false.
 scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
-%% @hidden
+-doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
-%% @hidden
+-doc false.
 screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
-%% @hidden
+-doc false.
 screenToClient(This) -> wxWindow:screenToClient(This).
-%% @hidden
+-doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
-%% @hidden
+-doc false.
 removeChild(This,Child) -> wxWindow:removeChild(This,Child).
-%% @hidden
+-doc false.
 releaseMouse(This) -> wxWindow:releaseMouse(This).
-%% @hidden
+-doc false.
 refreshRect(This,Rect, Options) -> wxWindow:refreshRect(This,Rect, Options).
-%% @hidden
+-doc false.
 refreshRect(This,Rect) -> wxWindow:refreshRect(This,Rect).
-%% @hidden
+-doc false.
 refresh(This, Options) -> wxWindow:refresh(This, Options).
-%% @hidden
+-doc false.
 refresh(This) -> wxWindow:refresh(This).
-%% @hidden
+-doc false.
 raise(This) -> wxWindow:raise(This).
-%% @hidden
+-doc false.
 popupMenu(This,Menu,X,Y) -> wxWindow:popupMenu(This,Menu,X,Y).
-%% @hidden
+-doc false.
 popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
-%% @hidden
+-doc false.
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
-%% @hidden
+-doc false.
 pageUp(This) -> wxWindow:pageUp(This).
-%% @hidden
+-doc false.
 pageDown(This) -> wxWindow:pageDown(This).
-%% @hidden
+-doc false.
 navigate(This, Options) -> wxWindow:navigate(This, Options).
-%% @hidden
+-doc false.
 navigate(This) -> wxWindow:navigate(This).
-%% @hidden
+-doc false.
 moveBeforeInTabOrder(This,Win) -> wxWindow:moveBeforeInTabOrder(This,Win).
-%% @hidden
+-doc false.
 moveAfterInTabOrder(This,Win) -> wxWindow:moveAfterInTabOrder(This,Win).
-%% @hidden
+-doc false.
 move(This,X,Y, Options) -> wxWindow:move(This,X,Y, Options).
-%% @hidden
+-doc false.
 move(This,X,Y) -> wxWindow:move(This,X,Y).
-%% @hidden
+-doc false.
 move(This,Pt) -> wxWindow:move(This,Pt).
-%% @hidden
+-doc false.
 lower(This) -> wxWindow:lower(This).
-%% @hidden
+-doc false.
 lineUp(This) -> wxWindow:lineUp(This).
-%% @hidden
+-doc false.
 lineDown(This) -> wxWindow:lineDown(This).
-%% @hidden
+-doc false.
 layout(This) -> wxWindow:layout(This).
-%% @hidden
+-doc false.
 isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
-%% @hidden
+-doc false.
 isTopLevel(This) -> wxWindow:isTopLevel(This).
-%% @hidden
+-doc false.
 isShown(This) -> wxWindow:isShown(This).
-%% @hidden
+-doc false.
 isRetained(This) -> wxWindow:isRetained(This).
-%% @hidden
+-doc false.
 isExposed(This,X,Y,W,H) -> wxWindow:isExposed(This,X,Y,W,H).
-%% @hidden
+-doc false.
 isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
-%% @hidden
+-doc false.
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
-%% @hidden
+-doc false.
 isEnabled(This) -> wxWindow:isEnabled(This).
-%% @hidden
+-doc false.
 isFrozen(This) -> wxWindow:isFrozen(This).
-%% @hidden
+-doc false.
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
-%% @hidden
+-doc false.
 initDialog(This) -> wxWindow:initDialog(This).
-%% @hidden
+-doc false.
 inheritAttributes(This) -> wxWindow:inheritAttributes(This).
-%% @hidden
+-doc false.
 hide(This) -> wxWindow:hide(This).
-%% @hidden
+-doc false.
 hasTransparentBackground(This) -> wxWindow:hasTransparentBackground(This).
-%% @hidden
+-doc false.
 hasScrollbar(This,Orient) -> wxWindow:hasScrollbar(This,Orient).
-%% @hidden
+-doc false.
 hasCapture(This) -> wxWindow:hasCapture(This).
-%% @hidden
+-doc false.
 getWindowVariant(This) -> wxWindow:getWindowVariant(This).
-%% @hidden
+-doc false.
 getWindowStyleFlag(This) -> wxWindow:getWindowStyleFlag(This).
-%% @hidden
+-doc false.
 getVirtualSize(This) -> wxWindow:getVirtualSize(This).
-%% @hidden
+-doc false.
 getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
-%% @hidden
+-doc false.
 getToolTip(This) -> wxWindow:getToolTip(This).
-%% @hidden
+-doc false.
 getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
-%% @hidden
+-doc false.
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
-%% @hidden
+-doc false.
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
-%% @hidden
+-doc false.
 getSizer(This) -> wxWindow:getSizer(This).
-%% @hidden
+-doc false.
 getSize(This) -> wxWindow:getSize(This).
-%% @hidden
+-doc false.
 getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
-%% @hidden
+-doc false.
 getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
-%% @hidden
+-doc false.
 getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
-%% @hidden
+-doc false.
 getScreenRect(This) -> wxWindow:getScreenRect(This).
-%% @hidden
+-doc false.
 getScreenPosition(This) -> wxWindow:getScreenPosition(This).
-%% @hidden
+-doc false.
 getRect(This) -> wxWindow:getRect(This).
-%% @hidden
+-doc false.
 getPosition(This) -> wxWindow:getPosition(This).
-%% @hidden
+-doc false.
 getParent(This) -> wxWindow:getParent(This).
-%% @hidden
+-doc false.
 getName(This) -> wxWindow:getName(This).
-%% @hidden
+-doc false.
 getMinSize(This) -> wxWindow:getMinSize(This).
-%% @hidden
+-doc false.
 getMaxSize(This) -> wxWindow:getMaxSize(This).
-%% @hidden
+-doc false.
 getLabel(This) -> wxWindow:getLabel(This).
-%% @hidden
+-doc false.
 getId(This) -> wxWindow:getId(This).
-%% @hidden
+-doc false.
 getHelpText(This) -> wxWindow:getHelpText(This).
-%% @hidden
+-doc false.
 getHandle(This) -> wxWindow:getHandle(This).
-%% @hidden
+-doc false.
 getGrandParent(This) -> wxWindow:getGrandParent(This).
-%% @hidden
+-doc false.
 getForegroundColour(This) -> wxWindow:getForegroundColour(This).
-%% @hidden
+-doc false.
 getFont(This) -> wxWindow:getFont(This).
-%% @hidden
+-doc false.
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
-%% @hidden
+-doc false.
 getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
-%% @hidden
+-doc false.
 getDropTarget(This) -> wxWindow:getDropTarget(This).
-%% @hidden
+-doc false.
 getCursor(This) -> wxWindow:getCursor(This).
-%% @hidden
+-doc false.
 getContainingSizer(This) -> wxWindow:getContainingSizer(This).
-%% @hidden
+-doc false.
 getClientSize(This) -> wxWindow:getClientSize(This).
-%% @hidden
+-doc false.
 getChildren(This) -> wxWindow:getChildren(This).
-%% @hidden
+-doc false.
 getCharWidth(This) -> wxWindow:getCharWidth(This).
-%% @hidden
+-doc false.
 getCharHeight(This) -> wxWindow:getCharHeight(This).
-%% @hidden
+-doc false.
 getCaret(This) -> wxWindow:getCaret(This).
-%% @hidden
+-doc false.
 getBestSize(This) -> wxWindow:getBestSize(This).
-%% @hidden
+-doc false.
 getBackgroundStyle(This) -> wxWindow:getBackgroundStyle(This).
-%% @hidden
+-doc false.
 getBackgroundColour(This) -> wxWindow:getBackgroundColour(This).
-%% @hidden
+-doc false.
 getAcceleratorTable(This) -> wxWindow:getAcceleratorTable(This).
-%% @hidden
+-doc false.
 freeze(This) -> wxWindow:freeze(This).
-%% @hidden
+-doc false.
 fitInside(This) -> wxWindow:fitInside(This).
-%% @hidden
+-doc false.
 fit(This) -> wxWindow:fit(This).
-%% @hidden
+-doc false.
 findWindow(This,Id) -> wxWindow:findWindow(This,Id).
-%% @hidden
+-doc false.
 enable(This, Options) -> wxWindow:enable(This, Options).
-%% @hidden
+-doc false.
 enable(This) -> wxWindow:enable(This).
-%% @hidden
+-doc false.
 dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
-%% @hidden
+-doc false.
 disable(This) -> wxWindow:disable(This).
-%% @hidden
+-doc false.
 destroyChildren(This) -> wxWindow:destroyChildren(This).
-%% @hidden
+-doc false.
 convertPixelsToDialog(This,Sz) -> wxWindow:convertPixelsToDialog(This,Sz).
-%% @hidden
+-doc false.
 convertDialogToPixels(This,Sz) -> wxWindow:convertDialogToPixels(This,Sz).
-%% @hidden
+-doc false.
 close(This, Options) -> wxWindow:close(This, Options).
-%% @hidden
+-doc false.
 close(This) -> wxWindow:close(This).
-%% @hidden
+-doc false.
 clientToScreen(This,X,Y) -> wxWindow:clientToScreen(This,X,Y).
-%% @hidden
+-doc false.
 clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
-%% @hidden
+-doc false.
 clearBackground(This) -> wxWindow:clearBackground(This).
-%% @hidden
+-doc false.
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
-%% @hidden
+-doc false.
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
-%% @hidden
+-doc false.
 centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
+-doc false.
 centerOnParent(This) -> wxWindow:centerOnParent(This).
-%% @hidden
+-doc false.
 centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
+-doc false.
 center(This, Options) -> wxWindow:center(This, Options).
-%% @hidden
+-doc false.
 centre(This) -> wxWindow:centre(This).
-%% @hidden
+-doc false.
 center(This) -> wxWindow:center(This).
-%% @hidden
+-doc false.
 captureMouse(This) -> wxWindow:captureMouse(This).
-%% @hidden
+-doc false.
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
  %% From wxEvtHandler
-%% @hidden
+-doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
-%% @hidden
+-doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
-%% @hidden
+-doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
-%% @hidden
+-doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
-%% @hidden
+-doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

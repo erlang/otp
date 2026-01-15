@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2002-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +21,7 @@
 # %CopyrightEnd%
 #
 
-USE_AUTOCONF_VERSION=2.71
+USE_AUTOCONF_VERSION=2.72
 
 autoconf_aux_dirs="./erts/autoconf ./lib/common_test/test_server"
 
@@ -68,6 +70,14 @@ usage ()
     echo "codebase:"
     echo "    remove_prebuilt_files - create a minimal source tree"
     echo "    save_bootstrap - recreate primary bootstrap"
+    echo ""
+    echo "Special targets for setting up the build environment:"
+    echo "    download_ex_doc             - download the correct ExDoc version from github"
+    echo "    update_ex_doc [--no-commit] - update and maybe commit new ex_doc version"
+    echo ""
+    echo "Special targets for setting up gdb tooling:"
+    echo "    download_gdb_tools             - download the correct gdb tooling version from github"
+    echo "    update_gdb_tools [--no-commit] - update and maybe commit new gdb tooling version"
     echo ""
     echo "Special targets for Windows(tm) build:"
     echo "    debuginfo_win32 <dir> - adds debug emulator and pdb files to <dir>"
@@ -172,12 +182,24 @@ set_config_flags ()
 	#   the cross configuration have been moved here). 
 
 	if target_contains win32; then
-	    if [ "$CONFIG_SUBTYPE" = "win64" ]; then
-		bht_type=local-x86_64-pc-windows
+		if [ "$CONFIG_SUBTYPE" = "win64" ]; then
+			build_type=local-x86_64-pc-windows
+			host_type=local-x86_64-pc-windows
+			target_type=local-x86_64-pc-windows
+		elif [ "$CONFIG_SUBTYPE" = "arm64" ]; then
+			build_type=local-aarch64-pc-windows
+			host_type=local-aarch64-pc-windows
+			target_type=local-aarch64-pc-windows
+		elif [ "$CONFIG_SUBTYPE" = "x64_arm64" ]; then
+			build_type=local-x86_64-pc-windows
+			host_type=local-aarch64-pc-windows
+			target_type=local-aarch64-pc-windows
 	    else
-		bht_type=local-x86-pc-windows
+			build_type=local-x86-pc-windows
+			host_type=local-x86-pc-windows
+			target_type=local-x86-pc-windows
 	    fi
-	    CONFIG_FLAGS="--build=$bht_type --host=$bht_type --target=$bht_type $CONFIG_FLAGS" 
+	    CONFIG_FLAGS="--build=$build_type --host=$host_type --target=$target_type $CONFIG_FLAGS" 
 	fi
 	    
 
@@ -736,7 +758,7 @@ echo_env_msys ()
 
 echo_env_wsl ()
 {
-    X64=$1
+    ARCH=$1
     #echo_envinfo
     if [ X"$SHELL" = X"" ]; then
 	echo "You need to export the shell variable first," \
@@ -752,26 +774,37 @@ echo_env_wsl ()
     WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/wsl_tools/vc:$ERL_TOP/erts/etc/win32/wsl_tools"
 
     if [ ! -n "`lookup_prog_in_path cl`" ]; then
-        if [ X"$X64" = X"true" ]; then
+        if [ X"$ARCH" = X"x64" ]; then
             setup_win32_cl_env "x64" `wslpath -a -m erts/etc/win32/wsl_tools/SetupWSLcross.bat`
+        elif [ X"$ARCH" = X"arm64" ]; then
+            setup_win32_cl_env "arm64" `wslpath -a -m erts/etc/win32/wsl_tools/SetupWSLcross.bat`
+        elif [ X"$ARCH" = X"x64_arm64" ]; then
+            setup_win32_cl_env "x64_arm64" `wslpath -a -m erts/etc/win32/wsl_tools/SetupWSLcross.bat`
         else
             setup_win32_cl_env "x86" `wslpath -a -m erts/etc/win32/wsl_tools/SetupWSLcross.bat`
         fi
     fi
     echo_setenv OVERRIDE_TARGET win32 ';'
-    if [ X"$X64" = X"true" ]; then
+    if [ X"$ARCH" = X"x64" ]; then
         echo_setenv CONFIG_SUBTYPE win64 ';'
+    elif [ X"$ARCH" = X"arm64" -o X"$ARCH" = X"x64_arm64" ]; then
+        echo_setenv CONFIG_SUBTYPE "$ARCH" ';'
     fi
     echo_setenv WSLcross true ';'
     echo_setenv CC cc.sh ';'
     echo_setenv CXX cc.sh ';'
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
-    if [ X"$X64" = X"true" ]; then
+    if [ X"$ARCH" = X"x64" ]; then
         if [ -f "$ERL_TOP/make/autoconf/win64.config.cache.static" ]; then
 	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win64.config.cache.static" ';'
         fi
         echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/make/autoconf/win64.config.cache" ';'
+    elif [ X"$ARCH" = X"arm64" -o X"$ARCH" = X"x64_arm64" ]; then
+        if [ -f "$ERL_TOP/make/autoconf/win64-$ARCH.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win64-$ARCH.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/make/autoconf/win64-$ARCH.config.cache" ';'
     else
         if [ -f "$ERL_TOP/make/autoconf/win32.config.cache.static" ]; then
 	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win32.config.cache.static" ';'
@@ -914,6 +947,7 @@ do_primary_git ()
 	    -name '*.app' -o -name '*.appup' |
         xargs git reset HEAD
 	git commit --no-verify -m 'Update primary bootstrap'
+        git checkout HEAD -- bootstrap
 	echo "Primary bootstrap updated and commited."
     else
 	echo ""
@@ -964,7 +998,9 @@ do_boot ()
     fi
 
     # Build it (including bootstrap if not cross compiling)
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET all || exit 1
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        TYPE="$TYPE" FLAVOR="$FLAVOR" \
+        all || exit 1
 }
 
 do_boot_emu ()
@@ -973,7 +1009,9 @@ do_boot_emu ()
     if [ X`$MAKE is_cross_configured` = Xyes ]; then
 	TARGET=`$MAKE target_configured`
     fi
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET emulator || exit 1
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        TYPE="$TYPE" FLAVOR="$FLAVOR" \
+        emulator || exit 1
 }
 
 do_release ()
@@ -983,6 +1021,7 @@ do_release ()
 	TARGET=`$MAKE target_configured`
     fi
     $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        TYPE="$TYPE" FLAVOR="$FLAVOR" \
 	RELEASE_ROOT=$1 OTP_STRICT_INSTALL=$OTP_STRICT_INSTALL \
 	release || exit 1
 }
@@ -1005,23 +1044,233 @@ do_check ()
     exec $ERL_TOP/scripts/otp_build_check "$@"
 }
 
+do_download_ex_doc ()
+{
+    SHASUM_FORMAT=
+
+    ## Download ex_doc and place in $ERL_TOP/bin folder
+    curl -s -L "$(cat "$ERL_TOP/make/ex_doc_link")" > "$ERL_TOP/bin/ex_doc"
+    chmod +x "$ERL_TOP/bin/ex_doc"
+
+    choose_available_shasum     # sets the SHASUM_FORMAT
+    check_shasum "ex_doc" "$ERL_TOP/bin" "$ERL_TOP/make"
+
+    echo "Downloaded ex_doc to $ERL_TOP/bin/ex_doc"
+}
+
+do_download_gdb_tools ()
+{
+    set_common_vars
+
+    if [ ! -d "$GDB_TOOLS_INSTALL_PATH" ]
+    then
+        clone_gdb_tools
+    fi
+
+    cwd=$(pwd);
+
+    cd "$GDB_TOOLS_INSTALL_PATH" || exit 1
+
+    CURRENT_GDB_VERSION=$(git log HEAD --oneline --no-abbrev-commit -n1 | cut -d" " -f1)
+
+    if [ "$CURRENT_GDB_VERSION" != "$GDB_TOOLS_VSN" ]; then
+        echo "Setting up gdb_tools"
+        git fetch gdb_tools > /dev/null || exit 1
+        git checkout "$GDB_TOOLS_VSN" > /dev/null || exit 1
+    else
+        exit 0
+    fi
+
+    cd "$cwd" || exit 1
+    
+    echo "Downloaded gdb-tools for Erlang/OTP $OTP_VERSION"
+
+    exit 0
+}
+
+set_common_vars() {
+    GDB_TOOLS_INSTALL_PATH="$ERL_TOP/erts/etc/unix/gdb-tools"
+    GDB_TOOLS_VSN_PATH="$ERL_TOP/make"
+    GDB_REPO=$(cat "$GDB_TOOLS_VSN_PATH/gdb_tools_link" | grep -v "^//")
+
+    # Version of gdb-tools to download
+    GDB_TOOLS_VSN=$(cat "$GDB_TOOLS_VSN_PATH/gdb_tools_vsn" | grep -v "^//")
+
+    # SHASUM_FORMAT has values: sha256sum, sha1sum, shasum
+    SHASUM_FORMAT=
+
+    OTP_VERSION=
+    set_otp_version
+}
+
+clone_gdb_tools ()
+{
+    echo "Downloading gdb-tools for Erlang/OTP $OTP_VERSION"
+    echo "git clone --origin gdb_tools $GDB_REPO $GDB_TOOLS_INSTALL_PATH"
+    (git clone --origin gdb_tools "$GDB_REPO" "$GDB_TOOLS_INSTALL_PATH" > /dev/null 2>&1)  || {
+        echo "Downloading gdb_tools failed. Please check your source tree, and report this error."
+        exit 1
+        }
+}
+
+clean_file ()
+{
+    rm -rf "$1"
+}
+
+set_otp_version ()
+{
+    OTP_VERSION=$(cat $ERL_TOP/OTP_VERSION | cut -d. -f1)
+    if [ $OTP_VERSION -le 24 ]
+    then
+        echo "OTP version $OTP_VERSION is too old. Please update to a newer OTP version"
+        exit 1
+    fi
+}
+
+do_update_gdb_tools ()
+{
+    get_do_commit $1
+    set_common_vars
+
+    if [ $do_commit = true ] && test -n "$(git status --porcelain --untracked-files=no)"
+    then
+        echo "'otp_build update_gdb_tools' will create a commit."
+        echo "Git's working directory is not clean."
+        echo "Please stash or commit the working directory before proceeding."
+        exit 1
+    fi
+
+
+    if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null
+    then
+        if [ -d "$GDB_TOOLS_INSTALL_PATH" ]
+        then
+            cd "$GDB_TOOLS_INSTALL_PATH" && \
+                git fetch $GDB_REPO && \
+                GDB_TOOLS_VSN=$(git log gdb_tools/master --oneline --no-abbrev-commit -n1 | cut -d" " -f1) && \
+                cat <<EOF > "$ERL_TOP/make/gdb_tools_vsn"
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2024 Ericsson and the Erlang/OTP contributors
+$GDB_TOOLS_VSN
+EOF
+        else
+            echo "Please, download gdb_tools invoking the command: \`otp_build download_gdb_tools\`"
+            exit 1
+        fi
+    else
+        echo "Please look in repo: $GDB_REPO the commit sha you are interested."
+        echo "Copy that commit into $ERL_TOP/make/gdb_tools_vsn and run \`otp_build download_gdb_tools\`"
+        exit 1
+    fi
+
+    out_files=  # why is this needed. it was needed for elixir
+
+    echo "Successfully updated gdb_tools"
+    if [ $do_commit != true ]; then
+        echo "Updated: make/gdb_tools_vsn make/jit-reader.c.sha256sum"
+    else
+        set_common_vars
+        git add "$ERL_TOP/make/gdb_tools_vsn" \
+                "$GDB_TOOLS_VSN_PATH/jit-reader.c.sha256sum" \
+                "$GDB_TOOLS_VSN_PATH/jit-reader.h.sha256sum" > /dev/null
+        git commit -m  "Updated gdb_tools version to $GDB_TOOLS_VSN" > /dev/null
+    fi
+    echo "Run \`otp_build download_gdb_tools\` to complete the installation of the update"
+}
+
+choose_available_shasum ()
+{
+    if command -v sha256sum > /dev/null; then
+        SHASUM_FORMAT="sha256sum"
+    elif command -v sha1sum > /dev/null; then
+        SHASUM_FORMAT="sha1sum"
+    elif command -v shasum > /dev/null; then
+        # shasum produces the same sha as sha1sum.
+        SHASUM_FORMAT="sha1sum"
+    else
+        echo "Neither sha1sum nor sha256sum nor shasum found" >&2
+        exit 1
+    fi
+}
+
+# $1: expected file,
+#     e.g., `jit-reader.c`, `ex_doc`
+# $2: path to expeted file,
+#     e.g., `$ERL_TOP/bin`, which is where `ex_doc` is found.
+#     makes easy to find errors in the path.
+# $3: path where shasum lives
+#     e.g., `$ERL_TOP/make` in case of sha256sum and sha1sum files.
+check_shasum()
+{
+    case $SHASUM_FORMAT in
+        "sha256sum" )
+            if ! (cd "$3" && sha256sum -c "$1.$SHASUM_FORMAT" > /dev/null); then
+                echo "The sha256sum check of $2/$1 failed!" >&2
+                exit 1
+            fi;;
+        "sha1sum" )
+            if ! (cd "$3" && sha1sum -c "$1.$SHASUM_FORMAT" > /dev/null); then
+                echo "The sha1sum check of $2/$1 failed!" >&2
+                exit 1
+            fi;;
+        "shasum" )
+            if ! (cd "$3" && shasum -a 1 -c "$1.$SHASUM_FORMAT" > /dev/null); then
+                echo "The shasum check of $2/$1 failed!" >&2
+                exit 1
+            fi
+    esac
+}
+
+## Update make/ex_doc_link, make/ex_doc.sha256sum and make/ex_doc.sha1sum
+do_update_ex_doc ()
+{
+    get_do_commit $1
+
+    OTP_VERSION=$(awk -F. '{ print $1 }' "$ERL_TOP/OTP_VERSION")
+    EX_DOC_VSN=$(curl --silent -qI https://github.com/elixir-lang/ex_doc/releases/latest | awk -F '/' '/^location/ {print  substr($NF, 1, length($NF)-1)}')
+    if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null || curl --silent -Li "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex_doc_otp_${OTP_VERSION}" > /dev/null; then
+        OTP_VERSION="$(($OTP_VERSION-1))"
+    fi
+    if command -v sha1sum > /dev/null && command -v sha256sum > /dev/null; then
+        echo "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex_doc_otp_${OTP_VERSION}" > "$ERL_TOP/make/ex_doc_link"
+        echo "${EX_DOC_VSN}" > "$ERL_TOP/make/ex_doc_vsn"
+        curl -sL "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex-doc-otp-${OTP_VERSION}.sha256sum" | sed 's:ex_doc.*$:../bin/ex_doc:' > "$ERL_TOP/make/ex_doc.sha256sum"
+        curl -sL "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex-doc-otp-${OTP_VERSION}.sha1sum" | sed 's:ex_doc.*$:../bin/ex_doc:' > "$ERL_TOP/make/ex_doc.sha1sum"
+        if do_download_ex_doc; then
+
+            out_files=
+
+            ## do_download_ex_doc checked sha1sum, we check sha256sum here to make sure
+            ## both are correct.
+            if ! (cd "$ERL_TOP/make" && sha256sum --status -c "ex_doc.sha256sum"); then
+                echo "The sha256sum check of $ERL_TOP/bin/ex_doc failed!" >&2
+                exit 1
+            fi
+            echo "Successfully updated ex_doc"
+            if [ $do_commit != true ]; then
+                echo "Updated: make/ex_doc_link make/ex_doc_vsn make/ex_doc_link.sha256sum make/ex_doc_link.sha1sum"
+            else
+                git add $ERL_TOP/make/ex_doc_link $ERL_TOP/make/ex_doc_vsn  $ERL_TOP/make/ex_doc.sha256sum $ERL_TOP/make/ex_doc.sha1sum
+                git commit -m  "Updated ex_doc version to ${EX_DOC_VSN}"
+            fi
+        fi
+    else
+        echo "You need to have both sha1sum and sha256sum installed to update ex_doc"
+        exit 1
+    fi
+}
+
 do_debuginfo_win32 ()
 {
     setup_make
     (cd erts/emulator && $MAKE MAKE="$MAKE" TARGET=$TARGET debug) || exit 1
     if [ -z "$1" ]; then
-	RELDIR="$ERL_TOP/release/$TARGET"
+       RELDIR="$ERL_TOP/release/$TARGET"
     else
-	RELDIR="$1"
+       RELDIR="$1"
     fi
-    BINDIR="$ERL_TOP/bin/$TARGET"
-    EVSN=`grep '^VSN' erts/vsn.mk | sed 's,^VSN.*=[^0-9]*\([0-9].*\)$,@\1,g;s,^[^@].*,,g;s,^@,,g'`
-    for f in beam.debug.smp.dll beam.smp.pdb beam.debug.smp.dll.pdb erl.pdb erlexec.pdb; do
-	if [ -f $BINDIR/$f ]; then
-	    rm -f $RELDIR/erts-$EVSN/bin/$f
-	    cp $BINDIR/$f $RELDIR/erts-$EVSN/bin/$f
-	fi
-    done
+    (cd erts/emulator && $MAKE release RELEASE_ROOT="$RELDIR" MAKE="$MAKE" TARGET=$TARGET TYPE=debug) || exit 1
 }
 
 do_installer_win32 ()
@@ -1189,7 +1438,7 @@ else
 fi
 export OTP_SMALL_BUILD OTP_TINY_BUILD
 
-TYPE=
+TYPE=$TYPE
 case "$1" in
  	all)
  		do_configure; 
@@ -1261,7 +1510,15 @@ case "$1" in
         save_bootstrap)
 		do_save_bootstrap;;
         copy_primary_bootstrap)
-		do_copy_primary_bootstrap $2 $3;;
+	        do_copy_primary_bootstrap $2 $3;;
+        download_gdb_tools)
+            do_download_gdb_tools;;
+        update_gdb_tools)
+            do_update_gdb_tools $2;;
+        download_ex_doc)
+                do_download_ex_doc;;
+        update_ex_doc)
+                do_update_ex_doc $2;;
 	installer_win32)
 		if [ $minus_x_flag = true ]; then
 		    shift
@@ -1273,25 +1530,42 @@ case "$1" in
 		fi;
 		do_debuginfo_win32 "$2";;
 	env_win32)
-	        if [ x"$2" = x"x64" -o x"$2" = x"amd64" ]; then
-                    ISX64=true
-		fi
-                if [ -x /bin/wslpath ]; then
-                    echo_env_wsl $ISX64
-                elif [ -x /usr/bin/msys-?.0.dll ]; then
-		    echo_env_msys $ISX64
+		if [ x"$2" = x"x64" -o x"$2" = x"amd64" ]; then
+			ISX64=true
+			WSL_ARCH=x64
+		elif [ x"$2" = x"arm64" ]; then
+			ISX64=false
+			WSL_ARCH=arm64
+		elif [ x"$2" = x"x64_arm64" ]; then
+			ISX64=false
+			WSL_ARCH=x64_arm64
 		else
-		    echo_env_cygwin $ISX64
+			ISX64=false
+			WSL_ARCH=x86
+		fi
+		if [ -x /bin/wslpath ]; then
+			echo_env_wsl $WSL_ARCH
+		elif [ -x /usr/bin/msys-?.0.dll ]; then
+			echo_env_msys $ISX64
+		else
+			echo_env_cygwin $ISX64
 		fi;;
 	env_mingw32)
 		echo_env_mingw32;;
 	env_win64)
-                if [ -x /bin/wslpath ]; then
-                    echo_env_wsl true
-                elif [ -x /usr/bin/msys-?.0.dll ]; then
-		    echo_env_msys true
+		if [ -x /bin/wslpath ]; then
+			if [ x"$2" = x"arm64" ]; then
+				WSL_ARCH=arm64
+			elif [ x"$2" = x"x64_arm64" ]; then
+				WSL_ARCH=x64_arm64
+			else
+				WSL_ARCH=x64
+			fi
+			echo_env_wsl $WSL_ARCH
+		elif [ -x /usr/bin/msys-?.0.dll ]; then
+			echo_env_msys true
 		else
-		    echo_env_cygwin true
+			echo_env_cygwin true
 		fi;;
 	env_msys32)
 		echo_env_msys;;

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -167,6 +169,9 @@ typedef int BOOLEAN_T;
 
 #define B2S(__B__) ((__B__) ? "true" : "false")
 
+#define DOM2STR(__D__)   esock_domain_to_string((__D__))
+#define PROTO2STR(__P__) esock_protocol_to_string((__P__))
+
 #define TYPE2STR(T) (((T) == SOCK_STREAM) ? "stream" :                  \
                      (((T) == SOCK_DGRAM) ? "dgram"  :                  \
                       (((T) == SOCK_RAW)  ? "raw"    :                  \
@@ -175,6 +180,28 @@ typedef int BOOLEAN_T;
                          "undefined")))))
 
 #define NUM(Array) (sizeof(Array) / sizeof(*(Array)))
+
+
+/* ********************************************************************* *
+ *                              SOCKET and HANDLE                        *
+ * ********************************************************************* *
+ */
+
+#if defined(__WIN32__)
+
+#define INVALID_EVENT NULL
+#define SOCKET_FORMAT_STR "%lld"
+
+#else
+
+#define INVALID_HANDLE (-1)
+typedef int HANDLE;
+#define INVALID_SOCKET (-1)
+typedef int SOCKET; /* A subset of HANDLE */
+#define INVALID_EVENT INVALID_HANDLE
+#define SOCKET_FORMAT_STR "%d"
+
+#endif
 
 
 #ifdef HAVE_SOCKLEN_T
@@ -205,6 +232,7 @@ typedef long ssize_t;
  */
 
 #define GLOBAL_ATOM_DEFS                       \
+    GLOBAL_ATOM_DEF(6to4);                     \
     GLOBAL_ATOM_DEF(abort);                    \
     GLOBAL_ATOM_DEF(accept);                   \
     GLOBAL_ATOM_DEF(acceptconn);               \
@@ -240,6 +268,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(base_addr);                \
     GLOBAL_ATOM_DEF(bindtodevice);             \
     GLOBAL_ATOM_DEF(block_source);             \
+    GLOBAL_ATOM_DEF(bridge);                   \
     GLOBAL_ATOM_DEF(broadcast);                \
     GLOBAL_ATOM_DEF(bsp_state);                \
     GLOBAL_ATOM_DEF(busy_poll);                \
@@ -251,6 +280,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(cancel);                   \
     GLOBAL_ATOM_DEF(cancelled);                \
     GLOBAL_ATOM_DEF(cantconfig);	       \
+    GLOBAL_ATOM_DEF(cellular);                 \
     GLOBAL_ATOM_DEF(chaos);                    \
     GLOBAL_ATOM_DEF(checksum);                 \
     GLOBAL_ATOM_DEF(close);                    \
@@ -281,6 +311,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(default_send_params);      \
     GLOBAL_ATOM_DEF(delayed_ack_time);         \
     GLOBAL_ATOM_DEF(dgram);                    \
+    GLOBAL_ATOM_DEF(dhcprunning);              \
+    GLOBAL_ATOM_DEF(disabled);                 \
     GLOBAL_ATOM_DEF(disable_fragments);        \
     GLOBAL_ATOM_DEF(dlci);                     \
     GLOBAL_ATOM_DEF(dma);                      \
@@ -299,6 +331,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(eether);                   \
     GLOBAL_ATOM_DEF(efile);                    \
     GLOBAL_ATOM_DEF(egp);                      \
+    GLOBAL_ATOM_DEF(enabled);                  \
     GLOBAL_ATOM_DEF(enotsup);                  \
     GLOBAL_ATOM_DEF(eor);                      \
     GLOBAL_ATOM_DEF(error);                    \
@@ -316,6 +349,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(family);                   \
     GLOBAL_ATOM_DEF(fastroute);                \
     GLOBAL_ATOM_DEF(fast_retrans);             \
+    GLOBAL_ATOM_DEF(file_not_found);           \
     GLOBAL_ATOM_DEF(fin_wait_1);               \
     GLOBAL_ATOM_DEF(fin_wait_2);               \
     GLOBAL_ATOM_DEF(flags);                    \
@@ -325,12 +359,15 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(frelay);                   \
     GLOBAL_ATOM_DEF(get_overlapped_result);    \
     GLOBAL_ATOM_DEF(get_peer_addr_info);       \
+    GLOBAL_ATOM_DEF(gif);                      \
     GLOBAL_ATOM_DEF(hatype);                   \
+    GLOBAL_ATOM_DEF(hdh1822);                  \
     GLOBAL_ATOM_DEF(hdrincl);                  \
     GLOBAL_ATOM_DEF(hmac_ident);               \
     GLOBAL_ATOM_DEF(hoplimit);                 \
     GLOBAL_ATOM_DEF(hopopts);                  \
     GLOBAL_ATOM_DEF(host);                     \
+    GLOBAL_ATOM_DEF(hwaddr);                   \
     GLOBAL_ATOM_DEF(icmp);                     \
     GLOBAL_ATOM_DEF(icmp6);                    \
     GLOBAL_ATOM_DEF(ieee802);                  \
@@ -351,6 +388,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ipcomp_level);             \
     GLOBAL_ATOM_DEF(ipip);                     \
     GLOBAL_ATOM_DEF(iplevel);                  \
+    GLOBAL_ATOM_DEF(ipv4);                     \
     GLOBAL_ATOM_DEF(ipv6);                     \
     GLOBAL_ATOM_DEF(irq);                      \
     GLOBAL_ATOM_DEF(i_want_mapped_v4_addr);    \
@@ -373,6 +411,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(local);                    \
     GLOBAL_ATOM_DEF(localtlk);                 \
     GLOBAL_ATOM_DEF(local_auth_chunks);        \
+    GLOBAL_ATOM_DEF(loop);		       \
     GLOBAL_ATOM_DEF(loopback);		       \
     GLOBAL_ATOM_DEF(lowdelay);                 \
     GLOBAL_ATOM_DEF(lower_up);                 \
@@ -392,6 +431,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(min_rtt);                  \
     GLOBAL_ATOM_DEF(monitor);		       \
     GLOBAL_ATOM_DEF(more);                     \
+    GLOBAL_ATOM_DEF(mptcp);                    \
     GLOBAL_ATOM_DEF(msfilter);                 \
     GLOBAL_ATOM_DEF(mss);                      \
     GLOBAL_ATOM_DEF(mtu);                      \
@@ -433,6 +473,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(oobinline);                \
     GLOBAL_ATOM_DEF(options);                  \
     GLOBAL_ATOM_DEF(origdstaddr);              \
+    GLOBAL_ATOM_DEF(other);                    \
     GLOBAL_ATOM_DEF(otherhost);                \
     GLOBAL_ATOM_DEF(outgoing);                 \
     GLOBAL_ATOM_DEF(packet);                   \
@@ -447,19 +488,22 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(pktinfo);                  \
     GLOBAL_ATOM_DEF(pktoptions);               \
     GLOBAL_ATOM_DEF(pkttype);                  \
-    GLOBAL_ATOM_DEF(ppromisc);		       \
     GLOBAL_ATOM_DEF(pointopoint);              \
     GLOBAL_ATOM_DEF(port);                     \
     GLOBAL_ATOM_DEF(portrange);                \
     GLOBAL_ATOM_DEF(portsel);                  \
+    GLOBAL_ATOM_DEF(ppromisc);		       \
+    GLOBAL_ATOM_DEF(ppp);                      \
     GLOBAL_ATOM_DEF(primary_addr);             \
-    GLOBAL_ATOM_DEF(priority);                 \
     GLOBAL_ATOM_DEF(prim_file);                \
+    GLOBAL_ATOM_DEF(priority);                 \
+    GLOBAL_ATOM_DEF(private);                  \
     GLOBAL_ATOM_DEF(promisc);                  \
     GLOBAL_ATOM_DEF(pronet);                   \
     GLOBAL_ATOM_DEF(protocol);                 \
     GLOBAL_ATOM_DEF(pup);                      \
     GLOBAL_ATOM_DEF(raw);                      \
+    GLOBAL_ATOM_DEF(rawip);                    \
     GLOBAL_ATOM_DEF(rcvbuf);                   \
     GLOBAL_ATOM_DEF(rcvbufforce);              \
     GLOBAL_ATOM_DEF(rcvlowat);                 \
@@ -518,6 +562,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(sendmsg);                  \
     GLOBAL_ATOM_DEF(sendsrcaddr);              \
     GLOBAL_ATOM_DEF(sendto);                   \
+    GLOBAL_ATOM_DEF(sendv);                    \
     GLOBAL_ATOM_DEF(seqpacket);                \
     GLOBAL_ATOM_DEF(setfib);                   \
     GLOBAL_ATOM_DEF(set_peer_primary_addr);    \
@@ -532,10 +577,12 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(sockaddr);                 \
     GLOBAL_ATOM_DEF(socket);                   \
     GLOBAL_ATOM_DEF(socket_tag);               \
+    GLOBAL_ATOM_DEF(socktype);                 \
     GLOBAL_ATOM_DEF(spec_dst);                 \
     GLOBAL_ATOM_DEF(state);                    \
     GLOBAL_ATOM_DEF(status);                   \
     GLOBAL_ATOM_DEF(staticarp);		       \
+    GLOBAL_ATOM_DEF(stf);                      \
     GLOBAL_ATOM_DEF(stream);                   \
     GLOBAL_ATOM_DEF(syncnt);                   \
     GLOBAL_ATOM_DEF(syn_rcvd);                 \
@@ -579,6 +626,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(write_pkg);                \
     GLOBAL_ATOM_DEF(write_tries);              \
     GLOBAL_ATOM_DEF(write_waits);              \
+    GLOBAL_ATOM_DEF(x25ddn);                   \
+    GLOBAL_ATOM_DEF(x25);                      \
     GLOBAL_ATOM_DEF(zero)
 
 
@@ -639,6 +688,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define MKUL(E,UL)          enif_make_ulong((E), (UL))
 
 #define MCREATE(N)          enif_mutex_create((N))
+#define MCREATE3(P, B, S)   esock_mutex_create((P), (B), (S))
 #define MDESTROY(M)         enif_mutex_destroy((M))
 #define MLOCK(M)            enif_mutex_lock((M))
 #define MUNLOCK(M)          enif_mutex_unlock((M))
@@ -656,24 +706,27 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define IS_UNDEFINED(T)      IS_IDENTICAL((T), esock_atom_undefined)
 #define IS_OK(T)             IS_IDENTICAL((T), esock_atom_ok)
 
-#define IS_ATOM(E,    TE) enif_is_atom((E),   (TE))
-#define IS_BIN(E,     TE) enif_is_binary((E), (TE))
-#define IS_LIST(E,    TE) enif_is_list((E),   (TE))
-#define IS_MAP(E,     TE) enif_is_map((E), (TE))
-#define IS_NUM(E,     TE) enif_is_number((E), (TE))
-#define IS_TUPLE(E,   TE) enif_is_tuple((E),  (TE))
-#define IS_INTEGER(E, TE) esock_is_integer((E),   (TE))
+#define IS_ATOM(E,    TE)    enif_is_atom((E),   (TE))
+#define IS_BIN(E,     TE)    enif_is_binary((E), (TE))
+#define IS_LIST(E,    TE)    enif_is_list((E),   (TE))
+#define IS_MAP(E,     TE)    enif_is_map((E), (TE))
+#define IS_NUM(E,     TE)    enif_is_number((E), (TE))
+#define IS_TUPLE(E,   TE)    enif_is_tuple((E),  (TE))
+#define IS_INTEGER(E, TE)    esock_is_integer((E),   (TE))
 
-#define IS_PID_UNDEF(P)   enif_is_pid_undefined((P))
-#define SET_PID_UNDEF(P)  enif_set_pid_undefined((P))
+#define IS_PID_UNDEF(P)      enif_is_pid_undefined((P))
+#define SET_PID_UNDEF(P)     enif_set_pid_undefined((P))
 
 #define GET_ATOM_LEN(E, TE, LP) \
     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1)
 #define GET_ATOM(E, TE, BP, MAX) \
     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1)
-#define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP))
+#define GET_BIN(E, TE, BP)          \
+    enif_inspect_iolist_as_binary((E), (TE), (BP))
 #define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP))
 #define GET_INT64(E, TE, IP)        enif_get_int64((E), (TE), (IP))
+#define GET_IOV(ME, EIOV, T, IOV)                       \
+    enif_inspect_iovec(NULL, (ME), (EIOV), (T), (IOV))
 #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP))
 #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP))
 #define GET_LONG(E, TE, LP)         enif_get_long((E), (TE), (LP))
@@ -687,7 +740,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define GET_MAP_VAL(E, M, K, V)     enif_get_map_value((E), (M), (K), (V))
 
 #define ALLOC_BIN(SZ, BP)         enif_alloc_binary((SZ), (BP))
-#define REALLOC_BIN(SZ, BP)       enif_realloc_binary((SZ), (BP))
+#define REALLOC_BIN(BP, SZ)       enif_realloc_binary((BP), (SZ))
 #define FREE_BIN(BP)              enif_release_binary((BP))
 
 #define FREE_IOVEC(IV)            enif_free_iovec((IV))

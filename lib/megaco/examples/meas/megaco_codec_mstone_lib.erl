@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -24,7 +26,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_codec_mstone_lib).
-
+-moduledoc false.
 
 %% API
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
@@ -258,7 +260,14 @@ display_app_info() ->
 display_megaco_info() ->
     MI = megaco:module_info(),
     {value, {attributes, Attr}} = lists:keysearch(attributes, 1, MI),
-    {value, {app_vsn,    Ver}}  = lists:keysearch(app_vsn, 1, Attr),
+    {value, {app_vsn,    MVer}} = lists:keysearch(app_vsn, 1, Attr),
+    Ver =
+        case MVer of
+            "megaco-" ++ VStr ->
+                VStr;
+            _ ->
+                MVer
+        end,
     io:format("Megaco version:      ~s~n", [Ver]).
 
 display_asn1_info() ->

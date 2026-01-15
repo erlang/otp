@@ -9,6 +9,7 @@
 #include "../core/archtraits.h"
 #include "../core/misc_p.h"
 #include "../core/type.h"
+#include "../arm/a64globals.h"
 #include "../arm/a64operand.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
@@ -24,7 +25,7 @@ static const constexpr ArchTraits a64ArchTraits = {
   // Reserved.
   { 0, 0, 0 },
 
-  // HW stack alignment (AArch64 requires stack aligned to 64 bytes).
+  // HW stack alignment (AArch64 requires stack aligned to 16 bytes at HW level).
   16,
 
   // Min/max stack offset - byte addressing is the worst, VecQ addressing the best.
@@ -39,12 +40,12 @@ static const constexpr ArchTraits a64ArchTraits = {
   }},
 
   // RegInfo.
-  #define V(index) OperandSignature{arm::RegTraits<RegType(index)>::kSignature}
+  #define V(index) OperandSignature{RegTraits<RegType(index)>::kSignature}
   {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
   #undef V
 
   // RegTypeToTypeId.
-  #define V(index) TypeId(arm::RegTraits<RegType(index)>::kTypeId)
+  #define V(index) TypeId(RegTraits<RegType(index)>::kTypeId)
   {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
   #undef V
 

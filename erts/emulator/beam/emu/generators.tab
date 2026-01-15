@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020-2023. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2020-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -563,7 +565,7 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
 
     tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, ((size == 0 ? 0 : 1) + size/2) * sizeof(*tmp));
     if (size == 0) {
-        keys = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     } else {
         keys = make_tuple(thp);
         *thp++ = make_arityval(size/2);
@@ -694,7 +696,7 @@ gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
         op->a[3] = Unit;
         op->a[4] = Dst;
     } else if (Size.type == TAG_i) {
-        $BeamOpNameArity(op, i_bs_get_binary_imm2, 6);
+        $BeamOpNameArity(op, i_bs_get_binary_imm2, 5);
         op->a[0] = Ms;
         op->a[1] = Fail;
         op->a[2] = Live;
@@ -702,8 +704,7 @@ gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
         if (!beam_load_safe_mul(Size.val, Unit.val, &op->a[3].val)) {
             goto error;
         }
-        op->a[4] = Flags;
-        op->a[5] = Dst;
+        op->a[4] = Dst;
     } else if (Size.type == TAG_q) {
         Eterm big = beamfile_get_literal(&S->beam, Size.val);
         Uint bigval;
@@ -713,7 +714,7 @@ gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
             $BeamOpNameArity(op, jump, 1);
             op->a[0] = Fail;
         } else {
-            $BeamOpNameArity(op, i_bs_get_binary_imm2, 6);
+            $BeamOpNameArity(op, i_bs_get_binary_imm2, 5);
             op->a[0] = Ms;
             op->a[1] = Fail;
             op->a[2] = Live;
@@ -721,8 +722,7 @@ gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
             if (!beam_load_safe_mul(bigval, Unit.val, &op->a[3].val)) {
                 goto error;
             }
-            op->a[4] = Flags;
-            op->a[5] = Dst;
+            op->a[4] = Dst;
         }
     } else if (Size.type == TAG_x || Size.type == TAG_y) {
         $BeamOpNameArity(op, i_bs_get_binary2, 6);
@@ -730,8 +730,7 @@ gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
         op->a[1] = Fail;
         op->a[2] = Live;
         op->a[3] = Size;
-        op->a[4].type = TAG_u;
-        op->a[4].val = (Unit.val << 3) | Flags.val;
+        op->a[4] = Unit;
         op->a[5] = Dst;
     } else {
         /* Invalid literal size. */
@@ -805,7 +804,7 @@ INIT_YREGS(S, N) {
 	BeamOp* init;
 
 	$NewBeamOp($S, init);
-	$BeamOpNameArity(init, init, 1);
+	$BeamOpNameArity(init, i_init, 1);
 	init->a[0] = Yregs[i];
 	*p = init;
 	p = &init->next;
@@ -825,7 +824,7 @@ gen.allocate(Ns, Live, N, Yregs) {
 	 * At least half of the Y registers need explicit
 	 * initialization. It will be cheaper to zero all Y registers.
 	 */
-	$BeamOpNameArity(alloc, allocate_zero, 2);
+	$BeamOpNameArity(alloc, i_allocate_zero, 2);
     } else {
 	$BeamOpNameArity(alloc, allocate, 2);
 	p = &alloc->next;
@@ -848,7 +847,7 @@ gen.allocate_heap(Ns, Nh, Live, N, Yregs) {
 	 * At least half of the Y registers need explicit
 	 * initialization. It will be cheaper to zero all Y registers.
 	 */
-	$BeamOpNameArity(alloc, allocate_heap_zero, 3);
+	$BeamOpNameArity(alloc, i_allocate_heap_zero, 3);
     } else {
 	$BeamOpNameArity(alloc, allocate_heap, 3);
 	p = &alloc->next;
@@ -1026,15 +1025,20 @@ gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
     return op;
 }
 
-gen.update_record(Size, Src, Dst, N, Updates) {
+gen.update_record(Hint, Size, Src, Dst, N, Updates) {
     BeamOp *begin, *prev;
     Sint count, i;
 
+    ASSERT(Hint.type == TAG_a);
     ASSERT(Size.type == TAG_u && Size.val < SCRATCH_X_REG);
     ASSERT(N.type == TAG_u && !(N.val % 2) && (N.val / 2) <= Size.val);
 
     $NewBeamOp(S, begin);
-    $BeamOpNameArity(begin, i_update_record, 5);
+    if (Hint.val == am_inplace) {
+        $BeamOpNameArity(begin, i_update_record_in_place, 5);
+    } else {
+        $BeamOpNameArity(begin, i_update_record_copy, 5);
+    }
 
     begin->a[0] = Size;
     begin->a[1] = Src;
@@ -1047,6 +1051,7 @@ gen.update_record(Size, Src, Dst, N, Updates) {
 
     for (i = 2; i < count; i += 2) {
         BeamOp *next;
+        int same_reg;
 
         $NewBeamOp(S, next);
         $BeamOpNameArity(next, i_update_record_continue, 2);
@@ -1056,10 +1061,19 @@ gen.update_record(Size, Src, Dst, N, Updates) {
         next->a[0].type = TAG_u;
         next->a[0].val = (Size.val + 1) - Updates[i].val;
 
+        if (Updates[i + 1].type != Dst.type) {
+            same_reg = 0;
+        } else if (Dst.type == TAG_x || Dst.type == TAG_y) {
+            /* We must not compare the type indices (if any). */
+            same_reg = (Updates[i + 1].val & REG_MASK) == (Dst.val & REG_MASK);
+        } else {
+            same_reg = 1;
+        }
+
         /* The first instruction overwrites the destination register after
          * stashing its contents to SCRATCH_X_REG, so all updates must be
          * rewritten accordingly. */
-        if (Updates[i + 1].type == Dst.type && Updates[i + 1].val == Dst.val) {
+        if (same_reg) {
             next->a[1].type = TAG_x;
             next->a[1].val = SCRATCH_X_REG;
         } else {
@@ -1070,6 +1084,16 @@ gen.update_record(Size, Src, Dst, N, Updates) {
         prev->next = next;
 
         prev = next;
+    }
+
+    if (Hint.val == am_inplace) {
+        BeamOp *next;
+
+        $NewBeamOp(S, next);
+        $BeamOpNameArity(next, i_update_record_in_place_done, 0);
+
+        next->next = NULL;
+        prev->next = next;
     }
 
     return begin;
@@ -1100,7 +1124,7 @@ gen.bs_match(Fail, Ctx, N, List) {
             ASSERT(List[src+3].type == TAG_u);
             ASSERT(List[src+4].type == TAG_u);
             size = List[src+3].val * List[src+4].val;
-            words_needed = erts_extracted_binary_size(size);
+            words_needed = erts_extracted_bitstring_size(size);
             break;
         case am_integer:
             ASSERT(List[src+3].type == TAG_u);
@@ -1111,7 +1135,7 @@ gen.bs_match(Fail, Ctx, N, List) {
             }
             break;
         case am_get_tail:
-            words_needed = EXTRACT_SUB_BIN_HEAP_NEED;
+            words_needed = BUILD_SUB_BITSTRING_HEAP_NEED;
             break;
         }
 

@@ -196,6 +196,12 @@ Error BaseRAPass::onPerformAllSteps() noexcept {
   return kErrorOk;
 }
 
+// BaseRAPass - Events
+// ===================
+
+void BaseRAPass::onInit() noexcept {}
+void BaseRAPass::onDone() noexcept {}
+
 // BaseRAPass - CFG - Basic Block Management
 // =========================================
 
@@ -307,6 +313,11 @@ Error BaseRAPass::addBlock(RABlock* block) noexcept {
 // BaseRAPass - CFG - Build
 // ========================
 
+// [[pure virtual]]
+Error BaseRAPass::buildCFG() noexcept {
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
 Error BaseRAPass::initSharedAssignments(const ZoneVector<uint32_t>& sharedAssignmentsMap) noexcept {
   if (sharedAssignmentsMap.empty())
     return kErrorOk;
@@ -355,21 +366,18 @@ Error BaseRAPass::initSharedAssignments(const ZoneVector<uint32_t>& sharedAssign
 
 class RABlockVisitItem {
 public:
+  RABlock* _block {};
+  uint32_t _index {};
+
   inline RABlockVisitItem(RABlock* block, uint32_t index) noexcept
     : _block(block),
       _index(index) {}
 
-  inline RABlockVisitItem(const RABlockVisitItem& other) noexcept
-    : _block(other._block),
-      _index(other._index) {}
-
+  inline RABlockVisitItem(const RABlockVisitItem& other) noexcept = default;
   inline RABlockVisitItem& operator=(const RABlockVisitItem& other) noexcept = default;
 
   inline RABlock* block() const noexcept { return _block; }
   inline uint32_t index() const noexcept { return _index; }
-
-  RABlock* _block;
-  uint32_t _index;
 };
 
 Error BaseRAPass::buildCFGViews() noexcept {
@@ -468,11 +476,17 @@ Error BaseRAPass::buildCFGDominators() noexcept {
   entryBlock->setIDom(entryBlock);
 
   bool changed = true;
-  uint32_t nIters = 0;
+
+#ifndef ASMJIT_NO_LOGGING
+  uint32_t numIters = 0;
+#endif
 
   while (changed) {
-    nIters++;
     changed = false;
+
+#ifndef ASMJIT_NO_LOGGING
+    numIters++;
+#endif
 
     uint32_t i = _pov.size();
     while (i) {
@@ -500,7 +514,7 @@ Error BaseRAPass::buildCFGDominators() noexcept {
     }
   }
 
-  ASMJIT_RA_LOG_FORMAT("  Done (%u iterations)\n", nIters);
+  ASMJIT_RA_LOG_FORMAT("  Done (%u iterations)\n", numIters);
   return kErrorOk;
 }
 
@@ -748,6 +762,13 @@ namespace LiveOps {
   static ASMJIT_FORCE_INLINE bool op(BitWord* dst, const BitWord* a, const BitWord* b, const BitWord* c, uint32_t n) noexcept {
     BitWord changed = 0;
 
+#if defined(_MSC_VER) && _MSC_VER <= 1938
+    // MSVC workaround (see #427).
+    //
+    // MSVC incorrectly auto-vectorizes this loop when used with <In> operator. For some reason it trashes a content
+    // of a register, which causes the result to be incorrect. It's a compiler bug we have to prevent unfortunately.
+    #pragma loop(no_vector)
+#endif
     for (uint32_t i = 0; i < n; i++) {
       BitWord before = dst[i];
       BitWord after = Operator::op(before, a[i], b[i], c[i]);
@@ -759,7 +780,7 @@ namespace LiveOps {
     return changed != 0;
   }
 
-  static ASMJIT_FORCE_INLINE bool recalcInOut(RABlock* block, uint32_t numBitWords, bool initial = false) noexcept {
+  static ASMJIT_NOINLINE bool recalcInOut(RABlock* block, uint32_t numBitWords, bool initial = false) noexcept {
     bool changed = initial;
 
     const RABlocks& successors = block->successors();
@@ -790,7 +811,6 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
   uint32_t numAllBlocks = blockCount();
   uint32_t numReachableBlocks = reachableBlockCount();
 
-  uint32_t numVisits = numReachableBlocks;
   uint32_t numWorkRegs = workRegCount();
   uint32_t numBitWords = ZoneBitVector::_wordsPerBits(numWorkRegs);
 
@@ -860,7 +880,7 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
 
           if (tiedReg->hasConsecutiveParent()) {
             RAWorkReg* consecutiveParentReg = workRegById(tiedReg->consecutiveParent());
-            consecutiveParentReg->addImmediateConsecutive(allocator(), workId);
+            ASMJIT_PROPAGATE(consecutiveParentReg->addImmediateConsecutive(allocator(), workId));
           }
         }
 
@@ -879,6 +899,10 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
 
   // Calculate IN/OUT of Each Block
   // ------------------------------
+
+#ifndef ASMJIT_NO_LOGGING
+  uint32_t numVisits = numReachableBlocks;
+#endif
 
   {
     ZoneStack<RABlock*> workList;
@@ -910,7 +934,9 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
           }
         }
       }
+#ifndef ASMJIT_NO_LOGGING
       numVisits++;
+#endif
     }
 
     workList.reset();
@@ -1154,7 +1180,7 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::initGlobalLiveSpans() noexcept {
         return DebugUtils::errored(kErrorOutOfMemory);
 
       for (size_t physId = 0; physId < physCount; physId++)
-        new(&liveSpans[physId]) LiveRegSpans();
+        new(Support::PlacementNew{&liveSpans[physId]}) LiveRegSpans();
     }
 
     _globalLiveSpans[group] = liveSpans;
@@ -1197,6 +1223,7 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::binPack(RegGroup group) noexcept {
 
   uint32_t numWorkRegs = workRegs.size();
   RegMask availableRegs = _availableRegs[group];
+  RegMask preservedRegs = func()->frame().preservedRegs(group);
 
   // First try to pack everything that provides register-id hint as these are most likely function arguments and fixed
   // (precolored) virtual registers.
@@ -1328,18 +1355,30 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::binPack(RegGroup group) noexcept {
       if (workReg->isAllocated())
         continue;
 
-      RegMask physRegs = availableRegs;
-      if (physRegs & workReg->preferredMask())
-        physRegs &= workReg->preferredMask();
+      RegMask remainingPhysRegs = availableRegs;
+      if (remainingPhysRegs & workReg->preferredMask())
+        remainingPhysRegs &= workReg->preferredMask();
 
-      while (physRegs) {
-        RegMask preferredMask = physRegs;
-        uint32_t physId = Support::ctz(preferredMask);
+      RegMask physRegs = remainingPhysRegs & ~preservedRegs;
+      remainingPhysRegs &= preservedRegs;
+
+      for (;;) {
+        if (!physRegs) {
+          if (!remainingPhysRegs)
+            break;
+          physRegs = remainingPhysRegs;
+          remainingPhysRegs = 0;
+        }
+
+        uint32_t physId = Support::ctz(physRegs);
 
         if (workReg->clobberSurvivalMask()) {
-          preferredMask &= workReg->clobberSurvivalMask();
-          if (preferredMask)
+          RegMask preferredMask = (physRegs | remainingPhysRegs) & workReg->clobberSurvivalMask();
+          if (preferredMask) {
+            if (preferredMask & ~remainingPhysRegs)
+              preferredMask &= ~remainingPhysRegs;
             physId = Support::ctz(preferredMask);
+          }
         }
 
         LiveRegSpans& live = _globalLiveSpans[group][physId];
@@ -1355,7 +1394,8 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::binPack(RegGroup group) noexcept {
         if (ASMJIT_UNLIKELY(err != 0xFFFFFFFFu))
           return err;
 
-        physRegs ^= Support::bitMask(physId);
+        physRegs &= ~Support::bitMask(physId);
+        remainingPhysRegs &= ~Support::bitMask(physId);
       }
 
       // Keep it in `workRegs` if it was not allocated.
@@ -1812,6 +1852,50 @@ Error BaseRAPass::insertPrologEpilog() noexcept {
 
 Error BaseRAPass::rewrite() noexcept {
   return _rewrite(_func, _stop);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::_rewrite(BaseNode* first, BaseNode* stop) noexcept {
+  DebugUtils::unused(first, stop);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// BaseRAPass - Emit
+// =================
+
+// [[pure virtual]]
+Error BaseRAPass::emitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept {
+  DebugUtils::unused(workId, dstPhysId, srcPhysId);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::emitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, uint32_t bPhysId) noexcept {
+  DebugUtils::unused(aWorkId, aPhysId, bWorkId, bPhysId);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::emitLoad(uint32_t workId, uint32_t dstPhysId) noexcept {
+  DebugUtils::unused(workId, dstPhysId);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::emitSave(uint32_t workId, uint32_t srcPhysId) noexcept {
+  DebugUtils::unused(workId, srcPhysId);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::emitJump(const Label& label) noexcept {
+  DebugUtils::unused(label);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+Error BaseRAPass::emitPreCall(InvokeNode* invokeNode) noexcept {
+  DebugUtils::unused(invokeNode);
+  return DebugUtils::errored(kErrorOk);
 }
 
 // BaseRAPass - Logging

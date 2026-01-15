@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -161,7 +163,6 @@ visual_cxx(Vars) ->
 			  {'SHLIB_LD', CC},
 			  {'SHLIB_LDFLAGS', ERTS_THR_LIB ++ DLL},
 			  {'SHLIB_LDLIBS', DBG_LINK ++ "kernel32.lib"},
-			  {'SHLIB_EXTRACT_ALL', ""},
 			  {'CFLAGS', DEFAULT_THR_LIB ++ WIN32 ++ DBG_COMP},
 			  {'EI_CFLAGS', DEFAULT_THR_LIB ++ WIN32 ++ DBG_COMP},
 			  {'ERTS_CFLAGS', ERTS_CFLAGS},
@@ -202,7 +203,6 @@ mingw32(Vars) ->
 			  {'SHLIB_LD', CC},
 			  {'SHLIB_LDFLAGS', "-shared "},
 			  {'SHLIB_LDLIBS', " -lkernel32"},
-			  {'SHLIB_EXTRACT_ALL', ""},
 			  {'CFLAGS', WIN32 ++ DBG_COMP},
 			  {'EI_CFLAGS', WIN32 ++ DBG_COMP},
 			  {'ERTS_CFLAGS', ERTS_CFLAGS},

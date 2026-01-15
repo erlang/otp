@@ -1,8 +1,10 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%----------------------------------------------------------------------
 %% File    : xmerl_sax_std_SUITE.erl
@@ -43,13 +45,11 @@
 
 init_per_suite(Config) ->
     file:set_cwd(datadir(Config)),
-    ok=erl_tar:extract("ibm.tgz",[compressed]),
-    ok=erl_tar:extract("japanese.tgz",[compressed]),
-    ok=erl_tar:extract("oasis.tgz",[compressed]),
-    ok=erl_tar:extract("sun.tgz",[compressed]),
-    ok=erl_tar:extract("xmltest.tgz",[compressed]),
-    ok = change_mode(["ibm","japanese","oasis",
-                      "sun","xmltest"]),
+    ok = erl_tar:extract("xmlts20130923.tar.gz", [compressed]),
+    Dirs = ["ibm","japanese","oasis","sun","xmltest"],
+    [file:rename("xmlconf/" ++ Dir, Dir) || Dir <- Dirs],
+    [ok = erl_tar:extract(Dir ++ ".tgz", [compressed]) || Dir <- Dirs],
+    ok = change_mode(Dirs),
     [{timetrap,{seconds, 1}}|Config].
 
 end_per_suite(Config) ->
@@ -99,7 +99,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-001'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/001.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -113,7 +113,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-002'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/002.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -127,7 +127,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-003'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/003.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -141,7 +141,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-004'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/004.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -155,7 +155,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-005'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/005.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -169,7 +169,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-006'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/006.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -184,7 +184,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-007'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/007.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -199,7 +199,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-008'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/008.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -213,7 +213,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-009'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/009.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -227,7 +227,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-010'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/010.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -242,7 +242,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-011'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/011.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -256,7 +256,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-012'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/012.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -270,7 +270,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-013'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/013.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -284,7 +284,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-014'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/014.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -298,7 +298,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-015'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/015.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -312,7 +312,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-016'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/016.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -326,7 +326,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-017'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/017.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -340,7 +340,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-018'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/018.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -354,7 +354,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-019'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/019.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -369,7 +369,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-020'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/020.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -384,7 +384,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-021'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/021.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -398,7 +398,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-022'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/022.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -412,7 +412,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-023'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/023.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -426,7 +426,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-024'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/024.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -440,7 +440,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-025'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/025.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -454,7 +454,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-026'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/026.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -468,7 +468,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-027'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/027.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -482,7 +482,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-028'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/028.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -496,7 +496,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-029'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/029.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -510,7 +510,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-030'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/030.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -524,7 +524,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-031'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/031.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -538,7 +538,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-032'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/032.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -552,7 +552,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-033'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/033.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -566,7 +566,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-034'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/034.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -581,7 +581,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-035'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/035.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -595,7 +595,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-036'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/036.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -609,7 +609,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-037'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/037.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -624,7 +624,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-038'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/038.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -638,7 +638,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-039'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/039.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -652,7 +652,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-040'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/040.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -666,7 +666,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-041'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/041.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -680,7 +680,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-042'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/042.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -694,7 +694,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-043'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/043.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -708,7 +708,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-044'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/044.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -722,7 +722,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-045'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/045.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -736,7 +736,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-046'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/046.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -750,7 +750,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-047'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/047.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -764,7 +764,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-048'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/048.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -778,7 +778,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-049'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/049.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -792,7 +792,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-050'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/050.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -806,7 +806,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-051'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/051.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -820,7 +820,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-052'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/052.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -834,7 +834,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-053'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/053.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -848,7 +848,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-054'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/054.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -862,7 +862,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-055'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/055.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -876,7 +876,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-056'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/056.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -890,7 +890,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-057'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/057.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -904,7 +904,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-058'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/058.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -918,7 +918,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-059'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/059.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -932,7 +932,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-060'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/060.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -947,7 +947,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-061'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/061.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -961,7 +961,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-062'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/062.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -975,7 +975,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-063'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/063.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -990,7 +990,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-064'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/064.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1005,7 +1005,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-065'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/065.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1019,7 +1019,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-066'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/066.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1034,7 +1034,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-067'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/067.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1049,7 +1049,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-068'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/068.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1063,7 +1063,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-069'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/069.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1077,7 +1077,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-070'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/070.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1091,7 +1091,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-071'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/071.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1105,7 +1105,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-072'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/072.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1119,7 +1119,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-073'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/073.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1134,7 +1134,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-074'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/074.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1148,7 +1148,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-075'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/075.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1162,7 +1162,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-076'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/076.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1176,7 +1176,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-077'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/077.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1190,7 +1190,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-078'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/078.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1204,7 +1204,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-079'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/079.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1218,7 +1218,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-080'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/080.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1233,7 +1233,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-081'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/081.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1248,7 +1248,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-082'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/082.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1262,7 +1262,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-083'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/083.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1278,7 +1278,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-084'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/084.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1292,7 +1292,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-085'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/085.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1306,7 +1306,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-086'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/086.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1320,7 +1320,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-087'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/087.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1335,7 +1335,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-088'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/088.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1350,7 +1350,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-089'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/089.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1365,7 +1365,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-090'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/090.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1380,7 +1380,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-091'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/091.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1395,7 +1395,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-092'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/092.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1409,7 +1409,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-093'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/093.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1423,7 +1423,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-094'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/094.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1437,7 +1437,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-095'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/095.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1451,7 +1451,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-096'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/096.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1465,7 +1465,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-097'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/097.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1479,7 +1479,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-098'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/098.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1494,7 +1494,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-099'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/099.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1508,7 +1508,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-100'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/100.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1522,7 +1522,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-101'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/101.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1536,7 +1536,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-102'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/102.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1550,7 +1550,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-103'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/103.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1565,7 +1565,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-104'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/104.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1579,7 +1579,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-105'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/105.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1593,7 +1593,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-106'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/106.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1607,7 +1607,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-107'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/107.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1621,7 +1621,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-108'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/108.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1635,7 +1635,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-109'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/109.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1649,7 +1649,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-110'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/110.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1663,7 +1663,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-111'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/111.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1677,7 +1677,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-112'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/112.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1692,7 +1692,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-113'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/113.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1707,7 +1707,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-114'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/114.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1723,7 +1723,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-115'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/115.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1739,7 +1739,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-116'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/116.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1755,7 +1755,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-117'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/117.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1769,7 +1769,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-118'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/118.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1785,7 +1785,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-119'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/119.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1801,7 +1801,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-120'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/120.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1815,7 +1815,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-121'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/121.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1829,7 +1829,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-122'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/122.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1843,7 +1843,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-123'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/123.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1857,7 +1857,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-124'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/124.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1871,7 +1871,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-125'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/125.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1885,7 +1885,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-126'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/126.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1899,7 +1899,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-127'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/127.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1913,7 +1913,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-128'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/128.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1927,7 +1927,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-129'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/129.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1941,7 +1941,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-130'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/130.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1955,7 +1955,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-131'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/131.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1969,7 +1969,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-132'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/132.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1983,7 +1983,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-133'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/133.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -1997,7 +1997,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-134'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/134.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2011,7 +2011,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-135'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/135.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2025,7 +2025,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-136'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/136.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2039,7 +2039,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-137'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/137.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2053,7 +2053,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-138'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/138.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2067,7 +2067,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-139'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/139.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2083,7 +2083,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-140'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/140.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2098,7 +2098,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-141'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/141.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2112,7 +2112,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-142'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/142.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2126,7 +2126,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-143'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/143.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2140,7 +2140,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-144'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/144.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2156,7 +2156,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-145'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/145.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2171,7 +2171,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-146'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/146.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2185,7 +2185,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-147'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/147.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2199,7 +2199,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-148'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/148.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2213,7 +2213,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-149'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/149.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2227,7 +2227,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-150'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/150.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2241,7 +2241,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-151'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/151.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2255,7 +2255,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-152'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/152.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2270,7 +2270,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-153'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/153.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2285,7 +2285,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-154'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/154.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2300,7 +2300,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-155'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/155.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2315,7 +2315,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-156'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/156.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2329,7 +2329,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-157'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/157.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2343,7 +2343,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-158'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/158.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2358,7 +2358,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-159'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/159.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2372,7 +2372,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-160'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/160.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2386,7 +2386,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-161'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/161.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2400,7 +2400,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-162'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/162.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2414,7 +2414,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-163'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/163.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2428,7 +2428,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-164'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/164.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2442,7 +2442,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-165'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/165.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2456,7 +2456,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-166'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/166.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2470,7 +2470,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-167'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/167.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2484,7 +2484,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-168'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/168.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2498,7 +2498,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-169'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/169.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2514,7 +2514,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-170'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/170.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2528,7 +2528,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-171'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/171.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2542,7 +2542,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-172'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/172.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2556,7 +2556,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-173'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/173.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2570,7 +2570,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-174'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/174.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2584,7 +2584,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-175'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/175.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2598,7 +2598,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-176'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/176.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2612,7 +2612,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-177'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/177.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2626,7 +2626,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-178'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/178.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2640,7 +2640,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-179'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/179.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2655,7 +2655,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-180'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/180.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2669,7 +2669,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-181'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/181.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2683,7 +2683,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-182'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/182.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2697,7 +2697,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-183'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/183.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2711,7 +2711,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-184'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/184.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2728,7 +2728,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-185'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/185.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2742,7 +2742,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-sa-186'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/sa/186.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2758,7 +2758,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-001'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/001.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2774,7 +2774,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-002'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/002.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2789,7 +2789,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-003'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/003.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2804,7 +2804,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-004'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/004.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2820,7 +2820,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-005'(_Config) -> {skip, "unknown parameter reference in external (VC test not WFC)"}.
 %%    file:set_cwd(datadir(Config)),
 %%    Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/005.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+%%    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
 %%    check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -2835,7 +2835,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-006'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/006.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2851,7 +2851,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-007'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/007.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2866,7 +2866,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-008'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/008.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2883,7 +2883,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-not-sa-009'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/009.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2898,7 +2898,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-ext-sa-001'(_Config) -> {skip, "recursive external reference"}.
 %%    file:set_cwd(datadir(Config)),
 %%    Path = filename:join([datadir(Config),"xmltest","not-wf/ext-sa/001.xml"]),
-%%    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+%%    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
 %%    check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2914,7 +2914,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-ext-sa-002'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/ext-sa/002.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2930,7 +2930,7 @@ end_per_testcase(_Func,_Config) ->
 'not-wf-ext-sa-003'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","not-wf/ext-sa/003.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -2946,7 +2946,7 @@ end_per_testcase(_Func,_Config) ->
 'invalid--002'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","invalid/002.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -2962,7 +2962,7 @@ end_per_testcase(_Func,_Config) ->
 'invalid--005'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","invalid/005.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -2978,7 +2978,7 @@ end_per_testcase(_Func,_Config) ->
 'invalid--006'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","invalid/006.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -2996,7 +2996,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","invalid/not-sa/022.xml"]),
     Out = filename:join([datadir(Config),"xmltest","invalid/not-sa/out/022.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -3013,7 +3013,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/001.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/001.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3031,7 +3031,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/002.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/002.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3049,7 +3049,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/003.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/003.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3066,7 +3066,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/004.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/004.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3084,7 +3084,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/005.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/005.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3102,7 +3102,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/006.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/006.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3120,7 +3120,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/007.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/007.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3137,7 +3137,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/008.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/008.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3154,7 +3154,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/009.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/009.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3172,7 +3172,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/010.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/010.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3189,7 +3189,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/011.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/011.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3207,7 +3207,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/012.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/012.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3225,7 +3225,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/013.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/013.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3243,7 +3243,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/014.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/014.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3261,7 +3261,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/015.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/015.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3278,7 +3278,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/016.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/016.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3296,7 +3296,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/017.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/017.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3313,7 +3313,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/018.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/018.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3331,7 +3331,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/019.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/019.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3350,7 +3350,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/020.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/020.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3367,7 +3367,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/021.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/021.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3386,7 +3386,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/022.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/022.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3403,7 +3403,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/023.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/023.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3421,7 +3421,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/024.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/024.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3439,7 +3439,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/025.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/025.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3457,7 +3457,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/026.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/026.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3475,7 +3475,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/027.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/027.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3493,7 +3493,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/028.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/028.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3511,7 +3511,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/029.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/029.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3529,7 +3529,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/030.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/030.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3546,7 +3546,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/031.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/031.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3563,7 +3563,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/032.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/032.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3581,7 +3581,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/033.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/033.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3598,7 +3598,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/034.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/034.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3616,7 +3616,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/035.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/035.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3633,7 +3633,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/036.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/036.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3651,7 +3651,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/017a.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/017a.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3669,7 +3669,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/037.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/037.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3687,7 +3687,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/038.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/038.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3705,7 +3705,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/039.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/039.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3723,7 +3723,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/040.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/040.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3742,7 +3742,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/041.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/041.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3762,7 +3762,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/042.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/042.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3780,7 +3780,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/043.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/043.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3798,7 +3798,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/044.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/044.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3816,7 +3816,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/045.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/045.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3834,7 +3834,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/046.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/046.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3852,7 +3852,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/047.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/047.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3869,7 +3869,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/048.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/048.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3887,7 +3887,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/049.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/049.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3905,7 +3905,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/050.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/050.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3923,7 +3923,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/051.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/051.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3942,7 +3942,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/052.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/052.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3960,7 +3960,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/053.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/053.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3978,7 +3978,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/054.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/054.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -3996,7 +3996,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/055.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/055.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4016,7 +4016,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/056.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/056.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4034,7 +4034,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/057.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/057.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4052,7 +4052,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/058.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/058.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4072,7 +4072,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/059.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/059.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4090,7 +4090,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/060.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/060.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4108,7 +4108,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/061.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/061.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4126,7 +4126,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/062.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/062.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4144,7 +4144,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/063.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/063.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4162,7 +4162,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/064.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/064.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4180,7 +4180,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/065.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/065.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4197,7 +4197,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/066.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/066.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4215,7 +4215,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/067.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/067.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4235,7 +4235,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/068.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/068.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4253,7 +4253,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/069.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/069.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4272,7 +4272,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/070.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/070.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4291,7 +4291,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/071.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/071.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4310,7 +4310,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/072.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/072.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4329,7 +4329,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/073.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/073.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4348,7 +4348,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/074.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/074.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4367,7 +4367,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/075.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/075.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4386,7 +4386,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/076.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/076.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4404,7 +4404,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/077.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/077.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4423,7 +4423,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/078.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/078.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4443,7 +4443,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/079.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/079.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4462,7 +4462,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/080.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/080.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4481,7 +4481,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/081.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/081.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4498,7 +4498,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/082.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/082.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4515,7 +4515,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/083.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/083.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4533,7 +4533,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/084.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/084.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4551,7 +4551,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/085.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/085.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4569,7 +4569,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/086.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/086.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4587,7 +4587,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/087.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/087.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4607,7 +4607,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/088.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/088.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4625,7 +4625,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/089.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/089.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4644,7 +4644,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/090.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/090.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4664,7 +4664,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/091.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/091.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4682,7 +4682,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/092.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/092.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4700,7 +4700,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/093.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/093.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4720,7 +4720,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/094.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/094.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4738,7 +4738,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/095.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/095.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4756,7 +4756,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/096.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/096.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4776,7 +4776,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/097.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/097.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4794,7 +4794,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/098.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/098.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4812,7 +4812,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/099.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/099.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4829,7 +4829,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/100.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/100.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4848,7 +4848,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/101.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/101.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4866,7 +4866,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/102.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/102.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4883,7 +4883,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/103.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/103.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4901,7 +4901,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/104.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/104.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4919,7 +4919,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/105.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/105.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4937,7 +4937,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/106.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/106.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4955,7 +4955,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/107.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/107.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4973,7 +4973,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/108.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/108.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -4990,7 +4990,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/109.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/109.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5008,7 +5008,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/110.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/110.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5026,7 +5026,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/111.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/111.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5044,7 +5044,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/112.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/112.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5062,7 +5062,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/113.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/113.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5080,7 +5080,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/114.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/114.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5098,7 +5098,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/115.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/115.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5115,7 +5115,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/116.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/116.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5133,7 +5133,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/117.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/117.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5151,7 +5151,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/118.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/118.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5169,7 +5169,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/sa/119.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/sa/out/119.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5188,7 +5188,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/001.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/001.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5207,7 +5207,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/002.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/002.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5226,7 +5226,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/003.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/003.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5245,7 +5245,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/004.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/004.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5264,7 +5264,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/005.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/005.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5284,7 +5284,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/006.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/006.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5303,7 +5303,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/007.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/007.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5322,7 +5322,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/008.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/008.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5341,7 +5341,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/009.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/009.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5361,7 +5361,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/010.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/010.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5380,7 +5380,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/011.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/011.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5399,7 +5399,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/012.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/012.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5418,7 +5418,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/013.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/013.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5438,7 +5438,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/014.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/014.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5458,7 +5458,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/015.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/015.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5478,7 +5478,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/016.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/016.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5497,7 +5497,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/017.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/017.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5516,7 +5516,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/018.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/018.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5535,7 +5535,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/019.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/019.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5553,7 +5553,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/020.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/020.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5572,7 +5572,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/021.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/021.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5591,7 +5591,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/023.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/023.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5609,7 +5609,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/024.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/024.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5628,7 +5628,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/025.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/025.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5648,7 +5648,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/026.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/026.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5666,7 +5666,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/027.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/027.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5685,7 +5685,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/028.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/028.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5704,7 +5704,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/029.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/029.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5723,7 +5723,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/030.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/030.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5742,7 +5742,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/not-sa/031.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/not-sa/out/031.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5761,7 +5761,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/001.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/001.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5780,7 +5780,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/002.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/002.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5799,7 +5799,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/003.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/003.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5818,7 +5818,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/004.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/004.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5837,7 +5837,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/005.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/005.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5858,7 +5858,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/006.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/006.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5877,7 +5877,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/007.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/007.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5896,7 +5896,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/008.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/008.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5915,7 +5915,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/009.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/009.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5935,7 +5935,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/011.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/011.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5955,7 +5955,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/012.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/012.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5974,7 +5974,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/013.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/013.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -5992,7 +5992,7 @@ end_per_testcase(_Func,_Config) ->
     Path = filename:join([datadir(Config),"xmltest","valid/ext-sa/014.xml"]),
     Out = filename:join([datadir(Config),"xmltest","valid/ext-sa/out/014.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6013,7 +6013,7 @@ end_per_testcase(_Func,_Config) ->
 'pr-xml-euc-jp'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","pr-xml-euc-jp.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -6030,7 +6030,7 @@ end_per_testcase(_Func,_Config) ->
 'pr-xml-iso-2022-jp'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","pr-xml-iso-2022-jp.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -6046,7 +6046,7 @@ end_per_testcase(_Func,_Config) ->
 'pr-xml-little'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","pr-xml-little-endian.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -6063,7 +6063,7 @@ end_per_testcase(_Func,_Config) ->
 'pr-xml-shift_jis'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","pr-xml-shift_jis.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -6079,7 +6079,7 @@ end_per_testcase(_Func,_Config) ->
 'pr-xml-utf-16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","pr-xml-utf-16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -6095,7 +6095,7 @@ end_per_testcase(_Func,_Config) ->
 'pr-xml-utf-8'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","pr-xml-utf-8.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -6111,7 +6111,7 @@ end_per_testcase(_Func,_Config) ->
 'weekly-euc-jp'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","weekly-euc-jp.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -6127,7 +6127,7 @@ end_per_testcase(_Func,_Config) ->
 'weekly-iso-2022-jp'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","weekly-iso-2022-jp.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -6143,7 +6143,7 @@ end_per_testcase(_Func,_Config) ->
 'weekly-little'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","weekly-little-endian.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -6159,7 +6159,7 @@ end_per_testcase(_Func,_Config) ->
 'weekly-shift_jis'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","weekly-shift_jis.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -6175,7 +6175,7 @@ end_per_testcase(_Func,_Config) ->
 'weekly-utf-16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","weekly-utf-16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -6191,7 +6191,7 @@ end_per_testcase(_Func,_Config) ->
 'weekly-utf-8'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"japanese","weekly-utf-8.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -6212,7 +6212,7 @@ end_per_testcase(_Func,_Config) ->
 pe01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","valid/pe01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -6229,7 +6229,7 @@ dtd00(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/dtd00.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/dtd00.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6246,7 +6246,7 @@ dtd01(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/dtd01.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/dtd01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6263,7 +6263,7 @@ element(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/element.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/element.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6281,7 +6281,7 @@ ext01(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/ext01.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/ext01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6300,7 +6300,7 @@ ext02(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/ext02.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/ext02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6318,7 +6318,7 @@ ext02(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/not-sa01.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/not-sa01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6336,7 +6336,7 @@ ext02(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/not-sa02.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/not-sa02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6354,7 +6354,7 @@ ext02(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/not-sa03.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/not-sa03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6372,7 +6372,7 @@ ext02(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/not-sa04.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/not-sa04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6392,7 +6392,7 @@ notation01(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/notation01.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/notation01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6411,7 +6411,7 @@ optional(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/optional.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/optional.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6429,7 +6429,7 @@ required00(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/required00.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/required00.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6447,7 +6447,7 @@ sa01(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/sa01.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/sa01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6465,7 +6465,7 @@ sa02(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/sa02.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/sa02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6485,7 +6485,7 @@ sa03(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/sa03.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/sa03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6504,7 +6504,7 @@ sa04(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/sa04.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/sa04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6523,7 +6523,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/sa05.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/sa05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6540,7 +6540,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/sgml01.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/sgml01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6557,7 +6557,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/v-lang01.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/v-lang01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6574,7 +6574,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/v-lang02.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/v-lang02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6591,7 +6591,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/v-lang03.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/v-lang03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6608,7 +6608,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/v-lang04.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/v-lang04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6625,7 +6625,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/v-lang05.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/v-lang05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6642,7 +6642,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/v-lang06.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/v-lang06.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6661,7 +6661,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/pe00.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/pe00.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6679,7 +6679,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/pe03.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/pe03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6698,7 +6698,7 @@ sa05(Config) ->
     Path = filename:join([datadir(Config),"sun","valid/pe02.xml"]),
     Out = filename:join([datadir(Config),"sun","valid/out/pe02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -6712,7 +6712,7 @@ sa05(Config) ->
 'inv-dtd01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/dtd01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6726,7 +6726,7 @@ sa05(Config) ->
 'inv-dtd02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/dtd02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6740,7 +6740,7 @@ sa05(Config) ->
 'inv-dtd03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/dtd03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6755,7 +6755,7 @@ sa05(Config) ->
 el01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/el01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6770,7 +6770,7 @@ el01(Config) ->
 el02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/el02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6785,7 +6785,7 @@ el02(Config) ->
 el03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/el03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6799,7 +6799,7 @@ el03(Config) ->
 el04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/el04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6813,7 +6813,7 @@ el04(Config) ->
 el05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/el05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6828,7 +6828,7 @@ el05(Config) ->
 el06(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/el06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6843,7 +6843,7 @@ el06(Config) ->
 id01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6858,7 +6858,7 @@ id01(Config) ->
 id02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6873,7 +6873,7 @@ id02(Config) ->
 id03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6887,7 +6887,7 @@ id03(Config) ->
 id04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6901,7 +6901,7 @@ id04(Config) ->
 id05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6915,7 +6915,7 @@ id05(Config) ->
 id06(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6929,7 +6929,7 @@ id06(Config) ->
 id07(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6943,7 +6943,7 @@ id07(Config) ->
 id08(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6957,7 +6957,7 @@ id08(Config) ->
 id09(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/id09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6973,7 +6973,7 @@ id09(Config) ->
 'inv-not-sa01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -6989,7 +6989,7 @@ id09(Config) ->
 'inv-not-sa02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7005,7 +7005,7 @@ id09(Config) ->
 'inv-not-sa04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7021,7 +7021,7 @@ id09(Config) ->
 'inv-not-sa05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7037,7 +7037,7 @@ id09(Config) ->
 'inv-not-sa06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7053,7 +7053,7 @@ id09(Config) ->
 'inv-not-sa07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7069,7 +7069,7 @@ id09(Config) ->
 'inv-not-sa08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7085,7 +7085,7 @@ id09(Config) ->
 'inv-not-sa09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7101,7 +7101,7 @@ id09(Config) ->
 'inv-not-sa10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7117,7 +7117,7 @@ id09(Config) ->
 'inv-not-sa11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7133,7 +7133,7 @@ id09(Config) ->
 'inv-not-sa12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7149,7 +7149,7 @@ id09(Config) ->
 'inv-not-sa13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7165,7 +7165,7 @@ id09(Config) ->
 'inv-not-sa14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/not-sa14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7181,7 +7181,7 @@ id09(Config) ->
 optional01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7197,7 +7197,7 @@ optional01(Config) ->
 optional02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7213,7 +7213,7 @@ optional02(Config) ->
 optional03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7229,7 +7229,7 @@ optional03(Config) ->
 optional04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7246,7 +7246,7 @@ optional04(Config) ->
 optional05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7263,7 +7263,7 @@ optional05(Config) ->
 optional06(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7280,7 +7280,7 @@ optional06(Config) ->
 optional07(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7297,7 +7297,7 @@ optional07(Config) ->
 optional08(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7314,7 +7314,7 @@ optional08(Config) ->
 optional09(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7331,7 +7331,7 @@ optional09(Config) ->
 optional10(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7348,7 +7348,7 @@ optional10(Config) ->
 optional11(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7365,7 +7365,7 @@ optional11(Config) ->
 optional12(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7382,7 +7382,7 @@ optional12(Config) ->
 optional13(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7399,7 +7399,7 @@ optional13(Config) ->
 optional14(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7416,7 +7416,7 @@ optional14(Config) ->
 optional20(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional20.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7433,7 +7433,7 @@ optional20(Config) ->
 optional21(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional21.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7450,7 +7450,7 @@ optional21(Config) ->
 optional22(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional22.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7467,7 +7467,7 @@ optional22(Config) ->
 optional23(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional23.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7484,7 +7484,7 @@ optional23(Config) ->
 optional24(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional24.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7501,7 +7501,7 @@ optional24(Config) ->
 optional25(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional25.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7515,7 +7515,7 @@ optional25(Config) ->
 'inv-required00'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/required00.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7529,7 +7529,7 @@ optional25(Config) ->
 'inv-required01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/required01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7543,7 +7543,7 @@ optional25(Config) ->
 'inv-required02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/required02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7558,7 +7558,7 @@ optional25(Config) ->
 root(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/root.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7572,7 +7572,7 @@ root(Config) ->
 attr01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7586,7 +7586,7 @@ attr01(Config) ->
 attr02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7601,7 +7601,7 @@ attr02(Config) ->
 attr03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7616,7 +7616,7 @@ attr03(Config) ->
 attr04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7630,7 +7630,7 @@ attr04(Config) ->
 attr05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7644,7 +7644,7 @@ attr05(Config) ->
 attr06(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7659,7 +7659,7 @@ attr06(Config) ->
 attr07(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7673,7 +7673,7 @@ attr07(Config) ->
 attr08(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7687,7 +7687,7 @@ attr08(Config) ->
 attr09(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7702,7 +7702,7 @@ attr09(Config) ->
 attr10(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7717,7 +7717,7 @@ attr10(Config) ->
 attr11(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7732,7 +7732,7 @@ attr11(Config) ->
 attr12(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7747,7 +7747,7 @@ attr12(Config) ->
 attr13(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7762,7 +7762,7 @@ attr13(Config) ->
 attr14(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7777,7 +7777,7 @@ attr14(Config) ->
 attr15(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7792,7 +7792,7 @@ attr15(Config) ->
 attr16(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/attr16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7806,7 +7806,7 @@ attr16(Config) ->
 utf16b(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/utf16b.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7820,7 +7820,7 @@ utf16b(Config) ->
 utf16l(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/utf16l.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7835,7 +7835,7 @@ utf16l(Config) ->
 empty(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/empty.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -7851,7 +7851,7 @@ empty(Config) ->
 'not-wf-sa03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/not-sa03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7865,7 +7865,7 @@ empty(Config) ->
 attlist01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7879,7 +7879,7 @@ attlist01(Config) ->
 attlist02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7893,7 +7893,7 @@ attlist02(Config) ->
 attlist03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7907,7 +7907,7 @@ attlist03(Config) ->
 attlist04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7921,7 +7921,7 @@ attlist04(Config) ->
 attlist05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7935,7 +7935,7 @@ attlist05(Config) ->
 attlist06(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7949,7 +7949,7 @@ attlist06(Config) ->
 attlist07(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7963,7 +7963,7 @@ attlist07(Config) ->
 attlist08(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7977,7 +7977,7 @@ attlist08(Config) ->
 attlist09(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -7991,7 +7991,7 @@ attlist09(Config) ->
 attlist10(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8005,7 +8005,7 @@ attlist10(Config) ->
 attlist11(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/attlist11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8020,7 +8020,7 @@ attlist11(Config) ->
 cond01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/cond01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8035,7 +8035,7 @@ cond01(Config) ->
 cond02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/cond02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8049,7 +8049,7 @@ cond02(Config) ->
 content01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/content01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8063,7 +8063,7 @@ content01(Config) ->
 content02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/content02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8077,7 +8077,7 @@ content02(Config) ->
 content03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/content03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8092,7 +8092,7 @@ content03(Config) ->
 decl01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/decl01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8106,7 +8106,7 @@ decl01(Config) ->
 'nwf-dtd00'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/dtd00.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8120,7 +8120,7 @@ decl01(Config) ->
 'nwf-dtd01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/dtd01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8134,7 +8134,7 @@ decl01(Config) ->
 dtd02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/dtd02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8148,7 +8148,7 @@ dtd02(Config) ->
 dtd03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/dtd03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8162,7 +8162,7 @@ dtd03(Config) ->
 dtd04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/dtd04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8176,7 +8176,7 @@ dtd04(Config) ->
 dtd05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/dtd05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8192,7 +8192,7 @@ dtd05(Config) ->
 dtd07(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/dtd07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8206,7 +8206,7 @@ dtd07(Config) ->
 element00(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/element00.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8220,7 +8220,7 @@ element00(Config) ->
 element01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/element01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8234,7 +8234,7 @@ element01(Config) ->
 element02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/element02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8248,7 +8248,7 @@ element02(Config) ->
 element03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/element03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8262,7 +8262,7 @@ element03(Config) ->
 element04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/element04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8276,7 +8276,7 @@ element04(Config) ->
 encoding01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/encoding01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8290,7 +8290,7 @@ encoding01(Config) ->
 encoding02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/encoding02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8304,7 +8304,7 @@ encoding02(Config) ->
 encoding03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/encoding03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8318,7 +8318,7 @@ encoding03(Config) ->
 encoding04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/encoding04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8332,7 +8332,7 @@ encoding04(Config) ->
 encoding05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/encoding05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8346,7 +8346,7 @@ encoding05(Config) ->
 encoding06(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/encoding06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8362,7 +8362,7 @@ encoding06(Config) ->
 encoding07(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/encoding07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8376,7 +8376,7 @@ encoding07(Config) ->
 pi(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/pi.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8390,7 +8390,7 @@ pi(Config) ->
 pubid01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/pubid01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8404,7 +8404,7 @@ pubid01(Config) ->
 pubid02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/pubid02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8418,7 +8418,7 @@ pubid02(Config) ->
 pubid03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/pubid03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8432,7 +8432,7 @@ pubid03(Config) ->
 pubid04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/pubid04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8446,7 +8446,7 @@ pubid04(Config) ->
 pubid05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/pubid05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8460,7 +8460,7 @@ pubid05(Config) ->
 sgml01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8475,7 +8475,7 @@ sgml01(Config) ->
 sgml02(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8489,7 +8489,7 @@ sgml02(Config) ->
 sgml03(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8503,7 +8503,7 @@ sgml03(Config) ->
 sgml04(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8517,7 +8517,7 @@ sgml04(Config) ->
 sgml05(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8531,7 +8531,7 @@ sgml05(Config) ->
 sgml06(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8545,7 +8545,7 @@ sgml06(Config) ->
 sgml07(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8559,7 +8559,7 @@ sgml07(Config) ->
 sgml08(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8573,7 +8573,7 @@ sgml08(Config) ->
 sgml09(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8587,7 +8587,7 @@ sgml09(Config) ->
 sgml10(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8601,7 +8601,7 @@ sgml10(Config) ->
 sgml11(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8615,7 +8615,7 @@ sgml11(Config) ->
 sgml12(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8629,7 +8629,7 @@ sgml12(Config) ->
 sgml13(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/sgml13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -8643,7 +8643,7 @@ sgml13(Config) ->
 uri01(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","not-wf/uri01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -8662,7 +8662,7 @@ uri01(Config) ->
 'o-p01pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p01pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8676,7 +8676,7 @@ uri01(Config) ->
 'o-p06pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p06pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8690,7 +8690,7 @@ uri01(Config) ->
 'o-p07pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p07pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8704,7 +8704,7 @@ uri01(Config) ->
 'o-p08pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p08pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8720,7 +8720,7 @@ uri01(Config) ->
 'o-p09pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p09pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8734,7 +8734,7 @@ uri01(Config) ->
 'o-p12pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p12pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8748,7 +8748,7 @@ uri01(Config) ->
 'o-p22pass4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p22pass4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8762,7 +8762,7 @@ uri01(Config) ->
 'o-p22pass5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p22pass5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8776,7 +8776,7 @@ uri01(Config) ->
 'o-p22pass6'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p22pass6.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8790,7 +8790,7 @@ uri01(Config) ->
 'o-p28pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p28pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8806,7 +8806,7 @@ uri01(Config) ->
 'o-p28pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p28pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8821,7 +8821,7 @@ uri01(Config) ->
 'o-p28pass4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p28pass4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8837,7 +8837,7 @@ uri01(Config) ->
 'o-p28pass5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p28pass5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8851,7 +8851,7 @@ uri01(Config) ->
 'o-p29pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p29pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8867,7 +8867,7 @@ uri01(Config) ->
 'o-p30pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p30pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8883,7 +8883,7 @@ uri01(Config) ->
 'o-p30pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p30pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8898,7 +8898,7 @@ uri01(Config) ->
 'o-p31pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p31pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8914,7 +8914,7 @@ uri01(Config) ->
 'o-p31pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p31pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8929,7 +8929,7 @@ uri01(Config) ->
 'o-p43pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p43pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8943,7 +8943,7 @@ uri01(Config) ->
 'o-p45pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p45pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8958,7 +8958,7 @@ uri01(Config) ->
 'o-p46pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p46pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8975,7 +8975,7 @@ uri01(Config) ->
 'o-p47pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p47pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -8992,7 +8992,7 @@ uri01(Config) ->
 'o-p48pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p48pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9009,7 +9009,7 @@ uri01(Config) ->
 'o-p49pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p49pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9026,7 +9026,7 @@ uri01(Config) ->
 'o-p50pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p50pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9040,7 +9040,7 @@ uri01(Config) ->
 'o-p51pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p51pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9056,7 +9056,7 @@ uri01(Config) ->
 'o-p52pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p52pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9070,7 +9070,7 @@ uri01(Config) ->
 'o-p53pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p53pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9084,7 +9084,7 @@ uri01(Config) ->
 'o-p54pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p54pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9098,7 +9098,7 @@ uri01(Config) ->
 'o-p55pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p55pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9112,7 +9112,7 @@ uri01(Config) ->
 'o-p56pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p56pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9126,7 +9126,7 @@ uri01(Config) ->
 'o-p57pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p57pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9140,7 +9140,7 @@ uri01(Config) ->
 'o-p58pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9154,7 +9154,7 @@ uri01(Config) ->
 'o-p59pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p59pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9168,7 +9168,7 @@ uri01(Config) ->
 'o-p60pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p60pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9183,7 +9183,7 @@ uri01(Config) ->
 'o-p61pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p61pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9199,7 +9199,7 @@ uri01(Config) ->
 'o-p62pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p62pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9214,7 +9214,7 @@ uri01(Config) ->
 'o-p63pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p63pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9229,7 +9229,7 @@ uri01(Config) ->
 'o-p64pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p64pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9244,7 +9244,7 @@ uri01(Config) ->
 'o-p68pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p68pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9259,7 +9259,7 @@ uri01(Config) ->
 'o-p69pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p69pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9273,7 +9273,7 @@ uri01(Config) ->
 'o-p70pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p70pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9287,7 +9287,7 @@ uri01(Config) ->
 'o-p71pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p71pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9301,7 +9301,7 @@ uri01(Config) ->
 'o-p72pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p72pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9316,7 +9316,7 @@ uri01(Config) ->
 'o-p73pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p73pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9330,7 +9330,7 @@ uri01(Config) ->
 'o-p76pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p76pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -9344,7 +9344,7 @@ uri01(Config) ->
 'o-p01pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p01pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9358,7 +9358,7 @@ uri01(Config) ->
 'o-p01pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p01pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9372,7 +9372,7 @@ uri01(Config) ->
 'o-p03pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9387,7 +9387,7 @@ uri01(Config) ->
 'o-p04pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p04pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9401,7 +9401,7 @@ uri01(Config) ->
 'o-p05pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p05pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9415,7 +9415,7 @@ uri01(Config) ->
 'o-p06fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p06fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9429,7 +9429,7 @@ uri01(Config) ->
 'o-p08fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p08fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9443,7 +9443,7 @@ uri01(Config) ->
 'o-p08fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p08fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9457,7 +9457,7 @@ uri01(Config) ->
 'o-p10pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p10pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9471,7 +9471,7 @@ uri01(Config) ->
 'o-p14pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p14pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9485,7 +9485,7 @@ uri01(Config) ->
 'o-p15pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p15pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9500,7 +9500,7 @@ uri01(Config) ->
 'o-p16pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p16pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9515,7 +9515,7 @@ uri01(Config) ->
 'o-p16pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p16pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9530,7 +9530,7 @@ uri01(Config) ->
 'o-p16pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p16pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9544,7 +9544,7 @@ uri01(Config) ->
 'o-p18pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p18pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9558,7 +9558,7 @@ uri01(Config) ->
 'o-p22pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p22pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9572,7 +9572,7 @@ uri01(Config) ->
 'o-p22pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p22pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9586,7 +9586,7 @@ uri01(Config) ->
 'o-p22pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p22pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9600,7 +9600,7 @@ uri01(Config) ->
 'o-p23pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9614,7 +9614,7 @@ uri01(Config) ->
 'o-p23pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9629,7 +9629,7 @@ uri01(Config) ->
 'o-p23pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9644,7 +9644,7 @@ uri01(Config) ->
 'o-p23pass4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23pass4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9658,7 +9658,7 @@ uri01(Config) ->
 'o-p24pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p24pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9672,7 +9672,7 @@ uri01(Config) ->
 'o-p24pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p24pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9686,7 +9686,7 @@ uri01(Config) ->
 'o-p24pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p24pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9700,7 +9700,7 @@ uri01(Config) ->
 'o-p24pass4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p24pass4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9715,7 +9715,7 @@ uri01(Config) ->
 'o-p25pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p25pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9730,7 +9730,7 @@ uri01(Config) ->
 'o-p25pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p25pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9745,7 +9745,7 @@ uri01(Config) ->
 'o-p26pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p26pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9759,7 +9759,7 @@ uri01(Config) ->
 'o-p27pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p27pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9773,7 +9773,7 @@ uri01(Config) ->
 'o-p27pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p27pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9787,7 +9787,7 @@ uri01(Config) ->
 'o-p27pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p27pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9802,7 +9802,7 @@ uri01(Config) ->
 'o-p27pass4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p27pass4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9817,7 +9817,7 @@ uri01(Config) ->
 'o-p32pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p32pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9832,7 +9832,7 @@ uri01(Config) ->
 'o-p32pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p32pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9846,7 +9846,7 @@ uri01(Config) ->
 'o-p39pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p39pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9860,7 +9860,7 @@ uri01(Config) ->
 'o-p39pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p39pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9874,7 +9874,7 @@ uri01(Config) ->
 'o-p40pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p40pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9888,7 +9888,7 @@ uri01(Config) ->
 'o-p40pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p40pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9902,7 +9902,7 @@ uri01(Config) ->
 'o-p40pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p40pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9916,7 +9916,7 @@ uri01(Config) ->
 'o-p40pass4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p40pass4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9930,7 +9930,7 @@ uri01(Config) ->
 'o-p41pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p41pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9944,7 +9944,7 @@ uri01(Config) ->
 'o-p41pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p41pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9958,7 +9958,7 @@ uri01(Config) ->
 'o-p42pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p42pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9972,7 +9972,7 @@ uri01(Config) ->
 'o-p42pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p42pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -9986,7 +9986,7 @@ uri01(Config) ->
 'o-p44pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10000,7 +10000,7 @@ uri01(Config) ->
 'o-p44pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44pass2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10015,7 +10015,7 @@ uri01(Config) ->
 'o-p44pass3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44pass3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10029,7 +10029,7 @@ uri01(Config) ->
 'o-p44pass4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44pass4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10043,7 +10043,7 @@ uri01(Config) ->
 'o-p44pass5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44pass5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10057,7 +10057,7 @@ uri01(Config) ->
 'o-p66pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p66pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10071,7 +10071,7 @@ uri01(Config) ->
 'o-p74pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p74pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10085,7 +10085,7 @@ uri01(Config) ->
 'o-p75pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p75pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10099,7 +10099,7 @@ uri01(Config) ->
 'o-e2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","e2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid").
 
 %%----------------------------------------------------------------------
@@ -10113,7 +10113,7 @@ uri01(Config) ->
 'o-p01fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p01fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10127,7 +10127,7 @@ uri01(Config) ->
 'o-p01fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p01fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10141,7 +10141,7 @@ uri01(Config) ->
 'o-p01fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p01fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10155,7 +10155,7 @@ uri01(Config) ->
 'o-p01fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p01fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10169,7 +10169,7 @@ uri01(Config) ->
 'o-p02fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10183,7 +10183,7 @@ uri01(Config) ->
 'o-p02fail10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10197,7 +10197,7 @@ uri01(Config) ->
 'o-p02fail11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10211,7 +10211,7 @@ uri01(Config) ->
 'o-p02fail12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10225,7 +10225,7 @@ uri01(Config) ->
 'o-p02fail13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10239,7 +10239,7 @@ uri01(Config) ->
 'o-p02fail14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10253,7 +10253,7 @@ uri01(Config) ->
 'o-p02fail15'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10267,7 +10267,7 @@ uri01(Config) ->
 'o-p02fail16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10281,7 +10281,7 @@ uri01(Config) ->
 'o-p02fail17'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail17.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10295,7 +10295,7 @@ uri01(Config) ->
 'o-p02fail18'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail18.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10309,7 +10309,7 @@ uri01(Config) ->
 'o-p02fail19'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail19.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10323,7 +10323,7 @@ uri01(Config) ->
 'o-p02fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10337,7 +10337,7 @@ uri01(Config) ->
 'o-p02fail20'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail20.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10351,7 +10351,7 @@ uri01(Config) ->
 'o-p02fail21'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail21.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10365,7 +10365,7 @@ uri01(Config) ->
 'o-p02fail22'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail22.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10379,7 +10379,7 @@ uri01(Config) ->
 'o-p02fail23'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail23.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10393,7 +10393,7 @@ uri01(Config) ->
 'o-p02fail24'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail24.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10407,7 +10407,7 @@ uri01(Config) ->
 'o-p02fail25'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail25.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10421,7 +10421,7 @@ uri01(Config) ->
 'o-p02fail26'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail26.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10435,7 +10435,7 @@ uri01(Config) ->
 'o-p02fail27'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail27.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10449,7 +10449,7 @@ uri01(Config) ->
 'o-p02fail28'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail28.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10463,7 +10463,7 @@ uri01(Config) ->
 'o-p02fail29'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail29.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10477,7 +10477,7 @@ uri01(Config) ->
 'o-p02fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10491,7 +10491,7 @@ uri01(Config) ->
 'o-p02fail30'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail30.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10505,7 +10505,7 @@ uri01(Config) ->
 'o-p02fail31'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail31.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10519,7 +10519,7 @@ uri01(Config) ->
 'o-p02fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10533,7 +10533,7 @@ uri01(Config) ->
 'o-p02fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10547,7 +10547,7 @@ uri01(Config) ->
 'o-p02fail6'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail6.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10561,7 +10561,7 @@ uri01(Config) ->
 'o-p02fail7'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail7.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10575,7 +10575,7 @@ uri01(Config) ->
 'o-p02fail8'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail8.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10589,7 +10589,7 @@ uri01(Config) ->
 'o-p02fail9'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p02fail9.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10603,7 +10603,7 @@ uri01(Config) ->
 'o-p03fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10617,7 +10617,7 @@ uri01(Config) ->
 'o-p03fail10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10631,7 +10631,7 @@ uri01(Config) ->
 'o-p03fail11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10645,7 +10645,7 @@ uri01(Config) ->
 'o-p03fail12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10659,7 +10659,7 @@ uri01(Config) ->
 'o-p03fail13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10673,7 +10673,7 @@ uri01(Config) ->
 'o-p03fail14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10687,7 +10687,7 @@ uri01(Config) ->
 'o-p03fail15'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10701,7 +10701,7 @@ uri01(Config) ->
 'o-p03fail16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10715,7 +10715,7 @@ uri01(Config) ->
 'o-p03fail17'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail17.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10729,7 +10729,7 @@ uri01(Config) ->
 'o-p03fail18'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail18.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10743,7 +10743,7 @@ uri01(Config) ->
 'o-p03fail19'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail19.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10757,7 +10757,7 @@ uri01(Config) ->
 'o-p03fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10771,7 +10771,7 @@ uri01(Config) ->
 'o-p03fail20'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail20.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10785,7 +10785,7 @@ uri01(Config) ->
 'o-p03fail21'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail21.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10799,7 +10799,7 @@ uri01(Config) ->
 'o-p03fail22'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail22.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10813,7 +10813,7 @@ uri01(Config) ->
 'o-p03fail23'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail23.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10827,7 +10827,7 @@ uri01(Config) ->
 'o-p03fail24'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail24.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10841,7 +10841,7 @@ uri01(Config) ->
 'o-p03fail25'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail25.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10855,7 +10855,7 @@ uri01(Config) ->
 'o-p03fail26'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail26.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10869,7 +10869,7 @@ uri01(Config) ->
 'o-p03fail27'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail27.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10883,7 +10883,7 @@ uri01(Config) ->
 'o-p03fail28'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail28.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10897,7 +10897,7 @@ uri01(Config) ->
 'o-p03fail29'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail29.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10911,7 +10911,7 @@ uri01(Config) ->
 'o-p03fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10925,7 +10925,7 @@ uri01(Config) ->
 'o-p03fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10939,7 +10939,7 @@ uri01(Config) ->
 'o-p03fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10953,7 +10953,7 @@ uri01(Config) ->
 'o-p03fail7'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail7.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10967,7 +10967,7 @@ uri01(Config) ->
 'o-p03fail8'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail8.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10981,7 +10981,7 @@ uri01(Config) ->
 'o-p03fail9'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p03fail9.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -10995,7 +10995,7 @@ uri01(Config) ->
 'o-p04fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p04fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11009,7 +11009,7 @@ uri01(Config) ->
 'o-p04fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p04fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11023,7 +11023,7 @@ uri01(Config) ->
 'o-p04fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p04fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11037,7 +11037,7 @@ uri01(Config) ->
 'o-p05fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p05fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11051,7 +11051,7 @@ uri01(Config) ->
 'o-p05fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p05fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11065,7 +11065,7 @@ uri01(Config) ->
 'o-p05fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p05fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11079,7 +11079,7 @@ uri01(Config) ->
 'o-p05fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p05fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11093,7 +11093,7 @@ uri01(Config) ->
 'o-p05fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p05fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11108,7 +11108,7 @@ uri01(Config) ->
 'o-p09fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p09fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11123,7 +11123,7 @@ uri01(Config) ->
 'o-p09fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p09fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11137,7 +11137,7 @@ uri01(Config) ->
 'o-p09fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p09fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11151,7 +11151,7 @@ uri01(Config) ->
 'o-p09fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p09fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11165,7 +11165,7 @@ uri01(Config) ->
 'o-p09fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p09fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11179,7 +11179,7 @@ uri01(Config) ->
 'o-p10fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p10fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11193,7 +11193,7 @@ uri01(Config) ->
 'o-p10fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p10fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11207,7 +11207,7 @@ uri01(Config) ->
 'o-p10fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p10fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11221,7 +11221,7 @@ uri01(Config) ->
 'o-p11fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p11fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11235,7 +11235,7 @@ uri01(Config) ->
 'o-p11fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p11fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11249,7 +11249,7 @@ uri01(Config) ->
 'o-p12fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p12fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11263,7 +11263,7 @@ uri01(Config) ->
 'o-p12fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p12fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11277,7 +11277,7 @@ uri01(Config) ->
 'o-p12fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p12fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11291,7 +11291,7 @@ uri01(Config) ->
 'o-p12fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p12fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11305,7 +11305,7 @@ uri01(Config) ->
 'o-p12fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p12fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11319,7 +11319,7 @@ uri01(Config) ->
 'o-p12fail6'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p12fail6.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11333,7 +11333,7 @@ uri01(Config) ->
 'o-p12fail7'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p12fail7.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11347,7 +11347,7 @@ uri01(Config) ->
 'o-p14fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p14fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11361,7 +11361,7 @@ uri01(Config) ->
 'o-p14fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p14fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11375,7 +11375,7 @@ uri01(Config) ->
 'o-p14fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p14fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11389,7 +11389,7 @@ uri01(Config) ->
 'o-p15fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p15fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11403,7 +11403,7 @@ uri01(Config) ->
 'o-p15fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p15fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11417,7 +11417,7 @@ uri01(Config) ->
 'o-p15fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p15fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11431,7 +11431,7 @@ uri01(Config) ->
 'o-p16fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p16fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11445,7 +11445,7 @@ uri01(Config) ->
 'o-p16fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p16fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11459,7 +11459,7 @@ uri01(Config) ->
 'o-p16fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p16fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11473,7 +11473,7 @@ uri01(Config) ->
 'o-p18fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p18fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11487,7 +11487,7 @@ uri01(Config) ->
 'o-p18fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p18fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11501,7 +11501,7 @@ uri01(Config) ->
 'o-p18fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p18fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11515,7 +11515,7 @@ uri01(Config) ->
 'o-p22fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p22fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11529,7 +11529,7 @@ uri01(Config) ->
 'o-p22fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p22fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11543,7 +11543,7 @@ uri01(Config) ->
 'o-p23fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11557,7 +11557,7 @@ uri01(Config) ->
 'o-p23fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11571,7 +11571,7 @@ uri01(Config) ->
 'o-p23fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11585,7 +11585,7 @@ uri01(Config) ->
 'o-p23fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11599,7 +11599,7 @@ uri01(Config) ->
 'o-p23fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p23fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11613,7 +11613,7 @@ uri01(Config) ->
 'o-p24fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p24fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11627,7 +11627,7 @@ uri01(Config) ->
 'o-p24fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p24fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11641,7 +11641,7 @@ uri01(Config) ->
 'o-p25fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p25fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11655,7 +11655,7 @@ uri01(Config) ->
 'o-p26fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p26fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11669,7 +11669,7 @@ uri01(Config) ->
 'o-p26fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p26fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11684,7 +11684,7 @@ uri01(Config) ->
 'o-p27fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p27fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11698,7 +11698,7 @@ uri01(Config) ->
 'o-p28fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p28fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11712,7 +11712,7 @@ uri01(Config) ->
 'o-p29fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p29fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11727,7 +11727,7 @@ uri01(Config) ->
 'o-p30fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p30fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11742,7 +11742,7 @@ uri01(Config) ->
 'o-p31fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p31fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11756,7 +11756,7 @@ uri01(Config) ->
 'o-p32fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p32fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11770,7 +11770,7 @@ uri01(Config) ->
 'o-p32fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p32fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11784,7 +11784,7 @@ uri01(Config) ->
 'o-p32fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p32fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11798,7 +11798,7 @@ uri01(Config) ->
 'o-p32fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p32fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11812,7 +11812,7 @@ uri01(Config) ->
 'o-p32fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p32fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11826,7 +11826,7 @@ uri01(Config) ->
 'o-p39fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p39fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11840,7 +11840,7 @@ uri01(Config) ->
 'o-p39fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p39fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11854,7 +11854,7 @@ uri01(Config) ->
 'o-p39fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p39fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11868,7 +11868,7 @@ uri01(Config) ->
 'o-p39fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p39fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11882,7 +11882,7 @@ uri01(Config) ->
 'o-p39fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p39fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11896,7 +11896,7 @@ uri01(Config) ->
 'o-p40fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p40fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11910,7 +11910,7 @@ uri01(Config) ->
 'o-p40fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p40fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11924,7 +11924,7 @@ uri01(Config) ->
 'o-p40fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p40fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11938,7 +11938,7 @@ uri01(Config) ->
 'o-p40fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p40fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11952,7 +11952,7 @@ uri01(Config) ->
 'o-p41fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p41fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11966,7 +11966,7 @@ uri01(Config) ->
 'o-p41fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p41fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11980,7 +11980,7 @@ uri01(Config) ->
 'o-p41fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p41fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -11994,7 +11994,7 @@ uri01(Config) ->
 'o-p42fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p42fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12008,7 +12008,7 @@ uri01(Config) ->
 'o-p42fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p42fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12022,7 +12022,7 @@ uri01(Config) ->
 'o-p42fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p42fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12036,7 +12036,7 @@ uri01(Config) ->
 'o-p43fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p43fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12050,7 +12050,7 @@ uri01(Config) ->
 'o-p43fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p43fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12064,7 +12064,7 @@ uri01(Config) ->
 'o-p43fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p43fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12078,7 +12078,7 @@ uri01(Config) ->
 'o-p44fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12092,7 +12092,7 @@ uri01(Config) ->
 'o-p44fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12106,7 +12106,7 @@ uri01(Config) ->
 'o-p44fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12120,7 +12120,7 @@ uri01(Config) ->
 'o-p44fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12134,7 +12134,7 @@ uri01(Config) ->
 'o-p44fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p44fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12148,7 +12148,7 @@ uri01(Config) ->
 'o-p45fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p45fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12162,7 +12162,7 @@ uri01(Config) ->
 'o-p45fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p45fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12176,7 +12176,7 @@ uri01(Config) ->
 'o-p45fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p45fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12190,7 +12190,7 @@ uri01(Config) ->
 'o-p45fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p45fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12204,7 +12204,7 @@ uri01(Config) ->
 'o-p46fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p46fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12218,7 +12218,7 @@ uri01(Config) ->
 'o-p46fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p46fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12232,7 +12232,7 @@ uri01(Config) ->
 'o-p46fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p46fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12246,7 +12246,7 @@ uri01(Config) ->
 'o-p46fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p46fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12260,7 +12260,7 @@ uri01(Config) ->
 'o-p46fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p46fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12274,7 +12274,7 @@ uri01(Config) ->
 'o-p46fail6'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p46fail6.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12288,7 +12288,7 @@ uri01(Config) ->
 'o-p47fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p47fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12302,7 +12302,7 @@ uri01(Config) ->
 'o-p47fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p47fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12316,7 +12316,7 @@ uri01(Config) ->
 'o-p47fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p47fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12330,7 +12330,7 @@ uri01(Config) ->
 'o-p47fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p47fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12344,7 +12344,7 @@ uri01(Config) ->
 'o-p48fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p48fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12358,7 +12358,7 @@ uri01(Config) ->
 'o-p48fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p48fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12372,7 +12372,7 @@ uri01(Config) ->
 'o-p49fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p49fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12386,7 +12386,7 @@ uri01(Config) ->
 'o-p50fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p50fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12400,7 +12400,7 @@ uri01(Config) ->
 'o-p51fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p51fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12414,7 +12414,7 @@ uri01(Config) ->
 'o-p51fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p51fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12428,7 +12428,7 @@ uri01(Config) ->
 'o-p51fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p51fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12442,7 +12442,7 @@ uri01(Config) ->
 'o-p51fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p51fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12456,7 +12456,7 @@ uri01(Config) ->
 'o-p51fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p51fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12470,7 +12470,7 @@ uri01(Config) ->
 'o-p51fail6'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p51fail6.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12484,7 +12484,7 @@ uri01(Config) ->
 'o-p51fail7'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p51fail7.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12498,7 +12498,7 @@ uri01(Config) ->
 'o-p52fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p52fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12512,7 +12512,7 @@ uri01(Config) ->
 'o-p52fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p52fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12526,7 +12526,7 @@ uri01(Config) ->
 'o-p53fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p53fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12540,7 +12540,7 @@ uri01(Config) ->
 'o-p53fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p53fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12554,7 +12554,7 @@ uri01(Config) ->
 'o-p53fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p53fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12568,7 +12568,7 @@ uri01(Config) ->
 'o-p53fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p53fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12582,7 +12582,7 @@ uri01(Config) ->
 'o-p53fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p53fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12596,7 +12596,7 @@ uri01(Config) ->
 'o-p54fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p54fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12610,7 +12610,7 @@ uri01(Config) ->
 'o-p55fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p55fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12624,7 +12624,7 @@ uri01(Config) ->
 'o-p56fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p56fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12638,7 +12638,7 @@ uri01(Config) ->
 'o-p56fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p56fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12652,7 +12652,7 @@ uri01(Config) ->
 'o-p56fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p56fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12666,7 +12666,7 @@ uri01(Config) ->
 'o-p56fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p56fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12680,7 +12680,7 @@ uri01(Config) ->
 'o-p56fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p56fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12694,7 +12694,7 @@ uri01(Config) ->
 'o-p57fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p57fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12708,7 +12708,7 @@ uri01(Config) ->
 'o-p58fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12722,7 +12722,7 @@ uri01(Config) ->
 'o-p58fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12740,7 +12740,7 @@ uri01(Config) ->
 'o-p58fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12754,7 +12754,7 @@ uri01(Config) ->
 'o-p58fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12768,7 +12768,7 @@ uri01(Config) ->
 'o-p58fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12782,7 +12782,7 @@ uri01(Config) ->
 'o-p58fail6'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58fail6.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12796,7 +12796,7 @@ uri01(Config) ->
 'o-p58fail7'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58fail7.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12810,7 +12810,7 @@ uri01(Config) ->
 'o-p58fail8'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p58fail8.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12824,7 +12824,7 @@ uri01(Config) ->
 'o-p59fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p59fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12838,7 +12838,7 @@ uri01(Config) ->
 'o-p59fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p59fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12852,7 +12852,7 @@ uri01(Config) ->
 'o-p59fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p59fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12866,7 +12866,7 @@ uri01(Config) ->
 'o-p60fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p60fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12880,7 +12880,7 @@ uri01(Config) ->
 'o-p60fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p60fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12894,7 +12894,7 @@ uri01(Config) ->
 'o-p60fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p60fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12908,7 +12908,7 @@ uri01(Config) ->
 'o-p60fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p60fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12922,7 +12922,7 @@ uri01(Config) ->
 'o-p60fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p60fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12937,7 +12937,7 @@ uri01(Config) ->
 'o-p61fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p61fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12952,7 +12952,7 @@ uri01(Config) ->
 'o-p62fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p62fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12967,7 +12967,7 @@ uri01(Config) ->
 'o-p62fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p62fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12982,7 +12982,7 @@ uri01(Config) ->
 'o-p63fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p63fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -12997,7 +12997,7 @@ uri01(Config) ->
 'o-p63fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p63fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13012,7 +13012,7 @@ uri01(Config) ->
 'o-p64fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p64fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13027,7 +13027,7 @@ uri01(Config) ->
 'o-p64fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p64fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13041,7 +13041,7 @@ uri01(Config) ->
 'o-p66fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p66fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13055,7 +13055,7 @@ uri01(Config) ->
 'o-p66fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p66fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13069,7 +13069,7 @@ uri01(Config) ->
 'o-p66fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p66fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13083,7 +13083,7 @@ uri01(Config) ->
 'o-p66fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p66fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13097,7 +13097,7 @@ uri01(Config) ->
 'o-p66fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p66fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13111,7 +13111,7 @@ uri01(Config) ->
 'o-p66fail6'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p66fail6.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13125,7 +13125,7 @@ uri01(Config) ->
 'o-p68fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p68fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13139,7 +13139,7 @@ uri01(Config) ->
 'o-p68fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p68fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13153,7 +13153,7 @@ uri01(Config) ->
 'o-p68fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p68fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13167,7 +13167,7 @@ uri01(Config) ->
 'o-p69fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p69fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13181,7 +13181,7 @@ uri01(Config) ->
 'o-p69fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p69fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13195,7 +13195,7 @@ uri01(Config) ->
 'o-p69fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p69fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13209,7 +13209,7 @@ uri01(Config) ->
 'o-p70fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p70fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13223,7 +13223,7 @@ uri01(Config) ->
 'o-p71fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p71fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13237,7 +13237,7 @@ uri01(Config) ->
 'o-p71fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p71fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13251,7 +13251,7 @@ uri01(Config) ->
 'o-p71fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p71fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13265,7 +13265,7 @@ uri01(Config) ->
 'o-p71fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p71fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13279,7 +13279,7 @@ uri01(Config) ->
 'o-p72fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p72fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13293,7 +13293,7 @@ uri01(Config) ->
 'o-p72fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p72fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13307,7 +13307,7 @@ uri01(Config) ->
 'o-p72fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p72fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13321,7 +13321,7 @@ uri01(Config) ->
 'o-p72fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p72fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13335,7 +13335,7 @@ uri01(Config) ->
 'o-p73fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p73fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13349,7 +13349,7 @@ uri01(Config) ->
 'o-p73fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p73fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13363,7 +13363,7 @@ uri01(Config) ->
 'o-p73fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p73fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13377,7 +13377,7 @@ uri01(Config) ->
 'o-p73fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p73fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13391,7 +13391,7 @@ uri01(Config) ->
 'o-p73fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p73fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13405,7 +13405,7 @@ uri01(Config) ->
 'o-p74fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p74fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13419,7 +13419,7 @@ uri01(Config) ->
 'o-p74fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p74fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13433,7 +13433,7 @@ uri01(Config) ->
 'o-p74fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p74fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13447,7 +13447,7 @@ uri01(Config) ->
 'o-p75fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p75fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13461,7 +13461,7 @@ uri01(Config) ->
 'o-p75fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p75fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13475,7 +13475,7 @@ uri01(Config) ->
 'o-p75fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p75fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13489,7 +13489,7 @@ uri01(Config) ->
 'o-p75fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p75fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13503,7 +13503,7 @@ uri01(Config) ->
 'o-p75fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p75fail5.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13517,7 +13517,7 @@ uri01(Config) ->
 'o-p75fail6'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p75fail6.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13531,7 +13531,7 @@ uri01(Config) ->
 'o-p76fail1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p76fail1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13545,7 +13545,7 @@ uri01(Config) ->
 'o-p76fail2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p76fail2.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13559,7 +13559,7 @@ uri01(Config) ->
 'o-p76fail3'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p76fail3.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13573,7 +13573,7 @@ uri01(Config) ->
 'o-p76fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p76fail4.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -13587,7 +13587,7 @@ uri01(Config) ->
 'o-p11pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p11pass1.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -13610,7 +13610,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P28/ibm28i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P28/out/ibm28i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13631,7 +13631,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P32/ibm32i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P32/out/ibm32i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13652,7 +13652,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P32/ibm32i03.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P32/out/ibm32i03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13673,7 +13673,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P32/ibm32i04.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P32/out/ibm32i04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13691,7 +13691,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P39/ibm39i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P39/out/ibm39i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13709,7 +13709,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P39/ibm39i02.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P39/out/ibm39i02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13727,7 +13727,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P39/ibm39i03.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P39/out/ibm39i03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13745,7 +13745,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P39/ibm39i04.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P39/out/ibm39i04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13763,7 +13763,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P41/ibm41i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P41/out/ibm41i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13781,7 +13781,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P41/ibm41i02.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P41/out/ibm41i02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13799,7 +13799,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P45/ibm45i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P45/out/ibm45i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13818,7 +13818,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P49/ibm49i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P49/out/ibm49i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13837,7 +13837,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P50/ibm50i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P50/out/ibm50i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13856,7 +13856,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P51/ibm51i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P51/out/ibm51i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13874,7 +13874,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P51/ibm51i03.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P51/out/ibm51i03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13893,7 +13893,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13912,7 +13912,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i02.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13930,7 +13930,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i03.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13949,7 +13949,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i05.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13967,7 +13967,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i06.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i06.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -13986,7 +13986,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i07.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i07.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14005,7 +14005,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i08.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i08.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14024,7 +14024,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i09.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i09.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14043,7 +14043,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i10.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i10.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14062,7 +14062,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i11.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i11.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14081,7 +14081,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i12.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i12.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14100,7 +14100,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i13.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i13.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14119,7 +14119,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i14.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i14.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14138,7 +14138,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i15.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i15.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14157,7 +14157,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i16.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i16.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14176,7 +14176,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i17.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i17.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14195,7 +14195,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P56/ibm56i18.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P56/out/ibm56i18.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14214,7 +14214,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P58/ibm58i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P58/out/ibm58i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14233,7 +14233,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P58/ibm58i02.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P58/out/ibm58i02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14252,7 +14252,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P59/ibm59i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P59/out/ibm59i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14272,7 +14272,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P60/ibm60i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P60/out/ibm60i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14293,7 +14293,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P60/ibm60i02.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P60/out/ibm60i02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14312,7 +14312,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P60/ibm60i03.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P60/out/ibm60i03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14331,7 +14331,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P60/ibm60i04.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P60/out/ibm60i04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14351,7 +14351,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P68/ibm68i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P68/out/ibm68i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error", O).
 
 %%----------------------------------------------------------------------
@@ -14370,7 +14370,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P68/ibm68i02.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P68/out/ibm68i02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error", O).
 
 %%----------------------------------------------------------------------
@@ -14390,7 +14390,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P68/ibm68i03.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P68/out/ibm68i03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error", O).
 
 %%----------------------------------------------------------------------
@@ -14409,7 +14409,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P68/ibm68i04.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P68/out/ibm68i04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error", O).
 
 %%----------------------------------------------------------------------
@@ -14429,7 +14429,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P69/ibm69i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P69/out/ibm69i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error", O).
 
 %%----------------------------------------------------------------------
@@ -14448,7 +14448,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P69/ibm69i02.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P69/out/ibm69i02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error", O).
 
 %%----------------------------------------------------------------------
@@ -14468,7 +14468,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P69/ibm69i03.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P69/out/ibm69i03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error", O).
 
 %%----------------------------------------------------------------------
@@ -14487,7 +14487,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P69/ibm69i04.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P69/out/ibm69i04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error", O).
 
 %%----------------------------------------------------------------------
@@ -14506,7 +14506,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","invalid/P76/ibm76i01.xml"]),
     Out = filename:join([datadir(Config),"ibm","invalid/P76/out/ibm76i01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "invalid", O).
 
 %%----------------------------------------------------------------------
@@ -14521,7 +14521,7 @@ uri01(Config) ->
 'ibm-not-wf-P01-ibm01n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P01/ibm01n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14536,7 +14536,7 @@ uri01(Config) ->
 'ibm-not-wf-P01-ibm01n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P01/ibm01n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14551,7 +14551,7 @@ uri01(Config) ->
 'ibm-not-wf-P01-ibm01n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P01/ibm01n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14565,7 +14565,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14579,7 +14579,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14593,7 +14593,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14607,7 +14607,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14621,7 +14621,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14635,7 +14635,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14649,7 +14649,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14663,7 +14663,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14677,7 +14677,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14691,7 +14691,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14705,7 +14705,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14719,7 +14719,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14733,7 +14733,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14747,7 +14747,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14761,7 +14761,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n15'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14775,7 +14775,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14789,7 +14789,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n17'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n17.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14803,7 +14803,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n18'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n18.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14817,7 +14817,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n19'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n19.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14831,7 +14831,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n20'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n20.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14845,7 +14845,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n21'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n21.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14859,7 +14859,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n22'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n22.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14873,7 +14873,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n23'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n23.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14887,7 +14887,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n24'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n24.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14901,7 +14901,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n25'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n25.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14915,7 +14915,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n26'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n26.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14929,7 +14929,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n27'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n27.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14943,7 +14943,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n28'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n28.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14957,7 +14957,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n29'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n29.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14971,7 +14971,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n30'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n30.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14985,7 +14985,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n31'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n31.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -14999,7 +14999,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n32'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n32.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15013,7 +15013,7 @@ uri01(Config) ->
 'ibm-not-wf-P02-ibm02n33'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P02/ibm02n33.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15028,7 +15028,7 @@ uri01(Config) ->
 'ibm-not-wf-P03-ibm03n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P03/ibm03n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15043,7 +15043,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15058,7 +15058,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15073,7 +15073,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15088,7 +15088,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15103,7 +15103,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15118,7 +15118,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15133,7 +15133,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15148,7 +15148,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15163,7 +15163,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15178,7 +15178,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15193,7 +15193,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15208,7 +15208,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15223,7 +15223,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15238,7 +15238,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15253,7 +15253,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n15'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15268,7 +15268,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15283,7 +15283,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n17'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n17.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15298,7 +15298,7 @@ uri01(Config) ->
 'ibm-not-wf-P04-ibm04n18'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P04/ibm04n18.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15313,7 +15313,7 @@ uri01(Config) ->
 'ibm-not-wf-P05-ibm05n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P05/ibm05n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15328,7 +15328,7 @@ uri01(Config) ->
 'ibm-not-wf-P05-ibm05n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P05/ibm05n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15343,7 +15343,7 @@ uri01(Config) ->
 'ibm-not-wf-P05-ibm05n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P05/ibm05n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15358,7 +15358,7 @@ uri01(Config) ->
 'ibm-not-wf-P09-ibm09n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P09/ibm09n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15373,7 +15373,7 @@ uri01(Config) ->
 'ibm-not-wf-P09-ibm09n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P09/ibm09n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15388,7 +15388,7 @@ uri01(Config) ->
 'ibm-not-wf-P09-ibm09n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P09/ibm09n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15403,7 +15403,7 @@ uri01(Config) ->
 'ibm-not-wf-P09-ibm09n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P09/ibm09n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15418,7 +15418,7 @@ uri01(Config) ->
 'ibm-not-wf-P10-ibm10n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P10/ibm10n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15433,7 +15433,7 @@ uri01(Config) ->
 'ibm-not-wf-P10-ibm10n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P10/ibm10n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15448,7 +15448,7 @@ uri01(Config) ->
 'ibm-not-wf-P10-ibm10n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P10/ibm10n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15463,7 +15463,7 @@ uri01(Config) ->
 'ibm-not-wf-P10-ibm10n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P10/ibm10n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15478,7 +15478,7 @@ uri01(Config) ->
 'ibm-not-wf-P10-ibm10n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P10/ibm10n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15493,7 +15493,7 @@ uri01(Config) ->
 'ibm-not-wf-P10-ibm10n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P10/ibm10n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15508,7 +15508,7 @@ uri01(Config) ->
 'ibm-not-wf-P10-ibm10n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P10/ibm10n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15523,7 +15523,7 @@ uri01(Config) ->
 'ibm-not-wf-P10-ibm10n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P10/ibm10n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15538,7 +15538,7 @@ uri01(Config) ->
 'ibm-not-wf-P11-ibm11n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P11/ibm11n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15553,7 +15553,7 @@ uri01(Config) ->
 'ibm-not-wf-P11-ibm11n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P11/ibm11n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15568,7 +15568,7 @@ uri01(Config) ->
 'ibm-not-wf-P11-ibm11n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P11/ibm11n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15583,7 +15583,7 @@ uri01(Config) ->
 'ibm-not-wf-P11-ibm11n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P11/ibm11n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15598,7 +15598,7 @@ uri01(Config) ->
 'ibm-not-wf-P12-ibm12n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P12/ibm12n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15613,7 +15613,7 @@ uri01(Config) ->
 'ibm-not-wf-P12-ibm12n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P12/ibm12n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15628,7 +15628,7 @@ uri01(Config) ->
 'ibm-not-wf-P12-ibm12n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P12/ibm12n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15643,7 +15643,7 @@ uri01(Config) ->
 'ibm-not-wf-P13-ibm13n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P13/ibm13n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15658,7 +15658,7 @@ uri01(Config) ->
 'ibm-not-wf-P13-ibm13n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P13/ibm13n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15673,7 +15673,7 @@ uri01(Config) ->
 'ibm-not-wf-P13-ibm13n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P13/ibm13n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15688,7 +15688,7 @@ uri01(Config) ->
 'ibm-not-wf-P14-ibm14n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P14/ibm14n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15703,7 +15703,7 @@ uri01(Config) ->
 'ibm-not-wf-P14-ibm14n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P14/ibm14n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15718,7 +15718,7 @@ uri01(Config) ->
 'ibm-not-wf-P14-ibm14n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P14/ibm14n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15732,7 +15732,7 @@ uri01(Config) ->
 'ibm-not-wf-P15-ibm15n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P15/ibm15n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15747,7 +15747,7 @@ uri01(Config) ->
 'ibm-not-wf-P15-ibm15n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P15/ibm15n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15762,7 +15762,7 @@ uri01(Config) ->
 'ibm-not-wf-P15-ibm15n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P15/ibm15n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15776,7 +15776,7 @@ uri01(Config) ->
 'ibm-not-wf-P15-ibm15n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P15/ibm15n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15790,7 +15790,7 @@ uri01(Config) ->
 'ibm-not-wf-P16-ibm16n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P16/ibm16n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15804,7 +15804,7 @@ uri01(Config) ->
 'ibm-not-wf-P16-ibm16n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P16/ibm16n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15818,7 +15818,7 @@ uri01(Config) ->
 'ibm-not-wf-P16-ibm16n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P16/ibm16n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15832,7 +15832,7 @@ uri01(Config) ->
 'ibm-not-wf-P16-ibm16n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P16/ibm16n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15846,7 +15846,7 @@ uri01(Config) ->
 'ibm-not-wf-P17-ibm17n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P17/ibm17n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15860,7 +15860,7 @@ uri01(Config) ->
 'ibm-not-wf-P17-ibm17n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P17/ibm17n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15874,7 +15874,7 @@ uri01(Config) ->
 'ibm-not-wf-P17-ibm17n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P17/ibm17n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15888,7 +15888,7 @@ uri01(Config) ->
 'ibm-not-wf-P17-ibm17n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P17/ibm17n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15903,7 +15903,7 @@ uri01(Config) ->
 'ibm-not-wf-P18-ibm18n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P18/ibm18n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15918,7 +15918,7 @@ uri01(Config) ->
 'ibm-not-wf-P18-ibm18n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P18/ibm18n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15932,7 +15932,7 @@ uri01(Config) ->
 'ibm-not-wf-P19-ibm19n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P19/ibm19n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15946,7 +15946,7 @@ uri01(Config) ->
 'ibm-not-wf-P19-ibm19n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P19/ibm19n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15960,7 +15960,7 @@ uri01(Config) ->
 'ibm-not-wf-P19-ibm19n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P19/ibm19n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15975,7 +15975,7 @@ uri01(Config) ->
 'ibm-not-wf-P20-ibm20n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P20/ibm20n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -15989,7 +15989,7 @@ uri01(Config) ->
 'ibm-not-wf-P21-ibm21n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P21/ibm21n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16003,7 +16003,7 @@ uri01(Config) ->
 'ibm-not-wf-P21-ibm21n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P21/ibm21n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16017,7 +16017,7 @@ uri01(Config) ->
 'ibm-not-wf-P21-ibm21n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P21/ibm21n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16031,7 +16031,7 @@ uri01(Config) ->
 'ibm-not-wf-P22-ibm22n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P22/ibm22n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16046,7 +16046,7 @@ uri01(Config) ->
 'ibm-not-wf-P22-ibm22n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P22/ibm22n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16061,7 +16061,7 @@ uri01(Config) ->
 'ibm-not-wf-P22-ibm22n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P22/ibm22n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16076,7 +16076,7 @@ uri01(Config) ->
 'ibm-not-wf-P23-ibm23n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P23/ibm23n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16091,7 +16091,7 @@ uri01(Config) ->
 'ibm-not-wf-P23-ibm23n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P23/ibm23n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16106,7 +16106,7 @@ uri01(Config) ->
 'ibm-not-wf-P23-ibm23n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P23/ibm23n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16121,7 +16121,7 @@ uri01(Config) ->
 'ibm-not-wf-P23-ibm23n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P23/ibm23n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16135,7 +16135,7 @@ uri01(Config) ->
 'ibm-not-wf-P23-ibm23n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P23/ibm23n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16149,7 +16149,7 @@ uri01(Config) ->
 'ibm-not-wf-P23-ibm23n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P23/ibm23n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16164,7 +16164,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16179,7 +16179,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16194,7 +16194,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16209,7 +16209,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16224,7 +16224,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16238,7 +16238,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16252,7 +16252,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16267,7 +16267,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16282,7 +16282,7 @@ uri01(Config) ->
 'ibm-not-wf-P24-ibm24n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P24/ibm24n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16296,7 +16296,7 @@ uri01(Config) ->
 'ibm-not-wf-P25-ibm25n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P25/ibm25n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16310,7 +16310,7 @@ uri01(Config) ->
 'ibm-not-wf-P25-ibm25n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P25/ibm25n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16324,7 +16324,7 @@ uri01(Config) ->
 'ibm-not-wf-P26-ibm26n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P26/ibm26n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16339,7 +16339,7 @@ uri01(Config) ->
 'ibm-not-wf-P27-ibm27n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P27/ibm27n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16354,7 +16354,7 @@ uri01(Config) ->
 'ibm-not-wf-P28-ibm28n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P28/ibm28n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16369,7 +16369,7 @@ uri01(Config) ->
 'ibm-not-wf-P28-ibm28n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P28/ibm28n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16384,7 +16384,7 @@ uri01(Config) ->
 'ibm-not-wf-P28-ibm28n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P28/ibm28n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16399,7 +16399,7 @@ uri01(Config) ->
 'ibm-not-wf-P28-ibm28n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P28/ibm28n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16414,7 +16414,7 @@ uri01(Config) ->
 'ibm-not-wf-P28-ibm28n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P28/ibm28n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16429,7 +16429,7 @@ uri01(Config) ->
 'ibm-not-wf-P28-ibm28n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P28/ibm28n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16444,7 +16444,7 @@ uri01(Config) ->
 'ibm-not-wf-P28-ibm28n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P28/ibm28n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16459,7 +16459,7 @@ uri01(Config) ->
 'ibm-not-wf-P28-ibm28n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P28/ibm28n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16476,7 +16476,7 @@ uri01(Config) ->
 'ibm-not-wf-p28a-ibm28an01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/p28a/ibm28an01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16491,7 +16491,7 @@ uri01(Config) ->
 'ibm-not-wf-P29-ibm29n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P29/ibm29n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16506,7 +16506,7 @@ uri01(Config) ->
 'ibm-not-wf-P29-ibm29n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P29/ibm29n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16521,7 +16521,7 @@ uri01(Config) ->
 'ibm-not-wf-P29-ibm29n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P29/ibm29n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16536,7 +16536,7 @@ uri01(Config) ->
 'ibm-not-wf-P29-ibm29n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P29/ibm29n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16551,7 +16551,7 @@ uri01(Config) ->
 'ibm-not-wf-P29-ibm29n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P29/ibm29n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16566,7 +16566,7 @@ uri01(Config) ->
 'ibm-not-wf-P29-ibm29n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P29/ibm29n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16581,7 +16581,7 @@ uri01(Config) ->
 'ibm-not-wf-P29-ibm29n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P29/ibm29n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16597,7 +16597,7 @@ uri01(Config) ->
 'ibm-not-wf-P30-ibm30n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P30/ibm30n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16613,7 +16613,7 @@ uri01(Config) ->
 'ibm-not-wf-P31-ibm31n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P31/ibm31n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16628,7 +16628,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16643,7 +16643,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16658,7 +16658,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16673,7 +16673,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16688,7 +16688,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16703,7 +16703,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16718,7 +16718,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16733,7 +16733,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16751,7 +16751,7 @@ uri01(Config) ->
 'ibm-not-wf-P32-ibm32n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P32/ibm32n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16766,7 +16766,7 @@ uri01(Config) ->
 'ibm-not-wf-P39-ibm39n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P39/ibm39n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16781,7 +16781,7 @@ uri01(Config) ->
 'ibm-not-wf-P39-ibm39n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P39/ibm39n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16796,7 +16796,7 @@ uri01(Config) ->
 'ibm-not-wf-P39-ibm39n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P39/ibm39n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16811,7 +16811,7 @@ uri01(Config) ->
 'ibm-not-wf-P39-ibm39n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P39/ibm39n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16826,7 +16826,7 @@ uri01(Config) ->
 'ibm-not-wf-P39-ibm39n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P39/ibm39n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16841,7 +16841,7 @@ uri01(Config) ->
 'ibm-not-wf-P39-ibm39n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P39/ibm39n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16856,7 +16856,7 @@ uri01(Config) ->
 'ibm-not-wf-P40-ibm40n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P40/ibm40n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16872,7 +16872,7 @@ uri01(Config) ->
 'ibm-not-wf-P40-ibm40n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P40/ibm40n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16887,7 +16887,7 @@ uri01(Config) ->
 'ibm-not-wf-P40-ibm40n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P40/ibm40n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16902,7 +16902,7 @@ uri01(Config) ->
 'ibm-not-wf-P40-ibm40n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P40/ibm40n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16917,7 +16917,7 @@ uri01(Config) ->
 'ibm-not-wf-P40-ibm40n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P40/ibm40n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16932,7 +16932,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16948,7 +16948,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16963,7 +16963,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16978,7 +16978,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -16993,7 +16993,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17008,7 +17008,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17023,7 +17023,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17038,7 +17038,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17053,7 +17053,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17069,7 +17069,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17085,7 +17085,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17101,7 +17101,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17117,7 +17117,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17133,7 +17133,7 @@ uri01(Config) ->
 'ibm-not-wf-P41-ibm41n14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P41/ibm41n14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17148,7 +17148,7 @@ uri01(Config) ->
 'ibm-not-wf-P42-ibm42n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P42/ibm42n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17163,7 +17163,7 @@ uri01(Config) ->
 'ibm-not-wf-P42-ibm42n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P42/ibm42n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17178,7 +17178,7 @@ uri01(Config) ->
 'ibm-not-wf-P42-ibm42n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P42/ibm42n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17193,7 +17193,7 @@ uri01(Config) ->
 'ibm-not-wf-P42-ibm42n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P42/ibm42n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17208,7 +17208,7 @@ uri01(Config) ->
 'ibm-not-wf-P42-ibm42n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P42/ibm42n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17223,7 +17223,7 @@ uri01(Config) ->
 'ibm-not-wf-P43-ibm43n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P43/ibm43n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17238,7 +17238,7 @@ uri01(Config) ->
 'ibm-not-wf-P43-ibm43n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P43/ibm43n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17253,7 +17253,7 @@ uri01(Config) ->
 'ibm-not-wf-P43-ibm43n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P43/ibm43n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17268,7 +17268,7 @@ uri01(Config) ->
 'ibm-not-wf-P43-ibm43n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P43/ibm43n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17283,7 +17283,7 @@ uri01(Config) ->
 'ibm-not-wf-P44-ibm44n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P44/ibm44n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17298,7 +17298,7 @@ uri01(Config) ->
 'ibm-not-wf-P44-ibm44n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P44/ibm44n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17313,7 +17313,7 @@ uri01(Config) ->
 'ibm-not-wf-P44-ibm44n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P44/ibm44n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17328,7 +17328,7 @@ uri01(Config) ->
 'ibm-not-wf-P44-ibm44n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P44/ibm44n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17343,7 +17343,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17358,7 +17358,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17373,7 +17373,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17388,7 +17388,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17403,7 +17403,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17418,7 +17418,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17434,7 +17434,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17449,7 +17449,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17464,7 +17464,7 @@ uri01(Config) ->
 'ibm-not-wf-P45-ibm45n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P45/ibm45n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17479,7 +17479,7 @@ uri01(Config) ->
 'ibm-not-wf-P46-ibm46n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P46/ibm46n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17494,7 +17494,7 @@ uri01(Config) ->
 'ibm-not-wf-P46-ibm46n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P46/ibm46n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17509,7 +17509,7 @@ uri01(Config) ->
 'ibm-not-wf-P46-ibm46n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P46/ibm46n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17524,7 +17524,7 @@ uri01(Config) ->
 'ibm-not-wf-P46-ibm46n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P46/ibm46n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17539,7 +17539,7 @@ uri01(Config) ->
 'ibm-not-wf-P46-ibm46n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P46/ibm46n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17554,7 +17554,7 @@ uri01(Config) ->
 'ibm-not-wf-P47-ibm47n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P47/ibm47n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17569,7 +17569,7 @@ uri01(Config) ->
 'ibm-not-wf-P47-ibm47n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P47/ibm47n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17584,7 +17584,7 @@ uri01(Config) ->
 'ibm-not-wf-P47-ibm47n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P47/ibm47n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17599,7 +17599,7 @@ uri01(Config) ->
 'ibm-not-wf-P47-ibm47n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P47/ibm47n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17614,7 +17614,7 @@ uri01(Config) ->
 'ibm-not-wf-P47-ibm47n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P47/ibm47n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17629,7 +17629,7 @@ uri01(Config) ->
 'ibm-not-wf-P47-ibm47n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P47/ibm47n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17645,7 +17645,7 @@ uri01(Config) ->
 'ibm-not-wf-P48-ibm48n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P48/ibm48n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17660,7 +17660,7 @@ uri01(Config) ->
 'ibm-not-wf-P48-ibm48n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P48/ibm48n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17676,7 +17676,7 @@ uri01(Config) ->
 'ibm-not-wf-P48-ibm48n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P48/ibm48n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17691,7 +17691,7 @@ uri01(Config) ->
 'ibm-not-wf-P48-ibm48n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P48/ibm48n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17706,7 +17706,7 @@ uri01(Config) ->
 'ibm-not-wf-P48-ibm48n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P48/ibm48n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17721,7 +17721,7 @@ uri01(Config) ->
 'ibm-not-wf-P48-ibm48n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P48/ibm48n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17736,7 +17736,7 @@ uri01(Config) ->
 'ibm-not-wf-P48-ibm48n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P48/ibm48n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17751,7 +17751,7 @@ uri01(Config) ->
 'ibm-not-wf-P49-ibm49n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P49/ibm49n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17766,7 +17766,7 @@ uri01(Config) ->
 'ibm-not-wf-P49-ibm49n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P49/ibm49n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17781,7 +17781,7 @@ uri01(Config) ->
 'ibm-not-wf-P49-ibm49n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P49/ibm49n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17796,7 +17796,7 @@ uri01(Config) ->
 'ibm-not-wf-P49-ibm49n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P49/ibm49n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17811,7 +17811,7 @@ uri01(Config) ->
 'ibm-not-wf-P49-ibm49n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P49/ibm49n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17826,7 +17826,7 @@ uri01(Config) ->
 'ibm-not-wf-P49-ibm49n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P49/ibm49n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17841,7 +17841,7 @@ uri01(Config) ->
 'ibm-not-wf-P50-ibm50n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P50/ibm50n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17856,7 +17856,7 @@ uri01(Config) ->
 'ibm-not-wf-P50-ibm50n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P50/ibm50n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17871,7 +17871,7 @@ uri01(Config) ->
 'ibm-not-wf-P50-ibm50n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P50/ibm50n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17886,7 +17886,7 @@ uri01(Config) ->
 'ibm-not-wf-P50-ibm50n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P50/ibm50n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17901,7 +17901,7 @@ uri01(Config) ->
 'ibm-not-wf-P50-ibm50n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P50/ibm50n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17916,7 +17916,7 @@ uri01(Config) ->
 'ibm-not-wf-P50-ibm50n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P50/ibm50n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17931,7 +17931,7 @@ uri01(Config) ->
 'ibm-not-wf-P50-ibm50n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P50/ibm50n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17946,7 +17946,7 @@ uri01(Config) ->
 'ibm-not-wf-P51-ibm51n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P51/ibm51n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17962,7 +17962,7 @@ uri01(Config) ->
 'ibm-not-wf-P51-ibm51n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P51/ibm51n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17978,7 +17978,7 @@ uri01(Config) ->
 'ibm-not-wf-P51-ibm51n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P51/ibm51n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -17993,7 +17993,7 @@ uri01(Config) ->
 'ibm-not-wf-P51-ibm51n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P51/ibm51n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18008,7 +18008,7 @@ uri01(Config) ->
 'ibm-not-wf-P51-ibm51n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P51/ibm51n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18023,7 +18023,7 @@ uri01(Config) ->
 'ibm-not-wf-P51-ibm51n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P51/ibm51n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18039,7 +18039,7 @@ uri01(Config) ->
 'ibm-not-wf-P51-ibm51n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P51/ibm51n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18054,7 +18054,7 @@ uri01(Config) ->
 'ibm-not-wf-P52-ibm52n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P52/ibm52n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18069,7 +18069,7 @@ uri01(Config) ->
 'ibm-not-wf-P52-ibm52n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P52/ibm52n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18084,7 +18084,7 @@ uri01(Config) ->
 'ibm-not-wf-P52-ibm52n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P52/ibm52n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18099,7 +18099,7 @@ uri01(Config) ->
 'ibm-not-wf-P52-ibm52n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P52/ibm52n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18114,7 +18114,7 @@ uri01(Config) ->
 'ibm-not-wf-P52-ibm52n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P52/ibm52n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18130,7 +18130,7 @@ uri01(Config) ->
 'ibm-not-wf-P52-ibm52n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P52/ibm52n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18145,7 +18145,7 @@ uri01(Config) ->
 'ibm-not-wf-P53-ibm53n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P53/ibm53n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18160,7 +18160,7 @@ uri01(Config) ->
 'ibm-not-wf-P53-ibm53n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P53/ibm53n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18175,7 +18175,7 @@ uri01(Config) ->
 'ibm-not-wf-P53-ibm53n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P53/ibm53n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18190,7 +18190,7 @@ uri01(Config) ->
 'ibm-not-wf-P53-ibm53n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P53/ibm53n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18205,7 +18205,7 @@ uri01(Config) ->
 'ibm-not-wf-P53-ibm53n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P53/ibm53n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18220,7 +18220,7 @@ uri01(Config) ->
 'ibm-not-wf-P53-ibm53n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P53/ibm53n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18235,7 +18235,7 @@ uri01(Config) ->
 'ibm-not-wf-P53-ibm53n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P53/ibm53n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18251,7 +18251,7 @@ uri01(Config) ->
 'ibm-not-wf-P53-ibm53n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P53/ibm53n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18266,7 +18266,7 @@ uri01(Config) ->
 'ibm-not-wf-P54-ibm54n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P54/ibm54n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18281,7 +18281,7 @@ uri01(Config) ->
 'ibm-not-wf-P54-ibm54n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P54/ibm54n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18296,7 +18296,7 @@ uri01(Config) ->
 'ibm-not-wf-P55-ibm55n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P55/ibm55n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18311,7 +18311,7 @@ uri01(Config) ->
 'ibm-not-wf-P55-ibm55n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P55/ibm55n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18326,7 +18326,7 @@ uri01(Config) ->
 'ibm-not-wf-P55-ibm55n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P55/ibm55n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18341,7 +18341,7 @@ uri01(Config) ->
 'ibm-not-wf-P56-ibm56n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P56/ibm56n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18356,7 +18356,7 @@ uri01(Config) ->
 'ibm-not-wf-P56-ibm56n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P56/ibm56n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18371,7 +18371,7 @@ uri01(Config) ->
 'ibm-not-wf-P56-ibm56n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P56/ibm56n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18386,7 +18386,7 @@ uri01(Config) ->
 'ibm-not-wf-P56-ibm56n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P56/ibm56n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18401,7 +18401,7 @@ uri01(Config) ->
 'ibm-not-wf-P56-ibm56n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P56/ibm56n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18416,7 +18416,7 @@ uri01(Config) ->
 'ibm-not-wf-P56-ibm56n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P56/ibm56n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18431,7 +18431,7 @@ uri01(Config) ->
 'ibm-not-wf-P56-ibm56n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P56/ibm56n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18446,7 +18446,7 @@ uri01(Config) ->
 'ibm-not-wf-P57-ibm57n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P57/ibm57n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18462,7 +18462,7 @@ uri01(Config) ->
 'ibm-not-wf-P58-ibm58n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P58/ibm58n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18477,7 +18477,7 @@ uri01(Config) ->
 'ibm-not-wf-P58-ibm58n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P58/ibm58n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18492,7 +18492,7 @@ uri01(Config) ->
 'ibm-not-wf-P58-ibm58n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P58/ibm58n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18507,7 +18507,7 @@ uri01(Config) ->
 'ibm-not-wf-P58-ibm58n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P58/ibm58n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18523,7 +18523,7 @@ uri01(Config) ->
 'ibm-not-wf-P58-ibm58n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P58/ibm58n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18539,7 +18539,7 @@ uri01(Config) ->
 'ibm-not-wf-P58-ibm58n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P58/ibm58n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18555,7 +18555,7 @@ uri01(Config) ->
 'ibm-not-wf-P58-ibm58n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P58/ibm58n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18571,7 +18571,7 @@ uri01(Config) ->
 'ibm-not-wf-P58-ibm58n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P58/ibm58n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18586,7 +18586,7 @@ uri01(Config) ->
 'ibm-not-wf-P59-ibm59n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P59/ibm59n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18601,7 +18601,7 @@ uri01(Config) ->
 'ibm-not-wf-P59-ibm59n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P59/ibm59n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18616,7 +18616,7 @@ uri01(Config) ->
 'ibm-not-wf-P59-ibm59n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P59/ibm59n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18631,7 +18631,7 @@ uri01(Config) ->
 'ibm-not-wf-P59-ibm59n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P59/ibm59n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18646,7 +18646,7 @@ uri01(Config) ->
 'ibm-not-wf-P59-ibm59n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P59/ibm59n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18661,7 +18661,7 @@ uri01(Config) ->
 'ibm-not-wf-P59-ibm59n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P59/ibm59n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18677,7 +18677,7 @@ uri01(Config) ->
 'ibm-not-wf-P60-ibm60n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P60/ibm60n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18692,7 +18692,7 @@ uri01(Config) ->
 'ibm-not-wf-P60-ibm60n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P60/ibm60n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18707,7 +18707,7 @@ uri01(Config) ->
 'ibm-not-wf-P60-ibm60n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P60/ibm60n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18723,7 +18723,7 @@ uri01(Config) ->
 'ibm-not-wf-P60-ibm60n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P60/ibm60n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18739,7 +18739,7 @@ uri01(Config) ->
 'ibm-not-wf-P60-ibm60n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P60/ibm60n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18755,7 +18755,7 @@ uri01(Config) ->
 'ibm-not-wf-P60-ibm60n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P60/ibm60n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18771,7 +18771,7 @@ uri01(Config) ->
 'ibm-not-wf-P60-ibm60n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P60/ibm60n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18787,7 +18787,7 @@ uri01(Config) ->
 'ibm-not-wf-P60-ibm60n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P60/ibm60n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18803,7 +18803,7 @@ uri01(Config) ->
 'ibm-not-wf-P61-ibm61n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P61/ibm61n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18820,7 +18820,7 @@ uri01(Config) ->
 'ibm-not-wf-P62-ibm62n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P62/ibm62n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18836,7 +18836,7 @@ uri01(Config) ->
 'ibm-not-wf-P62-ibm62n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P62/ibm62n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18853,7 +18853,7 @@ uri01(Config) ->
 'ibm-not-wf-P62-ibm62n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P62/ibm62n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18869,7 +18869,7 @@ uri01(Config) ->
 'ibm-not-wf-P62-ibm62n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P62/ibm62n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18885,7 +18885,7 @@ uri01(Config) ->
 'ibm-not-wf-P62-ibm62n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P62/ibm62n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18902,7 +18902,7 @@ uri01(Config) ->
 'ibm-not-wf-P62-ibm62n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P62/ibm62n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18918,7 +18918,7 @@ uri01(Config) ->
 'ibm-not-wf-P62-ibm62n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P62/ibm62n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18934,7 +18934,7 @@ uri01(Config) ->
 'ibm-not-wf-P62-ibm62n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P62/ibm62n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18950,7 +18950,7 @@ uri01(Config) ->
 'ibm-not-wf-P63-ibm63n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P63/ibm63n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18966,7 +18966,7 @@ uri01(Config) ->
 'ibm-not-wf-P63-ibm63n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P63/ibm63n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18983,7 +18983,7 @@ uri01(Config) ->
 'ibm-not-wf-P63-ibm63n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P63/ibm63n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -18999,7 +18999,7 @@ uri01(Config) ->
 'ibm-not-wf-P63-ibm63n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P63/ibm63n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19015,7 +19015,7 @@ uri01(Config) ->
 'ibm-not-wf-P63-ibm63n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P63/ibm63n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19032,7 +19032,7 @@ uri01(Config) ->
 'ibm-not-wf-P63-ibm63n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P63/ibm63n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19048,7 +19048,7 @@ uri01(Config) ->
 'ibm-not-wf-P63-ibm63n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P63/ibm63n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19064,7 +19064,7 @@ uri01(Config) ->
 'ibm-not-wf-P64-ibm64n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P64/ibm64n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19080,7 +19080,7 @@ uri01(Config) ->
 'ibm-not-wf-P64-ibm64n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P64/ibm64n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19096,7 +19096,7 @@ uri01(Config) ->
 'ibm-not-wf-P64-ibm64n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P64/ibm64n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19113,7 +19113,7 @@ uri01(Config) ->
 'ibm-not-wf-P65-ibm65n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P65/ibm65n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19130,7 +19130,7 @@ uri01(Config) ->
 'ibm-not-wf-P65-ibm65n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P65/ibm65n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19145,7 +19145,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19161,7 +19161,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19176,7 +19176,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19192,7 +19192,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19207,7 +19207,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19223,7 +19223,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19238,7 +19238,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19254,7 +19254,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19269,7 +19269,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19285,7 +19285,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19300,7 +19300,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19316,7 +19316,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19332,7 +19332,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19348,7 +19348,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19364,7 +19364,7 @@ uri01(Config) ->
 'ibm-not-wf-P66-ibm66n15'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P66/ibm66n15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19379,7 +19379,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19394,7 +19394,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19409,7 +19409,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19425,7 +19425,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19441,7 +19441,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19458,7 +19458,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19474,7 +19474,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19490,7 +19490,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19506,7 +19506,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19522,7 +19522,7 @@ uri01(Config) ->
 'ibm-not-wf-P68-ibm68n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P68/ibm68n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19537,7 +19537,7 @@ uri01(Config) ->
 'ibm-not-wf-P69-ibm69n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P69/ibm69n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19552,7 +19552,7 @@ uri01(Config) ->
 'ibm-not-wf-P69-ibm69n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P69/ibm69n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19567,7 +19567,7 @@ uri01(Config) ->
 'ibm-not-wf-P69-ibm69n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P69/ibm69n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19582,7 +19582,7 @@ uri01(Config) ->
 'ibm-not-wf-P69-ibm69n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P69/ibm69n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19599,7 +19599,7 @@ uri01(Config) ->
 'ibm-not-wf-P69-ibm69n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P69/ibm69n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "error").
 
 %%----------------------------------------------------------------------
@@ -19615,7 +19615,7 @@ uri01(Config) ->
 'ibm-not-wf-P69-ibm69n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P69/ibm69n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19631,7 +19631,7 @@ uri01(Config) ->
 'ibm-not-wf-P69-ibm69n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P69/ibm69n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19645,7 +19645,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm70n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm70n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19661,7 +19661,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm71n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm71n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19677,7 +19677,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm71n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm71n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19692,7 +19692,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm71n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm71n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19707,7 +19707,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm71n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm71n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19722,7 +19722,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm71n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm71n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19737,7 +19737,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm71n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm71n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19752,7 +19752,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm71n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm71n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19767,7 +19767,7 @@ uri01(Config) ->
 'ibm-not-wf-P71-ibm71n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P71/ibm71n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19782,7 +19782,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19797,7 +19797,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19812,7 +19812,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19827,7 +19827,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19842,7 +19842,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19857,7 +19857,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19872,7 +19872,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19887,7 +19887,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19902,7 +19902,7 @@ uri01(Config) ->
 'ibm-not-wf-P72-ibm72n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P72/ibm72n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19917,7 +19917,7 @@ uri01(Config) ->
 'ibm-not-wf-P73-ibm73n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P73/ibm73n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19932,7 +19932,7 @@ uri01(Config) ->
 'ibm-not-wf-P73-ibm73n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P73/ibm73n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19947,7 +19947,7 @@ uri01(Config) ->
 'ibm-not-wf-P74-ibm74n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P74/ibm74n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19962,7 +19962,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19977,7 +19977,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -19992,7 +19992,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20008,7 +20008,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20024,7 +20024,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20040,7 +20040,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20056,7 +20056,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20071,7 +20071,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20087,7 +20087,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20102,7 +20102,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20117,7 +20117,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20132,7 +20132,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20147,7 +20147,7 @@ uri01(Config) ->
 'ibm-not-wf-P75-ibm75n13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P75/ibm75n13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20162,7 +20162,7 @@ uri01(Config) ->
 'ibm-not-wf-P76-ibm76n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P76/ibm76n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20177,7 +20177,7 @@ uri01(Config) ->
 'ibm-not-wf-P76-ibm76n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P76/ibm76n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20192,7 +20192,7 @@ uri01(Config) ->
 'ibm-not-wf-P76-ibm76n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P76/ibm76n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20207,7 +20207,7 @@ uri01(Config) ->
 'ibm-not-wf-P76-ibm76n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P76/ibm76n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20222,7 +20222,7 @@ uri01(Config) ->
 'ibm-not-wf-P76-ibm76n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P76/ibm76n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20238,7 +20238,7 @@ uri01(Config) ->
 'ibm-not-wf-P76-ibm76n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P76/ibm76n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20253,7 +20253,7 @@ uri01(Config) ->
 'ibm-not-wf-P76-ibm76n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P76/ibm76n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20269,7 +20269,7 @@ uri01(Config) ->
 'ibm-not-wf-P77-ibm77n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P77/ibm77n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20285,7 +20285,7 @@ uri01(Config) ->
 'ibm-not-wf-P77-ibm77n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P77/ibm77n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20301,7 +20301,7 @@ uri01(Config) ->
 'ibm-not-wf-P77-ibm77n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P77/ibm77n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20317,7 +20317,7 @@ uri01(Config) ->
 'ibm-not-wf-P77-ibm77n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P77/ibm77n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20333,7 +20333,7 @@ uri01(Config) ->
 'ibm-not-wf-P78-ibm78n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P78/ibm78n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20349,7 +20349,7 @@ uri01(Config) ->
 'ibm-not-wf-P78-ibm78n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P78/ibm78n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20365,7 +20365,7 @@ uri01(Config) ->
 'ibm-not-wf-P79-ibm79n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P79/ibm79n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20381,7 +20381,7 @@ uri01(Config) ->
 'ibm-not-wf-P79-ibm79n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P79/ibm79n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20396,7 +20396,7 @@ uri01(Config) ->
 'ibm-not-wf-P80-ibm80n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P80/ibm80n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20411,7 +20411,7 @@ uri01(Config) ->
 'ibm-not-wf-P80-ibm80n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P80/ibm80n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20426,7 +20426,7 @@ uri01(Config) ->
 'ibm-not-wf-P80-ibm80n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P80/ibm80n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20441,7 +20441,7 @@ uri01(Config) ->
 'ibm-not-wf-P80-ibm80n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P80/ibm80n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20456,7 +20456,7 @@ uri01(Config) ->
 'ibm-not-wf-P80-ibm80n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P80/ibm80n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20471,7 +20471,7 @@ uri01(Config) ->
 'ibm-not-wf-P80-ibm80n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P80/ibm80n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20486,7 +20486,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20501,7 +20501,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20516,7 +20516,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20531,7 +20531,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20546,7 +20546,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20561,7 +20561,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20576,7 +20576,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20591,7 +20591,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20606,7 +20606,7 @@ uri01(Config) ->
 'ibm-not-wf-P81-ibm81n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P81/ibm81n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20621,7 +20621,7 @@ uri01(Config) ->
 'ibm-not-wf-P82-ibm82n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P82/ibm82n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20636,7 +20636,7 @@ uri01(Config) ->
 'ibm-not-wf-P82-ibm82n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P82/ibm82n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20651,7 +20651,7 @@ uri01(Config) ->
 'ibm-not-wf-P82-ibm82n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P82/ibm82n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20666,7 +20666,7 @@ uri01(Config) ->
 'ibm-not-wf-P82-ibm82n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P82/ibm82n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20681,7 +20681,7 @@ uri01(Config) ->
 'ibm-not-wf-P82-ibm82n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P82/ibm82n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20696,7 +20696,7 @@ uri01(Config) ->
 'ibm-not-wf-P82-ibm82n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P82/ibm82n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20711,7 +20711,7 @@ uri01(Config) ->
 'ibm-not-wf-P82-ibm82n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P82/ibm82n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20726,7 +20726,7 @@ uri01(Config) ->
 'ibm-not-wf-P82-ibm82n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P82/ibm82n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20741,7 +20741,7 @@ uri01(Config) ->
 'ibm-not-wf-P83-ibm83n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P83/ibm83n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20756,7 +20756,7 @@ uri01(Config) ->
 'ibm-not-wf-P83-ibm83n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P83/ibm83n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20771,7 +20771,7 @@ uri01(Config) ->
 'ibm-not-wf-P83-ibm83n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P83/ibm83n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20787,7 +20787,7 @@ uri01(Config) ->
 'ibm-not-wf-P83-ibm83n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P83/ibm83n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20802,7 +20802,7 @@ uri01(Config) ->
 'ibm-not-wf-P83-ibm83n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P83/ibm83n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20817,7 +20817,7 @@ uri01(Config) ->
 'ibm-not-wf-P83-ibm83n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P83/ibm83n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20832,7 +20832,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20847,7 +20847,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20863,7 +20863,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20879,7 +20879,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20895,7 +20895,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20911,7 +20911,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20927,7 +20927,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20943,7 +20943,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20959,7 +20959,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20975,7 +20975,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -20991,7 +20991,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n100'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n100.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21007,7 +21007,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n101'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n101.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21023,7 +21023,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n102'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n102.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21039,7 +21039,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n103'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n103.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21055,7 +21055,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n104'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n104.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21071,7 +21071,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n105'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n105.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21087,7 +21087,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n106'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n106.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21103,7 +21103,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n107'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n107.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21119,7 +21119,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n108'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n108.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21135,7 +21135,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n109'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n109.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21151,7 +21151,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21167,7 +21167,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n110'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n110.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21183,7 +21183,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n111'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n111.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21199,7 +21199,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n112'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n112.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21215,7 +21215,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n113'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n113.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21231,7 +21231,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n114'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n114.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21247,7 +21247,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n115'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n115.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21263,7 +21263,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n116'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n116.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21279,7 +21279,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n117'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n117.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21295,7 +21295,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n118'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n118.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21311,7 +21311,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n119'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n119.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21327,7 +21327,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21343,7 +21343,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n120'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n120.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21359,7 +21359,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n121'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n121.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21375,7 +21375,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n122'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n122.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21391,7 +21391,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n123'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n123.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21407,7 +21407,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n124'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n124.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21423,7 +21423,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n125'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n125.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21439,7 +21439,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n126'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n126.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21455,7 +21455,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n127'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n127.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21471,7 +21471,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n128'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n128.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21487,7 +21487,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n129'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n129.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21503,7 +21503,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21519,7 +21519,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n130'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n130.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21535,7 +21535,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n131'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n131.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21551,7 +21551,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n132'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n132.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21567,7 +21567,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n133'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n133.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21583,7 +21583,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n134'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n134.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21599,7 +21599,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n135'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n135.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21615,7 +21615,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n136'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n136.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21631,7 +21631,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n137'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n137.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21647,7 +21647,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n138'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n138.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21663,7 +21663,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n139'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n139.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21679,7 +21679,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21695,7 +21695,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n140'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n140.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21711,7 +21711,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n141'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n141.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21727,7 +21727,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n142'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n142.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21743,7 +21743,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n143'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n143.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21759,7 +21759,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n144'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n144.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21775,7 +21775,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n145'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n145.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21791,7 +21791,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n146'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n146.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21807,7 +21807,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n147'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n147.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21823,7 +21823,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n148'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n148.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21839,7 +21839,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n149'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n149.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21855,7 +21855,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n15'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21871,7 +21871,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n150'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n150.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21887,7 +21887,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n151'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n151.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21903,7 +21903,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n152'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n152.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21919,7 +21919,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n153'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n153.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21935,7 +21935,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n154'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n154.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21951,7 +21951,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n155'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n155.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21967,7 +21967,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n156'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n156.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21983,7 +21983,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n157'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n157.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -21999,7 +21999,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n158'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n158.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22015,7 +22015,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n159'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n159.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22031,7 +22031,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22047,7 +22047,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n160'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n160.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22063,7 +22063,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n161'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n161.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22079,7 +22079,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n162'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n162.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22095,7 +22095,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n163'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n163.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22111,7 +22111,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n164'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n164.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22127,7 +22127,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n165'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n165.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22143,7 +22143,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n166'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n166.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22159,7 +22159,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n167'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n167.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22175,7 +22175,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n168'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n168.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22191,7 +22191,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n169'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n169.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22207,7 +22207,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n17'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n17.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22223,7 +22223,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n170'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n170.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22239,7 +22239,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n171'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n171.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22255,7 +22255,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n172'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n172.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22271,7 +22271,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n173'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n173.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22287,7 +22287,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n174'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n174.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22303,7 +22303,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n175'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n175.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22319,7 +22319,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n176'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n176.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22335,7 +22335,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n177'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n177.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22351,7 +22351,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n178'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n178.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22367,7 +22367,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n179'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n179.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22383,7 +22383,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n18'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n18.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22399,7 +22399,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n180'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n180.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22415,7 +22415,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n181'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n181.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22431,7 +22431,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n182'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n182.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22447,7 +22447,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n183'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n183.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22463,7 +22463,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n184'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n184.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22479,7 +22479,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n185'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n185.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22495,7 +22495,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n186'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n186.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22511,7 +22511,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n187'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n187.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22527,7 +22527,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n188'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n188.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22543,7 +22543,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n189'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n189.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22559,7 +22559,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n19'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n19.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22575,7 +22575,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n190'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n190.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22591,7 +22591,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n191'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n191.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22607,7 +22607,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n192'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n192.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22623,7 +22623,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n193'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n193.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22639,7 +22639,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n194'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n194.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22655,7 +22655,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n195'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n195.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22671,7 +22671,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n196'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n196.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22687,7 +22687,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n197'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n197.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22703,7 +22703,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n198'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n198.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22719,7 +22719,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n20'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n20.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22735,7 +22735,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n21'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n21.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22751,7 +22751,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n22'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n22.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22767,7 +22767,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n23'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n23.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22783,7 +22783,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n24'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n24.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22799,7 +22799,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n25'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n25.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22815,7 +22815,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n26'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n26.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22831,7 +22831,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n27'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n27.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22847,7 +22847,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n28'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n28.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22863,7 +22863,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n29'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n29.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22879,7 +22879,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n30'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n30.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22895,7 +22895,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n31'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n31.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22911,7 +22911,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n32'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n32.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22927,7 +22927,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n33'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n33.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22943,7 +22943,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n34'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n34.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22959,7 +22959,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n35'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n35.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22975,7 +22975,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n36'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n36.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -22991,7 +22991,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n37'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n37.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23007,7 +23007,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n38'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n38.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23023,7 +23023,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n39'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n39.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23039,7 +23039,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n40'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n40.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23055,7 +23055,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n41'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n41.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23071,7 +23071,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n42'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n42.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23087,7 +23087,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n43'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n43.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23103,7 +23103,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n44'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n44.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23119,7 +23119,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n45'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n45.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23135,7 +23135,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n46'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n46.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23151,7 +23151,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n47'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n47.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23167,7 +23167,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n48'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n48.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23183,7 +23183,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n49'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n49.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23199,7 +23199,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n50'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n50.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23215,7 +23215,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n51'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n51.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23231,7 +23231,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n52'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n52.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23247,7 +23247,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n53'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n53.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23263,7 +23263,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n54'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n54.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23279,7 +23279,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n55'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n55.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23295,7 +23295,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n56'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n56.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23311,7 +23311,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n57'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n57.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23327,7 +23327,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n58'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n58.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23343,7 +23343,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n59'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n59.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23359,7 +23359,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n60'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n60.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23375,7 +23375,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n61'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n61.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23391,7 +23391,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n62'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n62.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23407,7 +23407,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n63'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n63.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23423,7 +23423,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n64'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n64.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23439,7 +23439,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n65'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n65.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23455,7 +23455,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n66'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n66.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23471,7 +23471,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n67'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n67.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23487,7 +23487,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n68'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n68.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23503,7 +23503,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n69'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n69.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23519,7 +23519,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n70'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n70.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23535,7 +23535,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n71'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n71.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23551,7 +23551,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n72'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n72.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23567,7 +23567,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n73'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n73.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23583,7 +23583,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n74'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n74.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23599,7 +23599,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n75'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n75.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23615,7 +23615,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n76'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n76.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23631,7 +23631,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n77'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n77.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23647,7 +23647,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n78'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n78.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23663,7 +23663,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n79'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n79.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23679,7 +23679,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n80'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n80.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23695,7 +23695,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n81'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n81.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23711,7 +23711,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n82'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n82.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23727,7 +23727,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n83'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n83.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23743,7 +23743,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n84'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n84.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23759,7 +23759,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n85'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n85.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23775,7 +23775,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n86'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n86.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23791,7 +23791,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n87'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n87.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23807,7 +23807,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n88'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n88.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23823,7 +23823,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n89'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n89.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23839,7 +23839,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n90'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n90.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23855,7 +23855,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n91'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n91.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23871,7 +23871,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n92'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n92.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23887,7 +23887,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n93'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n93.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23903,7 +23903,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n94'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n94.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23919,7 +23919,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n95'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n95.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23935,7 +23935,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n96'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n96.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23951,7 +23951,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n97'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n97.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23967,7 +23967,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n98'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n98.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23983,7 +23983,7 @@ uri01(Config) ->
 'ibm-not-wf-P85-ibm85n99'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P85/ibm85n99.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -23999,7 +23999,7 @@ uri01(Config) ->
 'ibm-not-wf-P86-ibm86n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P86/ibm86n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24015,7 +24015,7 @@ uri01(Config) ->
 'ibm-not-wf-P86-ibm86n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P86/ibm86n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24031,7 +24031,7 @@ uri01(Config) ->
 'ibm-not-wf-P86-ibm86n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P86/ibm86n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24047,7 +24047,7 @@ uri01(Config) ->
 'ibm-not-wf-P86-ibm86n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P86/ibm86n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24063,7 +24063,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24079,7 +24079,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24095,7 +24095,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24111,7 +24111,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24127,7 +24127,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24143,7 +24143,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24159,7 +24159,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24175,7 +24175,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24191,7 +24191,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24207,7 +24207,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24223,7 +24223,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24239,7 +24239,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24255,7 +24255,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24271,7 +24271,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24287,7 +24287,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n15'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24303,7 +24303,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24319,7 +24319,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n17'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n17.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24335,7 +24335,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n18'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n18.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24351,7 +24351,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n19'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n19.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24367,7 +24367,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n20'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n20.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24383,7 +24383,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n21'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n21.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24399,7 +24399,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n22'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n22.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24415,7 +24415,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n23'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n23.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24431,7 +24431,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n24'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n24.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24447,7 +24447,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n25'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n25.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24463,7 +24463,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n26'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n26.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24479,7 +24479,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n27'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n27.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24495,7 +24495,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n28'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n28.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24511,7 +24511,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n29'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n29.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24527,7 +24527,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n30'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n30.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24543,7 +24543,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n31'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n31.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24559,7 +24559,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n32'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n32.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24575,7 +24575,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n33'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n33.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24591,7 +24591,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n34'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n34.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24607,7 +24607,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n35'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n35.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24623,7 +24623,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n36'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n36.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24639,7 +24639,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n37'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n37.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24655,7 +24655,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n38'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n38.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24671,7 +24671,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n39'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n39.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24687,7 +24687,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n40'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n40.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24703,7 +24703,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n41'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n41.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24719,7 +24719,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n42'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n42.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24735,7 +24735,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n43'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n43.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24751,7 +24751,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n44'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n44.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24767,7 +24767,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n45'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n45.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24783,7 +24783,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n46'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n46.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24799,7 +24799,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n47'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n47.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24815,7 +24815,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n48'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n48.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24831,7 +24831,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n49'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n49.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24847,7 +24847,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n50'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n50.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24863,7 +24863,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n51'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n51.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24879,7 +24879,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n52'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n52.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24895,7 +24895,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n53'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n53.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24911,7 +24911,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n54'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n54.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24927,7 +24927,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n55'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n55.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24943,7 +24943,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n56'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n56.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24959,7 +24959,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n57'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n57.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24975,7 +24975,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n58'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n58.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -24991,7 +24991,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n59'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n59.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25007,7 +25007,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n60'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n60.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25023,7 +25023,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n61'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n61.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25039,7 +25039,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n62'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n62.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25055,7 +25055,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n63'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n63.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25071,7 +25071,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n64'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n64.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25087,7 +25087,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n66'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n66.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25103,7 +25103,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n67'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n67.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25119,7 +25119,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n68'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n68.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25135,7 +25135,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n69'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n69.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25151,7 +25151,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n70'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n70.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25167,7 +25167,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n71'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n71.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25183,7 +25183,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n72'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n72.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25199,7 +25199,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n73'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n73.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25215,7 +25215,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n74'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n74.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25231,7 +25231,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n75'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n75.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25247,7 +25247,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n76'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n76.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25263,7 +25263,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n77'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n77.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25279,7 +25279,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n78'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n78.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25295,7 +25295,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n79'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n79.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25311,7 +25311,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n80'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n80.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25327,7 +25327,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n81'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n81.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25343,7 +25343,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n82'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n82.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25359,7 +25359,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n83'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n83.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25375,7 +25375,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n84'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n84.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25391,7 +25391,7 @@ uri01(Config) ->
 'ibm-not-wf-P87-ibm87n85'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P87/ibm87n85.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25406,7 +25406,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25421,7 +25421,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25437,7 +25437,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25453,7 +25453,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25469,7 +25469,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25485,7 +25485,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25501,7 +25501,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25517,7 +25517,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25533,7 +25533,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25549,7 +25549,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25565,7 +25565,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25581,7 +25581,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n13'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n13.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25597,7 +25597,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n14'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n14.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25613,7 +25613,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n15'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n15.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25629,7 +25629,7 @@ uri01(Config) ->
 'ibm-not-wf-P88-ibm88n16'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P88/ibm88n16.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25644,7 +25644,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25659,7 +25659,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n02'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n02.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25675,7 +25675,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n03'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n03.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25691,7 +25691,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n04'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n04.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25707,7 +25707,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n05'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n05.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25724,7 +25724,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n06'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n06.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25741,7 +25741,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n07'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n07.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25758,7 +25758,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n08'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n08.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25775,7 +25775,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n09'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n09.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25792,7 +25792,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n10'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n10.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25809,7 +25809,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n11'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n11.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25826,7 +25826,7 @@ uri01(Config) ->
 'ibm-not-wf-P89-ibm89n12'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","not-wf/P89/ibm89n12.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "not-wf").
 
 %%----------------------------------------------------------------------
@@ -25843,7 +25843,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P01/ibm01v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P01/out/ibm01v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -25858,7 +25858,7 @@ uri01(Config) ->
 'ibm-valid-P02-ibm02v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P02/ibm02v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -25872,7 +25872,7 @@ uri01(Config) ->
 'ibm-valid-P03-ibm03v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P03/ibm03v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -25889,7 +25889,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P09/ibm09v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P09/out/ibm09v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -25906,7 +25906,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P09/ibm09v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P09/out/ibm09v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -25924,7 +25924,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P09/ibm09v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P09/out/ibm09v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -25941,7 +25941,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P09/ibm09v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P09/out/ibm09v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -25960,7 +25960,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P09/ibm09v05.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P09/out/ibm09v05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -25977,7 +25977,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P10/ibm10v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P10/out/ibm10v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -25994,7 +25994,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P10/ibm10v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P10/out/ibm10v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26011,7 +26011,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P10/ibm10v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P10/out/ibm10v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26028,7 +26028,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P10/ibm10v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P10/out/ibm10v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26045,7 +26045,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P10/ibm10v05.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P10/out/ibm10v05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26062,7 +26062,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P10/ibm10v06.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P10/out/ibm10v06.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26079,7 +26079,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P10/ibm10v07.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P10/out/ibm10v07.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26096,7 +26096,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P10/ibm10v08.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P10/out/ibm10v08.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26113,7 +26113,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P11/ibm11v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P11/out/ibm11v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26130,7 +26130,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P11/ibm11v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P11/out/ibm11v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26148,7 +26148,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P11/ibm11v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P11/out/ibm11v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26166,7 +26166,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P11/ibm11v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P11/out/ibm11v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26184,7 +26184,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P12/ibm12v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P12/out/ibm12v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26202,7 +26202,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P12/ibm12v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P12/out/ibm12v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26220,7 +26220,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P12/ibm12v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P12/out/ibm12v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26238,7 +26238,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P12/ibm12v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P12/out/ibm12v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26256,7 +26256,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P13/ibm13v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P13/out/ibm13v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26273,7 +26273,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P14/ibm14v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P14/out/ibm14v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26290,7 +26290,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P14/ibm14v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P14/out/ibm14v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26307,7 +26307,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P14/ibm14v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P14/out/ibm14v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26324,7 +26324,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P15/ibm15v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P15/out/ibm15v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26341,7 +26341,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P15/ibm15v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P15/out/ibm15v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26358,7 +26358,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P15/ibm15v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P15/out/ibm15v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26375,7 +26375,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P15/ibm15v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P15/out/ibm15v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26392,7 +26392,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P16/ibm16v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P16/out/ibm16v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26409,7 +26409,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P16/ibm16v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P16/out/ibm16v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26427,7 +26427,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P16/ibm16v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P16/out/ibm16v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26444,7 +26444,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P17/ibm17v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P17/out/ibm17v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26461,7 +26461,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P18/ibm18v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P18/out/ibm18v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26478,7 +26478,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P19/ibm19v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P19/out/ibm19v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26495,7 +26495,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P20/ibm20v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P20/out/ibm20v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26512,7 +26512,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P20/ibm20v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P20/out/ibm20v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26529,7 +26529,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P21/ibm21v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P21/out/ibm21v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26546,7 +26546,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P22/ibm22v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P22/out/ibm22v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26563,7 +26563,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P22/ibm22v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P22/out/ibm22v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26580,7 +26580,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P22/ibm22v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P22/out/ibm22v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26597,7 +26597,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P22/ibm22v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P22/out/ibm22v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26614,7 +26614,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P22/ibm22v05.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P22/out/ibm22v05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26631,7 +26631,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P22/ibm22v06.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P22/out/ibm22v06.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26648,7 +26648,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P22/ibm22v07.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P22/out/ibm22v07.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26665,7 +26665,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P23/ibm23v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P23/out/ibm23v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26682,7 +26682,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P23/ibm23v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P23/out/ibm23v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26699,7 +26699,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P23/ibm23v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P23/out/ibm23v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26716,7 +26716,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P23/ibm23v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P23/out/ibm23v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26733,7 +26733,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P23/ibm23v05.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P23/out/ibm23v05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26751,7 +26751,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P23/ibm23v06.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P23/out/ibm23v06.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26768,7 +26768,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P24/ibm24v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P24/out/ibm24v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26785,7 +26785,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P24/ibm24v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P24/out/ibm24v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26802,7 +26802,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P25/ibm25v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P25/out/ibm25v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26819,7 +26819,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P25/ibm25v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P25/out/ibm25v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26836,7 +26836,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P25/ibm25v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P25/out/ibm25v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26853,7 +26853,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P25/ibm25v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P25/out/ibm25v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26870,7 +26870,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P26/ibm26v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P26/out/ibm26v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26887,7 +26887,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P27/ibm27v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P27/out/ibm27v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26904,7 +26904,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P27/ibm27v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P27/out/ibm27v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26921,7 +26921,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P27/ibm27v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P27/out/ibm27v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26938,7 +26938,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P28/ibm28v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P28/out/ibm28v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26957,7 +26957,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P28/ibm28v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P28/out/ibm28v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26975,7 +26975,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P29/ibm29v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P29/out/ibm29v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -26993,7 +26993,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P29/ibm29v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P29/out/ibm29v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27011,7 +27011,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P30/ibm30v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P30/out/ibm30v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27029,7 +27029,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P30/ibm30v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P30/out/ibm30v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27048,7 +27048,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P31/ibm31v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P31/out/ibm31v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27067,7 +27067,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P32/ibm32v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P32/out/ibm32v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27086,7 +27086,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P32/ibm32v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P32/out/ibm32v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27105,7 +27105,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P32/ibm32v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P32/out/ibm32v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27124,7 +27124,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P32/ibm32v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P32/out/ibm32v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27141,7 +27141,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P33/ibm33v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P33/out/ibm33v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27158,7 +27158,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P34/ibm34v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P34/out/ibm34v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27175,7 +27175,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P35/ibm35v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P35/out/ibm35v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27192,7 +27192,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P36/ibm36v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P36/out/ibm36v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27209,7 +27209,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P37/ibm37v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P37/out/ibm37v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27226,7 +27226,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P38/ibm38v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P38/out/ibm38v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27244,7 +27244,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P39/ibm39v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P39/out/ibm39v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27262,7 +27262,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P40/ibm40v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P40/out/ibm40v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27279,7 +27279,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P41/ibm41v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P41/out/ibm41v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27296,7 +27296,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P42/ibm42v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P42/out/ibm42v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27314,7 +27314,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P43/ibm43v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P43/out/ibm43v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27331,7 +27331,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P44/ibm44v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P44/out/ibm44v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27349,7 +27349,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P45/ibm45v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P45/out/ibm45v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27366,7 +27366,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P47/ibm47v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P47/out/ibm47v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27385,7 +27385,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P49/ibm49v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P49/out/ibm49v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27404,7 +27404,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P50/ibm50v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P50/out/ibm50v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27422,7 +27422,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P51/ibm51v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P51/out/ibm51v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27441,7 +27441,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P51/ibm51v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P51/out/ibm51v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27458,7 +27458,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P52/ibm52v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P52/out/ibm52v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27473,7 +27473,7 @@ uri01(Config) ->
 'ibm-valid-P54-ibm54v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P54/ibm54v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -27491,7 +27491,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P54/ibm54v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P54/out/ibm54v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27508,7 +27508,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P54/ibm54v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P54/out/ibm54v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27526,7 +27526,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P55/ibm55v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P55/out/ibm55v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27545,7 +27545,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27563,7 +27563,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27581,7 +27581,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27599,7 +27599,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27617,7 +27617,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v05.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27635,7 +27635,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v06.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v06.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27653,7 +27653,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v07.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v07.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27671,7 +27671,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v08.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v08.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27689,7 +27689,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v09.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v09.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27707,7 +27707,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P56/ibm56v10.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P56/out/ibm56v10.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27725,7 +27725,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P57/ibm57v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P57/out/ibm57v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27743,7 +27743,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P58/ibm58v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P58/out/ibm58v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27761,7 +27761,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P58/ibm58v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P58/out/ibm58v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27779,7 +27779,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P59/ibm59v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P59/out/ibm59v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27797,7 +27797,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P59/ibm59v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P59/out/ibm59v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27815,7 +27815,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P60/ibm60v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P60/out/ibm60v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27833,7 +27833,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P60/ibm60v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P60/out/ibm60v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27851,7 +27851,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P60/ibm60v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P60/out/ibm60v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27870,7 +27870,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P60/ibm60v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P60/out/ibm60v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27889,7 +27889,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P61/ibm61v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P61/out/ibm61v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27908,7 +27908,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P61/ibm61v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P61/out/ibm61v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27927,7 +27927,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P62/ibm62v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P62/out/ibm62v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27946,7 +27946,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P62/ibm62v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P62/out/ibm62v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27965,7 +27965,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P62/ibm62v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P62/out/ibm62v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -27984,7 +27984,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P62/ibm62v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P62/out/ibm62v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28002,7 +28002,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P62/ibm62v05.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P62/out/ibm62v05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28021,7 +28021,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P63/ibm63v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P63/out/ibm63v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28040,7 +28040,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P63/ibm63v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P63/out/ibm63v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28059,7 +28059,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P63/ibm63v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P63/out/ibm63v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28077,7 +28077,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P63/ibm63v04.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P63/out/ibm63v04.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28096,7 +28096,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P63/ibm63v05.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P63/out/ibm63v05.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28114,7 +28114,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P64/ibm64v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P64/out/ibm64v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28133,7 +28133,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P64/ibm64v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P64/out/ibm64v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28152,7 +28152,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P64/ibm64v03.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P64/out/ibm64v03.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28170,7 +28170,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P65/ibm65v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P65/out/ibm65v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28189,7 +28189,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P65/ibm65v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P65/out/ibm65v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28206,7 +28206,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P66/ibm66v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P66/out/ibm66v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28223,7 +28223,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P67/ibm67v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P67/out/ibm67v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28242,7 +28242,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P68/ibm68v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P68/out/ibm68v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28261,7 +28261,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P68/ibm68v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P68/out/ibm68v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28280,7 +28280,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P69/ibm69v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P69/out/ibm69v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28299,7 +28299,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P69/ibm69v02.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P69/out/ibm69v02.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28317,7 +28317,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P70/ibm70v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P70/out/ibm70v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28335,7 +28335,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P78/ibm78v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P78/out/ibm78v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28350,7 +28350,7 @@ uri01(Config) ->
 'ibm-valid-P79-ibm79v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P79/ibm79v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -28367,7 +28367,7 @@ uri01(Config) ->
     Path = filename:join([datadir(Config),"ibm","valid/P82/ibm82v01.xml"]),
     Out = filename:join([datadir(Config),"ibm","valid/P82/out/ibm82v01.xml"]),
     {ok, O} = file:read_file(Out),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid", O).
 
 %%----------------------------------------------------------------------
@@ -28382,7 +28382,7 @@ uri01(Config) ->
 'ibm-valid-P85-ibm85v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P85/ibm85v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -28397,7 +28397,7 @@ uri01(Config) ->
 'ibm-valid-P86-ibm86v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P86/ibm86v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -28412,7 +28412,7 @@ uri01(Config) ->
 'ibm-valid-P87-ibm87v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P87/ibm87v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -28427,7 +28427,7 @@ uri01(Config) ->
 'ibm-valid-P88-ibm88v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P88/ibm88v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 %%----------------------------------------------------------------------
@@ -28442,7 +28442,7 @@ uri01(Config) ->
 'ibm-valid-P89-ibm89v01'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"ibm","valid/P89/ibm89v01.xml"]),
-    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
+    R = xmerl_sax_parser:file(Path, [{external_entities, file}, {event_fun, fun sax_canon/3}]),
     check_result(R, "valid").
 
 all() -> 

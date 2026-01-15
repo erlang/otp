@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,12 +33,40 @@
  * have room for the Unix signal handler.
  *
  * There is a way to redirect signal handlers to an "alternate" signal stack by
- * using the SA_ONSTACK flag with the sigaction() library call. Unfortunately,
- * this has to be specified explicitly for each signal, and it is difficult to
+ * using the SA_ONSTACK flag with the sigaction(2) system call. Unfortunately,
+ * this has to be specified explicitly for each signal, and it is impossible to
  * enforce given the presence of libraries.
  *
- * Our solution is to override the C library's signal handler setup procedure
- * with our own which enforces the SA_ONSTACK flag.
+ * We used to attempt to override the C library's signal handler setup
+ * procedure with our own that added the SA_ONSTACK flag, but it only worked
+ * with `GNU libc` which is not always the current libc. As many of our users
+ * liked to run docker images with `Alpine` which uses `musl` instead, they got
+ * needlessly bad performance without knowing it.
+ *
+ * Instead, we now explicitly add SA_ONSTACK to our own uses of sigaction(2)
+ * and ignore the library problem altogether because:
+ * 
+ *   1. We don't care about this problem on non-scheduler threads: if a library
+ *      wants to fiddle around with signals on its own threads then it doesn't
+ *      affect us.
+ *   2. We don't care about this problem when executing on the runtime stack:
+ *      if a NIF or driver uses signals in a creative manner locally during a
+ *      call, then that's fine as long as they restore them before returning to
+ *      Erlang code.
+ *
+ *      A NIF or driver that doesn't do this is misbehaving to begin with and
+ *      we can't shield ourselves against that.
+ *   3. If a library that we're statically linked to messes around with signals
+ *      in the initialization phase (think C++ constructors of static objects),
+ *      all of it will happen before `main` runs and we'll set things straight
+ *      in `sys_init_signal_stack`.
+ *
+ *      If a dynamically linked library does the same, the same restrictions as
+ *      ordinary NIF/driver calls apply to the initialization phase and the
+ *      library must restore the signals before returning.
+ *
+ *      If any threads are created in either of these phases, they're still not
+ *      scheduler threads so we don't have to care then either.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -53,206 +83,10 @@
 
 #if (defined(BEAMASM) && defined(NATIVE_ERLANG_STACK))
 
-#if defined(__GLIBC__) && __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
-/*
- * __libc_sigaction() is the core routine.
- * Without libpthread, sigaction() and __sigaction() are both aliases
- * for __libc_sigaction().
- * libpthread redefines __sigaction() as a non-trivial wrapper around
- * __libc_sigaction(), and makes sigaction() an alias for __sigaction().
- * glibc has internal calls to both sigaction() and __sigaction().
- *
- * Overriding __libc_sigaction() would be ideal, but doing so breaks
- * libpthread (threads hang).
- *
- * Overriding __sigaction(), using dlsym RTLD_NEXT to find glibc's
- * version of __sigaction(), works with glibc-2.2.4 and 2.2.5.
- * Unfortunately, this solution doesn't work with earlier versions,
- * including glibc-2.2.2 and glibc-2.1.92 (2.2 despite its name):
- * 2.2.2 SIGSEGVs in dlsym RTLD_NEXT (known glibc bug), and 2.1.92
- * SIGSEGVs inexplicably in two test cases in the HiPE test suite.
- *
- * Instead we only override sigaction() and call __sigaction()
- * directly. This should work for HiPE/x86 as long as only the Posix
- * signal interface is used, i.e. there are no calls to simulated
- * old BSD or SysV interfaces.
- * glibc's internal calls to __sigaction() appear to be mostly safe.
- * sys_init_signal_stack() fixes some unsafe ones, e.g. the SIGPROF handler.
- */
-#ifndef __USE_GNU
-#    define __USE_GNU /* to un-hide RTLD_NEXT */
-#endif
-#define NEXT_SIGACTION "__sigaction"
-#define LIBC_SIGACTION __sigaction
-#define OVERRIDE_SIGACTION
-#endif /* glibc >= 2.3 */
-
-/* Is there no standard identifier for Darwin/MacOSX ? */
-#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-#define __DARWIN__ 1
-#endif
-
-#if defined(__DARWIN__)
-/*
- * Assumes Mac OS X >= 10.3 (dlsym operations not available in 10.2 and
- * earlier).
- *
- * The code below assumes that is part of the main image (earlier
- * in the load order than libSystem and certainly before any dylib
- * that might use sigaction) -- a standard RTLD_NEXT caveat.
- *
- * _sigaction lives in /usr/lib/libSystem.B.dylib and can be found
- * with the standard dlsym(RTLD_NEXT) call. The proviso on Mac OS X
- * being that the symbol for dlsym doesn't include a leading '_'.
- *
- * The other _sigaction, _sigaction_no_bind I don't understand the purpose
- * of and don't modify.
- */
-#define NEXT_SIGACTION "sigaction"
-#define LIBC_SIGACTION _sigaction
-#undef OVERRIDE_SIGACTION
-#define _NSIG NSIG
-#endif /* __DARWIN__ */
-
-#if defined(__sun__)
-/*
- * Assume Solaris/x86 2.8.
- * There is a number of sigaction() procedures in libc:
- * * sigaction(): weak reference to _sigaction().
- * * _sigaction(): apparently a simple wrapper around __sigaction().
- * * __sigaction(): apparently the procedure doing the actual system call.
- * * _libc_sigaction(): apparently some thread-related wrapper, which ends
- *   up calling __sigaction().
- * The threads library redefines sigaction() and _sigaction() to its
- * own wrapper, which checks for and restricts access to threads-related
- * signals. The wrapper appears to eventually call libc's __sigaction().
- *
- * We catch and override _sigaction() since overriding __sigaction()
- * causes fatal errors in some cases.
- *
- * When linked with thread support, there are calls to sigaction() before
- * our init routine has had a chance to find _sigaction()'s address.
- * This forces us to initialise at the first call.
- */
-#define NEXT_SIGACTION "_sigaction"
-#define LIBC_SIGACTION _sigaction
-#define OVERRIDE_SIGACTION
-#define _NSIG NSIG
-#endif /* __sun__ */
-
-#if defined(__FreeBSD__)
-/*
- * This is a copy of Darwin code for FreeBSD.
- * CAVEAT: detailed semantics are not verified yet.
- */
-#define NEXT_SIGACTION "sigaction"
-#define LIBC_SIGACTION _sigaction
-#undef OVERRIDE_SIGACTION
-#define _NSIG NSIG
-#endif /* __FreeBSD__ */
-
-#if defined(__NetBSD__)
-/*
- * Note: This is only stub code to allow the build to succeed.
- * Whether this actually provides the needed overrides for safe
- * signal delivery or not is unknown.
- */
-#undef NEXT_SIGACTION
-#undef OVERRIDE_SIGACTION
-#endif /* __NetBSD__ */
-
-#if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) ||  \
-          defined(__FreeBSD__) || defined(__sun__))
-/*
- * Unknown libc -- assume musl, which does not allow safe signals
- */
-#error "beamasm requires a libc that can guarantee that sigaltstack works"
-#endif /* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ ||        \
-            * __sun__)                                                         \
-            */
-
-#if defined(NEXT_SIGACTION)
-/*
- * Initialize a function pointer to the libc core sigaction routine,
- * to be used by our wrappers.
- */
-#include <dlfcn.h>
-
-static int (*next_sigaction)(int, const struct sigaction *, struct sigaction *);
-
-static void do_init(void) {
-    next_sigaction = dlsym(RTLD_NEXT, NEXT_SIGACTION);
-
-    if (next_sigaction != 0) {
-        return;
-    }
-
-    perror("dlsym");
-    abort();
-}
-
-#define INIT()                                                         \
-            do {                                                               \
-                if (!next_sigaction)                                           \
-                    do_init();                                                 \
-            } while (0)
-#else /* !defined(NEXT_SIGACTION) */
-#define INIT()                                                         \
-            do {                                                               \
-            } while (0)
-#endif /* !defined(NEXT_SIGACTION) */
-
-#if defined(NEXT_SIGACTION)
-/*
- * This is our wrapper for sigaction(). sigaction() can be called before
- * sys_init_signal_stack() has been executed, especially when threads support
- * has been linked with the executable. Therefore, we must initialise
- * next_sigaction() dynamically, the first time it's needed.
- */
-static int my_sigaction(int signum,
-                        const struct sigaction *act,
-                        struct sigaction *oldact) {
-    struct sigaction newact;
-
-    INIT();
-
-    if (act && act->sa_handler != SIG_DFL && act->sa_handler != SIG_IGN &&
-        !(act->sa_flags & SA_ONSTACK)) {
-        newact = *act;
-        newact.sa_flags |= SA_ONSTACK;
-        act = &newact;
-    }
-    return next_sigaction(signum, act, oldact);
-}
-#endif
-
-#if defined(LIBC_SIGACTION)
-
-/*
- * This overrides the C library's core sigaction() procedure, catching
- * all its internal calls.
- */
-extern int LIBC_SIGACTION(int, const struct sigaction *, struct sigaction *);
-
-int LIBC_SIGACTION(int signum,
-                   const struct sigaction *act,
-                   struct sigaction *oldact) {
-    return my_sigaction(signum, act, oldact);
-}
-
-#endif
-
-#if defined(OVERRIDE_SIGACTION)
-
-/*
- * This catches the application's own sigaction() calls.
- */
-int sigaction(int signum,
-              const struct sigaction *act,
-              struct sigaction *oldact) {
-    return my_sigaction(signum, act, oldact);
-}
-
+#if defined(NSIG)
+#  define HIGHEST_SIGNAL NSIG
+#elif defined(_NSIG)
+#  define HIGHEST_SIGNAL _NSIG
 #endif
 
 /*
@@ -287,11 +121,9 @@ void sys_init_signal_stack(void) {
     struct sigaction sa;
     int i;
 
-    INIT();
-
     sys_thread_init_signal_stack();
 
-    for (i = 1; i < _NSIG; ++i) {
+    for (i = 1; i < HIGHEST_SIGNAL; ++i) {
         if (sigaction(i, NULL, &sa)) {
             /* This will fail with EINVAL on Solaris if 'i' is one of the
                thread library's private signals. We DO catch the initial

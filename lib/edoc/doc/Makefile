@@ -1,4 +1,11 @@
-# ``Licensed under the Apache License, Version 2.0 (the "License");
+#
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
@@ -9,11 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
-# The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-# Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-# AB. All Rights Reserved.''
-# 
+#
+# %CopyrightEnd%
+#
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -22,60 +27,29 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 include ../vsn.mk
 VSN=$(EDOC_VSN)
+APPLICATION=edoc
+EPUB=false
 
-# ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/edoc-$(VSN)
-
-# ----------------------------------------------------
-# Help application directory specification
-# ----------------------------------------------------
-
-APPNAME=edoc
-DOC_TITLE="Welcome to EDoc"
-
-HTML_FILES = *.html
-INFO_FILE = ../info
-# ----------------------------------------------------
-# Target Specs
-# ----------------------------------------------------
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
+assets/edoc_doclet.hrl:
+	$(V_at)cp "../include/edoc_doclet.hrl" "$@"
+assets/edoc.dtd:
+	$(V_at)cp "../priv/edoc.dtd" "$@"
 
 
-docs:
-	(cd ..; \
-	edoc_generate -app '$(APPNAME)' -vsn '$(VSN)')
+## Include ERL_FILES, HRL_FILES and YRL_FILES
+include ../src/files.mk
 
+NO_PARSE_SOURCES=$(filter-out edoc_parser.erl, $(ERL_FILES))
+CHUNK_FILES=$(NO_PARSE_SOURCES:%.erl=$(CHUNKSDIR)/%.chunk) $(YRL_FILES:%.yrl=$(CHUNKSDIR)/%.chunk)
 
-info:
-	@echo "HTML_FILES:" $(HTML_FILES)
-	@echo "HTMLDIR: $(HTMLDIR)"
-
-
-
-$(TYPES): 
-
-
-clean:
-	rm -f  $(HTML_FILES) stylesheet.css edoc-info
-	rm -f errs core *~
-
+$(HTMLDIR)/index.html: assets/edoc_doclet.hrl assets/edoc.dtd $(CHUNK_FILES)
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
+include $(ERL_TOP)/make/doc.mk
 
+chunks: $(CHUNK_FILES)
 
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) $(RELSYSDIR)/doc/html
-	$(INSTALL_DATA)  $(HTML_FILES) $(RELSYSDIR)/doc/html
-	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
-
-
-release_spec:
+$(CHUNKSDIR)/%.chunk: ../src/%.erl
+	$(gen_verbose)erl -noinput -eval "edoc:files([\"$<\"],[{doclet, edoc_doclet_chunks},{layout, edoc_layout_chunks},{preprocess,true},{includes,[\"../include\"]}])" -s init stop

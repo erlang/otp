@@ -1,7 +1,7 @@
 API GENERATION:
     Most of the code in wx is generated.
-    Users of wxErlang should not normally need to regenerate the generated code,
-    as it is checked in by wxErlang developers, when changes are made.
+    Users of Wx should not normally need to regenerate the generated code,
+    as it is checked in by Wx developers, when changes are made.
 
 REQUIREMENTS:
     The code generation requires doxygen (1.8.17) which is

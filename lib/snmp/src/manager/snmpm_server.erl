@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %% 
 
 -module(snmpm_server).
+-moduledoc false.
 
 %%----------------------------------------------------------------------
 %% This module implements a simple SNMP manager for Erlang.
@@ -3606,7 +3609,10 @@ get_info(#state{gct        = GCT,
 	    {config,         config_info()},
 	    {net_if,         net_if_info(NI, NIMod)},
 	    {note_store,     note_store_info(NS)},
-	    {stats_counters, get_stats_counters()}],
+	    {stats_counters, get_stats_counters()},
+            {users,          snmpm_config:which_users()},
+            {agents,         snmpm_config:which_agents()},
+            {usm_users,      snmpm_config:which_usm_users()}],
     Info.
 
 server_info(GCT, CBP, NIS) ->

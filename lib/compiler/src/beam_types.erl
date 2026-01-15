@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,9 @@
 %%
 
 -module(beam_types).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 -define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").
@@ -45,7 +50,6 @@
          make_boolean/0,
          make_cons/2,
          make_float/1,
-         make_float/2,
          make_integer/1,
          make_integer/2]).
 
@@ -169,10 +173,16 @@ mts_records([{Key, A} | RsA], [{Key, B} | RsB], Acc) ->
         none -> mts_records(RsA, RsB, Acc);
         T -> mts_records(RsA, RsB, [{Key, T} | Acc])
     end;
-mts_records([{KeyA, _} | _ ]=RsA, [{KeyB, _} | RsB], Acc) when KeyA > KeyB ->
-    mts_records(RsA, RsB, Acc);
-mts_records([{KeyA, _} | RsA], [{KeyB, _} | _] = RsB, Acc) when KeyA < KeyB ->
-    mts_records(RsA, RsB, Acc);
+mts_records([{KeyA, _} | _]=RsA, [{KeyB, _} | _]=RsB, Acc) ->
+    %% We must use total ordering rather than plain '<' as -0.0 differs from
+    %% +0.0
+    case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+        true ->
+            mts_records(tl(RsA), RsB, Acc);
+        false ->
+            true = KeyA =/= KeyB,               %Assertion.
+            mts_records(RsA, tl(RsB), Acc)
+    end;
 mts_records(_RsA, [], [_|_]=Acc) ->
     reverse(Acc);
 mts_records([], _RsB, [_|_]=Acc) ->
@@ -254,10 +264,15 @@ join(#t_tuple{}=A, #t_tuple{}=B) ->
             lub(A, B);
         {_Key, none} ->
             lub(A, B);
-        {KeyA, KeyB} when KeyA < KeyB ->
-            #t_union{tuple_set=[{KeyA, A}, {KeyB, B}]};
-        {KeyA, KeyB} when KeyA > KeyB ->
-            #t_union{tuple_set=[{KeyB, B}, {KeyA, A}]}
+        {KeyA, KeyB} ->
+            %% We must use total ordering rather than plain '<' as -0.0 differs
+            %% from +0.0
+            case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+                true ->
+                    #t_union{tuple_set=[{KeyA, A}, {KeyB, B}]};
+                false ->
+                    #t_union{tuple_set=[{KeyB, B}, {KeyA, A}]}
+            end
     end;
 join(#t_tuple{}=A, B) ->
     %% All other combinations have been tried already, so B must be 'other'
@@ -320,10 +335,16 @@ jts_records(RsA, RsB, N, Acc) when N > ?TUPLE_SET_LIMIT ->
     #t_tuple{} = normalize_tuple_set(Acc, B);
 jts_records([{Key, A} | RsA], [{Key, B} | RsB], N, Acc) ->
     jts_records(RsA, RsB, N + 1, [{Key, lub(A, B)} | Acc]);
-jts_records([{KeyA, _} | _]=RsA, [{KeyB, B} | RsB], N, Acc) when KeyA > KeyB ->
-    jts_records(RsA, RsB, N + 1, [{KeyB, B} | Acc]);
-jts_records([{KeyA, A} | RsA], [{KeyB, _} | _] = RsB, N, Acc) when KeyA < KeyB ->
-    jts_records(RsA, RsB, N + 1, [{KeyA, A} | Acc]);
+jts_records([{KeyA, A} | _]=RsA, [{KeyB, B} | _]=RsB, N, Acc) ->
+    %% We must use total ordering rather than plain '<' as -0.0 differs from
+    %% +0.0
+    case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+        true ->
+            jts_records(tl(RsA), RsB, N + 1, [{KeyA, A} | Acc]);
+        false ->
+            true = KeyA =/= KeyB,               %Assertion.
+            jts_records(RsA, tl(RsB), N + 1, [{KeyB, B} | Acc])
+    end;
 jts_records([{KeyA, A} | RsA], [], N, Acc) ->
     jts_records(RsA, [], N + 1, [{KeyA, A} | Acc]);
 jts_records([], [{KeyB, B} | RsB], N, Acc) ->
@@ -429,7 +450,7 @@ subtract(#t_union{list=List}=A, B) when ?IS_LIST_TYPE(B) ->
     shrink_union(A#t_union{list=subtract(List, B)});
 subtract(#t_union{tuple_set=[_|_]=Records0}=A, #t_tuple{}=B) ->
     %% Filter out all records that are more specific than B.
-    NewSet = case [{Key, T} || {Key, T} <- Records0, meet(T, B) =/= T] of
+    NewSet = case [{Key, T} || {Key, T} <:- Records0, meet(T, B) =/= T] of
                  [_|_]=Records -> Records;
                  [] -> none
              end,
@@ -479,8 +500,7 @@ is_bs_matchable_type(Type) ->
       Result :: {ok, term()} | error.
 get_singleton_value(#t_atom{elements=[Atom]}) ->
     {ok, Atom};
-get_singleton_value(#t_float{elements={Float,Float}}) when Float /= 0 ->
-    %% 0.0 is not actually a singleton as it has two encodings: 0.0 and -0.0
+get_singleton_value(#t_float{elements={Float,Float}}) ->
     {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
     {ok, Int};
@@ -697,11 +717,7 @@ make_cons(Head0, Tail) ->
 
 -spec make_float(float()) -> type().
 make_float(Float) when is_float(Float) ->
-    make_float(Float, Float).
-
--spec make_float(float(), float()) -> type().
-make_float(Min, Max) when is_float(Min), is_float(Max), Min =< Max ->
-    #t_float{elements={Min, Max}}.
+    #t_float{elements={Float,Float}}.
 
 -spec make_integer(integer()) -> type().
 make_integer(Int) when is_integer(Int) ->
@@ -882,7 +898,7 @@ glb(#t_integer{elements=R1}, #t_integer{elements=R2}) ->
 glb(#t_integer{elements=R1}, #t_number{elements=R2}) ->
     integer_from_range(glb_ranges(R1, R2));
 glb(#t_float{elements=R1}, #t_number{elements=R2}) ->
-    float_from_range(glb_ranges(R1, R2));
+    float_from_range(glb_ranges(R1, number_to_float_range(R2)));
 glb(#t_list{type=TypeA,terminator=TermA},
     #t_list{type=TypeB,terminator=TermB}) ->
     %% A list is a union of `[type() | _]` and `[]`, so we're left with
@@ -903,7 +919,7 @@ glb(#t_number{elements=R1}, #t_number{elements=R2}) ->
 glb(#t_number{elements=R1}, #t_integer{elements=R2}) ->
     integer_from_range(glb_ranges(R1, R2));
 glb(#t_number{elements=R1}, #t_float{elements=R2}) ->
-    float_from_range(glb_ranges(R1, R2));
+    float_from_range(glb_ranges(number_to_float_range(R1), R2));
 glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKeyB,super_value=SValueB}) ->
     %% Note the use of meet/2; elements don't need to be normal types.
@@ -1132,6 +1148,14 @@ lub_ranges({MinA,MaxA}, {MinB,MaxB}) ->
 lub_ranges(_, _) ->
     any.
 
+%% Expands integer 0 to `-0.0 .. +0.0`
+number_to_float_range({Min, 0}) ->
+    number_to_float_range({Min, +0.0});
+number_to_float_range({0, Max}) ->
+    number_to_float_range({-0.0, Max});
+number_to_float_range(Other) ->
+    Other.
+
 lub_bs_matchable(UnitA, UnitB) ->
     #t_bs_matchable{tail_unit=gcd(UnitA, UnitB)}.
 
@@ -1179,12 +1203,13 @@ float_from_range(none) ->
     none;
 float_from_range(any) ->
     #t_float{};
-float_from_range({Min0,Max0}) ->
-    case {safe_float(Min0),safe_float(Max0)} of
+float_from_range({Min0, Max0}) ->
+    true = inf_le(Min0, Max0),                  %Assertion.
+    case {safe_float(Min0), safe_float(Max0)} of
         {'-inf','+inf'} ->
             #t_float{};
-        {Min,Max} ->
-            #t_float{elements={Min,Max}}
+        {Min, Max} ->
+            #t_float{elements={Min, Max}}
     end.
 
 safe_float(N) when is_number(N) ->
@@ -1218,21 +1243,48 @@ number_from_range(N) ->
             none
     end.
 
-inf_le('-inf', _) -> true;
-inf_le(A, B) -> A =< B.
+inf_le('-inf', _) ->
+    true;
+inf_le(A, B) when is_float(A), is_float(B) ->
+    %% When float ranges are compared to float ranges, the total ordering
+    %% function must be used to preserve `-0.0 =/= +0.0`.
+    total_compare(A, B, fun erlang:'=<'/2);
+inf_le(A, B) ->
+    A =< B.
 
-inf_ge(_, '-inf') -> true;
-inf_ge('-inf', _) -> false;
-inf_ge(A, B) -> A >= B.
+inf_ge(_, '-inf') ->
+    true;
+inf_ge('-inf', _) ->
+    false;
+inf_ge(A, B) when is_float(A), is_float(B) ->
+    total_compare(A, B, fun erlang:'>='/2);
+inf_ge(A, B) ->
+    A >= B.
 
-inf_min(A, B) when A =:= '-inf'; B =:= '-inf' -> '-inf';
-inf_min(A, B) when A =< B -> A;
-inf_min(A, B) when A > B -> B.
+inf_min(A, B) when A =:= '-inf'; B =:= '-inf' ->
+    '-inf';
+inf_min(A, B) when is_float(A), is_float(B) ->
+    case total_compare(A, B, fun erlang:'=<'/2) of
+        true -> A;
+        false -> B
+    end;
+inf_min(A, B) ->
+    min(A, B).
 
-inf_max('-inf', B) -> B;
-inf_max(A, '-inf') -> A;
-inf_max(A, B) when A >= B -> A;
-inf_max(A, B) when A < B -> B.
+inf_max('-inf', B) ->
+    B;
+inf_max(A, '-inf') ->
+    A;
+inf_max(A, B) when is_float(A), is_float(B) ->
+    case total_compare(A, B, fun erlang:'>='/2) of
+        true -> A;
+        false -> B
+    end;
+inf_max(A, B) ->
+    max(A, B).
+
+total_compare(A, B, Order) ->
+    Order(erts_internal:cmp_term(A, B), 0).
 
 %%
 
@@ -1397,48 +1449,71 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
 
 -define(BEAM_TYPE_ATOM,          (1 bsl 0)).
 -define(BEAM_TYPE_BITSTRING,     (1 bsl 1)).
--define(BEAM_TYPE_BS_MATCHSTATE, (1 bsl 2)).
--define(BEAM_TYPE_CONS,          (1 bsl 3)).
--define(BEAM_TYPE_FLOAT,         (1 bsl 4)).
--define(BEAM_TYPE_FUN,           (1 bsl 5)).
--define(BEAM_TYPE_INTEGER,       (1 bsl 6)).
--define(BEAM_TYPE_MAP,           (1 bsl 7)).
--define(BEAM_TYPE_NIL,           (1 bsl 8)).
--define(BEAM_TYPE_PID,           (1 bsl 9)).
--define(BEAM_TYPE_PORT,          (1 bsl 10)).
--define(BEAM_TYPE_REFERENCE,     (1 bsl 11)).
--define(BEAM_TYPE_TUPLE,         (1 bsl 12)).
+-define(BEAM_TYPE_CONS,          (1 bsl 2)).
+-define(BEAM_TYPE_FLOAT,         (1 bsl 3)).
+-define(BEAM_TYPE_FUN,           (1 bsl 4)).
+-define(BEAM_TYPE_INTEGER,       (1 bsl 5)).
+-define(BEAM_TYPE_MAP,           (1 bsl 6)).
+-define(BEAM_TYPE_NIL,           (1 bsl 7)).
+-define(BEAM_TYPE_PID,           (1 bsl 8)).
+-define(BEAM_TYPE_PORT,          (1 bsl 9)).
+-define(BEAM_TYPE_REFERENCE,     (1 bsl 10)).
+-define(BEAM_TYPE_TUPLE,         (1 bsl 11)).
 
--define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 13)).
--define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 14)).
--define(BEAM_TYPE_HAS_UNIT,        (1 bsl 15)).
+-define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 12)).
+-define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 13)).
+-define(BEAM_TYPE_HAS_UNIT,        (1 bsl 14)).
 
--define(BEAM_TYPES_VERSION_26, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_27, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_26, 2).
 -define(BEAM_TYPES_VERSION_25, 1).
 
 -spec convert_ext(pos_integer(), binary()) -> binary() | 'none'.
-convert_ext(?BEAM_TYPES_VERSION, Types) ->
+convert_ext(?BEAM_TYPES_VERSION_27, Types) ->
     Types;
+convert_ext(?BEAM_TYPES_VERSION_26, Types) ->
+    convert_ext(?BEAM_TYPES_VERSION_27, convert_ext_26(Types, <<>>));
 convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
     NumberMask = (?BEAM_TYPE_FLOAT bor ?BEAM_TYPE_INTEGER),
     Types = << case Min =< Max of
                    true ->
                        true = 0 =/= (TypeBits0 band NumberMask), %Assertion.
                        TypeBits = TypeBits0 bor
-                           ?BEAM_TYPE_HAS_LOWER_BOUND bor
-                           ?BEAM_TYPE_HAS_UPPER_BOUND,
+                           ((?BEAM_TYPE_HAS_LOWER_BOUND bor
+                                 ?BEAM_TYPE_HAS_UPPER_BOUND) bsl 1),
                        <<TypeBits:16,Min:64/signed,Max:64/signed>>;
                    false ->
                        <<TypeBits0:16>>
-               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <= Types0 >>,
+               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <:= Types0 >>,
     convert_ext(?BEAM_TYPES_VERSION_26, Types);
 convert_ext(_Version, _Types) ->
     none.
 
+convert_ext_26(<<TypeBits0:16/big,More/binary>>, Types) ->
+    true = TypeBits0 =/= 0,                      %Assertion.
+    %% OTP 27 removed #t_bs_context{} from the type information, which used to
+    %% occupy bit 2. As these are now considered to be a regular bitstring that
+    %% happens to be mutable, we'll combine it with the #t_bitstring{} type
+    %% bit.
+    TypeBits = (TypeBits0 band 3) bor ((TypeBits0 band (bnot 3)) bsr 1),
+
+    Res = foldl(fun({Id, Type}, Acc) ->
+                        decode_ext_bits(TypeBits, Id, Type, Acc)
+                end, none, ext_type_mapping()),
+    {[Min, Max, Unit], Rest} = decode_extra(TypeBits, More),
+    R = case {Min,Max} of
+            {'-inf','+inf'} -> any;
+            R0 -> R0
+        end,
+
+    Encoded = encode_ext(decode_fix(Res, R, Unit)),
+    convert_ext_26(Rest, <<Types/bits, Encoded/bits>>);
+convert_ext_26(<<>>, Types) ->
+    Types.
+
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
-     {?BEAM_TYPE_BITSTRING,     #t_bitstring{}},
-     {?BEAM_TYPE_BS_MATCHSTATE, #t_bs_context{}},
+     {?BEAM_TYPE_BITSTRING,     #t_bs_matchable{}},
      {?BEAM_TYPE_CONS,          #t_cons{}},
      {?BEAM_TYPE_FLOAT,         #t_float{}},
      {?BEAM_TYPE_FUN,           #t_fun{}},

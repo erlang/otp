@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2001-2006 Richard Carlsson
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,13 +17,19 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings
-%% AB. Portions created by Ericsson are Copyright 1999, Ericsson
-%% Utvecklings AB. All Rights Reserved.''
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
+%% %CopyrightEnd%
 %%
 %% @private
-%% @copyright Richard Carlsson 2001-2003. Portions created by Ericsson
-%% are Copyright 1999, Ericsson Utvecklings AB. All Rights Reserved.
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @end
@@ -33,6 +46,8 @@
 %% Since there are no `full stop' tokens in EDoc specifications, the
 %% `tokens' function *always* returns `{more, Continuation}' unless an
 %% error occurs.
+
+-compile(nowarn_deprecated_catch).
 
 -export([string/1,string/2,format_error/1]).
 

@@ -1,7 +1,16 @@
 %% ---------------------------------------------------------------------
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2012-2015 Richard Carlsson
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,17 +28,20 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2012-2015 Richard Carlsson
-%% @doc Parse transform for merl. Enables the use of automatic metavariables
-%% and using quasi-quotes in matches and case switches. Also optimizes calls
-%% to functions in `merl' by partially evaluating them, turning strings to
-%% templates, etc., at compile-time.
-%%
-%% Using `-include_lib("syntax_tools/include/merl.hrl").' enables this
-%% transform, unless the macro `MERL_NO_TRANSFORM' is defined first.
+%% %CopyrightEnd%
 
 -module(merl_transform).
+-moduledoc """
+Parse transform for merl.
+
+Enables the use of automatic metavariables and using quasi-quotes in
+matches and case switches. Also optimizes calls to functions in `merl`
+by partially evaluating them, turning strings to templates, and so on,
+at compile-time.
+
+Using `-include_lib("syntax_tools/include/merl.hrl").` enables this transform,
+unless the macro `MERL_NO_TRANSFORM` is defined first.
+""".
 
 -export([parse_transform/2]).
 
@@ -40,8 +52,10 @@
 
 %% TODO: unroll calls to switch? it will probably get messy
 
-%% TODO: use Igor to make resulting code independent of merl at runtime?
-
+-doc false.
+-spec parse_transform(InForms, Options :: term()) -> OutForms when
+      InForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
+      OutForms :: [erl_parse:abstract_form() | erl_parse:form_info()].
 parse_transform(Forms, _Options) ->
     erl_syntax:revert_forms(expand(erl_syntax:form_list(Forms))).
 
@@ -275,6 +289,7 @@ is_erlang_var([C|_]) when C >= $A, C =< $Z ; C >= $À, C =< $Þ, C /= $× ->
 is_erlang_var(_) ->
     false.
 
+-dialyzer({no_opaque_union, [get_location/1]}).
 get_location(T) ->
     Pos = erl_syntax:get_pos(T),
     case erl_anno:is_anno(Pos) of

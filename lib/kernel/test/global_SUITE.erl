@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +21,7 @@
 %%
 -module(global_SUITE).
 
--compile(r23). % many_nodes()
+-compile(r26). % many_nodes()
 
 -export([all/0, suite/0, groups/0, 
 	 init_per_suite/1, end_per_suite/1,

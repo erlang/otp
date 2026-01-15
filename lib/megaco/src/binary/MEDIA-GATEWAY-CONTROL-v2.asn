@@ -1,3 +1,20 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: NOASSERTION
+--
+-- Copyright Ericsson AB 2009-2025. All Rights Reserved.
+--
+-- %CopyrightEnd%
+--
+-- This ASN.1 spec has been extracted from the Megaco/H.248 version 2
+-- ITU-T standard document.
+--
+-- It is currently unknown which copyright notice is appropriate.
+--
+-- o Removed stuff named nonStandard
+-- o Enhancements of the indentation has been performed.
+--
+
 MEDIA-GATEWAY-CONTROL-v2 
 {itu-t(0) recommendation(0) h(8) h248(248) 
  modules(0) media-gateway-control(0) version2(2)} 

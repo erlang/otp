@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +45,6 @@
                   peer_certificate,
                   own_certificates,
                   private_key,
-                  compression_method,
                   cipher_suite,
                   master_secret,
                   srp_username,
@@ -123,10 +124,9 @@
 
 -record(server_hello, {
 	  server_version,
-	  random,             
+	  random,
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suite,       % cipher_suites
-	  compression_method, % compression_method
 	  extensions
 	 }).
 

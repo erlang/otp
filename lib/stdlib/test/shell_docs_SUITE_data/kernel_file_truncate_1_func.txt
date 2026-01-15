@@ -1,8 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec truncate(IoDevice) -> ok | {error, Reason}[0m
-  [;1m                  when[0m
-  [;1m                      IoDevice :: io_device(),[0m
-  [;1m                      Reason :: posix() | badarg | terminated.[0m
+[;1m  truncate(IoDevice)[0m
 
   Truncates the file referenced by [;;4mIoDevice[0m at the current
   position. Returns [;;4mok[0m if successful, otherwise [;;4m{error, Reason}[0m.

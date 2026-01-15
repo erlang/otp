@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec binary_to_term(Binary) -> term() when Binary :: ext_binary().[0m
+[;1m  binary_to_term(Binary)[0m
 
   Returns an Erlang term that is the result of decoding binary
   object [;;4mBinary[0m, which must be encoded according to the Erlang
@@ -10,7 +17,8 @@
     > hello = binary_to_term(Bin).
     hello
 
-  Warning:
+  [;;4mWarning[0m
+
     When decoding binaries from untrusted sources, the untrusted
     source may submit data in a way to create resources, such as
     atoms and remote references, that cannot be garbage collected

@@ -1,5 +1,26 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
+
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+
 -mode(compile).
 
 %% We print out a warning for files that take longer than
@@ -8,7 +29,7 @@
 
 main(Args0) ->
     DefOpts = #{erltop=>false,format=>asm,no_compile=>false,
-                legacy=>false,copts=>[]},
+                legacy=>false,copts=>[],time=>false},
     {Args,Opts} = opts(Args0, DefOpts),
     case Args of
 	[OutDir] ->
@@ -33,6 +54,8 @@ usage() ->
          "                  compile by looking up the source for the current\n"
          "                  runtime. This option allows the user to compile\n"
          "                  the source in a different source tree.\n"
+         "  --time          Produce cumulative timing information for all\n"
+         "                  modules compiled by this script.\n"
          "\n"
          "DESCRIPTION\n"
          "\n"
@@ -92,6 +115,8 @@ opts(["--co",Opt|Args], #{copts:=Copts}=Opts) ->
     opts(Args, Opts#{copts:=Copts++[list_to_atom(Opt)]});
 opts(["--erltop", Path|Args], Opts) ->
     opts(Args, Opts#{erltop:=Path});
+opts(["--time"|Args], Opts) ->
+    opts(Args, Opts#{time:=true});
 opts(["--"++Opt|_], _Opts) ->
     io:format("Unknown option: --~ts\n\n", [Opt]),
     usage();
@@ -122,7 +147,13 @@ do_compile(OutDir, Opts0) ->
     CF = choose_format(Opts),
     p_run(fun(Spec) ->
                   compile_spec(CF, Spec)
-          end, Specs).
+          end, Specs),
+    case map_get(time, Opts) of
+        true ->
+            collect_timing();
+        false ->
+            ok
+    end.
 
 choose_format(#{format:=Format}=Opts) ->
     case Format of
@@ -167,11 +198,17 @@ get_specs(Apps, #{format:=dis,no_compile:=true}=Opts) ->
     {Files,Opts};
 get_specs(Apps, #{}=Opts) ->
     Inc = make_includes(Opts),
-    CompilerOpts = [{d,epmd_dist_high,42},
-                    {d,epmd_dist_low,37},
-                    {d,'VSN',1},
-                    {d,'COMPILER_VSN',1},
-                    {d,erlang_daemon_port,1337}|Inc],
+    CompilerOpts0 = [{d,epmd_dist_high,42},
+                     {d,epmd_dist_low,37},
+                     {d,'VSN',1},
+                     {d,'COMPILER_VSN',1},
+                     {d,erlang_daemon_port,1337}|Inc],
+    CompilerOpts = case map_get(time, Opts) of
+                       true ->
+                           [{time,make_time_reporter()}|CompilerOpts0];
+                       false ->
+                           CompilerOpts0
+                   end,
     Files = get_src(Apps, Opts),
     Specs1 = add_opts(Files, CompilerOpts),
     Specs = [{Beam,elixir} || Beam <- get_elixir_beams()] ++ Specs1,
@@ -659,3 +696,81 @@ format_spec({File, _Options}) when is_list(File) ->
     File;
 format_spec(Spec) ->
     io_lib:format("~p", [Spec]).
+
+%%%
+%%% Helpers for creating cumulative, per pass, timing information for
+%%% all compiled modules.
+%%%
+
+make_time_reporter() ->
+    Self = self(),
+    fun(_, Timings) ->
+            Self ! {timings,Timings}
+    end.
+
+collect_timing() ->
+    collect_timing(#{}).
+
+
+collect_timing(Data) ->
+    receive
+        {timings,Timings} ->
+            collect_timing(Timings, Data)
+    after 0 ->
+            print_timing(Data),
+            ok
+    end.
+
+collect_timing([{Pass,Elapsed,_Mem,SubTimes}|Timings], Data) ->
+    Info = case Data of
+               #{Pass:={Elapsed0,SubTimes0}} ->
+                   {Elapsed0 + Elapsed,collect_subpass(SubTimes, SubTimes0)};
+               #{} ->
+                   {Elapsed,collect_subpass(SubTimes, #{})}
+           end,
+    collect_timing(Timings, Data#{Pass=>Info});
+collect_timing([], Data) ->
+    collect_timing(Data).
+
+collect_subpass([{SubPass,SubTime}|SubTimes], Data) ->
+    collect_subpass(SubTimes,
+                    Data#{SubPass=>SubTime + maps:get(SubPass, Data, 0)});
+collect_subpass([], Data) ->
+    Data.
+
+print_timing(Data) ->
+    Times = lists:reverse(lists:keysort(2, maps:to_list(Data))),
+    Total = lists:sum([T || {_,{T,_}} <- Times]),
+    lists:foreach(
+      fun({PassName,{ElapsedNative,SubTimes}}) ->
+              Elapsed = erlang:convert_time_unit(ElapsedNative,
+                                                 native, microsecond),
+              io:format(" ~-30s: ~10.3f s       ~3w %\n",
+                        [PassName,Elapsed/1000000,
+                         percent(ElapsedNative, Total)]),
+              print_subpass_timing(SubTimes)
+      end, Times).
+
+print_subpass_timing(Times0) ->
+    Times = lists:reverse(lists:keysort(2, maps:to_list(Times0))),
+    Total = lists:sum([T || {_,T} <- Times]),
+    case Times of
+        [] ->
+            ok;
+        [_|_] ->
+            io:format("    %% Sub passes from slowest to fastest:\n"),
+            print_times_1(Times, Total)
+    end.
+
+print_times_1([{Name,T}|Ts], Total) ->
+    Elapsed = erlang:convert_time_unit(T, native, microsecond),
+    io:format("    ~-27s: ~10.3f s ~3w %\n",
+              [Name,Elapsed/1000000,percent(T, Total)]),
+    print_times_1(Ts, Total);
+print_times_1([], _Total) ->
+    ok.
+
+percent(0, _Total) ->
+    0;
+percent(Value, Total) ->
+    round(100*Value/Total).

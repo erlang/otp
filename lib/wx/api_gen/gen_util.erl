@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,7 +79,7 @@ close() ->
 			copyright -> %% We ignore copyright changes only
 			    ok = file:delete(File ++ ".temp");
 			_ ->
-			    io:format("Diff in ~s~n~.1000s ~n", [File, string:trim(Diff)]),
+			    io:format("Diff in ~s~n~.1000ts ~n", [File, string:trim(Diff)]),
 			    case file:rename(File ++ ".temp", File) of
 				ok -> ok;
 				_ ->  io:format("*****  Failed to save file ~p ~n",[File])
@@ -90,7 +92,7 @@ close() ->
 
 check_diff(Diff) ->
     try
-	[_,D1,_,D2|Tail] = re:split(Diff, "\n"),
+	[_,D1,_,D2|Tail] = re:split(Diff, "\n", [unicode]),
 	case Tail of
 	    [] -> ok;
 	    [<<>>] -> ok;
@@ -219,11 +221,24 @@ halt(Reason) ->
 	    gen_util:halt(Reason)
     end.
 
+erl_gl_copyright() ->
+    erl_copyright_template("Apache-2.0 AND SGI-B-2.0").
+
 erl_copyright() ->
+    erl_copyright_template("Apache-2.0").
+
+erl_wx_copyright() ->
+    erl_copyright_template("Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3").
+
+%% REUSE-IgnoreStart
+
+erl_copyright_template(License) ->
     StartYear = start_year(get(current_class)),
     {CurrentYear,_,_}   = erlang:date(),
     w("%%~n",[]),
     w("%% %CopyrightBegin%~n",[]),
+    w("%%~n",[]),
+    w("%% SPDX-License-Identifier: ~ts~n",[License]),
     w("%%~n",[]),
     w("%% Copyright Ericsson AB ~p-~p. All Rights Reserved.~n",
       [StartYear, CurrentYear]),
@@ -240,12 +255,58 @@ erl_copyright() ->
     w("%% See the License for the specific language governing permissions and~n",[]),
     w("%% limitations under the License.~n",[]),
     w("%%~n",[]),
+    append_license(License),
     w("%% %CopyrightEnd%~n",[]).
+
+%% REUSE-IgnoreEnd
+
+append_license("Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3") ->
+    w("%% For documentation, wxWindow Free Documentation License, Version 3 applies.~n",[]),
+    w("%% wxWindows Free Documentation Licence, Version 3, as follows.~n",[]),
+    w("%% ===============================================~n",[]),
+    w("%%~n",[]),
+    w("%% Everyone is permitted to copy and distribute verbatim copies~n",[]),
+    w("%% of this licence document, but changing it is not allowed.~n",[]),
+    w("%%~n",[]),
+    w("%%                  WXWINDOWS FREE DOCUMENTATION LICENCE~n",[]),
+    w("%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION~n",[]),
+    w("%%~n",[]),
+    w("%% 1. Permission is granted to make and distribute verbatim copies of this~n",[]),
+    w("%% manual or piece of documentation provided any copyright notice and this~n",[]),
+    w("%% permission notice are preserved on all copies.~n",[]),
+    w("%%~n",[]),
+    w("%% 2. Permission is granted to process this file or document through a~n",[]),
+    w("%% document processing system and, at your option and the option of any third~n",[]),
+    w("%% party, print the results, provided a printed document carries a copying~n",[]),
+    w("%% permission notice identical to this one.~n",[]),
+    w("%%~n",[]),
+    w("%% 3. Permission is granted to copy and distribute modified versions of this~n",[]),
+    w("%% manual or piece of documentation under the conditions for verbatim copying,~n",[]),
+    w("%% provided also that any sections describing licensing conditions for this~n",[]),
+    w("%% manual, such as, in particular, the GNU General Public Licence, the GNU~n",[]),
+    w("%% Library General Public Licence, and any wxWindows Licence are included~n",[]),
+    w("%% exactly as in the original, and provided that the entire resulting derived~n",[]),
+    w("%% work is distributed under the terms of a permission notice identical to~n",[]),
+    w("%% this one.~n",[]),
+    w("%%~n",[]),
+    w("%% 4. Permission is granted to copy and distribute translations of this manual~n",[]),
+    w("%% or piece of documentation into another language, under the above conditions~n",[]),
+    w("%% for modified versions, except that sections related to licensing, including~n",[]),
+    w("%% this paragraph, may also be included in translations approved by the~n",[]),
+    w("%% copyright holders of the respective licence documents in addition to the~n",[]),
+    w("%% original English.~n",[]),
+    w("%%~n",[]);
+append_license(_) ->
+    ok.
+
+%% REUSE-IgnoreStart
 
 c_copyright() ->
     {CurrentYear,_,_}   = erlang:date(),
     w("/*~n",[]),
     w(" * %CopyrightBegin%~n",[]),
+    w(" *~n",[]),
+    w(" * SPDX-License-Identifier: Apache-2.0~n",[]),
     w(" *~n",[]),
     w(" * Copyright Ericsson AB 2008-~p. All Rights Reserved.~n",[CurrentYear]),
     w(" *~n",[]),
@@ -263,6 +324,8 @@ c_copyright() ->
     w(" *~n",[]),
     w(" * %CopyrightEnd%~n",[]),
     w("*/~n",[]).
+
+%% REUSE-IgnoreEnd
 
 start_year("wxAuiManagerEvent") -> 2009;
 start_year("wxAuiNotebookEvent") -> 2009;

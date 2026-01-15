@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,17 +24,18 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
 -export([display/1, display_huge/0, display_string/1,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
 	 shadow_comments/1,list_to_utf8_atom/1,
-	 specs/1,improper_bif_stubs/1,auto_imports/1,
+	 specs/1,improper_bif_stubs/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 t_binary_to_atom/1,t_binary_to_existing_atom/1,
 	 t_atom_to_binary/1,min_max/1, erlang_halt/1,
-         erl_crash_dump_bytes/1,
+         halt_flush_timeout/1, erl_crash_dump_bytes/1,
 	 is_builtin/1, error_stacktrace/1,
 	 error_stacktrace_during_call_trace/1,
          group_leader_prio/1, group_leader_prio_dirty/1,
@@ -44,7 +47,7 @@
          test_length/1,
          fixed_apply_badarg/1,
          external_fun_apply3/1,
-         node_1/1]).
+         node_1/1,doctests/1,is_integer_3_test/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -52,17 +55,17 @@ suite() ->
 
 all() -> 
     [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
-     specs, improper_bif_stubs, auto_imports,
+     specs, improper_bif_stubs,
      t_list_to_existing_atom, os_env, otp_7526,
      display, display_string, list_to_utf8_atom,
      t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
-     erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
-     error_stacktrace, error_stacktrace_during_call_trace,
+     erl_crash_dump_bytes, min_max, erlang_halt, halt_flush_timeout,
+     is_builtin, error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3, node_1].
+     external_fun_apply3, node_1, doctests, is_integer_3_test].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -199,18 +202,17 @@ shadow_comments(_Config) ->
     List1 = [MFA || {M,_,_}=MFA <- List0, M =/= erlang],
     List = List1 ++ ErlangList,
     HasTypes = [MFA || {M,F,A}=MFA <- List,
-		       erl_bif_types:is_known(M, F, A)],
-    Path = get_code_path(),
-    BifRel = sofs:relation(HasTypes, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+                       erl_bif_types:is_known(M, F, A)],
+    BifModules = bif_modules(HasTypes),
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Specs0 = [extract_specs(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Specs = lists:append(Specs0),
     SpecFuns0 = [F || {F,_} <- Specs],
     SpecFuns = sofs:relation(SpecFuns0, [{m,f,a}]),
+    BifRel = sofs:relation(HasTypes, [{m,f,a}]),
     HasTypesAndSpecs = sofs:intersection(BifRel, SpecFuns),
-    Commented0 = lists:append([extract_comments(Mod, Path) ||
+    Commented0 = lists:append([extract_comments(Mod) ||
 				  Mod <- BifModules]),
     Commented = sofs:relation(Commented0, [{m,f,a}]),
     {NoComments0,_,NoBifSpecs0} =
@@ -246,9 +248,18 @@ shadow_comments(_Config) ->
 	    ct:fail(erl_bif_types)
     end.
 
-extract_comments(Mod, Path) ->
-    Beam = which(Mod, Path),
-    SrcDir = filename:join(filename:dirname(filename:dirname(Beam)), "src"),
+extract_comments(Mod) ->
+    Beam = which(Mod),
+    AppDir = filename:dirname(filename:dirname(Beam)),
+    SrcDir = case code:root_dir() =:= filename:dirname(AppDir) of
+                 true ->
+                     %% Running in an uninstalled system.
+                     filename:join(AppDir, "preloaded/src");
+                 false ->
+                     %% Running in an installed system.
+                     filename:join(AppDir, "src")
+             end,
+    io:format("~p\n", [SrcDir]),
     Src = filename:join(SrcDir, atom_to_list(Mod) ++ ".erl"),
     {ok,Bin} = file:read_file(Src),
     Lines0 = binary:split(Bin, <<"\n">>, [global]),
@@ -267,13 +278,12 @@ specs(_) ->
     List0 = erlang:system_info(snifs),
 
     %% Ignore all operators.
-    List = [MFA || MFA <- List0, not is_operator(MFA)],
+    List1 = [MFA || MFA <- List0, not is_operator(MFA)],
 
     %% Extract specs from the abstract code for all BIFs.
-    Path = get_code_path(),
-    BifRel = sofs:relation(List, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    BifModules = bif_modules(List1),
+    List = [MFA || {M,_,_}=MFA <- List1, lists:member(M, BifModules)],
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Specs0 = [extract_specs(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Specs = lists:append(Specs0),
@@ -312,10 +322,8 @@ make_mfa(M, {M,_,_}=MFA) -> MFA.
 
 improper_bif_stubs(_) ->
     Bifs = erlang:system_info(snifs),
-    Path = get_code_path(),
-    BifRel = sofs:relation(Bifs, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    BifModules = bif_modules(Bifs),
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Funcs0 = [extract_functions(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Funcs = lists:append(Funcs0),
@@ -324,35 +332,6 @@ improper_bif_stubs(_) ->
     FuncRel = sofs:restriction(FuncRel0, BifSet),
     [check_stub(MFA, Body) || {MFA,Body} <- sofs:to_external(FuncRel)],
     ok.
-
-auto_imports(_Config) ->
-    Path = get_code_path(),
-    {erlang,Abstr} = extract_abstract(erlang, Path),
-    SpecFuns = [Name || {attribute,_,spec,{Name,_}} <- Abstr],
-    auto_imports(SpecFuns, 0).
-
-auto_imports([{F,A}|T], Errors) ->
-    case erl_internal:bif(F, A) of
-	false ->
-	    io:format("~p/~p: not auto-imported, but spec claims it "
-		      "is auto-imported", [F,A]),
-	    auto_imports(T, Errors+1);
-	true ->
-	    auto_imports(T, Errors)
-    end;
-auto_imports([{erlang,F,A}|T], Errors) ->
-    case erl_internal:bif(F, A) of
-	false ->
-	    auto_imports(T, Errors);
-	true ->
-	    io:format("~p/~p: auto-imported, but "
-		      "spec claims it is *not* auto-imported", [F,A]),
-	    auto_imports(T, Errors+1)
-    end;
-auto_imports([], 0) ->
-    ok;
-auto_imports([], Errors) ->
-    ct:fail({Errors,inconsistencies}).
 
 extract_functions(M, Abstr) ->
     [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].
@@ -686,6 +665,12 @@ t_atom_to_binary(Config) when is_list(Config) ->
     <<>> = atom_to_binary('', unicode),
     <<127>> = atom_to_binary('\177', utf8),
     <<"abcdef">> = atom_to_binary(abcdef, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwe">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwe, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwer">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwer, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerq">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerq, utf8),
     HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
     HalfLongBin = atom_to_binary(HalfLongAtom),
     LongAtomBin = atom_to_binary(LongAtom, utf8),
@@ -935,6 +920,167 @@ erlang_halt(Config) when is_list(Config) ->
             ct:fail("Could not find end marker in crash dump");
         {_,_} ->
             ok
+    end.
+
+
+halt_flush_timeout(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 5}),
+    halt_flush_timeout_test(false, true),
+    halt_flush_timeout_test(true, true),
+    halt_flush_timeout_test(true, false).
+
+halt_flush_timeout_test(HaltCmd, HaltOpt) ->
+    halt_flush_timeout_test_try(HaltCmd, HaltOpt, 1).
+
+halt_flush_timeout_test_try(HaltCmd, HaltOpt, N) ->
+    case {HaltCmd, HaltOpt} of
+        {false, true} ->
+            ct:log("Test no ~p with flush_timeout option and "
+                   "default command line~n", [N]);
+        {true, true} ->
+            ct:log("Test no ~p with flush_timeout option and "
+                   "command line arg~n", [N]);
+        {true, false} ->
+            ct:log("Test no ~p with command line arg~n", [N])
+    end,
+    {ok, Peer, Node} = ?CT_PEER(),
+    try
+        ok = halt_flush_timeout_test_run(Node, HaltCmd, HaltOpt),
+        peer:stop(Peer),
+        ok
+    catch
+        Class:Reason:Stack ->
+            ct:log("Failed with ~p reason: ~p~n"
+                   "at ~p~n", [Class, Reason, Stack]),
+            peer:stop(Peer),
+            if N == 5 ->
+                    erlang:raise(Class, Reason, Stack);
+               true ->
+                    halt_flush_timeout_test_try(HaltCmd, HaltOpt, N+1)
+            end
+    end.
+
+halt_flush_timeout_test_run(BNode, HaltCmd, HaltOpt) ->
+    {ok, HNodePort, HNode} = start_halting_node(if HaltCmd == true -> "+zhft 1500";
+                                                   true -> ""
+                                                end),
+    ok = erpc:call(BNode,
+                   fun () ->
+                           pong = net_adm:ping(HNode),
+                           erts_debug:set_internal_state(available_internal_state, true),
+                           ok
+                   end),
+    erpc:cast(BNode,
+              fun () ->
+                      erts_debug:set_internal_state(block, 60*1000)
+              end),
+    wait_until(fun () ->
+                       try
+                           BNode = erpc:call(BNode, erlang, node, [], 1000),
+                           false
+                       catch
+                           error:{erpc,timeout} ->
+                               true
+                       end
+               end),
+    Data = lists:seq(1,1000),
+    SendData = fun SendData() ->
+                       {net_kernel, BNode} ! Data,
+                       SendData()
+               end,
+    Pid1 = spawn(HNode, SendData),
+    Pid2 = spawn(HNode, SendData),
+    IsBlocked = fun (Pid) ->
+                        fun () ->
+                                case erpc:call(node(Pid), erlang, process_info, [Pid, status]) of
+                                    {status, suspended} -> true;
+                                    _Val -> false
+                                end
+                        end
+                end,
+    wait_until(IsBlocked(Pid1)),
+    wait_until(IsBlocked(Pid2)),
+    Start = erlang:monotonic_time(),
+    try
+        erpc:call(HNode,
+                  fun () ->
+                          if HaltOpt == true -> halt(0, [{flush, true},{flush_timeout, 1000}]);
+                             true -> halt()
+                          end
+                  end),
+        error(unexpected_return)
+    catch
+        error:{erpc,noconnection} ->
+            ok
+    end,
+    ExitStatus = await_halting_node_exit(HNodePort),
+    End = erlang:monotonic_time(),
+    ct:log("ExitStatus=~p~n", [ExitStatus]),
+    case erlang:convert_time_unit(End - Start, native, millisecond) of
+        HaltTime when HaltOpt == true, 1000 =< HaltTime, HaltTime < 1500 ->
+            ok;
+        HaltTime when HaltOpt /= true, 1500 =< HaltTime, HaltTime < 2000 ->
+            ok;
+        HaltTime ->
+            error({unexpected_halt_time, HaltTime})
+    end,
+    ExitStatus = 255, %% Exit status when timing out...
+    ok.
+
+start_halting_node(Args) ->
+    Name = "halting_node-"
+        ++ integer_to_list(erlang:system_time(second)) ++ "-"
+        ++ integer_to_list(erlang:unique_integer([positive])),
+    HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
+				 atom_to_list(node())),
+    Node = list_to_atom(Name ++ HostSuffix),
+    Pa = filename:dirname(code:which(?MODULE)),
+    Prog = case catch init:get_argument(progname) of
+	       {ok,[[P]]} -> P;
+	       _ -> exit(no_progname_argument_found)
+	   end,
+    NameSw = case net_kernel:longnames() of
+		 false -> "-sname ";
+		 true -> "-name ";
+		 _ -> exit(not_distributed_node)
+	     end,
+    {ok, Pwd} = file:get_cwd(),
+    CmdLine =
+        Prog ++ " -noinput -noshell " ++ Args
+	++ " " ++ NameSw ++ " " ++ Name ++ " "
+	++ "-pa " ++ Pa ++ " "
+	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ Name ++ " "
+	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()),
+    ct:log("Starting node ~p: ~s~n", [Node, CmdLine]),
+    case open_port({spawn, CmdLine}, [exit_status]) of
+	Port when is_port(Port) ->
+            PingNode = fun PingNode(_PNode, 0) ->
+                               pang;
+                           PingNode(PNode, N) ->
+                               case net_adm:ping(PNode) of
+                                   pong ->
+                                       pong;
+                                   _ ->
+                                       receive after 100 -> ok end,
+                                       PingNode(PNode, N-1)
+                               end
+                       end,
+            case PingNode(Node, 50) of
+		pong ->
+                    {ok, Port, Node};
+		Other ->
+                    error({failed_to_start_node, Node, Other})
+	    end;
+	Error ->
+            error({failed_to_start_node, Node, Error})
+    end.
+
+await_halting_node_exit(Port) ->
+    receive
+        {Port, {data, _}} ->
+            await_halting_node_exit(Port);
+        {Port, {exit_status, ExitStatus}} ->
+            ExitStatus
     end.
 
 add_asan_opt(Opt) ->
@@ -1632,7 +1778,85 @@ node_error(E0) ->
             ok
     end.
 
+doctests(_Config) ->
+    shell_docs:test(erlang, []).
+
+is_integer_3_test(_Config) ->
+    _ = [is_between_ten(X) || X <- lists:seq(-2, 12)],
+
+    false = is_between_ten(0),
+    true = is_between_ten(1),
+    true = is_between_ten(10),
+    false = is_between_ten(11),
+
+    false = is_between_ten(a),
+    false = is_between_ten(5.0),
+    false = is_between_ten(-7.0),
+    false = is_between_ten([1]),
+
+    _ = [begin
+             is_between_negative(X),
+             false = is_between_negative(-X)
+         end || X <- lists:seq(-100, -70)],
+
+    _ = [is_between_mixed(X) || X <- lists:seq(-10, 10)],
+
+    _ = [begin
+             is_between_bignum(X),
+             false = is_between_bignum(-X),
+             false = is_between_bignum(X - (1 bsl 64))
+         end || X <- lists:seq((1 bsl 64) - 3, (1 bsl 64) + 10)],
+
+    is_between_badarg(2, 1.5, 10.0),
+    is_between_badarg(2, 10.0, 1.5),
+    is_between_badarg(2, 1.5, 10),
+    is_between_badarg(2, 1, 10.0),
+    is_between_badarg(2, lower, upper),
+
+    ok.
+
+-define(IS_BETWEEN_TEST(Name, LB, UB),
+Name(X0) ->
+    F = id(is_integer),
+    Lower0 = LB,
+    Upper0 = UB,
+    Lower = id(Lower0),
+    Upper = id(Upper0),
+
+    X1 = id(X0),
+    Result = is_integer(X1, Lower0, Upper0),
+    Result = is_integer(X1, Lower, Upper),
+    Result = apply(erlang, F, id([X1, Lower, Upper])),
+    Result = erlang:F(X1, Lower, Upper),
+
+    false = is_integer(id(X1), Upper, Lower),
+
+    X = id(X1),
+    Result = is_integer(X) andalso Lower =< X andalso X =< Upper,
+    Result).
+
+?IS_BETWEEN_TEST(is_between_ten, 1, 10).
+?IS_BETWEEN_TEST(is_between_negative, -89, -77).
+?IS_BETWEEN_TEST(is_between_mixed, -7, 7).
+?IS_BETWEEN_TEST(is_between_bignum, 1 bsl 64, (1 bsl 64) + 7).
+
+is_between_badarg(X, A, B) ->
+    F = id(is_integer),
+
+    ?assertError(badarg, is_integer(id(X), id(A), id(B))),
+    ?assertError(badarg, erlang:F(X, A, B)),
+    ?assertError(badarg, apply(erlang, F, id([X, A, B]))).
+
 %% helpers
+
+wait_until(Fun) ->
+    case Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
 
 busy_wait_go() ->
     receive
@@ -1645,34 +1869,26 @@ busy_wait_go() ->
 
 id(I) -> I.
 
-%% Get code path, including the path for the erts application.
-get_code_path() ->
-    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
-    case filelib:is_dir(Erts) of
-	true->
-	    [Erts|code:get_path()];
-	_ ->
-	    code:get_path()
-    end.
+bif_modules(MFAs) ->
+    BifRel = sofs:relation(MFAs, [{m,f,a}]),
+    sofs:to_external(sofs:projection(1, BifRel)).
 
-which(Mod, Path) ->
-    which_1(atom_to_list(Mod) ++ ".beam", Path).
-
-which_1(Base, [D|Ds]) ->
-    Path = filename:join(D, Base),
-    case filelib:is_regular(Path) of
-	true -> Path;
-	false -> which_1(Base, Ds)
-    end.
 print_mfa({M,F,A}) ->
     io:format("~p:~p/~p", [M,F,A]).
 
-extract_abstract(Mod, Path) ->
-    Beam = which(Mod, Path),
+which(Mod) ->
+    case code:which(Mod) of
+        preloaded ->
+            filename:join([code:lib_dir(erts), "ebin", atom_to_list(Mod) ++ ".beam"]);
+        Beam when is_list(Beam) ->
+            Beam
+    end.
+
+extract_abstract(Mod) ->
+    Beam = which(Mod),
     {ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr}}]}} =
 	beam_lib:chunks(Beam, [abstract_code]),
     {Mod,Abstr}.
-
 
 tok_loop() ->
     tok_loop(hej).

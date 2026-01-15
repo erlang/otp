@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(interactive_shell_SUITE).
+-include("shell_test_lib.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,16 +43,19 @@
          init_per_testcase/2, end_per_testcase/2,
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1,
 	 job_control_remote/1,stop_during_init/1,wrap/1,
+         noshell_raw/1,
          shell_history/1, shell_history_resize/1, shell_history_eaccess/1,
          shell_history_repair/1, shell_history_repair_corrupt/1,
          shell_history_corrupt/1,
          shell_history_custom/1, shell_history_custom_errors/1,
+         shell_history_toggle/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
          shell_get_password/1,
-         shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1,
+         shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1, shell_multiline_prompt_ssh/1,
          shell_xnfix/1, shell_delete/1,
          shell_transpose/1, shell_search/1, shell_insert/1,
+         shell_combining_unicode/1,
          shell_update_window/1, shell_small_window_multiline_navigation/1, shell_huge_input/1,
          shell_invalid_unicode/1, shell_support_ansi_input/1,
          shell_invalid_ansi/1, shell_suspend/1, shell_full_queue/1,
@@ -60,24 +66,31 @@
          shell_update_window_unicode_wrap/1,
          shell_receive_standard_out/1,
          shell_standard_error_nlcr/1, shell_clear/1,
+         shell_format/1, shell_help/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
+         remsh_dont_terminate_remote/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
-         external_editor_unicode/1, shell_ignore_pager_commands/1]).
+         external_editor_unicode/1, shell_ignore_pager_commands/1,
+         shell_escape_sequence_end_of_prompt_followed_by_unicode/1,
+         shell_output_automatic_newline_ansi_escape_sequence/1]).
+
+-export([get_until/2]).
 
 -export([test_invalid_keymap/1, test_valid_keymap/1]).
 %% Exports for custom shell history module
 -export([load/0, add/1]).
 %% For custom prompt testing
--export([prompt/1]).
--record(tmux, {peer, node, name, orig_location }).
+-export([prompt/1, prompt_2/1]).
+-export([output_to_stdout_slowly/1]).
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,3}}].
 
 all() ->
     [{group, to_erl},
-     {group, tty}].
+     {group, tty},
+     {group, ssh}].
 
 groups() ->
     [{to_erl,[],
@@ -87,6 +100,7 @@ groups() ->
        ctrl_keys, stop_during_init, wrap,
        shell_invalid_ansi,
        shell_get_password,
+       noshell_raw,
        {group, shell_history},
        {group, remsh}]},
      {shell_history, [],
@@ -96,6 +110,7 @@ groups() ->
        shell_history_repair,
        shell_history_repair_corrupt,
        shell_history_corrupt,
+       shell_history_toggle,
        {group, sh_custom}
       ]},
      {sh_custom, [],
@@ -106,9 +121,31 @@ groups() ->
        remsh_error,
        remsh_longnames,
        remsh_no_epmd,
+       remsh_dont_terminate_remote,
        remsh_expand_compatibility_25,
        remsh_expand_compatibility_later_version]},
-     {tty,[],
+     {ssh, [],
+        [{group,ssh_unicode},
+         {group,ssh_latin1},
+         shell_ignore_pager_commands
+        ]},
+       {ssh_unicode,[],
+        [{group,ssh_tests}]},
+       {ssh_latin1,[],[{group,ssh_tests}]},
+       {ssh_tests, [],
+        [shell_navigation, shell_multiline_navigation,
+         shell_multiline_prompt_ssh,
+         shell_xnfix, shell_delete,
+         shell_transpose, shell_search, shell_insert,
+         shell_update_window,
+         shell_small_window_multiline_navigation,
+         shell_huge_input,
+         shell_support_ansi_input,
+         shell_receive_standard_out,
+         shell_expand_location_above,
+         shell_expand_location_below,
+         shell_clear]},
+     {tty, [],
       [{group,tty_unicode},
        {group,tty_latin1},
        test_invalid_keymap, test_valid_keymap,
@@ -116,11 +153,14 @@ groups() ->
        shell_full_queue,
        external_editor,
        external_editor_visual,
-       shell_ignore_pager_commands
+       shell_ignore_pager_commands,
+       shell_help
       ]},
      {tty_unicode,[parallel],
       [{group,tty_tests},
        shell_invalid_unicode,
+       shell_escape_sequence_end_of_prompt_followed_by_unicode,
+       shell_output_automatic_newline_ansi_escape_sequence,
        external_editor_unicode
        %% unicode wrapping does not work right yet
        %% shell_unicode_wrap,
@@ -131,7 +171,8 @@ groups() ->
      {tty_latin1,[],[{group,tty_tests}]},
      {tty_tests, [parallel],
       [shell_navigation, shell_multiline_navigation, shell_multiline_prompt,
-       shell_xnfix, shell_delete,
+       shell_xnfix, shell_delete, shell_format,
+       shell_combining_unicode,
        shell_transpose, shell_search, shell_insert,
        shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
@@ -171,20 +212,19 @@ init_per_group(shell_history, Config) ->
         new -> Config
     end;
 init_per_group(tty, Config) ->
-    case string:split(tmux("-V")," ") of
-        ["tmux",[Num,$.|_]] when Num >= $3, Num =< $9 ->
-            tmux("kill-session"),
-            "" = tmux("-u new-session -x 50 -y 60 -d"),
-            ["" = tmux(["set-environment '",Name,"' '",Value,"'"])
-             || {Name,Value} <- os:env()],
-            Config;
-        ["tmux", Vsn] ->
-            {skip, "invalid tmux version " ++ Vsn ++ ". Need vsn 3 or later"};
-        Error ->
-            {skip, "tmux not installed " ++ Error}
+    shell_test_lib:start_tmux(Config);
+init_per_group(ssh, Config0) ->
+    case shell_test_lib:start_tmux(Config0) of
+        Config when is_list(Config) ->
+            [{ssh, true} | Config];
+        Skip ->
+            Skip
     end;
+
 init_per_group(Group, Config) when Group =:= tty_unicode;
-                                   Group =:= tty_latin1 ->
+                                   Group =:= tty_latin1;
+                                   Group =:= ssh_unicode;
+                                   Group =:= ssh_latin1 ->
     [Lang,_] =
         string:split(
           os:getenv("LC_ALL",
@@ -195,6 +235,10 @@ init_per_group(Group, Config) when Group =:= tty_unicode;
             [{encoding, unicode},{env,[{"LC_ALL",Lang++".UTF-8"}]}|Config];
         tty_latin1 ->
             % [{encoding, latin1},{env,[{"LC_ALL",Lang++".ISO-8859-1"}]}|Config],
+            {skip, "latin1 tests not implemented yet"};
+        ssh_unicode ->
+            [{encoding, unicode},{env,[{"LC_ALL",Lang++".UTF-8"}]}|Config];
+        ssh_latin1 ->
             {skip, "latin1 tests not implemented yet"}
     end;
 init_per_group(sh_custom, Config) ->
@@ -216,19 +260,8 @@ init_per_group(sh_custom, Config) ->
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(tty, _Config) ->
-    Windows = string:split(tmux("list-windows"), "\n", all),
-    lists:foreach(
-      fun(W) ->
-              case string:split(W, " ", all) of
-                  ["0:" | _] -> ok;
-                  [No, _Name | _] ->
-                      "" = os:cmd(["tmux select-window -t ", string:split(No,":")]),
-                      ct:log("~ts~n~ts",[W, os:cmd(lists:concat(["tmux capture-pane -p -e"]))])
-              end
-      end, Windows),
-%    "" = os:cmd("tmux kill-session")
-    ok;
+end_per_group(Group, Config) when Group =:= tty; Group =:= ssh ->
+    shell_test_lib:stop_tmux(Config);
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -259,10 +292,15 @@ end_per_testcase(_Case, Config) ->
 -endif.
 
 string_to_term(Str) ->
-    {ok,Tokens,_EndLine} = erl_scan:string(Str ++ "."),
-    {ok,AbsForm} = erl_parse:parse_exprs(Tokens),
-    {value,Value,_Bs} = erl_eval:exprs(AbsForm, erl_eval:new_bindings()),
-    Value.
+    try
+        {ok,Tokens,_EndLine} = erl_scan:string(Str ++ "."),
+        {ok,AbsForm} = erl_parse:parse_exprs(Tokens),
+        {value,Value,_Bs} = erl_eval:exprs(AbsForm, erl_eval:new_bindings()),
+        Value
+    catch E:R:ST ->
+        ct:log("Could not parse: ~ts~n", [Str]),
+        erlang:raise(E,R,ST)
+    end.
 
 run_unbuffer_escript(Rows, Columns, EScript, NoTermStdIn, NoTermStdOut) ->
     DataDir = filename:join(filename:dirname(code:which(?MODULE)), "interactive_shell_SUITE_data"),
@@ -379,211 +417,271 @@ shell_navigation(Config) ->
 
     try
         [begin
-             send_tty(Term,"{aaa,'b"++U++"b',ccc}"),
-             check_location(Term, {0, 0}), %% Check that cursor jump backward
-             check_content(Term, "{aaa,'b"++U++"b',ccc}$"),
+             shell_test_lib:send_tty(Term,"{aaa,'b"++U++"b',ccc}"),
+             shell_test_lib:check_location(Term, {0, 0}), %% Check that cursor jump backward
+             shell_test_lib:check_content(Term, "{aaa,'b"++U++"b',ccc}$"),
              timer:sleep(1000), %% Wait for cursor to jump back
-             check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
-             send_tty(Term,"Home"),
-             check_location(Term, {0, 0}),
-             send_tty(Term,"End"),
-             check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
-             send_tty(Term,"Left"),
-             check_location(Term, {0, width("{aaa,'b"++U++"b',ccc")}),
-             send_tty(Term,"C-Left"),
-             check_location(Term, {0, width("{aaa,'b"++U++"b',")}),
-             send_tty(Term,"C-Left"),
-             check_location(Term, {0, width("{aaa,")}),
-             send_tty(Term,"C-Right"),
-             check_location(Term, {0, width("{aaa,'b"++U++"b'")}),
-             send_tty(Term,"C-Left"),
-             check_location(Term, {0, width("{aaa,")}),
-             send_tty(Term,"C-Left"),
-             check_location(Term, {0, width("{")}),
-             send_tty(Term,"C-Left"),
-             check_location(Term, {0, 0}),
-             send_tty(Term,"C-E"),
-             check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
-             send_tty(Term,"C-H"),
-             check_location(Term, {0, width("{aaa,'b"++U++"b',ccc")}),
-             send_tty(Term,"C-A"),
-             check_location(Term, {0, 0}),
-             send_tty(Term,"Enter")
+             shell_test_lib:check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
+             shell_test_lib:send_tty(Term,"Home"),
+             shell_test_lib:check_location(Term, {0, 0}),
+             shell_test_lib:send_tty(Term,"End"),
+             shell_test_lib:check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
+             shell_test_lib:send_tty(Term,"Left"),
+             shell_test_lib:check_location(Term, {0, width("{aaa,'b"++U++"b',ccc")}),
+             shell_test_lib:send_tty(Term,"C-Left"),
+             shell_test_lib:check_location(Term, {0, width("{aaa,'b"++U++"b',")}),
+             shell_test_lib:send_tty(Term,"C-Left"),
+             shell_test_lib:check_location(Term, {0, width("{aaa,")}),
+             shell_test_lib:send_tty(Term,"C-Right"),
+             shell_test_lib:check_location(Term, {0, width("{aaa,'b"++U++"b'")}),
+             shell_test_lib:send_tty(Term,"C-Left"),
+             shell_test_lib:check_location(Term, {0, width("{aaa,")}),
+             shell_test_lib:send_tty(Term,"C-Left"),
+             shell_test_lib:check_location(Term, {0, width("{")}),
+             shell_test_lib:send_tty(Term,"C-Left"),
+             shell_test_lib:check_location(Term, {0, 0}),
+             shell_test_lib:send_tty(Term,"C-E"),
+             shell_test_lib:check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
+             shell_test_lib:send_tty(Term,"C-H"),
+             shell_test_lib:check_location(Term, {0, width("{aaa,'b"++U++"b',ccc")}),
+             shell_test_lib:send_tty(Term,"C-A"),
+             shell_test_lib:check_location(Term, {0, 0}),
+             shell_test_lib:send_tty(Term,"Enter")
          end || U <- hard_unicode()],
         ok
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 shell_multiline_navigation(Config) ->
     Term = start_tty(Config),
 
     try
         [begin
-             check_location(Term, {0, 0}),
-             send_tty(Term,"{aaa,"),
-             check_location(Term, {0,width("{aaa,")}),
-             send_tty(Term,"\n'b"++U++"b',"),
-             check_location(Term, {0, width("'b"++U++"b',")}),
-             send_tty(Term,"\nccc}"),
-             check_location(Term, {-2, 0}), %% Check that cursor jump backward (blink)
+             shell_test_lib:check_location(Term, {0, 0}),
+             shell_test_lib:send_tty(Term,"{aaa,"),
+             shell_test_lib:check_location(Term, {0,width("{aaa,")}),
+             shell_test_lib:send_tty(Term,"\n'b"++U++"b',"),
+             shell_test_lib:check_location(Term, {0, width("'b"++U++"b',")}),
+             shell_test_lib:send_tty(Term,"\nccc}"),
+             shell_test_lib:check_location(Term, {-2, 0}), %% Check that cursor jump backward (blink)
              timer:sleep(1000), %% Wait for cursor to jump back
-             check_location(Term, {0, width("ccc}")}),
-             send_tty(Term,"Home"),
-             check_location(Term, {0, 0}),
-             send_tty(Term,"End"),
-             check_location(Term, {0, width("ccc}")}),
-             send_tty(Term,"Left"),
-             check_location(Term, {0, width("ccc")}),
-             send_tty(Term,"C-Left"),
-             check_location(Term, {0, 0}),
-             send_tty(Term,"C-Left"),
-             check_location(Term, {-1, width("'b"++U++"b',")}),
-             send_tty(Term,"C-Left"),
-             check_location(Term, {-1, 0}),
-             %send_tty(Term,"C-Left"),
-             %check_location(Term, {-1, 0}),
-             %send_tty(Term,"C-Right"),
-             %check_location(Term, {-1, 1}),
-             send_tty(Term,"C-Right"),
-             check_location(Term, {-1, width("'b"++U++"b'")}),
-             send_tty(Term,"C-Up"),
-             check_location(Term, {-2, width("{aaa,")}),
-             send_tty(Term,"C-Down"),
-             send_tty(Term,"C-Down"),
-             check_location(Term, {0, width("ccc}")}),
-             send_tty(Term,"Left"),
-             send_tty(Term,"C-Up"),
-             check_location(Term, {-1, width("'b"++U)}),
-             send_tty(Term,"M-<"),
-             check_location(Term, {-2, 0}),
-             send_tty(Term,"M->"),
-             send_tty(Term,"Left"),
-             check_location(Term, {0,width("ccc")}),
-             send_tty(Term,"Enter"),
-             send_tty(Term,"Right"),
-             check_location(Term, {0,0}),
-             send_tty(Term,"C-h"), % Backspace
-             check_location(Term, {-1,width("ccc}")}),
-             send_tty(Term, "C-Up"),
-             send_tty(Term, "End"),
-             send_tty(Term,"Left"),
-             send_tty(Term,"M-Enter"),
-             check_content(Term, ".. ,"),
-             check_location(Term, {-1,0}),
-             send_tty(Term,"M-c"),
-             check_location(Term, {-3,0}),
-             send_tty(Term,"{'"++U++"',\n\n\nworks}.\n")
+             shell_test_lib:check_location(Term, {0, width("ccc}")}),
+             shell_test_lib:send_tty(Term,"Home"),
+             shell_test_lib:check_location(Term, {0, 0}),
+             shell_test_lib:send_tty(Term,"End"),
+             shell_test_lib:check_location(Term, {0, width("ccc}")}),
+             shell_test_lib:send_tty(Term,"Left"),
+             shell_test_lib:check_location(Term, {0, width("ccc")}),
+             shell_test_lib:send_tty(Term,"C-Left"),
+             shell_test_lib:check_location(Term, {0, 0}),
+             shell_test_lib:send_tty(Term,"C-Left"),
+             shell_test_lib:check_location(Term, {-1, width("'b"++U++"b',")}),
+             shell_test_lib:send_tty(Term,"C-Left"),
+             shell_test_lib:check_location(Term, {-1, 0}),
+             %shell_test_lib:send_tty(Term,"C-Left"),
+             %shell_test_lib:check_location(Term, {-1, 0}),
+             %shell_test_lib:send_tty(Term,"C-Right"),
+             %shell_test_lib:check_location(Term, {-1, 1}),
+             shell_test_lib:send_tty(Term,"C-Right"),
+             shell_test_lib:check_location(Term, {-1, width("'b"++U++"b'")}),
+             shell_test_lib:send_tty(Term,"C-Up"),
+             shell_test_lib:check_location(Term, {-2, width("{aaa,")}),
+             shell_test_lib:send_tty(Term,"C-Down"),
+             shell_test_lib:send_tty(Term,"C-Down"),
+             shell_test_lib:check_location(Term, {0, width("ccc}")}),
+             shell_test_lib:send_tty(Term,"Left"),
+             shell_test_lib:send_tty(Term,"C-Up"),
+             shell_test_lib:check_location(Term, {-1, width("'b"++U)}),
+             shell_test_lib:send_tty(Term,"M-<"),
+             shell_test_lib:check_location(Term, {-2, 0}),
+             shell_test_lib:send_tty(Term,"M->"),
+             shell_test_lib:send_tty(Term,"Left"),
+             shell_test_lib:check_location(Term, {0,width("ccc")}),
+             shell_test_lib:send_tty(Term,"Enter"),
+             shell_test_lib:send_tty(Term,"Right"),
+             shell_test_lib:check_location(Term, {0,0}),
+             shell_test_lib:send_tty(Term,"C-h"), % Backspace
+             shell_test_lib:check_location(Term, {-1,width("ccc}")}),
+             shell_test_lib:send_tty(Term, "C-Up"),
+             shell_test_lib:send_tty(Term, "End"),
+             shell_test_lib:send_tty(Term,"Left"),
+             shell_test_lib:send_tty(Term,"M-Enter"),
+             shell_test_lib:check_content(Term, ".. ,"),
+             shell_test_lib:check_location(Term, {-1,0}),
+             shell_test_lib:send_tty(Term,"M-c"),
+             shell_test_lib:check_location(Term, {-3,0}),
+             shell_test_lib:send_tty(Term,"{'"++U++"',\n\n\nworks}.\n")
             end || U <- hard_unicode()],
         ok
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
+shell_format(Config) ->
+    Term1 = start_tty([{args,["-stdlib","format_shell_func","{shell,erl_pp_format_func}"]}|Config]),
+    DataDir = proplists:get_value(data_dir, Config),
+    EmacsFormat = "\""++DataDir ++ "emacs-format-file\"\n",
+    try
+        shell_test_lib:send_tty(Term1,"fun(X) ->\n  X\nend.\n"),
+        shell_test_lib:send_tty(Term1,"Up"),
+        %% Note, erl_pp puts 7 spaces before X
+        shell_test_lib:check_content(Term1, "fun\\(X\\) ->\\s*..        X\\s*.. end."),
+        shell_test_lib:send_tty(Term1, "Down"),
+        shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term1)," -x ",200]),
+        timer:sleep(1000),
+        shell_test_lib:send_tty(Term1, "shell:format_shell_func(\"emacs -batch \${file} -l \"\n"),
+        shell_test_lib:send_tty(Term1, EmacsFormat),
+        shell_test_lib:send_tty(Term1, "\" -f emacs-format-function\").\n"),
+        shell_test_lib:check_content(Term1, "{shell,erl_pp_format_func}"),
+        shell_test_lib:send_tty(Term1, "Up"),
+        shell_test_lib:send_tty(Term1, "Up"),
+        shell_test_lib:send_tty(Term1, "\n"),
+        timer:sleep(1000),
+        shell_test_lib:send_tty(Term1, "Up"),
+        %% Note, emacs-format puts 8 spaces before X
+        shell_test_lib:check_content(Term1, "fun\\(X\\) ->\\s*..         X\\s*.. end."),
+        shell_test_lib:send_tty(Term1, "Down"),
+        shell_test_lib:check_content(Term1, ">$"),
+        shell_test_lib:send_tty(Term1, "shell:format_shell_func({bad,format}).\n"),
+        shell_test_lib:send_tty(Term1, "Up"),
+        shell_test_lib:send_tty(Term1, "Up"),
+        shell_test_lib:send_tty(Term1, "\n"),
+        timer:sleep(1000),
+        shell_test_lib:check_content(Term1, "\\Q* Bad format function: {bad,format}\\E"),
+        shell_test_lib:send_tty(Term1, "Up"),
+        %% No modifications should be made, when default format function is used
+        shell_test_lib:check_content(Term1, "fun\\(X\\) ->\\s*..         X\\s*.. end."),
+        ok
+    after
+        shell_test_lib:stop_tty(Term1)
+    end.
+shell_multiline_prompt_ssh(Config) ->
+    Term1 = start_tty(Config),
+    try
+        shell_test_lib:send_tty(Term1, "shell:multiline_prompt_func({shell,inverted_space_prompt}).\n"),
+        shell_test_lib:check_location(Term1, {0, 0}),
+        shell_test_lib:send_tty(Term1,"\na"),
+        shell_test_lib:check_location(Term1, {0, 1}),
+        shell_test_lib:check_content(Term1, "   a"),
+        ok
+    after
+        shell_test_lib:stop_tty(Term1)
+    end.
 shell_multiline_prompt(Config) ->
-    Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{edlin,inverted_space_prompt}"]}|Config]),
+    Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{shell,inverted_space_prompt}"]}|Config]),
     Term2 = start_tty([{args,["-stdlib","shell_multiline_prompt","\"...> \""]}|Config]),
     Term3 = start_tty([{args,["-stdlib","shell_multiline_prompt","edlin"]}|Config]),
+    Term4 = start_tty(Config),
 
     try
-        check_location(Term1, {0, 0}),
-        send_tty(Term1,"\na"),
-        check_location(Term1, {0, 1}),
-        check_content(Term1, "   a"),
+        shell_test_lib:check_location(Term1, {0, 0}),
+        shell_test_lib:send_tty(Term1,"\na"),
+        shell_test_lib:check_location(Term1, {0, 1}),
+        shell_test_lib:check_content(Term1, "   a"),
         ok
     after
-        stop_tty(Term1)
+        shell_test_lib:stop_tty(Term1)
     end,
     try
-        check_location(Term2, {0, 0}),
-        send_tty(Term2,"\na"),
-        check_location(Term2, {0, 1}),
-        check_content(Term2, "...> a"),
+        shell_test_lib:check_location(Term2, {0, 0}),
+        shell_test_lib:send_tty(Term2,"\na"),
+        shell_test_lib:check_location(Term2, {0, 1}),
+        shell_test_lib:check_content(Term2, "...> a"),
         ok
     after
-        stop_tty(Term2)
+        shell_test_lib:stop_tty(Term2)
     end,
     try
-        send_tty(Term3,"\na"),
-        check_location(Term3, {0, 1}),
-        check_content(Term3, ".. a"),
+        shell_test_lib:send_tty(Term3,"\na"),
+        shell_test_lib:check_location(Term3, {0, 1}),
+        shell_test_lib:check_content(Term3, ".. a"),
         ok
     after
-        stop_tty(Term3)
+        shell_test_lib:stop_tty(Term3)
+    end,
+    try
+        shell_test_lib:send_tty(Term4, "shell:multiline_prompt_func(\"-> \").\n"),
+        shell_test_lib:check_content(Term4, "default"),
+        shell_test_lib:send_tty(Term4, "a\nb"),
+        shell_test_lib:check_content(Term4, "-> b"),
+        ok
+    after
+        shell_test_lib:stop_tty(Term4)
     end.
 
 shell_clear(Config) ->
 
     Term = start_tty(Config),
-    {Rows, _Cols} = get_window_size(Term),
+    {Rows, _Cols} = shell_test_lib:get_window_size(Term),
 
     try
-        send_tty(Term,"foobar."),
-        send_tty(Term,"Enter"),
-        check_content(Term, "foobar"),
-        check_location(Term, {0, 0}),
-        send_tty(Term,"bazbat"),
-        check_location(Term, {0, 6}),
-        send_tty(Term,"C-L"),
-        check_location(Term, {-Rows+1, 6}),
-        check_content(Term, "bazbat")
+        shell_test_lib:send_tty(Term,"foobar."),
+        shell_test_lib:send_tty(Term,"Enter"),
+        shell_test_lib:check_content(Term, "foobar"),
+        shell_test_lib:check_location(Term, {0, 0}),
+        shell_test_lib:send_tty(Term,"bazbat"),
+        shell_test_lib:check_location(Term, {0, 6}),
+        shell_test_lib:send_tty(Term,"C-L"),
+        shell_test_lib:check_location(Term, {-Rows+1, 6}),
+        shell_test_lib:check_content(Term, "bazbat")
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
 shell_xnfix(Config) ->
 
     Term = start_tty(Config),
 
-    {_Rows, Cols} = get_window_size(Term),
-    {_Row, Col} = get_location(Term),
+    {_Rows, Cols} = shell_test_lib:get_window_size(Term),
+    {_Row, Col} = shell_test_lib:get_location(Term),
 
     As = lists:duplicate(Cols - Col - 1,"a"),
 
     try
         [begin
-             check_location(Term, {0, 0}),
-             send_tty(Term,As),
-             check_content(Term,[As,$$]),
-             check_location(Term, {0, Cols - Col - 1}),
-             send_tty(Term,"a"),
-             check_location(Term, {0, -Col}),
-             send_tty(Term,"aaa"),
-             check_location(Term, {0, -Col + 3}),
-             [send_tty(Term,"Left") || _ <- lists:seq(1,3 + width(U))],
-             send_tty(Term,U),
+             shell_test_lib:check_location(Term, {0, 0}),
+             shell_test_lib:send_tty(Term,As),
+             shell_test_lib:check_content(Term,[As,$$]),
+             shell_test_lib:check_location(Term, {0, Cols - Col - 1}),
+             shell_test_lib:send_tty(Term,"a"),
+             shell_test_lib:check_location(Term, {0, -Col}),
+             shell_test_lib:send_tty(Term,"aaa"),
+             shell_test_lib:check_location(Term, {0, -Col + 3}),
+             [shell_test_lib:send_tty(Term,"Left") || _ <- lists:seq(1,3 + width(U))],
+             shell_test_lib:send_tty(Term,U),
              %% a{Cols-1}U\naaaaa
-             check_content(Term,[lists:duplicate(Cols - Col - 1 - width(U),$a),
+             shell_test_lib:check_content(Term,[lists:duplicate(Cols - Col - 1 - width(U),$a),
                                  U,"\n",lists:duplicate(3+width(U), $a),"$"]),
-             check_location(Term, {0, -Col}),
-             send_tty(Term,"Left"),
-             send_tty(Term,U),
+             shell_test_lib:check_location(Term, {0, -Col}),
+             shell_test_lib:send_tty(Term,"Left"),
+             shell_test_lib:send_tty(Term,U),
              %% a{Cols-1}U\nUaaaaa
-             check_content(Term,[lists:duplicate(Cols - Col - 1 - width(U),$a),
+             shell_test_lib:check_content(Term,[lists:duplicate(Cols - Col - 1 - width(U),$a),
                                  U,"\n",U,lists:duplicate(3+width(U), $a),"$"]),
-             check_location(Term, {0, -Col}),
-             %% send_tty(Term,"Left"),
-             %% send_tty(Term,"BSpace"),
+             shell_test_lib:check_location(Term, {0, -Col}),
+             %% shell_test_lib:send_tty(Term,"Left"),
+             %% shell_test_lib:send_tty(Term,"BSpace"),
              %% a{Cols-2}U\nUaaaaa
-             %% check_content(Term,[lists:duplicate(Cols - Col - 2 - width(U),$a),
+             %% shell_test_lib:check_content(Term,[lists:duplicate(Cols - Col - 2 - width(U),$a),
              %%                     U,"\n",U,lists:duplicate(3+width(U), $a),"$"]),
-             %% send_tty(Term,"BSpace"),
-             %% check_content(Term,[lists:duplicate(Cols - Col - 1 - width(U),$a),
+             %% shell_test_lib:send_tty(Term,"BSpace"),
+             %% shell_test_lib:check_content(Term,[lists:duplicate(Cols - Col - 1 - width(U),$a),
              %%                     U,U,"\n",lists:duplicate(3+width(U), $a),"$"]),
-             %% send_tty(Term,"aa"),
-             %% check_content(Term,[lists:duplicate(Cols - Col - 2 - width(U),$a),
+             %% shell_test_lib:send_tty(Term,"aa"),
+             %% shell_test_lib:check_content(Term,[lists:duplicate(Cols - Col - 2 - width(U),$a),
              %%                     U,"a\n",U,lists:duplicate(3+width(U), $a),"$"]),
-             %% check_location(Term, {0, -Col}),
-             send_tty(Term,"C-K"),
-             check_location(Term, {0, -Col}),
-             send_tty(Term,"C-A"),
-             check_location(Term, {-1, 0}),
-             send_tty(Term,"C-E"),
-             check_location(Term, {0, -Col}),
-             send_tty(Term,"Enter"),
+             %% shell_test_lib:check_location(Term, {0, -Col}),
+             shell_test_lib:send_tty(Term,"C-K"),
+             shell_test_lib:check_location(Term, {0, -Col}),
+             shell_test_lib:send_tty(Term,"C-A"),
+             shell_test_lib:check_location(Term, {-1, 0}),
+             shell_test_lib:send_tty(Term,"C-E"),
+             shell_test_lib:check_location(Term, {0, -Col}),
+             shell_test_lib:send_tty(Term,"Enter"),
              ok
          end || U <- hard_unicode()]
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
 
@@ -593,8 +691,8 @@ shell_unicode_wrap(Config) ->
 
     Term = start_tty(Config),
 
-    {_Rows, Cols} = get_window_size(Term),
-    {_Row, Col} = get_location(Term),
+    {_Rows, Cols} = shell_test_lib:get_window_size(Term),
+    {_Row, Col} = shell_test_lib:get_location(Term),
 
     try
         [begin
@@ -603,47 +701,47 @@ shell_unicode_wrap(Config) ->
              OtherLineB = [U,lists:duplicate(Cols - width(U) * 2+1,"b")],
              OtherLineC = [U,lists:duplicate(Cols - width(U) * 2+1,"c")],
              OtherLineD = [U,lists:duplicate(Cols - width(U) * 2+1,"d")],
-             send_tty(Term,FirstLine),
-             check_content(Term, [FirstLine,$$]),
-             check_location(Term, {0, Cols - Col - width(U)+1}),
+             shell_test_lib:send_tty(Term,FirstLine),
+             shell_test_lib:check_content(Term, [FirstLine,$$]),
+             shell_test_lib:check_location(Term, {0, Cols - Col - width(U)+1}),
 
-             send_tty(Term,OtherLineA),
-             check_content(Term, [OtherLineA,$$]),
-             check_location(Term, {0, Cols - Col - width(U)+1}),
+             shell_test_lib:send_tty(Term,OtherLineA),
+             shell_test_lib:check_content(Term, [OtherLineA,$$]),
+             shell_test_lib:check_location(Term, {0, Cols - Col - width(U)+1}),
 
-             send_tty(Term,OtherLineB),
-             check_content(Term, [OtherLineB,$$]),
-             check_location(Term, {0, Cols - Col - width(U)+1}),
+             shell_test_lib:send_tty(Term,OtherLineB),
+             shell_test_lib:check_content(Term, [OtherLineB,$$]),
+             shell_test_lib:check_location(Term, {0, Cols - Col - width(U)+1}),
 
-             send_tty(Term,OtherLineC),
-             check_content(Term, [OtherLineC,$$]),
-             check_location(Term, {0, Cols - Col - width(U)+1}),
+             shell_test_lib:send_tty(Term,OtherLineC),
+             shell_test_lib:check_content(Term, [OtherLineC,$$]),
+             shell_test_lib:check_location(Term, {0, Cols - Col - width(U)+1}),
 
-             send_tty(Term,OtherLineD),
-             check_content(Term, [OtherLineD,$$]),
-             check_location(Term, {0, Cols - Col - width(U)+1}),
+             shell_test_lib:send_tty(Term,OtherLineD),
+             shell_test_lib:check_content(Term, [OtherLineD,$$]),
+             shell_test_lib:check_location(Term, {0, Cols - Col - width(U)+1}),
 
-             send_tty(Term,"C-A"),
-             check_location(Term, {-4, 0}), %% Broken
-             send_tty(Term,"Right"),
-             check_location(Term, {-4, width(U)}), %% Broken
+             shell_test_lib:send_tty(Term,"C-A"),
+             shell_test_lib:check_location(Term, {-4, 0}), %% Broken
+             shell_test_lib:send_tty(Term,"Right"),
+             shell_test_lib:check_location(Term, {-4, width(U)}), %% Broken
 
-             send_tty(Term,"DC"), %% Broken
-             check_content(Term, ["a.*",U,"$"]),
-             check_content(Term, ["^b.*",U,"c$"]),
-             check_content(Term, ["^c.*",U,"dd$"]),
+             shell_test_lib:send_tty(Term,"DC"), %% Broken
+             shell_test_lib:check_content(Term, ["a.*",U,"$"]),
+             shell_test_lib:check_content(Term, ["^b.*",U,"c$"]),
+             shell_test_lib:check_content(Term, ["^c.*",U,"dd$"]),
 
-             send_tty(Term,"a"),
-             check_content(Term, [FirstLine,$$]),
-             check_content(Term, [OtherLineA,$$]),
-             check_content(Term, [OtherLineB,$$]),
-             check_content(Term, [OtherLineC,$$]),
-             check_content(Term, [OtherLineD,$$]),
+             shell_test_lib:send_tty(Term,"a"),
+             shell_test_lib:check_content(Term, [FirstLine,$$]),
+             shell_test_lib:check_content(Term, [OtherLineA,$$]),
+             shell_test_lib:check_content(Term, [OtherLineB,$$]),
+             shell_test_lib:check_content(Term, [OtherLineC,$$]),
+             shell_test_lib:check_content(Term, [OtherLineD,$$]),
 
-             send_tty(Term,"Enter")
+             shell_test_lib:send_tty(Term,"Enter")
          end || U <- hard_unicode()]
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
 shell_delete(Config) ->
@@ -653,40 +751,40 @@ shell_delete(Config) ->
     try
 
         [ begin
-              send_tty(Term,"a"),
-              check_content(Term, "> a$"),
-              check_location(Term, {0, 1}),
-              send_tty(Term,"BSpace"),
-              check_location(Term, {0, 0}),
-              check_content(Term, ">$"),
-              send_tty(Term,"a"),
-              send_tty(Term,U),
-              check_location(Term, {0, width([$a, U])}),
-              send_tty(Term,"a"),
-              send_tty(Term,U),
-              check_location(Term, {0, width([$a,U,$a,U])}),
-              check_content(Term, ["> a",U,$a,U,"$"]),
-              send_tty(Term,"Left"),
-              send_tty(Term,"Left"),
-              send_tty(Term,"BSpace"),
-              check_location(Term, {0, width([$a])}),
-              check_content(Term, ["> aa",U,"$"]),
-              send_tty(Term,U),
-              check_location(Term, {0, width([$a,U])}),
-              send_tty(Term,"Left"),
-              send_tty(Term,"DC"),
-              check_location(Term, {0, width([$a])}),
-              check_content(Term, ["> aa",U,"$"]),
-              send_tty(Term,"DC"),
-              send_tty(Term,"DC"),
-              check_content(Term, ["> a$"]),
-              send_tty(Term,"C-E"),
-              check_location(Term, {0, width([$a])}),
-              send_tty(Term,"BSpace"),
-              check_location(Term, {0, width([])})
+              shell_test_lib:send_tty(Term,"a"),
+              shell_test_lib:check_content(Term, "> a$"),
+              shell_test_lib:check_location(Term, {0, 1}),
+              shell_test_lib:send_tty(Term,"BSpace"),
+              shell_test_lib:check_location(Term, {0, 0}),
+              shell_test_lib:check_content(Term, ">$"),
+              shell_test_lib:send_tty(Term,"a"),
+              shell_test_lib:send_tty(Term,U),
+              shell_test_lib:check_location(Term, {0, width([$a, U])}),
+              shell_test_lib:send_tty(Term,"a"),
+              shell_test_lib:send_tty(Term,U),
+              shell_test_lib:check_location(Term, {0, width([$a,U,$a,U])}),
+              shell_test_lib:check_content(Term, ["> a",U,$a,U,"$"]),
+              shell_test_lib:send_tty(Term,"Left"),
+              shell_test_lib:send_tty(Term,"Left"),
+              shell_test_lib:send_tty(Term,"BSpace"),
+              shell_test_lib:check_location(Term, {0, width([$a])}),
+              shell_test_lib:check_content(Term, ["> aa",U,"$"]),
+              shell_test_lib:send_tty(Term,U),
+              shell_test_lib:check_location(Term, {0, width([$a,U])}),
+              shell_test_lib:send_tty(Term,"Left"),
+              shell_test_lib:send_tty(Term,"DC"),
+              shell_test_lib:check_location(Term, {0, width([$a])}),
+              shell_test_lib:check_content(Term, ["> aa",U,"$"]),
+              shell_test_lib:send_tty(Term,"DC"),
+              shell_test_lib:send_tty(Term,"DC"),
+              shell_test_lib:check_content(Term, ["> a$"]),
+              shell_test_lib:send_tty(Term,"C-E"),
+              shell_test_lib:check_location(Term, {0, width([$a])}),
+              shell_test_lib:send_tty(Term,"BSpace"),
+              shell_test_lib:check_location(Term, {0, width([])})
           end || U <- hard_unicode()]
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
 %% When deleting characters at the edge of the screen that are "large",
@@ -695,38 +793,38 @@ shell_delete_unicode_wrap(Config) ->
 
     Term = start_tty(Config),
 
-    {_Rows, Cols} = get_window_size(Term),
-    {_Row, Col} = get_location(Term),
+    {_Rows, Cols} = shell_test_lib:get_window_size(Term),
+    {_Row, Col} = shell_test_lib:get_location(Term),
 
     try
         [begin
-             send_tty(Term,lists:duplicate(Cols - Col,"a")),
-             check_content(Term,"> a*$"),
-             send_tty(Term,[U,U,"aaaaa"]),
-             check_content(Term,["\n",U,U,"aaaaa$"]),
-             [send_tty(Term,"Left") || _ <- lists:seq(1,5+2)],
-             check_location(Term,{0,-Col}),
-             send_tty(Term,"BSpace"),
-             check_content(Term,"> a* \n"),
-             check_location(Term,{-1,Cols - Col - 1}),
-             send_tty(Term,"BSpace"),
-             check_content(Term,["> a*",U,"\n"]),
-             check_location(Term,{-1,Cols - Col - 2}),
-             send_tty(Term,"BSpace"),
-             check_content(Term,["> a*",U," \n"]),
-             check_location(Term,{-1,Cols - Col - 3}),
-             send_tty(Term,"BSpace"),
-             check_content(Term,["> a*",U,U,"\n"]),
-             check_content(Term,["\naaaaa$"]),
-             check_location(Term,{-1,Cols - Col - 4}),
-             send_tty(Term,"BSpace"),
-             check_content(Term,["> a*",U,U,"a\n"]),
-             check_content(Term,["\naaaa$"]),
-             check_location(Term,{-1,Cols - Col - 5}),
-             send_tty(Term,"Enter")
+             shell_test_lib:send_tty(Term,lists:duplicate(Cols - Col,"a")),
+             shell_test_lib:check_content(Term,"> a*$"),
+             shell_test_lib:send_tty(Term,[U,U,"aaaaa"]),
+             shell_test_lib:check_content(Term,["\n",U,U,"aaaaa$"]),
+             [shell_test_lib:send_tty(Term,"Left") || _ <- lists:seq(1,5+2)],
+             shell_test_lib:check_location(Term,{0,-Col}),
+             shell_test_lib:send_tty(Term,"BSpace"),
+             shell_test_lib:check_content(Term,"> a* \n"),
+             shell_test_lib:check_location(Term,{-1,Cols - Col - 1}),
+             shell_test_lib:send_tty(Term,"BSpace"),
+             shell_test_lib:check_content(Term,["> a*",U,"\n"]),
+             shell_test_lib:check_location(Term,{-1,Cols - Col - 2}),
+             shell_test_lib:send_tty(Term,"BSpace"),
+             shell_test_lib:check_content(Term,["> a*",U," \n"]),
+             shell_test_lib:check_location(Term,{-1,Cols - Col - 3}),
+             shell_test_lib:send_tty(Term,"BSpace"),
+             shell_test_lib:check_content(Term,["> a*",U,U,"\n"]),
+             shell_test_lib:check_content(Term,["\naaaaa$"]),
+             shell_test_lib:check_location(Term,{-1,Cols - Col - 4}),
+             shell_test_lib:send_tty(Term,"BSpace"),
+             shell_test_lib:check_content(Term,["> a*",U,U,"a\n"]),
+             shell_test_lib:check_content(Term,["\naaaa$"]),
+             shell_test_lib:check_location(Term,{-1,Cols - Col - 5}),
+             shell_test_lib:send_tty(Term,"Enter")
          end || U <- hard_unicode()]
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
 %% When deleting characters and a "large" characters is changing line we need
@@ -735,31 +833,31 @@ shell_delete_unicode_not_at_cursor_wrap(Config) ->
 
     Term = start_tty(Config),
 
-    {_Rows, Cols} = get_window_size(Term),
-    {_Row, Col} = get_location(Term),
+    {_Rows, Cols} = shell_test_lib:get_window_size(Term),
+    {_Row, Col} = shell_test_lib:get_location(Term),
 
     try
         [begin
-             send_tty(Term,lists:duplicate(Cols - Col,"a")),
-             check_content(Term,"> a*$"),
-             send_tty(Term,["a",U,"aaaaa"]),
-             check_content(Term,["\na",U,"aaaaa$"]),
-             send_tty(Term,"C-A"),
-             send_tty(Term,"DC"),
-             check_content(Term,["\n",U,"aaaaa$"]),
-             send_tty(Term,"DC"),
-             check_content(Term,["\n",U,"aaaaa$"]),
-             check_content(Term,["> a* \n"]),
-             send_tty(Term,"DC"),
-             check_content(Term,["\naaaaa$"]),
-             check_content(Term,["> a*",U,"\n"]),
-             send_tty(Term,"DC"),
-             check_content(Term,["\naaaa$"]),
-             check_content(Term,["> a*",U,"a\n"]),
-             send_tty(Term,"Enter")
+             shell_test_lib:send_tty(Term,lists:duplicate(Cols - Col,"a")),
+             shell_test_lib:check_content(Term,"> a*$"),
+             shell_test_lib:send_tty(Term,["a",U,"aaaaa"]),
+             shell_test_lib:check_content(Term,["\na",U,"aaaaa$"]),
+             shell_test_lib:send_tty(Term,"C-A"),
+             shell_test_lib:send_tty(Term,"DC"),
+             shell_test_lib:check_content(Term,["\n",U,"aaaaa$"]),
+             shell_test_lib:send_tty(Term,"DC"),
+             shell_test_lib:check_content(Term,["\n",U,"aaaaa$"]),
+             shell_test_lib:check_content(Term,["> a* \n"]),
+             shell_test_lib:send_tty(Term,"DC"),
+             shell_test_lib:check_content(Term,["\naaaaa$"]),
+             shell_test_lib:check_content(Term,["> a*",U,"\n"]),
+             shell_test_lib:send_tty(Term,"DC"),
+             shell_test_lib:check_content(Term,["\naaaa$"]),
+             shell_test_lib:check_content(Term,["> a*",U,"a\n"]),
+             shell_test_lib:send_tty(Term,"Enter")
          end || U <- hard_unicode()]
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
 %% When deleting characters and a "large" characters is changing line we need
@@ -768,23 +866,23 @@ shell_update_window_unicode_wrap(Config) ->
 
     Term = start_tty(Config),
 
-    {_Rows, Cols} = get_window_size(Term),
-    {_Row, Col} = get_location(Term),
+    {_Rows, Cols} = shell_test_lib:get_window_size(Term),
+    {_Row, Col} = shell_test_lib:get_location(Term),
 
     try
         [begin
-             send_tty(Term,lists:duplicate(Cols - Col - width(U) + 1,"a")),
-             check_content(Term,"> a*$"),
-             send_tty(Term,[U,"aaaaa"]),
-             check_content(Term,["> a* ?\n",U,"aaaaa$"]),
-             tmux(["resize-window -t ",tty_name(Term)," -x ",Cols+1]),
-             check_content(Term,["> a*",U,"\naaaaa$"]),
-             tmux(["resize-window -t ",tty_name(Term)," -x ",Cols]),
-             check_content(Term,["> a* ?\n",U,"aaaaa$"]),
-             send_tty(Term,"Enter")
+             shell_test_lib:send_tty(Term,lists:duplicate(Cols - Col - width(U) + 1,"a")),
+             shell_test_lib:check_content(Term,"> a*$"),
+             shell_test_lib:send_tty(Term,[U,"aaaaa"]),
+             shell_test_lib:check_content(Term,["> a* ?\n",U,"aaaaa$"]),
+             shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x ",Cols+1]),
+             shell_test_lib:check_content(Term,["> a*",U,"\naaaaa$"]),
+             shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x ",Cols]),
+             shell_test_lib:check_content(Term,["> a* ?\n",U,"aaaaa$"]),
+             shell_test_lib:send_tty(Term,"Enter")
          end || U <- hard_unicode()]
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
 shell_transpose(Config) ->
@@ -796,39 +894,39 @@ shell_transpose(Config) ->
     try
         [
          begin
-             send_tty(Term,"a"),
-             [send_tty(Term,[CP]) || CP <- U],
-             send_tty(Term,"b"),
-             [[send_tty(Term,[CP]) || CP <- U2] || U2 <- Unicode],
-             send_tty(Term,"cde"),
-             check_content(Term, ["a",U,"b",Unicode,"cde$"]),
-             check_location(Term, {0, width(["a",U,"b",Unicode,"cde"])}),
-             send_tty(Term,"Home"),
-             check_location(Term, {0, 0}),
-             send_tty(Term,"Right"),
-             send_tty(Term,"Right"),
-             check_location(Term, {0, 1+width([U])}),
-             send_tty(Term,"C-T"),
-             check_content(Term, ["ab",U,Unicode,"cde$"]),
-             send_tty(Term,"C-T"),
-             check_content(Term, ["ab",hd(Unicode),U,tl(Unicode),"cde$"]),
-             [send_tty(Term,"C-T") || _ <- lists:seq(1,length(Unicode)-1)],
-             check_content(Term, ["ab",Unicode,U,"cde$"]),
-             send_tty(Term,"C-T"),
-             check_content(Term, ["ab",Unicode,"c",U,"de$"]),
-             check_location(Term, {0, width(["ab",Unicode,"c",U])}),
-             send_tty(Term,"End"),
-             check_location(Term, {0, width(["ab",Unicode,"c",U,"de"])}),
-             send_tty(Term,"Left"),
-             send_tty(Term,"Left"),
-             send_tty(Term,"BSpace"),
-             check_content(Term, ["ab",Unicode,"cde$"]),
-             send_tty(Term,"End"),
-             send_tty(Term,"Enter")
+             shell_test_lib:send_tty(Term,"a"),
+             [shell_test_lib:send_tty(Term,[CP]) || CP <- U],
+             shell_test_lib:send_tty(Term,"b"),
+             [[shell_test_lib:send_tty(Term,[CP]) || CP <- U2] || U2 <- Unicode],
+             shell_test_lib:send_tty(Term,"cde"),
+             shell_test_lib:check_content(Term, ["a",U,"b",Unicode,"cde$"]),
+             shell_test_lib:check_location(Term, {0, width(["a",U,"b",Unicode,"cde"])}),
+             shell_test_lib:send_tty(Term,"Home"),
+             shell_test_lib:check_location(Term, {0, 0}),
+             shell_test_lib:send_tty(Term,"Right"),
+             shell_test_lib:send_tty(Term,"Right"),
+             shell_test_lib:check_location(Term, {0, 1+width([U])}),
+             shell_test_lib:send_tty(Term,"C-T"),
+             shell_test_lib:check_content(Term, ["ab",U,Unicode,"cde$"]),
+             shell_test_lib:send_tty(Term,"C-T"),
+             shell_test_lib:check_content(Term, ["ab",hd(Unicode),U,tl(Unicode),"cde$"]),
+             [shell_test_lib:send_tty(Term,"C-T") || _ <- lists:seq(1,length(Unicode)-1)],
+             shell_test_lib:check_content(Term, ["ab",Unicode,U,"cde$"]),
+             shell_test_lib:send_tty(Term,"C-T"),
+             shell_test_lib:check_content(Term, ["ab",Unicode,"c",U,"de$"]),
+             shell_test_lib:check_location(Term, {0, width(["ab",Unicode,"c",U])}),
+             shell_test_lib:send_tty(Term,"End"),
+             shell_test_lib:check_location(Term, {0, width(["ab",Unicode,"c",U,"de"])}),
+             shell_test_lib:send_tty(Term,"Left"),
+             shell_test_lib:send_tty(Term,"Left"),
+             shell_test_lib:send_tty(Term,"BSpace"),
+             shell_test_lib:check_content(Term, ["ab",Unicode,"cde$"]),
+             shell_test_lib:send_tty(Term,"End"),
+             shell_test_lib:send_tty(Term,"Enter")
          end || U <- Unicode],
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term),
         ok
     end.
 
@@ -836,131 +934,179 @@ shell_search(C) ->
     Term = start_tty(C),
 
     try
-        send_tty(Term,"a"),
-        send_tty(Term,"."),
-        send_tty(Term,"Enter"),
-        send_tty(Term,"'"),
-        send_tty(Term,"a"),
-        send_tty(Term,[16#1f600]),
-        send_tty(Term,"'"),
-        send_tty(Term,"."),
-        send_tty(Term,"Enter"),
-        check_location(Term, {0, 0}),
-        send_tty(Term,"C-r"),
-        check_content(Term, "search:\\s*\n\\s*'a😀'."),
-        send_tty(Term,"C-a"),
-        check_location(Term, {-1, width(C, "'a😀'.")}),
-        send_tty(Term,"Enter"),
-        send_tty(Term,"C-r"),
-        check_content(Term, "search:\\s*\n\\s*'a😀'."),
-        send_tty(Term,"a"),
-        check_content(Term, "search: a\\s*\n\\s*'a😀'."),
-        send_tty(Term,"C-r"),
-        check_content(Term, "search: a\\s*\n\\s*a."),
-        send_tty(Term,"BSpace"),
-        check_content(Term, "search:\\s*\n\\s*'a😀'."),
-        send_tty(Term,"BSpace"),
-        check_content(Term, "search:\\s*\n\\s*'a😀'."),
-        send_tty(Term,"M-c"),
-        check_location(Term, {-1, 0}),
+        shell_test_lib:send_tty(Term,"a"),
+        shell_test_lib:send_tty(Term,"."),
+        shell_test_lib:send_tty(Term,"Enter"),
+        shell_test_lib:send_tty(Term,"'"),
+        shell_test_lib:send_tty(Term,"a"),
+        shell_test_lib:send_tty(Term,[16#1f600]),
+        shell_test_lib:send_tty(Term,"'"),
+        shell_test_lib:send_tty(Term,"."),
+        shell_test_lib:send_tty(Term,"Enter"),
+        shell_test_lib:check_location(Term, {0, 0}),
+        shell_test_lib:send_tty(Term,"C-r"),
+        shell_test_lib:check_content(Term, "search:\\s*\n\\s*'a😀'."),
+        shell_test_lib:send_tty(Term,"C-a"),
+        shell_test_lib:check_location(Term, {-1, width(C, "'a😀'.")}),
+        shell_test_lib:send_tty(Term,"Enter"),
+        shell_test_lib:send_tty(Term,"C-r"),
+        shell_test_lib:check_content(Term, "search:\\s*\n\\s*'a😀'."),
+        shell_test_lib:send_tty(Term,"a"),
+        shell_test_lib:check_content(Term, "search: a\\s*\n\\s*'a😀'."),
+        shell_test_lib:send_tty(Term,"C-r"),
+        shell_test_lib:check_content(Term, "search: a\\s*\n\\s*a."),
+        shell_test_lib:send_tty(Term,"BSpace"),
+        shell_test_lib:check_content(Term, "search:\\s*\n\\s*'a😀'."),
+        shell_test_lib:send_tty(Term,"BSpace"),
+        shell_test_lib:check_content(Term, "search:\\s*\n\\s*'a😀'."),
+        shell_test_lib:send_tty(Term,"M-c"),
+        shell_test_lib:check_location(Term, {-1, 0}),
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term),
         ok
+    end.
+
+shell_combining_unicode(Config) ->
+    %% Tests that its possible to delete a combining unicode character as
+    %% the first character of the input line.
+    Term = start_tty(Config),
+    X = 0,
+    shell_test_lib:check_location(Term, {X,0}),
+    %% COMBINING DIAERESIS, ZWNJ, ZWJ
+    CombiningUnicode = [776, 8204, 8205],
+    try
+        [
+            begin
+                shell_test_lib:send_tty(Term,[J]),
+                shell_test_lib:send_tty(Term,"BSpace"),
+                shell_test_lib:check_location(Term, {X,0}),
+                shell_test_lib:send_tty(Term,"BSpace"),
+                shell_test_lib:check_location(Term, {X,0}),
+                shell_test_lib:send_tty(Term,[J,$a]),
+                shell_test_lib:send_tty(Term,"BSpace"),
+                shell_test_lib:check_location(Term, {X,0}),
+                shell_test_lib:send_tty(Term,"BSpace"),
+                shell_test_lib:check_location(Term, {X,0}),
+                shell_test_lib:send_tty(Term,[$a,J]),
+                shell_test_lib:send_tty(Term,"BSpace"),
+                shell_test_lib:check_location(Term, {X,0}),
+                shell_test_lib:send_tty(Term,"BSpace"),
+                shell_test_lib:check_location(Term, {X,0}),
+                shell_test_lib:send_tty(Term,[$",$a,J,$b,$",$.,10]),
+                shell_test_lib:check_location(Term, {X,0})
+            end || J <- CombiningUnicode],
+        ok
+    after
+        shell_test_lib:stop_tty(Term)
     end.
 
 shell_insert(Config) ->
     Term = start_tty(Config),
 
     try
-        send_tty(Term,"abcdefghijklm"),
-        check_content(Term, "abcdefghijklm$"),
-        check_location(Term, {0, 13}),
-        send_tty(Term,"Home"),
-        send_tty(Term,"Right"),
-        send_tty(Term,"C-T"),
-        send_tty(Term,"C-T"),
-        send_tty(Term,"C-T"),
-        send_tty(Term,"C-T"),
-        check_content(Term, "bcdeafghijklm$"),
-        send_tty(Term,"End"),
-        send_tty(Term,"Left"),
-        send_tty(Term,"Left"),
-        send_tty(Term,"BSpace"),
-        check_content(Term, "bcdeafghijlm$"),
+        shell_test_lib:send_tty(Term,"abcdefghijklm"),
+        shell_test_lib:check_content(Term, "abcdefghijklm$"),
+        shell_test_lib:check_location(Term, {0, 13}),
+        shell_test_lib:send_tty(Term,"Home"),
+        shell_test_lib:send_tty(Term,"Right"),
+        shell_test_lib:send_tty(Term,"C-T"),
+        shell_test_lib:send_tty(Term,"C-T"),
+        shell_test_lib:send_tty(Term,"C-T"),
+        shell_test_lib:send_tty(Term,"C-T"),
+        shell_test_lib:check_content(Term, "bcdeafghijklm$"),
+        shell_test_lib:send_tty(Term,"End"),
+        shell_test_lib:send_tty(Term,"Left"),
+        shell_test_lib:send_tty(Term,"Left"),
+        shell_test_lib:send_tty(Term,"BSpace"),
+        shell_test_lib:check_content(Term, "bcdeafghijlm$"),
         ok
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 
 shell_update_window(Config) ->
     Term = start_tty(Config),
 
     Text = lists:flatten(["abcdefghijklmabcdefghijklm"]),
-    {_Row, Col} = get_location(Term),
+    {_Row, Col} = shell_test_lib:get_location(Term),
 
     try
-        send_tty(Term,Text),
-        check_content(Term,Text),
-        check_location(Term, {0, width(Text)}),
-        tmux(["resize-window -t ",tty_name(Term)," -x ",width(Text)+Col+1]),
-        send_tty(Term,"a"),
-        check_location(Term, {0, -Col}),
-        send_tty(Term,"BSpace"),
-        tmux(["resize-window -t ",tty_name(Term)," -x ",width(Text)+Col]),
-        %% xnfix bug! at least in tmux... seems to work in iTerm as it does not
-        %% need xnfix when resizing
-        check_location(Term, {0, -Col}),
-        tmux(["resize-window -t ",tty_name(Term)," -x ",width(Text) div 2 + Col]),
-        check_location(Term, {0, -Col + width(Text) div 2}),
+        shell_test_lib:send_tty(Term,Text),
+        shell_test_lib:check_content(Term,Text),
+        shell_test_lib:check_location(Term, {0, width(Text)}),
+        shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x ",width(Text)+Col+1]),
+        shell_test_lib:send_tty(Term,"a"),
+        shell_test_lib:check_location(Term, {0, -Col}),
+        shell_test_lib:send_tty(Term,"BSpace"),
+        shell_test_lib:check_location(Term, {-1, width(Text)}),
+        shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x ",width(Text)+Col]),
+        %% When resizing, tmux does not xnfix the cursor, so it will remain
+        %% at the previous locations
+        shell_test_lib:check_location(Term, {-1, width(Text)}),
+        shell_test_lib:send_tty(Term,"a"),
+        shell_test_lib:check_location(Term, {0, -Col + 1}),
+
+        %% When we do backspace here, tmux seems to place the cursor in an
+        %% incorrect position except when a terminal is attached.
+        shell_test_lib:send_tty(Term,"BSpace"),
+        %% This really should be {0, -Col}, but sometimes tmux sets it to
+        %% {-1, width(Text)} instead.
+        shell_test_lib:check_location(Term, [{0, -Col}, {-1, width(Text)}]),
+
+        shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x ",width(Text) div 2 + Col]),
+        %% Depending on what happened with the cursor above, the line will be
+        %% different here.
+        shell_test_lib:check_location(Term, [{0, -Col + width(Text) div 2},
+                              {-1, -Col + width(Text) div 2}]),
         ok
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 shell_small_window_multiline_navigation(Config) ->
     Term0 = start_tty(Config),
-    tmux(["resize-window -t ",tty_name(Term0)," -x ",30, " -y ", 6]),
-    {Row, Col} = get_location(Term0),
+    shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term0)," -x ",30, " -y ", 6]),
+    {Row, Col} = shell_test_lib:get_location(Term0),
     Term = Term0#tmux{orig_location = {Row, Col}},
     Text = ("xbcdefghijklmabcdefghijklm\n"++
         "abcdefghijkl\n"++
         "abcdefghijklmabcdefghijklm\n"++
         "abcdefghijklmabcdefghijklx"),
     try
-        send_tty(Term,Text),
-        check_location(Term, {0, -4}),
-        send_tty(Term,"Home"),
-        check_location(Term, {-1, 0}),
-        send_tty(Term, "C-Up"),
-        check_location(Term, {-2, 0}),
-        send_tty(Term, "C-Down"),
-        check_location(Term, {-1, 0}),
-        send_tty(Term, "Left"),
-        check_location(Term, {-1, -4}),
-        send_tty(Term, "Right"),
-        check_location(Term, {-1, 0}),
-        send_tty(Term, "\e[1;4A"),
-        check_location(Term, {-5, 0}),
-        check_content(Term,"xbc"),
-        send_tty(Term, "\e[1;4B"),
-        check_location(Term, {0, -4}),
-        check_content(Term,"klx"),
-        send_tty(Term, " sets:is_e\t"),
-        check_content(Term,"is_element"),
-        check_content(Term,"is_empty"),
-        check_location(Term, {-3, 6}),
-        send_tty(Term, "C-Up"),
-        send_tty(Term,"Home"),
-        check_location(Term, {-2, 0}),
-        send_tty(Term, "sets:is_e\t"),
-        check_content(Term,"is_element"),
-        check_content(Term,"is_empty"),
-        check_location(Term, {-4, 9}),
-        send_tty(Term, "M-Enter"),
-        check_location(Term, {-1, 0}),
+        shell_test_lib:send_tty(Term,Text),
+        shell_test_lib:check_location(Term, {0, -4}),
+        shell_test_lib:send_tty(Term,"Home"),
+        shell_test_lib:check_location(Term, {-1, 0}),
+        shell_test_lib:send_tty(Term, "C-Up"),
+        shell_test_lib:check_location(Term, {-2, 0}),
+        shell_test_lib:send_tty(Term, "C-Down"),
+        shell_test_lib:check_location(Term, {-1, 0}),
+        shell_test_lib:send_tty(Term, "Left"),
+        shell_test_lib:check_location(Term, {-1, -4}),
+        shell_test_lib:send_tty(Term, "Right"),
+        shell_test_lib:check_location(Term, {-1, 0}),
+        shell_test_lib:send_tty(Term, "\e[1;4A"),
+        shell_test_lib:check_location(Term, {-5, 0}),
+        shell_test_lib:check_content(Term,"xbc"),
+        shell_test_lib:send_tty(Term, "\e[1;4B"),
+        shell_test_lib:check_location(Term, {0, -4}),
+        shell_test_lib:check_content(Term,"klx"),
+        shell_test_lib:send_tty(Term, " sets:is_e\t"),
+        shell_test_lib:check_content(Term,"is_element"),
+        shell_test_lib:check_content(Term,"is_empty"),
+        shell_test_lib:check_location(Term, {-3, 6}),
+        shell_test_lib:send_tty(Term, "C-Up"),
+        shell_test_lib:send_tty(Term,"Home"),
+        shell_test_lib:check_location(Term, {-2, 0}),
+        shell_test_lib:send_tty(Term, "sets:is_e\t"),
+        shell_test_lib:check_content(Term,"is_element"),
+        shell_test_lib:check_content(Term,"is_empty"),
+        shell_test_lib:check_location(Term, {-4, 9}),
+        shell_test_lib:send_tty(Term, "M-Enter"),
+        shell_test_lib:check_location(Term, {-1, 0}),
         ok
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 shell_huge_input(Config) ->
     Term = start_tty(Config),
@@ -968,25 +1114,32 @@ shell_huge_input(Config) ->
     ManyUnicode = lists:duplicate(100,hard_unicode()),
 
     try
-        send_tty(Term,ManyUnicode),
-        check_content(Term, hard_unicode_match(Config) ++ "$",
+        shell_test_lib:send_tty(Term,ManyUnicode),
+        shell_test_lib:check_content(Term, hard_unicode_match(Config) ++ "$",
                       #{ replace => {"\n",""} }),
-        send_tty(Term,"Enter"),
+        shell_test_lib:send_tty(Term,"Enter"),
         ok
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
+output_to_stdout_slowly(5) -> ok;
+output_to_stdout_slowly(N) ->
+    receive
+        after 100 ->
+            io:format("~p~n", [N]),
+            output_to_stdout_slowly(N+1)
+    end.
+
 shell_receive_standard_out(Config) ->
     Term = start_tty(Config),
     try
-        send_tty(Term,"my_fun(5) -> ok; my_fun(N) -> receive after 100 -> io:format(\"~p\\n\", [N]), my_fun(N+1) end.\n"),
-        send_tty(Term, "spawn(shell_default, my_fun, [0]). ABC\n"),
+        shell_test_lib:send_tty(Term, "spawn(interactive_shell_SUITE, output_to_stdout_slowly, [0]). ABC\n"),
         timer:sleep(1000),
-        check_location(Term, {0, 0}), %% Check that we are at the same location relative to the start.
-        check_content(Term, "3\\s+4\\s+.+>\\sABC"),
+        shell_test_lib:check_location(Term, {0, 0}), %% Check that we are at the same location relative to the start.
+        shell_test_lib:check_content(Term, "3\\s+4\\s+.+>\\sABC"),
         ok
     after
-        stop_tty(Term)
+        shell_test_lib:stop_tty(Term)
     end.
 %% Test that the shell works when invalid utf-8 (aka latin1) is sent to it
 shell_invalid_unicode(Config) ->
@@ -995,28 +1148,28 @@ shell_invalid_unicode(Config) ->
     InvalidUnicode = <<$å,$ä,$ö>>, %% åäö in latin1
 
     try
-        send_tty(Term,hard_unicode()),
-        check_content(Term, hard_unicode() ++ "$"),
-        send_tty(Term,"Enter"),
-        check_content(Term, "illegal character"),
+        shell_test_lib:send_tty(Term,hard_unicode()),
+        shell_test_lib:check_content(Term, hard_unicode() ++ "$"),
+        shell_test_lib:send_tty(Term,"Enter"),
+        shell_test_lib:check_content(Term, "illegal character"),
         %% Send invalid utf-8
-        send_stdin(Term,InvalidUnicode),
+        shell_test_lib:send_stdin(Term,InvalidUnicode),
         %% Check that the utf-8 was echoed
-        check_content(Term, "\\\\345\\\\344\\\\366$"),
-        send_tty(Term,"Enter"),
+        shell_test_lib:check_content(Term, "\\\\345\\\\344\\\\366$"),
+        shell_test_lib:send_tty(Term,"Enter"),
         %% Check that the terminal entered "latin1" mode
-        send_tty(Term,"😀한."),
-        check_content(Term, "\\Q\\360\\237\\230\\200\\355\\225\\234.\\E$"),
-        send_tty(Term,"Enter"),
+        shell_test_lib:send_tty(Term,"😀한."),
+        shell_test_lib:check_content(Term, "\\Q\\360\\237\\230\\200\\355\\225\\234.\\E$"),
+        shell_test_lib:send_tty(Term,"Enter"),
         %% Check that we can reset the encoding to unicode
-        send_tty(Term,"io:setopts([{encoding,unicode}])."),
-        send_tty(Term,"Enter"),
-        check_content(Term, "\nok\n"),
-        send_tty(Term,"😀한"),
-        check_content(Term, "😀한$"),
+        shell_test_lib:send_tty(Term,"io:setopts([{encoding,unicode}])."),
+        shell_test_lib:send_tty(Term,"Enter"),
+        shell_test_lib:check_content(Term, "\nok\n"),
+        shell_test_lib:send_tty(Term,"😀한"),
+        shell_test_lib:check_content(Term, "😀한$"),
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term),
         ok
     end.
 
@@ -1031,29 +1184,29 @@ shell_support_ansi_input(Config) ->
     ClearText = "\e[0m",
 
     try
-        send_stdin(Term,["{",BoldText,"a😀b",ClearText,"}"]),
+        shell_test_lib:send_tty(Term,["{",BoldText,"a😀b",ClearText,"}"]),
         timer:sleep(1000),
-        try check_location(Term, {0, width("{1ma😀bm}")}) of
+        try shell_test_lib:check_location(Term, {0, width("{1ma😀bm}")}) of
             _ ->
                 throw({skip, "Do not support ansi input"})
         catch _:_ ->
                 ok
         end,
-        check_location(Term, {0, width("{a😀b}")}),
-        check_content(fun() -> get_content(Term,"-e") end,
+        shell_test_lib:check_location(Term, {0, width("{a😀b}")}),
+        shell_test_lib:check_content(fun() -> shell_test_lib:get_content(Term,"-e") end,
                       ["{", BoldText, "a😀b", ClearText, "}"]),
-        send_tty(Term,"Left"),
-        send_tty(Term,"Left"),
-        check_location(Term, {0, width("{a😀")}),
-        send_tty(Term,"C-Left"),
-        check_location(Term, {0, width("{")}),
-        send_tty(Term,"End"),
-        send_tty(Term,"BSpace"),
-        send_tty(Term,"BSpace"),
-        check_content(Term, ["{", BoldText, "a😀"]),
+        shell_test_lib:send_tty(Term,"Left"),
+        shell_test_lib:send_tty(Term,"Left"),
+        shell_test_lib:check_location(Term, {0, width("{a😀")}),
+        shell_test_lib:send_tty(Term,"C-Left"),
+        shell_test_lib:check_location(Term, {0, width("{")}),
+        shell_test_lib:send_tty(Term,"End"),
+        shell_test_lib:send_tty(Term,"BSpace"),
+        shell_test_lib:send_tty(Term,"BSpace"),
+        shell_test_lib:check_content(Term, ["{", BoldText, "a😀"]),
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term),
         ok
     end.
 
@@ -1061,9 +1214,10 @@ shell_expand_location_below(Config) ->
 
     Term = start_tty(Config),
 
-    {Rows, _} = get_location(Term),
+    {Rows, _} = shell_test_lib:get_window_size(Term),
+    {Row, Col} = shell_test_lib:get_location(Term),
 
-    NumFunctions = lists:seq(0, Rows*2),
+    NumFunctions = lists:seq(0, Row*2),
     FunctionName = "a_long_function_name",
 
     Module = lists:flatten(
@@ -1081,67 +1235,125 @@ shell_expand_location_below(Config) ->
     {ok,_,Bin} = compile:forms(Forms, [debug_info]),
 
     try
-        tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
+        shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x 80"]),
+        Cols = 80,
 
         %% First check that basic completion works
-        send_stdin(Term, "escript:"),
-        send_stdin(Term, "\t"),
+        shell_test_lib:send_tty(Term, "escript:"),
+        shell_test_lib:send_tty(Term, "\t"),
         %% Cursor at correct place
-        check_location(Term, {-3, width("escript:")}),
+        shell_test_lib:check_location(Term, {-2, width("escript:")}),
         %% Nothing after the start( completion
-        check_content(Term, "start\\($"),
+        shell_test_lib:check_content(Term, "start\\($"),
 
         %% Check that completion is cleared when we type
-        send_stdin(Term, "s"),
-        check_location(Term, {-3, width("escript:s")}),
-        check_content(Term, "escript:s$"),
+        shell_test_lib:send_tty(Term, "s"),
+        shell_test_lib:check_location(Term, {-2, width("escript:s")}),
+        shell_test_lib:check_content(Term, "escript:s$"),
 
         %% Check that completion works when in the middle of a term
-        send_tty(Term, "Home"),
-        send_tty(Term, "["),
-        send_tty(Term, "End"),
-        send_tty(Term, ", test_after]"),
-        [send_tty(Term, "Left") || _ <- ", test_after]"],
-        send_stdin(Term, "\t"),
-        check_location(Term, {-3, width("[escript:s")}),
-        check_content(Term, "script_name\\([ ]+start\\($"),
-        send_tty(Term, "C-K"),
+        shell_test_lib:send_tty(Term, "Home"),
+        shell_test_lib:send_tty(Term, "["),
+        shell_test_lib:send_tty(Term, "End"),
+        shell_test_lib:send_tty(Term, ", test_after]"),
+        [shell_test_lib:send_tty(Term, "Left") || _ <- ", test_after]"],
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_location(Term, {-2, width("[escript:s")}),
+        shell_test_lib:check_content(Term, "script_name\\([ ]+start\\($"),
+        shell_test_lib:send_tty(Term, "C-K"),
 
         %% Check that completion works when in the middle of a long term
-        send_tty(Term, ", "++ lists:duplicate(80*2, $a)++"]"),
-        [send_tty(Term, "Left") || _ <- ", "++ lists:duplicate(80*2, $a)++"]"],
-        send_stdin(Term, "\t"),
-        check_location(Term, {-4, width("[escript:s")}),
-        check_content(Term, "script_name\\([ ]+start\\($"),
-        send_tty(Term, "End"),
-        send_stdin(Term, ".\n"),
+        shell_test_lib:send_tty(Term, ", "++ lists:duplicate(80*2, $a)++"]"),
+        [shell_test_lib:send_tty(Term, "Left") || _ <- ", "++ lists:duplicate(80*2, $a)++"]"],
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_location(Term, {-4, width("[escript:s")}),
+        shell_test_lib:check_content(Term, "script_name\\([ ]+start\\($"),
+        shell_test_lib:send_tty(Term, "End"),
+        shell_test_lib:send_tty(Term, ".\n"),
 
         %% Check that we behave as we should with very long completions
-        rpc(Term, fun() ->
+        shell_test_lib:rpc(Term, fun() ->
                           {module, long_module} = code:load_binary(long_module, "long_module.beam", Bin)
                   end),
-        check_content(Term, "3>"),
-        send_stdin(Term, "long_module:" ++ FunctionName),
-        send_stdin(Term, "\t"),
+        shell_test_lib:check_content(Term, "3>"),
+        shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -y 50"]),
+        timer:sleep(1000), %% Sleep to make sure window has resized
+        Result = 61,
+        Rows1 = 48,
+        shell_test_lib:send_tty(Term, "long_module:" ++ FunctionName),
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_content(Term, "3> long_module:" ++ FunctionName ++ "\nFunctions(\n|.)*a_long_function_name0\\("),
+
         %% Check that correct text is printed below expansion
-        check_content(Term, io_lib:format("Press tab to see all ~p expansions",
-                                          [length(NumFunctions)])),
-        send_stdin(Term, "\t"),
-        %% The expansion does not fit on screen, verify that
-        %% expand above mode is used
-        check_content(fun() -> get_content(Term, "-S -5") end,
-                      "\nfunctions\n"),
-        check_content(Term, "3> long_module:" ++ FunctionName ++ "$"),
+        shell_test_lib:check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [1, 7, Result])),
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+            [1, Rows1, Result])),
+        shell_test_lib:send_tty(Term, "Down"),
+        shell_test_lib:check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [2, Rows1+1, Result])),
+        shell_test_lib:send_tty(Term, "PgDn"),
+        shell_test_lib:check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [7, Rows1+6, Result])),
+        shell_test_lib:send_tty(Term, "PgUp"),
+        shell_test_lib:check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [2, Rows1+1, Result])),
+        shell_test_lib:send_tty(Term, "PgUp"),
+        %% Overshoot up
+        shell_test_lib:check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [1, Rows1, Result])),
+        %% Overshoot down
+        shell_test_lib:send_tty(Term, "PgDn"),
+        shell_test_lib:send_tty(Term, "PgDn"),
+        shell_test_lib:send_tty(Term, "PgDn"),
+        shell_test_lib:check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [14, Rows1+13, Result])),
+        shell_test_lib:check_content(Term, "\n.*a_long_function_name99\\("),
+        shell_test_lib:send_tty(Term, "Up"),
+        shell_test_lib:check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [13, Rows1+12, Result])),
+
+        shell_test_lib:send_tty(Term, "\t"),
 
         %% We resize the terminal to make everything fit and test that
-        %% expand below mode is used
-        tmux(["resize-window -t ", tty_name(Term), " -y ", integer_to_list(Rows+10)]),
+        %% expand below displays everything
+        shell_test_lib:tmux(["resize-window -t ", shell_test_lib:tty_name(Term), " -y ", integer_to_list(Row+10)]),
         timer:sleep(1000), %% Sleep to make sure window has resized
-        send_stdin(Term, "\t\t"),
-        check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name99\\($"),
+        shell_test_lib:send_tty(Term, "\t\t"),
+        shell_test_lib:check_content(Term, "3> long_module:" ++ FunctionName ++ "\nFunctions(\n|.)*a_long_function_name99\\($"),
+
+        %% Check that doing an expansion when cursor is in xnfix position works
+        shell_test_lib:send_tty(Term, "BSpace"),
+        shell_test_lib:check_content(Term, "3> long_module:a_long_function_nam$"),
+        shell_test_lib:send_tty(Term, "Home"),
+        shell_test_lib:send_tty(Term, lists:duplicate(Cols - Col - width(", long_module:a_long_function_name"), "a")),
+        shell_test_lib:send_tty(Term, ", "),
+        shell_test_lib:send_tty(Term, "End"),
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_location(Term, {-Rows + 2, -Col}),
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_content(Term, "3> a+, long_module:" ++ FunctionName ++ "\n\nFunctions(\n|.)*a_long_function_name0\\("),
+        shell_test_lib:check_location(Term, {-Rows + 2, -Col}),
+        shell_test_lib:send_tty(Term, "Down"),
+        shell_test_lib:check_location(Term, {-Rows + 2, -Col}),
+        shell_test_lib:send_tty(Term, "Down"),
+        shell_test_lib:check_location(Term, {-Rows + 2, -Col}),
+
+        shell_test_lib:send_tty(Term, "Home"),
+        shell_test_lib:send_tty(Term, lists:duplicate(Cols, "b")),
+        shell_test_lib:send_tty(Term, "End"),
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_content(Term, "3> b+\nb+a+, long_module:" ++ FunctionName ++ "\n\nFunctions(\n|.)*a_long_function_name0\\("),
+        shell_test_lib:check_location(Term, {-Rows + 3, -Col}),
+        shell_test_lib:send_tty(Term, "Down"),
+        shell_test_lib:check_location(Term, {-Rows + 3, -Col}),
+        shell_test_lib:send_tty(Term, "Down"),
+        shell_test_lib:check_location(Term, {-Rows + 3, -Col}),
+
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term),
         ok
     end.
 
@@ -1150,23 +1362,75 @@ shell_expand_location_above(Config) ->
     Term = start_tty([{args,["-stdlib","shell_expand_location","above"]}|Config]),
 
     try
-        tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
-        send_stdin(Term, "escript:"),
-        send_stdin(Term, "\t"),
-        check_location(Term, {0, width("escript:")}),
-        check_content(Term, "start\\(\n"),
-        check_content(Term, "escript:$"),
-        send_stdin(Term, "s"),
-        send_stdin(Term, "\t"),
-        check_location(Term, {0, width("escript:s")}),
-        check_content(Term, "\nscript_name\\([ ]+start\\(\n"),
-        check_content(Term, "escript:s$"),
+        shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x 80"]),
+        shell_test_lib:send_tty(Term, "escript:"),
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_location(Term, {0, width("escript:")}),
+        shell_test_lib:check_content(Term, "start\\(\n"),
+        shell_test_lib:check_content(Term, "escript:$"),
+        shell_test_lib:send_tty(Term, "s"),
+        shell_test_lib:send_tty(Term, "\t"),
+        shell_test_lib:check_location(Term, {0, width("escript:s")}),
+        shell_test_lib:check_content(Term, "\nscript_name\\([ ]+start\\(\n"),
+        shell_test_lib:check_content(Term, "escript:s$"),
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term),
         ok
     end.
 
+shell_help(Config) ->
+    Term = start_tty(Config),
+    try
+        shell_test_lib:send_tty(Term, "application:put_env(kernel, shell_docs_ansi, false).\n"),
+        shell_test_lib:send_tty(Term, "lists"),
+        shell_test_lib:send_tty(Term, "\^[h"),
+        %% Check we can see the first line
+        shell_test_lib:check_content(Term, "List processing functions."),
+        shell_test_lib:check_not_in_content(Term, "less than or equal to"),
+        %% Expand the help area to take up the whole buffer.
+        shell_test_lib:send_tty(Term, "\^[h"),
+        %% Check that we can see the last line (lists help should fit in the window)
+        shell_test_lib:check_content(Term, "less than or equal to"),
+        shell_test_lib:send_tty(Term, ":all"),
+        shell_test_lib:send_tty(Term, "\^[h"),
+        shell_test_lib:check_content(Term, ~S"all\(Pred, List\)"),
+        ok
+    after
+        shell_test_lib:stop_tty(Term),
+        ok
+    end.
+
+prompt_2(_) ->
+    ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"].
+shell_escape_sequence_end_of_prompt_followed_by_unicode(Config) ->
+    %% If the prompt ended with an escape sequence, and the user input a unicode character
+    %% prim_tty tried to put that character in the escape sequence. This test checks that
+    %% the unicode character will not be part of the escape sequence.
+    Term = start_tty(Config),
+
+    try
+        shell_test_lib:send_tty(Term,"shell:prompt_func(\n"),
+        shell_test_lib:send_tty(Term,"{interactive_shell_SUITE,\n"),
+        shell_test_lib:send_tty(Term,"prompt_2}).\n"),
+        shell_test_lib:send_tty(Term,"÷.\n"),
+        shell_test_lib:check_content(Term, "syntax error before: '÷'"),
+        ok
+    after
+        shell_test_lib:stop_tty(Term),
+        ok
+    end.
+shell_output_automatic_newline_ansi_escape_sequence(Config) ->
+    Term = start_tty(Config),
+
+    try
+        shell_test_lib:send_tty(Term,"spawn(fun() -> receive after 1000 -> ok end, io:put_chars([\"omg\\n\", <<27,91,48,109>>]) end).\n"),
+        shell_test_lib:check_content(Term, "omg\n\\("),
+        ok
+    after
+        shell_test_lib:stop_tty(Term),
+        ok
+    end.
 %% Test the we can handle invalid ansi escape chars.
 %%   tmux cannot handle this... so we test this using to_erl
 shell_invalid_ansi(_Config) ->
@@ -1199,11 +1463,24 @@ shell_invalid_ansi(_Config) ->
 shell_get_password(_Config) ->
    
     rtnode:run(
-      [{putline,"io:get_password()."},
+      [{putline,"io:get_password(group_leader())."},
        {putline,"secret\r"},
-       {expect, "\r\n\r\n\"secret\""}]),
+       {expect, "\r\n\"secret\""}]),
 
-    %% io:get_password only works when run in "newshell"
+    rtnode:run(
+        [{eval,fun() -> shell:start_interactive({noshell, raw}) end},
+        {eval,
+            fun() ->
+                io:format(user, "Enter password: ", []),
+                spawn(fun() -> io:format(user, "~nPassword was: ~ts~n",[io:get_password(user)]) end),
+                ok
+            end},
+        {expect, "Enter password: "},
+        {putline,"secret"},
+        {expect, "^\nPassword was: secret\n"}],
+        "", "", ["-noshell"]),
+
+    %% io:get_password only works when run in "newshell", or "noshell/raw"
     rtnode:run(
       [{putline,"io:get_password()."},
        {expect, "\\Q{error,enotsup}\\E"}],
@@ -1216,52 +1493,50 @@ shell_ignore_pager_commands(Config) ->
         {error, _} -> {skip, "No documentation available"};
         _ ->
             try
-                send_tty(Term, "h(file).\n"),
-                check_content(Term,"\\Qmore (y/n)? (y)\\E"),
-                send_tty(Term, "n\n"),
-                check_content(Term,"ok"),
-                send_tty(Term, "C-P"),
-                check_content(Term,"\\Qh(file).\\E"),
+                shell_test_lib:send_tty(Term, "h(file).\n"),
+                shell_test_lib:check_content(Term,"\\Qmore (y/n)? (y)\\E"),
+                shell_test_lib:send_tty(Term, "n\n"),
+                shell_test_lib:check_content(Term,"ok"),
+                shell_test_lib:send_tty(Term, "C-P"),
+                shell_test_lib:check_content(Term,"\\Qh(file).\\E"),
                 ok
             after
-                stop_tty(Term),
+                shell_test_lib:stop_tty(Term),
                 ok
             end
     end.
 test_valid_keymap(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
-    Term = setup_tty([{args, ["-config", DataDir ++ "valid_keymap.config"]} | Config]),
-    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
-    erpc:call(Term#tmux.node, application, set_env,
-              [stdlib, shell_prompt_func_test,
-               proplists:get_value(shell_prompt_func_test, Config, Prompt)]),
+    Term = shell_test_lib:setup_tty([{args, ["-config", DataDir ++ "valid_keymap.config"]} | Config]),
+    shell_test_lib:set_tty_prompt(Term, Config),
     try
-        check_not_in_content(Term, "Invalid key"),
-        check_not_in_content(Term, "Invalid function"),
-        send_tty(Term, "asdf"),
-        send_tty(Term, "C-u"),
-        check_content(Term, ">$"),
-        send_tty(Term, "1.\n"),
-        send_tty(Term, "C-b"),
-        check_content(Term, "2>\\s1.$"),
+        shell_test_lib:check_not_in_content(Term, "Invalid key"),
+        shell_test_lib:check_not_in_content(Term, "Invalid function"),
+        shell_test_lib:send_tty(Term, "asdf"),
+        shell_test_lib:send_tty(Term, "C-u"),
+        shell_test_lib:check_content(Term, ">$"),
+        shell_test_lib:send_tty(Term, "1.\n"),
+        shell_test_lib:send_tty(Term, "C-b"),
+        shell_test_lib:check_content(Term, "2>\\s1.$"),
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term),
         ok
     end.
 
 test_invalid_keymap(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
-    Term1 = setup_tty([{args, ["-config", DataDir ++ "invalid_keymap.config"]} | Config]),
+    Term1 = shell_test_lib:setup_tty([{args, ["-config", DataDir ++ "invalid_keymap.config"]} | Config]),
+    shell_test_lib:set_tty_prompt(Term1, Config),
     try
-        check_content(Term1, "Invalid key"),
-        check_content(Term1, "Invalid function"),
-        send_tty(Term1, "asdf"),
-        send_tty(Term1, "C-u"),
-        check_content(Term1, ">$"),
+        shell_test_lib:check_content(Term1, "Invalid key"),
+        shell_test_lib:check_content(Term1, "Invalid function"),
+        shell_test_lib:send_tty(Term1, "asdf"),
+        shell_test_lib:send_tty(Term1, "C-u"),
+        shell_test_lib:check_content(Term1, ">$"),
         ok
     after
-        stop_tty(Term1),
+        shell_test_lib:stop_tty(Term1),
         ok
     end.
 external_editor(Config) ->
@@ -1270,25 +1545,25 @@ external_editor(Config) ->
         _ ->
             Term = start_tty(Config),
             try
-                tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
-                send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
-                send_tty(Term, "\"some text with\nnewline in it\""),
-                check_content(Term,"3> \"some text with\\s*\n.+\\s*newline in it\""),
-                send_tty(Term, "C-O"),
-                check_content(Term,"GNU nano [\\d.]+"),
-                check_content(Term,"\"some text with\\s*\n\\s*newline in it\""),
-                send_tty(Term, "Right"),
-                send_tty(Term, "still"),
-                send_tty(Term, "Enter"),
-                send_tty(Term, "C-O"), %% save in nano
-                send_tty(Term, "Enter"),
-                send_tty(Term, "C-X"), %% quit in nano
-                check_content(Term,"3> \"still\\s*\n\\s*.+\\s*some text with\\s*\n.+\\s*newline in it\""),
-                send_tty(Term,".\n"),
-                check_content(Term,"\\Q\"still\\nsome text with\\nnewline in it\"\\E"),
+                shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x 80"]),
+                shell_test_lib:send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
+                shell_test_lib:send_tty(Term, "\"some text with\nnewline in it\""),
+                shell_test_lib:check_content(Term,"3> \"some text with\\s*\n.+\\s*newline in it\""),
+                shell_test_lib:send_tty(Term, "C-O"),
+                shell_test_lib:check_content(Term,"GNU nano [\\d.]+"),
+                shell_test_lib:check_content(Term,"\"some text with\\s*\n\\s*newline in it\""),
+                shell_test_lib:send_tty(Term, "Right"),
+                shell_test_lib:send_tty(Term, "still"),
+                shell_test_lib:send_tty(Term, "Enter"),
+                shell_test_lib:send_tty(Term, "C-O"), %% save in nano
+                shell_test_lib:send_tty(Term, "Enter"),
+                shell_test_lib:send_tty(Term, "C-X"), %% quit in nano
+                shell_test_lib:check_content(Term,"3> \"still\\s*\n\\s*.+\\s*some text with\\s*\n.+\\s*newline in it\""),
+                shell_test_lib:send_tty(Term,".\n"),
+                shell_test_lib:check_content(Term,"\\Q\"still\\nsome text with\\nnewline in it\"\\E"),
                 ok
             after
-                stop_tty(Term),
+                shell_test_lib:stop_tty(Term),
                 ok
             end
     end.
@@ -1300,27 +1575,27 @@ external_editor_visual(Config) ->
         _ ->
             Term = start_tty(Config),
             try
-                tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
-                send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
-                check_content(Term, "3>"),
-                send_tty(Term,"os:putenv(\"VISUAL\",\"vim -u DEFAULTS -U NONE -i NONE\").\n"),
-                check_content(Term, "4>"),
-                send_tty(Term,"\"hello"),
-                send_tty(Term, "C-O"), %% Open vim
-                check_content(Term, "^\"hello"),
-                send_tty(Term, "$"), %% Set cursor at end
-                send_tty(Term, "a"), %% Enter insert mode at end
-                check_content(Term, "-- INSERT --"),
-                send_tty(Term, "\"."),
-                send_tty(Term,"Escape"),
-                send_tty(Term,":wq"),
-                send_tty(Term,"Enter"),
-                check_content(Term, "\"hello\"[.]$"),
-                send_tty(Term,"Enter"),
-                check_content(Term, "\"hello\""),
-                check_content(Term, "5>$")
+                shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x 80"]),
+                shell_test_lib:send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
+                shell_test_lib:check_content(Term, "3>"),
+                shell_test_lib:send_tty(Term,"os:putenv(\"VISUAL\",\"vim -u DEFAULTS -U NONE -i NONE\").\n"),
+                shell_test_lib:check_content(Term, "4>"),
+                shell_test_lib:send_tty(Term,"\"hello"),
+                shell_test_lib:send_tty(Term, "C-O"), %% Open vim
+                shell_test_lib:check_content(Term, "^\"hello"),
+                shell_test_lib:send_tty(Term, "$"), %% Set cursor at end
+                shell_test_lib:send_tty(Term, "a"), %% Enter insert mode at end
+                shell_test_lib:check_content(Term, "-- INSERT --"),
+                shell_test_lib:send_tty(Term, "\"."),
+                shell_test_lib:send_tty(Term,"Escape"),
+                shell_test_lib:send_tty(Term,":wq"),
+                shell_test_lib:send_tty(Term,"Enter"),
+                shell_test_lib:check_content(Term, "\"hello\"[.]$"),
+                shell_test_lib:send_tty(Term,"Enter"),
+                shell_test_lib:check_content(Term, "\"hello\""),
+                shell_test_lib:check_content(Term, "5>$")
             after
-                stop_tty(Term),
+                shell_test_lib:stop_tty(Term),
                 ok
             end
     end.
@@ -1332,21 +1607,21 @@ external_editor_unicode(Config) ->
         _ ->
             Term = start_tty(Config),
             try
-                tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
-                send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
-                send_tty(Term, hard_unicode()),
-                check_content(Term,"3> " ++ hard_unicode_match(Config)),
-                send_tty(Term, "C-O"), %% open external editor (nano)
-                check_content(Term,"GNU nano [\\d.]+"),
-                send_tty(Term, "still "),
-                check_content(Term,"\nstill "),
-                send_tty(Term, "C-O"), %% save in nano
-                send_tty(Term, "Enter"),
-                send_tty(Term, "C-X"), %% quit in nano
-                check_content(Term,"still "++hard_unicode_match(Config)),
+                shell_test_lib:tmux(["resize-window -t ",shell_test_lib:tty_name(Term)," -x 80"]),
+                shell_test_lib:send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
+                shell_test_lib:send_tty(Term, hard_unicode()),
+                shell_test_lib:check_content(Term,"3> " ++ hard_unicode_match(Config)),
+                shell_test_lib:send_tty(Term, "C-O"), %% open external editor (nano)
+                shell_test_lib:check_content(Term,"GNU nano [\\d.]+"),
+                shell_test_lib:send_tty(Term, "still "),
+                shell_test_lib:check_content(Term,"\nstill "),
+                shell_test_lib:send_tty(Term, "C-O"), %% save in nano
+                shell_test_lib:send_tty(Term, "Enter"),
+                shell_test_lib:send_tty(Term, "C-X"), %% quit in nano
+                shell_test_lib:check_content(Term,"still "++hard_unicode_match(Config)),
                 ok
             after
-                stop_tty(Term),
+                shell_test_lib:stop_tty(Term),
                 ok
             end
     end.
@@ -1358,16 +1633,16 @@ shell_standard_error_nlcr(Config) ->
 
     [
      begin
-         Term = setup_tty([{env,[{"TERM",TERM}]},{args, ["-noshell"]} | Config]),
+         Term = shell_test_lib:setup_tty([{env,[{"TERM",TERM}]},{args, ["-noshell"]} | Config]),
          try
-             rpc(Term, io, format, [standard_error,"test~ntest~ntest", []]),
-             check_content(Term, "test\ntest\ntest$"),
-             rpc(Term, fun() -> shell:start_interactive(),
+             shell_test_lib:rpc(Term, io, format, [standard_error,"test~ntest~ntest", []]),
+             shell_test_lib:check_content(Term, "test\ntest\ntest$"),
+             shell_test_lib:rpc(Term, fun() -> shell:start_interactive(),
                                 io:format(standard_error,"test~ntest~ntest", [])
                        end),
-             check_content(Term, "test\ntest\ntest(\n|.)*test\ntest\ntest")
+             shell_test_lib:check_content(Term, "test\ntest\ntest(\n|.)*test\ntest\ntest")
          after
-             stop_tty(Term)
+             shell_test_lib:stop_tty(Term)
          end
      end || TERM <- ["dumb",os:getenv("TERM")]].
 
@@ -1394,25 +1669,25 @@ shell_suspend(Config) ->
     Term = start_tty([{peer, Peer}|Config]),
 
     try
-        send_tty(Term, hard_unicode()),
-        check_content(Term,["2> ",hard_unicode(),"$"]),
-        send_tty(Term, "C-Z"),
-        check_content(Term,"\\Q[1]+\\E\\s*Stopped"),
-        send_tty(Term, "fg"),
-        send_tty(Term, "Enter"),
-        send_tty(Term, "M-l"),
-        check_content(Term,["2> ",hard_unicode(),"$"]),
-        check_location(Term,{0,width(hard_unicode())}),
+        shell_test_lib:send_tty(Term, hard_unicode()),
+        shell_test_lib:check_content(Term,["2> ",hard_unicode(),"$"]),
+        shell_test_lib:send_tty(Term, "C-Z"),
+        shell_test_lib:check_content(Term,"\\Q[1]+\\E\\s*Stopped"),
+        shell_test_lib:send_tty(Term, "fg"),
+        shell_test_lib:send_tty(Term, "Enter"),
+        shell_test_lib:send_tty(Term, "M-l"),
+        shell_test_lib:check_content(Term,["2> ",hard_unicode(),"$"]),
+        shell_test_lib:check_location(Term,{0,width(hard_unicode())}),
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term),
         ok
     end.
 
 %% We test that suspending of `erl` and then resuming restores the shell
 shell_full_queue(Config) ->
 
-    [throw({skip,"Need unbuffered to run"}) || os:find_executable("unbuffered") =:= false],
+    [throw({skip,"Need unbuffer (apt install expect) to run"}) || os:find_executable("unbuffer") =:= false],
 
     %% In order to fill the read buffer of the terminal we need to get a
     %% bit creative. We first need to start erl in bash in order to be
@@ -1435,17 +1710,16 @@ shell_full_queue(Config) ->
 
 
     Term = start_tty([{peer, Peer}|Config]),
-
-    UnbufferedPid = os:cmd("ps -o ppid= -p " ++ rpc(Term,os,getpid,[])),
+    UnbufferedPid = os:cmd("ps -o ppid= -p " ++ shell_test_lib:rpc(Term,os,getpid,[])),
 
     WriteUntilStopped =
-        fun F(Char) ->
-                rpc(Term,io,format,[user,[Char],[]]),
+        fun F(Char, Term) ->
+                shell_test_lib:rpc(Term,io,format,[user,[Char],[]]),
                 put(bytes,get(bytes,0)+1),
                 receive
                     stop ->
-                        rpc(Term,io,format,[user,[Char+1],[]])
-                after 0 -> F(Char)
+                        shell_test_lib:rpc(Term,io,format,[user,[Char+1],[]])
+                after 0 -> F(Char, Term)
                 end
         end,
 
@@ -1473,38 +1747,54 @@ shell_full_queue(Config) ->
     try
         %% First test that we can suspend and then resume
         os:cmd("kill -TSTP " ++ UnbufferedPid),
-        check_content(Term,"\\Q[1]+\\E\\s*Stopped"),
-        {Pid, Ref} = spawn_monitor(fun() -> WriteUntilStopped($a) end),
+        shell_test_lib:check_content(Term,"\\Q[1]+\\E\\s*Stopped"),
+        {Pid, Ref} = spawn_monitor(fun() -> WriteUntilStopped($a, Term) end),
         WaitUntilBlocked(Pid, Ref),
-        send_tty(Term, "fg"),
-        send_tty(Term, "Enter"),
+        shell_test_lib:send_tty(Term, "fg"),
+        shell_test_lib:send_tty(Term, "Enter"),
         Pid ! stop,
-        check_content(Term,"b$"),
+        shell_test_lib:check_content(Term,"b\\s+\\([^)]*\\)2>$")
+    after
+        shell_test_lib:stop_tty(Term),
+        ok
+    end,
+    Name2 = peer:random_name(proplists:get_value(tc_path,Config))++"_2",
+    os:cmd("tmux new-window -n " ++ Name2 ++ " -d -- bash --norc"),
 
-        send_tty(Term, "."),
-        send_tty(Term, "Enter"),
+    Peer2 = #{ name => Name2,
+              post_process_args =>
+                        fun(["new-window","-n",_,"-d","--"|CmdAndArgs]) ->
+                                FlatCmdAndArgs = ["unbuffer -p "] ++
+                                      lists:join(
+                                        " ",[[$',A,$'] || A <- CmdAndArgs]),
+                                ["send","-t",Name2,lists:flatten(FlatCmdAndArgs),"Enter"]
+                        end
+            },
 
+    Term1 = shell_test_lib:setup_tty([{peer, Peer2},{args, ["-noshell"]}|Config]),
+    UnbufferedPid1 = os:cmd("ps -o ppid= -p " ++ shell_test_lib:rpc(Term1,os,getpid,[])),
+    try
         %% Then we test that all characters are written when system
         %% is terminated just after writing
-        {ok,Cols} = rpc(Term,io,columns,[user]),
-        send_tty(Term, "Enter"),
-        os:cmd("kill -TSTP " ++ UnbufferedPid),
-        check_content(Term,"\\Q[1]+\\E\\s*Stopped"),
-        {Pid2, Ref2} = spawn_monitor(fun() -> WriteUntilStopped($c) end),
+        {ok,Cols} = shell_test_lib:rpc(Term1,io,columns,[user]),
+        shell_test_lib:send_tty(Term1, "Enter"),
+        os:cmd("kill -TSTP " ++ UnbufferedPid1),
+        shell_test_lib:check_content(Term1,"\\Q[1]+\\E\\s*Stopped"),
+        {Pid2, Ref2} = spawn_monitor(fun() -> WriteUntilStopped($c, Term1) end),
         Bytes = WaitUntilBlocked(Pid2, Ref2) - 1,
-        stop_tty(Term),
-        send_tty(Term, "fg"),
-        send_tty(Term, "Enter"),
-        check_content(
+        shell_test_lib:stop_tty(Term1),
+        shell_test_lib:send_tty(Term1, "fg"),
+        shell_test_lib:send_tty(Term1, "Enter"),
+        shell_test_lib:check_content(
           fun() ->
-                  tmux(["capture-pane -p -S - -E - -t ",tty_name(Term)])
+                  shell_test_lib:tmux(["capture-pane -p -S - -E - -t ",shell_test_lib:tty_name(Term1)])
           end, lists:flatten([lists:duplicate(Cols,$c) ++ "\n" ||
                                  _ <- lists:seq(1,(Bytes) div Cols)]
                              ++ [lists:duplicate((Bytes) rem Cols,$c)])),
-        ct:log("~ts",[tmux(["capture-pane -p -S - -E - -t ",tty_name(Term)])]),
+        ct:log("~ts",[shell_test_lib:tmux(["capture-pane -p -S - -E - -t ",shell_test_lib:tty_name(Term)])]),
         ok
     after
-        stop_tty(Term),
+        shell_test_lib:stop_tty(Term1),
         ok
     end.
 
@@ -1591,255 +1881,41 @@ npwcwidth(CP) ->
             end
     end.
 
-tmux([Cmd|_] = Command) when is_list(Cmd) ->
-    tmux(lists:concat(Command));
-tmux(Command) ->
-    string:trim(os:cmd(["tmux ",Command])).
-
-rpc(#tmux{ node = N }, Fun) ->
-    erpc:call(N, Fun).
-rpc(#tmux{ node = N }, M, F, A) ->
-    erpc:call(N, M, F, A).
-
-%% Setup a TTY, but do not type anything in terminal
-setup_tty(Config) ->
-    Name = maps:get(name,proplists:get_value(peer, Config, #{}),
-                    peer:random_name(proplists:get_value(tc_path, Config))),
-
-    Envs = lists:flatmap(fun({Key,Value}) ->
-                                 ["-env",Key,Value]
-                         end, proplists:get_value(env,Config,[])),
-
-    ExtraArgs = proplists:get_value(args,Config,[]),
-
-    ExecArgs = case os:getenv("TMUX_DEBUG") of
-                   "strace" ->
-                       STraceLog = filename:join(proplists:get_value(priv_dir,Config),
-                                                 Name++".strace"),
-                       ct:log("Link to strace: file://~ts", [STraceLog]),
-                       [os:find_executable("strace"),"-f",
-                        "-o",STraceLog,
-                        "-e","trace=all",
-                        "-e","read=0,1,2",
-                        "-e","write=0,1,2"
-                       ] ++ string:split(ct:get_progname()," ",all);
-                   "rr" ->
-                       [os:find_executable("cerl"),"-rr"];
-                   _ ->
-                       string:split(ct:get_progname()," ",all)
-               end,
-    DefaultPeerArgs = #{ name => Name,
-                         exec =>
-                             {os:find_executable("tmux"),
-                              ["new-window","-n",Name,"-d","--"] ++ ExecArgs },
-
-                         args => ["-pz",filename:dirname(code:which(?MODULE)),
-                                  "-connect_all","false",
-%                                  "-kernel","logger_level","all",
-                                  "-kernel","shell_history","disabled",
-                                  "-kernel","prevent_overlapping_partitions","false",
-                                  "-eval","shell:prompt_func({interactive_shell_SUITE,prompt})."
-                                 ] ++ Envs ++ ExtraArgs,
-                         detached => false
-                       },
-
-    {ok, Peer, Node} =
-        ?CT_PEER(maps:merge(proplists:get_value(peer,Config,#{}),
-                            DefaultPeerArgs)),
-
-    Self = self(),
-
-    %% By default peer links with the starter. For these TCs we however only
-    %% want the peer to die if we die, so we create a "unidirection link" using
-    %% monitors.
-    spawn(fun() ->
-                  TCRef = erlang:monitor(process, Self),
-                  PeerRef = erlang:monitor(process, Peer),
-                  receive
-                      {'DOWN',TCRef,_,_,Reason} ->
-                          exit(Peer, Reason);
-                      {'DOWN',PeerRef,_,_,_} ->
-                          ok
-                  end
-          end),
-    unlink(Peer),
-
-    "" = tmux(["set-option -t ",Name," remain-on-exit on"]),
-
-    %% We start tracing on the remote node in order to help debugging
-    TraceLog = filename:join(proplists:get_value(priv_dir,Config),Name++".trace"),
-    ct:log("Link to trace: file://~ts",[TraceLog]),
-
-    spawn(Node,
-          fun() ->
-                  {ok, _} = dbg:tracer(file,TraceLog),
-                  %% dbg:p(whereis(user_drv),[c,m]),
-                  %% dbg:p(whereis(user_drv_writer),[c,m]),
-                  %% dbg:p(whereis(user_drv_reader),[c,m]),
-                  %% dbg:tp(user_drv,x),
-                  %% dbg:tp(prim_tty,x),
-                  %% dbg:tpl(prim_tty,write_nif,x),
-                  %% dbg:tpl(prim_tty,read_nif,x),
-                  monitor(process, Self),
-                  receive _ -> ok end
-          end),
-
-    #tmux{ peer = Peer, node = Node, name = Name }.
-
 %% Start a tty, setup custom prompt and set cursor at bottom
 start_tty(Config) ->
 
-    Term = setup_tty(Config),
+    Term = shell_test_lib:setup_tty(Config),
 
-    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
-    erpc:call(Term#tmux.node, application, set_env,
-              [stdlib, shell_prompt_func_test,
-               proplists:get_value(shell_prompt_func_test, Config, Prompt)]),
+    shell_test_lib:set_tty_prompt(Term, Config),
 
-    {Rows, _} = get_window_size(Term),
+    {Rows, _} = shell_test_lib:get_window_size(Term),
 
     %% We send a lot of newlines here in order for the number of rows
     %% in the window to be max so that we can predict what the cursor
     %% position is.
-    [send_tty(Term,"\n") || _ <- lists:seq(1, Rows)],
+    [shell_test_lib:send_tty(Term,"\n") || _ <- lists:seq(1, Rows)],
 
     %% We enter an 'a' here so that we can get the correct orig position
     %% with an alternative prompt.
-    send_tty(Term,"a.\n"),
-    check_content(Term,"2>$"),
-    OrigLocation = get_location(Term),
+    shell_test_lib:send_tty(Term,"a.\n"),
+    shell_test_lib:check_content(Term,"2>$"),
+    OrigLocation = shell_test_lib:get_location(Term),
     Term#tmux{ orig_location = OrigLocation }.
 
+get_top_parent_test_group(Config) ->
+    maybe
+        GroupPath = proplists:get_value(tc_group_path,Config),
+        [_|_] ?= GroupPath,
+        [{name, Group2}] ?= lists:last(GroupPath),
+        Group2
+    else
+        _ -> proplists:get_value(name,
+                                 proplists:get_value(tc_group_properties,
+                                                                Config))
+    end.
+
 prompt(L) ->
-    N = proplists:get_value(history, L, 0),
-    Fun = application:get_env(stdlib, shell_prompt_func_test,
-                              fun() -> atom_to_list(node()) end),
-    io_lib:format("(~ts)~w> ",[Fun(),N]).
-
-stop_tty(Term) ->
-    catch peer:stop(Term#tmux.peer),
-    ct:log("~ts",[get_content(Term, "-e")]),
-%    "" = tmux("kill-window -t " ++ Term#tmux.name),
-    ok.
-
-tty_name(Term) ->
-    Term#tmux.name.
-
-send_tty(Term, "Home") ->
-    %% https://stackoverflow.com/a/55616731
-    send_tty(Term,"Escape"),
-    send_tty(Term,"OH");
-send_tty(Term, "End") ->
-    send_tty(Term,"Escape"),
-    send_tty(Term,"OF");
-send_tty(#tmux{ name = Name } = _Term,Value) ->
-    [Head | Quotes] = string:split(Value, "'", all),
-    "" = tmux("send -t " ++ Name ++ " '" ++ Head ++ "'"),
-    [begin
-         "" = tmux("send -t " ++ Name ++ " \"'\""),
-         "" = tmux("send -t " ++ Name ++ " '" ++ V ++ "'")
-     end || V <- Quotes].
-
-%% We use send_stdin for testing of things that we cannot sent via
-%% the tmux send command, such as invalid unicode
-send_stdin(Term, Chars) when is_binary(Chars) ->
-    rpc(Term,erlang,display_string,[stdin,Chars]);
-send_stdin(Term, Chars) ->
-    send_stdin(Term, iolist_to_binary(unicode:characters_to_binary(Chars))).
-
-check_location(Term, Where) ->
-    check_location(Term, Where, 5).
-check_location(#tmux{ orig_location = {OrigRow, OrigCol} = Orig } = Term,
-               {AdjRow, AdjCol} = Where, Attempt) ->
-    NewLocation = get_location(Term),
-    case {OrigRow+AdjRow,OrigCol+AdjCol} of
-        NewLocation -> NewLocation;
-        _ when Attempt =:= 0 ->
-            {NewRow, NewCol} = NewLocation,
-            ct:fail({wrong_location, {expected,{AdjRow, AdjCol}},
-                     {got,{NewRow - OrigRow, NewCol - OrigCol},
-                      {NewLocation, Orig}}});
-        _ ->
-            timer:sleep(50),
-            check_location(Term, Where, Attempt -1)
-    end.
-
-get_location(Term) ->
-    RowAndCol = tmux("display -pF '#{cursor_y} #{cursor_x}' -t "++Term#tmux.name),
-    [Row, Col] = string:lexemes(string:trim(RowAndCol,both)," "),
-    {list_to_integer(Row), list_to_integer(Col)}.
-
-get_window_size(Term) ->
-    RowAndCol = tmux("display -pF '#{window_height} #{window_width}' -t "++Term#tmux.name),
-    [Row, Col] = string:lexemes(string:trim(RowAndCol,both)," "),
-    {list_to_integer(Row), list_to_integer(Col)}.
-
-check_not_in_content(Term, NegativeMatch) ->
-    check_not_in_content(Term, NegativeMatch, #{}, 5).
-check_not_in_content(Term, NegativeMatch, Opts, Attempt) ->
-    Opts = #{},
-    OrigContent = case Term of
-        #tmux{} -> get_content(Term);
-        Fun when is_function(Fun,0) -> Fun()
-    end,
-    Content = case maps:find(replace, Opts) of
-                {ok, {RE,Repl} } ->
-                    re:replace(OrigContent, RE, Repl, [global]);
-                error ->
-                    OrigContent
-                end,
-    case re:run(string:trim(Content, both), lists:flatten(NegativeMatch), [unicode]) of
-        {match,_} ->
-            io:format("Failed, found '~ts' in ~n'~ts'~n",
-            [unicode:characters_to_binary(NegativeMatch), Content]),
-            io:format("Failed, found '~w' in ~n'~w'~n",
-                        [unicode:characters_to_binary(NegativeMatch), Content]),
-            ct:fail(match);
-        _ when Attempt =:= 0 ->
-            ok;
-        _ ->
-            timer:sleep(500),
-            check_not_in_content(Term, NegativeMatch, Opts, Attempt - 1)
-    end.
-check_content(Term, Match) ->
-    check_content(Term, Match, #{}).
-check_content(Term, Match, Opts) when is_map(Opts) ->
-    check_content(Term, Match, Opts, 5).
-check_content(Term, Match, Opts, Attempt) ->
-    OrigContent = case Term of
-                  #tmux{} -> get_content(Term);
-                  Fun when is_function(Fun,0) -> Fun()
-              end,
-    Content = case maps:find(replace, Opts) of
-                  {ok, {RE,Repl} } ->
-                      re:replace(OrigContent, RE, Repl, [global]);
-                  error ->
-                      OrigContent
-              end,
-    case re:run(string:trim(Content, both), lists:flatten(Match), [unicode]) of
-        {match,_} ->
-            ok;
-        _ when Attempt =:= 0 ->
-            io:format("Failed to find '~ts' in ~n'~ts'~n",
-                      [unicode:characters_to_binary(Match), Content]),
-            io:format("Failed to find '~w' in ~n'~w'~n",
-                      [unicode:characters_to_binary(Match), Content]),
-            ct:fail(nomatch);
-        _ ->
-            timer:sleep(500),
-            check_content(Term, Match, Opts, Attempt - 1)
-    end.
-
-get_content(Term) ->
-    get_content(Term, "").
-get_content(#tmux{ name = Name }, Args) ->
-    Content = unicode:characters_to_binary(tmux("capture-pane -p " ++ Args ++ " -t " ++ Name)),
-    case string:split(Content,"a.\na") of
-        [_Ignore,C] ->
-            C;
-        [C] ->
-            C
-    end.
+    shell_test_lib:prompt(L).
 
 %% Tests that exit of initial shell restarts shell.
 exit_initial(Config) when is_list(Config) ->
@@ -1921,6 +1997,143 @@ wrap(Config) when is_list(Config) ->
             ok
     end,
     ok.
+
+noshell_raw(Config) ->
+
+    case proplists:get_value(default_shell, Config) of
+        new ->
+
+            TCGl = group_leader(),
+            TC = self(),
+
+            TestcaseFun = fun() ->
+                                  link(TC),
+                                  group_leader(whereis(user), self()),
+
+                                  try
+                                    %% Make sure we are in unicode encoding
+                                    unicode = proplists:get_value(encoding, io:getopts()),
+
+                                    %% "\el" is an artifact from the attaching to_erl program
+                                    "\el" ++ "hello\n" = io:get_line("1> "),
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+                                    ok = shell:start_interactive({noshell, raw}),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that we can receive 1 char when N is 100
+                                    [$\^p] = io:get_chars("2> ", 100),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that we only receive 1 char when N is 1
+                                    "a" = io:get_chars("3> ", 1),
+                                    "bc" = io:get_chars("", 2),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that get_chars counts characters not bytes
+                                    ok = io:setopts([binary]),
+                                    ~b"å" = io:get_chars("4> ", 1),
+                                    ~b"äö" = io:get_chars("", 2),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that echo works
+                                    ok = io:setopts([{echo, true}]),
+                                    ~b"åäö" = io:get_chars("5> ", 100),
+                                    ok = io:setopts([{echo, false}]),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that get_line works
+                                    ~b"a\n" = io:get_line("6> "),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that get_until works
+                                    ok = io:setopts([{echo, true}]),
+                                    ~b"a,b,c" = io:request({get_until, unicode, "7> ", ?MODULE, get_until, []}),
+                                    ok = io:setopts([{echo, false}]),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that we can go back to cooked mode
+                                    ok = shell:start_interactive({noshell, cooked}),
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+                                    ~b"abc" = io:get_chars(user, "8> ", 3),
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+                                    ~b"\n" = io:get_chars(user, "", 1),
+
+                                    io:format("exit")
+                                  catch E:R:ST ->
+                                    io:format(TCGl, "~p", [{E, R, ST}])
+                                  end
+                          end,
+
+            rtnode:run(
+              [
+               {eval, fun() -> spawn(TestcaseFun), ok end},
+
+               %% Test io:get_line in cookec mode
+               {expect, "1> $"},
+               {putline, "hello"},
+
+               %% Test io:get_chars 100 in  raw mode
+               {expect, "2> $"},
+               {putdata, [$\^p]},
+
+               %% Test io:get_chars 1 in raw mode
+               {expect, "3> $"},
+               {putdata, "abc"},
+
+               %% Test io:get_chars unicode
+               {expect, "4> $"},
+               {putdata, ~b"åäö"},
+
+               %% Test that raw + echo works
+               {expect, "5> $"},
+               {putdata, ~b"åäö"},
+               {expect, "åäö$"},
+
+               %% Test io:get_line in raw mode
+               {expect, "6> $"},
+               {putdata, "a\r"}, %% When in raw mode, \r is newline.
+
+               %% Test io:get_until in raw mode
+               {expect, "7> $"},
+               {putline, "a"},
+               {expect, "a\n7> $"},
+               {putline, "b"},
+               {expect, "b\n7> $"},
+               {putdata, "c."},
+               {expect, "c.$"},
+
+               %% Test io:get_line in cooked mode
+               {expect, "8> $"},
+               {putdata, "a"},
+               {expect, "a"},
+               {putdata, "b"},
+               {expect, "b"},
+               {putline, "c"},
+               {expect, "c\r\n$"},
+
+               {expect, "exit$"}
+              ], [], [],
+              ["-noshell","-pz",filename:dirname(code:which(?MODULE))]);
+        _ -> ok
+    end,
+    ok.
+
+get_until(start, NewChars) ->
+    get_until([], NewChars);
+get_until(State, NewChars) ->
+    Chars = State ++ NewChars,
+    case string:split(Chars, ".") of
+        [Chars] -> {more, Chars ++ ","};
+        [Before, After] -> {done, [C || C <- Before, C =/= $\n], After}
+    end.
+
 
 %% This testcase tests that shell_history works as it should.
 %% We use Ctrl + P = Cp=[$\^p] in order to navigate up
@@ -2200,6 +2413,63 @@ shell_history_custom_errors(_Config) ->
 
     ok.
 
+shell_history_toggle(_Config) ->
+
+    %% Check that we can start with a node with an undefined
+    %% provider module.
+    rtnode:run(
+      [
+       {putline, "io:setopts(user, [{line_history, true}])."},
+       {expect, "{error,enotsup}\r\n"},
+
+       %% Test that io:get_line does not save into history buffer
+       {putline, ~s'io:get_line("").'},
+       {putline, ~s'hello'},
+       {expect, ~s'\\Q"hello\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'},
+
+       %% Test that io:get_line does save into history buffer when enabled
+       {putline, "io:setopts([{line_history, true}])."},
+       {expect, "ok\r\n"},
+       {putline, ~s'io:get_line("> ").'},
+       {putline, ~s'hello again'},
+       {expect, ~s'\\Q"hello again\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'hello again'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("> ").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'hello again'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'},
+
+       %% Test that io:setopts without line_history preserves it enabled
+       {putline, "io:setopts([])."},
+       {expect, "ok\r\n"},
+       {putline, ~s'io:get_line("> ").'},
+       {putline, ~s'hello again'},
+       {expect, ~s'\\Q"hello again\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'hello again'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'},
+
+       %% Test that io:get_line does not save into history buffer when disabled
+       {putline, "io:setopts([{line_history, false}])."},
+       {putline, ~s'io:get_line("| ").'},
+       {putline, ~s'hello'},
+       {expect, ~s'\\Q"hello\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("| ").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'}
+      ], [], [], ["-pz",filename:dirname(code:which(?MODULE))]),
+
+        ok.
+
 load() ->
     case application:get_env(kernel,provider_load) of
         {ok, crash} ->
@@ -2246,6 +2516,8 @@ job_control_local(Config) when is_list(Config) ->
                {expect,  "\r\n35\r\n"},
                {expect,  "2> $"},
                {putline, "receive M -> M end.\r\n"},
+               {sleep, 6000},
+               {expect, "Command is taking a long time"},
                {putline, "\^g"},
                {expect,  "--> $"},
                {putline, "i 3"},
@@ -2466,7 +2738,18 @@ remsh_basic(Config) when is_list(Config) ->
 %% Test that if we cannot connect to a node, we get a correct error
 remsh_error(_Config) ->
     "Could not connect to \"invalid_node\"\n" =
-        os:cmd(ct:get_progname() ++ " -remsh invalid_node").
+        os:cmd(ct:get_progname() ++ " -remsh invalid_node"),
+
+    RemNode = peer:random_name(remsh_error),
+
+    rtnode:run([
+        {putdata, "\^g"},
+        {expect, " --> $"},
+        {putline, "r invalid_node"},
+        {expect, "Could not connect to node invalid_node"},
+        {expect, "--> $"}], RemNode),
+
+    ok.
 
 quit_hosting_node() ->
     %% Command sequence for entering a shell on the hosting node.
@@ -2477,6 +2760,31 @@ quit_hosting_node() ->
      {putline, "c"},
      {expect, ["Eshell"]},
      {expect, ["1> $"]}].
+
+remsh_dont_terminate_remote(Config) when is_list(Config) ->
+    {ok, Peer, TargetNode} = ?CT_PEER(),
+    TargetNodeStr = printed_atom(TargetNode),
+    [_Name,Host] = string:split(atom_to_list(node()), "@"),
+
+    %% Test that remsh works with explicit -sname.
+    HostNode = atom_to_list(?FUNCTION_NAME) ++ "_host",
+    %% Start a remote shell that will terminate because of an end of file
+    FullCmd = "erl -sname " ++ HostNode ++
+              " -remsh " ++ TargetNodeStr ++
+              " < /dev/null",
+    ct:log("~ts",[FullCmd]),
+    Output = os:cmd(FullCmd),
+    match = re:run(Output, "Shell process terminated! Read EOF", [{capture, none}]),
+
+    %% Start another remote shell, make sure the remote node has not terminated
+    rtnode:run([{putline, "node()."},
+                {expect, "\\Q" ++ TargetNodeStr ++ "\\E\r\n"}] ++
+               quit_hosting_node(),
+      HostNode, " ", "-remsh " ++ TargetNodeStr),
+
+    peer:stop(Peer),
+
+    ok.
 
 %% Test that -remsh works with long names.
 remsh_longnames(Config) when is_list(Config) ->

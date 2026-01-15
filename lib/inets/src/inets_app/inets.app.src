@@ -1,7 +1,9 @@
 %% This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,6 +100,6 @@
   {applications,[kernel,stdlib]},
   {mod,{inets_app,[]}},
   {runtime_dependencies,
-   ["stdlib-5.0","stdlib-5.0","ssl-9.0","runtime_tools-1.8.14",
+   ["stdlib-6.0","stdlib-5.0","ssl-9.0","runtime_tools-1.8.14",
     "mnesia-4.12","kernel-9.0","erts-14.0", "public_key-1.13"]}
  ]}.

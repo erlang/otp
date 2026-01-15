@@ -1,3 +1,11 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
-SUB_DIRECTORIES = src c_src doc/src
+SUB_DIRECTORIES = src c_src doc
+
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
+# %CopyrightEnd%

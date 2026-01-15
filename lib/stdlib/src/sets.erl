@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -38,15 +40,89 @@
 %% reorder keys within in a bucket.
 
 -module(sets).
+-moduledoc """
+Sets are collections of elements with no duplicate elements.
+
+The data representing a set as used by this module is to be regarded as opaque
+by other modules. In abstract terms, the representation is a composite type of
+existing Erlang terms. See note on
+[data types](`e:system:data_types.md#no_user_types`). Any code assuming
+knowledge of the format is running on thin ice.
+
+This module provides the same interface as the `m:ordsets` module but
+with an undefined representation. One key difference is that this
+module considers two elements as different if they do not match
+(`=:=`), whereas `ordsets` considers them different if and only if
+they do not compare equal (`==`).
+
+Erlang/OTP 24.0 introduced a new more performant representation for sets which
+has become the default in Erlang/OTP 28. Developers can use the old representation
+by passing the `{version, 1}` flag to `new/1` and `from_list/2`. Functions that
+work on two sets, such as `union/2`, will work with sets of different
+versions. In such cases, there is no guarantee about the version of the returned set.
+Explicit conversion from the old version to the new one can be done with
+`sets:from_list(sets:to_list(Old), [{version,2}])`.
+
+## Compatibility
+
+The following functions in this module also exist and provide the same
+functionality in the `m:gb_sets` and `m:ordsets` modules. That is, by only
+changing the module name for each call, you can try out different set
+representations.
+
+- `add_element/2`
+- `del_element/2`
+- `filter/2`
+- `filtermap/2`
+- `fold/3`
+- `from_list/1`
+- `intersection/1`
+- `intersection/2`
+- `is_element/2`
+- `is_empty/1`
+- `is_equal/2`
+- `is_set/1`
+- `is_subset/2`
+- `map/2`
+- `new/0`
+- `size/1`
+- `subtract/2`
+- `to_list/1`
+- `union/1`
+- `union/2`
+
+> #### Note {: .info }
+>
+> While the three set implementations offer the same _functionality_ with
+> respect to the aforementioned functions, their overall _behavior_ may differ.
+> As mentioned, this module considers elements as different if and only if they
+> do not match (`=:=`), while both `m:ordsets` and `m:gb_sets` consider elements
+> as different if and only if they do not compare equal (`==`).
+>
+> ### Examples
+>
+> ```erlang
+> 1> sets:is_element(1.0, sets:from_list([1])).
+> false
+> 2> ordsets:is_element(1.0, ordsets:from_list([1])).
+> true
+> 3> gb_sets:is_element(1.0, gb_sets:from_list([1])).
+> true
+> ```
+
+## See Also
+
+`m:gb_sets`, `m:ordsets`
+""".
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Standard interface.
 -export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
 -export([union/2,union/1,intersection/2,intersection/1]).
--export([is_disjoint/2]).
+-export([is_equal/2, is_disjoint/2]).
 -export([subtract/2,is_subset/2]).
--export([fold/3,filter/2]).
+-export([fold/3,filter/2,map/2,filtermap/2]).
 -export([new/1, from_list/2]).
 
 -export_type([set/0, set/1]).
@@ -84,70 +160,210 @@
 
 -type set() :: set(_).
 
+-doc "As returned by `new/0`.".
 -opaque set(Element) :: #set{segs :: segs(Element)} | #{Element => ?VALUE}.
 
 %%------------------------------------------------------------------------------
 
 %% new() -> Set
--spec new() -> set(none()).
-new() ->
-    Empty = mk_seg(?seg_size),
-    #set{empty = Empty, segs = {Empty}}.
+-doc """
+Returns a new empty set.
 
+## Examples
+
+```erlang
+1> sets:to_list(sets:new()).
+[]
+```
+""".
+-spec new() -> set(none()).
+new() -> #{}.
+
+-doc """
+Returns a new empty set of the given version.
+
+## Examples
+
+```erlang
+1> sets:to_list(sets:new([{version, 1}])).
+[]
+2> sets:new() =:= sets:new([{version, 2}]).
+true
+```
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec new([{version, 1..2}]) -> set(none()).
 new([{version, 2}]) ->
-    #{};
+    new();
 new(Opts) ->
-    case proplists:get_value(version, Opts, 1) of
-        1 -> new();
-        2 -> new([{version, 2}])
+    case proplists:get_value(version, Opts, 2) of
+        1 ->
+            Empty = mk_seg(?seg_size),
+            #set{empty = Empty, segs = {Empty}};
+        2 -> new()
     end.
 
-%% from_list([Elem]) -> Set.
-%%  Build a set from the elements in List.
+-doc """
+Returns a set of the elements in `List`.
+
+## Examples
+
+```erlang
+1> S = sets:from_list([a,b,c]).
+2> lists:sort(sets:to_list(S)).
+[a,b,c]
+```
+""".
 -spec from_list(List) -> Set when
       List :: [Element],
       Set :: set(Element).
 from_list(Ls) ->
-    lists:foldl(fun (E, S) -> add_element(E, S) end, new(), Ls).
+    maps:from_keys(Ls, ?VALUE).
 
+-doc """
+Returns a set of the elements in `List` of the given version.
+
+## Examples
+
+```erlang
+1> S = sets:from_list([a,b,c], [{version, 1}]).
+2> lists:sort(sets:to_list(S)).
+[a,b,c]
+```
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec from_list(List, [{version, 1..2}]) -> Set when
       List :: [Element],
       Set :: set(Element).
 from_list(Ls, [{version, 2}]) ->
-    maps:from_keys(Ls, ?VALUE);
+    from_list(Ls);
 from_list(Ls, Opts) ->
-    case proplists:get_value(version, Opts, 1) of
-        1 -> from_list(Ls);
-        2 -> from_list(Ls, [{version, 2}])
+    case proplists:get_value(version, Opts, 2) of
+        1 ->
+            lists:foldl(fun (E, S) ->
+                                add_element(E, S)
+                        end, new([{version, 1}]), Ls);
+        2 ->
+            from_list(Ls)
     end.
 
 %%------------------------------------------------------------------------------
 
-%% is_set(Set) -> boolean().
-%%  Return 'true' if Set is a set of elements, else 'false'.
+-doc """
+Returns `true` if `Set` appears to be a set of elements; otherwise,
+returns `false`.
+
+> #### Note {: .info }
+>
+> Note that the test is shallow and will return `true` for any term that
+> coincides with the possible representations of a set. See also note on
+> [data types](`e:system:data_types.md#no_user_types`).
+>
+> Furthermore, since sets are opaque, calling this function on terms
+> that are not sets could result in `m:dialyzer` warnings.
+
+## Examples
+
+```erlang
+1> sets:is_set(sets:new()).
+true
+2> sets:is_set(sets:new([{version,1}])).
+true
+3> sets:is_set(0).
+false
+```
+""".
 -spec is_set(Set) -> boolean() when
       Set :: term().
 is_set(#{}) -> true;
 is_set(#set{}) -> true;
 is_set(_) -> false.
 
-%% size(Set) -> int().
-%%  Return the number of elements in Set.
+-doc """
+Returns the number of elements in `Set`.
+
+## Examples
+
+```erlang
+1> sets:size(sets:new()).
+0
+2> sets:size(sets:from_list([4,5,6])).
+3
+```
+""".
 -spec size(Set) -> non_neg_integer() when
       Set :: set().
 size(#{}=S) -> map_size(S);
 size(#set{size=Size}) -> Size.
 
-%% is_empty(Set) -> boolean().
-%%  Return 'true' if Set is an empty set, otherwise 'false'.
+-doc """
+Returns `true` if `Set` is an empty set; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> sets:is_empty(sets:new()).
+true
+2> sets:is_empty(sets:from_list([1])).
+false
+```
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec is_empty(Set) -> boolean() when
       Set :: set().
-is_empty(#{}=S) -> map_size(S)=:=0;
-is_empty(#set{size=Size}) -> Size=:=0.
+is_empty(#{}=S) -> map_size(S) =:= 0;
+is_empty(#set{size=Size}) -> Size =:= 0.
 
-%% to_list(Set) -> [Elem].
-%%  Return the elements in Set as a list.
+-doc """
+Returns `true` if `Set1` and `Set2` are equal, that is, if every element
+of one set is also a member of the other set; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> Empty = sets:new().
+2> S = sets:from_list([a,b]).
+3> sets:is_equal(S, S)
+true
+4> sets:is_equal(S, Empty)
+false
+5> OldSet = sets:from_list([a,b], [{version,1}]).
+6> sets:is_equal(S, OldSet).
+true
+7> S =:= OldSet.
+false
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec is_equal(Set1, Set2) -> boolean() when
+      Set1 :: set(),
+      Set2 :: set().
+is_equal(S1, S2) ->
+    case size(S1) =:= size(S2) of
+        true when S1 =:= S2 ->
+            true;
+        true ->
+            canonicalize_v2(S1) =:= canonicalize_v2(S2);
+        false ->
+            false
+    end.
+
+canonicalize_v2(S) ->
+    from_list(to_list(S)).
+
+-doc """
+Returns the elements of `Set` as a list.
+
+The order of the returned elements is undefined.
+
+## Examples
+
+```erlang
+1> S = sets:from_list([1,2,3]).
+2> lists:sort(sets:to_list(S)).
+[1,2,3]
+```
+""".
 -spec to_list(Set) -> List when
       Set :: set(Element),
       List :: [Element].
@@ -156,8 +372,20 @@ to_list(#{}=S) ->
 to_list(#set{} = S) ->
     fold(fun (Elem, List) -> [Elem|List] end, [], S).
 
-%% is_element(Element, Set) -> boolean().
-%%  Return 'true' if Element is an element of Set, else 'false'.
+-doc """
+Returns `true` if `Element` is an element of `Set`; otherwise, returns
+`false`.
+
+## Examples
+
+```erlang
+1> S = sets:from_list([a,b,c]).
+2> sets:is_element(42, S).
+false
+3> sets:is_element(b, S).
+true
+```
+""".
 -spec is_element(Element, Set) -> boolean() when
       Set :: set(Element).
 is_element(E, #{}=S) ->
@@ -170,8 +398,24 @@ is_element(E, #set{}=S) ->
     Bkt = get_bucket(S, Slot),
     lists:member(E, Bkt).
 
-%% add_element(Element, Set) -> Set.
-%%  Return Set with Element inserted in it.
+-doc """
+Returns a new set formed from `Set1` with `Element` inserted.
+
+## Examples
+
+```erlang
+1> S0 = sets:new().
+2> S1 = sets:add_element(7, S0).
+3> sets:to_list(S1).
+[7]
+4> S2 = sets:add_element(42, S1).
+5> lists:sort(sets:to_list(S2)).
+[7,42]
+6> S2 = sets:add_element(42, S1).
+7> lists:sort(sets:to_list(S2)).
+[7,42]
+```
+""".
 -spec add_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -188,8 +432,20 @@ add_element(E, #set{}=S0) ->
             maybe_expand(S1)
     end.
 
-%% del_element(Element, Set) -> Set.
-%%  Return Set but with Element removed.
+-doc """
+Returns a copy of `Set1` with `Element` removed.
+
+## Examples
+
+```erlang
+1> S = sets:from_list([a,b]).
+2> sets:to_list(sets:del_element(b, S)).
+[a]
+3> S = sets:del_element(x, S).
+4> lists:sort(sets:to_list(S)).
+[a,b]
+```
+""".
 -spec del_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -220,14 +476,28 @@ update_bucket(Set, Slot, NewBucket) ->
     Seg = element(SegI, Segs),
     Set#set{segs = setelement(SegI, Segs, setelement(BktI, Seg, NewBucket))}.
 
-%% union(Set1, Set2) -> Set
-%%  Return the union of Set1 and Set2.
+-doc """
+Returns the union of `Set1` and `Set2`.
+
+The union of two sets is a new set that contains all the elements from
+both sets, without duplicates.
+
+## Examples
+
+```erlang
+1> S0 = sets:from_list([a,b,c,d]).
+2> S1 = sets:from_list([c,d,e,f]).
+3> Union = sets:union(S0, S1).
+4> lists:sort(sets:to_list(Union)).
+[a,b,c,d,e,f]
+```
+""".
 -spec union(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
       Set3 :: set(Element).
 union(#{}=S1, #{}=S2) ->
-    maps:merge(S1,S2);
+    maps:merge(S1, S2);
 union(S1, S2) ->
     case size(S1) < size(S2) of
 	true ->
@@ -236,8 +506,24 @@ union(S1, S2) ->
 	    fold(fun (E, S) -> add_element(E, S) end, S1, S2)
     end.
 
-%% union([Set]) -> Set
-%%  Return the union of the list of sets.
+-doc """
+Returns the union of a list of sets.
+
+The union of multiple sets is a new set that contains all the elements from
+all sets, without duplicates.
+
+## Examples
+
+```erlang
+1> S0 = sets:from_list([a,b,c,d]).
+2> S1 = sets:from_list([d,e,f]).
+3> S2 = sets:from_list([q,r])
+4> Sets = [S0, S1, S2].
+5> Union = sets:union(Sets).
+6> lists:sort(sets:to_list(Union)).
+[a,b,c,d,e,f,q,r]
+```
+""".
 -spec union(SetList) -> Set when
       SetList :: [set(Element)],
       Set :: set(Element).
@@ -251,8 +537,25 @@ union1(S1, [S2|Ss]) ->
     union1(union(S1, S2), Ss);
 union1(S1, []) -> S1.
 
-%% intersection(Set1, Set2) -> Set.
-%%  Return the intersection of Set1 and Set2.
+-doc """
+Returns the intersection of `Set1` and `Set2`.
+
+The intersection of two sets is a new set that contains only the
+elements that are present in both sets.
+
+## Examples
+
+```erlang
+1> S0 = sets:from_list([a,b,c,d]).
+2> S1 = sets:from_list([c,d,e,f]).
+3> S2 = sets:from_list([q,r]).
+4> Intersection = sets:intersection(S0, S1).
+5> lists:sort(sets:to_list(Intersection)).
+[c,d]
+6> sets:to_list(sets:intersection(S1, S2)).
+[]
+```
+""".
 -spec intersection(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -261,10 +564,12 @@ intersection(#{}=S1, #{}=S2) ->
     case map_size(S1) < map_size(S2) of
         true ->
             Next = maps:next(maps:iterator(S1)),
-            intersection_heuristic(Next, [], [], floor(map_size(S1) * 0.75), S1, S2);
+            intersection_heuristic(Next, [], [],
+                                   floor(map_size(S1) * 0.75), S1, S2);
         false ->
             Next = maps:next(maps:iterator(S2)),
-            intersection_heuristic(Next, [], [], floor(map_size(S2) * 0.75), S2, S1)
+            intersection_heuristic(Next, [], [],
+                                   floor(map_size(S2) * 0.75), S2, S1)
     end;
 intersection(S1, S2) ->
     case size(S1) < size(S2) of
@@ -277,23 +582,26 @@ intersection(S1, S2) ->
 %% If we are keeping more than 75% of the keys, then it is
 %% cheaper to delete them. Stop accumulating and start deleting.
 intersection_heuristic(Next, _Keep, Delete, 0, Acc, Reference) ->
-  intersection_decided(Next, remove_keys(Delete, Acc), Reference);
-intersection_heuristic({Key, _Value, Iterator}, Keep, Delete, KeepCount, Acc, Reference) ->
+    intersection_decided(Next, remove_keys(Delete, Acc), Reference);
+intersection_heuristic({Key, _Value, Iterator}, Keep, Delete, KeepCount,
+                       Acc, Reference) ->
     Next = maps:next(Iterator),
     case Reference of
         #{Key := _} ->
-            intersection_heuristic(Next, [Key | Keep], Delete, KeepCount - 1, Acc, Reference);
-        _ ->
-            intersection_heuristic(Next, Keep, [Key | Delete], KeepCount, Acc, Reference)
+            intersection_heuristic(Next, [Key | Keep], Delete, KeepCount - 1,
+                                   Acc, Reference);
+        #{} ->
+            intersection_heuristic(Next, Keep, [Key | Delete], KeepCount,
+                                   Acc, Reference)
     end;
 intersection_heuristic(none, Keep, _Delete, _Count, _Acc, _Reference) ->
     maps:from_keys(Keep, ?VALUE).
 
 intersection_decided({Key, _Value, Iterator}, Acc0, Reference) ->
     Acc1 = case Reference of
-        #{Key := _} -> Acc0;
-        #{} -> maps:remove(Key, Acc0)
-    end,
+               #{Key := _} -> Acc0;
+               #{} -> maps:remove(Key, Acc0)
+           end,
     intersection_decided(maps:next(Iterator), Acc1, Reference);
 intersection_decided(none, Acc, _Reference) ->
     Acc.
@@ -301,8 +609,27 @@ intersection_decided(none, Acc, _Reference) ->
 remove_keys([K | Ks], Map) -> remove_keys(Ks, maps:remove(K, Map));
 remove_keys([], Map) -> Map.
 
-%% intersection([Set]) -> Set.
-%%  Return the intersection of the list of sets.
+-doc """
+Returns the intersection of the non-empty list of sets.
+
+The intersection of multiple sets is a new set that contains only the
+elements that are present in all sets.
+
+## Examples
+
+```erlang
+1> S0 = sets:from_list([a,b,c,d]).
+2> S1 = sets:from_list([d,e,f]).
+3> S2 = sets:from_list([q,r])
+4> Sets = [S0, S1, S2].
+5> sets:to_list(sets:intersection([S0, S1, S2])).
+[]
+6> sets:to_list(sets:intersection([S0, S1])).
+[d]
+7> sets:intersection([]).
+** exception error: no function clause matching sets:intersection([])
+```
+""".
 -spec intersection(SetList) -> Set when
       SetList :: [set(Element),...],
       Set :: set(Element).
@@ -315,8 +642,27 @@ intersection1(S1, [S2|Ss]) ->
     intersection1(intersection(S1, S2), Ss);
 intersection1(S1, []) -> S1.
 
-%% is_disjoint(Set1, Set2) -> boolean().
-%%  Check whether Set1 and Set2 are disjoint.
+-doc """
+Returns `true` if `Set1` and `Set2` are disjoint; otherwise, returns
+`false`.
+
+Two sets are disjoint if they have no elements in common.
+
+This function is equivalent to `sets:intersection(Set1, Set2) =:= []`,
+but faster.
+
+## Examples
+
+```erlang
+1> S0 = sets:from_list([a,b,c,d]).
+2> S1 = sets:from_list([d,e,f]).
+3> S2 = sets:from_list([q,r])
+4> sets:is_disjoint(S0, S1).
+false
+5> sets:is_disjoint(S1, S2).
+true
+```
+""".
 -spec is_disjoint(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -350,9 +696,21 @@ is_disjoint_1(Set, Iter) ->
             true
     end.
 
-%% subtract(Set1, Set2) -> Set.
-%%  Return all and only the elements of Set1 which are not also in
-%%  Set2.
+-doc """
+Returns a new set containing the elements of `Set1`
+that are not elements in `Set2`.
+
+## Examples
+
+```erlang
+1> S0 = sets:from_list([a,b,c,d]).
+2> S1 = sets:from_list([c,d,e,f]).
+3> lists:sort(sets:to_list(sets:subtract(S0, S1))).
+[a,b]
+4> lists:sort(sets:to_list(sets:subtract(S1, S0))).
+[e,f]
+```
+""".
 -spec subtract(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -409,9 +767,23 @@ subtract_decided({Key, _Value, Iterator}, Acc, Reference) ->
 subtract_decided(none, Acc, _Reference) ->
     Acc.
 
-%% is_subset(Set1, Set2) -> boolean().
-%%  Return 'true' when every element of Set1 is also a member of
-%%  Set2, else 'false'.
+-doc """
+Returns `true` when every element of `Set1` is also a member of `Set2`;
+otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> S0 = sets:from_list([a,b,c,d]).
+2> S1 = sets:from_list([c,d]).
+3> sets:is_subset(S1, S0).
+true
+4> sets:is_subset(S0, S1).
+false
+5> sets:is_subset(S0, S0).
+true
+```
+""".
 -spec is_subset(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -437,8 +809,21 @@ is_subset_1(Set, Iter) ->
             true
     end.
 
-%% fold(Fun, Accumulator, Set) -> Accumulator.
-%%  Fold function Fun over all elements in Set and return Accumulator.
+-doc """
+Folds `Function` over every element in `Set` and returns the final value of
+the accumulator.
+
+The evaluation order is undefined.
+
+## Examples
+
+```erlang
+1> S = sets:from_list([1,2,3,4]).
+2> Plus = fun erlang:'+'/2.
+3> sets:fold(Plus, 0, S).
+10
+```
+""".
 -spec fold(Function, Acc0, Set) -> Acc1 when
       Function :: fun((Element, AccIn) -> AccOut),
       Set :: set(Element),
@@ -459,8 +844,19 @@ fold_1(Fun, Acc, Iter) ->
             Acc
     end.
 
-%% filter(Fun, Set) -> Set.
-%%  Filter Set with Fun.
+-doc """
+Filters elements in `Set1` using predicate function `Pred`.
+
+## Examples
+
+```erlang
+1> S = sets:from_list([1,2,3,4,5,6,7]).
+2> IsEven = fun(N) -> N rem 2 =:= 0 end.
+3> Filtered = sets:filter(IsEven, S).
+4> lists:sort(sets:to_list(Filtered)).
+[2,4,6]
+```
+""".
 -spec filter(Pred, Set1) -> Set2 when
       Pred :: fun((Element) -> boolean()),
       Set1 :: set(Element),
@@ -471,6 +867,81 @@ filter(F, #{}=D) when is_function(F, 1)->
     maps:from_keys([K || K := _ <- D, F(K)], ?VALUE);
 filter(F, #set{}=D) when is_function(F, 1)->
     filter_set(F, D).
+
+-doc """
+Maps elements in `Set1` with mapping function `Fun`.
+
+## Examples
+
+```erlang
+1> S = sets:from_list([1,2,3,4,5,6,7]).
+2> F = fun(N) -> N div 2 end.
+3> Mapped = sets:map(F, S).
+4> lists:sort(sets:to_list(Mapped)).
+[0,1,2,3]
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec map(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> Element2),
+      Set1 :: set(Element1),
+      Set2 :: set(Element2).
+map(F, #{}=D) when is_function(F, 1) ->
+    %% For this purpose, it is more efficient to use
+    %% maps:from_keys/2 than a map comprehension.
+    maps:from_keys([F(K) || K := _ <- D], ?VALUE);
+map(F, #set{}=D) when is_function(F, 1) ->
+    fold(fun(E, Acc) -> add_element(F(E), Acc) end,
+         new([{version, 1}]),
+         D).
+
+-doc """
+Calls `Fun(Elem)` for each `Elem` of `Set1` to update or remove
+elements from `Set1`.
+
+`Fun/1` must return either a Boolean or a tuple `{true, Value}`. The
+function returns the set of elements for which `Fun` returns a new
+value, with `true` being equivalent to `{true, Elem}`.
+
+`sets:filtermap/2` behaves as if it were defined as follows:
+
+```erlang
+filtermap(Fun, Set1) ->
+    sets:from_list(lists:filtermap(Fun, Set1)).
+```
+
+## Examples
+
+```erlang
+1> S = sets:from_list([2,4,5,6,8,9])
+2> F = fun(X) ->
+           case X rem 2 of
+               0 -> {true, X div 2};
+               1 -> false
+           end
+        end.
+3> Set = sets:filtermap(F, S).
+4> lists:sort(sets:to_list(Set)).
+[1,2,3,4]
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec filtermap(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> boolean() | {true, Element2}),
+      Set1 :: set(Element1),
+      Set2 :: set(Element1 | Element2).
+filtermap(F, #{}=D) when is_function(F, 1) ->
+    maps:from_keys(lists:filtermap(F, to_list(D)), ?VALUE);
+filtermap(F, #set{}=D) when is_function(F, 1) ->
+    fold(fun(E0, Acc) ->
+             case F(E0) of
+                 true -> add_element(E0, Acc);
+                 {true, E1} -> add_element(E1, Acc);
+                 false -> Acc
+             end
+         end,
+         new([{version, 1}]),
+         D).
 
 %% get_slot(Hashdb, Key) -> Slot.
 %%  Get the slot.  First hash on the new range, if we hit a bucket
@@ -637,7 +1108,7 @@ expand_segs({B1,B2,B3,B4,B5,B6,B7,B8,B9,B10,B11,B12,B13,B14,B15,B16}, Empty) ->
      Empty,Empty,Empty,Empty,Empty,Empty,Empty,Empty,
      Empty,Empty,Empty,Empty,Empty,Empty,Empty,Empty};
 expand_segs(Segs, Empty) ->
-    list_to_tuple(tuple_to_list(Segs) 
+    list_to_tuple(tuple_to_list(Segs)
     ++ lists:duplicate(tuple_size(Segs), Empty)).
 
 -spec contract_segs(segs(E)) -> segs(E).

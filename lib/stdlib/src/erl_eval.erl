@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,16 +16,126 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_eval).
+-moduledoc """
+The Erlang meta interpreter.
+
+This module provides an interpreter for Erlang expressions. The expressions are
+in the abstract syntax as returned by `m:erl_parse`, the Erlang parser, or
+`m:io`.
+
+## Local Function Handler
+
+During evaluation of a function, no calls can be made to local functions. An
+undefined function error would be generated. However, the optional argument
+`LocalFunctionHandler` can be used to define a function that is called when
+there is a call to a local function. The argument can have the following
+formats:
+
+- **`{value,Func}`** - This defines a local function handler that is called
+  with:
+
+  ```erlang
+  Func(Name, Arguments)
+  ```
+
+  `Name` is the name of the local function (an atom) and `Arguments` is a list
+  of the _evaluated_ arguments. The function handler returns the value of the
+  local function. In this case, the current bindings cannot be accessed. To
+  signal an error, the function handler calls [`exit/1`](`exit/1`) with a
+  suitable exit value.
+
+- **`{eval,Func}`** - This defines a local function handler that is called with:
+
+  ```erlang
+  Func(Name, Arguments, Bindings)
+  ```
+
+  `Name` is the name of the local function (an atom), `Arguments` is a list of
+  the _unevaluated_ arguments, and `Bindings` are the current variable bindings.
+  The function handler returns:
+
+  ```erlang
+  {value,Value,NewBindings}
+  ```
+
+  `Value` is the value of the local function and `NewBindings` are the updated
+  variable bindings. In this case, the function handler must itself evaluate all
+  the function arguments and manage the bindings. To signal an error, the
+  function handler calls [`exit/1`](`exit/1`) with a suitable exit value.
+
+- **`none`** - There is no local function handler.
+
+## Non-Local Function Handler
+
+The optional argument `NonLocalFunctionHandler` can be used to define a function
+that is called in the following cases:
+
+- A functional object (fun) is called.
+- A built-in function is called.
+- A function is called using the `M:F` syntax, where `M` and `F` are atoms or
+  expressions.
+- An operator `Op/A` is called (this is handled as a call to function
+  `erlang:Op/A`).
+
+Exceptions are calls to `erlang:apply/2,3`; neither of the function handlers are
+called for such calls. The argument can have the following formats:
+
+- **`{value,Func}`** - This defines a non-local function handler. The function
+  may be called with two arguments:
+
+  ```erlang
+  Func(FuncSpec, Arguments)
+  ```
+
+  or three arguments:
+
+  ```erlang
+  Func(Anno, FuncSpec, Arguments)
+  ```
+
+  `Anno` is the [`erl_anno:anno()`](`t:erl_anno:anno/0`) of the node, `FuncSpec`
+  is the name of the function of the form `{Module,Function}` or a fun, and
+  `Arguments` is a list of the _evaluated_ arguments. The function handler
+  returns the value of the function. To signal an error, the function handler
+  calls [`exit/1`](`exit/1`) with a suitable exit value.
+
+- **`none`** - There is no non-local function handler.
+
+> #### Note {: .info }
+>
+> For calls such as `erlang:apply(Fun, Args)` or
+> `erlang:apply(Module, Function, Args)`, the call of the non-local function
+> handler corresponding to the call to `erlang:apply/2,3` itself
+> (`Func({erlang, apply}, [Fun, Args])` or
+> `Func({erlang, apply}, [Module, Function, Args])`) never takes place.
+>
+> The non-local function handler _is_ however called with the evaluated
+> arguments of the call to `erlang:apply/2,3`: `Func(Fun, Args)` or
+> `Func({Module, Function}, Args)` (assuming that `{Module, Function}` is not
+> `{erlang, apply}`).
+>
+> Calls to functions defined by evaluating fun expressions `"fun ... end"` are
+> also hidden from non-local function handlers.
+
+The non-local function handler argument is probably not used as frequently as
+the local function handler argument. A possible use is to call
+[`exit/1`](`exit/1`) on calls to functions that for some reason are not allowed
+to be called.
+""".
+
+-compile(nowarn_obsolete_bool_op).
+-compile(nowarn_deprecated_catch).
 
 %% An evaluator for Erlang abstract syntax.
 
 -export([exprs/2,exprs/3,exprs/4,expr/2,expr/3,expr/4,expr/5,
          expr_list/2,expr_list/3,expr_list/4]).
--export([new_bindings/0,bindings/1,binding/2,add_binding/3,del_binding/2]).
+-export([new_bindings/0,new_bindings/1,bindings/1,binding/2,
+         add_binding/3,del_binding/2]).
 -export([extended_parse_exprs/1, extended_parse_term/1]).
 -export([is_constant_expr/1, partial_eval/1, eval_str/1]).
 
@@ -33,17 +145,22 @@
 
 -export([check_command/2, fun_data/1]).
 
--import(lists, [reverse/1,foldl/3,member/2]).
+-import(lists, [all/2,any/2,foldl/3,member/2,reverse/1]).
 
 -export_type([binding_struct/0]).
 
 -type(expression() :: erl_parse:abstract_expr()).
+-doc "As returned by `erl_parse:parse_exprs/1` or `io:parse_erl_exprs/2`.".
 -type(expressions() :: [erl_parse:abstract_expr()]).
 -type(expression_list() :: [expression()]).
 -type(clauses() :: [erl_parse:abstract_clause()]).
 -type(name() :: term()).
 -type(value() :: term()).
 -type(bindings() :: [{name(), value()}]).
+-doc """
+A binding structure. It is either a `map` or an `orddict`. `erl_eval` will
+always return the same type as the one given.
+""".
 -type(binding_struct() :: orddict:orddict() | map()).
 
 -type(lfun_value_handler() :: fun((Name :: atom(),
@@ -55,6 +172,10 @@
                                         {value,
                                          Value :: value(),
                                          NewBindings :: binding_struct()})).
+-doc """
+Further described in section
+[Local Function Handler](`m:erl_eval#module-local-function-handler`) in this module
+""".
 -type(local_function_handler() :: {value, lfun_value_handler()}
                                 | {eval, lfun_eval_handler()}
                                 | none).
@@ -64,6 +185,11 @@
                               Arguments :: [term()]) -> term())
                        | fun((Anno :: erl_anno:anno(), FuncSpec :: func_spec(),
                               Arguments :: [term()]) -> term())).
+-doc """
+Further described in section
+[Non-Local Function Handler](`m:erl_eval#module-non-local-function-handler`) in this
+module.
+""".
 -type(non_local_function_handler() :: {value, nlfun_handler()}
                                     | none).
 
@@ -83,6 +209,7 @@ empty_fun_used_vars() -> #{}.
 %% that there are valid constructs in Expression to be taken care of
 %% by a function handler but considered errors by erl_lint.
 
+-doc(#{equiv => exprs(Expressions, Bindings, none)}).
 -spec(exprs(Expressions, Bindings) -> {value, Value, NewBindings} when
       Expressions :: expressions(),
       Bindings :: binding_struct(),
@@ -96,6 +223,7 @@ exprs(Exprs, Bs) ->
 	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
+-doc(#{equiv => exprs(Expressions, Bindings, LocalFunctionHandler, none)}).
 -spec(exprs(Expressions, Bindings, LocalFunctionHandler) ->
              {value, Value, NewBindings} when
       Expressions :: expressions(),
@@ -106,6 +234,19 @@ exprs(Exprs, Bs) ->
 exprs(Exprs, Bs, Lf) ->
     exprs(Exprs, Bs, Lf, none, none, empty_fun_used_vars()).
 
+-doc """
+Evaluates `Expressions` with the set of bindings `Bindings`, where `Expressions`
+is a sequence of expressions (in abstract syntax) of a type that can be returned
+by `io:parse_erl_exprs/2`.
+
+For an explanation of when and how to use arguments
+`LocalFunctionHandler` and `NonLocalFunctionHandler`, see sections
+[Local Function Handler](`m:erl_eval#module-local-function-handler`) and
+[Non-Local Function Handler](`m:erl_eval#module-non-local-function-handler`) in this
+module.
+
+Returns `{value, Value, NewBindings}`
+""".
 -spec(exprs(Expressions, Bindings, LocalFunctionHandler,
             NonLocalFunctionHandler) ->
              {value, Value, NewBindings} when
@@ -171,6 +312,7 @@ maybe_match_exprs([E|Es], Bs0, Lf, Ef) ->
 %%
 %% Only expr/2 checks the command by calling erl_lint. See exprs/2.
 
+-doc(#{equiv => expr(Expression, Bindings, none)}).
 -spec(expr(Expression, Bindings) -> {value, Value, NewBindings} when
       Expression :: expression(),
       Bindings :: binding_struct(),
@@ -184,6 +326,7 @@ expr(E, Bs) ->
 	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
+-doc(#{equiv => expr(Expression, Bindings, LocalFunctionHandler, none)}).
 -spec(expr(Expression, Bindings, LocalFunctionHandler) ->
              {value, Value, NewBindings} when
       Expression :: expression(),
@@ -194,6 +337,8 @@ expr(E, Bs) ->
 expr(E, Bs, Lf) ->
     expr(E, Bs, Lf, none, none).
 
+-doc(#{equiv => expr(Expression, Bindings, LocalFunctionHandler,
+                     NonLocalFunctionHandler, none)}).
 -spec(expr(Expression, Bindings, LocalFunctionHandler,
            NonLocalFunctionHandler) ->
              {value, Value, NewBindings} when
@@ -208,6 +353,7 @@ expr(E, Bs, Lf, Ef) ->
 
 %% Check a command (a list of expressions) by calling erl_lint.
 
+-doc false.
 check_command(Es, Bs) ->
     Opts = [bitlevel_binaries,binary_comprehension],
     case erl_lint:exprs_opt(Es, bindings(Bs), Opts) of
@@ -220,6 +366,7 @@ check_command(Es, Bs) ->
 %% Check whether a term F is a function created by this module.
 %% Returns 'false' if not, otherwise {fun_data,Imports,Clauses}.
 
+-doc false.
 fun_data(F) when is_function(F) ->
     case erlang:fun_info(F, module) of
         {module,?MODULE} ->
@@ -235,6 +382,19 @@ fun_data(F) when is_function(F) ->
 fun_data(_T) ->
     false.
 
+-doc """
+Evaluates `Expression` with the set of bindings `Bindings`. `Expression` is an
+expression in abstract syntax.
+
+For an explanation of when and how to use arguments `LocalFunctionHandler` and
+`NonLocalFunctionHandler`, see sections
+[Local Function Handler](`m:erl_eval#module-local-function-handler`) and
+[Non-Local Function Handler](`m:erl_eval#module-non-local-function-handler`) in this
+module.
+
+Returns `{value, Value, NewBindings}` by default. If `ReturnFormat` is `value`,
+only `Value` is returned.
+""".
 -spec(expr(Expression, Bindings, LocalFunctionHandler,
            NonLocalFunctionHandler, ReturnFormat) ->
              {value, Value, NewBindings} | Value when
@@ -335,9 +495,24 @@ expr({'fun',_Anno,{function,Mod0,Name0,Arity0}}, Bs0, Lf, Ef, RBs, FUVs) ->
     {[Mod,Name,Arity],Bs} = expr_list([Mod0,Name0,Arity0], Bs0, Lf, Ef, FUVs),
     F = erlang:make_fun(Mod, Name, Arity),
     ret_expr(F, Bs, RBs);
-expr({'fun',Anno,{function,Name,Arity}}, Bs0, _Lf, Ef, RBs, _FUVs) -> % R8
-    %% Don't know what to do...
-    apply_error(undef, [{?MODULE,Name,Arity}|?STACKTRACE], Anno, Bs0, Ef, RBs);
+expr({'fun',Anno,{function,Name,Arity}}, Bs0, Lf, Ef, RBs, FUVs) -> % R8
+    case erl_internal:bif(Name, Arity) of
+        true ->
+            %% Auto-imported BIF. Create an external fun.
+            ret_expr(fun erlang:Name/Arity, Bs0, RBs);
+        false ->
+            %% A local function assumed to be defined in the shell.
+            %% Create a wrapper fun that will call the local fun.
+            %% Calling the fun will succeed if the local fun is
+            %% defined when the call is made.
+            Args = [{var,Anno,list_to_atom("@arg" ++ [V])} ||
+                       V <- lists:seq($a, $a+Arity-1)],
+            H = Args,
+            G = [{atom,Anno,true}],
+            B = [{call,Anno,{atom,Anno,Name},Args}],
+            Cs = [{clause,Anno,H,G,B}],
+            expr({'fun',Anno,{clauses,Cs}}, Bs0, Lf, Ef, RBs, FUVs)
+    end;
 expr({'fun',Anno,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs, FUVs) ->
     {En,NewFUVs} = fun_used_bindings(Ex, Cs, Bs, FUVs),
     Info = {Anno,En,Lf,Ef,NewFUVs,Cs},
@@ -762,6 +937,9 @@ do_apply(F, _Anno, FunOrModFun, Args) when is_function(F, 2) ->
 eval_lc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
     ret_expr(lists:reverse(eval_lc1(E, Qs, Bs, Lf, Ef, FUVs, [])), Bs, RBs).
 
+eval_lc1(E, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Lf, Ef, FUVs),
+    eval_zip(E, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_lc1/7);
 eval_lc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
     case is_generator(Q) of
         true ->
@@ -775,6 +953,249 @@ eval_lc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
     {value,V,_} = expr(E, Bs, Lf, Ef, none, FUVs),
     [V|Acc].
 
+%% convert values for generator vars from abstract form to flattened lists
+convert_gen_values([{Generate, Anno, P, L0}|Qs], Acc, Bs0, Lf, Ef,FUVs)
+    when Generate =:= generate;
+         Generate =:= generate_strict;
+         Generate =:= b_generate;
+         Generate =:= b_generate_strict ->
+    {value,L1,_Bs1} = expr(L0, Bs0, Lf, Ef, none, FUVs),
+    convert_gen_values(Qs, [{Generate, Anno, P, L1}|Acc], Bs0, Lf, Ef, FUVs);
+convert_gen_values([{Generate, Anno, P, Map0}|Qs], Acc, Bs0, Lf, Ef,FUVs)
+    when Generate =:= m_generate;
+         Generate =:= m_generate_strict ->
+    {map_field_exact,_,K,V} = P,
+    {value,Map,_Bs1} = expr(Map0, Bs0, Lf, Ef, none, FUVs),
+    Iter = case is_map(Map) of
+               true ->
+                   maps:iterator(Map);
+               false ->
+                   %% Validate iterator.
+                   try maps:foreach(fun(_, _) -> ok end, Map) of
+                       _ ->
+                           Map
+                   catch
+                       _:_ ->
+                           apply_error({bad_generator,Map}, ?STACKTRACE,
+                                       Anno, Bs0, Ef, none)
+                   end
+           end,
+    convert_gen_values(Qs, [{Generate, Anno, {tuple, Anno, [K, V]}, Iter}|Acc],
+                       Bs0, Lf, Ef, FUVs);
+convert_gen_values([], Acc, Bs0, _Lf, _Ef, _FUVs) ->
+    {reverse(Acc), Bs0}.
+
+bind_all_generators(Gens, Bs0, Lf, Ef, FUVs, StrictPats) ->
+    Bs1 = new_bindings(Bs0),
+    Bs2 = case is_map(Bs1) of
+              true -> Bs1#{strict_pats => StrictPats};
+              false -> orddict:store(strict_pats, StrictPats, Bs1)
+    end,
+    bind_all_generators1(Gens, [], Bs2, Lf, Ef, FUVs, continue).
+
+bind_all_generators1([{Generate, Anno, P, <<_/bitstring>>=Bin}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= b_generate;
+       Generate =:= b_generate_strict ->
+    Mfun = match_fun(Bs0, Ef),
+    Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
+    ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
+    case {eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun,
+                            Efun, ErrorFun),
+          Generate} of
+        {{match, Rest, Bs1}, _} ->
+            Bs2 = zip_add_bindings(Bs1, Bs0),
+            case {Bs2, Generate, ContinueSkip} of
+                {nomatch, b_generate, _} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                {nomatch_strict, _, _} ->
+                    {Acc, error};
+                {nomatch, b_generate_strict, _} ->
+                    {Acc, error};
+                {_, b_generate, skip} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
+                                         Bs0, Lf, Ef, FUVs, ContinueSkip);
+                _ ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
+                                         Bs2, Lf, Ef, FUVs, ContinueSkip)
+            end;
+        {{nomatch, Rest}, b_generate} ->
+            bind_all_generators1(Qs, [{b_generate, Anno, P, Rest}|Acc],
+                                 Bs0, Lf, Ef, FUVs, skip);
+        {{nomatch, _Rest}, b_generate_strict} ->
+            {Acc, error};
+        {done, b_generate} when Bin =/= <<>> ->
+            {[], done};
+        {done, b_generate_strict} when Bin =/= <<>> ->
+            {Acc, error};
+        {done, b_generate} ->
+            case ContinueSkip of
+                continue -> {[], done};
+                skip -> {[], skip}
+            end
+    end;
+bind_all_generators1([{Generate, Anno, P, [H|T]}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= generate;
+       Generate =:= generate_strict ->
+    case {match(P, H, Anno, new_bindings(Bs0), Bs0, Ef), Generate} of
+        {{match,Bsn}, _} ->
+            Bs2 = zip_add_bindings(Bsn, Bs0),
+            case {Bs2, Generate, ContinueSkip} of
+                {nomatch, generate, _} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                {nomatch_strict, _, _} ->
+                    {Acc, error};
+                {nomatch, generate_strict, _} ->
+                    {Acc, error};
+                {_, generate, skip} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                _ ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs2, Lf, Ef, FUVs, ContinueSkip)
+            end;
+        {nomatch, generate} ->
+            %% match/6 returns nomatch. Skip this value
+            bind_all_generators1(Qs, [{generate, Anno, P, T}|Acc],
+                                 Bs0, Lf, Ef, FUVs, skip);
+        {nomatch, generate_strict} ->
+            {Acc, error}
+    end;
+bind_all_generators1([{Generate, Anno, P, Iter0}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= m_generate;
+       Generate =:= m_generate_strict->
+    case maps:next(Iter0) of
+        {K,V,Iter} ->
+            case {match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef), Generate} of
+                {{match,Bsn}, _} ->
+                    Bs2 = zip_add_bindings(Bsn, Bs0),
+                    case {Bs2, Generate, ContinueSkip} of
+                        {nomatch, m_generate, _} ->
+                            bind_all_generators1(Qs,[{Generate, Anno, P, Iter}|Acc],
+                                                 Bs0, Lf, Ef, FUVs, skip);
+                        {nomatch_strict, _, _} ->
+                            {Acc, error};
+                        {nomatch, m_generate_strict, _} ->
+                            {Acc, error};
+                        {_, m_generate, skip} ->
+                            bind_all_generators1(Qs, [{Generate, Anno, P, Iter}|Acc],
+                                                 Bs0, Lf, Ef, FUVs, skip);
+                        _ -> bind_all_generators1(Qs,[{Generate, Anno, P, Iter}|Acc],
+                                                  Bs2, Lf, Ef, FUVs, ContinueSkip)
+                    end;
+                {nomatch, m_generate} ->
+                    bind_all_generators1(Qs, [{m_generate, Anno, P, Iter}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                {nomatch, m_generate_strict} ->
+                    {Acc, error}
+            end;
+        none ->
+            case ContinueSkip of
+                continue -> {[], done};
+                skip -> {[], skip}
+            end
+    end;
+bind_all_generators1([{generate,_,_,[]}|_], _, _, _, _, _,_) ->
+    %% no more values left for a var, time to return
+    {[],done};
+bind_all_generators1([{generate_strict,_,_,[]}|_], _, _, _, _, _,_) ->
+    %% no more values left for a var, time to return
+    {[],done};
+bind_all_generators1([{generate, _Anno, _P, _Term}|_Qs], Acc, _Bs0,_Lf, _Ef, _FUVs,_) ->
+    {Acc, error};
+bind_all_generators1([{generate_strict, _Anno, _P, _Term}|_Qs], Acc, _Bs0,_Lf, _Ef, _FUVs,_) ->
+    {Acc, error};
+bind_all_generators1([{b_generate, _Anno, _P, _Term}|_Qs], Acc, _Bs0,_Lf, _Ef, _FUVs,_) ->
+    {Acc, error};
+bind_all_generators1([{b_generate_strict, _Anno, _P, _Term}|_Qs], Acc, _Bs0,_Lf, _Ef, _FUVs,_) ->
+    {Acc, error};
+bind_all_generators1([], [_H|_T] = Acc, Bs0, _Lf, _Ef, _FUVs, continue) ->
+    %% all vars are bind for this round
+    {Acc, Bs0};
+bind_all_generators1([], [_H|_T] = Acc, _Bs0,_Lf, _Ef, _FUVs, skip) ->
+    {Acc, skip}.
+
+check_bad_generators([{Generate,_,_,V}|T], Env, Acc)
+    when Generate =:= generate;
+         Generate =:= generate_strict ->
+    check_bad_generators(T, Env, [V|Acc]);
+check_bad_generators([{Generate,_,_,Iter0}|T], Env, Acc)
+    when Generate =:= m_generate;
+         Generate =:= m_generate_strict ->
+    case maps:next(Iter0) of
+        none -> check_bad_generators(T, Env, [#{}|Acc]);
+        _ -> check_bad_generators(T, Env, [#{K => V || K := V <- Iter0}|Acc])
+    end;
+check_bad_generators([{Generate,_,P,<<_/bitstring>>=Bin}|T], {Bs0, Lf, Ef}, Acc)
+    when Generate =:= b_generate;
+         Generate =:= b_generate_strict ->
+    Mfun = match_fun(Bs0, Ef),
+    Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
+    ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
+    case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
+        done ->
+            check_bad_generators(T, {Bs0, Lf, Ef}, [<<>>|Acc]);
+        _ ->
+            check_bad_generators(T, {Bs0, Lf, Ef}, [Bin|Acc])
+    end;
+check_bad_generators([{b_generate,_,_,Term}|T], Env, Acc) ->
+    check_bad_generators(T, Env, [Term|Acc]);
+check_bad_generators([{b_generate_strict,_,_,Term}|T], Env, Acc) ->
+    check_bad_generators(T, Env, [Term|Acc]);
+check_bad_generators([], _, Acc)->
+    case any(fun is_generator_end/1, Acc) of
+        false ->
+            %% None of the generators has reached its end.
+            {ok, list_to_tuple(reverse(Acc))};
+        true ->
+            case all(fun(V) -> is_generator_end(V) end, Acc) of
+                true ->
+                    %% All generators have reached their end.
+                    {ok, list_to_tuple(reverse(Acc))};
+                false ->
+                    {error, {bad_generators,list_to_tuple(reverse(Acc))}}
+            end
+    end.
+
+is_generator_end([]) -> true;
+is_generator_end(<<>>) -> true;
+is_generator_end(Other) -> Other =:= #{}.
+
+get_vars(Lit) ->
+    get_vars(Lit, []).
+
+get_vars({tuple,_,Es}, Vs) -> get_list_vars(Es, Vs);
+get_vars({var,_,V}, Vs) -> ordsets:add_element(V, Vs);
+get_vars([{bin_element,_,V,_,_}|BinElements], Vs0) ->
+    Vs1 = get_vars(V, Vs0),
+    get_list_vars(BinElements, Vs1);
+get_vars([_|_]=Ls, Vs) -> get_list_vars(Ls, Vs);
+get_vars(_, Vs) -> Vs.
+
+get_list_vars(Ls, Vs) ->
+    foldl(fun (L, Vs0) -> get_vars(L, Vs0) end, Vs, Ls).
+
+get_strict_patterns([{Generate,_,P,_}|Qs], Acc)
+  when Generate =:= generate_strict;
+       Generate =:= m_generate_strict ->
+    Vars = get_vars(P),
+    get_strict_patterns(Qs, Vars ++ Acc);
+get_strict_patterns([{b_generate_strict,_,P,_}|Qs], Acc) ->
+    Vars = case P of
+        {bin,_,BinElements} ->
+            get_vars(BinElements, Acc);
+        _ -> []
+    end,
+    get_strict_patterns(Qs, Vars ++ Acc);
+get_strict_patterns([_|Qs], Acc) ->
+    get_strict_patterns(Qs, Acc);
+get_strict_patterns([], Acc) ->
+    sets:to_list(sets:from_list(Acc)).
+
 %% eval_bc(Expr, [Qualifier], Bindings, LocalFunctionHandler,
 %%         ExternalFuncHandler, RetBindings) ->
 %%	{value,Value,Bindings} | Value
@@ -782,6 +1203,9 @@ eval_lc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
 eval_bc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
     ret_expr(eval_bc1(E, Qs, Bs, Lf, Ef, FUVs, <<>>), Bs, RBs).
 
+eval_bc1(E, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Lf, Ef, FUVs),
+    eval_zip(E, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_bc1/7);
 eval_bc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
     case is_generator(Q) of
         true ->
@@ -801,9 +1225,12 @@ eval_bc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
 
 eval_mc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
     L = eval_mc1(E, Qs, Bs, Lf, Ef, FUVs, []),
-    Map = maps:from_list(L),
+    Map = maps:from_list(reverse(L)),
     ret_expr(Map, Bs, RBs).
 
+eval_mc1(E, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Lf, Ef, FUVs),
+    eval_zip(E, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_mc1/7);
 eval_mc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
     case is_generator(Q) of
         true ->
@@ -817,13 +1244,41 @@ eval_mc1({map_field_assoc,Lfa,K0,V0}, [], Bs, Lf, Ef, FUVs, Acc) ->
     {value,KV,_} = expr({tuple,Lfa,[K0,V0]}, Bs, Lf, Ef, none, FUVs),
     [KV|Acc].
 
-eval_generator({generate,Anno,P,L0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+eval_zip(E, [{zip, Anno, VarList}|Qs], Bs0, Lf, Ef, FUVs, Acc0, Fun) ->
+    Gens = case check_bad_generators(VarList, {Bs0, Lf, Ef}, []) of
+               {ok, Acc} -> Acc;
+               {error, Reason} ->
+                   apply_error(Reason, ?STACKTRACE, Anno, Bs0, Ef, none)
+           end,
+    StrictPats = get_strict_patterns(VarList, []),
+    {Rest, Bs1} = bind_all_generators(VarList, Bs0, Lf, Ef, FUVs, StrictPats),
+    case {Rest, Qs, Bs1} of
+        {_, _, error} -> apply_error({bad_generators,Gens}, ?STACKTRACE, Anno, Bs0, Ef, none);
+        {[], [], _} -> Acc0;
+        {[], _, _} -> Acc0;
+        {_,_,done} -> Acc0;
+        {_, _, skip} ->
+            eval_zip(E, [{zip, Anno, reverse(Rest)}|Qs], Bs0, Lf, Ef, FUVs, Acc0, Fun);
+        {_, _, _} ->
+            Acc1 = Fun(E, Qs, add_bindings(Bs1, Bs0), Lf, Ef, FUVs, Acc0),
+            eval_zip(E, [{zip, Anno, reverse(Rest)}|Qs], Bs0, Lf, Ef, FUVs, Acc1, Fun)
+    end.
+
+eval_generator({Generate,Anno,P,L0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= generate;
+       Generate =:= generate_strict ->
     {value,L1,_Bs1} = expr(L0, Bs0, Lf, Ef, none, FUVs),
-    eval_generate(L1, P, Anno, Bs0, Lf, Ef, CompFun, Acc0);
-eval_generator({b_generate,Anno,P,Bin0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+    eval_generate(L1, P, Anno, Bs0, Lf, Ef, CompFun,
+                  Generate =:= generate, Acc0);
+eval_generator({Generate,Anno,P,Bin0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= b_generate;
+       Generate =:= b_generate_strict ->
     {value,Bin,_Bs1} = expr(Bin0, Bs0, Lf, Ef, none, FUVs),
-    eval_b_generate(Bin, P, Anno, Bs0, Lf, Ef, CompFun, Acc0);
-eval_generator({m_generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+    eval_b_generate(Bin, P, Anno, Bs0, Lf, Ef, CompFun,
+                    Generate =:= b_generate, Acc0);
+eval_generator({Generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= m_generate;
+       Generate =:= m_generate_strict ->
     {map_field_exact,_,K,V} = P,
     {value,Map,_Bs1} = expr(Map0, Bs0, Lf, Ef, none, FUVs),
     Iter = case is_map(Map) of
@@ -840,49 +1295,58 @@ eval_generator({m_generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
                                        Anno, Bs0, Ef, none)
                    end
            end,
-    eval_m_generate(Iter, {tuple,Anno,[K,V]}, Anno, Bs0, Lf, Ef, CompFun, Acc0).
+    eval_m_generate(Iter, {tuple,Anno,[K,V]}, Anno, Bs0, Lf, Ef, CompFun,
+                    Generate =:= m_generate, Acc0).
 
-eval_generate([V|Rest], P, Anno, Bs0, Lf, Ef, CompFun, Acc) ->
+eval_generate([V|Rest], P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc) ->
     case match(P, V, Anno, new_bindings(Bs0), Bs0, Ef) of
 	{match,Bsn} ->
-	    Bs2 = add_bindings(Bsn, Bs0),
-	    NewAcc = CompFun(Bs2, Acc),
-	    eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, NewAcc);
-	nomatch ->
-	    eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Acc)
-	end;
-eval_generate([], _P, _Anno, _Bs0, _Lf, _Ef, _CompFun, Acc) ->
+            Bs2 = add_bindings(Bsn, Bs0),
+            NewAcc = CompFun(Bs2, Acc),
+            eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, NewAcc);
+        nomatch when Relaxed ->
+            eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+        nomatch ->
+            apply_error({badmatch, V}, ?STACKTRACE, Anno, Bs0, Ef, none)
+    end;
+eval_generate([], _P, _Anno, _Bs0, _Lf, _Ef, _CompFun, _Relaxed, Acc) ->
     Acc;
-eval_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Acc) ->
+eval_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Relaxed, _Acc) ->
     apply_error({bad_generator,Term}, ?STACKTRACE, Anno, Bs0, Ef, none).
 
-eval_b_generate(<<_/bitstring>>=Bin, P, Anno, Bs0, Lf, Ef, CompFun, Acc) ->
+eval_b_generate(<<_/bitstring>>=Bin, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc) ->
     Mfun = match_fun(Bs0, Ef),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
     ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
     case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
-	{match, Rest, Bs1} ->
-	    Bs2 = add_bindings(Bs1, Bs0),
-	    NewAcc = CompFun(Bs2, Acc),
-	    eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, NewAcc);
-	{nomatch, Rest} ->
-	    eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Acc);
-	done ->
-	    Acc
+        {match, Rest, Bs1} ->
+            Bs2 = add_bindings(Bs1, Bs0),
+            NewAcc = CompFun(Bs2, Acc),
+            eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, NewAcc);
+        {nomatch, Rest} when Relaxed ->
+            eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+        {nomatch, _Rest} ->
+            apply_error({badmatch, Bin}, ?STACKTRACE, Anno, Bs0, Ef, none);
+        done when not Relaxed, Bin =/= <<>> ->
+            apply_error({badmatch, Bin}, ?STACKTRACE, Anno, Bs0, Ef, none);
+        done ->
+            Acc
     end;
-eval_b_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Acc) ->
+eval_b_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Relaxed, _Acc) ->
     apply_error({bad_generator,Term}, ?STACKTRACE, Anno, Bs0, Ef, none).
 
-eval_m_generate(Iter0, P, Anno, Bs0, Lf, Ef, CompFun, Acc0) ->
+eval_m_generate(Iter0, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc0) ->
     case maps:next(Iter0) of
         {K,V,Iter} ->
             case match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef) of
                 {match,Bsn} ->
                     Bs2 = add_bindings(Bsn, Bs0),
                     Acc = CompFun(Bs2, Acc0),
-                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Acc);
+                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+                nomatch when Relaxed ->
+                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc0);
                 nomatch ->
-                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Acc0)
+                    apply_error({badmatch, {K,V}}, ?STACKTRACE, Anno, Bs0, Ef, none)
             end;
         none ->
             Acc0
@@ -905,8 +1369,11 @@ eval_filter(F, Bs0, Lf, Ef, CompFun, FUVs, Acc) ->
     end.
 
 is_generator({generate,_,_,_}) -> true;
+is_generator({generate_strict,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
+is_generator({b_generate_strict,_,_,_}) -> true;
 is_generator({m_generate,_,_,_}) -> true;
+is_generator({m_generate_strict,_,_,_}) -> true;
 is_generator(_) -> false.
 
 %% eval_map_fields([Field], Bindings, LocalFunctionHandler,
@@ -989,6 +1456,7 @@ eval_named_fun([], As, Anno, Bs, _Lf, Ef, _Name, _Fun, RBs, _FUVs) ->
 %% expr_list(ExpressionList, Bindings, LocalFuncHandler, ExternalFuncHandler)
 %%  Evaluate a list of expressions "in parallel" at the same level.
 
+-doc(#{equiv => expr_list(ExpressionList, Bindings, none)}).
 -spec(expr_list(ExpressionList, Bindings) -> {ValueList, NewBindings} when
       ExpressionList :: expression_list(),
       Bindings :: binding_struct(),
@@ -997,6 +1465,7 @@ eval_named_fun([], As, Anno, Bs, _Lf, Ef, _Name, _Fun, RBs, _FUVs) ->
 expr_list(Es, Bs) ->
     expr_list(Es, Bs, none, none, empty_fun_used_vars()).
 
+-doc(#{equiv => expr_list(ExpressionList, Bindings, LocalFunctionHandler, none)}).
 -spec(expr_list(ExpressionList, Bindings, LocalFunctionHandler) ->
              {ValueList, NewBindings} when
       ExpressionList :: expression_list(),
@@ -1007,6 +1476,16 @@ expr_list(Es, Bs) ->
 expr_list(Es, Bs, Lf) ->
     expr_list(Es, Bs, Lf, none, empty_fun_used_vars()).
 
+-doc """
+Evaluates a list of expressions in parallel, using the same initial bindings for
+each expression. Attempts are made to merge the bindings returned from each
+evaluation.
+
+This function is useful in `LocalFunctionHandler`, see section
+[Local Function Handler](`m:erl_eval#module-local-function-handler`) in this module.
+
+Returns `{ValueList, NewBindings}`.
+""".
 -spec(expr_list(ExpressionList, Bindings, LocalFunctionHandler,
                 NonLocalFunctionHandler) ->
              {ValueList, NewBindings} when
@@ -1127,6 +1606,7 @@ receive_clauses(T, Cs, TB, Bs, Lf, Ef, RBs, FUVs) ->
 
 %% match_clause -> {Body, Bindings} or nomatch
 
+-doc false.
 -spec(match_clause(Clauses, ValueList, Bindings, LocalFunctionHandler) ->
              {Body, NewBindings} | nomatch when
       Clauses :: clauses(),
@@ -1383,13 +1863,16 @@ match_list(_, _, _Anno, _Bs, _BBs, _Ef) ->
 %% add_binding(Name, Value, Bindings)
 %% del_binding(Name, Bindings)
 
+-doc "Returns an empty binding structure.".
 -spec(new_bindings() -> binding_struct()).
 new_bindings() -> orddict:new().
 
+-doc "Returns the list of bindings contained in the binding structure.".
 -spec(bindings(BindingStruct :: binding_struct()) -> bindings()).
 bindings(Bs) when is_map(Bs) -> maps:to_list(Bs);
 bindings(Bs) when is_list(Bs) -> orddict:to_list(Bs).
 
+-doc "Returns the binding of `Name` in `BindingStruct`.".
 -spec(binding(Name, BindingStruct) -> {value, value()} | unbound when
       Name :: name(),
       BindingStruct :: binding_struct()).
@@ -1404,6 +1887,10 @@ binding(Name, Bs) when is_list(Bs) ->
 	error -> unbound
     end.
 
+-doc """
+Adds binding `Name=Value` to `BindingStruct`. Returns an updated binding
+structure.
+""".
 -spec(add_binding(Name, Value, BindingStruct) -> binding_struct() when
       Name :: name(),
       Value :: value(),
@@ -1411,11 +1898,50 @@ binding(Name, Bs) when is_list(Bs) ->
 add_binding(Name, Val, Bs) when is_map(Bs) -> maps:put(Name, Val, Bs);
 add_binding(Name, Val, Bs) when is_list(Bs) -> orddict:store(Name, Val, Bs).
 
+-doc """
+Removes the binding of `Name` in `BindingStruct`. Returns an updated binding
+structure.
+""".
 -spec(del_binding(Name, BindingStruct) -> binding_struct() when
       Name :: name(),
       BindingStruct :: binding_struct()).
 del_binding(Name, Bs) when is_map(Bs) -> maps:remove(Name, Bs);
 del_binding(Name, Bs) when is_list(Bs) -> orddict:erase(Name, Bs).
+
+zip_add_bindings(Bs1, Bs2) when is_map(Bs1), is_map(Bs2) ->
+    zip_add_bindings_map(maps:keys(Bs1), Bs1, Bs2);
+zip_add_bindings(Bs1, Bs2) when is_list(Bs1), is_list(Bs2) ->
+    zip_add_bindings1(orddict:to_list(Bs1), Bs2).
+
+zip_add_bindings_map([Key | Keys], Bs1, Bs2) ->
+    case {Bs1, Bs2} of
+        {#{Key := Same}, #{Key := Same}} -> zip_add_bindings_map(Keys, Bs1, Bs2);
+        {_, #{Key := _}} ->
+            #{strict_pats := StrictPats} = Bs2,
+            case lists:member(Key, StrictPats) of
+                true -> nomatch_strict;
+                false -> nomatch
+            end;
+        {#{Key := Value},_} -> zip_add_bindings_map(Keys, Bs1, Bs2#{Key => Value})
+    end;
+zip_add_bindings_map([], _, Bs2) ->
+    Bs2.
+
+zip_add_bindings1([{Name,Val}|Bs1], Bs2) ->
+    case orddict:find(Name, Bs2) of
+        {ok, Val} ->
+            zip_add_bindings1(Bs1, Bs2);
+        {ok, _Value} ->
+            {ok, StrictPats} = orddict:find(strict_pats, Bs2),
+            case lists:member(Name, StrictPats) of
+                true -> nomatch_strict;
+                false -> nomatch
+            end;
+        error ->
+            zip_add_bindings1(Bs1, orddict:store(Name, Val, Bs2))
+    end;
+zip_add_bindings1([], Bs2) ->
+    Bs2.
 
 add_bindings(Bs1, Bs2) when is_map(Bs1), is_map(Bs2) ->
     maps:merge(Bs2, Bs1);
@@ -1438,6 +1964,8 @@ merge_bindings(Bs1, Bs2, Anno, Ef) ->
 		  end end,
 	  Bs2, orddict:to_list(Bs1)).
 
+-doc false.
+-spec(new_bindings(binding_struct()) -> binding_struct()).
 new_bindings(Bs) when is_map(Bs) -> maps:new();
 new_bindings(Bs) when is_list(Bs) -> orddict:new().
 
@@ -1457,6 +1985,7 @@ to_term(Abstr) ->
 %% Known items are represented by variables in the erl_parse tree, and
 %% the items themselves are stored in the returned bindings.
 
+-doc false.
 -spec extended_parse_exprs(Tokens) ->
                 {'ok', ExprList} | {'error', ErrorInfo} when
       Tokens :: [erl_scan:token()],
@@ -1484,11 +2013,15 @@ tokens_fixup([T|Ts]=Ts0) ->
     end.
 
 token_fixup(Ts) ->
-    {AnnoL, NewTs, FixupTag} = unscannable(Ts),
-    String = lists:append([erl_anno:text(A) || A <- AnnoL]),
-    _ = validate_tag(FixupTag, String),
-    NewAnno = erl_anno:set_text(fixup_text(FixupTag), hd(AnnoL)),
-    {{string, NewAnno, String}, NewTs}.
+    case unscannable(Ts) of
+        {AnnoL, NewTs, FixupTag} ->
+            String = lists:append([erl_anno:text(A) || A <- AnnoL]),
+            _ = validate_tag(FixupTag, String),
+            NewAnno = erl_anno:set_text(fixup_text(FixupTag), hd(AnnoL)),
+            {{string, NewAnno, String}, NewTs};
+        false ->
+            {hd(Ts), tl(Ts)}
+    end.
 
 unscannable([{'#', A1}, {var, A2, 'Fun'}, {'<', A3}, {atom, A4, _},
              {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
@@ -1505,7 +2038,9 @@ unscannable([{'#', A1}, {var, A2, 'Port'}, {'<', A3}, {float, A4, _},
     {[A1, A2, A3, A4, A5], Ts, port};
 unscannable([{'#', A1}, {var, A2, 'Ref'}, {'<', A3}, {float, A4, _},
              {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
-    {[A1, A2, A3, A4, A5, A6, A7], Ts, reference}.
+    {[A1, A2, A3, A4, A5, A6, A7], Ts, reference};
+unscannable(_) ->
+    false.
 
 expr_fixup({string,A,S}=T) ->
     try string_fixup(A, S, T) of
@@ -1577,6 +2112,7 @@ validate_tag(function, String) ->
 %%
 %% Can handle pids, ports, references, and external funs.
 
+-doc false.
 -spec extended_parse_term(Tokens) ->
                 {'ok', Term} | {'error', ErrorInfo} when
       Tokens :: [erl_scan:token()],
@@ -1648,13 +2184,14 @@ normalise_list([]) ->
 %%----------------------------------------------------------------------------
 %%
 %% Evaluate expressions:
-%% constants and 
+%% constants and
 %% op A
 %% L op R
 %% Things that evaluate to constants are accepted
 %% and guard_bifs are allowed in constant expressions
 %%----------------------------------------------------------------------------
 
+-doc false.
 is_constant_expr(Expr) ->
     case eval_expr(Expr) of
         {ok, X} when is_number(X) -> true;
@@ -1670,6 +2207,7 @@ eval_expr(Expr) ->
         _ -> {error, badarg}
     end.
 
+-doc false.
 partial_eval(Expr) ->
     Anno = anno(Expr),
     case catch ev_expr(Expr) of
@@ -1705,6 +2243,7 @@ ev_expr({cons,_,H,T}) -> [ev_expr(H) | ev_expr(T)].
 
 -define(result(F,D), lists:flatten(io_lib:format(F, D))).
 
+-doc false.
 -spec eval_str(string() | unicode:latin1_binary()) ->
                       {'ok', string()} | {'error', string()}.
 

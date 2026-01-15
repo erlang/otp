@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1381,7 +1383,35 @@ handle_au_arg(struct au_init *auip,
 		auip->init.util.acful = 0;
             }
 	} else if (has_prefix("atags", sub_param)) {
-            auip->init.util.atags = get_bool_value(sub_param + 5, argv, ip);
+            char *param_end = &sub_param[5];
+            char *value;
+            
+            value = get_value(param_end, argv, ip);
+
+            if (sys_strcmp(value, "true") == 0) {
+                auip->init.util.atags = 1;
+            } else if (sys_strcmp(value, "false") == 0) {
+                auip->init.util.atags = 0;
+            } else if (sys_strcmp(value, "code") == 0) {
+                /* Undocumented option for point-of-origin tracking: overrides
+                 * per-pid/port tracking in favor of tracking which Erlang code
+                 * led to the allocation (best effort, but pretty accurate
+                 * under the JIT). */
+                auip->init.util.atags = 2;
+
+#if !defined(BEAMASM)
+                if (!erts_alcu_enable_code_atags) {
+                    erts_fprintf(stderr,
+                                 "WARNING: The experimental +M<S>atags code "
+                                 "flag is inaccurate under the interpreter. "
+                                 "Consider running with the JIT instead\n");
+                }
+#endif
+
+                erts_alcu_enable_code_atags = 1;
+            } else {
+                bad_value(sub_param, param_end, value);
+            }
         }
 	else
 	    goto bad_switch;
@@ -1622,6 +1652,23 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 #endif
 			    get_amount_value(argv[i]+9, argv, &i);
 		    }
+		    else if (has_prefix("lp", argv[i]+3)) {
+                        char *param_end = argv[i]+5;
+			char *value = get_value(param_end, argv, &i);
+			if (sys_strcmp(value, "on") == 0) {
+#if HAVE_ERTS_MSEG
+			    init->mseg.dflt_mmap.lp = 1;
+			    init->mseg.literal_mmap.lp = 1;
+#endif
+			} else if (sys_strcmp(value, "off") == 0) {
+#if HAVE_ERTS_MSEG
+			    init->mseg.dflt_mmap.lp = 0;
+			    init->mseg.literal_mmap.lp = 0;
+#endif
+			} else {
+			    bad_value(param, param_end, value);
+			}
+		    }
 		    else {
 			bad_param(param, param+2);
 		    }
@@ -1778,6 +1825,10 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			init->alloc_util.sac
 			    = get_bool_value(argv[i]+6, argv, &i);
 		    }
+                    else if (has_prefix("madtn", argv[i]+3)) {
+                        init->alloc_util.madtn
+                            = get_bool_value(argv[i]+8, argv, &i);
+                    }
 		    else {
 			int a;
 			int start = i;
@@ -2448,6 +2499,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	size.code += export_table_sz();
 	size.code += export_entries_sz();
 	size.code += erts_fun_table_sz();
+	size.code += erts_fun_entries_sz();
 	size.code += erts_ranges_sz();
 	size.code += erts_total_code_size;
     }
@@ -2594,6 +2646,11 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     i++;
 
     values[i].arity = 2;
+    values[i].name = "fun_list";
+    values[i].ui[0] = erts_fun_entries_sz();
+    i++;
+
+    values[i].arity = 2;
     values[i].name = "module_refs";
     values[i].ui[0] = erts_ranges_sz();
     i++;
@@ -2611,11 +2668,6 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     values[i].arity = 2;
     values[i].name = "node_table";
     values[i].ui[0] = erts_node_table_size();
-    i++;
-
-    values[i].arity = 2;
-    values[i].name = "bits_bufs_size";
-    values[i].ui[0] = erts_bits_bufs_size();
     i++;
 
     values[i].arity = 2;
@@ -2867,6 +2919,7 @@ erts_allocator_options(void *proc)
     hpp = NULL;
     szp = &sz;
     sz = 0;
+    ERTS_UNDEF(hp, NULL);
 
  bld_term:
 

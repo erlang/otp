@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,11 +23,14 @@
 %% Implements  The WWW Common Gateway Interface Version 1.1
 
 -module(mod_cgi).
+-moduledoc false.
 
 -export([env/3]).
 
 %%% Callback API
 -export([do/1, store/2]).
+
+-compile(nowarn_obsolete_bool_op).
 
 -include("http_internal.hrl").
 -include("httpd_internal.hrl").

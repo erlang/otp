@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2021. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2017-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -352,12 +354,14 @@ i_bsr := shift.setup_bsr.execute;
 shift.head() {
     Eterm Op1, Op2;
     Sint shift_left_count;
+    unsigned int bif_ix;
 }
 
 shift.setup_bsr(Src1, Src2) {
     Op1 = $Src1;
     Op2 = $Src2;
     shift_left_count = 0;
+    bif_ix = BIF_bsr_2;
     if (ERTS_LIKELY(is_small(Op2))) {
         shift_left_count = -signed_val(Op2);
     } else if (is_big(Op2)) {
@@ -374,6 +378,7 @@ shift.setup_bsl(Src1, Src2) {
     Op1 = $Src1;
     Op2 = $Src2;
     shift_left_count = 0;
+    bif_ix = BIF_bsl_2;
     if (ERTS_LIKELY(is_small(Op2))) {
         shift_left_count = signed_val(Op2);
     } else if (is_big(Op2)) {
@@ -497,12 +502,7 @@ shift.execute(Fail, Dst) {
         reg[0] = Op1;
         reg[1] = Op2;
         SWAPOUT;
-        if (IsOpCode(I[0], i_bsl_ssjd)) {
-            I = handle_error(c_p, I, reg, &BIF_TRAP_EXPORT(BIF_bsl_2)->info.mfa);
-        } else {
-            ASSERT(IsOpCode(I[0], i_bsr_ssjd));
-            I = handle_error(c_p, I, reg, &BIF_TRAP_EXPORT(BIF_bsr_2)->info.mfa);
-        }
+        I = handle_error(c_p, I, reg, &BIF_TRAP_EXPORT(bif_ix)->info.mfa);
         goto post_error_handling;
     }
 }

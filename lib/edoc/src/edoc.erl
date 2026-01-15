@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2001-2007 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +28,8 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2001-2007 Richard Carlsson
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @version {@version}
 %% @end
@@ -43,8 +53,8 @@
 %%
 %% This module provides the main user interface to EDoc.
 %% <ul>
-%%   <li><a href="overview-summary.html">EDoc User Manual</a></li>
-%%   <li><a href="overview-summary.html#Running_EDoc">Running EDoc</a></li>
+%%   <li><a href="chapter.html">EDoc User Manual</a></li>
+%%   <li><a href="chapter.html#Running_EDoc">Running EDoc</a></li>
 %% </ul>
 
 -module(edoc).
@@ -109,8 +119,8 @@
 
 -type edoc_module() :: xmerl_scan:xmlElement().
 %% The EDoc documentation data for a module,
-%% expressed as an XML document in {@link //xmerl. XMerL} format. See
-%% the file <a href="edoc.dtd">`edoc.dtd'</a> for details.
+%% expressed as an XML document in {@link //xmerl/xmerl. XMerL} format. See
+%% the file <a href="assets/edoc.dtd">`edoc.dtd'</a> for details.
 
 -type ordset(T) :: ordsets:ordset(T).
 -type function_name() :: {atom(), integer()}.
@@ -189,7 +199,7 @@ files(Files) ->
 
 %% @doc Runs EDoc on a given set of source files. See {@link run/2} for
 %% details, including options.
-%% @equiv run([], Files, Options)
+%% @equiv run(Files, Options)
 
 -spec files(Files, Options) -> ok when
       Files :: [filename()],
@@ -545,7 +555,7 @@ layout(Doc) ->
 
 %% INHERIT-OPTIONS: edoc_lib:run_layout/2
 
--spec layout(Doc, Opts) -> string() when
+-spec layout(Doc, Opts) -> term() when
       Doc :: edoc_module(),
       Opts :: proplist().
 layout(Doc, Opts) ->
@@ -798,9 +808,9 @@ get_doc(File) ->
 %%  <dd><ul>
 %%       <li>`Macros' = {@type Macro | [Macro]}</li>
 %%       <li>`Macro' = {@type {Name::atom(), Text::string() | MacroFun@}}</li>
-%%       <li>`MacroFun' = {@type fun((MacroArgument::string(),
+%%       <li>`MacroFun' = `fun((MacroArgument::string(),
 %%                                    Line :: integer(),
-%%                                    edoc_lib:edoc_env()) -> (Text::string()))}</li>
+%%                                    edoc_lib:edoc_env()) -> (Text::string()))'</li>
 %%      </ul>
 %%    Specifies a set of user-defined EDoc macros. The text
 %%    substituted for macro calls is specified as either a {@type
@@ -808,7 +818,7 @@ get_doc(File) ->
 %%    macro argument text, the current line number, and the current
 %%    environment. The fun is to return a {@type string()}.
 %%    See
-%%    <a href="overview-summary.html#Macro_expansion">Macro expansion</a>
+%%    <a href="chapter.html#Macro_expansion">Macro expansion</a>
 %%    for details.
 %%  </dd>
 %%  <dt>{@type {hidden, boolean()@}}

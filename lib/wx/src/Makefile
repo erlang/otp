@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2008-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,21 +21,18 @@
 #
 
 include ../vsn.mk
-ifdef BOOTSTRAP
- VSN = $(WX_VSN)
- include $(ERL_TOP)/make/target.mk
- include $(ERL_TOP)/make/$(TARGET)/otp.mk
- RELSYSDIR = $(RELEASE_PATH)/lib/wx-$(VSN)
-else # Normal build
- include ../config.mk
-endif
+include ../config.mk
 
 ESRC = .
 EGEN = gen
 EBIN = ../ebin
 ERLC = erlc
 ERLINC = ../include
-ERL_COMPILE_FLAGS += -I$(ERLINC) +warn_unused_vars
+ERL_COMPILE_FLAGS += -I$(ERLINC) -I${ERL_TOP}/lib +warn_unused_vars +nowarn_missing_doc +warn_obsolete_bool_op
+
+ifeq ($(CAN_BUILD_DRIVER), true)
+ERL_COMPILE_FLAGS += -DCAN_BUILD_DRIVER
+endif
 
 ARCHIVE         = wx-$(VSN).ez
 
@@ -132,3 +131,8 @@ release_spec: opt
 #	$(INSTALL_DATA) ../$(ARCHIVE) $(RELEASE_PATH)/lib
 
 release_docs_spec:
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

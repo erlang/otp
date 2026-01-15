@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,31 @@
 %% %CopyrightEnd%
 %%
 -module(erl_pp).
+-moduledoc """
+The Erlang pretty printer.
+
+The functions in this module are used to generate aesthetically attractive
+representations of abstract forms, which are suitable for printing. All
+functions return (possibly deep) lists of characters and generate an error if
+the form is wrong.
+
+All functions can have an optional argument, which specifies a hook that is
+called if an attempt is made to print an unknown form.
+
+Note that if the functions in this module are used to convert abstract code back
+to Erlang source code, the enclosing function should first be processed by
+`legalize_vars/1` in order to ensure that the output is semantically equivalent
+to the abstract code.
+
+## Known Limitations
+
+It is not possible to have hook functions for unknown forms at other places than
+expressions.
+
+## See Also
+
+`m:erl_eval`, `m:erl_parse`, `m:io`
+""".
 
 %%% Pretty printer for Erlang code in the same format as returned from
 %%% the parser. It does not always produce pretty code.
@@ -32,9 +59,23 @@
 -import(erl_parse, [inop_prec/1,preop_prec/1,func_prec/0,max_prec/0,
                     type_inop_prec/1, type_preop_prec/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -define(DEFAULT_LINEWIDTH, 72).
 -define(DEFAULT_INDENT, 4).
 
+-doc """
+Optional argument `HookFunction`, shown in the functions
+described in this module, defines a function that is called when an unknown form
+occurs where there is to be a valid expression. If `HookFunction` is equal to
+`none`, there is no hook function.
+
+The called hook function is to return a (possibly deep) list of characters.
+Function `expr/4` is useful in a hook.
+
+If `CurrentIndentation` is negative, there are no line breaks and only a space
+is used as a separator.
+""".
 -type(hook_function() :: none
                        | fun((Expr :: erl_parse:abstract_expr(),
                               CurrentIndentation :: integer(),
@@ -42,6 +83,16 @@
                               Options :: options()) ->
                                    io_lib:chars())).
 
+-doc """
+The option `quote_singleton_atom_types` is used to add quotes to all singleton
+atom types.
+
+The option `linewidth` controls the maximum line width for formatted lines
+(defaults to 72 characters).
+
+The option `indent` controls the indention for formatted lines (defaults to 4
+spaces).
+""".
 -type(option() :: {hook, hook_function()}
                 | {encoding, latin1 | unicode | utf8}
                 | {quote_singleton_atom_types, boolean()}
@@ -86,12 +137,17 @@
 %%% Exported functions
 %%%
 
+-doc(#{equiv => form(Form, none)}).
 -spec(form(Form) -> io_lib:chars() when
       Form :: erl_parse:abstract_form() | erl_parse:form_info()).
 
 form(Thing) ->
     form(Thing, none).
 
+-doc """
+Pretty prints a `Form`, which is an abstract form of a type that is returned by
+`erl_parse:parse_form/1`.
+""".
 -spec(form(Form, Options) -> io_lib:chars() when
       Form :: erl_parse:abstract_form() | erl_parse:form_info(),
       Options :: options()).
@@ -101,12 +157,14 @@ form(Thing, Options) ->
     State = state(Options),
     frmt(lform(Thing, options(Options)), State).
 
+-doc(#{equiv => attribute(Attribute, none)}).
 -spec(attribute(Attribute) -> io_lib:chars() when
       Attribute :: erl_parse:abstract_form()).
 
 attribute(Thing) ->
     attribute(Thing, none).
 
+-doc "Same as [`form/1,2`](`form/1`), but only for attribute `Attribute`.".
 -spec(attribute(Attribute, Options) -> io_lib:chars() when
       Attribute :: erl_parse:abstract_form(),
       Options :: options()).
@@ -116,12 +174,14 @@ attribute(Thing, Options) ->
     State = state(Options),
     frmt(lattribute(Thing, options(Options)), State).
 
+-doc(#{equiv => function(Function, none)}).
 -spec(function(Function) -> io_lib:chars() when
       Function :: erl_parse:abstract_form()).
 
 function(F) ->
     function(F, none).
 
+-doc "Same as [`form/1,2`](`form/1`), but only for function `Function`.".
 -spec(function(Function, Options) -> io_lib:chars() when
       Function :: erl_parse:abstract_form(),
       Options :: options()).
@@ -130,12 +190,14 @@ function(F, Options) ->
     ?TEST(F),
     frmt(lfunction(F, options(Options)), state(Options)).
 
+-doc(#{equiv => guard(Guard, none)}).
 -spec(guard(Guard) -> io_lib:chars() when
       Guard :: [erl_parse:abstract_expr()]).
 
 guard(Gs) ->
     guard(Gs, none).
 
+-doc "Same as [`form/1,2`](`form/1`), but only for the guard test `Guard`.".
 -spec(guard(Guard, Options) -> io_lib:chars() when
       Guard :: [erl_parse:abstract_expr()],
       Options :: options()).
@@ -144,12 +206,14 @@ guard(Gs, Options) ->
     ?EXPRS_TEST(Gs),
     frmt(lguard(Gs, options(Options)), state(Options)).
 
+-doc(#{equiv => exprs(Expressions, none)}).
 -spec(exprs(Expressions) -> io_lib:chars() when
       Expressions :: [erl_parse:abstract_expr()]).
 
 exprs(Es) ->
     exprs(Es, 0, none).
 
+-doc(#{equiv => exprs(Expressions, 0, Options)}).
 -spec(exprs(Expressions, Options) -> io_lib:chars() when
       Expressions :: [erl_parse:abstract_expr()],
       Options :: options()).
@@ -157,6 +221,10 @@ exprs(Es) ->
 exprs(Es, Options) ->
     exprs(Es, 0, Options).
 
+-doc """
+Same as [`form/1,2`](`form/1`), but only for the sequence of expressions in
+`Expressions`.
+""".
 -spec(exprs(Expressions, Indent, Options) -> io_lib:chars() when
       Expressions :: [erl_parse:abstract_expr()],
       Indent :: integer(),
@@ -166,6 +234,7 @@ exprs(Es, I, Options) ->
     ?EXPRS_TEST(Es),
     frmt({seq,[],[],[$,],lexprs(Es, options(Options))}, I, state(Options)).
 
+-doc(#{equiv => expr(Expression, none)}).
 -spec(expr(Expression) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr()).
 
@@ -173,6 +242,7 @@ expr(E) ->
     ?TEST(E),
     frmt(lexpr(E, 0, options(none)), state(none)).
 
+-doc(#{equiv => expr(Expression, 0, Options)}).
 -spec(expr(Expression, Options) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr(),
       Options :: options()).
@@ -181,6 +251,7 @@ expr(E, Options) ->
     ?TEST(E),
     frmt(lexpr(E, 0, options(Options)), state(Options)).
 
+-doc(#{equiv => expr(Expression, Indent, 0, Options)}).
 -spec(expr(Expression, Indent, Options) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr(),
       Indent :: integer(),
@@ -190,6 +261,12 @@ expr(E, I, Options) ->
     ?TEST(E),
     frmt(lexpr(E, 0, options(Options)), I, state(Options)).
 
+-doc """
+Prints one expression.
+
+It is useful for implementing hooks (see section
+[Known Limitations](`m:erl_pp#module-known-limitations`)).
+""".
 -spec(expr(Expression, Indent, Precedence, Options) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr(),
       Indent :: integer(),
@@ -200,6 +277,21 @@ expr(E, I, P, Options) ->
     ?TEST(E),
     frmt(lexpr(E, P, options(Options)), I, state(Options)).
 
+-doc """
+The Erlang compiler will, when expanding records to tuples, introduce new
+variables in the abstract representation. As the expansion is done on the
+abstract representation, the compiler can safely name the new variables with
+names that are not syntactically valid in Erlang source code (the name starts
+with a lowercase letter), thus ensuring the uniqueness of the new names.
+
+The above strategy leads to problems if a user wants to convert the abstract
+representation, using the functions of this module back to Erlang source code.
+Typically, pattern variables are output as atoms thus changing the sematics of
+the program. To solve this problem [`legalize_vars/1`](`legalize_vars/1`), when
+run on the abstract representation of a function, will return an equivalent
+function where all variables will have syntactically valid names.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec(legalize_vars(Function) -> erl_parse:abstract_form() when
       Function :: erl_parse:abstract_form()).
 
@@ -314,6 +406,8 @@ lattribute({attribute,_Anno,type,Type}, Opts) ->
     [typeattr(type, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Anno,opaque,Type}, Opts) ->
     [typeattr(opaque, Type, Opts),leaf(".\n")];
+lattribute({attribute,_Anno,nominal,Type}, Opts) ->
+    [typeattr(nominal, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Anno,spec,Arg}, _Opts) ->
     [specattr(spec, Arg),leaf(".\n")];
 lattribute({attribute,_Anno,callback,Arg}, _Opts) ->
@@ -755,6 +849,10 @@ lexpr({remote,_,M,F}, Prec, Opts) ->
 %% BIT SYNTAX:
 lexpr({bin,_,Fs}, _, Opts) ->
     bit_grp(Fs, Opts);
+lexpr({debug_line,Line,Index}, _Prec, _Opts) ->
+    leaf(format("beam_instruction:debug_line(~p, ~p)", [Line,Index]));
+lexpr({executable_line,Line,Index}, _Prec, _Opts) ->
+    leaf(format("beam_instruction:executable_line(~p, ~p)", [Line,Index]));
 %% Special case for straight values.
 lexpr({value,_,Val}, _,_) ->
     {value,Val};
@@ -957,15 +1055,26 @@ clauses(Type, Opts, Cs) ->
 lc_quals(Qs, Opts) ->
     {prefer_nl,[$,],lexprs(Qs, fun lc_qual/2, Opts)}.
 
+lc_qual({zip,_,Qs}, Opts) ->
+    {prefer_nl,["&&"],lexprs(Qs, fun lc_qual/2, Opts)};
 lc_qual({m_generate,_,Pat,E}, Opts) ->
     Pl = map_field(Pat, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
+lc_qual({m_generate_strict,_,Pat,E}, Opts) ->
+    Pl = map_field(Pat, Opts),
+    {list,[{step,[Pl,leaf(" <:-")],lexpr(E, 0, Opts)}]};
 lc_qual({b_generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <=")],lexpr(E, 0, Opts)}]};
+lc_qual({b_generate_strict,_,Pat,E}, Opts) ->
+    Pl = lexpr(Pat, 0, Opts),
+    {list,[{step,[Pl,leaf(" <:=")],lexpr(E, 0, Opts)}]};
 lc_qual({generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
+lc_qual({generate_strict,_,Pat,E}, Opts) ->
+    Pl = lexpr(Pat, 0, Opts),
+    {list,[{step,[Pl,leaf(" <:-")],lexpr(E, 0, Opts)}]};
 lc_qual(Q, Opts) ->
     lexpr(Q, 0, Opts).
 

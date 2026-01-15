@@ -1,10 +1,16 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec tuple_size(Tuple) -> non_neg_integer() when Tuple :: tuple().[0m
+[;1m  tuple_size(Tuple)[0m
 
-  Returns an integer that is the number of elements in [;;4mTuple[0m, for
-  example:
+  Returns an integer that is the number of elements in [;;4mTuple[0m.
+
+  For example:
 
     > tuple_size({morni, mulle, bwange}).
     3
-
-  Allowed in guard tests.

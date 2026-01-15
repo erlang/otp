@@ -288,8 +288,8 @@ UNIT(zone_hash) {
 
     for (key = 0; key < count; key++) {
       node = hashTable.get(MyKeyMatcher(key));
-      EXPECT(node != nullptr);
-      EXPECT(node->_key == key);
+      EXPECT_NOT_NULL(node);
+      EXPECT_EQ(node->_key, key);
     }
 
     {
@@ -298,11 +298,11 @@ UNIT(zone_hash) {
       hashTable.remove(&allocator, node);
 
       node = hashTable.get(MyKeyMatcher(count));
-      EXPECT(node == nullptr);
+      EXPECT_NULL(node);
     }
   } while (count);
 
-  EXPECT(hashTable.empty());
+  EXPECT_TRUE(hashTable.empty());
 }
 #endif
 

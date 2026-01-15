@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,10 +31,19 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2,
+         
+         %% The test cases
          dict/1,
-         code/1]).
+         code/1
+        ]).
 
 %% rpc calls
 -export([install/1,
@@ -41,9 +52,14 @@
 
 -include("diameter.hrl").
 
-%% ===========================================================================
+-include("diameter_util.hrl").
 
--define(util, diameter_util).
+
+-define(EL(F),    ?EL(F, [])).
+-define(EL(F, A), ?LOG("DEXS", F, A)).
+
+
+%% ===========================================================================
 
 %% The order here is significant and causes the server to listen
 %% before the clients connect.
@@ -60,25 +76,71 @@
 -define(DICT0, [rfc3588_base, rfc6733_base]).
 
 %% Transport protocols over which the example Diameter nodes are run.
--define(PROTS, [sctp || ?util:have_sctp()] ++ [tcp]).
+-define(PROTS, [sctp || ?HAVE_SCTP()] ++ [tcp]).
 
 -define(L, atom_to_list).
 -define(A, list_to_atom).
+
 
 %% ===========================================================================
 %% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 75}}].
+    [{timetrap, {seconds, 120}}].
 
 all() ->
     [dict, code].
 
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
+%% This test case can take a *long* time, so if the machine is too slow, skip
+init_per_testcase(dict = Case, Config) when is_list(Config) ->
+    ?EL("init_per_testcase(~w) -> check factor", [Case]),
+    Key = dia_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} when (Factor > 10) ->
+            ?EL("init_per_testcase(~w) -> Too slow (~w) => SKIP",
+                [Case, Factor]),
+            {skip, {machine_too_slow, Factor}};
+        _ ->
+            ?EL("init_per_testcase(~w) -> run test", [Case]),
+            Config
+    end;
+init_per_testcase(Case, Config) ->
+    ?EL("init_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    ?EL("end_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+%% ===========================================================================
+
 dict(Config) ->
-    run(dict, Config).
+    ?EL("dict -> entry with"
+        "~n   Config: ~p", [Config]),
+    Res = run(dict, Config),
+    ?EL("dict -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 code(Config) ->
-    run(code, Config).
+    ?EL("code -> entry with"
+        "~n   Config: ~p", [Config]),
+    Res = run(code, Config),
+    ?EL("code -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 %% ===========================================================================
 
@@ -90,16 +152,27 @@ run() ->
 %% run/1
 
 run({dict, Dir}) ->
-    compile_dicts(Dir);
+    ?EL("run(dict) -> entry with"
+        "~n   Dir: ~p", [Dir]),
+    Res = compile_dicts(Dir),
+    ?EL("run(dict) -> done when"
+        "~n   Res: ~p", [Res]),
+    Res;
+
 %% The example code doesn't use the example dictionaries, so a
 %% separate testcase.
 
 run({code, Dir}) ->
-    run_code(Dir);
+    ?EL("run(code) -> entry with"
+        "~n   Dir: ~p", [Dir]),
+    Res = run_code(Dir),
+    ?EL("run(code) -> done when"
+        "~n   Res: ~p", [Res]),
+    Res;
 
 run(List)
   when is_list(List) ->
-    Tmp = ?util:mktemp("diameter_examples"),
+    Tmp = ?MKTEMP("diameter_examples"),
     try
         run(List, Tmp)
     after
@@ -111,10 +184,11 @@ run(List)
 %% Eg. erl -noinput -s diameter_examples_SUITE run code -s init stop ...
 run(List, Dir)
   when is_list(List) ->
-    ?util:run([{[fun run/1, {F, Dir}], 60000} || F <- List]);
+    ?RUN([{[fun run/1, {F, Dir}], 90000} || F <- List]);
 
 run(F, Config) ->
     run([F], proplists:get_value(priv_dir, Config)).
+
 
 %% ===========================================================================
 %% compile_dicts/1
@@ -122,7 +196,9 @@ run(F, Config) ->
 %% Compile example dictionaries in examples/dict.
 
 compile_dicts(Dir) ->
+    ?EL("compile_dicts -> entry"),
     Out = mkdir(Dir, "dict"),
+    ?EL("compile_dicts -> create paths"),
     Dirs = [filename:join(H ++ ["examples", "dict"])
             || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
     [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
@@ -163,18 +239,26 @@ make(Path, Dict0, Out)
     make(Path, atom_to_list(Dict0), Out);
 
 make(Path, Dict0, Out) ->
+    ?EL("make -> entry with"
+        "~n   Path:  ~p"
+        "~n   Dict0: ~p"
+        "~n   Out:   ~p", [Path, Dict0, Out]),
     Dict = filename:rootname(filename:basename(Path)),
     {Mod, Pre} = make_name(Dict),
     {"diameter_gen_base" ++ Suf = Mod0, _} = make_name(Dict0),
     Name = Mod ++ Suf,
     try
+        ?EL("make -> try make codec: to erl"),
         ok = to_erl(Path, [{name, Name},
                            {prefix, Pre},
                            {outdir, Out},
                            {inherits, "common/" ++ Mod0}
                            | [{inherits, D ++ "/" ++ M ++ Suf}
                               || {D,M} <- dep(Dict)]]),
-        ok = to_beam(filename:join(Out, Name))
+        ?EL("make -> try make codec: to beam"),
+        ok = to_beam(filename:join(Out, Name)),
+        ?EL("make -> done"),
+        ok
     catch
         throw: {_,_} = E ->
             E
@@ -222,7 +306,7 @@ make_name(Dict) ->
 %% Compile example code under examples/code.
 
 compile_code(Tmpdir) ->
-    {ok, Pid, Node} = slave(peer:random_name(), here()),
+    {ok, Pid, Node} = peer(peer:random_name(), here()),
     try
         {ok, _Ebin} = rpc:call(Node, ?MODULE, install, [Tmpdir])
     after
@@ -289,19 +373,19 @@ store(Path, Dict) ->
 
 %% ===========================================================================
 
-%% enslave/1
+%% get_nodes/1
 %%
 %% Start two nodes: one for the server, one for the client.
 
-enslave(Prefix) ->
+get_nodes(Prefix) ->
     [{S,N} || D <- [here()],
               S <- ?NODES,
               M <- [lists:append(["diameter", Prefix, ?L(S)])],
-              {ok, _, N} <- [slave(M,D)]].
+              {ok, _, N} <- [peer(M,D)]].
 
-slave(Name, Dir) ->
+peer(Name, Dir) ->
     Args = ["-pa", Dir, filename:join([Dir, "..", "ebin"])],
-    {ok, _Pid, _Node} = ?util:peer(#{name => Name, args => Args}).
+    {ok, _Pid, _Node} = ?PEER(#{name => Name, args => Args}).
 
 here() ->
     filename:dirname(code:which(?MODULE)).
@@ -320,7 +404,7 @@ start({server, Prot, Ebin}) ->
     ok = diameter:start(),
     ok = server:start(),
     {ok, Ref} = server:listen({Prot, any, 3868}),
-    [_] = ?util:lport(Prot, Ref),
+    [_] = ?LPORT(Prot, Ref),
     ok;
 
 start({client = Svc, Prot, Ebin}) ->
@@ -354,7 +438,7 @@ traffic(client) ->
     receive {'DOWN', MRef, process, _, Reason} -> Reason end;
 
 traffic({Prot, Ebin}) ->
-    Nodes = enslave(?L(Prot)),
+    Nodes = get_nodes(?L(Prot)),
     [] = start([Prot, Ebin | Nodes]),
     [] = [RC || {T,N} <- Nodes,
                 RC <- [rpc:call(N, ?MODULE, traffic, [T])],
@@ -365,7 +449,7 @@ traffic({Prot, Ebin}) ->
 run_code(Dir) ->
     true = is_alive(),  %% need distribution for peer nodes
     {ok, Ebin} = compile_code(mkdir(Dir, "code")),
-    ?util:run([[fun traffic/1, {T, Ebin}] || T <- ?PROTS]).
+    ?RUN([[fun traffic/1, {T, Ebin}] || T <- ?PROTS]).
 
 %% call/1
 

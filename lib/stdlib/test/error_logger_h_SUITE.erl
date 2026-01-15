@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,6 +55,8 @@ logfile(Config) ->
     Log = filename:join(LogDir, "logfile.log"),
     ok = filelib:ensure_dir(Log),
 
+    FileIOServers = file_io_servers(),
+
     Ev = event_templates(),
 
     do_one_logfile(Log, Ev, unlimited),
@@ -65,23 +69,20 @@ logfile(Config) ->
     error_logger:logfile(close),
     analyse_events(Log, Ev, [AtNode], unlimited),
 
-    %% Make sure that the file_io_server process has been stopped
-    [] = lists:filtermap(fun(X) ->
-        case process_info(X, [current_function]) of
-            [{current_function, {file_io_server, _, _}}] ->
-                case file:pid2name(X) of
-                    {ok, Log} -> {true, {X, Log}};
-                    _ -> false
-                end;
-            _ ->
-                false
-        end
-    end, processes()),
+    %% Make sure that the file_io_server process has been stopped.
+    FileIOServers = file_io_servers(),
 
     peer:stop(Peer),
 
     cleanup(Log),
     ok.
+
+file_io_servers() ->
+    [P || P <- processes(),
+          case process_info(P, [current_function]) of
+              [{current_function, {file_io_server, _, _}}] -> true;
+              _ -> false
+          end].
 
 logfile_truncated(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

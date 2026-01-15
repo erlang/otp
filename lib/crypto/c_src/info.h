@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +31,18 @@ extern char *crypto_callback_name;
 int change_basename(ErlNifBinary* bin, char* buf, size_t bufsz, const char* newfile);
 void error_handler(void* null, const char* errstr);
 #endif
+
+/** @brief Construct a versioned name for resource types to try
+ *         avoid takeover of binary incompatible resources.
+ *  @param[in] name The base name of the resource type.
+ *  @param[out] buf Output buffer preallocated with enif_alloc_binary.
+ *
+ *  @return Pointer to versioned name at buf->data, potentially reallocated.
+ *
+ * </>>
+ * </>>
+ */
+const char* resource_name(const char *name, ErlNifBinary* buf);
 
 ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 

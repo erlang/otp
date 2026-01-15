@@ -1,18 +1,27 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec link(PidOrPort) -> true when PidOrPort :: pid() | port().[0m
+[;1m  link(PidOrPort)[0m
 
   Sets up and activates a link between the calling process and
-  another process or a port identified by [;;4mPidOrPort[0m. We will from
-  here on call the identified process or port linkee. If the linkee
-  is a port, it must reside on the same node as the caller.
+  another process or a port identified by [;;4mPidOrPort[0m.
+
+  We will from here on call the identified process or port linkee.
+  If the linkee is a port, it must reside on the same node as the
+  caller.
 
   If one of the participants of a link terminates, it will send an
-  exit signal to the other participant. The exit signal will
-  contain the exit reason of the terminated participant. Other
-  cases when exit signals are triggered due to a link are when no
-  linkee exist ([;;4mnoproc[0m exit reason) and when the connection
-  between linked processes on different nodes is lost or cannot be
-  established ([;;4mnoconnection[0m exit reason).
+  exit signal to the other participant. The exit signal will contain
+  the exit reason of the terminated participant. Other cases when
+  exit signals are triggered due to a link are when no linkee exist ([;;4m[0m
+  [;;4mnoproc[0m exit reason) and when the connection between linked
+  processes on different nodes is lost or cannot be established ([;;4m[0m
+  [;;4mnoconnection[0m exit reason).
 
   An existing link can be removed by calling [;;4munlink/1[0m. For more
   information on links and exit signals due to links, see the 
@@ -31,7 +40,7 @@
   exception. The expected behavior would instead have been that [;;4m[0m
   [;;4mlink/1[0m returned [;;4mtrue[0m, and the caller later was sent an exit
   signal with [;;4mnoproc[0m exit reason, but this is unfortunately not
-  the case. The [;;4mnoproc[0m exception is not to be confused with an 
+  the case. The [;;4mnoproc[0m exception is not to be confused with an
   exit signal with exit reason [;;4mnoproc[0m. Currently it is "cheap" to
   check if the linkee exists when it is supposed to reside on the
   same node as the calling process.
@@ -42,7 +51,8 @@
   protocol can be found in the Distribution Protocol chapter of
   the ERTS User's Guide.
 
-  Note:
+  [;;4mNote[0m
+
     For some important information about distributed signals, see
     the Blocking Signaling Over Distribution section in the 
     Processes chapter of the Erlang Reference Manual.

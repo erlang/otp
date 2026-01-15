@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,7 +86,7 @@ ubif erlang:hd/1
 bif erlang:integer_to_list/1
 ubif erlang:length/1
 bif erlang:link/1
-bif erlang:list_to_atom/1
+ubif erlang:list_to_atom/1
 bif erlang:list_to_binary/1
 bif erlang:list_to_float/1
 bif erlang:list_to_pid/1
@@ -262,10 +264,6 @@ bif erlang:make_tuple/3
 
 bif erlang:system_flag/2
 bif erlang:system_info/1
-# New in R9C
-bif erlang:system_monitor/0
-bif erlang:system_monitor/1
-bif erlang:system_monitor/2
 # Added 2006-11-07
 bif erlang:system_profile/2
 # End Added 2006-11-07
@@ -357,6 +355,7 @@ bif ets:delete/1
 bif ets:delete/2
 bif ets:delete_object/2
 bif ets:first/1
+bif ets:first_lookup/1
 bif ets:is_compiled_ms/1
 bif ets:lookup/2
 bif ets:lookup_element/3
@@ -364,6 +363,7 @@ bif ets:lookup_element/4
 bif ets:info/1
 bif ets:info/2
 bif ets:last/1
+bif ets:last_lookup/1
 bif ets:match/1
 bif ets:match/2
 bif ets:match/3
@@ -372,7 +372,9 @@ bif ets:match_object/2
 bif ets:match_object/3
 bif ets:member/2
 bif ets:next/2
+bif ets:next_lookup/2
 bif ets:prev/2
+bif ets:prev_lookup/2
 bif ets:insert/2
 bif ets:insert_new/2
 bif ets:rename/2
@@ -416,7 +418,7 @@ bif erl_ddll:monitor/2
 bif erl_ddll:demonitor/1
 
 #
-# Bifs in the re module 
+# Bifs in the re module
 #
 bif re:version/0
 bif re:compile/1
@@ -478,7 +480,7 @@ bif string:list_to_float/1
 bif erlang:make_fun/3
 bif erlang:iolist_size/1
 bif erlang:iolist_to_binary/1
-bif erlang:list_to_existing_atom/1
+ubif erlang:list_to_existing_atom/1
 
 #
 # New Bifs in R12B-0
@@ -510,8 +512,8 @@ bif unicode:bin_is_7bit/1
 # New Bifs in R13A.
 #
 bif erlang:atom_to_binary/2
-bif erlang:binary_to_atom/2
-bif erlang:binary_to_existing_atom/2
+ubif erlang:binary_to_atom/2
+ubif erlang:binary_to_existing_atom/2
 bif net_kernel:dflag_unicode_io/1
 #
 # New Bifs in R13B-1
@@ -597,7 +599,7 @@ bif erlang:dt_get_tag_data/0
 bif erlang:dt_spread_tag/1
 bif erlang:dt_restore_tag/1
 
-# These are dummies even with enabled dynamic trace unless vm probes are enabled. 
+# These are dummies even with enabled dynamic trace unless vm probes are enabled.
 # They are also internal, for dtrace tags sent to the VM's own drivers (efile)
 bif erlang:dt_prepend_vm_tag_data/1
 bif erlang:dt_append_vm_tag_data/1
@@ -783,3 +785,61 @@ bif erts_internal:list_to_integer/2
 ubif erlang:min/2
 ubif erlang:max/2
 bif erts_internal:term_to_string/2
+
+#
+# New in 27.
+#
+bif code:coverage_support/0
+bif code:get_coverage_mode/0
+bif code:get_coverage_mode/1
+bif code:get_coverage/2
+bif code:reset_coverage/1
+bif code:set_coverage_mode/1
+bif ets:update_element/4
+bif erts_internal:trace_session_create/3
+bif erts_internal:trace_session_destroy/1
+bif erts_internal:trace/4
+bif erts_internal:trace_pattern/4
+bif erts_internal:trace_info/3
+bif erts_trace_cleaner:check/0
+bif erts_trace_cleaner:send_trace_clean_signal/1
+
+#
+# New in 28.
+#
+bif erts_internal:system_monitor/1
+bif erts_internal:system_monitor/3
+bif erts_internal:processes_next/1
+bif code:get_debug_info/1
+bif erlang:exit/3
+bif erlang:link/2
+bif erl_debugger:supported/0
+bif erl_debugger:instrumentations/0
+bif erl_debugger:toggle_instrumentations/1
+bif erl_debugger:register/1
+bif erl_debugger:unregister/2
+bif erl_debugger:whereis/0
+bif erl_debugger:breakpoint/3
+bif erl_debugger:breakpoints/1
+bif erl_debugger:breakpoints/3
+bif erts_internal:notify_breakpoint_hit/3
+bif erl_debugger:stack_frames/2
+bif erl_debugger:peek_stack_frame_slot/4
+bif erl_debugger:xregs_count/1
+bif erl_debugger:peek_xreg/3
+
+#
+# New in 28.1.
+#
+bif erts_debug:unaligned_bitstring/2
+bif re:import/1
+
+#
+# New in 28.4
+#
+bif persistent_term:put_new/2
+
+#
+# New in 29.
+#
+ubif erlang:is_integer/3

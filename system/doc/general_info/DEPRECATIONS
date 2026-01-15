@@ -1,3 +1,22 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2020-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
 #
 # This file contains additional information about each
 # deprecated function, namely in what release it was
@@ -16,6 +35,26 @@
 # The function foo:bar/3 was deprecated in OTP 23 and
 # is scheduled to be removed in OTP 25.
 #
+
+#
+# Added in OTP 29.
+#
+lists:zf/2 since=29
+
+#
+# Added in OTP 28.
+#
+crypto:start/0 since=28
+crypto:stop/0 since=28
+crypto:enable_fips_mode/1 since=28
+
+#
+# Added in OTP 27.
+#
+mnesia_registry:create_table/_ since=27 remove=29
+code:lib_dir/2 since=27
+ssl:prf/5 since=27
+ssl:prf_random/0 since=27 remove=28
 
 #
 # Added in OTP 26.
@@ -76,8 +115,8 @@ ssl:cipher_suites/0 since=21 remove=24
 
 http_uri:parse/1 since=23 remove=25
 http_uri:parse/2 since=23 remove=25
-http_uri:encode/1 since=23 remove=27
-http_uri:decode/1 since=23 remove=27
+http_uri:encode/1 since=23
+http_uri:decode/1 since=23
 http_uri:scheme_defaults/0 since=23 remove=25
 httpd:parse_query/1 since=23
 pg2:_/_ since=23 remove=24

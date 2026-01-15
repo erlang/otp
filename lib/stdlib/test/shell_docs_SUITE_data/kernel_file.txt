@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m	file[0m
 
@@ -5,7 +12,8 @@
 
   This module provides an interface to the file system.
 
-  Warning:
+  [;;4mWarning[0m
+
     File operations are only guaranteed to appear atomic when
     going through the same file server. A NIF or other OS process
     may observe intermediate steps on certain operations on some
@@ -50,7 +58,8 @@
   See also section Notes About Raw Filenames in the STDLIB User's
   Guide.
 
-  Note:
+  [;;4mNote[0m
+
     File operations used to accept filenames containing null
     characters (integer value zero). This caused the name to be
     truncated and in some cases arguments to primitive operations
@@ -136,7 +145,8 @@
   another node, or if the file server runs as slave to the file
   server of another node, also binaries are copied.
 
-  Note:
+  [;;4mNote[0m
+
     Raw files use the file system of the host machine of the node.
     For normal files (non-raw), the file server is used to find
     the files, and if the node is running its file server as slave
@@ -190,7 +200,8 @@
   contents of the binaries without copying the data at all, except
   for perhaps deep down in the operating system kernel.
 
-  Warning:
+  [;;4mWarning[0m
+
     If an error occurs when accessing an open file with module [;;4mio[0m,
     the process handling the file exits. The dead file process can
     hang if a process tries to access it later. This will be fixed
@@ -198,4 +209,4 @@
 
 [;1mSee Also[0m
 
-  [;;4mfilename(3)[0m
+  [;;4mfilename[0m

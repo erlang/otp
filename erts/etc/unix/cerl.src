@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2003-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,6 +55,42 @@
 #
 # FIXME For GDB you can also set the break point using "-break FUNCTION".
 # FIXME For GDB you can also point out your own .gdbini......
+
+install_gdb_tools ()
+{
+    if [ -z "$(find $ERL_TOP -name jit-reader.c)" ]
+    then
+        printf "%s" "Do you want to install gdb-tools? (Y/n) "
+        read -r confirm
+        case "$confirm" in
+            "Y"|"y"|"")
+                "$ERL_TOP"/otp_build download_gdb_tools
+                build_gdb_tools
+                ;;
+        esac
+    else
+        ## Check that correct version is present
+        "$ERL_TOP"/otp_build download_gdb_tools
+        build_gdb_tools
+    fi
+}
+
+build_gdb_tools ()
+{
+    if command -v gmake > /dev/null; then
+        (cd "$ERL_TOP"/erts/etc/common && gmake)
+    else
+        (cd "$ERL_TOP"/erts/etc/common && make)
+    fi
+}
+
+## If ERL_TOP is not set, we try to figure it out from
+## the location of cerl
+if [ -z "$ERL_TOP" ]; then
+    CERL="$0"
+    ERL_TOP="$(dirname "$(dirname "$CERL")")"
+    export ERL_TOP
+fi
 
 # These are marked for export
 export ROOTDIR
@@ -387,14 +425,11 @@ if [ "x$GDB" = "x" ]; then
         if [ $EMU_NAME = "beam.valgrind.smp" ] && [ "x${VALGRIND_LOG_DIR}" != "x" ]; then
             # Always enable `perf` support as we use the same symbol map
             emu_xargs="$emu_xargs -JPperf true "
-            set -m
-	    $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" &
-            VG_PID=$!
-            fg
+	    export ERL_SYM_MAP_FILE="/tmp/cerl.valgrind.$$.map"
+	    $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
             VG_EXIT=$?
-            set +m
-            if [ -f /tmp/perf-$VG_PID.map ]; then
-                $ERL_TOP/scripts/valgrind_beamasm_update.escript $valgrind_log_file /tmp/perf-$VG_PID.map
+            if [ -f $ERL_SYM_MAP_FILE ]; then
+                $ERL_TOP/scripts/valgrind_beamasm_update.escript $valgrind_log_file $ERL_SYM_MAP_FILE
             fi
             exit $VG_EXIT
         else
@@ -402,6 +437,9 @@ if [ "x$GDB" = "x" ]; then
         fi
     elif [ $run_rr = yes ]; then
         if [ $1 = replay ] || [ $1 = eplay ]; then
+
+            install_gdb_tools
+
 	    rr_cmd=$1
             shift
             cmdfile="/tmp/.cerlgdb.$$"
@@ -438,26 +476,30 @@ if [ "x$GDB" = "x" ]; then
 	exec $EXEC $xargs ${1+"$@"}
     fi
 elif [ "x$GDB" = "xgdb" ]; then
+
+    install_gdb_tools
+
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
-	    beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"}`
-	    gdbcmd="--args $EMU_NAME $beam_args"
+	    beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"} | sed 's/"/\\\\"/g' | tr '\n' ' '`
+	    gdbcmd="set args $beam_args"
 	    ;;
 	x/*)
-	    gdbcmd="$EMU_NAME ${core}"
+	    gdbcmd="core ${core}"
 	    GDBBP=
 	    ;;
 	*)
-	    dir=`pwd`
-	    gdbcmd="$EMU_NAME ${dir}/${core}"
+	    gdbcmd="core `pwd`/${core}"
 	    GDBBP=
 	    ;;
     esac
+    # Fire up gdb
     cmdfile="/tmp/.cerlgdb.$$"
-    echo "source $ROOTDIR/erts/etc/unix/etp-commands" > $cmdfile
-    # Fire up gdb in emacs...
-    exec gdb $GDBBP -x $cmdfile $gdbcmd
+    echo "file $BINDIR/$EMU_NAME" > $cmdfile
+    echo "$gdbcmd" >> $cmdfile
+    echo "source $ROOTDIR/erts/etc/unix/etp-commands" >> $cmdfile
+    exec gdb $GDBBP -x $cmdfile
 elif [ "x$GDB" = "xlldb" ]; then
     case "x$core" in
         x)
@@ -476,7 +518,9 @@ elif [ "x$GDB" = "xegdb" ]; then
     if [ "x$EMACS" = "x" ]; then
 	EMACS=emacs
     fi
-    
+
+    install_gdb_utils
+
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
@@ -484,11 +528,11 @@ elif [ "x$GDB" = "xegdb" ]; then
 	    gdbcmd="set args $beam_args"
 	    ;;
 	x/*)
-	    gdbcmd="core $core"
+	    gdbcmd="core ${core}"
 	    GDBBP=
 	    ;;
 	*)
-	    gdbcmd="core `pwd`/$core"
+	    gdbcmd="core `pwd`/${core}"
 	    GDBBP=
 	    ;;
     esac
@@ -515,6 +559,9 @@ elif [ "x$GDB" = "xegdb" ]; then
     EVAL="(progn (gdb \"gdb $GDBARGS -x $cmdfile\"))"
     exec $EMACS --eval "$EVAL"
 elif [ "x$GDB" = "xdump" ]; then
+
+    install_gdb_tools
+
     cmdfile="/tmp/.cerlgdb.$$"
     ## Examine the result of "file $core" in case it is not the emulator
     ## that created the dump

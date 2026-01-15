@@ -1,8 +1,10 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,18 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 -module(snmp_standard_mib).
+-moduledoc """
+Instrumentation Functions for STANDARD-MIB and SNMPv2-MIB
+
+The module `snmp_standard_mib` implements the instrumentation functions for the
+STANDARD-MIB and SNMPv2-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+""".
 
 %%%-----------------------------------------------------------------
 %%% This module implements the configure- and reinit-functions
@@ -79,8 +89,30 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
-    case (catch do_configure(Dir)) of
+
+-doc """
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all
+old rows with StorageType `volatile`. The rows created from the configuration
+file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `standard.conf`.
+""".
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
+    case (catch do_configure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -118,9 +150,32 @@ do_configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-reconfigure(Dir) ->
+
+-doc """
+Inserts all data in the configuration files into the database and destroys all
+old data, including the rows with StorageType `nonVolatile`. The rows created
+from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-STANDARD-MIB and SNMPv2-MIB, after this function has
+been called, is from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `standard.conf`.
+""".
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -198,6 +253,7 @@ sort_standard(L) ->
 %%  Standard
 %%  {Name, Value}.
 %%-----------------------------------------------------------------
+-doc false.
 check_standard({sysDescr,    Value}) -> snmp_conf:check_string(Value);
 check_standard({sysObjectID, Value}) -> snmp_conf:check_oid(Value);
 check_standard({sysContact,  Value}) -> snmp_conf:check_string(Value);
@@ -217,6 +273,10 @@ check_standard(X) -> error({invalid_standard_specification, X}).
 %% Func: reset/0
 %% Purpose: Resets all counters (sets them to 0).
 %%-----------------------------------------------------------------
+
+-doc "Resets all `snmp` counters to 0.".
+-spec reset() -> snmp:void().
+
 reset() ->
     snmpa_mpd:reset().
 
@@ -230,8 +290,10 @@ maybe_create_persistent_var({Var, Val}) ->
 create_persistent_var({Var, Val}) ->
     snmp_generic:variable_set(db(Var), Val).
 
+-doc false.
 variable_func(_Op) -> ok.
 
+-doc false.
 variable_func(get, Name) ->
     [{_, Val}] = ets:lookup(snmp_agent_table, Name),
     {value, Val}.
@@ -241,10 +303,22 @@ variable_func(get, Name) ->
 %%  inc(VariableName) increments the variable (Counter) in
 %%  the local mib. (e.g. snmpInPkts)
 %%-----------------------------------------------------------------
+
+-doc(#{equiv => inc/2}).
+-spec inc(Name) -> snmp:void() when
+      Name :: atom().
+
 inc(Name) -> inc(Name, 1).
+
+-doc "Increments a variable in the MIB with `N`, or one if `N` is not specified.".
+-spec inc(Name, N) -> snmp:void() when
+      Name :: atom(),
+      N    :: integer().
+
 inc(Name, N) -> ets:update_counter(snmp_agent_table, Name, N).
 
 
+-doc false.
 sysDescr(print) ->
     VarAndValue = [{sysDescr,  sysDescr(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -254,6 +328,7 @@ sysDescr(get) ->
     snmp_generic:variable_get(VarDB).
     
 
+-doc false.
 sysContact(print) ->
     VarAndValue = [{sysContact,  sysContact(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -263,6 +338,7 @@ sysContact(get) ->
     snmp_generic:variable_get(VarDB).
 
 
+-doc false.
 sysName(print) ->
     VarAndValue = [{sysName,  sysName(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -272,6 +348,7 @@ sysName(get) ->
     snmp_generic:variable_get(VarDB).
 
 
+-doc false.
 sysLocation(print) ->
     VarAndValue = [{sysLocation,  sysLocation(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -281,6 +358,7 @@ sysLocation(get) ->
     snmp_generic:variable_get(VarDB).
 
 
+-doc false.
 sysServices(print) ->
     VarAndValue = [{sysServices,  sysServices(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -290,30 +368,35 @@ sysServices(get) ->
     snmp_generic:variable_get(VarDB).
 
 
+-doc false.
 snmpInPkts(print) ->
     gen_counter(print, snmpInPkts);
 snmpInPkts(get) ->
     gen_counter(get, snmpInPkts).
 
 
+-doc false.
 snmpOutPkts(print) ->
     gen_counter(print, snmpOutPkts);
 snmpOutPkts(get) ->
     gen_counter(get, snmpOutPkts).
 
 
+-doc false.
 snmpInASNParseErrs(print) ->
     gen_counter(print, snmpInASNParseErrs);
 snmpInASNParseErrs(get) ->
     gen_counter(get, snmpInASNParseErrs).
     
 
+-doc false.
 snmpInBadCommunityNames(print) ->
     gen_counter(print, snmpInBadCommunityNames);
 snmpInBadCommunityNames(get) ->
     gen_counter(get, snmpInBadCommunityNames).
     
 
+-doc false.
 snmpInBadCommunityUses(print) ->
     gen_counter(print, snmpInBadCommunityUses);
 
@@ -321,132 +404,154 @@ snmpInBadCommunityUses(get) ->
     gen_counter(get, snmpInBadCommunityUses).
     
 
+-doc false.
 snmpInBadVersions(print) ->
     gen_counter(print, snmpInBadVersions);
 snmpInBadVersions(get) ->
     gen_counter(get, snmpInBadVersions).
     
 
+-doc false.
 snmpInTooBigs(print) ->
     gen_counter(print, snmpInTooBigs);
 snmpInTooBigs(get) ->
     gen_counter(get, snmpInTooBigs).
     
 
+-doc false.
 snmpInNoSuchNames(print) ->
     gen_counter(print, snmpInNoSuchNames);
 snmpInNoSuchNames(get) ->
     gen_counter(get, snmpInNoSuchNames).
     
 
+-doc false.
 snmpInBadValues(print) ->
     gen_counter(print, snmpInBadValues);
 snmpInBadValues(get) ->
     gen_counter(get, snmpInBadValues).
     
 
+-doc false.
 snmpInReadOnlys(print) ->
     gen_counter(print, snmpInReadOnlys);
 snmpInReadOnlys(get) ->
     gen_counter(get, snmpInReadOnlys).
     
 
+-doc false.
 snmpInGenErrs(print) ->
     gen_counter(print, snmpInGenErrs);
 snmpInGenErrs(get) ->
     gen_counter(get, snmpInGenErrs).
     
 
+-doc false.
 snmpInTotalReqVars(print) ->
     gen_counter(print, snmpInTotalReqVars);
 snmpInTotalReqVars(get) ->
     gen_counter(get, snmpInTotalReqVars).
     
 
+-doc false.
 snmpInTotalSetVars(print) ->
     gen_counter(print, snmpInTotalSetVars);
 snmpInTotalSetVars(get) ->
     gen_counter(get, snmpInTotalSetVars).
     
 
+-doc false.
 snmpInGetRequests(print) ->
     gen_counter(print, snmpInGetRequests);
 snmpInGetRequests(get) ->
     gen_counter(get, snmpInGetRequests).
     
 
+-doc false.
 snmpInSetRequests(print) ->
     gen_counter(print, snmpInSetRequests);
 snmpInSetRequests(get) ->
     gen_counter(get, snmpInSetRequests).
     
 
+-doc false.
 snmpInGetNexts(print) ->
     gen_counter(print, snmpInGetNexts);
 snmpInGetNexts(get) ->
     gen_counter(get, snmpInGetNexts).
     
 
+-doc false.
 snmpInGetResponses(print) ->
     gen_counter(print, snmpInGetResponses);
 snmpInGetResponses(get) ->
     gen_counter(get, snmpInGetResponses).
     
 
+-doc false.
 snmpInTraps(print) ->
     gen_counter(print, snmpInTraps);
 snmpInTraps(get) ->
     gen_counter(get, snmpInTraps).
     
 
+-doc false.
 snmpOutTooBigs(print) ->
     gen_counter(print, snmpOutTooBigs);
 snmpOutTooBigs(get) ->
     gen_counter(get, snmpOutTooBigs).
     
 
+-doc false.
 snmpOutNoSuchNames(print) ->
     gen_counter(print, snmpOutNoSuchNames);
 snmpOutNoSuchNames(get) ->
     gen_counter(get, snmpOutNoSuchNames).
     
 
+-doc false.
 snmpOutBadValues(print) ->
     gen_counter(print, snmpOutBadValues);
 snmpOutBadValues(get) ->
     gen_counter(get, snmpOutBadValues).
     
 
+-doc false.
 snmpOutGenErrs(print) ->
     gen_counter(print, snmpOutGenErrs);
 snmpOutGenErrs(get) ->
     gen_counter(get, snmpOutGenErrs).
     
 
+-doc false.
 snmpOutGetRequests(print) ->
     gen_counter(print, snmpOutGetRequests);
 snmpOutGetRequests(get) ->
     gen_counter(get, snmpOutGetRequests).
     
 
+-doc false.
 snmpOutSetRequests(print) ->
     gen_counter(print, snmpOutSetRequests);
 snmpOutSetRequests(get) ->
     gen_counter(get, snmpOutSetRequests).
     
 
+-doc false.
 snmpOutGetNexts(print) ->
     gen_counter(print, snmpOutGetNexts);
 snmpOutGetNexts(get) ->
     gen_counter(get, snmpOutGetNexts).
     
 
+-doc false.
 snmpOutGetResponses(print) ->
     gen_counter(print, snmpOutGetResponses);
 snmpOutGetResponses(get) ->
     gen_counter(get, snmpOutGetResponses).
     
 
+-doc false.
 snmpOutTraps(print) ->
     gen_counter(print, snmpOutTraps);
 snmpOutTraps(get) ->
@@ -465,14 +570,22 @@ gen_counter(get, Counter) ->
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for sysUpTime.
 %%-----------------------------------------------------------------
+
+-doc "Gets the system up time in hundredth of a second.".
+-spec sys_up_time() -> Time when
+      Time :: integer().
+
+sys_up_time() ->
+    snmpa:sys_up_time().
+
+
+-doc false.
 sysUpTime(print) ->
     sys_up_time(print);
 sysUpTime(get) ->
     sys_up_time(get).
 
-sys_up_time() ->
-    snmpa:sys_up_time().
-
+-doc false.
 sys_up_time(print) ->
     VarAndValue = [{sysUpTime,  sys_up_time(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -485,12 +598,14 @@ sys_up_time(get) ->
 %% This is the instrumentation function for snmpEnableAuthenTraps
 %%-----------------------------------------------------------------
 
+-doc false.
 snmpEnableAuthenTraps(print) ->
     snmp_enable_authen_traps(print);
 snmpEnableAuthenTraps(get) ->
     snmp_enable_authen_traps(get).
 
 
+-doc false.
 snmp_enable_authen_traps(print) ->
     VarAndValue = [{snmpEnableAuthenTraps,  snmp_enable_authen_traps(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -504,6 +619,7 @@ snmp_enable_authen_traps(delete) ->
 snmp_enable_authen_traps(get) ->
     snmp_generic:variable_func(get, db(snmpEnableAuthenTraps)).
 
+-doc false.
 snmp_enable_authen_traps(set, NewVal) ->
     snmp_generic:variable_func(set, NewVal, db(snmpEnableAuthenTraps)).
 
@@ -511,11 +627,13 @@ snmp_enable_authen_traps(set, NewVal) ->
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for sysObjectID
 %%-----------------------------------------------------------------
+-doc false.
 sysObjectID(print) ->
     sys_object_id(print);
 sysObjectID(get) ->
     sys_object_id(get).
 
+-doc false.
 sys_object_id(print) ->
     VarAndValue = [{sysObjectID,  sys_object_id(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -529,6 +647,7 @@ sys_object_id(delete) ->
 sys_object_id(get) ->
     snmp_generic:variable_func(get, db(sysObjectID)).
 
+-doc false.
 sys_object_id(set, NewVal) ->
     snmp_generic:variable_func(set, NewVal, db(sysObjectID)).
 
@@ -539,6 +658,7 @@ sys_object_id(set, NewVal) ->
 %% values each time.  This function will only be called with
 %% new/delete.
 %%-----------------------------------------------------------------
+-doc false.
 dummy(_Op) -> ok.
 
 
@@ -546,6 +666,7 @@ dummy(_Op) -> ok.
 %% This is the instrumentation function for snmpSetSerialNo.
 %% It is always volatile.
 %%-----------------------------------------------------------------
+-doc false.
 snmp_set_serial_no(new) ->
     snmp_generic:variable_func(new, {snmpSetSerialNo, volatile}),
     ?SNMP_RAND_SEED(),
@@ -562,6 +683,7 @@ snmp_set_serial_no(delete) ->
 snmp_set_serial_no(get) ->
     snmp_generic:variable_func(get, {snmpSetSerialNo, volatile}).
 
+-doc false.
 snmp_set_serial_no(is_set_ok, NewVal) ->
     case snmp_generic:variable_func(get, {snmpSetSerialNo, volatile}) of
 	{value, NewVal} -> noError;
@@ -575,9 +697,11 @@ snmp_set_serial_no(set, NewVal) ->
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for sysOrTable
 %%-----------------------------------------------------------------
+-doc false.
 sys_or_table(Op, RowIndex, Cols) ->
     snmp_generic:table_func(Op, RowIndex, Cols, {sysORTable, volatile}).
 
+-doc false.
 add_agent_caps(Oid, Descr) when is_list(Oid) andalso is_list(Descr) ->
     {value, Next} = snmpa_local_db:variable_get({next_sys_or_index, volatile}),
     snmpa_local_db:variable_set({next_sys_or_index, volatile}, Next+1),
@@ -587,10 +711,12 @@ add_agent_caps(Oid, Descr) when is_list(Oid) andalso is_list(Descr) ->
     snmpa_local_db:variable_set({sysORLastChange, volatile}, SysUpTime),
     Next.
 
+-doc false.
 del_agent_caps(Index) ->
     snmpa_local_db:table_delete_row({sysORTable, volatile}, [Index]),
     snmpa_local_db:variable_set({sysORLastChange, volatile}, sys_up_time()).
 
+-doc false.
 get_agent_caps() ->
     snmpa_local_db:match({sysORTable, volatile}, {'$1', '$2', '$3', '$4'}).
 

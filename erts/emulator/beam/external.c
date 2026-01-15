@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,6 +119,11 @@ static void store_in_vec(TTBEncodeContext *ctx, byte *ep, Binary *ohbin, Eterm o
 static Uint32 calc_iovec_fun_size(SysIOVec* iov, Uint32 fun_high_ix, byte* size_p);
 
 void erts_init_external(void) {
+    ERTS_CT_ASSERT(offsetof(ErtsDistExternalFake,data) ==
+                   offsetof(ErtsDistExternal,data));
+    ERTS_CT_ASSERT(offsetof(ErtsDistExternalFake,flags) ==
+                   offsetof(ErtsDistExternal,flags));
+
     erts_init_trap_export(&term_to_binary_trap_export,
 			  am_erts_internal, am_term_to_binary_trap, 1,
 			  &term_to_binary_trap_1);
@@ -194,8 +201,6 @@ void erts_late_init_external(void)
 
     erts_free(ERTS_ALC_T_TMP, lnid);
 }
-
-#define ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES 255
 
 #define ERTS_DIST_HDR_ATOM_CACHE_FLAG_BYTE_IX(IIX) \
   (((((Uint32) (IIX)) >> 1) & 0x7fffffff))
@@ -356,7 +361,7 @@ erts_encode_ext_dist_header_size(TTBEncodeContext *ctx,
                                  Uint fragments)
 {
     if (ctx->dflags & DFLAG_PENDING_CONNECT) {
-        /* HOPEFUL_DATA + hopefull flags + hopefull ix + payload ix */
+        /* HOPEFUL_DATA + hopeful flags + hopeful ix + payload ix */
         return 1 + 8 + 4 + 4;
     }
     else if (!acmp && !(ctx->dflags & DFLAG_FRAGMENTS))
@@ -396,10 +401,10 @@ byte *erts_encode_ext_dist_header_setup(TTBEncodeContext *ctx,
         ctx->payload_ixp = ep;
         put_int32(0, ep);
         ep -= 4;
-        ctx->hopefull_ixp = ep;
+        ctx->hopeful_ixp = ep;
         put_int32(ERTS_NO_HIX, ep);
         ep -= 8;
-        ctx->hopefull_flagsp = ep;
+        ctx->hopeful_flagsp = ep;
         put_int64(0, ep);
         *--ep = HOPEFUL_DATA;
         return ep;
@@ -591,7 +596,7 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
 		a = atom_tab(atom_val(atom));
                 sz = a->len;
                 ep -= sz;
-                sys_memcpy((void *) ep, (void *) a->name, sz);
+                sys_memcpy((void *) ep, (void *) erts_atom_get_name(a), sz);
 		if (long_atoms) {
 		    ep -= 2;
 		    put_int16(sz, ep);
@@ -633,10 +638,13 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
 		switch (flgs_bytes) {
 		case 4:
 		    *--ep = (byte) ((flgs >> 24) & 0xff);
+                    ERTS_FALLTHROUGH();
 		case 3:
 		    *--ep = (byte) ((flgs >> 16) & 0xff);
+                    ERTS_FALLTHROUGH();
 		case 2:
 		    *--ep = (byte) ((flgs >> 8) & 0xff);
+                    ERTS_FALLTHROUGH();
 		case 1:
 		    *--ep = (byte) (flgs & 0xff);
 		}
@@ -784,8 +792,8 @@ int erts_encode_dist_ext(Eterm term, byte **ext, Uint64 flags, ErtsAtomCacheMap 
     if (fragmentsp)
         *fragmentsp = res == 0 ? ctx->frag_ix + 1 : ctx->frag_ix;
     if (flags & DFLAG_PENDING_CONNECT) {
-        ASSERT(ctx->hopefull_flagsp);
-        put_int64(ctx->hopefull_flags, ctx->hopefull_flagsp);
+        ASSERT(ctx->hopeful_flagsp);
+        put_int64(ctx->hopeful_flags, ctx->hopeful_flagsp);
     }
     return res;
 }
@@ -812,17 +820,15 @@ byte* erts_encode_ext_ets(Eterm term, byte *ep, struct erl_off_heap_header** off
 static Uint
 dist_ext_size(ErtsDistExternal *edep)
 {
-    Uint sz = sizeof(ErtsDistExternal);
+    Uint sz = offsetof(ErtsDistExternal, attab.atom);
 
     ASSERT(edep->data->ext_endp && edep->data->extp);
     ASSERT(edep->data->ext_endp >= edep->data->extp);
 
     if (edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB) {
-        ASSERT(0 <= edep->attab.size \
-               && edep->attab.size <= ERTS_ATOM_CACHE_SIZE);
-        sz -= sizeof(Eterm)*(ERTS_ATOM_CACHE_SIZE - edep->attab.size);
-    } else {
-        sz -= sizeof(ErtsAtomTranslationTable);
+        ASSERT(0 <= edep->attab.size
+               && edep->attab.size <= ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES);
+        sz += sizeof(Eterm) * edep->attab.size;
     }
     ASSERT(sz % 4 == 0);
     return sz;
@@ -897,14 +903,14 @@ erts_free_dist_ext_copy(ErtsDistExternal *edep)
 
 ErtsPrepDistExtRes
 erts_prepare_dist_ext(ErtsDistExternal *edep,
-		      byte *ext,
+		      const byte *ext,
 		      Uint size,
                       Binary *binp,
 		      DistEntry *dep,
                       Uint32 conn_id,
 		      ErtsAtomCache *cache)
 {
-    register byte *ep;
+    register const byte *ep;
 
     ASSERT(dep);
     erts_de_rlock(dep);
@@ -988,15 +994,15 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	CHKSIZE(1+1+1);
 	ep += 2;
 	no_atoms = (int) get_int8(ep);
-	if (no_atoms < 0 || ERTS_ATOM_CACHE_SIZE < no_atoms)
+        if (no_atoms < 0 || no_atoms > ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES)
 	    goto bad_hdr;
 	ep++;
 	if (no_atoms) {
 	    int long_atoms = 0;
 #ifdef DEBUG
-	    byte *flgs_buf = ep;
+	    const byte *flgs_buf = ep;
 #endif
-	    byte *flgsp = ep;
+	    const byte *flgsp = ep;
 	    int flgs_size = ERTS_DIST_HDR_ATOM_CACHE_FLAG_BYTES(no_atoms);
 	    int byte_ix;
 	    int bit_ix;
@@ -1044,9 +1050,11 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 			case 6:
 			case 5:
 			    flgs |= (((Uint32) flgsp[2]) << 16);
+                            ERTS_FALLTHROUGH();
 			case 4:
 			case 3:
 			    flgs |= (((Uint32) flgsp[1]) << 8);
+                            ERTS_FALLTHROUGH();
 			case 2:
 			case 1:
 			    flgs |= ((Uint32) flgsp[0]);
@@ -1156,7 +1164,7 @@ bad_dist_ext(ErtsDistExternal *edep)
     if (edep->dep) {
 	DistEntry *dep = edep->dep;
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	byte *ep;
+	const byte *ep;
 	erts_dsprintf(dsbufp,
 		      "%T got a corrupted external term from %T "
 		      "on distribution channel %d\n",
@@ -1172,10 +1180,12 @@ bad_dist_ext(ErtsDistExternal *edep)
 	if (!(edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB) || !edep->attab.size)
 	    erts_dsprintf(dsbufp, "none");
 	else {
+            const char* delim = "";
 	    int i;
-	    erts_dsprintf(dsbufp, "0=%T", edep->attab.atom[0]);
-	    for (i = 1; i < edep->attab.size; i++)
-		erts_dsprintf(dsbufp, ", %d=%T", i, edep->attab.atom[i]);
+	    for (i = 0; i < edep->attab.size; i++) {
+		erts_dsprintf(dsbufp, "%s%d=%T", delim, i, edep->attab.atom[i]);
+                delim = ", ";
+            }
 	}
 	erts_send_warning_to_logger_nogl(dsbufp);
 	erts_kill_dist_connection(dep, edep->connection_id);
@@ -1185,24 +1195,27 @@ bad_dist_ext(ErtsDistExternal *edep)
 Sint
 erts_decode_dist_ext_size(ErtsDistExternal *edep, int kill_connection, int payload)
 {
+    const byte *ep;
     Sint res;
-    byte *ep;
 
     if (edep->data->frag_id > 1 && payload) {
         Uint sz = 0;
         Binary *bin;
+        byte *buf;
         int i;
-        byte *ep;
 
         for (i = 0; i < edep->data->frag_id; i++)
             sz += edep->data[i].ext_endp - edep->data[i].extp;
 
         bin = erts_bin_nrml_alloc(sz);
-        ep = (byte*)bin->orig_bytes;
+        buf = (byte*)bin->orig_bytes;
 
         for (i = 0; i < edep->data->frag_id; i++) {
-            sys_memcpy(ep, edep->data[i].extp, edep->data[i].ext_endp - edep->data[i].extp);
-            ep += edep->data[i].ext_endp - edep->data[i].extp;
+            sys_memcpy(buf,
+                       edep->data[i].extp,
+                       edep->data[i].ext_endp - edep->data[i].extp);
+
+            buf += edep->data[i].ext_endp - edep->data[i].extp;
             erts_bin_release(edep->data[i].binp);
             edep->data[i].binp = NULL;
             edep->data[i].extp = NULL;
@@ -1211,7 +1224,7 @@ erts_decode_dist_ext_size(ErtsDistExternal *edep, int kill_connection, int paylo
 
         edep->data->frag_id = 1;
         edep->data->extp = (byte*)bin->orig_bytes;
-        edep->data->ext_endp = ep;
+        edep->data->ext_endp = buf;
         edep->data->binp = bin;
     }
 
@@ -1302,7 +1315,8 @@ erts_decode_dist_ext(ErtsHeapFactory* factory,
 
 Eterm erts_decode_ext(ErtsHeapFactory* factory, const byte **ext, Uint32 flags)
 {
-    ErtsDistExternal ede, *edep;
+    ErtsDistExternalFake ede;
+    ErtsDistExternal *edep;
     Eterm obj;
     const byte *ep = *ext;
     if (*ep++ != VERSION_MAGIC) {
@@ -1313,7 +1327,7 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, const byte **ext, Uint32 flags)
         ASSERT(flags == ERTS_DIST_EXT_BTT_SAFE);
         ede.flags = flags; /* a dummy struct just for the flags */
         ede.data = NULL;
-        edep = &ede;
+        edep = (ErtsDistExternal*) &ede;
     } else {
         edep = NULL;
     }
@@ -1343,11 +1357,8 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
     ErtsDistExternal ede;
     ErtsDistExternalData ede_data;
     Eterm *tp;
-    Eterm real_bin;
-    Uint offset;
-    Uint size;
-    Uint bitsize;
-    Uint bitoffs;
+    Uint offset, size;
+    byte *base;
     Uint arity;
     int i;
 
@@ -1370,18 +1381,22 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
 	ede.attab.atom[i-1] = tp[i];
     }
 
-    if (is_not_binary(BIF_ARG_2))
-	goto badarg;
+    if (is_not_bitstring(BIF_ARG_2)) {
+        goto badarg;
+    }
 
-    size = binary_size(BIF_ARG_2);
-    if (size == 0)
-	goto badarg;
-    ERTS_GET_REAL_BIN(BIF_ARG_2, real_bin, offset, bitoffs, bitsize);
-    if (bitsize != 0)
-	goto badarg;
+    ERTS_GET_BITSTRING(BIF_ARG_2, base, offset, size);
 
-    ede.data->extp = binary_bytes(real_bin)+offset;
-    ede.data->ext_endp = ede.data->extp + size;
+    if (size == 0 || TAIL_BITS(size) != 0) {
+        goto badarg;
+    }
+
+    ERTS_ASSERT(BIT_OFFSET(offset) == 0);
+    offset = BYTE_OFFSET(offset);
+    size = BYTE_SIZE(size);
+
+    ede.data->extp = &base[offset];
+    ede.data->ext_endp = &ede.data->extp[size];
     ede.data->frag_id = 1;
     ede.data->binp = NULL;
 
@@ -1692,7 +1707,7 @@ typedef struct {
 
 typedef struct B2TContext_t {
     Sint heap_size;
-    byte* aligned_alloc;
+    const byte *aligned_alloc;
     ErtsBinary2TermState b2ts;
     Uint32 flags;
     SWord reds;
@@ -1710,7 +1725,7 @@ typedef struct B2TContext_t {
 
 static B2TContext* b2t_export_context(Process*, B2TContext* src);
 
-static uLongf binary2term_uncomp_size(byte* data, Sint size)
+static uLongf binary2term_uncomp_size(const byte* data, Sint size)
 {
     z_stream stream;
     int err;
@@ -1740,10 +1755,11 @@ static uLongf binary2term_uncomp_size(byte* data, Sint size)
 }
 
 static ERTS_INLINE int
-binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
-		    B2TContext** ctxp, Process* p)
+binary2term_prepare(ErtsBinary2TermState *state,
+                    const byte *data, Sint data_size,
+                    B2TContext** ctxp, Process* p)
 {
-    byte *bytes = data;
+    const byte *bytes = data;
     Sint size = data_size;
 
     state->exttmp = 0;
@@ -1754,7 +1770,7 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
     bytes++;
     size--;
     if (size < 5 || *bytes != COMPRESSED) {
-	state->extp = bytes;
+	state->extp = (byte*)bytes;
         if (ctxp)
 	    (*ctxp)->state = B2TSizeInit;
     }
@@ -1967,9 +1983,11 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
     do {
         switch (ctx->state) {
         case B2TPrepare: {
-	    byte* bytes;
+            const byte *bytes;
             Uint bin_size;
+
             bytes = erts_get_aligned_binary_bytes_extra(bin,
+                                                        &bin_size,
                                                         &ctx->aligned_alloc,
                                                         ERTS_ALC_T_EXT_TERM_DATA,
                                                         0);
@@ -1978,7 +1996,6 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
                 ctx->state = B2TBadArg;
                 break;
             }
-            bin_size = binary_size(bin);
             if (ctx->aligned_alloc) {
                 ctx->reds -= bin_size / 8;
             }
@@ -2045,10 +2062,10 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
         case B2TDecodeTuple:
         case B2TDecodeString:
         case B2TDecodeBinary: {
-	    ErtsDistExternal fakedep;
+	    ErtsDistExternalFake fakedep;
             fakedep.flags = ctx->flags;
             fakedep.data = NULL;
-            dec_term(&fakedep, NULL, NULL, NULL, ctx, 0);
+            dec_term((ErtsDistExternal*)&fakedep, NULL, NULL, NULL, ctx, 0);
             break;
 	}
         case B2TDecodeFail:
@@ -2272,27 +2289,26 @@ erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint64 
 	} else {
 	    dest_len = real_size - 5;
 	}
-	bin = new_binary(p, NULL, real_size+1);
-	out_bytes = binary_bytes(bin);
-	out_bytes[0] = VERSION_MAGIC;
+        bin = erts_new_binary(p, real_size+1, &out_bytes);
+        out_bytes[0] = VERSION_MAGIC;
 	if (erl_zlib_compress2(out_bytes+6, &dest_len, bytes, real_size, level) != Z_OK) {
 	    sys_memcpy(out_bytes+1, bytes, real_size);
-	    bin = erts_realloc_binary(bin, real_size+1);
+	    bin = erts_shrink_binary_term(bin, real_size+1);
 	} else {
 	    out_bytes[1] = COMPRESSED;
 	    put_int32(real_size, out_bytes+2);
-	    bin = erts_realloc_binary(bin, dest_len+6);
+	    bin = erts_shrink_binary_term(bin, dest_len+6);
 	}
 	if (bytes != buf) {
 	    erts_free(ERTS_ALC_T_TMP, bytes);
 	}
 	return bin;
     } else {
-	byte* bytes;
+        byte* bytes;
 
-	bin = new_binary(p, (byte *)NULL, size);
-	bytes = binary_bytes(bin);
-	bytes[0] = VERSION_MAGIC;
+        bin = erts_new_binary(p, size, &bytes);
+        bytes[0] = VERSION_MAGIC;
+
 	if ((endp = enc_term(NULL, Term, bytes+1, dflags, NULL))
 	    == NULL) {
 	    erts_exit(ERTS_ERROR_EXIT, "%s, line %d: bad term: %x\n",
@@ -2303,7 +2319,7 @@ erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint64 
 	    erts_exit(ERTS_ERROR_EXIT, "%s, line %d: buffer overflow: %d word(s)\n",
 		     __FILE__, __LINE__, endp - (bytes + size));
 	}
-	return erts_realloc_binary(bin, real_size);
+	return erts_shrink_binary_term(bin, real_size);
     }
 }
 
@@ -2342,11 +2358,13 @@ static int ttb_context_destructor(Binary *context_bin)
 	    break;
 	case TTBEncode:
 	    DESTROY_SAVED_WSTACK(&context->s.ec.wstack);
-	    if (context->s.ec.result_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.ec.result_bin->intern.refc),1));
-		erts_bin_free(context->s.ec.result_bin);
-		context->s.ec.result_bin = NULL;
-	    }
+            /* Set to NULL if ever made alive! */
+            if (context->s.ec.result_bin != NULL) {
+                ASSERT(erts_refc_read(&(context->s.ec.result_bin->intern.refc),
+                        1) == 1);
+                erts_bin_free(context->s.ec.result_bin);
+                context->s.ec.result_bin = NULL;
+            }
             if (context->s.ec.map_array)
                 erts_free(ERTS_ALC_T_T2B_DETERMINISTIC, context->s.ec.map_array);
             if (context->s.ec.ycf_yield_state)
@@ -2357,17 +2375,23 @@ static int ttb_context_destructor(Binary *context_bin)
 	case TTBCompress:
 	    erl_zlib_deflate_finish(&(context->s.cc.stream));
 
-	    if (context->s.cc.destination_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.cc.destination_bin->intern.refc),1));
-		erts_bin_free(context->s.cc.destination_bin);
-		context->s.cc.destination_bin = NULL;
-	    }
-	    
-	    if (context->s.cc.result_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.cc.result_bin->intern.refc),1));
-		erts_bin_free(context->s.cc.result_bin);
-		context->s.cc.result_bin = NULL;
-	    }
+            /* Set to NULL if ever made alive! */
+            if (context->s.cc.destination_bin != NULL) {
+                ASSERT(
+                    erts_refc_read(&(context->s.cc.destination_bin->intern.refc),
+                                   1) == 1);
+                erts_bin_free(context->s.cc.destination_bin);
+                context->s.cc.destination_bin = NULL;
+            }
+
+            /* Set to NULL if ever made alive! */
+            if (context->s.cc.result_bin != NULL) {
+                ASSERT(
+                    erts_refc_read(&(context->s.cc.result_bin->intern.refc),
+                                   1) == 1);
+                erts_bin_free(context->s.cc.result_bin);
+                context->s.cc.result_bin = NULL;
+            }
 	    break;
 	}
     }
@@ -2517,7 +2541,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                     vlen += 3*fragments;
                     ASSERT(vlen);
                 }
-                else if (size <= ERL_ONHEAP_BIN_LIMIT) {
+                else if (size <= ERL_ONHEAP_BINARY_LIMIT) {
 		    /* Finish in one go */
 		    res = erts_term_to_binary_simple(p, Term, size, 
 						     level, dflags);
@@ -2568,8 +2592,9 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
 		level = context->s.ec.level;
 		BUMP_REDS(p, (initial_reds - reds) / TERM_TO_BINARY_LOOP_FACTOR);
 		if (level == 0 || real_size < 6) { /* We are done */
-                    Sint cbin_refc_diff;
-                    Eterm result, rb_term, *hp, *hp_end;
+                    Eterm result, *hp, *hp_end;
+                    int referenced_cbin;
+                    BinRef *result_ref;
                     Uint hsz;
                     int ix;
                     SysIOVec *iov;
@@ -2582,13 +2607,20 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
 			erts_bin_free(context_b);
 		    }
                     if (!context->s.ec.iov) {
-                        hsz = PROC_BIN_SIZE + (iovec ? 2 : 0);
-                        hp = HAlloc(p, hsz);
-                        result = erts_build_proc_bin(&MSO(p), hp, result_bin);
+                        hp = HAlloc(p, ERL_REFC_BITS_SIZE + (iovec ? 2 : 0));
+
+                        result = erts_wrap_refc_bitstring(&MSO(p).first,
+                                                          &MSO(p).overhead,
+                                                          &hp,
+                                                          result_bin,
+                                                          (byte*)result_bin->orig_bytes,
+                                                          0,
+                                                          NBITS(result_bin->orig_size));
+
                         if (iovec) {
-                            hp += PROC_BIN_SIZE;
                             result = CONS(hp, result, NIL);
                         }
+
                         return result;
                     }
                     iovec = context->s.ec.iovec;
@@ -2602,86 +2634,113 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                     ASSERT(!iov[0].iov_base && !iov[0].iov_len);
                     ASSERT(!iov[1].iov_base && !iov[1].iov_len);
 
-                    hsz = (2 /* cons */
-                           + (PROC_BIN_SIZE > ERL_SUB_BIN_SIZE
-                              ? PROC_BIN_SIZE
-                              : ERL_SUB_BIN_SIZE)); /* max size per vec */
-                    hsz *= context->s.ec.vlen - 2*fragments; /* number of vecs */
+                    /* Max per vec entry, cons + sub binary. */
+                    hsz = (2 + ERL_SUB_BITS_SIZE);
+                     /* Number of vecs */
+                    hsz *= context->s.ec.vlen - 2*fragments;
+                     /* BinRef for result bin. */
+                    hsz += ERL_BIN_REF_SIZE;
                     hp = HAlloc(p, hsz);
                     hp_end = hp + hsz;
-                    rb_term = THE_NON_VALUE;
                     result = NIL;
+
+                    /* Speculatively create a BinRef to hold any direct
+                     * references into the result_bin.
+                     *
+                     * Note that we do not link it into the off-heap list
+                     * until we know it will be used. */
                     ASSERT(erts_refc_read(&result_bin->intern.refc, 1) == 1);
-                    cbin_refc_diff = -1;
+                    result_ref = (BinRef*)hp;
+                    result_ref->thing_word = HEADER_BIN_REF;
+                    result_ref->val = result_bin;
+                    hp += ERL_BIN_REF_SIZE;
+                    referenced_cbin = 0;
+
                     for (ix = context->s.ec.vlen - 1; ix > 1; ix--) {
-                        Eterm bin_term, pb_term;
-                        Uint pb_size;
-                        ProcBin *pb;
                         SysIOVec *iovp = &iov[ix];
-                        if (!iovp->iov_base)
+                        Eterm segment;
+
+                        if (iovp->iov_base == NULL) {
                             continue; /* empty slot for header */
-                        pb_term = termv[ix];
-                        if (is_value(pb_term)) {
-                            pb_size = binary_size(pb_term);
-                            pb = (ProcBin *) binary_val(pb_term);
                         }
-                        else {
-                            iovp->iov_base = (void *) (((byte *) iovp->iov_base)
-                                                       + realloc_offset);
-                            pb_size = result_bin->orig_size;
-                            if (is_non_value(rb_term))
-                                pb = NULL;
-                            else {
-                                pb = (ProcBin *) binary_val(rb_term);
-                                pb_term = rb_term;
+
+                        ASSERT(IS_BINARY_SIZE_OK(iovp->iov_len));
+                        segment = termv[ix];
+
+                        if (is_value(segment)) {
+                            ErlSubBits *from_sb;
+
+                            from_sb = (ErlSubBits*)bitstring_val(segment);
+                            ASSERT(from_sb->thing_word == HEADER_SUB_BITS);
+
+                            /* If the term refers to the entire segment, we can
+                             * use it as is. Otherwise we need to return a
+                             * shrunken copy. */
+                            if (NBITS(iovp->iov_len) != (from_sb->end -
+                                                         from_sb->start)) {
+                                ErlSubBits *to_sb = (ErlSubBits*)hp;
+
+                                segment = make_bitstring(to_sb);
+                                hp += ERL_SUB_BITS_SIZE;
+
+                                *to_sb = *from_sb;
+                                to_sb->end = to_sb->start + NBITS(iovp->iov_len);
+
+                                ASSERT(to_sb->end < from_sb->end);
                             }
+                        } else {
+                            /* We don't have a term and need to create one now,
+                             * note that we intentionally avoid using heap
+                             * binaries since they will (most likely) need to
+                             * be converted to off-heap form when the result is
+                             * actually used.
+                             *
+                             * This wastes a bit of heap space for small
+                             * binaries, but that trade-off seems to be worth
+                             * it in most cases. */
+                            ErlSubBits *sb = (ErlSubBits*)hp;
+                            Uint iov_offset;
+
+                            iovp->iov_base =
+                                (void*)(((byte *)iovp->iov_base) + realloc_offset);
+                            iov_offset =
+                                (char*)iovp->iov_base - (char*)result_bin->orig_bytes;
+
+                            ASSERT(IS_BINARY_SIZE_OK(iov_offset));
+
+                            erl_sub_bits_init(sb,
+                                              0,
+                                              make_boxed((Eterm*)result_ref),
+                                              result_bin->orig_bytes,
+                                              NBITS(iov_offset),
+                                              NBITS(iovp->iov_len));
+
+                            segment = make_bitstring(sb);
+                            hp += ERL_SUB_BITS_SIZE;
+
+                            referenced_cbin = 1;
                         }
-                        /*
-                         * We intentionally avoid using sub binaries
-                         * since the GC might convert those to heap
-                         * binaries and by this ruin the nice preparation
-                         * for usage of this data as I/O vector in
-                         * nifs/drivers.
-                         */
-                        if (is_value(pb_term) && iovp->iov_len == pb_size)
-                            bin_term = pb_term;
-                        else {
-                            Binary *bin;
-                            if (is_value(pb_term)) {
-                                bin = ((ProcBin *) binary_val(pb_term))->val;
-                                erts_refc_inc(&bin->intern.refc, 2);
-                            }
-                            else {
-                                bin = result_bin;
-                                cbin_refc_diff++;
-                            }
-                            pb = (ProcBin *) (char *) hp;
-                            hp += PROC_BIN_SIZE;
-                            pb->thing_word = HEADER_PROC_BIN;
-                            pb->size = (Uint) iovp->iov_len;
-                            pb->next = MSO(p).first;
-                            MSO(p).first = (struct erl_off_heap_header*) pb;
-                            pb->val = bin;
-                            pb->bytes = (byte*) iovp->iov_base;
-                            pb->flags = 0;
-                            OH_OVERHEAD(&MSO(p), pb->size / sizeof(Eterm));
-                            bin_term = make_binary(pb);
-                        }
-                        result = CONS(hp, bin_term, result);
+
+                        result = CONS(hp, segment, result);
                         hp += 2;
                     }
+
                     ASSERT(hp <= hp_end);
                     HRelease(p, hp_end, hp);
                     context->s.ec.iov = NULL;
                     erts_free(ERTS_ALC_T_T2B_VEC, iov);
-                    if (cbin_refc_diff) {
-                        ASSERT(cbin_refc_diff >= -1);
-                        if (cbin_refc_diff > 0)
-                            erts_refc_add(&result_bin->intern.refc,
-                                          cbin_refc_diff, 1);
-                        else
-                            erts_bin_free(result_bin);
+
+                    if (referenced_cbin) {
+                        result_ref->next = MSO(p).first;
+                        MSO(p).first = (struct erl_off_heap_header*)result_ref;
+                        OH_OVERHEAD(&MSO(p), result_bin->orig_size);
+
+                        /* Ownership has been transferred to the result_ref, so
+                         * we do not need to bump refc. */
+                    } else {
+                        erts_bin_free(result_bin);
                     }
+
                     return result;
 		}
 		/* Continue with compression... */
@@ -2713,7 +2772,6 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
 		    TERM_TO_BINARY_COMPRESS_CHUNK : 
 		    left;
 		Binary *result_bin;
-		ProcBin *pb;
 		Uint max = (ERTS_BIF_REDS_LEFT(p) *  TERM_TO_BINARY_COMPRESS_CHUNK) / CONTEXT_REDS;
 
 		if (max < this_time) {
@@ -2747,37 +2805,57 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
 			if (context_b && erts_refc_read(&context_b->intern.refc,0) == 0) {
 			    erts_bin_free(context_b);
 			}
-			return erts_build_proc_bin(&MSO(p),
-						   HAlloc(p, PROC_BIN_SIZE),
-                                                   result_bin);
-		    }
-		default: /* Compression error, revert to uncompressed binary (still in 
-			    context) */
-		no_use_compressing:
-		    result_bin = context->s.cc.result_bin;
-		    context->s.cc.result_bin = NULL;
-		    pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
-		    pb->thing_word = HEADER_PROC_BIN;
-		    pb->size = context->s.cc.real_size;
-		    pb->next = MSO(p).first;
-		    MSO(p).first = (struct erl_off_heap_header*)pb;
-		    pb->val = result_bin;
-		    pb->bytes = (byte*) result_bin->orig_bytes;
-		    pb->flags = 0;
-		    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
-		    ASSERT(erts_refc_read(&result_bin->intern.refc, 1));
-		    erl_zlib_deflate_finish(&(context->s.cc.stream));
-		    erts_bin_free(context->s.cc.destination_bin);
-		    context->s.cc.destination_bin = NULL;
-		    context->alive = 0;
-		    BUMP_REDS(p, (this_time * CONTEXT_REDS) / TERM_TO_BINARY_COMPRESS_CHUNK);
-		    if (context_b && erts_refc_read(&context_b->intern.refc,0) == 0) {
-			erts_bin_free(context_b);
-		    }
-		    return make_binary(pb);
-		}
-	    }
-	}
+
+                        hp = HAlloc(p, ERL_REFC_BITS_SIZE);
+                        return erts_wrap_refc_bitstring(&MSO(p).first,
+                                                        &MSO(p).overhead,
+                                                        &hp,
+                                                        result_bin,
+                                                        (byte*)result_bin->orig_bytes,
+                                                        0,
+                                                        NBITS(result_bin->orig_size));
+                    }
+                default:
+                /* Revert to uncompressed binary (still in context) on
+                 * compression errors, and when compression grows the result.*/
+                no_use_compressing:
+                    {
+                        Uint result_size;
+
+                        ASSERT(IS_BINARY_SIZE_OK(context->s.cc.real_size));
+                        result_size = NBITS(context->s.cc.real_size);
+
+                        result_bin = context->s.cc.result_bin;
+                        context->s.cc.result_bin = NULL;
+
+                        ASSERT(erts_refc_read(&result_bin->intern.refc, 1));
+
+                        erl_zlib_deflate_finish(&(context->s.cc.stream));
+                        erts_bin_free(context->s.cc.destination_bin);
+                        context->s.cc.destination_bin = NULL;
+                        context->alive = 0;
+
+                        if (context_b &&
+                            erts_refc_read(&context_b->intern.refc,0) == 0) {
+                            erts_bin_free(context_b);
+                        }
+
+                        BUMP_REDS(p,
+                                  ((this_time * CONTEXT_REDS) /
+                                   TERM_TO_BINARY_COMPRESS_CHUNK));
+
+                        hp = HAlloc(p, ERL_REFC_BITS_SIZE);
+                        return erts_wrap_refc_bitstring(&MSO(p).first,
+                                                        &MSO(p).overhead,
+                                                        &hp,
+                                                        result_bin,
+                                                        (byte*)result_bin->orig_bytes,
+                                                        0,
+                                                        result_size);
+                    }
+                }
+            }
+        }
     }
 #undef EXPORT_CONTEXT
 #undef RETURN_STATE
@@ -2843,16 +2921,16 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint64 dflags)
 		put_int8(len, ep);
 		ep += 1;
 	    }
-	    sys_memcpy((char *) ep, (char *) a->name, len);
+	    sys_memcpy((char *) ep, (char *) erts_atom_get_name(a), len);
 	}
 	else {
 	    if (a->latin1_chars <= 255 && (dflags & DFLAG_SMALL_ATOM_TAGS)) {
 		*ep++ = SMALL_ATOM_EXT;
 		if (len == a->latin1_chars) {
-		    sys_memcpy(ep+1, a->name, len);
+		    sys_memcpy(ep+1, erts_atom_get_name(a), len);
 		}
 		else {
-		    len = erts_utf8_to_latin1(ep+1, a->name, len);
+		    len = erts_utf8_to_latin1(ep+1, erts_atom_get_name(a), len);
 		    ASSERT(len == a->latin1_chars);
 		}
 		put_int8(len, ep);
@@ -2861,10 +2939,10 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint64 dflags)
 	    else {
 		*ep++ = ATOM_EXT;
 		if (len == a->latin1_chars) {
-		    sys_memcpy(ep+2, a->name, len);
+		    sys_memcpy(ep+2, erts_atom_get_name(a), len);
 		}
 		else {
-		    len = erts_utf8_to_latin1(ep+2, a->name, len);
+		    len = erts_utf8_to_latin1(ep+2, erts_atom_get_name(a), len);
 		    ASSERT(len == a->latin1_chars);
 		}
 		put_int16(len, ep);
@@ -3022,11 +3100,11 @@ dec_atom(ErtsDistExternal *edep, const byte* ep, Eterm* objp, int internal_nc)
 	*objp = make_atom(n);
 	break;
     case NIL_EXT:
-        if (internal_nc) {
-            *objp = INTERNAL_LOCAL_SYSNAME;
-            break;
+        if (!internal_nc) {
+            goto error;
         }
-        /* else: fail... */
+        *objp = INTERNAL_LOCAL_SYSNAME;
+        break;
     default:
     error:
 	*objp = NIL;	/* Don't leave a hole in the heap */
@@ -3281,24 +3359,27 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    }
 	    goto outer_loop;
 	case ENC_BIN_COPY: {
-	    Uint bits = (Uint)obj;
-	    Uint bitoffs = WSTACK_POP(s);
-	    byte* bytes = (byte*) WSTACK_POP(s);
-	    byte* dst = (byte*) WSTACK_POP(s);
-	    if (bits > r * (TERM_TO_BINARY_MEMCPY_FACTOR * 8)) {
-		Uint n = r * TERM_TO_BINARY_MEMCPY_FACTOR;
-		WSTACK_PUSH5(s, (UWord)(dst + n), (UWord)(bytes + n), bitoffs,
-			     ENC_BIN_COPY, bits - 8*n);
-		bits = 8*n;
-		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
-		obj = THE_NON_VALUE;
-		r = 0; /* yield */
-		break;
-	    } else {
-		copy_binary_to_buffer(dst, 0, bytes, bitoffs, bits);
-		r -= bits / (TERM_TO_BINARY_MEMCPY_FACTOR * 8);
-		goto outer_loop;
-	    }
+            Uint size = (Uint)obj;
+            Uint src_offset = WSTACK_POP(s);
+            Uint dst_offset = WSTACK_POP(s);
+            byte* src = (byte*) WSTACK_POP(s);
+            byte* dst = (byte*) WSTACK_POP(s);
+            if (size > (r * TERM_TO_BINARY_MEMCPY_FACTOR)) {
+                Uint n = r * TERM_TO_BINARY_MEMCPY_FACTOR;
+                copy_binary_to_buffer(dst, dst_offset, src, src_offset, n);
+                src_offset += n;
+                dst_offset += n;
+                size -= n;
+                WSTACK_PUSH6(s, (UWord)dst, (UWord)src, dst_offset, src_offset,
+                             ENC_BIN_COPY, size);
+                obj = THE_NON_VALUE;
+                r = 0; /* yield */
+                break;
+            } else {
+                copy_binary_to_buffer(dst, dst_offset, src, src_offset, size);
+                r -= size / (TERM_TO_BINARY_MEMCPY_FACTOR);
+                goto outer_loop;
+            }
 	}
 	case ENC_MAP_PAIR: {
 	    Uint pairs_left = obj;
@@ -3760,164 +3841,151 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    }
 	    break;
 
-	case BINARY_DEF:
-	    {
-		Uint bitoffs;
-		Uint bitsize;
-		byte* bytes;
-		byte* data_dst;
-                Uint off_heap_bytesize = 0;
-                Uint off_heap_tail;
-                Eterm pb_term;
-                Binary *pb_val;
+	case BITSTRING_DEF:
+            {
+                ERTS_DECLARE_DUMMY(Eterm br_flags);
+                int encoding, copy_payload;
+                Uint offset, size;
+                Uint wire_size;
+                BinRef *br;
+                byte *base;
 
-                ASSERT(!(dflags & DFLAG_PENDING_CONNECT) || (ctx && ctx->iov));
-    
-		ERTS_GET_BINARY_BYTES(obj, bytes, bitoffs, bitsize);
-                if (use_iov) {
-                    if (bitoffs == 0) {
-                        ProcBin* pb = (ProcBin*) binary_val(obj);
-                        off_heap_bytesize = pb->size;
-                        if (off_heap_bytesize <= ERL_ONHEAP_BIN_LIMIT)
-                            off_heap_bytesize = 0;
-                        else {
-                            pb_term = obj;
-                            if (pb->thing_word == HEADER_SUB_BIN) {
-                                ErlSubBin* sub = (ErlSubBin*)pb;
-                                pb_term = sub->orig;
-                                pb = (ProcBin*) binary_val(pb_term);
-                            }
-                            if (pb->thing_word != HEADER_PROC_BIN)
-                                off_heap_bytesize = 0;
-                            else {
-                                if (pb->flags) {
-                                    char* before_realloc = pb->val->orig_bytes; 
-                                    erts_emasculate_writable_binary(pb);
-                                    bytes += (pb->val->orig_bytes - before_realloc);
-                                    ASSERT((byte *) &pb->val->orig_bytes[0] <= bytes
-                                           && bytes < ((byte *) &pb->val->orig_bytes[0]
-                                                       + pb->val->orig_size));
-                                }
-                                pb_val = pb->val;
-                            }
-                        }
+                ERTS_PIN_BITSTRING(obj, br_flags, br, base, offset, size);
+                encoding = TAIL_BITS(size) ? BIT_BINARY_EXT : BINARY_EXT;
+                wire_size = NBYTES(size);
+
+                copy_payload =
+                    (size <= ERL_ONHEAP_BITS_LIMIT) ||
+                    (BIT_OFFSET(offset) != 0) ||
+                    !use_iov;
+
+                if ((dflags & DFLAG_ETS_COMPRESSED) && (br != NULL)) {
+                    const Binary *refc_binary = br->val;
+
+                    ASSERT(!use_iov);
+
+                    /* Always use [BIT_]BINARY_INTERNAL_REF: this may lead to a
+                     * larger result than copying the payload, but ensures that
+                     * the decoded object is exactly the same as the encoded
+                     * one, simplifying the decompression logic in ETS. */
+                    if ((encoding == BINARY_EXT) &&
+                        (base == (byte*)refc_binary->orig_bytes) &&
+                        (size == refc_binary->orig_size * 8) &&
+                        (offset == 0)) {
+                        encoding = BINARY_INTERNAL_REF;
+                        copy_payload = 0;
+                    } else {
+                        encoding = BITSTRING_INTERNAL_REF;
+                        copy_payload = 0;
                     }
                 }
-		else if (dflags & DFLAG_ETS_COMPRESSED) {
-		    ProcBin* pb = (ProcBin*) binary_val(obj);
-		    Uint bytesize = pb->size;
-		    if (pb->thing_word == HEADER_SUB_BIN) {
-			ErlSubBin* sub = (ErlSubBin*)pb;
-			pb = (ProcBin*) binary_val(sub->orig);
-			ASSERT(bytesize == sub->size);
-			bytesize += (bitoffs + bitsize + 7) / 8;
-		    }
-		    if (pb->thing_word == HEADER_PROC_BIN
-			&& heap_bin_size(bytesize) > PROC_BIN_SIZE) {
-			ProcBin tmp;
-			if (bitoffs || bitsize) {
-			    *ep++ = BIT_BINARY_INTERNAL_REF;
-			    *ep++ = bitoffs;
-			    *ep++ = bitsize;
-			}
-			else {
-			    *ep++ = BINARY_INTERNAL_REF;
-			}
-			if (pb->flags) {
-			    char* before_realloc = pb->val->orig_bytes; 
-			    erts_emasculate_writable_binary(pb);
-			    bytes += (pb->val->orig_bytes - before_realloc);
-			}
-			erts_refc_inc(&pb->val->intern.refc, 2);
 
-			sys_memcpy(&tmp, pb, sizeof(ProcBin));
-			tmp.next = *off_heap;
-			tmp.bytes = bytes;
-			tmp.size = bytesize;
-			sys_memcpy(ep, &tmp, sizeof(ProcBin));
-			*off_heap = (struct erl_off_heap_header*) ep;
-			ep += sizeof(ProcBin);
-			break;
-		    }
-		}
-		if (bitsize == 0) {
-		    /* Plain old byte-sized binary. */
-		    *ep++ = BINARY_EXT;
-		    j = binary_size(obj);
-		    put_int32(j, ep);
-		    ep += 4;
-                    if (off_heap_bytesize)
-                        off_heap_tail = 0;
-                    else {
-                        data_dst = ep;
-                        ep += j;
+                ASSERT((copy_payload || use_iov) ^
+                       (encoding == BITSTRING_INTERNAL_REF ||
+                        encoding == BINARY_INTERNAL_REF));
+
+                *ep++ = encoding;
+                switch (encoding) {
+                case BITSTRING_INTERNAL_REF:
+                    sys_memcpy(ep, boxed_val(obj), sizeof(ErlSubBits));
+                    ep += sizeof(ErlSubBits);
+                    /* Fall through! */
+                case BINARY_INTERNAL_REF:
+                    {
+                        BinRef tmp_ref;
+
+                        erts_refc_inc(&(br->val)->intern.refc, 2);
+
+                        sys_memcpy(&tmp_ref, br, sizeof(BinRef));
+                        /* NOTE: this is only used by db_cleanup_offheap_comp
+                         * which handles potentially unaligned pointers. */
+                        tmp_ref.next = *off_heap;
+                        *off_heap = (struct erl_off_heap_header*)ep;
+                        sys_memcpy(ep, &tmp_ref, sizeof(BinRef));
+
+                        ep += sizeof(BinRef);
                     }
-		} else {
-		    /* Bit-level binary. */
-                    *ep++ = BIT_BINARY_EXT;
-                    j = binary_size(obj);
-                    put_int32((j+1), ep);
-                    ep += 4;
-                    *ep++ = bitsize;
-                    if (off_heap_bytesize) {
-                        /* trailing bits */
+                    break;
+                case BIT_BINARY_EXT:
+                    put_int32(wire_size, ep);
+                    ep[4] = TAIL_BITS(size);
+                    ep += 4 + 1;
+
+                    if (copy_payload) {
+                        /* To avoid information leakage, we have to clear the
+                         * unused bits at the end of the binary. The used bits
+                         * will be copied in later. */
+                        ep[wire_size - 1] = 0;
+                    } else {
+                        /* The bulk of the payload will be referenced directly
+                         * in the resulting iov, but the trailing bits will be
+                         * copied here since the iov can't address bits. */
+                        Uint trailing_bits = TAIL_BITS(size);
                         ep[0] = 0;
-                        copy_binary_to_buffer(ep, 0, bytes + j, 0, bitsize);
-                        off_heap_tail = 1;
+                        copy_binary_to_buffer(ep, 0, base,
+                                              offset + size - trailing_bits,
+                                              trailing_bits);
                     }
-                    else {
-                        ep[j] = 0;	/* Zero unused bits at end of binary */
-                        data_dst = ep;
-                        ep += j + 1;
-                    }
-		}
-                if (off_heap_bytesize) {
-                    ASSERT(pb_val);
-                    store_in_vec(ctx, ep, pb_val, pb_term,
-                                 bytes, off_heap_bytesize);
-                    ep += off_heap_tail;
+                    break;
+                case BINARY_EXT:
+                    put_int32(wire_size, ep);
+                    ep += 4;
+                    break;
                 }
-                else if (ctx && j > r * TERM_TO_BINARY_MEMCPY_FACTOR) {
-		    WSTACK_PUSH5(s, (UWord)data_dst, (UWord)bytes, bitoffs,
-				 ENC_BIN_COPY, 8*j + bitsize);
-		} else {
-		    copy_binary_to_buffer(data_dst, 0, bytes, bitoffs,
-					  8 * j + bitsize);
-		}
-	    }
-	    break;
+
+                if (copy_payload) {
+                    byte* data_dst = ep;
+                    ep += wire_size;
+
+                    if (ctx && wire_size > r * TERM_TO_BINARY_MEMCPY_FACTOR) {
+                        WSTACK_PUSH6(s, (UWord)data_dst, (UWord)base,
+                                     0, offset, ENC_BIN_COPY, size);
+                    } else {
+                        copy_binary_to_buffer(data_dst, 0, base, offset, size);
+                    }
+                } else if (use_iov) {
+                    /* Reference the stored data directly, omitting the
+                     * trailing bits which have been copied separately. */
+                    ASSERT(br != NULL && BIT_OFFSET(offset) == 0);
+                    base = &base[BYTE_OFFSET(offset)];
+                    store_in_vec(ctx, ep, br->val, obj, base, BYTE_SIZE(size));
+                    ep += (encoding == BIT_BINARY_EXT);
+                }
+
+                ASSERT(ctx == NULL || !use_iov ||
+                       (ep - ctx->cptr) <= (ctx->result_bin)->orig_size);
+            }
+            break;
         case FUN_DEF:
             {
                 ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
 
                 if (is_local_fun(funp)) {
-                    ErlFunEntry* fe = funp->entry.fun;
+                    const ErlFunEntry *fe = funp->entry.fun;
                     int ei;
 
                     *ep++ = NEW_FUN_EXT;
                     WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
                                 (UWord) ep); /* Position for patching in size */
                     ep += 4;
-                    *ep = funp->arity;
+                    *ep = fun_arity(funp);
                     ep += 1;
                     sys_memcpy(ep, fe->uniq, 16);
                     ep += 16;
                     put_int32(fe->index, ep);
                     ep += 4;
-                    put_int32((Uint32)funp->num_free, ep);
+                    put_int32((Uint32)fun_num_free(funp), ep);
                     ep += 4;
                     ep = enc_atom(acmp, fe->module, ep, dflags);
                     ep = enc_term(acmp, make_small(fe->old_index), ep, dflags, off_heap);
                     ep = enc_term(acmp, make_small(fe->old_uniq), ep, dflags, off_heap);
-                    ep = enc_pid(acmp, funp->creator, ep, dflags);
+                    ep = enc_pid(acmp, erts_init_process_id, ep, dflags);
 
-                    for (ei = funp->num_free-1; ei >= 0; ei--) {
+                    for (ei = fun_num_free(funp)-1; ei >= 0; ei--) {
                         WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
                     }
                 } else {
-                    Export *exp = funp->entry.exp;
-
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    const Export *exp = funp->entry.exp;
 
                     *ep++ = EXPORT_EXT;
                     ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
@@ -4103,12 +4171,16 @@ store_in_vec_aux(TTBEncodeContext *ctx,
 static void
 store_in_vec(TTBEncodeContext *ctx,
              byte *ep,
-             Binary *ohbin,
-             Eterm ohpb,
-             byte *ohp,
-             Uint ohsz)
+             Binary *refc_binary,
+             Eterm binary,
+             byte *data,
+             Uint size)
 {
-    byte *cp = ctx->cptr;
+    byte *cp;
+
+    ASSERT((refc_binary == NULL) ^ is_value(binary));
+
+    cp = ctx->cptr;
     if (cp != ep) {
         /* save data in common binary... */
         store_in_vec_aux(ctx,
@@ -4120,13 +4192,15 @@ store_in_vec(TTBEncodeContext *ctx,
         ASSERT(ctx->frag_ix <= ctx->debug_fragments);
         ctx->cptr = ep;
     }
-    if (ohbin) {
+
+
+    if (refc_binary) {
         /* save off-heap binary... */
         store_in_vec_aux(ctx,
-                         ohbin,
-                         ohpb,
-                         ohp,
-                         ohsz);
+                         refc_binary,
+                         binary,
+                         data,
+                         size);
         ASSERT(ctx->vlen <= ctx->debug_vlen);
         ASSERT(ctx->frag_ix <= ctx->debug_fragments);
     }
@@ -4753,133 +4827,115 @@ dec_term_atom_common:
 	    }
 		break;
 	    }
-	case BINARY_EXT:
-	    {
-                Uint nu = get_uint32(ep);
-		ep += 4;
-	    
-                ASSERT(IS_BINARY_SIZE_OK(nu));
+        case BIT_BINARY_EXT:
+        case BINARY_EXT:
+            {
+                Uint size_in_bits, nu;
 
-		if (nu <= ERL_ONHEAP_BIN_LIMIT) {
-		    ErlHeapBin* hb = (ErlHeapBin *) hp;
+                nu = get_uint32(ep);
+                if (!IS_BINARY_SIZE_OK(nu)) {
+                    goto error;
+                }
 
-		    hb->thing_word = header_heap_bin(nu);
-		    hb->size = nu;
-		    hp += heap_bin_size(nu);
-		    sys_memcpy(hb->data, ep, nu);
-		    *objp = make_binary(hb);
-		} else if (edep && edep->data && edep->data->binp &&
-                           nu > (edep->data->binp->orig_size / 4)) {
+                size_in_bits = NBITS(nu);
+
+                if (ep[-1] == BIT_BINARY_EXT) {
+                    Uint trailing_bits = ep[4];
+
+                    if (((trailing_bits == 0) != (nu == 0)) ||
+                        trailing_bits > 8) {
+                        goto error;
+                    }
+
+                    size_in_bits -= 8 - trailing_bits;
+                    ep++;
+                }
+
+                ep += 4;
+
+                if (size_in_bits > ERL_ONHEAP_BITS_LIMIT &&
+                    edep &&
+                    edep->data &&
+                    (edep->data)->binp &&
+                    (nu > ((edep->data)->binp)->orig_size / 4)) {
                     /* If we decode a refc binary from a distribution data
-                       entry we know that it is a refc binary to begin with
-                       so we just increment it and use the reference. This
-                       means that the entire distribution data entry will
-                       remain until this binary is de-allocated so we only
-                       do it if a substantial part (> 25%) of the data
-                       is a binary. */
-                    ProcBin* pb = (ProcBin *) hp;
-                    Binary* bptr = edep->data->binp;
-                    erts_refc_inc(&bptr->intern.refc, 1);
-                    pb->thing_word = HEADER_PROC_BIN;
-                    pb->size = nu;
-                    pb->next = factory->off_heap->first;
-                    factory->off_heap->first = (struct erl_off_heap_header*)pb;
-                    pb->val = bptr;
-                    pb->bytes = (byte*) ep;
-                    ERTS_ASSERT((byte*)(bptr->orig_bytes) < ep &&
-                                ep+nu <= (byte*)(bptr->orig_bytes+bptr->orig_size));
-                    pb->flags = 0;
-                    OH_OVERHEAD(factory->off_heap, pb->size / sizeof(Eterm));
-                    hp += PROC_BIN_SIZE;
-                    *objp = make_binary(pb);
-		} else {
-		    Binary* dbin;
+                     * entry we know that it is a refc binary to begin with so
+                     * we just increment it and use the reference. This means
+                     * that the entire distribution data entry will remain
+                     * until this binary is de-allocated, so we'll only do it
+                     * when a substantial part (> 25%) of the data is a
+                     * binary. */
+                    Binary *refc_binary = (edep->data)->binp;
+                    byte *data;
 
-                    dbin = erts_bin_nrml_alloc(nu);
+                    erts_refc_inc(&refc_binary->intern.refc, 1);
 
-		    *objp = erts_build_proc_bin(factory->off_heap, hp, dbin);
-		    hp += PROC_BIN_SIZE;
+                    data = (byte*)refc_binary->orig_bytes;
+                    ERTS_ASSERT(ErtsInArea(ep, data, refc_binary->orig_size));
+
+                    factory->hp = hp;
+                    *objp =
+                        erts_wrap_refc_bitstring(&(factory->off_heap)->first,
+                                                 &(factory->off_heap)->overhead,
+                                                 &factory->hp,
+                                                 refc_binary,
+                                                 data,
+                                                 NBITS(ep - data),
+                                                 size_in_bits);
+                    hp = factory->hp;
+                } else if (size_in_bits <= ERL_ONHEAP_BITS_LIMIT) {
+                    ErlHeapBits *hb;
+
+                    if (ctx) {
+                        /* Count reductions but don't bother trying to trap in
+                         * the middle, it's short enough not to matter. */
+                        reds -= MIN(reds, (SWord)nu / B2T_MEMCPY_FACTOR);
+                    }
+
+                    hb = (ErlHeapBits*)hp;
+                    hb->thing_word = header_heap_bits(size_in_bits);
+                    hb->size = size_in_bits;
+
+                    sys_memcpy((byte*)hb->data, ep, nu);
+                    hp += heap_bits_size(size_in_bits);
+
+                    *objp = make_bitstring(hb);
+                } else {
+                    Binary *refc_binary = erts_bin_nrml_alloc(NBYTES(size_in_bits));
+                    byte *data = (byte*)refc_binary->orig_bytes;
+
+                    factory->hp = hp;
+                    *objp = erts_wrap_refc_bitstring(&(factory->off_heap)->first,
+                                                     &(factory->off_heap)->overhead,
+                                                     &factory->hp,
+                                                     refc_binary,
+                                                     data,
+                                                     0,
+                                                     size_in_bits);
+                    hp = factory->hp;
+
                     if (ctx) {
                         unsigned int n_limit = reds * B2T_MEMCPY_FACTOR;
+
                         if (nu > n_limit) {
                             ctx->state = B2TDecodeBinary;
                             ctx->u.dc.remaining_n = nu - n_limit;
-                            ctx->u.dc.remaining_bytes = dbin->orig_bytes + n_limit;
+                            ctx->u.dc.remaining_bytes = (char*)&data[n_limit];
                             nu = n_limit;
                             reds = 0;
-                        }
-                        else
+                        } else {
                             reds -= nu / B2T_MEMCPY_FACTOR;
-                    }
-                    sys_memcpy(dbin->orig_bytes, ep, nu);
-                }
-		ep += nu;
-		break;
-	    }
-	case BIT_BINARY_EXT:
-	    {
-		Eterm bin;
-		ErlSubBin* sb;
-		Uint bitsize;
-                Uint nu = get_uint32(ep);
-
-                ASSERT(IS_BINARY_SIZE_OK(nu));
-
-		bitsize = ep[4];
-                if (((bitsize==0) != (nu==0)) || bitsize > 8)
-                    goto error;
-                ep += 5;
-		if (nu <= ERL_ONHEAP_BIN_LIMIT) {
-		    ErlHeapBin* hb = (ErlHeapBin *) hp;
-
-		    hb->thing_word = header_heap_bin(nu);
-		    hb->size = nu;
-		    sys_memcpy(hb->data, ep, nu);
-		    bin = make_binary(hb);
-		    hp += heap_bin_size(nu);
-                    ep += nu;
-		} else {
-		    Binary* dbin = erts_bin_nrml_alloc(nu);
-		    Uint n_copy = nu;
-
-		    bin = erts_build_proc_bin(factory->off_heap, hp, dbin);
-		    hp += PROC_BIN_SIZE;
-                    if (ctx) {
-                        int n_limit = reds * B2T_MEMCPY_FACTOR;
-                        if (nu > n_limit) {
-                            ctx->state = B2TDecodeBinary;
-                            ctx->u.dc.remaining_n = nu - n_limit;
-                            ctx->u.dc.remaining_bytes = dbin->orig_bytes + n_limit;
-                            n_copy = n_limit;
-                            reds = 0;
                         }
-                        else {
-                            reds -= nu / B2T_MEMCPY_FACTOR;
-			}
                     }
-                    sys_memcpy(dbin->orig_bytes, ep, n_copy);
-                    ep += n_copy;
+
+                    sys_memcpy(data, ep, nu);
                 }
 
-		if (bitsize == 8 || nu == 0) {
-		    *objp = bin;
-		} else {
-                    sb = (ErlSubBin *)hp;
-		    sb->thing_word = HEADER_SUB_BIN;
-		    sb->orig = bin;
-		    sb->size = nu - 1;
-		    sb->bitsize = bitsize;
-		    sb->bitoffs = 0;
-		    sb->offs = 0;
-		    sb->is_writable = 0;
-		    *objp = make_binary(sb);
-		    hp += ERL_SUB_BIN_SIZE;
-		}
-		break;
-	    }
+                ep += nu;
+                break;
+            }
         case EXPORT_EXT:
             {
-                ErlFunThing *funp;
                 Export *export;
                 Eterm mod;
                 Eterm name;
@@ -4911,9 +4967,7 @@ dec_term_atom_common:
                 }
 
                 export = erts_export_get_or_make_stub(mod, name, arity);
-                funp = erts_new_export_fun_thing(&factory->hp, export, arity);
-                hp = factory->hp;
-                *objp = make_fun(funp);
+                *objp = export->lambda;
             }
             break;
 	case MAP_EXT:
@@ -4978,7 +5032,7 @@ dec_term_atom_common:
 	    break;
 	case NEW_FUN_EXT:
 	    {
-		ErlFunThing* funp = (ErlFunThing *) hp;
+		ErlFunThing *funp;
 		Uint arity;
 		Eterm module;
 		const byte* uniq;
@@ -4997,11 +5051,12 @@ dec_term_atom_common:
 		ep += 4;
 		num_free = get_int32(ep);
 		ep += 4;
-		hp += ERL_FUN_SIZE;
-		hp += num_free;
-		funp->thing_word = HEADER_FUN;
-		funp->num_free = num_free;
-		*objp = make_fun(funp);
+
+                funp = (ErlFunThing*)hp;
+                funp->thing_word = MAKE_FUN_HEADER(arity, num_free, 0);
+                *objp = make_fun(funp);
+
+                hp += ERL_FUN_SIZE + num_free;
 
 		/* Module */
 		if ((ep = dec_atom(edep, ep, &module, 0)) == NULL) {
@@ -5026,27 +5081,28 @@ dec_term_atom_common:
 		}
 		old_uniq = unsigned_val(temp);
 
-		/*
-		 * It is safe to link the fun into the fun list only when
-		 * no more validity tests can fail.
-		 */
-		funp->next = factory->off_heap->first;
-		factory->off_heap->first = (struct erl_off_heap_header*)funp;
+                /* Creator pid, discarded */
+                if ((ep = dec_term(edep, factory, ep, &temp, NULL,
+                                   internal_nc)) == NULL) {
+                    goto error;
+                }
+                if (!is_pid(temp)) {
+                    goto error;
+                }
 
-                funp->entry.fun = erts_put_fun_entry2(module, old_uniq,
-                                                      old_index, uniq,
-                                                      index, arity);
-		funp->arity = arity;
-		hp = factory->hp;
+                funp->entry.fun = erts_fun_entry_get_or_make_stub(module,
+                                                                  old_uniq,
+                                                                  old_index,
+                                                                  uniq,
+                                                                  index,
+                                                                  arity);
+                hp = factory->hp;
 
 		/* Environment */
 		for (i = num_free-1; i >= 0; i--) {
 		    funp->env[i] = (Eterm) next;
 		    next = funp->env + i;
 		}
-		/* Creator */
-		funp->creator = (Eterm) next;
-		next = &(funp->creator);
 		break;
 	    }
 	case ATOM_INTERNAL_REF2:
@@ -5072,50 +5128,48 @@ dec_term_atom_common:
 	    *objp = make_atom(n);
 	    break;
 
-	case BINARY_INTERNAL_REF:
-	    {
-		ProcBin* pb = (ProcBin*) hp;
-		sys_memcpy(pb, ep, sizeof(ProcBin));
-		ep += sizeof(ProcBin);
+        case BITSTRING_INTERNAL_REF:
+        case BINARY_INTERNAL_REF:
+            {
+                const byte tag = ep[-1];
+                ErlSubBits *sb;
+                BinRef *br;
 
-		erts_refc_inc(&pb->val->intern.refc, 1);
-		hp += PROC_BIN_SIZE;
-		pb->next = factory->off_heap->first;
-		factory->off_heap->first = (struct erl_off_heap_header*)pb;
-		OH_OVERHEAD(factory->off_heap, pb->size / sizeof(Eterm));
-		pb->flags = 0;
-		*objp = make_binary(pb);
-		break;
-	    }
-	case BIT_BINARY_INTERNAL_REF:
-	    {
-		Sint bitoffs = *ep++;
-		Sint bitsize = *ep++;
-		ProcBin* pb = (ProcBin*) hp;
-		ErlSubBin* sub;
-		sys_memcpy(pb, ep, sizeof(ProcBin));
-		ep += sizeof(ProcBin);
+                sb = (ErlSubBits*)hp;
+                hp += ERL_SUB_BITS_SIZE;
+                br = (BinRef*)hp;
+                hp += ERL_BIN_REF_SIZE;
 
-		erts_refc_inc(&pb->val->intern.refc, 1);
-		hp += PROC_BIN_SIZE;
-		pb->next = factory->off_heap->first;
-		factory->off_heap->first = (struct erl_off_heap_header*)pb;
-                OH_OVERHEAD(factory->off_heap, pb->size / sizeof(Eterm));
-		pb->flags = 0;
+                if (tag == BITSTRING_INTERNAL_REF) {
+                    ASSERT(br == (BinRef*)&sb[1]);
 
-		sub = (ErlSubBin*)hp;
-		sub->thing_word = HEADER_SUB_BIN;
-		sub->size = pb->size - (bitoffs + bitsize + 7)/8;
-		sub->offs = 0;
-		sub->bitoffs = bitoffs;
-		sub->bitsize = bitsize;
-		sub->is_writable = 0;
-		sub->orig = make_binary(pb);
+                    sys_memcpy(sb, ep, sizeof(ErlSubBits) + sizeof(BinRef));
+                    ep += sizeof(ErlSubBits) + sizeof(BinRef);
 
-		hp += ERL_SUB_BIN_SIZE;
-		*objp = make_binary(sub);
-		break;
-	    }
+                    sb->orig = make_boxed((Eterm*)br);
+                } else {
+                    /* The encoded bitstring can be described entirely from the
+                     * wrapped Binary* object, so we've skipped encoding an
+                     * ErlSubBits here. We still need to create one however.*/
+                    sys_memcpy(br, ep, sizeof(BinRef));
+                    ep += sizeof(BinRef);
+
+                    erl_sub_bits_init(sb,
+                                      0,
+                                      make_boxed((Eterm*)br),
+                                      &(br->val)->orig_bytes[0],
+                                      0,
+                                      NBITS((br->val)->orig_size));
+                }
+
+                erts_refc_inc(&(br->val)->intern.refc, 1);
+
+                br->next = (factory->off_heap)->first;
+                (factory->off_heap)->first = (struct erl_off_heap_header*)br;
+                ERTS_BR_OVERHEAD(factory->off_heap, br);
+                *objp = make_bitstring(sb);
+                break;
+            }
         case MAGIC_REF_INTERNAL_REF:
             {
                 ErtsMRefThing* mrtp = (ErtsMRefThing*) hp;
@@ -5160,8 +5214,19 @@ dec_term_atom_common:
         }
     }
 
-    ASSERT(hp <= factory->hp_end
-           || (factory->mode == FACTORY_CLOSED && is_immed(*dbg_resultp)));
+#ifdef DEBUG
+    if (factory->mode == FACTORY_CLOSED) {
+        erts_literal_area_t purge_area;
+        INITIALIZE_LITERAL_PURGE_AREA(purge_area);
+
+        /* When we've got a dummy factory we should only be able to produce
+         * global literals and immediates. */
+        ASSERT(size_object_litopt(*dbg_resultp, &purge_area) == 0);
+    } else {
+        ASSERT(hp <= factory->hp_end);
+    }
+#endif
+
     factory->hp = hp;
     /*
      * From here on factory may produce (more) heap fragments
@@ -5357,9 +5422,9 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
     }
 
 #define LIST_TAIL_OP ((0 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
-#define TERM_ARRAY_OP(N) (((N) << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
-#define TERM_ARRAY_OP_DEC(OP) ((OP) - (1 << _TAG_PRIMARY_SIZE))
-
+#define HASHMAP_NODE_OP ((1 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP(N) (((N) << _HEADER_ARITY_OFFS) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP_DEC(OP) ((OP) - (1 << _HEADER_ARITY_OFFS))
 
     for (;;) {
 	ASSERT(!is_header(obj));
@@ -5509,18 +5574,20 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                     erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
 		}
 
-		ptr++;
-		WSTACK_RESERVE(s, node_sz*2);
-		while(node_sz--) {
-                    if (is_list(*ptr)) {
-			WSTACK_FAST_PUSH(s, CAR(list_val(*ptr)));
-			WSTACK_FAST_PUSH(s, CDR(list_val(*ptr)));
+                ptr++;
+                WSTACK_RESERVE(s, node_sz * 2);
+                while(node_sz--) {
+                    Eterm node = *ptr++;
+
+                    if (is_list(node) || is_tuple(node)) {
+                        WSTACK_FAST_PUSH(s, (UWord)node);
+                        WSTACK_FAST_PUSH(s, (UWord)HASHMAP_NODE_OP);
                     } else {
-			WSTACK_FAST_PUSH(s, *ptr);
-		    }
-		    ptr++;
-		}
-	    }
+                        ASSERT(is_map(node));
+                        WSTACK_FAST_PUSH(s, node);
+                    }
+                }
+            }
 	    break;
 	case FLOAT_DEF:
 	    if (dflags & DFLAG_NEW_FLOATS) {
@@ -5529,115 +5596,126 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		result += 32;   /* Yes, including the tag */
 	    }
 	    break;
-	case BINARY_DEF: {
-            ProcBin* pb = (ProcBin*) binary_val(obj);
-            Uint bin_size = pb->size;
-            byte bitoffs = 0;
-            byte bitsize = 0;
-            if (dflags & DFLAG_ETS_COMPRESSED) {
-		ProcBin* pb = (ProcBin*) binary_val(obj);
-		Uint sub_extra = 0;
-		if (pb->thing_word == HEADER_SUB_BIN) {
-		    ErlSubBin* sub = (ErlSubBin*) pb;
-                    bitoffs = sub->bitoffs;
-                    bitsize = sub->bitsize;
-		    pb = (ProcBin*) binary_val(sub->orig);
-		    sub_extra = 2;  /* bitoffs and bitsize */
-		    bin_size += (bitoffs + bitsize + 7) / 8;
-		}
-		if (pb->thing_word == HEADER_PROC_BIN
-		    && heap_bin_size(bin_size) > PROC_BIN_SIZE) {
+	case BITSTRING_DEF: {
+            ERTS_DECLARE_DUMMY(Eterm br_flags);
+            int encoding, copy_payload;
+            Uint offset, size;
+            Uint wire_size;
+            byte *base;
+            BinRef *br;
 
-		    result += 1 + sub_extra + sizeof(ProcBin);
-		    break;
-		}
+            ERTS_PIN_BITSTRING(obj, br_flags, br, base, offset, size);
+            encoding = TAIL_BITS(size) ? BIT_BINARY_EXT : BINARY_EXT;
+            wire_size = NBYTES(size);
+
+            if (wire_size >= ERTS_UINT32_MAX) {
+                WSTACK_DESTROY(s);
+                return ERTS_EXT_SZ_SYSTEM_LIMIT;
             }
-            else {
-#ifdef ARCH_64
-                if (bin_size >= (Uint) 0xffffffff) {
-                    if (pb->thing_word == HEADER_SUB_BIN) {
-                        ErlSubBin* sub = (ErlSubBin*) pb;
-                        bin_size += (sub->bitoffs + sub->bitsize+ 7) / 8;
-                    }
-                    if (bin_size > (Uint) 0xffffffff) {
-                        WSTACK_DESTROY(s);
-                        return ERTS_EXT_SZ_SYSTEM_LIMIT;
-                    }
+
+            copy_payload =
+                (size <= ERL_ONHEAP_BITS_LIMIT) ||
+                (BIT_OFFSET(offset) != 0) ||
+                (vlen < 0);
+
+            if ((dflags & DFLAG_ETS_COMPRESSED) && (br != NULL)) {
+                const Binary *refc_binary = br->val;
+
+                ASSERT(vlen < 0);
+
+                /* Always use [BIT_]BINARY_INTERNAL_REF: see matching comment
+                 * in enc_term_int. */
+                if ((encoding == BINARY_EXT) &&
+                    (base == (byte*)refc_binary->orig_bytes) &&
+                    (size == refc_binary->orig_size * 8) &&
+                    (offset == 0)) {
+                    encoding = BINARY_INTERNAL_REF;
+                } else {
+                    encoding = BITSTRING_INTERNAL_REF;
                 }
-#endif
-                if (pb->thing_word == HEADER_SUB_BIN) {
-                    ErlSubBin* sub = (ErlSubBin*) pb;
-                    bitoffs = sub->bitoffs;
-                    bitsize = sub->bitsize;
-                    pb = (ProcBin*) binary_val(sub->orig);
-                }
-                if (vlen >= 0) {
+            }
+
+            switch (encoding) {
+            case BITSTRING_INTERNAL_REF:
+                result += sizeof(ErlSubBits);
+                /* !! FALL THROUGH !! */
+            case BINARY_INTERNAL_REF:
+                result += 1 /* [BIT_]BINARY_INTERNAL_REF */
+                          + sizeof(BinRef);
+                break;
+            case BIT_BINARY_EXT:
+                result += 1; /* Trailing bit count. */
+                /* !! FALL THROUGH !! */
+            case BINARY_EXT:
+                result += 1   /* [BIT_]BINARY_EXT */
+                          + 4 /* Size in bytes */;
+
+                if (copy_payload) {
+                    result += wire_size;
+                } else {
                     Uint csz;
-                    if (pb->thing_word == HEADER_PROC_BIN
-                        && bitoffs == 0
-                        && bin_size > ERL_ONHEAP_BIN_LIMIT) {
-                        Uint trailing_result;
-                        if (bitsize == 0) {
-                            result += (1 /* BIT_BINARY_EXT */
-                                       + 4 /* size */);
-                            trailing_result = 0;
-                        }
-                        else {
-                            result += (1 /* BIT_BINARY_EXT */
-                                       + 4 /* size */
-                                       + 1 /* trailing bitsize */);
-                            trailing_result = 1 /* trailing bits */;
-                        }
-                        csz = result - ctx->last_result;
-                        ctx->last_result = result;
-                        result += trailing_result;
-                        vlen += 2; /* data leading up to binary and binary */
 
-                        /* potentially multiple elements leading up to binary */
-                        vlen += csz/MAX_SYSIOVEC_IOVLEN;
-                        /* potentially multiple elements for binary */
-                        vlen += bin_size/MAX_SYSIOVEC_IOVLEN;
-                        ctx->extra_size += bin_size;
-                        break;
-                    }
+                    /* The encode routine will set up an iovec pointing at the
+                     * actual data at this offset.
+                     *
+                     * In case of bit binaries, we grab the offset prior to
+                     * adding the trailing bits, as we want the iovec to
+                     * include the data prior to those. */
+                    csz = result - ctx->last_result;
+                    ctx->last_result = result;
+
+                    /* Trailing bits if any. */
+                    result += (encoding == BIT_BINARY_EXT);
+
+                    /* Data leading up to the binary, and the binary itself */
+                    vlen += 2;
+
+                    /* Potentially multiple elements leading up to binary */
+                    vlen += csz / MAX_SYSIOVEC_IOVLEN;
+
+                    /* Potentially multiple elements for binary.
+                     *
+                     * Note that we do not include the trailing bits in this
+                     * calculation as those have already been counted above. */
+                    size = BYTE_SIZE(size);
+                    vlen += size / MAX_SYSIOVEC_IOVLEN;
+
+                    ctx->extra_size += size;
                 }
-	    }
+                break;
+            }
 
-            if (bitsize == 0) {
-                result += (1     /* BINARY_EXT */
-                           + 4); /* size */
-            }
-            else {
-                result += (1     /* BIT_BINARY_EXT */
-                           + 4   /* size */
-                           + 1   /* bits */
-                           + 1); /* trailing bits */
-            }
-            result += bin_size;
-	    break;
+            break;
         }
         case FUN_DEF:
             {
                 ErlFunThing *funp = (ErlFunThing *) fun_val(obj);
 
                 if (is_local_fun(funp)) {
-                    result += 20+1+1+4;	/* New ID + Tag */
-                    result += 4; /* Length field (number of free variables */
-                    result += encode_pid_size(acmp, funp->creator, dflags);
-                    result += encode_atom_size(acmp, funp->entry.fun->module, dflags);
-                    result += 2 * (1+4);	/* Index, Uniq */
-                    if (funp->num_free > 1) {
+                    const ErlFunEntry *fe = funp->entry.fun;
+
+                    result += 1 /* tag */
+                            + 4 /* length field (size of free variables) */
+                            + 1 /* arity */
+                            + 16 /* uniq */
+                            + 4 /* index */
+                            + 4; /* free variables */
+                    result += encode_atom_size(acmp, fe->module, dflags);
+                    result += encode_small_size(acmp, make_small(fe->old_index), dflags);
+                    result += encode_small_size(acmp, make_small(fe->old_uniq), dflags);
+                    result += encode_pid_size(acmp, erts_init_process_id, dflags);
+
+                    if (fun_num_free(funp) > 1) {
                         WSTACK_PUSH2(s, (UWord) (funp->env + 1),
-                                    (UWord) TERM_ARRAY_OP(funp->num_free-1));
+                                    (UWord) TERM_ARRAY_OP(fun_num_free(funp)-1));
                     }
-                    if (funp->num_free != 0) {
+
+                    if (fun_num_free(funp) != 0) {
                         obj = funp->env[0];
                         continue; /* big loop */
                     }
                 } else {
-                    Export* ep = funp->entry.exp;
-
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    const Export *ep = funp->entry.exp;
 
                     result += 1;
                     result += encode_atom_size(acmp, ep->info.mfa.module, dflags);
@@ -5668,6 +5746,43 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		    obj = CAR(cons);
 		}
 		break;
+	    case HASHMAP_NODE_OP: {
+                Eterm *cons;
+
+                obj = (Eterm)WSTACK_POP(s);
+
+                if (is_tuple(obj)) {
+                    /* Collision node */
+                    Eterm *node_terms;
+                    Uint node_size;
+
+                    node_terms = tuple_val(obj);
+                    node_size = arityval(*node_terms);
+                    ASSERT(node_size >= 2);
+
+                    WSTACK_RESERVE(s, node_size * 2);
+                    for (Uint i = 1; i < node_size; i++) {
+                         ASSERT(is_list(node_terms[i]));
+                         WSTACK_FAST_PUSH(s, (UWord)node_terms[i]);
+                         WSTACK_FAST_PUSH(s, (UWord)HASHMAP_NODE_OP);
+                    }
+
+                    /* The last collision leaf must be handled below, or it
+                     * will be wrongly treated as a normal cons cell by the
+                     * main loop. */
+                    obj = node_terms[node_size];
+                    ASSERT(is_list(obj));
+                }
+
+                if (is_list(obj)) {
+                    /* Leaf node */
+                    cons = list_val(obj);
+
+                    WSTACK_PUSH(s, CDR(cons));
+                    obj = CAR(cons);
+                }
+                break;
+            }
 	    case TERM_ARRAY_OP(1):
 		obj = *(Eterm*)WSTACK_POP(s);
 		break;
@@ -5935,7 +6050,12 @@ init_done:
 	    CHKSIZE(1);
 	    n = *ep++;
             ADDTERMS(n);
-	    heap_size += n + 1;
+            /* When decoding the empty tuple we always use the canonical
+             * global literal, so it won't occupy any heap space in the block
+             * we're decoding to. */
+            if (n > 0) {
+                heap_size += n + 1;
+            }
 	    break;
 	case LARGE_TUPLE_EXT:
 	    CHKSIZE(4);
@@ -5943,14 +6063,24 @@ init_done:
 	    ep += 4;
             CHKSIZE(n); /* Fail faster if the binary is too short. */
 	    ADDTERMS(n);
-	    heap_size += n + 1;
+            /* See SMALL_TUPLE_EXT. */
+            if (n > 0) {
+                heap_size += n + 1;
+            }
 	    break;
 	case MAP_EXT:
 	    CHKSIZE(4);
 	    n = get_uint32(ep);
 	    ep += 4;
             if (n <= MAP_SMALL_MAP_LIMIT) {
-                heap_size += 3 + n + 1 + n;
+                heap_size += 3 + n;
+
+                /* When decoding the empty tuple we always use the canonical
+                 * global literal, so it won't occupy any heap space in the
+                 * block we're decoding to. */
+                if (n > 0) {
+                    heap_size += 1 + n;
+                }
 #if defined(ARCH_64)
             } else if ((n >> 31) != 0) {
                 /* Avoid overflow by limiting the number of elements in
@@ -5990,13 +6120,13 @@ init_done:
             if (!IS_BINARY_SIZE_OK(n))
                 goto error;
 #endif
-	    SKIP2(n, 4);
-	    if (n <= ERL_ONHEAP_BIN_LIMIT) {
-		heap_size += heap_bin_size(n);
-	    } else {
-		heap_size += PROC_BIN_SIZE;
-	    }
-	    break;
+            SKIP2(n, 4);
+            if (n <= ERL_ONHEAP_BINARY_LIMIT) {
+                heap_size += heap_bits_size(NBITS(n));
+            } else {
+                heap_size += ERL_REFC_BITS_SIZE;
+            }
+            break;
 	case BIT_BINARY_EXT:
 	    {
 		CHKSIZE(5);
@@ -6005,17 +6135,19 @@ init_done:
                 if (!IS_BINARY_SIZE_OK(n))
                     goto error;
 #endif
-		SKIP2(n, 5);
-		if (n <= ERL_ONHEAP_BIN_LIMIT) {
-		    heap_size += heap_bin_size(n) + ERL_SUB_BIN_SIZE;
-		} else {
-		    heap_size += PROC_BIN_SIZE + ERL_SUB_BIN_SIZE;
-		}
+                SKIP2(n, 5);
+                if (n <= ERL_ONHEAP_BINARY_LIMIT) {
+                    heap_size += heap_bits_size(NBITS(n));
+                } else {
+                    heap_size += ERL_REFC_BITS_SIZE;
+                }
 	    }
 	    break;
 	case EXPORT_EXT:
-	    ADDTERMS(3);
-	    heap_size += ERL_FUN_SIZE;
+            /* When decoding these we always use the canonical fun from the
+             * export entry, so they won't occupy any heap space in the block
+             * we're decoding to. */
+            ADDTERMS(3);
 	    break;
 	case NEW_FUN_EXT:
 	    {
@@ -6051,21 +6183,24 @@ init_done:
 	    SKIP(3+atom_extra_skip);
 	    atom_extra_skip = 0;
 	    break;
+        case BITSTRING_INTERNAL_REF:
+            if (!internal_tags) {
+                goto error;
+            }
+            SKIP(sizeof(ErlSubBits));
+            /* !!! FALL THROUGH !!! */
+        case BINARY_INTERNAL_REF:
+            if (!internal_tags) {
+                goto error;
+            }
+            SKIP(sizeof(BinRef));
 
-	case BINARY_INTERNAL_REF:
-	    if (!internal_tags) {
-		goto error;
-	    }
-	    SKIP(sizeof(ProcBin));
-	    heap_size += PROC_BIN_SIZE;
-	    break;
-	case BIT_BINARY_INTERNAL_REF:
-	    if (!internal_tags) {
-		goto error;
-	    }
-	    SKIP(2+sizeof(ProcBin));
-	    heap_size += PROC_BIN_SIZE + ERL_SUB_BIN_SIZE;
-	    break;
+            /* While BITSTRING_INTERNAL_REF and BINARY_INTERNAL_REF are
+             * encoded differently, their on-heap size is the same since
+             * BinRefs are not valid terms and must be wrapped by an
+             * ErlSubBits. */
+            heap_size += ERL_REFC_BITS_SIZE;
+            break;
         case MAGIC_REF_INTERNAL_REF:
             if (!internal_tags)
                 goto error;
@@ -6264,6 +6399,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     Uint32 payload_ix;
     Sint start_r, r;
     byte *ep;
+    int payload_moved_to_control = 0;
 
     if (reds < 0)
         return reds;
@@ -6273,17 +6409,17 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
      * element 1:
      *
      * +---+--------------+-----------+----------+
-     * |'H'|Hopefull Flags|Hopefull IX|Payload IX|
+     * |'H'|Hopeful Flags|Hopeful IX|Payload IX|
      * +---+--------------+-----------+----------+
      *   1         8            4          4
      *
-     * Hopefull flags: Flags corresponding to actual
-     *                 hopefull encodings in this
+     * Hopeful flags:  Flags corresponding to actual
+     *                 hopeful encodings in this
      *                 buffer.
-     * Hopefull IX:    Vector index of first hopefull
-     *                 encoding. Each hopefull encoding
+     * Hopeful IX:     Vector index of first hopeful
+     *                 encoding. Each hopeful encoding
      *                 is preceeded by 4 bytes containing
-     *                 next vector index of hopefull
+     *                 next vector index of hopeful
      *                 encoding. ERTS_NO_HIX marks the
      *                 end.
      * Payload IX:     Vector index of the beginning
@@ -6328,7 +6464,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         return reds;
     }
 
-    /* Currently, the hopefull flags and IX are not used. */
+    /* Currently, the hopeful flags and IX are not used. */
     hdr++;
     hdr += 8;
 
@@ -6392,11 +6528,299 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
             return 0;
         return reds;
     }
-    
+
+    if ((~dflags & DFLAG_ALTACT_SIG)
+        && ep[0] == SMALL_TUPLE_EXT
+        && (ep[1] == 4 || ep[1] == 5)
+        && ep[2] == SMALL_INTEGER_EXT
+        && ep[3] == DOP_ALTACT_SIG_SEND) {
+        byte *ptr;
+        int dist_op;
+        Uint32 flags;
+        int tuple_size = ep[1];
+        ptr = &ep[4];
+
+        /*
+         * The receiver does not understand alternate action signals...
+         *
+         * This control message has the following layouts, depending on
+         * whether it contains a token or not:
+         * - {DOP_ALTACT_SIG_SEND, Flags, SenderPid, To}
+         * - {DOP_ALTACT_SIG_SEND, Flags, SenderPid, To, Token}
+         * The control message is always followed by a payload term which
+         * is the actual message to deliver.
+         *
+         * The Flags element is an integer which currently have these bit
+         * flags defined in the least significant bits:
+         * - ERTS_DOP_ALTACT_SIG_FLG_PRIO
+         *   This is a priority message
+         * - ERTS_DOP_ALTACT_SIG_FLG_TOKEN
+         *   Control message also contains a token (control message is
+         *   a 5-tuple instead of a 4-tuple).
+         * - ERTS_DOP_ALTACT_SIG_FLG_ALIAS
+         *   An alias message (To is a reference)
+         * - ERTS_DOP_ALTACT_SIG_FLG_NAME
+         *   Send to a registered name (To is an atom)
+         * - ERTS_DOP_ALTACT_SIG_FLG_EXIT
+         *   The signal is an exit signal; otherwise, a message signal
+         *
+         * If neither ERTS_DOP_ALTACT_SIG_FLG_ALIAS nor
+         * ERTS_DOP_ALTACT_SIG_FLG_NAME is set, 'To' is a process
+         * identifier.
+         *
+         * Currently the only alternate action messages supported are:
+         * * Alias messages ('To' is a reference)
+         * * Priority messages ('To' is a reference, atom, or pid)
+         *
+         * The receiving node does not support priority messages. By this we
+         * know that the receiver process have not enabled reception of messages
+         * as priority messages, so we can safely send the message as an
+         * ordinary message.
+         *
+         * If we are sending an alias message, we need to check if it supports
+         * DOP_ALIAS_SEND/DOP_ALIAS_SEND_TT control messages and send it as such
+         * if supported; otherwise, we can safely drop the message since we know
+         * that the receiver process will not have an alias registered.
+         */
+
+        /*
+         * First read the flags field so we know what kind of altact message
+         * this is.
+         *
+         * Currently we only have 4 flags defined, so we know that
+         * the flags field has been encoded using SMALL_INTEGER_EXT.
+         */
+        switch (*(ptr++)) {
+        case SMALL_INTEGER_EXT:
+            flags = (Uint32) *ptr;
+            break;
+        default:
+            ERTS_INTERNAL_ERROR(!"Invalid altact msg flags");
+            break;
+        }
+
+        /* 'ptr' points to last byte before SenderPid... */
+
+        /*
+         * Determine what kind of control message we want to rewrite
+         * this control message as...
+         */
+        if (flags & ERTS_DOP_ALTACT_SIG_FLG_EXIT) {
+            dist_op = ((flags & ERTS_DOP_ALTACT_SIG_FLG_ALIAS)
+                       ? 0 /* drop it... */
+                       : ((dflags & DFLAG_EXIT_PAYLOAD)
+                          ? ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                             ? DOP_PAYLOAD_EXIT2_TT
+                             : DOP_PAYLOAD_EXIT2)
+                          : ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                             ? DOP_EXIT2_TT
+                             : DOP_EXIT2)));
+        }
+        else if (flags & ERTS_DOP_ALTACT_SIG_FLG_ALIAS) {
+            dist_op = ((~dflags & DFLAG_ALIAS)
+                       ? 0 /* drop it... */
+                       : ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                          ? DOP_ALIAS_SEND_TT
+                          : DOP_ALIAS_SEND));
+        }
+        else if (flags & ERTS_DOP_ALTACT_SIG_FLG_NAME) {
+            dist_op = ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                       ? DOP_REG_SEND_TT
+                       : DOP_REG_SEND);
+        }
+        else if (dflags & DFLAG_SEND_SENDER) {
+            dist_op = ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                       ? DOP_SEND_SENDER_TT
+                       : DOP_SEND_SENDER);
+        }
+        else {
+            dist_op = ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                       ? DOP_SEND_TT
+                       : DOP_SEND);
+        }
+
+        switch (dist_op) {
+        case DOP_ALIAS_SEND:
+            /* {DOP_ALIAS_SEND, SenderPid, Alias} */
+        case DOP_ALIAS_SEND_TT:
+            /* {DOP_ALIAS_SEND_TT, SenderPid, Alias, Token} */
+        case DOP_SEND_SENDER:
+            /* {DOP_SEND_SENDER, SenderPid, ToPid} */
+        case DOP_SEND_SENDER_TT:
+            /* {DOP_SEND_SENDER_TT, SenderPid, ToPid, Token} */
+        case DOP_PAYLOAD_EXIT2:
+            /* {DOP_PAYLOAD_EXIT2, SenderPid, ToPid} */
+        case DOP_PAYLOAD_EXIT2_TT:
+            /* {DOP_PAYLOAD_EXIT2_TT, SenderPid, ToPid, Token} */
+
+            /*
+             * We want to drop the 'flags' element, add new 'dist_op',
+             * and decrease tuple size by one.
+             *
+             * 'ptr' points the the byte before SenderPid, so we can
+             * just write 'dist_op' and tuple info backwards from here.
+             */
+
+            tuple_size--;
+
+        altact_sig_fallback_common:
+
+            *(ptr--) = dist_op;
+            *(ptr--) = SMALL_INTEGER_EXT;
+            *(ptr--) = tuple_size;
+            *ptr = SMALL_TUPLE_EXT;
+
+            reds--;
+            break;
+
+        case DOP_EXIT2:
+            /* {DOP_EXIT2, SenderPid, ToPid, Reason} */
+        case DOP_EXIT2_TT:
+            /* {DOP_EXIT2_TT, SenderPid, ToPid, Token, Reason} */
+
+            /*
+             * In the DOP_ALTACT_SIG_SEND signal, Reason follows *after* the
+             * control message instead of *in* the control message as in the
+             * DOP_EXIT2 and DOP_EXIT2_TT signals.
+             *
+             * We want to:
+             * - leave the tuple size as it is, since we add a Reason element
+             *   to the tuple but remove the Flags element from the tuple
+             * - remove the encoding of the Flags element
+             * - if the distribution header isn't used, we also want to
+             *   prevent the magic number being placed before Reason
+             *
+             */
+
+            /* Prevent magic number being placed before Reason */
+            payload_moved_to_control = !0;
+
+            /*
+             * 'ptr' points the the byte before SenderPid and 'tuple_size'
+             * equals the tuple size we want, so we can just write 'dist_op'
+             * and tuple info backwards from here.
+             */
+            goto altact_sig_fallback_common;
+
+        case DOP_REG_SEND:
+            /* {DOP_REG_SEND, SenderPid, '', ToName} */
+        case DOP_REG_SEND_TT:
+            /* {DOP_REG_SEND_TT, SenderPid, '', ToName, TraceToken} */
+        case DOP_SEND:
+            /* {DOP_SEND, '', ToPid} */
+        case DOP_SEND_TT:
+            /* {DOP_SEND_TT, '', ToPid, TraceToken} */
+
+            /*
+             * These require a bit more rewriting...
+             *
+             * In the regsend case we want to insert an empty atom
+             * between the SenderPid and the ToName, remove the
+             * flags and change the 'dist_op'.
+             *
+             * In the send case we want to drop the flags field,
+             * replace the SenderPid with an empty atom, change the
+             * 'dist_op', and decrease the size of the tuple by one.
+             */
+        {
+            byte *sender_start = ++ptr;
+            int n;
+            ASSERT(*sender_start == NEW_PID_EXT);
+            ptr++;
+            switch (*(ptr++)) {
+            case ATOM_UTF8_EXT:
+                n = (int) get_int16(ptr);
+                ptr += 2;
+                break;
+            case SMALL_ATOM_UTF8_EXT:
+                n = (int) *(ptr++);
+                break;
+            default:
+                ERTS_INTERNAL_ERROR("Unexpected pid encoding");
+                break;
+            }
+
+            ptr += n;
+
+            ptr += 4 /* ID */ + 4 /* serial */ + 4 /* creation */;
+
+            /* 'ptr' now points to the first byte in 'ToPid'/'ToName' */
+
+            if (dist_op == DOP_SEND_TT || dist_op == DOP_SEND) {
+                /* Write the empty atom */
+                *(--ptr) = 0;
+                *(--ptr) = SMALL_ATOM_UTF8_EXT;
+                /* Tuple size one element smaller than for the altact msg... */
+                tuple_size--;
+                ptr--;
+                /*
+                 * 'ptr' now points to the last byte before the empty atom so we
+                 * can continue writing 'dist_op' and tuple info backwards from
+                 * here.
+                 */
+                reds--;
+            }
+            else {
+                /*
+                 * Move SenderId two bytes earlier in order to make room for
+                 * the empty atom that we want to write between SenderId and
+                 * ToName...
+                 */
+                size_t sender_sz = ptr - sender_start;
+                byte *new_sender_start = sender_start - 2;
+                ASSERT(dist_op == DOP_REG_SEND_TT || dist_op == DOP_REG_SEND);
+                memmove((void *) new_sender_start,
+                        (void *) sender_start,
+                        sender_sz);
+                /* Write the empty atom between SenderId and ToName... */
+                *(--ptr) = 0;
+                *(--ptr) = SMALL_ATOM_UTF8_EXT;
+                /*
+                 * We do not change tuple size since reg-send has the same tuple
+                 * size as for the altact msg
+                 */
+                ptr = new_sender_start - 1;
+                /*
+                 * 'ptr' now points to the last byte before the SenderId so we
+                 * can continue writing 'dist_op' and tuple info backwards from
+                 * here.
+                 */
+                reds -= 2;
+            }
+            goto altact_sig_fallback_common;
+        }
+
+        case 0: {
+            int i;
+            /* Drop signal and send a tick instead... */
+            for (i = 1; i < ob->eiov->vsize; i++) {
+                if (ob->eiov->binv[i])
+                    driver_free_binary(ob->eiov->binv[i]);
+            }
+            ob->eiov->vsize = 1;
+            ob->eiov->size = 0;
+            reds--;
+            if (reds < 0)
+                return 0;
+            return reds;
+        }
+
+        default:
+            ERTS_INTERNAL_ERROR("Unexpected fallback dist operation");
+            break;
+        }
+
+        ASSERT(ptr >= ep);
+
+        iov[2].iov_base = ptr;
+        iov[2].iov_len -= (ptr - ep);
+        eiov->size -= (ptr - ep);
+    }
+
     start_r = r = reds*ERTS_TRANSCODE_REDS_FACT;
 
     /*
-     * Replace hopefull data header with actual header...
+     * Replace hopeful data header with actual header...
      */
     ep = (byte *) iov[1].iov_base;
     eiov->size -= iov[1].iov_len;
@@ -6414,7 +6838,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         hdr += 4;
         payload_ix = get_int32(hdr);
 
-        if (payload_ix) {
+        if (payload_ix && !payload_moved_to_control) {
             ASSERT(0 < payload_ix && payload_ix < eiov->vsize);
             /* Prepend version magic on payload. */
             iov[payload_ix].iov_base = &((byte*)iov[payload_ix].iov_base)[-1];

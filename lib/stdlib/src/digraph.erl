@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,60 @@
 %% %CopyrightEnd%
 %%
 -module(digraph).
+-moduledoc """
+This module provides a version of labeled directed graphs ("digraphs").
+
+The digraphs managed by this module are stored in [ETS tables](`m:ets`). That
+implies the following:
+
+- Only the process that created the digraph is allowed to update it.
+- Digraphs will not be garbage collected. The ETS tables used for a digraph will
+  only be deleted when `delete/1` is called or the process that created the
+  digraph terminates.
+- A digraph is a mutable data structure.
+
+What makes the graphs provided here non-proper directed graphs is that multiple
+edges between vertices are allowed. However, the customary definition of
+directed graphs is used here.
+
+- A _directed graph_{: #digraph } (or just "digraph") is a pair (V, E) of a
+  finite set V of _vertices_{: #vertex } and a finite set E of _directed
+  edges_{: #edge } (or just "edges"). The set of edges E is a subset of V × V
+  (the Cartesian product of V with itself).
+
+  In this module, V is allowed to be empty. The so obtained unique digraph is
+  called the _empty digraph_{: #empty_digraph }. Both vertices and edges are
+  represented by unique Erlang terms.
+
+- Digraphs can be annotated with more information. Such information can be
+  attached to the vertices and to the edges of the digraph. An annotated digraph
+  is called a _labeled digraph_, and the information attached to a vertex or an
+  edge is called a _label_{: #label }. Labels are Erlang terms.
+- An edge e = (v, w) is said to _emanate_{: #emanate } from vertex v and to be
+  _incident_{: #incident } on vertex w.
+- The _out-degree_{: #out_degree } of a vertex is the number of edges emanating
+  from that vertex.
+- The _in-degree_{: #in_degree } of a vertex is the number of edges incident on
+  that vertex.
+- If an edge is emanating from v and incident on w, then w is said to be an
+  _out-neighbor_{: #out_neighbour } of v, and v is said to be an _in-neighbor_{:
+  #in_neighbour } of w.
+- A _path_{: #path } P from v\[1] to v\[k] in a digraph (V, E) is a non-empty
+  sequence v\[1], v\[2], ..., v\[k] of vertices in V such that there is an edge
+  (v\[i],v\[i+1]) in E for 1 <= i < k.
+- The _length_{: #length } of path P is k-1.
+- Path P is _simple_{: #simple_path } if all vertices are distinct, except that
+  the first and the last vertices can be the same.
+- Path P is a _cycle_{: #cycle } if the length of P is not zero and v\[1] =
+  v\[k].
+- A _loop_{: #loop } is a cycle of length one.
+- A _simple cycle_{: #simple_cycle } is a path that is both a cycle and simple.
+- An _acyclic digraph_{: #acyclic_digraph } is a digraph without cycles.
+
+## See Also
+
+`m:digraph_utils`, `m:ets`
+""".
 
 -export([new/0, new/1, delete/1, info/1]).
 
@@ -44,12 +100,28 @@
 		  ntab = notable :: ets:table(),
 	          cyclic = true  :: boolean()}).
 
+-doc "A digraph as returned by [`new/0,1`](`new/0`).".
 -opaque graph() :: #digraph{}.
 
+-doc """
+Serves as the identifier or "name" of an edge. This is distinct from an edge
+"label" which attaches ancillary information to the edge rather than identifying
+the edge itself.
+""".
 -type edge()    :: term().
 -type label()   :: term().
 -type vertex()  :: term().
 
+-doc """
+The error reason for when an edge could not be added to a graph.
+
+If the edge would create a cycle in an
+[acyclic digraph](`m:digraph#acyclic_digraph`), `{error, {bad_edge, Path}}` is
+returned. If `G` already has an edge with value `E` connecting a different pair
+of vertices, `{error, {bad_edge, [V1, V2]}}` is returned. If either of `V1` or
+`V2` is not a vertex of digraph `G`, `{error, {bad_vertex, `V`}}` is returned,
+V = `V1` or V = `V2`.
+""".
 -type add_edge_err_rsn() :: {'bad_edge', Path :: [vertex()]}
                           | {'bad_vertex', V :: vertex()}.
 
@@ -64,10 +136,28 @@
 -type d_cyclicity()  :: 'acyclic' | 'cyclic'.
 -type d_type()       :: d_cyclicity() | d_protection().
 
+-doc(#{ equiv => new([]) }).
 -spec new() -> graph().
 
 new() -> new([]).
 
+-doc """
+Returns an [empty digraph](`m:digraph#empty_digraph`) with properties according
+to the options in `Type`:
+
+- **`cyclic`** - Allows [cycles](`m:digraph#cycle`) in the digraph (default).
+
+- **`acyclic`** - The digraph is to be kept
+  [acyclic](`m:digraph#acyclic_digraph`).
+
+- **`protected`** - Other processes can read the digraph (default).
+
+- **`private`** - The digraph can be read and modified by the creating process
+  only.
+
+If an unrecognized type option `T` is specified or `Type` is not a proper list,
+a `badarg` exception is raised.
+""".
 -spec new(Type) -> graph() when
       Type :: [d_type()].
 
@@ -112,6 +202,11 @@ set_type([], G) -> G.
 
 %% Data access functions
 
+-doc """
+Deletes digraph `G`. This call is important as digraphs are implemented with
+ETS. There is no garbage collection of ETS tables. However, the digraph is
+deleted if the process that created the digraph terminates.
+""".
 -spec delete(G) -> 'true' when
       G :: graph().
 
@@ -120,6 +215,17 @@ delete(G) ->
     ets:delete(G#digraph.etab),
     ets:delete(G#digraph.ntab).
 
+-doc """
+Returns a list of `{Tag, Value}` pairs describing digraph `G`. The following
+pairs are returned:
+
+- `{cyclicity, Cyclicity}`, where `Cyclicity` is `cyclic` or `acyclic`,
+  according to the options given to `new`.
+- `{memory, NoWords}`, where `NoWords` is the number of words allocated to the
+  ETS tables.
+- `{protection, Protection}`, where `Protection` is `protected` or `private`,
+  according to the options given to `new`.
+""".
 -spec info(G) -> InfoList when
       G :: graph(),
       InfoList :: [{'cyclicity', Cyclicity :: d_cyclicity()} |
@@ -138,12 +244,18 @@ info(G) ->
     Memory = ets:info(VT, memory) + ets:info(ET, memory) + ets:info(NT, memory),
     [{cyclicity, Cyclicity}, {memory, Memory}, {protection, Protection}].
 
+-doc """
+Creates a vertex using the empty list as label, and returns the created vertex.
+
+The created vertex is represented by term `['$v' | N]`, where `N` is an integer >= 0.
+""".
 -spec add_vertex(G) -> vertex() when
       G :: graph().
 
 add_vertex(G) ->
     do_add_vertex({new_vertex_id(G), []}, G).
 
+-doc(#{equiv => add_vertex(G, V, [])}).
 -spec add_vertex(G, V) -> vertex() when
       G :: graph(),
       V :: vertex().
@@ -151,6 +263,10 @@ add_vertex(G) ->
 add_vertex(G, V) ->
     do_add_vertex({V, []}, G).
 
+-doc """
+Creates (or modifies) vertex `V` of digraph `G`, using `Label` as the (new)
+[label](`m:digraph#label`) of the vertex. Returns the new vertex `V`.
+""".
 -spec add_vertex(G, V, Label) -> vertex() when
       G :: graph(),
       V :: vertex(),
@@ -159,6 +275,10 @@ add_vertex(G, V) ->
 add_vertex(G, V, D) ->
     do_add_vertex({V, D}, G).
 
+-doc """
+Deletes vertex `V` from digraph `G`. Any edges [emanating](`m:digraph#emanate`)
+from `V` or [incident](`m:digraph#incident`) on `V` are also deleted.
+""".
 -spec del_vertex(G, V) -> 'true' when
       G :: graph(),
       V :: vertex().
@@ -166,6 +286,7 @@ add_vertex(G, V, D) ->
 del_vertex(G, V) ->
     do_del_vertex(V, G).
 
+-doc "Deletes the vertices in list `Vertices` from digraph `G`.".
 -spec del_vertices(G, Vertices) -> 'true' when
       G :: graph(),
       Vertices :: [vertex()].
@@ -173,6 +294,10 @@ del_vertex(G, V) ->
 del_vertices(G, Vs) -> 
     do_del_vertices(Vs, G).
 
+-doc """
+Returns `{V, Label}`, where `Label` is the [label](`m:digraph#label`) of the
+vertex `V` of digraph `G`, or `false` if no vertex `V` of digraph `G` exists.
+""".
 -spec vertex(G, V) -> {V, Label} | 'false' when
       G :: graph(),
       V :: vertex(),
@@ -184,12 +309,14 @@ vertex(G, V) ->
 	[Vertex] -> Vertex
     end.
 
+-doc "Returns the number of vertices of digraph `G`.".
 -spec no_vertices(G) -> non_neg_integer() when
       G :: graph().
 
 no_vertices(G) ->
     ets:info(G#digraph.vtab, size).
 
+-doc "Returns a list of all vertices of digraph `G`, in some unspecified order.".
 -spec vertices(G) -> Vertices when
       G :: graph(),
       Vertices :: [vertex()].
@@ -197,16 +324,19 @@ no_vertices(G) ->
 vertices(G) ->
     ets:select(G#digraph.vtab, [{{'$1', '_'}, [], ['$1']}]).
 
+-doc false.
 -spec source_vertices(graph()) -> [vertex()].
 
 source_vertices(G) ->
     collect_vertices(G, in).
 
+-doc false.
 -spec sink_vertices(graph()) -> [vertex()].
 
 sink_vertices(G) ->
     collect_vertices(G, out).
 
+-doc "Returns the [in-degree](`m:digraph#in_degree`) of vertex `V` of digraph `G`.".
 -spec in_degree(G, V) -> non_neg_integer() when
       G :: graph(),
       V :: vertex().
@@ -214,6 +344,10 @@ sink_vertices(G) ->
 in_degree(G, V) ->
     length(ets:lookup(G#digraph.ntab, {in, V})).
 
+-doc """
+Returns a list of all [in-neighbors](`m:digraph#in_neighbour`) of `V` of digraph
+`G`, in some unspecified order.
+""".
 -spec in_neighbours(G, V) -> Vertex when
       G :: graph(),
       V :: vertex(),
@@ -224,6 +358,10 @@ in_neighbours(G, V) ->
     NT = G#digraph.ntab,
     collect_elems(ets:lookup(NT, {in, V}), ET, 2).
 
+-doc """
+Returns a list of all edges [incident](`m:digraph#incident`) on `V` of digraph
+`G`, in some unspecified order.
+""".
 -spec in_edges(G, V) -> Edges when
       G :: graph(),
       V :: vertex(),
@@ -232,6 +370,7 @@ in_neighbours(G, V) ->
 in_edges(G, V) ->
     [E || {{in, _}, E} <- ets:lookup(G#digraph.ntab, {in, V})].
 
+-doc "Returns the [out-degree](`m:digraph#out_degree`) of vertex `V` of digraph `G`.".
 -spec out_degree(G, V) -> non_neg_integer() when
       G :: graph(),
       V :: vertex().
@@ -239,6 +378,10 @@ in_edges(G, V) ->
 out_degree(G, V) ->
     length(ets:lookup(G#digraph.ntab, {out, V})).
 
+-doc """
+Returns a list of all [out-neighbors](`m:digraph#out_neighbour`) of `V` of
+digraph `G`, in some unspecified order.
+""".
 -spec out_neighbours(G, V) -> Vertices when
       G :: graph(),
       V :: vertex(),
@@ -249,6 +392,10 @@ out_neighbours(G, V) ->
     NT = G#digraph.ntab,
     collect_elems(ets:lookup(NT, {out, V}), ET, 3).
 
+-doc """
+Returns a list of all edges [emanating](`m:digraph#emanate`) from `V` of digraph
+`G`, in some unspecified order.
+""".
 -spec out_edges(G, V) -> Edges when
       G :: graph(),
       V :: vertex(),
@@ -257,6 +404,7 @@ out_neighbours(G, V) ->
 out_edges(G, V) ->
     [E || {{out, _}, E} <- ets:lookup(G#digraph.ntab, {out, V})].
 
+-doc(#{equiv => add_edge(G, V1, V2, [])}).
 -spec add_edge(G, V1, V2) -> edge() | {'error', add_edge_err_rsn()} when
       G :: graph(),
       V1 :: vertex(),
@@ -265,6 +413,14 @@ out_edges(G, V) ->
 add_edge(G, V1, V2) ->
     do_add_edge({new_edge_id(G), V1, V2, []}, G).
 
+-doc(#{equiv => add_edge/5}).
+-doc """
+Equivalent to [`add_edge(G, E, V1, V2, Label)`](`add_edge/5`), where `E` is a created edge.
+
+The created edge is represented by term `['$e' | N]`, where `N` is an integer >= 0.
+
+See `t:add_edge_err_rsn/0` for details on possible errors.
+""".
 -spec add_edge(G, V1, V2, Label) -> edge() | {'error', add_edge_err_rsn()} when
       G :: graph(),
       V1 :: vertex(),
@@ -274,6 +430,14 @@ add_edge(G, V1, V2) ->
 add_edge(G, V1, V2, D) ->
     do_add_edge({new_edge_id(G), V1, V2, D}, G).
 
+-doc """
+Creates (or modifies) an edge with the identifier
+`E` of digraph `G`, using `Label` as the (new) [label](`m:digraph#label`) of the
+edge. The edge is [emanating](`m:digraph#emanate`) from `V1` and
+[incident](`m:digraph#incident`) on `V2`. Returns `E`.
+
+See `t:add_edge_err_rsn/0` for details on possible errors.
+""".
 -spec add_edge(G, E, V1, V2, Label) -> edge() | {'error', add_edge_err_rsn()} when
       G :: graph(),
       E :: edge(),
@@ -284,6 +448,7 @@ add_edge(G, V1, V2, D) ->
 add_edge(G, E, V1, V2, D) ->
     do_add_edge({E, V1, V2, D}, G).
 
+-doc "Deletes edge `E` from digraph `G`.".
 -spec del_edge(G, E) -> 'true' when
       G :: graph(),
       E :: edge().
@@ -291,6 +456,7 @@ add_edge(G, E, V1, V2, D) ->
 del_edge(G, E) ->
     do_del_edges([E], G).
 
+-doc "Deletes the edges in list `Edges` from digraph `G`.".
 -spec del_edges(G, Edges) -> 'true' when
       G :: graph(),
       Edges :: [edge()].
@@ -298,12 +464,14 @@ del_edge(G, E) ->
 del_edges(G, Es) ->
     do_del_edges(Es, G).
 
+-doc "Returns the number of edges of digraph `G`.".
 -spec no_edges(G) -> non_neg_integer() when
       G :: graph().
 
 no_edges(G) ->
     ets:info(G#digraph.etab, size).
 
+-doc "Returns a list of all edges of digraph `G`, in some unspecified order.".
 -spec edges(G) -> Edges when
       G :: graph(),
       Edges :: [edge()].
@@ -311,6 +479,11 @@ no_edges(G) ->
 edges(G) ->
     ets:select(G#digraph.etab, [{{'$1', '_', '_', '_'}, [], ['$1']}]).
 
+-doc """
+Returns a list of all edges [emanating](`m:digraph#emanate`) from or
+[incident](`m:digraph#incident`) on `V` of digraph `G`, in some unspecified
+order.
+""".
 -spec edges(G, V) -> Edges when
       G :: graph(),
       V :: vertex(),
@@ -320,6 +493,12 @@ edges(G, V) ->
     ets:select(G#digraph.ntab, [{{{out, V},'$1'}, [], ['$1']},
 				{{{in, V}, '$1'}, [], ['$1']}]).
 
+-doc """
+Returns `{E, V1, V2, Label}`, where `Label` is the [label](`m:digraph#label`) of
+edge `E` [emanating](`m:digraph#emanate`) from `V1` and
+[incident](`m:digraph#incident`) on `V2` of digraph `G`. If no edge `E` of
+digraph `G` exists, `false` is returned.
+""".
 -spec edge(G, E) -> {E, V1, V2, Label} | 'false' when
       G :: graph(),
       E :: edge(),
@@ -507,6 +686,19 @@ acyclic_add_edge(E, V1, V2, Label, G) ->
 %% Delete all paths from vertex V1 to vertex V2
 %%
 
+-doc """
+Deletes edges from digraph `G` until there are no [paths](`m:digraph#path`) from
+vertex `V1` to vertex `V2`.
+
+A sketch of the procedure employed:
+
+- Find an arbitrary [simple path](`m:digraph#simple_path`)
+  v\[1], v\[2], ..., v\[k] from `V1` to `V2` in `G`.
+- Remove all edges of `G` [emanating](`m:digraph#emanate`) from v\[i] and
+  [incident](`m:digraph#incident`) to v\[i+1] for 1 <= i < k (including multiple
+  edges).
+- Repeat until there is no path between `V1` and `V2`.
+""".
 -spec del_path(G, V1, V2) -> 'true' when
       G :: graph(),
       V1 :: vertex(),
@@ -529,6 +721,14 @@ del_path(G, V1, V2) ->
 %% been searched.
 %%
 
+-doc """
+If a [simple cycle](`m:digraph#simple_cycle`) of length two or more exists
+through vertex `V`, the cycle is returned as a list `[V, ..., V]` of vertices.
+If a [loop](`m:digraph#loop`) through `V` exists, the loop is returned as a list
+`[V]`. If no cycles through `V` exist, `false` is returned.
+
+`get_path/3` is used for finding a simple cycle through `V`.
+""".
 -spec get_cycle(G, V) -> Vertices | 'false' when
       G :: graph(),
       V :: vertex(),
@@ -550,6 +750,15 @@ get_cycle(G, V) ->
 %% if no path exists false is returned
 %%
 
+-doc """
+Tries to find a [simple path](`m:digraph#simple_path`) from vertex `V1` to
+vertex `V2` of digraph `G`. Returns the path as a list `[V1, ..., V2]` of
+vertices, or `false` if no simple path from `V1` to `V2` of length one or more
+exists.
+
+Digraph `G` is traversed in a depth-first manner, and the first found path is
+returned.
+""".
 -spec get_path(G, V1, V2) -> Vertices | 'false' when
       G :: graph(),
       V1 :: vertex(),
@@ -589,6 +798,14 @@ one_path([], _, [], _, _, _, _, _Counter) -> false.
 %% Like get_cycle/2, but a cycle of length one is preferred.
 %%
 
+-doc """
+Tries to find an as short as possible [simple cycle](`m:digraph#simple_cycle`)
+through vertex `V` of digraph `G`. Returns the cycle as a list `[V, ..., V]` of
+vertices, or `false` if no simple cycle through `V` exists. Notice that a
+[loop](`m:digraph#loop`) through `V` is returned as list `[V, V]`.
+
+`get_short_path/3` is used for finding a simple cycle through `V`.
+""".
 -spec get_short_cycle(G, V) -> Vertices | 'false' when
       G :: graph(),
       V :: vertex(),
@@ -602,6 +819,15 @@ get_short_cycle(G, V) ->
 %% to find a short path.
 %%
 
+-doc """
+Tries to find an as short as possible [simple path](`m:digraph#simple_path`)
+from vertex `V1` to vertex `V2` of digraph `G`. Returns the path as a list
+`[V1, ..., V2]` of vertices, or `false` if no simple path from `V1` to `V2` of
+length one or more exists.
+
+Digraph `G` is traversed in a breadth-first manner, and the first found path is
+returned.
+""".
 -spec get_short_path(G, V1, V2) -> Vertices | 'false' when
       G :: graph(),
       V1 :: vertex(),

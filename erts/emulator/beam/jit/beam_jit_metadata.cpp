@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -131,34 +133,31 @@ static void beamasm_init_late_gdb() {
     entry->symfile_size = sizeof(struct debug_info);
 
     /* Insert into linked list */
-    entry->next_entry = __jit_debug_descriptor.first_entry;
-    if (entry->next_entry) {
-        entry->next_entry->prev_entry = entry;
-    } else {
-        entry->prev_entry = nullptr;
+    erts_mtx_lock(&__jit_debug_descriptor.mutex);
+
+    if (__jit_debug_descriptor.first_entry) {
+        ASSERT(__jit_debug_descriptor.first_entry->prev_entry == nullptr);
+        __jit_debug_descriptor.first_entry->prev_entry = entry;
     }
 
-    /* Insert into linked list */
-    erts_mtx_lock(&__jit_debug_descriptor.mutex);
+    entry->prev_entry = nullptr;
     entry->next_entry = __jit_debug_descriptor.first_entry;
-    if (entry->next_entry) {
-        entry->next_entry->prev_entry = entry;
-    } else {
-        entry->prev_entry = nullptr;
-    }
+    __jit_debug_descriptor.first_entry = entry;
 
     /* Register with gdb */
+    ASSERT(__jit_debug_descriptor.relevant_entry == nullptr);
     __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
-    __jit_debug_descriptor.first_entry = entry;
     __jit_debug_descriptor.relevant_entry = entry;
     __jit_debug_register_code();
+    __jit_debug_descriptor.relevant_entry = nullptr;
+
     erts_mtx_unlock(&__jit_debug_descriptor.mutex);
 }
 
-static void beamasm_update_gdb_info(std::string module_name,
-                                    ErtsCodePtr base_address,
-                                    size_t code_size,
-                                    const std::vector<AsmRange> &ranges) {
+static void *beamasm_insert_gdb_info(std::string module_name,
+                                     ErtsCodePtr base_address,
+                                     size_t code_size,
+                                     const std::vector<AsmRange> &ranges) {
     Sint symfile_size = sizeof(struct debug_info) + module_name.size() + 1;
 
     for (const auto &range : ranges) {
@@ -221,21 +220,58 @@ static void beamasm_update_gdb_info(std::string module_name,
 
     /* Insert into linked list */
     erts_mtx_lock(&__jit_debug_descriptor.mutex);
-    entry->next_entry = __jit_debug_descriptor.first_entry;
-    if (entry->next_entry) {
-        entry->next_entry->prev_entry = entry;
-    } else {
-        entry->prev_entry = nullptr;
+
+    if (__jit_debug_descriptor.first_entry) {
+        ASSERT(__jit_debug_descriptor.first_entry->prev_entry == nullptr);
+        __jit_debug_descriptor.first_entry->prev_entry = entry;
     }
 
-    /* register with gdb */
-    __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
+    entry->prev_entry = nullptr;
+    entry->next_entry = __jit_debug_descriptor.first_entry;
     __jit_debug_descriptor.first_entry = entry;
+
+    /* register with gdb */
+    ASSERT(__jit_debug_descriptor.relevant_entry == nullptr);
+    __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
     __jit_debug_descriptor.relevant_entry = entry;
     __jit_debug_register_code();
+    __jit_debug_descriptor.relevant_entry = nullptr;
+
     erts_mtx_unlock(&__jit_debug_descriptor.mutex);
+
+    /* Return a reference to our debugger entry so we can remove it when
+     * unloading. */
+    return entry;
 }
 
+static void beamasm_delete_gdb_info(void *metadata) {
+    jit_code_entry *entry = (jit_code_entry *)metadata;
+
+    erts_mtx_lock(&__jit_debug_descriptor.mutex);
+
+    /* Unlink current module from the entry list. */
+    if (entry->prev_entry) {
+        entry->prev_entry->next_entry = entry->next_entry;
+    } else {
+        __jit_debug_descriptor.first_entry = entry->next_entry;
+    }
+
+    if (entry->next_entry) {
+        entry->next_entry->prev_entry = entry->prev_entry;
+    }
+
+    /* unregister with gdb  */
+    ASSERT(__jit_debug_descriptor.relevant_entry == nullptr);
+    __jit_debug_descriptor.action_flag = JIT_UNREGISTER_FN;
+    __jit_debug_descriptor.relevant_entry = entry;
+    __jit_debug_register_code();
+    __jit_debug_descriptor.relevant_entry = nullptr;
+
+    erts_mtx_unlock(&__jit_debug_descriptor.mutex);
+
+    free((void *)entry->symfile_addr);
+    free(entry);
+}
 #endif /* HAVE_GDB_SUPPORT */
 
 #ifdef HAVE_LINUX_PERF_SUPPORT
@@ -296,7 +332,11 @@ public:
 
         /* LLVM places this file in ~/.debug/jit/ maybe we should do that to? */
 
-        erts_snprintf(name, sizeof(name), "/tmp/jit-%d.dump", getpid());
+        erts_snprintf(name,
+                      sizeof(name),
+                      "%s/jit-%d.dump",
+                      etrs_jit_perf_directory,
+                      getpid());
 
         file = fopen(name, "w+");
 
@@ -433,7 +473,16 @@ class JitPerfMap {
 public:
     bool init() {
         char name[MAXPATHLEN];
-        snprintf(name, sizeof(name), "/tmp/perf-%i.map", getpid());
+        size_t namesz = sizeof(name);
+
+        if (erts_sys_explicit_host_getenv("ERL_SYM_MAP_FILE", name, &namesz) !=
+            1) {
+            erts_snprintf(name,
+                          sizeof(name),
+                          "%s/perf-%i.map",
+                          etrs_jit_perf_directory,
+                          getpid());
+        }
         file = fopen(name, "w");
         if (!file) {
             int saved_errno = errno;
@@ -525,15 +574,26 @@ void beamasm_metadata_late_init() {
 #endif
 }
 
-void beamasm_metadata_update(std::string module_name,
-                             ErtsCodePtr base_address,
-                             size_t code_size,
-                             const std::vector<AsmRange> &ranges) {
+void *beamasm_metadata_insert(std::string module_name,
+                              ErtsCodePtr base_address,
+                              size_t code_size,
+                              const std::vector<AsmRange> &ranges) {
 #ifdef HAVE_LINUX_PERF_SUPPORT
     perf.update(ranges);
 #endif
 
 #ifdef HAVE_GDB_SUPPORT
-    beamasm_update_gdb_info(module_name, base_address, code_size, ranges);
+    return beamasm_insert_gdb_info(module_name,
+                                   base_address,
+                                   code_size,
+                                   ranges);
+#else
+    return NULL;
+#endif
+}
+
+void beamasm_unregister_metadata(void *metadata) {
+#ifdef HAVE_GDB_SUPPORT
+    beamasm_delete_gdb_info(metadata);
 #endif
 }

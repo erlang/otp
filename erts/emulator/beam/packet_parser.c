@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 2008-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -388,6 +390,7 @@ int packet_get_length(enum PacketParseType htype,
     case TCP_PB_HTTPH:
     case TCP_PB_HTTPH_BIN:
         *statep = !0;
+        ERTS_FALLTHROUGH();
     case TCP_PB_HTTP:
     case TCP_PB_HTTP_BIN:
         /* TCP_PB_HTTP:  data \r\n(SP data\r\n)*  */

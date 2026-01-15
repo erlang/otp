@@ -1,9 +1,15 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec spawn_request(Fun) -> ReqId[0m
-  [;1m                       when Fun :: function(), ReqId :: reference().[0m
+[;1m  spawn_request(Fun)[0m
 
 [;;4mSince[0m:
   OTP 23.0
 
-  The same as the call [;;4mspawn_request(node(),Fun,[])[0m. That is, a
+  Equivalent to the call [;;4mspawn_request(node(),Fun,[])[0m. That is, a
   spawn request on the local node with no options.

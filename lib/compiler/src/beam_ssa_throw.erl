@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +31,7 @@
 %%%
 
 -module(beam_ssa_throw).
+-moduledoc false.
 
 -export([module/2]).
 
@@ -56,7 +59,7 @@
 %% Per-module scan state
 -record(gst, {tlh_roots :: gb_trees:tree(#b_local{}, gb_sets:set(handler())),
               tlh_edges=#{} :: #{ #b_local{} => gb_sets:set(#b_local{}) },
-              throws=sets:new([{version, 2}]) :: sets:set(#b_local{})}).
+              throws=sets:new() :: sets:set(#b_local{})}).
 
 %% Per-function scan state
 -record(lst, {suitability=#{} :: #{ #b_var{} => suitability() },
@@ -400,7 +403,7 @@ ois_1([], _Blocks, _Ts) ->
     true.
 
 ois_successors(#b_switch{fail=Fail,list=List}, _Ts) ->
-    Lbls = [Lbl || {_, Lbl} <- List],
+    Lbls = [Lbl || {_, Lbl} <:- List],
     [Fail | Lbls];
 ois_successors(#b_br{bool=Bool,succ=Succ,fail=Fail}, Ts) ->
     case beam_types:get_singleton_value(ois_get_type(Bool, Ts)) of

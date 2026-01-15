@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,9 +16,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
+
+-ifndef(megaco_test_lib_hrl).
+-define(megaco_test_lib_hrl, true).
 
 %%
 %%----------------------------------------------------------------------
@@ -149,3 +154,12 @@
 
 -define(MEGACO_TRACE(C, D),    ?LIB:megaco_trace((C), (D))).
 -define(ENABLE_TRACE(C, L, D), ?LIB:enable_trace((C), (L), (D))).
+
+%% 'BENCH_SUITE' needs to be defined by the module using this macro
+-define(BENCH_EVENT(__N__, __V__),
+        #event{name = benchmark_data,
+               data = [{suite, ?BENCH_SUITE},
+                       {value, (__V__)},
+                       {name,  (__N__)}]}).
+
+-endif. % -ifndef(socket_test_lib_hrl).

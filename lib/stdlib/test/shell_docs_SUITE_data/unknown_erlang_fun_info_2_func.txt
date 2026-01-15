@@ -1,14 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:fun_info(Fun, Item) -> {Item, Info}[0m
-  [;1m                         when[0m
-  [;1m                             Fun :: function(),[0m
-  [;1m                             Item :: fun_info_item(),[0m
-  [;1m                             Info :: term().[0m
-
-  Types:
-    -type fun_info_item() ::
-          arity | env | index | name | module | new_index | new_uniq |
-          pid | type | uniq.
+[;1m  fun_info(Fun, Item)[0m
 
   Returns information about [;;4mFun[0m as specified by [;;4mItem[0m, in the
   form [;;4m{Item,Info}[0m.

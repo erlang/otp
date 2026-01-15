@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +35,7 @@
          undef_init/1, undef_handle_call/1, undef_handle_event/1,
          undef_handle_info/1, undef_code_change/1, undef_terminate/1,
          undef_in_terminate/1, format_log_1/1, format_log_2/1,
+         format_log_with_process_label/1,
          send_request_receive_reqid_collection/1, send_request_wait_reqid_collection/1,
          send_request_check_reqid_collection/1]).
 
@@ -43,7 +46,7 @@ all() ->
      call_format_status, call_format_status_anon, error_format_status,
      get_state, replace_state,
      start_opt, {group, undef_callbacks}, undef_in_terminate,
-     format_log_1, format_log_2,
+     format_log_1, format_log_2, format_log_with_process_label,
      send_request_receive_reqid_collection, send_request_wait_reqid_collection,
      send_request_check_reqid_collection].
 
@@ -1168,7 +1171,7 @@ error_format_status(Module) when is_atom(Module) ->
 			       FmtState, _]}} ->
 	    ok;
 	Other ->
-	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:log("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     after 5000 ->
 	    ct:fail({exit_gen_event,flush()})
@@ -1325,7 +1328,8 @@ format_log_1(_Config) ->
                name=>Name,
                last_message=>Term,
                state=>Term,
-               reason=>Term},
+               reason=>Term,
+               process_label=>undefined},
     {F1, A1} = gen_event:format_log(Report),
     FExpected1 = "** gen_event handler ~tp crashed.\n"
         "** Was installed in ~tp\n"
@@ -1361,7 +1365,8 @@ format_log_1(_Config) ->
                                      name=>Name,
                                      last_message=>LastMsg,
                                      state=>State,
-                                     reason=>Reason}),
+                                     reason=>Reason,
+                                     process_label=>undefined}),
     FExpected2 = "** gen_event handler ~tP crashed.\n"
         "** Was installed in ~tP\n"
         "** Last event was: ~tP\n"
@@ -1398,7 +1403,8 @@ format_log_2(_Config) ->
                name=>Name,
                last_message=>Term,
                state=>Term,
-               reason=>Term},
+               reason=>Term,
+               process_label=>undefined},
     FormatOpts1 = #{},
     Str1 = flatten_format_log(Report, FormatOpts1),
     L1 = length(Str1),
@@ -1522,6 +1528,85 @@ format_log_2(_Config) ->
     true = lists:prefix(WExpected6, WStr6),
     true = WL6 < WL4,
 
+    ok.
+
+format_log_with_process_label(_Config) ->
+    %% Previous test cases test with process_label set to undefined,
+    %% so in this test case, test setting it, and test:
+    %% * multiple and single line line
+    %% * depth-limited and unlimited
+
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1,15),
+    Handler = my_handler,
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    ProcessLabel = {some_id, #{term => Term}},
+    LastMsg = dummy_msg,
+    Reason = dummy_reason,
+    State = dummy_state,
+    Report = #{label=>{gen_event,terminate},
+               handler=>Handler,
+               name=>Name,
+               last_message=>LastMsg,
+               state=>State,
+               reason=>Reason,
+               process_label=>ProcessLabel},
+
+    %% multiple and single line (unlimited depth)
+
+    {F1, A1} = gen_event:format_log(Report),
+    FExpected1 = "** gen_event handler ~tp crashed.\n"
+        "** Was installed in ~tp\n"
+        "** Process label == ~tp\n"
+        "** Last event was: ~tp\n"
+        "** When handler state == ~tp\n"
+        "** Reason == ~tp\n",
+    ct:log("F1: ~ts~nA1: ~tp", [F1,A1]),
+    FExpected1 = F1,
+    [Handler,Name,ProcessLabel,LastMsg,State,Reason] = A1,
+
+    FormatOpts2 = #{single_line=>true},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    Expected2 = "Generic event handler my_handler crashed. "
+        "Installed: "++NameStr++". "
+        "Label: {some_id,#{term => [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}}. "
+        "Last event: dummy_msg. "
+        "State: dummy_state. "
+        "Reason: dummy_reason.",
+    ct:log("Str2: ~ts", [Str2]),
+    true = Expected2 =:= Str2,
+
+    %% multiple and single line (depth-limited)
+
+    Depth = 10,
+    FormatOpts3 = #{depth=>Depth},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    Expected3 = "** gen_event handler my_handler crashed.\n"
+        "** Was installed in " ++ NameStr ++ "\n"
+        "** Process label == {some_id,#{term => [1,2,3,4,5,6|...]}}\n"
+        "** Last event was: ",
+    ct:log("Str3: ~ts",[Str3]),
+    true = lists:prefix(Expected3,Str3),
+
+    FormatOpts4 = #{single_line=>true, depth=>Depth},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    Expected4 = "Generic event handler my_handler crashed. "
+        "Installed: "++NameStr++". "
+        "Label: {some_id,#{term => [1,2,3,4,5,6|...]}}. "
+        "Last event: dummy_msg. "
+        "State: dummy_state. "
+        "Reason: dummy_reason.",
+    ct:log("Str4: ~ts", [Str4]),
+    true = Expected4 =:= Str4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
     ok.
 
 flatten_format_log(Report, Format) ->

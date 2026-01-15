@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec is_process_alive(Pid) -> boolean() when Pid :: pid().[0m
+[;1m  is_process_alive(Pid)[0m
 
   [;;4mPid[0m must refer to a process at the local node.
 
@@ -12,7 +19,9 @@
   before the aliveness of [;;4mP2[0m is checked. This guarantee means that
   one can use [;;4mis_process_alive/1[0m to let a process [;;4mP1[0m wait until
   a process [;;4mP2[0m, which has got an exit signal with reason [;;4mkill[0m
-  from P1, is killed. Example:
+  from P1, is killed.
+
+  For example:
 
     exit(P2Pid, kill),
     % P2 might not be killed

@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES =  \
 	cover_SUITE \
 	eprof_SUITE \
+	tprof_SUITE \
 	emacs_SUITE \
 	fprof_SUITE \
 	cprof_SUITE \
@@ -52,7 +55,7 @@ RELSYSDIR = $(RELEASE_PATH)/tools_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

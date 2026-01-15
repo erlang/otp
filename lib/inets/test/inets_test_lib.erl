@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,10 +36,10 @@ has_ipv6_support() ->
     tsp("has_ipv6_support -> no ipv6_hosts config"),
     {ok, Hostname} = inet:gethostname(),
     case inet:getaddrs(Hostname, inet6) of
-	{ok, [Addr|_]} when is_tuple(Addr) andalso 
+	{ok, [Addr|_]} when is_tuple(Addr) andalso
 			    (element(1, Addr) =/= 0) ->
-	    %% We actually need to test that the addr can be used, 
-	    %% this is done by attempting to create a (tcp) 
+	    %% We actually need to test that the addr can be used,
+	    %% this is done by attempting to create a (tcp)
 	    %% listen socket
 	    tsp("has_ipv6_support -> check Addr: ~p", [Addr]),
 	    case (catch gen_tcp:listen(0, [inet6, {ip, Addr}])) of
@@ -51,11 +53,11 @@ has_ipv6_support() ->
 	_ ->
 	    undefined
     end.
-    
+
 has_ipv6_support(Config) ->
     case lists:keysearch(ipv6_hosts, 1, Config) of
 	false ->
-	    %% Do a basic check to se if 
+	    %% Do a basic check to se if
 	    %% our own host has a working IPv6 address...
 	    has_ipv6_support();
 
@@ -71,7 +73,7 @@ has_ipv6_support(Config) ->
 		false ->
 		    undefined
 	    end;
-	
+
 	_ ->
 	    undefined
 
@@ -84,7 +86,7 @@ oscmd(Cmd) ->
 print_system_info([]) ->
     do_print_system_info("System Info");
 print_system_info(Prefix) when is_list(Prefix) ->
-    NewPrefix = lists:flatten(io_lib:format("~s: System Info", [Prefix])), 
+    NewPrefix = lists:flatten(io_lib:format("~s: System Info", [Prefix])),
     do_print_system_info(NewPrefix).
 
 do_print_system_info(Prefix) ->
@@ -99,8 +101,8 @@ do_print_system_info(Prefix) ->
 	"~n   Num schedulers:     ~p"
 	"~n   Scheduler bindings: ~p"
 	"~n   Wordsize:           ~p"
-	"~n~n", [Prefix, 
-		 os:type(), os:version(), 
+	"~n~n", [Prefix,
+		 os:type(), os:version(),
 		 erlang:system_info(system_architecture),
 		 erlang:system_info(cpu_topology),
 		 erlang:system_info(logical_processors),
@@ -109,8 +111,8 @@ do_print_system_info(Prefix) ->
 		 erlang:system_info(scheduler_bindings),
 		 erlang:system_info(wordsize)]),
     ok.
-    
-    
+
+
 run_on_windows(Fun) ->
     run_on_os(windows, Fun).
 
@@ -121,8 +123,8 @@ run_on_os(windows, Fun) ->
 	_ ->
 	    ok
     end.
-	    
-    
+
+
 %% -- Misc node operation wrapper functions --
 
 start_node(Name) ->
@@ -137,7 +139,7 @@ start_node(Name) ->
               end,
     A = Args ++ " -pa " ++ Pa,
     Opts = [{cleanup,false}, {args, A}],
-    case (catch test_server:start_node(Name, slave, Opts)) of
+    case (catch test_server:start_node(Name, peer, Opts)) of
         {ok, Node} ->
             Node;
         Else ->
@@ -163,7 +165,7 @@ await_stopped(Node, N) ->
 
 %% ----------------------------------------------------------------
 %% Ensure apps are started
-%% This to ensure we dont attempt to run teatcases on platforms 
+%% This to ensure we dont attempt to run teatcases on platforms
 %% where there is no working ssl app.
 
 ensure_started([]) ->
@@ -172,11 +174,11 @@ ensure_started([App|Apps]) ->
     ensure_started(App),
     ensure_started(Apps);
 ensure_started(crypto = App) ->
-    %% We have to treat crypto in this special way because 
+    %% We have to treat crypto in this special way because
     %% only this function ensures that the NIF lib is actually
-    %% loaded. And only by loading that lib can we know if it 
+    %% loaded. And only by loading that lib can we know if it
     %% is even possible to run crypto.
-    do_ensure_started(App, fun() -> crypto:start() end);
+    do_ensure_started(App, fun() -> application:start(crypto) end);
 ensure_started(App) when is_atom(App) ->
     do_ensure_started(App, fun() -> application:start(App) end).
 
@@ -212,9 +214,9 @@ start_http_server(Conf) ->
 
 start_http_server(Conf, ssl = _SslTag) ->
     tsp("start_http_server(ssl) -> try start crypto"),
-    application:start(crypto), 
+    application:start(crypto),
     tsp("start_http_server(ssl) -> try start public_key"),
-    application:start(public_key), 
+    application:start(public_key),
     do_start_http_server(Conf);
 start_http_server(Conf, SslTag) ->
     tsp("start_http_server(~w) -> entry", [SslTag]),
@@ -251,12 +253,12 @@ do_start_http_server(Conf) ->
 		"~n   Reason: ~p", [Reason]),
 	    tsf({failed_loading_inets, Reason})
     end.
-	    
+
 start_http_server_ssl(FileName) ->
     start_http_server_ssl(FileName, ssl).
 
 start_http_server_ssl(FileName, ssl = _SslTag) ->
-    application:start(crypto), 
+    application:start(crypto),
     do_start_http_server_ssl(FileName);
 start_http_server_ssl(FileName, _SslTag) ->
     do_start_http_server_ssl(FileName).
@@ -265,7 +267,7 @@ do_start_http_server_ssl(FileName) ->
     tsp("start (ssl) http server with "
 	"~n   FileName: ~p"
 	"~n", [FileName]),
-    application:start(ssl),	       
+    application:start(ssl),
     catch do_start_http_server(FileName).
 
 
@@ -301,9 +303,9 @@ from(_, []) -> [].
 copy_file(File, From, To) ->
     file:copy(filename:join(From, File), filename:join(To, File)).
 
-copy_files(FromDir, ToDir) -> 
+copy_files(FromDir, ToDir) ->
     {ok, Files} = file:list_dir(FromDir),
-    lists:foreach(fun(File) -> 
+    lists:foreach(fun(File) ->
 			  FullPath = filename:join(FromDir, File),
 			  case filelib:is_file(FullPath) of
 			      true ->
@@ -319,9 +321,9 @@ copy_dirs(FromDirRoot, ToDirRoot) ->
     case file:list_dir(FromDirRoot) of
 	{ok, Files}  ->
 	    lists:foreach(
-	      fun(FileOrDir) -> 
+	      fun(FileOrDir) ->
 		      %% Check if it's a directory or a file
-		      case filelib:is_dir(filename:join(FromDirRoot, 
+		      case filelib:is_dir(filename:join(FromDirRoot,
 							FileOrDir)) of
 			  true ->
 			      FromDir = filename:join([FromDirRoot, FileOrDir]),
@@ -335,10 +337,10 @@ copy_dirs(FromDirRoot, ToDirRoot) ->
 					  "~n   Reason: ~p"
 					  "~nwhen"
 					  "~n   ToDirRoot:           ~p"
-					  "~n   ToDirRoot file info: ~p", 
-					  [ToDir, 
-					   Reason, 
-					   ToDirRoot, 
+					  "~n   ToDirRoot file info: ~p",
+					  [ToDir,
+					   Reason,
+					   ToDirRoot,
 					   file:read_file_info(ToDirRoot)]),
 				      tsf({failed_copy_dir, ToDir, Reason})
 			      end;
@@ -351,14 +353,14 @@ copy_dirs(FromDirRoot, ToDirRoot) ->
 		"~n   FromDirRoot: ~p"
 		"~n   Reason:      ~p"
 		"~nwhen"
-		"~n   FromDirRoot file info: ~p", 
-		[FromDirRoot, 
-		 Reason, 
+		"~n   FromDirRoot file info: ~p",
+		[FromDirRoot,
+		 Reason,
 		 file:read_file_info(FromDirRoot)]),
 	    tsf({failed_list_dir, FromDirRoot, Reason})
     end.
-	    
-		
+
+
 
 del_dirs(Dir) ->
     case file:list_dir(Dir) of
@@ -370,10 +372,10 @@ del_dirs(Dir) ->
 				  case filelib:is_dir(FullPath) of
 				      true ->
 					  del_dirs(FullPath),
-					  file:del_dir(FullPath);	       
+					  file:del_dir(FullPath);
 				      false ->
 					  file:delete(FullPath)
-				  end 
+				  end
 			  end, Files);
 	_ ->
 	    ok
@@ -451,7 +453,7 @@ os_based_skip(_) ->
 %% Socket functions:
 %% open(SocketType, Host, Port) -> {ok, Socket} | {error, Reason}
 %% SocketType -> ssl | ip_comm
-%% Host       -> atom() | string() | {A, B, C, D} 
+%% Host       -> atom() | string() | {A, B, C, D}
 %% Port       -> integer()
 
 connect_bin(SockType, Host, Port) ->
@@ -468,7 +470,7 @@ connect_bin(Type, Host, Port, Opts) ->
 
 connect_byte(SockType, Host, Port) ->
     connect_byte(SockType, Host, Port, []).
-    
+
 connect_byte(ssl, Host, Port, Opts0) ->
     Opts = [list, {packet,0}, {verify, verify_none} | Opts0],
     connect(ssl, Host, Port, Opts);
@@ -484,7 +486,7 @@ connect(ssl, Host, Port, Opts) ->
     ssl:connect(Host, Port, Opts);
 connect(openssl_port, Host, Port, Opts) ->
     CaCertFile = proplists:get_value(cacertfile, Opts),
-    Cmd = "openssl s_client -quiet -port " ++ integer_to_list(Port)  ++ " -host " ++ Host 
+    Cmd = "openssl s_client -quiet -port " ++ integer_to_list(Port)  ++ " -host " ++ Host
 	++ " -CAfile " ++ CaCertFile,
     ct:log("openssl cmd: ~p~n", [Cmd]),
     OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
@@ -547,7 +549,7 @@ tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
     Timestamp = inets_lib:formated_timestamp(),
-    ct:pal("*** ~s ~p ~p " ++ F ++ "~n", 
+    ct:log("*** ~s ~p ~p " ++ F ++ "~n",
 		       [Timestamp, node(), self() | A]).
 
 tsf(Reason) ->
@@ -583,8 +585,8 @@ read_junk(OpensslPort) ->
     receive
 	{OpensslPort, _} ->
 	    read_junk(OpensslPort)
-    after 500 -> 
-	    ok    
+    after 500 ->
+	    ok
     end.
 hardcode_rsa_key(1) ->
     #'RSAPrivateKey'{
@@ -611,8 +613,8 @@ hardcode_rsa_key(2) ->
        exponent2 = 51312467664734785681382706062457526359131540440966797517556579722433606376221663384746714140373192528191755406283051201483646739222992016094510128871300458249756331334105225772206172777487956446433115153562317730076172132768497908567634716277852432109643395464627389577600646306666889302334125933506877206029,
        coefficient = 30504662229874176232343608562807118278893368758027179776313787938167236952567905398252901545019583024374163153775359371298239336609182249464886717948407152570850677549297935773605431024166978281486607154204888016179709037883348099374995148481968169438302456074511782717758301581202874062062542434218011141540,
        otherPrimeInfos = asn1_NOVALUE};
-hardcode_rsa_key(3) -> 
-    #'RSAPrivateKey'{ 
+hardcode_rsa_key(3) ->
+    #'RSAPrivateKey'{
        version = 'two-prime',
        modulus = 25089040456112869869472694987833070928503703615633809313972554887193090845137746668197820419383804666271752525807484521370419854590682661809972833718476098189250708650325307850184923546875260207894844301992963978994451844985784504212035958130279304082438876764367292331581532569155681984449177635856426023931875082020262146075451989132180409962870105455517050416234175675478291534563995772675388370042873175344937421148321291640477650173765084699931690748536036544188863178325887393475703801759010864779559318631816411493486934507417755306337476945299570726975433250753415110141783026008347194577506976486290259135429,
        publicExponent = 17,
@@ -623,7 +625,7 @@ hardcode_rsa_key(3) ->
        exponent2 = 137572620950115585809189662580789132500998007785886619351549079675566218169991569609420548245479957900898715184664311515467504676010484619686391036071176762179044243478326713135456833024206699951987873470661533079532774988581535389682358631768109586527575902839864474036157372334443583670210960715165278974609,
        coefficient = 15068630434698373319269196003209754243798959461311186548759287649485250508074064775263867418602372588394608558985183294561315208336731894947137343239541687540387209051236354318837334154993136528453613256169847839789803932725339395739618592522865156272771578671216082079933457043120923342632744996962853951612,
        otherPrimeInfos = asn1_NOVALUE};
-hardcode_rsa_key(4) -> 
+hardcode_rsa_key(4) ->
     #'RSAPrivateKey'{
        version ='two-prime',
        modulus = 28617237755030755643854803617273584643843067580642149032833640135949799721163782522787597288521902619948688786051081993247908700824196122780349730169173433743054172191054872553484065655968335396052034378669869864779940355219732200954630251223541048434478476115391643898092650304645086338265930608997389611376417609043761464100338332976874588396803891301015812818307951159858145399281035705713082131199940309445719678087542976246147777388465712394062188801177717719764254900022006288880246925156931391594131839991579403409541227225173269459173129377291869028712271737734702830877034334838181789916127814298794576266389,
@@ -636,8 +638,8 @@ hardcode_rsa_key(4) ->
        coefficient = 34340318160575773065401929915821192439103777558577109939078671096408836197675640654693301707202885840826672396546056002756167635035389371579540325327619480512374920136684787633921441576901246290213545161954865184290700344352088099063404416346968182170720521708773285279884132629954461545103181082503707725012,
        otherPrimeInfos = asn1_NOVALUE};
 
-hardcode_rsa_key(5) -> 
-    #'RSAPrivateKey'{ 
+hardcode_rsa_key(5) ->
+    #'RSAPrivateKey'{
        version= 'two-prime',
        modulus = 26363170152814518327068346871197765236382539835597898797762992537312221863402655353436079974302838986536256364057947538018476963115004626096654613827403121905035011992899481598437933532388248462251770039307078647864188314916665766359828262009578648593031111569685489178543405615478739906285223620987558499488359880003693226535420421293716164794046859453204135383236667988765227190694994861629971618548127529849059769249520775574008363789050621665120207265361610436965088511042779948238320901918522125988916609088415989475825860046571847719492980547438560049874493788767083330042728150253120940100665370844282489982633,
        publicExponent = 17,
@@ -648,8 +650,8 @@ hardcode_rsa_key(5) ->
        exponent2 = 142217122612346975946270932667689342506994371754500301644129838613240401623123353990351915239791856753802128921507833848784693455415929352968108818884760967629866396887841730408713142977345151214275311532385308673155315337734838428569962298621720191411498579097539089047726042088382891468987379296661520434973,
        coefficient = 40624877259097915043489529504071755460170951428490878553842519165800720914888257733191322215286203357356050737713125202129282154441426952501134581314792133018830748896123382106683994268028624341502298766844710276939303555637478596035491641473828661569958212421472263269629366559343208764012473880251174832392,
        otherPrimeInfos = asn1_NOVALUE};
-hardcode_rsa_key(6) -> 
-    #'RSAPrivateKey'{ 
+hardcode_rsa_key(6) ->
+    #'RSAPrivateKey'{
        version = 'two-prime',
        modulus = 22748888494866396715768692484866595111939200209856056370972713870125588774286266397044592487895293134537316190976192161177144143633669641697309689280475257429554879273045671863645233402796222694405634510241820106743648116753479926387434021380537483429927516962909367257212902212159798399531316965145618774905828756510318897899298783143203190245236381440043169622358239226123652592179006905016804587837199618842875361941208299410035232803124113612082221121192550063791073372276763648926636149384299189072950588522522800393261949880796214514243704858378436010975184294077063518776479282353562934591448646412389762167039,
        publicExponent = 17,
@@ -663,11 +665,11 @@ hardcode_rsa_key(6) ->
 
 gen_pem_config_files(#{server_config := ServerConf,
                        client_config := ClientConf}, ClientBase, ServerBase) ->
-    
+
     ServerCaCertFile = ServerBase ++ "_server_cacerts.pem",
     ServerCertFile = ServerBase ++ "_server_cert.pem",
     ServerKeyFile = ServerBase ++ "_server_key.pem",
-    
+
     ClientCaCertFile = ClientBase ++ "_client_cacerts.pem",
     ClientCertFile =  ClientBase ++ "_client_cert.pem",
     ClientKeyFile = ClientBase ++ "_client_key.pem",
@@ -675,13 +677,13 @@ gen_pem_config_files(#{server_config := ServerConf,
     do_gen_pem_config_files(ServerConf,
                             ServerCertFile,
                             ServerKeyFile,
-                            ServerCaCertFile),        
+                            ServerCaCertFile),
     do_gen_pem_config_files(ClientConf,
                             ClientCertFile,
                             ClientKeyFile,
                             ClientCaCertFile),
-    [{server_config, [{certfile, ServerCertFile}, 
-                      {keyfile, ServerKeyFile}, {cacertfile, ServerCaCertFile}]}, 
+    [{server_config, [{certfile, ServerCertFile},
+                      {keyfile, ServerKeyFile}, {cacertfile, ServerCaCertFile}]},
      {client_config, [{certfile, ClientCertFile},
                       {keyfile, ClientKeyFile}, {cacertfile, ClientCaCertFile}]}].
 extensions(Exts) ->
@@ -717,7 +719,7 @@ extension({basic_constraints, Data}) ->
 	    #'Extension'{extnID = ?'id-ce-basicConstraints',
 			 extnValue = #'BasicConstraints'{cA=true},
 			 critical=true};
-	false -> 
+	false ->
 	    [];
 	Len when is_integer(Len) ->
 	    #'Extension'{extnID = ?'id-ce-basicConstraints',

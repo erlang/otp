@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +26,24 @@
 #include "sys.h"
 #include "erl_drv_nif.h"
 
-#if (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32)) ||                 \
-    (defined(__x86_64__) && defined(__SSE4_2__))
-#   define ERL_INTERNAL_HASH_CRC32C
+/* Internal hash routines that can be changed at will. */
+
+typedef UWord erts_ihash_t;
+
+erts_ihash_t erts_internal_salted_hash(Eterm term, erts_ihash_t salt);
+erts_ihash_t erts_internal_hash(Eterm term);
+erts_ihash_t erts_map_hash(Eterm term);
+
+#ifdef DEBUG
+#  define DBG_HASHMAP_COLLISION_BONANZA
 #endif
+
+#ifdef DBG_HASHMAP_COLLISION_BONANZA
+erts_ihash_t erts_dbg_hashmap_collision_bonanza(erts_ihash_t hash, Eterm key);
+#endif
+
+/* Portable hash routines whose results should be bug-compatible across
+ * versions. */
 
 typedef struct {
     Uint32 a,b,c;
@@ -52,14 +68,7 @@ typedef struct {
 Uint32 make_hash2(Eterm);
 Uint32 trapping_make_hash2(Eterm, Eterm*, struct process*);
 Uint32 make_hash(Eterm);
-Uint32 make_internal_hash(Eterm, Uint32 salt);
-#ifdef DEBUG
-#  define DBG_HASHMAP_COLLISION_BONANZA
-#endif
-#ifdef DBG_HASHMAP_COLLISION_BONANZA
-Uint32 erts_dbg_hashmap_collision_bonanza(Uint32 hash, Eterm key);
-#endif
-Uint32 make_map_hash(Eterm key);
+
 void erts_block_hash_init(ErtsBlockHashState *state,
                           const byte *ptr,
                           Uint len,
@@ -74,6 +83,5 @@ void erts_iov_block_hash_init(ErtsIovBlockHashState *state,
 int erts_iov_block_hash(Uint32 *hashp,
                         Uint *sizep,
                         ErtsIovBlockHashState *state);
-
 
 #endif

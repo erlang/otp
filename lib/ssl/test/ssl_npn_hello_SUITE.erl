@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,8 +62,8 @@ all() ->
      create_server_hello_with_no_advertised_protocols_test].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    Config
     catch _:_ ->
@@ -143,7 +145,6 @@ create_client_handshake(Npn) ->
 				      random = <<1:256>>,
 				      session_id = <<>>,
 				      cipher_suites = [?TLS_DHE_DSS_WITH_DES_CBC_SHA],
-				      compression_methods = "",
 				      extensions = #{next_protocol_negotiation => Npn,
 						      renegotiation_info => #renegotiation_info{}}
 				     }, Vsn).
@@ -155,7 +156,6 @@ create_server_handshake(Npn) ->
 				      random = <<1:256>>,
 				      session_id = <<>>,
 				      cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA,
-				      compression_method = 1,
 				      extensions = #{next_protocol_negotiation => Npn,
                                                      renegotiation_info => #renegotiation_info{}}
 				     }, Vsn).
@@ -163,13 +163,12 @@ create_server_handshake(Npn) ->
 create_connection_states() ->
     #{pending_read => #{security_parameters => #security_parameters{
 						  server_random = <<1:256>>,
-						  compression_algorithm = 1,
 						  cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA
 						 }
 		       },
-      current_read => #{secure_renegotiation => false
+      current_read => #{reneg => #{secure_renegotiation => false}
                        }
      }.
 
 default_options_map() ->
-    ssl:update_options([{verify, verify_none}], client, #{}).
+    ssl_config:update_options([{verify, verify_none}], client, #{}).

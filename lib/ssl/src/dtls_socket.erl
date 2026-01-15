@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(dtls_socket).
+-moduledoc false.
 
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
@@ -26,7 +29,7 @@
          listen/2,
          accept/3,
          connect/4,
-         socket/4,
+         socket/5,
          setopts/3,
          getopts/3,
          getstat/3,
@@ -34,11 +37,12 @@
          sockname/2,
          port/2,
          close/2,
-         close/1
+         close_listen/2
         ]).
 
 -export([emulated_options/0,
          emulated_options/1,
+         emulated_socket_options/2,
          internal_inet_values/0,
          default_inet_values/0,
          default_cb_info/0]).
@@ -58,9 +62,8 @@ listen(Port, #config{inet_ssl = SockOpts,
             dtls_packet_demux:new_owner(Listener, self()),
             dtls_packet_demux:set_all_opts(
               Listener, {Options,
-                          emulated_socket_options(EmOpts,
-                                                  #socket_options{}),
-                          SslOpts}),
+                         emulated_socket_options(EmOpts, #socket_options{}),
+                         SslOpts}),
             dtls_listener_sup:register_listener({self(), Listener},
                                                 IP, Port),
             {ok, create_dtls_socket(Config, Listener, Port)};
@@ -68,42 +71,55 @@ listen(Port, #config{inet_ssl = SockOpts,
             Error
     end.
 
-accept(dtls, #config{transport_info = {Transport,_,_,_,_},
-                     connection_cb = ConnectionCb,
-                     dtls_handler = {Listener, _}}, _Timeout) -> 
+accept({Listener,_}, #config{}, _Timeout) ->
     case dtls_packet_demux:accept(Listener, self()) of
-	{ok, Pid, Socket} ->
-	    {ok, socket([Pid], Transport, {Listener, Socket}, ConnectionCb)};
+	{ok, Pid} ->
+            receive
+                {Pid, user_socket, UserSocket} ->
+                    {ok, UserSocket}
+            end;
 	{error, Reason} ->
 	    {error, Reason}
     end.
 
-connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo,
-				connection_cb = ConnectionCb,
-				ssl = SslOpts,
-				emulated = EmOpts,
-				inet_ssl = SocketOpts}, Timeout) ->
+connect(Host, Port, #config{transport_info = CbInfo,
+                               ssl = SslOpts,
+                               emulated = EmOpts,
+                               inet_ssl = SocketOpts,
+                               tab = _Tab
+                              }, Timeout) ->
+    Transport = element(1, CbInfo),
     case Transport:open(0, SocketOpts ++ internal_inet_values()) of
 	{ok, Socket} ->
-	    ssl_gen_statem:connect(ConnectionCb, Address, Port, {{Address, Port},Socket},
-				   {SslOpts, 
-				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				   self(), CbInfo, Timeout);
-	{error, _} = Error->	
+	    dtls_gen_connection:start_fsm(client, Host, Port, {{Host, Port}, Socket},
+                                          {SslOpts, EmOpts, undefined}, self(), CbInfo, Timeout);
+	{error, _} = Error->
 	    Error
     end.
 
-close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port0},
-                                      inet_ssl = SockOpts}}}) ->
+close_listen(#sslsocket{socket_handle = {Pid, Port0},
+                        listener_config = #config{inet_ssl = SockOpts}}, Timeout) ->
     IP = proplists:get_value(ip, SockOpts, default_ip(SockOpts)),
     Port = get_real_port(Pid, Port0),
     dtls_listener_sup:register_listener({undefined, Pid}, IP, Port),
-    dtls_packet_demux:close(Pid).
+    case dtls_packet_demux:close(Pid) of
+        stop ->
+            erlang:monitor(process, Pid),
+            receive {'DOWN', _, process, Pid, _} ->
+                    ok
+            after Timeout ->
+                    {error, timeout}
+            end;
+        waiting ->
+            ok;
+        Error ->
+            Error
+    end.
 
 default_ip(SockOpts) ->
     case proplists:get_value(inet6, SockOpts, false) of
-                false -> {0,0,0,0};
-                true  -> {0,0,0,0, 0,0,0,0}
+        false -> {0,0,0,0};
+        true  -> {0,0,0,0, 0,0,0,0}
     end.
 
 close(gen_udp, {_Client, _Socket}) ->
@@ -111,17 +127,30 @@ close(gen_udp, {_Client, _Socket}) ->
 close(Transport, {_Client, Socket}) ->
     Transport:close(Socket).
 
-socket(Pids, gen_udp = Transport,
-       PeerAndSock = {{_Host, _Port}, _Socket}, ConnectionCb) ->
-    #sslsocket{pid = Pids, 
-	       %% "The name "fd" is kept for backwards compatibility
-	       fd = {Transport, PeerAndSock, ConnectionCb}};
-socket(Pids, Transport, Socket, ConnectionCb) ->
-    #sslsocket{pid = Pids, 
-	       %% "The name "fd" is kept for backwards compatibility
-	       fd = {Transport, Socket, ConnectionCb}}.
-setopts(_, Socket = #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
-    SplitOpts = {_, EmOpts} = tls_socket:split_options(Options),
+
+%% Note that gen_udp:send is not blocking as gen_tcp:send is.
+%% So normal DTLS can safely have the same connection handler
+%% as payload sender
+
+socket([Pid], gen_udp = Transport,
+       PeerAndSock = {{_Host, _Port}, _Socket}, ConnectionCb, Tab) when Tab =/= undefined ->
+    #sslsocket{socket_handle = PeerAndSock,
+               connection_handler = Pid,
+               payload_sender = Pid,
+               transport_cb = Transport,
+               connection_cb = ConnectionCb,
+               tab = Tab};
+socket([Pid], Transport, Socket, ConnectionCb, Tab) when Tab =/= undefined ->
+    #sslsocket{socket_handle = Socket,
+               connection_handler = Pid,
+               payload_sender = Pid,
+               transport_cb = Transport,
+               connection_cb = ConnectionCb, 
+               tab = Tab}.
+
+setopts(_, Socket = #sslsocket{socket_handle = {ListenPid, _},
+                               listener_config = #config{}}, Options) ->
+    SplitOpts = {_, EmOpts} = tls_socket:split_options(gen_udp, Options),
     check_active_n(EmOpts, Socket),
     dtls_packet_demux:set_sock_opts(ListenPid, SplitOpts);
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
@@ -130,7 +159,8 @@ setopts(gen_udp, Socket, Options) ->
 setopts(Transport, Socket, Options) ->
     Transport:setopts(Socket, Options).
 
-check_active_n(EmulatedOpts, Socket = #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}) ->
+check_active_n(EmulatedOpts, Socket = #sslsocket{socket_handle = {ListenPid, _},
+                                                 listener_config = #config{}}) ->
     %% We check the resulting options to send an ssl_passive message if necessary.
     case proplists:lookup(active, EmulatedOpts) of
         %% The provided value is out of bound.
@@ -156,19 +186,9 @@ check_active_n(EmulatedOpts, Socket = #sslsocket{pid = {dtls, #config{dtls_handl
             ok
     end.
 
-getopts(_, #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
-    SplitOpts = tls_socket:split_options(Options),
+getopts(_, #sslsocket{socket_handle = {ListenPid, _}, listener_config =#config{}}, Options) ->
+    SplitOpts = tls_socket:split_options(gen_udp, Options),
     dtls_packet_demux:get_sock_opts(ListenPid, SplitOpts);
-getopts(gen_udp,  #sslsocket{pid = {Socket, #config{emulated = EmOpts}}}, Options) ->
-    {SockOptNames, EmulatedOptNames} = tls_socket:split_options(Options),
-    EmulatedOpts = get_emulated_opts(EmOpts, EmulatedOptNames),
-    SocketOpts = tls_socket:get_socket_opts(Socket, SockOptNames, inet),
-    {ok, EmulatedOpts ++ SocketOpts}; 
-getopts(_Transport,  #sslsocket{pid = {Socket, #config{emulated = EmOpts}}}, Options) ->
-    {SockOptNames, EmulatedOptNames} = tls_socket:split_options(Options),
-    EmulatedOpts = get_emulated_opts(EmOpts, EmulatedOptNames),
-    SocketOpts = tls_socket:get_socket_opts(Socket, SockOptNames, inet),
-    {ok, EmulatedOpts ++ SocketOpts}; 
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
 getopts(gen_udp, {_,{{_, _},Socket}}, Options) ->
     inet:getopts(Socket, Options);
@@ -195,7 +215,9 @@ peername(gen_udp, {Client, _Socket}) ->
     {ok, Client};
 peername(Transport, Socket) ->
     Transport:peername(Socket).
-sockname(gen_udp, {_, {_,Socket}}) ->
+sockname(gen_udp, {Listener, {_Client, Socket}}) when is_pid(Listener) ->
+    inet:sockname(Socket);
+sockname(gen_udp, {_Client, Socket}) ->
     inet:sockname(Socket);
 sockname(gen_udp, Socket) ->
     inet:sockname(Socket);
@@ -221,11 +243,6 @@ default_inet_values() ->
 
 default_cb_info() ->
     {gen_udp, udp, udp_closed, udp_error, udp_passive}.
-
-get_emulated_opts(EmOpts, EmOptNames) -> 
-    lists:map(fun(Name) -> {value, Value} = lists:keysearch(Name, 1, EmOpts),
-			   Value end,
-	      EmOptNames).
 
 emulated_socket_options(InetValues, #socket_options{
 				       mode   = Mode,
@@ -327,7 +344,8 @@ start_dtls_packet_demux(#config{
 create_dtls_socket(#config{emulated = EmOpts} = Config,
                    Listener, Port) ->
     Socket = #sslsocket{
-                pid = {dtls, Config#config{dtls_handler = {Listener, Port}}}},
+                socket_handle = {Listener, Port},
+                listener_config = Config,
+                tab = dtls_listen},
     check_active_n(EmOpts, Socket),
     Socket.
-

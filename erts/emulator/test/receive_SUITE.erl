@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,30 +27,63 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
+         groups/0, init_per_group/2, end_per_group/2,
 	 call_with_huge_message_queue/1,receive_in_between/1,
          receive_opt_exception/1,receive_opt_recursion/1,
          receive_opt_deferred_save/1,
-         erl_1199/1, multi_recv_opt/1,
-         multi_recv_opt_clear/1,
+         erl_1199/1, multi_recv_opt/1, multi_recv_opt_cla/1,
+         multi_recv_opt_clear/1, multi_recv_opt_clear_cla/1,
          gh_5235_missing_save_reset/1,
          gh_5235_recv_mark/1,
-         recv_marker_reserve/1]).
+         recv_marker_reserve/1,
+         prio_msg_while_in_receive/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 3}}].
 
 all() ->
-    [call_with_huge_message_queue,
+    [{group, default},
+     {group, priority}].
+
+groups() ->
+    [
+     {default, [], default_test_cases()},
+     {priority, [], priority_test_cases()}
+    ].
+
+init_per_group(Group, Config) ->
+    [{test_group, Group} | Config].
+
+end_per_group(_, Config) ->
+    proplists:delete(test_group, Config).
+
+default_test_cases() ->
+    common_test_cases() ++
+        [
+         erl_1199,
+         recv_marker_reserve
+        ].
+
+priority_test_cases() ->
+    [
+     prio_msg_while_in_receive
+    ] ++ common_test_cases().
+
+common_test_cases() ->
+    [
+     call_with_huge_message_queue,
      receive_in_between,
      receive_opt_exception,
      receive_opt_recursion,
      receive_opt_deferred_save,
-     erl_1199, multi_recv_opt,
+     multi_recv_opt,
+     multi_recv_opt_cla,
      multi_recv_opt_clear,
+     multi_recv_opt_clear_cla,
      gh_5235_missing_save_reset,
-     gh_5235_recv_mark,
-     recv_marker_reserve].
+     gh_5235_recv_mark
+    ].
 
 init_per_testcase(receive_opt_deferred_save, Config) ->
     case erlang:system_info(schedulers_online) of
@@ -81,21 +116,38 @@ end_per_testcase(receive_opt_deferred_save, Config) ->
 end_per_testcase(_Name, Config) ->
     Config.
 
+-record(ctx, {id, send, mon_opts}).
+
+make_def_context() ->
+    #ctx{id = self(), send = fun erlang:send/2, mon_opts = []}.
+
+make_prio_context() ->
+    #ctx{id = alias([priority]),
+         send = fun (To, Msg) -> 
+                        erlang:send(To, Msg, [priority]),
+                        Msg
+                end,
+         mon_opts = [priority]}.
+
 call_with_huge_message_queue(Config) when is_list(Config) ->
+    Ctx = case proplists:get_value(test_group, Config) of
+              default -> make_def_context();
+              priority -> make_prio_context()
+          end,
     Pid = spawn_link(fun echo_loop/0),
     process_flag(message_queue_data, off_heap),
-    _WarmUpTime = time_calls(Pid),
+    _WarmUpTime = time_calls(Ctx, Pid),
     erlang:garbage_collect(),
-    Time = time_calls(Pid),
+    Time = time_calls(Ctx, Pid),
     io:format("Time for empty message queue: ~p", [Time]),
     _ = [self() ! {msg,N} || N <- lists:seq(1, 500000)],
-    call_with_huge_message_queue_1(Pid, Time, 5).
+    call_with_huge_message_queue_1(Ctx, Pid, Time, 5).
 
-call_with_huge_message_queue_1(_Pid, _Time, 0) ->
+call_with_huge_message_queue_1(_Ctx, _Pid, _Time, 0) ->
     ct:fail(bad_ratio);
-call_with_huge_message_queue_1(Pid, Time, NumTries) ->
+call_with_huge_message_queue_1(Ctx, Pid, Time, NumTries) ->
     erlang:garbage_collect(),
-    HugeTime = time_calls(Pid),
+    HugeTime = time_calls(Ctx, Pid),
     io:format("Time for huge message queue: ~p", [HugeTime]),
 
     case (HugeTime+1) / (Time+1) of
@@ -103,34 +155,34 @@ call_with_huge_message_queue_1(Pid, Time, NumTries) ->
 	    {comment, "Ratio: "++erlang:float_to_list(Q)};
         Q ->
             io:format("Too high ratio: ~p\n", [Q]),
-            call_with_huge_message_queue_1(Pid, Time, NumTries-1)
+            call_with_huge_message_queue_1(Ctx, Pid, Time, NumTries-1)
     end.
 
 %% Time a number calls. Try to avoid returning a zero time.
-time_calls(Pid) ->
-    time_calls(Pid, 10).
+time_calls(Ctx, Pid) ->
+    time_calls(Ctx, Pid, 10).
 
-time_calls(_Pid, 0) ->
+time_calls(_Ctx, _Pid, 0) ->
     0;
-time_calls(Pid, NumTries) ->
-    case timer:tc(fun() -> calls(Pid) end) of
+time_calls(Ctx, Pid, NumTries) ->
+    case timer:tc(fun() -> calls(Ctx, Pid) end) of
         {0,ok} ->
-            time_calls(Pid, NumTries-1);
+            time_calls(Ctx, Pid, NumTries-1);
         {Time,ok} ->
             Time
     end.
 
-calls(Pid) ->
-    calls(10000, Pid).
+calls(Ctx, Pid) ->
+    calls(Ctx, 10000, Pid).
 
-calls(0, _) -> ok;
-calls(N, Pid) ->
-    {ok,{ultimate_answer,42}} = call(Pid, {ultimate_answer,42}),
-    calls(N-1, Pid).
+calls(_Ctx, 0, _) -> ok;
+calls(Ctx, N, Pid) ->
+    {ok,{ultimate_answer,42}} = call(Ctx, Pid, {ultimate_answer,42}),
+    calls(Ctx, N-1, Pid).
 
-call(Pid, Msg) ->
-    Mref = erlang:monitor(process, Pid),
-    Pid ! {Mref,{self(),Msg}},
+call(#ctx{id = Me, send = Send, mon_opts = MonOpts}, Pid, Msg) ->
+    Mref = erlang:monitor(process, Pid, MonOpts),
+    Pid ! {Mref,{Me,Send,Msg}},
     receive
 	{Mref, Reply} ->
 	    erlang:demonitor(Mref, [flush]),
@@ -140,14 +192,18 @@ call(Pid, Msg) ->
     end.
 
 receive_in_between(Config) when is_list(Config) ->
+    Ctx = case proplists:get_value(test_group, Config) of
+              default -> make_def_context();
+              priority -> make_prio_context()
+          end,
     Pid = spawn_link(fun echo_loop/0),
-    [{ok,{a,b}} = call2(Pid, {a,b}) || _ <- lists:seq(1, 100000)],
+    [{ok,{a,b}} = call2(Ctx, Pid, {a,b}) || _ <- lists:seq(1, 100000)],
     ok.
 
-call2(Pid, Msg) ->
+call2(#ctx{id = Me, send = Send, mon_opts = MonOpts}, Pid, Msg) ->
     self() ! dummy,
-    Mref = erlang:monitor(process, Pid),
-    Pid ! {Mref,{self(),Msg}},
+    Mref = erlang:monitor(process, Pid, MonOpts),
+    Pid ! {Mref,{Me,Send,Msg}},
     receive_one(),
     receive
 	{Mref,Reply} ->
@@ -162,25 +218,29 @@ receive_one() ->
 	dummy -> ok
     end.
 
-receive_opt_exception(_Config) ->
+receive_opt_exception(Config) ->
+    Ctx = case proplists:get_value(test_group, Config) of
+              default -> make_def_context();
+              priority -> make_prio_context()
+          end,
     Recurse = fun() ->
                       %% Overwrite with the same mark,
                       %% and never consume it.
                       ThrowFun = fun() -> throw(aborted) end,
-                      aborted = (catch do_receive_opt_exception(ThrowFun)),
+                      aborted = (catch do_receive_opt_exception(Ctx, ThrowFun)),
                       ok
               end,
-    do_receive_opt_exception(Recurse),
+    do_receive_opt_exception(Ctx, Recurse),
 
     %% Eat the second message.
     receive
         Ref when is_reference(Ref) -> ok
     end.
 
-do_receive_opt_exception(Disturber) ->
+do_receive_opt_exception(#ctx{id = Me, send = Send}, Disturber) ->
     %% Create a receive mark.
     Ref = make_ref(),
-    self() ! Ref,
+    Send(Me, Ref),
     Disturber(),
     receive
         Ref ->
@@ -189,21 +249,28 @@ do_receive_opt_exception(Disturber) ->
             error(the_expected_message_was_not_there)
     end.
 
-receive_opt_recursion(_Config) ->
+receive_opt_recursion(Config) ->
+    Ctx = case proplists:get_value(test_group, Config) of
+              default -> make_def_context();
+              priority -> make_prio_context()
+          end,
     Recurse = fun() ->
                       %% Overwrite with the same mark,
                       %% and never consume it.
                       NoOp = fun() -> ok end,
                       BlackHole = spawn(NoOp),
-                      expected = do_receive_opt_recursion(BlackHole, NoOp, true),
+                      BlackHoleCtx = #ctx{id = BlackHole,
+                                          send = fun erlang:send/2},
+                      expected = do_receive_opt_recursion(BlackHoleCtx,
+                                                          NoOp, true),
                       ok
               end,
-    do_receive_opt_recursion(self(), Recurse, false),
+    do_receive_opt_recursion(Ctx, Recurse, false),
     ok.
 
-do_receive_opt_recursion(Recipient, Disturber, IsInner) ->
+do_receive_opt_recursion(#ctx{id = Id, send = Send}, Disturber, IsInner) ->
     Ref = make_ref(),
-    Recipient ! Ref,
+    Send(Id, Ref),
     Disturber(),
     receive
         Ref -> ok
@@ -220,13 +287,14 @@ do_receive_opt_recursion(Recipient, Disturber, IsInner) ->
 %% Test that the receive opt behaves correctly when
 %% the messages are in the middle queue. It only triggers
 %% a very special scenario that OTP-16241 solves.
-receive_opt_deferred_save(_Config) ->
+receive_opt_deferred_save(Config) ->
+    TestGroup = proplists:get_value(test_group, Config),
 
     %% This testcase is very very white-boxy, but I'm not
     %% sure what to do about that.
 
     Pid = spawn_opt(fun() ->
-                        deferred()
+                        deferred(TestGroup)
                 end,[{scheduler, 2}]),
     spawn_opt(fun() ->
                       link(Pid),
@@ -252,7 +320,11 @@ receive_opt_deferred_save(_Config) ->
             ct:fail(Reason)
     end.
 
-deferred() ->
+deferred(TestGroup) ->
+    #ctx{id = Id, send = Send} = case TestGroup of
+                                     default -> make_def_context();
+                                     priority -> make_prio_context()
+                                 end,
     receive
         go ->
             %% Sleep for a while so that the middle queue
@@ -270,7 +342,7 @@ deferred() ->
     %% This receive opt is as of PR-2439 disabled, though future
     %% optimizations may enable it again....
     Ref = make_ref(),
-    self() ! Ref,
+    Send(Id, Ref),
 
     %% Call another function that does a non-receive opt receive.
     %% Before OTP-16241 this would hang as the save marker in the
@@ -409,69 +481,113 @@ erl_1199_flush_blipp() ->
     end.
 
 multi_recv_opt(Config) when is_list(Config) ->
+    TGroup = proplists:get_value(test_group, Config),
+    multi_recv_opt_test(TGroup, false).
+
+multi_recv_opt_cla(Config) when is_list(Config) ->
+    %% Also interrupt the operation by 'copy literal area' requests that will
+    %% insert yield markers into the message queue. We don't bother about the
+    %% timing, we just want to see that the signal implementation can handle it.
+    %%
+    %% We run this on a separate node since we'll flood the system with CLA
+    %% requests that we cannot abort and we don't want to affect other tests.
+    TGroup = proplists:get_value(test_group, Config),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = erpc:call(Node, fun () -> multi_recv_opt_test(TGroup, true) end),
+    peer:stop(Peer),
+    ok.
+
+multi_recv_opt_test(TGroup, CLA) ->
+    Ctx = case TGroup of
+              default -> make_def_context();
+              priority -> make_prio_context()
+          end,
     HugeMsgQ = 500000,
     Srv = spawn_link(fun multi_echoer/0),
     process_flag(message_queue_data, off_heap),
-    _WarmUpTime = time_multi_call(Srv, fun multi_call/1),
-    EmptyTime = time_multi_call(Srv, fun multi_call/1),
+    _WarmUpTime = time_multi_call(Ctx, Srv, fun multi_call/2),
+    EmptyTime = time_multi_call(Ctx, Srv, fun multi_call/2),
     io:format("Time with empty message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(EmptyTime, native, microsecond)]),
     _ = [self() ! {msg,N} || N <- lists:seq(1, HugeMsgQ)],
-    HugeTime = time_multi_call(Srv, fun multi_call/1),
+
+    CLAP = case CLA of
+               false ->
+                   undefined;
+               true ->
+                   erlang:system_flag(outstanding_system_requests_limit,
+                                      1000000),
+                   spawn_link(fun CLAF () ->
+                                      Time = erlang:monotonic_time(),
+                                      persistent_term:put({?MODULE, key},
+                                                          {value, Time}),
+                                      CLAF()
+                              end)
+           end,
+
+    HugeTime = time_multi_call(Ctx, Srv, fun multi_call/2),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(HugeTime, native, microsecond)]),
     Q = HugeTime / EmptyTime,
     HugeMsgQ = flush_msgq(),
-    case Q > 10 of
-	true ->
-	    ct:fail({ratio, Q});
-	false ->
-	    {comment, "Ratio: "++erlang:float_to_list(Q)}
+    if CLAP == undefined ->
+            case Q > 10 of
+                true ->
+                    ct:fail({ratio, Q});
+                false ->
+                    {comment, "Ratio: "++erlang:float_to_list(Q)}
+            end;
+       true ->
+            unlink(CLAP),
+            exit(CLAP, kill),
+            false = is_process_alive(CLAP),
+            ok
     end.
     
 multi_echoer() ->
     receive
-	{Mref, From, Msg, Responses} ->
-	    multi_response(Mref, From, Msg, Responses);
+	{Mref, Send, From, Msg, Responses} ->
+	    multi_response(Mref, Send, From, Msg, Responses);
 	_Garbage ->
 	    ok
     end,
     multi_echoer().
 
-multi_response(_Mref, _From, _Msg, 0) ->
+multi_response(_Mref, _Send, _From, _Msg, 0) ->
     ok;
-multi_response(Mref, From, Msg, N) ->
-    From ! {Mref, Msg},
-    multi_response(Mref, From, Msg, N-1).
+multi_response(Mref, Send, From, Msg, N) ->
+    Send(From, {Mref, Msg}),
+    multi_response(Mref, Send, From, Msg, N-1).
 
-time_multi_call(Srv, Fun) ->
+time_multi_call(Ctx, Srv, Fun) ->
     garbage_collect(),
     Start = erlang:monotonic_time(),
-    ok = Fun(Srv),
+    ok = Fun(Ctx, Srv),
     erlang:monotonic_time() - Start.
     
-multi_call(Srv) ->
+multi_call(Ctx, Srv) ->
     Resp = 100,
     NoOp = fun () -> ok end,
     Fun3 = fun () ->
-		   multi_call(Srv, 1, three, Resp, false, NoOp)
+		   multi_call(Ctx, Srv, 1, three, Resp, false, NoOp)
 	   end,
     Fun2 = fun () ->
-		   multi_call(Srv, 1, two, Resp, false, Fun3)
+		   multi_call(Ctx, Srv, 1, two, Resp, false, Fun3)
 	   end,
-    multi_call(Srv, 1000, one, Resp, false, Fun2).
+    multi_call(Ctx, Srv, 1000, one, Resp, false, Fun2).
 
-multi_call(_Srv, 0, _Msg, _Responses, _Clear, _Fun) ->
+multi_call(_Ctx, _Srv, 0, _Msg, _Responses, _Clear, _Fun) ->
     ok;
-multi_call(Srv, N, Msg, Responses, Clear, Fun) ->
+multi_call(#ctx{id = Me, send = Send, mon_opts = MonOpts} = Ctx,
+           Srv, N, Msg, Responses, Clear, Fun) ->
 
-    Mref = erlang:monitor(process, Srv),
+    Mref = erlang:monitor(process, Srv, MonOpts),
 
-    Srv ! {Mref, self(), Msg, Responses},
+    Srv ! {Mref, Send, Me, Msg, Responses},
     Fun(),
     multi_receive(Mref, Msg, Responses),
     erlang:demonitor(Mref, [flush]),
-    multi_call(Srv, N-1, Msg, Responses, Clear, Fun).
+    multi_call(Ctx, Srv, N-1, Msg, Responses, Clear, Fun).
     
 multi_receive(_Mref, _Msg, 0) ->
     ok;
@@ -486,6 +602,27 @@ multi_receive(Mref, Msg, N) ->
     multi_receive(Mref, Msg, N-1).
 
 multi_recv_opt_clear(Config) when is_list(Config) ->
+    TGroup = proplists:get_value(test_group, Config),
+    multi_recv_opt_clear_test(TGroup, false).
+
+multi_recv_opt_clear_cla(Config) when is_list(Config) ->
+    %% Also interrupt the operation by 'copy literal area' requests that will
+    %% insert yield markers into the message queue. We don't bother about the
+    %% timing, we just want to see that the signal implementation can handle it.
+    %%
+    %% We run this on a separate node since we'll flood the system with CLA
+    %% requests that we cannot abort and we don't want to affect other tests.
+    TGroup = proplists:get_value(test_group, Config),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = erpc:call(Node, fun () -> multi_recv_opt_clear_test(TGroup, true) end),
+    peer:stop(Peer),
+    ok.
+
+multi_recv_opt_clear_test(TGroup, CLA) ->
+    Ctx = case TGroup of
+              default -> make_def_context();
+              priority -> make_prio_context()
+          end,
     %% Whitebox: we know that we have at most 8 active
     %% receive markers...
     %%
@@ -499,46 +636,73 @@ multi_recv_opt_clear(Config) when is_list(Config) ->
     HugeMsgQ = 500000,
     Srv = spawn_link(fun multi_echoer/0),
     process_flag(message_queue_data, off_heap),
-    _WarmUpTime = time_multi_call(Srv, fun multi_call_clear/1),
-    EmptyTime = time_multi_call(Srv, fun multi_call_clear/1),
+    _WarmUpTime = time_multi_call(Ctx, Srv, fun multi_call_clear/2),
+    EmptyTime = time_multi_call(Ctx, Srv, fun multi_call_clear/2),
     io:format("Time with empty message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(EmptyTime, native, microsecond)]),
     _ = [self() ! {msg,N} || N <- lists:seq(1, HugeMsgQ)],
-    HugeTime = time_multi_call(Srv, fun multi_call_clear/1),
+
+    CLAP = case CLA of
+               false ->
+                   undefined;
+               true ->
+                   erlang:system_flag(outstanding_system_requests_limit,
+                                      1000000),
+                   spawn_link(fun CLAF () ->
+                                      Time = erlang:monotonic_time(),
+                                      persistent_term:put({?MODULE, key},
+                                                          {value, Time}),
+                                      CLAF()
+                              end)
+           end,
+
+    HugeTime = time_multi_call(Ctx, Srv, fun multi_call_clear/2),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(HugeTime, native, microsecond)]),
     Q = HugeTime / EmptyTime,
     HugeMsgQ = flush_msgq(),
-    case Q > 10 of
-	true ->
-	    ct:fail({ratio, Q});
-	false ->
-	    {comment, "Ratio: "++erlang:float_to_list(Q)}
+    if CLAP == undefined ->
+            case Q > 10 of
+                true ->
+                    ct:fail({ratio, Q});
+                false ->
+                    {comment, "Ratio: "++erlang:float_to_list(Q)}
+            end;
+       true ->
+            unlink(CLAP),
+            exit(CLAP, kill),
+            false = is_process_alive(CLAP),
+            ok
     end.
 
-multi_call_clear(Srv) ->
+multi_call_clear(Ctx, Srv) ->
     NoOp = fun () -> ok end,
     Fun2 = fun () ->
-		   multi_call(Srv, 1, two0, 2, true, NoOp),
-		   multi_call(Srv, 1, two1, 2, true, NoOp),
-		   multi_call(Srv, 1, two2, 2, true, NoOp),
-		   multi_call(Srv, 1, two3, 2, true, NoOp),
-		   multi_call(Srv, 1, two4, 2, true, NoOp),
-		   multi_call(Srv, 1, two5, 2, true, NoOp),
-		   multi_call(Srv, 1, two6, 2, true, NoOp),
-		   multi_call(Srv, 1, two7, 2, true, NoOp),
-		   multi_call(Srv, 1, two8, 2, true, NoOp),
-		   multi_call(Srv, 1, two9, 2, true, NoOp)
+		   multi_call(Ctx, Srv, 1, two0, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two1, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two2, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two3, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two4, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two5, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two6, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two7, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two8, 2, true, NoOp),
+		   multi_call(Ctx, Srv, 1, two9, 2, true, NoOp)
 	   end,
-    multi_call(Srv, 1000, one, 100, true, Fun2).
+    multi_call(Ctx, Srv, 1000, one, 100, true, Fun2).
   
 gh_5235_missing_save_reset(Config) when is_list(Config) ->
     %%
     %% Used to hang in the second receive due to save
     %% pointer not being reset on bad timeout value...
     %%
+    #ctx{id = Me, send = Send}
+        = case proplists:get_value(test_group, Config) of
+              default -> make_def_context();
+              priority -> make_prio_context()
+          end,
     ct:timetrap({seconds, 10}),
-    id(self()) ! init,
+    Send(id(Me), init),
     try
         receive blipp -> ok after blupp -> ok end
     catch _:_ ->
@@ -548,7 +712,7 @@ gh_5235_missing_save_reset(Config) when is_list(Config) ->
 
     %% Try with a timeout value not known in compile
     %% time as well...
-    id(self()) ! init2,
+    Send(id(Me), init2),
     try
         receive blapp -> ok after id(blepp) -> ok end
     catch _:_ ->
@@ -562,28 +726,33 @@ gh_5235_recv_mark(Config) when is_list(Config) ->
     %% via erts_msgq_peek_msg() due to save pointer
     %% not being reset on bad timeout value...
     %%
+    #ctx{id = Me, send = Send}
+        = case proplists:get_value(test_group, Config) of
+              default -> make_def_context();
+              priority -> make_prio_context()
+          end,
     ct:timetrap({seconds, 10}),
-    id(self()) ! init,
+    Send(id(Me), init),
     try
         receive blipp -> ok after blupp -> ok end
     catch _:_ ->
             ok
     end,
     Ref = make_ref(),
-    id(self()) ! Ref,
+    Send(id(Me), Ref),
     receive init -> ok end,
     receive Ref -> ok end,
     
     %% Try with a timeout value not known in compile
     %% time as well...
-    id(self()) ! init2,
+    Send(id(Me), init2),
     try
         receive blapp -> ok after id(blepp) -> ok end
     catch _:_ ->
             ok
     end,
     Ref2 = make_ref(),
-    id(self()) ! Ref2,
+    Send(id(self()), Ref2),
     receive init2 -> ok end,
     receive Ref2 -> ok end.
 
@@ -626,6 +795,60 @@ determine_small_limits(N) ->
 is_small(N) when is_integer(N) ->
     0 =:= erts_debug:flat_size(N).
 
+prio_msg_while_in_receive(Config) when is_list(Config) ->
+    Receiver = self(),
+    process_flag(scheduler, 1),
+    SenderSched = case erlang:system_info(schedulers_online) of
+                      1 -> 1;
+                      _ -> 2
+                  end,
+    PrioAlias = alias([priority]),
+    Sender = spawn_opt(fun () ->
+                               receive go -> ok end,
+                               erlang:send(PrioAlias, {msg, first}, [priority]),
+                               receive go_again -> ok end,
+                               wait_until_busy(
+                                 fun () ->
+                                         {status, waiting}
+                                             == process_info(Receiver,
+                                                             status)
+                                 end),
+                               erlang:send(PrioAlias, {msg, second}, [priority]),
+                               receive after infinity -> ok end
+                       end, [link, {scheduler, SenderSched}]),
+    _ = [self() ! {msg,N} || N <- lists:seq(1, 1000000)],
+
+    receive {msg, none} -> error(unexpected_message)
+    after 0 -> ok
+    end,
+
+    %% Prio message is received while we are matching messages in the queue
+    erlang:yield(),
+    Start1 = erlang:monotonic_time(),
+    Sender ! go,
+    receive
+        {msg, first} ->
+            ok
+    end,
+    Time1 = erlang:convert_time_unit(erlang:monotonic_time()-Start1, native, nanosecond),
+    ct:log("Time1 = ~p nanoseconds~n", [Time1]),
+
+    %% Prio message is received when we already have matched against all
+    %% non-matching messages in the queue
+    erlang:yield(),
+    Start2 = erlang:monotonic_time(),
+    Sender ! go_again,
+    receive
+        {msg, second} ->
+            ok
+    end,
+    Time2 = erlang:convert_time_unit(erlang:monotonic_time()-Start2, native, nanosecond),
+    ct:log("Time2 = ~p nanoseconds~n", [Time2]),
+    flush_msgq(),
+    unlink(Sender),
+    exit(Sender, kill),
+    false = is_process_alive(Sender),
+    ok.
 
 %%%
 %%% Common helpers.
@@ -643,9 +866,17 @@ flush_msgq(N) ->
 	    N
     end.
 
+wait_until_busy(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            wait_until_busy(Fun)
+    end.
+
 echo_loop() ->
     receive
-	{Ref,{Pid,Msg}} ->
-	    Pid ! {Ref,Msg},
+	{Ref,{Id,Send,Msg}} ->
+	    Send(Id, {Ref,Msg}),
 	    echo_loop()
     end.

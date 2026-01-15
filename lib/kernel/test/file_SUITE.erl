@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,8 +83,6 @@
 
 -export([ipread/1]).
 
--export([pid2name/1]).
-
 -export([interleaved_read_write/1]).
 
 -export([unicode/1]).
@@ -136,7 +136,7 @@ all() ->
      {group, files}, delete, rename, names, volume_relative_paths, unc_paths,
      {group, errors}, {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
-     ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
+     ipread, interleaved_read_write, otp_5814, otp_10852,
      large_file, large_write, read_line_1, read_line_2, read_line_3,
      read_line_4, standard_io, old_io_protocol,
      unicode_mode, {group, bench}
@@ -535,6 +535,9 @@ read_write_file(Config) when is_list(Config) ->
     {error, enoent} = ?FILE_MODULE:read_file(Name2),
     {error, enoent} = ?FILE_MODULE:read_file(""),
     {error, enoent} = ?FILE_MODULE:read_file(''),
+    {error, enoent} = ?FILE_MODULE:read_file(Name2, [raw]),
+    {error, enoent} = ?FILE_MODULE:read_file("", [raw]),
+    {error, enoent} = ?FILE_MODULE:read_file('', [raw]),
 
     %% Try writing to a bad filename
     {error, enoent} = do_read_write_file("", Bin2),
@@ -559,12 +562,15 @@ do_read_write_file(Name, Data) ->
 	ok ->
 	    BinData = iolist_to_binary(Data),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok = ?FILE_MODULE:write_file(Name, Data, []),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok = ?FILE_MODULE:write_file(Name, Data, [raw]),
 	    {ok,BinData} = ?FILE_MODULE:read_file(Name),
+	    {ok,BinData} = ?FILE_MODULE:read_file(Name, [raw]),
 
 	    ok;
 	{error,_}=Res ->
@@ -2333,6 +2339,23 @@ delete(Config) when is_list(Config) ->
     {error, _} = ?FILE_MODULE:open(Name2, read),
     %% Try deleting a nonexistent file with the raw option
     {error, enoent} = ?FILE_MODULE:delete(Name2, [raw]),
+
+    Name3 = filename:join(RootDir,
+                          atom_to_list(?MODULE)
+                          ++"_delete_3.fil"),
+    {ok, Fd5} = ?FILE_MODULE:open(Name3, write),
+    io:format(Fd5,"ok.\n",[]),
+    ok = ?FILE_MODULE:close(Fd5),
+    %% Check that the file is readable
+    {ok, Fd6} = ?FILE_MODULE:open(Name3, read),
+    ok = ?FILE_MODULE:close(Fd6),
+    %% Try deleting with no option, should be equivalent to delete/1
+    ok = ?FILE_MODULE:delete(Name3, []),
+    %% Check that the file is not readable anymore
+    {error, _} = ?FILE_MODULE:open(Name3, read),
+    %% Try deleting a nonexistent file with no option
+    {error, enoent} = ?FILE_MODULE:delete(Name3, []),
+
     [] = flush(),
     ok.
 
@@ -3438,24 +3461,6 @@ delayed_write(Config) when is_list(Config) ->
     ok = ?FILE_MODULE:close(Fd5),
     %%
     [] = flush(),
-    ok.
-
-
-%% Tests file:pid2name/1.
-pid2name(Config) when is_list(Config) ->
-    RootDir = proplists:get_value(priv_dir, Config),
-    Base = test_server:temp_name(
-	     filename:join(RootDir, "pid2name_")),
-    Name1 = [Base, '.txt'],
-    Name2 = Base ++ ".txt",
-    %%
-    {ok, Pid} = file:open(Name1, [write]),
-    {ok, Name2} = file:pid2name(Pid),
-    Dead = spawn(fun() -> ok end),
-    undefined = file:pid2name(Dead),
-    ok = file:close(Pid),
-    false = is_process_alive(Pid),
-    undefined = file:pid2name(Pid),
     ok.
 
 

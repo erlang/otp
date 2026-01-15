@@ -1,8 +1,20 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec difference(Set1, Set2) -> Set3[0m
-  [;1m                    when[0m
-  [;1m                        Set1 :: a_set(),[0m
-  [;1m                        Set2 :: a_set(),[0m
-  [;1m                        Set3 :: a_set().[0m
+[;1m  difference(Set1, Set2)[0m
 
   Returns the difference of the sets [;;4mSet1[0m and [;;4mSet2[0m.
+
+[;1mExamples[0m
+
+    1> S0 = sofs:set([a,b,c,d]).
+    2> S1 = sofs:set([c,d,e,f]).
+    3> sofs:to_external(sofs:difference(S0, S1)).
+    [a,b]
+    4> sofs:to_external(sofs:difference(S1, S0)).
+    [e,f]

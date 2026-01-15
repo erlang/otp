@@ -1,7 +1,9 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 %% Created : 15 February 2010
 %%----------------------------------------------------------------------
 -module(ct_config_plain).
+-moduledoc false.
 -export([read_config/1, check_parameter/1]).
 
 read_config(ConfigFile) ->

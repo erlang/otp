@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2023-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +30,7 @@ dialyzer=yes
 tests=all
 opt_only=no
 format_check=yes
+license_header=yes
 
 have_printf=no
 
@@ -52,6 +55,7 @@ print_usage() {
 Usage:
   otp_build check [--help|-h] [--only-opt|-o] [--no-docs|-d] \\
                   [--no-dialyzer|-y] [--no-tests|-n] [--no-format-check|-f] \\
+                  [--no-license-header|-l] \\
                   [--tests|-t <App0> ... <AppN>]
 
 
@@ -71,8 +75,8 @@ default:
  * Debug compile C-code in all applications.
  * Format checking of JIT code.
  * Run dialyzer on all applications.
+ * Run license header check on all applications.
  * Build all documentation.
- * Run xmllint on all documentation.
  * Run html link check on all documentation.
  * Build all test suites.
 
@@ -81,6 +85,7 @@ Certain build checking can be disabled using the following options:
 * [--no-format-check|-f] - No JIT format checking.
 * [--no-docs|-d] - No documentation checking.
 * [--no-dialyzer|-y] - No dialyzer checking.
+* [--no-license-header|-l] - No license header checking.
 * [--no-tests|-n] - No build checking of test suites.
 * [--tests|-t <App0> ... <AppN>] - Only build checking of test suites for
   listed applications.
@@ -137,6 +142,8 @@ while [ $# -gt 0 ]; do
             format_check=no;;
         --no-tests|-n)
             tests=none;;
+        --no-license-header|-l)
+            license_header=no;;
         --tests|-t)
             shift
             while [ $# -gt 0 ]; do
@@ -239,17 +246,22 @@ export PATH="$ERL_TOP/release/$target/bin:$PATH"
     $MAKE docs || fail "Building documentation failed"
     progress "Releasing OTP documentation"
     $MAKE release_docs || fail "Releasing documentation failed"
-    progress "Running xmllint on OTP documentation"
-    $MAKE xmllint || fail "xmllint of documentation failed"
     progress "Running HTML check on OTP documentation"
-    ./scripts/otp_html_check "$ERL_TOP/release/$target/" doc/index.html || {
-        fail "HTML check of documentation failed"
+    ./scripts/otp_check_html_links.exs || {
+        fail "HTML check of documentation failed, see $ERL_TOP/HOWTO/DEVELOPMENT.md -> Validating documentation"
     }
 }
 
 [ $dialyzer = no ] || {
     progress "Running dialyzer on OTP"
     $MAKE dialyzer || fail "Dialyzing OTP failed"
+}
+
+[ $license_header = no ] || {
+    progress "Running License Header Check on OTP"
+    ./scripts/license-header.es ci || {
+        fail "Checking license headers in OTP failed. See $ERL_TOP/FILE-HEADERS.md for details"
+    }
 }
 
 [ "$tests" = none ] || {

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 -export([all/0, suite/0, groups/0]).
 
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, eq_big_mul_div/1,
+         eq_big_rem/1,
          big_literals/1, borders/1, negative/1, karatsuba/1,
          big_float_1/1, big_float_2/1,
          bxor_2pow/1, band_2pow/1,
@@ -44,6 +47,7 @@ suite() ->
 
 all() -> 
     [t_div, eq_28, eq_32, eq_big, eq_math, eq_big_mul_div,
+     eq_big_rem,
      big_literals, borders, negative, karatsuba,
      {group, big_float}, shift_limit_1,
      bxor_2pow, band_2pow,
@@ -81,6 +85,10 @@ eq_math(Config) when is_list(Config) ->
     test(TestFile).
 
 eq_big_mul_div(Config) when is_list(Config) ->
+    TestFile = test_file(Config, ?FUNCTION_NAME),
+    test(TestFile).
+
+eq_big_rem(Config) when is_list(Config) ->
     TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
 
@@ -177,6 +185,7 @@ eval({op,_,Op,A0}, LFH) ->
 eval({op,_,Op,A0,B0}, LFH) ->
     [A,B] = eval_list([A0,B0], LFH),
     Res = eval_op(Op, A, B),
+    ok = eval_op_guard(Op, A, B, Res),
     erlang:garbage_collect(),
     Res;
 eval({integer,_,I}, _) ->
@@ -206,6 +215,18 @@ eval_op('bor', A, B) -> A bor B;
 eval_op('bxor', A, B) -> A bxor B;
 eval_op('bsl', A, B) -> A bsl B;
 eval_op('bsr', A, B) -> A bsr B.
+
+eval_op_guard('-', A, B, Res) when Res =:= A - B -> ok;
+eval_op_guard('+', A, B, Res) when Res =:= A + B -> ok;
+eval_op_guard('*', A, B, Res) when Res =:= A * B -> ok;
+eval_op_guard('div', A, B, Res) when Res =:= A div B -> ok;
+eval_op_guard('rem', A, B, Res) when Res =:= A rem B -> ok;
+eval_op_guard('band', A, B, Res) when Res =:= A band B -> ok;
+eval_op_guard('bor', A, B, Res) when Res =:= A bor B -> ok;
+eval_op_guard('bxor', A, B, Res) when Res =:= A bxor B -> ok;
+eval_op_guard('bsl', A, B, Res) when Res =:= A bsl B -> ok;
+eval_op_guard('bsr', A, B, Res) when Res =:= A bsr B -> ok;
+eval_op_guard(Op, A, B, Res) -> {error,{Op,A,B,Res}}.
 
 test_squaring(I) ->
     %% Multiplying an integer by itself is specially optimized, so we
@@ -520,12 +541,13 @@ properties(_Config) ->
     _ = [begin
              A = id(rand_int()),
              B = id(rand_int()),
-             io:format("~.36#\n~.36#\n", [A,B]),
-             test_properties(A, B)
+             C = id(rand_int()),
+             io:format("~.36#\n~.36#\n~.36#\n", [A,B,C]),
+             test_properties(A, B, C)
          end || _ <- lists:seq(1, 1000)],
     ok.
 
-test_properties(A, B) ->
+test_properties(A, B, C) ->
     SquaredA = id(A * A),
     SquaredB = id(B * B),
 
@@ -543,6 +565,11 @@ test_properties(A, B) ->
     A = id(Sum - B),
     B = id(Sum - A),
     0 = Sum - A - B,
+    C = id(A + B + C) - Sum,
+
+    PS = id(A * B + C),
+    PS = P + C,
+    ok = test_mul_add_guard(A, B, C, PS),
 
     NegA = id(-A),
     A = -NegA,
@@ -563,6 +590,7 @@ test_properties(A, B) ->
 
     ok.
 
+test_mul_add_guard(A, B, C, Res) when Res =:= A * B + C -> ok.
 
 rand_int() ->
     Sz = max(floor(rand:normal() * 512 + 256), 7),

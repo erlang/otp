@@ -61,7 +61,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //!   // Create and initialize `FuncDetail`.
 //!   FuncDetail func;
-//!   func.init(FuncSignatureT<void, int*, const int*, const int*>(CallConvId::kHost));
+//!   func.init(FuncSignature::build<void, int*, const int*, const int*>());
 //!
 //!   // Remember prolog insertion point.
 //!   BaseNode* prologInsertionPoint = cb.cursor();
@@ -326,7 +326,7 @@ public:
   //! \{
 
   ASMJIT_API explicit Builder(CodeHolder* code = nullptr) noexcept;
-  ASMJIT_API virtual ~Builder() noexcept;
+  ASMJIT_API ~Builder() noexcept override;
 
   //! \}
 

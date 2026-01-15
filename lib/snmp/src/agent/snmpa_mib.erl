@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_mib).
+-moduledoc false.
 
 
 %%%-----------------------------------------------------------------
@@ -945,6 +948,7 @@ do_gc_cache(Cache, [Key|Keys]) ->
     ets:delete(Cache, Key),
     do_gc_cache(Cache, Keys).
 
+-dialyzer({no_opaque_union, [maybe_invalidate_cache/1]}).
 maybe_invalidate_cache(?NO_CACHE) ->
     ?NO_CACHE;
 maybe_invalidate_cache(Cache) ->

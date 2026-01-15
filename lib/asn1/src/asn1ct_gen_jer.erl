@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 %%
 -module(asn1ct_gen_jer).
+-moduledoc false.
 
 %% Generate erlang module which handles (PER) encode and decode for
 %% all types in an ASN.1 module
@@ -355,7 +358,7 @@ suppress({M,F,A}=MFA) ->
 	    ok;
 	true ->
 	    Args = [lists:concat(["element(",I,", Arg)"]) || I <- lists:seq(1, A)],
-	    emit(["    ",{call,M,F,Args},com,nl])
+	    emit(["    _ = ",{call,M,F,Args},com,nl])
     end.
 
 %%===============================================================================
@@ -448,19 +451,13 @@ gen_typeinfo(Erules, Typename, Type) ->
     end.
 
 gen_encode_prim(Erules, #type{constraint=C}=D, _Value) ->
-    BitStringConstraint = get_size_constraint(C),
+    SizeConstraint = get_size_constraint(C),
     IntConstr = int_constr(C),
     Containing = containing_constraint(Erules, C),
 
-    %% MaxBitStrSize = case BitStringConstraint of
-    %%     		[] -> none;
-    %%     		{_,'MAX'} -> none;
-    %%     		{_,Max} -> Max;
-    %%     		Max when is_integer(Max) -> Max
-    %%     	    end,
     asn1ct_name:new(enumval),
     Type = case D#type.def of
-	       'OCTET STRING'    -> maybe_legacy_octet_string();
+	       'OCTET STRING'    -> maybe_legacy_octet_string(SizeConstraint);
                'UTF8String'      -> string;
 	       'ObjectDescriptor'-> string;
 	       'NumericString'   -> string;
@@ -474,9 +471,9 @@ gen_encode_prim(Erules, #type{constraint=C}=D, _Value) ->
 	       'IA5String'       -> string;
 	       'UTCTime'         -> string;
 	       'GeneralizedTime' -> string;
-               B1 = 'BIT STRING' -> maybe_legacy_bit_string(B1,BitStringConstraint);
+               B1 = 'BIT STRING' -> maybe_legacy_bit_string(B1,SizeConstraint);
                B2 = {'BIT STRING',_NNL} -> 
-                   maybe_legacy_bit_string(B2,BitStringConstraint);
+                   maybe_legacy_bit_string(B2,SizeConstraint);
                {'INTEGER',NNL} -> {'INTEGER_NNL',NNL};
                {'ENUMERATED',{NNL,Ext}} -> {'ENUMERATED_EXT',maps:from_list(NNL++Ext)};
                {'ENUMERATED',NNL} -> {'ENUMERATED',maps:from_list(NNL)};
@@ -491,12 +488,18 @@ gen_encode_prim(Erules, #type{constraint=C}=D, _Value) ->
             {container,Type,Containing}
     end.
 
-maybe_legacy_octet_string() ->
-    case asn1ct:use_legacy_types() of
-        true ->
-            legacy_octet_string;
-        false ->
-            octet_string
+maybe_legacy_octet_string(SizeConstraint) ->
+    Type = case asn1ct:use_legacy_types() of
+               true ->
+                   legacy_octet_string;
+               false ->
+                   octet_string
+           end,
+    case SizeConstraint of
+        [] ->
+            Type;
+        _ ->
+            {Type,SizeConstraint}
     end.
 
 maybe_legacy_bit_string(BitStrType,SizeConstraint) ->
@@ -517,11 +520,12 @@ maybe_legacy_bit_string(BitStrType,SizeConstraint) ->
                     {list_to_atom(lists:concat([Type,"_nnl"])),NNL}
             end,
     case SizeConstraint of
-        S when is_integer(S) ->
-            {Type1,S};
+        [] ->
+            Type1;
         _ ->
-            Type1
+            {Type1,SizeConstraint}
     end.
+
 %%===========================================================================
 %% Generate DECODING
 %%===========================================================================

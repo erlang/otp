@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -155,22 +157,22 @@ groups() ->
      {'tlsv1', [], kex()},
      {'dtlsv1.2', [], kex()},
      {'dtlsv1', [], kex()},
-     {dhe_rsa, [],[dhe_rsa_3des_ede_cbc, 
+     {dhe_rsa, [parallel],[dhe_rsa_3des_ede_cbc, 
                    dhe_rsa_aes_128_cbc,
                    dhe_rsa_aes_128_gcm,
                    dhe_rsa_aes_256_cbc,
                    dhe_rsa_aes_256_gcm,
                    dhe_rsa_chacha20_poly1305
                   ]},
-     {ecdhe_rsa, [], [ecdhe_rsa_3des_ede_cbc, 
+     {ecdhe_rsa, [parallel], [ecdhe_rsa_3des_ede_cbc, 
                       ecdhe_rsa_aes_128_cbc,
                       ecdhe_rsa_aes_128_gcm,
                       ecdhe_rsa_aes_256_cbc,
                       ecdhe_rsa_aes_256_gcm,
                       ecdhe_rsa_chacha20_poly1305
                     ]},
-     {ecdhe_1_3_rsa_cert, [], tls_1_3_cipher_suites()},
-     {ecdhe_ecdsa, [],[ecdhe_ecdsa_rc4_128, 
+     {ecdhe_1_3_rsa_cert, [parallel], tls_1_3_cipher_suites()},
+     {ecdhe_ecdsa, [parallel],[ecdhe_ecdsa_rc4_128, 
                        ecdhe_ecdsa_3des_ede_cbc, 
                        ecdhe_ecdsa_aes_128_cbc,
                        ecdhe_ecdsa_aes_128_gcm,
@@ -182,39 +184,39 @@ groups() ->
                        ecdhe_ecdsa_with_aes_128_ccm_8,
                        ecdhe_ecdsa_with_aes_256_ccm_8
                       ]},
-     {rsa, [], [rsa_3des_ede_cbc, 
+     {rsa, [parallel], [rsa_3des_ede_cbc, 
                 rsa_aes_128_cbc,
                 rsa_aes_256_cbc,
                 rsa_rc4_128
                ]},
-     {dhe_dss, [], [dhe_dss_3des_ede_cbc, 
+     {dhe_dss, [parallel], [dhe_dss_3des_ede_cbc, 
                     dhe_dss_aes_128_cbc,
                     dhe_dss_aes_256_cbc]},
-     {srp_rsa, [], [srp_rsa_3des_ede_cbc, 
+     {srp_rsa, [parallel], [srp_rsa_3des_ede_cbc, 
                     srp_rsa_aes_128_cbc,
                     srp_rsa_aes_256_cbc]},
-     {srp_dss, [], [srp_dss_3des_ede_cbc, 
+     {srp_dss, [parallel], [srp_dss_3des_ede_cbc, 
                     srp_dss_aes_128_cbc,
                     srp_dss_aes_256_cbc]},
-     {rsa_psk, [], [rsa_psk_3des_ede_cbc,                    
+     {rsa_psk, [parallel], [rsa_psk_3des_ede_cbc,                    
                     rsa_psk_rc4_128,
                     rsa_psk_aes_128_cbc,
                     rsa_psk_aes_256_cbc
                    ]},
-     {dh_anon, [], [dh_anon_rc4_128,
+     {dh_anon, [parallel], [dh_anon_rc4_128,
                     dh_anon_3des_ede_cbc, 
                     dh_anon_aes_128_cbc,
                     dh_anon_aes_128_gcm,
                     dh_anon_aes_256_cbc,
                     dh_anon_aes_256_gcm]},
-     {ecdh_anon, [], [ecdh_anon_3des_ede_cbc, 
+     {ecdh_anon, [parallel], [ecdh_anon_3des_ede_cbc, 
                       ecdh_anon_aes_128_cbc,
                       ecdh_anon_aes_256_cbc
                      ]},     
-     {srp_anon, [], [srp_anon_3des_ede_cbc, 
+     {srp_anon, [parallel], [srp_anon_3des_ede_cbc, 
                      srp_anon_aes_128_cbc,
                      srp_anon_aes_256_cbc]},
-     {psk, [], [psk_3des_ede_cbc,                    
+     {psk, [parallel], [psk_3des_ede_cbc,                    
                 psk_rc4_128,
                 psk_aes_128_cbc,
                 psk_aes_128_ccm,
@@ -223,7 +225,7 @@ groups() ->
                 psk_aes_256_ccm,
                 psk_aes_256_ccm_8
                ]},
-     {dhe_psk, [], [dhe_psk_des_cbc,
+     {dhe_psk, [parallel], [dhe_psk_des_cbc,
                     dhe_psk_3des_ede_cbc,
                     dhe_psk_rc4_128,
                     dhe_psk_aes_128_cbc,
@@ -235,7 +237,7 @@ groups() ->
                     dhe_psk_aes_256_ccm,
                     dhe_psk_aes_256_ccm_8
                ]},
-     {ecdhe_psk, [], [ecdhe_psk_3des_ede_cbc,                    
+     {ecdhe_psk, [parallel], [ecdhe_psk_3des_ede_cbc,                    
                       ecdhe_psk_rc4_128,
                       ecdhe_psk_aes_128_cbc,
                       ecdhe_psk_aes_128_gcm,
@@ -286,8 +288,8 @@ anonymous() ->
     ].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             Config

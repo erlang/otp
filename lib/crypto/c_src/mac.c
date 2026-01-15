@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 #include "cmac.h"
 #include "hmac.h"
 #include "mac.h"
+#include "info.h"
 
 /***************************
      MAC type declaration
@@ -40,6 +43,10 @@ struct mac_type_t {
     }alg;
     int type;
     size_t key_len;      /* != 0 to also match on key_len */
+#if defined(HAS_3_0_API)
+    const char* fetch_name;
+    EVP_MAC *evp_mac;
+#endif
 };
 
 /* masks in the flags field if mac_type_t */
@@ -59,6 +66,9 @@ static struct mac_type_t mac_types[] =
 #else
      {EVP_PKEY_NONE}, NO_mac, 0
 #endif
+#if defined(HAS_3_0_API)
+     ,"POLY1305"
+#endif
     },
 
     {{"hmac"}, 0,
@@ -68,6 +78,9 @@ static struct mac_type_t mac_types[] =
      /* HMAC is always supported, but possibly with low-level routines */
      {EVP_PKEY_NONE}, HMAC_mac, 0
 #endif
+#if defined(HAS_3_0_API)
+     ,"HMAC"
+#endif
     },
 
     {{"cmac"}, 0,
@@ -76,6 +89,9 @@ static struct mac_type_t mac_types[] =
      {EVP_PKEY_CMAC}, CMAC_mac, 0
 #else
      {EVP_PKEY_NONE}, NO_mac, 0
+#endif
+#if defined(HAS_3_0_API)
+     ,"CMAC"
 #endif
     },
 
@@ -113,10 +129,12 @@ void init_mac_types(ErlNifEnv* env)
 
     for (p = mac_types; p->name.str; p++) {
 	p->name.atom = enif_make_atom(env, p->name.str);
+#if defined(HAS_3_0_API)
+        p->evp_mac = EVP_MAC_fetch(NULL, p->fetch_name, NULL);
+#endif
     }
     p->name.atom = atom_false;  /* end marker */
 }
-
 
 ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
 {
@@ -126,7 +144,7 @@ ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
     hd = enif_make_list(env, 0);
     prev = atom_undefined;
 
-    for (p = mac_types; (p->name.atom & (p->name.atom != atom_false)); p++) {
+    for (p = mac_types; p->name.atom != atom_false; p++) {
         if (prev == p->name.atom)
             continue;
 
@@ -493,8 +511,6 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  *
  ******************************************************************/
 
-int init_mac_ctx(ErlNifEnv *env);
-
 struct mac_context
 {
 #if defined(HAS_3_0_API)
@@ -508,8 +524,9 @@ static ErlNifResourceType* mac_context_rtype;
 
 static void mac_context_dtor(ErlNifEnv* env, struct mac_context*);
 
-int init_mac_ctx(ErlNifEnv *env) {
-    mac_context_rtype = enif_open_resource_type(env, NULL, "mac_context",
+int init_mac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
+    mac_context_rtype = enif_open_resource_type(env, NULL,
+                                                resource_name("mac_context", rt_buf),
                                                 (ErlNifResourceDtor*) mac_context_dtor,
                                                 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                 NULL);
@@ -529,12 +546,13 @@ static void mac_context_dtor(ErlNifEnv* env, struct mac_context *obj)
     if (obj == NULL)
         return;
 
-    if (obj->ctx)
+    if (obj->ctx) {
 #if defined(HAS_3_0_API)
         EVP_MAC_CTX_free(obj->ctx);
 #else
         EVP_MD_CTX_free(obj->ctx);
 #endif
+    }
 }
 
 /*******************************************************************
@@ -560,10 +578,8 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary key_bin;
     ERL_NIF_TERM return_term;
 # if defined(HAS_3_0_API)
-    const char *name = NULL;
     const char *digest = NULL;
     const char *cipher = NULL;
-    EVP_MAC *mac = NULL;
     OSSL_PARAM params[3];
     size_t params_n = 0;
 # else
@@ -623,7 +639,6 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 # if defined(HAS_3_0_API)
-            name = "HMAC";
             digest = digp->str_v3;
 # else
             if (digp->md.p == NULL)
@@ -675,7 +690,6 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 }
 
 #  if defined(HAS_3_0_API)
-            name = "CMAC";
             cipher = cipherp->str_v3;
 #  else
             /* Old style */
@@ -691,9 +705,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ************/
 # ifdef HAVE_POLY1305
     case POLY1305_mac:
-#  if defined(HAS_3_0_API)
-        name = "POLY1305";
-#  else
+#  if !defined(HAS_3_0_API)
         /* Old style */
         /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
         pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ NULL, key_bin.data,  key_bin.size);
@@ -716,8 +728,9 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /*-----------------------------------------
       Common computations when we have 3.0 API
     */
-    if (!(mac = EVP_MAC_fetch(NULL, name, NULL)))
+    if (!macp->evp_mac) {
         assign_goto(return_term, err, EXCP_NOTSUP_N(env, 0, "Unsupported mac algorithm"));
+    }
 
     if (cipher != NULL)
         params[params_n++] =
@@ -730,7 +743,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if ((obj = enif_alloc_resource(mac_context_rtype, sizeof(struct mac_context))) == NULL)
         assign_goto(return_term, err, EXCP_ERROR(env, "Can't allocate mac_context_rtype"));
 
-    if (!(obj->ctx = EVP_MAC_CTX_new(mac)))
+    if (!(obj->ctx = EVP_MAC_CTX_new(macp->evp_mac)))
         assign_goto(return_term, err, EXCP_ERROR(env, "Can't create EVP_MAC_CTX"));
     
     if (!EVP_MAC_init(obj->ctx, key_bin.data, key_bin.size, params))

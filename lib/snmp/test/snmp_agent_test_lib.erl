@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,15 +130,17 @@ init_all(Config) when is_list(Config) ->
     %% Start nodes
     %%
 
-    ?IPRINT("init_all -> start sub-agent node"),
-    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
+    %% Since our nodes run through many test cases,
+    %% we, *current* process, cannot be linked to it.
+    %% Since we (current process) are dead once this
+    %% initiation is done, which would get the 'Peer'
+    %% process to terminate the node.
 
-    {ok, SaPeer, SaNode}  = ?CT_PEER(#{name => ?CT_PEER_NAME(snmp_sa), args => Args}),
-    unlink(SaPeer), %% must unlink, otherwise peer will exit before test case
+    ?IPRINT("init_all -> start sub-agent node"),
+    {SaPeer, SaNode} = ?START_NODE(?CT_PEER_NAME(snmp_sa), true),
 
     ?IPRINT("init_all -> start manager node"),
-    {ok, MgrPeer, MgrNode} = ?CT_PEER(#{name => ?CT_PEER_NAME(snmp_mgr), args => Args}),
-    unlink(MgrPeer), %% must unlink, otherwise peer will exit before test case
+    {MgrPeer, MgrNode} = ?START_NODE(?CT_PEER_NAME(snmp_mgr), true),
 
     global:sync(),
 
@@ -644,6 +648,7 @@ tc_run_skip_check(Mod, Func, Args, Reason, Cat) ->
 %% ---------------------------------------------------------------
 
 start_v1_agent(Config) when is_list(Config) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
     start_agent(Config, [v1]).
  
 start_v1_agent(Config, Opts) when is_list(Config) andalso is_list(Opts)  ->
@@ -725,18 +730,29 @@ start_agent(Config, Vsns, Opts) ->
     ?DBG("start_agent -> snmp app supervisor: ~p", [AppSup]),
 
     ?IPRINT("start_agent -> try start master agent",[]),
-    Sup = start_sup(Env),
-    unlink(Sup),
-    ?DBG("start_agent -> snmp supervisor: ~p", [Sup]),
+    try start_sup(Env) of
+        Sup ->
+            unlink(Sup),
+            ?DBG("start_agent -> snmp supervisor: ~p", [Sup]),
+            
+            ?IPRINT("start_agent -> try (rpc) start sub agent on ~p", [SaNode]),
+            SaDir = ?config(sa_dir, Config),
+            {ok, Sub} = start_sub_sup(SaNode, SaDir),
+            ?DBG("start_agent -> done", []),
 
-    ?IPRINT("start_agent -> try (rpc) start sub agent on ~p", [SaNode]),
-    SaDir = ?config(sa_dir, Config),
-    {ok, Sub} = start_sub_sup(SaNode, SaDir),
-    ?DBG("start_agent -> done", []),
-
-    [{snmp_app_sup, AppSup},
-           {snmp_sup,     {Sup, self()}}, 
-           {snmp_sub,     Sub} | Config].
+            [{snmp_app_sup, AppSup},
+             {snmp_sup,     {Sup, self()}}, 
+             {snmp_sub,     Sub} | Config]
+    catch
+        C:E:S ->
+            ?EPRINT("start_agent -> "
+                    "failed starting master agent - stop app supervisor: "
+                    "~n   C: ~p"
+                    "~n   E: ~p"
+                    "~n   S: ~p", [C, E, S]),
+            stop_sup(AppSup, undefined),
+            erlang:raise(C, E, S)
+    end.
 
 
 app_agent_env_init(Env0, Opts) ->
@@ -928,49 +944,74 @@ merge_agent_options([{Key, _Value} = Opt|Opts], Options) ->
     end.
 
 
-stop_agent(Config) when is_list(Config) ->
+%% The actions in this function is in the reverse start order.
+stop_agent(Config0) when is_list(Config0) ->
     ?IPRINT("stop_agent -> entry with"
-            "~n   Config: ~p",[Config]),
+            "~n   Config: ~p", [Config0]),
 
+    Fs =
+	[
+	 %% Stop the sub-agent (the agent supervisor)
+	 {"Stop the sub-agent (the agent supervisor)",
+	  fun(C) ->
+		  {SubSup, SubPar} = ?config(snmp_sub, C),
+		  ?IPRINT("stop_agent -> attempt to stop sub agent (~p)"
+			  "~n   Sub Sup info: "
+			  "~n      ~p"
+			  "~n   Sub Par info: "
+			  "~n      ~p",
+			  [SubSup, ?PINFO(SubSup), ?PINFO(SubPar)]),
+		  stop_sup(SubSup, SubPar),
+		  lists:keydelete(snmp_sub, 1, C)
+	  end},
 
-    %% Stop the sub-agent (the agent supervisor)
-    {SubSup, SubPar} = ?config(snmp_sub, Config),
-    ?IPRINT("stop_agent -> attempt to stop sub agent (~p)"
-            "~n   Sub Sup info: "
-            "~n      ~p"
-            "~n   Sub Par info: "
-            "~n      ~p",
-            [SubSup, ?PINFO(SubSup), ?PINFO(SubPar)]),
-    stop_sup(SubSup, SubPar),
-    Config2 = lists:keydelete(snmp_sub, 1, Config),
+	 %% Stop the master-agent (the top agent supervisor)
+	 {"Stop the master-agent (the top agent supervisor)",
+	  fun(C) ->
+		  {MasterSup, MasterPar} = ?config(snmp_sup, C),
+		  ?IPRINT("stop_agent -> attempt to stop master agent (~p)"
+			  "~n   Master Sup: "
+			  "~n      ~p"
+			  "~n   Master Par: "
+			  "~n      ~p"
+			  "~n   Agent Info: "
+			  "~n      ~p",
+			  [MasterSup,
+			   ?PINFO(MasterSup), ?PINFO(MasterPar),
+			   agent_info(MasterSup)]),
+		  stop_sup(MasterSup, MasterPar),
+		  lists:keydelete(snmp_sup, 1, C)
+	  end},
 
+	 %% Stop the top supervisor (of the snmp app)
+	 {"Stop the top supervisor (of the snmp app)",
+	  fun(C) ->
+		  AppSup = ?config(snmp_app_sup, C),
+		  ?IPRINT("stop_agent -> attempt to app sup ~p"
+			  "~n   App Sup: ~p",
+			  [AppSup, ?PINFO(AppSup)]),
+		  stop_sup(AppSup, undefined),
+		  lists:keydelete(snmp_app_sup, 1, C)
+	  end}
+	],
 
-    %% Stop the master-agent (the top agent supervisor)
-    {MasterSup, MasterPar} = ?config(snmp_sup, Config),
-    ?IPRINT("stop_agent -> attempt to stop master agent (~p)"
-            "~n   Master Sup: "
-            "~n      ~p"
-            "~n   Master Par: "
-            "~n      ~p"
-            "~n   Agent Info: "
-            "~n      ~p",
-            [MasterSup,
-             ?PINFO(MasterSup), ?PINFO(MasterPar),
-             agent_info(MasterSup)]),
-    stop_sup(MasterSup, MasterPar),
-    Config3 = lists:keydelete(snmp_sup, 1, Config2),
+    {Config, Description} = stop_agent_loop(Fs, Config0),
 
+    ?IPRINT("stop_agent -> ~s", [Description]),
+    Config.
 
-    %% Stop the top supervisor (of the snmp app)
-    AppSup = ?config(snmp_app_sup, Config),
-    ?IPRINT("stop_agent -> attempt to app sup ~p"
-            "~n   App Sup: ~p",
-            [AppSup, ?PINFO(AppSup)]),
-    Config4 = lists:keydelete(snmp_app_sup, 1, Config3),
+stop_agent_loop([], Config) ->
+    {Config, "done"};
+stop_agent_loop([{Desc, F}|Fs], Config0) ->
+    ?IPRINT("try ~s", [Desc]),
+    try F(Config0) of
+	Config when is_list(Config) ->
+	    stop_agent_loop(Fs, Config)
+    catch
+	_:_:_ ->
+	    {Config0, ?F("aborted at~n   ") ++ Desc}
+    end.
 
-
-    ?IPRINT("stop_agent -> done", []),
-    Config4.
 
 start_app_sup() ->
     case snmp_app_sup:start_link() of
@@ -988,11 +1029,19 @@ start_app_sup() ->
 start_sup(Env) ->
     case (catch snmp_app_sup:start_agent(normal, Env)) of
 	{ok, S} ->
-	    ?DBG("start_agent -> started, Sup: ~p", [S]),
+	    ?DBG("~w -> started: ~p", [?FUNCTION_NAME, S]),
 	    S;
-	
+
+        {error, {net_if, error, {What, Info, Reason} = Details}} ->
+	    ?EPRINT("~w -> failed start agent - net-if: "
+                    "~n   What:   ~p"
+                    "~n   Info:   ~p"
+                    "~n   Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
+	    ?FAIL({start_failed, net_if, Details});
+
 	Else ->
-	    ?EPRINT("start_agent -> unknown result: ~n~p", [Else]),
+	    ?EPRINT("~w -> unknown result: "
+                    "~n   ~p", [?FUNCTION_NAME, Else]),
 	    %% Get info about the apps we depend on
 	    ?FAIL({start_failed, Else, ?IS_MNESIA_RUNNING()})
     end.
@@ -1030,7 +1079,12 @@ await_stopped(Pid, Ref) ->
 %% --- start subagent supervisor ---
 
 start_sub_sup(Node, Dir) ->
-    rpc:call(Node, ?MODULE, start_sub_sup, [Dir]).
+    case rpc:call(Node, ?MODULE, start_sub_sup, [Dir]) of
+        {badrpc, _Reason} = BADRPC ->
+            ?SKIP(BADRPC);
+        Result ->
+            Result
+    end.
     
 start_sub_sup(Dir) ->
     ?DBG("start_sub -> entry",[]),
@@ -1056,6 +1110,8 @@ start_subagent(SaNode, RegTree, Mib) ->
     Func   = start_sub_agent,
     Args   = [MA, RegTree, [Mib1]], 
     case rpc:call(SaNode, Mod, Func, Args) of
+        {badrpc, _Reason} = BADRPC ->
+            ?SKIP(BADRPC);
 	{ok, SA} ->
 	    ?DBG("start_subagent -> SA: ~p", [SA]),
 	    {ok, SA};

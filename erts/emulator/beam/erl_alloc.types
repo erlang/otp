@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2003-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,6 +137,7 @@ type	TIMER_SERVICE	LONG_LIVED	SYSTEM		timer_service
 type    LL_PTIMER	FIXED_SIZE	PROCESSES	ll_ptimer
 type    HL_PTIMER	FIXED_SIZE	PROCESSES	hl_ptimer
 type    BIF_TIMER	FIXED_SIZE	PROCESSES	bif_timer
+type    PAUSED_TIMER STANDARD PROCESSES	paused_timer
 type    TIMER_REQUEST	SHORT_LIVED	PROCESSES	timer_request
 type    BTM_YIELD_STATE	SHORT_LIVED	PROCESSES	btm_yield_state
 type	REG_TABLE	STANDARD	SYSTEM		reg_tab
@@ -212,9 +215,10 @@ type	PTAB_LIST_DEL	SHORT_LIVED	PROCESSES	ptab_list_deleted_el
 type	PTAB_LIST_CNKI	SHORT_LIVED	PROCESSES	ptab_list_chunk_info
 type	PTAB_LIST_PIDS	SHORT_LIVED	PROCESSES	ptab_list_pids
 type	RE_TMP_BUF	TEMPORARY	SYSTEM		re_tmp_buf
+type    RE_SHORTLIVED   SHORT_LIVED     SYSTEM          re_shortlived
+type    RE_INIT         LONG_LIVED      SYSTEM          re_init
 type    RE_SUBJECT      SHORT_LIVED     SYSTEM          re_subject
-type  	RE_HEAP 	STANDARD	SYSTEM		re_heap
-type	RE_STACK 	SHORT_LIVED	SYSTEM		re_stack
+type    RE_PRECOMPILE   STANDARD        SYSTEM          re_precompile
 type	UNICODE_BUFFER 	SHORT_LIVED	SYSTEM		unicode_buffer
 type	BINARY_BUFFER 	SHORT_LIVED	SYSTEM		binary_buffer
 type	PRE_ALLOC_DATA	LONG_LIVED	SYSTEM		pre_alloc_data
@@ -280,6 +284,7 @@ type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
 type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state
 type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
 type	PF3_ARGS	SHORT_LIVED	PROCESSES	process_flag_3_arguments
+type	TRACE_INFO_REQ	SHORT_LIVED	PROCESSES	trace_info_proc_request
 type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
 type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
 type    CONT_EXIT_TRAP  SHORT_LIVED     PROCESSES       continue_exit_trap_state
@@ -289,7 +294,7 @@ type    MAP_TRAP        SHORT_LIVED     PROCESSES       map_bif_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
-type	PERSISTENT_TERM	LONG_LIVED	CODE		persisten_term
+type	PERSISTENT_TERM	LONG_LIVED	CODE		persistent_term
 type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
 type	PERSISTENT_TERM_TMP SHORT_LIVED	SYSTEM		persistent_term_tmp_table
 
@@ -308,6 +313,9 @@ type	T2B_DETERMINISTIC SHORT_LIVED	PROCESSES	term_to_binary_deterministic
 
 type    DSIG_HNDL_NTFY  SHORT_LIVED     PROCESSES       dirty_signal_handler_notification
 type    SCHD_SIG_NTFY   SHORT_LIVED     PROCESSES       scheduled_signal_notify
+type	CODE_COVERAGE   STANDARD        SYSTEM          code_coverage
+
+type    PRIO_Q_INFO     STANDARD        PROCESSES       message_prio_queue_info
 
 #
 # Types used for special emulators

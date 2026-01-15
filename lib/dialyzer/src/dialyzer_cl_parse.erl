@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -9,8 +16,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 -module(dialyzer_cl_parse).
+-moduledoc false.
 
 -export([start/0]).
 
@@ -21,7 +31,6 @@
 -type dial_cl_parse_ret() :: {'check_init', #options{}}
                            | {'plt_info', #options{}}
                            | {'cl', #options{}}
-                           | {'gui', #options{}}
                            | {'error', string()}.
 
 -spec start() -> dial_cl_parse_ret().
@@ -51,14 +60,6 @@ start() ->
 parse_app(AppOrDir) ->
     case code:lib_dir(list_to_atom(AppOrDir)) of
         {error, bad_name} -> AppOrDir;
-        LibDir when AppOrDir =:= "erts" -> % hack for including erts in an un-installed system
-            EbinDir = filename:join([LibDir, "ebin"]),
-            case file:read_file_info(EbinDir) of
-                {error, enoent} ->
-                    filename:join([LibDir, "preloaded", "ebin"]);
-                _ ->
-                    EbinDir
-            end;
         LibDir -> filename:join(LibDir, "ebin")
     end.
 
@@ -148,10 +149,9 @@ cli() ->
                 no_behaviours, no_contracts, no_fail_call, no_fun_app, no_improper_lists,
                 no_match, no_missing_calls, no_opaque, no_return, no_undefined_callbacks,
                 no_underspecs, no_unknown, no_unused, underspecs, unknown, unmatched_returns,
-                overspecs, specdiffs, extra_return, no_extra_return, missing_return, no_missing_return]},
+                overspecs, specdiffs, overlapping_contract, extra_return, no_extra_return, missing_return,
+                no_missing_return, opaque_union]},
                 help => {<<"[-Wwarn]*">>, [<<"A family of options which selectively turn on/off warnings">>]}},
-            #{name => shell, long => "-shell", type => boolean,
-                help => <<"Do not disable the Erlang shell while running the GUI.">>},
             #{name => version, short => $v, long => "-version", type => boolean,
                 help => <<"Print the Dialyzer version and some more information and exit.">>},
             #{name => help, short => $h, long => "-help", type => boolean,
@@ -215,8 +215,6 @@ cli() ->
             #{name => indent_opt, long => "-no_indentation", type => boolean, action => {store, false},
                 help => <<"Do not indent contracts and success typings. Note that this option has "
                         "no effect when combined with the --raw option.">>},
-            #{name => gui, long => "-gui", type => boolean,
-                help => <<"Use the GUI.">>},
             #{name => metrics_file, long => "-metrics_file",
                 help => <<"Write metrics about Dialyzer's incrementality (for example, total number of "
                         "modules considered, how many modules were changed since the PLT was "
@@ -248,8 +246,7 @@ cli() ->
             arguments, options, "
 Note:
   * denotes that multiple occurrences of these options are possible.
- ** options -D and -I work both from command-line and in the Dialyzer GUI;
-    the syntax of defines and includes is the same as that used by \"erlc\".
+ ** the syntax of defines and includes is the same as that used by \"erlc\".
 
 " ++ warning_options_msg() ++ "
 " ++ configuration_file_msg() ++ "
@@ -304,11 +301,6 @@ postprocess_side_effects(ArgMap) ->
         plt_check ->
             %% plt_check is a hidden "check_init" command
             {check_init, ArgMap1};
-        _ when map_get(gui, ArgMap1) ->
-            %% filter out command-line only arguments
-            Allowed = [defines, from, include_dirs, plts, output_plt, report_mode,
-                use_spec, warnings, check_plt, solvers],
-            {gui, maps:with(Allowed, ArgMap1)};
         _ ->
             {cl, ArgMap1}
     end.
@@ -348,6 +340,10 @@ warning_options_msg() ->
      warn about unknown functions and types when setting the exit
      status. When using Dialyzer from Erlang, warnings about unknown functions
      and types are returned.
+  -Wunknown
+     Warns about unknown functions and types when setting the exit
+     status (enabled by default). When using Dialyzer from Erlang, warnings about unknown functions
+     and types are returned.
   -Wunmatched_returns ***
      Include warnings for function calls which ignore a structured return
      value or do not match against one of many possible return value(s).
@@ -363,7 +359,10 @@ warning_options_msg() ->
      Warn about functions that return values that are not part
      of the specification.
   -Woverlapping_contract ***
-     Warn about overloaded functions whose specification include types that overlap.
+     Warn about overloaded functions whose specification include types that
+     overlap.
+  -Wopaque_union ***
+     Warn about potentially creating a union between opaques and non-opaques.
 
 The following options are also available but their use is not recommended:
 (they are mostly for Dialyzer developers and internal debugging)

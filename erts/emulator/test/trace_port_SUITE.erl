@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,15 +16,19 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 
 -module(trace_port_SUITE).
 
--export([all/0, suite/0,
-	 call_trace/1,
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2]).
+
+-export([call_trace/1,
 	 return_trace/1,
 	 send/1,
 	 receive_trace/1,
@@ -33,17 +39,58 @@
 	 default_tracer/1,
 	 tracer_port_crash/1]).
 
+%% Needed for apply
+-export([erlang_trace/3, erlang_trace_info/2, erlang_trace_pattern/3]).
+
+
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 2}}].
+     {timetrap, {seconds, 20}}]. %{minutes, 2}}].
 
 all() ->
+    trace_sessions:all().
+
+groups() ->
+    trace_sessions:groups(testcases()).
+
+testcases() ->
     [call_trace, return_trace, send, receive_trace,
      receive_trace_non_scheduler,
      process_events, schedule, gc,
      default_tracer, tracer_port_crash].
+
+init_per_suite(Config) ->
+    trace_sessions:init_per_suite(Config, ?MODULE).
+
+end_per_suite(Config) ->
+    trace_sessions:end_per_suite(Config).
+
+init_per_group(Group, Config) ->
+    trace_sessions:init_per_group(Group, Config).
+
+end_per_group(Group, Config) ->
+    trace_sessions:end_per_group(Group, Config).
+
+
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    trace_sessions:init_per_testcase(Config).
+
+end_per_testcase(_Func, Config) ->
+    trace_sessions:end_per_testcase(Config).
+
+
+erlang_trace(A,B,C) ->
+    trace_sessions:erlang_trace(A,B,C).
+
+erlang_trace_pattern(A,B,C) ->
+    trace_sessions:erlang_trace_pattern(A,B,C).
+
+erlang_trace_info(A,B) ->
+    trace_sessions:erlang_trace_info(A,B).
+
+
 
 %% Test sending call trace messages to a port.
 call_trace(Config) when is_list(Config) ->
@@ -182,13 +229,14 @@ receive_trace_non_scheduler(Config) when is_list(Config) ->
                  fun() ->
                          receive
                              go ->
-                                 Ref = S ! erlang:trace_delivered(all),
+                                 Ref = erlang:trace_delivered(all),
+                                 S ! {sync,Ref},
                                  receive {trace_delivered, Ref, all} -> ok end
                          end
                  end),
     trac(Receiver, true, ['receive']),
     Receiver ! go,
-    Ref = receive R -> R end,
+    Ref = receive {sync,R} -> R end,
     expect({trace,Receiver,'receive',go}),
     expect({trace,Receiver,'receive',{trace_delivered, all, Ref}}),
 
@@ -262,29 +310,29 @@ default_tracer(Config) when is_list(Config) ->
     TracerMonitor = erlang:monitor(process, Tracer),
     Port = get(tracer_port),
     %%
-    N = erlang:trace(all, true, [send, {tracer, Port}]),
-    {flags, [send]} = erlang:trace_info(self(), flags),
-    {tracer, Port} = erlang:trace_info(self(), tracer),
-    {flags, [send]} = erlang:trace_info(new, flags),
-    {tracer, Port} = erlang:trace_info(new, tracer),
+    N = erlang_trace(all, true, [send, {tracer, Port}]),
+    {flags, [send]} = erlang_trace_info(self(), flags),
+    {tracer, Port} = erlang_trace_info(self(), tracer),
+    {flags, [send]} = erlang_trace_info(new, flags),
+    {tracer, Port} = erlang_trace_info(new, tracer),
     G1 = fun_spawn(fun general/0),
-    {flags, [send]} = erlang:trace_info(G1, flags),
-    {tracer, Port} = erlang:trace_info(G1, tracer),
+    {flags, [send]} = erlang_trace_info(G1, flags),
+    {tracer, Port} = erlang_trace_info(G1, tracer),
     unlink(Tracer),
     exit(Port, done),
-    receive
-        {'DOWN', TracerMonitor, process, Tracer, TracerExitReason} ->
-            done = TracerExitReason
-    end,
-    {flags, []} = erlang:trace_info(self(), flags),
-    {tracer, []} = erlang:trace_info(self(), tracer),
-    {flags, []} = erlang:trace_info(new, flags),
-    {tracer, []} = erlang:trace_info(new, tracer),
-    M = erlang:trace(all, false, [all]),
-    {flags, []} = erlang:trace_info(self(), flags),
-    {tracer, []} = erlang:trace_info(self(), tracer),
-    {flags, []} = erlang:trace_info(G1, flags),
-    {tracer, []} = erlang:trace_info(G1, tracer),
+    done = receive
+               {'DOWN', TracerMonitor, process, Tracer, TracerExitReason} ->
+                   TracerExitReason
+           end,
+    {flags, []} = erlang_trace_info(self(), flags),
+    {tracer, []} = erlang_trace_info(self(), tracer),
+    {flags, []} = erlang_trace_info(new, flags),
+    {tracer, []} = erlang_trace_info(new, tracer),
+    M = erlang_trace(all, false, [all]),
+    {flags, []} = erlang_trace_info(self(), flags),
+    {tracer, []} = erlang_trace_info(self(), tracer),
+    {flags, []} = erlang_trace_info(G1, flags),
+    {tracer, []} = erlang_trace_info(G1, tracer),
     G1 ! {apply,{erlang,exit,[normal]}},
     io:format("~p = ~p.~n", [M, N]),
     M = N - 1, % G1 has been started, but Tracer and Port have died
@@ -392,7 +440,7 @@ expect(Message) ->
 
 trac(What, On, Flags0) ->
     Flags = [{tracer,get(tracer_port)}|Flags0],
-    get(tracer) ! {apply,self(),{erlang,trace,[What,On,Flags]}},
+    get(tracer) ! {apply,self(),{?MODULE,erlang_trace,[What,On,Flags]}},
     Res = receive
               {apply_result,Result} -> Result
           end,
@@ -401,7 +449,7 @@ trac(What, On, Flags0) ->
     Res.
 
 trace_info(What, Key) ->
-    get(tracer) ! {apply,self(),{erlang,trace_info,[What,Key]}},
+    get(tracer) ! {apply,self(),{?MODULE,erlang_trace_info,[What,Key]}},
     Res = receive
               {apply_result,Result} -> Result
           end,
@@ -410,7 +458,7 @@ trace_info(What, Key) ->
     Res.
 
 trace_func(MFA, MatchProg) ->
-    get(tracer) ! {apply,self(),{erlang,trace_pattern,[MFA,MatchProg]}},
+    get(tracer) ! {apply,self(),{?MODULE,erlang_trace_pattern,[MFA,MatchProg,[]]}},
     Res = receive
               {apply_result,Result} -> Result
           end,
@@ -418,7 +466,7 @@ trace_func(MFA, MatchProg) ->
     Res.
 
 trace_func(MFA, MatchProg, Flags) ->
-    get(tracer) ! {apply,self(),{erlang,trace_pattern,[MFA,MatchProg,Flags]}},
+    get(tracer) ! {apply,self(),{?MODULE,erlang_trace_pattern,[MFA,MatchProg,Flags]}},
     Res = receive
               {apply_result,Result} -> Result
           end,
@@ -427,7 +475,7 @@ trace_func(MFA, MatchProg, Flags) ->
 
 trace_pid(Pid, On, Flags0) ->
     Flags = [{tracer,get(tracer_port)}|Flags0],
-    get(tracer) ! {apply,self(),{erlang,trace,[Pid,On,Flags]}},
+    get(tracer) ! {apply,self(),{?MODULE,erlang_trace,[Pid,On,Flags]}},
     Res = receive
               {apply_result,Result} -> Result
           end,

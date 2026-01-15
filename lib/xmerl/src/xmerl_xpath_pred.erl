@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,9 @@
 %% Description  : Helper module to xmerl_xpath: XPATH predicates.
 
 -module(xmerl_xpath_pred).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 %% API
 -export([eval/2]).
@@ -787,28 +792,30 @@ normalize([], _S, Acc) ->
 scan_number([H|T]) when ?whitespace(H) ->
     scan_number(T);
 scan_number("-" ++ T) ->
-    case catch xmerl_xpath_scan:scan_number(T) of
-	{{number, N}, Tail} ->
-	    case is_all_white(Tail) of
-		true ->
-		    N;
-		false ->
-		    'NaN'
-	    end;
-	_Other ->
-	    'NaN'
+    try 
+        {{number, _, N}, Tail} = xmerl_xpath_scan:scan_number(T),
+        case is_all_white(Tail) of
+            true ->
+                N;
+            false ->
+                'NaN'
+	    end
+    catch
+        _:_ ->
+            'NaN'
     end;
 scan_number(T) ->
-    case catch xmerl_xpath_scan:scan_number(T) of
-	{{number, N}, Tail} ->
-	    case is_all_white(Tail) of
-		true ->
-		    N;
-		false ->
-		    'NaN'
-	    end;
-	_Other ->
-	    'NaN'
+    try 
+        {{number, _, N}, Tail} = xmerl_xpath_scan:scan_number(T),
+        case is_all_white(Tail) of
+            true ->
+                N;
+            false ->
+                'NaN'
+        end
+    catch
+        _:_ ->
+            'NaN'        
     end.
 
 is_all_white([H|T]) when ?whitespace(H) ->

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(cover_SUITE).
@@ -33,9 +35,9 @@ all() ->
                    analyse_no_beam, line_0, compile_beam_no_file,
                    compile_beam_missing_backend,
                    otp_13277, otp_13289, guard_in_lc, gh_4796,
-                   eep49],
+                   eep49, gh_8159, gh_8867],
     StartStop = [start, compile, analyse, misc, stop,
-                 distribution, reconnect, die_and_reconnect,
+                 distribution, distribution_export, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
                  export_import, otp_5031, otp_6115,
                  otp_8270, otp_10979_hanging_node, otp_14817,
@@ -204,7 +206,7 @@ compile(Config) when is_list(Config) ->
     remove(files(Files, ".beam")).
 
 crypto_works() ->
-    try crypto:start() of
+    try application:start(crypto) of
         {error,{already_started,crypto}} -> true;
         ok -> true
     catch
@@ -539,6 +541,30 @@ distribution(Config) when is_list(Config) ->
     peer:stop(P1),
     peer:stop(P2).
 
+%% GH-8661. An attempt to export cover data on a remote node could
+%% hang if the module had been reloaded.
+distribution_export(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 30}),
+
+    DataDir = proplists:get_value(data_dir, Config),
+
+    ok = file:set_cwd(DataDir),
+
+    {ok,P1,N1} = ?CT_PEER(),
+
+    {ok,f} = cover:compile(f),
+    {ok,[_]} = cover:start([N1]),
+    ok = cover:export("f.coverdata"),
+
+    {ok,f} = compile:file(f, [debug_info]),
+    {module, f} = erpc:call(N1, code, load_file, [f]),
+
+    ok = cover:export("f.coverdata"),
+
+    %% Cleanup
+    peer:stop(P1),
+    ok.
+
 %% Test that a lost node is reconnected
 reconnect(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -864,7 +890,6 @@ export_import(Config) when is_list(Config) ->
     %% warning is written when data is deleted for imported module.
     test_server:capture_start(),
     {ok,f} = cover:compile(f),
-    timer:sleep(10), % capture needs some time
     [Text3] = test_server:capture_get(),
     "WARNING: Deleting data for module f imported from" ++ _ = lists:flatten(Text3),
     test_server:capture_stop(),
@@ -1587,9 +1612,7 @@ otp_14817(Config) when is_list(Config) ->
     ok = otp_14817:b(),
     ok = otp_14817:c(),
     ok = otp_14817:d(),
-    {ok,[{{otp_14817,3},1},
-         {{otp_14817,3},1},
-         {{otp_14817,3},1},
+    {ok,[{{otp_14817,3},3},
          {{otp_14817,4},1}]} =
         cover:analyse(otp_14817, calls, line),
     {ok, CovOut} = cover:analyse_to_file(otp_14817),
@@ -1900,8 +1923,8 @@ eep49(Config) ->
 
     File = "t.erl",
     Test = <<"-module(t).
-              -feature(maybe_expr,enable).
               -export([t/0]).
+
 
               t() ->
                   t1(),                         %6
@@ -1950,6 +1973,85 @@ eep49(Config) ->
     ok = file:delete(File),
     ok.
 
+gh_8159(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+
+    M = same_line,
+    File = atom_to_list(M) ++ ".erl",
+    Test = ~"""
+            -module(same_line).
+            -export([aaa/0, bbb/0, ccc/0]).
+            bbb() -> ok. aaa() -> not_ok. ccc() -> cool.
+            """,
+    ok = file:write_file(File, Test),
+    {ok, M} = cover:compile(File),
+    {ok,[{{M,aaa,0},0}, {{M,bbb,0},0}, {{M,ccc,0},0}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},0}]} = cover:analyse(M, calls, line),
+    {ok,[{{M,3},{0,1}}]} = cover:analyse(M, coverage, line),
+
+    cool = M:ccc(),
+    {ok,[{{M,aaa,0},0}, {{M,bbb,0},0}, {{M,ccc,0},1}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},1}]} = cover:analyse(M, calls, line),
+    {ok,[{{M,3},{1,0}}]} = cover:analyse(M, coverage, line),
+
+    not_ok = M:aaa(),
+    {ok,[{{M,aaa,0},1}, {{M,bbb,0},0}, {{M,ccc,0},1}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},2}]} = cover:analyse(M, calls, line),
+    {ok,[{{M,3},{1,0}}]} = cover:analyse(M, coverage, line),
+
+    ok = M:bbb(),
+    {ok,[{{M,aaa,0},1}, {{M,bbb,0},1}, {{M,ccc,0},1}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},3}]} = cover:analyse(M, calls, line),
+    {ok,[{{M,3},{1,0}}]} = cover:analyse(M, coverage, line),
+
+    not_ok = M:aaa(),
+    {ok,[{{M,aaa,0},2}, {{M,bbb,0},1}, {{M,ccc,0},1}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},{1,0}}]} = cover:analyse(M, coverage, line),
+
+    cover:reset(),
+
+    not_ok = M:aaa(),
+    {ok,[{{M,3},1}]} = cover:analyse(M, calls, line),
+
+    ok = file:delete(File),
+
+    ok.
+
+%% GH-8867: Certain guard expressions could cause `executable_line`
+%% instructions to be duplicated, resulting in multiple entries for
+%% each cover id. `cover` would only keep the last entry, resulting
+%% in lost coverage.
+gh_8867(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+
+    M = ?FUNCTION_NAME,
+    File = atom_to_list(M) ++ ".erl",
+    Test = ~"""
+            -module(gh_8867).
+            -export([myfun/2]).
+            myfun(Arg1, <<"bar", _>>) when Arg1 == arg1 orelse Arg1 == arg2 ->
+                nil;
+            myfun(arg3, Arg2) ->
+                case lists:sum([10, 2]) of
+                    12 ->
+                        Res = Arg2,
+                        Res
+                end.
+            """,
+    ok = file:write_file(File, Test),
+    {ok, M} = cover:compile(File),
+
+    ~"foo" = M:myfun(arg3, ~"foo"),
+
+    {ok,[{{gh_8867,4},0},
+         {{gh_8867,6},1},
+         {{gh_8867,8},1},
+         {{gh_8867,9},1}]} = cover:analyse(M, calls, line),
+
+    cover:reset(),
+    ok = file:delete(File),
+
+    ok.
 
 %%--Auxiliary------------------------------------------------------------
 

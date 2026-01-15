@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 
 -module(diameter_types).
+-moduledoc false.
 
 %%
 %% Encode/decode of RFC 3588 Data Formats, Basic (section 4.2) and
@@ -545,7 +548,7 @@ portnr(<<>>, aaa, #{rfc := 6733}) ->
     3868;
 portnr(<<>>, aaas, #{rfc := 6733}) ->
     5868;
-portnr(<<>>, _, #{rfc := 3588}) ->
+portnr(<<>>, _, _) ->
     3868;
 portnr(B, _, _) ->
     binary_to_integer(B).
@@ -554,6 +557,8 @@ transport(<<>>, #{rfc := 6733}) ->
     tcp;
 transport(<<>>, #{rfc := 3588}) ->
     sctp;
+transport(<<>>, _) ->
+    tcp;
 transport(B, _) ->
     to_atom(B).
 

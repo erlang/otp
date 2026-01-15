@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +32,16 @@ void BeamModuleAssembler::emit_linear_search(x86::Gp comparand,
     for (int i = 0; i < count; i++) {
         const ArgImmed &value = args[i];
         const ArgLabel &label = args[i + count];
+
+        if (i < count - 1 && label == args[i + count + 1]) {
+            if (emit_optimized_two_way_select(i == count - 2,
+                                              value,
+                                              args[i + 1],
+                                              label)) {
+                i++;
+                continue;
+            }
+        }
 
         cmp_arg(comparand, value, ARG1);
         a.je(resolve_beam_label(label));
@@ -85,10 +97,6 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
     ASSERT(Size.get() == args.size());
 
     mov_arg(ARG2, Src);
-
-    if (emit_optimized_three_way_select(Fail, args)) {
-        return;
-    }
 
     emit_linear_search(ARG2, Fail, args);
 }
@@ -157,9 +165,7 @@ void BeamModuleAssembler::emit_binsearch_nodes(size_t Left,
                       args.begin() + Left + count,
                       args.begin() + count + Left + remaining);
 
-        if (!emit_optimized_three_way_select(Fail, shrunk)) {
-            emit_linear_search(ARG2, Fail, shrunk);
-        }
+        emit_linear_search(ARG2, Fail, shrunk);
 
         return;
     }
@@ -249,21 +255,20 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
  * one bit set.
  *
  * ARG2 contains the value.
- * Return true if the optimization was possible, in
- * which case ARG1 should be considered trashed.
+ *
+ * Return true if the optimization was possible, in which case ARG1
+ * and RET should be considered trashed. If the destructive argument
+ * is true, ARG2 will also be trashed.
  */
-bool BeamModuleAssembler::emit_optimized_three_way_select(
-        const ArgVal &Fail,
-        const Span<ArgVal> &args) {
-    if (args.size() != 4 || (args[2] != args[3])) {
-        return false;
-    }
-
-    uint64_t x = args[0].as<ArgImmed>().get();
-    uint64_t y = args[1].as<ArgImmed>().get();
+bool BeamModuleAssembler::emit_optimized_two_way_select(bool destructive,
+                                                        const ArgVal &value1,
+                                                        const ArgVal &value2,
+                                                        const ArgVal &label) {
+    uint64_t x = value1.as<ArgImmed>().get();
+    uint64_t y = value2.as<ArgImmed>().get();
     uint64_t combined = x | y;
     uint64_t diff = x ^ y;
-    ArgVal val(ArgVal::Immediate, combined);
+    ArgVal val(ArgVal::Type::Immediate, combined);
 
     if ((diff & (diff - 1)) != 0)
         return false;
@@ -273,22 +278,15 @@ bool BeamModuleAssembler::emit_optimized_three_way_select(
             diff,
             combined);
 
-    if (Support::isInt32((Sint)diff)) {
+    if (destructive && Support::isInt32((Sint)diff)) {
         a.or_(ARG2, imm(diff));
+        cmp_arg(ARG2, val, RET);
     } else {
-        a.mov(ARG1, imm(diff));
-        a.or_(ARG2, ARG1);
+        mov_imm(RET, diff);
+        a.or_(RET, ARG2);
+        cmp_arg(RET, val, ARG1);
     }
-
-    cmp_arg(ARG2, val, ARG1);
-    a.je(resolve_beam_label(args[2]));
-
-    if (Fail.isLabel()) {
-        a.jmp(resolve_beam_label(Fail));
-    } else {
-        /* NIL means fallthrough to the next instruction. */
-        ASSERT(Fail.isNil());
-    }
+    a.je(resolve_beam_label(label));
 
     return true;
 }

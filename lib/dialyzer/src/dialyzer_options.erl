@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -12,11 +19,12 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 2004 Richard Carlsson
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Provides a better way to start Dialyzer from a script.
+%% %CopyrightEnd%
+%%
+%% Provides a better way to start Dialyzer from a script.
 
 -module(dialyzer_options).
+-moduledoc false.
 
 -export([build/1, build_warnings/2, get_default_config_filename/0]).
 
@@ -41,6 +49,7 @@ build(Opts) ->
                   ?WARN_FAILING_CALL,
                   ?WARN_BIN_CONSTRUCTION,
                   ?WARN_MAP_CONSTRUCTION,
+                  ?WARN_CONTRACT_OPAQUE,
                   ?WARN_CONTRACT_RANGE,
                   ?WARN_CONTRACT_TYPES,
                   ?WARN_CONTRACT_SYNTAX,
@@ -396,14 +405,6 @@ get_lib_dir([H|T], Acc) ->
     NewElem =
         case code:lib_dir(list_to_atom(H)) of
             {error, bad_name} -> H;
-            LibDir when H =:= "erts" -> % hack for including erts in an un-installed system
-                EbinDir = filename:join([LibDir,"ebin"]),
-                case file:read_file_info(EbinDir) of
-                    {error,enoent} ->
-                        filename:join([LibDir,"preloaded","ebin"]);
-                    _ ->
-                        EbinDir
-                end;
             LibDir -> filename:join(LibDir,"ebin")
         end,
     get_lib_dir(T, [NewElem|Acc]);
@@ -508,12 +509,18 @@ build_warnings([Opt|Opts], Warnings) ->
       no_match ->
 	ordsets:del_element(?WARN_MATCHING, Warnings);
       no_opaque ->
-	ordsets:del_element(?WARN_OPAQUE, Warnings);
+        S = ordsets:from_list([?WARN_CONTRACT_OPAQUE,
+                               ?WARN_OPAQUE,
+                               ?WARN_OPAQUE_UNION]),
+        ordsets:subtract(Warnings, S);
       no_fail_call ->
 	ordsets:del_element(?WARN_FAILING_CALL, Warnings);
       no_contracts ->
-	Warnings1 = ordsets:del_element(?WARN_CONTRACT_SYNTAX, Warnings),
-	ordsets:del_element(?WARN_CONTRACT_TYPES, Warnings1);
+        S = ordsets:from_list([?WARN_CONTRACT_OPAQUE,
+                               ?WARN_CONTRACT_SYNTAX,
+                               ?WARN_CONTRACT_TYPES,
+                               ?WARN_OVERLAPPING_CONTRACT]),
+        ordsets:subtract(Warnings, S);
       no_behaviours ->
 	ordsets:del_element(?WARN_BEHAVIOUR, Warnings);
       no_undefined_callbacks ->
@@ -549,6 +556,10 @@ build_warnings([Opt|Opts], Warnings) ->
         ordsets:add_element(?WARN_CONTRACT_MISSING_RETURN, Warnings);
       no_missing_return ->
         ordsets:del_element(?WARN_CONTRACT_MISSING_RETURN, Warnings);
+      opaque_union ->
+        ordsets:add_element(?WARN_OPAQUE_UNION, Warnings);
+      no_opaque_union ->
+        ordsets:del_element(?WARN_OPAQUE_UNION, Warnings);
       unknown ->
         ordsets:add_element(?WARN_UNKNOWN, Warnings);
       overlapping_contract ->

@@ -1,3 +1,26 @@
+/*
+%CopyrightBegin%
+
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2020-2025. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+%CopyrightEnd%
+
+*/
+
 /* Stylesheet for Common Test */
 
 body {
@@ -211,4 +234,18 @@ th + td {
 a.link-to-entry {
     float: right;
     text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    html {
+        filter: invert(100%) hue-rotate(180deg) brightness(105%) contrast(95%);
+    }
+    td, th {
+        /* Remember that colors are rotated :-) */
+        border-bottom: 3px solid #dddddd;
+    }
+    div.ct_error_notify {
+        /* Use a stronger red by blending in with the black background */
+        background: #ff000082;
+    }
 }

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +48,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     OSSL_PARAM params[8];
     EVP_PKEY *pkey = NULL, *pkey_gen = NULL;
     EVP_PKEY_CTX *pctx = NULL, *pctx_gen = NULL;
+    BIGNUM *p_bn =  NULL;
     BIGNUM *pub_key_gen = NULL, *priv_key_gen = NULL;
     unsigned char *pub_ptr, *prv_ptr;
     int pub_len, prv_len;
@@ -62,7 +65,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         ERL_NIF_TERM head, tail;
 
         head = argv[1];
-        if (!get_ossl_param_from_bin_in_list(env, "p",  &head, &params[i++]) ) {
+        if (!get_ossl_param_from_bin_in_list_x(env, "p",  &head, &params[i++], &p_bn) ) {
             ret = EXCP_BADARG_N(env, 1, "Bad value of 'p'");
             goto done;
         }
@@ -89,9 +92,13 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         ret = EXCP_BADARG_N(env, 3, "Bad value of length element");
         goto done;
     }
-    else if (len)
+    else if (len) {
+        if (len >= BN_num_bits(p_bn)) {
+            len = BN_num_bits(p_bn) - 1;
+        }
         params[i++] = OSSL_PARAM_construct_uint64("priv_len", &len);
-
+    }
+    
     /* End of parameter fetching */
     params[i++] = OSSL_PARAM_construct_end();
 
@@ -157,6 +164,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ret = enif_make_tuple2(env, ret_pub, ret_prv);
 
  done:
+    if (p_bn) BN_free(p_bn);
     if (pub_key_gen)  BN_free(pub_key_gen);
     if (priv_key_gen) BN_free(priv_key_gen);
     if (pkey) EVP_PKEY_free(pkey);
@@ -332,9 +340,9 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         if ((bn_len = BN_num_bits(dh_p_shared)) < 0)
             assign_goto(ret, err, EXCP_ERROR(env, "BN_num_bits < 0"));
         dh_p_shared = NULL;  /* dh_params owns the reference */
-        if (len >= (size_t)bn_len)
-            assign_goto(ret, err, EXCP_ERROR_N(env, 3, "Too big length"));
-
+        if (len >= (size_t)bn_len) {
+            len = bn_len - 1;
+        }
         if (!DH_set_length(dh_params, (long)len))
             assign_goto(ret, err, EXCP_ERROR_N(env, 3, "The length is not accepted"));
     }

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -162,16 +164,16 @@ decode_key(PemBin, Pw) ->
     decode_key(KeyInfo, Pw).
 
 encode_key(Key = #'RSAPrivateKey'{}) ->
-    {ok, Der} = 'OTP-PUB-KEY':encode('RSAPrivateKey', Key),
+    {ok, Der} = 'PKCS-1':encode('RSAPrivateKey', Key),
     {'RSAPrivateKey', Der, not_encrypted};
 encode_key(Key = {#'RSAPrivateKey'{},#'RSASSA-PSS-params'{}}) ->
     Der = public_key:der_encode('PrivateKeyInfo', Key),
     {'PrivateKeyInfo', Der, not_encrypted};
 encode_key(Key = #'DSAPrivateKey'{}) ->
-    {ok, Der} = 'OTP-PUB-KEY':encode('DSAPrivateKey', Key),
+    {ok, Der} = 'DSS':encode('DSAPrivateKey', Key),
     {'DSAPrivateKey', Der, not_encrypted};
 encode_key(Key = #'ECPrivateKey'{}) ->
-    {ok, Der} = 'OTP-PUB-KEY':encode('ECPrivateKey', Key),
+    {ok, Der} = 'ECPrivateKey':encode('ECPrivateKey', Key),
     {'ECPrivateKey', Der, not_encrypted}.
 
 make_tbs(SubjectKey, Opts) ->    

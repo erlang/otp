@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Core Erlang (naive) prettyprinter
 
 -module(core_pp).
+-moduledoc false.
 
 -export([format/1,format_all/1]).
 
@@ -61,7 +64,11 @@ maybe_anno(Node, Fun, #ctxt{clean=true}=Ctxt) ->
 	    maybe_anno(Node, Fun, Ctxt, As0);
   	Line ->
 	    As = strip_line(As0),
-	    if Line > Ctxt#ctxt.line ->
+            NeedsAnno = needs_line_anno(Node),
+	    if
+                NeedsAnno ->
+                    maybe_anno(Node, Fun, Ctxt, As0);
+                Line > Ctxt#ctxt.line ->
 		    [io_lib:format("%% Line ~w",[Line]),
 		     nl_indent(Ctxt),
 		     maybe_anno(Node, Fun, Ctxt#ctxt{line = Line}, As)
@@ -69,6 +76,14 @@ maybe_anno(Node, Fun, #ctxt{clean=true}=Ctxt) ->
 		true ->
 		    maybe_anno(Node, Fun, Ctxt, As)
 	    end
+    end.
+
+needs_line_anno(Node) ->
+    case (cerl:is_c_primop(Node) andalso
+          cerl:concrete(cerl:primop_name(Node))) of
+        debug_line -> true;
+        executable_line -> true;
+        _ -> false
     end.
 
 maybe_anno(Node, Fun, Ctxt, []) ->

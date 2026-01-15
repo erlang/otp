@@ -1,7 +1,9 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %% 
 %%----------------------------------------------------------------------
 -module(ssl_cipher_format).
+-moduledoc false.
 
 -include("ssl_api.hrl").
 -include("ssl_cipher.hrl").
@@ -66,6 +69,7 @@ suite_map_to_str(#{key_exchange := null,
                cipher := null,
                mac := null,
                prf := null}) ->
+    %% Internal value for signaling renegotiation abilities.
     "TLS_EMPTY_RENEGOTIATION_INFO_SCSV";
 suite_map_to_str(#{key_exchange := any,
                cipher := Cipher,
@@ -88,6 +92,7 @@ suite_map_to_str(#{key_exchange := Kex,
         "_" ++ string:to_upper(atom_to_list(Mac)).
 
 suite_str_to_map("TLS_EMPTY_RENEGOTIATION_INFO_SCSV") ->
+    %% Internal value for signaling renegotiation abilities.
     #{key_exchange => null,
       cipher => null,
       mac => null,

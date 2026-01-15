@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,19 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(snmp_community_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-COMMUNITY-MIB
+
+The module `snmp_community_mib` implements the instrumentation functions for the
+SNMP-COMMUNITY-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -28,6 +39,15 @@
 	 get_target_addr_ext_mms/2]).
 -export([add_community/5, add_community/6, delete_community/1]).
 -export([check_community/1]).
+
+-export_type([
+              index/0,
+              name/0,
+              security_name/0,
+              context_name/0,
+              transport_tag/0
+             ]).
+
 
 -include("snmpa_internal.hrl").
 -include("SNMP-COMMUNITY-MIB.hrl").
@@ -42,6 +62,22 @@
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
 -endif.
+
+
+-doc "`SnmpAdminString (SIZE(1..32))`".
+-type index()         :: snmp_framework_mib:admin_string().
+-doc "`OCTET STRING (SIZE(1..64))`".
+-type name()          :: string().
+-doc "`SnmpAdminString`".
+-type security_name() :: snmp_framework_mib:admin_string().
+-doc """
+A human readable string.
+
+`SnmpAdminString`
+""".
+-type context_name()  :: snmp_framework_mib:admin_string().
+-doc "`SnmpTagValue`".
+-type transport_tag() :: snmp_target_mib:tag_value().
 
 
 %%%-----------------------------------------------------------------
@@ -61,7 +97,30 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-doc """
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all
+old rows with StorageType `volatile`. The rows created from the configuration
+file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error, report module and the function fails with
+reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `community.conf`.
+
+""".
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(snmpCommunityTable) of
         {_, mnesia} ->
@@ -74,9 +133,10 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vlog("community table does not exist: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
+
 
 %%-----------------------------------------------------------------
 %% Func: reconfigure/1
@@ -89,9 +149,33 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-reconfigure(Dir) ->
+
+-doc """
+Inserts all data in the configuration files into the database and destroys all
+old data, including the rows with StorageType `nonVolatile`. The rows created
+from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-COMMUNITY-MIB, after this function has been called,
+is from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `community.conf`.
+
+""".
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -138,6 +222,7 @@ read_community_config_files(Dir) ->
 	snmp_conf:read_files(Dir, [{FileName, Gen, Order, Check, Filter}]),
     Comms.
 
+-doc false.
 check_community({Index, CommunityName, SecName, CtxName, TransportTag}) ->
     EngineID = get_engine_id(),
     check_community({Index, CommunityName, SecName, 
@@ -185,10 +270,41 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-doc(#{equiv => add_community/6}).
+-spec add_community(Idx, CommName, SecName, CtxName, TransportTag) ->
+          {ok, Key} | {error, Reason} when
+      Idx          :: index(),
+      CommName     :: name(),
+      SecName      :: security_name(),
+      CtxName      :: context_name(),
+      TransportTag :: transport_tag(),
+      Key          :: term(),
+      Reason       :: term().
+
 %% FIXME: does not work with mnesia
 add_community(Idx, CommName, SecName, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, CtxName, TransportTag},
     do_add_community(Community).
+
+-doc """
+Adds a community to the agent config. Equivalent to one line in the
+`community.conf` file.
+
+With the `EngineId` argument it is possible to override the configured engine-id
+(SNMP-FRAMEWORK-MIB).
+
+""".
+-doc(#{since => <<"OTP R14B03">>}).
+-spec add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) ->
+          {ok, Key} | {error, Reason} when
+      Idx          :: index(),
+      CommName     :: name(),
+      SecName      :: security_name(),
+      EngineId     :: snmp_framework_mib:engine_id(),
+      CtxName      :: context_name(),
+      TransportTag :: transport_tag(),
+      Key          :: term(),
+      Reason       :: term().
 
 add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, EngineId, CtxName, TransportTag},
@@ -211,6 +327,12 @@ do_add_community(Community) ->
 	C:E:S ->
 	    {error, {C, E, S}}
     end.
+
+
+-doc "Delete a community from the agent config.".
+-spec delete_community(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
 
 %% FIXME: does not work with mnesia
 delete_community(Key) ->
@@ -245,6 +367,7 @@ gc_tabs() ->
 %% few bytes of memory, although it introduces an extra level of
 %% indirection.
 %%-----------------------------------------------------------------
+-doc false.
 community2vacm(Community, Addr) ->
     Idxs = ets:lookup(snmp_community_cache, Community),
     ?vtrace("community2vacm ->~n"
@@ -289,6 +412,7 @@ loop_c2v_rows([], _Addr) ->
 %%          5.2.3 in order to find a community string to be used
 %%          in a notification.
 %%-----------------------------------------------------------------
+-doc false.
 vacm2community(Vacm, Addr) ->
     Names = ets:lookup(snmp_community_cache, Vacm),
     loop_v2c_rows(lists:keysort(2, Names), Addr).
@@ -349,6 +473,7 @@ invalidate_cache() ->
     ets:match_delete(snmp_community_cache, {'_', '_'}).
 
 
+-doc false.
 get_target_addr_ext_mms(TDomain, TAddress) ->
     get_target_addr_ext_mms(TDomain, TAddress, []).
 get_target_addr_ext_mms(TDomain, TAddress, Key) ->
@@ -372,6 +497,7 @@ get_target_addr_ext_mms(TDomain, TAddress, Key) ->
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
 %% Op = print - Used for debugging purposes
+-doc false.
 snmpCommunityTable(print) ->
     Table = snmpCommunityTable, 
     DB    = db(Table),
@@ -419,6 +545,7 @@ snmpCommunityTable(Op) ->
     snmp_generic:table_func(Op, db(snmpCommunityTable)).
 
 %% Op == get | is_set_ok | set | get_next
+-doc false.
 snmpCommunityTable(get, RowIndex, Cols) ->
     get(snmpCommunityTable, RowIndex, Cols);
 snmpCommunityTable(get_next, RowIndex, Cols) ->
@@ -510,6 +637,7 @@ verify_snmpCommunityTable_col(_, Val) ->
 
 
 %% Op == get | is_set_ok | set | get_next
+-doc false.
 snmpTargetAddrExtTable(get, RowIndex, Cols) ->
     NCols = conv1(Cols),
     get(snmpTargetAddrExtTable, RowIndex, NCols);

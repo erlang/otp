@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m	sofs[0m
 
@@ -13,6 +20,21 @@
   representation is a composite type of existing Erlang terms. See
   note on data types. Any code assuming knowledge of the format is
   running on thin ice.
+
+[;1mGetting started[0m
+
+  A recommended starting point for the first-time user is the
+  examples for the following functions:
+
+   • [;;4mrelation_to_family/1[0m
+
+   • [;;4mrestriction/2[0m and [;;4mdrestriction/2[0m
+
+   • [;;4mimage/2[0m and [;;4minverse_image/2[0m
+
+   • [;;4mconverse/1[0m
+
+[;1mSet theory[0m
 
   Given a set A and a sentence S(x), where x is a free variable, a
   new set B whose elements are exactly those elements of A for which
@@ -109,16 +131,18 @@
 
      If R is a relation in X, and if S is defined so that x S y
      if x R y and not x = y, then S is the strict relation
-     corresponding to R. Conversely, if S is a relation in X, and
-     if R is defined so that x R y if x S y or x = y, then R is
-     the weak relation corresponding to S.
+     corresponding to
+
+      ￮ Conversely, if S is a relation in X, and if R is
+        defined so that x R y if x S y or x = y, then R is the 
+        weak relation corresponding to S.
 
      A relation R in X is reflexive if x R x for every element
      x of X, it is symmetric if x R y implies that y R x, and
      it is transitive if x R y and y R z imply that x R z.
 
-   • A function F is a relation, a subset of X × Y, such that
-     the domain of F is equal to X and such that for every x in X
+   • function F is a relation, a subset of X × Y, such that the
+     domain of F is equal to X and such that for every x in X
      there is a unique element y in Y with (x, y) in F. The
      latter condition can be formulated as follows: if x F y and
      x F z, then y = z. In this module, it is not required that
@@ -163,9 +187,9 @@
      families of subsets of some set X; in the following, the
      word "family" is used for such families of subsets.
 
-   • A partition of a set X is a collection S of non-empty
-     subsets of X whose union is X and whose elements are
-     pairwise disjoint.
+   • partition of a set X is a collection S of non-empty subsets
+     of X whose union is X and whose elements are pairwise
+     disjoint.
 
      A relation in a set is an equivalence relation if it is
      reflexive, symmetric, and transitive.
@@ -187,7 +211,7 @@
      from now on referred to as binary relations.
 
      We call a set of ordered sets (x[1], ..., x[n]) an (n-ary)
-     relation, and say that the relation is a subset of the 
+     relation, and say that the relation is a subset of the
      Cartesian product X[1] × ... × X[n], where x[i] is an
      element of X[i], 1 <= i <= n.
 
@@ -206,11 +230,12 @@
      y[i] in Y[i] for each 1 <= i <= n such that x R[i] y[i] and
      (y[1], ..., y[n]) S z. Now let TR be a an ordered set
      (R[1], ..., R[n]) of binary relations from X[i] to Y[i] and
-     S a subset of X[1] × ... × X[n]. The multiple relative
-     product of TR and S is defined to be the set {z : z =
-     ((x[1], ..., x[n]), (y[1],...,y[n])) for some
-     (x[1], ..., x[n]) in S and for some (x[i], y[i]) in R[i],
-     1 <= i <= n}.
+     S a subset of X[1] × ... × X[n].
+
+     The multiple relative product of TR and S is defined to be
+     the set {z : z = ((x[1], ..., x[n]), (y[1],...,y[n])) for
+     some (x[1], ..., x[n]) in S and for some (x[i], y[i]) in
+     R[i], 1 <= i <= n}.
 
      The natural join of an n-ary relation R and an m-ary
      relation S on coordinate i and j is defined to be the set
@@ -219,55 +244,53 @@
      (x[1], ..., x[n]) in R and for some (y[1], ..., y[m]) in S
      such that x[i] = y[j]}.
 
-   • The sets recognized by this module are represented by
-     elements of the relation Sets, which is defined as the
-     smallest set such that:
+[;1mSets handled by this module[0m
 
-      ￮ For every atom T, except '_', and for every term X,
-        (T, X) belongs to Sets (atomic sets).
+  The sets recognized by this module are represented by elements of
+  the relation Sets, which is defined as the smallest set such that:
 
-      ￮ (['_'], []) belongs to Sets (the untyped empty set).
+   • For every atom T, except '_', and for every term X, (T, X)
+     belongs to Sets (atomic sets).
 
-      ￮ For every tuple T = {T[1], ..., T[n]} and for every
-        tuple X = {X[1], ..., X[n]}, if (T[i], X[i]) belongs
-        to Sets for every 1 <= i <= n, then (T, X) belongs to
-        Sets (ordered sets).
+   • (['_'], []) belongs to Sets (the untyped empty set).
 
-      ￮ For every term T, if X is the empty list or a
-        non-empty sorted list [X[1], ..., X[n]] without
-        duplicates such that (T, X[i]) belongs to Sets for
-        every 1 <= i <= n, then ([T], X) belongs to Sets (
-        typed unordered sets).
+   • For every tuple T = {T[1], ..., T[n]} and for every tuple
+     X = {X[1], ..., X[n]}, if (T[i], X[i]) belongs to Sets for
+     every 1 <= i <= n, then (T, X) belongs to Sets (ordered
+     sets).
 
-     An external set is an element of the range of Sets.
+   • For every term T, if X is the empty list or a non-empty
+     sorted list [X[1], ..., X[n]] without duplicates such that
+     (T, X[i]) belongs to Sets for every 1 <= i <= n, then
+     ([T], X) belongs to Sets (typed unordered sets).
 
-     A type is an element of the domain of Sets.
+  An external set is an element of the range of Sets.
 
-     If S is an element (T, X) of Sets, then T is a valid type
-     of X, T is the type of S, and X is the external set of S. [;;4m[0m
-     [;;4mfrom_term/2[0m creates a set from a type and an Erlang term
-     turned into an external set.
+  A type is an element of the domain of Sets.
 
-     The sets represented by Sets are the elements of the range
-     of function Set from Sets to Erlang terms and sets of Erlang
-     terms:
+  If S is an element (T, X) of Sets, then T is a valid type of X,
+  T is the type of S, and X is the external set of S. [;;4mfrom_term/2[0m
+  creates a set from a type and an Erlang term turned into an
+  external set.
 
-      ￮ Set(T,Term) = Term, where T is an atom
+  The sets represented by Sets are the elements of the range of
+  function Set from Sets to Erlang terms and sets of Erlang terms:
 
-      ￮ Set({T[1], ..., T[n]}, {X[1], ...,  X[n]}) =
-        (Set(T[1], X[1]), ...,  Set(T[n], X[n]))
+   • Set(T,Term) = Term, where T is an atom
 
-      ￮ Set([T], [X[1], ..., X[n]]) =
-        {Set(T, X[1]), ..., Set(T, X[n])}
+   • Set({T[1], ..., T[n]}, {X[1], ...,  X[n]}) =
+     (Set(T[1], X[1]), ...,  Set(T[n], X[n]))
 
-      ￮ Set([T], []) = {}
+   • Set([T], [X[1], ..., X[n]]) =
+     {Set(T, X[1]), ..., Set(T, X[n])}
 
-     When there is no risk of confusion, elements of Sets are
-     identified with the sets they represent. For example, if U
-     is the result of calling [;;4munion/2[0m with S1 and S2 as
-     arguments, then U is said to be the union of S1 and S2. A
-     more precise formulation is that Set(U) is the union of
-     Set(S1) and Set(S2).
+   • Set([T], []) = {}
+
+  When there is no risk of confusion, elements of Sets are
+  identified with the sets they represent. For example, if U is the
+  result of calling [;;4munion/2[0m with S1 and S2 as arguments, then U is
+  said to be the union of S1 and S2. A more precise formulation is
+  that Set(U) is the union of Set(S1) and Set(S2).
 
   The types are used to implement the various conditions that sets
   must fulfill. As an example, consider the relative product of two
@@ -282,10 +305,12 @@
   from X to Y, where X is defined as all sets Set(x) for some
   element x in Sets the type of which is A, and similarly for Y. In
   the same way Arg2 is interpreted as representing a binary relation
-  from W to Z. Finally it is checked that B matches C, which is
-  sufficient to ensure that W is equal to Y. The untyped empty set
-  is handled separately: its type, ['_'], matches the type of any
-  unordered set.
+  from W to
+
+   • Finally it is checked that B matches C, which is sufficient
+     to ensure that W is equal to Y. The untyped empty set is
+     handled separately: its type, ['_'], matches the type of any
+     unordered set.
 
   A few functions of this module ([;;4mdrestriction/3[0m, [;;4m[0m
   [;;4mfamily_projection/2[0m, [;;4mpartition/2[0m, [;;4mpartition_family/2[0m, [;;4m[0m
@@ -318,15 +343,23 @@
      to be preferred, as it makes it possible to handle this case
      even more efficiently.
 
-  Examples of SetFuns:
+  Examples of valid SetFuns:
 
     fun sofs:union/1
     fun(S) -> sofs:partition(1, S) end
+    fun(S) -> sofs:from_term(sofs:no_elements(S)) end
     {external, fun(A) -> A end}
     {external, fun({A,_,C}) -> {C,A} end}
     {external, fun({_,{_,C}}) -> C end}
     {external, fun({_,{_,{_,E}=C}}) -> {E,{E,C}} end}
     2
+
+  Examples of invalid SetFuns:
+
+    fun sofs:no_elements/1
+    {external, fun(A) -> 2 * A end}
+    {external, fun({A,B,C}) -> A + B + C end}
+    {external, fun lists:sum/1}
 
   The order in which a SetFun is applied to the elements of an
   unordered set is not specified, and can change in future versions
@@ -348,4 +381,5 @@
 
 [;1mSee Also[0m
 
-  [;;4mdict(3)[0m, [;;4mdigraph(3)[0m, [;;4morddict(3)[0m, [;;4mordsets(3)[0m, [;;4msets(3)[0m
+  [;;4mdigraph[0m, [;;4mgb_sets[0m, [;;4mgb_trees[0m, [;;4mmaps[0m, [;;4morddict[0m, [;;4mordsets[0m, [;;4m[0m
+  [;;4msets[0m

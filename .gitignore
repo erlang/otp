@@ -17,6 +17,8 @@ autom4te.cache
 configure.result.*
 *.beam
 *.asn1db
+lib/*/src/deps/
+erts/preloaded/src/deps/
 
 !/bootstrap/lib/compiler/ebin/*.beam
 !/bootstrap/lib/kernel/ebin/*.beam
@@ -39,6 +41,7 @@ configure.result.*
 aarch64-unknown-linux-android
 arm-unknown-linux-androideabi
 armv7l-unknown-linux-gnueabihf
+armv8l-unknown-linux-gnueabihf
 i686-pc-linux-gnu
 x86_64-pc-linux-gnu
 i386-apple-darwin[0-9]*.[0-9]*.[0-9]*
@@ -113,6 +116,12 @@ make/otp_doc_built
 # Used by applications that run javadoc (e.g. ic).
 JAVADOC-GENERATED
 
+*.1
+*.3
+*.4
+*.6
+*.7
+
 # Anchored from $ERL_TOP
 /bin
 /config.log
@@ -139,9 +148,10 @@ JAVADOC-GENERATED
 /Makefile
 
 /release
+/doc
 
 /make/output.mk
-/make/emd2exml
+/make/ex_doc_wrapper
 /make/make_emakefile
 /make/install_dir_data.sh
 
@@ -164,20 +174,7 @@ JAVADOC-GENERATED
 /lib/*/SKIP
 /lib/SKIP-APPLICATIONS
 
-/lib/*/doc/html/*.html
-/lib/*/doc/html/*.css
-/lib/*/doc/html/js
-/lib/*/doc/html/*.gif
-/lib/*/doc/html/*.jpg
-/lib/*/doc/html/*.png
-/lib/*/doc/html/*.eix
-/lib/*/doc/man[0-9]/*.[0-9]
-/lib/*/doc/pdf/*.fo
-/lib/*/doc/pdf/*.pdf
-/lib/*/doc/src/*.fo
-/lib/*/doc/xml/*.xml
-/lib/*/doc/xml/*.ent
-/lib/*/doc/chunks/*.chunk
+/lib/*/doc/html
 
 /lib/config.log
 /lib/config.status
@@ -215,8 +212,6 @@ JAVADOC-GENERATED
 /erts/emulator/test/*_SUITE_make.erl
 /erts/emulator/test/*_native_SUITE.erl
 /erts/emulator/test/*_SUITE_data/Makefile
-/erts/emulator/test/*_r24_SUITE.erl
-/erts/emulator/test/*_r25_SUITE.erl
 /erts/emulator/test/*_stripped_types_SUITE.erl
 /erts/test/install_SUITE_data/install_bin
 /erts/test/autoimport_SUITE_data/erlang.xml
@@ -234,18 +229,18 @@ JAVADOC-GENERATED
 /lib/compiler/src/beam_opcodes.hrl
 /lib/compiler/src/core_parse.erl
 
+/lib/compiler/test/*_no_bool_opt_SUITE.erl
 /lib/compiler/test/*_no_opt_SUITE.erl
 /lib/compiler/test/*_no_copt_SUITE.erl
 /lib/compiler/test/*_no_copt_ssa_SUITE.erl
 /lib/compiler/test/*_no_ssa_opt_SUITE.erl
 /lib/compiler/test/*_post_opt_SUITE.erl
 /lib/compiler/test/*_inline_SUITE.erl
-/lib/compiler/test/*_r23_SUITE.erl
-/lib/compiler/test/*_r24_SUITE.erl
-/lib/compiler/test/*_r25_SUITE.erl
+/lib/compiler/test/*_r26_SUITE.erl
 /lib/compiler/test/*_no_module_opt_SUITE.erl
 /lib/compiler/test/*_no_type_opt_SUITE.erl
 /lib/compiler/test/*_dialyzer_SUITE.erl
+/lib/compiler/test/*_cover_SUITE.erl
 
 # crypto
 /lib/crypto/test/crypto_SUITE_data/*.rsp
@@ -262,18 +257,7 @@ JAVADOC-GENERATED
 # erts
 
 /erts/info
-/erts/doc/html/*.html
-/erts/doc/html/*.gif
-/erts/doc/html/*.jpg
-/erts/doc/html/*.eix
-/erts/doc/pdf/*.fo
-/erts/doc/pdf/*.pdf
-/erts/doc/src/*.fo
-/erts/doc/xml/*.xml
-/erts/doc/xml/figures/*.png
-/erts/doc/xml/figures/*.svg
-/erts/doc/chunks/*.chunk
-/erts/doc/man[0-9]/*.[0-9]
+/erts/doc/html/
 /erts/doc/CONF_INFO
 
 # et
@@ -330,6 +314,8 @@ JAVADOC-GENERATED
 /lib/snmp/priv/mibs/[A-Z]*.bin
 /lib/snmp/test/snmp_test_data/[A-Z]*.bin
 /lib/snmp/test/snmp_test_data/[A-Z]*.hrl
+/lib/snmp/test/snmp_to_snmpnet_SUITE_data/[A-Z]*.bin
+/lib/snmp/test/snmp_to_snmpnet_SUITE_data/[A-Z]*.hrl
 /lib/snmp/doc/intex.html
 
 # system
@@ -363,5 +349,7 @@ JAVADOC-GENERATED
 
 /lib/xmerl/src/xmerl_sax_parser_*.erl
 /lib/xmerl/src/xmerl_b64Bin.erl
+/lib/xmerl/src/xmerl_xsd_re_parse.erl
 /lib/xmerl/src/xmerl_xpath_parse.erl
 /lib/xmerl/test/xmerl_test.erl
+

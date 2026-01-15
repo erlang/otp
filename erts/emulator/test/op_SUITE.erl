@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -25,7 +27,8 @@
 -export([all/0, suite/0,
          bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
          complex_relop/1,unsafe_fusing/1,
-         range_tests/1,combined_relops/1,typed_relop/1]).
+         range_tests/1,combined_relops/1,typed_relop/1,
+         term_equivalence/1]).
 
 -import(lists, [foldl/3,flatmap/2]).
 
@@ -36,7 +39,7 @@ suite() ->
 all() ->
     [bsl_bsr, logical, t_not, relop_simple, relop,
      complex_relop, unsafe_fusing, range_tests,
-     combined_relops, typed_relop].
+     combined_relops, typed_relop, term_equivalence].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -146,8 +149,8 @@ relop_simple(Config) when is_list(Config) ->
     F2 = float(Big2),
     T1 = erlang:make_tuple(3,87),
     T2 = erlang:make_tuple(3,87),
-    Terms = [-F2,Big2,-F1,-Big1,-33,-33.0,0,0.0,42,42.0,Big1,F1,Big2,F2,a,b,
-             {T1,a},{T2,b},[T1,Big1],[T2,Big2]],
+    Terms = [-F2,Big2,-F1,-Big1,-33,-33.0,0,0.0,-0.0,42,42.0,Big1,F1,Big2,F2,
+             a,b,{T1,a},{T2,b},[T1,Big1],[T2,Big2]],
 
     Combos = [{V1,V2} || V1 <- Terms, V2 <- Terms],
 
@@ -181,6 +184,8 @@ relop_simple_do(V1,V2) ->
     ID = not (V1 =/= V2),
     ID = not (V2 =/= V1),
 
+    implies(ID, V1 == V2),
+
     EQ = V1 == V2,
     EQ = V2 == V1,
     EQ = not (V1 /= V2),
@@ -192,6 +197,9 @@ relop_simple_do(V1,V2) ->
         {false, true,   true, false,  0} -> ok;
         {false, false, false, true,  +1} -> ok
     end.
+
+implies(false, _) -> ok;
+implies(true, true) -> ok.
 
 %% Emulate internal "cmp"
 cmp_emu(A,B) when is_tuple(A), is_tuple(B) ->
@@ -297,8 +305,9 @@ relop(Config) when is_list(Config) ->
     Bin = <<"abc">>,
     BitString = <<0:7>>,
     Map = #{a => b},
-    Vs0 = [a,b,-33,-33.0,0,0.0,42,42.0,Big1,Big2,F1,F2,
-           Bin,BitString,Map],
+    EmptyMap = #{},
+    Vs0 = [a,b,-33,-33.0,0,0.0,-0,0,42,42.0,Big1,Big2,F1,F2,
+           Bin,BitString,Map,EmptyMap,[16#1234_5678_abcd]],
     Vs = [unvalue(V) || V <- Vs0],
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).
@@ -309,8 +318,11 @@ complex_relop(Config) when is_list(Config) ->
     Float = float(Big),
     Bin = <<"abc">>,
     BitString = <<0:7>>,
+    EmptyBitString = <<>>,
     Map = #{a => b},
-    Vs0 = [an_atom,42.0,42,Big,Float,Bin,BitString,Map],
+    EmptyMap = #{},
+    Vs0 = [an_atom,42.0,42,0.0,-0.0,Big,Float,Bin,BitString,
+           EmptyBitString,Map,EmptyMap],
     Vs = flatmap(fun(X) -> [unvalue({X}),unvalue([X])] end, Vs0),
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).
@@ -868,6 +880,19 @@ combined_relops(_Config) ->
     true = code:delete(Mod),
     _ = code:purge(Mod),
 
+    LargeMap = #{K => K || K <- lists:seq(1, 64)},
+    Ref = make_ref(),
+    [{}] = empty_map_or_nil(id({})),
+    [{a,b}] = empty_map_or_nil(id({a,b})),
+    [#{a := b}] = empty_map_or_nil(id(#{a => b})),
+    [LargeMap] = empty_map_or_nil(id(LargeMap)),
+    [Ref] = empty_map_or_nil(id(Ref)),
+    [[a,b,c]] = empty_map_or_nil(id([a,b,c])),
+    [a] = empty_map_or_nil(id(a)),
+    [42] = empty_map_or_nil(id(42)),
+    [] = empty_map_or_nil(id(#{})),
+    [] = empty_map_or_nil(id([])),
+
     ok.
 
 test_tok_char(C) ->
@@ -939,6 +964,13 @@ ge_ge_int_range_4((-1 bsl 59) + 10) ->
 ge_ge_int_range_4(_) ->
     b.
 
+%% GH-8325. An inverted test with an empty map would fail for
+%% non-boxed terms.
+empty_map_or_nil(V) when V =:= #{}; V =:= [] ->
+    [];
+empty_map_or_nil(V) ->
+    [V].
+
 %% Tests operators where type hints are significant.
 typed_relop(Config) when is_list(Config) ->
     _ = [compare_integer_pid(1 bsl N) || N <- lists:seq(1, 64)],
@@ -952,6 +984,12 @@ typed_relop(Config) when is_list(Config) ->
     {error,<<0:8>>} = compare_bitstring({binary, <<0:8>>, 0}),
     {error,<<0:9>>} = compare_bitstring({binary, <<0:9>>, 0}),
     {binary, 42} = compare_bitstring({binary, <<0:3>>, 42}),
+
+    negative = classify_value(id(-1 bsl 128)),
+    other = classify_value(id(0)),
+    other = classify_value(id(42)),
+    other = classify_value(id(1 bsl 64)),
+    other = classify_value(id(a)),
 
     ok.
 
@@ -973,6 +1011,98 @@ compare_bitstring({binary, _Res, Data}) ->
     {binary, Data};
 compare_bitstring({text, _Res, Data}) ->
     {text, Data}.
+
+classify_value(N) when is_integer(N), N < 0 ->
+    negative;
+classify_value(_N) ->
+    other.
+
+term_equivalence(_Config) ->
+    %% Term equivalence has been tested before in this suite, but we need to
+    %% massage some edge cases that cannot easily be put into the other test
+    %% cases.
+    <<PosZero/float>> = id(<<0:1,0:63>>),
+    <<NegZero/float>> = id(<<1:1,0:63>>),
+
+    +0.0 = id(PosZero),
+    -0.0 = id(NegZero),
+
+    -1 = erts_internal:cmp_term(NegZero, PosZero),
+    1 = erts_internal:cmp_term(PosZero, NegZero),
+
+    -1 = cmp_float(NegZero, PosZero),
+    1 = cmp_float(PosZero, NegZero),
+
+    Floats = [0.0, -0.0, 4711.0, -4711.0, 12.0, 943.0],
+
+    [true = (cmp_float(A, B) =:= erts_internal:cmp_term(A, B)) ||
+     A <- Floats, B <- Floats],
+
+    ok.
+
+cmp_float(A0, B0) ->
+    A = float_comparable(A0),
+    B = float_comparable(B0),
+    if
+        A < B -> -1;
+        A > B -> +1;
+        A =:= B -> 0
+    end.
+
+%% Converts a float to a number which, when compared with other such converted
+%% floats, is ordered the same as '<' on the original inputs aside from the
+%% fact that -0.0 < +0.0 as required by the term equivalence order.
+%%
+%% This has been proven correct with the SMT-LIB model below:
+%%
+%% (define-const SignBit_bv (_ BitVec 64) #x8000000000000000)
+%% 
+%% ; Two finite floats X and Y of unknown value
+%% (declare-const X (_ FloatingPoint 11 53))
+%% (declare-const Y (_ FloatingPoint 11 53))
+%% (assert (= false (fp.isInfinite X) (fp.isInfinite Y)
+%%            (fp.isNaN X) (fp.isNaN Y)))
+%% 
+%% ; ... the bit representations of the aforementioned floats. The Z3 floating-
+%% ; point extension lacks a way to directly bit-cast a vector to a float, so
+%% ; we rely on equivalence here.
+%% (declare-const X_bv (_ BitVec 64))
+%% (declare-const Y_bv (_ BitVec 64))
+%% (assert (= ((_ to_fp 11 53) X_bv) X))
+%% (assert (= ((_ to_fp 11 53) Y_bv) Y))
+%% 
+%% ; The bit hack we're going to test
+%% (define-fun float_sortable ((value (_ BitVec 64))) (_ BitVec 64)
+%% (ite (distinct (bvand value SignBit_bv) SignBit_bv)
+%%  (bvxor value SignBit_bv)
+%%  (bvnot value)))
+%% 
+%% (define-fun float_bv_lt ((LHS (_ BitVec 64))
+%%                          (RHS (_ BitVec 64))) Bool
+%%  (bvult (float_sortable LHS) (float_sortable RHS)))
+%% 
+%% (push 1)
+%%   ; When either of X or Y are non-zero, (X < Y) = (bvX < bvY)
+%%   (assert (not (and (fp.isZero X) (fp.isZero Y))))
+%%   (assert (distinct (fp.lt X Y) (float_bv_lt X_bv Y_bv)))
+%%   (check-sat) ; unsat, proving by negation that the above always holds
+%% (pop 1)
+%% 
+%% (push 1)
+%%   ; Negative zero should sort lower than positive zero
+%%   (assert (and (fp.isNegative X) (fp.isPositive Y)
+%%                (fp.isZero X) (fp.isZero Y)))
+%%   (assert (not (float_bv_lt X_bv Y_bv)))
+%%   (check-sat) ; unsat
+%% (pop 1)
+float_comparable(V0) ->
+    Sign = 16#8000000000000000,
+    Mask = 16#FFFFFFFFFFFFFFFF,
+    <<V_bv:64/unsigned>> = <<V0/float>>,
+    case V_bv band Sign of
+        0 -> (V_bv bxor Sign) band Mask;
+        Sign -> (bnot V_bv) band Mask
+    end.
 
 %%%
 %%% Utilities.

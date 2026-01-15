@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2001-2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,21 +28,7 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2001-2006 Richard Carlsson
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @end
-%% =====================================================================
-
-%% @doc `epp_dodger' - bypasses the Erlang preprocessor.
-%%
-%% <p>This module tokenises and parses most Erlang source code without
-%% expanding preprocessor directives and macro applications, as long as
-%% these are syntactically "well-behaved". Because the normal parse
-%% trees of the `erl_parse' module cannot represent these things
-%% (normally, they are expanded by the Erlang preprocessor {@link
-%% //stdlib/epp} before the parser sees them), an extended syntax tree
-%% is created, using the {@link erl_syntax} module.</p>
-
+%% %CopyrightEnd%
 
 %% NOTES:
 %%
@@ -46,7 +41,7 @@
 %% replace the tokens `? bar' with `( ... )', to preserve precedence,
 %% the result will be parsed as an application `"foo" ( ... )' and cause
 %% trouble later on. We must detect such cases and report an error.
-%% 
+%%
 %% * It is pointless to add a mechanism for tracking which macros are
 %% known to take arguments, and which are known to take no arguments,
 %% since a lot of the time we will not have seen the macro definition
@@ -57,7 +52,7 @@
 %% typically belongs to a remote function call, as in `m:?f(...)' and
 %% should be parsed as `m:(?f)(...)' unless it is actually a try-clause
 %% pattern such as `throw:?f(...) ->'.
-%% 
+%%
 %% * We do our best to make macros without arguments pass the parsing
 %% stage transparently. Atoms are accepted in most contexts, but
 %% variables are not, so we use only atoms to encode these macros.
@@ -69,6 +64,18 @@
 %% function definition. Likewise with attributes `-?m(...'.
 
 -module(epp_dodger).
+-moduledoc """
+Bypassing the Erlang preprocessor.
+
+This module tokenizes and parses most Erlang source code without expanding
+preprocessor directives and macro applications, as long as these are
+syntactically "well-behaved". Because the normal parse trees of the `erl_parse`
+module cannot represent these things (normally, they are expanded by the Erlang
+preprocessor [`//stdlib/epp`](`m:epp`) before the parser sees them), an extended
+syntax tree is created, using the `m:erl_syntax` module.
+""".
+
+-compile(nowarn_deprecated_catch).
 
 -export([parse_file/1, quick_parse_file/1, parse_file/2,
 	 quick_parse_file/2, parse/1, quick_parse/1, parse/2,
@@ -86,100 +93,72 @@
 -define(pp_form, '?preprocessor declaration?').
 
 
-%% @type errorinfo() = //stdlib/erl_scan:error_info().
-%% 
-%% This is a so-called Erlang I/O ErrorInfo structure; see the {@link
-%% //stdlib/io} module for details.
-
 -type errorinfo() :: erl_scan:error_info().
 
 -type option() :: atom() | {atom(), term()}.
 
-%% =====================================================================
-%% @spec parse_file(File) -> {ok, Forms} | {error, errorinfo()}
-%%       File = file:filename()
-%%       Forms = [erl_syntax:syntaxTree()]
-%% 
-%% @equiv parse_file(File, [])
-
+-doc #{equiv => parse_file(File, [])}.
 -spec parse_file(file:filename()) ->
         {'ok', erl_syntax:forms()} | {'error', errorinfo()}.
 
 parse_file(File) ->
     parse_file(File, []).
 
-%% @spec parse_file(File, Options) -> {ok, Forms} | {error, errorinfo()}
-%%       File = file:filename()
-%%       Options = [term()]
-%%       Forms = [erl_syntax:syntaxTree()]
-%% 
-%% @doc Reads and parses a file. If successful, `{ok, Forms}'
-%% is returned, where `Forms' is a list of abstract syntax
-%% trees representing the "program forms" of the file (cf.
-%% `erl_syntax:is_form/1'). Otherwise, `{error, errorinfo()}' is
-%% returned, typically if the file could not be opened. Note that
-%% parse errors show up as error markers in the returned list of
-%% forms; they do not cause this function to fail or return
-%% `{error, errorinfo()}'.
-%%
-%% Options:
-%% <dl>
-%%   <dt>{@type {no_fail, boolean()@}}</dt>
-%%   <dd>If `true', this makes `epp_dodger' replace any program forms
-%%   that could not be parsed with nodes of type `text' (see {@link
-%%   erl_syntax:text/1}), representing the raw token sequence of the
-%%   form, instead of reporting a parse error. The default value is
-%%   `false'.</dd>
-%%   <dt>{@type {clever, boolean()@}}</dt>
-%%   <dd>If set to `true', this makes `epp_dodger' try to repair the
-%%   source code as it seems fit, in certain cases where parsing would
-%%   otherwise fail. Currently, it inserts `++'-operators between string
-%%   literals and macros where it looks like concatenation was intended.
-%%   The default value is `false'.</dd>
-%% </dl>
-%%
-%% @see parse/2
-%% @see quick_parse_file/1
-%% @see erl_syntax:is_form/1
+-doc """
+Reads and parses a file.
 
+If successful, `{ok, Forms}` is returned, where `Forms` is a list of
+abstract syntax trees representing the "program forms" of the file
+(see `erl_syntax:is_form/1`). Otherwise, `{error, errorinfo()}` is
+returned, typically if the file could not be opened. Note that parse
+errors show up as error markers in the returned list of forms; they do
+not cause this function to fail or return `{error, errorinfo()}`.
+
+Options:
+
+- **`{no_fail, boolean()}`** - If `true`, this makes `epp_dodger` replace any
+  program forms that could not be parsed with nodes of type `text` (see
+  `erl_syntax:text/1`), representing the raw token sequence of the form, instead
+  of reporting a parse error. The default value is `false`.
+
+- **`{clever, boolean()}`** - If set to `true`, this makes `epp_dodger` try to
+  repair the source code as it seems fit, in certain cases where parsing would
+  otherwise fail. Currently, it inserts `++` operators between string literals
+  and macros where it looks like concatenation was intended. The default value
+  is `false`.
+
+_See also: _`parse/2`, `quick_parse_file/1`, `erl_syntax:is_form/1`.
+""".
 -spec parse_file(file:filename(), [option()]) ->
         {'ok', erl_syntax:forms()} | {'error', errorinfo()}.
 
 parse_file(File, Options) ->
     parse_file(File, fun parse/3, Options).
 
-%% @spec quick_parse_file(File) -> {ok, Forms} | {error, errorinfo()}
-%%       File = file:filename()
-%%       Forms = [erl_syntax:syntaxTree()]
-%%
-%% @equiv quick_parse_file(File, [])
-
+-doc #{equiv => quick_parse_file(File, [])}.
 -spec quick_parse_file(file:filename()) ->
         {'ok', erl_syntax:forms()} | {'error', errorinfo()}.
 
 quick_parse_file(File) ->
     quick_parse_file(File, []).
 
-%% @spec quick_parse_file(File, Options) ->
-%%           {ok, Forms} | {error, errorinfo()}
-%%       File = file:filename()
-%%       Options = [term()]
-%%       Forms = [erl_syntax:syntaxTree()]
-%%
-%% @doc Similar to {@link parse_file/2}, but does a more quick-and-dirty
-%% processing of the code. Macro definitions and other preprocessor
-%% directives are discarded, and all macro calls are replaced with
-%% atoms. This is useful when only the main structure of the code is of
-%% interest, and not the details. Furthermore, the quick-parse method
-%% can usually handle more strange cases than the normal, more exact
-%% parsing.
-%%
-%% Options: see {@link parse_file/2}. Note however that for
-%% `quick_parse_file/2', the option `no_fail' is `true' by default.
-%%
-%% @see quick_parse/2
-%% @see parse_file/2
 
+-doc """
+Similar to `parse_file/2`, but does a more quick-and-dirty processing of the
+code.
+
+Macro definitions and other preprocessor directives are discarded, and all
+macro calls are replaced with atoms. This is useful when only the main structure
+of the code is of interest, and not the details. Furthermore, the quick-parse
+method can usually handle more strange cases than the normal, more exact
+parsing.
+
+Options: see `parse_file/2`. However, note that for
+[`quick_parse_file/2`](`quick_parse_file/2`), the option `no_fail` is `true` by
+default.
+
+_See also: _`parse_file/2`, `quick_parse/2`.
+""".
 -spec quick_parse_file(file:filename(), [option()]) ->
         {'ok', erl_syntax:forms()} | {'error', errorinfo()}.
 
@@ -225,89 +204,56 @@ find_invalid_unicode([H|T]) ->
 find_invalid_unicode([]) -> none.
 
 %% =====================================================================
-%% @spec parse(IODevice) -> {ok, Forms} | {error, errorinfo()}
-%% @equiv parse(IODevice, 1)
 
+-doc #{equiv => parse(IODevice, 1)}.
 -spec parse(file:io_device()) -> {'ok', erl_syntax:forms()}.
 
 parse(Dev) ->
     parse(Dev, 1).
 
-%% @spec parse(IODevice, StartLocation) -> {ok, Forms} | {error, errorinfo()}
-%%       IODevice = pid()
-%%       StartLocation = //stdlib/erl_anno:location()
-%%       Forms = [erl_syntax:syntaxTree()]
-%%
-%% @equiv parse(IODevice, StartLocation, [])
-%% @see parse/1
-
+-doc #{equiv => parse(IODevice, StartLocation, [])}.
 -spec parse(file:io_device(), erl_anno:location()) -> {'ok', erl_syntax:forms()}.
 
 parse(Dev, L) ->
     parse(Dev, L, []).
 
-%% @spec parse(IODevice, StartLocation, Options) ->
-%%           {ok, Forms} | {error, errorinfo()}
-%%       IODevice = pid()
-%%       StartLocation = //stdlib/erl_anno:location()
-%%       Options = [term()]
-%%       Forms = [erl_syntax:syntaxTree()]
-%%
-%% @doc Reads and parses program text from an I/O stream. Characters are
-%% read from `IODevice' until end-of-file; apart from this, the
-%% behaviour is the same as for {@link parse_file/2}. `StartLocation' is the
-%% initial location.
-%%
-%% @see parse/2
-%% @see parse_file/2
-%% @see parse_form/2
-%% @see quick_parse/3
+-doc """
+Reads and parses program text from an I/O stream.
 
+Characters are read from `IODevice` until end-of-file; apart from
+this, the behavior is the same as for `parse_file/2`. `StartLocation`
+is the initial location.
+
+_See also: _`parse/2`, `parse_file/2`, `parse_form/2`, `quick_parse/3`.
+""".
 -spec parse(file:io_device(), erl_anno:location(), [option()]) ->
         {'ok', erl_syntax:forms()}.
 
 parse(Dev, L0, Options) ->
     parse(Dev, L0, fun parse_form/3, Options).
 
-%% @spec quick_parse(IODevice) -> {ok, Forms} | {error, errorinfo()}
-%% @equiv quick_parse(IODevice, 1)
-
+-doc #{equiv => quick_parse(IODevice, 1)}.
 -spec quick_parse(file:io_device()) ->
         {'ok', erl_syntax:forms()}.
 
 quick_parse(Dev) ->
     quick_parse(Dev, 1).
 
-%% @spec quick_parse(IODevice, StartLocation) ->
-%%           {ok, Forms} | {error, errorinfo()}
-%%       IODevice = pid()
-%%       StartLocation = //stdlib/erl_anno:location()
-%%       Forms = [erl_syntax:syntaxTree()]
-%%
-%% @equiv quick_parse(IODevice, StartLocation, [])
-%% @see quick_parse/1
-
+-doc #{equiv => quick_parse(IODevice, StartLocation, [])}.
 -spec quick_parse(file:io_device(), erl_anno:location()) ->
         {'ok', erl_syntax:forms()}.
 
 quick_parse(Dev, L) ->
     quick_parse(Dev, L, []).
 
-%% @spec (IODevice, StartLocation, Options) ->
-%%           {ok, Forms} | {error, errorinfo()}
-%%       IODevice = pid()
-%%       StartLocation = //stdlib/erl_anno:location()
-%%       Options = [term()]
-%%       Forms = [erl_syntax:syntaxTree()]
-%% 
-%% @doc Similar to {@link parse/3}, but does a more quick-and-dirty
-%% processing of the code. See {@link quick_parse_file/2} for details.
-%%
-%% @see quick_parse/2
-%% @see quick_parse_file/2
-%% @see quick_parse_form/2
-%% @see parse/3
+-doc """
+Similar to `parse/3`, but does a more quick-and-dirty processing of the code.
 
+See `quick_parse_file/2` for details.
+
+_See also: _`parse/3`, `quick_parse/2`, `quick_parse_file/2`,
+`quick_parse_form/2`.
+""".
 -spec quick_parse(file:io_device(), erl_anno:location(), [option()]) ->
         {'ok', erl_syntax:forms()}.
 
@@ -330,19 +276,7 @@ parse(Dev, L0, Fs, Parser, Options) ->
     end.
 
 
-%% =====================================================================
-%% @spec parse_form(IODevice, StartLocation) -> {ok, Form, Location}
-%%                                            | {eof, Location}
-%%                                            | {error, errorinfo(), Location}
-%%       IODevice = pid()
-%%       StartLocation = //stdlib/erl_anno:location()
-%%       Form = erl_syntax:syntaxTree()
-%%       Location = //stdlib/erl_anno:location()
-%%
-%% @equiv parse_form(IODevice, StartLocation, [])
-%%
-%% @see quick_parse_form/2
-
+-doc #{equiv => parse_form(IODevice, StartLocation, [])}.
 -spec parse_form(file:io_device(), erl_anno:location()) ->
         {'ok', erl_syntax:forms(), erl_anno:location()}
       | {'eof', erl_anno:location()} | {'error', errorinfo(), erl_anno:location()}.
@@ -350,29 +284,18 @@ parse(Dev, L0, Fs, Parser, Options) ->
 parse_form(Dev, L0) ->
     parse_form(Dev, L0, []).
 
-%% @spec parse_form(IODevice, StartLocation, Options) ->
-%%           {ok, Form, Location}
-%%         | {eof, Location}
-%%         | {error, errorinfo(), Location}
-%% 
-%%       IODevice = pid()
-%%       StartLocation = //stdlib/erl_anno:location()
-%%       Options = [term()]
-%%       Form = erl_syntax:syntaxTree()
-%%       Location = //stdlib/erl_anno:location()
-%%
-%% @doc Reads and parses a single program form from an I/O stream.
-%% Characters are read from `IODevice' until an end-of-form
-%% marker is found (a period character followed by whitespace), or until
-%% end-of-file; apart from this, the behaviour is similar to that of
-%% `parse/3', except that the return values also contain the
-%% final location given that `StartLocation' is the initial
-%% location, and that `{eof, Location}' may be returned.
-%%
-%% @see parse/3
-%% @see parse_form/2
-%% @see quick_parse_form/3
+-doc """
+Reads and parses a single program form from an I/O stream.
 
+Characters are read from `IODevice` until an end-of-form marker is
+found (a period character followed by whitespace), or until
+end-of-file; apart from this, the behavior is similar to that of
+[`parse/3`](`parse/3`), except that the return values also contain the
+final location given that `StartLocation` is the initial location, and
+that `{eof, Location}` may be returned.
+
+_See also: _`parse/3`, `parse_form/2`, `quick_parse_form/3`.
+""".
 -spec parse_form(file:io_device(), erl_anno:location(), [option()]) ->
         {'ok', erl_syntax:forms(), erl_anno:location()}
       | {'eof', erl_anno:location()} | {'error', errorinfo(), erl_anno:location()}.
@@ -380,19 +303,7 @@ parse_form(Dev, L0) ->
 parse_form(Dev, L0, Options) ->
     parse_form(Dev, L0, fun normal_parser/2, Options).
 
-%% @spec quick_parse_form(IODevice, StartLocation) ->
-%%           {ok, Form, Location}
-%%         | {eof, Location}
-%%         | {error, errorinfo(), Location}
-%%       IODevice = pid()
-%%       StartLocation = //stdlib/erl_anno:location()
-%%       Form = erl_syntax:syntaxTree() | none
-%%       Location = //stdlib/erl_anno:location()
-%%
-%% @equiv quick_parse_form(IODevice, StartLocation, [])
-%%
-%% @see parse_form/2
-
+-doc #{equiv => quick_parse_form(IODevice, StartLocation, [])}.
 -spec quick_parse_form(file:io_device(), erl_anno:location()) ->
         {'ok', erl_syntax:forms(), erl_anno:location()}
       | {'eof', erl_anno:location()} | {'error', errorinfo(), erl_anno:location()}.
@@ -400,24 +311,12 @@ parse_form(Dev, L0, Options) ->
 quick_parse_form(Dev, L0) ->
     quick_parse_form(Dev, L0, []).
 
-%% @spec quick_parse_form(IODevice, StartLocation, Options) ->
-%%           {ok, Form, Location}
-%%         | {eof, Location}
-%%         | {error, errorinfo(), Location}
-%%
-%%       IODevice = pid()
-%%       StartLocation = //stdlib/erl_anno:location()
-%%       Options = [term()]
-%%       Form = erl_syntax:syntaxTree()
-%%       Location = //stdlib/erl_anno:location()
-%%
-%% @doc Similar to {@link parse_form/3}, but does a more quick-and-dirty
-%% processing of the code. See {@link quick_parse_file/2} for details.
-%%
-%% @see parse/3
-%% @see quick_parse_form/2
-%% @see parse_form/3
+-doc """
+Similar to `parse_form/3`, but does a more quick-and-dirty processing of the
+code. See `quick_parse_file/2` for details.
 
+_See also: _`parse/3`, `parse_form/3`, `quick_parse_form/2`.
+""".
 -spec quick_parse_form(file:io_device(), erl_anno:location(), [option()]) ->
         {'ok', erl_syntax:forms(), erl_anno:location()}
       | {'eof', erl_anno:location()} | {'error', errorinfo(), erl_anno:location()}.
@@ -431,11 +330,10 @@ parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
 
-    %% This as the *potential* to read options for enabling/disabling
+    %% This has the *potential* to read options for enabling/disabling
     %% features for the parsing of the file.
     {ok, {_Ftrs, ResWordFun}} =
-        erl_features:keyword_fun(Options,
-                                 fun erl_scan:f_reserved_word/1),
+        erl_features:keyword_fun(Options, fun reserved_word/1),
 
     case io:scan_erl_form(Dev, "", L0, [{reserved_word_fun,ResWordFun}]) of
         {ok, Ts, L1} ->
@@ -456,7 +354,7 @@ parse_form(Dev, L0, Parser, Options) ->
                     {ok, F, L1}
             end;
         {error, _IoErr, _L1} = Err -> Err;
-        {error, _Reason} -> {eof, L0}; % This is probably encoding problem
+        {error, _Reason} -> {eof, L0}; % This is probably an encoding problem
         {eof, _L1} = Eof -> Eof
     end.
 
@@ -583,7 +481,7 @@ quick_macro_string(A) ->
     "(?" ++ atom_to_list(A) ++ ")".
 
 %% Skipping to the end of a macro call, tracking open/close constructs.
-%% @spec (Tokens) -> {Skipped, Rest}
+-spec skip_macro_args([term()]) -> {Skipped::[term()], Rest::[term()]}.
 
 skip_macro_args([{'(',_}=T | Ts]) ->
     skip_macro_args(Ts, [')'], [T]);
@@ -884,11 +782,11 @@ fix_define([{atom, Anno, ?pp_form}, {'(', _}, {')', _}, {'->', _},
 fix_define(_Ts) ->
     error.
 
-%% @spec tokens_to_string(Tokens::[term()]) -> string()
-%% 
-%% @doc Generates a string corresponding to the given token sequence.
-%% The string can be re-tokenized to yield the same token list again.
+-doc """
+Generates a string corresponding to the given token sequence.
 
+The string can be re-tokenized to yield the same token list again.
+""".
 -spec tokens_to_string([term()]) -> string().
 
 tokens_to_string([{atom,_,A} | Ts]) ->
@@ -911,11 +809,7 @@ tokens_to_string([]) ->
     "".
 
 
-%% @spec format_error(Descriptor::term()) -> string()
-%% @hidden
-%% @doc Callback function for formatting error descriptors. Not for
-%% normal use.
-
+-doc false.
 -spec format_error(term()) -> string().
 
 format_error(macro_args) ->
@@ -932,3 +826,11 @@ errormsg(String) ->
 
 
 %% =====================================================================
+
+%% See #7266: The dodger currently does not process feature attributes
+%% correctly, so temporarily consider the `else` and `maybe` atoms
+%% always as keywords
+-spec reserved_word(Atom :: atom()) -> boolean().
+reserved_word('else') -> true;
+reserved_word('maybe') -> true;
+reserved_word(Atom) -> erl_scan:f_reserved_word(Atom).

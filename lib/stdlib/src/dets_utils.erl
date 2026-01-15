@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,11 @@
 %% %CopyrightEnd%
 %%
 -module(dets_utils).
+-moduledoc false.
+
+-include_lib("kernel/include/logger.hrl").
+
+-compile(nowarn_deprecated_catch).
 
 %% Utility functions common to several dets file formats.
 %% To be used from modules dets and dets_v9 only.
@@ -388,7 +395,7 @@ corrupt_reason(Head, Reason0) ->
 corrupt(Head, Error) ->
     case get(verbose) of
 	yes -> 
-	    error_logger:format("** dets: Corrupt table ~tp: ~tp\n",
+	    ?LOG_ERROR("** dets: Corrupt table ~tp: ~tp\n",
 				[Head#head.name, Error]);
 	_ -> ok
     end,
@@ -401,7 +408,7 @@ corrupt(Head, Error) ->
 
 vformat(F, As) ->
     case get(verbose) of
-	yes -> error_logger:format(F, As);
+	yes -> ?LOG_DEBUG(F, As);
 	_ -> ok
     end.
 
@@ -850,7 +857,7 @@ get_disk_map() ->
     end.
 
 init_disk_map(Name) ->
-    error_logger:info_msg("** dets: (debug) using disk map for ~p~n", [Name]),
+    ?LOG_INFO("** dets: (debug) using disk map for ~p~n", [Name]),
     put(?DM, ets:new(any,[ordered_set])).
 
 stop_disk_map() ->

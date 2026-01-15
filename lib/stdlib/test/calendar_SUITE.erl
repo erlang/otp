@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,34 +23,42 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
 	 gregorian_days/1,
 	 big_gregorian_days/1,
+	 gregorian_days_edge_cases/1,
+	 negative_gregorian_days/1,
 	 gregorian_seconds/1,
+	 negative_gregorian_seconds/1,
 	 day_of_the_week/1,
 	 day_of_the_week_calibrate/1,
+	 negative_day_of_the_week/1,
 	 leap_years/1,
+	 negative_leap_years/1,
 	 last_day_of_the_month/1,
 	 local_time_to_universal_time_dst/1,
 	 iso_week_number/1,
          system_time/1, rfc3339/1]).
 
--define(START_YEAR, 1947).			
--define(END_YEAR, 2012).
+-define(START_YEAR, 1947).
+-define(END_YEAR, 2032).
 
 -define(BIG_START_YEAR, 20000000).
 -define(BIG_END_YEAR, 20000020).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [gregorian_days, gregorian_seconds, day_of_the_week,
      day_of_the_week_calibrate, leap_years,
      last_day_of_the_month, local_time_to_universal_time_dst,
-     iso_week_number, system_time, rfc3339, big_gregorian_days].
+     iso_week_number, system_time, rfc3339, big_gregorian_days,
+     gregorian_days_edge_cases, negative_gregorian_days,
+     negative_gregorian_seconds, negative_leap_years,
+     negative_day_of_the_week].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -78,6 +88,223 @@ big_gregorian_days(Config) when is_list(Config) ->
     Days = calendar:date_to_gregorian_days({?BIG_START_YEAR, 1, 1}),
     MaxDays = calendar:date_to_gregorian_days({?BIG_END_YEAR, 1, 1}),
     check_gregorian_days(Days, MaxDays).
+
+%% Tests edge cases for the Neri-Schneider algorithm.
+%% This includes epoch boundaries, leap years, century boundaries,
+%% and 400-year era boundaries.
+gregorian_days_edge_cases(Config) when is_list(Config) ->
+    %% Test epoch (day 0 = Jan 1, year 0)
+    0 = calendar:date_to_gregorian_days(0, 1, 1),
+    {0, 1, 1} = calendar:gregorian_days_to_date(0),
+
+    %% Test year 0 boundaries (year 0 is a leap year)
+    0 = calendar:date_to_gregorian_days({0, 1, 1}),
+    30 = calendar:date_to_gregorian_days({0, 1, 31}),
+    31 = calendar:date_to_gregorian_days({0, 2, 1}),
+    58 = calendar:date_to_gregorian_days({0, 2, 28}),
+    59 = calendar:date_to_gregorian_days({0, 2, 29}),  % Leap day
+    60 = calendar:date_to_gregorian_days({0, 3, 1}),
+    365 = calendar:date_to_gregorian_days({0, 12, 31}),
+
+    %% Test year 1 (not a leap year)
+    366 = calendar:date_to_gregorian_days({1, 1, 1}),
+    {1, 1, 1} = calendar:gregorian_days_to_date(366),
+    730 = calendar:date_to_gregorian_days({1, 12, 31}),
+
+    %% Test century boundaries (1900 is not a leap year, 2000 is)
+    693961 = calendar:date_to_gregorian_days({1900, 1, 1}),
+    {1900, 1, 1} = calendar:gregorian_days_to_date(693961),
+    694325 = calendar:date_to_gregorian_days({1900, 12, 31}),  % 365 days (not leap)
+
+    730485 = calendar:date_to_gregorian_days({2000, 1, 1}),
+    {2000, 1, 1} = calendar:gregorian_days_to_date(730485),
+    730850 = calendar:date_to_gregorian_days({2000, 12, 31}),  % 366 days (leap)
+
+    %% Verify 1900 is not a leap year (Feb has 28 days, Mar 1 is next day)
+    694019 = calendar:date_to_gregorian_days({1900, 2, 28}),
+    694020 = calendar:date_to_gregorian_days({1900, 3, 1}),
+
+    %% Verify 2000 is a leap year (Feb has 29 days)
+    730544 = calendar:date_to_gregorian_days({2000, 2, 29}),
+    730545 = calendar:date_to_gregorian_days({2000, 3, 1}),
+
+    %% Test 400-year era boundaries
+    146097 = calendar:date_to_gregorian_days({400, 1, 1}),
+    {400, 1, 1} = calendar:gregorian_days_to_date(146097),
+    292194 = calendar:date_to_gregorian_days({800, 1, 1}),
+    {800, 1, 1} = calendar:gregorian_days_to_date(292194),
+
+    %% Test specific known dates
+    %% July 4, 1776 (US Independence Day)
+    648856 = calendar:date_to_gregorian_days({1776, 7, 4}),
+    {1776, 7, 4} = calendar:gregorian_days_to_date(648856),
+
+    %% December 7, 2025 (a Sunday)
+    739957 = calendar:date_to_gregorian_days({2025, 12, 7}),
+    {2025, 12, 7} = calendar:gregorian_days_to_date(739957),
+    7 = calendar:day_of_the_week({2025, 12, 7}),  % Sunday
+
+    %% Test far future date
+    3652424 = calendar:date_to_gregorian_days({9999, 12, 31}),
+    {9999, 12, 31} = calendar:gregorian_days_to_date(3652424),
+
+    %% Test roundtrip for sampled days across entire valid range
+    check_roundtrip_samples(),
+
+    ok.
+
+%% Helper: check roundtrip for sampled days
+check_roundtrip_samples() ->
+    %% Sample every 10000 days from 0 to 4000000 (covers year 0 to ~10950)
+    lists:foreach(
+      fun(Days) ->
+              Date = calendar:gregorian_days_to_date(Days),
+              Days = calendar:date_to_gregorian_days(Date)
+      end, lists:seq(0, 4000000, 10000)).
+
+%% Tests negative dates (dates before year 0).
+%% Uses astronomical year numbering: year 0 = 1 BCE, year -1 = 2 BCE, etc.
+negative_gregorian_days(Config) when is_list(Config) ->
+    %% Test day before epoch (Dec 31, year -1)
+    -1 = calendar:date_to_gregorian_days({-1, 12, 31}),
+    {-1, 12, 31} = calendar:gregorian_days_to_date(-1),
+
+    %% Test year -1 boundaries (year -1 is NOT a leap year: -1 rem 4 = -1)
+    %% Year -1 has 365 days: Jan 1 is day -365, Dec 31 is day -1
+    -365 = calendar:date_to_gregorian_days({-1, 1, 1}),
+    {-1, 1, 1} = calendar:gregorian_days_to_date(-365),
+
+    %% Test year -4 (leap year: -4 rem 4 = 0, -4 rem 100 = -4)
+    true = calendar:is_leap_year(-4),
+    -1461 = calendar:date_to_gregorian_days({-4, 1, 1}),
+    {-4, 1, 1} = calendar:gregorian_days_to_date(-1461),
+    -1096 = calendar:date_to_gregorian_days({-4, 12, 31}),  % 366 days in year -4
+    -1402 = calendar:date_to_gregorian_days({-4, 2, 29}),   % Leap day
+    {-4, 2, 29} = calendar:gregorian_days_to_date(-1402),
+
+    %% Test year -100 (NOT a leap year: divisible by 100)
+    false = calendar:is_leap_year(-100),
+    -36466 = calendar:date_to_gregorian_days({-100, 2, 28}),
+    {-100, 2, 28} = calendar:gregorian_days_to_date(-36466),
+    -36465 = calendar:date_to_gregorian_days({-100, 3, 1}),
+    {-100, 3, 1} = calendar:gregorian_days_to_date(-36465),
+
+    %% Test year -400 (IS a leap year: divisible by 400)
+    true = calendar:is_leap_year(-400),
+    -146038 = calendar:date_to_gregorian_days({-400, 2, 29}),
+    {-400, 2, 29} = calendar:gregorian_days_to_date(-146038),
+
+    %% Test roundtrip for negative days
+    check_negative_roundtrip_samples(),
+
+    %% Test valid_date for negative years
+    true = calendar:valid_date({-1, 12, 31}),
+    true = calendar:valid_date({-4, 2, 29}),
+    false = calendar:valid_date({-1, 2, 29}),  % -1 is not a leap year
+    true = calendar:valid_date({-400, 2, 29}),
+    false = calendar:valid_date({-100, 2, 29}),
+
+    %% Test last_day_of_the_month for negative years
+    29 = calendar:last_day_of_the_month(-4, 2),
+    28 = calendar:last_day_of_the_month(-1, 2),
+    29 = calendar:last_day_of_the_month(-400, 2),
+    28 = calendar:last_day_of_the_month(-100, 2),
+
+    ok.
+
+%% Helper: check roundtrip for negative days
+check_negative_roundtrip_samples() ->
+    %% Sample every 10000 days from -1000000 to 0
+    lists:foreach(
+      fun(Days) ->
+              Date = calendar:gregorian_days_to_date(Days),
+              Days = calendar:date_to_gregorian_days(Date)
+      end, lists:seq(-1000000, 0, 10000)).
+
+%% Tests negative gregorian seconds (times before year 0).
+negative_gregorian_seconds(Config) when is_list(Config) ->
+    %% One second before midnight on Jan 1, year 0
+    -1 = calendar:datetime_to_gregorian_seconds({{-1, 12, 31}, {23, 59, 59}}),
+    {{-1, 12, 31}, {23, 59, 59}} = calendar:gregorian_seconds_to_datetime(-1),
+
+    %% Midnight on Dec 31, year -1
+    -86400 = calendar:datetime_to_gregorian_seconds({{-1, 12, 31}, {0, 0, 0}}),
+    {{-1, 12, 31}, {0, 0, 0}} = calendar:gregorian_seconds_to_datetime(-86400),
+
+    %% Start of year -1
+    -31536000 = calendar:datetime_to_gregorian_seconds({{-1, 1, 1}, {0, 0, 0}}),
+    {{-1, 1, 1}, {0, 0, 0}} = calendar:gregorian_seconds_to_datetime(-31536000),
+
+    %% Test a time in the middle of a negative day
+    {{-1, 12, 31}, {12, 30, 45}} = calendar:gregorian_seconds_to_datetime(-41355),
+
+    %% Test roundtrip for various negative seconds
+    lists:foreach(
+      fun(Secs) ->
+              DateTime = calendar:gregorian_seconds_to_datetime(Secs),
+              Secs = calendar:datetime_to_gregorian_seconds(DateTime)
+      end, lists:seq(-100000000, 0, 1234567)),
+
+    ok.
+
+%% Tests leap year detection for negative years.
+negative_leap_years(Config) when is_list(Config) ->
+    %% Year -1 is NOT a leap year (-1 rem 4 = -1)
+    false = calendar:is_leap_year(-1),
+    %% Year -2 is NOT a leap year
+    false = calendar:is_leap_year(-2),
+    %% Year -3 is NOT a leap year
+    false = calendar:is_leap_year(-3),
+    %% Year -4 IS a leap year (-4 rem 4 = 0, -4 rem 100 = -4)
+    true = calendar:is_leap_year(-4),
+    %% Year -8 IS a leap year
+    true = calendar:is_leap_year(-8),
+    %% Year -100 is NOT a leap year (divisible by 100, not by 400)
+    false = calendar:is_leap_year(-100),
+    %% Year -200 is NOT a leap year
+    false = calendar:is_leap_year(-200),
+    %% Year -300 is NOT a leap year
+    false = calendar:is_leap_year(-300),
+    %% Year -400 IS a leap year (divisible by 400)
+    true = calendar:is_leap_year(-400),
+    %% Year -800 IS a leap year
+    true = calendar:is_leap_year(-800),
+    %% Year -500 is NOT a leap year
+    false = calendar:is_leap_year(-500),
+
+    %% Check leap years from -1000 to 0
+    check_negative_leap_years(-1000, 0),
+
+    ok.
+
+%% Helper: verify leap year logic for negative years
+check_negative_leap_years(Year, EndYear) when Year < EndYear ->
+    Expected = (Year rem 4 =:= 0) andalso
+               ((Year rem 100 =/= 0) orelse (Year rem 400 =:= 0)),
+    Expected = calendar:is_leap_year(Year),
+    check_negative_leap_years(Year + 1, EndYear);
+check_negative_leap_years(_, _) ->
+    ok.
+
+%% Tests day_of_the_week for negative dates
+negative_day_of_the_week(Config) when is_list(Config) ->
+    %% Jan 1, year 0 is a Saturday (day 6)
+    6 = calendar:day_of_the_week({0, 1, 1}),
+    %% Dec 31, year -1 should be Friday (day 5)
+    5 = calendar:day_of_the_week({-1, 12, 31}),
+    %% Dec 30, year -1 should be Thursday (day 4)
+    4 = calendar:day_of_the_week({-1, 12, 30}),
+
+    %% Verify 7-day cycle works for negative dates
+    lists:foreach(
+      fun(Days) ->
+              DOW1 = calendar:day_of_the_week(calendar:gregorian_days_to_date(Days)),
+              DOW2 = calendar:day_of_the_week(calendar:gregorian_days_to_date(Days + 7)),
+              true = (DOW1 =:= DOW2),
+              true = (DOW1 >= 1 andalso DOW1 =< 7)
+      end, lists:seq(-100000, 0, 1000)),
+
+    ok.
 
 %% Tests that datetime_to_gregorian_seconds and
 %% gregorian_seconds_to_date are each others inverses for a sampled
@@ -162,7 +389,7 @@ local_time_to_universal_time_dst_x(Config) when is_list(Config) ->
 	{{1969,12,31},{23,59,59}} ->
 	    %% It seems that Apple has no intention of fixing this bug in
 	    %% Mac OS 10.3.9, and we have no intention of implementing a
-	    %% workaround. 
+	    %% workaround.
 	    {comment,"Bug in mktime() in this OS"}
     end.
 
@@ -220,14 +447,15 @@ rfc3339(Config) when is_list(Config) ->
     %% The leap second is not handled:
     "1991-01-01T00:00:00Z" = test_parse("1990-12-31T23:59:60Z"),
 
-    "9999-12-31T23:59:59Z" = do_format_z(253402300799, []),
-    "9999-12-31T23:59:59.999Z" = do_format_z(253402300799*1000+999, Ms),
+    "9999-12-31T23:59:59Z" = roundtrip_fmt_rfc3339_z(253402300799, []),
+    "9999-12-31T23:59:59.999Z" = roundtrip_fmt_rfc3339_z(253402300799*1000+999, Ms),
     NaPerSec = erlang:convert_time_unit(1, second, native),
     "9999-12-31T23:59:59.999Z" = do_format_z(253402300799*NaPerSec+(NaPerSec-1), Na),
     "9999-12-31T23:59:59.999999Z" =
-        do_format_z(253402300799*1_000_000+999_999, Mys),
+        roundtrip_fmt_rfc3339_z(253402300799*1_000_000+999_999, Mys),
     "9999-12-31T23:59:59.999999999Z" =
-        do_format_z(253402300799*1_000_000_000+999_999_999, Ns),
+        roundtrip_fmt_rfc3339_z(253402300799*1_000_000_000+999_999_999, Ns),
+    %% Year 10000 is out of range (restricted to -9999..9999)
     {'EXIT', _} = (catch do_format_z(253402300799+1, [])),
     {'EXIT', _} = (catch do_parse("9999-12-31T23:59:60Z", [])),
     {'EXIT', _} = (catch do_format_z(253402300799*1_000_000_000+999_999_999+1, Ns)),
@@ -261,6 +489,17 @@ rfc3339(Config) when is_list(Config) ->
     "1970-01-01T00:00:00.000001Z" =
         test_parse("1970-01-01T00:00:00.000001Z", Mys),
 
+    %% Negative years (ISO 8601 extended format)
+    "-0001-01-01T00:00:00Z" = test_parse("-0001-01-01T00:00:00Z"),
+    "-0001-12-31T23:59:59Z" = test_parse("-0001-12-31T23:59:59Z"),
+    "-0004-02-29T12:30:45Z" = test_parse("-0004-02-29T12:30:45Z"),  % leap year
+    "-0100-06-15T00:00:00Z" = test_parse("-0100-06-15T00:00:00Z"),
+    "-0400-02-29T00:00:00Z" = test_parse("-0400-02-29T00:00:00Z"),  % leap year (div 400)
+    %% Binary input for negative years
+    "-0001-01-01T00:00:00Z" = test_parse(<<"-0001-01-01T00:00:00Z">>),
+    "-0004-02-29T12:30:45Z" = test_parse(<<"-0004-02-29T12:30:45Z">>),
+
+
     test_time(erlang:system_time(second), []),
     test_time(erlang:system_time(second), Z),
     test_time(erlang:system_time(second), Z ++ S),
@@ -268,7 +507,7 @@ rfc3339(Config) when is_list(Config) ->
     test_time(erlang:system_time(millisecond), Ms),
     test_time(erlang:system_time(microsecond), Mys++[{offset, "-02:20"}]),
 
-    946720800 = TO = do_parse("2000-01-01 10:00:00Z", []),
+    946720800 = TO = do_parse("2000-01-01T10:00:00Z", []),
     Str = "2000-01-01T10:02:00+00:02",
     Str = do_format(TO, [{offset, 120}]),
     "2000-01-01T10:02:00.000+00:02" =
@@ -316,23 +555,49 @@ rfc3339(Config) when is_list(Config) ->
     -1613833200000000 = do_parse("1918-11-11T11:00:00+02:00", Mys),
     -1613833200000000 = do_parse("1918-11-11T09:00:00Z", Mys),
 
-    "1970-01-01T00:00:00.000000Z" = do_format_z(0, Mys),
-    "1970-01-01T00:00:01Z" = do_format_z(1, S),
-    "1970-01-01T00:00:00.001Z" = do_format_z(1, Ms),
-    "1970-01-01T00:00:00.000001Z" = do_format_z(1, Mys),
-    "1970-01-01T00:00:00.000000001Z" = do_format_z(1, Ns),
-    "1970-01-01T00:00:01.000000Z" = do_format_z(1_000_000, Mys),
-    "1970-01-01T00:00:00.543210Z" = do_format_z(543_210, Mys),
-    "1970-01-01T00:00:00.543Z" = do_format_z(543, Ms),
-    "1970-01-01T00:00:00.543210000Z" = do_format_z(543_210_000, Ns),
-    "1970-01-01T00:00:06.543210Z" = do_format_z(6_543_210, Mys),
-    "1979-06-21T12:12:12.000000Z" = do_format_z(298815132000000, Mys),
-    "1918-11-11T13:00:00.000000Z" = do_format_z(-1613818800000000, Mys),
+    "1970-01-01T00:00:00.000000Z" = roundtrip_fmt_rfc3339_z(0, Mys),
+    "1970-01-01T00:00:01Z" = roundtrip_fmt_rfc3339_z(1, S),
+    "1970-01-01T00:00:00.001Z" = roundtrip_fmt_rfc3339_z(1, Ms),
+    "1970-01-01T00:00:00.000001Z" = roundtrip_fmt_rfc3339_z(1, Mys),
+    "1970-01-01T00:00:00.000000001Z" = roundtrip_fmt_rfc3339_z(1, Ns),
+    "1970-01-01T00:00:01.000000Z" = roundtrip_fmt_rfc3339_z(1_000_000, Mys),
+    "1970-01-01T00:00:00.543210Z" = roundtrip_fmt_rfc3339_z(543_210, Mys),
+    "1970-01-01T00:00:00.543Z" = roundtrip_fmt_rfc3339_z(543, Ms),
+    "1970-01-01T00:00:00.543210000Z" = roundtrip_fmt_rfc3339_z(543_210_000, Ns),
+    "1970-01-01T00:00:06.543210Z" = roundtrip_fmt_rfc3339_z(6_543_210, Mys),
+    "1979-06-21T12:12:12.000000Z" = roundtrip_fmt_rfc3339_z(298815132000000, Mys),
+    "1918-11-11T13:00:00.000000Z" = roundtrip_fmt_rfc3339_z(-1613818800000000, Mys),
+
+    %% GH-9279
+    "1969-12-31T23:59:58.750Z" = roundtrip_fmt_rfc3339_z(-1250, Ms),
+    "1969-12-31T23:59:59.000Z" = roundtrip_fmt_rfc3339_z(-1000, Ms),
+    "1969-12-31T23:59:59.007Z" = roundtrip_fmt_rfc3339_z(-993, Ms),
+    "1969-12-31T23:59:59.250Z" = roundtrip_fmt_rfc3339_z(-750, Ms),
+    "1969-12-31T23:59:59.500Z" = roundtrip_fmt_rfc3339_z(-500, Ms),
+    "1969-12-31T23:59:59.750Z" = roundtrip_fmt_rfc3339_z(-250, Ms),
+    "1969-12-31T23:59:59.999Z" = roundtrip_fmt_rfc3339_z(-1, Ms),
+    "1970-01-01T00:00:00.000Z" = roundtrip_fmt_rfc3339_z(0, Ms),
+    "1970-01-01T00:00:00.001Z" = roundtrip_fmt_rfc3339_z(1, Ms),
+    "1970-01-01T00:00:00.017Z" = roundtrip_fmt_rfc3339_z(17, Ms),
+    "1970-01-01T00:00:00.250Z" = roundtrip_fmt_rfc3339_z(250, Ms),
+    "1970-01-01T00:00:00.500Z" = roundtrip_fmt_rfc3339_z(500, Ms),
+    "1970-01-01T00:00:00.750Z" = roundtrip_fmt_rfc3339_z(750, Ms),
+    "1970-01-01T00:00:01.000Z" = roundtrip_fmt_rfc3339_z(1000, Ms),
+    "1970-01-01T00:00:01.250Z" = roundtrip_fmt_rfc3339_z(1250, Ms),
+
     ok.
 
 %%
 %% LOCAL FUNCTIONS
 %%
+
+roundtrip_fmt_rfc3339(Time, Opts) ->
+    Str = calendar:system_time_to_rfc3339(Time, Opts),
+    Time = calendar:rfc3339_to_system_time(Str, Opts),
+    Str.
+
+roundtrip_fmt_rfc3339_z(Time, Opts) ->
+    roundtrip_fmt_rfc3339(Time, [{offset, "Z"} | Opts]).
 
 test_parse(String) ->
     test_parse(String, []).
@@ -355,7 +620,7 @@ do_format(Time, Options) ->
     calendar:system_time_to_rfc3339(Time, Options).
 
 %% check_gregorian_days
-%% 
+%%
 check_gregorian_days(Days, MaxDays) when Days < MaxDays ->
     Date = calendar:gregorian_days_to_date(Days),
     true = calendar:valid_date(Date),
@@ -365,7 +630,7 @@ check_gregorian_days(_Days, _MaxDays) ->
     ok.
 
 %% check_gregorian_seconds
-%% 
+%%
 %% We increment with something prime (172801 = 2 days + 1 second).
 %%
 check_gregorian_seconds(Secs, MaxSecs) when Secs < MaxSecs ->

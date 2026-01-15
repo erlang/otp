@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,6 +91,7 @@
 -export([bin_prefix/2]).
 
 -export([get_check_io_total/1]).   % for z_SUITE.erl
+-export([check_io_debug/0]). %% For nif_SUITE.erl
 
 -include_lib("common_test/include/ct.hrl").
 

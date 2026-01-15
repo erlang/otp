@@ -1,3 +1,23 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
 ##
 ## This docker file will build a base image for building Erlang/OTP
 ##
@@ -19,7 +39,7 @@ ENV CROSS_LIBS="$INSTALL_LIBS"
 ## 1. Install build-essential to get access to dpkg-architecture
 ## 2. Use dpkg-architecture to figure out what we are running on
 ## 3. If the HOST_TRIP does not equal BUILD_TRIP we should cross compile
-RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential pkg-config && \
+RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential pkg-config git && \
         BUILD_TRIP=`dpkg-architecture -t${HOST_TRIP} -qDEB_BUILD_MULTIARCH` && \
         BUILD_ARCH=`dpkg-architecture -t${HOST_TRIP} -qDEB_BUILD_ARCH` && \
         if [ "$HOST_TRIP" != "$BUILD_TRIP" ]; then \
@@ -28,7 +48,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential p
           sed -i "s@main\n@main\nArch: $BUILD_ARCH,$HOST_ARCH@g" /etc/apt/sources.list.d/debian.sources; \
         fi && \
         apt-get update && \
-        apt-get install -y build-essential m4 autoconf fop xsltproc default-jdk libxml2-utils \
+        apt-get install -y build-essential m4 autoconf default-jdk \
           $INSTALL_LIBS && \
         if [ "$HOST_TRIP" != "$BUILD_TRIP" ]; then \
           apt-get install -y -f \

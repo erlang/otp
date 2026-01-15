@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1998-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,13 +133,7 @@ my @if_line;
 #
 my $te_max_vars = 0;		# Max number of variables ever needed.
 my %gen_transform;
-my %match_engine_ops;		# All opcodes for the match engine.
-my %gen_transform_offset;
 my @transformations;
-my @call_table;
-my %call_table;
-my @pred_table;
-my %pred_table;
 
 # Operand types for generic instructions.
 
@@ -337,12 +333,6 @@ sub define_type_bit {
     define_type_bit('M', $type_bit{'u'});
     define_type_bit('H', $type_bit{'u'});
 }
-
-#
-# Pre-define the 'fail' instruction. It is used internally
-# by the 'try_me_else_fail' instruction.
-#
-$match_engine_ops{'TOP_fail'} = 1;
 
 #
 # Sanity checks.
@@ -866,6 +856,15 @@ sub emulator_output {
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
     include_files();
+    print '#include "erl_term.h"', "\n";
+    print '#include "erl_map.h"', "\n";
+    print '#include "big.h"', "\n";
+    print '#include "erl_bits.h"', "\n";
+    print '#include "erl_binary.h"', "\n";
+    print '#include "beam_transform_helpers.h"', "\n";
+    print '#include "erl_global_literals.h"', "\n";
+    print '#include "erl_debugger.h"', "\n";
+    print "\n";
 
     print "const char tag_to_letter[] = {\n  ";
     for ($i = 0; $i < length($genop_types); $i++) {
@@ -994,11 +993,10 @@ sub emulator_output {
 	my($arity) = $gen_arity[$i];
 	printf "/* %3d */  ", $i;
 	if (!defined $name) {
-	    init_item("", 0, 0, 0, -1);
+	    init_item("", 0, 0, 0, 0);
 	} else {
 	    my($key) = "$name/$arity";
-	    my($tr) = defined $gen_transform_offset{$key} ?
-		$gen_transform_offset{$key} : -1;
+	    my($tr) = defined $gen_transform{$key} ? 1 : 0;
 	    my($spec_op) = $gen_to_spec{$key};
 	    my($num_specific) = $num_specific{$key};
 	    defined $spec_op or
@@ -1075,17 +1073,6 @@ sub emulator_output {
     }
     print "\n#define BEAM_NUM_TAGS $tag_num\n\n";
 
-    $i = 0;
-    foreach (sort keys %match_engine_ops) {
-	print "#define $_ $i\n";
-	$i++;
-    }
-    print "#define NUM_TOPS $i\n";
-    print "\n";
-
-    print "#define TE_MAX_VARS $te_max_vars\n";
-    print "\n";
-
     print "extern const char tag_to_letter[];\n";
     print "extern const Uint op_transform[];\n";
     print "\n";
@@ -1127,28 +1114,6 @@ sub emulator_output {
 
 
     print "#endif\n";
-
-
-    #
-    # Extension of transform engine.
-    #
-
-    $name = "$outdir/beam_transform.c";
-    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    comment('C');
-    include_files();
-    print '#include "erl_term.h"', "\n";
-    print '#include "erl_map.h"', "\n";
-    print '#include "big.h"', "\n";
-    print '#include "erl_bits.h"', "\n";
-    print '#include "erl_binary.h"', "\n";
-    print '#include "beam_transform_helpers.h"', "\n";
-    print '#include "erl_global_literals.h"', "\n";
-    print "\n";
-    gen_tr_code('pred.');
-    gen_tr_func('int', 'erts_beam_eval_predicate', @pred_table);
-    gen_tr_code('gen.');
-    gen_tr_func('BeamOp*', 'erts_beam_execute_transform', @call_table);
 
     #
     # Implementation of operations for emulator.
@@ -1254,7 +1219,7 @@ sub compiler_output {
     my($i);
 
     open(STDOUT, ">$outdir/$name") || die "Failed to open $name for writing: $!\n";
-    print "-module($module).\n";
+    print "-module($module).\n-moduledoc false.";
     comment('erlang');
 
     print "-export([format_number/0]).\n";
@@ -1766,7 +1731,7 @@ sub code_gen {
                 last SWITCH;
             };
 	    /r/ and do {
-                push(@f, "r(0)");
+                push(@f, "x(0)");
                 last SWITCH;
             };
 	    /[lxyS]/ and do {
@@ -2593,7 +2558,7 @@ sub tr_parse_op {
 
     # Get the variable name if any.
 
-    if (/^([A-Z]\w*)(.*)/) {
+    if (/^(_?[A-Z]\w*)(.*)/) {
 	$var = $1;
 	$_ = $2;
 	error("garbage after variable")
@@ -2703,6 +2668,12 @@ sub tr_gen {
     }
 
     #
+    # Print predicate and generation functions.
+    #
+    gen_tr_code('pred.');
+    gen_tr_code('gen.');
+
+    #
     # Group instructions.
     #
     foreach $key (sort keys %gen_transform) {
@@ -2712,40 +2683,366 @@ sub tr_gen {
     #
     # Print the generated transformation engine.
     #
-    my($offset) = 0;
-    print "const Uint op_transform[] = {\n";
-    foreach $key (sort keys %gen_transform) {
-	$gen_transform_offset{$key} = $offset;
-	my @instr = @{$gen_transform{$key}};
 
-	foreach $instr (@instr) {
-	    my($size, $instr_ref, $comment) = @$instr;
-	    my($op, @args) = @$instr_ref;
-	    if (!defined $op) {
-		$comment =~ s/\n(.)/\n    $1/g;
-		print $comment;
-	    } else {
-                print "    ";
-		$op = "TOP_$op";
-		$match_engine_ops{$op} = 1;
-		if ($comment ne '') {
-		    printf "%-30s /* %s */\n", (join(", ", ($op, @args)) . ","),
-		    $comment;
-		} else {
-		    print join(", ", ($op, @args)), ",\n";
-		}
-		$offset += $size;
-	    }
-	}
-	print "\n";
+    my $vars = join(", ", map { "v$_" } 0..$te_max_vars-1);
+    print <<"END";
+int erts_transform_engine(LoaderState* st) {
+  BeamOpArg $vars;
+  BeamOp* first = st->genop;
+  BeamOp* instr = first;
+  BeamOp* keep;
+  BeamOpArg* rest_args;
+  int num_rest_args;
+END
+
+    my $label = 0;
+    my $ap = 0;
+    my $ip = 1;
+    my $need_label = 0;
+
+    print "  switch (first->op) {\n";
+    foreach $key (sort keys %gen_transform) {
+        my $lref = $gen_transform{$key};
+
+        my($name,$arity) = $key =~ m@^([^/]+)/(\d+)$@;
+        print "    case $gen_opnum{$name,$arity}: /* $key */\n";
+        $need_label = 0;
+
+        for (my $i = 0; $i < @$lref; $i++) {
+            my(undef,undef,undef,$comment,@instr) = @{${$lref}[$i]};
+            $comment =~ s/\n(.)/\n    $1/g;
+            print $comment;
+
+            if ($need_label) {
+                print <<"END";
+  fail$label:
+    instr = first;
+END
+            }
+            $label++;
+            $need_label = 1;
+            $ap = 0;
+            $ip = 0;
+            my $fail_action = "return TE_FAIL";
+
+            foreach $instr (@instr) {
+                my($size, $instr_ref, $comment) = @$instr;
+                my($op, @args) = @$instr_ref;
+                if ($op eq 'next_arg') {
+                    $ap++;
+                } elsif ($op eq 'next_instr') {
+                    $ap = 0;
+                    $ip++;
+                } elsif ($op eq 'new_instr') {
+                    $ap = 0;
+                } elsif ($op eq 'commit') {
+                    $ap = 0;
+                } elsif ($op eq 'commit_new_instr') {
+                    $ap = 0;
+                    $ip--;
+                } elsif ($op eq 'keep') {
+                    $ip--;
+                } elsif ($op eq 'try_me_else') {
+                    $fail_action = "goto fail$label";
+                } elsif ($op eq 'skip_unless') {
+                    $fail_action = "goto fail$label";
+                    $need_label = 0;
+                }
+                gen_te_instr($ap, $ip, $fail_action, $comment, $op, @args);
+            }
+        }
+        print "\n";
     }
-    print starred_comment("Total number of words: $offset");
-    print "};\n\n";
+    print "    default: ASSERT(0); return TE_FAIL;\n";
+    print "  }\n";
+    print "}\n\n";
+}
+
+sub gen_te_instr {
+    my($ap,$ip,$fail_action,$comment,$op,@args) = @_;
+
+    if ($op eq 'next_arg') {
+        ;
+    } elsif ($op eq 'nop') {
+        ;
+    } elsif ($op eq 'try_me_else') {
+        ;
+    } elsif ($op eq 'try_me_else_fail') {
+        ;
+    } elsif ($op eq 'skip_unless') {
+        my($instr,$count) = @args;
+        my($fail_label) = $fail_action =~ /^goto fail(\d+)/;
+        if (defined $fail_label) {
+            $fail_action = "goto fail" . ($fail_label+$count);
+        }
+        print <<"END";
+    /*
+     * Note that the caller of transform_engine() guarantees that
+     * there is always a second instruction available.
+     */
+    ASSERT(instr);
+    if (instr->next->op != $instr) {
+        /* The second instruction is wrong. Skip ahead. */
+        $fail_action;
+    }
+END
+    } elsif ($op eq 'set_var') {
+        my $var = "v$args[0]";
+        print <<"END";
+    $var = instr->a[$ap]; /* $comment */
+END
+    } elsif ($op eq 'is_bif') {
+        my $bif_number = $args[0];
+        my $specific_bif_action = "";
+        my $bif_comment;
+        if ($bif_number eq '-1') {
+            $bif_comment = "Is $comment a BIF?";
+        } else {
+            $bif_comment = "Is $comment $bif_number?";
+            $specific_bif_action = <<"END";
+        if (entry != &bif_table[$bif_number]) {
+          $fail_action; /* Not $bif_number */
+        }
+END
+        }
+        print <<"END";
+    /* $bif_comment */
+    ASSERT(instr->a[$ap].type == TAG_u);
+    if (instr->a[$ap].type != TAG_u) {
+      $fail_action;
+    } else {
+      int i = instr->a[$ap].val;
+      ASSERT(i < st->beam.imports.count);
+      if (i >= st->beam.imports.count) {
+        $fail_action;
+      } else {
+        BifEntry *entry = st->bif_imports[i];
+
+        if (!entry) {
+          $fail_action; /* Not a BIF */
+        }
+$specific_bif_action
+      }
+    }
+END
+    } elsif ($op eq 'is_not_bif') {
+        my $bif_number = $args[0];
+        print <<"END";
+    /* Is $comment not a BIF? */
+    {
+      int i = instr->a[$ap].val;
+
+      /*
+       * In debug build, the type must be 'u'.
+       */
+      ASSERT(instr->a[$ap].type == TAG_u);
+      if (instr->a[$ap].type != TAG_u) {
+        $fail_action;
+      } else if (i < st->beam.imports.count) {
+        BeamFile_ImportEntry *import;
+
+        if (st->bif_imports[i]) {
+          $fail_action;
+        }
+
+        /* erlang:apply/2,3 are strange. They exist as (dummy) BIFs
+         * so that they are included in the export table before
+         * the erlang module is loaded. They also exist in the
+         * erlang module as functions. When used in code, a special
+         * Beam instruction is used.
+         *
+         * Below we recognize erlang:apply/2,3 as special. This is
+         * necessary because after setting a trace pattern on
+         * them, you can no longer see from the export entry that
+         * they are special. */
+        import = &st->beam.imports.entries[i];
+
+        if (import->module == am_erlang) {
+          if (import->function == am_apply) {
+            if (import->arity == 2 || import->arity == 3) {
+              $fail_action;
+            }
+          }
+        }
+      }
+    }
+END
+    } elsif ($op eq 'is_eq') {
+        my $val = $args[0];
+        print <<"END";
+    /* Test value */
+    if (instr->a[$ap].val != $val) {
+      $fail_action;
+    }
+END
+    } elsif ($op eq 'is_func') {
+        my($mod,$name,$arity) = @args;
+        print <<"END";
+    /* Is $comment the function $mod:$name/$arity? */
+    ASSERT(instr->a[$ap].type == TAG_u);
+    if (instr->a[$ap].type != TAG_u) {
+      $fail_action;
+    } else {
+      int i = instr->a[$ap].val;
+      BeamFile_ImportEntry* import;
+      ASSERT(i < st->beam.imports.count);
+      if (i >= st->beam.imports.count) {
+        $fail_action;
+      }
+      import = &st->beam.imports.entries[i];
+      if (import->module != $mod || import->function != $name || import->arity != $arity) {
+        $fail_action;
+      }
+    }
+END
+    } elsif ($op eq 'is_type') {
+        my $mask = $args[0];
+        print <<"END";
+    /* Test type */
+    if (((1 << instr->a[$ap].type) & $mask) == 0) { /* $comment */
+      $fail_action;
+    }
+END
+    } elsif ($op eq 'next_instr') {
+        my $expected = $args[0];
+        my $window_check = "ASSERT(instr)";
+        if ($ip > 1) {
+            $window_check = "if (instr == NULL) return TE_SHORT_WINDOW";
+        }
+        print <<"END";
+    /* Advance to next instruction */
+    instr = instr->next;
+    $window_check;
+    if (instr->op != $expected) { /* $comment */
+      $fail_action;
+    }
+END
+    } elsif ($op eq 'call') {
+        my($name,@vars) = @args;
+        my $call = $name . "(" . join(", ", ("st", @vars)) . ")";
+        print <<"END";
+    /* Call generator $name() */
+    {
+      BeamOp** lastp;
+      BeamOp* new_instr = $call;
+
+      if (new_instr == NULL) {
+        $fail_action;
+      }
+
+      keep = instr->next; /* The next_instr was optimized away. */
+
+      lastp = &new_instr;
+      while (*lastp != NULL) {
+          lastp = &((*lastp)->next);
+      }
+
+      *lastp = keep;
+      instr = new_instr;
+    }
+END
+    } elsif ($op eq 'pred') {
+        my($name,@vars) = @args;
+        my $pred = "$name(" . join(", ", ("st", @vars)) . ")";
+        print <<"END";
+    /* Call predicate $name() */
+    if (!$pred) {
+      $fail_action;
+    }
+END
+    } elsif ($op eq 'rest_args') {
+        my($formal_arity) = @args;
+        print <<"END";
+    /* Store dynamic arguments ($comment) */
+    num_rest_args = instr->arity - $formal_arity;
+    rest_args = &instr->a[$formal_arity];
+END
+    } elsif ($op eq 'commit') {
+        print <<"END";
+    /* $comment */
+    keep = instr = instr->next;
+END
+    } elsif ($op eq 'commit_new_instr') {
+        my($instr_op) = @args;
+        my $arity = $gen_arity{$gen_opname[$instr_op]};
+        print <<"END";
+    /* $comment; reusing last instruction on the left-hand side */
+    ASSERT(instr->a == instr->def_args);
+    keep = instr;
+    instr->op = $instr_op;
+    instr->arity = $arity;
+END
+    } elsif ($op eq 'keep') {
+        print <<"END";
+    /* Keep the current instruction unchanged */
+    keep = instr;
+END
+    } elsif ($op eq 'new_instr') {
+        my($instr_op) = @args;
+        my $arity = $gen_arity{$gen_opname[$instr_op]};
+        print <<"END";
+    /* Create instruction: $comment */
+    {
+      BeamOp* new_instr = beamopallocator_new_op(&st->op_allocator);
+      new_instr->next = instr;
+      instr = new_instr;
+      instr->op = $instr_op;
+      instr->arity = $arity;
+    }
+END
+    } elsif ($op eq 'rename') {
+        my($instr_op) = @args;
+        my $arity = $gen_arity{$gen_opname[$instr_op]};
+        print <<"END";
+    /* Rename instruction keeping the arguments */
+    instr->op = $instr_op;
+    instr->arity = $arity;
+    return TE_OK;
+END
+    } elsif ($op eq 'store_var') {
+        my $var = $args[0];
+        print "    instr->a[$ap] = v$var; /* $comment */\n";
+    } elsif ($op eq 'store_val') {
+        my($type,$val) = @args;
+        print <<"END";
+    /* Store value $comment */
+    instr->a[$ap].type = $type;
+    instr->a[$ap].val = $val;
+END
+    } elsif ($op eq 'store_rest_args') {
+        my($type,$val) = @args;
+        print <<"END";
+    /* Store dynamic arguments ($comment) */
+    ASSERT(instr->a == instr->def_args);
+    instr->arity = instr->arity + num_rest_args;
+    instr->a = erts_alloc(ERTS_ALC_T_LOADER_TMP,
+                          instr->arity * sizeof(BeamOpArg));
+    sys_memcpy(instr->a, instr->def_args, $ap * sizeof(BeamOpArg));
+    sys_memcpy(instr->a+$ap, rest_args, num_rest_args*sizeof(BeamOpArg));
+END
+    } elsif ($op eq 'end') {
+        print <<"END";
+    /* End of transformation */
+    st->genop = instr;
+    while (first != keep) {
+      BeamOp* next = first->next;
+      beamopallocator_free_op(&st->op_allocator, first);
+      first = next;
+    }
+    return TE_OK;
+END
+    } elsif ($op eq 'fail') {
+        print "/* Fail transformation */\n";
+        print "return TE_FAIL;\n";
+    } else {
+        error("Unhandled instruction: $op @args");
+    }
 }
 
 sub tr_gen_from {
     my($line,@tr) = @_;
     my(%var) = ();
+    my(%unused) = ();
     my(%var_type);
     my($var_num) = 0;
     my(@code);
@@ -2783,9 +3080,10 @@ sub tr_gen_from {
                 }
 		error($where, "'$var' unbound")
 		    unless defined $var{$var};
+                delete $unused{$var};
                 push @vars, $var;
 		if ($var_type{$var} eq 'scalar') {
-		    push(@args, "var[$var{$var}]");
+		    push(@args, "v$var{$var}");
                     push @param_types, 'BeamOpArg';
 		} else {
 		    push(@args, "rest_args");
@@ -2795,8 +3093,7 @@ sub tr_gen_from {
             my $c_name = "pred.$name";
             $c_param_types{$c_name} = \@param_types;
             $c_code_used{$c_name} = 1;
-	    my $pi = next_tr_index(\@{pred_table}, \%pred_table, $name, @args);
-            my $op = make_op("$name()", 'pred', $pi);
+            my $op = make_op("$name()", 'pred', $name, @args);
             my @slots = grep(/^\d+/, map { $var{$_} } @vars);
 	    op_slot_usage($op, @slots);
 	    push(@code, $op);
@@ -2813,9 +3110,9 @@ sub tr_gen_from {
 
 	push(@code, make_op("$name/$arity", 'next_instr', $opnum));
         push @instrs, "$name/$arity";
+        my $arg = 0;
 	foreach $op (@ops) {
 	    my($var, $type, $type_val, $cond, $val) = @$op;
-	    my $ignored_var = "$var (ignored)";
 
 	    if ($type ne '' && $type ne '*') {
 		$may_fail = 1;
@@ -2825,7 +3122,6 @@ sub tr_gen_from {
 		# their own built-in type test and don't need to
 		# be guarded with a type test instruction.
 		#
-		$ignored_var = '';
 		unless ($cond eq 'is_bif' or
 			$cond eq 'is_not_bif' or
 			$cond eq 'is_func') {
@@ -2835,26 +3131,22 @@ sub tr_gen_from {
 			$types .= "$_ ";
 			$type_mask |= $type_bit{$_};
 		    }
-		    if ($cond ne 'is_eq') {
-			push(@code, make_op($types, 'is_type', $type_mask));
-		    } else {
-			$cond = '';
-			push(@code, make_op("$types== $val", 'is_type_eq',
-                                            $type_mask, $val));
-		    }
+                    push(@code, make_op($types, 'is_type', $type_mask));
 		}
 	    }
 
+            $arg++;
+            my $var_comment = "variable $var";
+            $var_comment = "argument $arg"
+                if $var eq '';
 	    if ($cond eq 'is_func') {
 		my($m, $f, $a) = split(/:/, $val);
-		$ignored_var = '';
 		$may_fail = 1;
-		push(@code, make_op('', "$cond", "am_$m",
-				     "am_$f", $a));
+                push @code, make_op($var_comment, $cond, "am_$m", "am_$f", $a);
 	    } elsif ($cond ne '') {
-		$ignored_var = '';
 		$may_fail = 1;
-		push(@code, make_op('', "$cond", $val));
+
+                push @code, make_op($var_comment, $cond, $val);
 	    }
 
 	    if ($var ne '') {
@@ -2871,26 +3163,19 @@ sub tr_gen_from {
 			      "a transformation")
 			    if $type eq 'array';
 		    }
-		    $ignored_var = '';
 		    $var{$var} = 'unnumbered';
 		    $var_type{$var} = 'array';
-		    push(@code, make_op($var, 'rest_args'));
+                    push @code, make_op($var, 'rest_args', $arity);
 		} else {
-		    $ignored_var = '';
 		    $var_type{$var} = 'scalar';
 		    $var{$var} = $var_num;
 		    $var_num++;
 		    push(@code, make_op($var, 'set_var', $var{$var}));
 		}
+
+                $unused{$var} = 1;
 	    }
-	    if (is_instr($code[$#code], 'set_var')) {
-		my $ref = pop @code;
-		my $comment = $ref->[2];
-		my $var = $ref->[1][1];
-		push(@code, make_op($comment, 'set_var_next_arg', $var));
-	    } else {
-		push(@code, make_op($ignored_var, 'next_arg'));
-	    }
+            push(@code, make_op('', 'next_arg'));
 	}
 
 	# Remove redundant 'next_arg' instructions before the end
@@ -2901,50 +3186,19 @@ sub tr_gen_from {
     #
     # Insert the commit operation.
     #
-    push(@code, make_op($may_fail ? '' : 'always reached', 'commit'));
-
-    #
-    # Peephole optimization: combine instructions.
-    #
-    for (my $i = 0; $i < @code; $i++) {
-        if (is_instr($code[$i], 'is_type')) {
-            my(undef, $is_type_ref, $type_comment) = @{$code[$i]};
-            if (is_instr($code[$i+1], 'set_var_next_arg')) {
-                my(undef, $next_ref, $next_comment) = @{$code[$i+1]};
-                my $comment = "$type_comment $next_comment";
-                my $op = make_op($comment, 'is_type_set_var_next_arg',
-                                 $is_type_ref->[1], $next_ref->[1]);
-                splice @code, $i, 2, ($op);
-            } elsif (is_instr($code[$i+1], 'next_arg')) {
-                my $op = make_op($type_comment, 'is_type_next_arg', $is_type_ref->[1]);
-                splice @code, $i, 2, ($op);
-            }
-        } elsif (is_instr($code[$i], 'is_type_eq')) {
-            my(undef, $is_type_ref, $type_comment) = @{$code[$i]};
-            if (is_instr($code[$i+1], 'set_var_next_arg')) {
-                my(undef, $next_ref, $next_comment) = @{$code[$i+1]};
-                my $comment = "$type_comment $next_comment";
-                my $op = make_op($comment, 'is_type_eq_set_var_next_arg',
-                                 $is_type_ref->[1], $is_type_ref->[2],
-                                 $next_ref->[1]);
-                splice @code, $i, 2, ($op);
-            } elsif (is_instr($code[$i+1], 'next_arg')) {
-                my $op = make_op($type_comment, 'is_type_eq_next_arg',
-                                 $is_type_ref->[1], $is_type_ref->[2]);
-                splice @code, $i, 2, ($op);
-            }
-        }
-    }
+    push(@code, make_op($may_fail ? 'This rule succeeds' :
+                        'This rule always succeeds', 'commit'));
 
     $te_max_vars = $var_num
 	if $te_max_vars < $var_num;
-    [\%var, \%var_type, \@instrs, \@code];
+    [\%var, \%unused, \%var_type, \@instrs, \@code];
 }
 
 sub tr_gen_to {
     my($line, $orig_transform, $so_far, @tr) = @_;
-    my($var_ref, $var_type_ref, $instrs_ref, $code_ref) = @$so_far;
+    my($var_ref, $unused_ref, $var_type_ref, $instrs_ref, $code_ref) = @$so_far;
     my(%var) = %$var_ref;
+    my(%unused) = %$unused_ref;
     my(%var_type) = %$var_type_ref;
     my(@code) = @$code_ref;
     my($op, $ref);		# Loop variables.
@@ -2970,8 +3224,10 @@ sub tr_gen_to {
 	    foreach $var (@ops) {
 		error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
+                delete $unused{$var};
+
 		if ($var_type{$var} eq 'scalar') {
-		    push @args, "var[$var{$var}]";
+		    push @args, "v$var{$var}";
                     push @param_types, 'BeamOpArg';
 		} else {
 		    push @args, "rest_args";
@@ -2982,9 +3238,7 @@ sub tr_gen_to {
             $c_param_types{$c_name} = \@param_types;
             $c_code_used{$c_name} = 1;
 	    pop(@code);	# Get rid of 'commit' instruction
-	    my $index = next_tr_index(\@call_table, \%call_table,
-				      $name, @args);
-	    my $op = make_op("$name()", 'call_end', $index);
+	    my $op = make_op("$name()", 'call', $name, @args);
 	    my @slots = grep(/^\d+/, map { $var{$_} } @ops);
 	    op_slot_usage($op, @slots);
 	    push(@code, $op);
@@ -3011,23 +3265,37 @@ sub tr_gen_to {
 	    if ($type eq '*') {
 		push(@code, make_op($var, 'store_rest_args'));
 	    } elsif ($var ne '') {
+                error($where, "using explicitly unused variable '$var'. " .
+                      "Remove the '_' prefix if this is intentional.")
+                    unless !($var =~ /^_/);
 		error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
-		my $op = make_op($var, 'store_var_next_arg', $var{$var});
+		my $op = make_op($var, 'store_var', $var{$var});
 		op_slot_usage($op, $var{$var});
-		push(@code, $op);
+                my $next_arg = make_op('', 'next_arg');
+		push @code, $op, $next_arg;
 	    } elsif ($type ne '') {
                 my $val = $type_val || 0;
                 my $comment = "$type=$val";
-                my $op = make_op($comment, 'store_val_next_arg', "TAG_$type", $val);
-                push @code, $op;
+                my $store_val = make_op($comment, 'store_val', "TAG_$type", $val);
+                my $next_arg = make_op('', 'next_arg');
+                push @code, $store_val, $next_arg;
 	    }
+
+            delete $unused{$var};
 	}
+
 	pop(@code) if is_instr($code[$#code], 'next_arg');
     }
 
-    push(@code, make_op('', 'end'))
-	unless is_instr($code[$#code], 'call_end');
+    foreach my $unused (keys %unused) {
+        error($where,
+              "variable '$unused' is unused. Prefix with '_' if this is " .
+              "intentional")
+            unless $unused =~ /^_/;
+    }
+
+    push(@code, make_op('', 'end'));
 
     tr_maybe_keep(\@code);
     tr_maybe_rename(\@code);
@@ -3106,7 +3374,7 @@ sub group_tr {
             if ($i == $#{$lref}) {
                 unshift @c, make_op('', 'try_me_else_fail');
             } else {
-                unshift @c, make_op('', 'try_me_else', code_len(@c));
+                unshift @c, make_op('', 'try_me_else');
             }
         }
         ${$lref}[$i] = [$first,$second,$cannot_fail,$comment,@c];
@@ -3127,7 +3395,7 @@ sub group_tr {
         for ($j = $i; $j < @$lref; $j++) {
             my(undef,$other,undef,undef,@c) = @{${$lref}[$j]};
             last unless defined $other and $other eq $current;
-            $skip_len += code_len(@c);
+            $skip_len++;
         }
 
         if ($j > $i + 1) {
@@ -3141,28 +3409,18 @@ sub group_tr {
             splice @$lref, $i, 0, (['','',1,$comment,$op]);
             $i = $j + 1;
             if ($j == $#{$lref}) {
-                my($first,$second,$cannot_fail,$comment,@c) = @{${$lref}[$j]};
-                push @c, make_op('wrong second instruction', 'fail');
-                ${$lref}[$j] = [$first,$second,$cannot_fail,$comment,@c];
+                my(@c) = (make_op('wrong second instruction', 'fail'));
+                push @$lref, ['','','','',@c];
             }
         }
     }
-
-    #
-    # Flatten the code to a one-dimensional sequence of instructions.
-    #
-    my @code;
-    for (my $i = 0; $i < @$lref; $i++) {
-        my($first,$second,$cannot_fail,$comment,@c) = @{${$lref}[$i]};
-        push @code, make_op($comment);
-        push @code, @c;
-    }
-    \@code;
+    $lref;
 }
 
 sub tr_maybe_keep {
     my($ref) = @_;
-    my @last_instr;
+    my $ap = 1;
+    my @last_instr = ('unknown','ignored');
     my $pos;
     my $reused_instr;
 
@@ -3171,21 +3429,21 @@ sub tr_maybe_keep {
 	my($size, $instr_ref, $comment) = @$instr;
 	my($op, @args) = @$instr_ref;
 	if ($op eq 'next_instr') {
-	    @last_instr = ($args[0]);
-	} elsif ($op eq 'set_var_next_arg') {
-	    push @last_instr, $args[0];
-	} elsif ($op eq 'is_type_set_var_next_arg') {
-	    push @last_instr, $args[1];
-	} elsif ($op eq 'is_type_eq_set_var_next_arg') {
-	    push @last_instr, $args[2];
+            @last_instr = ($args[0],'ignored');
+            $ap = 1;
 	} elsif ($op eq 'next_arg') {
-	    push @last_instr, 'ignored';
+            $ap++;
+            $last_instr[$ap] = 'ignored'
+                unless defined $pos;
+	} elsif ($op eq 'set_var') {
+	    $last_instr[$ap] = $args[0];
 	} elsif ($op eq 'new_instr') {
 	    unless (defined $pos) {
 		# 'new_instr' immediately after 'commit'.
 		$reused_instr = $args[0];
-		return unless shift(@last_instr) == $reused_instr;
+		return unless $last_instr[0] == $reused_instr;
 		$pos = $i - 1;
+                $ap = 1;
 	    } else {
 		# Second 'new_instr' after 'commit'. The instructions
 		# from $pos up to and including $i - 1 rebuilds the
@@ -3196,8 +3454,8 @@ sub tr_maybe_keep {
 		splice @$ref, $pos, $i-$pos, ($reuse);
 		return;
 	    }
-	} elsif ($op eq 'store_var_next_arg') {
-	    return unless @last_instr and shift(@last_instr) eq $args[0];
+	} elsif ($op eq 'store_var') {
+	    return unless $last_instr[$ap] eq $args[0];
 	} elsif (defined $pos) {
 	    return;
 	}
@@ -3214,6 +3472,7 @@ sub combine_commit {
         if ($op eq 'rest_args') {
             return;
         } elsif ($op eq 'new_instr' and is_instr($$ref[$i-1], 'commit')) {
+            $comment = get_comment($$ref[$i-1]);
             my $op = make_op($comment, 'commit_new_instr', @args);
             splice @$ref, $i - 1, 2, ($op);
         }
@@ -3235,26 +3494,7 @@ sub tr_maybe_rename {
 	my($op, @args) = @$instr_ref;
 
 	if ($s eq 'left') {
-	    if ($op eq 'set_var_next_arg') {
-		if ($num_args == $a and $args[0] == $a) {
-		    $num_args++;
-		}
-		$a++;
-            } elsif ($op eq 'is_type_set_var_next_arg') {
-	        if ($num_args == $a and $args[1] == $a) {
-	            $num_args++;
-	        }
-	        $a++;
-            } elsif ($op eq 'is_type_eq_set_var_next_arg') {
-	        if ($num_args == $a and $args[2] == $a) {
-	            $num_args++;
-	        }
-	        $a++;
-	    } elsif ($op eq 'next_arg') {
-		$a++;
-	    } elsif ($op eq 'is_type_next_arg') {
-		$a++;
-	    } elsif ($op eq 'is_type_eq_next_arg') {
+            if ($op eq 'next_arg') {
 		$a++;
 	    } elsif ($op eq 'commit') {
 		$a = 0;
@@ -3272,9 +3512,7 @@ sub tr_maybe_rename {
 		return;
 	    }
 	} elsif ($s eq 'right') {
-	    if ($op eq 'store_var_next_arg' && $args[0] == $a) {
-		$a++;
-	    } elsif ($op eq 'end' && $a <= $num_args) {
+            if ($op eq 'end' && $a <= $num_args) {
 		my $name = $gen_opname[$new_instr];
 		my $arity = $gen_arity[$new_instr];
 		my $new_op = make_op("$name/$arity", 'rename', $new_instr);
@@ -3303,19 +3541,10 @@ sub tr_remove_unused {
     for my $instr (@$ref) {
 	my($size, $instr_ref, $comment) = @$instr;
 	my($op, @args) = @$instr_ref;
-	if ($op eq 'set_var_next_arg') {
+	if ($op eq 'set_var') {
 	    my $var = $args[0];
 	    next if $used{$var};
-	    $instr = make_op("$comment (ignored)", 'next_arg');
-	} elsif ($op eq 'is_type_set_var_next_arg') {
-            my($type,$var) = @args;
-            next if $used{$var};
-	    $instr = make_op("$comment (ignored)", 'is_type_next_arg', $type);
-	} elsif ($op eq 'is_type_eq_set_var_next_arg') {
-            my($type,$val,$var) = @args;
-            next if $used{$var};
-            $instr = make_op("$comment (ignored)", 'is_type_eq_next_arg',
-                             $type, $val);
+	    $instr = make_op("(ignoring unused variable $comment)", 'nop');
         }
     }
 
@@ -3377,16 +3606,6 @@ sub gen_tr_code {
     }
 }
 
-sub code_len {
-    my($sum) = 0;
-    my($ref);
-
-    foreach $ref (@_) {
-	$sum += $$ref[0];
-    }
-    $sum;
-}
-
 sub make_op {
     my($comment, @op) = @_;
     [scalar(@op), [@op], $comment, []];
@@ -3411,34 +3630,6 @@ sub get_comment {
 
 sub starred_comment {
     "\n/*" . join("\n * ", '', @_) . "\n */\n\n";
-}
-
-sub next_tr_index {
-    my($lref,$href,$name,@args) = @_;
-    my $code = "return $name(" . join(', ', 'st', @args) . ");\n";
-    my $index;
-
-    if (defined $$href{$code}) {
-	$index = $$href{$code};
-    } else {
-	$index = scalar(@$lref);
-	push(@$lref, $code);
-	$$href{$code} = $index;
-    }
-    $index;
-}
-
-sub gen_tr_func {
-    my($type,$name,@call_table) = @_;
-
-    print "$type $name(unsigned int op, LoaderState* st, BeamOpArg var[], BeamOpArg* rest_args) {\n";
-    print "  switch (op) {\n";
-    for (my $i = 0; $i < @call_table; $i++) {
-	print "    case $i: $call_table[$i]";
-    }
-    print qq[    default: erts_exit(ERTS_ABORT_EXIT, "$name: invalid op %d\\n", op);];
-    print "  }\n";
-    print "}\n\n";
 }
 
 sub include_files() {

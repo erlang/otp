@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 2006-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +62,6 @@ static void* emalloc(size_t size);
 static void efree(void *p);
 #endif
 static char* strsave(char* string);
-static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static char* get_default_emulator(char* progname);
 #ifdef __WIN32__
@@ -162,7 +163,7 @@ main(int argc, char** argv)
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
-    push_words(emulator);
+    PUSH(strsave(emulator));
     free(emulator);
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
@@ -178,7 +179,7 @@ main(int argc, char** argv)
     }
 
     PUSH("+B");
-    PUSH2("-boot", "no_dot_erlang");
+    PUSH2("-boot", "$ROOT/no_dot_erlang");
     PUSH3("-run", "typer", "start");
     PUSH("-extra");
 
@@ -216,26 +217,6 @@ main(int argc, char** argv)
     return run_erlang(eargv[0], eargv);
 }
 
-static void
-push_words(char* src)
-{
-    char sbuf[MAXPATHLEN];
-    char* dst;
-
-    dst = sbuf;
-    while ((*dst++ = *src++) != '\0') {
-	if (isspace((int)*src)) {
-	    *dst = '\0';
-	    PUSH(strsave(sbuf));
-	    dst = sbuf;
-	    do {
-		src++;
-	    } while (isspace((int)*src));
-	}
-    }
-    if (sbuf[0])
-	PUSH(strsave(sbuf));
-}
 #ifdef __WIN32__
 wchar_t *make_commandline(char **argv)
 {

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -364,7 +366,7 @@ browse_file(File) ->
     {ok,Mods,_ModsTW} = crashdump_viewer:loaded_modules(),
     {ok,_Mem,_MemTW} = crashdump_viewer:memory(),
     {ok,_AllocAreas,_AreaTW} = crashdump_viewer:allocated_areas(),
-    {ok,_AllocINfo,_AllocInfoTW} = crashdump_viewer:allocator_info(),
+    {ok,AllocInfo,_AllocInfoTW} = crashdump_viewer:allocator_info(),
     {ok,_HashTabs,_HashTabsTW} = crashdump_viewer:hash_tables(),
     {ok,_IndexTabs,_IndexTabsTW} = crashdump_viewer:index_tables(),
     {ok,_PTs,_PTsTW} = crashdump_viewer:persistent_terms(),
@@ -379,6 +381,9 @@ browse_file(File) ->
     io:format("  mods ok",[]),
     lookat_all_nodes(Nodes),
     io:format("  nodes ok",[]),
+
+    lookat_alloc_info(AllocInfo,is_truncated(File)),
+    io:format("  alloc info ok",[]),
 
     Procs. % used as second arg to special/2
 
@@ -732,6 +737,32 @@ lookat_all_nodes([#nod{channel=Channel0}|Nodes]) ->
     Channel = integer_to_list(Channel0),
     {ok,_Node=#nod{},_NodeTW} = crashdump_viewer:node_info(Channel),
     lookat_all_nodes(Nodes).
+
+lookat_alloc_info(_,true) ->
+    ok;
+lookat_alloc_info([AllocSummary|_],false) ->
+    {"Allocator Summary",
+     ["blocks size", "carriers size", "mseg carriers size"],
+     Data
+    } = AllocSummary,
+
+    %% All values must be integer.
+    Filter = filter_alloc_info_fun(),
+    _ = [list_to_integer(IntStr) || {_,L} <- Data,
+                                    IntStr <- Filter(L)],
+
+    ok.
+
+filter_alloc_info_fun() ->
+    case os:type() of
+        {win32,_} ->
+            fun([A,B,_]) ->
+                    %% The third column is never valid on Windows.
+                    [A,B]
+            end;
+        _ ->
+            fun([_,_,_]=L) -> L end
+    end.
 
 %%%-----------------------------------------------------------------
 %%% 

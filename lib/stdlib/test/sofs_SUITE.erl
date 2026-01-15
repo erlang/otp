@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +60,9 @@
 	  family_intersection_2/1, family_union_2/1,
 	  partition_family/1]).
 
--import(sofs, 
+-export([doctests/1]).
+
+-import(sofs,
 	[a_function/1, a_function/2, constant_function/2,
 	 canonical_relation/1, composite/2,
 	 converse/1, extension/3, from_term/1, from_term/2,
@@ -91,10 +95,10 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,2}}].
 
-all() -> 
-    [{group, sofs}, {group, sofs_family}].
+all() ->
+    [{group, sofs}, {group, sofs_family}, doctests].
 
-groups() -> 
+groups() ->
     [{sofs, [],
       [from_term_1, set_1, from_sets_1, relation_1,
        a_function_1, family_1, relation_to_family_1, domain_1,
@@ -2262,6 +2266,9 @@ partition_family(Conf) when is_list(Conf) ->
 	(catch partition_family(fun(_) -> {a} end, from_term([[a]]))),
     ok.
 
+doctests(_Config) ->
+    shell_docs:test(sofs, []).
+
 %% Not meant to be efficient...
 local_adjoin(S, C) ->
     X = to_external(C),
@@ -2274,4 +2281,3 @@ eval(R, E) when R == E ->
 eval(R, E) ->
     io:format("expected ~p~n got ~p~n", [E, R]),
     exit({R,E}).
-

@@ -1,13 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:send_after(Time, Dest, Msg, Options) -> TimerRef[0m
-  [;1m                           when[0m
-  [;1m                               Time :: integer(),[0m
-  [;1m                               Dest :: pid() | atom(),[0m
-  [;1m                               Msg :: term(),[0m
-  [;1m                               Options :: [Option],[0m
-  [;1m                               Abs :: boolean(),[0m
-  [;1m                               Option :: {abs, Abs},[0m
-  [;1m                               TimerRef :: reference().[0m
+[;1m  send_after(Time, Dest, Msg, Options)[0m
 
 [;;4mSince[0m:
   OTP 18.0

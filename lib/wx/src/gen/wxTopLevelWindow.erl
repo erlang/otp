@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,77 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxTopLevelWindow).
+-moduledoc """
+`m:wxTopLevelWindow` is a common base class for `m:wxDialog` and `m:wxFrame`.
+
+It is an abstract base class meaning that you never work with objects of this class
+directly, but all of its methods are also applicable for the two classes above.
+
+Note that the instances of `m:wxTopLevelWindow` are managed by wxWidgets in the internal
+top level window list.
+
+See:
+* `m:wxDialog`
+
+* `m:wxFrame`
+
+This class is derived, and can use functions, from:
+
+* `m:wxWindow`
+
+* `m:wxEvtHandler`
+
+wxWidgets docs: [wxTopLevelWindow](https://docs.wxwidgets.org/3.2/classwx_top_level_window.html)
+
+## Events
+
+Event types emitted from this class:
+
+* [`maximize`](`m:wxMaximizeEvent`)
+
+* [`move`](`m:wxMoveEvent`)
+
+* [`show`](`m:wxShowEvent`)
+""".
 -include("wxe.hrl").
 -export([centerOnScreen/1,centerOnScreen/2,centreOnScreen/1,centreOnScreen/2,
   getIcon/1,getIcons/1,getTitle/1,iconize/1,iconize/2,isActive/1,isFullScreen/1,
@@ -68,12 +137,18 @@
 
 -type wxTopLevelWindow() :: wx:wx_object().
 -export_type([wxTopLevelWindow/0]).
-%% @hidden
+-doc false.
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgeticon">external documentation</a>.
+-doc """
+Returns the standard icon of the window.
+
+The icon will be invalid if it hadn't been previously set by `setIcon/2`.
+
+See: `getIcons/1`
+""".
 -spec getIcon(This) -> wxIcon:wxIcon() when
 	This::wxTopLevelWindow().
 getIcon(#wx_ref{type=ThisT}=This) ->
@@ -81,7 +156,14 @@ getIcon(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_GetIcon),
   wxe_util:rec(?wxTopLevelWindow_GetIcon).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgeticons">external documentation</a>.
+-doc """
+Returns all icons associated with the window, there will be none of them if neither `setIcon/2`
+nor `setIcons/2` had been called before.
+
+Use `getIcon/1` to get the main icon of the window.
+
+See: `m:wxIconBundle`
+""".
 -spec getIcons(This) -> wxIconBundle:wxIconBundle() when
 	This::wxTopLevelWindow().
 getIcons(#wx_ref{type=ThisT}=This) ->
@@ -89,7 +171,11 @@ getIcons(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_GetIcons),
   wxe_util:rec(?wxTopLevelWindow_GetIcons).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgettitle">external documentation</a>.
+-doc """
+Gets a string containing the window title.
+
+See: `setTitle/2`
+""".
 -spec getTitle(This) -> unicode:charlist() when
 	This::wxTopLevelWindow().
 getTitle(#wx_ref{type=ThisT}=This) ->
@@ -97,7 +183,10 @@ getTitle(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_GetTitle),
   wxe_util:rec(?wxTopLevelWindow_GetTitle).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisactive">external documentation</a>.
+-doc """
+Returns true if this window is currently active, i.e. if the user is currently working
+with it.
+""".
 -spec isActive(This) -> boolean() when
 	This::wxTopLevelWindow().
 isActive(#wx_ref{type=ThisT}=This) ->
@@ -105,7 +194,7 @@ isActive(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_IsActive),
   wxe_util:rec(?wxTopLevelWindow_IsActive).
 
-%% @equiv iconize(This, [])
+-doc(#{equiv => iconize(This, [])}).
 -spec iconize(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -113,7 +202,19 @@ iconize(This)
  when is_record(This, wx_ref) ->
   iconize(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowiconize">external documentation</a>.
+-doc """
+Iconizes or restores the window.
+
+Note that in wxGTK the change to the window state is not immediate, i.e. `isIconized/1` will typically
+return false right after a call to `iconize/2` and its return value will only change after the
+control flow returns to the event loop and the notification about the window being really
+iconized is received.
+
+See:
+* `isIconized/1`
+
+* `m:wxIconizeEvent`
+""".
 -spec iconize(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'iconize', boolean()}.
@@ -125,7 +226,11 @@ iconize(#wx_ref{type=ThisT}=This, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTopLevelWindow_Iconize).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisfullscreen">external documentation</a>.
+-doc """
+Returns true if the window is in fullscreen mode.
+
+See: `showFullScreen/3`
+""".
 -spec isFullScreen(This) -> boolean() when
 	This::wxTopLevelWindow().
 isFullScreen(#wx_ref{type=ThisT}=This) ->
@@ -133,7 +238,7 @@ isFullScreen(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_IsFullScreen),
   wxe_util:rec(?wxTopLevelWindow_IsFullScreen).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisiconized">external documentation</a>.
+-doc "Returns true if the window is iconized.".
 -spec isIconized(This) -> boolean() when
 	This::wxTopLevelWindow().
 isIconized(#wx_ref{type=ThisT}=This) ->
@@ -141,7 +246,7 @@ isIconized(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_IsIconized),
   wxe_util:rec(?wxTopLevelWindow_IsIconized).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowismaximized">external documentation</a>.
+-doc "Returns true if the window is maximized.".
 -spec isMaximized(This) -> boolean() when
 	This::wxTopLevelWindow().
 isMaximized(#wx_ref{type=ThisT}=This) ->
@@ -149,7 +254,7 @@ isMaximized(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTopLevelWindow_IsMaximized),
   wxe_util:rec(?wxTopLevelWindow_IsMaximized).
 
-%% @equiv maximize(This, [])
+-doc(#{equiv => maximize(This, [])}).
 -spec maximize(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -157,7 +262,14 @@ maximize(This)
  when is_record(This, wx_ref) ->
   maximize(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowmaximize">external documentation</a>.
+-doc """
+Maximizes or restores the window.
+
+Note that, just as with `iconize/2`, the change to the window state is not immediate in at least
+wxGTK port.
+
+See: `iconize/2`
+""".
 -spec maximize(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'maximize', boolean()}.
@@ -169,7 +281,7 @@ maximize(#wx_ref{type=ThisT}=This, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTopLevelWindow_Maximize).
 
-%% @equiv requestUserAttention(This, [])
+-doc(#{equiv => requestUserAttention(This, [])}).
 -spec requestUserAttention(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -177,7 +289,18 @@ requestUserAttention(This)
  when is_record(This, wx_ref) ->
   requestUserAttention(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowrequestuserattention">external documentation</a>.
+-doc """
+Use a system-dependent way to attract users attention to the window when it is in
+background.
+
+`flags` may have the value of either `?wxUSER\_ATTENTION\_INFO` (default) or `?wxUSER\_ATTENTION\_ERROR`
+which results in a more drastic action. When in doubt, use the default value.
+
+Note: This function should normally be only used when the application is not already in foreground.
+
+This function is currently implemented for Win32 where it flashes the window icon in the
+taskbar, and for wxGTK with task bars supporting it.
+""".
 -spec requestUserAttention(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'flags', integer()}.
@@ -189,7 +312,19 @@ requestUserAttention(#wx_ref{type=ThisT}=This, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTopLevelWindow_RequestUserAttention).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowseticon">external documentation</a>.
+-doc """
+Sets the icon for this window.
+
+Remark: The window takes a 'copy' of `icon`, but since it uses reference counting, the
+copy is very quick. It is safe to delete `icon` after calling this function.
+
+Note: In wxMSW, `icon` must be either 16x16 or 32x32 icon.
+
+See:
+* `m:wxIcon`
+
+* `setIcons/2`
+""".
 -spec setIcon(This, Icon) -> 'ok' when
 	This::wxTopLevelWindow(), Icon::wxIcon:wxIcon().
 setIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
@@ -197,7 +332,17 @@ setIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
   ?CLASS(IconT,wxIcon),
   wxe_util:queue_cmd(This,Icon,?get_env(),?wxTopLevelWindow_SetIcon).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowseticons">external documentation</a>.
+-doc """
+Sets several icons of different sizes for this window: this allows using different icons
+for different situations (e.g.
+
+task switching bar, taskbar, window title bar) instead of scaling, with possibly bad
+looking results, the only icon set by `setIcon/2`.
+
+Note: In wxMSW, `icons` must contain a 16x16 or 32x32 icon, preferably both.
+
+See: `m:wxIconBundle`
+""".
 -spec setIcons(This, Icons) -> 'ok' when
 	This::wxTopLevelWindow(), Icons::wxIconBundle:wxIconBundle().
 setIcons(#wx_ref{type=ThisT}=This,#wx_ref{type=IconsT}=Icons) ->
@@ -205,7 +350,7 @@ setIcons(#wx_ref{type=ThisT}=This,#wx_ref{type=IconsT}=Icons) ->
   ?CLASS(IconsT,wxIconBundle),
   wxe_util:queue_cmd(This,Icons,?get_env(),?wxTopLevelWindow_SetIcons).
 
-%% @equiv centerOnScreen(This, [])
+-doc(#{equiv => centerOnScreen(This, [])}).
 -spec centerOnScreen(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -213,7 +358,7 @@ centerOnScreen(This)
  when is_record(This, wx_ref) ->
   centerOnScreen(This, []).
 
-%% @equiv centreOnScreen(This, [])
+-doc(#{equiv => centreOnScreen(This, [])}).
 -spec centreOnScreen(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -221,7 +366,7 @@ centreOnScreen(This)
  when is_record(This, wx_ref) ->
   centreOnScreen(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowcentreonscreen">external documentation</a>.
+-doc "Equivalent to: `centreOnScreen/2`".
 -spec centerOnScreen(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'dir', integer()}.
@@ -230,7 +375,11 @@ centerOnScreen(This, Options)
  when is_record(This, wx_ref),is_list(Options) ->
   centreOnScreen(This, Options).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowcentreonscreen">external documentation</a>.
+-doc """
+Centres the window on screen.
+
+See: `wxWindow:centreOnParent/2`
+""".
 -spec centreOnScreen(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'dir', integer()}.
@@ -242,7 +391,18 @@ centreOnScreen(#wx_ref{type=ThisT}=This, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTopLevelWindow_CentreOnScreen).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowsetshape">external documentation</a>.
+-doc """
+If the platform supports it, sets the shape of the window to that depicted by `region`.
+
+The system will not display or respond to any mouse event for the pixels that lie outside
+of the region. To reset the window to the normal rectangular shape simply call `setShape/2` again with
+an empty `m:wxRegion`. Returns true if the operation is successful.
+
+This method is available in this class only since wxWidgets 2.9.3, previous versions only
+provided it in `m:wxTopLevelWindow`.
+
+Note that windows with non default shape have a fixed size and can't be resized using `wxWindow:setSize/6`.
+""".
 -spec setShape(This, Region) -> boolean() when
 	This::wxTopLevelWindow(), Region::wxRegion:wxRegion() | wxGraphicsPath:wxGraphicsPath().
 setShape(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
@@ -257,7 +417,11 @@ setShape(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
   wxe_util:queue_cmd(This,wx:typeCast(Region, RegionType),?get_env(),?wxTopLevelWindow_SetShape),
   wxe_util:rec(?wxTopLevelWindow_SetShape).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowsettitle">external documentation</a>.
+-doc """
+Sets the window title.
+
+See: `getTitle/1`
+""".
 -spec setTitle(This, Title) -> 'ok' when
 	This::wxTopLevelWindow(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT}=This,Title)
@@ -266,7 +430,7 @@ setTitle(#wx_ref{type=ThisT}=This,Title)
   Title_UC = unicode:characters_to_binary(Title),
   wxe_util:queue_cmd(This,Title_UC,?get_env(),?wxTopLevelWindow_SetTitle).
 
-%% @equiv showFullScreen(This,Show, [])
+-doc(#{equiv => showFullScreen(This,Show, [])}).
 -spec showFullScreen(This, Show) -> boolean() when
 	This::wxTopLevelWindow(), Show::boolean().
 
@@ -274,7 +438,31 @@ showFullScreen(This,Show)
  when is_record(This, wx_ref),is_boolean(Show) ->
   showFullScreen(This,Show, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowshowfullscreen">external documentation</a>.
+-doc """
+Depending on the value of `show` parameter the window is either shown full screen or
+restored to its normal state.
+
+`style` is a bit list containing some or all of the following values, which indicate what
+elements of the window to hide in full-screen mode:
+
+* `?wxFULLSCREEN\_NOMENUBAR`
+
+* `?wxFULLSCREEN\_NOTOOLBAR`
+
+* `?wxFULLSCREEN\_NOSTATUSBAR`
+
+* `?wxFULLSCREEN\_NOBORDER`
+
+* `?wxFULLSCREEN\_NOCAPTION`
+
+* `?wxFULLSCREEN\_ALL` (all of the above)
+
+This function has not been tested with MDI frames.
+
+Note: Showing a window full screen also actually `wxWindow:show/2`s the window if it isn't shown.
+
+See: `isFullScreen/1`
+""".
 -spec showFullScreen(This, Show, [Option]) -> boolean() when
 	This::wxTopLevelWindow(), Show::boolean(),
 	Option :: {'style', integer()}.
@@ -288,370 +476,370 @@ showFullScreen(#wx_ref{type=ThisT}=This,Show, Options)
   wxe_util:rec(?wxTopLevelWindow_ShowFullScreen).
 
  %% From wxWindow
-%% @hidden
+-doc false.
 getDPI(This) -> wxWindow:getDPI(This).
-%% @hidden
+-doc false.
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
-%% @hidden
+-doc false.
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
-%% @hidden
+-doc false.
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
-%% @hidden
+-doc false.
 canSetTransparent(This) -> wxWindow:canSetTransparent(This).
-%% @hidden
+-doc false.
 setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
-%% @hidden
+-doc false.
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
-%% @hidden
+-doc false.
 validate(This) -> wxWindow:validate(This).
-%% @hidden
+-doc false.
 updateWindowUI(This, Options) -> wxWindow:updateWindowUI(This, Options).
-%% @hidden
+-doc false.
 updateWindowUI(This) -> wxWindow:updateWindowUI(This).
-%% @hidden
+-doc false.
 update(This) -> wxWindow:update(This).
-%% @hidden
+-doc false.
 transferDataToWindow(This) -> wxWindow:transferDataToWindow(This).
-%% @hidden
+-doc false.
 transferDataFromWindow(This) -> wxWindow:transferDataFromWindow(This).
-%% @hidden
+-doc false.
 thaw(This) -> wxWindow:thaw(This).
-%% @hidden
+-doc false.
 show(This, Options) -> wxWindow:show(This, Options).
-%% @hidden
+-doc false.
 show(This) -> wxWindow:show(This).
-%% @hidden
+-doc false.
 shouldInheritColours(This) -> wxWindow:shouldInheritColours(This).
-%% @hidden
+-doc false.
 setWindowVariant(This,Variant) -> wxWindow:setWindowVariant(This,Variant).
-%% @hidden
+-doc false.
 setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
-%% @hidden
+-doc false.
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
-%% @hidden
+-doc false.
 setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
-%% @hidden
+-doc false.
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
-%% @hidden
+-doc false.
 setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
-%% @hidden
+-doc false.
 setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
-%% @hidden
+-doc false.
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
-%% @hidden
+-doc false.
 setSizerAndFit(This,Sizer) -> wxWindow:setSizerAndFit(This,Sizer).
-%% @hidden
+-doc false.
 setSizer(This,Sizer, Options) -> wxWindow:setSizer(This,Sizer, Options).
-%% @hidden
+-doc false.
 setSizer(This,Sizer) -> wxWindow:setSizer(This,Sizer).
-%% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH, Options) -> wxWindow:setSizeHints(This,MinW,MinH, Options).
-%% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH) -> wxWindow:setSizeHints(This,MinW,MinH).
-%% @hidden
+-doc false.
 setSizeHints(This,MinSize) -> wxWindow:setSizeHints(This,MinSize).
-%% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height, Options) -> wxWindow:setSize(This,X,Y,Width,Height, Options).
-%% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height) -> wxWindow:setSize(This,X,Y,Width,Height).
-%% @hidden
+-doc false.
 setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
-%% @hidden
+-doc false.
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
-%% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
-%% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
-%% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
-%% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
-%% @hidden
+-doc false.
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
-%% @hidden
+-doc false.
 setName(This,Name) -> wxWindow:setName(This,Name).
-%% @hidden
+-doc false.
 setLabel(This,Label) -> wxWindow:setLabel(This,Label).
-%% @hidden
+-doc false.
 setId(This,Winid) -> wxWindow:setId(This,Winid).
-%% @hidden
+-doc false.
 setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
-%% @hidden
+-doc false.
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
-%% @hidden
+-doc false.
 setFont(This,Font) -> wxWindow:setFont(This,Font).
-%% @hidden
+-doc false.
 setFocusFromKbd(This) -> wxWindow:setFocusFromKbd(This).
-%% @hidden
+-doc false.
 setFocus(This) -> wxWindow:setFocus(This).
-%% @hidden
+-doc false.
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
-%% @hidden
+-doc false.
 setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
-%% @hidden
+-doc false.
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
-%% @hidden
+-doc false.
 setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
-%% @hidden
+-doc false.
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
-%% @hidden
+-doc false.
 setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
-%% @hidden
+-doc false.
 setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
-%% @hidden
+-doc false.
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
-%% @hidden
+-doc false.
 setContainingSizer(This,Sizer) -> wxWindow:setContainingSizer(This,Sizer).
-%% @hidden
+-doc false.
 setClientSize(This,Width,Height) -> wxWindow:setClientSize(This,Width,Height).
-%% @hidden
+-doc false.
 setClientSize(This,Size) -> wxWindow:setClientSize(This,Size).
-%% @hidden
+-doc false.
 setCaret(This,Caret) -> wxWindow:setCaret(This,Caret).
-%% @hidden
+-doc false.
 setBackgroundStyle(This,Style) -> wxWindow:setBackgroundStyle(This,Style).
-%% @hidden
+-doc false.
 setBackgroundColour(This,Colour) -> wxWindow:setBackgroundColour(This,Colour).
-%% @hidden
+-doc false.
 setAutoLayout(This,AutoLayout) -> wxWindow:setAutoLayout(This,AutoLayout).
-%% @hidden
+-doc false.
 setAcceleratorTable(This,Accel) -> wxWindow:setAcceleratorTable(This,Accel).
-%% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy, Options) -> wxWindow:scrollWindow(This,Dx,Dy, Options).
-%% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy) -> wxWindow:scrollWindow(This,Dx,Dy).
-%% @hidden
+-doc false.
 scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
-%% @hidden
+-doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
-%% @hidden
+-doc false.
 screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
-%% @hidden
+-doc false.
 screenToClient(This) -> wxWindow:screenToClient(This).
-%% @hidden
+-doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
-%% @hidden
+-doc false.
 removeChild(This,Child) -> wxWindow:removeChild(This,Child).
-%% @hidden
+-doc false.
 releaseMouse(This) -> wxWindow:releaseMouse(This).
-%% @hidden
+-doc false.
 refreshRect(This,Rect, Options) -> wxWindow:refreshRect(This,Rect, Options).
-%% @hidden
+-doc false.
 refreshRect(This,Rect) -> wxWindow:refreshRect(This,Rect).
-%% @hidden
+-doc false.
 refresh(This, Options) -> wxWindow:refresh(This, Options).
-%% @hidden
+-doc false.
 refresh(This) -> wxWindow:refresh(This).
-%% @hidden
+-doc false.
 raise(This) -> wxWindow:raise(This).
-%% @hidden
+-doc false.
 popupMenu(This,Menu,X,Y) -> wxWindow:popupMenu(This,Menu,X,Y).
-%% @hidden
+-doc false.
 popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
-%% @hidden
+-doc false.
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
-%% @hidden
+-doc false.
 pageUp(This) -> wxWindow:pageUp(This).
-%% @hidden
+-doc false.
 pageDown(This) -> wxWindow:pageDown(This).
-%% @hidden
+-doc false.
 navigate(This, Options) -> wxWindow:navigate(This, Options).
-%% @hidden
+-doc false.
 navigate(This) -> wxWindow:navigate(This).
-%% @hidden
+-doc false.
 moveBeforeInTabOrder(This,Win) -> wxWindow:moveBeforeInTabOrder(This,Win).
-%% @hidden
+-doc false.
 moveAfterInTabOrder(This,Win) -> wxWindow:moveAfterInTabOrder(This,Win).
-%% @hidden
+-doc false.
 move(This,X,Y, Options) -> wxWindow:move(This,X,Y, Options).
-%% @hidden
+-doc false.
 move(This,X,Y) -> wxWindow:move(This,X,Y).
-%% @hidden
+-doc false.
 move(This,Pt) -> wxWindow:move(This,Pt).
-%% @hidden
+-doc false.
 lower(This) -> wxWindow:lower(This).
-%% @hidden
+-doc false.
 lineUp(This) -> wxWindow:lineUp(This).
-%% @hidden
+-doc false.
 lineDown(This) -> wxWindow:lineDown(This).
-%% @hidden
+-doc false.
 layout(This) -> wxWindow:layout(This).
-%% @hidden
+-doc false.
 isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
-%% @hidden
+-doc false.
 isTopLevel(This) -> wxWindow:isTopLevel(This).
-%% @hidden
+-doc false.
 isShown(This) -> wxWindow:isShown(This).
-%% @hidden
+-doc false.
 isRetained(This) -> wxWindow:isRetained(This).
-%% @hidden
+-doc false.
 isExposed(This,X,Y,W,H) -> wxWindow:isExposed(This,X,Y,W,H).
-%% @hidden
+-doc false.
 isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
-%% @hidden
+-doc false.
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
-%% @hidden
+-doc false.
 isEnabled(This) -> wxWindow:isEnabled(This).
-%% @hidden
+-doc false.
 isFrozen(This) -> wxWindow:isFrozen(This).
-%% @hidden
+-doc false.
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
-%% @hidden
+-doc false.
 initDialog(This) -> wxWindow:initDialog(This).
-%% @hidden
+-doc false.
 inheritAttributes(This) -> wxWindow:inheritAttributes(This).
-%% @hidden
+-doc false.
 hide(This) -> wxWindow:hide(This).
-%% @hidden
+-doc false.
 hasTransparentBackground(This) -> wxWindow:hasTransparentBackground(This).
-%% @hidden
+-doc false.
 hasScrollbar(This,Orient) -> wxWindow:hasScrollbar(This,Orient).
-%% @hidden
+-doc false.
 hasCapture(This) -> wxWindow:hasCapture(This).
-%% @hidden
+-doc false.
 getWindowVariant(This) -> wxWindow:getWindowVariant(This).
-%% @hidden
+-doc false.
 getWindowStyleFlag(This) -> wxWindow:getWindowStyleFlag(This).
-%% @hidden
+-doc false.
 getVirtualSize(This) -> wxWindow:getVirtualSize(This).
-%% @hidden
+-doc false.
 getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
-%% @hidden
+-doc false.
 getToolTip(This) -> wxWindow:getToolTip(This).
-%% @hidden
+-doc false.
 getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
-%% @hidden
+-doc false.
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
-%% @hidden
+-doc false.
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
-%% @hidden
+-doc false.
 getSizer(This) -> wxWindow:getSizer(This).
-%% @hidden
+-doc false.
 getSize(This) -> wxWindow:getSize(This).
-%% @hidden
+-doc false.
 getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
-%% @hidden
+-doc false.
 getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
-%% @hidden
+-doc false.
 getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
-%% @hidden
+-doc false.
 getScreenRect(This) -> wxWindow:getScreenRect(This).
-%% @hidden
+-doc false.
 getScreenPosition(This) -> wxWindow:getScreenPosition(This).
-%% @hidden
+-doc false.
 getRect(This) -> wxWindow:getRect(This).
-%% @hidden
+-doc false.
 getPosition(This) -> wxWindow:getPosition(This).
-%% @hidden
+-doc false.
 getParent(This) -> wxWindow:getParent(This).
-%% @hidden
+-doc false.
 getName(This) -> wxWindow:getName(This).
-%% @hidden
+-doc false.
 getMinSize(This) -> wxWindow:getMinSize(This).
-%% @hidden
+-doc false.
 getMaxSize(This) -> wxWindow:getMaxSize(This).
-%% @hidden
+-doc false.
 getLabel(This) -> wxWindow:getLabel(This).
-%% @hidden
+-doc false.
 getId(This) -> wxWindow:getId(This).
-%% @hidden
+-doc false.
 getHelpText(This) -> wxWindow:getHelpText(This).
-%% @hidden
+-doc false.
 getHandle(This) -> wxWindow:getHandle(This).
-%% @hidden
+-doc false.
 getGrandParent(This) -> wxWindow:getGrandParent(This).
-%% @hidden
+-doc false.
 getForegroundColour(This) -> wxWindow:getForegroundColour(This).
-%% @hidden
+-doc false.
 getFont(This) -> wxWindow:getFont(This).
-%% @hidden
+-doc false.
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
-%% @hidden
+-doc false.
 getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
-%% @hidden
+-doc false.
 getDropTarget(This) -> wxWindow:getDropTarget(This).
-%% @hidden
+-doc false.
 getCursor(This) -> wxWindow:getCursor(This).
-%% @hidden
+-doc false.
 getContainingSizer(This) -> wxWindow:getContainingSizer(This).
-%% @hidden
+-doc false.
 getClientSize(This) -> wxWindow:getClientSize(This).
-%% @hidden
+-doc false.
 getChildren(This) -> wxWindow:getChildren(This).
-%% @hidden
+-doc false.
 getCharWidth(This) -> wxWindow:getCharWidth(This).
-%% @hidden
+-doc false.
 getCharHeight(This) -> wxWindow:getCharHeight(This).
-%% @hidden
+-doc false.
 getCaret(This) -> wxWindow:getCaret(This).
-%% @hidden
+-doc false.
 getBestSize(This) -> wxWindow:getBestSize(This).
-%% @hidden
+-doc false.
 getBackgroundStyle(This) -> wxWindow:getBackgroundStyle(This).
-%% @hidden
+-doc false.
 getBackgroundColour(This) -> wxWindow:getBackgroundColour(This).
-%% @hidden
+-doc false.
 getAcceleratorTable(This) -> wxWindow:getAcceleratorTable(This).
-%% @hidden
+-doc false.
 freeze(This) -> wxWindow:freeze(This).
-%% @hidden
+-doc false.
 fitInside(This) -> wxWindow:fitInside(This).
-%% @hidden
+-doc false.
 fit(This) -> wxWindow:fit(This).
-%% @hidden
+-doc false.
 findWindow(This,Id) -> wxWindow:findWindow(This,Id).
-%% @hidden
+-doc false.
 enable(This, Options) -> wxWindow:enable(This, Options).
-%% @hidden
+-doc false.
 enable(This) -> wxWindow:enable(This).
-%% @hidden
+-doc false.
 dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
-%% @hidden
+-doc false.
 disable(This) -> wxWindow:disable(This).
-%% @hidden
+-doc false.
 destroyChildren(This) -> wxWindow:destroyChildren(This).
-%% @hidden
+-doc false.
 convertPixelsToDialog(This,Sz) -> wxWindow:convertPixelsToDialog(This,Sz).
-%% @hidden
+-doc false.
 convertDialogToPixels(This,Sz) -> wxWindow:convertDialogToPixels(This,Sz).
-%% @hidden
+-doc false.
 close(This, Options) -> wxWindow:close(This, Options).
-%% @hidden
+-doc false.
 close(This) -> wxWindow:close(This).
-%% @hidden
+-doc false.
 clientToScreen(This,X,Y) -> wxWindow:clientToScreen(This,X,Y).
-%% @hidden
+-doc false.
 clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
-%% @hidden
+-doc false.
 clearBackground(This) -> wxWindow:clearBackground(This).
-%% @hidden
+-doc false.
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
-%% @hidden
+-doc false.
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
-%% @hidden
+-doc false.
 centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
+-doc false.
 centerOnParent(This) -> wxWindow:centerOnParent(This).
-%% @hidden
+-doc false.
 centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
+-doc false.
 center(This, Options) -> wxWindow:center(This, Options).
-%% @hidden
+-doc false.
 centre(This) -> wxWindow:centre(This).
-%% @hidden
+-doc false.
 center(This) -> wxWindow:center(This).
-%% @hidden
+-doc false.
 captureMouse(This) -> wxWindow:captureMouse(This).
-%% @hidden
+-doc false.
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
  %% From wxEvtHandler
-%% @hidden
+-doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
-%% @hidden
+-doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
-%% @hidden
+-doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
-%% @hidden
+-doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
-%% @hidden
+-doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

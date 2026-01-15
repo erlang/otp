@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,9 @@
 %%
 
 -module(inet_db).
+-moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 %% Store info about ip addresses, names, aliases host files resolver
 %% options.
@@ -453,7 +458,7 @@ res_option(next_id)        ->
     Cnt = ets:update_counter(inet_db, res_id, 1),
     case Cnt band 16#ffff of
 	0 ->
-	    ets:update_counter(inet_db, res_id, -Cnt),
+	    _ = ets:update_counter(inet_db, res_id, -Cnt),
 	    0;
 	Id ->
 	    Id
@@ -758,7 +763,7 @@ resolve_cnames(Domain, Type, LookupFun, LcDomain, Aliases, LcAliases) ->
                             %% Repeat with the (more) canonical domain name
                             resolve_cnames(
                               CName, Type, LookupFun, LcCname,
-                              [Domain | Aliases], [LcDomain, LcAliases])
+                              [Domain | Aliases], [LcDomain | LcAliases])
                     end;
                 [_ | _] = _CNames ->
                     ?dbg("resolve_cnames duplicate cnames=~p~n", [_CNames]),
@@ -1345,8 +1350,8 @@ handle_update_file(
             %% File updated - read content
             ets:insert(Db, {TagInfo, Finfo_1}),
             Bin =
-                case erl_prim_loader:get_file(File) of
-                    {ok, B, _} -> B;
+                case erl_prim_loader:read_file(File) of
+                    {ok, B} -> B;
                     _ -> <<>>
                 end,
             handle_set_file(ParseFun, File, Bin, From, State);

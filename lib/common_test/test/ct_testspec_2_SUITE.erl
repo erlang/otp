@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -152,6 +154,7 @@ basic_compatible_no_nodes(_Config) ->
 	 {event_handler,[evh2,evh3],[[2,3]]},
 	 {ct_hooks,[{cth_mod1,[]}]},
 	 {ct_hooks,[{cth_mod2,[]}]},
+	 {ct_hooks_order,config},
 	 {multiply_timetraps,2},
 	 {include,IncludeDir1},
 	 {include,IncludeDir2},
@@ -198,6 +201,7 @@ basic_compatible_no_nodes(_Config) ->
 					{Node,evh3,[[2,3]]}],
 		       ct_hooks = [{Node,{cth_mod1,[]}},
 				   {Node,{cth_mod2,[]}}],
+                       ct_hooks_order = config,
 		       enable_builtin_hooks = true,
 		       release_shell = false,
 		       include = Incls,
@@ -274,6 +278,7 @@ basic_compatible_nodes(_Config) ->
 	 {event_handler,[n1,n2],[evh2,evh3],[[2,3]]},
 	 {ct_hooks,all_nodes,[{cth_mod1,[]}]},
 	 {ct_hooks,[{cth_mod2,[]}]},
+         {ct_hooks_order, config},
 	 {multiply_timetraps,node1@host1,2},
 	 {include,n1,IncludeDir1},
 	 {include,[n1,n2],IncludeDir2},
@@ -342,6 +347,7 @@ basic_compatible_nodes(_Config) ->
 				   {Node,{cth_mod2,[]}},
 				   {Node1,{cth_mod2,[]}},
 				   {Node2,{cth_mod2,[]}}],
+                       ct_hooks_order = config,
 		       enable_builtin_hooks = true,
 		       release_shell = false,
 		       include = Incls,

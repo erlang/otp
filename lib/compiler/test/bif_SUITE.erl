@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +29,9 @@
 	 beam_validator/1,trunc_and_friends/1,cover_safe_and_pure_bifs/1,
          cover_trim/1,
          head_tail/1,
-         min_max/1]).
+         min_max/1,
+         non_throwing/1,
+         setelement/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -43,10 +47,13 @@ groups() ->
        cover_safe_and_pure_bifs,
        cover_trim,
        head_tail,
-       min_max
+       min_max,
+       non_throwing,
+       setelement
       ]}].
 
 init_per_suite(Config) ->
+    _ = id(Config),
     test_lib:recompile(?MODULE),
     Config.
 
@@ -225,6 +232,36 @@ min_max(_Config) ->
     true = bool_max_true(True, False),
     true = bool_max_true(True, True),
 
+    11 = min_increment(100),
+    11 = min_increment(10),
+    10 = min_increment(9),
+    1 = min_increment(0),
+    0 = min_increment(-1),
+    11 = min_increment(a),
+
+    {42,42} = max_number(id(42)),
+    {42,42.0} = max_number(id(42.0)),
+    {-1,1} = max_number(id(-1)),
+    {-1,1} = max_number(id(-1.0)),
+
+    100 = int_clamped_add(-1),
+    100 = int_clamped_add(0),
+    105 = int_clamped_add(5),
+    110 = int_clamped_add(10),
+    110 = int_clamped_add(11),
+
+    100 = num_clamped_add(-1),
+    100 = num_clamped_add(0),
+    105 = num_clamped_add(5),
+    110 = num_clamped_add(10),
+    110 = num_clamped_add(11),
+
+    105 = num_clamped_add(5),
+    105.0 = num_clamped_add(5.0),
+    110 = num_clamped_add(a),
+    110 = num_clamped_add({a,b,c}),
+    110 = num_clamped_add({a,b,c}),
+
     ok.
 
 %% GH-7170: The following functions would cause a crash in
@@ -239,8 +276,114 @@ bool_min_true(A, B) when is_boolean(A), is_boolean(B) ->
 bool_max_false(A, B) when is_boolean(A), is_boolean(B) ->
     false = max(A, B).
 
-bool_max_true(A, B) when is_boolean(A), is_boolean(B) ->
-    true = max(A, B).
+bool_max_true(A, B) when is_boolean(B) ->
+    true = max(A, B),
+    if
+        is_boolean(A) ->
+            true = max(A, B)
+    end.
+
+max_number(A) ->
+    Res = {trunc(A), max(A, 1)},
+    Res = {trunc(A), max(1, A)}.
+
+min_increment(A) ->
+    Res = min(10, A) + 1,
+    Res = min(A, 10) + 1,
+    Res = min(id(A), 10) + 1.
+
+int_clamped_add(A) when is_integer(A) ->
+    min(max(A, 0), 10) + 100.
+
+num_clamped_add(A) ->
+    min(max(A, 0), 10) + 100.
+
+non_throwing(_Config) ->
+    abc = thing_to_atom(~"abc"),
+    [] = thing_to_atom(a),
+    [] = thing_to_atom(42),
+    [] = thing_to_atom([a,b,c]),
+    erlang = thing_to_existing_atom(~"erlang"),
+    [] = thing_to_existing_atom(~"not an existing atom"),
+    [] = thing_to_existing_atom(a),
+    ok.
+
+thing_to_atom(Bin0) ->
+    Bin = id(Bin0),
+    Res = try
+              binary_to_atom(Bin)
+          catch
+              _:_ ->
+                  []
+          end,
+    Res = try
+              binary_to_atom(Bin, utf8)
+          catch
+              _:_ ->
+                  []
+          end,
+    if
+        is_atom(Res) ->
+            List = unicode:characters_to_list(Bin),
+            Res = try
+                      list_to_atom(List)
+                  catch
+                      _:_ ->
+                          []
+                  end;
+        true ->
+            Res
+    end.
+thing_to_existing_atom(Bin0) ->
+    Bin = id(Bin0),
+    Res = try
+              binary_to_existing_atom(Bin)
+          catch
+              _:_ ->
+                  []
+          end,
+    Res = try
+              binary_to_existing_atom(Bin, utf8)
+          catch
+              _:_ ->
+                  []
+          end,
+    if
+        is_atom(Res) ->
+            List = unicode:characters_to_list(Bin),
+            Res = try
+                      list_to_existing_atom(List)
+                  catch
+                      _:_ ->
+                          []
+                  end;
+        true ->
+            Res
+    end.
+
+setelement(Config) ->
+    do_setelement(Config, []),
+    do_setelement(Config, [no_ssa_opt_deoptimize_update_tuple]),
+    ok.
+
+do_setelement(Config, ExtraOpts) ->
+    DataDir = test_lib:get_data_dir(Config),
+
+    Mod = test_setelement,
+
+    File = filename:join(DataDir, atom_to_list(Mod)) ++ ".erl",
+
+    io:format("Extra options: ~p\n", [ExtraOpts]),
+
+    {ok,Mod,Code} = compile:file(File, [report,binary|ExtraOpts]),
+    {module,Mod} = code:load_binary(Mod, "", Code),
+
+    ok = Mod:Mod(),
+
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
+    ok.
 
 %%%
 %%% Common utilities.

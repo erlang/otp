@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,10 +66,10 @@ alias(medium) -> {mnesia_SUITE, medium};
 alias(nice) -> mnesia_nice_coverage_test;
 alias(recover) -> mnesia_recover_test;
 alias(recovery) -> mnesia_recovery_test;
-alias(registry) -> mnesia_registry_test;
 alias(suite) -> mnesia_SUITE;
 alias(trans) -> mnesia_trans_access_test;
 alias(ixp) -> mnesia_index_plugin_test;
+alias(external) -> mnesia_external_backend_test;
 alias(Other) -> Other.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -258,7 +260,8 @@ loop(M,F,N) when is_integer(N) ->
 loop_1(Case,N,Max,Config) when N < Max ->
     io:format("~nLoop test ~p ~n", [abs(N)]),
 
-    case ok_result(Res = t(Case,Config)) of
+    Res = t(Case, Config),
+    case ok_result(Res) of
 	true ->
 	    loop_1(Case,N+1,Max,Config);
 	error ->

@@ -123,7 +123,7 @@ static ErlDrvSSizeT control(ErlDrvData drv_data,
 	    res_str = "skip: no thread support";
 	else if (0 != erl_drv_thread_create("test", &tid, do_test, NULL, NULL))
 	    res_str = "failed to create thread";
-	else if (0 != erl_drv_thread_join(tid, &res_str))
+	else if (0 != erl_drv_thread_join(tid, (void**)&res_str))
 	    res_str = "failed to join thread";
 	break;
     }

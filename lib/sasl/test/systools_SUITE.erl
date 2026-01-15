@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,7 +71,7 @@ groups() ->
       [tar_options, relname_tar, normal_tar, no_mod_vsn_tar, system_files_tar,
        system_src_file_tar, invalid_system_files_tar, variable_tar,
        src_tests_tar, var_tar, exref_tar, link_tar, no_sasl_tar,
-       otp_9507_path_ebin, additional_files_tar, erts_tar]},
+       otp_9507_path_ebin, additional_files_tar, erts_tar, appup_tar]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
        no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup,
@@ -1119,12 +1121,26 @@ erts_tar(Config) ->
                   "start","start_erl.src","start.src","to_erl"],
                  ["ct_run","dialyzer","erlc","typer","yielding_c_fun"]};
             {win32, _} ->
-                {["beam.smp.pdb","erl.exe",
-                  "erl.pdb","erl_log.exe","erlexec.dll","erlsrv.exe","heart.exe",
-                  "start_erl.exe","beam.smp.dll",
-                  "epmd.exe","erl.ini","erl_call.exe",
-                  "erlexec.pdb","escript.exe","inet_gethost.exe"],
-                 ["dialyzer.exe","erlc.exe","yielding_c_fun.exe","ct_run.exe","typer.exe"]}
+                Files = ["beam.smp.dll",
+                         "epmd.exe",
+                         "erl.exe",
+                         "erl_call.exe",
+                         "erl_log.exe",
+                         "erlexec.dll",
+                         "erlsrv.exe",
+                         "escript.exe",
+                         "heart.exe",
+                         "inet_gethost.exe",
+                         "start_erl.exe"],
+                PdbFiles = ["beam.jit.pdb" || erlang:system_info(emu_flavor) =:= jit]
+                    ++ [filename:rootname(F) ++ ".pdb" || F <- Files],
+                IgnoredFiles = ["ct_run.exe",
+                           "dialyzer.exe",
+                           "erlc.exe",
+                           "typer.exe",
+                           "yielding_c_fun.exe"],
+                PdbIgnored = [filename:rootname(F) ++ ".pdb" || F <- IgnoredFiles],
+                {Files ++ PdbFiles, IgnoredFiles ++ PdbIgnored}
         end,
 
     ErtsTarContent =
@@ -1134,9 +1150,11 @@ erts_tar(Config) ->
                    || File <- tar_contents(TarName),
                       string:equal(filename:dirname(File),ERTS_DIR),
                       %% Filter out beam.*.smp.*
-                      re:run(filename:basename(File), "beam\\.[^\\.]+\\.smp(\\.dll)?") == nomatch,
+                      re:run(filename:basename(File), "beam\\.[^\\.]+\\.smp(\\.dll|\\.pdb)?") == nomatch,
                       %% Filter out beam.*.emu.*
-                      re:run(filename:basename(File), "beam\\.([^\\.]+\\.)?emu(\\.dll)?") == nomatch,
+                      re:run(filename:basename(File), "beam\\.([^\\.]+\\.)?emu(\\.dll\\.pdb)?") == nomatch,
+                      %% Filter out beam.*.jit.pdb
+                      re:run(filename:basename(File), "beam\\.[^\\.]+\\.?jit\\.pdb") == nomatch,
                       %% Filter out any erl_child_setup.*
                       re:run(filename:basename(File), "erl_child_setup\\..*") == nomatch
                   ])
@@ -1569,6 +1587,28 @@ otp_9507_path_ebin(Config) when is_list(Config) ->
 
     ok = file:set_cwd(OldDir),
 
+    ok.
+
+%% make_tar: Check application upgrade file included
+appup_tar(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest_no_mod_vsn,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-3.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, "start"}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname([lib,'db-3.1',ebin,'db.appup']), LatestName),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.appup']), LatestName),
+
+    ok = file:set_cwd(OldDir),
     ok.
 
 

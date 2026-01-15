@@ -1,1 +1,9 @@
-MNESIA_VSN = 4.23.1
+MNESIA_VSN = 4.25.1
+
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
+# %CopyrightEnd%

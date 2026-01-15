@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2011-2022. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2011-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 include $(ERL_TOP)/make/target.mk
@@ -57,7 +59,7 @@ RELSYSDIR = $(RELEASE_PATH)/sasl_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/sasl/src
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/sasl/src +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

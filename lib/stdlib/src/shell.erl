@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,15 +20,23 @@
 %% %CopyrightEnd%
 %%
 -module(shell).
+-moduledoc({file, "../doc/src/shell.md"}).
+
+-compile(nowarn_obsolete_bool_op).
+-compile(nowarn_deprecated_catch).
 
 -export([start/0, start/1, start/2, server/1, server/2, history/1, results/1]).
 -export([get_state/0, get_function/2]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_func/0, local_func/1, local_allowed/3, non_local_allowed/3]).
--export([catch_exception/1, prompt_func/1, strings/1]).
+-export([catch_exception/1, prompt_func/1, multiline_prompt_func/1]).
+-export([strings/1, hints/1]).
+-export([format_shell_func/1, erl_pp_format_func/1]).
 -export([start_interactive/0, start_interactive/1]).
 -export([read_and_add_records/5]).
--export([whereis/0]).
+-export([default_multiline_prompt/1, inverted_space_prompt/1]).
+-export([prompt_width/1, prompt_width/2]).
+-export([help/0,whereis/0]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
@@ -35,6 +45,7 @@
 -define(DEF_CATCH_EXCEPTION, false).
 -define(DEF_PROMPT_FUNC, default).
 -define(DEF_STRINGS, true).
+-define(DEF_HINTS, true).
 
 -define(RECORDS, shell_records).
 
@@ -45,20 +56,86 @@
                      functions = []
                     }).
 %% When used as the fallback restricted shell callback module...
+-doc false.
 local_allowed(q,[],State) ->
     {true,State};
 local_allowed(_,_,State) ->
     {false,State}.
 
+-doc false.
 non_local_allowed({init,stop},[],State) ->
     {true,State};
 non_local_allowed(_,_,State) ->
     {false,State}.
 
+-doc """
+Starts the interactive shell if it has not already been started. It can be used
+to programatically start the shell from an escript or when erl is started with
+the -noinput or -noshell flags.
+
+Calling this function will start a remote shell if `-remsh` is given on the
+command line or a local shell if not.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec start_interactive() -> ok | {error, already_started}.
 start_interactive() ->
     user_drv:start_shell().
--spec start_interactive(noshell | {module(), atom(), [term()]}) ->
+-doc """
+Starts the interactive shell if it has not already been started. It can be used
+to programatically start the shell from an [`escript`](`e:erts:escript_cmd.md`)
+or when [`erl`](`e:erts:erl_cmd.md`) is started with the
+[`-noinput`](`e:erts:erl_cmd.md#noinput`) or
+[`-noshell`](`e:erts:erl_cmd.md#noshell`) flags. The following options are
+allowed:
+
+- **noshell | {noshell, Mode}**{: #noshell_raw } - Starts the interactive shell
+  as if [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
+  [`erl`](`e:erts:erl_cmd.md`).
+
+  It is possible to give a `Mode` indicating if the input should be set
+  in `cooked` or `raw` mode. `Mode` only has en effect if `t:io:user/0` is a tty.
+  If no `Mode` is given, it defaults is `cooked`.
+
+  When in `raw` mode all key presses are passed to `t:io:user/0` as they are
+  typed when they are typed and the characters are not echoed to the terminal.
+  It is possible to set the `echo` to `true` using `io:setopts/2` to enabling
+  echoing again.
+
+  When in `cooked` mode the OS will handle the line editing and all data is
+  passed to `t:io:user/0` when a newline is entered.
+
+- **[mfa()](`t:erlang:mfa/0`)** - Starts the interactive shell using
+  [`mfa()`](`t:erlang:mfa/0`) as the default shell. The `t:mfa/0` should
+  return the `t:pid/0` of the created shell process.
+
+- **\{[node()](`t:erlang:node/0`), [mfa()](`t:erlang:mfa/0`)\}** - Starts the
+  interactive shell using [`mfa()`](`t:erlang:mfa/0`) on
+  [`node()`](`t:erlang:node/0`) as the default shell. The `t:mfa/0` should
+  return the `t:pid/0` of the created shell process.
+
+- **\{remote, [`string()`](`t:erlang:string/0`)\}** - Starts the interactive
+  shell using as if [`-remsh`](`e:erts:erl_cmd.md#remsh`) was given to
+  [`erl`](`e:erts:erl_cmd.md`).
+
+- **\{remote, [`string()`](`t:erlang:string/0`),
+  [`mfa()`](`t:erlang:mfa/0`)\}** - Starts the interactive shell using as if
+  [`-remsh`](`e:erts:erl_cmd.md#remsh`) was given to
+  [`erl`](`e:erts:erl_cmd.md`) but with an alternative shell implementation.
+
+On error this function will return:
+
+- **already_started** - if an interactive shell is already started.
+
+- **noconnection** - if a remote shell was requested but it could not be
+  connected to.
+
+- **badfile | nofile | on_load_failure** - if a remote shell was requested with
+  a custom [mfa()](`t:erlang:mfa/0`), but the module could not be loaded. See
+  [Error Reasons for Code-Loading Functions](`m:code#error_reasons`) for a
+  description of the error reasons.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
+-spec start_interactive(noshell | {noshell, raw | cooked} | {module(), atom(), [term()]}) ->
           ok | {error, already_started};
                        ({remote, string()}) ->
           ok | {error, already_started | noconnection};
@@ -66,23 +143,36 @@ start_interactive() ->
           ok | {error, already_started | noconnection | badfile | nofile | on_load_failure}.
 start_interactive({Node, {M, F, A}}) ->
     user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
+start_interactive(noshell) ->
+    start_interactive({noshell, cooked});
+start_interactive({noshell, Type}) when Type =:= raw; Type =:= cooked ->
+    user_drv:start_shell(#{ initial_shell => noshell, input => Type });
 start_interactive(InitialShell) ->
     user_drv:start_shell(#{ initial_shell => InitialShell }).
 
+-doc """
+Returns the current shell process on the node where the calling process'
+group_leader is located. If that node has no shell this function will return
+undefined.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec whereis() -> pid() | undefined.
 whereis() ->
     group:whereis_shell().
 
+-doc false.
 -spec start() -> pid().
 
 start() ->
     start(false, false).
 
+-doc false.
 start(init) ->
     start(false, true);
 start(NoCtrlG) ->
     start(NoCtrlG, false).
 
+-doc false.
 start(NoCtrlG, StartSync) ->
     _ = code:ensure_loaded(user_default),
     Ancestors = [self() | case get('$ancestors') of
@@ -96,6 +186,15 @@ start(NoCtrlG, StartSync) ->
 
 %% Call this function to start a user restricted shell
 %% from a normal shell session.
+-doc """
+Exits a normal shell and starts a restricted shell. `Module` specifies the
+callback module for the functions `local_allowed/3` and `non_local_allowed/3`.
+The function is meant to be called from the shell.
+
+If the callback module cannot be loaded, an error tuple is returned. The
+`Reason` in the error tuple is the one returned by the code loader when trying
+to load the code of the callback module.
+""".
 -spec start_restricted(Module) -> {'error', Reason} when
       Module :: module(),
       Reason :: code:load_error_rsn().
@@ -114,12 +213,17 @@ start_restricted(RShMod) when is_atom(RShMod) ->
             Error
     end.
 
+-doc """
+Exits a restricted shell and starts a normal shell. The function is meant to be
+called from the shell.
+""".
 -spec stop_restricted() -> no_return().
 
 stop_restricted() ->
     application:unset_env(stdlib, restricted_shell),
     exit(restricted_shell_stopped).
 
+-doc false.
 -spec server(boolean(), boolean()) -> 'terminated'.
 
 server(NoCtrlG, StartSync) ->
@@ -137,6 +241,7 @@ server(NoCtrlG, StartSync) ->
 %%% old way (for backwards compatibility reasons). This should however not
 %%% be used unless for very special reasons necessary.
 
+-doc false.
 -spec server(boolean()) -> 'terminated'.
 
 server(StartSync) ->
@@ -153,6 +258,11 @@ server(StartSync) ->
                     init:wait_until_started()
             end
     end,
+
+    %% We disable line history for all commands. We will explicitly enable
+    %% it only for the commands that we want.
+    _ = io:setopts([{line_history, false}]),
+
     %% Our spawner has fixed the process groups.
     Bs = erl_eval:new_bindings(),
 
@@ -162,7 +272,15 @@ server(StartSync) ->
     RT = ets:new(?RECORDS, [public,ordered_set]),
     _ = initiate_records(Bs, RT),
     process_flag(trap_exit, true),
-    %% Store function definitions and types in an ets table.
+    %% Store local definitions of functions, records and types in an ets table.
+    %% {function_def, {M,F,A}},string()} i.e. "func(X) -> X."
+    %% {function, {M,F,A}},fun()} i.e. rewrite of the function_def with the same MFA into a fun "fun(X)-> X end."
+    %% {function_type_def, {M,F,A}},string()} i.e. "-spec func(X :: integer()) -> X."
+    %% {{function_type, {M,F,A}}, attr_form()} i.e. The intermediate representation of the spec, used for type traversal in edlin_type_suggestion.erl
+    %% {type_def, {M,F,A}},string()} i.e. "-type foo() :: bar() | baz()"
+    %% {type, {M,F,A}}, attr_form()} i.e. The intermediate representation of the type, used for type traversal in edlin_type_suggestion.erl
+    %% {record_def, {M,F,A}},string()} i.e. "-record(foo, {bar :: baz()})."
+    %% The attr_form() of the record is saved in the RT table.
     FT = ets:new(user_functions, [public,ordered_set]),
 
     %% Check if we're in user restricted mode.
@@ -263,8 +381,15 @@ server_loop(N0, Eval_0, Bs00, RT, FT, Ds00, History0, Results0) ->
                             [N]),
             server_loop(N0, Eval0, Bs0, RT, FT, Ds0, History0, Results0);
         eof ->
-            fwrite_severity(fatal, <<"Terminating erlang (~w)">>, [node()]),
-            halt()
+            RemoteShell = node() =/= node(group_leader()),
+            case RemoteShell of
+                true ->
+                    exit(Eval0, kill),
+                    terminated;
+                false ->
+                    catch fwrite_severity(fatal, <<"Terminating erlang (~w)">>, [node()]),
+                    halt()
+            end
     end.
 
 get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
@@ -273,12 +398,33 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
     Parse =
         fun() ->
                 put('$ancestors', Ancestors),
+                PreviousHistory = case io:getopts() of
+                        {error,_} -> undefined;
+                        Opts0 -> proplists:get_value(line_history, Opts0)
+                    end,
+                _ = [io:setopts([{line_history, true}]) || PreviousHistory =/= undefined],
+                Res = io:scan_erl_exprs(group_leader(), Prompt, {1,1},
+                                        [text,{reserved_word_fun,ResWordFun}]),
+                _ = [io:setopts([{line_history, PreviousHistory}]) || PreviousHistory =/= undefined],
                 exit(
-                  case
-                      io:scan_erl_exprs(group_leader(), Prompt, {1,1},
-                                        [text,{reserved_word_fun,ResWordFun}])
-                  of
-                      {ok,Toks,_EndPos} ->
+                  case Res of
+                      {ok,Toks0,_EndPos} ->
+                          %% local 'fun' fixer
+                          %% when we parse a 'fun' expression within a shell call or function definition
+                          %% we need to add a local prefix (if the 'fun' expression did not have a module specified)
+                          LocalFunFixer = fun F([{'fun',Anno}=A,{atom,_,Func}=B,{'/',_}=C,{integer,_,Arity}=D| Rest],Acc) ->
+                              case erl_internal:bif(Func, Arity) of
+                                  true ->
+                                      F(Rest, [D,C,B,{':',Anno},{atom,Anno,'erlang'},A | Acc]);
+                                  false ->
+                                      F(Rest, [D,C,B,{':',Anno},{atom,Anno,'shell_default'},A | Acc])
+                              end;
+                              F([H|Rest], Acc) ->
+                                  F(Rest, [H | Acc]);
+                              F([], Acc) ->
+                                  lists:reverse(Acc)
+                          end,
+                          Toks = LocalFunFixer(Toks0, []),
                           %% NOTE: we can handle function definitions, records and type declarations
                           %% but this cannot be handled by the function which only expects erl_parse:abstract_expressions()
                           %% for now just pattern match against those types and pass the string to shell local func.
@@ -287,7 +433,7 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                   SpecialCase = fun(LocalFunc) ->
                                                         FakeLine = begin
                                                                        case erl_parse:parse_form(Toks) of
-                                                                           {ok, Def} -> lists:flatten(erl_pp:form(Def));
+                                                                           {ok, Def} -> lists:flatten(escape_quotes(lists:flatten(erl_pp:form(Def))));
                                                                            E ->
                                                                             exit(E)
                                                                        end
@@ -301,16 +447,19 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                       record -> SpecialCase(rd);
                                       spec -> SpecialCase(ft);
                                       type -> SpecialCase(td);
+                                      nominal -> SpecialCase(td);
                                       _ -> erl_eval:extended_parse_exprs(Toks)
                                   end;
                               [{atom, _, FunName}, {'(', _}|_] ->
                                   case erl_parse:parse_form(Toks) of
                                       {ok, FunDef} ->
-                                          case {edlin_expand:shell_default_or_bif(atom_to_list(FunName)), shell:local_func(FunName)} of
+                                          FunName1 = lists:flatten(io_lib:fwrite("~tw",[FunName])),
+                                          case {edlin_expand:shell_default_or_bif(FunName1), shell:local_func(FunName1)} of
                                               {"user_defined", false} ->
-                                                  FakeLine =reconstruct(FunDef, FunName),
+                                                FunDef1 = lists:flatten(escape_quotes(lists:flatten(erl_pp:form(FunDef)))),
+                                                FakeLine = reconstruct(FunDef, FunName),
                                                   {done, {ok, FakeResult, _}, _} = erl_scan:tokens(
-                                                                                     [], "fd("++ atom_to_list(FunName) ++ ", " ++ FakeLine ++ ").\n",
+                                                                                     [], "fd("++ FunName1 ++ ", " ++ FakeLine ++ ", \"" ++ FunDef1 ++ "\").\n",
                                                                                      {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]),
                                                   erl_eval:extended_parse_exprs(FakeResult);
                                               _ -> erl_eval:extended_parse_exprs(Toks)
@@ -338,7 +487,26 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
         end,
     Pid = spawn_link(Parse),
     get_command1(Pid, Eval, Bs, RT, FT, Ds).
+escape_quotes(String) -> escape_quotes(String, []).
 
+escape_quotes([], Acc) ->
+    % When we've processed all characters, reverse the accumulator
+    % because we've been prepending for efficiency reasons.
+    lists:reverse(Acc);
+
+escape_quotes([$\\, $\" | Rest], Acc) ->
+    % If we find an escaped quote (\"),
+    % we escape the backslash and the quote (\\\") and continue.
+    escape_quotes(Rest, [$\", $\\, $\\, $\\ | Acc]);
+
+escape_quotes([$\" | Rest], Acc) ->
+    % If we find a quote ("),
+    % we escape it (\\") and continue.
+    escape_quotes(Rest, [$\", $\\ | Acc]);
+
+escape_quotes([Char | Rest], Acc) ->
+    % In case of any other character, we keep it as is.
+    escape_quotes(Rest, [Char | Acc]).
 reconstruct(Fun, Name) ->
     lists:flatten(erl_pp:expr(reconstruct1(Fun, Name))).
 reconstruct1({function, Anno, Name, Arity, Clauses}, Name) ->
@@ -527,8 +695,16 @@ expand_fields([], _C) -> [].
 
 expand_quals([{generate,A,P,E}|Qs], C) ->
     [{generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{generate_strict,A,P,E}|Qs], C) ->
+    [{generate_strict,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([{b_generate,A,P,E}|Qs], C) ->
     [{b_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{b_generate_strict,A,P,E}|Qs], C) ->
+    [{b_generate_strict,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{m_generate,A,P,E}|Qs], C) ->
+    [{m_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{m_generate_strict,A,P,E}|Qs], C) ->
+    [{m_generate_strict,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([E|Qs], C) ->
     [expand_expr(E, C)|expand_quals(Qs, C)];
 expand_quals([], _C) -> [].
@@ -589,6 +765,7 @@ has_bin(T, I) ->
     has_bin(element(I, T)),
     has_bin(T, I - 1).
 
+-doc false.
 get_state() ->
     whereis() ! {shell_state, self()},
     receive
@@ -596,6 +773,7 @@ get_state() ->
             #shell_state{bindings = Bs, records = ets:tab2list(RT), functions = ets:tab2list(FT)}
     end.
 
+-doc false.
 get_function(Func, Arity) ->
     {shell_state, _Bs, _RT, FT} = get_state(),
     try
@@ -618,6 +796,11 @@ shell_cmd(Es, Eval, Bs, RT, FT, Ds, W) ->
     shell_rep(Eval, Bs, RT, FT, Ds).
 
 shell_rep(Ev, Bs0, RT, FT, Ds0) ->
+    case application:get_env(stdlib, shell_hints, ?DEF_HINTS) =/= false of
+      true  -> shell_rep(Ev, Bs0, RT, FT, Ds0, 5000);
+      false -> shell_rep(Ev, Bs0, RT, FT, Ds0, infinity)
+    end.
+shell_rep(Ev, Bs0, RT, FT, Ds0, Timeout) ->
     receive
         {shell_rep,Ev,{value,V,Bs,Ds}} ->
             {V,Ev,Bs,Ds};
@@ -664,6 +847,9 @@ shell_rep(Ev, Bs0, RT, FT, Ds0) ->
         _Other ->                               % Ignore everything else
             io:format("Throwing ~p~n", [_Other]),
             shell_rep(Ev, Bs0, RT, FT, Ds0)
+        after Timeout ->
+            io:format("Command is taking a long time, type Ctrl+G, then enter 'i' to interrupt~n"),
+            shell_rep(Ev, Bs0, RT, FT, Ds0, infinity)
     end.
 
 nocatch(throw, {Term,Stack}) ->
@@ -974,7 +1160,7 @@ not_restricted(exit, []) ->
     true;
 not_restricted(fl, []) ->
     true;
-not_restricted(fd, [_,_]) ->
+not_restricted(fd, [_,_,_]) ->
     true;
 not_restricted(ft, [_]) ->
     true;
@@ -1056,6 +1242,47 @@ init_dict([{K,V}|Ds]) ->
     init_dict(Ds);
 init_dict([]) -> true.
 
+-doc false.
+help() ->
+    S = ~"""
+         ** shell internal commands **
+         b()        -- display all variable bindings
+         e(N)       -- repeat the expression in query <N>
+         exit()     -- terminate the shell instance
+         f()        -- forget all variable bindings
+         f(X)       -- forget the binding of variable X
+         ff()       -- forget all locally defined functions
+         ff(F,A)    -- forget locally defined function named as atom F and arity A
+         fl()       -- forget all locally defined functions, types and records
+         h()        -- history
+         h(Mod)     -- help about module
+         h(Mod,Func) -- help about function in module
+         h(Mod,Func,Arity) -- help about function with arity in module
+         lf()       -- list locally defined functions
+         lr()       -- list locally defined records
+         lt()       -- list locally defined types
+         rd(R,D)    -- define a record
+         rf()       -- remove all record information
+         rf(R)      -- remove record information about R
+         rl()       -- display all record information
+         rl(R)      -- display record information about R
+         rp(Term)   -- display Term using the shell's record information
+         rr(File)   -- read record information from File (wildcards allowed)
+         rr(F,R)    -- read selected record information from file(s)
+         rr(F,R,O)  -- read selected record information with options
+         tf()       -- forget all locally defined types
+         tf(T)      -- forget locally defined type named as atom T
+         v(N)       -- use the value of query <N>
+         catch_exception(B) -- how exceptions are handled
+         history(N) -- set how many previous commands to keep
+         results(N) -- set how many previous command results to keep
+         save_module(FilePath) -- save all locally defined functions, types and records to a file
+         """,
+    io:put_chars(S),
+    io:nl(),
+    true.
+
+
 %% local_func(Function, Args, Bindings, Shell, RecordTable,
 %%            LocalFuncHandler, ExternalFuncHandler) -> {value,Val,Bs}
 %%  Evaluate local functions, including shell commands.
@@ -1064,7 +1291,10 @@ init_dict([]) -> true.
 %% handled internally - it should return 'true' for all local functions
 %% handled in this module (i.e. those that are not eventually handled by
 %% non_builtin_local_func/3 (user_default/shell_default).
-local_func() -> [v,h,b,f,fl,rd,rf,rl,rp,rr,history,results,catch_exception].
+%% fd, ft and td should not be exposed to the user
+-doc false.
+local_func() -> [v,h,b,f,fd,ff,fl,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception].
+-doc false.
 local_func(Func) ->
     lists:member(Func, local_func()).
 local_func(v, [{integer,_,V}], Bs, Shell, _RT, _FT, _Lf, _Ef) ->
@@ -1090,21 +1320,70 @@ local_func(f, [{var,_,Name}], Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     {value,ok,erl_eval:del_binding(Name, Bs)};
 local_func(f, [_Other], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,f,1}]);
-local_func(fl, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
-    {value, ets:tab2list(FT), Bs};
-local_func(fd, [{atom,_,FunName}, FunExpr], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+%% Output local functions (with specs)
+local_func(lf, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    Output = local_functions_and_specs(FT),
+    io:requests([{put_chars, unicode, Output++"\n"}, nl]),
+    {value, ok, Bs};
+%% Output local types
+local_func(lt, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    Output = local_types(FT),
+    io:requests([{put_chars, unicode, Output}, nl]),
+    {value, ok, Bs};
+%% Output local records
+local_func(lr, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    Output = local_records(FT),
+    io:requests([{put_chars, unicode, Output}, nl]),
+    {value, ok, Bs};
+
+%% Undocumented function that outputs contents of FT to a module file
+%% compiles it and loads it, its still in experimentation phase
+%% In theory, you may want to be able to load a module in to local table
+%% edit them, and then save it back to the file system.
+%% You may also want to be able to save a test module.
+local_func(save_module, [{string,_,PathToFile}], Bs, _Shell, RT, FT, _Lf, _Ef) ->
+    [_Path, FileName] = string:split("/"++PathToFile, "/", trailing),
+    [Module, _] = string:split(FileName, ".", leading),
+    Module1 = io_lib:fwrite("~tw",[list_to_atom(Module)]),
+    Exports = [lists:flatten(io_lib:fwrite("~tw",[F]))++"/"++integer_to_list(A)||{F,A}<-local_defined_functions(FT)],
+    Output = (
+        "-module("++Module1++").\n\n" ++
+        "-export(["++lists:join(",",Exports)++"]).\n\n"++
+        local_types(FT) ++ "\n" ++
+        all_records(RT) ++
+        local_functions(FT)
+    ),
+    Ret = case filelib:is_file(PathToFile) of
+        false ->
+            write_and_compile_module(PathToFile, Output);
+        true ->
+            case io:get_line("File exists, do you want to overwrite it? (y/N)\n") of
+                "y\n" ->
+                    write_and_compile_module(PathToFile, Output);
+                _ ->
+                    io:format("Aborting save~n"),
+                    ok
+            end
+    end,
+    {value, Ret, Bs};
+local_func(save_module, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell,save_module,1}]);
+local_func(fd, [{atom,_,FunName}, FunExpr, {string, _, FunDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     {value, Fun, []} = erl_eval:expr(FunExpr, []),
     {arity, Arity} = erlang:fun_info(Fun, arity),
+    %% unescape_quotes(FunDef)
     ets:insert(FT, [{{function, {shell_default, FunName, Arity}}, Fun}]),
+    ets:insert(FT, [{{function_def, {shell_default, FunName, Arity}}, FunDef}]),
     {value, ok, Bs};
-local_func(fd, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
-    erlang:raise(error, function_clause, [{shell, fd, 1}]);
+local_func(fd, [_,_,_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell, fd, 3}]);
 local_func(ft, [{string, _, TypeDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     case erl_scan:tokens([], TypeDef, {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]) of
         {done, {ok, Toks, _}, _} ->
             case erl_parse:parse_form(Toks) of
                 {ok, {attribute,_,spec,{{FunName, Arity},_}}=AttrForm} ->
                     ets:insert(FT, [{{function_type, {shell_default, FunName, Arity}}, AttrForm}]),
+                    ets:insert(FT, [{{function_type_def, {shell_default, FunName, Arity}}, TypeDef}]),
                     {value, ok, Bs};
                 {error,{_Location,M,ErrDesc}} ->
                     ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
@@ -1116,12 +1395,37 @@ local_func(ft, [{string, _, TypeDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     end;
 local_func(ft, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell, ft, 1}]);
+local_func(fl, [], Bs, _Shell, RT, FT, _Lf, _Ef) ->
+    LocalRecords = [R || {{record_def, R},_} <- ets:tab2list(FT)],
+    true = ets:delete_all_objects(FT),
+    lists:foreach(fun(Name) -> ets:delete(RT, Name) end, LocalRecords),
+    {value,ok,Bs};
+local_func(ff, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    ets:select_delete(FT, [{{{function_def, '_'},'_'}, [],[true]}]),
+    ets:select_delete(FT, [{{{function, '_'},'_'}, [],[true]}]),
+    ets:select_delete(FT, [{{{function_type_def, '_'},'_'}, [],[true]}]),
+    ets:select_delete(FT, [{{{function_type, '_'},'_'}, [],[true]}]),
+    {value,ok,Bs};
+local_func(ff, [{atom, _, F}, {integer,_,A}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    M = shell_default,
+    ets:select_delete(FT, [{{{function_def, {M, F, A}},'_'}, [],[true]}]),
+    ets:select_delete(FT, [{{{function, {M, F, A}},'_'}, [],[true]}]),
+    ets:select_delete(FT, [{{{function_type_def, {M, F, A}},'_'}, [],[true]}]),
+    ets:select_delete(FT, [{{{function_type, {M, F, A}},'_'}, [],[true]}]),
+    {value,ok,Bs};
+local_func(ff, [_,_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell,ff,2}]);
 local_func(td, [{string, _, TypeDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     case erl_scan:tokens([], TypeDef, {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]) of
         {done, {ok, Toks, _}, _} ->
             case erl_parse:parse_form(Toks) of
                 {ok, {attribute,_,type,{TypeName, _, _}}=AttrForm} ->
-                    ets:insert(FT, [{{type, TypeName}, AttrForm}]),
+                    true = ets:insert(FT, [{{type, TypeName}, AttrForm}]),
+                    true = ets:insert(FT, [{{type_def, TypeName}, TypeDef}]),
+                    {value, ok, Bs};
+                {ok, {attribute,_,nominal,{TypeName, _, _}}=AttrForm} ->
+                    true = ets:insert(FT, [{{type, TypeName}, AttrForm}]),
+                    true = ets:insert(FT, [{{type_def, TypeName}, TypeDef}]),
                     {value, ok, Bs};
                 {error,{_Location,M,ErrDesc}} ->
                     ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
@@ -1133,12 +1437,23 @@ local_func(td, [{string, _, TypeDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     end;
 local_func(td, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell, td, 1}]);
-local_func(rd, [{string, _, TypeDef}], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
+local_func(tf, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    ets:select_delete(FT, [{{{type_def, '_'}, '_'}, [],[true]}]),
+    ets:select_delete(FT, [{{{type, '_'}, '_'}, [],[true]}]),
+    {value,ok,Bs};
+local_func(tf, [{atom,_,A}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    ets:select_delete(FT, [{{{type_def, A},'_'}, [],[true]}]),
+    ets:select_delete(FT, [{{{type, A},'_'}, [],[true]}]),
+    {value,ok,Bs};
+local_func(tf, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell,tf,1}]);
+local_func(rd, [{string, _, TypeDef}], Bs, _Shell, RT, FT, _Lf, _Ef) ->
     case erl_scan:tokens([], TypeDef, {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]) of
         {done, {ok, Toks, _}, _} ->
             case erl_parse:parse_form(Toks) of
-                {ok,{attribute,_,_,_}=AttrForm} ->
+                {ok,{attribute,_,_,{TypeName,_}}=AttrForm} ->
                     [_] = add_records([AttrForm], Bs, RT),
+                    true = ets:insert(FT, [{{record_def, TypeName}, TypeDef}]),
                     {value,ok,Bs};
                 {error,{_Location,M,ErrDesc}} ->
                     ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
@@ -1150,15 +1465,16 @@ local_func(rd, [{string, _, TypeDef}], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
     end;
 local_func(rd, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell, rd, 1}]);
-local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
+local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, FT, _Lf, _Ef) ->
     RecDef = expand_value(RecDef0),
     RDs = lists:flatten(erl_pp:expr(RecDef)),
     RecName = io_lib:write_atom_as_latin1(RecName0),
     Attr = lists:concat(["-record(", RecName, ",", RDs, ")."]),
     {ok, Tokens, _} = erl_scan:string(Attr),
     case erl_parse:parse_form(Tokens) of
-        {ok,AttrForm} ->
+        {ok,{attribute,_,_,{TypeName,_}}=AttrForm} ->
             [RN] = add_records([AttrForm], Bs, RT),
+            true = ets:insert(FT, [{{record_def, TypeName}, RecDef}]),
             {value,RN,Bs};
         {error,{_Location,M,ErrDesc}} ->
             ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
@@ -1166,15 +1482,19 @@ local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
     end;
 local_func(rd, [_,_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,rd,2}]);
-local_func(rf, [], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
+local_func(rf, [], Bs, _Shell, RT, FT, _Lf, _Ef) ->
+    ets:select_delete(FT, [{{{record_def, '_'},'_'}, [],[true]}]),
     true = ets:delete_all_objects(RT),
     {value,initiate_records(Bs, RT),Bs};
-local_func(rf, [A], Bs0, _Shell, RT, _FT, Lf, Ef) ->
+local_func(rf, [A], Bs0, _Shell, RT, FT, Lf, Ef) ->
     {[Recs],Bs} = expr_list([A], Bs0, Lf, Ef),
     if '_' =:= Recs ->
+            ets:select_delete(FT, [{{{record_def, '_'},'_'}, [],[true]}]),
             true = ets:delete_all_objects(RT);
        true ->
-            lists:foreach(fun(Name) -> true = ets:delete(RT, Name)
+            lists:foreach(fun(Name) ->
+                            true = ets:delete(RT, Name),
+                            true = ets:delete(FT, {record_def, Name})
                           end, listify(Recs))
     end,
     {value,ok,Bs};
@@ -1216,6 +1536,55 @@ local_func(exit, [], _Bs, Shell, _RT, _FT, _Lf, _Ef) ->
 local_func(F, As0, Bs0, _Shell, _RT, FT, Lf, Ef) when is_atom(F) ->
     {As,Bs} = expr_list(As0, Bs0, Lf, Ef),
     non_builtin_local_func(F,As,Bs, FT).
+
+local_functions_and_specs(FT) ->
+    Output_functions = maps:from_list(
+        [{{FunNameAtom, Arity}, lists:flatten(FunDef)} ||{{function_def,{_, FunNameAtom, Arity}},FunDef} <- ets:tab2list(FT)]),
+    Output_function_specs = maps:from_list(
+        [{{FunNameAtom, Arity}, FunSpec}|| {{function_type_def, {_, FunNameAtom, Arity}}, FunSpec} <- ets:tab2list(FT)]),
+    Keys1 = maps:keys(Output_functions),
+    Keys2 = maps:keys(Output_function_specs),
+    Keys = lists:uniq(Keys1 ++ Keys2),
+    string:trim(lists:join($\n,lists:map(fun(Key) ->
+        Spec = maps:get(Key, Output_function_specs, nospec),
+        Def = maps:get(Key, Output_functions, nodef),
+        case {Spec, Def} of
+            {nospec, _} -> Def;
+            {_, nodef} ->
+                {FunName, Arity} = Key,
+                Spec ++ "%% " ++ lists:flatten(io_lib:fwrite("~tw",[FunName]))++ "/" ++ integer_to_list(Arity) ++ " not implemented";
+            {_, _} -> Spec ++ Def
+        end
+    end,
+    Keys))).
+local_defined_functions(FT) ->
+    [{F, A} ||{{function_def,{_, F, A}},_} <- ets:tab2list(FT)].
+local_functions(FT) ->
+    local_functions(local_defined_functions(FT), FT).
+local_functions(Keys, FT) ->
+    lists:join($\n,
+        [begin
+            Spec = case ets:lookup(FT, {function_type_def, {shell_default, F, A}}) of
+                [{{function_type_def, {shell_default, F, A}}, Spec1}] -> Spec1;
+                [] -> ""
+            end,
+            [{{function_def, {shell_default, F, A}}, Def}] = ets:lookup(FT, {function_def, {shell_default, F, A}}),
+            Spec++Def
+        end || {F, A} <- Keys]).
+%% Output local types
+local_types(FT) ->
+    lists:join("\n\n",
+        [TypeDef||{{type_def, _},TypeDef} <- ets:tab2list(FT)]).
+%% Output local records
+local_records(FT) ->
+        [list_to_binary(RecDef)||{{record_def, _},RecDef} <- ets:tab2list(FT)].
+all_records(RT) ->
+        [list_to_binary(erl_pp:attribute(RecDef) ++ "\n")||{ _,RecDef} <- ets:tab2list(RT)].
+write_and_compile_module(PathToFile, Output) ->
+    case file:write_file(PathToFile, unicode:characters_to_binary(Output)) of
+        ok -> c:c(PathToFile);
+        Error -> Error
+    end.
 
 non_builtin_local_func(F,As,Bs, FT) ->
     Arity = length(As),
@@ -1301,6 +1670,7 @@ init_rec(Module, Bs, RT) ->
             []
     end.
 
+-doc false.
 read_and_add_records(File, Selected, Options, Bs, RT) ->
     case read_records(File, Selected, Options) of
         RAs when is_list(RAs) ->
@@ -1394,9 +1764,9 @@ find_file(Mod) when is_atom(Mod) ->
             %%   but code:which/1 finds all loaded modules
             %% - File can also be a file in an archive,
             %%   beam_lib:chunks/2 cannot handle such paths but
-            %%   erl_prim_loader:get_file/1 can
-            case erl_prim_loader:get_file(File) of
-                {ok, Beam, _} ->
+            %%   erl_prim_loader:read_file/1 can
+            case erl_prim_loader:read_file(File) of
+                {ok, Beam} ->
                     {beam, Beam, File};
                 error ->
                     {error, nofile}
@@ -1670,24 +2040,45 @@ set_env(App, Name, Val, Default) ->
     application_controller:set_env(App, Name, Val),
     Prev.
 
+-doc """
+Sets the number of previous commands to keep in the history list to `N`. The
+previous number is returned. Defaults to 20.
+""".
 -spec history(N) -> non_neg_integer() when
       N :: non_neg_integer().
 
 history(L) when is_integer(L), L >= 0 ->
     set_env(stdlib, shell_history_length, L, ?DEF_HISTORY).
 
+-doc """
+Sets the number of results from previous commands to keep in the history list to
+`N`. The previous number is returned. Defaults to 20.
+""".
 -spec results(N) -> non_neg_integer() when
       N :: non_neg_integer().
 
 results(L) when is_integer(L), L >= 0 ->
     set_env(stdlib, shell_saved_results, L, ?DEF_RESULTS).
 
+-doc """
+Sets the exception handling of the evaluator process. The previous exception
+handling is returned. The default (`false`) is to kill the evaluator process
+when an exception occurs, which causes the shell to create a new evaluator
+process. When the exception handling is set to `true`, the evaluator process
+lives on, which means that, for example, ports and ETS tables as well as
+processes linked to the evaluator process survive the exception.
+""".
 -spec catch_exception(Bool) -> boolean() when
       Bool :: boolean().
 
 catch_exception(Bool) ->
         set_env(stdlib, shell_catch_exception, Bool, ?DEF_CATCH_EXCEPTION).
 
+-doc """
+Sets the shell prompt function to `PromptFunc`. The previous prompt function is
+returned.
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec prompt_func(PromptFunc) -> PromptFunc2 when
       PromptFunc :: 'default' | {module(),atom()},
       PromptFunc2 :: 'default' | {module(),atom()}.
@@ -1695,9 +2086,194 @@ catch_exception(Bool) ->
 prompt_func(PromptFunc) ->
     set_env(stdlib, shell_prompt_func, PromptFunc, ?DEF_PROMPT_FUNC).
 
+-doc """
+Sets the shell multiline prompt function to `PromptFunc`. The previous prompt
+function is returned.
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec multiline_prompt_func(PromptFunc) -> PromptFunc2 when
+      PromptFunc :: 'default' | {module(),function()} | string(),
+      PromptFunc2 :: 'default' | {module(),function()} | string().
+
+multiline_prompt_func(PromptFunc) ->
+    set_env(stdlib, shell_multiline_prompt, PromptFunc, ?DEF_PROMPT_FUNC).
+
+-doc """
+Can be used to set the formatting of the Erlang shell output.
+
+This has an effect on commands that have been submitted, and how it is saved in history.
+Or if the formatting hotkey is pressed while editing an expression (Alt+R by default). You
+can specify a `Mod:Func/1` that expects the whole expression as a string and
+returns a formatted expressions as a string. See
+[`stdlib app config`](stdlib_app.md#format_shell_func) for how to set it before
+shell started.
+
+If instead a string is provided, it will be used as a shell command. Your
+command must include `${file}` somewhere in the string, for the shell to know
+where the file goes in the command.
+
+```erlang
+shell:format_shell_func("\"emacs -batch \${file} -l ~/erlang-format/emacs-format-file -f emacs-format-function\"").
+```
+
+```erlang
+shell:format_shell_func({shell, erl_pp_format_func}).
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec format_shell_func(ShellFormatFunc) -> ShellFormatFunc2 when
+      ShellFormatFunc :: 'default' | {module(),function()} | string(),
+      ShellFormatFunc2 :: 'default' | {module(),function()} | string().
+format_shell_func(ShellFormatFunc) ->
+    set_env(stdlib, format_shell_func, ShellFormatFunc, default).
+
+-doc """
+A formatting function that can be set with `format_shell_func/1` that will make
+expressions submitted to the shell prettier.
+
+> #### Note {: .info }
+>
+> This formatting function filter comments away from the expressions.
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec erl_pp_format_func(String) -> String2 when
+      String :: string(),
+      String2 :: string().
+erl_pp_format_func(String) ->
+    %% A simple pretty printer function of shell expressions.
+    %%
+    %% Comments will be filtered.
+    %% If you add return_comments to the option list,
+    %% parsing will fail, and we will end up with the original string.
+    Options = [text,{reserved_word_fun,fun erl_scan:reserved_word/1}],
+    case erl_scan:tokens([], string:trim(String) ++ "\n", {1,1}, Options) of
+        {done, {ok, Toks, _}, _} ->
+            try
+                case erl_parse:parse_form(Toks) of
+                    {ok, Def} -> lists:flatten(erl_pp:form(Def))
+                end
+            catch
+                _:_ -> case erl_parse:parse_exprs(Toks) of
+                          {ok, Def1} -> lists:flatten(erl_pp:exprs(Def1))++".";
+                          _ -> String
+                      end
+            end;
+        _ -> String
+    end.
+
+-doc """
+Sets pretty printing of lists to `Strings`. The previous value of the flag is
+returned.
+
+The flag can also be set by the STDLIB application variable `shell_strings`.
+Defaults to `true`, which means that lists of integers are printed using the
+string syntax, when possible. Value `false` means that no lists are printed
+using the string syntax.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec strings(Strings) -> Strings2 when
       Strings :: boolean(),
       Strings2 :: boolean().
 
 strings(Strings) ->
     set_env(stdlib, shell_strings, Strings, ?DEF_STRINGS).
+
+-doc """
+Sets printing of shell hints. The previous value of the flag is returned.
+
+The flag can also be set by the STDLIB application variable `shell_hints`.
+Defaults to `true`, which means that hints will be printed by default. Value
+`false` means that no hints are printed in the shell.
+""".
+-doc(#{since => <<"OTP 28.1">>}).
+-spec hints(Hints) -> OldHints when
+      Hints :: boolean(),
+      OldHints :: boolean().
+
+hints(Hints) ->
+    set_env(stdlib, shell_hints, Hints, ?DEF_HINTS).
+
+-doc """
+Equivalent to `prompt_width/2` with `Encoding` set to the encoding used by
+`t:io:user/0`.
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec prompt_width(unicode:chardata()) -> non_neg_integer().
+prompt_width(String) ->
+    Encoding =
+        case whereis(user_drv) =:= self() of
+            %% When in JCL mode edlin can be called by
+            %% user_drv, which in turn calls this function.
+            %% Since JCL is very rudimentary we can assume
+            %% that it uses latin1.
+            true -> latin1;
+            false ->
+                proplists:get_value(encoding, io:getopts(user))
+        end,
+    prompt_width(String, Encoding).
+
+-doc """
+It receives a prompt and computes its width, considering its Unicode characters
+and ANSI escapes.
+
+Useful for creating custom multiline prompts.
+
+Example:
+
+```erlang
+1> shell:prompt_width("olá> ", unicode).
+5
+%% "olá> " is printed as "ol\341> " on a latin1 systems
+2> shell:prompt_width("olá> ", latin1).
+8
+%% Ansi escapes are ignored
+3> shell:prompt_width("\e[32molá\e[0m> ", unicode).
+5
+%% Double width characters count as 2
+4> shell:prompt_width("😀> ", unicode).
+4
+%% "😀> " is printed as "\x{1F600}> " on latin1 systems
+5> shell:prompt_width("😀> ", latin1).
+11
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec prompt_width(unicode:chardata(), unicode | latin1) -> non_neg_integer().
+prompt_width(String, Encoding) ->
+    case string:next_grapheme(String) of
+        [] -> 0;
+        [$\e | Rest] ->
+            case re:run(String, prim_tty:ansi_regexp(), [unicode]) of
+                {match, [{0, N}]} ->
+                    <<_Ansi:N/binary, AnsiRest/binary>> = unicode:characters_to_binary(String),
+                    prompt_width(AnsiRest, Encoding);
+                _ ->
+                    prim_tty:npwcwidth($\e, Encoding) + prompt_width(Rest, Encoding)
+            end;
+        [H|Rest] when is_list(H)-> lists:sum([prim_tty:npwcwidth(A, Encoding)||A<-H]) + prompt_width(Rest, Encoding);
+        [H|Rest] -> prim_tty:npwcwidth(H, Encoding) + prompt_width(Rest, Encoding)
+    end.
+
+-doc """
+Configures the multiline prompt as two trailing dots. This is the default
+function but it may also be set explicitly as
+`-stdlib shell_multiline_prompt {shell, default_multiline_prompt}`.
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec default_multiline_prompt(unicode:chardata()) ->
+      unicode:chardata().
+
+default_multiline_prompt(Pbs) ->
+    lists:duplicate(max(0, prompt_width(Pbs) - 3), $\s) ++ ".. ".
+
+-doc """
+Configures the multiline prompt as inverted space. It may be set explicitly as
+`-stdlib shell_multiline_prompt {shell, inverted_space_prompt}` or calling
+`multiline_prompt_func({shell, inverted_space_prompt}).`
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec inverted_space_prompt(unicode:chardata()) ->
+      unicode:chardata().
+
+inverted_space_prompt(Pbs) ->
+    "\e[7m" ++ lists:duplicate(prompt_width(Pbs) - 1, $\s) ++ "\e[27m ".

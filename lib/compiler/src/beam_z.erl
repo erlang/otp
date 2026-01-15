@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,7 @@
 %%          (Mandatory.)
 
 -module(beam_z).
+-moduledoc false.
 
 -export([module/2]).
 
@@ -29,16 +32,14 @@
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_asm:module_code()}.
 
-module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
-    NoInitYregs = proplists:get_bool(no_init_yregs, Opts),
-    Fs = [function(F, NoInitYregs) || F <- Fs0],
+module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
+    Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is0}, NoInitYregs) ->
+function({function,Name,Arity,CLabel,Is0}) ->
     try
 	Is1 = undo_renames(Is0),
-        Is2 = maybe_eliminate_init_yregs(Is1, NoInitYregs),
-        Is = remove_redundant_lines(Is2),
+        Is = remove_redundant_lines(Is1),
 	{function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
@@ -101,24 +102,6 @@ get_list(Src, Hd, Tl, [{swap,R1,R2}|Is]=Is0) ->
 get_list(Src, Hd, Tl, Is) ->
     [{get_list,Src,Hd,Tl}|undo_renames(Is)].
 
-undo_rename({bs_put,F,{I,U,Fl},[Sz,Src]}) ->
-    {I,F,Sz,U,Fl,Src};
-undo_rename({bs_put,F,{I,Fl},[Src]}) ->
-    {I,F,Fl,Src};
-undo_rename({bif,bs_add=I,F,[Src1,Src2,{integer,U}],Dst}) ->
-    {I,F,[Src1,Src2,U],Dst};
-undo_rename({bif,bs_utf8_size=I,F,[Src],Dst}) ->
-    {I,F,Src,Dst};
-undo_rename({bif,bs_utf16_size=I,F,[Src],Dst}) ->
-    {I,F,Src,Dst};
-undo_rename({bs_init,F,{I,U,Flags},none,[Sz,Src],Dst}) ->
-    {I,F,Sz,U,Src,Flags,Dst};
-undo_rename({bs_init,F,{I,Extra,Flags},Live,[Sz],Dst}) ->
-    {I,F,Sz,Extra,Live,Flags,Dst};
-undo_rename({bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst}) ->
-    {I,F,Sz,Extra,Live,U,Src,Flags,Dst};
-undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
-    I;
 undo_rename({put_map,Fail,assoc,S,D,R,L}) ->
     {put_map_assoc,Fail,S,D,R,L};
 undo_rename({put_map,Fail,exact,S,D,R,L}) ->
@@ -133,25 +116,6 @@ undo_rename({select,I,Reg,Fail,List}) ->
     {I,Reg,Fail,{list,List}};
 undo_rename(I) -> I.
 
-%%%
-%%% Eliminate the init_yreg/1 instruction if requested by
-%%% the no_init_yregs option.
-%%%
-maybe_eliminate_init_yregs(Is, true) ->
-    eliminate_init_yregs(Is);
-maybe_eliminate_init_yregs(Is, false) -> Is.
-
-eliminate_init_yregs([{allocate,Ns,Live},{init_yregs,_}|Is]) ->
-    [{allocate_zero,Ns,Live}|eliminate_init_yregs(Is)];
-eliminate_init_yregs([{allocate_heap,Ns,Nh,Live},{init_yregs,_}|Is]) ->
-    [{allocate_heap_zero,Ns,Nh,Live}|eliminate_init_yregs(Is)];
-eliminate_init_yregs([{init_yregs,{list,Yregs}}|Is]) ->
-    Inits = [{init,Y} || Y <- Yregs],
-    Inits ++ eliminate_init_yregs(Is);
-eliminate_init_yregs([I|Is]) ->
-    [I|eliminate_init_yregs(Is)];
-eliminate_init_yregs([]) -> [].
-
 %% Remove all `line` instructions having the same location as the
 %% previous `line` instruction. It turns out that such redundant
 %% `line` instructions are quite common. Removing them decreases the
@@ -161,6 +125,10 @@ eliminate_init_yregs([]) -> [].
 remove_redundant_lines(Is) ->
     remove_redundant_lines_1(Is, none).
 
+remove_redundant_lines_1([{debug_line,_,_,_,_}=I|Is], _PrevLoc) ->
+    [I|remove_redundant_lines_1(Is, none)];
+remove_redundant_lines_1([{executable_line,_,_}=I|Is], _PrevLoc) ->
+    [I|remove_redundant_lines_1(Is, none)];
 remove_redundant_lines_1([{line,Loc}=I|Is], PrevLoc) ->
     if
         Loc =:= PrevLoc ->

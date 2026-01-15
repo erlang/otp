@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,9 +21,7 @@
 %% This module tests that beam_ssa_alias_opt:opt/2 correctly annotates
 %% instructions with information about unique and aliased operands.
 %%
--feature(maybe_expr, enable).
-
--compile(no_ssa_opt_private_append).
+-compile(no_ssa_opt_destructive_update).
 
 -module(alias).
 
@@ -60,6 +60,7 @@
 	 not_transformable3/1,
 	 not_transformable4/1,
 	 not_transformable5/1,
+	 not_transformable6/0,
 
          bad_get_status_by_type/0,
          stacktrace0/0,
@@ -67,8 +68,19 @@
          in_cons/0,
          make_fun/0,
          gh6925/0,
+         binary_part_aliases/2,
          aliased_map_lookup_bif/1,
          aliased_map_lookup_instr/1,
+
+         variables_in_put_tuple_unique_0/1,
+         variables_in_put_tuple_unique_1/1,
+         variables_in_put_tuple_unique_2/1,
+         variables_in_put_tuple_unique_3/1,
+         variables_in_put_tuple_unique_4/1,
+         variables_in_put_tuple_unique_5/1,
+         variables_in_put_tuple_unique_6/1,
+         variables_in_put_tuple_aliased/1,
+
          aliased_tuple_element_bif/1,
          aliased_tuple_element_bif/2,
          aliased_tuple_element_instr/1,
@@ -79,11 +91,35 @@
          aliasing_after_tuple_extract/1,
          alias_after_pair_hd/1,
          alias_after_pair_tl/1,
+         unique_pair/0,
+         make_unique_pair/1,
 
          double_map_lookup/2,
          double_tuple_element/2,
          tuple_element_aliasing/0,
-         tuple_element_from_tuple_with_existing_child/0]).
+         tuple_element_from_tuple_with_existing_child/0,
+
+         extract_tuple_element/0,
+
+         update_record0/0,
+         update_record1/0,
+
+         live_past_call_triggers_aliasing/1,
+
+         fuzz0/0, fuzz0/1,
+         alias_after_phi/0,
+         check_identifier_type/0,
+
+         gh9014_main/0,
+
+         nested_tuple/0,
+         nested_cons/0,
+         nested_mixed/0,
+
+         see_through/0,
+
+         duplicated_args/1,
+         gh9813/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -183,7 +219,11 @@ transformable5(L) ->
 
 transformable5([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1,X] }.
+
+%% Although does_not_escape/1 does not let its argument escape, it is
+%% live across the call and thus aliased in does_not_escape.
+
     does_not_escape(Acc),
     transformable5(T, <<Acc/binary, H:8>>);
 transformable5([], Acc) ->
@@ -368,16 +408,15 @@ transformable17([H|T], [N|Acc]) ->
 transformable17([], Acc) ->
     Acc.
 
-%% We should use type information to figure out that {<<>>, X} is not
-%% aliased, but as of now we don't have the information at this pass,
-%% nor do we track alias status at the sub-term level.
+%% Check that type information is used to figure out that {<<>>, X} is
+%% not aliased.
 transformable18(L, X) when is_integer(X), X < 256 ->
     transformable18b(L, {<<>>, X}).
 
 transformable18b([H|T], {Acc,X}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [A], unique => [X], first_fragment_dies => true },
+%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X,A], first_fragment_dies => true },
 %ssa% C = put_tuple(B, _),
 %ssa% _ = call(fun transformable18b/2, _, C).
     transformable18b(T, {<<Acc/binary, (H+X):8>>, X});
@@ -484,15 +523,18 @@ make_empty_binary_tuple_nested() ->
     {<<>>, {<<>>}, 47}.
 
 transformable24(L) ->
-    transformable24(L, {<<>>, ex:foo()}).
+    transformable24(L, {<<>>, ex:foo(),ex:foo()}).
 
-transformable24([H|T], {Acc,X}) ->
+transformable24([H|T], {Acc,X,Y}) ->
 %ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [A], unique => [X], first_fragment_dies => true },
-%ssa% C = put_tuple(B, _),
-%ssa% _ = call(fun transformable24/2, _, C).
-    transformable24(T, {<<Acc/binary, (H+X):8>>, X});
+%ssa% X = get_tuple_element(Arg1, 1),
+%ssa% Acc = get_tuple_element(Arg1, 0),
+%ssa% A = bs_create_bin(append, _, Acc, _, _, _, Sum, _) { unique => [Sum,Acc], first_fragment_dies => true },
+%ssa% Y = get_tuple_element(Arg1, 2),
+%% X is unique as it is known to be a number.
+%ssa% B = put_tuple(A, X, Y) { aliased => [Y], unique => [A,X] },
+%ssa% _ = call(fun transformable24/2, C, B) { aliased => [C], unique => [B] }.
+    transformable24(T, {<<Acc/binary,(H+X):8>>,X,Y});
 transformable24([], {Acc,_}) ->
     Acc.
 
@@ -607,6 +649,17 @@ not_transformable5b([H|T], Acc) ->
 not_transformable5b([], Acc) ->
     Acc.
 
+%% Check that anything extracted from a map is aliased. This is
+%% required as otherwise the destructive update pass could try to
+%% update a literal.
+not_transformable6() ->
+%ssa% () when post_ssa_opt ->
+%ssa% E = get_map_element(...),
+%ssa% _ = bs_create_bin(append, _, E, ...) { aliased => [E], first_fragment_dies => true }.
+    M = #{a=> <<>>},
+    #{a:=X} = M,
+    <<X/binary, 17:8>>.
+
 %% Reproducer for a bug in beam_ssa_alias:aa_get_status_by_type/2
 %% where it would return the wrong alias/uniqe status for certain
 %% combinations of returned types.
@@ -690,6 +743,14 @@ gh6925() ->
     A = << <<"x">> || true >>,
     B = <<A/binary, "z">>,
     {A, B}.
+
+%% Check that bif:binary_part/3 is correctly flagged as an operation
+%% which aliases its operands
+binary_part_aliases(A, B) ->
+%ssa% (_,_) when post_ssa_opt ->
+%ssa% X = bif:binary_part(_, _, _),
+%ssa% ret(X) {aliased => [X]}.
+    binary_part(<<>>, A, B).
 
 %% Check that as the map is aliased, the extracted value should also
 %% be aliased.
@@ -782,8 +843,8 @@ aliasing_after_tuple_extract(N, Acc) ->
     aliasing_after_tuple_extract(N - 1, {<<X/bitstring, 1>>, Acc}).
 
 
-%% Check that both the pair (Acc) and the extracted element (X) are
-%% aliased.
+%% Check that the pair (Acc) is unique on entry but that its contents
+%% are alised.
 alias_after_pair_hd(N) ->
     alias_after_pair_hd(N, [<<>>|dummy]).
 
@@ -796,8 +857,8 @@ alias_after_pair_hd(N, Acc) ->
     [X|_] = Acc,
     alias_after_pair_hd(N - 1, [<<X/bitstring, 1>>|Acc]).
 
-%% Check that both the pair (Acc) and the extracted element (X) are
-%% aliased.
+%% Check that the pair (Acc) is unique on entry but that its contents
+%% are alised.
 alias_after_pair_tl(N) ->
     alias_after_pair_tl(N, [dummy|<<>>]).
 
@@ -809,6 +870,23 @@ alias_after_pair_tl(N, Acc) ->
 %ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
     [_|X] = Acc,
     alias_after_pair_tl(N - 1, [Acc|<<X/bitstring, 1>>]).
+
+make_unique_pair(X) when is_integer(X) ->
+    [X|X].
+
+%% No aliasing occurs as Pair dies and only plain values are
+%% extracted.
+unique_pair() ->
+%ssa% () when post_ssa_opt ->
+%ssa% P = call(fun make_unique_pair/1, ...),
+%ssa% H = get_hd(P),
+%ssa% T = get_tl(P),
+%ssa% R = put_tuple(H, T, P) {unique => [H, P, T]},
+%ssa% ret(R) {unique => [R]}.
+    Pair = make_unique_pair(e:f()),
+    H = hd(Pair),
+    T = tl(Pair),
+    {H, T, Pair}.
 
 %% Check that although the map is unique, the extracted values should
 %% always be aliased as we can't know if they are the same.
@@ -866,3 +944,329 @@ tuple_element_from_tuple_with_existing_child() ->
 		 ok
 	     end } ].
 
+%% Check that the same variable used twice in a put_tuple does not
+%% trigger aliasing when the variable's type isn't boxed, but that we
+%% do when the types are unknown. These tests need their own private
+%% version of the identity function, as the type analysis will
+%% otherwise determine that the result type of id/1 (as it is shared
+%% between all tests) is {variables_in_put_tuple, any(), any()} and
+%% the more specific type information will be lost.
+-record(variables_in_put_tuple, {a=0,b=0}).
+
+variables_in_put_tuple_unique_0(A) when is_atom(A) ->
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+variables_in_put_tuple_unique_1(A) when is_number(A) ->
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+variables_in_put_tuple_unique_2(A) when is_integer(A) ->
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+variables_in_put_tuple_unique_3(A) when is_float(A) ->
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+variables_in_put_tuple_unique_4(A) when is_pid(A) ->
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+variables_in_put_tuple_unique_5(A) when is_port(A) ->
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+variables_in_put_tuple_unique_6(A) when is_reference(A) ->
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+%% Unknown types, no aliasing of the tuple, but the elements should be
+%% aliased.
+variables_in_put_tuple_aliased(A) ->
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { aliased => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+id(X) ->
+    X.
+
+%% Check that we don't unnecessarily flag a tuple as aliased just
+%% because we extract a plain type from it.
+generate_integer() ->
+    case ex:f() of
+        a ->
+            1;
+        b ->
+            2
+    end.
+
+make_tuple() ->
+    {generate_integer(), generate_integer()}.
+
+extract_tuple_element() ->
+%ssa% () when post_ssa_opt ->
+%ssa% R = put_tuple(X, Y, Z)  {unique => [Z, Y, X]} ,
+%ssa% ret(R) { unique => [R] }.
+    {X,Y} = Z = make_tuple(),
+    {X,Y,Z}.
+
+-record(r0, {not_aliased=0,aliased=[]}).
+
+update_record0() ->
+    update_record0(ex:f(), #r0{}).
+
+update_record0([Val|Ls], Acc=#r0{not_aliased=N}) ->
+%ssa% (_, Rec) when post_ssa_opt ->
+%ssa% _ = update_record(copy, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
+    R = Acc#r0{not_aliased=N+1,aliased=Val},
+    update_record0(Ls, R);
+update_record0([], Acc) ->
+    Acc.
+
+-record(r1, {not_aliased0=0,not_aliased1=[]}).
+
+update_record1() ->
+    update_record1(ex:f(), #r1{}).
+
+update_record1([Val|Ls], Acc=#r1{not_aliased0=N0,not_aliased1=N1}) ->
+%ssa% (_, Rec) when post_ssa_opt ->
+%ssa% _ = update_record(copy, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
+    R = Acc#r1{not_aliased0=N0+1,not_aliased1=[Val|N1]},
+    update_record1(Ls, R);
+update_record1([], Acc) ->
+    Acc.
+
+live_past_call_triggers_aliasing(A) ->
+%%% As X lives past the call to id, X and Y alias each other.
+%ssa% (A) when post_ssa_opt ->
+%ssa% X = put_tuple(A),
+%ssa% Y = call(fun id/1, X) { aliased => [X] },
+%ssa% R = put_tuple(X, Y) { aliased => [X,Y] },
+%ssa% ret(R) { unique => [R] }.
+    X = {A},
+    Y = id(X),
+    {X,Y}.
+
+%% Check that the alias analysis handles the case where the called
+%% function only has a known return status for a result type which is
+%% not present in the call. In the example the looked up type is a
+%% #t_union{} but a status is only known for 'nil'.
+fuzz0(_V0)  ->
+    maybe
+        [] ?= _V0
+    else
+        _  when ok ->
+            ok;
+        []  ->
+            ok;
+        _  ->
+            _V0
+    end.
+
+fuzz0()  ->
+    fuzz0(ok).
+
+alias_after_phi() ->
+    alias_after_phi({e:f(),e:f()}).
+
+alias_after_phi(X) ->
+%% Check that X is aliased after the Phi.
+%ssa% (Arg0) when post_ssa_opt ->
+%ssa% Phi = phi({_,_}, {Arg0,_}, ...),
+%ssa% _ = get_tuple_element(Arg0, 0) {aliased => [Arg0]}.
+    {A,B} = X,
+    T = case e:f() of
+	    1 ->
+		X;
+	    2 ->
+		{e:f(),e:f()}
+	end,
+    {A,B} = T,
+    {A,B,X}.
+
+%% Check that the identifier type is considered plain and therefore
+%% unique.
+check_identifier_type() ->
+    R = {case e:f() of
+	     X when is_port(X) ->
+		 X;
+	     X when is_pid(X) ->
+		 X
+	 end},
+    should_return_unique(R).
+
+should_return_unique({X}) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% ret(R) { unique => [R] }.
+    X.
+
+%% Check that the alias analysis doesn't fail to detect aliasing when
+%% a tuple element is extracted multiple times in a function.
+gh9014_inc_counter(Counter) ->
+%ssa% (Counter) when post_ssa_opt ->
+%ssa% _ = get_tuple_element(Counter, 1) {aliased => [Counter]}.
+    CounterValue = erlang:element(2, Counter),
+    erlang:setelement(2, Counter, CounterValue + 1).
+
+gh9014_wibble(State) ->
+%ssa% (State) when post_ssa_opt ->
+%ssa% X = get_tuple_element(State, 1) {unique => [State]},
+%ssa% _ = call(fun gh9014_inc_counter/1, X) {aliased => [X]},
+%ssa% Y = get_tuple_element(State, 1) {unique => [State]},
+%ssa% ret(Y) {aliased => [Y]}.
+    gh9014_inc_counter(erlang:element(2, State)),
+    Counter = erlang:element(2, State),
+    CounterValue = erlang:element(2, Counter),
+    case CounterValue >= 1 of
+        true ->
+            Counter;
+        false ->
+            NewCounter = gh9014_inc_counter(Counter),
+            NewState = erlang:setelement(2, State, NewCounter),
+            gh9014_wibble(NewState)
+    end.
+
+gh9014_main() ->
+    {counter, 1} = gh9014_wibble({state, {counter, 0}}).
+
+
+%% Check that the alias analysis handles a chain of extracts from
+%% tuples.
+nested_tuple_inner() ->
+    {{{{<<>>, e:x()}}}}.
+
+nested_tuple() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { aliased => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [U, A] },
+%ssa% ret(R).
+    {{{{Z,X}}}} = nested_tuple_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+%% Check that the alias analysis handles a chain of extracts from
+%% pairs.
+nested_cons_inner() ->
+    [[[[<<>>, e:x()]]]].
+
+nested_cons() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    [[[[Z,X]]]] = nested_cons_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+nested_mixed_inner() ->
+    [{[{<<>>, e:x()}]}].
+
+nested_mixed() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { aliased => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [U, A] },
+%ssa% ret(R).
+    [{[{Z,X}]}] = nested_mixed_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+%%
+%% Check that the analysis can see through embed-extract chains.
+%%
+-record(see_through, {a,b}).
+
+see_through() ->
+    [R] = see_through0(),
+    see_through1(R).
+
+see_through1({_,R}) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% _ = update_record(reuse, 3, Rec, _, _) {unique => [Rec], source_dies => true}.
+    R#see_through{a=e:f()}.
+
+see_through0() ->
+    [{foo, #see_through{a={bar, [foo]}}}].
+
+duplicated_args(V) ->
+    %% The constructed list was considered unique, which made
+    %% duplicated_args/2 think that both arguments were unique
+    %% (which is wrong).
+    duplicated_args([V], [V]).
+
+duplicated_args(A, B) ->
+%ssa% (A, B) when post_ssa_opt ->
+%ssa% _ = put_tuple(A, B) {aliased => [A, B]}.
+    {A, B}.
+
+%% Force aliasing of Creation to prevent destructive update.
+gh9813() ->
+%ssa% () when post_ssa_opt ->
+%ssa% _ = get_tuple_element(Creation, 1) {aliased => [Creation]}.
+    R = e:f(),
+    {_, DT} = Creation = gh9813_inner(0),
+    Aged = {19, setelement(1, DT, 38)},
+    {Creation, Aged} = R.
+
+gh9813_inner(Sec) ->
+    {19, {2038, Sec}}.

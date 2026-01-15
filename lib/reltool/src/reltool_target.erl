@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_target).
+-moduledoc false.
 
 %% Public
 -export([
@@ -875,7 +878,7 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
                         true
                 end
         end,
-    SysFiles2 = lists:zf(FilterErts, SysFiles),
+    SysFiles2 = lists:filtermap(FilterErts, SysFiles),
     SysFiles3 = lists:foldl(fun(F, Acc) -> lists:keydelete(F, 2, Acc) end,
 			    SysFiles2,
 			    ["releases", "lib", "bin"]),
@@ -971,7 +974,7 @@ spec_escripts(#sys{apps = Apps}, ErtsBin, BinFiles) ->
                              false
                      end
              end,
-    lists:flatten(lists:zf(Filter, Apps)).
+    lists:flatten(lists:filtermap(Filter, Apps)).
 
 do_spec_escript(File, ErtsBin, BinFiles) ->
     [{copy_file, EscriptExe}] = safe_lookup_spec("escript", BinFiles),
@@ -1285,7 +1288,7 @@ filter_spec(List, InclRegexps, ExclRegexps) ->
     do_filter_spec("", List, InclRegexps, ExclRegexps).
 
 do_filter_spec(Path, List, InclRegexps, ExclRegexps) when is_list(List) ->
-    lists:zf(fun(File) ->
+    lists:filtermap(fun(File) ->
 		     do_filter_spec(Path, File, InclRegexps, ExclRegexps)
 	     end,
 	     List);

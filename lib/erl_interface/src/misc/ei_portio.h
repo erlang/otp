@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  *
 
@@ -56,7 +58,7 @@ extern ei_socket_callbacks ei_default_socket_callbacks;
 
 #define EI_DFLT_CTX_TO_FD__(CTX, FD)                                    \
     ((intptr_t) (CTX) < 0                                               \
-     ? EBADF                                                            \
+     ? (EI_UNDEF(*(FD), -1), EBADF)                                     \
      : (*(FD) = (int) (intptr_t) (CTX), 0))
 
 #define EI_GET_FD__(CBS, CTX, FD)                                       \
@@ -93,7 +95,9 @@ extern int ei_plugin_socket_impl__;
     (EI_HAVE_PLUGIN_SOCKET_IMPL__                                       \
      ? ei_get_cbs_ctx__((CBS), (CTX), (FD))                             \
      : ((FD) < 0                                                        \
-        ? EBADF                                                         \
+        ? (EI_UNDEF(*(CBS), NULL),                                      \
+           EI_UNDEF(*(CTX), NULL),                                      \
+           EBADF)                                                       \
         : (*(CBS) = &ei_default_socket_callbacks,                       \
            *(CTX) = EI_FD_AS_CTX__((FD)),                               \
            0)))

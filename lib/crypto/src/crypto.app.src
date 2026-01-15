@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +27,6 @@
     {registered, []},
     {applications, [kernel, stdlib]},
     {env, [{fips_mode, false}, {rand_cache_size, 896}]},
-    {runtime_dependencies, ["erts-9.0","stdlib-3.9","kernel-5.3"]}]}.
+    {runtime_dependencies, ["erts-9.0","stdlib-3.9","kernel-6.0"]}]}.
 
 

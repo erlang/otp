@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(observer_backend).
+-moduledoc false.
 
 %% General
 -export([vsn/0]).
@@ -415,17 +418,19 @@ sockaddr_to_list(#{family := inet6, addr := Addr, port := Port,
 	" , " ++ erlang:integer_to_list(SID);
 sockaddr_to_list(Addr) ->
     f("~p", [Addr]).
-    
+
+-dialyzer({no_opaque_union, [get_ets_tab_id/1]}).
+get_ets_tab_id(Id) ->
+    case ets:info(Id, named_table) of
+        true -> ignore;
+        false -> Id
+    end.
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),
     HideSys = proplists:get_value(sys_hidden, Opts, true),
     Info = fun(Id, Acc) ->
 		   try
-		       TabId = case ets:info(Id, named_table) of
-				   true -> ignore;
-				   false -> Id
-			       end,
 		       Name = ets:info(Id, name),
 		       Protection = ets:info(Id, protection),
 		       ignore(HideUnread andalso Protection == private, unreadable),
@@ -441,7 +446,7 @@ get_table_list(ets, Opts) ->
 			      andalso is_atom((catch mnesia:table_info(Name, where_to_read))), mnesia_tab),
 		       Memory = ets:info(Id, memory) * erlang:system_info(wordsize),
 		       Tab = [{name,Name},
-			      {id,TabId},
+			      {id,get_ets_tab_id(Id)},
 			      {protection,Protection},
 			      {owner,Owner},
 			      {size,ets:info(Id, size)},
@@ -521,17 +526,18 @@ fetch_stats_loop(Parent, Time) ->
 %% Chunk sending process info to etop/observer
 %%
 procs_info(Collector) ->
-    All = processes(),
-    Send = fun Send (Pids) ->
-                   try lists:split(10000, Pids) of
-                       {First, Rest} ->
-                           Collector ! {procs_info, self(), etop_collect(First, [])},
-                           Send(Rest)
-                   catch _:_ ->
-                           Collector ! {procs_info, self(), etop_collect(Pids, [])}
+    Iter0 = erlang:processes_iterator(),
+    Limit = 10000,
+    Send = fun Send(Iter1, Count) ->
+                   case etop_collect(Iter1, Count, Limit, []) of
+                       {none, ProcInfo} ->
+                           Collector ! {procs_info, self(), ProcInfo};
+                       {Iter, ProcInfo} ->
+                           Collector ! {procs_info, self(), ProcInfo},
+                           Send(Iter, 0)
                    end
            end,
-    Send(All).
+    Send(Iter0, 0).
 
 %%
 %% etop backend
@@ -542,7 +548,8 @@ etop_collect(Collector) ->
     %% utilization in etop). Next time the flag will be true and then
     %% there will be a measurement.
     SchedulerWallTime = erlang:statistics(scheduler_wall_time),
-    ProcInfo = etop_collect(processes(), []),
+    Iter = erlang:processes_iterator(),
+    {none, ProcInfo} = etop_collect(Iter, 0, infinity, []),
 
     Collector ! {self(),#etop_info{now = erlang:timestamp(),
 				   n_procs = length(ProcInfo),
@@ -582,27 +589,55 @@ etop_memi() ->
 	    undefined
     end.
 
-etop_collect([P|Ps], Acc) when P =:= self() ->
-    etop_collect(Ps, Acc);
-etop_collect([P|Ps], Acc) ->
-    Fs = [registered_name,initial_call,memory,reductions,current_function,message_queue_len],
+etop_collect({P, Iter}, Count, Limit, Acc) when P =:= self() ->
+    etop_collect(erlang:processes_next(Iter), Count, Limit, Acc);
+etop_collect(Iter, Limit, Limit, Acc) ->
+    {Iter, Acc};
+etop_collect(none, _Count, _Limit, Acc) ->
+    {none, Acc};
+etop_collect({P, Iter}, Count, Limit, Acc) when is_pid(P) ->
+    Fs = [registered_name,initial_call,
+          {dictionary, '$initial_call'}, {dictionary, '$process_label'},
+          memory,reductions,current_function,message_queue_len],
     case process_info(P, Fs) of
 	undefined ->
-	    etop_collect(Ps, Acc);
-	[{registered_name,Reg},{initial_call,Initial},{memory,Mem},
-	 {reductions,Reds},{current_function,Current},{message_queue_len,Qlen}] ->
-	    Name = case Reg of
-		       [] -> initial_call(Initial, P);
-		       _ -> Reg
+	    etop_collect(erlang:processes_next(Iter), Count + 1, Limit, Acc);
+	[{registered_name,Reg},{initial_call,Initial},
+         {{dictionary, '$initial_call'}, DictInitial},
+         {{dictionary, '$process_label'}, ProcId},
+	 {memory,Mem},{reductions,Reds},
+         {current_function,Current},{message_queue_len,Qlen}
+        ] ->
+	    Name = if Reg /= "" -> Reg;
+                      ProcId /= undefined -> id_to_binary(ProcId);
+                      true -> initial_call(Initial, DictInitial)
 		   end,
 	    Info = #etop_proc_info{pid=P,mem=Mem,reds=Reds,name=Name,
 				   cf=Current,mq=Qlen},
-	    etop_collect(Ps, [Info|Acc])
+	    etop_collect(erlang:processes_next(Iter), Count + 1, Limit, [Info|Acc])
     end;
-etop_collect([], Acc) -> Acc.
+etop_collect(Iter, Count, Limit, Acc) ->
+    etop_collect(erlang:processes_next(Iter), Count, Limit, Acc).
 
-initial_call({proc_lib, init_p, _}, Pid) ->
-    proc_lib:translate_initial_call(Pid);
+id_to_binary(Id) when is_list(Id); is_binary(Id) ->
+    try unicode:characters_to_binary(Id) of
+        {error, _, _} ->
+            unicode:characters_to_binary(io_lib:format("~0.tp", [Id]));
+        BinString ->
+            BinString
+    catch _:_ ->
+            unicode:characters_to_binary(io_lib:format("~0.tp", [Id]))
+    end;
+id_to_binary(TermId) ->
+    unicode:characters_to_binary(io_lib:format("~0.tp", [TermId])).
+
+initial_call({proc_lib, init_p, _}, DictInitial) ->
+    case DictInitial of
+        {_,_,_} = MFA ->
+            MFA;
+        undefined -> %% Fetch the default initial call
+            proc_lib:translate_initial_call([])
+    end;
 initial_call(Initial, _Pid) ->
     Initial.
 

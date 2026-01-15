@@ -1,0 +1,25 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+    "ID": "erts-zlib",
+    "description": "interface of the 'zlib' general purpose compression library",
+    "copyrightText": "Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler",
+    "downloadLocation": "https://github.com/madler/zlib",
+    "homepage": "https://zlib.net/",
+    "licenseDeclared": "Zlib",
+    "name": "zlib",
+    "versionInfo": "1.3.1",
+    "sha": "1a8db63788c34a50e39e273d39b7e1033208aea2",
+    "path": "./erts/emulator/zlib",
+    "exclude": ["./erts/emulator/zlib/vendor.info",
+                "./erts/emulator/zlib/zlib.mk"],
+    "supplier": "Person: Mark Adler (zlib@gzip.org)",
+    "purl": "pkg:github/madler/zlib"
+  }
+]

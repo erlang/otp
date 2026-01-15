@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 
 -module(beam_ssa_recv).
+-moduledoc false.
 -export([format_error/1, module/2]).
 
 %%%
@@ -453,7 +456,7 @@ propagate_references(Candidates, G) ->
     propagate_references_1(Roots, G, #{}).
 
 propagate_references_1([{Vertex, Ref} | VRefs], G, Acc0) ->
-    Refs = maps:get(Vertex, Acc0, sets:new([{version, 2}])),
+    Refs = maps:get(Vertex, Acc0, sets:new()),
     Acc = case sets:is_element(Ref, Refs) of
               true ->
                   %% Already visited
@@ -666,13 +669,13 @@ intersect_uses(UsageMap, RefMap, Graph) ->
                               [begin
                                    Vertex = {FuncId, Lbl},
                                    {Vertex, Ref}
-                               end || {Lbl, _I, Ref} <- Uses] ++ Acc
+                               end || {Lbl, _I, Ref} <:- Uses] ++ Acc
                       end, [], UsageMap),
     intersect_uses_1(Roots, RefMap, Graph, #{}).
 
 intersect_uses_1([{Vertex, Ref} | Vs], RefMap, Graph, Acc0) ->
-    PossibleRefs = maps:get(Vertex, RefMap, sets:new([{version, 2}])),
-    ActiveRefs0 = maps:get(Vertex, Acc0, sets:new([{version, 2}])),
+    PossibleRefs = maps:get(Vertex, RefMap, sets:new()),
+    ActiveRefs0 = maps:get(Vertex, Acc0, sets:new()),
     Acc = case {sets:is_element(Ref, PossibleRefs),
                 sets:is_element(Ref, ActiveRefs0)} of
               {true, false} ->
@@ -722,7 +725,7 @@ plan_markers(Candidates, UsageMap) ->
               end, #{}, Candidates).
 
 plan_markers_1(MakeRefs0, FuncId, UsageMap) ->
-    [Marker || {_, _, _, ExtractedAt, Ref}=Marker <- MakeRefs0,
+    [Marker || {_, _, _, ExtractedAt, Ref}=Marker <:- MakeRefs0,
                case UsageMap of
                    #{ {FuncId, ExtractedAt} := Refs } ->
                        sets:is_element(Ref, Refs);
@@ -740,11 +743,11 @@ plan_clears(UsageMap, Graph) ->
                           [] ->
                               Acc
                       end
-              end, #{}, UsageMap).
+              end, #{}, maps:iterator(UsageMap, ordered)).
 
 plan_clears_1([{From, To, branch} | Edges], ActiveRefs, UsageMap) ->
     %% Clear all references that are no longer active on the `To` block.
-    ToRefs = maps:get(To, UsageMap, sets:new([{version, 2}])),
+    ToRefs = maps:get(To, UsageMap, sets:new()),
     Refs = sets:subtract(ActiveRefs, ToRefs),
 
     {FuncId, FromLbl} = From,
@@ -790,7 +793,7 @@ insert_markers([], Blocks, Count) ->
 insert_reserve(Lbl, Dst, Anno, Blocks0, Count0) ->
     #{ Lbl := #b_blk{is=Is0}=Blk } = Blocks0,
 
-    Var = #b_var{name={'@ssa_recv_marker', Count0}},
+    Var = #b_var{name=Count0},
     Count = Count0 + 1,
 
     Reserve = #b_set{anno=Anno,op=recv_marker_reserve,args=[],dst=Var},
@@ -808,7 +811,7 @@ insert_reserve_is([I | Is], Reserve, Var) ->
 insert_bind(Lbl, Ref, Marker, Blocks0, Count0) ->
     #{ Lbl := #b_blk{is=Is0,last=Last}=Blk } = Blocks0,
 
-    Ignored = #b_var{name={'@ssa_ignored', Count0}},
+    Ignored = #b_var{name=Count0},
     Count = Count0 + 1,
 
     Bind = #b_set{ op=recv_marker_bind,
@@ -853,7 +856,7 @@ insert_clears(Clears0, Blocks0, Count0) ->
     beam_ssa:insert_on_edges(Insertions, Blocks0, Count).
 
 insert_clears_1([{From, To, Ref} | Clears], Count0, Acc) ->
-    Ignored = #b_var{name={'@ssa_ignored', Count0}},
+    Ignored = #b_var{name=Count0},
     Count = Count0 + 1,
 
     Clear = #b_set{op=recv_marker_clear,args=[Ref],dst=Ignored},

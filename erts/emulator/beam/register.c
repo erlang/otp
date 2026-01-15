@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -232,15 +234,15 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     
     rp = (RegProc*) hash_put(&process_reg, (void*) &r);
     if (proc && rp->p == proc) {
-	if (IS_TRACED_FL(proc, F_TRACE_PROCS)) {
+	if (ERTS_IS_P_TRACED_FL(proc, F_TRACE_PROCS)) {
 	    trace_proc(proc, ERTS_PROC_LOCK_MAIN,
                        proc, am_register, name);
 	}
 	proc->common.u.alive.reg = rp;
     }
     else if (port && rp->pt == port) {
-    	if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
-		trace_port(port, am_register, name);
+    	if (ERTS_IS_P_TRACED_FL(port, F_TRACE_PORTS)) {
+            trace_port(port, am_register, name, F_TRACE_PORTS);
 	}
 	port->common.u.alive.reg = rp;
     }
@@ -494,12 +496,12 @@ int erts_unregister_name(Process *c_p,
 
 	    rp->pt->common.u.alive.reg = NULL;
 
-	    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
+	    if (ERTS_IS_P_TRACED_FL(port, F_TRACE_PORTS)) {
                 if (current_c_p_locks) {
                     erts_proc_unlock(c_p, current_c_p_locks);
                     current_c_p_locks = 0;
                 }
-		trace_port(port, am_unregister, r.name);
+		trace_port(port, am_unregister, r.name, F_TRACE_PORTS);
 	    }
 
 	} else if (rp->p) {
@@ -512,7 +514,7 @@ int erts_unregister_name(Process *c_p,
 			       ERTS_PROC_LOCK_MAIN);
 	    current_c_p_locks = c_p_locks;
 	    rp->p->common.u.alive.reg = NULL;
-	    if (IS_TRACED_FL(rp->p, F_TRACE_PROCS)) {
+	    if (ERTS_IS_P_TRACED_FL(rp->p, F_TRACE_PROCS)) {
                 trace_proc(rp->p, (c_p == rp->p) ? c_p_locks : ERTS_PROC_LOCK_MAIN,
                            rp->p, am_unregister, r.name);
 	    }

@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 1997-2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,106 +28,81 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 1997-2006 Richard Carlsson
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @end
-%% =====================================================================
-
-%% @doc Inserting comments into abstract Erlang syntax trees
-%%
-%% <p>This module contains functions for inserting comments, described
-%% by position, indentation and text, as attachments on an abstract
-%% syntax tree, at the correct places.</p>
+%% %CopyrightEnd%
 
 -module(erl_recomment).
+-moduledoc """
+Inserting comments into abstract Erlang syntax trees
+
+This module contains functions for inserting comments, described by position,
+indentation and text, as attachments on an abstract syntax tree, at the correct
+places.
+""".
 
 -export([recomment_forms/2, quick_recomment_forms/2, recomment_tree/2]).
 
 
-%% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
-%% tree. See the {@link erl_syntax} module for details.
+-doc """
+An abstract syntax tree. See the `m:erl_syntax` module for details.
+""".
 
-%% =====================================================================
-%% @spec quick_recomment_forms(Forms, Comments::[Comment]) ->
-%%           syntaxTree()
-%%
-%%	    Forms = syntaxTree() | [syntaxTree()]
-%%	    Comment = {Line, Column, Indentation, Text}
-%%	    Line = integer()
-%%	    Column = integer()
-%%	    Indentation = integer()
-%%	    Text = [string()]
-%%
-%% @doc Like {@link recomment_forms/2}, but only inserts top-level
-%% comments. Comments within function definitions or declarations
-%% ("forms") are simply ignored.
+-type syntaxTree() :: erl_syntax:syntaxTree().
 
+-doc """
+Like `recomment_forms/2`, but only inserts top-level comments.
+
+Comments within function definitions or declarations ("forms") are
+simply ignored.
+""".
 -spec quick_recomment_forms(erl_syntax:forms(), [erl_comment_scan:comment()]) ->
-        erl_syntax:syntaxTree().
+        syntaxTree().
 
 quick_recomment_forms(Tree, Cs) ->
     recomment_forms(Tree, Cs, false).
 
 
-%% =====================================================================
-%% @spec recomment_forms(Forms, Comments::[Comment]) -> syntaxTree()
-%%
-%%	    Forms = syntaxTree() | [syntaxTree()]
-%%	    Comment = {Line, Column, Indentation, Text}
-%%	    Line = integer()
-%%	    Column = integer()
-%%	    Indentation = integer()
-%%	    Text = [string()]
-%%
-%% @doc Attaches comments to the syntax tree/trees representing a
-%% program. The given <code>Forms</code> should be a single syntax tree
-%% of type <code>form_list</code>, or a list of syntax trees
-%% representing "program forms". The syntax trees must contain valid
-%% position information (for details, see
-%% <code>recomment_tree/2</code>). The result is a corresponding syntax
-%% tree of type <code>form_list</code> in which all comments in the list
-%% <code>Comments</code> have been attached at the proper places.
-%%
-%% <p>Assuming <code>Forms</code> represents a program (or any sequence
-%% of "program forms"), any comments whose first lines are not directly
-%% associated with a specific program form will become standalone
-%% comments inserted between the neighbouring program forms.
-%% Furthermore, comments whose column position is less than or equal to
-%% one will not be attached to a program form that begins at a
-%% conflicting line number (this can happen with preprocessor-generated
-%% <code>line</code>-attributes).</p>
-%%
-%% <p>If <code>Forms</code> is a syntax tree of some other type than
-%% <code>form_list</code>, the comments will be inserted directly using
-%% <code>recomment_tree/2</code>, and any comments left over from that
-%% process are added as postcomments on the result.</p>
-%%
-%% <p>Entries in <code>Comments</code> represent multi-line comments.
-%% For each entry, <code>Line</code> is the line number and
-%% <code>Column</code> the left column of the comment (the column of the
-%% first comment-introducing "<code>%</code>" character).
-%% <code>Indentation</code> is the number of character positions between
-%% the last non-whitespace character before the comment (or the left
-%% margin) and the left column of the comment. <code>Text</code> is a
-%% list of strings representing the consecutive comment lines in
-%% top-down order, where each string contains all characters following
-%% (but not including) the comment-introducing "<code>%</code>" and up
-%% to (but not including) the terminating newline. (Cf. module
-%% <code>erl_comment_scan</code>.)</p>
-%%
-%% <p>Evaluation exits with reason <code>{bad_position, Pos}</code> if
-%% the associated position information <code>Pos</code> of some subtree
-%% in the input does not have a recognizable format, or with reason
-%% <code>{bad_tree, L, C}</code> if insertion of a comment at line
-%% <code>L</code>, column <code>C</code>, fails because the tree
-%% structure is ill-formed.</p>
-%%
-%% @see erl_comment_scan
-%% @see recomment_tree/2
-%% @see quick_recomment_forms/2
 
+-doc """
+Attaches comments to the syntax tree/trees representing a program.
+
+The given `Forms` should be a single syntax tree of type `form_list`,
+or a list of syntax trees representing "program forms". The syntax
+trees must contain valid position information (for details, see
+[`recomment_tree/2`](`recomment_tree/2`)). The result is a
+corresponding syntax tree of type `form_list` in which all comments in
+the list `Comments` have been attached at the proper places.
+
+Assuming `Forms` represents a program (or any sequence of "program forms"), any
+comments whose first lines are not directly associated with a specific program
+form will become standalone comments inserted between the neighbouring program
+forms. Furthermore, comments whose column position is less than or equal to one
+will not be attached to a program form that begins at a conflicting line number
+(this can happen with preprocessor-generated `line`\-attributes).
+
+If `Forms` is a syntax tree of some other type than `form_list`, the comments
+will be inserted directly using [`recomment_tree/2`](`recomment_tree/2`), and
+any comments left over from that process are added as postcomments on the
+result.
+
+Entries in `Comments` represent multi-line comments. For each entry, `Line` is
+the line number and `Column` the left column of the comment (the column of the
+first comment-introducing "`%`" character). `Indentation` is the number of
+character positions between the last non-whitespace character before the comment
+(or the left margin) and the left column of the comment. `Text` is a list of
+strings representing the consecutive comment lines in top-down order, where each
+string contains all characters following (but not including) the
+comment-introducing "`%`" and up to (but not including) the terminating newline.
+(see module `m:erl_comment_scan`.)
+
+Evaluation exits with reason `{bad_position, Pos}` if the associated position
+information `Pos` of some subtree in the input does not have a recognizable
+format, or with reason `{bad_tree, L, C}` if insertion of a comment at line `L`,
+column `C`, fails because the tree structure is ill-formed.
+
+_See also: _`m:erl_comment_scan`, `quick_recomment_forms/2`, `recomment_tree/2`.
+""".
 -spec recomment_forms(erl_syntax:forms(), [erl_comment_scan:comment()]) ->
-        erl_syntax:syntaxTree().
+        syntaxTree().
 
 recomment_forms(Tree, Cs) ->
     recomment_forms(Tree, Cs, true).
@@ -306,43 +290,30 @@ check_file_attr_2(L) ->
     end.
 
 
-%% =====================================================================
-%% @spec recomment_tree(Tree::syntaxTree(), Comments::[Comment]) ->
-%%           {syntaxTree(), [Comment]}
-%%
-%%	    Comment = {Line, Column, Indentation, Text}
-%%	    Line = integer()
-%%	    Column = integer()
-%%	    Indentation = integer()
-%%	    Text = [string()]
-%%
-%% @doc Attaches comments to a syntax tree. The result is a pair
-%% <code>{NewTree, Remainder}</code> where <code>NewTree</code> is the
-%% given <code>Tree</code> where comments from the list
-%% <code>Comments</code> have been attached at the proper places.
-%% <code>Remainder</code> is the list of entries in
-%% <code>Comments</code> which have not been inserted, because their
-%% line numbers are greater than those of any node in the tree. The
-%% entries in <code>Comments</code> are inserted in order; if two
-%% comments become attached to the same node, they will appear in the
-%% same order in the program text.
-%%
-%% <p>The nodes of the syntax tree must contain valid position
-%% information. This can be single integers, assumed to represent a line
-%% number, or 2- or 3-tuples where the first or second element is an
-%% integer, in which case the leftmost integer element is assumed to
-%% represent the line number. Line numbers less than one are ignored
-%% (usually, the default line number for newly created nodes is
-%% zero).</p>
-%%
-%% <p>For details on the <code>Line</code>, <code>Column</code> and
-%% <code>Indentation</code> fields, and the behaviour in case of errors,
-%% see <code>recomment_forms/2</code>.</p>
-%%
-%% @see recomment_forms/2
+-doc """
+Attaches comments to a syntax tree.
 
--spec recomment_tree(erl_syntax:syntaxTree(), [erl_comment_scan:comment()]) ->
-        {erl_syntax:syntaxTree(), [erl_comment_scan:comment()]}.
+The result is a pair `{NewTree, Remainder}` where `NewTree` is the
+given `Tree` where comments from the list `Comments` have been
+attached at the proper places. `Remainder` is the list of entries in
+`Comments` which have not been inserted, because their line numbers
+are greater than those of any node in the tree. The entries in
+`Comments` are inserted in order; if two comments become attached to
+the same node, they will appear in the same order in the program text.
+
+The nodes of the syntax tree must contain valid position information. This can
+be single integers, assumed to represent a line number, or 2- or 3-tuples where
+the first or second element is an integer, in which case the leftmost integer
+element is assumed to represent the line number. Line numbers less than one are
+ignored (usually, the default line number for newly created nodes is zero).
+
+For details on the `Line`, `Column` and `Indentation` fields, and the behaviour
+in case of errors, see [`recomment_forms/2`](`recomment_forms/2`).
+
+_See also: _`recomment_forms/2`.
+""".
+-spec recomment_tree(syntaxTree(), [erl_comment_scan:comment()]) ->
+        {syntaxTree(), [erl_comment_scan:comment()]}.
 
 recomment_tree(Tree, Cs) ->
     {Tree1, Cs1} = insert_comments(Cs, build_tree(Tree)),
@@ -612,7 +583,7 @@ anno(Location) ->
 	       max = 0           :: integer(),
 	       precomments  = [] :: [erl_comment_scan:comment()],
 	       postcomments = [] :: [erl_comment_scan:comment()],
-	       value             :: erl_syntax:syntaxTree()}).
+	       value             :: syntaxTree()}).
 
 -record(tree, {min = 0           :: integer(),
 	       max = 0           :: integer(),
@@ -625,7 +596,7 @@ anno(Location) ->
 
 -record(list, {min = 0           :: integer(),
 	       max = 0           :: integer(),
-	       subtrees = []     :: [erl_syntax:syntaxTree()]}).
+	       subtrees = []     :: [syntaxTree()]}).
 
 -type extendedSyntaxTree() :: #tree{} | #leaf{} | #list{}.
 
@@ -757,12 +728,6 @@ get_line(Node) ->
 	L when is_integer(L) ->
 	    L;
 	{L, _} when is_integer(L) ->
-	    L;
-	{_, L} when is_integer(L) ->
-	    L;
-	{L, _, _} when is_integer(L) ->
-	    L;
-	{_, L, _} when is_integer(L) ->
 	    L;
 	Pos ->
             try erl_anno:line(Pos) of

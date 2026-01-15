@@ -1,22 +1,25 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec spawn(Fun) -> pid() when Fun :: function().[0m
+[;1m  spawn(Fun)[0m
 
   Returns the process identifier of a new process started by the
   application of [;;4mFun[0m to the empty list [;;4m[][0m. Otherwise works like [;;4m[0m
   [;;4mspawn/3[0m.
 
-  [;1m-spec spawn(Node, Fun) -> pid() when Node :: node(), Fun :: function().[0m
+[;1m  spawn(Node, Fun)[0m
 
   Returns the process identifier of a new process started by the
   application of [;;4mFun[0m to the empty list [;;4m[][0m on [;;4mNode[0m. If [;;4mNode[0m
   does not exist, a useless pid is returned. Otherwise works like [;;4m[0m
   [;;4mspawn/3[0m.
 
-  [;1m-spec spawn(Module, Function, Args) -> pid()[0m
-  [;1m               when[0m
-  [;1m                   Module :: module(),[0m
-  [;1m                   Function :: atom(),[0m
-  [;1m                   Args :: [term()].[0m
+[;1m  spawn(Module, Function, Args)[0m
 
   Returns the process identifier of a new process started by the
   application of [;;4mModule:Function[0m to [;;4mArgs[0m.
@@ -34,12 +37,7 @@
     > spawn(speed, regulator, [high_speed, thin_cut]).
     <0.13.1>
 
-  [;1m-spec spawn(Node, Module, Function, Args) -> pid()[0m
-  [;1m               when[0m
-  [;1m                   Node :: node(),[0m
-  [;1m                   Module :: module(),[0m
-  [;1m                   Function :: atom(),[0m
-  [;1m                   Args :: [term()].[0m
+[;1m  spawn(Node, Module, Function, Args)[0m
 
   Returns the process identifier (pid) of a new process started by
   the application of [;;4mModule:Function[0m to [;;4mArgs[0m on [;;4mNode[0m. If [;;4mNode[0m

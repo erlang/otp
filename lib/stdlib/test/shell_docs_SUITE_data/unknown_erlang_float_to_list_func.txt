@@ -1,16 +1,17 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec float_to_list(Float) -> string() when Float :: float().[0m
+[;1m  float_to_list(Float)[0m
 
-  The same as [;;4mfloat_to_list(Float,[{scientific,20}])[0m.
+  There is no documentation for float_to_list(Float, [{scientific,
+  20}])
 
-  [;1m-spec float_to_list(Float, Options) -> string()[0m
-  [;1m                       when[0m
-  [;1m                           Float :: float(),[0m
-  [;1m                           Options :: [Option],[0m
-  [;1m                           Option ::[0m
-  [;1m                               {decimals, Decimals :: 0..253} |[0m
-  [;1m                               {scientific, Decimals :: 0..249} |[0m
-  [;1m                               compact | short.[0m
+[;1m  float_to_list(Float, Options)[0m
 
 [;;4mSince[0m:
   OTP R16B
@@ -62,5 +63,5 @@
     "3.00000000000000044409e-01"
 
   In the last example, [;;4mfloat_to_list(0.1+0.2)[0m evaluates to [;;4m[0m
-  [;;4m"3.00000000000000044409e-01"[0m. The reason for this is explained in 
+  [;;4m"3.00000000000000044409e-01"[0m. The reason for this is explained in
   Representation of Floating Point Numbers.

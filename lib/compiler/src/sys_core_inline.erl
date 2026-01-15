@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,6 +43,7 @@
 %% It is not clear that inlining will give you very much.
 
 -module(sys_core_inline).
+-moduledoc false.
 
 -export([module/2]).
 
@@ -122,7 +125,7 @@ inline(Fs0, St0) ->
     %% Use fixed inline functions on all functions.
     Fs = [inline_func(F, Is1) || F <- Fs2],
     %% Regenerate module body.
-    [Def || #fstat{def=Def} <- Fs].
+    [Def || #fstat{def=Def} <:- Fs].
 
 %% is_inlineable(Fstat, Thresh, [Inline]) -> boolean().
 

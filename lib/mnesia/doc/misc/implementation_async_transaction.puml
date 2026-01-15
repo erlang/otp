@@ -1,0 +1,37 @@
+@startuml
+hide footbox
+title Asynchronous transaction commit protocol
+
+box "Local node" #LightBlue
+participant Client
+participant mnesia_tm as LocalTM
+end box
+
+box "Remote nodes"
+participant mnesia_locker as RemoteLocker
+participant mnesia_tm as RemoteTM
+end box
+
+Client -> LocalTM: Ask for transaction ID
+Client <- LocalTM: Transaction ID & Store
+activate Client
+Client -> RemoteLocker: Acquire read lock
+activate RemoteLocker #EEBBBB
+Client <- RemoteLocker: Value or instruction to restart transaction
+Client <- Client: Patch value against transaction store
+Client -> RemoteLocker: Acquire write locks on all nodes
+activate RemoteLocker #DarkSalmon
+Client <- RemoteLocker: "ok" or instruction to restart transaction
+Client <- Client: Read and patch data into transaction\nstore, and collect every update done in it
+Client -> RemoteTM: Ask nodes with table copies for commit
+activate RemoteTM
+Client <- RemoteTM: "ok" for commit
+Client -> RemoteTM: Instruct to commit
+deactivate RemoteTM
+Client <- Client: Log commit decision, commit locally,\nupdate SNMP, indices and checkpoints,\nnotify subscribers
+Client -> RemoteLocker: Release locks
+deactivate RemoteLocker
+deactivate RemoteLocker
+Client -> LocalTM: Release transaction
+deactivate Client
+@enduml

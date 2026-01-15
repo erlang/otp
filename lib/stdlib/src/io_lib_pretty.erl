@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,20 +16,24 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(io_lib_pretty).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 %%% Pretty printing Erlang terms
 %%%
 %%% In this module "print" means the formatted printing while "write"
 %%% means just writing out onto one line.
 
--export([print/1,print/2,print/3,print/4,print/5,print/6]).
+-export([print/1,print/2,print/3,print/4,print/5,print/6,
+         print_bin/2]).
 
 %% To be used by io_lib only.
--export([intermediate/7, write/1]).
+-export([intermediate/7, write/1, write/2]).
 
 %%%
 %%% Exported functions
@@ -67,6 +73,23 @@ print(Term) ->
                 | {'strings', boolean()}
                 | {'maps_order', maps:iterator_order()}.
 -type options() :: [option()].
+-type options_map() :: map().
+
+-spec print_bin(term(), options_map()) -> {unicode:unicode_binary(), Sz::integer(), Col::integer()}.
+print_bin(Term, Options) when is_map(Options) ->
+    Col = maps:get(column, Options, 1),
+    Ll = maps:get(line_length, Options, 80),
+    D = maps:get(depth, Options, -1),
+    M = maps:get(line_max_chars, Options, -1),
+    T = maps:get(chars_limit, Options, -1),
+    RecDefFun = maps:get(record_print_fun, Options, no_fun),
+    InEncoding = maps:get(encoding, Options, epp:default_encoding()),
+    Strings = maps:get(strings, Options, true),
+    MapsOrder = maps:get(maps_order, Options, undefined),
+    print_bin(Term, Col, Ll, D, M, T, RecDefFun, {InEncoding, utf8}, Strings, MapsOrder);
+print_bin(Term, Options) when is_list(Options) ->
+    print_bin(Term, maps:from_list(Options)).
+
 
 -spec print(term(), rec_print_fun()) -> chars();
            (term(), options()) -> chars().
@@ -115,15 +138,15 @@ print(Term, Col, Ll, D, M, RecDefFun) ->
 %% M = CHAR_MAX (-1 if no max, 60 when printing from shell)
 print(_, _, _, 0, _M, _T, _RF, _Enc, _Str, _Ord) -> "...";
 print(_, _, _, _D, _M, 0, _RF, _Enc, _Str, _Ord) -> "...";
-print(Term, Col, Ll, D, M, T, RecDefFun, Enc, Str, Ord) when Col =< 0 ->
+print(Term, Col, Ll, D, M, T, RecDefFun, Enc, Str, Ord)
+  when Col =< 0 ->
     %% ensure Col is at least 1
     print(Term, 1, Ll, D, M, T, RecDefFun, Enc, Str, Ord);
-print(Atom, _Col, _Ll, _D, _M, _T, _RF, Enc, _Str, _Ord) when is_atom(Atom) ->
+print(Atom, _Col, _Ll, _D, _M, _T, _RF, Enc, _Str, _Ord)
+  when is_atom(Atom) ->
     write_atom(Atom, Enc);
-print(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str, Ord) when is_tuple(Term);
-                                                         is_list(Term);
-                                                         is_map(Term);
-                                                         is_bitstring(Term) ->
+print(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str, Ord)
+  when is_tuple(Term); is_list(Term); is_map(Term); is_bitstring(Term) ->
     %% preprocess and compute total number of chars
     {_, Len, _Dots, _} = If =
         case T < 0 of
@@ -134,20 +157,66 @@ print(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str, Ord) when is_tuple(Term);
     M = max_cs(M0, Len),
     if
         Ll =:= 0 ->
-            write(If);
+            write(If, Enc);
         Len < Ll - Col, Len =< M ->
             %% write the whole thing on a single line when there is room
-            write(If);
+            write(If, Enc);
         true ->
             %% compute the indentation TInd for tagged tuples and records
-            TInd = while_fail([-1, 4], 
-                              fun(I) -> cind(If, Col, Ll, M, I, 0, 0) end, 
+            TInd = while_fail([-1, 4],
+                              fun(I) -> cind(If, Col, Ll, M, I, 0, 0) end,
                               1),
             pp(If, Col, Ll, M, TInd, indent(Col), 0, 0)
     end;
 print(Term, _Col, _Ll, _D, _M, _T, _RF, _Enc, _Str, _Ord) ->
     %% atomic data types (bignums, atoms, ...) are never truncated
     io_lib:write(Term).
+
+print_bin(_, _Col, _, 0, _M, _T, _RF, _Enc, _Str, _Ord) ->
+    {~"...", 3, -3};
+print_bin(_, _Col, _, _D, _M, 0, _RF, _Enc, _Str, _Ord) ->
+    {~"...", 3, -3};
+print_bin(Term, Col, Ll, D, M, T, RecDefFun, Enc, Str, Ord)
+  when Col =< 0 ->
+    %% ensure Col is at least 1
+    print_bin(Term, 1, Ll, D, M, T, RecDefFun, Enc, Str, Ord);
+print_bin(Atom, _Col, _Ll, _D, _M, _T, _RF, {InEnc, _}, _Str, _Ord)
+  when is_atom(Atom) ->
+    {Bin, Sz} = io_lib:write_bin(Atom, -1, InEnc, undefined, -1),
+    {Bin, Sz, -Sz};
+print_bin(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str, Ord)
+  when is_tuple(Term); is_list(Term); is_map(Term); is_bitstring(Term) ->
+    %% preprocess and compute total number of chars
+    {_, Len, _Dots, _} = If =
+        case T < 0 of
+            true -> print_length(Term, D, T, RecDefFun, Enc, Str, Ord);
+            false -> intermediate(Term, D, T, RecDefFun, Enc, Str, Ord)
+        end,
+    %% use Len as CHAR_MAX if M0 = -1
+    M = max_cs(M0, Len),
+    if
+        Ll =:= 0 ->
+            {write_bin(If, <<>>), Len, -Len};
+        Len < Ll - Col, Len =< M ->
+            %% write the whole thing on a single line when there is room
+            {write_bin(If,<<>>), Len, -Len};
+        true ->
+            %% compute the indentation TInd for tagged tuples and records
+            TInd = while_fail([-1, 4],
+                              fun(I) -> cind(If, Col, Ll, M, I, 0, 0) end,
+                              1),
+            {Bin, NL, W} = pp_bin(If, Col, Ll, M, TInd, indent(Col), 0, 0, 0, 0, <<>>),
+            case NL > 0 of
+                true ->
+                    {Bin, Len+Col*NL, W-1};
+                false ->
+                    {Bin, Len, -W}
+            end
+    end;
+print_bin(Term, _Col, _Ll, _D, _M, _T, _RF, _Enc, _Str, _Ord) ->
+    %% atomic data types (bignums, atoms, ...) are never truncated
+    {Bin, Sz} = io_lib:write_bin(Term, -1, unicode, undefined, -1),
+    {Bin, Sz, -Sz}.
 
 %%%
 %%% Local functions
@@ -159,7 +228,7 @@ max_cs(M, Len) when M < 0 ->
 max_cs(M, _Len) ->
     M.
 
--define(ATM(T), is_list(element(1, T))).
+-define(ATM(T), (is_list(element(1, T)) orelse is_binary(element(1, T)))).
 -define(ATM_PAIR(Pair),
         ?ATM(element(2, element(1, Pair))) % Key
         andalso
@@ -331,9 +400,9 @@ pp_tail([{_, Len, _, _}=E | Es], Col0, Col, Ll, M, TInd, Ind, LD, S, W) ->
 pp_tail({dots, _, _, _}, _Col0, _Col, _Ll, _M, _TInd, _Ind, _LD, S, _W) ->
     [S | "..."];
 pp_tail({_, Len, _, _}=E, _Col0, Col, Ll, M, _TInd, _Ind, LD, S, W)
-                  when Len + 1 < Ll - Col - (LD + 1), 
-                       Len + 1 + W + (LD + 1) =< M, 
-                       ?ATM(E) ->
+  when Len + 1 < Ll - Col - (LD + 1),
+       Len + 1 + W + (LD + 1) =< M,
+       ?ATM(E) ->
     [S | write(E)];
 pp_tail(E, Col0, _Col, Ll, M, TInd, Ind, LD, S, _W) ->
     [S, $\n, Ind | pp(E, Col0, Ll, M, TInd, Ind, LD + 1, 0)].
@@ -368,7 +437,256 @@ pp_binary(S, N, _N0, Ind) ->
             S
     end.
 
+
+-define(IND(Spaces), (list_to_binary(Spaces))/binary).
+
+pp_bin({_S,Len,_,_} = If, Col, Ll, M, _TInd, _Ind, LD, NL, W, Pos, Acc)
+  when Len < Ll - Col - LD, Len + W + LD =< M ->
+    {write_bin(If, Acc), NL, Pos+Len};
+pp_bin({{list,L}, _Len, _, _}, Col, Ll, M, TInd, Ind, LD, NL, W, Pos, Acc) ->
+    pp_list_bin(L, Col+1, Ll, M, TInd, indent(1, Ind), LD, $|, $], NL, W+1, Pos+1,
+                <<Acc/binary, $[>>);
+pp_bin({{tuple,true,L}, _Len, _, _}, Col, Ll, M, TInd, Ind, LD, NL, W, Pos, Acc) ->
+    pp_tag_tuple_bin(L, Col, Ll, M, TInd, Ind, LD, NL, W+1, Pos+1,
+                     <<Acc/binary, ${>>);
+pp_bin({{tuple,false,L}, _Len, _, _}, Col, Ll, M, TInd, Ind, LD, NL, W, Pos, Acc) ->
+    pp_list_bin(L, Col+1, Ll, M, TInd, indent(1, Ind), LD, $,, $}, NL, W+1, Pos+1,
+                <<Acc/binary, ${>>);
+pp_bin({{map,Pairs}, _Len, _, _}, Col, Ll, M, TInd, Ind, LD, NL, W, Pos, Acc) ->
+    pp_map_bin(Pairs, Col+2, Ll, M, TInd, indent(2, Ind), LD, NL, W+2, Pos,
+               <<Acc/binary, $#, ${>>);
+pp_bin({{record,[{Name0,NLen} | L]}, _Len, _, _}, Col, Ll, M, TInd, Ind, LD, NL, W, Pos, Acc) ->
+    Name = unicode:characters_to_binary(Name0),
+    pp_record_bin(L, NLen, Col, Ll, M, TInd, Ind, LD, NL, W+NLen+1, Pos+NLen+1,
+                  <<Acc/binary, Name/binary, ${>>);
+pp_bin({{bin,S}, _Len, _, _}, Col, Ll, M, _TInd, Ind, LD, NL, W, Pos, Acc) ->
+    pp_binary_bin(S, Col+2, Ll, M, indent(2, Ind), LD, NL, W, Pos, Acc);
+pp_bin({S,Len,_,_}, _Col, _Ll, _M, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    Bin = unicode:characters_to_binary(S),
+    {<<Acc/binary, Bin/binary>>, NL, Pos+Len}.
+
+%%  Print a tagged tuple by indenting the rest of the elements
+%%  differently to the tag. Tuple has size >= 2.
+pp_tag_tuple_bin({dots, _, _, _}, _Col, _Ll, _M, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, "...}">>, NL, Pos+4};
+pp_tag_tuple_bin([{Tag0,Tlen,_,_} | L], Col, Ll, M, TInd, Ind, LD, NL, W, Pos, Acc) ->
+    %% this uses TInd
+    TagInd = Tlen+2,
+    Tcol = Col+TagInd,
+    Tag = unicode:characters_to_binary(Tag0),
+    S = $,,
+    if
+        TInd > 0, TagInd > TInd ->
+            Col1 = Col+TInd,
+            Indent = indent(TInd, Ind),
+            pp_tail_bin(L, Col1, Tcol, Ll, M, TInd, Indent, LD, S, $}, NL, W+Tlen, Pos+Tlen,
+                        <<Acc/binary, Tag/binary>>);
+        true ->
+            Indent = indent(TagInd, Ind),
+            pp_list_bin(L, Tcol, Ll, M, TInd, Indent, LD, S, $}, NL, W+Tlen+1, Pos+Tlen+1,
+                        <<Acc/binary, Tag/binary, S>>)
+    end.
+
+pp_map_bin([], _Col, _Ll, _M, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, $}>>, NL, Pos+1};                           % cannot happen
+pp_map_bin({dots, _, _, _}, _Col, _Ll, _M, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, "...}">>, NL, Pos+4};                       % cannot happen
+pp_map_bin([P | Ps], Col, Ll, M, TInd, Ind, LD, NL0, W, Pos0, Acc) ->
+    {PS, NL, Pos, PW} = pp_pair_bin(P, Col, Ll, M, TInd, Ind, last_depth(Ps, LD), NL0, W, Pos0, Acc),
+    pp_pairs_tail_bin(Ps, Col, Col+PW, Ll, M, TInd, Ind, LD, NL, PW, Pos, PS).
+
+pp_pairs_tail_bin([], _Col0, _Col, _Ll, _M, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, $}>>, NL, Pos+1};
+pp_pairs_tail_bin({dots, _, _, _}, _Col0, _Col, _M, _Ll, _TInd, _Ind, _L, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, ",...}">>, NL, Pos+5};
+pp_pairs_tail_bin([{_, Len, _, _}=P | Ps], Col0, Col, Ll, M, TInd, Ind, LD, NL0, W, Pos, Acc) ->
+    LD1 = last_depth(Ps, LD),
+    ELen = 1+Len,
+    if
+        LD1 =:= 0, ELen+1 < Ll-Col, W+ELen+1 =< M, ?ATM_PAIR(P);
+        LD1 > 0, ELen < Ll-Col-LD1, W+ELen+LD1 =< M, ?ATM_PAIR(P) ->
+            pp_pairs_tail_bin(Ps, Col0, Col+ELen, Ll, M, TInd, Ind, LD, NL0, W+ELen, Pos+ELen,
+                              write_bin(P, <<Acc/binary, $,>>));
+        true ->
+            {PS, NL, Pos1, PW} = pp_pair_bin(P, Col0, Ll, M, TInd, Ind, LD1, NL0+1, 0, Col0,
+                                             <<Acc/binary, $,, $\n, ?IND(Ind)>>),
+            pp_pairs_tail_bin(Ps, Col0, Col0+PW, Ll, M, TInd, Ind, LD, NL, PW, Pos1, PS)
+    end.
+
+pp_pair_bin({_, Len, _, _}=Pair, Col, Ll, M, _TInd, _Ind, LD, NL, W, Pos, Acc)
+  when Len < Ll - Col - LD, Len+W+LD =< M ->
+    {write_bin(Pair, Acc),
+     NL,
+     Len+Pos,
+     if
+         ?ATM_PAIR(Pair) ->
+             Len;
+         true ->
+             Ll % force nl
+     end};
+pp_pair_bin({{map_pair, K, V}, _Len, _, _}, Col0, Ll, M, TInd, Ind0, LD, NL0, W, Pos0, Acc0) ->
+    I = map_value_indent(TInd),
+    Ind = indent(I, Ind0),
+    {Acc1, NL1, _} = pp_bin(K, Col0, Ll, M, TInd, Ind0, LD, NL0, W, Pos0, Acc0),
+    {Acc2, NL, Pos} = pp_bin(V, Col0+I, Ll, M, TInd, Ind, LD, NL1+1, 0, Col0+I,
+                             <<Acc1/binary, " =>\n", ?IND(Ind)>>),
+    {Acc2, NL, Pos, Ll}.
+
+pp_record_bin([], _Nlen, _Col, _Ll, _M, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, $}>>, NL, Pos+1};
+pp_record_bin({dots, _, _, _}, _Nlen, _Col, _Ll, _M, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, "...}">>, NL, Pos+4};
+pp_record_bin([F | Fs], Nlen, Col0, Ll, M, TInd, Ind0, LD, NL0, W0, Pos0, Acc) ->
+    Nind = Nlen+1,
+    {Col, Ind, S, W} = rec_indent(Nind, TInd, Col0, Ind0, W0),
+    {Pos1, NL1} = if W == 0 -> {Col, NL0+1}; true -> {Pos0, NL0} end,
+    {FS, NL, Pos, FW} = pp_field_bin(F, Col, Ll, M, TInd, Ind, last_depth(Fs, LD), NL1, W, Pos1,
+                                     <<Acc/binary, ?IND(S)>>),
+    pp_fields_tail_bin(Fs, Col, Col+FW, Ll, M, TInd, Ind, LD, NL, W+FW, Pos, FS).
+
+pp_fields_tail_bin([], _Col0, _Col, _Ll, _M, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, $}>>, NL, Pos+1};
+pp_fields_tail_bin({dots, _, _ ,_}, _Col0, _Col, _M, _Ll, _TInd, _Ind, _LD, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, ",...}">>, NL, Pos+5};
+pp_fields_tail_bin([{_, Len, _, _}=F | Fs], Col0, Col, Ll, M, TInd, Ind, LD, NL0, W, Pos0, Acc) ->
+    LD1 = last_depth(Fs, LD),
+    ELen = 1+Len,
+    if
+        LD1 =:= 0, ELen+1 < Ll-Col, W+ELen+1 =< M, ?ATM_FLD(F);
+        LD1 > 0, ELen < Ll-Col-LD1, W+ELen+LD1 =< M, ?ATM_FLD(F) ->
+            pp_fields_tail_bin(Fs, Col0, Col+ELen, Ll, M, TInd, Ind, LD, NL0, W+ELen, Pos0+ELen,
+                               write_field_bin(F, <<Acc/binary, $,>>));
+        true ->
+            {FS, NL, Pos, FW} = pp_field_bin(F, Col0, Ll, M, TInd, Ind, LD1, NL0+1, 0, Col0,
+                                             <<Acc/binary, $,, $\n, ?IND(Ind)>>),
+            pp_fields_tail_bin(Fs, Col0, Col0+FW, Ll, M, TInd, Ind, LD, NL, FW, Pos, FS)
+    end.
+
+pp_field_bin({_, Len, _, _}=Fl, Col, Ll, M, _TInd, _Ind, LD, NL, W, Pos, Acc)
+  when Len < Ll-Col-LD, Len+W+LD =< M ->
+    {write_field_bin(Fl, Acc),
+     NL,
+     Len+Pos,
+     if
+         ?ATM_FLD(Fl) -> Len;
+         true -> Ll % force nl
+     end};
+pp_field_bin({{field, Name0, NameL, F},_,_, _}, Col0, Ll, M, TInd, Ind0, LD, NL0, W0, Pos0, Acc0) ->
+    {Col, Ind, S, W} = rec_indent(NameL, TInd, Col0, Ind0, W0+NameL),
+    Name = unicode:characters_to_binary(Name0),
+    {Acc, NL, Pos} =
+        case W of
+            0 ->
+                Acc1 = <<Acc0/binary, Name/binary, " =", ?IND(S)>>,
+                pp_bin(F, Col, Ll, M, TInd, Ind, LD, NL0+1, W, Col, Acc1);
+            _ ->
+                Acc1 = <<Acc0/binary, Name/binary, " = ", ?IND(S)>>,
+                pp_bin(F, Col, Ll, M, TInd, Ind, LD, NL0, W, Pos0, Acc1)
+        end,
+    {Acc, NL, Pos, Ll}. % force nl
+
+pp_list_bin({dots, _, _, _}, _Col0, _Ll, _M, _TInd, _Ind, _LD, _S, C, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, "...", C>>, NL, Pos+4};
+pp_list_bin([E | Es], Col0, Ll, M, TInd, Ind, LD, S, C, NL0, W, Pos0, Acc) ->
+    {ES, NL, Pos, WE} = pp_element_bin(E, Col0, Ll, M, TInd, Ind, last_depth(Es, LD), NL0, W, Pos0, Acc),
+    pp_tail_bin(Es, Col0, Col0+WE, Ll, M, TInd, Ind, LD, S, C, NL, W+WE, Pos, ES).
+
+pp_tail_bin([], _Col0, _Col, _Ll, _M, _TInd, _Ind, _LD, _S, C, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, C>>, NL, Pos+1};
+pp_tail_bin([{_, Len, _, _}=E | Es], Col0, Col, Ll, M, TInd, Ind, LD, S, C, NL0, W, Pos0, Acc) ->
+    LD1 = last_depth(Es, LD),
+    ELen = 1+Len,
+    if
+        LD1 =:= 0, ELen+1 < Ll-Col, W+ELen+1 =< M, ?ATM(E);
+        LD1 > 0, ELen < Ll-Col-LD1, W+ELen+LD1 =< M, ?ATM(E) ->
+            pp_tail_bin(Es, Col0, Col+ELen, Ll, M, TInd, Ind, LD, S, C, NL0, W+ELen, Pos0+ELen,
+                        write_bin(E, <<Acc/binary, $,>>));
+        true ->
+            {ES, NL, Pos, WE} = pp_element_bin(E, Col0, Ll, M, TInd, Ind, LD1, NL0+1, 0, Col0,
+                                               <<Acc/binary, $,, $\n, ?IND(Ind)>>),
+            pp_tail_bin(Es, Col0, Col0+WE, Ll, M, TInd, Ind, LD, S, C, NL, WE, Pos, ES)
+    end;
+pp_tail_bin({dots, _, _, _}, _Col0, _Col, _Ll, _M, _TInd, _Ind, _LD, S, C, NL, _W, Pos, Acc) ->
+    {<<Acc/binary, S, "...", C>>, NL, Pos+5};
+pp_tail_bin({_, Len, _, _}=E, _Col0, Col, Ll, M, _TInd, _Ind, LD, S, C, NL, W, Pos, Acc)
+  when Len+1 < Ll - Col - (LD+1),
+       Len+1+W+(LD+1) =< M,
+       ?ATM(E) ->
+    Acc1 = write_bin(E, <<Acc/binary, S>>),
+    {<<Acc1/binary, C>>, NL, Pos+1+Len};
+pp_tail_bin(E, Col0, _Col, Ll, M, TInd, Ind, LD, S, C, NL0, _W, _Pos0, Acc) ->
+    {Acc1, NL, Pos} = pp_bin(E, Col0, Ll, M, TInd, Ind, LD+1, NL0+1, 0, Col0,
+                             <<Acc/binary, S, $\n, ?IND(Ind)>>),
+    {<<Acc1/binary, C>>, NL, Pos+1}.
+
+pp_element_bin({_, Len, _, _}=E, Col, Ll, M, _TInd, _Ind, LD, NL, W, Pos, Acc)
+  when Len < Ll - Col - LD, Len+W+LD =< M, ?ATM(E) ->
+    {write_bin(E, Acc), NL, Pos+Len, Len};
+pp_element_bin(E, Col, Ll, M, TInd, Ind, LD, NL0, W, Pos0, Acc) ->
+    {Acc1, NL, Pos} = pp_bin(E, Col, Ll, M, TInd, Ind, LD, NL0, W, Pos0, Acc),
+    {Acc1, NL, Pos, Ll}. % force nl
+
+pp_binary_bin(Orig, Col, Ll, M, Ind, LD, NL, W, Pos, Acc) ->
+    N = erlang:max(8, erlang:min(Ll - Col, M - 4 - W) - LD),
+    <<$<,$<,Rest/binary>> = Orig,
+    pp_binary_bin_ind(Rest, Orig, Ind, 0, 2, N, N, NL, Pos, Acc).
+
+pp_binary_bin_ind(<<_,$,, Rest/binary>>, Orig, Ind, S, I, N, N0, NL, Pos, Acc) ->
+    N1 = N-2,
+    case N1 < 0 of
+        false ->
+            pp_binary_bin_ind(Rest, Orig, Ind, S, I+2, N1, N0, NL, Pos, Acc);
+        true ->
+            Part = binary:part(Orig, S, I),
+            pp_binary_bin_ind(Rest, Orig, Ind, S+I, 2, N0-2, N0, NL+1, 0,
+                              <<Acc/binary, Part/binary, $\n, ?IND(Ind)>>)
+    end;
+pp_binary_bin_ind(<<_,_,$,, Rest/binary>>, Orig, Ind, S, I, N, N0, NL, Pos, Acc) ->
+    N1 = N-3,
+    case N1 < 0 of
+        false ->
+            pp_binary_bin_ind(Rest, Orig, Ind, S, I+3, N1, N0, NL, Pos, Acc);
+        true ->
+            Part = binary:part(Orig, S, I),
+            pp_binary_bin_ind(Rest, Orig, Ind, S+I, 3, N0-3, N0, NL+1, Pos,
+                              <<Acc/binary, Part/binary, $\n, ?IND(Ind)>>)
+    end;
+pp_binary_bin_ind(<<_,_,_,$,, Rest/binary>>, Orig, Ind, S, I, N, N0, NL, Pos, Acc) ->
+    N1 = N-4,
+    case N1 < 0 of
+        false ->
+            pp_binary_bin_ind(Rest, Orig, Ind, S, I+4, N1, N0, NL, Pos, Acc);
+        true ->
+            Part = binary:part(Orig, S, I),
+            pp_binary_bin_ind(Rest, Orig, Ind, S+I, 4, N0-4, N0, NL+1, Pos,
+                              <<Acc/binary, Part/binary, $\n, ?IND(Ind)>>)
+    end;
+pp_binary_bin_ind(Bin, Orig, Ind, S, I, N, _, NL, Pos0, Acc) ->
+    Col = iolist_size(Ind)+1,
+    Pos = if Pos0 =:= 0 -> Col; true -> Pos0 end,
+    case (byte_size(Bin)-2) > N of  %% Don't count bin closing ">>"
+        false when S =:= 0 ->
+            Sz = byte_size(Orig),
+            {<<Acc/binary, Orig/binary>>, NL, Pos+Sz};
+        false ->
+            Sz = byte_size(Orig)-S,
+            Part = binary:part(Orig, S, Sz),
+            {<<Acc/binary, Part/binary>>, NL, Pos+Sz};
+        true ->
+            Part1 = binary:part(Orig, S, I),
+            Sz = byte_size(Orig) - (S+I),
+            Part2 = binary:part(Orig, S+I, Sz),
+            {<<Acc/binary, Part1/binary, $\n, ?IND(Ind), Part2/binary>>,
+             NL+1, Col+Sz}
+    end.
+
 %% write the whole thing on a single line
+
+write(If, {_, utf8}) ->
+    write_bin(If, <<>>);
+write(If, _) ->
+    write(If).
+
 write({{tuple, _IsTagged, L}, _, _, _}) ->
     [${, write_list(L, $,), $}];
 write({{list, L}, _, _, _}) ->
@@ -418,6 +736,62 @@ write_tail({dots, _, _, _}, S) ->
 write_tail(E, S) ->
     [S | write(E)].
 
+
+%% write the whole thing on a single line
+write_bin({{tuple, _IsTagged, L}, _, _, _}, Acc) ->
+    write_list_bin(L, $,, $}, <<Acc/binary, ${>>);
+write_bin({{list, L}, _, _, _}, Acc) ->
+    write_list_bin(L, $|, $], <<Acc/binary, $[>>);
+write_bin({{map, Pairs}, _, _, _}, Acc) ->
+    write_list_bin(Pairs, $,, $}, <<Acc/binary, "#{">>);
+write_bin({{map_pair, K, V}, _, _, _}, Acc0) ->
+    Acc = write_bin(K, Acc0),
+    write_bin(V, <<Acc/binary, " => ">>);
+write_bin({{record, [{Name0,_} | L]}, _, _, _}, Acc) ->
+    Name = unicode:characters_to_binary(Name0),
+    write_fields_bin(L, <<Acc/binary, Name/binary, ${>>);
+write_bin({{bin, S}, _, _, _}, Acc) ->
+    <<Acc/binary, S/binary>>;
+write_bin({S, _, _, _}, Acc) when is_binary(S) ->
+    <<Acc/binary, S/binary>>;
+write_bin({S, _, _, _}, Acc) ->
+    Bin = unicode:characters_to_binary(S),
+    <<Acc/binary, Bin/binary>>.
+
+write_fields_bin([], Acc) ->
+    <<Acc/binary, $}>>;
+write_fields_bin({dots, _, _, _}, Acc) ->
+    <<Acc/binary, "...}">>;
+write_fields_bin([F | Fs], Acc) ->
+    write_fields_tail_bin(Fs, write_field_bin(F, Acc)).
+
+write_fields_tail_bin([], Acc) ->
+    <<Acc/binary, $}>>;
+write_fields_tail_bin({dots, _, _, _}, Acc) ->
+    <<Acc/binary, ",...}">>;
+write_fields_tail_bin([F | Fs], Acc) ->
+    write_fields_tail_bin(Fs, write_field_bin(F, <<Acc/binary, $,>>)).
+
+write_field_bin({{field, Name, _NameL, F}, _, _, _}, Acc) ->
+    Bin = unicode:characters_to_binary(Name),
+    true = is_binary(Bin),
+    write_bin(F, <<Acc/binary, Bin/binary, " = ">>).
+
+write_list_bin({dots, _, _, _}, _S, End, Acc) ->
+    <<Acc/binary, "...", End>>;
+write_list_bin([E | Es], S, End, Acc) ->
+    write_tail_bin(Es, S, End, write_bin(E, Acc)).
+
+write_tail_bin([], _S, End, Acc) ->
+    <<Acc/binary, End>>;
+write_tail_bin([E | Es], S, End, Acc) ->
+    write_tail_bin(Es, S, End, write_bin(E, <<Acc/binary, $,>>));
+write_tail_bin({dots, _, _, _}, S, End, Acc) ->
+    <<Acc/binary, S, "...", End>>;
+write_tail_bin(E, S, End, Acc) ->
+    Bin = write_bin(E, <<Acc/binary, S>>),
+    <<Bin/binary, End>>.
+
 -type more() :: fun((chars_limit(), DeltaDepth :: non_neg_integer()) ->
                             intermediate_format()).
 
@@ -444,7 +818,9 @@ write_tail(E, S) ->
         }.
 
 -spec intermediate(term(), depth(), pos_integer(), rec_print_fun(),
-                   encoding(), boolean(), boolean()) -> intermediate_format().
+                   encoding() | {encoding, utf8},
+                   boolean(), maps:iterator_order() | undefined) ->
+          intermediate_format().
 
 intermediate(Term, D, T, RF, Enc, Str, Ord) when T > 0 ->
     D0 = 1,
@@ -459,8 +835,8 @@ intermediate(Term, D, T, RF, Enc, Str, Ord) when T > 0 ->
 find_upper(Lower, Term, T, Dl, Dd, D, RF, Enc, Str, Ord, LastLen) ->
     Dd2 = Dd * 2,
     D1 = case D < 0 of
-             true -> Dl + Dd2;
-             false -> min(Dl + Dd2, D)
+             true -> Dl+Dd2;
+             false -> min(Dl+Dd2, D)
          end,
     If = expand(Lower, T, D1 - Dl),
     case If of
@@ -487,7 +863,7 @@ search_depth(Lower, Upper, _Term, T, Dl, Du, _RF, _Enc, _Str, _Ord)
             Upper
     end;
 search_depth(Lower, Upper, Term, T, Dl, Du, RF, Enc, Str, Ord) ->
-    D1 = (Dl  + Du) div 2,
+    D1 = (Dl +Du) div 2,
     If = expand(Lower, T, D1 - Dl),
     case If of
 	{_, Len, _, _} when Len > T ->
@@ -520,14 +896,14 @@ print_length(List, D, T, RF, Enc, Str, Ord) when is_list(List) ->
     case Str andalso printable_list(List, D, T, Enc) of
         true ->
             %% print as string, escaping double-quotes in the list
-            S = write_string(List, Enc),
-            {S, io_lib:chars_length(S), 0, no_more};
+            {S, Len} = write_string(List, Enc),
+            {S, Len, 0, no_more};
         {true, Prefix} ->
             %% Truncated lists when T < 0 could break some existing code.
-            S = write_string(Prefix, Enc),
+            {S, Len} = write_string(Prefix, Enc),
             %% NumOfDots = 0 to avoid looping--increasing the depth
             %% does not make Prefix longer.
-            {[S | "..."], 3 + io_lib:chars_length(S), 0, no_more};
+            {[S | "..."], 3 + Len, 0, no_more};
         false ->
             case print_length_list(List, D, T, RF, Enc, Str, Ord) of
                 {What, Len, Dots, _More} when Dots > 0 ->
@@ -560,41 +936,7 @@ print_length(<<_/bitstring>> = Bin, 1, _T, RF, Enc, Str, Ord) ->
     More = fun(T1, Dd) -> ?FUNCTION_NAME(Bin, 1+Dd, T1, RF, Enc, Str, Ord) end,
     {"<<...>>", 7, 3, More};
 print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str, Ord) ->
-    D1 = D - 1,
-    case
-        Str andalso
-        (bit_size(Bin) rem 8) =:= 0 andalso
-        printable_bin0(Bin, D1, tsub(T, 6), Enc)
-    of
-        {true, List} when is_list(List) ->
-            S = io_lib:write_string(List, $"), %"
-            {[$<,$<,S,$>,$>], 4 + length(S), 0, no_more};
-        {false, List} when is_list(List) ->
-            S = io_lib:write_string(List, $"), %"
-            {[$<,$<,S,"/utf8>>"], 9 + io_lib:chars_length(S), 0, no_more};
-        {true, true, Prefix} ->
-            S = io_lib:write_string(Prefix, $"), %"
-            More = fun(T1, Dd) ->
-                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
-                   end,
-            {[$<,$<,S|"...>>"], 7 + length(S), 3, More};
-        {false, true, Prefix} ->
-            S = io_lib:write_string(Prefix, $"), %"
-            More = fun(T1, Dd) ->
-                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
-                   end,
-            {[$<,$<,S|"/utf8...>>"], 12 + io_lib:chars_length(S), 3, More};
-        false ->
-            case io_lib:write_binary(Bin, D, T) of
-                {S, <<>>} ->
-                    {{bin, S}, iolist_size(S), 0, no_more};
-                {S, _Rest} ->
-                    More = fun(T1, Dd) ->
-                                   ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
-                           end,
-                    {{bin, S}, iolist_size(S), 3, More}
-            end
-    end;    
+    print_length_binary(Bin, D, T, RF, Enc, Str, Ord);
 print_length(Term, _D, _T, _RF, _Enc, _Str, _Ord) ->
     S = io_lib:write(Term),
     %% S can contain unicode, so iolist_size(S) cannot be used here
@@ -734,12 +1076,87 @@ list_length_tail([{_, Len, Dots, _} | Es], Acc, DotsAcc) ->
 list_length_tail({_, Len, Dots, _}, Acc, DotsAcc) ->
     {Acc + 1 + Len, DotsAcc + Dots}.
 
+print_length_binary(Bin, D, T, RF, {InEnc, utf8} = Enc, Str, Ord) ->
+    D1 = D - 1,
+    case
+        Str andalso
+        (bit_size(Bin) rem 8) =:= 0 andalso
+        printable_bin0(Bin, D1, tsub(T, 6), InEnc, binary)
+    of
+        {true, _Bin} ->
+            {Utf8, Len} = io_lib:write_string_bin(Bin, [], latin1),
+            {[$<,$<,$",Utf8,$",$>,$>], 6 + Len, 0, no_more};
+        {false, _Bin} ->
+            {Utf8, Len} = io_lib:write_string_bin(Bin, [], unicode),
+            {[$<,$<,$",Utf8,"\"/utf8>>"], 11 + Len, 0, no_more};
+        {true, true, Prefix} ->
+            {S, Len} = io_lib:write_string_bin(Prefix, [], latin1), %"
+            More = fun(T1, Dd) ->
+                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
+                   end,
+            {[$<,$<,$",S|"\"...>>"], 9 + Len, 3, More};
+        {false, true, Prefix} ->
+            {S, Len} = io_lib:write_string_bin(Prefix, [], unicode), %"
+            More = fun(T1, Dd) ->
+                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
+                   end,
+            {[$<,$<,$",S|"\"/utf8...>>"], 14 + Len, 3, More};
+        false ->
+            case io_lib:write_binary_bin(Bin, D, T, <<>>) of
+                {S, <<>>} ->
+                    {{bin, S}, iolist_size(S), 0, no_more};
+                {S, _Rest} ->
+                    More = fun(T1, Dd) ->
+                                   ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
+                           end,
+                    {{bin, S}, iolist_size(S), 3, More}
+            end
+    end;
+print_length_binary(Bin, D, T, RF, Enc, Str, Ord) ->  %% list output
+    D1 = D - 1,
+    case
+        Str andalso
+        (bit_size(Bin) rem 8) =:= 0 andalso
+        printable_bin0(Bin, D1, tsub(T, 6), Enc, list)
+    of
+        {true, List} when is_list(List) ->
+            S = io_lib:write_string(List, $"), %"
+            {[$<,$<,S,$>,$>], 4 + length(S), 0, no_more};
+        {false, List} when is_list(List) ->
+            S = io_lib:write_string(List, $"), %"
+            {[$<,$<,S,"/utf8>>"], 9 + io_lib:chars_length(S), 0, no_more};
+        {true, true, Prefix} ->
+            S = io_lib:write_string(Prefix, $"), %"
+            More = fun(T1, Dd) ->
+                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
+                   end,
+            {[$<,$<,S|"...>>"], 7 + length(S), 3, More};
+        {false, true, Prefix} ->
+            S = io_lib:write_string(Prefix, $"), %"
+            More = fun(T1, Dd) ->
+                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
+                   end,
+            {[$<,$<,S|"/utf8...>>"], 12 + io_lib:chars_length(S), 3, More};
+        false ->
+            case io_lib:write_binary(Bin, D, T) of
+                {S, <<>>} ->
+                    {{bin, S}, iolist_size(S), 0, no_more};
+                {S, _Rest} ->
+                    More = fun(T1, Dd) ->
+                                   ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
+                           end,
+                    {{bin, S}, iolist_size(S), 3, More}
+            end
+    end.
+
 %% ?CHARS printable characters has depth 1.
 -define(CHARS, 4).
 
 %% only flat lists are "printable"
 printable_list(_L, 1, _T, _Enc) ->
     false;
+printable_list(L, D, T, {latin1, _}) ->
+    printable_list(L, D, T, latin1);
 printable_list(L, _D, T, latin1) when T < 0 ->
     io_lib:printable_latin1_list(L);
 printable_list(L, _D, T, latin1) when T >= 0 ->
@@ -784,7 +1201,7 @@ is_flat([C|Cs], N) when is_integer(C) ->
 is_flat(_, _N) ->
     false.
 
-printable_bin0(Bin, D, T, Enc) ->
+printable_bin0(Bin, D, T, InEnc, Type) ->
     Len = case D >= 0 of
               true ->
                   %% Use byte_size() also if Enc =/= latin1.
@@ -800,57 +1217,53 @@ printable_bin0(Bin, D, T, Enc) ->
               false when T >= 0 -> % cannot happen
                   T
           end,
-    printable_bin(Bin, Len, D, Enc).
+    printable_bin(Bin, Len, D, InEnc, Type).
 
-printable_bin(_Bin, 0, _D, _Enc) ->
+printable_bin(_Bin, 0, _D, _In, _Out) ->
     false;
-printable_bin(Bin, Len, D, latin1) ->
-    N = erlang:min(20, Len),
-    L = binary_to_list(Bin, 1, N),
-    case printable_latin1_list(L, N) of
-        all when N =:= byte_size(Bin)  ->
-            {true, L};
-        all when N =:= Len -> % N < byte_size(Bin)
-            {true, true, L};
-        all ->
-            case printable_bin1(Bin, 1 + N, Len - N) of
-                0 when byte_size(Bin) =:= Len ->
-                    {true, binary_to_list(Bin)};
-                NC when D > 0, Len - NC >= D ->
-                    {true, true, binary_to_list(Bin, 1, Len - NC)};
-                NC when is_integer(NC) ->
-                    false
+printable_bin(Bin, Len, D, latin1, Out) when is_binary(Bin) ->
+    case printable_latin1_bin(Bin, Len) of
+        all when Len =:= byte_size(Bin) ->
+            case Out of
+                binary -> {true, Bin};
+                list -> {true, binary_to_list(Bin)}
             end;
-        NC when is_integer(NC), D > 0, N - NC >= D ->
-            {true, true, binary_to_list(Bin, 1, N - NC)};
+        all ->
+            case Out of
+                binary -> {true, true, binary:part(Bin, 0, Len)};
+                list -> {true, true, binary_to_list(Bin, 1, Len)}
+            end;
+        NC when is_integer(NC), D > 0, Len - NC >= D ->
+            case Out of
+                binary -> {true, true, binary:part(Bin, 0, Len - NC)};
+                list -> {true, true, binary_to_list(Bin, 1, Len - NC)}
+            end;
         NC when is_integer(NC) ->
             false
     end;
-printable_bin(Bin, Len, D, _Uni) ->
-    case valid_utf8(Bin,Len) of
-	true ->
-	    case printable_unicode(Bin, Len, [], io:printable_range()) of
-		{_, <<>>, L} ->
-		    {byte_size(Bin) =:= length(L), L};
-		{NC, Bin1, L} when D > 0, Len - NC >= D ->
-		    {byte_size(Bin)-byte_size(Bin1) =:= length(L), true, L};
-		{_NC, _Bin, _L} ->
-		    false
-	    end;
-	false ->
-	    printable_bin(Bin, Len, D, latin1)
-    end.
-
-printable_bin1(_Bin, _Start, 0) ->
-    0;
-printable_bin1(Bin, Start, Len) ->
-    N = erlang:min(10000, Len),
-    L = binary_to_list(Bin, Start, Start + N - 1),
-    case printable_latin1_list(L, N) of
-        all ->
-            printable_bin1(Bin, Start + N, Len - N);
-        NC when is_integer(NC) ->
-            Len - (N - NC)
+printable_bin(Bin, Len, D, _Uni, Out) ->
+    case printable_unicode_bin(Bin, Len, io:printable_range()) of
+        not_utf8 ->
+            printable_bin(Bin, Len, D, latin1, Out);
+        {N, <<>>} when (Len - N) =:= byte_size(Bin) ->  %% Ascii only
+            case Out of
+                binary ->  {true, Bin};
+                list -> {true, binary_to_list(Bin)}
+            end;
+        {_N, <<>>} ->
+            case Out of
+                binary -> {false, Bin};
+                list -> {false, unicode:characters_to_list(Bin)}
+            end;
+        {N, RestBin} when D > 0, Len - N >= D ->
+            Sz = byte_size(Bin)-byte_size(RestBin),
+            Part = binary:part(Bin, 0, Sz),
+            case Out of
+                binary -> {Sz =:= (Len - N), true, Part};
+                list -> {Sz =:= (Len - N), true, unicode:characters_to_list(Part)}
+            end;
+        _ ->
+            false
     end.
 
 %% -> all | integer() >=0. Adopted from io_lib.erl.
@@ -869,24 +1282,25 @@ printable_latin1_list([$\e | Cs], N) -> printable_latin1_list(Cs, N - 1);
 printable_latin1_list([], _) -> all;
 printable_latin1_list(_, N) -> N.
 
-valid_utf8(<<>>,_) ->
-    true;
-valid_utf8(_,0) ->
-    true;
-valid_utf8(<<_/utf8, R/binary>>,N) ->
-    valid_utf8(R,N-1);
-valid_utf8(_,_) ->
-    false.
+printable_latin1_bin(<<>>, _) -> all;
+printable_latin1_bin(_, 0) -> 0;
+printable_latin1_bin(<<Char:8, Rest/binary>>, N) ->
+    case printable_char(Char, latin1) of
+        true -> printable_latin1_bin(Rest, N-1);
+        false -> N
+    end.
 
-printable_unicode(<<C/utf8, R/binary>>=Bin, I, L, Range) when I > 0 ->
-    case printable_char(C,Range) of
-        true ->
-            printable_unicode(R, I - 1, [C | L],Range);
-        false ->
-            {I, Bin, lists:reverse(L)}
+printable_unicode_bin(<<C/utf8, R/binary>>=Bin, I, Range) when I > 0 ->
+    case printable_char(C, Range) of
+        true -> printable_unicode_bin(R, I-1, Range);
+        false -> {I, Bin}
     end;
-printable_unicode(Bin, I, L,_) ->
-    {I, Bin, lists:reverse(L)}.
+printable_unicode_bin(<<_/utf8, _/binary>>=Bin, I, _Range) ->
+    {I, Bin};
+printable_unicode_bin(<<>>, I, _Range) ->
+    {I, <<>>};
+printable_unicode_bin(_, _, _) ->
+    not_utf8.
 
 printable_char($\n,_) -> true;
 printable_char($\r,_) -> true;
@@ -906,13 +1320,19 @@ printable_char(C,unicode) ->
 
 write_atom(A, latin1) ->
     io_lib:write_atom_as_latin1(A);
+write_atom(A, {latin1, _}) ->
+    io_lib:write_atom_as_latin1(A);
 write_atom(A, _Uni) ->
     io_lib:write_atom(A).
 
-write_string(S, latin1) ->
-    io_lib:write_latin1_string(S, $"); %"
-write_string(S, _Uni) ->
-    io_lib:write_string(S, $"). %"
+write_string(S0, latin1) ->
+    S = io_lib:write_latin1_string(S0, $"), %"
+    {S, io_lib:chars_length(S)};
+write_string(S0, {InEnc, _Out}) ->
+    io_lib:write_string_bin(S0, $", InEnc); %"
+write_string(S0, _Uni) ->
+    S = io_lib:write_string(S0, $"), %"
+    {S, io_lib:chars_length(S)}.
 
 expand({_, _, _Dots=0, no_more} = If, _T, _Dd) -> If;
 expand({{tuple,IsTagged,L}, _Len, _, no_more}, T, Dd) ->

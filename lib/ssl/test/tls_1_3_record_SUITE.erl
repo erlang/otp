@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,8 +57,8 @@ all() ->
      '0_RTT_handshake'].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try (ok == crypto:start()) andalso ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
+    catch application:stop(crypto),
+    try (ok == application:start(crypto)) andalso ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
 	true ->
 	    ssl_test_lib:clean_start(),
             Config;
@@ -88,8 +90,10 @@ encode_decode(_Config) ->
                      <<197,54,168,218,54,91,157,58,30,201,197,142,51,58,53,231,228,
                        131,57,122,170,78,82,196,30,48,23,16,95,255,185,236>>,
                      undefined,undefined,undefined,16},
-                client_verify_data => undefined,compression_state => undefined,
-                mac_secret => undefined,secure_renegotiation => undefined,
+                mac_secret => undefined,
+                reneg => #{secure_renegotiation => undefined,
+                           client_verify_data => undefined,
+                           server_verify_data => undefined},
                 security_parameters =>
                     #security_parameters{
                        cipher_suite          = <<19,2>>,
@@ -106,10 +110,12 @@ encode_decode(_Config) ->
                        server_random         =
                            <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
                              147,61,168,145,177,118,160,153,33,53,48,108,191,174>>},
-                sequence_number => 0,server_verify_data => undefined,
-                pending_early_data_size => 0,
-                trial_decryption => false,
-                early_data_accepted => false},
+                sequence_number => 0,
+                early_data => #{
+                                pending_early_data_size => 0,
+                                trial_decryption => false,
+                                early_data_accepted => false}
+               },
           current_write =>
               #{beast_mitigation => one_n_minus_one,
                 cipher_state =>
@@ -119,8 +125,10 @@ encode_decode(_Config) ->
                      <<197,54,168,218,54,91,157,58,30,201,197,142,51,58,53,231,228,
                        131,57,122,170,78,82,196,30,48,23,16,95,255,185,236>>,
                      undefined,undefined,undefined,16},
-                client_verify_data => undefined,compression_state => undefined,
-                mac_secret => undefined,secure_renegotiation => undefined,
+                mac_secret => undefined,
+                reneg => #{secure_renegotiation => undefined,
+                           client_verify_data => undefined,
+                           server_verify_data => undefined},
                 security_parameters =>
                     #security_parameters{
                        cipher_suite          = <<19,2>>,
@@ -137,7 +145,7 @@ encode_decode(_Config) ->
                      server_random         =
                            <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
                              147,61,168,145,177,118,160,153,33,53,48,108,191,174>>},
-                sequence_number => 0,server_verify_data => undefined},max_fragment_length => undefined},
+                sequence_number => 0},max_fragment_length => undefined},
 
     PlainText = [11,
                  <<0,2,175>>,
@@ -1429,11 +1437,11 @@ finished_verify_data(_Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
-hexstr2int(S) ->
-    B = hexstr2bin(S),
-    Bits = byte_size(B) * 8,
-    <<Integer:Bits/integer>> = B,
-    Integer.
+%% hexstr2int(S) ->
+%%     B = hexstr2bin(S),
+%%     Bits = byte_size(B) * 8,
+%%     <<Integer:Bits/integer>> = B,
+%%     Integer.
 
 hexstr2bin(S) when is_binary(S) ->
     hexstr2bin(S, <<>>);

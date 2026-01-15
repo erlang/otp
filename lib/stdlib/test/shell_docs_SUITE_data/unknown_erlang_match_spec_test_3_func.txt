@@ -1,28 +1,24 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:match_spec_test(MatchAgainst, MatchSpec, Type) ->[0m
-  [;1m                                TestResult[0m
-  [;1m                                when[0m
-  [;1m                                    MatchAgainst :: [term()] | tuple(),[0m
-  [;1m                                    MatchSpec :: term(),[0m
-  [;1m                                    Type :: table | trace,[0m
-  [;1m                                    TestResult ::[0m
-  [;1m                                        {ok,[0m
-  [;1m                                         term(),[0m
-  [;1m                                         [return_trace],[0m
-  [;1m                                         [{error | warning, string()}]} |[0m
-  [;1m                                        {error,[0m
-  [;1m                                         [{error | warning, string()}]}.[0m
+[;1m  match_spec_test(MatchAgainst, MatchSpec, Type)[0m
 
 [;;4mSince[0m:
   OTP 19.0
 
   Tests a match specification used in calls to [;;4mets:select/2[0m and [;;4m[0m
-  [;;4merlang:trace_pattern/3[0m. The function tests both a match
-  specification for "syntactic" correctness and runs the match
-  specification against the object. If the match specification
-  contains errors, the tuple [;;4m{error, Errors}[0m is returned, where [;;4m[0m
-  [;;4mErrors[0m is a list of natural language descriptions of what was
-  wrong with the match specification.
+  [;;4mtrace:function/4[0m.
+
+  The function tests both a match specification for "syntactic"
+  correctness and runs the match specification against the object.
+  If the match specification contains errors, the tuple [;;4m{error,[0m
+  [;;4mErrors}[0m is returned, where [;;4mErrors[0m is a list of natural language
+  descriptions of what was wrong with the match specification.
 
   If [;;4mType[0m is [;;4mtable[0m, the object to match against is to be a
   tuple. The function then returns [;;4m{ok,Result,[],Warnings}[0m, where [;;4m[0m

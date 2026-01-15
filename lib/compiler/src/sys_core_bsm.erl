@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,7 @@
 
 
 -module(sys_core_bsm).
+-moduledoc false.
 -export([module/2]).
 
 -include("core_parse.hrl").
@@ -55,7 +58,7 @@ bsm_reorder_1(Vs0, #c_case{clauses=Cs0}=Case) ->
         Pos when Pos > 0, Pos =/= none ->
             Vs = core_lib:make_values(move_from_col(Pos, Vs0)),
             Cs = [C#c_clause{pats=move_from_col(Pos, Ps)}
-                  || #c_clause{pats=Ps}=C <- Cs0],
+                  || #c_clause{pats=Ps}=C <:- Cs0],
             Case#c_case{arg=Vs,clauses=Cs};
         _ ->
             Case

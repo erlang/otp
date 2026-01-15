@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -66,25 +68,51 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+	 init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, return/1, on_and_off/1, stack_grow/1, 
 	 info/1, tracer/1, combo/1, nosilent/1]).
-	 
-init_per_testcase(_Case, Config) ->
-    Config.
 
-end_per_testcase(_Case, _Config) ->
-    shutdown(),
-    ok.
+-define(erlang_trace, trace_sessions:erlang_trace).
+-define(erlang_trace_pattern, trace_sessions:erlang_trace_pattern).
+-define(erlang_trace_info, trace_sessions:erlang_trace_info).
+
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 5}}].
 
 all() ->
+    trace_sessions:all().
+
+groups() ->
+    trace_sessions:groups(testcases()).
+
+testcases() ->
     [basic, return, on_and_off, stack_grow, info, tracer,
      combo, nosilent].
+
+init_per_suite(Config) ->
+    trace_sessions:init_per_suite(Config, ?MODULE).
+
+end_per_suite(Config) ->
+    trace_sessions:end_per_suite(Config).
+
+init_per_group(Group, Config) ->
+    trace_sessions:init_per_group(Group, Config).
+
+end_per_group(Group, Config) ->
+    trace_sessions:end_per_group(Group, Config).
+
+init_per_testcase(_Case, Config) ->
+    trace_sessions:init_per_testcase(Config).
+
+end_per_testcase(_Case, Config) ->
+    shutdown(),
+    trace_sessions:end_per_testcase(Config).
+
 
 %% Tests basic meta trace
 basic(Config) when is_list(Config) ->
@@ -137,21 +165,21 @@ nosilent(Config) when is_list(Config) ->
 
 basic_test() ->
     Pid = setup(),
-    erlang:trace_pattern({?MODULE,'_','_'},[],[meta]),
+    ?erlang_trace_pattern({?MODULE,'_','_'},[],[meta]),
     [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
     ?CTT(Pid,{?MODULE,exported,[1]}) = receive_next(),
     ?CTT(Pid,{?MODULE,local,[1]}) = receive_next(),
     ?CTT(Pid,{?MODULE,local2,[1]}) = receive_next(),
     ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
-    erlang:trace_pattern({?MODULE,'_','_'},false,[meta]),
+    ?erlang_trace_pattern({?MODULE,'_','_'},false,[meta]),
     [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
     ?NM,
     [1,1,1,0] = lambda_slave(fun() ->
                                      exported_wrap(1)
                              end),
     ?NM,
-    erlang:trace_pattern({?MODULE,'_','_'},[],[meta]),
+    ?erlang_trace_pattern({?MODULE,'_','_'},[],[meta]),
     [1,1,1,0] = lambda_slave(fun() ->
                                      exported_wrap(1)
                              end),
@@ -161,7 +189,7 @@ basic_test() ->
     ?CTT(Pid,{?MODULE,local,[1]}) = receive_next(),
     ?CTT(Pid,{?MODULE,local2,[1]}) = receive_next(),
     ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
-    erlang:trace_pattern({?MODULE,'_','_'},false,[meta]),
+    ?erlang_trace_pattern({?MODULE,'_','_'},false,[meta]),
     shutdown(),
     ?NM,
     ok.
@@ -170,9 +198,9 @@ basic_test() ->
 
 return_test() ->
     Pid = setup(),
-    erlang:trace_pattern({?MODULE,'_','_'},[{'_',[],[{return_trace}]}],
+    ?erlang_trace_pattern({?MODULE,'_','_'},[{'_',[],[{return_trace}]}],
 			 [meta]),
-    erlang:trace_pattern({erlang,phash2,'_'},[{'_',[],[{return_trace}]}],
+    ?erlang_trace_pattern({erlang,phash2,'_'},[{'_',[],[{return_trace}]}],
 			 [meta]),
     [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
@@ -195,31 +223,31 @@ return_test() ->
 
 on_and_off_test() ->
     Pid = setup(),
-    1 = erlang:trace_pattern({?MODULE,local_tail,1},[],[meta]),
+    1 = ?erlang_trace_pattern({?MODULE,local_tail,1},[],[meta]),
     LocalTail = fun() ->
                         local_tail(1)
                 end,
     [1,0] = lambda_slave(LocalTail),
     ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
-    0 = erlang:trace_pattern({?MODULE,local_tail,1},[],[global]),
+    0 = ?erlang_trace_pattern({?MODULE,local_tail,1},[],[global]),
     [1,0] = lambda_slave(LocalTail),
     ?NM,
-    1 = erlang:trace_pattern({?MODULE,exported_wrap,1},[],[meta]),
+    1 = ?erlang_trace_pattern({?MODULE,exported_wrap,1},[],[meta]),
     [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
-    1 = erlang:trace_pattern({erlang,phash2,2},[],[meta]),
+    1 = ?erlang_trace_pattern({erlang,phash2,2},[],[meta]),
     [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
     ?CTT(Pid,{erlang,phash2,[1,1]}) = receive_next(),
     shutdown(),
-    erlang:trace_pattern({'_','_','_'},false,[meta]),
-    N = erlang:trace_pattern({erlang,'_','_'},true,[meta]),
-    case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
+    ?erlang_trace_pattern({'_','_','_'},false,[meta]),
+    N = ?erlang_trace_pattern({erlang,'_','_'},true,[meta]),
+    case ?erlang_trace_pattern({erlang,'_','_'},false,[meta]) of
         N -> ok;
         Else ->
             exit({number_mismatch, {expected, N}, {got, Else}})
     end,
-    case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
+    case ?erlang_trace_pattern({erlang,'_','_'},false,[meta]) of
         N -> ok;
         Else2 ->
             exit({number_mismatch, {expected, N}, {got, Else2}})
@@ -238,7 +266,7 @@ flush() ->
 
 stack_grow_test() ->    
     Pid = setup(),
-    1 = erlang:trace_pattern({?MODULE,loop,4},
+    1 = ?erlang_trace_pattern({?MODULE,loop,4},
 				   [{'_',[],[{return_trace}]}],[meta]),
     Num = 1 bsl 15,
     Surface =
@@ -276,17 +304,17 @@ info_test() ->
     Pid =
 	spawn_link(
 	  fun () ->
-		  erlang:trace_pattern({?MODULE,exported_wrap,1}, 
+		  ?erlang_trace_pattern({?MODULE,exported_wrap,1},
                                        Prog, [{meta, Self}]),
 		  Self ! {self(), GoOn}
 	  end),
     receive {Pid, GoOn} -> ok end,
-    {traced,false} = erlang:trace_info({?MODULE,exported_wrap,1}, traced),
+    {traced,false} = ?erlang_trace_info({?MODULE,exported_wrap,1}, traced),
     {match_spec, false} =
-	erlang:trace_info({?MODULE,exported_wrap,1}, match_spec),
-    {meta, Self} = erlang:trace_info({?MODULE,exported_wrap,1}, meta),
+	?erlang_trace_info({?MODULE,exported_wrap,1}, match_spec),
+    {meta, Self} = ?erlang_trace_info({?MODULE,exported_wrap,1}, meta),
     {meta_match_spec, MMS} =
-	erlang:trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
+	?erlang_trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
     case MMS of
         Prog ->
             ok;
@@ -303,7 +331,7 @@ info_test() ->
     end,
     io:format("~p~n",[MMS]),
     {meta_match_spec,MMS2} =
-	erlang:trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
+	?erlang_trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
     io:format("~p~n",[MMS2]),
     case MMS2 of
         Prog ->
@@ -314,19 +342,19 @@ info_test() ->
                                 meta_match_spec]},
                   {expected, Prog}, {got, Wrong2}})
     end,
-    {all, [_|_]=L} = erlang:trace_info({?MODULE,exported_wrap,1}, all),
+    {all, [_|_]=L} = ?erlang_trace_info({?MODULE,exported_wrap,1}, all),
     {value, {meta, Self}} = lists:keysearch(meta, 1, L),
     {value, {meta_match_spec, MMS}} = lists:keysearch(meta_match_spec, 1, L),
 
-    erlang:trace_pattern({?MODULE,exported_wrap,1}, true, [meta]),
+    ?erlang_trace_pattern({?MODULE,exported_wrap,1}, true, [meta]),
     {meta_match_spec, []} =
-	erlang:trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
+	?erlang_trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
 
-    erlang:trace_pattern({?MODULE,exported_wrap,1}, false, [meta]),
-    {meta, false} = erlang:trace_info({?MODULE,exported_wrap,1}, meta),
+    ?erlang_trace_pattern({?MODULE,exported_wrap,1}, false, [meta]),
+    {meta, false} = ?erlang_trace_info({?MODULE,exported_wrap,1}, meta),
     {meta_match_spec, false} =
-	erlang:trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
-    {all, false} = erlang:trace_info({?MODULE,exported_wrap,1}, all),
+	?erlang_trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
+    {all, false} = ?erlang_trace_info({?MODULE,exported_wrap,1}, all),
     shutdown(),
     ?NM,
     ok.
@@ -341,10 +369,10 @@ tracer_test() ->
     Tracer1 = spawn_link(fun () -> relay_n(3, Self) end),
     Setter = spawn_link(
                fun () ->
-                       erlang:trace_pattern({?MODULE,receiver,1},
+                       ?erlang_trace_pattern({?MODULE,receiver,1},
                                             MatchSpec,
                                             [{meta,Tracer1}]),
-                       erlang:trace_pattern({erlang,phash2,2},
+                       ?erlang_trace_pattern({erlang,phash2,2},
                                             MatchSpec,
                                             [{meta,Tracer1}]),
                        Self ! {self(), done}
@@ -360,32 +388,32 @@ tracer_test() ->
     receive_no_next(100),
     %% The breakpoint has not been hit since the tracer stopped
     {meta,Tracer1} =
-	erlang:trace_info({?MODULE,receiver,1}, meta),
+	?erlang_trace_info({?MODULE,receiver,1}, meta),
     {meta_match_spec, MatchSpec} =
-	erlang:trace_info({?MODULE,receiver,1}, meta_match_spec),
+	?erlang_trace_info({?MODULE,receiver,1}, meta_match_spec),
     {meta,Tracer1} =
-	erlang:trace_info({erlang,phash2,2}, meta),
+	?erlang_trace_info({erlang,phash2,2}, meta),
     {meta_match_spec, MatchSpec} =
-	erlang:trace_info({erlang,phash2,2}, meta_match_spec),
+	?erlang_trace_info({erlang,phash2,2}, meta_match_spec),
     %% Initiate trace messages that will fail
     Ref2 = make_ref(),
-    apply_slave_async(?MODULE, receiver, [Ref2]),
     Slave ! Ref2,
-    receive_no_next(100),
+    apply_slave(?MODULE, receiver, [Ref2]),
+    receive_no_next(0),
     {meta,[]} =
-	erlang:trace_info({?MODULE,receiver,1}, meta),
+	?erlang_trace_info({?MODULE,receiver,1}, meta),
     {meta_match_spec, MatchSpec} = 
-	erlang:trace_info({?MODULE,receiver,1}, meta_match_spec),
+	?erlang_trace_info({?MODULE,receiver,1}, meta_match_spec),
     {meta,[]} =
-	erlang:trace_info({erlang,phash2,2}, meta),
+	?erlang_trace_info({erlang,phash2,2}, meta),
     {meta_match_spec, MatchSpec} =
-	erlang:trace_info({erlang,phash2,2}, meta_match_spec),
+	?erlang_trace_info({erlang,phash2,2}, meta_match_spec),
     %% Change tracer
     Tracer2 = spawn_link(fun () -> relay_n(4, Self) end),
-    erlang:trace_pattern({?MODULE,receiver,1},
+    ?erlang_trace_pattern({?MODULE,receiver,1},
                          MatchSpec,
                          [{meta,Tracer2}]),
-    erlang:trace_pattern({erlang,phash2,2},
+    ?erlang_trace_pattern({erlang,phash2,2},
                          MatchSpec,
                          [{meta,Tracer2}]),
     Ref3 = make_ref(),
@@ -395,10 +423,10 @@ tracer_test() ->
     {Tracer2,?RFT(Slave,{erlang,phash2,2},0)} = receive_next(),
     %% Change tracer between call trace and return trace
     Tracer3 = spawn_link(fun () -> relay_n(4, Self) end),
-    erlang:trace_pattern({?MODULE,receiver,1},
+    ?erlang_trace_pattern({?MODULE,receiver,1},
                          MatchSpec,
                          [{meta,Tracer3}]),
-    erlang:trace_pattern({erlang,phash2,2},
+    ?erlang_trace_pattern({erlang,phash2,2},
                          MatchSpec,
                          [{meta,Tracer3}]),
     Slave ! Ref3,
@@ -413,13 +441,13 @@ tracer_test() ->
     {Tracer3,?RFT(Slave,{erlang,phash2,2},0)} = receive_next(),
     {Tracer3,?RFT(Slave,{?MODULE,receiver,1},Ref4)} = receive_next(),
     %% The breakpoint has not been hit since the tracer stopped
-    {meta,Tracer3} = erlang:trace_info({?MODULE,receiver,1}, meta),
+    {meta,Tracer3} = ?erlang_trace_info({?MODULE,receiver,1}, meta),
     {meta_match_spec, MatchSpec} =
-	erlang:trace_info({?MODULE,receiver,1}, meta_match_spec),
+	?erlang_trace_info({?MODULE,receiver,1}, meta_match_spec),
     {meta,Tracer3} =
-	erlang:trace_info({erlang,phash2,2}, meta),
+	?erlang_trace_info({erlang,phash2,2}, meta),
     {meta_match_spec, MatchSpec} =
-	erlang:trace_info({erlang,phash2,2}, meta_match_spec),
+	?erlang_trace_info({erlang,phash2,2}, meta_match_spec),
     shutdown(),
     ?NM,
     ok.
@@ -434,56 +462,56 @@ combo_test() ->
     Flags = lists:sort([call, return_to]),
     LocalTracer = spawn_link(fun () -> relay_n(6, Self) end),
     MetaTracer = spawn_link(fun () -> relay_n(4, Self) end),
-    1 = erlang:trace_pattern({?MODULE,receiver,1},
+    1 = ?erlang_trace_pattern({?MODULE,receiver,1},
                              MatchSpec,
                              [local,{meta,MetaTracer}]),
-    1 = erlang:trace_pattern({erlang,phash2,2},
+    1 = ?erlang_trace_pattern({erlang,phash2,2},
                              MatchSpec,
                              [local,{meta,MetaTracer}]),
-    1 = erlang:trace(Slave, true,
+    1 = ?erlang_trace(Slave, true,
                      [{tracer,LocalTracer} | Flags]),
     %%
     {all, TraceInfo1} =
-	erlang:trace_info({?MODULE,receiver,1}, all),
+	?erlang_trace_info({?MODULE,receiver,1}, all),
     {meta,MetaTracer} =
-	erlang:trace_info({?MODULE,receiver,1}, meta),
+	?erlang_trace_info({?MODULE,receiver,1}, meta),
     {value,{meta,MetaTracer}} =
 	lists:keysearch(meta, 1, TraceInfo1),
     {meta_match_spec,MatchSpec} =
-	erlang:trace_info({?MODULE,receiver,1}, meta_match_spec),
+	?erlang_trace_info({?MODULE,receiver,1}, meta_match_spec),
     {value,{meta_match_spec,MatchSpec}} =
 	lists:keysearch(meta_match_spec, 1, TraceInfo1),
     {traced,local} =
-	erlang:trace_info({?MODULE,receiver,1}, traced),
+	?erlang_trace_info({?MODULE,receiver,1}, traced),
     {value,{traced,local}} =
 	lists:keysearch(traced, 1, TraceInfo1),
     {match_spec,MatchSpec} =
-	erlang:trace_info({?MODULE,receiver,1}, match_spec),
+	?erlang_trace_info({?MODULE,receiver,1}, match_spec),
     {value,{match_spec,MatchSpec}} =
 	lists:keysearch(match_spec, 1, TraceInfo1),
     %%
     {all, TraceInfo2} =
-	erlang:trace_info({erlang,phash2,2}, all),
+	?erlang_trace_info({erlang,phash2,2}, all),
     {meta,MetaTracer} =
-	erlang:trace_info({erlang,phash2,2}, meta),
+	?erlang_trace_info({erlang,phash2,2}, meta),
     {value,{meta,MetaTracer}} =
 	lists:keysearch(meta, 1, TraceInfo2),
     {meta_match_spec,MatchSpec} =
-	erlang:trace_info({erlang,phash2,2}, meta_match_spec),
+	?erlang_trace_info({erlang,phash2,2}, meta_match_spec),
     {value,{meta_match_spec,MatchSpec}} =
 	lists:keysearch(meta_match_spec, 1, TraceInfo2),
     {traced,local} =
-	erlang:trace_info({erlang,phash2,2}, traced),
+	?erlang_trace_info({erlang,phash2,2}, traced),
     {value,{traced,local}} =
 	lists:keysearch(traced, 1, TraceInfo2),
     {match_spec,MatchSpec} =
-	erlang:trace_info({erlang,phash2,2}, match_spec),
+	?erlang_trace_info({erlang,phash2,2}, match_spec),
     {value,{match_spec,MatchSpec}} =
 	lists:keysearch(match_spec, 1, TraceInfo2),
     %%
-    {flags,Flags1} = erlang:trace_info(Slave, flags),
+    {flags,Flags1} = ?erlang_trace_info(Slave, flags),
     Flags = lists:sort(Flags1),
-    {tracer,LocalTracer} = erlang:trace_info(Slave, tracer),
+    {tracer,LocalTracer} = ?erlang_trace_info(Slave, tracer),
     %%
     Ref = make_ref(),
     apply_slave_async(?MODULE, receiver, [Ref]),
@@ -527,14 +555,14 @@ nosilent_test() ->
     Trigger = {?MODULE,id,1},
     TriggerMS = [{[start],[],[{silent,false}]},
                  {[stop],[],[{silent,true},{return_trace}]}],
-    1 = erlang:trace(Pid, true, [call,silent,return_to]),
-    erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
-    1 = erlang:trace_pattern({?MODULE,local2,1},
+    1 = ?erlang_trace(Pid, true, [call,silent,return_to]),
+    ?erlang_trace_pattern({?MODULE,'_','_'},[],[local]),
+    1 = ?erlang_trace_pattern({?MODULE,local2,1},
                              [{'_',[],[{return_trace}]}],
                              [local]),
-    1 = erlang:trace_pattern({?MODULE,slave,1},false,[local]),
-    1 = erlang:trace_pattern(Trigger,false,[local]),
-    1 = erlang:trace_pattern(Trigger,TriggerMS,[meta]),
+    1 = ?erlang_trace_pattern({?MODULE,slave,1},false,[local]),
+    1 = ?erlang_trace_pattern(Trigger,false,[local]),
+    1 = ?erlang_trace_pattern(Trigger,TriggerMS,[meta]),
     [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
     receive_no_next(17),
     start = apply_slave(?MODULE, id, [start]),
@@ -602,12 +630,12 @@ slave(Sync) ->
 	    Res = apply(M,F,A),
 	    ?dbgformat("done Apply: ~p:~p/~p (~p)~n",[M,F,length(A),A]),
 	    From ! {apply, Res},
-	    erlang:trace_pattern({?MODULE,slave,1},false,[meta]),
+	    ?erlang_trace_pattern({?MODULE,slave,1},false,[meta]),
 	    slave(From);
 	{From, lambda, Fun} ->
 	    Res = Fun(),
 	    From ! {lambda, Res},
-	    erlang:trace_pattern({?MODULE,slave,1},false,[meta]),
+	    ?erlang_trace_pattern({?MODULE,slave,1},false,[meta]),
 	    slave(From);
 	die ->
 	    exit(normal)
@@ -637,13 +665,13 @@ shutdown() ->
     end.
 
 trace_off() ->
-    erlang:trace(all, false, [all]),
-    erlang:trace_pattern({'_','_','_'},false,[]),
-    erlang:trace_pattern({'_','_','_'},false,[local]),
-    erlang:trace_pattern({'_','_','_'},false,[meta]),
-    erlang:trace_pattern(on_load,false,[]),
-    erlang:trace_pattern(on_load,false,[local]),
-    erlang:trace_pattern(on_load,false,[meta]),
+    ?erlang_trace(all, false, [all]),
+    ?erlang_trace_pattern({'_','_','_'},false,[]),
+    ?erlang_trace_pattern({'_','_','_'},false,[local]),
+    ?erlang_trace_pattern({'_','_','_'},false,[meta]),
+    ?erlang_trace_pattern(on_load,false,[]),
+    ?erlang_trace_pattern(on_load,false,[local]),
+    ?erlang_trace_pattern(on_load,false,[meta]),
     ok.
 
 apply_slave_async(M,F,A) ->
@@ -694,7 +722,7 @@ relay_n(N, Dest) ->
 
 
 receive_next() ->
-    receive_next(infinity).
+    receive_next(1000).
 
 receive_next(TO) ->
     receive

@@ -1,3 +1,25 @@
+;;; erlang-flymake.el   -*-  lexical-binding: t; -*-
+;;;
+;;; %CopyrightBegin%
+;;;
+;;; SPDX-License-Identifier: Apache-2.0
+;;;
+;;; Copyright Ericsson AB 2010-2025. All Rights Reserved.
+;;;
+;;; Licensed under the Apache License, Version 2.0 (the "License");
+;;; you may not use this file except in compliance with the License.
+;;; You may obtain a copy of the License at
+;;;
+;;;     http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Unless required by applicable law or agreed to in writing, software
+;;; distributed under the License is distributed on an "AS IS" BASIS,
+;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;;; See the License for the specific language governing permissions and
+;;; limitations under the License.
+;;;
+;;; %CopyrightEnd%
+;;;
 ;; erlang-flymake.el
 ;;
 ;; Syntax check erlang source code on the fly (integrates with flymake).
@@ -21,6 +43,8 @@
 ;; This code is inspired by http://www.emacswiki.org/emacs/FlymakeErlang.
 
 (require 'flymake)
+(require 'flymake-proc nil 'noerror)
+
 (eval-when-compile
   (require 'cl-lib))
 
@@ -51,8 +75,7 @@ check on newline and when there are no changes)."
   ;; There doesn't seem to be a way of disabling this; set to the
   ;; largest int available as a workaround (most-positive-fixnum
   ;; equates to 8.5 years on my machine, so it ought to be enough ;-) )
-  (setq flymake-no-changes-timeout most-positive-fixnum)
-  (setq flymake-start-syntax-check-on-newline nil))
+  (setq flymake-no-changes-timeout most-positive-fixnum))
 
 
 (defun erlang-flymake-get-code-path-dirs ()
@@ -69,7 +92,7 @@ check on newline and when there are no changes)."
 (defun erlang-flymake-init ()
   (let* ((temp-file
           (cl-letf (((symbol-function 'flymake-get-temp-dir) #'erlang-flymake-temp-dir))
-            (flymake-init-create-temp-buffer-copy
+            (flymake-proc-init-create-temp-buffer-copy
              'flymake-create-temp-with-folder-structure)))
          (code-dir-opts
           (erlang-flymake-flatten

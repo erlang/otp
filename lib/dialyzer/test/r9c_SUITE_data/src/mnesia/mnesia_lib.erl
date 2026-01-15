@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,14 +17,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
+%% %CopyrightEnd%
 %%
-%%     $Id: mnesia_lib.erl,v 1.3 2009/07/01 15:45:40 kostis Exp $
-%% This module contains all sorts of various which doesn't fit
-%% anywhere else. Basically everything is exported.
-
 -module(mnesia_lib).
 
 -include("mnesia.hrl").
@@ -30,7 +31,6 @@
 	 add/2,
 	 add_list/2,
 	 all_nodes/0,
-%%	 catch_val/1,
 	 cleanup_tmp_files/1,
 	 copy_file/2,
 	 copy_holders/1,
@@ -442,7 +442,7 @@ ensure_loaded(Appl) ->
 
 local_active_tables() ->
     Tabs = val({schema, local_tables}),
-    lists:zf(fun(Tab) -> active_here(Tab) end, Tabs).
+    lists:filtermap(fun(Tab) -> active_here(Tab) end, Tabs).
 
 active_tables() ->
     Tabs = val({schema, tables}),
@@ -452,7 +452,7 @@ active_tables() ->
 		    _ -> {true, Tab}
 		end
 	end,
-    lists:zf(F, Tabs).
+    lists:filtermap(F, Tabs).
 
 etype(X) when integer(X) -> integer;
 etype([]) -> nil;
@@ -588,7 +588,7 @@ mkcore(CrashInfo) ->
     term_to_binary(Core).
 
 procs() ->
-    Fun = fun(P) -> {P, (catch lists:zf(fun proc_info/1, process_info(P)))} end,
+    Fun = fun(P) -> {P, (catch lists:filtermap(fun proc_info/1, process_info(P)))} end,
     lists:map(Fun, processes()).
 
 proc_info({registered_name, Val}) -> {true, Val};
@@ -626,7 +626,7 @@ relatives() ->
 		       Pid -> {true, {Name, Pid, catch process_info(Pid)}}
 		   end
 	   end,
-    lists:zf(Info, mnesia:ms()).
+    lists:filtermap(Info, mnesia:ms()).
 
 workers({workers, Loader, Sender, Dumper}) ->
     Info = fun({Name, Pid}) ->
@@ -635,7 +635,7 @@ workers({workers, Loader, Sender, Dumper}) ->
 		       Pid -> {true, {Name, Pid, catch process_info(Pid)}}
 		   end
 	   end,
-    lists:zf(Info, [{loader, Loader}, {sender, Sender}, {dumper, Dumper}]).
+    lists:filtermap(Info, [{loader, Loader}, {sender, Sender}, {dumper, Dumper}]).
 
 locking_procs(LockList) when list(LockList) ->
     Tids = [element(1, Lock) || Lock <- LockList],
@@ -649,7 +649,7 @@ locking_procs(LockList) when list(LockList) ->
 			   false
 		   end
 	   end,
-    lists:zf(Info, UT).
+    lists:filtermap(Info, UT).
 
 view() ->
     Bin = mkcore({crashinfo, {"view only~n", []}}),
@@ -693,7 +693,7 @@ vcore() ->
     {ok, Cwd} = file:get_cwd(),
     case file:list_dir(Cwd) of
 	{ok, Files}->
-	    CoreFiles = lists:sort(lists:zf(Filter, Files)),
+	    CoreFiles = lists:sort(lists:filtermap(Filter, Files)),
 	    show("Mnesia core files: ~p~n", [CoreFiles]),
 	    vcore(lists:last(CoreFiles));
 	Error ->
@@ -840,11 +840,11 @@ random_time(Retries, _Counter0) ->
 	undefined ->
 	    {X, Y, Z} = erlang:now(), %% time()
 	    random:seed(X, Y, Z),
-	    Time = Dup + random:uniform(MaxIntv),
+	    Time = Dup + rand:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
 	    Time;
 	_ ->
-	    Time = Dup + random:uniform(MaxIntv),
+	    Time = Dup + rand:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
 	    Time
     end.

@@ -1,7 +1,9 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2006-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2006-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +40,7 @@ all: $(if $(FLAVOR),$(FLAVOR),$(PRIMARY_FLAVOR))
 
 .PHONY: docs
 docs:
-	$(V_at)( cd doc/src && $(MAKE) $@ )
+	$(V_at)( cd doc && $(MAKE) $@ )
 
 .PHONY: debug opt lcnt clean test
 $(TYPES) clean:
@@ -47,7 +49,7 @@ $(TYPES) clean:
 			( cd $$d && $(MAKE) $@ ) || exit $$?; \
 		fi ; \
 	done
-	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
+	(cd preloaded/src && $(MAKE) ../../ebin/erts.app)
 
 
 .PHONY: test
@@ -167,8 +169,4 @@ endif
 
 .PHONY: release_docs
 release_docs:
-	$(V_at)( cd doc/src && $(MAKE) $@ )
-
-.PHONY: xmllint
-xmllint:
-	$(MAKE) -C doc/src $@
+	$(V_at)( cd doc && $(MAKE) $@ )

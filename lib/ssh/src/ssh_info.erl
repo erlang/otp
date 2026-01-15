@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,10 +26,12 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_info).
+-moduledoc false.
 
 -export([print/0,
 	 print/1,
-	 string/0
+	 string/0,
+         get_subs_tree/1
 	]).
 
 -include("ssh.hrl").
@@ -63,6 +67,10 @@ string() ->
 	    io_lib:format("Ssh not found~n",[])
     end.
 
+get_subs_tree(StartPid) ->
+    lists:foldl(fun({Id,_,worker,_}=C, Acc) -> [{C,chspec(StartPid,Id)}|Acc];
+                   ({Id,Pid,supervisor,_}=C, Acc) -> [{C,chspec(StartPid,Id),get_subs_tree(Pid)}|Acc]
+                end, [], children(StartPid)).
 
 %%%================================================================
 -define(inc(N), (N+4)).
@@ -79,10 +87,6 @@ print_sups(Role, StartPid) ->
     walk_tree(Role, get_subs_tree(StartPid)).
 
 %%%================================================================
-get_subs_tree(StartPid) ->
-    lists:foldl(fun({Id,_,worker,_}=C, Acc) -> [{C,chspec(StartPid,Id)}|Acc];
-                   ({Id,Pid,supervisor,_}=C, Acc) -> [{C,chspec(StartPid,Id),get_subs_tree(Pid)}|Acc]
-                end, [], children(StartPid)).
 
 chspec(Sup, Id) ->
     try supervisor:get_childspec(Sup, Id)
@@ -131,24 +135,36 @@ format_sup(server, {{{ssh_system_sup,LocalAddress},Pid,supervisor,[ssh_system_su
      walk_tree(server, Children, ?inc(Indent)),
      io_lib:nl() % Separate system supervisors by an empty line
     ];
-format_sup(client, {{{ssh_system_sup,LocalAddress},Pid,supervisor,[ssh_system_sup]}, _Spec, Children}, Indent) ->
-    [indent(Indent),
-     io_lib:format("Local:  ~s sys_sup=~s~n", [format_address(LocalAddress), print_pid(Pid)]),
-     walk_tree(client, Children, ?inc(Indent)),
-     io_lib:nl() % Separate system supervisors by an empty line
+format_sup(client,
+           {{Ref,ConnSup,supervisor,[ssh_connection_sup]}, _ConnSupSpec,
+            [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec}
+             | Children]
+           },
+           Indent) when is_reference(Ref) ->
+    [io_lib:format("~sLocal: ~s~n"
+                   "~sRemote: ~s (Version: ~s)~n"
+                   "~sConnectionRef=~s, connection_sup=~s~n",
+                   [indent(Indent), local_addr(ConnPid),
+                    indent(Indent), peer_addr(ConnPid), peer_version(client,ConnPid),
+                    indent(Indent), print_pid(ConnPid), print_pid(ConnSup)
+                   ]),
+     walk_tree(client,
+               [{H,{connref,ConnPid},Cs} || {H,_,Cs} <- Children],
+               ?inc(Indent)),
+     io_lib:nl() % Separate sub system supervisors by an empty line
     ];
-format_sup(Role,
-           {{Ref,SubSysSup,supervisor,[ssh_subsystem_sup]}, _SubSysSpec,
-            [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec} 
+format_sup(server,
+           {{Ref,ConnSup,supervisor,[ssh_connection_sup]}, _ConnSupSpec,
+            [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec}
              | Children]
            },
            Indent) when is_reference(Ref) ->
     [io_lib:format("~sRemote: ~s (Version: ~s)~n"
-                   "~sConnectionRef=~s, subsys_sup=~s~n",
-                   [indent(Indent), peer_addr(ConnPid), peer_version(Role,ConnPid),
-                    indent(Indent), print_pid(ConnPid), print_pid(SubSysSup)
+                   "~sConnectionRef=~s, connection_sup=~s~n",
+                   [indent(Indent), peer_addr(ConnPid), peer_version(server,ConnPid),
+                    indent(Indent), print_pid(ConnPid), print_pid(ConnSup)
                    ]),
-     walk_tree(Role,
+     walk_tree(server,
                [{H,{connref,ConnPid},Cs} || {H,_,Cs} <- Children],
                ?inc(Indent)),
      io_lib:nl() % Separate sub system supervisors by an empty line
@@ -250,7 +266,17 @@ peer_addr(Pid) ->
     catch
         _:_ -> "?"
     end.
-    
+
+local_addr(Pid) ->
+    try
+        [{socket,Socket}] =
+            ssh_connection_handler:connection_info(Pid, [socket]),
+        {ok, AddrPort} = inet:sockname(Socket),
+        ssh_lib:format_address_port(AddrPort)
+    catch
+        _:_ -> "?"
+    end.
+
 
 format_address(#address{address=Addr, port=Port, profile=Prof}) ->
     io_lib:format("~s (profile ~p)", [ssh_lib:format_address_port({Addr,Port}),Prof]);

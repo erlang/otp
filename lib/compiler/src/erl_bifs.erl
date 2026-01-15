@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,7 @@
 %% Purpose: Information about the Erlang built-in functions.
 
 -module(erl_bifs).
+-moduledoc false.
 
 -export([is_pure/3, is_safe/3, is_exit_bif/3]).
 
@@ -111,6 +114,7 @@ is_pure(erlang, is_float, 1) -> true;
 is_pure(erlang, is_function, 1) -> true;
 is_pure(erlang, is_function, 2) -> true;
 is_pure(erlang, is_integer, 1) -> true;
+is_pure(erlang, is_integer, 3) -> true;
 is_pure(erlang, is_list, 1) -> true;
 is_pure(erlang, is_map, 1) -> true;
 is_pure(erlang, is_map_key, 2) -> true;

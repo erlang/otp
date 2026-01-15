@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2012-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,8 +51,8 @@ erts_atomic32_t the_staging_code_index;
 struct code_permission {
     erts_mtx_t lock;
 
-    ErtsSchedulerData *scheduler;
     Process *owner;
+    void *aux_arg;
 
     int seized;
     struct code_permission_queue_item {
@@ -60,6 +62,10 @@ struct code_permission {
 
         struct code_permission_queue_item *next;
     } *queue;
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    int lc_soft_check;
+#endif
 };
 
 static struct code_permission code_mod_permission;
@@ -115,14 +121,25 @@ void erts_end_staging_code_ix(void)
 
 void erts_commit_staging_code_ix(void)
 {
+    /* We need these locks as we are about to make the next code index
+     * active. */
+    extern void export_staged_write_lock(void);
+    extern void export_staged_write_unlock(void);
+    extern void fun_staged_write_lock(void);
+    extern void fun_staged_write_unlock(void);
     ErtsCodeIndex ix;
-    /* We need to this lock as we are now making the staging export table active */
-    export_staging_lock();
-    ix = erts_staging_code_ix();
-    erts_atomic32_set_nob(&the_active_code_index, ix);
-    ix = (ix + 1) % ERTS_NUM_CODE_IX;
-    erts_atomic32_set_nob(&the_staging_code_index, ix);
-    export_staging_unlock();
+
+    export_staged_write_lock();
+    fun_staged_write_lock();
+    {
+        ix = erts_staging_code_ix();
+        erts_atomic32_set_nob(&the_active_code_index, ix);
+        ix = (ix + 1) % ERTS_NUM_CODE_IX;
+        erts_atomic32_set_nob(&the_staging_code_index, ix);
+    }
+    fun_staged_write_unlock();
+    export_staged_write_unlock();
+
     erts_tracer_nif_clear();
     CIX_TRACE("activate");
 }
@@ -152,18 +169,15 @@ static int try_seize_code_permission(struct code_permission *perm,
 {
     int success;
 
+    ASSERT(!!c_p != !!aux_func);
     ASSERT(!erts_thr_progress_is_blocking()); /* To avoid deadlock */
 
     erts_mtx_lock(&perm->lock);
     success = !perm->seized;
 
     if (success) {
-        if (c_p == NULL) {
-            ASSERT(aux_func);
-            perm->scheduler = erts_get_scheduler_data();
-        }
-
         perm->owner = c_p;
+        perm->aux_arg = aux_arg;
         perm->seized = 1;
     } else { /* Already locked */
         struct code_permission_queue_item* qitem;
@@ -222,10 +236,12 @@ static void release_code_permission(struct code_permission *perm) {
         erts_free(ERTS_ALC_T_CODE_IX_LOCK_Q, qitem);
     }
 
-    perm->scheduler = NULL;
     perm->owner = NULL;
+    perm->aux_arg = NULL;
     perm->seized = 0;
-
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    perm->lc_soft_check = 0;
+#endif
     erts_mtx_unlock(&perm->lock);
 }
 
@@ -236,6 +252,13 @@ int erts_try_seize_code_mod_permission_aux(void (*aux_func)(void *),
     return try_seize_code_permission(&code_mod_permission, NULL,
                                      aux_func, aux_arg);
 }
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+void erts_lc_soften_code_mod_permission_check(void)
+{
+    code_mod_permission.lc_soft_check = 1;
+}
+#endif
 
 int erts_try_seize_code_mod_permission(Process* c_p)
 {
@@ -317,31 +340,39 @@ static int has_code_permission(struct code_permission *perm)
     if (esdp && esdp->type == ERTS_SCHED_NORMAL) {
         int res;
 
-        erts_mtx_lock(&perm->lock);
+        /*
+         * We don't take perm->lock for lock order reasons.
+         * This is technically not thread safe if we don't have the permission
+         * seized. But in practice this should not be a problem as we only use
+         * this for asserts.
+         */
 
-        res = perm->seized;
-
-        if (esdp->current_process != NULL) {
+        if (!perm->seized) {
+            res = 0;
+        }
+        else if (esdp->current_process != NULL) {
             /* If we're running a process, it has to match the owner of the
              * permission. We don't care about which scheduler we are running 
              * on in order to support holding permissions when yielding (such
              * as in code purging). */
-            res &= perm->owner == esdp->current_process;
+            res = (perm->owner == esdp->current_process);
         } else {
             /* If we're running an aux job, we crudely assume that this current
              * job was started by the owner if there is one, and therefore has
              * permission.
              *
              * If we don't have an owner, we assume that we have permission if
-             * we're running on the same scheduler that started the job.
+             * we're running with the same 'aux_arg' as started the job.
              *
              * This is very blunt and only catches _some_ cases where we lack
              * lack permission, but at least it's better than the old method of
              * using thread-specific-data. */
-            res &= perm->owner || perm->scheduler == esdp;
+            res = (perm->owner
+        #ifdef ERTS_ENABLE_LOCK_CHECK
+                   || perm->lc_soft_check
+        #endif
+                   || esdp->aux_work_data.lc_aux_arg == perm->aux_arg);
         }
-
-        erts_mtx_unlock(&perm->lock);
 
         return res;
     }

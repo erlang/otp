@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,12 +84,14 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [], alpn_tests() -- [client_renegotiate, session_reused]},
-     {'tlsv1.2', [], alpn_tests() ++ alpn_npn_coexist()},
-     {'tlsv1.1', [], alpn_tests() ++ alpn_npn_coexist()},
-     {'tlsv1', [], alpn_tests() ++ alpn_npn_coexist()},
-     {'dtlsv1.2', [], alpn_tests() ++ alpn_npn_coexist()},
-     {'dtlsv1', [], alpn_tests() ++ alpn_npn_coexist()}
+     {'tlsv1.3', [], [{group, alpn_tests}]},
+     {'tlsv1.2', [], [{group, alpn_tests}, {group, alpn_not_1_3}]},
+     {'tlsv1.1', [], [{group, alpn_tests}, {group, alpn_not_1_3}]},
+     {'tlsv1', [],   [{group, alpn_tests}, {group, alpn_not_1_3}]},
+     {'dtlsv1.2', [],[{group, alpn_tests}, {group, alpn_not_1_3}]},
+     {'dtlsv1', [],  [{group, alpn_tests}, {group, alpn_not_1_3}]},
+     {alpn_tests, [parallel], alpn_tests()},
+     {alpn_not_1_3, [parallel], alpn_not_1_3()}
     ].
 
 alpn_tests() ->
@@ -99,22 +103,22 @@ alpn_tests() ->
      no_matching_protocol,
      client_alpn_and_server_alpn,
      client_alpn_and_server_no_support,
-     client_no_support_and_server_alpn,
+     client_no_support_and_server_alpn
+    ].
+
+alpn_not_1_3() ->
+    [
+     client_alpn_npn_and_server_alpn_npn,
+     client_alpn_and_server_alpn_npn,
+     client_alpn_npn_and_server_alpn,
      client_renegotiate,
      session_reused
     ].
 
-alpn_npn_coexist() ->
-    [
-     client_alpn_npn_and_server_alpn_npn,
-     client_alpn_and_server_alpn_npn,
-     client_alpn_npn_and_server_alpn
-    ].
-
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
 	    ssl_test_lib:make_rsa_cert(Config0)

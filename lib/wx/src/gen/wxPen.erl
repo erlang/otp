@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,104 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxPen).
+-moduledoc """
+A pen is a drawing tool for drawing outlines.
+
+It is used for drawing lines and painting the outline of rectangles, ellipses, etc. It
+has a colour, a width and a style.
+
+Note: On a monochrome display, wxWidgets shows all non-white pens as black.
+
+Do not initialize objects on the stack before the program commences, since other
+required structures may not have been set up yet. Instead, define global pointers to
+objects and create them in `wxApp::OnInit()` (not implemented in wx) or when required.
+
+An application may wish to dynamically create pens with different characteristics, and
+there is the consequent danger that a large number of duplicate pens will be created.
+Therefore an application may wish to get a pointer to a pen by using the global list of
+pens ?wxThePenList, and calling the member function `wxPenList::FindOrCreatePen()` (not
+implemented in wx). See `wxPenList` (not implemented in wx) for more info.
+
+This class uses reference counting and copy-on-write internally so that assignments
+between two instances of this class are very cheap. You can therefore use actual objects
+instead of pointers without efficiency problems. If an instance of this class is changed
+it will create its own data internally so that other instances, which previously shared
+the data using the reference counting, are not affected.
+
+Predefined objects (include wx.hrl):
+
+* ?wxNullPen
+
+* ?wxBLACK\_DASHED\_PEN
+
+* ?wxBLACK\_PEN
+
+* ?wxBLUE\_PEN
+
+* ?wxCYAN\_PEN
+
+* ?wxGREEN\_PEN
+
+* ?wxYELLOW\_PEN
+
+* ?wxGREY\_PEN
+
+* ?wxLIGHT\_GREY\_PEN
+
+* ?wxMEDIUM\_GREY\_PEN
+
+* ?wxRED\_PEN
+
+* ?wxTRANSPARENT\_PEN
+
+* ?wxWHITE\_PEN
+
+See:
+* `m:wxDC`
+
+* `wxDC:setPen/2`
+
+wxWidgets docs: [wxPen](https://docs.wxwidgets.org/3.2/classwx_pen.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getCap/1,getColour/1,getJoin/1,getStyle/1,getWidth/1,isOk/1,
   new/0,new/1,new/2,setCap/2,setColour/2,setColour/4,setJoin/2,setStyle/2,
@@ -29,21 +125,21 @@
 
 -type wxPen() :: wx:wx_object().
 -export_type([wxPen/0]).
-%% @hidden
+-doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpenwxpen">external documentation</a>.
+-doc """
+Default constructor.
+
+The pen will be uninitialised, and `isOk/1` will return false.
+""".
 -spec new() -> wxPen().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxPen_new_0),
   wxe_util:rec(?wxPen_new_0).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpenwxpen">external documentation</a>.
-%% <br /> Also:<br />
-%% new(Pen) -> wxPen() when<br />
-%% 	Pen::wxPen().<br />
-%% 
-%%<br /> Style = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
+-doc "Copy constructor, uses overview\_refcount.".
+%%  Style = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
 -spec new(Colour) -> wxPen() when
 	Colour::wx:wx_colour();
       (Pen) -> wxPen() when
@@ -57,8 +153,20 @@ new(#wx_ref{type=PenT}=Pen) ->
   wxe_util:queue_cmd(Pen,?get_env(),?wxPen_new_1),
   wxe_util:rec(?wxPen_new_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpenwxpen">external documentation</a>.
-%%<br /> Style = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
+-doc """
+Constructs a pen from a colour object, pen width and style.
+
+Remark: Different versions of Windows and different versions of other platforms support
+very different subsets of the styles above so handle with care.
+
+See:
+* `setStyle/2`
+
+* `setColour/4`
+
+* `setWidth/2`
+""".
+%%  Style = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
 -spec new(Colour, [Option]) -> wxPen() when
 	Colour::wx:wx_colour(),
 	Option :: {'width', integer()}
@@ -72,8 +180,14 @@ new(Colour, Options)
   wxe_util:queue_cmd(wxe_util:color(Colour), Opts,?get_env(),?wxPen_new_2),
   wxe_util:rec(?wxPen_new_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpengetcap">external documentation</a>.
-%%<br /> Res = ?wxCAP_INVALID | ?wxCAP_ROUND | ?wxCAP_PROJECTING | ?wxCAP_BUTT
+-doc """
+Returns the pen cap style, which may be one of `wxCAP\_ROUND`, `wxCAP\_PROJECTING` and `wxCAP\_BUTT`.
+
+The default is `wxCAP_ROUND`.
+
+See: `setCap/2`
+""".
+%%  Res = ?wxCAP_INVALID | ?wxCAP_ROUND | ?wxCAP_PROJECTING | ?wxCAP_BUTT
 -spec getCap(This) -> wx:wx_enum() when
 	This::wxPen().
 getCap(#wx_ref{type=ThisT}=This) ->
@@ -81,7 +195,11 @@ getCap(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetCap),
   wxe_util:rec(?wxPen_GetCap).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpengetcolour">external documentation</a>.
+-doc """
+Returns a reference to the pen colour.
+
+See: `setColour/4`
+""".
 -spec getColour(This) -> wx:wx_colour4() when
 	This::wxPen().
 getColour(#wx_ref{type=ThisT}=This) ->
@@ -89,8 +207,14 @@ getColour(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetColour),
   wxe_util:rec(?wxPen_GetColour).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpengetjoin">external documentation</a>.
-%%<br /> Res = ?wxJOIN_INVALID | ?wxJOIN_BEVEL | ?wxJOIN_MITER | ?wxJOIN_ROUND
+-doc """
+Returns the pen join style, which may be one of `wxJOIN\_BEVEL`, `wxJOIN\_ROUND` and `wxJOIN\_MITER`.
+
+The default is `wxJOIN_ROUND`.
+
+See: `setJoin/2`
+""".
+%%  Res = ?wxJOIN_INVALID | ?wxJOIN_BEVEL | ?wxJOIN_MITER | ?wxJOIN_ROUND
 -spec getJoin(This) -> wx:wx_enum() when
 	This::wxPen().
 getJoin(#wx_ref{type=ThisT}=This) ->
@@ -98,8 +222,15 @@ getJoin(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetJoin),
   wxe_util:rec(?wxPen_GetJoin).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpengetstyle">external documentation</a>.
-%%<br /> Res = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
+-doc """
+Returns the pen style.
+
+See:
+* `new/2`
+
+* `setStyle/2`
+""".
+%%  Res = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
 -spec getStyle(This) -> wx:wx_enum() when
 	This::wxPen().
 getStyle(#wx_ref{type=ThisT}=This) ->
@@ -107,7 +238,11 @@ getStyle(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetStyle),
   wxe_util:rec(?wxPen_GetStyle).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpengetwidth">external documentation</a>.
+-doc """
+Returns the pen width.
+
+See: `setWidth/2`
+""".
 -spec getWidth(This) -> integer() when
 	This::wxPen().
 getWidth(#wx_ref{type=ThisT}=This) ->
@@ -115,7 +250,12 @@ getWidth(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetWidth),
   wxe_util:rec(?wxPen_GetWidth).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpenisok">external documentation</a>.
+-doc """
+Returns true if the pen is initialised.
+
+Notice that an uninitialized pen object can't be queried for any pen properties and all
+calls to the accessor methods on it will result in an assert failure.
+""".
 -spec isOk(This) -> boolean() when
 	This::wxPen().
 isOk(#wx_ref{type=ThisT}=This) ->
@@ -123,8 +263,14 @@ isOk(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPen_IsOk),
   wxe_util:rec(?wxPen_IsOk).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetcap">external documentation</a>.
-%%<br /> CapStyle = ?wxCAP_INVALID | ?wxCAP_ROUND | ?wxCAP_PROJECTING | ?wxCAP_BUTT
+-doc """
+Sets the pen cap style, which may be one of `wxCAP\_ROUND`, `wxCAP\_PROJECTING` and `wxCAP\_BUTT`.
+
+The default is `wxCAP_ROUND`.
+
+See: `getCap/1`
+""".
+%%  CapStyle = ?wxCAP_INVALID | ?wxCAP_ROUND | ?wxCAP_PROJECTING | ?wxCAP_BUTT
 -spec setCap(This, CapStyle) -> 'ok' when
 	This::wxPen(), CapStyle::wx:wx_enum().
 setCap(#wx_ref{type=ThisT}=This,CapStyle)
@@ -132,7 +278,11 @@ setCap(#wx_ref{type=ThisT}=This,CapStyle)
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,CapStyle,?get_env(),?wxPen_SetCap).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetcolour">external documentation</a>.
+-doc """
+The pen's colour is changed to the given colour.
+
+See: `getColour/1`
+""".
 -spec setColour(This, Colour) -> 'ok' when
 	This::wxPen(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
@@ -140,7 +290,7 @@ setColour(#wx_ref{type=ThisT}=This,Colour)
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxPen_SetColour_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetcolour">external documentation</a>.
+-doc "".
 -spec setColour(This, Red, Green, Blue) -> 'ok' when
 	This::wxPen(), Red::integer(), Green::integer(), Blue::integer().
 setColour(#wx_ref{type=ThisT}=This,Red,Green,Blue)
@@ -148,8 +298,14 @@ setColour(#wx_ref{type=ThisT}=This,Red,Green,Blue)
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,Red,Green,Blue,?get_env(),?wxPen_SetColour_3).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetjoin">external documentation</a>.
-%%<br /> Join_style = ?wxJOIN_INVALID | ?wxJOIN_BEVEL | ?wxJOIN_MITER | ?wxJOIN_ROUND
+-doc """
+Sets the pen join style, which may be one of `wxJOIN\_BEVEL`, `wxJOIN\_ROUND` and `wxJOIN\_MITER`.
+
+The default is `wxJOIN_ROUND`.
+
+See: `getJoin/1`
+""".
+%%  Join_style = ?wxJOIN_INVALID | ?wxJOIN_BEVEL | ?wxJOIN_MITER | ?wxJOIN_ROUND
 -spec setJoin(This, Join_style) -> 'ok' when
 	This::wxPen(), Join_style::wx:wx_enum().
 setJoin(#wx_ref{type=ThisT}=This,Join_style)
@@ -157,8 +313,12 @@ setJoin(#wx_ref{type=ThisT}=This,Join_style)
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,Join_style,?get_env(),?wxPen_SetJoin).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetstyle">external documentation</a>.
-%%<br /> Style = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
+-doc """
+Set the pen style.
+
+See: `new/2`
+""".
+%%  Style = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
 -spec setStyle(This, Style) -> 'ok' when
 	This::wxPen(), Style::wx:wx_enum().
 setStyle(#wx_ref{type=ThisT}=This,Style)
@@ -166,7 +326,11 @@ setStyle(#wx_ref{type=ThisT}=This,Style)
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,Style,?get_env(),?wxPen_SetStyle).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetwidth">external documentation</a>.
+-doc """
+Sets the pen width.
+
+See: `getWidth/1`
+""".
 -spec setWidth(This, Width) -> 'ok' when
 	This::wxPen(), Width::integer().
 setWidth(#wx_ref{type=ThisT}=This,Width)
@@ -174,7 +338,7 @@ setWidth(#wx_ref{type=ThisT}=This,Width)
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,Width,?get_env(),?wxPen_SetWidth).
 
-%% @doc Destroys this object, do not use object again
+-doc "Destroys the object".
 -spec destroy(This::wxPen()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPen),

@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2001-2003 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,8 +28,9 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%%
 %% @private
-%% @copyright 2001-2003 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @end
@@ -160,6 +170,10 @@ get_uri(Name, Env) ->
     NewName = infer_module_app(Name),
     edoc_refs:get_uri(to_ref(NewName), Env).
 
+get_docgen_uri(Name, _Env) ->
+    NewName = infer_module_app(Name),
+    edoc_refs:get_docgen_link(to_ref(NewName)).
+
 infer_module_app(#t_name{app = [], module = M} = TName) when is_atom(M) ->
     case edoc_lib:infer_module_app(M) of
 	no_app ->
@@ -194,9 +208,15 @@ to_xml(#t_type{name = N, args = As}, Env, Opts) ->
     HRef = case {Predef, proplists:get_value(link_predefined_types, Opts, false)} of
 	       {true, false} -> [];
 	       {true, true} ->
-                   [{href, get_uri(N#t_name{ module = erlang }, Env)}];
+                   {DocgenRel, DocgenURI} = get_docgen_uri(N#t_name{ module = erlang }, Env),
+                   [{'docgen-rel',DocgenRel},
+                    {'docgen-href',DocgenURI},
+                    {href, get_uri(N#t_name{ module = erlang }, Env)}];
 	       {false, _} ->
-                   [{href, get_uri(N, Env)}]
+                   {DocgenRel, DocgenURI} = get_docgen_uri(N, Env),
+                   [{'docgen-rel',DocgenRel},
+                    {'docgen-href',DocgenURI},
+                    {href, get_uri(N, Env)}]
 	   end,
     {abstype, HRef, [to_xml(N, Env, Opts) | map(fun wrap_utype/3, As, Env, Opts)]};
 to_xml(#t_fun{args = As, range = T}, Env, Opts) ->

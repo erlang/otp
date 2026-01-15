@@ -1,14 +1,10 @@
 ;;; erlang-test.el -*- lexical-binding: t; coding: utf-8-unix -*-
 
-;;; Unit tests for erlang.el.
-
-;; Author: Johan Claesson
-;; Created: 2016-05-07
-;; Keywords: erlang, languages
-
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2016-2021. All Rights Reserved.
+;; SPDX-License-Identifier: Apache-2.0
+;;
+;; Copyright Ericsson AB 2016-2025. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -24,6 +20,11 @@
 ;;
 ;; %CopyrightEnd%
 
+;;; Unit tests for erlang.el.
+
+;; Author: Johan Claesson
+;; Created: 2016-05-07
+;; Keywords: erlang, languages
 
 ;;; Commentary:
 
@@ -171,7 +172,7 @@ concatenated to form an erlang file to test on.")
   (should (string-equal (file-truename expected-file)
                         (file-truename (buffer-file-name))))
   (should (eq expected-line (line-number-at-pos)))
-  (should (= (point-at-bol) (point))))
+  (should (= (line-beginning-position) (point))))
 
 (defun erlang-test-complete-at-point (tags-file)
   (with-temp-buffer
@@ -179,13 +180,13 @@ concatenated to form an erlang file to test on.")
     (setq-local tags-file-name tags-file)
     (insert "\nerlang_test:fun")
     (erlang-complete-tag)
-    (should (looking-back "erlang_test:function" (point-at-bol)))
+    (should (looking-back "erlang_test:function" (line-beginning-position)))
     (insert "\nfun")
     (erlang-complete-tag)
-    (should (looking-back "function" (point-at-bol)))
+    (should (looking-back "function" (line-beginning-position)))
     (insert "\nerlang_")
     (erlang-complete-tag)
-    (should (looking-back "erlang_test:" (point-at-bol)))))
+    (should (looking-back "erlang_test:" (line-beginning-position)))))
 
 
 (ert-deftest erlang-test-compile-options ()
@@ -222,28 +223,34 @@ concatenated to form an erlang file to test on.")
     erlang))
 
 
+
 (ert-deftest erlang-test-parse-id ()
-  (cl-loop for id-string in '("fun/10"
-                              "qualified-function module:fun/10"
-                              "record reko"
-                              "macro _SYMBOL"
-                              "macro MACRO/10"
-                              "module modula"
-                              "macro"
-                              nil)
-           for id-list in '((nil nil "fun" 10)
-                            (qualified-function "module" "fun" 10)
-                            (record nil "reko" nil)
-                            (macro nil "_SYMBOL" nil)
-                            (macro nil "MACRO" 10)
-                            (module nil "modula" nil)
-                            (nil nil "macro" nil)
-                            nil)
-           for id-list2 = (erlang-id-to-list id-string)
-           do (should (equal id-list id-list2))
-           for id-string2 = (erlang-id-to-string id-list)
-           do (should (equal id-string id-string2))
-           collect id-list2))
+  ;; Put it in a lambda to make it work on new (and old) versions
+  ;; (with-suppressed-warnings ((ignored-return-value nreverse))
+  ;; don't exist on emacs 26.
+  (let ((dotest (lambda ()
+                  (cl-loop for id-string in '("fun/10"
+                                              "qualified-function module:fun/10"
+                                              "record reko"
+                                              "macro _SYMBOL"
+                                              "macro MACRO/10"
+                                              "module modula"
+                                              "macro"
+                                              nil)
+                           for id-list in '((nil nil "fun" 10)
+                                            (qualified-function "module" "fun" 10)
+                                            (record nil "reko" nil)
+                                            (macro nil "_SYMBOL" nil)
+                                            (macro nil "MACRO" 10)
+                                            (module nil "modula" nil)
+                                            (nil nil "macro" nil)
+                                            nil)
+                           for id-list2 = (erlang-id-to-list id-string)
+                           do (should (equal id-list id-list2))
+                           for id-string2 = (erlang-id-to-string id-list)
+                           do (should (equal id-string id-string2))
+                           collect id-list2))))
+    (funcall dotest)))
 
 
 (provide 'erlang-test)

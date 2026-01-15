@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,102 +16,19 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
-%%% Description  : Simple event-based processor (front-end to xmerl_scan)
-
-%% @doc Simple event-based front-ends to xmerl_scan for processing
-%% of XML documents in streams and for parsing in SAX style.
-%% Each contain more elaborate settings of xmerl_scan that makes usage of
-%% the customization functions.
-%% 
-%% @type xmlElement() = #xmlElement{}.
-%%
-%% @type option_list(). <p>Options allow to customize the behaviour of the
-%%     scanner.
-%% See also <a href="xmerl_examples.html">tutorial</a> on customization
-%% functions.
-%% </p>
-%% <p>
-%% Possible options are:
-%% </p>
-%% <dl>
-%%  <dt><code>{acc_fun, Fun}</code></dt>
-%%    <dd>Call back function to accumulate contents of entity.</dd>
-%%  <dt><code>{continuation_fun, Fun} |
-%%            {continuation_fun, Fun, ContinuationState}</code></dt>
-%%    <dd>Call back function to decide what to do if the scanner runs into EOF
-%%     before the document is complete.</dd>
-%%  <dt><code>{event_fun, Fun} |
-%%            {event_fun, Fun, EventState}</code></dt>
-%%    <dd>Call back function to handle scanner events.</dd>
-%%  <dt><code>{fetch_fun, Fun} |
-%%            {fetch_fun, Fun, FetchState}</code></dt>
-%%    <dd>Call back function to fetch an external resource.</dd>
-%%  <dt><code>{hook_fun, Fun} |
-%%            {hook_fun, Fun, HookState}</code></dt>
-%%    <dd>Call back function to process the document entities once
-%%     identified.</dd>
-%%  <dt><code>{close_fun, Fun}</code></dt>
-%%    <dd>Called when document has been completely parsed.</dd>
-%%  <dt><code>{rules, ReadFun, WriteFun, RulesState} |
-%%            {rules, Rules}</code></dt>
-%%    <dd>Handles storing of scanner information when parsing.</dd>
-%%  <dt><code>{user_state, UserState}</code></dt>
-%%    <dd>Global state variable accessible from all customization functions</dd>
-%%
-%%  <dt><code>{fetch_path, PathList}</code></dt>
-%%    <dd>PathList is a list of
-%%     directories to search when fetching files. If the file in question
-%%     is not in the fetch_path, the URI will be used as a file
-%%     name.</dd>
-%%  <dt><code>{space, Flag}</code></dt>
-%%    <dd>'preserve' (default) to preserve spaces, 'normalize' to
-%%    accumulate consecutive whitespace and replace it with one space.</dd>
-%%  <dt><code>{line, Line}</code></dt>
-%%    <dd>To specify starting line for scanning in document which contains
-%%    fragments of XML.</dd>
-%%  <dt><code>{namespace_conformant, Flag}</code></dt>
-%%    <dd>Controls whether to behave as a namespace conformant XML parser,
-%%    'false' (default) to not otherwise 'true'.</dd>
-%%  <dt><code>{validation, Flag}</code></dt>
-%%    <dd>Controls whether to process as a validating XML parser:
-%%    'off' (default) no validation, or validation 'dtd' by DTD or 'schema'
-%%    by XML Schema. 'false' and 'true' options are obsolete
-%%    (i.e. they may be removed in a future release), if used 'false'
-%%    equals 'off' and 'true' equals 'dtd'.</dd>
-%%  <dt><code>{schemaLocation, [{Namespace,Link}|...]}</code></dt>
-%%    <dd>Tells explicitly which XML Schema documents to use to validate
-%%    the XML document. Used together with the
-%%    <code>{validation,schema}</code> option.</dd>
-%%  <dt><code>{quiet, Flag}</code></dt>
-%%    <dd>Set to 'true' if xmerl should behave quietly and not output any
-%%    information to standard output (default 'false').</dd>
-%%  <dt><code>{doctype_DTD, DTD}</code></dt>
-%%    <dd>Allows to specify DTD name when it isn't available in the XML
-%%    document. This option has effect only together with
-%%    <code>{validation,'dtd'</code> option.</dd>
-%%  <dt><code>{xmlbase, Dir}</code></dt>
-%%    <dd>XML Base directory. If using string/1 default is current directory.
-%%    If using file/1 default is directory of given file.</dd>
-%%  <dt><code>{encoding, Enc}</code></dt>
-%%    <dd>Set default character set used (default UTF-8).
-%%    This character set is used only if not explicitly given by the XML
-%%    declaration. </dd>
-%%  <dt><code>{document, Flag}</code></dt>
-%%    <dd>Set to 'true' if xmerl should return a complete XML document
-%%    as an xmlDocument record (default 'false').</dd>
-%%  <dt><code>{comments, Flag}</code></dt>
-%%    <dd>Set to 'false' if xmerl should skip comments otherwise they will
-%%    be returned as xmlComment records (default 'true').</dd>
-%%  <dt><code>{default_attrs, Flag}</code></dt>
-%%    <dd>Set to 'true' if xmerl should add to elements missing attributes
-%%    with a defined default value (default 'false').</dd>
-%% </dl> 
-%% 
 -module(xmerl_eventp).
+-moduledoc """
+Simple event-based processors (front-ends to `m:xmerl_scan`).
+
+Implements processing XML documents in streams for parsing in SAX style.
+
+Each front-end contains more elaborate settings of
+`m:xmerl_scan` that makes usage of the customization functions.
+""".
 -vsn('0.19').
 -date('03-09-17').
 
@@ -121,14 +40,114 @@
 -include("xmerl_internal.hrl").
 -include_lib("kernel/include/file.hrl").
 
-%% @spec stream(Fname::string(), Options::option_list()) -> xmlElement()
-%%
-%% @doc Parse file containing an XML document as a stream, DOM style.
-%% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
-%% <code>continuation_fun</code> for handling streams of XML data.
-%% Note that the <code>continuation_fun</code>, <code>acc_fun</code>,
-%% <code>fetch_fun</code>, <code>rules</code> and <code>close_fun</code>
-%% options cannot be user defined using this parser.
+-doc "Record `#xmlElement{}`".
+-type xmlElement() :: #xmlElement{}.
+
+-doc """
+Options allow to customize the behaviour of the scanner.  See also the
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
+
+<p>
+Possible options are:
+</p>
+<dl>
+ <dt><code>{acc_fun, Fun}</code></dt>
+   <dd>Call back function to accumulate contents of entity.</dd>
+ <dt><code>{continuation_fun, Fun} |
+           {continuation_fun, Fun, ContinuationState}</code></dt>
+   <dd>Call back function to decide what to do if the scanner runs into EOF
+    before the document is complete.</dd>
+ <dt><code>{event_fun, Fun} |
+           {event_fun, Fun, EventState}</code></dt>
+   <dd>Call back function to handle scanner events.</dd>
+ <dt><code>{fetch_fun, Fun} |
+           {fetch_fun, Fun, FetchState}</code></dt>
+   <dd>Call back function to fetch an external resource.</dd>
+ <dt><code>{hook_fun, Fun} |
+           {hook_fun, Fun, HookState}</code></dt>
+   <dd>Call back function to process the document entities once
+    identified.</dd>
+ <dt><code>{close_fun, Fun}</code></dt>
+   <dd>Called when document has been completely parsed.</dd>
+ <dt><code>{rules, ReadFun, WriteFun, RulesState} |
+           {rules, Rules}</code></dt>
+   <dd>Handles storing of scanner information when parsing.</dd>
+ <dt><code>{user_state, UserState}</code></dt>
+   <dd>Global state variable accessible from all customization functions</dd>
+
+ <dt><code>{fetch_path, PathList}</code></dt>
+   <dd>PathList is a list of
+    directories to search when fetching files. If the file in question
+    is not in the fetch_path, the URI will be used as a file
+    name.</dd>
+ <dt><code>{space, Flag}</code></dt>
+   <dd><code>preserve</code> (default) to preserve spaces,
+   <code>normalize</code> to accumulate consecutive whitespace
+   and replace it with one space.</dd>
+ <dt><code>{line, Line}</code></dt>
+   <dd>To specify starting line for scanning in document which contains
+   fragments of XML.</dd>
+ <dt><code>{namespace_conformant, Flag}</code></dt>
+   <dd>Controls whether to behave as a namespace conformant XML parser,
+   <code>false</code> (default) to not otherwise <code>true</code>.</dd>
+ <dt><code>{validation, Flag}</code></dt>
+   <dd>Controls whether to process as a validating XML parser:
+   <code>off</code> (default) no validation, or validation <code>dtd</code>
+   by DTD or <code>schema</code> by XML Schema.
+   <code>false</code> and <code>true</code> options are obsolete
+   (i.e. they may be removed in a future release), if used <code>false</code>
+   equals <code>off</code> and <code>true</code> equals <code>dtd</code>.</dd>
+ <dt><code>{schemaLocation, [{Namespace,Link}|...]}</code></dt>
+   <dd>Tells explicitly which XML Schema documents to use to validate
+   the XML document. Used together with the
+   <code>{validation,schema}</code> option.</dd>
+ <dt><code>{quiet, Flag}</code></dt>
+   <dd>Set to <code>true</code> if Xmerl should behave quietly
+   and not output any information to standard output
+   (default <code>false</code>).</dd>
+ <dt><code>{doctype_DTD, DTD}</code></dt>
+   <dd>Allows to specify DTD name when it isn't available in the XML
+   document. This option has effect only together with
+   <code>{validation,<code>dtd</code></code> option.</dd>
+ <dt><code>{xmlbase, Dir}</code></dt>
+   <dd>XML Base directory. If using string/1 default is current directory.
+   If using file/1 default is directory of given file.</dd>
+ <dt><code>{encoding, Enc}</code></dt>
+   <dd>Set default character set used (default UTF-8).
+   This character set is used only if not explicitly given by the XML
+   declaration. </dd>
+ <dt><code>{document, Flag}</code></dt>
+   <dd>Set to <code>true</code> if Xmerl should return a complete XML document
+   as an xmlDocument record (default <code>false</code>).</dd>
+ <dt><code>{comments, Flag}</code></dt>
+   <dd>Set to <code>false</code> if Xmerl should skip comments
+   otherwise they will be returned as xmlComment records
+   (default <code>true</code>).</dd>
+ <dt><code>{default_attrs, Flag}</code></dt>
+   <dd>Set to <code>true</code> if Xmerl should add to elements
+   missing attributes with a defined default value
+   (default <code>false</code>).</dd>
+</dl>
+""".
+-type option_list() ::
+        [{atom(), term()} |
+         {atom(), fun(), term()} |
+         {atom(), fun(), fun(), term()}].
+
+-doc """
+Parse file containing an XML document as a stream, DOM style.
+
+Wrapper for a call to the XML parser `m:xmerl_scan` with
+a [`continuation_fun`](`t:xmerl_scan:option_list/0`) for handling
+streams of XML data. Note that the `continuation_fun`, `acc_fun`,
+`fetch_fun`, `rules` and `close_fun` options cannot be user defined
+using this parser.
+""".
+-spec stream(Fname, Options) ->
+          {xmlElement(), list()} | {error, Reason} when
+      Fname   :: string(),
+      Options :: option_list(),
+      Reason  :: term().
 stream(Fname, Options) ->
     AccF = fun(X, Acc, S) -> acc(X,Acc,S) end,
     case file:open(Fname, [read, raw, binary]) of
@@ -147,19 +166,24 @@ stream(Fname, Options) ->
     end.
 
 
-%% @spec stream_sax(Fname,CallBackModule,UserState,Options) -> xmlElement()
-%%       Fname = string()
-%%       CallBackModule = atom()
-%%       Options = option_list()
-%%
-%% @doc Parse file containing an XML document as a stream, SAX style.
-%% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
-%% <code>continuation_fun</code> for handling streams of XML data.
-%% Note that the <code>continuation_fun</code>, <code>acc_fun</code>,
-%% <code>fetch_fun</code>, <code>rules</code>, <code>hook_fun</code>,
-%% <code>close_fun</code> and <code>user_state</code> options cannot be user
-%% defined using this parser.
-stream_sax(Fname, CallBack, UserState,Options) ->
+-doc """
+Parse file containing an XML document as a stream, SAX style.
+
+Wrapper for a call to the XML parser `m:xmerl_scan` with
+a [`continuation_fun`](`t:xmerl_scan:option_list/0`) for handling
+streams of XML data.  Note that the `continuation_fun`, `acc_fun`,
+`fetch_fun`, `rules`, `hook_fun`, `close_fun` and `user_state` options
+cannot be user defined using this parser.
+""".
+-spec stream_sax(Fname, CallBackModule, UserState, Options) ->
+          {xmerl_scan:document(), Rest} | {error, Reason} when
+      Fname          :: string(),
+      CallBackModule :: module(),
+      UserState      :: term(),
+      Options        :: option_list(),
+      Rest           :: string(),
+      Reason         :: term().
+stream_sax(Fname, CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF = fun(X, Acc, S) -> acc(X,Acc,S) end,
     HookF=
@@ -198,13 +222,20 @@ stream_sax(Fname, CallBack, UserState,Options) ->
     end.
 
 
-%% @spec file_sax(Fname::string(), CallBackModule::atom(), UserState,
-%%        Options::option_list()) -> NewUserState
-%%
-%% @doc Parse file containing an XML document, SAX style.
-%% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
-%% <code>hook_fun</code> for using xmerl export functionality directly after
-%% an entity is parsed.
+-doc """
+Parse file containing an XML document, SAX style.
+
+Wrapper for a call to the XML parser `m:xmerl_scan` with
+a [`hook_fun`](`t:xmerl_scan:option_list/0`) for
+using Xmerl export functionality directly after an entity is parsed.
+""".
+-spec file_sax(Fname, CallBackModule, UserState, Options) -> NewUserState
+              when
+      Fname          :: string(),
+      CallBackModule :: module(),
+      UserState      :: term(),
+      Options        :: option_list(),
+      NewUserState   :: term().
 file_sax(Fname,CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF=fun(X,Acc,S) -> {[X|Acc], S} end,
@@ -223,21 +254,28 @@ file_sax(Fname,CallBack, UserState, Options) ->
 			end
 		end
 	end,
-    
+
     Opts=scanner_options(Options,[{acc_fun, AccF},
 				  {hook_fun,HookF},
 				  {user_state,US}]),
     xmerl_scan:file(Fname,Opts).
 
 
-%% @spec string_sax(String::list(), CallBackModule::atom(), UserState,
-%%        Options::option_list()) ->
-%%      xmlElement()
-%%
-%% @doc Parse file containing an XML document, SAX style.
-%% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
-%% <code>hook_fun</code> for using xmerl export functionality directly after
-%% an entity is parsed.
+-doc """
+Parse file containing an XML document, SAX style.
+
+Wrapper for a call to the XML parser `m:xmerl_scan`
+with a [`hook_fun`](`t:xmerl_scan:option_list/0`) for using
+Xmerl export functionality directly after an entity is parsed.
+""".
+-spec string_sax(String, CallBackModule, UserState, Options) ->
+          {xmerl_scan:document(), Rest} | {error, Reason} when
+      String         :: list(),
+      CallBackModule :: module(),
+      UserState      :: term(),
+      Options        :: option_list(),
+      Rest           :: string(),
+      Reason         :: term().
 string_sax(String,CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF=fun(X,Acc,S) -> {[X|Acc], S} end,
@@ -256,7 +294,7 @@ string_sax(String,CallBack, UserState, Options) ->
 			end
 		end
 	end,
-    
+
     Opts=scanner_options(Options,[{acc_fun, AccF},
 				  {hook_fun,HookF},
 				  {user_state,US}]),
@@ -278,18 +316,18 @@ cont(F, Exception, S) ->
 
 
 cont2(F, Exception, Sofar, Fd, Fname, T, S) ->
-    case catch read_chunk(Fd, Fname, Sofar) of
-	{ok, Bin} ->
-	    find_good_split(list_to_binary([Sofar,Bin]),
+    case read_chunk(Fd, Fname, Sofar) of
+        {ok, Bin} ->
+            find_good_split(list_to_binary([Sofar,Bin]),
 			    F,Exception,Fd,Fname,T,S);
 	eof ->
 	    ok = file:close(Fd),
 	    NewS = xmerl_scan:cont_state([{Fname, eof}|T], S),
 	    F(binary_to_list(Sofar), NewS);
-	Error ->
-	    exit(Error)
+        Error ->
+            exit(Error)
     end.
-    
+
 read_chunk(Fd, _Fname, _Sofar) ->
     file:read(Fd, 8192).
 
@@ -333,7 +371,7 @@ find_good_split(Size, B, F, Exception, Fd, Fname, T, S) ->
 
 %%% Accumulator callback function for xmerl_scan
 acc(X = #xmlText{value = Text}, Acc, S) ->
-    case detect_nul_text(Text) of 
+    case detect_nul_text(Text) of
 	ok->
 	    {[X#xmlText{value = lists:flatten(Text)}|Acc], S};
    	nok->
@@ -362,13 +400,13 @@ fetch_URI(URI, S) ->
     %% assume URI is a filename
     Split = filename:split(URI),
     Filename = lists:last(Split),
-    Fullname = 
+    Fullname =
 	case Split of
 	    ["/", _|_] ->
 		%% absolute path name
 		URI;
 	    ["file:",Name]->
-		%% file:/dtd_name 
+		%% file:/dtd_name
 		filename:join(S#xmerl_scanner.xmlbase, Name);
 	    _ ->
 		filename:join(S#xmerl_scanner.xmlbase, URI)
@@ -432,11 +470,12 @@ rules_read(Context, Name, #xmerl_scanner{rules = T}) ->
 %%% Generic helper functions
 
 scanner_options([H|T], Opts) ->
-    case catch keyreplace(H, 1, Opts) of
-	false ->
-	    scanner_options(T, [H|Opts]);
-	NewOpts ->
+    try keyreplace(H, 1, Opts) of
+        NewOpts ->
 	    scanner_options(T, NewOpts)
+    catch
+        throw:false ->
+            scanner_options(T, [H|Opts])
     end;
 scanner_options([], Opts) ->
     Opts.

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,14 +16,16 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 %%% Purpose : Tests the new call_trace BIF.
 
 -module(call_trace_SUITE).
 
--export([all/0, suite/0,
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
          init_per_testcase/2,end_per_testcase/2,
          process_specs/1,basic/1,flags/1,errors/1,pam/1,change_pam/1,
          return_trace/1,exception_trace/1,on_load/1,deep_exception/1,
@@ -34,32 +38,70 @@
          id/1,deep/3,deep_1/3,deep_2/2,deep_3/2,deep_4/1,deep_5/1,
          bs_sum_a/2,bs_sum_b/2]).
 
+%% For apply
+-export([erlang_trace/3, erlang_trace_pattern/3, erlang_trace_info/2]).
+
 %% Debug
 -export([abbr/1,abbr/2]).
 
 -include_lib("common_test/include/ct.hrl").
 
 -define(P, 20).
+%-undef(line).
+%-define(line, erlang:display(?LINE)).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 2}}].
 
 all() ->
+    trace_sessions:all().
+
+groups() ->
+    trace_sessions:groups(testcases()).
+
+testcases() ->
     [process_specs, basic, flags, pam, change_pam,
      upgrade,
      return_trace, exception_trace, deep_exception,
      exception_nocatch, bit_syntax, errors, on_load].
 
+init_per_suite(Config) ->
+    trace_sessions:init_per_suite(Config, ?MODULE).
+
+end_per_suite(Config) ->
+    trace_sessions:end_per_suite(Config).
+
+init_per_group(Group, Config) ->
+    trace_sessions:init_per_group(Group, Config).
+
+end_per_group(Group, Config) ->
+    trace_sessions:end_per_group(Group, Config).
+
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
-end_per_testcase(_Func, _Config) ->
+end_per_testcase(_Func, Config) ->
     %% Reloading the module will clear all trace patterns, and
     %% in a debug-compiled emulator run assertions of the counters
     %% for the number of traced exported functions in this module.
 
-    c:l(?MODULE).
+    c:l(?MODULE),
+
+    trace_sessions:end_per_testcase(Config).
+
+erlang_trace(A,B,C) ->
+    trace_sessions:erlang_trace(A,B,C).
+
+erlang_trace_pattern(A,B) ->
+    trace_sessions:erlang_trace_pattern(A,B).
+
+erlang_trace_pattern(A,B,C) ->
+    trace_sessions:erlang_trace_pattern(A,B,C).
+
+erlang_trace_info(A,B) ->
+    trace_sessions:erlang_trace_info(A,B).
+
 
 %% Tests 'all', 'new', and 'existing' for specifying processes.
 process_specs(Config) when is_list(Config) ->
@@ -432,11 +474,11 @@ flag_test(Test) ->
     flag_test_cpu_timestamp(Test).
 
 flag_test_cpu_timestamp(Test) ->
-    try erlang:trace(all, true, [cpu_timestamp]) of
+    try erlang_trace(all, true, [cpu_timestamp]) of
         _ ->
             io:format("CPU timestamps"),
             Ts = Test(),
-            erlang:trace(all, false, [cpu_timestamp]),
+            erlang_trace(all, false, [cpu_timestamp]),
             Origin = {0,0,0},
             Hour = 3600*1000000,
             case timer:now_diff(Ts, Origin) of
@@ -464,7 +506,7 @@ errors(Config) when is_list(Config) ->
     ok.
 
 expect_badarg_pid(What, How, Flags) ->
-    case catch erlang:trace(What, How, Flags) of
+    case catch erlang_trace(What, How, Flags) of
         {'EXIT',{badarg,Where}} ->
             io:format("trace(~p, ~p, ~p) ->\n  {'EXIT',{badarg,~p}}",
                       [What,How,Flags,Where]),
@@ -476,7 +518,7 @@ expect_badarg_pid(What, How, Flags) ->
     end.
 
 expect_badarg_func(MFA, Pattern) ->
-    case catch erlang:trace_pattern(MFA, Pattern) of
+    case catch erlang_trace_pattern(MFA, Pattern) of
         {'EXIT',{badarg,Where}} ->
             io:format("trace_pattern(~p, ~p) ->\n  {'EXIT',{badarg,~p}}",
                       [MFA,Pattern,Where]),
@@ -702,25 +744,25 @@ exception_trace(_Config) ->
 
 %% Test the on_load argument for trace_pattern/3.
 on_load(Config) when is_list(Config) ->
-    0 = erlang:trace_pattern(on_load, []),
-    {traced,global} = erlang:trace_info(on_load, traced),
-    {match_spec,[]} = erlang:trace_info(on_load, match_spec),
+    0 = erlang_trace_pattern(on_load, []),
+    {traced,global} = erlang_trace_info(on_load, traced),
+    {match_spec,[]} = erlang_trace_info(on_load, match_spec),
 
-    0 = erlang:trace_pattern(on_load, true, [local]),
-    {traced,local} = erlang:trace_info(on_load, traced),
-    {match_spec,[]} = erlang:trace_info(on_load, match_spec),
+    0 = erlang_trace_pattern(on_load, true, [local]),
+    {traced,local} = erlang_trace_info(on_load, traced),
+    {match_spec,[]} = erlang_trace_info(on_load, match_spec),
 
-    0 = erlang:trace_pattern(on_load, false, [local]),
-    {traced,false} = erlang:trace_info(on_load, traced),
-    {match_spec,false} = erlang:trace_info(on_load, match_spec),
+    0 = erlang_trace_pattern(on_load, false, [local]),
+    {traced,false} = erlang_trace_info(on_load, traced),
+    {match_spec,false} = erlang_trace_info(on_load, match_spec),
 
     Pam1 = [{[],[],[{message,false}]}],
-    0 = erlang:trace_pattern(on_load, Pam1),
-    {traced,global} = erlang:trace_info(on_load, traced),
-    {match_spec,Pam1} = erlang:trace_info(on_load, match_spec),
+    0 = erlang_trace_pattern(on_load, Pam1),
+    {traced,global} = erlang_trace_info(on_load, traced),
+    {match_spec,Pam1} = erlang_trace_info(on_load, match_spec),
 
-    0 = erlang:trace_pattern(on_load, true, [local]),
-    0 = erlang:trace_pattern(on_load, false, [local]),
+    0 = erlang_trace_pattern(on_load, true, [local]),
+    0 = erlang_trace_pattern(on_load, false, [local]),
 
     ok.
 
@@ -1038,15 +1080,15 @@ exception_nocatch() ->
     Deep4LocBadmatch = get_deep_4_loc({'=',[a,b]}),
 
     Prog = [{'_',[],[{exception_trace}]}],
-    1 = erlang:trace_pattern({?MODULE,deep_1,'_'}, Prog),
-    1 = erlang:trace_pattern({?MODULE,deep_2,'_'}, Prog),
-    1 = erlang:trace_pattern({?MODULE,deep_3,'_'}, Prog),
-    1 = erlang:trace_pattern({?MODULE,deep_4,'_'}, Prog),
-    1 = erlang:trace_pattern({?MODULE,deep_5,'_'}, Prog),
-    1 = erlang:trace_pattern({?MODULE,id,'_'}, Prog),
-    1 = erlang:trace_pattern({erlang,exit,1}, Prog),
-    1 = erlang:trace_pattern({erlang,throw,1}, Prog),
-    3 = erlang:trace_pattern({erlang,error,'_'}, Prog),
+    1 = erlang_trace_pattern({?MODULE,deep_1,'_'}, Prog),
+    1 = erlang_trace_pattern({?MODULE,deep_2,'_'}, Prog),
+    1 = erlang_trace_pattern({?MODULE,deep_3,'_'}, Prog),
+    1 = erlang_trace_pattern({?MODULE,deep_4,'_'}, Prog),
+    1 = erlang_trace_pattern({?MODULE,deep_5,'_'}, Prog),
+    1 = erlang_trace_pattern({?MODULE,id,'_'}, Prog),
+    1 = erlang_trace_pattern({erlang,exit,1}, Prog),
+    1 = erlang_trace_pattern({erlang,throw,1}, Prog),
+    3 = erlang_trace_pattern({erlang,error,'_'}, Prog),
     Q1 = {make_ref(),Prog},
     T1 = 
     exception_nocatch(?LINE, exit, [Q1], 3, 
@@ -1078,8 +1120,8 @@ exception_nocatch() ->
     expect({trace,T4,exit,{{badmatch,4711},
                            [{?MODULE,deep_4,1,Deep4LocBadmatch}]}}),
     %%
-    erlang:trace_pattern({?MODULE,'_','_'}, false),
-    erlang:trace_pattern({erlang,'_','_'}, false),
+    erlang_trace_pattern({?MODULE,'_','_'}, false),
+    erlang_trace_pattern({erlang,'_','_'}, false),
     expect(),
     ok.
 
@@ -1103,7 +1145,7 @@ exception_nocatch(Line, B, Q, N, Extra, Tag, R) ->
                           deep_1(N, B, Q)
                   end
           end),
-    1 = erlang:trace(Tracee, true, [call,return_to,procs]),
+    1 = erlang_trace(Tracee, true, [call,return_to,procs]),
     Tracee ! Go,
     deep_expect_N(Tracee, B, Q, N-1, 
                   [setelement(2, T, Tracee) || T <- Extra], Tag, R),
@@ -1240,7 +1282,7 @@ expect(Validator, State0) when is_function(Validator) ->
     end.
 
 trace_info(What, Key) ->
-    get(tracer) ! {apply,self(),{erlang,trace_info,[What,Key]}},
+    get(tracer) ! {apply,self(),{?MODULE,erlang_trace_info,[What,Key]}},
     Res = receive
               {apply_result,Result} -> Result
           end,
@@ -1251,7 +1293,7 @@ trace_info(What, Key) ->
 trace_func(MFA, MatchSpec) ->
     trace_func(MFA, MatchSpec, []).
 trace_func(MFA, MatchSpec, Flags) ->
-    get(tracer) ! {apply,self(),{erlang,trace_pattern,[MFA, MatchSpec, Flags]}},
+    get(tracer) ! {apply,self(),{?MODULE,erlang_trace_pattern,[MFA, MatchSpec, Flags]}},
     Res = receive
               {apply_result,Result} -> Result
           end,
@@ -1259,7 +1301,7 @@ trace_func(MFA, MatchSpec, Flags) ->
     Res.
 
 trace_pid(Pid, On, Flags) ->
-    get(tracer) ! {apply,self(),{erlang,trace,[Pid,On,Flags]}},
+    get(tracer) ! {apply,self(),{?MODULE,erlang_trace,[Pid,On,Flags]}},
     Res = receive
               {apply_result,Result} -> Result
           end,
@@ -1277,7 +1319,7 @@ start_tracer_loop() ->
     get(tracer).
 
 tracer(RelayTo) ->
-    erlang:trace(RelayTo, true, [call]),
+    erlang_trace(RelayTo, true, [call]),
     tracer_loop(RelayTo).
 
 tracer_loop(RelayTo) ->

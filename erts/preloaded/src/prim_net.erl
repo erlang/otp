@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 
 -module(prim_net).
+-moduledoc false.
 
 -compile(no_native).
 
@@ -26,7 +29,7 @@
 -export([
 	 on_load/0, on_load/1,
 	 info/0,
-         command/1
+         debug/1
         ]).
 
 -export([
@@ -38,6 +41,8 @@
          get_if_entry/1,
          get_interface_info/1,
          get_ip_address_table/1,
+         getservbyname/2,
+         getservbyport/2,
 
          if_name2index/1,
          if_index2name/1,
@@ -104,17 +109,13 @@
 -type interface_info_args() :: #{debug => boolean()}.
 -type if_entry_args() :: #{index := non_neg_integer(),
                            debug => boolean()}.
--type ip_address_table_args() :: #{debug => boolean()}.
+-type ip_address_table_args() :: #{sort  => boolean(),
+				   debug => boolean()}.
 
 -type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
                          fddi | ppp | software_loopback | atm | ieee80211 |
                          tunnel | ieee1394 | ieee80216_wman | wwanpp | wwanpp2.
--type if_admin_status() :: non_operational |
-                           unreachable |
-                           disconnected |
-                           connecting | connected |
-                           operational |
-                           non_neg_integer().
+-type if_admin_status() :: enabled | disabled.
 -type internal_if_oper_status() :: non_operational |
                                    unreachable |
                                    disconnected |
@@ -374,10 +375,8 @@ info() ->
     nif_info().
 
 
--spec command(Cmd :: term()) -> term().
-
-command(Cmd) ->
-    nif_command(Cmd).
+debug(D) ->
+    nif_command(#{command => ?FUNCTION_NAME, data => D}).
 
 
 
@@ -566,6 +565,27 @@ get_ip_address_table(Args) when is_map(Args) ->
 
 %% ===========================================================================
 %%
+%% getservbyname - Get service by name
+%%
+
+getservbyname(Name, Proto) when is_list(Name) andalso is_list(Proto) ->
+    nif_getservbyname(Name, Proto).
+
+
+
+%% ===========================================================================
+%%
+%% getservbyport - Get service by name
+%%
+
+getservbyport(PortNumber, Proto)
+  when is_integer(PortNumber) andalso is_list(Proto) ->
+    nif_getservbyport(PortNumber, Proto).
+
+
+
+%% ===========================================================================
+%%
 %% if_name2index - Mappings between network interface names and indexes:
 %%                 name -> idx
 %%
@@ -681,6 +701,12 @@ nif_get_interface_info(_Args) ->
     erlang:nif_error(notsup).
 
 nif_get_ip_address_table(_Args) ->
+    erlang:nif_error(notsup).
+
+nif_getservbyname(_Name, _Proto) ->
+    erlang:nif_error(notsup).
+
+nif_getservbyport(_PortNumber, _Proto) ->
     erlang:nif_error(notsup).
 
 nif_if_name2index(_Name) ->

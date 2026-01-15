@@ -1,9 +1,17 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec unregister(RegName) -> true when RegName :: atom().[0m
+[;1m  unregister(RegName)[0m
 
   Removes the [;;4mregistered name[0m [;;4mRegName[0m associated with a process
-  identifier or a port identifier from the [;;4mname registry[0m. For
-  example:
+  identifier or a port identifier from the [;;4mname registry[0m.
+
+  For example:
 
     > unregister(db).
     true

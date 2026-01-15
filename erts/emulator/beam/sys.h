@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +22,6 @@
 
 #ifndef __SYS_H__
 #define __SYS_H__
-
-#define ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
 
 #if !defined(__GNUC__) || defined(__e2k__)
 #  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
@@ -179,6 +179,25 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_UNLIKELY(BOOL) (BOOL)
 #endif
 
+#if (ERTS_AT_LEAST_GCC_VSN__(5, 1, 0) || __has_builtin(__builtin_unreachable))
+#  define ERTS_UNREACHABLE __builtin_unreachable()
+#elif defined(_MSC_VER)
+#  define ERTS_UNREACHABLE __assume(0)
+#else
+/* Unsupported compiler, just ignore it. */
+#  define ERTS_UNREACHABLE ((void)0)
+#endif
+
+/* Tells the compiler to assume that a certain fact always holds, suppressing
+ * bogus warnings and/or enabling better optimizations. */
+#if !defined(DEBUG)
+#  define ERTS_ASSUME(Expr) ((Expr) ?                                          \
+                             (void)0 :                                         \
+                             (void)ERTS_UNREACHABLE)
+#else
+#  define ERTS_ASSUME(Expr) ASSERT((Expr))
+#endif
+
 /* AIX doesn't like this and claims section conflicts */
 #if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0) && !defined(_AIX)
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
@@ -311,6 +330,19 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
     } while (0)
 #endif
 
+/* Taken from https://best.openssf.org/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C++.html#warn-about-implicit-fallthrough-in-switch-statements */
+#ifdef __has_attribute
+#  if __has_attribute(__fallthrough__)
+#    define ERTS_FALLTHROUGH()                    __attribute__((__fallthrough__))
+#  endif
+#endif
+#ifndef ERTS_FALLTHROUGH
+# define ERTS_FALLTHROUGH()                    do {} while (0)  /* fallthrough */
+#endif
+
+/* C99: bool, true and false */
+#include <stdbool.h>
+
 /*
  * Microsoft C/C++: We certainly want to use stdarg.h and prototypes.
  * But MSC doesn't define __STDC__, unless we compile with the -Za
@@ -428,6 +460,7 @@ typedef long long          Sint  erts_align_attribute(sizeof(long long));
 typedef Uint UWord;
 typedef Sint SWord;
 #define ERTS_UINT_MAX ERTS_UWORD_MAX
+#define ERTS_SINT_MAX ERTS_SWORD_MAX
 
 typedef const void *ErtsCodePtr;
 typedef UWord BeamInstr;
@@ -650,6 +683,8 @@ __decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
 
 UWord erts_sys_get_page_size(void);
 
+UWord erts_sys_get_large_page_size(void);
+
 /* Size of misc memory allocated from system dependent code */
 Uint erts_sys_misc_mem_sz(void);
 
@@ -671,7 +706,7 @@ typedef struct {
     size_t size;
 } erts_print_sn_buf;
 
-int erts_print(fmtfn_t to, void *arg, char *format, ...);	/* in utils.c */
+int erts_print(fmtfn_t to, void *arg, const char *format, ...);	/* in utils.c */
 int erts_putc(fmtfn_t to, void *arg, char);			/* in utils.c */
 
 /* logger stuff is declared here instead of in global.h, so sys files
@@ -700,15 +735,15 @@ typedef struct preload {
 } Preload;
 
 /*
- * ErtsTracer is either NIL, 'true' or [Mod | State]
+ * ErtsTracer is either NIL, 'true', LocalPid or [Mod | State]
  *
  * If set to NIL, it means no tracer.
  * If set to 'true' it means the current process' tracer.
  * If set to [Mod | State], there is a tracer.
- *  See erts_tracer_update for more details
+ * LocalPid is the optimized form of the common case [erl_tracer | LocalPid].
+ *  See erts_tracer_update_impl for more details
  */
 typedef Eterm ErtsTracer;
-
 
 /*
  * This structure contains the rb tree for the erlang osenv copy
@@ -863,7 +898,7 @@ int erts_sys_explicit_8bit_putenv(char *key, char *value);
 
 /* This is identical to erts_sys_explicit_8bit_getenv but falls down to the
  * host OS implementation instead of erts_osenv. */
-int erts_sys_explicit_host_getenv(char *key, char *value, size_t *size);
+int erts_sys_explicit_host_getenv(const char *key, char *value, size_t *size);
 
 const erts_osenv_t *erts_sys_rlock_global_osenv(void);
 void erts_sys_runlock_global_osenv(void);
@@ -910,6 +945,9 @@ typedef struct {
 } SysAllocStat;
 
 void sys_alloc_stat(SysAllocStat *);
+
+extern UWord sys_page_size;
+extern UWord sys_large_page_size;
 
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 #undef ERTS_REFC_DEBUG

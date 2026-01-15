@@ -1,13 +1,19 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec map_size(Map) -> non_neg_integer() when Map :: map().[0m
+[;1m  map_size(Map)[0m
 
 [;;4mSince[0m:
   OTP 17.0
 
-  Returns an integer, which is the number of key-value pairs in [;;4mMap[0m,
-  for example:
+  Returns an integer, which is the number of key-value pairs in [;;4mMap[0m.
+
+  For example:
 
     > map_size(#{a=>1, b=>2, c=>3}).
     3
-
-  Allowed in guard tests.

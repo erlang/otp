@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_pkix_db).
+-moduledoc false.
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -43,7 +46,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec create(atom()) -> [db_handle(),...].
+-spec create(atom()) -> [ssl_manager:db_handle(),...].
 %% 
 %% Description: Creates a new certificate db.
 %% Note: lookup_trusted_cert/4 may be called from any process but only
@@ -69,7 +72,7 @@ create_pem_cache(Name) ->
     ets:new(Name, [named_table, set, protected]).
 
 %%--------------------------------------------------------------------
--spec remove([db_handle()]) -> ok. 
+-spec remove([ssl_manager:db_handle()]) -> ok.
 %%
 %% Description: Removes database db  
 %%--------------------------------------------------------------------
@@ -95,7 +98,8 @@ remove(Dbs) ->
 		  end, Dbs).
 
 %%--------------------------------------------------------------------
--spec lookup_trusted_cert(db_handle(), certdb_ref(), serialnumber(), issuer()) ->
+-spec lookup_trusted_cert(ssl_manager:db_handle(), ssl_manager:certdb_ref(),
+                          SerialNumber::pos_integer(), public_key:issuer_name()) ->
 				 undefined | {ok, public_key:combined_cert()}.
 
 %%
@@ -123,7 +127,7 @@ lookup_trusted_cert(_DbHandle, {extracted,Certs}, SerialNumber, Issuer) ->
 
 %%--------------------------------------------------------------------
 -spec add_trusted_certs(pid(), {erlang:timestamp(), string()} |
-			{der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
+			{der, list()}, [ssl_manager:db_handle()]) -> {ok, [ssl_manager:db_handle()]}.
 %%
 %% Description: Adds the trusted certificates from file <File> to the
 %% runtime database. Returns Ref that should be handed to lookup_trusted_cert
@@ -191,7 +195,7 @@ decode_pem_file(File) ->
     end.
 
 %%--------------------------------------------------------------------
--spec remove_trusted_certs(reference(), db_handle()) -> ok.
+-spec remove_trusted_certs(reference(), ssl_manager:db_handle()) -> ok.
 %%
 %% Description: Removes all trusted certificates referenced by <Ref>.
 %%--------------------------------------------------------------------
@@ -199,7 +203,7 @@ remove_trusted_certs(Ref, CertsDb) ->
     remove_certs(Ref, CertsDb).
 
 %%--------------------------------------------------------------------
--spec remove(term(), db_handle()) -> ok.
+-spec remove(term(), ssl_manager:db_handle()) -> ok.
 %%
 %% Description: Removes an element in a <Db>.
 %%--------------------------------------------------------------------
@@ -208,7 +212,7 @@ remove(Key, Db) ->
     ok.
 
 %%--------------------------------------------------------------------
--spec remove(term(), term(), db_handle()) -> ok.
+-spec remove(term(), term(), ssl_manager:db_handle()) -> ok.
 %%
 %% Description: Removes an element in a <Db>.
 %%--------------------------------------------------------------------
@@ -217,7 +221,7 @@ remove(Key, Data, Db) ->
     ok.
 
 %%--------------------------------------------------------------------
--spec lookup(term(), db_handle()) -> [term()] | undefined.
+-spec lookup(term(), ssl_manager:db_handle()) -> [term()] | undefined.
 %%
 %% Description: Looks up an element in a <Db>.
 %%--------------------------------------------------------------------
@@ -232,7 +236,7 @@ lookup(Key, Db) ->
 	    [Pick(Data) || Data <- Contents]
     end.
 %%--------------------------------------------------------------------
--spec foldl(fun((_,_) -> term()), term(), db_handle()) -> term().
+-spec foldl(fun((_,_) -> term()), term(), ssl_manager:db_handle()) -> term().
 %%
 %% Description: Calls Fun(Elem, AccIn) on successive elements of the
 %% cache, starting with AccIn == Acc0. Fun/2 must return a new
@@ -244,7 +248,7 @@ foldl(Fun, Acc0, Cache) ->
     ets:foldl(Fun, Acc0, Cache).
 
 %%--------------------------------------------------------------------
--spec select_certentries_by_ref(reference(), db_handle()) -> term().
+-spec select_certentries_by_ref(reference(), ssl_manager:db_handle()) -> term().
 %%
 %% Description: Select certs entries originating from same source
 %%--------------------------------------------------------------------
@@ -252,7 +256,7 @@ select_certentries_by_ref(Ref, Cache) ->
     ets:select(Cache, [{{{Ref,'_', '_'}, '_'},[],['$_']}]).
 
 %%--------------------------------------------------------------------
--spec select_certs_by_ref(reference(), db_handle()) -> term().
+-spec select_certs_by_ref(reference(), ssl_manager:db_handle()) -> term().
 %%
 %% Description: Select certs originating from same source
 %%--------------------------------------------------------------------
@@ -260,7 +264,7 @@ select_certs_by_ref(Ref, Cache) ->
     ets:select(Cache, [{{{Ref,'_','_'},'$1'},[],['$1']}]).
 
 %%--------------------------------------------------------------------
--spec ref_count(term(), db_handle(), integer()) -> integer().
+-spec ref_count(term(), ssl_manager:db_handle(), integer()) -> integer().
 %%
 %% Description: Updates a reference counter in a <Db>.
 %%--------------------------------------------------------------------
@@ -272,7 +276,7 @@ ref_count(Key, Db, N) ->
     ets:update_counter(Db,Key,N).
 
 %%--------------------------------------------------------------------
--spec clear(db_handle()) -> ok.
+-spec clear(ssl_manager:db_handle()) -> ok.
 %%
 %% Description: Clears the cache
 %%--------------------------------------------------------------------
@@ -281,7 +285,7 @@ clear(Db) ->
     ok.
 
 %%--------------------------------------------------------------------
--spec db_size(db_handle()) -> integer().
+-spec db_size(ssl_manager:db_handle()) -> integer().
 %%
 %% Description: Returns the size of the db
 %%--------------------------------------------------------------------
@@ -289,7 +293,7 @@ db_size(Db) ->
     ets:info(Db, size).
 
 %%--------------------------------------------------------------------
--spec insert(Key::term(), Data::term(), Db::db_handle()) -> ok.
+-spec insert(Key::term(), Data::term(), Db::ssl_manager:db_handle()) -> ok.
 %%
 %% Description: Inserts data into <Db>
 %%--------------------------------------------------------------------

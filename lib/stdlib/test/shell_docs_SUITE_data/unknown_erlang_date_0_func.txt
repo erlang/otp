@@ -1,11 +1,19 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec date() -> Date when Date :: calendar:date().[0m
+[;1m  date()[0m
 
   Returns the current date as [;;4m{Year, Month, Day}[0m.
 
   The time zone and Daylight Saving Time correction depend on the
   underlying OS. The return value is based on the OS System Time.
-  Example:
+
+  For example:
 
     > date().
     {1995,2,19}

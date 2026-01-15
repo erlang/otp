@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -289,16 +291,13 @@ static int get_init_args(ErlNifEnv* env,
     
     /* Here: (*cipherp)->cipher.p != NULL and ivec_len has a value */
 
-#if defined(HAS_3_0_API) // Temp disallow dyn iv for >=3.0 (may core dump)
-    if (argv[ivec_arg_num] == atom_undefined)
-        {
-            *return_term = EXCP_NOTSUP(env, "Dynamic IV is not supported for libcrypto versions >= 3.0");
-            goto err;
-        }
-#endif
-  
+    if (argv[ivec_arg_num] == atom_undefined) {
+        *return_term = EXCP_NOTSUP(env, "Dynamic IV is not supported since OTP 27.0");
+        goto err;
+    }
+
     /* Fetch IV */
-    if (ivec_len && (argv[ivec_arg_num] != atom_undefined)) {
+    if (ivec_len) {
         if (!enif_inspect_iolist_as_binary(env, argv[ivec_arg_num], &ivec_bin))
             {
                 *return_term = EXCP_BADARG_N(env, ivec_arg_num, "Bad iv type");
@@ -377,7 +376,7 @@ static int get_init_args(ErlNifEnv* env,
     }
 #endif
 
-    if (argv[ivec_arg_num] == atom_undefined || ivec_len == 0)
+    if (ivec_len == 0)
         {
             if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL,ctx_res->key_bin.data, NULL, -1)) {
                 *return_term = EXCP_BADARG_N(env, key_arg_num, "Can't initialize key");
@@ -551,7 +550,6 @@ static int get_final_args(ErlNifEnv* env,
 
                     else if (ctx_res->padding == atom_none)
                         {
-                            ASSERT(pad_size == 0);
                             ctx_res->padded_size = pad_size;
                             pad_offset = 0;
                         }
@@ -729,126 +727,13 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
         return EXCP_BADARG_N(env, 0, "Bad State");
-    
-    if (argc == 3) {
-        /* We have an IV in this call. Make a copy of the context */
-#if defined(HAS_3_0_API) // Temp disallow dyn iv for >=3.0 (may core dump)
-        ret = EXCP_NOTSUP(env, "Dynamic IV is not supported for libcrypto versions >= 3.0");
-        goto err;
-#else
-        ErlNifBinary ivec_bin;
 
-        /* First check the IV provided in the call of this function: */
-        if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
-            {
-                ret = EXCP_BADARG_N(env, 2, "Bad iv type");
-                goto err;
-            }
-        if (ctx_res->iv_len != ivec_bin.size)
-            {
-                ret = EXCP_BADARG_N(env, 2, "Bad iv size");
-                goto err;
-            }
+    get_update_args(env, ctx_res, argv, 1, &ret);
 
-
-        /* Now start to copy from ctx_res* to ctx_res_copy */
-
-        memcpy(&ctx_res_copy, ctx_res, sizeof ctx_res_copy);
-
-#if !defined(HAVE_EVP_AES_CTR)
-        /* a check of we are to use the special old aes_ctr compat functions */
-        if (ctx_res_copy.state == atom_undefined)
-            /* Not going to use aes_ctr compat functions because they have a state =/= atom_undefined */
-#endif
-            {
-                ctx_res_copy.ctx = EVP_CIPHER_CTX_new();
-                if (! ctx_res_copy.ctx)
-                    {
-                        ret = EXCP_ERROR(env, "Can't allocate context");
-                        goto err;
-                    }
-
-#if OPENSSL_VERSION_NUMBER == PACKED_OPENSSL_VERSION_PLAIN(3,0,0) || \
-    OPENSSL_VERSION_NUMBER == PACKED_OPENSSL_VERSION_PLAIN(3,0,1)
-                /* Temporary work-around for EVP_CIPHER_CTX_copy since it fails for chacha20 in 3.0.[01] */
-                if (EVP_CIPHER_type(EVP_CIPHER_CTX_get0_cipher(ctx_res->ctx)) == NID_undef)
-                    /* The work-around is only for chacha20.  The EVP_CIPHER_type(..) is NID_undef for chacha20 (!) afaik.
-                       Since  EVP_CIPHER_CTX_copy doesn't work, we greate a new EVP_CIPHER_CTX for the current
-                       function.
-                       This code is the same as for ng_crypto_init, except that no testing is needed of
-                       the already tested parameters
-                    */
-                    {
-                        const EVP_CIPHER *cipher_p = EVP_CIPHER_CTX_get0_cipher(ctx_res->ctx);
-
-                        if (!EVP_CipherInit_ex(ctx_res_copy.ctx, cipher_p, NULL, NULL, NULL, ctx_res_copy.encflag))
-                            {
-                                ret = EXCP_ERROR(env, "Can't initialize context, step 1");
-                                goto err;
-                            }
-
-                        if (!EVP_CIPHER_CTX_set_key_length(ctx_res_copy.ctx, (int)ctx_res->key_bin.size))
-                            {
-                                ret = EXCP_ERROR(env, "Can't initialize context, key_length");
-                                goto err;
-                            }
-# ifdef HAVE_RC2
-                        /* Who knows, we might need this as in ng_crypto_init (but I don't know how that would happen) */
-                        if ((EVP_CIPHER_type(cipher_p) == NID_rc2_cbc) &&
-                            !EVP_CIPHER_CTX_ctrl(ctx_res_copy.ctx, EVP_CTRL_SET_RC2_KEY_BITS, (int)ctx_res->key_bin.size * 8, NULL))
-                            {
-                                ret = EXCP_ERROR(env, "ctrl rc2_cbc key");
-                                goto err;
-                            }
-# endif
-                        if (!EVP_CipherInit_ex(ctx_res_copy.ctx, NULL, NULL, ctx_res->key_bin.data, NULL, -1))
-                            {
-                                ret = EXCP_ERROR(env, "Can't initialize key");
-                                goto err;
-                            }
-                    }
-                /* End of temporary work-around */
-                else
-#endif
-                /* The standard copying of the EVP_CIPHER_CTX (without IV) */
-                if (!EVP_CIPHER_CTX_copy(ctx_res_copy.ctx, ctx_res->ctx)) {
-                    ret = EXCP_ERROR(env, "Can't copy ctx_res");
-                    goto err;
-                }
-            }
-
-#if !defined(HAVE_EVP_AES_CTR)
-        if ((ctx_res_copy.state != atom_undefined) ) {
-            /* replace the iv in state with argv[2] */
-            ERL_NIF_TERM state0;
-            const ERL_NIF_TERM *tuple_argv;
-            int tuple_argc;
-            state0 = enif_make_copy(env, ctx_res_copy.state);
-            if (enif_get_tuple(env, state0, &tuple_argc, &tuple_argv) && (tuple_argc == 4)) {
-                /* A compatibility state term */
-                ctx_res_copy.state = enif_make_tuple4(env, tuple_argv[0], argv[2], tuple_argv[2], tuple_argv[3]);
-            }
-        } else
-#endif 
-           if (!EVP_CipherInit_ex(ctx_res_copy.ctx, NULL, NULL, NULL, ivec_bin.data, -1))
-                {
-                    ret = EXCP_ERROR(env, "Can't set iv");
-                    goto err;
-                }
-        
-        get_update_args(env, &ctx_res_copy, argv, 1, &ret);
-
-        ctx_res->size = ctx_res_copy.size;
-#endif // Temp disallow dyn iv for >=3.0 (may core dump)
-    } else
-        /* argc != 3, that is, argc = 2 (we don't have an IV in this call) */
-        get_update_args(env, ctx_res, argv, 1, &ret);
-
- err:
     if (ctx_res_copy.ctx)
         EVP_CIPHER_CTX_free(ctx_res_copy.ctx);
 
-    return ret; /* Both success and error */
+    return ret;
 }
 
 
@@ -986,28 +871,22 @@ ERL_NIF_TERM ng_crypto_one_time_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 ERL_NIF_TERM ng_crypto_get_data_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context) -> map */
     struct evp_cipher_ctx *ctx_res;
+    ERL_NIF_TERM keys[4] = {
+        atom_size, atom_padding_size, atom_padding_type, atom_encrypt
+    };
+    ERL_NIF_TERM values[4];
     ERL_NIF_TERM ret;
+    int ok;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
         return EXCP_BADARG_N(env, 0, "Bad State");
 
-    ret = enif_make_new_map(env);
-
-    enif_make_map_put(env, ret, atom_size,
-                      enif_make_int(env, ctx_res->size),
-                      &ret);
-
-    enif_make_map_put(env, ret, atom_padding_size,
-                      enif_make_int(env, ctx_res->padded_size),
-                      &ret);
-
-    enif_make_map_put(env, ret, atom_padding_type,
-                      ctx_res->padding,
-                      &ret);
-
-    enif_make_map_put(env, ret, atom_encrypt,
-                      (ctx_res->encflag) ? atom_true : atom_false,
-                      &ret);
+    values[0] = enif_make_int(env, ctx_res->size);
+    values[1] = enif_make_int(env, ctx_res->padded_size);
+    values[2] = ctx_res->padding;
+    values[3] = (ctx_res->encflag) ? atom_true : atom_false;
+    ok = enif_make_map_from_arrays(env, keys, values, 4, &ret);
+    ASSERT(ok); (void)ok;
 
     return ret;
 }

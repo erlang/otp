@@ -21,7 +21,7 @@ namespace FuncInternal {
 Error initCallConv(CallConv& cc, CallConvId ccId, const Environment& environment) noexcept;
 
 //! Initialize `FuncDetail` (AArch64 specific).
-Error initFuncDetail(FuncDetail& func, const FuncSignature& signature, uint32_t registerSize) noexcept;
+Error initFuncDetail(FuncDetail& func, const FuncSignature& signature) noexcept;
 
 } // {FuncInternal}
 

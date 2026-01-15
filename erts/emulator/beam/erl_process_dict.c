@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2021. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1999-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -53,11 +55,11 @@
 /* Hash utility macros  */
 #define HASH_RANGE(PDict) ((PDict)->usedSlots)
 
-#define MAKE_HASH(Term)                                \
-    ((is_small(Term)) ? (Uint32) unsigned_val(Term) :  \
-     ((is_atom(Term)) ?                                \
-      (Uint32) atom_val(Term) :                        \
-      make_internal_hash(Term, 0)))
+#define MAKE_HASH(Term)                                      \
+    ((is_small(Term)) ? (erts_ihash_t) unsigned_val(Term) :  \
+     ((is_atom(Term)) ?                                      \
+      (erts_ihash_t) atom_val(Term) :                        \
+      erts_internal_hash(Term)))
 
 #define PD_SZ2BYTES(Sz) (sizeof(ProcDict) + ((Sz) - 1)*sizeof(Eterm))
 
@@ -103,7 +105,7 @@ static void grow(Process *p);
 static void array_shrink(ProcDict **ppd, unsigned int need);
 static void ensure_array_size(ProcDict**, unsigned int size);
 
-static unsigned int pd_hash_value_to_ix(ProcDict *pdict, Uint32 hx);
+static unsigned int pd_hash_value_to_ix(ProcDict *pdict, erts_ihash_t hx);
 static unsigned int next_array_size(unsigned int need);
 
 /*
@@ -441,12 +443,12 @@ static void pd_hash_erase_all(Process *p)
     }
 }
 
-Uint32 erts_pd_make_hx(Eterm key)
+erts_ihash_t erts_pd_make_hx(Eterm key)
 {
     return MAKE_HASH(key);
 }
 
-Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id)
+Eterm erts_pd_hash_get_with_hx(Process *p, erts_ihash_t hx, Eterm id)
 {
     unsigned int hval;
     ProcDict *pd = p->dictionary;
@@ -1003,7 +1005,7 @@ static void ensure_array_size(ProcDict **ppdict, unsigned int size)
 ** Basic utilities
 */
 
-static unsigned int pd_hash_value_to_ix(ProcDict *pdict, Uint32 hx) 
+static unsigned int pd_hash_value_to_ix(ProcDict *pdict, erts_ihash_t hx) 
 { 
     Uint high;
 

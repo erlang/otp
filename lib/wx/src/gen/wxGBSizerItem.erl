@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,60 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxGBSizerItem).
+-moduledoc """
+The `m:wxGBSizerItem` class is used by the `m:wxGridBagSizer` for tracking the items in
+the sizer.
+
+It adds grid position and spanning information to the normal `m:wxSizerItem` by adding `wxGBPosition`
+(not implemented in wx) and `wxGBSpan` (not implemented in wx) attributes. Most of the
+time you will not need to use a `m:wxGBSizerItem` directly in your code, but there are a
+couple of cases where it is handy.
+
+This class is derived, and can use functions, from:
+
+* `m:wxSizerItem`
+
+wxWidgets docs: [wxGBSizerItem](https://docs.wxwidgets.org/3.2/classwx_g_b_sizer_item.html)
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -32,74 +84,74 @@
 
 -type wxGBSizerItem() :: wx:wx_object().
 -export_type([wxGBSizerItem/0]).
-%% @hidden
+-doc false.
 parent_class(wxSizerItem) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
  %% From wxSizerItem
-%% @hidden
+-doc false.
 show(This,Show) -> wxSizerItem:show(This,Show).
-%% @hidden
+-doc false.
 assignWindow(This,Window) -> wxSizerItem:assignWindow(This,Window).
-%% @hidden
+-doc false.
 assignSpacer(This,W,H) -> wxSizerItem:assignSpacer(This,W,H).
-%% @hidden
+-doc false.
 assignSpacer(This,Size) -> wxSizerItem:assignSpacer(This,Size).
-%% @hidden
+-doc false.
 assignSizer(This,Sizer) -> wxSizerItem:assignSizer(This,Sizer).
-%% @hidden
+-doc false.
 setRatio(This,Width,Height) -> wxSizerItem:setRatio(This,Width,Height).
-%% @hidden
+-doc false.
 setRatio(This,Ratio) -> wxSizerItem:setRatio(This,Ratio).
-%% @hidden
+-doc false.
 setProportion(This,Proportion) -> wxSizerItem:setProportion(This,Proportion).
-%% @hidden
+-doc false.
 setMinSize(This,X,Y) -> wxSizerItem:setMinSize(This,X,Y).
-%% @hidden
+-doc false.
 setMinSize(This,Size) -> wxSizerItem:setMinSize(This,Size).
-%% @hidden
+-doc false.
 setInitSize(This,X,Y) -> wxSizerItem:setInitSize(This,X,Y).
-%% @hidden
+-doc false.
 setFlag(This,Flag) -> wxSizerItem:setFlag(This,Flag).
-%% @hidden
+-doc false.
 setDimension(This,Pos,Size) -> wxSizerItem:setDimension(This,Pos,Size).
-%% @hidden
+-doc false.
 setBorder(This,Border) -> wxSizerItem:setBorder(This,Border).
-%% @hidden
+-doc false.
 isWindow(This) -> wxSizerItem:isWindow(This).
-%% @hidden
+-doc false.
 isSpacer(This) -> wxSizerItem:isSpacer(This).
-%% @hidden
+-doc false.
 isShown(This) -> wxSizerItem:isShown(This).
-%% @hidden
+-doc false.
 isSizer(This) -> wxSizerItem:isSizer(This).
-%% @hidden
+-doc false.
 getWindow(This) -> wxSizerItem:getWindow(This).
-%% @hidden
+-doc false.
 getUserData(This) -> wxSizerItem:getUserData(This).
-%% @hidden
+-doc false.
 getSpacer(This) -> wxSizerItem:getSpacer(This).
-%% @hidden
+-doc false.
 getSizer(This) -> wxSizerItem:getSizer(This).
-%% @hidden
+-doc false.
 getSize(This) -> wxSizerItem:getSize(This).
-%% @hidden
+-doc false.
 getRect(This) -> wxSizerItem:getRect(This).
-%% @hidden
+-doc false.
 getRatio(This) -> wxSizerItem:getRatio(This).
-%% @hidden
+-doc false.
 getProportion(This) -> wxSizerItem:getProportion(This).
-%% @hidden
+-doc false.
 getPosition(This) -> wxSizerItem:getPosition(This).
-%% @hidden
+-doc false.
 getMinSize(This) -> wxSizerItem:getMinSize(This).
-%% @hidden
+-doc false.
 getFlag(This) -> wxSizerItem:getFlag(This).
-%% @hidden
+-doc false.
 getBorder(This) -> wxSizerItem:getBorder(This).
-%% @hidden
+-doc false.
 detachSizer(This) -> wxSizerItem:detachSizer(This).
-%% @hidden
+-doc false.
 deleteWindows(This) -> wxSizerItem:deleteWindows(This).
-%% @hidden
+-doc false.
 calcMin(This) -> wxSizerItem:calcMin(This).

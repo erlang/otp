@@ -1,5 +1,8 @@
+%% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,7 +17,6 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%
 
 %%
 
@@ -58,8 +60,8 @@ all() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
             ssl_test_lib:clean_start(),
             Config0
@@ -84,7 +86,7 @@ alerts() ->
     [{doc, "Test ssl_alert formatting code"}].
 alerts(Config) when is_list(Config) ->
     Descriptions = [?CLOSE_NOTIFY, ?UNEXPECTED_MESSAGE, ?BAD_RECORD_MAC,
-		    ?DECRYPTION_FAILED_RESERVED, ?RECORD_OVERFLOW, ?DECOMPRESSION_FAILURE,
+		    ?DECRYPTION_FAILED_RESERVED, ?RECORD_OVERFLOW,
 		    ?HANDSHAKE_FAILURE, ?BAD_CERTIFICATE, ?UNSUPPORTED_CERTIFICATE,
 		    ?CERTIFICATE_REVOKED,?CERTIFICATE_EXPIRED, ?CERTIFICATE_UNKNOWN,
 		    ?ILLEGAL_PARAMETER, ?UNKNOWN_CA, ?ACCESS_DENIED, ?DECODE_ERROR,
@@ -134,7 +136,7 @@ alert_details_not_too_big(Config) when is_list(Config) ->
                                                                                      line => 1710}}, server, "TLS", cipher),
     case byte_size(term_to_binary(Txt)) < (byte_size(term_to_binary(ReasonText)) - PrefixLen) of
         true ->
-            ?CT_PAL("~s", [Txt]);
+            ?CT_LOG("~s", [Txt]);
         false ->
             ct:fail(ssl_alert_text_too_big)
     end.

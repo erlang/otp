@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%----------------------------------------------------------------------
@@ -22,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(et_wx_viewer).
+-moduledoc false.
 
 -behaviour(gen_server).
 
@@ -32,7 +35,7 @@
 -export([init/1, terminate/2, code_change/3,
          handle_call/3, handle_cast/2, handle_info/2]).
 
--include("../include/et.hrl").
+-include_lib("et/include/et.hrl").
 -include("et_internal.hrl").
 -include_lib("wx/include/wx.hrl").
 
@@ -1409,18 +1412,19 @@ create_filter_menu(S=#state{filter_menu = {Menu,Data}}, ActiveFilterName, Filter
 		    Label = lists:concat([pad_string(F#filter.name, 20), "(", N, ")"]),
 		    {N+1, [menuitem(Menu, ?wxID_ANY, Label, {data, F})|Acc]}
 	    end,
-     D1 = [I1 = wxMenu:append(Menu, ?wxID_ANY, "Same Filter New Scale"),
-	   wxMenu:appendSeparator(Menu)],
+     I1 = wxMenu:append(Menu, ?wxID_ANY, "Same Filter New Scale"),
+     D1 = [I1, wxMenu:appendSeparator(Menu)],
      wxMenuItem:enable(I1, [{enable,false}]),
      {value, Filter} = lists:keysearch(ActiveFilterName, #filter.name, Filters),
      Same    = lists:concat([pad_string(ActiveFilterName, 20), "(=) same    scale"]),
      Larger  = lists:concat([pad_string(ActiveFilterName, 20), "(+) bigger  scale"]),
      Smaller = lists:concat([pad_string(ActiveFilterName, 20), "(-) smaller scale"]),
+     I2 = wxMenu:append(Menu, ?wxID_ANY, "New Filter Same Scale"),
      D2 = [menuitem(Menu, ?wxID_ANY, Same, {data, Filter, 0}),
 	   menuitem(Menu, ?wxID_ANY, Smaller, {data, Filter, -1}),
 	   menuitem(Menu, ?wxID_ANY, Larger, {data, Filter, 1}),
 	   wxMenu:appendSeparator(Menu),
-	   I2 = wxMenu:append(Menu, ?wxID_ANY, "New Filter Same Scale"),
+	   I2,
 	   wxMenu:appendSeparator(Menu)],
      _ = wxMenuItem:enable(I2, [{enable,false}]),
      {_,D3} = lists:foldl(Item, {1,[]}, Filters),

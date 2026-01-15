@@ -1,11 +1,17 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:crc32(Data) -> non_neg_integer() when Data :: iodata().[0m
+[;1m  crc32(Data)[0m
 
   Computes and returns the crc32 (IEEE 802.3 style) checksum for [;;4m[0m
   [;;4mData[0m.
 
-  [;1m-spec erlang:crc32(OldCrc, Data) -> non_neg_integer()[0m
-  [;1m                      when OldCrc :: non_neg_integer(), Data :: iodata().[0m
+[;1m  crc32(OldCrc, Data)[0m
 
   Continues computing the crc32 checksum by combining the previous
   checksum, [;;4mOldCrc[0m, with the checksum of [;;4mData[0m.

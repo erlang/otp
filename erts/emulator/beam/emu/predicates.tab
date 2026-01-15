@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020-2023. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2020-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,7 +49,9 @@ pred.independent_moves(Src1, Dst1, Src2, Dst2) {
 }
 
 pred.needs_nif_padding() {
-    Export *e = erts_active_export_entry(S->module, S->function, S->arity);
+    const Export *e = erts_active_export_entry(S->module,
+                                               S->function,
+                                               S->arity);
 
     if (e != NULL && e->bif_number != -1) {
         return 1;
@@ -80,4 +84,10 @@ pred.negation_is_small(Int) {
     return Int.type == TAG_i &&
         !(Int.val & ~((((BeamInstr)1) << ((sizeof(Sint)*8)-1))-1)) &&
         IS_SSMALL(-((Sint)Int.val));
+}
+
+// Test whether we are loading a module with line-breakpoint support
+pred.instrumenting_line_breakpoints() {
+    return ERTS_DEBUGGER_IS_ENABLED_IN(S->code_hdr->debugger_flags,
+                                       ERTS_DEBUGGER_LINE_BREAKPOINTS);
 }

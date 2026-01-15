@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(bs_match_misc_SUITE).
@@ -80,6 +82,10 @@ t_float(Config) when is_list(Config) ->
 
     {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 8, 0)),
     {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16#7fffffff, 0)),
+    NaN = <<0:1,31:5,42:10>>,
+    {'EXIT',{{badmatch,_},_}} = (catch match_float(NaN, 16, 0)),
+    Inf = <<0:1,31:5,0:10>>,
+    {'EXIT',{{badmatch,_},_}} = (catch match_float(Inf, 16, 0)),
 
     ok.
 
@@ -91,7 +97,7 @@ float_middle_endian(Config) when is_list(Config) ->
     ok.
 
 
-fcmp(0.0, 0.0) -> ok;
+fcmp(F1, F2) when F1 == 0.0, F2 == 0.0 -> ok;
 fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok.
     
 match_float(Bin0, Fsz, I) ->

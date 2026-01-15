@@ -183,6 +183,9 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& cf, RAInstBuilder& i
           RATiedFlags flags = raRegRwFlags(opRwInfo.opFlags());
           RegMask allowedRegs = instructionAllowedRegs;
 
+          if (opRwInfo.isUnique())
+            flags |= RATiedFlags::kUnique;
+
           // X86-specific constraints related to LO|HI general purpose registers. This is only required when the
           // register is part of the encoding. If the register is fixed we won't restrict anything as it doesn't
           // restrict encoding of other registers.
@@ -469,6 +472,20 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& cf, RAInstBuilder& i
             if (reg.size() != 4 || reg.size() >= workRegSize) {
               if (imm.value() == 0)
                 sameRegHint = InstSameRegHint::kRO;
+            }
+            break;
+          }
+        }
+      }
+      else if (opCount == 4 && inst->op(3).isImm()) {
+        const Imm& imm = inst->op(3).as<Imm>();
+
+        switch (inst->id()) {
+          case Inst::kIdVpternlogd:
+          case Inst::kIdVpternlogq: {
+            uint32_t predicate = uint32_t(imm.value() & 0xFFu);
+            if (predicate == 0x00u || predicate == 0xFFu) {
+              ib[0]->makeWriteOnly();
             }
             break;
           }
@@ -820,7 +837,7 @@ Error RACFGBuilder::moveImmToStackArg(InvokeNode* invokeNode, const FuncValue& a
 
   stackPtr.setSize(4);
   imm[0] = imm_;
-  uint32_t nMovs = 0;
+  uint32_t movCount = 0;
 
   // One stack entry has the same size as the native register size. That means that if we want to move a 32-bit
   // integer on the stack in 64-bit mode, we need to extend it to a 64-bit integer first. In 32-bit mode, pushing
@@ -836,7 +853,7 @@ Error RACFGBuilder::moveImmToStackArg(InvokeNode* invokeNode, const FuncValue& a
     case TypeId::kFloat32:
 MovU32:
       imm[0].zeroExtend32Bits();
-      nMovs = 1;
+      movCount = 1;
       break;
 
     case TypeId::kInt64:
@@ -846,20 +863,20 @@ MovU32:
     case TypeId::kMmx64:
       if (_is64Bit && imm[0].isInt32()) {
         stackPtr.setSize(8);
-        nMovs = 1;
+        movCount = 1;
         break;
       }
 
       imm[1].setValue(imm[0].uint32Hi());
       imm[0].zeroExtend32Bits();
-      nMovs = 2;
+      movCount = 2;
       break;
 
     default:
       return DebugUtils::errored(kErrorInvalidAssignment);
   }
 
-  for (uint32_t i = 0; i < nMovs; i++) {
+  for (uint32_t i = 0; i < movCount; i++) {
     ASMJIT_PROPAGATE(cc()->mov(stackPtr, imm[i]));
     stackPtr.addOffsetLo32(int32_t(stackPtr.size()));
   }
@@ -1303,6 +1320,54 @@ ASMJIT_FAVOR_SPEED Error X86RAPass::_rewrite(BaseNode* first, BaseNode* stop) no
           while (outIt.hasNext()) {
             maxRegId = Support::max(maxRegId, outId);
             inst->rewriteIdAtIndex(outIt.next(), outId);
+          }
+        }
+
+        // If one operand was rewritten from Reg to Mem, we have to ensure that we are using the correct instruction.
+        if (raInst->isRegToMemPatched()) {
+          switch (inst->id()) {
+            case Inst::kIdKmovb: {
+              if (operands[0].isGp() && operands[1].isMem()) {
+                // Transform from [V]MOVD to MOV.
+                operands[1].as<Mem>().setSize(1);
+                inst->setId(Inst::kIdMovzx);
+              }
+              break;
+            }
+
+            case Inst::kIdVmovw: {
+              if (operands[0].isGp() && operands[1].isMem()) {
+                // Transform from [V]MOVD to MOV.
+                operands[1].as<Mem>().setSize(2);
+                inst->setId(Inst::kIdMovzx);
+              }
+              break;
+            }
+
+            case Inst::kIdMovd:
+            case Inst::kIdVmovd:
+            case Inst::kIdKmovd: {
+              if (operands[0].isGp() && operands[1].isMem()) {
+                // Transform from [V]MOVD to MOV.
+                operands[1].as<Mem>().setSize(4);
+                inst->setId(Inst::kIdMov);
+              }
+              break;
+            }
+
+            case Inst::kIdMovq:
+            case Inst::kIdVmovq:
+            case Inst::kIdKmovq: {
+              if (operands[0].isGp() && operands[1].isMem()) {
+                // Transform from [V]MOVQ to MOV.
+                operands[1].as<Mem>().setSize(8);
+                inst->setId(Inst::kIdMov);
+              }
+              break;
+            }
+
+            default:
+              break;
           }
         }
 

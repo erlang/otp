@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,7 +121,7 @@ test_default_tclocal(_) ->
 %% should get skipped
 test_config_name_already_in_use2() ->
     [{require,alias,something},
-     {alias,{something,else}},
+     {alias,{something,'else'}},
      {require, x1, x},
      {x1, {x,test4}}].
 test_config_name_already_in_use2(_) ->

@@ -1,9 +1,11 @@
 %% -*- erlang-indent-level: 4 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,10 +17,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(eval_bits).
+-moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -257,6 +262,23 @@ bin_gen_field_string([C|Cs], Bin0, Bs0, BBs0, Fun) ->
             done
     end.
 
+bin_gen_field1(Bin, float, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun) ->
+    case catch get_value(Bin, float, Size, Unit, Sign, Endian) of
+        {Val,<<_/bitstring>>=Rest} ->
+            case catch Mfun(match, {NewV,Val,Bs0}) of
+                {match,Bs} ->
+                    BBs = add_bin_binding(Mfun, NewV, Bs, BBs0),
+                    {match,Bs,BBs,Rest};
+                _ ->
+                    {nomatch,Rest}
+            end;
+        _ ->
+            case catch get_value(Bin, integer, Size, Unit, Sign, Endian) of
+                {_,<<_/bitstring>>=Rest} ->
+                    {nomatch,Rest};
+                _ -> done
+            end
+    end;
 bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun) ->
     case catch get_value(Bin, Type, Size, Unit, Sign, Endian) of
         {Val,<<_/bitstring>>=Rest} ->

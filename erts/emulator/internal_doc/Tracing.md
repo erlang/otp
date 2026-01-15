@@ -1,3 +1,25 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2014-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 # Tracing
 
 ## Implementation
@@ -56,6 +78,13 @@ local breakpoints.
 Things get a bit more involved in the JIT. See `BeamAsm.md` for more
 details.
 
+### Trace sessions
+
+Since OTP 27, isolated trace session can be dynamically created. Each trace
+session is represented by an instance of struct `ErtsTraceSession`. The old
+legacy session (kept for backward compatibility) is represented by the static
+instance `erts_trace_session_0`.
+
 ## Setting breakpoints
 
 ### Introduction
@@ -66,29 +95,24 @@ was carried out in single threaded mode. Similar to code loading, this
 can impose a severe problem for availability that grows with the
 number of cores.
 
-In OTP R16, breakpoints are set in the code without blocking the VM.
+Since OTP R16, breakpoints are set in the code without blocking the VM.
 Erlang processes may continue executing undisturbed in parallel during the
 entire operation. The same base technique is used as for code loading. A
 staging area of breakpoints is prepared and then made active with a single
 atomic operation.
 
-### Redesign of Breakpoint Wheel
+### Breakpoints
 
-To make it easier to manage breakpoints without single threaded mode a
-redesign of the breakpoint mechanism has been made. The old
-"breakpoint wheel" data structure was a circular double-linked list of
-breakpoints for each instrumented function. It was invented before the
-SMP emulator. To support it in the SMP emulator, is was essentially
-expanded to one breakpoint wheel per scheduler. As more breakpoint
-types have been added, the implementation have become messy and hard
-to understand and maintain.
+For call tracing, breakpoints are created and inserted in the ingress of each
+traced Erlang function. A pointer to the allocated struct `GenericBp` is
+inserted that holds all the data for all types of breakpoints. A bit-flag field
+is used to indicate what different type of break actions that are
+enabled. Struct `GenericBp` is session specific. If more than one trace session
+affects a function, one `GenericBp` instance is created for each session. They
+are linked together in a singly linked list that is traversed when the
+breakpoint is hit.
 
-In the new design the old wheel was dropped and instead replaced by
-one struct (`GenericBp`) to hold the data for all types of breakpoints
-for each instrumented function. A bit-flag field is used to indicate
-what different type of break actions that are enabled.
-
-### Same Same but Different
+### Similar to Code Loading but Different
 
 Even though `trace_pattern` use the same technique as the non-blocking
 code loading with replicated generations of data structures and an
@@ -131,13 +155,13 @@ through when adding a new breakpoint.
    it).
 
 2. Allocate breakpoint structure `GenericBp` including both generations.
-   Set the active part as disabled with a zeroed flagfield. Save the original
+   Set the active area as disabled with a zeroed flagfield. Save the original
    instruction word in the breakpoint.
 
 3. Write a pointer to the breakpoint at offset `-sizeof(UWord)` from the first
    instruction `ErtsFuncInfo` header.
 
-4. Set the staging part of the breakpoint as enabled with specified
+4. Set the staging area of the breakpoint as enabled with specified
    breakpoint data.
 
 5. Wait for thread progress.
@@ -152,8 +176,9 @@ through when adding a new breakpoint.
 
 9. Wait for thread progress.
 
-10. Prepare for next call to `trace_pattern` by updating the new staging part
-    (the old active) of the breakpoint to be identic to the new active part.
+10. "Consolidate"
+    Prepare for next call to `trace_pattern` by updating the new staging area
+    (the old active) of the breakpoint to be identical to the new active area.
 
 11. Release code modification permission and return from `trace_pattern`.
 
@@ -170,6 +195,12 @@ the corresponding part of the breakpoint. Before the switch in step 8
 becomes visible they will however execute the disabled part of the
 breakpoint structure and do nothing other than executing the saved
 original instruction.
+
+The consolidation in step 10 will make the new staging area identical
+to the new active area. This will make it simpler for the next call to
+`trace_pattern` that may not affect all existing breakpoints. The staging area
+of all unaffected breakpoints are then ready to become active without any
+visitation by `trace_pattern`.
 
 ###  To Update and Remove Breakpoints
 
@@ -189,11 +220,11 @@ and removing breakpoints.
 1. Seize exclusive code modification permission (suspend process until we get
    it).
 
-2. Allocate new breakpoint structures with a disabled active part and
+2. Allocate new breakpoint structures with a disabled active area and
    the original beam instruction. Write a pointer to the breakpoint in
    `ErtsFuncInfo` header at offset `-sizeof(UWord)`.
 
-3. Update the staging part of all affected breakpoints. Disable
+3. Update the staging area of all affected breakpoints. Disable
    breakpoints that are to be removed.
 
 4. Wait for thread progress.
@@ -208,11 +239,13 @@ and removing breakpoints.
 8. Wait for thread progress.
 
 
-9. Restore original beam instruction for disabled breakpoints.
+9. Uninstall.
+   Restore original beam instruction for disabled breakpoints.
 
 10. Wait for thread progress.
 
-11. Prepare for next call to `trace_pattern` by updating the new
+11. Consolidate.
+    Prepare for next call to `trace_pattern` by updating the new
     staging area (the old active) for all enabled breakpoints.
 
 12. Deallocate disabled breakpoint structures.
@@ -239,7 +272,7 @@ more expensive thread synchronization.
 
 The waiting in step 8 is to make sure we don't restore the original
 bream instructions for disabled breakpoints until we know that no
-thread is still accessing the old enabled part of a disabled
+thread is still accessing the old enabled area of a disabled
 breakpoint.
 
 The waiting in step 10 is to make sure no lingering thread is still
@@ -258,6 +291,35 @@ breakpoint structure for a global call trace. The difference to local
 tracing is that we insert the `op_i_generic_breakpoint` instruction
 (with its pointer at offset -4) in the export entry rather than in the
 code.
+
+### call_time and call_memory tracing
+
+For profiling, `call_time` and/or `call_memory` tracing can be set for a function.
+This will measure the time/memory spent by a function. The measured
+time/memory is kept in individual counters for every call traced process
+calling that function. To ensure scalability, scheduler specific hash tables
+(`BpTimemTrace`) are used in the breakpoint to map the calling process pid to
+its time/memory counters.
+
+Function `trace:info` is used to collect stats for `call_time`, `call_memory`
+or both (`all`). It has to aggregate the counters from all those scheduler
+specific hash tables to build a list with one tuple with counters for each
+pid. This cannot be done safely while the hash tables may be concurrently
+updated by traced processes.
+
+Since OTP 29, `trace:info` collects `call_time` and `call_memory` stats without
+blocking all schedulers from running. This is done by using the active and
+staging halves of the breakpoint. During normal operations both halves of the
+breakpoint refer to the same thread specific hash tables. To collect the stats
+safely, temporary hash tables are created to be used by traced calls happening
+during the call to `trace:info`. The temporary hash tables are being made active
+while the "real" hash tables are made inactive in the staging half. When the hash
+tables are inactive, they can be safely traversed. When done, the real
+tables are made active again. A final consolidation step is done to collect any
+stats from the temporary tables, delete them and make the two halves of the
+breakpoint identical again using the same real hash tables. Scheduling with
+thread progress is done between the switching to make sure the traversed hash
+tables are not being concurrently updated.
 
 ### Future work
 

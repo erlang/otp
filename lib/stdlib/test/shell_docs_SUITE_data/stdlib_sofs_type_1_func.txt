@@ -1,4 +1,38 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec type(AnySet) -> Type when AnySet :: anyset(), Type :: type().[0m
+[;1m  type(AnySet)[0m
 
   Returns the type of an atomic, ordered, or unordered set.
+
+[;1mExamples[0m
+
+  Unordered sets.
+
+    1> sofs:type(sofs:empty_set()).
+    ['_']
+    2> sofs:type(sofs:set([], [color])).
+    [color]
+    3> sofs:type(sofs:set([red,green,blue], [color])).
+    [color]
+    4> sofs:type(sofs:set([1,2,3])).
+    [atom]
+
+  Ordered sets.
+
+    1> sofs:type(sofs:from_term({a,b,c})).
+    {atom,atom,atom}
+    2> sofs:type(sofs:from_term({1.0,2.5,-1.0}, {x,y,z})).
+    {x,y,z}
+
+  Atomic sets.
+
+    1> sofs:type(sofs:from_term(a)).
+    atom
+    2> sofs:type(sofs:from_term(1, index)).
+    index

@@ -1,10 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec domain(BinRel) -> Set[0m
-  [;1m                when BinRel :: binary_relation(), Set :: a_set().[0m
+[;1m  domain(BinRel)[0m
 
   Returns the domain of the binary relation [;;4mBinRel[0m.
 
-    1> R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),
-    S = sofs:domain(R),
-    sofs:to_external(S).
+[;1mExamples[0m
+
+    1> R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]).
+    2> S = sofs:domain(R).
+    3> sofs:to_external(S).
     [1,2]

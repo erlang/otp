@@ -1,3 +1,23 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
 name: Update PR details
 
 # read-write repo token
@@ -12,23 +32,27 @@ on:
 # Limit concurrency so that we don't get any races between parallel actions
 concurrency: pr-comment
 
+permissions:
+  contents: read
+
 jobs:
   pr-number:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: github.repository == 'erlang/otp'
     permissions:
       issues: read
     outputs:
       result: ${{ steps.pr-number.outputs.result }}
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
+        with:
+            otp-version: '27'
       - name: Fetch PR number
         id: pr-number
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: |
-           git clone https://github.com/talentdeficit/jsx
-           (cd jsx && rebar3 compile)
            .github/scripts/get-pr-number.es erlang/otp \
              "${{ github.event.workflow_run.head_sha }}"
 
@@ -40,9 +64,9 @@ jobs:
       pull-requests: write
     if: github.event.action == 'requested' && needs.pr-number.outputs.result != ''
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       ## We create an initial comment with some useful help to the user
-      - uses: actions/github-script@v7.0.1
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # ratchet:actions/github-script@v7.0.1
         with:
           script: |
             const script = require('./.github/scripts/pr-comment.js');
@@ -50,7 +74,7 @@ jobs:
                    pr_number: ${{ needs.pr-number.outputs.result }} });
 
   finished-tests:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     needs: pr-number
     ## Limit concurrency so that only one job deploys to erlang.github.io
     concurrency: erlang.github.io-deploy
@@ -63,7 +87,7 @@ jobs:
           needs.pr-number.outputs.result != '' &&
           github.event.workflow_run.conclusion != 'skipped'
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - name: Download and Extract Artifacts
         id: extract
         env:
@@ -88,14 +112,8 @@ jobs:
              echo "HAS_TEST_ARTIFACTS=false" >> $GITHUB_OUTPUT
            fi
 
-      - uses: actions/checkout@v4.1.4
-        with:
-          token: ${{ secrets.ERLANG_TOKEN }}
-          repository: 'erlang/erlang.github.io'
-          path: erlang.github.io
-
       - name: Publish CT Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2.16.1
+        uses: EnricoMi/publish-unit-test-result-action@3a74b2957438d0b6e2e61d67b05318aa25c9e6c6 # v2.20.0
         if: steps.extract.outputs.HAS_TEST_ARTIFACTS == 'true'
         with:
           commit: ${{ github.event.workflow_run.head_sha }}
@@ -104,34 +122,9 @@ jobs:
           check_name: "CT Test Results"
           files: "artifacts/**/*.xml"
 
-      - name: Upload PR to github pages
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: |
-           git clone https://github.com/talentdeficit/jsx
-           (cd jsx && rebar3 compile)
-           mkdir -p "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
-           .github/scripts/sync-github-prs.es erlang/otp \
-             "${GITHUB_WORKSPACE}/erlang.github.io/prs/" \
-             "${{ needs.pr-number.outputs.result }}"
-
-      - name: Deploy to github pages 🚀
-        run: |
-          cd erlang.github.io
-          set -x
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .
-          git add -u
-          git update-index --refresh
-          if ! git diff-index --quiet HEAD --; then
-            git commit -m "Update github pages content"
-            git push origin master
-          fi
-
         ## Append some useful links and tips to the test results posted by
         ## Publish CT Test Results
-      - uses: actions/github-script@v7.0.1
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # ratchet:actions/github-script@v7.0.1
         if: always()
         with:
           script: |

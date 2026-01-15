@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +21,9 @@
 %%
 
 -module(erl_signal_handler).
+-moduledoc false.
 -behaviour(gen_event).
--export([start/0, init/1, format_status/2,
+-export([start/0, init/1,
          handle_event/2, handle_call/2, handle_info/2,
          terminate/2, code_change/3]).
 
@@ -28,12 +31,7 @@
 
 start() ->
     %% add signal handler
-    case whereis(erl_signal_server) of
-        %% in case of minimal mode
-        undefined -> ok;
-        _ ->
-            gen_event:add_handler(erl_signal_server, erl_signal_handler, [])
-    end.
+    gen_event:add_handler(erl_signal_server, erl_signal_handler, []).
 
 init(_Args) ->
     {ok, #state{}}.
@@ -56,9 +54,6 @@ handle_info(_Info, S) ->
 
 handle_call(_Request, S) ->
     {ok, ok, S}.
-
-format_status(_Opt, [_Pdict,_S]) ->
-    ok.
 
 code_change(_OldVsn, S, _Extra) ->
     {ok, S}.

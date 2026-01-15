@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 
 -module(beam_validator).
+-moduledoc false.
 
 -include("beam_asm.hrl").
 
@@ -81,6 +84,12 @@ format_error({{_M,F,A},{I,Off,Desc}}) ->
       "  Internal consistency check failed - please report this bug.~n"
       "  Instruction: ~p~n"
       "  Error:       ~p:~n", [F,A,Off,I,Desc]);
+format_error({{_M,F,A},too_many_arguments}) ->
+    %% The linter rejects user-provided functions that violate this, leaving
+    %% only generated functions like funs or comprehensions. This is not
+    %% super-helpful but it's better than nothing.
+    io_lib:format("System limit reached: generated function ~p/~p has too "
+                  "many arguments.", [F, A]);
 format_error(Error) ->
     io_lib:format("~p~n", [Error]).
 
@@ -181,7 +190,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% A set of all registers containing "fragile" terms. That is, terms
          %% that don't exist on our process heap and would be destroyed by a
          %% GC.
-         fragile=sets:new([{version, 2}]) :: sets:set(),
+         fragile=sets:new() :: sets:set(),
          %% Number of Y registers.
          %%
          %% Note that this may be 0 if there's a frame without saved values,
@@ -195,10 +204,6 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          hf=0,
          %% List of hot catch/try tags
          ct=[],
-         %% Previous instruction was setelement/3.
-         setelem=false,
-         %% put/1 instructions left.
-         puts_left=none,
          %% Current receive state:
          %%
          %%   * 'none'            - Not in a receive loop.
@@ -228,7 +233,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% States at labels
          branched=#{}              :: #{ label() => state() },
          %% All defined labels
-         labels=sets:new([{version, 2}])    :: sets:set(),
+         labels=sets:new()    :: sets:set(),
          %% Information of other functions in the module
          ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
@@ -278,17 +283,13 @@ validate_1(Is, MFA0, Entry, Level, Ft) ->
 
     validate_branches(MFA, Vst).
 
-extract_header([{func_info, {atom,Mod}, {atom,Name}, Arity}=I | Is],
-               MFA0, Entry, Offset, Acc) ->
-    {_, Name, Arity} = MFA0,                    %Assertion.
-    MFA = {Mod, Name, Arity},
-
-    case Is of
-        [{label, Entry} | _] ->
-            Header = reverse(Acc, [I]),
-            {Offset + 1, MFA, Header, Is};
-        _ ->
-            error({MFA, no_entry_label})
+extract_header([{func_info, {atom, Mod}, {atom,Name}, Arity}=I |
+                [{label, Entry} | _]=Is],
+               {_, Name, Arity}, Entry, Offset, Acc) ->
+    MFA = {Mod, Name, Arity} ,
+    case Arity =< ?MAX_FUNC_ARGS of
+        true -> {Offset + 1, MFA, reverse(Acc, [I]), Is};
+        false -> error({MFA, too_many_arguments})
     end;
 extract_header([{label,_}=I | Is], MFA, Entry, Offset, Acc) ->
     extract_header(Is, MFA, Entry, Offset + 1, [I | Acc]);
@@ -301,7 +302,7 @@ init_vst({_, _, Arity}, Level, Ft) ->
     Vst = #vst{branched=#{},
                current=#st{},
                ft=Ft,
-               labels=sets:new([{version, 2}]),
+               labels=sets:new(),
                level=Level},
     init_function_args(Arity - 1, Vst).
 
@@ -326,10 +327,9 @@ validate_branches(MFA, Vst) ->
             Vst
     end.
 
-validate_instrs([I|Is], MFA, Offset, Vst0) ->
+validate_instrs([I|Is], MFA, Offset, Vst) ->
     validate_instrs(Is, MFA, Offset+1,
                     try
-                        Vst = validate_mutation(I, Vst0),
                         vi(I, Vst)
                     catch Error ->
                         error({MFA, {I, Offset, Error}})
@@ -372,6 +372,14 @@ vi({'%',_}, Vst) ->
     Vst;
 vi({line,_}, Vst) ->
     Vst;
+vi({executable_line,_,Index}, Vst) when is_integer(Index) ->
+    Vst;
+vi({debug_line,_,Index,Live,Info}, Vst) when is_integer(Index),
+                                             is_integer(Live) ->
+    validate_debug_line(Info, Live, Vst);
+vi({debug_line,_,_,Index,Live,Info}, Vst) when is_integer(Index),
+                                               is_integer(Live) ->
+    validate_debug_line(Info, Live, Vst);
 vi(nif_start, Vst) ->
     Vst;
 %%
@@ -404,10 +412,6 @@ vi({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
     Vst = eat_heap_float(Vst0),
     create_term(#t_float{}, fmove, [], Dst, Vst);
-vi({kill,Reg}, Vst) ->
-    create_tag(initialized, kill, [], Reg, Vst);
-vi({init,Reg}, Vst) ->
-    create_tag(initialized, init, [], Reg, Vst);
 vi({init_yregs,{list,Yregs}}, Vst0) ->
     case ordsets:from_list(Yregs) of
         [] -> error(empty_list);
@@ -590,10 +594,6 @@ vi({allocate,Stk,Live}, Vst) ->
     allocate(uninitialized, Stk, 0, Live, Vst);
 vi({allocate_heap,Stk,Heap,Live}, Vst) ->
     allocate(uninitialized, Stk, Heap, Live, Vst);
-vi({allocate_zero,Stk,Live}, Vst) ->
-    allocate(initialized, Stk, 0, Live, Vst);
-vi({allocate_heap_zero,Stk,Heap,Live}, Vst) ->
-    allocate(initialized, Stk, Heap, Live, Vst);
 vi({deallocate,StkSize}, #vst{current=#st{numy=StkSize}}=Vst) ->
     verify_no_ct(Vst),
     deallocate(Vst);
@@ -630,20 +630,6 @@ vi({put_tuple2,Dst,{list,Elements}}, Vst0) ->
                    end, {#{}, 1}, Elements),
     Type = #t_tuple{exact=true,size=Size,elements=Es},
     create_term(Type, put_tuple2, [], Dst, Vst);
-vi({set_tuple_element,Src,Tuple,N}, Vst) ->
-    %% This instruction never fails, though it may be invalid in some contexts;
-    %% see validate_mutation/2
-    I = N + 1,
-    assert_term(Src, Vst),
-    assert_type(#t_tuple{size=I}, Tuple, Vst),
-    %% Manually update the tuple type; we can't rely on the ordinary update
-    %% helpers as we must support overwriting (rather than just widening or
-    %% narrowing) known elements, and we can't use extract_term either since
-    %% the source tuple may be aliased.
-    TupleType0 = get_term_type(Tuple, Vst),
-    ArgType = get_term_type(Src, Vst),
-    TupleType = beam_types:update_tuple(TupleType0, [{I, ArgType}]),
-    override_type(TupleType, Tuple, Vst);
 vi({update_record,_Hint,Size,Src,Dst,{list,Ss}}, Vst) ->
     verify_update_record(Size, Src, Dst, Ss, Vst);
 
@@ -704,19 +690,6 @@ vi({call_fun,Live}, Vst) ->
                                          Fun, SuccVst0),
                    validate_body_call('fun', Live+1, SuccVst)
            end);
-vi({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
-    #{ name := Name, arity := TotalArity } = map_get(Lbl, Ft),
-    Arity = TotalArity - NumFree,
-
-    true = Arity >= 0,                          %Assertion.
-
-    Vst = prune_x_regs(NumFree, Vst0),
-    verify_call_args(make_fun, NumFree, Vst),
-    verify_y_init(Vst),
-
-    Type = #t_fun{target={Name,TotalArity},arity=Arity},
-
-    create_term(Type, make_fun, [], {x,0}, Vst);
 vi({make_fun3,{f,Lbl},_,_,Dst,{list,Env}}, #vst{ft=Ft}=Vst0) ->
     _ = [assert_term(E, Vst0) || E <- Env],
     NumFree = length(Env),
@@ -747,14 +720,12 @@ vi({bif,Op,{f,Fail},Ss0,Dst0}, Vst0) ->
             ?EXCEPTION_LABEL = Fail,            %Assertion.
             validate_float_arith_bif(Ss, Dst, Vst0);
         false ->
-            validate_src(Ss, Vst0),
             validate_bif(bif, Op, Fail, Ss, Dst, Vst0, Vst0)
     end;
 vi({gc_bif,Op,{f,Fail},Live,Ss0,Dst0}, Vst0) ->
     Ss = [unpack_typed_arg(Arg, Vst0) || Arg <- Ss0],
     Dst = unpack_typed_arg(Dst0, Vst0),
 
-    validate_src(Ss, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
@@ -906,7 +877,7 @@ vi({bs_match,{f,Fail},Ctx0,{commands,List}}, Vst) ->
                    validate_failed_bs_match(List, Ctx, FailVst)
            end,
            fun(SuccVst) ->
-                   validate_bs_match(List, Ctx, 1, SuccVst)
+                   validate_bs_match(List, Ctx, 0, 1, SuccVst)
            end);
 vi({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     assert_type(#t_bs_context{}, Ctx, Vst0),
@@ -935,11 +906,13 @@ vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size0,Unit,_Flags]}, Vst) ->
              end,
 
     validate_bs_skip(Fail, Ctx, Stride, Vst);
-vi({test,bs_test_tail2,{f,Fail},[Ctx,_Size]}, Vst) ->
+vi({test,bs_test_tail2,{f,Fail},[Ctx0,_Size]}, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_no_exception(Fail),
     assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst);
-vi({test,bs_test_unit,{f,Fail},[Ctx,Unit]}, Vst) ->
+vi({test,bs_test_unit,{f,Fail},[Ctx0,Unit]}, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_type(#t_bs_context{}, Ctx, Vst),
 
     Type = #t_bs_context{tail_unit=Unit},
@@ -1109,113 +1082,6 @@ vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List0}}, Vst0) ->
                    SuccVst = heap_alloc(Heap, SuccVst1),
                    create_term(#t_bitstring{size_unit=Unit}, bs_create_bin, [], Dst,
                                SuccVst)
-           end);
-vi({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    if
-        is_integer(Sz) -> ok;
-        true -> assert_term(Sz, Vst0)
-    end,
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{size_unit=8}, bs_init2, [], Dst,
-                               SuccVst, SuccVst0)
-           end);
-vi({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    if
-        is_integer(Sz) -> ok;
-        true -> assert_term(Sz, Vst0)
-    end,
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{}, bs_init_bits, [], Dst, SuccVst)
-           end);
-vi({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
-    assert_term(A, Vst),
-    assert_term(B, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_add, [A, B], Dst, SuccVst)
-           end);
-vi({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
-    assert_term(A, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_utf8_size, [A], Dst, SuccVst)
-           end);
-vi({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
-    assert_term(A, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_utf16_size, [A], Dst, SuccVst)
-           end);
-vi({bs_append,{f,Fail},Bits,Heap,Live,Unit,Bin,_Flags,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    assert_term(Bits, Vst0),
-    assert_term(Bin, Vst0),
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{size_unit=Unit}, bs_append,
-                               [Bin], Dst, SuccVst, SuccVst0)
-           end);
-vi({bs_private_append,{f,Fail},Bits,Unit,Bin,_Flags,Dst}, Vst) ->
-    assert_term(Bits, Vst),
-    assert_term(Bin, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_bitstring{size_unit=Unit}, bs_private_append,
-                               [Bin], Dst, SuccVst)
-           end);
-vi({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
-    Vst;
-vi({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_bitstring{}, Src, SuccVst)
-           end);
-vi({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_float{}, Src, SuccVst)
-           end);
-vi({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
            end);
 
 vi(_, _) ->
@@ -1459,7 +1325,7 @@ extract_map_keys([], _Vst) ->
 
 
 extract_map_vals(List, Src, SuccVst) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     extract_map_vals(List, Src, Seen, SuccVst, SuccVst).
 
 extract_map_vals([Key0, Dst | Vs], Map, Seen0, Vst0, Vsti0) ->
@@ -1521,7 +1387,9 @@ pmt_1([Key0, Value0 | List], Vst, Acc0) ->
 pmt_1([], _Vst, Acc) ->
     Acc.
 
-verify_update_record(Size, Src, Dst, List, Vst0) ->
+verify_update_record(Size, Src0, Dst, List0, Vst0) ->
+    Src = unpack_typed_arg(Src0, Vst0),
+    List = [unpack_typed_arg(Arg, Vst0) || Arg <- List0],
     assert_type(#t_tuple{exact=true,size=Size}, Src, Vst0),
     verify_y_init(Vst0),
 
@@ -1622,6 +1490,7 @@ verify_return(Vst) ->
 %%
 
 validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
+    validate_bif_sources(Op, Ss, Vst),
     case will_bif_succeed(Op, Ss, Vst) of
         yes ->
             %% This BIF cannot fail (neither throw nor branch), make sure it's
@@ -1673,6 +1542,15 @@ validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
 
     branch(Fail, Vst, FailFun, SuccFun).
 
+validate_bif_sources(Op, Ss, Vst)
+  when Op =:= bit_size;
+       Op =:= byte_size ->
+    %% These BIFs accept both match contexts and bitstrings
+    _ = [assert_movable(S, Vst) || S <- Ss],
+    ok;
+validate_bif_sources(_, Ss, Vst) ->
+    validate_src(Ss, Vst).
+
 %%
 %% Common code for validating bs_start_match* instructions.
 %%
@@ -1682,8 +1560,8 @@ validate_bs_start_match({atom,resume}, Live, Src, Dst, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
-    Vst = assign(Src, Dst, Vst0),
-    prune_x_regs(Live, Vst);
+    Vst = prune_x_regs(Live, Src, Vst0),
+    assign(Src, Dst, Vst);
 validate_bs_start_match({atom,no_fail}, Live, Src, Dst, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -1694,7 +1572,7 @@ validate_bs_start_match({atom,no_fail}, Live, Src, Dst, Vst0) ->
     SrcType = get_movable_term_type(Src, Vst1),
     TailUnit = beam_types:get_bs_matchable_unit(SrcType),
 
-    Vst = prune_x_regs(Live, Vst1),
+    Vst = prune_x_regs(Live, Src, Vst1),
     extract_term(#t_bs_context{tail_unit=TailUnit}, bs_start_match,
                  [Src], Dst, Vst, Vst0);
 validate_bs_start_match({f,Fail}, Live, Src, Dst, Vst) ->
@@ -1713,34 +1591,46 @@ validate_bs_start_match({f,Fail}, Live, Src, Dst, Vst) ->
 %% Validate the bs_match instruction.
 %%
 
-validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
+validate_bs_match([I|Is], Ctx, Ensured, Unit0, Vst0) ->
     case I of
-        {ensure_at_least,_Size,Unit} ->
+        {ensure_at_least,Size,Unit} ->
             Type = #t_bs_context{tail_unit=Unit},
             Vst1 = update_bs_unit(Ctx, Unit, Vst0),
             Vst = update_type(fun meet/2, Type, Ctx, Vst1),
-            validate_bs_match(Is, Ctx, Unit, Vst);
-        {ensure_exactly,_Stride} ->
-            validate_bs_match(Is, Ctx, Unit0, Vst0);
+            validate_bs_match(Is, Ctx, Size, Unit, Vst);
+        {ensure_exactly, Size} ->
+            validate_bs_match(Is, Ctx, Size, Unit0, Vst0);
         {'=:=',nil,Bits,Value} when Bits =< 64, is_integer(Value) ->
-            validate_bs_match(Is, Ctx, Unit0, Vst0);
+            validate_bs_match(Is,
+                              Ctx,
+                              consume_bits(I, Bits, Ensured),
+                              Unit0,
+                              Vst0);
         {Type0,Live,{literal,Flags},Size,Unit,Dst} when Type0 =:= binary;
                                                         Type0 =:= integer ->
+            true = is_integer(Size), %Assertion.
             validate_ctx_live(Ctx, Live),
             verify_live(Live, Vst0),
             Vst1 = prune_x_regs(Live, Vst0),
             Type = case Type0 of
                        integer ->
-                           true = is_integer(Size), %Assertion.
                            bs_integer_type({Size, Size}, Unit, Flags);
                        binary ->
                            SizeUnit = bsm_size_unit({integer,Size}, Unit),
                            #t_bitstring{size_unit=SizeUnit}
                    end,
             Vst = extract_term(Type, bs_match, [Ctx], Dst, Vst1, Vst0),
-            validate_bs_match(Is, Ctx, Unit0, Vst);
-        {skip,_Stride} ->
-            validate_bs_match(Is, Ctx, Unit0, Vst0);
+            validate_bs_match(Is,
+                              Ctx,
+                              consume_bits(I, Size, Ensured),
+                              Unit0,
+                              Vst);
+        {skip, Size} ->
+            validate_bs_match(Is,
+                              Ctx,
+                              consume_bits(I, Size, Ensured),
+                              Unit0,
+                              Vst0);
         {get_tail,Live,_,Dst} ->
             validate_ctx_live(Ctx, Live),
             verify_live(Live, Vst0),
@@ -1748,11 +1638,17 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
             #t_bs_context{tail_unit=Unit} = get_concrete_type(Ctx, Vst0),
             Type = #t_bitstring{size_unit=Unit},
             Vst = extract_term(Type, get_tail, [Ctx], Dst, Vst1, Vst0),
-            %% In rare circumstance, there can be multiple `get_tail` sub commands.
-            validate_bs_match(Is, Ctx, Unit, Vst)
+            %% In rare circumstances, there can be multiple `get_tail` sub
+            %% commands.
+            validate_bs_match(Is, Ctx, 0, Unit, Vst)
     end;
-validate_bs_match([], _Ctx, _Unit, Vst) ->
+validate_bs_match([], _Ctx, _Ensured, _Unit, Vst) ->
     Vst.
+
+consume_bits(I, Size, Ensured) when Size > Ensured ->
+    error({insufficient_bits, I, Size, Ensured});
+consume_bits(_I, Size, Ensured) ->
+    Ensured - Size.
 
 validate_ctx_live({x,X}=Ctx, Live) when X >= Live ->
     error({live_does_not_preserve_context,Live,Ctx});
@@ -1839,7 +1735,8 @@ validate_bs_get_1(Fail, Ctx, Live, Vst, SuccFun) ->
 validate_bs_skip(Fail, Ctx, Stride, Vst) ->
     validate_bs_skip(Fail, Ctx, Stride, no_live, Vst).
 
-validate_bs_skip(Fail, Ctx, Stride, Live, Vst) ->
+validate_bs_skip(Fail, Ctx0, Stride, Live, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_no_exception(Fail),
 
     assert_type(#t_bs_context{}, Ctx, Vst),
@@ -1925,35 +1822,6 @@ type_test(Fail, Type, Reg0, Vst) ->
            fun(SuccVst) ->
                    update_type(fun meet/2, Type, Reg, SuccVst)
            end).
-
-%%
-%% Special state handling for setelement/3 and set_tuple_element/3 instructions.
-%% A possibility for garbage collection must not occur between setelement/3 and
-%% set_tuple_element/3.
-%%
-%% Note that #vst.current will be 'none' if the instruction is unreachable.
-%%
-
-validate_mutation(I, Vst) ->
-    vm_1(I, Vst).
-
-vm_1({move,_,_}, Vst) ->
-    Vst;
-vm_1({swap,_,_}, Vst) ->
-    Vst;
-vm_1({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=#st{}=St}=Vst) ->
-    Vst#vst{current=St#st{setelem=true}};
-vm_1({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
-    error(illegal_context_for_set_tuple_element);
-vm_1({set_tuple_element,_,_,_}, #vst{current=#st{setelem=true}}=Vst) ->
-    Vst;
-vm_1({get_tuple_element,_,_,_}, Vst) ->
-    Vst;
-vm_1({line,_}, Vst) ->
-    Vst;
-vm_1(_, #vst{current=#st{setelem=true}=St}=Vst) ->
-    Vst#vst{current=St#st{setelem=false}};
-vm_1(_, Vst) -> Vst.
 
 kill_state(Vst) ->
     Vst#vst{current=none}.
@@ -2120,14 +1988,18 @@ schedule_out(Live, Vst0) when is_integer(Live) ->
     Vst = kill_fregs(Vst2),
     update_receive_state(none, Vst).
 
-prune_x_regs(Live, #vst{current=St0}=Vst) when is_integer(Live) ->
+prune_x_regs(Live, Vst) when is_integer(Live) ->
+    prune_x_regs(Live, [], Vst).
+
+prune_x_regs(Live, Preserved, #vst{current=St0}=Vst) when is_integer(Live) ->
     #st{fragile=Fragile0,xs=Xs0} = St0,
-    Fragile = sets:filter(fun({x,X}) ->
-                                  X < Live;
+    Fragile = sets:filter(fun({x,X}=Reg) ->
+                                  X < Live orelse Reg =:= Preserved;
                              ({y,_}) ->
                                   true
                          end, Fragile0),
-    Xs = #{Reg => Val || {x,X}=Reg := Val <- Xs0, X < Live},
+    Xs = #{Reg => Val || {x,X}=Reg := Val <- Xs0,
+           (X < Live orelse X =:= Preserved)},
     St = St0#st{fragile=Fragile,xs=Xs},
     Vst#vst{current=St}.
 
@@ -2210,7 +2082,7 @@ assert_unique_map_keys([_,_|_]=Ls) ->
               assert_literal(L),
               L
           end || L <- Ls],
-    case length(Vs) =:= sets:size(sets:from_list(Vs, [{version, 2}])) of
+    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
         true -> ok;
         false -> error(keys_not_unique)
     end.
@@ -2265,6 +2137,44 @@ validate_select_tuple_arity(Fail, [], _, #vst{}=Vst) ->
                    %% The next instruction is never executed.
                    kill_state(SuccVst)
            end).
+
+%%
+%% Validate debug information in `debug_line` instructions.
+%%
+
+validate_debug_line({entry,Args}, Live, Vst) ->
+    do_validate_debug_line(none, Live, Vst),
+    _ = [get_term_type(Reg, Vst) || {_Name,[Reg]} <:- Args],
+    prune_x_regs(Live, Vst);
+validate_debug_line({Stk,Vars}, Live, Vst0) ->
+    do_validate_debug_line(Stk, Live, Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    _ = [validate_dbg_vars(Regs, Name, Vst) || {Name,Regs} <:- Vars],
+    Vst.
+
+do_validate_debug_line(ExpectedStk, Live, #vst{current=St}=Vst) ->
+    case St of
+        #st{numy=ExpectedStk} ->
+            ok;
+        #st{numy=ActualStk} ->
+            error({beam_debug_info,frame_size,ExpectedStk,actual,ActualStk})
+    end,
+    verify_live(Live, Vst),
+    verify_y_init(Vst).
+
+validate_dbg_vars([R|Rs], Name, Vst) ->
+    Type = get_term_type(R, Vst),
+    validate_dbg_vars(Rs, Type, Name, Vst).
+
+validate_dbg_vars([R|Rs], Type, Name, Vst) ->
+    case get_term_type(R, Vst) of
+        Type ->
+            validate_dbg_vars(Rs, Type, Name, Vst);
+        OtherType ->
+            error({type_mismatch,Name,OtherType,Type})
+    end;
+validate_dbg_vars([], _Type, _Name, _Vst) ->
+    ok.
 
 %%
 %% Infers types from comparisons, looking at the expressions that produced the
@@ -2378,6 +2288,22 @@ infer_types_1(#value{op={bif,is_function},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_fun{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_integer},args=[Src,
+                                               {integer, Min},
+                                               {integer, Max}]}, Val, Op, Vst) ->
+    infer_type_test_bif(beam_types:make_integer(Min, Max), Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_integer},args=[Src,Min0,Max0]}, Val, Op, Vst) ->
+    %% If there is at least one unknown bound, we cannot subtract
+    %% when 'false'.
+    {Min,_} = infer_integer_get_range(Min0, Vst),
+    {_,Max} = infer_integer_get_range(Max0, Vst),
+    Type = make_integer({Min, Max}),
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_type(fun meet/2, Type, Src, Vst);
+        _ ->
+            Vst
+    end;
 infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_list{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_map},args=[Src]}, Val, Op, Vst) ->
@@ -2443,6 +2369,23 @@ invert_relop('<') -> '>=';
 invert_relop('=<') -> '>';
 invert_relop('>=') -> '<';
 invert_relop('>') -> '=<'.
+
+infer_integer_get_range(Arg, Vst) ->
+    case get_term_type(Arg, Vst) of
+        #t_integer{elements={_,_}=R} ->
+            R;
+        _ ->
+            {'-inf','+inf'}
+    end.
+
+make_integer({'-inf','+inf'}) ->
+    #t_integer{};
+make_integer({'-inf',_}=R) ->
+    #t_integer{elements=R};
+make_integer({Min,Max}=R) when is_integer(Min), Min =< Max ->
+    #t_integer{elements=R};
+make_integer(_) ->
+    #t_integer{}.
 
 %%%
 %%% Keeping track of types.
@@ -3376,7 +3319,7 @@ mark_fragile(Reg, Vst) ->
 propagate_fragility(Reg, Args, #vst{current=St0}=Vst) ->
     #st{fragile=Fragile0} = St0,
 
-    Sources = sets:from_list(Args, [{version, 2}]),
+    Sources = sets:from_list(Args),
     Fragile = case sets:is_disjoint(Sources, Fragile0) of
                   true -> sets:del_element(Reg, Fragile0);
                   false -> sets:add_element(Reg, Fragile0)
@@ -3400,7 +3343,7 @@ remove_fragility(Reg, Vst) ->
 
 %% Marks all registers as durable.
 remove_fragility(#vst{current=St0}=Vst) ->
-    St = St0#st{fragile=sets:new([{version, 2}])},
+    St = St0#st{fragile=sets:new()},
     Vst#vst{current=St}.
 
 assert_durable_term(Src, Vst) ->
@@ -3423,7 +3366,9 @@ assert_not_fragile(Lit, #vst{}) ->
 %%%
 
 bif_types(Op, Ss, Vst) ->
-    Args = [get_term_type(Arg, Vst) || Arg <- Ss],
+    %% Note: match contexts and the likes are rejected by validate_bif/7 when
+    %% this is invalid. We don't need to duplicate the check here.
+    Args = [get_concrete_type(Arg, Vst) || Arg <- Ss],
     case {Op,Ss} of
         {element,[_,{literal,Tuple}]} when tuple_size(Tuple) > 0 ->
             case beam_call_types:types(erlang, Op, Args) of
@@ -3475,7 +3420,10 @@ will_bif_succeed(Op, Ss, Vst) ->
         true ->
             'maybe';
         false ->
-            Args = [get_term_type(Arg, Vst) || Arg <- Ss],
+            %% Note: match contexts and the likes are rejected by
+            %% validate_bif/7 when this is invalid. We don't need to duplicate
+            %% the check here.
+            Args = [get_concrete_type(Arg, Vst) || Arg <- Ss],
             beam_call_types:will_succeed(erlang, Op, Args)
     end.
 

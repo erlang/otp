@@ -1,9 +1,11 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,7 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 
 include $(ERL_TOP)/make/target.mk
@@ -40,17 +42,28 @@ SNMP_ROOT = ..
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-SNMP_TEST_DATA = snmp_test_data
+SNMP_TEST_DATA    = snmp_test_data
+NETSNMP_TEST_DATA = snmp_to_snmpnet_SUITE_data
 
-SNMP_MIB_DIR = $(SNMP_TEST_DATA)
+SNMP_MIB_DIR    = $(SNMP_TEST_DATA)
+NETSNMP_MIB_DIR = $(NETSNMP_TEST_DATA)
 
-SNMP_BIN_TARGET_DIR = $(SNMP_TEST_DATA)
+SNMP_BIN_TARGET_DIR    = $(SNMP_TEST_DATA)
+NETSNMP_BIN_TARGET_DIR = $(NETSNMP_TEST_DATA)
 
-MIB_SOURCE  = $(MIB_FILES:%.mib=$(SNMP_MIB_DIR)/%.mib)
+SNMP_MIB_SOURCES    = $(MIB_FILES:%.mib=$(SNMP_MIB_DIR)/%.mib)
+NETSNMP_MIB_SOURCES = $(NETSNMP_MIB_FILES:%.mib=$(NETSNMP_MIB_DIR)/%.mib)
 
-MIB_TARGETS = \
+SNMP_MIB_TARGETS = \
 	$(MIB_FILES:%.mib=$(SNMP_BIN_TARGET_DIR)/%.bin) \
 	$(MIB_FILES:%.mib=$(SNMP_BIN_TARGET_DIR)/%.hrl)
+NETSNMP_MIB_TARGETS = \
+	$(NETSNMP_MIB_FILES:%.mib=$(NETSNMP_BIN_TARGET_DIR)/%.bin) \
+	$(NETSNMP_MIB_FILES:%.mib=$(NETSNMP_BIN_TARGET_DIR)/%.hrl)
+MIB_TARGETS = \
+	$(SNMP_MIB_TARGETS) \
+	$(NETSNMP_MIB_TARGETS)
+
 ERL_TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 TEST_SERVER_TARGETS = $(TEST_SERVER_MODULES:%=$(EBIN)/%.$(EMULATOR))
@@ -160,7 +173,8 @@ ERL_COMPILE_FLAGS += -I../../snmp/src/app \
                      -Dversion=\"$(VSN)$(PRE_VSN)\" \
                      +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
-                     $(SNMP_FLAGS)
+                     $(SNMP_FLAGS) \
+		     +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 ERL_SNMP_FLAGS = $(SNMP_MIB_FLAGS) \
@@ -171,6 +185,12 @@ $(SNMP_BIN_TARGET_DIR)/%.bin: $(SNMP_MIB_DIR)/%.mib
 
 $(SNMP_BIN_TARGET_DIR)/%.hrl: $(SNMP_BIN_TARGET_DIR)/%.bin
 	$(ERLC) $(ERL_SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
+
+$(NETSNMP_BIN_TARGET_DIR)/%.hrl: $(NETSNMP_BIN_TARGET_DIR)/%.bin
+	$(ERLC) $(ERL_SNMP_FLAGS) -o $(NETSNMP_BIN_TARGET_DIR) $<
+
+$(NETSNMP_BIN_TARGET_DIR)/%.bin: $(NETSNMP_MIB_DIR)/%.mib
+	$(ERLC) $(ERL_SNMP_FLAGS) -o $(NETSNMP_MIB_DIR) $<
 
 
 # ----------------------------------------------------
@@ -241,26 +261,34 @@ release_docs_spec:
 
 
 info:
-	@echo "SNMP_DEBUG        = $(SNMP_DEBUG)"
-	@echo "SNMP_FLAGS        = $(SNMP_FLAGS)"
+	@echo "SNMP_DEBUG             = $(SNMP_DEBUG)"
+	@echo "SNMP_FLAGS             = $(SNMP_FLAGS)"
 	@echo ""
-	@echo "SNMP_MIB_DIR      = $(SNMP_MIB_DIR)"
-	@echo "MIB_SOURCE        = $(MIB_SOURCE)"
-	@echo "MIB_TARGETS       = $(MIB_TARGETS)"
-	@echo "SNMP_MIB_FLAGS    = $(SNMP_MIB_FLAGS)"
+	@echo "SNMP_MIB_DIR           = $(SNMP_MIB_DIR)"
+	@echo "NETSNMP_MIB_DIR        = $(NETSNMP_MIB_DIR)"
 	@echo ""
-	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
+	@echo "SNMP_BIN_TARGET_DIR    = $(SNMP_BIN_TARGET_DIR)"
+	@echo "NETSNMP_BIN_TARGET_DIR = $(NETSNMP_BIN_TARGET_DIR)"
 	@echo ""
-	@echo "RELSYSDIR         = "$(RELSYSDIR)""
+	@echo "SNMP_MIB_SOURCES    = $(SNMP_MIB_SOURCES)"
+	@echo "NETSNMP_MIB_SOURCES = $(NETSNMP_MIB_SOURCES)"
 	@echo ""
-	@echo "SOURCE            = $(SOURCE)"
+	@echo "MIB_TARGETS         = $(MIB_TARGETS)"
 	@echo ""
-	@echo "TARGET_FILES      = $(TARGET_FILES)"
+	@echo "SNMP_MIB_FLAGS      = $(SNMP_MIB_FLAGS)"
 	@echo ""
-	@echo "EMAKEFILE         = $(EMAKEFILE)"
-	@echo "MAKE_EMAKE        = $(MAKE_EMAKE)"
-	@echo "BUILDTARGET       = $(BUILDTARGET)"
-	@echo "RELTEST_FILES     = $(RELTEST_FILES)"
+	@echo "ERL_COMPILE_FLAGS   = $(ERL_COMPILE_FLAGS)"
+	@echo ""
+	@echo "RELSYSDIR           = "$(RELSYSDIR)""
+	@echo ""
+	@echo "SOURCE              = $(SOURCE)"
+	@echo ""
+	@echo "TARGET_FILES        = $(TARGET_FILES)"
+	@echo ""
+	@echo "EMAKEFILE           = $(EMAKEFILE)"
+	@echo "MAKE_EMAKE          = $(MAKE_EMAKE)"
+	@echo "BUILDTARGET         = $(BUILDTARGET)"
+	@echo "RELTEST_FILES       = $(RELTEST_FILES)"
 	@echo ""
 
 

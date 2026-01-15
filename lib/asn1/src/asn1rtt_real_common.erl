@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +21,7 @@
 %%
 -module(asn1rtt_real_common).
 
--export([encode_real/1,decode_real/1,
-	 ber_encode_real/1]).
+-export([encode_real/1,decode_real/1]).
 
 %%============================================================================
 %%
@@ -30,14 +31,14 @@
 %% encode real value
 %%============================================================================
 
-ber_encode_real(0) ->
-    {[],0};
-ber_encode_real('PLUS-INFINITY') ->
-    {[64],1};
-ber_encode_real('MINUS-INFINITY') ->
-    {[65],1};
-ber_encode_real(Val) when is_tuple(Val); is_list(Val) ->
-    encode_real(Val).
+encode_real(0) ->
+    <<>>;
+encode_real('PLUS-INFINITY') ->
+    <<2#0100_0000>>;
+encode_real('MINUS-INFINITY') ->
+    <<2#0100_0001>>;
+encode_real(Val) when is_tuple(Val); is_list(Val) ->
+    do_encode_real(Val).
 
 %%%%%%%%%%%%%%
 %% only base 2 encoding!
@@ -73,10 +74,7 @@ ber_encode_real(Val) when is_tuple(Val); is_list(Val) ->
 %% bit shifted until it is an odd number. Thus, do this for BER as
 %% well.
 
-encode_real(Real) ->
-    encode_real([], Real).
-
-encode_real(_C, {Mantissa, Base, Exponent}) when Base =:= 2 ->
+do_encode_real({Mantissa, Base, Exponent}) when Base =:= 2 ->
 %%    io:format("Mantissa: ~w Base: ~w, Exp: ~w~n",[Man, Base, Exp]),
     {Man,ExpAdd} = truncate_zeros(Mantissa), %% DER adjustment
     Exp = Exponent + ExpAdd,
@@ -107,7 +105,7 @@ encode_real(_C, {Mantissa, Base, Exponent}) when Base =:= 2 ->
 		  end,
     %%    ok = io:format("LenMask: ~w EOctets: ~w~nFirstOctet: ~w OctMantissa: ~w OctExpLen: ~w~n", [LenMask, EOctets, FirstOctet, OctMantissa, OctExpLen]),
     <<FirstOctet/binary, EOctets/binary, OctMantissa/binary>>;
-encode_real(C, {Mantissa,Base,Exponent})
+do_encode_real({Mantissa,Base,Exponent})
   when Base =:= 10, is_integer(Mantissa), is_integer(Exponent) ->
     %% always encode as NR3 due to DER on the format
     %% mmmm.Eseeee where
@@ -118,11 +116,11 @@ encode_real(C, {Mantissa,Base,Exponent})
     %% ex: 1234.E-5679
     ManStr = integer_to_list(Mantissa),
 
-    encode_real_as_string(C,ManStr,Exponent);
-encode_real(_C, {_,Base,_}) ->
+    encode_real_as_string(ManStr, Exponent);
+do_encode_real({_,Base,_}) ->
     exit({error,{asn1, {encode_real_non_supported_encoding, Base}}});
 %% base 10
-encode_real(C, Real) when is_list(Real) ->
+do_encode_real(Real) when is_list(Real) ->
     %% The Real string may come in as a NR1, NR2 or NR3 string.
     {Mantissa, Exponent} =
 	case string:lexemes(Real,"Ee") of
@@ -146,18 +144,18 @@ encode_real(C, Real) when is_list(Real) ->
 	    _ ->
 		case string:lexemes(Mantissa,",.") of
 		    [Num] -> %% No decimal-mark
-			{integer_to_list(list_to_integer(Num)),0};
+			{remove_plus_and_leading_zeros(Num),0};
 		    [Num,Dec] ->
 			NewDec = ZeroDecimal(remove_trailing_zeros(Dec)),
-			NewMan = integer_to_list(list_to_integer(Num)) ++ NewDec,
-			{integer_to_list(list_to_integer(NewMan)),
+			NewMan = remove_plus_and_leading_zeros(Num) ++ NewDec,
+			{remove_plus_and_leading_zeros(NewMan),
 			 length(NewDec)}
 		end
 	end,
 
-    encode_real_as_string(C, NewMantissa, Exponent - LenDecimal).
+    encode_real_as_string(NewMantissa, Exponent - LenDecimal).
 
-encode_real_as_string(_C, Mantissa, Exponent)
+encode_real_as_string(Mantissa, Exponent)
   when is_list(Mantissa), is_integer(Exponent) ->
     %% Remove trailing zeros in Mantissa and add this to Exponent
     TruncMant = remove_trailing_zeros(Mantissa),
@@ -177,6 +175,11 @@ encode_real_as_string(_C, Mantissa, Exponent)
     ManBin = list_to_binary(TruncMant),
     NR3 = 3,
     <<NR3,ManBin/binary,$.,ExpBin/binary>>.
+
+remove_plus_and_leading_zeros("-0") ->
+    "-0";
+remove_plus_and_leading_zeros(IntStr) ->
+    integer_to_list(list_to_integer(IntStr)).
 
 remove_trailing_zeros(IntStr) ->
     case lists:dropwhile(fun($0)-> true;
@@ -214,14 +217,16 @@ decode_real(Buffer) ->
     {RealVal,<<>>,Sz} = decode_real2(Buffer, [], Sz, 0),
     RealVal.
 
-decode_real2(Buffer, _C, 0, _RemBytes) ->
-    {0,Buffer};
+decode_real2(<<>>, _C, 0, _RemBytes) ->
+    {0,<<>>,0};
 decode_real2(Buffer0, _C, Len, RemBytes1) ->
     <<First, Buffer2/binary>> = Buffer0,
     if
-	First =:= 2#01000000 -> {'PLUS-INFINITY', Buffer2};
-	First =:= 2#01000001 -> {'MINUS-INFINITY', Buffer2};
-	First =:= 1 orelse First =:= 2 orelse First =:= 3 ->
+	First =:= 2#01000000 ->
+            {'PLUS-INFINITY', Buffer2, 1};
+	First =:= 2#01000001 ->
+            {'MINUS-INFINITY', Buffer2, 1};
+        First =:= 1; First =:= 2; First =:= 3 ->
 	    %% character string encoding of base 10
 	    {NRx,Rest} = split_binary(Buffer2,Len-1),
 	    {binary_to_list(NRx),Rest,Len};

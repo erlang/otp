@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2004-2009 Mickaël Rémond, Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,14 +27,10 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2004-2009 Mickaël Rémond, Richard Carlsson
-%% @author Mickaël Rémond <mickael.remond@process-one.net>
-%%   [http://www.process-one.net/]
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @version {@version}, {@date} {@time}
-%% @doc This module is the main EUnit user interface.
+%% %CopyrightEnd%
 
 -module(eunit).
+-moduledoc "This module is the main EUnit user interface.".
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
@@ -43,71 +48,76 @@
 
 %% TODO: Command line interface similar to that of edoc?
 
-%% @doc Starts the EUnit server. Normally, you don't need to call this
-%% function; it is started automatically.
+-doc """
+start()
+
+Starts the EUnit server. Normally, you don't need to call this function; it is
+started automatically.
+""".
+-spec start() -> term().
 start() ->
     start(?SERVER).
 
-%% @private
-%% @doc See {@link start/0}.
+-doc false.
 start(Server) ->
     eunit_server:start(Server).
 
-%% @doc Stops the EUnit server. Normally, you don't need to call this
-%% function.
+-doc """
+Stops the EUnit server. Normally, you don't need to call this function.
+""".
+-spec stop() -> term().
 stop() ->
     stop(?SERVER).
 
-%% @private
-%% @doc See {@link stop/0}.
+-doc false.
 stop(Server) ->
     eunit_server:stop(Server).
 
-%% @private
+-doc false.
 watch(Target) ->
     watch(Target, []).
 
-%% @private
+-doc false.
 watch(Target, Options) ->
     watch(?SERVER, Target, Options).
 
-%% @private
+-doc false.
 watch(Server, Target, Options) ->
     eunit_server:watch(Server, Target, Options).
 
-%% @private
+-doc false.
 watch_path(Target) ->
     watch_path(Target, []).
 
-%% @private
+-doc false.
 watch_path(Target, Options) ->
     watch_path(?SERVER, Target, Options).
 
-%% @private
+-doc false.
 watch_path(Server, Target, Options) ->
     eunit_server:watch_path(Server, Target, Options).
 
-%% @private
+-doc false.
 watch_regexp(Target) ->
     watch_regexp(Target, []).
 
-%% @private
+-doc false.
 watch_regexp(Target, Options) ->
     watch_regexp(?SERVER, Target, Options).
 
-%% @private
+-doc false.
 watch_regexp(Server, Target, Options) ->
     eunit_server:watch_regexp(Server, Target, Options).
 
-%% @private
+-doc false.
 watch_app(Name) ->
     watch_app(Name, []).
 
-%% @private
+-doc false.
 watch_app(Name, Options) ->
     watch_app(?SERVER, Name, Options).
 
-%% @private
+-doc false.
 watch_app(Server, Name, Options) ->
     case code:lib_dir(Name) of
 	Path when is_list(Path) ->
@@ -116,45 +126,51 @@ watch_app(Server, Name, Options) ->
 	    error
     end.
 
-%% @equiv test(Tests, [])
+-spec test(Tests :: term()) -> ok | {error, term()} | error.
+-doc #{ equiv => test(Tests, []) }.
 test(Tests) ->
     test(Tests, []).
 
-%% @spec test(Tests::term(), Options::[term()]) -> ok | {error, term()}
-%% @doc Runs a set of tests. The format of `Tests' is described in the
-%% section <a
-%% href="overview-summary.html#EUnit_test_representation">EUnit test
-%% representation</a> of the overview.
-%%
-%% Example: ```eunit:test(fred)''' runs all tests in the module `fred'
-%% and also any tests in the module `fred_tests', if that module exists.
-%%
-%% Options:
-%% <dl>
-%% <dt>`verbose'</dt>
-%% <dd>Displays more details about the running tests.</dd>
-%% <dt>`print_depth'</dt>
-%% <dd>Maximum depth to which terms are printed in case of error.</dd>
-%% <dt>`exact_execution'</dt>
-%% <dd>If this boolean flag is set to `true' framework will
-%% not automatically execute tests found in related module suffixed with "_tests".
-%% This behaviour might be unwanted if execution of modules found in a folder
-%% is ordered while it contains both source and test modules.</dd>
-%% <dt>`scale_timeouts'</dt>
-%% <dd>If this numeric value is set, timeouts will get scaled accordingly.
-%% It may be useful when running a set of tests on a slower host.
-%% Examples: `{scale_timeouts,10}' make the timeouts 10 times longer, while
-%% `{scale_timeouts,0.1}' would shorten them by a factor of 10.</dd>
-%% </dl>
-%%
-%% Options in the environment variable EUNIT are also included last in
-%% the option list, i.e., have lower precedence than those in `Options'.
-%% @see test/1
+-doc """
+Runs a set of tests. The format of `Tests` is described in the section
+[EUnit test representation](chapter.md#EUnit_test_representation) of the
+overview.
+
+Example:
+
+```text
+  eunit:test(fred)
+```
+
+runs all tests in the module `fred` and also any tests in the module
+`fred_tests`, if that module exists.
+
+Options:
+
+- **`verbose`** - Displays more details about the running tests.
+
+- **`print_depth`** - Maximum depth to which terms are printed in case of error.
+
+- **`exact_execution`** - If this boolean flag is set to `true` framework will
+  not automatically execute tests found in related module suffixed with
+  "\_tests". This behaviour might be unwanted if execution of modules found in a
+  folder is ordered while it contains both source and test modules.
+
+- **`scale_timeouts`** - If this numeric value is set, timeouts will get scaled
+  accordingly. It may be useful when running a set of tests on a slower host.
+  Examples: `{scale_timeouts,10}` make the timeouts 10 times longer, while
+  `{scale_timeouts,0.1}` would shorten them by a factor of 10.
+
+Options in the environment variable EUNIT are also included last in the option
+list, i.e., have lower precedence than those in `Options`.
+
+_See also: _`test/1`.
+""".
+-spec test(Tests :: term(), Options :: [term()]) -> ok | error | {error, term()}.
 test(Tests, Options) ->
     test(?SERVER, Tests, all_options(Options)).
 
-%% @private
-%% @doc See {@link test/2}.
+-doc false.
 test(Server, Tests, Options) ->
     Listeners = listeners(Options),
     Serial = eunit_serial:start(Listeners),
@@ -197,15 +213,15 @@ wait_until_listeners_have_terminated([]) ->
 %% TODO: maybe some functions could check for a globally registered server?
 %% TODO: some synchronous but completely quiet interface function
 
-%% @private
+-doc false.
 submit(T) ->
     submit(T, []).
 
-%% @private
+-doc false.
 submit(T, Options) ->
     submit(?SERVER, T, Options).
 
-%% @private
+-doc false.
 submit(Server, T, Options) ->
     Dummy = spawn(fun devnull/0),
     eunit_server:start_test(Server, Dummy, T, Options).

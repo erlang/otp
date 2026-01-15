@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_boot_server_SUITE).
@@ -98,6 +100,14 @@ start(Config) when is_list(Config) ->
     {error, {badarg, [Host1, BadHost]}} =
 	erl_boot_server:start([Host1, BadHost]),
 
+    %% Bad arguments - Options.
+    {error, {badarg, {}}} = erl_boot_server:start([Host1], {}),
+    {error, {badarg, []}} = erl_boot_server:start([Host1], []),
+    {error, {badarg, atom}} = erl_boot_server:start([Host1], atom),
+    {error, {badarg, 1234}} = erl_boot_server:start([Host1], 1234),
+    {error, {badarg, #{port := 1234}}} =
+        erl_boot_server:start([Host1], #{port => 1234}),
+
     %% Test once.
     {ok, Pid1} = erl_boot_server:start([Host1]),
     {error, {already_started, Pid1}} =
@@ -110,6 +120,20 @@ start(Config) when is_list(Config) ->
     {error, {already_started, Pid2}} =
 	erl_boot_server:start([Host1, Host2]),
     exit(Pid2, kill),
+    ct:sleep(1),
+
+    %% Test default options.
+    ct:sleep(1),
+    {ok, Pid3} = erl_boot_server:start([Host1, Host2], #{}),
+    {error, {already_started, Pid3}} = erl_boot_server:start([Host1, Host2]),
+    exit(Pid3, kill),
+    ct:sleep(1),
+
+    %% Test explicit options.
+    ct:sleep(1),
+    {ok, Pid4} = erl_boot_server:start([Host1, Host2], #{listen_port => 1234}),
+    {error, {already_started, Pid4}} = erl_boot_server:start([Host1, Host2]),
+    exit(Pid4, kill),
     ct:sleep(1),
 
     ok.
@@ -125,6 +149,14 @@ start_link(Config) when is_list(Config) ->
     {error, {badarg, [atom, BadHost]}} =
 	erl_boot_server:start_link([atom, BadHost]),
 
+    %% Bad arguments - Options.
+    {error, {badarg, {}}} = erl_boot_server:start_link([Host1], {}),
+    {error, {badarg, []}} = erl_boot_server:start_link([Host1], []),
+    {error, {badarg, atom}} = erl_boot_server:start_link([Host1], atom),
+    {error, {badarg, 1234}} = erl_boot_server:start_link([Host1], 1234),
+    {error, {badarg, #{port := 1234}}} =
+        erl_boot_server:start_link([Host1], #{port => 1234}),
+
     {ok, Pid1} = erl_boot_server:start_link([Host1]),
     {error, {already_started, Pid1}} =
 	erl_boot_server:start_link([Host1]),
@@ -134,6 +166,19 @@ start_link(Config) when is_list(Config) ->
     {error, {already_started, Pid2}} =
 	erl_boot_server:start_link([Host1, Host2]),
     shutdown(Pid2),
+
+    %% Test default options.
+    {ok, Pid3} = erl_boot_server:start_link([Host1, Host2], #{}),
+    {error, {already_started, Pid3}} =
+        erl_boot_server:start_link([Host1, Host2]),
+    shutdown(Pid3),
+
+    %% Test explicit options.
+    {ok, Pid4} =
+        erl_boot_server:start_link([Host1, Host2], #{listen_port => 1234}),
+    {error, {already_started, Pid4}} =
+        erl_boot_server:start_link([Host1, Host2]),
+    shutdown(Pid4),
     process_flag(trap_exit, OldFlag),
 
     ok.

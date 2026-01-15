@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,10 @@
 %% %CopyrightEnd%
 %%
 -module(file_io_server).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
+-compile(nowarn_deprecated_catch).
 
 %% A simple file server for io to one file instance per server instance.
 
@@ -26,7 +32,7 @@
 
 -export([count_and_find/3]).
 
--record(state, {handle,owner,mref,name,buf,read_mode,unic}).
+-record(state, {handle,owner,mref,buf,read_mode,unic}).
 
 -include("file_int.hrl").
 
@@ -82,7 +88,6 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 				    #state{handle    = Handle,
 					   owner     = Owner,
 					   mref      = M,
-					   name      = FileName,
 					   buf       = <<>>,
 					   read_mode = ReadMode,
 					   unic = UnicodeMode})
@@ -322,14 +327,7 @@ file_request({read_handle_info, Opts},
             {stop,Reason,Reply,State};
         Reply ->
             {reply,Reply,State}
-    end;
-file_request(pid2name,
-             #state{name=Name}=State) ->
-    {reply,{ok,Name},State};
-file_request(Unknown,
-	     #state{}=State) ->
-    Reason = {request, Unknown},
-    {error,{error,Reason},State}.
+    end.
 
 %% Standard reply and clear buffer
 std_reply({error,_}=Reply, State) ->
@@ -679,18 +677,22 @@ get_chars_apply(Mod, Func, XtraArg, S0, OutEnc,
 	error:ErrReason ->
 	   {stop,ErrReason,{error,err_func(Mod, Func, XtraArg)},State}
     end.
-	    
+
 %% A hack that tries to inform the caller about the position where the
 %% error occurred.
-invalid_unicode_error(Mod, Func, XtraArg, S) ->
+invalid_unicode_error(Mod = io_lib, Func = get_until,
+                      XtraArg = {erl_scan,tokens,_Args},
+                      {GetUntilState, S})
+  when is_boolean(GetUntilState) ->
     try
-        {erl_scan,tokens,_Args} = XtraArg,
         Location = erl_scan:continuation_location(S),
         {error,{Location, ?MODULE, invalid_unicode},Location}
     catch
         _:_ ->
             {error,err_func(Mod, Func, XtraArg)}
-    end.
+    end;
+invalid_unicode_error(Mod, Func, XtraArg, _S) ->
+    {error,err_func(Mod, Func, XtraArg)}.
 
 %% Convert error code to make it look as before
 err_func(io_lib, get_until, {_,F,_}) ->

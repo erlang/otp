@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,10 +36,10 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
     [basic, deeply_nested, no_generator, empty_generator].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_group(_GroupName, Config) ->
@@ -84,11 +86,26 @@ basic(Config) when is_list(Config) ->
     %% Filter expressions with andalso/orelse.
     "abc123" = alphanum("?abc123.;"),
 
+    %% Strict generators (each generator type)
+    [2,3,4] = [X+1 || X <:- [1,2,3]],
+    [2,3,4] = [X+1 || <<X>> <:= <<1,2,3>>],
+    [2,12] = [X*Y || X := Y <:- #{1 => 2, 3 => 4}],
+
+    %% A failing guard following a strict generator is ok
+    [3,4] = [X+1 || X <:- [1,2,3], X > 1],
+    [3,4] = [X+1 || <<X>> <:= <<1,2,3>>, X > 1],
+    [12] = [X*Y || X := Y <:- #{1 => 2, 3 => 4}, X > 1],
+
     %% Error cases.
     [] = [{xx,X} || X <- L0, element(2, X) == no_no_no],
     {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
     [] = [X || X <- L1, X+1 < 2],
     {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
+
+    %% Non-matching elements cause a badmatch error for strict generators
+    {'EXIT',{{badmatch,2},_}} = (catch [X || {ok, X} <:- [{ok,1},2,{ok,3}]]),
+    {'EXIT',{{badmatch,<<128,2>>},_}} = (catch [X || <<0:1, X:7>> <:= <<1,128,2>>]),
+    {'EXIT',{{badmatch,{2,error}},_}} = (catch [X || X := ok <:- #{1 => ok, 2 => error, 3 => ok}]),
 
     %% A bad generator has a different exception compared to BEAM.
     {'EXIT',{{bad_generator,x},_}} = (catch [E || E <- id(x)]),

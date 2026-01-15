@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %%%----------------------------------------------------------------------
 
 -module(dist_util).
+-moduledoc false.
 
 %%-compile(export_all).
 -export([handshake_we_started/1, handshake_other_started/1,
@@ -126,6 +129,10 @@ dflag2str(?DFLAG_V4_NC) ->
     "V4_NC";
 dflag2str(?DFLAG_ALIAS) ->
     "ALIAS";
+dflag2str(?DFLAG_LOCAL_EXT) ->
+    "LOCAL_EXT";
+dflag2str(?DFLAG_ALTACT_SIG) ->
+    "ALTACT_SIG";
 dflag2str(Other) ->
     lists:flatten(io_lib:format("UNKNOWN<~.16.0B>", [Other])).
 

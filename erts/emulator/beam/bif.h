@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -585,7 +587,8 @@ erts_reschedule_bif(Process *proc,
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-Uint16 erts_monitor_opts(Eterm opts, Eterm *tag);
+Uint32 erts_link_opts(Eterm opts, Uint32 *rm_flags);
+Uint32 erts_monitor_opts(Eterm opts, Eterm *tag);
 
 #include "erl_bif_table.h"
 

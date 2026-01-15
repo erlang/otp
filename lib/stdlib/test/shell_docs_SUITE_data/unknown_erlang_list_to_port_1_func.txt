@@ -1,11 +1,19 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec list_to_port(String) -> port() when String :: string().[0m
+[;1m  list_to_port(String)[0m
 
 [;;4mSince[0m:
   OTP 20.0
 
-  Returns a port identifier whose text representation is a [;;4mString[0m,
-  for example:
+  Returns a port identifier whose text representation is a [;;4mString[0m.
+
+  For example:
 
     > list_to_port("#Port<0.4>").
     #Port<0.4>
@@ -13,6 +21,7 @@
   Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of a
   port identifier.
 
-  Warning:
+  [;;4mWarning[0m
+
     This BIF is intended for debugging and is not to be used in
     application programs.

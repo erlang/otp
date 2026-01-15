@@ -1,3 +1,23 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+
 
 %%-------------------------------------------------------------------------
 %% Default system port
@@ -9,14 +29,16 @@
 %%-------------------------------------------------------------------------
 %% Timeout time in ms
 %%-------------------------------------------------------------------------
--define(TIMEOUT, 27000).
+-define(TIMEOUT, 15000).
+-define(v(Key, Config), proplists:get_value(Key, Config)).
+-define(v(Key, Config, Default), proplists:get_value(Key, Config, Default)).
 
 %%-------------------------------------------------------------------------
 %% Check for usable crypto
 %%-------------------------------------------------------------------------
 -define(CHECK_CRYPTO(UsersInitCode),
 	try
-            crypto:start(),
+            application:start(crypto),
             ssh_test_lib:try_enable_fips_mode()
 	of
             ok -> UsersInitCode;
@@ -58,12 +80,26 @@
 -define(wait_match(Pattern, FunctionCall),
         ?wait_match(Pattern, FunctionCall, ok)).
 
-%%-------------------------------------------------------------------------
-%% Write file into log
-%%-------------------------------------------------------------------------
 -define(ct_log_show_file(File),
         (fun(File__) ->
                 {ok,Contents__} = file:read_file(File__),
                 ct:log("~p:~p Show file~n~s =~n~s~n",
                        [?MODULE,?LINE,File__, Contents__])
         end)(File)).
+
+-define(SSH_TEST_LIB_FORMAT, "(~s ~p:~p in ~p) ").
+-define(SSH_TEST_LIB_ARGS,
+        [erlang:pid_to_list(self()), ?MODULE, ?LINE, ?FUNCTION_NAME]).
+-define(CT_LOG(F),
+        (ct:log(?SSH_TEST_LIB_FORMAT ++ F, ?SSH_TEST_LIB_ARGS, [esc_chars]))).
+-define(CT_LOG(F, Args),
+        (ct:log(
+           ?SSH_TEST_LIB_FORMAT ++ F,
+           ?SSH_TEST_LIB_ARGS ++ Args,
+           [esc_chars]))).
+-define(CT_PAL(F),
+        (ct:pal(?SSH_TEST_LIB_FORMAT ++ F, ?SSH_TEST_LIB_ARGS))).
+-define(CT_PAL(F, Args),
+        (ct:pal(?SSH_TEST_LIB_FORMAT ++ F, ?SSH_TEST_LIB_ARGS ++ Args))).
+-define(CT_FAIL(F, Args),
+        (ct:fail(?SSH_TEST_LIB_FORMAT ++ F, ?SSH_TEST_LIB_ARGS ++ Args))).

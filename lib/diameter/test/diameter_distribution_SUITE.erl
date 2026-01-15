@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,13 +31,21 @@
 -export([run/0]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
-         traffic/1]).
+         init_per_suite/1,
+         end_per_suite/1,
+
+         %% The test cases
+         traffic/1
+        ]).
 
 %% rpc calls
 -export([ping/1,
          start/1,
+         stop/1,
          connect/1,
          call/1]).
 
@@ -52,9 +62,13 @@
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
 
+-include("diameter_util.hrl").
+
+
 %% ===========================================================================
 
--define(util, diameter_util).
+-define(DL(F),    ?DL(F, [])).
+-define(DL(F, A), ?LOG("DDISTRS", F, A)).
 
 -define(CLIENT, 'CLIENT').
 -define(SERVER, 'SERVER').
@@ -92,10 +106,11 @@
 
 %% The order here is significant and causes the server to listen
 %% before the clients connect.
--define(NODES, [{server, ?SERVER},
+-define(NODES, [{server,  ?SERVER},
                 {client0, ?CLIENT},
                 {client1, ?CLIENT},
                 {client2, ?CLIENT}]).
+
 
 %% ===========================================================================
 
@@ -105,38 +120,63 @@ suite() ->
 all() ->
     [traffic].
 
-traffic(_Config) ->
-    traffic().
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
+traffic(Config) ->
+    ?DL("traffic -> entry"),
+    Factor = dia_factor(Config),
+    Res = do_traffic(Factor),
+    ?DL("traffic -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 %% ===========================================================================
 
 run() ->
-    [] = ?util:run([{fun traffic/0, 60000}]).
+    [] = ?RUN([{fun() -> do_traffic(1) end, 60000}]).
     %% process for linked peers to die with
 
 %% traffic/0
 
-traffic() ->
+do_traffic(Factor) ->
+    ?DL("do_traffic -> make sure we have distro"),
     true = is_alive(),  %% need distribution for peer nodes
-    Nodes = enslave(),
+    ?DL("do_traffic -> get nodes"),
+    Nodes = get_nodes(),
+    ?DL("do_traffic -> ping nodes"),
     [] = ping(Nodes),  %% drop client node
+    ?DL("do_traffic -> start nodes"),
     [] = start(Nodes),
+    ?DL("do_traffic -> connect nodes"),
     [_] = connect(Nodes),
-    [] = send(Nodes).
+    ?DL("do_traffic -> send (to) nodes"),
+    [] = send(Nodes, Factor),
+    ?DL("do_traffic -> stop nodes"),
+    [] = stop(Nodes),
+    ?DL("do_traffic -> done"),
+    ok.
 
-%% enslave/0
+%% get_nodes/0
 %%
-%% Start four slave nodes, one to implement a Diameter server,
-%% three to implement a client.
+%% Start four nodes;
+%%   - one to implement a Diameter server,
+%%   - three to implement a client.
 
-enslave() ->
+get_nodes() ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
     Args = ["-pa", Here, Ebin],
     [{N,S} || {M,S} <- ?NODES, N <- [start(M, Args)]].
 
 start(Name, Args) ->
-    {ok, _, Node} = ?util:peer(#{name => Name, args => Args}),
+    {ok, _, Node} = ?DUTIL:peer(#{name => Name, args => Args}),
     Node.
 
 %% ping/1
@@ -171,6 +211,20 @@ start(Nodes) ->
                RC <- [rpc:call(N, ?MODULE, start, [S])],
                RC /= ok].
 
+%% stop/1
+%%
+%% Stop diameter services.
+
+stop(SvcName)
+  when is_atom(SvcName) ->
+    ok = diameter:stop_service(SvcName),
+    ok = diameter:stop();
+
+stop(Nodes) ->
+    [{N,RC} || {N,S} <- Nodes,
+               RC <- [rpc:call(N, ?MODULE, stop, [S])],
+               RC /= ok].
+
 sequence() ->
     sequence(sname()).
 
@@ -203,10 +257,10 @@ peers(client2) -> nodes().
 %% nodes.
 
 connect({?SERVER, _, []}) ->
-    [_LRef = ?util:listen(?SERVER, tcp)];
+    [_LRef = ?LISTEN(?SERVER, tcp)];
 
 connect({?CLIENT, [{Node, _} | _], [LRef] = Acc}) ->
-    ?util:connect(?CLIENT, tcp, {Node, LRef}),
+    ?CONNECT(?CLIENT, tcp, {Node, LRef}),
     Acc;
 
 connect(Nodes) ->
@@ -218,34 +272,47 @@ connect(Nodes) ->
 
 %% ===========================================================================
 
-%% send/1
-
-send(Nodes) ->
-    ?util:run([[fun send/2, Nodes, T]
-               || T <- [local, remote, timeout, failover]]).
-
 %% send/2
+
+send(Nodes, Factor) ->
+    ?RUN([[fun send/3, Nodes, T, Factor]
+          || T <- [local, remote, timeout, failover]]).
+
+%% send/3
 
 %% Send a request from the first client node, using a the local
 %% transport.
-send(Nodes, local) ->
+send(Nodes, local, Factor) ->
+    ?DL("send(local) -> entry - expect success (~p)", [?SUCCESS]),
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Nodes, 0, str(?LOGOUT));
+        = send(Nodes, 0, str(?LOGOUT), Factor),
+    ?DL("send(local) -> success (=success)"),
+    ok;
 
 %% Send a request from the first client node, using a transport on the
 %% another node.
-send(Nodes, remote) ->
+send(Nodes, remote, Factor) ->
+    ?DL("send(remote) -> entry - expect success (~p)", [?SUCCESS]),
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Nodes, 1, str(?LOGOUT));
+        = send(Nodes, 1, str(?LOGOUT), Factor),
+    ?DL("send(remote) -> success (=success)"),
+    ok;
 
 %% Send a request that the server discards.
-send(Nodes, timeout) ->
-    {error, timeout} = send(Nodes, 1, str(?TIMEOUT));
+send(Nodes, timeout, Factor) ->
+    ?DL("send(timeout) -> entry - expect timeout"),
+    {error, timeout} = send(Nodes, 1, str(?TIMEOUT), Factor),
+    ?DL("send(timeout) -> success (=timeout)"),
+    ok;
 
 %% Send a request that causes the server to take the transport down.
-send(Nodes, failover) ->
+send(Nodes, failover, Factor) ->
+    ?DL("send(failover) -> entry - expect busy (~p)", [?BUSY]),
     #'diameter_base_answer-message'{'Result-Code' = ?BUSY}
-        = send(Nodes, 2, str(?MOVED)).
+        = send(Nodes, 2, str(?MOVED), Factor),
+    ?DL("send(failover) -> success (=busy)"),
+    ok.
+
 
 %% ===========================================================================
 
@@ -254,20 +321,70 @@ str(Cause) ->
                        'Auth-Application-Id' = ?DICT:id(),
                        'Termination-Cause'   = Cause}.
 
-%% send/3
+%% send/4
 
-send([_, {Node, _} | _], Where, Req) ->
-    rpc:call(Node, ?MODULE, call, [{Where, Req}]).
+%% There is a "bug" in diameter, which can cause this function to return
+%% {error, timeout} even though only a fraction on the time has expired.
+%% This is because the timer has in fact *not* expired. Instead what
+%% has happened is the transport process has died and the selection
+%% of a new transport fails (I think its a race causing the pick_peer
+%% to return the same tranport process), at that error is converted to
+%% a timeout error.
+%% So, if this call returns {error, timeout} but only a fraction of the
+%% time has passed we skip instead!
+send([_, {Node, _} | _], Where, Req, Factor) ->
+    ?DL("send -> make rpc call to node ~p", [Node]),
+    case rpc:call(Node, ?MODULE, call, [{Where, Req, Factor}]) of
+        {{error, timeout} = Result, T1, T2, Timeout}
+          when is_integer(T1) andalso is_integer(T2) ->
+            TDiff = T2 - T1,
+            ?DL("request completed:"
+                "~n   Time:    ~w msec"
+                "~n   Timeout: ~w msec"
+                "~n   Result:  ~p", [TDiff, Timeout, Result]),
+            if
+                (TDiff < 100) ->
+                    exit({skip, {invalid_timeout, TDiff, Timeout}});
+                true ->
+                    Result
+            end;
+        {Result, T1, T2, Timeout} when is_integer(T1) andalso is_integer(T2) ->
+            ?DL("request completed:"
+                "~n   Time:    ~w msec"
+                "~n   Timeout: ~w msec"
+                "~n   Result:  ~p", [T2-T1, Timeout, Result]),
+            Result;
+        {badrpc, Reason} ->
+            ?DL("rpc failed:"
+                "~n   Reason: ~p", [Reason]),
+            ct:fail({rpc_call_failed, Node, Where, Req, Reason})
+    end.
 
 %% call/1
 
-call({Where, Req}) ->
-    diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]}]).
+call({Where, Req, Factor}) ->
+    Timeout = timeout(Factor),
+    ?DL("call -> make diameter call with"
+        "~n   (own) Node: ~p"
+        "~n   Where:      ~p"
+        "~n   Req:        ~p"
+        "~nwhen"
+        "~n   Timeout:    ~w (~w)", [node(), Where, Req, Timeout, Factor]),
+    T1 = ?TS(),
+    Result = diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]},
+                                                 {timeout, Timeout}]),
+    T2 = ?TS(),
+    ?DL("call -> diameter call ended with"
+        "~n   Result: ~p"
+        "~nwhen"
+        "~n   T2-T1:  ~w (~w - ~w)", [Result, T2 - T1, T2, T1]),
+    {Result, T1, T2, Timeout}.
 
 %% sname/0
 
 sname() ->
     ?A(hd(string:tokens(?L(node()), "@"))).
+
 
 %% ===========================================================================
 %% diameter callbacks
@@ -328,7 +445,9 @@ handle_answer(Pkt, _Req, ?CLIENT, _Peer, {_, client0}) ->
 
 %% handle_error/5
 
-handle_error(Reason, _Req, ?CLIENT, _Peer, {_, client0}) ->
+handle_error(Reason, _Req, ?CLIENT = Svc, _Peer, {_, client0}) ->
+    ?DL("~w(~p) -> entry with"
+        "~n   Reason: ~p", [?FUNCTION_NAME, Svc, Reason]),
     {error, Reason}.
 
 %% handle_request/3
@@ -361,3 +480,22 @@ fail(0, _) ->     %% sent from the originating node ...
 fail(_, TPid) ->  %% ... or through a remote node: force failover
     exit(TPid, kill),
     discard.
+
+
+%% ===========================================================================
+
+-define(CALL_TO_DEFAULT, 5000).
+timeout(Factor) when (Factor > 0) andalso (Factor =< 20) ->
+    (Factor - 1) * 500 + ?CALL_TO_DEFAULT;
+timeout(Factor) when (Factor > 0) ->
+    3*?CALL_TO_DEFAULT. % Max at 15 seconds
+
+
+%% ===========================================================================
+
+dia_factor(Config) ->
+    config_lookup(?FUNCTION_NAME, Config).
+
+config_lookup(Key, Config) ->
+    {value, {Key, Value}} = lists:keysearch(Key, 1, Config),
+    Value.

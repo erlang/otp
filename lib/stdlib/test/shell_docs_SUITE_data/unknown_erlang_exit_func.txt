@@ -1,9 +1,17 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec exit(Reason) -> no_return() when Reason :: term().[0m
+[;1m  exit(Reason)[0m
 
-  Raises an exception of class [;;4mexit[0m with exit reason [;;4mReason[0m. As
-  evaluating this function causes an exception to be raised, it has
-  no return value.
+  Raises an exception of class [;;4mexit[0m with exit reason [;;4mReason[0m.
+
+  As evaluating this function causes an exception to be raised, it
+  has no return value.
 
   The intent of the exception class [;;4mexit[0m is that the current
   process should be stopped (for example when a message telling a
@@ -23,7 +31,8 @@
     > catch exit(foobar).
     {'EXIT',foobar}
 
-  Note:
+  [;;4mNote[0m
+
     If a process calls [;;4mexit(kill)[0m and does not catch the
     exception, it will terminate with exit reason [;;4mkill[0m and also
     emit exit signals with exit reason [;;4mkill[0m (not [;;4mkilled[0m) to
@@ -34,15 +43,17 @@
     untrappable if a process sends such a signal to another
     process with [;;4merlang:exit/2[0m.
 
-  [;1m-spec exit(Pid, Reason) -> true[0m
-  [;1m              when Pid :: pid() | port(), Reason :: term().[0m
+[;1m  exit(Dest, Reason)[0m
 
   Sends an exit signal with exit reason [;;4mReason[0m to the process or
-  port identified by [;;4mPid[0m.
+  port identified by [;;4mDest[0m. If [;;4mDest[0m is a reference, the exit
+  signal will only affect the identified process if the reference
+  is an active process alias of a process executing on an OTP
+  @OTP-19198@ node or newer.
 
   The following behavior applies if [;;4mReason[0m is any term, except [;;4m[0m
   [;;4mnormal[0m or [;;4mkill[0m, and [;;4mP[0m is the process or port identified by [;;4m[0m
-  [;;4mPid[0m:
+  [;;4mDest[0m:
 
    • If [;;4mP[0m is not trapping exits, [;;4mP[0m exits with exit reason [;;4m[0m
      [;;4mReason[0m.
@@ -53,8 +64,8 @@
      and delivered to the message queue of [;;4mP[0m.
 
   The following behavior applies if [;;4mReason[0m is the term [;;4mnormal[0m
-  and [;;4mPid[0m is the identifier of a process [;;4mP[0m which is not the same
-  as the process that invoked [;;4merlang:exit(Pid, normal)[0m (the
+  and [;;4mDest[0m is the identifier of a process [;;4mP[0m which is not the
+  same as the process that invoked [;;4merlang:exit(Dest, normal)[0m (the
   behavior when a process sends a signal with the [;;4mnormal[0m reason to
   itself is described in the warning):
 
@@ -65,14 +76,15 @@
 
    • The signal has no effect if [;;4mP[0m is not trapping exits.
 
-  If [;;4mReason[0m is the atom [;;4mkill[0m, that is, if [;;4mexit(Pid, kill)[0m is
+  If [;;4mReason[0m is the atom [;;4mkill[0m, that is, if [;;4mexit(Dest, kill)[0m is
   called, an untrappable exit signal is sent to the process that is
-  identified by [;;4mPid[0m, which unconditionally exits with exit reason [;;4m[0m
+  identified by [;;4mDest[0m, which unconditionally exits with exit reason [;;4m[0m
   [;;4mkilled[0m. The exit reason is changed from [;;4mkill[0m to [;;4mkilled[0m to
   hint to linked processes that the killed process got killed by a
-  call to [;;4mexit(Pid, kill)[0m.
+  call to [;;4mexit(Dest, kill)[0m.
 
-  Note:
+  [;;4mNote[0m
+
     The functions [;;4merlang:exit/1[0m and [;;4merlang:exit/2[0m are named
     similarly but provide very different functionalities. The [;;4m[0m
     [;;4merlang:exit/1[0m function should be used when the intent is to
@@ -82,26 +94,61 @@
     caught while [;;4merlang:exit/2[0m does not cause any exception to
     be raised.
 
-  Warning:
+  [;;4mWarning[0m
+
     The only scenario that has not been covered by the description
     above is when a process [;;4mP[0m sends an exit signal with reason [;;4m[0m
     [;;4mnormal[0m to itself, that is [;;4merlang:exit(self(), normal)[0m. The
     behavior in this scenario is as follows:
 
-     • If [;;4mP[0m is trapping exits, the exit signal is
-       transformed into a message [;;4m{'EXIT', From, normal}[0m,
-       where [;;4mFrom[0m is [;;4mP[0m's process identifier, and delivered
-       to [;;4mP[0m's message queue.
+     • If [;;4mP[0m is trapping exits, the exit signal is transformed
+       into a message [;;4m{'EXIT', From, normal}[0m, where [;;4mFrom[0m is [;;4m[0m
+       [;;4mP[0m's process identifier, and delivered to [;;4mP[0m's message
+       queue.
 
      • [;;4mP[0m exits with reason [;;4mnormal[0m if [;;4mP[0m is not trapping
-       exits.
+       exits. Note that the behavior described above is
+       different from when a process sends an exit signal with
+       reason [;;4mnormal[0m to another process. This is arguably
+       strange but this behavior is kept for backward
+       compatibility reasons.
 
-    Note that the behavior described above is different from when
-    a process sends an exit signal with reason [;;4mnormal[0m to another
-    process. This is arguably strange but this behavior is kept
-    for backward compatibility reasons.
+  [;;4mNote[0m
 
-  Note:
     For some important information about distributed signals, see
     the Blocking Signaling Over Distribution section in the 
     Processes chapter of the Erlang Reference Manual.
+
+[;1m  exit(Dest, Reason, OptList)[0m
+
+[;;4mSince[0m:
+  OTP @OTP-19198@
+
+  Provides an option list for modification of the functionality
+  provided by the [;;4mexit/2[0m BIF. The [;;4mDest[0m and [;;4mReason[0m arguments
+  has the same meaning as when passed to the [;;4mexit/2[0m BIF.
+
+  Currently available options:
+
+   • [;;4mpriority[0m -- Since OTP @OTP-19198@
+
+     Send this exit signal as a priority exit signal. In order
+     for the signal to be handled as a priority [;;4mEXIT[0m message by
+     the receiver, this option must be passed, [;;4mDest[0m must be
+     an active priority alias and the receiver must be
+     trapping exits.
+
+     If [;;4mDest[0m is an active priority alias, but this option is
+     not passed, the exit signal will be handled as on ordinary
+     exit signal. The same is true, if this option is passed, but [;;4m[0m
+     [;;4mDest[0m is not an active priority alias.
+
+  [;;4mWarning[0m
+
+       You very seldom need to resort to using priority
+       messages and you may cause issues instead of solving
+       issues if not used with care.
+
+     For more information see, the Adding Messages to the
+     Message Queue and the Enabling Priority Message Reception
+     sections of the Erlang Reference Manual.

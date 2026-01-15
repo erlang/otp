@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,116 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxArtProvider).
+-moduledoc """
+`m:wxArtProvider` class is used to customize the look of wxWidgets application.
+
+When wxWidgets needs to display an icon or a bitmap (e.g. in the standard file dialog),
+it does not use a hard-coded resource but asks `m:wxArtProvider` for it instead. This way
+users can plug in their own `m:wxArtProvider` class and easily replace standard art with
+their own version.
+
+All that is needed is to derive a class from `m:wxArtProvider`, override either its `wxArtProvider::CreateBitmap()`
+(not implemented in wx) and/or its `wxArtProvider::CreateIconBundle()` (not implemented
+in wx) methods and register the provider with `wxArtProvider::Push()` (not implemented in wx):
+
+If you need bitmap images (of the same artwork) that should be displayed at different
+sizes you should probably consider overriding `wxArtProvider::CreateIconBundle` (not
+implemented in wx) and supplying icon bundles that contain different bitmap sizes.
+
+There's another way of taking advantage of this class: you can use it in your code and
+use platform native icons as provided by `getBitmap/2` or `getIcon/2`.
+
+Identifying art resources
+
+Every bitmap and icon bundle are known to `m:wxArtProvider` under an unique ID that is
+used when requesting a resource from it. The ID is represented by the ?wxArtID type and
+can have one of these predefined values (you can see bitmaps represented by these
+constants in the page_samples_artprov):
+
+Additionally, any string recognized by custom art providers registered using `wxArtProvider::Push`
+(not implemented in wx) may be used.
+
+Note: When running under GTK+ 2, GTK+ stock item IDs (e.g. `"gtk-cdrom"`) may be used as
+well: For a list of the GTK+ stock items please refer to the [GTK+ documentation page](http://library.gnome.org/devel/gtk/stable/gtk-Stock-Items.html).
+It is also possible to load icons from the current icon theme by specifying their name
+(without extension and directory components). Icon themes recognized by GTK+ follow the
+freedesktop.org [Icon Themes specification](http://freedesktop.org/Standards/icon-theme-spec).
+Note that themes are not guaranteed to contain all icons, so `m:wxArtProvider` may return
+?wxNullBitmap or ?wxNullIcon. The default theme is typically installed in `/usr/share/icons/hicolor`.
+
+Clients
+
+The `client` is the entity that calls `m:wxArtProvider`'s `getBitmap/2` or `getIcon/2` function. It is
+represented by wxClientID type and can have one of these values:
+
+* `wxART_TOOLBAR`
+
+* `wxART_MENU`
+
+* `wxART_BUTTON`
+
+* `wxART_FRAME_ICON`
+
+* `wxART_CMN_DIALOG`
+
+* `wxART_HELP_BROWSER`
+
+* `wxART_MESSAGE_BOX`
+
+* `wxART_OTHER` (used for all requests that don't fit into any of the categories above)
+
+Client ID serve as a hint to `m:wxArtProvider` that is supposed to help it to choose the
+best looking bitmap. For example it is often desirable to use slightly different icons in
+menus and toolbars even though they represent the same action (e.g. wxART_FILE_OPEN).
+Remember that this is really only a hint for `m:wxArtProvider` - it is common that `getBitmap/2`
+returns identical bitmap for different client values!
+
+See:
+* [Examples](https://docs.wxwidgets.org/3.2/page_samples.html#page_samples_artprov)
+
+* `m:wxArtProvider`
+
+wxWidgets docs: [wxArtProvider](https://docs.wxwidgets.org/3.2/classwx_art_provider.html)
+""".
 -include("wxe.hrl").
 -export([getBitmap/1,getBitmap/2,getIcon/1,getIcon/2]).
 
@@ -27,10 +135,10 @@
 
 -type wxArtProvider() :: wx:wx_object().
 -export_type([wxArtProvider/0]).
-%% @hidden
+-doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @equiv getBitmap(Id, [])
+-doc(#{equiv => getBitmap(Id, [])}).
 -spec getBitmap(Id) -> wxBitmap:wxBitmap() when
 	Id::unicode:chardata().
 
@@ -38,7 +146,12 @@ getBitmap(Id)
  when ?is_chardata(Id) ->
   getBitmap(Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxartprovider.html#wxartprovidergetbitmap">external documentation</a>.
+-doc """
+Query registered providers for bitmap with given ID.
+
+Return: The bitmap if one of registered providers recognizes the ID or wxNullBitmap
+otherwise.
+""".
 -spec getBitmap(Id, [Option]) -> wxBitmap:wxBitmap() when
 	Id::unicode:chardata(),
 	Option :: {'client', unicode:chardata()}
@@ -53,7 +166,7 @@ getBitmap(Id, Options)
   wxe_util:queue_cmd(Id_UC, Opts,?get_env(),?wxArtProvider_GetBitmap),
   wxe_util:rec(?wxArtProvider_GetBitmap).
 
-%% @equiv getIcon(Id, [])
+-doc(#{equiv => getIcon(Id, [])}).
 -spec getIcon(Id) -> wxIcon:wxIcon() when
 	Id::unicode:chardata().
 
@@ -61,7 +174,7 @@ getIcon(Id)
  when ?is_chardata(Id) ->
   getIcon(Id, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxartprovider.html#wxartprovidergeticon">external documentation</a>.
+-doc "Same as `getBitmap/2`, but return a `m:wxIcon` object (or ?wxNullIcon on failure).".
 -spec getIcon(Id, [Option]) -> wxIcon:wxIcon() when
 	Id::unicode:chardata(),
 	Option :: {'client', unicode:chardata()}

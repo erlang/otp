@@ -1,5 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type binary() :: <<_:_*8>>.[0m
+[;1m  binary()[0m
 
-  An Erlang binary, that is, a bitstring with a size divisible by
-  8.
+  An Erlang binary, that is, a bitstring with a size divisible by 8.

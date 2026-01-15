@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,152 @@
 %%% Description: SSH file handling
 
 -module(ssh_file).
+-moduledoc """
+Default callback module for the client's and server's database operations in the
+ssh application
+
+This module is the default callback handler for the client's and the server's
+user and host "database" operations. All data, for instance key pairs, are
+stored in files in the normal file system. This page documents the files, where
+they are stored and configuration options for this callback module.
+
+The intention is to be compatible with the [OpenSSH](http://www.openssh.com)
+storage in files. Therefore it mimics directories and filenames of
+[OpenSSH](http://www.openssh.com).
+
+Ssh_file implements the `m:ssh_server_key_api` and the `m:ssh_client_key_api`.
+This enables the user to make an own interface using for example a database
+handler.
+
+Such another callback module could be used by setting the option
+[`key_cb`](`t:ssh:key_cb_common_option/0`) when starting a client or a server
+(with for example [ssh:connect](`ssh:connect/3`), [ssh:daemon](`ssh:daemon/2`)
+of [ssh:shell](`ssh:shell/1`) ).
+
+> #### Note {: .info }
+>
+> The functions are _Callbacks_ for the SSH app. They are not intended to be
+> called from the user's code\!
+
+## Files, directories and who uses them
+
+### Daemons
+
+Daemons uses all files stored in the [SYSDIR](`m:ssh_file#SYSDIR`) directory.
+
+Optionally, in case of `publickey` authorization, one or more of the remote
+user's public keys in the [USERDIR](`m:ssh_file#USERDIR`) directory are used.
+See the files [`USERDIR/authorized_keys`](`m:ssh_file#FILE-authorized_keys`) and
+[`USERDIR/authorized_keys2`](`m:ssh_file#FILE-authorized_keys2`).
+
+### Clients
+
+Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
+
+### Directory contents
+
+- **[](){: #LOCALUSER } LOCALUSER**  
+  The user name of the OS process running the Erlang virtual machine (emulator).
+
+- **[](){: #SYSDIR } SYSDIR**  
+  This is the directory holding the server's files:
+
+  - [](){: #FILE-ssh_host_STAR_key } `ssh_host_dsa_key`{: #FILE-ssh_host_dsa_key
+    } \- private dss host key (optional)
+  - `ssh_host_rsa_key`{: #FILE-ssh_host_rsa_key } \- private rsa host key
+    (optional)
+  - `ssh_host_ecdsa_key`{: #FILE-ssh_host_ecdsa_key } \- private ecdsa host key
+    (optional)
+  - `ssh_host_ed25519_key`{: #FILE-ssh_host_ed25519_key } \- private eddsa host
+    key for curve 25519 (optional)
+  - `ssh_host_ed448_key`{: #FILE-ssh_host_ed448_key } \- private eddsa host key
+    for curve 448 (optional)
+
+  The key files could be generated with OpenSSH's ssh-keygen command.
+
+  At least one host key must be defined. The default value of SYSDIR is
+  `/etc/ssh`{: ##/etc/ssh }.
+
+  For security reasons, this directory is normally accessible only to the root
+  user.
+
+  To change the SYSDIR, see the [system_dir](`t:system_dir_daemon_option/0`)
+  option.
+
+- **[](){: #USERDIR } USERDIR**  
+  This is the directory holding the files:
+
+  - `authorized_keys`{: #FILE-authorized_keys } and, as second alternative
+    `authorized_keys2`{: #FILE-authorized_keys2 } \- the user's public keys are
+    stored concatenated in one of those files.
+
+    It is composed of lines as for
+    [OpenSSH](https://man.openbsd.org/sshd#AUTHORIZED_KEYS_FILE_FORMAT):
+
+    ```text
+    (options)? keytype base64-encoded-key comment
+    ```
+
+    where
+
+    ```text
+    options :: option(,option)*
+    option :: % All options are skipped
+    keytype :: 'ssh-dsa'
+             | 'ssh-rsa'
+             | 'ssh-ecdsa-nistp256'
+    	 | 'ssh-ecdsa-nistp384'
+             | 'ssh-ecdsa-nistp521'
+             | 'ssh-ed25519'
+    	 | 'ssh-ed448'
+    base64-encoded-key :: % The user's public key
+    comment :: % Comments are skipped
+    ```
+
+  - `known_hosts`{: #FILE-known_hosts } \- host keys from hosts visited
+    concatenated. The file is created and used by the client.
+
+    It is composed of lines as for
+    [OpenSSH](https://man.openbsd.org/sshd#SSH_KNOWN_HOSTS_FILE_FORMAT):
+
+    ```text
+    (option)? pattern(,pattern)* keytype key (comment)?
+    ```
+
+    where
+
+    ```text
+    option :: '@revoked'
+    pattern :: host | '[' host ']:' port
+    host :: ip-address | hostname | '*'
+    port :: portnumber | '*'
+    keytype :: 'ssh-dsa'
+             | 'ssh-rsa'
+             | 'ssh-ecdsa-nistp256'
+    	 | 'ssh-ecdsa-nistp384'
+             | 'ssh-ecdsa-nistp521'
+             | 'ssh-ed25519'
+    	 | 'ssh-ed448'
+    key :: % encoded key from eg ssh_host_*.pub
+    ```
+
+  - [](){: #FILE-id_STAR } `id_dsa`{: #FILE-id_dsa } \- private dss user key
+    (optional)
+  - `id_rsa`{: #FILE-id_rsa } \- private rsa user key (optional)
+  - `id_ecdsa`{: #FILE-id_ecdsa } \- private ecdsa user key (optional)
+  - `id_ed25519`{: #FILE-id_ed25519 } \- private eddsa user key for curve 25519
+    (optional)
+  - `id_ed448`{: #FILE-id_ed448 } \- private eddsa user key for curve 448
+    (optional)
+
+  The key files could be generated with OpenSSH's ssh-keygen command.
+
+  The default value of USERDIR is
+  `/home/`[`LOCALUSER`](`m:ssh_file#LOCALUSER`)`/.ssh`.
+
+  To change the USERDIR, see the [user_dir](`t:user_dir_common_option/0`) option
+""".
+-moduledoc(#{since => "OTP 21.2"}).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -37,12 +185,21 @@
 -behaviour(ssh_server_key_api).
 -export([host_key/2, is_auth_key/3]).
 -export_type([system_dir_daemon_option/0]).
+-doc "Sets the [system directory](`m:ssh_file#SYSDIR`).".
+-doc(#{group => <<"Options">>}).
 -type system_dir_daemon_option()   :: {system_dir, string()}.
 
 %%%--------------------- client exports ---------------------------
 -behaviour(ssh_client_key_api).
 -export([is_host_key/5, user_key/2, add_host_key/4]).
 -export_type([pubkey_passphrase_client_options/0]).
+-doc """
+If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
+supplied with those options.
+
+Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
+""".
+-doc(#{group => <<"Options">>}).
 -type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
                                             | {rsa_pass_phrase,      string()}
                                               %% Not yet implemented:                     | {ed25519_pass_phrase,  string()}
@@ -60,14 +217,37 @@
               user_dir_fun_common_option/0
              ]).
 
+-doc "Sets the [user directory](`m:ssh_file#USERDIR`).".
+-doc(#{group => <<"Options">>}).
 -type user_dir_common_option()     :: {user_dir,  string()}.
+-doc(#{group => <<"Options">>}).
 -type user_dir_fun_common_option() :: {user_dir_fun, user2dir()}.
+-doc """
+Sets the [user directory](`m:ssh_file#USERDIR`) dynamically by evaluating the
+`user2dir` function.
+""".
+-doc(#{group => <<"Options">>}).
 -type user2dir() :: fun((RemoteUserName::string()) -> UserDir :: string()) .
 
+-doc """
+Make the handling of large files fast by setting `time`, but this will use more
+memory. The `space` variant shrinks the memory requirements, but with a higher
+time consumption.
+
+To set it, set the option `{key_cb, {ssh_file, [{optimize,TimeOrSpace}]}` in the
+call of ["ssh:connect/3](`ssh:connect/3`), `ssh:daemon/2` or similar function
+call that initiates an ssh connection.
+""".
+-doc(#{group => <<"Options">>}).
 -type optimize_key_lookup() :: {optimize, time|space} .
 
+-doc "The key representation".
+-doc(#{group => <<"Options">>}).
 -type key() :: public_key:public_key() | public_key:private_key() .
+-doc(#{group => <<"Options">>}).
 -type experimental_openssh_key_v1() :: [{key(), openssh_key_v1_attributes()}].
+-doc "Types for the experimental implementaition of the `openssh_key_v1` format.".
+-doc(#{group => <<"Options">>}).
 -type openssh_key_v1_attributes() :: [{atom(),term()}].
 
 %%%================================================================
@@ -76,6 +256,25 @@
 %%%
 
 %%%---------------- SERVER API ------------------------------------
+-doc """
+**Types and description**
+
+See the api description in
+[ssh_server_key_api, Module:host_key/2](`c:ssh_server_key_api:host_key/2`).
+
+**Options**
+
+- [system_dir](`t:system_dir_daemon_option/0`)
+
+**Files**
+
+- [`SYSDIR/ssh_host_rsa_key`](`m:ssh_file#FILE-ssh_host_rsa_key`)
+- [`SYSDIR/ssh_host_dsa_key`](`m:ssh_file#FILE-ssh_host_dsa_key`)
+- [`SYSDIR/ssh_host_ecdsa_key`](`m:ssh_file#FILE-ssh_host_ecdsa_key`)
+- [`SYSDIR/ssh_host_ed25519_key`](`m:ssh_file#FILE-ssh_host_ed25519_key`)
+- [`SYSDIR/ssh_host_ed448_key`](`m:ssh_file#FILE-ssh_host_ed448_key`)
+""".
+-doc(#{since => <<"OTP 21.2">>}).
 -spec host_key(Algorithm, Options) -> Result when
       Algorithm :: ssh:pubkey_alg(),
       Result :: {ok, public_key:private_key()} | {error, term()},
@@ -85,6 +284,26 @@ host_key(Algorithm, Opts) ->
     read_ssh_key_file(system, private, Algorithm, Opts).
 
 %%%................................................................
+-doc """
+**Types and description**
+
+See the api description in
+[ssh_server_key_api: Module:is_auth_key/3](`c:ssh_server_key_api:is_auth_key/3`).
+
+**Options**
+
+- [user_dir_fun](`t:user_dir_fun_common_option/0`)
+- [user_dir](`t:user_dir_common_option/0`)
+
+**Files**
+
+- [`USERDIR/authorized_keys`](`m:ssh_file#FILE-authorized_keys`)
+- [`USERDIR/authorized_keys2`](`m:ssh_file#FILE-authorized_keys2`)
+
+This functions discards all options in the beginning of the lines of thoose
+files when reading them.
+""".
+-doc(#{since => <<"OTP 21.2">>}).
 -spec is_auth_key(Key, User, Options) -> boolean() when
       Key :: public_key:public_key(),
       User :: string(),
@@ -101,6 +320,30 @@ is_auth_key(Key0, User, Opts) ->
         lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys2"), Opts).
 
 %%%---------------- CLIENT API ------------------------------------
+-doc """
+**Types and description**
+
+See the api description in
+[ssh_client_key_api, Module:user_key/2](`c:ssh_client_key_api:user_key/2`).
+
+**Options**
+
+- [user_dir](`t:user_dir_common_option/0`)
+- [dsa_pass_phrase](`t:pubkey_passphrase_client_options/0`)
+- [rsa_pass_phrase](`t:pubkey_passphrase_client_options/0`)
+- [ecdsa_pass_phrase](`t:pubkey_passphrase_client_options/0`)
+
+Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
+
+**Files**
+
+- [`USERDIR/id_dsa`](`m:ssh_file#FILE-id_dsa`)
+- [`USERDIR/id_rsa`](`m:ssh_file#FILE-id_rsa`)
+- [`USERDIR/id_ecdsa`](`m:ssh_file#FILE-id_ecdsa`)
+- [`USERDIR/id_ed25519`](`m:ssh_file#FILE-id_ed25519`)
+- [`USERDIR/id_ed448`](`m:ssh_file#FILE-id_ed448`)
+""".
+-doc(#{since => <<"OTP 21.2">>}).
 -spec user_key(Algorithm, Options) -> Result when
       Algorithm :: ssh:pubkey_alg(),
       Result :: {ok, public_key:private_key()} |
@@ -112,6 +355,27 @@ user_key(Algorithm, Opts) ->
 
 %%%................................................................
 %%% New style (with port number)
+-doc """
+**Types and description**
+
+See the api description in
+[ssh_client_key_api, Module:is_host_key/5](`c:ssh_client_key_api:is_host_key/5`).
+
+[](){: #is_host_key-4 }
+
+Note that the alternative, the old
+[Module:is_host_key/4](`c:ssh_client_key_api:is_host_key/4`) is no longer
+supported by `ssh_file`.
+
+**Option**
+
+- [user_dir](`t:user_dir_common_option/0`)
+
+**File**
+
+- [`USERDIR/known_hosts`](`m:ssh_file#FILE-known_hosts`)
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec is_host_key(Key, Host, Port, Algorithm, Options) -> Result when
       Key :: public_key:public_key(),
       Host :: inet:ip_address() | inet:hostname() | [inet:ip_address() | inet:hostname()],
@@ -130,6 +394,27 @@ is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
     lookup_host_keys(Hosts, KeyType, Key, File, Opts).
 
 %%%----------------------------------------------------------------
+-doc """
+**Types and description**
+
+See the api description in
+[ssh_client_key_api, Module:add_host_key/4](`c:ssh_client_key_api:add_host_key/4`).
+
+[](){: #add_host_key-3 }
+
+Note that the alternative, the old
+[Module:add_host_key/3](`c:ssh_client_key_api:add_host_key/3`) is no longer
+supported by `ssh_file`.
+
+**Option**
+
+- [user_dir](`t:user_dir_common_option/0`)
+
+**File**
+
+- [`USERDIR/known_hosts`](`m:ssh_file#FILE-known_hosts`)
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec add_host_key(Host, Port, Key, Options) -> Result when 
       Host :: inet:ip_address() | inet:hostname()
             | [inet:ip_address() | inet:hostname()],
@@ -160,6 +445,17 @@ add_host_key(Hosts0, Port, Key, Opts) ->
 %%%---------------- UTILITY API -----------------------------------
 %%% In public key before OTP-24.0 as ssh_decode/2 and ssh_encode/2
 
+-doc """
+Decodes an SSH file-binary.
+
+If `Type` is `public_key` the binary can be either an RFC4716 public key or an
+OpenSSH public key.
+
+> #### Note {: .info }
+>
+> The implementation of the `openssh_key_v1` format is still experimental.
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec decode(SshBin, Type) -> Decoded | {error,term()}
                                   when SshBin :: binary(),
                                        Type :: ssh2_pubkey
@@ -194,11 +490,18 @@ decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
 decode(KeyBin, public_key) when is_binary(KeyBin) ->
-    Type = case KeyBin of
-               <<"-----BEGIN OPENSSH",_/binary>> -> openssh_key_v1;
-               <<"----",_/binary>> -> rfc4716_key;
-               _ -> openssh_key
-           end,
+    Matches = fun(Bin, Pattern, Type) ->
+                      case binary:match(Bin, Pattern) of
+                          nomatch -> false;
+                          _ -> Type
+                      end
+              end,
+    Type =
+        maybe
+            false ?= Matches(KeyBin, <<"\n-----BEGIN OPENSSH">>, openssh_key_v1),
+            false ?= Matches(KeyBin, <<"\n----">>, rfc4716_key),
+            openssh_key
+        end,
     decode(KeyBin, Type);
 
 decode(KeyBin, Type) when is_binary(KeyBin) andalso 
@@ -298,6 +601,14 @@ decode(_KeyBin, _Type) ->
     error(badarg).
 
 %%%----------------------------------------------------------------
+-doc """
+Encodes a list of SSH file entries (public keys and attributes) to a binary.
+
+> #### Note {: .info }
+>
+> The implementation of the `openssh_key_v1` format is still experimental.
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec encode(InData, Type) -> binary() | {error,term()}
                                   when Type :: ssh2_pubkey
                                              | openssh_key
@@ -386,6 +697,8 @@ encode(_KeyBin, _Type) ->
 
 %%%----------------------------------------------------------------
 
+-doc "Fetches the public key from a private key.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec extract_public_key(PrivKey) -> PubKey
                         when PrivKey :: public_key:private_key(),
                               PubKey :: public_key:public_key().
@@ -830,6 +1143,7 @@ read_ssh_key_file(Role, PrivPub, Algorithm, Opts) ->
     end.
 
 
+-doc false.
 -spec decode_ssh_file(PrivPub, Algorithm, Pem, Password) -> Result when
       PrivPub :: private | public,
       Algorithm :: ssh:pubkey_alg() | any,
@@ -865,7 +1179,7 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
 
 
 decode_pem_keys(RawBin, Password) ->
-    PemLines = split_in_lines(
+    PemLines = split_in_nonempty_lines(
                  binary:replace(RawBin, [<<"\\\n">>,<<"\\\r\\\n">>],  <<"">>, [global])
                 ),
     decode_pem_keys(PemLines, Password, []).

@@ -1,10 +1,16 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:send_nosuspend(Dest, Msg) -> boolean()[0m
-  [;1m                               when[0m
-  [;1m                                   Dest :: send_destination(),[0m
-  [;1m                                   Msg :: term().[0m
+[;1m  send_nosuspend(Dest, Msg)[0m
 
-  The same as [;;4merlang:send(Dest, Msg, [nosuspend])[0m, but returns [;;4m[0m
+  Send a message without suspending the caller.
+
+  Equivalent to [;;4merlang:send(Dest, Msg, [nosuspend])[0m, but returns [;;4m[0m
   [;;4mtrue[0m if the message was sent and [;;4mfalse[0m if the message was not
   sent because the sender would have had to be suspended.
 
@@ -41,5 +47,6 @@
   and the actions to take when the function returns [;;4mfalse[0m are
   application- and hardware-specific.
 
-  Warning:
+  [;;4mWarning[0m
+
     Use with extreme care.

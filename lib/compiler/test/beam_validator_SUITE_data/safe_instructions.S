@@ -13,7 +13,7 @@
     {func_info,{atom,t},{atom,send_request},1}.
   {label,2}.
     {allocate,3,1}.
-    {init,{y,0}}.
+    {init_yregs,{list,[{y,0}]}}.
     {move,{x,0},{y,1}}.
     {'try',{y,2},{f,7}}.
     {move,nil,{x,0}}.

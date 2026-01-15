@@ -1,7 +1,9 @@
 %%-*-erlang-*-
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,29 +79,6 @@ parse(Xml, State) ->
             handle_end_document({other, OtherError, State})
     end.
 
-    % case catch parse_document(Xml, State1#xmerl_sax_parser_state{ref_table=RefTable}) of
-    %     {ok, Rest, State2} ->
-    %         State3 =  event_callback(endDocument, State2),
-    %         case check_if_rest_ok(State3#xmerl_sax_parser_state.input_type, Rest) of
-    %             true ->
-    %                 {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
-    %             false ->
-    %                 format_error(fatal_error, State3, "Input found after legal document")
-    %         end;
-    %     {fatal_error, {State2, Reason}} ->
-    %         State3 =  event_callback(endDocument, State2),
-    %         format_error(fatal_error, State3, Reason);
-    %     {event_receiver_error, State2, {Tag, Reason}} -> 
-    %         State3 =  event_callback(endDocument, State2),
-    %         format_error(Tag, State3, Reason);
-    %     {endDocument, Rest, State2} ->
-    %         State3 =  event_callback(endDocument, State2),
-    %         {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
-    %     Other ->
-    %         _State2 = event_callback(endDocument, State1),
-    %         {fatal_error, Other}
-    % end.
-
 %%----------------------------------------------------------------------
 %% Function: parse_dtd(Xml, State) -> Result
 %% Input:    Xml = string() | binary()
@@ -121,26 +100,6 @@ parse_dtd(Xml, State) ->
         _:OtherError ->
              handle_end_document({other, OtherError, State})
     end.
-
-
-    % case catch parse_external_entity_1(Xml, State1#xmerl_sax_parser_state{ref_table=RefTable}) of
-    %     {fatal_error, {State2, Reason}} ->
-    %         State3 =  event_callback(endDocument, State2),
-    %         format_error(fatal_error, State3, Reason);
-    %     {event_receiver_error, State2, {Tag, Reason}} -> 
-    %         State3 =  event_callback(endDocument, State2),
-    %         format_error(Tag, State3, Reason);
-    %     {Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
-    %         State3 =  event_callback(endDocument, State2),
-    %         {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
-    %     {endDocument, Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
-    %         State3 =  event_callback(endDocument, State2),
-    %         {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
-    %     Other ->
-    %         _State2 = event_callback(endDocument, State1),
-    %         {fatal_error, Other}
-    % end.
-
 
 %%======================================================================
 %% Internal functions
@@ -230,6 +189,11 @@ handle_end_document({other, Error, State}) ->
 %% Description: Parsing an XML document
 %%              [1] document ::= prolog element Misc*
 %%----------------------------------------------------------------------
+parse_document(Rest, #xmerl_sax_parser_state{discard_ws_before_xml_document = true} = State) ->
+    {_WS, Rest1, State1} = whitespace(Rest, State, []),
+    {Rest2, State2} = parse_byte_order_mark(Rest1, State1),
+    {Rest3, State3} = parse_misc(Rest2, State2, true),
+    {ok, Rest3, State3};
 parse_document(Rest, State) when is_record(State, xmerl_sax_parser_state) ->
     {Rest1, State1} = parse_byte_order_mark(Rest, State),
     {Rest2, State2} = parse_misc(Rest1, State1, true),
@@ -379,8 +343,9 @@ parse_prolog(?STRING_REST("<?", Rest), State) ->
     case parse_pi(Rest, State) of
 	{Rest1, State1} ->
 	    parse_prolog(Rest1, State1);
-	{endDocument, Rest1, State1} ->
-	    parse_prolog(Rest1, State1)  
+	{endDocument, _Rest1, State1} ->
+            ?fatal_error(State1, "<?xml  ...?> not first in document")
+	    %% parse_prolog(Rest1, State1)  
     end;
 parse_prolog(?STRING_REST("<!", Rest), State) ->
     parse_prolog_1(Rest, State);
@@ -1311,36 +1276,30 @@ parse_etag_1(Bytes, State, Tag) ->
 %%              [43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*
 %%----------------------------------------------------------------------
 parse_content(?STRING_EMPTY, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
-    case catch cf(?STRING_EMPTY, State, Acc, IgnorableWS, fun parse_content/4) of
-        {fatal_error, {State1, "No more bytes"}} when ET == [] ->
+    try cf(?STRING_EMPTY, State) of
+        {NewBytes, NewState} ->
+            parse_content(NewBytes, NewState, Acc, IgnorableWS)
+    catch
+        throw:{fatal_error, {State1, "No more bytes"}} when ET == [] ->
             State2 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State1),
             {?STRING_EMPTY, State2};
-        {fatal_error, {State1, "Continuation function undefined"}} when ET == [] ->
+        throw:{fatal_error, {State1, "Continuation function undefined"}} when ET == [] ->
             State2 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State1),
-            {?STRING_EMPTY, State2};
-        {fatal_error, {State1, Msg}} ->
-            ?fatal_error(State1, Msg);
-        {Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-            {Rest, State1};
-        Other ->
-            throw(Other)
+            {?STRING_EMPTY, State2}
     end;
 parse_content(?STRING("\r") = Bytes, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
-    case catch cf(Bytes, State, Acc, IgnorableWS, fun parse_content/4) of
-        {fatal_error, {State1, "No more bytes"}} when ET == [] ->
+    try cf(Bytes, State) of
+        {NewBytes, NewState} ->
+            parse_content(NewBytes, NewState, Acc, IgnorableWS)
+    catch
+        throw:{fatal_error, {State1, "No more bytes"}} when ET == [] ->
             Acc1 = [?lf |Acc],
             State2 = send_character_event(length(Acc1), IgnorableWS, lists:reverse(Acc1), State1),
             {?STRING_EMPTY, State2};
-        {fatal_error, {State1, "Continuation function undefined"}} when ET == [] ->
+        throw:{fatal_error, {State1, "Continuation function undefined"}} when ET == [] ->
             Acc1 = [?lf |Acc],
             State2 = send_character_event(length(Acc1), IgnorableWS, lists:reverse(Acc1), State1),
-            {?STRING_EMPTY, State2};
-        {fatal_error, {State1, Msg}} ->
-            ?fatal_error(State1, Msg);
-        {Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-            {Rest, State1};
-        Other ->
-            throw(Other)
+            {?STRING_EMPTY, State2}
     end;
 parse_content(?STRING("<") = Bytes, State, Acc, IgnorableWS) ->	
     cf(Bytes, State, Acc, IgnorableWS, fun parse_content/4);
@@ -1472,15 +1431,14 @@ parse_content(Bytes, State, Acc, IgnorableWS)   ->
 parse_entity_content(Bytes, #xmerl_sax_parser_state{file_type = text} = State, Acc, _IgnorableWS) ->
     parse_entity_content_1(Bytes, State, Acc);
 parse_entity_content(?STRING_EMPTY, State, Acc, IgnorableWS) ->
-    case catch cf(?STRING_EMPTY, State, Acc, IgnorableWS, fun parse_entity_content/4) of
-        {Acc1, Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-            {Acc1, Rest, State1};
-        {fatal_error, {State1, "No more bytes"}} ->
+    try cf(?STRING_EMPTY, State) of
+        {NewBytes, NewState} ->
+            parse_entity_content(NewBytes, NewState, Acc, IgnorableWS)
+    catch
+        throw:{fatal_error, {State1, "No more bytes"}} ->
             {Acc, ?STRING_EMPTY, State1};
-        {fatal_error, {State1, "Continuation function undefined"}} ->
-            {Acc, ?STRING_EMPTY, State1};
-        {fatal_error, {State1, Message}} ->
-            ?fatal_error(State1, Message)
+        throw:{fatal_error, {State1, "Continuation function undefined"}} ->
+            {Acc, ?STRING_EMPTY, State1}
     end;
 parse_entity_content(?STRING("<") = Bytes, State, Acc, IgnorableWS) ->
     cf(Bytes, State, Acc, IgnorableWS, fun parse_entity_content/4);
@@ -1490,13 +1448,12 @@ parse_entity_content(?STRING("<!-") = Bytes, State, Acc, IgnorableWS) ->
     cf(Bytes, State, Acc, IgnorableWS, fun parse_entity_content/4);
 parse_entity_content(?STRING_REST("<!--", Rest), State, Acc, IgnorableWS) ->
     State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
-    case catch parse_comment(Rest, State1, Acc) of
-        {Rest1, State2} when is_record(State2, xmerl_sax_parser_state) ->
-            parse_entity_content(Rest1, State2, [], true);
-        {fatal_error, {State2, "No more bytes"}} ->
-            ?fatal_error(State2, "Expected end comment");
-        {fatal_error, {State2, Message}} ->
-            ?fatal_error(State2, Message)
+    try parse_comment(Rest, State1, Acc) of
+        {Rest1, State2} ->
+            parse_entity_content(Rest1, State2, [], true)
+    catch
+        throw:{fatal_error, {State2, "No more bytes"}} ->
+            ?fatal_error(State2, "Expected end comment")
     end;
 parse_entity_content(?STRING_REST("<?", Rest), State, Acc, IgnorableWS) ->
     State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
@@ -1511,7 +1468,7 @@ parse_entity_content(?STRING_REST("</", _), #xmerl_sax_parser_state{end_tags = [
     ?fatal_error(State, "Unbalanced tags");
 parse_entity_content(?STRING_REST("</", Rest1), State, Acc, IgnorableWS) ->
     State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
-    case parse_etag(Rest1, State1) of
+    case parse_etag(Rest1, State1) of %??????
         {?STRING_EMPTY, State2} ->
             {[], ?STRING_EMPTY, State2};
         {Rest2, State2} when is_record(State2, xmerl_sax_parser_state) ->
@@ -1531,12 +1488,8 @@ parse_entity_content(?STRING_REST("<!", Rest1), State, Acc, IgnorableWS) ->
     end;
 parse_entity_content(?STRING_REST("<", Rest1), State, Acc, IgnorableWS) ->
     State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
-    case catch parse_stag(Rest1, State1) of
-        {Rest2, State2} when is_record(State2, xmerl_sax_parser_state) ->
-            parse_entity_content(Rest2, State2, [], true);
-        {fatal_error, {State2, Message}} ->
-            ?fatal_error(State2, Message)
-    end;
+    {Rest2, State2} = parse_stag(Rest1, State1),
+    parse_entity_content(Rest2, State2, [], true);
 parse_entity_content(?STRING_REST("\n", Rest), State, Acc, IgnorableWS) ->
     N = State#xmerl_sax_parser_state.line_no,
     case IgnorableWS of
@@ -1611,13 +1564,12 @@ parse_entity_content(Bytes, State, Acc, IgnorableWS)   ->
 
 % reads an external entity as replacement text
 parse_entity_content_1(?STRING_EMPTY, State, Acc) ->
-    case catch cf(?STRING_EMPTY, State, Acc, fun parse_entity_content_1/3) of
-        {fatal_error, {State1, "No more bytes"}} ->
-            {Acc, ?STRING_EMPTY, State1};
-        {fatal_error, {State1, Message}} ->
-            ?fatal_error(State1, Message);
-        {Acc1, ?STRING_EMPTY, State1} ->
-            {Acc1, ?STRING_EMPTY, State1}
+    try cf(?STRING_EMPTY, State) of
+        {NewBytes, NewState} ->
+            parse_entity_content_1(NewBytes, NewState, Acc)
+    catch
+        throw:{fatal_error, {State1, "No more bytes"}} ->
+            {Acc, ?STRING_EMPTY, State1}
     end;
 parse_entity_content_1(?STRING_UNBOUND_REST(C, Rest), State, Acc) ->
     if 
@@ -2118,13 +2070,12 @@ parse_doctype_2(Bytes, State) ->
 parse_external_entity(State, _PubId, SysId, Acc) -> 
     
     ExtRef = check_uri(SysId, State#xmerl_sax_parser_state.current_location),
-    
     SaveState =  event_callback({startEntity, SysId}, State),
-
-    State1 = State#xmerl_sax_parser_state{line_no=1, 
-                      end_tags = []},
+    EntityState =
+        SaveState#xmerl_sax_parser_state{line_no=1, 
+                                     end_tags = []},
     
-    {Acc1, EventState, EventRefTab, AttVals} = handle_external_entity(ExtRef, State1, Acc),
+    {Acc1, EventState, EventRefTab, AttVals} = handle_external_entity(ExtRef, EntityState, Acc),
 
     NewState =  event_callback({endEntity, SysId}, 
                                SaveState#xmerl_sax_parser_state{event_state=EventState}),
@@ -2135,8 +2086,6 @@ parse_external_entity(State, _PubId, SysId, Acc) ->
         yes ->
             {Acc1, NewState#xmerl_sax_parser_state{attribute_values = AttVals}}
     end.
-
-
 
 %%----------------------------------------------------------------------
 %% Function  : handle_external_entity(ExtRef, State, Acc) -> Result
@@ -2223,16 +2172,18 @@ handle_external_entity({Tag, _Url}, State, _Acc) ->
 %% Description: Parse the external entity.
 %%----------------------------------------------------------------------
 parse_external_entity_1(?STRING_EMPTY, State, Acc) ->
-    case catch cf(?STRING_EMPTY, State, Acc, fun parse_external_entity_1/3) of
-        {fatal_error, {State1, "No more bytes"}} ->
-            {Acc, ?STRING_EMPTY, State1};
-        {fatal_error, {State1, Msg}} ->
-            ?fatal_error(State1, Msg);
-        {Acc1, ?STRING_EMPTY, State1} when is_record(State1, xmerl_sax_parser_state) ->
-            {Acc1, ?STRING_EMPTY, State1};
-        {_, _, State1} when is_record(State1, xmerl_sax_parser_state) ->
-            ?fatal_error(State1, "Not well-formed entity")
-    end;    
+    try cf(?STRING_EMPTY, State) of
+        {NewBytes, NewState} ->
+            case parse_external_entity_1(NewBytes, NewState, Acc) of
+                {_Acc1, ?STRING_EMPTY, _State1} = Result ->
+                    Result;
+                {_, _, State1} ->
+                    ?fatal_error(State1, "Not well-formed entity")
+            end
+    catch
+        throw:{fatal_error, {State1, "No more bytes"}} ->
+            {Acc, ?STRING_EMPTY, State1}
+    end;
 parse_external_entity_1(?STRING("<") = Bytes, State, Acc) ->
     cf(Bytes, State, Acc, fun parse_external_entity_1/3);
 parse_external_entity_1(?STRING("<?") = Bytes, State, Acc) ->
@@ -2255,41 +2206,40 @@ parse_external_entity_1(?STRING_REST("<?xml", Rest) = Bytes,
         end,
     case Type of
         dtd ->
-            case catch parse_doctype_decl(Rest1, State1)  of
+            try parse_doctype_decl(Rest1, State1) of
                 {?STRING_EMPTY, State2} when is_record(State2, xmerl_sax_parser_state) ->
                     % this my not truly be empty. the file may have 
                     % more unbalanced stuff, but not have been read yet
                     {[], ?STRING_EMPTY, State2};
-                {_, State1} when is_record(State1, xmerl_sax_parser_state) ->
-                    ?fatal_error(State1, "Not well-formed DTD");
-                {fatal_error, {State2, "No more bytes"}} ->
-                    {[], ?STRING_EMPTY, State2};
-                {fatal_error, {State2, Message}} ->
-                    ?fatal_error(State2, Message)
+                {_, State2} when is_record(State2, xmerl_sax_parser_state) ->
+                    ?fatal_error(State2, "Not well-formed DTD")
+            catch
+                throw:{fatal_error, {State2, "No more bytes"}} ->
+                    {[], ?STRING_EMPTY, State2}
             end;
-    _ -> % Type is normal or entity
-        {Acc1, Rest3, State3} = parse_entity_content(Rest1, State1#xmerl_sax_parser_state{end_tags = []}, Acc, true),
-        {Acc1, Rest3, State3#xmerl_sax_parser_state{end_tags = ET}}
+        _ -> % Type is normal or entity
+            {Acc1, Rest3, State3} =
+                parse_entity_content(Rest1, State1#xmerl_sax_parser_state{end_tags = []}, Acc, true),
+            {Acc1, Rest3, State3#xmerl_sax_parser_state{end_tags = ET}}
     end;
 parse_external_entity_1(?STRING_UNBOUND_REST(_C, _) = Bytes, 
             #xmerl_sax_parser_state{file_type = Type,
                                     end_tags = ET} = State, Acc) ->
     case Type of
         dtd ->
-            case catch parse_doctype_decl(Bytes, State)  of
-                {?STRING_EMPTY, State2} when is_record(State2, xmerl_sax_parser_state) ->
-                    {[], ?STRING_EMPTY, State2};
+            try parse_doctype_decl(Bytes, State) of
+                {?STRING_EMPTY, State1} when is_record(State1, xmerl_sax_parser_state) ->
+                    {[], ?STRING_EMPTY, State1};
                 {_, State1} when is_record(State1, xmerl_sax_parser_state) ->
-                    ?fatal_error(State1, "Not well-formed DTD");
-                {fatal_error, {State2, "No more bytes"}} ->
-                    {[], ?STRING_EMPTY, State2};
-                {fatal_error, {State2, Message}} ->
-                    ?fatal_error(State2, Message)
+                    ?fatal_error(State1, "Not well-formed DTD")
+            catch
+                throw:{fatal_error, {State1, "No more bytes"}} ->
+                    {[], ?STRING_EMPTY, State1}
             end;
         _ ->
-            {Acc1, Rest1, State1} = parse_entity_content(Bytes, State#xmerl_sax_parser_state{end_tags = []}, Acc, true),
+            {Acc1, Rest1, State1} =
+                parse_entity_content(Bytes, State#xmerl_sax_parser_state{end_tags = []}, Acc, true),
             {Acc1, Rest1, State1#xmerl_sax_parser_state{end_tags = ET}}
-        
     end;
 parse_external_entity_1(Bytes, State, Acc) ->
     unicode_incomplete_check([Bytes, State, Acc, fun parse_external_entity_1/3], 
@@ -2451,15 +2401,14 @@ parse_doctype_decl(?STRING_REST("%", Rest), #xmerl_sax_parser_state{file_type = 
         {internal_parameter, _, RefValue} ->
             IValue = ?TO_INPUT_FORMAT(" " ++ RefValue ++ " "),
             {Ctx, State2} = strip_context(State1),
-            case catch parse_doctype_decl(IValue, State2) of
-                {fatal_error, {State3, "No more bytes"}} ->
+            try parse_doctype_decl(IValue, State2) of
+                {_, State3} ->
+                    parse_doctype_decl(Rest1, add_context_back(Ctx, State3))
+            catch
+                throw:{fatal_error, {State3, "No more bytes"}} ->
                     parse_doctype_decl(Rest1, add_context_back(Ctx, State3));
-                {fatal_error, {State3, "Continuation function undefined"}} ->
-                    parse_doctype_decl(Rest1, add_context_back(Ctx, State3));
-                {_, State3} when is_record(State3, xmerl_sax_parser_state) ->
-                    parse_doctype_decl(Rest1, add_context_back(Ctx, State3));
-                {fatal_error, {State3, Mess}} ->
-                    ?fatal_error(State3, Mess)
+                throw:{fatal_error, {State3, "Continuation function undefined"}} ->
+                    parse_doctype_decl(Rest1, add_context_back(Ctx, State3))
             end;
         {external_parameter, _, {PubId, SysId}} ->
             {_, State2} = parse_external_entity(State1#xmerl_sax_parser_state{file_type = dtd}, PubId, SysId, []),
@@ -3696,13 +3645,12 @@ parse_pe_def(Bytes, State, Name) ->
 %%              [62] includeSect ::= '<![' S? 'INCLUDE' S? '[' extSubsetDecl ']]>'
 %%----------------------------------------------------------------------
 parse_include_sect(?STRING_EMPTY, State) ->
-    case catch cf(?STRING_EMPTY, State, fun parse_include_sect/2) of
-        {Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-            {Rest, State1};
-        {fatal_error, {State1, "No more bytes"}} ->
-            ?fatal_error(State1, "Unexpected EOF.");
-        {fatal_error, {State1, Mess}} ->
-            ?fatal_error(State1, Mess)
+    try cf(?STRING_EMPTY, State) of
+        {NewBytes, NewState} ->
+            parse_include_sect(NewBytes, NewState)
+    catch
+        throw:{fatal_error, {State1, "No more bytes"}} ->
+            ?fatal_error(State1, "Unexpected EOF.")
     end;
 parse_include_sect(?STRING("]") = Bytes, State) ->
     cf(Bytes, State, fun parse_include_sect/2);
@@ -3723,13 +3671,12 @@ parse_include_sect(Bytes, State) ->
                  "subset declaration expected"). 
 
 parse_include_sect_1(?STRING_EMPTY, State) ->
-    case catch cf(?STRING_EMPTY, State, fun parse_include_sect_1/2) of
-        {Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-            {Rest, State1};
-        {fatal_error, {State1, "No more bytes"}} ->
-            ?fatal_error(State1, "Unexpected EOF.");
-        {fatal_error, {State1, Mess}} ->
-            ?fatal_error(State1, Mess)
+    try cf(?STRING_EMPTY, State) of
+        {NewBytes, NewState} ->
+            parse_include_sect_1(NewBytes, NewState)
+    catch
+        throw:{fatal_error, {State1, "No more bytes"}} ->
+            ?fatal_error(State1, "Unexpected EOF.")
     end;
 parse_include_sect_1(?STRING("]") = Bytes, State) ->
     cf(Bytes, State, fun parse_include_sect_1/2);
@@ -3737,13 +3684,12 @@ parse_include_sect_1(?STRING_REST("]>", Rest), State) ->
     {Rest, State};
 parse_include_sect_1(?STRING_UNBOUND_REST(_, _) = Bytes, State) ->
     {Rest1, State1} = parse_text_decl(Bytes, State),
-    case catch parse_doctype_decl(Rest1, State1) of
-        {Rest2, State2} when is_record(State2, xmerl_sax_parser_state) ->
-            parse_include_sect_1(Rest2, State2);
-        {fatal_error, {State2, "No more bytes"}} ->
-            ?fatal_error(State2, "Unexpected EOF.");
-        {fatal_error, {State2, Message}} ->
-            ?fatal_error(State2, Message)
+    try parse_doctype_decl(Rest1, State1) of
+        {Rest2, State2} ->
+            parse_include_sect_1(Rest2, State2)
+    catch
+        throw:{fatal_error, {State2, "No more bytes"}} ->
+            ?fatal_error(State2, "Unexpected EOF.")
     end;
 parse_include_sect_1(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_include_sect_1/2], 
@@ -3771,13 +3717,12 @@ parse_ignore_sect(Bytes, State) ->
                  "whitespace expected"). 
 
 parse_ignore_sect_1(?STRING_EMPTY, State, Depth) ->
-    case catch cf(?STRING_EMPTY, State, Depth, fun parse_ignore_sect_1/3) of
-        {Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
-            {Rest, State1};
-        {fatal_error, {State1, "No more bytes"}} ->
-            ?fatal_error(State1, "Unexpected EOF.");
-        {fatal_error, {State1, Message}} ->
-            ?fatal_error(State1, Message)
+    try cf(?STRING_EMPTY, State) of
+        {NewBytes, NewState} ->
+            parse_ignore_sect_1(NewBytes, NewState, Depth)
+    catch
+        throw:{fatal_error, {State1, "No more bytes"}} ->
+            ?fatal_error(State1, "Unexpected EOF.")
     end;
 parse_ignore_sect_1(?STRING("<") = Bytes, State, Depth) ->
     cf(Bytes, State, Depth, fun parse_ignore_sect_1/3);
@@ -4410,6 +4355,33 @@ event_callback(Event,
 	  exit:Reason ->
 	    throw({event_receiver_error, State, {'EXIT', Reason}})
     end.
+%%----------------------------------------------------------------------
+%% Function  : cf(Rest, State) -> Result
+%% Parameters: Rest = string() | binary()
+%%             State = #xmerl_sax_parser_state{}
+%% Result    : {Rest, State}
+%% Description: Function that uses provided fun to read another chunk from
+%%              input stream and calls the fun in NextCall.
+%%----------------------------------------------------------------------
+cf(_Rest, #xmerl_sax_parser_state{continuation_fun = undefined} = State) ->
+    ?fatal_error(State, "Continuation function undefined");
+cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = CState} = State) ->
+    Result =
+	try
+	    CFun(CState)
+	catch
+	    throw:ErrorTerm ->
+		?fatal_error(State, ErrorTerm);
+            exit:Reason ->
+		?fatal_error(State, {'EXIT', Reason})
+	end,
+    case Result of
+	{?STRING_EMPTY, _} ->
+	    ?fatal_error(State, "No more bytes");
+	{NewBytes, NewContState} ->
+            {?APPEND_STRING(Rest, NewBytes),
+             State#xmerl_sax_parser_state{continuation_state = NewContState}}
+    end.
 
 %%----------------------------------------------------------------------
 %% Function  : cf(Rest, State, NextCall) -> Result
@@ -4473,7 +4445,6 @@ cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = C
 		     P)
     end.
 
-
 %%----------------------------------------------------------------------
 %% Function  : cf(Rest, State, P1, P2, NextCall) -> Result
 %% Parameters: Rest = string() | binary()
@@ -4508,8 +4479,6 @@ cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = C
 		     P1, P2)
     end.
 
-
-
 %%----------------------------------------------------------------------
 %% Function  : unicode_incomplete_check(Args, ErrString) -> Result
 %% Parameters: Args = [Bytes, State | RestOfArgs]
@@ -4531,7 +4500,6 @@ unicode_incomplete_check([Bytes, #xmerl_sax_parser_state{encoding=Enc} = State |
   end;
 unicode_incomplete_check([Bytes,State | _], ErrString) when is_list(Bytes), ErrString =/= undefined ->
     ?fatal_error(State, ErrString).
-
 
 %%----------------------------------------------------------------------
 %% Function  : check_uri(Uri, CL) -> Result
@@ -4684,10 +4652,11 @@ http("http://" ++ Address) ->
 	[Host, Rest] ->
 	    %% At his stage we know that address contains a Port number.
 	    {Port, Key} = split_to_slash(Rest, []),
-	    case catch list_to_integer(Port) of
-		PortInt when is_integer(PortInt) ->
-		    {Host, PortInt, Key};
-		_ ->
+	    try 
+                PortInt = list_to_integer(Port),
+                {Host, PortInt, Key}
+            catch
+                _:_ ->
 		    throw({error, "Malformed key; port not an integer, should be http://Host:Port/path or http://Host/path"})
 	    end;
 	[Address] ->

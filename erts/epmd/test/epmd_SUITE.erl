@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +96,7 @@
 % Message codes in epmd protocol
 -define(EPMD_ALIVE2_REQ,	$x).
 -define(EPMD_ALIVE2_RESP,	$y).
--define(EPMD_PORT_PLEASE2_REQ,	$z).
+-define(EPMD_PORT2_REQ,	$z).
 -define(EPMD_PORT2_RESP,	$w).
 -define(EPMD_NAMES_REQ,	$n).
 -define(EPMD_DUMP_REQ,	$d).
@@ -247,7 +249,7 @@ register_node_v2(Addr, Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
 % Internal function to fetch information about a node
 
 port_please_v2(Name) ->
-    case send_req([?EPMD_PORT_PLEASE2_REQ,
+    case send_req([?EPMD_PORT2_REQ,
                    binary_to_list(unicode:characters_to_binary(Name))]) of
         {ok,Sock} ->
             case recv_until_sock_closes(Sock) of
@@ -392,11 +394,11 @@ parse_name([], _Name) -> error.
 
 %% Register a name on a port and ask about port nr
 get_port_nr(Config) when is_list(Config) ->
-    port_request([?EPMD_PORT_PLEASE2_REQ,"foo"]).
+    port_request([?EPMD_PORT2_REQ,"foo"]).
 
 %% Register with slow write and ask about port nr
 slow_get_port_nr(Config) when is_list(Config) ->
-    port_request([?EPMD_PORT_PLEASE2_REQ,d,$f,d,$o,d,$o]).
+    port_request([?EPMD_PORT2_REQ,d,$f,d,$o,d,$o]).
 
 
 % Internal function used above

@@ -1,17 +1,15 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec change_owner(Filename, Uid) -> ok | {error, Reason}[0m
-  [;1m                      when[0m
-  [;1m                          Filename :: name_all(),[0m
-  [;1m                          Uid :: integer(),[0m
-  [;1m                          Reason :: posix() | badarg.[0m
+[;1m  change_owner(Filename, Uid)[0m
 
   Changes owner of a file. See [;;4mwrite_file_info/2[0m.
 
-  [;1m-spec change_owner(Filename, Uid, Gid) -> ok | {error, Reason}[0m
-  [;1m                      when[0m
-  [;1m                          Filename :: name_all(),[0m
-  [;1m                          Uid :: integer(),[0m
-  [;1m                          Gid :: integer(),[0m
-  [;1m                          Reason :: posix() | badarg.[0m
+[;1m  change_owner(Filename, Uid, Gid)[0m
 
   Changes owner and group of a file. See [;;4mwrite_file_info/2[0m.

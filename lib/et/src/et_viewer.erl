@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(et_viewer).
+-moduledoc "Displays a sequence chart for trace events (messages/actions)".
 
 
 %% External exports
@@ -35,11 +38,29 @@
 	 stop/1, 
          get_collector_pid/1]).
 
--include("../include/et.hrl").
+-include_lib("et/include/et.hrl").
 -include("et_internal.hrl").
 
 -define(unknown, "UNKNOWN").
 
+-type actors() :: [term()].
+-type first_key() :: term().
+-type option() ::
+        {title, string()} |
+        {detail_level, 0..100} |
+        {is_suspended, boolean()} |
+        {scale, integer()} |
+        {width, integer()} |
+        {height, integer()}|
+        {collector_pid, pid() | undefined} |
+        {active_filter, atom()} |
+        {max_events, integer() | undefined} |
+        {max_actors, integer() | undefined} |
+        {actors, actors()} |
+        {first_event, first_key()} |
+        {hide_unknown, boolean()} |
+        {hide_actions, boolean()} |
+        {display_mode, all | {search_actors, forward | reverse, first_key(), actors()}}.
 
 %%%----------------------------------------------------------------------
 %%% Client side
@@ -55,7 +76,11 @@
 %% ViewerPid = pid()
 %% Reason = term()
 %%----------------------------------------------------------------------
-
+-doc """
+Start a new event viewer and a corresponding collector and load them with trace
+events from a trace file.
+""".
+-spec file(FileName::file:filename()) -> {ok, pid()} | {error, term()}.
 file(FileName) ->
     start_link([{trace_client, {file, FileName}}], default).
 
@@ -70,17 +95,33 @@ file(FileName) ->
 %% processes are unlinked from the calling process.
 %%----------------------------------------------------------------------
 
+-doc """
+Simplified start of a sequence chart viewer with global tracing activated.
+
+Convenient to be used from the command line (erl -s et_viewer).
+""".
+-spec start() -> {ok, pid()} | {error, term()}.
 start() ->
     start([{trace_global, true}], default).
 
 %%----------------------------------------------------------------------
 %% start(Options) -> {ok, ViewerPid} | {error, Reason}
 %%----------------------------------------------------------------------
-
+-doc """
+Start of a sequence chart viewer without linking to the parent process.
+""".
+-spec start(GUIorOptions) -> {ok, Viewer::pid()} | {error, term()} when
+      GUIorOptions :: wx | default | Options,
+      Options :: [option() | et_collector:option()].
 start(GUI) when GUI =:= wx; GUI =:= default ->
     start_link([{trace_global, true}], GUI);
 start(Options) ->
     start_link([{parent_pid, undefined} | Options], default).
+
+-doc false.
+-spec start(Options, GUI) -> {ok, Viewer::pid()} | {error, term()} when
+      GUI :: wx | default,
+      Options :: [option() | et_collector:option()].
 
 start(Options, GUI) ->
     start_link([{parent_pid, undefined} | Options], GUI).
@@ -139,12 +180,49 @@ start(Options, GUI) ->
 %% A filter_fun() takes an event record as sole argument
 %% and returns false | true | {true, NewEvent}.
 %%----------------------------------------------------------------------
+-doc """
+Start a sequence chart viewer for trace events (messages/actions)
 
+A filter_fun() takes an event record as sole argument and returns
+`false | true | {true, NewEvent}`.
+
+If the `collector_pid` is `undefined` a new `et_collector` will be started with
+the following parameter settings: `parent_pid`, `event_order`, `trace_global`,
+`trace_pattern`, `trace_port`, `trace_max_queue`, `trace_client`, `dict_insert`
+and `dict_delete`. The new `et_viewer` will register itself as an `et_collector`
+subscriber.
+
+Default values:
+
+- parent_pid - self().
+- title - "et_viewer".
+- detail_level - max.
+- is_suspended - false.
+- scale - 2.
+- width - 800.
+- height - 600.
+- collector_pid - undefined.
+- event_order - trace_ts.
+- active_filter - collector.
+- max_actors - 5.
+- actors - \["UNKNOWN"].
+- first_event - first.
+- hide_unknown - false.
+- hide_actions - false.
+- display_mode - all.
+""".
+-spec start_link(GUIorOptions) -> {ok, Viewer::pid()} | {error, term()} when
+      GUIorOptions :: wx | default | Options,
+      Options :: [option() | et_collector:option()].
 start_link(GUI) when GUI =:= wx; GUI =:= default ->
     start_link([{trace_global, true}], GUI);
 start_link(Options) ->
     start_link(Options, default).
 
+-doc false.
+-spec start_link(Options, GUI) -> {ok, Viewer::pid()} | {error, term()} when
+      GUI :: wx | default,
+      Options :: [option() | et_collector:option()].
 start_link(Options, GUI) -> 
     case GUI of
 	wx ->
@@ -155,6 +233,10 @@ start_link(Options, GUI) ->
 
 which_gui() -> wx.
 
+-doc """
+Returns the identifier of the collector process.
+""".
+-spec get_collector_pid(ViewerPid::pid()) -> pid().
 get_collector_pid(ViewerPid) ->
     call(ViewerPid, get_collector_pid).
 
@@ -165,13 +247,17 @@ get_collector_pid(ViewerPid) ->
 %% 
 %% ViewerPid = pid()
 %%----------------------------------------------------------------------
-
+-doc """
+Stops a viewer process.
+""".
+-spec stop(ViewerPid::pid()) -> ok.
 stop(ViewerPid) ->
     call(ViewerPid, stop).
 
 
 %%----------------------------------------------------------------------
 
+-doc false.
 open_event(ViewerPid, N) ->
     call(ViewerPid, {open_event, N}).
 

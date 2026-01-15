@@ -1,7 +1,9 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +27,9 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_cipher).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
@@ -43,6 +48,7 @@
          cipher/5, 
          aead_encrypt/6, 
          aead_decrypt/6,
+         aead_type/2,
 	 suites/1, 
          all_suites/1,
          crypto_support_filters/0,
@@ -68,9 +74,7 @@
          bulk_cipher_algorithm/1]).
 
 %% RFC 8446 TLS 1.3
--export([generate_client_shares/1,
-         generate_server_share/1,
-         add_zero_padding/2,
+-export([add_zero_padding/2,
          encrypt_ticket/3,
          decrypt_ticket/3,
          encrypt_data/4,
@@ -321,20 +325,26 @@ suites(Version) when ?TLS_1_X(Version) ->
     tls_v1:suites(Version);
 suites(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:suites(Version).
+
 all_suites(?TLS_1_3 = Version) ->
-    suites(Version) ++ tls_legacy_suites(?TLS_1_2);
-all_suites(Version) when ?TLS_1_X(Version) ->
-    suites(Version) ++ tls_legacy_suites(Version);
+    suites(Version) ++ tls_legacy_suites(?TLS_1_2)  ++ tls_v1:exclusive_suites(?TLS_1_0);
+all_suites(?TLS_1_2 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:exclusive_suites(?TLS_1_0);
+all_suites(?TLS_1_1 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:cbc_suites(Version);
+all_suites(?TLS_1_0 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:cbc_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
 tls_legacy_suites(Version) ->
-    Tests = [fun tls_v1:psk_suites/1,
-             fun tls_v1:srp_suites/1,
-             fun tls_v1:rsa_suites/1,
-             fun tls_v1:des_suites/1,
-             fun tls_v1:rc4_suites/1],
-    lists:flatmap(fun (Fun) -> Fun(Version) end, Tests).
+    LegacySuites = [fun tls_v1:cbc_suites/1,
+                    fun tls_v1:psk_suites/1,
+                    fun tls_v1:srp_suites/1,
+                    fun tls_v1:rsa_suites/1,
+                    fun tls_v1:des_suites/1,
+                    fun tls_v1:rc4_suites/1],
+    lists:flatmap(fun (Fun) -> Fun(Version) end, LegacySuites).
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
@@ -344,15 +354,15 @@ tls_legacy_suites(Version) ->
 %%--------------------------------------------------------------------
 
 anonymous_suites(Version) when ?TLS_1_X(Version) ->
-    SuitesToTest = anonymous_suite_to_test(Version),
-    lists:flatmap(fun tls_v1:exclusive_anonymous_suites/1, SuitesToTest);
+    Versions = versions_included(Version),
+    lists:flatmap(fun tls_v1:exclusive_anonymous_suites/1, Versions);
 anonymous_suites(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:anonymous_suites(Version).
 
-anonymous_suite_to_test(?TLS_1_0) -> [?TLS_1_0];
-anonymous_suite_to_test(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
-anonymous_suite_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-anonymous_suite_to_test(?TLS_1_3) -> [?TLS_1_3].
+versions_included(?TLS_1_0) -> [?TLS_1_0];
+versions_included(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
+versions_included(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
+versions_included(?TLS_1_3) -> [?TLS_1_3].
 
 %%--------------------------------------------------------------------
 -spec filter(undefined | binary(), [ssl_cipher_format:cipher_suite()],
@@ -553,10 +563,20 @@ hash_size(sha384) ->
 hash_size(sha512) ->
     64.
 
-is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) ->
+%% Handle RSA and RSA_PSS_RSAE
+is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) -> %% ?rsaEncryption cert signalgo used
     lists:member(SignAlgo, HashSigns) orelse
         lists:member({Hash, rsa_pss_rsae}, HashSigns);
-is_supported_sign(SignAlgo, HashSigns) ->
+is_supported_sign(rsa_pkcs1_sha256 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy scheme
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha256, HashSigns);
+is_supported_sign(rsa_pkcs1_sha384 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy scheme
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha384, HashSigns);
+is_supported_sign(rsa_pkcs1_sha512 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy scheme
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha512, HashSigns);
+is_supported_sign(SignAlgo, HashSigns) ->  %% Normal case, format (scheme or alg-pair) depends on version
     lists:member(SignAlgo, HashSigns).
 
 signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
@@ -565,6 +585,9 @@ signature_scheme(rsa_pkcs1_sha512) -> ?RSA_PKCS1_SHA512;
 signature_scheme(ecdsa_secp256r1_sha256) -> ?ECDSA_SECP256R1_SHA256;
 signature_scheme(ecdsa_secp384r1_sha384) -> ?ECDSA_SECP384R1_SHA384;
 signature_scheme(ecdsa_secp521r1_sha512) -> ?ECDSA_SECP521R1_SHA512;
+signature_scheme(ecdsa_brainpoolP256r1tls13_sha256) -> ?ECDSA_BRAINPOOLP256R1TLS13_SHA256;
+signature_scheme(ecdsa_brainpoolP384r1tls13_sha384) -> ?ECDSA_BRAINPOOLP384R1TLS13_SHA384;
+signature_scheme(ecdsa_brainpoolP512r1tls13_sha512) -> ?ECDSA_BRAINPOOLP512R1TLS13_SHA512;
 signature_scheme(rsa_pss_rsae_sha256) -> ?RSA_PSS_RSAE_SHA256;
 signature_scheme(rsa_pss_rsae_sha384) -> ?RSA_PSS_RSAE_SHA384;
 signature_scheme(rsa_pss_rsae_sha512) -> ?RSA_PSS_RSAE_SHA512;
@@ -575,6 +598,22 @@ signature_scheme(rsa_pss_pss_sha384) -> ?RSA_PSS_PSS_SHA384;
 signature_scheme(rsa_pss_pss_sha512) -> ?RSA_PSS_PSS_SHA512;
 signature_scheme(rsa_pkcs1_sha1) -> ?RSA_PKCS1_SHA1;
 signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
+signature_scheme(mldsa44) -> ?MLDSA44;
+signature_scheme(mldsa65) -> ?MLDSA65;
+signature_scheme(mldsa87) -> ?MLDSA87;
+signature_scheme(slh_dsa_sha2_128f) -> ?SLHDSA_SHA2_128F;
+signature_scheme(slh_dsa_sha2_128s) -> ?SLHDSA_SHA2_128S;
+signature_scheme(slh_dsa_sha2_192f) -> ?SLHDSA_SHA2_192F;
+signature_scheme(slh_dsa_sha2_192s) -> ?SLHDSA_SHA2_192S;
+signature_scheme(slh_dsa_sha2_256f) -> ?SLHDSA_SHA2_256F;
+signature_scheme(slh_dsa_sha2_256s) -> ?SLHDSA_SHA2_256S;
+signature_scheme(slh_dsa_shake_128f) -> ?SLHDSA_SHAKE_128F;
+signature_scheme(slh_dsa_shake_128s) -> ?SLHDSA_SHAKE_128S;
+signature_scheme(slh_dsa_shake_192f) -> ?SLHDSA_SHAKE_192F;
+signature_scheme(slh_dsa_shake_192s) -> ?SLHDSA_SHAKE_192S;
+signature_scheme(slh_dsa_shake_256f) -> ?SLHDSA_SHAKE_256F;
+signature_scheme(slh_dsa_shake_256s) -> ?SLHDSA_SHAKE_256S;
+
 %% New algorithms on legacy format
 signature_scheme({sha512, rsa_pss_pss}) ->
     ?RSA_PSS_PSS_SHA512;
@@ -600,6 +639,9 @@ signature_scheme(?RSA_PKCS1_SHA512) -> rsa_pkcs1_sha512;
 signature_scheme(?ECDSA_SECP256R1_SHA256) -> ecdsa_secp256r1_sha256;
 signature_scheme(?ECDSA_SECP384R1_SHA384) -> ecdsa_secp384r1_sha384;
 signature_scheme(?ECDSA_SECP521R1_SHA512) -> ecdsa_secp521r1_sha512;
+signature_scheme(?ECDSA_BRAINPOOLP256R1TLS13_SHA256) -> ecdsa_brainpoolP256r1tls13_sha256;
+signature_scheme(?ECDSA_BRAINPOOLP384R1TLS13_SHA384) -> ecdsa_brainpoolP384r1tls13_sha384;
+signature_scheme(?ECDSA_BRAINPOOLP512R1TLS13_SHA512) -> ecdsa_brainpoolP512r1tls13_sha512;
 signature_scheme(?RSA_PSS_RSAE_SHA256) -> rsa_pss_rsae_sha256;
 signature_scheme(?RSA_PSS_RSAE_SHA384) -> rsa_pss_rsae_sha384;
 signature_scheme(?RSA_PSS_RSAE_SHA512) -> rsa_pss_rsae_sha512;
@@ -610,12 +652,32 @@ signature_scheme(?RSA_PSS_PSS_SHA384) -> rsa_pss_pss_sha384;
 signature_scheme(?RSA_PSS_PSS_SHA512) -> rsa_pss_pss_sha512;
 signature_scheme(?RSA_PKCS1_SHA1) -> rsa_pkcs1_sha1;
 signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
+signature_scheme(?MLDSA44) -> mldsa44;
+signature_scheme(?MLDSA65) -> mldsa65;
+signature_scheme(?MLDSA87) -> mldsa87;
+signature_scheme(?SLHDSA_SHA2_128F) -> slh_dsa_sha2_128f;
+signature_scheme(?SLHDSA_SHA2_128S) -> slh_dsa_sha2_128s;
+signature_scheme(?SLHDSA_SHA2_192F) -> slh_dsa_sha2_192f;
+signature_scheme(?SLHDSA_SHA2_192S) -> slh_dsa_sha2_192s;
+signature_scheme(?SLHDSA_SHA2_256F) -> slh_dsa_sha2_256f;
+signature_scheme(?SLHDSA_SHA2_256S) -> slh_dsa_sha2_256s;
+signature_scheme(?SLHDSA_SHAKE_128F) -> slh_dsa_shake_128f;
+signature_scheme(?SLHDSA_SHAKE_128S) -> slh_dsa_shake_128s;
+signature_scheme(?SLHDSA_SHAKE_192F) -> slh_dsa_shake_192f;
+signature_scheme(?SLHDSA_SHAKE_192S) -> slh_dsa_shake_192s;
+signature_scheme(?SLHDSA_SHAKE_256F) -> slh_dsa_shake_256f;
+signature_scheme(?SLHDSA_SHAKE_256S) -> slh_dsa_shake_256s;
+
 %% Handling legacy signature algorithms for logging purposes. These algorithms
 %% cannot be used in TLS 1.3 handshakes.
 signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
     <<?BYTE(Hash),?BYTE(Sign)>> = <<?UINT16(SignAlgo)>>,
     try
-        {ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)}
+        case {hash_algorithm(Hash), sign_algorithm(Sign)} of
+            {unassigned, _} -> unassigned;
+            {_, unassigned} -> unassigned;
+            Scheme -> Scheme
+        end
     catch
         _:_ ->
             unassigned
@@ -623,20 +685,34 @@ signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
 signature_scheme(_) -> unassigned.
 
 signature_schemes_1_2(SigAlgs) ->
-    lists:reverse(lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
-                        case scheme_to_components(Alg) of
-                            {Hash, Sign = rsa_pss_pss,_} ->
-                                [{Hash, Sign} | Acc];
-                            {Hash, Sign = rsa_pss_rsae,_} ->
-                                [{Hash, Sign} | Acc];
-                            {Hash, Sign, undefined} ->
-                                [{Hash, format_sign(Sign)} | Acc];
-                            {_, _, _} ->
+    Schemes = lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
+                                  case scheme_to_components(Alg) of
+                                      {Hash, Sign = rsa_pss_pss,_} ->
+                                          [{Hash, Sign} | Acc];
+                                      {Hash, Sign = rsa_pss_rsae,_} ->
+                                          [{Hash, Sign} | Acc];
+                                      %% TLS-1.2 do not constrain the
+                                      %% curve, however must be one
+                                      %% present in "supported groups" (eccs)
+                                      {Hash, ecdsa = Sign, _} ->
+                                          [{Hash, Sign} | Acc];
+                                      %% TLS-1.3 only
+                                      {none, MLDSA, undefined} when MLDSA == mldsa44;
+                                                                    MLDSA == mldsa65;
+                                                                    MLDSA == mldsa87 ->
+                                          Acc;
+                                      {Hash, Sign, undefined} ->
+                                          [{Hash, format_sign(Sign)} | Acc];
+                                      {_, _, _} ->
                                 Acc
-                        end;
-                   (Alg, Acc) ->
-                        [Alg| Acc]
-                end, [], SigAlgs)).
+                                  end;
+                             (Alg, Acc) ->
+                                  [Alg| Acc]
+                          end, [], SigAlgs),
+    %% Make sure that if ECDSA TLS-1.2 names are specified do not duplicate them
+    %% earlier in list by allowing TLS-1.3 schemes to be interpreted as TLS-1.2 algs
+    %% unless the ECDSA TLS-1.2 representation is missing and we want to work around it.
+    lists:reverse(lists:uniq(Schemes)).
 
 %% TODO: reserved code points?
 
@@ -646,6 +722,9 @@ scheme_to_components(rsa_pkcs1_sha512) -> {sha512, rsa_pkcs1, undefined};
 scheme_to_components(ecdsa_secp256r1_sha256) -> {sha256, ecdsa, secp256r1};
 scheme_to_components(ecdsa_secp384r1_sha384) -> {sha384, ecdsa, secp384r1};
 scheme_to_components(ecdsa_secp521r1_sha512) -> {sha512, ecdsa, secp521r1};
+scheme_to_components(ecdsa_brainpoolP256r1tls13_sha256) -> {sha256, ecdsa, brainpoolP256r1};
+scheme_to_components(ecdsa_brainpoolP384r1tls13_sha384) -> {sha384, ecdsa, brainpoolP384r1};
+scheme_to_components(ecdsa_brainpoolP512r1tls13_sha512) -> {sha512, ecdsa, brainpoolP512r1};
 scheme_to_components(rsa_pss_rsae_sha256) -> {sha256, rsa_pss_rsae, undefined};
 scheme_to_components(rsa_pss_rsae_sha384) -> {sha384, rsa_pss_rsae, undefined};
 scheme_to_components(rsa_pss_rsae_sha512) -> {sha512, rsa_pss_rsae, undefined};
@@ -656,6 +735,21 @@ scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pkcs1_sha1) -> {sha, rsa_pkcs1, undefined};
 scheme_to_components(ecdsa_sha1) -> {sha, ecdsa, undefined};
+scheme_to_components(mldsa44) -> {none, mldsa44, undefined};
+scheme_to_components(mldsa65) -> {none, mldsa65, undefined};
+scheme_to_components(mldsa87) -> {none, mldsa87, undefined};
+scheme_to_components(slh_dsa_sha2_128f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_128s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_192f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_192s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_256f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_256s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_128f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_128s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_192f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_192s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_256f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_256s = Scheme) -> {Scheme, slhdsa, undefined};
 %% Handling legacy signature algorithms
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
@@ -828,6 +922,36 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'
         sha512 ->
             rsa_pss_pss_sha512
     end;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-ml-dsa-44'}) ->
+    mldsa44;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-ml-dsa-65'}) ->
+    mldsa65;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-ml-dsa-87'}) ->
+    mldsa87;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-256f'}) ->
+    slh_dsa_shake_256f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-192f'}) ->
+    slh_dsa_shake_192f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-128f'}) ->
+    slh_dsa_shake_128f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-256s'}) ->
+    slh_dsa_shake_256s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-192s'}) ->
+    slh_dsa_shake_192s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-128s'}) ->
+    slh_dsa_shake_128s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-256f'}) ->
+    slh_dsa_sha2_256f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-192f'}) ->
+    slh_dsa_sha2_192f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-128f'}) ->
+    slh_dsa_sha2_128f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-256s'}) ->
+    slh_dsa_sha2_256s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-192s'}) ->
+    slh_dsa_sha2_192s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-128s'}) ->
+    slh_dsa_sha2_128s;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha256WithRSAEncryption}) ->
     rsa_pkcs1_sha256;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha384WithRSAEncryption}) ->
@@ -885,9 +1009,9 @@ generic_block_cipher_from_bin(?TLS_1_0, T, IV, HashSize)->
 		    PadLength0 >= Sz1 -> 0;
 		    true -> PadLength0
 		end,
-    CompressedLength = byte_size(T) - PadLength - 1 - HashSize,
-    <<Content:CompressedLength/binary, Mac:HashSize/binary,
-     Padding:PadLength/binary, ?BYTE(PadLength0)>> = T,
+    Length = byte_size(T) - PadLength - 1 - HashSize,
+    <<Content:Length/binary, Mac:HashSize/binary,
+      Padding:PadLength/binary, ?BYTE(PadLength0)>> = T,
     #generic_block_cipher{content=Content, mac=Mac,
 			  padding=Padding, padding_length=PadLength0,
 			  next_iv = IV};
@@ -897,8 +1021,8 @@ generic_block_cipher_from_bin(Version, T, IV, HashSize)
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
     IVLength = byte_size(IV),
-    CompressedLength = byte_size(T) - IVLength - PadLength - 1 - HashSize,
-    <<NextIV:IVLength/binary, Content:CompressedLength/binary, Mac:HashSize/binary,
+    Length = byte_size(T) - IVLength - PadLength - 1 - HashSize,
+    <<NextIV:IVLength/binary, Content:Length/binary, Mac:HashSize/binary,
       Padding:PadLength/binary, ?BYTE(PadLength)>> = T,
     #generic_block_cipher{content=Content, mac=Mac,
 			  padding=Padding, padding_length=PadLength,
@@ -906,8 +1030,8 @@ generic_block_cipher_from_bin(Version, T, IV, HashSize)
 
 generic_stream_cipher_from_bin(T, HashSz) ->
     Sz = byte_size(T),
-    CompressedLength = Sz - HashSz,
-    <<Content:CompressedLength/binary, Mac:HashSz/binary>> = T,
+    Length = Sz - HashSz,
+    <<Content:Length/binary, Mac:HashSz/binary>> = T,
     #generic_stream_cipher{content=Content,
 			   mac=Mac}.
 
@@ -1156,33 +1280,6 @@ filter_keyuse_suites(Use, KeyUse, CipherSuits, Suites) ->
 	    CipherSuits -- Suites
     end.
 
-generate_server_share(Group) ->
-    Key = generate_key_exchange(Group),
-    #key_share_server_hello{
-       server_share = #key_share_entry{
-                         group = Group,
-                         key_exchange = Key
-                        }}.
-
-generate_client_shares(Groups) ->
-    KeyShareEntry = fun (Group) ->
-                        #key_share_entry{group = Group, key_exchange = generate_key_exchange(Group)}
-                    end,
-    ClientShares = lists:map(KeyShareEntry, Groups),
-    #key_share_client_hello{client_shares = ClientShares}.
-
-generate_key_exchange(secp256r1) ->
-    public_key:generate_key({namedCurve, secp256r1});
-generate_key_exchange(secp384r1) ->
-    public_key:generate_key({namedCurve, secp384r1});
-generate_key_exchange(secp521r1) ->
-    public_key:generate_key({namedCurve, secp521r1});
-generate_key_exchange(x25519) ->
-    crypto:generate_key(ecdh, x25519);
-generate_key_exchange(x448) ->
-    crypto:generate_key(ecdh, x448);
-generate_key_exchange(FFDHE) ->
-    public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
 
 
 %% TODO: Move this functionality to crypto!

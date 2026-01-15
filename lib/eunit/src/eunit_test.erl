@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,16 +27,18 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2006 Richard Carlsson
-%% @private
-%% @see eunit
-%% @doc Test running functionality
+%% %CopyrightEnd%
+%%
+%% Test running functionality
 
 -module(eunit_test).
+-moduledoc false.
 
 -export([run_testfun/1, mf_wrapper/2, enter_context/4, multi_setup/1]).
 
+-export_type([wrapper_error/0]).
+
+-compile(nowarn_unexported_function).
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
@@ -63,8 +74,9 @@ prune_trace([], Tail) ->
 %% ---------------------------------------------------------------------
 %% Test runner
 
-%% @spec ((any()) -> any()) -> {ok, Value} | {error, eunit_lib:exception()}
-%% @throws wrapperError()
+-spec run_testfun(fun (() -> any())) -> {ok, Value :: any()} | {error, eunit_lib:exception()}.
+
+%% Throws wrapper_error()
 
 run_testfun(F) ->
     try
@@ -263,10 +275,11 @@ macro_test_() ->
 %% Note that the wrapper fun is usually called by run_testfun/1, and the
 %% special exceptions thrown here are expected to be handled there.
 %%
-%% @throws {eunit_internal, wrapperError()}
+%% Throws {eunit_internal, wrapper_error()}
 %%
-%% @type wrapperError() = {no_such_function, mfa()}
-%%                      | {module_not_found, moduleName()}
+
+-type wrapper_error() :: {no_such_function, mfa()}
+                      | {module_not_found, module()}.
 
 mf_wrapper(M, F) ->
     fun () ->
@@ -317,13 +330,15 @@ wrapper_test_exported_() ->
 %% ---------------------------------------------------------------------
 %% Entering a setup-context, with guaranteed cleanup.
 
-%% @spec (Setup, Cleanup, Instantiate, Callback) -> any()
-%%    Setup = () -> any()
-%%    Cleanup = (any()) -> any()
-%%    Instantiate = (any()) -> tests()
-%%    Callback = (tests()) -> any()
-%% @throws {context_error, Error, eunit_lib:exception()}
-%% Error = setup_failed | instantiation_failed | cleanup_failed
+-spec enter_context(Setup, Cleanup, Instantiate, Callback) -> any()
+  when
+  Setup :: fun (() -> any()),
+  Cleanup :: fun ((any()) -> any()),
+  Instantiate :: fun ((any()) -> eunit_data:tests()),
+  Callback :: fun ((eunit_data:tests()) -> any()).
+
+%% Throws {context_error, Error, eunit_lib:exception()}
+%% where Error = setup_failed | instantiation_failed | cleanup_failed
 
 enter_context(Setup, Cleanup, Instantiate, Callback) ->
     try Setup() of
@@ -366,7 +381,7 @@ context_error(Type, Class, Trace, Term) ->
     throw({context_error, Type, {Class, Term, get_stacktrace(Trace)}}).
 
 %% This generates single setup/cleanup functions from a list of tuples
-%% on the form {Tag, Setup, Cleanup}, where the setup function always
+%% of the form {Tag, Setup, Cleanup}, where the setup function always
 %% backs out correctly from partial completion.
 
 multi_setup(List) ->

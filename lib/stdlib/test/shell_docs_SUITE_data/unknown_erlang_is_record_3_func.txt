@@ -1,9 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec is_record(Term, RecordTag, Size) -> boolean()[0m
-  [;1m                   when[0m
-  [;1m                       Term :: term(),[0m
-  [;1m                       RecordTag :: atom(),[0m
-  [;1m                       Size :: non_neg_integer().[0m
+[;1m  is_record(Term, RecordTag, Size)[0m
 
   [;;4mRecordTag[0m must be an atom.
 
@@ -13,6 +16,7 @@
   Allowed in guard tests if [;;4mRecordTag[0m is a literal atom and [;;4mSize[0m
   is a literal integer.
 
-  Note:
+  [;;4mNote[0m
+
     This BIF is documented for completeness. Usually [;;4mis_record/2[0m
     is to be used.

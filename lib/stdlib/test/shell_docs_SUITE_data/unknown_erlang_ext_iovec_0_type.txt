@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type ext_iovec() :: iovec().[0m
+[;1m  ext_iovec()[0m
 
-  A term of type [;;4miovec()[0m, structured according to the Erlang
+  A term of type [;;4miovec/0[0m, structured according to the Erlang
   external term format.

@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_cplt.erl
@@ -27,6 +36,7 @@
 %%% Created : 23 Jul 2004 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_cplt).
+-moduledoc false.
 
 -export([check_plt/3,
 	 compute_md5_from_files/1,
@@ -490,9 +500,8 @@ tab_merge('$end_of_table', T1, T2) ->
       tab_merge(Key, T1, T2)
   end;
 tab_merge(K1, T1, T2) ->
-  Vs = ets:lookup(T1, K1),
   NextK1 = ets:next(T1, K1),
-  true = ets:delete(T1, K1),
+  Vs = ets:take(T1, K1),
   true = ets:insert(T2, Vs),
   tab_merge(NextK1, T1, T2).
 

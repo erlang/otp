@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +30,10 @@
 #include "export.h"
 #include "hash.h"
 #include "jit/beam_asm.h"
+#include "erl_global_literals.h"
 
 #define EXPORT_INITIAL_SIZE   4000
-#define EXPORT_LIMIT  (512*1024)
-
-#define EXPORT_HASH(m,f,a) ((atom_val(m) * atom_val(f)) ^ (a))
+#define EXPORT_LIMIT          (512*1024)
 
 #ifdef DEBUG
 #  define IF_DEBUG(x) x
@@ -40,176 +41,101 @@
 #  define IF_DEBUG(x)
 #endif
 
-static IndexTable export_tables[ERTS_NUM_CODE_IX];  /* Active not locked */
-
-static erts_atomic_t total_entries_bytes;
-
-/* This lock protects the staging export table from concurrent access
- * AND it protects the staging table from becoming active.
- */
-erts_mtx_t export_staging_lock;
-
-struct export_entry
+static void create_shared_lambda(Export *export)
 {
-    IndexSlot slot; /* MUST BE LOCATED AT TOP OF STRUCT!!! */
-    Export* ep;
-};
+    ErlFunThing *lambda;
+    struct erl_off_heap_header **ohp;
 
-/* Helper struct that brings things together in one allocation
-*/
-struct export_blob
-{
-    Export exp;
-    struct export_entry entryv[ERTS_NUM_CODE_IX];
-    /* Note that entryv is not indexed by "code_ix".
-     */
-};
+    lambda = (ErlFunThing*)erts_global_literal_allocate(ERL_FUN_SIZE, &ohp);
 
-/* Helper struct only used as template
-*/
-struct export_templ
-{
-    struct export_entry entry;
-    Export exp;
-};
+    lambda->thing_word = MAKE_FUN_HEADER(export->info.mfa.arity, 0, 1);
+    lambda->entry.exp = export;
 
-static struct export_blob* entry_to_blob(struct export_entry* ee)
+    export->lambda = make_fun(lambda);
+
+    erts_global_literal_register(&export->lambda);
+}
+
+static HashValue export_hash(const Export *export)
 {
-    return ErtsContainerStruct(ee->ep, struct export_blob, exp);
+    return (atom_val(export->info.mfa.module) *
+            atom_val(export->info.mfa.function)) ^
+           export->info.mfa.arity;
+}
+
+static int export_cmp(const Export *lhs, const Export *rhs)
+{
+    return !(lhs->info.mfa.module == rhs->info.mfa.module &&
+             lhs->info.mfa.function == rhs->info.mfa.function &&
+             lhs->info.mfa.arity == rhs->info.mfa.arity);
+}
+
+static void export_init(Export *dst, const Export *template)
+{
+    sys_memset(&dst->info.u, 0, sizeof(dst->info.u));
+    dst->info.gen_bp = NULL;
+    dst->info.mfa.module = template->info.mfa.module;
+    dst->info.mfa.function = template->info.mfa.function;
+    dst->info.mfa.arity = template->info.mfa.arity;
+    dst->bif_number = -1;
+    dst->is_bif_traced = 0;
+
+    create_shared_lambda(dst);
+
+    sys_memset(&dst->trampoline, 0, sizeof(dst->trampoline));
+
+    if (BeamOpsAreInitialized()) {
+        dst->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
+    }
+
+    for (int ix = 0; ix < ERTS_NUM_CODE_IX; ix++) {
+        erts_activate_export_trampoline(dst, ix);
+    }
+
+#ifdef BEAMASM
+    dst->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] =
+        beam_save_calls_export;
+#endif
+}
+
+static void export_stage(Export *export,
+                         ErtsCodeIndex src_ix,
+                         ErtsCodeIndex dst_ix)
+{
+    ErtsDispatchable *dispatch = &export->dispatch;
+    dispatch->addresses[dst_ix] = dispatch->addresses[src_ix];
+}
+
+#define ERTS_CODE_STAGED_PREFIX export
+#define ERTS_CODE_STAGED_OBJECT_TYPE Export
+#define ERTS_CODE_STAGED_OBJECT_HASH export_hash
+#define ERTS_CODE_STAGED_OBJECT_COMPARE export_cmp
+#define ERTS_CODE_STAGED_OBJECT_INITIALIZE export_init
+#define ERTS_CODE_STAGED_OBJECT_STAGE export_stage
+#define ERTS_CODE_STAGED_OBJECT_ALLOC_TYPE ERTS_ALC_T_EXPORT
+#define ERTS_CODE_STAGED_TABLE_ALLOC_TYPE ERTS_ALC_T_EXPORT_TABLE
+#define ERTS_CODE_STAGED_TABLE_INITIAL_SIZE EXPORT_INITIAL_SIZE
+#define ERTS_CODE_STAGED_TABLE_LIMIT EXPORT_LIMIT
+
+#define ERTS_CODE_STAGED_WANT_GET
+#define ERTS_CODE_STAGED_WANT_PUT
+#define ERTS_CODE_STAGED_WANT_LIST
+#define ERTS_CODE_STAGED_WANT_LIST_SIZE
+#define ERTS_CODE_STAGED_WANT_ENTRY_BYTES
+#define ERTS_CODE_STAGED_WANT_TABLE_SIZE
+
+#include "erl_code_staged.h"
+
+void
+init_export_table(void)
+{
+    export_staged_init();
 }
 
 void
 export_info(fmtfn_t to, void *to_arg)
 {
-    int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	export_staging_lock();
-    index_info(to, to_arg, &export_tables[erts_active_code_ix()]);
-    hash_info(to, to_arg, &export_tables[erts_staging_code_ix()].htable);
-    if (lock)
-	export_staging_unlock();
-}
-
-
-static HashValue
-export_hash(struct export_entry* ee)
-{
-    Export* x = ee->ep;
-    return EXPORT_HASH(x->info.mfa.module, x->info.mfa.function,
-                       x->info.mfa.arity);
-}
-
-static int
-export_cmp(struct export_entry* tmpl_e, struct export_entry* obj_e)
-{
-    Export* tmpl = tmpl_e->ep;
-    Export* obj = obj_e->ep;
-    return !(tmpl->info.mfa.module == obj->info.mfa.module &&
-	     tmpl->info.mfa.function == obj->info.mfa.function &&
-	     tmpl->info.mfa.arity == obj->info.mfa.arity);
-}
-
-
-static struct export_entry*
-export_alloc(struct export_entry* tmpl_e)
-{
-    struct export_blob* blob;
-    unsigned ix;
-
-    if (tmpl_e->slot.index == -1) {  /* Template, allocate blob */
-	Export* tmpl = tmpl_e->ep;
-	Export* obj;
-
-	blob = (struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
-	erts_atomic_add_nob(&total_entries_bytes, sizeof(*blob));
-	obj = &blob->exp;
-        sys_memset(&obj->info.u, 0, sizeof(obj->info.u));
-	obj->info.gen_bp = NULL;
-	obj->info.mfa.module = tmpl->info.mfa.module;
-	obj->info.mfa.function = tmpl->info.mfa.function;
-	obj->info.mfa.arity = tmpl->info.mfa.arity;
-        obj->bif_number = -1;
-        obj->is_bif_traced = 0;
-
-        sys_memset(&obj->trampoline, 0, sizeof(obj->trampoline));
-
-        if (BeamOpsAreInitialized()) {
-            obj->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
-        }
-
-        for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
-            erts_activate_export_trampoline(obj, ix);
-
-            blob->entryv[ix].slot.index = -1;
-            blob->entryv[ix].ep = &blob->exp;
-        }
-
-	ix = 0;
-
-	DBG_TRACE_MFA_P(&obj->info.mfa, "export allocation at %p", obj);
-    }
-    else { /* Existing entry in another table, use free entry in blob */
-	blob = entry_to_blob(tmpl_e);
-	for (ix = 0; blob->entryv[ix].slot.index >= 0; ix++) {
-	    ASSERT(ix < ERTS_NUM_CODE_IX);
-	}
-    }
-    return &blob->entryv[ix];
-}
-
-static void
-export_free(struct export_entry* obj)
-{
-    struct export_blob* blob = entry_to_blob(obj);
-    int i;
-    obj->slot.index = -1;
-    for (i=0; i < ERTS_NUM_CODE_IX; i++) {
-	if (blob->entryv[i].slot.index >= 0) {
-	    DBG_TRACE_MFA_P(&blob->exp.info.mfa, "export entry slot %u freed for %p",
-			  (obj - blob->entryv), &blob->exp);
-	    return;
-	}
-    }
-    DBG_TRACE_MFA_P(&blob->exp.info.mfa, "export blob deallocation at %p", &blob->exp);
-    erts_free(ERTS_ALC_T_EXPORT, blob);
-    erts_atomic_add_nob(&total_entries_bytes, -sizeof(*blob));
-}
-
-void
-init_export_table(void)
-{
-    HashFunctions f;
-    int i;
-
-    erts_mtx_init(&export_staging_lock, "export_tab", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-    erts_atomic_init_nob(&total_entries_bytes, 0);
-
-    f.hash = (H_FUN) export_hash;
-    f.cmp  = (HCMP_FUN) export_cmp;
-    f.alloc = (HALLOC_FUN) export_alloc;
-    f.free = (HFREE_FUN) export_free;
-    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
-    f.meta_free = (HMFREE_FUN) erts_free;
-    f.meta_print = (HMPRINT_FUN) erts_print;
-
-    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	erts_index_init(ERTS_ALC_T_EXPORT_TABLE, &export_tables[i], "export_list",
-			EXPORT_INITIAL_SIZE, EXPORT_LIMIT, f);
-    }
-}
-
-static struct export_entry* init_template(struct export_templ* templ,
-					  Eterm m, Eterm f, unsigned a)
-{
-    templ->entry.ep = &templ->exp;
-    templ->entry.slot.index = -1;
-    templ->exp.info.mfa.module = m;
-    templ->exp.info.mfa.function = f;
-    templ->exp.info.mfa.arity = a;
-    templ->exp.bif_number = -1;
-    templ->exp.is_bif_traced = 0;
-    return &templ->entry;
+    export_staged_info(to, to_arg);
 }
 
 /*
@@ -224,19 +150,21 @@ static struct export_entry* init_template(struct export_templ* templ,
  *    called through such an export entry.
  * 3) This function is suitable for the implementation of erlang:apply/3.
  */
-extern Export* /* inline-helper */
-erts_find_export_entry(Eterm m, Eterm f, unsigned int a,ErtsCodeIndex code_ix);
+const Export *erts_find_export_entry(Eterm m, Eterm f, unsigned a,
+                                     ErtsCodeIndex code_ix);
 
-Export*
-erts_find_export_entry(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
+const Export *erts_find_export_entry(Eterm m, Eterm f, unsigned a,
+                                     ErtsCodeIndex code_ix)
 {
-    struct export_templ templ;
-    struct export_entry *ee =
-        hash_fetch(&export_tables[code_ix].htable,
-                   init_template(&templ, m, f, a),
-                   (H_FUN)export_hash, (HCMP_FUN)export_cmp);
-    if (ee) return ee->ep;
-    return NULL;
+    export_template_t template;
+    Export *object;
+
+    object = export_staged_init_template(&template);
+    object->info.mfa.module = m;
+    object->info.mfa.function = f;
+    object->info.mfa.arity = a;
+
+    return export_staged_get(&template, code_ix);
 }
 
 /*
@@ -249,22 +177,19 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
  * for use by the erlang:function_exported/3 BIF or whenever you
  * cannot depend on the error_handler.
  */
-
-Export*
-erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
+const Export *erts_find_function(Eterm m, Eterm f, unsigned int a,
+                                 ErtsCodeIndex code_ix)
 {
-    struct export_templ templ;
-    struct export_entry* ee;
+    const Export *export = erts_find_export_entry(m, f, a, code_ix);
 
-    ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
-
-    if (ee == NULL
-        || (erts_is_export_trampoline_active(ee->ep, code_ix) &&
-            !BeamIsOpCode(ee->ep->trampoline.common.op, op_i_generic_breakpoint))) {
+    if (export == NULL
+        || (erts_is_export_trampoline_active(export, code_ix) &&
+            !BeamIsOpCode(export->trampoline.common.op,
+                          op_i_generic_breakpoint))) {
         return NULL;
     }
 
-    return ee->ep;
+    return export;
 }
 
 /*
@@ -275,28 +200,20 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
  * to load new code.
  */
 
-Export*
-erts_export_put(Eterm mod, Eterm func, unsigned int arity)
+Export *erts_export_put(Eterm mod, Eterm func, unsigned int arity)
 {
-    ErtsCodeIndex code_ix = erts_staging_code_ix();
-    struct export_templ templ;
-    struct export_entry* ee;
-    Export* res;
+    export_template_t template;
+    Export *object;
 
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
-    export_staging_lock();
-    ee = (struct export_entry*) index_put_entry(&export_tables[code_ix],
-						init_template(&templ, mod, func, arity));
-    export_staging_unlock();
 
-    res = ee->ep;
+    object = export_staged_init_template(&template);
+    object->info.mfa.module = mod;
+    object->info.mfa.function = func;
+    object->info.mfa.arity = arity;
 
-#ifdef BEAMASM
-    res->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls_export;
-#endif
-
-    return res;
+    return export_staged_put(&template);
 }
 
 /*
@@ -304,134 +221,64 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
  * export entry (making a call through it will cause the error_handler to
  * be called).
  *
- * Stub export entries will be placed in the loader export table.
+ * Stub export entries will be placed in the staging export table.
  */
 
-Export*
-erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
+Export *erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 {
-    ErtsCodeIndex code_ix;
-    Export* ep;
-    IF_DEBUG(int retrying = 0;)
-    
+    export_template_t template;
+    Export *object;
+
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
 
-    do {
-	code_ix = erts_active_code_ix();
-	ep = erts_find_export_entry(mod, func, arity, code_ix);
-	if (ep == 0) {
-	    /*
-	     * The code is not loaded (yet). Put the export in the staging
-	     * export table, to avoid having to lock the active export table.
-	     */
-	    export_staging_lock();
-	    if (erts_active_code_ix() == code_ix) {
-		struct export_templ templ;
-	        struct export_entry* entry;
+    object = export_staged_init_template(&template);
+    object->info.mfa.module = mod;
+    object->info.mfa.function = func;
+    object->info.mfa.arity = arity;
 
-		IndexTable* tab = &export_tables[erts_staging_code_ix()];
-		init_template(&templ, mod, func, arity);
-		entry = (struct export_entry *) index_put_entry(tab, &templ.entry);
-		ep = entry->ep;
-
-#ifdef BEAMASM
-                ep->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] =
-                    beam_save_calls_export;
-#endif
-
-		ASSERT(ep);
-	    }
-	    else { /* race */
-		ASSERT(!retrying);
-		IF_DEBUG(retrying = 1);
-	    }
-	    export_staging_unlock();
-	}
-    } while (!ep);
-    return ep;
+    return export_staged_upsert(&template);
 }
 
 Export *export_list(int i, ErtsCodeIndex code_ix)
 {
-    return ((struct export_entry*) erts_index_lookup(&export_tables[code_ix], i))->ep;
+    return export_staged_list(i, code_ix);
 }
 
 int export_list_size(ErtsCodeIndex code_ix)
 {
-    return erts_index_num_entries(&export_tables[code_ix]);
+    return export_staged_list_size(code_ix);
 }
 
 int export_table_sz(void)
 {
-    int i, bytes = 0;
-
-    export_staging_lock();
-    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	bytes += index_table_sz(&export_tables[i]);
-    }
-    export_staging_unlock();
-    return bytes;
+    return export_staged_table_size();
 }
+
 int export_entries_sz(void)
 {
-    return erts_atomic_read_nob(&total_entries_bytes);
+    return export_staged_entry_bytes();
 }
-Export *export_get(Export *e)
+
+const Export *export_get(const Export *e)
 {
-    struct export_entry ee;
-    struct export_entry* entry;
+    export_template_t template;
+    Export *object;
 
-    ee.ep = e;
-    entry = (struct export_entry*)hash_get(&export_tables[erts_active_code_ix()].htable, &ee);
-    return entry ? entry->ep : NULL;
+    object = export_staged_init_template(&template);
+    object->info.mfa.module = e->info.mfa.module;
+    object->info.mfa.function = e->info.mfa.function;
+    object->info.mfa.arity = e->info.mfa.arity;
+
+    return export_staged_get(&template, erts_active_code_ix());
 }
-
-IF_DEBUG(static ErtsCodeIndex debug_export_load_ix = 0;)
-
 
 void export_start_staging(void)
 {
-    ErtsCodeIndex dst_ix = erts_staging_code_ix();
-    ErtsCodeIndex src_ix = erts_active_code_ix();
-    IndexTable* dst = &export_tables[dst_ix];
-    IndexTable* src = &export_tables[src_ix];
-    int i;
-
-    ASSERT(dst_ix != src_ix);
-    ASSERT(debug_export_load_ix == ~0);
-
-    export_staging_lock();
-    /*
-     * Insert all entries in src into dst table
-     */
-    for (i = 0; i < src->entries; i++) {
-        struct export_entry* src_entry;
-        ErtsDispatchable *disp;
-
-        src_entry = (struct export_entry*) erts_index_lookup(src, i);
-        disp = &src_entry->ep->dispatch;
-
-        disp->addresses[dst_ix] = disp->addresses[src_ix];
-
-#ifndef DEBUG
-        index_put_entry(dst, src_entry);
-#else /* DEBUG */
-        {
-            struct export_entry* dst_entry =
-                (struct export_entry*)index_put_entry(dst, src_entry);
-            ASSERT(entry_to_blob(src_entry) == entry_to_blob(dst_entry));
-        }
-#endif
-    }
-    export_staging_unlock();
-
-    IF_DEBUG(debug_export_load_ix = dst_ix);
+    export_staged_start_staging();
 }
 
 void export_end_staging(int commit)
 {
-    ASSERT(debug_export_load_ix == erts_staging_code_ix());
-    IF_DEBUG(debug_export_load_ix = ~0);
+    export_staged_end_staging(commit);
 }
-

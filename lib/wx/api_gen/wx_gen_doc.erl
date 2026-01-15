@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +22,7 @@
 %% Api wrapper generator
 
 -module(wx_gen_doc).
--export([gen/1]).
+-export([module_doc/1]).
 
 -compile([export_all, nowarn_export_all]).
 
@@ -44,95 +46,12 @@
 	    _ -> ok
 	end).
 
-gen(Defs) ->
-    %% Fail = ["wxTopLevelWindow", "wxFrame"],
-    Fail = [],
-    Ev2ClassL = [{wx_gen_erl:event_type_name(Ev),Name} ||
-                   #class{name=Name, event=Evs} <- Defs, Evs =/= false, Ev <- Evs],
-    Ev2Class = maps:from_list(Ev2ClassL),
-    true = length(Ev2ClassL) =:= maps:size(Ev2Class),
-    put(ev2class, Ev2Class),
-    [gen_class(Class) || #class{parent=Parent, name=Name,options=Opts} = Class <- Defs,
-                         not (Parent =:= "static"),
-                         not lists:member("ignore", Opts),
-                         Fail =:= [] orelse lists:member(Name, Fail)],
-    Static = [Class || #class{parent="static", options=Opts} = Class <- Defs,
-                       not lists:member("ignore", Opts)],
-    gen_misc(Static),
-    ok.
-
-gen_class(Class) ->
-    try	gen_class1(Class)
-    catch throw:skipped ->
-	    Class;
-          error:Reason:ST ->
-            ?LOG("Error: ~P in~n  ~P~n",[Reason, 20, ST, 20])
-    end.
-
-gen_class1(#class{name=Name,parent=Parent,methods=Ms, event=Evs}) ->
-    put(current_class, Name),
-    Funcs = case gen_funcs(Ms) of
-                [] -> [nl(0)];
-                Fs -> [nl(0), {funcs, Fs}, nl(0)]
-            end,
-    erase(current_func),
-
-    Types = case Evs of
-                false when Name =:= "wxEvtHandler" ->
-                    [nl(4), {datatype, [{name, [{name, Name}], []}]},
-                     nl(4), {datatype, [{name, [{name, "wxEventType"}], []}]},
-                     nl(4), {datatype, [{name, [{name, "wx"}], []}]},
-                     nl(4), {datatype, [{name, [{name, "event"}], []}]}
-                    ];
-                false ->
-                    [{datatype, [{name, [{name, Name}], []}]}];
-                [_|_] ->
-                    [nl(4), {datatype, [{name, [{name, Name}], []}]},
-                     nl(4), {datatype, [{name, [{name, wx_gen_erl:event_rec_name(Name)}], []}]},
-                     nl(4), {datatype, [{name, [{name, Name++"Type"}], []}]}]
-            end,
-    ErlRef = {erlref,
-              [nl(0), {header, gen_header(Name)},
-               nl(0), {module, [Name]},
-               nl(0), {modulesummary, class_brief(Name)},
-               nl(0) | class_description(Name, Parent, Evs)]
-              ++ [nl(0), {datatypes, Types},
-                  nl(0) | Funcs]
-             },
-    open_write("../doc/src/"++Name++".xml"),
-    Intro = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n"
-        "<!DOCTYPE erlref SYSTEM \"erlref.dtd\">\n"
-        "\n<!-- THIS FILE IS GENERATED DO NOT EDIT -->\n\n",
-    Root = [#xmlAttribute{name=prolog, value=Intro}],
-    Export = xmerl:export_simple([nl(0), ErlRef],xmerl_xml, Root),
-    w("~s~n",[unicode:characters_to_binary(Export)]),
-    close(),
-    erase(current_class),
-    ok.
-
-gen_misc(Files) ->
-    Ms = lists:append([Ms || #class{methods=Ms} <- Files]),
-    Name = "wx_misc",
-    put(current_class, Name),
-    Funcs = gen_funcs(Ms),
-    erase(current_func),
-    open_write("../doc/src/wx_misc.xml"),
-    Intro = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n"
-        "<!DOCTYPE erlref SYSTEM \"erlref.dtd\">\n"
-        "\n<!-- THIS FILE IS GENERATED DO NOT EDIT -->\n\n",
-    Root = [#xmlAttribute{name=prolog, value=Intro}],
-    ErlRef = {erlref,
-              [nl(0),{header, gen_header(Name)},
-               nl(0),{module, [Name]},
-               nl(0),{modulesummary, ["Miscellaneous functions."]},
-               nl(0),{description, [{p,["Miscellaneous functions."]}]},
-               nl(0),{funcs, Funcs},
-               nl(0)
-              ]},
-    Export = xmerl:export_simple([nl(0), ErlRef],xmerl_xml, Root),
-    w("~s~n",[unicode:characters_to_binary(Export)]),
-    close(),
-    erase(current_class),
+module_doc(#class{name=Name,parent=Parent,event=Evs}) ->
+    w(~s'-moduledoc """\n', []),
+    %% io:format("~w: Gen ~p~n", [?LINE, Name]),
+    class_brief(Name),
+    class_description(Name, Parent, Evs),
+    w(~s'""".\n', []),
     ok.
 
 gen_header(Name) ->
@@ -148,41 +67,73 @@ gen_header(Name) ->
 
 class_brief(Name) ->
     [{_,Doc}] = ets:lookup(docs, Name),
-    case fsummary(Doc) of
-        [] -> ["Functions for " ++ Name ++ " class"];
-        Docs -> [to_text(Docs)]
+    Brief = case fsummary(Doc) of
+                [] -> ["Functions for " ++ Name ++ " class"];
+                Docs -> [to_text(Docs)]
+            end,
+    try w("~s\n\n", [unicode:characters_to_binary(Brief)])
+    catch Type:Err:ST ->
+            io:format("Error ~p~n ~p~n ~p~n", [Err, Brief, fsummary(Doc)]),
+            erlang:raise(Type,Err,ST)
     end.
 
 class_description(Name, Parent, Evs) ->
     [{_,Doc}] = ets:lookup(docs, Name),
     D0 = doc(detailed, Doc),
-    %% ?DBGCF("wxStyledTextEvent", undefined, "~tp~n",[p(D0)]),
     D1 = flatten_p(D0),
-    %% ?DBGCF("wxStyledTextEvent", undefined, "~tp~n",[p(D1)]),
     D2 = remove_doxy_link(D1),
     {Events, D3} = make_events(D2, Evs),
-    %% ?DBGCF("wxBrush", undefined, "~tp~n",[p(D2)]),
+    %% ?DBGCF("wxCheckBox", undefined, "~p~n", [p(D2)]),
     Docs = translate(D3),
-
     Parents = wx_gen_erl:parents(Parent),
-    MRef = fun(M) -> #xmlElement{name=seeerl, attributes=[{marker,M}],
-                                 content=[{c, [#xmlText{value=M}]}]}
-           end,
+    MRef = fun(M) -> {url, "`m:" ++ M ++ "`", none} end,
     PRef = case [MRef(P) || P <- Parents, P =/= root, P =/= object] of
                [] -> [];
                Ps ->
-                   Derived = {p, ["This class is derived (and can use functions) from: ",
-                                  nl(4) | lists:join(" ", Ps)] },
-                   [nl(2),Derived, nl(2)]
+                   Derived = {p, "This class is derived, and can use functions, from: "},
+                   Items = [{list_item, [P]} || P <- Ps],
+                   [Derived, {list, Items}]
            end,
 
-    Url = "https://docs.wxwidgets.org/3.1/class" ++
+    Url = "https://docs.wxwidgets.org/3.2/class" ++
         camelcase_to_underscore(Name) ++ ".html",
-    WxRef = {p, ["wxWidgets docs: ", {url, [{href, Url}], [Name]}]},
-    [{description, Docs ++ PRef ++ [nl(2),WxRef,nl(2)]}|Events].
+    WxRef = {p, [{text, "wxWidgets docs: "}, {url, Url, Name}]},
+    try
+        Everything = Docs ++ PRef ++ [WxRef|Events],
+        Desc = to_text(Everything),
+        %% ?DBGCF("wxListView", undefined, "~p~n", [Docs]),
+        w("~s\n", [unicode:characters_to_binary(Desc)]),
+        ok
+    catch Type:Err:ST ->
+            io:format("Error ~p~n ~p~n ~p~n", [Err, Name, fsummary(Doc)]),
+            erlang:raise(Type,Err,ST)
+    end.
 
-gen_funcs(Ms) ->
-    lists:foldl(fun(M, Acc) -> gen_func(M, Acc) end, [], Ms).
+func(Ms) ->
+    try
+        Xml = gen_func(Ms, []),
+        case Xml of
+            [] ->
+                ignore;
+            _ ->
+                %% ?DBGCF("wxAuiManager", "InsertPane", "~p~n", [Xml]),
+                FuncDoc = to_text(Xml),
+                NoQuotes = string:find(FuncDoc, "\"") == nomatch,
+                case is_single_line(FuncDoc) andalso NoQuotes of
+                    true ->
+                        w(~s'-doc "~s".\n', [unicode:characters_to_binary(FuncDoc)]);
+                    false ->
+                        w(~s'-doc """\n', []),
+                        FuncDoc = to_text(Xml),
+                        w("~s", [unicode:characters_to_binary(FuncDoc)]),
+                        w(~s'\n""".\n', [])
+                end,
+                ok
+        end
+    catch Err:Reason:St ->
+            io:format("Err ~p: ~P~n ~P~n",[Err, Reason, 20, St, 30]),
+            exit(gen_doc)
+    end.
 
 gen_func(Ms, Acc0) ->
     Last = length(Ms),
@@ -190,77 +141,77 @@ gen_func(Ms, Acc0) ->
                 fun(M, {N,Acc}) ->
                         {N+1, [gen_func_1(M,N =/= Last,N)|Acc]}
                 end, {1,[]}, Ms),
-    [nl(2), {func, lists:append(lists:reverse(Fs))}, nl(2) | Acc0].
+    [lists:append(lists:reverse(Fs)) | Acc0].
 
 gen_func_1(#method{name=N,alias=A,params=Ps,where=erl_no_opt,method_type=MT}, SkipDesc, Clause) ->
     put(current_func, N),
     Name = erl_func_name(N,A,MT),
     As = wx_gen_erl:erl_args_count(Ps, erl_no_opt),
     Impl = io_lib:format("~s/~w",[Name,As+1]),
+    %% ?DBGCF("wxBitmap", "Create", "~p~n", [Ps]),
     Desc = case SkipDesc of
-               true -> [nl(2)];
-               false -> [nl(4),{fsummary, ["See: ", {c, [Impl]}]}, nl(2)]
+               true -> [];
+               false -> [{text, "Equivalent to: "}, {c, [Impl]}]
            end,
-    [nl(4),{name, xml_func_name(Name,As,Clause), []}|Desc];
+    Desc;
 gen_func_1(#method{name=N,alias=A,params=Ps,where=erl_alias,method_type=MT}, SkipDesc, Clause) ->
     put(current_func, N),
-    Name = erl_func_name(N,A,MT),
     As = wx_gen_erl:erl_args_count(Ps, erl_alias),
     Impl = io_lib:format("~s/~w",[wx_gen_erl:erl_func_name(N,undefined),As]),
+    %%    ?DBGCF("wxBitmap", "Create", "~p~n", [Ps]),
     Desc = case SkipDesc of
-               true -> [nl(2)];
-               false ->
-                   [nl(4),{fsummary, ["See: ", {c, [Impl]}]},
-                    nl(4),{desc, [{p, ["See: ", {seemfa, [{marker, [$#|Impl]}], [{c, [Impl]}]},"."]}, nl(4)]},
-                    nl(2)]
+               true  -> [];
+               false -> [{text, "Equivalent to: "}, {c, [Impl]}]
            end,
-    [nl(4),{name, xml_func_name(Name,As,Clause), []}|Desc];
+    Desc;
 gen_func_1(#method{name=N,id=Id,alias=A,params=Ps,method_type=MT}, SkipDesc, Clause) ->
     put(current_func, N),
     Name = erl_func_name(N,A,MT),
     As = wx_gen_erl:erl_args_count(Ps, erl_alias),
-    Desc = case (not SkipDesc) andalso ets:lookup(docs, Id) of
+    Docs = case (not SkipDesc) andalso ets:lookup(docs, Id) of
                false ->
-                   [nl(2)];
+                   %% ?DBGCF("wxBitmap", "Create", "~p~n", [Ps]),
+                   [];
                [] when Name =:= "destroy" ->
                    [
-                    nl(4),{fsummary, ["Destructor"]},
-                    nl(4),{desc, [{p, ["Destroys the object."]}]},
-                    nl(2)];
+                    [{text, "Destroys the object."}]
+                   ];
                [] ->
                    ?LOG(" /~w (~p ~p) is missing docs~n",[As, SkipDesc, Clause]),
-                   [nl(4),{fsummary, [""]}, {desc, [""]},
-                    nl(2)];
+                   [];
                [{_,Doc}] ->
-                   [nl(4),{fsummary, fsummary(Doc)},
-                    nl(4),{desc, desc(Doc)},
-                    nl(2)]
+                   case {fsummary(Doc), desc(Doc)} of
+                       {[], Desc} ->
+                           Desc;
+                       {Desc, []} ->
+                           Desc;
+                       {Sum, Desc} ->
+                           [Sum, nl(0), Desc]
+                   end
            end,
-    [nl(4),{name, xml_func_name(Name,As,Clause), []}|Desc].
+    Docs.
 %% Remove paragraph
 
-fsummary(Doc) ->
-    case flatten_p(doc(brief, Doc)) of
+fsummary(Docs) ->
+    Doc = doc(brief, Docs),
+    case flatten_p(Doc) of
         [] ->
             %% Det = doc(detailed, Doc);
             [];
-        [#xmlElement{name=para, content=Cs}|_] ->
-            %% ?DBGCF("wxXmlResource", "ClearHandlers", "~p~n",[p(Cs)]),
-            Res = fsummary_1(Cs),
-            try xmerl:export_simple_content(Res, xmerl_xml)
-            catch _:Reason:ST ->
-                    ?LOG("ERROR: ~p~n~p ~p~n ~p~n",[p(Cs), Reason, Res, ST])
-            end,
-            Res
+        Head ->
+            %% ?DBGCF("wxBitmap", "wxBitmap", "'~p'~n",[Doc]),
+            %% ?DBGCF("wxHtmlWindow", "GetOpenedPageTitle", "~p~n", [Docs]),
+            [{p, [{text_nocut, to_text(translate(fsummary_1(Head)))}]}]
     end.
 
 desc(Doc) ->
-    Docs = doc(brief, Doc) ++ doc(detailed, Doc),
+    Docs = doc(detailed, Doc),
     %% ?DBGCF("wx_misc", "wxNewId", "~100p~n", [p(Docs)]),
     Flat = flatten_p(Docs),
+    %% ?DBGCF("wxArtProvider", "GetBitmap", "~100p~n", [p(Flat)]),
     Clean = remove_doxy_link(Flat),
-    %% ?DBGCF("wxSlider", "SetThumbLength", "~100p~n", [p(Flat)]),
     Res = translate(Clean),
+    %% ?DBGCF("wxArtProvider", "GetBitmap", "~100p~n", [p(Res)]),
     Res.
 
 %%%%%%%%%%%%%%
@@ -269,6 +220,7 @@ make_events(D1, Evs) ->
     make_events(D1, Evs, []).
 
 make_events([#xmlElement{name=heading}=E|Es], Evs, Acc) ->
+    %% ?DBGCF("wxTopLevelWindow", undefined, "~100p~n", [p(E)]),
     case is_event_heading(E) of
         false ->
             make_events(Es, Evs, [E|Acc]);
@@ -277,6 +229,7 @@ make_events([#xmlElement{name=heading}=E|Es], Evs, Acc) ->
             {Events, lists:reverse(Acc, Rest)}
     end;
 make_events([#xmlElement{name=sect1, content=[Title|Cs]}=E|Es], Evs, Acc) ->
+    %% ?DBGCF("wxTopLevelWindow", undefined, "~100p~n", [p(Title)]),
     case is_event_heading(Title) of
         false ->
             make_events(Es, Evs, [E|Acc]);
@@ -295,33 +248,33 @@ is_event_heading(#xmlElement{name=Name, content=Cs})
         %% "Default event" ++ _ -> true;
         "Events" ++ _ -> true;
         _ -> false
-    end.
-
+    end;
+is_event_heading(_) ->
+    false.
 
 make_events_sect(Cs, false) ->
+    %% ?DBGCF("wxTopLevelWindow", undefined, "~tp~n",[p(Cs)]),
     {Evs, Rest} = get_event_list(Cs),
-    Refs = [Ev || Item <- Evs, Ev <- get_event_class(Item), Ev =/= ignore],
-    %% ?DBGCF("wxSlider", undefined, "~100p~n",[Refs]),
-    EventRefs = lists:join(", ", Refs),
-    case EventRefs of
+    Refs = [{list_item, [Ev]} || Item <- Evs, Ev <- get_event_class(Item), Ev =/= ignore],
+    case Refs of
         [] -> {[], Rest};
         _ ->
-            EventDoc = [{p, ["Event types emitted from this class: "|EventRefs]}],
-            {[{section, [{title, ["Events"]}|EventDoc]}], Rest}
+            EventDoc = [{p, ["Event types emitted from this class: "]}|
+                        [{list, Refs}]],
+            {[{title, ["Events"]}|EventDoc], Rest}
     end;
 make_events_sect(Cs, [_|_]) ->
-    %% ?DBGCF("wxStyledTextEvent", undefined, "~tp~n",[p(Cs)]),
     {_Refs, Rest} = get_event_list(Cs),
     EvtMarker = "wxEvtHandler#connect/3",
     EvtFunc = "wxEvtHandler:connect/3",
     EvtHRef = #xmlElement{name=seemfa, attributes=[{marker,EvtMarker}],
-                          content=[{c, [#xmlText{value=EvtFunc}]}]},
+                          content=[{c, [{text, EvtFunc}]}]},
     EvType = get(current_class) ++ "Type",
     TypeRef = #xmlElement{name=seetype, attributes=[{marker,"#" ++ EvType}],
-                          content=[{c, [#xmlText{value=EvType}]}]},
+                          content=[{c, [{text, EvType}]}]},
     EventDoc = [{p, ["Use ", EvtHRef, " with ", TypeRef,
                      " to subscribe to events of this type."]}],
-    EventSect = [{section, [{title, ["Events"]}|EventDoc]}],
+    EventSect = [{title, ["Events"]}|EventDoc],
     case get(current_class) of
         "wxStyledTextEvent" -> %% Broken xml
             {EventSect, []};
@@ -329,14 +282,23 @@ make_events_sect(Cs, [_|_]) ->
             {EventSect, Rest}
     end.
 
-get_event_list(Cs) ->
-    [EvL|R] = lists:dropwhile(fun(#xmlElement{name=itemizedlist}) -> false; (_) -> true end, Cs),
-    #xmlElement{name=itemizedlist, content=Evs} = EvL,
-    {Evs, R}.
+get_event_list([#xmlElement{name=para, content=Cs}|Rest]) ->
+    case get_event_list(Cs) of
+        false ->
+            get_event_list(Rest);
+        {Res,Cont} ->
+            {Res, Cont ++ Rest}
+    end;
+get_event_list([#xmlElement{name=itemizedlist, content=Evs}|R]) ->
+    {Evs,R};
+get_event_list([_|R]) ->
+    get_event_list(R);
+get_event_list([]) ->
+    false.
 
 get_event_class(#xmlText{}) -> [];
 get_event_class(#xmlElement{name=listitem, content=[#xmlElement{name=para, content=Cs}]}) ->
-    [#xmlText{value="EVT_" ++ EventMacro}|_] = Cs,
+    [#xmlText{value = "EVT_" ++ EventMacro}|_] = Cs,
     [WxName|_R] = string:split(EventMacro, "("),
     Map = get(ev2class),
     EvType0 = string:lowercase(WxName),
@@ -355,18 +317,23 @@ get_event_class(#xmlElement{name=listitem, content=[#xmlElement{name=para, conte
                             [ignore]
                     end;
                 Class ->
-                    [#xmlElement{name=seeerl, attributes=[{marker,Class}], content=[{c, [EvType]}]}]
+                    %% [#xmlElement{name=seeerl, attributes=[{marker,Class}], content=[{c, [EvType]}]}]
+                    [{url, "`m:"++Class ++ "`", "`" ++ EvType ++ "`"}]
             end;
         Class ->
-            [#xmlElement{name=seeerl, attributes=[{marker,Class}], content=[{c, [EvType0]}]}]
-    end.
+            %% [#xmlElement{name=seeerl, attributes=[{marker,Class}], content=[{c, [EvType0]}]}]
+            [{url,  "`m:"++Class ++ "`", "`" ++ EvType0 ++ "`"}]
+    end;
+get_event_class(#xmlElement{name=Name, content=Cs}) ->
+    io:format("~w: ~P~n",[Name, p(Cs), 20]).
+
 
 make_event_refs(Class) ->
     #class{event=Evs} = get({class, Class}),
     Fun = fun(Ev) ->
                   EvType = wx_gen_erl:event_type_name(Ev),
-                  #xmlElement{name=seeerl, attributes=[{marker,Class}],
-                              content=[{c, [EvType]}]}
+                  %% #xmlElement{name=seeerl, attributes=[{marker,Class}],content=[{c, [EvType]}]}
+                  [{url,  "`m:"++Class ++ "`", "`" ++ EvType ++ "`"}]
           end,
     [Fun(Ev) || Ev <- Evs].
 
@@ -488,7 +455,7 @@ xml_func_name(Name, As, Clause) ->
 
 nl(Indent) ->
     NL = [$\n, lists:duplicate(Indent, $\s)],
-    #xmlText{value=NL}.
+    {text, NL}.
 
 doc(_, undefined) ->
     [];
@@ -514,29 +481,69 @@ translate([Doc|Docs], Acc) ->
 translate([], Acc) ->
     lists:reverse(Acc).
 
-t(#xmlText{}=Txt) ->
-    Txt;
+t(#xmlText{value = Txt} = Xml) ->
+    case is_include([Xml]) of
+        true -> ignore;
+        false -> {text, Txt}
+    end;
 t(#xmlElement{name=para, content=Cs}) ->
     Docs = translate(Cs),
     case is_empty(Docs) orelse is_include(Cs) of
         true -> ignore;
-        false -> #xmlElement{name=p, content=Docs ++ [nl(6)]}
+        false -> {p, Docs}
     end;
 t(#xmlElement{name=simplesect, attributes=As, content=Cs}) ->
     Split = case As of
+                [#xmlAttribute{value="example"}] ->
+                    {ignore, ignore, []};
                 [#xmlAttribute{value="see"}] ->
-                    {"See: ", see_sect(Cs)};
+                    case see_sect(Cs) of
+                        [One] ->
+                            {combine, "See: ", One};
+                        List ->
+                            {list, {text, "See: \n"}, List}
+                    end;
+                [#xmlAttribute{value="deprecated"}] ->
+                    [{p, Doc}] = translate(Cs),
+                    {combine, "Deprecated: ", Doc};
+                [#xmlAttribute{value="return"}] ->
+                    [{p, Doc}] = translate(Cs),
+                            {combine, "Return: ", Doc};
+                [#xmlAttribute{value="remark"}] ->
+                    case translate(Cs) of
+                        [] ->
+                            {ignore, ignore, []};
+                        [{p, Doc}] ->
+                            {combine, "Remark: ", Doc}
+                    end;
+                [#xmlAttribute{value="note"}] ->
+                    [{p, Doc}] = translate(Cs),
+                    {combine, "Note: ", Doc};
+                [#xmlAttribute{value="since"}] ->
+                    [{p, Doc}] = translate(Cs),
+                    {combine, "Since: ", Doc};
                 [#xmlAttribute{value=V}] ->
-                    {string:titlecase(V) ++ ": ", translate(Cs)}
+                    %% ?DBGCF("wxBitmap", "SetHeight", "~p~n", [V]),
+                    {other, {p, string:titlecase(V) ++ ": "}, translate(Cs)}
             end,
     case Split of
-        {_, []} -> ignore;
-        {Intro, Docs} ->
-            #xmlElement{name=p, content=[Intro|Docs ++ [nl(6)]]}
+        {_, _, []} -> ignore;
+        {list, Intro, Refs} ->
+            Items = [{list_item, Ref} || Ref <- Refs],
+            [Intro, {list, Items}];
+        {other, Intro, Text} ->
+            [Intro|Text];
+        {combine, Intro, Text} ->
+            [{p, [Intro|Text]}]
     end;
 
 t(#xmlElement{name=sect1, content=[#xmlElement{name=title, content=Title}|Desc]}) ->
-    [{p, [get_text(Title)]} | translate(Desc)];
+    case {get(current_class), get_text(Title)} of
+        {"wxStyledTextCtrl", "Index of" ++ _} ->
+            ignore;
+        _ ->
+            [{p, [get_text(Title)]} | translate(Desc)]
+    end;
 
 t(#xmlElement{name=xrefsect,
               content=[#xmlElement{name=xreftitle, content=Title},
@@ -544,7 +551,7 @@ t(#xmlElement{name=xrefsect,
     Intro = case get_text(Title) of
                 [] -> [];
                 "Todo" -> skip;
-                T -> [#xmlText{value=T ++ ": "}]
+                T -> [{text, T ++ ": "}]
             end,
     case Intro of
         skip -> ignore;
@@ -552,14 +559,14 @@ t(#xmlElement{name=xrefsect,
             Docs = translate(Intro ++ Desc),
             case is_empty(Docs) of
                 true -> ignore;
-                false -> Docs ++ [nl(6)]
+                false -> Docs
             end
     end;
 
 t(#xmlElement{name=ref}=Ref) ->
     see(Ref);
 t(#xmlElement{name=ulink, attributes=[#xmlAttribute{value=Url}], content=Cs}) ->
-    {url, [{href, Url}], Cs};
+    {url, Url, get_text(Cs)};
 t(#xmlElement{name=onlyfor, content=Cs}) ->
     {p, ["Only for:" | translate(Cs)]};
 t(#xmlElement{name=C, content=Txt})
@@ -575,14 +582,15 @@ t(#xmlElement{name=C, content=Txt})
 %% Fixme (lists and tables)
 t(#xmlElement{name=parameterlist, content=_C}) ->
     ignore;
-t(#xmlElement{name=itemizedlist, content=_C}) ->
-    ignore;
+t(#xmlElement{name=itemizedlist, content=C}) ->
+    {p, [{list, translate(C)}]};
 t(#xmlElement{name=orderedlist, content=_C}) ->
+    %% {list, translate(C)};
     ignore;
 t(#xmlElement{name=table, content=_C}) ->
     ignore;
-t(#xmlElement{name=listitem, content=_C}) ->
-    ignore;
+t(#xmlElement{name=listitem, content=C}) ->
+    {list_item, translate(C)};
 t(#xmlElement{name=entry, content=_C}) ->
     ignore;
 
@@ -592,14 +600,14 @@ t(#xmlElement{name=hruler}) ->
     ignore;
 
 t(#xmlElement{name=ndash, content=[]}) ->
-    #xmlText{value="-"};
+    {text, "-"};
 t(#xmlElement{name=mdash, content=[]}) ->
-    #xmlText{value="-"};
+    {text, "-"};
 
 t(#xmlElement{name=heading, content=Cs}) ->
     case Cs == [] orelse "" == get_text(Cs) of
         true -> ignore;
-        false -> {p, Cs}
+        false -> {title, translate(Cs)}
     end;
 t(#xmlElement{name=nonbreakablespace}) ->
     ignore;
@@ -611,9 +619,15 @@ t(#xmlElement{name=native}) ->
     ignore;
 t(#xmlElement{name=anchor, content=[]}) ->
     ignore;
+t(#xmlElement{name=htmlonly}) ->
+    ignore;
 t(#xmlElement{name=What, content=Cs}) ->
     ?LOG("xml unhand: ~p~n  ~P~n", [What,p(Cs),15]),
-    ignore.
+    ignore;
+t({url, _, _} = AlreadyTranslated) ->
+    AlreadyTranslated;
+t({_, _} = AlreadyTranslated) ->
+    AlreadyTranslated.
 
 see(#xmlElement{name=ref, attributes=As, content=Cs}) ->
     #xmlAttribute{value=RefType} = lists:keyfind(kindref, #xmlAttribute.name, As),
@@ -628,20 +642,20 @@ see("member", As, Cs) ->
                                 M -> {"#" ++ F ++ "/" ++ A, F ++ "/" ++ A};
                                 _ -> {M ++ "#" ++ F ++ "/" ++ A, M ++ ":" ++ F ++ "/" ++ A}
                             end,
-            #xmlElement{name=seemfa, attributes=[{marker,Marker}], content=[{c, [#xmlText{value=Func}]}]};
+            #xmlElement{name=seemfa, attributes=[{marker,Marker}], content=[{c, [{text, Func}]}]};
         enum ->
-            EnumP = get_text(Cs),
-            #xmlText{value=[$?|EnumP]};
+            EnumP = markdown_qoute(get_text(Cs)),
+            [{text, [$?|EnumP]}];
         not_found ->
             Func = get_text(Cs),
-            [{c, [Func]}, " (not implemented in wx)"]
+            [{c, [Func]}, {text, " (not implemented in wx)"}]
     end;
 see("compound", As, _Cs) ->
     #xmlAttribute{value=RefId} = lists:keyfind(refid, #xmlAttribute.name, As),
     case RefId of
-        "classwxPoint" -> ["{X,Y}"];
-        "classwxRect" -> ["{X,Y,W,H}"];
-        "classwxSize" -> ["{Width,Height}"];
+        "classwxPoint" -> [{text, "{X,Y}"}];
+        "classwxRect" -> [{text, "{X,Y,W,H}"}];
+        "classwxSize" -> [{text, "{Width,Height}"}];
         "classwxColor" ->
             #xmlElement{name=seetype, attributes=[{marker,"wx#wx_colour"}], content=[{c, ["wx_color()"]}]};
         "classwxColour" ->
@@ -655,10 +669,10 @@ see("compound", As, _Cs) ->
         "class" ++ Class ->
             case get({class, Class}) of
                 undefined ->
-                    [{c, [Class]}, " (not implemented in wx)"];
+                    [{c, [Class]}, {text, " (not implemented in wx)"}];
                 _ ->
                     %% AppModule = Class,
-                    #xmlElement{name=seeerl, attributes=[{marker,Class}], content=[{c, [Class]}]}
+                    {url, "`m:" ++ Class ++ "`", none}
             end;
         "group__group" ++ _ ->
             ignore;
@@ -667,62 +681,226 @@ see("compound", As, _Cs) ->
             ignore
     end.
 
+see_sect([#xmlElement{content=Cs}]) ->
+    see_sect2(Cs, []);
 see_sect(Refs) ->
-    List = see_sect2(Refs, []),
-    WithComma = lists:join([", "], List),
-    %% ?LOG("~p~n",[WithComma]),
-    lists:append(WithComma).
+    Res = see_sect2(Refs, []),
+    Res.
 
 see_sect2([#xmlText{value=Txt}|Rest], Acc0) ->
+    %% ?DBGCF("wxArtProvider", undefined, "~p~n", [Txt]),
     MakeRef = fun(TextRef, Acc) ->
                       Stripped = string:trim(TextRef, both, " ."),
                       Split = string:split(Stripped, "_", all),
-                      see_sect3(Split, Stripped, Acc)
+                      case see_sect3(Split, Stripped) of
+                          ignore -> Acc;
+                          no_ref -> Acc;
+                          Ref -> [Ref|Acc]
+                      end
               end,
     Acc = lists:foldl(MakeRef, Acc0, string:lexemes(Txt, ",")),
     see_sect2(Rest, Acc);
 see_sect2([Ref|Rest], Acc) ->
+    %% ?DBGCF("wxArtProvider", undefined, "~p~n", [t(Ref)]),
     case t(Ref) of
         ignore -> see_sect2(Rest, Acc);
+        [{c,_}, {text, " (not implemented" ++ _}] -> see_sect2(Rest, Acc);
         Res when is_list(Res) -> see_sect2(Rest, [Res|Acc]);
         Res -> see_sect2(Rest, [[Res]|Acc])
     end;
 see_sect2([], Acc) ->
     lists:reverse(Acc).
 
-see_sect3(_, "", Acc) -> Acc;
-see_sect3(["overview", Part], Stripped, Acc) ->
-    [see_sect4("Overview " ++ Part, "overview_" ++ Part, Stripped)|Acc];
-see_sect3(["overview", Part, _], Stripped, Acc) ->
-    [see_sect4("Overview " ++ Part, "overview_" ++ Part, Stripped)|Acc];
-see_sect3(["page", "samples" ++ _, _], Stripped, Acc) ->
-    [see_sect4("Examples", "page_samples", Stripped)|Acc];
-see_sect3(_Pre, Text, Acc) ->
-    %% ?LOG("~p ~p~n", [_Pre, Text]),
-    [[Text]|Acc].
+see_sect3(_, "") -> ignore;
+see_sect3(["overview", Part], Stripped) ->
+    see_sect4("Overview " ++ Part, "overview_" ++ Part, Stripped);
+see_sect3(["overview", Part, _], Stripped) ->
+    see_sect4("Overview " ++ Part, "overview_" ++ Part, Stripped);
+see_sect3(["page", "samples" ++ _, _], Stripped) ->
+    see_sect4("Examples", "page_samples", Stripped);
+see_sect3(_Pre, _Text) ->
+    no_ref.
 
-see_sect4(Name, Pre, Stripped) ->
-    Url0 = "https://docs.wxwidgets.org/3.1/",
+see_sect4(Name, Pre, Stripped0) ->
+    [Stripped| _] = string:split(Stripped0, " "),
+    Url0 = "https://docs.wxwidgets.org/3.2/",
     Url = Url0 ++ Pre ++ ".html#" ++ Stripped,
-    [{url, [{href, Url}], [Name]}].
+    [{url, Url, Name}].
 
 get_text([#xmlText{value=Val}]) ->
     Val;
-get_text(_) ->
-    not_single_text. %% return atom so we crash if is not expected that the string is empty
+get_text(_Debug) ->
+    {_, ST} = process_info(self(), current_stacktrace),
+    {not_single_text, ST, _Debug}. %% return atom so we crash
 
-to_text([#xmlText{value=Val}|Rest]) ->
-    Val ++ to_text(Rest);
-to_text([{c,Txt}|Rest]) ->
-    Txt ++ to_text(Rest);
-to_text([C|Rest]) when is_integer(C) ->
-    [C|to_text(Rest)];
-to_text([L|Rest]) when is_list(L) ->
-    to_text(L) ++ to_text(Rest);
-to_text([]) ->
+to_text(Txt) ->
+    %% ?DBGCF("wxWindow", undefined, "~p~n", [p(Txt)]),
+    tighten_whitespace(to_text(Txt, 0)).
+
+to_text([{text, Txt1}, {text, Txt2}|Rest], Sz0) ->
+    to_text([{text, Txt1 ++ Txt2}|Rest], Sz0);
+to_text([{text, Txt}|Rest], Sz0) ->
+    {Val, Sz} = split_line(Txt, Sz0),
+    [Val|to_text(Rest, Sz)];
+to_text([{text_nocut, Txt}|Rest], Sz0) ->
+    [Txt|to_text(Rest, string:length(Txt) + Sz0)];
+
+to_text([#xmlElement{name=p, content=Val}|Rest], _) ->
+    case Rest of
+        [] ->
+            ["\n\n", to_text(Val, 0)];
+        _ ->
+            ["\n\n", to_text(Val, 0),"\n\n" | to_text(Rest, 0)]
+    end;
+to_text([{p,Val}|Rest], _) ->
+    case Rest of
+        [] ->
+            ["\n\n", to_text(Val, 0)];
+        _ ->
+            ["\n\n", to_text(Val, 0),"\n\n" | to_text(Rest, 0)]
+    end;
+to_text([#xmlElement{name=c, content=Val}|Rest], Sz) ->
+    Part1 = ["`", to_text(Val, 0), "`"],
+    [Part1 | to_text(Rest, string:length(Part1) + Sz)];
+to_text([{c,Val}|Rest], Sz) ->
+    Part1 = case Val of
+                [{c, _}|_] ->  %% c in c don't double qoute
+                    to_text(Val, 0);
+                _ ->
+                    ["`", to_text(Val, 0), "`"]
+            end,
+    [Part1 | to_text(Rest, string:length(Part1) + Sz)];
+to_text([#xmlElement{name=seemfa, content=Val}|Rest], Sz) ->
+    [to_text(Val, 0) | to_text(Rest, Sz)];
+to_text([#xmlElement{name=seetype, content=Val}|Rest], Sz) ->
+    [to_text(Val, 0) | to_text(Rest, Sz)];
+to_text([{url, Url, none}|Rest], Sz) ->
+    UrlString = [Url],
+    [ UrlString | to_text(Rest, Sz + string:length(UrlString))];
+to_text([{url, Url, String}|Rest], Sz) ->
+    UrlString = ["[", String, "](", Url, ")"],
+    [ UrlString | to_text(Rest, Sz + string:length(UrlString))];
+to_text([{title, Title}|Rest], _) ->
+    [  "\n\n## ", to_text(Title,0), "\n\n"| to_text(Rest,0)];
+to_text([{list, List}|Rest], _Sz) ->
+    ListString = [["* ", list_item(Item), "\n\n"] || {list_item, Item} <- List],
+    [ ListString | to_text(Rest, 0)];
+to_text([$\s], _Sz) ->
+    [];
+to_text([C|Rest], Sz) when is_integer(C) ->
+    [C|to_text(Rest, Sz+1)];
+to_text([L|Rest], Sz) when is_list(L) ->
+    to_text(L ++ Rest, Sz);
+to_text([], _Sz) ->
     [].
 
+
+tighten_whitespace(String) ->
+    case string:next_codepoint(String) of
+        [$\n|Rest] ->
+            tighten_whitespace(Rest);
+        [$\s|Rest] ->
+            tighten_whitespace(Rest);
+        [Char|Rest] ->
+            [Char|t_wsp_char(Rest)];
+        [] ->
+            []
+    end.
+
+t_wsp_char(String) ->
+    case string:next_codepoint(String) of
+        [$\n|Rest] ->
+            t_wsp_nl(Rest);
+        [$\s|Rest] ->
+            t_wsp_space(Rest);
+        [Char|Rest] ->
+            [Char|t_wsp_char(Rest)];
+        [] ->
+            []
+    end.
+
+t_wsp_nl(String) ->
+    case string:next_codepoint(String) of
+        [$\n|Rest] ->
+            t_wsp_para(Rest);
+        [$\s|Rest] ->
+            t_wsp_nl(Rest);
+        [Char|Rest] ->
+            ["\n", Char|t_wsp_char(Rest)];
+        [] ->
+            []
+    end.
+
+t_wsp_para(String) ->
+    case string:next_codepoint(String) of
+        [$\n|Rest] ->
+            t_wsp_para(Rest);
+        [$\s|Rest] ->
+            t_wsp_para(Rest);
+        [Char|Rest] ->
+            ["\n\n", Char|t_wsp_char(Rest)];
+        [] ->
+            []
+    end.
+
+t_wsp_space(String) ->
+    case string:next_codepoint(String) of
+        [$\n|Rest] ->
+            t_wsp_nl(Rest);
+        [$\s|Rest] ->
+            t_wsp_space(Rest);
+        [Char|Rest] ->
+            [$\s, Char|t_wsp_char(Rest)];
+        [] ->
+            []
+    end.
+
+add_space([]) ->
+    [];
+add_space(Words) ->
+    case string:next_codepoint(Words) of
+        [$\n|_] -> Words;
+        _ -> [$\s|Words]
+    end.
+
+split_line(Str, BefSz) ->
+    %% ?DBGCF("wxAcceleratorEntry", undefined, "~w ~p~n", [BefSz, Str]),
+    Split = string:split(Str, " ", all),
+    %% ?DBGCF("wxAcceleratorEntry", undefined, "~p~n", [Split]),
+    split_line_1(Split, BefSz).
+
+split_line_1([[Char]|Rest], Len) when Char =:= $,; Char =:= $.; Char =:= $:; Char =:= $) ->
+    {Cont, Sz} = split_line_1(Rest, Len+2),
+    {[Char|add_space(Cont)], Sz};
+split_line_1([[Char]|Rest], Len) when Char =:= $; ; Char =:= $( ->
+    {Cont, Sz} = split_line_1(Rest, Len+1),
+    {[Char|Cont], Sz};
+split_line_1([[Char, Char2]|Rest], Len) when Char =:= $; ; Char =:= $) ->
+    {Cont, Sz} = split_line_1(Rest, Len+1),
+    {[Char, Char2, $\s|Cont], Sz};
+split_line_1([Word|Rest], Len) ->
+    WordSz = string:length(Word),
+    NewLen = WordSz + Len + 1,
+    if Rest == [] ->
+            {[Word], Len};
+       NewLen > 90 ->
+            {Cont, Sz} = split_line_1(Rest, WordSz),
+            {["\n",Word | add_space(Cont)], Sz};
+       true ->
+            {Cont, Sz} = split_line_1(Rest, NewLen),
+            {[Word | add_space(Cont)], Sz}
+    end;
+split_line_1([], Sz) ->
+    {[], Sz}.
+
+list_item([{p, Text}]) ->
+    to_text(Text);
+list_item(Text) ->
+    to_text(Text).
+
 is_text([#xmlText{}|R]) ->
+    is_text(R);
+is_text([{text, _}|R]) ->
     is_text(R);
 is_text([C|R]) when is_integer(C) ->
     is_text(R);
@@ -730,6 +908,7 @@ is_text([]) -> true;
 is_text(_) -> false.
 
 is_text_element(#xmlText{}) -> true;
+is_text_element({text, _}) -> true;
 is_text_element(#xmlElement{name=E}) when
       E =:= ndash; E =:= emphasis; E =:= bold;
       E =:= computeroutput; E =:= nonbreakablespace;
@@ -738,16 +917,25 @@ is_text_element(#xmlElement{name=E}) when
 is_text_element(_) ->
     false.
 
+is_single_line(Text) ->
+    case string:find(Text, "\n") of
+        nomatch -> true;
+        _ -> false
+    end.
+
 %%%%%%%%%%%%%%%%
 
+fsummary_1([#xmlElement{name=para, content=Cs}|_Fs]) ->
+    fsummary_1(Cs);
 fsummary_1([#xmlText{value=Val}|Fs]) ->
-    [Val|fsummary_1(Fs)];
+    [{text, markdown_qoute(Val)}|fsummary_1(Fs)];
+fsummary_1([{text, Val}|Fs]) ->
+    [{text, Val}|fsummary_1(Fs)];
 fsummary_1([#xmlElement{name=E, content=Cs}|Fs])
   when E =:= emphasis; E =:= bold; E=:= computeroutput ->
-    [{c, Cs}|fsummary_1(Fs)];
+    [{c, fsummary_1(Cs)}|fsummary_1(Fs)];
 fsummary_1([#xmlElement{name=ndash, content=[]}|Fs]) ->
-    ["--"|fsummary_1(Fs)];
-
+    [{text, "--"}|fsummary_1(Fs)];
 fsummary_1([#xmlElement{name=ndash}=E|Fs]) ->
     [E|fsummary_1(Fs)];
 fsummary_1([#xmlElement{name=ref}=Ref|Fs]) ->
@@ -758,7 +946,9 @@ fsummary_1([#xmlElement{name=ref}=Ref|Fs]) ->
             Cs ++ fsummary_1(Fs);
         #xmlElement{name=seetype, content=Cs} ->
             Cs ++ fsummary_1(Fs);
-        #xmlText{value=Cs} ->
+        #xmlText{value = Cs} ->
+            [Cs | fsummary_1(Fs)];
+        {text, Cs} ->
             [Cs | fsummary_1(Fs)];
         Cs when is_list(Cs) ->
             Cs ++ fsummary_1(Fs);
@@ -839,6 +1029,9 @@ lookup4([Class|R], Func) ->
 
 lookup(root, _) -> not_found;
 lookup(object, _) -> not_found;
+lookup("static", Func) ->
+    %% ?LOG("Doc: ~p ~p~n", [get(current_class), _Func]),
+    lookup("utils", Func);
 lookup(Class, Func) ->
     case get({class, Class}) of
         #class{methods=Ms} ->
@@ -857,106 +1050,92 @@ lookup(Class, Func) ->
 
 %%%%%%%%%%%%%
 
-flatten_p(Docs) ->
-    R = flatten_p(Docs, top, []),
-    R.
+%% The xml doesn't close sections correctly due to the markdown
+%% used in wxWidgets doesn't close the sections or is not indented
+%% correctly, so we need to move sections to the top.
 
-flatten_p([Doc|Docs], Parent, Acc0) ->
+flatten_p(Docs) ->
+%%    ?DBGCF("wxWindow", undefined, "~p~n",[Docs]),
+    {_Stack, Res} = flatten_p(Docs, [], []),
+    %% ?DBGCF("wxWindow", undefined, "~p~n",[Res]),
+    try
+        true = is_list(Res),
+        Res
+    catch _:_ ->
+            ?LOG("Failed: ~p ~n ~p~n", [Res, Docs]),
+            exit(failed)
+    end.
+
+flatten_p([Doc|Docs], Stack, Acc) ->
     case f(Doc) of
-        break when Parent =/= top ->
-            {break, [Doc|Docs], Acc0};
-        break ->
-            flatten_p(Docs, Parent, [Doc|Acc0]);
-        {Type,Deep} when is_list(Deep), Parent =:= Type ->
-            case flatten_p(Deep, Type, Acc0) of
-                {break, Rest, Acc} ->
-                    {break, Rest++Docs, Acc};
-                Acc ->
-                    flatten_p(Docs, Parent, Acc)
-            end;
-        {_Type,Deep} when is_list(Deep), Parent =:= para ->
-            %% list or simplsect inside para breakout
-            {break, [Doc|Docs], Acc0};
-        {Type,Deep} when is_list(Deep) ->
-            Cont = [simplesect, xrefdescription, parameterdescription],
-            case Type =:= para andalso lists:member(Parent, Cont) of
-                true ->
-                    flatten_p(Deep ++ Docs, Parent, Acc0);
-                false ->
-                    case flatten_p(Deep, Type, []) of
-                        {break, Rest, Cs} ->
-                            Acc = lists:reverse(Cs),
-                            case Parent of
-                                top ->
-                                    flatten_p(Rest++Docs, top, [Doc#xmlElement{name=Type, content=Acc}|Acc0]);
-                                _ ->
-                                    {break, Rest++Docs, [Doc#xmlElement{name=Type, content=Acc}|Acc0]}
-                            end;
-                        Cs ->
-                            flatten_p(Docs, Parent, [Doc#xmlElement{name=Type, content=Cs}|Acc0])
-                    end
-            end;
-        Xml when Parent =:= top ->
-            %% We don't want text outside of para's
-            case lists:splitwith(fun is_text_element/1, [Doc|Docs]) of
-                {[], _Cont} ->
-                    flatten_p(Docs, Parent, [Xml|Acc0]);
-                {Cs, Cont} ->
-                    flatten_p([#xmlElement{name=para, content=Cs}|Cont], top, Acc0)
-            end;
-        #xmlText{} = Txt ->
+        #xmlText{value=_Val} = Txt ->
             case is_empty([Txt]) of
-                true when Acc0 =:= []; Docs =:= [] ->
-                    flatten_p(Docs, Parent, Acc0);
+                true when Acc =:= []; Docs =:= [] ->
+                    flatten_p(Docs, Stack, Acc);
                 _ ->
-                    flatten_p(Docs, Parent, [Txt|Acc0])
+                    flatten_p(Docs, Stack, [Txt|Acc])
             end;
-        Xml ->
-                    flatten_p(Docs, Parent, [Xml|Acc0])
+        break when Stack == [] ->
+            #xmlElement{name=Type, content=Cs} = Doc,
+            {NewStack, Res} = flatten_p(Cs, [Doc#xmlElement{name=Type}], []),
+            flatten_2(Docs, NewStack, lists:reverse(Res) ++ Acc);
+        break ->
+            %% ?DBGCF("wxCheckBox", undefined, "~p ~p~n",[Type, [Name || #xmlElement{name = Name} <- Stack]]),
+            [Top|Stack1] = Stack,
+            New = Top#xmlElement{content=lists:reverse(Acc)},
+            {{break, Stack1, [Doc|Docs]}, [New]};
+        {para, Deep} when (hd(Stack))#xmlElement.name =:= para ->
+            %% Flatten para in para
+            {NewStack, Res} = flatten_p(Deep, Stack, []),  %% ??
+            flatten_2(Docs, NewStack, lists:reverse(Res) ++ Acc);
+        {Type, Deep} ->
+            %% ?DBGCF("wxFrame", undefined, "~p ~p~n",[Type, [Name || #xmlElement{name = Name} <- Stack]]),
+            {NewStack, Res} = flatten_p(Deep, [Doc#xmlElement{name=Type}|Stack], []),
+            flatten_2(Docs, NewStack, lists:reverse(Res) ++ Acc)
     end;
-flatten_p([], _, Acc) ->
-    lists:reverse(Acc).
+flatten_p([], [], Acc) ->
+    {[], lists:reverse(Acc)};
+flatten_p([], [Top|Stack], Acc) ->
+    %% ?DBGCF("wxWindow", undefined, "~p ~p ~p~n",
+    %%         [Top#xmlElement.name, [Name || #xmlElement{name = Name} <- Stack], p(lists:reverse(Acc))]),
+    {Stack, [Top#xmlElement{content=lists:reverse(Acc)}]}.
+
+flatten_2(Cont, {break, [], Cont2}, Acc) ->
+    flatten_p(Cont2 ++ Cont, [], Acc);
+flatten_2(Cont, {break, [Top|Stack], Cont2}, Acc) ->
+    {{break, Stack, Cont2 ++ Cont}, [Top#xmlElement{content=lists:reverse(Acc)}]};
+flatten_2(Cont, Stack, Acc) when is_list(Stack) ->
+    flatten_p(Cont, Stack, Acc).
 
 f(#xmlElement{name=heading}) ->
     break;
 f(#xmlElement{name=para, content=Cs}) ->
     {para,Cs};
-f(#xmlElement{name=sect1=T, content=Cs}) ->
+f(#xmlElement{name=sect1, content=_Cs}) ->
+    break;
+%% f(#xmlElement{name=simplesect=T, content=Cs}) ->
+%%     break;
+f(#xmlElement{name=T, content=Cs}) ->
     {T,Cs};
-f(#xmlElement{name=simplesect=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=itemizedlist=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=orderedlist=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=parameterlist=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=listitem=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=parameterdescription=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=entry=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=row=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=table=T, content=Cs}) ->
-    {T,Cs};
-f(#xmlElement{name=onlyfor=T, content=Cs}) ->
-    {T,Cs};
-
 f(#xmlText{}=T) ->
-    T;
-f(#xmlElement{name=Type, content=Cs0}=E) ->
-    case flatten_p(Cs0, Type, []) of
-        Cs when is_list(Cs) -> E#xmlElement{content=Cs};
-        _Hmm ->
-            ?LOG("Break ~p ~P~n", [Type, p(E), 20]),
-            exit(break)
-    end.
+    T.
 
 camelcase_to_underscore(Name) ->
     Split = split_cc(Name, [], []),
     lists:append(lists:join([$_], Split)).
+
+markdown_qoute([$_|Rest]) ->
+    [$\\, $_ | markdown_qoute(Rest)];
+markdown_qoute([$*|Rest]) ->
+    [$\\, $* | markdown_qoute(Rest)];
+markdown_qoute([$<|Rest]) ->
+    [ "*<" | markdown_qoute(Rest)];
+markdown_qoute([$>|Rest]) ->
+    [ ">*" | markdown_qoute(Rest)];
+markdown_qoute([Char|Rest]) ->
+    [Char|markdown_qoute(Rest)];
+markdown_qoute([]) ->
+    [].
 
 split_cc([C|Cs], Word, Str)
   when C >= $A, C =< $W ->
@@ -981,6 +1160,7 @@ is_empty(List) ->
 is_include([#xmlText{value=Txt}|_]) ->
     case string:trim(Txt) of
         "Include file:" -> true;
+        "#include" ++ _ -> true;
         _ -> false
     end;
 is_include(_) -> false.
@@ -988,8 +1168,8 @@ is_include(_) -> false.
 %% Dbg help
 p(List) when is_list(List) ->
     [p(E) || E <- List];
-p(#xmlElement{name=itemizedlist=What} = _DBG) ->
-    {What, [long_list]};
+p(#xmlElement{name=itemizedlist=What, content=List} = _DBG) ->
+    {What, [p(E) || E <- List]};
 p(#xmlElement{name=programlisting=What}) ->
     {What, [code_example]};
 p(#xmlElement{name=What, content=Cs}) ->
@@ -997,7 +1177,12 @@ p(#xmlElement{name=What, content=Cs}) ->
 p(#xmlAttribute{name=What, value=V}) ->
     {attr, What, V};
 p(#xmlText{value=Txt}) ->
-    {text, lists:flatten(io_lib:format("~-15.s",[Txt]))};
+    case string:strip(Txt) of
+        [] -> %% io:format("Ignore: '~s'~n", [Txt]),
+            ' ';
+        _ ->
+            {text, lists:flatten(io_lib:format("~-45.s",[Txt]))}
+    end;
 p({break, Done, Cont}) ->
     {break, p(Done), p(Cont)};
 p({C, List}) ->

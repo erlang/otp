@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,6 +118,8 @@ void erts_alloc_late_init(void);
 
 #if defined(GET_ERTS_ALC_TEST) || defined(ERTS_ALC_INTERNAL__)
 /* Only for testing */
+#include "erl_drv_nif.h"
+ERL_NAPI_EXPORT
 UWord erts_alc_test(UWord,
 		    UWord,
 		    UWord,

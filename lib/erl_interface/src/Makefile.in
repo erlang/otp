@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -108,11 +110,11 @@ endif
 
 WARNFLAGS += -DEI_NO_DEPR_WARN
 
-CFLAGS = @DED_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) \
+CFLAGS = @LIB_CFLAGS@ @DEFS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) \
 	-DERLANG_OPENSSL_INTEGRATION
-DED_LD = @DED_LD@
-DED_LDFLAGS = @DED_LDFLAGS@
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH = @DED_LD_FLAG_RUNTIME_LIBRARY_PATH@
+LIB_LD = @LIB_LD@
+LIB_LDFLAGS = @LIB_LDFLAGS@
+LIB_LD_FLAG_RUNTIME_LIBRARY_PATH = @LIB_LD_FLAG_RUNTIME_LIBRARY_PATH@
 PROG_CFLAGS = @CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) -Iglobal
 
 INSTALL = @INSTALL@
@@ -162,7 +164,7 @@ LIBPRE=lib
 MTFLAG=
 endif
 
-DYNLIBEXT=.@DED_EXT@
+DYNLIBEXT=.@LIB_EXT@
 
 ###########################################################################
 #  Specify targets names
@@ -508,20 +510,20 @@ endif
 endif
 
 $(ST_EISHLIB): $(ST_EIOBJECTS)
-	$(ld_verbose) $(DED_LD) $(DED_LDFLAGS) -o $@ \
-		$(DED_LD_FLAG_RUNTIME_LIBRARY_PATH) $(ST_EIOBJECTS) \
+	$(ld_verbose) $(LIB_LD) $(LIB_LDFLAGS) -o $@ \
+		$(LIB_LD_FLAG_RUNTIME_LIBRARY_PATH) $(ST_EIOBJECTS) \
 	        $(THR_LIBS) $(LIBS) $(WIN_SOCKET)
 $(MT_EISHLIB): $(MT_EIOBJECTS)
-	$(ld_verbose) $(DED_LD) $(DED_LDFLAGS) -o $@ \
-		$(DED_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MT_EIOBJECTS) \
+	$(ld_verbose) $(LIB_LD) $(LIB_LDFLAGS) -o $@ \
+		$(LIB_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MT_EIOBJECTS) \
 	        $(THR_LIBS) $(LIBS) $(WIN_SOCKET)
 $(MD_EISHLIB): $(MD_EIOBJECTS)
-	$(ld_verbose) $(DED_LD) -MD $(DED_LDFLAGS) -o $@ \
-		$(DED_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MD_EIOBJECTS) \
+	$(ld_verbose) $(LIB_LD) -MD $(LIB_LDFLAGS) -o $@ \
+		$(LIB_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MD_EIOBJECTS) \
 	        $(THR_LIBS) $(LIBS) $(WIN_SOCKET)
 $(MDD_EISHLIB): $(MDD_EIOBJECTS)
-	$(ld_verbose) $(DED_LD) -MDd $(DED_LDFLAGS) -o $@ \
-		$(DED_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MDD_EIOBJECTS) \
+	$(ld_verbose) $(LIB_LD) -MDd $(LIB_LDFLAGS) -o $@ \
+		$(LIB_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MDD_EIOBJECTS) \
 	        $(THR_LIBS) $(LIBS) $(WIN_SOCKET)
 
 ###########################################################################
@@ -681,10 +683,8 @@ endif
 # ---------------------------------------------------- 
 
 EXTRA = \
-	INSTALL \
 	Makefile \
 	Makefile.in \
-	README \
 	README.internal \
 	$(TARGET)/eidefs.mk
 
@@ -726,5 +726,3 @@ endif
 release_docs:
 
 release_tests:
-
-xmllint:

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,18 +32,6 @@
 -define(SERVER_ROLE, server).
 
 -define(SECRET_PRINTOUT, "***").
-
--type reason()            :: any().
--type reply()             :: any().
--type msg()               :: any().
--type from()              :: any().
--type certdb_ref()        :: reference().
--type db_handle()         :: any().
--type der_cert()          :: binary().
--type issuer()            :: tuple().
--type serialnumber()      :: integer().
--type cert_key()          :: {reference(), integer(), issuer()}.
--type secret_printout()   :: list().
 
 %% basic binary constructors
 -define(BOOLEAN(X),  X:8/unsigned-big-integer).
@@ -73,6 +63,9 @@
 -define(NULL, 0).
 -define(TRUE, 0).
 -define(FALSE, 1).
+
+
+-define(NO_COMPRESSION, ?NULL).
 
 %% sslv3 is considered insecure due to lack of padding check (Poodle attack)
 %% Keep as interop with legacy software but do not support as default
@@ -157,12 +150,12 @@
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
-		 emulated,          %% Emulated option list or 
-                 trackers, 
-		 dtls_handler,
+		 emulated,          %% Emulated option list or
+                 trackers,
 		 inet_ssl,          %% inet options for internal ssl socket
-		 transport_info,                 %% Callback info
-		 connection_cb
+		 transport_info,    %% Callback info
+		 connection_cb,
+                 tab
 		}).
 
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.
@@ -174,14 +167,13 @@
 
 -define(SSL_LOG(Level, Descr, Reason),
         fun() ->
-                case get(log_level) of
-                    undefined ->
-                        %% Use debug here, i.e. log everything and let loggers
-                        %% log_level decide if it should be logged
-                        ssl_logger:log(Level, debug,
-                                       #{description => Descr, reason => Reason},
-                                       ?LOCATION);
-                    __LogLevel__ ->
+                __LogLevel__ = case get(log_level) of
+                                   undefined -> debug;
+                                   Lvl -> Lvl
+                               end,
+                case logger:compare_levels(__LogLevel__, Level) of
+                    gt -> ok;
+                    _ ->
                         ssl_logger:log(Level, __LogLevel__,
                                        #{description => Descr, reason => Reason},
                                        ?LOCATION)
@@ -201,7 +193,6 @@
         }).
 
 -define(DEFAULT_DEPTH, 10).
--define(DEFAULT_OCSP_STAPLING, false).
--define(DEFAULT_OCSP_NONCE, true).
--define(DEFAULT_OCSP_RESPONDER_CERTS, []).
+-define(DEFAULT_STAPLING_OPT, no_staple).
+-define(DEFAULT_OCSP_NONCE_OPT, false).
 -endif. % -ifdef(ssl_internal).

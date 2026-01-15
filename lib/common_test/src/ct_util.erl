@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +27,7 @@
 %%% holder for suite, configuration and connection data.
 %%%
 -module(ct_util).
+-moduledoc false.
 
 -export([start/0, start/1, start/3, start/4,
 	 stop/1, update_last_run_index/0]).

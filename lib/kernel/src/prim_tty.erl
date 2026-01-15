@@ -1,7 +1,9 @@
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -13,10 +15,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(prim_tty).
+-moduledoc false.
 
 %% Todo:
 %%  * Try to move buffer handling logic to Erlang
@@ -104,26 +107,28 @@
 %%      * Same problem as insert mode, it only deleted current line, and does not move
 %%        to previous line automatically.
 
--export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
-         handle_signal/2, window_size/1, handle_request/2, write/2, write/3, npwcwidth/1,
-         npwcwidthstring/1]).
--export([reader_stop/1, disable_reader/1, enable_reader/1]).
+-export([load/0, init/1, init_ssh/3, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
+         handle_signal/2, window_size/1, update_geometry/3, handle_request/2,
+         write/2, write/3,
+         npwcwidth/1, npwcwidth/2,
+         ansi_regexp/0, ansi_color/2]).
+-export([reader_stop/1, disable_reader/1, enable_reader/1, read/1, read/2,
+         is_reader/2, is_writer/2, output_mode/1]).
 
--nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
-       tty_select/3, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
+-nifs([isatty/1, tty_create/1, tty_init/2, setlocale/1,
+       tty_select/2, tty_window_size/1,
+       tty_encoding/1, tty_is_open/2, write_nif/2, read_nif/3, isprint/1,
        wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
-       tgoto_nif/1, tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
+       tgoto_nif/1, tgoto_nif/2, tgoto_nif/3]).
 
--export([reader_loop/6, writer_loop/2]).
+-export([reader_loop/2, writer_loop/2]).
 
 %% Exported in order to remove "unused function" warning
--export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3]).
+-export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3, tty_is_open/2]).
 
 %% proc_lib exports
 -export([reader/1, writer/1]).
-
--on_load(on_load/0).
 
 %%-define(debug, true).
 -ifdef(debug).
@@ -136,13 +141,16 @@
 -record(state, {tty :: tty() | undefined,
                 reader :: {pid(), reference()} | undefined,
                 writer :: {pid(), reference()} | undefined,
-                options,
+                options = #{ input => cooked, output => cooked } :: options(),
                 unicode = true :: boolean(),
                 lines_before = [],   %% All lines before the current line in reverse order
                 lines_after = [],    %% All lines after the current line.
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
                 buffer_expand,       %% Characters in expand buffer
+                buffer_expand_row = 1,
+                buffer_expand_limit = 0 :: non_neg_integer(),
+                putc_buffer = <<>>,    %% Buffer for putc containing the last row of characters
                 cols = 80,
                 rows = 24,
                 xn = false,
@@ -161,17 +169,13 @@
                 ansi_regexp
                }).
 
--type options() :: #{ tty => boolean(),
-                      input => boolean(),
-                      canon => boolean(),
-                      echo => boolean(),
-                      sig => boolean()
-                    }.
+-type options() :: #{ input := cooked | raw | disabled,
+                      output := raw | cooked,
+                      ofd => stdout | stderr }.
 -type request() ::
         {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
-        {expand, unicode:unicode_binary()} |
-        {expand_with_trim, unicode:unicode_binary()} |
+        {expand, unicode:unicode_binary(), integer()} |
         {insert, unicode:unicode_binary()} |
         {insert_over, unicode:unicode_binary()} |
         {delete, integer()} |
@@ -184,20 +188,46 @@
         {move, integer()} |
         {move_line, integer()} |
         {move_combo, integer(), integer(), integer()} |
+        {move_expand, -32768..32767} |
         clear |
         beep.
 -type tty() :: reference().
 -opaque state() :: #state{}.
 -export_type([state/0]).
 
--spec on_load() -> ok.
-on_load() ->
-    on_load(#{}).
+-spec ansi_regexp() -> binary().
+ansi_regexp() ->
+    ?ANSI_REGEXP.
 
--spec on_load(Extra) -> ok when
-      Extra :: map().
-on_load(Extra) ->
-    case erlang:load_nif(atom_to_list(?MODULE), Extra) of
+ansi_fg_color(Color) ->
+    case Color of
+        black -> 30;
+        red -> 31;
+        green -> 32;
+        yellow -> 33;
+        blue -> 34;
+        magenta -> 35;
+        cyan -> 36;
+        white -> 37;
+        bright_black -> 90;
+        bright_red -> 91;
+        bright_green -> 92;
+        bright_yellow -> 93;
+        bright_blue -> 94;
+        bright_magenta -> 95;
+        bright_cyan -> 96;
+        bright_white -> 97
+    end.
+ansi_bg_color(Color) ->
+    ansi_fg_color(Color) + 10.
+
+-spec ansi_color(BgColor :: atom(), FgColor :: atom()) -> iolist().
+ansi_color(BgColor, FgColor) ->
+    io_lib:format("\e[~w;~wm", [ansi_bg_color(BgColor), ansi_fg_color(FgColor)]).
+
+-spec load() -> ok.
+load() ->
+    case erlang:load_nif(atom_to_list(?MODULE), #{}) of
         ok -> ok;
         {error,{reload,_}} ->
             ok
@@ -206,7 +236,7 @@ on_load(Extra) ->
 -spec window_size(state()) -> {ok, {non_neg_integer(), non_neg_integer()}} | {error, term()}.
 window_size(State = #state{ tty = TTY }) ->
     case tty_window_size(TTY) of
-        {error, enotsup} when map_get(tty, State#state.options) ->
+        {error, enotsup} when map_get(input, State#state.options) =:= raw ->
             %% When the TTY is enabled, we should return a "dummy" row and column
             %% when we cannot find the proper size.
             {ok, {State#state.cols, State#state.rows}};
@@ -218,7 +248,7 @@ window_size(State = #state{ tty = TTY }) ->
 init(UserOptions) when is_map(UserOptions) ->
 
     Options = options(UserOptions),
-    {ok, TTY} = tty_create(),
+    {ok, TTY} = tty_create(maps:get(ofd, Options)),
 
     %% Initialize the locale to see if we support utf-8 or not
     UnicodeSupported =
@@ -240,35 +270,58 @@ init(UserOptions) when is_map(UserOptions) ->
     init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
-        case maps:get(tty, Options) of
-            true ->
-                case tty_init(TTY, stdout, Options) of
-		     ok -> ok;
-		     {error, enotsup} -> error(enotsup)
-		end,
-                NewState = init(State, os:type()),
-                ok = tty_set(TTY),
-                NewState;
-            false ->
+        case maps:get(input, Options) of
+            raw ->
+                init(State, os:type());
+            Else when Else =:= cooked; Else =:= disabled ->
                 State
         end,
 
+    try
+        [disable_reader(State) || State#state.reader =/= undefined],
+
+        case tty_init(TTY, Options) of
+            ok -> ok;
+            {error, enotsup} -> error(enotsup)
+        end
+
+    after
+        [enable_reader(State) || State#state.reader =/= undefined]
+    end,
+
     WriterState =
         if TTYState#state.writer =:= undefined ->
-                {ok, Writer} = proc_lib:start_link(?MODULE, writer, [State#state.tty]),
+                {ok, Writer} = proc_lib:start_link(?MODULE, writer, [[State#state.tty, self()]]),
                 TTYState#state{ writer = Writer };
            true ->
                 TTYState
         end,
     ReaderState =
-        case {maps:get(input, Options), TTYState#state.reader} of
+        case {maps:get(input, Options) =/= disabled, TTYState#state.reader} of
             {true, undefined} ->
                 DefaultReaderEncoding = if State#state.unicode -> utf8;
                                            not State#state.unicode -> latin1
                                         end,
-                {ok, Reader} = proc_lib:start_link(
-                                 ?MODULE, reader,
-                                 [[State#state.tty, DefaultReaderEncoding, self()]]),
+                {ok, {_, ReaderRef} = Reader} =
+                    proc_lib:start_link(
+                      ?MODULE, reader,
+                      [[State#state.tty, DefaultReaderEncoding, self()]]),
+
+                case os:type() of
+                    {unix, _} ->
+                        %% `prim_tty' has signal handlers for SIGCONT and SIGWINCH.
+                        %%
+                        %% Historically, these signals were caught by `prim_tty_nif.c' and
+                        %% forwarded to this process.
+                        %%
+                        %% After SIGCONT and SIGWINCH support was added, this module uses a
+                        %% gen_event handler in `prim_tty_sighandler'.
+                        ok = gen_event:add_handler(
+                               erl_signal_server, prim_tty_sighandler,
+                               #{parent => self(), reader => ReaderRef});
+                    _ ->
+                        ok
+                end,
                 WriterState#state{ reader = Reader };
             {true, _} ->
                 WriterState;
@@ -278,17 +331,31 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
 
     update_geometry(ReaderState).
 
+init_ssh(UserOptions, {Cols, Rows}, IOEncoding) ->
+    {ok, ANSI_RE_MP} = re:compile(?ANSI_REGEXP, [unicode]),
+    Options = options(UserOptions),
+    UnicodeMode = if IOEncoding =:= unicode -> true;
+                     IOEncoding =:= utf8 -> true;
+                     true -> false
+                  end,
+    State = init(#state{ tty = undefined, unicode = UnicodeMode,
+                 options = Options, ansi_regexp = ANSI_RE_MP }, ssh),
+    update_geometry(State, Cols, Rows).
+
+
 -spec reinit(state(), options()) -> state().
-reinit(State, UserOptions) ->
-    init_term(State#state{ options = options(UserOptions) }).
+reinit(State = #state{ options = OldOptions }, UserOptions) ->
+    case options(UserOptions) of
+        OldOptions -> State;
+        _ ->
+            init_term(State#state{ options = options(UserOptions) })
+    end.
 
 options(UserOptions) ->
-    maps:merge(
-      #{ input => true,
-         tty => true,
-         canon => false,
-         echo => false }, UserOptions).
+    maps:merge(#{ input => raw, output => cooked, ofd => stdout }, UserOptions).
 
+init(State, ssh) ->
+    State#state{ xn = true };
 init(State, {unix,_}) ->
 
     case os:getenv("TERM") of
@@ -393,6 +460,23 @@ handles(#state{ reader = {_ReaderPid, ReaderRef},
                 writer = {_WriterPid, WriterRef}}) ->
     #{ read => ReaderRef, write => WriterRef }.
 
+-spec is_reader(state(), pid()) -> boolean().
+is_reader(#state{ reader = {ReaderPid, _} }, ReaderPid) ->
+    true;
+is_reader(_, _) ->
+    false.
+
+-spec is_writer(state(), pid()) -> boolean().
+is_writer(#state{ writer = {WriterPid, _} }, WriterPid) ->
+    true;
+is_writer(_, _) ->
+    false.
+
+-spec output_mode(state()) -> cooked | raw.
+output_mode(State) ->
+    #{output := Output} = State#state.options,
+    Output.
+
 -spec unicode(state()) -> boolean().
 unicode(State) ->
     State#state.unicode.
@@ -413,11 +497,13 @@ reader_stop(#state{ reader = {ReaderPid, _} } = State) ->
     {error, _} = call(ReaderPid, stop),
     State#state{ reader = undefined }.
 
--spec handle_signal(state(), winch | cont) -> state().
-handle_signal(State, winch) ->
+-spec handle_signal(state(), sigwinch | sigcont | resize) -> state().
+handle_signal(State, sigwinch) ->
     update_geometry(State);
-handle_signal(State, cont) ->
-    tty_set(State#state.tty),
+handle_signal(State, resize) ->
+    update_geometry(State);
+handle_signal(State, sigcont) ->
+    tty_init(State#state.tty, State#state.options),
     State.
 
 -spec disable_reader(state()) -> ok.
@@ -427,6 +513,18 @@ disable_reader(#state{ reader = {ReaderPid, _} }) ->
 -spec enable_reader(state()) -> ok.
 enable_reader(#state{ reader = {ReaderPid, _} }) ->
     ok = call(ReaderPid, enable).
+
+-spec read(state()) -> ok.
+read(#state{ reader = {ReaderPid, _} }) ->
+    ReaderPid ! {read, infinity},
+    ok.
+
+-spec read(state(), pos_integer()) -> ok.
+read(State, 0) ->
+    read(State, 1024);
+read(#state{ reader = {ReaderPid, _} }, N) ->
+    ReaderPid ! {read, N},
+    ok.
 
 call(Pid, Msg) ->
     Alias = erlang:monitor(process, Pid, [{alias, reply_demonitor}]),
@@ -439,83 +537,93 @@ call(Pid, Msg) ->
     end.
 
 reader([TTY, Encoding, Parent]) ->
-    register(user_drv_reader, self()),
+    set_name(Parent, "reader"),
     ReaderRef = make_ref(),
-    SignalRef = make_ref(),
 
-    ok = tty_select(TTY, SignalRef, ReaderRef),
+    ok = tty_select(TTY, ReaderRef),
     proc_lib:init_ack({ok, {self(), ReaderRef}}),
     FromEnc = case tty_encoding(TTY) of
                   utf8 -> Encoding;
                   Else -> Else
               end,
-    reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, <<>>).
+    reader_loop(#{ tty => TTY, parent => Parent,
+                   reader => ReaderRef, enc => FromEnc, read => 0,
+                   ready_input => false}, <<>>).
 
-reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
+reader_loop(State = #{ tty := TTY, reader := ReaderRef, enc := FromEnc, read := Read,
+                       ready_input := ReadyInput }, Acc) ->
     receive
         {DisableAlias, disable} ->
             DisableAlias ! {DisableAlias, ok},
             receive
                 {EnableAlias, enable} ->
                     EnableAlias ! {EnableAlias, ok},
-                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc)
+                    ?MODULE:reader_loop(State, Acc)
             end;
-        {select, TTY, SignalRef, ready_input} ->
-            {ok, Signal} = tty_read_signal(TTY, SignalRef),
-            Parent ! {ReaderRef,{signal,Signal}},
-            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {set_unicode_state, _} when FromEnc =:= {utf16, little} ->
-            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+            ?MODULE:reader_loop(State, Acc);
         {set_unicode_state, Bool} ->
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
-            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
+            ?MODULE:reader_loop(State#{ enc := NewFromEnc }, Acc);
         {_Alias, stop} ->
             ok;
-        {select, TTY, ReaderRef, ready_input} ->
-            %% This call may block until data is available
-            case read_nif(TTY, ReaderRef) of
-                {error, closed} ->
-                    Parent ! {ReaderRef, eof},
-                    ok;
-                {error, aborted} ->
-                    %% The read operation was aborted. This only happens on
-                    %% Windows when we change from "noshell" to "newshell".
-                    %% When it happens we need to re-read the tty_encoding as
-                    %% it has changed.
-                    reader_loop(TTY, Parent, SignalRef, ReaderRef, tty_encoding(TTY), Acc);
-                {ok, <<>>} ->
-                    %% EAGAIN or EINTR
-                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
-                {ok, UtfXBytes} ->
+        {read, N} when ReadyInput ->
+            reader_read(State#{ read := N }, Acc);
+        {read, N} when not ReadyInput ->
+            ?MODULE:reader_loop(State#{ read := N }, Acc);
+        {select, TTY, ReaderRef, ready_input} when Read > 0; Read =:= infinity ->
+            reader_read(State, Acc);
+        {select, TTY, ReaderRef, ready_input} when Read =:= 0 ->
+            ?MODULE:reader_loop(State#{ ready_input := true }, Acc);
+        _M ->
+            % erlang:display(_M),
+            ?MODULE:reader_loop(State, Acc)
+    end.
 
-                    %% read_nif may have blocked for a long time, so we check if
-                    %% there have been any changes to the unicode state before
-                    %% decoding the data.
-                    UpdatedFromEnc = flush_unicode_state(FromEnc),
+reader_read(State = #{ tty := TTY, parent := Parent, reader := ReaderRef,
+                       enc := FromEnc, read := Read }, Acc) ->
+    %% This call may block until data is available
+    case read_nif(TTY, ReaderRef, if Read =:= infinity -> 1024; true -> Read end) of
+        {error, closed} ->
+            Parent ! {ReaderRef, eof},
+            ok;
+        {ok, <<>>} ->
+            %% EAGAIN or EINTR
+            ?MODULE:reader_loop(State#{ ready_input := false }, Acc);
+        {ok, UtfXBytes} ->
 
-                    {Bytes, NewAcc, NewFromEnc} =
-                        case unicode:characters_to_binary([Acc, UtfXBytes], UpdatedFromEnc, utf8) of
-                            {error, B, Error} ->
-                                %% We should only be able to get incorrect encoded data when
-                                %% using utf8
-                                FromEnc = utf8,
-                                Parent ! {self(), set_unicode_state, false},
+            %% read_nif may have blocked for a long time, so we check if
+            %% there have been any changes to the unicode state before
+            %% decoding the data.
+            UpdatedFromEnc = flush_unicode_state(FromEnc),
+
+            {Bytes, NewAcc, NewFromEnc} =
+                case unicode:characters_to_binary([Acc, UtfXBytes], UpdatedFromEnc, utf8) of
+                    {error, B, Error} ->
+                        %% We should only be able to get incorrect encoded data when
+                        %% using utf8
+                        UpdatedFromEnc = utf8,
+                        Parent ! {self(), set_unicode_state, false},
+                        receive
+                            {set_unicode_state, false} ->
                                 receive
-                                    {set_unicode_state, false} ->
-                                        receive
-                                            {Parent, set_unicode_state, _} -> ok
-                                        end
-                                end,
-                                Latin1Chars = unicode:characters_to_binary(Error, latin1, utf8),
-                                {<<B/binary,Latin1Chars/binary>>, <<>>, latin1};
-                            {incomplete, B, Inc} ->
-                                {B, Inc, UpdatedFromEnc};
-                            B when is_binary(B) ->
-                                {B, <<>>, UpdatedFromEnc}
+                                    {Parent, set_unicode_state, _} -> ok
+                                end
                         end,
-                    Parent ! {ReaderRef, {data, Bytes}},
-                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, NewAcc)
-            end
+                        Latin1Chars = unicode:characters_to_binary(Error, latin1, utf8),
+                        {<<B/binary,Latin1Chars/binary>>, <<>>, latin1};
+                    {incomplete, B, Inc} ->
+                        {B, Inc, UpdatedFromEnc};
+                    B when is_binary(B) ->
+                        {B, <<>>, UpdatedFromEnc}
+                end,
+            Parent ! {ReaderRef, {data, Bytes}},
+            ResetRead = if
+                           Read =:= infinity -> infinity;
+                           true -> 0
+                        end,
+            ?MODULE:reader_loop(State#{ read := ResetRead, ready_input := false,
+                                        enc := NewFromEnc }, NewAcc)
     end.
 
 flush_unicode_state(FromEnc) ->
@@ -526,8 +634,8 @@ flush_unicode_state(FromEnc) ->
             FromEnc
     end.
 
-writer(TTY) ->
-    register(user_drv_writer, self()),
+writer([TTY, Parent]) ->
+    set_name(Parent, "writer"),
     WriterRef = make_ref(),
     proc_lib:init_ack({ok, {self(), WriterRef}}),
     writer_loop(TTY, WriterRef).
@@ -561,8 +669,12 @@ writer_loop(TTY, WriterRef) ->
             end
     end.
 
+set_name(Parent, Postfix) ->
+    {registered_name, Name} = erlang:process_info(Parent, registered_name),
+    register(list_to_atom(atom_to_list(Name) ++ "_" ++ Postfix), self()).
+
 -spec handle_request(state(), request()) -> {erlang:iovec(), state()}.
-handle_request(State = #state{ options = #{ tty := false } }, Request) ->
+handle_request(State = #state{ options = #{ output := raw } }, Request) ->
     case Request of
         {putc_raw, Binary} ->
             {Binary, State};
@@ -593,7 +705,7 @@ handle_request(State, redraw_prompt) ->
     {ClearLine, _} = handle_request(State, delete_line),
     {Redraw, NewState} = handle_request(State, redraw_prompt_pre_deleted),
     {[ClearLine, Redraw], NewState};
-handle_request(State = #state{unicode = U, cols = W}, redraw_prompt_pre_deleted) ->
+handle_request(State = #state{unicode = U, cols = W, rows = R}, redraw_prompt_pre_deleted) ->
     {Movement, TextInView, EverythingFitsInView} = in_view(State),
     {_, NewPrompt} = handle_request(State, new_prompt),
     {Redraw, RedrawState} = insert_buf(NewPrompt, unicode:characters_to_binary(TextInView)),
@@ -607,51 +719,60 @@ handle_request(State = #state{unicode = U, cols = W}, redraw_prompt_pre_deleted)
                             true when Last =/= [] -> cols(Last, U);
                             _ -> cols(State#state.buffer_before, U) + cols(State#state.buffer_after,U)
                           end,
-                          {ExpandBuffer, NewState} = insert_buf(RedrawState#state{ buffer_expand = [] }, iolist_to_binary(BufferExpand)),
+                          ERow = State#state.buffer_expand_row,
+                            BufferExpandLines = string:split(BufferExpand, "\n", all),
+                            InputRows = (cols_multiline([State#state.buffer_before ++ State#state.buffer_after], W, U) div W),
+                            ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
+                            ExpandRowsLimit = case State#state.buffer_expand_limit of
+                                0 ->
+                                     ExpandRows;
+                                Limit ->
+                                    min(Limit, ExpandRows)
+                            end,
+                            ExpandRowsLimit1 = min(ExpandRowsLimit, R-1-InputRows),
+                            BufferExpand1 = case ExpandRows > ExpandRowsLimit1 of
+                                true ->
+                                        Color = lists:flatten(ansi_color(cyan, bright_white)),
+                                        StatusLine = io_lib:format(Color ++"\e[1m" ++ "rows ~w to ~w of ~w" ++ "\e[0m",
+                                                                   [ERow, (ERow-1) + ExpandRowsLimit1, ExpandRows]),
+                                        Cols1 = max(0,W*ExpandRowsLimit1),
+                                        Cols0 = max(0,W*(ERow-1)),
+                                        {_, _, BufferExpandLinesInViewStart, {_, BEStartIVHalf}} = split_cols_multiline(Cols0, BufferExpandLines, U, W),
+                                        {_, BufferExpandLinesInViewRev, _, {BEIVHalf, _}} = split_cols_multiline(Cols1, BufferExpandLinesInViewStart++[BEStartIVHalf], U, W),
+                                        BEIVHalf1 = case BEIVHalf of [] -> [];
+                                            _ -> [BEIVHalf]
+                                        end,
+                                        ExpandInView = lists:reverse(BEIVHalf1++BufferExpandLinesInViewRev),
+                                        ["\r\n",lists:join("\n", ExpandInView ++ [StatusLine])];
+                                false ->
+                                    ["\r\n",BufferExpand]
+                                end,
+                          {ExpandBuffer, NewState} = insert_buf(RedrawState#state{ buffer_expand = [] }, unicode:characters_to_binary(BufferExpand1)),
                           BECols = cols(W, End, NewState#state.buffer_expand, U),
                           MoveToEnd = move_cursor(RedrawState, BECols, End),
                           {[encode(Redraw,U),encode(ExpandBuffer, U), MoveToEnd, Movement], RedrawState}
                   end,
     {Output, State};
-%% Clear the expand buffer after the cursor when we handle any request.
-handle_request(State = #state{ buffer_expand = Expand, unicode = U}, Request)
-  when Expand =/= undefined ->
-    {Redraw, NoExpandState} = handle_request(State#state{ buffer_expand = undefined }, redraw_prompt),
-    {Output, NewState} = handle_request(NoExpandState#state{ buffer_expand = undefined }, Request),
-    {[encode(Redraw, U), encode(Output, U)], NewState};
-handle_request(State, new_prompt) ->
-    {"", State#state{buffer_before = [],
-                     buffer_after = [],
-                     lines_before = [],
-                     lines_after = []}};
-%% Print characters in the expandbuffer after the cursor
-handle_request(State, {expand, Expand}) ->
-    handle_request(State#state{buffer_expand = Expand}, redraw_prompt);
-handle_request(State, {expand_with_trim, Binary}) ->
-    handle_request(State, 
-                   {expand, iolist_to_binary(["\r\n",string:trim(Binary, both)])});
-%% putc prints Binary and overwrites any existing characters
-handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
-    %% Todo should handle invalid unicode?
-    %% print above the prompt if we have a prompt.
-    %% otherwise print on the current line.
-    case {State#state.lines_before,{State#state.buffer_before, State#state.buffer_after}, State#state.lines_after} of
-        {[],{[],[]},[]} ->
-            {PutBuffer, _} = insert_buf(State, Binary),
-            {[encode(PutBuffer, U)], State};
-        _ ->
-            {Delete, DeletedState} = handle_request(State, delete_line),
-            {PutBuffer, _} = insert_buf(DeletedState, Binary),
-            {Redraw, _} = handle_request(State, redraw_prompt_pre_deleted),
-            {[Delete, encode(PutBuffer, U), Redraw], State}
-    end;
-handle_request(State = #state{}, delete_after_cursor) ->
-    {[State#state.delete_after_cursor],
-     State#state{buffer_after = [],
-                 lines_after = []}};
-handle_request(State = #state{buffer_before = [], buffer_after = [],
-                              lines_before = [], lines_after = []}, delete_line) ->
-    {[],State};
+handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow, cols = W, rows = R, unicode = U}, {move_expand, N}) ->
+    %% Get number of Lines in terminal window
+    BufferExpandLines = case Expand of
+        undefined -> [];
+        _ -> string:split(Expand, "\n", all)
+    end,
+    ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
+    InputRows = (cols_multiline([State#state.buffer_before ++ State#state.buffer_after], W, U) div W),
+    ExpandRowsLimit = case State#state.buffer_expand_limit of
+        0 ->
+             ExpandRows;
+        Limit ->
+            min(Limit, ExpandRows)
+    end,
+    ExpandRowsLimit1 = min(ExpandRowsLimit, R-1-InputRows),
+    ERow1 = if ExpandRows > ExpandRowsLimit1 -> %% We need to page expand rows
+        min(ExpandRows-ExpandRowsLimit1+1,max(1,ERow + N));
+        true -> 1 %% No need to page expand rows
+    end,
+    handle_request(State#state{buffer_expand_row = ERow1}, redraw_prompt);
 handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
                               lines_before = LinesBefore}, delete_line) ->
     MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
@@ -659,6 +780,72 @@ handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
      State#state{buffer_before = [],
                  buffer_after = [],
                  lines_before = [],
+                 lines_after = []}};
+%% Clear the expand buffer after the cursor when we handle any request.
+handle_request(State = #state{ buffer_expand = Expand, unicode = U}, Request)
+  when Expand =/= undefined ->
+    {Redraw, NoExpandState} = handle_request(State#state{ buffer_expand = undefined, buffer_expand_row = 1 }, redraw_prompt),
+    {Output, NewState} = handle_request(NoExpandState#state{ buffer_expand = undefined, buffer_expand_row = 1 }, Request),
+    {[encode(Redraw, U), encode(Output, U)], NewState};
+handle_request(State, new_prompt) ->
+    {"", State#state{buffer_before = [],
+                     buffer_after = [],
+                     lines_before = [],
+                     lines_after = []}};
+%% Print characters in the expandbuffer after the cursor
+handle_request(State, {expand, Expand, N}) ->
+    {_, NewState} = insert_buf(State#state{buffer_expand = []}, Expand),
+    handle_request(NewState#state{buffer_expand_limit = N}, redraw_prompt);
+%% putc prints Binary and overwrites any existing characters
+handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
+    %% Todo should handle invalid unicode?
+    %% print above the prompt
+    %% if it does not contain a new line we have to print an artificial one
+    SubString = lists:last(binary:split(Binary, [<<"\n">>], [global])),
+    NewPutcBuffer = if SubString =:= Binary ->
+            %% No new line in Binary, keep putc_buffer and add the new binary
+            <<(State#state.putc_buffer)/binary, Binary/binary>>;
+        true ->
+            %% New line in Binary, add the new binary and putc_buffer
+            SubString
+    end,
+    PutcBufferState = State#state{putc_buffer = NewPutcBuffer},
+    case {State#state.lines_before,{State#state.buffer_before, State#state.buffer_after}, State#state.lines_after} of
+        {[],{[],[]},[]} ->
+            {PutBuffer, _} = insert_buf(State, Binary),
+            {[encode(PutBuffer, U)], PutcBufferState};
+        _ ->
+            %% Clear the prompt (will be redrawn later
+            {Delete, _} = handle_request(State, delete_line),
+            if State#state.putc_buffer =:= <<>> ->
+                    %% No artificial newline has been printed
+                    %% so we are already on the correct position to output
+                    Moves = [];
+               true ->
+                    WidthPutcBuffer = shell:prompt_width(State#state.putc_buffer),
+                    Remainder = (WidthPutcBuffer rem State#state.cols),
+                    ToCol =if Remainder =:= 0 ->
+                            State#state.cols;
+                       true ->
+                            Remainder
+                    end,
+                    Moves = move_cursor(State, State#state.cols, ToCol)
+            end,
+            BinaryNoAnsi = remove_ansi_sequences(PutcBufferState#state.putc_buffer),
+            Binary1 = if BinaryNoAnsi =:= <<>> ->
+                    %% Binary has a real new line at the end
+                    Binary;
+                true ->
+                    %% Binary does not have a real new line, add artificial one
+                    <<Binary/binary, 13,10>>
+            end,
+            {PutBuffer, _} = insert_buf(PutcBufferState, Binary1),
+            {Redraw, _} = handle_request(State, redraw_prompt_pre_deleted),
+            {[Delete, Moves, encode(PutBuffer, U), Redraw], PutcBufferState}
+    end;
+handle_request(State = #state{}, delete_after_cursor) ->
+    {[State#state.delete_after_cursor],
+     State#state{buffer_after = [],
                  lines_after = []}};
 handle_request(State = #state{ unicode = U, cols = W }, {delete, N}) when N > 0 ->
     {_DelNum, DelCols, _, NewBA} = split(N, State#state.buffer_after, U),
@@ -684,13 +871,18 @@ handle_request(State = #state{ unicode = U, cols = W }, {delete, N}) when N < 0 
     BBCols = cols(State#state.buffer_before, U),
     BACols = cols(State#state.buffer_after, U),
     NewBBCols = cols(NewBB, U),
-    Output = [move_cursor(State, NewBBCols + DelCols, NewBBCols),
-              encode(State#state.buffer_after,U),
-              lists:duplicate(DelCols, $\s),
-              xnfix(State, NewBBCols + BACols + DelCols),
-              move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)],
+    %% DelCols is 0 only when we are removing a ZWJ or a ZWNJ that is the first character of
+    %% the user buffer. We remove the character from the buffer, but we don't output anything
+    Output = if
+        DelCols =:= 0 -> "";
+        true -> [move_cursor(State, NewBBCols + DelCols, NewBBCols),
+            encode(State#state.buffer_after,U),
+            lists:duplicate(DelCols, $\s),
+            xnfix(State, NewBBCols + BACols + DelCols),
+            move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)]
+    end,
     NewState0 = State#state{ buffer_before = NewBB },
-    if State#state.lines_after =/= [], (BBCols+BACols+N) rem W =:= 0 ->
+    if DelCols =/= 0, State#state.lines_after =/= [], (BBCols+BACols+N) rem W =:= 0 ->
             {Delete, _} = handle_request(State, delete_line),
             {Redraw, NewState1} = handle_request(NewState0, redraw_prompt_pre_deleted),
             {[Delete, Redraw], NewState1};
@@ -823,6 +1015,19 @@ handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
     {"", State}.
 
+remove_ansi_sequences(<<27,Bin/binary>>) ->
+    Bins = binary:split(Bin, <<27>>, [global]),
+    remove_ansi_sequences1([<<27,B/binary>> || B <- Bins],[]);
+remove_ansi_sequences(Bin) ->
+    [Acc|Bins] = binary:split(Bin, <<27>>, [global]),
+    remove_ansi_sequences1([<<27,B/binary>> || B <- Bins],[Acc]).
+remove_ansi_sequences1([Bin|Bins], Acc) ->
+    {match, [{0, N}]} = re:run(Bin, ansi_regexp()),
+    <<_:N/binary, AnsiRest/binary>> = Bin,
+    remove_ansi_sequences1(Bins, [AnsiRest|Acc]);
+remove_ansi_sequences1([], Acc) ->
+    list_to_binary(lists:reverse(Acc)).
+
 last_or_empty([]) -> [];
 last_or_empty([H]) -> H;
 last_or_empty(L) -> [H|_] = lists:reverse(L), H.
@@ -842,9 +1047,15 @@ split_cols(_N, [], Acc, Chars, Cols, _Unicode) ->
     {Chars, Cols, Acc, []};
 split_cols(N, [Char | T], Acc, Cnt, Cols, Unicode) when is_integer(Char) ->
     split_cols(N - npwcwidth(Char), T, [Char | Acc], Cnt + 1, Cols + npwcwidth(Char, Unicode), Unicode);
-split_cols(N, [Chars | T], Acc, Cnt, Cols, Unicode) when is_list(Chars) ->
-    split_cols(N - length(Chars), T, [Chars | Acc],
-               Cnt + length(Chars), Cols + cols(Chars, Unicode), Unicode).
+split_cols(N, [GC|T], Acc, Cnt, Cols, Unicode) when is_list(GC) ->
+    %% We have to remove parts of the grapheme cluster
+    CGC = cols(GC, Unicode),
+    if CGC > N ->
+            {CntList2, ColsList2, List2, List1} = split_cols(N, GC, Unicode),
+            split_cols(N-ColsList2, [List1|T], List2 ++ Acc, Cnt+CntList2, Cols+ColsList2, Unicode);
+       true ->
+            split_cols(N-CGC, T, GC ++ Acc, Cnt+length(GC), Cols+CGC, Unicode)
+    end.
 
 %% Split the buffer after N logical characters returning
 %% the number of real characters deleted and the column length
@@ -861,6 +1072,9 @@ split(_N, [], Acc, Chars, Cols, _Unicode) ->
     {Chars, Cols, Acc, []};
 split(N, [Char | T], Acc, Cnt, Cols, Unicode) when is_integer(Char) ->
     split(N - 1, T, [Char | Acc], Cnt + 1, Cols + npwcwidth(Char, Unicode), Unicode);
+split(N, [GC|T], Acc, Cnt, Cols, Unicode) when is_list(GC), N < length(GC) ->
+    {NumL2, ColsL2, List2, List1} = split(N, GC, Unicode),
+    split(N-NumL2, List1 ++ T, List2 ++ Acc, Cnt+NumL2, Cols+ColsL2, Unicode);
 split(N, [Chars | T], Acc, Cnt, Cols, Unicode) when is_list(Chars) ->
     split(N - length(Chars), T, [Chars | Acc],
           Cnt + length(Chars), Cols + cols(Chars, Unicode), Unicode);
@@ -906,18 +1120,23 @@ move(left, #state{ left = Left }, N) ->
 move(right, #state{ right = Right }, N) ->
     lists:duplicate(N, Right).
 
-in_view(#state{lines_after = LinesAfter, buffer_before = Bef, buffer_after = Aft, lines_before = LinesBefore, rows=R, cols=W, unicode=U, buffer_expand = BufferExpand} = State) ->
+in_view(#state{lines_after = LinesAfter, buffer_before = Bef, buffer_after = Aft, lines_before = LinesBefore,
+               rows=R, cols=W, unicode=U, buffer_expand = BufferExpand, buffer_expand_limit = BufferExpandLimit} = State) ->
     BufferExpandLines = case BufferExpand of
                             undefined -> [];
-                            _ -> string:split(erlang:binary_to_list(BufferExpand), "\r\n", all)
+                            _ -> string:split(unicode:characters_to_list(BufferExpand), "\r\n", all)
                         end,
-    ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
+    ExpandLimit = case BufferExpandLimit of
+                        0 -> cols_multiline(BufferExpandLines, W, U) div W;
+                        _ -> min(cols_multiline(BufferExpandLines, W, U) div W, BufferExpandLimit)
+                    end,
+    ExpandRows = ExpandLimit,
     InputBeforeRows = (cols_multiline(LinesBefore, W, U) div W),
     InputRows = (cols_multiline([Bef ++ Aft], W, U) div W),
     InputAfterRows = (cols_multiline(LinesAfter, W, U) div W),
     %% Dont print lines after if we have expansion rows
     SumRows = InputBeforeRows+ InputRows + ExpandRows + InputAfterRows,
-    if SumRows > R -> 
+    if SumRows > R ->
             RowsLeftAfterInputRows = R - InputRows,
             RowsLeftAfterExpandRows = RowsLeftAfterInputRows - ExpandRows,
             RowsLeftAfterInputBeforeRows = RowsLeftAfterExpandRows - InputBeforeRows,
@@ -988,47 +1207,48 @@ cols([SkipSeq | T], Unicode) when is_binary(SkipSeq) ->
     %% so we skip that
     cols(T, Unicode).
 
-cols(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols > ColsPerLine ->
-    ColsPerLine + cols(ColsPerLine, CurrCols - ColsPerLine, Chars, Unicode);
-cols(_ColsPerLine, CurrCols, [], _Unicode) ->
+%% If we call cols with a CurrCols that is higher than ColsPerLine,
+%% we add that many cols to the total before calculating more cols.
+cols(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols >= ColsPerLine ->
+    ColsPerLine * ((CurrCols + 1) div ColsPerLine) +
+        cols(ColsPerLine, CurrCols rem ColsPerLine, Chars, Unicode);
+cols(ColsPerLine, CurrCols, Chars, Unicode) ->
+    cols_int(ColsPerLine, CurrCols, Chars, Unicode).
+
+cols_int(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols > ColsPerLine ->
+    ColsPerLine + cols_int(ColsPerLine, CurrCols - ColsPerLine, Chars, Unicode);
+cols_int(_ColsPerLine, CurrCols, [], _Unicode) ->
     CurrCols;
-cols(ColsPerLine, CurrCols, ["\r\n" | T], Unicode) ->
-    CurrCols + (ColsPerLine - CurrCols) + cols(ColsPerLine, 0, T, Unicode);
-cols(ColsPerLine, CurrCols, [H | T], Unicode) ->
-    cols(ColsPerLine, CurrCols + cols([H], Unicode), T, Unicode).
+cols_int(ColsPerLine, CurrCols, ["\r\n" | T], Unicode) ->
+    CurrCols + (ColsPerLine - CurrCols) + cols_int(ColsPerLine, 0, T, Unicode);
+cols_int(ColsPerLine, CurrCols, [H | T], Unicode) ->
+    cols_int(ColsPerLine, CurrCols + cols([H], Unicode), T, Unicode).
 
 update_geometry(State) ->
     case tty_window_size(State#state.tty) of
         {ok, {Cols, Rows}} when Cols > 0 ->
             ?dbg({?FUNCTION_NAME, Cols}),
-            State#state{ cols = Cols, rows = Rows };
+            State#state{ cols = Cols, rows = Rows};
         _Error ->
             ?dbg({?FUNCTION_NAME, _Error}),
             State
     end.
-
-npwcwidthstring(String) when is_list(String) ->
-    npwcwidthstring(unicode:characters_to_binary(String));
-npwcwidthstring(String) ->
-    case string:next_grapheme(String) of
-        [] -> 0;
-        [$\e | Rest] ->
-            case re:run(String, ?ANSI_REGEXP, [unicode]) of
-                {match, [{0, N}]} ->
-                    <<_Ansi:N/binary, AnsiRest/binary>> = String,
-                    npwcwidthstring(AnsiRest);
-                _ ->
-                    npwcwidth($\e) + npwcwidthstring(Rest)
-            end;
-        [H|Rest] when is_list(H)-> lists:sum([npwcwidth(A)||A<-H]) + npwcwidthstring(Rest);
-        [H|Rest] -> npwcwidth(H) + npwcwidthstring(Rest)
-    end.
+%% Functions for non ttys to update the geometry.
+update_geometry(State, NewCols, NewRows) ->
+    State#state{cols = NewCols, rows = NewRows}.
 
 npwcwidth(Char) ->
     npwcwidth(Char, true).
 npwcwidth(Char, true) ->
     case wcwidth(Char) of
-        {error, not_printable} -> 0;
+        {error, not_printable} ->
+            %% Sometimes libc wcwidth if wrong and returns -1 aka not_printable
+            %% for something that is a wide character. So we try to make things
+            %% better by returning 2 for such characters.
+            case unicode_util:is_wide(Char) of
+                true -> 2;
+                false -> 0
+            end;
         {error, enotsup} ->
             case unicode_util:is_wide(Char) of
                 true -> 2;
@@ -1037,7 +1257,9 @@ npwcwidth(Char, true) ->
         C -> C
     end;
 npwcwidth(Char, false) ->
-    byte_size(char_to_latin1(Char, true)).
+    byte_size(char_to_latin1(Char, true));
+npwcwidth(Char, Encoding) ->
+    npwcwidth(Char, Encoding =/= latin1).
 
 
 %% Return the xn fix for the current cursor position.
@@ -1146,6 +1368,10 @@ insert_buf(State, Bin, LineAcc, Acc) ->
                            State#state.buffer_expand =:= undefined ->
             [PrevChar | BB] = State#state.buffer_before,
             case string:next_grapheme([PrevChar | Bin]) of
+                [$\e | _] ->
+                    %% Ansi escape sequences can never have unicode characters in them
+                    %% so Char cannot be part of this cluster
+                    insert_buf(State, Rest, [Char | LineAcc], Acc);
                 [PrevChar | _] ->
                     %% It was not part of the previous cluster, so just insert
                     %% it as a normal character
@@ -1259,22 +1485,22 @@ dbg(_) ->
 -spec isatty(stdin | stdout | stderr | tty()) -> boolean() | ebadf.
 isatty(_Fd) ->
     erlang:nif_error(undef).
--spec tty_create() -> {ok, tty()}.
-tty_create() ->
+-spec tty_create(stdout | stderr) -> {ok, tty()}.
+tty_create(_Fd) ->
     erlang:nif_error(undef).
-tty_init(_TTY, _Fd, _Options) ->
-    erlang:nif_error(undef).
-tty_set(_TTY) ->
+tty_init(_TTY, _Options) ->
     erlang:nif_error(undef).
 setlocale(_TTY) ->
     erlang:nif_error(undef).
-tty_select(_TTY, _SignalRef, _ReadRef) ->
+tty_select(_TTY, _ReadRef) ->
     erlang:nif_error(undef).
 tty_encoding(_TTY) ->
     erlang:nif_error(undef).
+tty_is_open(_TTY, _Fd) ->
+    erlang:nif_error(undef).
 write_nif(_TTY, _IOVec) ->
     erlang:nif_error(undef).
-read_nif(_TTY, _Ref) ->
+read_nif(_TTY, _Ref, _N) ->
     erlang:nif_error(undef).
 tty_window_size(_TTY) ->
     erlang:nif_error(undef).
@@ -1319,6 +1545,3 @@ tgoto_nif(_Ent, _Arg) ->
     erlang:nif_error(undef).
 tgoto_nif(_Ent, _Arg1, _Arg2) ->
     erlang:nif_error(undef).
-tty_read_signal(_TTY, _Ref) ->
-    erlang:nif_error(undef).
-

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,19 +26,21 @@
 %-export([all/1, all/2, rootCA/2, intermediateCA/3, endusers/3, enduser/3, revoke/3, gencrl/2, verify/3]).
 
 -record(config, {commonName, 
-	     organizationalUnitName = "Erlang OTP",
-	     organizationName = "Ericsson AB",
-	     localityName = "Stockholm",
-	     countryName = "SE",
-	     emailAddress = "peter@erix.ericsson.se",
-	     default_bits = 2048,
-	     v2_crls = true,
-	     ecc_certs = false,
-	     issuing_distribution_point = false,
-	     crldp_crlissuer = false,
-	     crl_port = 8000,
-             openssl_cmd = "openssl",
-             hostname = "host.example.com"}).
+                 organizationalUnitName = "Erlang OTP",
+                 organizationName = "Ericsson AB",
+                 localityName = "Stockholm",
+                 countryName = "SE",
+                 emailAddress = "peter@erix.ericsson.se",
+                 default_bits = 2048,
+                 v2_crls = true,
+                 ecc_certs = false,
+                 issuing_distribution_point = false,
+                 crldp_crlissuer = false,
+                 crl_port = 8000,
+                 openssl_cmd = "openssl",
+                 hostname = "host.example.com",
+                 cert_profile = "user_cert",
+                 revoke_check = false}).
 
 
 default_config() ->
@@ -60,20 +64,21 @@ make_config([{emailAddress, Name}|T], C) when is_list(Name) ->
 make_config([{default_bits, Bits}|T], C) when is_integer(Bits) ->
     make_config(T, C#config{default_bits = Bits});
 make_config([{v2_crls, Bool}|T], C) when is_boolean(Bool) ->
-    make_config(T, C#config{v2_crls = Bool});
+    make_config(T, C#config{v2_crls = Bool, revoke_check = crl});
 make_config([{crl_port, Port}|T], C) when is_integer(Port) ->
-    make_config(T, C#config{crl_port = Port});
+    make_config(T, C#config{crl_port = Port, revoke_check = crl});
 make_config([{ecc_certs, Bool}|T], C) when is_boolean(Bool) ->
     make_config(T, C#config{ecc_certs = Bool});
 make_config([{issuing_distribution_point, Bool}|T], C) when is_boolean(Bool) ->
     make_config(T, C#config{issuing_distribution_point = Bool});
 make_config([{crldp_crlissuer, Bool}|T], C) when is_boolean(Bool) ->
-    make_config(T, C#config{crldp_crlissuer = Bool});
+    make_config(T, C#config{crldp_crlissuer = Bool, revoke_check = crl});
 make_config([{openssl_cmd, Cmd}|T], C) when is_list(Cmd) ->
     make_config(T, C#config{openssl_cmd = Cmd});
 make_config([{hostname, Hostname}|T], C) when is_list(Hostname) ->
-    make_config(T, C#config{hostname = Hostname}).
-
+    make_config(T, C#config{hostname = Hostname});
+make_config([{staple, true}|T], C)  ->
+    make_config(T, C#config{revoke_check = ocsp_staple}).
 
 all([DataDir, PrivDir]) ->
     all(DataDir, PrivDir).
@@ -88,7 +93,17 @@ all(DataDir, PrivDir, C = #config{}) ->
     create_rnd(DataDir, PrivDir),			% For all requests
     rootCA(PrivDir, "erlangCA", C),
     intermediateCA(PrivDir, "otpCA", "erlangCA", C),
-    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "undetermined", "a.server", "b.server"], C),
+    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "undetermined",
+                                "a.server"], C),
+    case C#config.revoke_check of
+        ocsp_staple ->
+            endusers(PrivDir, "otpCA", ["b.server"],
+                     C#config{cert_profile="user_cert_ocsp_signing"});
+        crl ->
+            endusers(PrivDir, "otpCA", ["b.server"], C);
+        false ->
+            endusers(PrivDir, "otpCA", ["b.server"], C)
+    end,
     endusers(PrivDir, "erlangCA", ["localhost"], C),
     %% Create keycert files 
     SDir = filename:join([PrivDir, "server"]),
@@ -165,7 +180,7 @@ enduser(Root, CA, User, C) ->
     create_req(Root, CnfFile, KeyFile, ReqFile, C),
     %create_req(Root, CnfFile, KeyFile, ReqFile),
     CertFileAllUsage =  filename:join([UsrRoot, "cert.pem"]),
-    sign_req(Root, CA, "user_cert", ReqFile, CertFileAllUsage, C),
+    sign_req(Root, CA, C#config.cert_profile, ReqFile, CertFileAllUsage, C),
     CertFileDigitalSigOnly =  filename:join([UsrRoot, "digital_signature_only_cert.pem"]),
     sign_req(Root, CA, "user_cert_digital_signature_only", ReqFile, CertFileDigitalSigOnly, C),
     CACertsFile = filename:join(UsrRoot, "cacerts.pem"),
@@ -649,13 +664,16 @@ ca_cnf(
      "authorityKeyIdentifier = keyid,issuer:always\n"
      "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
-     %"crlDistributionPoints=@crl_section\n"
+     %"crlDistributionPoints=@crl_section\n"    
 
-     %%"[crl_section]\n"
-     %% intentionally invalid
-     %%"URI.1=http://localhost/",C#config.commonName,"/crl.pem\n"
-     %%"URI.2=http://localhost:",integer_to_list(C#config.crl_port),"/",C#config.commonName,"/crl.pem\n"
-     %%"\n"
+     "[user_cert_ocsp_signing]\n"
+     "basicConstraints	= CA:false\n"
+     "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
+     "extendedKeyUsage = OCSPSigning\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid,issuer:always\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
+     "issuerAltName	= issuer:copy\n"
 
      "[user_cert_digital_signature_only]\n"
      "basicConstraints	= CA:false\n"

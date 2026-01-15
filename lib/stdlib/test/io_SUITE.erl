@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(io_SUITE).
+
+-compile(nowarn_obsolete_bool_op).
 
 -export([all/0, suite/0]).
 
@@ -36,7 +40,7 @@
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
          unscan_format_without_maps_order/1, build_text_without_maps_order/1]).
 
--export([pretty/2, trf/3]).
+-export([pretty/2, trf/3, rfd/2]).
 
 %%-define(debug, true).
 
@@ -94,9 +98,9 @@ error_1(Config) when is_list(Config) ->
 
 format_neg_zero(Config) when is_list(Config) ->
     <<NegZero/float>> = <<16#8000000000000000:64>>,
-    "-0.000000" = io_lib:format("~f", [NegZero]),
-    "-0.00000e+0" = io_lib:format("~g", [NegZero]),
-    "-0.00000e+0" = io_lib:format("~e", [NegZero]),
+    "-0.000000"   = fmt("~f", [NegZero]),
+    "-0.00000e+0" = fmt("~g", [NegZero]),
+    "-0.00000e+0" = fmt("~e", [NegZero]),
     "-0.0" = io_lib_format:fwrite_g(NegZero),
     ok.
 
@@ -780,7 +784,45 @@ rp(Term, Col, Ll, D, M, RF) ->
     %%           [Col, Ll, D, Term]),
     R = io_lib_pretty:print(Term, Col, Ll, D, M, RF),
     %% io:format("~s~n<--~n", [R]),
-    lists:flatten(io_lib:format("~s", [R])).
+    OrigRes = lists:flatten(io_lib:format("~s", [R])),
+    Args = [{column, Col}, {line_length, Ll}, {depth, D},
+            {line_max_chars, M}, {record_print_fun, RF},
+            %% Default values for print/[1,3,4,5,6]
+            {chars_limit, -1}, {encoding, latin1},
+            {strings, true}, {maps_order, undefined}],
+    check_bin_p(OrigRes, Term, Args).
+
+check_bin_p(OrigRes, Term, Args) ->
+    try
+        {UTF8, _, Width} = io_lib_pretty:print_bin(Term, maps:from_list(Args)),
+
+        StartCol = proplists:get_value(column, Args, 0),
+        OrigW = io_lib_format:indentation(OrigRes, StartCol),
+        case Width > 0 of
+            true when Width == OrigW -> ok;
+            false when (StartCol - Width) == OrigW -> ok;
+            _ ->
+                io:format("Width fail, start: ~w got ~w correct ~w~n", [StartCol, Width, OrigW]),
+                io:put_chars(OrigRes),
+                io:nl(),
+                io:put_chars(UTF8),
+                exit(bad_width)
+        end,
+        true = is_binary(UTF8),
+        case unicode:characters_to_list(UTF8) of
+            OrigRes ->
+                OrigRes;
+            Other ->
+                io:format("Exp: ~w~nGot: ~w~n", [OrigRes, Other]),
+                io:format("Binary failed:~nio_lib_pretty:print_bin(~0p,~n   ~w). ", [Term, Args]),
+                UTF8
+        end
+    catch _:Reason:ST ->
+            io:format("Exp: ~w~n~n", [OrigRes]),
+            io:format("GOT CRASH: ~p in ~p~n",[Reason, ST]),
+            io:format("Binary crashed: io_lib_pretty:print_bin(~p, ~w). ", [Term, Args]),
+            Reason
+    end.
 
 fmt(Fmt, Args) ->
     FormatList = io_lib:scan_format(Fmt, Args),
@@ -790,7 +832,30 @@ fmt(Fmt, Args) ->
     Chars3 = lists:flatten(io_lib:format(Fmt, Args)),
     Chars1 = Chars2,
     Chars2 = Chars3,
-    Chars3.
+    check_bin_fmt(Chars1, Fmt, Args, []).
+
+fmt(Fmt, Args, Opts) ->
+    OrigRes = lists:flatten(io_lib:format(Fmt, Args, Opts)),
+    check_bin_fmt(OrigRes, Fmt, Args, Opts).
+
+check_bin_fmt(OrigRes, Fmt, Args, Opts) ->
+    try
+        Utf8 = io_lib:bformat(Fmt, Args, Opts),
+        true = is_binary(Utf8),
+        case unicode:characters_to_list(Utf8) of
+            OrigRes ->
+                OrigRes;
+            Other ->
+                io:format("Exp: ~w~n     ~ts~nGot: ~w~n     ~ts~n", [OrigRes, OrigRes, Other, Other]),
+                io:format("Binary failed:~nio_lib:bformat(\"~ts\", ~w, ~w). ", [Fmt, Args, Opts]),
+                Utf8
+        end
+    catch _:Reason:ST ->
+            io:format("Exp: ~w~n~n", [OrigRes]),
+            io:format("GOT CRASH: ~p in ~p~n",[Reason, ST]),
+            io:format("Binary crashed: io_lib:bformat(\"~ts\", ~w, ~w). ", [Fmt, Args, Opts]),
+            Reason
+    end.
 
 rfd(a, 0) ->
     [];
@@ -1270,7 +1335,7 @@ ft(V, _F, 0) when is_float(V) ->
 
 g_t(V) when is_float(V) ->
     %% io:format("Testing ~.17g~n", [V]),
-    Io = io_lib:format("~p", [V]),
+    Io = fmt("~p", [V]),
     Sv = binary_to_list(iolist_to_binary(Io)),
     ok = g_t(V, Sv),
     Sv.
@@ -1562,7 +1627,7 @@ f2r({S,BE,M}) when 0 =< S, S =< 1,
     <<F:64/float>> = <<S:1, BE:11, M:52>>,
     case catch T/N of
         {'EXIT', _} -> ok;
-        TN -> true = F =:= TN
+        TN -> true = F == TN
     end,
     Vr.
 
@@ -2017,7 +2082,7 @@ printable_range(Suite) when is_list(Suite) ->
     $> = print_max(DNode,
 		   [<<16#10FFFF/utf8,"\t\v\b\f\e\r\n">>,
 		    PrettyOptions]),
-    
+
     1025 = format_max(UNode, ["~tp", [{hello, [1024,1025]}]]),
     125 = format_max(LNode,  ["~tp", [{hello, [1024,1025]}]]),
     125 = format_max(DNode,  ["~tp", [{hello, [1024,1025]}]]),
@@ -2040,8 +2105,47 @@ print_max(Node, Args) ->
 format_max(Node, Args) ->
     rpc_call_max(Node, io_lib, format, Args).
 
-rpc_call_max(Node, M, F, Args) ->
-    lists:max(lists:flatten(rpc:call(Node, M, F, Args))).
+rpc_call_max(Node, io_lib_pretty=M, print=F, [A1,A2]=Args) ->
+    BinAs = [A1, maps:from_list(A2)],
+    Orig = lists:flatten(rpc:call(Node, M, print, Args)),
+    try
+        {Utf8, _, _} = rpc:call(Node, M, print_bin, BinAs),
+        true = is_binary(Utf8),
+        case unicode:characters_to_list(Utf8) of
+            Orig ->
+                lists:max(Orig);
+            Other ->
+                io:format("Exp: ~w~nGot: ~w~n", [Orig, Other]),
+                io:format("Binary failed:~n~w:~w(~0p). ", [M, print_bin, BinAs]),
+                Utf8
+        end
+    catch _:Reason:ST ->
+            io:format("Exp: ~w~n~n", [Orig]),
+            io:format("GOT CRASH: ~p in ~p~n",[Reason, ST]),
+            io:format("Binary crashed: ~w:~w(~0p). ", [M, print_bin, BinAs]),
+            Reason
+    end;
+rpc_call_max(Node, M, format=F, Args) ->
+    {BinF,BinAs} = {bformat, Args},
+    Orig = lists:flatten(rpc:call(Node, M, F, Args)),
+    try
+        Utf8 = rpc:call(Node, M, BinF, BinAs),
+        true = is_binary(Utf8),
+        case unicode:characters_to_list(Utf8) of
+            Orig ->
+                lists:max(Orig);
+            Other ->
+                io:format("Exp: ~w~nGot: ~w~n", [Orig, Other]),
+                io:format("Binary failed:~n~w:~w(~0p). ", [M, BinF, BinAs]),
+                Utf8
+        end
+    catch _:Reason:ST ->
+            io:format("Exp: ~w~n~n", [Orig]),
+            io:format("GOT CRASH: ~p in ~p~n",[Reason, ST]),
+            io:format("Binary crashed: ~w:~w(~0p). ", [M, BinF, BinAs]),
+            Reason
+    end.
+
 
 %% Make sure that a bad specification for a printable range is rejected.
 bad_printable_range(Config) when is_list(Config) ->
@@ -2098,10 +2202,10 @@ otp_10302(Suite) when is_list(Suite) ->
     "<<\"äppl\"/utf8...>>" = pretty(<<"äpple"/utf8>>, 2),
     "<<\"apel\">>" = pretty(<<"apel">>, 2),
     "<<\"apel\"...>>" = pretty(<<"apelsin">>, 2),
-    "<<\"äppl\">>" = fmt("~tp", [<<"äppl">>]),
-    "<<\"äppl\"...>>" = fmt("~tP", [<<"äpple">>, 2]),
-    "<<0,0,0,0,0,0,1,0>>" = fmt("~p", [<<256:64/unsigned-integer>>]),
-    "<<0,0,0,0,0,0,1,0>>" = fmt("~tp", [<<256:64/unsigned-integer>>]),
+    "═Ω <<\"äppl\">>" = fmt("═Ω ~tp", [<<"äppl">>]),
+    "═Ω <<\"äppl\"...>>" = fmt("═Ω ~tP", [<<"äpple">>, 2]),
+    "═Ω <<0,0,0,0,0,0,1,0>>" = fmt("═Ω ~p", [<<256:64/unsigned-integer>>]),
+    "═Ω <<0,0,0,0,0,0,1,0>>" = fmt("═Ω ~tp", [<<256:64/unsigned-integer>>]),
 
     Chars = lists:seq(0, 512), % just a few...
     [] = [C || C <- Chars, S <- io_lib:write_char_as_latin1(C),
@@ -2126,14 +2230,16 @@ pretty(Term, Depth) when is_integer(Depth) ->
     pretty(Term, Opts);
 pretty(Term, Opts) when is_list(Opts) ->
     R = io_lib_pretty:print(Term, Opts),
-    lists:flatten(io_lib:format("~ts", [R])).
+    RF = lists:flatten(R),
+    RF = check_bin_p(RF, Term, Opts),
+    fmt("~ts", [R]).
 
 is_latin1(S) ->
     S >= 0 andalso S =< 255.
 
 %% OTP-10836. ~ts extended to latin1.
 otp_10836(Suite) when is_list(Suite) ->
-    S = io_lib:format("~ts", [[<<"äpple"/utf8>>, <<"äpple">>]]),
+    S = fmt("~ts", [[<<"äpple"/utf8>>, <<"äpple">>]]),
     "äppleäpple" = lists:flatten(S),
     ok.
 
@@ -2208,8 +2314,8 @@ compile_file(File, Text, Config) ->
     end.
 
 io_lib_width_too_small(_Config) ->
-    "**" = lists:flatten(io_lib:format("~2.3w", [3.14])),
-    "**" = lists:flatten(io_lib:format("~2.5w", [3.14])),
+    "**" = fmt("~2.3w", [3.14]),
+    "**" = fmt("~2.5w", [3.14]),
     ok.
 
 %% Test that the time for a huge message queue is not
@@ -2423,11 +2529,12 @@ otp_14178_unicode_atoms(_Config) ->
 
 bad_io_lib_format(F, S) ->
     try io_lib:format(F, S) of
-        _ ->
-            ct:fail({should_fail,F,S})
-    catch
-        error:badarg ->
-            ok
+        _ -> ct:fail({should_fail,F,S})
+    catch error:badarg -> ok
+    end,
+    try io_lib:bformat(F, S) of
+        _ -> ct:fail({should_fail,F,S})
+    catch error:badarg -> ok
     end.
 
 otp_14175(_Config) ->
@@ -2741,7 +2848,7 @@ limt(Term, Depth) when is_integer(Depth) ->
     {{S, S1, S2}, R}.
 
 form(Term, Depth) ->
-    lists:flatten(io_lib:format("~W", [Term, Depth])).
+    lists:flatten(fmt("~W", [Term, Depth])).
 
 limt_pp(Term, Depth) when is_integer(Depth) ->
     T1 = io_lib:limit_term(Term, Depth),
@@ -2750,7 +2857,7 @@ limt_pp(Term, Depth) when is_integer(Depth) ->
     S1 =:= S.
 
 pp(Term, Depth) ->
-    lists:flatten(io_lib:format("~P", [Term, Depth])).
+    lists:flatten(fmt("~P", [Term, Depth])).
 
 otp_14983(_Config) ->
     trunc_depth(-1, fun trp/3),
@@ -2865,44 +2972,45 @@ trp(Term, D, T) ->
     trp(Term, D, T, [{record_print_fun, fun rfd/2}]).
 
 trp(Term, D, T, Opts) ->
-    R = io_lib_pretty:print(Term, [{depth, D},
-                                   {chars_limit, T}|Opts]),
+    R = io_lib_pretty:print(Term, [{depth, D}, {chars_limit, T}|Opts]),
+    FR = lists:flatten(R),
+    FR = check_bin_p(FR, Term, [{depth, D}, {chars_limit, T}|Opts]),
     lists:flatten(io_lib:format("~s", [R])).
 
 trw(Term, D, T) ->
-    lists:flatten(io_lib:format("~W", [Term, D], [{chars_limit, T}])).
+    lists:flatten(fmt("~W", [Term, D], [{chars_limit, T}])).
 
 trf(Format, Args, T) ->
     trf(Format, Args, T, [{record_print_fun, fun rfd/2}]).
 
 trf(Format, Args, T, Opts) ->
-    lists:flatten(io_lib:format(Format, Args, [{chars_limit, T}|Opts])).
+    lists:flatten(fmt(Format, Args, [{chars_limit, T}|Opts])).
 
 otp_15103(_Config) ->
     T = lists:duplicate(5, {a,b,c}),
 
-    S1 = io_lib:format("~0p", [T]),
+    S1 = fmt("~0p", [T]),
     "[{a,b,c},{a,b,c},{a,b,c},{a,b,c},{a,b,c}]" = lists:flatten(S1),
-    S2 = io_lib:format("~-0p", [T]),
+    S2 = fmt("~-0p", [T]),
     "[{a,b,c},{a,b,c},{a,b,c},{a,b,c},{a,b,c}]" = lists:flatten(S2),
-    S3 = io_lib:format("~1p", [T]),
+    S3 = fmt("~1p", [T]),
     "[{a,\n  b,\n  c},\n {a,\n  b,\n  c},\n {a,\n  b,\n  c},\n {a,\n  b,\n"
     "  c},\n {a,\n  b,\n  c}]" = lists:flatten(S3),
 
-    S4 = io_lib:format("~0P", [T, 5]),
+    S4 = fmt("~0P", [T, 5]),
     "[{a,b,c},{a,b,...},{a,...},{...}|...]" = lists:flatten(S4),
-    S5 = io_lib:format("~1P", [T, 5]),
+    S5 = fmt("~1P", [T, 5]),
     "[{a,\n  b,\n  c},\n {a,\n  b,...},\n {a,...},\n {...}|...]" =
         lists:flatten(S5),
     ok.
 
 otp_15159(_Config) ->
     "[atom]" =
-        lists:flatten(io_lib:format("~p", [[atom]], [{chars_limit,5}])),
+        lists:flatten(fmt("~p", [[atom]], [{chars_limit,5}])),
     ok.
 
 otp_15076(_Config) ->
-    {'EXIT', {badarg, _}} = (catch io_lib:format("~c", [a])),
+    ok = bad_io_lib_format("~c", [a]),
     L = io_lib:scan_format("~c", [a]),
     {"~c", [a]} = io_lib:unscan_format(L),
     {'EXIT', {badarg, _}} = (catch io_lib:build_text(L)),
@@ -2975,12 +3083,12 @@ otp_15847(_Config) ->
 
 otp_15875(_Config) ->
     %% This test is moot due to the fix in GH-4842.
-    S = io_lib:format("~tp", [[{0, [<<"00">>]}]], [{chars_limit, 18}]),
+    S = fmt("~tp", [[{0, [<<"00">>]}]], [{chars_limit, 18}]),
     "[{0,[<<\"00\">>]}]" = lists:flatten(S).
 
 
 github_4801(_Config) ->
-	  <<"{[81.6]}">> = iolist_to_binary(io_lib:format("~p", [{[81.6]}], [{chars_limit,40}])).
+	  <<"{[81.6]}">> = iolist_to_binary(fmt("~p", [{[81.6]}], [{chars_limit,40}])).
 
 %% GH-4824, GH-4842, OTP-17459.
 chars_limit(_Config) ->
@@ -2999,7 +3107,8 @@ chars_limit(_Config) ->
     Test = fun (F, N, Lim) ->
                    Opts = [{chars_limit, Lim},
                            {record_print_fun, fun rfd/2}],
-                   [_|_] = io_lib_pretty:print(F(N), Opts)
+                   [_|_] = RL = io_lib_pretty:print(F(N), Opts),
+                   check_bin_p(lists:flatten(RL),F(N), Opts)
            end,
     %% Used to loop:
     Test(List, 1000, 1000),
@@ -3135,7 +3244,15 @@ error_info(Config) ->
            {Format,["~s",["Спутник-1"]],[{1,"failed to format string"}]},
            {Format,["~s",[1]],[{2,"1 must be of type string"}]},
            {Format,["~s~s",[a,1]],[{2,"2 must be of type string"}]},
-           {Format,["~s",[[a]]],[{2,"1 must be of type string"}]}] || Format <- [format,fwrite]]
+           {Format,["~s",[[a]]],[{2,"1 must be of type string"}]},
+
+	   %% Ensure error messages contain the correct reason (GH-8568)
+	   {Format, ["~ltkKltkKp", []], [{1,"wrong number of arguments"}]},
+	   {Format, ["~ltkKltkKm", [undefined, ordered, a]], [{1,"format string"}]},
+	   {Format, ["~ltkKltkKb", [undefined, ordered, a]], [{2,"3 must be of type integer"}]},
+	   {Format, ["~ltkKp", [foo, #{a => b}]], [{2,"1 must be 'undefined', 'ordered', 'reversed', or a fun that takes two arguments"}]}
+	  ]
+	  || Format <- [format,fwrite]]
 
         ],
 
@@ -3170,19 +3287,19 @@ otp_17525(_Config) ->
          {ddddddddd,1111111111},
          {gggggggggggggggggggg,cccc},
          {uuuuuuuuuuuu,11}],
-    S = io_lib:format("aaaaaaaaaaaaaaaaaa ~p bbbbbbbbbbb ~p",
-                      ["cccccccccccccccccccccccccccccccccccccc", L],
-                      [{chars_limit, 155}]),
-    "aaaaaaaaaaaaaaaaaa \"cccccccccccccccccccccccccccccccccccccc\" bbbbbbbbbbb [{xxxxxxxxx,\n"
-    "                                                                          aaaa},\n"
-    "                                                                         {yyyyyyyyyyyy,\n"
-    "                                                                          1},\n"
-    "                                                                         {eeeeeeeeeeeee,\n"
-    "                                                                          bbbb},\n"
-    "                                                                         {ddddddddd,\n"
-    "                                                                          1111111111},\n"
-    "                                                                         {...}|...]" =
-    lists:flatten(S),
+    S = fmt("aaaaaaaaaaaaaaaaaa ~p bbbbbbbbbbb ~p",
+            ["cccccccccccccccccccccccccccccccccccccc", L],
+            [{chars_limit, 155}]),
+    Corr = "aaaaaaaaaaaaaaaaaa \"cccccccccccccccccccccccccccccccccccccc\" bbbbbbbbbbb [{xxxxxxxxx,\n"
+        "                                                                          aaaa},\n"
+        "                                                                         {yyyyyyyyyyyy,\n"
+        "                                                                          1},\n"
+        "                                                                         {eeeeeeeeeeeee,\n"
+        "                                                                          bbbb},\n"
+        "                                                                         {ddddddddd,\n"
+        "                                                                          1111111111},\n"
+        "                                                                         {...}|...]",
+    Corr = lists:flatten(S),
     ok.
 
 unscan_format_without_maps_order(_Config) ->

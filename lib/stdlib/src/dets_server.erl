@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dets_server).
+-moduledoc false.
 
 %% Disk based linear hashing lookup dictionary. Server part.
 
@@ -166,7 +169,7 @@ handle_info({pending_reply, {Ref, Result0}}, State) ->
 	    {ok, add_user} ->
 		do_link(Store, FromPid),
 		true = ets:insert(Store, {FromPid, Tab}),
-		ets:update_counter(?REGISTRY, Tab, 1),
+		_ = ets:update_counter(?REGISTRY, Tab, 1),
 		{ok, Tab};
 	    {ok, internal_open} ->
 		link(Pid),
@@ -352,7 +355,7 @@ handle_close(State, Req, {FromPid,_Tag}=From, Tab) ->
 			    do_unlink(Store, FromPid),
 			    true = ets:match_delete(Store, {FromPid, Tab}),
                             true = ets:insert(Store, Keep),
-			    ets:update_counter(?REGISTRY, Tab, -1),
+			    _ = ets:update_counter(?REGISTRY, Tab, -1),
                             pending_call(Tab, Pid, make_ref(), From, [],
                                          remove_user, State)
                     end

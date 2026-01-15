@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,9 +34,14 @@
          annotation_checks/1,
          appendable_checks/1,
          bs_size_unit_checks/1,
+         no_reuse_hint_checks/1,
+         no_type_info_checks/1,
          private_append_checks/1,
          ret_annotation_checks/1,
-         sanity_checks/1]).
+         sanity_checks/1,
+         tuple_inplace_checks/1,
+         non_throwing_bifs/1,
+         phis_checks/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -46,9 +53,14 @@ groups() ->
       [alias_checks,
        annotation_checks,
        appendable_checks,
+       no_reuse_hint_checks,
+       no_type_info_checks,
        private_append_checks,
        ret_annotation_checks,
-       sanity_checks]},
+       sanity_checks,
+       tuple_inplace_checks,
+       non_throwing_bifs,
+       phis_checks]},
      {post_ssa_opt_dynamic,test_lib:parallel(),
       [bs_size_unit_checks]}].
 
@@ -85,7 +97,8 @@ end_per_group(_GroupName, Config) ->
 alias_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(alias, Config),
     run_post_ssa_opt(alias_non_convergence, Config),
-    run_post_ssa_opt(alias_chain, Config).
+    run_post_ssa_opt(alias_chain, Config),
+    run_post_ssa_opt(ss_depth_limit, Config).
 
 annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(annotations, Config).
@@ -96,8 +109,21 @@ appendable_checks(Config) when is_list(Config) ->
 bs_size_unit_checks(Config) when is_list(Config) ->
     gen_and_run_post_ssa_opt(bs_size_unit_checks, Config).
 
+no_reuse_hint_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(no_reuse_hint, Config).
+
+no_type_info_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(no_type_info, Config).
+
 private_append_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(private_append, Config).
+
+tuple_inplace_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(tuple_inplace_checks, Config),
+    run_post_ssa_opt(tuple_inplace_abort0, Config),
+    run_post_ssa_opt(tuple_inplace_abort1, Config),
+    run_post_ssa_opt(tuple_inplace_abort2, Config),
+    run_post_ssa_opt(tuple_inplace_abort3, Config).
 
 ret_annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(ret_annotation, Config).
@@ -105,9 +131,23 @@ ret_annotation_checks(Config) when is_list(Config) ->
 sanity_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(sanity_checks, Config).
 
+non_throwing_bifs(Config) when is_list(Config) ->
+    run_post_ssa_opt(non_throwing_bifs, Config).
+
+phis_checks(Config) when is_list(Config) ->
+    run_pre_ssa_opt(phis, Config),
+    run_post_ssa_opt(phis, Config).
+
 dynamic_workdir(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     filename:join(PrivDir, "dynamic").
+
+run_pre_ssa_opt(Module, Config) ->
+    File = atom_to_list(Module) ++ ".erl",
+
+    DataDir = proplists:get_value(data_dir, Config),
+    Source = filename:join(DataDir, File),
+    run_checks(Source, pre_ssa_opt, Config).
 
 run_post_ssa_opt(Module, Config) ->
     File = atom_to_list(Module) ++ ".erl",

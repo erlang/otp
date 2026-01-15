@@ -1,7 +1,9 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,24 +21,16 @@
 %%
 %% We allow upgrade from, and downgrade to all previous
 %% versions from the following OTP releases:
-%% - OTP 24
-%% - OTP 25
 %% - OTP 26
+%% - OTP 27
+%% - OTP 28
 %%
 %% We also allow upgrade from, and downgrade to all
 %% versions that have branched off from the above
 %% stated previous versions.
 %%
 {"%VSN%",
- [{<<"^4\\.1$">>,[restart_new_emulator]},
-  {<<"^4\\.1\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^4\\.1\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^4\\.1\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^4\\.2$">>,[restart_new_emulator]},
-  {<<"^4\\.2\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}],
- [{<<"^4\\.1$">>,[restart_new_emulator]},
-  {<<"^4\\.1\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^4\\.1\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^4\\.1\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^4\\.2$">>,[restart_new_emulator]},
-  {<<"^4\\.2\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}]}.
+ [{<<"^4\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^4\\.2\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
+ [{<<"^4\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^4\\.2\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}]}.

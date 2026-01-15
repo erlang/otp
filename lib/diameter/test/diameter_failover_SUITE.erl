@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,8 +42,16 @@
 -export([run/0]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2,
+         
+         %% The test cases
          parallel/1]).
 
 %% internal
@@ -59,11 +69,10 @@
          handle_request/3]).
 
 -include("diameter.hrl").
+-include("diameter_util.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 
 %% ===========================================================================
-
--define(util, diameter_util).
 
 -define(ADDR, {127,0,0,1}).
 
@@ -108,6 +117,10 @@
 -define(MOVED,    ?'DIAMETER_BASE_TERMINATION-CAUSE_USER_MOVED').
 -define(TIMEOUT,  ?'DIAMETER_BASE_TERMINATION-CAUSE_SESSION_TIMEOUT').
 
+-define(FL(F),    ?FL(F, [])).
+-define(FL(F, A), ?LOG("FAIL", F, A)).
+
+
 %% ===========================================================================
 
 suite() ->
@@ -116,17 +129,59 @@ suite() ->
 all() ->
     [parallel].
 
+init_per_suite(Config) ->
+    ?FL("init_per_suite -> entry with"
+        "~n   Config: ~p", [Config]),
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?FL("end_per_suite -> entry with"
+        "~n   Config: ~p", [Config]),
+    ?DUTIL:end_per_suite(Config).
+
+
+%% This test case can take a *long* time, so if the machine is too slow, skip
+%% init_per_testcase(parallel = Case, Config) when is_list(Config) ->
+%%     ?XL("init_per_testcase(~w) -> entry with"
+%%         "~n   Config: ~p"
+%%         "~n   => check factor", [Case, Config]),
+%%     Key = dia_factor,
+%%     case lists:keysearch(Key, 1, Config) of
+%%         {value, {Key, Factor}} when (Factor > 10) ->
+%%             ?XL("init_per_testcase(~w) -> Too slow (~w) => SKIP",
+%%                 [Case, Factor]),
+%%             {skip, {machine_too_slow, Factor}};
+%%         _ ->
+%%             ?XL("init_per_testcase(~w) -> run test", [Case]),
+%%             Config
+%%     end;
+init_per_testcase(Case, Config) ->
+    ?FL("init_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    ?FL("end_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+%% ===========================================================================
+
 parallel(_Config) ->
+    ?FL("~w -> entry", [?FUNCTION_NAME]),
     run().
+
 
 %% ===========================================================================
 
 %% run/0
 
 run() ->
+    ?FL("~w -> entry", [?FUNCTION_NAME]),
     ok = diameter:start(),
     try
-        ?util:run([{fun traffic/0, 60000}])
+        ?FL("~w -> run traffic", [?FUNCTION_NAME]),
+        ?RUN([{fun traffic/0, 60000}])
     after
         ok = diameter:stop()
     end.
@@ -143,6 +198,7 @@ traffic() ->
 %% start_services/0
 
 start_services() ->
+    lists:foreach(fun(S) -> ?DEL_REG(S) end, ?SERVERS ++ ?CLIENTS),
     Servers = [server(N) || N <- ?SERVERS],
     [] = [T || C <- ?CLIENTS,
                T <- [diameter:start_service(C, ?SERVICE(C))],
@@ -153,7 +209,7 @@ start_services() ->
 
 send() ->
     Funs = [send_ok, send_nok, send_discard_1, send_discard_2],
-    ?util:run([[{?MODULE, F, []} || F <- Funs]]).
+    ?RUN([[{?MODULE, F, []} || F <- Funs]]).
 
 %% connect/1
 
@@ -163,6 +219,7 @@ connect(Servers) ->
 %% stop_services/0
 
 stop_services() ->
+    lists:foreach(fun(S) -> ?DEL_UNREG(S) end, ?CLIENTS ++ ?SERVERS),
     [{H,T} || H <- ?CLIENTS ++ ?SERVERS,
               T <- [diameter:stop_service(H)],
               T /= ok].
@@ -171,10 +228,11 @@ stop_services() ->
 
 server(Name) ->
     ok = diameter:start_service(Name, ?SERVICE(Name)),
-    {Name, ?util:listen(Name, tcp)}.
+    {Name, ?LISTEN(Name, tcp)}.
 
 connect(Name, Refs) ->
-    [{{Name, ?util:connect(Name, tcp, LRef)}, T} || {_, LRef} = T <- Refs].
+    [{{Name, ?CONNECT(Name, tcp, LRef)}, T} || {_, LRef} = T <- Refs].
+
 
 %% ===========================================================================
 %% traffic testcases

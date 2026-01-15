@@ -1,14 +1,20 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec family_to_relation(Family) -> BinRel[0m
-  [;1m                            when[0m
-  [;1m                                Family :: family(),[0m
-  [;1m                                BinRel :: binary_relation().[0m
+[;1m  family_to_relation(Family)[0m
 
   If [;;4mFamily[0m is a family, then [;;4mBinRel[0m is the binary relation
   containing all pairs (i, x) such that i belongs to the index set
   of [;;4mFamily[0m and x belongs to [;;4mFamily[0m[i].
 
-    1> F = sofs:family([{a,[]}, {b,[1]}, {c,[2,3]}]),
-    R = sofs:family_to_relation(F),
-    sofs:to_external(R).
+[;1mExamples[0m
+
+    1> F = sofs:family([{a,[]}, {b,[1]}, {c,[2,3]}]).
+    2> R = sofs:family_to_relation(F).
+    3> sofs:to_external(R).
     [{b,1},{c,2},{c,3}]

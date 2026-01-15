@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -111,7 +113,7 @@ openssl_client(Config) when is_list(Config) ->
 %--------------------------------------------------------------------------------
 reuse_session_erlang_server(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     Protocol = proplists:get_value(protocol, ServerOpts, tls),
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     MFL = 512,
@@ -136,7 +138,7 @@ reuse_session_erlang_server(Config) when is_list(Config) ->
 reuse_session_erlang_client(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     Protocol = proplists:get_value(protocol, ClientOpts0, tls),
     MFL = 512,
@@ -180,7 +182,7 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
 
 openssl_client(MFL, Config) ->  
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     Protocol = proplists:get_value(protocol, ServerOpts, tls),
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
 
@@ -205,7 +207,7 @@ openssl_client(MFL, Config) ->
 
 openssl_server(MFL, Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Protocol = proplists:get_value(protocol, ClientOpts, tls),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 

@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec term_to_binary(Term) -> ext_binary() when Term :: term().[0m
+[;1m  term_to_binary(Term)[0m
 
   Returns a binary data object that is the result of encoding [;;4mTerm[0m
   according to the Erlang external term format.
@@ -16,6 +23,7 @@
 
   See also [;;4mbinary_to_term/1[0m.
 
-  Note:
+  [;;4mNote[0m
+
     There is no guarantee that this function will return the same
     encoded representation for the same term.

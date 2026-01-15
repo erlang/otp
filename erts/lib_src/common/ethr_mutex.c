@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2657,6 +2659,7 @@ ethr_rwmutex_init_opt(ethr_rwmutex *rwmtx, ethr_rwmutex_opt *opt)
 	    rwmtx->type = ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ;
 	}
 	/* Fall through */
+        ETHR_FALLTHROUGH();
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ: {
 	int length;
 
@@ -2688,6 +2691,7 @@ ethr_rwmutex_init_opt(ethr_rwmutex *rwmtx, ethr_rwmutex_opt *opt)
 	    break;
 	}
     }
+        ETHR_FALLTHROUGH();
     case ETHR_RWMUTEX_TYPE_NORMAL:
 	rwmtx->tdata.rs = 0;
 	break;

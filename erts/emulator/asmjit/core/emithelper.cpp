@@ -61,6 +61,24 @@ static void dumpAssignment(String& sb, const FuncArgsContext& ctx) noexcept {
 }
 #endif
 
+// BaseEmitHelper - Abstract
+// =========================
+
+Error BaseEmitHelper::emitRegMove(const Operand_& dst_, const Operand_& src_, TypeId typeId, const char* comment) {
+  DebugUtils::unused(dst_, src_, typeId, comment);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+Error BaseEmitHelper::emitRegSwap(const BaseReg& a, const BaseReg& b, const char* comment) {
+  DebugUtils::unused(a, b, comment);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+Error BaseEmitHelper::emitArgMove(const BaseReg& dst_, TypeId dstTypeId, const Operand_& src_, TypeId srcTypeId, const char* comment) {
+  DebugUtils::unused(dst_, dstTypeId, src_, srcTypeId, comment);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
 // BaseEmitHelper - EmitArgsAssignment
 // ===================================
 
@@ -198,14 +216,17 @@ ASMJIT_FAVOR_SIZE Error BaseEmitHelper::emitArgsAssignment(const FuncFrame& fram
       }
       else {
         WorkData& wd = workData[outGroup];
-        if (!wd.isAssigned(outId)) {
+        if (!wd.isAssigned(outId) || curId == outId) {
 EmitMove:
           ASMJIT_PROPAGATE(
             emitArgMove(
               BaseReg(archTraits.regTypeToSignature(out.regType()), outId), out.typeId(),
               BaseReg(archTraits.regTypeToSignature(cur.regType()), curId), cur.typeId()));
 
-          wd.reassign(varId, outId, curId);
+          // Only reassign if this is not a sign/zero extension that happens on the same in/out register.
+          if (curId != outId)
+            wd.reassign(varId, outId, curId);
+
           cur.initReg(out.regType(), outId, out.typeId());
 
           if (outId == out.regId())

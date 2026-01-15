@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -271,7 +273,8 @@ filter_date(Config) ->
     %% Insert some reports in the error log and start rb
     init_error_logs(),
     Between1 = calendar:local_time(),
-    timer:sleep(1000),
+    ct:sleep(1000),
+    error_logger:info_report([{rb_SUITE,rb_progress_info_replace}]),
     Between2 = calendar:local_time(),
     ok = start_rb(OutFile),
 
@@ -305,28 +308,24 @@ filter_filter_and_date(Config) ->
     %% Insert some reports in the error log and start rb
     init_error_logs(),
     Between1 = calendar:local_time(),
-    timer:sleep(1000),
+    ct:sleep(1000),
     Between2 = calendar:local_time(),
     error_logger:error_report([{rb_SUITE,rb_test_filter}]),
     ok = start_rb(OutFile),
+    error_logger:info_report([{rb_SUITE,rb_progress_info_replace}]),
 
     Before = calendar:gregorian_seconds_to_datetime(
 	       calendar:datetime_to_gregorian_seconds(calendar:local_time()) - 10),
     After = calendar:gregorian_seconds_to_datetime(
 	      calendar:datetime_to_gregorian_seconds(calendar:local_time()) + 1),
 
-    All = check_report(fun() -> rb:show() end,OutFile),
-    Last = hd(All),
-
     [_,_,_] = rb_filter([{rb_SUITE,"rb_test",re}],{Before,After},OutFile),
     [_,_] = rb_filter([{rb_SUITE,"rb_test",re}],{Before,Between1},OutFile),
     [_] = rb_filter([{rb_SUITE,"rb_test",re}],{Between2,After},OutFile),
     [_] = rb_filter([{rb_SUITE,rb_test_filter}],{Before,After},OutFile),
     [] = rb_filter([{rb_SUITE,rb_test_filter}],{Before,Between1},OutFile),
-    [Last] = rb_filter([{rb_SUITE,rb_test_filter,no}],{Between2,After},OutFile),
-    {_,Str} = Last,
+    [{_, Str}] = rb_filter([{rb_SUITE,rb_test_filter,no}],{Between2,After},OutFile),
     false = contains(Str,"rb_test_filter"),
-
     ok.
 
 

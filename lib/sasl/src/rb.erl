@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,12 @@
 %% %CopyrightEnd%
 %%
 -module(rb).
+-moduledoc """
+The Report Browser Tool
+
+The Report Browser (RB) tool is used to browse and format error reports written
+by the error logger handler `m:log_mf_h` in STDLIB.
+""".
 
 -behaviour(gen_server).
 
@@ -33,6 +41,15 @@
 -export([init/1, terminate/2, handle_call/3,
 	 handle_cast/2, handle_info/2, code_change/3]).
 
+-type type() :: error | error_report | info_msg | info_report |
+                warning_msg | warning_report | crash_report |
+                supervisor_report | progress | all.
+-type option() :: {start_log, FileName :: string() | atom() | pid()} |
+                  {max, MaxNoOfReports :: integer() | all} |
+                  {report_dir, DirString :: string()} |
+                  {type, ReportType :: type() | [type()] | all } |
+                  {abort_on_error, boolean()}.
+
 %%%-----------------------------------------------------------------
 %%% Report Browser Tool.
 %%% Formats Error reports written by log_mf_h
@@ -44,49 +61,238 @@
 %% Interface functions.
 %% For available options; see print_options().
 %%-----------------------------------------------------------------
+-doc(#{equiv => start([])}).
+-spec start() -> term().
 start() -> start([]).
+-doc """
+start(Options)
+
+Function [`start/1`](`start/1`) starts `rb_server` with the specified options,
+whereas function `start/0` starts with default options.
+
+`rb_server` must be started before reports can be browsed. When
+`rb_server` is started, the files in the specified directory are
+scanned. The other functions assume that the server has started.
+
+_Options:_
+
+- **`{start_log, FileName}`** - Starts logging to file, registered name, or
+  `io_device`. All reports are printed to the specified destination. Default is
+  `standard_io`. Option `{start_log, standard_error}` is not allowed and will be
+  replaced by default `standard_io`.
+
+- **`{max, MaxNoOfReports}`** - Controls how many reports `rb_server` is to read
+  at startup. This option is useful, as the directory can contain a large amount
+  of reports. If this option is specified, the `MaxNoOfReports` latest reports
+  are read. Default is `all`.
+
+- **`{report_dir, DirString}`** - Defines the directory where the error log
+  files are located. Default is the directory specified by application
+  environment variable `error_logger_mf_dir`, see [sasl(6)](sasl_app.md).
+
+- **`{type, ReportType}`** - Controls what kind of reports `rb_server` is to
+  read at startup. `ReportType` is a supported type, `all`, or a list of
+  supported types. Default is `all`.
+
+- **`{abort_on_error, Bool}`** - Specifies if logging is to be ended if `rb`
+  encounters an unprintable report. (You can get a report with an incorrect form
+  if function `error_logger`, `error_msg`, or `info_msg` has been called with an
+  invalid format string)
+
+  - If `Bool` is `true`, `rb` stops logging (and prints an error message to
+    `stdout`) if it encounters a badly formatted report. If logging to file is
+    enabled, an error message is appended to the log file as well.
+  - If `Bool` is `false` (the default value), `rb` prints an error message to
+    `stdout` for every bad report it encounters, but the logging process is
+    never ended. All printable reports are written. If logging to file is
+    enabled, `rb` prints `* UNPRINTABLE REPORT *` in the log file at the
+    location of an unprintable report.
+""".
+-spec start(Options) -> term() when
+      Options :: [option()].
 start(Options) ->
     supervisor:start_child(sasl_sup, 
 			   {rb_server, {rb, start_link, [Options]},
 			    temporary, brutal_kill, worker, [rb]}).
 
+-doc false.
 start_link(Options) ->
     gen_server:start_link({local, rb_server}, rb, Options, []).
 
+-doc """
+stop()
+
+Stops `rb_server`.
+""".
+-spec stop() -> term().
 stop() -> 
     supervisor:terminate_child(sasl_sup, rb_server).
 
+-doc(#{equiv => rescan([])}).
+-spec rescan() -> term().
 rescan() -> rescan([]).
+-doc """
+rescan(Options)
+
+Rescans the report directory. `Options` is the same as for function `start/1`.
+""".
+-spec rescan(Options) -> term() when Options :: [option()].
 rescan(Options) ->
     call({rescan, Options}).
 
+-doc(#{equiv => list(all)}).
+-spec list() -> term().
 list() -> list(all).
+-doc """
+list(Type)
+
+Lists all reports loaded in `rb_server`. Each report is given a unique number
+that can be used as a reference to the report in function `show/1`.
+
+If no `Type` is specified, all reports are listed.
+""".
+-spec list(Type :: type()) -> term().
 list(Type) -> call({list, Type}).
 
+-doc(#{equiv => log_list(all)}).
+-doc(#{since => <<"OTP R16B02">>}).
+-spec log_list() -> term().
 log_list() -> log_list(all).
+-doc """
+log_list(Type)
+
+Same as functions `list/0` or `list/1`, but the result is printed to a log file,
+if set; otherwise to `standard_io`.
+
+If no `Type` is specified, all reports are listed.
+""".
+-doc(#{since => <<"OTP R16B02">>}).
+-spec log_list(Type :: type()) -> term().
 log_list(Type) -> call({log_list, Type}).
 
-show() -> 
+-doc """
+All reports are displayed.
+""".
+-spec show() -> term().
+show() ->
     call(show).
 
-show(Number) when is_integer(Number) -> 
+-doc """
+show(Report)
+
+If argument `Report` is specified as one of the values of
+[`type()`](`t:type/0`), all loaded reports of that type are
+displayed. If `Report` is specified as an integer, the report with
+this reference number is displayed.
+""".
+-spec show(Report) -> term() when Report :: integer() | type().
+show(Number) when is_integer(Number) ->
     call({show_number, Number});
 show(Type) when is_atom(Type) ->
     call({show_type, Type}).
 
+-type regexp() :: string() | {string(), Options :: [re:options()]} |
+                  re:mp() | {re:mp(), Options :: [re:compile_options()]}.
+
+-doc """
+grep(RegExp)
+
+All reports matching the regular expression `RegExp` are displayed. `RegExp` can
+be any of the following:
+
+- A string containing the regular expression
+- A tuple with the string and the options for compilation
+- A compiled regular expression
+- A compiled regular expression and the options for running it
+
+For a definition of valid regular expressions and options, see the `m:re` module
+in STDLIB and in particular function `re:run/3`.
+
+For details about data type `mp()`, see `t:re:mp/0`.
+""".
+-spec grep(RegExp :: regexp()) -> term().
 grep(RegExp) -> call({grep, RegExp}).
 
+-type filter() :: {Key :: term(), Value :: term()} |
+                  {Key :: term(), Value :: term(), no} |
+                  {Key :: term(), RegExp :: regexp(), re} |
+                  {Key :: term(), RegExp :: regexp(), re, no}.
+
+-doc(#{equiv => filter/2}).
+-doc(#{since => <<"OTP R13B04">>}).
+-spec filter(Filters) -> term() when
+      Filters :: [filter()].
 filter(Filters) when is_list(Filters) ->
     call({filter, Filters}).
 
+-doc """
+filter(Filters, Dates)
+
+Displays the reports that match the provided filters.
+
+When a filter includes the `no` atom, it excludes the reports that match that
+filter.
+
+The reports are matched using the `m:proplists` module in STDLIB. The report
+must be a proplist to be matched against any of the filters.
+
+If the filter has the form `{Key, RegExp, re}`, the report must contain an
+element with key equal to `Key` and the value must match the regular expression
+`RegExp`.
+
+If parameter `Dates` is specified, the reports are filtered according to the
+date when they occurred. If `Dates` has the form `{DateFrom, from}`, reports
+that occurred after `DateFrom` are displayed.
+
+If `Dates` has the form `{DateTo, to}`, reports that occurred before `DateTo`
+are displayed.
+
+If two `Dates` are specified, reports that occurred between those dates are
+returned.
+
+To filter only by dates, specify the empty list as the `Filters` parameter.
+
+For details about parameter `RegExp`, see `rb:grep/1`.
+
+For details about data type `mp()`, see `t:re:mp/0`.
+
+For details about data type `datetime()`, see `t:calendar:datetime/0`.
+""".
+-doc(#{since => <<"OTP R13B04">>}).
+-spec filter(Filters, Dates) -> term() when
+      Filters :: [filter()],
+      Dates :: {DateFrom, DateTo} | {DateFrom, from} | {DateTo, to},
+      DateFrom :: calendar:datetime(),
+      DateTo :: calendar:datetime().
 filter(Filters, FDates) when is_list(Filters) andalso is_tuple(FDates) ->
     call({filter, {Filters, FDates}}).
 
+-doc """
+start_log(FileName)
+
+Redirects all report output from the RB tool to the specified file, registered
+name, or `io_device`.
+""".
+-spec start_log(FileName) -> term() when FileName :: string() | atom() | pid().
 start_log(FileName) -> call({start_log, FileName}).
 
+-doc """
+stop_log()
+
+Closes the log file. The output from the RB tool is directed to `standard_io`.
+""".
+-spec stop_log() -> term().
 stop_log() -> call(stop_log).
 
+-doc(#{equiv => help()}).
+-spec h() -> term().
 h() -> help().
+-doc """
+help()
+
+Displays online help information.
+""".
+-spec help() -> term().
 help() ->
     io:format("~nReport Browser Tool - usage~n"),
     io:format("===========================~n"),
@@ -181,6 +387,7 @@ print_dates() ->
     io:format("      - {EndDate, to}~n"),
     io:format("        prints the reports with date lesser than StartDate~n").
 
+-doc false.
 init(Options) ->
     process_flag(priority, low),
     process_flag(trap_exit, true),
@@ -194,6 +401,7 @@ init(Options) ->
     {ok, #state{dir = Dir ++ "/", data = Data, device = Device,
 		max = Max, type = Type, abort = Abort, log = Log}}.
 
+-doc false.
 handle_call({rescan, Options}, _From, State) ->
     {Device,Log1} = 
 	case get_option(Options, start_log, {undefined}) of
@@ -255,13 +463,17 @@ handle_call({filter, Filters}, _From, State) ->
 	    {reply, {error, Error}, State}
     end.
 
+-doc false.
 terminate(_Reason, #state{device = Device}) ->
     close_device(Device).
 
+-doc false.
 handle_cast(_Msg, State) ->
     {noreply, State}.
+-doc false.
 handle_info(_Info, State) ->
     {noreply, State}.
+-doc false.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -343,7 +555,7 @@ scan_files(RptDir, Max, Type) ->
 make_file_list(Dir, FirstFileNo) ->
     case file:list_dir(Dir) of
 	{ok, FileNames} ->
-	    FileNumbers = lists:zf(fun(Name) ->
+	    FileNumbers = lists:filtermap(fun(Name) ->
 					   case catch list_to_integer(Name) of
 					       Int when is_integer(Int) ->
 						   {true, Int};

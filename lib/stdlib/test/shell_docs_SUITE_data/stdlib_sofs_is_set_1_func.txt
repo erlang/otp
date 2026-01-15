@@ -1,8 +1,26 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec is_set(AnySet) -> Bool when AnySet :: anyset(), Bool :: boolean().[0m
+[;1m  is_set(AnySet)[0m
 
   Returns [;;4mtrue[0m if [;;4mAnySet[0m appears to be an unordered set, and [;;4m[0m
   [;;4mfalse[0m if [;;4mAnySet[0m is an ordered set or an atomic set or any other
-  term. Note that the test is shallow and this function will return [;;4m[0m
-  [;;4mtrue[0m for any term that coincides with the representation of an
+  term.
+
+  Note that the test is shallow and this function will return [;;4mtrue[0m
+  for any term that coincides with the representation of an
   unordered set. See also note on data types.
+
+[;1mExamples[0m
+
+    1> sofs:is_set(sofs:set([1,2,3])).
+    true
+    2> sofs:is_set(sofs:from_term({a,b,c})).
+    false
+    3> sofs:is_set(42).
+    ** exception error: no function clause matching sofs:is_set(42)

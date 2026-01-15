@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:yield() -> true.[0m
+[;1m  yield()[0m
 
   Tries to give other processes with the same or higher priority (if
   any) a chance to execute before returning. There is no guarantee
@@ -10,7 +17,8 @@
   make the current process sleep for a specific number of
   milliseconds.
 
-  Warning:
+  [;;4mWarning[0m
+
     There is seldom or never any need to use this BIF. Using this
     BIF without a thorough grasp of how the scheduler works can
     cause performance degradation. The current implementation of

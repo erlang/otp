@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,18 +96,23 @@ ERL_NIF_TERM atom_rsa;
 ERL_NIF_TERM atom_dss;
 ERL_NIF_TERM atom_ecdsa;
 
-#ifdef HAVE_EDDH
+#ifdef HAVE_X25519
 ERL_NIF_TERM atom_x25519;
-ERL_NIF_TERM atom_x448;
+#endif
+
+#ifdef HAVE_ED25519
 ERL_NIF_TERM atom_ed25519;
+#endif
+
+#ifdef HAVE_X448
+ERL_NIF_TERM atom_x448;
+#endif
+
+#ifdef HAVE_ED448
 ERL_NIF_TERM atom_ed448;
 #endif
 
 ERL_NIF_TERM atom_eddsa;
-#ifdef HAVE_EDDSA
-ERL_NIF_TERM atom_ed25519;
-ERL_NIF_TERM atom_ed448;
-#endif
 
 ERL_NIF_TERM atom_rsa_mgf1_md;
 ERL_NIF_TERM atom_rsa_oaep_label;
@@ -142,6 +149,15 @@ ERL_NIF_TERM atom_engine_method_ec;
 ERL_NIF_TERM atom_engine;
 ERL_NIF_TERM atom_key_id;
 ERL_NIF_TERM atom_password;
+#endif
+
+ERL_NIF_TERM atom_seed;
+ERL_NIF_TERM atom_expandedkey;
+
+#ifdef HAVE_ML_KEM
+ERL_NIF_TERM atom_mlkem512;
+ERL_NIF_TERM atom_mlkem768;
+ERL_NIF_TERM atom_mlkem1024;
 #endif
 
 int init_atoms(ErlNifEnv *env) {
@@ -221,17 +237,20 @@ int init_atoms(ErlNifEnv *env) {
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");
 
-#ifdef HAVE_EDDH
+#ifdef HAVE_X25519
     atom_x25519 = enif_make_atom(env,"x25519");
-    atom_x448 = enif_make_atom(env,"x448");
+#endif
+#ifdef HAVE_ED25519
     atom_ed25519 = enif_make_atom(env,"ed25519");
+#endif
+#ifdef HAVE_X448
+    atom_x448= enif_make_atom(env,"x448");
+#endif
+#ifdef HAVE_ED448
     atom_ed448 = enif_make_atom(env,"ed448");
 #endif
+
     atom_eddsa = enif_make_atom(env,"eddsa");
-#ifdef HAVE_EDDSA
-    atom_ed25519 = enif_make_atom(env,"ed25519");
-    atom_ed448 = enif_make_atom(env,"ed448");
-#endif
     atom_rsa_mgf1_md = enif_make_atom(env,"rsa_mgf1_md");
     atom_rsa_oaep_label = enif_make_atom(env,"rsa_oaep_label");
     atom_rsa_oaep_md = enif_make_atom(env,"rsa_oaep_md");
@@ -264,5 +283,12 @@ int init_atoms(ErlNifEnv *env) {
     atom_password = enif_make_atom(env,"password");
 #endif
 
+    atom_seed = enif_make_atom(env,"seed");
+    atom_expandedkey = enif_make_atom(env,"expandedkey");
+#ifdef HAVE_ML_KEM
+    atom_mlkem512  = enif_make_atom(env,"mlkem512");
+    atom_mlkem768  = enif_make_atom(env,"mlkem768");
+    atom_mlkem1024 = enif_make_atom(env,"mlkem1024");
+#endif
     return 1;
 }

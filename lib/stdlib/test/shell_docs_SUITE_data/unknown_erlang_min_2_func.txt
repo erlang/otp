@@ -1,12 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec min(Term1, Term2) -> Minimum[0m
-  [;1m             when Term1 :: term(), Term2 :: term(), Minimum :: term().[0m
+[;1m  min(Term1, Term2)[0m
 
   Returns the smallest of [;;4mTerm1[0m and [;;4mTerm2[0m. If the terms compare
   equal with the [;;4m==[0m operator, [;;4mTerm1[0m is returned.
 
-  The Expressions section contains descriptions of the [;;4m==[0m
-  operator and how terms are ordered.
+  The Expressions section contains descriptions of the [;;4m==[0m operator
+  and how terms are ordered.
 
   Examples:
 
@@ -22,7 +28,6 @@
     > min("abc", "b").
     "abc"
 
-  Allowed in guard tests.
+  [;;4mChange[0m
 
-  Change:
     Allowed in guards tests from Erlang/OTP 26.

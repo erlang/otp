@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2020. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +25,7 @@
 
 #include "common.h"
 
-int init_mac_ctx(ErlNifEnv *env);
+int init_mac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf);
 
 void init_mac_types(ErlNifEnv* env);
 

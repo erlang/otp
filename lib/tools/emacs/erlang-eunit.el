@@ -1,7 +1,10 @@
-;;
+;;;  erlang-eunit.el  -*- lexical-binding: t; -*-
+
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2009-2022. All Rights Reserved.
+;; SPDX-License-Identifier: Apache-2.0
+;;
+;; Copyright Ericsson AB 2009-2025. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -16,7 +19,7 @@
 ;; limitations under the License.
 ;;
 ;; %CopyrightEnd%
-;;;
+
 ;;; Purpose: Provide EUnit utilities.
 ;;;
 ;;; Author: Klas Johansson
@@ -217,11 +220,11 @@ buffer and vice versa"
 With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (interactive)
   (cl-case (erlang-eunit-recent 'mode)
-    ('test-mode
+    (test-mode
      (erlang-eunit-compile-and-test
       'erlang-eunit-run-test (list (erlang-eunit-recent 'module)
                                    (erlang-eunit-recent 'test))))
-    ('module-mode
+    (module-mode
      (erlang-eunit-compile-and-test
       'erlang-eunit-run-module-tests (list (erlang-eunit-recent 'module))
       (erlang-eunit-recent 'cover)))
@@ -255,8 +258,7 @@ code along with the coverage analysis results."
                            (erlang-eunit-module-name buffer-file-name)))
          (tmp-filename    (make-temp-file "cover"))
          (analyze-command (format "cover:analyze_to_file(%s, \"%s\"). "
-                                  module-name tmp-filename))
-         (buf-name        (format "*%s coverage*" module-name)))
+                                  module-name tmp-filename)))
     (erlang-eunit-inferior-erlang-send-command analyze-command)
     ;; The purpose of the following snippet is to get the result of the
     ;; analysis from a file into a new buffer (or an old, if one with
@@ -376,7 +378,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 
 (defun erlang-eunit-last-compilation-successful-p ()
   (with-current-buffer inferior-erlang-buffer
-    (goto-char compilation-parsing-end)
+    (goto-char erlang-compilation-parsing-end)
     (erlang-eunit-all-list-elems-fulfill-p
      (lambda (re) (let ((continue t)
                         (result   t))

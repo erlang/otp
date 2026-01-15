@@ -151,7 +151,8 @@ end_per_testcase(_CaseName, Config) -> Config.
 %%
 
 edoc_app_should_pass_shell_docs_validation(_Config) ->
-    ok = edoc:application(edoc, [{doclet, edoc_doclet_chunks},
+    ok = edoc:application(edoc, [{preprocess,true},
+                                 {doclet, edoc_doclet_chunks},
 				 {layout, edoc_layout_chunks},
 				 private, hidden]),
     ok = application:load(edoc),
@@ -233,6 +234,8 @@ links(Config) ->
 		 get_doc_link({function, local_function_link, 0}, Docs)),
     ?assertEqual({<<"seetype">>, <<"#t/0">>},
 		 get_doc_link({function, local_type_link, 0}, Docs)),
+    ?assertEqual({<<"seetype">>, <<"#t/0">>},
+		 get_doc_link({function, local_type_link_macro, 0}, Docs)),
     ?assertEqual({<<"seetype">>, <<"eep48_links#t/0">>},
 		 get_doc_link({function, external_type_link, 0}, Docs)).
 
@@ -514,10 +517,21 @@ lookup_entry(Kind, Function, Arity, Docs) ->
 get_metadata({_, _, _, _, Metadata}) -> Metadata.
 
 get_doc_link(KNA, Docs) ->
-    [Link] = [ Node || {a, _, _} = Node <- get_doc(KNA, Docs) ],
-    {a, Attrs, _} = Link,
-    <<"https://erlang.org/doc/link/", ShortRel/bytes>> = fetch(rel, Attrs),
-    {ShortRel, fetch(href, Attrs)}.
+    D = get_doc(KNA, Docs),
+    case lists:foldl(fun F({a, _, _} = E, Acc) ->
+                        [E | Acc];
+                    F({_E, _, Es}, Acc) when is_list(Es) ->
+                        lists:foldl(F, Acc, Es);
+                    F(_, Acc) ->
+                        Acc
+                end, [], D) of
+        [{a, Attrs, _}] ->
+            <<"https://erlang.org/doc/link/", ShortRel/bytes>> = fetch(rel, Attrs),
+            {ShortRel, fetch(href, Attrs)};
+        _Else ->
+            ct:log("Could not find link in ~p",[D]),
+            ct:fail("Did not find link in docs")
+    end.
 
 get_anno(Kind, Name, Arity, Docs) ->
     {_, Anno, _, _, _} = lookup_entry(Kind, Name, Arity, Docs),

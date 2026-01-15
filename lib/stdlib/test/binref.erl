@@ -1,3 +1,23 @@
+%% %CopyrightBegin%
+%% 
+%% SPDX-License-Identifier: Apache-2.0
+%% 
+%% Copyright Ericsson AB 2025. All Rights Reserved.
+%% 
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%% 
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%% 
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%% 
+%% %CopyrightEnd%
+
 -module(binref).
 
 -export([compile_pattern/1,match/2,match/3,matches/2,matches/3,
@@ -7,6 +27,7 @@
 	 longest_common_prefix/1,longest_common_suffix/1,bin_to_list/1,
 	 bin_to_list/2,bin_to_list/3,list_to_bin/1]).
 
+-compile(nowarn_obsolete_bool_op).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% compile_pattern, a dummy
@@ -228,7 +249,7 @@ replace(Haystack,Needles0,Replacement,Options) ->
 		      true ->
 			  exit(badtype)
 		  end,
-	true = is_binary(Replacement), % Make badarg instead of function clause
+	true = is_binary(Replacement) orelse is_function(Replacement, 1), % Make badarg instead of function clause
 	{Part,Global,Insert} = get_opts_replace(Options,{nomatch,false,[]}),
 	{Start,End,NewStack} =
 	    case Part of
@@ -254,7 +275,9 @@ replace(Haystack,Needles0,Replacement,Options) ->
 				[X]
 			end
 		end,
-	ReplList = case Insert of
+	ReplList = case is_binary(Replacement) andalso Insert of
+		       false ->
+			   Replacement;
 		       [] ->
 			   Replacement;
 		       Y when is_integer(Y) ->
@@ -274,6 +297,8 @@ do_replace(H,[],_,N) ->
 do_replace(H,[{A,B}|T],Replacement,N) ->
     [part(H,{N,A-N}),
      if
+	 is_function(Replacement) ->
+	     Replacement(part(H, {A, B}));
 	 is_list(Replacement) ->
 	     do_insert(Replacement, part(H,{A,B}));
 	 true ->

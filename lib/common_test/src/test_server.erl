@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,6 +19,7 @@
 %%
 %% %CopyrightEnd%
 -module(test_server).
+-moduledoc false.
 
 -define(DEFAULT_TIMETRAP_SECS, 60).
 
@@ -982,7 +985,7 @@ spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
                             {died, NewReturn, [{Mod,Func}]};
                         NewReturn ->
                             T = case Error of
-                                    {timetrap_timeout,TT} -> TT;
+                                    {timetrap_timeout,TT} -> TT/1000;
                                     _ -> 0
                                 end,
                             {T, NewReturn, Loc}
@@ -1874,22 +1877,14 @@ log(Msg) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% capture_start() -> ok
-%% capture_stop() -> ok
-%%
-%% Starts/stops capturing all output from io:format, and similar. Capturing
-%% output doesn't stop output from happening. It just makes it possible
-%% to retrieve the output using capture_get/0.
-%% Starting and stopping capture doesn't affect already captured output.
-%% All output is stored as messages in the message queue until retrieved
+%% @see test_server_gl:capture_start/2
 
 capture_start() ->
-    group_leader() ! {capture,self()},
-    ok.
+    test_server_gl:capture_start(group_leader(), self()).
 
+%% @see test_server_gl:capture_stop/1
 capture_stop() ->
-    group_leader() ! {capture,false},
-    ok.
+    test_server_gl:capture_stop(group_leader()).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% capture_get() -> Output
@@ -1920,11 +1915,9 @@ permit_io(GroupLeader, FromPid) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% sleep(Time) -> ok
-%% Time = integer() | float() | infinity
-%%
 %% Sleeps the specified number of milliseconds. This sleep also accepts
 %% floating point numbers (which are truncated) and the atom 'infinity'.
+-spec sleep(timeout() | float()) -> ok.
 sleep(infinity) ->
     receive
     after infinity ->
@@ -1938,14 +1931,12 @@ sleep(MSecs) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% adjusted_sleep(Time) -> ok
-%% Time = integer() | float() | infinity
-%%
 %% Sleeps the specified number of milliseconds, multiplied by the
 %% 'multiply_timetraps' value (if set) and possibly also automatically scaled
 %% up if 'scale_timetraps' is set to true (which is default).
 %% This function also accepts floating point numbers (which are truncated) and
 %% the atom 'infinity'.
+-spec adjusted_sleep(timeout() | float()) -> ok.
 adjusted_sleep(infinity) ->
     receive
     after infinity ->

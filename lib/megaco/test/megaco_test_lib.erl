@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -909,6 +911,8 @@ linux_distro_str_to_distro_id("Fedora" ++ _) ->
     fedora;
 linux_distro_str_to_distro_id("Linux Mint" ++ _) ->
     linux_mint;
+linux_distro_str_to_distro_id("LMDE" ++ _) ->
+    linux_mint;
 linux_distro_str_to_distro_id("MontaVista" ++ _) ->
     montavista;
 linux_distro_str_to_distro_id("openSUSE" ++ _) ->
@@ -1196,7 +1200,8 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n   Num Online Schedulers: ~s"
                           "~n", [CPU, str_num_schedulers()]),
                 num_schedulers_to_factor();
-            _ ->
+            _X ->
+		io:format("CPU: ~p~n", [_X]),
                 5
         end,
     AddLabelFactor = label2factor(Label),
@@ -3199,18 +3204,24 @@ explicit_inet_backend() ->
             false
     end.
 
+%% We cannot use application:get_all_env(megaco) since that only "works"
+%% when the application has been started and this function may be called
+%% well before that happens.
 test_inet_backends() ->
-    case application:get_all_env(megaco) of
-        Env when is_list(Env) ->
-            case lists:keysearch(test_inet_backends, 1, Env) of
-                {value, {test_inet_backends, true}} ->
-                    true;
-                _ ->
-                    false
-            end;
+    case init:get_argument(megaco) of
+        {ok, Args} when is_list(Args) ->
+            test_inet_backends(Args);
         _ ->
-            false 
+            false
     end.
+
+test_inet_backends([]) ->
+    false;
+test_inet_backends([["test_inet_backends","true"]|_]) ->
+    true;
+test_inet_backends([_|Args]) ->
+    test_inet_backends(Args).
+           
 
 inet_backend_opts(Config) when is_list(Config) ->
     case lists:keysearch(socket_create_opts, 1, Config) of

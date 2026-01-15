@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -28,6 +30,7 @@
 -module(node_container_SUITE).
 -author('rickard.green@uab.ericsson.se').
 
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
@@ -904,21 +907,29 @@ mkpidlist(N, Ps) -> mkpidlist(N-1, [spawn(fun () -> ok end)|Ps]).
 
 
 iter_max_procs(Config) when is_list(Config) ->
-    NoMoreTests = make_ref(),
-    erlang:send_after(10000, self(), NoMoreTests),
-
     %% Disable logging to avoid "Too many processes" log which can
     %% cause ct_logs to crash when trying to spawn "async print job".
-    #{level := LoggerLevel} = logger:get_primary_config(),
-    ok = logger:set_primary_config(level, none),
-    Res = try
-              R = chk_max_proc_line(),
-              R = chk_max_proc_line(),
-              done = chk_max_proc_line_until(NoMoreTests, R),
-              R
-          after
-              logger:set_primary_config(level, LoggerLevel)
+    {ok, Peer, Node} = ?CT_PEER(["+P", "2048", "-kernel", "logger_level", "none"]),
+    NoMoreTests = make_ref(),
+
+    Self = self(),
+    NcData = make_ref(),
+
+    %% Sleep to give all `peer` processes time to go down.
+    ct:sleep(500),
+
+    RPid = spawn_link(Node, fun () ->
+                                   erlang:send_after(10000, self(), NoMoreTests),
+                                   R = chk_max_proc_line(),
+                                   R = chk_max_proc_line(),
+                                   done = chk_max_proc_line_until(NoMoreTests, R),
+                                   Self ! {NcData, R}
+                            end),
+    Res = receive
+              {NcData, R} -> R
           end,
+    unlink(RPid),
+    stop_node(Peer, Node),
     Cmt = io_lib:format("max processes = ~p; "
                         "process line length = ~p",
                         [element(2, Res), element(1, Res)]),
@@ -959,7 +970,7 @@ chk_max_proc_line_until(NoMoreTests, Res) ->
         NoMoreTests ->
             done
     after 0 ->
-              Res = chk_max_proc_line(),
+              ?assertEqual(Res, chk_max_proc_line()),
               chk_max_proc_line_until(NoMoreTests, Res)
     end.
 
@@ -972,20 +983,20 @@ magic_ref(Config) when is_list(Config) ->
     MRef0 = MRef1,
     Me = self(),
     {Pid, Mon} = spawn_opt(fun () ->
-				   receive
-				       {Me, MRef} ->
-					   Me ! {self(), erts_debug:get_internal_state({magic_ref,MRef})}
-				   end
-			   end,
-			   [link, monitor]),
+                                   receive
+                                       {Me, MRef} ->
+                                           Me ! {self(), erts_debug:get_internal_state({magic_ref,MRef})}
+                                   end
+                           end,
+                           [link, monitor]),
     Pid ! {self(), MRef0},
     receive
-	{Pid, Info} ->
-	    {Addr0, 3, true} = Info
+        {Pid, Info} ->
+            {Addr0, 3, true} = Info
     end,
     receive
-	{'DOWN', Mon, process, Pid, _} ->
-	    ok
+        {'DOWN', Mon, process, Pid, _} ->
+            ok
     end,
     MaxTime = erlang:monotonic_time(millisecond) + 1000,
     %% The DOWN signal is sent before heap is cleaned up,

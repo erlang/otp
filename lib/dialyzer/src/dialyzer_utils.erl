@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_utils.erl
@@ -20,6 +29,9 @@
 %%% Created :  5 Dec 2006 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_utils).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 -export([
 	 format_sig/1,
@@ -175,7 +187,7 @@ get_record_and_type_info([{type, Location, [{{record, Name}, Fields0, []}]}
   get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{Attr, Location, [{Name, TypeForm}]}|Left],
 			 Module, RecDict, File)
-               when Attr =:= 'type'; Attr =:= 'opaque' ->
+               when Attr =:= 'type'; Attr =:= 'opaque'; Attr =:= 'nominal' ->
   FN = {File, Location},
   try add_new_type(Attr, Name, TypeForm, [], Module, FN, RecDict) of
     NewRecDict ->
@@ -185,7 +197,7 @@ get_record_and_type_info([{Attr, Location, [{Name, TypeForm}]}|Left],
   end;
 get_record_and_type_info([{Attr, Location, [{Name, TypeForm, Args}]}|Left],
 			 Module, RecDict, File)
-               when Attr =:= 'type'; Attr =:= 'opaque' ->
+               when Attr =:= 'type'; Attr =:= 'opaque'; Attr =:= 'nominal' ->
   FN = {File, Location},
   try add_new_type(Attr, Name, TypeForm, Args, Module, FN, RecDict) of
     NewRecDict ->
@@ -374,6 +386,8 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
                   {{Key, {F, Type}}, C3};
                 {type, _Name, _NArgs} ->
                   {{Key, Value}, C2};
+                {nominal, _Name, _NArgs} ->
+                  {{Key, Value}, C2};
                 {record, _RecName} ->
                   {{Key, Value}, C2}
               end
@@ -561,7 +575,7 @@ core_to_attr_tuples(Core) ->
       %% Starting from Erlang/OTP 26, locally defining a type having
       %% the same name as a built-in type is allowed. Change the tag
       %% from `type` to `user_type` for all such redefinitions.
-      massage_forms(As, sets:new([{version, 2}]))
+      massage_forms(As, sets:new())
   end.
 
 get_core_location([L | _As]) when is_integer(L) -> L;
@@ -766,7 +780,7 @@ sets_filter([Mod|Mods], ExpTypes) ->
 
 src_compiler_opts() ->
   [no_copt, to_core, binary, return_errors,
-   no_inline, strict_record_tests, strict_record_updates,
+   no_inline, strict_record_tests,
    dialyzer, no_spawn_compiler_process].
 
 -spec format_errors([{module(), string()}]) -> [string()].
@@ -1104,9 +1118,9 @@ refold_concrete_pat(Val) ->
 	false -> label(cerl:c_tuple_skel(Els))
       end;
     [H|T] ->
-      case  cerl:is_literal(HP=refold_concrete_pat(H))
-	and cerl:is_literal(TP=refold_concrete_pat(T))
-      of
+      HP = refold_concrete_pat(H),
+      TP = refold_concrete_pat(T),
+      case  cerl:is_literal(HP) and cerl:is_literal(TP) of
 	true -> cerl:abstract(Val);
 	false -> label(cerl:c_cons_skel(HP, TP))
       end;
@@ -1186,9 +1200,8 @@ ets_take('$end_of_table', T, F, A) ->
     Key -> ets_take(Key, T, F, A)
   end;
 ets_take(Key, T, F, A) ->
-  Vs = ets:lookup(T, Key),
   Key1 = ets:next(T, Key),
-  true = ets:delete(T, Key),
+  Vs = ets:take(T, Key),
   ets_take(Key1, T, F, F(Vs, A)).
 
 -spec parallelism() -> integer().

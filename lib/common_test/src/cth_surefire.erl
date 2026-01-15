@@ -1,7 +1,9 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %%% as a suite_callback.
 
 -module(cth_surefire).
+-moduledoc false.
 
 %% Suite Callbacks
 -export([id/1, init/2]).
@@ -47,7 +50,10 @@
 -export([terminate/1]).
 
 %% Gen server callbacks
--export([init/1, handle_call/3]).
+-export([init/1, handle_call/3, handle_cast/2]).
+
+-behaviour(gen_server).
+-behaviour(ct_hooks).
 
 -record(state, { filepath, axis, properties, package, hostname,
 		 curr_suite, curr_suite_file, curr_suite_ast, curr_suite_ts, curr_group = [],
@@ -76,7 +82,7 @@
 %% the execution time of diameter_traffic_SUITE from 30 min to 5 min.
 init(Path, Opts) ->
     {ok, Pid} = gen_server:start(?MODULE, [Path, Opts], []),
-    Pid.
+    {ok, Pid}.
 
 init([Path, Opts]) ->
     ct_util:mark_process(),
@@ -100,6 +106,10 @@ handle_call({Function, Args}, _From, State)
 handle_call({Function, Args}, _From, State) ->
     {Reply,NewState} = apply(?MODULE, Function, Args ++ [State]),
     {reply,Reply,NewState}.
+
+%% Ignore any cast
+handle_cast(_What, State) ->
+    {noreply, State}.
 
 id(Opts) ->
     case proplists:get_value(path, Opts) of
@@ -188,7 +198,14 @@ pre_init_per_group(_Suite,Group,Config,State) ->
 post_init_per_group(Suite,Group,Config,Result,Proxy) when is_pid(Proxy) ->
     {gen_server:call(Proxy,{?FUNCTION_NAME, [Suite, Group, Config, Result]}),Proxy};
 post_init_per_group(_Suite,_Group,Config,Result,State) ->
-    {Result, end_tc(init_per_group,Config,Result,State)}.
+    NewState = end_tc(init_per_group,Config,Result,State),
+    case Result of
+        {skip, _} ->
+            %% on_tc_skip will be called which will re-add this group
+            {Result, NewState#state{ curr_group = tl(NewState#state.curr_group) }};
+        _ ->
+            {Result, NewState}
+    end.
 
 pre_end_per_group(Suite,Group,Config,Proxy) when is_pid(Proxy) ->
     {gen_server:call(Proxy,{?FUNCTION_NAME, [Suite, Group, Config]}),Proxy};
@@ -245,18 +262,31 @@ get_line_from_result(_, _) ->
 on_tc_skip(Suite,TC,Result,Proxy) when is_pid(Proxy) ->
     _ = gen_server:call(Proxy,{?FUNCTION_NAME, [Suite,TC,Result]}),
     Proxy;
-on_tc_skip(Suite,{ConfigFunc,_GrName}, Res, State) ->
-    on_tc_skip(Suite,ConfigFunc, Res, State);
+on_tc_skip(Suite,{init_per_group,GrName}, Res, State) ->
+    on_tc_skip(Suite,init_per_group, Res, State#state{ curr_group = [GrName | State#state.curr_group]});
+on_tc_skip(Suite,{end_per_group,_GrName}, Res, State) ->
+    NewState = on_tc_skip(Suite,end_per_group, Res, State),
+    NewState#state{ curr_group = tl(State#state.curr_group)};
+on_tc_skip(Suite,{ConfigFunc,GrName}, Res, State) ->
+    if GrName =:= hd(State#state.curr_group) ->
+            on_tc_skip(Suite,ConfigFunc, Res, State);
+       true ->
+            NewState = on_tc_skip(Suite,ConfigFunc, Res,
+                                  State#state{ curr_group = [GrName | State#state.curr_group]}),
+            NewState#state{ curr_group = tl(NewState#state.curr_group)}
+    end;                          
 on_tc_skip(Suite,Tc, Res, State0) ->
     TcStr = atom_to_list(Tc),
-    State =
+    CurrGroup = make_group_string(State0#state.curr_group),
+    State1 =
 	case State0#state.test_cases of
-	    [#testcase{name=TcStr}|TCs] ->
+	    [#testcase{name=TcStr,group=CurrGroup}|TCs] ->
 		State0#state{test_cases=TCs};
 	    _ ->
 		State0
 	end,
-    do_tc_skip(Res, end_tc(Tc,[],Res,init_tc(set_suite(Suite,State),[]))).
+    State = end_tc(Tc,[],Res,init_tc(set_suite(Suite,State1),[])),
+    do_tc_skip(Res, State).
 
 do_tc_skip(Res, State) ->
     TCs = State#state.test_cases,
@@ -296,7 +326,7 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
 	end,
     Url = make_url(UrlBase,Log),
     ClassName = atom_to_list(Suite),
-    PGroup = lists:concat(lists:join(".",lists:reverse(Groups))),
+    PGroup = make_group_string(Groups),
     TimeTakes = io_lib:format("~f",[timer:now_diff(?now,TS) / 1000000]),
     State#state{ test_cases = [#testcase{ log = Log,
 					  url = Url,
@@ -311,6 +341,9 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
 					  result = passed }|
 			       State#state.test_cases],
 		 tc_log = ""}. % so old tc_log is not set if next is on_tc_skip
+
+make_group_string(Groups) ->
+    lists:concat(lists:join(".",lists:reverse(Groups))).
 
 set_suite(Suite,#state{curr_suite=undefined}=State) ->
     State#state{curr_suite=Suite, curr_suite_ts=?now};

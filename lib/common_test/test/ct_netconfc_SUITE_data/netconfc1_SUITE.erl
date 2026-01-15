@@ -1,7 +1,9 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -137,7 +139,7 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     ?NS:stop(?config(netconf_server,Config)),
     ssh:stop(),
-    crypto:stop(),
+    application:stop(crypto),
     Config.
 
 hello(Config) ->

@@ -1,25 +1,26 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec make_dir(Dir) -> ok | {error, Reason}[0m
-  [;1m                  when Dir :: name_all(), Reason :: posix() | badarg.[0m
+[;1m  make_dir(Dir)[0m
 
   Tries to create directory [;;4mDir[0m. Missing parent directories are 
   not created. Returns [;;4mok[0m if successful.
 
   Typical error reasons:
 
-  [;;4m[;;4meacces[0m[0m:
-    Missing search or write permissions for the parent directories
-    of [;;4mDir[0m.
+   • [;;4meacces[0m - Missing search or write permissions for the parent
+     directories of [;;4mDir[0m.
 
-  [;;4m[;;4meexist[0m[0m:
-    A file or directory named [;;4mDir[0m exists already.
+   • [;;4meexist[0m - A file or directory named [;;4mDir[0m exists already.
 
-  [;;4m[;;4menoent[0m[0m:
-    A component of [;;4mDir[0m does not exist.
+   • [;;4menoent[0m - A component of [;;4mDir[0m does not exist.
 
-  [;;4m[;;4menospc[0m[0m:
-    No space is left on the device.
+   • [;;4menospc[0m - No space is left on the device.
 
-  [;;4m[;;4menotdir[0m[0m:
-    A component of [;;4mDir[0m is not a directory. On some platforms, [;;4m[0m
-    [;;4menoent[0m is returned instead.
+   • [;;4menotdir[0m - A component of [;;4mDir[0m is not a directory. On some
+     platforms, [;;4menoent[0m is returned instead.

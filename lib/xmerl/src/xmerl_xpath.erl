@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,74 +16,37 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
-%% Description  : Implements a search engine based on XPath
-
-%% @doc The xmerl_xpath module handles the entire XPath 1.0 spec.
-%% XPath expressions typically occur in XML attributes and are used to address
-%% parts of an XML document.
-%     The grammar is defined in <code>xmerl_xpath_parse.yrl</code>.
-%     The core functions are defined in <code>xmerl_xpath_pred.erl</code>.
-%
-%     <p>Some useful shell commands for debugging the XPath parser</p>
-% <pre>
-% c(xmerl_xpath_scan).
-% yecc:yecc("xmerl_xpath_parse.yrl", "xmerl_xpath_parse", true, []).
-% c(xmerl_xpath_parse).
-%
-% xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("position() > -1")).
-% xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6 div 2")).
-% xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 + 6 mod 2")).
-% xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6")).
-% xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("-----6")).
-% xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::node()")).
-% xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("descendant-or-self::node()")).
-% xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
-%% </pre>
-%%
-%% @type nodeEntity() =
-%%      #xmlElement{}
-%%    | #xmlAttribute{}
-%%    | #xmlText{} 
-%%    | #xmlPI{}
-%%    | #xmlComment{}
-%%    | #xmlNsNode{}
-%%    | #xmlDocument{}
-%%
-%% @type docNodes() =   #xmlElement{}
-%%    | #xmlAttribute{}
-%%    | #xmlText{} 
-%%    | #xmlPI{}
-%%    | #xmlComment{}
-%%    | #xmlNsNode{}
-%%
-%% @type docEntity() =  #xmlDocument{} | [docNodes()]
-%%
-%% @type xPathString() = string()
-%%
-%% @type parentList() = [{atom(), integer()}]
-%%
-%% @type option_list(). <p>Options allows to customize the behaviour of the
-%%     XPath scanner.
-%% </p>
-%% <p>
-%% Possible options are:
-%% </p>
-%% <dl>
-%%  <dt><code>{namespace, #xmlNamespace}</code></dt>
-%%    <dd>Set namespace nodes, from XmlNamspace, in xmlContext</dd>
-%%  <dt><code>{namespace, Nodes}</code></dt>
-%%    <dd>Set namespace nodes in xmlContext.</dd>
-%% </dl>
-
-%%  <dt><code>{bindings, Bs}</code></dt>
-%%   <dd></dd>
-%% <dt><code>{functions, Fs}</code></dt>
-%%   <dd></dd>
 -module(xmerl_xpath).
+-moduledoc """
+Xpath 1.0 search implementation.
+
+The `xmerl_xpath` module handles the entire XPath 1.0 spec. XPath expressions
+typically occur in XML attributes and are used to address parts of an XML
+document. The grammar is defined in `xmerl_xpath_parse.yrl`. The core functions
+are defined in `xmerl_xpath_pred.erl`.
+
+Some useful shell commands for debugging the XPath parser
+
+```text
+ c(xmerl_xpath_scan).
+ yecc:yecc("xmerl_xpath_parse.yrl", "xmerl_xpath_parse", true, []).
+ c(xmerl_xpath_parse).
+
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("position() > -1")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6 div 2")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 + 6 mod 2")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("-----6")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::node()")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("descendant-or-self::node()")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
+
+```
+""".
 
 
 %% main API
@@ -109,34 +74,78 @@
 -define(context(C), #state{context = C}).
 
 
+-type nodeEntity() ::
+        xmerl:xmlElement()
+      | xmerl:xmlAttribute()
+      | xmerl:xmlText()
+      | xmerl:xmlPI()
+      | xmerl:xmlComment()
+      | xmerl:xmlNsNode()
+      | xmerl:xmlDocument().
+
+-type xPathString() :: string().
+
+-type parentList() :: [{atom(), integer()}].
 
 
-%% @spec string(Str, Doc) -> [docEntity()] | Scalar
-%% @equiv string(Str,Doc, [])
+-doc """
+Options to customize the behaviour of the XPath scanner.
+
+Possible options are:
+
+<dl>
+ <dt><code>{namespace, #xmlNamespace}</code></dt>
+   <dd>Set namespace nodes, from XmlNamspace, in xmlContext</dd>
+ <dt><code>{namespace, Nodes}</code></dt>
+   <dd>Set namespace nodes in xmlContext.</dd>
+</dl>
+""".
+%% <dt><code>{bindings, Bs}</code></dt>
+%%  <dd></dd>
+%% <dt><code>{functions, Fs}</code></dt>
+%% <dd></dd>
+-type option_list() :: [{atom(),term()}].
+
+
+-doc(#{ equiv => string(String, Doc, [], Doc, []) }).
+-spec string(String, Doc) ->  
+          [nodeEntity()] | Scalar when
+      String  :: xPathString(),
+      Doc     :: nodeEntity(),
+      Scalar  :: #xmlObj{}.
 string(Str, Doc) ->
     string(Str, Doc, []).
 
-%% @spec string(Str,Doc,Options) -> 
-%%      [docEntity()] | Scalar
-%% @equiv string(Str,Doc, [],Doc,Options)
+-doc(#{ equiv => string(String, Doc, [], Doc, Options) }).
+-spec string(String, Doc, Options) -> 
+          [nodeEntity()] | Scalar when
+      String  :: xPathString(),
+      Doc     :: nodeEntity(),
+      Options :: option_list(),
+      Scalar  :: #xmlObj{}.
 string(Str, Doc, Options) ->
     string(Str, Doc, [], Doc, Options).
 
-%% @spec string(Str,Node,Parents,Doc,Options) ->
-%%      [docEntity()] | Scalar
-%%   Str     = xPathString()
-%%   Node    = nodeEntity()
-%%   Parents = parentList()
-%%   Doc     = nodeEntity()
-%%   Options = option_list()
-%%   Scalar  = #xmlObj{}
-%% @doc Extracts the nodes from the parsed XML tree according to XPath.
-%%   xmlObj is a record with fields type and value,
-%%   where type is boolean | number | string
+-doc """
+Extract nodes from a parsed XML tree.
+
+Extracts the nodes from the parsed XML tree according the XPath `String`.
+
+`Scalar` is an `#xmlObj{}` record record with the fields `type` and `value`,
+where `#xmlObj.type` is `boolean | number | string`.
+""".
+-spec string(String, Node, Parents, Doc, Options) ->
+          [nodeEntity()] | Scalar when
+      String  :: xPathString(),
+      Node    :: nodeEntity(),
+      Parents :: parentList(),
+      Doc     :: nodeEntity(),
+      Options :: option_list(),
+      Scalar  :: #xmlObj{}.
 string(Str, Node, Parents, Doc, Options) ->
 %% record with fields type and value,
 %%                where type is boolean | number | string
-    FullParents = 
+    FullParents =
 	case Parents of
 	    [] ->
 		[];
@@ -156,10 +165,10 @@ string(Str, Node, Parents, Doc, Options) ->
     #state{context = NewContext} = match(Str, #state{context = Context}),
 %?dbg("string NewContext=~p~n",[NewContext]),
     case NewContext#xmlContext.nodeset of
-	ScalObj = #xmlObj{type=Scalar} 
+	ScalObj = #xmlObj{type=Scalar}
 	when Scalar == boolean;	Scalar == number; Scalar == string ->
 	    ScalObj;
-	#xmlObj{type=nodeset,value=NodeSet} -> 
+	#xmlObj{type=nodeset,value=NodeSet} ->
 	    NodeSet;
 	_ ->
 	    [N || #xmlNode{node = N} <- NewContext#xmlContext.nodeset]
@@ -242,10 +251,10 @@ match_expr(PrimExpr,S) ->
 
 path_expr({refine, StepExpr1, StepExpr2}, S) ->
     ?dbg("StepExpr1=~p StepExpr2=~p~n", [StepExpr1,StepExpr2]),
-    ?dbg("length(nodeset) = ~p~n", 
+    ?dbg("length(nodeset) = ~p~n",
 	 [length((S#state.context)#xmlContext.nodeset)]),
     S1 = path_expr(StepExpr1, S),
-    ?dbg("length(nodeset1) = ~p~n", 
+    ?dbg("length(nodeset1) = ~p~n",
 	 [length((S1#state.context)#xmlContext.nodeset)]),
     path_expr(StepExpr2, S1);
 path_expr({step, {Axis, NodeTest, PredExpr}}, S = #state{context = C,
@@ -267,7 +276,7 @@ pred_expr([{pred, Pred}|Preds], S = #state{}) ->
 %% simple case: the predicate is a number, e.g. para[5].
 %% No need to iterate over all nodes in the nodeset; we know what to do.
 %%
-eval_pred({number, N0}, 
+eval_pred({number, N0},
 	  S = #state{context = C = #xmlContext{nodeset = NS,
 					       axis_type = AxisType}}) ->
     Len = length(NS),
@@ -284,9 +293,9 @@ eval_pred({number, N0},
 	    S#state{context = NewContext};
 	false -> S#state{context = C#xmlContext{nodeset = []}}
     end;
-eval_pred(Predicate, S = #state{context = C = 
+eval_pred(Predicate, S = #state{context = C =
 				#xmlContext{nodeset = NodeSet}}) ->
-    NewNodeSet = 
+    NewNodeSet =
 	lists:filter(
 	  fun(Node) ->
 		  %?dbg("current node: ~p~n", [write_node(Node)]),
@@ -294,13 +303,13 @@ eval_pred(Predicate, S = #state{context = C =
 		  xmerl_xpath_pred:eval(Predicate, ThisContext)
 	  end, NodeSet),
     NewContext = C#xmlContext{nodeset = NewNodeSet},
-    S#state{context = NewContext}.    
-    
+    S#state{context = NewContext}.
+
 
 
 %% write_node(Node::xmlNode()) -> {Type,Pos,Name,Parents}
 %% Helper function to access essential information from the xmlNode record.
-%% @hidden
+-doc false.
 write_node(#xmlNode{pos = Pos,
 		    node = #xmlAttribute{name = Name,
 					 parents = Ps}}) ->
@@ -330,7 +339,7 @@ write_node(_) ->
 
 %% eval_path(Type,Arg,S::state()) -> state()
 %% Eval path
-%% @hidden
+-doc false.
 eval_path(union, {PathExpr1, PathExpr2}, C = #xmlContext{}) ->
     S = #state{context = C},
     S1 = match_expr(PathExpr1, S),
@@ -361,20 +370,20 @@ eval_primary_expr(PrimExpr, S = #state{context = Context}) ->
     NewNodeSet = xmerl_xpath_lib:eval(primary_expr, PrimExpr, Context),
     NewContext = Context#xmlContext{nodeset = NewNodeSet},
     S#state{context = NewContext}.
-    
+
 
 %% axis(Axis,NodeTest,Context::xmlContext()) -> xmlContext()
 %% axis(Axis,NodeTest,Context,[])
-%% @hidden
+-doc false.
 axis(Axis, NodeTest, Context) ->
     axis(Axis, NodeTest, Context, []).
 
 
 %% axis(Axis,NodeTest,Context::xmlContext(),Acc) -> xmlContext()
-%%  
+%%
 %% An axis specifies the tree relationship between the nodes selected by
 %% the location step and the context node.
-%% @hidden
+-doc false.
 axis(Axis, NodeTest, Context = #xmlContext{nodeset = NS0}, Acc) ->
     NewNodeSet=lists:foldr(
 		 fun(N, AccX) ->
@@ -465,10 +474,10 @@ match_desc([E|T], Parents, Tok, Acc, Context) ->
     match_self(Tok, N, Acc1, Context);
 match_desc([], _Parents, _Tok, Acc, _Context) ->
     Acc.
-			  
 
 
-%% "The 'descendant-or-self' axis contains the context node and the 
+
+%% "The 'descendant-or-self' axis contains the context node and the
 %% descendants of the context node."
 match_descendant_or_self(Tok, N, Acc, Context) ->
     Acc1 = match_descendant(Tok, N, Acc, Context),
@@ -493,7 +502,7 @@ match_child(Tok, N, Acc, Context) ->
     end.
 
 
-%% "The 'parent' axis contains the parent of the context node, 
+%% "The 'parent' axis contains the parent of the context node,
 %% if there is one."
 match_parent(Tok, N, Acc, Context) ->
     case N#xmlNode.parents of
@@ -506,7 +515,7 @@ match_parent(Tok, N, Acc, Context) ->
 
 %% "The 'ancestor' axis contains the ancestors of the context node;
 %% the ancestors of the context node consists of the parent of the context
-%% node and the parent's parent and so on; thus, the ancestor axis will 
+%% node and the parent's parent and so on; thus, the ancestor axis will
 %% always include the root node, unless the context node is the root node."
 match_ancestor(Tok, N, Acc, Context) ->
     Parents = N#xmlNode.parents,
@@ -536,7 +545,7 @@ match_following_sibling(Tok, N, Acc, Context) ->
     case Ps of
 	[#xmlNode{type = element,
 		  node = #xmlElement{} = PNode}|_] ->
-	    FollowingSiblings = lists:nthtail(get_position(Node), 
+	    FollowingSiblings = lists:nthtail(get_position(Node),
 					      get_content(PNode)),
 	    lists:foldr(
 	      fun(E, AccX) ->
@@ -558,7 +567,7 @@ match_following(Tok, N, Acc, Context) ->
     case Ps of
 	[#xmlNode{type = element,
 		  node = #xmlElement{} = PNode} = P|_] ->
-	    FollowingSiblings = lists:nthtail(get_position(Node), 
+	    FollowingSiblings = lists:nthtail(get_position(Node),
 					      get_content(PNode)),
 	    Acc0 = match_following(Tok, P, Acc, Context),
 	    lists:foldr(
@@ -573,7 +582,7 @@ match_following(Tok, N, Acc, Context) ->
     end.
 
 
-%% "The preceding-sibling axis contains all the preceding siblings of the 
+%% "The preceding-sibling axis contains all the preceding siblings of the
 %% context node; if the context node is an attribute node or namespace node,
 %% the preceding-sibling axis is empty."
 match_preceding_sibling(_Tok, #xmlAttribute{}, Acc, _Context) ->
@@ -587,7 +596,7 @@ match_preceding_sibling(Tok, N, Acc, Context) ->
 	[#xmlNode{type = element,
 		  node = #xmlElement{} = PNode}|_] ->
 	    PrecedingSiblings = lists:sublist(get_content(PNode), 1,
-					      get_position(Node) - 1), 
+					      get_position(Node) - 1),
 	    lists:foldr(
 	      fun(E, AccX) ->
 		      ThisN = #xmlNode{type = node_type(E),
@@ -609,7 +618,7 @@ match_preceding(Tok, N, Acc, Context) ->
 	[#xmlNode{type = element,
 		  node = #xmlElement{} = PNode} = P|_] ->
 	    PrecedingSiblings = lists:sublist(get_content(PNode), 1,
-					      get_position(Node) - 1), 
+					      get_position(Node) - 1),
 	    Acc0 = lists:foldr(
 		     fun(E, AccX) ->
 			     ThisN = #xmlNode{type = node_type(E),
@@ -725,7 +734,7 @@ node_test(_Test,
 	  #xmlNode{type=attribute,node=#xmlAttribute{nsinfo={"xmlns",_Local}}},
 	  _Context) ->
     false;
-node_test({wildcard, _}, #xmlNode{type=ElAt}, _Context) 
+node_test({wildcard, _}, #xmlNode{type=ElAt}, _Context)
   when ElAt==element; ElAt==attribute; ElAt==namespace ->
     true;
 node_test({prefix_test, Prefix}, #xmlNode{node = N}, Context) ->
@@ -751,45 +760,45 @@ node_test({prefix_test, Prefix}, #xmlNode{node = N}, Context) ->
 	_ ->
 	    false
     end;
-node_test({name, {Tag, _Prefix, _Local}}, 
-	  #xmlNode{node = #xmlElement{name = Tag}}=_N, _Context) -> 
+node_test({name, {Tag, _Prefix, _Local}},
+	  #xmlNode{node = #xmlElement{name = Tag}}=_N, _Context) ->
     %?dbg("node_test({tag, ~p}, ~p) -> true.~n", [Tag, write_node(_N)]),
     true;
-node_test({name, {Tag, Prefix, Local}}, 
+node_test({name, {Tag, Prefix, Local}},
 	  #xmlNode{node = #xmlElement{name = Name,
 				      expanded_name = EExpName,
 				      nsinfo = {_Prefix1, _}
-				     }}, Context) -> 
+				     }}, Context) ->
     case expanded_name(Prefix, Local, Context) of
 	[] ->
 	    Res = (Tag == Name),
-	    ?dbg("node_test(~p, ~p) -> ~p.~n", 
+	    ?dbg("node_test(~p, ~p) -> ~p.~n",
 		 [{Tag, Prefix, Local}, write_node(Name), Res]),
 	    Res;
 	ExpName ->
 	    Res = (ExpName == EExpName),
-	    ?dbg("node_test(~p, ~p) -> ~p.~n", 
+	    ?dbg("node_test(~p, ~p) -> ~p.~n",
 		 [{Tag, Prefix, Local}, write_node(Name), Res]),
 	    Res
     end;
-node_test({name, {_Tag, Prefix, Local}}, 
+node_test({name, {_Tag, Prefix, Local}},
 	  #xmlNode{node = #xmlElement{name = Name,
 				      expanded_name = _EExpName,
 				      namespace = NS
-				     }}, Context) -> 
+				     }}, Context) ->
     case expanded_name(Prefix, Local, Context) of
 	[] ->
-	    ?dbg("node_test(~p, ~p) -> ~p.~n", 
+	    ?dbg("node_test(~p, ~p) -> ~p.~n",
 		 [{_Tag, Prefix, Local}, write_node(Name), false]),
 	    false;
 	ExpName ->
 	    Res = (ExpName == {NS#xmlNamespace.default,Name}),
-	    ?dbg("node_test(~p, ~p) -> ~p.~n", 
+	    ?dbg("node_test(~p, ~p) -> ~p.~n",
 		 [{_Tag, Prefix, Local}, write_node(Name), Res]),
 	    Res
     end;
-node_test({name, {Tag,_Prefix,_Local}}, 
-	  #xmlNode{node = #xmlAttribute{name = Tag}}, _Context) -> 
+node_test({name, {Tag,_Prefix,_Local}},
+	  #xmlNode{node = #xmlAttribute{name = Tag}}, _Context) ->
     true;
 node_test({name, {Tag, Prefix, Local}},
           #xmlNode{node = #xmlAttribute{name = Name,

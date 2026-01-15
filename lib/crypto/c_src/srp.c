@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2020. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +32,7 @@ ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     int dlen;
     ERL_NIF_TERM ret;
 
-    if (FIPS_MODE()) return atom_notsup;
+    if (FIPS_MODE()) return RAISE_NOTSUP(env);
 
     ASSERT(argc == 5);
 
@@ -122,7 +124,7 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     int dlen;
     ERL_NIF_TERM ret;
 
-    if (FIPS_MODE()) return atom_notsup;
+    if (FIPS_MODE()) return RAISE_NOTSUP(env);
 
     ASSERT(argc == 7);
 
@@ -232,7 +234,7 @@ ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     int dlen;
     ERL_NIF_TERM ret;
 
-    if (FIPS_MODE()) return atom_notsup;
+    if (FIPS_MODE()) return RAISE_NOTSUP(env);
 
     ASSERT(argc == 5);
 

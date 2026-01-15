@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2005-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,8 +45,9 @@
 #include "erl_utils.h"
 
 typedef struct {
-    char *name;
-    char *internal_order;
+    const char * const name;
+    const char * const internal_order;
+    Sint16 level;
 } erts_lc_lock_order_t;
 
 /*
@@ -67,7 +70,19 @@ typedef struct {
  * spinlocks and rwlocks have been unlocked. This restriction is not
  * reflected by the lock order below, but the lock checker will still
  * check for violations of this restriction.
+ *
+ * OTP 28: Lock order LEVELs. Different named locks within the same level
+ * cannot be locked at the same time. Levels are separated by the macro LEVEL.
+ * This will hopefully make it easier to edit the lock order while also
+ * enforce that intentionally unordered locks are not locked together.
+ *
+ * For an even better understanding use erts_debug:lc_graph()
+ * to dump the actual recorded locking order to a file which can be converted
+ * to a nice viewable graph. Some of our test suites already calls
+ * erts_debug:lc_graph() before the beam exists. Search for files "lc_graph.*".
  */
+#define LEVEL {NULL,NULL}
+
 static erts_lc_lock_order_t erts_lock_order[] = {
     /*
      *	"Lock name"				"Internal lock order
@@ -75,102 +90,119 @@ static erts_lc_lock_order_t erts_lock_order[] = {
      *						 if only one lock use
      *						 the lock name)"
      */
-    {   "NO LOCK",                              NULL                    },
-    {	"driver_lock",				"driver_name"		},
-    {	"port_lock",				"port_id"		},
-    {	"port_data_lock",			"address"		},
-    {	"reg_tab",				NULL			},
-    {	"proc_main",				"pid"			},
-    {   "old_code",                             "address"               },
-    {   "nif_call_tab",                         NULL                    },
-    {	"nodes_monitors",			NULL			},
-    {	"meta_name_tab",	         	"address"		},
-    {	"db_tab",				"address"		},
-    {	"db_tab_fix",				"address"		},
-    {	"db_hash_slot",				"address"		},
-    {	"erl_db_catree_base_node",		NULL		        },
-    {	"erl_db_catree_route_node",		"index"		        },
-    {	"resource_monitors",			"address"	        },
-    {   "driver_list",                          NULL                    },
-    {	"dist_entry",				"address"		},
-    {	"proc_msgq",				"pid"			},
-    {	"proc_btm",				"pid"			},
-    {	"dist_entry_links",			"address"		},
-    {   "nif_load",                             NULL                    },
-    {   "update_persistent_term_permission",    NULL                    },
-    {   "persistent_term_delete_permission",    NULL                    },
-    {   "code_stage_permission",                NULL                    },
-    {   "code_mod_permission",                  NULL                    },
-    {	"purge_state",		      		NULL			},
-    {	"proc_status",				"pid"			},
-    {	"proc_trace",				"pid"			},
-    {	"node_table",				NULL			},
-    {	"dist_table",				NULL			},
-    {	"sys_tracers",				NULL			},
-    {	"export_tab",				NULL			},
-    {	"fun_tab",				NULL			},
-    {	"environ",				NULL			},
-    {	"release_literal_areas",		NULL			},
-    {   "on_halt",                              NULL                    },
-    {	"drv_ev_state_grow",			NULL,   		},
-    {	"drv_ev_state",				"address"		},
-    {	"safe_hash",				"address"		},
-    {   "state_prealloc",                       NULL                    },
-    {	"schdlr_sspnd",				NULL			},
-    {	"migration_info_update",		NULL			},
-    {	"run_queue",				"address"		},
-    {   "dirty_run_queue_sleep_list",		"address"		},
-    {	"dirty_gc_info",			NULL			},
-    {	"dirty_break_point_index",		NULL			},
-    {	"process_table",			NULL			},
-    {	"cpu_info",				NULL			},
-    {	"pollset",				"address"		},
+    {"NO LOCK",                                 NULL},
+    LEVEL,
+    {"driver_lock",				"driver_name"},
+    {"port_lock",				"port_id"},
+    {"async_enq_mtx",			        NULL},
+    LEVEL,
+    {"port_data_lock",			        "address"},
+    {"reg_tab",				        NULL},
+    LEVEL,
+    {"proc_main",				"pid"},
+    LEVEL,
+    {"old_code",                                "address"},
+    {"nif_call_tab",                            NULL},
+    {"nodes_monitors",			        NULL},
+    {"debugger",			        NULL},
+    {"meta_name_tab",	         	        "address"},
+    {"resource_monitors",			"address"},
+    {"driver_list",                             NULL},
+    {"dist_entry",				"address"},
+    {"update_persistent_term_permission",       NULL},
+    {"persistent_term_delete_permission",       NULL},
+    {"code_stage_permission",                   NULL},
+    {"code_mod_permission",                     NULL},
+    {"trace_cleaner",                           NULL},
+    {"export_staging_lock",                     NULL},
+    {"release_literal_areas",		        NULL},
+    {"drv_ev_state_grow",			NULL},
+    {"schdlr_sspnd",			        NULL},
+    {"dirty_gc_info",			        NULL},
+    {"dirty_break_point_index",		        NULL},
+    {"cpu_info",				NULL},
+    {"block_poll_thread",                       "index"},
+    {"alcu_init_atoms",			        NULL},
+    {"mseg_init_atoms",			        NULL},
+    {"mmap_init_atoms",			        NULL},
+    {"port_table",                              NULL},
+    LEVEL,
+    {"db_tab",				        "address"},
+    {"proc_msgq",				"pid"},
+    {"dist_entry_links",			"address"},
+    {"dist_entry_out_queue",		        "address"},
+    {"nif_load",                                NULL},
+    {"purge_state",		                NULL},
+    {"environ",				        NULL},
+    {"drv_ev_state",			        "address"},
+    {"migration_info_update",		        NULL},
+    {"drv_tsd",				        NULL},
+    {"msacc_list_mutex",                        NULL},
+    {"on_halt",                                 NULL},
+    LEVEL,
+    {"db_tab_fix",				"address"},
+    {"db_hash_slot",			        "address"},
+    {"erl_db_catree_base_node",		        NULL},
+    {"proc_btm",				"pid"},
+    {"safe_hash",				"address"},
+    {"pollset",				        "address"},
+    LEVEL,
+    {"erl_db_catree_route_node",		"index"},
+    {"proc_status",				"pid"},
+    {"node_table",				NULL},
+    LEVEL,
+    {"proc_trace",				"pid"},
+    {"dist_table",				NULL},
+    LEVEL,
+    {"trace_session_list",                      NULL},
+    {"run_queue",				"address"},
+    {"magic_ref_table",			         "address"},
+    {"proc_sig_queue_buffer",		        "address"},
+    LEVEL,
+    {"sys_tracers",				NULL},
+    {"dirty_run_queue_sleep_list",		"address"},
+    {"process_table",			        NULL},
+    {"port_sched_lock",			        "port_id"},
+    {"msacc_unmanaged_mutex",                   NULL},
+    LEVEL,
 #ifdef __WIN32__
-    {	"pollwaiter",				"address"		},
-    {   "break_waiter_lock",                    NULL                    },
+    {"pollwaiter",				"address"},
+    {"break_waiter_lock",                       NULL},
 #endif /* __WIN32__ */
-    {	"block_poll_thread",    		"index"			},
-    {	"alcu_init_atoms",			NULL			},
-    {	"mseg_init_atoms",			NULL			},
-    {	"mmap_init_atoms",			NULL			},
-    {	"drv_tsd",				NULL			},
-    {	"async_enq_mtx",			NULL			},
-    {   "msacc_list_mutex",                     NULL                    },
-    {   "msacc_unmanaged_mutex",                NULL                    },
-    {	"atom_tab",				NULL			},
-    {	"dist_entry_out_queue",			"address"		},
-    {	"port_sched_lock",			"port_id"		},
-    {	"sys_msg_q", 				NULL			},
-    {	"tracer_mtx", 				NULL			},
-    {   "port_table",                           NULL                    },
-    {	"magic_ref_table",			"address"		},
-    {	"pid_ref_table",			"address"		},
-    {	"instr_x",				NULL			},
-    {	"instr",				NULL			},
-    {   "dyn_lock_check",                       NULL                    },
-    {	"alcu_allocator",			"index"			},
-    {	"mseg",					NULL			},
-    {	"get_time",				NULL			},
-    {	"get_corrected_time",			NULL			},
-    {	"runtime",				NULL			},
-    {	"pix_lock",				"address"		},
-    {	"sched_stat",				NULL			},
-    {	"async_init_mtx",			NULL			},
-#ifdef __WIN32__
-#ifdef DEBUG
-    {   "save_ops_lock",                        NULL                    },
+    {"tracer_mtx", 				NULL},
+    {"sys_msg_q", 				NULL},
+    {"fun_staging_lock",                        NULL},
+    {"atom_tab",				NULL},
+    LEVEL,
+    {"global_literals",                         NULL},
+    LEVEL,
+    {"alcu_allocator",			        "index"},
+    LEVEL,
+    {"mseg",				        NULL},
+    {"perf", 				        NULL},
+    {"get_time",				NULL},
+    LEVEL,
+    {"runtime",				        NULL},
+    LEVEL,
+    {"get_corrected_time",			NULL},
+    {"pix_lock",				"address"},
+    {"async_init_mtx",			        NULL},
+#if defined(__WIN32__) && defined(DEBUG)
+    {"save_ops_lock",                           NULL},
 #endif
-#endif
-    {	"os_monotonic_time",			NULL			},
-    {	"erts_alloc_hard_debug",		NULL			},
-    {	"hard_dbg_mseg",		        NULL	                },
-    {	"perf", 				NULL			},
-    {	"jit_debug_descriptor",			NULL			},
-    {	"erts_mmap",				NULL			},
-    {	"proc_sig_queue_buffer",		"address"		},
+    {"os_monotonic_time",			NULL},
+    {"erts_alloc_hard_debug",		        NULL},
+    {"hard_dbg_mseg",		                NULL},
+    {"jit_debug_descriptor",		        NULL},
+    {"erts_mmap",				NULL},
 #ifdef ERTS_ENSURE_OS_MONOTONIC_TIME
-    {   "ensure_os_monotonic_time",             NULL                    }
+    {"ensure_os_monotonic_time",                NULL},
 #endif
+    {"dyn_lock_check",                          NULL},
+    LEVEL,
+    /* spin locks */
+    {"state_prealloc",                          NULL},
+    {"sched_stat",				NULL}
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
@@ -221,11 +253,14 @@ union lc_free_block_t_ {
     lc_locked_lock_t lock;
 };
 
+#define DIRECT_AFTER 1
+#define INDIRECT_AFTER 2
+
 typedef struct {
     /*
-     * m[X][Y] & 1 if we locked X directly after Y was locked.
-     * m[X][Y] & 2 if we locked X indirectly after Y was locked.
-     * m[X][0] = 1 if we locked X when nothing else was locked.
+     * m[X][Y] & DIRECT_AFTER if we locked X directly after Y was locked.
+     * m[X][Y] & INDIRECT_AFTER if we locked X indirectly after Y was locked.
+     * m[X][0] = DIRECT_AFTER if we locked X when nothing else was locked.
      * m[0][] is unused as it would represent locking "NO LOCK"
      */
     char m[ERTS_LOCK_ORDER_SIZE][ERTS_LOCK_ORDER_SIZE];
@@ -429,13 +464,18 @@ new_locked_lock(lc_thread_t* thr,
 }
 
 static void
-raw_print_lock(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags,
+raw_print_lock(char *prefix, Sint16 id, Eterm extra, erts_lock_flags_t flags,
 	       const char* file, unsigned int line, char *suffix)
 {
-    char *lname = (1 <= id && id < ERTS_LOCK_ORDER_SIZE
-		   ? erts_lock_order[id].name
-		   : "unknown");
-    erts_fprintf(stderr,"%s'%s:",prefix,lname);
+    if (1 <= id && id < ERTS_LOCK_ORDER_SIZE
+        && erts_lock_order[id].name) {
+        erts_fprintf(stderr, "%s'%d.%s:", prefix,
+                     erts_lock_order[id].level,
+                     erts_lock_order[id].name);
+    }
+    else {
+        erts_fprintf(stderr, "%s'unknown(%d):", prefix, id);
+    }
 
     if (is_not_immed(extra))
       erts_fprintf(stderr,"%p",_unchecked_boxed_val(extra));
@@ -450,7 +490,7 @@ raw_print_lock(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags,
 }
 
 static void
-print_lock2(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags, char *suffix)
+print_lock2(char *prefix, Sint16 id, Eterm extra, erts_lock_flags_t flags, char *suffix)
 {
   raw_print_lock(prefix, id, extra, flags, NULL, 0, suffix);
 }
@@ -485,13 +525,19 @@ print_lock_order(void)
     int i;
     erts_fprintf(stderr, "Lock order:\n");
     for (i = 1; i < ERTS_LOCK_ORDER_SIZE; i++) {
+        if (!erts_lock_order[i].name) {
+            continue;
+        }
 	if (erts_lock_order[i].internal_order)
 	    erts_fprintf(stderr,
-			 "  %s:%s\n",
+			 " %2d.%s:%s\n",
+                         erts_lock_order[i].level,
 			 erts_lock_order[i].name,
 			 erts_lock_order[i].internal_order);
 	else
-	    erts_fprintf(stderr, "  %s\n", erts_lock_order[i].name);
+	    erts_fprintf(stderr, " %2d.%s\n",
+                         erts_lock_order[i].level,
+                         erts_lock_order[i].name);
     }
 }
 
@@ -715,9 +761,11 @@ erts_lc_get_lock_order_id(const char *name)
     if (!name || name[0] == '\0')
 	erts_fprintf(stderr, "Missing lock name\n");
     else {
-	for (i = 0; i < ERTS_LOCK_ORDER_SIZE; i++)
-	    if (sys_strcmp(erts_lock_order[i].name, name) == 0)
-		return i;
+        for (i = 0; i < ERTS_LOCK_ORDER_SIZE; i++) {
+            if (erts_lock_order[i].name
+                && sys_strcmp(erts_lock_order[i].name, name) == 0)
+                return i;
+        }
 	erts_fprintf(stderr,
 		     "Lock name '%s' missing in lock order "
 		     "(update erl_lock_check.c)\n",
@@ -734,6 +782,29 @@ lc_is_term_order(Sint16 id)
         && sys_strcmp(erts_lock_order[id].internal_order, "term") == 0;
 }
 
+
+static int compare_same_lock_id_extra(lc_locked_lock_t *, erts_lc_lock_t *);
+
+static int compare_lock_order(lc_locked_lock_t *locked_lock,
+                              erts_lc_lock_t *want_lock)
+{
+    const Sint16 ll_level = erts_lock_order[locked_lock->id].level;
+    const Sint16 wl_level = erts_lock_order[want_lock->id].level;
+
+    if (wl_level > ll_level) {
+        /* Want lock in higher level, ok */
+        return -1;
+    } else if (wl_level < ll_level) {
+        /* Want lock in lower level, not ok*/
+        return 1;
+    } else if (locked_lock->id != want_lock->id) {
+        /* Want different lock id in same level, not ok */
+        return 1;
+    }
+
+    /* Same lock id */
+    return compare_same_lock_id_extra(locked_lock, want_lock);
+}
 
 static int compare_locked_by_id(lc_locked_lock_t *locked_lock, erts_lc_lock_t *comparand)
 {
@@ -753,6 +824,14 @@ static int compare_locked_by_id_extra(lc_locked_lock_t *ll, erts_lc_lock_t *comp
     if(order) {
         return order;
     }
+
+    return compare_same_lock_id_extra(ll, comparand);
+}
+
+static int compare_same_lock_id_extra(lc_locked_lock_t *ll, erts_lc_lock_t *comparand)
+{
+    ASSERT(ll->id == comparand->id);
+
     if (ll->flags & ERTS_LOCK_FLAGS_PROPERTY_TERM_ORDER) {
         ASSERT(!is_header(ll->extra) && !is_header(comparand->extra));
         return CMP(ll->extra, comparand->extra);
@@ -1012,7 +1091,7 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 #endif
 
         ll = thr->locked.last;
-        order = compare_locked_by_id_extra(ll, lck);
+        order = compare_lock_order(ll, lck);
 
 	if (order < 0)
             return 0;
@@ -1028,7 +1107,7 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
             ll = ll->prev;
             if (!ll)
                 break;
-            order = compare_locked_by_id_extra(ll, lck);
+            order = compare_lock_order(ll, lck);
         } while (order >= 0);
 
 #ifndef ERTS_LC_ALLWAYS_FORCE_BUSY_TRYLOCK_ON_LOCK_ORDER_VIOLATION
@@ -1076,7 +1155,7 @@ void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t 
 #endif
 
 	for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
-            int order = compare_locked_by_id_extra(tl_lck, lck);
+            int order = compare_lock_order(tl_lck, lck);
 	    if (order <= 0) {
                 if (order == 0 && (tl_lck->lck == lck || !tl_lck->lck))
                     lock_twice("Trylocking", thr, lck, options);
@@ -1197,10 +1276,10 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
 	ASSERT(!thr->locked.first);
 	thr->locked.last = thr->locked.first = new_ll;
         ASSERT(0 < lck->id && lck->id < ERTS_LOCK_ORDER_SIZE);
-        thr->matrix.m[lck->id][0] = 1;
+        thr->matrix.m[lck->id][0] = DIRECT_AFTER;
         return;
     }
-    order = compare_locked_by_id_extra(thr->locked.last, lck);
+    order = compare_lock_order(thr->locked.last, lck);
     if (order < 0) {
         lc_locked_lock_t* ll;
 	if (LOCK_IS_TYPE_ORDER_VIOLATION(lck->flags, thr->locked.last->flags)) {
@@ -1209,10 +1288,10 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
 
         ASSERT(0 < lck->id && lck->id < ERTS_LOCK_ORDER_SIZE);
         ll = thr->locked.last;
-        thr->matrix.m[lck->id][ll->id] |= 1;
+        thr->matrix.m[lck->id][ll->id] |= DIRECT_AFTER;
         for (ll = ll->prev; ll; ll = ll->prev) {
             ASSERT(0 < ll->id && ll->id < ERTS_LOCK_ORDER_SIZE);
-            thr->matrix.m[lck->id][ll->id] |= 2;
+            thr->matrix.m[lck->id][ll->id] |= INDIRECT_AFTER;
         }
 
 	new_ll->prev = thr->locked.last;
@@ -1370,10 +1449,37 @@ erts_lc_destroy_lock(erts_lc_lock_t *lck)
 void
 erts_lc_init(void)
 {
+    int i, j, level;
     if (ethr_spinlock_init(&lc_threads_lock) != 0)
 	ERTS_INTERNAL_ERROR("spinlock_init failed");
 
     erts_tsd_key_create(&locks_key,"erts_lock_check_key");
+
+    /* Assert no duplicate lock names */
+    for (i=0; i < ERTS_LOCK_ORDER_SIZE; i++) {
+        if (erts_lock_order[i].name) {
+            for (j = i + 1; j < ERTS_LOCK_ORDER_SIZE; j++) {
+                if (erts_lock_order[j].name) {
+                    ERTS_ASSERT(sys_strcmp(erts_lock_order[i].name,
+                                           erts_lock_order[j].name)
+                                != 0);
+                }
+            }
+        }
+    }
+
+    /* Initialize lock levels */
+    level = 0;
+    for (i = 0; i < ERTS_LOCK_ORDER_SIZE; i++) {
+        if (erts_lock_order[i].name) {
+            erts_lock_order[i].level = level;
+        }
+        else {
+            /* level separator */
+            ASSERT(erts_lock_order[i].internal_order == NULL);
+            ++level;
+        }
+    }
 }
 
 void
@@ -1410,6 +1516,16 @@ static void collect_matrix(lc_matrix_t* matrix)
 Eterm
 erts_lc_dump_graph(void)
 {
+    static const char comment[] =
+        "% This file was generated by erts_debug:lc_graph()\n"
+        "% It contains the recorded locking order from a running beam.\n"
+        "% Example to merge several files and generate a viewable graph:\n"
+        "%\n"
+        "% 1> erts_debug:lc_graph_merge(\"lc_graph\", \"lc_graph.*\").\n"
+        "% 2> erts_debug:lc_graph_to_dot(\"lc_graph.dot\", \"lc_graph\").\n"
+        "%\n"
+        "% $> dot -Tsvg -Nshape=box -Grankdir=LR -Granksep=2 lc_graph.dot > lc_graph.svg\n"
+        "\n";
     const char* basename = "lc_graph.";
     char filename[40];
     lc_matrix_t* tot = &tot_lc_matrix;
@@ -1431,18 +1547,26 @@ erts_lc_dump_graph(void)
         return am_error;
 
     for (i = 1; i < ERTS_LOCK_ORDER_SIZE; i++) {
-        int len = strlen(erts_lock_order[i].name);
+        int len;
+        if (!erts_lock_order[i].name)
+            continue;
+
+        len = strlen(erts_lock_order[i].name);
         if (name_max < len)
             name_max = len;
     }
-    fputs("%This file was generated by erts_debug:lc_graph()\n\n", ff);
+    fputs(comment, ff);
+
+
     fputs("%{ThisLockName, ThisLockId, LockedDirectlyBeforeThis, LockedIndirectlyBeforeThis}\n", ff);
     fprintf(ff, "[{%*s, %2d}", name_max, "\"NO LOCK\"", 0);
     for (i = 1; i < ERTS_LOCK_ORDER_SIZE; i++) {
         char* delim = "";
+        if (!erts_lock_order[i].name)
+            continue;
         fprintf(ff, ",\n {%*s, %2d, [", name_max, erts_lock_order[i].name, i);
         for (j = 0; j < ERTS_LOCK_ORDER_SIZE; j++) {
-            if (tot->m[i][j] & 1) {
+            if (tot->m[i][j] & DIRECT_AFTER) {
                 fprintf(ff, "%s%d", delim, j);
                 delim = ",";
             }
@@ -1450,7 +1574,7 @@ erts_lc_dump_graph(void)
         fprintf(ff, "], [");
         delim = "";
         for (j = 0; j < ERTS_LOCK_ORDER_SIZE; j++) {
-            if (tot->m[i][j] == 2) {
+            if (tot->m[i][j] == INDIRECT_AFTER) {
                 fprintf(ff, "%s%d", delim, j);
                 delim = ",";
             }

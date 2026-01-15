@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,8 @@
 
 -module(supervisor_SUITE).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Testserver specific export
@@ -30,7 +34,7 @@
 
 %% Internal export
 -export([init/1, terminate_all_children/1,
-         middle9212/0, gen_server9212/0, handle_info/2, start_registered_name/1]).
+         middle9212/0, gen_server9212/0, handle_info/2, start_registered_name/1, log/2]).
 
 %% API tests
 -export([ sup_start_normal/1, sup_start_ignore_init/1, 
@@ -46,18 +50,19 @@
 	  sup_start_map_faulty_specs/1,
 	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_timeout_dynamic/1,
 	  sup_stop_brutal_kill/1, sup_stop_brutal_kill_dynamic/1,
+          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1, auto_hibernate/1,
+	  sup_stop_manual/1, sup_stop_manual_timeout/1,
           sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1,
 	  child_adm/1, child_adm_simple/1, child_specs/1, child_specs_map/1,
 	  extra_return/1, sup_flags/1]).
 
 %% Tests concept permanent, transient and temporary 
--export([ permanent_normal/1, transient_normal/1,
-	  temporary_normal/1,
-	  permanent_shutdown/1, transient_shutdown/1,
-	  temporary_shutdown/1,
-          faulty_application_shutdown/1,
-	  permanent_abnormal/1, transient_abnormal/1,
-	  temporary_abnormal/1, temporary_bystander/1]).
+-export([external_start_no_progress_log/1, 
+         permanent_normal/1, transient_normal/1, temporary_normal/1,
+         permanent_shutdown/1, transient_shutdown/1, temporary_shutdown/1,
+         faulty_application_shutdown/1,
+         permanent_abnormal/1, transient_abnormal/1,
+         temporary_abnormal/1, temporary_bystander/1]).
 
 %% Restart strategy tests 
 -export([ multiple_restarts/1,
@@ -68,7 +73,8 @@
           simple_one_for_one_corruption/1,
 	  rest_for_one/1, rest_for_one_escalation/1,
 	  rest_for_one_other_child_fails_restart/1,
-	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1]).
+	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1,
+          simple_one_for_one_restart_ignore/1]).
 
 %% Significant child tests
 -export([ nonsignificant_temporary/1, nonsignificant_transient/1,
@@ -90,7 +96,8 @@
 	 hanging_restart_loop_simple/1, code_change/1, code_change_map/1,
 	 code_change_simple/1, code_change_simple_map/1,
          order_of_children/1, scale_start_stop_many_children/1,
-         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1]).
+         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1,
+	 which_children/1, which_children_simple_one_for_one/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -101,7 +108,7 @@ suite() ->
 all() -> 
     [{group, sup_start}, {group, sup_start_map}, {group, sup_stop}, child_adm,
      child_adm_simple, extra_return, child_specs, child_specs_map, sup_flags,
-     multiple_restarts,
+     multiple_restarts, auto_hibernate,
      {group, restart_one_for_one},
      {group, restart_one_for_all},
      {group, restart_simple_one_for_one},
@@ -119,7 +126,8 @@ all() ->
      hanging_restart_loop_rest_for_one, hanging_restart_loop_simple,
      code_change, code_change_map, code_change_simple, code_change_simple_map,
      order_of_children, scale_start_stop_many_children,
-     format_log_1, format_log_2, already_started_outside_supervisor].
+     format_log_1, format_log_2, already_started_outside_supervisor,
+     which_children, which_children_simple_one_for_one].
 
 groups() -> 
     [{sup_start, [],
@@ -137,9 +145,10 @@ groups() ->
      {sup_stop, [],
       [sup_stop_infinity, sup_stop_timeout, sup_stop_timeout_dynamic,
        sup_stop_brutal_kill, sup_stop_brutal_kill_dynamic,
-       sup_stop_race, sup_stop_non_shutdown_exit_dynamic]},
+       sup_stop_race, sup_stop_non_shutdown_exit_dynamic,
+       sup_stop_manual, sup_stop_manual_timeout]},
      {normal_termination, [],
-      [permanent_normal, transient_normal, temporary_normal]},
+      [external_start_no_progress_log, permanent_normal, transient_normal, temporary_normal]},
      {shutdown_termination, [],
       [permanent_shutdown, transient_shutdown, temporary_shutdown,
        faulty_application_shutdown]},
@@ -154,7 +163,7 @@ groups() ->
      {restart_simple_one_for_one, [],
       [simple_one_for_one, simple_one_for_one_shutdown,
        simple_one_for_one_extra, simple_one_for_one_escalation,
-       simple_one_for_one_corruption]},
+       simple_one_for_one_corruption, simple_one_for_one_restart_ignore]},
      {restart_rest_for_one, [],
       [rest_for_one, rest_for_one_escalation,
        rest_for_one_other_child_fails_restart]},
@@ -651,6 +660,72 @@ sup_stop_non_shutdown_exit_dynamic(Config) when is_list(Config) ->
     ).
 
 %%-------------------------------------------------------------------------
+%% Tests that children are shut down when a supervisor is stopped via
+%% supervisor:stop/1
+%% Since supervisors are gen_servers and the basic functionality of the
+%% stop functions is already tested in gen_server_SUITE, we only make
+%% sure that children are terminated correctly when applied to a
+%% supervisor.
+sup_stop_manual(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, 
+	      permanent, brutal_kill, worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []}, 
+	      permanent, 1000, worker, []},
+    Child3 = {child3, {supervisor_1, start_child, []},
+	      permanent, 1000, worker, []},
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    link(CPid1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+    link(CPid2),
+    {ok, CPid3} = supervisor:start_child(sup_test, Child3),
+    link(CPid3),
+
+    CPid3 ! {sleep, 100000},
+
+    supervisor:stop(Pid),
+
+    check_exit_reason(Pid, normal),
+    check_exit_reason(CPid1, killed),
+    check_exit_reason(CPid2, shutdown),
+    check_exit_reason(CPid3, killed).
+
+%%-------------------------------------------------------------------------
+%% Tests that children are shut down when a supervisor is stopped via
+%% supervisor:stop/3, even if the stop call times out.
+%% Since supervisors are gen_servers and the basic functionality of the
+%% stop functions is already tested in gen_server_SUITE, we only make
+%% sure that children are terminated correctly when applied to a
+%% supervisor.
+sup_stop_manual_timeout(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, 
+	      permanent, 5000, worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []},
+	      permanent, 1000, worker, []},
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    link(CPid1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+    link(CPid2),
+
+    CPid1 ! {sleep, 1000},
+
+    try
+	supervisor:stop(Pid, normal, 100)
+    of
+	ok -> ct:fail(expected_timeout)
+    catch
+	exit:timeout ->
+	    ok
+    end,
+
+    check_exit_reason(Pid, normal),
+    check_exit_reason(CPid1, shutdown),
+    check_exit_reason(CPid2, shutdown).
+
+%%-------------------------------------------------------------------------
 %% The start function provided to start a child may return {ok, Pid}
 %% or {ok, Pid, Info}, if it returns the latter check that the
 %% supervisor ignores the Info, and includes it unchanged in return
@@ -702,6 +777,36 @@ extra_return(Config) when is_list(Config) ->
             ok
     end.
 
+auto_hibernate(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    HibernateAfterTimeout = 100,
+    Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
+	     worker, []},
+    SupFlags = #{strategy => one_for_one,
+		 intensity => 2,
+		 period => 3600,
+                 hibernate_after => HibernateAfterTimeout},
+    {ok, SPid} = start_link({ok, {SupFlags, [Child]}}),
+
+    %% After init test
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    %% Trigger an action
+    [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    %% Kill a child
+    terminate(CPid, kill),
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    ok.
+
 %%-------------------------------------------------------------------------
 %% Test API functions start_child/2, terminate_child/2, delete_child/2
 %% restart_child/2, which_children/1, count_children/1. Only correct
@@ -711,10 +816,14 @@ child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+    SupFlags = #{strategy => one_for_one,
+		 intensity => 1,
+		 period => 1000,
+                 hibernate_after => 0},
+    {ok, Pid} = start_link({ok, {SupFlags, [Child]}}),
 
     %% Test that supervisors of static nature are hibernated after start
-    {current_function, {erlang, hibernate, 3}} =
+    {current_function, {gen_server, loop_hibernate, 4}} =
 	process_info(Pid, current_function),
 
     [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
@@ -1047,16 +1156,28 @@ sup_flags(_Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
+external_start_no_progress_log(Config) when is_list(Config) ->
+    ok = logger:add_handler(?MODULE, ?MODULE, #{test_case_pid => self()}),
+    Filter = {fun logger_filters:domain/2,{log,sub,[otp,sasl]}},
+    logger:add_handler_filter(?MODULE, filter_non_sasl, Filter),
+    logger:set_module_level([supervisor], info),
+    permanent_normal(Config),
+    receive
+        ok ->
+            ok = logger:remove_handler(?MODULE);
+        {fail, Msg} ->
+            ok = logger:remove_handler(?MODULE),
+            ct:fail({"unexpected progress report", Msg})
+    end.
+
+%%-------------------------------------------------------------------------
 %% A permanent child should always be restarted.
 permanent_normal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	      worker, []},
-
     {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-
     terminate(SupPid, CPid1, child1, normal),
-
     [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
     case is_pid(Pid) of
 	true ->
@@ -1501,6 +1622,35 @@ simple_one_for_one(Config) when is_list(Config) ->
 
     terminate(SupPid, Pid4, Id4, abnormal),
     check_exit_reason(SupPid,shutdown).
+
+
+%%-------------------------------------------------------------------------
+%% Test simple_one_for_one children restarts and returning ignore.
+simple_one_for_one_restart_ignore(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Self = self(),
+    lists:foreach(
+        fun(Restart) ->
+            Child = {child, {supervisor_3, start_child, []}, Restart, 1000, worker, []},
+            {ok, SupPid} = start_link({ok, {{simple_one_for_one, 10, 3600}, [Child]}}),
+            StarterPid1 = spawn_link(fun() -> supervisor:start_child(SupPid, [child1, Self]) end),
+            ChildPid1 = receive {child1, CPid1} -> CPid1 end,
+            ChildPid1 ! {{ok, 0}, Self},
+            check_exit([StarterPid1]),
+            [{undefined, ChildPid1, _, _}] = supervisor:which_children(SupPid),
+            terminate(ChildPid1, kill),
+            ChildPid2 = receive {child1, CPid2} -> CPid2 end,
+            ChildPid2 ! {{ok, 0}, Self},
+            [{undefined, ChildPid2, _, _}] = supervisor:which_children(SupPid),
+            terminate(ChildPid2, kill),
+            ChildPid3 = receive {child1, CPid3} -> CPid3 end,
+            ChildPid3 ! {ignore, Self},
+            [] = supervisor:which_children(SupPid),
+            terminate(SupPid, shutdown),
+            ok = check_exit_reason(SupPid, shutdown)
+        end,
+        [transient, permanent]
+    ).
 
 
 %%-------------------------------------------------------------------------
@@ -3309,41 +3459,25 @@ significant_transient(_Config) ->
 
     ok.
 
-% Test the auto-shutdown feature in a simple_one_for_one supervisor.
+% The auto-shutdown feature is not allowed with simple_one_for_one supervisors.
 significant_simple(_Config) ->
     process_flag(trap_exit, true),
     Child1 = #{id => child1,
-	       start => {supervisor_1, start_child, []},
-	       restart => temporary,
-	       significant => true},
+	       start => {supervisor_1, start_child, []}},
 
-    % Test auto-shutdown on the exit of any significant child.
-    {ok, Sup1} = start_link({ok, {#{strategy => simple_one_for_one,
-				    auto_shutdown => any_significant},
-				  [Child1]}}),
-    {ok, ChildPid1_1} = supervisor:start_child(Sup1, []),
-    {ok, ChildPid1_2} = supervisor:start_child(Sup1, []),
-    link(ChildPid1_1),
-    link(ChildPid1_2),
-    terminate(ChildPid1_1, normal),
-    ok = check_exit([ChildPid1_1, ChildPid1_2, Sup1]),
+    {error, {supervisor_data, {bad_combination, _}}} = start_link({ok, {#{strategy => simple_one_for_one,
+                                                                          auto_shutdown => any_significant},
+                                                                        [Child1]}}),
 
-    % Test auto-shutdown on the exit of all significant children.
-    {ok, Sup2} = start_link({ok, {#{strategy => simple_one_for_one,
-				    auto_shutdown => all_significant},
-				  [Child1]}}),
-    {ok, ChildPid2_1} = supervisor:start_child(Sup2, []),
-    {ok, ChildPid2_2} = supervisor:start_child(Sup2, []),
-    link(ChildPid2_1),
-    link(ChildPid2_2),
-    terminate(ChildPid2_1, normal),
-    ok = check_exit([ChildPid2_1]),
-    error = check_exit([ChildPid2_2], 1000),
-    error = check_exit([Sup2], 1000),
-    terminate(ChildPid2_2, normal),
-    ok = check_exit([ChildPid2_2, Sup2]),
+    {error, {supervisor_data, {bad_combination, _}}} = start_link({ok, {#{strategy => simple_one_for_one,
+                                                                          auto_shutdown => all_significant},
+                                                                        [Child1]}}),
 
-    ok.
+    {ok, SupPid} = start_link({ok, {#{strategy => simple_one_for_one,
+                                      auto_shutdown => never},
+                                    [Child1]}}),
+    terminate(SupPid, shutdown),
+    check_exit([SupPid]).
 
 % Test that terminations of significant children caused by
 % the death of a sibling does not trigger auto-shutdown.
@@ -3702,6 +3836,72 @@ already_started_outside_supervisor(_Config) ->
     ok = check_exit([SupPid]),
     ok.
 
+%% Test which_children/1 and which_child/2.
+which_children(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {#{}, []}}),
+
+    [] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    {ok, Child1} = supervisor:start_child(SupPid, #{id => child1,
+						    start => {supervisor_1, start_child, []}}),
+    [{child1, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    {ok, Child2} = supervisor:start_child(SupPid, #{id => child2,
+						    start => {supervisor_1, start_child, []}}),
+    [{child2, Child2, worker, [supervisor_1]},
+     {child1, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok = supervisor:terminate_child(SupPid, child1),
+    [{child2, Child2, worker, [supervisor_1]},
+     {child1, undefined, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, undefined, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok = supervisor:delete_child(SupPid, child1),
+    [{child2, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok.
+
+which_children_simple_one_for_one(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {#{strategy => simple_one_for_one}, [#{id => child,
+									  start => {supervisor_1, start_child, []},
+									  restart => temporary}]}}),
+
+    [] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {ok, Child1} = supervisor:start_child(SupPid, []),
+    [{undefined, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {undefined, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child1),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {ok, Child2} = supervisor:start_child(SupPid, []),
+    [{undefined, Child1, worker, [supervisor_1]},
+     {undefined, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {undefined, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child1),
+    {ok, {undefined, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child2),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    ok = supervisor:terminate_child(SupPid, Child1),
+    [{undefined, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, Child1),
+    {ok, {undefined, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child2),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {error, simple_one_for_one} = supervisor:which_child(SupPid, not_a_pid),
+
+    ok.
+
 %%-------------------------------------------------------------------------
 terminate(Pid, Reason) when Reason =/= supervisor ->
     terminate(dummy, Pid, dummy, Reason).
@@ -3805,3 +4005,50 @@ ensure_supervisor_is_stopped() ->
         Pid ->
             terminate(Pid, shutdown)
     end.
+
+is_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_in_erlang_hibernate_1(200, Pid).
+
+is_in_erlang_hibernate_1(0, Pid) ->
+    ct:pal("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
+is_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+	{gen_server, loop_hibernate, 4} ->
+	    ok;
+	{erlang,hibernate,3} ->
+	    ok;
+	_ ->
+	    receive after 10 -> ok end,
+	    is_in_erlang_hibernate_1(N-1, Pid)
+    end.
+
+is_not_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_not_in_erlang_hibernate_1(200, Pid).
+
+is_not_in_erlang_hibernate_1(0, Pid) ->
+    ct:pal("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
+is_not_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+        {gen_server, loop_hibernate, 4} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
+        {erlang,hibernate,3} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
+        _ ->
+            ok
+    end.
+
+%%-----------------------------------------------------------------
+%% The Logger handler used.
+%%-----------------------------------------------------------------
+log(#{meta := #{mfa := {supervisor,do_restart,3}}}, #{test_case_pid := Pid}) ->
+    Pid ! ok;
+log(#{level := info, msg := Msg}, #{test_case_pid := Pid}) ->
+    Pid ! {fail, Msg}.

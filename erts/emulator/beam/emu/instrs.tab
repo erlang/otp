@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2023. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2017-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +41,7 @@ allocate_init(NeedStack, Live, Y) {
     make_blank($Y);
 }
 
-allocate_zero(NeedStack, Live) {
+i_allocate_zero(NeedStack, Live) {
     Eterm* ptr;
     int i = $NeedStack;
     $AH(i, 0, $Live);
@@ -48,7 +50,7 @@ allocate_zero(NeedStack, Live) {
     }
 }
 
-allocate_heap_zero(NeedStack, NeedHeap, Live) {
+i_allocate_heap_zero(NeedStack, NeedHeap, Live) {
     Eterm* ptr;
     int i = $NeedStack;
     $AH(i, $NeedHeap, $Live);
@@ -231,7 +233,7 @@ i_move_call_ext_last(CallDest, Deallocate, Src) {
 
 APPLY(I, Deallocate, Next) {
     //| -no_next
-    Export *ep;
+    const Export *ep;
 
     HEAVY_SWAPOUT;
     ep = apply(c_p, reg, $I, $Deallocate);
@@ -278,7 +280,7 @@ i_apply_only() {
 
 FIXED_APPLY(Arity, I, Deallocate, Next) {
     //| -no_next
-    Export *ep;
+    const Export *ep;
 
     HEAVY_SWAPOUT;
     ep = fixed_apply(c_p, reg, $Arity, $I, $Deallocate);
@@ -311,7 +313,7 @@ apply_last(Arity, Deallocate) {
 
 APPLY_FUN(Next) {
     HEAVY_SWAPOUT;
-    $Next = apply_fun(c_p, r(0), x(1), reg);
+    $Next = apply_fun(c_p, x(0), x(1), reg);
     HEAVY_SWAPIN;
 
     if (ERTS_UNLIKELY(next == NULL)) {
@@ -378,7 +380,7 @@ return() {
     //| -no_next
     DTRACE_RETURN_FROM_PC(c_p, I);
     $RETURN();
-    CHECK_TERM(r(0));
+    CHECK_TERM(x(0));
     HEAP_SPACE_VERIFIED(0);
 
     $DISPATCH_RETURN();
@@ -501,18 +503,18 @@ fast_element_group.execute(Fail, Index, Dst) {
     $BIF_ERROR_ARITY_2($Fail, BIF_element_2, make_small($Index), fast_element_tuple);
 }
 
-init(Y) {
+i_init(Y) {
     make_blank($Y);
 }
 
-init_seq3(Y1) {
+i_init_seq3(Y1) {
     Eterm* dst = &$Y1;
     make_blank(dst[0]);
     make_blank(dst[1]);
     make_blank(dst[2]);
 }
 
-init_seq4(Y1) {
+i_init_seq4(Y1) {
     Eterm* dst = &$Y1;
     make_blank(dst[0]);
     make_blank(dst[1]);
@@ -520,7 +522,7 @@ init_seq4(Y1) {
     make_blank(dst[3]);
 }
 
-init_seq5(Y1) {
+i_init_seq5(Y1) {
     Eterm* dst = &$Y1;
     make_blank(dst[0]);
     make_blank(dst[1]);
@@ -529,28 +531,45 @@ init_seq5(Y1) {
     make_blank(dst[4]);
 }
 
-init2(Y1, Y2) {
+i_init2(Y1, Y2) {
     make_blank($Y1);
     make_blank($Y2);
 }
 
-init3(Y1, Y2, Y3) {
+i_init3(Y1, Y2, Y3) {
     make_blank($Y1);
     make_blank($Y2);
     make_blank($Y3);
 }
 
 i_make_fun3(FunP, Dst, Arity, NumFree) {
-    ErlFunThing* funp;
     ErlFunEntry *fe = (ErlFunEntry *) $FunP;
     int i, num_free = $NumFree;
+    ErlFunThing* funp;
     //| -no_next
-    SWAPOUT;
-    funp = erts_new_local_fun_thing(c_p, fe, $Arity, num_free);
-    SWAPIN;
+
+    funp = (ErlFunThing*)HTOP;
+    HTOP += ERL_FUN_SIZE + num_free;
+
+    funp->thing_word = MAKE_FUN_HEADER($Arity, num_free, 0);
+    funp->entry.fun = fe;
+
+#ifdef DEBUG
+    {
+        /* Note that `mfa` may be NULL if the fun is currently being purged. We
+         * ignore this since it's not an error and we only need `mfa` to
+         * sanity-check the arity at this point. If the fun is called while in
+         * this state, the `error_handler` module will take care of it. */
+        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe, erts_active_code_ix());
+        ASSERT(!mfa || fun_arity(funp) == mfa->arity - num_free);
+        ASSERT($Arity == fe->arity);
+    }
+#endif
+
     I = $NEXT_INSTRUCTION;
+
     for (i = 0; i < num_free; i++) {
-	Eterm term = *I++;
+        Eterm term = *I++;
         switch (loader_tag(term)) {
         case LOADER_X_REG:
             term = x(loader_x_reg_index(term));
@@ -559,8 +578,9 @@ i_make_fun3(FunP, Dst, Arity, NumFree) {
             term = y(loader_y_reg_index(term));
             break;
         }
-	funp->env[i] = term;
+        funp->env[i] = term;
     }
+
     $Dst = make_fun(funp);
     Goto(*I);
 }
@@ -762,7 +782,7 @@ self(Dst) {
     $Dst = c_p->common.id;
 }
 
-i_update_record(Size, Src, Dst, Offset, Element) {
+i_update_record_copy(Size, Src, Dst, Offset, Element) {
     Eterm *untagged_source = tuple_val($Src);
     Uint size_on_heap = $Size + 1;
 
@@ -781,9 +801,45 @@ i_update_record(Size, Src, Dst, Offset, Element) {
     HTOP += size_on_heap;
 }
 
+i_update_record_in_place(Size, Src, Dst, Offset, Element) {
+    Eterm *untagged_source = tuple_val($Src);
+    Uint size_on_heap = $Size + 1;
+
+    if (c_p->high_water <= untagged_source && untagged_source < HTOP) {
+        /* It is safe to overwrite the old record. */
+        LIGHT_SWAPOUT;
+
+        untagged_source[$Offset] = $Element;
+
+        /* We stash the contents of the destination register in SCRATCH_X_REG in
+         * case it's used in subsequent `i_update_record_continue` instructions.
+         * The updates have been rewritten accordingly. */
+        reg[SCRATCH_X_REG] = $Dst;
+        $Dst = $Src;
+
+        HTOP = untagged_source + size_on_heap;
+    } else {
+        /* It would be unsafe to to overwrite the old record, because
+         * that could cause a term on the old generation to point to
+         * the young generation. */
+        sys_memcpy(HTOP, untagged_source, size_on_heap * sizeof(Eterm));
+        HTOP[$Offset] = $Element;
+
+        reg[SCRATCH_X_REG] = $Dst;
+        $Dst = make_tuple(HTOP);
+
+        HTOP += size_on_heap;
+        LIGHT_SWAPOUT;
+    }
+}
+
 i_update_record_continue(OffsetFromEnd, Element) {
     Sint offset = -(Sint)$OffsetFromEnd;
     HTOP[offset] = $Element;
+}
+
+i_update_record_in_place_done() {
+    LIGHT_SWAPIN;
 }
 
 set_tuple_element(Element, Tuple, Offset) {
@@ -881,13 +937,13 @@ is_boolean(Fail, Src) {
 }
 
 is_binary(Fail, Src) {
-    if (is_not_binary($Src) || binary_bitsize($Src) != 0) {
+    if (is_not_bitstring($Src) || TAIL_BITS(bitstring_size($Src)) != 0) {
         $FAIL($Fail);
     }
 }
 
 is_bitstring(Fail, Src) {
-  if (is_not_binary($Src)) {
+  if (is_not_bitstring($Src)) {
         $FAIL($Fail);
     }
 }
@@ -1129,11 +1185,11 @@ catch_end(Y) {
      *    x3 = Exception class
      */
     $try_end($Y);
-    if (is_non_value(r(0))) {
+    if (is_non_value(x(0))) {
         ASSERT(c_p->fvalue == NIL);
         ASSERT(c_p->ftrace == NIL);
         if (x(3) == am_throw) {
-            r(0) = x(1);
+            x(0) = x(1);
         } else {
             if (x(3) == am_error) {
                 SWAPOUT;
@@ -1150,11 +1206,11 @@ catch_end(Y) {
                 SWAPIN;
                 $MAYBE_EXIT_AFTER_GC();
             }
-            r(0) = TUPLE2(HTOP, am_EXIT, x(1));
+            x(0) = TUPLE2(HTOP, am_EXIT, x(1));
             HTOP += 3;
         }
     }
-    CHECK_TERM(r(0));
+    CHECK_TERM(x(0));
 }
 
 try_end(Y) {
@@ -1164,10 +1220,10 @@ try_end(Y) {
 
 try_case(Y) {
     $try_end($Y);
-    ASSERT(is_non_value(r(0)));
+    ASSERT(is_non_value(x(0)));
     ASSERT(c_p->fvalue == NIL);
     ASSERT(c_p->ftrace == NIL);
-    r(0) = x(3);
+    x(0) = x(3);
 }
 
 try_case_end(Src) {
@@ -1204,6 +1260,52 @@ raw_raise() {
     } else {
         goto find_func_info;
     }
+}
+
+i_disabled_line_breakpoint(_Live) {
+    /* NOP while the breakpoint is disabled */
+}
+
+i_enabled_line_breakpoint(Live) {
+    const Export *ep;
+
+    /* prepare return address for i_line_breakpoint_cleanup */
+    $AH(0, 0, $Live);
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
+
+    /* prepare frame to save xregs */
+    $AH($Live, 0, $Live);
+
+    HEAVY_SWAPOUT;
+    ep = erts_line_breakpoint_hit__prepare_call(c_p, I, $Live, reg, E+1);
+    HEAVY_SWAPIN;
+
+    if (ep == NULL) {
+        /* We are not calling an Erlang function to handle the breakpoint,
+           so we need to deallocate and continue */
+        E += $Live + 2;
+        $NEXT0();
+    } else {
+        $SAVE_CONTINUATION_POINTER((BeamInstr *) beam_i_line_breakpoint_cleanup);
+        $NEXT(ep->dispatch.addresses[erts_active_code_ix()]);
+    }
+}
+
+i_line_breakpoint_cleanup() {
+    int live_xregs;
+
+    HEAVY_SWAPOUT;
+    live_xregs = erts_line_breakpoint_hit__cleanup(reg, E+1);
+    HEAVY_SWAPIN;
+
+    /* deallocate saved xregs and return-address that brought us here */
+    E += live_xregs + 1; // AH added one more slot for the CP
+
+    $RETURN();
+
+    /* remove return address to next instruction and dispatch */
+    E += 1;
+    Goto(*I);
 }
 
 // Psuedo-instruction for signalling lambda load errors. Never actually runs.

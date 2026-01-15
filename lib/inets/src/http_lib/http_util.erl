@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 %%
 -module(http_util).
+-moduledoc false.
 
 -export([
 	 to_upper/1, to_lower/1, 
@@ -28,7 +31,8 @@
 	 is_hostname/1,
 	 timestamp/0, timeout/2,
 	 html_encode/1,
-	 maybe_add_brackets/2
+	 maybe_add_brackets/2,
+	 connection_tokens/1
 	]).
 
 
@@ -211,6 +215,12 @@ maybe_add_brackets(Addr, true) when is_binary(Addr) ->
         false ->
             Addr
     end.
+
+connection_tokens(undefined) ->
+    [];
+connection_tokens(Connection) ->
+    ConnList = string:tokens(string:to_lower(Connection), ","),
+    [string:trim(Token) || Token <- ConnList].
 
 
 %%%========================================================================

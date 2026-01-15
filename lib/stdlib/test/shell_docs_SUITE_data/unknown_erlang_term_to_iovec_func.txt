@@ -1,11 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec term_to_iovec(Term) -> ext_iovec() when Term :: term().[0m
+[;1m  term_to_iovec(Term)[0m
 
 [;;4mSince[0m:
   OTP 23.0
 
   Returns the encoding of [;;4mTerm[0m according to the Erlang external
-  term format as [;;4mext_iovec()[0m.
+  term format as [;;4mext_iovec/0[0m.
 
   This function produce the same encoding as [;;4mterm_to_binary/1[0m, but
   with another return type. The call [;;4m[0m
@@ -19,21 +26,13 @@
 
   See also [;;4mterm_to_binary/1[0m.
 
-  [;1m-spec term_to_iovec(Term, Options) -> ext_iovec()[0m
-  [;1m                       when[0m
-  [;1m                           Term :: term(),[0m
-  [;1m                           Options ::[0m
-  [;1m                               [compressed |[0m
-  [;1m                                {compressed, Level :: 0..9} |[0m
-  [;1m                                deterministic |[0m
-  [;1m                                {minor_version, Version :: 0..2} |[0m
-  [;1m                                local].[0m
+[;1m  term_to_iovec(Term, Options)[0m
 
 [;;4mSince[0m:
   OTP 23.0
 
   Returns the encoding of [;;4mTerm[0m according to the Erlang external
-  term format as [;;4mext_iovec()[0m.
+  term format as [;;4mext_iovec/0[0m.
 
   This function produce the same encoding as [;;4mterm_to_binary/2[0m, but
   with another return type. The call [;;4m[0m

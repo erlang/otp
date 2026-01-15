@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020-2023. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2020-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -332,7 +334,7 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
 
     tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, ((size == 0 ? 0 : 1) + size/2) * sizeof(*tmp));
     if (size == 0) {
-        keys = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     } else {
         keys = make_tuple(thp);
         *thp++ = make_arityval(size/2);
@@ -372,35 +374,6 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
     return op;
 }
 
-// Generate the fastest instruction to fetch a binary from a binary.
-gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
-    BeamOp* op;
-
-    $NewBeamOp(S, op);
-    $NativeEndian(Flags);
-
-    if (Size.type == TAG_a && Size.val == am_all) {
-        $BeamOpNameArity(op, i_bs_get_binary_all2, 5);
-        op->a[0] = Ms;
-        op->a[1] = Fail;
-        op->a[2] = Live;
-        op->a[3] = Unit;
-        op->a[4] = Dst;
-    } else {
-        $BeamOpNameArity(op, i_bs_get_binary2, 6);
-        op->a[0] = Ms;
-        op->a[1] = Fail;
-        op->a[2] = Live;
-        op->a[3] = Size;
-        op->a[4].type = TAG_u;
-        op->a[4].val = (Unit.val << 3) | Flags.val;
-        op->a[5] = Dst;
-    }
-
-    op->next = NULL;
-    return op;
-}
-
 gen.skip_utf16(Fail, Ms, Flags) {
     BeamOp* op;
     $NewBeamOp(S, op);
@@ -431,31 +404,6 @@ gen.combine_conses(Len, Dst, Hd) {
     tail->a[1] = Dst;
 
     return cons;
-}
-
-gen.allocate_heap_zero(Ns, Nh, Live) {
-    BeamOp* alloc;
-    BeamOp* init;
-    int i;
-
-    $NewBeamOp(S, alloc);
-    $NewBeamOp(S, init);
-
-    $BeamOpNameArity(alloc, allocate_heap, 3);
-    alloc->a[0] = Ns;
-    alloc->a[1] = Nh;
-    alloc->a[2] = Live;
-    alloc->next = init;
-
-    $BeamOpNameArity(init, init_yregs, 1);
-    $BeamOpArity(init, Ns.val+1);
-    init->a[0] = Ns;
-    for (i = 0; i < Ns.val; i++) {
-	init->a[i+1].type = TAG_y;
-	init->a[i+1].val = i;
-    }
-
-    return alloc;
 }
 
 gen.func_end(Func_Label, Entry_Label) {

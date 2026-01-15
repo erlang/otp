@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2003-2020. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2003-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -28,7 +30,7 @@ LIBFLAGS = ../all_SUITE_data/ei_runner@obj@ \
 	   ../all_SUITE_data/my_ussi@obj@ \
 	 $(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
 	@erl_interface_threadlib@
-CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
+CFLAGS = @EI_CFLAGS@ $(THR_DEFS) @DEFS@ -I@erl_interface_include@ -I../all_SUITE_data
 EI_TMO_OBJS = ei_tmo_test@obj@ ei_tmo_test_decl@obj@
 
 all: ei_tmo_test@exe@ 
@@ -38,5 +40,5 @@ clean:
 	$(RM) ei_tmo_test@exe@
 
 ei_tmo_test@exe@: $(EI_TMO_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_TMO_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EI_TMO_OBJS) $(LIBFLAGS)
 

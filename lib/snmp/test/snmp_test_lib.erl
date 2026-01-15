@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,11 +23,12 @@
 -module(snmp_test_lib).
 
 -include_lib("kernel/include/file.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 -export([tc_try/2, tc_try/3,
          tc_try/4, tc_try/5]).
--export([proxy_call/3]).
+-export([proxy_call/3, proxy_call/4]).
 -export([hostname/0, hostname/1, localhost/0, localhost/1, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4,
@@ -39,8 +42,8 @@
 	 replace_config/3, set_config/3, get_config/2, get_config/3]).
 -export([fail/3, skip/3]).
 -export([hours/1, minutes/1, seconds/1, sleep/1]).
--export([flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
--export([ping/1, local_nodes/0, nodes_on/1]).
+-export([pi/2, flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
+-export([start_node/2, ping/1, local_nodes/0, nodes_on/1]).
 -export([is_app_running/1,
 	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0,
          ensure_not_running/3]).
@@ -52,6 +55,7 @@
 -export([eprint/2, wprint/2, nprint/2, iprint/2]).
 -export([explicit_inet_backend/0, test_inet_backends/0]).
 -export([which_host_ip/2]).
+-export([ftime/2]).
 
 %% Convenient exports...
 -export([analyze_and_print_host_info/0]).
@@ -278,32 +282,107 @@ explicit_inet_backend() ->
             false
     end.
 
+%% We cannot use application:get_all_env(snmp) since that only "works"
+%% when the application has been started and this function may be called
+%% well before that happens.
 test_inet_backends() ->
-    case application:get_all_env(snmp) of
-        Env when is_list(Env) ->
-            case lists:keysearch(test_inet_backends, 1, Env) of
-                {value, {test_inet_backends, true}} ->
-                    true;
-                _ ->
-                    false
-            end;
+    case init:get_argument(snmp) of
+        {ok, Args} when is_list(Args) ->
+            test_inet_backends(Args);
         _ ->
-            false 
+            false
     end.
 
+test_inet_backends([]) ->
+    false;
+test_inet_backends([["test_inet_backends","true"]|_]) ->
+    true;
+test_inet_backends([_|Args]) ->
+    test_inet_backends(Args).
+           
 
+proxy_call(F, Timeout, Default) ->
+    proxy_call(F, Timeout, infinity, Default).
 
-proxy_call(F, Timeout, Default)
-  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
-    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+proxy_call(F, Timeout, PollTimeout, Default)
+  when is_function(F, 0) andalso
+       is_integer(Timeout) andalso (Timeout > 0) andalso
+       ((PollTimeout =:= infinity) orelse
+        (is_integer(PollTimeout) andalso (PollTimeout > 0))) ->
+    PollTimer = poll_timer_start(Timeout, PollTimeout),
+    iprint("[proxy-init] create proxy", []),
+    {P, M}    = erlang:spawn_monitor(fun() -> exit(F()) end),
+    pc_loop(P, M, Timeout, PollTimer, Default).
+
+pc_loop(P, M, Timeout, PollTimer, Default) ->
+    T0 = t(),
     receive
         {'DOWN', M, process, P, Reply} ->
-            Reply
+            iprint("[proxy-loop] received result: "
+                   "~n   ~p", [Reply]),
+            Reply;
+        {?MODULE, poll, PollTimeout} ->
+            iprint("[proxy-loop] Poll proxy: "
+                   "~n   Current Function:   ~p"
+                   "~n   Current Stacktrace: ~p"
+                   "~n   Reductions:         ~p"
+                   "~n   Memory:             ~p"
+                   "~n   Heap Size:          ~p"
+                   "~n   Max Heap Size:      ~p"
+                   "~n   Total Heap Size:    ~p"
+                   "~n   Status:             ~p",
+                   [pi(P, current_function),
+                    pi(P, current_stacktrace),
+                    pi(P, reductions),
+                    pi(P, memory),
+                    pi(P, heap_size),
+                    pi(P, max_heap_size),
+                    pi(P, total_heap_size),
+                    pi(P, status)]),
+            Timeout2   = t(T0, Timeout),
+            PollTimer2 = poll_timer_start(Timeout2, PollTimeout),
+            pc_loop(P, M, Timeout2, PollTimer2, Default)
+
     after Timeout ->
+            wprint("[proxy-loop] timeout: "
+                   "~n   Current Function:   ~p"
+                   "~n   Current Stacktrace: ~p"
+                   "~n   Reductions:         ~p"
+                   "~n   Memory:             ~p"
+                   "~n   Heap Size:          ~p"
+                   "~n   Max Heap Size:      ~p"
+                   "~n   Total Heap Size:    ~p"
+                   "~n   Status:             ~p",
+                   [pi(P, current_function),
+                    pi(P, current_stacktrace),
+                    pi(P, reductions),
+                    pi(P, memory),
+                    pi(P, heap_size),
+                    pi(P, max_heap_size),
+                    pi(P, total_heap_size),
+                    pi(P, status)]),
+            poll_timer_stop(PollTimer),
             erlang:demonitor(M, [flush]),
             exit(P, kill),
             Default
     end.
+
+poll_timer_start(_Timeout, PollTimeout)
+  when (PollTimeout =:= infinity) ->
+    undefined;
+poll_timer_start(Timeout, PollTimeout)
+  when (Timeout > PollTimeout) ->
+    erlang:send_after(PollTimeout, self(), {?MODULE, poll, PollTimeout});
+poll_timer_start(_, _) ->
+    undefined.
+
+poll_timer_stop(TRef) when is_reference(TRef) ->
+    erlang:cancel_timer(TRef);
+poll_timer_stop(_) ->
+    ok.
+
+t(T0, T)  -> T - (t() - T0).
+t()       -> snmp_misc:now(ms).
 
 
 hostname() ->
@@ -371,32 +450,119 @@ localhost(Family) ->
 
 which_addr(_Family, []) ->
     fail(no_valid_addr, ?MODULE, ?LINE);
-which_addr(Family, [{"lo", _} | IfList]) ->
+which_addr(Family, [{"lo" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
     which_addr(Family, IfList);
-which_addr(Family, [{"tun" ++ _, _} | IfList]) ->
+which_addr(Family, [{"tun" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
     which_addr(Family, IfList);
-which_addr(Family, [{"docker" ++ _, _} | IfList]) ->
+which_addr(Family, [{"docker" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
     which_addr(Family, IfList);
-which_addr(Family, [{"br-" ++ _, _} | IfList]) ->
+which_addr(Family, [{"br-" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
     which_addr(Family, IfList);
-which_addr(Family, [{_Name, IfOpts} | IfList]) ->
+which_addr(Family, [{"ap" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"anpi" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"vmenet" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"vtun" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"bridge" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"llw" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"awdl" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"p2p" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"stf" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"XHCZ" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{Name, IfOpts} | IfList]) ->
     case which_addr2(Family, IfOpts) of
         {ok, Addr} ->
+            iprint("interface ~s accepted: "
+                   "~n   ~p", [Name, Addr]),
             Addr;
-        {error, _} ->
+        {error, no_address} ->
+            iprint("reject interface ~s:"
+                   "~n   No valid address", [Name]),
+            which_addr(Family, IfList);
+        {error, not_running_or_loopback} ->
+            iprint("reject interface ~s:"
+                   "~n   Not running or loopback", [Name]),
             which_addr(Family, IfList)
     end.
 
-which_addr2(_Family, []) ->
-    {error, not_found};
-which_addr2(Family, [{addr, Addr}|_]) 
-  when (Family =:= inet) andalso (tuple_size(Addr) =:= 4) ->
+which_addr2(Fam, IfOpts) ->
+    case if_is_running_and_not_loopback(IfOpts) of
+        true ->
+            try which_addr3(Fam, IfOpts)
+            catch
+                throw:E ->
+                    E
+            end;
+        false ->
+            {error, not_running_or_loopback}
+    end.
+
+if_is_running_and_not_loopback(If) ->
+    lists:keymember(flags, 1, If) andalso
+        begin
+            {value, {flags, Flags}} = lists:keysearch(flags, 1, If),
+            (not lists:member(loopback, Flags)) andalso
+                lists:member(running, Flags)
+        end.
+
+which_addr3(inet = _Fam, IfOpts) ->
+    Addr = which_addr4(
+             addr,  IfOpts,
+             fun({A, _, _, _}) when (A =:= 127) -> false;
+                ({A, B, _, _}) when (A =:= 169) andalso 
+                                    (B =:= 254) -> false;
+                ({_, _, _, _}) -> true;
+                (_) -> false
+             end),
     {ok, Addr};
-which_addr2(Family, [{addr, Addr}|_]) 
-  when (Family =:= inet6) andalso (tuple_size(Addr) =:= 8) ->
-    {ok, Addr};
-which_addr2(Family, [_|IfOpts]) ->
-    which_addr2(Family, IfOpts).
+which_addr3(inet6 = _Fam, IfOpts) ->
+    Addr = which_addr4(
+             addr,  IfOpts,
+             fun({A, _, _, _, _, _, _, _}) 
+                   when (A =:= 0) -> false;
+                ({A, _, _, _, _, _, _, _})
+                   when (A =:= 16#fe80) -> false;
+                ({_, _, _, _, _, _, _, _}) -> true;
+                (_) -> false
+             end),
+    {ok, Addr}.
+
+which_addr4(_Key, [], _) ->
+    throw({error, no_address});
+which_addr4(Key, [{Key, Val}|IfOpts], Check) ->
+    case Check(Val) of
+        true ->
+            %% iprint("~w -> address validated: "
+            %%.       "~n   ~p", [?FUNCTION_NAME, Val]),    
+            Val;
+        false ->
+            which_addr4(Key, IfOpts, Check)
+    end;
+which_addr4(Key, [_|IFO], Check) ->
+    which_addr4(Key, IFO, Check).
 
 
 sz(L) when is_list(L) ->
@@ -592,20 +758,35 @@ has_support_ipv6() ->
 has_valid_ipv6_address() ->
     case net:getifaddrs(fun(#{addr  := #{family := inet6},
                               flags := Flags}) ->
-                                not lists:member(loopback, Flags);
+                                lists:member(up, Flags) andalso
+                                    lists:member(running, Flags) andalso
+                                    not lists:member(loopback, Flags);
                            (_) ->
                                 false
                         end) of
         {ok, [#{addr := #{addr := LocalAddr}}|_]} ->
             %% At least one valid address, we pick the first...
+            iprint("~w -> try validate address: "
+                   "~n   ~p", [?FUNCTION_NAME, LocalAddr]),
             try validate_ipv6_address(LocalAddr)
             catch
-                _:_:_ ->
+                exit:{skip, SkipReasonStr} when is_list(SkipReasonStr) ->
+                    nprint("~w -> failed validating address: "
+                           "~n   ~s", [?FUNCTION_NAME, SkipReasonStr]),
+                    false;
+                C:E ->
+                    nprint("~w -> failed validating address: "
+                           "~n   Error Class: ~p"
+                           "~n   Error:       ~p", [?FUNCTION_NAME, C, E]),
                     false
             end;
-        {ok, _} ->
+        {ok, X} ->
+            nprint("~w -> invalid ok: "
+                   "~n   ~p", [?FUNCTION_NAME, X]),
             false;
-        {error, _} ->
+        {error, X} ->
+            wprint("~w -> error: "
+                   "~n   ~p", [?FUNCTION_NAME, X]),
             false
     end.
 
@@ -949,7 +1130,10 @@ fail(Reason, Mod, Line) ->
 skip(Reason, Module, Line) ->
     String = lists:flatten(io_lib:format("Skipping ~p(~p): ~p~n", 
 					 [Module, Line, Reason])),
-    exit({skip, String}).
+    skip(String).
+
+skip(Reason) ->
+    exit({skip, Reason}).
     
 
 %% This function prints various host info, which might be useful
@@ -1063,17 +1247,20 @@ do_linux_which_distro_os_release(Version, Label) ->
                     Info = linux_process_os_release(),
                     {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
                     {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
-                    io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
-                              "~n   Distro Version:          ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n   Product Name:            ~s"
-                              "~n",
-                              [Version, DistroStr, VersionNo, Label,
-                               linux_product_name()]),
+                    %% SLabel = simplify_label(Label),
+                    %% io:format("Linux: ~s"
+                    %%           "~n   Distro:                  ~s"
+                    %%           "~n   Distro Version:          ~s"
+                    %%           "~n   TS Extra Platform Label: ~s (~p)"
+                    %%           "~n   Product Name:            ~s"
+                    %%           "~n",
+                    %%           [Version, DistroStr, VersionNo, Label, SLabel,
+                    %%            linux_product_name()]),
+                    SLabel = linux_distro_release(Version,
+                                                  DistroStr, VersionNo, Label),
                     throw({distro,
                            {linux_distro_str_to_distro_id(DistroStr),
-                            simplify_label(Label)}})
+                            SLabel}})
                 end
             catch
                 throw:{distro, _} = DISTRO ->
@@ -1084,7 +1271,29 @@ do_linux_which_distro_os_release(Version, Label) ->
         _ ->
             retry
     end.
-	    
+
+
+linux_distro_release(Version, Distro, Label) ->
+    SLabel = simplify_label(Label),
+    io:format("Linux: ~s"
+              "~n   Distro:                  ~s"
+              "~n   TS Extra Platform Label: ~s (~p)"
+              "~n   Product Name:            ~s"
+              "~n",
+              [Version, Distro, Label, SLabel, linux_product_name()]),
+    SLabel.
+
+linux_distro_release(Version, Distro, DVersion, Label) ->
+    SLabel = simplify_label(Label),
+    io:format("Linux: ~s"
+              "~n   Distro:                  ~s"
+              "~n   Distro Version:          ~s"
+              "~n   TS Extra Platform Label: ~s (~p)"
+              "~n   Product Name:            ~s"
+              "~n",
+              [Version, Distro, DVersion, Label, SLabel, linux_product_name()]),
+    SLabel.
+
 
 linux_process_os_release() ->
     %% Read the "raw" file
@@ -1174,27 +1383,30 @@ do_linux_which_distro_fedora_release(Version, Label) ->
     %% Check if fedora
     case file:read_file_info("/etc/fedora-release") of
         {ok, _} ->
-            case [string:trim(S) ||
-                     S <- string:tokens(os:cmd("cat /etc/fedora-release"),
-                                        [$\n])] of
-                [DistroStr | _] ->
-                    io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n   Product Name:            ~s"
-                              "~n",
-                              [Version, DistroStr, Label,
-                               linux_product_name()]);
-                _ ->
-                    io:format("Linux: ~s"
-                              "~n   Distro: ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n   Product Name:            ~s"
-                              "~n",
-                              [Version, "Fedora", Label,
-                               linux_product_name()])
+            SLabel =
+                case [string:trim(S) ||
+                         S <- string:tokens(os:cmd("cat /etc/fedora-release"),
+                                            [$\n])] of
+                    [DistroStr | _] ->
+                        %% io:format("Linux: ~s"
+                        %%           "~n   Distro:                  ~s"
+                        %%           "~n   TS Extra Platform Label: ~s (~p)"
+                        %%           "~n   Product Name:            ~s"
+                        %%           "~n",
+                        %%           [Version, DistroStr, Label, SLabel,
+                        %%            linux_product_name()]);
+                        linux_distro_release(Version, DistroStr, Label);
+                    _ ->
+                        %% io:format("Linux: ~s"
+                        %%           "~n   Distro: ~s"
+                        %%           "~n   TS Extra Platform Label: ~s (~p)"
+                        %%           "~n   Product Name:            ~s"
+                        %%           "~n",
+                        %%           [Version, "Fedora", Label, SLabel
+                        %%            linux_product_name()])
+                        linux_distro_release(Version, "Fedora", Label)
             end,
-            throw({distro, {fedora, simplify_label(Label)}});
+            throw({distro, {fedora, SLabel}});
         _ ->
             throw({error, not_found})
     end.
@@ -1209,32 +1421,41 @@ do_linux_which_distro_suse_release(Version, Label) ->
                              S <- string:tokens(os:cmd("cat /etc/SuSE-release"),
                                                 [$\n])] of
                         ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro, {sles, simplify_label(Label)}});
+                            %% io:format("Linux: ~s"
+                            %%           "~n   Distro:                  ~s"
+                            %%           "~n   TS Extra Platform Label: ~s (~p)"
+                            %%           "~n   Product Name:            ~s"
+                            %%           "~n",
+                            %%           [Version, DistroStr, Label, SLabel,
+                            %%            linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr,
+                                                          Label),
+                            throw({distro, {sles, SLabel}});
                         [DistroStr | _] ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro, {suse, simplify_label(Label)}});
+                            %% io:format("Linux: ~s"
+                            %%           "~n   Distro:                  ~s"
+                            %%           "~n   TS Extra Platform Label: ~s (~p)"
+                            %%           "~n   Product Name:            ~s"
+                            %%           "~n",
+                            %%           [Version, DistroStr, Label, SLabel,
+                            %%            linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr,
+                                                          Label),
+                            throw({distro, {suse, SLabel}});
                         _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, "SuSE", Label,
-                                       linux_product_name()]),
-                            throw({distro, {suse, simplify_label(Label)}})
+                            %% io:format("Linux: ~s"
+                            %%           "~n   Distro:                  ~s"
+                            %%           "~n   TS Extra Platform Label: ~s (~p)"
+                            %%           "~n   Product Name:            ~s"
+                            %%           "~n",
+                            %%           [Version, "SuSE", Label, SLabel,
+                            %%            linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          "SuSE",
+                                                          Label),
+                            throw({distro, {suse, SLabel}})
                     end;
                 _ ->
                     case string:tokens(os:cmd("cat /etc/SUSE-brand"), [$\n]) of
@@ -1242,70 +1463,90 @@ do_linux_which_distro_suse_release(Version, Label) ->
                             case [string:strip(S) ||
                                      S <- string:tokens(VERSION, [$=])] of
                                 ["VERSION", VersionNo] ->
-                                    io:format("Linux: ~s"
-                                              "~n   Distro:                  ~s"
-                                              "~n   Distro Version:          ~s"
-                                              "~n   TS Extra Platform Label: ~s"
-                                              "~n   Product Name:            ~s"
-                                              "~n",
-                                              [Version,
-                                               DistroStr, VersionNo,
-                                               Label,
-                                               linux_product_name()]),
-                                    throw({distro,
-                                           {sles, simplify_label(Label)}});
+                                    %% io:format(
+                                    %%   "Linux: ~s"
+                                    %%   "~n   Distro:                  ~s"
+                                    %%   "~n   Distro Version:          ~s"
+                                    %%   "~n   TS Extra Platform Label: ~s (~p)"
+                                    %%   "~n   Product Name:            ~s"
+                                    %%   "~n",
+                                    %%   [Version,
+                                    %%    DistroStr, VersionNo,
+                                    %%    Label, SLabel,
+                                    %%    linux_product_name()]),
+                                    SLabel = linux_distro_release(Version,
+                                                                  DistroStr,
+                                                                  VersionNo,
+                                                                  Label),
+                                    throw({distro, {sles, SLabel}});
                                 _ ->
-                                    io:format("Linux: ~s"
-                                              "~n   Distro:                  ~s"
-                                              "~n   TS Extra Platform Label: ~s"
-                                              "~n   Product Name:            ~s"
-                                              "~n",
-                                              [Version, DistroStr, Label,
-                                               linux_product_name()]),
-                                    throw({distro,
-                                           {sles, simplify_label(Label)}})
+                                    %% io:format(
+                                    %%   "Linux: ~s"
+                                    %%   "~n   Distro:                  ~s"
+                                    %%   "~n   TS Extra Platform Label: ~s (~p)"
+                                    %%   "~n   Product Name:            ~s"
+                                    %%   "~n",
+                                    %%   [Version, DistroStr, Label, SLabel,
+                                    %%    linux_product_name()]),
+                                    SLabel = linux_distro_release(Version,
+                                                                  DistroStr,
+                                                                  Label),
+                                    throw({distro, {sles, SLabel}})
                             end;
                         ["openSUSE" = DistroStr, VERSION | _] ->
                             case [string:strip(S) ||
                                      S <- string:tokens(VERSION, [$=])] of
                                 ["VERSION", VersionNo] ->
-                                    io:format("Linux: ~s"
-                                              "~n   Distro:                  ~s"
-                                              "~n   Distro Version:          ~s"
-                                              "~n   TS Extra Platform Label: ~s"
-                                              "~n   Product Name:            ~s"
-                                              "~n",
-                                              [Version,
-                                               DistroStr, VersionNo,
-                                               Label,
-                                               linux_product_name()]),
-                                    throw({distro,
-                                           {suse, simplify_label(Label)}});
+                                    %% io:format(
+                                    %%   "Linux: ~s"
+                                    %%   "~n   Distro:                  ~s"
+                                    %%   "~n   Distro Version:          ~s"
+                                    %%   "~n   TS Extra Platform Label: ~s (~p)"
+                                    %%   "~n   Product Name:            ~s"
+                                    %%   "~n",
+                                    %%   [Version,
+                                    %%    DistroStr, VersionNo,
+                                    %%    Label, SLabel,
+                                    %%    linux_product_name()]),
+                                    SLabel = linux_distro_release(Version,
+                                                                  DistroStr,
+                                                                  VersionNo,
+                                                                  Label),
+                                    throw({distro, {suse, SLabel}});
                                 _ ->
-                                    io:format("Linux: ~s"
-                                              "~n   Distro:                  ~s"
-                                              "~n   TS Extra Platform Label: ~s"
-                                              "~n   Product Name:            ~s"
-                                              "~n",
-                                              [Version, DistroStr, Label,
-                                               linux_product_name()]),
-                                    throw({distro,
-                                           {suse, simplify_label(Label)}})
+                                    %% io:format(
+                                    %%   "Linux: ~s"
+                                    %%   "~n   Distro:                  ~s"
+                                    %%   "~n   TS Extra Platform Label: ~s (~p)"
+                                    %%   "~n   Product Name:            ~s"
+                                    %%   "~n",
+                                    %%   [Version, DistroStr, Label, SLabel,
+                                    %%    linux_product_name()]),
+                                    SLabel = linux_distro_release(Version,
+                                                                  DistroStr,
+                                                                  Label),
+                                    throw({distro, {suse, SLabel}})
                             end;
                         _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, "Unknown SUSE", Label,
-                                       linux_product_name()]),
-                            throw({distro, {suse, simplify_label(Label)}})
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, "Unknown SUSE",
+                            %%    Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          "Unknown SUSE",
+                                                          Label),
+                            throw({distro, {suse, SLabel}})
                     end
             end;
         _ ->
             throw({error, not_found})
     end.
+
 
 do_linux_which_distro_issue(Version, Label) ->
     case file:read_file_info("/etc/issue") of
@@ -1315,65 +1556,77 @@ do_linux_which_distro_issue(Version, Label) ->
                 [DistroStr | _] ->
                     case DistroStr of
                         "Wind River Linux" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {wind_river, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {wind_river, SLabel}});
                         "MontaVista" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro, 
-                                   {montavista, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {montavista, SLabel}});
                         "Yellow Dog" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {yellow_dog, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {yellow_dog, SLabel}});
                         "Debian" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {debian, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {debian, SLabel}});
                         "Ubuntu" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {ubuntu, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {ubuntu, SLabel}});
                         "Linux Mint" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {linux_mint, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {linux_mint, SLabel}});
                         _ ->
                             DistroStr
                     end;
@@ -3001,6 +3254,42 @@ trap_exit(Flag) ->
 %% Node utility functions
 %% 
 
+%% This hinges on an updated peer verbose start
+%% -define(VERBOSE_PEER_START, true).
+
+-ifdef(VERBOSE_PEER_START).
+-define(MAYBE_VERBOSE_START(SO), (SO)#{verbose => true}).
+-define(START_OPTIONS(SO), (SO)#{connection => standard_io}).
+-else.
+-define(MAYBE_VERBOSE_START(SO), SO).
+-define(START_OPTIONS(SO), SO).
+-endif.
+
+start_node(Name, Unlink) ->
+    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
+    %% Note that the 'verbose' option may not exist...
+    %% If it does not exist, this (verbose => true) "should" do nothing...
+    BaseStartOptions = #{name => Name,
+                         args => Args},
+    StartOptions0    = ?MAYBE_VERBOSE_START(BaseStartOptions),
+    StartOptions     = ?START_OPTIONS(StartOptions0),
+    case ?CT_PEER(StartOptions) of
+        {ok, Peer, Node}  ->
+            %% Must unlink, otherwise peer will exit before test case
+            maybe_unlink(Unlink, Peer),
+            global:sync(),
+            {Peer, Node};
+        {error, Reason} ->
+            %%% throw({skip, {failed_starting_node, Name, Reason}})
+            skip({failed_starting_node, Name, Reason})
+    end.
+
+maybe_unlink(true, Pid) ->
+    unlink(Pid);
+maybe_unlink(false, _) ->
+    ok.
+
+    
 ping(N) ->
     case net_adm:ping(N) of
  	pang ->
@@ -3034,7 +3323,7 @@ is_snmp_running() ->
     is_app_running(snmp).
 
 crypto_start() ->
-    try crypto:start() of
+    try application:start(crypto) of
         ok ->
             ok;
         {error, {already_started,crypto}} ->
@@ -3203,6 +3492,20 @@ timetrap_scale_factor() ->
 	    N
     end.
 
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (0 < Factor) andalso (Factor < 3) ->
+    BaseTime;
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (3 =< Factor) andalso (Factor =< 10) ->
+    BaseTime + (Factor-2) * (BaseTime div 4);
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (10 < Factor) ->
+    3*BaseTime + (Factor-10) * (BaseTime div 10).
+    
+    
     
 %% ----------------------------------------------------------------------
 %% file & dir functions
@@ -3260,6 +3563,12 @@ del_file_or_dir(FileOrDir) ->
 	    ok
     end.
 	    
+
+%% ----------------------------------------------------------------------
+
+pi(P, Key) ->
+    {Key, Value} = erlang:process_info(P, Key),
+    Value.
 
 %% ----------------------------------------------------------------------
 %% (debug) Print functions

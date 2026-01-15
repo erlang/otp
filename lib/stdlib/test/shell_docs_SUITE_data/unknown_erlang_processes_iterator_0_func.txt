@@ -1,0 +1,14 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+
+[;1m  processes_iterator()[0m
+
+[;;4mSince[0m:
+  OTP @OTP-19369@
+
+  Returns a processes iterator that can be used in [;;4mprocesses_next/1[0m.

@@ -1,21 +1,16 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:read_timer(TimerRef) -> Result[0m
-  [;1m                           when[0m
-  [;1m                               TimerRef :: reference(),[0m
-  [;1m                               Time :: non_neg_integer(),[0m
-  [;1m                               Result :: Time | false.[0m
+[;1m  read_timer(TimerRef)[0m
 
-  Reads the state of a timer. The same as calling [;;4m[0m
-  [;;4merlang:read_timer(TimerRef, [])[0m.
+  There is no documentation for erlang:read_timer(TimerRef, [])
 
-  [;1m-spec erlang:read_timer(TimerRef, Options) -> Result | ok[0m
-  [;1m                           when[0m
-  [;1m                               TimerRef :: reference(),[0m
-  [;1m                               Async :: boolean(),[0m
-  [;1m                               Option :: {async, Async},[0m
-  [;1m                               Options :: [Option],[0m
-  [;1m                               Time :: non_neg_integer(),[0m
-  [;1m                               Result :: Time | false.[0m
+[;1m  read_timer(TimerRef, Options)[0m
 
 [;;4mSince[0m:
   OTP 18.0
@@ -26,16 +21,15 @@
 
   [;;4mOptions[0m:
 
-  [;;4m[;;4m{async, Async}[0m[0m:
-    Asynchronous request for state information. [;;4mAsync[0m defaults
-    to [;;4mfalse[0m, which causes the operation to be performed
-    synchronously. In this case, the [;;4mResult[0m is returned by [;;4m[0m
-    [;;4merlang:read_timer[0m. When [;;4mAsync[0m is [;;4mtrue[0m, [;;4merlang:read_timer[0m
-    sends an asynchronous request for the state information to the
-    timer service that manages the timer, and then returns [;;4mok[0m. A
-    message on the format [;;4m{read_timer, TimerRef, Result}[0m is sent
-    to the caller of [;;4merlang:read_timer[0m when the operation has
-    been processed.
+   • [;;4m{async, Async}[0m - Asynchronous request for state
+     information. [;;4mAsync[0m defaults to [;;4mfalse[0m, which causes the
+     operation to be performed synchronously. In this case, the [;;4m[0m
+     [;;4mResult[0m is returned by [;;4merlang:read_timer[0m. When [;;4mAsync[0m is [;;4m[0m
+     [;;4mtrue[0m, [;;4merlang:read_timer[0m sends an asynchronous request for
+     the state information to the timer service that manages the
+     timer, and then returns [;;4mok[0m. A message on the format [;;4m[0m
+     [;;4m{read_timer, TimerRef, Result}[0m is sent to the caller of [;;4m[0m
+     [;;4merlang:read_timer[0m when the operation has been processed.
 
   More [;;4mOption[0ms can be added in the future.
 
@@ -48,7 +42,8 @@
   Even if the timer has expired, it does not tell you whether or not
   the time-out message has arrived at its destination yet.
 
-  Note:
+  [;;4mNote[0m
+
     The timer service that manages the timer can be co-located
     with another scheduler than the scheduler that the calling
     process is executing on. If so, communication with the timer

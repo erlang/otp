@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +55,8 @@
 #include "erl_proc_sig_queue.h"
 #include "beam_load.h"
 #include "erl_global_literals.h"
+#include "erl_iolist.h"
+#include "erl_debugger.h"
 
 #include "jit/beam_asm.h"
 
@@ -66,67 +70,8 @@
 #define ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE 40
 #define ERTS_DEFAULT_DIO_SCHED_STACK_SIZE 40
 
-/*
- * The variables below (prefixed with etp_) are for erts/etc/unix/etp-commands
- * only. Do not remove even though they aren't used elsewhere in the emulator!
- */
-const int etp_smp_compiled = 1;
-const int etp_thread_compiled = 1;
-const char etp_erts_version[] = ERLANG_VERSION;
-const char etp_otp_release[] = ERLANG_OTP_RELEASE;
-const char etp_arch[] = ERLANG_ARCHITECTURE;
-#if ERTS_ENABLE_KERNEL_POLL
-const int erts_use_kernel_poll = 1;
-const int etp_kernel_poll_support = 1;
-#else
-const int erts_use_kernel_poll = 0;
-const int etp_kernel_poll_support = 0;
-#endif
-#if defined(ARCH_64)
-const int etp_arch_bits = 64;
-#elif defined(ARCH_32)
-const int etp_arch_bits = 32;
-#else
-# error "Not 64-bit, nor 32-bit arch"
-#endif
-#ifdef BEAMASM
-const int etp_beamasm = 1;
-#else
-const int etp_beamasm = 0;
-#endif
-#ifdef DEBUG
-const int etp_debug_compiled = 1;
-#else
-const int etp_debug_compiled = 0;
-#endif
-#ifdef ERTS_ENABLE_LOCK_COUNT
-const int etp_lock_count = 1;
-#else
-const int etp_lock_count = 0;
-#endif
-#ifdef ERTS_ENABLE_LOCK_CHECK
-const int etp_lock_check = 1;
-#else
-const int etp_lock_check = 0;
-#endif
-const int etp_endianness = ERTS_ENDIANNESS;
-const Eterm etp_ref_header = ERTS_REF_THING_HEADER;
-#ifdef ERTS_MAGIC_REF_THING_HEADER
-const Eterm etp_magic_ref_header = ERTS_MAGIC_REF_THING_HEADER;
-#else
-const Eterm etp_magic_ref_header = ERTS_REF_THING_HEADER;
-#endif
-const Eterm etp_the_non_value = THE_NON_VALUE;
-#ifdef TAG_LITERAL_PTR
-const Eterm etp_ptr_mask = (~(Eterm)7);
-#else
-const Eterm etp_ptr_mask = (~(Eterm)3);
-#endif
-#ifdef ERTS_HOLE_MARKER
-const Eterm etp_hole_marker = ERTS_HOLE_MARKER;
-#else
-const Eterm etp_hole_marker = 0;
-#endif
+#define ERTS_HALT_FLUSH_TIMEOUT_EXIT_CODE 255
+ErtsMonotonicTime erts_halt_flush_timeout = -1; /* negative value -> infinity */
 
 static int modified_sched_thread_suggested_stack_size = 0;
 
@@ -199,6 +144,7 @@ int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
 int erts_no_line_info = 0;	/* -L: Don't load line information */
 
 #ifdef BEAMASM
+Uint erts_coverage_mode = ERTS_COV_NONE; /* -JPcover: Enable coverage */
 int erts_jit_asm_dump = 0;	/* -JDdump: Dump assembly code */
 #endif
 
@@ -296,17 +242,6 @@ void erl_error(const char *fmt, va_list args)
 
 static int early_init(int *argc, char **argv);
 
-static void init_constant_literals(void) {
-       Eterm* hp = erts_alloc_global_literal(ERTS_LIT_EMPTY_TUPLE, 2);
-       Eterm tuple;
-       hp[0] = make_arityval_zero();
-       hp[1] = make_arityval_zero();
-       tuple = make_tuple(hp);
-       erts_register_global_literal(ERTS_LIT_EMPTY_TUPLE, tuple);
-       ERTS_GLOBAL_LIT_EMPTY_TUPLE =
-           erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
-}
-
 static void
 erl_init(int ncpu,
 	 int proc_tab_sz,
@@ -320,7 +255,7 @@ erl_init(int ncpu,
 	 int node_tab_delete_delay,
 	 ErtsDbSpinCount db_spin_count)
 {
-    init_constant_literals();
+    init_global_literals();
     erts_monitor_link_init();
     erts_bif_unique_init();
     erts_proc_sig_queue_init(); /* Must be after erts_bif_unique_init(); */
@@ -342,8 +277,7 @@ erl_init(int ncpu,
     H_MIN_SIZE      = erts_next_heap_size(H_MIN_SIZE, 0);
     BIN_VH_MIN_SIZE = erts_next_heap_size(BIN_VH_MIN_SIZE, 0);
 
-    erts_init_trace();
-    erts_init_bits();
+    erts_init_debugger();
     erts_code_ix_init();
     erts_init_fun_table();
     init_atom_table();
@@ -357,8 +291,10 @@ erl_init(int ncpu,
     erts_bif_info_init();
     erts_ddll_init();
     init_emulator();
-    erts_ptab_init(); /* Must be after init_emulator() */
+    erts_init_trace();  /* Must be after init_emulator() */
+    erts_ptab_init();   /* Must be after init_emulator() */
     erts_init_binary(); /* Must be after init_emulator() */
+    erts_init_iolist(); /* Must be after init_emulator() */
     erts_bp_init();
     init_db(db_spin_count); /* Must be after init_emulator */
     erts_init_node_tables(node_tab_delete_delay);
@@ -434,9 +370,14 @@ erl_first_process_otp(char* mod_name, int argc, char** argv)
     hp = HAlloc(&parent, argc*2 + 4);
     args = NIL;
     for (i = argc-1; i >= 0; i--) {
-	int len = sys_strlen(argv[i]);
-	args = CONS(hp, new_binary(&parent, (byte*)argv[i], len), args);
-	hp += 2;
+        size_t len = sys_strlen(argv[i]);
+
+        args = CONS(hp,
+                    erts_new_binary_from_data(&parent,
+                                              len,
+                                              (byte*)argv[i]),
+                    args);
+        hp += 2;
     }
     boot_mod = erts_atom_put((byte *) mod_name, sys_strlen(mod_name),
                              ERTS_ATOM_ENC_LATIN1, 1);
@@ -591,7 +532,7 @@ load_preloaded(void)
 }
 
 /* be helpful (or maybe downright rude:-) */
-void erts_usage(void)
+__decl_noreturn void __noreturn  erts_usage(void)
 {
     int this_rel = this_rel_num();
     erts_fprintf(stderr, "Usage: %s [flags] [ -- [init_args] ]\n", progname(program));
@@ -605,8 +546,8 @@ void erts_usage(void)
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
     erts_fprintf(stderr, "\n");
 
-    erts_fprintf(stderr, "-B[c|d|i]      set break (Ctrl-C) behavior; valid letters are:\n");
-    erts_fprintf(stderr, "                  'c' to have Ctrl-C interrupt the Erlang shell;\n");
+    erts_fprintf(stderr, "-B[c|d|i]      set break (Ctrl+C) behavior; valid letters are:\n");
+    erts_fprintf(stderr, "                  'c' to have Ctrl+C interrupt the Erlang shell;\n");
     erts_fprintf(stderr, "                  'd' (or no extra option) to disable the break handler;\n");
     erts_fprintf(stderr, "                  'i' to ignore break signals\n");
     erts_fprintf(stderr, "\n");
@@ -616,6 +557,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "               no_time_warp | single_time_warp | multi_time_warp\n");
     erts_fprintf(stderr, "\n");
 
+    erts_fprintf(stderr, "-D             enable debugging support\n");
+    erts_fprintf(stderr, "-Dibpl bool    enable or disable instrumentation for breakpoints on lines (default true)\n");
     erts_fprintf(stderr, "-d             don't write a crash dump for internally detected errors\n");
     erts_fprintf(stderr, "               (halt(String) will still produce a crash dump)\n");
     erts_fprintf(stderr, "-dcg           set the limit for the number of decentralized counter groups\n");
@@ -653,7 +596,9 @@ void erts_usage(void)
 
 #ifdef BEAMASM
     erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
+    erts_fprintf(stderr, "-JPcover true|false|line|line_counters|function|function_counters  enable or disable instrumentation for coverage\n");
     erts_fprintf(stderr, "-JPperf true|false|dump|map|fp|no_fp   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "-JPperfdirectory <directory>    set the directory perf files are stored. Default: /tmp\n");
     erts_fprintf(stderr, "-JMsingle bool enable the use of single-mapped RWX memory for JIT:ed code\n");
     erts_fprintf(stderr, "\n");
 #endif
@@ -768,6 +713,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "-zosrl number  set outstanding requests limit for system processes,\n");
     erts_fprintf(stderr, "               valid range [1-%d]\n",
                  ERTS_MAX_PROCESSES);
+    erts_fprintf(stderr, "-zhft timeout  set halt flush timeout,\n");
+    erts_fprintf(stderr, "               valid range [0-%d] or infinity\n", INT_MAX);
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -1093,6 +1040,7 @@ early_init(int *argc, char **argv) /*
 			    case 1:
 				onln = tot < dirty_cpu_scheds_online ?
 				    tot : dirty_cpu_scheds_online;
+                                ERTS_FALLTHROUGH();
 			    case 2:
 			    chk_SDcpu:
 				if (tot > 0)
@@ -1163,6 +1111,7 @@ early_init(int *argc, char **argv) /*
 			    }
 			case 1:
 			    onln = tot < schdlrs_onln ? tot : schdlrs_onln;
+                            ERTS_FALLTHROUGH();
 			case 2:
 			chk_S:
 			    if (tot > 0)
@@ -1328,8 +1277,8 @@ early_init(int *argc, char **argv) /*
     /* Creates threads on Windows that depend on the arguments, so has to be after erl_sys_args */
     erl_sys_init();
 
-    erts_ets_realloc_always_moves = 0;
-    erts_ets_always_compress = 0;
+    erts_ets_realloc_always_moves = false;
+    erts_ets_always_compress = false;
     erts_dist_buf_busy_limit = ERTS_DE_BUSY_LIMIT;
 
     return ncpu;
@@ -1685,6 +1634,34 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
+	case 'D':
+            if (sys_strcmp(argv[i]+1, "D") == 0) {
+                erts_debugger_flags |= ERTS_DEBUGGER_ENABLED;
+            } else if (argv[i][2] == 'i') {
+                const char *instr_opt = argv[i]+1;
+                Uint flag;
+
+                if (sys_strcmp(instr_opt, "Dibpl") == 0) {
+                    flag = ERTS_DEBUGGER_LINE_BREAKPOINTS;
+                    arg = get_arg(argv[i]+6, argv[i+1], &i);
+                } else {
+                    erts_fprintf(stderr, "Unknown instrumentation option %s\n", instr_opt);
+                    erts_usage();
+                }
+
+                if (sys_strcmp(arg, "true") == 0) {
+                    erts_debugger_flags |= flag;
+                } else if (sys_strcmp(arg, "false") == 0) {
+                    erts_debugger_flags &= ~flag;
+                } else {
+                    erts_fprintf(stderr, "%s expected `true' or `false' but got: `%s'\n", instr_opt, arg);
+                    erts_usage();
+                }
+            } else {
+                erts_fprintf(stderr, "Unknown option %s\n", argv[i]+1);
+                erts_usage();
+            }
+	    break;
 	case 'd':
 	    /*
 	     * Never produce crash dumps for internally detected
@@ -1698,7 +1675,7 @@ erl_start(int argc, char **argv)
 
 	case 'e':
 	    if (sys_strcmp("c", argv[i]+2) == 0) {
-		erts_ets_always_compress = 1;
+		erts_ets_always_compress = true;
 	    }
 	    else {
 		/* set maximum number of ets tables */
@@ -1742,7 +1719,17 @@ erl_start(int argc, char **argv)
             case 'P':
                 sub_param++;
 
-                if (has_prefix("perf", sub_param)) {
+                if (has_prefix("perfdirectory", sub_param)){
+                    arg = get_arg(sub_param+13, argv[i + 1], &i);
+#ifdef HAVE_LINUX_PERF_SUPPORT
+                    sys_strncpy(etrs_jit_perf_directory, arg, sizeof(etrs_jit_perf_directory));
+                    etrs_jit_perf_directory[sizeof(etrs_jit_perf_directory) -1 ] = '\0';
+#else
+                    erts_fprintf(stderr, "+JPperfdirectory is not supported on this platform\n");
+                    erts_usage();
+#endif
+                }
+                else if (has_prefix("perf", sub_param)) {
                     arg = get_arg(sub_param+4, argv[i + 1], &i);
 
 #ifdef HAVE_LINUX_PERF_SUPPORT
@@ -1767,6 +1754,24 @@ erl_start(int argc, char **argv)
                 erts_fprintf(stderr, "+JPperf is not supported on this platform\n");
                 erts_usage();
 #endif
+                } else if (has_prefix("cover", sub_param)) {
+                    arg = get_arg(sub_param+5, argv[i + 1], &i);
+                    if (sys_strcmp(arg, "true") == 0) {
+                        erts_coverage_mode = ERTS_COV_LINE_COUNTERS;
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        erts_coverage_mode = ERTS_COV_NONE;
+                    } else if (sys_strcmp(arg, "function") == 0) {
+                        erts_coverage_mode = ERTS_COV_FUNCTION;
+                    } else if (sys_strcmp(arg, "function_counters") == 0) {
+                        erts_coverage_mode = ERTS_COV_FUNCTION_COUNTERS;
+                    } else if (sys_strcmp(arg, "line") == 0) {
+                        erts_coverage_mode = ERTS_COV_LINE;
+                    } else if (sys_strcmp(arg, "line_counters") == 0) {
+                        erts_coverage_mode = ERTS_COV_LINE_COUNTERS;
+                    } else {
+                        erts_fprintf(stderr, "bad +JPcover flag %s\n", arg);
+                        erts_usage();
+                    }
                 }
                 break;
             case 'M':
@@ -1851,14 +1856,16 @@ erl_start(int argc, char **argv)
 	    if (sys_strcmp(arg, "legacy") == 0)
 		legacy_proc_tab = 1;
 	    else {
+                long val;
 		errno = 0;
-		proc_tab_sz = strtol(arg, NULL, 10);
+		val = strtol(arg, NULL, 10);
 		if (errno != 0
-		    || proc_tab_sz < ERTS_MIN_PROCESSES
-		    || ERTS_MAX_PROCESSES < proc_tab_sz) {
+		    || val < ERTS_MIN_PROCESSES
+		    || ERTS_MAX_PROCESSES < val) {
 		    erts_fprintf(stderr, "bad number of processes %s\n", arg);
 		    erts_usage();
 		}
+                proc_tab_sz=val;
 	    }
 	    break;
 
@@ -1867,14 +1874,16 @@ erl_start(int argc, char **argv)
 	    if (sys_strcmp(arg, "legacy") == 0)
 		legacy_port_tab = 1;
 	    else {
+                long val;
 		errno = 0;
-		port_tab_sz = strtol(arg, NULL, 10);
+		val = strtol(arg, NULL, 10);
 		if (errno != 0
-		    || port_tab_sz < ERTS_MIN_PORTS
-		    || ERTS_MAX_PORTS < port_tab_sz) {
+		    || val < ERTS_MIN_PORTS
+		    || ERTS_MAX_PORTS < val) {
 		    erts_fprintf(stderr, "bad number of ports %s\n", arg);
 		    erts_usage();
 		}
+                port_tab_sz = val;
 		port_tab_sz_ignore_files = 1;
 	    }
 	    break;
@@ -2189,21 +2198,24 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
-	case 't':
+	case 't': {
 	    /* set atom table size */
-	    arg = get_arg(argv[i]+2, argv[i+1], &i);
+            long val;
+            arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    errno = 0;
-	    erts_atom_table_size = strtol(arg, NULL, 10);
+	    val = strtol(arg, NULL, 10);
 	    if (errno != 0 ||
-		erts_atom_table_size < MIN_ATOM_TABLE_SIZE ||
-		erts_atom_table_size > MAX_ATOM_TABLE_SIZE) {
+		val < MIN_ATOM_TABLE_SIZE ||
+		val > MAX_ATOM_TABLE_SIZE) {
 		erts_fprintf(stderr, "bad atom table size %s\n", arg);
 		erts_usage();
 	    }
+            erts_atom_table_size=val;
 	    VERBOSE(DEBUG_SYSTEM,
                     ("setting maximum number of atoms to %d\n",
 		     erts_atom_table_size));
 	    break;
+        }
 
 	case 'T' :
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
@@ -2253,7 +2265,7 @@ erl_start(int argc, char **argv)
 	    /* suggested stack size (Kilo Words) for threads in thread pool */
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    erts_async_thread_suggested_stack_size = atoi(arg);
-	    
+
 	    if ((erts_async_thread_suggested_stack_size
 		 < ERTS_ASYNC_THREAD_MIN_STACK_SIZE)
 		|| (erts_async_thread_suggested_stack_size >
@@ -2275,7 +2287,7 @@ erl_start(int argc, char **argv)
 		/* already handled */
 	    }
 	    else {
-		erts_ets_realloc_always_moves = 1;
+		erts_ets_realloc_always_moves = true;
 	    }
 	    break;
 	}
@@ -2408,6 +2420,22 @@ erl_start(int argc, char **argv)
                 }
                 sys_proc_outst_req_lim = (Uint) val;
             }
+            else if (has_prefix("hft", sub_param)) {
+                long val;
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+                if (strcmp(arg, "infinity") == 0) {
+                    erts_halt_flush_timeout = -1;
+                }
+                else {
+                    errno = 0;
+                    val = strtol(arg, NULL, 10);
+                    if (errno != 0 || val < 0 || INT_MAX < val) {
+                        erts_fprintf(stderr, "Invalid halt flush timeout %s\n", arg);
+                        erts_usage();
+                    }
+                    erts_halt_flush_timeout = (ErtsMonotonicTime) val;
+                }
+            }
 	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
@@ -2504,8 +2532,7 @@ erl_start(int argc, char **argv)
 
     {
 	/*
-	 * The erts_code_purger and the erts_literal_area_collector
-	 * system processes are *always* alive. If they terminate
+	 * System processes that are *always* alive. If they terminate
 	 * they bring the whole VM down.
 	 */
 	Eterm pid;
@@ -2517,7 +2544,7 @@ erl_start(int argc, char **argv)
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
 	ASSERT(erts_code_purger && erts_code_purger->common.id == pid);
-	erts_proc_inc_refc(erts_code_purger); 
+	erts_proc_inc_refc(erts_code_purger);
 
 	pid = erl_system_process_otp(erts_init_process_id,
                                      "erts_literal_area_collector",
@@ -2558,6 +2585,16 @@ erl_start(int argc, char **argv)
 	ASSERT(erts_dirty_process_signal_handler_max
 	       && erts_dirty_process_signal_handler_max->common.id == pid);
 	erts_proc_inc_refc(erts_dirty_process_signal_handler_max);
+
+        pid = erl_system_process_otp(erts_init_process_id,
+                                     "erts_trace_cleaner", !0,
+                                     PRIORITY_NORMAL);
+        erts_trace_cleaner
+            = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+                                                    internal_pid_index(pid));
+        ASSERT(erts_trace_cleaner && erts_trace_cleaner->common.id == pid);
+        erts_proc_inc_refc(erts_trace_cleaner);
+
     }
 
     erts_start_schedulers();
@@ -2682,6 +2719,10 @@ __decl_noreturn void __noreturn erts_exit_epilogue(int flush)
 
     sys_tty_reset(n);
 
+#ifdef ERTS_GCOV
+    flush = !0; /* otherwise we get no results... */
+#endif
+
     if (n == ERTS_INTR_EXIT)
 	(void) (flush ? exit(0) : _exit(0));
     else if (n == ERTS_DUMP_EXIT)
@@ -2715,4 +2756,9 @@ __decl_noreturn void __noreturn erts_flush_exit(int n, char *fmt, ...)
     erts_exit_vv(n, 1, fmt, args1, args2);
     va_end(args2);
     va_end(args1);
+}
+
+void erts_halt_flush_timeout_callback(void *arg)
+{
+    _exit(ERTS_HALT_FLUSH_TIMEOUT_EXIT_CODE);
 }

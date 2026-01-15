@@ -1,6 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec monitor_node(Node, Flag) -> true[0m
-  [;1m                      when Node :: node(), Flag :: boolean().[0m
+[;1m  monitor_node(Node, Flag)[0m
 
   Monitor the status of the node [;;4mNode[0m. If [;;4mFlag[0m is [;;4mtrue[0m,
   monitoring is turned on. If [;;4mFlag[0m is [;;4mfalse[0m, monitoring is

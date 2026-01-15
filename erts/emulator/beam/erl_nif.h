@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2009-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,6 +91,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -205,6 +208,7 @@ typedef struct
 typedef ErlDrvMonitor ErlNifMonitor;
 
 typedef void ErlNifOnHaltCallback(void *priv_data);
+typedef void ErlNifOnUnloadThreadCallback(void *priv_data);
 
 typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
@@ -332,7 +336,8 @@ typedef enum {
 
 typedef enum {
     ERL_NIF_OPT_DELAY_HALT = 1,
-    ERL_NIF_OPT_ON_HALT = 2
+    ERL_NIF_OPT_ON_HALT = 2,
+    ERL_NIF_OPT_ON_UNLOAD_THREAD = 3
 } ErlNifOption;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
@@ -340,6 +345,7 @@ typedef enum {
 typedef struct {
 #  include "erl_nif_api_funcs.h"
    void* erts_alc_test;
+   const void* erts_internal_test_ptr;
 } TWinDynNifCallbacks;
 extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
@@ -366,7 +372,11 @@ extern void enif_rwlock_destroy(ErlNifRWLock *rwlck);
 extern void enif_thread_opts_destroy(ErlNifThreadOpts *opts);
 extern void enif_ioq_destroy(ErlNifIOQueue *q);
 
-#  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) extern RET_TYPE NAME ARGS
+#  if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+#    define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) extern RET_TYPE NAME ARGS
+#  else
+#    define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) ERL_NAPI_EXPORT extern RET_TYPE NAME ARGS
+#  endif
 #  include "erl_nif_api_funcs.h"
 #  undef ERL_NIF_API_FUNC_DECL
 #endif
@@ -375,18 +385,10 @@ extern void enif_ioq_destroy(ErlNifIOQueue *q);
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
 #  define ERL_NIF_INIT_ARGS TWinDynNifCallbacks* callbacks
 #  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
-#  define ERL_NIF_INIT_EXPORT __declspec(dllexport)
 #else 
 #  define ERL_NIF_INIT_GLOB
 #  define ERL_NIF_INIT_ARGS void
 #  define ERL_NIF_INIT_BODY
-#  if defined(__GNUC__) && __GNUC__ >= 4
-#    define ERL_NIF_INIT_EXPORT __attribute__ ((visibility("default")))
-#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
-#    define ERL_NIF_INIT_EXPORT __global
-#  else
-#    define ERL_NIF_INIT_EXPORT
-#  endif
 #endif
 
 
@@ -402,7 +404,7 @@ extern void enif_ioq_destroy(ErlNifIOQueue *q);
           ErlNifEntry* ERL_NIF_INIT_NAME(MODNAME)(ERL_NIF_INIT_ARGS)
 #else
 #  define ERL_NIF_INIT_DECL(MODNAME) \
-          ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
+          ERL_NAPI_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
 #endif
 
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,8 +20,11 @@
 %% %CopyrightEnd%
 %%
 -module(logger_simple_h).
+-moduledoc false.
 
 -export([adding_handler/1, removing_handler/1, log/2]).
+
+-behaviour(logger_handler).
 
 %% This module implements a simple handler for logger. It is the
 %% default used during system start.
@@ -56,31 +61,41 @@ removing_handler(#{id:=simple}) ->
             end
     end.
 
-log(#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}},_Config)
-  when Type=/=std_info ->
-    %% Skip info reports that are not 'std_info' (ref simple logger in
-    %% error_logger)
-    ok;
-log(#{msg:=_,meta:=#{time:=_}=M}=Log,_Config) ->
-    _ = case whereis(?MODULE) of
-            undefined ->
-                %% Is the node on the way down? Real emergency?
-                %% Log directly from client just to get it out
-                case maps:get(internal_log_event, M, false) of
-                    false ->
-                        do_log(simple,
-                          #{level=>error,
-                            msg=>{report,{error,simple_handler_process_dead}},
-                            meta=>#{time=>logger:timestamp()}});
-                    true ->
-                        ok
-                end,
-                do_log(simple,Log);
-            _ ->
-                ?MODULE ! {log,Log}
-        end,
-    ok;
-log(_,_) ->
+log(#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}} = Log,_Meta)
+  when Type =/= std_info ->
+    case logger:allow(debug, ?MODULE) of
+        false ->
+            %% Skip info reports that are not 'std_info' (ref simple logger in
+            %% error_logger)
+            ok;
+        true ->
+            %% If log level is debug or all we emit even these reports
+            do_log(Log)
+    end;
+log(Log,_Config) ->
+    _ = do_log(Log),
+    ok.
+
+do_log(#{msg:=_,meta:=#{time:=_}=M}=Log) ->
+    case whereis(?MODULE) of
+        undefined ->
+            %% Is the node on the way down? Real emergency?
+            %% Log directly from client just to get it out
+            case maps:get(internal_log_event, M, false) of
+                false ->
+                    log_internal(
+                      simple,
+                      #{level=>error,
+                        msg=>{report,{error,simple_handler_process_dead}},
+                        meta=>#{time=>logger:timestamp()}});
+                true ->
+                    ok
+            end,
+            log_internal(simple,Log);
+        _ ->
+            ?MODULE ! {log,Log}
+    end;
+do_log(_) ->
     %% Unexpected log.
     %% We don't want to crash the simple logger, so ignore this.
     ok.
@@ -90,7 +105,7 @@ log(_,_) ->
 init(Starter) ->
     register(?MODULE,self()),
     Starter ! {self(),started},
-    loop(rich, #{buffer_size=>10,dropped=>0,buffer=>[]}).
+    loop(rich, #{buffer_size=>20,dropped=>0,buffer=>[]}).
 
 loop(Mode, Buffer) ->
     receive
@@ -108,8 +123,13 @@ loop(Mode, Buffer) ->
             %% an unexpected EXIT message
             unlink(whereis(logger)),
             ok;
+        {log,#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}} = Log}
+          when Type =/= std_info ->
+            %% When we get a std_info message, we just want to replay it,
+            %% no need to print it right now
+            loop(Mode, update_buffer(Buffer,Log));
         {log,#{msg:=_,meta:=#{time:=_}}=Log} ->
-            NewMode = do_log(Mode, Log),
+            NewMode = log_internal(Mode, Log),
             loop(NewMode, update_buffer(Buffer,Log));
         _ ->
             %% Unexpected message - flush it!
@@ -144,9 +164,9 @@ drop_msg(N) ->
 %% for each log message that can potentially block. If the logging cannot
 %% be done within 300ms, we instead log the raw log message to stdout
 %% and switch mode to always log using the raw format.
-do_log(simple, Log) ->
+log_internal(simple, Log) ->
     display_log(Log), simple;
-do_log(rich = Mode, Log) ->
+log_internal(rich = Mode, Log) ->
 
     {Pid, Ref} =
         spawn_monitor(

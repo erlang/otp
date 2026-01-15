@@ -215,7 +215,7 @@ public:
   //!    calling `handleError()`  so `longjmp()` can be used without any issues to cancel the code generation if an
   //!    error occurred. There is no difference between exceptions and `longjmp()` from AsmJit's perspective, however,
   //!    never jump outside of `CodeHolder` and `BaseEmitter` scope as you would leak memory.
-  virtual void handleError(Error err, const char* message, BaseEmitter* origin) = 0;
+  ASMJIT_API virtual void handleError(Error err, const char* message, BaseEmitter* origin);
 
   //! \}
 };

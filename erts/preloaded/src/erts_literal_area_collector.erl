@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(erts_literal_area_collector).
+-moduledoc false.
 
 -export([start/0, send_copy_request/3, release_area_switch/0]).
 
@@ -36,7 +39,7 @@
 %%
 start() ->
     process_flag(trap_exit, true),
-    msg_loop(undefined, {0, []}, 0, []).
+    msg_loop(undefined, {0, none}, 0, []).
 
 %%
 %% The VM will send us a 'copy_literals' message
@@ -62,16 +65,17 @@ msg_loop(Area, {Ongoing, NeedIReq} = OReqInfo, GcOutstnd, NeedGC) ->
 	    switch_area();
 
 	%% Process (_Pid) has completed the request...
-	{copy_literals, {Area, _ReqType, _Pid}, ok} when Ongoing == 1,
-                                                         NeedIReq == [] ->
-	    switch_area(); %% Last process completed...
 	{copy_literals, {Area, init, _Pid}, ok} ->
-	    msg_loop(Area, check_send_copy_req(Area, Ongoing-1, NeedIReq),
-                     GcOutstnd, NeedGC);
+            case check_send_copy_req(Area, Ongoing-1, NeedIReq) of
+                {0, none} -> switch_area(); %% Last process completed...
+                NewOReqInfo -> msg_loop(Area, NewOReqInfo, GcOutstnd, NeedGC)
+            end;
 	{copy_literals, {Area, ReqType, _Pid}, ok} when NeedGC == [],
                                                         ReqType /= init ->
-	    msg_loop(Area, check_send_copy_req(Area, Ongoing-1, NeedIReq),
-                     GcOutstnd-1, []);
+            case check_send_copy_req(Area, Ongoing-1, NeedIReq) of
+                {0, none} -> switch_area(); %% Last process completed...
+                NewOReqInfo -> msg_loop(Area, NewOReqInfo, GcOutstnd-1, [])
+            end;
 	{copy_literals, {Area, ReqType, _Pid}, ok} when ReqType /= init ->
             [{GCPid,GCWork} | NewNeedGC] = NeedGC,
 	    send_copy_req(GCPid, Area, GCWork),
@@ -116,7 +120,7 @@ switch_area() ->
     case Res of
 	false ->
 	    %% No more areas to handle...
-	    msg_loop(undefined, {0, []}, 0, []);
+	    msg_loop(undefined, {0, none}, 0, []);
 	true ->
 	    %% Send requests to OReqLim processes to copy
 	    %% all live data they have referring to the
@@ -125,27 +129,35 @@ switch_area() ->
             %% processes when responses comes back until
             %% all processes have been handled...
 	    Area = make_ref(),
-            Pids = erlang:processes(),
+            Iter = erlang:processes_iterator(),
             OReqLim = erlang:system_info(outstanding_system_requests_limit),
-	    msg_loop(Area, send_copy_reqs(Pids, Area, OReqLim), 0, [])
+	    msg_loop(Area, send_copy_reqs(Iter, Area, OReqLim), 0, [])
     end.
 
-check_send_copy_req(_Area, Ongoing, []) ->
-    {Ongoing, []};
-check_send_copy_req(Area, Ongoing, [Pid|Pids]) ->
-    send_copy_req(Pid, Area, init),
-    {Ongoing+1, Pids}.
+check_send_copy_req(_Area, Ongoing, none) ->
+    {Ongoing, none};
+check_send_copy_req(Area, Ongoing, Iter0) ->
+    case erlang:processes_next(Iter0) of
+        none ->
+            {Ongoing, none};
+        {Pid, Iter1} ->
+            send_copy_req(Pid, Area, init),
+            {Ongoing+1, Iter1}
+    end.
 
-send_copy_reqs(Ps, Area, OReqLim) ->
-    send_copy_reqs(Ps, Area, OReqLim, 0).
+send_copy_reqs(Iter, Area, OReqLim) ->
+    send_copy_reqs(Iter, Area, OReqLim, 0).
 
-send_copy_reqs([], _Area, _OReqLim, N) ->
-    {N, []};
-send_copy_reqs(Ps, _Area, OReqLim, N) when N >= OReqLim ->
-    {N, Ps};
-send_copy_reqs([P|Ps], Area, OReqLim, N) ->
-    send_copy_req(P, Area, init),
-    send_copy_reqs(Ps, Area, OReqLim, N+1).
+send_copy_reqs(Iter, _Area, OReqLim, N) when N >= OReqLim ->
+    {N, Iter};
+send_copy_reqs(Iter0, Area, OReqLim, N) ->
+    case erlang:processes_next(Iter0) of
+        none ->
+            {N, none};
+        {Pid, Iter1} ->
+            send_copy_req(Pid, Area, init),
+            send_copy_reqs(Iter1, Area, OReqLim, N+1)
+    end.
 
 send_copy_req(P, Area, How) ->
     erts_literal_area_collector:send_copy_request(P, Area, How).

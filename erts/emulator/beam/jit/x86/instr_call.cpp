@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,12 +35,16 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     /* ARG3 already contains the place to jump to. */
 #endif
 
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
+    a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), imm(1));
     a.jmp(labels[context_switch_simplified]);
 }
 
 void BeamModuleAssembler::emit_return() {
+    emit_return_do(false);
+}
+
+void BeamModuleAssembler::emit_return_do(bool set_I) {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
     emit_validate(ArgWord(1));
@@ -50,6 +56,14 @@ void BeamModuleAssembler::emit_return() {
     a.mov(ARG3, getCPRef());
     a.mov(getCPRef(), imm(NIL));
 #endif
+
+    if (erts_alcu_enable_code_atags || set_I) {
+        /* See emit_i_test_yield. */
+#if defined(NATIVE_ERLANG_STACK)
+        a.mov(ARG3, x86::qword_ptr(E));
+#endif
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG3);
+    }
 
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */
@@ -90,7 +104,7 @@ void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, RET);
-    runtime_call<2>(save_calls);
+    runtime_call<void (*)(Process *, const Export *), save_calls>();
 
     emit_leave_runtime();
 
@@ -149,7 +163,8 @@ x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     mov_imm(ARG4, 0);
 
-    runtime_call<4>(apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, ErtsCodePtr, Uint),
+                 apply>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -200,8 +215,8 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     mov_imm(ARG5, 0);
 
-    runtime_call<5>(fixed_apply);
-
+    runtime_call<const Export *(*)(Process *, Eterm *, Uint, ErtsCodePtr, Uint),
+                 fixed_apply>();
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.test(RET, RET);

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,9 +21,11 @@
 
 -module(sudoku_game).
 
--export([init/1,
+-export([init/1, loop/1,
          indx/1, rcm/1, level/1]).
 -include("sudoku.hrl").
+
+-compile(nowarn_obsolete_bool_op).
 
 init(GFX) ->
     Empty = empty_table(#s{}),

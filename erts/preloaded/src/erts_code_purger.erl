@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(erts_code_purger).
+-moduledoc false.
 
 %% Purpose : Implement system process erts_code_purger
 %%           to handle code module purging.
@@ -119,7 +122,7 @@ do_purge(Mod, Reqs) ->
 	false ->
 	    {{false, false}, Reqs};
 	true ->
-	    {DidKill, NewReqs} = check_proc_code(erlang:processes(),
+	    {DidKill, NewReqs} = check_proc_code(erlang:processes_iterator(),
 						 Mod, true, Reqs),
 	    true = erts_internal:purge_module(Mod, complete),
 	    {{true, DidKill}, NewReqs}
@@ -143,7 +146,7 @@ do_soft_purge(Mod, Reqs) ->
 	false ->
 	    {true, Reqs};
 	true ->
-	    {PurgeOp, NewReqs} = check_proc_code(erlang:processes(),
+	    {PurgeOp, NewReqs} = check_proc_code(erlang:processes_iterator(),
 						 Mod, false, Reqs),
 	    {erts_internal:purge_module(Mod, PurgeOp), NewReqs}
     end.
@@ -171,7 +174,7 @@ do_finish_after_on_load(Mod, Keep, Reqs) ->
 		    Reqs;
 		true ->
 		    {_DidKill, NewReqs} =
-			check_proc_code(erlang:processes(),
+			check_proc_code(erlang:processes_iterator(),
 					Mod, true, Reqs),
 		    true = erts_internal:purge_module(Mod, complete),
 		    NewReqs
@@ -180,7 +183,7 @@ do_finish_after_on_load(Mod, Keep, Reqs) ->
 
 
 %%
-%% check_proc_code(Pids, Mod, Hard, Preqs) - Send asynchronous
+%% check_proc_code(ProcessesIterator, Mod, Hard, Preqs) - Send asynchronous
 %%   requests to all processes to perform a check_process_code
 %%   operation. Each process will check their own state and
 %%   reply with the result. If 'Hard' equals
@@ -207,7 +210,7 @@ do_finish_after_on_load(Mod, Keep, Reqs) ->
 		   waiting = [],
 		   killed = false}).
 
-check_proc_code(Pids, Mod, Hard, PReqs) ->
+check_proc_code(Iter, Mod, Hard, PReqs) ->
     Tag = erlang:make_ref(),
     OReqLim = erlang:system_info(outstanding_system_requests_limit),
     CpcS = #cpc_static{hard = Hard,
@@ -221,26 +224,26 @@ check_proc_code(Pids, Mod, Hard, PReqs) ->
                         OReqLim
                 end,
     KS = #cpc_kill{outstanding_limit = KillLimit},
-    cpc_receive(CpcS, cpc_make_requests(CpcS, KS, 0, Pids), KS, []).
+    cpc_receive(CpcS, cpc_make_requests(CpcS, KS, 0, Iter), KS, []).
 
 cpc_receive(#cpc_static{hard = true} = CpcS,
-	    {0, []},
+	    {0, none},
 	    #cpc_kill{outstanding = [], waiting = [], killed = Killed},
 	    PReqs) ->
     %% No outstanding cpc requests. We did a hard check, so result is
     %% whether or not we killed any processes...
     cpc_result(CpcS, PReqs, Killed);
-cpc_receive(#cpc_static{hard = false} = CpcS, {0, []}, _KillState, PReqs) ->
+cpc_receive(#cpc_static{hard = false} = CpcS, {0, none}, _KillState, PReqs) ->
     %% No outstanding cpc requests and we did a soft check that succeeded...
     cpc_result(CpcS, PReqs, complete);
-cpc_receive(#cpc_static{tag = Tag} = CpcS, {NoReq, PidsLeft} = ReqInfo,
+cpc_receive(#cpc_static{tag = Tag} = CpcS, {NoReq, Iter} = ReqInfo,
             KillState0, PReqs) ->
     receive
 	{check_process_code, {Tag, _Pid}, false} ->
 	    %% Process not referring the module; done with this process...
 	    cpc_receive(CpcS,
                         cpc_make_requests(CpcS, KillState0,
-                                          NoReq-1, PidsLeft),
+                                          NoReq-1, Iter),
                         KillState0,
                         PReqs);
 	{check_process_code, {Tag, Pid}, true} ->
@@ -257,7 +260,7 @@ cpc_receive(#cpc_static{tag = Tag} = CpcS, {NoReq, PidsLeft} = ReqInfo,
 		    KillState1 = cpc_sched_kill(Pid, KillState0),
 		    cpc_receive(CpcS,
                                 cpc_make_requests(CpcS, KillState1,
-                                                  NoReq-1, PidsLeft),
+                                                  NoReq-1, Iter),
                                 KillState1,
                                 PReqs)
 	    end;
@@ -265,7 +268,7 @@ cpc_receive(#cpc_static{tag = Tag} = CpcS, {NoReq, PidsLeft} = ReqInfo,
 	    KillState1 = cpc_handle_down(MonRef, KillState0),
 	    cpc_receive(CpcS,
                         cpc_make_requests(CpcS, KillState1,
-                                          NoReq, PidsLeft),
+                                          NoReq, Iter),
                         KillState1,
                         PReqs);
 	PReq when element(1, PReq) == purge;
@@ -340,16 +343,20 @@ cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid) ->
     erts_internal:request_system_task(Pid, normal,
                                       {check_process_code, {Tag, Pid}, Mod}).
 
-cpc_make_requests(#cpc_static{}, #cpc_kill{}, NoCpcReqs, []) ->
-    {NoCpcReqs, []};
+cpc_make_requests(#cpc_static{}, #cpc_kill{}, NoCpcReqs, none) ->
+    {NoCpcReqs, none};
 cpc_make_requests(#cpc_static{oreq_limit = Limit},
                   #cpc_kill{no_outstanding = NoKillReqs},
-                  NoCpcReqs, Pids) when Limit =< NoCpcReqs + NoKillReqs ->
-    {NoCpcReqs, Pids};
+                  NoCpcReqs, Iter) when Limit =< NoCpcReqs + NoKillReqs ->
+    {NoCpcReqs, Iter};
 cpc_make_requests(#cpc_static{} = CpcS, #cpc_kill{} = KS,
-                  NoCpcReqs, [Pid|Pids]) ->
-    cpc_request(CpcS, Pid),
-    cpc_make_requests(CpcS, KS, NoCpcReqs+1, Pids).
+                  NoCpcReqs, Iter0) ->
+    case erlang:processes_next(Iter0) of
+        none -> {NoCpcReqs, none};
+        {Pid, Iter1} ->
+            cpc_request(CpcS, Pid),
+            cpc_make_requests(CpcS, KS, NoCpcReqs+1, Iter1)
+    end.
 
 change_prio(From, Ref, Prio) ->
     try
@@ -390,7 +397,7 @@ do_test_soft_purge(Mod, From, Ref, Reqs) ->
 	    _ = test_progress(continued, From, Ref, TestRes),
 	    {true, Reqs};
 	true ->
-	    {PurgeOp, NewReqs} = check_proc_code(erlang:processes(),
+	    {PurgeOp, NewReqs} = check_proc_code(erlang:processes_iterator(),
 						 Mod, false, Reqs),
 	    _ = test_progress(continued, From, Ref, TestRes),
 	    {erts_internal:purge_module(Mod, PurgeOp), NewReqs}
@@ -404,7 +411,7 @@ do_test_hard_purge(Mod, From, Ref, Reqs) ->
 	    _ = test_progress(continued, From, Ref, TestRes),
 	    {{false, false}, Reqs};
 	true ->
-	    {DidKill, NewReqs} = check_proc_code(erlang:processes(),
+	    {DidKill, NewReqs} = check_proc_code(erlang:processes_iterator(),
 						 Mod, true, Reqs),
 	    _ = test_progress(continued, From, Ref, TestRes),
 	    true = erts_internal:purge_module(Mod, complete),

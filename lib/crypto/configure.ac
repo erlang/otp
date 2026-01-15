@@ -2,7 +2,9 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2018-2024. All Rights Reserved.
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
+dnl Copyright Ericsson AB 2018-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -24,11 +26,13 @@ dnl define([AC_CACHE_SAVE], )dnl
 
 AC_INIT
 AC_CONFIG_SRCDIR([vsn.mk])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 m4_include([otp.m4])
 
 AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
+
+ERL_PUSH_WERROR
 
 ERL_CANONICAL_SYSTEM_TYPE
 
@@ -51,6 +55,7 @@ AC_SUBST(CROSS_COMPILING)
 ERL_XCOMP_SYSROOT_INIT
 
 AC_PROG_CC
+LM_PROG_LD
 LM_WINDOWS_ENVIRONMENT
 
 ERL_DED
@@ -289,9 +294,11 @@ yes
               AS_IF([test "x$ac_cv_sizeof_void_p" = "x8"],
                     [
                         lib_bits=64
+                        arch=64
                     ],
                     [
                         lib_bits=32
+                        arch=86
                     ])
               AS_IF([test -f "$dir/lib/VC/static/libcrypto${lib_bits}MD.lib"],
                     [
@@ -307,6 +314,23 @@ yes
                         dynamic_ssl_lib_name="libssl${lib_bits}MD"
                         dynamic_runtime_lib_dir="$rdir/lib/VC"
                         dynamic_lib_dir="$dir/lib/VC"
+                        found_dynamic_lib=yes
+                    ])
+                    # openssl 3.5+
+              AS_IF([test -f "$dir/lib/VC/x${arch}/MD/libcrypto_static.lib"],
+                    [
+                        static_crypto_lib_name=libcrypto
+                        static_ssl_lib_name="libssl"
+                        static_extra_libs="$static_extra_libs -lCRYPT32 -lWS2_32"
+                        static_lib_dir="$dir/lib/VC/x${arch}/MD"
+                        found_static_lib=yes
+                    ])
+              AS_IF([test -f "$dir/lib/VC/x${arch}/MD/libcrypto.lib"],
+                    [
+                        dynamic_crypto_lib_name=libcrypto
+                        dynamic_ssl_lib_name="libssl"
+                        dynamic_runtime_lib_dir="$rdir/lib/VC/x${arch}/MD"
+                        dynamic_lib_dir="$dir/lib/VC/x${arch}/MD"
                         found_dynamic_lib=yes
                     ])
           ],
@@ -921,6 +945,8 @@ AS_IF([test $have_crypto_memcmp_decl = yes],
 CFLAGS="$saveCFLAGS"
 LDFLAGS="$saveLDFLAGS"
 LIBS="$saveLIBS"
+
+ERL_PUSH_WERROR
 
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_INCDIR)

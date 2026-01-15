@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(sasl_SUITE).
+
+-compile(r26).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
@@ -31,8 +36,6 @@
 	 log_mf_h_env/1,
 	 log_file/1,
 	 utc_log/1]).
-
--compile(r22).
 
 all() -> 
     [log_mf_h_env, log_file, app_test, appup_test, utc_log].

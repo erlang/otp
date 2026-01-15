@@ -1,11 +1,19 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec time() -> Time when Time :: calendar:time().[0m
+[;1m  time()[0m
 
   Returns the current time as [;;4m{Hour, Minute, Second}[0m.
 
   The time zone and Daylight Saving Time correction depend on the
   underlying OS. The return value is based on the OS System Time.
-  Example:
+
+  For example:
 
     > time().
     {9,42,44}

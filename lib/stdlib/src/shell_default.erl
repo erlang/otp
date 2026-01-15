@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,8 +24,42 @@
 %% to do all the work!
 
 -module(shell_default).
+-moduledoc """
+Customizing the Erlang environment.
 
--export([help/0,lc/1,c/1,c/2,c/3,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,lm/0,mm/0,
+The functions in this module are called when no module name is specified in a
+shell command.
+
+Consider the following shell dialog:
+
+```erlang
+1> lists:reverse("abc").
+"cba"
+2> c(foo).
+{ok, foo}
+```
+
+In command one, module `m:lists` is called. In command two, no module name is
+specified. The shell searches module `user_default` followed by module
+`shell_default` for function `c/1`.
+
+`shell_default` is intended for "system wide" customizations to the shell.
+`user_default` is intended for "local" or individual user customizations.
+
+## Hint
+
+To add your own commands to the shell, create a module called `user_default` and
+add the commands you want. Then add the following line as the _first_ line in
+your `.erlang` file in your home directory.
+
+```text
+code:load_abs("$PATH/user_default").
+```
+
+`$PATH` is the directory where your `user_default` module can be found.
+""".
+
+-export([help/0,lc/1,c/1,c/2,c/3,nc/1,nl/1,l/1,i/0,pid/3,i/3,pi/1,pi/3,m/0,m/1,lm/0,mm/0,
          memory/0,memory/1,uptime/0,
          erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1,
          y/1, y/2,
@@ -38,123 +74,174 @@
 -export(['$handle_undefined_function'/2]).
 -import(io, [format/1]).
 
+-doc "Print the help for all shell commands.".
+-spec help() -> true.
 help() ->
-    format("** shell internal commands **~n"),
-    format("b()        -- display all variable bindings\n"),
-    format("e(N)       -- repeat the expression in query <N>\n"),
-    format("f()        -- forget all variable bindings\n"),
-    format("f(X)       -- forget the binding of variable X\n"),
-    format("h()        -- history\n"),
-    format("h(Mod)     -- help about module\n"),
-    format("h(Mod,Func)-- help about function in module\n"),
-    format("h(Mod,Func,Arity) -- help about function with arity in module\n"),
-    format("ht(Mod)    -- help about a module's types\n"),
-    format("ht(Mod,Type) -- help about type in module\n"),
-    format("ht(Mod,Type,Arity) -- help about type with arity in module\n"),
-    format("hcb(Mod)    -- help about a module's callbacks\n"),
-    format("hcb(Mod,CB) -- help about callback in module\n"),
-    format("hcb(Mod,CB,Arity) -- help about callback with arity in module\n"),
-    format("history(N) -- set how many previous commands to keep\n"),
-    format("results(N) -- set how many previous command results to keep\n"),
-    format("catch_exception(B) -- how exceptions are handled\n"),
-    format("v(N)       -- use the value of query <N>\n"),
-    format("rd(R,D)    -- define a record\n"),
-    format("rf()       -- remove all record information\n"),
-    format("rf(R)      -- remove record information about R\n"),
-    format("rl()       -- display all record information\n"),
-    format("rl(R)      -- display record information about R\n"),
-    format("rp(Term)   -- display Term using the shell's record information\n"),
-    format("rr(File)   -- read record information from File (wildcards allowed)\n"),
-    format("rr(F,R)    -- read selected record information from file(s)\n"),
-    format("rr(F,R,O)  -- read selected record information with options\n"),
-    format("** commands in module c **\n"),
+    shell:help(),
     c:help(),
-    format("** commands in module i (interpreter interface) **\n"),
-    format("ih()       -- print help for the i module\n"),
+    format(~"** commands in module i (interpreter interface) **\n"),
+    format(~"ih()       -- print help for the i module\n"),
     %% format("** private commands ** \n"),
     %% format("myfunc()   -- does my operation ...\n"),
     true.
 
-%% these are in alphabetic order it would be nice if they
+%% These are in alphabetic order. It would be nice if they
 %% were to *stay* so!
 
+-doc false.
 bi(I)           -> c:bi(I).
+-doc false.
 bt(Pid)         -> c:bt(Pid).
+-doc false.
 c(File)         -> c:c(File).
+-doc false.
 c(File, Opt)    -> c:c(File, Opt).
+-doc false.
 c(File, Opt, Filter) -> c:c(File, Opt, Filter).
+-doc false.
 cd(D)           -> c:cd(D).
+-doc false.
 erlangrc(X)     -> c:erlangrc(X).
+-doc false.
 flush()         -> c:flush().
+-doc false.
 h(M)            -> c:h(M).
+-doc false.
 h(M,F)          -> c:h(M,F).
+-doc false.
 h(M,F,A)        -> c:h(M,F,A).
+-doc false.
 ht(M)           -> c:ht(M).
+-doc false.
 ht(M,F)         -> c:ht(M,F).
+-doc false.
 ht(M,F,A)       -> c:ht(M,F,A).
+-doc false.
 hcb(M)          -> c:hcb(M).
+-doc false.
 hcb(M,F)        -> c:hcb(M,F).
+-doc false.
 hcb(M,F,A)      -> c:hcb(M,F,A).
+-doc false.
 i()             -> c:i().
+-doc false.
 i(X,Y,Z)        -> c:i(X,Y,Z).
+-doc false.
+pi(X,Y,Z)        -> c:pi(X,Y,Z).
+-doc false.
+pi(Pid)          -> c:pi(Pid).
+-doc false.
 l(Mod)          -> c:l(Mod).
+-doc false.
 lc(X)           -> c:lc(X).
+-doc false.
 ls()            -> c:ls().
+-doc false.
 ls(S)           -> c:ls(S).
+-doc false.
 m()             -> c:m().
+-doc false.
 m(Mod)          -> c:m(Mod).
+-doc false.
 lm()            -> c:lm().
+-doc false.
 mm()            -> c:mm().
+-doc false.
 memory()        -> c:memory().
+-doc false.
 memory(Type)    -> c:memory(Type).
+-doc false.
 nc(X)           -> c:nc(X).
+-doc false.
 ni()            -> c:ni().
+-doc false.
 nl(Mod)         -> c:nl(Mod).
+-doc false.
 nregs()         -> c:nregs().
+-doc false.
 pid(X,Y,Z)      -> c:pid(X,Y,Z).
+-doc false.
 pwd()           -> c:pwd().
+-doc false.
 q()             -> c:q().
+-doc false.
 regs()          -> c:regs().
+-doc false.
 uptime()        -> c:uptime().
+-doc false.
 xm(Mod)         -> c:xm(Mod).
+-doc false.
 y(File)         -> c:y(File).
+-doc false.
 y(File, Opts)   -> c:y(File, Opts).
 
+-doc false.
 iaa(Flag)       -> calli(iaa, [Flag]).
+-doc false.
 iaa(Flag,Fnk)   -> calli(iaa, [Flag,Fnk]).
+-doc false.
 ist(Flag)       -> calli(ist, [Flag]).
+-doc false.
 ia(Pid)         -> calli(ia, [Pid]).
+-doc false.
 ia(X,Y,Z)       -> calli(ia, [X,Y,Z]).
+-doc false.
 ia(Pid,Fnk)     -> calli(ia, [Pid,Fnk]).
+-doc false.
 ia(X,Y,Z,Fnk)   -> calli(ia, [X,Y,Z,Fnk]).
+-doc false.
 ib(Mod,Line)    -> calli(ib, [Mod,Line]).
+-doc false.
 ib(Mod,Fnk,Arity) -> calli(ib, [Mod,Fnk,Arity]).
+-doc false.
 ibd(Mod,Line)   -> calli(ibd, [Mod,Line]).
+-doc false.
 ibe(Mod,Line)   -> calli(ibe, [Mod,Line]).
+-doc false.
 iba(M,L,Action) -> calli(iba, [M,L,Action]).
+-doc false.
 ibc(M,L,Cond)   -> calli(ibc, [M,L,Cond]).
+-doc false.
 ic()            -> calli(ic, []).
+-doc false.
 ih()            -> calli(help, []).
+-doc false.
 ii(Mod)         -> calli(ii, [Mod]).
+-doc false.
 ii(Mod,Op)      -> calli(ii, [Mod,Op]).
+-doc false.
 il()            -> calli(il, []).
+-doc false.
 im()            -> calli(im, []).
+-doc false.
 ini(Mod)        -> calli(ini, [Mod]).
+-doc false.
 ini(Mod,Op)     -> calli(ini, [Mod,Op]).
+-doc false.
 inq(Mod)        -> calli(inq, [Mod]).
+-doc false.
 ip()            -> calli(ip, []).
+-doc false.
 ipb()           -> calli(ipb, []).
+-doc false.
 ipb(Mod)        -> calli(ipb, [Mod]).
+-doc false.
 iq(Mod)         -> calli(iq, [Mod]).
+-doc false.
 ir(Mod,Line)    -> calli(ir, [Mod,Line]).
+-doc false.
 ir(Mod,Fnk,Arity) -> calli(ir, [Mod,Fnk,Arity]).
+-doc false.
 ir(Mod)         -> calli(ir, [Mod]).
+-doc false.
 ir()            -> calli(ir, []).
+-doc false.
 iv()            -> calli(iv, []).
 
 calli(F, Args) ->
     c:appcall(debugger, i, F, Args).
 
+-doc false.
 '$handle_undefined_function'(Func, Args) ->
     case shell:get_function(Func, length(Args)) of
        undefined ->

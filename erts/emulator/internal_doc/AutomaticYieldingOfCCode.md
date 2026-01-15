@@ -1,3 +1,25 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 Automatic Yielding of C Code
 ============================
 
@@ -57,7 +79,7 @@ Yielding C Fun in the Erlang Run-time System
 
 At the time of writing, YCF is used for the following in ERTS:
 
-* `ets:insert/2` and`ets:insert_new/2` (when these two functions get a list as their second parameter)
+* `ets:insert/2` and `ets:insert_new/2` (when these two functions get a list as their second parameter)
 * `maps:from_keys/2`, `maps:from_list/1`, `maps:keys/1` and `maps:values/1`
 * The functions `erts_qsort_ycf_gen_yielding`,
   `erts_qsort_ycf_gen_continue` and `erts_qsort_ycf_gen_destroy`

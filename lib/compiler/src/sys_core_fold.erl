@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,6 +69,7 @@
 %% all values where the key contains pattern variables.
 
 -module(sys_core_fold).
+-moduledoc false.
 
 -export([module/2,format_error/1]).
 
@@ -98,7 +101,7 @@
 
 %% Variable value info.
 -record(sub, {v=[],                                 %Variable substitutions
-              s=sets:new([{version, 2}]) :: sets:set(), %Variables in scope
+              s=sets:new() :: sets:set(), %Variables in scope
               t=#{} :: map(),                       %Types
               in_guard=false,                       %In guard or not.
               top=true}).                           %Not inside a term.
@@ -278,7 +281,7 @@ expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     %% This is named fun in an 'effect' context. Warn and ignore.
     add_warning(Letrec, {ignored,useless_building}),
     void();
-expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
+expr(#c_letrec{defs=Fs0,body=B0}=Letrec0, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
                       case Ctxt =:= effect andalso is_fun_effect_safe(Name, B0) of
                           true ->
@@ -288,7 +291,8 @@ expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
                       end
 	      end, Fs0),
     B1 = body(B0, Ctxt, Sub),
-    Letrec#c_letrec{defs=Fs1,body=B1};
+    Letrec = Letrec0#c_letrec{defs=Fs1,body=B1},
+    opt_lc(Letrec);
 expr(#c_case{}=Case0, Ctxt, Sub) ->
     %% Ideally, the compiler should only emit warnings when there is
     %% a real mistake in the code being compiled. We use the follow
@@ -449,7 +453,7 @@ ifes_1(FVar, #c_fun{body=Body}, _Safe) ->
 ifes_1(FVar, #c_let{arg=Arg,body=Body}, Safe) ->
     ifes_1(FVar, Arg, false) andalso ifes_1(FVar, Body, Safe);
 ifes_1(FVar, #c_letrec{defs=Defs,body=Body}, Safe) ->
-    Funs = [Fun || {_,Fun} <- Defs],
+    Funs = [Fun || {_,Fun} <:- Defs],
     ifes_list(FVar, Funs, false) andalso ifes_1(FVar, Body, Safe);
 ifes_1(_FVar, #c_literal{}, _Safe) ->
     true;
@@ -1080,7 +1084,7 @@ clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
 let_substs(Vs0, As0, Sub0) ->
     {Vs1,Sub1} = var_list(Vs0, Sub0),
     {Vs2,As1,Ss} = let_substs_1(Vs1, As0, Sub1),
-    Sub2 = sub_add_scope([V || #c_var{name=V} <- Vs2], Sub1),
+    Sub2 = sub_add_scope([V || #c_var{name=V} <:- Vs2], Sub1),
     {Vs2,As1,
     foldl(fun ({V,S}, Sub) -> sub_set_name(V, S, Sub) end, Sub2, Ss)}.
 
@@ -1331,7 +1335,7 @@ is_subst(_) -> false.
 %%  to force renaming if variables in the scope occurs as pattern
 %%  variables.
 
-sub_new() -> #sub{v=orddict:new(),s=sets:new([{version, 2}]),t=#{}}.
+sub_new() -> #sub{v=orddict:new(),s=sets:new(),t=#{}}.
 
 sub_new(#sub{}=Sub) ->
     Sub#sub{v=orddict:new(),t=#{}}.
@@ -1706,14 +1710,14 @@ case_opt(Arg, Cs0, Sub) ->
 			       reverse(Ps),
 			       letify(Bs, cerl:clause_guard(C)),
 			       letify(Bs, cerl:clause_body(C))) ||
-	     {[],C,Ps,Bs} <- Cs2],
+	     {[],C,Ps,Bs} <:- Cs2],
     {core_lib:make_values(Args),Cs}.
 
 case_opt_args([A0|As0], Cs0, Sub, LitExpr, Acc) ->
     case case_opt_arg(A0, Sub, Cs0, LitExpr) of
         {error,Cs1} ->
 	    %% Nothing to be done. Move on to the next argument.
-            Cs = [{Ps,C,[P|PsAcc],Bs} || {[P|Ps],C,PsAcc,Bs} <- Cs1],
+            Cs = [{Ps,C,[P|PsAcc],Bs} || {[P|Ps],C,PsAcc,Bs} <:- Cs1],
 	    case_opt_args(As0, Cs, Sub, LitExpr, [A0|Acc]);
 	{ok,As1,Cs} ->
 	    %% The argument was either expanded (from tuple/list) or
@@ -2031,7 +2035,7 @@ opt_not_in_let_2(#c_case{clauses=Cs0}=Case, NotCall) ->
     Cs = [begin
 	      Let = #c_let{vars=Vars,arg=B,body=Body},
 	      C#c_clause{body=opt_not_in_let(Let)}
-	  end || #c_clause{body=B}=C <- Cs0],
+	  end || #c_clause{body=B}=C <:- Cs0],
     {yes,Case#c_case{clauses=Cs}};
 opt_not_in_let_2(#c_call{}=Call0, _NotCall) ->
     invert_call(Call0);
@@ -2078,6 +2082,181 @@ opt_bool_case_in_let_1([#c_var{name=V}], Arg,
     end;
 opt_bool_case_in_let_1(_, _, _, Let, _) -> Let.
 
+%%%
+%%% Optimize list generators in comprehensions when the input list
+%%% is known to contain a single element. This happens when
+%%% a value is computed once and used both in a filter and as an
+%%% element expression as in this example:
+%%%
+%%%     mine(L) ->
+%%%         [{E,H} || E <- L,
+%%%              H <- [erlang:phash2(E)],
+%%%              H rem 10 =:= 0].
+%%%
+%%% In Core Erlang, each generator becomes a letrec, which is
+%%% later lowered to a function in BEAM code. Consider this
+%%% comprehension:
+%%%
+%%%     [X || E <- L, X <- [E]].
+%%%
+%%% The Core Erlang code produced for the `X <- [E]` generator looks
+%%% like this:
+%%%
+%%%     letrec
+%%%         'lc$^1'/1 =
+%%%             fun (X) ->
+%%%                 case X of
+%%%                   <[X|Tail]> when 'true' ->
+%%%                       let <NewTail> = apply 'lc$^1'/1(Tail)
+%%%                       in [X|NewTail]
+%%%                   <[Head|Tail]> when 'true' ->
+%%%                       apply 'lc$^1'/1(Tail)
+%%%                   <[]> when 'true' ->
+%%%                       apply 'lc$^0'/1(PreviousTail) %% Outer
+%%%                 end
+%%%           in  apply 'lc$^1'/1([E|[]])
+%%%
+%%% The `PreviousTail` and `E` variables have been bound by the
+%%% `E <- L` generator.
+%%%
+%%% Since the X argument is a known singleton, recursion is
+%%% unnecessary. The recursive calls can be replaced with the body of
+%%% the final clause, which is known to be reached because `Tail` is
+%%% always [].
+%%%
+%%% Also, the second clause will always match, so we can drop the
+%%% third clause.
+%%%
+%%% That results in the following code:
+%%%
+%%%     let
+%%%         <NewFun> =
+%%%             fun (X) ->
+%%%                 case X of
+%%%                   <[X|Tail]> when 'true' ->
+%%%                       let <NewTail> = apply 'lc$^0'/1(PreviousTail)
+%%%                       in [X|NewTail]
+%%%                   <[Head|Tail]> when 'true' ->
+%%%                       apply 'lc$^0'/1(PreviousTail)
+%%%                 end
+%%%           in  apply NewFun([E|[]])
+%%%
+%%% The usual Core Erlang optimizations will be applied to simplify
+%%% it. First, the fun will be eliminated:
+%%%
+%%%         let <X> = [E|[]]
+%%%         in case X of
+%%%              <[X|Tail]> when 'true' ->
+%%%                  let <NewTail> = apply 'lc$^0'/1(PreviousTail)
+%%%                  in [X|NewTail]
+%%%              <[Head|Tail]> when 'true' ->
+%%%                  apply 'lc$^0'/1(PreviousTail)
+%%%            end
+%%%
+%%% Next, the outer let will be eliminated by substituting into the
+%%% case expression:
+%%%
+%%%         case [E|[]] of
+%%%           <[X|Tail]> when 'true' ->
+%%%               .
+%%%               .
+%%%               .
+%%%         end
+%%%
+%%% Since the first clause always matches, the remaining clauses can
+%%% be discarded and the case can be rewritten to a let:
+%%%
+%%%         let <X, Tail> = <E, []>
+%%%            in let <NewTail> = apply 'lc$^0'/1(PreviousTail)
+%%%                 in [X|NewTail]
+%%%
+%%% Finally, by eliminating the outermost let, we get:
+%%%
+%%%         let <NewTail> = apply 'lc$^0'/1(PreviousTail)
+%%%         in [E|NewTail]
+%%%
+opt_lc(Letrec) ->
+    maybe
+        #c_letrec{anno=Anno,defs=[{Name,Fun}],body=Body0} ?= Letrec,
+        true ?= lists:member(list_comprehension, Anno),
+        {ok,Body} ?= opt_lc_body(Body0, Name, Fun),
+        Body
+    else
+        _ ->
+            Letrec
+    end.
+
+opt_lc_body(Body0, Name, Fun) ->
+    try opt_lc_body_1(Body0, Name, Fun) of
+        Body ->
+            {ok,Body}
+    catch
+        throw:impossible ->
+            impossible
+    end.
+
+opt_lc_body_1(#c_let{body=Body0}=Let, Name, Fun) ->
+    Body = opt_lc_body_1(Body0, Name, Fun),
+    Let#c_let{body=Body};
+opt_lc_body_1(Apply, #c_var{name=Name}, Fun0) ->
+    maybe
+        %% Look for a letrec body that constructs a list
+        %% with a single element.
+        #c_apply{op=#c_var{name=Name},args=[Arg|_]} ?= Apply,
+        true ?= cerl:is_c_list(Arg) andalso cerl:list_length(Arg) =:= 1,
+
+        %% Now we know that the letrec body is suitable. Try to
+        %% rewrite the definition body.
+        Fun = opt_lc_definition(Fun0, Name),
+
+        %% Rewrite succeeded. Replace the letrec with a plain let.
+        FunNameVar = make_var([]),
+        #c_let{vars=[FunNameVar],arg=Fun,
+               body=Apply#c_apply{op=FunNameVar}}
+    else
+        _ ->
+            throw(impossible)
+    end.
+
+opt_lc_definition(#c_fun{body=Case}=Fun, Name) ->
+    maybe
+        %% Match the case used in a list comprehension generator.
+        #c_case{clauses=Cs0} ?= Case,
+        [#c_clause{pats=[#c_cons{tl=Tail}|_],body=C1Body0}=C1,
+         #c_clause{pats=[#c_cons{tl=Tail}|_],guard=#c_literal{val=true},
+                   body=#c_apply{op=#c_var{name=Name},
+                                 args=[Tail|_]}}=C2,
+         #c_clause{pats=[#c_literal{val=[]}|_],body=Iterate}|_] ?= Cs0,
+
+        %% Replace self-recursion with the body of the clause matching
+        %% the empty list.
+        C1Body = opt_lc_fun_body(C1Body0, Name, Iterate),
+
+        %% Build a fun to replace the letrec. We know that the second
+        %% clause will always match, so there is no need to include
+        %% more clauses.
+        %%
+        %% Note that the the first clause will usually match, except
+        %% when it has a non-true guard as in this comprehension:
+        %%
+        %%     [X || E <- L, is_list(E), X <- [E]]
+        %%
+        %% Therefore, it is necessary to include the second clause.
+        Cs = [C1#c_clause{body=C1Body},
+              C2#c_clause{body=Iterate}],
+        Fun#c_fun{body=Case#c_case{clauses=Cs}}
+    else
+        _ ->
+            throw(impossible)
+    end.
+
+opt_lc_fun_body(Core, Name, Iterate) ->
+    cerl_trees:map(fun(#c_apply{op=#c_var{name=Op}}) when Op =:= Name ->
+                           Iterate;
+                      (Other) ->
+                              Other
+                   end, Core).
+
 %% is_simple_case_arg(Expr) -> true|false
 %%  Determine whether the Expr is simple enough to be worth
 %%  substituting into a case argument. (Common substitutions
@@ -2123,7 +2302,7 @@ is_bool_expr_list([]) -> true.
 %%  (i.e. it cannot fail).
 %%
 is_safe_bool_expr(Core) ->
-    is_safe_bool_expr_1(Core, sets:new([{version, 2}])).
+    is_safe_bool_expr_1(Core, sets:new()).
 
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_function},
@@ -2273,7 +2452,7 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
                     Cs = [begin
                               B = opt_build_stacktrace(Let#c_let{body=B0}),
                               C#c_clause{body=B}
-                          end || #c_clause{body=B0}=C <- Cs0],
+                          end || #c_clause{body=B0}=C <:- Cs0],
                     Body#c_case{clauses=Cs};
                 true ->
                     Let
@@ -2426,7 +2605,7 @@ opt_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
     {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
     BodySub = update_let_types(Vs, Args, Sub1),
-    Sub = Sub1#sub{v=[],s=sets:new([{version, 2}])},
+    Sub = Sub1#sub{v=[],s=sets:new()},
     B = body(B0, Ctxt, BodySub),
     Arg = core_lib:make_values(Args),
     opt_let_2(Let, Vs, Arg, B, B0, Sub).

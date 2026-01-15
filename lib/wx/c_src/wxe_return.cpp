@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2008-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -231,7 +233,7 @@ ERL_NIF_TERM wxeReturn::make_array_objs(wxAuiPaneInfoArray& arr, WxeApp *app, co
   ERL_NIF_TERM head, tail;
   ERL_NIF_TERM class_name = enif_make_atom(env, cname);
   tail = enif_make_list(env, 0);
-  for(unsigned int i = arr.GetCount() -1; i >= 0; i--) {
+  for(ErlNifSInt64 i = arr.GetCount() -1; i >= 0; i--) {
     head = make_ref(app->getRef((void *) &arr.Item(i),memenv), class_name);
     tail = enif_make_list_cell(env, head, tail);
   }
@@ -243,7 +245,7 @@ ERL_NIF_TERM wxeReturn::make_array_objs(wxArrayTreeItemIds& arr)
 {
   ERL_NIF_TERM head, tail;
   tail = enif_make_list(env, 0);
-  for(unsigned int i = arr.GetCount() -1; i >= 0; i--) {
+  for(ErlNifSInt64 i = arr.GetCount() -1; i >= 0; i--) {
     head = make((wxUIntPtr *) arr[i].m_pItem);
     tail = enif_make_list_cell(env, head, tail);
   }
@@ -255,7 +257,7 @@ ERL_NIF_TERM wxeReturn::make_array_objs(wxGridCellCoordsArray& arr)
 {
   ERL_NIF_TERM head, tail;
   tail = enif_make_list(env, 0);
-  for(unsigned int i = arr.GetCount() -1; i >= 0; i--) {
+  for(ErlNifSInt64 i = arr.GetCount() -1; i >= 0; i--) {
     head = make(arr[i]);
     tail = enif_make_list_cell(env, head, tail);
   }

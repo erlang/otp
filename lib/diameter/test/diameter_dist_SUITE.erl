@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,9 +31,16 @@
 -export([run/0]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
-         traffic/1]).
+         init_per_suite/1,
+         end_per_suite/1,
+
+         %% The test cases
+         traffic/1
+        ]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -52,9 +61,13 @@
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
 
+-include("diameter_util.hrl").
+
+
 %% ===========================================================================
 
--define(util, diameter_util).
+-define(DL(F),    ?DL(F, [])).
+-define(DL(F, A), ?LOG("DDISTS", F, A)).
 
 -define(CLIENT, 'CLIENT').
 -define(SERVER, 'SERVER').
@@ -105,41 +118,69 @@ suite() ->
 all() ->
     [traffic].
 
-traffic(_Config) ->
-    run().
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
+traffic(Config) ->
+    ?DL("traffic -> entry"),
+    Factor = dia_factor(Config),
+    Res = do_traffic(Factor),
+    ?DL("traffic -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 %% ===========================================================================
 
 %% run/0
 
 run() ->
-    [] = ?util:run([{fun traffic/0, 60000}]).
+    [] = ?RUN([{fun() -> do_traffic(1) end, 60000}]).
     %% process for linked peers to die with
 
 %% traffic/0
 
-traffic() ->
+do_traffic(Factor) ->
+    ?DL("do_traffic -> check we have distribution"),
     true = is_alive(),  %% need distribution for peer nodes
-    Nodes = enslave(),
+    ?DL("do_traffic -> get nodes"),
+    Nodes = get_nodes(),
+    ?DL("do_traffic -> ping nodes (except client node)"),
     [] = ping(lists:droplast(Nodes)),  %% drop client node
+    ?DL("do_traffic -> start nodes"),
     [] = start(Nodes),
+    ?DL("do_traffic -> connect nodes"),
     ok = connect(Nodes),
-    ok = send(Nodes).
+    ?DL("do_traffic -> send (to) nodes"),
+    ok = send(Nodes, Factor),
+    ?DL("do_traffic -> done"),
+    ok.
 
-%% enslave/1
+%% get_nodes/0
 %%
-%% Start four slave nodes, three to implement a Diameter server,
+%% Start four peer nodes, three to implement a Diameter server,
 %% one to implement a client.
 
-enslave() ->
+get_nodes() ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
     Args = ["-pa", Here, Ebin],
     [{N,S} || {M,S} <- ?NODES, N <- [start(M, Args)]].
 
 start(Name, Args) ->
-    {ok, _, Node} = ?util:peer(#{name => Name, args => Args}),
-    Node.
+    case ?PEER(#{name => Name, args => Args}) of
+        {ok, _, Node} ->
+            Node;
+        {error, Reason} ->
+            ?DL("Failed starting node ~p"
+                "~n   Reason: ~p", [Name, Reason]),
+            exit({skip, {failed_starting_node, Name, Reason}})
+    end.
+
 
 %% ping/1
 %%
@@ -211,14 +252,14 @@ origin(Server) ->
 
 connect({?SERVER, [{Node, _} | _], []})
   when Node == node() ->  %% server0
-    [_LRef = ?util:listen(?SERVER, tcp)];
+    [_LRef = ?LISTEN(?SERVER, tcp)];
 
 connect({?SERVER, _, [_] = Acc}) -> %% server[12]: register to receive requests
     ok = diameter_dist:attach([?SERVER]),
     Acc;
 
 connect({?CLIENT, [{Node, _} | _], [LRef]}) ->
-    ?util:connect(?CLIENT, tcp, {Node, LRef}),
+    ?CONNECT(?CLIENT, tcp, {Node, LRef}),
     ok;
 
 connect(Nodes) ->
@@ -231,17 +272,18 @@ connect(Nodes) ->
 %% ===========================================================================
 %% traffic testcases
 
-%% send/1
+%% send/2
 %%
 %% Send 100 requests and ensure the node name sent as User-Name isn't
 %% the node terminating transport.
 
-send(Nodes) ->
-    send(Nodes, 100, dict:new()).
+send(Nodes, Factor) ->
+    send(Nodes, 100, dict:new(), Factor).
 
 %% send/2
 
-send(Nodes, 0, Dict) ->
+send(Nodes, 0, Dict, _Factor) ->
+    ?DL("send(0) -> entry - verify stats"),
     [{Server0, _} | _] = Nodes,
     Node = atom_to_binary(Server0, utf8),
     {false, _} = {dict:is_key(Node, Dict), dict:to_list(Dict)},
@@ -256,14 +298,17 @@ send(Nodes, 0, Dict) ->
     {[{send, 0, 100, 2001}], _}
         = {[{D,R,N,C} || {{{0,275,R}, D, {'Result-Code', C}}, N} <- Stats],
            Stats},
+    ?DL("send(0) -> done"),
     ok;
 
-send(Nodes, N, Dict) ->
+send(Nodes, N, Dict, Factor) ->
+    ?DL("send(~w) -> entry", [N]),
     #diameter_base_STA{'Result-Code' = ?SUCCESS,
                        'User-Name' = [ServerNode]}
-        = send(Nodes, str(?LOGOUT)),
+        = send(Nodes, str(?LOGOUT), Factor),
     true = is_binary(ServerNode),
-    send(Nodes, N-1, dict:update_counter(ServerNode, 1, Dict)).
+    send(Nodes, N-1, dict:update_counter(ServerNode, 1, Dict), Factor).
+
 
 %% ===========================================================================
 
@@ -272,21 +317,28 @@ str(Cause) ->
                        'Auth-Application-Id' = ?DICT:id(),
                        'Termination-Cause'   = Cause}.
 
-%% send/2
+%% send/3
 
-send(Nodes, Req) ->
+send(Nodes, Req, Factor) ->
     {Node, _} = lists:last(Nodes),
-    rpc:call(Node, ?MODULE, call, [Req]).
+    ?DL("send -> make rpc call (to call) to node ~p", [Node]),
+    rpc:call(Node, ?MODULE, call, [{Req, Factor}]).
 
 %% call/1
 
-call(Req) ->
-    diameter:call(?CLIENT, ?DICT, Req, []).
+call({Req, Factor}) ->
+    Timeout = timeout(Factor),
+    ?DL("call -> make diameter call with"
+        "~n   Req:     ~p"
+        "~nwhen"
+        "~n   Timeout: ~w (~w)", [Req, Timeout, Factor]),
+    diameter:call(?CLIENT, ?DICT, Req, [{timeout, Timeout}]).
 
 %% sname/0
 
 sname() ->
     ?A(hd(string:tokens(?L(node()), "@"))).
+
 
 %% ===========================================================================
 %% diameter callbacks
@@ -347,3 +399,22 @@ handle_request(Pkt, ?SERVER, {_, Caps}) ->
                                'Origin-Host' = OH,
                                'Origin-Realm' = OR,
                                'User-Name' = [atom_to_binary(node(), utf8)]}}.
+
+
+%% ===========================================================================
+
+-define(CALL_TO_DEFAULT, 5000).
+timeout(Factor) when (Factor > 0) andalso (Factor =< 20) ->
+    (Factor - 1) * 500 + ?CALL_TO_DEFAULT;
+timeout(Factor) when (Factor > 0) ->
+    3*?CALL_TO_DEFAULT. % Max at 15 seconds
+
+
+%% ===========================================================================
+
+dia_factor(Config) ->
+    config_lookup(?FUNCTION_NAME, Config).
+
+config_lookup(Key, Config) ->
+    {value, {Key, Value}} = lists:keysearch(Key, 1, Config),
+    Value.

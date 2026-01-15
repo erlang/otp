@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 
 -module(httpd_script_env).
+-moduledoc false.
 
 -export([create_env/3]).
 
@@ -41,6 +44,8 @@
 %%
 %% Description: Creates a list of cgi/esi environment variables and
 %% there values.
+%%
+%% Note: "PROXY" header/variable is skipped because of CVE-2016-1000107
 %%--------------------------------------------------------------------------
 create_env(ScriptType, ModData, ScriptElements) ->
     create_basic_elements(ScriptType, ModData) 
@@ -86,6 +91,21 @@ which_method(#mod{method = Method}) ->
 which_request_uri(#mod{request_uri = RUri}) ->
     RUri.
 
+which_connect_addr(#mod{socket = Socket, socket_type = SocketType}) when
+      SocketType == ip_comm;
+      element(1, SocketType) == ip_comm ->
+    maybe
+        {ok, {Addr, _Port}} ?= inet:sockname(Socket),
+        inet:ntoa(Addr)
+    end;
+which_connect_addr(#mod{socket = Socket, socket_type = SocketType}) when
+      SocketType == ssl;
+      element(1, SocketType) == ssl ->
+    maybe
+        {ok, {Addr, _Port}} ?= ssl:sockname(Socket),
+        inet:ntoa(Addr)
+    end.
+
 create_basic_elements(esi, ModData) ->
     [{server_software,   which_server(ModData)},
      {server_name,       which_name(ModData)},
@@ -95,6 +115,7 @@ create_basic_elements(esi, ModData) ->
      {server_port,       which_port(ModData)},
      {request_method,    which_method(ModData)},
      {remote_addr,       which_peername(ModData)},
+     {connect_addr,      which_connect_addr(ModData)},
      {peer_cert,         which_peercert(ModData)},
      {script_name,       which_request_uri(ModData)}];
 
@@ -107,6 +128,7 @@ create_basic_elements(cgi, ModData) ->
      {"SERVER_PORT",       integer_to_list(which_port(ModData))},
      {"REQUEST_METHOD",    which_method(ModData)},
      {"REMOTE_ADDR",       which_peername(ModData)},
+     {"CONNECT_ADDR",      which_connect_addr(ModData)},
      {"SCRIPT_NAME",       which_request_uri(ModData)}].
 
 create_http_header_elements(ScriptType, Headers) ->
@@ -131,6 +153,8 @@ create_http_header_elements(ScriptType, [{Name, [Value | _] = Values } |
 create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc, OtherAcc) 
   when is_list(Value) ->
     try http_env_element(ScriptType, Name, Value) of
+        skipped ->
+            create_http_header_elements(ScriptType, Headers, Acc, OtherAcc);
         Element ->
             create_http_header_elements(ScriptType, Headers, [Element | Acc],
                                        OtherAcc)
@@ -140,9 +164,16 @@ create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc, OtherAcc
                                        [{Name, Value} | OtherAcc])
     end.
 
-http_env_element(cgi, VarName0, Value)  ->
-    VarName = re:replace(VarName0,"-","_", [{return,list}, global]),
-    {"HTTP_"++ http_util:to_upper(VarName), Value};
+http_env_element(cgi, VarName0, Value) ->
+  case http_util:to_upper(VarName0) of
+    "PROXY" ->
+      %% CVE-2016-1000107 – https://github.com/erlang/otp/issues/3392
+      skipped;
+    VarName1 ->
+      VarNameUpper = re:replace(VarName1, "-", "_", [{return, list}, global]),
+      {"HTTP_" ++ VarNameUpper, Value}
+  end;
+
 http_env_element(esi, VarName0, Value)  ->
     list_to_existing_atom(VarName0),
     VarName = re:replace(VarName0,"-","_", [{return,list}, global]),

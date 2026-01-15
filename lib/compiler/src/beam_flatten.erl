@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,7 @@
 %% Purpose : Converts intermediate assembly code to final format.
 
 -module(beam_flatten).
+-moduledoc false.
 
 -export([module/2]).
 
@@ -62,7 +65,10 @@ norm({set,[D],[S],get_tl})        -> {get_tl,S,D};
 norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
     {put_map,F,Op,S,D,R,{list,Puts}};
 norm({set,[],[],remove_message})   -> remove_message;
-norm({set,[],[],{line,_}=Line}) -> Line.
+norm({set,[],[],{line,_}=Line}) -> Line;
+norm({set,[],[],{executable_line,_,_}=Line}) -> Line;
+norm({set,[],_,{debug_line,_,_,_,_}=Line}) -> norm_debug_line(Line);
+norm({set,[D1,D2],[D1,D2],swap})   -> {swap,D1,D2}.
 
 norm_allocate({_Zero,nostack,Nh,[]}, Regs) ->
     [{test_heap,Nh,Regs}];
@@ -70,3 +76,11 @@ norm_allocate({nozero,Ns,0,Inits}, Regs) ->
     [{allocate,Ns,Regs}|Inits];
 norm_allocate({nozero,Ns,Nh,Inits}, Regs) ->
     [{allocate_heap,Ns,Nh,Regs}|Inits].
+
+norm_debug_line({debug_line,Location,Index,Live,Info}) ->
+    Kind = case Info of
+               {entry,_} -> entry;
+               {_,_} -> line
+           end,
+    {debug_line,{atom,Kind},Location,Index,Live,Info}.
+

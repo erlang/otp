@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2023-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +31,6 @@ enum class BeamTypeId : int {
 
     Atom = BEAM_TYPE_ATOM,
     Bitstring = BEAM_TYPE_BITSTRING,
-    BsMatchState = BEAM_TYPE_BS_MATCHSTATE,
     Cons = BEAM_TYPE_CONS,
     Float = BEAM_TYPE_FLOAT,
     Fun = BEAM_TYPE_FUN,
@@ -49,8 +50,8 @@ enum class BeamTypeId : int {
 
     /** @brief Types that can be boxed, including those that may also be
      * immediates (e.g. pids, integers). */
-    MaybeBoxed = Bitstring | BsMatchState | Float | Fun | Integer | Map | Pid |
-                 Port | Reference | Tuple,
+    MaybeBoxed = Bitstring | Float | Fun | Integer | Map | Pid | Port |
+                 Reference | Tuple,
     /** @brief Types that can be immediates, including those that may also be
      * boxed (e.g. pids, integers). */
     MaybeImmediate = Atom | Integer | Nil | Pid | Port,

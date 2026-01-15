@@ -1,9 +1,14 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type message_queue_data() :: off_heap | on_heap.[0m
+[;1m  message_queue_data()[0m
 
   See [;;4mprocess_flag(message_queue_data, MQD)[0m.
-
-  [;1m-type message_queue_data() :: off_heap | on_heap.[0m
 
   Process message queue data configuration. For more information,
   see [;;4mprocess_flag(message_queue_data, MQD)[0m

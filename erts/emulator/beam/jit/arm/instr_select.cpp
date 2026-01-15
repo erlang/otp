@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -193,27 +195,62 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
     return result;
 }
 
-void BeamModuleAssembler::emit_linear_search(arm::Gp comparand,
+void BeamModuleAssembler::emit_linear_search(a64::Gp comparand,
                                              Label fail,
                                              const Span<ArgVal> &args) {
     int count = args.size() / 2;
 
+    ASSERT(count < 128);
+    check_pending_stubs();
+
     for (int i = 0; i < count; i++) {
         const ArgVal &value = args[i];
         const ArgVal &label = args[i + count];
+        int j;
+        int n = 1;
 
-        if ((i % 128) == 0) {
-            /* Checking veneers on the first element is intentional. */
-            check_pending_stubs();
+        for (j = i + 1; j < count && args[j + count] == label; j++) {
+            n++;
         }
+        if (n < 2) {
+            cmp_arg(comparand, value);
+            a.b_eq(resolve_beam_label(label, disp1MB));
+        } else {
+            int in_range = 1;
 
-        cmp_arg(comparand, value);
-        a.b_eq(resolve_beam_label(label, disp1MB));
+            for (j = i + 1; j < n; j++) {
+                if (!(value.isWord() && value.as<ArgWord>().get() + in_range ==
+                                                args[j].as<ArgWord>().get())) {
+                    break;
+                }
+                in_range++;
+            }
+
+            if (in_range > 2) {
+                uint64_t first = value.as<ArgWord>().get();
+
+                if (first == 0) {
+                    a.cmp(comparand, imm(in_range));
+                } else {
+                    sub(TMP6, comparand, first);
+                    a.cmp(TMP6, imm(in_range));
+                }
+                a.b_lo(resolve_beam_label(label, disp1MB));
+                i += in_range - 1;
+            } else {
+                emit_optimized_two_way_select(comparand,
+                                              value,
+                                              args[i + 1],
+                                              label);
+                i++;
+            }
+        }
     }
 
     /* An invalid label means fallthrough to the next instruction. */
     if (fail.isValid()) {
         a.b(resolve_label(fail, disp128MB));
+        mark_unreachable_check_pending_stubs();
     }
 }
 
@@ -221,11 +258,11 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
                                                     const ArgLabel &Fail,
                                                     const ArgWord &Size,
                                                     const Span<ArgVal> &args) {
-    auto src = load_source(Src, TMP1);
+    auto src = load_source(Src);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, 0));
 
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
@@ -238,7 +275,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
     }
 
     Label fail = rawLabels[Fail.get()];
-    emit_linear_search(TMP1, fail, args);
+    emit_binsearch_nodes(TMP1, 0, args.size() / 2 - 1, fail, args);
 }
 
 void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
@@ -283,16 +320,11 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
     auto shift = plan.second;
 
     if (base == 0 && shift == 0) {
-        if (!emit_optimized_three_way_select(src.reg, fail, args)) {
-            emit_linear_search(src.reg, fail, args);
-        }
+        emit_linear_search(src.reg, fail, args);
     } else {
         auto untagged =
                 emit_select_untag(Src, args, src.reg, next, base, shift);
-
-        if (!emit_optimized_three_way_select(ARG1, fail, untagged)) {
-            emit_linear_search(ARG1, fail, untagged);
-        }
+        emit_linear_search(ARG1, fail, untagged);
     }
 
     if (!Fail.isLabel()) {
@@ -343,7 +375,7 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
  * Emit code for a binary search through an interval Left <= Right of
  * the i_select_val argument vector `args`.
  */
-void BeamModuleAssembler::emit_binsearch_nodes(arm::Gp reg,
+void BeamModuleAssembler::emit_binsearch_nodes(a64::Gp reg,
                                                size_t Left,
                                                size_t Right,
                                                Label fail,
@@ -411,6 +443,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
                                              const ArgWord &Size,
                                              const Span<ArgVal> &args) {
     Label fail;
+    Label data = a.newLabel();
     auto src = load_source(Src, TMP1);
 
     ASSERT(Size.get() == args.size());
@@ -450,61 +483,91 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         a.b_hs(fail);
     }
 
-    embed_vararg_rodata(args, TMP2);
+    bool embedInText = args.size() <= 6;
+    if (embedInText) {
+        a.adr(TMP2, data);
+    } else {
+        embed_vararg_rodata(args, TMP2);
+    }
+
     a.ldr(TMP3, arm::Mem(TMP2, TMP1, arm::lsl(3)));
     a.br(TMP3);
 
-    if (Fail.getType() == ArgVal::Immediate) {
+    mark_unreachable_check_pending_stubs();
+
+    a.bind(data);
+    if (embedInText) {
+        for (const ArgVal &arg : args) {
+            ASSERT(arg.getType() == ArgVal::Type::Label);
+            a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
+        }
+    }
+
+    if (Fail.getType() == ArgVal::Type::Immediate) {
         a.bind(fail);
     }
 }
 
 /*
- * Attempt to optimize the case when a select_val has exactly two
- * values which only differ by one bit and they both branch to the
- * same label.
+ * Optimize the case when a select_val has exactly two values that
+ * both branch to the same label.
  *
- * The optimization makes use of the observation that (V == X || V ==
- * Y) is equivalent to (V | (X ^ Y)) == (X | Y) when (X ^ Y) has only
- * one bit set.
+ * If the values only differ by one bit, the optimization makes use of
+ * the observation that (V == X || V == Y) is equivalent to (V | (X ^
+ * Y)) == (X | Y) when (X ^ Y) has only one bit set.
+ *
+ * If more than one bit differ, one conditional branch instruction can
+ * still be eliminated by using the CCMP instruction.
  *
  * Return true if the optimization was possible.
  */
-bool BeamModuleAssembler::emit_optimized_three_way_select(
-        arm::Gp reg,
-        Label fail,
-        const Span<ArgVal> &args) {
-    if (args.size() != 4 || (args[2] != args[3])) {
-        return false;
-    }
-
-    uint64_t x = args[0].isImmed() ? args[0].as<ArgImmed>().get()
-                                   : args[0].as<ArgWord>().get();
-    uint64_t y = args[1].isImmed() ? args[1].as<ArgImmed>().get()
-                                   : args[1].as<ArgWord>().get();
-    uint64_t combined = x | y;
+void BeamModuleAssembler::emit_optimized_two_way_select(a64::Gp reg,
+                                                        const ArgVal &value1,
+                                                        const ArgVal &value2,
+                                                        const ArgVal &label) {
+    uint64_t x = value1.isImmed() ? value1.as<ArgImmed>().get()
+                                  : value1.as<ArgWord>().get();
+    uint64_t y = value2.isImmed() ? value2.as<ArgImmed>().get()
+                                  : value2.as<ArgWord>().get();
     uint64_t diff = x ^ y;
 
-    ArgWord val(combined);
+    /* Be sure to use a register not used by any caller. */
+    a64::Gp tmp = TMP6;
 
-    if ((diff & (diff - 1)) != 0) {
-        return false;
+    if (x + 1 == y) {
+        comment("(Src == %ld || Src == %ld) <=> (Src - %ld) < 2", x, y, x);
+        if (x == 0) {
+            a.cmp(reg, imm(2));
+        } else {
+            sub(tmp, reg, x);
+            a.cmp(tmp, imm(2));
+        }
+        a.b_lo(resolve_beam_label(label, disp1MB));
+    } else if ((diff & (diff - 1)) == 0) {
+        uint64_t combined = x | y;
+        ArgWord val(combined);
+
+        comment("(Src == 0x%x || Src == 0x%x) <=> (Src | 0x%x) == 0x%x",
+                x,
+                y,
+                diff,
+                combined);
+
+        a.orr(tmp, reg, imm(diff));
+        cmp_arg(tmp, val);
+        a.b_eq(resolve_beam_label(label, disp1MB));
+    } else {
+        if (x < 32) {
+            cmp(reg, y);
+            a.ccmp(reg, imm(x), imm(NZCV::kEqual), imm(arm::CondCode::kNE));
+        } else if (-y < 32) {
+            cmp(reg, x);
+            a.ccmn(reg, imm(-y), imm(NZCV::kEqual), imm(arm::CondCode::kNE));
+        } else {
+            cmp(reg, x);
+            a.mov(tmp, y);
+            a.ccmp(reg, tmp, imm(NZCV::kEqual), imm(arm::CondCode::kNE));
+        }
+        a.b_eq(resolve_beam_label(label, disp1MB));
     }
-
-    comment("(Src == 0x%x || Src == 0x%x) <=> (Src | 0x%x) == 0x%x",
-            x,
-            y,
-            diff,
-            combined);
-
-    a.orr(TMP1, reg, imm(diff));
-    cmp_arg(TMP1, val);
-    a.b_eq(resolve_beam_label(args[2], disp1MB));
-
-    /* An invalid label means fallthrough to the next instruction. */
-    if (fail.isValid()) {
-        a.b(resolve_label(fail, disp128MB));
-    }
-
-    return true;
 }

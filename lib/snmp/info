@@ -1,3 +1,0 @@
-group: oam Operation & Maintenance Applications
-short: Simple Network Management Protocol (SNMP) support including a
-short: MIB compiler and tools for creating SNMP agents

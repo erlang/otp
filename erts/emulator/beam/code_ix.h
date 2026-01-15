@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2012-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +89,11 @@ typedef unsigned ErtsCodeIndex;
 typedef struct ErtsCodeMFA_ {
     Eterm module;
     Eterm function;
-    Uint  arity;
+
+    /* This is technically a byte, but the interpreter needs this to be a word
+     * for argument packing to work properly, and declaring it as a byte won't
+     * save any space due to tail padding. */
+    Uint arity;
 } ErtsCodeMFA;
 
 /*
@@ -114,7 +120,7 @@ typedef struct ErtsCodeInfo_ {
     } u;
 
     /* Trace breakpoint */
-    struct generic_bp *gen_bp;
+    struct GenericBp *gen_bp;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
 
@@ -217,6 +223,12 @@ int erts_try_seize_code_mod_permission(struct process* c_p);
 int erts_try_seize_code_mod_permission_aux(void (*func)(void *),
                                            void *arg);
 
+#ifdef ERTS_ENABLE_LOCK_CHECK
+void erts_lc_soften_code_mod_permission_check(void);
+#else
+# define erts_lc_soften_code_mod_permission_check() ((void)0)
+#endif
+
 /** @brief Release code modification permission. Resumes any suspended
  * waiters. */
 void erts_release_code_mod_permission(void);
@@ -277,12 +289,8 @@ int erts_has_code_stage_permission(void);
 int erts_has_code_mod_permission(void);
 #endif
 
-/* module/function/arity can be NIL/NIL/-1 when the MFA is pointing to some
-   invalid code, for instance unloaded_fun. */
 #define ASSERT_MFA(MFA)                                                 \
-    ASSERT((is_atom((MFA)->module) || is_nil((MFA)->module)) &&         \
-           (is_atom((MFA)->function) || is_nil((MFA)->function)) &&     \
-           (((MFA)->arity >= 0 && (MFA)->arity < 1024) || (MFA)->arity == -1))
+    ASSERT(is_atom((MFA)->module) && is_atom((MFA)->function))
 
 extern erts_atomic32_t the_active_code_index;
 extern erts_atomic32_t the_staging_code_index;

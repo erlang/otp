@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +29,7 @@
 %% ----------------------------------------------------------------------
 
 -module(ssh_fsm_userauth_server).
+-moduledoc false.
 
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
@@ -57,26 +60,26 @@ callback_mode() ->
 %%---- userauth request to server
 handle_event(internal, 
 	     Msg = #ssh_msg_userauth_request{service = ServiceName,
-                                             method = Method},
+                                             method = Method,
+                                             user = User},
 	     StateName = {userauth,server},
-	     D0 = #data{ssh_params=Ssh0}) ->
-
+	     D0) ->
+    D1 = maybe_send_banner(D0, User),
+    #data{ssh_params=Ssh0} = D1,
     case {ServiceName, Ssh0#ssh.service, Method} of
 	{"ssh-connection", "ssh-connection", "none"} ->
 	    %% Probably the very first userauth_request but we deny unauthorized login
             %% However, we *may* accept unauthorized login if instructed so
             case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
                 {not_authorized, _, {Reply,Ssh}} ->
-                    D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
+                    D = ssh_connection_handler:send_msg(Reply, D1#data{ssh_params = Ssh}),
                     {keep_state, D};
                 {authorized, User, {Reply, Ssh1}} ->
-                    D = connected_state(Reply, Ssh1, User, Method, D0),
+                    D = connected_state(Reply, Ssh1, User, Method, D1),
                     {next_state, {connected,server}, D,
-                     [set_max_initial_idle_timeout(D),
+                     [set_alive_timeout(D), set_max_initial_idle_timeout(D),
                       {change_callback_module,ssh_connection_handler}
-                     ]
-                    }
-                     
+                     ]}
             end;
 	
 	{"ssh-connection", "ssh-connection", Method} ->
@@ -86,18 +89,18 @@ handle_event(internal,
 		    %% Yepp! we support this method
 		    case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
 			{authorized, User, {Reply, Ssh1}} ->
-                            D = connected_state(Reply, Ssh1, User, Method, D0),
+                            D = connected_state(Reply, Ssh1, User, Method, D1),
                             {next_state, {connected,server}, D,
-                             [set_max_initial_idle_timeout(D),
+                             [set_alive_timeout(D), set_max_initial_idle_timeout(D),
                               {change_callback_module,ssh_connection_handler}
                              ]};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
-			    retry_fun(User, Reason, D0),
-                            D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
+			    retry_fun(User, Reason, D1),
+                            D = ssh_connection_handler:send_msg(Reply, D1#data{ssh_params = Ssh}),
 			    {next_state, {userauth_keyboard_interactive,server}, D};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} ->
-			    retry_fun(User, Reason, D0),
-                            D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
+			    retry_fun(User, Reason, D1),
+                            D = ssh_connection_handler:send_msg(Reply, D1#data{ssh_params = Ssh}),
 			    {keep_state, D}
 		    end;
 		false ->
@@ -115,7 +118,7 @@ handle_event(internal,
             {Shutdown, D} =  
                 ?send_disconnect(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
                                  io_lib:format("Unknown service: ~p",[ServiceName]),
-                                 StateName, D0),
+                                 StateName, D1),
             {stop, Shutdown, D}
     end;
 
@@ -124,7 +127,7 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
 	{authorized, User, {Reply, Ssh1}} ->
             D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
             {next_state, {connected,server}, D,
-             [set_max_initial_idle_timeout(D),
+             [set_alive_timeout(D), set_max_initial_idle_timeout(D),
               {change_callback_module,ssh_connection_handler}
              ]};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
@@ -142,10 +145,9 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
         ssh_auth:handle_userauth_info_response({extra,Msg}, D0#data.ssh_params),
     D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
     {next_state, {connected,server}, D,
-     [set_max_initial_idle_timeout(D),
+     [set_alive_timeout(D), set_max_initial_idle_timeout(D),
       {change_callback_module,ssh_connection_handler}
-     ]
-    };
+     ]};
 
 
 %%% ######## UNHANDLED EVENT!
@@ -178,6 +180,9 @@ connected_state(Reply, Ssh1, User, Method, D0) ->
             %% before send_msg!
             ssh_params = Ssh#ssh{authenticated = true}}.
 
+set_alive_timeout(#data{ssh_params = #ssh{opts=Opts}}) ->
+    {_AliveCount, AliveInterval} = ?GET_ALIVE_OPT(Opts),
+    {{timeout, alive}, AliveInterval, none}.
 
 set_max_initial_idle_timeout(#data{ssh_params = #ssh{opts=Opts}}) ->
     {{timeout,max_initial_idle_time}, ?GET_OPT(max_initial_idle_time,Opts), none}.
@@ -212,3 +217,16 @@ retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
 	    ok
     end.
 
+maybe_send_banner(D0 = #data{ssh_params = #ssh{userauth_banner_sent = false} = Ssh}, User) ->
+    BannerFun = ?GET_OPT(bannerfun, Ssh#ssh.opts),
+    case BannerFun(User) of
+        BannerText when is_binary(BannerText), byte_size(BannerText) > 0 ->
+            Banner = #ssh_msg_userauth_banner{message = BannerText,
+                                              language = <<>>},
+            D = D0#data{ssh_params = Ssh#ssh{userauth_banner_sent = true}},
+            ssh_connection_handler:send_msg(Banner, D);
+        _ ->
+            D0
+    end;
+maybe_send_banner(D, _) ->
+    D.

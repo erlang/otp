@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -24,7 +26,8 @@
          init_per_group/2,end_per_group/2,
          byte_split_binary/1,bit_split_binary/1,match_huge_bin/1,
          bs_match_string_edge_case/1,contexts/1,
-         empty_binary/1,small_bitstring/1]).
+         empty_binary/1,small_bitstring/1,
+         known_position/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -33,7 +36,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [byte_split_binary, bit_split_binary, match_huge_bin,
      bs_match_string_edge_case, contexts, empty_binary,
-     small_bitstring].
+     small_bitstring,known_position].
 
 groups() ->
     [].
@@ -281,7 +284,9 @@ small_bitstring(_Config) ->
     %% heap space for small bitstrings.
     rand_seed(),
     Bin = rand:bytes(10_000),
-    ok = small_bitstring_1(id(Bin), id(Bin)).
+    ok = small_bitstring_1(id(Bin), id(Bin)),
+    ok = small_bitstring_2(id(Bin), id(7)),
+    ok = small_bitstring_3(id(Bin), id(64)).
 
 small_bitstring_1(<<A1:1/bits,A2:1/bits,A3:2/bits,
                     A4:3/bits,A5:1/bits,As0/binary>>,
@@ -289,6 +294,49 @@ small_bitstring_1(<<A1:1/bits,A2:1/bits,A3:2/bits,
                     A4:3/bits,A5:1/bits,As1/binary>>) ->
     small_bitstring_1(As0, As1);
 small_bitstring_1(<<>>, <<>>) ->
+    ok.
+
+small_bitstring_2(<<>>, _) ->
+    ok;
+small_bitstring_2(Bin, N7) ->
+    %% Ensure that matching fixed sizes gives the same result as
+    %% matching dynamic sizes.
+
+    <<A1:3/bits,A2:7/bits,A3:7/bits,
+      A4:15/bits,_:32,As/binary>> = Bin,
+    <<A1:(N7-4)/bits,A2:N7/bits,A3:N7/bits,
+      A4:(N7+N7+1)/bits,_:32,As/binary>> = Bin,
+
+    <<B0:(7+8),B1:3/bits,B2:7/bits,B3:7/bits,
+      B4:15/bits,B5:(7+10),As/binary>> = Bin,
+    <<B0:(N7+8),B1:(N7-4)/bits,B2:N7/bits,B3:N7/bits,
+      B4:(N7+N7+1)/bits,B5:(N7+10),As/binary>> = Bin,
+
+    small_bitstring_2(As, N7).
+
+small_bitstring_3(<<>>, _) ->
+    ok;
+small_bitstring_3(Bin, N64) ->
+    %% Ensure that matching fixed sizes gives the same result as
+    %% matching dynamic sizes for larger sizes.
+
+    <<A1:(64-1)/bits,A2:(64+1)/bits,As/binary>> = Bin,
+    <<A1:(N64-1)/bits,A2:(N64+1)/bits,As/binary>> = Bin,
+
+    <<B1:(64+6)/bits,B2:(64-6)/bits,As/binary>> = Bin,
+    <<B1:(N64+6)/bits,B2:(N64-6)/bits,As/binary>> = Bin,
+
+    <<C0:5,C1:(64+7)/bits,C2:(64-12)/bits,As/binary>> = Bin,
+    <<C0:5,C1:(N64+7)/bits,C2:(N64-12)/bits,As/binary>> = Bin,
+
+    small_bitstring_3(As, N64).
+
+known_position(_Config) ->
+    %% Cover the case of an extracted bitstring having a known position.
+    <<Int:8,BitString:9/binary,$j:8>> = id(<<42:8,"abcdefghij">>),
+    42 = Int,
+    <<"abcdefghi">> = BitString,
+
     ok.
 
 %%%
@@ -300,10 +348,7 @@ rand_seed() ->
     io:format("\n*** rand:export_seed() = ~w\n\n", [rand:export_seed()]),
     ok.
 
-make_unaligned_sub_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned_sub_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 id(I) -> I.

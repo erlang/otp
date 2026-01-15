@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,115 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxMenu).
+-moduledoc """
+A menu is a popup (or pull down) list of items, one of which may be selected before the
+menu goes away (clicking elsewhere dismisses the menu).
+
+Menus may be used to construct either menu bars or popup menus.
+
+A menu item has an integer ID associated with it which can be used to identify the
+selection, or to change the menu item in some way. A menu item with a special identifier `wxID_SEPARATOR`
+is a separator item and doesn't have an associated command but just makes a separator
+line appear in the menu.
+
+Note: Please note that `wxID_ABOUT` and `wxID_EXIT` are predefined by wxWidgets and have
+a special meaning since entries using these IDs will be taken out of the normal menus
+under macOS and will be inserted into the system menu (following the appropriate macOS
+interface guideline).
+
+Menu items may be either `normal` items, `check` items or `radio` items. Normal items
+don't have any special properties while the check items have a boolean flag associated to
+them and they show a checkmark in the menu when the flag is set. wxWidgets automatically
+toggles the flag value when the item is clicked and its value may be retrieved using
+either `isChecked/2` method of `m:wxMenu` or `m:wxMenuBar` itself or by using wxEvent::IsChecked when
+you get the menu notification for the item in question.
+
+The radio items are similar to the check items except that all the other items in the
+same radio group are unchecked when a radio item is checked. The radio group is formed by
+a contiguous range of radio items, i.e. it starts at the first item of this kind and ends
+with the first item of a different kind (or the end of the menu). Notice that because the
+radio groups are defined in terms of the item positions inserting or removing the items in
+the menu containing the radio items risks to not work correctly.
+
+Allocation strategy
+
+All menus must be created on the `heap` because all menus attached to a menubar or to
+another menu will be deleted by their parent when it is deleted. The only exception to
+this rule are the popup menus (i.e. menus used with `wxWindow:popupMenu/4`) as wxWidgets does not destroy them
+to allow reusing the same menu more than once. But the exception applies only to the menus
+themselves and not to any submenus of popup menus which are still destroyed by wxWidgets
+as usual and so must be heap-allocated.
+
+As the frame menubar is deleted by the frame itself, it means that normally all menus
+used are deleted automatically.
+
+Event handling
+
+Event handlers for the commands generated by the menu items can be connected directly to
+the menu object itself using `wxEvtHandler::Bind()` (not implemented in wx). If this menu
+is a submenu of another one, the events from its items can also be processed in the parent
+menu and so on, recursively.
+
+If the menu is part of a menu bar, then events can also be handled in `m:wxMenuBar` object.
+
+Finally, menu events can also be handled in the associated window, which is either the `m:wxFrame`
+associated with the menu bar this menu belongs to or the window for which `wxWindow:popupMenu/4` was called for
+the popup menus.
+
+See overview_events_bind for how to bind event handlers to the various objects.
+
+See:
+* `m:wxMenuBar`
+
+* `wxWindow:popupMenu/4`
+
+* [Overview events](https://docs.wxwidgets.org/3.2/overview_events.html#overview_events)
+
+This class is derived, and can use functions, from:
+
+* `m:wxEvtHandler`
+
+wxWidgets docs: [wxMenu](https://docs.wxwidgets.org/3.2/classwx_menu.html)
+""".
 -include("wxe.hrl").
 -export(['Destroy'/2,append/2,append/3,append/4,append/5,appendCheckItem/3,appendCheckItem/4,
   appendRadioItem/3,appendRadioItem/4,appendSeparator/1,break/1,check/3,
@@ -35,17 +142,17 @@
 
 -type wxMenu() :: wx:wx_object().
 -export_type([wxMenu/0]).
-%% @hidden
+-doc false.
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
+-doc "Constructs a `m:wxMenu` object.".
 -spec new() -> wxMenu().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxMenu_new_0),
   wxe_util:rec(?wxMenu_new_0).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
+-doc "Constructs a `m:wxMenu` object.".
 -spec new([Option]) -> wxMenu() when
 	Option :: {'style', integer()}.
 new(Options)
@@ -56,7 +163,7 @@ new(Options)
   wxe_util:queue_cmd(Opts,?get_env(),?wxMenu_new_1),
   wxe_util:rec(?wxMenu_new_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
+-doc "Constructs a `m:wxMenu` object with a title.".
 -spec new(Title, [Option]) -> wxMenu() when
 	Title::unicode:chardata(),
 	Option :: {'style', integer()}.
@@ -69,7 +176,32 @@ new(Title, Options)
   wxe_util:queue_cmd(Title_UC, Opts,?get_env(),?wxMenu_new_2),
   wxe_util:rec(?wxMenu_new_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappend">external documentation</a>.
+-doc """
+Adds a menu item object.
+
+This is the most generic variant of `append/5` method because it may be used for both items
+(including separators) and submenus and because you can also specify various extra
+properties of a menu item this way, such as bitmaps and fonts.
+
+Remark: See the remarks for the other `append/5` overloads.
+
+See:
+* `appendSeparator/1`
+
+* `appendCheckItem/4`
+
+* `appendRadioItem/4`
+
+* `insert/6`
+
+* `setLabel/3`
+
+* `getHelpString/2`
+
+* `setHelpString/3`
+
+* `m:wxMenuItem`
+""".
 -spec append(This, MenuItem) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), MenuItem::wxMenuItem:wxMenuItem().
 append(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuItemT}=MenuItem) ->
@@ -78,7 +210,7 @@ append(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuItemT}=MenuItem) ->
   wxe_util:queue_cmd(This,MenuItem,?get_env(),?wxMenu_Append_1),
   wxe_util:rec(?wxMenu_Append_1).
 
-%% @equiv append(This,Id,Item, [])
+-doc(#{equiv => append(This,Id,Item, [])}).
 -spec append(This, Id, Item) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
@@ -86,14 +218,32 @@ append(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
   append(This,Id,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappend">external documentation</a>.
-%% <br /> Also:<br />
-%% append(This, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when<br />
-%% 	This::wxMenu(), Id::integer(), Item::unicode:chardata(),<br />
-%% 	Option :: {'help', unicode:chardata()}<br />
-%% 		 | {'kind', wx:wx_enum()}.<br />
-%% 
-%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
+-doc """
+Adds a menu item.
+
+Example: or even better for stock menu items (see `wxMenuItem:new/1`):
+
+Remark: This command can be used after the menu has been shown, as well as on initial
+creation of a menu or menubar.
+
+See:
+* `appendSeparator/1`
+
+* `appendCheckItem/4`
+
+* `appendRadioItem/4`
+
+* `insert/6`
+
+* `setLabel/3`
+
+* `getHelpString/2`
+
+* `setHelpString/3`
+
+* `m:wxMenuItem`
+""".
+%%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec append(This, Id, Item, SubMenu) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata(), SubMenu::wxMenu();
       (This, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when
@@ -115,7 +265,30 @@ append(#wx_ref{type=ThisT}=This,Id,Item, Options)
   wxe_util:queue_cmd(This,Id,Item_UC, Opts,?get_env(),?wxMenu_Append_3),
   wxe_util:rec(?wxMenu_Append_3).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappend">external documentation</a>.
+-doc """
+Adds a submenu.
+
+Deprecated:
+
+This function is deprecated, use `AppendSubMenu()` (not implemented in wx) instead.
+
+See:
+* `appendSeparator/1`
+
+* `appendCheckItem/4`
+
+* `appendRadioItem/4`
+
+* `insert/6`
+
+* `setLabel/3`
+
+* `getHelpString/2`
+
+* `setHelpString/3`
+
+* `m:wxMenuItem`
+""".
 -spec append(This, Id, Item, SubMenu, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata(), SubMenu::wxMenu(),
 	Option :: {'help', unicode:chardata()}.
@@ -130,7 +303,7 @@ append(#wx_ref{type=ThisT}=This,Id,Item,#wx_ref{type=SubMenuT}=SubMenu, Options)
   wxe_util:queue_cmd(This,Id,Item_UC,SubMenu, Opts,?get_env(),?wxMenu_Append_4),
   wxe_util:rec(?wxMenu_Append_4).
 
-%% @equiv appendCheckItem(This,Id,Item, [])
+-doc(#{equiv => appendCheckItem(This,Id,Item, [])}).
 -spec appendCheckItem(This, Id, Item) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
@@ -138,7 +311,14 @@ appendCheckItem(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
   appendCheckItem(This,Id,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappendcheckitem">external documentation</a>.
+-doc """
+Adds a checkable item to the end of the menu.
+
+See:
+* `append/5`
+
+* `insertCheckItem/5`
+""".
 -spec appendCheckItem(This, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata(),
 	Option :: {'help', unicode:chardata()}.
@@ -152,7 +332,7 @@ appendCheckItem(#wx_ref{type=ThisT}=This,Id,Item, Options)
   wxe_util:queue_cmd(This,Id,Item_UC, Opts,?get_env(),?wxMenu_AppendCheckItem),
   wxe_util:rec(?wxMenu_AppendCheckItem).
 
-%% @equiv appendRadioItem(This,Id,Item, [])
+-doc(#{equiv => appendRadioItem(This,Id,Item, [])}).
 -spec appendRadioItem(This, Id, Item) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
@@ -160,7 +340,19 @@ appendRadioItem(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
   appendRadioItem(This,Id,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappendradioitem">external documentation</a>.
+-doc """
+Adds a radio item to the end of the menu.
+
+All consequent radio items form a group and when an item in the group is checked, all the
+others are automatically unchecked.
+
+Note: Radio items are not supported under wxMotif.
+
+See:
+* `append/5`
+
+* `insertRadioItem/5`
+""".
 -spec appendRadioItem(This, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata(),
 	Option :: {'help', unicode:chardata()}.
@@ -174,7 +366,14 @@ appendRadioItem(#wx_ref{type=ThisT}=This,Id,Item, Options)
   wxe_util:queue_cmd(This,Id,Item_UC, Opts,?get_env(),?wxMenu_AppendRadioItem),
   wxe_util:rec(?wxMenu_AppendRadioItem).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappendseparator">external documentation</a>.
+-doc """
+Adds a separator to the end of the menu.
+
+See:
+* `append/5`
+
+* `insertSeparator/2`
+""".
 -spec appendSeparator(This) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu().
 appendSeparator(#wx_ref{type=ThisT}=This) ->
@@ -182,14 +381,23 @@ appendSeparator(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_AppendSeparator),
   wxe_util:rec(?wxMenu_AppendSeparator).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenubreak">external documentation</a>.
+-doc """
+Inserts a break in a menu, causing the next appended item to appear in a new column.
+
+This function only actually inserts a break in wxMSW and does nothing under the other
+platforms.
+""".
 -spec break(This) -> 'ok' when
 	This::wxMenu().
 break(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_Break).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenucheck">external documentation</a>.
+-doc """
+Checks or unchecks the menu item.
+
+See: `isChecked/2`
+""".
 -spec check(This, Id, Check) -> 'ok' when
 	This::wxMenu(), Id::integer(), Check::boolean().
 check(#wx_ref{type=ThisT}=This,Id,Check)
@@ -197,11 +405,18 @@ check(#wx_ref{type=ThisT}=This,Id,Check)
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,Id,Check,?get_env(),?wxMenu_Check).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenudelete">external documentation</a>.
-%% <br /> Also:<br />
-%% delete(This, Item) -> boolean() when<br />
-%% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
-%% 
+-doc """
+Deletes the menu item from the menu.
+
+If the item is a submenu, it will `not` be deleted. Use `'Destroy'/2` if you want to delete a submenu.
+
+See:
+* `findItem/2`
+
+* `'Destroy'/2`
+
+* `remove/2`
+""".
 -spec delete(This, Id) -> boolean() when
 	This::wxMenu(), Id::integer();
       (This, Item) -> boolean() when
@@ -217,11 +432,19 @@ delete(#wx_ref{type=ThisT}=This,#wx_ref{type=ItemT}=Item) ->
   wxe_util:queue_cmd(This,Item,?get_env(),?wxMenu_Delete_1_1),
   wxe_util:rec(?wxMenu_Delete_1_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenudestroy">external documentation</a>.
-%% <br /> Also:<br />
-%% 'Destroy'(This, Item) -> boolean() when<br />
-%% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
-%% 
+-doc """
+Deletes the menu item from the menu.
+
+If the item is a submenu, it will be deleted. Use `remove/2` if you want to keep the submenu (for
+example, to reuse it later).
+
+See:
+* `findItem/2`
+
+* `delete/2`
+
+* `remove/2`
+""".
 -spec 'Destroy'(This, Id) -> boolean() when
 	This::wxMenu(), Id::integer();
       (This, Item) -> boolean() when
@@ -237,7 +460,11 @@ delete(#wx_ref{type=ThisT}=This,#wx_ref{type=ItemT}=Item) ->
   wxe_util:queue_cmd(This,Item,?get_env(),?wxMenu_Destroy_1_1),
   wxe_util:rec(?wxMenu_Destroy_1_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuenable">external documentation</a>.
+-doc """
+Enables or disables (greys out) a menu item.
+
+See: `isEnabled/2`
+""".
 -spec enable(This, Id, Enable) -> 'ok' when
 	This::wxMenu(), Id::integer(), Enable::boolean().
 enable(#wx_ref{type=ThisT}=This,Id,Enable)
@@ -245,11 +472,14 @@ enable(#wx_ref{type=ThisT}=This,Id,Enable)
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,Id,Enable,?get_env(),?wxMenu_Enable).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenufinditem">external documentation</a>.
-%% <br /> Also:<br />
-%% findItem(This, ItemString) -> integer() when<br />
-%% 	This::wxMenu(), ItemString::unicode:chardata().<br />
-%% 
+-doc """
+Finds the menu id for a menu item string.
+
+Return: Menu item identifier, or wxNOT_FOUND if none is found.
+
+Remark: Any special menu codes are stripped out of source and target strings before
+matching.
+""".
 -spec findItem(This, Id) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer();
       (This, ItemString) -> integer() when
@@ -266,7 +496,7 @@ findItem(#wx_ref{type=ThisT}=This,ItemString)
   wxe_util:queue_cmd(This,ItemString_UC,?get_env(),?wxMenu_FindItem_1),
   wxe_util:rec(?wxMenu_FindItem_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenufinditembyposition">external documentation</a>.
+-doc "Returns the `m:wxMenuItem` given a position in the menu.".
 -spec findItemByPosition(This, Position) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Position::integer().
 findItemByPosition(#wx_ref{type=ThisT}=This,Position)
@@ -275,7 +505,17 @@ findItemByPosition(#wx_ref{type=ThisT}=This,Position)
   wxe_util:queue_cmd(This,Position,?get_env(),?wxMenu_FindItemByPosition),
   wxe_util:rec(?wxMenu_FindItemByPosition).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugethelpstring">external documentation</a>.
+-doc """
+Returns the help string associated with a menu item.
+
+Return: The help string, or the empty string if there is no help string or the item was
+not found.
+
+See:
+* `setHelpString/3`
+
+* `append/5`
+""".
 -spec getHelpString(This, Id) -> unicode:charlist() when
 	This::wxMenu(), Id::integer().
 getHelpString(#wx_ref{type=ThisT}=This,Id)
@@ -284,7 +524,13 @@ getHelpString(#wx_ref{type=ThisT}=This,Id)
   wxe_util:queue_cmd(This,Id,?get_env(),?wxMenu_GetHelpString),
   wxe_util:rec(?wxMenu_GetHelpString).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugetlabel">external documentation</a>.
+-doc """
+Returns a menu item label.
+
+Return: The item label, or the empty string if the item was not found.
+
+See: `setLabel/3`
+""".
 -spec getLabel(This, Id) -> unicode:charlist() when
 	This::wxMenu(), Id::integer().
 getLabel(#wx_ref{type=ThisT}=This,Id)
@@ -293,7 +539,7 @@ getLabel(#wx_ref{type=ThisT}=This,Id)
   wxe_util:queue_cmd(This,Id,?get_env(),?wxMenu_GetLabel),
   wxe_util:rec(?wxMenu_GetLabel).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugetmenuitemcount">external documentation</a>.
+-doc "Returns the number of items in the menu.".
 -spec getMenuItemCount(This) -> integer() when
 	This::wxMenu().
 getMenuItemCount(#wx_ref{type=ThisT}=This) ->
@@ -301,7 +547,7 @@ getMenuItemCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_GetMenuItemCount),
   wxe_util:rec(?wxMenu_GetMenuItemCount).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugetmenuitems">external documentation</a>.
+-doc "".
 -spec getMenuItems(This) -> [wxMenuItem:wxMenuItem()] when
 	This::wxMenu().
 getMenuItems(#wx_ref{type=ThisT}=This) ->
@@ -309,7 +555,11 @@ getMenuItems(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_GetMenuItems),
   wxe_util:rec(?wxMenu_GetMenuItems).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenugettitle">external documentation</a>.
+-doc """
+Returns the title of the menu.
+
+See: `setTitle/2`
+""".
 -spec getTitle(This) -> unicode:charlist() when
 	This::wxMenu().
 getTitle(#wx_ref{type=ThisT}=This) ->
@@ -317,12 +567,17 @@ getTitle(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_GetTitle),
   wxe_util:rec(?wxMenu_GetTitle).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
-%% <br /> Also:<br />
-%% insert(This, Pos, MenuItem) -> wxMenuItem:wxMenuItem() when<br />
-%% 	This::wxMenu(), Pos::integer(), MenuItem::wxMenuItem:wxMenuItem().<br />
-%% 
-%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
+-doc """
+Inserts the given `item` before the position `pos`.
+
+Inserting the item at position `getMenuItemCount/1` is the same as appending it.
+
+See:
+* `append/5`
+
+* `prepend/5`
+""".
+%%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec insert(This, Pos, Id) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Id::integer();
       (This, Pos, MenuItem) -> wxMenuItem:wxMenuItem() when
@@ -338,8 +593,17 @@ insert(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=MenuItemT}=MenuItem)
   wxe_util:queue_cmd(This,Pos,MenuItem,?get_env(),?wxMenu_Insert_2),
   wxe_util:rec(?wxMenu_Insert_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
-%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
+-doc """
+Inserts the given `item` before the position `pos`.
+
+Inserting the item at position `getMenuItemCount/1` is the same as appending it.
+
+See:
+* `append/5`
+
+* `prepend/5`
+""".
+%%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec insert(This, Pos, Id, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Id::integer(),
 	Option :: {'text', unicode:chardata()}
@@ -356,7 +620,7 @@ insert(#wx_ref{type=ThisT}=This,Pos,Id, Options)
   wxe_util:queue_cmd(This,Pos,Id, Opts,?get_env(),?wxMenu_Insert_3),
   wxe_util:rec(?wxMenu_Insert_3).
 
-%% @equiv insert(This,Pos,Id,Text,Submenu, [])
+-doc(#{equiv => insert(This,Pos,Id,Text,Submenu, [])}).
 -spec insert(This, Pos, Id, Text, Submenu) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Id::integer(), Text::unicode:chardata(), Submenu::wxMenu().
 
@@ -364,7 +628,14 @@ insert(This,Pos,Id,Text,Submenu)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Id),?is_chardata(Text),is_record(Submenu, wx_ref) ->
   insert(This,Pos,Id,Text,Submenu, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
+-doc """
+Inserts the given `submenu` before the position `pos`.
+
+`text` is the text shown in the menu for it and `help` is the help string shown in the
+status bar when the submenu item is selected.
+
+See: `prepend/5`
+""".
 -spec insert(This, Pos, Id, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Id::integer(), Text::unicode:chardata(), Submenu::wxMenu(),
 	Option :: {'help', unicode:chardata()}.
@@ -379,7 +650,7 @@ insert(#wx_ref{type=ThisT}=This,Pos,Id,Text,#wx_ref{type=SubmenuT}=Submenu, Opti
   wxe_util:queue_cmd(This,Pos,Id,Text_UC,Submenu, Opts,?get_env(),?wxMenu_Insert_5),
   wxe_util:rec(?wxMenu_Insert_5).
 
-%% @equiv insertCheckItem(This,Pos,Id,Item, [])
+-doc(#{equiv => insertCheckItem(This,Pos,Id,Item, [])}).
 -spec insertCheckItem(This, Pos, Id, Item) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Id::integer(), Item::unicode:chardata().
 
@@ -387,7 +658,14 @@ insertCheckItem(This,Pos,Id,Item)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Id),?is_chardata(Item) ->
   insertCheckItem(This,Pos,Id,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsertcheckitem">external documentation</a>.
+-doc """
+Inserts a checkable item at the given position.
+
+See:
+* `insert/6`
+
+* `appendCheckItem/4`
+""".
 -spec insertCheckItem(This, Pos, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Id::integer(), Item::unicode:chardata(),
 	Option :: {'help', unicode:chardata()}.
@@ -401,7 +679,7 @@ insertCheckItem(#wx_ref{type=ThisT}=This,Pos,Id,Item, Options)
   wxe_util:queue_cmd(This,Pos,Id,Item_UC, Opts,?get_env(),?wxMenu_InsertCheckItem),
   wxe_util:rec(?wxMenu_InsertCheckItem).
 
-%% @equiv insertRadioItem(This,Pos,Id,Item, [])
+-doc(#{equiv => insertRadioItem(This,Pos,Id,Item, [])}).
 -spec insertRadioItem(This, Pos, Id, Item) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Id::integer(), Item::unicode:chardata().
 
@@ -409,7 +687,14 @@ insertRadioItem(This,Pos,Id,Item)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Id),?is_chardata(Item) ->
   insertRadioItem(This,Pos,Id,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsertradioitem">external documentation</a>.
+-doc """
+Inserts a radio item at the given position.
+
+See:
+* `insert/6`
+
+* `appendRadioItem/4`
+""".
 -spec insertRadioItem(This, Pos, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Id::integer(), Item::unicode:chardata(),
 	Option :: {'help', unicode:chardata()}.
@@ -423,7 +708,14 @@ insertRadioItem(#wx_ref{type=ThisT}=This,Pos,Id,Item, Options)
   wxe_util:queue_cmd(This,Pos,Id,Item_UC, Opts,?get_env(),?wxMenu_InsertRadioItem),
   wxe_util:rec(?wxMenu_InsertRadioItem).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsertseparator">external documentation</a>.
+-doc """
+Inserts a separator at the given position.
+
+See:
+* `insert/6`
+
+* `appendSeparator/1`
+""".
 -spec insertSeparator(This, Pos) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer().
 insertSeparator(#wx_ref{type=ThisT}=This,Pos)
@@ -432,7 +724,13 @@ insertSeparator(#wx_ref{type=ThisT}=This,Pos)
   wxe_util:queue_cmd(This,Pos,?get_env(),?wxMenu_InsertSeparator),
   wxe_util:rec(?wxMenu_InsertSeparator).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuischecked">external documentation</a>.
+-doc """
+Determines whether a menu item is checked.
+
+Return: true if the menu item is checked, false otherwise.
+
+See: `check/3`
+""".
 -spec isChecked(This, Id) -> boolean() when
 	This::wxMenu(), Id::integer().
 isChecked(#wx_ref{type=ThisT}=This,Id)
@@ -441,7 +739,13 @@ isChecked(#wx_ref{type=ThisT}=This,Id)
   wxe_util:queue_cmd(This,Id,?get_env(),?wxMenu_IsChecked),
   wxe_util:rec(?wxMenu_IsChecked).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuisenabled">external documentation</a>.
+-doc """
+Determines whether a menu item is enabled.
+
+Return: true if the menu item is enabled, false otherwise.
+
+See: `enable/3`
+""".
 -spec isEnabled(This, Id) -> boolean() when
 	This::wxMenu(), Id::integer().
 isEnabled(#wx_ref{type=ThisT}=This,Id)
@@ -450,12 +754,15 @@ isEnabled(#wx_ref{type=ThisT}=This,Id)
   wxe_util:queue_cmd(This,Id,?get_env(),?wxMenu_IsEnabled),
   wxe_util:rec(?wxMenu_IsEnabled).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
-%% <br /> Also:<br />
-%% prepend(This, Item) -> wxMenuItem:wxMenuItem() when<br />
-%% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
-%% 
-%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
+-doc """
+Inserts the given `item` at position 0, i.e. before all the other existing items.
+
+See:
+* `append/5`
+
+* `insert/6`
+""".
+%%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec prepend(This, Id) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer();
       (This, Item) -> wxMenuItem:wxMenuItem() when
@@ -470,8 +777,15 @@ prepend(#wx_ref{type=ThisT}=This,#wx_ref{type=ItemT}=Item) ->
   wxe_util:queue_cmd(This,Item,?get_env(),?wxMenu_Prepend_1),
   wxe_util:rec(?wxMenu_Prepend_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
-%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
+-doc """
+Inserts the given `item` at position 0, i.e. before all the other existing items.
+
+See:
+* `append/5`
+
+* `insert/6`
+""".
+%%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec prepend(This, Id, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(),
 	Option :: {'text', unicode:chardata()}
@@ -488,7 +802,7 @@ prepend(#wx_ref{type=ThisT}=This,Id, Options)
   wxe_util:queue_cmd(This,Id, Opts,?get_env(),?wxMenu_Prepend_2),
   wxe_util:rec(?wxMenu_Prepend_2).
 
-%% @equiv prepend(This,Id,Text,Submenu, [])
+-doc(#{equiv => prepend(This,Id,Text,Submenu, [])}).
 -spec prepend(This, Id, Text, Submenu) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Text::unicode:chardata(), Submenu::wxMenu().
 
@@ -496,7 +810,11 @@ prepend(This,Id,Text,Submenu)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Text),is_record(Submenu, wx_ref) ->
   prepend(This,Id,Text,Submenu, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
+-doc """
+Inserts the given `submenu` at position 0.
+
+See: `insert/6`
+""".
 -spec prepend(This, Id, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Text::unicode:chardata(), Submenu::wxMenu(),
 	Option :: {'help', unicode:chardata()}.
@@ -511,7 +829,7 @@ prepend(#wx_ref{type=ThisT}=This,Id,Text,#wx_ref{type=SubmenuT}=Submenu, Options
   wxe_util:queue_cmd(This,Id,Text_UC,Submenu, Opts,?get_env(),?wxMenu_Prepend_4),
   wxe_util:rec(?wxMenu_Prepend_4).
 
-%% @equiv prependCheckItem(This,Id,Item, [])
+-doc(#{equiv => prependCheckItem(This,Id,Item, [])}).
 -spec prependCheckItem(This, Id, Item) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
@@ -519,7 +837,14 @@ prependCheckItem(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
   prependCheckItem(This,Id,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprependcheckitem">external documentation</a>.
+-doc """
+Inserts a checkable item at position 0.
+
+See:
+* `prepend/5`
+
+* `appendCheckItem/4`
+""".
 -spec prependCheckItem(This, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata(),
 	Option :: {'help', unicode:chardata()}.
@@ -533,7 +858,7 @@ prependCheckItem(#wx_ref{type=ThisT}=This,Id,Item, Options)
   wxe_util:queue_cmd(This,Id,Item_UC, Opts,?get_env(),?wxMenu_PrependCheckItem),
   wxe_util:rec(?wxMenu_PrependCheckItem).
 
-%% @equiv prependRadioItem(This,Id,Item, [])
+-doc(#{equiv => prependRadioItem(This,Id,Item, [])}).
 -spec prependRadioItem(This, Id, Item) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
@@ -541,7 +866,14 @@ prependRadioItem(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
   prependRadioItem(This,Id,Item, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprependradioitem">external documentation</a>.
+-doc """
+Inserts a radio item at position 0.
+
+See:
+* `prepend/5`
+
+* `appendRadioItem/4`
+""".
 -spec prependRadioItem(This, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata(),
 	Option :: {'help', unicode:chardata()}.
@@ -555,7 +887,14 @@ prependRadioItem(#wx_ref{type=ThisT}=This,Id,Item, Options)
   wxe_util:queue_cmd(This,Id,Item_UC, Opts,?get_env(),?wxMenu_PrependRadioItem),
   wxe_util:rec(?wxMenu_PrependRadioItem).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprependseparator">external documentation</a>.
+-doc """
+Inserts a separator at position 0.
+
+See:
+* `prepend/5`
+
+* `appendSeparator/1`
+""".
 -spec prependSeparator(This) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu().
 prependSeparator(#wx_ref{type=ThisT}=This) ->
@@ -563,11 +902,14 @@ prependSeparator(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_PrependSeparator),
   wxe_util:rec(?wxMenu_PrependSeparator).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuremove">external documentation</a>.
-%% <br /> Also:<br />
-%% remove(This, Item) -> wxMenuItem:wxMenuItem() when<br />
-%% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
-%% 
+-doc """
+Removes the menu item from the menu but doesn't delete the associated C++ object.
+
+This allows you to reuse the same item later by adding it back to the menu (especially
+useful with submenus).
+
+Return: A pointer to the item which was detached from the menu.
+""".
 -spec remove(This, Id) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer();
       (This, Item) -> wxMenuItem:wxMenuItem() when
@@ -583,7 +925,11 @@ remove(#wx_ref{type=ThisT}=This,#wx_ref{type=ItemT}=Item) ->
   wxe_util:queue_cmd(This,Item,?get_env(),?wxMenu_Remove_1_1),
   wxe_util:rec(?wxMenu_Remove_1_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusethelpstring">external documentation</a>.
+-doc """
+Sets an item's help string.
+
+See: `getHelpString/2`
+""".
 -spec setHelpString(This, Id, HelpString) -> 'ok' when
 	This::wxMenu(), Id::integer(), HelpString::unicode:chardata().
 setHelpString(#wx_ref{type=ThisT}=This,Id,HelpString)
@@ -592,7 +938,14 @@ setHelpString(#wx_ref{type=ThisT}=This,Id,HelpString)
   HelpString_UC = unicode:characters_to_binary(HelpString),
   wxe_util:queue_cmd(This,Id,HelpString_UC,?get_env(),?wxMenu_SetHelpString).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusetlabel">external documentation</a>.
+-doc """
+Sets the label of a menu item.
+
+See:
+* `append/5`
+
+* `getLabel/2`
+""".
 -spec setLabel(This, Id, Label) -> 'ok' when
 	This::wxMenu(), Id::integer(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Id,Label)
@@ -601,7 +954,14 @@ setLabel(#wx_ref{type=ThisT}=This,Id,Label)
   Label_UC = unicode:characters_to_binary(Label),
   wxe_util:queue_cmd(This,Id,Label_UC,?get_env(),?wxMenu_SetLabel).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusettitle">external documentation</a>.
+-doc """
+Sets the title of the menu.
+
+Remark: Notice that you can only call this method directly for the popup menus, to change
+the title of a menu that is part of a menu bar you need to use `wxMenuBar:setLabelTop/3`.
+
+See: `getTitle/1`
+""".
 -spec setTitle(This, Title) -> 'ok' when
 	This::wxMenu(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT}=This,Title)
@@ -610,20 +970,20 @@ setTitle(#wx_ref{type=ThisT}=This,Title)
   Title_UC = unicode:characters_to_binary(Title),
   wxe_util:queue_cmd(This,Title_UC,?get_env(),?wxMenu_SetTitle).
 
-%% @doc Destroys this object, do not use object again
+-doc "Destroys the object".
 -spec destroy(This::wxMenu()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMenu),
   wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxEvtHandler
-%% @hidden
+-doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
-%% @hidden
+-doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
-%% @hidden
+-doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
-%% @hidden
+-doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
-%% @hidden
+-doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

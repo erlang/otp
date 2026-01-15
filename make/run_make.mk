@@ -1,4 +1,10 @@
-# ``Licensed under the Apache License, Version 2.0 (the "License");
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1999-2025. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
@@ -10,11 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # 
-# The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-# Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-# AB. All Rights Reserved.''
-# 
-#     $Id$
+# %CopyrightEnd%
 #
 # ----------------------------------------------------
 # This make include file runs make recursively on the Makefile
@@ -38,5 +40,7 @@ emu jit:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile FLAVOR=$@
 
 clean generate depend docs release release_spec release_docs release_docs_spec \
-  tests release_tests release_tests_spec static_lib xmllint format format-check compdb:
+  tests release_tests release_tests_spec static_lib format format-check compdb:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@
+
+.NOTPARALLEL:

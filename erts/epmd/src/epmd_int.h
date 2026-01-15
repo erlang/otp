@@ -2,7 +2,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +30,15 @@
 #ifdef __WIN32__
 #define NO_SYSCONF
 #define NO_DAEMON
+
+/*
+ * Increase FD_SETSIZE from 64 to 1024 by defining it before including
+ * <winsock2.h>.
+ *
+ * https://learn.microsoft.com/en-us/windows/win32/winsock/maximum-number-of-sockets-supported-2
+ */
+#define FD_SETSIZE 1024
+
 #endif
 
 /* ************************************************************************ */
@@ -95,6 +106,21 @@
 #define ASSERT(Cnd) do { if (!(Cnd)) { abort(); } } while(0)
 #else
 #define ASSERT(Cnd)
+#endif
+
+#if __GNUC__
+#  define __decl_noreturn
+#  ifndef __noreturn
+#     define __noreturn __attribute__((noreturn))
+#  endif
+#else
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
 #endif
 
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(HAVE_INET_PTON)
@@ -238,9 +264,9 @@ static const struct in6_addr in6addr_loopback =
 #define MAX_LISTEN_SOCKETS 16
 
 /*
- * Largest request: ALIVE2_REQ
+ * Largest request: EPMD_ALIVE2_REQ
  *  2 + 13 + 2*MAXSYMLEN
- * Largest response: PORT2_RESP
+ * Largest response: EPMD_PORT2_RESP
  *  2 + 14 + 2*MAXSYMLEN
  *
  * That is, 3*MAXSYMLEN should be large enough
@@ -343,7 +369,7 @@ void dbg_perror(EpmdVars*,const char*,...);
 void kill_epmd(EpmdVars*);
 void epmd_call(EpmdVars*,int);
 void run(EpmdVars*);
-void epmd_cleanup_exit(EpmdVars*, int);
+__decl_noreturn void __noreturn epmd_cleanup_exit(EpmdVars*, int);
 int epmd_conn_close(EpmdVars*,Connection*);
 void stop_cli(EpmdVars *g, char *name);
 

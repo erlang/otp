@@ -62,7 +62,7 @@
     {line,[{location,"unoptimized_literal_tests.erl",7}]}.
     {func_info,{atom,unoptimized_literal_tests},{atom,test},0}.
   {label,2}.
-    {allocate_zero,0,0}.
+    {allocate,0,0}.
     {move,{literal,[{is_boolean,42}]},{x,1}}.
     {move,{literal,"~p\n"},{x,0}}.
     {line,[{location,"unoptimized_literal_tests.erl",10}]}.

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -50,23 +52,37 @@
 -define(OPEN(C, P),              ?LIB:open(C, P, [])).
 -define(OPEN(C, P, O),           ?LIB:open(C, P, O)).
 
--define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
--define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
--define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
--define(WHICH_INET_BACKEND(C),   ?LIB:which_inet_backend(C)).
--define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
+-define(TTEST_CONDITION(),        ?LIB:ttest_condition()).
+-define(INET_BACKEND_OPTS(C),     ?LIB:inet_backend_opts(C)).
+-define(EXPLICIT_INET_BACKEND(),  ?LIB:explicit_inet_backend()).
+-define(EXPLICIT_INET_BACKEND(C), ?LIB:explicit_inet_backend(C)).
+-define(TEST_INET_BACKENDS(),     ?LIB:test_inet_backends()).
+-define(WHICH_INET_BACKEND(C),    ?LIB:which_inet_backend(C)).
+-define(IS_SOCKET_BACKEND(C),     ?LIB:is_socket_backend(C)).
+
+-define(ENSURE_NOT_DOG_SLOW(C, L), ?LIB:ensure_not_dog_slow((C), (L))).
 
 -define(HAS_SUPPORT_IPV4(),      ?LIB:has_support_ipv4()).
 -define(HAS_SUPPORT_IPV6(),      ?LIB:has_support_ipv6()).
 -define(WHICH_LOCAL_ADDR(D),     ?LIB:which_local_addr((D))).
+
+-define(SZ(X),                   ?LIB:sz((X))).
+
+-define(UNIQ_NODE_NAME,
+  list_to_atom(?MODULE_STRING ++ "__" ++
+               atom_to_list(?FUNCTION_NAME) ++ "_" ++
+               integer_to_list(erlang:unique_integer([positive])))).
 
 -define(START_NODE(__N__, __A__),
         ?LIB:start_node(__N__, __A__)).
 -define(START_NODE(__N__, __A__, __O__),
         ?LIB:start_node(__N__, __A__, __O__)).
 
--define(STOP_NODE(__N__),        ?LIB:stop_node(__N__)).
-                         
+-define(STOP_NODE(__N__),        ?LIB:stop_node((__N__))).
+
+-define(MQ(),                    ?LIB:mq()).
+-define(MQ(P),                   ?LIB:mq((P))).
+               
 -define(F(FORMAT, ARGS),         ?LIB:f((FORMAT), (ARGS))).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).
@@ -77,5 +93,8 @@
 
 -define(SLEEP(T),                ct:sleep(T)).
 -define(TT(T),                   ct:timetrap(T)).
+
+-define(TS(),                    ?LIB:ts()).
+-define(TS(TU),                  ?LIB:ts((TU))).
 
 -endif. % -ifdef(kernel_test_lib_hrl).

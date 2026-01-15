@@ -1,3 +1,11 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 1999-2002 Richard Carlsson
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,9 +18,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 1999-2002 Richard Carlsson
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Core Erlang inliner.
+%% %CopyrightEnd%
+%%
+%% Core Erlang inliner.
 
 %% =====================================================================
 %%
@@ -29,6 +37,9 @@
 %% TODO: inline single-source-reference operands without size limit.
 
 -module(cerl_inline).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 -export([core_transform/2, transform/1, transform/2]).
 
@@ -373,18 +384,18 @@ i_data(E, Ctxt, Ren, Env, S) ->
                     %% Note that this will count the sizes of the
                     %% subexpressions, even though some or all of them
                     %% might be discarded by the sequencing afterwards.
-                    {Es1, S1} = mapfoldl(fun (E, S) ->
-						 i(E, effect, Ren, Env,
-						   S)
+                    {Es1, S1} = mapfoldl(fun (E_i, S_i) ->
+						 i(E_i, effect, Ren, Env,
+						   S_i)
 					 end,
 					 S, data_es(E)),
                     E1 = foldl(fun (E1, E2) -> make_seq(E1, E2) end,
 			       void(), Es1),
                     {E1, S1};
                 _ ->
-                    {Es1, S1} = mapfoldl(fun (E, S) ->
-						 i(E, value, Ren, Env,
-						   S)
+                    {Es1, S1} = mapfoldl(fun (E_i, S_i) ->
+						 i(E_i, value, Ren, Env,
+						   S_i)
 					 end,
 					 S, data_es(E)),
                     %% The total size/cost is the base cost for a data
@@ -473,8 +484,8 @@ i_values(E, Ctxt, Ren, Env, S) ->
 	    case Ctxt of
 		effect ->
 		    {Es1, S1} =
-			mapfoldl(fun (E, S) ->
-					 i(E, effect, Ren, Env, S)
+			mapfoldl(fun (E_i, S_i) ->
+					 i(E_i, effect, Ren, Env, S_i)
 				 end,
 				 S, Es),
 		    E1 = foldl(fun (E1, E2) ->
@@ -483,9 +494,9 @@ i_values(E, Ctxt, Ren, Env, S) ->
 			       void(), Es1),
 		    {E1, S1};    % drop annotations on E
 		_ ->
-		    {Es1, S1} = mapfoldl(fun (E, S) ->
-						 i(E, value, Ren, Env,
-						   S)
+		    {Es1, S1} = mapfoldl(fun (E_i, S_i) ->
+						 i(E_i, value, Ren, Env,
+						   S_i)
 					 end,
 					 S, Es),
 		    %% Aggregating values does not write them to memory,
@@ -561,8 +572,8 @@ i_let_2(Vs, As, E, Ctxt, Ren, Env, S) ->
     %% Make operand structures for the argument components. Note that
     %% since the argument has already been visited at this point, we use
     %% the identity renaming for the operands.
-    {Opnds, S1} = mapfoldl(fun (E, S) ->
-                                   make_opnd(E, ren__identity(), Env, S)
+    {Opnds, S1} = mapfoldl(fun (E_i, S_i) ->
+                                   make_opnd(E_i, ren__identity(), Env, S_i)
                            end,
                            S, As),
     %% Create local bindings from the parameters to their respective
@@ -716,11 +727,13 @@ i_case_3(Vs, Env, E, S) ->
 i_clauses(Cs, Ctxt, Ren, Env, S) ->
     i_clauses([], Cs, Ctxt, Ren, Env, S).
 
+%% REUSE-IgnoreStart
+
 i_clauses(Es, Cs, Ctxt, Ren, Env, S) ->
     %% Create templates for the switch expressions.
-    {Ts, {Vs, Env0}} = mapfoldl(fun (E, {Vs, Env}) ->
+    {Ts, {Vs, Env0}} = mapfoldl(fun (E, {Vs, Env_i}) ->
 					{T, Vs1, Env1} =
-					    make_template(E, Env),
+					    make_template(E, Env_i),
 					{T, {Vs1 ++ Vs, Env1}}
 				end,
 				{[], Env}, Es),
@@ -734,12 +747,12 @@ i_clauses(Es, Cs, Ctxt, Ren, Env, S) ->
     %% identity renaming is used for the operands.
     Vs1 = lists:reverse(Vs),
     {Ren1, Env1, S1} =
-	foldl(fun (V, {Ren, Env, S}) ->
+	foldl(fun (V, {Ren_i, Env_i, S_i}) ->
 		      E = env__get(var_name(V), Env0),
-		      {Opnd, S_1} = make_opnd(E, ren__identity(), Env,
-					      S),
+		      {Opnd, S_1} = make_opnd(E, ren__identity(), Env_i,
+					      S_i),
 		      {_, Ren1, Env1, S_2} = bind_locals([V], [Opnd],
-							 Ren, Env, S_1),
+							 Ren_i, Env_i, S_1),
 		      {Ren1, Env1, S_2}
 	      end,
 	      {Ren, Env, S}, Vs1),
@@ -748,8 +761,8 @@ i_clauses(Es, Cs, Ctxt, Ren, Env, S) ->
     %% pattern variables, inserting let-bindings in the guard and body,
     %% and visiting the guard. The information used for visiting the
     %% clause body will be prefixed to the clause annotations.
-    {Cs1, S2} = mapfoldl(fun (C, S) ->
-				 i_clause_head(C, Ts, Ren1, Env1, S)
+    {Cs1, S2} = mapfoldl(fun (C, S_i) ->
+				 i_clause_head(C, Ts, Ren1, Env1, S_i)
 			 end,
 			 S1, Cs),
     
@@ -765,8 +778,8 @@ i_clauses(Es, Cs, Ctxt, Ren, Env, S) ->
             %% the current size counter) and return the final list of
             %% clauses.
             {Cs3, S3} = mapfoldl(
-                          fun (C, S) ->
-                                  i_clause_body(C, Ctxt, S)
+                          fun (C, S_i) ->
+                                  i_clause_body(C, Ctxt, S_i)
                           end,
                           S2, Cs2),
             {false, {As, Vs1, Env1, Cs3}, S3};
@@ -803,8 +816,8 @@ i_clause_head(C, Ts, Ren, Env, S) ->
     %% included in the returned value below.
     {_, Ren1, Env1, S1} = bind_locals(clause_vars(C), Ren, Env, S),
     S2 = new_passive_size(get_size_limit(S1), S1),
-    {Ps1, S3} = mapfoldl(fun (P, S) ->
-				 i_pattern(P, Ren1, Env1, Ren, Env, S)
+    {Ps1, S3} = mapfoldl(fun (P, S_i) ->
+				 i_pattern(P, Ren1, Env1, Ren, Env, S_i)
 			 end,
 			 S2, Ps),
     
@@ -827,6 +840,8 @@ i_clause_head(C, Ts, Ren, Env, S) ->
     C1 = update_c_clause(C, Ps1, G1, B),
     {set_clause_extras(C1, Ren1, Env1, Size), revert_size(S, S5)}.
 
+%% REUSE-IgnoreEnd
+
 add_match_bindings(Bs, E) ->
     %% Don't waste time if the variables definitely cannot be used.
     %% (Most guards are simply `true'.)
@@ -834,10 +849,12 @@ add_match_bindings(Bs, E) ->
 	true ->
 	    E;
 	false ->
-	    Vs = [V || {V, E} <- Bs, E =/= any],
-	    Es = [hd(get_ann(E)) || {_V, E} <- Bs, E =/= any],
+	    Vs = [V || {V, E_i} <:- Bs, E_i =/= any],
+	    Es = [hd(get_ann(E_i)) || {_V, E_i} <:- Bs, E_i =/= any],
 	    c_let(Vs, c_values(Es), E)
     end.
+
+%% REUSE-IgnoreStart
 
 i_clause_body(C0, Ctxt, S) ->
     {C, Ren, Env, Size} = get_clause_extras(C0),
@@ -845,6 +862,8 @@ i_clause_body(C0, Ctxt, S) ->
     {B, S2} = i(clause_body(C), Ctxt, Ren, Env, S1),
     C1 = update_c_clause(C, clause_pats(C), clause_guard(C), B),
     {C1, S2}.
+
+%% REUSE-IgnoreEnd
 
 get_clause_extras(C) ->
     [{Ren, Env, Size} | As] = get_ann(C),
@@ -927,14 +946,14 @@ i_letrec(Es, B, Xs, Ctxt, Ren, Env, NoInline, S) ->
     %% First, we create operands with dummy renamings and environments,
     %% and with fresh store locations for cached expressions and operand
     %% info.
-    {Opnds, S1} = mapfoldl(fun ({_, E}, S) ->
+    {Opnds, S1} = mapfoldl(fun ({_, E}, S_i) ->
                                    make_opnd(E, undefined, undefined,
-                                             NoInline, S)
+                                             NoInline, S_i)
                            end,
                            S, Es),
 
     %% Then we make recursive bindings for the definitions.
-    {Rs, Ren1, Env1, S2} = bind_recursive([F || {F, _} <- Es],
+    {Rs, Ren1, Env1, S2} = bind_recursive([F || {F, _} <:- Es],
                                           Opnds, Ren, Env, S1),
     
     %% For the function variables listed in Xs (none for a
@@ -944,11 +963,11 @@ i_letrec(Es, B, Xs, Ctxt, Ren, Env, NoInline, S) ->
     %% function variables.
     {Xs1, S3} =
         mapfoldl(
-          fun (X, S) ->
+          fun (X, S_i) ->
                   Name = ren__map(var_name(X), Ren1),
                   case env__lookup(Name, Env1) of
                       {ok, R} ->
-                          S_1 = i_letrec_export(R, S),
+                          S_1 = i_letrec_export(R, S_i),
                           {ref_to_var(R), S_1};
                       error ->
                           %% We just skip any exports that are not
@@ -957,7 +976,7 @@ i_letrec(Es, B, Xs, Ctxt, Ren, Env, NoInline, S) ->
                           {N, A} = var_name(X),
                           report_warning("export `~w'/~w "
 					 "not defined.\n", [N, A]),
-                          {X, S}
+                          {X, S_i}
                   end
           end,
           S2, Xs),
@@ -970,8 +989,8 @@ i_letrec(Es, B, Xs, Ctxt, Ren, Env, NoInline, S) ->
     %% been visited; the call to `visit' below is expected to retrieve a
     %% cached expression.
     Rs1 = keep_referenced(Rs, S4),
-    {Es1, S5} = mapfoldl(fun (R, S) ->
-				 {E_1, S_1} = visit(R#ref.opnd, S),
+    {Es1, S5} = mapfoldl(fun (R, S_i) ->
+				 {E_1, S_1} = visit(R#ref.opnd, S_i),
 				 {{ref_to_var(R), E_1}, S_1}
 			 end,
 			 S4, Rs1),
@@ -996,8 +1015,8 @@ i_letrec_export(R, S) ->
 %% expressions.
 
 i_apply(E, Ctxt, Ren, Env, S) ->
-    {Opnds, S1} = mapfoldl(fun (E, S) ->
-                                   make_opnd(E, Ren, Env, S)
+    {Opnds, S1} = mapfoldl(fun (E_i, S_i) ->
+                                   make_opnd(E_i, Ren, Env, S_i)
                            end,
                            S, apply_args(E)),
 
@@ -1025,8 +1044,8 @@ i_apply(E, Ctxt, Ren, Env, S) ->
             %% Otherwise, `E1' is the residual operator expression. We
             %% make sure all operands are visited, and rebuild the
             %% application.
-            {Es, S4} = mapfoldl(fun (Opnd, S) ->
-					visit_and_count_size(Opnd, S)
+            {Es, S4} = mapfoldl(fun (Opnd, S_i) ->
+					visit_and_count_size(Opnd, S_i)
 				end,
 				S3, Opnds),
             Arity = length(Es),
@@ -1169,8 +1188,8 @@ i_call_4(M, F, As, E, Ctxt, Env, S) ->
 
 i_primop(E, Ren, Env, S) ->
     %% Visit the arguments for value.
-    {As, S1} = mapfoldl(fun (E, S) ->
-				i(E, value, Ren, Env, S)
+    {As, S1} = mapfoldl(fun (E_i, S_i) ->
+				i(E_i, value, Ren, Env, S_i)
 			end,
 			S, primop_args(E)),
     N = weight(primop) + weight(argument) * length(As),
@@ -1323,8 +1342,8 @@ i_module_on_load([]) -> none.
 
 i_binary(E, Ren, Env, S) ->
     %% Visit the segments for value.
-    {Es, S1} = mapfoldl(fun (E, S) ->
-				i_bitstr(E, Ren, Env, S)
+    {Es, S1} = mapfoldl(fun (E_i, S_i) ->
+				i_bitstr(E_i, Ren, Env, S_i)
 			end,
 			S, binary_segments(E)),
     S2 = count_size(weight(binary), S1),
@@ -1344,8 +1363,8 @@ i_bitstr(E, Ren, Env, S) ->
 i_map(E, Ctx, Ren, Env, S0) ->
     %% Visit the segments for value.
     {M1, S1} = i(map_arg(E), value, Ren, Env, S0),
-    {Es, S2} = mapfoldl(fun (E, S) ->
-		i_map_pair(E, Ctx, Ren, Env, S)
+    {Es, S2} = mapfoldl(fun (E_i, S_i) ->
+		i_map_pair(E_i, Ctx, Ren, Env, S_i)
 	end, S1, map_es(E)),
     S3 = count_size(weight(map), S2),
     {update_c_map(E, M1,Es), S3}.
@@ -1412,16 +1431,16 @@ i_pattern(E, Ren, Env, Ren0, Env0, S) ->
 		    exit(error)
 	    end;
 	binary ->
-	    {Es, S1} = mapfoldl(fun (E, S) ->
-					i_bitstr_pattern(E, Ren, Env,
-							  Ren0, Env0, S)
+	    {Es, S1} = mapfoldl(fun (E_i, S_i) ->
+					i_bitstr_pattern(E_i, Ren, Env,
+							  Ren0, Env0, S_i)
 				end,
 				S, binary_segments(E)),
 	    S2 = count_size(weight(binary), S1),
 	    {update_c_binary(E, Es), S2};
 	map ->
-	    {Es, S1} = mapfoldl(fun (E, S) ->
-			i_map_pair_pattern(E, Ren, Env, Ren0, Env0, S)
+	    {Es, S1} = mapfoldl(fun (E_i, S_i) ->
+			i_map_pair_pattern(E_i, Ren, Env, Ren0, Env0, S_i)
 		end, S, map_es(E)),
 	    S2 = count_size(weight(map), S1),
 	    {update_c_map(E, map_arg(E), Es), S2};
@@ -1430,10 +1449,10 @@ i_pattern(E, Ren, Env, Ren0, Env0, S) ->
 		true ->
                     {E, count_size(weight(literal), S)};
 		false ->
-		    {Es1, S1} = mapfoldl(fun (E, S) ->
-						 i_pattern(E, Ren, Env,
+		    {Es1, S1} = mapfoldl(fun (E_i, S_i) ->
+						 i_pattern(E_i, Ren, Env,
 							   Ren0, Env0,
-							   S)
+							   S_i)
 					 end,
 					 S, data_es(E)),
 		    %% We assume that in general, the elements of the
@@ -2042,9 +2061,9 @@ bind_recursive(Vs, Opnds, Ren, Env, S) ->
     %% When this fun-expression is evaluated, it updates the operand
     %% structure in the ref-structure to contain the recursively defined
     %% environment and the correct renaming.
-    Fun = fun (R, Env) ->
+    Fun = fun (R, Env_i) ->
 		  Opnd = R#ref.opnd,
-		  R#ref{opnd = Opnd#opnd{ren = Ren1, env = Env}}
+		  R#ref{opnd = Opnd#opnd{ren = Ren1, env = Env_i}}
 	  end,
     {Rs, Ren1, env__bind_recursive(Ns, Rs, Fun, Env1), S1}.
 
@@ -2086,7 +2105,7 @@ keep_referenced(Rs, S) ->
     [R || R <- Rs, st__get_var_referenced(R#ref.loc, S)].
 
 residualize_operands(Opnds, E, S) ->
-    foldr(fun (Opnd, {E, S}) -> residualize_operand(Opnd, E, S) end,
+    foldr(fun (Opnd, {E_i, S_i}) -> residualize_operand(Opnd, E_i, S_i) end,
           {E, S}, Opnds).
 
 %% This is the only case where an operand expression can be visited in
@@ -2183,16 +2202,16 @@ make_template(E, Vs0, Env0) ->
     case is_data(E) of
 	true ->
 	    {Ts, {Vs1, Env1}} = mapfoldl(
-				  fun (E, {Vs0, Env0}) ->
+				  fun (E_i, {Vs0_i, Env0_i}) ->
 					  {T, Vs1, Env1} =
-					      make_template(E, Vs0,
-							    Env0),
+					      make_template(E_i, Vs0_i,
+							    Env0_i),
 					  {T, {Vs1, Env1}}
 				  end,
 				  {Vs0, Env0}, data_es(E)),
 	    T = make_data_skel(data_type(E), Ts),
 	    E1 = update_data(E, data_type(E),
-			     [hd(get_ann(T)) || T <- Ts]),
+			     [hd(get_ann(T_i)) || T_i <- Ts]),
 	    V = new_template_var(Env1),
 	    Env2 = env__bind(var_name(V), E1, Env1),
 	    {set_ann(T, [V]), [V | Vs1], Env2};
@@ -2690,13 +2709,13 @@ st__test_inner_pending(L, S) ->
     P =< 0.
 
 st__mark_inner_pending(L, S) ->
-    ets:update_counter(S#state.opnd_flags, L,
-		       {#opnd_flags.inner_pending, -1}),
+    _ = ets:update_counter(S#state.opnd_flags, L,
+                           {#opnd_flags.inner_pending, -1}),
     S.
 
 st__clear_inner_pending(L, S) ->
-    ets:update_counter(S#state.opnd_flags, L,
-		       {#opnd_flags.inner_pending, 1}),
+    _ = ets:update_counter(S#state.opnd_flags, L,
+                           {#opnd_flags.inner_pending, 1}),
     S.
 
 st__test_outer_pending(L, S) ->
@@ -2705,13 +2724,13 @@ st__test_outer_pending(L, S) ->
     P =< 0.
 
 st__mark_outer_pending(L, S) ->
-    ets:update_counter(S#state.opnd_flags, L,
-		       {#opnd_flags.outer_pending, -1}),
+    _ = ets:update_counter(S#state.opnd_flags, L,
+                           {#opnd_flags.outer_pending, -1}),
     S.
 
 st__clear_outer_pending(L, S) ->
-    ets:update_counter(S#state.opnd_flags, L,
-		       {#opnd_flags.outer_pending, 1}),
+    _ = ets:update_counter(S#state.opnd_flags, L,
+                           {#opnd_flags.outer_pending, 1}),
     S.
 
 st__new_app_loc(S) ->

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,38 +21,7 @@
 %%
 -module(lists_prop).
 
--compile([export_all, nowarn_export_all]).
-
--proptest(eqc).
--proptest([triq, proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC, true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
-
--define(RANDOM_ATOMS, 1000).
+-include_lib("common_test/include/ct_property_test.hrl").
 
 %%%%%%%%%%%%%%%%%%
 %%% Properties %%%
@@ -60,7 +31,7 @@
 prop_all_true() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         lists:all(fun(_) -> true end, InList)
     ).
 
@@ -69,7 +40,9 @@ prop_all_false() ->
         {InList, Elem},
         ?LET(
             {F, R, E},
-            {gen_list(), gen_list(), make_ref()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             make_ref()},
             {F ++ [E|R], E}
         ),
         not lists:all(fun(T) -> T =/= Elem end, InList)
@@ -81,7 +54,9 @@ prop_any_true() ->
         {InList, Elem},
         ?LET(
             {F, R, E},
-            {gen_list(), gen_list(), make_ref()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             make_ref()},
             {F ++ [E|R], E}
         ),
         lists:any(fun(T) -> T =:= Elem end, InList)
@@ -90,7 +65,7 @@ prop_any_true() ->
 prop_any_false() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         not lists:any(fun(_) -> false end, InList)
     ).
 
@@ -98,7 +73,7 @@ prop_any_false() ->
 prop_append_1() ->
     ?FORALL(
         InLists,
-        list(gen_list()),
+        list(ct_proper_ext:safe_list()),
         check_appended(InLists, lists:append(InLists))
     ).
 
@@ -106,7 +81,7 @@ prop_append_1() ->
 prop_append_2() ->
     ?FORALL(
         {InList1, InList2},
-        {gen_list(), gen_list()},
+        {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
         lists:append(InList1, InList2) =:= InList1 ++ InList2
     ).
 
@@ -115,7 +90,7 @@ prop_concat() ->
     ?FORALL(
         {InList, ExpString},
         gen_list_fold(
-            oneof([gen_atom(), number(), string()]),
+            oneof([ct_proper_ext:safe_atom(), number(), string()]),
             fun
                 (A, Acc) when is_atom(A) -> Acc ++ atom_to_list(A);
                 (I, Acc) when is_integer(I) -> Acc ++ integer_to_list(I);
@@ -133,7 +108,9 @@ prop_delete() ->
         {InList, DelElem},
         ?LET(
             {F, R, E},
-            {gen_list(), gen_list(), gen_any()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_any()},
             {F ++ [E|R], E}
         ),
         begin
@@ -146,7 +123,7 @@ prop_delete() ->
 prop_delete_absent() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         lists:delete(make_ref(), InList) =:= InList
     ).
 
@@ -154,7 +131,7 @@ prop_delete_absent() ->
 prop_droplast() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         try
             lists:droplast(InList) =:= lists:reverse(tl(lists:reverse(InList)))
         catch
@@ -173,7 +150,7 @@ prop_dropwhile() ->
             ?LET(
                 {L, {_, DL}},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(E, {Drop, Acc}) ->
                         case Drop andalso Fn(E) of
                             true -> {true, Acc};
@@ -194,7 +171,7 @@ prop_duplicate() ->
         {N, Term, ExpList},
         ?LET(
             T,
-            gen_any(),
+            ct_proper_ext:safe_any(),
             ?LET(L, list(T), {length(L), T, L})
         ),
         lists:duplicate(N, Term) =:= ExpList
@@ -207,7 +184,7 @@ prop_enumerate_1() ->
         ?LET(
             {L, {_, EL}},
             gen_list_fold(
-                gen_any(),
+                ct_proper_ext:safe_any(),
                 fun(T, {I, Acc}) ->
                     {I + 1, Acc ++ [{I, T}]}
                 end,
@@ -228,7 +205,7 @@ prop_enumerate_2() ->
             ?LET(
                 {L, {_, EL}},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(T, {I, Acc}) ->
                         {I + 1, Acc ++ [{I, T}]}
                     end,
@@ -250,7 +227,7 @@ prop_enumerate_3() ->
             ?LET(
                 {L, {_, EL}},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(T, {I, Acc}) ->
                         {I + S, Acc ++ [{I, T}]}
                     end,
@@ -272,7 +249,7 @@ prop_filter() ->
             ?LET(
                 {L, F},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(T, Acc) ->
                         case P(T) of
                             true -> Acc ++ [T];
@@ -293,11 +270,11 @@ prop_filtermap() ->
         {FilterMapFn, InList, ExpList},
         ?LET(
             Fn,
-            function1(oneof([true, false, {true, gen_any()}])),
+            function1(oneof([true, false, {true, ct_proper_ext:safe_any()}])),
             ?LET(
                 {L, FM},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(T, Acc) ->
                         case Fn(T) of
                             false -> Acc;
@@ -327,11 +304,11 @@ prop_flatmap() ->
         {MapFn, InList, ExpList},
         ?LET(
             Fn,
-            function1(gen_list()),
+            function1(ct_proper_ext:safe_list()),
             ?LET(
                 {L, FlatMapped},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(T, Acc) ->
                         Acc ++ Fn(T)
                     end,
@@ -355,7 +332,8 @@ prop_flatten_1() ->
 prop_flatten_2() ->
     ?FORALL(
         {{DeepList, FlatList}, Tail},
-        {gen_list_deepfold(fun(_, E, Acc) -> Acc ++ [E] end, []), gen_list()},
+        {gen_list_deepfold(fun(_, E, Acc) -> Acc ++ [E] end, []),
+         ct_proper_ext:safe_list()},
         lists:flatten(DeepList, Tail) =:= FlatList ++ Tail
     ).
 
@@ -365,10 +343,10 @@ prop_foldl() ->
         {FoldFn, InList, Acc0, Exp},
         ?LET(
             {Fn, Acc0},
-            {function2(gen_any()), gen_any()},
+            {function2(ct_proper_ext:safe_any()), ct_proper_ext:safe_any()},
             ?LET(
                 {L, V},
-                gen_list_fold(gen_any(), Fn, Acc0),
+                gen_list_fold(ct_proper_ext:safe_any(), Fn, Acc0),
                 {Fn, L, Acc0, V}
             )
         ),
@@ -381,10 +359,10 @@ prop_foldr() ->
         {FoldFn, InList, Acc0, Exp},
         ?LET(
             {Fn, Acc0},
-            {function2(gen_any()), gen_any()},
+            {function2(ct_proper_ext:safe_any()), ct_proper_ext:safe_any()},
             ?LET(
                 {L, V},
-                gen_list_fold(gen_any(), Fn, Acc0),
+                gen_list_fold(ct_proper_ext:safe_any(), Fn, Acc0),
                 {Fn, lists:reverse(L), Acc0, V}
             )
         ),
@@ -395,7 +373,7 @@ prop_foldr() ->
 prop_foreach() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         begin
             Tag = make_ref(),
             lists:foreach(fun(E) -> self() ! {Tag, E} end, InList),
@@ -407,7 +385,7 @@ prop_foreach() ->
 prop_join() ->
     ?FORALL(
         {Sep, InList},
-        {gen_any(), gen_list()},
+        {ct_proper_ext:safe_any(), ct_proper_ext:safe_list()},
         check_joined(Sep, InList, lists:join(Sep, InList))
     ).
 
@@ -417,10 +395,12 @@ prop_keydelete() ->
         {Key, N, InList},
         ?LET(
             {K, N},
-            {gen_any(), range(1, 5)},
+            {ct_proper_ext:safe_any(), range(1, 5)},
             ?LET(
                 {F, R, E},
-                {gen_list(), gen_list(), gen_keytuple(K, N, N + 3)},
+                {ct_proper_ext:safe_list(),
+                 ct_proper_ext:safe_list(),
+                 gen_keytuple(K, N, N + 3)},
                 {K, N, F ++ [E|R]}
             )
         ),
@@ -434,7 +414,7 @@ prop_keydelete() ->
 prop_keydelete_absent() ->
     ?FORALL(
         {N, InList},
-        {pos_integer(), gen_list()},
+        {pos_integer(), ct_proper_ext:safe_list()},
         lists:keydelete(make_ref(), N, InList) =:= InList
     ).
 
@@ -444,10 +424,12 @@ prop_keyfind() ->
         {Key, N, InList},
         ?LET(
             {K, N},
-            {gen_any(), range(1, 5)},
+            {ct_proper_ext:safe_any(), range(1, 5)},
             ?LET(
                 {F, R, E},
-                {gen_list(), gen_list(), gen_keytuple(K, N, N + 3)},
+                {ct_proper_ext:safe_list(),
+                 ct_proper_ext:safe_list(),
+                 gen_keytuple(K, N, N + 3)},
                 {K, N, F ++ [E|R]}
             )
         ),
@@ -462,7 +444,7 @@ prop_keyfind() ->
 prop_keyfind_absent() ->
     ?FORALL(
         {N, InList},
-        {pos_integer(), gen_list()},
+        {pos_integer(), ct_proper_ext:safe_list()},
         not lists:keyfind(make_ref(), N, InList)
     ).
 
@@ -472,7 +454,7 @@ prop_keymap() ->
         {MapFn, N, InList, ExpList},
         ?LET(
             Fn,
-            function([gen_any()], gen_any()),
+            function([ct_proper_ext:safe_any()], ct_proper_ext:safe_any()),
             ?LET(
                 N,
                 range(1, 5),
@@ -498,10 +480,12 @@ prop_keymember() ->
         {Key, N, InList},
         ?LET(
             {K, N},
-            {gen_any(), range(1, 5)},
+            {ct_proper_ext:safe_any(), range(1, 5)},
             ?LET(
                 {F, R, E},
-                {gen_list(), gen_list(), gen_keytuple(K, N, N + 3)},
+                {ct_proper_ext:safe_list(),
+                 ct_proper_ext:safe_list(),
+                 gen_keytuple(K, N, N + 3)},
                 {K, N, F ++ [E|R]}
             )
         ),
@@ -511,7 +495,7 @@ prop_keymember() ->
 prop_keymember_absent() ->
     ?FORALL(
         {N, InList},
-        {pos_integer(), gen_list()},
+        {pos_integer(), ct_proper_ext:safe_list()},
         not lists:keymember(make_ref(), N, InList)
     ).
 
@@ -558,10 +542,13 @@ prop_keyreplace() ->
         {Key, N, InList, Replacement},
         ?LET(
             {K, N},
-            {gen_any(), range(1, 5)},
+            {ct_proper_ext:safe_any(), range(1, 5)},
             ?LET(
                 {F, R, E0, E1},
-                {gen_list(), gen_list(), gen_keytuple(K, N, N + 3), gen_tuple()},
+                {ct_proper_ext:safe_list(),
+                 ct_proper_ext:safe_list(),
+                 gen_keytuple(K, N, N + 3),
+                 gen_tuple()},
                 {K, N, F ++ [E0|R], E1}
             )
         ),
@@ -571,7 +558,7 @@ prop_keyreplace() ->
 prop_keyreplace_absent() ->
     ?FORALL(
         {N, InList, Replacement},
-        {pos_integer(), gen_list(), gen_tuple()},
+        {pos_integer(), ct_proper_ext:safe_list(), gen_tuple()},
         lists:keyreplace(make_ref(), N, InList, Replacement) =:= InList
     ).
 
@@ -581,10 +568,12 @@ prop_keysearch() ->
         {Key, N, InList},
         ?LET(
             {K, N},
-            {gen_any(), range(1, 5)},
+            {ct_proper_ext:safe_any(), range(1, 5)},
             ?LET(
                 {F, R, E},
-                {gen_list(), gen_list(), gen_keytuple(K, N, N + 3)},
+                {ct_proper_ext:safe_list(),
+                 ct_proper_ext:safe_list(),
+                 gen_keytuple(K, N, N + 3)},
                 {K, N, F ++ [E|R]}
             )
         ),
@@ -599,7 +588,7 @@ prop_keysearch() ->
 prop_keysearch_absent() ->
     ?FORALL(
         {N, InList},
-        {pos_integer(), gen_list()},
+        {pos_integer(), ct_proper_ext:safe_list()},
         not lists:keysearch(make_ref(), N, InList)
     ).
 
@@ -625,10 +614,13 @@ prop_keystore() ->
         {Key, N, InList, ToStore},
         ?LET(
             {K, N},
-            {gen_any(), range(1, 5)},
+            {ct_proper_ext:safe_any(), range(1, 5)},
             ?LET(
                 {F, R, E0, E1},
-                {gen_list(), gen_list(), gen_keytuple(K, N, N + 3), gen_tuple()},
+                {ct_proper_ext:safe_list(),
+                 ct_proper_ext:safe_list(),
+                 gen_keytuple(K, N, N + 3),
+                 gen_tuple()},
                 {K, N, F ++ [E0|R], E1}
             )
         ),
@@ -638,7 +630,7 @@ prop_keystore() ->
 prop_keystore_absent() ->
     ?FORALL(
         {N, InList, ToStore},
-        {pos_integer(), gen_list(), gen_tuple()},
+        {pos_integer(), ct_proper_ext:safe_list(), gen_tuple()},
         lists:keystore(make_ref(), N, InList, ToStore) =:= InList ++ [ToStore]
     ).
 
@@ -651,7 +643,9 @@ prop_keytake() ->
            {make_ref(), range(1, 5)},
            ?LET(
                {F, R, E},
-            {gen_list(), gen_list(), gen_keytuple(K, N, N + 3)},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             gen_keytuple(K, N, N + 3)},
             {K, N, F ++ [E|R], F ++ R, E}
            )
         ),
@@ -661,7 +655,7 @@ prop_keytake() ->
 prop_keytake_absent() ->
     ?FORALL(
         {N, InList},
-        {pos_integer(), gen_list()},
+        {pos_integer(), ct_proper_ext:safe_list()},
         lists:keytake(make_ref(), N, InList) =:= false
     ).
 
@@ -669,7 +663,7 @@ prop_keytake_absent() ->
 prop_last() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         try
             lists:last(InList) =:= hd(lists:reverse(InList))
         catch
@@ -684,11 +678,11 @@ prop_map() ->
         {MapFn, InList, ExpList},
         ?LET(
             Fn,
-            function1(gen_any()),
+            function1(ct_proper_ext:safe_any()),
             ?LET(
                 {L, M},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(T, Acc) ->
                         Acc ++ [Fn(T)]
                     end,
@@ -706,11 +700,13 @@ prop_mapfoldl() ->
         {MapFoldFn, InList, Acc0, Exp},
         ?LET(
             {MapFn, FoldFn, Acc0},
-            {function1(gen_any()), function2(gen_any()), gen_any()},
+            {function1(ct_proper_ext:safe_any()),
+             function2(ct_proper_ext:safe_any()),
+             ct_proper_ext:safe_any()},
             ?LET(
                 {L, MV},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(T, {AccM, AccF}) ->
                         {AccM ++ [MapFn(T)], FoldFn(T, AccF)}
                     end,
@@ -728,11 +724,13 @@ prop_mapfoldr() ->
         {MapFoldFn, InList, Acc0, Exp},
         ?LET(
             {MapFn, FoldFn, Acc0},
-            {function1(gen_any()), function2(gen_any()), gen_any()},
+            {function1(ct_proper_ext:safe_any()),
+             function2(ct_proper_ext:safe_any()),
+             ct_proper_ext:safe_any()},
             ?LET(
                 {L, MV},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(T, {AccM, AccF}) ->
                         {[MapFn(T)|AccM], FoldFn(T, AccF)}
                     end,
@@ -748,7 +746,7 @@ prop_mapfoldr() ->
 prop_max() ->
     ?FORALL(
         {InList, ExpMax},
-        gen_list_fold(gen_any(), fun erlang:max/2),
+        gen_list_fold(ct_proper_ext:safe_any(), fun erlang:max/2),
         try
             lists:max(InList) == ExpMax
         catch
@@ -763,7 +761,9 @@ prop_member() ->
         {InList, Member},
         ?LET(
             {F, R, E},
-            {gen_list(), gen_list(), gen_any()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_any()},
             {F ++ [E|R], E}
         ),
         lists:member(Member, InList)
@@ -772,7 +772,7 @@ prop_member() ->
 prop_member_absent() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         not lists:member(make_ref(), InList)
     ).
 
@@ -780,7 +780,7 @@ prop_member_absent() ->
 prop_merge_1() ->
     ?FORALL(
         InLists,
-        list(?LET(L, gen_list(), lists:sort(L))),
+        list(?LET(L, ct_proper_ext:safe_list(), lists:sort(L))),
         check_merged(fun erlang:'=<'/2, InLists, lists:merge(InLists))
     ).
 
@@ -789,7 +789,9 @@ prop_merge_1_invalid() ->
         InLists,
         ?LET(
             {L1, X, L2},
-            {list(oneof([non_list(), gen_list()])), non_list(), list(oneof([non_list(), gen_list()]))},
+            {list(oneof([non_list(), ct_proper_ext:safe_list()])),
+             non_list(),
+             list(oneof([non_list(), ct_proper_ext:safe_list()]))},
             L1 ++ [X|L2]
         ),
         expect_error(fun lists:merge/1, [InLists])
@@ -801,7 +803,7 @@ prop_merge_2() ->
         {InList1, InList2},
         ?LET(
             {L1, L2},
-            {gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
             {lists:sort(L1), lists:sort(L2)}
         ),
         check_merged(fun erlang:'=<'/2, [InList1, InList2], lists:merge(InList1, InList2))
@@ -810,7 +812,7 @@ prop_merge_2() ->
 prop_merge_2_invalid() ->
     ?FORALL(
         {InList, X, Y},
-        {gen_list(), non_list(), non_list()},
+        {ct_proper_ext:safe_list(), non_list(), non_list()},
         expect_error(fun lists:merge/2, [InList, X]) andalso
         expect_error(fun lists:merge/2, [X, InList]) andalso
         expect_error(fun lists:merge/2, [X, Y])
@@ -822,7 +824,9 @@ prop_merge_3() ->
         {SortFn, InList1, InList2},
         ?LET(
             {Fn, L1, L2},
-            {gen_ordering_fun(), gen_list(), gen_list()},
+            {gen_ordering_fun(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list()},
             {Fn, lists:sort(Fn, L1), lists:sort(Fn, L2)}
         ),
         check_merged(SortFn, [InList1, InList2], lists:merge(SortFn, InList1, InList2))
@@ -831,7 +835,10 @@ prop_merge_3() ->
 prop_merge_3_invalid() ->
     ?FORALL(
         {SortFn, InList, X, Y},
-        {gen_ordering_fun(), gen_list(), non_list(), non_list()},
+        {gen_ordering_fun(),
+         ct_proper_ext:safe_list(),
+         non_list(),
+         non_list()},
         expect_error(fun lists:merge/3, [SortFn, InList, Y]) andalso
         expect_error(fun lists:merge/3, [SortFn, X, InList]) andalso
         expect_error(fun lists:merge/3, [SortFn, X, Y])
@@ -843,7 +850,9 @@ prop_merge3() ->
         {InList1, InList2, InList3},
         ?LET(
             {L1, L2, L3},
-            {gen_list(), gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list()},
             {lists:sort(L1), lists:sort(L2), lists:sort(L3)}
         ),
         check_merged(fun erlang:'=<'/2, [InList1, InList2, InList3], lists:merge3(InList1, InList2, InList3))
@@ -852,7 +861,7 @@ prop_merge3() ->
 prop_merge3_invalid() ->
     ?FORALL(
         {InList, X, Y, Z},
-        {gen_list(), non_list(), non_list(), non_list()},
+        {ct_proper_ext:safe_list(), non_list(), non_list(), non_list()},
         expect_error(fun lists:merge/3, [InList, InList, Z]) andalso
         expect_error(fun lists:merge/3, [InList, Y, InList]) andalso
         expect_error(fun lists:merge/3, [InList, Y, Z]) andalso
@@ -865,7 +874,7 @@ prop_merge3_invalid() ->
 prop_min() ->
     ?FORALL(
         {InList, ExpMin},
-        gen_list_fold(gen_any(), fun erlang:min/2),
+        gen_list_fold(ct_proper_ext:safe_any(), fun erlang:min/2),
         try
             lists:min(InList) == ExpMin
         catch
@@ -880,7 +889,9 @@ prop_nth() ->
         {InList, N, ExpElem},
         ?LET(
             {F, R, E},
-            {gen_list(), gen_list(), gen_any()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_any()},
             {F ++ [E|R], length(F)+1, E}
         ),
         lists:nth(N, InList) =:= ExpElem
@@ -891,7 +902,7 @@ prop_nth_outofrange() ->
         {N, InList},
         ?LET(
             {L, Offset},
-            {gen_list(), pos_integer()},
+            {ct_proper_ext:safe_list(), pos_integer()},
             {length(L) + Offset, L}
         ),
         try
@@ -911,7 +922,7 @@ prop_nthtail() ->
         {InList, N, ExpTail},
         ?LET(
             {F, R},
-            {gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
             {F ++ R, length(F), R}
         ),
         lists:nthtail(N, InList) =:= ExpTail
@@ -922,7 +933,7 @@ prop_nthtail_outofrange() ->
         {N, InList},
         ?LET(
             {L, Offset},
-            {gen_list(), pos_integer()},
+            {ct_proper_ext:safe_list(), pos_integer()},
             {length(L) + Offset, L}
         ),
         try
@@ -940,7 +951,7 @@ prop_nthtail_outofrange() ->
 prop_partition() ->
     ?FORALL(
         {Pred, InList},
-        {function1(boolean()), gen_list()},
+        {function1(boolean()), ct_proper_ext:safe_list()},
         begin
             {Group1, Group2} = lists:partition(Pred, InList),
             check_partitioned(Pred, InList, Group1, Group2)
@@ -953,7 +964,7 @@ prop_prefix() ->
         {InList, Prefix},
         ?LET(
             {F, R},
-            {gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
             {F ++ R, F}
         ),
         lists:prefix(Prefix, InList) andalso
@@ -966,7 +977,7 @@ prop_prefix() ->
 prop_reverse_1() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         check_reversed(InList, lists:reverse(InList)) andalso
         lists:reverse(lists:reverse(InList)) =:= InList
     ).
@@ -975,7 +986,7 @@ prop_reverse_1() ->
 prop_reverse_2() ->
     ?FORALL(
         {InList, InTail},
-        {gen_list(), gen_list()},
+        {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
         check_reversed(InList, lists:reverse(InList, InTail), InTail)
     ).
 
@@ -985,7 +996,9 @@ prop_search() ->
         {Pred, InList, ExpElem},
         ?LET(
             {F, R, E},
-            {gen_list(), gen_list(), make_ref()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             make_ref()},
             {fun(T) -> T =:= E end, F ++ [E|R], E}
         ),
         lists:search(Pred, InList) =:= {value, ExpElem}
@@ -994,7 +1007,7 @@ prop_search() ->
 prop_search_absent() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         lists:search(fun(_) -> false end, InList) =:= false
     ).
 
@@ -1046,7 +1059,7 @@ prop_seq3() ->
 prop_sort_1() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         begin
             Sorted = lists:sort(InList),
             length(Sorted) =:= length(InList) andalso
@@ -1058,7 +1071,7 @@ prop_sort_1() ->
 prop_sort_2() ->
     ?FORALL(
         {SortFn, InList},
-        {gen_ordering_fun(), gen_list()},
+        {gen_ordering_fun(), ct_proper_ext:safe_list()},
         begin
             Sorted = lists:sort(SortFn, InList),
             length(Sorted) =:= length(InList) andalso
@@ -1072,7 +1085,7 @@ prop_split() ->
         {N, InList, ExpList1, ExpList2},
         ?LET(
             {F, R},
-            {gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
             {length(F), F ++ R, F, R}
         ),
         lists:split(N, InList) =:= {ExpList1, ExpList2}
@@ -1083,7 +1096,7 @@ prop_split_outofrange() ->
         {N, InList},
         ?LET(
             {L, Offset},
-            {gen_list(), pos_integer()},
+            {ct_proper_ext:safe_list(), pos_integer()},
             {length(L) + Offset, L}
         ),
         try
@@ -1101,7 +1114,7 @@ prop_split_outofrange() ->
 prop_splitwith() ->
     ?FORALL(
         {Pred, InList},
-        {function1(boolean()), gen_list()},
+        {function1(boolean()), ct_proper_ext:safe_list()},
         begin
             {Part1, Part2} = lists:splitwith(Pred, InList),
             check_splitwithed(Pred, InList, Part1, Part2)
@@ -1114,7 +1127,7 @@ prop_sublist_2() ->
         {Len, InList, ExpList},
         ?LET(
             {F, R},
-            {gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
             {length(F), F ++ R, F}
         ),
         lists:sublist(InList, Len) =:= ExpList
@@ -1126,7 +1139,9 @@ prop_sublist_3() ->
         {Start, Len, InList, ExpList},
         ?LET(
             {F, M, R},
-            {gen_list(), gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list()},
             {length(F)+1, length(M), F ++ M ++ R, M}
         ),
         lists:sublist(InList, Start, Len) =:= ExpList
@@ -1138,7 +1153,9 @@ prop_subtract() ->
         {InList, SubtractList},
         ?LET(
             {L, B, S},
-            {gen_list(), gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list()},
             {L ++ B, S ++ B}
         ),
         lists:subtract(InList, SubtractList) =:= InList -- SubtractList
@@ -1150,7 +1167,7 @@ prop_suffix() ->
         {InList, Suffix},
         ?LET(
             {F, R},
-            {gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
             {F ++ R, R}
         ),
         lists:suffix(Suffix, InList) andalso
@@ -1177,7 +1194,7 @@ prop_takewhile() ->
             ?LET(
                 {L, {_, TL}},
                 gen_list_fold(
-                    gen_any(),
+                    ct_proper_ext:safe_any(),
                     fun(E, {Take, Acc}) ->
                         case Take andalso Fn(E) of
                             true -> {true, Acc ++ [E]};
@@ -1249,7 +1266,7 @@ prop_ukeysort() ->
 prop_umerge_1() ->
     ?FORALL(
         InLists,
-        list(?LET(L, gen_list(), lists:usort(L))),
+        list(?LET(L, ct_proper_ext:safe_list(), lists:usort(L))),
         check_umerged(InLists, lists:umerge(InLists))
     ).
 
@@ -1258,7 +1275,9 @@ prop_umerge_1_invalid() ->
         InList,
         ?LET(
             {L1, X, L2},
-	    {list(oneof([non_list(), gen_list()])), non_list(), list(oneof([non_list(), gen_list()]))},
+	    {list(oneof([non_list(), ct_proper_ext:safe_list()])),
+             non_list(),
+             list(oneof([non_list(), ct_proper_ext:safe_list()]))},
 	    L1 ++ [X|L2]
         ),
 	expect_error(fun lists:umerge/1, [InList])
@@ -1270,7 +1289,7 @@ prop_umerge_2() ->
         {InList1, InList2},
         ?LET(
             {L1, L2},
-            {gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
             {lists:usort(L1), lists:usort(L2)}
         ),
         check_umerged([InList1, InList2], lists:umerge(InList1, InList2))
@@ -1279,7 +1298,7 @@ prop_umerge_2() ->
 prop_umerge_2_invalid() ->
     ?FORALL(
         {InList, X, Y},
-	{gen_list(), non_list(), non_list()},
+	{ct_proper_ext:safe_list(), non_list(), non_list()},
 	expect_error(fun lists:umerge/2, [InList, Y]) andalso
 	expect_error(fun lists:umerge/2, [X, InList]) andalso
 	expect_error(fun lists:umerge/2, [X, Y])
@@ -1291,7 +1310,9 @@ prop_umerge_3() ->
         {SortFn, InList1, InList2},
         ?LET(
             {Fn, L1, L2},
-            {gen_ordering_fun(), gen_list(), gen_list()},
+            {gen_ordering_fun(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list()},
             {Fn, lists:usort(Fn, L1), lists:usort(Fn, L2)}
         ),
         check_umerged(SortFn, [InList1, InList2], lists:umerge(SortFn, InList1, InList2))
@@ -1300,7 +1321,10 @@ prop_umerge_3() ->
 prop_umerge_3_invalid() ->
     ?FORALL(
         {SortFn, InList, X, Y},
-	{gen_ordering_fun(), gen_list(), non_list(), non_list()},
+	{gen_ordering_fun(),
+         ct_proper_ext:safe_list(),
+         non_list(),
+         non_list()},
 	expect_error(fun lists:umerge/3, [SortFn, InList, Y]) andalso
 	expect_error(fun lists:umerge/3, [SortFn, X, InList]) andalso
 	expect_error(fun lists:umerge/3, [SortFn, X, Y])
@@ -1312,7 +1336,9 @@ prop_umerge3() ->
         {InList1, InList2, InList3},
         ?LET(
             {L1, L2, L3},
-            {gen_list(), gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list(),
+             ct_proper_ext:safe_list()},
             {lists:usort(L1), lists:usort(L2), lists:usort(L3)}
         ),
         check_umerged([InList1, InList2, InList3], lists:umerge3(InList1, InList2, InList3))
@@ -1321,7 +1347,7 @@ prop_umerge3() ->
 prop_umerge3_invalid() ->
     ?FORALL(
         {InList, X, Y, Z},
-	{gen_list(), non_list(), non_list(), non_list()},
+	{ct_proper_ext:safe_list(), non_list(), non_list(), non_list()},
 	expect_error(fun lists:umerge3/3, [InList, InList, Z]) andalso
 	expect_error(fun lists:umerge3/3, [InList, Y, InList]) andalso
 	expect_error(fun lists:umerge3/3, [InList, Y, Z]) andalso
@@ -1337,7 +1363,7 @@ prop_uniq_1() ->
         InList,
         ?LET(
             {L, M},
-            {gen_list(), gen_list()},
+            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
 	    ?LET(
 	        S,
 		vector(length(L) + 2 * length(M), integer()),
@@ -1351,7 +1377,7 @@ prop_uniq_1() ->
 prop_uniq_2() ->
     ?FORALL(
         {UniqFn, InList},
-        {function1(oneof([a, b, c])), gen_list()},
+        {function1(oneof([a, b, c])), ct_proper_ext:safe_list()},
         check_uniqed(UniqFn, InList, lists:uniq(UniqFn, InList))
     ).
 
@@ -1360,7 +1386,7 @@ prop_unzip() ->
     ?FORALL(
         {InList, {ExpList1, ExpList2}},
         gen_list_fold(
-            {gen_any(), gen_any()},
+            {ct_proper_ext:safe_any(), ct_proper_ext:safe_any()},
             fun({T1, T2}, {L1, L2}) ->
                 {L1 ++ [T1], L2 ++ [T2]}
             end,
@@ -1374,7 +1400,9 @@ prop_unzip3() ->
     ?FORALL(
         {InList, {ExpList1, ExpList2, ExpList3}},
         gen_list_fold(
-            {gen_any(), gen_any(), gen_any()},
+            {ct_proper_ext:safe_any(),
+             ct_proper_ext:safe_any(),
+             ct_proper_ext:safe_any()},
             fun({T1, T2, T3}, {L1, L2, L3}) ->
                 {L1 ++ [T1], L2 ++ [T2], L3 ++ [T3]}
             end,
@@ -1387,7 +1415,7 @@ prop_unzip3() ->
 prop_usort_1() ->
     ?FORALL(
         InList,
-        gen_list(),
+        ct_proper_ext:safe_list(),
         begin
             Sorted = lists:usort(InList),
             length(Sorted) =< length(InList) andalso
@@ -1399,7 +1427,7 @@ prop_usort_1() ->
 prop_usort_2() ->
     ?FORALL(
         {SortFn, InList},
-        {gen_ordering_fun(), gen_list()},
+        {gen_ordering_fun(), ct_proper_ext:safe_list()},
         begin
             Sorted = lists:usort(SortFn, InList),
             length(Sorted) =< length(InList) andalso
@@ -1412,7 +1440,7 @@ prop_zip_2() ->
     ?FORALL(
         {ExpList, {InList1, InList2}},
         gen_list_fold(
-            {gen_any(), gen_any()},
+            {ct_proper_ext:safe_any(), ct_proper_ext:safe_any()},
             fun({T1, T2}, {L1, L2}) ->
                 {L1 ++ [T1], L2 ++ [T2]}
             end,
@@ -1427,13 +1455,13 @@ prop_zip_3() ->
 		{{ExpList, {InList1, InList2}}, ExtraList},
 		{
 			gen_list_fold(
-				{gen_any(), gen_any()},
+				{ct_proper_ext:safe_any(), ct_proper_ext:safe_any()},
 				fun({T1, T2}, {L1, L2}) ->
 					{L1 ++ [T1], L2 ++ [T2]}
 				end,
 				{[], []}
 			),
-			non_empty(gen_list())
+			non_empty(ct_proper_ext:safe_list())
 		},
 		begin
 			Tag = make_ref(),
@@ -1462,7 +1490,9 @@ prop_zip3_3() ->
     ?FORALL(
         {ExpList, {InList1, InList2, InList3}},
         gen_list_fold(
-            {gen_any(), gen_any(), gen_any()},
+            {ct_proper_ext:safe_any(),
+             ct_proper_ext:safe_any(),
+             ct_proper_ext:safe_any()},
             fun({T1, T2, T3}, {L1, L2, L3}) ->
                 {L1 ++ [T1], L2 ++ [T2], L3 ++ [T3]}
             end,
@@ -1477,13 +1507,15 @@ prop_zip3_4() ->
 		{{ExpList, {InList1, InList2, InList3}}, ExtraList},
 		{
 			gen_list_fold(
-				{gen_any(), gen_any(), gen_any()},
+				{ct_proper_ext:safe_any(),
+				 ct_proper_ext:safe_any(),
+				 ct_proper_ext:safe_any()},
 				fun({T1, T2, T3}, {L1, L2, L3}) ->
 					{L1 ++ [T1], L2 ++ [T2], L3 ++ [T3]}
 				end,
 				{[], [], []}
 			),
-			non_empty(gen_list())
+			non_empty(ct_proper_ext:safe_list())
 		},
 		begin
 			Tag = make_ref(),
@@ -1529,11 +1561,11 @@ prop_zipwith_3() ->
         {ZipFn, InList1, InList2, ExpList},
         ?LET(
             Fn,
-            function2(gen_any()),
+            function2(ct_proper_ext:safe_any()),
             ?LET(
                 {_, {L1, L2, Z}},
                 gen_list_fold(
-                    {gen_any(), gen_any()},
+                    {ct_proper_ext:safe_any(), ct_proper_ext:safe_any()},
                     fun({T1, T2}, {L1, L2, Z}) ->
                         {L1 ++ [T1], L2 ++ [T2], Z ++ [Fn(T1, T2)]}
                     end,
@@ -1551,11 +1583,12 @@ prop_zipwith_4() ->
 		{ZipFn, InList1, InList2, ExpList, ExtraList},
 		?LET(
 			{Extra, Fn},
-			{non_empty(gen_list()), function2(gen_any())},
+			{non_empty(ct_proper_ext:safe_list()),
+			 function2(ct_proper_ext:safe_any())},
 			?LET(
 				{_, {L1, L2, Z}},
 				gen_list_fold(
-					{gen_any(), gen_any()},
+					{ct_proper_ext:safe_any(), ct_proper_ext:safe_any()},
 					fun({T1, T2}, {L1, L2, Z}) ->
 						{L1 ++ [T1], L2 ++ [T2], Z ++ [Fn(T1, T2)]}
 					end,
@@ -1592,11 +1625,13 @@ prop_zipwith3_4() ->
         {ZipFn, InList1, InList2, InList3, ExpList},
         ?LET(
             Fn,
-            function3(gen_any()),
+            function3(ct_proper_ext:safe_any()),
             ?LET(
                 {_, {L1, L2, L3, Z}},
                 gen_list_fold(
-                    {gen_any(), gen_any(), gen_any()},
+                    {ct_proper_ext:safe_any(),
+                     ct_proper_ext:safe_any(),
+                     ct_proper_ext:safe_any()},
                     fun({T1, T2, T3}, {L1, L2, L3, Z}) ->
                         {L1 ++ [T1], L2 ++ [T2], L3 ++ [T3], Z ++ [Fn(T1, T2, T3)]}
                     end,
@@ -1614,11 +1649,14 @@ prop_zipwith3_5() ->
 		{ZipFn, InList1, InList2, InList3, ExpList, ExtraList},
 		?LET(
 			{Extra, Fn},
-			{non_empty(gen_list()), function3(gen_any())},
+			{non_empty(ct_proper_ext:safe_list()),
+			 function3(ct_proper_ext:safe_any())},
 			?LET(
 				{_, {L1, L2, L3, Z}},
 				gen_list_fold(
-					{gen_any(), gen_any(), gen_any()},
+					{ct_proper_ext:safe_any(),
+					 ct_proper_ext:safe_any(),
+					 ct_proper_ext:safe_any()},
 					fun({T1, T2, T3}, {L1, L2, L3, Z}) ->
 						{L1 ++ [T1], L2 ++ [T2], L3 ++ [T3], Z ++ [Fn(T1, T2, T3)]}
 					end,
@@ -1670,7 +1708,7 @@ prop_zipwith3_5() ->
 %%%%%%%%%%%%%%%%%%
 
 non_list() ->
-	?SUCHTHAT(NonList, gen_any(), not is_list(NonList)).
+    ?SUCHTHAT(NonList, ct_proper_ext:safe_any(), not is_list(NonList)).
 
 %% Generator for lists of the given type, folding the given function
 %% over values on the top level as they are generated. The first generated
@@ -1723,17 +1761,13 @@ gen_keytuple(Key, MinSize, MaxSize) ->
 
 %% Generator for tuples of random size.
 gen_tuple() ->
-    ?LET(
-        N,
-        non_neg_integer(),
-        gen_tuple(N)
-    ).
+    ct_proper_ext:safe_tuple().
 
 %% Generator for tuples of the given size.
 gen_tuple(Size) ->
     ?LET(
         V,
-        vector(Size, gen_any()),
+        vector(Size, ct_proper_ext:safe_any()),
         list_to_tuple(V)
     ).
 
@@ -1745,14 +1779,10 @@ gen_tuple(MinSize, MaxSize) ->
         range(MinSize, MaxSize),
         ?LET(
             V,
-            vector(N, gen_any()),
+            vector(N, ct_proper_ext:safe_any()),
             list_to_tuple(V)
         )
     ).
-
-%% Generator for lists of anything.
-gen_list() ->
-    list(gen_any()).
 
 %% Generator for lists of anything, folding the given function
 %% over values on all levels of list-nesting as they are generated.
@@ -1772,9 +1802,12 @@ gen_list_deepfold(N, Level, L, FoldFn, Acc) ->
     ?LET(
         X,
         frequency([
-            {4, {term, gen_any_simple()}},
+            {5, {term, oneof([ct_proper_ext:safe_atom(),
+                              ct_proper_ext:safe_tuple(),
+                              integer(),
+                              float(),
+                              bitstring()])}},
             {1, deeplist},
-            {1, tuple},
             {2, stop}
         ]),
         case X of
@@ -1784,83 +1817,11 @@ gen_list_deepfold(N, Level, L, FoldFn, Acc) ->
                     gen_list_deepfold(N, Level + 1, [], FoldFn, Acc),
                     gen_list_deepfold(N1, Level, [L1|L], FoldFn, Acc1)
                 );
-            tuple ->
-                ?LET(
-                    {N1, L1, _},
-                    gen_list_deepfold(N, Level + 1, [], fun(_, _, _) -> undefined end, undefined),
-                    begin
-                        E = list_to_tuple(L1),
-                        gen_list_deepfold(N1, Level, [E|L], FoldFn, FoldFn(Level, E, Acc))
-                    end
-                );
             stop ->
                 {N, lists:reverse(L), Acc};
             {term, E} ->
                 gen_list_deepfold(N - 1, Level, [E|L], FoldFn, FoldFn(Level, E, Acc))
         end
-    ).
-
-%% Generator for simple and composite (lists and tuples) types.
-gen_any() ->
-    frequency(
-        [
-            {4, gen_any_simple()},
-            {1, ?LET({L, _}, gen_list_deepfold(fun(_, _, Acc) -> Acc end, undefined), L)},
-            {1, ?LET({L, _}, gen_list_deepfold(fun(_, _, Acc) -> Acc end, undefined), list_to_tuple(L))}
-        ]
-    ).
-
-%% Generator for simple types:
-%%   - atoms
-%%   - integers
-%%   - floats
-%%   - bitstrings
-gen_any_simple() ->
-    oneof([gen_atom(), integer(), float(), bitstring()]).
-
-%% Generator for interesting atoms:
-%%   - well-known atoms like `ok', `undefined', `infinity'...
-%%   - randomly generated "weird" atoms
-gen_atom() ->
-    oneof(
-        [
-            oneof([ok, error, true, false, undefined, infinity]),
-            oneof(['', '"', '\'', '(', ')', '()', '[', '[', '[]', '{', '}', '{}']),
-            gen_random_atom()
-        ]
-    ).
-
-%% Generator for a limited set of random atoms. The number of
-%% atoms that will be generated is set in `?RANDOM_ATOMS'.
-gen_random_atom() ->
-    ?LAZY(
-        ?LET(
-            N,
-            range(1, ?RANDOM_ATOMS),
-            try
-                persistent_term:get({?MODULE, random_atoms})
-            of
-                Atoms ->
-                    maps:get(N, Atoms)
-            catch
-                error:badarg ->
-                    ?LET(
-                        AtomsList,
-                        vector(?RANDOM_ATOMS, ?SIZED(Size, resize(Size * 100, atom()))),
-                        begin
-                            Fn = fun
-                                F(_, [], Acc) ->
-                                    Acc;
-                                F(Index, [A|As], Acc) ->
-                                    F(Index + 1, As, Acc#{Index => A})
-                            end,
-                            Atoms = Fn(1, AtomsList, #{}),
-                            persistent_term:put({?MODULE, random_atoms}, Atoms),
-                            maps:get(N, Atoms)
-                        end
-                    )
-            end
-        )
     ).
 
 %% Generator for ordering functions, to be used for sorting and merging.
@@ -2097,7 +2058,7 @@ check_uniqed(L, UL) ->
     check_uniqed(fun(X) -> X end, L, UL).
 
 check_uniqed(Fn, L, UL) ->
-    check_uniqed1(Fn, L, UL, sets:new([{version, 2}])).
+    check_uniqed1(Fn, L, UL, sets:new()).
 
 check_uniqed1(Fn, [E|L], [], Seen) ->
     sets:is_element(Fn(E), Seen) andalso

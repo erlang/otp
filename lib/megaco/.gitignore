@@ -6,8 +6,8 @@
 /test/*.log
 /test/*.beam
 
-# Generated documentation. (ie. not doc/src)
-/doc/[^s]*
+# Generated documentation.
+/doc/html
 
 # Library links
 /priv/lib/*.so

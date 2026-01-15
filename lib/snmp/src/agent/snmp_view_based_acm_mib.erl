@@ -1,8 +1,10 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,18 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 -module(snmp_view_based_acm_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-VIEW-BASED-ACM-MIB
+
+The module `snmp_view_based_acm_mib` implements the instrumentation functions
+for the SNMP-VIEW-BASED-ACM-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -38,7 +48,18 @@
 -export([emask2imask/1]).
 
 -export_type([
+              group_name/0,
               mibview/0,
+              context_prefix/0,
+              context_match/0,
+              access_read_view_name/0,
+              access_write_view_name/0,
+              access_notify_view_name/0,
+              security_name/0,
+              view_name/0,
+              view_type/0,
+              view_mask/0,
+
               internal_view_mask/0,
               internal_view_mask_element/0,
               internal_view_type/0
@@ -59,6 +80,133 @@
 -endif.
 
 
+%%-----------------------------------------------------------------
+%% Table: vacmSecurityToGroupTable
+%% Row:   vacmSecurityModel, vacmSecurityName, vacmGroupName
+%% Index: { vacmSecurityModel, vacmSecurityName }
+%%
+%% Table: vacmAccessTable
+%% Row:   vacmAccessContextPrefix, vacmAccessSecurityModel,
+%%        vacmAccessSecurityLevel, vacmAccessContextMatch,
+%%        vacmAccessReadViewName, vacmAccessWriteViewName,
+%%        vacmAccessNotifyViewName
+%% Index: { vacmGroupName, vacmAccessContextPrefix,
+%%          vacmAccessSecurityModel, vacmAccessSecurityLevel }
+%%
+%% Table: vacmViewTreeFamilyTable
+%% Row:   vacmViewTreeFamilyViewName, vacmViewTreeFamilySubtree,
+%%        vacmViewTreeFamilyMask, vacmViewTreeFamilyType
+%% Index: { vacmViewTreeFamilyViewName, vacmViewTreeFamilySubtree }
+%%-----------------------------------------------------------------
+
+
+%% *** group_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The name of the group to which this entry (e.g., the combination of
+> securityModel and securityName) belongs."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type group_name()                 :: snmp_framework_mib:admin_string().
+
+%% *** context_prefix ***
+-doc "`SnmpAdminString (SIZE(0..32))`".
+-type context_prefix()             :: snmp_framework_mib:admin_string().
+
+%% *** context_match ***
+-doc """
+```text
+	  exact  - exact match of prefix and contextName
+          prefix - Only match to the prefix
+```
+
+`INTEGER { exact (1), prefix (2) }`
+""".
+-type context_match()              :: 'exact' | 'prefix'.
+
+%% *** access_read_view_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The value of an instance of this object identifies the MIB view of the SNMP
+> context to which this conceptual row authorizes read access."
+
+`SnmpAdminString (SIZE(0..32))`
+""".
+-type access_read_view_name()      :: snmp_framework_mib:admin_string().
+
+%% *** access_write_view_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The value of an instance of this object identifies the MIB view of the SNMP
+> context to which this conceptual row authorizes write access."
+
+`SnmpAdminString (SIZE(0..32))`
+""".
+-type access_write_view_name()     :: snmp_framework_mib:admin_string().
+
+%% *** access_notify_view_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The value of an instance of this object identifies the MIB view of the SNMP
+> context to which this conceptual row authorizes access for notifications."
+
+`SnmpAdminString (SIZE(0..32))`
+""".
+-type access_notify_view_name()    :: snmp_framework_mib:admin_string().
+
+%% *** security_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The securityName for the principal, represented in a Security Model
+> independent format."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type security_name()              :: snmp_framework_mib:admin_string().
+
+%% *** view_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The human readable name for a family of view subtrees."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type view_name()                  :: snmp_framework_mib:admin_string().
+
+%% *** view_type ***
+-doc """
+Does the corresponding instances of subtree and mask define a family of view
+subtrees which are included in or excluded from the MIB view.
+
+`INTEGER { included(1), excluded(2) }`
+""".
+-type view_type()                  :: 'included' | 'excluded'.
+
+%% *** view_mask ***
+-doc """
+The bit mask which, in combination with the corresponding instance of
+vacmViewTreeFamilySubtree, defines a family of view subtrees.
+
+A '1' indicates that an exact match must occur, a '0' indicates 'wild card' (any
+sub-identifier value matches).
+
+> #### Note {: .info }
+>
+> Note that in the "external" format, each bit of each octet is represented by a
+> "bit" in this list. That is, each octet "contains" 8 bits; so at most 8\*16 =
+> 128 bits in total.
+
+`OCTET STRING (SIZE (0..16))`
+""".
+-type view_mask()                  :: [?view_wildcard | ?view_exact].
+
 -type internal_view_mask()         :: null | [internal_view_mask_element()].
 -type internal_view_mask_element() :: ?view_wildcard |
                                       ?view_exact.
@@ -68,9 +216,7 @@
                      Mask    :: internal_view_mask(),
                      Type    :: internal_view_type()}].
 
--type external_view_mask() :: octet_string(). % At most length of 16 octet
--type octet_string()       :: [octet()].
--type octet()              :: byte().
+-type external_view_mask() :: snmp:octet_string(). % At most length of 16 octet
 
 
 %%-----------------------------------------------------------------
@@ -84,7 +230,29 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-doc """
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all
+old rows with StorageType `volatile`. The rows created from the configuration
+file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `vacm.conf`.
+""".
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(vacmSecurityToGroupTable) of
         {_, mnesia} ->
@@ -100,9 +268,10 @@ configure(Dir) ->
 		false ->
 		    ?vdebug("vacm security-to-group table does not exist: "
 			    "reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
+
 
 %%-----------------------------------------------------------------
 %% Func: reconfigure/1
@@ -115,9 +284,32 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-reconfigure(Dir) ->
+
+-doc """
+Inserts all data in the configuration files into the database and destroys all
+old data, including the rows with StorageType `nonVolatile`. The rows created
+from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-VIEW-BASED-ACM-MIB, after this function has been
+called, is the data from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function [config_err/2](`snmpa_error:config_err/2`) of the error report module,
+and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `vacm.conf`.
+""".
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -156,6 +348,7 @@ read_vacm_config_files(Dir) ->
 %%-----------------------------------------------------------------
 %% VACM tables
 %%-----------------------------------------------------------------
+-doc false.
 check_vacm({vacmSecurityToGroup, SecModel, SecName, GroupName}) ->
     {ok, SecM} = snmp_conf:check_sec_model(SecModel, []),
     snmp_conf:check_string(SecName),
@@ -252,17 +445,24 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
-%% add_sec2group(SecModel, SecName, GroupName) -> Result
-%% Result -> {ok, Key} | {error, Reason}
-%% Key -> term()
-%% Reason -> term()
+-doc """
+Adds a security to group definition to the agent config. Equivalent to one
+vacmSecurityToGroup-line in the `vacm.conf` file.
+""".
+-spec add_sec2group(SecModel, SecName, GroupName) ->
+          {ok, Key} | {error, Reason} when
+      SecModel  :: snmp_framework_mib:security_model(),
+      SecName   :: security_name(),
+      GroupName :: group_name(),
+      Key       :: term(),
+      Reason    :: term().
 add_sec2group(SecModel, SecName, GroupName) ->
     Sec2Grp = {vacmSecurityToGroup, SecModel, SecName, GroupName},
     case (catch check_vacm(Sec2Grp)) of
 	{ok, {vacmSecurityToGroup, Row}} ->
 	    Key1 = element(1, Row),
 	    Key2 = element(2, Row),
-	    Key = [Key1, length(Key2) | Key2],
+	    Key  = [Key1, length(Key2) | Key2],
 	    case table_cre_row(vacmSecurityToGroupTable, Key, Row) of
 		true ->
 		    snmpa_agent:invalidate_ca_cache(),
@@ -276,6 +476,14 @@ add_sec2group(SecModel, SecName, GroupName) ->
             {error, Error}
     end.
 
+
+-doc """
+Delete a security to group definition from the agent config.
+""".
+-spec delete_sec2group(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_sec2group(Key) ->
     case table_del_row(vacmSecurityToGroupTable, Key) of
 	true ->
@@ -284,7 +492,25 @@ delete_sec2group(Key) ->
 	false ->
 	    {error, delete_failed}
     end.
-    
+
+
+-doc """
+Adds a access definition to the agent config. Equivalent to one vacmAccess-line
+in the `vacm.conf` file.
+""".
+-spec add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
+          {ok, Key} | {error, Reason} when
+      GroupName :: group_name(),
+      Prefix    :: context_prefix(),
+      SecModel  :: snmp_framework_mib:security_model(),
+      SecLevel  :: snmp_framework_mib:security_level(),
+      Match     :: context_match(),
+      RV        :: access_read_view_name(),
+      WV        :: access_write_view_name(),
+      NV        :: access_notify_view_name(),
+      Key       :: term(),
+      Reason    :: term().
+
 %% NOTE: This function must be used in conjunction with
 %%       snmpa_vacm:dump_table.
 %%       That is, when all access has been added, call
@@ -304,13 +530,34 @@ add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
             {error, Error}
     end.
 
+
+-doc """
+Delete a access definition from the agent config.
+""".
+-spec delete_access(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_access(Key) ->
     snmpa_agent:invalidate_ca_cache(),
     snmpa_vacm:delete(Key).
 
 
-add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
-    VTF = {vacmViewTreeFamily, ViewIndex, SubTree, Status, Mask},
+-doc """
+Adds a view tree family definition to the agent config. Equivalent to one
+vacmViewTreeFamily-line in the `vacm.conf` file.
+""".
+-spec add_view_tree_fam(ViewName, SubTree, Status, Mask) ->
+          {ok, Key} | {error, Reason} when
+      ViewName :: view_name(),
+      SubTree  :: snmp:oid(),
+      Status   :: view_type(),
+      Mask     :: 'null' | view_mask(),
+      Key      :: term(),
+      Reason   :: term().
+
+add_view_tree_fam(ViewName, SubTree, Status, Mask) ->
+    VTF = {vacmViewTreeFamily, ViewName, SubTree, Status, Mask},
     case (catch check_vacm(VTF)) of
 	{ok, {vacmViewTreeFamily, Row}} ->
 	    Key1 = element(1, Row),
@@ -328,6 +575,12 @@ add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
         Error ->
             {error, Error}
     end.
+
+
+-doc "Delete a view tree family definition from the agent config.".
+-spec delete_view_tree_fam(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
 
 delete_view_tree_fam(Key) ->
     case table_del_row(vacmViewTreeFamilyTable, Key) of
@@ -366,8 +619,10 @@ init_vacm_mnesia() ->
 %% The context table is actually implemented in an internal,
 %% non-snmp visible table intContextTable.
 %%-----------------------------------------------------------------
+-doc false.
 vacmContextTable(_Op) ->
     ok.
+-doc false.
 vacmContextTable(set = Op, Arg1, Arg2) ->
     snmpa_agent:invalidate_ca_cache(),
     snmp_framework_mib:intContextTable(Op, Arg1, Arg2);
@@ -375,6 +630,7 @@ vacmContextTable(Op, Arg1, Arg2) ->
     snmp_framework_mib:intContextTable(Op, Arg1, Arg2).
 
 
+-doc false.
 vacmSecurityToGroupTable(print) ->
     Table = vacmSecurityToGroupTable, 
     DB    = db(Table),
@@ -421,6 +677,7 @@ vacmSecurityToGroupTable(print) ->
 vacmSecurityToGroupTable(Op) ->
     snmp_generic:table_func(Op, db(vacmSecurityToGroupTable)).
 
+-doc false.
 vacmSecurityToGroupTable(get_next, RowIndex, Cols) ->
     next(vacmSecurityToGroupTable, RowIndex, Cols);
 vacmSecurityToGroupTable(get, RowIndex, Cols) ->
@@ -515,6 +772,7 @@ verify_vacmSecurityToGroupTable_col(_, Val) ->
 %%    {RowIndex, {Col4, Col5, ..., Col9}}
 %%
 %%-----------------------------------------------------------------
+-doc false.
 vacmAccessTable(print) ->
     %% Do I need to turn all entries into {RowIdx, Row}?
     TableInfo = get_table(vacmAccessTable), 
@@ -560,6 +818,7 @@ vacmAccessTable(print) ->
     snmpa_mib_lib:print_table(vacmAccessTable, {ok, TableInfo}, PrintRow);
 vacmAccessTable(_Op) ->
     ok.
+-doc false.
 vacmAccessTable(get, RowIndex, Cols) ->
     %% For GET, Cols are guaranteed to be accessible columns.
     case snmpa_vacm:get_row(RowIndex) of
@@ -855,6 +1114,7 @@ split_cols([Col | Cols], PreCols) when Col =< 3 ->
 split_cols(Cols, PreCols) ->
     {PreCols, Cols}.
 
+-doc false.
 vacmViewSpinLock(print) ->
     VarAndValue = [{vacmViewSpinLock, vacmViewSpinLock(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -875,6 +1135,7 @@ vacmViewSpinLock(delete) ->
 vacmViewSpinLock(get) ->
     snmp_generic:variable_func(get, volatile_db(vacmViewSpinLock)).
 
+-doc false.
 vacmViewSpinLock(is_set_ok, NewVal) ->
     case snmp_generic:variable_func(get, volatile_db(vacmViewSpinLock)) of
 	{value, NewVal} -> noError;
@@ -885,6 +1146,7 @@ vacmViewSpinLock(set, NewVal) ->
 			       volatile_db(vacmViewSpinLock)).
 
 
+-doc false.
 vacmViewTreeFamilyTable(print) ->
     Table = vacmViewTreeFamilyTable, 
     DB    = db(Table),
@@ -930,6 +1192,7 @@ vacmViewTreeFamilyTable(print) ->
     snmpa_mib_lib:print_table(Table, DB, FOI, PrintRow);
 vacmViewTreeFamilyTable(Op) ->
     snmp_generic:table_func(Op, db(vacmViewTreeFamilyTable)).
+-doc false.
 vacmViewTreeFamilyTable(get_next, RowIndex, Cols) ->
     next(vacmViewTreeFamilyTable, RowIndex, Cols);
 vacmViewTreeFamilyTable(get, RowIndex, Cols) ->
@@ -1024,6 +1287,7 @@ check_mask(Mask) when is_list(Mask) andalso (length(Mask) =< 16) ->
 check_mask(BadMask) ->
     {error, {bad_mask, BadMask}}.
 
+-doc false.
 -spec emask2imask(EMask :: external_view_mask()) ->
     IMask :: internal_view_mask().
 
@@ -1064,6 +1328,7 @@ imask2emask(IMask, EMask) ->
 
 
 
+-doc false.
 table_next(Name, RestOid) ->
     snmp_generic:table_next(db(Name), RestOid).
 
@@ -1105,6 +1370,7 @@ next(Name, RowIndex, Cols) ->
 					    fa(Name), foi(Name), noc(Name)),
     externalize_next(Name, Result).
  
+-doc false.
 get(Name, RowIndex, Cols) ->
     Result = snmp_generic:handle_table_get(db(Name), RowIndex, Cols, 
 					   foi(Name)),

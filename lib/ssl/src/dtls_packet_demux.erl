@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,7 @@
 %%
 
 -module(dtls_packet_demux).
+-moduledoc false.
 
 -behaviour(gen_server).
 
@@ -115,6 +118,7 @@ init([Owner, Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
     InternalActiveN = get_internal_active_n(),
     erlang:monitor(process, Owner),
     {ok, SessionIdHandle} = session_id_tracker(Socket, DTLSOptions),
+    proc_lib:set_label({dtls_server_packet_demultiplexer, Port0}),
     {ok, #state{active_n = InternalActiveN,
                 port = Port0,
                 first = true,
@@ -147,9 +151,9 @@ handle_call(sockname, _, #state{listener = Socket} = State) ->
 handle_call(close, _, State0) ->
     case do_close(State0) of
         {stop, State} ->
-            {stop, normal, ok, State};
+            {stop, normal, stop, State};
         {wait, State} ->
-            {reply, ok, State}
+            {reply, waiting, State}
     end;
 handle_call({new_owner, Owner}, _, State) ->
     {reply, ok,  State#state{close = false, first = true, owner = Owner}};
@@ -171,8 +175,9 @@ handle_call({new_connection, Old, _Pid}, _,
     end;
 
 handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listener = Socket,
+                                                                     transport = TransportInfo,
                                                                      emulated_options = EmOpts} = State) ->
-    case get_socket_opts(Socket, SocketOptNames) of
+    case get_socket_opts(Socket, SocketOptNames,  element(1, TransportInfo)) of
         {ok, Opts} ->
             {reply, {ok, emulated_opts_list(EmOpts, EmOptNames, []) ++ Opts}, State};
         {error, Reason} ->
@@ -181,15 +186,17 @@ handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listener = 
 handle_call(get_all_opts, _, #state{dtls_options = DTLSOptions,
                                     emulated_options = EmOpts} = State) ->
     {reply, {ok, EmOpts, DTLSOptions}, State};
-handle_call({set_sock_opts, {SocketOpts, NewEmOpts}}, _, #state{listener = Socket, emulated_options = EmOpts0} = State) ->
-    set_socket_opts(Socket, SocketOpts),
+handle_call({set_sock_opts, {SocketOpts, NewEmOpts}}, _, #state{listener = Socket, emulated_options = EmOpts0,
+                                                                transport = TransportInfo} = State) ->
+    set_socket_opts(Socket, SocketOpts, element(1, TransportInfo)),
     EmOpts = do_set_emulated_opts(NewEmOpts, EmOpts0),
     {reply, ok, State#state{emulated_options = EmOpts}};
-handle_call({set_all_opts, {SocketOpts, NewEmOpts, SslOpts}}, _, #state{listener = Socket} = State) ->
-    set_socket_opts(Socket, SocketOpts),
+handle_call({set_all_opts, {SocketOpts, NewEmOpts, SslOpts}}, _, #state{listener = Socket,
+                                                                        transport = TransportInfo} = State) ->
+    set_socket_opts(Socket, SocketOpts, element(1, TransportInfo)),
     {reply, ok, State#state{emulated_options = NewEmOpts, dtls_options = SslOpts}};
-handle_call({getstat, Options}, _,  #state{listener = Socket, transport =  {TransportCb, _,_,_,_}} = State) ->
-    Stats = dtls_socket:getstat(TransportCb, Socket, Options),
+handle_call({getstat, Options}, _,  #state{listener = Socket, transport =  TransportInfo} = State) ->
+    Stats = dtls_socket:getstat(element(1, TransportInfo), Socket, Options),
     {reply, Stats, State}.
 
 handle_cast({active_once, Client, Pid}, State0) ->
@@ -344,11 +351,14 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
                                                      session_id_tracker = Tracker,
 						     emulated_options = EmOpts} = State) ->
     ConnArgs = [server, "localhost", Port, {self(), {Client, Socket}},
-		{DTLSOpts, EmOpts, [{session_id_tracker, Tracker}]}, User, dtls_socket:default_cb_info()],
+		{DTLSOpts,
+                 emulated_opts_list(EmOpts, [mode, active], []),
+                 [{session_id_tracker, Tracker}]},
+                User, dtls_socket:default_cb_info()],
     case dtls_connection_sup:start_child(ConnArgs) of
 	{ok, Pid} ->
 	    erlang:monitor(process, Pid),
-	    gen_server:reply(From, {ok, Pid, {Client, Socket}}),
+	    gen_server:reply(From, {ok, Pid}),
 	    Pid ! Msg,
 	    State#state{dtls_msq_queues = kv_insert(Client, {Pid, queue:new()}, MsgQueues),
 			dtls_processes = kv_insert(Pid, Client, Processes)};
@@ -384,15 +394,19 @@ call(Server, Msg) ->
             {error, closed}
     end.
 
-set_socket_opts(_, []) ->
+set_socket_opts(_, [], _) ->
     ok;
-set_socket_opts(Socket, SocketOpts) ->
-    inet:setopts(Socket, SocketOpts).
+set_socket_opts(Socket, SocketOpts, gen_udp) ->
+    inet:setopts(Socket, SocketOpts);
+set_socket_opts(Socket, SocketOpts, Cb) ->
+    Cb:setopts(Socket, SocketOpts).
 
-get_socket_opts(_, []) ->
+get_socket_opts(_, [], _) ->
      {ok, []};
-get_socket_opts(Socket, SocketOpts) ->
-    inet:getopts(Socket, SocketOpts).
+get_socket_opts(Socket, SocketOpts, gen_udp) ->
+    inet:getopts(Socket, SocketOpts);
+get_socket_opts(Socket, SocketOpts, Cb) ->
+    Cb:getopts(Socket, SocketOpts).
 
 do_set_emulated_opts([], Opts) ->
     Opts;

@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1999-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +47,8 @@ BEHAVIOUR_MODULES= \
 
 
 MODULES= \
-	dtls_connection \
+	dtls_server_connection \
+        dtls_client_connection \
 	dtls_connection_sup \
 	dtls_handshake \
 	dtls_gen_connection \
@@ -57,6 +60,7 @@ MODULES= \
 	dtls_sup \
 	dtls_socket \
 	dtls_v1 \
+	inet_epmd_tls_socket \
 	inet_tls_dist \
 	inet6_tls_dist \
 	ssl \
@@ -92,8 +96,11 @@ MODULES= \
 	ssl_srp_primes \
 	ssl_sup \
 	tls_bloom_filter \
-	tls_dtls_connection \
-	tls_connection \
+	tls_dtls_client_connection \
+	tls_dtls_server_connection \
+	tls_dtls_gen_connection \
+	tls_server_connection \
+	tls_client_connection \
 	tls_connection_sup \
 	tls_server_connection_1_3 \
 	tls_client_connection_1_3 \
@@ -112,6 +119,7 @@ MODULES= \
 	tls_server_session_ticket_sup\
 	tls_server_sup\
 	tls_socket \
+	tls_socket_tcp \
 	tls_sup \
 	tls_v1
 
@@ -152,21 +160,10 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-DEPDIR=$(ERL_TOP)/lib/ssl/src/deps
-DEP_FILE=$(DEPDIR)/ssl.d
-$(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
-
-ifeq ($(TARGET), win32)
-  # Native path without C: ignore driveletter case
-  ERL_TOP_NATIVE = $(shell w32_path.sh -m $(ERL_TOP) | sed "s@[a-zA-Z]:@:@")
-else
-  ERL_TOP_NATIVE = $(ERL_TOP)
-endif
-
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-EXTRA_ERLC_FLAGS = +warn_unused_vars -Werror
+EXTRA_ERLC_FLAGS = +warn_unused_vars -Werror +nowarn_deprecated_callback +warn_obsolete_bool_op
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 	-pz $(EBIN) \
 	-pz $(ERL_TOP)/lib/public_key/ebin \
@@ -176,23 +173,9 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 # Targets
 # ----------------------------------------------------
 
-$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
-
-deps: $(DEP_FILE)
+$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
-
-$(DEP_FILE): $(ERL_FILES)
-	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
-	$(gen_verbose)erlc -M $(ERL_FILES) \
-	| perl -pe "s@ [a-zA-Z]?$(ERL_TOP_NATIVE)/(?:bootstrap/)?lib/([^/]+)@ ../../\1@g" 2> /dev/null \
-	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
-	| sed 's@^dtls_@$$(EBIN)/dtls_@' \
-	| sed 's@^inet_@$$(EBIN)/inet_@' \
-	| sed 's@^ssl_@$$(EBIN)/ssl_@' \
-	| sed 's@^tls_@$$(EBIN)/tls_@' \
-	> $(DEP_FILE)
-
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(BEHAVIOUR_TARGET_FILES) 
@@ -224,4 +207,4 @@ release_docs_spec:
 # ----------------------------------------------------
 # Dependencies
 # ----------------------------------------------------
--include $(DEP_FILE)
+-include $(ERL_TOP)/make/dep.mk

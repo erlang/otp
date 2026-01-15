@@ -1,6 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec spawn_monitor(Node, Fun) -> {pid(), reference()}[0m
-  [;1m                       when Node :: node(), Fun :: function().[0m
+[;1m  spawn_monitor(Node, Fun)[0m
 
 [;;4mSince[0m:
   OTP 23.0

@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2023. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2017-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,55 +20,6 @@
 //
 // %CopyrightEnd%
 //
-
-// /*
-//  * Skeleton for receive statement:
-//  *
-//  *             recv_mark L1                     Optional
-//  *             call make_ref/monitor            Optional
-//  *             ...
-//  *             recv_set L1                      Optional
-//  *      L1:          <-------------------+
-//  *                   <-----------+       |
-//  *                               |       |
-//  *             loop_rec L2 ------+---+   |
-//  *             ...               |   |   |
-//  *             remove_message    |   |   |
-//  *             jump L3           |   |   |
-//  *		...                 |   |   |
-//  *		loop_rec_end L1   --+   |   |
-//  *      L2:          <---------------+   |
-//  *	   	wait L1  -------------------+      or wait_timeout
-//  *		timeout
-//  *
-//  *	 L3:    Code after receive...
-//  *
-//  */
-
-i_recv_mark() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * Save the current end of message queue
-     */
-    /* inlined here... */
-    erts_msgq_recv_marker_insert_bind(c_p, erts_old_recv_marker_id);
-}
-
-i_recv_set() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * If previously saved recv mark, set save pointer to it
-     */
-    /* inlined here... */
-    erts_msgq_recv_marker_set_save(c_p, erts_old_recv_marker_id);
-    SET_I($NEXT_INSTRUCTION);
-    goto loop_rec_top__;
-    //| -no_next
-}
 
 recv_marker_reserve(Dst) {
     SWAPOUT;
@@ -97,9 +50,6 @@ i_loop_rec(Dest) {
      */
 
     ErtsMessage* msgp;
-
-    /* Entry point from recv_set */
- loop_rec_top__:
 
     /*
      * We need to disable GC while matching messages
@@ -188,7 +138,7 @@ i_loop_rec(Dest) {
     ASSERT(msgp == erts_msgq_peek_msg(c_p));
     ASSERT(ERTS_SIG_IS_INTERNAL_MSG(msgp));
 
-    r(0) = ERL_MESSAGE_TERM(msgp);
+    x(0) = ERL_MESSAGE_TERM(msgp);
 }
 
 remove_message() {
@@ -260,7 +210,6 @@ remove_message() {
         Sint tok_label = 0;
         Sint tok_lastcnt = 0;
         Sint tok_serial = 0;
-        Sint len = erts_proc_sig_privqs_len(c_p);
 
         dtrace_proc_str(c_p, receiver_name);
         token2 = SEQ_TRACE_TOKEN(c_p);
@@ -271,7 +220,7 @@ remove_message() {
         }
         DTRACE6(message_receive,
                 receiver_name, size_object(ERL_MESSAGE_TERM(msgp)),
-                len, /* This is NOT message queue len, but its something... */
+                c_p->sig_qs.mq_len,
                 tok_label, tok_lastcnt, tok_serial);
     }
 #endif
@@ -323,8 +272,8 @@ timeout_locked() {
 }
 
 timeout() {
-    if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
-        trace_receive(c_p, am_clock_service, am_timeout, NULL);
+    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
+        trace_receive(c_p, am_clock_service, am_timeout);
     }
     if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
         save_calls(c_p, &exp_timeout);

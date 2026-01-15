@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,33 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(supervisor_bridge).
+-moduledoc """
+Generic supervisor bridge behavior.
+
+This behavior module provides a supervisor bridge, a process that connects a
+subsystem not designed according to the OTP design principles to a supervision
+tree. The supervisor bridge sits between a supervisor and the subsystem. It
+behaves like a real supervisor to its own supervisor, but has a different
+interface than a real supervisor to the subsystem. For more information, see
+[Supervisor Behaviour](`e:system:sup_princ.md`) in OTP Design Principles.
+
+A supervisor bridge assumes the functions for starting and stopping the
+subsystem to be located in a callback module exporting a predefined set of
+functions.
+
+The `m:sys` module can be used for debugging a supervisor bridge.
+
+Unless otherwise stated, all functions in this module fail if the specified
+supervisor bridge does not exist or if bad arguments are specified.
+
+## See Also
+
+`m:supervisor`, `m:sys`
+""".
 
 -behaviour(gen_server).
 
@@ -31,8 +56,38 @@
 %% logger callback
 -export([format_log/1, format_log/2]).
 
+-doc """
+Whenever a supervisor bridge is started using
+[`start_link/2,3`](`start_link/2`), this function is called by the new process
+to start the subsystem and initialize.
+
+`Args` is the `Args` argument provided to the start function.
+
+The function is to return `{ok,Pid,State}`, where `Pid` is the pid of the main
+process in the subsystem and `State` is any term.
+
+If later `Pid` terminates with a reason `Reason`, the supervisor bridge
+terminates with reason `Reason` as well. If later the supervisor bridge is
+stopped by its supervisor with reason `Reason`, it calls
+[`Module:terminate(Reason,State)`](`c:terminate/2`) to terminate.
+
+If the initialization fails, the function is to return `{error,Error}`, where
+`Error` is any term, or `ignore`.
+""".
 -callback init(Args :: term()) ->
     {ok, Pid :: pid(), State :: term()} | ignore | {error, Error :: term()}.
+-doc """
+This function is called by the supervisor bridge when it is about to terminate.
+It is to be the opposite of [`Module:init/1`](`c:init/1`) and stop the subsystem
+and do any necessary cleaning up. The return value is ignored.
+
+`Reason` is `shutdown` if the supervisor bridge is terminated by its supervisor.
+If the supervisor bridge terminates because a linked process (apart from the
+main process of the subsystem) has terminated with reason `Term`, then `Reason`
+becomes `Term`.
+
+`State` is taken from the return value of [`Module:init/1`](`c:init/1`).
+""".
 -callback terminate(Reason :: (shutdown | term()), State :: term()) ->
     Ignored :: term().
 
@@ -53,6 +108,12 @@
 %%%-----------------------------------------------------------------
 -record(state, {mod, pid, child_state, name}).
 
+-doc """
+Creates a nameless supervisor bridge process as part of a supervision tree.
+
+Equivalent to `start_link/3` except that the supervisor process is not
+[`registered`](`erlang:register/2`).
+""".
 -spec start_link(Module, Args) -> Result when
       Module :: module(),
       Args :: term(),
@@ -63,6 +124,41 @@
 start_link(Mod, StartArgs) ->
     gen_server:start_link(supervisor_bridge, [Mod, StartArgs, self], []).
 
+-doc """
+Creates a supervisor bridge process, linked to the calling process, which calls
+[`Module:init/1`](`c:init/1`) to start the subsystem.
+
+To ensure a synchronized startup procedure, this function does not return until
+[`Module:init/1`](`c:init/1`) has returned.
+
+- If `SupBridgeName={local,Name}`, the supervisor bridge is registered locally
+  as `Name` using [`register/2`](`register/2`).
+- If `SupBridgeName={global,GlobalName}`, the supervisor bridge is registered
+  globally as `GlobalName` using `global:register_name/2`.
+- If `SupBridgeName={via,Module,ViaName}`, the supervisor bridge is registered
+  as `ViaName` using a registry represented by Module. The `Module` callback is
+  to export functions `register_name/2`, `unregister_name/1`, and `send/2`,
+  which are to behave like the corresponding functions in `m:global`. Thus,
+  `{via,global,GlobalName}` is a valid reference.
+
+`Module` is the name of the callback module.
+
+`Args` is an arbitrary term that is passed as the argument to
+[`Module:init/1`](`c:init/1`).
+
+- If the supervisor bridge and the subsystem are successfully started, the
+  function returns `{ok,Pid}`, where `Pid` is is the pid of the supervisor
+  bridge.
+- If there already exists a process with the specified `SupBridgeName`, the
+  function returns `{error,{already_started,Pid}}`, where `Pid` is the pid of
+  that process.
+- If [`Module:init/1`](`c:init/1`) returns `ignore`, this function returns
+  `ignore` as well and the supervisor bridge terminates with reason `normal`.
+- If [`Module:init/1`](`c:init/1`) fails or returns an error tuple or an
+  incorrect value, this function returns `{error,Error}`, where `Error` is a
+  term with information about the error, and the supervisor bridge terminates
+  with reason `Error`.
+""".
 -spec start_link(SupBridgeName, Module, Args) -> Result when
       SupBridgeName :: {local, Name} | {global, GlobalName} |
 		       {via, Module, ViaName},
@@ -81,6 +177,7 @@ start_link(Name, Mod, StartArgs) ->
 %%-----------------------------------------------------------------
 %% Callback functions from gen_server
 %%-----------------------------------------------------------------
+-doc false.
 init([Mod, StartArgs, Name0]) ->  
     process_flag(trap_exit, true),
     Name = supname(Name0, Mod),
@@ -100,14 +197,17 @@ supname(self, Mod) -> {self(),Mod};
 supname(N, _)      -> N.
 
 %% A supervisor *must* answer the supervisor:which_children call.
+-doc false.
 handle_call(which_children, _From, State) ->
     {reply, [], State};
 handle_call(_Req, _From, State) ->
     {reply, {error, badcall}, State}.
 
+-doc false.
 handle_cast(_, State) ->
     {noreply, State}.
 
+-doc false.
 handle_info({'EXIT', Pid, Reason}, State) when State#state.pid =:= Pid ->
 	case Reason of
 	normal ->
@@ -123,11 +223,13 @@ handle_info({'EXIT', Pid, Reason}, State) when State#state.pid =:= Pid ->
 handle_info(_, State) ->
     {noreply, State}.
 
+-doc false.
 terminate(_Reason, #state{pid = undefined}) ->
     ok;
 terminate(Reason, State) ->
     terminate_pid(Reason, State).
 
+-doc false.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -167,6 +269,7 @@ report_error(Error, Reason, #state{name = Name, pid = Pid, mod = Mod}) ->
 %% legacy error_logger event handlers. This function must always
 %% return {Format,Args} compatible with the arguments in this module's
 %% calls to error_logger prior to OTP-21.0.
+-doc false.
 format_log(LogReport) ->
     Depth = error_logger:get_format_depth(),
     FormatOpts = #{chars_limit => unlimited,
@@ -198,6 +301,7 @@ limit_child_report(ChildReport, Depth) ->
 
 %% format_log/2 is the report callback for any Logger handler, except
 %% error_logger.
+-doc false.
 format_log(Report, FormatOpts0) ->
     Default = #{chars_limit => unlimited,
                 depth => unlimited,

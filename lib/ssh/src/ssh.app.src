@@ -1,4 +1,11 @@
 %%% This is an -*- erlang -*- file.
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 {application, ssh,
  [{description, "SSH-2 for Erlang/OTP"},
@@ -25,6 +32,8 @@
 	     ssh_daemon_channel,
 	     ssh_dbg,
              ssh_lib,
+             ssh_lsocket_sup,
+             ssh_lsocket,
 	     ssh_shell,
 	     ssh_io,
 	     ssh_info,
@@ -36,7 +45,7 @@
 	     ssh_sftpd,
 	     ssh_sftpd_file,
 	     ssh_sftpd_file_api,
-	     ssh_subsystem_sup,
+	     ssh_connection_sup,
              ssh_tcpip_forward_client,
              ssh_tcpip_forward_srv,
              ssh_tcpip_forward_acceptor_sup,
@@ -51,7 +60,7 @@
                            ssh_acceptor,
                            ssh_channel_sup,
                            ssh_connection_handler,
-                           ssh_subsystem_sup,
+                           ssh_connection_sup,
                            ssh_system_sup
                           ]},
          {default_filter, rm} %% rm | filter
@@ -60,8 +69,8 @@
   {runtime_dependencies, [
 			  "crypto-5.0",
 			  "erts-14.0",
-			  "kernel-9.0",
+			  "kernel-10.3",
 			  "public_key-1.6.1",
-                          "stdlib-5.0","stdlib-5.0",
+                          "stdlib-@OTP-19800@",
                           "runtime_tools-1.15.1"
 			 ]}]}.

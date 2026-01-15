@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,23 @@
 %% %CopyrightEnd%
 %%
 -module(http_uri).
+-moduledoc """
+Old URI utility module, use uri_string instead
+
+This module is deprecated since OTP 23. Use the module `m:uri_string` to
+properly handle URIs, this is the recommended module since OTP 21.
+
+### Data types
+
+Type definitions that are related to URI:
+
+- **`uri_part() = [byte()] | binary()`** - Syntax according to the URI
+  definition in RFC 3986, for example, "http://www.erlang.org/"
+
+For more information about URI, see
+[RFC 3986](http://www.ietf.org/rfc/rfc3986.txt).
+""".
+-moduledoc(#{since => "OTP R15B01"}).
 
 -export([encode/1, decode/1]).
 
@@ -39,58 +58,31 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-reserved() ->
-    sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
-            $#, $[, $], $<, $>, $\", ${, $}, $|, %"
-			       $\\, $', $^, $%, $ ]).
 
-encode(URI) when is_list(URI) ->
-    Reserved = reserved(), 
-    lists:append([uri_encode(Char, Reserved) || Char <- URI]);
-encode(URI) when is_binary(URI) ->
-    Reserved = reserved(),
-    << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
+-doc """
+Performs percent encoding.
 
-decode(String) when is_list(String) ->
-    do_decode(String);
-decode(String) when is_binary(String) ->
-    do_decode_binary(String).
+> #### Warning {: .warning }
+>
+> Use `uri_string:quote/1` instead
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec encode(Data) -> QuotedData when
+      Data :: unicode:chardata(),
+      QuotedData :: unicode:chardata().
+encode(Data) ->
+    uri_string:quote(Data).
 
-do_decode([$%,Hex1,Hex2|Rest]) ->
-    [hex2dec(Hex1)*16+hex2dec(Hex2)|do_decode(Rest)];
-do_decode([First|Rest]) ->
-    [First|do_decode(Rest)];
-do_decode([]) ->
-    [].
+-doc """
+Decodes a possibly percent encoded URI part
 
-do_decode_binary(<<$%, Hex:2/binary, Rest/bits>>) ->
-    <<(binary_to_integer(Hex, 16)), (do_decode_binary(Rest))/binary>>;
-do_decode_binary(<<First:1/binary, Rest/bits>>) ->
-    <<First/binary, (do_decode_binary(Rest))/binary>>;
-do_decode_binary(<<>>) ->
-    <<>>.
-
-%%%========================================================================
-%%% Internal functions
-%%%========================================================================
-%% In this version of the function, we no longer need 
-%% the Scheme argument, but just in case...
-uri_encode(Char, Reserved) ->
-    case sets:is_element(Char, Reserved) of
-	true ->
-	    [ $% | http_util:integer_to_hexlist(Char)];
-	false ->
-	    [Char]
-    end.
-
-uri_encode_binary(Char, Reserved) ->
-    case sets:is_element(Char, Reserved) of
-        true ->
-            << $%, (integer_to_binary(Char, 16))/binary >>;
-        false ->
-            <<Char>>
-    end.
-
-hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
-hex2dec(X) when (X>=$A) andalso (X=<$F) -> X-$A+10;
-hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10.
+> #### Warning {: .warning }
+>
+> Use `uri_string:unquote/1` instead
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec decode(QuotedData) -> Data when
+      QuotedData :: unicode:chardata(),
+      Data :: unicode:chardata().
+decode(QuotedData) ->
+    uri_string:unquote(QuotedData).

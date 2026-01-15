@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,75 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(etop).
+-moduledoc """
+Erlang Top is a tool for presenting information about Erlang processes similar
+to the information presented by "top" in UNIX.
+
+Start Erlang Top with the provided scripts `etop`. This starts a hidden Erlang
+node that connects to the node to be measured. The measured node is specified
+with option `-node`. If the measured node has a different cookie than the
+default cookie for the user who invokes the script, the cookie must be
+explicitly specified with option `-setcookie`.
+
+Under Windows, batch file `etop.bat` can be used.
+
+When executing the `etop` script, configuration parameters can be specified as
+command-line options, for example,
+`etop -node testnode@myhost -setcookie MyCookie`. The following configuration
+parameters exist for the tool:
+
+- **`node`** - The measured node.
+
+  Value: `t:atom/0`
+
+  Mandatory
+
+- **`setcookie`** - Cookie to use for the `etop` node. Must be same as the
+  cookie on the measured node.
+
+  Value: `t:atom/0`
+
+- **`lines`** - Number of lines (processes) to display.
+
+  Value: `t:integer/0`
+
+  Default: `10`
+
+- **`interval`** - Time interval (in seconds) between each update of the
+  display.
+
+  Value: `t:integer/0`
+
+  Default: `5`
+
+- **`accumulate`** - If `true`, the execution time and reductions are
+  accumulated.
+
+  Value: `t:boolean/0`
+
+  Default: `false`
+
+- **`sort`** - Identifies what information to sort by.
+
+  Value: `runtime | reductions | memory | msg_q`
+
+  Default: `runtime` (`reductions` if `tracing=off`)
+
+- **`tracing`** - `etop` uses the Erlang trace facility, and thus no other
+  tracing is possible on the measured node while `etop` is running, unless this
+  option is set to `off`. Also helpful if the `etop` tracing causes too high
+  load on the measured node. With tracing off, runtime is not measured.
+
+  Value: `on | off`
+
+  Default: `on`
+
+For details about Erlang Top, see the [User's Guide](etop_ug.md).
+""".
 -author('siri@erix.ericsson.se').
 
 -export([start/0, start/1, config/2, stop/0, dump/1, help/0]).
@@ -30,6 +97,11 @@
 
 -define(change_at_runtime_config,[lines,interval,sort,accumulate]).
 
+-doc """
+Displays the help of `etop` and its options.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec help() -> ok.
 help() ->
     io:format(
       "Usage of the Erlang top program~n~n"
@@ -57,12 +129,29 @@ help() ->
       "                         This is not an etop parameter~n"
      ).
 
+-doc """
+Terminates `etop`.
+""".
+-spec stop() -> stop | not_started.
 stop() ->
     case whereis(etop_server) of
-	undefined -> not_started;
-	Pid when is_pid(Pid) -> etop_server ! stop
+        undefined -> not_started;
+        Pid when is_pid(Pid) ->
+            MonRef = monitor(process, Pid),
+            Pid ! stop,
+            stop_etop_input_server(),
+            receive {'DOWN', MonRef, process, Pid, _} -> ok end,
+            stop
     end.
 
+-doc """
+Changes the configuration parameters of the tool during runtime. Allowed
+parameters are `lines`, `interval`, `accumulate`, and `sort`.
+""".
+-spec config(Key,Value) -> ok | {error, Reason} when
+      Key :: 'lines' | 'interval' | 'accumulate' | 'sort',
+      Value :: term(),
+      Reason :: term().
 config(Key,Value) ->
     case check_runtime_config(Key,Value) of
 	ok ->
@@ -80,15 +169,34 @@ check_runtime_config(sort,S) when S=:=runtime;
 check_runtime_config(accumulate,A) when A=:=true; A=:=false -> ok;
 check_runtime_config(_Key,_Value) -> error.
 
+-doc """
+Dumps the current display to a text file.
+""".
+-spec dump(File) -> ok | {error, Reason} when
+      File   :: file:filename_all(),
+      Reason :: term().
 dump(File) ->
     case file:open(File,[write,{encoding,utf8}]) of
-	{ok,Fd} -> etop_server ! {dump,Fd};
+	{ok,Fd} -> etop_server ! {dump,Fd}, ok;
 	Error -> Error
     end.
 
+-doc """
+Starts `etop`. Notice that `etop` is preferably started with the `etop` script.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec start() -> ok.
 start() ->
     start([]).
-    
+
+-doc """
+Starts `etop`. To view the possible options, use `help/0`.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec start(Options) -> ok when
+      Options :: [{Key,Value}],
+      Key :: atom(),
+      Value :: term().
 start(Opts) ->
     process_flag(trap_exit, true),
     Config1 = handle_args(init:get_arguments() ++ Opts, #opts{}),
@@ -107,7 +215,7 @@ start(Opts) ->
 
     %% Maybe set up the tracing
     Config3 = 
-	if Config2#opts.tracing == on, Node /= node() ->
+	if Config2#opts.tracing == on andalso Node /= node() ->
 		%% Cannot trace on current node since the tracer will
 		%% trace itself
 		etop_tr:setup_tracer(Config2);
@@ -122,12 +230,52 @@ start(Opts) ->
 		       [set,public,{keypos,#etop_proc_info.pid}]),
     Config4 = Config3#opts{accum_tab=AccumTab},
 
+    %% Switch shell to raw mode if possible
+    Config5 =
+        case shell:start_interactive({noshell, raw}) of
+            ok ->
+                spawn_link(fun stop_on_input/0),
+                Config4#opts{shell_mode = raw};
+            {error, _Other} ->
+                Config4
+        end,
+
     %% Start the output server
-    Out = spawn_link(Config4#opts.out_mod, init, [Config4]),
-    Config5 = Config4#opts{out_proc = Out},       
+    Out = spawn_link(Config5#opts.out_mod, init, [Config5]),
+    Config6 = Config5#opts{out_proc = Out},
     
-    init_data_handler(Config5),
+    init_data_handler(Config6),
     ok.
+
+stop_on_input() ->
+    register(etop_input_server, self()),
+    stop_on_input_loop().
+
+stop_on_input_loop() ->
+    case io:get_chars("", 1) of
+        {error, Reason} ->
+            io:fwrite("Cannot get user's input, reason: ~p\r\n", [Reason]),
+            ok;
+        eof ->
+            ok;
+        Input ->
+            case string:find(Input, "q") of
+                nomatch ->
+                    stop_on_input_loop();
+                _ ->
+                    stop()
+            end
+    end.
+
+stop_etop_input_server() ->
+    Self = self(),
+    case whereis(etop_input_server) of
+        Self ->
+            ok;
+        InputServer ->
+            catch exit(InputServer, stop),
+            ok
+    end.
 
 check_runtime_tools_vsn(Node) ->
     case rpc:call(Node,observer_backend,vsn,[]) of
@@ -151,7 +299,7 @@ init_data_handler(Config) ->
 data_handler(Reader, Opts) ->
     receive
 	stop ->
-	    stop(Opts),
+	    stop(Reader, Opts),
 	    ok;
 	{config,{Key,Value}} ->
 	    data_handler(Reader,putopt(Key,Value,Opts));
@@ -163,23 +311,38 @@ data_handler(Reader, Opts) ->
 		normal -> ok;
 		_ -> io:format("Output server crashed: ~tp~n",[Reason])
 	    end,
-	    stop(Opts),
+	    stop(Reader, Opts),
 	    out_proc_stopped;
 	{'EXIT', Reader, eof} ->
 	    io:format("Lost connection to node ~p exiting~n", [Opts#opts.node]),
-	    stop(Opts),
+	    stop(Reader, Opts),
 	    connection_lost;
 	_ ->
 	    data_handler(Reader, Opts)
     end.
 
-stop(Opts) ->
+stop(Reader, Opts) ->
     (Opts#opts.out_mod):stop(Opts#opts.out_proc),
-    if Opts#opts.tracing == on -> etop_tr:stop_tracer(Opts);
-       true -> ok
+    case {Reader, Opts#opts.tracing == on} of
+        {undefined, true} ->
+            etop_tr:stop_tracer(Opts);
+        {Pid, true} when is_pid(Pid) ->
+            etop_tr:stop_tracer(Opts),
+            %% Stop reader process so it doesn't crash on deleted accumulator table
+            %% when our process dies.
+            case is_process_alive(Pid) of
+                true ->
+                    MonRef = monitor(process, Pid),
+                    exit(Pid, stop),
+                    receive {'DOWN', MonRef, process, Pid, _} -> ok end;
+                false -> ok
+            end;
+        _ ->
+            ok
     end,
     unregister(etop_server).
-    
+
+-doc false.
 update(#opts{store=Store,node=Node,tracing=Tracing,intv=Interval}=Opts) ->
     Pid = spawn_link(Node,observer_backend,etop_collect,[self()]),
     Info = receive {Pid,I} -> I 
@@ -246,6 +409,7 @@ get_tag(msg_q) -> #etop_proc_info.mq.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Configuration Management
 
+-doc false.
 getopt(What, Config) when is_record(Config, opts) ->
     case What of 
 	node  -> Config#opts.node;
@@ -325,6 +489,7 @@ output(graphical) -> exit({deprecated, "Use observer instead"});
 output(text) -> etop_txt.
 
 
+-doc false.
 loadinfo(SysI,Prev) ->
     #etop_info{n_procs = Procs, 
 	       run_queue = RQ, 
@@ -371,6 +536,7 @@ calculate_cpu_utilization(_,RTInfo,PrevRTInfo) ->
 	    round(100*Active/Total)
     end.
 
+-doc false.
 meminfo(MemI, [Tag|Tags]) -> 
     [round(get_mem(Tag, MemI)/1024)|meminfo(MemI, Tags)];
 meminfo(_MemI, []) -> [].

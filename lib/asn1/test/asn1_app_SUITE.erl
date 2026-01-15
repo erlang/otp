@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,7 +135,8 @@ check_asn1ct_modules(Extra) ->
 		  asn1ct_gen_ber_bin_v2,asn1ct_value,
 		  asn1ct_tok,asn1ct_parser2,asn1ct_table,
 		  asn1ct_imm,asn1ct_func,asn1ct_rtt,
-		  asn1ct_eval_ext,asn1ct_gen_jer],
+		  asn1ct_eval_ext,asn1ct_gen_jer,
+                  asn1ct_partial_decode],
     case Extra -- ASN1CTMods of
 	[] ->
 	    ok;

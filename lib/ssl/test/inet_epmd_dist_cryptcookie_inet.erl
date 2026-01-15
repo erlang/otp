@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +24,6 @@
 %% Module for dist_cryptcookie over inet_tcp
 %%
 -module(inet_epmd_dist_cryptcookie_inet).
--feature(maybe_expr, enable).
 
 %% DistMod API
 -export([net_address/0, listen_open/2, listen_port/3, listen_close/1,
@@ -167,7 +168,10 @@ stream_recv(InStream = [_ | Socket], Size) ->
             [Data | InStream];
         {error, timeout} ->
             [<<>> | InStream];
-        {error, closed} ->
+        {error, Reason}
+          when Reason =:= closed;
+               Reason =:= econnreset;
+               Reason =:= epipe ->
             [closed | InStream];
         {error, Reason} ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason})
@@ -180,7 +184,10 @@ stream_send(OutStream = [_ | Socket], Data) ->
     case ?DRIVER:send(Socket, Data) of
         ok ->
             OutStream;
-        {error, closed} ->
+        {error, Reason}
+          when Reason =:= closed;
+               Reason =:= econnreset;
+               Reason =:= epipe ->
             [closed | OutStream];
         {error, Reason} ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason, [OutStream, Data]})

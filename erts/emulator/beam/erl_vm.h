@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +54,8 @@
 #define MAX_ARG      255             /* Max number of arguments allowed */
 #define MAX_REG      1024            /* Max number of x(N) registers used */
 #define REG_MASK     (MAX_REG - 1)
+
+#define MAX_BIF_ARITY 4 /* Maximum allowed arguments for C-based BIFs. */
 
 /*
  * Guard BIFs and the new trapping length/1 implementation need 3 extra
@@ -317,9 +321,9 @@ extern void** beam_ops;
 #endif /* BEAMASM */
 
 /* Stack frame sizes (not including CP_SIZE) */
-#define BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ 2
-#define BEAM_RETURN_TO_TRACE_FRAME_SZ   0
-#define BEAM_RETURN_TRACE_FRAME_SZ      2
+#define BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ 3
+#define BEAM_RETURN_TO_TRACE_FRAME_SZ   1
+#define BEAM_RETURN_TRACE_FRAME_SZ      3
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE

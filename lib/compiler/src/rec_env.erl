@@ -1,3 +1,11 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 1999-2004 Richard Carlsson
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,9 +18,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 1999-2004 Richard Carlsson
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Abstract environments, supporting self-referential bindings and
+%% %CopyrightEnd%
+%%
+%% Abstract environments, supporting self-referential bindings and
 %% automatic new-key generation.
 
 %% The current implementation is based on Erlang standard library maps.
@@ -20,6 +28,7 @@
 %%% -define(DEBUG, true).
 
 -module(rec_env).
+-moduledoc false.
 
 -export([bind/3, bind_list/3, bind_recursive/4, delete/2, empty/0,
 	 get/2, is_defined/2, is_empty/1, keys/1, lookup/2, new_key/1,
@@ -33,16 +42,16 @@
 
 -ifdef(DEBUG).
 %% Code for testing:
-%%@hidden
+-doc false.
 test(N) ->
     test_0(integer, N).
 
-%%@hidden
+-doc false.
 test_custom(N) ->
     F = fun (X) -> list_to_atom("X"++integer_to_list(X)) end,
     test_custom(F, N).
 
-%%@hidden
+-doc false.
 test_custom(F, N) ->
     test_0({custom, F}, N).
 
@@ -65,7 +74,6 @@ test_1({custom, F} = Type, N, Env) when is_integer(N), N > 0 ->
 test_1(_,0, Env) ->
     Env.
 -endif.
-%%@clear
 
 
 %% Representation:
@@ -86,16 +94,13 @@ test_1(_,0, Env) ->
 
 
 %% =====================================================================
-%% @type environment(). An abstract environment.
-
 -type mapping()     :: {'map', map()} | {'rec', map(), map()}.
+
+-doc "An abstract environment.".
 -type environment() :: [mapping(),...].
 
 %% =====================================================================
-%% @spec empty() -> environment()
-%%
-%% @doc Returns an empty environment.
-
+-doc "Returns an empty environment.".
 -spec empty() -> environment().
 
 empty() ->
@@ -103,11 +108,7 @@ empty() ->
 
 
 %% =====================================================================
-%% @spec is_empty(Env::environment()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if the environment is empty, otherwise
-%% <code>false</code>.
-
+-doc "Returns `true` if the environment is empty, otherwise `false`.".
 -spec is_empty(environment()) -> boolean().
 
 is_empty([{map, Map} | Es]) ->
@@ -125,18 +126,14 @@ is_empty([{rec, Map, _} | Es]) ->
 
 
 %% =====================================================================
-%% @spec size(Env::environment()) -> integer()
-%%
-%% @doc Returns the number of entries in an environment.
-
-%% (The name 'size' cannot be used in local calls, since there exists a
-%% built-in function with the same name.)
-
+-doc "Returns the number of entries in an environment.".
 -spec size(environment()) -> non_neg_integer().
 
 size(Env) ->
     env_size(Env).
 
+%% (The name 'size' cannot be used in local calls, since there exists a
+%% built-in function with the same name.)
 env_size([{map, Map}]) ->
     map_size(Map);
 env_size([{map, Map} | Env]) ->
@@ -146,15 +143,8 @@ env_size([{rec, Map, _Map0} | Env]) ->
 
 
 %% =====================================================================
-%% @spec is_defined(Key, Env) -> boolean()
-%%
-%%	Key = term()
-%%	Env = environment()
-%%
-%% @doc Returns <code>true</code> if <code>Key</code> is bound in the
-%% environment, otherwise <code>false</code>.
-
--spec is_defined(term(), environment()) -> boolean().
+-doc "Returns `true` if `Key` is bound in the environment, otherwise `false`.".
+-spec is_defined(any(), environment()) -> boolean().
 
 is_defined(Key, [{map, Map} | Env]) ->
     case maps:is_key(Key, Map) of
@@ -170,11 +160,8 @@ is_defined(Key, [{rec, Map, _Map0} | Env]) ->
 
 
 %% =====================================================================
-%% @spec keys(Env::environment()) -> [term()]
-%%
-%% @doc Returns the ordered list of all keys in the environment.
-
--spec keys(environment()) -> [term()].
+-doc "Returns the ordered list of all keys in the environment.".
+-spec keys(environment()) -> [any()].
 
 keys(Env) ->
     lists:sort(keys(Env, [])).
@@ -188,17 +175,11 @@ keys([{rec, Map, _Map0} | Env], S) ->
 
 
 %% =====================================================================
-%% @spec to_list(Env) -> [{Key, Value}]
-%%
-%%	Env = environment()
-%%	Key = term()
-%%	Value = term()
-%%
-%% @doc Returns an ordered list of <code>{Key, Value}</code> pairs for
-%% all keys in <code>Env</code>. <code>Value</code> is the same as that
-%% returned by {@link get/2}.
-
--spec to_list(environment()) -> [{term(), term()}].
+-doc """
+Returns an ordered list of `{Key, Value}` pairs for
+all keys in `Env`. `Value` is the same as that returned by `get/2`.
+""".
+-spec to_list(environment()) -> [{Key::any(), Value::any()}].
 
 to_list(Env) ->
     lists:sort(to_list(Env, [])).
@@ -212,20 +193,15 @@ to_list([{rec, Map, _Map0} | Env], S) ->
 
 
 %% =====================================================================
-%% @spec bind(Key, Value, Env) -> environment()
-%%
-%%	Key = term()
-%%	Value = term()
-%%	Env = environment()
-%%
-%% @doc Make a nonrecursive entry. This binds <code>Key</code> to
-%% <code>Value</code>. If the key already existed in the environment,
-%% the old entry is replaced.
+-doc """
+Make a nonrecursive entry. This binds `Key` to
+`Value`. If the key already existed in the environment,
+the old entry is replaced.
+""".
+-spec bind(Key::any(), Value::any(), environment()) -> environment().
 
 %% Note that deletion is done to free old bindings so they can be
 %% garbage collected.
-
--spec bind(term(), term(), environment()) -> environment().
 
 bind(Key, Value, [{map, Map}]) ->
     [{map, maps:put(Key, Value, Map)}];
@@ -236,19 +212,14 @@ bind(Key, Value, Env) ->
 
 
 %% =====================================================================
-%% @spec bind_list(Keys, Values, Env) -> environment()
-%%
-%%	Keys = [term()]
-%%	Values = [term()]
-%%	Env = environment()
-%%
-%% @doc Make N nonrecursive entries. This binds each key in
-%% <code>Keys</code> to the corresponding value in
-%% <code>Values</code>. If some key already existed in the environment,
-%% the previous entry is replaced. If <code>Keys</code> does not have
-%% the same length as <code>Values</code>, an exception is generated.
-
--spec bind_list([term()], [term()], environment()) -> environment().
+-doc """
+Make N nonrecursive entries. This binds each key in
+`Keys` to the corresponding value in
+`Values`. If some key already existed in the environment,
+the previous entry is replaced. If `Keys` does not have
+the same length as `Values`, an exception is generated.
+""".
+-spec bind_list(Keys::[any()], Values::[any()], environment()) -> environment().
 
 bind_list(Ks, Vs, [{map, Map}]) ->
     [{map, store_list(Ks, Vs, Map)}];
@@ -279,15 +250,8 @@ delete_any(Key, Env) ->
     end.
 
 %% =====================================================================
-%% @spec delete(Key, Env) -> environment()
-%%
-%%	Key = term()
-%%	Env = environment()
-%%
-%% @doc Delete an entry. This removes <code>Key</code> from the
-%% environment.
-
--spec delete(term(), environment()) -> environment().
+-doc "Delete an entry. This removes `Key` from the environment.".
+-spec delete(Key::any(), environment()) -> environment().
 
 delete(Key, [{map, Map} = E | Env]) ->
     case maps:take(Key, Map) of
@@ -328,47 +292,40 @@ concat(E1, Env) ->
 
 
 %% =====================================================================
-%% @spec bind_recursive(Keys, Values, Fun, Env) -> NewEnv
-%%
-%%	Keys = [term()]
-%%	Values = [term()]
-%%	Fun = (Value, Env) -> term()
-%%	Env = environment()
-%%	NewEnv = environment()
-%%
-%% @doc Make N recursive entries. This binds each key in
-%% <code>Keys</code> to the value of <code>Fun(Value, NewEnv)</code> for
-%% the corresponding <code>Value</code>. If <code>Keys</code> does not
-%% have the same length as <code>Values</code>, an exception is
-%% generated. If some key already existed in the environment, the old
-%% entry is replaced.
-%%
-%% <p>Note: the function <code>Fun</code> is evaluated each time one of
-%% the stored keys is looked up, but only then.</p>
-%%
-%% <p>Examples:
-%%<pre>
-%%    NewEnv = bind_recursive([foo, bar], [1, 2],
-%%	                      fun (V, E) -> V end,
-%%	                      Env)</pre>
-%%
-%% This does nothing interesting; <code>get(foo, NewEnv)</code> yields
-%% <code>1</code> and <code>get(bar, NewEnv)</code> yields
-%% <code>2</code>, but there is more overhead than if the {@link
-%% bind_list/3} function had been used.
-%%
-%% <pre>
-%%    NewEnv = bind_recursive([foo, bar], [1, 2],
-%%                            fun (V, E) -> {V, E} end,
-%%                            Env)</pre>
-%%
-%% Here, however, <code>get(foo, NewEnv)</code> will yield <code>{1,
-%% NewEnv}</code> and <code>get(bar, NewEnv)</code> will yield <code>{2,
-%% NewEnv}</code>, i.e., the environment <code>NewEnv</code> contains
-%% recursive bindings.</p>
+-doc """
+Make N recursive entries. This binds each key in
+`Keys` to the value of `Fun(Value, NewEnv)` for
+the corresponding `Value`. If `Keys` does not
+have the same length as `Values`, an exception is
+generated. If some key already existed in the environment, the old
+entry is replaced.
 
--spec bind_recursive([term()], [term()],
-		     fun((term(), environment()) -> term()),
+Note: the function `Fun` is evaluated each time one of
+the stored keys is looked up, but only then.
+
+Examples:
+```
+   NewEnv = bind_recursive([foo, bar], [1, 2],
+                           fun (V, E) -> V end,
+                           Env)
+```
+This does nothing interesting; `get(foo, NewEnv)` yields
+`1` and `get(bar, NewEnv)` yields
+`2`, but there is more overhead than if the
+`bind_list/3` function had been used.
+
+```
+   NewEnv = bind_recursive([foo, bar], [1, 2],
+                           fun (V, E) -> {V, E} end,
+                           Env)
+```
+Here, however, `get(foo, NewEnv)` will yield `{1,
+NewEnv}` and `get(bar, NewEnv)` will yield `{2,
+NewEnv}`, i.e., the environment `NewEnv` contains
+recursive bindings.
+""".
+-spec bind_recursive(Keys::[any()], Values::[any()],
+		     Fun::fun((Value::any(), environment()) -> any()),
 		     environment()) -> environment().
 
 bind_recursive([], [], _, Env) ->
@@ -387,17 +344,11 @@ bind_recursive_1([], [], _, Map) ->
 
 
 %% =====================================================================
-%% @spec lookup(Key, Env) -> error | {ok, Value}
-%%
-%%	Key = term()
-%%	Env = environment()
-%%	Value = term()
-%%
-%% @doc Returns <code>{ok, Value}</code> if <code>Key</code> is bound to
-%% <code>Value</code> in <code>Env</code>, and <code>error</code>
-%% otherwise.
-
--spec lookup(term(), environment()) -> 'error' | {'ok', term()}.
+-doc """
+Returns `{ok, Value}` if `Key` is bound to
+`Value` in `Env`, and `error` otherwise.
+""".
+-spec lookup(Key::any(), environment()) -> 'error' | {'ok', any()}.
 
 lookup(Key, [{map, Map} | Env]) ->
     case maps:find(Key, Map) of
@@ -418,17 +369,11 @@ lookup(Key, [{rec, Map, Map0} | Env]) ->
 
 
 %% =====================================================================
-%% @spec get(Key, Env) -> Value
-%%
-%%	Key = term()
-%%	Env = environment()
-%%	Value = term()
-%%
-%% @doc Returns the value that <code>Key</code> is bound to in
-%% <code>Env</code>. Throws <code>{undefined, Key}</code> if the key
-%% does not exist in <code>Env</code>.
-
--spec get(term(), environment()) -> term().
+-doc """
+Returns the value that `Key` is bound to in
+`Env`. Throws `{undefined, Key}` if the key does not exist in `Env`.
+""".
+-spec get(Key::any(), environment()) -> any().
 
 get(Key, Env) ->
     case lookup(Key, Env) of
@@ -508,19 +453,18 @@ get(Key, Env) ->
 
 
 %% =====================================================================
-%% @spec new_key(Env::environment()) -> integer()
-%%
-%% @doc Returns an integer which is not already used as key in the
-%% environment. New integers are generated using an algorithm which
-%% tries to keep the values randomly distributed within a reasonably
-%% small range relative to the number of entries in the environment.
-%%
-%% <p>This function uses the Erlang standard library module
-%% <code>random</code> to generate new keys.</p>
-%%
-%% <p>Note that only the new key is returned; the environment itself is
-%% not updated by this function.</p>
+-doc """
+Returns an integer which is not already used as key in the
+environment. New integers are generated using an algorithm which
+tries to keep the values randomly distributed within a reasonably
+small range relative to the number of entries in the environment.
 
+This function uses the Erlang standard library module
+`random` to generate new keys.
+
+Note that only the new key is returned; the environment itself is
+not updated by this function.
+""".
 -spec new_key(environment()) -> integer().
 
 new_key(Env) ->
@@ -528,19 +472,15 @@ new_key(Env) ->
 
 
 %% =====================================================================
-%% @spec new_key(Function, Env) -> term()
-%%
-%%	Function = (integer()) -> term()
-%%	Env = environment()
-%%
-%% @doc Returns a term which is not already used as key in the
-%% environment. The term is generated by applying <code>Function</code>
-%% to an integer generated as in {@link new_key/1}.
-%%
-%% <p>Note that only the generated term is returned; the environment
-%% itself is not updated by this function.</p>
+-doc """
+Returns a term which is not already used as key in the
+environment. The term is generated by applying `Function`
+to an integer generated as in `new_key/1`.
 
--spec new_key(fun((integer()) -> term()), environment()) -> term().
+Note that only the generated term is returned; the environment
+itself is not updated by this function.
+""".
+-spec new_key(fun((integer()) -> any()), environment()) -> any().
 
 new_key(F, Env) ->
     ?measure_calls(),
@@ -595,33 +535,23 @@ generate(_N, Range) ->
 
 
 %% =====================================================================
-%% @spec new_keys(N, Env) -> [integer()]
-%%
-%%	N = integer()
-%%	Env = environment()
-%%
-%% @doc Returns a list of <code>N</code> distinct integers that are not
-%% already used as keys in the environment. See {@link new_key/1} for
-%% details.
-
+-doc """
+Returns a list of `N` distinct integers that are not
+already used as keys in the environment. See `new_key/1` for
+details.
+""".
 -spec new_keys(integer(), environment()) -> [integer()].
 
 new_keys(N, Env) when is_integer(N) ->
     new_keys(N, fun (X) -> X end, Env).
 
-    
-%% =====================================================================
-%% @spec new_keys(N, Function, Env) -> [term()]
-%%
-%%	    N = integer()
-%%	    Function = (integer()) -> term()
-%%	    Env = environment()
-%%
-%% @doc Returns a list of <code>N</code> distinct terms that are not
-%% already used as keys in the environment. See {@link new_key/3} for
-%% details.
 
--spec new_keys(integer(), fun((integer()) -> term()), environment()) -> [term()].
+%% =====================================================================
+-doc """
+Returns a list of `N` distinct terms that are not
+already used as keys in the environment. See `new_key/3` for details.
+""".
+-spec new_keys(integer(), fun((integer()) -> any()), environment()) -> [any()].
 
 new_keys(N, F, Env) when is_integer(N) ->
     R = start_range(Env),

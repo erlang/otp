@@ -1,0 +1,56 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+## This workflow continually scan the master branch to make sure that
+## the correct compiler flags are used when testing Erlang/OTP on github.
+
+name: Open Source Security Foundation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 1 * * *
+
+permissions:
+  contents: read
+
+jobs:
+  schedule-scan:
+    runs-on: ubuntu-latest
+    if: github.repository == 'erlang/otp'
+    permissions:
+      # Required to upload SARIF file to CodeQL.
+      # See: https://github.com/github/codeql-action/issues/2117
+      actions: read
+      # Require writing security events to upload SARIF file to security tab
+      security-events: write
+      # Only need to read contents
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - name: Create initial pre-release tar
+        run: .github/scripts/init-pre-release.sh otp_src.tar.gz
+      - uses: ./.github/actions/build-base-image
+        with:
+          BASE_BRANCH: master
+
+      - uses: ./.github/actions/ossf-compiler-flags-scanner
+        with:
+            upload: true

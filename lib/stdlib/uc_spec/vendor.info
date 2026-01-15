@@ -1,0 +1,36 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+    "ID": "stdlib-unicode",
+    "description": "Unicode Character Database used for generating code",
+    "copyrightText": "© 2024 Unicode®, Inc.",
+    "downloadLocation": "https://www.unicode.org/Public/16.0.0/ucd/",
+    "homepage": "https://www.unicode.org/",
+    "licenseDeclared": "Unicode-3.0",
+    "name": "Unicode Character Database",
+    "versionInfo": "16.0.0",
+    "path": [
+      "./lib/stdlib/uc_spec/CaseFolding.txt",
+      "./lib/stdlib/uc_spec/CompositionExclusions.txt",
+      "./lib/stdlib/uc_spec/EastAsianWidth.txt",
+      "./lib/stdlib/uc_spec/emoji-data.txt",
+      "./lib/stdlib/uc_spec/GraphemeBreakProperty.txt",
+      "./lib/stdlib/uc_spec/IndicSyllabicCategory.txt",
+      "./lib/stdlib/uc_spec/PropList.txt",
+      "./lib/stdlib/uc_spec/SpecialCasing.txt",
+      "./lib/stdlib/uc_spec/UnicodeData.txt",
+      "./lib/stdlib/uc_spec/DerivedCoreProperties.txt",
+      "./lib/stdlib/test/unicode_util_SUITE_data/GraphemeBreakTest.txt",
+      "./lib/stdlib/test/unicode_util_SUITE_data/LineBreakTest.txt",
+      "./lib/stdlib/test/unicode_util_SUITE_data/NormalizationTest.txt"
+    ],
+    "supplier": "Organization: Unicode, Inc",
+    "purl": "pkg:generic/unicode"
+  }
+]

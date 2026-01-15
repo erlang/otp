@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +26,9 @@
 -export([exec/1, exec/2,
 	 instantiate/2,
 	 format_msg/1,
-	 server_host_port/1
+	 server_host_port/1,
+         return_value/1,
+         set_timeout/2
 	]
        ).
 
@@ -91,7 +95,8 @@ exec(Op, S0=#s{}) ->
 	    report_trace(throw, Term, S1),
 	    throw({Term,Op});
 
-	error:Error ->
+	error:Error:St ->
+            ct:log("Stacktrace=~n~p", [St]),
 	    report_trace(error, Error, S1),
 	    error({Error,Op});
 
@@ -332,8 +337,23 @@ send(S0, ssh_msg_kexinit) ->
     {Msg, _Bytes, _C0} = ssh_transport:key_exchange_init_msg(S0#s.ssh),
     send(S0, Msg);
 
+send(S0, start_incomplete_renegotiation) ->
+    {_Msg, Bytes, Ssh} = ssh_transport:key_exchange_init_msg(S0#s.ssh),
+    send(S0#s{ssh = Ssh}, Bytes);
+
 send(S0, ssh_msg_ignore) ->
     Msg = #ssh_msg_ignore{data = "unexpected_ignore_message"},
+    send(S0, Msg);
+
+send(S0, ssh_msg_debug) ->
+    Msg = #ssh_msg_debug{
+             always_display = true,
+             message = "some debug message",
+             language = "en"},
+    send(S0, Msg);
+
+send(S0, ssh_msg_unimplemented) ->
+    Msg = #ssh_msg_unimplemented{sequence = 123},
     send(S0, Msg);
 
 send(S0, ssh_msg_unknown) ->
@@ -381,6 +401,26 @@ send(S0, ssh_msg_kexdh_init) when ?role(S0) == client ->
 		    Msg = #ssh_msg_kexdh_init{e = Public},
 		    {"Send (reconstructed)~n~s~n",[format_msg(Msg)]}
 	    end),
+    send_bytes(NextKexMsgBin, S#s{ssh = C});
+
+send(S0, ssh_msg_kexdh_init_dup) when ?role(S0) == client ->
+    {OwnMsg, PeerMsg} = S0#s.alg_neg,
+    {ok, NextKexMsgBin, C} =
+	try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S0#s.ssh, init)
+	catch
+	    Class:Exc ->
+		fail("Algorithm negotiation failed!",
+		     {"Algorithm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s",
+		      [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg)]},
+		     S0)
+	end,
+    S = opt(print_messages, S0,
+	    fun(X) when X==true;X==detail ->
+		    #ssh{keyex_key = {{_Private, Public}, {_G, _P}}} = C,
+		    Msg = #ssh_msg_kexdh_init{e = Public},
+		    {"Send (reconstructed)~n~s~n",[format_msg(Msg)]}
+	    end),
+    send_bytes(NextKexMsgBin, S#s{ssh = C}),
     send_bytes(NextKexMsgBin, S#s{ssh = C});
 
 send(S0, ssh_msg_kexdh_reply) ->
@@ -448,9 +488,15 @@ recv(S0 = #s{}) ->
 
 			{undefined,_} ->
 			    fail("2 kexint received!!", S);
-					
 			{OwnMsg, _} ->
-			    try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S#s.ssh, init) of
+                            ReNeg =
+                                case S#s.alg of
+                                    undefined ->
+                                        init;
+                                    _ ->
+                                        renegotiate
+                                end,
+			    try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S#s.ssh, ReNeg) of
 				{ok,C} when ?role(S) == server ->
 				    S#s{alg_neg = {OwnMsg, PeerMsg},
 					alg = C#ssh.algorithms,
@@ -459,9 +505,9 @@ recv(S0 = #s{}) ->
 				    S#s{alg_neg = {OwnMsg, PeerMsg},
 					alg = C#ssh.algorithms}
 			    catch
-				Class:Exc ->
-				    save_prints({"Algorithm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~n",
-						 [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg)]},
+				Class:Exc:Stacktrace ->
+				    save_prints({"Algorithm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~nStacktrace: ~p~n",
+						 [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg), Stacktrace]},
 						S#s{alg_neg = {OwnMsg, PeerMsg}})
 			    end
 		    end;
@@ -532,7 +578,10 @@ receive_binary_msg(S0=#s{}) ->
            S0#s.ssh)
      of
          {packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh1} ->
-             S1 = S0#s{ssh = Ssh1#ssh{recv_sequence = ssh_transport:next_seqnum(Ssh1#ssh.recv_sequence)},
+             S1 = S0#s{ssh = Ssh1#ssh{recv_sequence =
+                                          ssh_transport:next_seqnum(undefined,
+                                                                    Ssh1#ssh.recv_sequence,
+                                                                    false)},
                        decrypted_data_buffer = <<>>,
                        undecrypted_packet_length = undefined,
                        aead_data = <<>>,
@@ -779,3 +828,9 @@ opt(Flag, S, Fun) when is_function(Fun,1) ->
 
 save_prints({Fmt,Args}, S) -> 
     S#s{prints = [{Fmt,Args}|S#s.prints]}.
+
+return_value(#s{return_value = ReturnValue}) ->
+    ReturnValue.
+
+set_timeout(S, Timeout) ->
+    S#s{timeout = Timeout}.

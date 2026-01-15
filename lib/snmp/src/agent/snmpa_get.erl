@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,9 +21,11 @@
 %%
 
 -module(snmpa_get).
+-moduledoc false.
 
 -behaviour(snmpa_get_mechanism).
 
+-compile(nowarn_obsolete_bool_op).
 
 %%%-----------------------------------------------------------------
 %%% snmpa_get_mechanism exports

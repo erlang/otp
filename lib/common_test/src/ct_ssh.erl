@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,37 @@
 %%
 
 -module(ct_ssh).
+-moduledoc """
+SSH/SFTP client module.
+
+This module uses application `SSH`, which provides detailed information about,
+for example, functions, types, and options.
+
+Argument `Server` in the SFTP functions is only to be used for SFTP sessions
+that have been started on existing SSH connections (that is, when the original
+connection type is `ssh`). Whenever the connection type is `sftp`, use the SSH
+connection reference only.
+
+The following options are valid for specifying an SSH/SFTP connection (that is,
+can be used as configuration elements):
+
+```erlang
+[{ConnType, Addr},
+ {port, Port},
+ {user, UserName}
+ {password, Pwd}
+ {user_dir, String}
+ {public_key_alg, PubKeyAlg}
+ {connect_timeout, Timeout}
+ {key_cb, KeyCallbackMod}]
+```
+
+`ConnType = ssh | sftp`.
+
+For other types, see `m:ssh`.
+
+All time-out parameters in `ct_ssh` functions are values in milliseconds.
+""".
 
 %% SSH Functions
 -export([connect/1, connect/2, connect/3,
@@ -57,20 +90,96 @@
 
 -record(state, {ssh_ref, conn_type, target}).
 
+-doc "Handle for a specific SSH/SFTP connection, see module `m:ct`.".
 -type handle() :: pid().
+-doc "Reference to opened SSH/SFTP connection associated to either a `handle` or `target_name`.".
+-type connection() :: handle() | ct:target_name().
+-doc "Connection type used for connect.".
+-type connection_type() :: 'host' | 'ssh' | 'sftp'.
+-doc """
+The valid values are `0` ("normal") and `1` ("stderr"), see
+[RFC 4254, Section 5.2](https://tools.ietf.org/html/rfc4254#page-8).
+""".
+-type ssh_data_type_code() :: non_neg_integer().
+-doc """
+Data type representing a channel inside a connection.
+
+"For `ssh_channel_id`, see module `m:ssh`.".
+""".
+-type ssh_channel_id() :: non_neg_integer().
 
 %%%-----------------------------------------------------------------
 %%%------------------------ SSH COMMANDS ---------------------------
 
+-doc(#{equiv => connect(KeyOrName, host, [])}).
+-spec connect(KeyOrName) -> {'ok', Handle} | {'error', Reason}
+              when KeyOrName :: ct:key_or_name(),
+                   Handle :: handle(),
+                   Reason :: term().
 connect(KeyOrName) ->
     connect(KeyOrName, host).
 
+-doc """
+Opens an SSH or SFTP connection using the information associated with `KeyOrName`
+(see `connect/3`).
+
+Equivalent to [`connect(KeyOrName, ConnType, [])`](`connect/3`) if
+called with ConnType being atom.
+
+Equivalent to [`connect(KeyOrName, host, ExtraOpts)`](`connect/3`) if
+called with ExtraOpts being list.
+""".
+-spec connect(KeyOrName, ConnType) -> {'ok', Handle} | {'error', Reason}
+              when KeyOrName :: ct:key_or_name(),
+                   ConnType :: connection_type(),
+                   Handle :: handle(),
+                   Reason :: term();
+             (KeyOrName, ExtraOpts) -> {'ok', Handle} | {'error', Reason}
+              when KeyOrName :: ct:key_or_name(),
+                   ExtraOpts :: [ExtraOption],
+                   ExtraOption :: {'ssh', Address} | {'sftp', Address} | ssh:client_option()
+                                | ssh_sftp:sftp_option(),
+                   Address :: ssh:host(),
+                   Handle :: handle(),
+                   Reason :: term().
 connect(KeyOrName, ConnType) when is_atom(ConnType) ->
     connect(KeyOrName, ConnType, []);
 
 connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
     connect(KeyOrName, host, ExtraOpts).
 
+-doc """
+Opens an SSH or SFTP connection using the information associated with
+`KeyOrName`.
+
+If `Name` (an alias name for `Key`) is used to identify the connection, this
+name can be used as connection reference for subsequent calls. Only one open
+connection at a time associated with `Name` is possible. If `Key` is used, the
+returned handle must be used for subsequent calls (multiple connections can be
+opened using the configuration data specified by `Key`).
+
+For information on how to create a new `Name`, see `ct:require/2`.
+
+`ConnType` always overrides the type specified in the address tuple in the
+configuration data (and in `ExtraOpts`). So it is possible to, for example, open
+an SFTP connection directly using data originally specifying an SSH connection.
+Value `host` means that the connection type specified by the host option (either
+in the configuration data or in `ExtraOpts`) is used.
+
+`ExtraOpts` (optional) are extra SSH options to be added to the configuration
+data for `KeyOrName`. The extra options override any existing options with the
+same key in the configuration data. For details on valid SSH options, see
+application [`SSH`](`e:ssh:index.html`).
+""".
+-spec connect(KeyOrName, ConnType, ExtraOpts) -> {'ok', Handle} | {'error', Reason}
+              when KeyOrName :: ct:key_or_name(),
+                   ConnType :: connection_type(),
+                   ExtraOpts :: [ExtraOption],
+                   ExtraOption :: {'ssh', Address} | {'sftp', Address} | ssh:client_option()
+                                | ssh_sftp:sftp_option(),
+                   Address :: ssh:host(),
+                   Handle :: handle(),
+                   Reason :: term().
 connect(KeyOrName, ConnType, ExtraOpts) ->
     case ct:get_config(KeyOrName) of
 	undefined ->
@@ -145,6 +254,12 @@ connect(KeyOrName, ConnType, ExtraOpts) ->
 	    end
     end.
 
+-doc """
+Closes an SSH/SFTP connection.
+""".
+-spec disconnect(SSH) -> 'ok' | {'error', Reason}
+              when SSH :: connection(),
+                   Reason :: term().
 disconnect(SSH) ->
     case get_handle(SSH) of
 	{ok,Pid} ->
@@ -159,54 +274,251 @@ disconnect(SSH) ->
 	    Error
     end.
 
+-doc(#{equiv => session_open(SSH, DefaultTimeout)}).
+-spec session_open(SSH) -> {'ok', ChannelId} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Reason :: term().
 session_open(SSH) ->
     call(SSH, {session_open,?DEFAULT_TIMEOUT}).
 
+-doc """
+Opens a channel for an SSH session.
+""".
+-spec session_open(SSH, Timeout) -> {'ok', ChannelId} | {'error', Reason}
+              when SSH :: connection(),
+                   Timeout :: timeout(),
+                   ChannelId :: ssh_channel_id(),
+                   Reason :: term().
 session_open(SSH, Timeout) ->
     call(SSH, {session_open,Timeout}).
 
+-doc """
+Closes an SSH session channel.
+""".
+-spec session_close(SSH, ChannelId) -> 'ok' | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Reason :: term().
 session_close(SSH, ChannelId) ->
     call(SSH, {session_close,ChannelId}).
 
+-doc(#{equiv => exec(SSH, Command, DefaultTimeout)}).
+-spec exec(SSH, Command) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
+              when SSH :: connection(),
+                   Command :: string(),
+                   Data :: string(),
+                   Reason :: term().
 exec(SSH, Command) ->
     exec(SSH, undefined, Command, ?DEFAULT_TIMEOUT).
 
+-doc """
+Requests server to perform `Command`, (see `exec/4`).
+
+Equivalent to [`exec(SSH, undefined, Command, Timeout)`](`exec/4`) if
+called with Command being string.
+
+Equivalent to [`exec(SSH, ChannelId, Command, DefaultTimeout)`](`exec/4`) if
+called with ChannelId being integer.
+""".
+-spec exec(SSH, Command, Timeout) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
+              when SSH :: connection(),
+                   Command :: string(),
+                   Timeout :: timeout(),
+                   Data :: string(),
+                   Reason :: term();
+          (SSH, ChannelId, Command) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Command :: string(),
+                   Data :: string(),
+                   Reason :: term().
 exec(SSH, Command, Timeout) when is_list(Command) ->
     exec(SSH, undefined, Command, Timeout);
 
 exec(SSH, ChannelId, Command) when is_integer(ChannelId) ->
     exec(SSH, ChannelId, Command, ?DEFAULT_TIMEOUT).
 
+-doc """
+Requests server to perform `Command`. A previously opened session channel is
+used for the request. `Data` is received from the server as a result of the
+command.
+""".
+-spec exec(SSH, ChannelId, Command, Timeout) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id() | 'undefined',
+                   Command :: string(),
+                   Timeout :: timeout(),
+                   Data :: string(),
+                   Reason :: term().
 exec(SSH, ChannelId, Command, Timeout) ->
     call(SSH, {exec,ChannelId,Command,Timeout}).
 
+-doc(#{equiv => receive_response(SSH, ChannelId, close, DefaultTimeout)}).
+-spec receive_response(SSH, ChannelId) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Data :: string(),
+                   Reason :: term().
 receive_response(SSH, ChannelId) ->
     receive_response(SSH, ChannelId, close, ?DEFAULT_TIMEOUT).
 
+-doc """
+Receives expected data from server on the specified session channel
+(see `receive_response/4`).
+
+Equivalent to [`receive_response(SSH, ChannelId, End, DefaultTimeout)`](`receive_response/4`) if
+called with End being function.
+
+Equivalent to [`receive_response(SSH, ChannelId, close, Timeout)`](`receive_response/4`) if
+called with Timeout being integer.
+""".
+-spec receive_response(SSH, ChannelId, End) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   End :: fun((string()) -> boolean()),
+                   Data :: string(),
+                   Reason :: term();
+                      (SSH, ChannelId, Timeout) -> {'ok', Data} | {'timeout', Data}
+              | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Timeout :: timeout(),
+                   Data :: string(),
+                   Reason :: term().
 receive_response(SSH, ChannelId, End) when is_function(End) ->
     receive_response(SSH, ChannelId, End, ?DEFAULT_TIMEOUT);
 
 receive_response(SSH, ChannelId, Timeout) when is_integer(Timeout) ->
     receive_response(SSH, ChannelId, close, Timeout).
 
+-doc """
+Receives expected data from server on the specified session channel.
+
+If `End == close`, data is returned to the caller when the channel is closed by
+the server. If a time-out occurs before this happens, the function returns
+`{timeout,Data}` (where `Data` is the data received so far).
+
+If `End == timeout`, a time-out is expected and `{ok,Data}` is returned both in
+the case of a time-out and when the channel is closed.
+
+If `End` is a fun, this fun is called with one argument, the data value in a
+received `ssh_cm` message (see `m:ssh_connection`. The fun is to return either
+`true` to end the receiving operation (and have the so far collected data
+returned) or `false` to wait for more data from the server. Even if a fun is
+supplied, the function returns immediately if the server closes the channel).
+""".
+-spec receive_response(SSH, ChannelId, End, Timeout) -> {'ok', Data} | {'timeout', Data}
+              | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   End :: 'close' | 'timeout' | fun((string()) -> boolean()),
+                   Timeout :: timeout(),
+                   Data :: string(),
+                   Reason :: term().
 receive_response(SSH, ChannelId, End, Timeout) ->
     call(SSH, {receive_response,ChannelId,End,Timeout}).
 
+-doc(#{equiv => send(SSH, ChannelId, 0, Data, DefaultTimeout)}).
+-spec send(SSH, ChannelId, Data) -> 'ok' | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Data :: iodata(),
+                   Reason :: term().
 send(SSH, ChannelId, Data) ->
     send(SSH, ChannelId, 0, Data, ?DEFAULT_TIMEOUT).
 
+-doc """
+Sends data to server on specified session channel (see `send/5`).
+
+Equivalent to [`send(SSH, ChannelId, 0, Data, Timeout)`](`send/5`) if
+called with Timeout being integer.
+
+Equivalent to [`send(SSH, ChannelId, Type, Data, DefaultTimeout)`](`send/5`) if
+called with Type being integer.
+""".
+-spec send(SSH, ChannelId, Data, Timeout) -> 'ok' | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Data :: iodata(),
+                   Timeout :: timeout(),
+                   Reason :: term();
+          (SSH, ChannelId, Type, Data) -> 'ok' | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Type :: ssh_data_type_code(),
+                   Data :: iodata(),
+                   Reason :: term().
 send(SSH, ChannelId, Data, Timeout) when is_integer(Timeout) ->
     send(SSH, ChannelId, 0, Data, Timeout);
 
 send(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send(SSH, ChannelId, Type, Data, ?DEFAULT_TIMEOUT).
 
+-doc """
+Sends data to server on specified session channel.
+""".
+-spec send(SSH, ChannelId, Type, Data, Timeout) -> 'ok' | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Type :: ssh_data_type_code(),
+                   Data :: iodata(),
+                   Timeout :: timeout(),
+                   Reason :: term().
 send(SSH, ChannelId, Type, Data, Timeout) ->
     call(SSH, {send,ChannelId,Type,Data,Timeout}).
 
+-doc(#{equiv => send_and_receive(SSH, ChannelId, 0, Data, close, DefaultTimeout)}).
+-spec send_and_receive(SSH, ChannelId, Data) -> {'ok', ReceivedData}
+              | {'timeout', ReceivedData} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Data :: iodata(),
+                   ReceivedData :: string(),
+                   Reason :: term().
 send_and_receive(SSH, ChannelId, Data) ->
     send_and_receive(SSH, ChannelId, 0, Data, close, ?DEFAULT_TIMEOUT).
 
+-doc """
+Sends data to server on specified session channel and waits to receive the
+server response (see `send_and_receive/6`).
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, 0, Data, End, DefaultTimeout)`](`send_and_receive/6`)
+if called with End being function.
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, 0, Data, close, Timeout)`](`send_and_receive/6`)
+if called with Timeout being integer.
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, Type, Data, close, DefaultTimeout)`](`send_and_receive/6`)
+if called with Type being integer.
+""".
+-spec send_and_receive(SSH, ChannelId, Data, End) -> {'ok', ReceivedData}
+              | {'timeout', ReceivedData} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Data :: iodata(),
+                   End :: 'close' | 'timeout' | fun((string()) -> boolean()),
+                   ReceivedData :: string(),
+                   Reason :: term();
+                      (SSH, ChannelId, Data, Timeout) -> {'ok', ReceivedData}
+              | {'timeout', ReceivedData} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Data :: iodata(),
+                   Timeout :: timeout(),
+                   ReceivedData :: string(),
+                   Reason :: term();
+                      (SSH, ChannelId, Type, Data) -> {'ok', ReceivedData}
+              | {'timeout', ReceivedData} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Type :: ssh_data_type_code(),
+                   Data :: iodata(),
+                   ReceivedData :: string(),
+                   Reason :: term().
 send_and_receive(SSH, ChannelId, Data, End) when is_function(End) ->
     send_and_receive(SSH, ChannelId, 0, Data, End, ?DEFAULT_TIMEOUT);
 
@@ -216,6 +528,49 @@ send_and_receive(SSH, ChannelId, Data, Timeout) when is_integer(Timeout) ->
 send_and_receive(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send_and_receive(SSH, ChannelId, Type, Data, close, ?DEFAULT_TIMEOUT).
 
+-doc """
+Sends data to server on specified session channel and waits to receive the
+server response (see `send_and_receive/6`).
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, 0, Data, End, Timeout)`](`send_and_receive/6`) if
+called with Timeout being integer.
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, Type, Data, close, Timeout)`](`send_and_receive/6`) if
+called with Type being integer.
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, Type, Data, End, DefaultTimeout)`](`send_and_receive/6`) if
+called with End being function.
+""".
+-spec send_and_receive(SSH, ChannelId, Data, End, Timeout) -> {'ok', ReceivedData}
+              | {'timeout', Data} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Data :: iodata(),
+                   End :: 'close' | 'timeout' | fun((string()) -> boolean()),
+                   Timeout :: timeout(),
+                   ReceivedData :: string(),
+                   Reason :: term();
+                      (SSH, ChannelId, Type, Data, Timeout) -> {'ok', ReceivedData}
+              | {'timeout', ReceivedData} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Type :: ssh_data_type_code(),
+                   Data :: iodata(),
+                   Timeout :: timeout(),
+                   ReceivedData :: string(),
+                   Reason :: term();
+                      (SSH, ChannelId, Type, Data, End) -> {'ok', ReceivedData}
+              | {'timeout', ReceivedData} | {'error', Reason}
+              when SSH :: connection(),
+                   ChannelId :: ssh_channel_id(),
+                   Type :: ssh_data_type_code(),
+                   Data :: iodata(),
+                   End :: 'close' | 'timeout' | fun((string()) -> boolean()),
+                   ReceivedData :: string(),
+                   Reason :: term().
 send_and_receive(SSH, ChannelId, Data, End, Timeout) when is_integer(Timeout) ->
     send_and_receive(SSH, ChannelId, 0, Data, End, Timeout);
 
@@ -225,28 +580,68 @@ send_and_receive(SSH, ChannelId, Type, Data, Timeout) when is_integer(Type) ->
 send_and_receive(SSH, ChannelId, Type, Data, End) when is_function(End) ->
     send_and_receive(SSH, ChannelId, Type, Data, End, ?DEFAULT_TIMEOUT).
 
+-doc """
+Sends data to server on specified session channel and waits to receive the
+server response.
+
+For details on argument `End`, see
+[`ct_ssh:receive_response/4`](`receive_response/4`).
+""".
+-spec send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) -> {'ok', ReceivedData} |
+          {'timeout', ReceivedData} | {'error', Reason}
+              when  SSH :: connection(),
+                    ChannelId :: ssh_channel_id(),
+                    Type :: ssh_data_type_code(),
+                    Data :: iodata(),
+                    End :: 'close' | 'timeout' | fun((string()) -> boolean()),
+                    Timeout :: timeout(),
+                    ReceivedData :: string(),
+                    Reason :: term().
 send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) ->
     call(SSH, {send_and_receive,ChannelId,Type,Data,End,Timeout}).
 
+-doc(#{equiv => subsystem(SSH, Channel, Subsystem, DefaultTimeout)}).
+-spec subsystem(SSH, ChannelId, Subsystem) -> Status | {'error', Reason} when
+      SSH :: connection(),
+      ChannelId :: ssh_channel_id(),
+      Subsystem :: string(),
+      Status :: 'success' | 'failure',
+      Reason :: term().
 subsystem(SSH, ChannelId, Subsystem) ->
     subsystem(SSH, ChannelId, Subsystem, ?DEFAULT_TIMEOUT).
 
+-doc """
+Sends a request to execute a predefined subsystem.
+""".
+-spec subsystem(SSH, ChannelId, Subsystem, Timeout) -> Status | {'error', Reason} when
+      SSH :: connection(),
+      ChannelId :: ssh_channel_id(),
+      Subsystem :: string(),
+      Timeout :: timeout(),
+      Status :: 'success' | 'failure',
+      Reason :: term().
 subsystem(SSH, ChannelId, Subsystem, Timeout) ->
     call(SSH, {subsystem,ChannelId,Subsystem,Timeout}).
 
 
+-doc(#{equiv => shell(SSH, ChannelId, DefaultTimeout), since => <<"OTP 20.0">>}).
 -spec shell(SSH, ChannelId) -> Result when
-      SSH :: handle() | ct:target_name(),
+      SSH :: connection(),
       ChannelId :: ssh:ssh_channel_id(),
-      Result :: ok | {error,term()}.
+      Result :: ok | {error, term()}.
 shell(SSH, ChannelId) ->
     shell(SSH, ChannelId, ?DEFAULT_TIMEOUT).
 
+-doc """
+Requests that the user's default shell (typically defined in `/etc/passwd` in Unix
+systems) is executed at the server end.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec shell(SSH, ChannelId, Timeout) -> Result when
-      SSH :: handle() | ct:target_name(),
+      SSH :: connection(),
       ChannelId :: ssh:ssh_channel_id(),
       Timeout :: timeout(),
-      Result :: ok | {error,term()}.
+      Result :: ok | {error, term()}.
 shell(SSH, ChannelId, Timeout) ->
     call(SSH, {shell,ChannelId,Timeout}).
 
@@ -254,157 +649,663 @@ shell(SSH, ChannelId, Timeout) ->
 %%%-----------------------------------------------------------------
 %%%------------------------ SFTP COMMANDS --------------------------
 
+-doc """
+Starts an SFTP session on an already existing SSH connection. `Server`
+identifies the new session and must be specified whenever SFTP requests are to
+be sent.
+""".
+-spec sftp_connect(SSH) -> {'ok', Server} | {'error', Reason} when
+      SSH :: connection(),
+      Server :: pid(),
+      Reason :: term().
 sftp_connect(SSH) ->
     call(SSH, sftp_connect).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read_file(SSH, File) -> Result when
+      SSH :: connection(),
+      File :: file:filename(),
+      Result :: {'ok', Data} | {'error', Reason},
+      Data :: binary(),
+      Reason :: term().
 read_file(SSH, File) ->
     call(SSH, {read_file,sftp,File}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read_file(SSH, Server, File) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      File :: file:filename(),
+      Result :: {'ok', Data} | {'error', Reason},
+      Data :: binary(),
+      Reason :: term().
 read_file(SSH, Server, File) ->
     call(SSH, {read_file,Server,File}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec write_file(SSH, File, Iolist) -> Result when
+      SSH :: connection(),
+      File :: file:filename(),
+      Iolist :: iodata(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 write_file(SSH, File, Iolist) ->
     call(SSH, {write_file,sftp,File,Iolist}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec write_file(SSH, Server, File, Iolist) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      File :: file:filename(),
+      Iolist :: iodata(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 write_file(SSH, Server, File, Iolist) ->
     call(SSH, {write_file,Server,File,Iolist}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec list_dir(SSH, Path) -> Result when
+      SSH :: connection(),
+      Path :: file:filename(),
+      Result :: {'ok', FileNames} | {'error', Reason},
+      FileNames :: [FileName],
+      FileName :: file:filename(),
+      Reason :: term().
 list_dir(SSH, Path) ->
     call(SSH, {list_dir,sftp,Path}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec list_dir(SSH, Server, Path) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Path :: file:filename(),
+      Result :: {'ok', FileNames} | {'error', Reason},
+      FileNames :: [FileName],
+      FileName :: file:filename(),
+      Reason :: term().
 list_dir(SSH, Server, Path) ->
     call(SSH, {list_dir,Server,Path}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec open(SSH, File, Mode) -> Result when
+      SSH :: connection(),
+      File :: file:filename(),
+      Mode :: ['read' | 'write' | 'append' | 'binary' | 'raw'],
+      Result :: {'ok', Handle} | {'error', Reason},
+      Handle :: term(),
+      Reason :: term().
 open(SSH, File, Mode) ->
     call(SSH, {open,sftp,File,Mode}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec open(SSH, Server, File, Mode) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      File :: file:filename(),
+      Mode :: ['read' | 'write' | 'append' | 'binary' | 'raw'],
+      Result :: {'ok', Handle} | {'error', Reason},
+      Handle :: term(),
+      Reason :: term().
 open(SSH, Server, File, Mode) ->
     call(SSH, {open,Server,File,Mode}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec opendir(SSH, Path) -> Result when
+      SSH :: connection(),
+      Path :: file:filename(),
+      Result :: {'ok', Handle} | {'error', Reason},
+      Handle :: term(),
+      Reason :: term().
 opendir(SSH, Path) ->
     call(SSH, {opendir,sftp,Path}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec opendir(SSH, Server, Path) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Path :: file:filename(),
+      Result :: {'ok', Handle} | {'error', Reason},
+      Handle :: term(),
+      Reason :: term().
 opendir(SSH, Server, Path) ->
     call(SSH, {opendir,Server,Path}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec close(SSH, Handle) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 close(SSH, Handle) ->
     call(SSH, {close,sftp,Handle}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec close(SSH, Server, Handle) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 close(SSH, Server, Handle) ->
     call(SSH, {close,Server,Handle}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read(SSH, Handle, Len) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Len :: integer(),
+      Result :: {'ok', Data} | 'eof' | {'error', Reason},
+      Data :: string() | binary(),
+      Reason :: term().
 read(SSH, Handle, Len) ->
     call(SSH, {read,sftp,Handle,Len}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read(SSH, Server, Handle, Len) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Len :: integer(),
+      Result :: {'ok', Data} | 'eof' | {'error', Reason},
+      Data :: string() | binary(),
+      Reason :: term().
 read(SSH, Server, Handle, Len) ->
     call(SSH, {read,Server,Handle,Len}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec pread(SSH, Handle, Position, Length) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Position :: integer(),
+      Length :: integer(),
+      Result :: {'ok', Data} | 'eof' | {'error', Reason},
+      Data :: string() | binary(),
+      Reason :: term().
 pread(SSH, Handle, Position, Length) ->
     call(SSH, {pread,sftp,Handle,Position,Length}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec pread(SSH, Server, Handle, Position, Length) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Position :: integer(),
+      Length :: integer(),
+      Result :: {'ok', Data} | 'eof' | {'error', Reason},
+      Data :: string() | binary(),
+      Reason :: term().
 pread(SSH, Server, Handle, Position, Length) ->
     call(SSH, {pread,Server,Handle,Position,Length}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec aread(SSH, Handle, Len) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Len :: integer(),
+      Result :: {'async', N} | {'error', Reason},
+      N :: term(),
+      Reason :: term().
 aread(SSH, Handle, Len) ->
     call(SSH, {aread,sftp,Handle,Len}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec aread(SSH, Server, Handle, Len) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Len :: integer(),
+      Result :: {'async', N} | {'error', Reason},
+      N :: term(),
+      Reason :: term().
 aread(SSH, Server, Handle, Len) ->
     call(SSH, {aread,Server,Handle,Len}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec apread(SSH, Handle, Position, Length) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Position :: integer(),
+      Length :: integer(),
+      Result :: {'async', N} | {'error', Reason},
+      N :: term(),
+      Reason :: term().
 apread(SSH, Handle, Position, Length) ->
     call(SSH, {apread,sftp,Handle,Position,Length}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec apread(SSH, Server, Handle, Position, Length) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Position :: integer(),
+      Length :: integer(),
+      Result :: {'async', N} | {'error', Reason},
+      N :: term(),
+      Reason :: term().
 apread(SSH, Server, Handle, Position, Length) ->
     call(SSH, {apread,Server,Handle,Position,Length}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec write(SSH, Handle, Data) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Data :: iodata(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 write(SSH, Handle, Data) ->
     call(SSH, {write,sftp,Handle,Data}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec write(SSH, Server, Handle, Data) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Data :: iodata(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 write(SSH, Server, Handle, Data) ->
     call(SSH, {write,Server,Handle,Data}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec pwrite(SSH, Handle, Position, Data) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Position :: integer(),
+      Data :: iolist(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 pwrite(SSH, Handle, Position, Data) ->
     call(SSH, {pwrite,sftp,Handle,Position,Data}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec pwrite(SSH, Server, Handle, Position, Data) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Position :: integer(),
+      Data :: iolist(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 pwrite(SSH, Server, Handle, Position, Data) ->
     call(SSH, {pwrite,Server,Handle,Position,Data}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec awrite(SSH, Handle, Data) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Data :: binary(),
+      Result :: {'async', N} | {'error', Reason},
+      N :: term(),
+      Reason :: term().
 awrite(SSH, Handle, Data) ->
     call(SSH, {awrite,sftp,Handle, Data}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec awrite(SSH, Server, Handle, Data) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Data :: binary(),
+      Result :: {'async', N} | {'error', Reason},
+      N :: term(),
+      Reason :: term().
 awrite(SSH, Server, Handle, Data) ->
     call(SSH, {awrite,Server,Handle, Data}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec apwrite(SSH, Handle, Position, Data) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Position :: integer(),
+      Data :: binary(),
+      Result :: {'async', N} | {'error', Reason},
+      N :: term(),
+      Reason :: term().
 apwrite(SSH, Handle, Position, Data) ->
     call(SSH, {apwrite,sftp,Handle,Position,Data}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec apwrite(SSH, Server, Handle, Position, Data) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Position :: integer(),
+      Data :: binary(),
+      Result :: {'async', N} | {'error', Reason},
+      N :: term(),
+      Reason :: term().
 apwrite(SSH, Server, Handle, Position, Data) ->
     call(SSH, {apwrite,Server,Handle,Position,Data}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec position(SSH, Handle, Location) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Location :: Offset | {'bof', Offset} | {'cur', Offset} | {'eof', Offset} | 'bof' | 'cur' |
+                  'eof',
+      Offset :: integer(),
+      Result :: {'ok', NewPosition} | {'error', Reason},
+      NewPosition :: integer(),
+      Reason :: term().
 position(SSH, Handle, Location) ->
     call(SSH, {position,sftp,Handle,Location}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec position(SSH, Server, Handle, Location) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Location :: Offset | {'bof', Offset} | {'cur', Offset} | {'eof', Offset} | 'bof' | 'cur' |
+                  'eof',
+      Offset :: integer(),
+      Result :: {'ok', NewPosition} | {'error', Reason},
+      NewPosition :: integer(),
+      Reason :: term().
 position(SSH, Server, Handle, Location) ->
     call(SSH, {position,Server,Handle,Location}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read_file_info(SSH, Name) -> Result when
+      SSH :: connection(),
+      Name :: file:filename(),
+      Result :: {'ok', FileInfo} | {'error', Reason},
+      FileInfo :: file:file_info(),
+      Reason :: term().
 read_file_info(SSH, Name) ->
     call(SSH, {read_file_info,sftp,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read_file_info(SSH, Server, Name) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Name :: file:filename(),
+      Result :: {'ok', FileInfo} | {'error', Reason},
+      FileInfo :: file:file_info(),
+      Reason :: term().
 read_file_info(SSH, Server, Name) ->
     call(SSH, {read_file_info,Server,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec get_file_info(SSH, Handle) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Result :: {'ok', FileInfo} | {'error', Reason},
+      FileInfo :: file:file_info(),
+      Reason :: term().
 get_file_info(SSH, Handle) ->
     call(SSH, {get_file_info,sftp,Handle}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec get_file_info(SSH, Server, Handle) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Handle :: term(),
+      Result :: {'ok', FileInfo} | {'error', Reason},
+      FileInfo :: file:file_info(),
+      Reason :: term().
 get_file_info(SSH, Server, Handle) ->
     call(SSH, {get_file_info,Server,Handle}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read_link_info(SSH, Name) -> Result when
+      SSH :: connection(),
+      Name :: string(),
+      Result :: {'ok', FileInfo} | {'error', Reason},
+      FileInfo :: file:file_info(),
+      Reason :: term().
 read_link_info(SSH, Name) ->
     call(SSH, {read_link_info,sftp,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read_link_info(SSH, Server, Name) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Name :: file:filename(),
+      Result :: {'ok', FileInfo} | {'error', Reason},
+      FileInfo :: file:file_info(),
+      Reason :: term().
 read_link_info(SSH, Server, Name) ->
     call(SSH, {read_link_info,Server,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec write_file_info(SSH, Name, Info) -> Result when
+      SSH :: connection(),
+      Name :: file:filename(),
+      Info :: file:file_info(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 write_file_info(SSH, Name, Info) ->
     call(SSH, {write_file_info,sftp,Name,Info}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec write_file_info(SSH, Server, Name, Info) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Name :: file:filename(),
+      Info :: file:file_info(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 write_file_info(SSH, Server, Name, Info) ->
     call(SSH, {write_file_info,Server,Name,Info}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read_link(SSH, Name) -> Result when
+      SSH :: connection(),
+      Name :: file:filename(),
+      Result :: {'ok', Target} | {'error', Reason},
+      Target :: file:filename(),
+      Reason :: term().
 read_link(SSH, Name) ->
     call(SSH, {read_link,sftp,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec read_link(SSH, Server, Name) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Name :: file:filename(),
+      Result :: {'ok', Target} | {'error', Reason},
+      Target :: file:filename(),
+      Reason :: term().
 read_link(SSH, Server, Name) ->
     call(SSH, {read_link,Server,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec make_symlink(SSH, Name, Target) -> Result when
+      SSH :: connection(),
+      Name :: file:filename(),
+      Target :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 make_symlink(SSH, Name, Target) ->
     call(SSH, {make_symlink,sftp,Name,Target}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec make_symlink(SSH, Server, Name, Target) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Name :: file:filename(),
+      Target :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 make_symlink(SSH, Server, Name, Target) ->
     call(SSH, {make_symlink,Server,Name,Target}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec rename(SSH, OldName, NewName) -> Result when
+      SSH :: connection(),
+      OldName :: file:filename(),
+      NewName :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 rename(SSH, OldName, NewName) ->
     call(SSH, {rename,sftp,OldName,NewName}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec rename(SSH, Server, OldName, NewName) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      OldName :: file:filename(),
+      NewName :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 rename(SSH, Server, OldName, NewName) ->
     call(SSH, {rename,Server,OldName,NewName}).
 
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec delete(SSH, Name) -> Result when
+      SSH :: connection(),
+      Name :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 delete(SSH, Name) ->
     call(SSH, {delete,sftp,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec delete(SSH, Server, Name) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Name :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 delete(SSH, Server, Name) ->
     call(SSH, {delete,Server,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec make_dir(SSH, Name) -> Result when
+      SSH :: connection(),
+      Name :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 make_dir(SSH, Name) ->
     call(SSH, {make_dir,sftp,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec make_dir(SSH, Server, Name) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Name :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 make_dir(SSH, Server, Name) ->
     call(SSH, {make_dir,Server,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec del_dir(SSH, Name) -> Result when
+      SSH :: connection(),
+      Name :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 del_dir(SSH, Name) ->
     call(SSH, {del_dir,sftp,Name}).
 
+-doc """
+For information and other types, see `m:ssh_sftp`.
+""".
+-spec del_dir(SSH, Server, Name) -> Result when
+      SSH :: connection(),
+      Server :: pid(),
+      Name :: file:filename(),
+      Result :: 'ok' | {'error', Reason},
+      Reason :: term().
 del_dir(SSH, Server, Name) ->
     call(SSH, {del_dir,Server,Name}).
 
@@ -413,6 +1314,7 @@ del_dir(SSH, Server, Name) ->
 %%% Callback functions
 %%%=================================================================
 
+-doc false.
 init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
     User = proplists:get_value(user, AllOpts),
     Password = case proplists:get_value(password, AllOpts) of
@@ -440,7 +1342,7 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 		    end, [], AllOpts1),
     FinalOptions = [{silently_accept_hosts,true},
 		    {user_interaction,false} | Options],
-    _ = crypto:start(),
+    _ = application:start(crypto),
     _ = ssh:start(),
     Result = case ConnType of
 		 ssh ->
@@ -462,6 +1364,8 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 			      target=KeyOrName}}
     end.
 
+-dialyzer({no_opaque_union, [handle_msg/2]}).
+-doc false.
 handle_msg(sftp_connect, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,
     try_log(heading(sftp_connect,Target), "SSH Ref: ~p", [SSHRef]),
@@ -705,12 +1609,15 @@ handle_msg({del_dir,Srv,Name}=Cmd, S=#state{ssh_ref=SSHRef}) ->
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:del_dir(ref(Srv,SSHRef), Name),S}.
 
+-doc false.
 reconnect(_Addr,_State) ->
     {error,no_reconnection_of_ssh}.
 
+-doc false.
 close(SSHRef) ->
     disconnect(SSHRef).
 
+-doc false.
 terminate(SSHRef, State) ->
     case State#state.conn_type of
 	ssh ->

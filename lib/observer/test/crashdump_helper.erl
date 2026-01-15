@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,13 +21,16 @@
 %%
 
 -module(crashdump_helper).
+
+-compile(r26).
+
 -export([n1_proc/2,remote_proc/2,
          dump_maps/0,create_maps/0,
          create_binaries/0,create_sub_binaries/1,
          dump_persistent_terms/0,
          create_persistent_terms/0,
          dump_global_literals/0]).
--compile(r22).
+
 -include_lib("common_test/include/ct.hrl").
 
 n1_proc(N2,Creator) ->

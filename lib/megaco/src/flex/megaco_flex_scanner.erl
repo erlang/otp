@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -23,24 +25,95 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_flex_scanner).
+-moduledoc """
+Interface module to the flex scanner linked in driver.
+
+This module contains the public interface to the flex scanner linked in driver.
+The flex scanner performs the scanning phase of text message decoding.
+
+The flex scanner is written using a tool called _flex_. In order to be able to
+compile the flex scanner driver, this tool has to be available.
+
+By default the flex scanner reports line-number of an error. But it can be built
+without line-number reporting. Instead token number is used. This will speed up
+the scanning some 5-10%. Use `--disable-megaco-flex-scanner-lineno` when
+configuring the application.
+
+The scanner will, by default, be built as a reentrant scanner _if_ the flex
+utility supports this (it depends on the version of flex). It is possible to
+explicitly disable this even when flex support this. Use
+`--disable-megaco-reentrant-flex-scanner` when configuring the application.
+""".
+
+-compile(nowarn_obsolete_bool_op).
 
 -export([is_enabled/0, is_reentrant_enabled/0, is_scanner_port/2]).
 -export([start/0, start/1, stop/1, scan/2]).
+
+-export_type([
+              megaco_ports/0
+             ]).
+
+
+%%----------------------------------------------------------------------
+
+-doc """
+Return value of a successful (flex) scanner start.
+""".
+-type megaco_ports() :: port() | tuple().
+
+
+%%----------------------------------------------------------------------
 
 -define(NUM_SCHED(),           erlang:system_info(schedulers)).
 -define(SCHED_ID(),            erlang:system_info(scheduler_id)).
 -define(SMP_SUPPORT_DEFAULT(), erlang:system_info(smp_support)).
 
+
+%%----------------------------------------------------------------------
+
+-ifndef(ENABLE_MEGACO_FLEX_SCANNER).
+%% This crap is hopefully temporary!
+%% It is because our current doc build
+%% script (specs file generation) has
+%% no way to pass this value in as the
+%% normal compilation (erlc) does.
+-define(ENABLE_MEGACO_FLEX_SCANNER, true).
+-endif.
+
+-ifndef(MEGACO_REENTRANT_FLEX_SCANNER).
+%% This crap is hopefully temporary!
+%% It is because our current doc build
+%% script (specs file generation) has
+%% no way to pass this value in as the
+%% normal compilation (erlc) does.
+-define(MEGACO_REENTRANT_FLEX_SCANNER, true).
+-endif.
+
 -dialyzer({nowarn_function, is_enabled/0}).
+-doc false.
 -spec is_enabled() -> boolean().
 is_enabled() -> 
     (true =:= ?ENABLE_MEGACO_FLEX_SCANNER).
 
 -dialyzer({nowarn_function, is_reentrant_enabled/0}).
+-doc """
+Is the flex scanner reentrant or not.
+""".
 -spec is_reentrant_enabled() -> boolean().
 is_reentrant_enabled() ->
     (true =:= ?MEGACO_REENTRANT_FLEX_SCANNER).
 
+
+%%----------------------------------------------------------------------
+
+-doc """
+Checks if a port is a flex scanner port or not (useful when if a port exits).
+""".
+-spec is_scanner_port(Port, PortOrPorts) -> boolean() when
+      Port        :: port(),
+      PortOrPorts :: megaco_ports().
+          
 is_scanner_port(Port, Port) when is_port(Port) ->
     true;
 is_scanner_port(Port, Ports) when is_tuple(Ports) ->
@@ -66,9 +139,25 @@ is_own_port(Port, N, Ports) when (N > 0) ->
 %% Start the flex scanner
 %%----------------------------------------------------------------------
 
+-doc """
+This function is used to start the flex scanner. It locates the library and
+loads the linked in driver.
+
+On a single core system or if it's a non-reentrant scanner, a single port is
+created. On a multi-core system with a reentrant scanner, several ports will be
+created (one for each scheduler).
+
+Note that the process that calls this function _must_ be permanent. If it dies,
+the port(s) will exit and the driver unload.
+""".
+-spec start() -> {ok, PortOrPorts} | {error, Reason} when
+      PortOrPorts :: megaco_ports(),
+      Reason      :: term().
+
 start() ->
     start(?SMP_SUPPORT_DEFAULT()).
 
+-doc false.
 start(SMP) when ((SMP =:= true) orelse (SMP =:= false)) ->
     (catch do_start(is_reentrant_enabled() andalso SMP)).
 
@@ -136,14 +225,20 @@ drv_name() ->
 %% Stop the flex scanner
 %%----------------------------------------------------------------------
 
+-doc """
+This function is used to stop the flex scanner. It also unloads the driver.
+""".
+-spec stop(PortOrPorts) -> stopped when
+      PortOrPorts :: megaco_ports().
+
 stop(Port) when is_port(Port) ->
     erlang:port_close(Port), 
     _ = erl_ddll:unload_driver(drv_name()),
     stopped;
 stop(Ports) when is_tuple(Ports) ->
-    stop(tuple_to_list(Ports));
-stop(Ports) when is_list(Ports) ->
-    lists:foreach(fun(Port) ->  erlang:port_close(Port) end, Ports),
+    lists:foreach(fun(Port) ->
+                          erlang:port_close(Port)
+                  end, tuple_to_list(Ports)),
     _ = erl_ddll:unload_driver(drv_name()),
     stopped.
 
@@ -152,38 +247,38 @@ stop(Ports) when is_list(Ports) ->
 %% Scan a message
 %%----------------------------------------------------------------------
 
+-doc "Scans a megaco message and generates a token list to be passed on the parser.".
+-spec scan(Binary, PortOrPorts) ->
+          {ok, Tokens, Version, LatestLine} |
+          {error, Reason, LatestLine} when
+      Binary      :: binary(),
+      PortOrPorts :: megaco_ports(),
+      Tokens      :: list(),
+      Version     :: megaco_encoder:protocol_version(),
+      LatestLine  :: non_neg_integer(),
+      Reason      :: term().
+
 scan(Binary, Port) when is_port(Port) ->
     do_scan(Binary, Port);
 scan(Binary, Ports) when is_tuple(Ports) ->
-%%     p("scan -> entry with"
-%%       "~n   Ports: ~p", [Ports]),
     do_scan(Binary, select_port(Ports)).
 
 do_scan(Binary, Port) ->
-%%     p("do_scan -> entry with"
-%%       "~n   Port: ~p", [Port]),
     case erlang:port_control(Port, $s, Binary) of
 	[] ->
 	    receive
 		{tokens, Tokens, LatestLine} ->
-%% 		    p("do_scan -> OK with:"
-%% 		      "~n   length(Tokens): ~p"
-%% 		      "~n   LatestLine:     ~p", [length(Tokens), LatestLine]),
-		    Vsn = version(Tokens),
-		    {ok, Tokens, Vsn, LatestLine} 
+		    Version = version(Tokens),
+		    {ok, Tokens, Version, LatestLine} 
 	    after 5000 ->
-%%  		    p("do_scan -> ERROR", []),
 		    {error, "Driver term send failure", 1}
 	    end;
 	Reason ->
-%% 	    p("do_scan -> port control failed: "
-%% 	      "~n   Reason: ~p", [Reason]),
 	    {error, Reason, 1}
     end.
 
 select_port(Ports) ->
     SchedId = ?SCHED_ID(),
-    %% lists:nth(SchedId, Ports).
     element(SchedId, Ports).
 
 version([]) ->

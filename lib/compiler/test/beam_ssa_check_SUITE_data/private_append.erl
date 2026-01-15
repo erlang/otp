@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,13 +18,11 @@
 %%
 %% %CopyrightEnd%
 %%
-%% This module tests that beam_ssa_alias_opt:to_private_append/3
+%% This module tests that the beam_ssa_destructive_update pass
 %% rewrites plain appends in bs_create_bin to private_append when
 %% appropriate.
 %%
 -module(private_append).
-
--feature(maybe_expr, enable).
 
 -export([transformable0/1,
 	 transformable1/1,
@@ -61,6 +61,7 @@
          transformable32/0,
          transformable32/1,
          transformable33/0,
+         transformable34/0,
 
 	 not_transformable1/2,
 	 not_transformable2/1,
@@ -83,7 +84,9 @@
          bs_create_bin_on_literal/0,
 
          crash_in_value_tracking/3,
-         crash_in_value_tracking_inner/3]).
+         crash_in_value_tracking_inner/3,
+
+         gh9100/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -199,15 +202,18 @@ transformable4([H|T], Acc) ->
 transformable4([], Acc) ->
     Acc.
 
-%% Check that the alias analysis handles local functions.
+%% Check that when a variable is live across a call it is considered
+%% aliased. If the alias analysis is extended to track if an argument
+%% is captured by the callee, that information could be fed back to
+%% the caller. Until that is done, this test is expected to fail.
 transformable5(L) ->
-%ssa% (_) when post_ssa_opt ->
+%ssa% xfail (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% _ = call(fun transformable5/2, _, A).
     transformable5(L, <<>>).
 
 transformable5([H|T], Acc) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = bs_create_bin(private_append, _, Arg1, ...),
 %ssa% _ = call(fun transformable5/2, _, A).
     does_not_escape(Acc),
@@ -442,18 +448,17 @@ transformable16([A,B|T], {{Acc0}, Acc1}) ->
 transformable16([], {{Acc0}, Acc1}) ->
     {Acc0,Acc1}.
 
-%% We should use type information to figure out that {<<>>, X} is not
-%% aliased, but as of now we don't have the information at this pass,
-%% nor do we track alias status at the sub-term level.
+%% Check that type information is used to figure out that {<<>>, X} is
+%% not aliased.
 transformable18(L, X) when is_integer(X), X < 256 ->
-%ssa% xfail (_, _) when post_ssa_opt ->
+%ssa% (_, _) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
-%ssa% B = put_tuple(_, A),
+%ssa% B = put_tuple(A, _),
 %ssa% _ = call(fun transformable18b/2, _, B).
     transformable18b(L, {<<>>, X}).
 
 transformable18b([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_tuple(B, _),
@@ -594,16 +599,15 @@ make_empty_binary_tuple_nested() ->
 %ssa% ret(D).
     {<<>>, {<<>>}, 47}.
 
-%% We can't handle this as we do not track alias status at the sub-term level.
 transformable24(L) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% B = put_tuple(A, _),
 %ssa% _ = call(fun transformable24/2, _, B).
     transformable24(L, {<<>>, ex:foo()}).
 
 transformable24([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_tuple(B, _),
@@ -770,6 +774,17 @@ transformable33() ->
 
 transformable33_inner(V) ->
     << <<C>> || <<C:4>> <= V >>.
+
+%% Check that calling an external function with append result doesn't
+%% prevent private_append optimization.
+transformable34() ->
+    transformable34a(<<>>).
+
+transformable34a(Acc) ->
+%ssa% (Arg1) when post_ssa_opt ->
+%ssa% _ = bs_create_bin(private_append, _, Arg1, ...).
+    Value = <<Acc/binary, 1>>,
+    ex:escape(Value).
 
 % Should not be transformed as we can't know the alias status of Acc
 not_transformable1([H|T], Acc) ->
@@ -1005,13 +1020,13 @@ bs_create_bin_on_literal() ->
       >>/binary
     >>.
 
-%% Check that the beam_ssa_private_append pass doesn't crash, if it,
-%% during initial value tracking, ends up in operations which do not
-%% create bit strings. This can happen as the initial value tracking
-%% in beam_ssa_private_append doesn't consider types. As the decision
-%% to apply the private append transform is using type information,
-%% tracking values into not type-compatible execution paths is
-%% harmless.
+%% Check that the beam_ssa_destructive_update pass doesn't crash, if
+%% it, during initial value tracking, ends up in operations which do
+%% not create bit strings. This can happen as the initial value
+%% tracking in beam_ssa_destructive_update doesn't consider types. As
+%% the decision to apply the private append transform is using type
+%% information, tracking values into not type-compatible execution
+%% paths is harmless.
 crash_in_value_tracking_inner(_, 1.0, _) ->
 %ssa% (_, _, _) when post_ssa_opt ->
 %ssa% _ = bs_init_writable(_).
@@ -1025,3 +1040,42 @@ crash_in_value_tracking(_, _V0, _) ->
     ((<<((crash_in_value_tracking_inner(
             {#{#{ ok => ok || _ := _ <- ok} => ok},
              _V0, false, _V0, "Bo"}, _V0, ok)))/bytes>>) =/= ok).
+
+gh9100() ->
+    gh9100(#{prev => nil,
+	     next =>
+		 [{equal, <<"a">>},
+		  {delete, <<"y">>}]},
+	   {{<<>>, <<>>}}).
+
+%% We could fail to update multiple elements of a tuple, it was a
+%% literal tuple in a Phi-instruction.
+gh9100(#{next := [{Op, Text} | Next]} = Diffs,
+       {{TextDelete, TextInsert}}) ->
+%ssa% (_, Acc) when post_ssa_opt ->
+%ssa% switch(X, Fail, [{'delete',_},{'equal',Equal},...]),
+%ssa% label Equal,
+%ssa% A = bs_init_writable(_),
+%ssa% B = bs_init_writable(_),
+%ssa% C = put_tuple(A, B),
+%ssa% D = put_tuple(C).
+    Acc =
+        case Op of
+            insert ->
+                {{TextDelete,
+		  <<TextInsert/binary,Text/binary>>}};
+            delete ->
+                {{<<TextDelete/binary,Text/binary>>,
+		  TextInsert}};
+            equal ->
+                {{<<>>, <<>>}}   %% Bug is here.
+        end,
+    gh9100(#{prev =>
+		 case Diffs of
+		     #{prev := Prev} ->
+			 Prev;
+		     Other ->
+                            ex:no_parens_remote(Other)
+		 end,
+	     next => Next},
+	   Acc).

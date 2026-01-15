@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2009-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,7 +61,8 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
 ERL_COMPILE_FLAGS += +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
-		     -Werror
+		     -Werror \
+		     -I $(ERL_TOP)/lib
 
 # ----------------------------------------------------
 # Targets
@@ -107,3 +110,7 @@ release_spec: opt
 
 release_docs_spec:
 
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -157,6 +159,7 @@ int ei_show_sendmsg(FILE *stream, const char *header, const char *msgbuf)
 	if (ei_decode_pid(header,&index,&msg.from) 
 	    || ei_decode_pid(header,&index,&msg.to)) return -1;
 	mbuf = header+index;
+        break;
 
     case ERL_EXIT_TT:
     case ERL_EXIT2_TT:

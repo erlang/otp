@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +30,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
-	 nested_access/1,coverage/1,grab_bag/1,slow_compilation/1]).
+	 nested_access/1,coverage/1,grab_bag/1,slow_compilation/1,
+         record_updates/1, duplicate_update_record/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -48,7 +51,7 @@ groups() ->
       [errors,record_test_2,record_test_3,
        record_access_in_guards,guard_opt,eval_once,foobar,
        missing_test_heap,nested_access,coverage,grab_bag,
-       slow_compilation]}].
+       slow_compilation,record_updates, duplicate_update_record]}].
 
 
 init_per_suite(Config) ->
@@ -271,10 +274,16 @@ record_test_3(Config) when is_list(Config) ->
     false = is_record(#foo{}, barf, 5),
     false = is_record(#foo{}, barf, 6),
     false = is_record({foo}, foo, 5),
+    false = is_record({foo}, foo, -1),
+    false = is_record(id({foo}), foo, -1),
 
     true = erlang:is_record(#foo{}, foo, 5),
+    true = erlang:is_record(#foo{}, id(foo), 5),
     false = erlang:is_record(#foo{}, barf, 5),
     false = erlang:is_record({foo}, foo, 5),
+    false = erlang:is_record({foo}, foo, -1),
+    false = erlang:is_record(id({foo}), foo, -1),
+    false = erlang:is_record({foo}, id(foo), -1),
 
     false = is_record([], foo),
     false = is_record(Config, foo),
@@ -803,6 +812,58 @@ slow_compilation(Config) when is_list(Config) ->
      {f53,R#slow_r.f53},{f54,R#slow_r.f54},{f55,R#slow_r.f55},
      {f56,R#slow_r.f56},{f57,R#slow_r.f57},{f58,R#slow_r.f58},
      {f59,R#slow_r.f59}].
+
+record_updates(_Config) ->
+    F1 = fun(N) ->
+                 R0 = #foo{},
+                 R1 = R0#foo{a=N},
+                 R2 = R1#foo{b=2},
+                 R2#foo{c=3}
+         end,
+
+    Foo0 = F1(id(42)),
+    #foo{a=42,b=2,c=3,d=undefined} = Foo0,
+    Foo1 = #foo{a=42,b=99,c=3,d=undefined} = Foo0#foo{b=id(99)},
+
+    _ = id(0),
+
+    #foo{a=42,b=99,c=3,d=999} = Foo1#foo{d=999},
+
+    F2 = fun(N) when is_integer(N) ->
+                 R0 = #bar{a=N},
+                 R1 = R0#bar{b=N+1},
+                 R2 = R1#bar{c=N+2},
+                 R2#bar{d=N+3}
+         end,
+    #bar{a=100,b=101,c=102,d=103} = F2(id(100)),
+
+    F3 = fun(R0, N) when is_integer(N) ->
+                 R1 = R0#foo{a=N},
+                 R2 = R1#foo{b=N},
+                 R3 = R2#foo{a=atom},
+                 R3#foo{c=3}
+         end,
+    #foo{a=atom,b=7,c=3,d=undefined} = F3(id(#foo{}), 7),
+
+    ok.
+
+%% GH-8783: Duplicate indexes in update_record crashed the emulator.
+duplicate_update_record(Config) when is_list(Config) ->
+    DuplicateUR0 = id({id(left), id(right)}),
+    {_, _} = DuplicateUR0,
+
+    DuplicateUR1 = erlang:setelement(2, DuplicateUR0, false),
+    DuplicateUR = erlang:setelement(2, DuplicateUR1, false),
+    {'EXIT', _} = catch duplicate_update_record_1(DuplicateUR),
+
+    ok.
+
+duplicate_update_record_1(_) ->
+    erlang:error(crash).
+
+%%%
+%%% Common utilities.
+%%%
 
 first_arg(First, _) -> First.
 

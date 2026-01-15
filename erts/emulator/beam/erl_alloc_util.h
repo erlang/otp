@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +42,7 @@ typedef struct {
     UWord ycs;
     UWord mmc;
     int   sac;
+    int   madtn;
 } AlcUInit_t;
 
 typedef struct {
@@ -98,9 +101,10 @@ typedef struct {
 #ifndef SMALL_MEMORY
 
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
-    1024*1024,		/* (bytes)  ycs:    sys_alloc carrier size       */\
-    ~((UWord) 0),	/* (amount) mmc:    max mseg carriers            */\
-    1			/* (bool)   sac:    sys_alloc carriers           */\
+    .ycs = 1024*1024,		/* (bytes):    sys_alloc carrier size    */\
+    .mmc = ~((UWord) 0),	/* (amount):   max mseg carriers         */\
+    .sac = 1,			/* (bool):     sys_alloc carriers        */\
+    .madtn = 0                  /* (bool) => erts_madvise_discard_advice */\
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
@@ -139,9 +143,10 @@ typedef struct {
 #else /* if SMALL_MEMORY */
 
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
-    128*1024,		/* (bytes)  ycs:    sys_alloc carrier size       */\
-    1024,      		/* (amount) mmc:    max mseg carriers            */\
-    1			/* (bool)   sac:    sys_alloc carriers           */\
+    .ycs = 128*1024,    /* (bytes):         sys_alloc carrier size       */\
+    .mmc = 1024,        /* (amount):        max mseg carriers            */\
+    .sac = 1,		/* (bool):          sys_alloc carriers           */\
+    .madtn = 0          /* (bool) =>        erts_madvise_discard_advice  */\
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
@@ -178,6 +183,8 @@ typedef struct {
 }
 
 #endif
+
+extern int erts_alcu_enable_code_atags;
 
 void *	erts_alcu_alloc(ErtsAlcType_t, void *, Uint);
 void *	erts_alcu_realloc(ErtsAlcType_t, void *, void *, Uint);
@@ -244,7 +251,8 @@ int erts_alcu_try_set_dyn_param(Allctr_t*, Eterm param, Uint value);
  * for. */
 int erts_alcu_gather_alloc_histograms(struct process *p, int allocator_num,
                                       int sched_id, int hist_width,
-                                      UWord hist_start, Eterm ref);
+                                      UWord hist_start, int flags,
+                                      Eterm ref);
 
 /* Gathers per-carrier info from the given allocator number (ERTS_ALC_A_*) and
  * scheduler id. An id of 0 means the global instance will be used.
@@ -253,11 +261,14 @@ int erts_alcu_gather_alloc_histograms(struct process *p, int allocator_num,
  * for. */
 int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
                                   int sched_id, int hist_width,
-                                  UWord hist_start, Eterm ref);
+                                  UWord hist_start, int flags,
+                                  Eterm ref);
 
 struct alcu_blockscan;
 
 typedef struct {
+    ErtsThrPrgrLaterOp later_op;
+
     struct alcu_blockscan *current;
     struct alcu_blockscan *last;
 } ErtsAlcuBlockscanYieldData;

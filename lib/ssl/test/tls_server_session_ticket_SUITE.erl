@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +27,7 @@
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -79,8 +81,8 @@ groups() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
             ssl_test_lib:clean_start(),
             Config0
@@ -268,7 +270,6 @@ get_client_hello(OfferedPSKs) ->
        random = <<1:256>>,
        session_id = <<>>,
        cipher_suites = [?TLS_AES_256_GCM_SHA384],
-       compression_methods = "",
        extensions = Ext0#{pre_shared_key => PreSharedKey}}.
 
 get_replay_expected_result(Config, AcceptResponse) ->

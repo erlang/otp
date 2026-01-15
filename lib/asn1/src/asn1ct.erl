@@ -2,7 +2,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +22,30 @@
 %%
 %%
 -module(asn1ct).
--feature(maybe_expr, enable).
+-moduledoc """
+ASN.1 compiler and compile-time support functions
+
+The ASN.1 compiler takes an ASN.1 module as input and generates a corresponding
+Erlang module, which can encode and decode the specified data types.
+Alternatively, the compiler takes a specification module specifying all input
+modules, and generates a module with encode/decode functions. In addition, some
+generic functions can be used during development of applications that handles
+ASN.1 data (encoded as `BER` or `PER`).
+
+> #### Note {: .info }
+>
+> By default in Erlang/OTP 17, the representation of the `BIT STRING` and
+> `OCTET STRING` types as Erlang terms were changed. `BIT STRING` values are now
+> Erlang bit strings and `OCTET STRING` values are binaries. Also, an undecoded
+> open type is now wrapped in an `asn1_OPENTYPE` tuple. For details, see
+> [BIT STRING](asn1_getting_started.md#bit-string),
+> [OCTET STRING](asn1_getting_started.md#octet-string), and
+> [ASN.1 Information Objects](asn1_getting_started.md#Information-Object) in the
+> User's Guide.
+>
+> To revert to the old representation of the types, use option
+> `legacy_erlang_types`.
+""".
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
 
@@ -42,13 +67,12 @@
 	 maybe_rename_function/3,current_sindex/0,
 	 set_current_sindex/1,maybe_saved_sindex/2,
 	 parse_and_save/2,verbose/3,warning/3,warning/4,error/3,format_error/1]).
+-export([save_config/2,save_gen_state/2,save_gen_state/3]).
 -export([get_bit_string_format/0,use_legacy_types/0]).
 
 -include("asn1_records.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
 -include_lib("kernel/include/file.hrl").
-
--import(asn1ct_gen_ber_bin_v2,[encode_tag_val/3,decode_class/1]).
 
 -ifndef(vsn).
 -define(vsn,"0.0.1").
@@ -59,24 +83,6 @@
 -define(dupl_equaldefs,2).
 -define(dupl_eqdefs_uniquedefs,?dupl_equaldefs bor ?dupl_uniquedefs).
 
--define(CONSTRUCTED, 2#00100000). 
-
-%% macros used for partial decode commands
--define(CHOOSEN,choosen).
--define(SKIP,skip).
--define(SKIP_OPTIONAL,skip_optional).
-
-%% macros used for partial incomplete decode commands
--define(MANDATORY,mandatory).
--define(DEFAULT,default).
--define(OPTIONAL,opt).
--define(OPTIONAL_UNDECODED,opt_undec).
--define(PARTS,parts).
--define(UNDECODED,undec).
--define(ALTERNATIVE,alt).
--define(ALTERNATIVE_UNDECODED,alt_undec).
--define(ALTERNATIVE_PARTS,alt_parts).
-
 %% Removed functions
 
 -removed({decode,'_',"use Mod:decode/2 instead"}).
@@ -85,9 +91,231 @@
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This is the interface to the compiler
 
+-doc(#{equiv => compile(Asn1Module, [])}).
+-spec compile(Asn1Module) -> ok | {error, Reason} when
+      Asn1Module :: atom() | string(),
+      Reason :: term().
 compile(File) ->
     compile(File,[]).
 
+-doc """
+Compiles the ASN.1 module `Asn1Module` and generates an Erlang module
+`Asn1Module.erl` with encode and decode functions for all types defined in
+the ASN.1 module.
+
+For each ASN.1 value defined in the module, an Erlang function that
+returns the value in Erlang representation is generated.
+
+If `Asn1Module` is a filename without extension, first `".asn1"` is assumed,
+then `".asn"`, and finally `".py"` (to be compatible with the old ASN.1
+compiler). `Asn1Module` can be a full pathname (relative or absolute) including
+filename with (or without) extension.[](){: #asn1set }
+
+If it is needed to compile a set of `ASN.1` modules into an Erlang
+file with encode/decode functions, list all involved files in a
+configuration file, one line per file. This configuration file must
+have a double extension `".set.asn1"` (`".asn1"` can alternatively be
+`".asn"` or `".py"`). If the input files are `File1.asn1`,
+`File2.asn1`, and `File3.asn1`, the configuration file should look as
+follows:
+
+```text
+File1.asn1
+File2.asn1
+File3.asn1
+```
+
+The output files in this case get their names from the configuration file. If
+the configuration file is named `SetOfFiles.set.asn1`, the names of the output
+files are `SetOfFiles.hrl, SetOfFiles.erl, and SetOfFiles.asn1db`.
+
+Sometimes in a system of `ASN.1` modules, different modules can have
+different default tag modes, for example, one uses `AUTOMATIC` and
+another `IMPLICIT`.  The multi-file compilation resolves the default
+tagging as if the modules were compiled separately.
+
+Name collisions is an unwanted effect that can occur in multi-file
+compilation. The compiler solves this problem in one of two ways:
+
+- If the definitions are identical, the output module keeps only one definition
+  with the original name.
+- If the definitions have the same name and differs in the definition, they are
+  renamed. The new names are the definition name and the original module name
+  concatenated.
+
+If a name collision occurs, the compiler reports a `"NOTICE: ..."` message that
+tells if a definition was renamed, and the new name that must be used to
+encode/decode data.
+
+`Options` is a list with options specific for the ASN.1 compiler and options
+that are applied to the Erlang compiler. The ASN.1 compiler passes on any
+unrecognized options to the Erlang compiler. The available options are as follows:
+
+- **`ber | per | uper | jer`** - The encoding rule to be used. The
+  supported encoding rules are Basic Encoding Rules (`ber`), Packed
+  Encoding Rules (`per`) aligned, PER unaligned (`uper`), and JSON
+  Encoding Rules (`jer`). The `jer` option can be used by itself to
+  generate a module that only supports encoding/decoding of JER, or it
+  can be used as a supplementary option to `ber`, `per`, and `uper`,
+  in which case a module that handles both the main encoding rules and
+  JER will be generated. In that case, the exported functions for JER
+  will be `jer_encode(Type, Value)` and `jer_decode(Type, Bytes)`.
+
+  JER (ITU-T X.697) are experimental in OTP 22. There is support for a
+  subset of the X.697 standard, for example there is no support for:
+
+  - JER encoding instructions
+  - the REAL type
+
+  > #### Change {: .info }
+  >
+  > In Erlang/OTP 27 and later, module `m:json` in STDLIB is used for
+  > encoding and decoding JSON. Before Erlang/OTP 27, it was necessary
+  > to provide an external JSON library.
+
+  If the encoding rule option is omitted, `ber` is the default.
+
+  The generated Erlang module always gets the same name as the ASN.1 module.
+  Therefore, only one encoding rule per ASN.1 module can be used at runtime.
+
+- **`der`** - With this option the Distinguished Encoding Rules (`der`) is
+  chosen. DER is regarded as a specialized variant of the BER encoding rule.
+  Therefore, this option only makes sense together with option `ber`. This
+  option sometimes adds sorting and value checks when encoding, which implies
+  slower encoding. The decoding routines are the same as for `ber`.
+
+- **`maps`** - This option changes the representation of the types `SEQUENCE`
+  and `SET` to use maps (instead of records). This option also suppresses the
+  generation of `.hrl` files.
+
+  For details, see section
+  [Map representation for SEQUENCE and SET](asn1_getting_started.md#MAP_SEQ_SET)
+  in the User's Guide.
+
+- **`compact_bit_string`** - The `BIT STRING` type is decoded to "compact
+  notation".
+
+  **This option is not recommended for new code.**
+
+  For details, see section [BIT STRING](asn1_getting_started.md#bit-string) in
+  the User's Guide.
+
+  This option implies option `legacy_erlang_types`, and it cannot be combined
+  with option `maps`.
+
+- **`legacy_bit_string`** - The `BIT STRING` type is decoded to the legacy
+  format, that is, a list of zeroes and ones.
+
+  **This option is not recommended for new code.**
+
+  For details, see section [BIT STRING](asn1_getting_started.md#bit-string) in
+  the User's Guide
+
+  This option implies option `legacy_erlang_types`, and it cannot be combined
+  with option `maps`.
+
+- **`legacy_erlang_types`** - Use the same Erlang types to represent
+  `BIT STRING` and `OCTET STRING` as in Erlang/OTP R16.
+
+  **This option is not recommended for new code.**
+
+  For details, see section [BIT STRING](asn1_getting_started.md#bit-string) and
+  section [OCTET STRING](asn1_getting_started.md#octet-string) in the User's
+  Guide.
+
+  This option cannot be combined with option `maps`.
+
+- **`{n2n, EnumTypeName}`** - Tells the compiler to generate functions for
+  conversion between names (as atoms) and numbers and conversely for the
+  specified `EnumTypeName`. There can be multiple occurrences of this option to
+  specify several type names. The type names must be declared as `ENUMERATIONS`
+  in the ASN.1 specification.
+
+  If `EnumTypeName` does not exist in the ASN.1 specification, the compilation
+  stops with an error code.
+
+  The generated conversion functions are named `name2num_EnumTypeName/1` and
+  `num2name_EnumTypeName/1`.
+
+- **`noobj`** - Do not compile (that is, do not produce object code) the
+  generated `.erl` file. If this option is omitted, the generated Erlang module
+  is compiled.
+
+- **`{i, IncludeDir}`** - Adds `IncludeDir` to the search-path for `.asn1db` and
+  ASN.1 source files. The compiler tries to open an `.asn1db` file when a
+  module imports definitions from another ASN.1 module. If no `.asn1db` file
+  is found, the ASN.1 source file is parsed. Several `{i, IncludeDir}` can be
+  given.
+
+- **`{outdir, Dir}`** - Specifies directory `Dir` where all generated files are
+  to be placed. If this option is omitted, the files are placed in the current
+  directory.
+
+- **`asn1config`** - When using one of the specialized decodes, exclusive or
+  selective decode, instructions must be given in a configuration file. Option
+  `asn1config` enables specialized decodes and takes the configuration file in
+  concern. The configuration file has the same name as the ASN.1 specification,
+  but with extension `.asn1config`.
+
+  For instructions for exclusive decode, see section
+  [Exclusive Decode](asn1_spec.md#Exclusive-Instruction) in the User's Guide.
+
+  For instructions for selective decode, see section
+  [Selective Decode](asn1_spec.md#Selective-Instruction) in the User's Guide.
+
+- **`undec_rest`** - By default when decoding, any bytes following the
+  end of an ASN.1 data structure are discarded. If an ASN.1 module is
+  compiled with option `undec_rest`, the decode function returns a
+  tuple `{ok, Value, Rest}`, where `Rest` is the bytes following the ASN.1
+  data structure. `Rest` can be a list or a binary.
+
+- **`no_ok_wrapper`** - With this option, the generated `encode/2` and
+  `decode/2` functions do not wrap a successful return value in an `{ok,...}`
+  tuple. If any error occurs, an exception will be raised.
+
+- **`{macro_name_prefix, Prefix}`** - All macro names generated by the compiler
+  are prefixed with `Prefix`. This is useful when multiple protocols that
+  contain macros with identical names are included in a single module.
+
+- **`{record_name_prefix, Prefix}`** - All record names generated by the
+  compiler are prefixed with `Prefix`. This is useful when multiple protocols
+  that contain records with identical names are included in a single module.
+
+- **`verbose`** - Causes more verbose information from the compiler describing
+  what it is doing.
+
+- **`warnings_as_errors`** - Causes warnings to be treated as errors.
+
+- **`deterministic`** - Causes all non-deterministic options to be stripped from
+  the `-asn1_info()` attribute.
+
+Unrecognized options are passed on to the Erlang compiler when the generated
+`.erl` file is compiled.
+
+The compiler generates the following files:
+
+- `Asn1Module.hrl` (if any `SET` or `SEQUENCE` is defined)
+- `Asn1Module.erl` \- Erlang module with encode, decode, and value functions
+- `Asn1Module.asn1db` \- Intermediate format used by the compiler when modules
+  `IMPORT` definitions from each other.
+""".
+-spec compile(Asn1Module, Options) -> ok | {error, Reason} when
+      Asn1Module :: atom() | string(),
+      Options :: [Option | OldOption],
+      Option ::
+        ber | per | uper | jer | der |
+        compact_bit_string | legacy_bit_string |
+        legacy_erlang_types | noobj |
+        {n2n, EnumTypeName :: term()} |
+        {outdir, Dir :: term()} |
+        {i, IncludeDir :: term()} |
+        asn1config | undec_rest | no_ok_wrapper |
+        {macro_name_prefix, Prefix} |
+        {record_name_prefix, Prefix} |
+        verbose | warnings_as_errors | deterministic,
+      OldOption :: ber | per,
+      Reason :: term(),
+      Prefix :: string().
 compile(File, Options0) when is_list(Options0) ->
     try translate_options(Options0) of
 	Options1 ->
@@ -239,8 +467,12 @@ abs_listing(#st{code={M,_},outfile=OutFile}) ->
 
 generate_pass(#st{code=Code,outfile=OutFile,erule=Erule,opts=Opts}=St0) ->
     St = St0#st{code=undefined},		%Reclaim heap space
-    generate(Code, OutFile, Erule, Opts),
-    {ok,St}.
+    case generate(Code, OutFile, Erule, Opts) of
+        ok ->
+            {ok,St};
+        {error,Errors} ->
+            {error,St#st{error=Errors}}
+    end.
 
 compile_pass(#st{outfile=OutFile,opts=Opts0}=St) ->
     asn1_db:dbstop(),				%Reclaim memory.
@@ -315,11 +547,21 @@ clean_errors(Errors) when is_list(Errors) ->
     {Structured,Structured ++ AdHoc};
 clean_errors(AdHoc) -> {[],AdHoc}.
 
-print_structured_errors([_|_]=Errors) ->
-    _ = [io:format("~ts:~w: ~ts\n", [F,L,M:format_error(E)]) ||
-	    {structured_error,{F,L},M,E} <- Errors],
-    ok;
-print_structured_errors(_) -> ok.
+print_structured_errors(Errors) when is_list(Errors) ->
+    _ = [print_structured_error(F, M, E) ||
+            {structured_error,F,M,E} <- Errors],
+    ok.
+
+print_structured_error(F, M, Error) ->
+    Formatted = M:format_error(Error),
+    case F of
+        none ->
+            io:format("~ts\n", [Formatted]);
+        {File,none} ->
+            io:format("~ts: ~ts\n", [File,Formatted]);
+        {File,Line} when is_integer(Line) ->
+            io:format("~ts:~p: ~ts\n", [File,Line,Formatted])
+    end.
 
 compile1(File, #st{opts=Opts}=St0) ->
     compiler_verbose(File, Opts),
@@ -518,6 +760,7 @@ compare_defs2(D,D) ->
 compare_defs2(_,_) ->
     not_equal.
 
+-doc false.
 unset_pos_mod(Def) when is_record(Def,typedef) ->
     Def#typedef{pos=undefined};
 unset_pos_mod(Def) when is_record(Def,classdef) ->
@@ -538,6 +781,7 @@ unset_pos_mod(#'ComponentType'{} = Def) ->
     Def#'ComponentType'{pos=undefined};
 unset_pos_mod(Def) -> Def.
 
+-doc false.
 get_pos_of_def(#typedef{pos=Pos}) ->
     Pos;
 get_pos_of_def(#classdef{pos=Pos}) ->
@@ -562,6 +806,7 @@ get_pos_of_def(_) ->
     undefined.
     
     
+-doc false.
 get_name_of_def(#typedef{name=Name}) ->
     Name;
 get_name_of_def(#classdef{name=Name}) ->
@@ -844,21 +1089,17 @@ generate({M,CodeTuple}, OutFile, EncodingRule, Options) ->
     check_maps_option(Gen),
 
     %% create decoding function names and taglists for partial decode
-    try
-        specialized_decode_prepare(Gen, M)
-    catch
-        throw:{error, Reason} ->
-            warning("Error in configuration file: ~n~p~n",
-                    [Reason], Options,
-                    "Error in configuration file")
-    end,
-
-    asn1ct_gen:pgen(OutFile, Gen, Code),
-    cleanup_bit_string_format(),
-    erase(tlv_format), % used in ber
-    erase(class_default_type),% used in ber
-    asn1ct_table:delete(check_functions),
-    ok.
+    case specialized_decode_prepare(Gen, M) of
+        {error,_}=Error ->
+            Error;
+        ok ->
+            asn1ct_gen:pgen(OutFile, Gen, Code),
+            cleanup_bit_string_format(),
+            erase(tlv_format),                  % used in ber
+            erase(class_default_type),          % used in ber
+            asn1ct_table:delete(check_functions),
+            ok
+    end.
 
 init_gen_record(EncodingRule, Options) ->
     Erule = case EncodingRule of
@@ -901,6 +1142,7 @@ legacy_forced_info(Opt) ->
     io:format("Info: The option 'legacy_erlang_types' "
 	      "is implied by the '~s' option.\n", [Opt]).
 
+-doc false.
 use_legacy_types() ->
     get(use_legacy_erlang_types).
 
@@ -920,6 +1162,7 @@ setup_bit_string_format(Opts) ->
 cleanup_bit_string_format() ->
     erase(bit_string_format).
 
+-doc false.
 get_bit_string_format() ->
     get(bit_string_format).
 
@@ -947,6 +1190,7 @@ check_maps_option(#gen{}) ->
 %% parse_and_save parses an asn1 spec and saves the unchecked parse
 %% tree in a data base file.
 %% Does not support multifile compilation files
+-doc false.
 parse_and_save(Module,S) ->
     Options = S#state.options,
     SourceDir = S#state.sourcedir,
@@ -1140,7 +1384,7 @@ is_asn1_flag(no_ok_wrapper) -> true;
 is_asn1_flag(optimize) -> true;
 is_asn1_flag(per) -> true;
 is_asn1_flag({record_name_prefix,_}) -> true;
-is_asn1_flag(undec_rec) -> true;
+is_asn1_flag(undec_rest) -> true;
 is_asn1_flag(uper) -> true;
 is_asn1_flag(verbose) -> true;
 %% 'warnings_as_errors' is intentionally passed through to the compiler.
@@ -1186,26 +1430,24 @@ strip_includes(Includes) ->
 %% compile(AbsFileName, Options)
 %%   Compile entry point for erl_compile.
 
+-doc false.
 compile_asn(File,OutFile,Options) ->
     compile(lists:concat([File,".asn"]),OutFile,Options).
 
+-doc false.
 compile_asn1(File,OutFile,Options) ->
     compile(lists:concat([File,".asn1"]),OutFile,Options).
 
+-doc false.
 compile_py(File,OutFile,Options) ->
     compile(lists:concat([File,".py"]),OutFile,Options).
 
+-doc false.
 compile(File, _OutFile, Options) ->
     case compile(File, make_erl_options(Options)) of
 	{error,_Reason} ->
 	    error;
 	ok -> 
-	    ok;
-	ParseRes when is_tuple(ParseRes) ->
-	    io:format("~p~n",[ParseRes]),
-	    ok;
-	ScanRes when is_list(ScanRes) ->
-	    io:format("~p~n",[ScanRes]),
 	    ok
     end.
 
@@ -1295,12 +1537,75 @@ pretty2(Module,AbsFile) ->
 start(Includes) when is_list(Includes) ->
     asn1_db:dbstart(Includes).
 
+-doc """
+Tests encoding and decoding of all types in `Module`.
+
+For more details, see `test/3`.
+""".
+
+-spec test(Module) -> ok | {error, Reason} when
+      Module :: module(),
+      Reason :: term().
 test(Module)                             -> test_module(Module, []).
 
+-doc """
+Tests encoding and decoding of `Module`.
+
+If the second argument is given as atom `Type`, that type is tested.
+
+If the second argument is given as list `Options`, that are the options
+that are used for testing all types in the module.
+
+For more details, see `test/3`.
+""".
+
+-spec test(Module, Type | Options) -> ok | {error, Reason} when
+      Module :: module(),
+      Type :: atom(),
+      Options :: [{i, IncludeDir :: term()}],
+      Reason :: term().
 test(Module, [] = Options)               -> test_module(Module, Options);
 test(Module, [{i, _}|_] = Options)       -> test_module(Module, Options);
 test(Module, Type)                       -> test_type(Module, Type, []).
 
+-doc """
+Performs a test of encode and decode of types in `Module`.
+
+The generated functions are called by this function. This function is
+useful for testing to ensure that the generated encode and decode
+functions as well as the general runtime support work as expected.
+
+> #### Note {: .info }
+>
+> Currently, the `test` functions have many limitations. Essentially, they will
+> mostly work for old specifications based on the 1997 standard for ASN.1, but
+> not for most modern-style applications. Another limitation is that the `test`
+> functions may not work if options that change code generations strategies such
+> as the options `macro_name_prefix` and `record_name_prefix` have been used.
+
+- [`test/1`](`test/1`) iterates over all types in `Module`.
+- [`test/2`](`test/2`) tests type `Type` with a random value.
+- [`test/3`](`test/3`) tests type `Type` with `Value`.
+
+Schematically, the following occurs for each type in the module:
+
+```erlang
+{ok, Value} = asn1ct:value(Module, Type),
+{ok, Bytes} = Module:encode(Type, Value),
+{ok, Value} = Module:decode(Type, Bytes).
+```
+
+The `test` functions use the `*.asn1db` files for all included modules. If they
+are located in a different directory than the current working directory, use the
+`include` option to add paths. This is only needed when automatically generating
+values. For static values using `Value` no options are needed.
+""".
+-spec test(Module, Type, Value | Options) -> ok | {error, Reason} when
+      Module :: module(),
+      Type :: atom(),
+      Value :: term(),
+      Options :: [{i, IncludeDir :: term()}],
+      Reason :: term().
 test(Module, Type, [] = Options)         -> test_type(Module, Type, Options);
 test(Module, Type, [{i, _}|_] = Options) -> test_type(Module, Type, Options);
 test(Module, Type, Value)                -> test_value(Module, Type, Value).
@@ -1374,8 +1679,29 @@ test_value_decode(Module, Type, Value, Bytes) ->
                        {Module, Type, Value}, Error}}}}
     end.
 
+-doc """
+Returns an Erlang term that is an example of a valid Erlang representation of a
+value of the ASN.1 type `Type`.
+
+The value is a random value and subsequent calls to this function will
+for most types return different values.
+
+> #### Note {: .info }
+>
+> Currently, the `value` function has many limitations. Essentially, it will
+> mostly work for old specifications based on the 1997 standard for ASN.1, but
+> not for most modern-style applications. Another limitation is that the `value`
+> function may not work if options that change code generations strategies such
+> as the options `macro_name_prefix` and `record_name_prefix` have been used.
+""".
+-spec value(Module, Type) -> {ok, Value} | {error, Reason} when
+      Module :: module(),
+      Type :: atom(),
+      Value :: term(),
+      Reason :: term().
 value(Module, Type) -> value(Module, Type, []).
 
+-doc false.
 value(Module, Type, Includes) ->
     in_process(fun() ->
                    start(strip_includes(Includes)),
@@ -1410,208 +1736,32 @@ check(Module, Includes) ->
 prepare_bytes(Bytes) when is_binary(Bytes) -> Bytes;
 prepare_bytes(Bytes) -> list_to_binary(Bytes).
 
+-doc false.
 vsn() ->
     ?vsn.
 
-specialized_decode_prepare(#gen{erule=ber,options=Options}=Gen, M) ->
+specialized_decode_prepare(#gen{erule=ber,options=Options}=Gen, #module{name=Mod}) ->
     case lists:member(asn1config, Options) of
-	true ->
-	    special_decode_prepare_1(Gen, M);
-	false ->
-	    ok
+        true ->
+            case read_config_file(Gen, Mod) of
+                {ok,ConfigName,ConfigItems} ->
+                    try
+                        asn1ct_partial_decode:prepare(ConfigItems, Mod)
+                    catch
+                        throw:{structured_error,Error} ->
+                            {error,[{structured_error,{ConfigName,none},
+                                     asn1ct_partial_decode,Error}]}
+                    end;
+                no_config_file ->
+                    ok
+            end;
+        false ->
+            ok
     end;
 specialized_decode_prepare(_, _) ->
     ok.
 
-%% Reads the configuration file if it exists and stores information
-%% about partial decode and incomplete decode
-special_decode_prepare_1(#gen{options=Options}=Gen, M) ->
-    %% read configure file
-    ModName = case lists:keyfind(asn1config, 1, Options) of
-                  {_,MName} -> MName;
-                  false -> M#module.name
-              end,
-%%    io:format("ModName: ~p~nM#module.name: ~p~n~n",[ModName,M#module.name]),
-    case read_config_file(Gen, ModName) of
-        no_config_file ->
-            ok;
-        CfgList ->
-            SelectedDecode = get_config_info(CfgList,selective_decode),
-            ExclusiveDecode = get_config_info(CfgList,exclusive_decode),
-            CommandList = create_partial_decode_gen_info(M#module.name,
-                                                         SelectedDecode),
-            %% To convert CommandList to a proper list for the driver change
-            %% the list:[[choosen,Tag1],skip,[skip_optional,Tag2]] to L =
-            %% [5,2,Tag1,0,1,Tag2] where 5 is the length, and call
-            %% port_control(asn1_driver_port,3,[L| Bin])
-            save_config(partial_decode,CommandList),
-            save_gen_state(selective_decode,SelectedDecode),
-            CommandList2 = create_partial_inc_decode_gen_info(M#module.name,
-                                                              ExclusiveDecode),
-            Part_inc_tlv_tags = tlv_tags(CommandList2),
-            save_config(partial_incomplete_decode,Part_inc_tlv_tags),
-            save_gen_state(exclusive_decode,ExclusiveDecode,Part_inc_tlv_tags)
-    end.
-
-%% create_partial_inc_decode_gen_info/2
-%%
-%% Creates a list of tags out of the information in TypeNameList that
-%% tells which value will be incomplete decoded, i.e. each end
-%% component/type in TypeNameList. The significant types/components in
-%% the path from the toptype must be specified in the
-%% TypeNameList. Significant elements are all constructed types that
-%% branches the path to the leaf and the leaf it self.
-%%
-%% Returns a list of elements, where an element may be one of
-%% mandatory|[opt,Tag]|[bin,Tag]. mandatory correspond to a mandatory
-%% element that shall be decoded as usual. [opt,Tag] matches an
-%% OPTIONAL or DEFAULT element that shall be decoded as
-%% usual. [bin,Tag] corresponds to an element, mandatory, OPTIONAL or
-%% DEFAULT, that shall be left encoded (incomplete decoded).
-create_partial_inc_decode_gen_info(ModName,{Mod,[{Name,L}|Ls]}) when is_list(L) ->
-    TopTypeName = partial_inc_dec_toptype(L),
-    [{Name,TopTypeName,
-      create_partial_inc_decode_gen_info1(ModName,TopTypeName,{Mod,L})}|
-     create_partial_inc_decode_gen_info(ModName,{Mod,Ls})];
-create_partial_inc_decode_gen_info(_,{_,[]}) ->
-    [];
-create_partial_inc_decode_gen_info(_,[]) ->
-    [].
-
-create_partial_inc_decode_gen_info1(ModName,TopTypeName,{ModName,
-					    [_TopType|Rest]}) ->
-    case asn1_db:dbget(ModName,TopTypeName) of
-	#typedef{typespec=TS} ->
-	    TagCommand = get_tag_command(TS,?MANDATORY,mandatory),
-	    create_pdec_inc_command(ModName,get_components(TS#type.def),
-				    Rest,[TagCommand]);
-	_ ->
-	    throw({error,{"wrong type list in asn1 config file",
-			  TopTypeName}})
-    end;
-create_partial_inc_decode_gen_info1(M1,_,{M2,_}) when M1 /= M2 ->
-    throw({error,{"wrong module name in asn1 config file",
-		  M2}});
-create_partial_inc_decode_gen_info1(_,_,TNL) ->
-    throw({error,{"wrong type list in asn1 config file",
-		  TNL}}).
-
-%%
-%% Only when there is a 'ComponentType' the config data C1 may be a
-%% list, where the incomplete decode is branched. So, C1 may be a
-%% list, a "binary tuple", a "parts tuple" or an atom. The second
-%% element of a binary tuple and a parts tuple is an atom.
-create_pdec_inc_command(_ModName,_,[],Acc) ->
-    lists:reverse(Acc);
-create_pdec_inc_command(ModName,{Comps1,Comps2},TNL,Acc) 
-  when is_list(Comps1),is_list(Comps2) ->
-    create_pdec_inc_command(ModName,Comps1 ++ Comps2,TNL,Acc);
-%% The following two clauses match on the type after the top
-%% type. This one if the top type had no tag, i.e. a CHOICE.
-create_pdec_inc_command(ModN,Clist,[CL|_Rest],[[]]) when is_list(CL) ->
-    create_pdec_inc_command(ModN,Clist,CL,[]);
-create_pdec_inc_command(ModN,Clist,[CL|_Rest],Acc) when is_list(CL) ->
-    InnerDirectives=create_pdec_inc_command(ModN,Clist,CL,[]),
-    lists:reverse([InnerDirectives|Acc]);
-create_pdec_inc_command(ModName,
-			CList=[#'ComponentType'{name=Name,typespec=TS,
-						prop=Prop}|Comps],
-			TNL=[C1|Cs],Acc)  ->
-    case C1 of
-	{Name,undecoded} ->
-	    TagCommand = get_tag_command(TS,?UNDECODED,Prop),
-	    create_pdec_inc_command(ModName,Comps,Cs,concat_sequential(TagCommand,Acc));
-	{Name,parts} ->
-	    TagCommand = get_tag_command(TS,?PARTS,Prop),
-	    create_pdec_inc_command(ModName,Comps,Cs,concat_sequential(TagCommand,Acc));
-	L when is_list(L) ->
-            %% I guess this never happens due to previous clause.
-	    %% This case is only possible as the first element after
-	    %% the top type element, when top type is SEGUENCE or SET.
-	    %% Follow each element in L. Must note every tag on the
-	    %% way until the last command is reached, but it ought to
-	    %% be enough to have a "complete" or "complete optional"
-	    %% command for each component that is not specified in the
-	    %% config file. Then in the TLV decode the components with
-	    %% a "complete" command will be decoded by an ordinary TLV
-	    %% decode.
-	    create_pdec_inc_command(ModName,CList,L,Acc);
-	{Name,RestPartsList} when is_list(RestPartsList) ->
-	    %% Same as previous, but this may occur at any place in
-	    %% the structure. The previous is only possible as the
-	    %% second element.
-	    case get_tag_command(TS,?MANDATORY,Prop) of
-		?MANDATORY ->
-		    InnerDirectives=
-			create_pdec_inc_command(ModName,TS#type.def,
-						RestPartsList,[]),
-		    create_pdec_inc_command(ModName,Comps,Cs,
-					    [[?MANDATORY,InnerDirectives]|Acc]);
-		[Opt,EncTag] ->
-		    InnerDirectives = 
-			create_pdec_inc_command(ModName,TS#type.def,
-						RestPartsList,[]),
-		    create_pdec_inc_command(ModName,Comps,Cs,
-					    [[Opt,EncTag,InnerDirectives]|Acc])
-	    end;
-	_ ->
-            %% this component may not be in the config list
-	    TagCommand = get_tag_command(TS,?MANDATORY,Prop),
-	    create_pdec_inc_command(ModName,Comps,TNL,concat_sequential(TagCommand,Acc))
-    end;
-create_pdec_inc_command(ModName,
-			{'CHOICE',[#'ComponentType'{name=C1,
-						    typespec=TS,
-						    prop=Prop}|Comps]},
-			[{C1,Directive}|Rest],Acc) ->
-    case Directive of
-	List when is_list(List) ->
-	    TagCommand = get_tag_command(TS,?ALTERNATIVE,Prop),
-	    CompAcc = 
-		create_pdec_inc_command(ModName,
-					get_components(TS#type.def),List,[]),
-	    NewAcc = case TagCommand of
-			 [Command,Tag] when is_atom(Command) ->
-			     [[Command,Tag,CompAcc]|Acc];
-			 [L1,_L2|Rest] when is_list(L1) ->
-			     case lists:reverse(TagCommand) of
-				 [Atom|Comms] when is_atom(Atom) ->
-				     [concat_sequential(lists:reverse(Comms),
-							[Atom,CompAcc])|Acc];
-				 [[Command2,Tag2]|Comms] ->
-				     [concat_sequential(lists:reverse(Comms),
-							[[Command2,Tag2,CompAcc]])|Acc]
-			     end
-		     end,
-	    create_pdec_inc_command(ModName,{'CHOICE',Comps},Rest,
-				    NewAcc);
-	undecoded ->
-	    TagCommand = get_tag_command(TS,?ALTERNATIVE_UNDECODED,Prop),
-	    create_pdec_inc_command(ModName,{'CHOICE',Comps},Rest,
-				    concat_sequential(TagCommand,Acc));
-	parts ->
-	    TagCommand = get_tag_command(TS,?ALTERNATIVE_PARTS,Prop),
-	    create_pdec_inc_command(ModName,{'CHOICE',Comps},Rest,
-				    concat_sequential(TagCommand,Acc))
-    end;
-create_pdec_inc_command(ModName,
-			{'CHOICE',[#'ComponentType'{typespec=TS,
-						    prop=Prop}|Comps]},
-			TNL,Acc) ->
-    TagCommand = get_tag_command(TS,?ALTERNATIVE,Prop),
-    create_pdec_inc_command(ModName,{'CHOICE',Comps},TNL,
-			    concat_sequential(TagCommand,Acc));
-create_pdec_inc_command(M,{'CHOICE',{Cs1,Cs2}},TNL,Acc) 
-  when is_list(Cs1),is_list(Cs2) ->
-    create_pdec_inc_command(M,{'CHOICE',Cs1 ++ Cs2},TNL,Acc);
-create_pdec_inc_command(ModName,#'Externaltypereference'{module=M,type=Name},
-			TNL,Acc) ->
-    #type{def=Def} = get_referenced_type(M,Name),
-    create_pdec_inc_command(ModName,get_components(Def),TNL,Acc);
-create_pdec_inc_command(_,_,TNL,_) ->
-    throw({error,{"unexpected error when creating partial "
-		  "decode command",TNL}}).
-
+-doc false.
 partial_inc_dec_toptype([T|_]) when is_atom(T) ->
     T;
 partial_inc_dec_toptype([{T,_}|_]) when is_atom(T) ->
@@ -1621,272 +1771,12 @@ partial_inc_dec_toptype([L|_]) when is_list(L) ->
 partial_inc_dec_toptype(_) ->
     throw({error,{"no top type found for partial incomplete decode"}}).
 
-
-%% Creates a list of tags out of the information in TypeList and Types
-%% that tells which value will be decoded.  Each constructed type that
-%% is in the TypeList will get a "choosen" command. Only the last
-%% type/component in the TypeList may be a primitive type. Components
-%% "on the way" to the final element may get the "skip" or the
-%% "skip_optional" command.
-%% CommandList = [Elements]
-%% Elements = {choosen,Tag}|{skip_optional,Tag}|skip
-%% Tag is a binary with the tag BER encoded.
-create_partial_decode_gen_info(ModName,{ModName,TypeLists}) ->
-    [create_partial_decode_gen_info1(ModName,TL) || TL <- TypeLists];
-create_partial_decode_gen_info(_,[]) ->
-    [];
-create_partial_decode_gen_info(_M1,{M2,_}) ->
-    throw({error,{"wrong module name in asn1 config file",
-		  M2}}).
-
-create_partial_decode_gen_info1(ModName,{FuncName,TypeList}) ->
-    case TypeList of
-	[TopType|Rest] ->
-	    case asn1_db:dbget(ModName,TopType) of
-		#typedef{typespec=TS} ->
-		    TagCommand = get_tag_command(TS,?CHOOSEN),
-		    Ret=create_pdec_command(ModName,
-					    get_components(TS#type.def),
-					    Rest,concat_tags(TagCommand,[])),
-		    {FuncName,Ret};
-		_ ->
-		    throw({error,{"wrong type list in asn1 config file",
-				  TypeList}})
-	    end;
-	_ ->
-	    []
-    end;
-create_partial_decode_gen_info1(_,_) ->
-    ok.
-
-%% create_pdec_command/4 for each name (type or component) in the
-%% third argument, TypeNameList, a command is created. The command has
-%% information whether the component/type shall be skipped, looked
-%% into or returned. The list of commands is returned.
-create_pdec_command(_ModName,_,[],Acc) ->
-    Remove_empty_lists =
-	fun([[]|L],Res,Fun) ->
-		Fun(L,Res,Fun);
-	   ([],Res,_) ->
-		Res;
-	   ([H|L],Res,Fun) ->
-		Fun(L,[H|Res],Fun)
-	end,
-    Remove_empty_lists(Acc,[],Remove_empty_lists);
-create_pdec_command(ModName,[#'ComponentType'{name=C1,typespec=TS}|_Comps],
-		    [C1|Cs],Acc) ->
-    %% this component is a constructed type or the last in the
-    %% TypeNameList otherwise the config spec is wrong
-    TagCommand = get_tag_command(TS,?CHOOSEN),
-    create_pdec_command(ModName,get_components(TS#type.def),
-			Cs,concat_tags(TagCommand,Acc));
-create_pdec_command(ModName,[#'ComponentType'{typespec=TS,
-					      prop=Prop}|Comps],
-		    [C2|Cs],Acc) ->
-    TagCommand = 
-	case Prop of
-	    mandatory ->
-		get_tag_command(TS,?SKIP);
-	    _ ->
-		get_tag_command(TS,?SKIP_OPTIONAL)
-	end,
-    create_pdec_command(ModName,Comps,[C2|Cs],concat_tags(TagCommand,Acc));
-create_pdec_command(ModName,{'CHOICE',[Comp=#'ComponentType'{name=C1}|_]},TNL=[C1|_Cs],Acc) ->
-    create_pdec_command(ModName,[Comp],TNL,Acc);
-create_pdec_command(ModName,{'CHOICE',[#'ComponentType'{}|Comps]},TNL,Acc) ->
-    create_pdec_command(ModName,{'CHOICE',Comps},TNL,Acc);
-create_pdec_command(ModName,{'CHOICE',{Cs1,Cs2}},TNL,Acc)
-  when is_list(Cs1),is_list(Cs2) ->
-    create_pdec_command(ModName,{'CHOICE',Cs1 ++ Cs2},TNL,Acc);
-create_pdec_command(ModName,#'Externaltypereference'{module=M,type=C1},
-		    TypeNameList,Acc) ->
-     #type{def=Def} = get_referenced_type(M,C1),
-    create_pdec_command(ModName,get_components(Def),TypeNameList,
-			Acc);
-create_pdec_command(ModName,TS=#type{def=Def},[C1|Cs],Acc) ->
-    %% This case when we got the "components" of a SEQUENCE/SET OF
-    case C1 of
-	[1] ->
-	    %% A list with an integer is the only valid option in a 'S
-	    %% OF', the other valid option would be an empty
-	    %% TypeNameList saying that the entire 'S OF' will be
-	    %% decoded.
-	    TagCommand = get_tag_command(TS,?CHOOSEN),
-	    create_pdec_command(ModName,Def,Cs,concat_tags(TagCommand,Acc));
-	[N] when is_integer(N) ->
-	    TagCommand = get_tag_command(TS,?SKIP),
-	    create_pdec_command(ModName,Def,[[N-1]|Cs],
-				concat_tags(TagCommand,Acc));
-	Err ->
-	    throw({error,{"unexpected error when creating partial "
-			  "decode command",Err}})
-    end;
-create_pdec_command(_,_,TNL,_) ->
-    throw({error,{"unexpected error when creating partial "
-		  "decode command",TNL}}).
-
-get_components(#'SEQUENCE'{components={C1,C2}}) when is_list(C1),is_list(C2) ->
-    C1++C2;
-get_components(#'SEQUENCE'{components=Components}) ->
-    Components;
-get_components(#'SET'{components={C1,C2}}) when is_list(C1),is_list(C2) ->
-    C1++C2;
-get_components(#'SET'{components=Components}) ->
-    Components;
-get_components({'SEQUENCE OF',Components}) ->
-    Components;
-get_components({'SET OF',Components}) ->
-    Components;
-get_components(Def) ->
-    Def.
-
-concat_sequential(L=[A,B],Acc) when is_atom(A),is_binary(B) ->
-    [L|Acc];
-concat_sequential(L,Acc) when is_list(L) ->
-    concat_sequential1(lists:reverse(L),Acc);
-concat_sequential(A,Acc)  ->
-    [A|Acc].
-concat_sequential1([],Acc) ->
-    Acc;
-concat_sequential1([[]],Acc) ->
-    Acc;
-concat_sequential1([El|RestEl],Acc) when is_list(El) ->
-    concat_sequential1(RestEl,[El|Acc]);
-concat_sequential1([mandatory|RestEl],Acc) ->
-    concat_sequential1(RestEl,[mandatory|Acc]);
-concat_sequential1(L,Acc) ->
-    [L|Acc].
-			
-
-many_tags([?SKIP])->   
-    false;
-many_tags([?SKIP_OPTIONAL,_]) ->
-    false;
-many_tags([?CHOOSEN,_]) ->
-    false;
-many_tags(_) ->
-    true.
-
-concat_tags(Ts,Acc) ->
-    case many_tags(Ts) of
-	true when is_list(Ts) ->
-	    lists:reverse(Ts)++Acc;
-	true ->
-	    [Ts|Acc];
-	false ->
-	    [Ts|Acc]
-    end.
-%% get_tag_command(Type,Command)
-
-%% Type is the type that has information about the tag Command tells
-%% what to do with the encoded value with the tag of Type when
-%% decoding. 
-get_tag_command(#type{tag=[]},_) ->
-    [];
-%% SKIP and SKIP_OPTIONAL shall return only one tag command regardless 
-get_tag_command(#type{},?SKIP) ->
-    ?SKIP;
-get_tag_command(#type{tag=Tags},?SKIP_OPTIONAL) ->
-    Tag=hd(Tags),
-    [?SKIP_OPTIONAL,encode_tag_val(decode_class(Tag#tag.class),
-				   Tag#tag.form,Tag#tag.number)];
-get_tag_command(#type{tag=[Tag]},Command) ->
-    %% encode the tag according to BER
-    [Command,encode_tag_val(decode_class(Tag#tag.class),Tag#tag.form, 
-			    Tag#tag.number)];
-get_tag_command(T=#type{tag=[Tag|Tags]},Command) ->
-    TC = get_tag_command(T#type{tag=[Tag]},Command),
-    TCs = get_tag_command(T#type{tag=Tags},Command),
-    case many_tags(TCs) of
-	true when is_list(TCs) ->
-	    [TC|TCs];
-	_ -> [TC|[TCs]]
-    end.
-
-%% get_tag_command/3 used by create_pdec_inc_command
-get_tag_command(#type{tag=[]},_,_) ->
-    [];
-get_tag_command(#type{tag=[Tag]},?MANDATORY,Prop) ->
-    case Prop of
-	mandatory ->
-	    ?MANDATORY;
-	{'DEFAULT',_} ->
-	    [?DEFAULT,encode_tag_val(decode_class(Tag#tag.class),
-				     Tag#tag.form,Tag#tag.number)];
-	_ -> [?OPTIONAL,encode_tag_val(decode_class(Tag#tag.class),
-				       Tag#tag.form,Tag#tag.number)]
-    end;
-get_tag_command(#type{tag=[Tag]},Command,Prop) ->
-    [anonymous_dec_command(Command,Prop),encode_tag_val(decode_class(Tag#tag.class),Tag#tag.form, Tag#tag.number)];
-get_tag_command(#type{tag=Tag},Command,Prop) when is_record(Tag,tag) ->
-    get_tag_command(#type{tag=[Tag]},Command,Prop);
-get_tag_command(T=#type{tag=[Tag|Tags]},Command,Prop) ->
-    [get_tag_command(T#type{tag=[Tag]},Command,Prop)|[
-     get_tag_command(T#type{tag=Tags},Command,Prop)]].
-
-anonymous_dec_command(?UNDECODED,'OPTIONAL') ->
-    ?OPTIONAL_UNDECODED;
-anonymous_dec_command(Command,_) ->
-    Command.
-
-get_referenced_type(M,Name) ->
-    case asn1_db:dbget(M,Name) of
-	#typedef{typespec=TS} ->
-	    case TS of
-		#type{def=#'Externaltypereference'{module=M2,type=Name2}} ->
-		    %% The tags have already been taken care of in the
-		    %% first reference where they were gathered in a
-		    %% list of tags.
-		    get_referenced_type(M2,Name2);
-		#type{} -> TS;
-		_  ->
-		    throw({error,{"unexpected element when"
-				  " fetching referenced type",TS}})
-	    end;
-	T ->
-	    throw({error,{"unexpected element when fetching "
-			  "referenced type",T}})
-    end.
-
-
-tlv_tags([]) ->
-    [];
-tlv_tags([mandatory|Rest]) ->
-    [mandatory|tlv_tags(Rest)];
-tlv_tags([[Command,Tag]|Rest]) when is_atom(Command),is_binary(Tag) ->
-    [[Command,tlv_tag(Tag)]|tlv_tags(Rest)];
-tlv_tags([[Command,Directives]|Rest]) when is_atom(Command),is_list(Directives) ->
-    [[Command,tlv_tags(Directives)]|tlv_tags(Rest)];
-%% remove all empty lists
-tlv_tags([[]|Rest]) ->
-    tlv_tags(Rest);
-tlv_tags([{Name,TopType,L1}|Rest]) when is_list(L1),is_atom(TopType) ->
-    [{Name,TopType,tlv_tags(L1)}|tlv_tags(Rest)];
-tlv_tags([[Command,Tag,L1]|Rest]) when is_list(L1),is_binary(Tag) ->
-    [[Command,tlv_tag(Tag),tlv_tags(L1)]|tlv_tags(Rest)];
-tlv_tags([[mandatory|Rest]]) ->
-    [[mandatory|tlv_tags(Rest)]];
-tlv_tags([L=[L1|_]|Rest]) when is_list(L1) ->
-    [tlv_tags(L)|tlv_tags(Rest)].
-
-tlv_tag(<<Cl:2,_:1,TagNo:5>>) when TagNo < 31 ->
-    (Cl bsl 16) + TagNo;
-tlv_tag(<<Cl:2,_:1,31:5,0:1,TagNo:7>>) ->
-    (Cl bsl 16) + TagNo;
-tlv_tag(<<Cl:2,_:1,31:5,Buffer/binary>>) ->
-    TagNo = tlv_tag1(Buffer,0),
-    (Cl bsl 16) + TagNo.
-tlv_tag1(<<0:1,PartialTag:7>>,Acc) ->
-    (Acc bsl 7) bor PartialTag;
-tlv_tag1(<<1:1,PartialTag:7,Buffer/binary>>,Acc) ->
-    tlv_tag1(Buffer,(Acc bsl 7) bor PartialTag).
-    
 %% Reads the content from the configuration file and returns the
 %% selected part chosen by InfoType. Assumes that the config file
 %% content is an Erlang term.
 read_config_file_info(ModuleName, InfoType) when is_atom(InfoType) ->
     Name = ensure_ext(ModuleName, ".asn1config"),
-    CfgList = read_config_file0(Name, []),
+    {ok,_,CfgList} = read_config_file0(Name, []),
     get_config_info(CfgList, InfoType).
 
 read_config_file(#gen{options=Options}, ModuleName) ->
@@ -1894,12 +1784,13 @@ read_config_file(#gen{options=Options}, ModuleName) ->
     Includes = [I || {i,I} <- Options],
     read_config_file0(Name, ["."|Includes]).
 
-read_config_file0(Name, [D|Dirs]) ->
-    case file:consult(filename:join(D, Name)) of
+read_config_file0(Name0, [Dir|Dirs]) ->
+    Name = filename:join(Dir, Name0),
+    case file:consult(Name) of
 	{ok,CfgList} ->
-	    CfgList;
+	    {ok,Name,CfgList};
 	{error,enoent} ->
-            read_config_file0(Name, Dirs);
+            read_config_file0(Name0, Dirs);
 	{error,Reason} ->
 	    Error = "error reading asn1 config file: " ++
 		file:format_error(Reason),
@@ -1926,10 +1817,12 @@ get_config_info(CfgList,InfoType) ->
 %% save_config/2 saves the Info with the key Key
 %% Before saving anything check if a table exists
 %% The record gen_state is saved with the key {asn1_config,gen_state}
+-doc false.
 save_config(Key,Info) ->
     asn1ct_table:new_reuse(asn1_general),
     asn1ct_table:insert(asn1_general, {{asn1_config, Key}, Info}).
 
+-doc false.
 read_config_data(Key) ->
     case asn1ct_table:exists(asn1_general) of
 	false -> undefined;
@@ -1949,6 +1842,7 @@ read_config_data(Key) ->
 %%
 
 %% saves input data in a new gen_state record
+-doc false.
 save_gen_state(exclusive_decode,{_,ConfList},PartIncTlvTagList) ->
     State =
 	case get_gen_state() of
@@ -1964,6 +1858,7 @@ save_gen_state(_,_,_) ->
 	_ -> save_config(gen_state,#gen_state{})
     end.
 
+-doc false.
 save_gen_state(selective_decode,{_,Type_component_name_list}) ->
     State =
 	case get_gen_state() of
@@ -1981,6 +1876,7 @@ save_gen_state(GenState) when is_record(GenState,gen_state) ->
 
 %% get_gen_state_field returns undefined if no gen_state exists or if
 %% Field is undefined or the data at the field.
+-doc false.
 get_gen_state_field(Field) ->
     case read_config_data(gen_state) of
 	undefined ->
@@ -2023,6 +1919,7 @@ get_gen_state() ->
     read_config_data(gen_state).
 
 
+-doc false.
 update_gen_state(Field,Data) ->
     case get_gen_state() of
 	State when is_record(State,gen_state) ->
@@ -2058,6 +1955,7 @@ update_gen_state(suffix_index,State,Data) ->
 update_gen_state(current_suffix_index,State,Data) ->
     save_gen_state(State#gen_state{current_suffix_index=Data}).
 
+-doc false.
 update_namelist(Name) ->
     case get_gen_state_field(namelist) of
 	[Name,Rest] -> update_gen_state(namelist,Rest);
@@ -2068,6 +1966,7 @@ update_namelist(Name) ->
     end.
 
 %% removes a bracket from the namelist
+-doc false.
 step_in_constructed() ->
     case get_gen_state_field(namelist) of
 	[L] when is_list(L) ->
@@ -2075,6 +1974,7 @@ step_in_constructed() ->
 	_ -> ok
     end.
 			
+-doc false.
 is_function_generated(Name) ->
     case get_gen_state_field(gen_refed_funcs) of
 	L when is_list(L) ->
@@ -2083,6 +1983,7 @@ is_function_generated(Name) ->
 	    false
     end.
 			       
+-doc false.
 get_tobe_refed_func(Name) ->
     case get_gen_state_field(tobe_refed_funcs) of
 	L when is_list(L) ->
@@ -2099,6 +2000,7 @@ get_tobe_refed_func(Name) ->
 %% add_tobe_refed_func saves Data that is a three or four element
 %% tuple.  Do not save if it exists in generated_functions, because
 %% then it will be or already is generated.
+-doc false.
 add_tobe_refed_func(Data) ->
     {Name,SI,Pattern} = 
 	fun({N,Si,P,_}) -> {N,Si,P};
@@ -2142,6 +2044,7 @@ add_once_tobe_refed_func(Data) ->
 
 
 %% Moves Name from the to be list to the generated list.
+-doc false.
 generated_refed_func(Name) ->
     L = get_gen_state_field(tobe_refed_funcs),
     NewL = lists:keydelete(Name,1,L),
@@ -2150,6 +2053,7 @@ generated_refed_func(Name) ->
     update_gen_state(gen_refed_funcs,[Name|L2]).
 
 %% Adds Data to gen_refed_funcs field in gen_state.
+-doc false.
 add_generated_refed_func(Data) ->
     case is_function_generated(Data) of
 	true ->
@@ -2159,6 +2063,7 @@ add_generated_refed_func(Data) ->
 	    update_gen_state(gen_refed_funcs,[Data|L])
     end.
 
+-doc false.
 next_refed_func() ->
     case get_gen_state_field(tobe_refed_funcs) of
 	[] ->
@@ -2168,6 +2073,7 @@ next_refed_func() ->
 	    H
     end.
 
+-doc false.
 reset_gen_state() ->
     save_gen_state(#gen_state{}).
 
@@ -2179,6 +2085,7 @@ add_generated_function(Data) ->
 
 %% Each type has its own index starting from 0. If index is 0 there is
 %% no renaming.
+-doc false.
 maybe_rename_function(Mode,Name,Pattern) ->
     case get_gen_state_field(generated_functions) of
 	[] when Mode==inc_disp -> add_generated_function({Name,0,Pattern}),
@@ -2274,6 +2181,7 @@ generated_functions_filter(M,#'Externaltypereference'{module=M,type=Name},L)->
     generated_functions_filter(M,Name,L2).
 
 
+-doc false.
 maybe_saved_sindex(Name,Pattern) ->
     case get_gen_state_field(generated_functions) of
 	[] -> false;
@@ -2290,9 +2198,11 @@ maybe_saved_sindex(Name,Pattern) ->
 	    end
     end.
     
+-doc false.
 current_sindex() ->
     get_gen_state_field(current_suffix_index).
 
+-doc false.
 set_current_sindex(Index) ->
     update_gen_state(current_suffix_index,Index).
 
@@ -2327,6 +2237,7 @@ type_check(#'Externaltypereference'{}) ->
 %% Warning messages are controlled with the 'warnings' compiler option
 %% Verbose messages are controlled with the 'verbose' compiler option
 
+-doc false.
 error(Format, Args, S) ->
     case is_error(S) of
 	true ->
@@ -2335,6 +2246,7 @@ error(Format, Args, S) ->
 	    ok
     end.
 
+-doc false.
 warning(Format, Args, S) ->
     case is_warning(S) of
 	true ->
@@ -2343,6 +2255,7 @@ warning(Format, Args, S) ->
 	    ok
     end.
 
+-doc false.
 warning(Format, Args, S, Reason) ->
     case {is_werr(S), is_error(S), is_warning(S)} of
 	{true, true, _} ->
@@ -2354,6 +2267,7 @@ warning(Format, Args, S, Reason) ->
 	    ok
     end.
 
+-doc false.
 verbose(Format, Args, S) ->
     case is_verbose(S) of
 	true ->
@@ -2362,8 +2276,9 @@ verbose(Format, Args, S) ->
 	    ok
     end.
 
+-doc false.
 format_error({write_error,File,Reason}) ->
-    io_lib:format("writing output file ~s failed: ~s",
+    io_lib:format(<<"writing output file ~ts failed: ~s">>,
 		  [File,file:format_error(Reason)]).
 
 is_error(#state{options=Opts}) ->

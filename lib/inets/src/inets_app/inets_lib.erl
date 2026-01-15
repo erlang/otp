@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,18 +21,13 @@
 %%
 
 -module(inets_lib).
+-moduledoc false.
 
 -export([millisec_passed/1, formated_timestamp/0, format_timestamp/1]).
 
 
 
-%% Help function, elapsed milliseconds since T0
-millisec_passed({_,_,_} = T0 ) ->
-    %% OTP 17 and earlier
-    timer:now_diff(erlang:timestamp(), T0) div 1000;
-
 millisec_passed(T0) ->
-    %% OTP 18
     erlang:convert_time_unit(erlang:monotonic_time() - T0,
 			     native,
 			     micro_seconds) div 1000.

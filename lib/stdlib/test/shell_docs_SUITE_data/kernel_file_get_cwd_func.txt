@@ -1,42 +1,41 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec get_cwd() -> {ok, Dir} | {error, Reason}[0m
-  [;1m                 when Dir :: filename(), Reason :: posix().[0m
+[;1m  get_cwd()[0m
 
   Returns [;;4m{ok, Dir}[0m, where [;;4mDir[0m is the current working directory
   of the file server.
 
-  Note:
+  [;;4mNote[0m
+
     In rare circumstances, this function can fail on Unix. It can
     occur if read permission does not exist for the parent
     directories of the current directory.
 
   A typical error reason:
 
-  [;;4m[;;4meacces[0m[0m:
-    Missing read permission for one of the parents of the current
-    directory.
+   • [;;4meacces[0m - Missing read permission for one of the parents of
+     the current directory.
 
-  [;1m-spec get_cwd(Drive) -> {ok, Dir} | {error, Reason}[0m
-  [;1m                 when[0m
-  [;1m                     Drive :: string(),[0m
-  [;1m                     Dir :: filename(),[0m
-  [;1m                     Reason :: posix() | badarg.[0m
+[;1m  get_cwd(Drive)[0m
 
   Returns [;;4m{ok, Dir}[0m or [;;4m{error, Reason}[0m, where [;;4mDir[0m is the
   current working directory of the specified drive.
 
-  [;;4mDrive[0m is to be of the form "[;;4mLetter[0m[;;4m:[0m", for example, "c:".
+  [;;4mDrive[0m is to be of the form [;;4mLetter:[0m, for example, .
 
   Returns [;;4m{error, enotsup}[0m on platforms that have no concept of
   current drive (Unix, for example).
 
   Typical error reasons:
 
-  [;;4m[;;4menotsup[0m[0m:
-    The operating system has no concept of drives.
+   • [;;4menotsup[0m - The operating system has no concept of drives.
 
-  [;;4m[;;4meacces[0m[0m:
-    The drive does not exist.
+   • [;;4meacces[0m - The drive does not exist.
 
-  [;;4m[;;4meinval[0m[0m:
-    The format of [;;4mDrive[0m is invalid.
+   • [;;4meinval[0m - The format of [;;4mDrive[0m is invalid.

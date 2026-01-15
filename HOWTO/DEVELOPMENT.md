@@ -1,3 +1,26 @@
+<!--
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 # Developing Erlang/OTP
 
 The Erlang/OTP development repository is quite large and the make system
@@ -6,7 +29,7 @@ will try to showcase the most important features of the make system.
 
 The guide is mostly aimed towards development on a Unix platform, but
 most things should work also work using WSL on Windows. The guide also
-assumes that you are working in the git repositiory. Many of the
+assumes that you are working in the git repository. Many of the
 scripts and tools described here are not available in the prebuilt tar
 archive that you can download for each release.
 
@@ -63,7 +86,6 @@ make            # Rebuid application
 make test       # Run application tests
 make dialyzer   # Run dialyzer
 make docs       # Build the docs
-make xmllint    # Run xmllint on the docs
 ```
 
 Then enable [Github Actions](#github-actions) and push the changes to your fork
@@ -189,13 +211,6 @@ make stdlib_test ARGS="-suite lists_SUITE -case member"
 See [ct_run](https://www.erlang.org/doc/man/ct_run.html#) for a list of all options
 that you can pass to ARGS.
 
-You can run static analysis test:
-
-```bash
-make dialyzer            # Checks all of Erlang/OTP source code
-make xmllint             # Checks all documentation for xmllint errors
-```
-
 Most of the above targets also works for a "phony" target called `emulator` that
 represents erts and all its tools. So you can do this:
 
@@ -212,6 +227,14 @@ for all process you would do this:
 ```bash
 ERL_ARGS="+hmqd off_heap" make emulator_test
 ```
+
+You can run static analysis test:
+
+```bash
+./otp_build check
+```
+
+See `./otp_build check --help` for details on how to use it and what it does.
 
 ### Build and test a specific application
 
@@ -230,23 +253,15 @@ make test ARGS="-suite lists_SUITE" # run the lists_SUITE tests
 make dialyzer                       # run dialyzer for this application
 make docs                           # build all docs for this application
 make docs DOC_TARGETS="html"        # build html docs for this application
-make xmllint                        # run xmllint on the docs for this application
 ```
 
-If you want to view what the documentation looks like for only your application
-you can do this:
-
-```bash
-(cd doc/src && make local_docs)
-```
-
-and then view `doc/html/index.html`.
+Open `doc/html/index.html` in your favorite web browser to view the documentation.
 
 ### Preloaded and Primary Bootstrap
 
 The Erlang code loader and compiler are written in Erlang, so in order to
 [bootstrap](https://en.wikipedia.org/wiki/Bootstrapping_(compilers))
-the system a number of compiled `.beam` files are commited into the
+the system a number of compiled `.beam` files are committed into the
 Erlang/OTP git repository.
 
 The Erlang code located in [erts/preloaded/src](../erts/preloaded/src)
@@ -266,7 +281,7 @@ to be a basic Erlang compiler committed into git. This is what is called the
 primary bootstrap. It is quite rare that you need to update this, but if you
 are extending the Erlang language and would like to use the new extensions
 in the Erlang/OTP source code you it needs to be updated. As an example, when
-we added `maps` to Erlang we first needed to have a commited primary bootstrap
+we added `maps` to Erlang we first needed to have a committed primary bootstrap
 that could compile code with maps, before we actually could use maps anywhere.
 To update the primary bootstrap you do like this:
 
@@ -334,7 +349,7 @@ above.
 ### cerl
 
 `cerl` is a program available in `$ERL_TOP/bin/` that has a number of features
-useful when developing the Erlang run-time system. It work just as normal `erl`,
+useful when developing the Erlang run-time system. It works just as normal `erl`,
 but accepts a couple of extra command line switches. Any other command line arguments
 passed to `cerl` will be passed on the Erlang as normal. The extra command line
 switches are:
@@ -355,6 +370,7 @@ switches are:
   * Set environment variable `ASAN_OPTIONS` for any extra asan options you want to pass.
 * -gcov
   * Start a gcov run-time system.
+  * Generate results by running: `$ERL_TOP/erts/etc/unix/gcov-gen-html $ERL_TOP <OUTPUT_DIR>`
 * -gdb
   * Start an Emacs gdb debugging session. Can be combined with -debug.
 * -core /path/to/core/file
@@ -368,13 +384,13 @@ switches are:
 * -rr
   * Start Erlang under [rr](https://rr-project.org/) to record all events. Can be combined with -debug.
 * -rr replay [session]
-  * Load a recording session using `rr replay`, if no session is specified the latest run session is laoded.
+  * Load a recording session using `rr replay`, if no session is specified the latest run session is loaded.
 
 If you want to run tests using `cerl` (for example if you want to run asan on
 the nif_SUITE in emulator) you cannot use the `make test` approach to testing
 as that uses `ct_run` under the hood and `ct_run` does not support customizing
 the emulator start script. Instead you need to use the approach described in
-[Run tests with Address Sanitizer](INSTALL.md#run-tests-with-address-sanitizer).
+[Run tests with Address Sanitizer](TESTING.md#run-tests-with-address-sanitizer).
 
 
 ### Static analysis
@@ -382,14 +398,11 @@ the emulator start script. Instead you need to use the approach described in
 From the top level of Erlang/OTP you can run:
 
 ```bash
-make xmllint
-make dialyzer
-make format-check
+./otp_build check
 ```
 
-This will check that the documentation is correct and that there are no
-dialyzer errors. See also [Validating documentation](#validating-documentation)
-for more details.
+This will check that the documentation is correct, that there are no
+dialyzer errors and many more things.
 
 ## Running test cases
 
@@ -397,36 +410,34 @@ There is a detailed description about how to run tests in [TESTING.md](TESTING.m
 
 ## Writing and building documentation
 
-Most of the Erlang/OTP documentation is written in XML files located in
-`lib/$APPLICATION_NAME/doc/src`. The format of the XML is described in the
-[ErlDocgen User's Guide](https://www.erlang.org/doc/apps/erl_docgen/users_guide.html).
+Most of the Erlang/OTP documentation is written using markdown, either directly
+in the module implementing the functionality, or as `.md` files located in
+`lib/$APPLICATION_NAME/doc`. For more details about how to write documentation see
+[Writing Documentation](../system/doc/reference_manual/documentation.md) and the
+[Erlang/OTP Documentation HOWTO](DOCUMENTATION.md).
 
 There is also some documentation that is written using [edoc](https://www.erlang.org/doc/man/edoc.html).
 
-To view the documentation the simplest way is to release it. *NOTE*: The Erlang/OTP
+In order to build the documentation you need to have [ex_doc](https://hexdocs.pm/ex_doc/readme.html)
+installed and available in your path. The simplest way to do that is to download
+the [escript for the latest release](https://github.com/elixir-lang/ex_doc/releases/latest) available on github.
+
+To view the documentation you need to build it. *NOTE*: The Erlang/OTP
 repository needs to have been [built](#building-and-testing) before you can build
 the documentation.
 
 ```bash
-make release_docs
+make docs
 ```
 
-and then you can view `release/*/doc/index.html` in your favourite browser and
+and then you can view `doc/index.html` in your favourite browser and
 make sure that it looks nice.
 
-This takes a while though and to speed up the edit-view cycle you can either
-limit what parts of the documentation is built using `DOC_TARGETS`. For example:
+This takes a while though and to speed up the edit-view cycle you can build the
+docs only for a single application. For example:
 
 ```bash
-make release_docs DOC_TARGETS=html
-```
-
-The different `DOC_TARGETS` built are `html`, `man`, `pdf` and `chunks`.
-
-You can also build the docs only for a single application. For example:
-
-```bash
-cd lib/stdlib/doc/src && make local_docs DOC_TARGETS=html
+cd lib/stdlib && make docs
 ```
 
 and then view the results at `lib/stdlib/doc/html/index.html`.
@@ -435,52 +446,44 @@ and then view the results at `lib/stdlib/doc/html/index.html`.
 
 In order to make sure that the documentation is correct you need to also
 validate it. Just building the documentation does not mean that it is
-correct. There are two steps that you need to do in order to validate
-the docs.
+correct.
 
-First run the `xmllint`. This makes sure that the xml follows the
-[Erlang/OTP dtd](https://www.erlang.org/doc/apps/erl_docgen/overview.html)
-and does some extra checks to make sure all links are correct.
+You need to make sure that there are no broken links in the documentation.
+This is done by running `./otp_build check`.
 
-You run the xmllint like this:
-
-```bash
-make xmllint                    # Run it at the top level
-cd lib/stdlib && make xmllint   # Run it for only a single application
-```
-
-When the xml has been verified you also need to make sure that there
-are no broken links in the documentation. This is done by running
-[`otp_html_check`](https://github.com/erlang/otp/blob/master/scripts/otp_html_check).
-
-You run `otp_html_check` like this:
-
-```bash
-make release_docs DOC_TARGETS="html pdf"  # First we need to release the pdf+html docs
-$ERL_TOP/scripts/otp_html_check $(pwd)/release/$($ERL_TOP/erts/autoconf/config.guess) doc/index.html
-```
-
-The output of `otp_html_check` will print a list of broken links and anchors, for example:
+If there are broken links `./otp_build check` will print a list of broken links and anchors, for example:
 
 ```text
-**** Files not used (that I can see)
-....
-
-**** Broken links
-
-Broken Link: /lib/kernel-8.3.1/doc/html/inet.html -> "/lib/kernel-8.3.1/doc/html/files.html"
-
-**** References to missing anchors
-
-Missing Anchor: "/lib/kernel-8.3.1/doc/html/files.html#native_name_encoding-0" from /lib/kernel-8.3.1/doc/html/inet.html
-Missing Anchor: "/lib/kernel-8.3.1/doc/html/inet.html#type-ip_addres" from /lib/kernel-8.3.1/doc/html/inet.html
+lib/kernel/doc/html/eep48_chapter.html: Found duplicate anchor see-also
+lib/kernel/doc/html/eep48_chapter.html: could not find lib/stdlib/doc/html/shell_docs.html#contents, should it be #content?
 ```
 
-The `Files not used` section is mostly used to debug the documentation build
-process, so it can be ignored most of the time. The other to sections should
-however be empty for the documentation to be correct.
+The analysis is done on the generated html files and prints the source html file on the left
+and information about what is wrong on the right. In the examples above the checker has found
+that there are two or more html anchors called `see-also` in the `eep48_chapter.html` file
+and also that there is a link to an unknown anchor called `#contents` in `shell_docs.html`.
 
 All this validation is also done by [Github Actions](#github-actions).
+
+#### Link checker dependencies
+
+The link checker is written using Elixir, so you will need to install Elixir
+version 1.16 or later for it to work. You may also have to build hex from sources,
+depending on if the pre-built .beam archive can be used or not. To build latest Elixir
+and hex do the following:
+
+```bash
+export PATH=$ERL_TOP/bin:$PATH
+git clone git@github.com:elixir-lang/elixir
+(cd elixir && make)
+export PATH=`pwd`/elixir/bin:$PATH
+git clone git@github.com:hexpm/hex
+(cd hex && mix install)
+```
+
+To be sure that the compiled Elixir and Hex always works you want to do the above with the
+currently oldest supported Erlang release. However there is no point in using a release older
+than Erlang/OTP 27 as that is when elixir was first added as a dependency.
 
 ## Github Actions
 

@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec is_map_key(Key, Map) -> boolean() when Key :: term(), Map :: map().[0m
+[;1m  is_map_key(Key, Map)[0m
 
 [;;4mSince[0m:
   OTP 21.0
@@ -18,5 +25,3 @@
     true
     > is_map_key(value,Map).
     false
-
-  Allowed in guard tests.

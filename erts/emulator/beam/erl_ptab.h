@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2012-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,21 +39,42 @@
 #include "erl_alloc.h"
 #include "erl_monitor_link.h"
 
-#define ERTS_TRACER(P)          ((P)->common.tracer)
-#define ERTS_TRACER_MODULE(T) 	(CAR(list_val(T)))
-#define ERTS_TRACER_STATE(T) 	(CDR(list_val(T)))
-#define ERTS_TRACE_FLAGS(P)	((P)->common.trace_flags)
+typedef struct ErtsTracerRef {
+    struct ErtsTracerRef *next;
+    struct ErtsTraceSession *session;
+    ErtsTracer tracer;
+    Uint32 flags;
+} ErtsTracerRef;
+
+typedef struct ErtsTracee_ {
+    Uint32 all_trace_flags;
+    ErtsTracerRef *first_ref;
+} ErtsTracee;
+
+#define ERTS_TRACER_MODULE(T) 	(is_internal_pid(T) ? am_erl_tracer : CAR(list_val(T)))
+#define ERTS_TRACER_STATE(T) 	(is_internal_pid(T) ? T : CDR(list_val(T)))
 
 #define ERTS_P_LINKS(P)		((P)->common.u.alive.links)
 #define ERTS_P_MONITORS(P)	((P)->common.u.alive.monitors)
 #define ERTS_P_LT_MONITORS(P)	((P)->common.u.alive.lt_monitors)
 
-#define IS_TRACED(p) \
-    (ERTS_TRACER(p) != NIL)
-#define ARE_TRACE_FLAGS_ON(p,tf) \
-    ((ERTS_TRACE_FLAGS((p)) & (tf|F_SENSITIVE)) == (tf))
-#define IS_TRACED_FL(p,tf) \
-    ( IS_TRACED(p) && ARE_TRACE_FLAGS_ON(p,tf) )
+#define IS_SESSION_TRACED_FL(ref,tf) \
+    ((ref)->tracer != NIL && (ref->flags & (tf)) == (tf))
+
+#define IS_SESSION_TRACED_ANY_FL(ref,tf) \
+    ((ref)->tracer != NIL && (ref->flags & (tf)))
+
+#define ERTS_IS_P_TRACED(p) \
+    ((p)->common.tracee.all_trace_flags & ~F_SENSITIVE)
+
+#define ERTS_IS_P_TRACED_FL(p, tf) \
+    ((p)->common.tracee.all_trace_flags & (tf))
+
+#define ERTS_P_ALL_TRACE_FLAGS(p) ((p)->common.tracee.all_trace_flags)
+
+#define ERTS_IS_PROC_SENSITIVE(p) \
+    ((p)->common.tracee.all_trace_flags & F_SENSITIVE)
+
 
 typedef struct {
     Eterm id;
@@ -59,8 +82,6 @@ typedef struct {
 	erts_atomic_t atmc;
 	Sint sint;
     } refc;
-    ErtsTracer tracer;
-    Uint trace_flags;
     erts_atomic_t timer;
     union {
 	/* --- While being alive --- */
@@ -78,6 +99,7 @@ typedef struct {
 	/* --- While being released --- */
 	ErtsThrPrgrLaterOp release;
     } u;
+    ErtsTracee tracee;
 } ErtsPTabElementCommon;
 
 typedef struct ErtsPTabDeletedElement_ ErtsPTabDeletedElement;
@@ -453,6 +475,9 @@ ERTS_GLB_INLINE int erts_lc_ptab_is_rwlocked(ErtsPTab *ptab)
 #include "bif.h"
 
 BIF_RETTYPE erts_ptab_list(struct process *c_p, ErtsPTab *ptab);
+
+BIF_RETTYPE erts_ptab_processes_next(struct process *c_p, ErtsPTab *ptab,
+                                     Uint first);
 
 #endif
 

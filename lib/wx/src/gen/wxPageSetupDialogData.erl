@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,58 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxPageSetupDialogData).
+-moduledoc """
+This class holds a variety of information related to `m:wxPageSetupDialog`.
+
+It contains a `m:wxPrintData` member which is used to hold basic printer configuration
+data (as opposed to the user-interface configuration settings stored by `m:wxPageSetupDialogData`).
+
+See:
+* [Overview printing](https://docs.wxwidgets.org/3.2/overview_printing.html#overview_printing)
+
+* `m:wxPageSetupDialog`
+
+wxWidgets docs: [wxPageSetupDialogData](https://docs.wxwidgets.org/3.2/classwx_page_setup_dialog_data.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,enableHelp/2,enableMargins/2,enableOrientation/2,enablePaper/2,
   enablePrinter/2,getDefaultInfo/1,getDefaultMinMargins/1,getEnableHelp/1,
@@ -34,16 +84,16 @@
 
 -type wxPageSetupDialogData() :: wx:wx_object().
 -export_type([wxPageSetupDialogData/0]).
-%% @hidden
+-doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatawxpagesetupdialogdata">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxPageSetupDialogData().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxPageSetupDialogData_new_0),
   wxe_util:rec(?wxPageSetupDialogData_new_0).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatawxpagesetupdialogdata">external documentation</a>.
+-doc "Construct an object from a print data object.".
 -spec new(PrintData) -> wxPageSetupDialogData() when
 	PrintData::wxPrintData:wxPrintData() | wxPageSetupDialogData:wxPageSetupDialogData().
 new(#wx_ref{type=PrintDataT}=PrintData) ->
@@ -57,7 +107,9 @@ new(#wx_ref{type=PrintDataT}=PrintData) ->
   wxe_util:queue_cmd(wx:typeCast(PrintData, PrintDataType),?get_env(),?wxPageSetupDialogData_new_1),
   wxe_util:rec(?wxPageSetupDialogData_new_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdataenablehelp">external documentation</a>.
+-doc """
+Enables or disables the "Help" button (Windows only).
+""".
 -spec enableHelp(This, Flag) -> 'ok' when
 	This::wxPageSetupDialogData(), Flag::boolean().
 enableHelp(#wx_ref{type=ThisT}=This,Flag)
@@ -65,7 +117,7 @@ enableHelp(#wx_ref{type=ThisT}=This,Flag)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Flag,?get_env(),?wxPageSetupDialogData_EnableHelp).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdataenablemargins">external documentation</a>.
+-doc "Enables or disables the margin controls (Windows only).".
 -spec enableMargins(This, Flag) -> 'ok' when
 	This::wxPageSetupDialogData(), Flag::boolean().
 enableMargins(#wx_ref{type=ThisT}=This,Flag)
@@ -73,7 +125,7 @@ enableMargins(#wx_ref{type=ThisT}=This,Flag)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Flag,?get_env(),?wxPageSetupDialogData_EnableMargins).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdataenableorientation">external documentation</a>.
+-doc "Enables or disables the orientation control (Windows only).".
 -spec enableOrientation(This, Flag) -> 'ok' when
 	This::wxPageSetupDialogData(), Flag::boolean().
 enableOrientation(#wx_ref{type=ThisT}=This,Flag)
@@ -81,7 +133,7 @@ enableOrientation(#wx_ref{type=ThisT}=This,Flag)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Flag,?get_env(),?wxPageSetupDialogData_EnableOrientation).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdataenablepaper">external documentation</a>.
+-doc "Enables or disables the paper size control (Windows only).".
 -spec enablePaper(This, Flag) -> 'ok' when
 	This::wxPageSetupDialogData(), Flag::boolean().
 enablePaper(#wx_ref{type=ThisT}=This,Flag)
@@ -89,7 +141,9 @@ enablePaper(#wx_ref{type=ThisT}=This,Flag)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Flag,?get_env(),?wxPageSetupDialogData_EnablePaper).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdataenableprinter">external documentation</a>.
+-doc """
+Enables or disables the "Printer" button, which invokes a printer setup dialog.
+""".
 -spec enablePrinter(This, Flag) -> 'ok' when
 	This::wxPageSetupDialogData(), Flag::boolean().
 enablePrinter(#wx_ref{type=ThisT}=This,Flag)
@@ -97,7 +151,10 @@ enablePrinter(#wx_ref{type=ThisT}=This,Flag)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Flag,?get_env(),?wxPageSetupDialogData_EnablePrinter).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetdefaultminmargins">external documentation</a>.
+-doc """
+Returns true if the page setup dialog will take its minimum margin values from the
+currently selected printer properties (Windows only).
+""".
 -spec getDefaultMinMargins(This) -> boolean() when
 	This::wxPageSetupDialogData().
 getDefaultMinMargins(#wx_ref{type=ThisT}=This) ->
@@ -105,7 +162,7 @@ getDefaultMinMargins(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetDefaultMinMargins),
   wxe_util:rec(?wxPageSetupDialogData_GetDefaultMinMargins).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetenablemargins">external documentation</a>.
+-doc "Returns true if the margin controls are enabled (Windows only).".
 -spec getEnableMargins(This) -> boolean() when
 	This::wxPageSetupDialogData().
 getEnableMargins(#wx_ref{type=ThisT}=This) ->
@@ -113,7 +170,7 @@ getEnableMargins(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetEnableMargins),
   wxe_util:rec(?wxPageSetupDialogData_GetEnableMargins).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetenableorientation">external documentation</a>.
+-doc "Returns true if the orientation control is enabled (Windows only).".
 -spec getEnableOrientation(This) -> boolean() when
 	This::wxPageSetupDialogData().
 getEnableOrientation(#wx_ref{type=ThisT}=This) ->
@@ -121,7 +178,7 @@ getEnableOrientation(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetEnableOrientation),
   wxe_util:rec(?wxPageSetupDialogData_GetEnableOrientation).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetenablepaper">external documentation</a>.
+-doc "Returns true if the paper size control is enabled (Windows only).".
 -spec getEnablePaper(This) -> boolean() when
 	This::wxPageSetupDialogData().
 getEnablePaper(#wx_ref{type=ThisT}=This) ->
@@ -129,7 +186,7 @@ getEnablePaper(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetEnablePaper),
   wxe_util:rec(?wxPageSetupDialogData_GetEnablePaper).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetenableprinter">external documentation</a>.
+-doc "Returns true if the printer setup button is enabled.".
 -spec getEnablePrinter(This) -> boolean() when
 	This::wxPageSetupDialogData().
 getEnablePrinter(#wx_ref{type=ThisT}=This) ->
@@ -137,7 +194,7 @@ getEnablePrinter(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetEnablePrinter),
   wxe_util:rec(?wxPageSetupDialogData_GetEnablePrinter).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetenablehelp">external documentation</a>.
+-doc "Returns true if the printer setup button is enabled.".
 -spec getEnableHelp(This) -> boolean() when
 	This::wxPageSetupDialogData().
 getEnableHelp(#wx_ref{type=ThisT}=This) ->
@@ -145,7 +202,10 @@ getEnableHelp(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetEnableHelp),
   wxe_util:rec(?wxPageSetupDialogData_GetEnableHelp).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetdefaultinfo">external documentation</a>.
+-doc """
+Returns true if the dialog will simply return default printer information (such as
+orientation) instead of showing a dialog (Windows only).
+""".
 -spec getDefaultInfo(This) -> boolean() when
 	This::wxPageSetupDialogData().
 getDefaultInfo(#wx_ref{type=ThisT}=This) ->
@@ -153,7 +213,7 @@ getDefaultInfo(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetDefaultInfo),
   wxe_util:rec(?wxPageSetupDialogData_GetDefaultInfo).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetmargintopleft">external documentation</a>.
+-doc "Returns the left (x) and top (y) margins in millimetres.".
 -spec getMarginTopLeft(This) -> {X::integer(), Y::integer()} when
 	This::wxPageSetupDialogData().
 getMarginTopLeft(#wx_ref{type=ThisT}=This) ->
@@ -161,7 +221,7 @@ getMarginTopLeft(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetMarginTopLeft),
   wxe_util:rec(?wxPageSetupDialogData_GetMarginTopLeft).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetmarginbottomright">external documentation</a>.
+-doc "Returns the right (x) and bottom (y) margins in millimetres.".
 -spec getMarginBottomRight(This) -> {X::integer(), Y::integer()} when
 	This::wxPageSetupDialogData().
 getMarginBottomRight(#wx_ref{type=ThisT}=This) ->
@@ -169,7 +229,11 @@ getMarginBottomRight(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetMarginBottomRight),
   wxe_util:rec(?wxPageSetupDialogData_GetMarginBottomRight).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetminmargintopleft">external documentation</a>.
+-doc """
+Returns the left (x) and top (y) minimum margins the user can enter (Windows only).
+
+Units are in millimetres.
+""".
 -spec getMinMarginTopLeft(This) -> {X::integer(), Y::integer()} when
 	This::wxPageSetupDialogData().
 getMinMarginTopLeft(#wx_ref{type=ThisT}=This) ->
@@ -177,7 +241,11 @@ getMinMarginTopLeft(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetMinMarginTopLeft),
   wxe_util:rec(?wxPageSetupDialogData_GetMinMarginTopLeft).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetminmarginbottomright">external documentation</a>.
+-doc """
+Returns the right (x) and bottom (y) minimum margins the user can enter (Windows only).
+
+Units are in millimetres.
+""".
 -spec getMinMarginBottomRight(This) -> {X::integer(), Y::integer()} when
 	This::wxPageSetupDialogData().
 getMinMarginBottomRight(#wx_ref{type=ThisT}=This) ->
@@ -185,8 +253,12 @@ getMinMarginBottomRight(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetMinMarginBottomRight),
   wxe_util:rec(?wxPageSetupDialogData_GetMinMarginBottomRight).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetpaperid">external documentation</a>.
-%%<br /> Res = ?wxPAPER_NONE | ?wxPAPER_LETTER | ?wxPAPER_LEGAL | ?wxPAPER_A4 | ?wxPAPER_CSHEET | ?wxPAPER_DSHEET | ?wxPAPER_ESHEET | ?wxPAPER_LETTERSMALL | ?wxPAPER_TABLOID | ?wxPAPER_LEDGER | ?wxPAPER_STATEMENT | ?wxPAPER_EXECUTIVE | ?wxPAPER_A3 | ?wxPAPER_A4SMALL | ?wxPAPER_A5 | ?wxPAPER_B4 | ?wxPAPER_B5 | ?wxPAPER_FOLIO | ?wxPAPER_QUARTO | ?wxPAPER_10X14 | ?wxPAPER_11X17 | ?wxPAPER_NOTE | ?wxPAPER_ENV_9 | ?wxPAPER_ENV_10 | ?wxPAPER_ENV_11 | ?wxPAPER_ENV_12 | ?wxPAPER_ENV_14 | ?wxPAPER_ENV_DL | ?wxPAPER_ENV_C5 | ?wxPAPER_ENV_C3 | ?wxPAPER_ENV_C4 | ?wxPAPER_ENV_C6 | ?wxPAPER_ENV_C65 | ?wxPAPER_ENV_B4 | ?wxPAPER_ENV_B5 | ?wxPAPER_ENV_B6 | ?wxPAPER_ENV_ITALY | ?wxPAPER_ENV_MONARCH | ?wxPAPER_ENV_PERSONAL | ?wxPAPER_FANFOLD_US | ?wxPAPER_FANFOLD_STD_GERMAN | ?wxPAPER_FANFOLD_LGL_GERMAN | ?wxPAPER_ISO_B4 | ?wxPAPER_JAPANESE_POSTCARD | ?wxPAPER_9X11 | ?wxPAPER_10X11 | ?wxPAPER_15X11 | ?wxPAPER_ENV_INVITE | ?wxPAPER_LETTER_EXTRA | ?wxPAPER_LEGAL_EXTRA | ?wxPAPER_TABLOID_EXTRA | ?wxPAPER_A4_EXTRA | ?wxPAPER_LETTER_TRANSVERSE | ?wxPAPER_A4_TRANSVERSE | ?wxPAPER_LETTER_EXTRA_TRANSVERSE | ?wxPAPER_A_PLUS | ?wxPAPER_B_PLUS | ?wxPAPER_LETTER_PLUS | ?wxPAPER_A4_PLUS | ?wxPAPER_A5_TRANSVERSE | ?wxPAPER_B5_TRANSVERSE | ?wxPAPER_A3_EXTRA | ?wxPAPER_A5_EXTRA | ?wxPAPER_B5_EXTRA | ?wxPAPER_A2 | ?wxPAPER_A3_TRANSVERSE | ?wxPAPER_A3_EXTRA_TRANSVERSE | ?wxPAPER_DBL_JAPANESE_POSTCARD | ?wxPAPER_A6 | ?wxPAPER_JENV_KAKU2 | ?wxPAPER_JENV_KAKU3 | ?wxPAPER_JENV_CHOU3 | ?wxPAPER_JENV_CHOU4 | ?wxPAPER_LETTER_ROTATED | ?wxPAPER_A3_ROTATED | ?wxPAPER_A4_ROTATED | ?wxPAPER_A5_ROTATED | ?wxPAPER_B4_JIS_ROTATED | ?wxPAPER_B5_JIS_ROTATED | ?wxPAPER_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_DBL_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_A6_ROTATED | ?wxPAPER_JENV_KAKU2_ROTATED | ?wxPAPER_JENV_KAKU3_ROTATED | ?wxPAPER_JENV_CHOU3_ROTATED | ?wxPAPER_JENV_CHOU4_ROTATED | ?wxPAPER_B6_JIS | ?wxPAPER_B6_JIS_ROTATED | ?wxPAPER_12X11 | ?wxPAPER_JENV_YOU4 | ?wxPAPER_JENV_YOU4_ROTATED | ?wxPAPER_P16K | ?wxPAPER_P32K | ?wxPAPER_P32KBIG | ?wxPAPER_PENV_1 | ?wxPAPER_PENV_2 | ?wxPAPER_PENV_3 | ?wxPAPER_PENV_4 | ?wxPAPER_PENV_5 | ?wxPAPER_PENV_6 | ?wxPAPER_PENV_7 | ?wxPAPER_PENV_8 | ?wxPAPER_PENV_9 | ?wxPAPER_PENV_10 | ?wxPAPER_P16K_ROTATED | ?wxPAPER_P32K_ROTATED | ?wxPAPER_P32KBIG_ROTATED | ?wxPAPER_PENV_1_ROTATED | ?wxPAPER_PENV_2_ROTATED | ?wxPAPER_PENV_3_ROTATED | ?wxPAPER_PENV_4_ROTATED | ?wxPAPER_PENV_5_ROTATED | ?wxPAPER_PENV_6_ROTATED | ?wxPAPER_PENV_7_ROTATED | ?wxPAPER_PENV_8_ROTATED | ?wxPAPER_PENV_9_ROTATED | ?wxPAPER_PENV_10_ROTATED | ?wxPAPER_A0 | ?wxPAPER_A1
+-doc """
+Returns the paper id (stored in the internal `m:wxPrintData` object).
+
+See: `wxPrintData:setPaperId/2`
+""".
+%%  Res = ?wxPAPER_NONE | ?wxPAPER_LETTER | ?wxPAPER_LEGAL | ?wxPAPER_A4 | ?wxPAPER_CSHEET | ?wxPAPER_DSHEET | ?wxPAPER_ESHEET | ?wxPAPER_LETTERSMALL | ?wxPAPER_TABLOID | ?wxPAPER_LEDGER | ?wxPAPER_STATEMENT | ?wxPAPER_EXECUTIVE | ?wxPAPER_A3 | ?wxPAPER_A4SMALL | ?wxPAPER_A5 | ?wxPAPER_B4 | ?wxPAPER_B5 | ?wxPAPER_FOLIO | ?wxPAPER_QUARTO | ?wxPAPER_10X14 | ?wxPAPER_11X17 | ?wxPAPER_NOTE | ?wxPAPER_ENV_9 | ?wxPAPER_ENV_10 | ?wxPAPER_ENV_11 | ?wxPAPER_ENV_12 | ?wxPAPER_ENV_14 | ?wxPAPER_ENV_DL | ?wxPAPER_ENV_C5 | ?wxPAPER_ENV_C3 | ?wxPAPER_ENV_C4 | ?wxPAPER_ENV_C6 | ?wxPAPER_ENV_C65 | ?wxPAPER_ENV_B4 | ?wxPAPER_ENV_B5 | ?wxPAPER_ENV_B6 | ?wxPAPER_ENV_ITALY | ?wxPAPER_ENV_MONARCH | ?wxPAPER_ENV_PERSONAL | ?wxPAPER_FANFOLD_US | ?wxPAPER_FANFOLD_STD_GERMAN | ?wxPAPER_FANFOLD_LGL_GERMAN | ?wxPAPER_ISO_B4 | ?wxPAPER_JAPANESE_POSTCARD | ?wxPAPER_9X11 | ?wxPAPER_10X11 | ?wxPAPER_15X11 | ?wxPAPER_ENV_INVITE | ?wxPAPER_LETTER_EXTRA | ?wxPAPER_LEGAL_EXTRA | ?wxPAPER_TABLOID_EXTRA | ?wxPAPER_A4_EXTRA | ?wxPAPER_LETTER_TRANSVERSE | ?wxPAPER_A4_TRANSVERSE | ?wxPAPER_LETTER_EXTRA_TRANSVERSE | ?wxPAPER_A_PLUS | ?wxPAPER_B_PLUS | ?wxPAPER_LETTER_PLUS | ?wxPAPER_A4_PLUS | ?wxPAPER_A5_TRANSVERSE | ?wxPAPER_B5_TRANSVERSE | ?wxPAPER_A3_EXTRA | ?wxPAPER_A5_EXTRA | ?wxPAPER_B5_EXTRA | ?wxPAPER_A2 | ?wxPAPER_A3_TRANSVERSE | ?wxPAPER_A3_EXTRA_TRANSVERSE | ?wxPAPER_DBL_JAPANESE_POSTCARD | ?wxPAPER_A6 | ?wxPAPER_JENV_KAKU2 | ?wxPAPER_JENV_KAKU3 | ?wxPAPER_JENV_CHOU3 | ?wxPAPER_JENV_CHOU4 | ?wxPAPER_LETTER_ROTATED | ?wxPAPER_A3_ROTATED | ?wxPAPER_A4_ROTATED | ?wxPAPER_A5_ROTATED | ?wxPAPER_B4_JIS_ROTATED | ?wxPAPER_B5_JIS_ROTATED | ?wxPAPER_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_DBL_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_A6_ROTATED | ?wxPAPER_JENV_KAKU2_ROTATED | ?wxPAPER_JENV_KAKU3_ROTATED | ?wxPAPER_JENV_CHOU3_ROTATED | ?wxPAPER_JENV_CHOU4_ROTATED | ?wxPAPER_B6_JIS | ?wxPAPER_B6_JIS_ROTATED | ?wxPAPER_12X11 | ?wxPAPER_JENV_YOU4 | ?wxPAPER_JENV_YOU4_ROTATED | ?wxPAPER_P16K | ?wxPAPER_P32K | ?wxPAPER_P32KBIG | ?wxPAPER_PENV_1 | ?wxPAPER_PENV_2 | ?wxPAPER_PENV_3 | ?wxPAPER_PENV_4 | ?wxPAPER_PENV_5 | ?wxPAPER_PENV_6 | ?wxPAPER_PENV_7 | ?wxPAPER_PENV_8 | ?wxPAPER_PENV_9 | ?wxPAPER_PENV_10 | ?wxPAPER_P16K_ROTATED | ?wxPAPER_P32K_ROTATED | ?wxPAPER_P32KBIG_ROTATED | ?wxPAPER_PENV_1_ROTATED | ?wxPAPER_PENV_2_ROTATED | ?wxPAPER_PENV_3_ROTATED | ?wxPAPER_PENV_4_ROTATED | ?wxPAPER_PENV_5_ROTATED | ?wxPAPER_PENV_6_ROTATED | ?wxPAPER_PENV_7_ROTATED | ?wxPAPER_PENV_8_ROTATED | ?wxPAPER_PENV_9_ROTATED | ?wxPAPER_PENV_10_ROTATED | ?wxPAPER_A0 | ?wxPAPER_A1
 -spec getPaperId(This) -> wx:wx_enum() when
 	This::wxPageSetupDialogData().
 getPaperId(#wx_ref{type=ThisT}=This) ->
@@ -194,7 +266,7 @@ getPaperId(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetPaperId),
   wxe_util:rec(?wxPageSetupDialogData_GetPaperId).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetpapersize">external documentation</a>.
+-doc "Returns the paper size in millimetres.".
 -spec getPaperSize(This) -> {W::integer(), H::integer()} when
 	This::wxPageSetupDialogData().
 getPaperSize(#wx_ref{type=ThisT}=This) ->
@@ -202,7 +274,7 @@ getPaperSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetPaperSize),
   wxe_util:rec(?wxPageSetupDialogData_GetPaperSize).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetprintdata">external documentation</a>.
+-doc "".
 -spec getPrintData(This) -> wxPrintData:wxPrintData() when
 	This::wxPageSetupDialogData().
 getPrintData(#wx_ref{type=ThisT}=This) ->
@@ -210,7 +282,12 @@ getPrintData(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_GetPrintData),
   wxe_util:rec(?wxPageSetupDialogData_GetPrintData).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdataisok">external documentation</a>.
+-doc """
+Returns true if the print data associated with the dialog data is valid.
+
+This can return false on Windows if the current printer is not set, for example. On all
+other platforms, it returns true.
+""".
 -spec isOk(This) -> boolean() when
 	This::wxPageSetupDialogData().
 isOk(#wx_ref{type=ThisT}=This) ->
@@ -218,7 +295,10 @@ isOk(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPageSetupDialogData_IsOk),
   wxe_util:rec(?wxPageSetupDialogData_IsOk).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetdefaultinfo">external documentation</a>.
+-doc """
+Pass true if the dialog will simply return default printer information (such as
+orientation) instead of showing a dialog (Windows only).
+""".
 -spec setDefaultInfo(This, Flag) -> 'ok' when
 	This::wxPageSetupDialogData(), Flag::boolean().
 setDefaultInfo(#wx_ref{type=ThisT}=This,Flag)
@@ -226,7 +306,12 @@ setDefaultInfo(#wx_ref{type=ThisT}=This,Flag)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Flag,?get_env(),?wxPageSetupDialogData_SetDefaultInfo).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetdefaultminmargins">external documentation</a>.
+-doc """
+Pass true if the page setup dialog will take its minimum margin values from the currently
+selected printer properties (Windows only).
+
+Units are in millimetres.
+""".
 -spec setDefaultMinMargins(This, Flag) -> 'ok' when
 	This::wxPageSetupDialogData(), Flag::boolean().
 setDefaultMinMargins(#wx_ref{type=ThisT}=This,Flag)
@@ -234,7 +319,7 @@ setDefaultMinMargins(#wx_ref{type=ThisT}=This,Flag)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Flag,?get_env(),?wxPageSetupDialogData_SetDefaultMinMargins).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetmargintopleft">external documentation</a>.
+-doc "Sets the left (x) and top (y) margins in millimetres.".
 -spec setMarginTopLeft(This, Pt) -> 'ok' when
 	This::wxPageSetupDialogData(), Pt::{X::integer(), Y::integer()}.
 setMarginTopLeft(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
@@ -242,7 +327,7 @@ setMarginTopLeft(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxPageSetupDialogData_SetMarginTopLeft).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetmarginbottomright">external documentation</a>.
+-doc "Sets the right (x) and bottom (y) margins in millimetres.".
 -spec setMarginBottomRight(This, Pt) -> 'ok' when
 	This::wxPageSetupDialogData(), Pt::{X::integer(), Y::integer()}.
 setMarginBottomRight(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
@@ -250,7 +335,11 @@ setMarginBottomRight(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxPageSetupDialogData_SetMarginBottomRight).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetminmargintopleft">external documentation</a>.
+-doc """
+Sets the left (x) and top (y) minimum margins the user can enter (Windows only).
+
+Units are in millimetres.
+""".
 -spec setMinMarginTopLeft(This, Pt) -> 'ok' when
 	This::wxPageSetupDialogData(), Pt::{X::integer(), Y::integer()}.
 setMinMarginTopLeft(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
@@ -258,7 +347,11 @@ setMinMarginTopLeft(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxPageSetupDialogData_SetMinMarginTopLeft).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetminmarginbottomright">external documentation</a>.
+-doc """
+Sets the right (x) and bottom (y) minimum margins the user can enter (Windows only).
+
+Units are in millimetres.
+""".
 -spec setMinMarginBottomRight(This, Pt) -> 'ok' when
 	This::wxPageSetupDialogData(), Pt::{X::integer(), Y::integer()}.
 setMinMarginBottomRight(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
@@ -266,8 +359,14 @@ setMinMarginBottomRight(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxPageSetupDialogData_SetMinMarginBottomRight).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetpaperid">external documentation</a>.
-%%<br /> Id = ?wxPAPER_NONE | ?wxPAPER_LETTER | ?wxPAPER_LEGAL | ?wxPAPER_A4 | ?wxPAPER_CSHEET | ?wxPAPER_DSHEET | ?wxPAPER_ESHEET | ?wxPAPER_LETTERSMALL | ?wxPAPER_TABLOID | ?wxPAPER_LEDGER | ?wxPAPER_STATEMENT | ?wxPAPER_EXECUTIVE | ?wxPAPER_A3 | ?wxPAPER_A4SMALL | ?wxPAPER_A5 | ?wxPAPER_B4 | ?wxPAPER_B5 | ?wxPAPER_FOLIO | ?wxPAPER_QUARTO | ?wxPAPER_10X14 | ?wxPAPER_11X17 | ?wxPAPER_NOTE | ?wxPAPER_ENV_9 | ?wxPAPER_ENV_10 | ?wxPAPER_ENV_11 | ?wxPAPER_ENV_12 | ?wxPAPER_ENV_14 | ?wxPAPER_ENV_DL | ?wxPAPER_ENV_C5 | ?wxPAPER_ENV_C3 | ?wxPAPER_ENV_C4 | ?wxPAPER_ENV_C6 | ?wxPAPER_ENV_C65 | ?wxPAPER_ENV_B4 | ?wxPAPER_ENV_B5 | ?wxPAPER_ENV_B6 | ?wxPAPER_ENV_ITALY | ?wxPAPER_ENV_MONARCH | ?wxPAPER_ENV_PERSONAL | ?wxPAPER_FANFOLD_US | ?wxPAPER_FANFOLD_STD_GERMAN | ?wxPAPER_FANFOLD_LGL_GERMAN | ?wxPAPER_ISO_B4 | ?wxPAPER_JAPANESE_POSTCARD | ?wxPAPER_9X11 | ?wxPAPER_10X11 | ?wxPAPER_15X11 | ?wxPAPER_ENV_INVITE | ?wxPAPER_LETTER_EXTRA | ?wxPAPER_LEGAL_EXTRA | ?wxPAPER_TABLOID_EXTRA | ?wxPAPER_A4_EXTRA | ?wxPAPER_LETTER_TRANSVERSE | ?wxPAPER_A4_TRANSVERSE | ?wxPAPER_LETTER_EXTRA_TRANSVERSE | ?wxPAPER_A_PLUS | ?wxPAPER_B_PLUS | ?wxPAPER_LETTER_PLUS | ?wxPAPER_A4_PLUS | ?wxPAPER_A5_TRANSVERSE | ?wxPAPER_B5_TRANSVERSE | ?wxPAPER_A3_EXTRA | ?wxPAPER_A5_EXTRA | ?wxPAPER_B5_EXTRA | ?wxPAPER_A2 | ?wxPAPER_A3_TRANSVERSE | ?wxPAPER_A3_EXTRA_TRANSVERSE | ?wxPAPER_DBL_JAPANESE_POSTCARD | ?wxPAPER_A6 | ?wxPAPER_JENV_KAKU2 | ?wxPAPER_JENV_KAKU3 | ?wxPAPER_JENV_CHOU3 | ?wxPAPER_JENV_CHOU4 | ?wxPAPER_LETTER_ROTATED | ?wxPAPER_A3_ROTATED | ?wxPAPER_A4_ROTATED | ?wxPAPER_A5_ROTATED | ?wxPAPER_B4_JIS_ROTATED | ?wxPAPER_B5_JIS_ROTATED | ?wxPAPER_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_DBL_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_A6_ROTATED | ?wxPAPER_JENV_KAKU2_ROTATED | ?wxPAPER_JENV_KAKU3_ROTATED | ?wxPAPER_JENV_CHOU3_ROTATED | ?wxPAPER_JENV_CHOU4_ROTATED | ?wxPAPER_B6_JIS | ?wxPAPER_B6_JIS_ROTATED | ?wxPAPER_12X11 | ?wxPAPER_JENV_YOU4 | ?wxPAPER_JENV_YOU4_ROTATED | ?wxPAPER_P16K | ?wxPAPER_P32K | ?wxPAPER_P32KBIG | ?wxPAPER_PENV_1 | ?wxPAPER_PENV_2 | ?wxPAPER_PENV_3 | ?wxPAPER_PENV_4 | ?wxPAPER_PENV_5 | ?wxPAPER_PENV_6 | ?wxPAPER_PENV_7 | ?wxPAPER_PENV_8 | ?wxPAPER_PENV_9 | ?wxPAPER_PENV_10 | ?wxPAPER_P16K_ROTATED | ?wxPAPER_P32K_ROTATED | ?wxPAPER_P32KBIG_ROTATED | ?wxPAPER_PENV_1_ROTATED | ?wxPAPER_PENV_2_ROTATED | ?wxPAPER_PENV_3_ROTATED | ?wxPAPER_PENV_4_ROTATED | ?wxPAPER_PENV_5_ROTATED | ?wxPAPER_PENV_6_ROTATED | ?wxPAPER_PENV_7_ROTATED | ?wxPAPER_PENV_8_ROTATED | ?wxPAPER_PENV_9_ROTATED | ?wxPAPER_PENV_10_ROTATED | ?wxPAPER_A0 | ?wxPAPER_A1
+-doc """
+Sets the paper size id.
+
+Calling this function overrides the explicit paper dimensions passed in `setPaperSize/2`.
+
+See: `wxPrintData:setPaperId/2`
+""".
+%%  Id = ?wxPAPER_NONE | ?wxPAPER_LETTER | ?wxPAPER_LEGAL | ?wxPAPER_A4 | ?wxPAPER_CSHEET | ?wxPAPER_DSHEET | ?wxPAPER_ESHEET | ?wxPAPER_LETTERSMALL | ?wxPAPER_TABLOID | ?wxPAPER_LEDGER | ?wxPAPER_STATEMENT | ?wxPAPER_EXECUTIVE | ?wxPAPER_A3 | ?wxPAPER_A4SMALL | ?wxPAPER_A5 | ?wxPAPER_B4 | ?wxPAPER_B5 | ?wxPAPER_FOLIO | ?wxPAPER_QUARTO | ?wxPAPER_10X14 | ?wxPAPER_11X17 | ?wxPAPER_NOTE | ?wxPAPER_ENV_9 | ?wxPAPER_ENV_10 | ?wxPAPER_ENV_11 | ?wxPAPER_ENV_12 | ?wxPAPER_ENV_14 | ?wxPAPER_ENV_DL | ?wxPAPER_ENV_C5 | ?wxPAPER_ENV_C3 | ?wxPAPER_ENV_C4 | ?wxPAPER_ENV_C6 | ?wxPAPER_ENV_C65 | ?wxPAPER_ENV_B4 | ?wxPAPER_ENV_B5 | ?wxPAPER_ENV_B6 | ?wxPAPER_ENV_ITALY | ?wxPAPER_ENV_MONARCH | ?wxPAPER_ENV_PERSONAL | ?wxPAPER_FANFOLD_US | ?wxPAPER_FANFOLD_STD_GERMAN | ?wxPAPER_FANFOLD_LGL_GERMAN | ?wxPAPER_ISO_B4 | ?wxPAPER_JAPANESE_POSTCARD | ?wxPAPER_9X11 | ?wxPAPER_10X11 | ?wxPAPER_15X11 | ?wxPAPER_ENV_INVITE | ?wxPAPER_LETTER_EXTRA | ?wxPAPER_LEGAL_EXTRA | ?wxPAPER_TABLOID_EXTRA | ?wxPAPER_A4_EXTRA | ?wxPAPER_LETTER_TRANSVERSE | ?wxPAPER_A4_TRANSVERSE | ?wxPAPER_LETTER_EXTRA_TRANSVERSE | ?wxPAPER_A_PLUS | ?wxPAPER_B_PLUS | ?wxPAPER_LETTER_PLUS | ?wxPAPER_A4_PLUS | ?wxPAPER_A5_TRANSVERSE | ?wxPAPER_B5_TRANSVERSE | ?wxPAPER_A3_EXTRA | ?wxPAPER_A5_EXTRA | ?wxPAPER_B5_EXTRA | ?wxPAPER_A2 | ?wxPAPER_A3_TRANSVERSE | ?wxPAPER_A3_EXTRA_TRANSVERSE | ?wxPAPER_DBL_JAPANESE_POSTCARD | ?wxPAPER_A6 | ?wxPAPER_JENV_KAKU2 | ?wxPAPER_JENV_KAKU3 | ?wxPAPER_JENV_CHOU3 | ?wxPAPER_JENV_CHOU4 | ?wxPAPER_LETTER_ROTATED | ?wxPAPER_A3_ROTATED | ?wxPAPER_A4_ROTATED | ?wxPAPER_A5_ROTATED | ?wxPAPER_B4_JIS_ROTATED | ?wxPAPER_B5_JIS_ROTATED | ?wxPAPER_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_DBL_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_A6_ROTATED | ?wxPAPER_JENV_KAKU2_ROTATED | ?wxPAPER_JENV_KAKU3_ROTATED | ?wxPAPER_JENV_CHOU3_ROTATED | ?wxPAPER_JENV_CHOU4_ROTATED | ?wxPAPER_B6_JIS | ?wxPAPER_B6_JIS_ROTATED | ?wxPAPER_12X11 | ?wxPAPER_JENV_YOU4 | ?wxPAPER_JENV_YOU4_ROTATED | ?wxPAPER_P16K | ?wxPAPER_P32K | ?wxPAPER_P32KBIG | ?wxPAPER_PENV_1 | ?wxPAPER_PENV_2 | ?wxPAPER_PENV_3 | ?wxPAPER_PENV_4 | ?wxPAPER_PENV_5 | ?wxPAPER_PENV_6 | ?wxPAPER_PENV_7 | ?wxPAPER_PENV_8 | ?wxPAPER_PENV_9 | ?wxPAPER_PENV_10 | ?wxPAPER_P16K_ROTATED | ?wxPAPER_P32K_ROTATED | ?wxPAPER_P32KBIG_ROTATED | ?wxPAPER_PENV_1_ROTATED | ?wxPAPER_PENV_2_ROTATED | ?wxPAPER_PENV_3_ROTATED | ?wxPAPER_PENV_4_ROTATED | ?wxPAPER_PENV_5_ROTATED | ?wxPAPER_PENV_6_ROTATED | ?wxPAPER_PENV_7_ROTATED | ?wxPAPER_PENV_8_ROTATED | ?wxPAPER_PENV_9_ROTATED | ?wxPAPER_PENV_10_ROTATED | ?wxPAPER_A0 | ?wxPAPER_A1
 -spec setPaperId(This, Id) -> 'ok' when
 	This::wxPageSetupDialogData(), Id::wx:wx_enum().
 setPaperId(#wx_ref{type=ThisT}=This,Id)
@@ -275,7 +374,12 @@ setPaperId(#wx_ref{type=ThisT}=This,Id)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Id,?get_env(),?wxPageSetupDialogData_SetPaperId).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetpapersize">external documentation</a>.
+-doc """
+Sets the paper size in millimetres.
+
+If a corresponding paper id is found, it will be set in the internal `m:wxPrintData`
+object, otherwise the paper size overrides the paper id.
+""".
 -spec setPaperSize(This, Size) -> 'ok' when
 	This::wxPageSetupDialogData(), Size::{W::integer(), H::integer()}.
 setPaperSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -283,7 +387,7 @@ setPaperSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:queue_cmd(This,Size,?get_env(),?wxPageSetupDialogData_SetPaperSize).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetprintdata">external documentation</a>.
+-doc "Sets the print data associated with this object.".
 -spec setPrintData(This, PrintData) -> 'ok' when
 	This::wxPageSetupDialogData(), PrintData::wxPrintData:wxPrintData().
 setPrintData(#wx_ref{type=ThisT}=This,#wx_ref{type=PrintDataT}=PrintData) ->
@@ -291,7 +395,7 @@ setPrintData(#wx_ref{type=ThisT}=This,#wx_ref{type=PrintDataT}=PrintData) ->
   ?CLASS(PrintDataT,wxPrintData),
   wxe_util:queue_cmd(This,PrintData,?get_env(),?wxPageSetupDialogData_SetPrintData).
 
-%% @doc Destroys this object, do not use object again
+-doc "Destroys the object".
 -spec destroy(This::wxPageSetupDialogData()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPageSetupDialogData),

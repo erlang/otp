@@ -1,5 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type map() :: #{any() => any()}.[0m
+[;1m  map()[0m
 
-  An Erlang map containing any number of key and value
-  associations.
+  An Erlang map containing any number of key and value associations.

@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2018-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2018-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -438,27 +440,6 @@ if test "$files" != "$pattern" || test -f erts/CONF_INFO; then
     app=`dirname $infofile`; app=`basename $app`
     printf "%-15s: " $app; cat $infofile
   done
-  echo
-  echo '*********************************************************************'
-fi
-if test -f "erts/doc/CONF_INFO"; then
-  echo '*********************************************************************'
-  echo '**********************  DOCUMENTATION INFORMATION  ******************'
-  echo '*********************************************************************'
-  echo
-  printf "%-15s: \n" documentation;
-  havexsltproc="yes"
-  for cmd in `cat erts/doc/CONF_INFO`; do
-	echo "                 $cmd is missing."
-  if test $cmd = "xsltproc"; then
-    havexsltproc="no"
-  fi
-  done
-  if test $havexsltproc = "no"; then
-    echo '                 The documentation cannot be built.'
-  else
-    echo '                 Using fakefop to generate placeholder PDF files.'
-  fi
   echo
   echo '*********************************************************************'
 fi

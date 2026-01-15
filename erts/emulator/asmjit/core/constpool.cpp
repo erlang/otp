@@ -252,18 +252,18 @@ UNIT(const_pool) {
     size_t curOffset;
     uint64_t c = 0x0101010101010101u;
 
-    EXPECT(pool.add(&c, 8, prevOffset) == kErrorOk);
-    EXPECT(prevOffset == 0);
+    EXPECT_EQ(pool.add(&c, 8, prevOffset), kErrorOk);
+    EXPECT_EQ(prevOffset, 0u);
 
     for (i = 1; i < kCount; i++) {
       c++;
-      EXPECT(pool.add(&c, 8, curOffset) == kErrorOk);
-      EXPECT(prevOffset + 8 == curOffset);
-      EXPECT(pool.size() == (i + 1) * 8);
+      EXPECT_EQ(pool.add(&c, 8, curOffset), kErrorOk);
+      EXPECT_EQ(prevOffset + 8, curOffset);
+      EXPECT_EQ(pool.size(), (i + 1) * 8);
       prevOffset = curOffset;
     }
 
-    EXPECT(pool.alignment() == 8);
+    EXPECT_EQ(pool.alignment(), 8u);
   }
 
   INFO("Retrieving %u constants from the pool", kCount);
@@ -272,20 +272,27 @@ UNIT(const_pool) {
 
     for (i = 0; i < kCount; i++) {
       size_t offset;
-      EXPECT(pool.add(&c, 8, offset) == kErrorOk);
-      EXPECT(offset == i * 8);
+      EXPECT_EQ(pool.add(&c, 8, offset), kErrorOk);
+      EXPECT_EQ(offset, i * 8);
       c++;
     }
   }
 
   INFO("Checking if the constants were split into 4-byte patterns");
   {
-    uint32_t c = 0x01010101;
-    for (i = 0; i < kCount; i++) {
-      size_t offset;
-      EXPECT(pool.add(&c, 4, offset) == kErrorOk);
-      EXPECT(offset == i * 8);
+    uint32_t c = 0x01010101u;
+    size_t offset;
+
+    EXPECT_EQ(pool.add(&c, 4, offset), kErrorOk);
+    EXPECT_EQ(offset, 0u);
+
+    // NOTE: We have to adjust the offset to successfully test this on big endian architectures.
+    size_t baseOffset = size_t(ASMJIT_ARCH_BE ? 4 : 0);
+
+    for (i = 1; i < kCount; i++) {
       c++;
+      EXPECT_EQ(pool.add(&c, 4, offset), kErrorOk);
+      EXPECT_EQ(offset, baseOffset + i * 8);
     }
   }
 
@@ -294,9 +301,9 @@ UNIT(const_pool) {
     uint16_t c = 0xFFFF;
     size_t offset;
 
-    EXPECT(pool.add(&c, 2, offset) == kErrorOk);
-    EXPECT(offset == kCount * 8);
-    EXPECT(pool.alignment() == 8);
+    EXPECT_EQ(pool.add(&c, 2, offset), kErrorOk);
+    EXPECT_EQ(offset, kCount * 8);
+    EXPECT_EQ(pool.alignment(), 8u);
   }
 
   INFO("Adding 8 byte constant to check if pool gets aligned again");
@@ -304,8 +311,8 @@ UNIT(const_pool) {
     uint64_t c = 0xFFFFFFFFFFFFFFFFu;
     size_t offset;
 
-    EXPECT(pool.add(&c, 8, offset) == kErrorOk);
-    EXPECT(offset == kCount * 8 + 8);
+    EXPECT_EQ(pool.add(&c, 8, offset), kErrorOk);
+    EXPECT_EQ(offset, kCount * 8 + 8u);
   }
 
   INFO("Adding 2 byte constant to verify the gap is filled");
@@ -313,9 +320,9 @@ UNIT(const_pool) {
     uint16_t c = 0xFFFE;
     size_t offset;
 
-    EXPECT(pool.add(&c, 2, offset) == kErrorOk);
-    EXPECT(offset == kCount * 8 + 2);
-    EXPECT(pool.alignment() == 8);
+    EXPECT_EQ(pool.add(&c, 2, offset), kErrorOk);
+    EXPECT_EQ(offset, kCount * 8 + 2);
+    EXPECT_EQ(pool.alignment(), 8u);
   }
 
   INFO("Checking reset functionality");
@@ -323,8 +330,8 @@ UNIT(const_pool) {
     pool.reset(&zone);
     zone.reset();
 
-    EXPECT(pool.size() == 0);
-    EXPECT(pool.alignment() == 0);
+    EXPECT_EQ(pool.size(), 0u);
+    EXPECT_EQ(pool.alignment(), 0u);
   }
 
   INFO("Checking pool alignment when combined constants are added");
@@ -333,29 +340,29 @@ UNIT(const_pool) {
     size_t offset;
 
     pool.add(bytes, 1, offset);
-    EXPECT(pool.size() == 1);
-    EXPECT(pool.alignment() == 1);
-    EXPECT(offset == 0);
+    EXPECT_EQ(pool.size(), 1u);
+    EXPECT_EQ(pool.alignment(), 1u);
+    EXPECT_EQ(offset, 0u);
 
     pool.add(bytes, 2, offset);
-    EXPECT(pool.size() == 4);
-    EXPECT(pool.alignment() == 2);
-    EXPECT(offset == 2);
+    EXPECT_EQ(pool.size(), 4u);
+    EXPECT_EQ(pool.alignment(), 2u);
+    EXPECT_EQ(offset, 2u);
 
     pool.add(bytes, 4, offset);
-    EXPECT(pool.size() == 8);
-    EXPECT(pool.alignment() == 4);
-    EXPECT(offset == 4);
+    EXPECT_EQ(pool.size(), 8u);
+    EXPECT_EQ(pool.alignment(), 4u);
+    EXPECT_EQ(offset, 4u);
 
     pool.add(bytes, 4, offset);
-    EXPECT(pool.size() == 8);
-    EXPECT(pool.alignment() == 4);
-    EXPECT(offset == 4);
+    EXPECT_EQ(pool.size(), 8u);
+    EXPECT_EQ(pool.alignment(), 4u);
+    EXPECT_EQ(offset, 4u);
 
     pool.add(bytes, 32, offset);
-    EXPECT(pool.size() == 64);
-    EXPECT(pool.alignment() == 32);
-    EXPECT(offset == 32);
+    EXPECT_EQ(pool.size(), 64u);
+    EXPECT_EQ(pool.alignment(), 32u);
+    EXPECT_EQ(offset, 32u);
   }
 }
 #endif

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_record).
+-moduledoc false.
 
 -include("ssl_record.hrl").
 -include("ssl_connection.hrl").
@@ -41,15 +44,12 @@
 	 set_client_verify_data/3,
 	 set_server_verify_data/3,
          set_max_fragment_length/2,
-	 empty_connection_state/2,
-	 empty_connection_state/4,
+	 empty_connection_state/1,
+	 empty_connection_state/3,
          record_protocol_role/1,
          step_encryption_state/1,
          step_encryption_state_read/1,
          step_encryption_state_write/1]).
-
-%% Compression
--export([compress/3, uncompress/3, compressions/0]).
 
 %% Payload encryption/decryption
 -export([cipher/4, cipher/5, decipher/4,
@@ -102,35 +102,29 @@ pending_connection_state(ConnectionStates, write) ->
 activate_pending_connection_state(#{current_read := Current,
 				    pending_read := Pending} = States,
                                   read, Connection) ->
-    #{secure_renegotiation := SecureRenegotation} = Current,
-    #{beast_mitigation := BeastMitigation,
-      security_parameters := SecParams} = Pending,
-    NewCurrent = Pending#{sequence_number => 0},
-    ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = Connection:empty_connection_state(ConnectionEnd, BeastMitigation),
-    NewPending = EmptyPending#{secure_renegotiation => SecureRenegotation},
-    States#{current_read => NewCurrent,
-	    pending_read => NewPending
-	   };
-
+    {NewCurrent, NewPending} = activate_pending_connection_state_1(Current, Pending, Connection),
+    States#{current_read => NewCurrent, pending_read => NewPending};
 activate_pending_connection_state(#{current_write := Current,
 				    pending_write := Pending} = States,
                                   write, Connection) ->
+    {NewCurrent, NewPending} = activate_pending_connection_state_1(Current, Pending, Connection),
+    States#{current_write => NewCurrent, pending_write => NewPending}.
+
+activate_pending_connection_state_1(Current, Pending, Connection) ->
+    #{reneg := #{secure_renegotiation := SecReNeg}} = Current,
+    Update = fun(#{reneg := ReNeg} = Cs) ->
+                     Cs#{reneg := ReNeg#{secure_renegotiation := SecReNeg}}
+             end,
+    #{security_parameters := SecParams} = Pending,
     NewCurrent = Pending#{sequence_number => 0},
-    #{secure_renegotiation := SecureRenegotation} = Current,
-    #{beast_mitigation := BeastMitigation,
-      security_parameters := SecParams} = Pending,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = Connection:empty_connection_state(ConnectionEnd, BeastMitigation),
-    NewPending = EmptyPending#{secure_renegotiation => SecureRenegotation},
-    States#{current_write => NewCurrent,
-	    pending_write => NewPending
-	   }.
+    EmptyPending = Connection:empty_connection_state(ConnectionEnd),
+    {NewCurrent, Update(EmptyPending)}.
 
 %%--------------------------------------------------------------------
 -spec step_encryption_state(#state{}) -> #state{}.
 %%
-%% Description: Activates the next encyrption state (e.g. handshake
+%% Description: Activates the next encryption state (e.g. handshake
 %% encryption).
 %%--------------------------------------------------------------------
 step_encryption_state(#state{connection_states =
@@ -139,20 +133,20 @@ step_encryption_state(#state{connection_states =
     NewRead = PendingRead#{sequence_number => 0},
     NewWrite = PendingWrite#{sequence_number => 0},
     State#state{connection_states =
-                    ConnStates#{current_read => NewRead,
-                                current_write => NewWrite}}.
+                    ConnStates#{current_read => maps:remove(aead_handle, NewRead),
+                                current_write => maps:remove(aead_handle, NewWrite)}}.
 
 step_encryption_state_read(#state{connection_states =
                                  #{pending_read := PendingRead} = ConnStates} = State) ->
     NewRead = PendingRead#{sequence_number => 0},
     State#state{connection_states =
-                    ConnStates#{current_read => NewRead}}.
+                    ConnStates#{current_read => maps:remove(aead_handle, NewRead)}}.
 
 step_encryption_state_write(#state{connection_states =
                                  #{pending_write := PendingWrite} = ConnStates} = State) ->
     NewWrite = PendingWrite#{sequence_number => 0},
     State#state{connection_states =
-                    ConnStates#{current_write => NewWrite}}.
+                    ConnStates#{current_write => maps:remove(aead_handle, NewWrite)}}.
 
 %%--------------------------------------------------------------------
 -spec set_security_params(#security_parameters{}, #security_parameters{},
@@ -205,48 +199,33 @@ set_master_secret(MasterSecret,
 %%
 %% Description: Set secure_renegotiation in pending connection states
 %%--------------------------------------------------------------------
-set_renegotiation_flag(Flag, #{current_read := CurrentRead0,
-			       current_write := CurrentWrite0,
-			       pending_read := PendingRead0,
-			       pending_write := PendingWrite0}
-		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#{secure_renegotiation => Flag},
-    CurrentWrite = CurrentWrite0#{secure_renegotiation => Flag},
-    PendingRead = PendingRead0#{secure_renegotiation => Flag},
-    PendingWrite = PendingWrite0#{secure_renegotiation => Flag},
-    ConnectionStates#{current_read => CurrentRead,
-		      current_write => CurrentWrite,
-		      pending_read => PendingRead,
-		      pending_write => PendingWrite}.
+set_renegotiation_flag(Flag, #{current_read := CurrentRead,
+                               current_write := CurrentWrite,
+                               pending_read := PendingRead,
+                               pending_write := PendingWrite}
+		       = ConnectionStates)
+  when is_boolean(Flag) ->
+    Update = fun(#{reneg := ReNeg} = CS) ->
+                     CS#{reneg := ReNeg#{secure_renegotiation := Flag}}
+             end,
+    ConnectionStates#{current_read  => Update(CurrentRead),
+		      current_write => Update(CurrentWrite),
+		      pending_read  => Update(PendingRead),
+		      pending_write => Update(PendingWrite)}.
 
 %%--------------------------------------------------------------------
 -spec set_max_fragment_length(term(), connection_states()) -> connection_states().
 %%
 %% Description: Set maximum fragment length in all connection states
 %%--------------------------------------------------------------------
-set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum},
-                        #{current_read := CurrentRead0,
-                          current_write := CurrentWrite0,
-                          pending_read := PendingRead0,
-                          pending_write := PendingWrite0}
-                        = ConnectionStates) when (MaxFragEnum == 1) orelse
-                                                 (MaxFragEnum == 2) orelse
-                                                 (MaxFragEnum == 3) orelse
-                                                 (MaxFragEnum == 4)
-                                                 ->
+set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum}, ConnectionStates)
+  when is_integer(MaxFragEnum), 1 =< MaxFragEnum, MaxFragEnum =< 4 ->
     MaxFragmentLength = if MaxFragEnum == 1 -> ?MAX_FRAGMENT_LENGTH_BYTES_1;
                            MaxFragEnum == 2 -> ?MAX_FRAGMENT_LENGTH_BYTES_2;
                            MaxFragEnum == 3 -> ?MAX_FRAGMENT_LENGTH_BYTES_3;
                            MaxFragEnum == 4 -> ?MAX_FRAGMENT_LENGTH_BYTES_4
                         end,
-    CurrentRead = CurrentRead0#{max_fragment_length => MaxFragmentLength},
-    CurrentWrite = CurrentWrite0#{max_fragment_length => MaxFragmentLength},
-    PendingRead = PendingRead0#{max_fragment_length => MaxFragmentLength},
-    PendingWrite = PendingWrite0#{max_fragment_length => MaxFragmentLength},
-    ConnectionStates#{current_read => CurrentRead,
-		      current_write => CurrentWrite,
-		      pending_read => PendingRead,
-		      pending_write => PendingWrite};
+    ConnectionStates#{max_fragment_length => MaxFragmentLength};
 set_max_fragment_length(_,ConnectionStates) ->
     ConnectionStates.
 
@@ -257,30 +236,24 @@ set_max_fragment_length(_,ConnectionStates) ->
 %%
 %% Description: Set verify data in connection states.
 %%--------------------------------------------------------------------
-set_client_verify_data(current_read, Data,
-		       #{current_read := CurrentRead0,
-			 pending_write := PendingWrite0}
-		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#{client_verify_data => Data},
-    PendingWrite = PendingWrite0#{client_verify_data => Data},
-    ConnectionStates#{current_read => CurrentRead,
-		      pending_write => PendingWrite};
-set_client_verify_data(current_write, Data,
-		       #{pending_read := PendingRead0,
-			 current_write := CurrentWrite0}
-		       = ConnectionStates) ->
-    PendingRead = PendingRead0#{client_verify_data => Data},
-    CurrentWrite = CurrentWrite0#{client_verify_data => Data},
-    ConnectionStates#{pending_read => PendingRead,
-		      current_write => CurrentWrite};
-set_client_verify_data(current_both, Data,
-		       #{current_read := CurrentRead0,
-			 current_write := CurrentWrite0}
-		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#{client_verify_data => Data},
-    CurrentWrite = CurrentWrite0#{client_verify_data => Data},
-    ConnectionStates#{current_read => CurrentRead,
-		      current_write => CurrentWrite}.
+set_client_verify_data(What, Data, ConnectionStates) ->
+    Update = fun(#{reneg := ReNeg} = CS) ->
+                     CS#{reneg := ReNeg#{client_verify_data := Data}}
+             end,
+    case What of
+        current_read ->
+            #{current_read := CurrentRead, pending_write := PendingWrite} = ConnectionStates,
+            ConnectionStates#{current_read => Update(CurrentRead),
+                              pending_write => Update(PendingWrite)};
+        current_write ->
+            #{pending_read := PendingRead, current_write := CurrentWrite} = ConnectionStates,
+            ConnectionStates#{pending_read => Update(PendingRead),
+                              current_write => Update(CurrentWrite)};
+        current_both ->
+            #{current_read := CurrentRead, current_write := CurrentWrite} = ConnectionStates,
+            ConnectionStates#{current_read => Update(CurrentRead),
+                              current_write => Update(CurrentWrite)}
+    end.
 %%--------------------------------------------------------------------
 -spec set_server_verify_data(current_read | current_write | current_both,
 			     binary(), connection_states())->
@@ -288,32 +261,24 @@ set_client_verify_data(current_both, Data,
 %%
 %% Description: Set verify data in pending connection states.
 %%--------------------------------------------------------------------
-set_server_verify_data(current_write, Data,
-		       #{pending_read := PendingRead0,
-			 current_write := CurrentWrite0}
-		       = ConnectionStates) ->
-    PendingRead = PendingRead0#{server_verify_data => Data},
-    CurrentWrite = CurrentWrite0#{server_verify_data => Data},
-    ConnectionStates#{pending_read => PendingRead,
-		      current_write => CurrentWrite};
-
-set_server_verify_data(current_read, Data,
-		       #{current_read := CurrentRead0,
-			 pending_write := PendingWrite0}
-		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#{server_verify_data => Data},
-    PendingWrite = PendingWrite0#{server_verify_data => Data},
-    ConnectionStates#{current_read => CurrentRead,
-				       pending_write => PendingWrite};
-
-set_server_verify_data(current_both, Data,
-		       #{current_read := CurrentRead0,
-			 current_write := CurrentWrite0}
-		       = ConnectionStates) ->
-    CurrentRead = CurrentRead0#{server_verify_data => Data},
-    CurrentWrite = CurrentWrite0#{server_verify_data => Data},
-    ConnectionStates#{current_read => CurrentRead,
-		      current_write => CurrentWrite}.
+set_server_verify_data(What, Data, ConnectionStates) ->
+    Update = fun(#{reneg := ReNeg} = CS) ->
+                     CS#{reneg := ReNeg#{server_verify_data := Data}}
+             end,
+    case What of
+        current_write ->
+            #{pending_read := PendingRead, current_write := CurrentWrite} = ConnectionStates,
+            ConnectionStates#{pending_read => Update(PendingRead),
+                              current_write => Update(CurrentWrite)};
+        current_read ->
+            #{current_read := CurrentRead, pending_write := PendingWrite} = ConnectionStates,
+            ConnectionStates#{current_read => Update(CurrentRead),
+                              pending_write => Update(PendingWrite)};
+        current_both ->
+            #{current_read := CurrentRead, current_write := CurrentWrite} = ConnectionStates,
+            ConnectionStates#{current_read => Update(CurrentRead),
+                              current_write => Update(CurrentWrite)}
+    end.
 %%--------------------------------------------------------------------
 -spec set_pending_cipher_state(connection_states(), #cipher_state{},
 			       #cipher_state{}, client | server) ->
@@ -321,37 +286,16 @@ set_server_verify_data(current_both, Data,
 %%
 %% Description: Set the cipher state in the specified pending connection state.
 %%--------------------------------------------------------------------
-set_pending_cipher_state(#{pending_read := Read,
-			   pending_write := Write} = States,
-                         ClientState, ServerState, server) ->
-    States#{
-      pending_read => Read#{cipher_state => ClientState},
-      pending_write => Write#{cipher_state => ServerState}};
-
-set_pending_cipher_state(#{pending_read := Read,
-			   pending_write := Write} = States,
-                         ClientState, ServerState, client) ->
-    States#{
-      pending_read => Read#{cipher_state => ServerState},
-      pending_write => Write#{cipher_state => ClientState}}.
-
-%%====================================================================
-%% Compression
-%%====================================================================
-
-uncompress(?NULL, Data, CS) ->
-    {Data, CS}.
-
-compress(?NULL, Data, CS) ->
-    {Data, CS}.
-
-%%--------------------------------------------------------------------
--spec compressions() -> [integer()].
-%%
-%% Description: return a list of compressions supported (currently none)
-%%--------------------------------------------------------------------
-compressions() ->
-    [?NULL].
+set_pending_cipher_state(#{pending_read := Read, pending_write := Write} = States,
+                         ClientState, ServerState, Role) ->
+    case Role of
+        server ->
+            States#{pending_read => Read#{cipher_state => ClientState},
+                    pending_write => Write#{cipher_state => ServerState}};
+        client ->
+            States#{pending_read => Read#{cipher_state => ServerState},
+                    pending_write => Write#{cipher_state => ClientState}}
+    end.
 
 %%====================================================================
 %% Payload encryption/decryption
@@ -466,26 +410,22 @@ nonce_seed(_,_, CipherState) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-empty_connection_state(ConnectionEnd, BeastMitigation) ->
+empty_connection_state(ConnectionEnd) ->
     MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
-    empty_connection_state(ConnectionEnd, _Version = undefined,
-                           BeastMitigation, MaxEarlyDataSize).
+    empty_connection_state(ConnectionEnd, _Version = undefined, MaxEarlyDataSize).
 %%
-empty_connection_state(ConnectionEnd, Version,
-                       BeastMitigation, MaxEarlyDataSize) ->
+empty_connection_state(ConnectionEnd, Version, MaxEarlyDataSize) ->
     SecParams = init_security_parameters(ConnectionEnd, Version),
     #{security_parameters => SecParams,
-      beast_mitigation => BeastMitigation,
-      compression_state  => undefined,
       cipher_state  => undefined,
       mac_secret  => undefined,
-      secure_renegotiation => undefined,
-      client_verify_data => undefined,
-      server_verify_data => undefined,
-      pending_early_data_size => MaxEarlyDataSize,
-      max_fragment_length => undefined,
-      trial_decryption => false,
-      early_data_accepted => false
+      early_data => #{pending_early_data_size => MaxEarlyDataSize,
+                      trial_decryption => false,
+                      early_data_accepted => false
+                     },
+      reneg => #{secure_renegotiation => undefined,
+                 client_verify_data => undefined,
+                 server_verify_data => undefined}
      }.
 
 init_security_parameters(?CLIENT, Version) ->
@@ -516,8 +456,7 @@ record_protocol_role(server) ->
     ?SERVER.
 
 initial_security_params(ConnectionEnd) ->
-    SecParams = #security_parameters{connection_end = ConnectionEnd,
-				     compression_algorithm = ?NULL},
+    SecParams = #security_parameters{connection_end = ConnectionEnd},
     ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, SecParams).
 
 -define(end_additional_data(AAD, Len), << (begin(AAD)end)/binary, ?UINT16(begin(Len)end) >>).

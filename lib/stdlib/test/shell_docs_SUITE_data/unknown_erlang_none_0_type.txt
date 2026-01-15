@@ -1,6 +1,14 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type none() :: none().[0m
+[;1m  none()[0m
 
   This type is used to show that a function will never return a
-  value; that is it will always throw an exception. In a spec, use [;;4m[0m
-  [;;4mno_return()[0m for the sake of clarity.
+  value; that is it will always throw an exception.
+
+  In a spec, use [;;4mno_return/0[0m for the sake of clarity.

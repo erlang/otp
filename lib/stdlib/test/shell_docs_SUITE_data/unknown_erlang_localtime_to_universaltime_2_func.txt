@@ -1,14 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:localtime_to_universaltime(Localtime, IsDst) ->[0m
-  [;1m                                           Universaltime[0m
-  [;1m                                           when[0m
-  [;1m                                               Localtime ::[0m
-  [;1m                                                   calendar:datetime(),[0m
-  [;1m                                               Universaltime ::[0m
-  [;1m                                                   calendar:datetime(),[0m
-  [;1m                                               IsDst ::[0m
-  [;1m                                                   true | false |[0m
-  [;1m                                                   undefined.[0m
+[;1m  localtime_to_universaltime(Localtime, IsDst)[0m
 
   Converts local date and time to Universal Time Coordinated (UTC)
   as [;;4merlang:localtime_to_universaltime/1[0m, but the caller decides

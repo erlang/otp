@@ -189,15 +189,14 @@ static inline uint32_t mod1e9(const uint64_t x) {
 #endif // defined(RYU_32_BIT_PLATFORM)
 
 static inline uint32_t pow5Factor(uint64_t value) {
+  const uint64_t m_inv_5 = 14757395258967641293u; // 5 * m_inv_5 = 1 (mod 2^64)
+  const uint64_t n_div_5 = 3689348814741910323u;  // #{ n | n = 0 (mod 2^64) } = 2^64 / 5
   uint32_t count = 0;
   for (;;) {
     assert(value != 0);
-    const uint64_t q = div5(value);
-    const uint32_t r = ((uint32_t) value) - 5 * ((uint32_t) q);
-    if (r != 0) {
+    value *= m_inv_5;
+    if (value > n_div_5)
       break;
-    }
-    value = q;
     ++count;
   }
   return count;

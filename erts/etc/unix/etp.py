@@ -1,8 +1,10 @@
 # coding=utf-8
 #
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
-# Copyright Ericsson AB 2013-2023. All Rights Reserved.
+# Copyright Ericsson AB 2013-2025. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -291,17 +293,15 @@ def eterm_summary(valobj, internal_dict):
 def eterm(valobj, depth = float('inf')):
     val = valobj.unsigned
     valobj = strip_literal_tag(valobj)
-    tag = val & 0x3
-    if tag == 0x1:
+    tag = val & c('TAG_PRIMARY_MASK')
+    if tag == c('TAG_PRIMARY_LIST'):
         return cons(valobj, depth)
-    elif tag == 0x2:
+    elif tag == c('TAG_PRIMARY_BOXED'):
         return boxed(valobj, depth)
-    elif tag == 0x3:
+    elif tag == c('TAG_PRIMARY_IMMED1'):
         return imm(valobj)
-    elif val == 0x0:
+    elif val == c('THE_NON_VALUE'):
         return '<the non-value>'
-    elif val == 0x4:
-        return '<the non-value debug>'
     else:
         return cp(valobj)
 
@@ -314,7 +314,7 @@ def cons(valobj, depth = float('inf')):
 
     ptr = cdr.CreateValueFromData(
         "unconsed",
-        lldb.SBData.CreateDataFromInt(cdr.unsigned - 1),
+        lldb.SBData.CreateDataFromInt(cdr.unsigned - c('TAG_PRIMARY_LIST')),
         EtermPtr(cdr.target))
     if ptr.deref.error.fail:
         return "#ConsError<%x>" % cdr.unsigned;
@@ -323,7 +323,7 @@ def cons(valobj, depth = float('inf')):
         cdr = strip_literal_tag(cdr)
         ptr = cdr.CreateValueFromData(
             "unconsed",
-            lldb.SBData.CreateDataFromInt(cdr.unsigned - 1),
+            lldb.SBData.CreateDataFromInt(cdr.unsigned - c('TAG_PRIMARY_LIST')),
             EtermPtr(cdr.target))
         items.append((ptr.deref, depth // 20)); # Append depth, car
         if ptr.deref.unsigned & 0xF == 0xF:
@@ -333,7 +333,7 @@ def cons(valobj, depth = float('inf')):
         cdr = offset(1,ptr).deref
         if is_nil(cdr):
             break
-        if cdr.unsigned & 0x1 == 0:
+        if cdr.unsigned & c('TAG_PRIMARY_LIST') == 0:
             improper = True
             break
         if depth <= 1:
@@ -347,13 +347,15 @@ def cons(valobj, depth = float('inf')):
     chars = ''
     isprintable = True
     for car, car_depth in items:
-        if car.unsigned & 0xF == 0xF:
-            if car.unsigned >> 4 == 10:
+        if ((car.unsigned & c('TAG_IMMED1_MASK'))
+             == c('TAG_IMMED1_SMALL')):
+            if car.unsigned >> c('TAG_IMMED1_SIZE') == 10:
                 chars += '\\n'
-            elif car.unsigned >> 4 == 9:
+            elif car.unsigned >> c('TAG_IMMED1_SIZE') == 9:
                 chars += '\\t'
             else:
-                chars += f'{car.unsigned >> 4:c}'
+                shift = c('TAG_IMMED1_SIZE')
+                chars += f'{car.unsigned >> shift:c}'
         else:
             isprintable = False
             break
@@ -377,14 +379,14 @@ def cons(valobj, depth = float('inf')):
 def boxed(valobj, depth = float('inf')):
     ptr = valobj.CreateValueFromData(
         "unboxed",
-        lldb.SBData.CreateDataFromInt(valobj.unsigned - 2),
+        lldb.SBData.CreateDataFromInt(valobj.unsigned - c('TAG_PRIMARY_BOXED')),
         EtermPtr(valobj.target))
     boxed_hdr = ptr.deref
     if boxed_hdr.error.fail:
-        return "#BoxedError<%x>" % valobj.unsigned;
+        return "#BoxedError<%x>" % valobj.unsigned
     boxed_hdr = boxed_hdr.unsigned
-    if boxed_hdr & 0x3f == 0x00:
-        arity = (boxed_hdr >> 6)
+    if boxed_hdr & c('TAG_HEADER_MASK') == c('TAG_HEADER_ARITYVAL'):
+        arity = (boxed_hdr >> c('HEADER_ARITY_OFFS'))
         terms = []
         for x in range(1, arity+1):
             if depth <= 1:
@@ -394,51 +396,50 @@ def boxed(valobj, depth = float('inf')):
             terms.append(eterm(offset(x, ptr).deref, depth))
         res = ','.join(terms)
         return F"{{{res}}}"
-    if boxed_hdr & 0x3c == 0x3c:
-        if boxed_hdr & 0xc0 == 0x0:
+    masked_hdr = boxed_hdr & c('HEADER_SUBTAG_MASK')
+    if masked_hdr == c('MAP_SUBTAG'):
+        if ((boxed_hdr & c('HEADER_MAP_SUBTAG_MASK'))
+             == c('MAP_SUBTAG_HEAD_FLATMAP')):
             return "#FlatMap"
         else:
             return "#HashMap"
-    boxed_type = (boxed_hdr >> 2) & 0xF
-    if boxed_type == 0xC:
+    if masked_hdr == c('EXTERNAL_PID_SUBTAG'):
         return '#ExternalPid'
-    if boxed_type == 0xD:
+    if masked_hdr == c('EXTERNAL_PORT_SUBTAG'):
         return '#ExternalPort'
-    if boxed_type == 0x2 or boxed_type == 0x3:
-        return '#Bignum'
-    if boxed_type == 0x6:
-        return '#Float'
-    if boxed_type == 0x4:
-        return '#Ref'
-    if boxed_type == 0xE:
+    if masked_hdr == c('EXTERNAL_REF_SUBTAG'):
         return '#ExternalRef'
-    if boxed_type == 0x5:
+    if (masked_hdr & BIG_TAG_MASK) == c('POS_BIG_SUBTAG'):
+        return '#Bignum'
+    if masked_hdr == c('FLOAT_SUBTAG'):
+        return '#Float'
+    if masked_hdr == c('REF_SUBTAG'):
+        return '#Ref'
+    if masked_hdr == c('FUN_SUBTAG'):
         return '#Fun'
-    if boxed_type == 0x8:
-        return '#RefcBin'
-    if boxed_type == 0x9:
-        return '#HeapBin'
-    if boxed_type == 0xA:
-        return '#SubBin'
+    if masked_hdr == c('HEAP_BITS_SUBTAG'):
+        return '#HeapBits'
+    if masked_hdr == c('SUB_BITS_SUBTAG'):
+        return '#SubBits'
     return F'#Boxed<{valobj.unsigned}>'
 
 def imm(valobj):
     val = valobj.unsigned
-    if (val & 0x3) != 3:
+    if (val & c('TAG_PRIMARY_MASK')) != c('TAG_PRIMARY_IMMED1'):
         return '#NotImmediate<%#x>' % val
-    tag = val & 0xF
-    if tag == 0x3:
+    tag = val & c('TAG_IMMED1_MASK')
+    if tag == c('TAG_IMMED1_PID'):
         return pid(valobj)
-    elif tag == 0x7:
+    elif tag == c('TAG_IMMED1_PORT'):
         return port(valobj)
-    elif tag == 0xF:
-        return str(val >> 4)
-    elif tag == 0xB:
+    elif tag == c('TAG_IMMED1_SMALL'):
+        return str(val >> c('TAG_IMMED1_SIZE'))
+    elif tag == c('TAG_IMMED1_IMMED2'):
         # Immediate2
-        tag2 = val & 0x3F
-        if tag2 == 0x0B:
+        tag2 = val & c('TAG_IMMED2_MASK')
+        if tag2 == c('TAG_IMMED2_ATOM'):
             return atom(valobj)
-        elif tag2 == 0x1B:
+        elif tag2 == c('TAG_IMMED2_CATCH'):
             return F'#Catch<{val>>6:#x}>'
         elif is_nil(valobj):
             return '[]'
@@ -461,13 +462,14 @@ def cp(valobj):
 
 def pid(valobj):
     val = valobj.unsigned
-    if (val & 0xF) == 0x3:
+    if (val & c('TAG_IMMED1_MASK')) == c('TAG_IMMED1_PID'):
         target = valobj.target
         if etp_arch_bits(target) == 64:
+            val = val >> c('TAG_IMMED1_SIZE')
             if etp_big_endian(target):
-                data = (val >> 35) & 0x0FFFFFFF
+                data = (val >> 31) & 0x0FFFFFFF
             else:
-                data = (val >> 4) & 0x0FFFFFFF
+                data = val & 0x0FFFFFFF
         else:
             data = pixdata2data(valobj)
         return '<0.%u.%u>' % (data & 0x7FFF, (data >> 15) & 0x1FFF)
@@ -476,13 +478,14 @@ def pid(valobj):
 
 def port(valobj):
     val = valobj.unsigned
-    if (val & 0xF) == 0x7:
+    if (val & c('TAG_IMMED1_MASK')) == c('TAG_IMMED1_PORT'):
         target = valobj.target
         if etp_arch_bits(target) == 64 and not etp_halfword(target):
+            val = val >> c('TAG_IMMED1_SIZE')
             if etp_big_endian(target):
-                data = (val >> 36) & 0x0FFFFFFF
+                data = (val >> 32) & 0x0FFFFFFF
             else:
-                data = (val >> 4) & 0x0FFFFFFF
+                data = val & 0x0FFFFFFF
         else:
             data = pixdata2data(valobj)
         return '#Port<0.%u>' % data
@@ -493,7 +496,7 @@ def port(valobj):
 
 def atom(valobj):
     val = valobj.unsigned
-    if (val & 0x3F) == 0x0B:
+    if (val & c('TAG_IMMED2_MASK')) == c('TAG_IMMED2_ATOM'):
         name = atom_name(atom_tab(valobj))
         if unquoted_atom_re.match(name):
             return str(name)
@@ -540,9 +543,7 @@ MI_FUNCTIONS = 13
 MI_NUM_FUNCTIONS = 0
 
 def is_nil(value):
-    ## We handle both -5 and 0x3b as NIL values so that this script
-    ## works with more versions
-    return value.signed == -5 or value.unsigned == 0x3b
+    return (value.unsigned & c('TAG_IMMED2_MASK')) == c('TAG_IMMED2_NIL')
 
 # Types
 
@@ -677,12 +678,15 @@ def strip_literal_tag(valobj):
         return valobj
 
     # Strip literal tags from list and boxed terms.
-    primary_tag = valobj.unsigned & 0x03
-    if (primary_tag == 1 or primary_tag == 2) and valobj.unsigned & 0x04:
+    primary_tag = valobj.unsigned & c('TAG_PRIMARY_MASK')
+    if ((primary_tag == c('TAG_PRIMARY_LIST') or
+         primary_tag == c('TAG_PRIMARY_BOXED')) and
+         (valobj.unsigned & c('TAG_LITERAL_PTR'))):
         valobj = valobj.CreateValueFromData(
             valobj.name,
-            lldb.SBData.CreateDataFromInt(valobj.unsigned - 0x04),
+            lldb.SBData.CreateDataFromInt(valobj.unsigned & c('PTR_MASK')),
             Eterm(valobj.target))
+
     return valobj
 
 def init(target):
@@ -692,6 +696,20 @@ def init(target):
              'beam_exception_trace', 'beam_call_trace_return']
     for name in names:
         code_pointers[global_var(name, target).unsigned] = name
+
+# Lookup function for constants reflected in erl_etp.c, saving us from the
+# massive headache of having to update this script every time the tag scheme
+# changes.
+constants = {}
+def c(name):
+    constant = constants.get(name)
+    if constant != None:
+        return constant
+    else:
+        target = lldb.debugger.GetSelectedTarget()
+        constant = global_var('etp_' + name.lower(), target).unsigned
+        constants[name] = constant
+        return constant
 
 # LLDB utils
 

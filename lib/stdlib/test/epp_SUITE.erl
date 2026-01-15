@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,9 +32,11 @@
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
 	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1,
-         string_concat_warning/1,
          deterministic_include/1, nondeterministic_include/1,
-         gh_8268/1
+         gh_8268/1,
+         moduledoc_include/1,
+         stringify/1,
+         fun_type_arg/1
         ]).
 
 -export([epp_parse_erl_form/2]).
@@ -76,9 +80,11 @@ all() ->
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
      otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro,
-     string_concat_warning,
      deterministic_include, nondeterministic_include,
-     gh_8268].
+     gh_8268,
+     moduledoc_include,
+     stringify,
+     fun_type_arg].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -131,6 +137,48 @@ file_macro(Config) when is_list(Config) ->
     {attribute,_,b,FileB} = lists:keyfind(b, 3, List),
     "Other source" = FileA = FileB,
     ok.
+
+moduledoc_include(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    ModuleFileContent = <<"-module(moduledoc).
+
+                           -moduledoc {file, \"README.md\"}.
+
+                           -export([]).
+                          ">>,
+    DocFileContent = <<"# README
+
+                        This file is a test
+                       ">>,
+    CreateFile = fun (Dir, File, Content) ->
+                     Dirname = filename:join([PrivDir, Dir]),
+                     ok = create_dir(Dirname),
+                     Filename = filename:join([Dirname, File]),
+                     ok = file:write_file(Filename, Content),
+                     Filename
+                 end,
+
+    %% positive test: checks that all works as expected
+    ModuleName = CreateFile("module_attr", "moduledoc.erl", ModuleFileContent),
+    DocName = CreateFile("module_attr", "README.md", DocFileContent),
+    {ok, List} = epp:parse_file(ModuleName, []),
+    {attribute, _, moduledoc, ModuleDoc} = lists:keyfind(moduledoc, 3, List),
+    ?assertEqual({ok, unicode:characters_to_binary(ModuleDoc)}, file:read_file(DocName)),
+
+    %% negative test: checks that we produce an expected warning
+    ModuleWarnContent = binary:replace(ModuleFileContent, <<"README">>, <<"NotExistingFile">>),
+    ModuleWarnName = CreateFile("module_attr", "moduledoc_err.erl", ModuleWarnContent),
+    {ok, ListWarn} = epp:parse_file(ModuleWarnName, []),
+    {warning,{_,epp,{moduledoc,file, "NotExistingFile.md"}}} = lists:keyfind(warning, 1, ListWarn),
+
+    ok.
+
+create_dir(Dir) ->
+    case file:make_dir(Dir) of
+        ok -> ok;
+        {error, eexist} -> ok;
+        _ -> error
+    end.
 
 deterministic_include(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -935,12 +983,12 @@ scan_file(Config) when is_list(Config) ->
     [FileForm1, ModuleForm, ExportForm,
      FileForm2, FileForm3, FunctionForm,
      {eof,_}] = Toks,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm1,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm1,
     [{'-',_}, {atom,_,module}, {'(',_} | _ ] = ModuleForm,
     [{'-',_}, {atom,_,export}, {'(',_} | _ ] = ExportForm,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm2,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm3,
-    [{atom,_,ok}, {'(',_} | _ ] = FunctionForm,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm2,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm3,
+    [{atom,_,ok}, {'(',_} | _]               = FunctionForm,
     ok.
 
 macs(Epp) ->
@@ -1260,8 +1308,15 @@ test_if(Config) ->
 	  {if_8c,
 	   <<"-if(?foo).\n"                     %Undefined symbol.
 	     "-endif.\n">>,
-	   {errors,[{{1,25},epp,{undefined,foo,none}}],[]}}
+	   {errors,[{{1,25},epp,{undefined,foo,none}}],[]}},
 
+	  {if_9c,
+	   <<"-if(not_builtin()).\n"
+	     "a bug.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+	   {errors,[{{1,21},epp,{bad,'if'}}],[]}}
 	 ],
     [] = compile(Config, Cs),
 
@@ -1327,14 +1382,6 @@ test_if(Config) ->
            ok},
 
 	  {if_7,
-	   <<"-if(not_builtin()).\n"
-	     "a bug.\n"
-	     "-else.\n"
-	     "t() -> ok.\n"
-	     "-endif.\n">>,
-           ok},
-
-	  {if_8,
 	   <<"-if(42).\n"			%Not boolean.
 	     "a bug.\n"
 	     "-else.\n"
@@ -2061,97 +2108,6 @@ otp_16824(Config) when is_list(Config) ->
     [] = compile(Config, Cs),
     ok.
 
-string_concat_warning(Config) when is_list(Config) ->
-    Cs1 =
-        [{string_concat_warning_1,
-          <<"\n"
-            "-export([foo/0]).\n"
-            "foo() ->\n"
-            "    \" \"\"\".\n">>,
-          {warnings,
-           [{{4,8},epp,string_concat}]}},
-        {string_concat_warning_2,
-          <<"\n"
-            "-export([foo/0]).\n"
-            "foo() ->\n"
-            "    \" \"\"\" \" \"\"\".\n">>,
-          {warnings,
-           [{{4,8},epp,string_concat},
-            {{4,14},epp,string_concat}]}}],
-    [] = compile(Config, Cs1),
-
-    Cs2 =
-        [{string_concat_warning_3,
-          <<"\n-doc \"foo\".\n">>,
-          []},
-         {string_concat_warning_4,
-          <<"\n-doc \"\" \"foo\" \"\".\n">>,
-          []},
-         {string_concat_warning_5,
-          <<"\n"
-            "-doc \"\"\"\n"
-            "    foo\n"
-            "    \"\"\".\n">>,
-          {warnings,
-           [{{2,8},epp,string_concat},
-            {{4,6},epp,string_concat}]}},
-         {string_concat_warning_6,
-          <<"\n"
-            "-doc  \"\"\"\"\n"
-            "      \"\"\"\".\n">>,
-          {warnings,
-           [{{2,9},epp,string_concat},
-            {{3,9},epp,string_concat}]}},
-         {string_concat_warning_7,
-          <<"\n"
-            "-doc   \"\"\"\"\"\n"
-            "       foo\n"
-            "       \"\"\"\"\".\n">>,
-          {warnings,
-           [{{2,10},epp,string_concat},
-            {{2,12},epp,string_concat},
-            {{4,9},epp,string_concat},
-            {{4,11},epp,string_concat}]}}
-        ],
-    [] = compile(Config, Cs2),
-
-    Cs3 =
-        [{string_concat_warning_8,
-          <<"\n"
-            "-export([foo/0]).\n"
-            "foo() ->\n"
-            "    \"\"\"\n"
-            "    bar\n"
-            "    \"\"\".\n">>,
-          {warnings,
-           [{{4,7},epp,string_concat},
-            {{6,6},epp,string_concat}]}},
-         {string_concat_warning_9,
-          <<"\n"
-            "-export([foo/0]).\n"
-            "foo() ->\n"
-            "    \"\"\"\"\n"
-            "    ++ lists:duplicate(4, $x) ++\n"
-            "    \"\"\"\".\n">>,
-          {warnings,
-           [{{4,7},epp,string_concat},
-            {{6,7},epp,string_concat}]}},
-         {string_concat_warning_10,
-          <<"\n"
-            "-export([foo/0]).\n"
-            "foo() ->\n"
-            "    \"\"\"\"\"\n"
-            "    bar\n"
-            "    \"\"\"\"\".\n">>,
-          {warnings,
-           [{{4,7},epp,string_concat},
-            {{4,9},epp,string_concat},
-            {{6,6},epp,string_concat},
-            {{6,8},epp,string_concat}]}} ],
-    [] = compile(Config, Cs3),
-
-    ok.
-
 gh_8268(Config) ->
     Ts = [{circular_1,
            <<"-define(LOG(Tag, Code), io:format(\"~s\", [Tag]), Code).
@@ -2170,6 +2126,63 @@ gh_8268(Config) ->
            ok}],
     [] = run(Config, Ts),
     ok.
+
+stringify(Config) ->
+    Ts = [{stringify_1,
+           ~"""
+            -define(S(S), ??S).
+            t() ->
+                ~S('атом') = ?S('атом'),
+                ~S("атом") = ?S("атом"),
+                ok.
+            """,
+           [],
+           ok}],
+    [] = run(Config, Ts),
+    ok.
+
+%% GH-10280. A fun type could not be used as a macro argument.
+fun_type_arg(Config) ->
+    Ts = [{fun_type_1,
+           ~"""
+            -define(FOO(X), X).
+            -define(BAR(X, Y), {X,Y}).
+
+            -type foo() :: ?FOO(fun(() -> 'ok')).
+            -type bar() :: ?BAR(fun((integer()) -> integer()), integer()).
+            -type frotz() :: ?FOO(fun((integer()) -> {atom(),integer()})).
+
+            -define(mk_fun_var(Fun, Vars), mk_fun_var(Fun, Vars)).
+
+            t() ->
+                ok = f(fun() -> ok end),
+                42 = g({fun(I) -> 2 * I end, 21}),
+                {ok,7} = h(fun(I) -> {ok,I} end),
+                #{a := 1, b := 2} =
+                    ?mk_fun_var(fun(Map0) ->
+                       Map1 = Map0#{a => 1},
+                       Map1#{b => 2}
+                    end, #{}),
+                42 = ?FOO(fun(((I))) -> I + 1 end)(41),
+                true = (?FOO(fun (_) when true, true -> true end))(0),
+                ok.
+
+            -spec f(foo()) -> 'ok'.
+            f(F) -> F().
+
+            -spec g(bar()) -> integer().
+            g({F,I}) -> F(I).
+
+            -spec h(frotz()) -> {atom(),integer()}.
+            h(H) -> H(7).
+
+            mk_fun_var(Fun, Vars) -> Fun(Vars).
+            """,
+           [],
+           ok}],
+    [] = run(Config, Ts),
+    ok.
+
 
 %% Start location is 1.
 check(Config, Tests) ->
@@ -2200,8 +2213,6 @@ eval_tests(Config, Fun, Tests) ->
                     true ->
                         case E of
                             {errors, Errors} ->
-                                call_format_error(Errors);
-                            {warnings, Errors} ->
                                 call_format_error(Errors);
                             _ ->
                                 ok

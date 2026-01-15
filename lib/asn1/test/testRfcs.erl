@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2014-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +32,7 @@ compile(Config, Erules, Options0) ->
     DataDir = proplists:get_value(data_dir, Config),
     Specs0 = filelib:wildcard("*.asn1", filename:join(DataDir, rfcs)),
     Specs = [filename:join(rfcs, Spec) || Spec <- Specs0],
-    122 = length(Specs),
+    123 = length(Specs),
     CaseDir = proplists:get_value(case_dir, Config),
     asn1_test_lib:compile_all(Specs, Config, [Erules,{i,CaseDir}|Options]).
 

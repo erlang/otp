@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +27,7 @@
 %% -------------------------------------------------------------------------
 
 -module(snmpm_config).
+-moduledoc false.
 
 -behaviour(gen_server).
 
@@ -39,9 +42,9 @@
 	 register_agent/3, unregister_agent/2, 
 	 agent_info/0, agent_info/2, agent_info/3, 
 	 update_agent_info/3,
-	 which_agents/0, which_agents/1, 
+	 which_agents/0, which_agents/1, which_agents/2,
 
-	 is_known_engine_id/2, 
+	 is_known_engine_id/1, is_known_engine_id/2,
 	 get_agent_engine_id/1, 
 	 get_agent_engine_max_message_size/1, 
 	 get_agent_version/1, 
@@ -521,14 +524,31 @@ which_agents() ->
     which_agents('_').
 
 which_agents(UserId) ->
-    Pat = {{'$1', user_id}, UserId},
-    Agents = ets:match(snmpm_agent_table, Pat),
-    [TargetName || [TargetName] <- Agents].
+    which_agents(user_id, UserId).
 
+%% Choose agent(s) based on UserId or EngineID
+which_agents(Key = user_id, UserId) ->
+    do_which_agents(Key, UserId);
+which_agents(Key = engine_id, EngineID) ->
+    do_which_agents(Key, EngineID).
 
+do_which_agents(Key, Value) ->
+    Pat = {{'$1', Key}, Value},
+    [TargetName || [TargetName] <- ets:match(snmpm_agent_table, Pat)].
+    
 
 update_agent_info(UserId, TargetName, Info) ->
     call({update_agent_info, UserId, TargetName, Info}).
+
+is_known_engine_id(EngineID) ->
+    case which_agents(engine_id, EngineID) of
+        [] ->
+            false;
+        Targets ->
+            ?vdebug("~w -> Targets: "
+                    "~n   ~p", [?FUNCTION_NAME, Targets]),
+            true
+    end.
 
 is_known_engine_id(EngineID, TargetName) ->
     case agent_info(TargetName, engine_id) of

@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 {application,xmerl,
  [{description,"XML parser"},
   {vsn,"%VSN%"},
@@ -9,7 +16,6 @@
 	xmerl_html,
 	xmerl_lib,
 	xmerl_otpsgml,
-	xmerl_regexp,
 	xmerl_sax_parser,
 	xmerl_sax_parser_list,
 	xmerl_sax_parser_latin1,
@@ -27,6 +33,7 @@
 	xmerl_validate,
 	xmerl_xlate,
 	xmerl_xml,
+	xmerl_xml_indent,
 	xmerl_xpath,
 	xmerl_xpath_lib,
 	xmerl_xpath_parse,
@@ -34,11 +41,13 @@
 	xmerl_xpath_scan,
 	xmerl_xs,
 	xmerl_xsd,
+	xmerl_xsd_re,
+	xmerl_xsd_re_parse,
 	xmerl_xsd_type
 	]},
 
   {registered, []},
   {env, []},
   {applications, [kernel, stdlib]},
-  {runtime_dependencies, ["stdlib-2.5","kernel-3.0","erts-6.0"]}
+  {runtime_dependencies, ["stdlib-2.5","kernel-8.4","erts-6.0"]}
   ]}.

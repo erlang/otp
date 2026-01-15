@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,7 +117,8 @@
 %% } PreSharedKeyExtension;
 -record(pre_shared_key_client_hello,
         {
-         offered_psks
+         offered_psks,
+         binder_length
         }).
 
 -record(pre_shared_key_server_hello,
@@ -139,6 +142,10 @@
 -define(ECDSA_SECP256R1_SHA256, 16#0403).
 -define(ECDSA_SECP384R1_SHA384, 16#0503).
 -define(ECDSA_SECP521R1_SHA512, 16#0603).
+-define(ECDSA_BRAINPOOLP256R1TLS13_SHA256, 16#081A).
+-define(ECDSA_BRAINPOOLP384R1TLS13_SHA384, 16#081B).
+-define(ECDSA_BRAINPOOLP512R1TLS13_SHA512, 16#081C).
+
 
 %% RSASSA-PSS algorithms with public key OID rsaEncryption 
 -define(RSA_PSS_RSAE_SHA256, 16#0804).
@@ -149,10 +156,29 @@
 -define(ED25519, 16#0807).
 -define(ED448, 16#0808).
 
-%% RSASSA-PSS algorithms with public key OID RSASSA-PSS 
+%% RSASSA-PSS algorithms with public key OID RSASSA-PSS
 -define(RSA_PSS_PSS_SHA256, 16#0809).
 -define(RSA_PSS_PSS_SHA384, 16#080a).
 -define(RSA_PSS_PSS_SHA512, 16#080b).
+
+%% ML-DSA signature algorithms
+-define(MLDSA44, 16#0904).
+-define(MLDSA65, 16#0905).
+-define(MLDSA87, 16#0906).
+
+%% SLH-DSA
+-define(SLHDSA_SHA2_128S, 16#0911).
+-define(SLHDSA_SHA2_128F, 16#0912).
+-define(SLHDSA_SHA2_192S, 16#0913).
+-define(SLHDSA_SHA2_192F, 16#0914).
+-define(SLHDSA_SHA2_256S, 16#0915).
+-define(SLHDSA_SHA2_256F, 16#0916).
+-define(SLHDSA_SHAKE_128S, 16#0917).
+-define(SLHDSA_SHAKE_128F, 16#0918).
+-define(SLHDSA_SHAKE_192S, 16#0919).
+-define(SLHDSA_SHAKE_192F, 16#091A).
+-define(SLHDSA_SHAKE_256S, 16#091B).
+-define(SLHDSA_SHAKE_256F, 16#091C).
 
 %% Legacy algorithms
 -define(RSA_PKCS1_SHA1, 16#201).
@@ -165,6 +191,19 @@
 -define(SECP521R1, 16#0019).
 -define(X25519, 16#001D).
 -define(X448, 16#001E).
+-define(BRAINPOOLP256R1TLS13, 16#001F).
+-define(BRAINPOOLP384R1TLS13, 16#0020).
+-define(BRAINPOOLP512R1TLS13, 16#0021).
+
+%% ML-KEM
+-define(MLKEM512, 16#0200).
+-define(MLKEM768, 16#0201).
+-define(MLKEM1024, 16#0202).
+
+%% ML-KEM hybrids
+-define(X25519MLKEM768, 16#11EC).
+-define(SECP256R1MLKEM768, 16#11EB).
+-define(SECP384R1MLKEM1024, 16#11ED).
 
 %% RFC 8446 Finite Field Groups (DHE)
 -define(FFDHE2048, 16#0100).

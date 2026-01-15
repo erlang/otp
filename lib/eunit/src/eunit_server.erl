@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,13 +27,12 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2006 Richard Carlsson
-%% @private
-%% @see eunit
-%% @doc EUnit server process
+%% %CopyrightEnd%
+%%
+%% EUnit server process
 
 -module(eunit_server).
+-moduledoc false.
 
 -export([start/1, stop/1, start_test/4, watch/3, watch_path/3,
 	 watch_regexp/3]).
@@ -162,7 +170,7 @@ server(St) ->
     server_check_exit(St),
     ?MODULE:main(St).
 
-%% @private
+-doc false.
 main(St) ->
     receive
 	{done, auto_test, _Pid} ->
@@ -201,7 +209,10 @@ server_command(From, {start, Job}, St) ->
 server_command(From, stop, St) ->
     %% unregister the server name and let remaining jobs finish
     server_command_reply(From, {error, stopped}),
-    catch unregister(St#state.name),
+    try unregister(St#state.name)
+    catch
+        error:badarg -> ok
+    end,
     server(St#state{stopped = true});
 server_command(From, {watch, Target, _Opts}, St) ->
     %% the code watcher is only started on demand

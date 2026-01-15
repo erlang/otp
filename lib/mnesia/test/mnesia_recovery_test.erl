@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +87,8 @@
          after_corrupt_files_table_dat_head/1,
          after_corrupt_files_table_dat_tail/1,
          after_corrupt_files_schema_dat_head/1,
-         after_corrupt_files_schema_dat_tail/1]).
+         after_corrupt_files_schema_dat_tail/1,
+         node_name_as_table_name/1]).
 
 -export([reader/2, check/0, get_all_retainers/1,
          verify_data/2, verify_where2read/1,
@@ -120,7 +123,8 @@ all() ->
      coord_dies, {group, schema_trans}, {group, async_dirty},
      {group, sync_dirty}, {group, sym_trans},
      {group, asym_trans}, %% after_full_disc_partition,
-     {group, after_corrupt_files}, disc_less, garb_decision
+     {group, after_corrupt_files}, disc_less, garb_decision,
+     node_name_as_table_name
     ].
 
 groups() -> 
@@ -1723,3 +1727,21 @@ check_garb() ->
     catch _:_ -> ok  
     end,
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+node_name_as_table_name(doc) ->
+    ["Check node name can be used as table name."];
+node_name_as_table_name(suite) ->
+    [];
+node_name_as_table_name(Config) when is_list(Config) ->
+    [N1, N2] = All = ?acquire_nodes(2, Config),
+    Tab = N1,
+
+    ?match({atomic, ok}, mnesia:create_table(Tab, [{ram_copies, [N1]}])),
+
+    ?match([], mnesia_test_lib:kill_mnesia([N1])),
+    ?match(ok, rpc:call(N1, mnesia, start, [[{extra_db_nodes, [N2]}]])),
+    ?match(ok, rpc:call(N1, mnesia, wait_for_tables, [[Tab], 20000])),
+
+    ?verify_mnesia(All, []).

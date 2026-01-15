@@ -1,17 +1,26 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 {application, ssl,
    [{description, "Erlang/OTP SSL application"},
     {vsn, "%VSN%"},
     {modules, [
 	       %% TLS/SSL
-	       tls_connection,
                tls_client_connection_1_3,
                tls_server_connection_1_3,
                tls_gen_connection_1_3,
+               tls_client_connection,
+               tls_server_connection,
 	       tls_handshake,
 	       tls_handshake_1_3,
 	       tls_record,
 	       tls_record_1_3,
 	       tls_socket,
+	       tls_socket_tcp,
 	       tls_v1,
 	       tls_connection_sup,
 	       tls_gen_connection,
@@ -23,7 +32,8 @@
                tls_dyn_connection_sup,
 	       ssl_dh_groups,
 	       %% DTLS
-	       dtls_connection,
+	       dtls_client_connection,
+               dtls_server_connection,
 	       dtls_handshake,
 	       dtls_record,
 	       dtls_socket,
@@ -39,7 +49,9 @@
 	       ssl,  %% Main API
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
-               tls_dtls_connection,
+               tls_dtls_client_connection,
+               tls_dtls_server_connection,
+               tls_dtls_gen_connection,
 	       ssl_config,
                ssl_gen_statem,
 	       ssl_handshake,
@@ -52,6 +64,7 @@
 	       tls_bloom_filter,
 	       tls_client_ticket_store,
 	       %% Erlang Distribution over SSL/TLS
+	       inet_epmd_tls_socket,
 	       inet_tls_dist,
 	       inet6_tls_dist,
 	       ssl_dist_sup,
@@ -88,6 +101,6 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-4.1","public_key-1.11.3","kernel-9.0",
-                            "erts-14.0","crypto-5.0", "inets-5.10.7",
+    {runtime_dependencies, ["stdlib-7.0","public_key-1.18.3","kernel-10.3",
+                            "erts-16.0","crypto-5.8", "inets-5.10.7",
                             "runtime_tools-1.15.1"]}]}.

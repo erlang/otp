@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,12 +26,12 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 compiler_bug/1,stupid_but_valid/1,
 	 xrange/1,yrange/1,stack/1,call_last/1,merge_undefined/1,
-	 uninit/1,unsafe_catch/1,
+	 uninit/1,
 	 dead_code/1,
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
 	 freg_range/1,freg_uninit/1,
-	 bad_bin_match/1,bad_dsetel/1,
+	 bad_bin_match/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
@@ -43,7 +45,8 @@
          container_performance/1,
          infer_relops/1,
          not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
-         inert_update_type/1,range_inference/1]).
+         inert_update_type/1,range_inference/1,
+         bif_inference/1,too_many_arguments/1,ensure_bits/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -64,10 +67,10 @@ groups() ->
     [{p,test_lib:parallel(),
       [compiler_bug,stupid_but_valid,xrange,
        yrange,stack,call_last,merge_undefined,uninit,
-       unsafe_catch,dead_code,
+       dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
-       bad_bin_match,bad_dsetel,
+       bad_bin_match,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
@@ -80,7 +83,8 @@ groups() ->
        bs_saved_position_units,parent_container,
        container_performance,infer_relops,
        not_equal_inference,bad_bin_unit,singleton_inference,
-       inert_update_type,range_inference]}].
+       inert_update_type,range_inference,
+       bif_inference,too_many_arguments,ensure_bits]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -153,8 +157,8 @@ stack(Config) when is_list(Config) ->
     Errors = do_val(stack, Config),
     [{{t,a,2},{return,9,{stack_frame,2}}},
      {{t,b,2},{{deallocate,2},4,{allocated,none}}},
-     {{t,bad_1,0},{{allocate_zero,2,10},4,{{x,9},not_live}}},
-     {{t,bad_2,0},{{move,{y,0},{x,0}},5,{unassigned,{y,0}}}},
+     {{t,bad_1,0},{{allocate,2,10},4,{{x,9},not_live}}},
+     {{t,bad_2,0},{{move,{y,0},{x,0}},6,{unassigned,{y,0}}}},
      {{t,c,2},{{deallocate,2},10,{allocated,none}}},
      {{t,d,2},
       {{allocate,2,2},5,{existing_stack_frame,{size,2}}}},
@@ -203,16 +207,7 @@ uninit(Config) when is_list(Config) ->
       {{call,1,{f,8}},5,{uninitialized_reg,{y,0}}}},
      {{t,sum_3,2},
       {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
-       6,
-       {unassigned,{y,0}}}}] = Errors,
-    ok.
-
-unsafe_catch(Config) when is_list(Config) ->
-    Errors = do_val(unsafe_catch, Config),
-    [{{t,small,2},
-      {{bs_put_integer,{f,0},{integer,16},1,
-        {field_flags,[unsigned,big]},{y,0}},
-       20,
+       7,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -229,7 +224,7 @@ overwrite_catchtag(Config) when is_list(Config) ->
 overwrite_trytag(Config) when is_list(Config) ->
     Errors = do_val(overwrite_trytag, Config),
     [{{overwrite_trytag,foo,1},
-      {{kill,{y,2}},8,{trytag,_}}}] = Errors,
+      {{init_yregs,{list,[{y,2}]}},9,{trytag,_}}}] = Errors,
     ok.
 
 accessing_tags(Config) when is_list(Config) ->
@@ -251,11 +246,11 @@ bad_catch_try(Config) when is_list(Config) ->
      {{bad_catch_try,bad_3,1},
       {{catch_end,{y,1}},9,{invalid_tag,{y,1},{t_atom,[kalle]}}}},
      {{bad_catch_try,bad_4,1},
-      {{'try',{x,0},{f,15}},5,{invalid_tag_register,{x,0}}}},
+      {{'try',{x,0},{f,15}},6,{invalid_tag_register,{x,0}}}},
      {{bad_catch_try,bad_5,1},
-      {{try_case,{y,1}},12,{invalid_tag,{y,1},any}}},
+      {{try_case,{y,1}},13,{invalid_tag,{y,1},any}}},
      {{bad_catch_try,bad_6,1},
-      {{move,{integer,1},{y,1}},7,
+      {{move,{integer,1},{y,1}},8,
        {invalid_store,{y,1}}}}] = Errors,
     ok.
 
@@ -304,14 +299,6 @@ bad_bin_match(Config) when is_list(Config) ->
 	do_val(bad_bin_match, Config),
     ok.
 
-bad_dsetel(Config) when is_list(Config) ->
-    Errors = do_val(bad_dsetel, Config),
-    [{{t,t,1},
-      {{set_tuple_element,{x,1},{x,0},1},
-       17,
-       illegal_context_for_set_tuple_element}}] = Errors,
-    ok.
-
 state_after_fault_in_catch(Config) when is_list(Config) ->
     Errors = do_val(state_after_fault_in_catch, Config),
     [{{state_after_fault_in_catch,badmatch,1},
@@ -327,7 +314,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{try_case_end,{x,0}},166,ambiguous_catch_try_state}}] = Errors,
+      {{try_case_end,{x,0}},152,ambiguous_catch_try_state}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -349,7 +336,7 @@ undef_label(Config) when is_list(Config) ->
 	 5},
     Errors = beam_val(M),
     [{{undef_label,t,1},{undef_labels,[42]}},
-     {{undef_label,x,1},no_entry_label}] = Errors,
+     {{undef_label,x,1},invalid_function_header}] = Errors,
     ok.
 
 illegal_instruction(Config) when is_list(Config) ->
@@ -534,7 +521,7 @@ bad_try_catch_nesting(Config) ->
     Errors = do_val(bad_try_catch_nesting, Config),
     [{{bad_try_catch_nesting,main,2},
       {{'try',{y,2},{f,3}},
-       8,
+       9,
        {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
     ok.
 
@@ -543,33 +530,33 @@ receive_stacked(Config) ->
     Errors = do_val(Mod, Config),
     [{{receive_stacked,f1,0},
       {{loop_rec_end,{f,3}},
-       18,
+       19,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f2,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f3,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f4,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f5,0},
       {{loop_rec_end,{f,23}},
-       22,
+       23,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f6,0},
       {{gc_bif,byte_size,{f,29},0,[{y,_}],{x,0}},
-       13,
+       14,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f7,0},
       {{loop_rec_end,{f,33}},
-       21,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f8,0},
       {{loop_rec_end,{f,38}},
-       21,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m1,0},
       {{loop_rec_end,{f,43}},
-       20,
+       21,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m2,0},
       {{loop_rec_end,{f,48}},
@@ -1145,6 +1132,119 @@ range_inference_1(<<X/utf8>>) ->
         -2147483648 ->
             ok
     end.
+
+bif_inference(_Config) ->
+    ok = bif_inference_is_bitstring(id(<<>>), id(<<>>)),
+    error = bif_inference_is_bitstring(id(a), id(a)),
+
+    ok = bif_inference_is_function(id(fun id/1), id(fun id/1)),
+    ok = bif_inference_is_function(true, true),
+    error = bif_inference_is_function(id(fun id/1), a),
+    error = bif_inference_is_function(a, a),
+
+    ok.
+
+bif_inference_is_bitstring(A, A) when A andalso ok; is_bitstring(A) ->
+    ok;
+bif_inference_is_bitstring(_, _) ->
+    error.
+
+bif_inference_is_function(A, A)  when A orelse ok; is_function(A) ->
+    ok;
+bif_inference_is_function(_, _) ->
+    error.
+
+%% GH-9113: We didn't reject funs, comprehensions, and the likes which exceeded
+%% the argument limit.
+too_many_arguments(_Config) ->
+    M = {too_many_arguments,
+         [{t,256},{t,0}],
+         [],
+         [{function,t,256,2,
+           [{label,1},
+            {func_info,{atom,too_many_arguments},{atom,t},256},
+            {label,2},
+            return]},
+          {function,t,0,4,
+           [{label,3},
+            %% Mismatching arity.
+            {func_info,{atom,too_many_arguments},{atom,t},5},
+            {label,4},
+            return]}],
+         5},
+    Errors = beam_val(M),
+    [{{too_many_arguments,t,256},too_many_arguments},
+     {{too_many_arguments,t,0},invalid_function_header}] = Errors,
+    ok.
+
+%% GH-9304: Validator did not check that operations were preceded by
+%% ensure_at_least / ensure_exactly.
+ensure_bits(_Config) ->
+    M = {ensure,
+         [{t,1}],
+         [],
+         [{function,short_eal,1,2,
+           [{label,1},
+            {func_info,{atom,short_eal},{atom,short_eal},1},
+            {label,2},
+            {test,bs_start_match3,{f,3},1,[{x,0}],{x,0}},
+            {bs_match,{f,3},{x,0},
+             {commands,[{ensure_at_least,15,1}, %% One bit short.
+                        {'=:=',nil,8,0},
+                        {'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,3},
+            {move,{atom,boo},{x,0}},
+            return]},
+          {function,short_ex,1,6,
+           [{label,5},
+            {func_info,{atom,short_ex},{atom,short_ex},1},
+            {label,6},
+            {test,bs_start_match3,{f,7},1,[{x,0}],{x,0}},
+            {bs_match,{f,7},{x,0},
+             {commands,[{ensure_exactly,7},{'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,7},
+            {move,{atom,boo},{x,0}},
+            return]},
+         {function,missing_ensure,1,9,
+           [{label,8},
+            {func_info,{atom,missing_ensure},{atom,missing_ensure},1},
+            {label,9},
+            {test,bs_start_match3,{f,10},1,[{x,0}],{x,0}},
+            {bs_match,{f,10},{x,0},
+             {commands,[{'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,10},
+            {move,{atom,boo},{x,0}},
+            return]}],
+         11},
+    Errors = beam_val(M),
+    [{{short_eal,short_eal,1},
+      {{bs_match,
+           {f,3},
+           {x,0},
+           {commands,
+               [{ensure_at_least,15,1},
+                {'=:=',nil,8,0},
+                {'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,7}}},
+     {{short_ex,short_ex,1},
+      {{bs_match,
+           {f,7},
+           {x,0},
+           {commands,[{ensure_exactly,7},{'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,7}}},
+     {{missing_ensure,missing_ensure,1},
+      {{bs_match,{f,10},{x,0},{commands,[{'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,0}}}] = Errors,
+    ok.
 
 id(I) ->
     I.

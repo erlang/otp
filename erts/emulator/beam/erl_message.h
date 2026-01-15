@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,11 +65,20 @@ typedef struct erl_mesg ErtsMessage;
 /*
  * This struct represents data that must be updated by structure copy,
  * but is stored outside of any heap.
+ *
+ * Remember to update the static assertions in `erts_init_gc` whenever a new
+ * off-heap term type is added.
  */
 
 struct erl_off_heap_header {
     Eterm thing_word;
-    Uint size;
+
+    /* As an optimization, the first word of user data is stored before the
+     * next pointer so that the meaty part of the term (e.g. ErtsDispatchable)
+     * can be loaded together with the thing word on architectures that
+     * support it. */
+    UWord opaque;
+
     struct erl_off_heap_header* next;
 };
 
@@ -272,6 +283,7 @@ struct erl_mesg {
 
 typedef union {
     ErtsSignalCommon common;
+    ErtsNonMsgSignal nm_sig;
     ErtsMessageRef msg;
 } ErtsSignal;
 
@@ -281,12 +293,22 @@ typedef struct {
     ErtsMessage **last; /* ... last (non-message) signal */
 } ErtsMsgQNMSigs;
 
+/*
+ * The ErtsRecvMarker struct is used for two other types of markers
+ * namely yield markers and prio queue markers.
+ */
+#define ERTS_RECV_MARKER_TYPE_RECV              0
+#define ERTS_RECV_MARKER_TYPE_YIELD             1
+#define ERTS_RECV_MARKER_TYPE_PRIO_Q_END        2
+#define ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT       3
+
 typedef struct {
     ErtsSignal sig;
     ErtsMessage **prev_next;
-    signed char is_yield_mark;
+    signed char mark_type;
     signed char pass;
     signed char set_save;
+    signed char in_prioq;
     signed char in_sigq;
     signed char in_msgq;
     signed char prev_ix;
@@ -306,9 +328,7 @@ typedef struct {
     signed char used_ix;
     signed char unused;
     signed char pending_set_save_ix;
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    signed char old_recv_marker_ix;
-#endif
+    signed char set_save_ix;
 } ErtsRecvMarkerBlock;
 
 /* Size of default message buffer (erl_message.c) */
@@ -320,7 +340,7 @@ typedef struct {
      *
      * These are:
      * - an inner queue which only consists of
-     *   message signals
+     *   message signals and possibly receive markers
      * - a middle queue which contains a mixture
      *   of message and non-message signals
      *
@@ -357,26 +377,27 @@ typedef struct {
      * as an offset which even might be negative.
      */
 
-    /* inner queue */
+    /* inner queue (message queue) */
     ErtsMessage *first;
     ErtsMessage **last;  /* point to the last next pointer */
     ErtsMessage **save;
+    Sint mq_len; /* Message queue length */
 
     /* middle queue */
     ErtsMessage *cont;
     ErtsMessage **cont_last;
     ErtsMsgQNMSigs nmsigs;
-    
+    Sint mlenoffs; /* nr of trailing msg sigs after last non-msg sig */
+
     /* Common for inner and middle queue */
     ErtsRecvMarkerBlock *recv_mrk_blk;
-    Sint len; /* NOT message queue length (see above) */
     Uint32 flags;
 } ErtsSignalPrivQueues;
 
 typedef struct ErtsSignalInQueue_ {
     ErtsMessage* first;
     ErtsMessage** last;  /* point to the last next pointer */
-    Sint len;            /* number of messages in queue */
+    Sint mlenoffs; /* nr of trailing msg sigs after last non-msg sig */
     ErtsMsgQNMSigs nmsigs;
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
     int may_contain_heap_terms;
@@ -442,11 +463,11 @@ typedef struct erl_trace_message_queue__ {
 
 #ifdef USE_VM_PROBES
 #  define ERTS_MSG_RECV_TRACED(P)                                       \
-    ((ERTS_TRACE_FLAGS((P)) & F_TRACE_RECEIVE)                          \
+    (ERTS_IS_P_TRACED_FL(P, F_TRACE_RECEIVE)                            \
      || DTRACE_ENABLED(message_queued))
 #else
 #  define ERTS_MSG_RECV_TRACED(P)                                       \
-    (ERTS_TRACE_FLAGS((P)) & F_TRACE_RECEIVE)
+    (ERTS_IS_P_TRACED_FL(P, F_TRACE_RECEIVE))
 
 #endif
 
@@ -455,12 +476,14 @@ typedef struct erl_trace_message_queue__ {
     do {                                                                \
         ASSERT(ERTS_SIG_IS_MSG(msg));                                   \
         ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), &(p)->sig_inq, "before");\
+        ERTS_HDBG_INQ_LEN(&(p)->sig_inq);                               \
         *(p)->sig_inq.last = (msg);                                     \
         (p)->sig_inq.last = &(msg)->next;                               \
-        (p)->sig_inq.len++;                                             \
+        (p)->sig_inq.mlenoffs++;                                        \
         if (!((ps) & ERTS_PSFLG_MSG_SIG_IN_Q))                          \
             (void) erts_atomic32_read_bor_nob(&(p)->state,              \
                                               ERTS_PSFLG_MSG_SIG_IN_Q); \
+        ERTS_HDBG_INQ_LEN(&(p)->sig_inq);                               \
         ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), &(p)->sig_inq, "after"); \
     } while(0)
 

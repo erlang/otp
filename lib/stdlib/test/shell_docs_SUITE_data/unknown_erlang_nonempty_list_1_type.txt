@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type nonempty_list(ContentType) :: [ContentType, ...].[0m
+[;1m  nonempty_list(ContentType)[0m
 
   A list(ContentType) that contains some items.

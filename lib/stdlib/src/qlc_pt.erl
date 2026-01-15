@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,10 @@
 %% %CopyrightEnd%
 %%
 -module(qlc_pt).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
+-compile(nowarn_deprecated_catch).
 
 %%% Purpose: Implements the qlc Parse Transform.
 
@@ -225,7 +231,7 @@ integers(_, L) ->
 -define(ABST_NO_MORE, {nil, Anno}).
 -define(ABST_MORE(Obj, Cont), {cons, Anno, Obj, Cont}).
 
-%% Qualifier identifier. 
+%% Qualifier identifier.
 %% The first one encountered in a QLC has no=1.
 -record(qid, {lcid,no}).
 
@@ -248,7 +254,7 @@ no_duplicates(Forms, Errors, Warnings0, ExtraWarnings0, Options) ->
         ([{File,[{L,v3_core,nomatch}]} ||
              {File,[{L,qlc,M}]} <- mforms(ExtraWarnings),
              lists:member(M, [nomatch_pattern,nomatch_filter])]
-         ++ 
+         ++
          [{File,[{L,sys_core_fold,nomatch_guard}]} ||
              {File,[{L,qlc,M}]} <- mforms(ExtraWarnings),
              M =:= nomatch_filter]),
@@ -291,9 +297,15 @@ record_attributes(Forms) ->
 %% transformation.
 %%
 compile_messages(Forms, FormsNoShadows, Options, State) ->
-    %% The qlc module cannot handle binary generators.
-    BGenF = fun(_QId,{b_generate,Anno,_P,_LE}=BGen, GA, A) ->
+    %% The qlc module can only handle relaxed list generators.
+    BGenF = fun(_QId,{Type,Anno,_P,_LE}=BGen, GA, A) when Type =:= b_generate; Type =:= b_generate_strict ->
                     M = {loc(Anno),?APIMOD,binary_generator},
+                    {BGen,[{get(?QLC_FILE),[M]}|GA],A};
+               (_QId,{Type,Anno,_P,_LE}=BGen, GA, A) when Type =:= m_generate; Type =:= m_generate_strict ->
+                    M = {loc(Anno),?APIMOD,map_generator},
+                    {BGen,[{get(?QLC_FILE),[M]}|GA],A};
+               (_QId,{generate_strict,Anno,_P,_LE}=BGen, GA, A) ->
+                    M = {loc(Anno),?APIMOD,strict_generator},
                     {BGen,[{get(?QLC_FILE),[M]}|GA],A};
                (_QId, Q, GA, A) ->
                     {Q,GA,A}
@@ -316,7 +328,7 @@ compile_messages(Forms, FormsNoShadows, Options, State) ->
 badarg(Forms, State) ->
     F = fun(_Id, {lc,_A,_E,_Qs}=LC, Es) ->
                 {LC,Es};
-           (Id, A, Es) -> 
+           (Id, A, Es) ->
                 E = {get_lcid_line(Id),?APIMOD,not_a_query_list_comprehension},
                 {A,[{get(?QLC_FILE), [E]} | Es]}
         end,
@@ -390,7 +402,7 @@ intro_variables(FormsNoShadows, State) ->
                   {Filter,{GVs,[{QId,[]} | QIds]},Foo}
           end,
     Acc0 = {[],[]},
-    {FForms,{GenVars,QIds}} = 
+    {FForms,{GenVars,QIds}} =
         qual_fold(Fun, Acc0, [], FormsNoShadows, State),
     %% Note: the linter messages are the ones we are looking for.
     %% If there are no linter messages, the compiler will crash (ignored).
@@ -440,11 +452,11 @@ compile_forms(Forms0, Options) ->
               end,
     Forms = ([F || F <- Forms0, not Exclude(element(1, F))]
              ++ [{eof,0}]),
-    try 
+    try
         case compile:noenv_forms(Forms, compile_options(Options)) of
             {ok, _ModName, Ws0} ->
                 {[], Ws0};
-            {error, Es0, Ws0} -> 
+            {error, Es0, Ws0} ->
                 {Es0, Ws0}
         end
     catch _:_ ->
@@ -468,11 +480,11 @@ skip_options(Skip, Options) ->
     [O || O <- Options, not lists:member(O, Skip)].
 
 bitstr_options() ->
-    [binary_comprehension,bitlevel_binaries].    
+    [binary_comprehension,bitlevel_binaries].
 
 %% In LCs it is possible to use variables introduced in filters and
 %% generator patterns in the right hand side of generators (ListExpr),
-%% but in QLCs this is not allowed. 
+%% but in QLCs this is not allowed.
 %%
 %% A brand new function is returned such that there is one expression
 %% for each ListExpr. The expression mentions all introduced variables
@@ -514,7 +526,7 @@ used_genvar_check(FormsNoShadows, State) ->
     UniqueFName = qlc:aux_name(used_genvar, 1, gb_sets:from_list(FunctionNames)),
     A = anno0(),
     {function,A,UniqueFName,0,[{clause,A,[],[],lists:reverse(Exprs)}]}.
-    
+
 q_intro_vars(QId, [{QId, IVs} | QsIVs], IVsSoFar) -> {QsIVs, IVs ++ IVsSoFar}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -536,7 +548,7 @@ q_intro_vars(QId, [{QId, IVs} | QsIVs], IVsSoFar) -> {QsIVs, IVs ++ IVsSoFar}.
 %% fun). Join generators are ignored at runtime unless a fast join is
 %% possible, in which case they replace other generators. See also
 %% qlc.erl.
-%% 
+%%
 %% For each QLC, every filter is given a state number and every
 %% generator two state numbers (one for initialization, one for
 %% looping over values). State 1 is reserved for the template and
@@ -566,13 +578,13 @@ q_intro_vars(QId, [{QId, IVs} | QsIVs], IVsSoFar) -> {QsIVs, IVs ++ IVsSoFar}.
 %%       Fun(<next qualifier state>, ..., Val, ...); % arguments are bound
 %%    (3, ..., [_ | Val], ...) -> % pattern does not match
 %%       Fun(3, ..., Val, ...);
-%%    (3, ..., [], ...) -> 
+%%    (3, ..., [], ...) ->
 %%       Fun(<last generator loop state>, ...);
 %%    (3, ...., F, ...) -> % looping over values (using continuations)
 %%       case F() of % get the next value by calling a continuation
-%%           [Pattern | Val] -> 
+%%           [Pattern | Val] ->
 %%               Fun(<next qualifier state>..., Val, ...);
-%%           [_ | Val] -> 
+%%           [_ | Val] ->
 %%               Fun(3, ..., Val, ...);
 %%           [] ->
 %%              Fun(<last generator loop state>, ...);
@@ -585,11 +597,11 @@ q_intro_vars(QId, [{QId, IVs} | QsIVs], IVsSoFar) -> {QsIVs, IVs ++ IVsSoFar}.
 %%           false -> Fun(<last generator loop state>, ...)
 %%       end;
 %%    (5, ...) -> % a filter so simple that it could be used as a guard
-%%       if 
+%%       if
 %%          Guard -> Fun(<next qualifier state>, ...);
 %%          true -> Fun(<last generator loop state>, ...)
 %%       end
-%% 
+%%
 %% <last generator loop state> means state 0 if there is no last
 %% generator. <initial value> is the evaluated list expression
 %% (evaluated once only). Among the arguments indicated by ellipses
@@ -622,14 +634,14 @@ transform(FormsNoShadows, State) ->
          end,
     TemplS = qlc:template_state(),
     GoState = {TemplS + 1, TemplS + 1},
-    {ModifiedForms1,_} = 
+    {ModifiedForms1,_} =
         qual_fold(F1, [], GoState, FormsNoShadows, State),
 
     %% This is for info/2. QLCs in filters and the template are
     %% translated before the expression itself is translated. info/2
     %% must not display the result of the translation, but the source
     %% code.
-    {_,Source0} = qual_fold(fun(_QId, {generate,_,_P,_E}=Q, Dict, Foo) -> 
+    {_,Source0} = qual_fold(fun(_QId, {generate,_,_P,_E}=Q, Dict, Foo) ->
                                     {Q,Dict,Foo};
                                (QId, F, Dict, Foo) ->
                                     {F,maps:put(QId, F, Dict),Foo}
@@ -643,7 +655,7 @@ transform(FormsNoShadows, State) ->
     F2 = fun(Id, {lc,_A,E,Qs}, {IntroVs0,XWarn0}) ->
                  LcNo = get_lcid_no(Id),
                  LcL = get_lcid_line(Id),
-                 [RL,Fun,Go,NGV,S0,RL0,Go0,AT,Err] = 
+                 [RL,Fun,Go,NGV,S0,RL0,Go0,AT,Err] =
                      aux_vars(['RL','Fun','Go','C','S0','RL0','Go0','AT','E'],
                               LcNo, AllVars),
                  ?DEBUG("RL = ~p, Fun = ~p, Go = ~p~n", [RL, Fun, Go]),
@@ -665,12 +677,12 @@ transform(FormsNoShadows, State) ->
                  {EqColumnConstants, EqualColumnConstants,
                   ExtraConsts, SizeInfo} =
                      constants_and_sizes(Qs, E, Dependencies, AllIVs, State),
-                 {JoinInfo, XWarn} = 
+                 {JoinInfo, XWarn} =
                      join_kind(Qs, LcL, AllIVs, Dependencies, State),
-                 %% Not at all sure it is a good idea to try and find 
+                 %% Not at all sure it is a good idea to try and find
                  %% failing qualifiers; Dialyzer does it so much better.
                  %% But there are a few cases where qlc finds more... (r12b).
-                 FWarn = warn_failing_qualifiers(Qs, AllIVs, Dependencies, 
+                 FWarn = warn_failing_qualifiers(Qs, AllIVs, Dependencies,
                                                  State),
                  JQs = join_quals(JoinInfo, QCs, Anno, LcNo, ExtraConsts, AllVars),
                  XQCs = QCs ++ JQs,
@@ -678,8 +690,8 @@ transform(FormsNoShadows, State) ->
                  Template = template(E, RL, Fun, Go, AT, Anno, AllIVs, State),
                  Fin = final(RL, AllIVs, Anno, State),
                  FunC = {'fun',Anno,{clauses,Fin ++ Template ++ Cs0}},
-                 As0 = pack_args(abst_vars([S0, RL0, Fun, Go0 
-                                            | replace(AllIVs, AllIVs, nil)], 
+                 As0 = pack_args(abst_vars([S0, RL0, Fun, Go0
+                                            | replace(AllIVs, AllIVs, nil)],
                                            Anno), Anno, State),
                  AsW = abst_vars([S0, RL0, Go0], Anno),
                  FunW = {'fun',Anno,{clauses,[{clause,Anno,AsW,[],
@@ -689,13 +701,13 @@ transform(FormsNoShadows, State) ->
                  OrigE = undo_no_shadows(OrigE0, State),
                  QCode = qcode(OrigE, XQCs, Source, Anno, State),
                  Qdata = qdata(XQCs, Anno),
-                 TemplateInfo = 
+                 TemplateInfo =
                      template_columns(Qs, E, AllIVs, Dependencies, State),
                  %% ExtraConsts should be used by match_spec_quals.
                  MSQs = match_spec_quals(E, Dependencies, Qs, State),
                  Opt = opt_info(TemplateInfo, SizeInfo, JoinInfo, MSQs, Anno,
                                 EqColumnConstants, EqualColumnConstants),
-                 LCTuple = 
+                 LCTuple =
                      case qlc_kind(OrigE, Qs, State) of
                          qlc ->
                              {tuple,Anno,[?A(qlc_v1),FunW,QCode,Qdata,Opt]};
@@ -718,18 +730,18 @@ join_kind(Qs, LcL, AllIVs, Dependencies, State) ->
     Tables = lists:usort
                ([T || {C,_Skip} <- EqualCols2, {T,_} <- C]
              ++ [T || {C,_Skip} <- EqualCols2, T <- C, is_integer(T)]),
-    if 
-        EqualColsN =/= []; MatchColsN =/= [] -> 
-            {[], 
+    if
+        EqualColsN =/= []; MatchColsN =/= [] ->
+            {[],
              [{get(?QLC_FILE),[{LcL,?APIMOD,too_complex_join}]}]};
         EqualCols2 =:= [], MatchCols2 =:= [] ->
             {[], []};
-        length(Tables) > 2 -> 
-            {[], 
+        length(Tables) > 2 ->
+            {[],
              [{get(?QLC_FILE),[{LcL,?APIMOD,too_many_joins}]}]};
         EqualCols2 =:= MatchCols2 ->
             {EqualCols2, []};
-        true -> 
+        true ->
             {{EqualCols2, MatchCols2}, []}
     end.
 
@@ -746,19 +758,19 @@ qlc_kind(OrigE, Qs, State) ->
             qlc
     end.
 
-%% Finds filters and patterns that cannot match any values at all. 
+%% Finds filters and patterns that cannot match any values at all.
 %% Nothing but the patterns and the filters themselves is analyzed.
 %% A much weaker analysis than the one of Dialyzer's.
 warn_failing_qualifiers(Qualifiers, AllIVs, Dependencies, State) ->
-    {FilterData, GeneratorData} = qual_data(Qualifiers),    
+    {FilterData, GeneratorData} = qual_data(Qualifiers),
     Anon = 1,
     BindFun = fun(_Op, Value) -> is_bindable(Value) end,
-    {PFrame, _PatternVars} = 
+    {PFrame, _PatternVars} =
         pattern_frame(GeneratorData, BindFun, Anon, State),
-    {_, _, Imported} = 
+    {_, _, Imported} =
         filter_info(FilterData, AllIVs, Dependencies, State),
     PFrames = frame2frames(PFrame),
-    {_, Warnings} = 
+    {_, Warnings} =
         lists:foldl(fun({_QId,{fil,_Filter}}, {[]=Frames,Warnings}) ->
                             {Frames,Warnings};
                        ({_QId,{fil,Filter}}, {Frames,Warnings}) ->
@@ -769,12 +781,12 @@ warn_failing_qualifiers(Qualifiers, AllIVs, Dependencies, State) ->
                                  [{get(?QLC_FILE),
                                    [{loc(element(2, Filter)),?APIMOD,
                                      nomatch_filter}]} | Warnings]};
-                            Frames1 -> 
+                            Frames1 ->
                                 {Frames1,Warnings}
                         end;
                    ({_QId,{gen,Pattern,_}}, {Frames,Warnings}) ->
                         case pattern(Pattern, Anon, [], BindFun, State) of
-                            {failed, _, _} -> 
+                            {failed, _, _} ->
                                 {Frames,
                                  [{get(?QLC_FILE),
                                    [{loc(element(2, Pattern)),?APIMOD,
@@ -815,7 +827,7 @@ opt_info(TemplateInfo, Sizes, JoinInfo, MSQs, Anno,
     C = [EqC | [EqualC || true <- [CCs =/= ECCs]]],
 
     %% Comparisons yield more constant columns than matchings.
-    ConstCols = [{IdNo,Col} || 
+    ConstCols = [{IdNo,Col} ||
                     {{IdNo,Col},[_],_FilNs} <- EqualColumnConstants],
     ConstColsFamily = family_list(ConstCols),
     NSortedCols0 = [{IdNo,hd(lists:seq(1, length(Cols)+1)--Cols)} ||
@@ -826,7 +838,7 @@ opt_info(TemplateInfo, Sizes, JoinInfo, MSQs, Anno,
     N = [{n_leading_constant_columns,{'fun',Anno,{clauses,NCls}}}],
 
     ConstCls = [{clause,Anno,[?I(IdNo)],[],[abstr(Cols,Anno)]} ||
-                   {IdNo,Cols} <- ConstColsFamily] 
+                   {IdNo,Cols} <- ConstColsFamily]
                ++ [{clause,Anno,[?V('_')],[],[{nil,Anno}]}],
     CC = [{constant_columns,{'fun',Anno,{clauses,ConstCls}}}],
 
@@ -856,10 +868,10 @@ abstr(Term, Anno) ->
 %% Extra generators are introduced for join.
 join_quals(JoinInfo, QCs, Anno, LcNo, ExtraConstants, AllVars) ->
     {LastGoI, LastSI} =
-        lists:foldl(fun({_QId,{_QIVs,{{fil,_},GoI,SI}}}, 
+        lists:foldl(fun({_QId,{_QIVs,{{fil,_},GoI,SI}}},
                         {GoI0, _SI0}) when GoI >= GoI0 ->
                             {GoI + 2, SI + 1};
-                       ({_QId,{_QIVs,{{gen,_,_,_},GoI,SI}}}, 
+                       ({_QId,{_QIVs,{{gen,_,_,_},GoI,SI}}},
                         {GoI0, _SI0}) when GoI >= GoI0 ->
                             {GoI + 3, SI + 2};
                        (_, A) ->
@@ -880,13 +892,13 @@ join_quals(JoinInfo, QCs, Anno, LcNo, ExtraConstants, AllVars) ->
                 EqualCols ->
                     [{Q1,Q2,'=='} || {Q1,Q2} <- join_qnums(EqualCols)]
             end,
-    LD = [begin 
-              [{QId1,P1,GV1,QIVs1}] = 
-                  [{QId,P,GV,QIVs} || 
-                      {QId,{QIVs,{{gen,P,_,GV},_GoI,_SI}}} <- QCs, 
+    LD = [begin
+              [{QId1,P1,GV1,QIVs1}] =
+                  [{QId,P,GV,QIVs} ||
+                      {QId,{QIVs,{{gen,P,_,GV},_GoI,_SI}}} <- QCs,
                       QId#qid.no =:= Q1],
-              [{QId2,P2,QIVs2}] = 
-                  [{QId,P,QIVs--[GV]} || 
+              [{QId2,P2,QIVs2}] =
+                  [{QId,P,QIVs--[GV]} ||
                       {QId,{QIVs,{{gen,P,_,GV},_,_}}} <- QCs,
                       QId#qid.no =:= Q2],
               {QId1,Op,P1,GV1,QIVs1++QIVs2,QId2,P2}
@@ -901,8 +913,8 @@ join_quals(JoinInfo, QCs, Anno, LcNo, ExtraConstants, AllVars) ->
                 H2 = join_handle(AP2, Anno, Aux, Cs2),
                 %% Op is not used.
                 Join = {join,Op,QId1#qid.no,QId2#qid.no,H1,H2,Cs1,Cs2},
-                G = {NQId=QId#qid{no = QId#qid.no + 1},
-                     {QIVs,{{gen,{cons,Anno,P1,P2},Join,GV1},GoI,SI}}},
+                NQId=QId#qid{no = QId#qid.no + 1},
+                G = {NQId, {QIVs,{{gen,{cons,Anno,P1,P2},Join,GV1},GoI,SI}}},
                 A = {NQId, GoI + 3, SI + 2},
                 {G, A}
         end,
@@ -917,7 +929,7 @@ anon_pattern(P) ->
     MoreThanOnce = lists:usort(occ_vars(P) -- qlc:vars(P)),
     {AP, foo} = var_mapfold(fun({var, Anno, V}, A) ->
                                     case lists:member(V, MoreThanOnce) of
-                                        true -> 
+                                        true ->
                                             {{var, Anno, V}, A};
                                         false ->
                                             {{var, Anno, '_'}, A}
@@ -929,7 +941,7 @@ anon_pattern(P) ->
 %% pattern. It is important that objects that do not pass the pattern
 %% are filtered out because the columns of the pattern are inspected
 %% in order to determine if key-sorting the operands can be avoided.
-%% 
+%%
 %% No objects will be filtered out if the pattern is just a variable.
 join_handle(AP, Anno, [F, H, O, C], Constants) ->
     case {AP, Constants} of
@@ -978,7 +990,7 @@ join_handle_constants(QId, ExtraConstants) ->
 
 column_fun(Columns, QualifierNumber, LcL) ->
     A = anno0(),
-    ColCls0 = 
+    ColCls0 =
         [begin
              true = Vs0 =/= [], % at least one value to look up
              Vs1 = list2cons(Vs0),
@@ -1020,23 +1032,23 @@ template_columns(Qs0, E0, AllIVs, Dependencies, State) ->
     Qs = [TemplateAsPattern | Qs0],
     EqualColumns = equal_columns2(Qs, AllIVs, Dependencies, State),
     MatchColumns = eq_columns2(Qs, AllIVs, Dependencies, State),
-    Equal = template_cols(EqualColumns), 
+    Equal = template_cols(EqualColumns),
     Match = template_cols(MatchColumns),
     Anno = anno0(),
-    if 
-        Match =:= Equal -> 
+    if
+        Match =:= Equal ->
             [{?V('_'), Match}];
-        true -> 
+        true ->
             [{?A('=='), Equal}, {?A('=:='), Match}]
     end.
 
 equal_columns2(Qualifiers, AllIVs, Dependencies, State) ->
-    {JI, _Skip} = 
+    {JI, _Skip} =
         join_info(Qualifiers, AllIVs, Dependencies, State,_JoinOp = '=='),
     JI.
 
 eq_columns2(Qualifiers, AllIVs, Dependencies, State) ->
-    {JI, _SKip} = 
+    {JI, _SKip} =
         join_info(Qualifiers, AllIVs, Dependencies, State, _JoinOp = '=:='),
     JI.
 
@@ -1045,7 +1057,8 @@ template_cols(ColumnClasses) ->
                    Class <- ColumnClasses,
                    {IdNo,Col} <- Class,
                    IdNo =/= ?TNO,
-                   [] =/= (Cs = [C || {?TNO,C} <- Class])]).
+                   Cs <- [[C || {?TNO,C} <- Class]],
+                   [] =/= Cs]).
 
 template_as_pattern(E) ->
     P = simple_template(E),
@@ -1077,7 +1090,7 @@ qualifier_dependencies(Qualifiers, IntroVs) ->
                              UV <- qlc:vars(F)]),
     Depend = sofs:strict_relation(sofs:relative_product(Used, Intro)),
     G = sofs:family_to_digraph(sofs:relation_to_family(Depend)),
-    Dep0 = [{V,digraph_utils:reachable_neighbours([V], G)} || 
+    Dep0 = [{V,digraph_utils:reachable_neighbours([V], G)} ||
                V <- digraph:vertices(G)],
     true = digraph:delete(G),
     FilterIds = sofs:set(filter_ids(Qualifiers)),
@@ -1093,27 +1106,27 @@ filter_ids(Qualifiers) ->
 %% The qualifiers [QualifierNumber'] are filters (F1, ..., Fn) that
 %% depend on QualifierNumber (a generator Pattern <- LE) only.
 %% MatchSpec is the match specification for [Pattern' || Pattern <- LE,
-%% F1, ..., Fn], where Pattern' is Template if all qualifiers can be 
+%% F1, ..., Fn], where Pattern' is Template if all qualifiers can be
 %% replaced by one match specification, otherwise a modified Pattern.
 match_spec_quals(Template, Dependencies, Qualifiers, State) ->
     {FilterData, GeneratorData} = qual_data(Qualifiers),
-    NoFilterGIds = [GId || {GId,_} <- GeneratorData] 
+    NoFilterGIds = [GId || {GId,_} <- GeneratorData]
                    -- lists:flatmap(fun({_,GIds}) -> GIds end, Dependencies),
     Filters = filter_list(FilterData, Dependencies, State),
-    Candidates = [{QId2#qid.no,Pattern,[Filter],F} || 
+    Candidates = [{QId2#qid.no,Pattern,[Filter],F} ||
                      {QId,[QId2]} <- Dependencies,
                      {GQId,{gen,Pattern,_}} <- GeneratorData,
                      GQId =:= QId2,
                      {FQId,{fil,F}}=Filter <- Filters, % guard filters only
-                     FQId =:= QId] 
+                     FQId =:= QId]
                ++ [{GId#qid.no,Pattern,[],{atom,anno0(),true}} ||
                       {GId,{gen,Pattern,_}} <- GeneratorData,
                       lists:member(GId, NoFilterGIds)],
     E = {nil, anno0()},
-    GF = [{{GNum,Pattern},Filter} || 
+    GF = [{{GNum,Pattern},Filter} ||
              {GNum,Pattern,Filter,F} <- Candidates,
              no =/= try_ms(E, Pattern, F, State)],
-    GFF = sofs:relation_to_family(sofs:relation(GF, 
+    GFF = sofs:relation_to_family(sofs:relation(GF,
                                                 [{gnum_pattern,[filter]}])),
     GFFL = sofs:to_external(sofs:family_union(GFF)),
     try
@@ -1176,7 +1189,7 @@ pattern_as_template(E, TemplVar) ->
 %% Column = {QualifierNumber,ColumnNumber}}
 %% FilterNo is a filter that can be skipped at runtime provided constants
 %% are looked up.
-%% ExtraConstants = 
+%% ExtraConstants =
 %%     [{GeneratorNumber,[{ColumnNumber,
 %%                         [{AbstractConstant,AbstractOperator}]}]}]
 %% For every generator such that the unification binds value(s) to
@@ -1187,33 +1200,33 @@ constants_and_sizes(Qualifiers0, E, Dependencies, AllIVs, State) ->
     TemplateAsPattern = template_as_pattern(E),
     Qualifiers = [TemplateAsPattern | Qualifiers0],
     {FilterData, GeneratorData} = qual_data(Qualifiers),
-    {Filter, Anon1, Imported} = 
+    {Filter, Anon1, Imported} =
         filter_info(FilterData, AllIVs, Dependencies, State),
     PatBindFun = fun(_Op, Value) -> is_bindable(Value) end,
-    {PatternFrame, PatternVars} = 
+    {PatternFrame, PatternVars} =
         pattern_frame(GeneratorData, PatBindFun, Anon1, State),
     PatternFrames = frame2frames(PatternFrame),
-    FilterFun = 
-        fun(BindFun) -> 
+    FilterFun =
+        fun(BindFun) ->
               filter(Filter, PatternFrames, BindFun, State, Imported)
         end,
     SzFs = FilterFun(PatBindFun),
 
     SizeInfo = pattern_sizes(PatternVars, SzFs),
     SelectorFun = const_selector(Imported),
-    PatternConstants = 
+    PatternConstants =
         lists:flatten(frames_to_columns(PatternFrames, PatternVars,
                                         deref_pattern(Imported),
                                         SelectorFun, Imported,
                                         '=:=')),
 
-    {EqColumnConstants, _EqExtraConsts} = 
+    {EqColumnConstants, _EqExtraConsts} =
         constants(FilterFun, PatternVars, PatternConstants, PatternFrame,
-                  FilterData, Dependencies, _LookupOp1 = '=:=', 
+                  FilterData, Dependencies, _LookupOp1 = '=:=',
                   Imported, State),
-    {EqualColumnConstants, EqualExtraConsts} = 
+    {EqualColumnConstants, EqualExtraConsts} =
         constants(FilterFun, PatternVars, PatternConstants, PatternFrame,
-                  FilterData, Dependencies, _LookupOp2 = '==', 
+                  FilterData, Dependencies, _LookupOp2 = '==',
                   Imported, State),
 
     %% Use compared extra constants only because:
@@ -1222,25 +1235,25 @@ constants_and_sizes(Qualifiers0, E, Dependencies, AllIVs, State) ->
     %%   constants from the comparing unification.
     %% Using constants from the matching unification would make it
     %% possible to skip some (more) objects when joining.
-    ExtraCon1 = 
+    ExtraCon1 =
         [{{GId,Col},{Val,Op}} ||
             {Consts,Op} <- [{EqualExtraConsts,'=='}],
             {{GId,Col},Val} <- Consts],
-    ExtraConstants = 
+    ExtraConstants =
       family_list([{GId, {Col,ValOps}} ||
                       {{GId,Col},ValOps} <- family_list(ExtraCon1)]),
     {EqColumnConstants, EqualColumnConstants, ExtraConstants, SizeInfo}.
 
-constants(FilterFun, PatternVars, PatternConstants, PatternFrame, 
+constants(FilterFun, PatternVars, PatternConstants, PatternFrame,
           FilterData, Dependencies, LookupOp, Imported, State) ->
     BindFun = fun(_Op, Value) -> is_bindable(Value) end,
     Fs = FilterFun(BindFun),
     SelectorFun = const_selector(Imported),
-    ColumnConstants0 = frames_to_columns(Fs, PatternVars, 
+    ColumnConstants0 = frames_to_columns(Fs, PatternVars,
                                          deref_lookup(Imported, LookupOp),
                                          SelectorFun, Imported, LookupOp),
     ColumnConstants1 = lists:flatten(ColumnConstants0),
-    ExtraConstants = 
+    ExtraConstants =
        [{{GId,Col},Val} ||
            {{GId,Col},Vals} <- ColumnConstants1 -- PatternConstants,
            GId =/= ?TNO,
@@ -1281,15 +1294,15 @@ deref_lookup(Imported, '=:=') ->
 %% Augment ColConstants with filters that do not need to be run
 %% provided that constants are looked up.
 %% Does not find all filters that can be removed.
-lu_skip(ColConstants, FilterData, PatternFrame, PatternVars, 
+lu_skip(ColConstants, FilterData, PatternFrame, PatternVars,
         Dependencies, State, Imported, LookupOp) ->
     %% If there is a test that does not compare or match, then the
     %% filter cannot be skipped.
     FailSelector = fun(_Frame) -> fun(Value) -> {yes, Value} end end,
-    %% In runtime, constants are looked up and matched against a pattern 
+    %% In runtime, constants are looked up and matched against a pattern
     %% (the pattern acts like a filter), then the filters are run.
     PatternFrames = frame2frames(PatternFrame),
-    PatternColumns = 
+    PatternColumns =
         lists:flatten(frames_to_columns(PatternFrames, PatternVars,
                                         deref_pattern(Imported), FailSelector,
                                         Imported, LookupOp)),
@@ -1299,27 +1312,28 @@ lu_skip(ColConstants, FilterData, PatternFrame, PatternVars,
     %% Note: one filter at a time is tested; only the pattern is
     %% assumed to have been run when the filter is run. Sometimes it
     %% would be advantageously to assume some filter(s) occurring
-    %% before the filter had been run as well 
+    %% before the filter had been run as well
     %% (an example: {{X,Y}} <- LE, X =:= 1, Y =:= a).
     BindFun = fun(_Op, Value) -> is_bindable(Value) end,
     ColFil = [{Column, FId#qid.no} ||
-                 {FId,{fil,Fil}} <- 
+                 {FId,{fil,Fil}} <-
                      filter_list(FilterData, Dependencies, State),
-                 [] =/= (SFs = safe_filter(reset_anno(Fil), PatternFrames,
-                                           BindFun, State, Imported)),
+                 SFs <- [safe_filter(reset_anno(Fil), PatternFrames,
+                                     BindFun, State, Imported)],
+                 [] =/= SFs,
                  {GId,PV} <- PatternVars,
-                 [] =/= 
-                    (Cols = hd(frames_to_columns(SFs, [{GId, PV}],
-                                                 deref_lu_skip(LookupOp,
-                                                               Imported),
-                                                 const_selector(Imported),
-                                                 Imported, LookupOp))),
+                 Cols <- [hd(frames_to_columns(SFs, [{GId, PV}],
+                                               deref_lu_skip(LookupOp, Imported),
+                                               const_selector(Imported),
+                                               Imported, LookupOp))],
+                 [] =/= Cols,
                  %% The filter must not test more than one column (unless the
                  %% pattern has already done the test):
                  %% Note: if the pattern and the filter test the same
                  %% column, the filter will not be skipped.
                  %% (an example: {X=1} <- ..., X =:= 1).
-                 length(D = Cols -- PatternColumns) =:= 1,
+                 D <- [Cols -- PatternColumns],
+                 length(D) =:= 1,
                  {{_,Col} = Column, Constants} <- D,
                  %% Check that the following holds for all frames.
                  lists:all(
@@ -1334,19 +1348,19 @@ lu_skip(ColConstants, FilterData, PatternFrame, PatternVars,
 
                      {NV, F1} = unify_column(PatternFrame, PV, Col, BindFun,
                                              Imported),
-                     F2 = unify_var_bindings(VarValues, '=:=', NV, F1, 
+                     F2 = unify_var_bindings(VarValues, '=:=', NV, F1,
                                              BindFun, Imported, false),
                      %% F2: the pattern has been matched and the
                      %% constant has been looked up. If Frame has no
                      %% more bindings than F2 (modulo unique
-                     %% variables), then the filter can be skipped. 
-                     %% 
-                     %% Under rare circumstances (for instance: 
+                     %% variables), then the filter can be skipped.
+                     %%
+                     %% Under rare circumstances (for instance:
                      %% "X =:= 1, X =:= U", U imported; only 1 is looked up),
                      %% not all constants mentioned in a filter are looked up.
                      %% The filter can only be skipped if all constants
                      %% are looked up.
-                     LookedUpConstants = 
+                     LookedUpConstants =
                          case lists:keyfind(Column, 1, ColConstants) of
                              false -> [];
                              {Column, LUCs} -> LUCs
@@ -1378,12 +1392,12 @@ deref_lu_skip('=:=', Imported) ->
     fun(PV, F) -> deref_values(PV, F, Imported) end.
 
 equal_columns(Qualifiers, AllIVs, Dependencies, State) ->
-    {Cs, Skip} = 
+    {Cs, Skip} =
         join_info(Qualifiers, AllIVs, Dependencies, State, _JoinOp = '=='),
     join_gens(Cs, Qualifiers, Skip).
 
 eq_columns(Qualifiers, AllIVs, Dependencies, State) ->
-    {Cs, Skip} = 
+    {Cs, Skip} =
         join_info(Qualifiers, AllIVs, Dependencies, State, _JoinOp = '=:='),
     join_gens(Cs, Qualifiers, Skip).
 
@@ -1421,7 +1435,7 @@ skip_tag(Col, ColFils, FilterData) ->
                           some
                   end,
             {Tag, FilL};
-        false -> 
+        false ->
             {some,[]}
     end.
 
@@ -1432,10 +1446,10 @@ skip_tag(Col, ColFils, FilterData) ->
 %% -> [[{QualifierNumber,ColumnNumber}]] % Eq.classes.
 join_info(Qualifiers, AllIVs, Dependencies, State, JoinOp) ->
     {FilterData, GeneratorData} = qual_data(Qualifiers),
-    {Filter, Anon1, Imported} = 
+    {Filter, Anon1, Imported} =
         filter_info(FilterData, AllIVs, Dependencies, State),
     BindFun = fun(_Op, V) -> bind_no_const(V, Imported) end,
-    {PatternFrame, PatternVars} = 
+    {PatternFrame, PatternVars} =
         pattern_frame(GeneratorData, BindFun, Anon1, State),
     PatternFrames = frame2frames(PatternFrame),
     Fs = filter(Filter, PatternFrames, BindFun, State, Imported),
@@ -1473,23 +1487,23 @@ join_skip(JoinClasses, FilterData, PatternFrame, PatternVars, Dependencies,
                  GId2#qid.no =:= Q2,
 
                  %% Select a filter that depends on the two generators:
-                 {FId,{fil,Fil}} <- 
+                 {FId,{fil,Fil}} <-
                      filter_list(FilterData, Dependencies, State),
-                 {value,{_,GIds}} <- 
+                 {value,{_,GIds}} <-
                      [lists:keysearch(FId, 1, Dependencies)],
                  GIds =:= lists:sort([GId1,GId2]),
 
                  begin
-                     %% Do what the join does: 
+                     %% Do what the join does:
                      %% element(C1, G1) JoinOp element(C2, G2).
                      %% As for lu_skip: sometimes it would be
                      %% advantageously to assume some filter(s)
                      %% occurring before the join filter had been run
                      %% as well.
                      BindFun = fun(_Op, V) -> is_bindable(V) end,
-                     {V1, JF1} = 
+                     {V1, JF1} =
                        unify_column(PatternFrame, PV1, C1, BindFun, Imported),
-                     {V2, JF2} = 
+                     {V2, JF2} =
                          unify_column(JF1, PV2, C2, BindFun, Imported),
                      JF = unify(JoinOp, V1, V2, JF2, BindFun, Imported),
 
@@ -1497,7 +1511,7 @@ join_skip(JoinClasses, FilterData, PatternFrame, PatternVars, Dependencies,
                      SFs = safe_filter(reset_anno(Fil), PatternFrames,
                                        BindFun, State, Imported),
                      JImp = qlc:vars([SFs, JF]), % kludge
-                     lists:all(fun(Frame) -> 
+                     lists:all(fun(Frame) ->
                                        bindings_is_subset(Frame, JF, JImp)
                                end, SFs) andalso SFs =/= []
                  end],
@@ -1509,7 +1523,7 @@ filter_info(FilterData, AllIVs, Dependencies, State) ->
     Anon0 = 0,
     {Filter, Anon1} = anon_var(Filter0, Anon0),
     Imported = ordsets:subtract(qlc:vars(Filter), % anonymous too
-                                ordsets:from_list(AllIVs)), 
+                                ordsets:from_list(AllIVs)),
     {Filter, Anon1, Imported}.
 
 %% Selects the guard filters. Other filters than guard filters are
@@ -1520,7 +1534,7 @@ filter_info(FilterData, AllIVs, Dependencies, State) ->
 %% the failing filter is placed _after_ the guard filter, the failing
 %% objects have already been filtered out by the guard filter.
 %% Note: guard filters using variables from one generator are allowed
-%% to be placed after further generators (the docs states otherwise, but 
+%% to be placed after further generators (the docs states otherwise, but
 %% this seems to be common practice).
 filter_list(FilterData, Dependencies, State) ->
     sel_gf(FilterData, 1, Dependencies, State, [], []).
@@ -1560,12 +1574,12 @@ pattern_frame(GeneratorData, BindFun, Anon1, State) ->
     Frame0 = [],
     {PatternFrame, _Anon2, PatternVars} =
         lists:foldl(fun({QId,{gen,Pattern,_}}, {F0,An0,PVs}) ->
-                            {F1, An1, PV} = 
+                            {F1, An1, PV} =
                                 pattern(Pattern, An0, F0, BindFun, State),
                             {F1, An1, [{QId,PV} | PVs]}
                     end, {Frame0, Anon1, []}, GeneratorData),
     {PatternFrame, PatternVars}.
-              
+
 const_selector(Imported) ->
     selector(Imported, fun is_const/2).
 
@@ -1574,7 +1588,7 @@ no_const_selector(Imported) ->
 
 selector(Imported, TestFun) ->
     fun(_Frame) ->
-            fun(Value) -> 
+            fun(Value) ->
                     case TestFun(Value, Imported) of
                         true ->
                             {yes, Value};
@@ -1594,7 +1608,7 @@ bind_no_const(Value, Imported) ->
 
 %% Tuple tails are variables, never constants.
 is_const(Value, Imported) ->
-    %% is_bindable() has checked that E is normalisable. 
+    %% is_bindable() has checked that E is normalisable.
     [] =:= ordsets:to_list(ordsets:subtract(qlc:vars(Value), Imported)).
 
 is_bindable(Value) ->
@@ -1606,7 +1620,7 @@ is_bindable(Value) ->
     end.
 
 pattern(P0, AnonI, Frame0, BindFun, State) ->
-    P1 = try 
+    P1 = try
              expand_pattern_records(P0, State)
          catch _:_ -> P0 % template, records already expanded
          end,
@@ -1668,10 +1682,10 @@ filter(E0, Frames0, BF, State, Imported) ->
 
 %% One frame for each path through the and/or expression.
 %%
-%% "A xor B" is equal to "(A and not B) or (not A and B)". 
-%% Ignoring "not B" and "not A" this is the same as "A or B"; 
+%% "A xor B" is equal to "(A and not B) or (not A and B)".
+%% Ignoring "not B" and "not A" this is the same as "A or B";
 %% "xor" can be handled just as "or".
-%% 
+%%
 %% One must handle filters with care, both when joining and when
 %% looking up values. The reference is a nested loop: if the filter
 %% fails for some combination of values, it must fail also when
@@ -1704,7 +1718,7 @@ filter1({op, _, Op, L0, R0}, Fs, FS) when Op =:= '=:='; Op =:= '==' ->
                   end, Fs);
 filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'and'; Op =:= 'andalso' ->
     filter1(R, filter1(L, Fs, FS), FS);
-filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'or'; 
+filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'or';
                                         Op =:= 'orelse';
                                         Op =:= 'xor' ->
     filter1(L, Fs, FS) ++ filter1(R, Fs, FS);
@@ -1754,7 +1768,7 @@ safe_filter1({atom,_,true}, Fs, _FS) ->
 safe_filter1(_E, _Fs, _FS) ->
     [].
 
-%% Substitutions: 
+%% Substitutions:
 %% M:F() for {M,F}(); erlang:F() for F(); is_record() for record().
 pre_expand({call,Anno1,{atom,Anno2,record},As}) ->
     pre_expand({call,Anno1,{atom,Anno2,is_record},As});
@@ -1778,18 +1792,18 @@ frames_to_columns(Fs, PatternVars, DerefFun, SelectorFun, Imp, CompOp) ->
     %% it doesn't matter, but when trying to find joined columns, the
     %% same variables have to be the representatives in every frame.)
     SizesVarsL =
-        [begin 
+        [begin
              PatVar = {var,anno0(),PV},
-             PatternSizes = [pattern_size([F], PatVar, false) || 
+             PatternSizes = [pattern_size([F], PatVar, false) ||
                                 F <- Fs],
              MaxPZ = lists:max([0 | PatternSizes -- [undefined]]),
              Vars = pat_vars(MaxPZ),
              {PatternId#qid.no, PatVar, PatternSizes, Vars}
          end || {PatternId, PV} <- PatternVars],
     BF = fun(_Op, Value) -> is_bindable(Value) end,
-    Fun = fun({_PatN, PatVar, PatSizes, Vars}, Frames) -> 
+    Fun = fun({_PatN, PatVar, PatSizes, Vars}, Frames) ->
                   [unify('=:=', pat_tuple(Sz, Vars), PatVar, Frame, BF, Imp) ||
-                      {Sz, Frame} <- lists:zip(PatSizes, Frames)]
+                      Sz <- PatSizes && Frame <- Frames]
           end,
     NFs = lists:foldl(Fun, Fs, SizesVarsL),
     [frames2cols(NFs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ||
@@ -1798,8 +1812,8 @@ frames_to_columns(Fs, PatternVars, DerefFun, SelectorFun, Imp, CompOp) ->
 frames2cols(Fs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ->
     Rs = [ begin
                RL = [{{PatN,Col},cons2tuple(element(2, Const))} ||
-                        {V, Col} <- lists:zip(lists:sublist(Vars, PatSz),
-                                              lists:seq(1, PatSz)),
+                        V <- lists:sublist(Vars, PatSz) &&
+                            Col <- lists:seq(1, PatSz),
                         %% Do not handle the case where several
                         %% values compare equal, e.g. "X =:= 1
                         %% andalso X == 1.0". Looking up both
@@ -1816,10 +1830,12 @@ frames2cols(Fs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ->
                         %% seen as a bug.) Note: matching tables
                         %% cannot skip the filter, but looking up
                         %% one of the values should be OK.
-                        tl(Consts = DerefFun(V, F)) =:= [],
-                        (Const = (SelectorFun(F))(hd(Consts))) =/= no],
+                        Consts <- [DerefFun(V, F)],
+                        tl(Consts) =:= [],
+                        Const <- [(SelectorFun(F))(hd(Consts))],
+                        Const =/= no],
                sofs:relation(RL) % possibly empty
-            end || {F,PatSz} <- lists:zip(Fs, PatSizes)],
+            end || F <- Fs && PatSz <- PatSizes],
     Ss = sofs:from_sets(Rs),
     %% D: columns occurring in every frame (path).
     D = sofs:intersection(sofs:projection(fun(S) -> sofs:projection(1, S) end,
@@ -1844,9 +1860,10 @@ col_ignore(Vs, '==') ->
     length(Vs) =/= length(lists:usort([element(2, normalise(V)) || V <- Vs])).
 
 pattern_sizes(PatternVars, Fs) ->
-    [{QId#qid.no, Size} || 
+    [{QId#qid.no, Size} ||
         {QId,PV} <- PatternVars,
-        undefined =/= (Size = pattern_size(Fs, {var,anno0(),PV}, true))].
+        Size <- [pattern_size(Fs, {var,anno0(),PV}, true)],
+        undefined =/= (Size)].
 
 pattern_size(Fs, PatternVar, Exact) ->
     Fun = fun(F) -> (deref_pattern(_Imported = []))(PatternVar, F) end,
@@ -1960,14 +1977,14 @@ unify(Op, E1, E2, F, _BF, _Imported, Safe) ->
     try
       {ok, C1} = normalise(E1),
       {ok, C2} = normalise(E2),
-      if 
+      if
           Op =:= '=:=', C1 =:= C2 ->
               F;
           Op =:= '==', C1 == C2 ->
               F;
           true ->
               failed
-      end 
+      end
     catch error:_ when Safe -> failed;
           error:_ when not Safe -> F   % ignored
     end.
@@ -1982,7 +1999,7 @@ unify(Op, E1, E2, F, _BF, _Imported, Safe) ->
 %% to find lookup values for such QLCs at all. That might have been a
 %% better design decision.
 
--record(bind, {var, value, op}). 
+-record(bind, {var, value, op}).
 
 extend_frame(Op, Var, Value, F, BF, Imported, Safe) ->
     case var_values(Var, F) of
@@ -1993,7 +2010,7 @@ extend_frame(Op, Var, Value, F, BF, Imported, Safe) ->
                         [] ->
                             add_binding(Op, Value, Var, F, BF, Imported, Safe);
                         ValsOps ->
-                            maybe_add_binding(ValsOps, Op, Value, Var, F, 
+                            maybe_add_binding(ValsOps, Op, Value, Var, F,
                                               BF, Imported, Safe)
                     end;
                 _ ->
@@ -2009,7 +2026,7 @@ maybe_add_binding(ValsOps, Op, Var, Value, F0, BF, Imported, Safe) ->
             failed;
         F ->
             case already_bound(Op, Var, Value, F) of
-                true -> 
+                true ->
                     F;
                 false ->
                     add_binding(Op, Var, Value, F, BF, Imported, Safe)
@@ -2044,19 +2061,19 @@ deref_op(_, _) ->
 %%% Note: usort works; {integer,A,3} does not match {float,A,3.0}.
 
 var_values(Var, Frame) ->
-    [{Value, Op} || 
+    [{Value, Op} ||
         #bind{value = Value, op = Op} <- var_bindings(Var, Frame)].
 
 deref_var(Var, Frame, Imported) ->
     deref_var(Var, Frame, fun(_DV, _Op) -> true end, Imported).
 
 deref_var(Var, Frame, BFun, Imported) ->
-    lists:usort([ValOp || 
+    lists:usort([ValOp ||
                     #bind{value = Value, op = Op} <- var_bindings(Var, Frame),
                     ValOp <- deref_value(Value, Op, Frame, BFun, Imported)]).
 
 deref_value(Value, Op, Frame, BFun, Imported) ->
-    lists:usort([{Val,value_op(ValOp, Op, Imported)} || 
+    lists:usort([{Val,value_op(ValOp, Op, Imported)} ||
                     {Val,_Op}=ValOp <- deref(Value, Frame, BFun, Imported)]).
 
 add_binding(Op, Var0, Value0, F, BF, Imported, Safe) ->
@@ -2094,11 +2111,11 @@ do_swap_var_value({var, _, V1}=Var1, {var, _, V2}=Var2, F, Imported) ->
         [] ->
             case swap_vv(Var2, Var1, F) of
                 [] ->
-                    ordsets:is_element(V1, Imported) andalso 
+                    ordsets:is_element(V1, Imported) andalso
                         not ordsets:is_element(V2, Imported);
                 _Bs ->
                     true
-            end;                
+            end;
         _Bs ->
            false
     end;
@@ -2132,7 +2149,7 @@ deref_values(E, Frame, Imported) ->
     deref_values(E, Frame, fun(_DV, _Op) -> true end, Imported).
 
 deref_values(E, Frame, BFun, Imported) ->
-    lists:usort([V || 
+    lists:usort([V ||
                     {V, Op} <- deref(E, Frame, BFun, Imported),
                     BFun(V, Op)]).
 
@@ -2141,7 +2158,7 @@ deref(E, F, Imp) ->
     deref(E, F, BFun, Imp).
 
 deref({var, _, _}=V, F, BFun, Imp) ->
-    DBs = lists:flatmap(fun(B) -> deref_binding(B, F, BFun, Imp) 
+    DBs = lists:flatmap(fun(B) -> deref_binding(B, F, BFun, Imp)
                         end, var_bindings(V, F)),
     case DBs of
         [] ->
@@ -2150,7 +2167,7 @@ deref({var, _, _}=V, F, BFun, Imp) ->
             lists:usort(DBs)
     end;
 deref(T, F, BFun, Imp) when is_tuple(T) ->
-    [{list_to_tuple(DL), Op} || 
+    [{list_to_tuple(DL), Op} ||
         {DL, Op} <- deref(tuple_to_list(T), F, BFun, Imp)];
 deref(Es, F, BFun, Imp) when is_list(Es) ->
     L = [deref(C, F, BFun, Imp) || C <- Es],
@@ -2165,8 +2182,9 @@ deref_binding(Bind, Frame, BFun, Imp) ->
     #bind{value = Value, op = Op0} = Bind,
     [{Val, Op} ||
         {Val, _Op}=ValOp <- deref(Value, Frame, BFun, Imp),
-        BFun(Val, Op = value_op(ValOp, Op0, Imp))].
-    
+        Op <- [value_op(ValOp, Op0, Imp)],
+        BFun(Val, Op)].
+
 deref_list(L) ->
     Op = case lists:usort([Op || {_Val, Op} <- L]) of
              ['=:='] ->
@@ -2219,7 +2237,7 @@ has_int({float,_,F}) when round(F) == F ->
 has_int(T) when is_tuple(T) ->
     has_int(tuple_to_list(T));
 has_int([E | Es]) ->
-    has_int(E), 
+    has_int(E),
     has_int(Es);
 has_int(_) ->
     false.
@@ -2259,7 +2277,7 @@ cons2list(E) -> % tuple tail (always a variable)
 
 %% Returns true if all bindings in F1 also occur in F2.
 %% Viewing F1 and F2 as sets, the fact that F1 is a subset of F2 iff
-%% F1 union F2 is equal to F2 is used. (This should take care of 
+%% F1 union F2 is equal to F2 is used. (This should take care of
 %% issues with anonymous variables.)
 bindings_is_subset(F1, F2, Imported) ->
     BF = fun(_Op, _Value) -> true end, % don't need any test here
@@ -2275,7 +2293,7 @@ bindings_subset(F1, F2, Imp) ->
                       deref_var(V, F1, Imp) =:= deref_var(V, F2, Imp)
               end, Vars).
 
-%% Recognizes all QLCs on the form [T || P <- LE, F] such that
+%% Recognizes all QLCs of the form [T || P <- LE, F] such that
 %% ets:fun2ms(fun(P) when F -> T end) is a match spec. This is OK with
 %% the guard semantics implemented in filter/_ below. If one chooses
 %% not to have guard semantics, affected filters will have to be
@@ -2286,13 +2304,13 @@ try_ms(E, P, Fltr, State) ->
     Expr = {call,Anno,{remote,Anno,{atom,Anno,ets},{atom,Anno,fun2ms}},[Fun]},
     Form = {function,Anno,foo,0,[{clause,Anno,[],[],[Expr]}]},
     X = ms_transform:parse_transform(State#state.records ++ [Form], []),
-    case catch 
+    case catch
         begin
             {function,Anno,foo,0,[{clause,Anno,[],[],[MS0]}]} = lists:last(X),
             MS = erl_parse:normalise(var2const(MS0)),
             XMS = ets:match_spec_compile(MS),
             true = ets:is_compiled_ms(XMS),
-            {ok, MS, MS0} 
+            {ok, MS, MS0}
         end of
         {'EXIT', _Reason} ->
             no;
@@ -2309,7 +2327,7 @@ filters_as_one(FilterData) ->
                 end, Filter1, Filters).
 
 qual_data(Qualifiers) ->
-    F = fun(T) -> 
+    F = fun(T) ->
                 [{QId,Q} || {QId,_,_,Q} <- Qualifiers, element(1,Q) =:= T]
         end,
     {F(fil), F(gen)}.
@@ -2318,7 +2336,7 @@ set_field(Pos, Fs, Data) ->
     lists:sublist(Fs, Pos-1) ++ [Data] ++ lists:nthtail(Pos, Fs).
 
 qdata([{#qid{no = QIdNo},{_QIVs,{{gen,_P,LE,_GV},GoI,SI}}} | QCs], Anno) ->
-    Init = case LE of 
+    Init = case LE of
                {join, Op, Q1, Q2, H1, H2, Cs1_0, Cs2_0} ->
                    Cs1 = qcon(Cs1_0),
                    Cs2 = qcon(Cs2_0),
@@ -2357,7 +2375,7 @@ qcode(E, QCs, Source, Anno, State) ->
               {bin, Anno, [{bin_element, Anno,
                          {string, Anno, binary_to_list(Bin)},
                          default, default}]}
-          end || {_,C} <- lists:keysort(1, [{qlc:template_state(),E} | 
+          end || {_,C} <- lists:keysort(1, [{qlc:template_state(),E} |
                                             qcode(QCs, Source, State)])],
     {'fun', Anno, {clauses, [{clause, Anno, [], [], [{tuple, Anno, CL}]}]}}.
 
@@ -2413,7 +2431,7 @@ template(E, RL, Fun, Go, AT, Anno, IVs, State) ->
 
     %% Extra careful here or arguments will be lifted into a wide fun.
     F = case split_args([Next | As0], Anno, State) of
-            {ArgsL, ArgsT} -> 
+            {ArgsL, ArgsT} ->
                 Call = {call,Anno,?V(Fun),ArgsL++[{var,Anno,AT}]},
                 {block,Anno,
                  [{match,Anno,{var,Anno,AT},ArgsT},
@@ -2445,7 +2463,7 @@ generator(S, QIVs, P, GV, NGV, E, IVs, RL, Fun, Go, GoI, Anno, State) ->
     CsL = generator_list(P, GV, NGV, As, AsM, AsC, AsD, Fun, Anno, State),
     CsF = generator_cont(P, GV, NGV, E, As, AsM, AsC, AsD, Fun, Anno, State),
     [InitC | CsL ++ CsF].
-    
+
 generator_init(S, Anno, GV, RL, Fun, Go, GoI, IVs, State) ->
     As0 = abst_vars([RL, Fun, Go] ++ replace([GV], IVs, '_'), Anno),
     As = pack_args([?I(S) | As0], Anno, State),
@@ -2477,7 +2495,7 @@ generator_cont(P, GV, NGV, E, As0, AsM, AsC, AsD, Fun, Anno, State) ->
     Cls = [CM, CC, CD, CE],
     B = {'case',Anno,{call,Anno,?V(GV),[]},Cls},
     [{clause,Anno,As,[],[B]}].
-    
+
 filter(E, Anno, QIVs, S, RL, Fun, Go, GoI, IVs, State) ->
     IAs = replace(QIVs, IVs, '_'),
     As = pack_args([?I(S) | abst_vars([RL, Fun, Go] ++ IAs, Anno)], Anno, State),
@@ -2490,17 +2508,17 @@ filter(E, Anno, QIVs, S, RL, Fun, Go, GoI, IVs, State) ->
     %% comprehension: if a filter looks like a guard test, it returns
     %% 'false' rather than fails.
     Body = case is_guard_test(E, State) of
-               true -> 
+               true ->
                    CT = {clause,Anno,[],[[E]],[{call,Anno,?V(Fun),NAsT}]},
                    CF = {clause,Anno,[],[[?A(true)]],[{call,Anno,?V(Fun),NAsF}]},
                    [{'if',Anno,[CT,CF]}];
-               false -> 
+               false ->
                    CT = {clause,Anno,[?A(true)],[],[{call,Anno,?V(Fun),NAsT}]},
                    CF = {clause,Anno,[?A(false)],[],[{call,Anno,?V(Fun),NAsF}]},
                    [{'case',Anno,E,[CT,CF]}]
            end,
     [{clause,Anno,As,[],Body}].
-    
+
 pack_args(Args, Anno, State) ->
     case split_args(Args, Anno, State) of
         {ArgsL, ArgsT} ->
@@ -2510,17 +2528,17 @@ pack_args(Args, Anno, State) ->
     end.
 
 split_args(Args, Anno, State) when length(Args) > State#state.maxargs ->
-    {lists:sublist(Args, State#state.maxargs-1), 
+    {lists:sublist(Args, State#state.maxargs-1),
      {tuple,Anno,lists:nthtail(State#state.maxargs-1, Args)}};
 split_args(Args, _Anno, _State) ->
     Args.
-    
+
 %% Replace every element in IEs that is a member of Es by R, keep all
 %% other elements as they are.
 replace(Es, IEs, R) ->
     [case lists:member(E, Es) of
-         true -> R; 
-         false -> E 
+         true -> R;
+         false -> E
      end || E <- IEs].
 
 is_list_c(V, Anno) ->
@@ -2658,7 +2676,7 @@ no_shadows(Forms0, State) ->
     %% Variables that may shadow other variables are introduced in
     %% LCs and Funs. Such variables (call them SV, Shadowing
     %% Variables) are now renamed. Each (new) occurrence in a pattern
-    %% is assigned an index (integer), unique in the file. 
+    %% is assigned an index (integer), unique in the file.
     %%
     %% The state {LastIndex,ActiveVars,UsedVars,AllVars,Singletons,State}
     %% holds the last index used for each SV (LastIndex), the SVs in
@@ -2724,7 +2742,7 @@ nos({lc,Anno,E0,Qs0}, S) ->
                 {LE, _} = nos(LE0, QS0),
                 {P, QS} = nos_pattern(P0, QS0),
                 {{T,GAnno,P,LE}, QS};
-           (Filter, QS) -> 
+           (Filter, QS) ->
                 nos(Filter, QS)
         end,
     {Qs, S1} = lists:mapfoldl(F, S, Qs0),
@@ -2753,12 +2771,12 @@ nos_pattern([P0 | Ps0], S0, PVs0) ->
     {Ps, S, PVs} = nos_pattern(Ps0, S1, PVs1),
     {[P | Ps], S, PVs};
 nos_pattern({var,Anno,V}, {LI,Vs0,UV,A,Sg,State}, PVs0) when V =/= '_' ->
-    {Name, Vs, PVs} = 
+    {Name, Vs, PVs} =
         case lists:keyfind(V, 1, PVs0) of
             {V, VN} ->
-                _ = used_var(V, Vs0, UV), 
+                _ = used_var(V, Vs0, UV),
                 {VN, Vs0, PVs0};
-            false -> 
+            false ->
                 {VN, Vs1} = next_var(V, Vs0, A, LI, UV),
                 N = case lists:member(VN, Sg) of
                         true -> '_';
@@ -2822,7 +2840,7 @@ undo_no_shadows1({var, Anno, _}=Var, State) ->
             Var
     end.
 
-%% QLC identifier. 
+%% QLC identifier.
 %% The first one encountered in the file has No=1.
 
 make_lcid(Anno, No) when is_integer(No), No > 0 ->

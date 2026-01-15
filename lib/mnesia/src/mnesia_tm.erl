@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,9 @@
 
 %%
 -module(mnesia_tm).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 -export([
 	 start/0,
@@ -872,7 +877,7 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
 	    ?SAFE(unlink(whereis(?MODULE))),
 	    {atomic, Value};
 	{do_abort, Reason} ->
-	    check_exit(Fun, Args, Factor, Retries, {aborted, Reason}, Type);
+	    check_exit(Fun, Args, Factor, Retries, {aborted, Reason}, [], Type);
 	{nested_atomic, Value} ->
 	    mnesia_lib:incr_counter(trans_commits),
 	    {atomic, Value}
@@ -880,9 +885,11 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
 	    Reason = {aborted, {throw, Value}},
 	    return_abort(Fun, Args, Reason);
 	  error:Reason:ST ->
-	    check_exit(Fun, Args, Factor, Retries, {Reason,ST}, Type);
-	  _:Reason ->
-	    check_exit(Fun, Args, Factor, Retries, Reason, Type)
+	    check_exit(Fun, Args, Factor, Retries, Reason, ST, Type);
+          exit:{aborted, _R} = Reason:ST ->
+            check_exit(Fun, Args, Factor, Retries, Reason, ST, Type);
+	  _:Reason:ST ->
+	    check_exit(Fun, Args, Factor, Retries, Reason, ST, Type)
     end.
 
 apply_fun(Fun, Args, Type) ->
@@ -898,7 +905,7 @@ apply_fun(Fun, Args, Type) ->
 	    Abort
     end.
 
-check_exit(Fun, Args, Factor, Retries, Reason, Type) ->
+check_exit(Fun, Args, Factor, Retries, Reason, ST, Type) ->
     case Reason of
 	{aborted, C = #cyclic{}} ->
 	    maybe_restart(Fun, Args, Factor, Retries, Type, C);
@@ -907,7 +914,7 @@ check_exit(Fun, Args, Factor, Retries, Reason, Type) ->
 	{aborted, {bad_commit, N}} ->
 	    maybe_restart(Fun, Args, Factor, Retries, Type, {bad_commit, N});
 	_ ->
-	    return_abort(Fun, Args, Reason)
+	    return_abort(Fun, Args, Reason, ST)
     end.
 
 maybe_restart(Fun, Args, Factor, Retries, Type, Why) ->
@@ -1009,10 +1016,12 @@ decr(infinity) -> infinity;
 decr(X) when is_integer(X), X > 1 -> X - 1;
 decr(_X) -> 0.
 
-return_abort(Fun, Args, Reason)  ->
+
+return_abort(Fun, Args, Reason) ->
+    return_abort(Fun, Args, Reason, []).
+
+return_abort(Fun, Args, Reason, ST)  ->
     {_Mod, Tid, Ts} = get(mnesia_activity_state),
-    dbg_out("Transaction ~p calling ~tp with ~tp failed: ~n ~tp~n",
-	    [Tid, Fun, Args, Reason]),
     OldStore = Ts#tidstore.store,
     Nodes = get_elements(nodes, OldStore),
     intercept_friends(Tid, Ts),
@@ -1020,6 +1029,8 @@ return_abort(Fun, Args, Reason)  ->
     Level = Ts#tidstore.level,
     if
 	Level == 1 ->
+            verbose("Transaction ~p calling ~tp with ~tp failed: ~n ~tp~n ~tp~n",
+                    [Tid, Fun, Args, Reason, ST]),
 	    mnesia_locker:async_release_tid(Nodes, Tid),
 	    ?SAFE(?MODULE ! {delete_transaction, Tid}),
 	    erase(mnesia_activity_state),
@@ -1108,8 +1119,12 @@ intercept_best_friend([{stop,Fun} | R],Ignore) ->
     ?CATCH(Fun()),
     intercept_best_friend(R,Ignore);
 intercept_best_friend([Pid | R],false) ->
-    Pid ! {activity_ended, undefined, self()},
+    Alias = alias([reply]),
+    Pid ! {activity_ended, undefined, Alias},
     wait_for_best_friend(Pid, 0),
+    unalias(Alias),
+    ?flush_msg({activity_ended, _, Pid}),
+    ?flush_msg({'EXIT', Pid, _}),
     intercept_best_friend(R,true);
 intercept_best_friend([_|R],true) ->
     intercept_best_friend(R,true).
@@ -1805,9 +1820,10 @@ commit_participant(Protocol, Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 		    mnesia_schema:undo_prepare_commit(Tid, C0),
 		    ?eval_debug_fun({?MODULE, commit_participant, pre_commit_undo_prepare}, [{tid, Tid}])
 	    end
-    catch _:Reason ->
+    catch _:Reason:ST ->
 	    ?eval_debug_fun({?MODULE, commit_participant, vote_no},
 			    [{tid, Tid}]),
+            verbose("~w:~w:  VOTE_NO: ~w ~w~n",[?MODULE, ?LINE, Reason, ST]),
 	    reply(Coord, {vote_no, Tid, Reason}),
 	    mnesia_schema:undo_prepare_commit(Tid, C0)
     end,
@@ -2049,8 +2065,9 @@ sync_send_dirty(Tid, [Head | Tail], Tab, WaitFor) ->
 	    Res =  do_dirty(Tid, Head),
 	    {WF, Res};
 	true ->
-	    {?MODULE, Node} ! {self(), {sync_dirty, Tid, Head, Tab}},
-	    sync_send_dirty(Tid, Tail, Tab, [Node | WaitFor])
+	    Alias = alias([reply]),
+	    {?MODULE, Node} ! {Alias, {sync_dirty, Tid, Head, Tab}},
+	    sync_send_dirty(Tid, Tail, Tab, [{Node, Alias} | WaitFor])
     end;
 sync_send_dirty(_Tid, [], _Tab, WaitFor) ->
     {WaitFor, {'EXIT', {aborted, {node_not_running, WaitFor}}}}.
@@ -2068,9 +2085,10 @@ async_send_dirty(Tid, [Head | Tail], Tab, ReadNode, WaitFor, Res) ->
 	    NewRes =  do_dirty(Tid, Head),
 	    async_send_dirty(Tid, Tail, Tab, ReadNode, WaitFor, NewRes);
 	ReadNode == Node ->
-	    {?MODULE, Node} ! {self(), {sync_dirty, Tid, Head, Tab}},
+	    Alias = alias([reply]),
+	    {?MODULE, Node} ! {Alias, {sync_dirty, Tid, Head, Tab}},
 	    NewRes = {'EXIT', {aborted, {node_not_running, Node}}},
-	    async_send_dirty(Tid, Tail, Tab, ReadNode, [Node | WaitFor], NewRes);
+	    async_send_dirty(Tid, Tail, Tab, ReadNode, [{Node, Alias} | WaitFor], NewRes);
 	true ->
 	    {?MODULE, Node} ! {self(), {async_dirty, Tid, Head, Tab}},
 	    async_send_dirty(Tid, Tail, Tab, ReadNode, WaitFor, Res)
@@ -2078,8 +2096,16 @@ async_send_dirty(Tid, [Head | Tail], Tab, ReadNode, WaitFor, Res) ->
 async_send_dirty(_Tid, [], _Tab, _ReadNode, WaitFor, Res) ->
     {WaitFor, Res}.
 
-rec_dirty([Node | Tail], Res) when Node /= node() ->
-    NewRes = get_dirty_reply(Node, Res),
+rec_dirty([{Node, Alias} | Tail], Res) when Node /= node() ->
+    NewRes =
+        try
+            get_dirty_reply(Node, Res)
+        after
+            unalias(Alias),
+            ?flush_msg({?MODULE, Node, {'EXIT', _}}),
+            ?flush_msg({?MODULE, Node, {dirty_res, _}}),
+            ?flush_msg({mnesia_down, Node})
+        end,
     rec_dirty(Tail, NewRes);
 rec_dirty([], Res) ->
     Res.
@@ -2203,11 +2229,13 @@ get_info(Timeout) ->
 	undefined ->
 	    {timeout, Timeout};
 	Pid ->
-	    Pid ! {self(), info},
+	    Alias = alias([reply]),
+	    Pid ! {Alias, info},
 	    receive
 		{?MODULE, _, {info, Part, Coord}} ->
 		    {info, Part, Coord}
 	    after Timeout ->
+		    ?unalias_and_flush_msg(Alias, {?MODULE, _, {info, _, _}}),
 		    {timeout, Timeout}
 	    end
     end.

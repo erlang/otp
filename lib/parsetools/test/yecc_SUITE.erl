@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -341,13 +343,13 @@ syntax(Config) when is_list(Config) ->
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
             {error,[{_,[{{5,25},_,["syntax error before: ","bad"]}]},
-                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
-                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1},_}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
-            L1 = 36 + SzYeccPre,
-            L2 = 45 + SzYeccPre
+            ?assertEqual(L1, 38 + SzYeccPre),
+            ?assertEqual(L2, 47 + SzYeccPre)
     end(),
 
     %% Bad macro in action. OTP-7224.
@@ -361,13 +363,13 @@ syntax(Config) when is_list(Config) ->
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
             {error,[{_,[{{5,24},_,{undefined,'F',1}}]},
-                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
-                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1},_}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
-            L1 = 36 + SzYeccPre,
-            L2 = 45 + SzYeccPre
+            ?assertEqual(L1, 38 + SzYeccPre),
+            ?assertEqual(L2, 47 + SzYeccPre)
     end(),
 
     %% Check line numbers. OTP-7224.
@@ -1691,14 +1693,14 @@ otp_7292(Config) when is_list(Config) ->
             SzYeccPre = yeccpre_size(),
             {error,
                    [{_,[{{5,32},_,["syntax error before: ","bad"]}]},
-                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
-                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1},_}}]}],
              [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            L1 = 46 + SzYeccPre,
-            L2 = 55 + SzYeccPre
+            ?assertEqual(L1, 48 + SzYeccPre),
+            ?assertEqual(L2, 57 + SzYeccPre)
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
@@ -1717,8 +1719,8 @@ otp_7292(Config) when is_list(Config) ->
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
                    [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            L1 = 45 + SzYeccPre,
-            L2 = 54 + SzYeccPre
+            ?assertEqual(L1, 45 + SzYeccPre),
+            ?assertEqual(L2, 54 + SzYeccPre)
     end(),
 
     file:delete(YeccPre),

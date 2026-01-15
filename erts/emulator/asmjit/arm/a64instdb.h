@@ -29,7 +29,7 @@ enum InstFlags : uint32_t {
   //! SIMD element access of half-words can only be used with v0..15.
   kInstFlagVH0_15 = 0x00000010u,
 
-  //! Instruction may consecutive registers if the number of operands is greater than 2.
+  //! Instruction uses consecutive registers if the number of operands is greater than 2.
   kInstFlagConsecutive = 0x00000080u
 };
 
@@ -47,10 +47,10 @@ struct InstInfo {
   //! \name Accessors
   //! \{
 
-  inline uint32_t rwInfoIndex() const noexcept { return _rwInfoIndex; }
-  inline uint32_t flags() const noexcept { return _flags; }
+  ASMJIT_INLINE_NODEBUG uint32_t rwInfoIndex() const noexcept { return _rwInfoIndex; }
+  ASMJIT_INLINE_NODEBUG uint32_t flags() const noexcept { return _flags; }
 
-  inline bool hasFlag(uint32_t flag) const { return (_flags & flag) != 0; }
+  ASMJIT_INLINE_NODEBUG bool hasFlag(uint32_t flag) const { return (_flags & flag) != 0; }
 
   //! \}
 };

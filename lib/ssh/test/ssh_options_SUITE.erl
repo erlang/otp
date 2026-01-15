@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 
 %%% This test suite tests different options for the ssh functions
 
+-compile(nowarn_obsolete_bool_op).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -37,7 +40,8 @@
          auth_none/1,
          connectfun_disconnectfun_client/1, 
 	 disconnectfun_option_client/1, 
-	 disconnectfun_option_server/1, 
+	 disconnectfun_option_server/1,
+	 bannerfun_server/1,
 	 id_string_no_opt_client/1, 
 	 id_string_no_opt_server/1, 
 	 id_string_own_string_client/1, 
@@ -88,7 +92,8 @@
          daemon_replace_options_simple/1,
          daemon_replace_options_algs/1,
          daemon_replace_options_algs_connect/1,
-         daemon_replace_options_algs_conf_file/1
+         daemon_replace_options_algs_conf_file/1,
+         daemon_replace_options_not_found/1
 	]).
 
 %%% Common test callbacks
@@ -110,10 +115,11 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,60}}].
+     {timetrap,{seconds,15}}].
 
 all() -> 
     [connectfun_disconnectfun_server,
+     bannerfun_server,
      connectfun_disconnectfun_client,
      server_password_option,
      server_userpassword_option,
@@ -159,6 +165,7 @@ all() ->
      daemon_replace_options_algs,
      daemon_replace_options_algs_connect,
      daemon_replace_options_algs_conf_file,
+     daemon_replace_options_not_found,
      {group, hardening_tests}
     ].
 
@@ -600,6 +607,7 @@ auth_none(Config) ->
 			     {user_dir, UserDir},
 			     {auth_methods, "password"}, % to make even more sure we don't use public-key-auth
 			     {user_passwords, [{"foo","somepwd"}]}, % Not to be used
+                             {alive, #{count_max => 1, interval => 2000}},
                              {no_auth_needed, true} % we test this
 			    ]),
     ClientConnRef1 =
@@ -776,6 +784,47 @@ connectfun_disconnectfun_server(Config) ->
 	    after 0 -> ok
 	    end,
 	    {fail, "No connectfun action"}
+    end.
+
+%%--------------------------------------------------------------------
+bannerfun_server(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    BannerFun = fun(U) -> Parent ! {banner,Ref,U}, list_to_binary(U) end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {bannerfun, BannerFun}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    receive
+	{banner,Ref,U} ->
+	   "foo" = U,
+            %% Make sure no second banner is sent
+            receive
+		{banner,Ref,U} ->
+                    ssh:close(ConnectionRef),
+                    ssh:stop_daemon(Pid),
+                    {fail, "More than 1 banner sent"}
+	    after 2000 ->
+                    ssh:close(ConnectionRef),
+                    ssh:stop_daemon(Pid)
+	    end
+    after 10000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
+	    {fail, "No bannerfun action"}
     end.
 
 %%--------------------------------------------------------------------
@@ -1514,7 +1563,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    [_|_] = Connections,
 
 	    %% N w try one more than allowed:
-	    ct:pal("Info Report expected here (if not disabled) ...",[]),
+	    ct:log("Info Report expected here (if not disabled) ...",[]),
 	    try Connect(Host,Port)
 	    of
 		_ConnectionRef1 ->
@@ -1563,7 +1612,7 @@ try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
 
 %%--------------------------------------------------------------------
 max_sessions_drops_tcp_connects() ->
-    [{timetrap,{minutes,20}}].
+    [{timetrap,{minutes,2}}].
 
 max_sessions_drops_tcp_connects(Config) ->
     MaxSessions = 20,
@@ -2031,6 +2080,14 @@ daemon_replace_options_algs_conf_file(Config) ->
         [] ->
             {skip, "No non-default kex"}
     end.
+
+%%--------------------------------------------------------------------
+daemon_replace_options_not_found(_Config) ->
+    %% when the daemon doesn't exist the error should be the same
+    %% in daemon_info and daemon_replace_options
+    %% which is {error, bad_daemon_ref}
+    Error = ssh:daemon_info(self()),
+    Error = ssh:daemon_replace_options(self(), []).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

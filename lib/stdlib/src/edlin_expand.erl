@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +20,19 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_expand).
--feature(maybe_expr, enable).
+-moduledoc """
+Shell expansion and formatting of expansion suggestions.
+
+This module provides an expand_fun for the erlang shell
+[`expand/1,2`](`expand/1`). It is possible to override this expand_fun
+[`io:setopts/1,2`](`io:setopts/1`).
+""".
+-moduledoc(#{since => "OTP 26.0"}).
 %% a default expand function for edlin, expanding modules, functions
 %% filepaths, variable binding, record names, function parameter values,
 %% record fields and map keys and record field values.
 -include_lib("kernel/include/eep48.hrl").
+
 -export([expand/1, expand/2, expand/3, format_matches/2, number_matches/1, get_exports/1,
          shell_default_or_bif/1, bif/1, over_word/1]).
 -export([is_type/3, match_arguments1/3]).
@@ -32,6 +42,8 @@
                      functions = []
                     }).
 
+-doc(#{equiv => expand/2}).
+-doc(#{since => <<"OTP 26.0">>}).
 -spec expand(Bef0) -> {Res, Completion, Matches} when
       Bef0 :: string(), %% a line of erlang expressions in reverse
       Res :: 'yes' | 'no',
@@ -49,6 +61,79 @@
 expand(Bef0) ->
     expand(Bef0, [{legacy_output, true}]).
 
+-doc """
+The standard expansion function is able to expand strings to valid erlang terms.
+This includes module names:
+
+```text
+1> erla
+modules
+erlang:
+```
+
+function names:
+
+```text
+1> is_ato
+functions
+is_atom(
+2> erlang:is_ato
+functions
+is_atom(
+```
+
+function types:
+
+```text
+1> erlang:is_atom(
+typespecs
+erlang:is_atom(Term)
+any()
+```
+
+and automatically add , or closing parenthesis when no other valid expansion is
+possible. The expand function also completes: shell bindings, record names,
+record fields and map keys.
+
+As seen below, function headers are grouped together if they've got the same
+expansion suggestion, in this case all had the same suggestions, that is '\}'.
+There is also limited support for filtering out function typespecs that that
+does not match the types on the terms on the prompt. Only 4 suggestions are
+shown below but there exists plenty more typespecs for `erlang:system_info`.
+
+```text
+1> erlang:system_info({allocator, my_allocator
+typespecs
+erlang:system_info(wordsize | {wordsize, ...} | {wordsize, ...})
+erlang:system_info({allocator, ...})
+erlang:system_info({allocator_sizes, ...})
+erlang:system_info({cpu_topology, ...})
+}
+```
+
+The return type of `expand` function specifies either a list of `Element` tuples
+or a list of `Section` maps. The section concept was introduced to enable more
+formatting options for the expansion results. For example, the shell expansion
+has support to highlight text and hide suggestions. There are also a
+`{highlight, Text}` that highlights all occurances of `Text` in the title, and a
+`highlight_all` for simplicity which highlights the whole title, as can be seen
+above for `functions` and `typespecs`.
+
+By setting the `{hide, result}` or `{hide, title}` options you may hide
+suggestions. Sometimes the title isn't useful and just produces text noise, in
+the example above the `t:any/0` result is part of a section with title `Types`.
+Hiding results is currently not in use, but the idea is that a section can be
+selected in the expand area and all the other section entries should be
+collapsed.
+
+Its possible to set a custom separator between the title and the results. This
+can be done with `{separator, Separator}`. By default its set to be `\n`, some
+results display a `type_name() :: `followed by all types that define
+`type_name()`.
+
+The `{ending, Text}` ElementOption just appends Text to the `Element`.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec expand(Bef0, Opts) -> {Res, Completion, Matches} when
       Bef0 :: string(), %% a line of erlang expressions in reverse
       Opts :: [Option],
@@ -76,6 +161,7 @@ expand(Bef0, Opts) ->
     expand(Bef0, Opts, ShellState).
 
 %% Only used for testing
+-doc false.
 expand(Bef0, Opts, #shell_state{bindings = Bs, records = RT, functions = FT}) ->
     LegacyOutput = proplists:get_value(legacy_output, Opts, false),
     {_Bef1, Word} = over_word(Bef0),
@@ -90,6 +176,7 @@ expand(Bef0, Opts, #shell_state{bindings = Bs, records = RT, functions = FT}) ->
                  {error, _Column} ->
                     {no, [], []};
                  {function} -> expand_module_function(Bef0, FT);
+                 {function, _Mod} -> expand_module_function(Bef0, FT);
                  {fun_} -> expand_module_function(Bef0, FT);
 
                  {fun_, Mod} -> expand_function_name(Mod, Word, "/", FT);
@@ -167,12 +254,13 @@ expand_map(_, [], _, _) ->
 expand_map(Word, Bs, Binding, Keys) ->
     case proplists:get_value(list_to_atom(Binding), Bs) of
         Map when is_map(Map) ->
-            K1 = sets:from_list(maps:keys(Map)),
+            K1 = sets:from_list([Key || Key <- maps:keys(Map), is_atom(Key)]),
             K2 = sets:subtract(K1, sets:from_list([list_to_atom(K) || K <- Keys])),
             match(Word, sets:to_list(K2), "=>");
         _ -> {no, [], []}
     end.
 
+-doc false.
 over_word(Bef) ->
     {Bef1,_,_} = over_white(Bef, [], 0),
     {Bef2, Word, _} = edlin:over_word(Bef1, [], 0),
@@ -255,6 +343,7 @@ match_arguments({function, {{parameters, Ps}, _}, Cs}, As) ->
     match_arguments1(Ps, Cs, As);
 match_arguments({{parameters, Ps}, _}, As) ->
     match_arguments1(Ps, [], As).
+-doc false.
 match_arguments1(_,_,[]) -> true;
 %% Just assume that it will evaluate to the correct type.
 match_arguments1([_|Ps], Cs, [{parenthesis, _}|As]) ->
@@ -283,6 +372,7 @@ match_arguments1([P|Ps], Cs, [{_, String}|As]) ->
         false -> false
     end.
 
+-doc false.
 is_type(Type, Cs, String) ->
     {ok, A, _} = erl_scan:string(String++"."),
     Types = [T || T <- edlin_type_suggestion:get_types(Cs, Type, [], [no_print]) ],
@@ -306,8 +396,8 @@ is_type(Type, Cs, String) ->
     catch
         _:_ ->
             %% Types not possible to deduce with erl_parse
-            % If string contains variables, erl_parse:parse_term will fail, but we
-            % consider them valid sooo.. lets replace them with the atom var
+            %% If string contains variables, erl_parse:parse_term will fail, but we
+            %% consider them valid sooo.. lets replace them with the atom var
             B = [(fun({var, Anno, _}) -> {atom, Anno, var}; (Token) -> Token end)(X) || X <- A],
             try
                 {ok, Term2} = erl_parse:parse_term(B),
@@ -393,7 +483,12 @@ expand_function_parameter_type(Mod, MFA, FunType, Args, Unfinished, Nestings, FT
                                  end,
     case match_arguments(TypeTree, Args) of
         false -> {no, [], []};
-        true when Parameters == [] -> {yes, ")", [#{title=>MFA, elems=>[")"], options=>[]}]};
+        true when Parameters == [] ->
+            if Nestings == [] ->
+                    {yes, ")", [#{title=>MFA, elems=>[{")",[]}], options=>[]}]};
+               true ->
+                    {no, [], []}
+            end;
         true ->
             Parameter = lists:nth(length(Args)+1, Parameters),
             {T, _Name} = case Parameter of
@@ -638,20 +733,33 @@ expand_filepath(PathPrefix, Word) ->
     end.
 
 shell(Fun) ->
-    case shell:local_func(list_to_atom(Fun)) of
+    case shell:local_func(Fun) of
         true -> "shell";
         false -> "user_defined"
     end.
 
-shell_default_or_bif(Fun) ->
-    case lists:member(list_to_atom(Fun), [E || {E,_}<-get_exports(shell_default)]) of
+-doc false.
+shell_default_or_bif(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_} <- get_exports(shell_default)]) of
         true -> "shell_default";
-        _ -> bif(Fun)
+        false -> bif(Fun)
+    end;
+shell_default_or_bif(Fun) ->
+    case erl_scan:string(Fun) of
+        {ok, [{atom, _, Fun1}], _} -> shell_default_or_bif(Fun1);
+        _ -> []
     end.
-bif(Fun) ->
-    case lists:member(list_to_atom(Fun), [E || {E,A}<-get_exports(erlang), erl_internal:bif(E,A)]) of
+
+-doc false.
+bif(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_} <- get_exports(erlang)]) of
         true -> "erlang";
-        _ -> shell(Fun)
+        false -> shell(Fun)
+    end;
+bif(Fun) ->
+    case erl_scan:string(Fun) of
+        {ok, [{atom, _, Fun1}], _} -> bif(Fun1);
+        _ -> []
     end.
 
 expand_string(Bef0) ->
@@ -827,6 +935,7 @@ get_arities(ModStr, FuncStr) ->
             []
     end.
 
+-doc false.
 get_exports(Mod) ->
     case erlang:module_loaded(Mod) of
         true ->
@@ -839,48 +948,54 @@ get_exports(Mod) ->
                     []
             end
     end.
-
-expand_function_name(ModStr, FuncPrefix, CompleteChar, FT) ->
+pp(String) when is_binary(String) ->
+    binary_to_list(string:titlecase(string:trim(String)));
+pp(String) when is_list(String) ->
+    string:titlecase(string:trim(String)).
+expand_name(ModStr, Type, Prefix, CompleteChar, FT) ->
     case to_atom(ModStr) of
         {ok, Mod} ->
-            Extra = case Mod of
-                        shell_default -> [{Name, Arity}||{{function, {_, Name, Arity}}, _} <- FT];
-                        _ -> []
-                    end,
-            Exports = get_exports(Mod) ++ Extra,
-            {Res, Expansion, Matches}=Result = match(FuncPrefix, Exports, CompleteChar),
-            case Matches of
-                [] -> Result;
-                _ -> {Res, Expansion, [#{title=>"functions", elems=>Matches, options=>[highlight_all]}]}
-            end;
-        error ->
-            {no, [], []}
-    end.
-
-get_module_types(Mod) ->
-    case code:get_doc(Mod, #{sources => [debug_info]}) of
-        {ok, #docs_v1{ docs = Docs } } ->
-            [{T, A} || {{type, T, A},_Anno,_Sig,_Doc,_Meta} <- Docs];
-        _ -> {no, [], []}
-    end.
-
-expand_type_name(ModStr, TypePrefix, CompleteChar) ->
-    case to_atom(ModStr) of
-        {ok, Mod} ->
-            case get_module_types(Mod) of
-                {no, [], []} ->
-                    {no, [], []};
-                Types ->
-                    {Res, Expansion, Matches}=Result = match(TypePrefix, Types, CompleteChar),
+            case Mod =:= shell_default of
+                true -> ShellDefaultStr = pp("shell defined "++atom_to_list(Type)++"s"),
+                        Groups = #{ShellDefaultStr=>[{Name, Arity}||{{Type1, {_, Name, Arity}}, _} <- FT, Type1 =:= Type]};
+                false ->
+                    TypeStr = pp(atom_to_list(Type)++"s"),
+                    case code:get_doc(Mod) of
+                        {ok, #docs_v1{ docs = Docs } } ->
+                            case Type of
+                                function ->
+                                    Exports = get_exports(Mod),
+                                    Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{group := G}}<-Docs, Type1 =:= Type, lists:member({Name,Arity},Exports)],
+                                    Ungrouped = [{TypeStr,{Name,Arity}} || {{Type1,Name,Arity},_,_,_,MD}<-Docs, Type1 =:= Type, maps:is_key(group, MD) =:= false, lists:member({Name,Arity},Exports)];
+                                type ->
+                                    Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true, group := G}}<-Docs, Type1 =:= Type],
+                                    Ungrouped = [{TypeStr,{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true}=MD}<-Docs, Type1 =:= Type, maps:is_key(group, MD) =:= false]
+                            end,
+                            Groups = maps:groups_from_list(fun (T)->element(1,T) end,
+                                                        fun(T)->element(2,T) end,
+                                                        Grouped ++ Ungrouped);
+                        _ when Type =:= function ->
+                            Groups = #{TypeStr => get_exports(Mod)};
+                        _ -> %% No docs?
+                            Groups = #{}
+                    end
+            end,
+            fold_results(
+                [begin
+                    {Res, Expansion, Matches}=Result = match(Prefix, maps:get(Title, Groups), CompleteChar),
                     case Matches of
                         [] -> Result;
-                        _ -> {Res, Expansion, [#{title=>"types", elems=>Matches, options=>[highlight_all]}]}
+                        _ ->
+                            {Res, Expansion, [#{title=>Title, elems=>Matches, options=>[highlight_all]}]}
                     end
-            end;
+                end || Title <- maps:keys(Groups)]);
         error ->
             {no, [], []}
     end.
-
+expand_function_name(ModStr, FuncPrefix, CompleteChar, FT) ->
+    expand_name(ModStr, function, FuncPrefix, CompleteChar, FT).
+expand_type_name(ModStr, TypePrefix, CompleteChar) ->
+    expand_name(ModStr, type, TypePrefix, CompleteChar, []).
 to_atom(Str) ->
     case erl_scan:string(Str) of
         {ok, [{atom,_,A}], _} ->
@@ -903,7 +1018,7 @@ match(Prefix, Alts, Extra0) ->
     Len = string:length(Prefix),
     Matches = lists:sort(
                 [{S, A} || {H, A} <- Alts2,
-                           lists:prefix(Prefix, S=flat_write(H))]),
+                           S <- [flat_write(H)], lists:prefix(Prefix, S)]),
     Matches2 = lists:usort(
                  case Extra0 of
                      [] -> [{S,[]} || {S,_} <- Matches];
@@ -968,6 +1083,7 @@ to_legacy_format([#{title:=Title, elems:=_Elems}|Rest]) ->
 to_legacy_format([{Val, _}|Rest]) ->
     [{Val, ""}] ++ to_legacy_format(Rest).
 
+-doc false.
 format_matches([], _LineWidth) -> [];
 format_matches([#{}|_]=FF, LineWidth) ->
     %% Group function head that have the exact same Type suggestion
@@ -1122,6 +1238,7 @@ field_width([], W, LL) when W < LL ->
 field_width([], _, LL) ->
     LL.
 
+-doc false.
 number_matches([#{ elems := Matches }|T]) ->
     number_matches(Matches) + number_matches(T);
 number_matches([_|T]) ->

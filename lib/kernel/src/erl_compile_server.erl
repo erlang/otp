@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 
 -module(erl_compile_server).
+-moduledoc false.
 -behaviour(gen_server).
 -export([start_link/0, compile/1]).
 
@@ -135,13 +138,20 @@ do_compile(ErlcArgs, Cwd, Enc) ->
     GL = create_gl(),
     group_leader(GL, self()),
     Result = erl_compile:compile(ErlcArgs, Cwd),
-    StdOutput = ensure_enc(gl_get_output(GL), Enc),
-    case Result of
-        ok ->
-            {ok, StdOutput};
-        {error, StdErrorOutput0} ->
+    {OutputChannel,Output0} = gl_get_output(GL),
+    Output = ensure_enc(Output0, Enc),
+    case {Result,OutputChannel} of
+        {ok, standard_error} ->
+            {ok, ~"", Output};
+        {ok, standard_io} ->
+            {ok, Output, ~""};
+        {{error,StdErrorOutput0}, standard_error} ->
+            StdErrorOutput1 = ensure_enc(StdErrorOutput0, Enc),
+            StdErrorOutput = <<StdErrorOutput1/binary,Output>>,
+            {error, ~"", StdErrorOutput};
+        {{error,StdErrorOutput0}, standard_io} ->
             StdErrorOutput = ensure_enc(StdErrorOutput0, Enc),
-            {error, StdOutput, StdErrorOutput}
+            {error, Output, StdErrorOutput}
     end.
 
 parse_command_line(#{command_line := CmdLine0, cwd := Cwd, encoding := Enc}) ->
@@ -206,7 +216,7 @@ make_config(PathArgs, Env0) ->
 %%%
 
 create_gl() ->
-    spawn_link(fun() -> gl_loop([]) end).
+    spawn_link(fun() -> gl_loop([], standard_error) end).
 
 gl_get_output(GL) ->
     GL ! {self(), get_output},
@@ -214,18 +224,20 @@ gl_get_output(GL) ->
         {GL, Output} -> Output
     end.
 
-gl_loop(State0) ->
+gl_loop(State0, OutputChannel) ->
     receive
 	{io_request, From, ReplyAs, Request} ->
             {_Tag, Reply, State} = gl_request(Request, State0),
             gl_reply(From, ReplyAs, Reply),
-            gl_loop(State);
+            gl_loop(State, OutputChannel);
 	{From, get_output} ->
             Output = iolist_to_binary(State0),
-	    From ! {self(), Output},
-	    gl_loop(State0);
+	    From ! {self(), {OutputChannel, Output}},
+	    gl_loop(State0, OutputChannel);
+        {erl_compile_server, standard_io} ->
+            gl_loop(State0, standard_io);
 	_Unknown ->
-	    gl_loop(State0)
+	    gl_loop(State0, OutputChannel)
     end.
 
 gl_reply(From, ReplyAs, Reply) ->

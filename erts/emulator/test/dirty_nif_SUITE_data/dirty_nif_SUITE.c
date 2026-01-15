@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2009-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +47,8 @@ static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_pid;
 static ERL_NIF_TERM atom_port;
 static ERL_NIF_TERM atom_send;
+static ERL_NIF_TERM atom_set_on_halt_handler;
+static ERL_NIF_TERM atom_delay_halt;
 
 typedef struct {
     int halting;
@@ -176,6 +180,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_pid = enif_make_atom(env, "pid");
     atom_port = enif_make_atom(env, "port");
     atom_send = enif_make_atom(env, "send");
+    atom_set_on_halt_handler = enif_make_atom(env, "set_on_halt_handler");
+    atom_delay_halt = enif_make_atom(env, "delay_halt");
 
     return 0;
 }
@@ -222,8 +228,7 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     char s[10];
     ErlNifBinary b;
     assert(ERL_NIF_THR_NORMAL_SCHEDULER == enif_thread_type());
-    if (argc != 3)
-	return enif_make_badarg(env);
+    assert(argc == 3);
     if (have_dirty_schedulers()) {
 	if (enif_get_int(env, argv[0], &n) &&
 	    enif_get_string(env, argv[1], s, sizeof s, ERL_NIF_LATIN1) &&
@@ -510,8 +515,7 @@ whereis_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM ret;
     int type, rc;
 
-    if (argc != 2)  /* allow non-atom name for testing */
-        return enif_make_badarg(env);
+    assert(argc == 2);
 
     if ((type = whereis_type(argv[0])) == WHEREIS_ERROR_TYPE)
         return enif_make_badarg(env);
@@ -527,7 +531,8 @@ whereis_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     whereis_term_data_t to;
     int type, rc;
 
-    if (argc != 3 || !enif_is_atom(env, argv[1]))
+    assert(argc == 3);
+    if (!enif_is_atom(env, argv[1]))
         return enif_make_badarg(env);
 
     if ((type = whereis_type(argv[0])) == WHEREIS_ERROR_TYPE)
@@ -551,8 +556,7 @@ static ERL_NIF_TERM dirty_terminating_literal_access(ErlNifEnv* env, int argc, c
      * A literal term in argv[1]
      */
     
-    if (argc != 2)
-	return enif_make_badarg(env);
+    assert(argc == 2);
     
     if (!enif_get_local_pid(env, argv[0], &to))
 	return enif_make_badarg(env);
@@ -651,8 +655,8 @@ static ERL_NIF_TERM delay_halt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
     ErlNifPid receiver, self;
     int res, secs;
 
-    if (argc != 3)
-        return enif_make_badarg(env);
+    assert(argc == 3);
+
     if (!enif_get_int(env, argv[2], &secs))
         return enif_make_badarg(env);
     if (secs < 0 || secs*1000 < 0)
@@ -682,8 +686,7 @@ static ERL_NIF_TERM sync_halt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     PrivData *pdata = enif_priv_data(env);
     if (!pdata)
         return enif_raise_exception(env, enif_make_atom(env, "missing_priv_data"));
-    if (argc != 2)
-        return enif_make_badarg(env);
+    assert(argc == 2);
     if (!enif_self(env, &self))
 	return enif_make_badarg(env);
     if (!enif_get_local_pid(env, argv[0], &receiver))
@@ -701,18 +704,12 @@ static ERL_NIF_TERM sync_halt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
 static ERL_NIF_TERM set_halt_option_from_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    unsigned len;
-    char atom_text[32];
-    if (argc != 1)
-        return enif_make_badarg(env);
-    if (!enif_get_atom(env, argv[0], &atom_text[0], sizeof(atom_text), ERL_NIF_LATIN1))
-        return enif_make_badarg(env);
-    if (strcmp(atom_text, "set_on_halt_handler") == 0) {
+    if (argv[0] == atom_set_on_halt_handler) {
         if (0 == enif_set_option(env, ERL_NIF_OPT_ON_HALT, on_halt))
             return atom_ok;
         return atom_error;
     }
-    else if (strcmp(atom_text, "delay_halt") == 0) {
+    else if (argv[0] == atom_delay_halt) {
         if (0 == enif_set_option(env, ERL_NIF_OPT_DELAY_HALT))
             return atom_ok;
         return atom_error;

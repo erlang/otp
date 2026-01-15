@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2005-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2005-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,7 +71,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-EXTRA_ERLC_FLAGS = +warn_unused_vars
+EXTRA_ERLC_FLAGS = +warn_unused_vars +nowarn_missing_spec_documented +warn_obsolete_bool_op
 ERL_COMPILE_FLAGS += \
 	-pz $(EBIN) \
 	$(EXTRA_ERLC_FLAGS)
@@ -111,3 +113,8 @@ release_docs_spec:
 info:
 	@echo "APPLICATION       = $(APPLICATION)"
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

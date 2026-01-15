@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,8 +31,15 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
-         all/0]).
+-export([
+         %% Framework functions
+         suite/0,
+         all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
 
 %% testcases
 -export([keys/1,
@@ -41,7 +50,13 @@
          xref/1,
          relup/1]).
 
--define(util, diameter_util).
+-include_lib("kernel/include/file.hrl").
+
+-include("diameter_util.hrl").
+
+
+%% ===========================================================================
+
 -define(A, list_to_atom).
 
 %% Modules not in the app and that should not have dependencies on it
@@ -56,10 +71,14 @@
 -define(INFO_MODULES, [diameter_dbg,
                        diameter_info]).
 
+-define(AL(F),    ?AL(F, [])).
+-define(AL(F, A), ?LOG("DAPPS", F, A)).
+
+
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 20}}].
+    [{timetrap, {seconds, 120}}].
 
 all() ->
     [keys,
@@ -70,13 +89,45 @@ all() ->
      xref,
      relup].
 
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
+%% This test case can take a *long* time, so if the machine is too slow, skip
+init_per_testcase(xref = Case, Config) when is_list(Config) ->
+    ?AL("init_per_testcase(~w) -> check factor", [Case]),
+    Key = dia_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} when (Factor > 10) ->
+            ?AL("init_per_testcase(~w) -> Too slow (~w) => SKIP",
+                [Case, Factor]),
+            {skip, {machine_too_slow, Factor}};
+        _ ->
+            ?AL("init_per_testcase(~w) -> run test", [Case]),
+            Config
+    end;
+init_per_testcase(Case, Config) ->
+    ?AL("init_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    ?AL("end_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
 %% ===========================================================================
 
 run() ->
     run(all()).
 
 run(List) ->
-    Tmp = ?util:mktemp("diameter_app"),
+    Tmp = ?MKTEMP("diameter_app"),
     try
         run([{priv_dir, Tmp}], List)
     after
@@ -84,9 +135,22 @@ run(List) ->
     end.
 
 run(Config, List) ->
-    [{application, diameter, App}] = ?util:consult(diameter, app),
-    ?util:run([{{?MODULE, F, [{App, Config}]}, 10000} || F <- List]).
+    Timeout = factor2timeout(Config, 10000),
+    ?AL("run -> use Timeout: ~w", [Timeout]),
+    [{application, diameter, App}] = ?CONSULT(diameter, app),
+    ?RUN([{{?MODULE, F, [{App, Config}]}, Timeout} || F <- List]).
 
+
+factor2timeout(Config, BaseTime) ->
+    Key = dia_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} when (Factor > 0) ->
+            BaseTime + (((Factor-1)*BaseTime) div 10);
+        _ ->
+            BaseTime
+    end.
+
+    
 %% ===========================================================================
 %% # keys/1
 %%
@@ -130,9 +194,10 @@ modules(Config) ->
     run(Config, [modules]).
 
 code_mods() ->
-    Dir  = code:lib_dir(diameter, ebin),
+    Dir  = ?LIB_DIR(diameter, ebin),
     {ok, Files} = file:list_dir(Dir),
     [?A(lists:reverse(R)) || N <- Files, "maeb." ++ R <- [lists:reverse(N)]].
+
 
 %% ===========================================================================
 %% # exports/1
@@ -176,7 +241,7 @@ release(Config) ->
 %% in the case of relup/1.
 
 appvsn(Name) ->
-    [{application, Name, App}] = ?util:consult(Name, app),
+    [{application, Name, App}] = ?CONSULT(Name, app),
     fetch(vsn, App).
 
 %% ===========================================================================
@@ -187,11 +252,17 @@ appvsn(Name) ->
 %% ===========================================================================
 
 xref({App, _Config}) ->
+    ?AL("xref -> entry with"
+        "~n   App:    ~p"
+        "~n   Config: ~p", [App, _Config]),
+
     Mods = fetch(modules, App),  %% modules listed in the app file
 
     %% List of application names extracted from runtime_dependencies.
+    ?AL("xref -> get deps"),
     Deps = lists:map(fun unversion/1, fetch(runtime_dependencies, App)),
 
+    ?AL("xref -> start xref"),
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
 
@@ -201,19 +272,31 @@ xref({App, _Config}) ->
     %% was previously in kernel. Erts isn't an application however, in
     %% the sense that there's no .app file, and isn't listed in
     %% applications.
-    ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
-                       [diameter, erts | fetch(applications, App)]),
+    Apps = [diameter, erts | fetch(applications, App)],
+    ?AL("xref -> add own and dep apps: "
+        "~n   ~p", [Apps]),
+    ok = lists:foreach(fun(A) -> add_application(XRef, A) end, Apps),
 
+    ?AL("xref -> analyze undefined_function_calls"),
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
+    ?AL("xref -> analyze module use: "
+        "~n   For mods: ~p", [Mods]),
     {ok, RTmods} = xref:analyze(XRef, {module_use, Mods}),
+    ?AL("xref -> analyze (compiler) module use: "
+        "~n   For mods: ~p", [?COMPILER_MODULES]),
     {ok, CTmods} = xref:analyze(XRef, {module_use, ?COMPILER_MODULES}),
+    ?AL("xref -> analyze module call: "
+        "~n   For mods: ~p", [Mods]),
     {ok, RTdeps} = xref:analyze(XRef, {module_call, Mods}),
 
+    ?AL("xref -> stop xref"),
     xref:stop(XRef),
 
+    ?AL("xref -> get OTP release"),
     Rel = release(),  %% otp_release-ish
 
     %% Only care about calls from our own application.
+    ?AL("xref -> Only care about calls from our own application"),
     [] = lists:filter(fun({{F,_,_} = From, {_,_,_} = To}) ->
                               lists:member(F, Mods)
                                   andalso not ignored(From, To, Rel)
@@ -225,20 +308,31 @@ xref({App, _Config}) ->
     %% depend on other diameter modules but it's a simple source of
     %% build errors if not properly encoded in the makefile so guard
     %% against it.
+    ?AL("xref -> ensure only runtime and info mod"),
     [] = (RTmods -- Mods) -- ?INFO_MODULES,
 
     %% Ensure that runtime modules don't call compiler modules.
+    ?AL("xref -> ensure runtime mods don't call compiler mods"),
     CTmods = CTmods -- Mods,
 
     %% Ensure that runtime modules only call other runtime modules, or
     %% applications declared in runtime_dependencies in the app file.
     %% The declared application versions are ignored since we only
     %% know what we see now.
+    ?AL("xref -> ensure runtime mods only call runtime mods"),
     [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
-                      RTdeps -- Mods);
+                      RTdeps -- Mods),
+
+    ?AL("xref -> done"),
+    ok;
 
 xref(Config) ->
-    run(Config, [xref]).
+    ?AL("xref -> entry with"
+        "~n   Config: ~p", [Config]),
+    Res = run(Config, [xref]),
+    ?AL("xref -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
 
 ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
     %% diameter_tcp does call ssl despite the latter not being listed
@@ -296,18 +390,15 @@ app(Mod) ->
     end.
 
 add_application(XRef, App) ->
-    add_application(XRef, App, code:lib_dir(App)).
-
-%% erts will not be in the lib directory before installation.
-add_application(XRef, erts, {error, _}) ->
-    Dir = filename:join([code:root_dir(), "erts", "preloaded", "ebin"]),
-    {ok, _} = xref:add_directory(XRef, Dir, []);
-add_application(XRef, App, Dir)
-  when is_list(Dir) ->
-    {ok, App} = xref:add_application(XRef, Dir, []).
+    ?AL("add_application -> get lib dir for app ~p", [App]),
+    LibDir = code:lib_dir(App),
+    ?AL("add_application -> [xref] add lib dir:"
+        "~n   ~p", [LibDir]),
+    {ok, App} = xref:add_application(XRef, LibDir, []).
 
 make_name(Suf) ->
     list_to_atom("diameter_" ++ atom_to_list(Suf)).
+
 
 %% ===========================================================================
 %% # relup/1
@@ -316,22 +407,52 @@ make_name(Suf) ->
 %% ===========================================================================
 
 relup({App, Config}) ->
-    [{Vsn, Up, Down}] = ?util:consult(diameter, appup),
+    i("relup -> entry with"
+      "~n   App:    ~p"
+      "~n   Config: ~p", [App, Config]),
+
+    [{Vsn, Up, Down}] = ?CONSULT(diameter, appup),
     true = is_vsn(Vsn),
+
+    i("relup -> "
+      "~n   Vsn:  ~p"
+      "~n   Up:   ~p"
+      "~n   Down: ~p", [Vsn, Up, Down]),
 
     Rel = [{erts, erlang:system_info(version)}
            | [{A, appvsn(A)} || A <- [sasl | fetch(applications, App)]]],
 
+    i("relup -> "
+      "~n   Rel: ~p", [Rel]),
+
     Dir = fetch(priv_dir, Config),
 
+    i("relup -> verify path"
+      "~n   Dir: ~p", [Dir]),
+    verify_path(Dir),
+
+    i("relup -> "
+      "~n   Dir: "
+      "~n      ~s"
+      "~n   File info (dir): "
+      "~n      ~s", [Dir, file_info(Dir)]),
+
     Name = write_rel(Dir, Rel, Vsn),
+    i("relup -> written"
+      "~n   Name: "
+      "~n      ~s", [Name]),
     UpFrom = acc_rel(Dir, Rel, Up),
+    i("relup -> "
+      "~n   UpFrom: ~p", [UpFrom]),
     DownTo = acc_rel(Dir, Rel, Down),
+    i("relup -> "
+      "~n   DownTo: ~p", [DownTo]),
 
     {[], []} = {UpFrom -- DownTo, DownTo -- UpFrom},
     [[], []] = [S -- sets:to_list(sets:from_list(S))
                 || S <- [UpFrom, DownTo]],
 
+    i("relup -> try make relup"),
     {ok, _, _, []} = systools:make_relup(Name, UpFrom, DownTo, [{path, [Dir]},
                                                                 {outdir, Dir},
                                                                 silent]);
@@ -339,19 +460,95 @@ relup({App, Config}) ->
 relup(Config) ->
     run(Config, [relup]).
 
+
+verify_path(Path) ->
+    Components = filename:split(filename:absname(Path)),
+    do_verify_path(Components).
+
+do_verify_path([]) ->
+    exit(not_a_path);
+do_verify_path([Root|Components]) ->
+    do_verify_path(Root, Components).
+
+do_verify_path(Path, []) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{type   = directory,
+                        access = Access}} ->
+            i("do_verify_path -> (final) directory ok:"
+              "~n   Path:   ~p"
+              "~n   Access: ~p", [Path, Access]),
+            ok;
+        {ok, #file_info{type   = Type,
+                        access = Access}} ->
+            i("do_verify_path -> (final) unexpected type: "
+              "~n   Path:   ~p"
+              "~n   Type:   ~p"
+              "~n   Access: ~p", [Path, Type, Access]),
+            exit({not_dir, Path, Type, Access});
+        {error, Reason} ->
+            i("do_verify_path -> failed reading file info: "
+              "~n   Path:   ~p"
+              "~n   Reason: ~p", [Path, Reason]),
+            exit({read_file_info, Path, Reason})
+    end;
+do_verify_path(Path, [Component|Components]) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{type   = directory,
+                        access = Access}} ->
+            i("do_verify_path -> directory ok: "
+              "~n   Path:   ~p"
+              "~n   Access: ~p", [Path, Access]),
+            do_verify_path(filename:absname_join(Path, Component),
+                           Components);
+        {ok, #file_info{type   = Type,
+                        access = Access}} ->
+            i("do_verify_path -> unexpected type: "
+              "~n   Path:   ~p"
+              "~n   Type:   ~p"
+              "~n   Access: ~p", [Path, Type, Access]),
+            exit({not_dir, Path, Type, Access});
+        {error, Reason} ->
+            i("do_verify_path -> failed reading file info: "
+              "~n   Path:   ~p"
+              "~n   Reason: ~p", [Path, Reason]),
+            exit({read_file_info, Path, Reason})
+    end.
+            
+
+file_info(Path) ->
+    case file:read_file_info(Path) of
+        {ok, Info} ->
+            f("~p", [Info]);
+        {error, Reason} ->
+            f("error: ~p", [Reason])
+    end.
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
 acc_rel(Dir, Rel, List) ->
     lists:map(fun({V,_}) -> write_rel(Dir, Rel, V) end, List).
 
 %% Write a rel file and return its name.
 write_rel(Dir, [Erts | Apps], Vsn) ->
-    VS = vsn_str(Vsn),
+    VS   = vsn_str(Vsn),
     Name = "diameter_test_" ++ VS,
-    ok = write_file(filename:join([Dir, Name ++ ".rel"]),
+    File = filename:join([Dir, Name ++ ".rel"]),
+    i("write_rel -> attempt write rel file:"
+      "~n   Dir:  ~p"
+      "~n   File: ~p"
+      "~n   File name length: ~p"
+      "~n   Erts: ~p"
+      "~n   Apps: ~p"
+      "~n   Vsn:  ~p (~p)",
+      [Dir, File, length(File), Erts, Apps, Vsn, VS]),
+    ok = write_file(File,
                     {release,
                      {"diameter " ++ VS ++ " test release", VS},
                      Erts,
                      Apps}),
     Name.
+
 
 %% ===========================================================================
 %% ===========================================================================
@@ -384,7 +581,14 @@ vsn_str(S)
 vsn_str(B)
   when is_binary(B) ->
     {ok, _} = re:compile(B),
-    binary_to_list(B).
+    %% Check if its a wildcard version: "1\\.."
+    Str = binary_to_list(B),
+    case lists:reverse(Str) of
+        [$*, $., $., $\\ | Rest] ->
+            lists:reverse(Rest);
+        _ ->
+            Str
+    end.
 
 match(S, RE) ->
     re:run(S, RE, [{capture, none}]).
@@ -394,3 +598,12 @@ is_app(S)
   when is_list(S) ->
     {_, match} = {S, match(S, "^([a-z]([a-z_]*|[a-zA-Z]*))$")},
     true.
+
+
+%% ===========================================================================
+
+i(F) ->
+    i(F, []).
+
+i(F, A) when is_list(F) andalso is_list(A) ->
+    io:format(F ++ "~n", A). 

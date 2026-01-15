@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,6 +19,7 @@
 %%
 %% %CopyrightEnd%
 -module(observer_port_wx).
+-moduledoc false.
 
 -export([start_link/3]).
 
@@ -373,9 +376,9 @@ create_menus(Parent) ->
     MenuEntries =
 	[{"View",
 	  [#create_menu{id = ?ID_PORT_INFO_SELECTED,
-			text = "Port info for selected ports\tCtrl-I"},
+			text = "Port info for selected ports\tCtrl+I"},
 	   separator,
-	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
+	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl+R"},
 	   #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh Interval..."}
 	  ]},
 	 {"Trace",

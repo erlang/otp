@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,10 +17,55 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% For documentation, wxWindow Free Documentation License, Version 3 applies.
+%% wxWindows Free Documentation Licence, Version 3, as follows.
+%% ===============================================
+%%
+%% Everyone is permitted to copy and distribute verbatim copies
+%% of this licence document, but changing it is not allowed.
+%%
+%%                  WXWINDOWS FREE DOCUMENTATION LICENCE
+%%    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+%%
+%% 1. Permission is granted to make and distribute verbatim copies of this
+%% manual or piece of documentation provided any copyright notice and this
+%% permission notice are preserved on all copies.
+%%
+%% 2. Permission is granted to process this file or document through a
+%% document processing system and, at your option and the option of any third
+%% party, print the results, provided a printed document carries a copying
+%% permission notice identical to this one.
+%%
+%% 3. Permission is granted to copy and distribute modified versions of this
+%% manual or piece of documentation under the conditions for verbatim copying,
+%% provided also that any sections describing licensing conditions for this
+%% manual, such as, in particular, the GNU General Public Licence, the GNU
+%% Library General Public Licence, and any wxWindows Licence are included
+%% exactly as in the original, and provided that the entire resulting derived
+%% work is distributed under the terms of a permission notice identical to
+%% this one.
+%%
+%% 4. Permission is granted to copy and distribute translations of this manual
+%% or piece of documentation into another language, under the above conditions
+%% for modified versions, except that sections related to licensing, including
+%% this paragraph, may also be included in translations approved by the
+%% copyright holders of the respective licence documents in addition to the
+%% original English.
+%%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
 -module(wxSizerItem).
+-moduledoc """
+The `m:wxSizerItem` class is used to track the position, size and other attributes of
+each item managed by a `m:wxSizer`.
+
+It is not usually necessary to use this class because the sizer elements can also be
+identified by their positions or window or sizer pointers but sometimes it may be more
+convenient to use it directly.
+
+wxWidgets docs: [wxSizerItem](https://docs.wxwidgets.org/3.2/classwx_sizer_item.html)
+""".
 -include("wxe.hrl").
 -export([assignSizer/2,assignSpacer/2,assignSpacer/3,assignWindow/2,calcMin/1,
   deleteWindows/1,destroy/1,detachSizer/1,getBorder/1,getFlag/1,getMinSize/1,
@@ -32,10 +79,10 @@
 
 -type wxSizerItem() :: wx:wx_object().
 -export_type([wxSizerItem/0]).
-%% @hidden
+-doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @equiv new(Window, [])
+-doc(#{equiv => new(Window, [])}).
 -spec new(Window) -> wxSizerItem() when
 	Window::wxWindow:wxWindow() | wxSizer:wxSizer().
 
@@ -43,17 +90,7 @@ new(Window)
  when is_record(Window, wx_ref) ->
   new(Window, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemwxsizeritem">external documentation</a>.
-%% <br /> Also:<br />
-%% new(Window, Flags) -> wxSizerItem() when<br />
-%% 	Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();<br />
-%%       (Window, [Option]) -> wxSizerItem() when<br />
-%% 	Window::wxWindow:wxWindow() | wxSizer:wxSizer(),<br />
-%% 	Option :: {'proportion', integer()}<br />
-%% 		 | {'flag', integer()}<br />
-%% 		 | {'border', integer()}<br />
-%% 		 | {'userData', wx:wx_object()}.<br />
-%% 
+-doc "".
 -spec new(Width, Height) -> wxSizerItem() when
 	Width::integer(), Height::integer();
       (Window, Flags) -> wxSizerItem() when
@@ -97,7 +134,7 @@ new(#wx_ref{type=WindowT}=Window, Options)
   wxe_util:queue_cmd(wx:typeCast(Window, WindowType), Opts,?get_env(),?wxSizerItem_new_2_1),
   wxe_util:rec(?wxSizerItem_new_2_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemwxsizeritem">external documentation</a>.
+-doc "Construct a sizer item for tracking a spacer.".
 -spec new(Width, Height, [Option]) -> wxSizerItem() when
 	Width::integer(), Height::integer(),
 	Option :: {'proportion', integer()}
@@ -115,7 +152,7 @@ new(Width,Height, Options)
   wxe_util:queue_cmd(Width,Height, Opts,?get_env(),?wxSizerItem_new_3),
   wxe_util:rec(?wxSizerItem_new_3).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemcalcmin">external documentation</a>.
+-doc "Calculates the minimum desired size for the item, including any space needed by borders.".
 -spec calcMin(This) -> {W::integer(), H::integer()} when
 	This::wxSizerItem().
 calcMin(#wx_ref{type=ThisT}=This) ->
@@ -123,21 +160,21 @@ calcMin(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_CalcMin),
   wxe_util:rec(?wxSizerItem_CalcMin).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemdeletewindows">external documentation</a>.
+-doc "Destroy the window or the windows in a subsizer, depending on the type of item.".
 -spec deleteWindows(This) -> 'ok' when
 	This::wxSizerItem().
 deleteWindows(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_DeleteWindows).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemdetachsizer">external documentation</a>.
+-doc "Enable deleting the SizerItem without destroying the contained sizer.".
 -spec detachSizer(This) -> 'ok' when
 	This::wxSizerItem().
 detachSizer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_DetachSizer).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetborder">external documentation</a>.
+-doc "Return the border attribute.".
 -spec getBorder(This) -> integer() when
 	This::wxSizerItem().
 getBorder(#wx_ref{type=ThisT}=This) ->
@@ -145,7 +182,11 @@ getBorder(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetBorder),
   wxe_util:rec(?wxSizerItem_GetBorder).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetflag">external documentation</a>.
+-doc """
+Return the flags attribute.
+
+See `wxSizer flags list` (not implemented in wx) for details.
+""".
 -spec getFlag(This) -> integer() when
 	This::wxSizerItem().
 getFlag(#wx_ref{type=ThisT}=This) ->
@@ -153,7 +194,7 @@ getFlag(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetFlag),
   wxe_util:rec(?wxSizerItem_GetFlag).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetminsize">external documentation</a>.
+-doc "Get the minimum size needed for the item.".
 -spec getMinSize(This) -> {W::integer(), H::integer()} when
 	This::wxSizerItem().
 getMinSize(#wx_ref{type=ThisT}=This) ->
@@ -161,7 +202,7 @@ getMinSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetMinSize),
   wxe_util:rec(?wxSizerItem_GetMinSize).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetposition">external documentation</a>.
+-doc "What is the current position of the item, as set in the last Layout.".
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxSizerItem().
 getPosition(#wx_ref{type=ThisT}=This) ->
@@ -169,7 +210,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetPosition),
   wxe_util:rec(?wxSizerItem_GetPosition).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetproportion">external documentation</a>.
+-doc "Get the proportion item attribute.".
 -spec getProportion(This) -> integer() when
 	This::wxSizerItem().
 getProportion(#wx_ref{type=ThisT}=This) ->
@@ -177,7 +218,7 @@ getProportion(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetProportion),
   wxe_util:rec(?wxSizerItem_GetProportion).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetratio">external documentation</a>.
+-doc "Get the ratio item attribute.".
 -spec getRatio(This) -> number() when
 	This::wxSizerItem().
 getRatio(#wx_ref{type=ThisT}=This) ->
@@ -185,7 +226,7 @@ getRatio(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetRatio),
   wxe_util:rec(?wxSizerItem_GetRatio).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetrect">external documentation</a>.
+-doc "Get the rectangle of the item on the parent window, excluding borders.".
 -spec getRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
 	This::wxSizerItem().
 getRect(#wx_ref{type=ThisT}=This) ->
@@ -193,7 +234,7 @@ getRect(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetRect),
   wxe_util:rec(?wxSizerItem_GetRect).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetsize">external documentation</a>.
+-doc "Get the current size of the item, as set in the last Layout.".
 -spec getSize(This) -> {W::integer(), H::integer()} when
 	This::wxSizerItem().
 getSize(#wx_ref{type=ThisT}=This) ->
@@ -201,7 +242,11 @@ getSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetSize),
   wxe_util:rec(?wxSizerItem_GetSize).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetsizer">external documentation</a>.
+-doc """
+If this item is tracking a sizer, return it.
+
+NULL otherwise.
+""".
 -spec getSizer(This) -> wxSizer:wxSizer() when
 	This::wxSizerItem().
 getSizer(#wx_ref{type=ThisT}=This) ->
@@ -209,7 +254,7 @@ getSizer(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetSizer),
   wxe_util:rec(?wxSizerItem_GetSizer).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetspacer">external documentation</a>.
+-doc "If this item is tracking a spacer, return its size.".
 -spec getSpacer(This) -> {W::integer(), H::integer()} when
 	This::wxSizerItem().
 getSpacer(#wx_ref{type=ThisT}=This) ->
@@ -217,7 +262,7 @@ getSpacer(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetSpacer),
   wxe_util:rec(?wxSizerItem_GetSpacer).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetuserdata">external documentation</a>.
+-doc "Get the userData item attribute.".
 -spec getUserData(This) -> wx:wx_object() when
 	This::wxSizerItem().
 getUserData(#wx_ref{type=ThisT}=This) ->
@@ -225,7 +270,11 @@ getUserData(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetUserData),
   wxe_util:rec(?wxSizerItem_GetUserData).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemgetwindow">external documentation</a>.
+-doc """
+If this item is tracking a window then return it.
+
+NULL otherwise.
+""".
 -spec getWindow(This) -> wxWindow:wxWindow() when
 	This::wxSizerItem().
 getWindow(#wx_ref{type=ThisT}=This) ->
@@ -233,7 +282,7 @@ getWindow(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetWindow),
   wxe_util:rec(?wxSizerItem_GetWindow).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemissizer">external documentation</a>.
+-doc "Is this item a sizer?".
 -spec isSizer(This) -> boolean() when
 	This::wxSizerItem().
 isSizer(#wx_ref{type=ThisT}=This) ->
@@ -241,7 +290,17 @@ isSizer(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_IsSizer),
   wxe_util:rec(?wxSizerItem_IsSizer).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemisshown">external documentation</a>.
+-doc """
+Returns true if this item is a window or a spacer and it is shown or if this item is a
+sizer and not all of its elements are hidden.
+
+In other words, for sizer items, all of the child elements must be hidden for the sizer
+itself to be considered hidden.
+
+As an exception, if the `wxRESERVE_SPACE_EVEN_IF_HIDDEN` flag was used for this sizer
+item, then `isShown/1` always returns true for it (see `wxSizerFlags::ReserveSpaceEvenIfHidden()`
+(not implemented in wx)).
+""".
 -spec isShown(This) -> boolean() when
 	This::wxSizerItem().
 isShown(#wx_ref{type=ThisT}=This) ->
@@ -249,7 +308,7 @@ isShown(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_IsShown),
   wxe_util:rec(?wxSizerItem_IsShown).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemisspacer">external documentation</a>.
+-doc "Is this item a spacer?".
 -spec isSpacer(This) -> boolean() when
 	This::wxSizerItem().
 isSpacer(#wx_ref{type=ThisT}=This) ->
@@ -257,7 +316,7 @@ isSpacer(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_IsSpacer),
   wxe_util:rec(?wxSizerItem_IsSpacer).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemiswindow">external documentation</a>.
+-doc "Is this item a window?".
 -spec isWindow(This) -> boolean() when
 	This::wxSizerItem().
 isWindow(#wx_ref{type=ThisT}=This) ->
@@ -265,7 +324,7 @@ isWindow(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_IsWindow),
   wxe_util:rec(?wxSizerItem_IsWindow).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetborder">external documentation</a>.
+-doc "Set the border item attribute.".
 -spec setBorder(This, Border) -> 'ok' when
 	This::wxSizerItem(), Border::integer().
 setBorder(#wx_ref{type=ThisT}=This,Border)
@@ -273,7 +332,10 @@ setBorder(#wx_ref{type=ThisT}=This,Border)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Border,?get_env(),?wxSizerItem_SetBorder).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetdimension">external documentation</a>.
+-doc """
+Set the position and size of the space allocated to the sizer, and adjust the position
+and size of the item to be within that space taking alignment and borders into account.
+""".
 -spec setDimension(This, Pos, Size) -> 'ok' when
 	This::wxSizerItem(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
 setDimension(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos,{SizeW,SizeH} = Size)
@@ -281,7 +343,7 @@ setDimension(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos,{SizeW,SizeH} = Size)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Pos,Size,?get_env(),?wxSizerItem_SetDimension).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetflag">external documentation</a>.
+-doc "Set the flag item attribute.".
 -spec setFlag(This, Flag) -> 'ok' when
 	This::wxSizerItem(), Flag::integer().
 setFlag(#wx_ref{type=ThisT}=This,Flag)
@@ -289,7 +351,11 @@ setFlag(#wx_ref{type=ThisT}=This,Flag)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Flag,?get_env(),?wxSizerItem_SetFlag).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetinitsize">external documentation</a>.
+-doc """
+Sets the minimum size to be allocated for this item.
+
+This is identical to `setMinSize/3`, prefer to use the other function, as its name is more clear.
+""".
 -spec setInitSize(This, X, Y) -> 'ok' when
 	This::wxSizerItem(), X::integer(), Y::integer().
 setInitSize(#wx_ref{type=ThisT}=This,X,Y)
@@ -297,7 +363,11 @@ setInitSize(#wx_ref{type=ThisT}=This,X,Y)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,X,Y,?get_env(),?wxSizerItem_SetInitSize).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetminsize">external documentation</a>.
+-doc """
+Sets the minimum size to be allocated for this item.
+
+If this item is a window, the `size` is also passed to `wxWindow:setMinSize/2`.
+""".
 -spec setMinSize(This, Size) -> 'ok' when
 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 setMinSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -305,7 +375,10 @@ setMinSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Size,?get_env(),?wxSizerItem_SetMinSize_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetminsize">external documentation</a>.
+-doc """
+This is an overloaded member function, provided for convenience. It differs from the
+above function only in what argument(s) it accepts.
+""".
 -spec setMinSize(This, X, Y) -> 'ok' when
 	This::wxSizerItem(), X::integer(), Y::integer().
 setMinSize(#wx_ref{type=ThisT}=This,X,Y)
@@ -313,7 +386,7 @@ setMinSize(#wx_ref{type=ThisT}=This,X,Y)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,X,Y,?get_env(),?wxSizerItem_SetMinSize_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetproportion">external documentation</a>.
+-doc "Set the proportion item attribute.".
 -spec setProportion(This, Proportion) -> 'ok' when
 	This::wxSizerItem(), Proportion::integer().
 setProportion(#wx_ref{type=ThisT}=This,Proportion)
@@ -321,11 +394,7 @@ setProportion(#wx_ref{type=ThisT}=This,Proportion)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Proportion,?get_env(),?wxSizerItem_SetProportion).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetratio">external documentation</a>.
-%% <br /> Also:<br />
-%% setRatio(This, Size) -> 'ok' when<br />
-%% 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.<br />
-%% 
+-doc "".
 -spec setRatio(This, Ratio) -> 'ok' when
 	This::wxSizerItem(), Ratio::number();
       (This, Size) -> 'ok' when
@@ -339,7 +408,7 @@ setRatio(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Size,?get_env(),?wxSizerItem_SetRatio_1_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetratio">external documentation</a>.
+-doc "Set the ratio item attribute.".
 -spec setRatio(This, Width, Height) -> 'ok' when
 	This::wxSizerItem(), Width::integer(), Height::integer().
 setRatio(#wx_ref{type=ThisT}=This,Width,Height)
@@ -347,7 +416,11 @@ setRatio(#wx_ref{type=ThisT}=This,Width,Height)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Width,Height,?get_env(),?wxSizerItem_SetRatio_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemassignsizer">external documentation</a>.
+-doc """
+Set the sizer tracked by this item.
+
+Old sizer, if any, is deleted.
+""".
 -spec assignSizer(This, Sizer) -> 'ok' when
 	This::wxSizerItem(), Sizer::wxSizer:wxSizer().
 assignSizer(#wx_ref{type=ThisT}=This,#wx_ref{type=SizerT}=Sizer) ->
@@ -355,7 +428,11 @@ assignSizer(#wx_ref{type=ThisT}=This,#wx_ref{type=SizerT}=Sizer) ->
   ?CLASS(SizerT,wxSizer),
   wxe_util:queue_cmd(This,Sizer,?get_env(),?wxSizerItem_AssignSizer).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemassignspacer">external documentation</a>.
+-doc """
+Set the size of the spacer tracked by this item.
+
+Old spacer, if any, is deleted.
+""".
 -spec assignSpacer(This, Size) -> 'ok' when
 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 assignSpacer(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -363,7 +440,7 @@ assignSpacer(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Size,?get_env(),?wxSizerItem_AssignSpacer_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemassignspacer">external documentation</a>.
+-doc "".
 -spec assignSpacer(This, W, H) -> 'ok' when
 	This::wxSizerItem(), W::integer(), H::integer().
 assignSpacer(#wx_ref{type=ThisT}=This,W,H)
@@ -371,7 +448,21 @@ assignSpacer(#wx_ref{type=ThisT}=This,W,H)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,W,H,?get_env(),?wxSizerItem_AssignSpacer_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemassignwindow">external documentation</a>.
+-doc """
+Set the window to be tracked by this item.
+
+Note: This is a low-level method which is dangerous if used incorrectly, avoid using it
+if possible, i.e. if higher level methods such as `wxSizer:replace/4` can be used instead.
+
+If the sizer item previously contained a window, it is dissociated from the sizer
+containing this sizer item (if any), but this object doesn't have the pointer to the
+containing sizer and so it's the caller's responsibility to call `wxWindow:setContainingSizer/2` on `window`. Failure to
+do this can result in memory corruption when the window is destroyed later, so it is
+crucial to not forget to do it.
+
+Also note that the previously contained window is `not` deleted, so it's also the callers
+responsibility to do it, if necessary.
+""".
 -spec assignWindow(This, Window) -> 'ok' when
 	This::wxSizerItem(), Window::wxWindow:wxWindow().
 assignWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
@@ -379,7 +470,12 @@ assignWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(WindowT,wxWindow),
   wxe_util:queue_cmd(This,Window,?get_env(),?wxSizerItem_AssignWindow).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemshow">external documentation</a>.
+-doc """
+Set the show item attribute, which sizers use to determine if the item is to be made part
+of the layout or not.
+
+If the item is tracking a window then it is shown or hidden as needed.
+""".
 -spec show(This, Show) -> 'ok' when
 	This::wxSizerItem(), Show::boolean().
 show(#wx_ref{type=ThisT}=This,Show)
@@ -387,7 +483,7 @@ show(#wx_ref{type=ThisT}=This,Show)
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,Show,?get_env(),?wxSizerItem_Show).
 
-%% @doc Destroys this object, do not use object again
+-doc "Destroys the object".
 -spec destroy(This::wxSizerItem()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSizerItem),

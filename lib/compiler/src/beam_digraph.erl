@@ -2,7 +2,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,15 +27,20 @@
 %%
 
 -module(beam_digraph).
+-moduledoc false.
 
 -export([new/0,
          add_vertex/2, add_vertex/3, add_edge/3, add_edge/4,
          del_edge/2, del_edges/2,
+         del_vertex/2,
+         edges/1,
+         foldv/3,
          has_vertex/2,
          is_path/3,
          in_degree/2, in_edges/2, in_neighbours/2,
+         no_vertices/1,
          out_degree/2, out_edges/2, out_neighbours/2,
-         vertex/2, vertices/1,
+         vertex/2, vertex/3, vertices/1,
          reverse_postorder/2,
          roots/1,
          topsort/1,
@@ -69,19 +76,21 @@ add_vertex(Dg, V) ->
 
 -spec add_vertex(graph(), vertex(), label()) -> graph().
 add_vertex(Dg, V, Label) ->
-    #dg{in_es=InEsMap0,out_es=OutEsMap0,vs=Vs0} = Dg,
-    InEsMap = init_edge_map(V, InEsMap0),
-    OutEsMap = init_edge_map(V, OutEsMap0),
+    #dg{vs=Vs0} = Dg,
     Vs = Vs0#{V=>Label},
-    Dg#dg{vs=Vs,in_es=InEsMap,out_es=OutEsMap}.
+    Dg#dg{vs=Vs}.
 
-init_edge_map(V, EsMap) ->
-    case is_map_key(V, EsMap) of
-        true ->
-            EsMap;
-        false ->
-            EsMap#{V=>ordsets:new()}
-    end.
+-spec del_vertex(graph(), vertex()) -> graph().
+del_vertex(Dg, V) ->
+    #dg{vs=Vs0,in_es=InEsMap0,out_es=OutEsMap0} = Dg,
+    InEs = maps:get(V, InEsMap0, []),
+    OutEsMap = foldl(fun({From,_,_}=E, A) -> edge_map_del(From, E, A) end,
+                     maps:remove(V, OutEsMap0), InEs),
+    OutEs = maps:get(V, OutEsMap0, []),
+    InEsMap = foldl(fun({_,To,_}=E, A) -> edge_map_del(To, E, A) end,
+                    maps:remove(V, InEsMap0), OutEs),
+    Vs = maps:remove(V, Vs0),
+    Dg#dg{vs=Vs,in_es=InEsMap,out_es=OutEsMap}.
 
 -spec add_edge(graph(), vertex(), vertex()) -> graph().
 add_edge(Dg, From, To) ->
@@ -96,9 +105,9 @@ add_edge(Dg, From, To, Label) ->
     Dg#dg{in_es=InEsMap,out_es=OutEsMap}.
 
 edge_map_add(V, E, EsMap) ->
-    Es0 = map_get(V, EsMap),
+    Es0 = maps:get(V, EsMap, []),
     Es = ordsets:add_element(E, Es0),
-    EsMap#{V:=Es}.
+    EsMap#{V=>Es}.
 
 -spec del_edge(graph(), edge()) -> graph().
 del_edge(Dg, {From,To,_}=E) ->
@@ -108,7 +117,7 @@ del_edge(Dg, {From,To,_}=E) ->
     Dg#dg{in_es=InEsMap,out_es=OutEsMap}.
 
 edge_map_del(V, E, EsMap) ->
-    Es0 = map_get(V, EsMap),
+    Es0 = maps:get(V, EsMap, []),
     Es = Es0 -- [E],
     EsMap#{V:=Es}.
 
@@ -116,25 +125,30 @@ edge_map_del(V, E, EsMap) ->
 del_edges(G, Es) when is_list(Es) ->
     foldl(fun(E, A) -> del_edge(A, E) end, G, Es).
 
+%% Fold over the vertices of the graph, the order is unspecified.
+-spec foldv(graph(), fun((vertex(), label(), any()) -> any()), any()) -> any().
+foldv(#dg{vs=Vs}, Fun, Acc) ->
+    maps:fold(Fun, Acc, Vs).
+
 -spec has_vertex(graph(), vertex()) -> boolean().
 has_vertex(#dg{vs=Vs}, V) ->
     is_map_key(V, Vs).
 
 -spec in_degree(graph(), vertex()) -> non_neg_integer().
 in_degree(#dg{in_es=InEsMap}, V) ->
-    length(map_get(V, InEsMap)).
+    length(maps:get(V, InEsMap, [])).
 
 -spec in_edges(graph(), vertex()) -> [edge()].
 in_edges(#dg{in_es=InEsMap}, V) ->
-    map_get(V, InEsMap).
+    maps:get(V, InEsMap, []).
 
 -spec in_neighbours(graph(), vertex()) -> [vertex()].
 in_neighbours(#dg{in_es=InEsMap}, V) ->
-    [From || {From,_,_} <- map_get(V, InEsMap)].
+    [From || {From,_,_} <:- maps:get(V, InEsMap, [])].
 
 -spec is_path(graph(), vertex(), vertex()) -> boolean().
 is_path(G, From, To) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     try
         _ = is_path_1([From], To, G, Seen),
         false
@@ -160,19 +174,29 @@ is_path_1([], _To, _G, Seen) ->
 
 -spec out_degree(graph(), vertex()) -> non_neg_integer().
 out_degree(#dg{out_es=OutEsMap}, V) ->
-    length(map_get(V, OutEsMap)).
+    length(maps:get(V, OutEsMap, [])).
 
 -spec out_edges(graph(), vertex()) -> [edge()].
 out_edges(#dg{out_es=OutEsMap}, V) ->
-    map_get(V, OutEsMap).
+    maps:get(V, OutEsMap, []).
 
 -spec out_neighbours(graph(), vertex()) -> [vertex()].
 out_neighbours(#dg{out_es=OutEsMap}, V) ->
-    [To || {_,To,_} <- map_get(V, OutEsMap)].
+    [To || {_,To,_} <:- maps:get(V, OutEsMap, [])].
+
+-spec no_vertices(graph()) -> non_neg_integer().
+no_vertices(#dg{vs=Vs}) ->
+    map_size(Vs).
 
 -spec vertex(graph(), vertex()) -> label().
 vertex(#dg{vs=Vs}, V) ->
     map_get(V, Vs).
+
+%% As vertex/2 but if the vertex does not exist a default value is
+%% returned.
+-spec vertex(graph(), vertex(), label()) -> label().
+vertex(#dg{vs=Vs}, V, Default) ->
+    maps:get(V, Vs, Default).
 
 -spec vertices(graph()) -> [{vertex(), label()}].
 vertices(#dg{vs=Vs}) ->
@@ -180,7 +204,7 @@ vertices(#dg{vs=Vs}) ->
 
 -spec reverse_postorder(graph(), [vertex()]) -> [vertex()].
 reverse_postorder(G, Vs) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {RPO, _} = reverse_postorder_1(Vs, G, Seen, []),
     RPO.
 
@@ -214,6 +238,12 @@ roots_1([], _G) -> [].
 topsort(G) ->
     Seen = roots(G),
     reverse_postorder(G, Seen).
+
+-spec edges(graph()) -> [edge()].
+edges(#dg{out_es=OutEsMap}) ->
+    maps:fold(fun(_, Es, Acc) ->
+                      Es ++ Acc
+              end, [], OutEsMap).
 
 %%
 %% Kosaraju's algorithm

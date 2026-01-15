@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 2001-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,6 +118,7 @@ static int eiformat(const char** fmt, union arg** args, ei_x_buff* x)
 	    ei_x_free(&x2);
 	    break;
 	}
+        EI_FALLTHROUGH();
     default:
 	if (isdigit((int)*p))
 	    res = pdigit(&p, x);

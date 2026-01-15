@@ -1,4 +1,11 @@
-# ``Licensed under the Apache License, Version 2.0 (the "License");
+#
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
@@ -9,11 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
-# The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-# Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-# AB. All Rights Reserved.''
-# 
+#
+# %CopyrightEnd%
+#
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -22,60 +27,15 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 include ../vsn.mk
 VSN=$(SYNTAX_TOOLS_VSN)
+APPLICATION=syntax_tools
+EPUB=false
 
-# ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/syntax_tools-$(VSN)
+assets/demo.erl: ../examples/demo.erl
+	$(V_at)cp $< $@
 
-# ----------------------------------------------------
-# Help application directory specification
-# ----------------------------------------------------
-
-APPNAME=syntax_tools
-DOC_TITLE="Welcome to SyntaxTools"
-
-HTML_FILES = *.html
-INFO_FILE = ../info
-# ----------------------------------------------------
-# Target Specs
-# ----------------------------------------------------
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-
-
-docs:
-	(cd ..; \
-	edoc_generate -app '$(APPNAME)' -vsn '$(VSN)')
-
-
-info:
-	@echo "HTML_FILES:" $(HTML_FILES)
-	@echo "HTMLDIR: $(HTMLDIR)"
-
-
-
-$(TYPES): 
-
-
-clean:
-	rm -f  $(HTML_FILES) stylesheet.css edoc-info
-	rm -f errs core *~
-
+$(HTMLDIR)/index.html: assets/demo.erl
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
-
-
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) $(RELSYSDIR)/doc/html
-	$(INSTALL_DATA)  $(HTML_FILES) $(RELSYSDIR)/doc/html
-	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
-
-
-release_spec:
+# ----------------------------------------------------
+include $(ERL_TOP)/make/doc.mk

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +25,6 @@
 %% with cryptcookie over inet_tcp with kTLS offloading
 %%
 -module(inet_epmd_cryptcookie_socket_ktls).
--feature(maybe_expr, enable).
 
 %% DistMod API
 -export([net_address/0, listen_open/2, listen_port/3, listen_close/1,
@@ -217,7 +218,8 @@ stream_recv(InStream = [_ | Socket], Size) ->
 stream_recv_error(InStream, Reason) ->
     if
         Reason =:= closed;
-        Reason =:= econnreset ->
+        Reason =:= econnreset;
+        Reason =:= epipe ->
             [closed | InStream];
         true ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason})
@@ -232,7 +234,10 @@ stream_send(OutStream = [_ | Socket], Data) ->
     case socket:sendmsg(Socket, #{ iov => Data }) of
         ok ->
             OutStream;
-        {error, closed} ->
+        {error, Reason}
+          when Reason =:= closed;
+               Reason =:= econnreset;
+               Reason =:= epipe ->
             [closed | OutStream];
         {error, Reason} ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason, [OutStream, Data]})

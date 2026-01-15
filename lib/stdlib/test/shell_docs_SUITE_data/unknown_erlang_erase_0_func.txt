@@ -1,7 +1,16 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erase() -> [{Key, Val}] when Key :: term(), Val :: term().[0m
+[;1m  erase()[0m
 
-  Returns the process dictionary and deletes it, for example:
+  Returns the process dictionary and deletes it.
+
+  For example:
 
     > put(key1, {1, 2, 3}),
     put(key2, [a, b, c]),

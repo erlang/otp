@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%-----------------------------------------------------------------------
 %% File        : typer_core.erl
@@ -27,6 +36,7 @@
 %%-----------------------------------------------------------------------
 
 -module(typer_core).
+-moduledoc false.
 
 -export([run/1]).
 
@@ -432,7 +442,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records, Analysis) ->
       {{F, A}, {Range, Arg}};
     {ok, {_FileLine, Contract, _Xtra}} ->
       Sig = erl_types:t_fun(Arg, Range),
-      case dialyzer_contracts:check_contract(Contract, Sig) of
+      case dialyzer_contracts:check_contract(Contract, Sig, M) of
         ok -> {{F, A}, {contract, Contract}};
         {range_warnings, _} ->
           {{F, A}, {contract, Contract}};

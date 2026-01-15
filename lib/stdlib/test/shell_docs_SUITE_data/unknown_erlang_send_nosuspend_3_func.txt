@@ -1,11 +1,14 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean()[0m
-  [;1m                               when[0m
-  [;1m                                   Dest :: send_destination(),[0m
-  [;1m                                   Msg :: term(),[0m
-  [;1m                                   Options :: [noconnect].[0m
+[;1m  send_nosuspend(Dest, Msg, Options)[0m
 
-  The same as [;;4merlang:send(Dest, Msg, [nosuspend | Options])[0m, but
+  Equivalent to [;;4merlang:send(Dest, Msg, [nosuspend | Options])[0m, but
   with a Boolean return value.
 
   This function behaves like [;;4merlang:send_nosuspend/2[0m, but takes a
@@ -24,5 +27,6 @@
   already connected), the message is guaranteed not to have been
   sent.
 
-  Warning:
+  [;;4mWarning[0m
+
     Use with extreme care.

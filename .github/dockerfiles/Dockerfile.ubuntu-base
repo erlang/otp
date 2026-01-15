@@ -1,3 +1,23 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
 ##
 ## This docker file will build a base image for building Erlang/OTP
 ##
@@ -13,10 +33,13 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 ## Install build tools
 RUN apt-get update && apt-get -y upgrade && \
-    apt-get install -y build-essential m4 autoconf fop xsltproc \
-    default-jdk libxml2-utils flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
+    apt-get install -y build-essential m4 autoconf clang-format \
+    flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
     sed -i 's@# en_US.UTF-8@en_US.UTF-8@g' /etc/locale.gen && locale-gen && \
-    update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0
+    update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0 && \
+    apt-get install -y openjdk-8-jdk-headless && apt-get install -y openjdk-11-jdk-headless && \
+    (update-java-alternatives -s java-1.8.0-openjdk-amd64 || true) && \
+    java -version 2>&1 | grep 'version "1[.]8' > /dev/null || exit 1
 
 ARG MAKEFLAGS=-j4
 ENV MAKEFLAGS=$MAKEFLAGS \
@@ -43,17 +66,25 @@ ENV OTP_STRICT_INSTALL=yes
 
 RUN mkdir /buildroot /tests /otp && chown ${USER}:${GROUP} /buildroot /tests /otp
 
+ARG LATEST_ERLANG_VERSION=unknown
+
 ## We install the latest version of the previous three releases in order to do
 ## backwards compatability testing of Erlang.
 RUN apt-get update && apt-get install -y git curl && \
     curl -L https://raw.githubusercontent.com/kerl/kerl/master/kerl > /usr/bin/kerl && \
     chmod +x /usr/bin/kerl && \
     kerl update releases && \
-    LATEST=$(kerl list releases | grep "\*$" | tail -1 | awk -F '.' '{print $1}') && \
+    if [ ${LATEST_ERLANG_VERSION} = "unknown" ]; then \
+        LATEST=$(kerl list releases | grep "\*$" | tail -1 | awk -F '.' '{print $1}'); \
+    else \
+        LATEST=${LATEST_ERLANG_VERSION}; \
+    fi && \
     for release in $(seq $(( LATEST - 2 )) $(( LATEST ))); do \
       VSN=$(kerl list releases | grep "^$release" | tail -1 | awk '{print $1}'); \
       if [ $release = $LATEST ]; then \
         echo "/usr/local/lib/erlang-${VSN}/bin" > /home/${USER}/LATEST; \
+        echo "${VSN}" > /home/${USER}/LATEST_VSN; \
+        echo "${release}" > /home/${USER}/LATEST_RELEASE; \
       fi && \
       echo "Building ${VSN}" && \
       kerl build ${VSN} ${VSN} && \
@@ -70,7 +101,7 @@ RUN apt-get update && apt-get install -y \
     unixodbc odbc-postgresql postgresql ssh openssh-server groff-base gdb \
     tinyproxy knot ldnsutils expect vsftpd python3 emacs nano vim \
     linux-tools-common linux-tools-generic jq \
-    xvfb libgl1-mesa-dri && \
+    xvfb libgl1-mesa-dri zstd && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
     if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi
 RUN apt-get install -y linux-tools-$(uname -r) || true
@@ -100,23 +131,32 @@ ENV USER=${USER}
 RUN ssh-keygen -q -t rsa -N '' -f $HOME/.ssh/id_rsa && \
     cp $HOME/.ssh/id_rsa.pub $HOME/.ssh/authorized_keys
 
-COPY --chown=${USER}:${GROUP} dockerfiles/init.sh /buildroot/
+COPY --chown=${USER}:${GROUP} dockerfiles/.profile /home/otptest/.profile
 
 WORKDIR /buildroot/
 
-## Install test tools rebar3, proper and jsx
+## Build and install elixir and hex
+ENV ELIXIR_VSN=latest
+RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
+    set -x && \
+    mkdir /buildroot/elixir && cd /buildroot/elixir && \
+    curl -s https://api.github.com/repos/elixir-lang/elixir/releases/${ELIXIR_VSN} | \
+    jq '.tarball_url' | xargs curl -L > elixir.tar.gz && \
+    tar xzf elixir.tar.gz --strip-components=1 && \
+    make && sudo make install && \
+    mix archive.install github hexpm/hex branch latest --force
+
+## Install test tools rebar3 and proper
 RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     latest () { \
     local VSN=$(curl -sL "https://api.github.com/repos/$1/tags" | jq -r ".[] | .name" | grep -E '^v?[0-9]' | sort -V | tail -1); \
     curl -sL "https://github.com/$1/archive/$VSN.tar.gz" > $(basename $1).tar.gz; \
     } && \
-    latest erlang/rebar3 && ls -la && \
+    latest erlang/rebar3 && \
     (tar xzf rebar3.tar.gz && cd rebar3-* && ./bootstrap && sudo cp rebar3 /usr/bin) && \
     latest proper-testing/proper && \
-    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make) && \
-    latest talentdeficit/jsx && \
-    (tar xzf jsx.tar.gz && mv jsx-* jsx && cd jsx && rebar3 compile)
+    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make)
 
-ENV ERL_LIBS=/buildroot/proper:/buildroot/jsx
+ENV ERL_LIBS=/buildroot/proper
 
-ENTRYPOINT ["/buildroot/init.sh"]
+ENTRYPOINT ["/bin/bash","-l","-c"]

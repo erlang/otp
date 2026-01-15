@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +24,7 @@
 %%          (Mandatory.)
 
 -module(beam_a).
+-moduledoc false.
 
 -export([module/2]).
 
@@ -105,40 +108,6 @@ rename_instr({bif,Bif,Fail,[A,B],Dst}=I) ->
         _ ->
             I
     end;
-rename_instr({bs_put_binary=I,F,Sz,U,Fl,Src}) ->
-    {bs_put,F,{I,U,Fl},[Sz,Src]};
-rename_instr({bs_put_float=I,F,Sz,U,Fl,Src}) ->
-    {bs_put,F,{I,U,Fl},[Sz,Src]};
-rename_instr({bs_put_integer=I,F,Sz,U,Fl,Src}) ->
-    {bs_put,F,{I,U,Fl},[Sz,Src]};
-rename_instr({bs_put_utf8=I,F,Fl,Src}) ->
-    {bs_put,F,{I,Fl},[Src]};
-rename_instr({bs_put_utf16=I,F,Fl,Src}) ->
-    {bs_put,F,{I,Fl},[Src]};
-rename_instr({bs_put_utf32=I,F,Fl,Src}) ->
-    {bs_put,F,{I,Fl},[Src]};
-rename_instr({bs_put_string,_,{string,String}}) ->
-    %% Only happens when compiling from .S files. In old
-    %% .S files, String is a list. In .S in OTP 22 and later,
-    %% String is a binary.
-    {bs_put,{f,0},{bs_put_binary,8,{field_flags,[unsigned,big]}},
-     [{atom,all},{literal,iolist_to_binary([String])}]};
-rename_instr({bs_add=I,F,[Src1,Src2,U],Dst}) when is_integer(U) ->
-    {bif,I,F,[Src1,Src2,{integer,U}],Dst};
-rename_instr({bs_utf8_size=I,F,Src,Dst}) ->
-    {bif,I,F,[Src],Dst};
-rename_instr({bs_utf16_size=I,F,Src,Dst}) ->
-    {bif,I,F,[Src],Dst};
-rename_instr({bs_init2=I,F,Sz,Extra,Live,Flags,Dst}) ->
-    {bs_init,F,{I,Extra,Flags},Live,[Sz],Dst};
-rename_instr({bs_init_bits=I,F,Sz,Extra,Live,Flags,Dst}) ->
-    {bs_init,F,{I,Extra,Flags},Live,[Sz],Dst};
-rename_instr({bs_append=I,F,Sz,Extra,Live,U,Src,Flags,Dst}) ->
-    {bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst};
-rename_instr({bs_private_append=I,F,Sz,U,Src,Flags,Dst}) ->
-    {bs_init,F,{I,U,Flags},none,[Sz,Src],Dst};
-rename_instr(bs_init_writable=I) ->
-    {bs_init,{f,0},I,1,[{x,0}],{x,0}};
 rename_instr({put_map_assoc,Fail,S,D,R,L}) ->
     {put_map,Fail,assoc,S,D,R,L};
 rename_instr({put_map_exact,Fail,S,D,R,L}) ->

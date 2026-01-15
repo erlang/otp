@@ -1,8 +1,22 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec is_a_function(BinRel) -> Bool[0m
-  [;1m                       when[0m
-  [;1m                           Bool :: boolean(),[0m
-  [;1m                           BinRel :: binary_relation().[0m
+[;1m  is_a_function(BinRel)[0m
 
   Returns [;;4mtrue[0m if the binary relation [;;4mBinRel[0m is a function or
-  the untyped empty set, otherwise [;;4mfalse[0m.
+  the untyped empty set; otherwise, returns [;;4mfalse[0m.
+
+[;1mExamples[0m
+
+    1> sofs:is_a_function(sofs:relation([{1,a},{2,b},{3,c}])).
+    true
+    2> sofs:is_a_function(sofs:relation([{1,a},{1,b},{3,c}])).
+    false
+    3> sofs:is_a_function(sofs:set([a,b,c])).
+    ** exception error: bad argument
+         in function  sofs:is_a_function/1

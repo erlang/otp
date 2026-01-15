@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,13 +27,15 @@
          cons/1,tuple/1,
          record_float/1,binary_float/1,float_compare/1,float_overflow/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
-         test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
+         test_size/1,cover_lists_functions/1,list_append/1,lists_mapfold/1,
+         bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
          not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
-         funs/1,will_succeed/1]).
+         funs/1,will_succeed/1,float_confusion/1,
+         cover_convert_ext/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -60,6 +64,7 @@ groups() ->
        test_size,
        cover_lists_functions,
        list_append,
+       lists_mapfold,
        bad_binary_unit,
        none_argument,
        success_type_oscillation,
@@ -76,7 +81,9 @@ groups() ->
        binary_unit,
        premature_concretization,
        funs,
-       will_succeed
+       will_succeed,
+       float_confusion,
+       cover_convert_ext
       ]}].
 
 init_per_suite(Config) ->
@@ -364,6 +371,16 @@ coverage(Config) ->
     {'EXIT',{badarg,_}} = catch false ++ true,
     {'EXIT',{badarg,_}} = catch false -- true,
 
+    ok = coverage_5(id(0)),
+    {'EXIT',{function_clause,_}} = catch coverage_5(id(0.0)),
+    ok = coverage_5(id(16)),
+    {'EXIT',{{case_clause,false},_}} = catch coverage_5(id(-1)),
+
+    ok = coverage_6(id(0)),
+    ok = catch coverage_6(id(0.0)),
+    ok = coverage_6(id(16)),
+    {'EXIT',{{case_clause,false},_}} = catch coverage_6(id(-1)),
+
     ok.
 
 coverage_1() ->
@@ -385,6 +402,23 @@ coverage_3("a" = V) when is_function(V, false) ->
 
 coverage_4(X, Y) ->
     10 * (X + Y).
+
+coverage_5(A) when is_integer(A) ->
+    case 15 < A of
+        _ when 0 =< A ->
+            ok;
+        true ->
+            error
+    end.
+
+coverage_6(A) ->
+    case 15 < A of
+        _ when 0 =< A ->
+            ok;
+        true ->
+            error
+    end.
+
 
 booleans(_Config) ->
     {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
@@ -618,6 +652,10 @@ cons(_Config) ->
 
     {$a,"bc"} = cons_hdtl(true),
     {$d,"ef"} = cons_hdtl(false),
+
+    {'EXIT',{badarg,_}} = catch hd(ok),
+    {'EXIT',{badarg,_}} = catch tl(ok),
+
     ok.
 
 cons(assigned, Instrument) ->
@@ -977,6 +1015,27 @@ list_append(_Config) ->
     %% the left-hand is [].
     hello = id([]) ++ id(hello),
     ok.
+
+%% GH-10354: Type inference broke when the fun passed to mapfoldl/mapfoldr
+%% returned a union of 2-tuples.
+lists_mapfold(_Config) ->
+    expected_result = id(lists_mapfold_1()),
+    ok.
+
+lists_mapfold_1() ->
+    List = [{key,[{number,1}]}],
+    {_, FinalAcc} =
+        lists:mapfoldl(
+            fun({_, PropListItem}, Acc) ->
+                Number = proplists:get_value(number, PropListItem),
+                case Number > 0 of
+                    true ->
+                        {false, Acc ++ [expected_result]};
+                    _ ->
+                        {true, Acc}
+                end
+            end, [], List),
+    hd(FinalAcc).
 
 %% OTP-15872: The compiler would treat the "Unit" of bs_init instructions as
 %% the unit of the result instead of the required unit of the input, causing
@@ -1374,6 +1433,7 @@ min_max_mixed_types(_Config) ->
     -10 = id(min(id(0)+1, -10)),
     43 = id(max(3, id(42)+1)),
     42 = id(max(-99, id(41)+1)),
+    -42 = id(min(id(0), -id(42))),
 
     ok.
 
@@ -1504,6 +1564,81 @@ will_succeed_1(_V0, _V1)
     a;
 will_succeed_1(_, _) ->
     b.
+
+%% GH-7901: Range operations did not honor the total order of floats.
+float_confusion(_Config) ->
+    ok = float_confusion_1(catch (true = ok), -0.0),
+    ok = float_confusion_1(ok, 0.0),
+    {'EXIT', _} = catch float_confusion_2(),
+    {'EXIT', _} = catch float_confusion_3(id(0.0)),
+    ok = float_confusion_4(id(1)),
+    {'EXIT', _} = catch float_confusion_5(),
+    {'EXIT', _} = catch float_confusion_6(),
+    ok.
+
+float_confusion_1(_, _) ->
+    ok.
+
+float_confusion_2() ->
+    [ok || _ := _ <- ok,
+     float_confusion_crash(catch float_confusion_crash(ok, -1), -0.0)].
+
+float_confusion_crash(_, 18446744073709551615) ->
+    ok.
+
+float_confusion_3(V) ->
+    -0.0 = abs(V),
+    ok.
+
+float_confusion_4(V) when -0.0 < floor(V band 1) ->
+    ok.
+
+float_confusion_5() ->
+    -0.0 =
+        case
+            fun() ->
+                ok
+            end
+        of
+            _V2 when (_V2 > ok) ->
+                2147483647.0;
+            _ ->
+                -2147483648
+        end * 0,
+    ok.
+
+%% GH-8097: Record keys weren't compared in total order, confusing +0.0 and
+%% -0.0 and crashing the compiler.
+float_confusion_6() ->
+    <<
+        (ok)
+     || _ := {_V1} <- ok,
+        (maybe
+            {} ?= _V1
+        else
+            -0.0 ->
+                [];
+            0.0 ->
+                []
+        end)
+    >>.
+
+cover_convert_ext(_Config) ->
+
+    Otp26AllTypes = 2#1111_1111_1111,
+    Otp26Version = 2,
+    Otp26Types = <<Otp26AllTypes:16, -1:16,0:64,0:64,1:8>>,
+    _ = beam_types:decode_ext(beam_types:convert_ext(Otp26Version, Otp26Types)),
+
+    Otp25AllTypes = 2#1111_1111_1111,
+    Otp25Version = 1,
+    Otp25Types = <<Otp25AllTypes:16,1:64,0:64, Otp25AllTypes:16,7:64,10:64>>,
+    _ = beam_types:decode_ext(beam_types:convert_ext(Otp25Version, Otp25Types)),
+
+    none = beam_types:convert_ext(0, <<>>),
+
+    ok.
+
 
 %%%
 %%% Common utilities.

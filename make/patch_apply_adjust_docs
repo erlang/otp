@@ -1,0 +1,416 @@
+#!/usr/bin/env perl
+# -*- perl -*-
+
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2024-2025. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+use strict;
+use warnings;
+
+my %updated_apps;
+my %pre_used_app_vsns;
+my %post_used_app_vsns;
+my %src_app_vsns;
+my %unchanged_app_replace;
+my %changed_app_replace;
+my $src_otp_vsn;
+my $otp_release;
+
+my $src_root;
+my $rel_root;
+my $old_app_vsns_file;
+my $new_app_vsns_file;
+
+while (@ARGV) {
+    my $opt = shift @ARGV;
+    if ($opt eq '-s') {
+	if (@ARGV) {
+	    $src_root = shift @ARGV;
+	}
+	else {
+	    usage("Missing source root");
+	}
+    }
+    elsif ($opt eq '-r') {
+	if (@ARGV) {
+	    $rel_root = shift @ARGV;
+	}
+	else {
+	    usage("Missing release root");
+	}
+    }
+    elsif ($opt eq '-a') {
+	if (@ARGV) {
+	    $old_app_vsns_file = shift @ARGV;
+	}
+	else {
+	    usage("Missing app versions file");
+	}
+    }
+}
+
+$src_root or usage("Missing source root");
+$rel_root or usage("Missing release root");
+$old_app_vsns_file or usage("Missing app versions file");
+
+open(OTP_VSN_FILE, "$src_root/OTP_VERSION")
+    or fail("Failed to open $src_root/OTP_VERSION");
+$src_otp_vsn = <OTP_VSN_FILE>;
+chomp($src_otp_vsn);
+close(OTP_VSN_FILE);
+
+if ($src_otp_vsn !~ /^(\d+)(?:\.\d)+$/) {
+    fail("Invalid OTP version: $src_otp_vsn");
+}
+$otp_release=$1;
+
+open(OTP_VSN_FILE, "$rel_root/releases/$otp_release/OTP_VERSION")
+    or fail("Failed to open $rel_root/releases/$otp_release/OTP_VERSION");
+my $rel_otp_vsn = <OTP_VSN_FILE>;
+chomp($rel_otp_vsn);
+close(OTP_VSN_FILE);
+
+$new_app_vsns_file = "$rel_root/releases/$otp_release/installed_application_versions";
+
+# Mappings from application to used application versions before and
+# after patching
+read_used_app_vsns(\%pre_used_app_vsns, $old_app_vsns_file);
+read_used_app_vsns(\%post_used_app_vsns, $new_app_vsns_file);
+
+# Mapping from application to application versions in the source tree
+open(VSN_TAB, "$src_root/otp_versions.table")
+    or fail("Failed to open: $src_root/otp_versions.table");
+# First line contains all application versions of this OTP version...
+my $vsn_tab_line = <VSN_TAB>;
+close(VSN_TAB);
+
+foreach my $app_vsn (split(/ /, $vsn_tab_line)) {
+    chomp($app_vsn);
+    if ($app_vsn !~ /^([\w_]+)-(\d+(?:\.\d+)+)$/) {
+        next if (($app_vsn eq ':') or ($app_vsn eq '#'));
+        fail("Invalid data in versions table: $app_vsn");
+    }
+    else {
+        my $app = $1;
+        my $vsn = $2;
+        $src_app_vsns{$app} = $vsn;
+    }
+}
+
+my $no_pre_apps = keys %pre_used_app_vsns;
+my $no_post_apps = keys %post_used_app_vsns;
+
+if (!$no_pre_apps) {
+    fail("No old applications found");
+}
+
+if ($no_pre_apps != $no_post_apps) {
+    fail("Amount of applications changed from $no_pre_apps to $no_post_apps");
+}
+
+# Create mappings for replacing links between application versions.
+#
+# The mapping for changed (newly patched) applications is from
+# application versions in source tree to used application versions
+# after patching installation.
+#
+# The mapping for unchanged applications is from previously used
+# application versions (before this patching) to used application
+# versions after patching installation.
+foreach my $app (keys %pre_used_app_vsns) {
+    if (!defined $post_used_app_vsns{$app}) {
+        fail("Application '$app' missing after applying patch");
+    }
+
+    my $pre_vsn = $pre_used_app_vsns{$app};
+    my $post_vsn = $post_used_app_vsns{$app};
+    my $src_vsn = $src_app_vsns{$app};
+
+    if ($pre_vsn ne $post_vsn) {
+        $updated_apps{$app} = 1;
+    }
+    else {
+        $updated_apps{$app} = 0;
+    }
+
+    $unchanged_app_replace{"$app-$pre_vsn"} = "$app-$post_vsn";
+    $changed_app_replace{"$app-$src_vsn"} = "$app-$post_vsn";
+}
+
+# Create patterns matching the keys in mappings
+my $unchanged_app_replace_pattern = '';
+my $changed_app_replace_pattern = '';
+
+foreach my $app_vsn (keys %unchanged_app_replace) {
+    if ($unchanged_app_replace_pattern ne '') {
+        $unchanged_app_replace_pattern .= "|";
+    }
+    $app_vsn =~ s/\./\\./g;
+    $unchanged_app_replace_pattern .= $app_vsn;
+}
+
+foreach my $app_vsn (keys %changed_app_replace) {
+    if ($changed_app_replace_pattern ne '') {
+        $changed_app_replace_pattern .= "|";
+    }
+    $app_vsn =~ s/\./\\./g;
+    $changed_app_replace_pattern .= $app_vsn;
+}
+
+# Update links in each application of the installation
+# using the mappings createded above
+foreach my $app (keys %post_used_app_vsns) {
+    my $dir = "$rel_root/";
+    my $vsn = $post_used_app_vsns{$app};
+
+    if ($app eq 'erts') {
+        $dir .= 'erts';
+    }
+    else {
+        $dir .= "lib/$app";
+    }
+
+    $dir .= "-$vsn/doc/html";
+
+    chdir $dir or fail("Failed to cd into $dir");
+
+    my @files = glob("*.html");
+
+    foreach my $file (@files) {
+        update_html_links($file, $updated_apps{$app}, 0);
+    }
+}
+
+# Also update top and system links. Here we also need to update
+# the OTP version to match the base version for the installation.
+foreach my $dir (("$rel_root/doc", "$rel_root/doc/system")) {
+
+    chdir $dir or fail("Failed to cd into $dir");
+    my @files = glob("*.html");
+
+    foreach my $file (@files) {
+        update_html_links($file, 1, $file eq 'man_index.html');
+        update_html_otp_vsn($file, $src_app_vsns{'OTP'}, $rel_otp_vsn);
+    }
+
+}
+
+# and OTP version in scripts
+chdir "$rel_root/doc/dist" or fail("Failed to cd into $rel_root/doc/dist");
+
+foreach my $file (glob("*.js")) {
+    my $src_vsn_pattern = $src_otp_vsn;
+    $src_vsn_pattern =~ s/\./\\./g;
+    my $modified = 0;
+    my $data = '';
+
+    open(JS, $file)
+        or fail("Failed to open file: $file");
+
+    while (<JS>) {
+        my $line = $_;
+
+        $line =~ s|Erlang/OTP v$src_vsn_pattern|Erlang/OTP v$rel_otp_vsn|g
+            and $modified = 1;
+        $line =~ s|Erlang/OTP $src_vsn_pattern|Erlang/OTP $rel_otp_vsn|g
+            and $modified = 1;
+
+        $data .= $line;
+    }
+    close(JS);
+
+    if ($modified) {
+        open(JS, '>', $file)
+            or fail("Failed to open file for writing: $file");
+        print JS $data;
+        close(JS);
+    }
+
+}
+
+
+# done
+exit 0;
+
+sub update_html_links {
+    my ($file, $changed_app, $replace_all_app_vsns) = @_;
+    my $data = '';
+    my $pattern;
+    my %replace;
+    my $modified = 0;
+    my $suffix = '/doc/html';
+
+    if ($replace_all_app_vsns) {
+        $suffix = '';
+    }
+
+    if ($changed_app) {
+        $pattern = $changed_app_replace_pattern;
+        %replace = %changed_app_replace;
+    }
+    else {
+        $pattern = $unchanged_app_replace_pattern;
+        %replace = %unchanged_app_replace;
+    }
+
+    open(HTML, $file)
+        or fail("Failed to open file: $file");
+
+    while (<HTML>) {
+        my $line = $_;
+
+        if ($changed_app) {
+            $line =~ s|($changed_app_replace_pattern)$suffix|$changed_app_replace{$1}$suffix|g
+                and $modified = 1;
+        }
+        else {
+            $line =~ s|($unchanged_app_replace_pattern)$suffix|$unchanged_app_replace{$1}$suffix|g
+                and $modified = 1;
+        }
+
+        $data .= $line;
+    }
+
+    close(HTML);
+
+    if ($modified) {
+        open(HTML, '>', $file)
+            or fail("Failed to open file for writing: $file");
+        print HTML $data;
+        close(HTML);
+    }
+
+}
+
+sub update_html_otp_vsn {
+    my ($file, $src_otp_vsn, $rel_otp_vsn) = @_;
+    my $src_vsn_pattern = $src_otp_vsn;
+    $src_vsn_pattern =~ s/\./\\./g;
+    my $in_proj_ver = 0;
+    my $modified = 0;
+    my $data = '';
+
+    open(HTML, $file)
+        or fail("Failed to open file: $file");
+
+    while (<HTML>) {
+        my $line = $_;
+
+        if (!$in_proj_ver) {
+            $line =~ s|Erlang/OTP v$src_vsn_pattern|Erlang/OTP v$rel_otp_vsn|g
+                and $modified = 1;
+            $line =~ s|Erlang/OTP $src_vsn_pattern|Erlang/OTP $rel_otp_vsn|g
+                and $modified = 1;
+        }
+        else {
+            if ($line =~ s|^(\s*v)$src_vsn_pattern(\s*</div>)|$1$rel_otp_vsn$2|g) {
+                $modified = 1;
+                $in_proj_ver = 0;
+            }
+            if ($line =~ s|^(\s*v)$src_vsn_pattern|$1$rel_otp_vsn|g) {
+                $modified = 1;
+                $in_proj_ver = 0;
+            }
+        }
+
+        $line =~ s|(<div[^>]+projectVersion[^>]+>\s*v)$src_vsn_pattern(\s*</div>)|$1$rel_otp_vsn$2|g
+            and $modified = 1;
+        $line =~ /<div[^>]+projectVersion[^>]+>\s*$/
+            and $in_proj_ver = 1;
+
+        $data .= $line;
+    }
+
+    close(HTML);
+
+    if ($modified) {
+        open(HTML, '>', $file)
+            or fail("Failed to open file for writing: $file");
+        print HTML $data;
+        close(HTML);
+    }
+}
+
+sub read_used_app_vsns {
+    my ($hash, $file) = @_;
+
+    open(AV_FILE, $file)
+        or fail("Failed to open file: $file");
+    while (<AV_FILE>) {
+        my $app_vsn = $_;
+        chomp($app_vsn);
+        /^(\w+)-(\d+(?:\.\d+)+)$/
+            or fail("Invalid application version $app_vsn in file $file");
+        my $app = $1;
+        my $vsn = $2;
+        if (!defined $hash->{$app}) {
+            $hash->{$app} = $vsn;
+        }
+        else {
+            my $res = cmp_vsn($vsn, $hash->{$app});
+            if ($res eq '>') {
+                $hash->{$app} = $vsn;
+            }
+            elsif ($res eq 'error') {
+                fail("Internal error");
+            }
+        }
+    }
+    close(AV_FILE);
+}
+
+
+sub cmp_vsn {
+    my ($xs, $ys) = @_;
+    my @xa;
+    my @ya;
+    my $x;
+    my $y;
+
+    return 'error' if ($xs !~ /^\d+(?:\.\d+)+$/);
+    return '=' if ($xs eq $ys);
+    return 'error' if ($ys !~ /^\d+(?:\.\d+)+$/);
+
+    @xa = split(/\./, $xs);
+    @ya = split(/\./, $ys);
+
+    while (@xa and @ya) {
+        $x = shift @xa;
+        $y = shift @ya;
+        last if ($x != $y);
+    }
+    return '<' if ($x < $y);
+    return '>' if ($x > $y);
+    return '=' if (!@xa and !@ya);
+    return '>' if (@xa);
+    return '<';
+}
+
+sub fail {
+    my $err = shift;
+    print STDERR "ERROR: $err\n";
+    exit 1;
+}
+
+sub usage {
+    my $err = shift;
+    print STDERR "ERROR: $err\n  Usage: $0 -s <source root> -r <release root> -a <old app versions file>\n";
+    exit 1;
+}

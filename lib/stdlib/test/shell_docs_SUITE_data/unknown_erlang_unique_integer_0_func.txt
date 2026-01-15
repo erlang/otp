@@ -1,8 +1,15 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:unique_integer() -> integer().[0m
+[;1m  unique_integer()[0m
 
 [;;4mSince[0m:
   OTP 18.0
 
   Generates and returns an integer unique on current runtime system
-  instance. The same as calling [;;4merlang:unique_integer([])[0m.
+  instance. Equivalent to calling [;;4merlang:unique_integer([])[0m.

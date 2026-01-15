@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,14 +21,17 @@
 %%
 
 -module(erl_stdlib_errors).
+-moduledoc false.
 -export([format_error/2]).
+
+-compile(nowarn_obsolete_bool_op).
 
 -spec format_error(Reason, StackTrace) -> ErrorMap when
       Reason :: term(),
       StackTrace :: erlang:stacktrace(),
       ErrorMap :: #{pos_integer() => unicode:chardata()}.
 
-format_error(_Reason, [{M,F,As,Info}|_]) ->
+format_error(Reason, [{M,F,As,Info}|_]) ->
     ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
     Cause = maps:get(cause, ErrorInfoMap, none),
     Res = case M of
@@ -46,6 +51,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_unicode_error(F, As);
               io ->
                   format_io_error(F, As, Cause);
+              json ->
+                  format_json_error(F, As, Reason, Cause);
               _ ->
                   []
           end,
@@ -99,6 +106,20 @@ format_binary_error(last, [Subject], _) ->
          <<>> -> empty_binary;
         _ -> must_be_binary(Subject)
      end];
+format_binary_error(join, [Binaries,Separator], _) ->
+    case must_be_binary(Separator) of
+        [] when is_list(Binaries) ->
+            case must_be_list(Binaries) of
+                [] ->
+                    [~"not a list of binaries", []];
+                Error ->
+                    [Error, []]
+            end;
+        [] ->
+            [must_be_list(Binaries), []];
+        Error ->
+            [[], Error]
+    end;
 format_binary_error(list_to_bin, [_], _) ->
     [not_iodata];
 format_binary_error(longest_common_prefix, [_], _) ->
@@ -162,7 +183,7 @@ format_binary_error(split, [Subject, Pattern, _Options], _) ->
 format_binary_error(replace, [Subject, Pattern, Replacement], _) ->
     [must_be_binary(Subject),
      must_be_pattern(Pattern),
-     must_be_binary(Replacement)];
+     must_be_binary_replacement(Replacement)];
 format_binary_error(replace, [Subject, Pattern, Replacement, _Options], Cause) ->
     Errors = format_binary_error(replace, [Subject, Pattern, Replacement], Cause),
     case Cause of
@@ -268,6 +289,9 @@ format_maps_error(take, _Args) ->
     [[], not_map];
 format_maps_error(to_list, _Args) ->
     [not_map_or_iterator];
+format_maps_error(update, [Key, _Value, Map]) when is_map(Map) ->
+    false = is_map_key(Key, Map),               %Assertion.
+    [<<"not present in map">>, [], []];
 format_maps_error(update, _Args) ->
     [[], [], not_map];
 format_maps_error(update_with, [_Key, Fun, Map]) ->
@@ -346,6 +370,8 @@ format_re_error(inspect, [CompiledRE, Item], _) ->
         true ->
             [ReError]
     end;
+format_re_error(import, [_], _) ->
+    [~"not an exported regular expression"];
 format_re_error(replace, [Subject, RE, Replacement], _) ->
     [must_be_iodata(Subject),
      must_be_regexp(RE),
@@ -404,7 +430,15 @@ format_unicode_error(characters_to_nfkc_list, [_]) ->
 format_unicode_error(characters_to_nfkd_binary, [_]) ->
     [bad_char_data];
 format_unicode_error(characters_to_nfkd_list, [_]) ->
-    [bad_char_data].
+    [bad_char_data];
+format_unicode_error(category, [_]) ->
+    [bad_char];
+format_unicode_error(is_whitespace, [_]) ->
+    [bad_char];
+format_unicode_error(is_id_start, [_]) ->
+    [bad_char];
+format_unicode_error(is_id_continue, [_]) ->
+    [bad_char].
 
 unicode_char_data(Chars) ->
     try unicode:characters_to_binary(Chars) of
@@ -539,7 +573,7 @@ check_io_format([Fmt, Args], Cause) ->
         _ when not is_list(Args) ->
                 [[],must_be_list(Args)];
         true ->
-            case erl_lint:check_format_string(Fmt) of
+            case erl_lint:check_format_string(Fmt, false) of
                 {error,S} ->
                     [io_lib:format("format string invalid (~ts)",[S])];
                 {ok,ArgTypes} when length(ArgTypes) =/= length(Args) ->
@@ -586,6 +620,11 @@ check_io_arguments([], [], _No) ->
     [];
 check_io_arguments([Type|TypeT], [Arg|ArgT], No) ->
     case Type of
+	'fun' when Arg =:= undefined; Arg =:= ordered; Arg =:= reversed; is_function(Arg, 2) ->
+	    check_io_arguments(TypeT, ArgT, No+1);
+	'fun' ->
+	    [io_lib:format("element ~B must be 'undefined', 'ordered', 'reversed', or a fun that takes two arguments", [No]) |
+	     check_io_arguments(TypeT, ArgT, No+1)];
         float when is_float(Arg) ->
             check_io_arguments(TypeT, ArgT, No+1);
         int when is_integer(Arg) ->
@@ -609,6 +648,18 @@ check_io_arguments([Type|TypeT], [Arg|ArgT], No) ->
             [io_lib:format("element ~B must be of type ~p", [No, Type]) |
              check_io_arguments(TypeT, ArgT, No+1)]
     end.
+
+format_json_error(_F, _As, {invalid_byte, Int}, #{position := Position}) ->
+    Str = if 32 =< Int, Int < 127 ->
+                  io_lib:format("invalid byte 16#~2.16.0B '~c' at byte position ~w",
+                                [Int, Int, Position]);
+             true ->
+                  io_lib:format("invalid byte 16#~2.16.0B at byte position ~w",
+                                [Int, Position])
+          end,
+    [{general, Str}];
+format_json_error(_, _, _, _) ->
+    [""].
 
 format_ets_error(delete_object, Args, Cause) ->
     format_object(Args, Cause);
@@ -665,6 +716,8 @@ format_ets_error(match_spec_compile, [_], _Cause) ->
     [bad_matchspec];
 format_ets_error(next, Args, Cause) ->
     format_default(bad_key, Args, Cause);
+format_ets_error(next_lookup, Args, Cause) ->
+    format_default(bad_key, Args, Cause);
 format_ets_error(new, [Name,Options], Cause) ->
     NameError = if
                     is_atom(Name) -> [];
@@ -680,6 +733,8 @@ format_ets_error(new, [Name,Options], Cause) ->
             [NameError, OptsError]
     end;
 format_ets_error(prev, Args, Cause) ->
+    format_default(bad_key, Args, Cause);
+format_ets_error(prev_lookup, Args, Cause) ->
     format_default(bad_key, Args, Cause);
 format_ets_error(rename, [_,NewName]=Args, Cause) ->
     case [format_cause(Args, Cause),
@@ -772,6 +827,8 @@ format_ets_error(update_element, [_,_,ElementSpec]=Args, Cause) ->
      case Cause of
          keypos ->
              [same_as_keypos];
+	 position ->
+	     [update_op_range];
          _ ->
              case is_element_spec_top(ElementSpec) of
                  true ->
@@ -785,6 +842,26 @@ format_ets_error(update_element, [_,_,ElementSpec]=Args, Cause) ->
                      [<<"is not a valid element specification">>]
              end
      end];
+format_ets_error(update_element, [_, _, ElementSpec, Default]=Args, Cause) ->
+    TabCause = format_cause(Args, Cause),
+    ArgsCause = case Cause of
+		    keypos ->
+			 [same_as_keypos];
+		    position ->
+			[update_op_range];
+		    _ ->
+			case {is_element_spec_top(ElementSpec), format_tuple(Default)} of
+			    {true, [""]} ->
+				[range];
+			    {true, TupleCause} ->
+				["" | TupleCause];
+			    {false, [""]} ->
+				[<<"is not a valid element specification">>];
+			    {false, TupleCause} ->
+				["" | TupleCause]
+			end
+		end,
+    [TabCause, "" | ArgsCause];
 format_ets_error(whereis, _Args, _Cause) ->
     [bad_table_name];
 format_ets_error(_, Args, Cause) ->
@@ -1015,6 +1092,10 @@ must_be_pattern(P) ->
             bad_binary_pattern
     end.
 
+must_be_binary_replacement(R) when is_binary(R) -> [];
+must_be_binary_replacement(R) when is_function(R, 1) -> [];
+must_be_binary_replacement(_R) -> bad_replacement.
+
 must_be_position(Pos) when is_integer(Pos), Pos >= 0 -> [];
 must_be_position(Pos) when is_integer(Pos) -> range;
 must_be_position(_) -> not_integer.
@@ -1050,6 +1131,8 @@ expand_error(bad_boolean) ->
     <<"not a boolean value">>;
 expand_error(bad_binary_list) ->
     <<"not a flat list of binaries">>;
+expand_error(bad_char) ->
+    <<"not a valid character">>;
 expand_error(bad_char_data) ->
     <<"not valid character data (an iodata term)">>;
 expand_error(bad_binary_pattern) ->
@@ -1126,7 +1209,7 @@ expand_error(not_integer) ->
 expand_error(not_list) ->
     <<"not a list">>;
 expand_error(not_map_iterator_order) ->
-    <<"not 'undefined', 'ordered', or a fun that takes two arguments">>;
+    <<"not 'undefined', 'ordered', 'reversed', or a fun that takes two arguments">>;
 expand_error(not_map_or_iterator) ->
     <<"not a map or an iterator">>;
 expand_error(not_number) ->

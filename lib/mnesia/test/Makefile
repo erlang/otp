@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 include $(ERL_TOP)/make/target.mk
@@ -30,7 +32,6 @@ MODULES= \
 	mnesia_bench_SUITE \
 	mnesia_test_lib \
 	mnesia_install_test \
-	mnesia_registry_test \
 	mnesia_config_test \
 	mnesia_frag_test \
 	mnesia_inconsistent_database_test \
@@ -54,7 +55,9 @@ MODULES= \
 	mnesia_cost \
 	mnesia_dbn_meters \
 	ext_test \
-	mnesia_index_plugin_test
+	ext_test_server \
+	mnesia_index_plugin_test \
+	mnesia_external_backend_test
 
 DocExamplesDir := ../doc/src/
 
@@ -75,7 +78,7 @@ ExampleModules = \
 
 ERL_FILES= $(MODULES:%=%.erl) $(DocExampleModules:%=$(DocExamplesDir)/%.erl) $(ExampleModules:%=$(ExamplesDir)/%.erl)
 
-HRL_FILES= mnesia_test_lib.hrl $(DocExamplesHrl:%=$(DocExamplesDir)/%)
+HRL_FILES= mnesia_test_lib.hrl ext_test_server.hrl $(DocExamplesHrl:%=$(DocExamplesDir)/%)
 
 TARGET_FILES= \
 	$(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(DocExampleModules:%=$(EBIN)/%.$(EMULATOR)) $(ExampleModules:%=$(EBIN)/%.$(EMULATOR))
@@ -90,7 +93,7 @@ RELSYSDIR = $(RELEASE_PATH)/mnesia_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-#ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented -Werror
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +40,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/tools-$(VSN)
 MODULES= \
 	cover                \
 	eprof                \
+	tprof                \
 	fprof                \
 	cprof                \
 	lcnt                 \
@@ -116,3 +119,8 @@ release_spec: opt
 	$(INSTALL_DATA) $(CSS) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

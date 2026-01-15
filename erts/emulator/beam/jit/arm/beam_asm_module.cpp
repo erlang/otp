@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +21,16 @@
  */
 
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <float.h>
 
 #include "beam_asm.hpp"
+extern "C"
+{
+#include "beam_bp.h"
+}
+
 using namespace asmjit;
 
 #ifdef BEAMASM_DUMP_SIZES
@@ -105,14 +113,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
         a.adr(reg, data);
         a.b(next);
     } else {
-        Label pointer = a.newLabel();
-
-        a.ldr(reg, arm::Mem(pointer));
-        a.b(next);
-
-        a.align(AlignMode::kCode, 8);
-        a.bind(pointer);
-        a.embedLabel(data, 8);
+        a.ldr(reg, embed_label(data, disp32K));
 
         a.section(rodata);
     }
@@ -128,7 +129,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
 
         a.align(AlignMode::kData, 8);
         switch (arg.getType()) {
-        case ArgVal::Literal: {
+        case ArgVal::Type::Literal: {
             auto &patches = literals[arg.as<ArgLiteral>().get()].patches;
             Label patch = a.newLabel();
 
@@ -137,22 +138,22 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
             patches.push_back({patch, 0});
             break;
         }
-        case ArgVal::XReg:
+        case ArgVal::Type::XReg:
             data.as_beam = make_loader_x_reg(arg.as<ArgXRegister>().get());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case ArgVal::YReg:
+        case ArgVal::Type::YReg:
             data.as_beam = make_loader_y_reg(arg.as<ArgYRegister>().get());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case ArgVal::Label:
+        case ArgVal::Type::Label:
             a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
             break;
-        case ArgVal::Immediate:
+        case ArgVal::Type::Immediate:
             data.as_beam = arg.as<ArgImmed>().get();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case ArgVal::Word:
+        case ArgVal::Type::Word:
             data.as_beam = arg.as<ArgWord>().get();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
@@ -261,7 +262,183 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 }
 
-static void i_emit_nyi(char *msg) {
+void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
+    Label exit_trampoline = a.newLabel();
+    Label dealloc_and_exit_trampoline = a.newLabel();
+    Label after_gc_check = a.newLabel();
+    Label dispatch_call = a.newLabel();
+
+    const auto &saved_live = TMP_MEM1q;
+    const auto &saved_pc = TMP_MEM2q;
+    const auto &saved_stack_needed = TMP_MEM3q;
+
+    emit_enter_erlang_frame();
+
+    /* NB. TMP1 = live */
+    a.str(TMP1, saved_live); /* stash live */
+
+    /* Pass return address of trampoline, will be used to find current function
+     * info */
+    a.sub(ARG1, a64::x30, imm(8)); /* ARG1 := pc */
+    a.str(ARG1, saved_pc);         /* Stash pc */
+
+    /* START allocate live live */
+    a.mov(ARG4, TMP1);         /* ARG4 := live */
+    a.lsl(TMP1, TMP1, imm(3)); /* TMP1 := stack-needed = live * sizeof(Eterm) */
+    a.str(TMP1, saved_stack_needed); /* stash stack-needed */
+    a.add(ARG3,
+          TMP1,
+          imm(S_RESERVED *
+              8)); /* ARG3 := stack-needed + S_RESERVED * sizeof(Eterm) */
+
+    a.add(ARG3, ARG3, HTOP);
+    a.cmp(ARG3, E);
+    a.b_ls(after_gc_check);
+
+    /* gc needed */
+    aligned_call(labels[garbage_collect]);
+    a.ldr(TMP1, saved_stack_needed); /* TMP1 := (stashed) stack-needed */
+    a.bind(after_gc_check);
+
+    a.sub(E, E, TMP1);
+    /* END allocate live live */
+
+    a.mov(ARG1, c_p);
+    a.ldr(ARG2, saved_pc); /* pc */
+    a.ldr(ARG3, saved_live);
+    load_x_reg_array(ARG4);
+    a.mov(ARG5, E); /* stk */
+
+    emit_enter_runtime<Update::eXRegs>();
+    runtime_call<
+            const Export *(*)(Process *, ErtsCodePtr, Uint, Eterm *, UWord *),
+            erts_line_breakpoint_hit__prepare_call>();
+    emit_leave_runtime<Update::eXRegs>();
+
+    /* If non-null, ARG1 points to error_handler:breakpoint/4 */
+    a.cbnz(ARG1, dispatch_call);
+    a.ldr(ARG1, saved_stack_needed); /* ARG1 := (stashed) stack-needed */
+    a.b(dealloc_and_exit_trampoline);
+
+    a.bind(dispatch_call);
+    erlang_call(emit_setup_dispatchable_call(ARG1));
+
+    a.bind(labels[i_line_breakpoint_cleanup]);
+    load_x_reg_array(ARG1);
+    a.mov(ARG2, E); /* stk */
+
+    emit_enter_runtime<Update::eXRegs>();
+    runtime_call<Uint (*)(Eterm *, UWord *),
+                 erts_line_breakpoint_hit__cleanup>();
+    emit_leave_runtime<Update::eXRegs>();
+
+    a.lsl(ARG1, ARG1, imm(3)); /* ARG1 = stack-needed */
+
+    a.bind(dealloc_and_exit_trampoline); /* ASUMES ARG1 = stack-needed */
+    a.add(E, E, ARG1);
+
+    a.bind(exit_trampoline);
+    emit_leave_erlang_frame();
+    a.ret(a64::x30);
+}
+
+void BeamModuleAssembler::emit_i_line_breakpoint_trampoline() {
+    /* This prologue is used to implement line-breakpoints. The "b next" can
+     * be replaced by nops when the breakpoint is enabled, which will instead
+     * trigger the breakpoint when control goes through here */
+    Label next = a.newLabel();
+    a.b(next);
+
+    a.bl(resolve_fragment(ga->get_i_line_breakpoint_trampoline_shared(),
+                          disp128MB));
+
+    a.bind(next);
+}
+
+enum erts_is_line_breakpoint BeamGlobalAssembler::is_line_breakpoint_trampoline(
+        ErtsCodePtr addr) {
+    auto pc = static_cast<const int32_t *>(addr);
+    enum erts_is_line_breakpoint line_bp_type;
+
+    /* The b and bl opcodes take 6 bits, the remaining 26 bits are a
+     * a signed offset, given in 32-bit words. */
+    const auto opcode6_mask = 0xFC000000;
+    const auto b_opcode = 0x14000000;
+    const auto bl_opcode = 0x94000000;
+
+    int32_t instr = *pc;
+    switch (instr) {
+    /* B .next .enabled: BL breakpoint_handler, .next: */
+    case b_opcode | 2:
+        line_bp_type = IS_DISABLED_LINE_BP;
+        break;
+
+    /* B .enabled .enabled: BL breakpoint_handler, .next: */
+    case b_opcode | 1:
+        line_bp_type = IS_ENABLED_LINE_BP;
+        break;
+
+    default:
+        return IS_NOT_LINE_BP;
+    }
+
+    instr = *++pc;
+
+    /* We expect a bl here. The target is a signed 26-bit offset */
+    if ((instr & opcode6_mask) != bl_opcode) {
+        return IS_NOT_LINE_BP;
+    }
+    const int32_t bl_offset = (instr << 6) >> 6;
+
+    /* Offset is expressed in 32-bit words, not bytes */
+    pc = pc + bl_offset;
+
+    const auto expected_target = get_i_line_breakpoint_trampoline_shared();
+    if (pc == (const int32_t *)expected_target)
+        return line_bp_type;
+
+    /* Now we expect to be in a veneer, that will encode a jump
+     * to the actual function based on the distance to the pc
+     * This can be a direct branch if close enough or branch-to-register after
+     * loading the expected_address (see emit_veneer() method) */
+    instr = *pc;
+
+    if ((instr & opcode6_mask) == b_opcode) {
+        /* using relative branch when expected_target is close enough */
+        const int32_t b_offset = (instr << 6) >> 6;
+        return (pc + b_offset == (const int32_t *)expected_target)
+                       ? line_bp_type
+                       : IS_NOT_LINE_BP;
+    }
+
+    const auto super_tmp_reg = SUPER_TMP.id();
+    /* we expect to see up to four MOVs into SUPER_TMP to load expected_address,
+     * followed by a `br SUPER_TMP` */
+    auto mov_opcode =
+            0xD2800000 | super_tmp_reg; /* movz SUPER_TMP, #0, lsl #0 */
+
+    uint64_t expected_target_addr = (uint64_t)expected_target;
+    for (int32_t hw = 0; hw < 4; hw++) {
+        uint32_t chunk = expected_target_addr & 0xFFFF;
+        expected_target_addr >>= 16;
+        if (chunk == 0)
+            continue;
+
+        if ((uint32_t)instr != (mov_opcode | (hw << 21) | (chunk << 5))) {
+            return IS_NOT_LINE_BP;
+        }
+
+        instr = *++pc;
+        mov_opcode =
+                0xF2800000 | super_tmp_reg; /* movk SUPER_TMP, #0, lsl #0 */
+    };
+
+    const int32_t expected_br_instr =
+            0xd61f0000 | (super_tmp_reg << 5); /* br SUPER_TMP */
+    return (instr == expected_br_instr) ? line_bp_type : IS_NOT_LINE_BP;
+}
+
+static void i_emit_nyi(const char *msg) {
     erts_exit(ERTS_ERROR_EXIT, "NYI: %s\n", msg);
 }
 
@@ -269,7 +446,7 @@ void BeamModuleAssembler::emit_nyi(const char *msg) {
     emit_enter_runtime(0);
 
     a.mov(ARG1, imm(msg));
-    runtime_call<1>(i_emit_nyi);
+    runtime_call<void (*)(const char *), i_emit_nyi>();
 
     /* Never returns */
 }
@@ -315,6 +492,7 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
     /* a64::x30 now points 4 bytes into the ErtsCodeInfo struct for the
      * function. Put the address of the MFA into ARG1. */
     a.add(ARG1, a64::x30, offsetof(ErtsCodeInfo, mfa) - 4);
+
     mov_imm(TMP1, EXC_FUNCTION_CLAUSE);
     a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
     a.str(ARG1, arm::Mem(c_p, offsetof(Process, current)));
@@ -329,7 +507,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Module,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
-    ErtsCodeInfo info;
+    ErtsCodeInfo info = {};
 
     /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
      * label is always encoded as a word, even though the signature ought to
@@ -339,7 +517,6 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     info.mfa.module = Module.get();
     info.mfa.function = Function.get();
     info.mfa.arity = Arity.get();
-    info.gen_bp = NULL;
 
     comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
 
@@ -374,13 +551,18 @@ void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
     current_label = rawLabels[Label.get()];
     bind_veneer_target(current_label);
 
-    last_destination_offset = ~0;
+    reg_cache.invalidate();
 }
 
 void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
                                              const ArgWord &Alignment) {
     a.align(AlignMode::kCode, Alignment.get());
     emit_label(Label);
+}
+
+void BeamModuleAssembler::emit_i_func_label(const ArgLabel &Label) {
+    flush_last_error();
+    emit_aligned_label(Label, ArgVal(ArgVal::Type::Word, sizeof(UWord)));
 }
 
 void BeamModuleAssembler::emit_on_load() {
@@ -395,7 +577,7 @@ void BeamModuleAssembler::bind_veneer_target(const Label &target) {
         ASSERT(veneer.target == target);
 
         if (!code.isLabelBound(veneer.anchor)) {
-            ASSERT(a.offset() <= veneer.latestOffset);
+            ASSERT((ssize_t)a.offset() <= veneer.latestOffset);
             a.bind(veneer.anchor);
 
             /* TODO: remove from pending stubs? */
@@ -417,6 +599,7 @@ void BeamModuleAssembler::emit_int_code_end() {
      *
      * Since the table is potentially very large, we'll emit all stubs that are
      * due within it so we won't have to check on every iteration. */
+    mark_unreachable();
     flush_pending_stubs(_dispatchTable.size() * sizeof(Uint32[8]) +
                         dispUnknown);
 
@@ -427,6 +610,8 @@ void BeamModuleAssembler::emit_int_code_end() {
         a.br(SUPER_TMP);
     }
 
+    mark_unreachable();
+
     /* Emit all remaining stubs. */
     flush_pending_stubs(dispMax);
 }
@@ -434,25 +619,19 @@ void BeamModuleAssembler::emit_int_code_end() {
 void BeamModuleAssembler::emit_line(const ArgWord &Loc) {
     /* There is no need to align the line instruction. In the loaded code, the
      * type of the pointer will be void* and that pointer will only be used in
-     * comparisons.
-     *
-     * We only need to do something when there's a possibility of raising an
-     * exception at the very end of the preceding instruction (and thus
-     * pointing at the start of this one). If we were to do nothing, the error
-     * would erroneously refer to this instead of the preceding line.
-     *
-     * Since line addresses are taken _after_ line instructions we can avoid
-     * this by adding a nop when we detect this condition. */
-    if (a.offset() == last_error_offset) {
-        a.nop();
-    }
+     * comparisons. */
+
+    flush_last_error();
 }
 
 void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
-    emit_line(Loc);
 }
 
 void BeamModuleAssembler::emit_empty_func_line() {
+}
+
+void BeamModuleAssembler::emit_executable_line(const ArgWord &Loc,
+                                               const ArgWord &Index) {
 }
 
 /*
@@ -541,10 +720,7 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
         anchor = a.newNamedLabel(name.str().c_str());
     }
 
-    auto it = _veneers.emplace(target.id(),
-                               Veneer{.latestOffset = maxOffset,
-                                      .anchor = anchor,
-                                      .target = target});
+    auto it = _veneers.emplace(target.id(), Veneer{maxOffset, anchor, target});
 
     const Veneer &veneer = it->second;
     _pending_veneers.emplace(veneer);
@@ -590,15 +766,30 @@ arm::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,
         }
     }
 
-    auto it = _constants.emplace(value,
-                                 Constant{.latestOffset = maxOffset,
-                                          .anchor = a.newLabel(),
-                                          .value = value});
-
+    auto it =
+            _constants.emplace(value, Constant{maxOffset, a.newLabel(), value});
     const Constant &constant = it->second;
     _pending_constants.emplace(constant);
 
     return arm::Mem(constant.anchor);
+}
+
+arm::Mem BeamModuleAssembler::embed_label(const Label &label,
+                                          enum Displacement disp) {
+    ssize_t currOffset = a.offset();
+
+    ssize_t maxOffset = currOffset + disp;
+
+    ASSERT(disp >= dispMin && disp <= dispMax);
+
+    auto it = _embedded_labels.emplace(
+            label.id(),
+            EmbeddedLabel{maxOffset, a.newLabel(), label});
+    ASSERT(it.second);
+    const EmbeddedLabel &embedded_label = it.first->second;
+    _pending_labels.emplace(embedded_label);
+
+    return arm::Mem(embedded_label.anchor);
 }
 
 void BeamModuleAssembler::emit_i_flush_stubs() {
@@ -615,16 +806,34 @@ void BeamModuleAssembler::check_pending_stubs() {
     /* We shouldn't let too much space pass between checks. */
     ASSERT((last_stub_check_offset + dispMin) >= currOffset);
 
-    if ((last_stub_check_offset + STUB_CHECK_INTERVAL) < currOffset) {
+    if (last_stub_check_offset + STUB_CHECK_INTERVAL < currOffset ||
+        (is_unreachable() &&
+         last_stub_check_offset + STUB_CHECK_INTERVAL_UNREACHABLE <
+                 currOffset)) {
         last_stub_check_offset = currOffset;
 
         flush_pending_stubs(STUB_CHECK_INTERVAL * 2);
+    }
+
+    if (is_unreachable()) {
+        flush_pending_labels();
     }
 }
 
 void BeamModuleAssembler::flush_pending_stubs(size_t range) {
     ssize_t effective_offset = a.offset() + range;
     Label next;
+
+    if (!_pending_labels.empty()) {
+        next = a.newLabel();
+
+        comment("Begin stub section");
+        if (!is_unreachable()) {
+            a.b(next);
+        }
+
+        flush_pending_labels();
+    }
 
     while (!_pending_veneers.empty()) {
         const Veneer &veneer = _pending_veneers.top();
@@ -638,7 +847,9 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
                 next = a.newLabel();
 
                 comment("Begin stub section");
-                a.b(next);
+                if (!is_unreachable()) {
+                    a.b(next);
+                }
             }
 
             emit_veneer(veneer);
@@ -663,7 +874,9 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
             next = a.newLabel();
 
             comment("Begin stub section");
-            a.b(next);
+            if (!is_unreachable()) {
+                a.b(next);
+            }
         }
 
         emit_constant(constant);
@@ -676,6 +889,21 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
     if (next.isValid()) {
         comment("End stub section");
         a.bind(next);
+    }
+}
+
+void BeamModuleAssembler::flush_pending_labels() {
+    if (!_pending_labels.empty()) {
+        a.align(AlignMode::kCode, 8);
+    }
+
+    while (!_pending_labels.empty()) {
+        const EmbeddedLabel &embedded_label = _pending_labels.top();
+
+        a.bind(embedded_label.anchor);
+        a.embedLabel(embedded_label.label, 8);
+
+        _pending_labels.pop();
     }
 }
 
@@ -731,11 +959,11 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
         a.embedLabel(rawLabels.at(value.as<ArgLabel>().get()));
     } else {
         switch (value.getType()) {
-        case ArgVal::BytePtr:
+        case ArgVal::Type::BytePtr:
             strings.push_back({anchor, 0, value.as<ArgBytePtr>().get()});
             a.embedUInt64(LLONG_MAX);
             break;
-        case ArgVal::Catch: {
+        case ArgVal::Type::Catch: {
             auto handler = rawLabels[value.as<ArgCatch>().get()];
             catches.push_back({{anchor, 0, 0}, handler});
 
@@ -745,19 +973,19 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
             a.embedUInt64(INT_MAX);
             break;
         }
-        case ArgVal::Export: {
+        case ArgVal::Type::Export: {
             auto index = value.as<ArgExport>().get();
             imports[index].patches.push_back({anchor, 0, 0});
             a.embedUInt64(LLONG_MAX);
             break;
         }
-        case ArgVal::FunEntry: {
+        case ArgVal::Type::FunEntry: {
             auto index = value.as<ArgLambda>().get();
             lambdas[index].patches.push_back({anchor, 0, 0});
             a.embedUInt64(LLONG_MAX);
             break;
         }
-        case ArgVal::Literal: {
+        case ArgVal::Type::Literal: {
             auto index = value.as<ArgLiteral>().get();
             literals[index].patches.push_back({anchor, 0, 0});
             a.embedUInt64(LLONG_MAX);
@@ -766,5 +994,18 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
         default:
             ASSERT(!"error");
         }
+    }
+}
+
+void BeamModuleAssembler::flush_last_error() {
+    /* When there's a possibility of raising an exception at the very end of the
+     * preceding instruction (and thus pointing at the start of this one) and
+     * this instruction has a new line registered, the error would erroneously
+     * refer to this instead of the preceding line.
+     *
+     * By adding a nop when we detect this condition, the error will correctly
+     * refer to the preceding line. */
+    if (a.offset() == last_error_offset) {
+        a.nop();
     }
 }

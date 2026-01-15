@@ -1,3 +1,23 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2019-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
 defmodule Smoke.MixProject do
   use Mix.Project
 
@@ -22,50 +42,51 @@ defmodule Smoke.MixProject do
   defp deps do
     case :os.getenv('SMOKE_DEPS_SET') do
       'main' ->
-	[
-	  {:bear, "~> 0.8.7"},
-	  {:cloudi_core, "~> 1.7"},
-	  {:cloudi_service_monitoring, "~> 1.7"},
-	  {:cloudi_service_tcp, "~> 1.7"},
-	  {:cloudi_service_queue, "~> 1.7"},
-	  {:cloudi_service_udp, "~> 1.7"},
-	  {:cloudi_service_map_reduce, "~> 1.7"},
-	  {:cloudi_service_api_requests, "~> 1.7"},
-	  {:cloudi_service_router, "~> 1.7"},
-	  {:cloudi_service_request_rate, "~> 1.7"},
-	  {:concuerror, "~> 0.20.0"},
-	  {:cowboy, "~> 2.6.1"},
-	  {:ecto, "~> 3.0.6"},
-	  {:ex_doc, "~> 0.19.3"},
-	  {:distillery, "~> 2.0.12"},
-	  {:erlydtl, "~> 0.12.1"},
-	  {:gen_smtp, "~> 0.13.0"},
-	  {:getopt, "~> 1.0.1"},
-	  {:gettext, "~> 0.16.1"},
-	  {:gpb, "~> 4.6"},
-	  {:gproc, "~> 0.8.0"},
-	  {:graphql, "~> 0.15.0", hex: :graphql_erl},
-	  {:hut, "~> 1.3"},
-	  {:hackney, "~> 1.15.0"},
-	  {:ibrowse, "~> 4.4.1"},
-	  {:jose, "~> 1.9.0"},
-	  {:lager, "~> 3.6"},
-	  {:locus, "~> 1.6"},
-	  {:nimble_parsec, "~> 0.5.0"},
-	  {:phoenix, "~> 1.4.0"},
-	  {:riak_pb, "~> 2.3"},
-	  {:scalaris, git: "https://github.com/scalaris-team/scalaris",
-	   compile: build_scalaris()},
-	  {:tdiff, "~> 0.1.2"},
-	  {:webmachine, "~> 1.11"},
-	  {:wings, git: "https://github.com/dgud/wings.git",
-	   compile: build_wings()},
-	  {:zotonic_stdlib, "~> 1.0"},
-	]
+        [
+          {:bear, "~> 0.8.7"},
+          {:cloudi_core, "~> 1.7"},
+          {:cloudi_service_monitoring, "~> 1.7"},
+          {:cloudi_service_tcp, "~> 1.7"},
+          {:cloudi_service_queue, "~> 1.7"},
+          {:cloudi_service_udp, "~> 1.7"},
+          {:cloudi_service_map_reduce, "~> 1.7"},
+          {:cloudi_service_api_requests, "~> 1.7"},
+          {:cloudi_service_router, "~> 1.7"},
+          {:cloudi_service_request_rate, "~> 1.7"},
+          {:concuerror, "~> 0.20.0"},
+          {:cowboy, "~> 2.6.1"},
+          {:ecto, "~> 3.0.6"},
+          {:ex_doc, "~> 0.19.3"},
+          {:distillery, "~> 2.0.12"},
+          {:erlydtl, "~> 0.12.1"},
+          {:gen_smtp, "~> 0.13.0"},
+          {:getopt, "~> 1.0.1"},
+          {:gettext, "~> 0.16.1"},
+          {:gpb, "~> 4.6"},
+          {:gproc, "~> 0.8.0"},
+          {:graphql, "~> 0.15.0", hex: :graphql_erl},
+          {:hut, "~> 1.3"},
+          {:hackney, "~> 1.15.0"},
+          {:ibrowse, "~> 4.4.1"},
+          {:jose, "~> 1.9.0"},
+          {:lager, "~> 3.6"},
+          {:locus, "~> 1.6"},
+          {:nimble_parsec, "~> 0.5.0"},
+          {:phoenix, "~> 1.4.0"},
+          {:riak_pb, "~> 2.3"},
+          {:scalaris,
+           git: "https://github.com/scalaris-team/scalaris", compile: build_scalaris()},
+          {:tdiff, "~> 0.1.2"},
+          {:webmachine, "~> 1.11"},
+          {:wings, git: "https://github.com/dgud/wings.git", compile: build_wings()},
+          {:zotonic_stdlib, "~> 1.0"}
+        ]
+
       'rabbitmq' ->
-	[{:rabbit_common, "~> 3.7"}]
+        [{:rabbit_common, "~> 3.7.20"}]
+
       _ ->
-	[]
+        []
     end
   end
 

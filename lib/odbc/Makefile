@@ -1,8 +1,10 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1999-2021. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1999-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -60,53 +62,5 @@ endif
 # Default Subdir Targets
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
-
-conf: do_configure
-
-do_configure: configure 
-	./configure 
-
-configure: configure.in
-	autoconf
-
-# ----------------------------------------------------
-# Application (source) release targets
-# ----------------------------------------------------
-app_release: app_doc tar
-
-app_clean:
-	rm -rf $(APP_TAR_FILE) $(APP_DIR)
-
-app_doc:
-	cd doc/src; $(MAKE) html man
-
-app_dir: $(APP_DIR)
-
-$(APP_DIR):
-	cat TAR.exclude | grep -v "odbc/doc" > TAR.exclude2; \
-        echo "odbc/doc/src" >> TAR.exclude2; \
-        echo "odbc/TAR.exclude2" >> TAR.exclude2; \
-        echo "odbc/doc/internal" >> TAR.exclude2
-	(cd ..; find odbc -name 'findmerge.*' >> odbc/TAR.exclude2)
-	(cd ..; find odbc -name '*.contrib*' >> odbc/TAR.exclude2)
-	(cd ..; find odbc -name '*.keep*' >> odbc/TAR.exclude2)
-	(cd ..; find odbc -name '*~' >> odbc/TAR.exclude2)
-	(cd ..; find odbc -name '*.log' >> odbc/TAR.exclude2)
-	(cd ..; find odbc -name 'erl_crash.dump' >> odbc/TAR.exclude2)
-	mkdir $(APP_DIR); \
-        (cd ..; tar cfX - odbc/TAR.exclude2 odbc) | \
-        (cd $(APP_DIR); tar xf -); \
-        mv $(APP_DIR)/odbc/* $(APP_DIR)/; \
-        find $(APP_DIR)/odbc -name '.cmake.state' | xargs rm -f; \
-	mkdir $(APP_DIR)/autoconf; \
-        cp autoconf/config.guess $(APP_DIR)/autoconf/; \
-        cp autoconf/config.sub $(APP_DIR)/autoconf/; \
-        cp autoconf/install-sh $(APP_DIR)/autoconf/; \
-        rmdir $(APP_DIR)/odbc
-
-tar: $(APP_TAR_FILE)
-
-$(APP_TAR_FILE): $(APP_DIR)
-	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
 include $(ERL_TOP)/make/app_targets.mk

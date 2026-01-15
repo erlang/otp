@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +39,8 @@ void BeamGlobalAssembler::emit_generic_bp_global() {
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info)));
     load_x_reg_array(ARG3);
-    runtime_call<3>(erts_generic_breakpoint);
+    runtime_call<BeamInstr (*)(Process *, ErtsCodeInfo *, Eterm *),
+                 erts_generic_breakpoint>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -98,7 +101,8 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     a.mov(ARG1, c_p);
     /* ARG2 is already set above */
     load_x_reg_array(ARG3);
-    runtime_call<3>(erts_generic_breakpoint);
+    runtime_call<BeamInstr (*)(Process *, ErtsCodeInfo *, Eterm *),
+                 erts_generic_breakpoint>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -146,7 +150,9 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.lea(ARG2, x86::qword_ptr(ARG2, -(int)sizeof(ErtsCodeMFA)));
     load_x_reg_array(ARG3);
     a.mov(ARG4, imm(am_breakpoint));
-    runtime_call<4>(call_error_handler);
+    runtime_call<
+            const Export *(*)(Process *, const ErtsCodeMFA *, Eterm *, Eterm),
+            call_error_handler>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
     emit_leave_frame();
@@ -166,26 +172,32 @@ void BeamGlobalAssembler::emit_debug_bp() {
 static void return_trace(Process *c_p,
                          ErtsCodeMFA *mfa,
                          Eterm val,
-                         ErtsTracer *tracer) {
+                         ErtsTracer tracer,
+                         Eterm session_id) {
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, val, tracer);
+    erts_trace_return(c_p, mfa, val, tracer, session_id);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
 }
 
 void BeamModuleAssembler::emit_return_trace() {
     a.mov(ARG2, getYRef(0));
     a.mov(ARG3, getXRef(0));
-    a.lea(ARG4, getYRef(1));
+    a.mov(ARG4, getYRef(1)); /* tracer */
+    a.mov(ARG5, getYRef(2)); /* session_id */
 
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<4>(return_trace);
+    runtime_call<void (*)(Process *, ErtsCodeMFA *, Eterm, ErtsTracer, Eterm),
+                 return_trace>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
     emit_deallocate(ArgWord(BEAM_RETURN_TRACE_FRAME_SZ));
-    emit_return();
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_call_trace_return() {
@@ -197,54 +209,71 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
     a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
     a.cmovnz(ARG2, ARG4);
     a.mov(ARG3, getYRef(1));
+    a.mov(ARG4, getYRef(2));
 
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_call_trace_return);
+    runtime_call<void (*)(Process *, const ErtsCodeInfo *, Eterm, Eterm),
+                 erts_call_trace_return>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
     emit_deallocate(ArgWord(BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ));
-    emit_return();
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnCallAccTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
-    /* Remove our stack frame so that `beam_jit_return_to_trace` can inspect
-     * the next one.
-     *
-     * (This doesn't do anything if the native stack is used.) */
-    emit_deallocate(ArgWord(BEAM_RETURN_TO_TRACE_FRAME_SZ));
+    UWord frame_size = BEAM_RETURN_TO_TRACE_FRAME_SZ;
+
+#if !defined(NATIVE_ERLANG_STACK)
+    frame_size += CP_SIZE;
+#endif
+
+    a.mov(ARG2, getYRef(0)); /* session_id */
+    a.lea(ARG3, x86::qword_ptr(E, frame_size * sizeof(Eterm)));
 
     emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(beam_jit_return_to_trace);
+    runtime_call<void (*)(Process *, Eterm, Eterm *),
+                 beam_jit_return_to_trace>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
-    emit_return();
+    emit_deallocate(ArgWord(BEAM_RETURN_TO_TRACE_FRAME_SZ));
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnToTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {
-    Label error = a.newLabel();
-
-    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+    emit_enter_runtime<Update::eReductions | Update::eHeap | Update::eStack>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<2>(erts_hibernate);
+    mov_imm(ARG3, 0);
+    runtime_call<void (*)(Process *, Eterm *, int), erts_hibernate>();
 
-    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
+    emit_leave_runtime<Update::eReductions | Update::eHeap | Update::eStack>();
 
-    a.test(RET, RET);
-    a.je(error);
+    a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)),
+           imm(~F_HIBERNATE_SCHED));
 
-    a.mov(ARG1, x86::qword_ptr(c_p, offsetof(Process, flags)));
-    a.and_(ARG1, imm(~F_HIBERNATE_SCHED));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, flags)), ARG1);
-    a.jmp(resolve_fragment(ga->get_do_schedule()));
+    a.mov(getXRef(0), imm(am_ok));
+#ifdef NATIVE_ERLANG_STACK
+    fragment_call(resolve_fragment(ga->get_dispatch_return()));
+#else
+    Label next = a.newLabel();
 
-    a.bind(error);
-    emit_raise_exception(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
+    a.lea(ARG3, x86::qword_ptr(next));
+    a.jmp(resolve_fragment(ga->get_dispatch_return()));
+
+    a.align(AlignMode::kCode, 8);
+    a.bind(next);
+#endif
 }

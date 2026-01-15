@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,7 @@
 
 %%
 -module(mnesia_dumper).
+-moduledoc false.
 
 %% The InitBy arg may be one of the following:
 %% scan_decisions     Initial scan for decisions
@@ -53,6 +56,8 @@
 -include_lib("kernel/include/file.hrl").
 
 -import(mnesia_lib, [fatal/2, dbg_out/2]).
+
+-compile(nowarn_obsolete_bool_op).
 
 -define(REGULATOR_NAME, mnesia_dumper_load_regulator).
 -define(DumpToEtsMultiplier, 4).
@@ -612,6 +617,7 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 				    Cs#cstruct.type],
 			    mnesia_monitor:mktab(Tab, Args),
 			    ok = load_from_logfile(ToS, Tab, Logtmp),
+			    ok = mnesia_log:ets2dcd(Tab),
 			    file:delete(Logtmp);
 			disc_only_copies ->
 			    %% ok = ensure_rename(Dmp, Dat),

@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2022. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2017-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -250,7 +252,11 @@ call_light_bif(Bif, Exp) {
     live_hf_end = c_p->mbuf;
     ERTS_CHK_MBUF_SZ(c_p);
 
+    ERTS_ASSERT_TRACER_REFS(&c_p->common);
+
     result = (*bf)(c_p, reg, I);
+
+    ERTS_ASSERT_TRACER_REFS(&c_p->common);
 
     /* Only heavy BIFs may GC. */
     ASSERT(E == c_p->stop);
@@ -281,8 +287,8 @@ call_light_bif(Bif, Exp) {
     }
     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
     if (ERTS_LIKELY(is_value(result))) {
-        r(0) = result;
-        CHECK_TERM(r(0));
+        x(0) = result;
+        CHECK_TERM(x(0));
         $NEXT0();
     } else if (c_p->freason == TRAP) {
         /*
@@ -385,8 +391,8 @@ call_light_bif_only(Bif, Exp) {
         /*
          * Success. Store the result and return to the caller.
          */
-        r(0) = result;
-        CHECK_TERM(r(0));
+        x(0) = result;
+        CHECK_TERM(x(0));
         $return();
     } else if (c_p->freason == TRAP) {
         /*
@@ -426,15 +432,15 @@ send() {
 
     PRE_BIF_SWAPOUT(c_p);
     c_p->fcalls = FCALLS - 1;
-    result = erl_send(c_p, r(0), x(1));
+    result = erl_send(c_p, x(0), x(1));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
     HTOP = HEAP_TOP(c_p);
     FCALLS = c_p->fcalls;
     if (ERTS_LIKELY(is_value(result))) {
-        r(0) = result;
-        CHECK_TERM(r(0));
+        x(0) = result;
+        CHECK_TERM(x(0));
     } else if (c_p->freason == TRAP) {
         $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         SET_I(c_p->i);
@@ -605,8 +611,8 @@ nif_bif.epilogue() {
     FCALLS = c_p->fcalls;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
     if (ERTS_LIKELY(is_value(nif_bif_result))) {
-        r(0) = nif_bif_result;
-        CHECK_TERM(r(0));
+        x(0) = nif_bif_result;
+        CHECK_TERM(x(0));
         $RETURN();
         Goto(*I);
     } else if (c_p->freason == TRAP) {
@@ -632,13 +638,13 @@ i_load_nif() {
         Eterm result;
 
         PRE_BIF_SWAPOUT(c_p);
-        result = erts_load_nif(c_p, I, r(0), r(1));
+        result = erts_load_nif(c_p, I, x(0), x(1));
         erts_release_code_mod_permission();
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;
 
         if (ERTS_LIKELY(is_value(result))) {
-            r(0) = result;
+            x(0) = result;
             $NEXT0();
         } else {
             static ErtsCodeMFA mfa = {am_erlang, am_load_nif, 2};

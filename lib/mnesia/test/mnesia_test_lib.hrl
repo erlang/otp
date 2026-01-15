@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,6 +118,7 @@
 	mnesia_test_lib:prepare_test_case([{init_test_case, [mnesia]},
 					   delete_schema,
 					   create_schema,
+					   start_ext_test_server,
 					   {start_appls, [mnesia]}],
 					  N, Config, ?FILE, ?LINE)).
 
@@ -151,4 +154,4 @@
 -define(verify_mnesia(Ups, Downs),
 	mnesia_test_lib:verify_mnesia(Ups, Downs, ?FILE, ?LINE)).
 
--define(BACKEND, [{backend_types, [{ext_ets, ext_test},{ext_dets, ext_test}]}]).
+-define(BACKEND, [{backend_types, [{ext_ram_copies, ext_test}, {ext_disc_only_copies, ext_test}]}]).

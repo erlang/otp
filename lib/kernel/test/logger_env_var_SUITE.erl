@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +27,8 @@
 -include_lib("kernel/src/logger_internal.hrl").
 
 -import(logger_test_lib,[setup/2,log/3,sync_and_read/3]).
+
+-define(NO_SASL_PROGRESS_REPORTS, 6).
 
 suite() ->
     [{timetrap, {seconds, 60}}].
@@ -483,7 +487,7 @@ logger_many_handlers_default_first(Config) ->
                    config=>#{type=>{file,LogInfo}}}
                 }
                ]},
-              {logger_level,info}], LogErr, LogInfo, 6).
+              {logger_level,info}], LogErr, LogInfo, ?NO_SASL_PROGRESS_REPORTS).
 
 %% Test that we can add multiple handlers with the default last
 logger_many_handlers_default_last(Config) ->
@@ -503,7 +507,7 @@ logger_many_handlers_default_last(Config) ->
                    config=>#{type=>{file,LogErr}}}
                 }
                ]},
-              {logger_level,info}], LogErr, LogInfo, 7).
+              {logger_level,info}], LogErr, LogInfo, ?NO_SASL_PROGRESS_REPORTS).
 
 %% Check that we can handle that an added logger has a broken filter
 %% This used to cause a deadlock.
@@ -526,7 +530,7 @@ logger_many_handlers_default_last_broken_filter(Config) ->
                    config=>#{type=>{file,LogErr}}}
                 }
                ]},
-              {logger_level,info}], LogErr, LogInfo, 7).
+              {logger_level,info}], LogErr, LogInfo, ?NO_SASL_PROGRESS_REPORTS).
 
 logger_many_handlers(Config, Env, LogErr, LogInfo, NumProgress) ->
     {ok, _, Peer, Node} = setup(Config, Env),

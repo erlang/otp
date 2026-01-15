@@ -1,11 +1,20 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec integer_to_binary(Integer) -> binary() when Integer :: integer().[0m
+[;1m  integer_to_binary(Integer)[0m
 
 [;;4mSince[0m:
   OTP R16B
 
   Returns a binary corresponding to the text representation of [;;4m[0m
-  [;;4mInteger[0m, for example:
+  [;;4mInteger[0m.
+
+  For example:
 
     > integer_to_binary(77).
     <<"77">>

@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec group_leader() -> pid().[0m
+[;1m  group_leader()[0m
 
   Returns the process identifier of the group leader for the process
   evaluating the function.
@@ -25,8 +32,7 @@
    • The interactive shell sets the group leader to intercept
      I/O.
 
-  [;1m-spec group_leader(GroupLeader, Pid) -> true[0m
-  [;1m                      when GroupLeader :: pid(), Pid :: pid().[0m
+[;1m  group_leader(GroupLeader, Pid)[0m
 
   Sets the group leader of [;;4mPid[0m to [;;4mGroupLeader[0m. Typically, this
   is used when a process started from a certain shell is to have
@@ -37,13 +43,13 @@
   processes is their application master.
 
   Setting the group leader follows the signal ordering guarantees
-  described in the Processes Chapter in the Erlang Reference
-  Manual.
+  described in the Processes Chapter in the Erlang Reference Manual.
 
   See also [;;4mgroup_leader/0[0m and OTP design principles related to
   starting and stopping applications.
 
-  Note:
+  [;;4mNote[0m
+
     For some important information about distributed signals, see
     the Blocking Signaling Over Distribution section in the 
     Processes chapter of the Erlang Reference Manual.

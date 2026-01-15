@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%-------------------------------------------------------------------
@@ -40,7 +42,7 @@ start() ->
     ok.
 
 create_window(Wx) ->
-    Frame = wxFrame:new(Wx, -1, "Minimal wxErlang App", [{size, {600,400}}]),
+    Frame = wxFrame:new(Wx, -1, "Minimal Wx App", [{size, {600,400}}]),
 
     Path = filename:dirname(code:which(?MODULE)),
     wxFrame:setIcon(Frame,  wxIcon:new(filename:join(Path,"sample.xpm"), [{type, ?wxBITMAP_TYPE_XPM}])),
@@ -68,7 +70,7 @@ create_window(Wx) ->
     wxMenuBar:append(MenuBar, HelpM, "&Help"),
     wxFrame:setMenuBar(Frame, MenuBar),
 
-    ok = wxFrame:setStatusText(Frame, "Welcome to wxErlang!",[]),
+    ok = wxFrame:setStatusText(Frame, "Welcome to Wx!",[]),
     Frame.
 
 loop(Frame) ->
@@ -93,8 +95,8 @@ loop(Frame) ->
     end.
 
 dialog(?wxID_ABOUT,  Frame) ->
-    Str = string:join(["Welcome to wxErlang.", 
-		       "This is the minimal wxErlang sample\n",
+    Str = string:join(["Welcome to Wx.",
+		       "This is the minimal Wx sample\n",
 		       "running under ",
 		       wx_misc:getOsDescription(),
 		       "."], 
@@ -102,7 +104,7 @@ dialog(?wxID_ABOUT,  Frame) ->
     MD = wxMessageDialog:new(Frame,
    			     Str,
    			     [{style, ?wxOK bor ?wxICON_INFORMATION}, 
-   			      {caption, "About wxErlang minimal sample"}]),
+			      {caption, "About Wx minimal sample"}]),
 
     wxDialog:showModal(MD),
     wxDialog:destroy(MD).

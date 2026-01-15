@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -312,7 +314,7 @@ req_and_rep([MgcNode, Mg1Node, Mg2Node],
     %% Start the MGC and MGs
     i("req_and_rep -> start the MGC"),    
     ET = [{Codec, EC, tcp}, {Codec, EC, udp}],
-    {ok, Mgc} = mgc_start(MgcNode, ET),
+    Mgc = start(fun() -> mgc_start(MgcNode, ET) end, mgc_start_timeout),
 
     i("req_and_rep -> start and connect the MGs"),    
     MgConf0 = [{Mg1Node, "mg1", Codec, EC, tcp, ?MG_VERBOSITY},
@@ -402,7 +404,8 @@ connect_mg([{Node, Name, Codec, EC, Trans, Verb}|Mg], Acc) ->
 
 connect_mg(Node, Name, Codec, EC, Trans, Verb) ->
     Mid = {deviceName, Name}, 
-    {ok, Pid} = ?MG_START(Node, Mid, Codec, EC, Trans, Verb),
+    Pid = start(fun() -> ?MG_START(Node, Mid, Codec, EC, Trans, Verb) end,
+                mg_start_timeout),
 
     {ok, _} = ?MG_EAR(Pid, true),
 
@@ -467,6 +470,19 @@ await_load_complete(MGs0) ->
 	    await_load_complete(MGs0)
     end.
 	    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Start the 'unit' (MGC or MG).
+%% If it fails for reason = timeout, we issue an skip.
+start(Exec, Reason) ->
+    case Exec() of
+        {ok, Pid} ->
+            Pid;
+        {error, timeout} ->
+            ?SKIP(Reason)
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

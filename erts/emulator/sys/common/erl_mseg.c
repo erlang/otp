@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,19 +45,6 @@
 #include "erl_util_queue.h"
 
 #if HAVE_ERTS_MSEG
-
-#ifndef HAVE_GETPAGESIZE
-#define HAVE_GETPAGESIZE 0
-#endif
-
-#ifdef _SC_PAGESIZE
-#  define GET_PAGE_SIZE sysconf(_SC_PAGESIZE)
-#elif HAVE_GETPAGESIZE
-#  define GET_PAGE_SIZE getpagesize()
-#else
-#  error "Page size unknown"
-     /* Implement some other way to get the real page size if needed! */
-#endif
 
 #undef MIN
 #define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
@@ -544,8 +533,8 @@ static ERTS_INLINE void *cache_get_segment(ErtsMsegAllctr_t *ma, UWord *size_p, 
 	    best->seg  = ((char *)seg) + size;
 	    best->size = csize - size;
 
-	    ASSERT((size % GET_PAGE_SIZE) == 0);
-	    ASSERT((best->size % GET_PAGE_SIZE) == 0);
+	    ASSERT((size % sys_page_size) == 0);
+	    ASSERT((best->size % sys_page_size) == 0);
 
 	    *size_p = size;
 
@@ -1395,11 +1384,11 @@ erts_mseg_init(ErtsMsegInit_t *init)
     erts_mmap_init(&erts_literal_mmapper, &init->literal_mmap);
 #endif
 
-    if (!IS_2POW(GET_PAGE_SIZE))
-	erts_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected page_size %beu\n", GET_PAGE_SIZE);
+    if (!IS_2POW(sys_page_size))
+	erts_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected sys_page_size %beu\n", sys_page_size);
 
-    ASSERT((MSEG_ALIGNED_SIZE % GET_PAGE_SIZE) == 0
-	   || (GET_PAGE_SIZE % MSEG_ALIGNED_SIZE) == 0);
+    ASSERT((MSEG_ALIGNED_SIZE % sys_page_size) == 0
+	   || (sys_page_size % MSEG_ALIGNED_SIZE) == 0);
 
     for (i = 0; i < no_mseg_allocators; i++) {
 	ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_IX(i);

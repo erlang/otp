@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -22,7 +24,11 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0]).
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2]).
+
 -export([trace_nif/1,
 	 trace_nif_timestamp/1,
 	 trace_nif_local/1,
@@ -35,9 +41,45 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
+    trace_sessions:all().
+
+groups() ->
+    trace_sessions:groups(testcases()).
+
+testcases() ->
     [trace_nif, trace_nif_timestamp, trace_nif_local,
      trace_nif_meta, trace_nif_timestamp_local,
      trace_nif_return].
+
+
+init_per_suite(Config) ->
+    trace_sessions:init_per_suite(Config, ?MODULE).
+
+end_per_suite(Config) ->
+    trace_sessions:end_per_suite(Config).
+
+init_per_group(Group, Config) ->
+    trace_sessions:init_per_group(Group, Config).
+
+end_per_group(Group, Config) ->
+    trace_sessions:end_per_group(Group, Config).
+
+
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    Config.
+
+end_per_testcase(_Func, Config) ->
+    trace_sessions:end_per_testcase(Config).
+
+erlang_trace(A,B,C) ->
+    trace_sessions:erlang_trace(A,B,C).
+
+erlang_trace_pattern(A,B,C) ->
+    trace_sessions:erlang_trace_pattern(A,B,C).
+
+%erlang_trace_info(A,B) ->
+%    trace_sessions:erlang_trace_info(A,B).
+
 
 %% Test tracing NIFs.
 trace_nif(Config) when is_list(Config) ->
@@ -54,7 +96,7 @@ trace_nif_local(Config) when is_list(Config) ->
 trace_nif_meta(Config) when is_list(Config) ->
     load_nif(Config),
     Pid=spawn_link(?MODULE, nif_process, []),
-    erlang:trace_pattern({?MODULE,nif,'_'}, [], [meta]),
+    erlang_trace_pattern({?MODULE,nif,'_'}, [], [meta]),
 
     Pid ! {apply_nif, nif, []},
     receive_trace_msg_ts({trace_ts,Pid,call,{?MODULE,nif,[]}}),
@@ -73,8 +115,8 @@ trace_nif_meta(Config) when is_list(Config) ->
     ok.
 do_trace_nif(Flags) ->
     Pid = spawn_link(?MODULE, nif_process, []),
-    1 = erlang:trace(Pid, true, [call]),
-    erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
+    1 = erlang_trace(Pid, true, [call]),
+    erlang_trace_pattern({?MODULE,nif,'_'}, [], Flags),
     Pid ! {apply_nif, nif, []},
     receive_trace_msg({trace,Pid,call,{?MODULE,nif, []}}),
     Pid ! {apply_nif, nif, ["Arg1"]},
@@ -88,7 +130,7 @@ do_trace_nif(Flags) ->
 
 
     %% Switch off
-    1 = erlang:trace(Pid, false, [call]),
+    1 = erlang_trace(Pid, false, [call]),
 
     Pid ! {apply_nif, nif, []},
     receive_nothing(),
@@ -100,8 +142,8 @@ do_trace_nif(Flags) ->
     receive_nothing(),
 
     %% Switch on again
-    1 = erlang:trace(Pid, true, [call]),
-    erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
+    1 = erlang_trace(Pid, true, [call]),
+    erlang_trace_pattern({?MODULE,nif,'_'}, [], Flags),
     Pid ! {apply_nif, nif, []},
     receive_trace_msg({trace,Pid,call,{?MODULE,nif, []}}),
     Pid ! {apply_nif, nif, ["Arg1"]},
@@ -113,8 +155,8 @@ do_trace_nif(Flags) ->
     Pid ! {call_nif, nif, ["Arg1"]},
     receive_trace_msg({trace, Pid, call, {?MODULE,nif, ["Arg1"]}}),
 
-    1 = erlang:trace(Pid, false, [call]),
-    erlang:trace_pattern({?MODULE,nif,'_'}, false, Flags),
+    1 = erlang_trace(Pid, false, [call]),
+    erlang_trace_pattern({?MODULE,nif,'_'}, false, Flags),
 
     unlink(Pid),
     exit(Pid, die),
@@ -132,8 +174,8 @@ trace_nif_timestamp_local(Config) when is_list(Config) ->
 
 do_trace_nif_timestamp(Flags) ->
     Pid = spawn_link(?MODULE, nif_process, []),
-    1 = erlang:trace(Pid, true, [call,timestamp]),
-    erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
+    1 = erlang_trace(Pid, true, [call,timestamp]),
+    erlang_trace_pattern({?MODULE,nif,'_'}, [], Flags),
 
     Pid ! {apply_nif, nif, []},
     receive_trace_msg_ts({trace_ts,Pid,call,{?MODULE,nif,[]}}),
@@ -151,7 +193,7 @@ do_trace_nif_timestamp(Flags) ->
                           {?MODULE,nif, ["Arg1"]}}),
 
     %% We should be able to turn off the timestamp.
-    1 = erlang:trace(Pid, false, [timestamp]),
+    1 = erlang_trace(Pid, false, [timestamp]),
 
     Pid ! {call_nif, nif, []},
     receive_trace_msg({trace,Pid,call,
@@ -161,8 +203,8 @@ do_trace_nif_timestamp(Flags) ->
     receive_trace_msg({trace,Pid,call,
                        {?MODULE,nif, ["tjoho"]}}),
 
-    1 = erlang:trace(Pid, false, [call]),
-    erlang:trace_pattern({erlang,'_','_'}, false, Flags),
+    1 = erlang_trace(Pid, false, [call]),
+    erlang_trace_pattern({erlang,'_','_'}, false, Flags),
 
     unlink(Pid),
     exit(Pid, die),
@@ -173,8 +215,8 @@ trace_nif_return(Config) when is_list(Config) ->
     load_nif(Config),
 
     Pid = spawn_link(?MODULE, nif_process, []),
-    1 = erlang:trace(Pid, true, [call,timestamp,return_to]),
-    erlang:trace_pattern({?MODULE,nif,'_'}, [{'_',[],[{return_trace}]}], 
+    1 = erlang_trace(Pid, true, [call,timestamp,return_to]),
+    erlang_trace_pattern({?MODULE,nif,'_'}, [{'_',[],[{return_trace}]}],
                          [local]),
 
     Pid ! {apply_nif, nif, []},

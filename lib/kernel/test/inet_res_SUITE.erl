@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,10 +34,11 @@
 	 init_per_testcase/2, end_per_testcase/2
         ]).
 -export([basic/1, name_addr_and_cached/1, resolve/1,
-         edns0/1, txt_record/1, files_monitor/1,
+         edns0/1, edns0_multi_formerr/1, txt_record/1, files_monitor/1,
 	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
-         label_compression_limit/1
+         label_compression_limit/1, update/1, tsig_client/1, tsig_server/1,
+         mdns_encode_decode/1
         ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
@@ -69,15 +72,16 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+     {timetrap,{seconds,15}}].
 
 all() -> 
     [basic, resolve, name_addr_and_cached,
-     edns0, txt_record, files_monitor,
+     edns0, edns0_multi_formerr, txt_record, files_monitor,
      nxdomain_reply, last_ms_answer,
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
-     label_compression_limit,
+     label_compression_limit, update, tsig_client, tsig_server,
+     mdns_encode_decode,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -129,9 +133,12 @@ zone_dir(TC) ->
 	name_addr_and_cached -> otptest;
 	resolve              -> otptest;
 	edns0                -> otptest;
+	edns0_multi_formerr  -> otptest;
 	files_monitor        -> otptest;
 	nxdomain_reply       -> otptest;
 	last_ms_answer       -> otptest;
+	update               -> otptest;
+	tsig_client          -> otptest;
         intermediate_error   ->
             {internal,
              #{rcode => ?REFUSED}};
@@ -154,42 +161,59 @@ init_per_testcase(Func, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     try ns_init(zone_dir(Func), PrivDir, DataDir) of
 	NsSpec ->
-            ?P("init_per_testcase -> get resolver lookup"),
-	    Lookup = inet_db:res_option(lookup),
-            ?P("init_per_testcase -> set file:dns"),
-	    inet_db:set_lookup([file,dns]),
-	    case NsSpec of
-		{_,{IP,Port},_} ->
-                    ?P("init_per_testcase -> insert alt nameserver ~p:~w",
-                       [IP, Port]),
-		    inet_db:ins_alt_ns(IP, Port);
-		_ -> ok
-	    end,
+            UpdatedConfig =
+                [{nameserver, NsSpec}] ++
+                case Func of
+                    basic ->
+                        Config;
+                    _ ->
+                        ?P("init_per_testcase -> get resolver lookup"),
+                        Lookup = inet_db:res_option(lookup),
+                        ?P("init_per_testcase -> set file:dns"),
+                        inet_db:set_lookup([file,dns]),
+                        case NsSpec of
+                            {_,{IP,Port},_} ->
+                                ?P("init_per_testcase -> "
+                                   "insert alt nameserver ~p:~w",
+                                   [IP, Port]),
+                                inet_db:ins_alt_ns(IP, Port);
+                            _ -> ok
+                        end,
+                        ?P("init_per_testcase -> saved "
+                           "lookup: ~p", [Lookup]),
+                        [{res_lookup, Lookup} | Config]
+                end,
             %% dbg:tracer(),
             %% dbg:p(all, c),
             %% dbg:tpl(inet_res, query_nss_res, cx),
             ?P("init_per_testcase -> done:"
-               "~n      NsSpec: ~p"
-               "~n      Lookup: ~p", [NsSpec, Lookup]),
-	    [{nameserver, NsSpec}, {res_lookup, Lookup} | Config]
+               "~n    NsSpec: ~p", [NsSpec]),
+            UpdatedConfig
     catch
 	SkipReason ->
-            ?P("init_per_testcase -> caught:"
-               "~n      SkipReason: ~p", [SkipReason]),
-	    {skip, SkipReason}
+            ?P("init_per_testcase -> skip: ~p", [SkipReason]),
+	    {skip, SkipReason};
+        Class : Reason : Stacktrace ->
+            ?P("init_per_testcase -> ~w: ~p"
+               "~n    ~p~n", [Class, Reason, Stacktrace]),
+            {fail, Reason}
     end.
 
 end_per_testcase(_Func, Config) ->
-    inet_db:set_lookup(proplists:get_value(res_lookup, Config)),
     NsSpec = proplists:get_value(nameserver, Config),
-    case NsSpec of
-	{_,{IP,Port},_} ->
-	    inet_db:del_alt_ns(IP, Port);
-	_ -> ok
+    case proplists:lookup(res_lookup, Config) of
+        none ->
+            ok;
+        {res_lookup, Lookup} ->
+            inet_db:set_lookup(Lookup),
+            case NsSpec of
+                {_,{IP,Port},_} ->
+                    inet_db:del_alt_ns(IP, Port);
+                _ -> ok
+            end
     end,
     %% dbg:stop(),
     ns_end(NsSpec, proplists:get_value(priv_dir, Config)).
-
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Nameserver control
@@ -233,6 +257,7 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 				  {args,["127.0.0.1",
 					 integer_to_list(PortNum),
 					 atom_to_list(ZoneDir)]},
+                                  {env,[{"LOGNAME",os:getenv("LOGNAME",os:getenv("USER"))}]},
 				  stderr_to_stdout,
 				  eof]),
             ?P("ns_init -> port ~p", [P]),
@@ -252,11 +277,16 @@ ns_start(ZoneDir, PrivDir, NS, P) ->
 	"Running: "++_ ->
             ?P("ns_start -> running"),
 	    {ZoneDir,NS,P};
+	"Skip: "++Reason ->
+            ?P("ns_start -> skip: "
+               "~n      ~p", [Reason]),
+	    ns_printlog(filename:join([PrivDir,ZoneDir,?LOG_FILE])),
+	    throw(Reason);
 	"Error: "++Error ->
             ?P("ns_start -> error: "
                "~n      ~p", [Error]),
 	    ns_printlog(filename:join([PrivDir,ZoneDir,?LOG_FILE])),
-	    throw(Error);
+	    error(Error);
 	_X ->
             ?P("ns_start -> retry"),
 	    ns_start(ZoneDir, PrivDir, NS, P)
@@ -512,6 +542,8 @@ proxy_ns({proxy,_,_,ProxyNS}) -> ProxyNS.
 basic(Config) when is_list(Config) ->
     ?P("begin"),
     NS = ns(Config),
+    NSs = [NS],
+    Options = [{nameservers,NSs},verbose],
     Name = "ns.otptest",
     NameC = caseflip(Name),
     NameD = NameC ++ ".",
@@ -519,7 +551,7 @@ basic(Config) when is_list(Config) ->
     IP2 = {127,0,0,254},
     %%
     %% nslookup
-    {ok,Msg1} = inet_res:nslookup(Name, in, a, [NS]),
+    {ok,Msg1} = inet_res:nslookup(Name, in, a, NSs),
     ?P("nslookup with ~p: ~n      ~p", [Name, Msg1]),
     [RR1, RR2] = lists:sort(inet_dns:msg(Msg1, anlist)),
     IP1 = inet_dns:rr(RR1, data),
@@ -528,7 +560,7 @@ basic(Config) when is_list(Config) ->
     %%io:format("Bin1 = ~w~n", [Bin1]),
     {ok,Msg1} = inet_dns:decode(Bin1),
     %% Now with scrambled case
-    {ok,Msg1b} = inet_res:nslookup(NameC, in, a, [NS]),
+    {ok,Msg1b} = inet_res:nslookup(NameC, in, a, NSs),
     ?P("nslookup with ~p: ~n      ~p", [NameC, Msg1b]),
     [RR1b, RR2b] = lists:sort(inet_dns:msg(Msg1b, anlist)),
     IP1 = inet_dns:rr(RR1b, data),
@@ -544,7 +576,7 @@ basic(Config) when is_list(Config) ->
 	 =:= tolower(inet_dns:rr(RR2b, domain))),
     %%
     %% resolve
-    {ok,Msg2} = inet_res:resolve(Name, in, a, [{nameservers,[NS]},verbose]),
+    {ok,Msg2} = inet_res:resolve(Name, in, a, Options),
     ?P("resolve with ~p: ~n      ~p", [Name, Msg2]),
     [RR1c, RR2c] = lists:sort(inet_dns:msg(Msg2, anlist)),
     IP1 = inet_dns:rr(RR1c, data),
@@ -553,7 +585,7 @@ basic(Config) when is_list(Config) ->
     %%io:format("Bin2 = ~w~n", [Bin2]),
     {ok,Msg2} = inet_dns:decode(Bin2),
     %% Now with scrambled case
-    {ok,Msg2b} = inet_res:resolve(NameC, in, a, [{nameservers,[NS]},verbose]),
+    {ok,Msg2b} = inet_res:resolve(NameC, in, a, Options),
     ?P("resolve with ~p: ~n      ~p", [NameC, Msg2b]),
     [RR1d, RR2d] = lists:sort(inet_dns:msg(Msg2b, anlist)),
     IP1 = inet_dns:rr(RR1d, data),
@@ -569,10 +601,10 @@ basic(Config) when is_list(Config) ->
 	  =:= tolower(inet_dns:rr(RR2d, domain))),
     ?P("resolve \"127.0.0.1\"~n", []),
     {ok, Msg3} =
-        inet_res:resolve("127.0.0.1", in, a, [{nameservers,[NS]},verbose]),
+        inet_res:resolve("127.0.0.1", in, a, Options),
     [] = inet_dns:msg(Msg3, anlist),
     {ok, Msg4} =
-        inet_res:resolve("127.0.0.1", in, ptr, [{nameservers,[NS]},verbose]),
+        inet_res:resolve("127.0.0.1", in, ptr, Options),
     [RR4] = inet_dns:msg(Msg4, anlist),
     "1.0.0.127.in-addr.arpa" = inet_dns:rr(RR4, domain),
     "test1-78901234567890123456789012345678.otptest" =
@@ -582,28 +614,41 @@ basic(Config) when is_list(Config) ->
     ?P("lookup"),
     [IP1, IP2] =
         lists:sort(
-          inet_res:lookup(Name, in, a, [{nameservers,[NS]},verbose])),
+          inet_res:lookup(Name, in, a, Options)),
     [IP1, IP2] =
         lists:sort(
-          inet_res:lookup(NameC, in, a, [{nameservers,[NS]},verbose])),
+          inet_res:lookup(NameC, in, a, Options)),
     [IP1, IP2] =
         lists:sort(
-          inet_res:lookup(NameD, in, a, [{nameservers,[NS]},verbose])),
+          inet_res:lookup(NameD, in, a, Options)),
     %%
     %% gethostbyname
     ?P("gethostbyname"),
-    {ok,#hostent{h_addr_list=IPs1}} = inet_res:gethostbyname(Name),
+    {ok,#hostent{h_addr_list=IPs1}} =
+        inet_res:gethostbyname(Name, inet, Options, infinity),
     [IP1, IP2] = lists:sort(IPs1),
-    {ok,#hostent{h_addr_list=IPs2}} = inet_res:gethostbyname(NameC),
+    {ok,#hostent{h_addr_list=IPs2}} =
+        inet_res:gethostbyname(NameC, inet, Options, infinity),
     [IP1, IP2] = lists:sort(IPs2),
     %%
     %% getbyname
     ?P("getbyname"),
-    {ok,#hostent{h_addr_list=IPs3}} = inet_res:getbyname(Name, a),
+    {ok,#hostent{h_addr_list=IPs3}} =
+        inet_res:getbyname(Name, a, Options, infinity),
     [IP1, IP2] = lists:sort(IPs3),
-    {ok,#hostent{h_addr_list=IPs4}} = inet_res:getbyname(NameC, a),
+    {ok,#hostent{h_addr_list=IPs4}} =
+        inet_res:getbyname(NameC, a, Options, infinity),
     [IP1, IP2] = lists:sort(IPs4),
     ?P("end"),
+    %%
+    %% gethostbyaddr
+    ?P("gethostbyaddr"),
+    {ok,#hostent{h_name=Name,
+                 h_addr_list=[IP2]}} =
+        inet_res:gethostbyaddr(IP2, Options, infinity),
+    {ok,#hostent{h_name=Name,
+                 h_addr_list=[IP1]}} =
+        inet_res:gethostbyaddr(IP1, Options, infinity),
     ok.
 
 
@@ -1047,6 +1092,7 @@ check_msg(#{}, []) -> false. % At least one has to be ok
 edns0(Config) when is_list(Config) ->
     ?P("begin"),
     NS = ns(Config),
+    Opts = [{nameservers,[NS]},verbose],
     Domain = "otptest",
     Filler = "-5678901234567890123456789012345678.",
     MXs = lists:sort([{10,"mx."++Domain},
@@ -1060,12 +1106,9 @@ edns0(Config) when is_list(Config) ->
     false = inet_db:res_option(edns), % ASSERT
     true = inet_db:res_option(udp_payload_size) >= 1280, % ASSERT
     %% These will fall back to TCP
-    MXs = lists:sort(inet_res:lookup(Domain, in, mx, [{nameservers,[NS]},verbose])),
+    MXs = lists:sort(inet_res:lookup(Domain, in, mx, Opts)),
     %%
-    {ok,#hostent{h_addr_list=As}} = inet_res:getbyname(Domain++".", mx),
-    MXs = lists:sort(As),
-    %%
-    {ok,Msg1} = inet_res:resolve(Domain, in, mx),
+    {ok,Msg1} = inet_res:resolve(Domain, in, mx, Opts),
     MXs = lists:sort(inet_res_filter(inet_dns:msg(Msg1, anlist), in, mx)),
     %% There should be no OPT record in the answer
     [] = [RR || RR <- inet_dns:msg(Msg1, arlist),
@@ -1076,7 +1119,7 @@ edns0(Config) when is_list(Config) ->
     %% Use EDNS - should not need to fall back to TCP
     %% there is no way to tell from the outside.
     %%
-    {ok,Msg2} = inet_res:resolve(Domain, in, mx, [{edns,0}]),
+    {ok,Msg2} = inet_res:resolve(Domain, in, mx, [{edns,0}|Opts]),
     MXs = lists:sort(inet_res_filter(inet_dns:msg(Msg2, anlist), in, mx)),
     Buf2 = inet_dns:encode(Msg2),
     {ok,Msg2} = inet_dns:decode(Buf2),
@@ -1107,6 +1150,16 @@ inet_res_filter(Anlist, Class, Type) ->
     [inet_dns:rr(RR, data) || RR <- Anlist,
 			      inet_dns:rr(RR, type) =:= Type,
 			      inet_dns:rr(RR, class) =:= Class].
+
+%% Test EDNS we catch multiple dns_opt_rr as FORMERR (RFC 6891: 6.1.1)
+edns0_multi_formerr(Config) when is_list(Config) ->
+    Domain = "otptest",
+    Opts = [{nameservers,[ns(Config)]},{edns,0}],
+    {ok,DnsRec0} = inet_res:resolve(Domain, in, soa, Opts),
+    [EDNS|_] = [ X || X <- DnsRec0#dns_rec.arlist, is_record(X, dns_rr_opt) ],
+    DnsRec = DnsRec0#dns_rec{ arlist = [EDNS|DnsRec0#dns_rec.arlist] },
+    {error,formerr} = inet_dns:decode(inet_dns:encode(DnsRec)),
+    ok.
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1394,6 +1447,350 @@ incr_domain([$Z | Domain]) ->
 incr_domain([Char | Domain]) ->
     [Char+1 | Domain].
 
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that the data portion can only be zero bytes for UPDATEs
+%% and that a real DNS server (Knot DNS) accepts our packet
+
+update(Config) when is_list(Config) ->
+    {NSIP,NSPort} = ns(Config),
+    Domain = "otptest",
+
+    % test that empty data for a query fails
+    QueryRec = #dns_rec{
+        header = #dns_header{ opcode = query },
+        anlist = [
+            #dns_rr{ domain = "test-update." ++ Domain, type = a }
+        ]
+    },
+    true = try inet_dns:encode(QueryRec) of
+        _ ->
+            false
+    catch
+        error:{badmatch,[]}:_ ->
+            true
+    end,
+
+    % test that empty data for an update
+    UpdateRec = #dns_rec{
+        header = #dns_header{ opcode = update },
+        % Zone
+        qdlist = [
+            #dns_query{ domain = Domain, class = in, type = soa }
+        ],
+        % Update
+        nslist = [
+            #dns_rr{
+                domain = "update-test." ++ Domain,
+                ttl = 300,
+                class = in,
+                type = a,
+                data = {192,0,2,1}
+            }
+        ]
+    },
+    UpdatePkt = inet_dns:encode(UpdateRec),
+    true = is_binary(UpdatePkt),
+
+    % check if an actual DNS server accepts it
+    SockOpts = [binary,{active,false}],
+    {ok,Sock} = gen_udp:open(0, SockOpts),
+    ok = gen_udp:connect(Sock, NSIP, NSPort),
+    ok = gen_udp:send(Sock, UpdatePkt),
+    {ok,{NSIP,NSPort,ResponsePkt}} = gen_udp:recv(Sock, 0),
+    ok = gen_udp:close(Sock),
+    {ok,ResponseRec} = inet_dns:decode(ResponsePkt),
+    #dns_rec{ header = #dns_header{ rcode = ?NOERROR } } = ResponseRec,
+
+    ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Tests for TSIG
+
+%% erlang-questions Message-ID 20081120202532.GG229@h216-235-12-168.host.egate.net
+-define(DNS_PP(R),
+dns_pp(R, N) ->
+	N = record_info(size, R) - 1,
+	record_info(fields, R)).
+dns_pp(R) ->
+	io_lib_pretty:print(R, fun dns_pp/2).
+?DNS_PP(dns_rec);
+?DNS_PP(dns_header);
+?DNS_PP(dns_query);
+?DNS_PP(dns_rr);
+?DNS_PP(dns_rr_opt);
+?DNS_PP(dns_rr_tsig);
+dns_pp(_RN, _N) -> no.
+
+% note for implementors reading this, the usage of
+% inet_dns_tsig.erl is identical except you do not need
+% to inspect the reponse for the presence of a TSIG RR
+tsig_client(Config) when is_list(Config) ->
+    {NSIP,NSPort} = ns(Config),
+    Domain = "otptest",
+    Request = #dns_rec{
+        header = #dns_header{},
+        qdlist = [#dns_query{ domain = Domain, class = in, type = axfr }]
+    },
+    Pkt = inet_dns:encode(Request),
+
+    Key = {"testkey","ded5ada3-07f2-42b9-84bf-82d30f6795ee"},
+    TS0 = inet_dns_tsig:init([{key,Key}]),
+    {ok,PktS,TS1} = inet_dns_tsig:sign(Pkt, TS0),
+    ?P("Request: ~s", [dns_pp(element(2, inet_dns:decode(PktS)))]),
+
+    SockOpts = [binary,{active,false},{nodelay,true},{packet,2}],
+    {ok,Sock} = gen_tcp:connect(NSIP, NSPort, SockOpts),
+    ok = gen_tcp:send(Sock, PktS),
+    ok = gen_tcp:shutdown(Sock, write),
+    Recv = fun(Recv, A) ->
+        case gen_tcp:recv(Sock, 0) of
+            {ok,P} ->
+                Recv(Recv, [P|A]);
+            {error,closed} ->
+                lists:reverse(A)
+        end
+    end,
+    PktR = Recv(Recv, []),
+    ok = gen_tcp:close(Sock),
+
+    true = PktR =/= [],
+
+    {_TS,Response} = lists:foldl(fun(P, {T0,R0}) ->
+        {ok,R} = inet_dns:decode(P),
+        ?P("Response: ~s", [dns_pp(R)]),
+        R#dns_rec.header#dns_header.rcode == ?NOERROR orelse throw("response rcode"),
+        {ok,T} = inet_dns_tsig:verify(P, R, T0),
+        {T,R0 ++ [R]}
+    end, {TS1,[]}, PktR),
+
+    % not necessary for the test, but helpful to those using this
+    % to understand how to validate TCP responses, we need to check
+    % that the last message has a TSIG RR (RRC8945, section 5.3.1)
+    % N.B. unnecessary for UDP as handled by inet_dns_tsig:verify()
+    #dns_rec{ arlist = ARList } = lists:last(Response),
+    true = ARList =/= [],
+    #dns_rr_tsig{} = lists:last(ARList),
+
+    % actual implementations would here now consider if the additional
+    % checks described in the WARNING at the top of inet_dns_tsig.erl
+    % are applicable to their use case and if so implement them
+    ok.
+
+tsig_server(Config) when is_list(Config) ->
+    case os:find_executable("dig") of
+        false ->
+            case os:find_executable("drill") of
+                false ->
+                    {skip, "Cannot find executable: dig|drill"};
+                Drill ->
+                    tsig_server(Config, Drill)
+            end;
+        Dig ->
+            tsig_server(Config, Dig)
+    end.
+%%
+tsig_server(_Config, DigDrill) ->
+    Domain = "otptest",
+
+    Key = {"testkey","b0b8006a-04ad-4a96-841a-a4eae78011a1"},
+    Keys0 = [Key,{"grease0",""},{"grease1",""},{"grease2",""}],
+    Rand = [ rand:uniform() || _ <- lists:seq(1, length(Keys0)) ],
+    {_,Keys} = lists:unzip(lists:keysort(1, lists:zip(Rand, Keys0))),
+    TS0 = inet_dns_tsig:init([{keys,Keys}]),
+
+    SockOpts = [binary,{active,false},{nodelay,true},{packet,2}],
+    {ok,LSock} = gen_tcp:listen(0, [{ip,{127,0,0,1}}|SockOpts]),
+    {ok,LPort} = inet:port(LSock),
+
+    _ = process_flag(trap_exit, true),
+    {_, MRef} =
+        spawn_opt(
+          fun() ->
+                  KeyName = element(1, Key),
+                  KeySecret = base64:encode_to_string(element(2, Key)),
+                  Command = DigDrill ++
+                      " -p " ++ integer_to_list(LPort) ++
+                      " -y hmac-sha256:" ++ KeyName ++ ":" ++ KeySecret ++
+                      " " ++ Domain ++ ". @127.0.0.1 AXFR IN",
+                  Opts = [in,eof,exit_status,stderr_to_stdout,hide],
+                  Port = erlang:open_port({spawn,Command}, Opts),
+                  Collect =
+                      fun C(A) ->
+                              receive
+                                  {Port,{data,B}} ->
+                                      C([B|A]);
+                                  {Port,eof} ->
+                                      C(A);
+                                  {Port,{exit_status,Status}} ->
+                                      {ok,{Status,lists:reverse(A)}};
+                                  {Port,closed} ->
+                                      {error,closed}
+                              after 1000 ->
+                                      {error,timeout}
+                              end
+                      end,
+                  ClientResult = Collect([]),
+                  true = erlang:port_close(Port),
+                  exit({done,ClientResult})
+          end, [link,monitor]),
+
+    Result =
+        case gen_tcp:accept(LSock, 5000) of
+            {ok,Sock} ->
+                try
+                    ok = gen_tcp:close(LSock),
+                    tsig_server(Domain, TS0, Sock)
+                of
+                    _ ->
+                        gen_tcp:close(Sock)
+                catch
+                    Class : Reason : Stacktrace ->
+                        _ = catch gen_tcp:close(Sock),
+                        {Class,Reason,Stacktrace}
+                end;
+            Error ->
+                _ = catch gen_tcp:close(LSock),
+                Error
+        end,
+
+    receive
+        {'DOWN',MRef,_,_,{done,{ok,{Code,Output}}}} ->
+            ?P("Output of ~s (exit code ~B):~n~s~n",
+               [DigDrill, Code, Output]),
+            {0,ok} = {Code,Result};
+        {'DOWN',MRef,_,_,CError} ->
+            error({CError,Result})
+    after 1000 ->
+            error({timeout,Result})
+    end.
+
+tsig_server(Domain, TS0, Sock) ->
+    SOAData = {"ns","lsa.soa",1,60,10,300,30},
+    SOA = #dns_rr{ domain = Domain, class = in, type = soa, data = SOAData },
+    PadData = ["0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+    Padding = #dns_rr{ class = in, type = txt, data = PadData },
+
+    {ok,Pkt} = gen_tcp:recv(Sock, 0),
+    ok = gen_tcp:shutdown(Sock, read),
+
+    {ok,Request} = inet_dns:decode(Pkt),
+    ?P("Request: ~s", [dns_pp(Request)]),
+    {ok,TS1} = inet_dns_tsig:verify(Pkt, Request, TS0),
+
+    % actual implementations would here now consider if the additional
+    % checks described in the WARNING at the top of inet_dns_tsig.erl
+    % are applicable to their use case and if so implement them
+
+    PktR0 = #dns_rec{
+        header = #dns_header{
+            id = Request#dns_rec.header#dns_header.id,
+            qr = true
+        },
+        qdlist = Request#dns_rec.qdlist
+    },
+
+    Format = "~2.10.0B.padding." ++ Domain,
+    AnList1 = [SOA] ++ [ Padding#dns_rr{
+                    domain = io_lib:format(Format, [X]) } ||
+                  X <- lists:seq(0, 9) ],
+    PktR1 = inet_dns:encode(PktR0#dns_rec{ anlist = AnList1 }),
+    {ok,PktR1S,TS2} = inet_dns_tsig:sign(PktR1, TS1),
+    ok = gen_tcp:send(Sock, PktR1S),
+
+    AnList2 = [ Padding#dns_rr{
+                    domain = io_lib:format(Format, [X]) } ||
+                  X <- lists:seq(10, 19) ],
+    PktR2 = inet_dns:encode(PktR0#dns_rec{ anlist = AnList2 }),
+    {ok,PktR2S,TS3} = inet_dns_tsig:sign(PktR2, TS2),
+    ok = gen_tcp:send(Sock, PktR2S),
+
+    AnList3 = [ Padding#dns_rr{
+                    domain = io_lib:format(Format, [X]) } ||
+                  X <- lists:seq(20, 29) ] ++ [SOA],
+    PktR3 = inet_dns:encode(PktR0#dns_rec{ anlist = AnList3 }),
+    {ok,PktR3S,_TS} = inet_dns_tsig:sign(PktR3, TS3),
+    ?P("Response: ~s", [dns_pp(element(2, inet_dns:decode(PktR3S)))]),
+    ok = gen_tcp:send(Sock, PktR3S).
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% inet_dns encode/decode specials
+%% Should maybe be a suite of its own.
+
+mdns_encode_decode(Config) when is_list(Config) ->
+    Id = 4711,
+    Opcode = 'query',
+    Class = in,
+    Type = txt,
+    Domain = "test.local",
+    Text = ["abc", "123"],
+    BinText = <<3,$a,$b,$c, 3,$1,$2,$3>>,  % Wire format for Text
+    IN_h = 32769,                          % Class IN with high bit set
+    %%
+    %% Create a unicast-response to a mDNS query
+    %% with cache-flush bit on the RR record (func field),
+    %% which sets the class fields high bit when encoded
+    Header =
+        inet_dns:make_header(
+          [{id, Id}, {qr, true}, {opcode, Opcode},
+           {aa, false}, {tc, false}, {rd, false}, {ra, false}, {pr, false}]),
+    Query =
+        inet_dns:make_dns_query(
+          [{class, Class}, {type, Type}, {domain, Domain},
+           {unicast_response, true}]), % High bit 1
+    TxtRR =
+        inet_dns:make_rr(
+          [{domain, Domain}, {class, Class}, {type, Type},
+           {data, Text},
+           {func, true}]), % High bit 1
+    Msg =
+        inet_dns:make_msg(
+          [{header, Header}, {qdlist, [Query]}, {anlist, [TxtRR]}]),
+    %%
+    %% Encode and verify decode
+    Buffer = inet_dns:encode(Msg),
+    {{ok, Msg}, Msg} = {inet_dns:decode(Buffer), Msg},
+    %%
+    %% Decode as if not mDNS, which exposes the high class field bit,
+    %% and doesn't decode the RR data
+    Query2 =
+        inet_dns:make_dns_query(
+          Query,
+          [{class,IN_h},
+           {unicast_response,false}]),  % High bit 0
+    TxtRR2 =
+        inet_dns:make_rr(
+          TxtRR,
+          [{class,IN_h},
+           {data,BinText},  % Raw, encoded
+           {func,false}]),  % High bit 0
+    Msg2 = inet_dns:make_msg(Msg, [{qdlist, [Query2]}, {anlist, [TxtRR2]}]),
+    {{ok, Msg2}, Msg2} = {inet_dns:decode(Buffer, false), Msg2},
+    %%
+    %% Encode non-mDNS which ignores the high class bit flags
+    %% in #dns_query.unicast_response and #dns_rr.func
+    Buffer3 = inet_dns:encode(Msg, false),
+    %%
+    %% Decode non-mDNS and verify
+    Query3 =
+        inet_dns:make_dns_query(Query, unicast_response, false), % High bit 0
+    TxtRR3 = inet_dns:make_rr(TxtRR, func, false),               % High bit 0
+    Msg3 = inet_dns:make_msg(Msg, [{qdlist, [Query3]}, {anlist, [TxtRR3]}]),
+    {{ok, Msg3}, Msg3} = {inet_dns:decode(Buffer3, false), Msg3},
+    %%
+    %% Decode mDNS should give the same answer since the high bits
+    %% in the class fields are encoded as zero
+    {{ok, Msg3}, Msg3} = {inet_dns:decode(Buffer3, true), Msg3},
+    %%
+    %% Encode non-mDNS with class >= 32768
+    Buffer4 = inet_dns:encode(Msg2, false),
+    {{ok, Msg2}, Msg2} = {inet_dns:decode(Buffer4, false), Msg2},
+    %%
+    %% Decoding for mDNS should set the high class field flags
+    {{ok, Msg}, Msg} = {inet_dns:decode(Buffer4, true), Msg},
+    ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Compatibility tests. Call the inet_SUITE tests, but with

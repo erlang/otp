@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,18 +100,23 @@ extern ERL_NIF_TERM atom_rsa;
 extern ERL_NIF_TERM atom_dss;
 extern ERL_NIF_TERM atom_ecdsa;
 
-#ifdef HAVE_EDDH
+#ifdef HAVE_X25519
 extern ERL_NIF_TERM atom_x25519;
-extern ERL_NIF_TERM atom_x448;
+#endif
+
+#ifdef HAVE_ED25519
 extern ERL_NIF_TERM atom_ed25519;
+#endif
+
+#ifdef HAVE_X448
+extern ERL_NIF_TERM atom_x448;
+#endif
+
+#ifdef HAVE_ED448
 extern ERL_NIF_TERM atom_ed448;
 #endif
 
 extern ERL_NIF_TERM atom_eddsa;
-#ifdef HAVE_EDDSA
-extern ERL_NIF_TERM atom_ed25519;
-extern ERL_NIF_TERM atom_ed448;
-#endif
 
 extern ERL_NIF_TERM atom_rsa_mgf1_md;
 extern ERL_NIF_TERM atom_rsa_oaep_label;
@@ -141,6 +148,14 @@ extern ERL_NIF_TERM atom_engine_method_ec;
 extern ERL_NIF_TERM atom_engine;
 extern ERL_NIF_TERM atom_key_id;
 extern ERL_NIF_TERM atom_password;
+#endif
+
+extern ERL_NIF_TERM atom_seed;
+extern ERL_NIF_TERM atom_expandedkey;
+#ifdef HAVE_ML_KEM
+extern ERL_NIF_TERM atom_mlkem512;
+extern ERL_NIF_TERM atom_mlkem768;
+extern ERL_NIF_TERM atom_mlkem1024;
 #endif
 
 int init_atoms(ErlNifEnv *env);

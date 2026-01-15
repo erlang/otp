@@ -1,9 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec read_link_all(Name) -> {ok, Filename} | {error, Reason}[0m
-  [;1m                       when[0m
-  [;1m                           Name :: name_all(),[0m
-  [;1m                           Filename :: filename_all(),[0m
-  [;1m                           Reason :: posix() | badarg.[0m
+[;1m  read_link_all(Name)[0m
 
 [;;4mSince[0m:
   OTP R16B
@@ -16,11 +19,9 @@
 
   Typical error reasons:
 
-  [;;4m[;;4meinval[0m[0m:
-    [;;4mName[0m does not refer to a symbolic link.
+   • [;;4meinval[0m - [;;4mName[0m does not refer to a symbolic link.
 
-  [;;4m[;;4menoent[0m[0m:
-    The file does not exist.
+   • [;;4menoent[0m - The file does not exist.
 
-  [;;4m[;;4menotsup[0m[0m:
-    Symbolic links are not supported on this platform.
+   • [;;4menotsup[0m - Symbolic links are not supported on this
+     platform.

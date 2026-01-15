@@ -1,15 +1,29 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec relation(Tuples, Type) -> Relation[0m
-  [;1m                  when[0m
-  [;1m                      N :: integer(),[0m
-  [;1m                      Type :: N | type(),[0m
-  [;1m                      Relation :: relation(),[0m
-  [;1m                      Tuples :: [tuple()].[0m
+[;1m  relation(Tuples, Type)[0m
 
-  Creates a relation. [;;4mrelation(R, T)[0m is equivalent to [;;4m[0m
-  [;;4mfrom_term(R, T)[0m, if T is a type and the result is a relation.
+  Creates a relation.
+
+  [;;4mrelation(R, T)[0m is equivalent to [;;4mfrom_term(R, T)[0m, if T is a type
+  and the result is a relation.
+
   If [;;4mType[0m is an integer N, then [;;4m[{atom, ..., atom}])[0m, where the
-  tuple size is N, is used as type of the relation. If no type is
-  explicitly specified, the size of the first tuple of [;;4mTuples[0m is
-  used if there is such a tuple. [;;4mrelation([])[0m is equivalent to [;;4m[0m
-  [;;4mrelation([], 2)[0m.
+  tuple size is N, is used as type of the relation.
+
+[;1mExamples[0m
+
+    1> S1 = sofs:relation([{3,blue},{2,green},{3,blue},{1,red}], [{index,color}]).
+    2> sofs:to_external(S1).
+    [{1,red},{2,green},{3,blue}]
+    3> sofs:type(S1).
+    [{index,color}]
+    4> sofs:type(sofs:relation([{1,a},{1,b}], 2)).
+    [{atom,atom}]
+    5> sofs:type(sofs:relation([], 3)).
+    [{atom,atom,atom}]

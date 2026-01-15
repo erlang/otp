@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_internal_SUITE).
@@ -76,13 +78,14 @@ check_behav_list([L | L1], L2) ->
     check_behav_list(L1, L3).
 
 callbacks(application) ->
-    [{start,2}, {stop,1}];
+    [{start,2}, {stop,1}, {config_change, 3}, {prep_stop, 1}, {start_phase, 3}];
 callbacks(gen_server) ->
     [{init,1}, {handle_call,3}, {handle_cast,2},
      {handle_info,2}, {terminate,2}, {code_change,3},
      {format_status,1}, {format_status,2}, {handle_continue, 2}];
 callbacks(gen_fsm) ->
-    [{init,1}, {handle_event,3}, {handle_sync_event,4},
+    [{init,1}, {'StateName',2}, {'StateName',3},
+     {handle_event,3}, {handle_sync_event,4},
      {handle_info,3}, {terminate,3}, {code_change,4},
      {format_status,2}];
 callbacks(gen_event) ->
@@ -90,7 +93,7 @@ callbacks(gen_event) ->
      {handle_info,2}, {terminate,2}, {code_change,3},
      {format_status,1}, {format_status,2}];
 callbacks(gen_statem) ->
-    [{init, 1}, {callback_mode, 0}, {state_name, 3},
+    [{init, 1}, {callback_mode, 0}, {'StateName', 3},
      {handle_event, 4}, {terminate, 3}, {code_change, 4},
      {format_status, 1}, {format_status, 2}];
 callbacks(supervisor_bridge) ->
@@ -99,15 +102,16 @@ callbacks(supervisor) ->
     [{init,1}].
 
 optional_callbacks(application) ->
-    [];
+    [{config_change, 3}, {prep_stop, 1}, {start_phase, 3}];
 optional_callbacks(gen_server) ->
     [{handle_info, 2}, {handle_continue, 2}, {terminate, 2}, {code_change, 3}, {format_status, 1}, {format_status, 2}];
 optional_callbacks(gen_fsm) ->
-    [{handle_info, 3}, {terminate, 3}, {code_change, 4}, {format_status, 2}];
+    [{'StateName', 2}, {'StateName', 3},
+     {handle_info, 3}, {terminate, 3}, {code_change, 4}, {format_status, 2}];
 optional_callbacks(gen_event) ->
     [{handle_info, 2}, {terminate, 2}, {code_change, 3}, {format_status, 1}, {format_status, 2}];
 optional_callbacks(gen_statem) ->
-    [{state_name, 3}, {handle_event, 4},
+    [{'StateName', 3}, {handle_event, 4},
      {terminate, 3}, {code_change, 4}, {format_status, 1}, {format_status, 2}];
 optional_callbacks(supervisor_bridge) ->
     [];

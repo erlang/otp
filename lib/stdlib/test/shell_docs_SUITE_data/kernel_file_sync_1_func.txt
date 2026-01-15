@@ -1,8 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec sync(IoDevice) -> ok | {error, Reason}[0m
-  [;1m              when[0m
-  [;1m                  IoDevice :: io_device(),[0m
-  [;1m                  Reason :: posix() | badarg | terminated.[0m
+[;1m  sync(IoDevice)[0m
 
   Ensures that any buffers kept by the operating system (not by the
   Erlang runtime system) are written to disk. On some platforms,
@@ -10,5 +14,4 @@
 
   A typical error reason is:
 
-  [;;4m[;;4menospc[0m[0m:
-    Not enough space left to write the file.
+   • [;;4menospc[0m - Not enough space left to write the file.

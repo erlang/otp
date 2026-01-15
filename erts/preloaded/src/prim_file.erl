@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(prim_file).
+-moduledoc false.
 
 -export([on_load/0]).
 
@@ -131,7 +134,7 @@ open(Name, Modes) ->
     %% the public file interface, which has leaked through for ages because of
     %% "raw files."
     try open_nif(encode_path(Name), Modes) of
-        {ok, Ref} -> {ok, make_fd(Ref, Modes)};
+        {ok, Ref} -> {ok, make_fd(Modes, Ref)};
         {error, Reason} -> {error, Reason}
     catch
         error:badarg -> {error, badarg}
@@ -139,14 +142,14 @@ open(Name, Modes) ->
 
 file_desc_to_ref(FileDescriptorId, Modes) ->
     try file_desc_to_ref_nif(FileDescriptorId) of
-        {ok, Ref} -> {ok, make_fd(Ref, Modes)};
+        {ok, Ref} -> {ok, make_fd(Modes, Ref)};
         {error, Reason} -> {error, Reason}
     catch
         error:badarg -> {error, badarg}
     end.
 
-make_fd(FRef, Modes) ->
-    #file_descriptor{module = ?MODULE, data = build_fd_data(FRef, Modes) }.
+make_fd(Modes, FRef) ->
+    #file_descriptor{module = ?MODULE, data = build_fd_data(Modes, FRef) }.
 
 close(Fd) ->
     try
@@ -160,9 +163,10 @@ read(Fd, Size) ->
     try
         #{ handle := FRef,
            r_ahead_size := RASz,
-           r_buffer := RBuf } = get_fd_data(Fd),
+           r_buffer := RBuf } = get_fd_data_for_read(Fd),
         read_1(FRef, RBuf, prim_buffer:size(RBuf), RASz, Size)
     catch
+        throw:Err -> Err;
         error:badarg -> {error, badarg}
     end.
 
@@ -203,11 +207,12 @@ read_line(Fd) ->
     try
         #{ handle := FRef,
            r_ahead_size := RASz,
-           r_buffer := RBuf } = get_fd_data(Fd),
+           r_buffer := RBuf } = get_fd_data_for_read(Fd),
         SearchResult = prim_buffer:find_byte_index(RBuf, $\n),
         LineSize = max(?MIN_READLINE_SIZE, RASz),
         read_line_1(FRef, RBuf, SearchResult, LineSize)
     catch
+        throw:Err -> Err;
         error:badarg -> {error, badarg}
     end.
 
@@ -301,8 +306,10 @@ datasync(Fd) ->
 position(Fd, {cur, Offset}) ->
     try
         %% Adjust our current position according to how much we've read ahead.
-        #{ r_buffer := RBuf } = get_fd_data(Fd),
-        position_1(Fd, cur, Offset - prim_buffer:size(RBuf))
+        case get_fd_data(Fd) of
+            #{ r_buffer := RBuf } -> position_1(Fd, cur, Offset - prim_buffer:size(RBuf));
+            #{} -> position_1(Fd, cur, Offset)
+        end
     catch
         error:badarg -> {error, badarg}
     end;
@@ -318,9 +325,13 @@ position(Fd, eof) -> position(Fd, {eof, 0});
 position(Fd, Offset) -> position(Fd, {bof, Offset}).
 
 position_1(Fd, Mark, Offset) ->
-    #{ handle := FRef, r_buffer := RBuf } = get_fd_data(Fd),
-    prim_buffer:wipe(RBuf),
-    seek_nif(FRef, Mark, Offset).
+    case get_fd_data(Fd) of
+        #{ handle := FRef, r_buffer := RBuf } ->
+            prim_buffer:wipe(RBuf),
+            seek_nif(FRef, Mark, Offset);
+        #{ handle := FRef } ->
+            seek_nif(FRef, Mark, Offset)
+    end.
 
 pread(Fd, Offset, Size) ->
     try
@@ -358,9 +369,14 @@ pread_list(FRef, [{Offset, Size} | Rest], ResultList) ->
 
 pwrite(Fd, Offset, IOData) ->
     try
-        #{ handle := FRef, r_buffer := RBuf } = get_fd_data(Fd),
-        prim_buffer:wipe(RBuf),
-        pwrite_plain(FRef, Offset, erlang:iolist_to_iovec(IOData))
+        IOVec = erlang:iolist_to_iovec(IOData),
+        case get_fd_data(Fd) of
+            #{ handle := FRef, r_buffer := RBuf } ->
+                prim_buffer:wipe(RBuf),
+                pwrite_plain(FRef, Offset, IOVec);
+            #{ handle := FRef } ->
+                pwrite_plain(FRef, Offset, IOVec)
+        end
     catch
         error:badarg -> {error, badarg}
     end.
@@ -376,9 +392,13 @@ pwrite_plain(FRef, Offset, IOVec) ->
 
 pwrite(Fd, LocBytes) ->
     try
-        #{ handle := FRef, r_buffer := RBuf } = get_fd_data(Fd),
-        prim_buffer:wipe(RBuf),
-        pwrite_list(FRef, LocBytes, 0)
+        case get_fd_data(Fd) of
+            #{ handle := FRef, r_buffer := RBuf } ->
+                prim_buffer:wipe(RBuf),
+                pwrite_list(FRef, LocBytes, 0);
+            #{ handle := FRef } ->
+                pwrite_list(FRef, LocBytes, 0)
+        end
     catch
         error:badarg -> {error, badarg}
     end.
@@ -467,10 +487,13 @@ get_handle(Fd) ->
 %% Resets the write head to the position the user believes we're at, which may
 %% not be the same as the real one when read caching is in effect.
 reset_write_position(Fd) ->
-    #{ r_buffer := RBuf } = Fd#file_descriptor.data,
-    case prim_buffer:size(RBuf) of
-        Size when Size > 0 -> position(Fd, cur);
-        Size when Size =:= 0 -> ok
+    case Fd#file_descriptor.data of
+        #{ r_buffer := RBuf } ->
+            case prim_buffer:size(RBuf) of
+                Size when Size > 0 -> position(Fd, cur);
+                Size when Size =:= 0 -> ok
+            end;
+        _ -> ok
     end.
 
 get_fd_data(#file_descriptor{ data = Data }) ->
@@ -480,24 +503,28 @@ get_fd_data(#file_descriptor{ data = Data }) ->
         _ -> error(not_on_controlling_process)
     end.
 
-build_fd_data(FRef, Modes) ->
-    Defaults =
-        #{ owner => self(),
-           handle => FRef,
-           r_ahead_size => 0,
-           r_buffer => prim_buffer:new() },
-    fill_fd_option_map(Modes, Defaults).
+get_fd_data_for_read(Fd) ->
+    case get_fd_data(Fd) of
+        #{ r_buffer := _ } = Data -> Data;
+        _ -> throw({error, ebadf})
+    end.
 
-fill_fd_option_map([], Map) ->
-    Map;
+build_fd_data(Modes, FRef) -> build_fd_data(Modes, FRef, self(), 0, default).
 
-fill_fd_option_map([read_ahead | Modes], Map) ->
-    fill_fd_option_map([{read_ahead, 64 bsl 10} | Modes], Map);
-fill_fd_option_map([{read_ahead, Size} | Modes], Map) ->
-    fill_fd_option_map(Modes, Map#{ r_ahead_size => Size });
-
-fill_fd_option_map([_Ignored | Modes], Map) ->
-    fill_fd_option_map(Modes, Map).
+build_fd_data([], FRef, Owner, _RASz, write) ->
+    #{ handle => FRef, owner => Owner };
+build_fd_data([], FRef, Owner, RASz, Mode) when Mode =:= read; Mode =:= default ->
+    #{ handle => FRef, owner => Owner, r_ahead_size => RASz, r_buffer => prim_buffer:new() };
+build_fd_data([read_ahead | Modes], FRef, Owner, _, Mode) ->
+    build_fd_data(Modes, FRef, Owner, 64 bsl 10, Mode);
+build_fd_data([{read_ahead, RASz} | Modes], FRef, Owner, _, Mode) ->
+    build_fd_data(Modes, FRef, Owner, RASz, Mode);
+build_fd_data([write | Modes], FRef, Owner, RASz, default) ->
+    build_fd_data(Modes, FRef, Owner, RASz, write);
+build_fd_data([read | Modes], FRef, Owner, RASz, _Mode) ->
+    build_fd_data(Modes, FRef, Owner, RASz, read);
+build_fd_data([_Ignored | Modes], FRef, Owner, RASz, Mode) ->
+    build_fd_data(Modes, FRef, Owner, RASz, Mode).
 
 open_nif(_Name, _Modes) ->
     erlang:nif_error(undef).

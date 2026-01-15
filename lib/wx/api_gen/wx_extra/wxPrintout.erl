@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,16 +16,26 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 <<EXPORT:wxPrintout new/2,new/3 wxPrintout:EXPORT>>
 
 <<wxPrintout
-%% @doc @equiv new(Title, OnPrintPage, [])
+-doc(#{equiv => new/3}).
 -spec new(Title::string(), OnPrintPage::function()) -> wxPrintout:wxPrintout().
 new(Title, OnPrintPage) ->
     new(Title, OnPrintPage, []).
+
+-doc """
+Constructor.
+
+Creates a `m:wxPrintout` object with a callback fun and optionally other
+callback funs. The `This` argument is the `m:wxPrintout` object reference to
+this object
+
+Notice: The callbacks may not call other processes.
+""".
 
 -spec new(Title::string(), OnPrintPage, [Option]) ->
           wxPrintout:wxPrintout() when

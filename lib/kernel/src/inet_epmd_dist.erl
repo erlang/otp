@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +21,7 @@
 %%
 
 -module(inet_epmd_dist).
--feature(maybe_expr, enable).
+-moduledoc false.
 
 %% DistMod API - own inet_tcp_dist equivalence implementation
 -export([net_address/0, listen_open/2, listen_port/3, listen_close/1,
@@ -31,7 +33,8 @@
          nodelay/0, merge_options/3]).
 
 %% net_kernel and dist_util distribution Module API
--export([address/1, listen/2,
+-export([childspecs/0,
+         address/1, listen/2,
          accept/1, accept_connection/5,
          select/1, setup/5,
          close/1]).
@@ -251,20 +254,18 @@ getopts(S, OptNames) ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% net_kernel distribution module API
 
+childspecs() ->
+    case pt_init_dist_mod() of
+        ?MODULE -> {error, no_childspecs};
+        DistMod -> DistMod:childspecs()
+    end.
 
 %% ------------------------------------------------------------
 %% Return which #net_address{} we handle
 %% ------------------------------------------------------------
 
 address(Host) ->
-    try
-        pt_init(Host),
-        pt_get(net_address)
-    catch error : Reason : Stacktrace ->
-            error_logger:error_msg(
-              "error : ~p in ~n    ~p~n", [Reason, Stacktrace]),
-            erlang:raise(error, Reason, Stacktrace)
-    end.
+    pt_init_net_address(Host).
 
 %% ------------------------------------------------------------
 %% Create the listen socket, i.e. the port that this erlang
@@ -274,9 +275,8 @@ address(Host) ->
 listen(Name, Host) ->
     try
         maybe
-            pt_init(Host),
-            NetAddress = pt_get(net_address),
-            DistMod = pt_get(dist_mod),
+            DistMod = pt_init_dist_mod(),
+            NetAddress = pt_init_net_address(Host),
             EpmdMod = net_kernel:epmd_module(),
             %%
             {ok, ListenOptions} ?=
@@ -806,17 +806,24 @@ pt_get(Key)
        Key =:= net_address ->
     persistent_term:get({?MODULE, Key}).
 
-pt_init(Host) ->
+pt_init_dist_mod() ->
     maybe
         {ok, [[DistModStr]]} ?= init:get_argument(?DISTNAME),
         DistMod = list_to_atom(atom_to_list(?DISTNAME) ++ "_" ++ DistModStr),
         persistent_term:put({?MODULE, dist_mod}, DistMod),
-        NetAddress =
-            %% *******
-            (DistMod:net_address())
-            #net_address{ host = Host },
-        persistent_term:put({?MODULE, net_address}, NetAddress)
+        DistMod
     else
         Other ->
+            error_logger:error_msg(
+              "init:get_arguments(~w) -> ~p~n", [?DISTNAME, Other]),
             exit({{init,get_argument,[?DISTNAME]},Other})
     end.
+
+pt_init_net_address(Host) ->
+    DistMod = pt_get(dist_mod),
+    NetAddress =
+        %% *******
+        (DistMod:net_address())
+        #net_address{ host = Host },
+    persistent_term:put({?MODULE, net_address}, NetAddress),
+    NetAddress.

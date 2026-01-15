@@ -1,62 +1,54 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec relative_product(ListOfBinRels) -> BinRel2[0m
-  [;1m                          when[0m
-  [;1m                              ListOfBinRels :: [BinRel, ...],[0m
-  [;1m                              BinRel :: binary_relation(),[0m
-  [;1m                              BinRel2 :: binary_relation().[0m
+[;1m  relative_product(ListOfBinRels)[0m
 
-  If [;;4mListOfBinRels[0m is a non-empty list [R[1], ..., R[n]] of binary
+  Returns relative product of the ordered set (R[i], ..., R[n]) and
+  the relation of equality between the elements of the Cartesian
+  product of the ranges of R[i], range R[1] × ... × range R[n].
+
+[;1mExamples[0m
+
+    1> TR = sofs:relation([{1,a},{1,aa},{2,b},{4,x}]).
+    2> R1 = sofs:relation([{1,u},{2,v},{3,c}]).
+    3> R2 = sofs:relative_product([TR, R1]).
+    4> sofs:to_external(R2).
+    [{1,{a,u}},{1,{aa,u}},{2,{b,v}}]
+
+[;1m  relative_product(ListOrRel, BinRel1)[0m
+
+  Returns the relative product.
+
+  If [;;4mListOrRel[0m is a non-empty list [R[1], ..., R[n]] of binary
   relations and [;;4mBinRel1[0m is a binary relation, then [;;4mBinRel2[0m is
   the relative product of the ordered set (R[i], ..., R[n]) and [;;4m[0m
   [;;4mBinRel1[0m.
-
-  If [;;4mBinRel1[0m is omitted, the relation of equality between the
-  elements of the Cartesian product of the ranges of R[i],
-  range R[1] × ... × range R[n], is used instead (intuitively,
-  nothing is "lost").
-
-    1> TR = sofs:relation([{1,a},{1,aa},{2,b}]),
-    R1 = sofs:relation([{1,u},{2,v},{3,c}]),
-    R2 = sofs:relative_product([TR, R1]),
-    sofs:to_external(R2).
-    [{1,{a,u}},{1,{aa,u}},{2,{b,v}}]
 
   Notice that [;;4mrelative_product([R1], R2)[0m is different from [;;4m[0m
   [;;4mrelative_product(R1, R2)[0m; the list of one element is not
   identified with the element itself.
 
-  [;1m-spec relative_product(ListOfBinRels, BinRel1) -> BinRel2[0m
-  [;1m                          when[0m
-  [;1m                              ListOfBinRels :: [BinRel, ...],[0m
-  [;1m                              BinRel :: binary_relation(),[0m
-  [;1m                              BinRel1 :: binary_relation(),[0m
-  [;1m                              BinRel2 :: binary_relation().[0m
+[;1mExamples[0m
 
-  If [;;4mListOfBinRels[0m is a non-empty list [R[1], ..., R[n]] of binary
-  relations and [;;4mBinRel1[0m is a binary relation, then [;;4mBinRel2[0m is
-  the relative product of the ordered set (R[i], ..., R[n]) and [;;4m[0m
-  [;;4mBinRel1[0m.
+    1> R1 = sofs:relation([{a,b},{c,a}]).
+    2> R2 = sofs:relation([{a,1},{a,2}]).
+    3> S = sofs:from_term([{{b,1},b1},{{b,2},b2}]).
+    4> R3 = sofs:relative_product([R1,R2], S).
+    5> sofs:to_external(R3).
+    [{a,b1},{a,b2}]
 
-  If [;;4mBinRel1[0m is omitted, the relation of equality between the
-  elements of the Cartesian product of the ranges of R[i],
-  range R[1] × ... × range R[n], is used instead (intuitively,
-  nothing is "lost").
+  If [;;4mListOrRel[0m is a binary relation, then [;;4mBinRel2[0m is the
+  relative product of the binary relations [;;4mListOfRel[0m and [;;4mBinRel1[0m.
 
-    1> TR = sofs:relation([{1,a},{1,aa},{2,b}]),
-    R1 = sofs:relation([{1,u},{2,v},{3,c}]),
-    R2 = sofs:relative_product([TR, R1]),
-    sofs:to_external(R2).
-    [{1,{a,u}},{1,{aa,u}},{2,{b,v}}]
+[;1mExamples[0m
 
-  Notice that [;;4mrelative_product([R1], R2)[0m is different from [;;4m[0m
-  [;;4mrelative_product(R1, R2)[0m; the list of one element is not
-  identified with the element itself.
-
-  [;1m-spec relative_product(BinRel1, BinRel2) -> BinRel3[0m
-  [;1m                          when[0m
-  [;1m                              BinRel1 :: binary_relation(),[0m
-  [;1m                              BinRel2 :: binary_relation(),[0m
-  [;1m                              BinRel3 :: binary_relation().[0m
-
-  Returns the relative product of the binary relations [;;4mBinRel1[0m
-  and [;;4mBinRel2[0m.
+    1> R1 = sofs:relation([{a,b}, {c,a}]).
+    2> R2 = sofs:relation([{a,1}, {a,2}]).
+    3> R3 = sofs:relative_product(R1, R2).
+    4> sofs:to_external(R3).
+    [{c,1},{c,2}]

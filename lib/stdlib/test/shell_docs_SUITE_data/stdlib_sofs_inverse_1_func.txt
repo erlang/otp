@@ -1,12 +1,34 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec inverse(Function1) -> Function2[0m
-  [;1m                 when[0m
-  [;1m                     Function1 :: a_function(),[0m
-  [;1m                     Function2 :: a_function().[0m
+[;1m  inverse(Function1)[0m
 
   Returns the inverse of function [;;4mFunction1[0m.
 
-    1> R1 = sofs:relation([{1,a},{2,b},{3,c}]),
-    R2 = sofs:inverse(R1),
-    sofs:to_external(R2).
+  A [;;4mbad_function[0m exception is raised if [;;4mFunction1[0m is not
+  invertible.
+
+  See [;;4mconverse/1[0m for a similar function that handles any binary
+  relation.
+
+[;1mExamples[0m
+
+    1> F1 = sofs:relation([{1,a},{2,b},{3,c}]).
+    2> F2 = sofs:inverse(F1).
+    3> sofs:to_external(F2).
     [{a,1},{b,2},{c,3}]
+
+  Trying to inverse a non-invertible function.
+
+    1> R1 = sofs:relation([{1,a},{2,a}]).
+    2> sofs:inverse(R1).
+    ** exception error: bad_function
+         in function  sofs:inverse/1
+    3> R2 = sofs:converse(R1).
+    4> sofs:to_external(R2).
+    [{a,1},{a,2}]

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,44 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(nteventlog).
+-moduledoc """
+Interface to Windows Event Log
+
+`nteventlog` provides a generic interface to the Windows event log. It is part
+of the OS_Mon application, see [os_mon](os_mon_app.md).
+
+This module is used as the Windows backend for `os_sup`. See `m:os_sup`.
+
+To retain backwards compatibility, this module can also be used to start a
+standalone `nteventlog` process which is not part of the OS_Mon supervision
+tree. When starting such a process, the user has to supply an identifier as well
+as a callback function to handle the messages.
+
+The identifier, an arbitrary string, should be reused whenever the same
+application (or node) wants to start the process. `nteventlog` is informed about
+all events that have arrived to the eventlog since the last accepted message for
+the current identifier. As long as the same identifier is used, the same
+eventlog record will not be sent to `nteventlog` more than once (with the
+exception of when graved system failures arise, in which case the last records
+written before the failure may be sent to Erlang again after reboot).
+
+If the event log is configured to wrap around automatically, records that have
+arrived to the log and been overwritten when `nteventlog` was not running are
+lost. However, it detects this state and loses no records that are not
+overwritten.
+
+The callback function works as described in `m:os_sup`.
+
+## See Also
+
+[os_mon](os_mon_app.md), `m:os_sup`
+
+Windows NT documentation
+""".
 -behaviour(gen_server).
 
 %% API
@@ -33,13 +69,46 @@
 %% API
 %%----------------------------------------------------------------------
 
+-doc """
+This function starts the standalone `nteventlog` process and, if
+[`start_link/2`](`start_link/2`) is used, links to it.
+
+`Identifier` is an identifier as described above.
+
+`MFA` is the supplied callback function. When `nteventlog` receives information
+about a new event, this function will be called as
+[`apply(Mod, Func, [Event|Args])`](`apply/3`) where `Event` is a tuple
+""".
+-spec start_link(Identifier, MFA) -> Result when Identifier :: string() | atom(),
+   MFA :: {Mod, Func, Args},
+    Mod :: atom(),
+   Func :: atom(),
+    Args :: [term()],
+   Result :: {ok, Pid} | {error, {already_started, Pid}},
+   Pid :: pid().
 start_link(Ident, MFA) ->
     gen_server:start_link({local, nteventlog}, nteventlog,
 			  [Ident, MFA], []).
 
+-doc """
+Equivalent to [`start_link(Identifier, MFA)`](`start_link/2`) except that no
+link is created between `nteventlog` and the calling process.
+""".
+-spec start(Identifier, MFA) -> Result when Identifier :: string() | atom(),
+   MFA :: {Mod, Func, Args},
+    Mod :: atom(),
+   Func :: atom(),
+    Args :: [term()],
+   Result :: {ok, Pid} | {error, {already_started, Pid}},
+   Pid :: pid().
 start(Ident, MFA) ->
     gen_server:start({local, nteventlog}, nteventlog, [Ident, MFA], []).
 
+-doc """
+Stops `nteventlog`. Usually only used during development. The server does not
+have to be shut down gracefully to maintain its state.
+""".
+-spec stop() -> stopped.
 stop() ->
     gen_server:call(nteventlog, stop).
 
@@ -47,6 +116,7 @@ stop() ->
 %% gen_server callbacks
 %%----------------------------------------------------------------------
 
+-doc false.
 init([Identifier,MFA0]) ->
     process_flag(trap_exit, true),
     process_flag(priority, low),
@@ -68,12 +138,15 @@ init([Identifier,MFA0]) ->
 
     {ok, #state{port=Port, mfa=MFA}}.
 
+-doc false.
 handle_call(stop, _From, State) ->
     {stop, normal, stopped, State}.
 
+-doc false.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+-doc false.
 handle_info({_Port, {data, Data}}, #state{mfa={M,F,A}} = State) ->
     T = parse_log(Data),
     apply(M, F, [T | A]),
@@ -84,6 +157,7 @@ handle_info({'EXIT', _Port, Reason}, State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
+-doc false.
 terminate(_Reason, State) ->
     case State#state.port of
 	not_used -> ignore;

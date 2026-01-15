@@ -1,0 +1,41 @@
+
+dialyzer_races.erl:1571:5: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:1572:5: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:1973:17: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:1974:17: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2000:17: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2002:21: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2006:25: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2010:25: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2015:21: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2018:21: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2021:21: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2023:17: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2025:21: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2028:21: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2031:21: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2034:21: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2036:17: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2038:21: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2043:21: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2046:21: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2049:21: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2051:17: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2060:17: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2069:17: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2173:5: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2174:5: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2176:9: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+dialyzer_races.erl:2177:9: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2179:13: Body yields the type 'undefined' | dict:dict(_,_) which violates the opacity of the other clauses.
+dialyzer_races.erl:2183:13: Body yields the opaque type dict:dict(_,_) whose opacity is broken by the other clauses.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+%%

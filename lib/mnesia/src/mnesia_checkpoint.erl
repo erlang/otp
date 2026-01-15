@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2023
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 %%
 -module(mnesia_checkpoint).
+-moduledoc false.
 
 %% TM callback interface
 -export([
@@ -617,25 +620,29 @@ init(Cp) ->
     Name = Cp#checkpoint_args.name,
     Props = [set, public, {keypos, 2}],
     try ?ets_new_table(mnesia_pending_checkpoint, Props) of
-	PendingTab ->
-	    Rs = [prepare_tab(Cp, R) || R <- Cp#checkpoint_args.retainers],
-	    Cp2 = Cp#checkpoint_args{retainers = Rs,
-				pid = self(),
-				pending_tab = PendingTab},
-	    add(pending_checkpoint_pids, self()),
-	    add(pending_checkpoints, PendingTab),
-	    set({checkpoint, Name}, self()),
-	    add(checkpoints, Name),
-	    dbg_out("Checkpoint ~p (~p) started~n", [Name, self()]),
-	    proc_lib:init_ack(Cp2#checkpoint_args.supervisor, {ok, self()}),
-	    retainer_loop(Cp2)
+        PendingTab ->
+            try [prepare_tab(Cp, R) || R <- Cp#checkpoint_args.retainers] of
+                Rs ->
+                    Cp2 = Cp#checkpoint_args{retainers = Rs,
+                                             pid = self(),
+                                             pending_tab = PendingTab},
+                    add(pending_checkpoint_pids, self()),
+                    add(pending_checkpoints, PendingTab),
+                    set({checkpoint, Name}, self()),
+                    add(checkpoints, Name),
+                    dbg_out("Checkpoint ~p (~p) started~n", [Name, self()]),
+                    proc_lib:init_ack(Cp2#checkpoint_args.supervisor, {ok, self()}),
+                    retainer_loop(Cp2)
+            catch exit:Reason ->
+                    proc_lib:init_ack(Cp#checkpoint_args.supervisor, {error, Reason})
+            end
     catch error:Reason -> %% system limit
 	    Msg = "Cannot create an ets table for pending transactions",
 	    Error = {error, {system_limit, Name, Msg, Reason}},
 	    proc_lib:init_fail(
               Cp#checkpoint_args.supervisor, Error, {exit, normal})
     end.
-    
+
 prepare_tab(Cp, R) ->
     Tab = R#retainer.tab_name,
     prepare_tab(Cp, R, val({Tab, storage_type})).

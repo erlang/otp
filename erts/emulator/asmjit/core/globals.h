@@ -14,9 +14,14 @@ ASMJIT_BEGIN_NAMESPACE
 //! \addtogroup asmjit_utilities
 //! \{
 namespace Support {
-  //! Cast designed to cast between function and void* pointers.
-  template<typename Dst, typename Src>
-  static inline Dst ptr_cast_impl(Src p) noexcept { return (Dst)p; }
+
+//! Cast designed to cast between function and void* pointers.
+template<typename Dst, typename Src>
+static inline Dst ptr_cast_impl(Src p) noexcept { return (Dst)p; }
+
+//! Helper to implement placement new/delete without relying on `<new>` header.
+struct PlacementNew { void* ptr; };
+
 } // {Support}
 
 #if defined(ASMJIT_NO_STDCXX)
@@ -25,17 +30,15 @@ namespace Support {
   ASMJIT_FORCE_INLINE void operatorDelete(void* p) noexcept { if (p) free(p); }
 } // {Support}
 
-#define ASMJIT_BASE_CLASS(TYPE)                                                  \
-  ASMJIT_FORCE_INLINE void* operator new(size_t n) noexcept {                    \
-    return Support::operatorNew(n);                                              \
-  }                                                                              \
-                                                                                 \
-  ASMJIT_FORCE_INLINE void  operator delete(void* p) noexcept {                  \
-    Support::operatorDelete(p);                                                  \
-  }                                                                              \
-                                                                                 \
-  ASMJIT_FORCE_INLINE void* operator new(size_t, void* p) noexcept { return p; } \
-  ASMJIT_FORCE_INLINE void  operator delete(void*, void*) noexcept {}
+#define ASMJIT_BASE_CLASS(TYPE)                                                                          \
+  ASMJIT_FORCE_INLINE void* operator new(size_t n) noexcept { return Support::operatorNew(n); }          \
+  ASMJIT_FORCE_INLINE void operator delete(void* ptr) noexcept { Support::operatorDelete(ptr); }         \
+                                                                                                         \
+  ASMJIT_FORCE_INLINE void* operator new(size_t, void* ptr) noexcept { return ptr; }                     \
+  ASMJIT_FORCE_INLINE void operator delete(void*, void*) noexcept {}                                     \
+                                                                                                         \
+  ASMJIT_FORCE_INLINE void* operator new(size_t, Support::PlacementNew ptr) noexcept { return ptr.ptr; } \
+  ASMJIT_FORCE_INLINE void operator delete(void*, Support::PlacementNew) noexcept {}
 #else
 #define ASMJIT_BASE_CLASS(TYPE)
 #endif
@@ -93,10 +96,9 @@ static constexpr uint32_t kMaxTreeHeight = (ASMJIT_ARCH_BITS == 32 ? 30 : 61) + 
 static constexpr uint32_t kMaxOpCount = 6;
 
 //! Maximum arguments of a function supported by the Compiler / Function API.
-static constexpr uint32_t kMaxFuncArgs = 16;
+static constexpr uint32_t kMaxFuncArgs = 32;
 
-//! The number of values that can be assigned to a single function argument or
-//! return value.
+//! The number of values that can be assigned to a single function argument or return value.
 static constexpr uint32_t kMaxValuePack = 4;
 
 //! Maximum number of physical registers AsmJit can use per register group.
@@ -129,16 +131,20 @@ static constexpr uint32_t kNumVirtGroups = 4;
 struct Init_ {};
 struct NoInit_ {};
 
+//! A decorator used to initialize.
 static const constexpr Init_ Init {};
+//! A decorator used to not initialize.
 static const constexpr NoInit_ NoInit {};
 
 } // {Globals}
 
+//! Casts a `void*` pointer `func` to a function pointer `Func`.
 template<typename Func>
-static inline Func ptr_as_func(void* func) noexcept { return Support::ptr_cast_impl<Func, void*>(func); }
+static ASMJIT_INLINE_NODEBUG Func ptr_as_func(void* func) noexcept { return Support::ptr_cast_impl<Func, void*>(func); }
 
+//! Casts a function pointer `func` to a void pointer `void*`.
 template<typename Func>
-static inline void* func_as_ptr(Func func) noexcept { return Support::ptr_cast_impl<void*, Func>(func); }
+static ASMJIT_INLINE_NODEBUG void* func_as_ptr(Func func) noexcept { return Support::ptr_cast_impl<void*, Func>(func); }
 
 //! \}
 
@@ -175,7 +181,10 @@ enum ErrorCode : uint32_t {
   //! The object is already initialized.
   kErrorAlreadyInitialized,
 
-  //! Built-in feature was disabled at compile time and it's not available.
+  //! Either a built-in feature was disabled at compile time and it's not available or the feature is not
+  //! available on the target platform.
+  //!
+  //! For example trying to allocate large pages on unsupported platform would return this error.
   kErrorFeatureNotEnabled,
 
   //! Too many handles (Windows) or file descriptors (Unix/Posix).
@@ -320,6 +329,15 @@ enum ErrorCode : uint32_t {
   //! Failed to open anonymous memory handle or file descriptor.
   kErrorFailedToOpenAnonymousMemory,
 
+  //! Failed to open a file.
+  //!
+  //! \note This is a generic error that is used by internal filesystem API.
+  kErrorFailedToOpenFile,
+
+  //! Protection failure can be returned from a virtual memory allocator or when trying to change memory access
+  //! permissions.
+  kErrorProtectionFailure,
+
   // @EnumValuesEnd@
 
   //! Count of AsmJit error codes.
@@ -332,7 +350,7 @@ namespace DebugUtils {
 //! \cond INTERNAL
 //! Used to silence warnings about unused arguments or variables.
 template<typename... Args>
-static inline void unused(Args&&...) noexcept {}
+static ASMJIT_INLINE_NODEBUG void unused(Args&&...) noexcept {}
 //! \endcond
 
 //! Returns the error `err` passed.
@@ -389,5 +407,15 @@ ASMJIT_API void ASMJIT_NORETURN assertionFailed(const char* file, int line, cons
 //! \}
 
 ASMJIT_END_NAMESPACE
+
+//! Implementation of a placement new so we don't have to depend on `<new>`.
+ASMJIT_INLINE_NODEBUG void* operator new(size_t, const asmjit::Support::PlacementNew& p) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+  __assume(p.ptr != nullptr); // Otherwise MSVC would emit a nullptr check.
+#endif
+  return p.ptr;
+}
+
+ASMJIT_INLINE_NODEBUG void operator delete(void*, const asmjit::Support::PlacementNew&) noexcept {}
 
 #endif // ASMJIT_CORE_GLOBALS_H_INCLUDED

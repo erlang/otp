@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -197,7 +199,7 @@ roundtrip_enc(Mod, Type, Value, ExpectedValue) ->
             ExpectedValue = Mod:decode(Type, Encoded)
     end,
     map_roundtrip(Mod, Type, Encoded),
-    test_ber_indefinite(Mod, Type, Encoded, ExpectedValue),
+    test_special(Mod, Type, Encoded, ExpectedValue),
     Encoded.
 
 map_roundtrip(Mod, Type, Encoded) ->
@@ -248,9 +250,10 @@ match_value_tuple(I, T1, T2) when I =< tuple_size(T1) ->
 match_value_tuple(_, _, _) ->
     ok.
 
-test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
+test_special(Mod, Type, Encoded, ExpectedValue) ->
     case Mod:encoding_rule() of
 	ber ->
+            %% Test indefinite decoding for BER.
 	    Indefinite = iolist_to_binary(ber_indefinite(Encoded)),
             case Mod:decode(Type, Indefinite) of
                 {ok,ExpectedValue} ->
@@ -258,7 +261,14 @@ test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
                 ExpectedValue ->
                     ok
             end;
-	_ ->
+        jer ->
+            %% Test already decoded JSON for JER.
+            JsonDecoded = json:decode(Encoded),
+            case Mod:decode(Type, {json_decoded,JsonDecoded}) of
+                {ok,ExpectedValue} -> ok;
+                ExpectedValue -> ok
+            end;
+        _ ->
 	    ok
     end.
 
@@ -307,16 +317,18 @@ ber_get_len(<<1:1,Octets:7,T0/binary>>) ->
 
 p_run(Test, List) ->
     %% Limit the number of parallel processes to avoid running out of
-    %% memory.
+    %% virtual address space or memory. This is especially important
+    %% on 32-bit Windows, where only 2 GB of virtual address space is
+    %% available.
     S = case {erlang:system_info(schedulers),erlang:system_info(wordsize)} of
-            {S0,4} ->
-                min(S0, 2);
+            {_,4} ->
+                1;
             {S0,_} ->
                 min(S0, 8)
         end,
     N = case test_server:is_cover() of
 	    false ->
-		S + 1;
+		S;
 	    true ->
 		%% Cover is running. Using too many processes
 		%% could slow us down.

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,11 +16,67 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(ct_property_test).
+-moduledoc """
+Support in Common Test for running property-based tests.
+
+This module helps running property-based tests in the `Common Test` framework.
+One (or more) of the property testing tools
+
+- [QuickCheck](http://www.quviq.com),
+- [PropEr](https://proper-testing.github.io) or
+- [Triq](https://github.com/krestenkrab/triq)
+
+is assumed to be installed.
+
+The idea with this module is to have a `Common Test` test suite calling a
+property testing tool with special property test suites as defined by that tool.
+The tests are collected in the `test` directory of the application. The `test`
+directory has a subdirectory `property_test`, where everything needed for the
+property tests are collected. The usual Erlang application directory structure
+is assumed.
+
+A typical `Common Test` test suite using `ct_property_test` is organized as
+follows:
+
+```erlang
+-module(my_prop_test_SUITE).
+-compile(export_all).
+
+-include_lib("common_test/include/ct.hrl").
+
+all() -> [prop_ftp_case].
+
+init_per_suite(Config) ->
+    ct_property_test:init_per_suite(Config).
+
+%%%---- test case
+prop_ftp_case(Config) ->
+    ct_property_test:quickcheck(
+      ftp_simple_client_server:prop_ftp(),
+      Config
+     ).
+```
+
+and the the property test module (in this example
+`ftp_simple_client_server.erl`) as almost a usual property testing module (More
+examples are in [the User's Guide](ct_property_test_chapter.md)):
+
+```erlang
+-module(ftp_simple_client_server).
+-export([prop_ftp/0...]).
+
+-include_lib("common_test/include/ct_property_test.hrl").
+
+prop_ftp() ->
+    ?FORALL( ....
+```
+""".
+-moduledoc(#{since => "OTP 17.3"}).
 
 %%% API
 %% Main functions
@@ -36,6 +94,21 @@
          print_frequency/0
         ]).
 
+%% Type declarations
+-type arguments() :: [term()].
+-type function_name() :: atom().
+-type symbolic_var() :: {'var', pos_integer()}.
+-type symbolic_call() :: {'call', module(), function_name(), arguments()}.
+-type symbolic_state() :: term().
+-type dynamic_state()     :: term().
+-type set_command() :: {'set', symbolic_var(), symbolic_call()}.
+-type init_command() :: {'init', symbolic_state()}.
+-type command()           :: set_command() | init_command().
+-type command_list()      :: [command()].
+-type parallel_testcase() :: {command_list(), [command_list()]}.
+-type history()           :: [term()].
+-type statem_result()     :: 'ok' | term().
+
 %%%================================================================
 %%%
 %%% API
@@ -46,6 +119,53 @@
 %%% Search for a property tester in the lib path, and if found, compile
 %%% the property tests
 %%%
+-doc """
+Initializes and extends `Config` for property based testing.
+
+This function investigates if support is available for either
+[QuickCheck](http://www.quviq.com), [PropEr](https://proper-testing.github.io)
+or [Triq](https://github.com/krestenkrab/triq) and compiles the properties with
+the first tool found. It is supposed to be called in the
+[`init_per_suite/1`](`init_per_suite/1`) function in a CommonTest test suite.
+
+Which tools to check for, and in which order could be set with the option
+`{prop_tools, list(eqc|proper|triq)}` in the CommonTest configuration `Config`.
+The default value is `[eqc, proper, triq]` with `eqc` being the first one
+searched for.
+
+If no support is found for any tool, this function returns
+`{skip, Explanation}`.
+
+In case of other errors, this function returns
+`{fail, Explanation}`.
+
+If support is found, the option `{property_test_tool,ToolModule}` with the
+selected tool main module name (`eqc`, `proper` or `triq`) is added to the list
+`Config` which then is returned.
+
+The property tests are assumed to be in a subdirectory named `property_test`.
+All found Erlang files in that directory are compiled with one of the macros
+`'EQC'`, `'PROPER'` or `'TRIQ'` set, depending on which tool that is first
+found. This could make parts of the Erlang property tests code to be included or
+excluded with the macro directives `-ifdef(Macro).` or `-ifndef(Macro).`.
+
+The file(s) in the `property_test` subdirectory could, or should, include the
+ct_property_test include file:
+
+```erlang
+-include_lib("common_test/include/ct_property_test.hrl").
+```
+
+This included file will:
+
+- Include the correct tool's include file
+- Set the macro `'MOD_eqc'` to the correct module name for the selected tool.
+  That is, the macro `'MOD_eqc'` is set to either `eqc`, `proper` or `triq`.
+""".
+-doc(#{since => <<"OTP 17.3">>}).
+-spec init_per_suite(Config) -> Config | {'skip', Reason} | {'fail', Reason}
+              when Config :: proplists:proplist(),
+                   Reason :: string().
 init_per_suite(Config) ->
     case init_tool(Config) of
         {skip, _}=Skip ->
@@ -63,44 +183,156 @@ init_per_suite(Config) ->
             end
     end.
 
+-doc false.
 init_tool(Config) ->
     ToolsToCheck = proplists:get_value(prop_tools, Config, [eqc,proper,triq]),
     case which_module_exists(ToolsToCheck) of
 	{ok,ToolModule} ->
             case code:where_is_file(lists:concat([ToolModule,".beam"])) of
                 non_existing ->
-                    ct:log("Found ~p, but ~tp~n is not found",
+                    ct:log("Found ~p, but ~ts was not found",
                            [ToolModule, lists:concat([ToolModule,".beam"])]),
                     {skip, "Strange Property testing tool installation"};
                 ToolPath ->
-                    ct:log("Found property tester ~p~n"
-                           "at ~tp",
+                    ct:log("Found property tester ~p at ~ts",
                            [ToolModule, ToolPath]),
+                    init_tool_extensions(ToolModule),
                     [{property_test_tool, ToolModule} | Config]
             end;
         not_found ->
             ct:log("No property tester found",[]),
             {skip, "No property testing tool found"}
     end.
-	
+
+init_tool_extensions(proper) ->
+    ProperExtDir = filename:join(code:lib_dir(common_test), proper_ext),
+    true = code:add_patha(ProperExtDir),
+    ct:log("Added ~ts to code path~n", [ProperExtDir]),
+    ok;
+init_tool_extensions(_) ->
+    ok.
+
 %%%----------------------------------------------------------------
 %%%
 %%% Call the found property tester (if any)
 %%%
+-doc """
+Calls the selected tool's function for running the `Property`. It is usually and
+by historical reasons called quickcheck, and that is why that name is used in
+this module (`ct_property_test`).
+
+The result is returned in a form suitable for `Common Test` test suites.
+
+This function is intended to be called in test cases in test suites.
+""".
+-doc(#{since => <<"OTP 17.3">>}).
+-spec quickcheck(Property, Config) -> 'true' | {'fail', Reason}
+              when Property :: term(),
+                   Config :: proplists:proplist(),
+                   Reason :: term().
 quickcheck(Property, Config) ->
     Tool = proplists:get_value(property_test_tool,Config),
     F = function_name(quickcheck, Tool),
-    mk_ct_return( Tool:F(Property), Tool ).
+    mk_ct_return(Tool:F(Property)).
 
 
 %%%----------------------------------------------------------------
 %%%
 %%% Present a nice table of the statem result
 %%%
+-doc(#{equiv => present_result(Module, Cmds, Triple, Config, []), since => <<"OTP 22.3">>}).
+-spec present_result(Module, Cmds, Triple, Config) -> boolean()
+              when Module :: module(),
+                   Cmds :: command_list() | parallel_testcase(),
+                   Triple :: {H, Sf, Result},
+                   H :: history(),
+                   Sf :: dynamic_state(),
+                   Result :: statem_result(),
+                   Config :: proplists:proplist().
 present_result(Module, Cmds, Triple, Config) ->
     present_result(Module, Cmds, Triple, Config, []).
 
-present_result(Module, Cmds, {H,Sf,Result}, Config, Options0) ->
+-doc """
+Presents the result of _stateful (statem) property testing_ using the aggregate
+function in PropEr, QuickCheck or other similar property testing tool.
+
+It is assumed to be called inside the property called by `quickcheck/2`:
+
+```erlang
+...
+RunResult = run_parallel_commands(?MODULE, Cmds),
+ct_property_test:present_result(?MODULE, Cmds, RunResult, Config)
+...
+```
+
+See the [User's Guide](ct_property_test_chapter.md#stateful1) for an example of
+the usage and of the default printout.
+
+The `StatisticsSpec` is a list of the tuples:
+
+- `{Title::string(), CollectFun::fun/1}`
+- `{Title::string(), FrequencyFun::/0, CollectFun::fun/1}`
+
+Each tuple will produce one table in the order of their places in the list.
+
+- `Title` will be the title of one result table
+- `CollectFun` is called with one argument: the `Cmds`. It should return a list
+  of the values to be counted. The following pre-defined functions exist:
+  - `ct_property_test:cmnd_names/1` returns a list of commands (function calls)
+    generated in the `Cmnd` sequence, without Module, Arguments and other
+    details.
+  - `ct_property_test:num_calls/1` returns a list of the length of commands
+    lists
+  - `ct_property_test:sequential_parallel/1` returns a list with information
+    about sequential and parallel parts from `Tool:parallel_commands/1,2`
+- `FrequencyFun/0` returns a fun/1 which is supposed to take a list of items as
+  input, and return an iolist which will be printed as the table. Per default,
+  the number of each item is counted and the percentage is printed for each. The
+  list \[a,b,a,a,c] could for example return
+
+  ```erlang
+  ["a 60%\n","b 20%\n","c 20%\n"]
+  ```
+
+  which will be printed by the `print_fun`. The default `print_fun` will print
+  it as:
+
+  ```text
+  a 60%
+  b 20%
+  c 20%
+  ```
+
+The default `StatisticsSpec` is:
+
+- For sequential commands:
+
+  ```erlang
+  [{"Function calls", fun cmnd_names/1},
+   {"Length of command sequences", fun print_frequency_ranges/0,
+                                                    fun num_calls/1}]
+  ```
+
+- For parallel commands:
+
+  ```erlang
+  [{"Distribution sequential/parallel", fun sequential_parallel/1},
+   {"Function calls", fun cmnd_names/1},
+   {"Length of command sequences", fun print_frequency_ranges/0,
+                                                    fun num_calls/1}]
+  ```
+""".
+-doc(#{since => <<"OTP 22.3">>}).
+-spec present_result(Module, Cmds, Triple, Config, Options0) -> boolean()
+              when Module :: module(),
+                   Cmds :: command_list() | parallel_testcase(),
+                   Triple :: {H, Sf, Result},
+                   H :: history(),
+                   Sf :: dynamic_state(),
+                   Result :: statem_result(),
+                   Config :: proplists:proplist(),
+                   Options0 :: proplists:proplist().
+present_result(Module, Cmds, {H,Sf,Result} = _Triple, Config, Options0) ->
     DefSpec = 
         if
             is_tuple(Cmds) ->
@@ -118,12 +350,15 @@ present_result(Module, Cmds, {H,Sf,Result}, Config, Options0) ->
     do_present_result(Module, Cmds, H, Sf, Result, Config, Options).
 
 
+-doc false.
 title(Str, Fun) ->
     title(Str, Fun, fun io:format/2).
 
+-doc false.
 title(Str, Fun, PrintFun) ->
     fun(L) -> PrintFun("~n~s~n~n~s~n", [Str,Fun(L)]) end.
 
+-doc false.
 print_frequency() ->
     fun(L) ->
             [io_lib:format("~5.1f% ~p~n",[Pcnt,V])
@@ -132,9 +367,11 @@ print_frequency() ->
             ]
     end.
 
+-doc false.
 print_frequency_ranges() ->
     print_frequency_ranges([{ngroups,10}]).
 
+-doc false.
 print_frequency_ranges(Options0) ->
     fun([]) ->
             io_lib:format('Empty list!~n',[]);
@@ -148,23 +385,55 @@ print_frequency_ranges(Options0) ->
             end
     end.
 
+-doc """
+Returns a list of commands (function calls) generated in the `Cmnd` sequence,
+without Module, Arguments and other details.
+
+For more information see: `present_result/5`.
+""".
+-doc #{since => "OTP 27.1"}.
+-spec cmnd_names(Cs) -> Result when
+    Cs :: command_list() | parallel_testcase(),
+    Result :: [function_name()].
+cmnd_names(Cs) -> traverse_commands(fun cmnd_name/1, Cs).
+cmnd_name(L) ->  [F || {set,_Var,{call,_Mod,F,_As}} <- L].
+    
+-doc """
+Returns number of command calls in a test case.
+
+For more information see: `present_result/5`.
+""".
+-doc #{since => "OTP 27.1"}.
+-spec num_calls(Cs) -> Result when
+    Cs :: command_list() | parallel_testcase(),
+    Result :: [non_neg_integer()].
+num_calls(Cs) -> traverse_commands(fun num_call/1, Cs).
+num_call(L) -> [length(L)].
+    
+-doc """
+Returns a list with information about sequential and parallel parts.
+
+For more information see: `present_result/5`.
+""".
+-doc #{since => "OTP 27.1"}.
+-spec sequential_parallel(Cs) -> Result when
+    Cs :: command_list() | parallel_testcase(),
+    Result :: [atom()].
+sequential_parallel(Cs) ->
+    traverse_commands(fun(L) -> dup_module(L, sequential) end,
+		      fun(L) -> [dup_module(L1, mkmod("parallel",num(L1,L))) || L1<-L] end,
+		      Cs).
+
 %%%================================================================
 %%%
 %%% Local functions
 %%% 
 
 %%% Make return values back to the calling Common Test suite
-mk_ct_return(true, _Tool) ->
+mk_ct_return(true) ->
     true;
-mk_ct_return(Other, Tool) ->
-    try lists:last(hd(Tool:counterexample()))
-    of
-	{set,{var,_},{call,M,F,Args}} ->
-	    {fail, io_lib:format("~p:~tp/~p returned bad result",[M,F,length(Args)])}
-    catch
-	_:_ ->
-	    {fail, Other}
-    end.
+mk_ct_return(Other) ->
+    {fail, Other}.
 
 %%% Check if a property testing tool is found
 which_module_exists([Module|Modules]) ->
@@ -264,16 +533,6 @@ do_present_result(Module, Cmds, H, Sf, Result, _Config, Options) ->
     Result == ok. % Proper dislikes non-boolean results while eqc treats non-true as false.
 
 %%%================================================================
-cmnd_names(Cs) -> traverse_commands(fun cmnd_name/1, Cs).
-cmnd_name(L) ->  [F || {set,_Var,{call,_Mod,F,_As}} <- L].
-    
-num_calls(Cs) -> traverse_commands(fun num_call/1, Cs).
-num_call(L) -> [length(L)].
-    
-sequential_parallel(Cs) ->
-    traverse_commands(fun(L) -> dup_module(L, sequential) end,
-		      fun(L) -> [dup_module(L1, mkmod("parallel",num(L1,L))) || L1<-L] end,
-		      Cs).
 dup_module(L, ModName) -> lists:duplicate(length(L), ModName).
 mkmod(PfxStr,N) -> list_to_atom(PfxStr++"_"++integer_to_list(N)).
     
@@ -445,4 +704,3 @@ median(L = [{_Value,_Weight}|_]) ->
     median( lists:append([lists:duplicate(W,V) || {V,W} <- L]) );
 median(_) ->
     undefined.
-

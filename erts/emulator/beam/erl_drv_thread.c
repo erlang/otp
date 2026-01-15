@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2007-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -730,14 +732,6 @@ erl_drv_thread_join(ErlDrvTid tid, void **respp)
 #if defined(__DARWIN__)
 extern int erts_darwin_main_thread_pipe[2];
 extern int erts_darwin_main_thread_result_pipe[2];
-
-int erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp);
-int erl_drv_steal_main_thread(char *name,
-			      ErlDrvTid *dtid,
-			      void* (*func)(void*),
-			      void* arg,
-			      ErlDrvThreadOpts *opts);
-
 
 int
 erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp)

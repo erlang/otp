@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +29,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-         verify_highest_opcode/1, expand_and_squeeze/1,
+         expand_and_squeeze/1,
 	 size_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
 	 bin_tail/1,save_restore/1,
 	 partitioned_bs_match/1,function_clause/1,
@@ -55,11 +57,13 @@
          trim_bs_start_match_resume/1,
          gh_6410/1,bs_match/1,
          binary_aliases/1,gh_6923/1,
+         bs_test_tail/1,
          otp_19019/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("syntax_tools/include/merl.hrl").
 
 
@@ -72,8 +76,7 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [verify_highest_opcode,
-       size_shadow,int_float,otp_5269,null_fields,wiger,
+      [size_shadow,int_float,otp_5269,null_fields,wiger,
        bin_tail,save_restore,expand_and_squeeze,
        partitioned_bs_match,function_clause,unit,
        shared_sub_bins,bin_and_float,dec_subidentifiers,
@@ -98,6 +101,7 @@ groups() ->
        trim_bs_start_match_resume,
        gh_6410,bs_match,binary_aliases,
        gh_6923,
+       bs_test_tail,
        otp_19019]}].
 
 init_per_suite(Config) ->
@@ -119,20 +123,6 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok.
-
-verify_highest_opcode(_Config) ->
-    case ?MODULE of
-        bs_match_r25_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 180 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode_for_21,TooHigh})
-            end;
-        _ ->
-            ok
-    end.
 
 size_shadow(Config) when is_list(Config) ->
     %% Originally OTP-5270.
@@ -871,6 +861,10 @@ coverage(Config) when is_list(Config) ->
     %% Cover code in beam_ssa_bsm.
     {'EXIT',{{badarg,<<>>},_}} = catch coverage_beam_ssa_bsm_error(id(<<>>)),
 
+    %% Cover code for merging registers in beam_validator.
+    42 = coverage_beam_validator(id(fun() -> 42 end)),
+    ok = coverage_beam_validator(id(fun() -> throw(whatever) end)),
+
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -1026,6 +1020,19 @@ coverage_beam_ssa_pre_codegen(<<V0:0, V1:(V0 div V0), _:(V0 bsl V1)/bits>>) ->
 
 coverage_beam_ssa_bsm_error(<<B/bitstring>>) ->
     B andalso ok.
+
+coverage_beam_validator(F) ->
+    coverage_beam_validator(ok, ok, ok,
+       try
+           F()
+       catch
+           <<V:ok/binary>> ->
+               V;
+           _ ->
+               ok
+       end).
+
+coverage_beam_validator(_, _, _, Result) -> Result.
 
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
@@ -2510,6 +2517,8 @@ empty_matches(Config) when is_list(Config) ->
     {'EXIT',{function_clause,[_|_]}} = catch em_4(<<0:1>>, <<>>),
     {'EXIT',{function_clause,[_|_]}} = catch em_4(<<0:1>>, <<0:1>>),
 
+    ok = em_5(),
+
     ok.
 
 em_1(Bytes) ->
@@ -2536,6 +2545,75 @@ em_3_1(I) -> I.
 %% GH-6426/OTP-xxxxx
 em_4(<<X:0, _:X>>, <<Y:0, _:Y>>) ->
     ok.
+
+%% GH-10047
+
+em_5() ->
+    A = id(<<1>>),
+    Empty = id(<<>>),
+    <<Zero>> = id(<<0>>),
+
+    true = is_bitstring(A),
+    true = is_bitstring(Empty),
+
+    <<1,128>> = em_5_1(A),
+    <<0>> = em_5_1(id(Empty)),
+
+    true = is_binary(A),
+    true = is_binary(Empty),
+
+    ok = em_5_coverage_1(A),
+    ok = em_5_coverage_1(Empty),
+
+    ok = em_5_coverage_2(A),
+    ok = em_5_coverage_2(Empty),
+
+    ok = em_5_coverage_3(A),
+    ok = em_5_coverage_3(Empty),
+
+    ok = em_5_coverage_4(A, Zero),
+    ok = em_5_coverage_4(Empty, Zero),
+
+    ok.
+
+em_5_1(<<Chunk:7/bits>>) ->
+    <<Chunk:7/bits, 0:1>>;
+em_5_1(<<Chunk:1/bits>>) ->
+    <<Chunk:1/bits, 0:7>>;
+em_5_1(<<>>) ->
+    <<0:8>>;
+em_5_1(<<Chunk:7/bits, Rest/bits>>) ->
+    <<Chunk:7/bits, 1:1, (em_5_1(Rest))/bits>>.
+
+%% Improves coverage.
+em_5_coverage_1(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_1(Rest);
+em_5_coverage_1(<<_:8/integer, _/binary>>) ->
+    unreachable;
+em_5_coverage_1(<<>>) ->
+    ok.
+
+em_5_coverage_2(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_2(Rest);
+em_5_coverage_2(<<_:8/integer, _/binary>>) ->
+    unreachable;
+em_5_coverage_2(<<>>) ->
+    ok.
+
+em_5_coverage_3(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_3(Rest);
+em_5_coverage_3(<<_>>) ->
+    unreachable;
+em_5_coverage_3(<<>>) ->
+    ok.
+
+em_5_coverage_4(<<_:8/bits, Rest/binary>>, TailBits) ->
+    em_5_coverage_4(Rest, TailBits);
+em_5_coverage_4(Rest, TailBits) ->
+    case Rest of
+        <<_:TailBits/bits>> -> ok;
+        <<>> -> error
+    end.
 
 %% beam_trim would sometimes crash when bs_start_match4 had {atom,resume} as
 %% its fail label.
@@ -2728,6 +2806,13 @@ bs_match(_Config) ->
 
     {0,<<1,2,3>>} = do_bs_match_gh_8280(),
 
+    not_empty = do_bs_match_gh_9304(id(<<0,0:32>>)),
+    empty = do_bs_match_gh_9304(id(<<>>)),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0:1>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0,0:64>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<1,0:32>>))),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2807,6 +2892,19 @@ do_bs_match_gh_8280() ->
     B = <<1, 2, 3>>,
     <<A, B:(byte_size(B))/binary>> = id(<<0, 1, 2, 3>>),
     {A, B}.
+
+do_bs_match_gh_9304(Data) ->
+    <<Rest/bits>> = Data,
+    {_, Bits} = do_bs_match_gh_9304_1(Rest),
+    case Rest of
+        %% The compiler emitted a bs_match instruction without any
+        %% ensure command.
+        <<0, _:Bits>> -> not_empty;
+        <<>> -> empty
+    end.
+
+do_bs_match_gh_9304_1(Data) ->
+    id({dummy, 32}).
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
 -record(ba_foo, {a,b,c}).
@@ -3209,6 +3307,39 @@ gh_6923(_Config) ->
 do_gh_6923([<<"abc">>, A]) when is_integer(A) -> first;
 do_gh_6923([<<"abc">>, A]) when is_tuple(A) -> second.
 
+bs_test_tail(Config) ->
+    Bin = term_to_binary(Config),
+
+    ok = bs_test_tail_skip(Bin),
+
+    "abc" = bs_test_tail_int(<<(id(<<"abc">>))/binary>>),
+
+    [2.0,3.0] = bs_test_tail_float(<<(id(2.0)):64/float,(id(3.0)):64/float>>),
+    {'EXIT',{function_clause,_}} = catch bs_test_tail_float(<<(id(-1)):128>>),
+
+    ok = bs_test_partial_tail(<<(id(0))>>),
+    {'EXIT',{function_clause,_}} = catch bs_test_partial_tail(<<(id(1))>>),
+
+    ok.
+
+%% No bs_test_tail instruction is needed.
+bs_test_tail_skip(<<_, T/binary>>) -> bs_test_tail_skip(T);
+bs_test_tail_skip(<<>>) -> ok.
+
+%% No bs_test_tail instruction is needed.
+bs_test_tail_int(<<H:8, T/binary>>) ->
+    [H|bs_test_tail_int(T)];
+bs_test_tail_int(<<>>) -> [].
+
+%% The bs_test_tail instruction is needed.
+bs_test_tail_float(<<F:64/float, T/binary>>) ->
+    [F|bs_test_tail_float(T)];
+bs_test_tail_float(<<>>) -> [].
+
+%% The bs_test_tail instruction is needed.
+bs_test_partial_tail(<<0:8, T/binary>>) -> bs_test_partial_tail(T);
+bs_test_partial_tail(<<>>) -> ok.
+
 otp_19019(_Config) ->
     ok = do_otp_19019(id(<<42>>)),
     <<>> = do_otp_19019(id(<<>>)),
@@ -3220,8 +3351,10 @@ do_otp_19019(<<_:8>>) ->
 do_otp_19019(A) ->
     try
         %% The `bs_start_match` instruction would be replaced with an
-        %% `is_bitstring/1` test, which is not safe when `A` is a
-        %% match context.
+        %% `is_bitstring/1` test, which is in Erlang/OTP 27 and later is
+        %% safe even if `A` is a match context. However, the type analysis
+        %% pass would assume that the `is_bitstring/1` test would always
+        %% fail.
         << (ok) || <<_:ok>> <= A>>
     after
         ok

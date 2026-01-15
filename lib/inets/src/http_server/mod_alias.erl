@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,12 @@
 %%
 %%
 -module(mod_alias).
+-moduledoc """
+URL aliasing.
+
+Erlang web server internal API for handling of, for example, interaction data
+exported by module `mod_alias`.
+""".
 
 -export([do/1, 
 	 real_name/3,
@@ -35,6 +43,7 @@
 
 %% do
 
+-doc false.
 do(#mod{data = Data} = Info) ->
     case proplists:get_value(status, Data) of
 	%% A status code has been generated!
@@ -54,7 +63,6 @@ do(#mod{data = Data} = Info) ->
 
 do_alias(#mod{config_db   = ConfigDB, 
 	      request_uri = ReqURI,
-	      socket_type = SocketType,
 	      data        = Data}) ->
     {ShortPath, Path, AfterPath} = 
 	real_name(ConfigDB, ReqURI, which_alias(ConfigDB)),
@@ -63,12 +71,8 @@ do_alias(#mod{config_db   = ConfigDB,
     case file:read_file_info(ShortPath) of 
 	{ok, FileInfo} when ((FileInfo#file_info.type =:= directory) andalso 
 			     (LastChar =/= $/)) ->
-	    ServerName = which_server_name(ConfigDB), 
-	    Port = port_string(which_port(ConfigDB)),
-	    Protocol = get_protocol(SocketType),
             {ReqPath, ReqQuery} = httpd_util:split_path(ReqURI),
-            URL = Protocol ++ ServerName ++ Port ++ ReqPath ++ "/" ++
-                ["?" ++ ReqQuery || [] /= ReqQuery],
+            URL = ReqPath ++ "/" ++ ["?" ++ ReqQuery || [] /= ReqQuery],
 	    ReasonPhrase = httpd_util:reason_phrase(301),
 	    Message = httpd_util:message(301, URL, ConfigDB),
 	    {proceed,
@@ -86,20 +90,28 @@ do_alias(#mod{config_db   = ConfigDB,
 	    {proceed, [{real_name, {Path, AfterPath}} | Data]}
     end.
 
-port_string(80) ->
-    "";
-port_string(Port) ->
-    ":" ++ integer_to_list(Port).
-
-get_protocol(ip_comm) ->
-    "http://";
-get_protocol({ip_comm, _}) ->
-    "http://";
-get_protocol({ssl, _}) ->
-    "https://".
-
 %% real_name
 
+-doc """
+`real_name/3` traverses `Aliases`, typically extracted from
+`ConfigDB`, and matches each `FakeName` with `RequestURI`. If a match is found,
+`FakeName` is replaced with `RealName` in the match. The resulting path is split
+into two parts, `ShortPath` and `AfterPath`, as defined in
+`httpd_util:split_path/1`. `Path` is generated from `ShortPath`, that is, the
+result from `default_index/2` with `ShortPath` as
+an argument. `config_db()` is the server config file in ETS table format as
+described in [Inets User's Guide](http_server.md).
+""".
+-spec real_name(ConfigDB, RequestURI, Aliases) -> ReturnPath when
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      Aliases :: [{FakeName, RealName}],
+      ReturnPath :: {ShortPath, Path, AfterPath},
+      FakeName :: re:mp() | iodata() | unicode:charlist() | string(),
+      RealName :: string(),
+      ShortPath :: string(),
+      Path :: string(),
+      AfterPath :: string().
 real_name(ConfigDB, RequestURI, []) ->
     {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
     RealName = DocumentRoot ++ RequestURI,
@@ -154,6 +166,25 @@ longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
 
 %% real_script_name
 
+-doc """
+`real_script_name/3` traverses `ScriptAliases`,
+typically extracted from `ConfigDB`, and matches each `FakeName` with
+`RequestURI`. If a match is found, `FakeName` is replaced with `RealName` in the
+match. If the resulting match is not an executable script, `not_a_script` is
+returned. If it is a script, the resulting script path is in two parts,
+`ShortPath` and `AfterPath`, as defined in `httpd_util:split_script_path/1`.
+`config_db()` is the server config file in ETS table format as described in
+[Inets User's Guide](http_server.md).
+""".
+-spec real_script_name(ConfigDB, RequestURI, ScriptAliases) -> ReturnPath | not_a_script when
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      ScriptAliases :: list() | [{FakeName, RealName}],
+      ReturnPath :: {ShortPath, AfterPath},
+      FakeName :: re:mp() | iodata() | unicode:charlist() | string(),
+      RealName :: string(),
+      ShortPath :: string(),
+      AfterPath :: term().
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
@@ -176,6 +207,20 @@ abs_script_path(_, RelPath) ->
 
 %% default_index
 
+-doc """
+If `Path` is a directory, `default_index/2`, it starts
+searching for resources or files that are specified in the config directive
+`DirectoryIndex`. If an appropriate resource or file is found, it is appended to
+the end of `Path` and then returned. `Path` is returned unaltered if no
+appropriate file is found or if `Path` is not a directory. `config_db()` is the
+server config file in ETS table format as described in
+[Inets User's Guide](http_server.md).
+
+""".
+-spec default_index(ConfigDB, Path) -> NewPath when
+      ConfigDB :: ets:tid(),
+      Path :: string(),
+      NewPath :: string().
 default_index(ConfigDB, Path) ->
     case file:read_file_info(Path) of
 	{ok, FileInfo} when FileInfo#file_info.type =:= directory ->
@@ -197,6 +242,20 @@ append_index(RealName, [Index | Rest]) ->
 
 %% path
 
+-doc """
+`path/3` returns the file `Path` in the `RequestURI` (see
+[RFC 1945](https://www.ietf.org/rfc/rfc1945.txt)). If the interaction data
+`{real_name, {Path, AfterPath}}` has been exported by `mod_alias`, `Path` is
+returned. If no interaction data has been exported, `ServerRoot` is used to
+generate a file `Path`. `config_db()` and `interaction_data()` are as defined in
+[Inets User's Guide](http_server.md).
+""".
+-spec path(Data, ConfigDB, RequestURI) -> Path when
+      Data :: [{real_name, {Path, AfterPath}}],
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      AfterPath :: string(),
+      Path :: string().
 path(Data, ConfigDB, RequestURI0) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->
@@ -224,6 +283,7 @@ percent_decode_path(InitPath) ->
 %%
 %% Configuration
 %%
+-doc false.
 store({directory_index, Value} = Conf, _) when is_list(Value) ->
     case is_directory_index_list(Value) of
 	true ->
@@ -282,12 +342,6 @@ is_directory_index_list(_) ->
 
 which_alias(ConfigDB) ->
     httpd_util:multi_lookup(ConfigDB, alias). 
-
-which_server_name(ConfigDB) ->
-    httpd_util:lookup(ConfigDB, server_name).
-
-which_port(ConfigDB) ->
-    httpd_util:lookup(ConfigDB, port, 80). 
 
 which_document_root(ConfigDB) ->
     Root = httpd_util:lookup(ConfigDB, document_root, ""),

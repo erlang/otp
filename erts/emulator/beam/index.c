@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,28 +114,6 @@ int index_get(IndexTable* t, void* tmpl)
 	return p->index;
     }
     return -1;
-}
-
-static void index_merge_foreach(IndexSlot *p, IndexTable *dst)
-{
-    Uint sz;
-    int ix = dst->entries++;
-    if (ix >= dst->size) {
-        if (ix >= dst->limit) {
-            erts_exit(ERTS_ERROR_EXIT, "no more index entries in %s (max=%d)\n",
-                      dst->htable.name, dst->limit);
-        }
-        sz = INDEX_PAGE_SIZE*sizeof(IndexSlot*);
-        dst->seg_table[ix>>INDEX_PAGE_SHIFT] = erts_alloc(dst->type, sz);
-        dst->size += INDEX_PAGE_SIZE;
-    }
-    p->index = ix;
-    dst->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK] = p;
-}
-
-void erts_index_merge(Hash* src, IndexTable* dst)
-{
-    hash_foreach(src, (HFOREACH_FUN)index_merge_foreach, dst);
 }
 
 void index_erase_latest_from(IndexTable* t, Uint from_ix)

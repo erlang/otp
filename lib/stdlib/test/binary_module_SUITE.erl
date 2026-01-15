@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,11 +21,13 @@
 %%
 -module(binary_module_SUITE).
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([all/0, suite/0,
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
-         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1]).
+         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1, join/1, doctests/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -38,7 +42,7 @@ all() ->
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug,
-     error_info, hex_encoding].
+     error_info, hex_encoding, join, doctests].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
@@ -78,6 +82,15 @@ badargs(Config) when is_list(Config) ->
 	   binary:match(<<1,2,3>>,<<1>>,
 			[{scope,{16#FFFFFFFFFFFFFFFF,
 				 16#7FFFFFFFFFFFFFFF}}])),
+    badarg = ?MASK_ERROR(binary:match(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:match(<<"abc">>,foobar,
+                                      [{scope,{0,0}}])),
+    badarg = ?MASK_ERROR(binary:matches(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:matches(<<"abc">>,foobar,
+                                        [{scope,{0,0}}])),
+    badarg = ?MASK_ERROR(binary:replace(<<>>,foobar,<<>>)),
+    badarg = ?MASK_ERROR(binary:replace(<<"abc">>,foobar,<<>>,
+                                        [{scope,{0,0}}])),
     badarg =
 	?MASK_ERROR(
 	   binary:part(<<1,2,3>>,{16#FF,
@@ -116,6 +129,11 @@ badargs(Config) when is_list(Config) ->
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{16#FF,
 						  -16#7FFF})),
+    badarg = ?MASK_ERROR(binary:part(<<1:1>>, id({0,0}))),
+    badarg = ?MASK_ERROR(binary_part(<<1:1>>, id({0,0}))),
+    badarg = ?MASK_ERROR(binary:part(<<1:1>>, id(0), 0)),
+    badarg = ?MASK_ERROR(binary_part(<<1:1>>, id(0), 0)),
+
     badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{16#FF,
@@ -238,11 +256,21 @@ badargs(Config) when is_list(Config) ->
 	?MASK_ERROR(
 	   binary:at([1,2,4],2)),
 
+    badarg = ?MASK_ERROR(binary:split(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:split(<<"abc">>,foobar,[{scope,{0,0}}])),
+
     badarg = ?MASK_ERROR(binary:encode_hex("abc")),
     badarg = ?MASK_ERROR(binary:encode_hex(123)),
     badarg = ?MASK_ERROR(binary:encode_hex([])),
     badarg = ?MASK_ERROR(binary:encode_hex(#{})),
     badarg = ?MASK_ERROR(binary:encode_hex(foo)),
+
+    badarg = ?MASK_ERROR(binary:join(<<"">>, ",")),
+    badarg = ?MASK_ERROR(binary:join([""], <<",">>)),
+    badarg = ?MASK_ERROR(binary:join([123], <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(123, <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(#{}, <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(foo, <<",">>)),
     ok.
 
 %% Whitebox test to force special trap conditions in
@@ -495,26 +523,49 @@ do_interesting(Module) ->
     [] = binary:split(<<>>, <<",">>, [global,trim]),
     [] = binary:split(<<>>, <<",">>, [global,trim_all]),
 
+    ReplaceFn = fun(Match) -> << <<(B + 1)>> || <<B>> <= Match >> end,
     badarg = ?MASK_ERROR(
 		Module:replace(<<1,2,3,4,5,6,7,8>>,
 			       [<<4,5>>,<<7>>,<<8>>],<<99>>,
 			       [global,trim,{scope,{0,5}}])),
+    badarg = ?MASK_ERROR(
+		Module:replace(<<1,2,3,4,5,6,7,8>>,
+			       [<<4,5>>,<<7>>,<<8>>],ReplaceFn,
+			       [global,trim,{scope,{0,5}}])),
     <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
 					[<<4,5>>,<<7>>,<<8>>],<<99>>,[]),
+    <<1,2,3,5,6,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,[]),
     <<1,2,3,99,6,99,99>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
 					  [<<4,5>>,<<7>>,<<8>>],<<99>>,
+					  [global]),
+    <<1,2,3,5,6,6,8,9>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					  [<<4,5>>,<<7>>,<<8>>],ReplaceFn,
 					  [global]),
     <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
 					[<<4,5>>,<<7>>,<<8>>],<<99>>,
 					[global,{scope,{0,5}}]),
-    <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+    <<1,2,3,5,6,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,
 					[global,{scope,{0,5}}]),
     <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
 					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}}]),
+    <<1,2,3,5,6,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,
+					[global,{scope,{0,5}}]),
+    <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}}]),
+    <<1,2,3,5,6,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,
 					[global,{scope,{0,5}}]),
     badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
 					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}},
+					 {insert,1}])),
+    badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,
 					[global,{scope,{0,5}},
 					 {insert,1}])),
     <<1,2,3,99,4,5,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
@@ -765,6 +816,8 @@ copy(Config) when is_list(Config) ->
     true = RS =:= RS2,
     false = erts_debug:same(RS, RS2),
     <<>> = ?MASK_ERROR(binary:copy(<<1,2,3>>,0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1:1>>,0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,0)),
     badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,2)),
     badarg = ?MASK_ERROR(binary:copy([],0)),
     <<>> = ?MASK_ERROR(binary:copy(<<>>,0)),
@@ -1357,16 +1410,11 @@ mask_error({'EXIT',{Err,_}}) ->
 mask_error(Else) ->
     Else.
 
-make_unaligned(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = byte_size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
-make_unaligned2(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<31:5,Bin0/binary,0:3>>,
-    Sz = byte_size(Bin0),
-    <<31:5,Bin:Sz/binary,0:3>> = id(Bin1),
-    Bin.
+make_unaligned(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
+
+make_unaligned2(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 5).
 
 check_no_invalid_read_bug(Config) when is_list(Config) ->
     check_no_invalid_read_bug(24);
@@ -1411,6 +1459,12 @@ error_info(_Config) ->
 
          {last,[<<1:1>>]},
          {last,[<<>>]},
+
+         {join,[no_list,<<>>]},
+         {join,[[a|b],<<>>]},
+         {join,[[a],<<>>]},
+         {join,[[],<<1:7>>]},
+         {join,[[],bad_separator]},
 
          {list_to_bin,[<<1,2,3>>]},
          {list_to_bin,[{1,2,3}]},
@@ -1538,6 +1592,14 @@ do_hex_roundtrip(Bytes) ->
         <<>> ->
             ok
     end.
+
+join(Config) when is_list(Config) ->
+    ~"a, b, c" = binary:join([~"a", ~"b", ~"c"], ~", "),
+    ~"a" = binary:join([~"a"], ~", "),
+    ~"" = binary:join([], ~", ").
+
+doctests(_Config) ->
+    shell_docs:test(binary, []).
 
 %%%
 %%% Utilities.

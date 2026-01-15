@@ -13,24 +13,304 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 //! \addtogroup asmjit_a64
 //! \{
 
-using arm::Reg;
-using arm::Mem;
-using arm::Gp;
-using arm::GpW;
-using arm::GpX;
+class GpW;
+class GpX;
 
-using arm::Vec;
-using arm::VecB;
-using arm::VecH;
-using arm::VecS;
-using arm::VecD;
-using arm::VecV;
+class VecB;
+class VecH;
+class VecS;
+class VecD;
+class VecV;
+
+//! General purpose register (AArch64).
+class Gp : public Reg {
+public:
+  ASMJIT_DEFINE_ABSTRACT_REG(Gp, Reg)
+
+  //! Special register id.
+  enum Id : uint32_t {
+    //! Register that depends on OS, could be used as TLS offset.
+    kIdOs = 18,
+    //! Frame pointer register id.
+    kIdFp = 29,
+    //! Link register id.
+    kIdLr = 30,
+    //! Stack register id.
+    kIdSp = 31,
+    //! Zero register id.
+    //!
+    //! Although zero register has the same id as stack register it has a special treatment, because we need to be
+    //! able to distinguish between these two at API level. Some instructions were designed to be used with SP and
+    //! some other with ZR - so we need a way to distinguish these two to make sure we emit the right thing.
+    //!
+    //! The number 63 is not random, when you perform `id & 31` you would always get 31 for both SP and ZR inputs,
+    //! which is the identifier used by AArch64 ISA to encode either SP or ZR depending on the instruction.
+    kIdZr = 63
+  };
+
+  //! Test whether this register is ZR register.
+  ASMJIT_INLINE_NODEBUG constexpr bool isZR() const noexcept { return id() == kIdZr; }
+  //! Test whether this register is SP register.
+  ASMJIT_INLINE_NODEBUG constexpr bool isSP() const noexcept { return id() == kIdSp; }
+
+  //! Cast this register to a 32-bit W register (returns a new operand).
+  ASMJIT_INLINE_NODEBUG GpW w() const noexcept;
+  //! \overload
+  ASMJIT_INLINE_NODEBUG GpW r32() const noexcept;
+  //! Cast this register to a 64-bit X register (returns a new operand).
+  ASMJIT_INLINE_NODEBUG GpX x() const noexcept;
+  //! \overload
+  ASMJIT_INLINE_NODEBUG GpX r64() const noexcept;
+};
+
+//! 32-bit general purpose W register (AArch64).
+class GpW : public Gp { ASMJIT_DEFINE_FINAL_REG(GpW, Gp, RegTraits<RegType::kARM_GpW>); };
+//! 64-bit general purpose X register (AArch64).
+class GpX : public Gp { ASMJIT_DEFINE_FINAL_REG(GpX, Gp, RegTraits<RegType::kARM_GpX>); };
+
+#ifndef _DOXYGEN
+ASMJIT_INLINE_NODEBUG GpW Gp::w() const noexcept { return GpW(id()); }
+ASMJIT_INLINE_NODEBUG GpX Gp::x() const noexcept { return GpX(id()); }
+ASMJIT_INLINE_NODEBUG GpW Gp::r32() const noexcept { return GpW(id()); }
+ASMJIT_INLINE_NODEBUG GpX Gp::r64() const noexcept { return GpX(id()); }
+#endif
+
+//! Vector element type (AArch64).
+enum class VecElementType : uint32_t {
+  //! No element type specified.
+  kNone = 0,
+  //! Byte elements (B8 or B16).
+  kB,
+  //! Halfword elements (H4 or H8).
+  kH,
+  //! Singleword elements (S2 or S4).
+  kS,
+  //! Doubleword elements (D2).
+  kD,
+  //! Byte elements grouped by 4 bytes (B4).
+  //!
+  //! \note This element-type is only used by few instructions.
+  kB4,
+  //! Halfword elements grouped by 2 halfwords (H2).
+  //!
+  //! \note This element-type is only used by few instructions.
+  kH2,
+
+  //! Maximum value of \ref VecElementType
+  kMaxValue = kH2
+};
+
+//! Vector register (AArch64).
+class Vec : public BaseVec {
+public:
+  ASMJIT_DEFINE_ABSTRACT_REG(Vec, BaseVec)
+
+  //! \cond
+  //! Shortcuts.
+  enum SignatureReg : uint32_t {
+    kSignatureElementB = uint32_t(VecElementType::kB) << kSignatureRegElementTypeShift,
+    kSignatureElementH = uint32_t(VecElementType::kH) << kSignatureRegElementTypeShift,
+    kSignatureElementS = uint32_t(VecElementType::kS) << kSignatureRegElementTypeShift,
+    kSignatureElementD = uint32_t(VecElementType::kD) << kSignatureRegElementTypeShift,
+    kSignatureElementB4 = uint32_t(VecElementType::kB4) << kSignatureRegElementTypeShift,
+    kSignatureElementH2 = uint32_t(VecElementType::kH2) << kSignatureRegElementTypeShift
+  };
+  //! \endcond
+
+  //! Returns whether the register has element type or element index (or both).
+  ASMJIT_INLINE_NODEBUG constexpr bool hasElementTypeOrIndex() const noexcept { return _signature.hasField<kSignatureRegElementTypeMask | kSignatureRegElementFlagMask>(); }
+
+  //! Returns whether the vector register has associated a vector element type.
+  ASMJIT_INLINE_NODEBUG constexpr bool hasElementType() const noexcept { return _signature.hasField<kSignatureRegElementTypeMask>(); }
+  //! Returns vector element type of the register.
+  ASMJIT_INLINE_NODEBUG constexpr VecElementType elementType() const noexcept { return VecElementType(_signature.getField<kSignatureRegElementTypeMask>()); }
+  //! Sets vector element type of the register to `elementType`.
+  ASMJIT_INLINE_NODEBUG void setElementType(VecElementType elementType) noexcept { _signature.setField<kSignatureRegElementTypeMask>(uint32_t(elementType)); }
+  //! Resets vector element type to none.
+  ASMJIT_INLINE_NODEBUG void resetElementType() noexcept { _signature.setField<kSignatureRegElementTypeMask>(0); }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecB8() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecD>::kSignature | kSignatureElementB);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecH4() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecD>::kSignature | kSignatureElementH);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecS2() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecD>::kSignature | kSignatureElementS);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecD1() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecD>::kSignature);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecB16() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecV>::kSignature | kSignatureElementB);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecH8() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecV>::kSignature | kSignatureElementH);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecS4() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecV>::kSignature | kSignatureElementS);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecD2() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecV>::kSignature | kSignatureElementD);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecB4x4() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecV>::kSignature | kSignatureElementB4);
+  }
+
+  ASMJIT_INLINE_NODEBUG constexpr bool isVecH2x4() const noexcept {
+    return _signature.subset(uint32_t(kBaseSignatureMask) | uint32_t(kSignatureRegElementTypeMask)) == (RegTraits<RegType::kARM_VecV>::kSignature | kSignatureElementH2);
+  }
+
+  //! Creates a cloned register with element access.
+  ASMJIT_INLINE_NODEBUG Vec at(uint32_t elementIndex) const noexcept {
+    return Vec((signature() & ~kSignatureRegElementIndexMask) | (elementIndex << kSignatureRegElementIndexShift) | kSignatureRegElementFlagMask, id());
+  }
+
+  //! Cast this register to an 8-bit B register (AArch64 only).
+  ASMJIT_INLINE_NODEBUG VecB b() const noexcept;
+  //! Cast this register to a 16-bit H register (AArch64 only).
+  ASMJIT_INLINE_NODEBUG VecH h() const noexcept;
+  //! Cast this register to a 32-bit S register.
+  ASMJIT_INLINE_NODEBUG VecS s() const noexcept;
+  //! Cast this register to a 64-bit D register.
+  ASMJIT_INLINE_NODEBUG VecD d() const noexcept;
+  //! Cast this register to a 128-bit Q register.
+  ASMJIT_INLINE_NODEBUG VecV q() const noexcept;
+  //! Cast this register to a 128-bit V register.
+  ASMJIT_INLINE_NODEBUG VecV v() const noexcept;
+
+  //! Casts this register to b (clone).
+  ASMJIT_INLINE_NODEBUG Vec v8() const noexcept;
+  //! Casts this register to h (clone).
+  ASMJIT_INLINE_NODEBUG Vec v16() const noexcept;
+  //! Casts this register to s (clone).
+  ASMJIT_INLINE_NODEBUG Vec v32() const noexcept;
+  //! Casts this register to d (clone).
+  ASMJIT_INLINE_NODEBUG Vec v64() const noexcept;
+  //! Casts this register to q (clone).
+  ASMJIT_INLINE_NODEBUG Vec v128() const noexcept;
+
+  //! Cast this register to a 128-bit V.B[elementIndex] register.
+  ASMJIT_INLINE_NODEBUG VecV b(uint32_t elementIndex) const noexcept;
+  //! Cast this register to a 128-bit V.H[elementIndex] register.
+  ASMJIT_INLINE_NODEBUG VecV h(uint32_t elementIndex) const noexcept;
+  //! Cast this register to a 128-bit V.S[elementIndex] register.
+  ASMJIT_INLINE_NODEBUG VecV s(uint32_t elementIndex) const noexcept;
+  //! Cast this register to a 128-bit V.D[elementIndex] register.
+  ASMJIT_INLINE_NODEBUG VecV d(uint32_t elementIndex) const noexcept;
+  //! Cast this register to a 128-bit V.H2[elementIndex] register.
+  ASMJIT_INLINE_NODEBUG VecV h2(uint32_t elementIndex) const noexcept;
+  //! Cast this register to a 128-bit V.B4[elementIndex] register.
+  ASMJIT_INLINE_NODEBUG VecV b4(uint32_t elementIndex) const noexcept;
+
+  //! Cast this register to V.8B.
+  ASMJIT_INLINE_NODEBUG VecD b8() const noexcept;
+  //! Cast this register to V.16B.
+  ASMJIT_INLINE_NODEBUG VecV b16() const noexcept;
+  //! Cast this register to V.2H.
+  ASMJIT_INLINE_NODEBUG VecS h2() const noexcept;
+  //! Cast this register to V.4H.
+  ASMJIT_INLINE_NODEBUG VecD h4() const noexcept;
+  //! Cast this register to V.8H.
+  ASMJIT_INLINE_NODEBUG VecV h8() const noexcept;
+  //! Cast this register to V.2S.
+  ASMJIT_INLINE_NODEBUG VecD s2() const noexcept;
+  //! Cast this register to V.4S.
+  ASMJIT_INLINE_NODEBUG VecV s4() const noexcept;
+  //! Cast this register to V.2D.
+  ASMJIT_INLINE_NODEBUG VecV d2() const noexcept;
+
+  static ASMJIT_INLINE_NODEBUG constexpr OperandSignature _makeElementAccessSignature(VecElementType elementType, uint32_t elementIndex) noexcept {
+    return OperandSignature{
+      uint32_t(RegTraits<RegType::kARM_VecV>::kSignature)       |
+      uint32_t(kSignatureRegElementFlagMask)                    |
+      (uint32_t(elementType) << kSignatureRegElementTypeShift)  |
+      (uint32_t(elementIndex << kSignatureRegElementIndexShift))};
+  }
+};
+
+//! 8-bit view (S) of VFP/SIMD register.
+class VecB : public Vec {
+public:
+  ASMJIT_DEFINE_FINAL_REG(VecB, Vec, RegTraits<RegType::kARM_VecB>)
+};
+
+//! 16-bit view (S) of VFP/SIMD register.
+class VecH : public Vec {
+public:
+  ASMJIT_DEFINE_FINAL_REG(VecH, Vec, RegTraits<RegType::kARM_VecH>)
+};
+
+//! 32-bit view (S) of VFP/SIMD register.
+class VecS : public Vec {
+public:
+  ASMJIT_DEFINE_FINAL_REG(VecS, Vec, RegTraits<RegType::kARM_VecS>)
+};
+
+//! 64-bit view (D) of VFP/SIMD register.
+class VecD : public Vec {
+public:
+  ASMJIT_DEFINE_FINAL_REG(VecD, Vec, RegTraits<RegType::kARM_VecD>)
+};
+
+//! 128-bit vector register (Q or V).
+class VecV : public Vec {
+public:
+  ASMJIT_DEFINE_FINAL_REG(VecV, Vec, RegTraits<RegType::kARM_VecV>)
+};
+
+ASMJIT_INLINE_NODEBUG VecB Vec::b() const noexcept { return VecB(id()); }
+ASMJIT_INLINE_NODEBUG VecH Vec::h() const noexcept { return VecH(id()); }
+ASMJIT_INLINE_NODEBUG VecS Vec::s() const noexcept { return VecS(id()); }
+ASMJIT_INLINE_NODEBUG VecD Vec::d() const noexcept { return VecD(id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::q() const noexcept { return VecV(id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::v() const noexcept { return VecV(id()); }
+
+ASMJIT_INLINE_NODEBUG Vec Vec::v8() const noexcept { return VecB(id()); }
+ASMJIT_INLINE_NODEBUG Vec Vec::v16() const noexcept { return VecH(id()); }
+ASMJIT_INLINE_NODEBUG Vec Vec::v32() const noexcept { return VecS(id()); }
+ASMJIT_INLINE_NODEBUG Vec Vec::v64() const noexcept { return VecD(id()); }
+ASMJIT_INLINE_NODEBUG Vec Vec::v128() const noexcept { return VecV(id()); }
+
+ASMJIT_INLINE_NODEBUG VecV Vec::b(uint32_t elementIndex) const noexcept { return VecV(_makeElementAccessSignature(VecElementType::kB, elementIndex), id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::h(uint32_t elementIndex) const noexcept { return VecV(_makeElementAccessSignature(VecElementType::kH, elementIndex), id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::s(uint32_t elementIndex) const noexcept { return VecV(_makeElementAccessSignature(VecElementType::kS, elementIndex), id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::d(uint32_t elementIndex) const noexcept { return VecV(_makeElementAccessSignature(VecElementType::kD, elementIndex), id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::h2(uint32_t elementIndex) const noexcept { return VecV(_makeElementAccessSignature(VecElementType::kH2, elementIndex), id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::b4(uint32_t elementIndex) const noexcept { return VecV(_makeElementAccessSignature(VecElementType::kB4, elementIndex), id()); }
+
+ASMJIT_INLINE_NODEBUG VecD Vec::b8() const noexcept { return VecD(OperandSignature{VecD::kSignature | kSignatureElementB}, id()); }
+ASMJIT_INLINE_NODEBUG VecS Vec::h2() const noexcept { return VecS(OperandSignature{VecS::kSignature | kSignatureElementH}, id()); }
+ASMJIT_INLINE_NODEBUG VecD Vec::h4() const noexcept { return VecD(OperandSignature{VecD::kSignature | kSignatureElementH}, id()); }
+ASMJIT_INLINE_NODEBUG VecD Vec::s2() const noexcept { return VecD(OperandSignature{VecD::kSignature | kSignatureElementS}, id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::b16() const noexcept { return VecV(OperandSignature{VecV::kSignature | kSignatureElementB}, id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::h8() const noexcept { return VecV(OperandSignature{VecV::kSignature | kSignatureElementH}, id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::s4() const noexcept { return VecV(OperandSignature{VecV::kSignature | kSignatureElementS}, id()); }
+ASMJIT_INLINE_NODEBUG VecV Vec::d2() const noexcept { return VecV(OperandSignature{VecV::kSignature | kSignatureElementD}, id()); }
 
 #ifndef _DOXYGEN
 namespace regs {
 #endif
 
-using namespace ::asmjit::arm::regs;
+//! Creates a 32-bit W register operand.
+static ASMJIT_INLINE_NODEBUG constexpr GpW w(uint32_t id) noexcept { return GpW(id); }
+//! Creates a 64-bit X register operand.
+static ASMJIT_INLINE_NODEBUG constexpr GpX x(uint32_t id) noexcept { return GpX(id); }
+
+//! Creates a 32-bit S register operand.
+static ASMJIT_INLINE_NODEBUG constexpr VecS s(uint32_t id) noexcept { return VecS(id); }
+//! Creates a 64-bit D register operand.
+static ASMJIT_INLINE_NODEBUG constexpr VecD d(uint32_t id) noexcept { return VecD(id); }
+//! Creates a 1282-bit V register operand.
+static ASMJIT_INLINE_NODEBUG constexpr VecV v(uint32_t id) noexcept { return VecV(id); }
 
 static constexpr GpW w0 = GpW(0);
 static constexpr GpW w1 = GpW(1);
@@ -305,8 +585,94 @@ static constexpr VecV v31 = VecV(31);
 using namespace regs;
 #endif
 
+//! \name Shift Operation Construction
+//! \{
+
+//! Constructs a `UXTB #value` extend and shift (unsigned byte extend) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Shift uxtb(uint32_t value) noexcept { return Shift(ShiftOp::kUXTB, value); }
+//! Constructs a `UXTH #value` extend and shift (unsigned hword extend) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Shift uxth(uint32_t value) noexcept { return Shift(ShiftOp::kUXTH, value); }
+//! Constructs a `UXTW #value` extend and shift (unsigned word extend) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Shift uxtw(uint32_t value) noexcept { return Shift(ShiftOp::kUXTW, value); }
+//! Constructs a `UXTX #value` extend and shift (unsigned dword extend) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Shift uxtx(uint32_t value) noexcept { return Shift(ShiftOp::kUXTX, value); }
+
+//! Constructs a `SXTB #value` extend and shift (signed byte extend) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Shift sxtb(uint32_t value) noexcept { return Shift(ShiftOp::kSXTB, value); }
+//! Constructs a `SXTH #value` extend and shift (signed hword extend) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Shift sxth(uint32_t value) noexcept { return Shift(ShiftOp::kSXTH, value); }
+//! Constructs a `SXTW #value` extend and shift (signed word extend) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Shift sxtw(uint32_t value) noexcept { return Shift(ShiftOp::kSXTW, value); }
+//! Constructs a `SXTX #value` extend and shift (signed dword extend) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Shift sxtx(uint32_t value) noexcept { return Shift(ShiftOp::kSXTX, value); }
+
+//! \}
+
+//! \name Memory Operand Construction
+//! \{
+
+//! Creates `[base, offset]` memory operand (offset mode) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr(const Gp& base, int32_t offset = 0) noexcept {
+  return Mem(base, offset);
+}
+
+//! Creates `[base, offset]!` memory operand (pre-index mode) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr_pre(const Gp& base, int32_t offset = 0) noexcept {
+  return Mem(base, offset, OperandSignature::fromValue<Mem::kSignatureMemOffsetModeMask>(OffsetMode::kPreIndex));
+}
+
+//! Creates `[base], offset` memory operand (post-index mode) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr_post(const Gp& base, int32_t offset = 0) noexcept {
+  return Mem(base, offset, OperandSignature::fromValue<Mem::kSignatureMemOffsetModeMask>(OffsetMode::kPostIndex));
+}
+
+//! Creates `[base, index]` memory operand (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr(const Gp& base, const Gp& index) noexcept {
+  return Mem(base, index);
+}
+
+//! Creates `[base, index]!` memory operand (pre-index mode) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr_pre(const Gp& base, const Gp& index) noexcept {
+  return Mem(base, index, OperandSignature::fromValue<Mem::kSignatureMemOffsetModeMask>(OffsetMode::kPreIndex));
+}
+
+//! Creates `[base], index` memory operand (post-index mode) (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr_post(const Gp& base, const Gp& index) noexcept {
+  return Mem(base, index, OperandSignature::fromValue<Mem::kSignatureMemOffsetModeMask>(OffsetMode::kPostIndex));
+}
+
+//! Creates `[base, index, SHIFT_OP #shift]` memory operand (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr(const Gp& base, const Gp& index, const Shift& shift) noexcept {
+  return Mem(base, index, shift);
+}
+
+//! Creates `[base, offset]` memory operand (AArch64).
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr(const Label& base, int32_t offset = 0) noexcept {
+  return Mem(base, offset);
+}
+
+// TODO: [ARM] PC + offset address.
+#if 0
+//! Creates `[PC + offset]` (relative) memory operand.
+static ASMJIT_INLINE_NODEBUG constexpr Mem ptr(const PC& pc, int32_t offset = 0) noexcept {
+  return Mem(pc, offset);
+}
+#endif
+
+//! \}
+
 //! \}
 
 ASMJIT_END_SUB_NAMESPACE
+
+//! \cond INTERNAL
+ASMJIT_BEGIN_NAMESPACE
+ASMJIT_DEFINE_TYPE_ID(a64::GpW, TypeId::kInt32);
+ASMJIT_DEFINE_TYPE_ID(a64::GpX, TypeId::kInt64);
+ASMJIT_DEFINE_TYPE_ID(a64::VecS, TypeId::kFloat32x1);
+ASMJIT_DEFINE_TYPE_ID(a64::VecD, TypeId::kFloat64x1);
+ASMJIT_DEFINE_TYPE_ID(a64::VecV, TypeId::kInt32x4);
+ASMJIT_END_NAMESPACE
+//! \endcond
 
 #endif // ASMJIT_ARM_A64OPERAND_H_INCLUDED

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,20 +117,20 @@ groups() ->
     [
      {openssl_server, all_protocol_groups()},
      {openssl_client, all_protocol_groups()},
-     {'tlsv1.3', [], tls_1_3_kex()},
+     {'tlsv1.3', [parallel], tls_1_3_kex()},
      {'tlsv1.2', [], kex()},
      {'tlsv1.1', [], kex()},
      {'tlsv1', [], kex()},
      {'dtlsv1.2', [], dtls_kex()},
      {'dtlsv1', [], dtls_kex()},
-     {dhe_rsa, [],[dhe_rsa_3des_ede_cbc,
+     {dhe_rsa, [parallel],[dhe_rsa_3des_ede_cbc,
                    dhe_rsa_aes_128_cbc,
                    dhe_rsa_aes_128_gcm,
                    dhe_rsa_aes_256_cbc,
                    dhe_rsa_aes_256_gcm,
                    dhe_rsa_chacha20_poly1305
                   ]},
-     {ecdhe_rsa, [], [ecdhe_rsa_3des_ede_cbc,
+     {ecdhe_rsa, [parallel], [ecdhe_rsa_3des_ede_cbc,
                       ecdhe_rsa_rc4_128,
                       ecdhe_rsa_aes_128_cbc,
                       ecdhe_rsa_aes_128_gcm,
@@ -136,8 +138,8 @@ groups() ->
                       ecdhe_rsa_aes_256_gcm,
                       ecdhe_rsa_chacha20_poly1305
                     ]},
-     {ecdhe_1_3_rsa_cert, [], tls_1_3_cipher_suites()},
-     {ecdhe_ecdsa, [],[ecdhe_ecdsa_rc4_128,
+     {ecdhe_1_3_rsa_cert, [parallel], tls_1_3_cipher_suites()},
+     {ecdhe_ecdsa, [parallel],[ecdhe_ecdsa_rc4_128,
                        ecdhe_ecdsa_3des_ede_cbc,
                        ecdhe_ecdsa_aes_128_cbc,
                        ecdhe_ecdsa_aes_128_gcm,
@@ -149,13 +151,13 @@ groups() ->
                        ecdhe_ecdsa_with_aes_128_ccm_8,
                        ecdhe_ecdsa_with_aes_256_ccm_8
                       ]},
-     {rsa, [], [rsa_des_cbc,
+     {rsa, [parallel], [rsa_des_cbc,
                 rsa_3des_ede_cbc,
                 rsa_aes_128_cbc,
                 rsa_aes_256_cbc,
                 rsa_rc4_128
                ]},
-     {dhe_dss, [], [dhe_dss_3des_ede_cbc,
+     {dhe_dss, [parallel], [dhe_dss_3des_ede_cbc,
                     dhe_dss_aes_128_cbc,
                     dhe_dss_aes_256_cbc]},
      %% {srp_rsa, [], [srp_rsa_3des_ede_cbc,
@@ -169,13 +171,13 @@ groups() ->
      %%                rsa_psk_aes_128_cbc,
      %%                rsa_psk_aes_256_cbc
      %%               ]},
-     {dh_anon, [], [dh_anon_rc4_128,
+     {dh_anon, [parallel], [dh_anon_rc4_128,
                     dh_anon_3des_ede_cbc,
                     dh_anon_aes_128_cbc,
                     dh_anon_aes_128_gcm,
                     dh_anon_aes_256_cbc,
                     dh_anon_aes_256_gcm]},
-     {ecdh_anon, [], [ecdh_anon_3des_ede_cbc,
+     {ecdh_anon, [parallel], [ecdh_anon_3des_ede_cbc,
                       ecdh_anon_aes_128_cbc,
                       ecdh_anon_aes_256_cbc
                      ]}

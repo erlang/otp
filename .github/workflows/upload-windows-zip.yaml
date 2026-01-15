@@ -1,0 +1,94 @@
+##
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright 2024-2025 Wojtek Mach <wojtek@wojtekmach.pl>
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+##
+
+name: Upload windows .zip
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+      target:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  upload-windows-zip:
+    runs-on: windows-2022
+    ## Needed to upload assets to releases
+    permissions:
+        contents: write
+    env:
+      basename: otp_${{ inputs.target }}_${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+
+      - name: Install OTP
+        shell: cmd
+        run: |
+          curl.exe --fail -Lo otp.exe https://github.com/erlang/otp/releases/download/OTP-${{ inputs.version }}/${{ env.basename }}.exe
+          otp.exe /S /D=%CD%\${{ env.basename }}
+
+      - name: Download vc_redist.exe
+        shell: bash
+        run: |
+          case "${{ inputs.target }}" in
+            win32)
+              vc_redist_target=x86
+              ;;
+            win64)
+              vc_redist_target=x64
+              ;;
+            *)
+              echo "invalid target $target"
+              exit 1
+              ;;
+          esac
+          curl --fail -Lo vc_redist.exe "https://aka.ms/vs/17/release/vc_redist.$vc_redist_target.exe"
+
+      - name: Create .zip
+        shell: pwsh
+        run: |
+          $root = Get-Location
+
+          cd ${{ env.basename }}
+          Get-ChildItem -Recurse -Filter erl.ini | Remove-Item
+          rm Install.exe,Install.ini,Uninstall.exe
+          $sha256 = Get-FileHash $root\otp.exe -Algorithm SHA256
+          $sha256.Hash.ToLower() | Out-File -FilePath installer.sha256
+          cp $root/vc_redist.exe .
+          cp $root/erts/etc/win32/INSTALL.txt .
+          Compress-Archive -Path * -DestinationPath $root\${{ env.basename }}.zip
+
+          cd $root
+          Expand-Archive -Path ${{ env.basename }}.zip -DestinationPath .\otp_test
+          .\otp_test\bin\erl.exe +V
+
+      - name: Upload
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload -R $env:GITHUB_REPOSITORY --clobber OTP-${{ inputs.version }} ${{ env.basename }}.zip

@@ -1,9 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec allocate(File, Offset, Length) -> ok | {error, posix()}[0m
-  [;1m                  when[0m
-  [;1m                      File :: io_device(),[0m
-  [;1m                      Offset :: non_neg_integer(),[0m
-  [;1m                      Length :: non_neg_integer().[0m
+[;1m  allocate(File, Offset, Length)[0m
 
 [;;4mSince[0m:
   OTP R16B

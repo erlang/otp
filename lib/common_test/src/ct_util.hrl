@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,6 +49,7 @@
 		   userconfig=[],
 		   event_handler=[],
 		   ct_hooks=[],
+                   ct_hooks_order,
 		   enable_builtin_hooks=true,
 		   release_shell=false,
 		   include=[],

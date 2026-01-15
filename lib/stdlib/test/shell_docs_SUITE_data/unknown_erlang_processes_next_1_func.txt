@@ -1,0 +1,42 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+
+[;1m  processes_next(Iter)[0m
+
+[;;4mSince[0m:
+  OTP @OTP-19369@
+
+  Returns a 2-tuple, consisting of one process identifier and a new
+  processes iterator. If the process iterator has run out of
+  processes in the process table, [;;4mnone[0m will be returned.
+
+  The two major benefits of using the [;;4mprocesses_iterator/0[0m/[;;4m[0m
+  [;;4mprocesses_next/1[0m BIFs instead of using the [;;4mprocesses/0[0m BIF are
+  that they scale better since no locking is needed, and you do not
+  risk getting a huge list allocated on the heap if there are a huge
+  amount of processes alive in the system.
+
+  Example:
+
+    > I0 = erlang:processes_iterator(), ok.
+    ok
+    > {Pid1, I1} = erlang:processes_next(I0), Pid1.
+    <0.0.0>,
+    > {Pid2, I2} = erlang:processes_next(I1), Pid2.
+    <0.1.0>
+
+  [;;4mNote[0m
+
+    This BIF has less consistency guarantee than [;;4mprocesses/0[0m.
+    Process identifiers returned from consecutive calls of this
+    BIF may not be a consistent snapshot of all elements existing
+    in the table during any of the calls. The process identifier
+    of a process that is alive before [;;4mprocesses_iterator/0[0m is
+    called and continues to be alive until [;;4mprocesses_next/1[0m
+    returns [;;4mnone[0m is guaranteed to be part of the result returned
+    from one of the calls to [;;4mprocesses_next/1[0m.

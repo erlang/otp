@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,6 +84,22 @@ static struct digest_type_t digest_types[] =
 #endif
     },
 
+    {"sha512_224", "SHA2-512/224", 0, PBKDF2_ELIGIBLE_DIGEST,
+#ifdef HAVE_SHA512_224
+     {&EVP_sha512_224,NULL}
+#else
+     {NULL,NULL}
+#endif
+    },
+
+    {"sha512_256", "SHA2-512/256", 0, PBKDF2_ELIGIBLE_DIGEST,
+#ifdef HAVE_SHA512_256
+     {&EVP_sha512_256,NULL}
+#else
+     {NULL,NULL}
+#endif
+    },
+
     {"sha3_224", "SHA3-224", 0, 0,
 #ifdef HAVE_SHA3_224
      {&EVP_sha3_224,NULL}
@@ -116,7 +134,8 @@ static struct digest_type_t digest_types[] =
 
     {"shake128", "SHAKE-128", 0, 0,
 #ifdef HAVE_SHAKE128
-    {&EVP_shake128, NULL}
+    {&EVP_shake128, NULL},
+    16,   /* xof_default_length */
 #else
     {NULL,NULL}
 #endif
@@ -124,7 +143,16 @@ static struct digest_type_t digest_types[] =
 
     {"shake256", "SHAKE-256", 0, 0,
 #ifdef HAVE_SHAKE256
-    {&EVP_shake256, NULL}
+    {&EVP_shake256, NULL},
+    32,  /* xof_default_length */
+#else
+    {NULL,NULL}
+#endif
+    },
+
+    {"sm3", "SM3", 0, 0,
+#ifdef HAVE_SM3
+    {&EVP_sm3, NULL}
 #else
     {NULL,NULL}
 #endif

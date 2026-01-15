@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -289,7 +291,7 @@ transform_some_records(Tab1, _Tab2, Old) ->
     Filter = fun(Rec) when element(1, Rec) == Tab1 -> {true, Fun(Rec)};
 		(_) -> true
 	     end,
-    lists:sort(lists:zf(Filter, Old)).
+    lists:sort(lists:filtermap(Filter, Old)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

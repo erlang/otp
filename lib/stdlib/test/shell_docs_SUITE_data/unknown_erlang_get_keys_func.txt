@@ -1,11 +1,20 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec get_keys() -> [Key] when Key :: term().[0m
+[;1m  get_keys()[0m
 
 [;;4mSince[0m:
   OTP 18.0
 
   Returns a list of all keys present in the process dictionary. The
-  items in the returned list can be in any order. Example:
+  items in the returned list can be in any order.
+
+  For example:
 
     > put(dog, {animal,1}),
     put(cow, {animal,2}),
@@ -13,11 +22,13 @@
     get_keys().
     [dog,cow,lamb]
 
-  [;1m-spec get_keys(Val) -> [Key] when Val :: term(), Key :: term().[0m
+[;1m  get_keys(Val)[0m
 
   Returns a list of keys that are associated with the value [;;4mVal[0m in
   the process dictionary. The items in the returned list can be in
-  any order. Example:
+  any order.
+
+  For example:
 
     > put(mary, {1, 2}),
     put(had, {1, 2}),

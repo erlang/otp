@@ -1,11 +1,16 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec element(N, Tuple) -> term()[0m
-  [;1m                 when N :: pos_integer(), Tuple :: tuple().[0m
+[;1m  element(N, Tuple)[0m
 
-  Returns the [;;4mN[0mth element (numbering from 1) of [;;4mTuple[0m, for
-  example:
+  Returns the [;;4mN[0mth element (numbering from 1) of [;;4mTuple[0m.
+
+  For example:
 
     > element(2, {a, b, c}).
     b
-
-  Allowed in guard tests.

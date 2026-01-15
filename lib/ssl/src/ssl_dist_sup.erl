@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,7 @@
 %%
 
 -module(ssl_dist_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 
@@ -88,8 +91,8 @@ ssl_connection_sup() ->
      }.
 
 consult(File) ->
-    case erl_prim_loader:get_file(File) of
-        {ok, Binary, _FullName} ->
+    case erl_prim_loader:read_file(File) of
+        {ok, Binary} ->
             Encoding =
                 case epp:read_encoding_from_binary(Binary) of
                     none -> latin1;

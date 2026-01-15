@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +60,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> 
     [app, appup, {group, light}, {group, medium}, {group, heavy},
-     clean_up_suite].
+     clean_up_suite, {group, external}].
 
 groups() -> 
     %% The 'light' test suite runs a selected set of test suites and is
@@ -69,16 +71,16 @@ groups() ->
     %% covered.
     [{light, [],
       [{group, install}, {group, nice}, {group, evil},
-       {group, mnesia_frag_test, light}, {group, qlc}, {group, index_plugins},
-       {group, registry}, {group, config}, {group, examples}]},
+       {group, frag}, {group, qlc}, {group, index_plugins},
+       {group, config}, {group, examples}]},
      {install, [], [{mnesia_install_test, all}]},
      {nice, [], [{mnesia_nice_coverage_test, all}]},
      {evil, [], [{mnesia_evil_coverage_test, all}]},
      {qlc, [], [{mnesia_qlc_test, all}]},
      {index_plugins, [], [{mnesia_index_plugin_test, all}]},
-     {registry, [], [{mnesia_registry_test, all}]},
      {config, [], [{mnesia_config_test, all}]},
      {examples, [], [{mnesia_examples_test, all}]},
+     {frag, [], [{mnesia_frag_test, all}]},
      %% The 'medium' test suite verfies the ACID (atomicity, consistency
      %% isolation and durability) properties and various recovery scenarios
      %% These tests may take quite while to run.
@@ -86,8 +88,7 @@ groups() ->
       [{group, install}, {group, atomicity},
        {group, isolation}, {group, durability},
        {group, recovery}, {group, consistency},
-       {group, majority},
-       {group, mnesia_frag_test, medium}]},
+       {group, majority}]},
      {atomicity, [], [{mnesia_atomicity_test, all}]},
      {isolation, [], [{mnesia_isolation_test, all}]},
      {durability, [], [{mnesia_durability_test, all}]},
@@ -112,7 +113,7 @@ groups() ->
        {mnesia_evil_coverage_test, offline_set_master_nodes},
        {mnesia_evil_coverage_test, record_name},
        {mnesia_evil_coverage_test, user_properties},
-       {mnesia_registry_test, all}, {group, otp_2363}]},
+       {group, otp_2363}]},
      %% Index on disc only tables
      {otp_2363, [],
       [{mnesia_dirty_access_test,
@@ -123,7 +124,8 @@ groups() ->
        {mnesia_dirty_access_test,
 	dirty_index_update_set_disc_only},
        {mnesia_evil_coverage_test,
-	create_live_table_index_disc_only}]}].
+	create_live_table_index_disc_only}]},
+     {external, [], [{mnesia_external_backend_test, all}]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.

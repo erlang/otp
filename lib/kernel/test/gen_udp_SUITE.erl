@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,15 +78,18 @@
          t_simple_local_sockaddr_in6_send_recv/1,
          t_simple_link_local_sockaddr_in6_send_recv/1,
 
-         otp_18323_opts_processing/1,
-         otp_18323_open/1
+         t_kernel_options/1, do_kernel_options_remote/1,
+         t_module_open/1,
 
+         otp_18323_opts_processing/1,
+         otp_18323_open/1,
+         otp_19332/1,
+         otp_19357_open_with_ipv6_option/1
 	]).
 
 -include_lib("kernel/src/inet_int.hrl").
+-include("kernel_test_lib.hrl").
 
--define(TRY_TC(F), try_tc(F)).
-               
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
@@ -99,11 +104,13 @@ all() ->
             [
              {group, inet_backend_default},
              {group, inet_backend_inet},
-             {group, inet_backend_socket}
+             {group, inet_backend_socket},
+             {group, s_misc}
             ];
         _ ->
             [
-             {group, inet_backend_default}
+             {group, inet_backend_default},
+             {group, s_misc}
             ]
     end.
 
@@ -119,7 +126,11 @@ groups() ->
      {socket_monitor,         [], socket_monitor_cases()},
 
      {sockaddr,               [], sockaddr_cases()},
-     {otp18323,               [], otp18323_cases()}
+     {tickets,                [], tickets_cases()},
+     {otp18323,               [], otp18323_cases()},
+     {otp19332,               [], otp19332_cases()},
+     {s_misc,                 [], s_misc_cases()},
+     {t_module,               [], t_module_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -152,7 +163,8 @@ all_cases() ->
      {group, socket_monitor},
      otp_17492,
      {group, sockaddr},
-     {group, otp18323}
+     t_kernel_options,
+     {group, tickets}
     ].
 
 recv_and_send_opts_cases() ->
@@ -190,11 +202,34 @@ sockaddr_cases() ->
      t_simple_link_local_sockaddr_in6_send_recv
     ].
 
+tickets_cases() ->
+    [
+     {group, otp18323},
+     {group, otp19332},
+     otp_19357_open_with_ipv6_option
+    ].
+
 otp18323_cases() ->
     [
      otp_18323_opts_processing,
      otp_18323_open
     ].
+
+otp19332_cases() ->
+    [
+     otp_19332
+    ].
+
+s_misc_cases() ->
+    [
+     {group, t_module}
+    ].
+
+t_module_cases() ->
+    [
+     t_module_open
+    ].
+
 
 
 init_per_suite(Config0) ->
@@ -209,14 +244,32 @@ init_per_suite(Config0) ->
 
         Config1 when is_list(Config1) ->
             
+            %% We need a monitor on this node also
+            ?P("init_per_suite -> start (local) system monitor"),
+            kernel_test_sys_monitor:start(),
+
+            maybe_display_dgram_qlen(),
+
             ?P("init_per_suite -> end when "
                "~n      Config: ~p", [Config1]),
-            
-            %% We need a monitor on this node also
-            kernel_test_sys_monitor:start(),
 
             Config1
     end.
+
+maybe_display_dgram_qlen() ->
+    maybe_display_dgram_qlen(os:type()).
+
+maybe_display_dgram_qlen({unix, linux}) ->
+    case max_dgram_qlen() of
+        QLen when is_integer(QLen) ->
+            ?P("Max DGram QLen: ~w~n", [QLen]),
+            ok;
+        _ ->
+            ok
+    end;
+maybe_display_dgram_qlen(_) ->
+    ok.
+
 
 end_per_suite(Config0) ->
 
@@ -235,23 +288,50 @@ end_per_suite(Config0) ->
     Config1.
 
 init_per_group(inet_backend_default = _GroupName, Config) ->
-    [{socket_create_opts, []} | Config];
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            [{socket_create_opts, []} | Config];
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
 init_per_group(inet_backend_inet = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
-            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, inet}]} | Config]
+            end;
+        inet ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config];
+        socket ->
+            {skip, "explicit inet-backend = socket"}
     end;
 init_per_group(inet_backend_socket = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, socket}]} | Config]
+            end;
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(local, Config) -> 
@@ -378,15 +458,43 @@ end_per_testcase(_Case, Config) ->
 
 %% Tests core functionality.
 send_to_closed(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_send_to_closed(Config) end).
+    Pre  = fun() ->
+                   Sock = case ?OPEN(Config, 0) of
+                              {ok, S} ->
+                                  S;
+                              {error, OReason} ->
+                                  ?P("~w:pre -> Failed create socket: "
+                                     "~n   Reason: ~p",
+                                     [?FUNCTION_NAME, OReason]),
+                                  ?SKIPT(?F("Failed open socket: ~w",
+                                            [OReason]))
+                          end,
+                   case ?LIB:which_local_addr(inet) of
+                       {ok, Addr} ->
+                           #{socket     => Sock,
+                             local_addr => Addr};
+                       {error, LReason} ->
+                           ?P("Failed get local address: "
+                              "~n   Reason: ~p", [LReason]),
+                           (catch gen_udp:close(Sock)),
+                           ?SKIPT(?F("Failed get local address: ~w", [LReason]))
+                   end
+           end,
+    TC   = fun(State) -> do_send_to_closed(State) end,
+    Post = fun(#{socket := Socket}) ->
+                   (catch gen_udp:close(Socket))
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, TC, Post).
 
-do_send_to_closed(Config) ->
-    {ok, Sock} = ?OPEN(Config, 0),
-    {ok, Addr} = ?LIB:which_local_addr(inet),
+do_send_to_closed(#{socket := Sock, local_addr := Addr}) ->
+    ?P("~w -> first send to (closed port): "
+       "~n   ~p, ~p", [?FUNCTION_NAME, Addr, ?CLOSED_PORT]),
     ok = gen_udp:send(Sock, Addr, ?CLOSED_PORT, "foo"),
     timer:sleep(2),
+    ?P("~w -> second send to (closed port): "
+       "~n   ~p, ~p", [?FUNCTION_NAME, Addr, ?CLOSED_PORT]),
     ok = gen_udp:send(Sock, Addr, ?CLOSED_PORT, "foo"),
-    ok = gen_udp:close(Sock),
+    ?P("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 
@@ -429,13 +537,18 @@ buffer_size(Config) when is_list(Config) ->
     TC   = fun() -> do_buffer_size(Config) end,
     ?TC_TRY(?FUNCTION_NAME, Cond, TC).
 
+%% Note that as of OTP 28, the default buffer size has increased to 9K (for UDP)
+%% Up from 8K
+-define(BF_NUM_K(N), (N*1024)).
+%%-define(BF_8K,       ?BF_NUM_K(8)).
+-define(BF_9K,       ?BF_NUM_K(9)).
 do_buffer_size(Config) when is_list(Config) ->
     {ok, Addr} = ?LIB:which_local_addr(inet),
     ClientIP = Addr,
     ServerIP = Addr,
     Len = 256,
     Bin = list_to_binary(lists:seq(0, Len-1)),
-    M = 8192 div Len,
+    M = (?BF_9K) div Len,
     SAFE = 3,
     LONG = 1,
     Spec0 =
@@ -457,17 +570,30 @@ do_buffer_size(Config) when is_list(Config) ->
 	 end || {Tag,Val} <- Spec0],
     %%
     {ok, ClientSocket} = ?OPEN(Config, 0, [binary, {ip, ClientIP}]),
+    ?P("buffer_size[client] -> socket created"),
     {ok, ClientPort}   = inet:port(ClientSocket),
     Client = self(),
-    ?P("Client: {~p, ~p}, ~p", [ClientIP, ClientPort, ClientSocket]),
+    ?P("Client: {~p, ~p}, ~p: "
+       "~n   Socket Info: ~p"
+       "~n   Socket Opts: ~p",
+       [ClientIP, ClientPort, ClientSocket,
+        inet:info(ClientSocket),
+        inet:getopts(ClientSocket, [buffer, recbuf, sndbuf])]),
     Server =
 	spawn_link(
 	  fun () ->
                   ?P("buffer_size[server] -> starting"),
 		  {ok, ServerSocket} =
                       ?OPEN(Config, 0, [binary, {ip, ServerIP}]),
+                  ?P("buffer_size[server] -> socket created"),
 		  {ok, ServerPort}   =
                       inet:port(ServerSocket),
+                  ?P("buffer_size[server] -> {~p, ~p}, ~p: "
+                     "~n   Socket Info: ~p"
+                     "~n   Socket Bufs: ~s",
+                     [ServerIP, ServerPort, ServerSocket,
+                      inet:info(ServerSocket),
+                      sock_bufs_str(ServerSocket)]),
 		  Client ! {self(),port,ServerPort},
 		  buffer_size_server(Client, ClientIP, ClientPort, 
 				     ServerSocket, 1, Spec),
@@ -490,29 +616,38 @@ buffer_size_client(_, _, _, _, _, []) ->
     ok;
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
-    ?P("buffer_size_client(~w) -> entry with"
-       "~n   Opts: ~p", [Cnt, Opts]),
+    ?P("~w(~w) -> entry with"
+       "~n   Opts: ~p"
+       "~nwhen"
+       "~n   Sock Info: ~p"
+       "~n   Sock Bufs: ~s",
+       [?FUNCTION_NAME, Cnt, Opts, inet:info(Socket), sock_bufs_str(Socket)]),
     ok = inet:setopts(Socket, Opts),
     GOpts = [K || {K, _} <- Opts],
-    ?P("buffer_size_client(~w) -> options after set: "
-       "~n   ~p", [Cnt, inet:getopts(Socket, GOpts)]),
+    ?P("~w(~w) -> options after set: "
+       "~n   ~p", [?FUNCTION_NAME, Cnt, inet:getopts(Socket, GOpts)]),
     Server ! {self(),setopts,Cnt},
     receive {Server,setopts,Cnt} -> ok end,
     buffer_size_client(Server, IP, Port, Socket, Cnt+1, T);
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [{B,Replies}|T]=Opts) when is_binary(B) ->
-    ?P("buffer_size_client(~w) -> entry with"
+    ?P("~w(~w) -> entry with"
        "~n   send size:   ~w"
        "~n   expecting:   ~p"
        "~nwhen"
-       "~n   Socket Info: ~p",
-       [Cnt, byte_size(B), Replies, inet:info(Socket)]),
+       "~n   Socket Info: ~p"
+       "~n   Socket Bufs: ~s",
+       [?FUNCTION_NAME,
+        Cnt, byte_size(B), Replies, inet:info(Socket), sock_bufs_str(Socket)]),
     case gen_udp:send(Socket, IP, Port, <<Cnt,B/binary>>) of
 	ok ->
 	    receive
 		{Server, Cnt, Reply} ->
-                    ?P("buffer_size_client(~w) -> "
-                       "~n   Reply: ~p", [Cnt, Reply]),
+                    ?P("~w(~w) -> received"
+                       "~n   Reply: ~p"
+                       "~nwhen"
+                       "~n   Replies: ~p", [?FUNCTION_NAME, Cnt,
+                                            Reply, Replies]),
 		    Tag =
                         case Reply of
                             %% {completion_status, #{info := Tag0}}
@@ -559,28 +694,31 @@ buffer_size_server(_, _, _, _, _, []) ->
     ok;
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
-    ?P("buffer_size_server(~w) -> entry when await client setopts", [Cnt]),
+    ?P("~w(~w) -> entry when await client setopts", [?FUNCTION_NAME, Cnt]),
     receive {Client, setopts, Cnt} -> ok end,
-    ?P("buffer_size_server(~w) -> setopts with "
+    ?P("~w(~w) -> setopts with "
        "~n   Opts:        ~p"
        "~nwhen"
-       "~n   Socket info: ~p", [Cnt, Opts, inet:info(Socket)]),
+       "~n   Socket info: ~p", [?FUNCTION_NAME, Cnt, Opts, inet:info(Socket)]),
     ok = inet:setopts(Socket, Opts),
     GOpts = [K || {K, _} <- Opts],
-    ?P("buffer_size_server(~w) -> options after set: "
+    ?P("~w(~w) -> options after set: "
        "~n                ~p"
        "~nwhen"
        "~n   Socket info: ~p",
-       [Cnt, inet:getopts(Socket, GOpts), inet:info(Socket)]),
+       [?FUNCTION_NAME, Cnt, inet:getopts(Socket, GOpts), inet:info(Socket)]),
     Client ! {self(), setopts, Cnt},
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T);
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [{B,_}|T]) when is_binary(B) ->
-    ?P("buffer_size_server(~w) -> entry when"
+    ?P("~w(~w) -> entry when"
        "~n   expect ~w bytes of data"
        "~nwhen"
        "~n   Socket info: ~p"
-       "~n   MQ:          ~p", [Cnt, byte_size(B), inet:info(Socket), mq()]),
+       "~n   Socket Bufs: ~s"
+       "~n   MQ:          ~p",
+       [?FUNCTION_NAME, Cnt,
+        byte_size(B), inet:info(Socket), sock_bufs_str(Socket), mq()]),
     Reply = case buffer_size_server_recv(Socket, IP, Port, Cnt) of
                 D when is_binary(D) ->
                     SizeD = byte_size(D),
@@ -589,10 +727,13 @@ buffer_size_server(Client, IP, Port,
                        "~n   Socket Info: ~p", [Cnt, SizeD, inet:info(Socket)]),
                     case B of
                         D ->
+                            ?P("~w(~w) -> correct", [?FUNCTION_NAME, Cnt]),
                             correct;
                         <<D:SizeD/binary,_/binary>> ->
+                            ?P("~w(~w) -> trucated", [?FUNCTION_NAME, Cnt]),
                             truncated;
                         _ ->
+                            ?P("~w(~w) -> unexpected", [?FUNCTION_NAME, Cnt]),
                             {unexpected,D}
                     end;
                 Error ->
@@ -603,63 +744,80 @@ buffer_size_server(Client, IP, Port,
                        [Cnt, Error, inet:info(Socket)]),
                     Error
             end,
-    ?P("buffer_size_server(~w) -> send reply '~p' when"
-       "~n   Socket Info: ~p", [Cnt, Reply, inet:info(Socket)]),
+    ?P("~w(~w) -> send reply '~p' when"
+       "~n   Socket Info: ~p"
+       "~n   Socket Bufs: ~s",
+       [?FUNCTION_NAME, Cnt,
+        Reply, inet:info(Socket), sock_bufs_str(Socket)]),
     Client ! {self(), Cnt, Reply},
     ?SLEEP(?SECS(1)),
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T).
 
 buffer_size_server_recv(Socket, IP, Port, Cnt) ->
-    ?P("buffer_size_server(~w) -> await data: "
+    ?P("~w(~w) -> await data: "
        "~n   Socket:      ~p"
        "~n   IP:          ~p"
        "~n   Port:        ~p"
        "~nwhen"
-       "~n   Socket Info: ~p", [Cnt, Socket, IP, Port, inet:info(Socket)]),
+       "~n   Socket Info: ~p"
+       "~n   Socket Bufs: ~s",
+       [?FUNCTION_NAME, Cnt,
+        Socket, IP, Port, inet:info(Socket), sock_bufs_str(Socket)]),
     receive
 	{udp, Socket, IP, Port, <<Cnt, B/binary>>} ->
-            ?P("buffer_size_server(~w) -> received ~w bytes",
-               [Cnt, byte_size(B)]),
+            ?P("~w(~w) -> received ~w bytes",
+               [?FUNCTION_NAME, Cnt, byte_size(B)]),
 	    B;
 	{udp, Socket, IP, Port, <<_B/binary>>} ->
-            ?P("buffer_size_server(~w) -> received unexpected ~w bytes",
-               [Cnt, byte_size(_B)]),
+            ?P("~w(~w) -> received unexpected ~w bytes",
+               [?FUNCTION_NAME, Cnt, byte_size(_B)]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, Socket, IP, Port, _CRAP} ->
-            ?P("buffer_size_server(~w) -> received unexpected crap", [Cnt]),
+            ?P("~w(~w) -> received unexpected crap", [?FUNCTION_NAME, Cnt]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, XSocket, XIP, XPort, _CRAP} ->
-            ?P("buffer_size_server(~w) -> received unexpected udp message: "
+            ?P("~w(~w) -> received unexpected udp message: "
                "~n   XSocket: ~p"
                "~n   Socket:  ~p"
                "~n   XIP:     ~p"
                "~n   IP:      ~p"
                "~n   XPort:   ~p"
                "~n   Port:    ~p",
-               [Cnt, XSocket, Socket, XIP, IP, XPort, Port]),
+               [?FUNCTION_NAME, Cnt, XSocket, Socket, XIP, IP, XPort, Port]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp_closed, Socket} ->
-            ?P("buffer_size_server(~w) -> received unexpected 'closed'", [Cnt]),
+            ?P("~w(~w) -> received unexpected 'closed'", [?FUNCTION_NAME, Cnt]),
 	    closed;
 
 	{udp_error, Socket, Error} ->
-            ?P("buffer_size_server(~w) -> error: "
-               "~n   ~p", [Cnt, Error]),
+            ?P("~w(~w) -> error: "
+               "~n   ~p", [?FUNCTION_NAME, Cnt, Error]),
             ok = inet:setopts(Socket, [{active, true}]),
 	    Error
 
     after 5000 ->
-            ?P("buffer_size_server(~w) -> timeout: "
+            ?P("~w(~w) -> timeout: "
                "~n   Socket:       ~p"
                "~n   Socket Info:  ~p"
+               "~n   Socket Bufs:  ~s"
                "~n   Process Info: ~p",
-               [Cnt,
-                Socket, inet:info(Socket), erlang:process_info(self())]),
+               [?FUNCTION_NAME, Cnt,
+                Socket, inet:info(Socket), sock_bufs_str(Socket),
+                erlang:process_info(self())]),
 	    {timeout, mq()}
     end.
+
+sock_bufs_str(S) ->
+    case inet:getopts(S, [buffer, recbuf, sndbuf]) of
+        {ok, Bufs} ->
+            ?F("~p", [Bufs]);
+        _ ->
+            "-"
+    end.
+
 
 
 %%-------------------------------------------------------------
@@ -803,25 +961,49 @@ do_bad_address(Config) when is_list(Config) ->
 
 %% OTP-6249 UDP option for number of packet reads.
 read_packets(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
     Cond = fun() ->
 		   case ?IS_SOCKET_BACKEND(Config) of
 		       true ->
                            %% We have not (yet) implemented support for 
                            %% this option. We accept it but do not use it.
+                           ?P("~w:cond -> skip", [?FUNCTION_NAME]),
 			   {skip, "Not compliant with socket"};
 		       false ->
+                           ?P("~w:cond -> run", [?FUNCTION_NAME]),
 			   ok
 		   end
 	   end,
-    TC   = fun() ->
+    Pre  = fun() ->
+                   %% Try start/create a worker node
+                   NName = ?UNIQ_NODE_NAME,
+                   ?P("~w:pre -> try create node ~p", [?FUNCTION_NAME, NName]),
+                   case start_node(NName) of
+                       {ok, Node} ->
+                           ?P("~w:pre -> node ~p started",
+                              [?FUNCTION_NAME, Node]),
+                           #{node => Node,
+                             conf => Config};
+                       {error, Reason} ->
+                           ?P("~w:pre -> Failed start node ~p"
+                              "~n   ~p", [?FUNCTION_NAME, NName, Reason]),
+                           {skip, Reason}
+                   end
+           end,
+    TC   = fun(State) ->
                    ?P("~w:tc -> begin", [?FUNCTION_NAME]),
-                   Res = do_read_packets(Config),
+                   Res = do_read_packets(State),
                    ?P("~w:tc -> done", [?FUNCTION_NAME]),
                    Res
            end,
-    ?TC_TRY(?FUNCTION_NAME, Cond, TC).
+    Post = fun(#{node := Node}) ->
+                   ?P("~w:post -> stop node", [?FUNCTION_NAME]),
+                   stop_node(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
-do_read_packets(Config) when is_list(Config) ->
+do_read_packets(#{node := Node,
+                  conf := Config}) when is_list(Config) ->
     N1   = 5,
     N2   = 1,
     Msgs = 30000,
@@ -833,8 +1015,6 @@ do_read_packets(Config) when is_list(Config) ->
        "~n   Addr: ~p"
        "~n   Port: ~p", [RA, RP]),
 
-    ?P("create slave node"),
-    {ok,Peer,Node} = ?CT_PEER(),
     %%
     ?P("perform read-packets test"),
     {V1, Trace1} = read_packets_test(Config, R, RA, RP, Msgs, Node),
@@ -848,8 +1028,6 @@ do_read_packets(Config) when is_list(Config) ->
     ?P("verify read-packets (to ~w)", [N2]),
     {ok, [{read_packets,N2}]} = inet:getopts(R, [read_packets]),
     %%
-    ?P("stop slave node"),
-    peer:stop(Peer),
     ?P("dump trace 1"),
     dump_terms(Config, "trace1.terms", Trace1),
     ?P("dump trace 2"),
@@ -911,31 +1089,80 @@ read_packets_test(Config, R, RA, RP, Msgs, Node) ->
 	  [link,{priority,high}]),
     receive
 	{Sender, {sockname, {SA, SP}}} ->
+            ?P("~w -> got socket info from sender", [?FUNCTION_NAME]),
 	    erlang:trace(R, true,
 			 [running_ports,'send',{tracer,Tracer}]),
 	    erlang:yield(),
+            ?P("~w -> release sender (~p)", [?FUNCTION_NAME, Sender]),
 	    Sender ! {Receiver,go},
-	    read_packets_recv(Msgs),
+            ?P("~w -> receive", [?FUNCTION_NAME]),
+	    read_packets_recv(Sender, Msgs),
+            ?P("~w -> turn off trace", [?FUNCTION_NAME]),
 	    erlang:trace(R, false, [all]),
+            ?P("~w -> get trace (from tracer ~p)", [?FUNCTION_NAME, Tracer]),
 	    Tracer ! {Receiver,get_trace},
 	    receive
 		{Tracer,{trace,Trace}} ->
+                    ?P("~w -> got trace - verify", [?FUNCTION_NAME]),
 		    {read_packets_verify(R, SA, SP, Trace), Trace}
 	    end
     end.
 
-read_packets_send(_S, _RA, _RP, 0) ->
-    ok;
 read_packets_send(S, RA, RP, Msgs) ->
-    ok = gen_udp:send(S, RA, RP, "UDP FLOOOOOOD"),
-    read_packets_send(S, RA, RP, Msgs - 1).
+    LastWouldBlock = never,
+    NoWouldBlock   = 0,
+    read_packets_send(S, RA, RP, Msgs, LastWouldBlock, NoWouldBlock).
 
-read_packets_recv(0) ->
+read_packets_send(S, _RA, _RP, 0, _LastWouldBlock, NoWouldBlock) ->
+    ?P("~w -> done when"
+       "~n   NumberOf WouldBlock: ~w"
+       "~n   info(Sock):          ~p",
+       [?FUNCTION_NAME, NoWouldBlock, inet:info(S)]),
     ok;
-read_packets_recv(N) ->
+read_packets_send(S, RA, RP, Msgs, LastWouldBlock, NoWouldBlock) ->
+    case gen_udp:send(S, RA, RP, "UDP FLOOOOOOD") of
+        ok ->
+            read_packets_send(S, RA, RP, Msgs - 1,
+                              LastWouldBlock, NoWouldBlock);
+        {error, eagain = Reason} when (Msgs =/= LastWouldBlock) ->
+            ?P("~w -> ~w: sleep when"
+               "~n   Msgs:       ~w"
+               "~n   info(Sock): ~p",
+               [?FUNCTION_NAME, Reason, Msgs, inet:info(S)]),
+            receive after 1000 -> ok end,
+            ?P("~w -> try again", [?FUNCTION_NAME]),
+            read_packets_send(S, RA, RP, Msgs, Msgs, NoWouldBlock + 1);
+        {error, eagain = Reason} ->
+            ?P("~w -> send failure: "
+               "~n   Reason:              ~p"
+               "~n   Msgs:                ~p"
+               "~n   NumberOf WouldBlock: ~p"
+               "~n   info(Sock):          ~p",
+               [?FUNCTION_NAME,
+                Reason, Msgs, NoWouldBlock+1, (catch inet:info(S))]),
+            exit({send_failed, Reason, Msgs, NoWouldBlock+1});
+        {error, Reason} ->
+            ?P("~w -> send failure: "
+               "~n   Reason:              ~p"
+               "~n   Msgs:                ~p"
+               "~n   NumberOf WouldBlock: ~p"
+               "~n   info(Sock):          ~p",
+               [?FUNCTION_NAME,
+                Reason, Msgs, NoWouldBlock, (catch inet:info(S))]),
+            exit({send_failed, Reason, Msgs, NoWouldBlock})
+    end.
+
+read_packets_recv(_Sender, 0) ->
+    ?P("~w -> done", [?FUNCTION_NAME]),
+    ok;
+read_packets_recv(Sender, N) ->
     receive
+        {'EXIT', Sender, Reason} when Reason =/= normal ->
+            ?P("received unexpected exit from sender: "
+               "~n   ~p", [Reason]),
+            exit({skip, {sender, Reason}});
 	_ ->
-	    read_packets_recv(N - 1)
+	    read_packets_recv(Sender, N - 1)
     after 5000 ->
 	    timeout
     end.
@@ -1026,7 +1253,9 @@ do_open_fd(Config) when is_list(Config) ->
     ?P("try open second (domain = inet6) socket with FD = ~w "
        "and expect *failure*", [FD]),
 
-    case ?OPEN(Config, 0, [inet6, {fd,FD}]) of
+    OS = which_os(),
+
+    case ?OPEN(Config, 0, [{debug, true}, inet6, {fd,FD}]) of
         {error, einval = Reason} ->
             ?P("expected failure reason ~w", [Reason]),
             ok;
@@ -1036,12 +1265,25 @@ do_open_fd(Config) when is_list(Config) ->
         {error, Reason} ->
             ?P("unexpected failure: ~w", [Reason]),
             ct:fail({unexpected_failure, Reason});
+        {ok, Socket} when (OS =:= darwin) ->
+            ?P("unexpected success: "
+               "~n   ~p", [inet:info(Socket)]),
+            (catch gen_udp:close(Socket)),
+            (catch gen_udp:close(S1)),
+            skip(unexpected_succes);
         {ok, Socket} ->
             ?P("unexpected success: "
                "~n   ~p", [inet:info(Socket)]),
             (catch gen_udp:close(Socket)),
             (catch gen_udp:close(S1)),
-            ct:fail(unexpected_succes)
+            case ((OS =:= darwin) andalso ?IS_SOCKET_BACKEND(Config)) of
+                true ->
+                    %% This should not work, but on (some) Darwin
+                    %% machines it does...
+                    skip(unexpected_success);
+                _ ->
+                    ct:fail(unexpected_success)
+            end
     end,
 
     ?P("try open second socket with FD = ~w "
@@ -1939,14 +2181,32 @@ do_connect(Config) when is_list(Config) ->
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
     ?P("try recv on second socket - expect failure when"
        "~n   Socket Info: ~p", [inet:info(S2)]),
+
+    %% Need this for the error handling
+    OS = which_os(),
+
+    ok = inet:setopts(S2, [{debug, true}]),
     ok = case gen_udp:recv(S2, 0, 500) of
-	     {error, econnrefused = R} -> ?P("expected failure: ~w", [R]), ok;
-	     {error, econnreset   = R} -> ?P("expected failure: ~w", [R]), ok;
+	     {error, econnrefused = R} ->
+                 ?P("expected failure: ~w", [R]),
+                 ok;
+	     {error, econnreset   = R} ->
+                 ?P("expected failure: ~w", [R]),
+                 ok;
+             {error, timeout      = R} when (OS =:= darwin) ->
+                 ?P("expected failure (~w) on darwin => SKIP", [R]),
+                 (catch gen_udp:close(S2)),
+                 skip(R);
 	     Other -> 
                  ?P("UNEXPECTED failure: ~p:"
                     "~n   ~p", [Other, inet:info(S2)]),
+                 (catch gen_udp:close(S2)),
                  Other
 	 end,
+
+    ?P("cleanup"),
+    (catch gen_udp:close(S2)),
+
     ?P("done"),
     ok.
 
@@ -2731,8 +2991,8 @@ t_simple_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                         case ?LIB:which_local_addr(Domain) of
                             {ok, LA} ->
                                 LA;
-                        {error, _} ->
-                            skip("No local address")
+                            {error, _} ->
+                                skip("No local address")
                     end,
                     SockAddr = #{family   => Domain,
                                  addr     => LocalAddr,
@@ -2753,6 +3013,8 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                     LinkLocalAddr =
                         case ?LIB:which_link_local_addr(Domain) of
                             {ok, LLA} ->
+                                ?P("found link local address: "
+                                   "~n   ~p", [LLA]),
                                 LLA;
                             {error, _} ->
                                 skip("No link local address")
@@ -2775,8 +3037,8 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                     case net:getifaddrs(Filter) of
                         {ok, [#{addr := #{scope_id := ScopeID}}=H|T]} ->
                             ?P("found link-local candidate(s): "
-                               "~n   Candidate:       ~p"
-                               "~n   Rest Candidate:  ~p", [H, T]),
+                               "~n   Candidate:      ~p"
+                               "~n   Rest Candidate: ~p", [H, T]),
                             SockAddr = #{family   => Domain,
                                          addr     => LinkLocalAddr,
                                          port     => 0,
@@ -3127,6 +3389,71 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% This is the most basic of tests.
+
+%% Create a new node with kernel option 'inet_default_udp_options' set
+%% then rpc call a function which creates a socket and reads back the
+%% values of that socket (buffer and recbuf).
+%%
+t_kernel_options(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() ->
+                    do_kernel_options(Config)
+            end).
+
+
+do_kernel_options(Config) ->
+    BSz   = 12345,
+    RBSz  = 54321,
+    KOpts = ?F("-kernel inet_default_udp_options "
+               "\"[{buffer,~w},{recbuf,~w}]\"", [BSz, RBSz]),
+    ?P("try start node"),
+    case ?START_NODE(?UNIQ_NODE_NAME, KOpts) of
+        {ok, Node} ->
+            Expected = [{buffer, BSz}, {recbuf, RBSz}],
+            ?P("node ~p started - try get (udp) buffer options", [Node]),
+            case rpc:call(Node, ?MODULE, do_kernel_options_remote, [Config]) of
+                {ok, Expected} ->
+                    ?P("options verified"),
+                    (catch ?STOP_NODE(Node)),
+                    ok;
+                {ok, [{buffer, ActualBSz},
+                      {recbuf, ActualRBSz}] = Actual} 
+                  when (ActualBSz =:= BSz) andalso
+                       (ActualRBSz >= RBSz) ->
+                    ?P("options verified: "
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    ok;
+                {ok, Actual} ->
+                    ?P("unexpected success:"
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected_success, Expected, Actual});
+                {error, Reason} ->
+                    ?P("unexpected failure:"
+                       "~n   ~p", [Reason]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected_failure, Reason})
+            end;
+        {error, Reason} ->
+            ?P("failed start node: ~p", [Reason]),
+            error
+    end.
+
+do_kernel_options_remote(Config) ->
+    case ?OPEN(Config, 0, []) of
+        {ok, S} ->
+            inet:getopts(S, [buffer, recbuf]);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Verify that the options [add|drop]_membership do not mess up
 %% the options (including 'ip' which could not be added *after*).
 %% This just attempts to very that the option processing is ok.
@@ -3218,6 +3545,273 @@ do_otp_18323_open(#{local_addr := Addr}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% On some linux platforms, mostly in "docker"-like environments,
+%% send *can* block. This, I think, mostly depends the value of
+%% system config *net.unix.max_dgram_qlen*. On Docker this can
+%% be small (10). With "normal" machines this is much larger (> 500),
+%% which makes this hard tp reproduce.
+otp_19332(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    Cond = fun() ->
+                   is_linux(),
+                   is_docker(Config),
+                   %% We should really test for UDS support also,
+                   %% but how without using 'socket'?
+                   %% Maybe its enough to open the socket (with 'local').
+                   has_small_enough_dgram_qlen(20),
+                   ok
+           end,
+    Pre  = fun() ->
+                   Opts = [local,
+                           {active, false},
+                           {debug, true}],
+                   case gen_udp:open(0, Opts) of
+                       {ok, Sock} ->
+                           inet:setopts(Sock, [{debug, false}]),
+                           #{sock => Sock};
+                       {error, Reason} ->
+                           skip(?F("Failed open socket: ~p", [Reason]))
+                   end
+           end,
+    Case = fun(State) -> do_otp_19332(State) end,
+    Post = fun(#{sock := Sock}) ->
+                   (catch gen_udp:close(Sock))
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_otp_19332(#{sock := Sock}) ->
+    ?P("begin"),
+
+    0 = do_otp_19332_test(Sock),
+
+    ?P("done"),
+    ok.
+
+do_otp_19332_test(S) ->
+    do_otp_19332_test(S, 100000, #{}, 0).
+
+do_otp_19332_test(_S, 0, Errs, NumR) ->
+    ?P("send attempts done: "
+       "~n   Errors:                   ~p"
+       "~n   Number of (inet) replies: ~p", [Errs, NumR]),
+    NumR;
+do_otp_19332_test(S, N, Errs, NumR) ->
+    Packet = lists:duplicate(100, "hello\n"),
+    Errs2  =
+        case gen_udp:send(S, {local, "/tmp/test.sock"}, Packet) of
+            ok ->
+                ?P("UNEXPECTED SUCCESS (at ~w)", [N]),
+                exit(unexpected_success);
+            {error, Reason} ->
+                case Errs of
+                    #{Reason := EN} ->
+                        Errs#{Reason => EN + 1};
+                    _ ->
+                        Errs#{Reason => 1}
+                end
+        end,
+    receive
+        {inet_reply, S, _Ref} ->
+            ?P("Got a reply"),
+            do_otp_19332_test(S, N-1, Errs2, NumR+1)
+    after 0 ->
+            do_otp_19332_test(S, N-1, Errs2, NumR)
+    end.
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+otp_19357_open_with_ipv6_option(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    Cond = fun() ->
+                   ?P("cond check: do we support socket"),
+                   case ?LIB:is_socket_supported() of
+                       true ->
+                           ?P("cond check: do we support ipv6"),
+                           ?LIB:has_support_ipv6();
+                       false ->
+                           ?SKIPT("SOCKET not supported")
+                   end
+           end,
+    Pre  = fun() ->
+                   {ok, Addr} = ?LIB:which_local_addr(inet6),
+                   #{local_addr => Addr}
+           end,
+    Case = fun(State) -> do_otp_19357_open_with_ipv6_option(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_otp_19357_open_with_ipv6_option(#{local_addr := Addr}) ->
+    %% First without specifying the (bind) address:
+    TryOpen = fun(No, Opts) ->
+                      try gen_udp:open(0, Opts) of
+                          {ok, Sock} ->
+                              ?P("success ~w", [No]),
+                              (catch gen_udp:close(Sock));
+                          {error, Reason} ->
+                              ?P("FAILED open socket ~w: "
+                                 "~n   ~p", [No, Reason]),
+                              exit({Reason, No})
+                      catch
+                          C:E ->
+                              ?P("CATCHED open socket ~w: "
+                                 "~n   Error Class: ~p"
+                                 "~n   Error:       ~p"
+                                 "~n   ~p", [No, C, E]),
+                              exit({C, E, No, Opts})
+                      end
+              end,
+    ?P("try wo address (1)"),
+    TryOpen(1, [{inet_backend, socket},
+                binary,
+                inet6, {ipv6_v6only, true},
+                {reuseaddr, true}]),
+
+    ?P("try w address (2)"),
+    TryOpen(2, [{inet_backend, socket},
+                binary,
+                inet6, {ipv6_v6only, true},
+                {ip, Addr},
+                {reuseaddr, true}]),
+
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+t_module_open(Config) ->
+    Cond = fun() ->
+		   ok
+	   end,
+    Pre  = fun() ->
+                   S0 = #{debug  => false,
+                          config => Config},
+		   S1 = case ?WHICH_LOCAL_ADDR(inet) of
+                            {ok, Addr4} ->
+                                ?P("pre -> found IPv4 local address:"
+                                   "~n   ~p", [Addr4]),
+                                S0#{inet => Addr4};
+                            {error, _Reason4} ->
+                                S0
+                        end,
+                   S2 = case ?WHICH_LOCAL_ADDR(inet6) of
+                            {ok, Addr6} ->
+                                ?P("pre -> found IPv6 local address:"
+                                   "~n   ~p", [Addr6]),
+                                S1#{inet6 => Addr6};
+                            {error, _Reason6} ->
+                                S1
+                        end,
+                   %% Verify that at least one of the domains
+                   %% (inet and inet6) exist.
+                   case (maps:get(inet, S2, undefined) =/= undefined) orelse
+                       (maps:get(inet6, S2, undefined) =/= undefined) of
+                       true ->
+                           S2;
+                       false ->
+                           skip(no_available_domains)
+                   end
+	   end,
+    TC   = fun(State) -> do_t_module_open(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_t_module_open(State) ->
+    do_t_module_open_inet(State),
+    do_t_module_open_inet6(State),
+    ok.
+
+do_t_module_open_inet(#{inet   := Addr,
+                          debug  := Debug, 
+                          config := _Config} = _State) ->
+    ?P("*** begin IPv4 checks ***"),
+    do_t_module_open(test_inet_udp, inet, Addr, Debug);
+do_t_module_open_inet(_) ->
+    ?P("*** no IPv4 address ***"),
+    ok.
+
+do_t_module_open_inet6(#{inet6  := Addr,
+                           debug  := Debug,
+                           config := _Config} = _State) ->
+    ?P("*** begin IPv6 checks *** "),
+    do_t_module_open(test_inet6_udp, inet6, Addr, Debug);
+do_t_module_open_inet6(_) ->
+    ?P("*** no IPv6 address ***"),
+    ok.
+
+do_t_module_open(Mod, Fam, Addr, Debug) ->
+    ?P("create socket with module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}], Debug, error),
+
+    ?P("create socket with module (~w) and (~w) domain", [Mod, Fam]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}, Fam], Debug, error),
+
+    ?P("create socket with (~w) domain and module (~w)", [Fam, Mod]),
+    do_t_module_open2(Mod,
+                      [Fam, {udp_module, Mod}], Debug, error),
+
+    ?P("create socket with module (~w) and ip-option", [Mod]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}, {ip, Addr}], Debug, error),
+
+    ?P("create socket with ip-option and module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{ip, Addr}, {udp_module, Mod}], Debug, error),
+
+    ?P("create socket with (~w) domain wo module (~w)", [Fam, Mod]),
+    do_t_module_open2(Mod,
+                      [Fam], Debug, success),
+
+    ?P("create socket with ip-option wo module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{ip, Addr}], Debug, success),
+
+    ?P("done"),
+    ok.
+    
+do_t_module_open2(Module, Opts, Debug, FailureAction) ->
+    case gen_udp:open(0, Opts ++ [{debug, Debug}]) of
+        {ok, Sock} ->
+            ?P("socket created: "
+               "~n   ~p"
+               "~n   wait for notification", [Sock]),
+            do_t_module_await_notification(Module, open, 2, FailureAction),
+            ?P("close socket"),
+            _ = gen_udp:close(Sock),
+            ok;
+        {error, Reason} ->
+            ?P("failed create socket: "
+               "~n   ~p", [Reason]),
+            exit({listen, Reason})
+    end.
+
+do_t_module_await_notification(Module, Func, Arity, FailureAction) ->
+    receive
+        {Module, Func, Arity, _} ->
+            ?P("received expected notification: "
+               "~n   ~w:~w/~w", [Module, Func, Arity]),
+            ok;
+        {Module, OtherFunc, OtherArity, _} ->
+            ?P("received unexpected notification: "
+               "~n   ~w:~w/~w", [Module, OtherFunc, OtherArity]),
+            do_t_module_await_notification(Module, Func, Arity, FailureAction)
+
+    after 5000 ->
+            case FailureAction of
+                error ->
+                    exit({notification_timeout, {Func, Arity}});
+                success ->
+                    ok
+            end
+    end.
+            
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 ok({ok,V}) -> V;
 ok(NotOk) ->
     try throw(not_ok)
@@ -3260,6 +3854,50 @@ get_localaddr([Localhost|Ls]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+is_docker(Config) ->
+    case which_label(Config) of
+        {ok, docker} ->
+            ok;
+        _ ->
+            skip("Is not running in a Docker")
+    end.
+
+has_small_enough_dgram_qlen(Max) when is_integer(Max) ->
+    case max_dgram_qlen() of
+        QLen when is_integer(QLen) andalso (QLen < Max) ->
+            ok;
+        QLen when is_integer(QLen) ->
+            skip("QLen too large: " ++
+                     integer_to_list(QLen) ++ " > " ++ integer_to_list(Max));
+        _ ->
+            skip("Could not get qlen")
+    end.
+
+-define(QLEN, "net.unix.max_dgram_qlen").
+max_dgram_qlen() ->
+    case string:strip(sysctl(?QLEN), right, $\n) of
+        "sysctl: " ++ _ ->
+            %% Key does not exist...skip
+            skip;
+        QLenAttrStr ->
+            case [string:strip(S) || S <- string:tokens(QLenAttrStr, [$=])] of
+                [?QLEN, Value] ->
+                    ?P("Max DGram QLen: ~p~n", [Value]),
+                    try list_to_integer(Value) of
+                        QLen ->
+                            QLen
+                    catch
+                        _:_:_ ->
+                            skip
+                    end;
+                _ ->
+                    skip
+            end
+    end.
+    
+sysctl(Key) when is_list(Key) ->
+    os:cmd(?F("~w ~s", [?FUNCTION_NAME, Key])).
+
 is_net_supported() ->
     try net:info() of
         #{} ->
@@ -3269,6 +3907,18 @@ is_net_supported() ->
             not_supported(net)
     end.
 
+-define(UNIX(Flavor), {unix, Flavor}).
+
+is_linux() ->
+    is_platform(?UNIX(linux), "Linux").
+
+is_platform(Platform, PlatformStr) ->
+    case os:type() of
+        Platform ->
+            ok;
+        _ ->
+            skip("Is not " ++ PlatformStr)
+    end.
 
 is_not_darwin() ->
     is_not_platform(darwin, "Darwin").
@@ -3290,6 +3940,20 @@ is_not_platform(Platform, PlatformStr)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+which_label(Config) ->
+    config_lookup(label, Config).
+
+config_lookup(Key, Config) ->
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Value}} ->
+            {ok, Value};
+        _ ->
+            {error, not_found}
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 not_supported(What) ->
     skip({not_supported, What}).
 
@@ -3298,6 +3962,19 @@ skip(Reason) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a simplified os:type()
+which_os() ->
+    %% Need this for the error handling
+    case os:type() of
+        {unix, Flavor} ->
+            Flavor;
+        {win32, nt} ->
+            windows;
+        _ ->
+            other % We do not really care...
+    end.
+
 
 which_info(Sock) ->
     which_info([istate, active], inet:info(Sock), #{}).
@@ -3320,6 +3997,17 @@ pi(Item) ->
     {Item, Val} = process_info(self(), Item),
     Val.
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start_node(Name) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    ?START_NODE(Name, "-pa " ++ Pa).
+
+
+stop_node(Node) ->
+    ?STOP_NODE(Node).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

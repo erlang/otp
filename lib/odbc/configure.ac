@@ -1,7 +1,9 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2005-2023. All Rights Reserved.
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
+dnl Copyright Ericsson AB 2005-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -31,6 +33,8 @@ m4_include([otp.m4])
 
 AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
+ERL_PUSH_WERROR
+
 ERL_CANONICAL_SYSTEM_TYPE
 
 AC_ARG_WITH(odbc,
@@ -42,6 +46,7 @@ ERL_XCOMP_SYSROOT_INIT
 
 dnl Checks for programs.
 AC_PROG_CC
+LM_PROG_LD
 
 dnl ---------------------------------------------------------------------
 dnl Special windows stuff regarding CFLAGS and details in the environment...
@@ -50,8 +55,7 @@ LM_WINDOWS_ENVIRONMENT
 
 AC_PROG_MAKE_SET
 
-AC_CHECK_PROGS(LD, ld.sh)
-AC_CHECK_TOOL(LD, ld, '$(CC)')
+ERL_OSSF_FLAGS
 
 AC_SUBST(LD)
 
@@ -117,11 +121,6 @@ AC_PROG_EGREP
 
 AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h winsock2.h])
 AC_CHECK_HEADERS([windows.h])
-AC_CHECK_HEADERS([sql.h sqlext.h], [odbc_required_headers=yes], [odbc_required_headers=no],
-[[#ifdef HAVE_WINDOWS_H
-     # include <windows.h>
-     #endif
-     ]])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -159,7 +158,13 @@ AS_CASE([$host_os],
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
 
-               AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               save_LIBS="$LIBS"
+               LIBS="$LIBS $ODBC_LIB"
+               AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+               if test $odbc_lib_link_success = no; then
+                  AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               fi
+               LIBS="$save_LIBS"
         ],
 
         [haiku*],
@@ -168,7 +173,13 @@ AS_CASE([$host_os],
                ODBC_LIB= -L"/system/lib"
                ODBC_INCLUDE="-I/system/develop/headers"
                dnl Haiku's package manager will deal with this for us
+               save_LIBS="$LIBS"
+               LIBS="$LIBS $ODBC_LIB"
                AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               if test $odbc_lib_link_success = no; then
+                  AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+               fi
+               LIBS="$save_LIBS"
         ],
 
         [win32|cygwin],
@@ -182,7 +193,10 @@ AS_CASE([$host_os],
 		    ODBC_LIB=-L"$with_odbc/lib"
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
+		save_LIBS="$LIBS"
+		LIBS="$LIBS $ODBC_LIB"
 		AC_CHECK_LIB(odbc32, main, [ODBC_LIB="$ODBC_LIB -lodbc32"; odbc_lib_link_success=yes])
+		LIBS="$save_LIBS"
         ],
 
         [
@@ -225,16 +239,37 @@ AS_CASE([$host_os],
 			    echo "No odbc library found" > "$ERL_TOP/lib/odbc/SKIP"
 			else
 			    AC_MSG_RESULT($ODBC_LIB)
+			    save_LIBS="$LIBS"
+			    LIBS="$LIBS $ODBC_LIB"
 			    AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+			    if test $odbc_lib_link_success = no; then
+			       AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+			    fi
+			    LIBS="$save_LIBS"
 			fi
                     ],
 
                     [
 			ODBC_LIB=-L"$with_odbc/lib"
 			ODBC_INCLUDE="-I$with_odbc/include"
+			save_LIBS="$LIBS"
+			LIBS="$LIBS $ODBC_LIB"
 			AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+			if test $odbc_lib_link_success = no; then
+			   AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+			fi
+			LIBS="$save_LIBS"
                     ])
         ])
+
+save_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS $ODBC_INCLUDE"
+AC_CHECK_HEADERS([sql.h sqlext.h], [odbc_required_headers=yes], [odbc_required_headers=no],
+[[#ifdef HAVE_WINDOWS_H
+     # include <windows.h>
+     #endif
+     ]])
+CFLAGS="$save_CFLAGS"
 
 if test $odbc_required_headers = no;  then
     AC_MSG_WARN(["ODBC library - header check failed"])
@@ -250,11 +285,25 @@ AC_SUBST(ODBC_INCLUDE)
 
  ]) dnl "$with_odbc" != "no"
 
+dnl ----------------------------------------------------------------------
+dnl Check for GCC diagnostic ignored "-Wstringop-truncation"
+dnl ----------------------------------------------------------------------
+saved_CFLAGS="$CFLAGS"
+CFLAGS="-Werror $CFLAGS"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
+         _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
+         _Pragma("GCC diagnostic pop")
+         ]])],[AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WSTRINGOP_TRUNCATION,1,
+           define if compiler support _Pragma('GCC diagnostic ignored '-Wstringop-truncation''))],[])
+CFLAGS="$saved_CFLAGS"
+
 AS_IF([test "x$GCC" = xyes],
   [
     # Treat certain GCC warnings as errors
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
   ])
+
+ERL_POP_WERROR
 
 AC_CONFIG_FILES([c_src/$host/Makefile:c_src/Makefile.in])
 AC_OUTPUT

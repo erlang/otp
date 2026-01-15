@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2023-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2023-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +23,7 @@
  *  Purpose : Asynchronous I/O functions.
  * ----------------------------------------------------------------------
  *
- * essio = ESock Asynchronous I/O
+ * esaio = ESock Asynchronous I/O
  *
  */
 
@@ -88,6 +90,12 @@ extern ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
                                   int              flags,
                                   ERL_NIF_TERM     eIOV,
                                   const ESockData* dataP);
+extern ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     sendRef,
+                                ERL_NIF_TERM     eIOV,
+                                const ESockData* dataP);
 /*
 extern
 ERL_NIF_TERM esaio_sendfile_start(ErlNifEnv*       env,

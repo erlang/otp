@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,14 +21,14 @@
 %%
 
 -module(inet_epmd_socket).
--feature(maybe_expr, enable).
+-moduledoc false.
 
 %% DistMod API
 -export([net_address/0, listen_open/2, listen_port/3, listen_close/1,
          accept_open/2, accept_controller/3, accepted/3,
          connect/3]).
 
--export([supported/0]).
+-export([check_ip/2, supported/0]).
 
 -export([start_dist_ctrl/2]).
 
@@ -100,7 +102,7 @@ accept_open(_NetAddress, ListenSocket) ->
             socket:sockname(Socket),
         {ok, #{ addr := PeerIp, port := PeerPort }} ?=
             socket:peername(Socket),
-        inet_epmd_dist:check_ip(Ip, PeerIp),
+        check_ip(Ip, PeerIp),
         {Socket, {PeerIp, PeerPort}}
     else
         {error, Reason} ->
@@ -267,11 +269,24 @@ tick(DistCtrl) ->
     ok.
 
 %% ------------------------------------------------------------
+-record(ohp, %% Output Handler Parameters
+        {socket, dist_handle, watermark}).
+
 -spec output_handler_start(_, _) -> no_return(). % Server loop
 output_handler_start(Socket, DistHandle) ->
     try
         erlang:dist_ctrl_get_data_notification(DistHandle),
-        output_handler(Socket, DistHandle)
+        {ok, SndbufSize} = socket:getopt(Socket, {socket,sndbuf}),
+        OHP =
+            #ohp{
+               socket      = Socket,
+               dist_handle = DistHandle,
+               watermark   = SndbufSize bsr 1},
+        Buffer             = [],
+        Size               = 0,
+        DistData           = false,
+        SelectInfo         = undefined,
+        output_handler(OHP, Buffer, Size, DistData, SelectInfo)
     catch
         Class : Reason : Stacktrace when Class =:= error ->
             error_logger:error_report(
@@ -282,74 +297,115 @@ output_handler_start(Socket, DistHandle) ->
             erlang:raise(Class, Reason, Stacktrace)
     end.
 
-output_handler(Socket, DistHandle) ->
-    receive Msg ->
-            case Msg of
-                dist_tick ->
-                    output_handler_tick(Socket, DistHandle);
-                dist_data ->
-                    output_handler_data(Socket, DistHandle);
-                _ -> % Ignore
-                    output_handler(Socket, DistHandle)
-            end
+output_handler(OHP, Buffer, Size, DistData, SelectInfo) ->
+    if
+        DistData, OHP#ohp.watermark > Size ->
+            %% There is dist_data from the emulator,
+            %% and we have buffer space for it
+            output_handler_data(OHP, Buffer, Size, SelectInfo);
+        SelectInfo =:= undefined, Size > 0->
+            %% We are not waiting for a send to complete,
+            %% and we have buffered data
+            output_handler_send(OHP, Buffer, Size, DistData);
+        true ->
+            output_handler_wait(
+              OHP, Buffer, Size, DistData, SelectInfo, infinity)
     end.
 
-output_handler_tick(Socket, DistHandle) ->
-    receive Msg ->
-            case Msg of
-                dist_tick ->
-                    output_handler_tick(Socket, DistHandle);
-                dist_data ->
-                    output_handler_data(Socket, DistHandle);
-                _ -> % Ignore
-                    output_handler_tick(Socket, DistHandle)
-            end
-    after 0 ->
-            output_data(Socket, [<<0:32>>]),
-            output_handler(Socket, DistHandle)
+%% Wait for an external event (message)
+output_handler_wait(
+  #ohp{socket = Socket} = OHP, Buffer, Size, DistData, SelectInfo, Tick) ->
+    receive
+        dist_data ->
+            output_handler(OHP, Buffer, Size, true, SelectInfo);
+        dist_tick
+          when SelectInfo =:= undefined, not DistData, Size == 0 ->
+            %% Tick only when we don't wait for a send to complete
+            %% and there is no dist_data to send,
+            %% but receive all dist_tick messages first
+            %% by looping with after timeout Tick = 0
+            output_handler_wait(OHP, Buffer, Size, DistData, SelectInfo, 0);
+        {'$socket', Socket, select, SelectHandle}
+          when element(3, SelectInfo) =:= SelectHandle ->
+            %% Send no longer pending; try to send again
+            output_handler_send(OHP, Buffer, Size, DistData, SelectInfo);
+        _ -> % Ignore
+            output_handler_wait(OHP, Buffer, Size, DistData, SelectInfo, Tick)
+    after Tick ->
+            %% Send a tick
+            Buffer   = [],      % Assert
+            Size     = 0,       % Assert
+            DistData = false,   % Assert
+            output_handler_send(OHP, [<<0:32>>], 4, false)
     end.
 
-output_handler_data(Socket, DistHandle) ->
-    output_handler_data(Socket, DistHandle, [], 0).
-%%
-output_handler_data(Socket, DistHandle, Buffer, Size)
-  when 1 bsl 16 =< Size ->
-    output_data(Socket, Buffer),
-    output_handler_data(Socket, DistHandle);
-output_handler_data(Socket, DistHandle, Buffer, Size) ->
+%% Get dist_data from the emulator
+output_handler_data(
+  #ohp{dist_handle = DistHandle, watermark = Watermark} = OHP,
+  Buffer, Size, SelectInfo)
+  when Watermark > Size ->
+    %%
     case erlang:dist_ctrl_get_data(DistHandle) of
         none ->
-            if
-                Size =:= 0 ->
-                    [] = Buffer, % ASSERT
-                    erlang:dist_ctrl_get_data_notification(DistHandle),
-                    output_handler(Socket, DistHandle);
-                true ->
-                    output_data(Socket, Buffer),
-                    output_handler_data(Socket, DistHandle)
-            end;
+            erlang:dist_ctrl_get_data_notification(DistHandle),
+            output_handler(OHP, Buffer, Size, false, SelectInfo);
         {Len, Iovec} ->
             %% erlang:display({Len, '==>>'}),
-            output_handler_data(
-              Socket, DistHandle,
-              lists:reverse(Iovec, [<<Len:32>> | Buffer]), Len + 4 + Size)
-    end.
+            Buffer_1 = lists:reverse(Iovec, [<<Len:32>> | Buffer]),
+            Size_1 = Len + 4 + Size,
+            output_handler_data(OHP, Buffer_1, Size_1, SelectInfo)
+    end;
+output_handler_data(OHP, Buffer, Size, SelectInfo) ->
+    output_handler(OHP, Buffer, Size, true, SelectInfo).
 
 %% Output data to socket
-output_data(Socket, Buffer) ->
-    Iovec = lists:reverse(Buffer),
-    case socket:sendmsg(Socket, #{ iov => Iovec }) of
+output_handler_send(OHP, Buffer, Size, DistData) ->
+    output_handler_send_result(
+      OHP, Buffer, Size, DistData,
+      socket:sendv(OHP#ohp.socket, lists:reverse(Buffer), nowait)).
+
+%% Output data to socket, continuation
+output_handler_send(OHP, Buffer, Size, DistData, SelectInfo) ->
+    output_handler_send_result(
+      OHP, Buffer, Size, DistData,
+      socket:sendv(OHP#ohp.socket, lists:reverse(Buffer), SelectInfo, nowait)).
+
+output_handler_send_result(OHP, Buffer, Size, DistData, Result) ->
+    case Result of
         ok ->
-            %% erlang:display({iolist_size(Iovec), '>>'}),
-            ok;
+            output_handler(OHP, [], 0, DistData, undefined);
+        {select, {SelectInfo, RestIOV}} ->
+            Size_1 = iolist_size(RestIOV),
+            Buffer_1  = lists:reverse(RestIOV),
+            output_handler(OHP, Buffer_1, Size_1, DistData, SelectInfo);
+        {select, SelectInfo} ->
+            output_handler(OHP, Buffer, Size, DistData, SelectInfo);
+        {error, {Reason, _RestIOV}} ->
+            exit(Reason);
         {error, Reason} ->
             exit(Reason)
     end.
 
 %% ------------------------------------------------------------
+-record(ihp, %% Input Handler Parameters
+        {socket, dist_handle, watermark}).
+
 -spec input_handler_start(_, _) -> no_return(). % Server loop
 input_handler_start(Socket, DistHandle) ->
-    try input_handler(Socket, DistHandle)
+    try
+        ok               = socket:setopt(Socket, {otp,select_read}, true),
+        {ok, RcvbufSize} = socket:getopt(Socket, {socket,rcvbuf}),
+        IHP =
+            #ihp{
+               socket      = Socket,
+               dist_handle = DistHandle,
+               watermark   = RcvbufSize},
+        Front              = [],
+        Size               = 0,
+        Rear               = [],
+        CSHandle           = undefined,
+        %% erlang:display({?FUNCTION_NAME, Socket, DistHandle}),
+        input_handler(IHP, Front, Size, Rear, CSHandle)
     catch
         Class : Reason : Stacktrace when Class =:= error ->
             error_logger:error_report(
@@ -360,107 +416,197 @@ input_handler_start(Socket, DistHandle) ->
             erlang:raise(Class, Reason, Stacktrace)
     end.
 
-input_handler(Socket, DistHandle) ->
-    input_handler(Socket, DistHandle, <<>>, [], 0).
-
-input_handler(Socket, DistHandle, First, Buffer, Size) ->
-    %% Size is size of First + Buffer
-    case First of
-        <<PacketSize1:32, Packet1:PacketSize1/binary,
-          PacketSize2:32, Packet2:PacketSize2/binary, Rest/binary>> ->
-            put_data(DistHandle, PacketSize1, Packet1),
-            put_data(DistHandle, PacketSize2, Packet2),
-            DataSize = 4 + PacketSize1 + 4 + PacketSize2,
-            input_handler(
-              Socket, DistHandle, Rest, Buffer, Size - DataSize);
-        <<PacketSize:32, Packet:PacketSize/binary, Rest/binary>> ->
-            DataSize = 4 + PacketSize,
-            put_data(DistHandle, PacketSize, Packet),
-            input_handler(
-              Socket, DistHandle, Rest, Buffer, Size - DataSize);
-        <<PacketSize:32, PacketStart/binary>> ->
-            input_handler(
-              Socket, DistHandle, PacketStart, Buffer, Size - 4,
-              PacketSize);
-        <<Bin/binary>> ->
+input_handler(IHP, Front, Size, Rear, CSHandle)
+  when IHP#ihp.watermark > Size, CSHandle =:= undefined ->
+    %% erlang:display({?FUNCTION_NAME, ?LINE, Size}),
+    input_handler_recv(IHP, Front, Size, Rear, CSHandle);
+input_handler(IHP, [] = Front, Size, [] = Rear, CSHandle) ->
+    0 = Size, % Assert
+    input_handler_recv(IHP, Front, Size, Rear, CSHandle);
+input_handler(IHP, [] = _Front, Size, Rear, CSHandle) ->
+    %% erlang:display({?FUNCTION_NAME, ?LINE, Size}),
+    input_handler(IHP, lists:reverse(Rear), Size, [], CSHandle);
+input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, CSHandle) ->
+    case Bin of
+        <<PacketSize_1:32, Packet_1:PacketSize_1/binary,
+          PacketSize_2:32, Packet_2:PacketSize_2/binary,
+          PacketSize_3:32, Packet_3:PacketSize_3/binary,
+          PacketSize_4:32, Packet_4:PacketSize_4/binary,
+          Rest/binary>> ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, Size, PacketSize}),
+            %% 4 complete packets in Bin
+            DistHandle = IHP#ihp.dist_handle,
+            put_data(DistHandle, Packet_1),
+            put_data(DistHandle, Packet_2),
+            put_data(DistHandle, Packet_3),
+            put_data(DistHandle, Packet_4),
+            Size_1 =
+                Size -
+                (16 + PacketSize_1 + PacketSize_2 +
+                     PacketSize_3 + PacketSize_4),
             if
-                4 =< Size ->
-                    {First_1, Buffer_1, PacketSize} =
-                        input_get_packet_size(Bin, lists:reverse(Buffer)),
+                byte_size(Rest) > 0 ->
                     input_handler(
-                      Socket, DistHandle, First_1, Buffer_1, Size - 4,
-                      PacketSize);
-                true ->
-                    Data = input_data(Socket),
-                    Buffer_1 = [Data | Buffer],
-                    DataSize = byte_size(Data),
+                      IHP, [Rest | Front], Size_1, Rear, CSHandle);
+                true -> % byte_size(Rest) == 0
+                    input_handler(IHP, Front, Size_1, Rear, CSHandle)
+            end;
+        <<PacketSize_1:32, Packet_1:PacketSize_1/binary,
+          PacketSize_2:32, Packet_2:PacketSize_2/binary,
+          Rest/binary>> ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, Size, PacketSize}),
+            %% 2 complete packets in Bin
+            DistHandle = IHP#ihp.dist_handle,
+            put_data(DistHandle, Packet_1),
+            put_data(DistHandle, Packet_2),
+            Size_1 = Size - (8 + PacketSize_1 + PacketSize_2),
+            if
+                byte_size(Rest) > 0 ->
                     input_handler(
-                      Socket, DistHandle, First, Buffer_1, Size + DataSize)
+                      IHP, [Rest | Front], Size_1, Rear, CSHandle);
+                true -> % byte_size(Rest) == 0
+                    input_handler(IHP, Front, Size_1, Rear, CSHandle)
+            end;
+        <<PacketSize:32, Packet:PacketSize/binary, Rest/binary>> ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, Size, PacketSize}),
+            %% Complete packet in Bin
+            put_data(IHP#ihp.dist_handle, Packet),
+            Size_1 = Size - (4 + PacketSize),
+            if
+                byte_size(Rest) > 0 ->
+                    input_handler(
+                      IHP, [Rest | Front], Size_1, Rear, CSHandle);
+                true -> % byte_size(Rest) == 0
+                    input_handler(IHP, Front, Size_1, Rear, CSHandle)
+            end;
+        <<PacketSize:32, PacketStart/binary>> ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, Size, PacketSize}),
+            %% Incomplete packet in Bin
+            Size_1 = Size - (4 + PacketSize),
+            if
+                0 > Size_1 ->
+                    %% Incomplete packet in buffer
+                    input_handler_recv(
+                      IHP, Bin_Front, Size, Rear, CSHandle);
+                Size_1 > 0->
+                    %% Complete packet is buffered, and some more
+                    PacketStartSize = byte_size(PacketStart),
+                    IOV =
+                        if  PacketStartSize > 0 -> [PacketStart];
+                            true                -> []
+                        end,
+                    {Packet, Front_1, Rear_1} =
+                        collect_iov(
+                          IOV, Front, PacketSize - PacketStartSize, Rear),
+                    put_data(IHP#ihp.dist_handle, Packet),
+                    input_handler(IHP, Front_1, Size_1, Rear_1, CSHandle);
+                true -> % Size_1 == 0
+                    %% Exactly a packet is buffered
+                    Packet = [PacketStart | Front] ++ lists:reverse(Rear),
+                    put_data(IHP#ihp.dist_handle, Packet),
+                    input_handler(IHP, [], 0, [], CSHandle)
+            end;
+        <<First/binary>> ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, Size, byte_size(First)}),
+            %% Incompleate packet header in Bin
+            if
+                4 > Size ->
+                    %% Incomplete packet header in buffer
+                    input_handler_recv(
+                      IHP, Bin_Front, Size, Rear, CSHandle);
+                Size > 4 ->
+                    %% Complete packet header is buffered, and some more
+                    {Hdr, Front_1, Rear_1} =
+                        collect_bin(First, Front, 4 - byte_size(First), Rear),
+                    input_handler(
+                      IHP, [Hdr | Front_1], Size, Rear_1, CSHandle);
+                true -> % Size == 4
+                    %% Exacty a packet header is buffered
+                    Hdr = list_to_binary(Bin_Front ++ lists:reverse(Rear)),
+                    input_handler(IHP, [Hdr], Size, [], CSHandle)
             end
     end.
 
-%% PacketSize has been matched in PacketStart
-input_handler(Socket, DistHandle, PacketStart, Buffer, Size, PacketSize) ->
-    %% Size is size of PacketStart + Buffer
-    RestSize = Size - PacketSize,
-    if
-        RestSize < 0 ->
-            %% Incomplete packet received so far
-            More = input_data(Socket),
-            MoreSize = byte_size(More),
-            input_handler(
-              Socket, DistHandle, PacketStart,
-              [More | Buffer], Size + MoreSize, PacketSize);
-        0 < RestSize, Buffer =:= [] ->
-            %% Rest data in PacketStart
-            <<Packet:PacketSize/binary, Rest/binary>> = PacketStart,
-            put_data(DistHandle, PacketSize, Packet),
-            input_handler(Socket, DistHandle, Rest, [], RestSize);
-        Buffer =:= [] ->
-            %% No rest data
-            RestSize = 0, % ASSERT
-            put_data(DistHandle, PacketSize, PacketStart),
-            input_handler(Socket, DistHandle);
-        true ->
-            %% Split packet from rest data
-            Bin = hd(Buffer),
-            LastSize = byte_size(Bin) - RestSize,
-            <<LastBin:LastSize/binary, Rest/binary>> = Bin,
-            Packet = [PacketStart|lists:reverse(tl(Buffer), [LastBin])],
-            put_data(DistHandle, PacketSize, Packet),
-            input_handler(Socket, DistHandle, Rest, [], RestSize)
-    end.
+input_handler_recv(IHP, Front, Size, Rear, undefined) ->
+    CSHandle = make_ref(),
+    case socket:recv(IHP#ihp.socket, 0, [], CSHandle) of
+        {select_read, {{select_info,_,_}, Data}} ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE,
+            %%                 select, {CSHandle,byte_size(Data)}}),
+            Size_1 = byte_size(Data) + Size,
+            Rear_1 = [Data | Rear],
+            input_handler(IHP, Front, Size_1, Rear_1, CSHandle);
+        {select, {select_info,_,_}} ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, select, CSHandle}),
+            input_handler(IHP, Front, Size, Rear, CSHandle);
+        {completion, {completion_info,_,_}} ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, select, CSHandle}),
+            input_handler(IHP, Front, Size, Rear, CSHandle);
+        Result ->
+            input_handler_common(IHP, Front, Size, Rear, Result)
+    end;
+input_handler_recv(IHP, Front, Size, Rear, CSHandle) ->
+    input_handler_wait(IHP, Front, Size, Rear, CSHandle).
 
-%% There are enough bytes (4) in First + [Bin|Buffer]
-%% to get the packet size, but not enough in First
-input_get_packet_size(First, [Bin|Buffer]) ->
-    MissingSize = 4 - byte_size(First),
-    if
-        MissingSize =< byte_size(Bin) ->
-            <<Last:MissingSize/binary, Rest/binary>> = Bin,
-            <<PacketSize:32>> = <<First/binary, Last/binary>>,
-            {Rest, lists:reverse(Buffer), PacketSize};
-        true ->
-            input_get_packet_size(<<First/binary, Bin/binary>>, Buffer)
-    end.
-
-%% Input data from socket
-input_data(Socket) ->
-    case socket:recv(Socket) of
+input_handler_common(IHP, Front, Size, Rear, Result) ->
+    case Result of
         {ok, Data} ->
-            %% erlang:display({'<<', byte_size(Data)}),
-            Data;
+            %% erlang:display({?FUNCTION_NAME, ?LINE, '<<', byte_size(Data)}),
+            Size_1 = byte_size(Data) + Size,
+            Rear_1 = [Data | Rear],
+            input_handler(IHP, Front, Size_1, Rear_1, undefined);
         {error, Reason} ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, error, Reason}),
             exit(Reason)
     end.
 
-%%% put_data(_DistHandle, 0, _) ->
-%%%     ok;
+input_handler_wait(IHP, Front, Size, Rear, CSHandle) ->
+    %% erlang:display({?FUNCTION_NAME, ?LINE, CSHandle}),
+    Socket = IHP#ihp.socket,
+    receive
+        {'$socket', Socket, select, CSHandle} ->
+            input_handler_recv(IHP, Front, Size, Rear, undefined);
+        {'$socket', Socket, completion, {CSHandle, Result}} ->
+            input_handler_common(IHP, Front, Size, Rear, Result);
+        _Ignore ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, _Ignore}),
+            input_handler_wait(IHP, Front, Size, Rear, CSHandle)
+    end.
+
+collect_bin(Collected, [Bin | Front], N, Rear) ->
+    BinSize = byte_size(Bin),
+    if
+        N > BinSize ->
+            collect_bin(
+              <<Collected/binary, Bin/binary>>, Front, N - BinSize, Rear);
+        BinSize > N->
+            <<First:N/binary, Rest/binary>> = Bin,
+            {<<Collected/binary, First/binary>>, [Rest | Front], Rear};
+        true -> % BinSize == N
+            {<<Collected/binary, Bin/binary>>, Front, Rear}
+    end;
+collect_bin(Collected, [], N, [_|_] = Rear) ->
+    collect_bin(Collected, lists:reverse(Rear), N, []).
+
+collect_iov(Collected, [Bin | Front], N, Rear) ->
+    BinSize = byte_size(Bin),
+    if
+        N > BinSize ->
+            collect_iov([Bin | Collected], Front, N - BinSize, Rear);
+        BinSize > N ->
+            <<First:N/binary, Rest/binary>> = Bin,
+            {lists:reverse(Collected, [First]), [Rest | Front], Rear};
+        true -> % BinSize == N
+            {lists:reverse(Collected, [Bin]), Front, Rear}
+    end;
+collect_iov(Collected, [], N, [_|_] = Rear) ->
+    collect_iov(Collected, lists:reverse(Rear), N, []).
+
 %% We deliver ticks (packets size 0) to the VM,
 %% so that erlang:dist_get_stat(DistHandle) that
 %% dist_util:getstat/3 falls back to becomes good enough
-put_data(DistHandle, _PacketSize, Packet) ->
-    %% erlang:display({'<<==', _PacketSize}),
+put_data(DistHandle, Packet) ->
+    %% erlang:display({'<<==', iolist_size(Packet)}),
     erlang:dist_ctrl_put_data(DistHandle, Packet).
 
 %% ------------------------------------------------------------
@@ -483,3 +629,57 @@ supported() ->
     %% catch error : notsup ->
     %%         "Module 'socket' not supported"
     %% end.
+
+%% ------------------------------------------------------------
+check_ip(Ip, PeerIp) ->
+    try
+        case application:get_env(kernel, check_ip) of
+            {ok, true} ->
+                maybe
+                    {ok, Ifaddrs} ?= net:getifaddrs(),
+                    {ok, Netmask} ?= find_netmask(Ip, Ifaddrs),
+                    mask(Ip, Netmask) =:= mask(PeerIp, Netmask) orelse
+                        begin
+                            error_logger:error_msg(
+                              "** Connection attempt from "
+                              "disallowed IP ~w ** ~n",
+                              [PeerIp]),
+                            ?shutdown(no_node)
+                        end,
+                    ok
+                else
+                    Error ->
+                        exit({check_ip, Error})
+                end;
+            _ ->
+                ok
+        end
+    catch error : Reason : Stacktrace ->
+            error_logger:error_msg(
+              "error : ~p in ~n    ~p~n", [Reason, Stacktrace]),
+            erlang:raise(error, Reason, Stacktrace)
+    end.
+
+find_netmask(
+  Ip,
+  [#{addr := #{addr := Ip},
+     netmask := #{addr := Netmask}} | _IfAddrs]) ->
+    {ok, Netmask};
+find_netmask(Ip, [_ | IfAddrs]) ->
+    find_netmask(Ip, IfAddrs);
+find_netmask(_, []) ->
+    {error, no_netmask}.
+
+mask(Addr, Mask) when tuple_size(Addr) =:= tuple_size(Mask)->
+    N = tuple_size(Mask),
+    if
+        tuple_size(Addr) == N ->
+            mask(Addr, Mask, N, 1);
+        true ->
+            {error, {ip_size, Addr, N}}
+    end.
+%%
+mask(Addr, Mask, N, I) when I =< N ->
+    [element(N, Addr) band element(N, Mask) | mask(Addr, Mask, N, I + 1)];
+mask(_, _, _, _) ->
+    [].

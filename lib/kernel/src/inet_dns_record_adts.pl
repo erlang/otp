@@ -1,9 +1,11 @@
 #! /usr/bin/env perl
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2009-2023. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2009-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,7 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 use strict;
@@ -24,16 +26,18 @@ use strict;
 # for internal records.
 # 
 # The following defines which ADT function sets that will be generated
-# and which record fields that will be exponated.
+# and which record fields that will be exposed.
 #
 # (FunctionBaseName => [RecordName, FieldName ...], ...)
 my %Names = ('msg' => ['dns_rec', 'header', 'qdlist',
 		       'anlist', 'nslist', 'arlist'],
-	     'dns_rr' => ['dns_rr', 'domain', 'type', 'class', 'ttl', 'data'],
+	     'dns_rr' => ['dns_rr', 'domain', 'type', 'class', 'ttl', 'data',
+                          'func'],
 	     'dns_rr_opt' => ['dns_rr_opt', 'domain', 'type',
 			      'udp_payload_size', 'ext_rcode', 'version',
 			      'z', 'data', 'do'],
-	     'dns_query' => ['dns_query', 'domain', 'type', 'class'],
+	     'dns_query' => ['dns_query', 'domain', 'type', 'class',
+                             'unicast_response'],
 	     'header' => ['dns_header', 'id', 'qr', 'opcode', 'aa', 'tc',
 			  'rd', 'ra', 'pr', 'rcode']);
 # The functions are defined in the __DATA__ section at the end.

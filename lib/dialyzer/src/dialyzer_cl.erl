@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_cl.erl
@@ -22,6 +31,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_cl).
+-moduledoc false.
 
 -export([start/1,
          start_report_modules_analyzed/1,
@@ -485,8 +495,8 @@ clean_plt(PltFile, RemovedMods) ->
 	    Plt, RemovedMods).
 
 expand_dependent_modules(Md5, DiffMd5, ModDeps) ->
-  ChangedMods = sets:from_list([M || {differ, M} <- DiffMd5], [{version, 2}]),
-  RemovedMods = sets:from_list([M || {removed, M} <- DiffMd5], [{version, 2}]),
+  ChangedMods = sets:from_list([M || {differ, M} <- DiffMd5]),
+  RemovedMods = sets:from_list([M || {removed, M} <- DiffMd5]),
   BigSet = sets:union(ChangedMods, RemovedMods),
   BigList = sets:to_list(BigSet),
   ExpandedSet = expand_dependent_modules_1(BigList, BigSet, ModDeps),
@@ -704,10 +714,16 @@ set_location(Location, _EOpt) ->
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
-print_ext_calls(#cl_state{output = Output,
-			  external_calls = Calls,
-			  stored_warnings = Warnings,
-			  output_format = Format}) ->
+print_ext_calls(#cl_state{legal_warnings = LegalWarnings}=State) ->
+  case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+    true -> print_ext_calls_1(State);
+    false -> ok
+  end.
+
+print_ext_calls_1(#cl_state{output = Output,
+			    external_calls = Calls,
+			    stored_warnings = Warnings,
+			    output_format = Format}) ->
   case Calls =:= [] of
     true -> ok;
     false ->
@@ -735,11 +751,17 @@ do_print_ext_calls(_, [], _) ->
 
 print_ext_types(#cl_state{report_mode = quiet}) ->
   ok;
-print_ext_types(#cl_state{output = Output,
-                          external_calls = Calls,
-                          external_types = Types,
-                          stored_warnings = Warnings,
-                          output_format = Format}) ->
+print_ext_types(#cl_state{legal_warnings = LegalWarnings}=State) ->
+  case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+    true -> print_ext_types_1(State);
+    false -> ok
+  end.
+
+print_ext_types_1(#cl_state{output = Output,
+                            external_calls = Calls,
+                            external_types = Types,
+                            stored_warnings = Warnings,
+                            output_format = Format}) ->
   case Types =:= [] of
     true -> ok;
     false ->

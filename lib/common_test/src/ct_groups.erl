@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,11 +25,14 @@
 %%% tests.
 
 -module(ct_groups).
+-moduledoc false.
 
 -export([find_groups/4]).
 -export([make_all_conf/3, make_all_conf/4, make_conf/5]).
 -export([delete_subs/2]).
 -export([expand_groups/3, search_and_override/3]).
+
+-compile(nowarn_obsolete_bool_op).
 
 -define(val(Key, List), proplists:get_value(Key, List)). 
 -define(val(Key, List, Def), proplists:get_value(Key, List, Def)).
@@ -65,6 +70,17 @@ find_groups1(Mod, GrNames, TCs, GroupDefs) ->
     Found = find(Mod, GrNames1, TCs1, GroupDefs, [],
 		 GroupDefs, FindAll),
     [Conf || Conf <- Found, Conf /= 'NOMATCH'].
+
+%% Finds out if the given group, or child cases / child group of a group, is non-empty.
+not_empty_conf({conf, _Props, _Init, Children, _End}) -> not_empty_conf(Children);
+not_empty_conf([] = _Cases) -> false;
+not_empty_conf([_ | _] = _Cases) -> true;
+not_empty_conf(Name) when is_atom(Name) -> true;
+% Other, unexpected formats we don't actively care about, such as `{mnesia_evil_backup, all}`.
+not_empty_conf(_Format) -> true.
+
+remove_empty_confs(Confs) ->
+    lists:filtermap(fun not_empty_conf/1, Confs).
 
 %% Locate all groups
 find(Mod, all, all, [{Name,Props,Tests} | Gs], Known, Defs, _) 
@@ -253,7 +269,6 @@ find(_Mod, _GrNames, _TCs, [], _Known, _Defs, _) ->
 
 trim({conf,Props,Init,Tests,End}) ->
     try trim(Tests) of
-	[] -> [];
 	Tests1 -> [{conf,Props,Init,Tests1,End}]
     catch
 	throw:_ -> []
@@ -499,7 +514,7 @@ make_conf(Mod, Name, Props, TestSpec) ->
 %%%-----------------------------------------------------------------
 
 expand_groups([H | T], ConfTests, Mod) ->
-    [expand_groups(H, ConfTests, Mod) | expand_groups(T, ConfTests, Mod)];
+    remove_empty_confs([expand_groups(H, ConfTests, Mod) | expand_groups(T, ConfTests, Mod)]);
 expand_groups([], _ConfTests, _Mod) ->
     [];
 expand_groups({group,Name}, ConfTests, Mod) ->

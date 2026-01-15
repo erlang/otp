@@ -1,8 +1,16 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:suspend_process(Suspendee) -> true when Suspendee :: pid().[0m
+[;1m  suspend_process(Suspendee)[0m
 
-  Suspends the process identified by [;;4mSuspendee[0m. The same as
+  Suspends the process identified by [;;4mSuspendee[0m. Equivalent to
   calling [;;4merlang:suspend_process(Suspendee, [])[0m.
 
-  Warning:
+  [;;4mWarning[0m
+
     This BIF is intended for debugging only.

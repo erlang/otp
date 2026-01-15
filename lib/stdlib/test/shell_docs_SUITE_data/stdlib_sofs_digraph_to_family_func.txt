@@ -1,33 +1,38 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec digraph_to_family(Graph) -> Family[0m
-  [;1m                           when[0m
-  [;1m                               Graph :: digraph:graph(),[0m
-  [;1m                               Family :: family().[0m
+[;1m  digraph_to_family(Graph)[0m
 
-  Creates a family from the directed graph [;;4mGraph[0m. Each vertex a
-  of [;;4mGraph[0m is represented by a pair (a, {b[1], ..., b[n]}), where
-  the b[i]:s are the out-neighbors of a. If no type is explicitly
-  specified, [{atom, [atom]}] is used as type of the family. It is
-  assumed that [;;4mType[0m is a valid type of the external set of the
-  family.
+  There is no documentation for digraph_to_family(Graph, [{atom,
+  [atom]}])
 
-  If G is a directed graph, it holds that the vertices and edges of
-  G are the same as the vertices and edges of [;;4m[0m
-  [;;4mfamily_to_digraph(digraph_to_family(G))[0m.
+[;1m  digraph_to_family(Graph, Type)[0m
 
-  [;1m-spec digraph_to_family(Graph, Type) -> Family[0m
-  [;1m                           when[0m
-  [;1m                               Graph :: digraph:graph(),[0m
-  [;1m                               Family :: family(),[0m
-  [;1m                               Type :: type().[0m
+  Creates a family from the directed graph [;;4mGraph[0m.
 
-  Creates a family from the directed graph [;;4mGraph[0m. Each vertex a
-  of [;;4mGraph[0m is represented by a pair (a, {b[1], ..., b[n]}), where
-  the b[i]:s are the out-neighbors of a. If no type is explicitly
-  specified, [{atom, [atom]}] is used as type of the family. It is
-  assumed that [;;4mType[0m is a valid type of the external set of the
-  family.
+  Each vertex a of [;;4mGraph[0m is represented by a pair
+  (a, {b[1], ..., b[n]}), where the b[i]:s are the out-neighbors of
+
+   • It is assumed that [;;4mType[0m is a valid type of the external
+     set of the family.
 
   If G is a directed graph, it holds that the vertices and edges of
   G are the same as the vertices and edges of [;;4m[0m
   [;;4mfamily_to_digraph(digraph_to_family(G))[0m.
+
+[;1mExamples[0m
+
+    1> G = digraph:new().
+    2> digraph:add_vertex(G, 1).
+    3> digraph:add_vertex(G, a).
+    4> digraph:add_vertex(G, b).
+    5> digraph:add_edge(G, 1, a).
+    6> digraph:add_edge(G, 1, b).
+    7> F = sofs:digraph_to_family(G).
+    8> sofs:to_external(F).
+    [{1,[a,b]},{a,[]},{b,[]}]

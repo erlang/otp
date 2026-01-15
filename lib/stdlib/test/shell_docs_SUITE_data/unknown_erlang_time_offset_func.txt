@@ -1,38 +1,43 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:time_offset() -> integer().[0m
+[;1m  time_offset()[0m
 
 [;;4mSince[0m:
   OTP 18.0
 
-  Returns the current time offset between Erlang monotonic time
-  and Erlang system time in [;;4mnative[0m time unit. Current time
-  offset added to an Erlang monotonic time gives corresponding
-  Erlang system time.
+  Returns the current time offset between Erlang monotonic time and
+  Erlang system time in [;;4mnative[0m time unit. Current time offset
+  added to an Erlang monotonic time gives corresponding Erlang
+  system time.
 
   The time offset may or may not change during operation depending
   on the time warp mode used.
 
-  Note:
+  [;;4mNote[0m
+
     A change in time offset can be observed at slightly different
-    points in time by different processes.
+    points in time by different processes. If the runtime system
+    is in multi-time warp mode, the time offset is changed when
+    the runtime system detects that the OS system time has
+    changed. The runtime system will, however, not detect this
+    immediately when it occurs. A task checking the time offset is
+    scheduled to execute at least once a minute; so, under normal
+    operation this is to be detected within a minute, but during
+    heavy load it can take longer time.
 
-    If the runtime system is in multi-time warp mode, the time
-    offset is changed when the runtime system detects that the OS
-    system time has changed. The runtime system will, however,
-    not detect this immediately when it occurs. A task checking
-    the time offset is scheduled to execute at least once a
-    minute; so, under normal operation this is to be detected
-    within a minute, but during heavy load it can take longer
-    time.
-
-  [;1m-spec erlang:time_offset(Unit) -> integer() when Unit :: time_unit().[0m
+[;1m  time_offset(Unit)[0m
 
 [;;4mSince[0m:
   OTP 18.0
 
-  Returns the current time offset between Erlang monotonic time
-  and Erlang system time converted into the [;;4mUnit[0m passed as
-  argument.
+  Returns the current time offset between Erlang monotonic time and
+  Erlang system time converted into the [;;4mUnit[0m passed as argument.
 
   Same as calling [;;4merlang:convert_time_unit[0m[;;4m([0m [;;4merlang:time_offset()[0m[;;4m,[0m
   [;;4mnative, Unit)[0m however optimized for commonly used [;;4mUnit[0ms.

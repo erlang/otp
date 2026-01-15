@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(application_controller).
+-moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 %% External exports
 -export([start/1, 
@@ -35,8 +40,8 @@
 	 set_env/3, set_env/4, unset_env/2, unset_env/3]).
 
 %% Internal exports
--export([handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
-	 code_change/3, init_starter/4, get_loaded/1]).
+-export([handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+	 code_change/3, get_loaded/1]).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -44,7 +49,7 @@
 %% Test exports, only to be used from the test suites
 -export([test_change_apps/2]).
 
--import(lists, [zf/2, map/2, foreach/2, foldl/3,
+-import(lists, [filtermap/2, map/2, foreach/2, foldl/3,
 		keyfind/3, keydelete/3, keyreplace/4]).
 
 -include("application_master.hrl").
@@ -159,7 +164,7 @@
 %% Env         = [{Key, Value}]
 %%-----------------------------------------------------------------
 
--record(appl, {name, appl_data, descr, id, vsn, restart_type, inc_apps, opt_apps, apps}).
+-record(appl, {name, appl_data, descr, id, vsn, inc_apps, opt_apps, apps}).
 
 %%-----------------------------------------------------------------
 %% Func: start/1
@@ -255,7 +260,7 @@ is_running(AppName) when is_atom(AppName) ->
 %%-----------------------------------------------------------------
 %% Func: start_boot_application/2
 %% The same as start_application/2 expect that this function is
-%% called from the boot script file. It mustnot be used by the operator.
+%% called from the boot script file. It must not be used by the operator.
 %% This function will cause a node crash if a permanent application 
 %% fails to boot start
 %%-----------------------------------------------------------------
@@ -365,42 +370,47 @@ get_pid_key(Master, Key) ->
 	_ -> undefined
     end.
 
-get_key(AppName, Key) ->
-    case ets:lookup(ac_tab, {loaded, AppName}) of
-	[{_, Appl}] ->
-	    case Key of 
-		description ->
-		    {ok, Appl#appl.descr};
-		id ->
-		    {ok, Appl#appl.id};
-		vsn ->
-		    {ok, Appl#appl.vsn};
-		modules ->
-		    {ok, (Appl#appl.appl_data)#appl_data.mods};
-		maxP ->
-		    {ok, (Appl#appl.appl_data)#appl_data.maxP};
-		maxT ->
-		    {ok, (Appl#appl.appl_data)#appl_data.maxT};
-		registered ->
-		    {ok, (Appl#appl.appl_data)#appl_data.regs};
-		included_applications ->
-		    {ok, Appl#appl.inc_apps};
-                optional_applications ->
-                    {ok, Appl#appl.opt_apps};
-		applications ->
-		    {ok, Appl#appl.apps};
-		env ->
-		    {ok, get_all_env(AppName)};
-		mod ->
-		    {ok, (Appl#appl.appl_data)#appl_data.mod};
-		start_phases ->
-		    {ok, (Appl#appl.appl_data)#appl_data.phases};
-		_ -> undefined
-	    end;
-	_ ->
-	    undefined
+get_key(AppName, description) ->
+    get_key_direct(AppName, #appl{descr = '$1', _ = '_'});
+get_key(AppName, id) ->
+    get_key_direct(AppName, #appl{id = '$1', _ = '_'});
+get_key(AppName, vsn) ->
+    get_key_direct(AppName, #appl{vsn = '$1', _ = '_'});
+get_key(AppName, modules) ->
+    get_key_data(AppName, #appl_data{mods = '$1', _ = '_'});
+get_key(AppName, maxP) ->
+    get_key_data(AppName, #appl_data{maxP = '$1', _ = '_'});
+get_key(AppName, maxT) ->
+    get_key_data(AppName, #appl_data{maxT = '$1', _ = '_'});
+get_key(AppName, registered) ->
+    get_key_data(AppName, #appl_data{regs = '$1', _ = '_'});
+get_key(AppName, included_applications) ->
+    get_key_direct(AppName, #appl{inc_apps = '$1', _ = '_'});
+get_key(AppName, optional_applications) ->
+    get_key_direct(AppName, #appl{opt_apps = '$1', _ = '_'});
+get_key(AppName, applications) ->
+    get_key_direct(AppName, #appl{apps = '$1', _ = '_'});
+get_key(AppName, env) ->
+    case ets:member(ac_tab, {loaded, AppName}) of
+        true -> {ok, get_all_env(AppName)};
+        false -> undefined
+    end;
+get_key(AppName, mod) ->
+    get_key_data(AppName, #appl_data{mod = '$1', _ = '_'});
+get_key(AppName, start_phases) ->
+    get_key_data(AppName, #appl_data{phases = '$1', _ = '_'});
+get_key(_, _) ->
+    undefined.
+
+get_key_direct(AppName, Match) ->
+    case ets:match(ac_tab, {{loaded, AppName}, Match}) of
+        [[Value]] -> {ok, Value};
+        [] -> undefined
     end.
-	    
+
+get_key_data(AppName, Match) ->
+	get_key_direct(AppName, #appl{appl_data = Match, _ = '_'}).
+
 get_pid_all_key(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
 	[[AppName]] -> get_all_key(AppName);
@@ -696,14 +706,14 @@ handle_call({start_application, AppName, RestartType}, From, S) ->
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, undefined} ->
-			    spawn_starter(From, Appl, S, normal),
+			    spawn_starter(Appl, S, normal),
 			    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, {ok, Perms}} ->
 			    case lists:member({AppName, false}, Perms) of
 				false ->
-				    spawn_starter(From, Appl, S, normal),
+				    spawn_starter(Appl, S, normal),
 				    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
 								  Starting],
 						      start_req = [{AppName, From} | Start_req]}};
@@ -781,16 +791,16 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		{true, {true, Appl}, false, {value, Tuple}, false, false} ->
 		    update_permissions(AppName, Bool),
 		    {_AppName2, RestartType, normal, _From} = Tuple,
-		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
+		    spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
 				 start_p_false = keydelete(AppName, 1, SPF),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
 		%% started but not running
 		{true, {true, Appl}, _, _, {value, {AppName, RestartType}}, false} ->
 		    update_permissions(AppName, Bool),
-		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
+		    spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
 				 started = keydelete(AppName, 1, Started),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
@@ -879,7 +889,7 @@ handle_call({config_change, EnvBefore}, _From, S) ->
     {reply, R, S};
 
 handle_call(which_applications, _From, S) ->
-    Reply = zf(fun({Name, Id}) ->
+    Reply = filtermap(fun({Name, Id}) ->
 		       case Id of
 			   {distributed, _Node} ->
 			       false;
@@ -1060,12 +1070,13 @@ handle_info({ac_load_application_reply, AppName, Res}, S) ->
 
 handle_info({ac_start_application_reply, AppName, Res}, S) ->
     Start_req = S#state.start_req,
-    case lists:keyfind(AppName, 1, Starting = S#state.starting) of
+    Starting = S#state.starting,
+    case lists:keyfind(AppName, 1, Starting) of
 	{_AppName, RestartType, Type, From} ->
 	    case Res of
 		start_it ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(From, Appl, S, Type),
+		    spawn_starter(Appl, S, Type),
 		    {noreply, S};
 		{started, Node} ->
 		    handle_application_started(AppName, 
@@ -1081,7 +1092,7 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 			     start_req = Start_reqN}};
 		{takeover, _Node} = Takeover ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(From, Appl, S, Takeover),
+		    spawn_starter(Appl, S, Takeover),
 		    NewStarting1 = keydelete(AppName, 1, Starting),
 		    NewStarting = [{AppName, RestartType, Takeover, From} | NewStarting1],
 		    {noreply, S#state{starting = NewStarting}};
@@ -1358,14 +1369,10 @@ check_start_cond(AppName, RestartType, Started, Running) ->
 		true ->
 		    {error, {already_started, AppName}};
 		false ->
-		    foreach(
-			fun(AppName2) ->
-			    case lists:keymember(AppName2, 1, Started) orelse
-				     lists:member(AppName2, Appl#appl.opt_apps) of
-				true -> ok;
-				false -> throw({error, {not_started, AppName2}})
-			    end
-		    end, Appl#appl.apps),
+                    case find_missing_dependency(Appl, Started) of
+                        {value, NotStarted} -> throw({error, {not_started, NotStarted}});
+                        false -> ok
+                    end,
 		    {ok, Appl}
 	    end;
 	false ->
@@ -1385,7 +1392,7 @@ do_start(AppName, RT, Type, From, S) ->
 	false ->
 	    {true, Appl} = get_loaded(AppName),
 	    Start_req = S#state.start_req,
-	    spawn_starter(undefined, Appl, S, Type),
+	    spawn_starter(Appl, S, Type),
 	    Starting = case lists:keymember(AppName, 1, S#state.starting) of
 			   false ->
 			       %% UW: don't know if this is necessary
@@ -1399,45 +1406,26 @@ do_start(AppName, RT, Type, From, S) ->
 	true -> % otherwise we're already starting the app...
 	    S
     end.
-    
-spawn_starter(From, Appl, S, Type) ->
-    spawn_link(?MODULE, init_starter, [From, Appl, S, Type]).
 
-init_starter(_From, Appl, S, Type) ->
-    process_flag(trap_exit, true),
-    AppName = Appl#appl.name,
-    gen_server:cast(?AC, {application_started, AppName, 
-			  catch start_appl(Appl, S, Type)}).
+spawn_starter(#appl{appl_data=#appl_data{mod=[]},name=Name}, _S, _Type) ->
+    gen_server:cast(?AC, {application_started, Name, {ok, undefined}});
+spawn_starter(Appl, S, Type) ->
+    case find_missing_dependency(Appl, S#state.running) of
+        {value, NotRunning} ->
+            Reply = {info, {not_running, NotRunning}},
+            gen_server:cast(?AC, {application_started, Appl#appl.name, Reply});
+        false ->
+            application_master:start_link(Appl#appl.appl_data, Type)
+    end.
 
-reply(undefined, _Reply) -> 
+reply(undefined, _Reply) ->
     ok;
 reply(From, Reply) -> gen_server:reply(From, Reply).
 
-start_appl(Appl, S, Type) ->
-    ApplData = Appl#appl.appl_data,
-    case ApplData#appl_data.mod of
-	[] ->
-	    {ok, undefined};
-	_ ->
-	    %% Name = ApplData#appl_data.name,
-	    Running = S#state.running,
-	    foreach(
-		fun(AppName) ->
-		    case lists:keymember(AppName, 1, Running) orelse
-			     lists:member(AppName, Appl#appl.opt_apps) of
-			true -> ok;
-			false -> throw({info, {not_running, AppName}})
-		    end
-		end, Appl#appl.apps),
-	    case application_master:start_link(ApplData, Type) of
-		{ok, _Pid} = Ok ->
-		    Ok;
-		{error, _Reason} = Error ->
-		    throw(Error)
-	    end
-    end.
+find_missing_dependency(Appl, Applications) ->
+    Pred = fun(AppName) -> not lists:keymember(AppName, 1, Applications) end,
+    lists:search(Pred, Appl#appl.apps -- Appl#appl.opt_apps).
 
-    
 %%-----------------------------------------------------------------
 %% Stop application locally.
 %%-----------------------------------------------------------------
@@ -1507,8 +1495,8 @@ make_appl(Application) ->
     {ok, make_appl_i(Application)}.
 
 prim_consult(FullName) ->
-    case erl_prim_loader:get_file(FullName) of
-	{ok, Bin, _} ->
+    case erl_prim_loader:read_file(FullName) of
+	{ok, Bin} ->
             case file_binary_to_list(Bin) of
                 {ok, String} ->
                     case erl_scan:string(String) of
@@ -1982,8 +1970,8 @@ check_conf_sys([], SysEnv, Errors, _) ->
 
 load_file(File) ->
     %% We can't use file:consult/1 here. Too bad.
-    case erl_prim_loader:get_file(File) of
-	{ok, Bin, _FileName} ->
+    case erl_prim_loader:read_file(File) of
+	{ok, Bin} ->
 	    %% Make sure that there is some whitespace at the end of the string
 	    %% (so that reading a file with no NL following the "." will work).
             case file_binary_to_list(Bin) of

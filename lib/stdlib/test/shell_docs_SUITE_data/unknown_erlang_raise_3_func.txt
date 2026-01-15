@@ -1,15 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:raise(Class, Reason, Stacktrace) -> badarg[0m
-  [;1m                      when[0m
-  [;1m                          Class :: error | exit | throw,[0m
-  [;1m                          Reason :: term(),[0m
-  [;1m                          Stacktrace ::[0m
-  [;1m                              raise_stacktrace() | stacktrace().[0m
-
-  Types:
-    -type raise_stacktrace() ::
-          [{module(), atom(), arity() | [term()]} |
-           {function(), arity() | [term()]}].
+[;1m  raise(Class, Reason, Stacktrace)[0m
 
   Raises an exception of the specified class, reason, and call stack
   backtrace (stacktrace).
@@ -47,6 +44,5 @@
   to be sure not to return, you can call [;;4merror(erlang:raise(Class,[0m
   [;;4mReason, Stacktrace))[0m and hope to distinguish exceptions later.
 
-  See the reference manual about errors and error handling for
-  more information about exception classes and how to catch
-  exceptions.
+  See the reference manual about errors and error handling for more
+  information about exception classes and how to catch exceptions.

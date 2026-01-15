@@ -1,0 +1,28 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+    "ID": "erl_interface-openssl",
+    "description": "Openssl MD5 implementation in erl_interface",
+    "copyrightText": "Copyright 1995-2022 The OpenSSL Project Authors. All Rights Reserved.",
+    "downloadLocation": "https://github.com/openssl/openssl",
+    "homepage": "https://www.openssl.org/",
+    "licenseDeclared": "Apache-2.0",
+    "name": "openssl",
+    "versionInfo": "3.6.0",
+    "sha": "7b371d80d959ec9ab4139d09d78e83c090de9779",
+    "path": "./lib/erl_interface/src/openssl",
+    "exclude": [
+      "./lib/erl_interface/src/openssl/vendor.info",
+      "./lib/erl_interface/src/openssl/README",
+      "./lib/erl_interface/src/openssl/openssl.mk"
+    ],
+    "supplier": "Organization: OpenSSL Mission",
+    "purl": "pkg:generic/openssl"
+  }
+]

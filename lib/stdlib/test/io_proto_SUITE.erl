@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,19 +25,22 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
-	 binary_options/1, read_modes_gl/1,
+         binary_options/1, read_modes_gl/1, logging_gl/1,
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
          unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1,
          file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
          file_read_stdin_unicode_translation_error_binary_mode/1,
          file_read_stdin_unicode_translation_error_list_mode/1,
+         file_read_line_stdin_cr_without_nl/1,
          file_read_line_stdin_unicode_translation_error_binary_mode/1,
          file_read_line_stdin_unicode_translation_error_list_mode/1,
          io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
+         io_get_until_stdin_binary_mode/1, io_get_until_stdin_list_mode/1,
          io_get_chars_file_read_stdin_binary_mode/1,
          file_read_stdin_latin1_binary_mode/1,
          file_read_stdin_latin1_list_mode/1,
-         io_fwrite_stdin_latin1_mode/1
+         io_fwrite_stdin_latin1_mode/1,
+         invalid_req/1
         ]).
 
 
@@ -47,6 +52,10 @@
 -export([uprompt/1, slogan/0, session_slogan/0]).
 
 -export([write_raw_to_stdout/0, read_raw_from_stdin/1]).
+
+-export([get_until_eof/2]).
+
+-include_lib("stdlib/include/assert.hrl").
 
 %%-define(debug, true).
 
@@ -62,7 +71,7 @@ suite() ->
 
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
-     binary_options, read_modes_gl, read_modes_ogl,
+     binary_options, read_modes_gl, read_modes_ogl, logging_gl,
      broken_unicode, eof_on_pipe, unicode_prompt,
      shell_slogan, raw_stdout, raw_stdout_isatty,
      file_read_stdin_binary_mode,
@@ -73,10 +82,13 @@ all() ->
      file_read_line_stdin_unicode_translation_error_list_mode,
      io_get_chars_stdin_binary_mode,
      io_get_chars_stdin_list_mode,
+     io_get_until_stdin_binary_mode,
+     io_get_until_stdin_list_mode,
      io_get_chars_file_read_stdin_binary_mode,
      file_read_stdin_latin1_binary_mode,
      file_read_stdin_latin1_list_mode,
-     io_fwrite_stdin_latin1_mode
+     io_fwrite_stdin_latin1_mode,
+     invalid_req
     ].
 
 groups() -> 
@@ -270,7 +282,15 @@ setopts_getopts(Config) when is_list(Config) ->
                {expect, "[\n ]ok"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
-               {expect, "\\Q<<\"hej\\n\">>\\E"}
+               {expect, "\\Q<<\"hej\\n\">>\\E"},
+               {putline, "proplists:get_value(terminal,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stdin,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stdout,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stderr,io:getopts())."},
+               {expect, "true"}
               ],[]);
         _ ->
             ok
@@ -289,8 +309,57 @@ setopts_getopts(Config) when is_list(Config) ->
        {expect, "[\n ]ok"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect, "\\Q<<\"hej\\n\">>\\E"}
+       {expect, "\\Q<<\"hej\\n\">>\\E"},
+       {putline, "proplists:get_value(terminal,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stdin,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stdout,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stderr,io:getopts())."},
+       {expect, "true"}
       ],[],"",["-oldshell"]),
+
+    %% Test that terminal options when used in non-terminal are returned as they should
+    %% both when run as an os:cmd and when run directly as a port.
+    Erl = ct:get_progname(),
+    CmdStr = os:cmd(Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"),
+    maybe
+        {ok, T, _} ?= erl_scan:string(CmdStr),
+        {ok, Opts} ?= erl_parse:parse_term(T),
+        ?assertEqual(false, proplists:get_value(terminal,Opts)),
+        case os:type() of
+            {win32, nt} ->
+                %% On Windows stdin will be a tty
+                ?assertEqual(true, proplists:get_value(stdin,Opts));
+            _ ->
+                ?assertEqual(false, proplists:get_value(stdin,Opts))
+        end,
+        ?assertEqual(false, proplists:get_value(stdout,Opts)),
+        ?assertEqual(false, proplists:get_value(stderr,Opts))
+    else
+        _ -> ct:fail({failed_to_parse, CmdStr})
+    end,
+
+    Port = erlang:open_port({spawn, Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"},
+            [exit_status]),
+    PortStr = (fun F() ->
+        receive
+            {Port,{data,D}} -> D ++ F();
+            {Port,{exit_status,0}} -> []
+        end
+    end)(),
+
+    maybe
+        {ok, PortT, _} ?= erl_scan:string(PortStr),
+        {ok, PortOpts} ?= erl_parse:parse_term(PortT),
+        ?assertEqual(false, proplists:get_value(terminal,PortOpts)),
+        ?assertEqual(false, proplists:get_value(stdin,PortOpts)),
+        ?assertEqual(false, proplists:get_value(stdout,PortOpts)),
+        ?assertEqual(proplists:get_value(stderr, io:getopts()), proplists:get_value(stderr,PortOpts))
+    else
+        _ -> ct:fail({failed_to_parse, PortStr})
+    end,
     ok.
 
 %% Test that reading from stdin using file:read works when io is in binary mode
@@ -343,6 +412,20 @@ file_read_stdin_unicode_translation_error_list_mode(_Config) ->
 
     ok.
 
+%% Test that reading from stdin using file:read_line works when \r is sent without \n
+file_read_line_stdin_cr_without_nl(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read_line(standard_io) end, []),
+
+    erlang:port_command(ErlPort, "abc\r"),
+    {error,timeout} = gen_tcp:recv(P, 0, 2000),
+    erlang:port_command(ErlPort, "def\r\n"),
+    {ok, ~S'got: <<"abc\rdef\r\n">>\n'} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+
 %% Test that reading from stdin using file:read_line returns
 %% correct error when in binary mode
 file_read_line_stdin_unicode_translation_error_binary_mode(_Config) ->
@@ -367,7 +450,7 @@ file_read_line_stdin_unicode_translation_error_list_mode(_Config) ->
 
     ok.
 
-%% Test that reading from stdin using file:read works when io is in binary mode
+%% Test that reading from stdin using io:get_chars works when io is in binary mode
 io_get_chars_stdin_binary_mode(_Config) ->
     {ok, P, ErlPort} = start_stdin_node(
                          fun() ->
@@ -385,7 +468,75 @@ io_get_chars_stdin_binary_mode(_Config) ->
 
     ok.
 
-%% Test that reading from stdin using file:read works when io is in binary mode
+%% Test that reading from stdin using custom io_request works when io is in binary mode
+io_get_until_stdin_binary_mode(_Config) ->
+
+    GetUntilEof =
+        fun() ->
+                IoServer = group_leader(),
+                IoServer !
+                    {io_request,
+                     self(),
+                     IoServer,
+                     {get_until, unicode, '', ?MODULE, get_until_eof, []}},
+                receive
+                    {io_reply, IoServer, Data} ->
+                        {ok, Data}
+                end
+        end,
+
+    {ok, P, ErlPort} = start_stdin_node(GetUntilEof, [binary]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {error, timeout} = gen_tcp:recv(P, 0, 250),
+    ErlPort ! {self(), close},
+    {ok, "got: <<\"x\\n\">>\n"} = gen_tcp:recv(P, 0),
+
+    {ok, P2, ErlPort2} = start_stdin_node(GetUntilEof, [binary]),
+
+    {error, timeout} = gen_tcp:recv(P2, 0, 250),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof\n"} = gen_tcp:recv(P2, 0),
+
+    ok.
+
+%% Test that reading from stdin using custom io_request works when io is in list mode
+io_get_until_stdin_list_mode(_Config) ->
+
+    GetUntilEof =
+        fun() ->
+                IoServer = group_leader(),
+                IoServer !
+                    {io_request,
+                     self(),
+                     IoServer,
+                     {get_until, unicode, '', ?MODULE, get_until_eof, []}},
+                receive
+                    {io_reply, IoServer, Data} ->
+                        {ok, Data}
+                end
+        end,
+
+    {ok, P, ErlPort} = start_stdin_node(GetUntilEof, [list]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {error, timeout} = gen_tcp:recv(P, 0, 250),
+    ErlPort ! {self(), close},
+    {ok, "got: \"x\\n\"\n"} = gen_tcp:recv(P, 0),
+
+    {ok, P2, ErlPort2} = start_stdin_node(GetUntilEof, [list]),
+
+    {error, timeout} = gen_tcp:recv(P2, 0, 250),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof\n"} = gen_tcp:recv(P2, 0),
+
+    ok.
+
+get_until_eof([],eof) -> {done,eof,[]};
+get_until_eof(ThisFar,eof) -> {done,ThisFar,eof};
+get_until_eof(ThisFar,CharList) -> {more,ThisFar++CharList}.
+
+%% Test that reading from stdin using io:get_chars works when io is in list mode
 io_get_chars_stdin_list_mode(_Config) ->
     {ok, P, ErlPort} = start_stdin_node(
                          fun() -> case io:get_chars(standard_io, "", 1) of
@@ -801,9 +952,7 @@ unicode_options_gen(Config) when is_list(Config) ->
     DoOneFile1 =
 	fun(Encoding, N, M) ->
 		?dbg({Encoding,M,N}),
-		io:format("Read test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
-		io:format(standard_error,
-			  "Read test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
+		ct:log("Read test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
 		Fname = filename:join(Dir,
 				      "genfile_"++enc2str(Encoding)++
 					  "_"++integer_to_list(N)),
@@ -856,9 +1005,7 @@ unicode_options_gen(Config) when is_list(Config) ->
     DoOneFile2 =
 	fun(Encoding,N,M) ->
 		?dbg({Encoding,M,N}),
-		io:format("Write test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
-		io:format(standard_error,
-			  "Write test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
+		ct:log("Write test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
 		Fname = filename:join(Dir,
 				      "genfile_"++enc2str(Encoding)++
 					  "_"++integer_to_list(N)),
@@ -1335,6 +1482,85 @@ read_modes_gl_1(_Config,Machine) ->
     end,
     ok.
 
+logging_gl(Config) when is_list(Config) ->
+
+    AssertString = fun(Match) ->
+                           fun F() ->
+                                   ?MODULE ! {get, self()},
+                                   receive
+                                       {put_chars, _, M} ->
+                                           case string:find(M, Match) of
+                                               nomatch -> io:format("~p~n",[M]), F();
+                                               _ -> ok
+                                           end
+                                   after 500 -> timeout end
+                           end
+                   end,
+    
+    AssertTimeout = fun() ->
+                            ?MODULE ! {get, self()},
+                            receive
+                                timeout -> ok;
+                                Msg -> {unexpected, Msg}
+                             end
+                    end,
+
+    rtnode:run(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "[\n ]2"},
+       {eval, fun() ->
+                      Device = spawn(
+                                 fun F() ->
+                                         receive
+                                             {get, Parent} ->
+                                                 receive {io_request, From, ReplyAs, M} ->
+                                                         Parent ! M,
+                                                         From ! {io_reply, ReplyAs, ok}
+                                                 after 500 ->
+                                                         Parent ! timeout
+                                                 end,
+                                                 F()
+                                         end
+                                 end),
+                      register(?MODULE, Device),
+                      ok = logger:add_handler(default, logger_std_h, #{ filter_default => stop, config => #{ type => {device, Device} }}),
+                      logger:set_primary_config(level, all),
+                      ok = io:setopts(user, [{log,output}])
+              end},
+       {putline, "io:format(user,\"abc\n\",[])."},
+       {expect, "abc\r\nok"},
+       {eval, AssertTimeout},
+       {eval, fun() -> ok = logger:add_handler_filter(default, stderr, {fun logger_filters:domain/2, {log, sub, [otp, kernel, io]}}) end},
+       {putline, "io:format(user,\"abc\n\",[])."},
+       {expect, "abc\r\nok"},
+       {eval, AssertString("abc\n")},
+
+       %% Check that no input events are logged
+       {putline, "io:setopts([{log, output}])."},
+       {expect, "\r\nok"},
+       {eval, AssertString("ok\n")},
+       {eval, AssertTimeout},
+
+       %% Check that input events work
+       {putline, "io:setopts([{log, input}])."},
+       {expect, "\r\nok"},
+       {eval, AssertString("get_until")},
+       {putline, "io:get_line(\"prompt: \")."},
+       {expect, "prompt: "},
+       {eval, AssertString("get_line")},
+       {putline, "def"},
+       {expect, "\\Q\"def\\n\"\\E"},
+
+       {eval, fun() -> ok = logger:set_primary_config(level, info) end}
+      ],[],"",
+      ["-pz",filename:dirname(code:which(?MODULE)),
+       "-oldshell",
+       "-connect_all","false",
+       "-kernel","logger","[{handler, default, undefined}]",
+       "-kernel","shell_history","disabled",
+       "-kernel","prevent_overlapping_partitions","false"]),
+    ok.
 
 %% Test behaviour when reading broken Unicode files
 broken_unicode(Config) when is_list(Config) ->
@@ -1452,6 +1678,11 @@ raw_stdout_isatty(Config) when is_list(Config) ->
          {expect, "\\QZ^?\\200\\377\\203Z\\E"}
         ],[]),
         ok.
+
+invalid_req(_Config) ->
+    Ref = make_ref(),
+    whereis(user) ! {io_request, self(), Ref, invalid},
+    receive M -> ?assertMatch({io_reply,_Ref, {error,request}}, M) end.
 %%
 %% Test I/O-server
 %%

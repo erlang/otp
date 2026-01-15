@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,47 @@
 %% %CopyrightEnd%
 %%
 -module(unicode).
+-moduledoc """
+Functions for converting and classifying Unicode characters.
+
+This module contains functions for converting between different character
+representations. It converts between ISO Latin-1 characters and Unicode
+characters, but it can also convert between different Unicode encodings (like
+UTF-8, UTF-16, and UTF-32).
+
+The default Unicode encoding in Erlang binaries is UTF-8, which is also the
+format in which built-in functions and libraries in OTP expect to find binary
+Unicode data. In lists, Unicode data is encoded as integers, each integer
+representing one character and encoded simply as the Unicode code point for the
+character.
+
+Other Unicode encodings than integers representing code points or UTF-8 in
+binaries are referred to as "external encodings". The ISO Latin-1 encoding is in
+binaries and lists referred to as latin1-encoding.
+
+It is recommended to only use external encodings for communication with external
+entities where this is required. When working inside the Erlang/OTP environment,
+it is recommended to keep binaries in UTF-8 when representing Unicode
+characters. ISO Latin-1 encoding is supported both for backward compatibility
+and for communication with external entities not supporting Unicode character
+sets.
+
+Programs should always operate on a normalized form and compare
+canonical-equivalent Unicode characters as equal. All characters should thus be
+normalized to one form once on the system borders. One of the following
+functions can convert characters to their normalized forms
+`characters_to_nfc_list/1`, `characters_to_nfc_binary/1`,
+`characters_to_nfd_list/1` or `characters_to_nfd_binary/1`. For general text
+`characters_to_nfc_list/1` or `characters_to_nfc_binary/1` is preferred, and for
+identifiers one of the compatibility normalization functions, such as
+`characters_to_nfkc_list/1`, is preferred for security reasons. The
+normalization functions where introduced in OTP 20. Additional information on
+normalization can be found in the
+[Unicode FAQ](http://unicode.org/faq/normalization.html).
+""".
+
+-compile(nowarn_obsolete_bool_op).
+-compile(nowarn_deprecated_catch).
 
 -export([characters_to_list/1, characters_to_list_int/2,
 	 characters_to_binary/1, characters_to_binary_int/2,
@@ -29,19 +72,27 @@
          characters_to_nfkc_list/1, characters_to_nfkc_binary/1
         ]).
 
+-export([is_whitespace/1, is_id_start/1, is_id_continue/1, category/1]).
+
 -export_type([chardata/0, charlist/0, encoding/0, external_chardata/0,
               external_charlist/0, latin1_char/0, latin1_chardata/0,
-              latin1_charlist/0, latin1_binary/0, unicode_binary/0]).
+              latin1_charlist/0, latin1_binary/0, unicode_binary/0,
+              category/0]).
 
 -type encoding()  :: 'latin1' | 'unicode' | 'utf8'
                    | 'utf16' | {'utf16', endian()}
                    | 'utf32' | {'utf32', endian()}.
 -type endian()    :: 'big' | 'little'.
+-doc "A `t:binary/0` with characters encoded in the UTF-8 coding standard.".
 -type unicode_binary() :: binary().
 -type charlist() ::
         maybe_improper_list(char() | unicode_binary() | charlist(),
                             unicode_binary() | nil()).
 -type chardata() :: charlist() | unicode_binary().
+-doc """
+A `t:binary/0` with characters coded in a user-specified Unicode encoding other
+than UTF-8 (that is, UTF-16 or UTF-32).
+""".
 -type external_unicode_binary() :: binary().
 -type external_chardata() :: external_charlist() | external_unicode_binary().
 -type external_charlist() ::
@@ -49,14 +100,27 @@
                               external_unicode_binary() |
                               external_charlist(),
                             external_unicode_binary() | nil()).
+-doc "A `t:binary/0` with characters coded in ISO Latin-1.".
 -type latin1_binary() :: binary().
+-doc "An `t:integer/0` representing a valid ISO Latin-1 character (0-255).".
 -type latin1_char() :: byte().
+-doc "Equivalent to `t:iodata/0`.".
 -type latin1_chardata() :: latin1_charlist() | latin1_binary().
+-doc "Equivalent to `t:iolist/0`.".
 -type latin1_charlist() ::
         maybe_improper_list(latin1_char() |
                               latin1_binary() |
                               latin1_charlist(),
                             latin1_binary() | nil()).
+-doc "Character category".
+-type category() ::
+        {letter, uppercase | lowercase | titlecase | modifier | other} |
+        {mark, non_spacing | spacing_combining | enclosing} |
+        {number, decimal | letter | other} |
+        {separator, space | line | paragraph} |
+        {other, control | format | surrogate | private | not_assigned} |
+        {punctuation, connector | dash | open | close | initial | final | other} |
+        {symbol, math | currency | modifier | other}.
 
 %% We must inline these functions so that the stacktrace points to
 %% the correct function.
@@ -71,12 +135,16 @@
 
 -export([bin_is_7bit/1, characters_to_binary/2, characters_to_list/2]).
 
+-define(IS_CP(CP), is_integer(CP, 0, 16#10FFFF)).
+
+-doc false.
 -spec bin_is_7bit(Binary) -> boolean() when
       Binary :: binary().
 
 bin_is_7bit(_) ->
     erlang:nif_error(undef).
 
+-doc #{ equiv => characters_to_binary(Data, InEncoding, unicode) }.
 -spec characters_to_binary(Data, InEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       InEncoding :: encoding(),
@@ -88,6 +156,118 @@ bin_is_7bit(_) ->
 characters_to_binary(_, _) ->
     erlang:nif_error(undef).
 
+-doc """
+Converts a possibly deep list of integers and binaries into a list of integers
+representing Unicode characters. The binaries in the input can have characters
+encoded as one of the following:
+
+- ISO Latin-1 (0-255, one character per byte). Here, case parameter `InEncoding`
+  is to be specified as `latin1`.
+- One of the UTF-encodings, which is specified as parameter `InEncoding`.
+
+Note that integers in the list always represent code points regardless of
+`InEncoding` passed. If `InEncoding latin1` is passed, only code points < 256
+are allowed; otherwise, all valid unicode code points are allowed.
+
+If `InEncoding` is `latin1`, parameter `Data` corresponds to the `t:iodata/0`
+type, but for `unicode`, parameter `Data` can contain integers > 255 (Unicode
+characters beyond the ISO Latin-1 range), which makes it invalid as
+`t:iodata/0`.
+
+The purpose of the function is mainly to convert combinations of Unicode
+characters into a pure Unicode string in list representation for further
+processing. For writing the data to an external entity, the reverse function
+`characters_to_binary/3` comes in handy.
+
+Option `unicode` is an alias for `utf8`, as this is the preferred encoding for
+Unicode characters in binaries. `utf16` is an alias for `{utf16,big}` and
+`utf32` is an alias for `{utf32,big}`. The atoms `big` and `little` denote big-
+or little-endian encoding.
+
+If the data cannot be converted, either because of illegal Unicode/ISO Latin-1
+characters in the list, or because of invalid UTF encoding in any binaries, an
+error tuple is returned. The error tuple contains the tag `error`, a list
+representing the characters that could be converted before the error occurred
+and a representation of the characters including and after the offending
+integer/bytes. The last part is mostly for debugging, as it still constitutes a
+possibly deep or mixed list, or both, not necessarily of the same depth as the
+original data. The error occurs when traversing the list and whatever is left to
+decode is returned "as is".
+
+However, if the input `Data` is a pure binary, the third part of the error tuple
+is guaranteed to be a binary as well.
+
+Errors occur for the following reasons:
+
+- Integers out of range.
+
+  If `InEncoding` is `latin1`, an error occurs whenever an integer > 255 is
+  found in the lists.
+
+  If `InEncoding` is of a Unicode type, an error occurs whenever either of the
+  following is found:
+
+  - An integer > 16#10FFFF (the maximum Unicode character)
+  - An integer in the range 16#D800 to 16#DFFF (invalid range reserved for
+    UTF-16 surrogate pairs)
+
+- Incorrect UTF encoding.
+
+  If `InEncoding` is one of the UTF types, the bytes in any binaries must be
+  valid in that encoding.
+
+  Errors can occur for various reasons, including the following:
+
+  - "Pure" decoding errors (like the upper bits of the bytes being wrong).
+  - The bytes are decoded to a too large number.
+  - The bytes are decoded to a code point in the invalid Unicode range.
+  - Encoding is "overlong", meaning that a number should have been encoded in
+    fewer bytes.
+
+  The case of a truncated UTF is handled specially, see the paragraph about
+  incomplete binaries below.
+
+  If `InEncoding` is `latin1`, binaries are always valid as long as they contain
+  whole bytes, as each byte falls into the valid ISO Latin-1 range.
+
+A special type of error is when no actual invalid integers or bytes are found,
+but a trailing `t:binary/0` consists of too few bytes to decode the last
+character. This error can occur if bytes are read from a file in chunks or if
+binaries in other ways are split on non-UTF character boundaries. An
+`incomplete` tuple is then returned instead of the `error` tuple. It consists of
+the same parts as the `error` tuple, but the tag is `incomplete` instead of
+`error` and the last element is always guaranteed to be a binary consisting of
+the first part of a (so far) valid UTF character.
+
+If one UTF character is split over two consecutive binaries in the `Data`, the
+conversion succeeds. This means that a character can be decoded from a range of
+binaries as long as the whole range is specified as input without errors
+occurring.
+
+_Example:_
+
+```erlang
+decode_data(Data) ->
+   case unicode:characters_to_list(Data,unicode) of
+      {incomplete,Encoded, Rest} ->
+            More = get_some_more_data(),
+            Encoded ++ decode_data([Rest, More]);
+      {error,Encoded,Rest} ->
+            handle_error(Encoded,Rest);
+      List ->
+            List
+   end.
+```
+
+However, bit strings that are not whole bytes are not allowed, so a UTF
+character must be split along 8-bit boundaries to ever be decoded.
+
+A `badarg` exception is thrown for the following cases:
+
+- Any parameters are of the wrong type.
+- The list structure is invalid (a number as tail).
+- The binaries do not contain whole bytes (bit strings).
+""".
 -spec characters_to_list(Data,  InEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       InEncoding :: encoding(),
@@ -101,6 +281,7 @@ characters_to_list(_, _) ->
 
 %%% End of BIFs
 
+-doc #{ equiv => characters_to_list(Data, unicode) }.
 -spec characters_to_list(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       Result :: string()
@@ -116,6 +297,7 @@ characters_to_list(ML) ->
             error_with_info(Reason, [ML])
     end.
 
+-doc #{ equiv => characters_to_binary(Data, unicode, unicode) }.
 -spec characters_to_binary(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       Result :: binary()
@@ -131,6 +313,29 @@ characters_to_binary(ML) ->
             error_with_info(error_type(Reason), [ML])
     end.
 
+-doc """
+Behaves as `characters_to_list/2`, but produces a binary instead of a Unicode
+list.
+
+`InEncoding` defines how input is to be interpreted if binaries are present in
+`Data`
+
+`OutEncoding` defines in what format output is to be generated.
+
+Options:
+
+- **`unicode`** - An alias for `utf8`, as this is the preferred encoding for
+  Unicode characters in binaries.
+
+- **`utf16`** - An alias for `{utf16,big}`.
+
+- **`utf32`** - An alias for `{utf32,big}`.
+
+The atoms `big` and `little` denote big- or little-endian encoding.
+
+Errors and exceptions occur as in `characters_to_list/2`, but the second element
+in tuple `error` or `incomplete` is a `t:binary/0` and not a `t:list/0`.
+""".
 -spec characters_to_binary(Data, InEncoding, OutEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       InEncoding :: encoding(),
@@ -165,6 +370,15 @@ no_conversion_needed(ML, In, Out) ->
         {_,_} -> false
     end andalso unicode:bin_is_7bit(ML).
 
+-doc """
+Checks for a UTF Byte Order Mark (BOM) in the beginning of a binary.
+
+If the supplied binary `Bin` begins with a valid BOM for either UTF-8, UTF-16, or
+UTF-32, the function returns the encoding identified along with the BOM length
+in bytes.
+
+If no BOM is found, the function returns `{latin1,0}`.
+""".
 -spec bom_to_encoding(Bin) -> {Encoding, Length} when
       Bin :: binary(),
       Encoding ::  'latin1' | 'utf8'
@@ -185,6 +399,19 @@ bom_to_encoding(<<255,254,_/binary>>) ->
 bom_to_encoding(Bin) when is_binary(Bin) ->
     {latin1,0}.
 
+-doc """
+Creates a UTF Byte Order Mark (BOM) as a binary from the supplied `InEncoding`.
+
+The BOM is, if supported at all, expected to be placed first in UTF encoded
+files or messages.
+
+The function returns `<<>>` for `latin1` encoding, as there is no BOM for ISO
+Latin-1.
+
+Notice that the BOM for UTF-8 is seldom used, and it is really not a _byte
+order_ mark. There are obviously no byte order issues with UTF-8, so the BOM is
+only there to differentiate UTF-8 encoding from other UTF formats.
+""".
 -spec encoding_to_bom(InEncoding) -> Bin when
       Bin :: binary(),
       InEncoding :: encoding().
@@ -211,6 +438,20 @@ encoding_to_bom(latin1) ->
 -define(GC_N, 200). %% arbitrary number
 
 %% Canonical decompose string to list of chars
+-doc """
+Converts a possibly deep list of characters and binaries into a Normalized Form
+of canonical equivalent Decomposed characters according to the Unicode standard.
+
+Any binaries in the input must be encoded with utf8 encoding.
+
+The result is a list of characters.
+
+```erlang
+1> unicode:characters_to_nfd_list("abc..åäö").
+[97,98,99,46,46,97,778,97,776,111,776]
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec characters_to_nfd_list(chardata()) -> [char()] | {error, [char()], chardata()}.
 characters_to_nfd_list(CD) ->
     try
@@ -228,6 +469,20 @@ characters_to_nfd_list(CD, Acc) ->
         {error,Error} -> {error, lists:reverse(Acc), Error}
     end.
 
+-doc """
+Converts a possibly deep list of characters and binaries into a Normalized Form
+of canonical equivalent Decomposed characters according to the Unicode standard.
+
+Any binaries in the input must be encoded with utf8 encoding.
+
+The result is an utf8 encoded binary.
+
+```erlang
+2> unicode:characters_to_nfd_binary("abc..åäö").
+<<97,98,99,46,46,97,204,138,97,204,136,111,204,136>>
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec characters_to_nfd_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
 characters_to_nfd_binary(CD) ->
     try
@@ -247,6 +502,21 @@ characters_to_nfd_binary(CD, _, Row, Acc) ->
     characters_to_nfd_binary(CD, ?GC_N, [], prepend_row_to_acc(Row, Acc)).
 
 %% Compability Canonical decompose string to list of chars.
+-doc """
+Converts a possibly deep list of characters and binaries into a Normalized Form
+of compatibly equivalent Decomposed characters according to the Unicode
+standard.
+
+Any binaries in the input must be encoded with utf8 encoding.
+
+The result is a list of characters.
+
+```erlang
+1> unicode:characters_to_nfkd_list(["abc..åäö",[65299,65298]]).
+[97,98,99,46,46,97,778,97,776,111,776,51,50]
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec characters_to_nfkd_list(chardata()) -> [char()] | {error, [char()], chardata()}.
 characters_to_nfkd_list(CD) ->
     try
@@ -264,6 +534,21 @@ characters_to_nfkd_list(CD, Acc) ->
         {error,Error} -> {error, lists:reverse(Acc), Error}
     end.
 
+-doc """
+Converts a possibly deep list of characters and binaries into a Normalized Form
+of compatibly equivalent Decomposed characters according to the Unicode
+standard.
+
+Any binaries in the input must be encoded with utf8 encoding.
+
+The result is an utf8 encoded binary.
+
+```erlang
+2> unicode:characters_to_nfkd_binary(["abc..åäö",[65299,65298]]).
+<<97,98,99,46,46,97,204,138,97,204,136,111,204,136,51,50>>
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec characters_to_nfkd_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
 characters_to_nfkd_binary(CD) ->
     try
@@ -284,6 +569,20 @@ characters_to_nfkd_binary(CD, _, Row, Acc) ->
 
 
 %% Canonical compose string to list of chars
+-doc """
+Converts a possibly deep list of characters and binaries into a Normalized Form
+of canonical equivalent Composed characters according to the Unicode standard.
+
+Any binaries in the input must be encoded with utf8 encoding.
+
+The result is a list of characters.
+
+```erlang
+3> unicode:characters_to_nfc_list([<<"abc..a">>,[778],$a,[776],$o,[776]]).
+"abc..åäö"
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec characters_to_nfc_list(chardata()) -> [char()] | {error, [char()], chardata()}.
 characters_to_nfc_list(CD) ->
     try
@@ -301,6 +600,20 @@ characters_to_nfc_list(CD, Acc) ->
         {error,Error} -> {error, lists:reverse(Acc), Error}
     end.
 
+-doc """
+Converts a possibly deep list of characters and binaries into a Normalized Form
+of canonical equivalent Composed characters according to the Unicode standard.
+
+Any binaries in the input must be encoded with utf8 encoding.
+
+The result is an utf8 encoded binary.
+
+```erlang
+4> unicode:characters_to_nfc_binary([<<"abc..a">>,[778],$a,[776],$o,[776]]).
+<<"abc..åäö"/utf8>>
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec characters_to_nfc_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
 characters_to_nfc_binary(CD) ->
     try
@@ -320,6 +633,20 @@ characters_to_nfc_binary(CD, _, Row, Acc) ->
     characters_to_nfc_binary(CD, ?GC_N, [], prepend_row_to_acc(Row, Acc)).
 
 %% Compability Canonical compose string to list of chars
+-doc """
+Converts a possibly deep list of characters and binaries into a Normalized Form
+of compatibly equivalent Composed characters according to the Unicode standard.
+
+Any binaries in the input must be encoded with utf8 encoding.
+
+The result is a list of characters.
+
+```erlang
+3> unicode:characters_to_nfkc_list([<<"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
+"abc..åäö32"
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec characters_to_nfkc_list(chardata()) -> [char()] | {error, [char()], chardata()}.
 characters_to_nfkc_list(CD) ->
     try
@@ -337,6 +664,20 @@ characters_to_nfkc_list(CD, Acc) ->
         {error,Error} -> {error, lists:reverse(Acc), Error}
     end.
 
+-doc """
+Converts a possibly deep list of characters and binaries into a Normalized Form
+of compatibly equivalent Composed characters according to the Unicode standard.
+
+Any binaries in the input must be encoded with utf8 encoding.
+
+The result is an utf8 encoded binary.
+
+```erlang
+4> unicode:characters_to_nfkc_binary([<<"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
+<<"abc..åäö32"/utf8>>
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec characters_to_nfkc_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
 characters_to_nfkc_binary(CD) ->
     try
@@ -355,13 +696,150 @@ characters_to_nfkc_binary(CD, N, Row, Acc) when N > 0 ->
 characters_to_nfkc_binary(CD, _, Row, Acc) ->
     characters_to_nfkc_binary(CD, ?GC_N, [], prepend_row_to_acc(Row, Acc)).
 
+-doc """
+Returns true if `Char` is a whitespace.
+
+Whitespace is defined in
+[Unicode Standard Annex #44](http://unicode.org/reports/tr44/).
+
+```erlang
+1> unicode:is_whitespace($\s).
+true
+2> unicode:is_whitespace($😊).
+false
+```
+""".
+-doc(#{since => ~"OTP @OTP-19858@"}).
+-spec is_whitespace(char()) -> boolean().
+is_whitespace(X) %% ASCII (and low number) Optimizations
+  when X =:= 9; X =:= 10; X =:= 11; X =:= 12; X =:= 13; X =:= 32;
+       X =:= 133; X =:= 160 ->
+    true;
+is_whitespace(Char) when is_integer(Char, 0, 5000) -> %% Arbitrary limit without whitespace
+    false;
+is_whitespace(Char) when ?IS_CP(Char) ->
+    unicode_util:is_whitespace(Char);
+is_whitespace(Term) ->
+    badarg_with_info([Term]).
+
+
+-doc """
+Returns true if `Char` is an identifier start.
+
+Identifier start is defined by the ID_Start property in
+[Unicode Standard Annex #31](https://unicode.org/reports/tr31/#D1).
+
+```erlang
+1> unicode:is_id_start($a).
+true
+2> unicode:is_id_start($_).
+false
+3> unicode:is_id_start($-).
+false
+```
+""".
+-doc(#{since => ~"OTP @OTP-19858@"}).
+-spec is_id_start(char()) -> boolean().
+is_id_start(X)  %% ASCII optimizations
+  when X =:= 65; X =:= 66; X =:= 67; X =:= 68; X =:= 69; X =:= 70; X =:= 71;
+       X =:= 72; X =:= 73; X =:= 74; X =:= 75; X =:= 76; X =:= 77; X =:= 78;
+       X =:= 79; X =:= 80; X =:= 81; X =:= 82; X =:= 83; X =:= 84; X =:= 85;
+       X =:= 86; X =:= 87; X =:= 88; X =:= 89; X =:= 90; X =:= 97; X =:= 98;
+       X =:= 99; X =:= 100; X =:= 101; X =:= 102; X =:= 103; X =:= 104; X =:= 105;
+       X =:= 106; X =:= 107; X =:= 108; X =:= 109; X =:= 110; X =:= 111; X =:= 112;
+       X =:= 113; X =:= 114; X =:= 115; X =:= 116; X =:= 117; X =:= 118; X =:= 119;
+       X =:= 120; X =:= 121; X =:= 122 ->
+    true;
+is_id_start(Char) when is_integer(Char, 0, 127) ->
+    false;
+is_id_start(Char) when ?IS_CP(Char) ->
+    case unicode_util:category(Char) of
+        {number,letter} -> true;
+        {letter,modifier} -> unicode_util:is_letter_not_pattern_syntax(Char);
+        {letter,_} -> true;
+        {_,_} -> unicode_util:is_other_id_start(Char)
+    end;
+is_id_start(Term) ->
+    badarg_with_info([Term]).
+
+
+-doc """
+Returns true if `Char` is an identifier continuation.
+
+Identifier continuation is defined by the ID_Continue property in
+[Unicode Standard Annex #31](https://unicode.org/reports/tr31/#D1).
+
+```erlang
+1> unicode:is_id_continue($a).
+true
+2> unicode:is_id_continue($_).
+true
+3> unicode:is_id_continue($-).
+false
+```
+""".
+-doc(#{since => ~"OTP @OTP-19858@"}).
+-spec is_id_continue(char()) -> boolean().
+is_id_continue(X)
+  when X =:= 48; X =:= 49; X =:= 50; X =:= 51; X =:= 52; X =:= 53; X =:= 54;
+       X =:= 55; X =:= 56; X =:= 57; X =:= 65; X =:= 66; X =:= 67; X =:= 68;
+       X =:= 69; X =:= 70; X =:= 71; X =:= 72; X =:= 73; X =:= 74; X =:= 75;
+       X =:= 76; X =:= 77; X =:= 78; X =:= 79; X =:= 80; X =:= 81; X =:= 82;
+       X =:= 83; X =:= 84; X =:= 85; X =:= 86; X =:= 87; X =:= 88; X =:= 89;
+       X =:= 90; X =:= 95; X =:= 97; X =:= 98; X =:= 99; X =:= 100; X =:= 101;
+       X =:= 102; X =:= 103; X =:= 104; X =:= 105; X =:= 106; X =:= 107;
+       X =:= 108; X =:= 109; X =:= 110; X =:= 111; X =:= 112; X =:= 113;
+       X =:= 114; X =:= 115; X =:= 116; X =:= 117; X =:= 118; X =:= 119;
+       X =:= 120; X =:= 121; X =:= 122 ->
+    true;
+is_id_continue(Char) when is_integer(Char, 0, 127) ->
+    false;
+is_id_continue(Char) when ?IS_CP(Char) ->
+    case unicode_util:category(Char) of
+        {punctuation, connector} -> true;
+        {mark,non_spacing} -> true;
+        {mark,spacing_combining} -> true;
+        {number,other} -> unicode_util:is_other_id_continue(Char);
+        {number,_} -> true;
+        {letter,modifier} -> unicode_util:is_letter_not_pattern_syntax(Char);
+        {letter,_} -> true;
+        {_,_} -> unicode_util:is_other_id_start(Char) orelse
+                     unicode_util:is_other_id_continue(Char)
+    end;
+is_id_continue(Term) ->
+    badarg_with_info([Term]).
+
+-doc """
+Returns the `Char` category.
+
+```erlang
+1> unicode:category($a).
+{letter,lowercase}
+2> unicode:category($Ä).
+{letter,uppercase}
+3> unicode:category($😊).
+{symbol,other}
+4> unicode:category($€).
+{symbol,currency}
+5> unicode:category($[).
+{punctuation,open}
+```
+""".
+-doc(#{since => ~"OTP @OTP-19858@"}).
+-spec category(char()) -> category().
+category(Char) when ?IS_CP(Char) ->
+    unicode_util:category(Char);
+category(Term) ->
+    badarg_with_info([Term]).
+
+%% internals
+
 acc_to_binary(Acc) ->
     list_to_binary(lists:reverse(Acc)).
 prepend_row_to_acc(Row, Acc) ->
     [characters_to_binary(lists:reverse(Row))|Acc].
 
-%% internals
-
+-doc false.
 characters_to_list_int(ML, Encoding) ->
     try
 	do_characters_to_list(ML, Encoding)
@@ -382,6 +860,7 @@ do_characters_to_list(ML, Encoding) ->
     end.
 
 
+-doc false.
 characters_to_binary_int(ML, InEncoding) ->
     try
 	characters_to_binary_int(ML, InEncoding, unicode)

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(disk_log_1).
+-moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 %% Efficient file based log - implementation part
 
@@ -978,13 +983,14 @@ mf_ext_close(#handle{filename = FName, curF = CurF,
 %% -> {ok, handle()} | throw(FileError)
 change_size_wrap(#handle{filename = FName} = Handle, {NewMaxB, NewMaxF}, Version) ->
     {_MaxB, MaxF} = get_wrap_size(Handle),
+    BiggerMaxF = lists:max([MaxF, get_old_max_f(Handle#handle.maxF)]),
     write_size_file(read_write, FName, NewMaxB, NewMaxF, Version),
     if
-        NewMaxF > MaxF ->
+        NewMaxF > BiggerMaxF ->
             remove_files(wrap, FName, MaxF + 1, NewMaxF),
             {ok, Handle#handle{maxB = NewMaxB, maxF = NewMaxF}};
-        NewMaxF < MaxF ->
-            {ok, Handle#handle{maxB = NewMaxB, maxF = {NewMaxF, MaxF}}};
+        NewMaxF < BiggerMaxF ->
+            {ok, Handle#handle{maxB = NewMaxB, maxF = {NewMaxF, BiggerMaxF}}};
         true ->
             {ok, Handle#handle{maxB = NewMaxB, maxF = NewMaxF}}
     end.
@@ -1563,9 +1569,10 @@ inc_wrap(FName, CurF, MaxF) ->
 	    {NewFt, MaxF}
     end.
 
-inc(N, {_NewMax, OldMax}) -> inc(N, OldMax, 1);
 inc(N, Max) -> inc(N, Max, 1).
 
+inc(N, {_NewMax, OldMax}, Step) ->
+    inc(N, OldMax, Step);
 inc(N, Max, Step) ->
     Nx = (N + Step) rem Max,
     if
@@ -1796,3 +1803,8 @@ file_error(FileName, {error, Error}) ->
 file_error_close(Fd, FileName, {error, Error}) ->
     _ = file:close(Fd),
     throw({error, {file_error, FileName, Error}}).
+
+get_old_max_f({_, OldMaxF}) ->
+    OldMaxF;
+get_old_max_f(MaxF) ->
+    MaxF.

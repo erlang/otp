@@ -9,6 +9,7 @@
 	 sub_string/2,sub_string/3,centre/2,centre/3, join/2]).
 -export([to_upper/1, to_lower/1]).
 -export([eep49/0, eep58/0]).
+-export([strict_generators/0]).
 
 -import(lists,[reverse/1,member/2]).
 
@@ -216,7 +217,7 @@ cspan([], _Cs, I) -> I.
       SubString :: string(),
       Start :: pos_integer().
 
-substr(String, 1) when is_list(String) -> 
+substr(String, 1) when is_list(String) ->
     String;
 substr(String, S) when is_integer(S), S > 1 ->
     substr2(String, S).
@@ -344,9 +345,9 @@ sub_word(String, Index, Char) when is_integer(Index), is_integer(Char) ->
 s_word([], _, _, _,Res) -> reverse(Res);
 s_word([Char|_],Index,Char,Index,Res) -> reverse(Res);
 s_word([H|T],Index,Char,Index,Res) -> s_word(T,Index,Char,Index,[H|Res]);
-s_word([Char|T],Stop,Char,Index,Res) when Index < Stop -> 
+s_word([Char|T],Stop,Char,Index,Res) when Index < Stop ->
     s_word(strip(T,left,Char),Stop,Char,Index+1,Res);
-s_word([_|T],Stop,Char,Index,Res) when Index < Stop -> 
+s_word([_|T],Stop,Char,Index,Res) when Index < Stop ->
     s_word(T,Stop,Char,Index,Res).
 
 %%% STRIP %%%
@@ -589,4 +590,18 @@ eep58() ->
     MapDouble = #{K => 2 * V || K := V <- Map},
     MapDouble = maps:from_list([{{key,I}, 2 * I} || I <- Seq]),
 
+    ok.
+
+strict_generators() ->
+    [X+1 || X <:- [1,2,3]],
+    [X+1 || <<X>> <:= <<1,2,3>>],
+    [X*Y || X := Y <:- #{1 => 2, 3 => 4}],
+
+    ok.
+
+%% EEP-73: Zip generators.
+eep73() ->
+    [{X,Y}||X <- [1,2,3] && Y <- [2,2,2]],
+    [{X,Y}||X <- [1,2,3] && <<Y>> <= <<2,2,2>>],
+    [{K1,K2,V1,V2}|| K1 := V1 <- #{a=>1} && K2 := V2 <- #{b=>3}],
     ok.

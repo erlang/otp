@@ -1,8 +1,17 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec list_to_pid(String) -> pid() when String :: string().[0m
+[;1m  list_to_pid(String)[0m
 
   Returns a process identifier whose text representation is a [;;4m[0m
-  [;;4mString[0m, for example:
+  [;;4mString[0m.
+
+  For example:
 
     > list_to_pid("<0.4.1>").
     <0.4.1>
@@ -10,6 +19,7 @@
   Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of a
   process identifier.
 
-  Warning:
+  [;;4mWarning[0m
+
     This BIF is intended for debugging and is not to be used in
     application programs.

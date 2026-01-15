@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -180,8 +182,8 @@
 -define(VEOL,6).        %% End-of-line character in addition to carriage return
                         %% or,and). linefeed.
 -define(VEOL2,7).       %% Additional end-of-line character.
--define(VSTART,8).      %% Continues paused output (normally control-Q).
--define(VSTOP,9).       %% Pauses output (normally control-S).
+-define(VSTART,8).      %% Continues paused output (normally Ctrl+Q).
+-define(VSTOP,9).       %% Pauses output (normally Ctrl+S).
 -define(VSUSP,10).      %% Suspends the current program.
 -define(VDSUSP,11).     %% Another suspend character.
 -define(VREPRINT,12).   %% Reprints the current input line.
@@ -269,5 +271,5 @@
           suggest_window_size,
           suggest_packet_size,
 	  exec,
-	  sub_system_supervisor
+	  connection_supervisor
 	 }).

@@ -1,0 +1,168 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: BSD-3-Clause
+--
+-- Copyright (c) 2010 IETF Trust and the persons identified as the document authors.  All rights reserved.
+-- Copyright Ericsson AB 2025. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+--
+-- 1. Redistributions of source code must retain the above copyright notice,
+--    this list of conditions and the following disclaimer.
+--
+-- 2. Redistributions in binary form must reproduce the above copyright notice,
+--    this list of conditions and the following disclaimer in the documentation
+--    and/or other materials provided with the distribution.
+--
+-- 3. Neither the name of the copyright holder nor the names of its contributors
+--    may be used to endorse or promote products derived from this software
+--    without specific prior written permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-- ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+-- LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+-- CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+-- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+-- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+-- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+-- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+--
+-- %CopyrightEnd%
+
+AsymmetricKeyPackageModuleV1
+     { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+       smime(16) modules(0) id-mod-asymmetricKeyPkgV1(50) }
+
+   DEFINITIONS IMPLICIT TAGS ::=
+
+   BEGIN
+
+   -- EXPORTS ALL
+
+   IMPORTS
+
+   -- FROM New SMIME ASN.1 [RFC5911]
+
+   Attribute{}, CONTENT-TYPE
+    FROM CryptographicMessageSyntax-2009
+      { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+        smime(16) modules(0) id-mod-cms-2004-02(41) }
+
+   -- From New PKIX ASN.1 [RFC5912]
+   ATTRIBUTE
+    FROM PKIX-CommonTypes-2009
+      { iso(1) identified-organization(3) dod(6) internet(1)
+        security(5) mechanisms(5) pkix(7) id-mod(0)
+        id-mod-pkixCommon-02(57) }
+
+   -- From New PKIX ASN.1 [RFC5912]
+
+   AlgorithmIdentifier{}, ALGORITHM, PUBLIC-KEY, CONTENT-ENCRYPTION
+     FROM AlgorithmInformation-2009
+       { iso(1) identified-organization(3) dod(6) internet(1)
+         security(5) mechanisms(5) pkix(7) id-mod(0)
+         id-mod-algorithmInformation-02(58) }
+
+   ;
+
+   ContentSet CONTENT-TYPE ::= {
+    ct-asymmetric-key-package,
+    ... -- Expect additional content types --
+   }
+
+ ct-asymmetric-key-package CONTENT-TYPE ::=
+    { AsymmetricKeyPackage IDENTIFIED BY id-ct-KP-aKeyPackage }
+
+   id-ct-KP-aKeyPackage OBJECT IDENTIFIER ::=
+     { joint-iso-itu-t(2) country(16) us(840) organization(1)
+         gov(101) dod(2) infosec(1) formats(2)
+         key-package-content-types(78) 5
+     }
+
+   AsymmetricKeyPackage ::= SEQUENCE SIZE (1..MAX) OF OneAsymmetricKey
+
+   OneAsymmetricKey ::= SEQUENCE {
+     version                   Version,
+     privateKeyAlgorithm       PrivateKeyAlgorithmIdentifier,
+     privateKey                PrivateKey,
+     attributes            [0] Attributes OPTIONAL,
+     ...,
+     [[2: publicKey        [1] PublicKey OPTIONAL ]],
+     ...
+   }
+
+   PrivateKeyInfo ::= OneAsymmetricKey
+
+   -- PrivateKeyInfo is used by [P12]. If any items tagged as version
+   -- 2 are used, the version must be v2, else the version should be
+   -- v1. When v1, PrivateKeyInfo is the same as it was in [RFC5208].
+
+   Version ::= INTEGER { v1(0), v2(1) } (v1, ..., v2)
+
+   PrivateKeyAlgorithmIdentifier ::= AlgorithmIdentifier
+                                      { PUBLIC-KEY,
+                                        { PrivateKeyAlgorithms } }
+
+   PrivateKey ::= OCTET STRING
+                     -- Content varies based on type of key. The
+                     -- algorithm identifier dictates the format of
+                     -- the key.
+
+   PublicKey ::= BIT STRING
+                     -- Content varies based on type of key. The
+                     -- algorithm identifier dictates the format of
+                     -- the key.
+
+   Attributes ::= SET OF Attribute { { OneAsymmetricKeyAttributes } }
+
+   OneAsymmetricKeyAttributes ATTRIBUTE ::= {
+     ... -- For local profiles
+   }
+
+   -- An alternate representation that makes full use of ASN.1
+   -- constraints follows.  Also note that PUBLIC-KEY needs to be
+   -- imported from the new PKIX ASN.1 Algorithm Information module
+   -- and PrivateKeyAlgorithms needs to be commented out.
+
+   -- OneAsymmetricKey ::= SEQUENCE {
+   --  version                  Version,
+   --  privateKeyAlgorithm      SEQUENCE {
+   --   algorithm                 PUBLIC-KEY.&id({PublicKeySet}),
+   --    parameters               PUBLIC-KEY.&Params({PublicKeySet}
+   --                               {@privateKeyAlgorithm.algorithm})
+   --                               OPTIONAL}
+   --  privateKey               OCTET STRING (CONTAINING
+   --                             PUBLIC-KEY.&PrivateKey({PublicKeySet}
+   --                             {@privateKeyAlgorithm.algorithm})),
+   --  attributes           [0] Attributes OPTIONAL,
+   --  ...,
+   --  [[2: publicKey       [1] BIT STRING (CONTAINING
+   --                             PUBLIC-KEY.&Params({PublicKeySet}
+   --                             {@privateKeyAlgorithm.algorithm})
+   --                             OPTIONAL,
+   --  ...
+   --    }
+
+   EncryptedPrivateKeyInfo ::= SEQUENCE {
+     encryptionAlgorithm  EncryptionAlgorithmIdentifier,
+     encryptedData        EncryptedData }
+
+   EncryptionAlgorithmIdentifier ::= AlgorithmIdentifier
+                                       { CONTENT-ENCRYPTION,
+                                         { KeyEncryptionAlgorithms } }
+
+   EncryptedData ::= OCTET STRING -- Encrypted PrivateKeyInfo
+
+   PrivateKeyAlgorithms ALGORITHM ::= {
+     ... -- Extensible
+   }
+
+   KeyEncryptionAlgorithms ALGORITHM ::= {
+     ... -- Extensible
+   }
+
+   END

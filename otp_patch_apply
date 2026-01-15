@@ -2,7 +2,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2014-2021. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2014-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -315,8 +317,12 @@ elif [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
     TARGET=$OVERRIDE_TARGET
 fi
 
-# Check for cleanup
 inst_app_vers="$idir/releases/$otp_rel/installed_application_versions"
+if [ $install_docs = yes ]; then
+    $cp "$inst_app_vers" "${inst_app_vers}.pre_patch"
+fi
+
+# Check for cleanup
 rm_app_vers=
 if [ $cleanup = yes ]; then
     $mv "$inst_app_vers" "${inst_app_vers}.save" || \
@@ -392,6 +398,15 @@ if [ $install_docs = yes ]; then
 	$MAKE MAKE="$MAKE" RELEASE_ROOT="$idir" RELEASE_PATH="$idir" \
 	TESTROOT="$idir" release_docs) || exit 1
 
+    (cd "$sdir/system/doc/top" && \
+	$MAKE MAKE="$MAKE" RELEASE_ROOT="$idir" RELEASE_PATH="$idir" \
+	TESTROOT="$idir" release_docs) || exit 1
+
+    "$sdir/make/patch_apply_adjust_docs" -s "$sdir" -r "$idir" -a "${inst_app_vers}.pre_patch" \
+        || exit 1
+
+    $rm -f "${inst_app_vers}.pre_patch"
+
     echo ""
     echo "*"
     echo "* NOTE! In order to update pre-formatted man pages you"
@@ -407,13 +422,13 @@ for app in $applications; do
 	    erts_vsn=`grep '^VSN' erts/vsn.mk | sed "s|^VSN.*=[^0-9]*\([0-9].*\)$|\1|g"`
 	    update_rel=true;;
 	kernel)
-	    kernel_vsn=`sed "s|^KERNEL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/kernel/vsn.mk`
+	    kernel_vsn=`grep '^KERNEL_VSN' lib/kernel/vsn.mk | sed "s|^KERNEL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g"`
 	    update_rel=true;;
 	stdlib)
-	    stdlib_vsn=`sed "s|^STDLIB_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/stdlib/vsn.mk`
+	    stdlib_vsn=`grep '^STDLIB_VSN' lib/stdlib/vsn.mk | sed "s|^STDLIB_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g"`
 	    update_rel=true;;
 	sasl)
-	    sasl_vsn=`sed "s|^SASL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/sasl/vsn.mk`
+	    sasl_vsn=`grep '^SASL_VSN' lib/sasl/vsn.mk | sed "s|^SASL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g"`
 	    update_rel=true;;
 	*)
 	    ;;

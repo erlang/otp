@@ -2,7 +2,7 @@
 
 **Erlang** is a programming language and runtime system for building massively scalable soft real-time systems with requirements on high availability. 
 
-**OTP** is a set of Erlang libraries, which consists of the Erlang runtime system, a number of ready-to-use components mainly written in Erlang, and a set of design principles for Erlang programs. [Learn more about Erlang and OTP](http://erlang.org/doc/system_architecture_intro/sys_arch_intro.html).
+**OTP** is a set of Erlang libraries, which consists of the Erlang runtime system, a number of ready-to-use components mainly written in Erlang, and a set of design principles for Erlang programs. [Learn more about Erlang and OTP](https://www.erlang.org/doc/system/getting_started.html).
 
 [Learn how to program in Erlang](http://learnyousomeerlang.com/).
 
@@ -54,7 +54,7 @@ cd otp
 Checkout the branch or tag of your choice
 
 ```sh
-git checkout maint-25    # current latest stable version
+git checkout maint-27    # current latest stable version
 ```
 
 Configure, build and install
@@ -73,7 +73,10 @@ Please visit our [GitHub Issues](https://github.com/erlang/otp/issues) page for 
 
 ### Security Disclosure
 
-We take security bugs in Erlang/OTP seriously. Please disclose the issues regarding security by sending an email to **erlang-security [at] erlang [dot] org** and not by creating a public issue.
+Please do not report security vulnerabilities through public channels, like
+GitHub issues, discussions, or pull requests.
+
+Please disclose the security issues following our [SECURITY](SECURITY.md) guidelines.
 
 ## Contributing
 
@@ -89,15 +92,19 @@ We have a list of [Help Wanted](https://github.com/erlang/otp/issues?q=is%3Aissu
 
 ## Awesome-Erlang
 
-You can find more projects, tools and articles related to Erlang/OTP on the [awesome-erlang list](https://github.com/drobakowski/awesome-erlang). Add your project there.
+You can find more projects, tools and articles related to Erlang/OTP on the [awesome-erlang list](https://github.com/erlang-punch/awesome-erlang). Add your project there.
 
 ## License
 
 Erlang/OTP is released under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0).
 
+For any license inquiry, please send an email to opensource@ericsson.com
+
 > %CopyrightBegin%
 >
-> Copyright Ericsson AB 2010-2023. All Rights Reserved.
+> SPDX-License-Identifier: Apache-2.0
+>
+> Copyright Ericsson AB 2010-2025. All Rights Reserved.
 >
 > Licensed under the Apache License, Version 2.0 (the "License");
 > you may not use this file except in compliance with the License.

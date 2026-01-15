@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m	erlang[0m
 
@@ -11,17 +18,13 @@
   [;;4matom_to_list(erlang)[0m and [;;4merlang:atom_to_list(erlang)[0m are
   identical.
 
-  Auto-imported BIFs are listed without module prefix. BIFs listed
-  with module prefix are not auto-imported.
+  Auto-imported BIFs are annotated with [;;4mauto-imported[0m and
+  predefined types are annotated with [;;4mpredefined[0m.
 
-  Predefined types are listed in the Predefined datatypes section
-  of this reference manual and in the Types and Function
-  Specifications section of the Erlang Reference Manual.
+  Some auto-imported BIFs are also allowed in guard expression. Such
+  BIFs are annoted with both [;;4mauto-imported[0m and [;;4mguard-bif[0m.
 
   BIFs can fail for various reasons. All BIFs fail with reason [;;4m[0m
   [;;4mbadarg[0m if they are called with arguments of an incorrect type.
   The other reasons are described in the description of each
   individual BIF.
-
-  Some BIFs can be used in guard tests and are marked with "Allowed
-  in guard tests".

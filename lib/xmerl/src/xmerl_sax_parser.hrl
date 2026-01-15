@@ -1,8 +1,10 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%----------------------------------------------------------------------
 %% File    : xmerl_sax_parser.hrl
@@ -93,9 +95,7 @@
          attribute_values = [],     % default attribute values
          allow_entities = true,     % If true entities are allowed in the document
          entity_recurse_limit = 3,  % How many levels of recursion is allowed for entities
-         external_entities = all,   % Which types of external entities are allowed: all(default), file or none
-         fail_undeclared_ref = true % If false the reference will be left unresolved in the document, true is default
+         external_entities = none,  % Which types of external entities are allowed: all, file or none(default)
+         fail_undeclared_ref = true, % If false the reference will be left unresolved in the document, true is default
+         discard_ws_before_xml_document = false % If true allow whitespace fefore the xml tag
         }).
-
-
-

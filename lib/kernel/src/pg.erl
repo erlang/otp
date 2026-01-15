@@ -1,5 +1,9 @@
 %%
+%% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +18,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% %CopyrightEnd%
 %%
 %%-------------------------------------------------------------------
 %%
@@ -53,6 +58,64 @@
 %%  * all leave/join operations are serialised through pg server process
 %%
 -module(pg).
+-moduledoc """
+Distributed named process groups.
+
+This module implements process groups. A message can be sent to one, some, or
+all group members.
+
+Up until OTP 17 there used to exist an experimental `pg` module in `stdlib`.
+This `pg` module is not the same module as that experimental `pg` module, and
+only share the same module name.
+
+A group of processes can be accessed by a common name. For example, if there is
+a group named `foobar`, there can be a set of processes (which can be located on
+different nodes) that are all members of the group `foobar`. There are no
+special functions for sending a message to the group. Instead, client functions
+are to be written with the functions `get_members/1` and `get_local_members/1`
+to determine which processes are members of the group. Then the message can be
+sent to one or more group members.
+
+If a member terminates, it is automatically removed from the group.
+
+A process may join multiple groups. It may join the same group multiple times.
+It is only allowed to join processes running on local node.
+
+Process Groups implement strong eventual consistency. Process Groups membership
+view may temporarily diverge. For example, when processes on `node1` and `node2`
+join concurrently, `node3` and `node4` may receive updates in a different order.
+
+Membership view is not transitive. If `node1` is not directly connected to
+`node2`, they will not see each other groups. But if both are connected to
+`node3`, `node3` will have the full view.
+
+Groups are automatically created when any process joins, and are removed when
+all processes leave the group. Non-existing group is considered empty
+(containing no processes).
+
+Process groups can be organised into multiple scopes. Scopes are completely
+independent of each other. A process may join any number of groups in any number
+of scopes. Scopes are designed to decouple single mesh into a set of overlay
+networks, reducing amount of traffic required to propagate group membership
+information. Default scope `pg` is started automatically when
+[Kernel](kernel_app.md#start_pg) is configured to do so.
+
+> #### Note {: .info }
+>
+> Scope name is used to register process locally, and to name an ETS table. If
+> there is another process registered under this name, or another ETS table
+> exists, scope fails to start.
+>
+> Local membership is not preserved if scope process exits and restarts.
+>
+> A scope can be kept local-only by using a scope name that is unique
+> cluster-wide, e.g. the node name: `pg:start_link(node()).`
+
+## See Also
+
+[Kernel](kernel_app.md)
+""".
+-moduledoc(#{since => "OTP 23.0"}).
 
 %% API: default scope
 -export([
@@ -95,6 +158,7 @@
 ]).
 
 %% Types
+-doc "The identifier of a process group.".
 -type group() :: any().
 
 %% Default scope started by kernel app
@@ -104,12 +168,21 @@
 %% @doc
 %% Starts the server and links it to calling process.
 %% Uses default scope, which is the same as as the module name.
+-doc """
+Starts the default `pg` scope within supervision tree.
+
+Kernel may be configured to do it automatically by setting
+the Kernel configuration parameter [`start_pg`](kernel_app.md#start_pg).
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start_link() -> {ok, pid()} | {error, any()}.
 start_link() ->
     start_link(?DEFAULT_SCOPE).
 
 %% @doc
 %% Starts the server outside of supervision hierarchy.
+-doc "Starts additional scope.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start(Scope :: atom()) -> {ok, pid()} | {error, any()}.
 start(Scope) when is_atom(Scope) ->
     gen_server:start({local, Scope}, ?MODULE, [Scope], []).
@@ -117,6 +190,11 @@ start(Scope) when is_atom(Scope) ->
 %% @doc
 %% Starts the server and links it to calling process.
 %% Scope name is supplied.
+-doc """
+Equivalent to [`start(Scope)`](`start/1`), except that it also creates
+a `link/1` with the calling process.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start_link(Scope :: atom()) -> {ok, pid()} | {error, any()}.
 start_link(Scope) when is_atom(Scope) ->
     gen_server:start_link({local, Scope}, ?MODULE, [Scope], []).
@@ -126,10 +204,19 @@ start_link(Scope) when is_atom(Scope) ->
 %% Joins a single or a list of processes.
 %% Group is created automatically.
 %% Processes must be local to this node.
+-doc(#{equiv => join(?DEFAULT_SCOPE, Group, PidOrPids)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec join(Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 join(Group, PidOrPids) ->
     join(?DEFAULT_SCOPE, Group, PidOrPids).
 
+-doc """
+Joins single process or multiple processes to the group `Group`. A process can
+join a group many times and must then leave the group the same number of times.
+
+`PidOrPids` may contain the same process multiple times.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec join(Scope :: atom(), Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 join(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
     ok = ensure_local(PidOrPids),
@@ -139,10 +226,20 @@ join(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
 %% @doc
 %% Single or list of processes leaving the group.
 %% Processes must be local to this node.
+-doc(#{equiv => leave(?DEFAULT_SCOPE, Group, PidOrPids)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec leave(Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 leave(Group, PidOrPids) ->
     leave(?DEFAULT_SCOPE, Group, PidOrPids).
 
+-doc """
+Makes the process `PidOrPids` leave the group `Group`. If the process is not a
+member of the group, `not_joined` is returned.
+
+When list of processes is passed as `PidOrPids`, function returns `not_joined`
+only when all processes of the list are not joined.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec leave(Scope :: atom(), Group :: group(), PidOrPids :: pid() | [pid()]) -> ok | not_joined.
 leave(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
     ok = ensure_local(PidOrPids),
@@ -154,10 +251,30 @@ leave(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
 %%  all group changes. Calling process will receive {Ref, join, Group, Pids}
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
+-doc(#{equiv => monitor_scope(?DEFAULT_SCOPE)}).
+-doc(#{since => <<"OTP 25.1">>}).
 -spec monitor_scope() -> {reference(), #{group() => [pid()]}}.
 monitor_scope() ->
     monitor_scope(?DEFAULT_SCOPE).
 
+-doc """
+Subscribes the caller to updates from the specified scope.
+
+Returns content of the entire scope and a reference to match the upcoming
+notifications.
+
+Whenever any group membership changes, an update message is sent to the
+subscriber:
+
+```erlang
+{Ref, join, Group, [JoinPid1, JoinPid2]}
+```
+
+```erlang
+{Ref, leave, Group, [LeavePid1]}
+```
+""".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec monitor_scope(Scope :: atom()) -> {reference(), #{group() => [pid()]}}.
 monitor_scope(Scope) ->
     gen_server:call(Scope, monitor, infinity).
@@ -168,6 +285,8 @@ monitor_scope(Scope) ->
 %%  group changes. Calling process will receive {Ref, join, Group, Pids}
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
+-doc(#{equiv => monitor(?DEFAULT_SCOPE, Group)}).
+-doc(#{since => <<"OTP 25.1">>}).
 -spec monitor(Group :: group()) -> {reference(), [pid()]}.
 monitor(Group) ->
     ?MODULE:monitor(?DEFAULT_SCOPE, Group).
@@ -178,6 +297,15 @@ monitor(Group) ->
 %%  group changes. Calling process will receive {Ref, join, Group, Pids}
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
+-doc """
+Subscribes the caller to updates for the specified group.
+
+Returns list of processes currently in the group, and a reference to match the
+upcoming notifications.
+
+See `monitor_scope/0` for the update message structure.
+""".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec monitor(Scope :: atom(), Group :: group()) -> {reference(), [pid()]}.
 monitor(Scope, Group) ->
     gen_server:call(Scope, {monitor, Group}, infinity).
@@ -186,10 +314,17 @@ monitor(Scope, Group) ->
 %% @doc
 %% Stops monitoring Scope for groups changes. Flushes all
 %%  {Ref, join|leave, Group, Pids} messages from the calling process queue.
+-doc(#{equiv => demonitor(?DEFAULT_SCOPE, Ref)}).
+-doc(#{since => <<"OTP 25.1">>}).
 -spec demonitor(Ref :: reference()) -> ok | false.
 demonitor(Ref) ->
     pg:demonitor(?DEFAULT_SCOPE, Ref).
 
+-doc """
+Unsubscribes the caller from updates (scope or group). Flushes all outstanding
+updates that were already in the message queue of the calling process.
+""".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec demonitor(Scope :: atom(), Ref :: reference()) -> ok | false.
 demonitor(Scope, Ref) ->
     gen_server:call(Scope, {demonitor, Ref}, infinity) =:= ok andalso flush(Ref).
@@ -197,10 +332,17 @@ demonitor(Scope, Ref) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns all processes in a group
+-doc(#{equiv => get_members(?DEFAULT_SCOPE, Group)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec get_members(Group :: group()) -> [pid()].
 get_members(Group) ->
     get_members(?DEFAULT_SCOPE, Group).
 
+-doc """
+Returns all processes in the group `Group`. Processes are returned in no
+specific order. This function is optimised for speed.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec get_members(Scope :: atom(), Group :: group()) -> [pid()].
 get_members(Scope, Group) ->
     try
@@ -213,10 +355,17 @@ get_members(Scope, Group) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns processes in a group, running on local node.
+-doc(#{equiv => get_local_members(?DEFAULT_SCOPE, Group)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec get_local_members(Group :: group()) -> [pid()].
 get_local_members(Group) ->
     get_local_members(?DEFAULT_SCOPE, Group).
 
+-doc """
+Returns all processes running on the local node in the group `Group`. Processes
+are returned in no specific order. This function is optimised for speed.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec get_local_members(Scope :: atom(), Group :: group()) -> [pid()].
 get_local_members(Scope, Group) ->
     try
@@ -229,10 +378,14 @@ get_local_members(Scope, Group) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns a list of all known groups.
+-doc(#{equiv => which_groups(?DEFAULT_SCOPE)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec which_groups() -> [Group :: group()].
 which_groups() ->
     which_groups(?DEFAULT_SCOPE).
 
+-doc "Returns a list of all known groups.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec which_groups(Scope :: atom()) -> [Group :: group()].
 which_groups(Scope) when is_atom(Scope) ->
     [G || [G] <- ets:match(Scope, {'$1', '_', '_'})].
@@ -240,10 +393,12 @@ which_groups(Scope) when is_atom(Scope) ->
 %%--------------------------------------------------------------------
 %% @private
 %% Returns a list of groups that have any local processes joined.
+-doc false.
 -spec which_local_groups() -> [Group :: group()].
 which_local_groups() ->
     which_local_groups(?DEFAULT_SCOPE).
 
+-doc false.
 -spec which_local_groups(Scope :: atom()) -> [Group :: group()].
 which_local_groups(Scope) when is_atom(Scope) ->
     ets:select(Scope, [{{'$1', '_', '$2'}, [{'=/=', '$2', []}], ['$1']}]).
@@ -268,6 +423,7 @@ which_local_groups(Scope) when is_atom(Scope) ->
 
 -type state() :: #state{}.
 
+-doc false.
 -spec init([Scope :: atom()]) -> {ok, state()}.
 init([Scope]) ->
     ok = net_kernel:monitor_nodes(true),
@@ -276,6 +432,7 @@ init([Scope]) ->
     Scope = ets:new(Scope, [set, protected, named_table, {read_concurrency, true}]),
     {ok, #state{scope = Scope}}.
 
+-doc false.
 -spec handle_call(Call :: {join_local, Group :: group(), Pid :: pid()}
                         | {leave_local, Group :: group(), Pid :: pid()}
                         | monitor
@@ -338,6 +495,7 @@ handle_call({demonitor, Ref}, _From, #state{scope_monitors = ScopeMon, group_mon
 handle_call(_Request, _From, _S) ->
     erlang:error(badarg).
 
+-doc false.
 -spec handle_cast(
     {sync, Peer :: pid(), Groups :: [{group(), [pid()]}]},
     State :: state()) -> {noreply, state()}.
@@ -349,6 +507,7 @@ handle_cast({sync, Peer, Groups}, #state{scope = Scope, remote = Remote, scope_m
 handle_cast(_, _State) ->
     erlang:error(badarg).
 
+-doc false.
 -spec handle_info(
     {discover, Peer :: pid()} |
     {discover, Peer :: pid(), any()} |
@@ -456,6 +615,7 @@ handle_info({nodeup, Node}, #state{scope = Scope} = State) ->
 handle_info(_Info, _State) ->
     erlang:error(badarg).
 
+-doc false.
 -spec terminate(Reason :: any(), State :: state()) -> true.
 terminate(_Reason, #state{scope = Scope}) ->
     true = ets:delete(Scope).

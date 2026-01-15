@@ -1,9 +1,11 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1996-2021. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,7 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 
 include $(ERL_TOP)/make/target.mk
@@ -62,55 +64,6 @@ DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
 # Default Subdir Targets
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
-
-conf: do_configure
-
-do_configure: configure 
-	./configure 
-
-configure: configure.in
-	autoconf
-
-# ----------------------------------------------------
-# Application (source) release targets
-# ----------------------------------------------------
-app_release: app_doc tar
-
-app_clean:
-	rm -rf $(APP_TAR_FILE) $(APP_DIR)
-
-app_doc:
-	cd doc/src; $(MAKE) html man
-
-app_dir: $(APP_DIR)
-
-$(APP_DIR):
-	cat TAR.exclude | grep -v "snmp/doc" > TAR.exclude2; \
-        echo "snmp/doc/src" >> TAR.exclude2; \
-        echo "snmp/TAR.exclude2" >> TAR.exclude2; \
-        echo "snmp/doc/internal" >> TAR.exclude2; \
-        echo "snmp/mibs/prebuild.skip" >> TAR.exclude2
-	(cd ..; find snmp -name 'findmerge.*' >> snmp/TAR.exclude2)
-	(cd ..; find snmp -name '*.contrib*' >> snmp/TAR.exclude2)
-	(cd ..; find snmp -name '*.keep*' >> snmp/TAR.exclude2)
-	(cd ..; find snmp -name '*~' >> snmp/TAR.exclude2)
-	(cd ..; find snmp -name '*.log' >> snmp/TAR.exclude2)
-	(cd ..; find snmp -name 'erl_crash.dump' >> snmp/TAR.exclude2)
-	mkdir $(APP_DIR); \
-        (cd ..; tar cfX - snmp/TAR.exclude2 snmp) | \
-        (cd $(APP_DIR); tar xf -); \
-        mv $(APP_DIR)/snmp/* $(APP_DIR)/; \
-        find $(APP_DIR)/snmp -name '.cmake.state' | xargs rm -f; \
-	mkdir $(APP_DIR)/autoconf; \
-        cp autoconf/config.guess $(APP_DIR)/autoconf/; \
-        cp autoconf/config.sub $(APP_DIR)/autoconf/; \
-        cp autoconf/install-sh $(APP_DIR)/autoconf/; \
-        rmdir $(APP_DIR)/snmp
-
-tar: $(APP_TAR_FILE)
-
-$(APP_TAR_FILE): $(APP_DIR)
-	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
 DIA_PLT_APPS=runtime_tools crypto mnesia
 

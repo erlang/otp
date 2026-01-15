@@ -1,9 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec change_mode(Filename, Mode) -> ok | {error, Reason}[0m
-  [;1m                     when[0m
-  [;1m                         Filename :: name_all(),[0m
-  [;1m                         Mode :: integer(),[0m
-  [;1m                         Reason :: posix() | badarg.[0m
+[;1m  change_mode(Filename, Mode)[0m
 
 [;;4mSince[0m:
   OTP R14B

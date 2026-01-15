@@ -1,6 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec port_connect(Port, Pid) -> true[0m
-  [;1m                      when Port :: port() | atom(), Pid :: pid().[0m
+[;1m  port_connect(Port, Pid)[0m
 
   Sets the port owner (the connected port) to [;;4mPid[0m. Roughly the
   same as [;;4mPort ! {Owner, {connect, Pid}}[0m except for the following:
@@ -39,13 +45,11 @@
 
   Failures:
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If [;;4mPort[0m is not an identifier of an open port, or the
-    registered name of an open port. If the calling process was
-    previously linked to the closed port, identified by [;;4mPort[0m,
-    the exit signal from the port is guaranteed to be delivered
-    before this [;;4mbadarg[0m exception occurs.
+   • [;;4mbadarg[0m - If [;;4mPort[0m is not an identifier of an open port, or
+     the registered name of an open port. If the calling process
+     was previously linked to the closed port, identified by [;;4m[0m
+     [;;4mPort[0m, the exit signal from the port is guaranteed to be
+     delivered before this [;;4mbadarg[0m exception occurs.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If the process identified by [;;4mPid[0m is not an existing local
-    process.
+   • [;;4mbadarg[0m - If the process identified by [;;4mPid[0m is not an
+     existing local process.

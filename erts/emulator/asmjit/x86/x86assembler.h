@@ -45,7 +45,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   // Decide between 32-bit CDECL, WIN64, and SysV64 calling conventions:
 //!   //   32-BIT - passed all arguments by stack.
 //!   //   WIN64  - passes first 4 arguments by RCX, RDX, R8, and R9.
-//!   //   UNIX64 - passes first 6 arguments by RDI, RSI, RCX, RDX, R8, and R9.
+//!   //   UNIX64 - passes first 6 arguments by RDI, RSI, RDX, RCX, R8, and R9.
 //!   x86::Gp arr, cnt;
 //!   x86::Gp sum = x86::eax;           // Use EAX as 'sum' as it's a return register.
 //!
@@ -101,7 +101,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! The example should be self-explanatory. It shows how to work with labels, how to use operands, and how to emit
 //! instructions that can use different registers based on runtime selection. It implements 32-bit CDECL, WIN64,
-//! and SysV64 caling conventions and will work on most X86/X64 environments.
+//! and SysV64 calling conventions and will work on most X86/X64 environments.
 //!
 //! Although functions prologs / epilogs can be implemented manually, AsmJit provides utilities that can be used
 //! to create function prologs and epilogs automatically, see \ref asmjit_function for more details.
@@ -151,7 +151,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   printf("Status: %s\n", DebugUtils::errorAsString(err));
 //!
 //!   // Ambiguous operand size - the pointer requires size.
-//!   err = a.inc(x86::ptr(x86::rax), 1);
+//!   err = a.inc(x86::ptr(x86::rax));
 //!   printf("Status: %s\n", DebugUtils::errorAsString(err));
 //!
 //!   return 0;
@@ -230,6 +230,9 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! targets easily. If you want to create a register of native size dynamically by specifying its id it's also possible:
 //!
 //! ```
+//! #include <asmjit/x86.h>
+//! using namespace asmjit;
+//!
 //! void example(x86::Assembler& a) {
 //!   x86::Gp zax = a.gpz(x86::Gp::kIdAx);
 //!   x86::Gp zbx = a.gpz(x86::Gp::kIdBx);
@@ -284,21 +287,21 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! #include <asmjit/x86.h>
 //! using namespace asmjit;
 //!
-//! void embedData(x86::Assembler& a, const Label& L_Data) {
+//! void processData(x86::Assembler& a, const Label& L_Data) {
 //!   x86::Gp addr = a.zax();  // EAX or RAX.
 //!   x86::Gp val = x86::edi;  // Where to store some value...
 //!
 //!   // Approach 1 - Load the address to register through LEA. This approach
 //!   //              is flexible as the address can be then manipulated, for
 //!   //              example if you have a data array, which would need index.
-//!   a.lea(addr, L_Data);     // Loads the address of the label to EAX or RAX.
-//!   a.mov(val, dword_ptr(addr));
+//!   a.lea(addr, x86::ptr(L_Data));
+//!   a.mov(val, x86::dword_ptr(addr));
 //!
 //!   // Approach 2 - Load the data directly by using L_Data in address. It's
 //!   //              worth noting that this doesn't work with indexes in X64
 //!   //              mode. It will use absolute address in 32-bit mode and
 //!   //              relative address (RIP) in 64-bit mode.
-//!   a.mov(val, dword_ptr(L_Data));
+//!   a.mov(val, x86::dword_ptr(L_Data));
 //! }
 //! ```
 //!
@@ -360,18 +363,19 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   x86::Gp src_a = a.zcx();
 //!   x86::Gp src_b = a.zdx();
 //!
-//!   X86::Xmm vec0 = x86::xmm0;
-//!   X86::Xmm vec1 = x86::xmm1;
+//!   x86::Xmm vec0 = x86::xmm0;
+//!   x86::Xmm vec1 = x86::xmm1;
 //!
 //!   // Create/initialize FuncDetail and FuncFrame.
 //!   FuncDetail func;
-//!   func.init(FuncSignatureT<void, int*, const int*, const int*>(CallConvId::kHost));
+//!   func.init(FuncSignature::build<void, int*, const int*, const int*>(),
+//!             rt.environment());
 //!
 //!   FuncFrame frame;
 //!   frame.init(func);
 //!
 //!   // Make XMM0 and XMM1 dirty - RegGroup::kVec describes XMM|YMM|ZMM registers.
-//!   frame.setDirtyRegs(RegGroup::kVec, IntUtils::mask(0, 1));
+//!   frame.setDirtyRegs(RegGroup::kVec, Support::bitMask(0, 1));
 //!
 //!   // Alternatively, if you don't want to use register masks you can pass BaseReg
 //!   // to addDirtyRegs(). The following code would add both xmm0 and xmm1.
@@ -379,7 +383,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //!   FuncArgsAssignment args(&func);   // Create arguments assignment context.
 //!   args.assignAll(dst, src_a, src_b);// Assign our registers to arguments.
-//!   args.updateFrameInfo(frame);      // Reflect our args in FuncFrame.
+//!   args.updateFuncFrame(frame);      // Reflect our args in FuncFrame.
 //!   frame.finalize();                 // Finalize the FuncFrame (updates it).
 //!
 //!   a.emitProlog(frame);              // Emit function prolog.
@@ -537,16 +541,16 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! void prefixesExample(x86::Assembler& a) {
 //!   // Lock prefix for implementing atomics:
-//!   //   lock add dword ptr [dst], 1
-//!   a.lock().add(x86::dword_ptr(dst), 1);
+//!   //   lock add dword ptr [rdi], 1
+//!   a.lock().add(x86::dword_ptr(x86::rdi), 1);
 //!
 //!   // Similarly, XAcquire/XRelease prefixes are also available:
-//!   //   xacquire add dword ptr [dst], 1
-//!   a.xacquire().add(x86::dword_ptr(dst), 1);
+//!   //   xacquire add dword ptr [rdi], 1
+//!   a.xacquire().add(x86::dword_ptr(x86::rdi), 1);
 //!
 //!   // Rep prefix (see also repe/repz and repne/repnz):
-//!   //   rep movs byte ptr [dst], byte ptr [src]
-//!   a.rep().movs(x86::byte_ptr(dst), x86::byte_ptr(src));
+//!   //   rep movs byte ptr [rdi], byte ptr [rsi]
+//!   a.rep().movs(x86::byte_ptr(x86::rdi), x86::byte_ptr(x86::rsi));
 //!
 //!   // Forcing REX prefix in 64-bit mode.
 //!   //   rex mov eax, 1
@@ -610,12 +614,12 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   // -----------------
 //!   //
 //!   //   - Broadcast data is part of memory operand.
-//!   //   - Use x86::Mem::_1toN(), which returns a new x86::Mem operand.
+//!   //   - Use x86::Mem::_1to2(), x86::Mem::_1to4(), etc..., which returns a new x86::Mem operand with broadcast.
 //!
 //!   // vaddpd zmm0 {k1} {z}, zmm1, [rcx] {1to8}
-//!   a.k(k1).z().vaddpd(zmm0, zmm1, x86::mem(rcx)._1to8());
+//!   a.k(k1).z().vaddpd(zmm0, zmm1, x86::ptr(rcx)._1to8());
 //!
-//!   // Embedded Rounding & Suppress-All-Exceptoins
+//!   // Embedded Rounding & Suppress-All-Exceptions
 //!   // -------------------------------------------
 //!   //
 //!   //   - Rounding mode and {sae} are part of instruction options.
@@ -642,7 +646,7 @@ public:
   //! \{
 
   ASMJIT_API explicit Assembler(CodeHolder* code = nullptr) noexcept;
-  ASMJIT_API virtual ~Assembler() noexcept;
+  ASMJIT_API ~Assembler() noexcept override;
 
   //! \}
 
@@ -653,12 +657,13 @@ public:
   // NOTE: x86::Assembler uses _privateData to store 'address-override' bit that is used to decide whether to emit
   // address-override (67H) prefix based on the memory BASE+INDEX registers. It's either `kX86MemInfo_67H_X86` or
   // `kX86MemInfo_67H_X64`.
-  inline uint32_t _addressOverrideMask() const noexcept { return _privateData; }
-  inline void _setAddressOverrideMask(uint32_t m) noexcept { _privateData = m; }
+  ASMJIT_INLINE_NODEBUG uint32_t _addressOverrideMask() const noexcept { return _privateData; }
+  ASMJIT_INLINE_NODEBUG void _setAddressOverrideMask(uint32_t m) noexcept { _privateData = m; }
 
   //! \}
   //! \endcond
 
+  //! \cond INTERNAL
   //! \name Emit
   //! \{
 

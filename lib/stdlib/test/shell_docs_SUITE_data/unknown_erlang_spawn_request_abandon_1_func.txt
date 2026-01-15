@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec spawn_request_abandon(ReqId :: reference()) -> boolean().[0m
+[;1m  spawn_request_abandon(ReqId)[0m
 
 [;;4mSince[0m:
   OTP 23.0
@@ -23,7 +30,8 @@
   exit reason [;;4mabandoned[0m when it is detected that the spawn
   operation has succeeded.
 
-  Note:
+  [;;4mNote[0m
+
     A process created due to a spawn request that has been
     abandoned may communicate with its parent as any other
     process. It is only the direct effects on the parent of the
@@ -32,22 +40,21 @@
 
   Return values:
 
-  [;;4m[;;4mtrue[0m[0m:
-    The spawn request was successfully abandoned.
+   • [;;4mtrue[0m - The spawn request was successfully abandoned.
 
-  [;;4m[;;4mfalse[0m[0m:
-    No spawn request was abandoned. The [;;4mReqId[0m request identifier
-    did not correspond to an outstanding spawn request issued by
-    the calling process. The reason for this is either:
+   • [;;4mfalse[0m - No spawn request was abandoned. The [;;4mReqId[0m request
+     identifier did not correspond to an outstanding spawn
+     request issued by the calling process. The reason for this
+     is either:
 
-     • [;;4mReqId[0m corresponds to a spawn request previoulsy made by
-       the calling process. The spawn operation has completed
-       and a spawn reply has already been delivered to the
-       calling process unless the spawn reply was disabled in
-       the request.
+      ￮ [;;4mReqId[0m corresponds to a spawn request previoulsy made
+        by the calling process. The spawn operation has
+        completed and a spawn reply has already been delivered
+        to the calling process unless the spawn reply was
+        disabled in the request.
 
-     • [;;4mReqId[0m does not correspond to a spawn request that has
-       been made by the calling process.
+      ￮ [;;4mReqId[0m does not correspond to a spawn request that has
+        been made by the calling process.
 
   This function fail with a [;;4mbadarg[0m exception if [;;4mReqId[0m is not a
   reference.

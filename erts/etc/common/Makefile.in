@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -107,6 +109,8 @@ ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
 
 EI_LIB = -L$(ERL_TOP)/lib/erl_interface/obj/$(TARGET) -lei $(THR_LIBS)
 
+GDB_TOOLS = $(ETC)/gdb-tools
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -204,7 +208,7 @@ INSTALL_MISC = $(UXETC)/format_man_pages
 INSTALL_SRC = $(UXETC)/setuid_socket_wrap.c #delivered as an example
 ERLEXECDIR = .
 INSTALL_LIBS =
-EXTRA_LIBS = $(BINDIR)/jit-reader.so
+EXTRA_LIBS =
 INSTALL_OBJS =
 INSTALL_INCLUDES =
 TEXTFILES = Install erl.src
@@ -215,14 +219,18 @@ INSTALL_PROGS =              \
 	$(INSTALL_EMBEDDED_PROGS)
 endif
 
+-include ../unix/gdb-tools/jit-reader.mk
+
 CREATE_DIRS=$(OBJDIR) $(BINDIR)
 
 ifneq ($(strip $(CREATE_DIRS)),)
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
 endif
 
+.DEFAULT_GOAL := etc
 .PHONY: etc
 etc:	$(ENTRY_OBJ) $(INSTALL_PROGS) $(EXTRA_LIBS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BIN)
+
 
 # erlexec needs the erts_internal library...
 $(ERTS_LIB):
@@ -461,6 +469,7 @@ $(OBJDIR)/safe_string.o: $(ETC)/safe_string.c $(RC_GENERATED)
 # erl_call
 $(BINDIR)/erl_call@EXEEXT@: $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)/erl_call@EXEEXT@
 	$(ld_verbose)cp $< $@
+	$(ld_verbose)cp $(<:.exe=.pdb) $(@:.exe=.pdb)
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
@@ -499,12 +508,6 @@ $(BINDIR)/ct_run@EXEEXT@: $(OBJDIR)/ct_run.o $(ERTS_LIB)
 
 $(OBJDIR)/ct_run.o: ct_run.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ct_run.c
-
-$(OBJDIR)/jit-reader.o: $(ETC)/jit-reader.c $(ETC)/jit-reader.h
-	$(V_CC) $(DED_CFLAGS) -I$(ETC) -o $@ -c $<
-
-$(BINDIR)/jit-reader.so: $(OBJDIR)/jit-reader.o
-	$(V_LD) $(DED_LDFLAGS) -o $@ $^
 
 Install:	$(UXETC)/Install.src ../../vsn.mk $(TARGET)/Makefile
 	$(vsn_verbose)sed -e 's;%I_VSN%;$(VSN);' \
@@ -545,6 +548,10 @@ ifneq ($(TARGET), win32)
 endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+ifeq ($(TARGET),win32)
+	$(INSTALL_DATA) $(INSTALL_PROGS:.exe=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+	$(INSTALL_DATA) $(INSTALL_PROGS:.dll=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+endif
 endif
 ifneq ($(INSTALL_TOP),)
 	$(INSTALL_SCRIPT) $(INSTALL_TOP) "$(RELEASE_PATH)"

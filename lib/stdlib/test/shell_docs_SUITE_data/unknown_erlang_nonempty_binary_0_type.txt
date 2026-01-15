@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type nonempty_binary() :: <<_:8, _:_*8>>.[0m
+[;1m  nonempty_binary()[0m
 
-  A binary() that contains some data.
+  A [;;4mbinary/0[0m that contains some data.

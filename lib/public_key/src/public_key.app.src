@@ -1,24 +1,60 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 {application, public_key,
   [{description, "Public key infrastructure"},
    {vsn, "%VSN%"},
-   {modules, [public_key,
-              pubkey_pem,
-              pubkey_pbe,
-              pubkey_ssh,
+   {modules, [
+              'AlgorithmInformation-2009',
+              'AttributeCertificateVersion1-2009',
+              'CMSAesRsaesOaep-2009',
+              'CryptographicMessageSyntax-2009',
+              'CryptographicMessageSyntaxAlgorithms-2009',
+              'DSS',
+              'ECPrivateKey',
+              'EnrollmentMessageSyntax-2009',
+              'KEMAlgorithmInformation-2023',
+              'OCSP-2024-08',
+              'OTP-PKIX',
+              'OTP-PKIX-Relaxed',
+              'PKCS-1',
+              'PKCS-10',
+              'PKCS-3',
+              'PKCS-FRAME',
+              'PKIX-CommonTypes-2009',
+              'PKIX-X400Address-2009',
+              'PKIX1-PSS-OAEP-Algorithms-2009',
+              'PKIX1Explicit-2009',
+              'PKIX1Implicit-2009',
+              'PKIXAlgs-2009',
+              'PKIXAttributeCertificate-2009',
+              'PKIXCMP-2023',
+              'PKIXCRMF-2009',
+              'RFC5639',
+              'SLH-DSA-Module-2024',
+              'Safecurves-pkix-18',
+              'SecureMimeMessageV3dot1-2009',
+              'X509-ML-DSA-2025',
               pubkey_cert,
-              pubkey_policy_tree,
               pubkey_cert_records,
               pubkey_crl,
               pubkey_ocsp,
               pubkey_os_cacerts,
-              'OTP-PUB-KEY',
-              'PKCS-FRAME'
+              pubkey_pbe,
+              pubkey_pem,
+              pubkey_policy_tree,
+              pubkey_ssh,
+              pubkey_translation,
+              public_key
              ]},
    {applications, [asn1, crypto, kernel, stdlib]},
    {registered, []},
    {env, []},
-   {runtime_dependencies, ["stdlib-3.5","kernel-3.0","erts-6.0","crypto-4.6",
-			   "asn1-3.0"]}
+   {runtime_dependencies, ["stdlib-4.0","kernel-8.0","erts-13.0",
+                           "crypto-5.8","asn1-5.0"]}
   ]
 }.
-

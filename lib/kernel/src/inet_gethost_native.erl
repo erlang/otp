@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +20,10 @@
 %% %CopyrightEnd%
 %%
 -module(inet_gethost_native).
+-moduledoc false.
 -behaviour(supervisor_bridge).
+
+-compile(nowarn_deprecated_catch).
 
 %% Supervisor bridge exports
 -export([start_link/0, init/1, terminate/2]).

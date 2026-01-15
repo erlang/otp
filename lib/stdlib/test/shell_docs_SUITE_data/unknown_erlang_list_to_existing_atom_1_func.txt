@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec list_to_existing_atom(String) -> atom() when String :: string().[0m
+[;1m  list_to_existing_atom(String)[0m
 
   Returns the atom whose text representation is [;;4mString[0m, but only
   if there already exists such atom. An atom exists if it has been
@@ -9,7 +16,8 @@
   Failure: [;;4mbadarg[0m if there does not already exist an atom whose
   text representation is [;;4mString[0m.
 
-  Note:
+  [;;4mNote[0m
+
     Note that the compiler may optimize away atoms. For example,
     the compiler will rewrite [;;4matom_to_list(some_atom)[0m to [;;4m[0m
     [;;4m"some_atom"[0m. If that expression is the only mention of the

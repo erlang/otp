@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -12,11 +19,14 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% %CopyrightEnd%
+%%
 %% Original author: Stavros Aronis <aronisstav@gmail.com>
 %%
 %% Purpose: Spawn and coordinate parallel jobs.
 
 -module(dialyzer_coordinator).
+-moduledoc false.
 
 %%% Export for dialyzer main process
 -export([parallel_job/4]).
@@ -156,6 +166,7 @@ wait_for_success_typings(Labels, {_Collector, _Regulator, JobLabelsToPid}) ->
 %%--------------------------------------------------------------------
 %% Local functions.
 
+-dialyzer({no_opaque_union, [spawn_jobs/4]}).
 spawn_jobs(Mode, Jobs, InitData, Timing) ->
   Collector = self(),
   Regulator = spawn_regulator(),
@@ -214,6 +225,7 @@ job_fun(JobLabelsToPid, Mode, InitData, Coordinator) ->
       ok
   end.
 
+-dialyzer({no_opaque_union, [collect_result/1]}).
 collect_result(#state{mode = Mode, active = Active, result = Result,
 		      next_label = NextLabel, init_data = InitData,
                       jobs = JobsLeft, job_fun = JobFun,
@@ -257,6 +269,7 @@ collect_result(#state{mode = Mode, active = Active, result = Result,
       end
   end.
 
+-dialyzer({no_opaque_union, [update_result/5]}).
 update_result(Mode, InitData, Job, Data, Result) ->
   if
     Mode =:= 'compile' ->

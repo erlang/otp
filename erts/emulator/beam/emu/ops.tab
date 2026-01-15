@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,34 +34,7 @@ FORBIDDEN_TYPES=h
 # instruction transformations; thus, they never occur in BEAM files.
 #
 
-# The too_old_compiler/0 instruction is specially handled in beam_load.c
-# to produce a user-friendly message informing the user that the module
-# needs to be re-compiled with a modern compiler.
-
-too_old_compiler/0
-too_old_compiler | never() => _
-
-# In R9C and earlier, the loader used to insert special instructions inside
-# the module_info/0,1 functions. (In R10B and later, the compiler inserts
-# an explicit call to an undocumented BIF, so that no loader trickery is
-# necessary.) Since the instructions don't work correctly in R12B, simply
-# refuse to load the module.
-
-func_info M=a a==am_module_info A=u==0 | label L | move n x==0 =>
-    too_old_compiler
-func_info M=a a==am_module_info A=u==1 | label L | move n x==0 =>
-    too_old_compiler
-
-# The undocumented and unsupported guard BIF is_constant/1 was removed
-# in R13. The is_constant/2 operation is marked as obsolete in genop.tab,
-# so the loader will automatically generate a too_old_compiler message
-# it is used, but we need to handle the is_constant/1 BIF specially here.
-
-bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
-
-#
-# All the other instructions.
-#
+func_info a a u | never() => _
 
 %cold
 label L
@@ -71,6 +46,9 @@ i_generic_breakpoint
 i_debug_breakpoint
 i_call_trace_return
 i_return_to_trace
+i_disabled_line_breakpoint t
+i_enabled_line_breakpoint t
+i_line_breakpoint_cleanup
 i_yield
 trace_jump W
 %hot
@@ -83,8 +61,8 @@ int_func_start Lbl Line M F A => label Lbl | i_func_info u M F A | line Line
 
 # The end of a function.
 int_func_end/2
-int_func_end Func Entry | needs_nif_padding() => i_nif_padding
-int_func_end Func Entry => _
+int_func_end _Func _Entry | needs_nif_padding() => i_nif_padding
+int_func_end _Func _Entry => _
 
 i_nif_padding
 
@@ -99,14 +77,14 @@ padding
 # BIF, so we can omit the line instruction for non-BIFs.
 #
 
-move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D =>
+move S X0=x==0 | line _Loc | call_ext_last Ar Func=u$is_not_bif D =>
      move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_not_bif =>
+move S X0=x==0 | line _Loc | call_ext_only Ar Func=u$is_not_bif =>
      move S X0 | call_ext_only Ar Func
 
-move S X0=x==0 | line Loc | call_last Ar Func D =>
+move S X0=x==0 | line _Loc | call_last Ar Func D =>
      move S X0 | call_last Ar Func D
-move S X0=x==0 | line Loc | call_only Ar Func =>
+move S X0=x==0 | line _Loc | call_only Ar Func =>
      move S X0 | call_only Ar Func
 
 # To ensure that a "move Src x(0)" instruction can be combined with
@@ -122,6 +100,15 @@ move S X0=x==0 | line Loc => line Loc | move S X0
 line n => _
 line I
 
+executable_line _Id _Line => _
+
+debug_line a==am_entry u u u => _
+debug_line _Kind Loc _Index Live | instrumenting_line_breakpoints() =>
+    i_debug_line Loc Live | i_disabled_line_breakpoint Live
+debug_line _Kind _Loc _Index _Live => _
+
+i_debug_line I t
+
 # For the JIT, the init_yregs/1 instruction allows generation of better code.
 # For the BEAM interpreter, though, it will probably be more efficient to
 # translate all uses of init_yregs/1 back to the instructions that the compiler
@@ -135,17 +122,17 @@ init_yregs N Yregs=* =>
 
 allocate t t?
 allocate_heap t I t?
-allocate_zero t t?
-allocate_heap_zero t I t?
+i_allocate_zero t t?
+i_allocate_heap_zero t I t?
 
-init y
+i_init y
 
 # This instruction when a BIF is called tail-recursively when
 # there is a stack frame.
 deallocate Q
 
-move Src=y Dst=x | trim N Remaining => move_trim Src Dst N
-trim N Remaining => i_trim N
+move Src=y Dst=x | trim N _Remaining => move_trim Src Dst N
+trim N _Remaining => i_trim N
 
 move_trim y x t
 i_trim t
@@ -153,21 +140,21 @@ i_trim t
 test_heap I t?
 
 allocate_heap S u==0 R => allocate S R
-allocate_heap_zero S u==0 R => allocate_zero S R
+i_allocate_heap_zero S u==0 R => i_allocate_zero S R
 
-init Y1 | init Y2 | init Y3 | succ(Y1,Y2) | succ(Y2,Y3) => init_seq3 Y1
-init_seq3 Y1 | init Y4 | succ3(Y1,Y4) => init_seq4 Y1
-init_seq4 Y1 | init Y5 | succ4(Y1,Y5) => init_seq5 Y1
+i_init Y1 | i_init Y2 | i_init Y3 | succ(Y1,Y2) | succ(Y2,Y3) => i_init_seq3 Y1
+i_init_seq3 Y1 | i_init Y4 | succ3(Y1,Y4) => i_init_seq4 Y1
+i_init_seq4 Y1 | i_init Y5 | succ4(Y1,Y5) => i_init_seq5 Y1
 
-init_seq3 y
-init_seq4 y
-init_seq5 y
+i_init_seq3 y
+i_init_seq4 y
+i_init_seq5 y
 
-init Y1 | init Y2 | init Y3 => init3 Y1 Y2 Y3
-init Y1 | init Y2 => init2 Y1 Y2
+i_init Y1 | i_init Y2 | i_init Y3 => i_init3 Y1 Y2 Y3
+i_init Y1 | i_init Y2 => i_init2 Y1 Y2
 
-init2 y y
-init3 y y y
+i_init2 y y
+i_init3 y y y
 
 # Selecting values.
 
@@ -271,7 +258,7 @@ i_get_tuple_element3 x P x
 is_number f? xy
 %hot
 
-is_number Fail=f i => _
+is_number _Fail=f i => _
 
 is_number Fail=f na => jump Fail
 is_number Fail Literal=q => move Literal x | is_number Fail x
@@ -357,7 +344,7 @@ move Y1=y X1=x | move Y2=y X2=x | succ(Y1, Y2) =>
 
 move_src_window Y1 Y2 X1 X2 | move Y3=y X3=x | succ(Y2, Y3) =>
     move_src_window Y1 Y3 X1 X2 X3
-move_src_window Y1 Y2 X1 X2 | move Y3=y X3=x | move Y4=y X4=x | succ(Y3, Y4) =>
+move_src_window Y1 _Y2 X1 X2 | move Y3=y X3=x | move Y4=y X4=x | succ(Y3, Y4) =>
     move_src_window2 Y1 X1 X2 | move_src_window Y3 Y4 X3 X4
 move_src_window Y1 Y2 X1 X2 | move Y3=y X3=x =>
     move3 Y1 X1 Y2 X2 Y3 X3
@@ -391,7 +378,7 @@ move SD=y    D=x | move Src=x  SDOther=y  |
   equal(SD, SDOther) | distinct(D, Src) =>
     move_shift Src SD D
 
-move SD=y    D=x | init SDOther           |
+move SD=y    D=x | i_init SDOther           |
   equal(SD, SDOther) =>
      move_shift n   SD D
 
@@ -510,7 +497,7 @@ send
 # Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl LHS RHS | equal(LHS, RHS) => _
+is_eq_exact _Lbl LHS RHS | equal(LHS, RHS) => _
 
 is_eq_exact Lbl C1=c C2=c => move C1 x | is_eq_exact Lbl x C2
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
@@ -679,7 +666,7 @@ test_heap_1_put_list I y
 
 is_tagged_tuple Fail Literal=q Arity Atom =>
     move Literal x | is_tagged_tuple Fail x Arity Atom
-is_tagged_tuple Fail=f c Arity Atom  => jump Fail
+is_tagged_tuple Fail=f c _Arity _Atom  => jump Fail
 
 is_tagged_tuple f? rxy A a
 
@@ -696,7 +683,7 @@ is_tuple_of_arity f? rxy A
 is_tuple f? rxy
 
 test_arity Fail Literal=q Arity => move Literal x | test_arity Fail x Arity
-test_arity Fail=f c Arity => jump Fail
+test_arity Fail=f c _Arity => jump Fail
 test_arity Fail Tuple=x Arity | get_tuple_element Tuple2 Pos Dst=x |
     equal(Tuple, Tuple2) =>
     test_arity_get_tuple_element Fail Tuple Arity Pos Dst
@@ -737,7 +724,7 @@ get_tuple_element Reg=x P1 D1=y | get_tuple_element Reg2=x P2 D2=y |
 
 get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
 
-is_integer Fail=f i => _
+is_integer _Fail=f i => _
 is_integer Fail=f an => jump Fail
 is_integer Fail Literal=q => move Literal x | is_integer Fail x
 
@@ -748,7 +735,7 @@ is_integer_allocate f? x t t
 
 is_integer f? xy
 
-is_list Fail=f n => _
+is_list _Fail=f n => _
 is_list Fail Literal=q => move Literal x | is_list Fail x
 is_list Fail=f c => jump Fail
 is_list f? x
@@ -783,7 +770,7 @@ is_atom f? x
 %cold
 is_atom f? y
 %hot
-is_atom Fail=f a => _
+is_atom _Fail=f a => _
 is_atom Fail=f niq => jump Fail
 
 is_float f? x
@@ -793,7 +780,7 @@ is_float f? y
 is_float Fail=f nai => jump Fail
 is_float Fail Literal=q => move Literal x | is_float Fail x
 
-is_nil Fail=f n => _
+is_nil _Fail=f n => _
 is_nil Fail=f qia => jump Fail
 
 is_nil f? xy
@@ -833,8 +820,8 @@ is_port f? x
 is_port f? y
 %hot
 
-is_boolean Fail=f a==am_true => _
-is_boolean Fail=f a==am_false => _
+is_boolean _Fail=f a==am_true => _
+is_boolean _Fail=f a==am_false => _
 is_boolean Fail=f ac => jump Fail
 
 %cold
@@ -848,9 +835,9 @@ cold_is_function2 f? x x
 %hot
 hot_is_function2 f? S t
 
-# Allocating & initializing.
-allocate Need Regs | init Y => allocate_init Need Regs Y
-init Y1 | init Y2 => init2 Y1 Y2
+# Allocating & i_initializing.
+allocate Need Regs | i_init Y => allocate_init Need Regs Y
+i_init Y1 | i_init Y2 => i_init2 Y1 Y2
 
 allocate_init t t? y
 
@@ -902,12 +889,13 @@ call_ext u==0 u$func:erlang:yield/0 => i_yield
 call_ext_last u==0 u$func:erlang:yield/0 D => i_yield | deallocate_return D
 call_ext_only u==0 u$func:erlang:yield/0 => i_yield | return
 
+
+# The hibernate/0 BIF is an instruction
 #
-# The hibernate/3 BIF is an instruction.
-#
-call_ext u==3 u$func:erlang:hibernate/3 => i_hibernate
-call_ext_last u==3 u$func:erlang:hibernate/3 D => i_hibernate
-call_ext_only u==3 u$func:erlang:hibernate/3 => i_hibernate
+
+call_ext u==0 u$func:erlang:hibernate/0 => i_hibernate
+call_ext_last u==0 u$func:erlang:hibernate/0 D => i_hibernate | deallocate_return D
+call_ext_only u==0 u$func:erlang:hibernate/0 => i_hibernate | return
 
 call_ext u==0 u$func:os:perf_counter/0 =>
     i_perf_counter
@@ -934,7 +922,7 @@ call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) =>
 
 call_ext u Bif=u$is_bif => call_light_bif Bif
 call_ext_last u Bif=u$is_bif D => call_light_bif_last Bif D
-call_ext_only Ar=u Bif=u$is_bif => call_light_bif_only Bif
+call_ext_only _Ar=u Bif=u$is_bif => call_light_bif_only Bif
 
 #
 # Any remaining calls are calls to Erlang functions, not BIFs.
@@ -943,16 +931,16 @@ call_ext_only Ar=u Bif=u$is_bif => call_light_bif_only Bif
 # with call instructions.
 #
 
-move S=c x==0 | call_ext Ar=u Func=u$is_not_bif =>
+move S=c x==0 | call_ext _Ar=u Func=u$is_not_bif =>
     i_move_call_ext S Func
-move S=c x==0 | call_ext_last Ar=u Func=u$is_not_bif D =>
+move S=c x==0 | call_ext_last _Ar=u Func=u$is_not_bif D =>
     i_move_call_ext_last Func D S
-move S=c x==0 | call_ext_only Ar=u Func=u$is_not_bif =>
+move S=c x==0 | call_ext_only _Ar=u Func=u$is_not_bif =>
     i_move_call_ext_only Func S
 
-call_ext Ar Func        => i_call_ext Func
-call_ext_last Ar Func D => i_call_ext_last Func D
-call_ext_only Ar Func   => i_call_ext_only Func
+call_ext _Ar Func        => i_call_ext Func
+call_ext_last _Ar Func D => i_call_ext_last Func D
+call_ext_only _Ar Func   => i_call_ext_only Func
 
 i_apply
 i_apply_last Q
@@ -996,12 +984,12 @@ i_perf_counter
 bif0 u$bif:erlang:self/0 Dst=d => self Dst
 bif0 u$bif:erlang:node/0 Dst=d => node Dst
 
-bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=x Dst=x =>
+bif1 Fail=f _Bif=u$bif:erlang:hd/1 Src=x Dst=x =>
     is_nonempty_list_get_hd Fail Src Dst
-bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=x Dst=x =>
+bif1 Fail=f _Bif=u$bif:erlang:tl/1 Src=x Dst=x =>
     is_nonempty_list_get_tl Fail Src Dst
 
-bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d =>
+bif1 _Fail _Bif=u$bif:erlang:get/1 Src=s Dst=d =>
     get(Src, Dst)
 
 bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d =>
@@ -1013,7 +1001,10 @@ bif1 Fail=f Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
 bif2 p Bif S1 S2 Dst      => i_bif2_body S2 S1 Bif Dst
 bif2 Fail=f Bif S1 S2 Dst => i_bif2 S2 S1 Fail Bif Dst
 
-i_get_hash c I d
+bif3 p Bif S1 S2 S3 Dst      => i_bif3_body S3 S2 S1 Bif Dst
+bif3 Fail=f Bif S1 S2 S3 Dst => i_bif3 S3 S2 S1 Fail Bif Dst
+
+i_get_hash c W d
 i_get s d
 
 self xy
@@ -1040,24 +1031,24 @@ i_bif3_body s s s b d
 # Internal calls.
 #
 
-move S=cxy x==0 | call Ar P=f => move_call S P
+move S=cxy x==0 | call _Ar P=f => move_call S P
 
 move_call/2
 move_call cxy f
 
-move S x==0 | call_last Ar P=f D => move_call_last S P D
+move S x==0 | call_last _Ar P=f D => move_call_last S P D
 
 move_call_last/3
 move_call_last cxy f Q
 
-move S=cx x==0 | call_only Ar P=f => move_call_only S P
+move S=cx x==0 | call_only _Ar P=f => move_call_only S P
 
 move_call_only/2
 move_call_only cx f
 
-call Ar Func        => i_call Func
-call_last Ar Func D => i_call_last Func D
-call_only Ar Func   => i_call_only Func
+call _Ar Func        => i_call Func
+call_last _Ar Func D => i_call_last Func D
+call_only _Ar Func   => i_call_only Func
 
 i_call f
 i_call_last f Q
@@ -1083,11 +1074,8 @@ call_fun2 Tag Arity Func => call_fun2(Tag, Arity, Func)
 
 #
 # A fun with an empty environment can be converted to a literal.
-# As a further optimization, the we try to move the fun to its
-# final destination directly.
+#
 
-make_fun2 OldIndex=u =>
-    make_fun2(OldIndex)
 make_fun3 OldIndex=u Dst=d NumFree=u Env=* =>
     make_fun3(OldIndex, Dst, NumFree, Env)
 
@@ -1168,7 +1156,7 @@ i_bs_ensure_bits Ctx1 u==32 Fail | i_bs_read_bits Ctx2 u==32 |
 # is encountered.
 #
 bad_bs_match/1
-bad_bs_match A | never() => _
+bad_bs_match _A | never() => _
 
 # ================================================================
 # Bit syntax matching (from R11B).
@@ -1203,7 +1191,7 @@ i_bs_get_integer_32 xy f? d
 bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
     get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 xy f? t W t d
+i_bs_get_binary_imm2 xy f? t W d
 i_bs_get_binary2 xy f t? S t d
 i_bs_get_binary_all2 xy f? t t d
 
@@ -1211,26 +1199,32 @@ i_bs_get_binary_all2 xy f? t t d
 bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d =>
     get_float2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
+bs_get_float2 Fail=f _Ms=x _Live=u _Sz=q _Unit=u _Flags=u _Dst=d => jump Fail
 
 i_bs_get_float2 xy f? t s t d
 
 # Miscellaneous
 
-bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u =>
-    skip_bits2(Fail, Ms, Sz, Unit, Flags)
+bs_skip_bits2 Fail=f Ms=xy Sz=xy Unit=u _Flags=u =>
+    i_bs_skip_bits2 Ms Sz Fail Unit
 
-i_bs_skip_bits_imm2 f? xy W
+# Starting with Erlang/OTP 26, bs_skip_bits2 with an immediate size is
+# almost never found in optimized code. Therefore, there is no need to
+# to implement it efficiently.
+
+bs_skip_bits2 Fail=f Ms=xy Sz Unit=u Flags=u =>
+    move Sz x | bs_skip_bits2 Fail Ms x Unit Flags
+
 i_bs_skip_bits2 xy xy f? t
 
-bs_test_tail2 Fail=f Ms=xy o => jump Fail
-bs_test_tail2 Fail=f Ms=xy Bits=u==0 => bs_test_zero_tail2 Fail Ms
+bs_test_tail2 Fail=f _Ms=xy o => jump Fail
+bs_test_tail2 Fail=f Ms=xy _Bits=u==0 => bs_test_zero_tail2 Fail Ms
 bs_test_tail2 Fail=f Ms=xy Bits=u => bs_test_tail_imm2 Fail Ms Bits
 
 bs_test_zero_tail2 f? xy
 bs_test_tail_imm2 f? xy W
 
-bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
+bs_test_unit F Ms _Unit=u==8 => bs_test_unit8 F Ms
 bs_test_unit f? xy t
 bs_test_unit8 f? xy
 
@@ -1251,10 +1245,10 @@ bs_start_match4 Fail=f Live=u Src=xy Ctx=d =>
 %if ARCH_64
 
 # This instruction nops on 64-bit platforms
-bs_start_match4 a==am_resume Live Ctx Dst | equal(Ctx, Dst) => _
-bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
+bs_start_match4 a==am_resume _Live Ctx Dst | equal(Ctx, Dst) => _
+bs_start_match4 a==am_resume _Live Ctx Dst => move Ctx Dst
 
-bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx2 Pos=x Ignored |
+bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx2 Pos=x _Ignored |
   equal(Ctx, Ctx2) =>
     i_bs_start_match3_gp Bin Live Fail Ctx Pos
 i_bs_start_match3_gp xy t j d x
@@ -1266,7 +1260,7 @@ bs_start_match4 a==am_resume Live Ctx Dst =>
 
 %endif
 
-bs_start_match3 Fail=j ica Live Dst => jump Fail
+bs_start_match3 Fail=j ica _Live _Dst => jump Fail
 bs_start_match3 Fail Bin Live Dst => i_bs_start_match3 Bin Live Fail Dst
 
 i_bs_start_match3 xy t j d
@@ -1275,7 +1269,7 @@ i_bs_start_match3 xy t j d
 # fit into an unsigned small.
 
 %if ARCH_64
-    bs_get_position Src Dst Live => i_bs_get_position Src Dst
+    bs_get_position Src Dst _Live => i_bs_get_position Src Dst
     i_bs_get_position xy xy
     bs_set_position xy xy
 %else
@@ -1321,159 +1315,13 @@ bs_create_bin Fail Alloc=u Live=u Unit=u Dst=xy N=u Segments=* =>
 
 i_bs_create_bin j I W d W *
 
-# ================================================================
-# Old instruction for constructing binaries (up to OTP 24).
-# ================================================================
-
-%warm
-
-bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
-
-bs_init2 Fail Sz Words Regs Flags Dst=y =>
-    bs_init2 Fail Sz Words Regs Flags x | move x Dst
-
-bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
-
-bs_init2 Fail Sz=u Words Regs Flags Dst =>
-    i_bs_init_heap Sz Words Regs Dst
-
-bs_init2 Fail Sz Words=u==0 Regs Flags Dst =>
-    i_bs_init_fail Sz Fail Regs Dst
-bs_init2 Fail Sz Words Regs Flags Dst =>
-    i_bs_init_fail_heap Sz Words Fail Regs Dst
-
-i_bs_init_fail xy j? t? x
-
-i_bs_init_fail_heap s I j? t? x
-
-i_bs_init W t? x
-
-i_bs_init_heap W I t? x
-
-
-bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
-bs_init_bits Fail Sz Words Regs Flags Dst=y =>
-    bs_init_bits Fail Sz Words Regs Flags x | move x Dst
-
-bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst =>
-    i_bs_init_bits Sz Regs Dst
-bs_init_bits Fail Sz=u Words Regs Flags Dst =>
-    i_bs_init_bits_heap Sz Words Regs Dst
-
-bs_init_bits Fail Sz Words=u==0 Regs Flags Dst =>
-    i_bs_init_bits_fail Sz Fail Regs Dst
-bs_init_bits Fail Sz Words Regs Flags Dst =>
-    i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
-
-i_bs_init_bits_fail xy j? t? x
-
-i_bs_init_bits_fail_heap s I j? t? x
-
-i_bs_init_bits W t? x
-i_bs_init_bits_heap W I t? x
-
-bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
-
-bs_add j? s s t? x
-
-bs_append Fail Size Extra Live Unit Bin Flags Dst =>
-    move Bin x | i_bs_append Fail Extra Live Unit Size Dst
-
-bs_private_append Fail Size Unit Bin Flags Dst =>
-    i_bs_private_append Fail Unit Size Bin Dst
-
-i_bs_private_append Fail Unit Size Bin Dst=y =>
-    i_bs_private_append Fail Unit Size Bin x | move x Dst
-
 bs_init_writable
-
-i_bs_append j? I t? t s xy
-i_bs_private_append j? t s S x
-
-#
-# Storing integers into binaries.
-#
-
-bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s =>
-    put_integer(Fail, Sz, Unit, Flags, Src)
-
-i_new_bs_put_integer j? S t s
-i_new_bs_put_integer_imm xyc j? W t
-
-#
-# Utf8/utf16/utf32 support. (R12B-5)
-#
-
-bs_utf8_size j Src Dst=d => i_bs_utf8_size Src Dst
-bs_utf16_size j Src Dst=d => i_bs_utf16_size Src Dst
-
-bs_put_utf8 Fail u Src => i_bs_put_utf8 Fail Src
-
-bs_put_utf16 Fail Flags Src => put_utf16(Fail, Flags, Src)
-
-bs_put_utf32 Fail=j Flags=u Src=s =>
-    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
-
-i_bs_utf8_size S x
-i_bs_utf16_size S x
-
-i_bs_put_utf8 j? S
-i_bs_put_utf16 j? t S
-
-i_bs_validate_unicode j? S
-
-# Handle unoptimized code and the 'native' flag for utf16 segments.
-i_bs_utf8_size Src=c Dst => move Src x | i_bs_utf8_size x Dst
-i_bs_utf16_size Src=c Dst => move Src x | i_bs_utf16_size x Dst
-i_bs_put_utf8 Fail Src=c => move Src x | i_bs_put_utf8 Fail x
-i_bs_put_utf16 Fail Flags Src=c => move Src x | i_bs_put_utf16 Fail Flags x
-i_bs_validate_unicode Fail Src=c => move Src x | i_bs_validate_unicode Fail x
-
-#
-# Storing floats into binaries.
-#
-
-# Will fail. No need to keep the instruction, because bs_add or
-# bs_init* would already have raised an exception.
-bs_put_float Fail Sz=q Unit Flags Val => _
-
-bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s =>
-    put_float(Fail, Sz, Unit, Flags, Src)
-
-i_new_bs_put_float j? S t s
-i_new_bs_put_float_imm j? W t s
-
-#
-# Storing binaries into binaries.
-#
-
-bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s =>
-    put_binary(Fail, Sz, Unit, Flags, Src)
-
-# In unoptimized code, the binary argument could be a literal. (In optimized
-# code, there would be a bs_put_string instruction.)
-i_new_bs_put_binary Fail Size Unit Lit=c =>
-    move Lit x | i_new_bs_put_binary Fail Size Unit x
-i_new_bs_put_binary_imm Fail Size Lit=c =>
-    move Lit x | i_new_bs_put_binary_imm Fail Size x
-i_new_bs_put_binary_all Lit=c Fail Unit =>
-    move Lit x | i_new_bs_put_binary_all x Fail Unit
-
-i_new_bs_put_binary j? S t S
-i_new_bs_put_binary_imm j? W S
-i_new_bs_put_binary_all xy j? t
-
-#
-# Warning: The i_bs_put_string and i_new_bs_put_string instructions
-# are specially treated in the loader.
-# Don't change the instruction format unless you change the loader too.
-#
-
-bs_put_string W W
 
 #
 # New floating point instructions (R8).
 #
+
+%warm
 
 fadd p FR1 FR2 FR3 => i_fadd FR1 FR2 FR3
 fsub p FR1 FR2 FR3 => i_fsub FR1 FR2 FR3
@@ -1497,13 +1345,6 @@ i_fmul l l l
 i_fdiv l l l
 i_fnegate l l
 
-#
-# FPE signals were disabled in OTP 21 and we don't intend to ever
-# enable them again.
-#
-fclearerror => _
-fcheckerror p => _
-
 %hot
 
 #
@@ -1521,7 +1362,7 @@ apply_last t Q
 # always preceded by an is_map test. That means that put_map_assoc can
 # never fail and does not need any failure label.
 
-put_map_assoc Fail Map Dst Live Size Rest=* =>
+put_map_assoc _Fail Map Dst Live Size Rest=* =>
     i_put_map_assoc Map Dst Live Size Rest
 
 i_put_map_assoc/4
@@ -1554,7 +1395,7 @@ i_new_small_map_lit d t q *
 update_map_assoc xyc d t I *
 update_map_exact xy j? d t I *
 
-is_map Fail Lit=q | literal_is_map(Lit) => _
+is_map _Fail Lit=q | literal_is_map(Lit) => _
 is_map Fail cq => jump Fail
 is_map f? xy
 
@@ -1573,7 +1414,7 @@ i_get_map_elements f? s I *
 
 i_get_map_element_hash Fail Src=c Key Hash Dst =>
     move Src x | i_get_map_element_hash Fail x Key Hash Dst
-i_get_map_element_hash f? xy c I xy
+i_get_map_element_hash f? xy c W xy
 
 i_get_map_element Fail Src=c Key Dst =>
     move Src x | i_get_map_element Fail x Key Dst
@@ -1590,7 +1431,7 @@ gc_bif1 Fail Live u$bif:erlang:splus/1 Src Dst =>
 gc_bif2 Fail Live u$bif:erlang:splus/2 S1 S2 Dst =>
     gen_plus Fail Live S1 S2 Dst
 
-gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst =>
+gc_bif1 Fail _Live u$bif:erlang:sminus/1 Src Dst =>
     i_unary_minus Src Fail Dst
 gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst =>
     gen_minus Fail Live S1 S2 Dst
@@ -1600,12 +1441,12 @@ gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst =>
 # the i_increment/3 instruction (in bodies, not in guards).
 #
 
-gen_plus p Live Int=i Reg=d Dst =>
+gen_plus p _Live Int=i Reg=d Dst =>
     increment(Reg, Int, Dst)
-gen_plus p Live Reg=d Int=i Dst =>
+gen_plus p _Live Reg=d Int=i Dst =>
     increment(Reg, Int, Dst)
 
-gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) =>
+gen_minus p _Live Reg=d Int=i Dst | negation_is_small(Int) =>
     increment_from_minus(Reg, Int, Dst)
 
 #
@@ -1614,40 +1455,40 @@ gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) =>
 
 # It is OK to swap arguments for '+' in a guard. It is also
 # OK to turn minus into plus in a guard.
-gen_plus Fail=f Live S1=c S2 Dst => i_plus S2 S1 Fail Dst
+gen_plus Fail=f _Live S1=c S2 Dst => i_plus S2 S1 Fail Dst
 gen_minus Fail=f Live S1 S2=i Dst | negation_is_small(S2) =>
     plus_from_minus(Fail, Live, S1, S2, Dst)
 
-gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Dst
+gen_plus Fail _Live S1 S2 Dst => i_plus S1 S2 Fail Dst
 
-gen_minus Fail Live S1 S2 Dst => i_minus S1 S2 Fail Dst
+gen_minus Fail _Live S1 S2 Dst => i_minus S1 S2 Fail Dst
 
-gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:stimes/2 S1 S2 Dst =>
     i_times Fail S1 S2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:div/2 S1 S2 Dst =>
     i_m_div Fail S1 S2 Dst
-gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:intdiv/2 S1 S2 Dst =>
     i_int_div Fail S1 S2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:rem/2 S1 S2 Dst =>
     i_rem S1 S2 Fail Dst
 
-gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:bsl/2 S1 S2 Dst =>
     i_bsl S1 S2 Fail Dst
-gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:bsr/2 S1 S2 Dst =>
     i_bsr S1 S2 Fail Dst
 
-gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:band/2 S1 S2 Dst =>
     i_band S1 S2 Fail Dst
 
-gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:bor/2 S1 S2 Dst =>
     i_bor Fail S1 S2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst =>
+gc_bif2 Fail _Live u$bif:erlang:bxor/2 S1 S2 Dst =>
     i_bxor Fail S1 S2 Dst
 
-gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst=d =>
+gc_bif1 Fail _Live u$bif:erlang:bnot/1 Src Dst=d =>
     i_int_bnot Fail Src Dst
 
 i_increment rxy W d
@@ -1691,16 +1532,6 @@ i_int_bnot Fail Src=c Dst => move Src x | i_int_bnot Fail x Dst
 i_int_bnot j? S d
 
 #
-# Old guard BIFs that creates heap fragments are no longer allowed.
-#
-bif1 Fail u$bif:erlang:length/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:size/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:abs/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:float/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
-
-#
 # Handle the length/1 guard BIF specially to make it trappable.
 #
 
@@ -1715,14 +1546,14 @@ i_length j? t d
 #
 # Guard BIFs.
 #
-gc_bif1 p Live Bif Src Dst           => i_bif1_body Src Bif Dst
-gc_bif1 Fail=f Live Bif Src Dst      => i_bif1 Src Fail Bif Dst
+gc_bif1 p _Live Bif Src Dst           => i_bif1_body Src Bif Dst
+gc_bif1 Fail=f _Live Bif Src Dst      => i_bif1 Src Fail Bif Dst
 
-gc_bif2 p Live Bif S1 S2 Dst         => i_bif2_body S2 S1 Bif Dst
-gc_bif2 Fail=f Live Bif S1 S2 Dst    => i_bif2 S2 S1 Fail Bif Dst
+gc_bif2 p _Live Bif S1 S2 Dst         => i_bif2_body S2 S1 Bif Dst
+gc_bif2 Fail=f _Live Bif S1 S2 Dst    => i_bif2 S2 S1 Fail Bif Dst
 
-gc_bif3 p Live Bif S1 S2 S3 Dst      => i_bif3_body S3 S2 S1 Bif Dst
-gc_bif3 Fail=f Live Bif S1 S2 S3 Dst => i_bif3 S3 S2 S1 Fail Bif Dst
+gc_bif3 p _Live Bif S1 S2 S3 Dst      => i_bif3_body S3 S2 S1 Bif Dst
+gc_bif3 Fail=f _Live Bif S1 S2 S3 Dst => i_bif3 S3 S2 S1 Fail Bif Dst
 
 #
 # The following instruction is specially handled in beam_load.c
@@ -1730,25 +1561,12 @@ gc_bif3 Fail=f Live Bif S1 S2 S3 Dst => i_bif3 S3 S2 S1 Fail Bif Dst
 # encountered.
 #
 unsupported_guard_bif/3
-unsupported_guard_bif A B C | never() => _
+unsupported_guard_bif _A _B _C | never() => _
 
 #
 # R13B03
 #
 on_load
-
-#
-# R14A.
-#
-# Superseded in OTP 24 by 'recv_marker_reserve' and friends.
-#
-
-recv_mark f => i_recv_mark
-i_recv_mark
-
-recv_set Fail | label Lbl | loop_rec Lf Reg =>
-    i_recv_set | label Lbl | loop_rec Lf Reg
-i_recv_set
 
 #
 # OTP 21.
@@ -1766,10 +1584,10 @@ raw_raise
 
 # move_x1, move_x2
 
-move C=aiq X=x==1 => move_x1 C
-move C=aiq X=x==2 => move_x2 C
+move C=aiq _X=x==1 => move_x1 C
+move C=aiq _X=x==2 => move_x2 C
 
-move n D=y => init D
+move n D=y => i_init D
 
 move_x1 c
 move_x2 c
@@ -1788,9 +1606,17 @@ recv_marker_use S
 #
 
 update_record Hint=a Size=u Src=s Dst=d N=u Updates=* =>
-    update_record(Size, Src, Dst, N, Updates)
+    update_record(Hint, Size, Src, Dst, N, Updates)
 
-i_update_record Size=u Src=c Dst=xy Offset=u Element=s =>
-    move Src x | i_update_record Size x Dst Offset Element
-i_update_record t xy xy t s
+i_update_record_copy Size=u Src=c Dst=xy Offset=u Element=s =>
+    move Src x | i_update_record_copy Size x Dst Offset Element
+
+i_update_record_in_place Size=u Src=c Dst=xy Offset=u Element=s =>
+    move Src x | i_update_record_in_place Size x Dst Offset Element
+
+i_update_record_copy t xy xy t s
+i_update_record_in_place t xy xy t s
+
 i_update_record_continue t s
+
+i_update_record_in_place_done

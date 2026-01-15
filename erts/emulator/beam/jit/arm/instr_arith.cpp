@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +34,11 @@ void BeamModuleAssembler::emit_add_sub_types(bool is_small_result,
                                              const ArgSource &RHS,
                                              const a64::Gp rhs_reg,
                                              const Label next) {
-    if (exact_type<BeamTypeId::Integer>(LHS) &&
-        exact_type<BeamTypeId::Integer>(RHS) && is_small_result) {
+    if (is_small_result) {
         comment("skipped overflow test because the result is always small");
         emit_are_both_small(LHS, lhs_reg, RHS, rhs_reg, next);
+    } else if (RHS.isLiteral()) {
+        /* Skipping test for small */
     } else {
         if (always_small(RHS)) {
             a.and_(TMP1, lhs_reg, imm(_TAG_IMMED1_MASK));
@@ -61,8 +64,11 @@ void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
                                               const ArgSource &RHS,
                                               const a64::Gp rhs_reg,
                                               const Label next) {
-    if (always_small(RHS) &&
-        always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS)) {
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (always_small(RHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS)) {
         comment("simplified test for small operand since other types are "
                 "boxed");
         emit_is_boxed(next, lhs_reg);
@@ -82,9 +88,15 @@ void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
         a.and_(TMP1, lhs_reg, rhs_reg);
         emit_is_boxed(next, TMP1);
     } else {
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        a.and_(TMP1, lhs_reg, rhs_reg);
-        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+        if (always_small(RHS)) {
+            a.and_(TMP1, lhs_reg, imm(_TAG_IMMED1_MASK));
+        } else if (always_small(LHS)) {
+            a.and_(TMP1, rhs_reg, imm(_TAG_IMMED1_MASK));
+        } else {
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP1, lhs_reg, rhs_reg);
+            a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+        }
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
         a.b_eq(next);
     }
@@ -110,7 +122,7 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
     emit_enter_runtime_frame();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_plus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
     emit_leave_runtime_frame();
 
@@ -142,7 +154,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
     if (always_small(LHS) && always_small(RHS) && is_small_result) {
         auto dst = init_destination(Dst, ARG1);
         if (rhs_is_arm_literal) {
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
             comment("add small constant without overflow check");
             a.add(dst.reg, lhs.reg, imm(cleared_tag));
@@ -160,7 +172,9 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
 
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
 
-    if (rhs_is_arm_literal) {
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (rhs_is_arm_literal) {
         Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
         a.adds(ARG1, lhs.reg, imm(cleared_tag));
     } else {
@@ -176,7 +190,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
         a.mov(ARG1, c_p);
-        runtime_call<3>(erts_mixed_plus);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
         emit_leave_runtime(Live.get());
 
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
@@ -207,7 +221,7 @@ void BeamGlobalAssembler::emit_unary_minus_body_shared() {
     emit_enter_runtime_frame();
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_unary_minus);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
 
     emit_leave_runtime_frame();
 
@@ -263,7 +277,7 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
         a.mov(ARG1, c_p);
-        runtime_call<2>(erts_unary_minus);
+        runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
         emit_leave_runtime(Live.get());
 
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
@@ -297,7 +311,7 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
     emit_enter_runtime_frame();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_minus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
 
     emit_leave_runtime_frame();
 
@@ -329,7 +343,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     if (always_small(LHS) && always_small(RHS) && is_small_result) {
         auto dst = init_destination(Dst, ARG1);
         if (rhs_is_arm_literal) {
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
             comment("subtract small constant without overflow check");
             a.sub(dst.reg, lhs.reg, imm(cleared_tag));
@@ -344,10 +358,11 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     }
 
     Label next = a.newLabel();
-
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
 
-    if (rhs_is_arm_literal) {
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (rhs_is_arm_literal) {
         Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
         a.subs(ARG1, lhs.reg, imm(cleared_tag));
     } else {
@@ -363,7 +378,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
         a.mov(ARG1, c_p);
-        runtime_call<3>(erts_mixed_minus);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
         emit_leave_runtime(Live.get());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
@@ -376,45 +391,36 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     mov_arg(Dst, ARG1);
 }
 
-/* ARG2 = LHS
- * ARG3 = RHS
+/*
+ * Create a bignum from a the 128-bit product of two smalls shifted
+ * left _TAG_IMMED1_SIZE bits.
  *
- * The result is returned in ARG1 (set to THE_NON_VALUE if
- * the call failed).
+ * ARG1 = low 64 bits
+ * TMP2 = high 64 bits
+ *
+ * The result is returned in ARG1.
  */
-void BeamGlobalAssembler::emit_times_guard_shared() {
-    Label generic = a.newLabel();
+void BeamGlobalAssembler::emit_int128_to_big_shared() {
+    Label positive = a.newLabel();
 
-    /* Speculatively untag and multiply. */
-    a.and_(TMP1, ARG2, imm(~_TAG_IMMED1_MASK));
-    a.asr(TMP2, ARG3, imm(_TAG_IMMED1_SIZE));
-    a.mul(TMP3, TMP1, TMP2);
-    a.smulh(TMP4, TMP1, TMP2);
+    a.extr(ARG3, TMP2, ARG1, imm(_TAG_IMMED1_SIZE));
+    a.asr(ARG4, TMP2, imm(_TAG_IMMED1_SIZE));
 
-    /* Check that both operands are small integers. */
-    ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-    a.and_(TMP1, ARG2, ARG3);
-    a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.b_ne(generic);
+    a.mov(ARG1, c_p);
 
-    /* The high 65 bits of result will all be the same if no overflow
-     * occurred. Another way to say that is that the sign bit of the
-     * low 64 bits repeated 64 times must be equal to the high 64 bits
-     * of the product. */
-    a.cmp(TMP4, TMP3, arm::asr(63));
-    a.b_ne(generic);
+    a.cmp(ARG4, imm(0));
+    a.cset(ARG2, arm::CondCode::kMI);
 
-    a.orr(ARG1, TMP3, imm(_TAG_IMMED1_SMALL));
-    a.ret(a64::x30);
+    a.b_pl(positive);
+    a.negs(ARG3, ARG3);
+    a.ngc(ARG4, ARG4);
 
-    a.bind(generic);
-
+    a.bind(positive);
     emit_enter_runtime_frame();
     emit_enter_runtime();
 
-    a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_times);
+    runtime_call<Eterm (*)(Process *, Uint, Uint, Uint),
+                 beam_jit_int128_to_big>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -422,111 +428,304 @@ void BeamGlobalAssembler::emit_times_guard_shared() {
     a.ret(a64::x30);
 }
 
-/* ARG2 = LHS
- * ARG3 = RHS
+/* ARG2 = Src1
+ * ARG3 = Src2
+ * ARG4 = Src4
  *
  * The result is returned in ARG1.
  */
-void BeamGlobalAssembler::emit_times_body_shared() {
-    Label generic = a.newLabel(), error = a.newLabel();
-
-    /* Speculatively untag and multiply. */
-    a.and_(TMP1, ARG2, imm(~_TAG_IMMED1_MASK));
-    a.asr(TMP2, ARG3, imm(_TAG_IMMED1_SIZE));
-    a.mul(TMP3, TMP1, TMP2);
-    a.smulh(TMP4, TMP1, TMP2);
-
-    /* Check that both operands are integers. */
-    ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-    a.and_(TMP1, ARG2, ARG3);
-    a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.b_ne(generic);
-
-    /* The high 65 bits of result will all be the same if no overflow
-     * occurred. Another way to say that is that the sign bit of the
-     * low 64 bits repeated 64 times must be equal to the high 64 bits
-     * of the product. */
-    a.cmp(TMP4, TMP3, arm::asr(63));
-    a.b_ne(generic);
-
-    a.orr(ARG1, TMP3, imm(_TAG_IMMED1_SMALL));
-    a.ret(a64::x30);
-
-    a.bind(generic);
-
-    /* Save original arguments for the error path. */
-    a.stp(ARG2, ARG3, TMP_MEM1q);
+void BeamGlobalAssembler::emit_mul_add_body_shared() {
+    Label mul_only = a.newLabel(), error = a.newLabel(),
+          mul_error = a.newLabel(), do_error = a.newLabel();
 
     emit_enter_runtime_frame();
     emit_enter_runtime();
 
+    /* Save original arguments. */
+    a.stp(ARG2, ARG3, TMP_MEM1q);
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_times);
+    a.cmp(ARG4, imm(make_small(0)));
+    a.b_eq(mul_only);
+    a.str(ARG4, TMP_MEM4q);
+
+    lea(ARG5, TMP_MEM3q);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm, Eterm, Eterm *),
+                 erts_mul_add>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
 
     emit_branch_if_not_value(ARG1, error);
-
     a.ret(a64::x30);
+
+    a.bind(mul_only);
+    {
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
+
+        emit_leave_runtime();
+        emit_leave_runtime_frame();
+
+        emit_branch_if_not_value(ARG1, mul_error);
+        a.ret(a64::x30);
+    }
 
     a.bind(error);
     {
-        static const ErtsCodeMFA bif_mfa = {am_erlang, am_Times, 2};
+        static const ErtsCodeMFA mul_mfa = {am_erlang, am_Times, 2};
+        static const ErtsCodeMFA add_mfa = {am_erlang, am_Plus, 2};
 
-        /* Place the original arguments in x-registers. */
+        a.ldp(XREG0, XREG1, TMP_MEM3q);
+        mov_imm(ARG4, &add_mfa);
+        emit_branch_if_value(XREG0, do_error);
+
+        a.bind(mul_error);
         a.ldp(XREG0, XREG1, TMP_MEM1q);
-        mov_imm(ARG4, &bif_mfa);
+        mov_imm(ARG4, &mul_mfa);
+
+        a.bind(do_error);
         a.b(labels[raise_exception]);
     }
 }
 
-void BeamModuleAssembler::emit_i_times(const ArgLabel &Fail,
-                                       const ArgWord &Live,
-                                       const ArgSource &LHS,
-                                       const ArgSource &RHS,
-                                       const ArgRegister &Dst) {
-    bool is_small_result = is_product_small_if_args_are_small(LHS, RHS);
+/* ARG2 = Src1
+ * ARG3 = Src2
+ * ARG4 = Src4
+ *
+ * The result is returned in ARG1 (set to THE_NON_VALUE if
+ * the call failed).
+ */
+void BeamGlobalAssembler::emit_mul_add_guard_shared() {
+    Label mul_failed = a.newLabel();
 
-    if (always_small(LHS) && always_small(RHS) && is_small_result) {
-        auto dst = init_destination(Dst, ARG1);
-        comment("multiplication without overflow check");
-        if (RHS.isSmall()) {
-            auto lhs = load_source(LHS, ARG2);
-            Sint factor = RHS.as<ArgSmall>().getSigned();
+    a.str(ARG4, TMP_MEM1q);
 
-            a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
-            if (Support::isPowerOf2(factor)) {
-                int trailing_bits = Support::ctz<Eterm>(factor);
-                comment("optimized multiplication by replacing with left "
-                        "shift");
-                a.lsl(TMP1, TMP1, imm(trailing_bits));
-            } else {
-                mov_imm(TMP2, factor);
-                a.mul(TMP1, TMP1, TMP2);
-            }
-        } else {
-            auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
-            a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
-            a.asr(TMP2, rhs.reg, imm(_TAG_IMMED1_SIZE));
-            a.mul(TMP1, TMP1, TMP2);
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
+    emit_branch_if_not_value(ARG1, mul_failed);
+
+    a.ldr(ARG3, TMP_MEM1q);
+    a.mov(ARG2, ARG1);
+    a.mov(ARG1, c_p);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
+
+    a.bind(mul_failed);
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    a.ret(a64::x30);
+}
+
+/* ARG2 = Src1
+ * ARG3 = Src2
+ *
+ * The result is returned in ARG1.
+ */
+void BeamGlobalAssembler::emit_mul_body_shared() {
+    mov_imm(ARG4, make_small(0));
+    a.b(labels[mul_add_body_shared]);
+}
+
+/* ARG2 = Src1
+ * ARG3 = Src2
+ *
+ * The result is returned in ARG1 (set to THE_NON_VALUE if
+ * the call failed).
+ */
+void BeamGlobalAssembler::emit_mul_guard_shared() {
+    mov_imm(ARG4, make_small(0));
+    a.b(labels[mul_add_guard_shared]);
+}
+
+void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
+                                         const ArgSource &Src1,
+                                         const ArgSource &Src2,
+                                         const ArgSource &Src3,
+                                         const ArgSource &Src4,
+                                         const ArgRegister &Dst) {
+    bool is_product_small = is_product_small_if_args_are_small(Src1, Src2);
+    bool is_sum_small = is_sum_small_if_args_are_small(Src3, Src4);
+    bool sometimes_small = !(Src2.isLiteral() || Src4.isLiteral());
+    bool is_increment_zero =
+            Src4.isSmall() && Src4.as<ArgSmall>().getSigned() == 0;
+    Sint factor = 0;
+    int left_shift = -1;
+
+    if (is_increment_zero) {
+        comment("(adding zero)");
+    }
+
+    if (Src2.isSmall()) {
+        factor = Src2.as<ArgSmall>().getSigned();
+        if (Support::isPowerOf2(factor)) {
+            left_shift = Support::ctz<Eterm>(factor);
         }
-        a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
+    }
+
+    if (always_small(Src1) && Src2.isSmall() && always_small(Src4) &&
+        is_product_small && is_sum_small) {
+        auto dst = init_destination(Dst, ARG1);
+        auto [src1, src4] = load_sources(Src1, ARG2, Src4, ARG3);
+
+        comment("multiplication and addition without overflow check");
+        a.and_(TMP1, src1.reg, imm(~_TAG_IMMED1_MASK));
+        if (left_shift > 0) {
+            comment("optimized multiplication by replacing with left "
+                    "shift");
+            a.add(dst.reg, src4.reg, TMP1, arm::lsl(left_shift));
+        } else {
+            mov_imm(TMP2, factor);
+            a.madd(dst.reg, TMP1, TMP2, src4.reg);
+        }
         flush_var(dst);
     } else {
-        auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
-        mov_var(ARG2, lhs);
-        mov_var(ARG3, rhs);
+        Label small = a.newLabel();
+        Label store_result = a.newLabel();
+        auto [src1, src2] = load_sources(Src1, ARG2, Src2, ARG3);
+        auto src4 = load_source(ArgXRegister(0), XREG0);
 
-        if (Fail.get() != 0) {
-            fragment_call(ga->get_times_guard_shared());
-            emit_branch_if_not_value(ARG1,
-                                     resolve_beam_label(Fail, dispUnknown));
-        } else {
-            fragment_call(ga->get_times_body_shared());
+        if (!is_increment_zero) {
+            src4 = load_source(Src4, ARG4);
         }
 
+        if (always_small(Src1) && always_small(Src2) && always_small(Src4)) {
+            comment("skipped test for small operands since they are always "
+                    "small");
+        } else {
+            if (always_small(Src4)) {
+                emit_are_both_small(Src1, src1.reg, Src2, src2.reg, small);
+            } else if (always_small(Src2)) {
+                emit_are_both_small(Src1, src1.reg, Src4, src4.reg, small);
+            } else if (sometimes_small) {
+                ASSERT(!is_increment_zero);
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.and_(TMP1, src1.reg, src2.reg);
+                a.and_(TMP1, TMP1, src4.reg);
+                if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                            Src1) &&
+                    always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                            Src2) &&
+                    always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                            Src4)) {
+                    emit_is_boxed(small, TMP1);
+                } else {
+                    a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+                    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+                    a.b_eq(small);
+                }
+            } else {
+                comment("skipped test for small because one operand is never "
+                        "small");
+            }
+
+            mov_var(ARG2, src1);
+            mov_var(ARG3, src2);
+
+            if (Fail.get() != 0) {
+                if (is_increment_zero) {
+                    fragment_call(ga->get_mul_guard_shared());
+                } else {
+                    mov_var(ARG4, src4);
+                    fragment_call(ga->get_mul_add_guard_shared());
+                }
+                emit_branch_if_not_value(ARG1,
+                                         resolve_beam_label(Fail, dispUnknown));
+            } else {
+                if (is_increment_zero) {
+                    fragment_call(ga->get_mul_body_shared());
+                } else {
+                    mov_var(ARG4, src4);
+                    fragment_call(ga->get_mul_add_body_shared());
+                }
+            }
+
+            if (sometimes_small) {
+                a.b(store_result);
+            }
+        }
+
+        a.bind(small);
+        if (sometimes_small) {
+            if (is_increment_zero) {
+                comment("multiply smalls");
+            } else {
+                comment("multiply and add smalls");
+            }
+        }
+
+        if (is_product_small && is_sum_small) {
+            a64::Gp increment_reg;
+
+            a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
+
+            if (is_increment_zero) {
+                mov_imm(TMP1, make_small(0));
+                increment_reg = TMP1;
+            } else {
+                increment_reg = src4.reg;
+            }
+
+            if (left_shift > 0) {
+                comment("optimized multiplication by replacing with left "
+                        "shift");
+                a.add(ARG1, increment_reg, TMP3, arm::lsl(left_shift));
+            } else {
+                a.asr(TMP4, src2.reg, imm(_TAG_IMMED1_SIZE));
+                a.madd(ARG1, TMP3, TMP4, increment_reg);
+            }
+
+            comment("skipped test for small result");
+        } else if (sometimes_small) {
+            auto min_increment = std::get<0>(getClampedRange(Src4));
+
+            a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
+            if (left_shift == 0) {
+                comment("optimized multiplication by one");
+                a.mov(ARG1, TMP3);
+                a.asr(TMP2, TMP3, imm(63));
+            } else if (left_shift > 0) {
+                comment("optimized multiplication by replacing with left "
+                        "shift");
+                a.lsl(ARG1, TMP3, imm(left_shift));
+                a.asr(TMP2, TMP3, imm(64 - left_shift));
+            } else {
+                ASSERT(left_shift == -1);
+                a.asr(TMP4, src2.reg, imm(_TAG_IMMED1_SIZE));
+                a.mul(ARG1, TMP3, TMP4);
+                a.smulh(TMP2, TMP3, TMP4);
+            }
+
+            if (is_increment_zero) {
+                a.add(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+            } else {
+                a64::Gp sign_reg;
+
+                if (min_increment > 0) {
+                    sign_reg = ZERO;
+                } else {
+                    sign_reg = TMP3;
+                    a.asr(sign_reg, src4.reg, imm(63));
+                }
+
+                a.adds(ARG1, ARG1, src4.reg);
+                a.adc(TMP2, TMP2, sign_reg);
+            }
+
+            comment("test whether the result fits in a small");
+            /* The high 65 bits of result will all be the same if no
+             * overflow occurred. Another way to say that is that the
+             * sign bit of the low 64 bits repeated 64 times must be
+             * equal to the high 64 bits of the result. */
+            a.asr(TMP3, ARG1, imm(SMALL_BITS + _TAG_IMMED1_SIZE - 1));
+            a.cmp(TMP2, TMP3);
+            a.b_eq(store_result);
+
+            fragment_call(ga->get_int128_to_big_shared());
+        }
+
+        a.bind(store_result);
         mov_arg(Dst, ARG1);
     }
 }
@@ -581,7 +780,8 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
         a.mov(ARG1, c_p);
         lea(ARG4, TMP_MEM4q);
         lea(ARG5, TMP_MEM5q);
-        runtime_call<5>(erts_int_div_rem);
+        runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
+                     erts_int_div_rem>();
 
         emit_leave_runtime();
         emit_leave_runtime_frame();
@@ -644,7 +844,8 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
         a.mov(ARG1, c_p);
         lea(ARG4, TMP_MEM4q);
         lea(ARG5, TMP_MEM5q);
-        runtime_call<5>(erts_int_div_rem);
+        runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
+                     erts_int_div_rem>();
 
         emit_leave_runtime();
         emit_leave_runtime_frame();
@@ -673,6 +874,97 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     }
 }
 
+void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
+                                               const ArgSource &Dividend,
+                                               a64::Gp dividend,
+                                               a64::Gp quotient,
+                                               a64::Gp remainder,
+                                               const Label &generic,
+                                               bool need_div,
+                                               bool need_rem) {
+    a64::Gp small_tag = TMP6;
+    bool small_dividend = !generic.isValid();
+
+    ASSERT(divisor != (Sint)0);
+
+    if (!small_dividend) {
+        a.and_(small_tag, dividend, imm(_TAG_IMMED1_MASK));
+        a.cmp(small_tag, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    if (Support::isPowerOf2(divisor)) {
+        a64::Gp original_dividend = dividend;
+        int shift = Support::ctz<Eterm>(divisor);
+
+        if (need_div && small_dividend) {
+            mov_imm(small_tag, _TAG_IMMED1_SMALL);
+        }
+
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        if (std::get<0>(getClampedRange(Dividend)) >= 0) {
+            /* Positive dividend. */
+            if (need_div) {
+                comment("optimized div by replacing with right shift");
+                if (need_rem && quotient == dividend) {
+                    original_dividend = TMP5;
+                    a.mov(original_dividend, dividend);
+                }
+                a.orr(quotient, small_tag, dividend, arm::lsr(shift));
+            }
+            if (need_rem) {
+                auto mask = Support::lsbMask<Uint>(shift + _TAG_IMMED1_SIZE);
+                comment("optimized rem by replacing with masking");
+                a.and_(remainder, original_dividend, imm(mask));
+            }
+        } else {
+            /* Negative dividend. */
+            if (need_div) {
+                comment("optimized div by replacing with right shift");
+            }
+            if (divisor == 2) {
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.add(TMP3, dividend, dividend, arm::lsr(63));
+            } else {
+                add(TMP1, dividend, (divisor - 1) << _TAG_IMMED1_SIZE);
+                a.cmp(dividend, imm(0));
+                a.csel(TMP3, TMP1, dividend, imm(arm::CondCode::kLT));
+            }
+            if (need_div) {
+                if (need_rem && quotient == dividend) {
+                    original_dividend = TMP5;
+                    a.mov(original_dividend, dividend);
+                }
+                a.orr(quotient, small_tag, TMP3, arm::asr(shift));
+            }
+            if (need_rem) {
+                Uint mask = (Uint)-1 << (shift + _TAG_IMMED1_SIZE);
+                comment("optimized rem by replacing with subtraction");
+                a.and_(TMP1, TMP3, imm(mask));
+                a.sub(remainder, original_dividend, TMP1);
+            }
+        }
+    } else {
+        a.asr(TMP1, dividend, imm(_TAG_IMMED1_SIZE));
+        mov_imm(TMP2, divisor);
+        a.sdiv(quotient, TMP1, TMP2);
+        if (need_rem) {
+            a.msub(remainder, quotient, TMP2, TMP1);
+        }
+
+        if (small_dividend) {
+            mov_imm(small_tag, _TAG_IMMED1_SMALL);
+        }
+        const arm::Shift tagShift = arm::lsl(_TAG_IMMED1_SIZE);
+        if (need_div) {
+            a.orr(quotient, small_tag, quotient, tagShift);
+        }
+        if (need_rem) {
+            a.orr(remainder, small_tag, remainder, tagShift);
+        }
+    }
+}
+
 void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                                        const ArgSource &LHS,
                                        const ArgSource &RHS,
@@ -685,52 +977,26 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
 
     if (RHS.isSmall()) {
         divisor = RHS.as<ArgSmall>().getSigned();
+        if (divisor == -1) {
+            divisor = 0;
+        }
     }
 
-    if (always_small(LHS) && divisor != (Sint)0 && divisor != (Sint)-1) {
+    if (always_small(LHS) && divisor != 0) {
         auto lhs = load_source(LHS, ARG3);
         auto quotient = init_destination(Quotient, ARG1);
         auto remainder = init_destination(Remainder, ARG2);
+        Label invalidLabel; /* Intentionally not initialized */
 
         comment("skipped test for smalls operands and overflow");
-        if (Support::isPowerOf2(divisor) &&
-            std::get<0>(getClampedRange(LHS)) >= 0) {
-            int trailing_bits = Support::ctz<Eterm>(divisor);
-            arm::Gp LHS_reg = lhs.reg;
-            if (need_div) {
-                comment("optimized div by replacing with right shift");
-                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-                if (need_rem && quotient.reg == lhs.reg) {
-                    LHS_reg = TMP1;
-                    a.mov(LHS_reg, lhs.reg);
-                }
-                a.lsr(quotient.reg, lhs.reg, imm(trailing_bits));
-                a.orr(quotient.reg, quotient.reg, imm(_TAG_IMMED1_SMALL));
-            }
-            if (need_rem) {
-                comment("optimized rem by replacing with masking");
-                auto mask = Support::lsbMask<Uint>(trailing_bits +
-                                                   _TAG_IMMED1_SIZE);
-                a.and_(remainder.reg, LHS_reg, imm(mask));
-            }
-        } else {
-            a.asr(TMP1, lhs.reg, imm(_TAG_IMMED1_SIZE));
-            mov_imm(TMP2, divisor);
-            a.sdiv(quotient.reg, TMP1, TMP2);
-            if (need_rem) {
-                a.msub(remainder.reg, quotient.reg, TMP2, TMP1);
-            }
-
-            mov_imm(TMP3, _TAG_IMMED1_SMALL);
-            const arm::Shift tagShift = arm::lsl(_TAG_IMMED1_SIZE);
-            if (need_div) {
-                a.orr(quotient.reg, TMP3, quotient.reg, tagShift);
-            }
-            if (need_rem) {
-                a.orr(remainder.reg, TMP3, remainder.reg, tagShift);
-            }
-        }
-
+        emit_div_rem_literal(divisor,
+                             LHS,
+                             lhs.reg,
+                             quotient.reg,
+                             remainder.reg,
+                             invalidLabel,
+                             need_div,
+                             need_rem);
         if (need_div) {
             flush_var(quotient);
         }
@@ -738,11 +1004,24 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
             flush_var(remainder);
         }
     } else {
+        Label generic = a.newLabel(), done = a.newLabel();
         auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
 
+        if (divisor != (Sint)0) {
+            emit_div_rem_literal(divisor,
+                                 LHS,
+                                 lhs.reg,
+                                 ARG1,
+                                 ARG2,
+                                 generic,
+                                 need_div,
+                                 need_rem);
+            a.b(done);
+        }
+
+        a.bind(generic);
         mov_var(ARG2, lhs);
         mov_var(ARG3, rhs);
-
         if (Fail.get() != 0) {
             fragment_call(ga->get_int_div_rem_guard_shared());
             a.b_eq(resolve_beam_label(Fail, disp1MB));
@@ -751,6 +1030,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
             fragment_call(ga->get_int_div_rem_body_shared());
         }
 
+        a.bind(done);
         if (need_div) {
             mov_arg(Quotient, ARG1);
         }
@@ -823,7 +1103,7 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
     emit_enter_runtime(Live.get());
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_div);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_div>();
 
     emit_leave_runtime(Live.get());
 
@@ -853,9 +1133,8 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
  *
  * The result is returned in ARG1.
  */
-template<typename T>
-void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
-                                                     const ErtsCodeMFA *mfa) {
+template<typename T, T Func>
+void BeamGlobalAssembler::emit_bitwise_fallback_body(const ErtsCodeMFA *mfa) {
     Label error = a.newLabel();
 
     emit_enter_runtime_frame();
@@ -864,7 +1143,7 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
     a.stp(ARG2, ARG3, TMP_MEM1q);
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(func_ptr);
+    runtime_call<T, Func>();
 
     emit_leave_runtime_frame();
 
@@ -886,7 +1165,8 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
 
 void BeamGlobalAssembler::emit_i_band_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_band, 2};
-    emit_bitwise_fallback_body(erts_band, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_band>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
@@ -901,7 +1181,7 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
                                          &ignore)) {
             comment("skipped test for small operands since they are always "
                     "small");
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             auto dst = init_destination(Dst, ARG1);
 
             /* TAG & TAG = TAG, so we don't need to tag it again. */
@@ -923,22 +1203,29 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
     } else {
         Label next = a.newLabel();
 
-        /* TAG & TAG = TAG, so we don't need to tag it again. */
-        a.and_(ARG1, lhs.reg, rhs.reg);
-
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS) &&
-            always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(RHS)) {
-            comment("simplified test for small operands since other types are "
-                    "boxed");
-            emit_is_boxed(next, ARG1);
+        if (RHS.isLiteral()) {
+            comment("skipped test for small because one operand is never "
+                    "small");
         } else {
-            /* All other term types has at least one zero in the low 4
-             * bits. Therefore, the result will be a small iff both
-             * operands are small. */
-            a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
-            a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-            a.b_eq(next);
+            /* TAG & TAG = TAG, so we don't need to tag it again. */
+            a.and_(ARG1, lhs.reg, rhs.reg);
+
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        LHS) &&
+                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        RHS)) {
+                comment("simplified test for small operands since other types "
+                        "are boxed");
+                emit_is_boxed(next, ARG1);
+            } else {
+                /* All other term types has at least one zero in the low 4
+                 * bits. Therefore, the result will be a small iff both
+                 * operands are small. */
+                a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
+                a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+                a.b_eq(next);
+            }
         }
 
         mov_var(ARG2, lhs);
@@ -947,7 +1234,8 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
         if (Fail.get() != 0) {
             emit_enter_runtime(Live.get());
             a.mov(ARG1, c_p);
-            runtime_call<3>(erts_band);
+            runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_band>();
+
             emit_leave_runtime(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
@@ -974,7 +1262,8 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bor_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bor, 2};
-    emit_bitwise_fallback_body(erts_bor, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bor>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
@@ -988,7 +1277,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
         if (a64::Utils::encodeLogicalImm(rhs, 64, &ignore)) {
             comment("skipped test for small operands since they are always "
                     "small");
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             auto dst = init_destination(Dst, ARG1);
 
             a.orr(dst.reg, lhs.reg, rhs);
@@ -1020,7 +1309,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
         if (Fail.get() != 0) {
             emit_enter_runtime(Live.get());
             a.mov(ARG1, c_p);
-            runtime_call<3>(erts_bor);
+            runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bor>();
             emit_leave_runtime(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
@@ -1047,7 +1336,8 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bxor_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bxor, 2};
-    emit_bitwise_fallback_body(erts_bxor, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bxor>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
@@ -1083,7 +1373,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
         a.mov(ARG1, c_p);
-        runtime_call<3>(erts_bxor);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bxor>();
         emit_leave_runtime(Live.get());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
@@ -1115,7 +1405,7 @@ void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
     a.eor(ARG2, ARG1, imm(~_TAG_IMMED1_MASK));
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_bnot);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_bnot>();
 
     emit_leave_runtime_frame();
 
@@ -1142,7 +1432,7 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
     a.str(ARG2, TMP_MEM1q);
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_bnot);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_bnot>();
 
     emit_leave_runtime_frame();
 
@@ -1210,7 +1500,8 @@ void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bsr_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsr, 2};
-    emit_bitwise_fallback_body(erts_bsr, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bsr>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
@@ -1226,34 +1517,62 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
     if (RHS.isSmall()) {
         Sint shift = RHS.as<ArgSmall>().getSigned();
 
-        if (shift >= 0 && shift < SMALL_BITS - 1) {
+        if (shift >= 0) {
+            a64::Gp small_tag = TMP1;
             if (always_small(LHS)) {
                 comment("skipped test for small left operand because it is "
                         "always small");
                 need_generic = false;
+                mov_imm(small_tag, _TAG_IMMED1_SMALL);
             } else if (always_one_of<BeamTypeId::Number>(LHS)) {
                 comment("simplified test for small operand since it is a "
                         "number");
                 emit_is_not_boxed(generic, lhs.reg);
+                mov_imm(small_tag, _TAG_IMMED1_SMALL);
             } else {
-                a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-                a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+                a.and_(small_tag, lhs.reg, imm(_TAG_IMMED1_MASK));
+                a.cmp(small_tag, imm(_TAG_IMMED1_SMALL));
                 a.b_ne(generic);
             }
 
             /* We don't need to clear the mask after shifting because
              * _TAG_IMMED1_SMALL will set all the bits anyway. */
             ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
-            a.asr(TMP1, lhs.reg, imm(shift));
-            a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
+            shift = std::min<Sint>(shift, 63);
+            a.orr(dst.reg, small_tag, lhs.reg, arm::asr(shift));
 
             if (need_generic) {
                 a.b(next);
             }
         } else {
-            /* Constant shift is negative or too big to fit the `asr`
-             * instruction; fall back to the generic path. */
+            /* Constant shift is negative; fall back to the generic
+             * path. */
         }
+    } else {
+        auto rhs = load_source(RHS, ARG3);
+
+        /* Ensure that both operands are small and that the shift
+         * count is positive. */
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.ands(TMP1, rhs.reg, imm((1ull << 63) | _TAG_IMMED1_MASK));
+        a.and_(TMP1, lhs.reg, TMP1);
+        a.ccmp(TMP1,
+               imm(_TAG_IMMED1_SMALL),
+               imm(NZCV::kNone),
+               arm::CondCode::kPL);
+        a.b_ne(generic);
+
+        /* Calculate shift count. */
+        a.asr(TMP1, rhs.reg, imm(_TAG_IMMED1_SIZE));
+        mov_imm(TMP2, 63);
+        a.cmp(TMP1, TMP2);
+        a.csel(TMP1, TMP1, TMP2, imm(arm::CondCode::kLE));
+
+        /* Shift right. */
+        ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
+        a.asr(dst.reg, lhs.reg, TMP1);
+        a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+        a.b(next);
     }
 
     a.bind(generic);
@@ -1264,7 +1583,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
         if (Fail.get() != 0) {
             emit_enter_runtime(Live.get());
             a.mov(ARG1, c_p);
-            runtime_call<3>(erts_bsr);
+            runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bsr>();
             emit_leave_runtime(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
@@ -1292,7 +1611,8 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bsl_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsl, 2};
-    emit_bitwise_fallback_body(erts_bsl, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bsl>(
+            &bif_mfa);
 }
 
 static int count_leading_zeroes(UWord value) {
@@ -1315,7 +1635,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
     if (is_bsl_small(LHS, RHS)) {
         comment("skipped tests because operands and result are always small");
         if (RHS.isSmall()) {
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
             a.lsl(TMP1, TMP1, imm(RHS.as<ArgSmall>().getSigned()));
         } else {
@@ -1433,7 +1753,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
         if (Fail.get() != 0) {
             emit_enter_runtime(Live.get());
             a.mov(ARG1, c_p);
-            runtime_call<3>(erts_bsl);
+            runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bsl>();
             emit_leave_runtime(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));

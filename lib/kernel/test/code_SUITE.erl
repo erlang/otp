@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,15 +33,18 @@
          soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
 	 upgrade/0, upgrade/1,
-	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
+	 sticky_dir/1, add_del_path/1,
+         pa_pz_option/1, remove_pa_pz_option/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
-	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
+	 code_archive/1, code_archive2/1, on_load/1,
+     on_load_binary/1, on_load_binary_twice/1,
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
          on_load_trace_on_load/1,
 	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
 	 on_load_deleted/1, on_load_deadlock/1,
+         on_load_deadlock_load_binary_GH7466/1, on_load_deadlock_ensure_loaded_GH7466/1,
 	 big_boot_embedded/1,
          module_status/1,
 	 get_mode/1, code_path_cache/1,
@@ -67,14 +72,17 @@ all() ->
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      all_available, load_binary, dir_req, object_code, set_path_file,
      upgrade, code_path_cache,
-     sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
+     pa_pz_option, remove_pa_pz_option,
+     sticky_dir, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
-     on_load_binary, on_load_embedded, on_load_errors,
+     on_load_binary, on_load_binary_twice,
+     on_load_embedded, on_load_errors,
      {group, sequence},
      on_load_purge, on_load_self_call, on_load_pending,
-     on_load_deleted, on_load_deadlock,
+     on_load_deleted, on_load_deadlock, on_load_deadlock_load_binary_GH7466,
+     on_load_deadlock_ensure_loaded_GH7466,
      module_status,
      big_boot_embedded, get_mode, normalized_paths,
      mult_embedded_flags].
@@ -109,7 +117,7 @@ end_per_suite(Config) ->
 -define(TESTMODOBJ, ?TESTMODSTR ".beam").
 
 init_per_testcase(big_boot_embedded, Config) ->
-    case catch crypto:start() of
+    case catch application:start(crypto) of
 	ok ->
 	    init_per_testcase(do_big_boot_embedded, Config);
 	_Else ->
@@ -839,6 +847,16 @@ pa_pz_option(Config) when is_list(Config) ->
     [PzDir|_] = lists:reverse(Paths2),
     peer:stop(Peer2).
 
+%% Test that we can remove paths added via -pa and -pz.
+remove_pa_pz_option(Config) when is_list(Config) ->
+    DDir = proplists:get_value(data_dir,Config),
+    PaDir = filename:join(DDir,"clash/foobar-0.1/ebin"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", PaDir]),
+    {_,_,_} = rpc:call(Node, code, get_object_code, [blarg]),
+    true = rpc:call(Node, code, del_path, [PaDir]),
+    error = rpc:call(Node, code, get_object_code, [blarg]),
+    peer:stop(Peer).
+
 %% add_path, del_path should not cause priv_dir(App) to fail.
 add_del_path(Config) when is_list(Config) ->
     DDir = proplists:get_value(data_dir,Config),
@@ -1132,7 +1150,7 @@ mult_lib_roots(Config) when is_list(Config) ->
     Path0 = rpc:call(Node, code, get_path, []),
     %% ?CT_PEER adds extra path to this module folder
     PathToSelf = filename:dirname(code:which(?MODULE)),
-    [PathToSelf, "."|Path1] = Path0,
+    [PathToSelf|Path1] = Path0,
     [Kernel|Path2] = Path1,
     [Stdlib|Path3] = Path2,
     mult_lib_verify_lib(Kernel, "kernel"),
@@ -1435,11 +1453,11 @@ on_load_binary(_) ->
 
     {Pid1,Ref1} = spawn_monitor(fun() ->
 					code:load_binary(Mod, File, Bin),
-					true = on_load_binary:ok()
+					true = Mod:ok()
 				end),
     receive {Mod,OnLoadPid} -> ok end,
     {Pid2,Ref2} = spawn_monitor(fun() ->
-					true = on_load_binary:ok()
+					true = Mod:ok()
 				end),
     erlang:yield(),
     OnLoadPid ! go,
@@ -1447,8 +1465,49 @@ on_load_binary(_) ->
     receive {'DOWN',Ref2,process,Pid2,Exit2} -> ok end,
     normal = Exit1,
     normal = Exit2,
-    true = code:delete(on_load_binary),
-    false = code:purge(on_load_binary),
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+    ok.
+
+on_load_binary_twice(_) ->
+    Master = on_load_binary_twice_test_case_process,
+    register(Master, self()),
+
+    %% Construct, compile and pretty-print.
+    Mod = ?FUNCTION_NAME,
+    File = atom_to_list(Mod) ++ ".erl",
+    Tree = ?Q(["-module('@Mod@').\n",
+           "-export([ok/0]).\n",
+           "-on_load({init,0}).\n",
+           "init() ->\n",
+           "  '@Master@' ! {on_load_binary_twice,self()},\n",
+           "  receive go -> ok end.\n",
+           "ok() -> true.\n"]),
+    {ok,Mod,Bin} = merl:compile(Tree),
+    merl:print(Tree),
+
+    {Pid1,Ref1} = spawn_monitor(fun() ->
+                    code:load_binary(Mod, File, Bin),
+                    true = Mod:ok()
+                end),
+    receive {Mod,OnLoadPid1} -> ok end,
+    {Pid2,Ref2} = spawn_monitor(fun() ->
+                    code:load_binary(Mod, File, Bin),
+                    true = Mod:ok()
+                end),
+    erlang:yield(),
+
+    OnLoadPid1 ! go,
+    receive {'DOWN',Ref1,process,Pid1,Exit1} -> ok end,
+    normal = Exit1,
+
+    receive {Mod,OnLoadPid2} -> ok end,
+    OnLoadPid2 ! go,
+    receive {'DOWN',Ref2,process,Pid2,Exit2} -> ok end,
+    normal = Exit2,
+
+    false = code:purge(Mod),
+    true = code:delete(Mod),
     ok.
 
 on_load_embedded(Config) when is_list(Config) ->
@@ -1934,6 +1993,78 @@ on_load_deadlock(Config) ->
 
     code:del_path(Dir),
     ok.
+
+on_load_deadlock_load_binary_GH7466(Config) ->
+    Tree = ?Q(["-module(foo).\n",
+               "-on_load(init_module/0).\n",
+               "-export([bar/0]).\n",
+               "bar() -> ok.\n",
+               "init_module() ->\n",
+               "    timer:sleep(1000).\n"]),
+    merl:print(Tree),
+
+    %% Compiles the form, does not load binary
+    {ok,Mod,Bin} = compile:forms(Tree),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "foo.beam"),
+    ok = file:write_file(File, Bin),
+    code:add_path(Dir),
+
+    Self = self(),
+    LoadBin = fun() ->
+                      _ = code:load_binary(Mod, "foo.beam", Bin),
+                      Self ! {done, self()},
+                      Self
+              end,
+    %% this deadlocks in OTP-26
+    PidX = spawn(LoadBin),
+    PidY = spawn(LoadBin),
+    Self = LoadBin(),
+    ok = receiver(PidX),
+    ok = receiver(PidY),
+    ok = receiver(Self),
+
+    code:del_path(Dir),
+    ok.
+
+on_load_deadlock_ensure_loaded_GH7466(Config) ->
+    Tree = ?Q(["-module(foo).\n",
+               "-on_load(init_module/0).\n",
+               "-export([bar/0]).\n",
+               "bar() -> ok.\n",
+               "init_module() ->\n",
+               "    timer:sleep(1000), bar().\n"]),
+    _ = merl:print(Tree),
+
+    %% Compiles the form, does not load binary
+    {ok,Mod,Bin} = compile:forms(Tree),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "foo.beam"),
+    ok = file:write_file(File, Bin),
+    code:add_path(Dir),
+
+    Self = self(),
+    EnsureLoaded = fun() ->
+                           _ = code:ensure_loaded(Mod),
+                           Self ! {done, self()},
+                           Self
+                   end,
+    Pid = spawn(EnsureLoaded),
+    Pid2 = spawn(EnsureLoaded),
+    Self = EnsureLoaded(),
+    ok = receiver(Pid),
+    ok = receiver(Pid2),
+    ok = receiver(Self),
+
+    code:del_path(Dir),
+    ok.
+
+receiver(Pid) ->
+    receive
+        {done, Pid} -> ok
+    after 10_000 ->
+            it_deadlocked
+    end.
 
 delete_before_reload(Mod, Reload) ->
     false = check_old_code(Mod),

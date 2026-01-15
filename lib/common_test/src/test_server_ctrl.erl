@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_ctrl).
+-moduledoc false.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                  %%
 %%                      The Erlang Test Server                      %%
@@ -80,6 +83,8 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("test_server_internal.hrl").
 -include_lib("kernel/include/file.hrl").
 -define(suite_ext, "_SUITE").
@@ -100,6 +105,25 @@
 -define(last_link, "last_link").
 -define(last_test, "last_test").
 -define(html_ext, ".html").
+-define(cover_html_stylesheet,
+        "<style>\n"
+        "  @media (prefers-color-scheme: dark) {\n"
+	"    body {"
+        "       filter: invert(100%) hue-rotate(180deg) brightness(105%) contrast(95%);\n"
+	"       /* Workaround for Microsoft Edge, set the background color so it knows\n"
+	"          which original color to rotate from, otherwise the background stays white. */\n"
+	"       background-color: #000000;\n"
+        "    }\n"
+	"    /* Match light theme with links on all browsers */\n"
+	"    a:link {\n"
+	"      color: #2B507D;\n"
+	"    }\n"
+	"    a:visited, a:active {\n"
+	"      /* Match light theme */\n"
+	"      color: #85ABD5;\n"
+	"    }\n"
+	"  }"
+        "</style>\n").
 -define(now, os:timestamp()).
 
 -define(void_fun, fun() -> ok end).
@@ -1122,7 +1146,8 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 				 {auto_nl,not lists:member(no_nl, LogOpts)},
 				 {reject_io_reqs,RejectIoReqs}]),
     group_leader(test_server_io:get_gl(true), self()),
-    {TimeMy,Result} = ts_tc(Mod, Func, Args),
+    {ElapsedTime,Result} = ts_tc(Mod, Func, Args),
+    print(major, "=elapsed_time  ~w", [ElapsedTime]),
     set_io_buffering(undefined),
     test_server_io:set_job_name(undefined),
     catch stop_extra_tools(StartedExtraTools),
@@ -1135,7 +1160,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	    report_severe_error(Reason),
 	    print(1, "EXIT, reason ~tp", [Reason])
     end,
-    ElapsedTimeSeconds = TimeMy/1000000,
+    ElapsedTimeSeconds = ElapsedTime/1000000,
     SuccessStr =
 	case get(test_server_failed) of
 	    0 -> "Ok";
@@ -1154,11 +1179,12 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
     TotalTestTime = get(test_server_total_time),
     print(html,"\n</tbody>\n<tfoot>\n"
           "<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
-          "<td>~.3fs<br></td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w<br>"
+          "<td>~.fs<br></td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w<br>"
           "Elapsed Time: ~.3fs</td></tr>\n"
           "</tfoot>\n",
           [TotalTestTime,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN,
            ElapsedTimeSeconds]),
+
 
     test_server_io:stop([major,html,unexpected_io]),
     {UnexpectedIoName,UnexpectedIoFooter} = get(test_server_unexpected_footer),
@@ -3683,12 +3709,16 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
                 failed ->
                     ReturnTime = case RetVal of
                                      {_, T} when is_number(T) -> T;
+                                     {died, {timetrap_timeout, T}, _} -> T/1000;
+                                     {T, _ , _} when is_number(T) -> T;
                                      _ -> 0
                                  end,
                     put(test_server_total_time, get(test_server_total_time) + ReturnTime),
                     put(test_server_failed, get(test_server_failed)+1),
                     ReturnTime;
                 skipped ->
+                    {ReturnTime, _, _} = RetVal,
+                    put(test_server_total_time, get(test_server_total_time) + ReturnTime),
                     SkipCounters =
                     update_skip_counters(RetVal, get(test_server_skipped)),
                     put(test_server_skipped, SkipCounters)
@@ -3844,13 +3874,19 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
-	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], GrName,
-			    RunInit, TimetrapData),
+    run_test_case_apply(Num, Mod, Func, [UpdatedArgs], GrName,
+                        RunInit, TimetrapData),
     {Time,RetVal,Loc,Opts,Comment} =
-	case Result of
-	    Normal={_Time,_RetVal,_Loc,_Opts,_Comment} -> Normal;
-	    {died,DReason,DLoc,DCmt} -> {died,DReason,DLoc,[],DCmt}
-	end,
+    case Result of
+        {died,DReason,DLoc,DCmt} -> {died,DReason,DLoc,[],DCmt};
+        Died={died,{timetrap_timeout,TimetrapTime},_DLoc,_DOpts,_Comment} when is_number(TimetrapTime) ->
+            put(test_server_total_time, TimetrapTime/1000 + get(test_server_total_time)),
+            Died;
+        Died={died,_,_,_,_}-> Died;
+        Normal={Time1,_RetVal,_Loc,_Opts,_Comment} when is_number(Time1) ->
+            put(test_server_total_time, Time1 + get(test_server_total_time)),
+            Normal
+    end,
 
     print(minor, "<a name=\"end\"></a>", [], internal_raw),
     print(minor, "\n", [], internal_raw),
@@ -3920,21 +3956,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
         {skip_init,_} ->			% conf doesn't count
             ok;
         {_,ok} ->
-            case Loc of
-                [{Module, _}] when Module =/= ct_framework ->
-                    put(test_server_total_time, get(test_server_total_time) + Time);
-                _ -> not_a_test_fun
-            end,
             put(test_server_ok, get(test_server_ok)+1);
         {_,failed} ->
-            DiedTime = case Time of
-                           died -> case RetVal of
-                                       {_,T} when is_number(T) -> T;
-                                       _ -> 0
-                                   end;
-                           T when is_number(T) -> T
-                       end,
-            put(test_server_total_time, get(test_server_total_time) + DiedTime),
             put(test_server_failed, get(test_server_failed)+1);
         {_,skip} ->
             {US,AS} = get(test_server_skipped),
@@ -3949,7 +3972,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	Main ->
 	    case test_server_sup:framework_call(warn, [processes], true) of
 		true ->
-		    if ProcsBefore < ProcsAfter ->
+                    if ProcsBefore < ProcsAfter ->
 			    print(minor,
 				  "WARNING: ~w more processes in system after test case",
 				  [ProcsAfter-ProcsBefore]);
@@ -3986,11 +4009,6 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     %% if the test case was executed sequentially, this updates the execution
     %% time count on the main process (adding execution time of parallel test
     %% case groups is done in run_test_cases_loop/4)
-    if is_number(Time) ->
-            put(test_server_total_time, get(test_server_total_time)+Time);
-       true ->
-            ok
-    end,
     test_server_sup:check_new_crash_dumps(),
 
     %% if io is being buffered, send finished message
@@ -4028,20 +4046,20 @@ num2str(N) -> integer_to_list(N).
 %% Note: Strings that are to be written to the minor log must
 %% be prefixed with "=== " here, or the indentation will be wrong.
 
-progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
+progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 	 Comment, {St0,St1}) ->
     {Reason1,{Color,Ret,ReportTag}} = 
 	if_auto_skip(Reason,
 		     fun() -> {?auto_skip_color,auto_skip,auto_skipped} end,
 		     fun() -> {?user_skip_color,skip,skipped} end),
-    print(major, "=result        ~w: ~tp", [ReportTag,Reason1]),
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
+    print(major, "=result        ~w: ~tkp", [ReportTag,Reason1]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** SKIPPED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {ReportTag,Reason1}}]),
-    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
-			       true -> "~w"
-			    end, [Time]),
+    TimeStr = io_lib:format("~.fs", [Time]),
     ReasonStr = escape_chars(reason_to_string(Reason1)),
     ReasonStr1 = lists:flatten([string:trim(S,leading,"\s") ||
 				S <- string:lexemes(ReasonStr,[$\n])]),
@@ -4068,7 +4086,9 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: timeout, ~tp", [Loc]),
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
+    print(major, "=result        failed: timeout, ~tkp", [Loc]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
@@ -4086,15 +4106,17 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
 	  "<td><font color=\"red\">FAILED</font></td>"
 	  "<td>~ts</td></tr>\n",
-	  [T/1000,Comment]),
+	  [Time/1000,Comment]),
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor, "=== Reason: timetrap timeout", []),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
+progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, T,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: testcase_aborted, ~tp", [Loc]),
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
+    print(major, "=result        failed: testcase_aborted, ~tkp", [Loc]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
@@ -4121,16 +4143,16 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 				     [Reason]))]),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
+progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, T,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: ~tp, ~w", [Reason,unknown_location]),
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
+    print(major, "=result        failed: ~tkp, ~w", [Reason,unknown_location]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {failed,Reason}}]),
-    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
-			       true -> "~w"
-			    end, [Time]),
+    TimeStr = io_lib:format("~.fs", [Time]),
     ErrorReason = escape_chars(lists:flatten(io_lib:format("~tp", [Reason]))),
     ErrorReason1 = lists:flatten([string:trim(S,leading,"\s") ||
 				  S <- string:lexemes(ErrorReason,[$\n])]),
@@ -4160,7 +4182,7 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	  [escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason]))]),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
+progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 	 Comment0, {St0,St1}) ->
     {LocMaj,LocMin} = if Func == error_in_suite ->
 			      case get_fw_mod(undefined) of
@@ -4169,14 +4191,14 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 			      end;
 			 true -> {Loc,Loc}
 		       end,
-    print(major, "=result        failed: ~tp, ~tp", [Reason,LocMaj]),
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
+    print(major, "=result        failed: ~tkp, ~tp", [Reason,LocMaj]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {failed,Reason}}]),
-    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
-			       true -> "~w"
-			    end, [Time]),
+    TimeStr = io_lib:format("~.fs", [Time]),
     Comment =
 	case Comment0 of
 	    "" -> "";
@@ -4196,13 +4218,12 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
            escape_chars(io_lib:format(FStr, [FormattedReason]))]),
     failed;
 
-progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
+progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, T,
 	 Comment0, {St0,St1}) ->
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
     print(minor, "successfully completed test case", []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},ok}]),
-    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
-			       true -> "~w"
-			    end, [Time]),
+    TimeStr = io_lib:format("~.fs", [Time]),
     Comment =
 	case RetVal of
 	    {comment,RetComment} ->
@@ -4219,7 +4240,7 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 		    _ -> "<td>" ++ to_string(Comment0) ++ "</td>"
 		end
 	end,
-    print(major, "=elapsed       ~p", [Time]),
+    print(major, "=elapsed       ~ts", [TimeStr]),
     print(html,
 	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"green\">Ok</font></td>"
@@ -4332,7 +4353,7 @@ to_string(Term) when is_list(Term) ->
 	String     -> lists:flatten(String)
     end;
 to_string(Term) ->
-    lists:flatten(io_lib:format("~tp", [Term])).
+    lists:flatten(io_lib:format("~tkp", [Term])).
 
 get_last_loc(Loc) when is_tuple(Loc) ->
     Loc;
@@ -4422,7 +4443,7 @@ format_exception(Error) ->
 do_format_exception(Reason={Error,Stack}) ->
     StackFun = fun(_, _, _) -> false end,
     PF = fun(Term, I) ->
-		 io_lib:format("~." ++ integer_to_list(I) ++ "tp", [Term])
+		 io_lib:format("~." ++ integer_to_list(I) ++ "tkp", [Term])
 	 end,
     case catch erl_error:format_exception(1, error, Error, Stack, StackFun, PF, utf8) of
 	{'EXIT',_R} ->
@@ -4817,8 +4838,6 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St, Mode) ->
 		    end;
 		false ->
 		    case collect_cases(CaseList, St, Mode1) of
-			{ok,[],_St} = Empty ->
-			    Empty;
 			{ok,FlatCases,St1} ->
 			    {ok,[{conf,Ref,Props1,InitMF} |
 				 FlatCases ++ [{conf,Ref,
@@ -5611,7 +5630,8 @@ analyse_modules(_Dir, [], _DetailsFun, Acc) ->
 
 %% Support functions for writing the cover logs (both cross and normal)
 write_coverlog_header(CoverLog) ->
-    case catch io:put_chars(CoverLog,html_header("Coverage results")) of
+    Style = [?cover_html_stylesheet],
+    case catch io:put_chars(CoverLog,html_header("Coverage results", Style)) of
 	{'EXIT',Reason} ->
 	    io:format("\n\nERROR: Could not write normal heading in coverlog.\n"
 		      "CoverLog: ~tw\n"
@@ -5661,7 +5681,8 @@ pc(Cov,NotCov) ->
 
 
 write_not_covered(CoverOut,M,Lines) ->
-    io:put_chars(CoverOut,html_header("Coverage results for "++atom_to_list(M))),
+    Style = [?cover_html_stylesheet],
+    io:put_chars(CoverOut,html_header("Coverage results for "++atom_to_list(M), Style)),
     io:fwrite(CoverOut,
 	      "The following lines in module ~w are not covered:\n"
 	      "<table border=3 cellpadding=5>\n"
@@ -5738,12 +5759,12 @@ html_header(Title) ->
      "<body bgcolor=\"white\" text=\"black\" "
      "link=\"blue\" vlink=\"purple\" alink=\"red\">\n"].
 
-html_header(Title, Meta) ->
+html_header(Title, Extra) ->
     ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n"
      "<!-- autogenerated by '", atom_to_list(?MODULE), "'. -->\n"
      "<html>\n"
      "<head>\n"
-     "<title>", Title, "</title>\n"] ++ Meta ++ ["</head>\n"].
+     "<title>", Title, "</title>\n"] ++ Extra ++ ["</head>\n"].
 
 open_html_file(File) ->
     open_utf8_file(File).
@@ -5757,13 +5778,15 @@ write_html_file(File,Content) ->
 %% The 'major' log file, which is a pure text file is also written
 %% with utf8 encoding
 open_utf8_file(File) ->
-    case file:open(File,AllOpts=[write,{encoding,utf8}]) of
+    AllOpts = [write,{encoding,utf8}],
+    case file:open(File,AllOpts) of
 	{error,Reason} -> {error,{Reason,{File,AllOpts}}};
 	Result         -> Result
     end.
 
 open_utf8_file(File,Opts) ->
-    case file:open(File,AllOpts=[{encoding,utf8}|Opts]) of
+    AllOpts = [{encoding,utf8}|Opts],
+    case file:open(File,AllOpts) of
 	{error,Reason} -> {error,{Reason,{File,AllOpts}}};
 	Result         -> Result
     end.

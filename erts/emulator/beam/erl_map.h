@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2014-2023. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2014-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -23,14 +25,31 @@
 #define __ERL_MAP_H__
 
 #include "sys.h"
+#include "erl_term_hashing.h"
 
 /* intrinsic wrappers */
-#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0)
-#define hashmap_clz(x)       ((Uint32) __builtin_clz((unsigned int)(x)))
-#define hashmap_bitcount(x)  ((Uint32) __builtin_popcount((unsigned int) (x)))
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_clz)
+#  if defined(ARCH_64)
+#    define hashmap_clz(x) \
+    ((erts_ihash_t)__builtin_clzl((erts_ihash_t)(x)))
+#  elif defined(ARCH_32)
+#    define hashmap_clz(x) \
+    ((erts_ihash_t)__builtin_clz((erts_ihash_t)(x)))
+#  endif
 #else
-Uint32 hashmap_clz(Uint32 x);
-Uint32 hashmap_bitcount(Uint32 x);
+erts_ihash_t hashmap_clz(erts_ihash_t x);
+#endif
+
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_popcount)
+#  if defined(ARCH_64)
+#    define hashmap_bitcount(x) \
+    ((erts_ihash_t)__builtin_popcountl((erts_ihash_t)(x)))
+#  elif defined(ARCH_32)
+#    define hashmap_bitcount(x) \
+    ((erts_ihash_t)__builtin_popcount((erts_ihash_t)(x)))
+#  endif
+#else
+erts_ihash_t hashmap_bitcount(erts_ihash_t x);
 #endif
 
 /* MAP */
@@ -56,10 +75,10 @@ typedef struct flatmap_s {
 /* the head-node is a bitmap or array with an untagged size */
 
 #define hashmap_size(x)               (((hashmap_head_t*) hashmap_val(x))->size)
-#define hashmap_make_hash(Key)        make_map_hash(Key)
+#define hashmap_make_hash(Key)        erts_map_hash(Key)
 
 #define hashmap_restore_hash(Lvl, Key)                                        \
-    (ASSERT(Lvl < 8),                                                         \
+    (ASSERT(Lvl < HAMT_MAX_LEVEL),                                            \
      hashmap_make_hash(Key) >> (4*(Lvl)))
 
 #define hashmap_shift_hash(Hx, Lvl, Key)                                      \
@@ -85,9 +104,9 @@ int    erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *re
 int    erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
 int    erts_maps_take(Process *p, Eterm key, Eterm map, Eterm *res, Eterm *value);
 
-Eterm  erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
+Eterm  erts_hashmap_insert(Process *p, erts_ihash_t hx, Eterm key, Eterm value,
 			   Eterm node, int is_update);
-int    erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint *sz,
+int    erts_hashmap_insert_down(erts_ihash_t hx, Eterm key, Eterm value, Eterm node, Uint *sz,
 			        Uint *upsz, struct ErtsEStack_ *sp, int is_update);
 Eterm  erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			      Uint upsz, struct ErtsEStack_ *sp);
@@ -110,7 +129,7 @@ Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
 
 const Eterm *erts_maps_get(Eterm key, Eterm map);
 
-const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
+const Eterm *erts_hashmap_get(erts_ihash_t hx, Eterm key, Eterm map);
 
 Sint erts_map_size(Eterm map);
 
@@ -130,13 +149,13 @@ typedef struct hashmap_head_s {
  *
  * Original HEADER representation:
  *
- *     aaaaaaaaaaaaaaaa aaaaaaaaaatttt00       arity:26, tag:4
+ *     aaaaaaaaaaaaaaaa aaaaaaaaaattttpp       arity:26, tag:4, ptag:2
  *
  * For maps we have:
  *
- *     vvvvvvvvvvvvvvvv aaaaaaaamm111100       val:16, arity:8, mtype:2
+ *     vvvvvvvvvvvvvvvv aaaaaaaamm1111pp       val:16, arity:8, mtype:2, ptag:2
  *
- * unsure about trailing zeros
+ * ptag is always TAG_PRIMARY_HEADER
  *
  * map-tag:
  *     00 - flat map tag (non-hamt) -> val:16 = #items
@@ -145,13 +164,22 @@ typedef struct hashmap_head_s {
  *     11 - map-head (bitmap-node)  -> val:16 = bitmap
  */
 
+/* 2 bits maps tag + subtag mask */
+#define _HEADER_MAP_SUBTAG_MASK       \
+    ((3 << _HEADER_ARITY_OFFS) | _HEADER_SUBTAG_MASK)
+/* As above, but with the lowest bit of the map tag cleared so that it only
+ * covers hashmap heads (whether array or bitmap). */
+#define _HEADER_MAP_HASHMAP_HEAD_MASK \
+    (~(1 << _HEADER_ARITY_OFFS) & _HEADER_MAP_SUBTAG_MASK)
+
 /* erl_map.h stuff */
 
 #define is_hashmap_header_head(x) (MAP_HEADER_TYPE(x) & (0x2))
 #define is_hashmap_header_node(x) (MAP_HEADER_TYPE(x) == 1)
 
 #define MAKE_MAP_HEADER(Type,Arity,Val) \
-    (_make_header(((((Uint16)(Val)) << MAP_HEADER_ARITY_SZ) | (Arity)) << MAP_HEADER_TAG_SZ | (Type) , _TAG_HEADER_MAP))
+    (_make_header(((((Uint16)(Val)) << MAP_HEADER_ARITY_SZ) | \
+     (Arity)) << MAP_HEADER_TAG_SZ | (Type) , _TAG_HEADER_MAP))
 
 #define MAP_HEADER_FLATMAP \
     MAKE_MAP_HEADER(MAP_HEADER_TAG_FLATMAP_HEAD,0x1,0x0)
@@ -181,19 +209,14 @@ typedef struct hashmap_head_s {
  * but they are sorted in map-key order.
  */
 
-/* 2 bits maps tag + 4 bits subtag + 2 ignore bits */
-#define _HEADER_MAP_SUBTAG_MASK       (0xfc)
-/* 1 bit map tag + 1 ignore bit + 4 bits subtag + 2 ignore bits */
-#define _HEADER_MAP_HASHMAP_HEAD_MASK (0xbc)
-
 #define HAMT_SUBTAG_NODE_BITMAP  ((MAP_HEADER_TAG_HAMT_NODE_BITMAP << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
 #define HAMT_SUBTAG_HEAD_ARRAY   ((MAP_HEADER_TAG_HAMT_HEAD_ARRAY  << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
 #define HAMT_SUBTAG_HEAD_BITMAP  ((MAP_HEADER_TAG_HAMT_HEAD_BITMAP << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
 #define HAMT_SUBTAG_HEAD_FLATMAP ((MAP_HEADER_TAG_FLATMAP_HEAD << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
 
-#define hashmap_index(hash)      (((Uint32)hash) & 0xf)
+#define hashmap_index(hash)      ((hash) & 0xf)
 
-#define HAMT_MAX_LEVEL 8
+#define HAMT_MAX_LEVEL ((sizeof(erts_ihash_t) * CHAR_BIT) / 4)
 
 /* hashmap heap size:
    [one cons cell + one list term in parent node] per key

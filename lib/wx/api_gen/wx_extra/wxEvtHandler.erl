@@ -1,27 +1,34 @@
 %% This module is actually handwritten see ../api_gen/wx_extra/wxEvtHandler.erl
 %%
-%% @doc The Event handler.
-%%
-%% To get events from wxwidgets objects you subscribe to them by
-%% calling connect/[2-3].  Events are sent as messages, if no callback
-%% was supplied  These messages will be {@link wx(). #wx{}} where
-%% EventRecord is a record that depends on the {@link
-%% wxEventType(). event type}.  The records are defined in:
-%% wx/include/wx.hrl.
-%%
-%% If a callback was supplied to connect, the callback will be invoked
-%% (in another process) to handle the event. The callback should be of
-%% arity 2.  fun(EventRecord::wx(), EventObject::wxObject()).
-%%
-%% Beware that the callback will be executed in a new process each time.
-%%
-%% <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevthandler.html">
-%% The original documentation</a>. 
-%%
-%%
 -module(wxEvtHandler).
+-moduledoc """
+The Event handler
+
+A class that can handle events from the windowing system. `m:wxWindow` is (and
+therefore all window classes are) derived from this class.
+
+To get events from wxwidgets objects you subscribe to them by calling `connect/3`.
+
+If the `callback` option is not supplied events are sent as messages.
+
+These messages will be `#wx{}` where `EventRecord` is a record that depends on
+the `wxEventType`. The records are defined in: `wx/include/wx.hrl`.
+
+If a callback was supplied to connect, the callback will be invoked (in another
+process) to handle the event. The callback should be of arity 2.
+
+`fun Callback (EventRecord::wx(), EventObject::wxObject()).`
+
+Note: The callback will be in executed in new process each time.
+
+See:
+[Overview events](https://docs.wxwidgets.org/3.2/overview_events.html#overview_events_processing)
+
+wxWidgets docs:
+[wxEvtHandler](https://docs.wxwidgets.org/3.2/classwx_evt_handler.html)
+""".
 -include("wxe.hrl").
--include("../include/wx.hrl").
+-include_lib("wx/include/wx.hrl").
 
 %% API
 -export([connect/2, connect/3, disconnect/1, disconnect/2, disconnect/3]).
@@ -32,30 +39,37 @@
 -export_type([wxEvtHandler/0, wx/0, event/0]).
 -type wxEvtHandler() :: wx:wx_object().
 
-%% @doc Equivalent to {@link connect/3. connect(This, EventType, [])}
+-doc(#{equiv => connect(This, EventType, [])}).
 -spec connect(This::wxEvtHandler(), EventType::wxEventType()) -> 'ok'.
 connect(This, EventType) ->
     connect(This, EventType, []).
 
-%% @doc This function subscribes the to events of EventType,
-%% in the range id, lastId. The events will be received as messages 
-%% if no callback is supplied.
-%%
-%% Options: 
-%%    {id, integer()},      The identifier (or first of the identifier range) to be 
-%%                            associated with this event handler. 
-%%                          Default ?wxID_ANY
-%%    {lastId, integer()},  The second part of the identifier range. 
-%%                          If used 'id' must be set as the starting identifier range.
-%%                          Default ?wxID_ANY
-%%    {skip,  boolean()},   If skip is true further event_handlers will be called.
-%%                          This is not used if the 'callback' option is used. 
-%%                          Default false.
-%%    callback              Use `wx_object' callback `handle_sync_event/3'.
-%%    {callback, function()} Use a callback fun(EventRecord::wx(), EventObject::wxObject()) 
-%%                          to process the event. Default not specified i.e. a message will
-%%                          be delivered to the process calling this function.
-%%    {userData, term()}    An erlang term that will be sent with the event. Default: [].
+-doc """
+This function subscribes to events.
+
+Subscribes to events of type `EventType`, in the range `id`, `lastId`.
+
+The events will be received as messages if no callback is supplied.
+
+Options
+
+id:`{id, integer()} `The identifier (or first of the identifier range) to be
+associated with this event handler. Default is ?wxID_ANY
+
+lastid:`{lastId,integer()} `The second part of the identifier range. If used
+'id' must be set as the starting identifier range. Default is ?wxID_ANY
+
+skip:`{skip,boolean()} `If skip is true further event_handlers will be called.
+This is not used if the 'callback' option is used. Default is `false`.
+
+callback:`{callback,function()} `Use a
+callback`fun(EventRecord::wx(),EventObject::wxObject()) `to process the event.
+Default not specified i.e. a message will be delivered to the process calling
+this function.
+
+userData:`{userData,term()} `An erlang term that will be sent with the event.
+Default: [].
+""".
 -spec connect(This::wxEvtHandler(), EventType::wxEventType(), [Option]) -> 'ok' when
       Option :: {'id', integer()} | {'lastId', integer()} | {'skip', boolean()} |
 		'callback' | {'callback', function()} | {'userData', term()}.
@@ -97,24 +111,24 @@ parse_opts([], Opts = #evh{id=Id,lastId=Lid,skip=Skip, cb=CB}) ->
 	    Opts
     end.
 
-
-%% @doc Equivalent to {@link disconnect/3. disconnect(This, null, [])}
-%% Can also have an optional callback Fun() as an additional last argument.
+-doc(#{equiv => disconnect(This, null, [])}).
 -spec disconnect(This::wxEvtHandler()) -> boolean().
 disconnect(This=#wx_ref{type=ThisT,ref=_ThisRef}) ->
     ?CLASS(ThisT,wxEvtHandler),
     disconnect(This, null, []).
 
-%% @doc Equivalent to {@link disconnect/3. disconnect(This, EventType, [])}
+-doc(#{equiv => disconnect(This, EventType, [])}).
 -spec disconnect(This::wxEvtHandler(), EventType::wxEventType()) -> boolean().
 disconnect(This=#wx_ref{type=ThisT,ref=_ThisRef}, EventType) when is_atom(EventType) ->
     ?CLASS(ThisT,wxEvtHandler),
     disconnect(This, EventType, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevthandler.html#wxevthandlerdisconnect">external documentation</a>
-%% This function unsubscribes the process or callback fun from the event handler.
-%% EventType may be the atom 'null' to match any eventtype.
-%% Notice that the options skip and userdata is not used to match the eventhandler.
+-doc """
+This function unsubscribes the process or callback fun from the event handler.
+
+EventType may be the atom 'null' to match any eventtype. Notice that the options
+skip and userdata is not used to match the eventhandler.
+""".
 -spec disconnect(This::wxEvtHandler(), EventType::wxEventType(), [Option]) -> boolean() when
       Option :: {'id', integer()} | {'lastId', integer()} | {'callback', function()}.
 disconnect(This=#wx_ref{type=ThisT,ref=_ThisRef}, EventType, Opts) ->
@@ -127,8 +141,7 @@ disconnect(This=#wx_ref{type=ThisT,ref=_ThisRef}, EventType, Opts) ->
 	    Bool
     end.
 
-
-%% @hidden
+-doc false.
 connect_impl(#wx_ref{type=ThisT}=This,
 	     #evh{id=Winid, lastId=LastId, et=EventType,
 		  skip=Skip, userdata=UserData, cb=FunID})
@@ -137,7 +150,7 @@ connect_impl(#wx_ref{type=ThisT}=This,
                        FunID, EventType, ThisT, ?get_env(), 100),
     wxe_util:rec(100).
 
-%% @hidden
+-doc false.
 disconnect_impl(#wx_ref{type=_ThisT}=This,
 		#evh{id=Winid, lastId=LastId, et=EventType,
 		     handler=#wx_ref{type=wxeEvtListener}=EvtList}) ->

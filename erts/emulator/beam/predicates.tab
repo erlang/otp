@@ -2,7 +2,9 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020-2022. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2020-2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -122,7 +124,7 @@ pred.mixed_types(Size, Rest) {
 // Test whether Bif is "heavy" and should always go through its export entry.
 pred.is_heavy_bif(Bif) {
     BeamFile_ImportEntry *import;
-    Export *export;
+    const Export *export;
 
     if (Bif.type != TAG_u || Bif.val >= S->beam.imports.count) {
         return 0;
@@ -176,12 +178,6 @@ pred.is_empty_map(Lit) {
 
     term = beamfile_get_literal(&S->beam, Lit.val);
     return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
-}
-
-// Test whether a binary construction is too big.
-pred.binary_too_big(Size) {
-    return Size.type == TAG_o ||
-        (Size.type == TAG_u && ((Size.val >> (8*sizeof(Uint)-3)) != 0));
 }
 
 // Mark this label. Always succeeds.

@@ -1,5 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-[;1m  path_eval/3[0m
+[;1m  path_eval(Path, Filename, Bindings)[0m
 
   The documentation for path_eval/3 is hidden. This probably means
   that it is internal and not to be used by other applications.

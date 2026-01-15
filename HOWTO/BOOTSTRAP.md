@@ -1,3 +1,26 @@
+<!--
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 Notes about prebuilt beam files under version control
 =====================================================
 
@@ -14,7 +37,7 @@ Primary bootstrap
 
 The two types of version controlled code are fundamentally
 different. The primary bootstrap is code compiled from source files in
-the lib/{kernel,stdlib,compiler} (They are checked in in the version control system
+the lib/{kernel,stdlib,compiler} (They are checked in the version control system
 to make it possible to build directly from the code base tree without
 the need for an earlier version of the compiler. When a new version of
 OTP is released, these files are updated manually (or rather, by using

@@ -1,8 +1,17 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec get() -> [{Key, Val}] when Key :: term(), Val :: term().[0m
+[;1m  get()[0m
 
   Returns the process dictionary as a list of [;;4m{Key, Val}[0m tuples.
-  The items in the returned list can be in any order. Example:
+  The items in the returned list can be in any order.
+
+  For example:
 
     > put(key1, merry),
     put(key2, lambs),

@@ -1,10 +1,22 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec to_sets(ASet) -> Sets[0m
-  [;1m                 when[0m
-  [;1m                     ASet :: a_set() | ordset(),[0m
-  [;1m                     Sets :: tuple_of(AnySet) | [AnySet],[0m
-  [;1m                     AnySet :: anyset().[0m
+[;1m  to_sets(ASet)[0m
 
   Returns the elements of the ordered set [;;4mASet[0m as a tuple of sets,
   and the elements of the unordered set [;;4mASet[0m as a sorted list of
   sets without duplicates.
+
+[;1mExamples[0m
+
+    1> [S1,S2,S3] = sofs:to_sets(sofs:set([3,2,1])).
+    2> {sofs:to_external(S1),sofs:to_external(S2),sofs:to_external(S3)}.
+    {1,2,3}
+    3> {S4,S5,S6} = sofs:to_sets(sofs:from_term({c,a,b})).
+    4> {sofs:to_external(S4),sofs:to_external(S5),sofs:to_external(S6)}.
+    {c,a,b}

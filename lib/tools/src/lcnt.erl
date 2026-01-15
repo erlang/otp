@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,44 @@
 %%
 
 -module(lcnt).
+-moduledoc """
+A runtime system Lock Profiling tool.
+
+The `lcnt` module is used to profile the internal ethread locks in the Erlang
+Runtime System. With `lcnt` enabled, internal counters in the runtime system are
+updated each time a lock is taken. The counters stores information about the
+number of acquisition tries and the number of collisions that has occurred
+during the acquisition tries. The counters also record the waiting time a lock
+has caused for a blocked thread when a collision has occurred.
+
+The data produced by the lock counters will give an estimate on how well the
+runtime system will behave from a parallelizable view point for the scenarios
+tested. This tool was mainly developed to help Erlang runtime developers iron
+out potential and generic bottlenecks.
+
+Locks in the emulator are named after what type of resource they protect and
+where in the emulator they are initialized, those are lock 'classes'. Most of
+those locks are also instantiated several times, and given unique identifiers,
+to increase locking granularity. Typically an instantiated lock protects a
+disjunct set of the resource, for example ets tables, processes or ports. In
+other cases it protects a specific range of a resource, for example `pix_lock`
+which protects index to process mappings, and is given a unique number within
+the class. A unique lock in `lcnt` is referenced by a name (class) and an
+identifier: `{Name, Id}`.
+
+Some locks in the system are static and protects global resources, for example
+`bif_timers` and the `run_queue` locks. Other locks are dynamic and not
+necessarily long lived, for example process locks and ets-table locks. The
+statistics data from short lived locks can be stored separately when the locks
+are deleted. This behavior is by default turned off to save memory but can be
+turned on via `lcnt:rt_opt({copy_save, true})`. The `lcnt:apply/1,2,3` functions
+enables this behavior during profiling.
+
+## See Also
+
+[LCNT User's Guide](lcnt_chapter.md)
+""".
+-moduledoc(#{since => "OTP R13B04"}).
 -behaviour(gen_server).
 -author("Björn-Egil Dahlberg").
 
@@ -124,15 +164,25 @@
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc """
+Starts the lock profiler server.
+
+The server only act as a medium for the user and performs filtering
+and printing of data collected by `lcnt:collect/1`.
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec start() -> {'ok', Pid} | {'error', {'already_started', Pid}} when
       Pid :: pid().
 
 start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 
+-doc "Stops the lock profiler server.".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec stop() -> 'ok'.
 
 stop()-> gen_server:stop(?MODULE, normal, infinity).
 
+-doc false.
 init([]) -> {ok, #state{ locks = [], duration = 0 } }.
 
 -dialyzer({no_match, start_internal/0}).
@@ -149,6 +199,28 @@ start_internal() ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc """
+Sets the lock category mask according to `Categories` on node `Node`.
+
+This call will fail if the `copy_save` option is enabled; see
+[`lcnt:rt_opt/2`](`rt_opt/2`).
+
+Valid categories are:
+
+- `allocator`
+- `db` (ETS tables)
+- `debug`
+- `distribution`
+- `generic`
+- `io`
+- `process`
+- `scheduler`
+
+This list is subject to change at any time, as is the category any given lock
+belongs to.
+""".
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP 20.1">>}).
 -spec rt_mask(Node, Categories) ->  'ok' | {'error', 'copy_save_enabled'} when
       Node :: node(),
       Categories :: [category_atom()].
@@ -158,6 +230,20 @@ rt_mask(Node, Categories) when is_atom(Node), is_list(Categories) ->
 
 -type category_atom() :: atom().
 
+-doc """
+rt_mask(Arg)
+
+Sets the current lock category mask for the current node or
+retrieves the current mask for a remote node.
+
+If `Arg` is an atom, it is assumed to be a node, and this
+call returns the current lock category mask for node `Arg`.
+
+If `Arg` is a list, this call is equivalent to
+[`rt_mask(node(), Arg)`](`rt_mask/2`).
+""".
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP 20.1">>}).
 -spec rt_mask(Node) -> [category_atom()] when
                   Node :: node();
              (Categories) -> 'ok' | {'error', 'copy_save_enabled'} when
@@ -173,6 +259,11 @@ rt_mask(Categories) when is_list(Categories) ->
             {error, copy_save_enabled}
     end.
 
+-doc """
+Return the current category mask for the current node.
+""".
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP 20.1">>}).
 -spec rt_mask() -> [category_atom()].
 
 rt_mask() ->
@@ -180,28 +271,66 @@ rt_mask() ->
 
 -type lock_counter_data() :: term().
 
+-doc "Returns a list of raw lock counter data.".
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP R13B04">>}).
 -spec rt_collect(Node) -> [lock_counter_data()] when
       Node :: node().
 
 rt_collect(Node) ->
     rpc:call(Node, lcnt, rt_collect, []).
 
+-doc #{equiv => rt_collect(node())}.
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP R13B04">>}).
 -spec rt_collect() -> [lock_counter_data()].
 
 rt_collect() ->
     erts_debug:lcnt_collect().
 
+-doc """
+Clear the internal counters.
+
+Equivalent to [`lcnt:clear(Node)`](`clear/1`).
+""".
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP R13B04">>}).
 -spec rt_clear(Node) -> 'ok' when
       Node :: node().
 
 rt_clear(Node) ->
     rpc:call(Node, lcnt, rt_clear, []).
 
+-doc #{equiv => rt_clear(node())}.
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP R13B04">>}).
 -spec rt_clear() -> 'ok'.
 
 rt_clear() ->
     erts_debug:lcnt_clear().
 
+-doc """
+Sets a single option on node `Node`.
+
+Option description:
+
+- **`{copy_save, boolean()}`** - Retains the statistics of destroyed locks.  
+  Default: `false`
+
+  > #### Warning {: .warning }
+  >
+  > This option will use a lot of memory when enabled, which must be reclaimed
+  > with [`lcnt:rt_clear/0,1`](`lcnt:rt_clear/1`). Note that it makes no
+  > distinction between locks that  were destroyed and locks for which counting
+  > was disabled, so enabling this option will disable changes to the lock
+  > category mask.
+
+- **`{process_locks, boolean()}`** - Profile process locks, equal to adding
+  `process` to the lock category mask; see `lcnt:rt_mask/2`.  
+  Default: `true`
+""".
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP R13B04">>}).
 -spec rt_opt(Node, Option) -> boolean() when
       Node :: node(),
       Option :: {Type, Value :: boolean()},
@@ -210,6 +339,9 @@ rt_clear() ->
 rt_opt(Node, Arg) ->
     rpc:call(Node, lcnt, rt_opt, [Arg]).
 
+-doc #{equiv => rt_opt(node(), {Type, Value})}.
+-doc(#{group => <<"Internal runtime lock counter controllers">>,
+       since => <<"OTP R13B04">>}).
 -spec rt_opt(Option) -> boolean() when
       Option :: {Type, Value :: boolean()},
       Type :: 'copy_save' | 'process_locks'.
@@ -241,33 +373,66 @@ toggle_category(Category, false) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc #{equiv => clear(node())}.
+-doc(#{since => <<"OTP R13B04">>}).
 -spec clear() -> 'ok'.
 
 clear() -> rt_clear().
 
+-doc """
+Clears the internal lock statistics from the runtime system.
+
+This clears the data in the runtime system but not in server.  All
+counters for static locks are zeroed, all dynamic locks currently
+alive are zeroed and all saved locks now destroyed are removed. It
+also resets the duration timer.
+
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec clear(Node) -> 'ok' when
       Node :: node().
 
 clear(Node) -> rt_clear(Node).
 
+-doc #{equiv => collect(node())}.
+-doc(#{since => <<"OTP R13B04">>}).
 -spec collect() -> 'ok'.
 
 collect() -> call({collect, rt_collect()}).
 
+-doc """
+Collects lock statistics from the runtime system.
+
+The function starts a server if it is not already started. It then
+populates the server with lock statistics.  If the server held any
+lock statistics data before the collect then that data is lost.
+
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec collect(Node) -> 'ok' when
       Node :: node().
 
 collect(Node) -> call({collect, rt_collect(Node)}).
 
+-doc #{equiv => locations([])}.
+-doc(#{since => <<"OTP R13B04">>}).
 -spec locations() -> 'ok'.
 
 locations() -> call({locations,[]}).
 
+-doc """
+Prints a list of internal lock counters by source code locations.
+
+For option description, see [`lcnt:inspect/2`](`inspect/2`).
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec locations(Options) -> 'ok' when
       Options :: [option()].
 
 locations(Opts) -> call({locations, Opts}).
 
+-doc #{equiv => conflicts([])}.
+-doc(#{since => <<"OTP R13B04">>}).
 -spec conflicts() -> 'ok'.
 
 conflicts() -> call({conflicts, []}).
@@ -291,18 +456,96 @@ conflicts() -> call({conflicts, []}).
                 | {'max_locks', MaxLocks :: non_neg_integer() | 'none'}
                 | {'combine', boolean()}.
 
+-doc """
+Prints a list of internal locks and its statistics.
+
+For option description, see [`lcnt:inspect/2`](`inspect/2`).
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec conflicts(Options) -> 'ok' when
       Options :: [option()].
 
 conflicts(Opts)      -> call({conflicts, Opts}).
 
+-doc #{equiv => inspect(Lock, [])}.
+-doc(#{since => <<"OTP R13B04">>}).
 -spec inspect(Lock) -> 'ok' when
       Lock :: Name | {Name, Id | [Id]},
       Name :: atom() | pid() | port(),
       Id :: atom() | integer() | pid() | port().
 
-inspect(Lock)        -> call({inspect, Lock, []}).
+inspect(Lock) -> call({inspect, Lock, []}).
 
+-doc """
+Prints a list of internal lock counters for a specific lock.
+
+Lock `Name` and `Id` for ports and processes are interchangeable with the use of
+[`lcnt:swap_pid_keys/0`](`swap_pid_keys/0`) and is the reason why `t:pid/0` and
+`t:port/0` options can be used in both `Name` and `Id` space. Both pids and
+ports are special identifiers with stripped creation and can be recreated with
+[`lcnt:pid/2,3`](`pid/3`) and [`lcnt:port/1,2`](`port/2`).
+
+Option description:
+
+- **`{combine, boolean()}`** - Combine the statistics from different instances
+  of a lock class.  
+  Default: `true`
+
+- **`{locations, boolean()}`** - Print the statistics by source file and line
+  numbers.  
+  Default: `false`
+
+- **`{max_locks, MaxLocks}`** - Maximum number of locks printed or no limit with
+  `none`.  
+  Default: `20`
+
+- **`{print, PrintOptions}`** - Printing options:
+
+  - **`name`** - Named lock or named set of locks (classes). The same name used
+    for initializing the lock in the VM.
+
+  - **`id`** - Internal id for set of locks, not always unique. This could be
+    table name for ets tables (db_tab), port id for ports, integer identifiers
+    for allocators, etc.
+
+  - **`type`** - Type of lock: `rw_mutex`, `mutex`, `spinlock`, `rw_spinlock` or
+    `proclock`.
+
+  - **`entry`** - In combination with `{locations, true}` this option prints the
+    lock operations source file and line number entry-points along with
+    statistics for each entry.
+
+  - **`tries`** - Number of acquisitions of this lock.
+
+  - **`colls`** - Number of collisions when a thread tried to acquire this lock.
+    This is when a trylock is EBUSY, a write try on read held rw_lock, a try
+    read on write held rw_lock, a thread tries to lock an already locked lock.
+    (Internal states supervises this.)
+
+  - **`ratio`** - The ratio between the number of collisions and the number of
+    tries (acquisitions) in percentage.
+
+  - **`time`** - Accumulated waiting time for this lock. This could be greater
+    than actual wall clock time, it is accumulated for all threads. Trylock
+    conflicts does not accumulate time.
+
+  - **`duration`** - Percentage of accumulated waiting time of wall clock time.
+    This percentage can be higher than 100% since accumulated time is from all
+    threads.
+
+  Default: `[name,id,tries,colls,ratio,time,duration]`
+
+- **`{reverse, boolean()}`** - Reverses the order of sorting.  
+  Default: `false`
+
+- **`{sort, Sort}`** - Column sorting orders.  
+  Default: `time`
+
+- **`{thresholds, Thresholds}`** - Filtering thresholds. Anything values above
+  the threshold value are passed through.  
+  Default: `[{tries, 0}, {colls, 0}, {time, 0}]`
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec inspect(Lock, Options) -> 'ok' when
       Lock :: Name | {Name, Id | [Id]},
       Name :: atom() | pid() | port(),
@@ -311,26 +554,42 @@ inspect(Lock)        -> call({inspect, Lock, []}).
 
 inspect(Lock, Opts)  -> call({inspect, Lock, Opts}).
 
+-doc false.
 histogram(Lock)      -> call({histogram, Lock, []}).
+-doc false.
 histogram(Lock, Opts)-> call({histogram, Lock, Opts}).
 
+-doc """
+Prints `lcnt` server state and generic information about collected lock
+statistics.
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec information() -> 'ok'.
 
 information()        -> call(information).
 
+-doc "Swaps places on `Name` and `Id` space for ports and processes.".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec swap_pid_keys() -> 'ok'.
 
 swap_pid_keys()      -> call(swap_pid_keys).
 
+-doc false.
 raw()                -> call(raw).
+-doc false.
 set(Option, Value)   -> call({set, Option, Value}).
+-doc false.
 set({Option, Value}) -> call({set, Option, Value}).
 
+-doc "Saves the collected data to file.".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec save(Filename) -> 'ok' when
       Filename :: file:filename().
 
 save(Filename)       -> call({save, Filename}).
 
+-doc "Restores previously saved data to the server.".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec load(Filename) -> 'ok' when
       Filename :: file:filename().
 
@@ -346,22 +605,44 @@ call(Msg) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc #{equiv => apply(fun() -> erlang:apply(Module, Function, Args) end)}.
+-doc(#{group => <<"Convenience functions">>,
+       since => <<"OTP R13B04">>}).
 -spec apply(Module, Function, Args) -> term() when
       Module :: module(),
       Function :: atom(),
       Args :: [term()].
 
-apply(M,F,As) when is_atom(M), is_atom(F), is_list(As) ->
+apply(M, F, As) when is_atom(M), is_atom(F), is_list(As) ->
     apply(fun() ->
-        erlang:apply(M,F,As)
-    end).
+                  erlang:apply(M, F, As)
+          end).
 
+-doc #{equiv => apply(Fun, [])}.
+-doc(#{group => <<"Convenience functions">>,
+       since => <<"OTP R13B04">>}).
 -spec apply(Fun) -> term() when
       Fun :: fun().
 
 apply(Fun) when is_function(Fun) ->
     lcnt:apply(Fun, []).
 
+-doc """
+Sets up lock counters, applies `Fun` with `Args`, and cleans up.
+
+Clears the lock counters and then setups the instrumentation to save all
+destroyed locks. After setup the function is called, passing the elements in
+`Args` as arguments. When the function returns the statistics are immediately
+collected to the server. After the collection the instrumentation is returned to
+its previous behavior. The result of the applied function is returned.
+
+> #### Warning {: .warning }
+>
+> This function should only be used for micro-benchmarks; it sets `copy_save` to
+> `true` for the duration of the call, which can quickly lead to running out of
+> memory.
+""".
+-doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
 -spec apply(Fun, Args) -> term() when
       Fun :: fun(),
       Args :: [term()].
@@ -376,16 +657,22 @@ apply(Fun, As) when is_function(Fun) ->
     _ = lcnt:rt_opt({copy_save, Opt}),
     Res.
 
+-doc false.
 all_conflicts() -> all_conflicts(time).
+-doc false.
 all_conflicts(Sort) ->
     conflicts([{max_locks, none}, {thresholds, []},{combine,false}, {sort, Sort}, {reverse, true}]).
 
+-doc #{equiv => pid(node(), Id, Serial)}.
+-doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
 -spec pid(Id, Serial) -> pid() when
       Id :: integer(),
       Serial :: integer().
 
 pid(Id, Serial) -> pid(node(), Id, Serial).
 
+-doc "Creates a process id with creation 0.".
+-doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
 -spec pid(Node, Id, Serial) -> pid() when
       Node :: node(),
       Id :: integer(),
@@ -397,11 +684,15 @@ pid(Node, Id, Serial) when is_atom(Node) ->
     L        = length(String),
     binary_to_term(list_to_binary([Header, bytes16(L), String, bytes32(Id), bytes32(Serial),0])).
 
+-doc #{equiv => port(node(), Id)}.
+-doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
 -spec port(Id) -> port() when
       Id :: integer().
 
 port(Id) -> port(node(), Id).
 
+-doc "Creates a port id with creation 0.".
+-doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
 -spec port(Node, Id) -> port() when
       Node :: node(),
       Id :: integer().
@@ -420,6 +711,7 @@ port(Node, Id ) when is_atom(Node) ->
 
 % printing
 
+-doc false.
 handle_call({conflicts, InOpts}, _From, #state{ locks = Locks } = State) when is_list(InOpts) ->
     Default = [
 	{sort,       time},
@@ -597,6 +889,7 @@ handle_call(Command, _From, State) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 handle_cast(_, State) ->
     {noreply, State}.
 
@@ -606,6 +899,7 @@ handle_cast(_, State) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -615,6 +909,7 @@ handle_info(_Info, State) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 terminate(_Reason, _State) ->
     ok.
 
@@ -624,6 +919,7 @@ terminate(_Reason, _State) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -662,7 +958,7 @@ summate_stats([S|Ss], #stats{ tries = Tries, colls = Colls, time = Time, nt = Nt
 summate_histogram(Tup,undefined) when is_tuple(Tup) -> Tup;
 summate_histogram(undefined,Tup) when is_tuple(Tup) -> Tup;
 summate_histogram(Hs1,Hs2) ->
-    list_to_tuple([ A + B || {A,B} <- lists:zip(tuple_to_list(Hs1),tuple_to_list(Hs2))]).
+    list_to_tuple([A + B || A <- tuple_to_list(Hs1) && B <- tuple_to_list(Hs2)]).
 
 %% manipulators
 filter_locks_type(Locks, undefined) -> Locks;

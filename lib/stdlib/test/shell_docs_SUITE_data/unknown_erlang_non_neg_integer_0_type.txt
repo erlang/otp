@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type non_neg_integer() :: non_neg_integer().[0m
+[;1m  non_neg_integer()[0m
 
   A non-negative integer, that is any positive integer or 0.

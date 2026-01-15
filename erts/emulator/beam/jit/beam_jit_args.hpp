@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +24,7 @@
 #define __BEAM_JIT_ARGS_HPP__
 
 struct ArgVal : public BeamOpArg {
-    enum TYPE : UWord {
+    enum class Type : UWord {
         Word = TAG_u,
         XReg = TAG_x,
         YReg = TAG_y,
@@ -38,14 +40,19 @@ struct ArgVal : public BeamOpArg {
     };
 
     constexpr ArgVal(UWord t, UWord value) : BeamOpArg{t, value} {
-        ASSERT(t == TYPE::Word || t == TYPE::XReg || t == TYPE::YReg ||
-               t == TYPE::FReg || t == TYPE::Label || t == TYPE::Literal ||
-               t == TYPE::BytePtr || t == TYPE::Catch || t == TYPE::Export ||
-               t == TYPE::FunEntry || t == TYPE::Immediate);
+        ASSERT(t == (UWord)Type::Word || t == (UWord)Type::XReg ||
+               t == (UWord)Type::YReg || t == (UWord)Type::FReg ||
+               t == (UWord)Type::Label || t == (UWord)Type::Literal ||
+               t == (UWord)Type::BytePtr || t == (UWord)Type::Catch ||
+               t == (UWord)Type::Export || t == (UWord)Type::FunEntry ||
+               t == (UWord)Type::Immediate);
     }
 
-    constexpr enum TYPE getType() const {
-        return (enum TYPE)type;
+    constexpr ArgVal(Type t, UWord value) : ArgVal((UWord)t, value) {
+    }
+
+    constexpr Type getType() const {
+        return (Type)type;
     }
 
     /* */
@@ -55,11 +62,11 @@ struct ArgVal : public BeamOpArg {
     }
 
     constexpr bool isBytePtr() const {
-        return getType() == TYPE::BytePtr;
+        return getType() == Type::BytePtr;
     }
 
     constexpr bool isCatch() const {
-        return getType() == TYPE::Catch;
+        return getType() == Type::Catch;
     }
 
     constexpr bool isConstant() const {
@@ -67,23 +74,23 @@ struct ArgVal : public BeamOpArg {
     }
 
     constexpr bool isExport() const {
-        return getType() == TYPE::Export;
+        return getType() == Type::Export;
     }
 
     constexpr bool isImmed() const {
-        return getType() == TYPE::Immediate;
+        return getType() == Type::Immediate;
     }
 
     constexpr bool isLabel() const {
-        return getType() == TYPE::Label;
+        return getType() == Type::Label;
     }
 
     constexpr bool isLambda() const {
-        return getType() == TYPE::FunEntry;
+        return getType() == Type::FunEntry;
     }
 
     constexpr bool isLiteral() const {
-        return getType() == TYPE::Literal;
+        return getType() == Type::Literal;
     }
 
     constexpr bool isNil() const {
@@ -103,19 +110,19 @@ struct ArgVal : public BeamOpArg {
     }
 
     constexpr bool isXRegister() const {
-        return getType() == TYPE::XReg;
+        return getType() == Type::XReg;
     }
 
     constexpr bool isYRegister() const {
-        return getType() == TYPE::YReg;
+        return getType() == Type::YReg;
     }
 
     constexpr bool isFRegister() const {
-        return getType() == TYPE::FReg;
+        return getType() == Type::FReg;
     }
 
     constexpr bool isWord() const {
-        return getType() == TYPE::Word;
+        return getType() == Type::Word;
     }
 
     struct Hash {
@@ -132,18 +139,18 @@ struct ArgVal : public BeamOpArg {
         return !(*this == other);
     }
 
-    enum Relation { none, consecutive, reverse_consecutive };
+    enum class Relation { none, consecutive, reverse_consecutive };
 
     static Relation memory_relation(const ArgVal &lhs, const ArgVal &rhs) {
         if (lhs.isRegister() && lhs.getType() == rhs.getType()) {
             if ((lhs.val & REG_MASK) + 1 == (rhs.val & REG_MASK)) {
-                return consecutive;
+                return Relation::consecutive;
             } else if ((lhs.val & REG_MASK) == (rhs.val & REG_MASK) + 1) {
-                return reverse_consecutive;
+                return Relation::reverse_consecutive;
             }
         }
 
-        return none;
+        return Relation::none;
     };
 
     template<typename T>
@@ -211,7 +218,7 @@ struct ArgWord : public ArgVal {
     /* Allows explicit construction from any integral type. */
     template<typename T,
              std::enable_if_t<std::is_integral<T>::value, bool> = true>
-    constexpr explicit ArgWord(T value) : ArgVal(ArgVal::Word, value) {
+    constexpr explicit ArgWord(T value) : ArgVal(ArgVal::Type::Word, value) {
     }
 
     template<typename T,
@@ -247,6 +254,14 @@ struct ArgRegister : public ArgSource {
         return (int)(val >> 10);
     }
 
+    constexpr ArgVal trimmed(int n) const {
+        if (isYRegister()) {
+            return ArgVal(Type::YReg, UWord((val & REG_MASK) - n));
+        } else {
+            return *this;
+        }
+    }
+
     template<typename T>
     constexpr T copy(int n) const {
         return T(n | (val & ~REG_MASK));
@@ -258,7 +273,7 @@ struct ArgXRegister : public ArgRegister {
     template<typename T,
              std::enable_if_t<std::is_integral<T>::value, bool> = true>
     constexpr explicit ArgXRegister(T reg)
-            : ArgRegister(ArgVal(ArgVal::XReg, reg)) {
+            : ArgRegister(ArgVal(ArgVal::Type::XReg, reg)) {
     }
 
     template<typename T,
@@ -277,7 +292,7 @@ struct ArgYRegister : public ArgRegister {
     template<typename T,
              std::enable_if_t<std::is_integral<T>::value, bool> = true>
     constexpr explicit ArgYRegister(T reg)
-            : ArgRegister(ArgVal(ArgVal::YReg, reg)) {
+            : ArgRegister(ArgVal(ArgVal::Type::YReg, reg)) {
     }
 
     template<typename T,
@@ -311,7 +326,7 @@ struct ArgConstant : public ArgSource {
 
 struct ArgImmed : public ArgConstant {
     constexpr explicit ArgImmed(Eterm term)
-            : ArgConstant(ArgVal(ArgVal::Immediate, term)) {
+            : ArgConstant(ArgVal(ArgVal::Type::Immediate, term)) {
         ASSERT(isImmed());
     }
 
@@ -348,7 +363,8 @@ struct ArgAtom : public ArgImmed {
 };
 
 struct ArgNil : public ArgImmed {
-    constexpr explicit ArgNil() : ArgImmed(ArgVal(ArgVal::Immediate, NIL)) {
+    constexpr explicit ArgNil()
+            : ArgImmed(ArgVal(ArgVal::Type::Immediate, NIL)) {
     }
 
     template<typename T>

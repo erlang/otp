@@ -1,15 +1,20 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:delete_element(Index, Tuple1) -> Tuple2[0m
-  [;1m                               when[0m
-  [;1m                                   Index :: pos_integer(),[0m
-  [;1m                                   Tuple1 :: tuple(),[0m
-  [;1m                                   Tuple2 :: tuple().[0m
+[;1m  delete_element(Index, Tuple1)[0m
 
 [;;4mSince[0m:
   OTP R16B
 
   Returns a new tuple with element at [;;4mIndex[0m removed from tuple [;;4m[0m
-  [;;4mTuple1[0m, for example:
+  [;;4mTuple1[0m.
+
+  For example:
 
     > erlang:delete_element(2, {one, two, three}).
     {one,three}

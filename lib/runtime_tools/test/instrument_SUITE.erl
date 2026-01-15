@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,9 +67,16 @@ allocations_test(Args, Plain, PerAlloc) ->
                                [fun instrument:allocations/1, PerAlloc]),
                  ok = rpc:call(Node, ?MODULE, test_format,
                                [#{ histogram_start => 512,
-                                   histogram_width => 4 },
+                                   histogram_width => 4,
+                                   flags => [] },
                                 fun instrument:allocations/1,
                                 fun verify_allocations_output/2]),
+                ok = rpc:call(Node, ?MODULE, test_format,
+                              [#{ histogram_start => 512,
+                                  histogram_width => 4,
+                                  flags => [per_process, per_port] },
+                               fun instrument:allocations/1,
+                               fun verify_allocations_output/2]),
                  ok = rpc:call(Node, ?MODULE, test_abort,
                                [fun erts_internal:gather_alloc_histograms/1])
              end).
@@ -113,10 +122,23 @@ verify_allocations_output(#{}, {ok, {_, _, Allocs}}) when Allocs =:= #{} ->
 verify_allocations_output(#{}, {error, not_enabled}) ->
     ok;
 verify_allocations_output(#{ histogram_start := HistStart,
-                             histogram_width := HistWidth },
+                             histogram_width := HistWidth,
+                             flags := Flags },
                     {ok, {HistStart, _UnscannedBytes, ByOrigin}}) ->
     AllHistograms = lists:flatten([maps:values(ByType) ||
                                    ByType <- maps:values(ByOrigin)]),
+
+    Origins = maps:keys(ByOrigin),
+
+    PerProcess = lists:member(per_process, Flags),
+    PerProcess = lists:any(fun(K) -> is_pid(K) end, Origins),
+
+    PerPort = lists:member(per_port, Flags),
+    PerPort = lists:any(fun(K) -> is_port(K) end, Origins),
+
+    true = lists:all(fun(K) ->
+                             is_pid(K) or is_port(K) or is_atom(K)
+                     end, Origins),
 
     %% Do the histograms look alright?
     HistogramSet = ordsets:from_list(AllHistograms),
@@ -277,7 +299,7 @@ test_abort(Gather) ->
     spawn_opt(fun() ->
                       [begin
                            Ref2 = make_ref(),
-                           [Gather({Type, SchedId, 1, 1, Ref2}) ||
+                           [Gather({Type, SchedId, 1, 1, 0, Ref2}) ||
                                Type <- erlang:system_info(alloc_util_allocators),
                                SchedId <- lists:seq(0, erlang:system_info(schedulers))]
                        end || _ <- lists:seq(1,100)],

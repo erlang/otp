@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
-# Copyright Ericsson AB 2003-2022. All Rights Reserved.
+# Copyright Ericsson AB 2003-2025. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +70,6 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_html \
 	xmerl_lib \
 	xmerl_otpsgml \
-	xmerl_regexp \
 	xmerl_sgml \
 	xmerl_simple \
 	xmerl_text \
@@ -77,6 +78,7 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_validate \
 	xmerl_xlate \
 	xmerl_xml \
+	xmerl_xml_indent \
 	xmerl_xpath_lib \
 	xmerl_xpath_parse \
 	xmerl_xpath_pred \
@@ -89,7 +91,9 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_sax_parser_utf16be \
 	xmerl_sax_parser_utf16le \
 	xmerl_sax_simple_dom \
-	xmerl_sax_old_dom 
+	xmerl_sax_old_dom \
+	xmerl_xsd_re \
+	xmerl_xsd_re_parse
 
 
 
@@ -123,7 +127,7 @@ TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
 		-I ../include \
-		+warn_unused_vars 
+		+warn_unused_vars +warn_obsolete_bool_op
 
 #		+bin_opt_info 
 
@@ -183,6 +187,9 @@ xmerl_xpath_parse.erl:	xmerl_xpath_parse.yrl
 xmerl_b64Bin.erl: xmerl_b64Bin.yrl
 	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $(DETERMINISM_FLAG) $<
 
+xmerl_xsd_re_parse.erl:	xmerl_xsd_re_parse.yrl
+	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $(DETERMINISM_FLAG) $<
+
 xmerl_sax_parser_list.erl: xmerl_sax_parser_list.erlsrc xmerl_sax_parser_base.erlsrc
 	$(gen_verbose)cat xmerl_sax_parser_list.erlsrc xmerl_sax_parser_base.erlsrc >$@
 
@@ -234,23 +241,7 @@ release_docs_spec:
 
 release_tests_spec:
 
-
-#------------------------------------------------------------
-# .hrl dependencies
-$(EBIN)/xmerl.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_lib.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_scan.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xlate.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xml.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_html.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_text.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_eventp.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_simple.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xpath.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xpath_lib.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xpath_pred.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xpath_scan.beam:../include/xmerl.hrl
-#$(EBIN)/xmerl_xsd.beam:../include/xmerl_xsd.hrl
-#$(EBIN)/xmerl_xsd.beam:../include/xmerl.hrl
-
-
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

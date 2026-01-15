@@ -1,14 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:phash(Term, Range) -> Hash[0m
-  [;1m                      when[0m
-  [;1m                          Term :: term(),[0m
-  [;1m                          Range :: pos_integer(),[0m
-  [;1m                          Hash :: pos_integer().[0m
+[;1m  phash(Term, Range)[0m
 
 [;;4mDeprecated[0m:
   erlang:phash/2 is deprecated; use erlang:phash2/2 instead
 
-  Warning:
+  [;;4mWarning[0m
+
     This function is deprecated as [;;4merlang:phash2/2[0m should be
     used for new code. Note that [;;4merlang:phash(X,N)[0m is not
     necessary equal to [;;4merlang:phash2(X,N)[0m

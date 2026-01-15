@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %%
 %%
 -module(asn1ct_imm).
+-moduledoc false.
 -export([per_dec_raw_bitstring/2,
 	 per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_extension_map/1,

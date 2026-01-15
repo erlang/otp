@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 %% 
 
 -module(snmpc_lib).
+-moduledoc false.
 
 %% Avoid warning for local functions error/2,3 clashing
 %% with autoimported BIFs.
@@ -88,7 +91,8 @@ make_ASN1type({{type,Type},Line}) ->
 make_ASN1type({{type_with_size,Type,{range,Lo,Hi}},Line}) ->
     case lookup_vartype(Type) of
         {value,ASN1type} ->  
-	    case allow_size_rfc1902(BaseType = ASN1type#asn1_type.bertype) of
+            BaseType = ASN1type#asn1_type.bertype,
+	    case allow_size_rfc1902(BaseType) of
 		true ->
 		    ok;
 		false ->
@@ -125,7 +129,8 @@ test_kibbles([], Line) ->
     print_error("No kibbles found.",[],Line),
     [];
 test_kibbles(Kibbles,Line) ->
-    test_kibbles2(R = lists:keysort(2,Kibbles),0,Line),
+    R = lists:keysort(2,Kibbles),
+    test_kibbles2(R,0,Line),
     R.
 
 test_kibbles2([],_,_) ->
@@ -406,7 +411,8 @@ read_mib(_Line, _Filename, []) ->
     error;
 read_mib(Line, Filename, [Dir|Path]) ->
     Dir2 = snmpc_misc:ensure_trailing_dir_delimiter(Dir),
-    case snmpc_misc:read_mib(AbsFile=lists:append(Dir2, Filename)) of
+    AbsFile = lists:append(Dir2, Filename),
+    case snmpc_misc:read_mib(AbsFile) of
 	{ok, MIB} -> MIB;
 	{error, enoent} ->
 	    read_mib(Line, Filename, Path);
@@ -982,7 +988,7 @@ get_final_mib(Name, Options) ->
     ?vdebug("get_final_mib -> resolve oid", []),
     %% FIXME: use list comprehension instead
     MibFs = lists:keysort(1,
-      lists:zf(fun({module, _Mod}) -> false;
+      lists:filtermap(fun({module, _Mod}) -> false;
                   (MF) -> {true, resolve_oid(MF,SortedMEs)}
                end, MibFuncs)),
     ?vtrace("get_final_mib -> "

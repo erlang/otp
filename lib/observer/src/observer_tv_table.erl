@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 
 -module(observer_tv_table).
+-moduledoc false.
 
 -export([start_link/2]).
 
@@ -176,16 +179,16 @@ add_columns(Grid, Start, ColumnNames) ->
 
 create_menus(MB) ->
     File = wxMenu:new(),
-    wxMenu:append(File, ?ID_TABLE_INFO, "Table Information\tCtrl-I"),
+    wxMenu:append(File, ?ID_TABLE_INFO, "Table Information\tCtrl+I"),
     wxMenu:append(File, ?wxID_CLOSE, "Close"),
     wxMenuBar:append(MB, File, "File"),
     Edit = wxMenu:new(),
     wxMenu:append(Edit, ?ID_EDIT, "Edit Object"),
-    wxMenu:append(Edit, ?ID_DELETE, "Delete Object\tCtrl-D"),
+    wxMenu:append(Edit, ?ID_DELETE, "Delete Object\tCtrl+D"),
     wxMenu:appendSeparator(Edit),
-    wxMenu:append(Edit, ?ID_SEARCH, "Search\tCtrl-S"),
+    wxMenu:append(Edit, ?ID_SEARCH, "Search\tCtrl+S"),
     wxMenu:appendSeparator(Edit),
-    wxMenu:append(Edit, ?ID_REFRESH, "Refresh\tCtrl-R"),
+    wxMenu:append(Edit, ?ID_REFRESH, "Refresh\tCtrl+R"),
     wxMenu:append(Edit, ?ID_REFRESH_INTERVAL, "Refresh interval..."),
     wxMenuBar:append(MB, Edit, "Edit"),
     Help = wxMenu:new(),

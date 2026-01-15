@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +35,8 @@
 
 %% Testcases
 -export([
-         replay_window/0, replay_window/1,
+         replay_window/0,
+         replay_window/1,
          dtls_listen_owner_dies/0,
          dtls_listen_owner_dies/1,
          dtls_listen_close/0,
@@ -54,12 +57,16 @@
          dtls_listen_two_sockets_5/1,
          dtls_listen_two_sockets_6/0,
          dtls_listen_two_sockets_6/1,
-         client_restarts/0, client_restarts/1,
-         client_restarts_multiple_acceptors/1
+         client_restarts/0,
+         client_restarts/1,
+         client_restarts_multiple_acceptors/1,
+         sockname/0,
+         sockname/1
         ]).
 
 -include("ssl_test_lib.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_api.hrl").
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -90,12 +97,13 @@ api_tests() ->
      dtls_listen_two_sockets_5,
      dtls_listen_two_sockets_6,
      client_restarts,
-     client_restarts_multiple_acceptors
+     client_restarts_multiple_acceptors,
+     sockname
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
 	    ssl_test_lib:make_rsa_cert(Config0)
@@ -169,6 +177,10 @@ dtls_listen_owner_dies(Config) when is_list(Config) ->
                       {ssl, Socket, "from client"} ->
                           ssl:send(Socket, "from server"),
                           ssl:close(Socket)
+                  after 2000 ->
+                          ct:log("GOT WRONG MSG ~p~n", [flush()]),
+                          ct:log("Expected ~p~n", [ {ssl, Socket, "from client"}]),
+                          ct:fail(wrong_msg)
                   end
           end),
     {ok, Client} = ssl:connect(Hostname, Port, ClientOpts),
@@ -177,6 +189,9 @@ dtls_listen_owner_dies(Config) when is_list(Config) ->
     receive
         {ssl, Client, "from server"} ->
             ssl:close(Client)
+    after 5000 ->
+            ct:log("GOT WRONG MSG ~p~n", [flush()]),
+            ct:fail(wrong_msg)
     end.
 
 dtls_listen_close() ->
@@ -430,21 +445,22 @@ client_restarts(Config) ->
     Msgs = lists:sort(flush()),
 
     ReConnect =  %% Whitebox re-connect test
-        fun({sslsocket, {gen_udp,_,dtls_gen_connection}, [Pid]} = Socket, ssl) ->
+        fun(#sslsocket{connection_cb = dtls_gen_connection,
+                       connection_handler = Pid} = Socket, ssl) ->
                 ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
                 {{Address,CPort},UDPSocket}=IntSocket,
                 ?CT_LOG("Info: ~p~n", [inet:info(UDPSocket)]),
 
-                {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
+                {ok, #config{transport_info = CbInfo,
                              ssl = SslOpts0}} =
-                    ssl:handle_options(ClientOpts, client, Address),
-                SslOpts = {SslOpts0, #socket_options{}, undefined},
+                    ssl_config:handle_options(ClientOpts, client, Address),
+                SslOpts = {SslOpts0, [], undefined},
 
                 ct:sleep(250),
                 ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
-                {ok, NewSocket} = ssl_gen_statem:connect(ConnectionCb, Address, CPort, IntSocket,
-                                                         SslOpts, self(), CbInfo, infinity),
+                {ok, NewSocket} = dtls_gen_connection:start_fsm(client, Address, CPort, IntSocket,
+                                                                SslOpts, self(), CbInfo, infinity),
                 {replace, NewSocket}
         end,
 
@@ -478,7 +494,7 @@ flush() ->
 
 client_restarts_multiple_acceptors(Config) ->
     %% Can also be tested with openssl by connecting a client and hit
-    %% Ctrl-C to kill openssl process, so that the connection is not
+    %% Ctrl+C to kill openssl process, so that the connection is not
     %% closed.
     %% Then do a new openssl connect with the same client port.
 
@@ -514,24 +530,23 @@ client_restarts_multiple_acceptors(Config) ->
     Msgs = lists:sort(flush()),
 
     ReConnect =  %% Whitebox re-connect test
-        fun({sslsocket, {gen_udp,_,dtls_gen_connection}, [Pid]} = Socket, ssl) ->
+        fun(#sslsocket{connection_cb = dtls_gen_connection,
+                       connection_handler = Pid} = Socket, ssl) ->
                 ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
                 {{Address,CPort},UDPSocket}=IntSocket,
                 ?CT_LOG("Info: ~p~n", [inet:info(UDPSocket)]),
-
-                {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
+                {ok, #config{transport_info = CbInfo,
                              ssl = SslOpts0}} =
-                    ssl:handle_options(ClientOpts, client, Address),
-                SslOpts = {SslOpts0, #socket_options{}, undefined},
-
+                    ssl_config:handle_options(ClientOpts, client, Address),
+                SslOpts = {SslOpts0, [], undefined},
                 ct:sleep(250),
                 ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
-                {ok, NewSocket} = ssl_gen_statem:connect(ConnectionCb, Address, CPort, IntSocket,
-                                                         SslOpts, self(), CbInfo, infinity),
+                {ok, NewSocket} = dtls_gen_connection:start_fsm(client, Address, CPort, IntSocket,
+                                                                SslOpts, self(), CbInfo, infinity),
                 {replace, NewSocket}
         end,
-
+ 
     Client0 ! {apply, self(), ReConnect},
     receive
         {apply_res, {replace, Res}} ->
@@ -557,6 +572,38 @@ client_restarts_multiple_acceptors(Config) ->
     ssl_test_lib:close(Server2),
     ssl_test_lib:close(Client0),
     ok.
+
+sockname() ->
+    [{doc,"Test API function sockname/1"}].
+sockname(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {ssl, sockname, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl, sockname, []}},
+                                        {options, [{port, 0} | ClientOpts]}]),
+
+    ClientPort = ssl_test_lib:inet_port(Client),
+
+    NoBind = {0,0,0,0}, %% Normal UDP socket will not have an IP-address bound to it
+
+    ServerMsg = {ok, {NoBind, Port}},
+    ClientMsg = {ok, {NoBind, ClientPort}},
+
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
+
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

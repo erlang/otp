@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +27,7 @@
 %%----------------------------------------------------------------------
 
 -module(httpd_instance_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 
@@ -79,22 +82,22 @@ init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port]) ->
     Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE),
     Flags = {one_for_one, 0, 1},
     Children  = [httpd_connection_sup_spec(Address, Port, Profile), 
-		 httpd_acceptor_sup_spec(Address, Port, Profile, ConfigList, AcceptTimeout,
-					 undefined), 
 		 sup_spec(httpd_misc_sup, Address, Port, Profile), 
 		 worker_spec(httpd_manager, Address, Port, Profile, 
-			     ConfigFile, ConfigList,AcceptTimeout)],
+			     ConfigFile, ConfigList,AcceptTimeout),
+                 httpd_acceptor_sup_spec(Address, Port, Profile, ConfigList, AcceptTimeout,
+                                         undefined)],
     {ok, {Flags, Children}};
 init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port, ListenInfo]) -> 
     httpd_util:enable_debug(Debug), 
     Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE),
     Flags = {one_for_one, 0, 1},
     Children  = [httpd_connection_sup_spec(Address, Port, Profile), 
-		 httpd_acceptor_sup_spec(Address, Port, Profile, ConfigList, AcceptTimeout,
-					 ListenInfo), 
 		 sup_spec(httpd_misc_sup, Address, Port, Profile), 
 		 worker_spec(httpd_manager, Address, Port, Profile, ListenInfo, 
-			     ConfigFile, ConfigList, AcceptTimeout)],
+			     ConfigFile, ConfigList, AcceptTimeout),
+		 httpd_acceptor_sup_spec(Address, Port, Profile, ConfigList, AcceptTimeout,
+					 ListenInfo)],
     {ok, {Flags, Children}}.
 
 

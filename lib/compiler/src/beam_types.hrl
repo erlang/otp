@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +21,7 @@
 %%
 
 %% Type version, must be bumped whenever the external type format changes.
--define(BEAM_TYPES_VERSION, 2).
+-define(BEAM_TYPES_VERSION, 3).
 
 %% Common term types for passes operating on beam SSA and assembly. Helper
 %% functions for wrangling these can be found in beam_types.erl

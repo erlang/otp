@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,30 +46,36 @@ typedef struct PKeySignOptions {
 
 static int check_pkey_algorithm_type(ErlNifEnv *env,
                                      int alg_arg_num, ERL_NIF_TERM algorithm,
+                                     int allow_unknown,
                                      ERL_NIF_TERM *err_return);
 static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
+                                const struct pkey_type_t *pkey_type,
                                 int type_arg_num, ERL_NIF_TERM type,
 				const EVP_MD **md,
                                 ERL_NIF_TERM *err_return);
 static int get_pkey_sign_digest(ErlNifEnv *env,
                                 const ERL_NIF_TERM argv[],
                                 int algorithm_arg_num, int type_arg_num, int data_arg_num,
+                                const struct pkey_type_t *pkey_type,
 				unsigned char *md_value, const EVP_MD **mdp,
 				unsigned char **tbsp, size_t *tbslenp,
                                 ERL_NIF_TERM *err_return);
 static int get_pkey_sign_options(ErlNifEnv *env,
                                  const ERL_NIF_TERM argv[],
                                  int algorithm_arg_num, int options_arg_num,
+                                 const struct pkey_type_t *pkey_type,
                                  const EVP_MD *md, PKeySignOptions *opt,
                                  ERL_NIF_TERM *err_return);
 static int get_pkey_private_key(ErlNifEnv *env,
                                const ERL_NIF_TERM argv[],
                                int algorithm_arg_num, int key_arg_num,
+                               struct pkey_type_t *pkey_type,
 			       EVP_PKEY **pkey,
                                ERL_NIF_TERM *err_return);
 static int get_pkey_public_key(ErlNifEnv *env,
                                const ERL_NIF_TERM argv[],
                                int algorithm_arg_num, int key_arg_num,
+                               struct pkey_type_t *pkey_type,
 			       EVP_PKEY **pkey,
                                ERL_NIF_TERM *err_return);
 static int get_pkey_crypt_options(ErlNifEnv *env,
@@ -79,8 +87,131 @@ static int get_pkey_crypt_options(ErlNifEnv *env,
 static size_t size_of_RSA(EVP_PKEY *pkey);
 #endif
 
+struct pkey_type_t pkey_types[] = {
+#ifdef HAVE_ML_DSA
+    {
+        .name.atom_str = "mldsa44",
+        .evp_pkey_id = EVP_PKEY_ML_DSA_44,
+        .sign.alg_str = "mldsa44",
+        .allow_seed = true
+    },
+    {
+        .name.atom_str = "mldsa65",
+        .evp_pkey_id = EVP_PKEY_ML_DSA_65,
+        .sign.alg_str = "mldsa65",
+        .allow_seed = true
+    },
+    {
+        .name.atom_str = "mldsa87",
+        .evp_pkey_id = EVP_PKEY_ML_DSA_87,
+        .sign.alg_str = "mldsa87",
+        .allow_seed = true
+    },
+#endif
+#ifdef HAVE_SLH_DSA
+    {
+        .name.atom_str = "slh_dsa_shake_128s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128S,
+        .sign.alg_str = "SLH-DSA-SHAKE-128s"
+    },
+    {
+        .name.atom_str = "slh_dsa_shake_128f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128F,
+        .sign.alg_str = "SLH-DSA-SHAKE-128f"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_128s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128S,
+        .sign.alg_str = "SLH-DSA-SHA2-128s"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_128f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128F,
+        .sign.alg_str = "SLH-DSA-SHA2-128f"
+    },
+    {
+        .name.atom_str = "slh_dsa_shake_192s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192S,
+        .sign.alg_str = "SLH-DSA-SHAKE-192s"
+    },
+    {
+        .name.atom_str = "slh_dsa_shake_192f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192F,
+        .sign.alg_str = "SLH-DSA-SHAKE-192f"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_192s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192S,
+        .sign.alg_str = "SLH-DSA-SHA2-192s"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_192f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192F,
+        .sign.alg_str = "SLH-DSA-SHA2-192f"
+    },
+    {
+        .name.atom_str = "slh_dsa_shake_256s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256S,
+        .sign.alg_str = "SLH-DSA-SHAKE-256s"
+    },
+    {
+        .name.atom_str = "slh_dsa_shake_256f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256F,
+        .sign.alg_str = "SLH-DSA-SHAKE-256f"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_256s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_256S,
+        .sign.alg_str = "SLH-DSA-SHA2-256s"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_256f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_256F,
+        .sign.alg_str = "SLH-DSA-SHA2-256f"
+    },
+#endif
+
+    {.name.atom_str = NULL}
+};
+struct pkey_type_t *pkey_types_end;
+
+
+void prefetched_sign_algo_init(ErlNifEnv* env)
+{
+    struct pkey_type_t* p;
+    for (p = pkey_types; p->name.atom_str; p++) {
+        p->name.atom = enif_make_atom(env, p->name.atom_str);
+#ifdef HAS_PREFETCH_SIGN_INIT
+        p->sign.alg = EVP_SIGNATURE_fetch(NULL, p->sign.alg_str, NULL);
+#endif
+    }
+    pkey_types_end = p;
+}
+
+struct pkey_type_t* get_pkey_type(ERL_NIF_TERM alg_atom)
+{
+    for (struct pkey_type_t* p = pkey_types; p != pkey_types_end; p++) {
+        if (alg_atom == p->name.atom) {
+            return p;
+        }
+    }
+    return NULL;
+}
+
+ERL_NIF_TERM build_pkey_type_list(ErlNifEnv* env, ERL_NIF_TERM tail, bool fips)
+{
+    ERL_NIF_TERM list = tail;
+    if (!fips) {
+        for (struct pkey_type_t* p = pkey_types; p != pkey_types_end; p++) {
+            list = enif_make_list_cell(env, p->name.atom, list);
+        }
+    }
+    return list;
+}
+
 static int check_pkey_algorithm_type(ErlNifEnv *env,
                                      int alg_arg_num, ERL_NIF_TERM algorithm,
+                                     int allow_unknown,
                                      ERL_NIF_TERM *err_return)
 {
     if (
@@ -104,7 +235,8 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
         assign_goto(*err_return, err, EXCP_NOTSUP_N(env, alg_arg_num, "Unsupported algorithm in FIPS mode"));
 #endif    
 
-    if ((algorithm != atom_rsa) &&
+    if (!allow_unknown &&
+        (algorithm != atom_rsa) &&
         (algorithm != atom_dss) &&
         (algorithm != atom_ecdsa) &&
         (algorithm != atom_eddsa)
@@ -118,7 +250,9 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
 }
 
 
-static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
+static int get_pkey_digest_type(ErlNifEnv *env,
+                                ERL_NIF_TERM algorithm,
+                                const struct pkey_type_t *pkey_type,
                                 int type_arg_num, ERL_NIF_TERM type,
 				const EVP_MD **md,
                                 ERL_NIF_TERM *err_return)
@@ -126,8 +260,14 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
     struct digest_type_t *digp = NULL;
     *md = NULL;
 
-    if (type == atom_none && algorithm == atom_rsa)
-        return 1;
+    if (type == atom_none) {
+        if (algorithm == atom_rsa) {
+            return 1;
+        }
+        if (pkey_type && algorithm == pkey_type->name.atom) {
+            return 1;
+        }
+    }
 
     if (algorithm == atom_eddsa) /* Type was skipped for eddsa in < OTP-25
                                     For eddsa the RFC 8032 mandates sha512 in
@@ -152,7 +292,9 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
 
 static int get_pkey_sign_digest(ErlNifEnv *env,
                                 const ERL_NIF_TERM argv[],
-                                int algorithm_arg_num, int type_arg_num, int data_arg_num,
+                                int algorithm_arg_num,
+                                int type_arg_num, int data_arg_num,
+                                const struct pkey_type_t *pkey_type,
 				unsigned char *md_value, const EVP_MD **mdp,
 				unsigned char **tbsp, size_t *tbslenp,
                                 ERL_NIF_TERM *err_return)
@@ -171,10 +313,13 @@ static int get_pkey_sign_digest(ErlNifEnv *env,
     tbs = *tbsp;
     tbslen = *tbslenp;
 
-    if (!check_pkey_algorithm_type(env, algorithm_arg_num, argv[algorithm_arg_num], err_return))
+    if (!check_pkey_algorithm_type(env, algorithm_arg_num, argv[algorithm_arg_num],
+                                   1, err_return)) {
         goto err; /* An exception is present in ret */
+    }
     
-    if (!get_pkey_digest_type(env, argv[algorithm_arg_num],
+    if (!get_pkey_digest_type(env,
+                              argv[algorithm_arg_num], pkey_type,
                               type_arg_num, argv[type_arg_num],
                               &md, err_return))
         goto err; /* An exception is present in ret */
@@ -242,6 +387,7 @@ static int get_pkey_sign_digest(ErlNifEnv *env,
 static int get_pkey_sign_options(ErlNifEnv *env,
                                  const ERL_NIF_TERM argv[],
                                  int algorithm_arg_num, int options_arg_num,
+                                 const struct pkey_type_t *pkey_type,
                                  const EVP_MD *md, PKeySignOptions *opt,
                                  ERL_NIF_TERM *err_return)
 {
@@ -281,6 +427,7 @@ static int get_pkey_sign_options(ErlNifEnv *env,
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Atom expected as argument to option rsa_mgf1_md"));
 
             if (!get_pkey_digest_type(env, argv[algorithm_arg_num],
+                                      pkey_type,
                                       options_arg_num, tpl_terms[1],
                                       &opt_md, err_return))
                 goto err; /* An exception is present in ret */
@@ -327,10 +474,12 @@ static int get_pkey_sign_options(ErlNifEnv *env,
 }
 
 static int get_pkey_private_key(ErlNifEnv *env,
-                               const ERL_NIF_TERM argv[],
-                               int algorithm_arg_num, int key_arg_num,
-			       EVP_PKEY **pkey,
-                               ERL_NIF_TERM *err_return)
+                                const ERL_NIF_TERM argv[],
+                                int algorithm_arg_num,
+                                int key_arg_num,
+                                struct pkey_type_t *pkey_type,
+                                EVP_PKEY **pkey,
+                                ERL_NIF_TERM *err_return)
 {
     char *id = NULL;
     char *password = NULL;
@@ -383,8 +532,39 @@ static int get_pkey_private_key(ErlNifEnv *env,
         assign_goto(*err_return, err, EXCP_NOTSUP_N(env, algorithm_arg_num, "DSA not supported"));
 #endif
 
-    } else
-          assign_goto(*err_return, err, EXCP_BADARG_N(env, algorithm_arg_num, "Bad algorithm"));  
+    } else {
+#ifndef HAS_3_0_API
+        assign_goto(*err_return, err, EXCP_BADARG_N(env, algorithm_arg_num, "Bad algorithm"));
+#else
+        enum pkey_format_t pkey_format = PKEY_PRIV;
+        ERL_NIF_TERM key_bin = argv[key_arg_num];
+        const ERL_NIF_TERM* tpl_array;
+        int tpl_arity;
+
+        if (enif_get_tuple(env, argv[key_arg_num], &tpl_arity, &tpl_array)
+            && tpl_arity == 2) {
+
+            if (tpl_array[0] == atom_seed) {
+                if (pkey_type && pkey_type->allow_seed) {
+                    pkey_format = PKEY_PRIV_SEED;
+                }
+                else {
+                    assign_goto(*err_return, err, EXCP_BADARG_N(env, key_arg_num, "Seed key not allowed"));
+                }
+            }
+            else if (tpl_array[0] != atom_expandedkey) {
+                assign_goto(*err_return, err, EXCP_BADARG_N(env, key_arg_num, "Invalid key tuple format"));
+            }
+            key_bin = tpl_array[1];
+        }
+        if (!get_pkey_from_octet_string(env, argv[algorithm_arg_num], key_bin,
+                                        pkey_format,
+                                        pkey_type,
+                                        pkey, err_return)) {
+            goto err;
+        }
+#endif
+    }
 
     ret = 1;
  done:
@@ -403,10 +583,93 @@ static int get_pkey_private_key(ErlNifEnv *env,
     goto done;
 }
 
+#ifdef HAS_3_0_API
+int get_pkey_from_octet_string(ErlNifEnv *env,
+                               ERL_NIF_TERM alg_atom,
+                               ERL_NIF_TERM key_bin,
+                               enum pkey_format_t pkey_format,
+                               struct pkey_type_t *pkey_type,
+                               EVP_PKEY **pkey_p,
+                               ERL_NIF_TERM *ret_p)
+{
+    OSSL_PARAM params[2];
+    int i = 0;
+    EVP_PKEY *pkey = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+    ErlNifBinary keyb;
+    const char* key_type;
+    int selection;
+
+    if (pkey_type) {
+        ctx = EVP_PKEY_CTX_new_id(pkey_type->evp_pkey_id, NULL);
+        if (!ctx) {
+            assign_goto(*ret_p, err, EXCP_ERROR(env, "Can't create PKEY_CTX from id"));
+        }
+    }
+    else {
+        char type[40];
+        if (!enif_get_atom(env, alg_atom, type, sizeof(type), ERL_NIF_UTF8)) {
+            assign_goto(*ret_p, err, EXCP_ERROR_N(env, 0, "Invalid key type"));
+        }
+        ctx = EVP_PKEY_CTX_new_from_name(NULL, type, NULL);
+        if (!ctx) {
+            assign_goto(*ret_p, err, EXCP_ERROR(env, "Can't create PKEY_CTX from name"));
+        }
+    }
+
+    if (!enif_inspect_binary(env, key_bin, &keyb)) {
+        assign_goto(*ret_p, err, EXCP_ERROR_N(env, 1, "Invalid public key"));
+    }
+    switch (pkey_format) {
+#ifdef HAVE_ML_DSA
+    case PKEY_PRIV_SEED:
+        key_type = "seed"; // OSSL_PKEY_PARAM_ML_DSA_SEED
+        selection = EVP_PKEY_KEYPAIR;
+        break;
+#endif
+    case PKEY_PRIV:
+        key_type = "priv"; // OSSL_PKEY_PARAM_PRIV_KEY;
+        selection = EVP_PKEY_KEYPAIR;
+        break;
+    default:
+        ASSERT(pkey_format == PKEY_PUB);
+        key_type = "pub"; // OSSL_PKEY_PARAM_PUB_KEY;
+        selection = EVP_PKEY_PUBLIC_KEY;
+        break;
+    }
+
+    params[i++] = OSSL_PARAM_construct_octet_string(key_type, keyb.data, keyb.size);
+    params[i++] = OSSL_PARAM_construct_end();
+
+    if (EVP_PKEY_fromdata_init(ctx) <= 0) {
+        assign_goto(*ret_p, err, EXCP_ERROR(env, "Can't init fromdata"));
+    }
+
+    if (EVP_PKEY_fromdata(ctx, &pkey, selection, params) <= 0) {
+        assign_goto(*ret_p, err, EXCP_ERROR(env, "Can't create PKEY fromdata"));
+    }
+
+    /*
+    ** The caller might need an EVP_PKEY_CTX, but the one we have here isn't
+    ** good enough for EVP_PKEY_encapsulate_init and friends for some reason!?
+    */
+    EVP_PKEY_CTX_free(ctx);
+
+    *pkey_p = pkey;
+
+    return 1;
+
+err:
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(pkey);
+    return 0;
+}
+#endif  // HAS_3_0_API
 
 static int get_pkey_public_key(ErlNifEnv *env,
                                const ERL_NIF_TERM argv[],
                                int algorithm_arg_num, int key_arg_num,
+                               struct pkey_type_t *pkey_type,
 			       EVP_PKEY **pkey,
                                ERL_NIF_TERM *err_return)
 {
@@ -460,8 +723,17 @@ static int get_pkey_public_key(ErlNifEnv *env,
 #else
         assign_goto(*err_return, err, EXCP_NOTSUP_N(env, algorithm_arg_num, "DSA not supported"));
 #endif
-    } else
+    } else {
+#ifdef HAS_3_0_API
+        if (!get_pkey_from_octet_string(env, argv[algorithm_arg_num], argv[key_arg_num],
+                                        PKEY_PUB, pkey_type, pkey, err_return)) {
+            goto err;
+        }
+#else
         assign_goto(*err_return, err, EXCP_BADARG_N(env, algorithm_arg_num, "Bad algorithm"));
+#endif
+    }
+
 
     ret = 1;
 
@@ -481,6 +753,12 @@ static int get_pkey_public_key(ErlNifEnv *env,
     goto done;
 }
 
+ERL_NIF_TERM pkey_sign_heavy_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    // We are running on a dirty CPU scheduler.
+    return pkey_sign_nif(env, argc, argv);
+}
+
 ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* (Algorithm, Type, Data|{digest,Digest}, Key|#{}, Options) */
     int sig_bin_alloc = 0;
@@ -489,6 +767,7 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     unsigned char md_value[EVP_MAX_MD_SIZE];
     EVP_PKEY *pkey = NULL;
 #ifdef HAS_EVP_PKEY_CTX
+    struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
     EVP_PKEY_CTX *ctx = NULL;
     size_t siglen;
 #else
@@ -511,27 +790,63 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if (enif_is_map(env, argv[3]))
         assign_goto(ret, err, EXCP_BADARG_N(env, 3, "No engine support"));
 #endif
-    if (!get_pkey_sign_digest(env, argv, 0, 1, 2, md_value, &md, &tbs, &tbslen, &ret))
+    if (!get_pkey_sign_digest(env, argv, 0, 1, 2, pkey_type, md_value, &md, &tbs, &tbslen, &ret))
         goto err; /* An exception is present in ret */
 
-    if (!get_pkey_sign_options(env, argv, 0, 4, md, &sig_opt, &ret))
+    if (!get_pkey_sign_options(env, argv, 0, 4, pkey_type, md, &sig_opt, &ret))
         goto err; /* An exception is present in ret */
 
 #ifdef HAS_EVP_PKEY_CTX
-    { /* EVP_MD_CTX */
-        if (!get_pkey_private_key(env, argv, 0, 3, &pkey, &ret))
-            goto err; /* An exception is present in ret */
+    if (!get_pkey_private_key(env, argv, 0, 3, pkey_type, &pkey, &ret))
+        goto err; /* An exception is present in ret */
 
-        if ((ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL)
-            assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate new EVP_PKEY_CTX"));
+    if (argv[0] == atom_eddsa) {
+# ifdef HAVE_EDDSA
+        if (!FIPS_MODE()) {
+            EVP_MD_CTX *mdctx = NULL;
+            if ((mdctx = EVP_MD_CTX_new()) == NULL)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_MD_CTX_new"));
 
-        if (argv[0] != atom_eddsa) {
-            if (EVP_PKEY_sign_init(ctx) != 1)
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign_init"));
-            if (md != NULL) {
-                if (EVP_PKEY_CTX_set_signature_md(ctx, md) != 1)
-                    assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_set_signature_md"));
+            if (EVP_DigestSignInit(mdctx, NULL, NULL, NULL, pkey) != 1)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_DigestSignInit"));
+            if (EVP_DigestSign(mdctx, NULL, &siglen, tbs, tbslen) != 1)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_DigestSign"));
+            if (!enif_alloc_binary(siglen, &sig_bin))
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate binary"));
+            sig_bin_alloc = 1;
+
+            if (EVP_DigestSign(mdctx, sig_bin.data, &siglen, tbs, tbslen) != 1) {
+                if (mdctx)
+                    EVP_MD_CTX_free(mdctx);
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_DigestSign"));
             }
+            if (mdctx)
+                EVP_MD_CTX_free(mdctx);
+        }
+        else
+# endif
+            assign_goto(ret, err, EXCP_NOTSUP_N(env, 0, "eddsa not supported"));
+    }
+    else {
+        if ((ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate new EVP_PKEY_CTX"));
+        }
+# ifdef HAS_PREFETCH_SIGN_INIT
+        if (pkey_type && pkey_type->sign.alg) {
+            if (EVP_PKEY_sign_message_init(ctx, pkey_type->sign.alg, NULL) != 1)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign_message_init"));
+        }
+        else
+# endif
+        {
+            if (EVP_PKEY_sign_init(ctx) != 1) {
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign_init"));
+            }
+        }
+
+        if (md != NULL) {
+            if (EVP_PKEY_CTX_set_signature_md(ctx, md) != 1)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_set_signature_md"));
         }
 
         if (argv[0] == atom_rsa) {
@@ -555,46 +870,19 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 # endif
         }
 
-        if (argv[0] == atom_eddsa) {
-# ifdef HAVE_EDDSA
-            if (!FIPS_MODE()) {
-                EVP_MD_CTX *mdctx = NULL;
-                if ((mdctx = EVP_MD_CTX_new()) == NULL)
-                    assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_MD_CTX_new"));
+        if (EVP_PKEY_sign(ctx, NULL, &siglen, tbs, tbslen) != 1)
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign"));
 
-                if (EVP_DigestSignInit(mdctx, NULL, NULL, NULL, pkey) != 1)
-                    assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_DigestSignInit"));
-                if (EVP_DigestSign(mdctx, NULL, &siglen, tbs, tbslen) != 1)
-                    assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_DigestSign"));
-                if (!enif_alloc_binary(siglen, &sig_bin))
-                    assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate binary"));
-                sig_bin_alloc = 1;
+        if (!enif_alloc_binary(siglen, &sig_bin))
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate binary"));
+        sig_bin_alloc = 1;
 
-                if (EVP_DigestSign(mdctx, sig_bin.data, &siglen, tbs, tbslen) != 1) {
-                    if (mdctx)
-                        EVP_MD_CTX_free(mdctx);
-                    assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_DigestSign"));
-                }
-                if (mdctx)
-                    EVP_MD_CTX_free(mdctx);
-            }
-            else
-# endif
-                assign_goto(ret, err, EXCP_NOTSUP_N(env, 0, "eddsa not supported"));
-        } else {
-            if (EVP_PKEY_sign(ctx, NULL, &siglen, tbs, tbslen) != 1)
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign"));
-
-            if (!enif_alloc_binary(siglen, &sig_bin))
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate binary"));
-            sig_bin_alloc = 1;
-
-            if (md != NULL) {
-                ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, EVP_MD_size(md));
-            }
-            if (EVP_PKEY_sign(ctx, sig_bin.data, &siglen, tbs, tbslen) != 1)
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign"));
+        if (md != NULL) {
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, EVP_MD_size(md));
         }
+        if (EVP_PKEY_sign(ctx, sig_bin.data, &siglen, tbs, tbslen) != 1)
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign"));
+    }
 
     ERL_VALGRIND_MAKE_MEM_DEFINED(sig_bin.data, siglen);
     if (siglen != sig_bin.size) {
@@ -614,7 +902,7 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if (pkey)
         EVP_PKEY_free(pkey);
     return ret;
-    }
+
     /* End of HAS_EVP_PKEY_CTX */
 #else
     /* Old interface - before EVP_PKEY_CTX */
@@ -726,48 +1014,73 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     ERL_NIF_TERM ret = atom_undefined;
 
 #ifdef HAS_EVP_PKEY_CTX
+    struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
     EVP_PKEY_CTX *ctx = NULL;
 #else
     RSA *rsa = NULL;
 # ifdef HAVE_DSA
-        DSA *dsa = NULL;
+    DSA *dsa = NULL;
 # endif
 # ifdef HAVE_EC
-        EC_KEY *ec = NULL;
+    EC_KEY *ec = NULL;
 # endif
 #endif  // HAS_EVP_PKEY_CTX
-
 
 #ifndef HAS_ENGINE_SUPPORT
     if (enif_is_map(env, argv[3]))
         assign_goto(ret, err, EXCP_BADARG_N(env, 3, "No engine support"));
 #endif
 
-    if (!get_pkey_sign_digest(env, argv, 0, 1, 2, md_value, &md, &tbs, &tbslen, &ret))
+    if (!get_pkey_sign_digest(env, argv, 0, 1, 2, pkey_type, md_value, &md, &tbs, &tbslen, &ret))
         goto err; /* An exception is present in ret */
 
-    if (!get_pkey_sign_options(env, argv, 0, 5, md, &sig_opt, &ret))
+    if (!get_pkey_sign_options(env, argv, 0, 5, pkey_type, md, &sig_opt, &ret))
         goto err; /* An exception is present in ret */
 
     if (!enif_inspect_binary(env, argv[3], &sig_bin))
         assign_goto(ret, err, EXCP_BADARG_N(env, 3, "Expected a binary"));
 
 #ifdef HAS_EVP_PKEY_CTX
-    /* EVP_PKEY_CTX */
-    {
-        if (!get_pkey_public_key(env, argv, 0, 4, &pkey, &ret))
-            goto err; /* An exception is present in ret */
+    if (!get_pkey_public_key(env, argv, 0, 4, pkey_type, &pkey, &ret))
+        goto err; /* An exception is present in ret */
 
-        if ((ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL)
+    if (argv[0] == atom_eddsa) {
+# ifdef HAVE_EDDSA
+        EVP_MD_CTX *mdctx = NULL;
+        if (!FIPS_MODE()) {
+            if ((mdctx = EVP_MD_CTX_new()) == NULL)
+                    assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_MD_CTX_new"));
+
+            if (EVP_DigestVerifyInit(mdctx, NULL, NULL, NULL, pkey) != 1)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_DigestVerifyInit"));
+
+            result = EVP_DigestVerify(mdctx, sig_bin.data, sig_bin.size, tbs, tbslen);
+            if (mdctx)
+                EVP_MD_CTX_free(mdctx);
+        }
+        else
+# endif /* HAVE_EDDSA */
+            assign_goto(ret, err, EXCP_NOTSUP_N(env, 0, "eddsa not supported"));
+    }
+    else {
+        if ((ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
             assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate new EVP_PKEY_CTX"));
-
-        if (argv[0] != atom_eddsa) {
-            if (EVP_PKEY_verify_init(ctx) != 1)
-                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign_init"));
-            if (md != NULL) {
-                if (EVP_PKEY_CTX_set_signature_md(ctx, md) != 1)
-                    assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_set_signature_md"));
+        }
+# ifdef HAS_PREFETCH_SIGN_INIT
+        if (pkey_type && pkey_type->sign.alg) {
+            if (EVP_PKEY_verify_message_init(ctx, pkey_type->sign.alg, NULL) != 1)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_verify_message_init"));
+        }
+        else
+# endif
+        {
+            if (EVP_PKEY_verify_init(ctx) != 1) {
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_verify_init"));
             }
+        }
+        if (md != NULL) {
+            if (EVP_PKEY_CTX_set_signature_md(ctx, md) != 1)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_set_signature_md"));
         }
 
         if (argv[0] == atom_rsa) {
@@ -791,46 +1104,28 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 # endif
         }
 
-        if (argv[0] == atom_eddsa) {
-# ifdef HAVE_EDDSA
-            EVP_MD_CTX *mdctx = NULL;
-            if (!FIPS_MODE()) {
-                if ((mdctx = EVP_MD_CTX_new()) == NULL)
-                     assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_MD_CTX_new"));
-
-                if (EVP_DigestVerifyInit(mdctx, NULL, NULL, NULL, pkey) != 1)
-                    assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_DigestVerifyInit"));
-
-                result = EVP_DigestVerify(mdctx, sig_bin.data, sig_bin.size, tbs, tbslen);
-                if (mdctx)
-                    EVP_MD_CTX_free(mdctx);
-            }
-            else
-# endif /* HAVE_EDDSA */
-                assign_goto(ret, err, EXCP_NOTSUP_N(env, 0, "eddsa not supported"));
-        } else {
-            /* RSA or DSS */
-            if (md != NULL) {
-                ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, EVP_MD_size(md));
-            }
-            result = EVP_PKEY_verify(ctx, sig_bin.data, sig_bin.size, tbs, tbslen);
+        /* RSA or DSS */
+        if (md != NULL) {
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, EVP_MD_size(md));
         }
-
-        ret = (result == 1 ? atom_true : atom_false);
-
-    err:
-        if (ctx)
-            EVP_PKEY_CTX_free(ctx);
-        if (pkey)
-            EVP_PKEY_free(pkey);
-
-        return ret;
+        result = EVP_PKEY_verify(ctx, sig_bin.data, sig_bin.size, tbs, tbslen);
     }
+
+    ret = (result == 1 ? atom_true : atom_false);
+
+err:
+    if (ctx)
+        EVP_PKEY_CTX_free(ctx);
+    if (pkey)
+        EVP_PKEY_free(pkey);
+
+    return ret;
+
     /* End of HAS_EVP_PKEY_CTX */
 #else
     /* Old interface - before EVP_PKEY_CTX */
     {
-        if (!get_pkey_public_key(env, argv, 0, 4, &pkey, &ret))
+        if (!get_pkey_public_key(env, argv, 0, 4, NULL, &pkey, &ret))
             goto err; /* An exception is present in ret */
 
         if (argv[0] == atom_rsa) {
@@ -947,7 +1242,7 @@ static int get_pkey_crypt_options(ErlNifEnv *env,
             if (!enif_is_atom(env, tpl_terms[1]))
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Atom expected as argument to option signature_md"));
 
-            if (!get_pkey_digest_type(env, argv[algorithm_arg_num],
+            if (!get_pkey_digest_type(env, argv[algorithm_arg_num], NULL,
                                       options_arg_num, tpl_terms[1],
                                       &opt_md, err_return))
                 goto err; /* An exception is present in ret */
@@ -961,7 +1256,7 @@ static int get_pkey_crypt_options(ErlNifEnv *env,
             if (tpl_terms[1] != atom_sha)
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Only 'sha' is supported in option rsa_mgf1_md"));
 #endif
-            if (!get_pkey_digest_type(env, argv[algorithm_arg_num],
+            if (!get_pkey_digest_type(env, argv[algorithm_arg_num], NULL,
                                       options_arg_num, tpl_terms[1],
                                       &opt_md, err_return))
                 goto err; /* An exception is present in ret */
@@ -983,7 +1278,7 @@ static int get_pkey_crypt_options(ErlNifEnv *env,
             if (tpl_terms[1] != atom_sha)
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Only 'sha' is supported in option rsa_oaep_md"));
 #endif
-            if (!get_pkey_digest_type(env, argv[algorithm_arg_num],
+            if (!get_pkey_digest_type(env, argv[algorithm_arg_num], NULL,
                                       options_arg_num, tpl_terms[1],
                                       &opt_md, err_return))
                 goto err; /* An exception is present in ret */
@@ -1040,7 +1335,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     is_private = (argv[4] == atom_true);
     is_encrypt = (argv[5] == atom_true);
 
-    if (!check_pkey_algorithm_type(env, 0, argv[0], &ret))
+    if (!check_pkey_algorithm_type(env, 0, argv[0], 0, &ret))
         goto err; /* An exception is present in ret */
 
     if (!enif_inspect_binary(env, argv[1], &in_bin))
@@ -1052,10 +1347,10 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 #endif
 
     if (is_private) {
-        if (!get_pkey_private_key(env, argv, 0, 2, &pkey, &ret))
+        if (!get_pkey_private_key(env, argv, 0, 2, NULL, &pkey, &ret))
             goto err; /* An exception is present in ret */
     } else {
-        if (!get_pkey_public_key(env, argv, 0, 2, &pkey, &ret))
+        if (!get_pkey_public_key(env, argv, 0, 2, NULL, &pkey, &ret))
             goto err;  /* An exception is present in ret */
     }
 
@@ -1292,10 +1587,10 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     ASSERT(argc == 2);
 
-    if (!check_pkey_algorithm_type(env, 0, argv[0], &ret))
+    if (!check_pkey_algorithm_type(env, 0, argv[0], 0, &ret))
         goto err; /* An exception is present in ret */
     
-    if (!get_pkey_private_key(env, argv, 0, 1, &pkey, &ret)) // handles engine
+    if (!get_pkey_private_key(env, argv, 0, 1, NULL, &pkey, &ret)) // handles engine
         goto err; /* An exception is present in ret */
 
     if (argv[0] == atom_rsa) {

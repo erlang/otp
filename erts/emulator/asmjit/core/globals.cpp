@@ -86,6 +86,8 @@ ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
     "ExpressionLabelNotBound\0"
     "ExpressionOverflow\0"
     "FailedToOpenAnonymousMemory\0"
+    "FailedToOpenFile\0"
+    "ProtectionFailure\0"
     "<Unknown>\0";
 
   static const uint16_t sErrorIndex[] = {
@@ -93,7 +95,7 @@ ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
     247, 264, 283, 298, 314, 333, 352, 370, 392, 410, 429, 444, 460, 474, 488,
     508, 533, 551, 573, 595, 612, 629, 645, 661, 677, 694, 709, 724, 744, 764,
     784, 817, 837, 852, 869, 888, 909, 929, 943, 964, 978, 996, 1012, 1028, 1047,
-    1073, 1088, 1104, 1119, 1134, 1164, 1188, 1207, 1235
+    1073, 1088, 1104, 1119, 1134, 1164, 1188, 1207, 1235, 1252, 1270
   };
   // @EnumStringEnd@
 

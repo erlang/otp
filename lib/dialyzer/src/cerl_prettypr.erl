@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 1999-2002 Richard Carlsson
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,17 +17,18 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 1999-2002 Richard Carlsson
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Core Erlang prettyprinter.
+%% %CopyrightEnd%
 %%
-%% <p>This module is a front end to the pretty-printing library module
-%% <code>prettypr</code>, for text formatting of Core Erlang abstract
-%% syntax trees defined by the module <code>cerl</code>.</p>
+%% Core Erlang prettyprinter.
+%%
+%% This module is a front end to the pretty-printing library module
+%% `prettypr`, for text formatting of Core Erlang abstract
+%% syntax trees defined by the module `cerl`.
 
 %% TODO: add printing of comments for `comment'-annotations?
 
 -module(cerl_prettypr).
+-moduledoc false.
 
 -define(NO_UNUSED, true).
 
@@ -61,7 +69,16 @@
 -define(NOUSER, undefined).
 -define(NOHOOK, none).
 
--type hook() :: 'none' | fun((cerl:cerl(), _, _) -> prettypr:document()).
+-type hook() :: 'none' | formatter().
+
+-doc """
+A call-back function for user-controlled formatting.
+
+See also `format/2`.
+""".
+-type formatter() :: fun ((cerl:cerl(), context(), annotater()) -> prettypr:document()).
+
+-type annotater() :: fun ((cerl:cerl(), context()) -> prettypr:document()).
 
 -record(ctxt, {line = 0         :: integer(),
 	       body_indent = 4  :: non_neg_integer(),
@@ -71,108 +88,117 @@
 	       paper = ?PAPER   :: integer(),
 	       ribbon = ?RIBBON :: integer(),
 	       user = ?NOUSER   :: term()}).
+-doc """
+A representation of the current context of the pretty-printer. Can be
+accessed in hook functions.
+""".
 -type context() :: #ctxt{}.
 
 %% =====================================================================
 %% The following functions examine and modify contexts:
 
-%% @spec (context()) -> integer()
-%% @doc Returns the paper widh field of the prettyprinter context.
-%% @see set_ctxt_paperwidth/2
-
 -ifndef(NO_UNUSED).
+-doc """
+Returns the paper widh field of the prettyprinter context.
+
+See also `set_ctxt_paperwidth/2`.
+""".
+-spec get_ctxt_paperwidth(context()) -> integer().
+
 get_ctxt_paperwidth(Ctxt) ->
     Ctxt#ctxt.paper.
 -endif.	% NO_UNUSED
-%% @clear
-
-%% @spec (context(), integer()) -> context()
-%%
-%% @doc Updates the paper widh field of the prettyprinter context.
-%%
-%% <p> Note: changing this value (and passing the resulting context to a
-%% continuation function) does not affect the normal formatting, but may
-%% affect user-defined behaviour in hook functions.</p>
-%%
-%% @see get_ctxt_paperwidth/1
 
 -ifndef(NO_UNUSED).
+-doc """
+Updates the paper widh field of the prettyprinter context.
+
+Note: changing this value (and passing the resulting context to a
+continuation function) does not affect the normal formatting, but may
+affect user-defined behaviour in hook functions.
+
+See also `get_ctxt_paperwidth/1`.
+""".
+-spec set_ctxt_paperwidth(context(), integer()) -> context().
+
 set_ctxt_paperwidth(Ctxt, W) ->
     Ctxt#ctxt{paper = W}.
 -endif.	% NO_UNUSED
-%% @clear
-
-%% @spec (context()) -> integer()
-%% @doc Returns the line widh field of the prettyprinter context.
-%% @see set_ctxt_linewidth/2
 
 -ifndef(NO_UNUSED).
+-doc """
+Returns the line widh field of the prettyprinter context.
+See also `set_ctxt_linewidth/2`.
+""".
+-spec get_ctxt_linewidth(context()) -> integer().
+
 get_ctxt_linewidth(Ctxt) ->
     Ctxt#ctxt.ribbon.
 -endif.	% NO_UNUSED
-%% @clear
-
-%% @spec (context(), integer()) -> context()
-%%
-%% @doc Updates the line widh field of the prettyprinter context.
-%%
-%% <p> Note: changing this value (and passing the resulting context to a
-%% continuation function) does not affect the normal formatting, but may
-%% affect user-defined behaviour in hook functions.</p>
-%%
-%% @see get_ctxt_linewidth/1
 
 -ifndef(NO_UNUSED).
+-doc """
+Updates the line widh field of the prettyprinter context.
+
+Note: changing this value (and passing the resulting context to a
+continuation function) does not affect the normal formatting, but may
+affect user-defined behaviour in hook functions.
+
+See also `get_ctxt_linewidth/1`.
+""".
+-spec set_ctxt_linewidth(context(), integer()) -> context().
+
 set_ctxt_linewidth(Ctxt, W) ->
     Ctxt#ctxt{ribbon = W}.
 -endif.	% NO_UNUSED
-%% @clear
-
-%% @spec (context()) -> hook()
-%% @doc Returns the hook function field of the prettyprinter context.
-%% @see set_ctxt_hook/2
 
 -ifndef(NO_UNUSED).
+-doc """
+Returns the hook function field of the prettyprinter context.
+See also `set_ctxt_hook/2`.
+""".
+-spec get_ctxt_hook(context()) -> hook().
+
 get_ctxt_hook(Ctxt) ->
     Ctxt#ctxt.hook.
 -endif.	% NO_UNUSED
-%% @clear
-
-%% @spec (context(), hook()) -> context()
-%% @doc Updates the hook function field of the prettyprinter context.
-%% @see get_ctxt_hook/1
 
 -ifndef(NO_UNUSED).
+-doc """
+Updates the hook function field of the prettyprinter context.
+See also `get_ctxt_hook/1`.
+""".
+-spec set_ctxt_hook(context(), hook()) -> context().
+
 set_ctxt_hook(Ctxt, Hook) ->
     Ctxt#ctxt{hook = Hook}.
 -endif.	% NO_UNUSED
-%% @clear
-
-%% @spec (context()) -> term()
-%% @doc Returns the user data field of the prettyprinter context.
-%% @see set_ctxt_user/2
 
 -ifndef(NO_UNUSED).
+-doc """
+Returns the user data field of the prettyprinter context.
+See also `set_ctxt_user/2`.
+""".
+-spec get_ctxt_user(context()) -> term().
+
 get_ctxt_user(Ctxt) ->
     Ctxt#ctxt.user.
 -endif.	% NO_UNUSED
-%% @clear
-
-%% @spec (context(), term()) -> context()
-%% @doc Updates the user data field of the prettyprinter context.
-%% @see get_ctxt_user/1
 
 -ifndef(NO_UNUSED).
+-doc """
+Updates the user data field of the prettyprinter context.
+See also `get_ctxt_user/1`.
+""".
+-spec set_ctxt_user(context(), term()) -> context().
+
 set_ctxt_user(Ctxt, X) ->
     Ctxt#ctxt{user = X}.
 -endif.	% NO_UNUSED
-%% @clear
 
 
 %% =====================================================================
-%% @spec format(Tree::cerl()) -> string()
-%% @equiv format(Tree, [])
-
+-doc #{equiv => format(Tree, [])}.
 -spec format(cerl:cerl()) -> string().
 
 format(Node) ->
@@ -180,80 +206,62 @@ format(Node) ->
 
 
 %% =====================================================================
-%% @spec format(Tree::cerl(), Options::[term()]) -> string()
-%%           cerl() = cerl:cerl()
-%%
-%% @type hook() = (cerl(), context(), Continuation) -> document()
-%%	    Continuation = (cerl(), context()) -> document().
-%%
-%% A call-back function for user-controlled formatting. See <a
-%% href="#format-2"><code>format/2</code></a>.
-%%
-%% @type context(). A representation of the current context of the
-%% pretty-printer. Can be accessed in hook functions.
-%%
-%% @doc Prettyprint-formats a Core Erlang syntax tree as text.
-%%
-%% <p>Available options:
-%% <dl>
-%%   <dt>{hook, none | <a href="#type-hook">hook()</a>}</dt>
-%%       <dd>Unless the value is <code>none</code>, the given function
-%%       is called for every node; see below for details. The default
-%%       value is <code>none</code>.</dd>
-%%
-%%   <dt>{noann, boolean()}</dt>
-%%       <dd>If the value is <code>true</code>, annotations on the code
-%%       are not printed. The default value is <code>false</code>.</dd>
-%%
-%%   <dt>{paper, integer()}</dt>
-%%       <dd>Specifies the preferred maximum number of characters on any
-%%       line, including indentation. The default value is 76.</dd>
-%%
-%%   <dt>{ribbon, integer()}</dt>
-%%       <dd>Specifies the preferred maximum number of characters on any
-%%       line, not counting indentation. The default value is 45.</dd>
-%%
-%%   <dt>{user, term()}</dt>
-%%       <dd>User-specific data for use in hook functions. The default
-%%       value is <code>undefined</code>.</dd>
-%% </dl></p>
-%%
-%% <p>A hook function (cf. the <a
-%% href="#type-hook"><code>hook()</code></a> type) is passed the current
-%% syntax tree node, the context, and a continuation. The context can be
-%% examined and manipulated by functions such as
-%% <code>get_ctxt_user/1</code> and <code>set_ctxt_user/2</code>. The
-%% hook must return a "document" data structure (see
-%% <code>layout/2</code> and <code>best/2</code>); this may be
-%% constructed in part or in whole by applying the continuation
-%% function. For example, the following is a trivial hook:
-%% <pre>
-%%     fun (Node, Ctxt, Cont) -> Cont(Node, Ctxt) end
-%% </pre>
-%% which yields the same result as if no hook was given.
-%% The following, however:
-%% <pre>
-%%     fun (Node, Ctxt, Cont) ->
-%%         Doc = Cont(Node, Ctxt),
-%%         prettypr:beside(prettypr:text("&lt;b>"),
-%%                         prettypr:beside(Doc,
-%%                                         prettypr:text("&lt;/b>")))
-%%     end
-%% </pre>
-%% will place the text of any annotated node (regardless of the
-%% annotation data) between HTML "boldface begin" and "boldface end"
-%% tags. The function <code>annotate/3</code> is exported for use in
-%% hook functions.</p>
-%%
-%% @see cerl
-%% @see format/1
-%% @see layout/2
-%% @see best/2
-%% @see annotate/3
-%% @see get_ctxt_user/1
-%% @see set_ctxt_user/2
+-doc """
+Prettyprint-formats a Core Erlang syntax tree as text.
 
--spec format(cerl:cerl(), [term()]) -> string().
+Available options:
+{hook, none | `hook()`}
+: Unless the value is `none`, the given function
+    is called for every node; see below for details. The default
+    value is `none`.
+
+{noann, boolean()}
+: If the value is `true`, annotations on the code
+    are not printed. The default value is `false`.
+
+{paper, integer()}
+: Specifies the preferred maximum number of characters on any
+    line, including indentation. The default value is 76.
+
+{ribbon, integer()}
+: Specifies the preferred maximum number of characters on any
+    line, not counting indentation. The default value is 45.
+
+{user, term()}
+: User-specific data for use in hook functions. The default
+    value is `undefined`.
+
+A hook function (cf. the `hook()` type) is passed the current
+syntax tree node, the context, and a continuation. The context can be
+examined and manipulated by functions such as
+`get_ctxt_user/1` and `set_ctxt_user/2`. The
+hook must return a "document" data structure (see
+`layout/2` and `best/2`); this may be
+constructed in part or in whole by applying the continuation
+function. For example, the following is a trivial hook:
+```
+    fun (Node, Ctxt, Cont) -> Cont(Node, Ctxt) end
+```
+which yields the same result as if no hook was given.
+The following, however:
+```
+    fun (Node, Ctxt, Cont) ->
+        Doc = Cont(Node, Ctxt),
+        prettypr:beside(prettypr:text("&lt;b>"),
+                        prettypr:beside(Doc,
+                                        prettypr:text("&lt;/b>")))
+    end
+```
+will place the text of any annotated node (regardless of the
+annotation data) between HTML "boldface begin" and "boldface end"
+tags. The function `annotate/3` is exported for use in
+hook functions.
+
+See also `format/1`, `layout/2`, `best/2`, `annotate/3`, `get_ctxt_user/1`,
+and `set_ctxt_user/2`.
+""".
+
+-spec format(Tree::cerl:cerl(), Options::[term()]) -> string().
 
 format(Node, Options) ->
     W = proplists:get_value(paper, Options, ?PAPER),
@@ -262,60 +270,54 @@ format(Node, Options) ->
 
 
 %% =====================================================================
-%% @spec best(Tree::cerl()) -> empty | document()
-%% @equiv best(Node, [])
-
 -ifndef(NO_UNUSED).
+-doc #{equiv => best(Node, [])}.
+-spec best(Tree::cerl()) -> empty | prettypr:document().
+
 best(Node) ->
     best(Node, []).
 -endif.	% NO_UNUSED
-%% @clear
 
 
 %% =====================================================================
-%% @spec best(Tree::cerl(), Options::[term()]) ->
-%%           empty | document()
-%%
-%% @doc Creates a fixed "best" abstract layout for a Core Erlang syntax
-%% tree. This is similar to the <code>layout/2</code> function, except
-%% that here, the final layout has been selected with respect to the
-%% given options. The atom <code>empty</code> is returned if no such
-%% layout could be produced. For information on the options, see the
-%% <code>format/2</code> function.
-%%
-%% @see best/1
-%% @see layout/2
-%% @see format/2
-%% @see prettypr:best/2
-
 -ifndef(NO_UNUSED).
+-doc """
+Creates a fixed "best" abstract layout for a Core Erlang syntax
+tree. This is similar to the `layout/2` function, except
+that here, the final layout has been selected with respect to the
+given options. The atom `empty` is returned if no such
+layout could be produced. For information on the options, see the
+`format/2` function.
+
+See also `best/1`, `layout/2`, `format/2`, and `prettypr:best/2`.
+""".
+-spec best(Tree::cerl(), Options::[term()]) -> empty | prettypr:document().
+
 best(Node, Options) ->
     W = proplists:get_value(paper, Options, ?PAPER),
     L = proplists:get_value(ribbon, Options, ?RIBBON),
     prettypr:best(layout(Node, Options), W, L).
 -endif.	% NO_UNUSED
-%% @clear
 
 
 %% =====================================================================
-%% @spec layout(Tree::cerl()) -> document()
-%% @equiv layout(Tree, [])
-
 -ifndef(NO_UNUSED).
+-doc #{equiv => layout(Tree, [])}.
+-spec layout(Tree::cerl()) -> prettypr:document().
+
 layout(Node) ->
     layout(Node, []).
 -endif.	% NO_UNUSED
-%% @clear
 
 
 %% =====================================================================
-%% @spec annotate(document(), Terms::[term()], context()) -> document()
-%%
-%% @doc Adds an annotation containing <code>Terms</code> around the
-%% given abstract document. This function is exported mainly for use in
-%% hook functions; see <code>format/2</code>.
-%%
-%% @see format/2
+-doc """
+Adds an annotation containing `Terms` around the
+given abstract document. This function is exported mainly for use in
+hook functions; see `format/2`.
+
+See also `format/2`.
+""".
 
 -spec annotate(prettypr:document(), [term()], context()) -> prettypr:document().
 
@@ -339,26 +341,23 @@ annotate(Doc, As0, Ctxt) ->
 
 
 %% =====================================================================
-%% @spec layout(Tree::cerl(), Options::[term()]) -> document()
-%%	    document() = prettypr:document()
-%%
-%% @doc Creates an abstract document layout for a syntax tree. The
-%% result represents a set of possible layouts (cf. module
-%% <code>prettypr</code>). For information on the options, see
-%% <code>format/2</code>; note, however, that the <code>paper</code> and
-%% <code>ribbon</code> options are ignored by this function.
-%%
-%% <p>This function provides a low-level interface to the pretty
-%% printer, returning a flexible representation of possible layouts,
-%% independent of the paper width eventually to be used for formatting.
-%% This can be included as part of another document and/or further
-%% processed directly by the functions in the <code>prettypr</code>
-%% module, or used in a hook function (see <code>format/2</code> for
-%% details).</p>
-%%
-%% @see prettypr
-%% @see format/2
-%% @see layout/1
+-doc """
+Creates an abstract document layout for a syntax tree. The
+result represents a set of possible layouts (cf. module
+`prettypr`). For information on the options, see
+`format/2`; note, however, that the `paper` and
+`ribbon` options are ignored by this function.
+
+This function provides a low-level interface to the pretty
+printer, returning a flexible representation of possible layouts,
+independent of the paper width eventually to be used for formatting.
+This can be included as part of another document and/or further
+processed directly by the functions in the `prettypr`
+module, or used in a hook function (see `format/2` for
+details).
+
+See also `format/2` and `layout/1`.
+""".
 
 -spec layout(cerl:cerl(), [term()]) -> prettypr:document().
 
@@ -396,6 +395,7 @@ lay_0(Node, Ctxt) ->
 
 %% This adds an annotation list (if nonempty) around a document, unless
 %% the `noann' option is enabled.
+-spec lay_ann(cerl:cerl(), context()) -> prettypr:document().
 
 lay_ann(Node, Ctxt) ->
     Doc = lay_1(Node, Ctxt),

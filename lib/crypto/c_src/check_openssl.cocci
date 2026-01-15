@@ -1,6 +1,9 @@
 // %CopyrightBegin%
 //
+// SPDX-License-Identifier: Apache-2.0
+//
 // Copyright Doug Hogan 2019. All Rights Reserved.
+// Copyright Ericsson AB 2025. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,6 +91,7 @@
 // EVP_shake128
 // EVP_shake256
 // EVP_sha512
+// EVP_sm3
 // OpenSSL_version
 // OpenSSL_version_num
 // PEM_read_PrivateKey

@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2022. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -126,9 +128,9 @@ static void cmd_ei_connect_init(char* buf, int len)
     if (ei_decode_atom_as(buf, &index, socket_impl, sizeof(socket_impl),
                           ERLANG_ASCII, NULL, NULL) < 0)
 	fail("expected atom (socket_impl)");
-    if (strcmp(socket_impl,"default") == 0)
+    if (my_strcmp(socket_impl,"default") == 0)
         r = ei_connect_init(&ec, node_name, cp, creation);
-    else if (strcmp(socket_impl,"ussi") == 0)
+    else if (my_strcmp(socket_impl,"ussi") == 0)
         r = ei_connect_init_ussi(&ec, node_name, cp, creation,
                                  &my_ussi, sizeof(my_ussi), NULL);
     else

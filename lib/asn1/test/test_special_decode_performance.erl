@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -120,7 +122,7 @@ loop2(Mod,FS,Bin,N) ->
 
 get_selective_funcs('PartialDecSeq') ->
 %    [selected_decode_F1,selected_decode_F2,selected_decode_F3,selected_decode_F4];
-    [selected_decode_F1,selected_decode_F3,selected_decode_F4];
+    [selected_decode_F1_1,selected_decode_F3,selected_decode_F4];
 get_selective_funcs('MEDIA-GATEWAY-CONTROL') ->
     [decode_MegacoMessage_selective].
 

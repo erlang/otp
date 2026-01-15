@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,7 @@
 %%% Purpose : Optimise jumps and remove unreachable code.
 
 -module(beam_jump).
+-moduledoc false.
 
 -export([module/2,
 	 remove_unused_labels/1]).
@@ -407,7 +410,7 @@ share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
 	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
 
-unambigous_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
+unambigous_deallocation([bs_init_writable|Is]) ->
     %% beam_validator requires that the size of the stack frame is
     %% unambigously known when certain instructions are used.
     %%
@@ -428,7 +431,7 @@ unambigous_deallocation([]) ->
 
 find_deallocation([{block,_}|Is]) ->
     find_deallocation(Is);
-find_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
+find_deallocation([bs_init_writable|Is]) ->
     find_deallocation(Is);
 find_deallocation([{call,_,_}|Is]) ->
     find_deallocation(Is);
@@ -846,7 +849,7 @@ initial_labels([{line,_}|Is], Acc) ->
 initial_labels([{label,Lbl}|Is], Acc) ->
     initial_labels(Is, [Lbl|Acc]);
 initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->
-    sets:from_list([Lbl|Acc], [{version, 2}]).
+    sets:from_list([Lbl|Acc]).
 
 drop_upto_label([{label,_}|_]=Is) -> Is;
 drop_upto_label([_|Is]) -> drop_upto_label(Is);
@@ -935,10 +938,6 @@ instr_labels({bif,_Name,Lbl,_As,_R}) ->
 instr_labels({gc_bif,_Name,Lbl,_Live,_As,_R}) ->
     do_instr_labels(Lbl);
 instr_labels({bs_create_bin,Lbl,_,_,_,_,_}) ->
-    do_instr_labels(Lbl);
-instr_labels({bs_init,Lbl,_,_,_,_}) ->
-    do_instr_labels(Lbl);
-instr_labels({bs_put,Lbl,_,_}) ->
     do_instr_labels(Lbl);
 instr_labels({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}) ->
     do_instr_labels(Lbl);

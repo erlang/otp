@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,9 +21,12 @@
 %%
 
 -module(httpc_response).
+-moduledoc false.
 
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
+
+-compile(nowarn_obsolete_bool_op).
 
 %% API
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
@@ -150,7 +155,7 @@ result(Response = {{_,Code,_}, _, _}, Request) when (Code div 100) =:= 5 ->
 result(Response, Request) -> 
     transparent(Response, Request).
 
-send(Receiver, Msg) when is_pid(Receiver) ->
+send(Receiver, Msg) when is_pid(Receiver); is_reference(Receiver) ->
     Receiver ! {http, Msg};
 send(Receiver, Msg) when is_function(Receiver) ->
     (catch Receiver(Msg));

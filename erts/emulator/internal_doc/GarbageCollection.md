@@ -1,3 +1,25 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 # Erlang Garbage Collector
 
 Erlang manages dynamic memory with a [tracing garbage collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection). More precisely a per process generational semi-space copying collector using Cheney's copy collection algorithm together with a global large object space. (See C. J. Cheney in [References](#references).)
@@ -41,7 +63,7 @@ If there is not enough space available on the heap to satisfy the `test_heap` in
 
 Erlang has a copying semi-space garbage collector. This means that when doing a garbage collection, the terms are copied from one distinct area, called the *from space*, to a new clean area, called the *to space*. The collector starts by [scanning the root-set](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.c#L1980) (stack, registers, etc).
 
-![Garbage collection: initial values](figures/gc-start.png)
+![Garbage collection: initial values](assets/gc-start.png)
 
 It follows all the pointers from the root-set to the heap and copies each term word by word to the *to space*.
 
@@ -53,15 +75,15 @@ After the header word has been copied a [*move marker*](https://github.com/erlan
 
 Only one copy of T exists on the heap and during the garbage collection only the first time T is encountered will it be copied.
 
-![Garbage collection: root set scan](figures/gc-rootset-scan.png)
+![Garbage collection: root set scan](assets/gc-rootset-scan.png)
 
 After [all terms](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.c#L1089) referenced by the root-set have been copied, the collector scans the *to space* and copies all terms that these terms reference. When scanning, the collector steps through each term on the *to space* and any term still referencing the *from space* is copied over to the *to space*. Some terms contain non-term data (the payload of a on heap binary for instance). When encountered by the collector, these values are simply skipped.
 
-![Garbage collection: heap scan](figures/gc-heap-scan1.png)
+![Garbage collection: heap scan](assets/gc-heap-scan1.png)
 
-Every term object we can reach is copied to the *to space* and stored on top off the *scan stop* line, and then the scan stop is moved to the end of the last object.
+Every term object we can reach is copied to the *to space* and stored on top of the *scan stop* line, and then the scan stop is moved to the end of the last object.
 
-![Garbage collection: heap scan](figures/gc-heap-stop.png)
+![Garbage collection: heap scan](assets/gc-heap-stop.png)
 
 When *scan stop* marker [catches up](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.c#L1103) to the *scan start* marker, the garbage collection is done. At this point we can [deallocate](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.c#L1206) the entire *from space* and therefore reclaim the entire young heap.
 
@@ -71,11 +93,11 @@ In addition to the collection algorithm described above, the Erlang garbage coll
 
 With this in mind we can look at the Erlang's garbage collection again. During the copy stage anything that should be copied to the young *to space* is instead copied to the old *to space* *if* it is [below the *high-watermark*](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.c#L1127).
 
-![Garbage collection: heap scan](figures/gc-watermark.png)
+![Garbage collection: heap scan](assets/gc-watermark.png)
 
 The [*high-watermark*](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_process.h#L1021) is placed where the previous garbage collection (described in [Overview](#overview)) ended and we have introduced a new area called the old heap. When doing the normal garbage collection pass, any term that is located below the high-watermark is copied to the old *to space* instead of the young.
 
-![Garbage collection: heap scan](figures/gc-watermark-2.png)
+![Garbage collection: heap scan](assets/gc-watermark-2.png)
 
 In the next garbage collection, any pointers to the old heap will be ignored and not scanned. This way the garbage collector does not have to scan the long-lived terms.
 

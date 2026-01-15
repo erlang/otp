@@ -1,11 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:monotonic_time(Unit) -> integer() when Unit :: time_unit().[0m
+[;1m  monotonic_time(Unit)[0m
 
 [;;4mSince[0m:
   OTP 18.0
 
-  Returns the current Erlang monotonic time converted into the [;;4m[0m
-  [;;4mUnit[0m passed as argument.
+  Returns the current Erlang monotonic time converted into the [;;4mUnit[0m
+  passed as argument.
 
   Same as calling [;;4merlang:convert_time_unit[0m[;;4m([0m [;;4m[0m
   [;;4merlang:monotonic_time()[0m[;;4m, native, Unit)[0m, however optimized for

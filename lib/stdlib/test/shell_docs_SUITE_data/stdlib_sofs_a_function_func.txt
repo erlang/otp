@@ -1,19 +1,26 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec a_function(Tuples) -> Function[0m
-  [;1m                    when Function :: a_function(), Tuples :: [tuple()].[0m
+[;1m  a_function(Tuples)[0m
 
-  Creates a function. [;;4ma_function(F, T)[0m is equivalent to [;;4m[0m
-  [;;4mfrom_term(F, T)[0m if the result is a function. If no type is
-  explicitly specified, [;;4m[{atom, atom}][0m is used as the function
-  type.
+  There is no documentation for a_function(Tuples, [{atom, atom}])
 
-  [;1m-spec a_function(Tuples, Type) -> Function[0m
-  [;1m                    when[0m
-  [;1m                        Function :: a_function(),[0m
-  [;1m                        Tuples :: [tuple()],[0m
-  [;1m                        Type :: type().[0m
+[;1m  a_function(Tuples, Type)[0m
 
-  Creates a function. [;;4ma_function(F, T)[0m is equivalent to [;;4m[0m
-  [;;4mfrom_term(F, T)[0m if the result is a function. If no type is
-  explicitly specified, [;;4m[{atom, atom}][0m is used as the function
-  type.
+  Creates a function.
+
+  [;;4ma_function(F, T)[0m is equivalent to [;;4mfrom_term(F, T)[0m if the result
+  is a function.
+
+[;1mExamples[0m
+
+    1> sofs:is_a_function(sofs:a_function([{1,a},{2,b},{3,c}])).
+    true
+    2> sofs:a_function([{1,a},{1,b}]).
+    ** exception error: bad_function
+         in function  sofs:a_function/1

@@ -1,14 +1,22 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec list_to_float(String) -> float() when String :: string().[0m
+[;1m  list_to_float(String)[0m
 
-  Returns the float whose text representation is [;;4mString[0m, for
-  example:
+  Returns the float whose text representation is [;;4mString[0m.
+
+  For example:
 
     > list_to_float("2.2017764e+0").
     2.2017764
 
-  The float string format is the same as the format for Erlang
-  float literals except for that underscores are not permitted.
+  The float string format is the same as the format for Erlang float
+  literals except for that underscores are not permitted.
 
   Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of a
   float.

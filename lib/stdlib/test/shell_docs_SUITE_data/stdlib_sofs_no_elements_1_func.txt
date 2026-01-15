@@ -1,8 +1,24 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec no_elements(ASet) -> NoElements[0m
-  [;1m                     when[0m
-  [;1m                         ASet :: a_set() | ordset(),[0m
-  [;1m                         NoElements :: non_neg_integer().[0m
+[;1m  no_elements(ASet)[0m
 
   Returns the number of elements of the ordered or unordered set [;;4m[0m
   [;;4mASet[0m.
+
+[;1mExamples[0m
+
+    1> sofs:no_elements(sofs:set([a,b,c])).
+    3
+    2> sofs:no_elements(sofs:relation([{1,a}])).
+    1
+    3> sofs:no_elements(sofs:from_term({1,2,3,4})).
+    4
+    4> sofs:no_elements(sofs:from_term(a)).
+    ** exception error: bad argument
+         in function  sofs:no_elements/1

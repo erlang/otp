@@ -1,4 +1,13 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type filename_all() :: string() | binary().[0m
+[;1m  filename_all()[0m
 
-  See also the documentation of the [;;4mname_all()[0m type.
+  A file name as returned from [;;4mfile[0m API functions.
+
+  See the documentation of the [;;4mname_all/0[0m type.

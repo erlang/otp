@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2004-2007 Mickaël Rémond, Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,15 +27,12 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2004-2007 Mickaël Rémond, Richard Carlsson
-%% @author Mickaël Rémond <mickael.remond@process-one.net>
-%%   [http://www.process-one.net/]
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @private
-%% @see eunit
-%% @doc Utility functions for eunit
+%% %CopyrightEnd%
+%%
+%% Utility functions for eunit
 
 -module(eunit_lib).
+-moduledoc false.
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
@@ -38,20 +44,19 @@
 	 format_exception/1, format_exception/2, format_error/1, format_error/2,
          format_stacktrace/1, is_not_test/1]).
 
+-export_type([exception/0, exception_class/0, stack_trace/0, module_name/0,
+              function_name/0, arg_list/0]).
+
 -define(DEFAULT_DEPTH, 20).
 
 %% Type definitions for describing exceptions
-%%
-%% @type exception() = {exceptionClass(), Reason::term(), stackTrace()}
-%%
-%% @type exceptionClass() = error | exit | throw
-%%
-%% @type stackTrace() = [{moduleName(), functionName(), arity() | argList()}]
-%%
-%% @type moduleName() = atom()
-%% @type functionName() = atom()
-%% @type argList() = [term()]
-%% @type fileName() = string()
+
+-type exception() :: {exception_class(), Reason::term(), stack_trace()}.
+-type exception_class() :: error | exit | throw.
+-type stack_trace() :: [{module_name(), function_name(), arity() | arg_list()}].
+-type module_name() :: atom().
+-type function_name() :: atom().
+-type arg_list() :: [term()].
 
 
 %% ---------------------------------------------------------------------
@@ -490,8 +495,8 @@ win32_cmd_tests() ->
 %% ---------------------------------------------------------------------
 %% Wrapper around file:path_consult
 
-%% @throws {file_read_error, {Reason::atom(), Message::string(),
-%%                            fileName()}}
+%% Throws {file_read_error, {Reason::atom(), Message::string(),
+%%                           filename()}}
 
 consult_file(File) ->
     case file:path_consult(["."]++code:get_path(), File) of
@@ -505,8 +510,7 @@ consult_file(File) ->
 %% ---------------------------------------------------------------------
 %% Wrapper around file:list_dir
 
-%% @throws {file_read_error, {Reason::atom(), Message::string(),
-%%                            fileName()}}
+%% Throws {file_read_error, {Reason::atom(), Message::string(), filename()}}
 
 list_dir(Dir) ->
     case file:list_dir(Dir) of
@@ -525,6 +529,7 @@ list_dir(Dir) ->
 trie_new() ->
     gb_trees:empty().
 
+-dialyzer({no_opaque_union, [trie_store/2]}).
 trie_store([_ | _], []) ->
     [];
 trie_store([E | Es], T) ->

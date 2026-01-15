@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,7 +62,7 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [beam_me_up, {group,parse_table}, groups_bad_1].
+    [beam_me_up, {group,parse_table}, groups_bad_1, empty_group].
 
 groups() -> 
     [{parse_table,[parallel], 
@@ -177,22 +179,16 @@ parse_table_one_column_multiline(Config) when is_list(Config) ->
 groups_bad_1(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "bad_groups_SUITE"),
-    {Opts,ERPid} = setup([{suite,Suite},
-      {label,groups_bad_1}], Config),
+    verify_events(?FUNCTION_NAME, Suite, Config).
 
-  ok = ct_test_support:run(Opts, Config),
-  Events = ct_test_support:get_events(ERPid, Config),
+%%%-----------------------------------------------------------------
+%%%
 
-  ct_test_support:log_events(bad_groups,
-           reformat(Events, ?eh),
-           ?config(priv_dir, Config),
-           Opts),
+empty_group(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Suite = filename:join(DataDir, "empty_group_SUITE"),
+    verify_events(?FUNCTION_NAME, Suite, Config).
 
-  TestEvents = test_events(groups_bad_1),
-  ok = ct_test_support:verify_events(TestEvents, Events, Config).
-
-
-	
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
@@ -207,8 +203,19 @@ setup(Test, Config) ->
 
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
-%reformat(Events, _EH) ->
-%    Events.
+
+verify_events(Case, Suite, Config) ->
+    {Opts, ERPid} = setup([{suite, Suite}, {label, Case}], Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(Case,
+             reformat(Events, ?eh),
+             ?config(priv_dir, Config),
+             Opts),
+
+    TestEvents = test_events(Case),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
@@ -275,6 +282,60 @@ test_events(groups_bad_1) ->
             {failed,
                 {error,
                     'Invalid reference to group unexist in bad_groups_SUITE:all/0'}}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(empty_group) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,1}},
+     {?eh,tc_start,{ct_framework,init_per_suite}},
+     {?eh,tc_done,{ct_framework,init_per_suite,ok}},
+     [{?eh,tc_start,
+          {ct_framework,
+              {init_per_group,one_testcase,[{suite,empty_group_SUITE}]}}},
+      {?eh,tc_done,
+          {ct_framework,
+              {init_per_group,one_testcase,[{suite,empty_group_SUITE}]},
+              ok}},
+       {?eh,tc_start,{empty_group_SUITE,t1}},
+       {?eh,tc_done,{empty_group_SUITE,t1,ok}},
+       {?eh,test_stats,{1,0,{0,0}}},
+      {?eh,tc_start,
+          {ct_framework,{end_per_group,one_testcase,[{suite,empty_group_SUITE}]}}},
+      {?eh,tc_done,
+          {ct_framework,
+              {end_per_group,one_testcase,[{suite,empty_group_SUITE}]},
+              ok}}],
+     {?eh,tc_start,{ct_framework,end_per_suite}},
+     {?eh,tc_done,{ct_framework,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]},
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,1}},
+     {?eh,tc_start,{ct_framework,init_per_suite}},
+     {?eh,tc_done,{ct_framework,init_per_suite,ok}},
+     [{?eh,tc_start,
+          {ct_framework,
+              {init_per_group,one_testcase,[{suite,empty_group_SUITE}]}}},
+      {?eh,tc_done,
+          {ct_framework,
+              {init_per_group,one_testcase,[{suite,empty_group_SUITE}]},
+              ok}},
+       {?eh,tc_start,{empty_group_SUITE,t1}},
+       {?eh,tc_done,{empty_group_SUITE,t1,ok}},
+       {?eh,test_stats,{1,0,{0,0}}},
+      {?eh,tc_start,
+          {ct_framework,{end_per_group,one_testcase,[{suite,empty_group_SUITE}]}}},
+      {?eh,tc_done,
+          {ct_framework,
+              {end_per_group,one_testcase,[{suite,empty_group_SUITE}]},
+              ok}}],
+     {?eh,tc_start,{ct_framework,end_per_suite}},
+     {?eh,tc_done,{ct_framework,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

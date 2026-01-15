@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2021-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +24,7 @@
  * @description Basic type representation for BEAM instruction operands.
  * @file beam_types.h
  * 
- * While the compiler is good eliminating redundant type tests and simplifying
+ * While the compiler is good at eliminating redundant type tests and simplifying
  * instructions, we're limited by the available instructions and it's not
  * always worthwhile to add new variants.
  * 
@@ -37,31 +39,30 @@
 
 #include "sys.h"
 
-#define BEAM_TYPES_VERSION 2
+#define BEAM_TYPES_VERSION 3
 
 #define BEAM_TYPE_NONE               (0)
 
 #define BEAM_TYPE_ATOM               (1 << 0)
 #define BEAM_TYPE_BITSTRING          (1 << 1)
-#define BEAM_TYPE_BS_MATCHSTATE      (1 << 2)
-#define BEAM_TYPE_CONS               (1 << 3)
-#define BEAM_TYPE_FLOAT              (1 << 4)
-#define BEAM_TYPE_FUN                (1 << 5)
-#define BEAM_TYPE_INTEGER            (1 << 6)
-#define BEAM_TYPE_MAP                (1 << 7)
-#define BEAM_TYPE_NIL                (1 << 8)
-#define BEAM_TYPE_PID                (1 << 9)
-#define BEAM_TYPE_PORT               (1 << 10)
-#define BEAM_TYPE_REFERENCE          (1 << 11)
-#define BEAM_TYPE_TUPLE              (1 << 12)
+#define BEAM_TYPE_CONS               (1 << 2)
+#define BEAM_TYPE_FLOAT              (1 << 3)
+#define BEAM_TYPE_FUN                (1 << 4)
+#define BEAM_TYPE_INTEGER            (1 << 5)
+#define BEAM_TYPE_MAP                (1 << 6)
+#define BEAM_TYPE_NIL                (1 << 7)
+#define BEAM_TYPE_PID                (1 << 8)
+#define BEAM_TYPE_PORT               (1 << 9)
+#define BEAM_TYPE_REFERENCE          (1 << 10)
+#define BEAM_TYPE_TUPLE              (1 << 11)
 
-#define BEAM_TYPE_ANY                ((1 << 13) - 1)
+#define BEAM_TYPE_ANY                ((1 << 12) - 1)
 
 /* This is not a part of the type union proper, but is present in the format
  * to signal the presence of metadata. */
-#define BEAM_TYPE_HAS_LOWER_BOUND    (1 << 13)
-#define BEAM_TYPE_HAS_UPPER_BOUND    (1 << 14)
-#define BEAM_TYPE_HAS_UNIT           (1 << 15)
+#define BEAM_TYPE_HAS_LOWER_BOUND    (1 << 12)
+#define BEAM_TYPE_HAS_UPPER_BOUND    (1 << 13)
+#define BEAM_TYPE_HAS_UNIT           (1 << 14)
 
 #define BEAM_TYPE_METADATA_MASK      (BEAM_TYPE_HAS_LOWER_BOUND | \
                                       BEAM_TYPE_HAS_UPPER_BOUND | \
@@ -88,8 +89,7 @@ typedef struct {
     byte size_unit;
 } BeamType;
 
-int beam_types_decode_type_otp_26(const byte *data, BeamType *out);
-void beam_types_decode_extra_otp_26(const byte *data, BeamType *out);
+int beam_types_decode_type(const byte *data, BeamType *out);
+void beam_types_decode_extra(const byte *data, BeamType *out);
 
-int beam_types_decode_otp_25(const byte *data, Uint size, BeamType *out);
 #endif

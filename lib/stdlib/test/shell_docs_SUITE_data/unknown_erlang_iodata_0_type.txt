@@ -1,11 +1,20 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-type iodata() :: iolist() | binary().[0m
+[;1m  iodata()[0m
 
-  A binary or list containing bytes and/or iodata. This datatype is
-  used to represent data that is meant to be output using any I/O
-  module. For example: file:write/2 or gen_tcp:send/2.
+  A binary or list containing bytes and/or iodata.
 
-  To convert an iodata() term to binary() you can use 
-  iolist_to_binary/2. To transcode a string() or 
-  unicode:chardata() to iodata() you can use 
-  unicode:characters_to_binary/1.
+  This datatype is used to represent data that is meant to be output
+  using any I/O module. For example: [;;4mfile:write/2[0m or [;;4m[0m
+  [;;4mgen_tcp:send/2[0m.
+
+  To convert an [;;4miodata/0[0m term to [;;4mbinary/0[0m you can use
+  iolist_to_binary/2. To transcode a [;;4mstring/0[0m or [;;4m[0m
+  [;;4municode:chardata/0[0m to [;;4miodata/0[0m you can use [;;4m[0m
+  [;;4municode:characters_to_binary/1[0m.

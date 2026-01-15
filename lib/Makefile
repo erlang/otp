@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2023. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +34,7 @@ ERLANG_APPLICATIONS = tools common_test runtime_tools inets parsetools
 endif
 
 # These are only build if -a is given to otp_build or make is used directly
-ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp erl_interface \
+ALL_ERLANG_APPLICATIONS = xmerl edoc snmp erl_interface \
 		  asn1 jinterface \
 	          wx debugger reltool \
 	          mnesia crypto os_mon syntax_tools \

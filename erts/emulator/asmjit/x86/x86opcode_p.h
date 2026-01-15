@@ -45,7 +45,7 @@ struct Opcode {
   //!   `pp` in instruction manuals.
   //!
   //! - `LL` field is used exclusively by AVX+ and AVX512+ instruction sets. It describes vector size, which is `L.128`
-  //!   for XMM register, `L.256` for for YMM register, and `L.512` for ZMM register. The `LL` field is omitted in case
+  //!   for XMM register, `L.256` for YMM register, and `L.512` for ZMM register. The `LL` field is omitted in case
   //!   that instruction supports multiple vector lengths, however, if the instruction requires specific `L` value it
   //!   must be specified as a part of the opcode.
   //!
@@ -244,7 +244,7 @@ struct Opcode {
     // REX|VEX|EVEX B|X|R|W Bits
     // -------------------------
     //
-    // NOTE: REX.[B|X|R] are never stored within the opcode itself, they are reserved by AsmJit are are added
+    // NOTE: REX.[B|X|R] are never stored within the opcode itself, they are reserved by AsmJit and are added
     // dynamically to the opcode to represent [REX|VEX|EVEX].[B|X|R] bits. REX.W can be stored in DB as it's sometimes
     // part of the opcode itself.
 
@@ -280,7 +280,7 @@ struct Opcode {
     // `L` or `LL` field in AVX/XOP/AVX-512
     // ------------------------------------
     //
-    // VEX/XOP prefix can only use the first bit `L.128` or `L.256`. EVEX prefix prefix makes it possible to use also
+    // VEX/XOP prefix can only use the first bit `L.128` or `L.256`. EVEX prefix makes it possible to use also
     // `L.512`. If the instruction set manual describes an instruction by `LIG` it means that the `L` field is ignored
     // and AsmJit defaults to `0` in such case.
     kLL_Shift      = 29,
@@ -336,27 +336,27 @@ struct Opcode {
   // Opcode Builder
   // --------------
 
-  inline uint32_t get() const noexcept { return v; }
+  ASMJIT_INLINE_NODEBUG uint32_t get() const noexcept { return v; }
 
-  inline bool hasW() const noexcept { return (v & kW) != 0; }
-  inline bool has66h() const noexcept { return (v & kPP_66) != 0; }
+  ASMJIT_INLINE_NODEBUG bool hasW() const noexcept { return (v & kW) != 0; }
+  ASMJIT_INLINE_NODEBUG bool has66h() const noexcept { return (v & kPP_66) != 0; }
 
-  inline Opcode& add(uint32_t x) noexcept { return operator+=(x); }
+  ASMJIT_INLINE_NODEBUG Opcode& add(uint32_t x) noexcept { return operator+=(x); }
 
-  inline Opcode& add66h() noexcept { return operator|=(kPP_66); }
+  ASMJIT_INLINE_NODEBUG Opcode& add66h() noexcept { return operator|=(kPP_66); }
   template<typename T>
-  inline Opcode& add66hIf(T exp) noexcept { return operator|=(uint32_t(exp) << kPP_Shift); }
+  ASMJIT_INLINE_NODEBUG Opcode& add66hIf(T exp) noexcept { return operator|=(uint32_t(exp) << kPP_Shift); }
   template<typename T>
-  inline Opcode& add66hBySize(T size) noexcept { return add66hIf(size == 2); }
+  ASMJIT_INLINE_NODEBUG Opcode& add66hBySize(T size) noexcept { return add66hIf(size == 2); }
 
-  inline Opcode& addW() noexcept { return operator|=(kW); }
+  ASMJIT_INLINE_NODEBUG Opcode& addW() noexcept { return operator|=(kW); }
   template<typename T>
-  inline Opcode& addWIf(T exp) noexcept { return operator|=(uint32_t(exp) << kW_Shift); }
+  ASMJIT_INLINE_NODEBUG Opcode& addWIf(T exp) noexcept { return operator|=(uint32_t(exp) << kW_Shift); }
   template<typename T>
-  inline Opcode& addWBySize(T size) noexcept { return addWIf(size == 8); }
+  ASMJIT_INLINE_NODEBUG Opcode& addWBySize(T size) noexcept { return addWIf(size == 8); }
 
   template<typename T>
-  inline Opcode& addPrefixBySize(T size) noexcept {
+  ASMJIT_INLINE_NODEBUG Opcode& addPrefixBySize(T size) noexcept {
     static const uint32_t mask[16] = {
       0,          // #0
       0,          // #1 -> nothing (already handled or not possible)
@@ -372,7 +372,7 @@ struct Opcode {
   }
 
   template<typename T>
-  inline Opcode& addArithBySize(T size) noexcept {
+  ASMJIT_INLINE_NODEBUG Opcode& addArithBySize(T size) noexcept {
     static const uint32_t mask[16] = {
       0,          // #0
       0,          // #1 -> nothing
@@ -387,45 +387,45 @@ struct Opcode {
     return operator|=(mask[size & 0xF]);
   }
 
-  inline Opcode& forceEvex() noexcept { return operator|=(kMM_ForceEvex); }
+  ASMJIT_INLINE_NODEBUG Opcode& forceEvex() noexcept { return operator|=(kMM_ForceEvex); }
   template<typename T>
-  inline Opcode& forceEvexIf(T exp) noexcept { return operator|=(uint32_t(exp) << Support::ConstCTZ<uint32_t(kMM_ForceEvex)>::value); }
+  ASMJIT_INLINE_NODEBUG Opcode& forceEvexIf(T exp) noexcept { return operator|=(uint32_t(exp) << Support::ConstCTZ<uint32_t(kMM_ForceEvex)>::value); }
 
   //! Extract `O` field (R) from the opcode (specified as /0..7 in instruction manuals).
-  inline uint32_t extractModO() const noexcept {
+  ASMJIT_INLINE_NODEBUG uint32_t extractModO() const noexcept {
     return (v >> kModO_Shift) & 0x07;
   }
 
   //! Extract `RM` field (RM) from the opcode (usually specified as another opcode value).
-  inline uint32_t extractModRM() const noexcept {
+  ASMJIT_INLINE_NODEBUG uint32_t extractModRM() const noexcept {
     return (v >> kModRM_Shift) & 0x07;
   }
 
   //! Extract `REX` prefix from opcode combined with `options`.
-  inline uint32_t extractRex(InstOptions options) const noexcept {
+  ASMJIT_INLINE_NODEBUG uint32_t extractRex(InstOptions options) const noexcept {
     // kREX was designed in a way that when shifted there will be no bytes set except REX.[B|X|R|W].
     // The returned value forms a real REX prefix byte. This case should be unit-tested as well.
     return (v | uint32_t(options)) >> kREX_Shift;
   }
 
-  inline uint32_t extractLLMMMMM(InstOptions options) const noexcept {
+  ASMJIT_INLINE_NODEBUG uint32_t extractLLMMMMM(InstOptions options) const noexcept {
     uint32_t llMmmmm = uint32_t(v & (kLL_Mask | kMM_Mask));
     uint32_t vexEvex = uint32_t(options & InstOptions::kX86_Evex);
     return (llMmmmm | vexEvex) >> kMM_Shift;
   }
 
-  inline Opcode& operator=(uint32_t x) noexcept { v = x; return *this; }
-  inline Opcode& operator+=(uint32_t x) noexcept { v += x; return *this; }
-  inline Opcode& operator-=(uint32_t x) noexcept { v -= x; return *this; }
-  inline Opcode& operator&=(uint32_t x) noexcept { v &= x; return *this; }
-  inline Opcode& operator|=(uint32_t x) noexcept { v |= x; return *this; }
-  inline Opcode& operator^=(uint32_t x) noexcept { v ^= x; return *this; }
+  ASMJIT_INLINE_NODEBUG Opcode& operator=(uint32_t x) noexcept { v = x; return *this; }
+  ASMJIT_INLINE_NODEBUG Opcode& operator+=(uint32_t x) noexcept { v += x; return *this; }
+  ASMJIT_INLINE_NODEBUG Opcode& operator-=(uint32_t x) noexcept { v -= x; return *this; }
+  ASMJIT_INLINE_NODEBUG Opcode& operator&=(uint32_t x) noexcept { v &= x; return *this; }
+  ASMJIT_INLINE_NODEBUG Opcode& operator|=(uint32_t x) noexcept { v |= x; return *this; }
+  ASMJIT_INLINE_NODEBUG Opcode& operator^=(uint32_t x) noexcept { v ^= x; return *this; }
 
-  inline uint32_t operator&(uint32_t x) const noexcept { return v & x; }
-  inline uint32_t operator|(uint32_t x) const noexcept { return v | x; }
-  inline uint32_t operator^(uint32_t x) const noexcept { return v ^ x; }
-  inline uint32_t operator<<(uint32_t x) const noexcept { return v << x; }
-  inline uint32_t operator>>(uint32_t x) const noexcept { return v >> x; }
+  ASMJIT_INLINE_NODEBUG uint32_t operator&(uint32_t x) const noexcept { return v & x; }
+  ASMJIT_INLINE_NODEBUG uint32_t operator|(uint32_t x) const noexcept { return v | x; }
+  ASMJIT_INLINE_NODEBUG uint32_t operator^(uint32_t x) const noexcept { return v ^ x; }
+  ASMJIT_INLINE_NODEBUG uint32_t operator<<(uint32_t x) const noexcept { return v << x; }
+  ASMJIT_INLINE_NODEBUG uint32_t operator>>(uint32_t x) const noexcept { return v >> x; }
 };
 
 //! \}

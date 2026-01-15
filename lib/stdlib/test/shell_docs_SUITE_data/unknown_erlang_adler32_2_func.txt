@@ -1,8 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:adler32(OldAdler, Data) -> non_neg_integer()[0m
-  [;1m                        when[0m
-  [;1m                            OldAdler :: non_neg_integer(),[0m
-  [;1m                            Data :: iodata().[0m
+[;1m  adler32(OldAdler, Data)[0m
 
   Continues computing the adler32 checksum by combining the previous
   checksum, [;;4mOldAdler[0m, with the checksum of [;;4mData[0m.

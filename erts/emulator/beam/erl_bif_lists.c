@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1999-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,6 +56,36 @@ typedef struct {
 
 static int append_ctx_bin_dtor(Binary *context_bin) {
     return 1;
+}
+
+static int append_empty_rhs(Process *p, ErtsAppendContext *context) {
+    static const Sint ELEMENTS_PER_RED = 32;
+    Sint budget, count;
+
+    budget = ELEMENTS_PER_RED * ERTS_BIF_REDS_LEFT(p);
+
+#ifdef DEBUG
+    budget = budget / 10 + 1;
+#endif
+
+    for (count = 0; count < budget && is_list(context->iterator); count++) {
+        context->iterator = CDR(list_val(context->iterator));
+    }
+
+    BUMP_REDS(p, count / ELEMENTS_PER_RED);
+
+    if (is_list(context->iterator)) {
+        return 0;
+    } else if (is_nil(context->iterator)) {
+#ifdef DEBUG
+        context->result_cdr = &context->rhs_original;
+#endif
+        context->result = context->lhs_original;
+
+        return 1;
+    }
+
+    return -1;
 }
 
 static Eterm append_create_trap_state(Process *p,
@@ -203,6 +235,11 @@ static BIF_RETTYPE lists_append_onheap(Process *p, ErtsAppendContext *context) {
 }
 
 static int append_continue(Process *p, ErtsAppendContext *context) {
+    /* Fast-lane when the rhs is nil: return lhs. */
+    if (is_nil(context->rhs_original)) {
+        return append_empty_rhs(p, context);
+    }
+
     /* We build the result on the unused part of the heap if possible to save
      * us the trouble of having to figure out the list size. We fall back to
      * lists_append_alloc when we run out of space. */
@@ -906,7 +943,12 @@ static int subtract_continue(Process *p, ErtsSubtractContext *context) {
                 return res;
             }
 
-            if (context->lhs_remaining <= SUBTRACT_LHS_THRESHOLD) {
+            /* If the lhs list is empty then there's nothing to do.
+             * Returning early will be taken care of in the `SUBTRACT_STAGE_LEN_RHS`
+             * stage after the rhs list has been scanned. */
+            if (context->lhs_remaining > 0 &&
+                context->lhs_remaining <= SUBTRACT_LHS_THRESHOLD &&
+                is_list(context->rhs_original)) {
                 return subtract_enter_naive_lhs(p, context);
             }
 
@@ -924,6 +966,20 @@ static int subtract_continue(Process *p, ErtsSubtractContext *context) {
 
             if (res != 1) {
                 return res;
+            }
+
+            /* If the lhs list is empty then the subtraction must return nil. */
+            if (context->lhs_remaining == 0) {
+                ASSERT(is_nil(context->lhs_original));
+                context->result = NIL;
+                return 1;
+            }
+            /* If the rhs list is empty then the subtraction should return the
+             * lhs list unchanged. */
+            if (context->rhs_remaining == 0) {
+                ASSERT(is_nil(context->rhs_original));
+                context->result = context->lhs_original;
+                return 1;
             }
 
             /* We've walked through both lists fully now so we no longer need

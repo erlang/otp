@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 {application, asn1,
  [{description, "The Erlang ASN1 compiler version %VSN%"},
   {vsn, "%VSN%"},
@@ -10,5 +17,5 @@
 		]},
   {env, []},
   {applications, [kernel, stdlib]},
-  {runtime_dependencies, ["stdlib-3.13","kernel-7.0","erts-11.0"]}
+  {runtime_dependencies, ["stdlib-5.0","kernel-9.0","erts-14.0"]}
   ]}.

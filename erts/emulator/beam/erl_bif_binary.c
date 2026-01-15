@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +62,7 @@ static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_3);
 static Export binary_longest_suffix_trap_export;
 static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_3);
 static Export binary_copy_trap_export;
-static BIF_RETTYPE binary_copy_trap(BIF_ALIST_2);
+static BIF_RETTYPE binary_copy_trap(BIF_ALIST_3);
 static Uint max_loop_limit;
 
 static BIF_RETTYPE
@@ -75,15 +77,15 @@ void erts_init_bif_binary(void)
 			  &binary_find_trap);
 
     erts_init_trap_export(&binary_longest_prefix_trap_export,
-			  am_erlang, am_binary_longest_prefix_trap, 3,
+			  am_erlang, am_binary_longest_prefix_trap, 4,
 			  &binary_longest_prefix_trap);
 
     erts_init_trap_export(&binary_longest_suffix_trap_export,
-			  am_erlang, am_binary_longest_suffix_trap, 3,
+			  am_erlang, am_binary_longest_suffix_trap, 4,
 			  &binary_longest_suffix_trap);
 
     erts_init_trap_export(&binary_copy_trap_export,
-			  am_erlang, am_binary_copy_trap, 2,
+			  am_erlang, am_binary_copy_trap, 3,
 			  &binary_copy_trap);
 
     max_loop_limit = 0;
@@ -274,7 +276,7 @@ typedef struct _binary_find_context BinaryFindContext;
 
 typedef struct _binary_find_search {
     void (*init) (BinaryFindContext *);
-    BFReturn (*find) (BinaryFindContext *, byte *);
+    BFReturn (*find) (BinaryFindContext *, const byte *);
     void (*done) (BinaryFindContext *);
 } BinaryFindSearch;
 
@@ -465,8 +467,8 @@ static ACTrie *create_acdata(MyAllocator *my, Uint len,
  * The same initialization of allocator and basic data for Boyer-Moore.
  * For single byte, we don't use goodshift and badshift, only memchr.
  */
-static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
-			     Binary **the_bin /* out */)
+static BMData *create_bmdata(MyAllocator *my, const byte *x, Uint len,
+                             Binary **the_bin /* out */)
 {
     Uint datasize;
     BMData *bmd;
@@ -513,7 +515,8 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 /*
  * Helper called once for each search pattern
  */
-static void ac_add_one_pattern(MyAllocator *my, ACTrie *act, byte *x, Uint len)
+static void ac_add_one_pattern(MyAllocator *my, ACTrie *act,
+                               const byte *x, Uint len)
 {
     ACNode *acn = act->root;
     Uint32 n = ++act->counter; /* Always increase counter, even if it's a
@@ -631,7 +634,8 @@ static void ac_init_find_first_match(BinaryFindContext *ctx)
 
 #define AC_LOOP_FACTOR 10
 
-static BFReturn ac_find_first_match(BinaryFindContext *ctx, byte *haystack)
+static BFReturn ac_find_first_match(BinaryFindContext *ctx,
+                                    const byte *haystack)
 {
     ACFindFirstState *state = &(ctx->u.ff.d.ac);
     Uint *mpos = &(ctx->u.ff.pos);
@@ -722,7 +726,8 @@ static void ac_clean_find_all(BinaryFindContext *ctx)
  * Differs to the find_first function in that it stores all matches and the values
  * arte returned only in the state.
  */
-static BFReturn ac_find_all_non_overlapping(BinaryFindContext *ctx, byte *haystack)
+static BFReturn ac_find_all_non_overlapping(BinaryFindContext *ctx,
+                                            const byte *haystack)
 {
     ACFindAllState *state = &(ctx->u.fa.d.ac);
     Uint *reductions = &(ctx->reds);
@@ -826,7 +831,8 @@ static void bm_init_find_first_match(BinaryFindContext *ctx)
     state->len = ctx->hsend;
 }
 
-static BFReturn bm_find_first_match(BinaryFindContext *ctx, byte *haystack)
+static BFReturn bm_find_first_match(BinaryFindContext *ctx,
+                                    const byte *haystack)
 {
     BMFindFirstState *state = &(ctx->u.ff.d.bm);
     BMData *bmd = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
@@ -909,7 +915,8 @@ static void bm_clean_find_all(BinaryFindContext *ctx)
  * Differs to the find_first function in that it stores all matches and the
  * values are returned only in the state.
  */
-static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haystack)
+static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx,
+                                            const byte *haystack)
 {
     BMFindAllState *state = &(ctx->u.fa.d.bm);
     BMData *bmd = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
@@ -1009,16 +1016,14 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	while (is_list(t)) {
 	    b = CAR(list_val(t));
 	    t = CDR(list_val(t));
-	    if (!is_binary(b)) {
+	    if (!is_bitstring(b)) {
 		goto badarg;
 	    }
-	    if (binary_bitsize(b) != 0) {
-		goto badarg;
-	    }
-	    size = binary_size(b);
-	    if (size == 0) {
-		goto badarg;
-	    }
+            size = bitstring_size(b);
+            if (size == 0 || TAIL_BITS(size) != 0) {
+                goto badarg;
+            }
+            size = BYTE_SIZE(size);
 	    ++words;
 	    characters += size;
 	}
@@ -1030,13 +1035,16 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	} else {
 	    comp_term = CAR(list_val(argument));
 	}
-    } else if (is_binary(argument)) {
-	if (binary_bitsize(argument) != 0) {
-	    goto badarg;
-	}
-	words = 1;
-	comp_term = argument;
-	characters = binary_size(argument);
+    } else if (is_bitstring(argument)) {
+        size = bitstring_size(argument);
+        if (size == 0 || TAIL_BITS(size) != 0) {
+            goto badarg;
+        }
+        size = BYTE_SIZE(size);
+
+        words = 1;
+        comp_term = argument;
+        characters = size;
     }
 
     if (characters == 0) {
@@ -1045,16 +1053,14 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     ASSERT(words > 0);
 
     if (words == 1) {
-	byte *bytes;
-	Uint bitoffs, bitsize;
-	byte *temp_alloc = NULL;
-	MyAllocator my;
-	Binary *bin;
+        ERTS_DECLARE_DUMMY(Uint dummy);
+        const byte *temp_alloc = NULL, *bytes;
+        MyAllocator my;
+        Binary *bin;
 
-	ERTS_GET_BINARY_BYTES(comp_term, bytes, bitoffs, bitsize);
-	if (bitoffs != 0) {
-	    bytes = erts_get_aligned_binary_bytes(comp_term, &temp_alloc);
-	}
+        bytes = erts_get_aligned_binary_bytes(comp_term, &dummy, &temp_alloc);
+        ASSERT(bytes && characters == dummy);
+
         create_bmdata(&my, bytes, characters, &bin);
 	erts_free_aligned_binary_bytes(temp_alloc);
 	CHECK_ALLOCATOR(my);
@@ -1070,17 +1076,18 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	act = create_acdata(&my, characters, &qbuff, &bin);
 	t = comp_term;
 	while (is_list(t)) {
-	    byte *bytes;
-	    Uint bitoffs, bitsize;
-	    byte *temp_alloc = NULL;
-	    b = CAR(list_val(t));
-	    t = CDR(list_val(t));
-	    ERTS_GET_BINARY_BYTES(b, bytes, bitoffs, bitsize);
-	    if (bitoffs != 0) {
-		bytes = erts_get_aligned_binary_bytes(b, &temp_alloc);
-	    }
-	    ac_add_one_pattern(&my,act,bytes,binary_size(b));
-	    erts_free_aligned_binary_bytes(temp_alloc);
+            const byte *temp_alloc = NULL, *bytes;
+            Uint size;
+
+            b = CAR(list_val(t));
+            t = CDR(list_val(t));
+
+            size = 0;
+            bytes = erts_get_aligned_binary_bytes(b, &size, &temp_alloc);
+            ASSERT(bytes);
+
+            ac_add_one_pattern(&my,act,bytes, size);
+            erts_free_aligned_binary_bytes(temp_alloc);
 	}
 	ac_compute_failure_functions(act,qbuff);
 	CHECK_ALLOCATOR(my);
@@ -1265,19 +1272,27 @@ static BFReturn maybe_binary_match_compile(BinaryFindContext *ctx, Eterm arg, Bi
 
 static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 {
+    Uint bin_size;
     Eterm *tp;
     Uint pos;
     Sint len;
+
+    ASSERT(is_bitstring(bin));
+    bin_size = bitstring_size(bin);
+    if (TAIL_BITS(bin_size) != 0) {
+        goto badarg;
+    }
+    bin_size = BYTE_SIZE(bin_size);
+
     if (l == THE_NON_VALUE || l == NIL) {
 	/* Invalid term or NIL, we're called from binary_match(es)_2 or
 	   have no options*/
 	*posp = 0;
-	*endp = binary_size(bin);
+	*endp = bin_size;
 	return 0;
     } else if (is_list(l)) {
 	do {
 	    Eterm t = CAR(list_val(l));
-	    Uint orig_size;
 	    if (!is_tuple(t)) {
 		goto badarg;
 	    }
@@ -1313,8 +1328,7 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 	    }
 	    *endp = len + pos;
 	    *posp = pos;
-	    if ((orig_size = binary_size(bin)) < pos ||
-		orig_size < (*endp)) {
+	    if (bin_size < pos || bin_size < (*endp)) {
 		goto badarg;
 	    }
 	    l = CDR(list_val(l));
@@ -1331,18 +1345,27 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 
 static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uint *optp)
 {
+    Uint bin_size;
     Eterm *tp;
     Uint pos;
     Sint len;
+
+    ASSERT(is_bitstring(bin));
+    bin_size = bitstring_size(bin);
+    if (TAIL_BITS(bin_size) != 0) {
+        goto badarg;
+    }
+    bin_size = BYTE_SIZE(bin_size);
+
     *optp = 0;
     *posp = 0;
-    *endp = binary_size(bin);
+    *endp = bin_size;
+
     if (l == THE_NON_VALUE || l == NIL) {
 	return 0;
     } else if (is_list(l)) {
 	while(is_list(l)) {
 	    Eterm t = CAR(list_val(l));
-	    Uint orig_size;
 	    if (is_atom(t)) {
 		if (t == am_global) {
 		    *optp |= BF_FLAG_GLOBAL;
@@ -1395,8 +1418,7 @@ static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uin
 	    }
 	    *endp = len + pos;
 	    *posp = pos;
-	    if ((orig_size = binary_size(bin)) < pos ||
-		orig_size < (*endp)) {
+	    if (bin_size < pos || bin_size < (*endp)) {
 		goto badarg;
 	    }
 	    l = CDR(list_val(l));
@@ -1430,17 +1452,13 @@ static BFReturn do_binary_find(Process *p, Eterm subject, BinaryFindContext **ct
 
     switch (ctx->state) {
     case BFSearch: {
-	byte *bytes;
-	Uint bitoffs, bitsize;
-	byte *temp_alloc = NULL;
+        const byte *temp_alloc = NULL, *bytes;
+        ERTS_DECLARE_DUMMY(Uint size);
 
-	ERTS_GET_BINARY_BYTES(subject, bytes, bitoffs, bitsize);
-	if (bitsize != 0) {
-	    goto badarg;
-	}
-	if (bitoffs != 0) {
-	    bytes = erts_get_aligned_binary_bytes(subject, &temp_alloc);
-	}
+        bytes = erts_get_aligned_binary_bytes(subject, &size, &temp_alloc);
+        if (bytes == NULL) {
+            goto badarg;
+        }
 #ifdef HARDDEBUG
 	bf_context_dump(ctx);
 #endif
@@ -1528,16 +1546,12 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
     int runres;
     Eterm result;
 
-    if (is_not_binary(arg1) || binary_bitsize(arg1) != 0) {
+    if (is_not_bitstring(arg1)) {
 	goto badarg;
     }
     ctx->flags = flags;
     if (parse_match_opts_list(arg3, arg1, &(ctx->hsstart), &(ctx->hsend))) {
 	goto badarg;
-    }
-    if (ctx->hsend == 0) {
-	result = do_match_not_found_result(p, arg1, &ctx);
-	BIF_RET(result);
     }
     if (maybe_binary_match_compile(ctx, arg2, &pat_bin) != BF_OK) {
 	goto badarg;
@@ -1591,15 +1605,11 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     int runres;
     Eterm result;
 
-    if (is_not_binary(arg1) || binary_bitsize(arg1) != 0) {
+    if (is_not_bitstring(arg1)) {
 	goto badarg;
     }
     if (parse_split_opts_list(arg3, arg1, &(ctx->hsstart), &(ctx->hsend), &(ctx->flags))) {
 	goto badarg;
-    }
-    if (ctx->hsend == 0) {
-	result = do_split_not_found_result(p, arg1, &ctx);
-	BIF_RET(result);
     }
     if (maybe_binary_match_compile(ctx, arg2, &pat_bin) != BF_OK) {
 	goto badarg;
@@ -1731,9 +1741,10 @@ static Eterm do_split_not_found_result(Process *p, Eterm subject, BinaryFindCont
     Eterm ret;
 
     if (ctx->flags & (BF_FLAG_SPLIT_TRIM | BF_FLAG_SPLIT_TRIM_ALL)
-        && binary_size(subject) == 0) {
-	return NIL;
+        && bitstring_size(subject) == 0) {
+        return NIL;
     }
+
     hp = HAlloc(p, 2);
     ret = CONS(hp, subject, NIL);
     return ret;
@@ -1743,67 +1754,69 @@ static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindContext
 {
     BinaryFindContext *ctx = (*ctxp);
     BinaryFindFirstContext *ff = &(ctx->u.ff);
-    Sint pos;
-    Sint len;
-    size_t orig_size;
-    Eterm orig;
-    Uint offset;
-    Uint bit_offset;
-    Uint bit_size;
-    Uint hp_need;
-    Eterm *hp, *hp_end;
+    Sint pos, len;
     Eterm ret;
+
+    Uint subject_offset, subject_size;
+    Eterm first, rest;
+    const byte *base;
+    Eterm br_flags;
+    BinRef *br;
 
     pos = ff->pos;
     len = ff->len;
 
-    orig_size = binary_size(subject);
+    ERTS_GET_BITSTRING_REF(subject,
+                           br_flags,
+                           br,
+                           base,
+                           subject_offset,
+                           subject_size);
 
     if ((ctx->flags & (BF_FLAG_SPLIT_TRIM | BF_FLAG_SPLIT_TRIM_ALL)) &&
-	(orig_size - pos - len) == 0) {
-	if (pos == 0) {
-	    ret = NIL;
-	} else {
-	    Eterm extracted;
+        subject_size == NBITS(pos + len)) {
+        Eterm extracted;
 
-	    hp_need = EXTRACT_SUB_BIN_HEAP_NEED + 2;
+        if (pos > 0) {
+            Eterm *hp;
 
-	    hp = HAlloc(p, hp_need);
-	    hp_end = hp + hp_need;
+            hp = HAlloc(p, erts_extracted_bitstring_size(NBITS(pos)) + 2);
 
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    extracted = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
-	                                        offset * 8 + bit_offset,
-	                                        pos * 8 + bit_size);
+            extracted = erts_build_sub_bitstring(&hp,
+                                                 br_flags,
+                                                 br,
+                                                 base,
+                                                 subject_offset,
+                                                 NBITS(pos));
 
-	    ret = CONS(hp, extracted, NIL);
-	    hp += 2;
-
-	    HRelease(p, hp_end, hp);
-
-	    return ret;
-	}
+            ret = CONS(hp, extracted, NIL);
+        } else {
+            ret = NIL;
+        }
     } else {
-        Eterm first, rest;
-
-        hp_need = (EXTRACT_SUB_BIN_HEAP_NEED + 2) * 2;
+        Uint hp_need = (BUILD_SUB_BITSTRING_HEAP_NEED + 2) * 2;
+        Eterm *hp, *hp_end;
 
         hp = HAlloc(p, hp_need);
         hp_end = hp + hp_need;
 
-        ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-
         if ((ctx->flags & BF_FLAG_SPLIT_TRIM_ALL) && (pos == 0)) {
             first = NIL;
         } else {
-            first = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
-                                            offset * 8 + bit_offset,
-                                            pos * 8);
+            first = erts_build_sub_bitstring(&hp,
+                                             br_flags,
+                                             br,
+                                             base,
+                                             subject_offset,
+                                             NBITS(pos));
         }
 
-        rest = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
-                                       (offset + pos + len) * 8 + bit_offset,
-                                       (orig_size - pos - len) * 8 + bit_size);
+        rest = erts_build_sub_bitstring(&hp,
+                                        br_flags,
+                                        br,
+                                        base,
+                                        subject_offset + NBITS(pos + len),
+                                        subject_size - NBITS(pos + len));
 
         ret = CONS(hp, rest, NIL);
         hp += 2;
@@ -1824,16 +1837,16 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
     BinaryFindContext *ctx = (*ctxp);
     BinaryFindAllContext *fa = &(ctx->u.fa);
     FindallData *fad;
-    Eterm orig;
+    Eterm br_flags;
+    BinRef *br;
     size_t orig_size;
-    Uint offset;
-    Uint bit_offset;
-    Uint bit_size;
     Uint extracted_offset;
     Uint extracted_size;
     Eterm extracted;
     Uint do_trim;
     Sint i;
+    Uint offset, size;
+    byte *base;
     register Uint reds = ctx->reds;
 
     if (ctx->state == BFSearch) {
@@ -1846,7 +1859,7 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 	}
 	fa->tail = fa->size - 1;
 	fa->head = fa->tail;
-	orig_size = binary_size(subject);
+	orig_size = BYTE_SIZE(bitstring_size(subject));
 	fa->end_pos = (Uint)(orig_size);
 	fa->term = NIL;
 	if (ctx->exported == 0 && ((fa->head + 1) >= reds)) {
@@ -1855,12 +1868,15 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 	    fa = &(ctx->u.fa);
 	}
 	erts_factory_proc_prealloc_init(&(fa->factory), p, (fa->size + 1) *
-	                                (EXTRACT_SUB_BIN_HEAP_NEED + 2));
+	                                (BUILD_SUB_BITSTRING_HEAP_NEED + 2));
 	ctx->state = BFResult;
     }
 
-    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-    ASSERT(bit_size == 0);
+    ERTS_GET_BITSTRING_REF(subject, br_flags, br, base, offset, size);
+
+    ASSERT(TAIL_BITS(size) == 0);
+    (void)size;
+
     fad = fa->data;
     do_trim = ctx->flags & (BF_FLAG_SPLIT_TRIM | BF_FLAG_SPLIT_TRIM_ALL);
 
@@ -1875,14 +1891,16 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 	    return THE_NON_VALUE;
 	}
 
-        extracted_offset = (offset + fad[i].pos + fad[i].len) * 8 + bit_offset;
-        extracted_size = (fa->end_pos - (fad[i].pos + fad[i].len)) * 8;
+        extracted_offset = NBITS(fad[i].pos + fad[i].len) + offset;
+        extracted_size = NBITS(fa->end_pos - (fad[i].pos + fad[i].len));
 
         if (!(extracted_size == 0 && do_trim)) {
-            extracted = erts_extract_sub_binary(&fa->factory.hp, orig,
-                                                binary_bytes(orig),
-                                                extracted_offset,
-                                                extracted_size);
+            extracted = erts_build_sub_bitstring(&fa->factory.hp,
+                                                 br_flags,
+                                                 br,
+                                                 base,
+                                                 extracted_offset,
+                                                 extracted_size);
             fa->term = CONS(fa->factory.hp, extracted, fa->term);
             fa->factory.hp += 2;
 
@@ -1895,14 +1913,16 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
     fa->head = i;
     ctx->reds = reds;
 
-    extracted_offset = offset * 8 + bit_offset;
-    extracted_size = fad[0].pos * 8;
+    extracted_offset = offset;
+    extracted_size = NBITS(fad[0].pos);
 
     if (!(extracted_size == 0 && do_trim)) {
-        extracted = erts_extract_sub_binary(&fa->factory.hp, orig,
-                                            binary_bytes(orig),
-                                            extracted_offset,
-                                            extracted_size);
+        extracted = erts_build_sub_bitstring(&fa->factory.hp,
+                                             br_flags,
+                                             br,
+                                             base,
+                                             extracted_offset,
+                                             extracted_size);
         fa->term = CONS(fa->factory.hp, extracted, fa->term);
         fa->factory.hp += 2;
     }
@@ -1935,59 +1955,60 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 {
     Uint pos;
     Sint len;
-    size_t orig_size;
-    Eterm orig;
-    Uint offset;
-    Uint bit_offset;
-    Uint bit_size;
+    Uint offset, size;
+    byte *base;
+    Eterm br_flags;
+    BinRef *br;
     Eterm *hp, *hp_end;
     Eterm result;
 
-    if (is_not_binary(binary)) {
-	goto badarg;
+    if (is_not_bitstring(binary) ||
+        !term_to_Uint(epos, &pos) ||
+        !term_to_Sint(elen, &len)) {
+        BIF_ERROR(p, BADARG);
     }
-    if (!term_to_Uint(epos, &pos)) {
-	goto badarg;
-    }
-    if (!term_to_Sint(elen, &len)) {
-	goto badarg;
-    }
+
     if (len < 0) {
-	Uint lentmp = -(Uint)len;
-	/* overflow */
-	if ((Sint)lentmp < 0) {
-	    goto badarg;
-	}
-	len = lentmp;
-	if (len > pos) {
-	    goto badarg;
-	}
-	pos -= len;
+        Uint lentmp = -(Uint)len;
+
+        /* overflow */
+        if ((Sint)lentmp < 0) {
+            BIF_ERROR(p, BADARG);
+        }
+
+        len = lentmp;
+
+        if (len > pos) {
+            BIF_ERROR(p, BADARG);
+        }
+
+        pos -= len;
     }
+
     /* overflow */
     if ((pos + len) < pos || (len > 0 && (pos + len) == pos)){
-	goto badarg;
-    }
-    if ((orig_size = binary_size(binary)) < pos ||
-	orig_size < (pos + len)) {
-	goto badarg;
+        BIF_ERROR(p, BADARG);
     }
 
-    hp = HeapFragOnlyAlloc(p, EXTRACT_SUB_BIN_HEAP_NEED);
-    hp_end = hp + EXTRACT_SUB_BIN_HEAP_NEED;
+    ERTS_GET_BITSTRING_REF(binary, br_flags, br, base, offset, size);
 
-    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
+    if (TAIL_BITS(size) != 0 || BYTE_SIZE(size) < (pos + len)) {
+        BIF_ERROR(p, BADARG);
+    }
 
-    result = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
-                                     (offset + pos) * 8 + bit_offset,
-                                     len * 8);
+    hp = HeapFragOnlyAlloc(p, BUILD_SUB_BITSTRING_HEAP_NEED);
+    hp_end = hp + BUILD_SUB_BITSTRING_HEAP_NEED;
+
+    result = erts_build_sub_bitstring(&hp,
+                                      br_flags,
+                                      br,
+                                      base,
+                                      offset + NBITS(pos),
+                                      NBITS(len));
 
     HRelease(p, hp_end, hp);
 
     BIF_RET(result);
-
- badarg:
-    BIF_ERROR(p, BADARG);
 }
 
 /*************************************************************
@@ -2017,614 +2038,462 @@ BIF_RETTYPE binary_binary_part_2(BIF_ALIST_2)
    BIF_ERROR(BIF_P,BADARG);
 }
 
-typedef struct {
-    int type;            /* CL_TYPE_XXX */
-    byte *temp_alloc;    /* Used for erts_get/free_aligned, i.e. CL_TYPE_ALIGNED */
-    unsigned char *buff; /* Used for all types, malloced if CL_TYPE_HEAP */
-    Uint bufflen;        /* The length (in bytes) of buffer */
-} CommonData;
-
 #define COMMON_LOOP_FACTOR 10
 
-#define DIRECTION_PREFIX 0
-#define DIRECTION_SUFFIX 1
+#define DIRECTION_PREFIX 1
+#define DIRECTION_SUFFIX -1
 
-#define CL_OK 0
-#define CL_RESTART 1
+static const byte *
+longest_common_copy_bits(int direction,
+                         Eterm binary,
+                         byte *scratchpad,
+                         Uint position,
+                         Uint stride) {
+    Uint offset, size;
+    const byte *base;
 
-/* The type field in the above structure */
-#define CL_TYPE_EMPTY 0 /* End of array */
-#define CL_TYPE_HEAP 1
-#define CL_TYPE_ALIGNED 2
-#define CL_TYPE_COMMON 3 /* emacsulated */
-#define CL_TYPE_HEAP_NOALLOC 4 /* Will need allocating when trapping */
+    ERTS_GET_BITSTRING(binary, base, offset, size);
 
-
-static int do_search_forward(CommonData *cd, Uint *posp, Uint *redsp)
-{
-    Uint pos = *posp;
-    Sint reds = (Sint) *redsp;
-    int i;
-    unsigned char current = 0;
-
-    for(;;) {
-	for(i = 0; cd[i].type != CL_TYPE_EMPTY; ++i) {
-	    if (pos >= cd[i].bufflen) {
-		*posp = pos;
-		if (reds > 0) {
-		    *redsp = (Uint) reds;
-		} else {
-		    *redsp = 0;
-		}
-		return CL_OK;
-	    }
-	    if (i == 0) {
-		current = cd[i].buff[pos];
-	    } else {
-		if (cd[i].buff[pos] != current) {
-		    *posp = pos;
-		    if (reds > 0) {
-			*redsp = (Uint) reds;
-		    } else {
-			*redsp = 0;
-		    }
-		    return CL_OK;
-		}
-	    }
-	    --reds;
-	}
-	++pos;
-	if (reds <= 0) {
-	    *posp = pos;
-	    *redsp = 0;
-	    return CL_RESTART;
-	}
+    /* When searching backwards, the position is from the back of the binary.
+     * Adjust the offset so that the returned base will point at `stride` bits
+     * from our current position. */
+    if (direction == DIRECTION_SUFFIX) {
+        ASSERT(size >= position + stride);
+        offset += (size - position - stride);
+    } else {
+        ASSERT(direction == DIRECTION_PREFIX);
+        offset += position;
     }
-}
-static int do_search_backward(CommonData *cd, Uint *posp, Uint *redsp)
-{
-    Uint pos = *posp;
-    Sint reds = (Sint) *redsp;
-    int i;
-    unsigned char current = 0;
 
-    for(;;) {
-	for(i = 0; cd[i].type != CL_TYPE_EMPTY; ++i) {
-	    if (pos >= cd[i].bufflen) {
-		*posp = pos;
-		if (reds > 0) {
-		    *redsp = (Uint) reds;
-		} else {
-		    *redsp = 0;
-		}
-		return CL_OK;
-	    }
-	    if (i == 0) {
-		current = cd[i].buff[cd[i].bufflen - 1 - pos];
-	    } else {
-		if (cd[i].buff[cd[i].bufflen - 1 - pos] != current) {
-		    *posp = pos;
-		    if (reds > 0) {
-			*redsp = (Uint) reds;
-		    } else {
-			*redsp = 0;
-		    }
-		    return CL_OK;
-		}
-	    }
-	    --reds;
-	}
-	++pos;
-	if (reds <= 0) {
-	    *posp = pos;
-	    *redsp = 0;
-	    return CL_RESTART;
-	}
+    if (BIT_OFFSET(offset) != 0) {
+        /* Note that we do not have to clear partial bytes in the scratchpad,
+         * as we don't support arbitrary bitstrings, only binaries. */
+        copy_binary_to_buffer(scratchpad, 0, base, offset, stride);
+        return scratchpad;
     }
+
+    return &base[BYTE_OFFSET(offset)];
 }
 
-static int cleanup_common_data(Binary *bp)
-{
-    int i;
-    CommonData *cd;
-    cd = (CommonData *) ERTS_MAGIC_BIN_DATA(bp);
-    for (i=0;cd[i].type != CL_TYPE_EMPTY;++i) {
-	switch (cd[i].type) {
-	case CL_TYPE_HEAP:
-	    erts_free(ERTS_ALC_T_BINARY_BUFFER,cd[i].buff);
-	    break;
-	case CL_TYPE_ALIGNED:
-	    erts_free_aligned_binary_bytes_extra(cd[i].temp_alloc, ERTS_ALC_T_BINARY_BUFFER);
-	    break;
-	default:
-	    break;
-	}
-    }
-    return 1;
+static BIF_RETTYPE
+continue_longest_common(Process *p,
+                        int direction,
+                        Eterm binaries,
+                        Uint binary_index,
+                        Uint smallest_size,
+                        Uint position) {
+    Sint reds, save_reds;
+    Eterm *binary_array;
+    Uint binary_count;
+
+    binary_array = tuple_val(binaries);
+    binary_count = arityval(binary_array[0]);
+    binary_array += 1;
+
+    ASSERT(direction == DIRECTION_PREFIX || direction == DIRECTION_SUFFIX);
+    ASSERT(binary_index >= 1 &&
+           binary_index < binary_count &&
+           binary_count >= 2);
+
+    reds = save_reds = get_reds(p, COMMON_LOOP_FACTOR);
+
+    do {
+        byte __scratchpad[2][ERTS_CACHE_LINE_SIZE];
+        const byte *ref_bytes;
+        Sint stride;
+
+        if (reds < 0) {
+            Export *trap_export = (direction == DIRECTION_PREFIX) ?
+                &binary_longest_prefix_trap_export :
+                &binary_longest_suffix_trap_export;
+
+            BUMP_ALL_REDS(p);
+            BIF_TRAP4(trap_export,
+                      p,
+                      binaries,
+                      make_small(binary_index),
+                      erts_make_integer(smallest_size, p),
+                      erts_make_integer(position, p));
+        }
+
+        ASSERT(position < smallest_size);
+        stride = MIN(smallest_size - position, NBITS(sizeof(__scratchpad[0])));
+
+        ref_bytes = longest_common_copy_bits(direction,
+                                             binary_array[0],
+                                             __scratchpad[0],
+                                             position,
+                                             stride);
+
+        /* Handle all other binaries at this position, advancing it iff all
+         * binaries agree on a common prefix or suffix. */
+        while (reds >= 0 && position < smallest_size) {
+            const byte *cmp_bytes;
+
+            ASSERT(stride > 0);
+
+            cmp_bytes = longest_common_copy_bits(direction,
+                                                 binary_array[binary_index],
+                                                 __scratchpad[1],
+                                                 position,
+                                                 stride);
+
+            for (Sint offset = 0; offset < stride; offset += 8) {
+                Sint i = BYTE_OFFSET((direction == DIRECTION_PREFIX ?
+                                      offset :
+                                      stride - offset - 8));
+
+                if (ref_bytes[i] != cmp_bytes[i]) {
+                    smallest_size = position + offset;
+                    stride = offset;
+
+                    if (direction == DIRECTION_SUFFIX) {
+                        /* As the next binary (if any) will be compared with a
+                         * smaller stride -- placing the tail of the binary at
+                         * a different offset -- we need to shunt the reference
+                         * pointer to match.
+                         *
+                         * Note that this may bump the pointer one-past-the-end
+                         * of the binary (which is legal unless dereferenced),
+                         * but we return immediately after in that case. */
+                        ref_bytes += i + 1;
+                    }
+
+                    break;
+                }
+            }
+
+            binary_index++;
+            reds -= stride;
+
+            if (binary_index == binary_count) {
+                position += stride;
+                binary_index = 1;
+                break;
+            }
+        }
+    } while (position < smallest_size);
+
+    ASSERT(position == smallest_size);
+    BUMP_REDS(p, (save_reds - reds) / COMMON_LOOP_FACTOR);
+    BIF_RET(erts_make_integer(BYTE_OFFSET(position), p));
 }
 
-static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
+static BIF_RETTYPE
+start_longest_common(Process *p, Eterm list, int direction)
 {
-    Eterm l = list;
-    int n = 0;
-    Binary *mb;
-    CommonData *cd;
-    int i = 0;
-    Uint reds = get_reds(p, COMMON_LOOP_FACTOR);
-    Uint save_reds = reds;
-    int res;
-    Export *trapper;
-    Uint pos;
-    Eterm epos;
+    Uint smallest_size = ERTS_UINT_MAX;
+    Uint binary_count, i;
     Eterm *hp;
-    Eterm bin_term;
-    Eterm b;
+    Eterm l;
 
     /* First just count the number of binaries */
-    while (is_list(l)) {
-	b = CAR(list_val(l));
-	if (!is_binary(b)) {
-	    goto badarg;
-	}
-	++n;
-	l = CDR(list_val(l));
-    }
-    if (l != NIL || n == 0) {
-	goto badarg;
+    for (l = list, binary_count = 0; is_list(l); binary_count++) {
+        Eterm *cell = list_val(l);
+        Eterm binary;
+        Uint size;
+
+        binary = CAR(cell);
+        l = CDR(cell);
+
+        if (!is_bitstring(binary)) {
+            BIF_ERROR(p, BADARG);
+        }
+
+        size = bitstring_size(binary);
+
+        if (TAIL_BITS(size)) {
+            BIF_ERROR(p, BADARG);
+        }
+
+        smallest_size = MIN(smallest_size, size);
     }
 
-    /* OK, now create a buffer of the right size, we can do a magic binary right away,
-       that's not too costly. */
-    mb = erts_create_magic_binary((n+1)*sizeof(CommonData),cleanup_common_data);
-    cd = (CommonData *) ERTS_MAGIC_BIN_DATA(mb);
-    l = list;
-    while (is_list(l)) {
-	ERTS_DECLARE_DUMMY(Uint bitoffs);
-	Uint bitsize;
-	ERTS_DECLARE_DUMMY(Uint offset);
-	Eterm real_bin;
-	ProcBin* pb;
+    if (binary_count >= MAX_ARITYVAL) {
+        BIF_ERROR(p, SYSTEM_LIMIT);
+    } else if (l != NIL || binary_count == 0) {
+        BIF_ERROR(p, BADARG);
+    }
 
-	cd[i].type = CL_TYPE_EMPTY;
-	b = CAR(list_val(l));
-	ERTS_GET_REAL_BIN(b, real_bin, offset, bitoffs, bitsize);
-	if (bitsize != 0) {
-	    erts_bin_free(mb);
-	    goto badarg;
-	}
-	cd[i].bufflen = binary_size(b);
-	cd[i].temp_alloc = NULL;
-	if (*(binary_val(real_bin)) == HEADER_PROC_BIN) {
-	    pb = (ProcBin *) binary_val(real_bin);
-	    if (pb->flags) {
-		erts_emasculate_writable_binary(pb);
-	    }
-	    cd[i].buff = erts_get_aligned_binary_bytes_extra(b, &(cd[i].temp_alloc),
-							     ERTS_ALC_T_BINARY_BUFFER,0);
-	    cd[i].type = (cd[i].temp_alloc != NULL) ? CL_TYPE_ALIGNED : CL_TYPE_COMMON;
-	} else { /* Heap binary */
-	    cd[i].buff = erts_get_aligned_binary_bytes_extra(b, &(cd[i].temp_alloc),
-							     ERTS_ALC_T_BINARY_BUFFER,0);
-	    /* CL_TYPE_HEAP_NOALLOC means you have to copy if trapping */
-	    cd[i].type = (cd[i].temp_alloc != NULL) ? CL_TYPE_ALIGNED : CL_TYPE_HEAP_NOALLOC;
-	}
-	++i;
-	l = CDR(list_val(l));
+    /* Weed out trivial cases as they complicate the main loop. */
+    if (smallest_size == 0 || binary_count == 1) {
+        return erts_make_integer(smallest_size / 8, p);
     }
-    cd[i].type = CL_TYPE_EMPTY;
-#if defined(DEBUG) || defined(VALGRIND)
-    cd[i].temp_alloc = NULL;
-    cd[i].buff = NULL;
-    cd[i].bufflen = 0;
-#endif
 
-    pos = 0;
-    if (direction == DIRECTION_PREFIX) {
-	trapper = &binary_longest_prefix_trap_export;
-	res = do_search_forward(cd,&pos,&reds);
-    } else {
-	ASSERT(direction == DIRECTION_SUFFIX);
-	trapper = &binary_longest_suffix_trap_export;
-	res = do_search_backward(cd,&pos,&reds);
+    hp = HAlloc(p, binary_count + 1);
+    hp[0] = make_arityval(binary_count);
+
+    for (l = list, i = 1; i <= binary_count; i++) {
+        Eterm *cell = list_val(l);
+
+        hp[i] = CAR(cell);
+        l = CDR(cell);
     }
-    epos = erts_make_integer(pos,p);
-    if (res == CL_OK) {
-	erts_bin_free(mb);
-	BUMP_REDS(p, (save_reds - reds) / COMMON_LOOP_FACTOR);
-	BIF_RET(epos);
-    } else {
-	ASSERT(res == CL_RESTART);
-	/* Copy all heap binaries that are not already copied (aligned) */
-	for(i = 0; i < n; ++i) {
-	    if (cd[i].type == CL_TYPE_HEAP_NOALLOC) {
-		unsigned char *tmp = cd[i].buff;
-		cd[i].buff = erts_alloc(ERTS_ALC_T_BINARY_BUFFER, cd[i].bufflen);
-		sys_memcpy(cd[i].buff,tmp,cd[i].bufflen);
-		cd[i].type = CL_TYPE_HEAP;
-	    }
-	}
-	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
-	bin_term = erts_mk_magic_ref(&hp, &MSO(p), mb);
-	BUMP_ALL_REDS(p);
-	BIF_TRAP3(trapper, p, bin_term, epos,list);
-    }
- badarg:
-    BIF_ERROR(p,BADARG);
+
+    return continue_longest_common(p,
+                                   direction,
+                                   make_tuple(hp),
+                                   1,
+                                   smallest_size,
+                                   0);
 }
 
-static BIF_RETTYPE do_longest_common_trap(Process *p, Eterm bin_term, Eterm current_pos,
-					  Eterm orig_list, int direction)
-{
-    Uint reds = get_reds(p, COMMON_LOOP_FACTOR);
-    Uint save_reds = reds;
-    Uint pos;
-    Binary *bin;
-    CommonData *cd;
-    int res;
-    Eterm epos;
-    Export *trapper;
+static BIF_RETTYPE binary_longest_common_trap(Process *p,
+                                              int direction,
+                                              Eterm *reg) {
+    Uint smallest_size, binary_index, position;
+    int success = 1;
 
-#ifdef DEBUG
-    int r;
-    r = term_to_Uint(current_pos, &pos);
-    ASSERT(r != 0);
-#else
-    term_to_Uint(current_pos, &pos);
-#endif
-    bin = erts_magic_ref2bin(bin_term);
-    cd = (CommonData *) ERTS_MAGIC_BIN_DATA(bin);
-    if (direction == DIRECTION_PREFIX) {
-	trapper = &binary_longest_prefix_trap_export;
-	res = do_search_forward(cd,&pos,&reds);
-    } else {
-	ASSERT(direction == DIRECTION_SUFFIX);
-	trapper = &binary_longest_suffix_trap_export;
-	res = do_search_backward(cd,&pos,&reds);
-    }
-    epos = erts_make_integer(pos,p);
-    if (res == CL_OK) {
-	BUMP_REDS(p, (save_reds - reds) / COMMON_LOOP_FACTOR);
-	BIF_RET(epos);
-    } else {
-	ASSERT(res == CL_RESTART);
-	/* Copy all heap binaries that are not already copied (aligned) */
-	BUMP_ALL_REDS(p);
-	BIF_TRAP3(trapper, p, bin_term, epos, orig_list);
-    }
+    ERTS_CT_ASSERT(MAX_ARITYVAL < MAX_SMALL);
+    binary_index = unsigned_val(reg[1]);
+    success &= term_to_Uint(reg[2], &smallest_size);
+    success &= term_to_Uint(reg[3], &position);
+
+    ASSERT(success);
+    (void)success;
+
+    return continue_longest_common(p,
+                                   direction,
+                                   reg[0],
+                                   binary_index,
+                                   smallest_size,
+                                   position);
 }
 
-static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_3)
+static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_4)
 {
-    return do_longest_common_trap(BIF_P,BIF_ARG_1,BIF_ARG_2,BIF_ARG_3,DIRECTION_PREFIX);
+    return binary_longest_common_trap(BIF_P,
+                                      DIRECTION_PREFIX,
+                                      BIF__ARGS);
 }
 
-static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_3)
+static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_4)
 {
-    return do_longest_common_trap(BIF_P,BIF_ARG_1,BIF_ARG_2,BIF_ARG_3,DIRECTION_SUFFIX);
+    return binary_longest_common_trap(BIF_P,
+                                      DIRECTION_SUFFIX,
+                                      BIF__ARGS);
 }
 
 BIF_RETTYPE binary_longest_common_prefix_1(BIF_ALIST_1)
 {
-    return do_longest_common(BIF_P,BIF_ARG_1,DIRECTION_PREFIX);
+    return start_longest_common(BIF_P, BIF_ARG_1, DIRECTION_PREFIX);
 }
 
 BIF_RETTYPE binary_longest_common_suffix_1(BIF_ALIST_1)
 {
-    return do_longest_common(BIF_P,BIF_ARG_1,DIRECTION_SUFFIX);
+    return start_longest_common(BIF_P, BIF_ARG_1, DIRECTION_SUFFIX);
 }
 
 BIF_RETTYPE binary_first_1(BIF_ALIST_1)
 {
-    byte* bytes;
-    Uint byte_size;
-    Uint bit_offs;
-    Uint bit_size;
-    Uint res;
+    if (is_bitstring(BIF_ARG_1)) {
+        Uint offset, size;
+        const byte *base;
 
-    if (is_not_binary(BIF_ARG_1)) {
-	goto badarg;
+        ERTS_GET_BITSTRING(BIF_ARG_1, base, offset, size);
+
+        if ((size % 8) == 0 && size >= 8) {
+            byte first_byte;
+
+            copy_binary_to_buffer(&first_byte,
+                                  0,
+                                  base,
+                                  offset,
+                                  8);
+
+            BIF_RET(make_small(first_byte));
+        }
     }
-    byte_size = binary_size(BIF_ARG_1);
-    if (!byte_size) {
-	goto badarg;
-    }
-    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
-    if (bit_size) {
-	goto badarg;
-    }
-    if (bit_offs) {
-	res = ((((Uint) bytes[0]) << bit_offs) | (((Uint) bytes[1]) >> (8-bit_offs))) & 0xFF;
-    } else {
-	res = bytes[0];
-    }
-    BIF_RET(make_small(res));
- badarg:
-    BIF_ERROR(BIF_P,BADARG);
+
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE binary_last_1(BIF_ALIST_1)
 {
-    byte* bytes;
-    Uint byte_size;
-    Uint bit_offs;
-    Uint bit_size;
-    Uint res;
+    if (is_bitstring(BIF_ARG_1)) {
+        Uint offset, size;
+        const byte *base;
 
-    if (is_not_binary(BIF_ARG_1)) {
-	goto badarg;
+        ERTS_GET_BITSTRING(BIF_ARG_1, base, offset, size);
+
+        if ((size % 8) == 0 && size >= 8) {
+            byte last_byte;
+
+            copy_binary_to_buffer(&last_byte,
+                                  0,
+                                  base,
+                                  offset + size - 8,
+                                  8);
+
+            BIF_RET(make_small(last_byte));
+        }
     }
-    byte_size = binary_size(BIF_ARG_1);
-    if (!byte_size) {
-	goto badarg;
-    }
-    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
-    if (bit_size) {
-	goto badarg;
-    }
-    if (bit_offs) {
-	res = ((((Uint) bytes[byte_size-1]) << bit_offs) |
-	       (((Uint) bytes[byte_size]) >> (8-bit_offs))) & 0xFF;
-    } else {
-	res = bytes[byte_size-1];
-    }
-    BIF_RET(make_small(res));
- badarg:
-    BIF_ERROR(BIF_P,BADARG);
+
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE binary_at_2(BIF_ALIST_2)
 {
-    byte* bytes;
-    Uint byte_size;
-    Uint bit_offs;
-    Uint bit_size;
-    Uint res;
-    Uint index;
+    if (is_bitstring(BIF_ARG_1)) {
+        Uint index;
 
-    if (is_not_binary(BIF_ARG_1)) {
-	goto badarg;
-    }
-    byte_size = binary_size(BIF_ARG_1);
-    if (!byte_size) {
-	goto badarg;
-    }
-    if (!term_to_Uint(BIF_ARG_2, &index)) {
-	goto badarg;
-    }
-    if (index >= byte_size) {
-	goto badarg;
-    }
-    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
-    if (bit_size) {
-	goto badarg;
-    }
-    if (bit_offs) {
-	res = ((((Uint) bytes[index]) << bit_offs) |
-	       (((Uint) bytes[index+1]) >> (8-bit_offs))) & 0xFF;
-    } else {
-	res = bytes[index];
-    }
-    BIF_RET(make_small(res));
- badarg:
-    BIF_ERROR(BIF_P,BADARG);
-}
+        if (term_to_Uint(BIF_ARG_2, &index) &&
+            index < (ERTS_UINT_MAX / 8)) {
+            Uint offset, size;
+            const byte *base;
 
-BIF_RETTYPE binary_list_to_bin_1(BIF_ALIST_1)
-{
-    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, BIF_TRAP_EXPORT(BIF_binary_list_to_bin_1));
+            ERTS_GET_BITSTRING(BIF_ARG_1, base, offset, size);
+            index *= 8;
+
+            if ((size % 8) == 0 && index < size && (size - index) >= 8) {
+                byte indexed_byte;
+
+                copy_binary_to_buffer(&indexed_byte,
+                                      0,
+                                      base,
+                                      offset + index,
+                                      8);
+
+                BIF_RET(make_small(indexed_byte));
+            }
+        }
+    }
+
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 typedef struct {
-    Uint times_left;
+    byte *source_bytes;
+    Uint source_offset;
     Uint source_size;
-    int source_type;
-    byte *source;
-    byte *temp_alloc;
-    Uint result_pos;
-    Binary *result;
+
+    byte *target_bytes;
+    Uint target_size;
+
+    Uint copied_bits;
 } CopyBinState;
 
-#define BC_TYPE_EMPTY 0
-#define BC_TYPE_HEAP 1
-#define BC_TYPE_ALIGNED 2 /* May or may not point to (emasculated) binary, temp_alloc field is set
-			     so that erts_free_aligned_binary_bytes_extra can handle either */
+/* Number of bits to copy per reduction. */
+#define BITSTRING_COPY_LOOP_FACTOR (ERTS_CACHE_LINE_SIZE * 8)
 
+static ERTS_FORCE_INLINE void
+binary_copy_loop(CopyBinState *cbs, Uint trap_offset) {
+    while (cbs->copied_bits < trap_offset) {
+        Uint copy_offset, copy_stride;
 
-#define BINARY_COPY_LOOP_FACTOR 100
+        copy_offset = cbs->copied_bits % cbs->source_size;
+        copy_stride = MIN(trap_offset - cbs->copied_bits,
+                          cbs->source_size - copy_offset);
 
-static int cleanup_copy_bin_state(Binary *bp)
-{
-    CopyBinState *cbs = (CopyBinState *) ERTS_MAGIC_BIN_DATA(bp);
-    if (cbs->result != NULL) {
-	erts_bin_free(cbs->result);
-	cbs->result = NULL;
+        copy_binary_to_buffer(cbs->target_bytes,
+                              cbs->copied_bits,
+                              cbs->source_bytes,
+                              cbs->source_offset + copy_offset,
+                              copy_stride);
+
+        cbs->copied_bits += copy_stride;
     }
-    switch (cbs->source_type) {
-    case BC_TYPE_HEAP:
-	erts_free(ERTS_ALC_T_BINARY_BUFFER,cbs->source);
-	break;
-    case BC_TYPE_ALIGNED:
-	erts_free_aligned_binary_bytes_extra(cbs->temp_alloc,
-					     ERTS_ALC_T_BINARY_BUFFER);
-	break;
-    default:
-	/* otherwise do nothing */
-	break;
-    }
-    cbs->source_type =  BC_TYPE_EMPTY;
-    return 1;
+
+    ASSERT(cbs->copied_bits == trap_offset);
 }
 
-/*
- * Binary *erts_bin_nrml_alloc(Uint size);
- * Binary *erts_bin_realloc(Binary *bp, Uint size);
- * void erts_bin_free(Binary *bp);
- */
 static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 {
-    Uint n;
-    byte *bytes;
-    ERTS_DECLARE_DUMMY(Uint bit_offs);
-    Uint bit_size;
-    size_t size;
-    Uint reds = get_reds(p, BINARY_COPY_LOOP_FACTOR);
-    Uint target_size;
-    byte *t;
-    Uint pos;
+    Uint duplicate_count, max_copy_bits;
+    Eterm result = THE_NON_VALUE;
+    CopyBinState cbs;
 
-
-    if (is_not_binary(bin)) {
-	goto badarg;
-    }
-    if (!term_to_Uint(en, &n)) {
-	goto badarg;
-    }
-    if (!n) {
-	Eterm res_term = erts_new_heap_binary(p,NULL,0,&bytes);
-	BIF_RET(res_term);
-    }
-    ERTS_GET_BINARY_BYTES(bin,bytes,bit_offs,bit_size);
-    if (bit_size != 0) {
-	goto badarg;
+    if (is_not_bitstring(bin) || !term_to_Uint(en, &duplicate_count)) {
+        BIF_ERROR(p, BADARG);
     }
 
-    size = binary_size(bin);
-    target_size = size * n;
+    ERTS_GET_BITSTRING(bin,
+                       cbs.source_bytes,
+                       cbs.source_offset,
+                       cbs.source_size);
 
-    if ((target_size - size) >= reds) {
-	Eterm orig;
-	ERTS_DECLARE_DUMMY(Uint offset);
-	ERTS_DECLARE_DUMMY(Uint bit_offset);
-	ERTS_DECLARE_DUMMY(Uint bit_size);
-	CopyBinState *cbs;
-	Eterm *hp;
-	Eterm trap_term;
-	int i;
-
-	/* We will trap, set up the structure for trapping right away */
-	Binary *mb = erts_create_magic_binary(sizeof(CopyBinState),
-					      cleanup_copy_bin_state);
-	cbs = ERTS_MAGIC_BIN_DATA(mb);
-
-	cbs->temp_alloc = NULL;
-	cbs->source = NULL;
-
-	ERTS_GET_REAL_BIN(bin, orig, offset, bit_offset, bit_size);
-	if (*(binary_val(orig)) == HEADER_PROC_BIN) {
-	    ProcBin* pb = (ProcBin *) binary_val(orig);
-	    if (pb->flags) {
-		erts_emasculate_writable_binary(pb);
-	    }
-	    cbs->source =
-		erts_get_aligned_binary_bytes_extra(bin,
-						    &(cbs->temp_alloc),
-						    ERTS_ALC_T_BINARY_BUFFER,
-						    0);
-	    cbs->source_type = BC_TYPE_ALIGNED;
-	} else { /* Heap binary */
-	    cbs->source =
-		erts_get_aligned_binary_bytes_extra(bin,
-						    &(cbs->temp_alloc),
-						    ERTS_ALC_T_BINARY_BUFFER,
-						    0);
-	    if (!(cbs->temp_alloc)) { /* alignment not needed, need to copy */
-		byte *tmp = erts_alloc(ERTS_ALC_T_BINARY_BUFFER,size);
-		sys_memcpy(tmp,cbs->source,size);
-		cbs->source = tmp;
-		cbs->source_type = BC_TYPE_HEAP;
-	    } else {
-		cbs->source_type = BC_TYPE_ALIGNED;
-	    }
-	}
-	cbs->result = erts_bin_nrml_alloc(target_size); /* Always offheap
-							   if trapping */
-	t = (byte *) cbs->result->orig_bytes; /* No offset or anything */
-	pos = 0;
-	i = 0;
-	while (pos < reds) {
-	    sys_memcpy(t+pos,cbs->source, size);
-	    pos += size;
-	    ++i;
-	}
-	cbs->source_size = size;
-	cbs->result_pos = pos;
-	cbs->times_left = n-i;
-	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
-	trap_term = erts_mk_magic_ref(&hp, &MSO(p), mb);
-	BUMP_ALL_REDS(p);
-	BIF_TRAP2(&binary_copy_trap_export, p, bin, trap_term);
-    } else {
-	Eterm res_term;
-	byte *temp_alloc = NULL;
-	byte *source =
-	    erts_get_aligned_binary_bytes(bin,
-					  &temp_alloc);
-	if (target_size <= ERL_ONHEAP_BIN_LIMIT) {
-	    res_term = erts_new_heap_binary(p,NULL,target_size,&t);
-	} else {
-	    res_term = erts_new_mso_binary(p,NULL,target_size);
-	    t = ((ProcBin *) binary_val(res_term))->bytes;
-	}
-	pos = 0;
-	while (pos < target_size) {
-	    sys_memcpy(t+pos,source, size);
-	    pos += size;
-	}
-	erts_free_aligned_binary_bytes(temp_alloc);
-	BUMP_REDS(p,pos / BINARY_COPY_LOOP_FACTOR);
-	BIF_RET(res_term);
+    if (TAIL_BITS(cbs.source_size) != 0) {
+        BIF_ERROR(p, BADARG);
     }
- badarg:
-    BIF_ERROR(p,BADARG);
+
+    if (duplicate_count == 0 || cbs.source_size == 0) {
+        BIF_RET(erts_new_bitstring_from_data(p, 0, (byte*)""));
+    }
+
+    if (duplicate_count >= (ERTS_UINT_MAX / cbs.source_size)) {
+        BIF_ERROR(p, SYSTEM_LIMIT);
+    }
+
+    max_copy_bits = get_reds(p, BITSTRING_COPY_LOOP_FACTOR);
+
+    cbs.target_size = cbs.source_size * duplicate_count;
+    cbs.copied_bits = 0;
+
+    result = erts_new_bitstring(p, cbs.target_size, &cbs.target_bytes);
+
+    binary_copy_loop(&cbs, MIN(max_copy_bits, cbs.target_size));
+
+    if (cbs.copied_bits < cbs.target_size) {
+        ERTS_BIF_YIELD3(&binary_copy_trap_export,
+                        p,
+                        bin,
+                        result,
+                        erts_make_integer(cbs.copied_bits, p));
+    }
+
+    ASSERT(cbs.copied_bits == cbs.target_size);
+    BUMP_REDS(p, cbs.target_size / BITSTRING_COPY_LOOP_FACTOR);
+
+    BIF_RET(result);
 }
 
-BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
+static BIF_RETTYPE binary_copy_trap(BIF_ALIST_3)
 {
-    Uint n;
-    size_t size;
-    Uint reds = get_reds(BIF_P, BINARY_COPY_LOOP_FACTOR);
-    byte *t;
-    Uint pos;
-    Binary *mb = erts_magic_ref2bin(BIF_ARG_2);
-    CopyBinState *cbs = (CopyBinState *) ERTS_MAGIC_BIN_DATA(mb);
-    Uint opos;
+    Uint initial_target_offset, trap_offset, max_copy_bits;
+    ERTS_DECLARE_DUMMY(Uint target_offset);
+    CopyBinState cbs;
 
-    /* swapout... */
-    n = cbs->times_left;
-    size = cbs->source_size;
-    opos = pos = cbs->result_pos;
-    t = (byte *) cbs->result->orig_bytes; /* "well behaved" binary */
-    if ((n-1) * size >= reds) {
-	Uint i = 0;
-	while ((pos - opos) < reds) {
-	    sys_memcpy(t+pos,cbs->source, size);
-	    pos += size;
-	    ++i;
-	}
-	cbs->result_pos = pos;
-	cbs->times_left -= i;
-	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(&binary_copy_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
-    } else {
-	Binary *save;
-        Eterm resbin;
-	Uint target_size = cbs->result->orig_size;
-	while (pos < target_size) {
-	    sys_memcpy(t+pos,cbs->source, size);
-	    pos += size;
-	}
-	save = cbs->result;
-	cbs->result = NULL;
-	cleanup_copy_bin_state(mb); /* now cbs is dead */
+    ERTS_GET_BITSTRING(BIF_ARG_1,
+                       cbs.source_bytes,
+                       cbs.source_offset,
+                       cbs.source_size);
 
-        resbin = erts_build_proc_bin(&MSO(BIF_P),
-                                     HAlloc(BIF_P, PROC_BIN_SIZE),
-                                     save);
-        BUMP_REDS(BIF_P,(pos - opos) / BINARY_COPY_LOOP_FACTOR);
-	BIF_RET(resbin);
+    /* This function cannot be traced, so it's safe to update the contents. */
+    ERTS_GET_BITSTRING(BIF_ARG_2,
+                       cbs.target_bytes,
+                       target_offset,
+                       cbs.target_size);
+    ASSERT(target_offset == 0);
+
+    ERTS_ASSERT(term_to_Uint(BIF_ARG_3, &cbs.copied_bits));
+
+    max_copy_bits = get_reds(BIF_P, BITSTRING_COPY_LOOP_FACTOR);
+    initial_target_offset = cbs.copied_bits;
+    trap_offset = cbs.target_size;
+
+    if ((ERTS_UINT_MAX - max_copy_bits) < initial_target_offset &&
+        (initial_target_offset + max_copy_bits < trap_offset)) {
+        trap_offset = initial_target_offset + max_copy_bits;
     }
-}
 
+    binary_copy_loop(&cbs, trap_offset);
+    ASSERT(cbs.copied_bits <= cbs.target_size);
+
+    if (cbs.copied_bits == cbs.target_size) {
+        Uint bits_copied;
+
+        bits_copied = cbs.copied_bits - initial_target_offset;
+        BUMP_REDS(BIF_P, bits_copied / BITSTRING_COPY_LOOP_FACTOR);
+
+        BIF_RET(BIF_ARG_2);
+    }
+
+    ERTS_BIF_YIELD3(&binary_copy_trap_export,
+                    BIF_P,
+                    BIF_ARG_1,
+                    BIF_ARG_2,
+                    erts_make_integer(cbs.copied_bits, BIF_P));
+}
 
 BIF_RETTYPE binary_copy_1(BIF_ALIST_1)
 {
@@ -2638,25 +2507,30 @@ BIF_RETTYPE binary_copy_2(BIF_ALIST_2)
 
 BIF_RETTYPE binary_referenced_byte_size_1(BIF_ALIST_1)
 {
-    ErlSubBin *sb;
-    ProcBin *pb;
-    Eterm res;
-    Eterm bin = BIF_ARG_1;
+    ERTS_DECLARE_DUMMY(const byte *base);
+    ERTS_DECLARE_DUMMY(Uint offset);
+    ERTS_DECLARE_DUMMY(Eterm br_flags);
+    const BinRef *br;
+    Uint size;
 
-    if (is_not_binary(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P,BADARG);
+    if (is_not_bitstring(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
     }
-    sb = (ErlSubBin *) binary_val(bin);
-    if (sb->thing_word == HEADER_SUB_BIN) {
-	bin = sb->orig;
+
+    ERTS_GET_BITSTRING_REF(BIF_ARG_1,
+                           br_flags,
+                           br,
+                           base,
+                           offset,
+                           size);
+
+    if (br != NULL) {
+        size = (br->val)->orig_size;
+    } else {
+        size = BYTE_SIZE(size);
     }
-    pb = (ProcBin *) binary_val(bin);
-    if (pb->thing_word == HEADER_PROC_BIN) {
-	res = erts_make_integer((Uint) pb->val->orig_size, BIF_P);
-    } else { /* heap binary */
-	res = erts_make_integer((Uint) ((ErlHeapBin *) pb)->size, BIF_P);
-    }
-    BIF_RET(res);
+
+    BIF_RET(erts_make_integer(size, BIF_P));
 }
 
 #define END_BIG 0
@@ -2714,8 +2588,8 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 
 	u = (Uint) x;
 	n = get_need(u);
-	ASSERT(n <= ERL_ONHEAP_BIN_LIMIT);
-	res = erts_new_heap_binary(p, NULL, n, &b);
+	ASSERT(n <= ERL_ONHEAP_BINARY_LIMIT);
+        res = erts_new_binary(p, n, &b);
 	if (endianess == am_big) {
 	    for(i=n-1;i>=0;--i) {
 		b[i] = u & 0xFF;
@@ -2740,13 +2614,9 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	if(BIG_SIGN(bigp)) {
 	    goto badarg;
 	}
+
 	n = (num_parts-1)*sizeof(ErtsDigit)+get_need(BIG_DIGIT(bigp,(num_parts-1)));
-	if (n <= ERL_ONHEAP_BIN_LIMIT) {
-	    res = erts_new_heap_binary(p,NULL,n,&b);
-	} else {
-	    res = erts_new_mso_binary(p,NULL,n);
-	    b = ((ProcBin *) binary_val(res))->bytes;
-	}
+        res = erts_new_binary(p, n, &b);
 
 	if (endianess == am_big) {
 	    Sint i,j;
@@ -2778,21 +2648,27 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 
 static BIF_RETTYPE do_decode_unsigned(Process *p, Eterm uns, Eterm endianess)
 {
+    Uint offset, size;
+    Uint bitoffs;
     byte *bytes;
-    Uint bitoffs, bitsize;
-    Uint size;
     Eterm res;
 
-    if (is_not_binary(uns) || is_not_atom(endianess) ||
+    if (is_not_bitstring(uns) || is_not_atom(endianess) ||
 	(endianess != am_big && endianess != am_little)) {
 	goto badarg;
     }
-    ERTS_GET_BINARY_BYTES(uns, bytes, bitoffs, bitsize);
-    if (bitsize != 0) {
-	goto badarg;
+
+    ERTS_GET_BITSTRING(uns, bytes, offset, size);
+
+    if (TAIL_BITS(size) != 0) {
+        goto badarg;
     }
+
+    bytes = &bytes[BYTE_OFFSET(offset)];
+    bitoffs = BIT_OFFSET(offset);
+    size = BYTE_SIZE(size);
+
     /* align while rolling */
-    size = binary_size(uns);
     if (bitoffs) {
 	if (endianess == am_big) {
 	    while (size && (((((Uint) bytes[0]) << bitoffs) |

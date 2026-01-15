@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -209,6 +211,9 @@ do_access(Kind, Tab, RecName, Attr, Nodes) ->
 
     Twos = [{RecName, 2, 20}, {RecName, 2, 21}, {RecName, 2, 22}],
     ?match(Twos, lists:sort(mnesia:read(Tab, 2, read))),
+
+    TwosPat = [{{RecName, 2, '_'}, [], ['$_']}],
+    ?match(Twos, lists:sort(mnesia:select_reverse(Tab, TwosPat, read))),
     
     ?match(ok, mnesia:delete_object(Tab, {RecName, 2, 21}, sticky_write)),
 
@@ -730,8 +735,8 @@ backend_plugin_registration(doc) ->
 backend_plugin_registration(Config) when is_list(Config) ->
     Nodes = ?acquire_schema(1, [{default_properties, []} | Config]),
     ?match(ok, mnesia:start()),
-    ?match({atomic,ok}, mnesia:add_backend_type(ext_ets, ext_test)),
-    ?match({atomic,ok}, mnesia:add_backend_type(ext_dets, ext_test)),
+    ?match({atomic,ok}, mnesia:add_backend_type(ext_ram_copies, ext_test)),
+    ?match({atomic,ok}, mnesia:add_backend_type(ext_disc_only_copies, ext_test)),
     ?verify_mnesia(Nodes, []),
     ?cleanup(1, Config).
 

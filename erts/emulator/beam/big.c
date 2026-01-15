@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,18 +53,6 @@
 	    while(_t_sz--) *_t_dst-- = *_t_src--;		\
         }							\
     } while(0)
-
-/* add a and b with carry in + out */
-#define DSUMc(a,b,c,s) do {						\
-	ErtsDigit ___cr = (c);						\
-	ErtsDigit ___xr = (a)+(___cr);					\
-	ErtsDigit ___yr = (b);						\
-	___cr = (___xr < ___cr);					\
-	___xr = ___yr + ___xr;						\
-	___cr += (___xr < ___yr);					\
-	s = ___xr;							\
-	c = ___cr;							\
-    }  while(0)
 
 /* add a and b with carry out */
 #define DSUM(a,b,c,s) do {					\
@@ -135,6 +125,13 @@
 	ErtsDoubleDigit _t = DDIGIT((a1),(a0));		\
 	r = _t % (b);					\
     } while(0)
+
+/* add a and b with carry in + out */
+#define DSUMc(a,b,c,s) do {                                     \
+        ErtsDoubleDigit _t = (ErtsDoubleDigit)(a) + (b) + (c);  \
+        s = DLOW(_t);                                           \
+        c = DHIGH(_t);                                          \
+    }  while(0)
 
 #else
 
@@ -422,6 +419,18 @@
 	D2DIVREM(a1,a0,b1,b0,q,_tmp_r1,_tmp_r0); \
     } while(0)
 
+/* add a and b with carry in + out */
+#define DSUMc(a,b,c,s) do {                     \
+        ErtsDigit ___cr = (c);                  \
+        ErtsDigit ___xr = (a)+(___cr);          \
+        ErtsDigit ___yr = (b);                  \
+        ___cr = (___xr < ___cr);                \
+        ___xr = ___yr + ___xr;                  \
+        ___cr += (___xr < ___yr);               \
+        s = ___xr;                              \
+        c = ___cr;                              \
+    } while(0)
+
 #endif
 
 /* Forward declaration of lookup tables (See below in this file) used in list to
@@ -487,12 +496,10 @@ static dsize_t I_add(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDig
 
     xl -= yl;
     do {
-	xr = *x++ + c;
-	yr = *y++;
-	c = (xr < c);
-	xr = yr + xr;
-	c += (xr < yr);
-	*r++ = xr;
+        xr = *x++;
+        yr = *y++;
+        DSUMc(xr, yr, c, xr);
+        *r++ = xr;
     } while(--yl);
 
     while(xl--) {
@@ -687,44 +694,53 @@ static dsize_t I_sqr(ErtsDigit* x, dsize_t xl, ErtsDigit* r)
 	*x = 0;
 
     while(xl--) {
-	ErtsDigit* y;
-	ErtsDigit y_0 = 0, y_1 = 0, y_2 = 0, y_3 = 0;
-	ErtsDigit b0, b1;
-	ErtsDigit z0, z1, z2;
-	ErtsDigit t;
 	dsize_t y_l = xl;
 
-        d = *x;
-        x++;
-        y = x;
-	s = r;
+        d = *x++;
+        s = r;
 
-	DMUL(d, d, b1, b0);
-	DSUMc(*s, b0, y_3, t);
-	*s++ = t;
-	z1 = b1;
-	while(y_l--) {
-	    DMUL(d, *y, b1, b0);
-	    y++;
-	    DSUMc(b0, b0, y_0, z0);
-	    DSUMc(z0, z1, y_2, z2);
-	    DSUMc(*s, z2, y_3, t);
-	    *s++ = t;
-	    DSUMc(b1, b1, y_1, z1);
-	}
-	z0 = y_0;
-	DSUMc(z0, z1, y_2, z2);
-	DSUMc(*s, z2, y_3, t);
-	*s = t;
-	if (xl != 0) {
-	    s++;
-	    t = (y_1+y_2+y_3);
-	    *s = t;
-	    r += 2;
-	}
-	else {
-	    ASSERT((y_1+y_2+y_3) == 0);
-	}
+        if (d == 0) {
+            s += y_l + 1;
+            if (xl != 0) {
+                *++s = 0;
+                r += 2;
+            }
+        } else {
+            ErtsDigit* y;
+            ErtsDigit y_0 = 0, y_1 = 0, y_2 = 0, y_3 = 0;
+            ErtsDigit b0, b1;
+            ErtsDigit z0, z1, z2;
+            ErtsDigit t;
+
+            y = x;
+
+            DMUL(d, d, b1, b0);
+            DSUMc(*s, b0, y_3, t);
+            *s++ = t;
+            z1 = b1;
+            while(y_l--) {
+                DMUL(d, *y, b1, b0);
+                y++;
+                DSUMc(b0, b0, y_0, z0);
+                DSUMc(z0, z1, y_2, z2);
+                DSUMc(*s, z2, y_3, t);
+                *s++ = t;
+                DSUMc(b1, b1, y_1, z1);
+            }
+            z0 = y_0;
+            DSUMc(z0, z1, y_2, z2);
+            DSUMc(*s, z2, y_3, t);
+            *s = t;
+            if (xl != 0) {
+                s++;
+                t = (y_1+y_2+y_3);
+                *s = t;
+                r += 2;
+            }
+            else {
+                ASSERT((y_1+y_2+y_3) == 0);
+            }
+        }
     }
     if (*s == 0)
 	return (s - r0);
@@ -744,7 +760,7 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
 
     if (yl < 16) {
         /* Use the basic algorithm. */
-        if (x == y) {
+        if (x == y && xl > 1) {
             ASSERT(xl == yl);
             return I_sqr(x, xl, r);
         } else {
@@ -754,22 +770,27 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
         /* Use the Karatsuba algorithm. */
         Eterm *heap;
         Uint temp_heap_size;
-        Uint z0_len, z1_len, z2_len, sum0_len, sum1_len, res_len;
+        Uint z0_len, z1_len, z2_len, tmp_len, diff0_len, diff1_len, res_len;
         Uint low_x_len, low_y_len, high_x_len, high_y_len;
-        Eterm *z0_buf, *z1_buf, *z2_buf, *z_res_buf;
-        Eterm *sum0_buf, *sum1_buf;
+        Eterm *z0_buf, *z1_buf, *z2_buf, *tmp_buf;
+        Eterm *diff0_buf, *diff1_buf;
 #ifdef DEBUG
-        Eterm *sum_buf_end, *z_buf_end;
+        Eterm *alloc_end;
 #endif
         Eterm *low_x, *low_y, *high_x, *high_y;
         ErtsDigit zero = 0;
         Uint m = (xl+1) / 2;
+        int tmp_prod_negative = 0;
+        int i;
 
         /* Set up pointers and sizes. */
         low_x = x;
         low_x_len = m;
         high_x = x + m;
         high_x_len = xl - m;
+        while (low_x_len > 1 && low_x[low_x_len-1] == 0) {
+            low_x_len--;
+        }
 
         low_y = y;
         if (yl <= m) {
@@ -782,45 +803,49 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
             high_y = y + m;
             high_y_len = yl - m;
         }
+        while (low_y_len > 1 && low_y[low_y_len-1] == 0) {
+            low_y_len--;
+        }
 
         ASSERT(low_x_len <= m);
         ASSERT(high_x_len <= m);
         ASSERT(low_y_len <= m);
         ASSERT(high_y_len <= m);
 
-        /* Set up buffers for the sums for z1 in the result area. */
-        sum0_buf = r;
-        sum1_buf = r + m + 1;
-
+        /*
+         * Set up temporary buffers in allocated memory.
+         *
+         * z1_buf is not used at the same time as diff0_buf
+         * and diff1_buf, so they can share memory.
+         */
+        temp_heap_size = (4*m + 1) * sizeof(Eterm);
 #ifdef DEBUG
-        sum_buf_end = sum1_buf + m + 1;
-        ASSERT(sum_buf_end - sum0_buf + 1 <= xl + yl);
-        sum1_buf[0] = ERTS_HOLE_MARKER;
-        sum_buf_end[0] = ERTS_HOLE_MARKER;
+        temp_heap_size += sizeof(Eterm);
 #endif
-
-        /* Set up temporary buffers in the allocated memory. */
-        temp_heap_size = (3*(2*m+2) + (xl+yl+1) + 1) * sizeof(Eterm);
         heap = (Eterm *) erts_alloc(ERTS_ALC_T_TMP, temp_heap_size);
-        z0_buf = heap;
-        z1_buf = z0_buf + 2*m + 2;
-        z2_buf = z1_buf + 2*m + 2;
-        z_res_buf = z2_buf + 2*m + 2;
-#ifdef DEBUG
-        z_buf_end = z_res_buf + xl+yl+1;
-#endif
+        z1_buf = heap;
+        diff0_buf = z1_buf + 1;
+        diff1_buf = diff0_buf + m;
+        tmp_buf = diff1_buf + m;
 
 #ifdef DEBUG
         z1_buf[0] = ERTS_HOLE_MARKER;
-        z2_buf[0] = ERTS_HOLE_MARKER;
-        z_res_buf[0] = ERTS_HOLE_MARKER;
-        z_buf_end[0] = ERTS_HOLE_MARKER;
+        diff0_buf[0] = ERTS_HOLE_MARKER;
+        diff1_buf[0] = ERTS_HOLE_MARKER;
+        tmp_buf[0] = ERTS_HOLE_MARKER;
+
+        alloc_end = tmp_buf + 2*m;
+        alloc_end[0] = ERTS_HOLE_MARKER;
+        ASSERT(alloc_end - heap + 1 == temp_heap_size / sizeof(Eterm));
 #endif
 
-        /* z0 = low_x * low_y */
-        z0_len = I_mul_karatsuba(low_x, low_x_len, low_y, low_y_len, z0_buf);
+        /* Set up pointers for the result. */
+        z0_buf = r;
+        z2_buf = r + 2*m;
 
-        ASSERT(z1_buf[0] == ERTS_HOLE_MARKER);
+#ifdef DEBUG
+        z2_buf[0] = ERTS_HOLE_MARKER;
+#endif
 
 #define I_OPERATION(_result, _op, _p1, _sz1, _p2, _sz2, _buf)   \
         do {                                                    \
@@ -832,72 +857,153 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
         } while (0)
 
         /*
-         * z1 = (low1 + high1) * (low2 + high2)
+         * The Karatsuba algorithm is a divide and conquer algorithm
+         * for multi-word integer multiplication. The numbers to be
+         * multiplied are split up like this:
+         *
+         *   high     low
+         *  +--------+--------+
+         *  | high_x | low_x  |
+         *  +--------+--------+
+         *
+         *  +--------+--------+
+         *  | high_y | low_y  |
+         *  +--------+--------+
+         *
+         * Then the following values are calculated:
+         *
+         *  z0 = low_x * low_y
+         *  z2 = high_x + high_y
+         *  z1 = (low_x - high_x) * (high_y - low_y) + z2 + z0
+         *
+         * Note that this expression for z1 produces the same result
+         * as:
+         *
+         *    low_x * high_y + high_x * low_y
+         *
+         * Finally, the z2, z1, z0 values are combined to form the
+         * product of x and y:
+         *
+         *   high     low
+         *  +--+--+ +--+--+
+         *  | z2  | | z0  |
+         *  +--+--+ +--+--+
+         *      +--+--+
+         *  add | z1  |
+         *      +--+--+
+         *
+         * There is an alternate way to calculate z1 (commonly found
+         * in descriptions of the Karatsuba algorithm);
+         *
+         *  z1 = (high_x + low_x) * (high_y + low_y) - z2 - z0
+         *
+         * But this way can lead to more additions and carry handling.
          */
-        I_OPERATION(sum0_len, I_add, low_x, low_x_len, high_x, high_x_len, sum0_buf);
-        ASSERT(sum1_buf[0] == ERTS_HOLE_MARKER);
 
-        I_OPERATION(sum1_len, I_add, low_y, low_y_len, high_y, high_y_len, sum1_buf);
-        ASSERT(sum_buf_end[0] == ERTS_HOLE_MARKER);
-
-        I_OPERATION(z1_len, I_mul_karatsuba, sum0_buf, sum0_len, sum1_buf, sum1_len, z1_buf);
+        /*
+         * z0 = low_x * low_y
+         *
+         * Store this product in its final location in the result buffer.
+         */
+        I_OPERATION(z0_len, I_mul_karatsuba, low_x, low_x_len, low_y, low_y_len, z0_buf);
         ASSERT(z2_buf[0] == ERTS_HOLE_MARKER);
+        for (i = z0_len; i < 2*m; i++) {
+            z0_buf[i] = 0;
+        }
+        while (z0_len > 1 && z0_buf[z0_len - 1] == 0) {
+            z0_len--;
+        }
+        ASSERT(z0_len == 1 || z0_buf[z0_len-1] != 0);
+        ASSERT(z0_len <= low_x_len + low_y_len);
 
         /*
          * z2 = high_x * high_y
+         *
+         * Store this product in its final location in the result buffer.
          */
-
         if (high_y != &zero) {
-            I_OPERATION(z2_len, I_mul_karatsuba, high_x, high_x_len, high_y, high_y_len, z2_buf);
+            I_OPERATION(z2_len, I_mul_karatsuba, high_x, high_x_len,
+                        high_y, high_y_len, z2_buf);
+            while (z2_len > 1 && z2_buf[z2_len - 1] == 0) {
+                z2_len--;
+            }
+            ASSERT(z2_len == 1 || z2_buf[z2_len-1] != 0);
         } else {
             z2_buf[0] = 0;
             z2_len = 1;
         }
-        ASSERT(z_res_buf[0] == ERTS_HOLE_MARKER);
+        ASSERT(z2_len <= high_x_len + high_y_len);
 
         /*
-         * z0 + (z1 × base ^ m) + (z2 × base ^ (m × 2)) - ((z0 + z2) × base ^ m)
+         * tmp = abs(low_x - high_x) * abs(high_y - low_y)
          *
-         * Note that the result of expression before normalization is
-         * not guaranteed to fit in the result buffer provided by the
-         * caller (r). Therefore, we must use a temporary buffer when
-         * calculating it.
+         * The absolute value of each difference will fit in m words.
+         *
+         * Save the sign of the product so that we later can choose to
+         * subtract or add this value.
          */
+        if (I_comp(low_x, low_x_len, high_x, high_x_len) >= 0) {
+            diff0_len = I_sub(low_x, low_x_len, high_x, high_x_len, diff0_buf);
+        } else {
+            tmp_prod_negative = !tmp_prod_negative;
+            diff0_len = I_sub(high_x, high_x_len, low_x, low_x_len, diff0_buf);
+        }
+        ASSERT(diff1_buf[0] == ERTS_HOLE_MARKER);
+        ASSERT(diff0_len == 1 || diff0_buf[diff0_len-1] != 0);
+        ASSERT(diff0_len <= m);
 
-        /* Copy z0 to temporary result buffer. */
-        res_len = I_add(z0_buf, z0_len, &zero, 1, z_res_buf);
+        if (x == y) {
+            ASSERT(xl == yl);
+            tmp_prod_negative = 1;
+            diff1_buf = diff0_buf;
+            diff1_len = diff0_len;
+        } else if (I_comp(high_y, high_y_len, low_y, low_y_len) >= 0) {
+            diff1_len = I_sub(high_y, high_y_len, low_y, low_y_len, diff1_buf);
+        } else {
+            tmp_prod_negative = !tmp_prod_negative;
+            if (high_y != &zero) {
+                diff1_len = I_sub(low_y, low_y_len, high_y, high_y_len, diff1_buf);
+            } else {
+                diff1_buf = low_y;
+                diff1_len = low_y_len;
+            }
+        }
+        ASSERT(tmp_buf[0] == ERTS_HOLE_MARKER);
+        ASSERT(diff1_len == 1 || diff1_buf[diff1_len-1] != 0);
+        ASSERT(diff1_len <= m);
 
-        while (res_len <= m) {
-            z_res_buf[res_len++] = 0;
+        I_OPERATION(tmp_len, I_mul_karatsuba, diff0_buf, diff0_len, diff1_buf, diff1_len, tmp_buf);
+        ASSERT(alloc_end[0] == ERTS_HOLE_MARKER);
+        while (tmp_len > 1 && tmp_buf[tmp_len - 1] == 0) {
+            tmp_len--;
+        }
+        ASSERT(tmp_len == 1 || tmp_buf[tmp_len-1] != 0);
+        ASSERT(tmp_len <= diff0_len + diff1_len);
+
+        /*
+         * z1 = z0 + z2
+         */
+        I_OPERATION(z1_len, I_add, z0_buf, z0_len, z2_buf, z2_len, z1_buf);
+        ASSERT(z1_len == 1 || z1_buf[z1_len-1] != 0);
+
+        if (tmp_prod_negative) {
+            /* z1 = z1 - tmp */
+            z1_len = I_sub(z1_buf, z1_len, tmp_buf, tmp_len, z1_buf);
+        } else {
+            /* z1 = z1 + tmp */
+            I_OPERATION(z1_len, I_add, z1_buf, z1_len, tmp_buf, tmp_len, z1_buf);
         }
 
-        /* Add z1 × base ^ m */
-        I_OPERATION(res_len, I_add, z_res_buf+m, res_len-m, z1_buf, z1_len, z_res_buf+m);
-
-        while (res_len <= m) {
-            z_res_buf[m+res_len++] = 0;
-        }
-
-        /* Add z2 × base ^ (m × 2) */
-        I_OPERATION(res_len, I_add, z_res_buf+2*m, res_len-m, z2_buf, z2_len, z_res_buf+2*m);
-
-        /* Calculate z0 + z2 */
-        I_OPERATION(z0_len, I_add, z0_buf, z0_len, z2_buf, z2_len, z0_buf);
-
-        /* Subtract (z0 + z2) × base ^ m */
-        res_len = I_sub(z_res_buf+m, res_len+m, z0_buf, z0_len, z_res_buf+m);
-
-        ASSERT(z_buf_end[0] == ERTS_HOLE_MARKER);
+        /* Add z1 shifted into the result */
+        I_OPERATION(res_len, I_add, z0_buf+m, z2_len+m, z1_buf, z1_len, z0_buf+m);
 
         /* Normalize */
-        while (z_res_buf[m + res_len - 1] == 0 && res_len > 0) {
+        res_len += m;
+        while (res_len > 1 && r[res_len - 1] == 0) {
             res_len--;
         }
-        res_len += m;
+        ASSERT(res_len == 1 || r[res_len-1] != 0);
         ASSERT(res_len <= xl + yl);
-
-        /* Copy result to the final result buffer. */
-        (void) I_add(z_res_buf, res_len, &zero, 1, r);
 
         erts_free(ERTS_ALC_T_TMP, (void *) heap);
         return res_len;
@@ -1673,20 +1779,6 @@ erts_make_integer_fact(Uint x, ErtsHeapFactory *hf)
 	return uint_to_big(x, hp);
     }
 }
-/*
- * As erts_make_integer, but from a whole UWord.
- */
-Eterm
-erts_make_integer_from_uword(UWord x, Process *p)
-{
-    Eterm* hp;
-    if (IS_USMALL(0,x))
-	return make_small(x);
-    else {
-	hp = HAlloc(p, BIG_UWORD_HEAP_SIZE(x));
-	return uword_to_big(x,hp);
-    }
-}
 
 /*
 ** convert Uint to bigint
@@ -1830,7 +1922,7 @@ erts_uint64_array_to_big(Uint **hpp, int neg, int len, Uint64 *array)
 ** Convert a bignum to a double float
 */
 int
-big_to_double(Wterm x, double* resp)
+big_to_double(Eterm x, double* resp)
 {
     double d = 0.0;
     Eterm* xp = big_val(x);
@@ -1909,7 +2001,7 @@ double_to_big(double x, Eterm *heap, Uint hsz)
 /*
  ** Estimate the number of digits in given base (include sign)
  */
-int big_integer_estimate(Wterm x, Uint base)
+int big_integer_estimate(Eterm x, Uint base)
 {
     Eterm* xp = big_val(x);
     int lg = I_lg(BIG_V(xp), BIG_SIZE(xp));
@@ -1922,7 +2014,7 @@ int big_integer_estimate(Wterm x, Uint base)
 /*
 ** Convert a bignum into a string of numbers in given base
 */
-static Uint write_big(Wterm x, int base, void (*write_func)(void *, char),
+static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
                       void *arg)
 {
     Eterm* xp = big_val(x);
@@ -2029,7 +2121,7 @@ write_string(void *arg, char c)
     *(--(*((char **) arg))) = c;
 }
 
-char *erts_big_to_string(Wterm x, int base, char *buf, Uint buf_sz)
+char *erts_big_to_string(Eterm x, int base, char *buf, Uint buf_sz)
 {
     char *big_str = buf + buf_sz - 1;
     *big_str = '\0';
@@ -2087,7 +2179,7 @@ static Eterm big_norm(Eterm *x, dsize_t xl, short sign)
 /*
 ** Compare bignums
 */
-int big_comp(Wterm x, Wterm y)
+int big_comp(Eterm x, Eterm y)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);
@@ -2241,6 +2333,7 @@ term_to_Uint(Eterm term, Uint *up)
 	    return 0;
 	}
 	while (xl-- > 0) {
+            ASSERT(n < 64);
 	    uval |= ((Uint)(*xr++)) << n;
 	    n += D_EXP;
 	}
@@ -2393,6 +2486,7 @@ int term_to_Sint(Eterm term, Sint *sp)
 	    return 0;
 	}
 	while (xl-- > 0) {
+            ASSERT(n < 64);
 	    uval |= ((Uint)(*xr++)) << n;
 	    n += D_EXP;
 	}
@@ -2478,7 +2572,7 @@ static Eterm B_plus_minus(ErtsDigit *x, dsize_t xl, short xsgn,
 /*
 ** Add bignums
 */
-Eterm big_plus(Wterm x, Wterm y, Eterm *r)
+Eterm big_plus(Eterm x, Eterm y, Eterm *r)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);
@@ -2558,6 +2652,36 @@ Eterm big_times(Eterm x, Eterm y, Eterm *r)
 	rsz = I_mul_karatsuba(BIG_V(yp), ysz, BIG_V(xp), xsz, BIG_V(r));
     }
     return big_norm(r, rsz, sign);
+}
+
+/*
+** Fused multiplication and addition of bignums
+*/
+
+Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r)
+{
+    Eterm* xp = big_val(x);
+    Eterm* yp = big_val(y);
+    Eterm* zp = big_val(z);
+
+    short sign = BIG_SIGN(xp) != BIG_SIGN(yp);
+    dsize_t xsz = BIG_SIZE(xp);
+    dsize_t ysz = BIG_SIZE(yp);
+    dsize_t rsz;
+
+    if (ysz == 1)
+        rsz = D_mul(BIG_V(xp), xsz, BIG_DIGIT(yp, 0), BIG_V(r));
+    else if (xsz == 1)
+        rsz = D_mul(BIG_V(yp), ysz, BIG_DIGIT(xp, 0), BIG_V(r));
+    else if (xsz >= ysz) {
+        rsz = I_mul_karatsuba(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
+    }
+    else {
+        rsz = I_mul_karatsuba(BIG_V(yp), ysz, BIG_V(xp), xsz, BIG_V(r));
+    }
+    return B_plus_minus(BIG_V(r), rsz, sign,
+                        BIG_V(zp), BIG_SIZE(zp), (short) BIG_SIGN(zp),
+                        r);
 }
 
 /*
@@ -2766,14 +2890,6 @@ Eterm big_plus_small(Eterm x, Uint y, Eterm *r)
 				 BIG_V(r)), (short) BIG_SIGN(xp));
 }
 
-Eterm big_times_small(Eterm x, Uint y, Eterm *r)
-{
-    Eterm* xp = big_val(x);
-
-    return big_norm(r, D_mul(BIG_V(xp),BIG_SIZE(xp), (ErtsDigit) y, 
-			     BIG_V(r)), (short) BIG_SIGN(xp));
-}
-
 /*
 ** Expects the big to fit.
 */
@@ -2914,7 +3030,7 @@ static const Sint largest_power_of_base_lookup[36-1] = {
 #endif
 };
 
-static Eterm chars_to_integer(char *bytes, Uint size, const Uint base)
+static Eterm chars_to_integer(const byte *bytes, Uint size, const Uint base)
 {
     Sint i = 0;
     int neg = 0;
@@ -2985,8 +3101,7 @@ static Eterm chars_to_integer(char *bytes, Uint size, const Uint base)
 
 BIF_RETTYPE erts_internal_binary_to_integer_2(BIF_ALIST_2)
 {
-    byte *temp_alloc = NULL;
-    char *bytes;
+    const byte *temp_alloc = NULL, *bytes;
     Uint size;
     Uint base;
     Eterm res;
@@ -2995,17 +3110,17 @@ BIF_RETTYPE erts_internal_binary_to_integer_2(BIF_ALIST_2)
         BIF_RET(am_badarg);
     }
 
-    base = (Uint) signed_val(BIF_ARG_2);
+    base = (Uint)signed_val(BIF_ARG_2);
 
     if (base < 2 || base > 36) {
         BIF_RET(am_badarg);
     }
 
-    if ((bytes = (char*)erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc)) == NULL) {
+    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &size, &temp_alloc);
+    if (bytes == NULL) {
         BIF_RET(am_badarg);
     }
 
-    size = binary_size(BIF_ARG_1);
     res = chars_to_integer(bytes, size, base);
     erts_free_aligned_binary_bytes(temp_alloc);
     BIF_RET(res);

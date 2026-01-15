@@ -1,19 +1,22 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec float_to_binary(Float, Options) -> binary()[0m
-  [;1m                         when[0m
-  [;1m                             Float :: float(),[0m
-  [;1m                             Options :: [Option],[0m
-  [;1m                             Option ::[0m
-  [;1m                                 {decimals, Decimals :: 0..253} |[0m
-  [;1m                                 {scientific, Decimals :: 0..249} |[0m
-  [;1m                                 compact | short.[0m
+[;1m  float_to_binary(Float, Options)[0m
 
 [;;4mSince[0m:
   OTP R16B
 
   Returns a binary corresponding to the text representation of [;;4m[0m
-  [;;4mFloat[0m using fixed decimal point formatting. [;;4mOptions[0m behaves in
-  the same way as [;;4mfloat_to_list/2[0m. Examples:
+  [;;4mFloat[0m using fixed decimal point formatting.
+
+  [;;4mOptions[0m behaves in the same way as [;;4mfloat_to_list/2[0m.
+
+  For example:
 
     > float_to_binary(7.12, [{decimals, 4}]).
     <<"7.1200">>

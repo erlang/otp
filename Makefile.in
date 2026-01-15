@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1998-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -235,6 +237,7 @@ else
 BOOT_PREFIX=$(BOOTSTRAP_ROOT)/bootstrap/bin:
 TEST_PATH_PREFIX=$(ERL_TOP)/bin/$(TARGET_HOST):
 endif
+DOC_PREFIX=$(ERL_TOP)/bin:
 
 # ----------------------------------------------------------------------
 
@@ -332,14 +335,14 @@ ifeq ($(BOOTSTRAP_ONLY),yes)
 all: bootstrap check_dev_rt_dep
 else
 # The normal case; not cross compiling, and not bootstrap only build.
-all: bootstrap libs local_setup check_dev_rt_dep
+all: bootstrap erts libs local_setup check_dev_rt_dep
 endif
 
 else
 # Cross compiling
 
 all: cross_check_erl depend erl_interface \
-     emulator libs start_scripts check_dev_rt_dep
+     emulator erts libs start_scripts check_dev_rt_dep
 
 endif
 
@@ -429,51 +432,30 @@ endif
 # Target only used when building commercial ERTS patches
 # ---------------------------------------------------------------
 
-release_docs docs: doc_bootstrap_copy mod2app
+release_docs docs:
 ifeq ($(OTP_SMALL_BUILD),true)
 	cd $(ERL_TOP)/lib && \
-	  PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
+	  PATH=$(DOC_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) TESTROOT="$(RELEASE_ROOT)" $@
 else
 	cd $(ERL_TOP)/lib && \
-	  PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
+	  PATH=$(DOC_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" $@
 endif
 	cd $(ERL_TOP)/erts && \
-	  PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
+	  PATH=$(DOC_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" $@
 	cd $(ERL_TOP)/system/doc && \
-	  PATH=$(BOOT_PREFIX)"$${PATH}" \
-	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
+	  PATH=$(DOC_PREFIX)"$${PATH}" \
+	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT="$(RELEASE_ROOT)" $@
+	cd $(ERL_TOP)/system/doc/top && \
+	  PATH=$(DOC_PREFIX)"$${PATH}" \
+	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT="$(RELEASE_ROOT)" $@
 ifneq  ($(OTP_SMALL_BUILD),true)
 	test -f $(ERL_TOP)/make/otp_doc_built || echo "OTP doc built" > $(ERL_TOP)/make/otp_doc_built
 endif
 
-xmllint: docs
-	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	$(MAKE) -C erts/ $@
-ifeq ($(OTP_SMALL_BUILD),true)
-	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	$(MAKE) -C lib/ $@
-else
-	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	$(MAKE) BUILD_ALL=1 -C lib/ $@
-	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	$(MAKE) -C system/doc $@
-endif
-	$(DOCGEN)/priv/bin/validate_links.escript $(ERL_TOP) make/$(TARGET)/mod2app.xml \
-		lib/*/doc/xml/*.xml erts/doc/xml/*.xml system/doc/xml/*/*.xml
-
-mod2app: doc_bootstrap_copy $(ERL_TOP)/make/$(TARGET)/mod2app.xml
-
-$(ERL_TOP)/make/$(TARGET)/mod2app.xml: erts/doc/src/Makefile lib/*/doc/src/Makefile 
-	PATH=$(BOOT_PREFIX)"$${PATH}" escript $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
-
 # ----------------------------------------------------------------------
-ERLANG_EARS=$(BOOTSTRAP_ROOT)/bootstrap/erts
-ELINK=$(BOOTSTRAP_ROOT)/bootstrap/erts/bin/elink
-BOOT_BINDIR=$(BOOTSTRAP_ROOT)/bootstrap/erts/bin
-BEAM_EVM=$(ERL_TOP)/bin/$(TARGET)/beam_evm
 BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
 
 # otp.mk is only used to figure out if we are doing PGO or not
@@ -503,6 +485,16 @@ emulator: $(PROFILE_EMU_DEPS)
 	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 	  $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR) PROFILE=$(PROFILE)
 
+## Build the .beam files for erts/preloaded/src that contains docs and debug info
+.PHONY: erts
+ifneq ($(CROSS_COMPILING),yes)
+erts: bootstrap_setup
+endif
+erts:
+	$(make_verbose)cd erts/preloaded/src && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+		$(MAKE) opt ERL_COMPILE_WARNINGS_AS_ERRORS=yes
+
 libs:
 ifeq ($(OTP_SMALL_BUILD),true)
 	$(make_verbose)cd lib && \
@@ -523,12 +515,13 @@ endif
 endif
 
 APPS=$(patsubst $(ERL_TOP)/lib/%/doc,%,$(wildcard $(ERL_TOP)/lib/*/doc))
+APPS_BUILD=$(patsubst %, %_build,$(APPS))
 NO_DIALYZER_APPS=$(filter-out dialyzer, $(APPS)) ## The dialyzer make target should not build the app
 
 .PHONY: $(NO_DIALYZER_APPS)
 
-$(NO_DIALYZER_APPS):
-	$(make_verbose)cd lib/$@ && \
+$(APPS_BUILD):
+	$(make_verbose)cd lib/$(patsubst %_build,%,$@) && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) $(TYPE)
 
@@ -549,8 +542,10 @@ compdb:
 
 format-check:
 	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) format-check)
+	mix format --check-formatted
 format:
 	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) format)
+	mix format
 
 dep depend:
 	$(make_verbose)
@@ -650,16 +645,13 @@ SECONDARY_BOOTSTRAP_BUILD=$(TINY_SECONDARY_BOOTSTRAP_BUILD) asn1/src
 # - syntax_tools is needed by diameter
 # - snmp is needed to compile tests
 # - runtime_tools includes are needed by observer
-# - xmerl includes are needed by ct, edoc, erl_docgen and wx
+# - xmerl includes are needed by ct, edoc, and wx
 # - common_test is needed to compile tests
 TERTIARY_BOOTSTRAP_BUILD=parsetools wx public_key erl_interface syntax_tools snmp
 TERTIARY_BOOTSTRAP=$(TERTIARY_BOOTSTRAP_BUILD) runtime_tools xmerl common_test
 
-# The DOC bootstrap
-DOC_BOOTSTRAP_BUILD=xmerl edoc erl_docgen
-DOC_BOOTSTRAP=$(DOC_BOOTSTRAP_BUILD)
-
 $(BOOTSTRAP_ROOT)/bootstrap/lib/%/update:
+	$(V_generate)
 	$(V_at)for x in "$(dir $@)" "$(dir $@)/ebin" "$(dir $@)/include"; do \
 	        if [ ! -d "$$x" ]; then mkdir "$$x"; fi \
         done
@@ -701,26 +693,6 @@ tertiary_bootstrap:
 	$(make_verbose) ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) -C lib opt BOOTSTRAP="$(TERTIARY_BOOTSTRAP_BUILD)" ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 tertiary_bootstrap_copy: tertiary_bootstrap $(foreach app, $(TERTIARY_BOOTSTRAP), $(BOOTSTRAP_ROOT)/bootstrap/lib/$(app)/update)
-
-doc_bootstrap:
-	$(make_verbose) ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) -C lib opt BOOTSTRAP="$(DOC_BOOTSTRAP_BUILD)"
-doc_bootstrap_copy: secondary_bootstrap_copy doc_bootstrap tertiary_bootstrap_copy $(foreach app, $(DOC_BOOTSTRAP), $(BOOTSTRAP_ROOT)/bootstrap/lib/$(app)/update)
-	$(V_at)for d in priv priv/bin priv/css priv/dtd priv/dtd_html_entities priv/dtd_man_entities priv/images priv/js priv/js/flipmenu priv/xsl; do \
-	  if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/$$d ; then mkdir -p $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/$$d ; fi; \
-	  for x in lib/erl_docgen/$$d/*; do \
-	    BN=`basename $$x`; \
-	    if test ! -d lib/erl_docgen/$$d/$$BN ; then \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/$$d/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		test '!' -f $$TF && \
-			${INSTALL_DATA} -p $$x $$TF; \
-		true; \
-	   fi; \
-	  done; \
-	done
 
 .PHONY: check_recreate_primary_bootstrap recreate_primary_bootstrap
 
@@ -1008,7 +980,8 @@ bootstrap_clean:
 .PHONY: test dialyzer
 
 test: all release release_tests
-	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+	MAKE="$(MAKE)" \
+	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 
 ifeq ($(TYPE),)
 dialyzer: all
@@ -1018,5 +991,6 @@ endif
 APPS_TEST=$(patsubst %, %_test,$(APPS))
 
 .SECONDEXPANSION:
-$(APPS_TEST): $$(patsubst %_test,%,$$@)
-	ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) -C lib/$< test
+$(NO_DIALYZER_APPS): $$(patsubst %,%_build,$$@)
+$(APPS_TEST): $$(patsubst %_test,%_build,$$@)
+	ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) -C lib/$(patsubst %_test,%,$@) test

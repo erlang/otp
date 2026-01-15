@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +16,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dist_ac).
+-moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 -behaviour(gen_server).
 
@@ -35,7 +40,7 @@
 	 code_change/3, send_timeout/3]).
 -export([info/0]).
 
--import(lists, [zf/2, filter/2, map/2, foreach/2, foldl/3, mapfoldl/3,
+-import(lists, [filtermap/2, filter/2, map/2, foreach/2, foldl/3, mapfoldl/3,
 		keysearch/3, keydelete/3, keyreplace/4, member/2]).
 
 -define(AC, application_controller).
@@ -441,7 +446,8 @@ handle_info({ac_application_run, AppName, Res}, S) ->
 
 handle_info({ac_application_not_run, AppName}, S) ->
     %% We ordered a stop, and now it has stopped
-    {value, Appl} = keysearch(AppName, #appl.name, Appls = S#state.appls),
+    Appls = S#state.appls,
+    {value, Appl} = keysearch(AppName, #appl.name, Appls),
     %% Check if we have somebody waiting for the takeover result;
     %% if somebody called stop just before takeover was handled,
     NTReqs = del_t_reqs(AppName, S#state.t_reqs, {error, stopped}),
@@ -469,7 +475,8 @@ handle_info({ac_application_not_run, AppName}, S) ->
 handle_info({ac_application_stopped, AppName}, S) ->
     %% Somebody called application:stop - reset state as it was before
     %% the application was started.
-    {value, Appl} = keysearch(AppName, #appl.name, Appls = S#state.appls),
+    Appls = S#state.appls,
+    {value, Appl} = keysearch(AppName, #appl.name, Appls),
     %% Check if we have somebody waiting for the takeover result;
     %% if somebody called stop just before takeover was handled,
     NTReqs = del_t_reqs(AppName, S#state.t_reqs, {error, stopped}),
@@ -503,7 +510,7 @@ handle_info({ac_application_stopped, AppName}, S) ->
 %%-----------------------------------------------------------------
 handle_info({dist_ac_new_node, _Vsn, Node, HisAppls, []}, S) ->
     Appls = S#state.appls,
-    MyStarted = zf(fun(Appl) when Appl#appl.id =:= local ->
+    MyStarted = filtermap(fun(Appl) when Appl#appl.id =:= local ->
 			   {true, {node(), Appl#appl.name}};
 		      (_) ->
 			   false
@@ -618,7 +625,7 @@ handle_info({nodedown, Node}, S) ->
 			 (_) -> false
 		      end,
 		      S#state.appls),
-    Appls2 = zf(fun(Appl) when Appl#appl.id =:= {distributed, Node} -> 
+    Appls2 = filtermap(fun(Appl) when Appl#appl.id =:= {distributed, Node} ->
 			case lists:member(Appl#appl.name, AppNames) of
 			    true ->
 				{true, Appl#appl{id = {failover, Node}}};
@@ -645,7 +652,8 @@ handle_info({nodedown, Node}, S) ->
 
 handle_info({dist_ac_app_loaded, Node, Name, HisNodes, Permission, HeKnowsMe},
 	    S) ->
-    Nodes = dist_find_nodes(Appls = S#state.appls, Name),
+    Appls = S#state.appls,
+    Nodes = dist_find_nodes(Appls, Name),
     case is_loaded(Name, S) of
 	true ->
 	    case equal_nodes(Nodes, HisNodes) of
@@ -718,7 +726,8 @@ code_change(_OldVsn, State, _Extra) ->
 load(AppName, S) ->
     Appls0 = S#state.appls,
     %% Get the dist specification for the app on other nodes
-    DistLoaded = get_dist_loaded(AppName, Load1 = S#state.dist_loaded),
+    Load1 = S#state.dist_loaded,
+    DistLoaded = get_dist_loaded(AppName, Load1),
     %% Get the local dist specification
     Nodes = dist_find_nodes(Appls0, AppName),
     FNodes = flat_nodes(Nodes),
@@ -780,7 +789,8 @@ start_appl(AppName, S, Type) ->
     %% Get nodes, and check if App is loaded on all involved nodes.
     %% If it is loaded everywhere, we know that we have the same picture
     %% of the nodes; otherwise the load wouldn't have succeeded.
-    Appl = case keysearch(AppName, #appl.name, Appls = S#state.appls) of
+    Appls = S#state.appls,
+    Appl = case keysearch(AppName, #appl.name, Appls) of
 	       {value, A} -> A;
 	       _ -> throw({error, {unknown_application, AppName}})
 	   end,
@@ -1414,7 +1424,7 @@ do_dist_change_update(Appls, AppName, NewTime, NewNodes) ->
 
 %% Merge his Permissions with mine.
 dist_merge(MyAppls, HisAppls, HisNode) ->
-    zf(fun(Appl) ->
+    filtermap(fun(Appl) ->
 	       #appl{name = AppName, run = Run} = Appl,
 %	       #appl{name = AppName, nodes = Nodes, run = Run} = Appl,
 %	       HeIsMember = lists:member(HisNode, flat_nodes(Nodes)),
@@ -1437,7 +1447,7 @@ dist_merge(MyAppls, HisAppls, HisNode) ->
 dist_get_runnable_nodes(Appls, AppName) ->
     case keysearch(AppName, #appl.name, Appls) of
 	{value, #appl{run = Run}} ->
-	    zf(fun({Node, true}) -> {true, Node};
+	    filtermap(fun({Node, true}) -> {true, Node};
 		  (_) -> false
 	       end, Run);
 	false ->
@@ -1468,7 +1478,7 @@ is_loaded(AppName, #state{appls = Appls}) ->
     end.
 
 dist_get_runnable(Appls) ->
-    zf(fun(#appl{name = AppName, run = Run}) ->
+    filtermap(fun(#appl{name = AppName, run = Run}) ->
 	       case keysearch(node(), 1, Run) of
 		   {value, {_, true}} -> {true, AppName};
 		   _ -> false

@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2021. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1998-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +48,7 @@ RELEPMDDIR   = $(RELEASE_PATH)/epmd_test
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += $(EPMD_FLAGS)
+ERL_COMPILE_FLAGS += $(EPMD_FLAGS) +nowarn_missing_spec_documented
 
 # ----------------------------------------------------
 # Targets

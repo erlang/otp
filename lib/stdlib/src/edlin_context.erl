@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_context).
+-moduledoc false.
 %% description
 %%
 -export([get_context/1, get_context/2, odd_quotes/2]).
@@ -65,6 +68,7 @@
                | {fun_, Mod, Fun} %% cursor is in a fun mod:fun statement
                | {new_fun, Unfinished}
                | {function}
+               | {function, Mod}
                | {function, Mod, Fun, Args, Unfinished, Nesting}
                | {map, Binding, Keys}
                | {map_or_record}
@@ -112,21 +116,26 @@ get_context([$(|Bef], CR) ->
     {Bef1, Fun} = edlin_expand:over_word(Bef),
     case Fun of
         [] -> {term}; % parenthesis
+        "fun" -> {fun_};
         _ ->
-            {_, Mod} = over_module(Bef1, Fun),
-            case Mod of
-                "shell" -> {term};
-                "shell_default" -> {term};
+            case erl_scan:string(Fun) of
+                {ok, [{var, _, _}], _} -> {term};
                 _ ->
-                    case CR#context.parameter_count+1 == length(CR#context.arguments) of
-                        true ->
-                            %% N arguments N-1 commas, this means that we have an argument
-                            %% still being worked on.
-                            {function, Mod, Fun, lists:droplast(CR#context.arguments),
-                             lists:last(CR#context.arguments),CR#context.nestings};
+                    {_, Mod} = over_module(Bef1, Fun),
+                    case Mod of
+                        "shell" -> {term};
+                        "shell_default" -> {term};
                         _ ->
-                            {function, Mod, Fun, CR#context.arguments,
-                             [], CR#context.nestings}
+                            case CR#context.parameter_count+1 == length(CR#context.arguments) of
+                                true ->
+                                    %% N arguments N-1 commas, this means that we have an argument
+                                    %% still being worked on.
+                                    {function, Mod, Fun, lists:droplast(CR#context.arguments),
+                                    lists:last(CR#context.arguments),CR#context.nestings};
+                                _ ->
+                                    {function, Mod, Fun, CR#context.arguments,
+                                    [], CR#context.nestings}
+                            end
                     end
             end
     end;
@@ -220,12 +229,20 @@ get_context([$:|Bef2], _) ->
     {Bef3, Mod} = edlin_expand:over_word(Bef2),
     case edlin_expand:over_word(Bef3) of
         {_, "fun"} -> {fun_, Mod};
-        _ -> {function}
+        _ when Mod =:= [] -> {function};
+        _ -> {function, Mod}
     end;
 get_context([$/|Bef1], _) ->
     {Bef2, Fun} = edlin_expand:over_word(Bef1),
-    {_, Mod} = over_module(Bef2, Fun),
-    {fun_, Mod, Fun};
+    case Fun of
+        [] -> {term};
+        _ ->
+            {_, Mod} = over_module(Bef2, Fun),
+            case Mod of
+                [] -> {term};
+                _ -> {fun_, Mod, Fun}
+            end
+    end;
 get_context([$>,$-|_Bef2], #context{arguments = Args} = CR) ->
     %% Inside a function
     case CR#context.parameter_count+1 == length(Args) of
@@ -384,11 +401,15 @@ over_map_record_or_tuple(Bef0) ->
                         _ -> %% Tuple
                             {Bef4, {tuple, Clause}}
                     end;
-                _Record -> %% Record
-                    [$#|Bef5] = Bef4,
-                    {Bef6, _Var} = edlin_expand:over_word(Bef5),
-                    {Bef6, {record, _Var++"#"++_Record++Clause}}
-        end
+                Record ->
+                    case Bef4 of
+                        [$#|Bef5] -> %% Record
+                            {Bef6, _Var} = edlin_expand:over_word(Bef5),
+                            {Bef6, {record, _Var++"#"++Record++Clause}};
+                        _ -> %% Tuple
+                            {Bef4, {tuple, Clause}}
+                    end
+            end
     end.
 over_pid_port_or_ref(Bef2) ->
         %% Extracts argument or part of an operation

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +68,7 @@ basic(Config) when is_list(Config) ->
 
     %% Run tests for different header types and bit offsets.
 
-    lists:foreach(fun({Type,Bits})->basic_pack(Type,Packet,Rest,Bits), 
+    lists:foreach(fun({Type,Bits})->basic_pack(Type,Packet,Rest,Bits),
                                     more_length(Type,Packet,Bits) end,
                   [{T,B} || T<-Types, B<-lists:seq(0,32)]),
     ok.
@@ -77,7 +79,7 @@ basic_pack(Type,Body,Rest,BitOffs) ->
     case Rest of
         <<>> -> ok;
         _ -> 
-            <<_:1,NRest/bits>> = Rest,
+            <<_, NRest/binary>> = Rest,
             basic_pack(Type,Body,NRest,BitOffs)
     end.
 
@@ -113,14 +115,16 @@ pack(Type,Packet,Rest) ->
 %    Orig = <<0:BitOffs,Body/binary,Rest/bits>>,
 %    <<_:BitOffs,Bin/bits>> = Orig,
 %    {Bin,<<Bin/binary,Rest/bits>>,Orig};
-pack(Type,Body,Rest,BitOffs) ->
-    {Packet,Unpacked} = pack(Type,Body),
+pack(Type, Body, Rest, BitOffs) ->
+    {Packet, Unpacked} = pack(Type, Body),
 
-    %% Make Bin a sub-bin with an arbitrary bitoffset within Orig
+    %% Make Bin a sub-binary with an arbitrary bitoffset within Orig. Note that
+    %% we do not tolerate the Rest to be a bitstring.
     Prefix = rand:uniform(1 bsl BitOffs) - 1,
-    Orig = <<Prefix:BitOffs,Packet/binary,Rest/bits>>,
-    <<_:BitOffs,Bin/bits>> = Orig,
-    {Bin,Unpacked,Orig}.
+    Orig = <<Prefix:BitOffs, Packet/binary, Rest/binary>>,
+    <<_:BitOffs, Bin/binary>> = Orig,
+
+    {Bin, Unpacked, Orig}.
 
 pack(1,Bin) ->
     Psz = byte_size(Bin),

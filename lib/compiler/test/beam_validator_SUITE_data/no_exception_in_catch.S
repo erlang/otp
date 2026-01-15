@@ -13,7 +13,8 @@
   {label,2}.
     {test,is_tuple,{f,1},[{x,0}]}.
     {test,test_arity,{f,1},[{x,0},3]}.
-    {allocate_zero,15,4}.
+    {allocate,15,4}.
+    {init_yregs,{list,[{y,0},{y,1},{y,2},{y,3},{y,4},{y,5},{y,6},{y,7},{y,8}]}}.
     {get_tuple_element,{x,0},0,{y,9}}.
     {get_tuple_element,{x,0},1,{y,10}}.
     {get_tuple_element,{x,0},2,{y,11}}.
@@ -60,10 +61,7 @@
     {bif,'=:=',{f,4},[{x,1},{y,11}],{x,4}}.
     {bif,'and',{f,4},[{x,3},{x,4}],{x,3}}.
     {test,is_eq_exact,{f,4},[{x,3},{atom,true}]}.
-    {kill,{y,0}}.
-    {kill,{y,1}}.
-    {kill,{y,2}}.
-    {kill,{y,3}}.
+    {init_yregs,{list,[{y,0},{y,1},{y,2},{y,3}]}}.
     {move,{y,12},{x,0}}.
     {call,1,{f,17}}.
     {test_heap,3,1}.
@@ -104,13 +102,7 @@
   {label,8}.
     {try_end,{y,6}}.
     {move,{x,0},{y,13}}.
-    {kill,{y,3}}.
-    {kill,{y,4}}.
-    {kill,{y,5}}.
-    {kill,{y,9}}.
-    {kill,{y,10}}.
-    {kill,{y,11}}.
-    {kill,{y,12}}.
+    {init_yregs,{list,[{y,3},{y,4},{y,5},{y,9},{y,10},{y,11},{y,12}]}}.
     {move,{y,14},{x,0}}.
     {call,1,{f,17}}.
     {move,{x,0},{x,1}}.
@@ -122,12 +114,7 @@
     {try_case,{y,6}}.
     {move,{x,2},{y,13}}.
     {move,{x,1},{y,12}}.
-    {kill,{y,3}}.
-    {kill,{y,4}}.
-    {kill,{y,5}}.
-    {kill,{y,9}}.
-    {kill,{y,10}}.
-    {kill,{y,11}}.
+    {init_yregs,{list,[{y,3},{y,4},{y,5},{y,9},{y,10},{y,11}]}}.
     {move,{y,14},{x,0}}.
     {call,1,{f,17}}.
     {move,{x,0},{x,1}}.
@@ -151,8 +138,7 @@
     {try_end,{y,8}}.
     {move,{x,0},{y,14}}.
     {move,{atom,finalized},{x,1}}.
-    {kill,{y,12}}.
-    {kill,{y,13}}.
+    {init_yregs,{list,[{y,12},{y,13}]}}.
     {move,{atom,nested},{x,0}}.
     {call_ext,2,{extfunc,erlang,put,2}}.
     {move,{y,14},{x,0}}.
@@ -162,14 +148,14 @@
     {move,{x,2},{y,14}}.
     {move,{x,1},{y,13}}.
     {move,{atom,finalized},{x,1}}.
-    {kill,{y,12}}.
+    {init_yregs,{list,[{y,12}]}}.
     {move,{atom,nested},{x,0}}.
     {call_ext,2,{extfunc,erlang,put,2}}.
     {bif,raise,{f,0},[{y,14},{y,13}],{x,0}}.
     {'%live',1}.
   {label,14}.
     {move,{x,0},{y,14}}.
-    {kill,{y,13}}.
+    {init_yregs,{list,[{y,13}]}}.
     {move,{atom,nested3},{x,0}}.
     {call_ext,1,{extfunc,erlang,erase,1}}.
     {move,{x,0},{y,13}}.

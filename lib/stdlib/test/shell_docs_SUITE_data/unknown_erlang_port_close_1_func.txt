@@ -1,13 +1,21 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec port_close(Port) -> true when Port :: port() | atom().[0m
+[;1m  port_close(Port)[0m
 
   Closes an open port. Roughly the same as [;;4mPort ! {self(), close}[0m
   except for the error behavior (see below), being synchronous, and
-  that the port does not reply with [;;4m{Port, closed}[0m. Any process
-  can close a port with [;;4mport_close/1[0m, not only the port owner (the
-  connected process). If the calling process is linked to the port
-  identified by [;;4mPort[0m, the exit signal from the port is guaranteed
-  to be delivered before [;;4mport_close/1[0m returns.
+  that the port does not reply with [;;4m{Port, closed}[0m.
+
+  Any process can close a port with [;;4mport_close/1[0m, not only the
+  port owner (the connected process). If the calling process is
+  linked to the port identified by [;;4mPort[0m, the exit signal from the
+  port is guaranteed to be delivered before [;;4mport_close/1[0m returns.
 
   For comparison: [;;4mPort ! {self(), close}[0m only fails with [;;4mbadarg[0m
   if [;;4mPort[0m does not refer to a port or a process. If [;;4mPort[0m is a

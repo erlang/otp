@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 -module(ssh_test_lib).
 
 -export([
+analyze_events/2,
 connect/2,
 connect/3,
 daemon/1,
@@ -124,12 +127,17 @@ setup_known_host/3,
 get_addr_str/0,
 file_base_name/2,
 kex_strict_negotiated/2,
-event_logged/3
+event_logged/3,
+server_host/1,
+server_port/1,
+server_pid/1,
+find_handshake_parent/1
         ]).
 %% logger callbacks and related helpers
 -export([log/2,
-         get_log_level/0, set_log_level/1, add_log_handler/0,
-         rm_log_handler/0, get_log_events/1]).
+         get_log_level/0, set_log_level/1,
+         add_log_handler/2, rm_log_handler/1,
+         get_log_events/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_transport.hrl").
@@ -333,7 +341,8 @@ start_shell(Port, IOServer, ExtraOptions) ->
                      [?MODULE,?LINE,self(), Port, IOServer, ExtraOptions]),
 	      Options = [{user_interaction, false},
 			 {silently_accept_hosts,true},
-                         {save_accepted_host,false}
+                         {save_accepted_host,false},
+                         {alive, #{count_max => 3, interval => 100}}
                          | ExtraOptions],
               try
                   group_leader(IOServer, self()),
@@ -888,6 +897,7 @@ open_port(Arg1, ExtraOpts) ->
 %%% Sleeping
 
 %%% Milli sec
+-spec sleep_millisec(timeout()) -> ok.
 sleep_millisec(Nms) -> receive after Nms -> ok end.
 
 %%% Micro sec
@@ -1343,21 +1353,24 @@ get_log_level() ->
 set_log_level(Level) ->
     ok = logger:set_primary_config(level, Level).
 
-add_log_handler() ->
+add_log_handler(HandlerId, Config) ->
+    logger:remove_handler(HandlerId),
     TestRef = make_ref(),
-    ok = logger:add_handler(?MODULE, ?MODULE,
+    ok = logger:add_handler(HandlerId, ?MODULE,
                             #{level => debug,
                               filter_default => log,
                               recipient => self(),
                               test_ref => TestRef}),
-    {ok, TestRef}.
+    [{log_handler_ref, TestRef} | Config].
 
-rm_log_handler() ->
-    ok = logger:remove_handler(?MODULE).
+rm_log_handler(HandlerId) ->
+    ok = logger:remove_handler(HandlerId).
 
 get_log_events(TestRef) ->
     {ok, get_log_events(TestRef, [])}.
 
+get_log_events(Config, Acc) when is_list(Config) ->
+    get_log_events(proplists:get_value(log_handler_ref, Config), Acc);
 get_log_events(TestRef, Acc) ->
     receive
         {TestRef, Event} ->
@@ -1367,8 +1380,181 @@ get_log_events(TestRef, Acc) ->
             Acc
     end.
 
+analyze_events(Events, EventNumber) when EventNumber >= 0 ->
+    {ok, Cnt} = print_interesting_events(Events, 0),
+    case Cnt > 0 of
+        true ->
+            ct:comment("LGR interesting: ~p boring: ~p",
+                       [Cnt, EventNumber - Cnt]);
+        _ ->
+            ct:comment("LGR boring: ~p",
+                       [length(Events)])
+    end,
+    AllEventsSummary = lists:flatten([process_event(E) || E <- Events]),
+    ct:log("~nTotal logger events: ~p~nAll events:~n~s", [EventNumber, AllEventsSummary]),
+    {ok, Cnt}.
+
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {Status, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {errorContext, _ErrorContext},
+                                     {reason, {Status, _ReasonDetails}},
+                                     {offender, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {errorContext, _ErrorContext},
+                                     {reason, Status},
+                                     {offender, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [Properties, []]}},
+                level := Level}) ->
+    {status, Status} = get_value(status, Properties),
+    {pid, Pid} = get_value(pid, Properties),
+    Id = get_value(registered_name, Properties),
+    {initial_call, {M, F, Args}} = get_value(initial_call, Properties),
+    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s)~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label, Status, Id, M, F, Args]]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [MsgString]}},
+                meta := #{pid := Pid},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~20s ~s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label]] ++ [MsgString]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          name := Pid,
+                          reason := {Reason, _Stack = [{M, F, Args, Location} | _]}}},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~30s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label, Reason, undefined, M, F, Args, Location]]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                         format := Format,
+                         args := Args}},
+                meta := #{pid := Pid},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~30s ~150s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label]] ++ [io_lib:format(Format, Args)]);
+process_event(#{msg := {Format, Args},
+                meta := #{pid := Pid},
+                level := Level}) when is_list(Format), is_list(Args)->
+    io_lib:format("[~44s]  ~6s~n~s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level]] ++ [io_lib:format(Format, Args)]);
+process_event(#{msg := {string, MsgString},
+                meta := #{pid := Pid},
+                level := Level}) when is_list(MsgString) ->
+    io_lib:format("[~44s]  ~6s ~s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level]] ++ [MsgString]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          reason := Reason,
+                          process_label := ProcessLabel}},
+                meta := #{pid := Pid},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~30s ~30s~n~s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label, ProcessLabel, Reason]]);
+process_event(E) ->
+    io_lib:format("~n||RAW event||~n~p~n", [E]).
+
+format_event1(Label, Supervisor, Status, Properties, Level) ->
+    {pid, Pid} = get_value(pid, Properties),
+    Id = get_value(id, Properties),
+    {M, F, Args} = get_mfa_value(Properties),
+    RestartType = get_value(restart_type, Properties),
+    Significant = get_value(significant, Properties),
+    io_lib:format("[~30s <- ~10s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~20s ~25s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Supervisor, Pid, Level, Label, Status, Id, M, F, Args,
+                            Significant, RestartType]]).
+
+get_mfa_value(Properties) ->
+    case get_value(mfargs, Properties) of
+        {mfargs, MFA} ->
+            MFA;
+        false ->
+            {mfa, MFA} = get_value(mfa, Properties),
+            MFA
+    end.
+
+get_value(Key, List) ->
+    case lists:keyfind(Key, 1, List) of
+        R = false ->
+            ct:log("Key ~p not found in~n~p", [Key, List]),
+            R;
+        R -> R
+    end.
+
+print_interesting_events([], Cnt) ->
+    {ok, Cnt};
+print_interesting_events([#{level := Level} = Event | Tail], Cnt)
+  when Level /= info, Level /= notice, Level /= debug ->
+    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
+    print_interesting_events(Tail, Cnt + 1);
+print_interesting_events([_|Tail], Cnt) ->
+    print_interesting_events(Tail, Cnt).
+
 %% logger callbacks
 log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
     #{test_ref := TestRef, recipient := Recipient}) ->
     Recipient ! {TestRef, LogEvent},
     ok.
+
+server_pid(Config)  -> element(1,?v(server,Config)).
+server_host(Config) -> element(2,?v(server,Config)).
+server_port(Config) -> element(3,?v(server,Config)).
+
+%%%----------------------------------------------------------------
+find_handshake_parent(Port) ->
+    Acc = {_Parents=[], _Connections=[], _Handshakers=[]},
+    find_handshake_parent(supervisor:which_children(sshd_sup), Port, Acc).
+
+find_handshake_parent([{{ssh_system_sup,{address,_,Port,_}},
+                        Pid,supervisor, [ssh_system_sup]}|_],
+                      Port, Acc) ->
+    find_handshake_parent(supervisor:which_children(Pid), Port, Acc);
+find_handshake_parent([{{ssh_acceptor_sup,{address,_,Port,_}},
+                        PidS,supervisor,[ssh_acceptor_sup]}|T],
+                       Port, {AccP,AccC,AccH}) ->
+    ParentHandshakers =
+        [{PidW,PidH} ||
+            {{ssh_acceptor_sup,{address,_,Port1,_}}, PidW, worker,
+             [ssh_acceptor]} <- supervisor:which_children(PidS),
+            Port1 == Port,
+            PidH <- element(2, process_info(PidW,links)),
+            is_pid(PidH),
+            process_info(PidH,current_function) ==
+                {current_function,
+                 {ssh_connection_handler,handshake,4}}],
+    {Parents,Handshakers} = lists:unzip(ParentHandshakers),
+    find_handshake_parent(T, Port, {AccP++Parents, AccC, AccH++Handshakers});
+find_handshake_parent([{_Ref,PidS,supervisor,[ssh_connection_sup]}|T],
+                      Port, {AccP,AccC,AccH}) ->
+    Connections =
+        [Pid ||
+            {connection,Pid,worker,[ssh_connection_handler]} <-
+                supervisor:which_children(PidS)],
+    find_handshake_parent(T, Port, {AccP, AccC++Connections, AccH});
+find_handshake_parent([_|T], Port, Acc) ->
+    find_handshake_parent(T, Port, Acc);
+find_handshake_parent(_, _,  {AccP,AccC,AccH}) ->
+    {lists:usort(AccP), lists:usort(AccC), lists:usort(AccH)}.

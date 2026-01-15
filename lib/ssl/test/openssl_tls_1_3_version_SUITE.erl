@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,8 +38,8 @@
         ]).
 
 %% Test cases
--export([tls12_client_tls13_server/1
-        ]).
+-export([tls12_client_tls13_server/0,
+         tls12_client_tls13_server/1]).
 
 
 %%--------------------------------------------------------------------
@@ -53,7 +55,7 @@ groups() ->
     [
      %%{openssl_server, [{group, 'tlsv1.3'}]},
      {openssl_client, [{group, 'tlsv1.3'}]},
-     {'tlsv1.3', [], cert_groups()},
+     {'tlsv1.3', [parallel], cert_groups()},
      {rsa, [], tests()},
      {ecdsa, [], tests()}
     ].
@@ -124,15 +126,15 @@ end_per_group(GroupName, Config) ->
 %% In its ClientHello the supported_versions extension contains only one element
 %% [{3,4}] that the server does not accept if it is configured to not support
 %% TLS 1.3.
-tls13_client_tls12_server() ->
-    [{doc,"Test that a TLS 1.3 client can connect to a TLS 1.2 server."}].
+%% tls13_client_tls12_server() ->
+%%     [{doc,"Test that a TLS 1.3 client can connect to a TLS 1.2 server."}].
 
-tls13_client_tls12_server(Config) when is_list(Config) ->
-    ClientOpts = [{versions,
-                   ['tlsv1.3', 'tlsv1.2']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{versions,
-                   ['tlsv1.1', 'tlsv1.2']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
-    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+%% tls13_client_tls12_server(Config) when is_list(Config) ->
+%%     ClientOpts = [{versions,
+%%                    ['tlsv1.3', 'tlsv1.2']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+%%     ServerOpts =  [{versions,
+%%                    ['tlsv1.1', 'tlsv1.2']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+%%     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
     
 %% tls13_client_with_ext_tls12_server() ->
 %%      [{doc,"Test basic connection between TLS 1.2 server and TLS 1.3 client when " 
@@ -164,8 +166,10 @@ tls12_client_tls13_server() ->
 
 tls12_client_tls13_server(Config) when is_list(Config) ->
     ClientOpts = [{versions,
-                   ['tlsv1.1', 'tlsv1.2']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+                   ['tlsv1.1', 'tlsv1.2']} |
+                  proplists:delete(versions, ssl_test_lib:ssl_options(client_cert_opts, Config))],
     ServerOpts =  [{versions,
-                   ['tlsv1.3', 'tlsv1.2']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+                    ['tlsv1.3', 'tlsv1.2']} |
+                   proplists:delete(versions, ssl_test_lib:ssl_options(server_cert_opts, Config))],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
-   
+

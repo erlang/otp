@@ -1,8 +1,12 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec erlang:dist_ctrl_get_opt(DHandle, get_size) -> Value[0m
-  [;1m                                  when[0m
-  [;1m                                      DHandle :: dist_handle(),[0m
-  [;1m                                      Value :: boolean().[0m
+[;1m  dist_ctrl_get_opt(DHandle, Opt)[0m
 
 [;;4mSince[0m:
   OTP 22.0
@@ -12,7 +16,8 @@
   documentation of the [;;4mget_size[0m option for the [;;4m[0m
   [;;4merlang:dist_ctrl_set_opt/3[0m function.
 
-  Note:
+  [;;4mNote[0m
+
     Only the process registered as distribution controller for the
     distribution channel identified by [;;4mDHandle[0m is allowed to
     call this function.

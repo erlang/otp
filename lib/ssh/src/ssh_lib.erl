@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,12 +25,19 @@
 %% 
 
 -module(ssh_lib).
+-moduledoc false.
+
+-compile(nowarn_obsolete_bool_op).
 
 -export([
          format_address_port/2, format_address_port/1,
          format_address/1,
          format_time_ms/1,
-         comp/2
+         comp/2,
+         set_label/1,
+         set_label/2,
+         trim_reason/1,
+         max_log_len/1
         ]).
 
 -include("ssh.hrl").
@@ -86,3 +95,25 @@ comp([], [], Truth) ->
 
 comp(_, _, _) ->
     false.
+
+set_label(Details) ->
+    proc_lib:set_label({ssh, Details}).
+
+set_label(client, Details) ->
+    proc_lib:set_label({sshc, Details});
+set_label(server, Details) ->
+    proc_lib:set_label({sshd, Details}).
+
+%% We don't want to process badmatch details, potentially containing
+%% malicious data of unknown size
+trim_reason({badmatch, V}) when is_binary(V) ->
+    badmatch;
+trim_reason(E) ->
+    E.
+
+max_log_len(#ssh{opts = Opts}) ->
+    ?GET_OPT(max_log_item_len, Opts);
+max_log_len(Opts) when is_map(Opts) ->
+    ?GET_OPT(max_log_item_len, Opts).
+
+

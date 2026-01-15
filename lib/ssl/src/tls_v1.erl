@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_v1).
+-moduledoc false.
 
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
@@ -39,6 +42,7 @@
          suites/1,
          exclusive_suites/1,
          exclusive_anonymous_suites/1,
+         cbc_suites/1,
          psk_suites/1,
          psk_exclusive/1,
          psk_suites_anon/1,
@@ -60,12 +64,14 @@
          legacy_signature_algs_pre_13/0,
          signature_algs/2,
          signature_schemes/2,
+         slh_dsa_schemes/0,
          rsa_schemes/0,
          groups/0,
          groups/1,
          group_to_enum/1,
          enum_to_group/1,
-         default_groups/0]).
+         default_groups/0,
+         default_suites/1]).
 
 -export([derive_secret/4,
          hkdf_expand_label/5,
@@ -502,14 +508,50 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, Version,Length, Fragment) ->
 -spec suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 
 suites(Version) when ?TLS_1_X(Version) ->
-    lists:flatmap(fun exclusive_suites/1, suites_to_test(Version)).
+    lists:flatmap(fun default_suites/1, suites_in_version(Version)).
 
-suites_to_test(?TLS_1_0) -> [?TLS_1_0];
-suites_to_test(?TLS_1_1) -> [?TLS_1_0];
-suites_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
-suites_to_test(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2, ?TLS_1_0].
+suites_in_version(?TLS_1_0) -> [?TLS_1_0];
+suites_in_version(?TLS_1_1) -> [?TLS_1_0];
+suites_in_version(?TLS_1_2) -> [?TLS_1_2];
+suites_in_version(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2].
 
 -spec exclusive_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
+
+default_suites(?TLS_1_3 = Version) ->
+    exclusive_suites(Version);
+default_suites(?TLS_1_2) ->
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
+
+     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
+
+     ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    ];
+default_suites(Version) when Version == ?TLS_1_1;
+                             Version == ?TLS_1_0 ->
+    exclusive_suites(?TLS_1_0).
 
 exclusive_suites(?TLS_1_3) ->
     [?TLS_AES_256_GCM_SHA384,
@@ -527,9 +569,6 @@ exclusive_suites(?TLS_1_2) ->
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
 
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
-
      ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
      ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
 
@@ -542,32 +581,16 @@ exclusive_suites(?TLS_1_2) ->
      ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
 
-     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
-
      ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
      ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
-
-     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-
-     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
 
      ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
 
-     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
-
      ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
 
-     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-
-     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
-
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
      %% not supported
      %% ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384,
      %% ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384,
@@ -577,8 +600,7 @@ exclusive_suites(?TLS_1_2) ->
 exclusive_suites(?TLS_1_1) ->
     [];
 exclusive_suites(?TLS_1_0) ->
-    [
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 
      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
@@ -593,8 +615,7 @@ exclusive_suites(?TLS_1_0) ->
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA
-    ].
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA].
 
 %%--------------------------------------------------------------------
 -spec exclusive_anonymous_suites(ssl_record:ssl_version()) ->
@@ -631,6 +652,31 @@ exclusive_anonymous_suites(?TLS_1_0=Version) ->
          ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
          ?TLS_DH_anon_WITH_DES_CBC_SHA
         ] ++ srp_suites_anon(Version).
+
+
+cbc_suites(Version) when ?TLS_1_X(Version) ->
+    cbc_exclusive(Version).
+
+cbc_exclusive(?TLS_1_2) ->
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
+    ];
+cbc_exclusive(?TLS_1_1) ->
+    %% Only have CBC SUITES
+    %% disabled even though they are legacy
+    [];
+cbc_exclusive(?TLS_1_0) ->
+    [?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA].
 
 %%--------------------------------------------------------------------
 -spec psk_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
@@ -813,11 +859,11 @@ des_exclusive(_) ->
 %% Are not considered secure any more.
 %%--------------------------------------------------------------------
 rsa_suites(Version) when ?TLS_1_X(Version) ->
-    lists:flatmap(fun rsa_exclusive/1, rsa_suites_to_test(Version)).
+    lists:flatmap(fun rsa_exclusive/1, rsa_suites_in_version(Version)).
 
-rsa_suites_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
-rsa_suites_to_test(?TLS_1_1) -> [?TLS_1_0];
-rsa_suites_to_test(?TLS_1_0) -> [?TLS_1_0].
+rsa_suites_in_version(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
+rsa_suites_in_version(?TLS_1_1) -> [?TLS_1_0];
+rsa_suites_in_version(?TLS_1_0) -> [?TLS_1_0].
 
 -spec rsa_exclusive(Version::ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 rsa_exclusive(?TLS_1_2) ->
@@ -916,7 +962,37 @@ signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
     Curves = proplists:get_value(curves, CryptoSupports),
     RSAPSSSupported = lists:member(rsa_pkcs1_pss_padding,
                                    proplists:get_value(rsa_opts, CryptoSupports)),
-    Fun = fun (Scheme, Acc) when is_atom(Scheme) ->
+    Fun = fun(mldsa44 = Scheme, Acc)->
+                  [Scheme | Acc];
+             (mldsa65 = Scheme, Acc)->
+                  [Scheme | Acc];
+             (mldsa87 = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_256f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_256s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_192f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_192s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_128f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_128s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_256f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_256s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_192f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_192s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_128f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_128s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (Scheme, Acc) when is_atom(Scheme) ->
                   {Hash, Sign0, Curve} =
                       ssl_cipher:scheme_to_components(Scheme),
                   Sign = case Sign0 of
@@ -976,12 +1052,18 @@ default_signature_schemes(Version) ->
                ecdsa_secp521r1_sha512,
                ecdsa_secp384r1_sha384,
                ecdsa_secp256r1_sha256,
+               ecdsa_brainpoolP512r1tls13_sha512,
+               ecdsa_brainpoolP384r1tls13_sha384,
+               ecdsa_brainpoolP256r1tls13_sha256,
                rsa_pss_pss_sha512,
                rsa_pss_pss_sha384,
                rsa_pss_pss_sha256,
                rsa_pss_rsae_sha512,
                rsa_pss_rsae_sha384,
-               rsa_pss_rsae_sha256
+               rsa_pss_rsae_sha256,
+               mldsa44,
+               mldsa65,
+               mldsa87
               ],
     signature_schemes(Version, Default).
 
@@ -1015,6 +1097,20 @@ rsa_schemes() ->
         false ->
             []
     end.
+
+slh_dsa_schemes() ->
+    [slh_dsa_shake_256f,
+     slh_dsa_shake_256s,
+     slh_dsa_sha2_256f,
+     slh_dsa_sha2_256s,
+     slh_dsa_shake_192f,
+     slh_dsa_shake_192s,
+     slh_dsa_sha2_192f,
+     slh_dsa_sha2_192s,
+     slh_dsa_shake_128f,
+     slh_dsa_shake_128s,
+     slh_dsa_sha2_128f,
+     slh_dsa_sha2_128s].
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1164,9 +1260,18 @@ groups() ->
 groups(all) ->
     [x25519,
      x448,
-     secp256r1,
-     secp384r1,
      secp521r1,
+     secp384r1,
+     secp256r1,
+     brainpoolP256r1tls13,
+     brainpoolP384r1tls13,
+     brainpoolP512r1tls13,
+     mlkem512,
+     mlkem768,
+     mlkem1024,
+     x25519mlkem768,
+     secp384r1mlkem1024,
+     secp256r1mlkem768,
      ffdhe2048,
      ffdhe3072,
      ffdhe4096,
@@ -1175,18 +1280,40 @@ groups(all) ->
 groups(default) ->
     [x25519,
      x448,
+     secp521r1,
+     secp384r1,
      secp256r1,
-     secp384r1];
+     brainpoolP512r1tls13,
+     brainpoolP384r1tls13,
+     brainpoolP256r1tls13,
+     mlkem512,
+     mlkem768,
+     mlkem1024,
+     x25519mlkem768,
+     secp384r1mlkem1024,
+     secp256r1mlkem768
+    ];
 groups(TLSGroups) when is_list(TLSGroups) ->
-    CryptoGroups = supported_groups(),
-    lists:filter(fun(Group) -> proplists:get_bool(Group, CryptoGroups) end, TLSGroups).
+    CryptoGroups = crypto_supported_groups(),
+    lists:filter(fun(x25519mlkem768) ->
+                         proplists:get_bool(mlkem768, CryptoGroups)
+                             andalso proplists:get_bool(x25519, CryptoGroups);
+                     (secp256r1mlkem768) ->
+                         proplists:get_bool(mlkem768, CryptoGroups)
+                             andalso proplists:get_bool(secp256r1, CryptoGroups);
+                    (secp384r1mlkem1024) ->
+                         proplists:get_bool(mlkem1024, CryptoGroups)
+                             andalso proplists:get_bool(secp384r1, CryptoGroups);
+                    (Group) ->
+                         proplists:get_bool(maybe_group_to_curve(Group), CryptoGroups)
+                 end, TLSGroups).
 
 default_groups() ->
     TLSGroups = groups(default),
     groups(TLSGroups).
 
-supported_groups() ->
-    crypto:supports(curves) ++
+crypto_supported_groups() ->
+    crypto:supports(curves) ++ crypto:supports(kems) ++
         [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192].
 
 group_to_enum(secp256r1) -> ?SECP256R1;
@@ -1194,6 +1321,15 @@ group_to_enum(secp384r1) -> ?SECP384R1;
 group_to_enum(secp521r1) -> ?SECP521R1;
 group_to_enum(x25519)    -> ?X25519;
 group_to_enum(x448)      -> ?X448;
+group_to_enum(brainpoolP256r1tls13) -> ?BRAINPOOLP256R1TLS13;
+group_to_enum(brainpoolP384r1tls13) -> ?BRAINPOOLP384R1TLS13;
+group_to_enum(brainpoolP512r1tls13) -> ?BRAINPOOLP512R1TLS13;
+group_to_enum(mlkem512)  -> ?MLKEM512;
+group_to_enum(mlkem768)  -> ?MLKEM768;
+group_to_enum(mlkem1024) -> ?MLKEM1024;
+group_to_enum(x25519mlkem768)  -> ?X25519MLKEM768;
+group_to_enum(secp256r1mlkem768) -> ?SECP256R1MLKEM768;
+group_to_enum(secp384r1mlkem1024)  -> ?SECP384R1MLKEM1024;
 group_to_enum(ffdhe2048) -> ?FFDHE2048;
 group_to_enum(ffdhe3072) -> ?FFDHE3072;
 group_to_enum(ffdhe4096) -> ?FFDHE4096;
@@ -1205,6 +1341,15 @@ enum_to_group(?SECP384R1) -> secp384r1;
 enum_to_group(?SECP521R1) -> secp521r1;
 enum_to_group(?X25519) -> x25519;
 enum_to_group(?X448) -> x448;
+enum_to_group(?BRAINPOOLP256R1TLS13) -> brainpoolP256r1tls13;
+enum_to_group(?BRAINPOOLP384R1TLS13) -> brainpoolP384r1tls13;
+enum_to_group(?BRAINPOOLP512R1TLS13) -> brainpoolP512r1tls13;
+enum_to_group(?MLKEM512)  -> mlkem512;
+enum_to_group(?MLKEM768)  -> mlkem768;
+enum_to_group(?MLKEM1024) -> mlkem1024;
+enum_to_group(?X25519MLKEM768)     -> x25519mlkem768;
+enum_to_group(?SECP256R1MLKEM768)  -> secp256r1mlkem768;
+enum_to_group(?SECP384R1MLKEM1024) -> secp384r1mlkem1024;
 enum_to_group(?FFDHE2048) -> ffdhe2048;
 enum_to_group(?FFDHE3072) -> ffdhe3072;
 enum_to_group(?FFDHE4096) -> ffdhe4096;
@@ -1212,7 +1357,7 @@ enum_to_group(?FFDHE6144) -> ffdhe6144;
 enum_to_group(?FFDHE8192) -> ffdhe8192;
 enum_to_group(_) -> undefined.
 
-%% 1-22 deprecated in RFC 8422
+%% 1-22 Deprecated in RFC 8422
 oid_to_enum(?sect163k1) -> 1;
 oid_to_enum(?sect163r1) -> 2;
 oid_to_enum(?sect163r2) -> 3;
@@ -1235,10 +1380,12 @@ oid_to_enum(?secp192r1) -> 19;
 oid_to_enum(?secp224k1) -> 20;
 oid_to_enum(?secp224r1) -> 21;
 oid_to_enum(?secp256k1) -> 22;
+
 %% RFC 8422
 oid_to_enum(?secp256r1) -> 23;
 oid_to_enum(?secp384r1) -> 24;
 oid_to_enum(?secp521r1) -> 25;
+
 %% RFC 7027
 oid_to_enum(?brainpoolP256r1) -> 26;
 oid_to_enum(?brainpoolP384r1) -> 27;
@@ -1279,6 +1426,16 @@ enum_to_oid(29) -> ?'id-X25519';
 enum_to_oid(30) -> ?'id-X448';
 enum_to_oid(_) ->
     undefined.
+
+maybe_group_to_curve(brainpoolP512r1tls13) ->
+    brainpoolP512r1;
+maybe_group_to_curve(brainpoolP384r1tls13) ->
+    brainpoolP384r1;
+maybe_group_to_curve(brainpoolP256r1tls13) ->
+    brainpoolP256r1;
+maybe_group_to_curve(Group) ->
+    Group.
+
 
 %%%################################################################
 %%%#

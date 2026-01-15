@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +46,9 @@ void erts_sys_init_float(void);
 void erl_start(int, char**);
 void erts_exit(int n, const char*, ...);
 void erl_error(const char*, va_list);
+
+UWord sys_page_size;
+UWord sys_large_page_size;
 
 /*
  * Microsoft-specific function to map a WIN32 error code to a Posix errno.
@@ -189,12 +194,18 @@ void sys_primitive_init(HMODULE beam)
     beam_module = (HMODULE) beam;
 }
 
-UWord
-erts_sys_get_page_size(void)
+static UWord
+get_page_size(void)
 {
     SYSTEM_INFO info;
     GetSystemInfo(&info);
     return (UWord)info.dwPageSize;
+}
+
+static UWord
+get_large_page_size(void)
+{
+    return 0;
 }
 
 Uint
@@ -414,7 +425,7 @@ int* pBuild;			/* Pointer to build number. */
 
 /* I. Common stuff */
 
-/* II. The spawn/fd/vanilla drivers */
+/* II. The spawn/fd drivers */
 
 /*
  * Definitions for driver flags.
@@ -474,7 +485,7 @@ static AsyncIo* fd_driver_input = NULL;
 static BOOL (WINAPI *fpSetHandleInformation)(HANDLE,DWORD,DWORD);
 
 /*
- * This data is used by the spawn and vanilla drivers.
+ * This data is used by the spawn drivers.
  * There will be one entry for each port, even if the input
  * and output HANDLES are different.  Since handles are not
  * guaranteed to be small numbers in Win32, we cannot index
@@ -509,7 +520,6 @@ struct driver_data {
 /* Driver interfaces */
 static ErlDrvData spawn_start(ErlDrvPort, char*, SysDriverOpts*);
 static ErlDrvData fd_start(ErlDrvPort, char*, SysDriverOpts*);
-static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
 static int spawn_init(void);
 static int fd_init(void);
 static void fd_stop(ErlDrvData);
@@ -565,32 +575,6 @@ struct erl_drv_entry fd_driver_entry = {
     ready_input,
     ready_output,
     "fd",
-    NULL, /* finish */
-    NULL, /* handle */
-    NULL, /* control */
-    NULL, /* timeout */
-    NULL, /* outputv */
-    NULL, /* ready_async */
-    NULL, /* flush */
-    NULL, /* call */
-    NULL, /* event */
-    ERL_DRV_EXTENDED_MARKER,
-    ERL_DRV_EXTENDED_MAJOR_VERSION,
-    ERL_DRV_EXTENDED_MINOR_VERSION,
-    0,	/* ERL_DRV_FLAGs */
-    NULL,
-    NULL, /* process_exit */
-    stop_select
-};
-
-struct erl_drv_entry vanilla_driver_entry = {
-    null_func,
-    vanilla_start,
-    stop,
-    output,
-    ready_input,
-    ready_output,
-    "vanilla",
     NULL, /* finish */
     NULL, /* handle */
     NULL, /* control */
@@ -883,6 +867,14 @@ set_driver_data(DriverData* dp, HANDLE ifd, HANDLE ofd, int read_write, int repo
 			       ERL_DRV_WRITE|ERL_DRV_USE, 1);
 	ASSERT(result != -1);
     }
+
+    /* Get "input" from process handle when it exits. */
+    if (dp->report_exit && dp->port_pid != INVALID_HANDLE_VALUE) {
+	result = driver_select(dp->port_num, (ErlDrvEvent)dp->port_pid,
+			       ERL_DRV_READ|ERL_DRV_USE, 1);
+	ASSERT(result != -1);
+    }
+
     return (ErlDrvData) dp;
 }
 
@@ -1492,9 +1484,11 @@ static int escape_and_quote(wchar_t *str, wchar_t *new, BOOL *quoted) {
  *	executable name.
  *
  * Results:
- *	The return value is FALSE if there was a problem creating the child process.  
- *      Otherwise, the return value is 0 and *phPid is
- *	filled with the process id of the child process.
+ *	The return value is FALSE if there was a problem creating the child process.
+ *
+ *      When successful, the return value is nonzero, *phPid is filled with the
+ *      process handle of the child process, and *pdwID is filled with its
+ *      process ID.
  * 
  * Side effects:
  *	A process is created.
@@ -1513,12 +1507,12 @@ create_child_process
  HANDLE hStdout, /* The standard output handle for child. */ 
  HANDLE hStderr, /* The standard error handle for child. */
  LPHANDLE phPid, /* Pointer to variable to received Process handle. */
- LPDWORD pdwID,   /* Pointer to variable to received Process ID */
+ LPDWORD pdwID,  /* Pointer to variable to received Process ID */
  BOOL hide,      /* Hide the window unconditionally. */
  LPVOID env,     /* Environment for the child */
- wchar_t *wd,      /* Working dir for the child */
+ wchar_t *wd,    /* Working dir for the child */
  unsigned st,    /* Flags for spawn, tells us how to interpret origcmd */
- wchar_t **argv,     /* Argument vector if given. */
+ wchar_t **argv, /* Argument vector if given. */
  int *errno_return /* Place to put an errno in case of failure */
  )
 {
@@ -2236,44 +2230,6 @@ static void fd_stop(ErlDrvData data)
 
 }
 
-static ErlDrvData
-vanilla_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
-{
-    HANDLE ofd,ifd;
-    DriverData* dp;
-    DWORD access;		/* Access mode: GENERIC_READ, GENERIC_WRITE. */
-    DWORD crFlags;
-    HANDLE this_process = GetCurrentProcess();
-
-    access = 0;
-    if (opts->read_write == DO_READ)
-	access |= GENERIC_READ;
-    if (opts->read_write == DO_WRITE)
-	access |= GENERIC_WRITE;
-
-    if (opts->read_write == DO_READ)
-	crFlags = OPEN_EXISTING;
-    else if (opts->read_write == DO_WRITE)
-	crFlags = CREATE_ALWAYS;
-    else
-	crFlags = OPEN_ALWAYS;
-
-    if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, FALSE)) == NULL)
-	return ERL_DRV_ERROR_GENERAL;
-    ofd = CreateFile(name, access, FILE_SHARE_READ | FILE_SHARE_WRITE,
-		    NULL, crFlags, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (!DuplicateHandle(this_process, (HANDLE) ofd,	
-			 this_process, &ifd, 0,
-			 FALSE, DUPLICATE_SAME_ACCESS)) {
-	CloseHandle(ofd);
-	ofd = INVALID_HANDLE_VALUE;
-    }
-    if (ofd == INVALID_HANDLE_VALUE)
-	return ERL_DRV_ERROR_GENERAL;
-    return set_driver_data(dp, ifd, ofd, opts->read_write,
-                           0, opts);
-}
-
 static void
 stop(ErlDrvData data)
 {
@@ -2290,6 +2246,11 @@ stop(ErlDrvData data)
 			     (ErlDrvEvent)dp->out.ov.hEvent,
 			     ERL_DRV_WRITE|ERL_DRV_USE_NO_CALLBACK, 0);
     }    
+    if (dp->report_exit) {
+	(void) driver_select(dp->port_num,
+			     (ErlDrvEvent)dp->port_pid,
+			     ERL_DRV_READ|ERL_DRV_USE_NO_CALLBACK, 0);
+    }
 
     if (dp->out.thread == (HANDLE) -1 && dp->in.thread == (HANDLE) -1) {
 	release_driver_data(dp);
@@ -2542,11 +2503,45 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
     DriverData* dp = (DriverData *) drv_data;
     int pb;
 
+    DEBUGF(("ready_input: dp %p, event 0x%x\n", dp, ready_event));
+
+    /*
+     * Port process exit.
+     */
+
+    if (ready_event == (ErlDrvEvent) dp->port_pid) {
+	DWORD exitcode;
+
+	if (GetExitCodeProcess(dp->port_pid, &exitcode)) {
+	    ASSERT(exitcode != STILL_ACTIVE);
+	    driver_report_exit(dp->port_num, exitcode);
+	}
+
+	{
+	    erts_aint32_t state;
+	    Port *prt = erts_drvport2port_state(dp->port_num, &state);
+
+	    /*
+	     * Stop polling process handle, otherwise we'll still
+	     * get "input" from it.
+	     */
+
+	    if (prt != ERTS_INVALID_ERL_DRV_PORT &&
+		(state & ERTS_PORT_SFLG_SOFT_EOF)) {
+		(void) driver_select(dp->port_num,
+				     (ErlDrvEvent)dp->port_pid,
+				     ERL_DRV_READ|ERL_DRV_USE_NO_CALLBACK, 0);
+	    }
+	}
+
+	driver_failure_eof(dp->port_num);
+	return;
+    }
+
     pb = dp->packet_bytes;
     if(dp->in.thread == (HANDLE) -1) {
 	dp->in.async_io_active = 0;
     }
-    DEBUGF(("ready_input: dp %p, event 0x%x\n", dp, ready_event));
 
     /*
      * Evaluate the result of the overlapped read.
@@ -2682,15 +2677,9 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
     } else {
 	DEBUGF(("ready_input(): error: %s\n", win32_errorstr(error)));
 	if (error == ERROR_BROKEN_PIPE || error == ERROR_HANDLE_EOF) {
-	    /* Maybe check exit status */
-	    if (dp->report_exit) {
-		DWORD exitcode;
-		if (GetExitCodeProcess(dp->port_pid, &exitcode) &&
-		    exitcode != STILL_ACTIVE) {
-		    driver_report_exit(dp->port_num, exitcode);
-		}
-	    }
-	    driver_failure_eof(dp->port_num);
+	    /* Don't repeat this call when reporting exit. */
+	    if (!dp->report_exit || dp->port_pid == INVALID_HANDLE_VALUE)
+		driver_failure_eof(dp->port_num);
 	} else {			/* Report real errors. */
 	    int error = GetLastError();
 
@@ -3255,6 +3244,9 @@ erts_sys_pre_init(void)
     eid.thread_create_prepare_func = thr_create_prepare;
     /* After creation in parent */
     eid.thread_create_parent_func = thr_create_cleanup;
+
+    sys_page_size = get_page_size();
+    sys_large_page_size = get_large_page_size();
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_pre_thr_init();

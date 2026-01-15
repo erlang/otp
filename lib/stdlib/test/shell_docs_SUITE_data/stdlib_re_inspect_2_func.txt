@@ -1,15 +1,24 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec inspect(MP, Item) -> {namelist, [binary()]}[0m
-  [;1m                 when MP :: mp(), Item :: namelist.[0m
+[;1m  inspect(MP, Item)[0m
 
 [;;4mSince[0m:
   OTP 17.0
 
   Takes a compiled regular expression and an item, and returns the
-  relevant data from the regular expression. The only supported item
-  is [;;4mnamelist[0m, which returns the tuple [;;4m{namelist, [binary()]}[0m,
-  containing the names of all (unique) named subpatterns in the
-  regular expression. For example:
+  relevant data from the regular expression.
+
+  The only supported item is [;;4mnamelist[0m, which returns the tuple [;;4m[0m
+  [;;4m{namelist, [binary()]}[0m, containing the names of all (unique)
+  named subpatterns in the regular expression.
+
+  For example:
 
     1> {ok,MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)").
     {ok,{re_pattern,3,0,0,
@@ -21,7 +30,7 @@
     {ok,{re_pattern,3,0,0,
                     <<69,82,67,80,119,0,0,0,0,0,8,0,1,0,0,0,255,255,255,255,
                       255,255,...>>}}
-    4> re:inspect(MPD,namelist).                                   
+    4> re:inspect(MPD,namelist).
     {namelist,[<<"B">>,<<"C">>]}
 
   Notice in the second example that the duplicate name only occurs

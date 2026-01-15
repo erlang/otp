@@ -1,16 +1,18 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
-  [;1m-spec read_line(IoDevice) -> {ok, Data} | eof | {error, Reason}[0m
-  [;1m                   when[0m
-  [;1m                       IoDevice :: io_device() | io:device(),[0m
-  [;1m                       Data :: string() | binary(),[0m
-  [;1m                       Reason ::[0m
-  [;1m                           posix() |[0m
-  [;1m                           badarg | terminated |[0m
-  [;1m                           {no_translation, unicode, latin1}.[0m
+[;1m  read_line(IoDevice)[0m
 
   Reads a line of bytes/characters from the file referenced by [;;4m[0m
-  [;;4mIoDevice[0m. Lines are defined to be delimited by the linefeed (LF, [;;4m[0m
-  [;;4m\n[0m) character, but any carriage return (CR, [;;4m\r[0m) followed by a
+  [;;4mIoDevice[0m.
+
+  Lines are defined to be delimited by the linefeed (LF, [;;4m\n[0m)
+  character, but any carriage return (CR, [;;4m\r[0m) followed by a
   newline is also treated as a single LF character (the carriage
   return is silently ignored). The line is returned including the
   LF, but excluding any CR immediately followed by an LF. This
@@ -31,26 +33,23 @@
 
   The function returns:
 
-  [;;4m[;;4m{ok, Data}[0m[0m:
-    One line from the file is returned, including the trailing LF,
-    but with CRLF sequences replaced by a single LF (see above).
+   • [;;4m{ok, Data}[0m - One line from the file is returned, including
+     the trailing LF, but with CRLF sequences replaced by a
+     single LF (see above).
 
-    If the file is opened in binary mode, the read bytes are
-    returned in a binary, otherwise in a list.
+     If the file is opened in binary mode, the read bytes are
+     returned in a binary, otherwise in a list.
 
-  [;;4m[;;4meof[0m[0m:
-    Returned if end of file was reached before anything at all
-    could be read.
+   • [;;4meof[0m - Returned if end of file was reached before anything
+     at all could be read.
 
-  [;;4m[;;4m{error, Reason}[0m[0m:
-    An error occurred.
+   • [;;4m{error, Reason}[0m - An error occurred.
 
   Typical error reasons:
 
-  [;;4m[;;4mebadf[0m[0m:
-    The file is not opened for reading.
+   • [;;4mebadf[0m - The file is not opened for reading.
 
-  [;;4m[;;4m{no_translation, unicode, latin1}[0m[0m:
-    The file is opened with another [;;4mencoding[0m than [;;4mlatin1[0m and
-    the data on the file cannot be translated to the byte-oriented
-    data that this function returns.
+   • [;;4m{no_translation, unicode, latin1}[0m - The file is opened with
+     another [;;4mencoding[0m than [;;4mlatin1[0m and the data on the file
+     cannot be translated to the byte-oriented data that this
+     function returns.

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 2006-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +60,23 @@ Eterm erts_check_io_info(void *proc);
 void erts_io_notify_port_task_executed(ErtsPortTaskType type,
                                        ErtsPortTaskHandle *handle,
                                        void (*reset)(ErtsPortTaskHandle *));
+
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+/**
+ * Handles an nif select non-message signal. Returns the message Eterm.
+ * 
+ * @param sig The signal that has arrived
+ */
+Eterm erts_io_handle_nif_select(ErtsMessage *sig);
+
+/**
+ * Clears all nif select handles from scheduler queue.
+ * 
+ * @param sig The signal that has arrived
+ */
+void erts_io_clear_nif_select_handles(ErtsSchedulerData *esdp);
+#endif
+
 /**
  * Returns the maximum number of fds that the check io framework can handle.
  */

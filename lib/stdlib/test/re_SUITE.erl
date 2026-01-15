@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +22,9 @@
 -module(re_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, pcre/1,compile_options/1,
+	 init_per_group/2,end_per_group/2, pcre2/1,compile_options/1,
+         old_pcre1/1,
+         pcre2_incompat/1,
 	 run_options/1,combined_options/1,replace_autogen/1,
 	 global_capture/1,replace_input_types/1,replace_with_fun/1,replace_return/1,
 	 split_autogen/1,split_options/1,split_specials/1,
@@ -30,7 +34,13 @@
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
 	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
          yield_on_subject_validation/1, bad_utf8_subject/1,
-         error_info/1]).
+         error_info/1, subject_is_sub_binary/1, pattern_is_sub_binary/1,
+         import/1,
+         kill_yielding/1,
+
+         last_test/1]).
+
+-export([id/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -40,7 +50,9 @@ suite() ->
      {timetrap,{minutes,3}}].
 
 all() -> 
-    [pcre, compile_options, run_options, combined_options,
+    [pcre2, compile_options, run_options, combined_options,
+     old_pcre1,
+     pcre2_incompat,
      replace_autogen, global_capture, replace_input_types,
      replace_with_fun, replace_return, split_autogen, split_options,
      split_specials, error_handling, pcre_cve_2008_2371,
@@ -49,7 +61,11 @@ all() ->
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
      match_limit, sub_binaries, re_version, global_unicode_validation,
      yield_on_subject_validation, bad_utf8_subject,
-     error_info].
+     error_info, subject_is_sub_binary, pattern_is_sub_binary,
+     import,
+     kill_yielding,
+
+     last_test].
 
 groups() -> 
     [].
@@ -67,10 +83,17 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-%% Run all applicable tests from the PCRE testsuites.
-pcre(Config) when is_list(Config) ->
+%% Run all applicable tests from the PCRE2 testsuites.
+pcre2(Config) when is_list(Config) ->
     RootDir = proplists:get_value(data_dir, Config),
     Res = run_pcre_tests:test(RootDir),
+    0 = lists:sum([ X || {X,_,_} <- Res ]),
+    {comment,Res}.
+
+%% Run tests from the old PCRE testsuites.
+old_pcre1(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(data_dir, Config),
+    Res = run_old_pcre1_tests:test(RootDir),
     0 = lists:sum([ X || {X,_,_} <- Res ]),
     {comment,Res}.
 
@@ -115,45 +138,34 @@ compile_options(Config) when is_list(Config) ->
 
 %% Test all documented run specific options.
 run_options(Config) when is_list(Config) ->
-    rtest("ABCabcdABC","abc",[],[],true),
-    rtest("ABCabcdABC","abc",[anchored],[],false),
+    rtest("ABCabcdABC","abc",[],[], match),
+    rtest("ABCabcdABC","abc",[anchored],[], nomatch),
     %% Anchored in run overrides unanchored in compilation
-    rtest("ABCabcdABC","abc",[],[anchored],false),
+    rtest("ABCabcdABC","abc",[],[anchored], nomatch),
 
-    rtest("","a?b?",[],[],true),
-    rtest("","a?b?",[],[notempty],false),
+    rtest("","a?b?",[],[], match),
+    rtest("","a?b?",[],[notempty], nomatch),
 
-    rtest("abc","^a",[],[],true),
-    rtest("abc","^a",[],[notbol],false),
-    rtest("ab\nc","^a",[multiline],[],true),
-    rtest("ab\nc","^a",[multiline],[notbol],false),
-    rtest("ab\nc","^c",[multiline],[notbol],true),
+    rtest("abc","^a",[],[], match),
+    rtest("abc","^a",[],[notbol], nomatch),
+    rtest("ab\nc","^a",[multiline],[], match),
+    rtest("ab\nc","^a",[multiline],[notbol], nomatch),
+    rtest("ab\nc","^c",[multiline],[notbol], match),
 
-    rtest("abc","c$",[],[],true),
-    rtest("abc","c$",[],[noteol],false),
+    rtest("abc","c$",[],[], match),
+    rtest("abc","c$",[],[noteol], nomatch),
 
-    rtest("ab\nc","b$",[multiline],[],true),
-    rtest("ab\nc","c$",[multiline],[],true),
-    rtest("ab\nc","b$",[multiline],[noteol],true),
-    rtest("ab\nc","c$",[multiline],[noteol],false),
+    rtest("ab\nc","b$",[multiline],[], match),
+    rtest("ab\nc","c$",[multiline],[], match),
+    rtest("ab\nc","b$",[multiline],[noteol], match),
+    rtest("ab\nc","c$",[multiline],[noteol], nomatch),
 
-    rtest("abc","ab",[],[{offset,0}],true),
-    rtest("abc","ab",[],[{offset,1}],false),
+    rtest("abc","ab",[],[{offset,0}], match),
+    rtest("abc","ab",[],[{offset,1}], nomatch),
 
-    rtest("abcdABCabcABC\nD","abcd.*D",[],[],false),
-    rtest("abcdABCabcABC\nD","abcd.*D",[],[{newline,cr}],true),
-    rtest("abcdABCabcABC\rD","abcd.*D",[],[],true),
-    rtest("abcdABCabcABC\rD","abcd.*D",[{newline,cr}],[{newline,lf}],true),
-    rtest("abcdABCabcd\r\n","abcd$",[],[{newline,lf}],false),
-    rtest("abcdABCabcd\r\n","abcd$",[],[{newline,cr}],false),
-    rtest("abcdABCabcd\r\n","abcd$",[],[{newline,crlf}],true),
-
-    rtest("abcdABCabcd\r","abcd$",[],[{newline,crlf}],false),
-    rtest("abcdABCabcd\n","abcd$",[],[{newline,crlf}],false),
-    rtest("abcdABCabcd\r\n","abcd$",[],[{newline,anycrlf}],true),
-
-    rtest("abcdABCabcd\r","abcd$",[],[{newline,anycrlf}],true),
-    rtest("abcdABCabcd\n","abcd$",[],[{newline,anycrlf}],true),
+    rtest("abcdABCabcABC\nD","abcd.*D",[],[], nomatch),
+    rtest("abcdABCabcABC\rD","abcd.*D",[],[], match),
+    rtest("abcdABCabcd\r\n","abcd$",[],[{newline,lf}], nomatch),
 
     {ok,MP} = re:compile(".*(abcd).*"),
     {match,[{0,10},{3,4}]} = re:run("ABCabcdABC",MP,[]),
@@ -197,11 +209,41 @@ run_options(Config) when is_list(Config) ->
     ok.
 
 
+pcre2_incompat(Config) when is_list(Config) ->
+    %% Not allowed to pass changed newline option to re:run/3
+    rtest("abcdABCabcABC\nD", "abcd.*D", [], [{newline,cr}],  badarg),
+    rtest("abcdABCabcd\r\n", "abcd$", [], [{newline,crlf}],  badarg),
+    rtest("abcdABCabcd\r\n", "abcd$", [], [{newline,anycrlf}],  badarg),
+    rtest("abcdABCabcd\r", "abcd$", [], [{newline,any}],  badarg),
 
-%% Test the version is retorned correctly
+    [rtest("abcdABCabcd\r", "abcd$", [{newline,C}], [{newline,R}],  badarg)
+     || C <- [lf, cr, crlf, anycrlf, any],
+        R <- [lf, cr, crlf, anycrlf, any],
+        C =/= R],
+
+    %% But we do allowed to pass an unchanged newline option to re:run/3
+    rtest("abcdABCabcABC\rD", "abcd.*D", [], [{newline,lf}],  match),
+
+    [rtest("abcABC", "abc", [{newline,NL}], [{newline,NL}],  match)
+     || NL <- [lf, cr, crlf, anycrlf, any]],
+
+    %% Not allowed to pass changed BSR option to re:run/3
+    rtest("abcdABCabcABC\nD", "abcd.*D", [], [bsr_anycrlf],  badarg),
+    rtest("abcdABCabcd\r", "abcd$", [bsr_unicode], [bsr_anycrlf], badarg),
+    rtest("abcdABCabcd\r", "abcd$", [bsr_anycrlf], [bsr_unicode], badarg),
+
+    %% But we do allowed an unchanged BSR option to re:run/3
+    rtest("abcd\x{85}D", "abcd\\RD", [], [bsr_unicode],  match),
+    rtest("abcd\x{85}D", "abcd\\RD", [bsr_unicode], [bsr_unicode],  match),
+    rtest("abcd\r\nD", "abcd\\RD", [bsr_anycrlf], [bsr_anycrlf],  match),
+    ok.
+
+%% Test the version is returned correctly
 re_version(_Config) ->
     Version = re:version(),
-    {match,[Version]} = re:run(Version,"^[0-9]\\.[0-9]{2} 20[0-9]{2}-[0-9]{2}-[0-9]{2}",[{capture,all,binary}]),
+    {match,[Version]} = re:run(Version,
+                               ~B"^\d{2}\.\d{2} 20\d{2}-\d{2}-\d{2}",
+                               [{capture,all,binary}]),
     ok.
 
 global_unicode_validation(Config) when is_list(Config) ->
@@ -399,14 +441,22 @@ replace_return(Config) when is_list(Config) ->
     ok = replacetest("a\x{400}bcd","Z","X",[global,{return,binary},unicode],<<"a",208,128,"bcd">>),
     ok.
 
-rtest(Subj, RE, Copt, Ropt, true) ->
+rtest(Subj, RE, Copt, Ropt, match) ->
     {ok,MP} = re:compile(RE,Copt), 
     {match,_} = re:run(Subj,MP,Ropt),
     ok;
-rtest(Subj, RE, Copt, Ropt, false) ->
+rtest(Subj, RE, Copt, Ropt, nomatch) ->
     {ok,MP} = re:compile(RE,Copt), 
     nomatch = re:run(Subj,MP,Ropt),
-    ok.
+    ok;
+rtest(Subj, RE, Copt, Ropt, badarg) ->
+    {ok,MP} = re:compile(RE,Copt),
+    ok = try
+             re:run(Subj,MP,Ropt),
+             error
+         catch
+             error:badarg -> ok
+         end.
 
 ctest(_,RE,Options,false,_) ->
     case re:compile(RE,Options) of
@@ -416,14 +466,10 @@ ctest(_,RE,Options,false,_) ->
 	    ok
     end;
 ctest(Subject,RE,Options,true,Result) ->
-    try
-	{ok, Prog} = re:compile(RE,Options),
-	Result = re:run(Subject,Prog,[]),
-	ok
-    catch
-	_:_ ->
-	    error
-    end.
+    {ok, Prog} = re:compile(RE,Options),
+    Result = re:run(Subject,Prog,[]),
+    ok.
+
 crtest(_,RE,Options,false,_) ->
     case (catch re:run("",RE,Options)) of
 	{'EXIT',{badarg,_}} ->
@@ -476,6 +522,10 @@ split_autogen(Config) when is_list(Config) ->
 
 %% Test special options to split.
 split_options(Config) when is_list(Config) ->
+    ok = splittest("", "", [trim], []),
+    ok = splittest("", " ", [trim], []),
+    ok = splittest("", "()", [group, trim], []),
+    ok = splittest("", "( )", [group, trim], []),
     ok = splittest("a b c ","( )",[group,trim],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>]]),
     ok = splittest("a b c ","( )",[group,{parts,0}],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>]]),
     ok = splittest("a b c ","( )",[{parts,infinity},group],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<>>]]),
@@ -550,6 +600,7 @@ error_handling(_Config) ->
     {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors,global]),
     %% Badly formed options
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,["global"])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[export])),
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,-1}])),
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,ett}])),
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{captore,[1,2],binary}])),
@@ -675,10 +726,10 @@ pcre_cve_2008_2371(Config) when is_list(Config) ->
 %% Patch from
 %% http://vcs.pcre.org/viewvc/code/trunk/pcre_compile.c?r1=504&r2=505&view=patch
 pcre_compile_workspace_overflow(Config) when is_list(Config) ->
-    N = 819,
+    N = 1180,
     ExpStr = "Got expected error: ",
     case re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]) of
-        {error, {"regular expression is too complicated" = Str,799}} ->
+        {error, {"regular expression is too complicated" = Str, _Pos}} ->
             {comment, ExpStr ++ Str};
         {error, {"parentheses are too deeply nested (stack check)" = Str, _No}} ->
             {comment, ExpStr ++ Str};
@@ -906,9 +957,9 @@ opt_never_utf(Config) when is_list(Config) ->
 %% Check that the ucp option is passed to PCRE.
 opt_ucp(Config) when is_list(Config) ->
     {match,[{0,1}]} = re:run([$a],"\\w",[unicode]),
-    {match,[{0,2}]} = re:run([229],"\\w",[unicode]), % Latin1 works without UCP, as we have a default 
-    %% Latin1 table
-    nomatch = re:run([1024],"\\w",[unicode]), % Latin1 word characters only, 1024 is not latin1
+    nomatch = re:run([229],"\\w",[unicode]), % Latin1 do not work without UCP anymore, ASCII is default
+    nomatch = re:run([1024],"\\w",[unicode]), % and neither do non Latin1 code points.
+    {match,[{0,2}]} = re:run([229],"\\w",[unicode,ucp]),  % Need ucp for Latin1
     {match,[{0,2}]} = re:run([1024],"\\w",[unicode,ucp]), % Any Unicode word character works with 'ucp'
     ok.
 
@@ -1023,8 +1074,9 @@ error_info(_Config) ->
     BadRegexp = {re_pattern,0,0,0,<<"xyz">>},
     BadErr = "neither an iodata term",
     {ok,GoodRegexp} = re:compile(".*"),
+    {ok, Exported} = re:compile(".*", [export]),
     InvalidRegexp = <<"(.*))">>,
-    InvalidErr = "could not parse regular expression\n.*unmatched parentheses.*",
+    InvalidErr = "could not parse regular expression\n.*unmatched closing parenthesis.*",
 
     L = [{compile, [not_iodata]},
          {compile, [not_iodata, not_list],[{1,".*"},{2,".*"}]},
@@ -1040,6 +1092,12 @@ error_info(_Config) ->
          {inspect,[GoodRegexp, bad_inspect_item]},
 
          {internal_run, 4},                     %Internal.
+
+         {import, [17]},
+         {import, [{re_exported_pattern}]},
+         {import, [setelement(1,Exported,error)]},
+         {import, [setelement(2,Exported,error)]},
+         {import, [setelement(5,Exported,error)]},
 
          {replace, [{a,b}, {x,y}, {z,z}],[{1,".*"},{2,".*"},{3,".*"}]},
          {replace, [{a,b}, BadRegexp, {z,z}],[{1,".*"},{2,BadErr},{3,".*"}]},
@@ -1077,3 +1135,177 @@ error_info(_Config) ->
          {urun, 3}                              %Internal.
         ],
     error_info_lib:test_error_info(re, L).
+
+pattern_is_sub_binary(Config) when is_list(Config) ->
+    %% Aligned sub binary - will not copy the binary
+    Bin = <<"pattern = ^((:|(0?|([1-9a-f][0-9a-f]{0,3}))):)((0?|([1-9a-f][0-9a-f]{0,3})):){0,6}(:|(0?|([1-9a-f][0-9a-f]{0,3})))$">>,
+    Subject = <<"::1">>,
+    {_,RE} = split_binary(Bin, 10),
+    {ok,REC} = re:compile(RE),
+    match = re:run(Subject, REC, [{capture, none}]),
+    match = re:run(Subject, RE, [{capture, none}]),
+    nomatch = re:run(Subject, Bin, [{capture, none}]),
+    %% Unaligned sub binary - will result in a copy operation
+    RE2 = unalign_bin(<<"^((:|(0?|([1-9a-f][0-9a-f]{0,3}))):)((0?|([1-9a-f][0-9a-f]{0,3})):){0,6}(:|(0?|([1-9a-f][0-9a-f]{0,3})))$">>),
+    {ok,REC2} = re:compile(RE2),
+    match = re:run(Subject, REC2, [{capture, none}]),
+    match = re:run(Subject, RE2, [{capture, none}]),
+    ok = try
+             re:run(Subject, <<0:1,RE2>>, [{capture, none}])
+         catch error:badarg ->
+        %% *** argument 2: neither an iodata term nor a compiled regular expression
+        ok
+    end.
+
+subject_is_sub_binary(Config) when is_list(Config) ->
+    %% Aligned subject sub binary
+    Bin = <<"subject = ::1">>,
+    RE = <<"^((:|(0?|([1-9a-f][0-9a-f]{0,3}))):)((0?|([1-9a-f][0-9a-f]{0,3})):){0,6}(:|(0?|([1-9a-f][0-9a-f]{0,3})))$">>,
+    {_,Subject} = split_binary(Bin, 10),
+    {ok,REC} = re:compile(RE),
+    match = re:run(Subject, REC, [{capture, none}]),
+    match = re:run(Subject, RE, [{capture, none}]),
+    nomatch = re:run(Bin, RE, [{capture, none}]),
+    %% Unaligned subject sub binary
+    Subject2 = unalign_bin(Subject),
+    match = re:run(Subject2, REC, [{capture, none}]),
+    match = re:run(Subject2, RE, [{capture, none}]),
+    ok = try
+        _ = re:run(<<0:1, Subject>>, RE, [{capture, none}])
+    catch error:badarg ->
+        %% *** argument 1: not an iodata term
+        ok
+    end.
+
+import(Config) when is_list(Config) ->
+    RE = <<"exported">>,
+
+    {ok, Exported1} = re:compile(RE, [export]),
+    import_do(Exported1, fun re:import/1),
+    import_do(Exported1, fun(E) -> re:import(unalign_exported(E)) end),
+
+    {ok, Exported2} = re:compile(binary_to_list(RE), [export]),
+    import_do(Exported2, fun re:import/1),
+    import_do(Exported2, fun(E) -> re:import(unalign_exported(E)) end),
+    ok.
+
+import_do(Exported, ImportFun) ->
+    match = re:run("exported", ImportFun(Exported), [{capture,none}]),
+
+    %% Make an exported tuple with fake fallback to verify if it was used or not.
+    Fake1 = setelement(3, Exported, <<"fallback">>),
+    match = re:run("exported", ImportFun(Fake1), [{capture,none}]),
+
+    Fake2 = bump_exported_pcre_version(Fake1),
+    match = re:run("fallback", ImportFun(Fake2), [{capture,none}]),
+
+    Fake3 = swap_exported_endianness(Fake1),
+    match = re:run("fallback", ImportFun(Fake3), [{capture,none}]),
+
+    Fake4 = bump_encode_version(Fake1),
+    match = re:run("fallback", ImportFun(Fake4), [{capture,none}]),
+
+    badarg = try ImportFun(setelement(3, Fake4, ~"(broken fallback"))
+             catch error:badarg -> badarg end,
+    badarg = try ImportFun(trash_encoding(Exported))
+             catch error:badarg -> badarg end,
+    ok.
+
+unalign_exported(Exported) ->
+    {re_exported_pattern, Hdr, RE, Opts, Enc} = Exported,
+    {re_exported_pattern, unalign_bin(Hdr), unalign_bin(RE), Opts, unalign_bin(Enc)}.
+
+unalign_bin(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
+
+bump_exported_pcre_version(Exported) ->
+    {re_exported_pattern, Hdr, RE, Opts, Enc1} = Exported,
+    <<Magic:32, Maj:16, Min:16/little, EncRest/binary>> = Enc1,
+    Enc2 = <<Magic:32, Maj:16, (Min+1):16/little, EncRest/binary>>,
+    build_exported(Hdr, RE, Opts, Enc2).
+
+bump_encode_version(Exported) ->
+    {re_exported_pattern, Hdr1, RE, Opts, Enc} = Exported,
+    <<Title:8/binary, CRC:32, EncVer, Unicode>> = Hdr1,
+    Hdr2 = <<Title:8/binary, CRC:32, (EncVer+1), Unicode>>,
+    build_exported(Hdr2, RE, Opts, Enc).
+
+swap_exported_endianness(Exported) ->
+    {re_exported_pattern, Hdr, RE, Opts, Enc1} = Exported,
+    <<Magic:32/big, EncRest/binary>> = Enc1,
+    Enc2 = <<Magic:32/little, EncRest/binary>>,
+    build_exported(Hdr, RE, Opts, Enc2).
+
+trash_encoding(Exported) ->
+    {re_exported_pattern, Hdr, RE, Opts, Enc1} = Exported,
+    <<Magic:32, Maj:16, Min:16, Byte, EncRest/binary>> = Enc1,
+    Enc2 = <<Magic:32, Maj:16, Min:16, (Byte+1), EncRest/binary>>,
+    {re_exported_pattern, Hdr, RE, Opts, Enc2}.
+
+build_exported(Hdr1, RE, Opts, Enc) ->
+    <<Title:8/binary, _CRC1:32, HdrRest/binary>> = Hdr1,
+    CRC2 = erlang:crc32(Enc),
+    Hdr2 = <<Title/binary, CRC2:32, HdrRest/binary>>,
+    {re_exported_pattern, Hdr2, RE, Opts, Enc}.
+
+%% OTP-19888: Verify that process can handle being killed while yielding
+%% inside re:run without beam crash or memory leak.
+kill_yielding(Config) when is_list(Config) ->
+    Subject = binary:copy(~"hejsan", 100_000),
+    DoIt = fun(RE) ->
+                   {Pid, MRef} = spawn_monitor(fun() ->
+                                                       re:run(Subject, RE)
+                                               end),
+                   erlang:yield(),
+                   exit(Pid, kill),
+                   {'DOWN',MRef,process,Pid,killed} = receive_any()
+           end,
+
+    RE_string = ~B"\w+\d",
+    {ok, RE_compiled} = re:compile(RE_string, []),
+    DoIt(RE_string),
+    DoIt(RE_compiled),
+    ok.
+
+receive_any() ->
+    receive M -> M
+    after 1000 -> timeout
+    end.
+
+last_test(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    Res = case erts_debug:get_internal_state(re_yield_coverage) of
+              undefined ->
+                  case erlang:system_info(build_type) of
+                      Type when Type =/= debug ->
+                          {skip, {"No yield coverage in",Type}}
+                  end;
+              Coverage ->
+                  io:format("re_yield_coverage = ~p\n", [Coverage]),
+                  ok = check_yield_coverage(Coverage, ok)
+          end,
+    erts_debug:set_internal_state(available_internal_state, false),
+    Res.
+
+check_yield_coverage([], Err) ->
+    Err;
+check_yield_coverage([Tuple | Tail], Err0) ->
+    Err1 =
+        case Tuple of
+            {Line, 0, 0} ->
+                io:format("COST_CHK at line ~p never visited", [Line]),
+                error;
+            {Line, Visits, 0} ->
+                io:format("COST_CHK at line ~p visited ~p times but never yielded",
+                          [Line, Visits]),
+                error;
+            {Line, 0, Yields} ->
+                io:format("COST_CHK at line ~p never visited but has yielded ~p times ????",
+                          [Line, Yields]),
+                error;
+            {_,_,_} ->
+                Err0
+        end,
+    check_yield_coverage(Tail, Err1).
+
+id(X) -> X.

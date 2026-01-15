@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +24,7 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <functional>
 #include <algorithm>
 #include <cmath>
 
@@ -52,10 +55,40 @@ extern "C"
 
 using namespace asmjit;
 
+/* The ERTS_JIT_ABI_XYZ macro lets us simulate a different calling convention
+ * than the one we are running on, which is useful for debugging
+ * Windows-specific JIT problems where we lack `rr`.
+ *
+ * If the problem is in the JIT alone, we can thus reproduce it on Linux by
+ * generating code as if we're on Windows. The `runtime_call` template
+ * seamlessly switches conventions as required so that we don't have to update
+ * any calls. */
+#if defined(WIN32)
+#    define ERTS_JIT_ABI_WIN32
+#elif !defined(ERTS_JIT_ABI_WIN32)
+#    undef ERTS_JIT_ABI_SYSV
+#    define ERTS_JIT_ABI_SYSV
+#endif
+
+#if defined(ERTS_JIT_ABI_WIN32) && !defined(WIN32)
+#    if defined(__GNUC__) || defined(__clang__)
+#        define ERTS_CCONV_ERTS
+#        define ERTS_CCONV_JIT __attribute__((ms_abi))
+#        define ERTS_CCONV_DEBUG
+#    else
+#        error "Unsupported JIT debug configuration"
+#    endif
+#else
+#    define ERTS_CCONV_ERTS
+#    define ERTS_CCONV_JIT
+#endif
+
 struct BeamAssembler : public BeamAssemblerCommon {
     BeamAssembler() : BeamAssemblerCommon(a) {
         Error err = code.attach(&a);
         ERTS_ASSERT(!err && "Failed to attach codeHolder");
+
+        lateInit();
     }
 
     BeamAssembler(const std::string &log) : BeamAssembler() {
@@ -93,7 +126,7 @@ protected:
 #endif
 
     const x86::Gp c_p = x86::r13;
-    const x86::Gp FCALLS = x86::r14;
+    const x86::Gp FCALLS = x86::r14d;
     const x86::Gp HTOP = x86::r15;
 
     /* Local copy of the active code index.
@@ -109,7 +142,7 @@ protected:
 #endif
 
     /* * * * * * * * * */
-#ifdef WIN32
+#if defined(ERTS_JIT_ABI_WIN32)
     const x86::Gp ARG1 = x86::rcx;
     const x86::Gp ARG2 = x86::rdx;
     const x86::Gp ARG3 = x86::r8;
@@ -117,19 +150,25 @@ protected:
     const x86::Gp ARG5 = x86::r10;
     const x86::Gp ARG6 = x86::r11;
 
+    const x86::Gp TMP1 = x86::rdi;
+    const x86::Gp TMP2 = x86::rsi;
+
     const x86::Gp ARG1d = x86::ecx;
     const x86::Gp ARG2d = x86::edx;
     const x86::Gp ARG3d = x86::r8d;
     const x86::Gp ARG4d = x86::r9d;
     const x86::Gp ARG5d = x86::r10d;
     const x86::Gp ARG6d = x86::r11d;
-#else
+#elif defined(ERTS_JIT_ABI_SYSV)
     const x86::Gp ARG1 = x86::rdi;
     const x86::Gp ARG2 = x86::rsi;
     const x86::Gp ARG3 = x86::rdx;
     const x86::Gp ARG4 = x86::rcx;
     const x86::Gp ARG5 = x86::r8;
     const x86::Gp ARG6 = x86::r9;
+
+    const x86::Gp TMP1 = x86::r10;
+    const x86::Gp TMP2 = x86::r11;
 
     const x86::Gp ARG1d = x86::edi;
     const x86::Gp ARG2d = x86::esi;
@@ -407,35 +446,59 @@ protected:
     static const uint8_t nop2[2];
     static const uint8_t nop3[3];
 
-    void runtime_call(x86::Gp func, unsigned args) {
-        ASSERT(args < 5);
+    template<typename T>
+    struct function_traits;
 
-        emit_assert_runtime_stack();
+    template<typename Range, typename... Domain>
+    struct function_traits<Range(ERTS_CCONV_ERTS *)(Domain...)> {
+        static constexpr bool Emulator = true;
+        static constexpr bool Jit = std::is_same_v<void(ERTS_CCONV_ERTS *)(),
+                                                   void(ERTS_CCONV_JIT *)()>;
+        static constexpr size_t Arity = sizeof...(Domain);
 
-#ifdef WIN32
-        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-        a.call(func);
-        a.add(x86::rsp, imm(4 * sizeof(UWord)));
-#else
-        a.call(func);
+#ifdef ERTS_CCONV_DEBUG
+        /* If the emulator and JIT conventions differ, this acts as a seamless
+         * bridge between the two conventions. */
+        template<Range(ERTS_CCONV_ERTS *Func)(Domain...)>
+        struct trampoline {
+            using type = Range(ERTS_CCONV_JIT *)(Domain...);
+
+            static Range ERTS_CCONV_JIT marshal(Domain... args) {
+                ERTS_CT_ASSERT(Emulator != Jit);
+
+                return Func(args...);
+            }
+        };
 #endif
+    };
+
+#ifdef ERTS_CCONV_DEBUG
+    template<typename Range, typename... Domain>
+    struct function_traits<Range(ERTS_CCONV_JIT *)(Domain...)> {
+        static constexpr bool Emulator = false;
+        static constexpr bool Jit = true;
+        static constexpr size_t Arity = sizeof...(Domain);
+    };
+#endif
+
+    template<typename T,
+             T Func,
+             std::enable_if_t<!function_traits<T>::Jit, bool> = true>
+    void runtime_call() {
+        using trampoline =
+                typename function_traits<T>::template trampoline<Func>;
+        runtime_call<typename trampoline::type, trampoline::marshal>();
     }
 
-    template<typename T>
-    struct function_arity;
-    template<typename T, typename... Args>
-    struct function_arity<T(Args...)>
-            : std::integral_constant<int, sizeof...(Args)> {};
-
-    template<int expected_arity, typename T>
-    void runtime_call(T(*func)) {
-        static_assert(expected_arity == function_arity<T>());
-
+    template<typename T,
+             T Func,
+             std::enable_if_t<function_traits<T>::Jit, bool> = true>
+    void runtime_call() {
         emit_assert_runtime_stack();
 
-#ifdef WIN32
-        unsigned pushed;
-        switch (expected_arity) {
+#if defined(ERTS_JIT_ABI_WIN32)
+        unsigned pushed = 4;
+        switch (function_traits<T>::Arity) {
         case 6:
         case 5:
             /* We push ARG6 to keep the stack aligned even when we only have 5
@@ -443,20 +506,44 @@ protected:
              * sub/push/sub. */
             a.push(ARG6);
             a.push(ARG5);
-            a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-            pushed = 6;
+            pushed += 2;
             break;
-        default:
-            a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-            pushed = 4;
         }
-
+        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
 #endif
 
-        a.call(imm(func));
+        a.call(imm(Func));
 
-#ifdef WIN32
+#if defined(ERTS_CCONV_DEBUG) && defined(DEBUG)
+        /* Explicitly clobber all temporary registers to provoke ABI errors. */
+        a.xor_(ARG1d, ARG1d);
+        a.mov(ARG2d, ARG1d);
+        a.mov(ARG3d, ARG1d);
+        a.mov(ARG4d, ARG1d);
+        a.mov(ARG5d, ARG1d);
+        a.mov(ARG6d, ARG1d);
+        a.mov(TMP1, ARG1);
+        a.mov(TMP2, ARG1);
+#endif
+
+#if defined(ERTS_JIT_ABI_WIN32)
         a.add(x86::rsp, imm(pushed * sizeof(UWord)));
+#endif
+    }
+
+    template<int Arity>
+    void dynamic_runtime_call(x86::Gp func) {
+        emit_assert_runtime_stack();
+        ERTS_CT_ASSERT(Arity <= 4);
+
+#ifdef ERTS_JIT_ABI_WIN32
+        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
+#endif
+
+        a.call(func);
+
+#ifdef ERTS_JIT_ABI_WIN32
+        a.add(x86::rsp, imm(4 * sizeof(UWord)));
 #endif
     }
 
@@ -706,7 +793,7 @@ protected:
         }
 
         if (Spec & Update::eReductions) {
-            a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+            a.mov(x86::dword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
         }
 
 #ifdef NATIVE_ERLANG_STACK
@@ -763,7 +850,7 @@ protected:
         }
 
         if (Spec & Update::eReductions) {
-            a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
+            a.mov(FCALLS, x86::dword_ptr(c_p, offsetof(Process, fcalls)));
         }
 
         if (Spec & Update::eCodeIndex) {
@@ -782,15 +869,41 @@ protected:
 #endif
     }
 
-    void emit_test_boxed(x86::Gp Src) {
+    void emit_test(x86::Gp Src, byte mask) {
         /* Use the shortest possible instruction depending on the source
          * register. */
         if (Src == x86::rax || Src == x86::rdi || Src == x86::rsi ||
             Src == x86::rcx || Src == x86::rdx) {
-            a.test(Src.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+            a.test(Src.r8(), imm(mask));
         } else {
-            a.test(Src.r32(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+            a.test(Src.r32(), imm(mask));
         }
+    }
+
+    void emit_test_cons(x86::Gp Src) {
+        emit_test(Src, _TAG_PRIMARY_MASK - TAG_PRIMARY_LIST);
+    }
+
+    void emit_is_cons(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        emit_test_cons(Src);
+        if (dist == dShort) {
+            a.short_().jne(Fail);
+        } else {
+            a.jne(Fail);
+        }
+    }
+
+    void emit_is_not_cons(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        emit_test_cons(Src);
+        if (dist == dShort) {
+            a.short_().je(Fail);
+        } else {
+            a.je(Fail);
+        }
+    }
+
+    void emit_test_boxed(x86::Gp Src) {
+        emit_test(Src, _TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED);
     }
 
     void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
@@ -843,30 +956,6 @@ protected:
         } else {
             a.cmp(Reg, imm(THE_NON_VALUE));
         }
-    }
-
-    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based on their
-     * tags alone. (They may still be equal if both are immediates and all other
-     * bits are equal too.) */
-    void emit_is_unequal_based_on_tags(x86::Gp Reg1, x86::Gp Reg2) {
-        ASSERT(Reg1 != RET && Reg2 != RET);
-        emit_is_unequal_based_on_tags(Reg1, Reg2, RET);
-    }
-
-    void emit_is_unequal_based_on_tags(x86::Gp Reg1,
-                                       x86::Gp Reg2,
-                                       const x86::Gp &spill) {
-        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
-        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
-                       TAG_PRIMARY_IMMED1);
-        a.mov(RETd, Reg1.r32());
-        a.or_(RETd, Reg2.r32());
-        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
-
-        /* RET will be now be TAG_PRIMARY_IMMED1 if either one or both
-         * registers are immediates, or if one register is a list and the other
-         * a boxed. */
-        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
     }
 
     /*
@@ -1047,97 +1136,113 @@ class BeamModuleAssembler : public BeamAssembler,
     /* Save the last PC for an error. */
     size_t last_error_offset = 0;
 
-    /* Skip unnecessary moves in mov_arg() and cmp_arg(). */
-    size_t last_movarg_offset = 0;
-    x86::Gp last_movarg_from1, last_movarg_from2;
-    x86::Mem last_movarg_to1, last_movarg_to2;
+    /* ARG2 is excluded as it is used to point to the currently active tuple. */
+    RegisterCache<20, x86::Mem, x86::Gp> reg_cache =
+            RegisterCache<20, x86::Mem, x86::Gp>(
+                    registers,
+                    E,
+                    {TMP1, TMP2, ARG3, ARG4, ARG5, ARG6, ARG1, RET});
 
-    /* Private helper. */
-    void preserve__cache(x86::Gp dst) {
-        last_movarg_offset = a.offset();
-        invalidate_cache(dst);
-    }
-
-    bool is_cache_valid() {
-        return a.offset() == last_movarg_offset;
-    }
-
-    void preserve_cache(x86::Gp dst, bool cache_valid) {
-        if (cache_valid) {
-            preserve__cache(dst);
-        }
+    x86::Gp find_cache(x86::Mem mem) {
+        return reg_cache.find(a.offset(), mem);
     }
 
     /* Store CPU register into memory and update the cache. */
-    void store_cache(x86::Gp src, x86::Mem dst) {
-        if (is_cache_valid() && dst != last_movarg_to1) {
-            /* Something is already cached in the first slot. Use the
-             * second slot. */
-            a.mov(dst, src);
-
-            last_movarg_offset = a.offset();
-            last_movarg_to2 = dst;
-            last_movarg_from2 = src;
-        } else {
-            /* Nothing cached yet, or the first slot has the same
-             * memory address as we will store into. Use the first
-             * slot and invalidate the second slot. */
-            a.mov(dst, src);
-
-            last_movarg_offset = a.offset();
-            last_movarg_to1 = dst;
-            last_movarg_from1 = src;
-
-            last_movarg_to2 = x86::Mem();
-        }
-    }
-
-    void invalidate_cache(x86::Gp dst) {
-        if (dst == last_movarg_from1) {
-            last_movarg_to1 = x86::Mem();
-            last_movarg_from1 = x86::Gp();
-        }
-        if (dst == last_movarg_from2) {
-            last_movarg_to2 = x86::Mem();
-            last_movarg_from2 = x86::Gp();
-        }
-    }
-
-    x86::Gp cached_reg(x86::Mem mem) {
-        if (is_cache_valid()) {
-            if (mem == last_movarg_to1) {
-                return last_movarg_from1;
-            }
-            if (mem == last_movarg_to2) {
-                return last_movarg_from2;
-            }
-        }
-        return x86::Gp();
+    void store_cache(x86::Gp src, x86::Mem mem_dst) {
+        reg_cache.consolidate(a.offset());
+        a.mov(mem_dst, src);
+        reg_cache.put(mem_dst, src);
+        reg_cache.update(a.offset());
     }
 
     void load_cached(x86::Gp dst, x86::Mem mem) {
-        if (a.offset() == last_movarg_offset) {
-            x86::Gp reg = cached_reg(mem);
+        x86::Gp cached_reg = find_cache(mem);
 
-            if (reg.isValid()) {
-                /* This memory location is cached. */
-                if (reg != dst) {
-                    comment("simplified fetching of BEAM register");
-                    a.mov(dst, reg);
-                    preserve__cache(dst);
-                } else {
-                    comment("skipped fetching of BEAM register");
-                    invalidate_cache(dst);
-                }
+        if (cached_reg.isValid()) {
+            /* This memory location is cached. */
+            if (cached_reg == dst) {
+                comment("skipped fetching of BEAM register");
             } else {
-                /* Not cached. Load and preserve the cache. */
-                a.mov(dst, mem);
-                preserve__cache(dst);
+                comment("simplified fetching of BEAM register");
+                a.mov(dst, cached_reg);
+                reg_cache.invalidate(dst);
+                reg_cache.update(a.offset());
             }
         } else {
-            /* The cache is invalid. */
+            /* Not cached. Load and update cache. */
             a.mov(dst, mem);
+            reg_cache.invalidate(dst);
+            reg_cache.put(mem, dst);
+            reg_cache.update(a.offset());
         }
+    }
+
+    template<typename L, typename... Any>
+    void preserve_cache(L generate, Any... clobber) {
+        bool valid = reg_cache.validAt(a.offset());
+
+        generate();
+
+        if (valid) {
+            if (sizeof...(clobber) > 0) {
+                reg_cache.invalidate(clobber...);
+            }
+
+            reg_cache.update(a.offset());
+        }
+    }
+
+    void trim_preserve_cache(const ArgWord &Words) {
+        if (Words.get() > 0) {
+            ASSERT(Words.get() <= 1023);
+            preserve_cache([&]() {
+                auto offset = Words.get() * sizeof(Eterm);
+                a.add(E, imm(offset));
+                reg_cache.trim_yregs(-offset);
+            });
+        }
+    }
+
+    void mov_preserve_cache(x86::Mem dst, x86::Gp src) {
+        preserve_cache(
+                [&]() {
+                    a.mov(dst, src);
+                },
+                dst);
+    }
+
+    void mov_preserve_cache(x86::Gp dst, x86::Gp src) {
+        preserve_cache(
+                [&]() {
+                    a.mov(dst, src);
+                },
+                dst);
+    }
+
+    void mov_preserve_cache(x86::Gp dst, x86::Mem src) {
+        preserve_cache(
+                [&]() {
+                    a.mov(dst, src);
+                },
+                dst);
+    }
+
+    void cmp_preserve_cache(x86::Gp reg1, x86::Gp reg2) {
+        preserve_cache([&]() {
+            a.cmp(reg1, reg2);
+        });
+    }
+
+    void cmp_preserve_cache(x86::Mem mem, x86::Gp reg) {
+        preserve_cache([&]() {
+            a.cmp(mem, reg);
+        });
+    }
+
+    /* Pick a temporary register, preferring a register not present in
+     * the cache. */
+    x86::Gp alloc_temp_reg() {
+        return reg_cache.allocate(a.offset());
     }
 
     /* Maps code pointers to thunks that jump to them, letting us treat global
@@ -1157,6 +1262,8 @@ public:
 
     bool emit(unsigned op, const Span<ArgVal> &args);
 
+    void emit_coverage(void *coverage, Uint index, Uint size);
+
     void codegen(JitAllocator *allocator,
                  const void **executable_ptr,
                  void **writable_ptr,
@@ -1170,7 +1277,7 @@ public:
 
     void codegen(char *buff, size_t len);
 
-    void register_metadata(const BeamCodeHeader *header);
+    void *register_metadata(const BeamCodeHeader *header);
 
     ErtsCodePtr getCode(unsigned label);
     ErtsCodePtr getLambda(unsigned index);
@@ -1212,11 +1319,12 @@ protected:
     x86::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
 
     x86::Gp emit_call_fun(bool skip_box_test = false,
-                          bool skip_fun_test = false,
-                          bool skip_arity_test = false);
+                          bool skip_header_test = false);
 
     void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
-        BeamAssembler::emit_is_boxed(Fail, Src, dist);
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_boxed(Fail, Src, dist);
+        });
     }
 
     void emit_is_boxed(Label Fail,
@@ -1228,7 +1336,31 @@ protected:
             return;
         }
 
-        BeamAssembler::emit_is_boxed(Fail, Src, dist);
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_boxed(Fail, Src, dist);
+        });
+    }
+
+    void emit_is_cons(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        preserve_cache([&]() {
+            emit_test_cons(Src);
+            if (dist == dShort) {
+                a.short_().jne(Fail);
+            } else {
+                a.jne(Fail);
+            }
+        });
+    }
+
+    void emit_is_not_cons(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        preserve_cache([&]() {
+            emit_test_cons(Src);
+            if (dist == dShort) {
+                a.short_().je(Fail);
+            } else {
+                a.je(Fail);
+            }
+        });
     }
 
     void emit_get_list(const x86::Gp boxed_ptr,
@@ -1260,6 +1392,28 @@ protected:
                                const x86::Gp &out,
                                unsigned max_size = 0);
 
+    void emit_bs_get_small(const Label &fail,
+                           const ArgRegister &Ctx,
+                           const ArgWord &Live,
+                           const ArgSource &Sz,
+                           Uint unit,
+                           Uint flags);
+
+    void emit_bs_get_any_int(const Label &fail,
+                             const ArgRegister &Ctx,
+                             const ArgWord &Live,
+                             const ArgSource &Sz,
+                             Uint unit,
+                             Uint flags);
+
+    void emit_bs_get_binary(const ArgWord heap_need,
+                            const ArgRegister &Ctx,
+                            const ArgLabel &Fail,
+                            const ArgWord &Live,
+                            const ArgSource &Size,
+                            const ArgWord &Unit,
+                            const ArgRegister &Dst);
+
     void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,
@@ -1271,6 +1425,12 @@ protected:
                           x86::Gp size_reg);
     bool need_mask(const ArgVal Val, Sint size);
     void set_zero(Sint effectiveSize);
+    void emit_accumulate(ArgVal src,
+                         Sint effectiveSize,
+                         x86::Gp bin_data,
+                         x86::Gp tmp,
+                         x86::Gp value,
+                         bool isFirst);
     bool bs_maybe_enter_runtime(bool entered);
     void bs_maybe_leave_runtime(bool entered);
     void emit_construct_utf8_shared();
@@ -1287,9 +1447,9 @@ protected:
                               Uint flags,
                               Uint bits,
                               const ArgRegister &Dst);
-    void emit_extract_binary(const x86::Gp bitdata,
-                             Uint bits,
-                             const ArgRegister &Dst);
+    void emit_extract_bitstring(const x86::Gp bitdata,
+                                Uint bits,
+                                const ArgRegister &Dst);
     void emit_read_integer(const x86::Gp bin_base,
                            const x86::Gp bin_position,
                            const x86::Gp tmp,
@@ -1353,12 +1513,16 @@ protected:
                               const ArgVal &Fail,
                               const Span<ArgVal> &args);
 
-    bool emit_optimized_three_way_select(const ArgVal &Fail,
-                                         const Span<ArgVal> &args);
+    bool emit_optimized_two_way_select(bool destructive,
+                                       const ArgVal &value1,
+                                       const ArgVal &value2,
+                                       const ArgVal &label);
 
 #ifdef DEBUG
     void emit_tuple_assertion(const ArgSource &Src, x86::Gp tuple_reg);
 #endif
+
+    void emit_return_do(bool set_I);
 
 #include "beamasm_protos.h"
 
@@ -1369,6 +1533,10 @@ protected:
     /* Resolves a shared fragment, creating a trampoline that loads the
      * appropriate address before jumping there. */
     const Label &resolve_fragment(void (*fragment)());
+
+    /* Move past the `last_error_offset` if necessary for the next instruction
+     * to be properly aligned (e.g. for line mappings). */
+    void flush_last_error();
 
     void safe_fragment_call(void (*fragment)()) {
         emit_assert_redzone_unused();
@@ -1422,7 +1590,7 @@ protected:
     }
 
     void cmp_arg(x86::Mem mem, const ArgVal &val, const x86::Gp &spill) {
-        x86::Gp reg = cached_reg(mem);
+        x86::Gp reg = find_cache(mem);
 
         if (reg.isValid()) {
             /* Note that the cast to Sint is necessary to handle
@@ -1430,82 +1598,118 @@ protected:
             if (val.isImmed() &&
                 Support::isInt32((Sint)val.as<ArgImmed>().get())) {
                 comment("simplified compare of BEAM register");
-                a.cmp(reg, imm(val.as<ArgImmed>().get()));
+                preserve_cache([&]() {
+                    a.cmp(reg, imm(val.as<ArgImmed>().get()));
+                });
             } else if (reg != spill) {
                 comment("simplified compare of BEAM register");
                 mov_arg(spill, val);
-                a.cmp(reg, spill);
+                cmp_preserve_cache(reg, spill);
             } else {
                 mov_arg(spill, val);
-                a.cmp(mem, spill);
+                cmp_preserve_cache(mem, spill);
             }
         } else {
             /* Note that the cast to Sint is necessary to handle
              * negative numbers such as NIL. */
             if (val.isImmed() &&
                 Support::isInt32((Sint)val.as<ArgImmed>().get())) {
-                a.cmp(mem, imm(val.as<ArgImmed>().get()));
+                preserve_cache([&]() {
+                    a.cmp(mem, imm(val.as<ArgImmed>().get()));
+                });
             } else {
                 mov_arg(spill, val);
-                a.cmp(mem, spill);
+                cmp_preserve_cache(mem, spill);
             }
         }
     }
 
     void cmp_arg(x86::Gp gp, const ArgVal &val, const x86::Gp &spill) {
         if (val.isImmed() && Support::isInt32((Sint)val.as<ArgImmed>().get())) {
-            a.cmp(gp, imm(val.as<ArgImmed>().get()));
+            preserve_cache([&]() {
+                a.cmp(gp, imm(val.as<ArgImmed>().get()));
+            });
         } else {
             mov_arg(spill, val);
-            a.cmp(gp, spill);
+            cmp_preserve_cache(gp, spill);
         }
     }
 
     void cmp(x86::Gp gp, int64_t val, const x86::Gp &spill) {
         if (Support::isInt32(val)) {
-            a.cmp(gp, imm(val));
+            preserve_cache([&]() {
+                a.cmp(gp, imm(val));
+            });
         } else if (gp.isGpd()) {
             mov_imm(spill, val);
-            a.cmp(gp, spill.r32());
+            preserve_cache([&]() {
+                a.cmp(gp, spill.r32());
+            });
         } else {
             mov_imm(spill, val);
-            a.cmp(gp, spill);
+            cmp_preserve_cache(gp, spill);
         }
     }
 
     void sub(x86::Gp gp, int64_t val, const x86::Gp &spill) {
         if (Support::isInt32(val)) {
-            a.sub(gp, imm(val));
+            preserve_cache(
+                    [&]() {
+                        a.sub(gp, imm(val));
+                    },
+                    gp);
         } else {
-            mov_imm(spill, val);
-            a.sub(gp, spill);
+            preserve_cache(
+                    [&]() {
+                        mov_imm(spill, val);
+                        a.sub(gp, spill);
+                    },
+                    gp,
+                    spill);
         }
     }
 
     /* Note: May clear flags. */
     void mov_arg(x86::Gp to, const ArgVal &from, const x86::Gp &spill) {
-        bool valid_cache = is_cache_valid();
-
         if (from.isBytePtr()) {
             make_move_patch(to, strings, from.as<ArgBytePtr>().get());
         } else if (from.isExport()) {
             make_move_patch(to, imports[from.as<ArgExport>().get()].patches);
         } else if (from.isImmed()) {
-            mov_imm(to, from.as<ArgImmed>().get());
+            preserve_cache(
+                    [&]() {
+                        mov_imm(to, from.as<ArgImmed>().get());
+                    },
+                    to);
         } else if (from.isLambda()) {
-            make_move_patch(to, lambdas[from.as<ArgLambda>().get()].patches);
+            preserve_cache(
+                    [&]() {
+                        make_move_patch(
+                                to,
+                                lambdas[from.as<ArgLambda>().get()].patches);
+                    },
+                    to);
         } else if (from.isLiteral()) {
-            make_move_patch(to, literals[from.as<ArgLiteral>().get()].patches);
+            preserve_cache(
+                    [&]() {
+                        make_move_patch(
+                                to,
+                                literals[from.as<ArgLiteral>().get()].patches);
+                    },
+                    to);
         } else if (from.isRegister()) {
             auto mem = getArgRef(from.as<ArgRegister>());
             load_cached(to, mem);
         } else if (from.isWord()) {
-            mov_imm(to, from.as<ArgWord>().get());
+            preserve_cache(
+                    [&]() {
+                        mov_imm(to, from.as<ArgWord>().get());
+                    },
+                    to);
         } else {
             ASSERT(!"mov_arg with incompatible type");
         }
 
-        preserve_cache(to, valid_cache);
 #ifdef DEBUG
         /* Explicitly clear flags to catch bugs quicker, it may be very rare
          * for a certain instruction to load values that would otherwise cause
@@ -1519,60 +1723,160 @@ protected:
             auto val = from.as<ArgImmed>().get();
 
             if (Support::isInt32((Sint)val)) {
-                a.mov(to, imm(val));
+                preserve_cache(
+                        [&]() {
+                            a.mov(to, imm(val));
+                        },
+                        to);
             } else {
-                a.mov(spill, imm(val));
-                a.mov(to, spill);
+                preserve_cache(
+                        [&]() {
+                            a.mov(spill, imm(val));
+                            a.mov(to, spill);
+                        },
+                        to,
+                        spill);
             }
         } else if (from.isWord()) {
             auto val = from.as<ArgWord>().get();
 
             if (Support::isInt32((Sint)val)) {
-                a.mov(to, imm(val));
+                preserve_cache(
+                        [&]() {
+                            a.mov(to, imm(val));
+                        },
+                        to);
             } else {
-                a.mov(spill, imm(val));
-                a.mov(to, spill);
+                preserve_cache(
+                        [&]() {
+                            a.mov(spill, imm(val));
+                            a.mov(to, spill);
+                        },
+                        to,
+                        spill);
             }
         } else {
             mov_arg(spill, from);
-            a.mov(to, spill);
+            mov_preserve_cache(to, spill);
         }
     }
 
-    void mov_arg(const ArgVal &to, x86::Gp from, const x86::Gp &spill) {
+    void mov_arg(const ArgRegister &to, x86::Gp from, const x86::Gp &spill) {
         (void)spill;
 
         auto mem = getArgRef(to);
         store_cache(from, mem);
     }
 
-    void mov_arg(const ArgVal &to, x86::Mem from, const x86::Gp &spill) {
+    void mov_arg(const ArgRegister &to, x86::Mem from, const x86::Gp &spill) {
         a.mov(spill, from);
         a.mov(getArgRef(to), spill);
     }
 
-    void mov_arg(const ArgVal &to, BeamInstr from, const x86::Gp &spill) {
-        if (Support::isInt32((Sint)from)) {
-            a.mov(getArgRef(to), imm(from));
+    void mov_arg(const ArgRegister &to, BeamInstr from, const x86::Gp &spill) {
+        preserve_cache(
+                [&]() {
+                    if (Support::isInt32((Sint)from)) {
+                        a.mov(getArgRef(to), imm(from));
+                    } else {
+                        a.mov(spill, imm(from));
+                        mov_arg(to, spill);
+                    }
+                },
+                getArgRef(to),
+                spill);
+    }
+
+    void mov_arg(const ArgRegister &to,
+                 const ArgVal &from,
+                 const x86::Gp &spill) {
+        if (!from.isRegister()) {
+            mov_arg(getArgRef(to), from);
         } else {
-            a.mov(spill, imm(from));
-            mov_arg(to, spill);
+            x86::Gp from_reg = find_cache(getArgRef(from));
+
+            if (from_reg.isValid()) {
+                comment("skipped fetching of BEAM register");
+            } else {
+                from_reg = spill;
+                mov_arg(from_reg, from);
+            }
+            mov_arg(to, from_reg);
         }
     }
 
-    void mov_arg(const ArgVal &to, const ArgVal &from, const x86::Gp &spill) {
-        if (from.isRegister()) {
-            mov_arg(spill, from);
-            mov_arg(to, spill);
+    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
+     * on their tags alone. (They may still be equal if both are
+     * immediates and all other bits are equal too.)
+     *
+     * Clobbers RET.
+     */
+    void emit_is_unequal_based_on_tags(Label Unequal,
+                                       const ArgVal &Src1,
+                                       x86::Gp Reg1,
+                                       const ArgVal &Src2,
+                                       x86::Gp Reg2,
+                                       Distance dist = dLong) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
+
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Src1)) {
+            emit_is_boxed(Unequal, Reg2, dist);
+        } else if (always_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+            emit_is_boxed(Unequal, Reg1, dist);
+        } else if (exact_type<BeamTypeId::Cons>(Src1)) {
+            emit_is_cons(Unequal, Reg2, dist);
+        } else if (exact_type<BeamTypeId::Cons>(Src2)) {
+            emit_is_cons(Unequal, Reg1, dist);
         } else {
-            mov_arg(getArgRef(to), from);
+            a.mov(RETd, Reg1.r32());
+            a.or_(RETd, Reg2.r32());
+
+            if (never_one_of<BeamTypeId::Cons>(Src1) ||
+                never_one_of<BeamTypeId::Cons>(Src2)) {
+                emit_is_boxed(Unequal, RET, dist);
+            } else if (never_one_of<BeamTypeId::AlwaysBoxed>(Src1) ||
+                       never_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+                emit_is_cons(Unequal, RET, dist);
+            } else {
+                a.and_(RETb, imm(_TAG_PRIMARY_MASK));
+
+                /* RET will now be TAG_PRIMARY_IMMED1 if either one or
+                 * both registers are immediates, or if one register
+                 * is a list and the other a boxed. */
+                a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+                if (dist == dShort) {
+                    a.short_().je(Unequal);
+                } else {
+                    a.je(Unequal);
+                }
+            }
         }
+    }
+
+    /* Set the Z flag if Reg1 and Reg2 are both immediates. */
+    void emit_are_both_immediate(const ArgVal &Src1,
+                                 x86::Gp Reg1,
+                                 const ArgVal &Src2,
+                                 x86::Gp Reg2) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        if (always_immediate(Src1)) {
+            a.mov(RETd, Reg2.r32());
+        } else if (always_immediate(Src2)) {
+            a.mov(RETd, Reg1.r32());
+        } else {
+            a.mov(RETd, Reg1.r32());
+            a.and_(RETd, Reg2.r32());
+        }
+        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
+        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
     }
 };
 
-void beamasm_metadata_update(std::string module_name,
-                             ErtsCodePtr base_address,
-                             size_t code_size,
-                             const std::vector<AsmRange> &ranges);
+void *beamasm_metadata_insert(std::string module_name,
+                              ErtsCodePtr base_address,
+                              size_t code_size,
+                              const std::vector<AsmRange> &ranges);
 void beamasm_metadata_early_init();
 void beamasm_metadata_late_init();

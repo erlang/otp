@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(dtls_v1).
+-moduledoc false.
 
 -include("ssl_cipher.hrl").
 -include("ssl_record.hrl").
@@ -28,7 +31,6 @@
          exclusive_suites/1,
          exclusive_anonymous_suites/1,
          hmac_hash/3,
-         ecc_curves/1,
          corresponding_tls_version/1,
          corresponding_dtls_version/1,
          cookie_secret/0,
@@ -70,10 +72,6 @@ exclusive_anonymous_suites(Version) ->
 
 hmac_hash(MacAlg, MacSecret, Value) ->
     tls_v1:hmac_hash(MacAlg, MacSecret, Value).
-
-ecc_curves(Version) ->
-    tls_v1:ecc_curves(corresponding_tls_version(Version)).
-
 
 corresponding_tls_version(?DTLS_1_0) ->
     ?TLS_1_1;

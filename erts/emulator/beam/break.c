@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,32 +129,28 @@ process_killer(void)
     for (i = max-1; i >= 0; i--) {
 	rp = erts_pix2proc(i);
 	if (rp && rp->i != ENULL) {
-	    int br;
 	    print_process_info(ERTS_PRINT_STDOUT, NULL, rp, 0);
 	    erts_printf("(k)ill (n)ext (r)eturn:\n");
-	    while(1) {
-		if ((j = sys_get_key(0)) <= 0)
-		    erts_exit(0, "");
-		switch(j) {
-                case 'k':
-                {
-                    Process *init_proc;
+            if ((j = sys_get_key(0)) <= 0)
+                erts_exit(0, "");
+            switch(j) {
+            case 'k':
+            {
+                Process *init_proc;
 
-                    ASSERT(erts_init_process_id != ERTS_INVALID_PID);
-                    init_proc = erts_proc_lookup_raw(erts_init_process_id);
+                ASSERT(erts_init_process_id != ERTS_INVALID_PID);
+                init_proc = erts_proc_lookup_raw(erts_init_process_id);
 
-                    /* Send a 'kill' exit signal from init process */
-                    erts_proc_sig_send_exit(&init_proc->common,
-                                            erts_init_process_id,
-                                            rp->common.id,
-                                            am_kill, NIL, 0);
-                }
-		case 'n': br = 1; break;
-		case 'r': return;
-		default: return;
-		}
-		if (br == 1) break;
-	    }
+                /* Send a 'kill' exit signal from init process */
+                erts_proc_sig_send_exit(&init_proc->common,
+                                        erts_init_process_id,
+                                        rp->common.id,
+                                        am_kill, NIL, 0, 0);
+                break;
+            }
+            case 'n': break;
+            default: return;
+            }
 	}
     }
 }
@@ -188,7 +186,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
     char *prefix = ", ";
  
     mdp = erts_monitor_to_data(mon);
-    switch (mon->type) {
+    switch (ERTS_ML_GET_TYPE(mon)) {
     case ERTS_MON_TYPE_PROC:
     case ERTS_MON_TYPE_PORT:
     case ERTS_MON_TYPE_TIME_OFFSET:
@@ -203,7 +201,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
         }
 
         if (erts_monitor_is_target(mon)) {
-            if (mon->type != ERTS_MON_TYPE_RESOURCE)
+            if (ERTS_ML_GET_TYPE(mon) != ERTS_MON_TYPE_RESOURCE)
                 erts_print(to, to_arg, "%s{from,%T,%T}", prefix, mon->other.item, mdp->ref);
             else {
                 ErtsResource* rsrc = mon->other.ptr;
@@ -294,7 +292,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
     erts_print(to, to_arg, "Spawned as: %T:%T/%bpu\n",
 	       p->u.initial.module,
 	       p->u.initial.function,
-	       p->u.initial.arity);
+	       (Uint)p->u.initial.arity);
     
     if (p->current != NULL) {
 	if (running) {
@@ -305,7 +303,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 	erts_print(to, to_arg, "%T:%T/%bpu\n",
 		   p->current->module,
 		   p->current->function,
-		   p->current->arity);
+		   (Uint)p->current->arity);
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n",
@@ -316,7 +314,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
         len = erts_proc_sig_fetch(p);
         erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
     } else {
-        len = p->sig_qs.len;
+        len = p->sig_qs.mq_len;
     }
     erts_print(to, to_arg, "Message queue length: %d\n", len);
 
@@ -324,14 +322,13 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
        and we can do it safely */
     if (!ERTS_IS_CRASH_DUMPING && p->sig_qs.first != NULL && !garbing
         && (locks & ERTS_PROC_LOCK_MAIN)) {
+        ErtsMessage *mp;
 	erts_print(to, to_arg, "Message queue: [");
-        ERTS_FOREACH_SIG_PRIVQS(
-            p, mp,
-            {
-                if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
-                    erts_print(to, to_arg, mp->next ? "%T," : "%T",
-                               ERL_MESSAGE_TERM(mp));
-            });
+        for (mp = p->sig_qs.first; mp; mp = mp->next) {
+            if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
+                erts_print(to, to_arg, mp->next ? "%T," : "%T",
+                           ERL_MESSAGE_TERM(mp));
+        }
 	erts_print(to, to_arg, "]\n");
     }
 
@@ -366,7 +363,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 		 erts_print(to, to_arg, "%T:%T/%bpu\n",
 			    scb->ct[j]->info.mfa.module,
 			    scb->ct[j]->info.mfa.function,
-			    scb->ct[j]->info.mfa.arity);
+			    (Uint)scb->ct[j]->info.mfa.arity);
        }
        erts_print(to, to_arg, "\n");
     }
@@ -609,12 +606,12 @@ do_break(void)
 	case '*': /* 
 		   * The asterisk is an read error on windows, 
 		   * where sys_get_key isn't that great in console mode.
-		   * The usual reason for a read error is Ctrl-C. Treat this as
+		   * The usual reason for a read error is Ctrl+C. Treat this as
 		   * 'a' to avoid infinite loop.
 		   */
 	    erts_exit(0, "");
 	case 'A':		/* Halt generating crash dump */
-	    erts_exit(ERTS_ERROR_EXIT, "Crash dump requested by user");
+	    erts_exit(ERTS_ERROR_EXIT, "Crash dump requested by user\n");
 	case 'c':
 	    return;
 	case 'p':
@@ -640,7 +637,7 @@ do_break(void)
 	    distribution_info(ERTS_PRINT_STDOUT, NULL);
 	    return;
 	case 'D':
-	    db_info(ERTS_PRINT_STDOUT, NULL, 1);
+	    db_info(ERTS_PRINT_STDOUT, NULL, true);
 	    return; 
 	case 'k':
 	    process_killer();
@@ -736,16 +733,16 @@ bin_check(void)
         oh_list = rp->off_heap.first;
         for (;;) {
             for (hdr = oh_list; hdr; hdr = hdr->next) {
-                if (hdr->thing_word == HEADER_PROC_BIN) {
-                    ProcBin *bp = (ProcBin*) hdr;
+                if (hdr->thing_word == HEADER_BIN_REF) {
+                    Binary *bin = ((BinRef*)hdr)->val;
                     if (!printed) {
                         erts_printf("Process %T holding binary data \n", rp->common.id);
                         printed = 1;
                     }
                     erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
-                                bp->val,
-                                bp->val->orig_size,
-                                erts_refc_read(&bp->val->intern.refc, 1));
+                                bin,
+                                bin->orig_size,
+                                erts_refc_read(&bin->intern.refc, 1));
                 }
             }
             if (oh_list == rp->wrt_bins)
@@ -814,9 +811,6 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     FILE* fp = 0;
     LimitedWriterInfo lwi;
     static char* write_buffer;  /* 'static' to avoid a leak warning in valgrind */
-
-    if (ERTS_SOMEONE_IS_CRASH_DUMPING)
-	return;
 
     /* Order all managed threads to block, this has to be done
        first to guarantee that this is the only thread to generate
@@ -1034,7 +1028,7 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     info(to, to_arg); /* General system info */
     if (erts_ptab_initialized(&erts_proc))
 	process_info(to, to_arg); /* Info about each process and port */
-    db_info(to, to_arg, 0);
+    db_info(to, to_arg, false);
     erts_print_bif_timer_info(to, to_arg);
     distribution_info(to, to_arg);
     erts_cbprintf(to, to_arg, "=loaded_modules\n");

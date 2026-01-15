@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 %%% Description: SFTP functions
 
 -module(ssh_xfer).
+-moduledoc false.
 
 -export([open/6, opendir/3, readdir/3, close/3, read/5, write/5,
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,

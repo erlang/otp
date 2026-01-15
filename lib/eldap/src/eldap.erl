@@ -1,4 +1,113 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: MIT
+%%
+%% Copyright (c) 2010, Torbjörn Törnkvist
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
+%%
+%% Permission is hereby granted, free of charge, to any person obtaining a copy
+%% of this software and associated documentation files (the "Software"), to deal
+%% in the Software without restriction, including without limitation the rights
+%% to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+%% copies of the Software, and to permit persons to whom the Software is
+%% furnished to do so, subject to the following conditions:
+%%
+%% The above copyright notice and this permission notice shall be included in
+%% all copies or substantial portions of the Software.
+%%
+%% THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+%% IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+%% FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+%% AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+%% LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+%% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+%% THE SOFTWARE.
+%%
+%% %CopyrightEnd%
+%% 
 -module(eldap).
+-moduledoc """
+LDAP Client
+
+This module provides a client api to the Lightweight Directory Access Protocol
+(LDAP).
+
+References:
+
+- RFC 4510 - RFC 4519
+- RFC 2830
+
+The above publications can be found at [IETF](http://www.ietf.org).
+
+Terminology abbreviations:
+
+- Dn. An LDAPDN is defined to be the representation of a Distinguished Name
+   (DN) after encoding according to the specification in [RFC4514].
+
+""".
+
+-doc """
+The LDAP socket and the transport protocol, TCP or TLS (SSL), used by the ldap connection
+""".
+-type connection_info() :: #{socket := ssl:sslsocket() | gen_tcp:socket(), socket_type := tcp | ssl}.
+
+-doc """
+A requested set of serach options for seaching the directory
+""".
+-type search_option() ::
+    {base, string()} |
+    {filter, filter()} |
+    {scope, scope()} |
+    {attributes, [string()]} |
+    {deref, dereference()} |
+    {types_only, boolean()} |
+    {timeout, integer()}.
+
+-doc "An opaque handle unique for the connection".
+-type handle() :: term().
+
+-doc "The attributes of an entry".
+-type attribute() :: {Type :: string(), Value :: [string()]}.
+
+-doc """
+Entry modification operations.
+See `mod_add/2`, `mod_delete/2`, `mod_replace/2`
+""".
+-type modify_op() :: term().
+
+-doc """
+Scope of a search.
+See `baseObject/0`, `singleLevel/0`, `wholeSubtree/0`
+""".
+-opaque scope() :: baseObject | singleLevel | wholeSubtree.
+
+-doc """
+How to handle aliases during a search.
+See `neverDerefAliases/0`, `derefInSearching/0`, `derefFindingBaseObj/0`, `derefAlways/0`
+""".
+-opaque dereference() :: neverDerefAliases | derefInSearching | derefFindingBaseObj | derefAlways.
+
+-doc """
+An opaque type representing a filter operation.
+
+See the filter creation functions for more info, including,
+`present/1`, `substrings/2`, `equalityMatch/2`,
+`greaterOrEqual/2`, `lessOrEqual/2`,
+`approxMatch/2`, `extensibleMatch/2`,
+`'and'/1`, `'or'/1`, `'not'/1`
+""".
+-type filter() :: term().
+
+-doc """
+The LDAP Server Address.
+The contents of `Address` is server dependent.
+""".
+-type referrals() :: [Address :: string()].
+
+-export_type([scope/0, dereference/0]).
+
+-moduledoc(#{since => "OTP R15B01"}).
 %%% --------------------------------------------------------------------
 %%% Created:  12 Oct 2000 by Tobbe <tnt@home.se>
 %%% Function: Erlang client LDAP implementation according RFC 2251,2253
@@ -87,8 +196,42 @@
 %%%    {timeout, milliSec} - Server request timeout
 %%%
 %%% --------------------------------------------------------------------
+-doc """
+Setup a connection to an LDAP server, the `HOST`'s are tried in order.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec open(Hosts) -> {ok, Handle} | {error, Reason} when
+    Hosts :: [Host],
+    Host  :: inet:socket_address() | inet:hostname(),
+    Handle :: handle(),
+    Reason :: term().
 open(Hosts) ->
     open(Hosts, []).
+
+-doc """
+Setup a connection to an LDAP server, the `HOST`'s are tried in order.
+
+The log function takes three arguments,
+`fun(Level, FormatString, [FormatArg]) end`.
+
+Timeout set the maximum time in milliseconds that each server request may take.
+
+All TCP socket options are accepted except `active`, `binary`, `deliver`,
+`list`, `mode` and `packet`
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec open(Hosts, Options) -> {ok, Handle} | {error, Reason} when
+    Hosts :: [Host],
+    Host  :: inet:socket_address() | inet:hostname(),
+    Options ::
+        [{port, integer()} |
+	 {log, function()} |
+	 {timeout, timeout()} |
+	 {ssl, boolean()} |
+	 {sslopts, [ssl:tls_client_option()]} |
+	 {tcpopts, [inet:inet_backend() | gen_tcp:connect_option()]}],
+    Handle :: handle(),
+    Reason :: term().
 
 open(Hosts, Opts) when is_list(Hosts), is_list(Opts) ->
     Self = self(),
@@ -96,14 +239,57 @@ open(Hosts, Opts) when is_list(Hosts), is_list(Opts) ->
     recv(Pid).
 
 %%% --------------------------------------------------------------------
-%%% Upgrade an existing connection to tls
+%%% Upgrade an existing connection to TLS
 %%% --------------------------------------------------------------------
+-doc """
+Same as start_tls(Handle, Options, infinity)
+""".
+-doc(#{since => <<"OTP R16B03">>}).
+-spec start_tls(Handle, TlsOptions) -> ok |{ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    TlsOptions :: [ssl:tls_client_option()],
+    Refs :: {referral, referrals()},
+    Reason :: term().
 start_tls(Handle, TlsOptions) ->
     start_tls(Handle, TlsOptions, infinity).
 
+-doc """
+Upgrade the connection associated with `Handle` to a TLS connection if possible.
+
+The upgrade is done in two phases: first the server is asked for permission to
+upgrade. Second, if the request is acknowledged, the upgrade to TLS is
+performed.
+
+Error responses from phase one will not affect the current encryption state of
+the connection. Those responses are:
+
+- **`tls_already_started`** - The connection is already encrypted. The
+  connection is not affected.
+
+- **`{response,ResponseFromServer}`** - The upgrade was refused by the LDAP
+  server. The `ResponseFromServer` is an atom delivered byt the LDAP server
+  explained in section 2.3 of rfc 2830. The connection is not affected, so it is
+  still un-encrypted.
+
+Errors in the second phase will however end the connection:
+
+- **`Error`** - Any error responded from ssl:connect/3
+
+The `Timeout` parameter is for the actual TLS upgrade (phase 2) while the
+timeout in [eldap:open/2](`open/2`) is used for the initial negotiation about
+upgrade (phase 1).
+""".
+-doc(#{since => <<"OTP R16B03">>}).
+-spec start_tls(Handle, TlsOptions, Timeout) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    TlsOptions :: [ssl:tls_client_option()],
+    Timeout :: infinity | pos_integer(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 start_tls(Handle, TlsOptions, Timeout) ->
     start_tls(Handle, TlsOptions, Timeout, asn1_NOVALUE).
 
+-doc false.
 start_tls(Handle, TlsOptions, Timeout, Controls) ->
     send(Handle, {start_tls,TlsOptions,Timeout,Controls}),
     recv(Handle).
@@ -115,15 +301,46 @@ start_tls(Handle, TlsOptions, Timeout, Controls) ->
 %%% NewPasswd - New password. If empty, the server returns a new password.
 %%% OldPasswd - Original password for server verification, may be empty.
 %%%
-%%% Returns: ok | {ok, GenPasswd} | {error, term()}
+%%% Returns: ok | {ok, Refs} | {ok, GenPasswd} | {error, term()}
 %%% --------------------------------------------------------------------
+-doc """
+Modify the password of a user. See `modify_password/4`.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
+-spec modify_password(Handle, Dn, NewPasswd) ->
+    ok | {ok, Refs} | {error, term()} | {ok, GenPasswd} when
+    Handle :: handle(),
+    Dn :: string(),
+    NewPasswd :: string(),
+    Refs :: {referral, referrals()},
+    GenPasswd :: string().
 modify_password(Handle, Dn, NewPasswd) ->
     modify_password(Handle, Dn, NewPasswd, []).
 
+-doc """
+Modify the password of a user.
+
+- `Dn`. The user to modify. Should be "" if the modify request is for the user
+  of the LDAP session.
+- `NewPasswd`. The new password to set. Should be "" if the server is to
+  generate the password. In this case, the result will be `{ok, GenPasswd}`.
+- `OldPasswd`. Sometimes required by server policy for a user to change their
+  password. If not required, use `modify_password/3`.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
+-spec modify_password(Handle, Dn, NewPasswd, OldPasswd) ->
+    ok | {ok, Refs} | {error, term()} | {ok, GenPasswd} when
+    Handle :: handle(),
+    Dn :: string(),
+    NewPasswd :: string(),
+    OldPasswd :: string(),
+    Refs :: {referral, referrals()},
+    GenPasswd :: string().
 modify_password(Handle, Dn, NewPasswd, OldPasswd)
   when is_pid(Handle), is_list(Dn), is_list(NewPasswd), is_list(OldPasswd) ->
     modify_password(Handle, Dn, NewPasswd, OldPasswd, asn1_NOVALUE).
 
+-doc false.
 modify_password(Handle, Dn, NewPasswd, OldPasswd, Controls)
   when is_pid(Handle), is_list(Dn), is_list(NewPasswd), is_list(OldPasswd) ->
     send(Handle, {passwd_modify,optional(Dn),optional(NewPasswd),optional(OldPasswd),Controls}),
@@ -134,6 +351,7 @@ modify_password(Handle, Dn, NewPasswd, OldPasswd, Controls)
 %%% Warning: This is an undocumented function for testing purposes only.
 %%%          Use at own risk...
 %%% --------------------------------------------------------------------
+-doc false.
 getopts(Handle, OptNames) when is_pid(Handle), is_list(OptNames) ->
     send(Handle, {getopts, OptNames}),
     recv(Handle).
@@ -142,6 +360,15 @@ getopts(Handle, OptNames) when is_pid(Handle), is_list(OptNames) ->
 %%% Shutdown connection (and process) asynchronous.
 %%% --------------------------------------------------------------------
 
+-doc """
+Shutdown the connection after sending an unbindRequest to the server.
+
+If the connection is TLS the connection will be closed with `ssl:close/1`, otherwise
+with `gen_tcp:close/1`.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec close(Handle) -> ok when
+    Handle :: handle().
 close(Handle) when is_pid(Handle) ->
     send(Handle, close),
     ok.
@@ -150,6 +377,7 @@ close(Handle) when is_pid(Handle) ->
 %%% Set who we should link ourselves to
 %%% --------------------------------------------------------------------
 
+-doc false.
 controlling_process(Handle, Pid) when is_pid(Handle), is_pid(Pid)  ->
     link(Pid),
     send(Handle, {cnt_proc, Pid}),
@@ -158,6 +386,13 @@ controlling_process(Handle, Pid) when is_pid(Handle), is_pid(Pid)  ->
 %%% --------------------------------------------------------------------
 %%% Return LDAP socket information
 %%% --------------------------------------------------------------------
+-doc """
+Currently available information reveals the socket and the transport protocol,
+TCP or TLS (SSL), used by the LDAP connection.
+""".
+-doc(#{since => <<"OTP 25.3.1">>}).
+-spec info(Handle) -> connection_info() when
+    Handle :: handle().
 info(Handle) when is_pid(Handle) ->
     send(Handle, info),
     recv(Handle).
@@ -169,11 +404,22 @@ info(Handle) when is_pid(Handle) ->
 %%%  Dn      -  The name of the entry to bind as
 %%%  Passwd  -  The password to be used
 %%%
-%%%  Returns: ok | {error, Error}
+%%%  Returns: - ok | {ok, Refs} | {error, Reason}
 %%% --------------------------------------------------------------------
+-doc """
+Authenticate the connection using simple authentication.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec simple_bind(Handle, Dn, Password) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    Password :: string(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 simple_bind(Handle, Dn, Passwd) when is_pid(Handle)  ->
     simple_bind(Handle, Dn, Passwd, asn1_NOVALUE).
 
+-doc false.
 simple_bind(Handle, Dn, Passwd, Controls) when is_pid(Handle)  ->
     send(Handle, {simple_bind, Dn, Passwd, Controls}),
     recv(Handle).
@@ -191,9 +437,30 @@ simple_bind(Handle, Dn, Passwd, Controls) when is_pid(Handle)  ->
 %%%          {"telephoneNumber", ["545 555 00"]}]
 %%%     )
 %%% --------------------------------------------------------------------
+-doc """
+Add an entry. The entry must not exist.
+
+```erlang
+  add(Handle,
+      "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
+       [{"objectclass", ["person"]},
+        {"cn", ["Bill Valentine"]},
+        {"sn", ["Valentine"]},
+        {"telephoneNumber", ["545 555 00"]}]
+     )
+```
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec add(Handle, Dn, Attributes) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    Attributes :: [attribute()],
+    Refs :: {referral, referrals()},
+    Reason :: term().
 add(Handle, Entry, Attributes) when is_pid(Handle),is_list(Entry),is_list(Attributes) ->
     add(Handle, Entry, Attributes, asn1_NOVALUE).
 
+-doc false.
 add(Handle, Entry, Attributes, Controls) when is_pid(Handle),is_list(Entry),is_list(Attributes) ->
     send(Handle, {add, Entry, add_attrs(Attributes), Controls}),
     recv(Handle).
@@ -218,9 +485,23 @@ add_attrs(Attrs) ->
 %%%         "cn=Bill Valentine, ou=people, o=Bluetail AB, dc=bluetail, dc=com"
 %%%        )
 %%% --------------------------------------------------------------------
+-doc """
+Delete an entry.
+
+```text
+  delete(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com")
+```
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec delete(Handle, Dn) -> ok | {ok, Refs} |{error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 delete(Handle, Entry) when is_pid(Handle), is_list(Entry) ->
     delete(Handle, Entry, asn1_NOVALUE).
 
+-doc false.
 delete(Handle, Entry, Controls)  when is_pid(Handle), is_list(Entry) ->
     send(Handle, {delete, Entry, Controls}),
     recv(Handle).
@@ -236,9 +517,26 @@ delete(Handle, Entry, Controls)  when is_pid(Handle), is_list(Entry) ->
 %%%          mod_add("description", ["LDAP hacker"])]
 %%%        )
 %%% --------------------------------------------------------------------
+-doc """
+Modify an entry.
+
+```erlang
+  modify(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
+         [eldap:mod_replace("telephoneNumber", ["555 555 00"]),
+	  eldap:mod_add("description", ["LDAP Hacker"]) ])
+```
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec modify(Handle, Dn, ModifyOps) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    ModifyOps :: [term()],
+    Refs :: {referral, referrals()},
+    Reason :: term().
 modify(Handle, Object, Mods) when is_pid(Handle), is_list(Object), is_list(Mods) ->
     modify(Handle, Object, Mods, asn1_NOVALUE).
 
+-doc false.
 modify(Handle, Object, Mods, Controls) when is_pid(Handle), is_list(Object), is_list(Mods) ->
     send(Handle, {modify, Object, Mods, Controls}),
     recv(Handle).
@@ -248,8 +546,31 @@ modify(Handle, Object, Mods, Controls) when is_pid(Handle), is_list(Object), is_
 %%% Example:
 %%%            mod_replace("telephoneNumber", ["555 555 00"])
 %%%
+-doc """
+Create an add modification operation.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec mod_add(Type, Values) -> modify_op() when
+    Type :: string(),
+    Values :: [string()].
 mod_add(Type, Values) when is_list(Type), is_list(Values)     -> m(add, Type, Values).
+
+-doc """
+Create a delete modification operation.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec mod_delete(Type, Values) -> modify_op() when
+    Type :: string(),
+    Values :: [string()].
 mod_delete(Type, Values) when is_list(Type), is_list(Values)  -> m(delete, Type, Values).
+
+-doc """
+Create a replace modification operation.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec mod_replace(Type, Values) -> modify_op() when
+    Type :: string(),
+    Values :: [string()].
 mod_replace(Type, Values) when is_list(Type), is_list(Values) -> m(replace, Type, Values).
 
 m(Operation, Type, Values) ->
@@ -271,6 +592,28 @@ m(Operation, Type, Values) ->
 %%%    ""
 %%%        )
 %%% --------------------------------------------------------------------
+-doc """
+Modify the DN of an entry.
+
+`DeleteOldRDN` indicates whether the current RDN
+should be removed from the attribute list after the operation. `NewSupDN` is the
+new parent that the RDN shall be moved to. If the old parent should remain as
+parent, `NewSupDN` shall be "".
+
+```text
+  modify_dn(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com ",
+            "cn=Bill Jr Valentine", true, "")
+```
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    NewRDN :: string(),
+    DeleteOldRDN :: boolean(),
+    NewSupDN :: string(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup)
   when is_pid(Handle),is_list(Entry),is_list(NewRDN),is_atom(DelOldRDN),is_list(NewSup) ->
     modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup, asn1_NOVALUE).
@@ -313,9 +656,44 @@ optional(Value) -> Value.
 %%%        []}}
 %%%
 %%% --------------------------------------------------------------------
+-doc """
+Search the directory with the supplied the SearchOptions.
+
+The base and filter
+options must be supplied. Default values: scope is `wholeSubtree/0`, deref is
+`derefAlways/0`, types_only is `false` and timeout is `0` (meaning infinity).
+
+```erlang
+  Filter = eldap:substrings("cn", [{any,"V"}]),
+  search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
+```
+
+The `timeout` option in the `SearchOptions` is for the ldap server, while the
+timeout in [eldap:open/2](`open/2`) is used for each individual request in the
+search operation.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec search(Handle, SearchOptions) ->
+    {ok, #eldap_search_result{entries :: term(), referrals :: term(), controls :: term()}} |
+    {ok, Refs} |
+    {error, Reason} when
+    Handle :: handle(),
+    SearchOptions ::
+        #eldap_search{base :: term(),
+                      filter :: term(),
+                      size_limit :: term(),
+                      scope :: term(),
+                      deref :: term(),
+                      attributes :: term(),
+                      types_only :: term(),
+                      timeout :: term()} |
+        [search_option()],
+    Refs :: {referral, referrals()},
+    Reason :: term().
 search(Handle, X) when is_pid(Handle), is_record(X,eldap_search) ; is_list(X) ->
     search(Handle, X, asn1_NOVALUE).
     
+-doc false.
 search(Handle, A, Controls) when is_pid(Handle), is_record(A, eldap_search) ->
     call_search(Handle, A, Controls);
 search(Handle, L, Controls) when is_pid(Handle), is_list(L) ->
@@ -357,32 +735,113 @@ parse_search_args([],A) ->
 %%%
 %%% The Scope parameter
 %%%
+-doc """
+Search baseobject only.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec baseObject()   -> scope().
 baseObject()   -> baseObject.
+-doc """
+Search the specified level only, i.e. do not recurse.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec singleLevel()  -> scope().
 singleLevel()  -> singleLevel.
+-doc """
+Search the entire subtree.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec wholeSubtree() -> scope().
 wholeSubtree() -> wholeSubtree.
 
 %%
 %% The derefAliases parameter
 %%
+-doc """
+Never dereference aliases, treat aliases as entries.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec neverDerefAliases() -> dereference().
 neverDerefAliases()   -> neverDerefAliases.
+-doc """
+Dereference aliases only when searching.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec derefInSearching() -> dereference().
 derefInSearching()    -> derefInSearching.
+-doc """
+Dereference aliases only in finding the base.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec derefFindingBaseObj() -> dereference().
 derefFindingBaseObj() -> derefFindingBaseObj.
+-doc """
+Always dereference aliases.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec derefAlways() -> dereference().
 derefAlways()         -> derefAlways.
 
 %%%
 %%% Boolean filter operations
 %%%
+-doc """
+Creates a filter where all `Filter` must be true.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec 'and'(ListOfFilters) -> filter() when ListOfFilters :: [filter()].
 'and'(ListOfFilters) when is_list(ListOfFilters) -> {'and',ListOfFilters}.
+
+-doc """
+Create a filter where at least one of the `Filter` must be true.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec 'or'(ListOfFilters) -> filter() when ListOfFilters :: [filter()].
 'or'(ListOfFilters)  when is_list(ListOfFilters) -> {'or', ListOfFilters}.
+
+-doc """
+Negate a filter.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec 'not'(Filter) -> filter() when Filter :: filter().
 'not'(Filter)        when is_tuple(Filter)       -> {'not',Filter}.
 
 %%%
 %%% The following Filter parameters consist of an attribute
 %%% and an attribute value. Example: F("uid","tobbe")
 %%%
+-doc """
+Create a equality filter.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec equalityMatch(Type, Value) -> filter() when
+    Type :: string(),
+    Value :: string().
 equalityMatch(Desc, Value)   -> {equalityMatch, av_assert(Desc, Value)}.
+-doc """
+Create a greater or equal filter.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec greaterOrEqual(Type, Value) -> filter() when
+    Type :: string(),
+    Value :: string().
 greaterOrEqual(Desc, Value)  -> {greaterOrEqual, av_assert(Desc, Value)}.
+-doc """
+Create a less or equal filter.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec lessOrEqual(Type, Value) -> filter() when
+    Type :: string(),
+    Value :: string().
 lessOrEqual(Desc, Value)     -> {lessOrEqual, av_assert(Desc, Value)}.
+-doc """
+Create a approximation match filter.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec approxMatch(Type, Value) -> filter() when
+    Type :: string(),
+    Value :: string().
+
 approxMatch(Desc, Value)     -> {approxMatch, av_assert(Desc, Value)}.
 
 av_assert(Desc, Value) ->
@@ -392,6 +851,11 @@ av_assert(Desc, Value) ->
 %%%
 %%% Filter to check for the presence of an attribute
 %%%
+-doc """
+Create a filter which filters on attribute type presence.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec present(Type) -> filter() when Type :: string().
 present(Attribute) when is_list(Attribute) ->
     {present, Attribute}.
 
@@ -411,6 +875,13 @@ present(Attribute) when is_list(Attribute) ->
 %%% Example: substrings("sn",[{initial,"To"},{any,"kv"},{final,"st"}])
 %%% will match entries containing:  'sn: Tornkvist'
 %%%
+-doc """
+Create a filter which filters on substrings.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
+-spec substrings(Type, SubStrings) -> filter() when
+    Type :: string(),
+    SubStrings :: [{initial, string()} | {any, string()} |{final, string()}].
 substrings(Type, SubStr) when is_list(Type), is_list(SubStr) ->
     Ss = v_substr(SubStr),
     {substrings,#'SubstringFilter'{type = Type,
@@ -419,6 +890,20 @@ substrings(Type, SubStr) when is_list(Type), is_list(SubStr) ->
 %%%
 %%% Filter for extensibleMatch
 %%%
+-doc """
+Creates an extensible match filter. For example,
+
+```erlang
+  eldap:extensibleMatch("Bar", [{type,"sn"}, {matchingRule,"caseExactMatch"}]))
+```
+
+creates a filter which performs a `caseExactMatch` on the attribute `sn` and
+matches with the value `"Bar"`. The default value of `dnAttributes` is `false`.
+""".
+-doc(#{since => <<"OTP 17.4">>}).
+-spec extensibleMatch(MatchValue, OptionalAttrs) -> filter() when
+    MatchValue :: string(),
+    OptionalAttrs :: [{matchingRule, string()} | {type, string()} | {dnAttributes, boolean()}].
 extensibleMatch(MatchValue, OptArgs) ->
     MatchingRuleAssertion =  
 	mra(OptArgs, #'MatchingRuleAssertion'{matchValue = MatchValue}),
@@ -527,6 +1012,7 @@ do_connect(Host, Data, Opts) when Data#eldap.ldaps == true ->
 		Opts ++ Data#eldap.tls_opts ++ Data#eldap.tcp_opts,
 		Data#eldap.timeout).
 
+-doc false.
 loop(Cpid, Data) ->
     receive
 
@@ -1230,6 +1716,7 @@ bump_id(Data) -> Data#eldap.id + 1.
 %%%
 %%% --------------------------------------------------------------------
 
+-doc false.
 parse_dn("") -> % empty DN string
     {ok,[]};
 parse_dn([H|_] = Str) when H=/=$, -> % 1:st name-component !
@@ -1383,6 +1870,7 @@ parse_error(Emsg,Rest) ->
 %%%
 %%% --------------------------------------------------------------------
 
+-doc false.
 parse_ldap_url("ldap://" ++ Rest1 = Str) ->
     {Rest2,HostPort} = parse_hostport(Rest1),
     %% Split the string into DN and Attributes+etc
@@ -1460,9 +1948,50 @@ get_head([H|Rest],Tail,Rhead) -> get_head(Rest,Tail,[H|Rhead]).
 %%% https://www.rfc-editor.org/rfc/rfc2696.txt
 %%% --------------------------------------------------------------------
 
+-doc """
+Paged results is an extension to the LDAP protocol specified by RFC2696
+
+This function creates a control with the specified page size for use in
+`search/3`, for example:
+
+```erlang
+Control = eldap:paged_result_control(50),
+{ok, SearchResults} = search(Handle, [{base, "dc=example, dc=com"}], [Control]),
+```
+""".
+-doc(#{since => <<"OTP 24.3">>}).
+-spec paged_result_control(PageSize) ->
+    {control, ControlOID, true, binary()} when
+    PageSize :: integer(),
+    ControlOID :: string().
 paged_result_control(PageSize) when is_integer(PageSize) ->
     paged_result_control(PageSize, "").
 
+-doc """
+Paged results is an extension to the LDAP protocol specified by RFC2696
+
+This function creates a control with the specified page size and cookie for use
+in `search/3` to retrieve the next results page.
+
+For example:
+
+```erlang
+PageSize = 50,
+Control1 = eldap:paged_result_control(PageSize),
+{ok, SearchResults1} = search(Handle, [{base, "dc=example, dc=com"}], [Control1]),
+%% retrieve the returned cookie from the search results
+{ok, Cookie1} = eldap:paged_result_cookie(SearchResults1),
+Control2 = eldap:paged_result_control(PageSize, Cookie1),
+{ok, SearchResults2} = eldap:search(Handle, [{base, "dc=example,dc=com"}], [Control2]),
+%% etc
+```
+""".
+-doc(#{since => <<"OTP 24.3">>}).
+-spec paged_result_control(PageSize, Cookie) ->
+   {control, ControlOID, true, binary()} when
+    PageSize :: integer(),
+    Cookie :: string(),
+    ControlOID :: string().
 paged_result_control(PageSize, Cookie) when is_integer(PageSize) ->
     RSCV = #'RealSearchControlValue'{size=PageSize, cookie=Cookie},
     {ok, ControlValue} = 'ELDAPv3':encode('RealSearchControlValue', RSCV),
@@ -1477,6 +2006,27 @@ paged_result_control(PageSize, Cookie) when is_integer(PageSize) ->
 %%%
 %%% https://www.rfc-editor.org/rfc/rfc2696.txt
 %%% --------------------------------------------------------------------
+
+-doc """
+paged_result_cookie(SearchResult)
+
+Paged results is an extension to the LDAP protocol specified by RFC2696.
+
+This function extracts the cookie returned from the server as a result of a
+paged search result.
+
+If the returned cookie is the empty string `""`, then these search results
+represent the last in the series.
+""".
+-doc(#{since => <<"OTP 24.3">>}).
+-spec paged_result_cookie(#eldap_search_result{controls :: maybe_improper_list(),
+                                         entries :: term(),
+                                         referrals :: term()}) ->
+    {error, no_cookie} |
+    {ok, asn1_NOVALUE |
+     [[any()] | byte() | {_, _} | {_, _, _}] |
+     #'AttributeValueAssertion'{attributeDesc :: [any()],
+				assertionValue :: [any()]}}.
 
 paged_result_cookie(#eldap_search_result{controls=Controls}) ->
     find_paged_result_cookie(Controls).

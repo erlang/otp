@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(tuple_SUITE).
@@ -26,7 +28,9 @@
 	 t_make_tuple_2/1, t_make_upper_boundry_tuple_2/1, t_make_tuple_3/1,
 	 t_append_element/1, t_append_element_upper_boundry/1,
          build_and_match/1, tuple_with_case/1, tuple_in_guard/1,
-         get_two_tuple_elements/1]).
+         get_two_tuple_elements/1,
+         record_update/1,
+         bad_tuple_match/1]).
 -include_lib("common_test/include/ct.hrl").
 
 %% Tests tuples and the BIFs:
@@ -49,12 +53,15 @@ all() ->
      t_append_element, t_append_element_upper_boundry,
      t_insert_element, t_delete_element,
      tuple_with_case, tuple_in_guard,
-     get_two_tuple_elements].
+     get_two_tuple_elements,
+     record_update,
+     bad_tuple_match].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    id(Config),
     A0 = case application:start(sasl) of
 	     ok -> [sasl];
 	     _ -> []
@@ -141,6 +148,7 @@ t_element(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch element(1, id({}))),
     {'EXIT', {badarg, _}} = (catch element(1, id([a,b]))),
     {'EXIT', {badarg, _}} = (catch element(1, id(42))),
+    {'EXIT', {badarg, _}} = (catch element(false, id({a,b}))),
     {'EXIT', {badarg, _}} = (catch element(id(1.5), id({a,b}))),
 
     %% Make sure that the loader does not reject the module when
@@ -150,7 +158,29 @@ t_element(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch element(1 bsl 32, id({a,b,c}))),
     {'EXIT', {badarg, _}} = (catch element(1 bsl 64, id({a,b,c}))),
 
+    %% Test known tuple and unknown position.
+    true = is_tuple(Tuple),
+    {'EXIT', {badarg, _}} = catch element(id(false), Tuple),
+    {'EXIT', {badarg, _}} = catch element(id(-1), Tuple),
+    {'EXIT', {badarg, _}} = catch element(id(0), Tuple),
+    {'EXIT', {badarg, _}} = catch element(id(1 bsl 64), Tuple),
+
+    %% Test a known tuple and position that is a known integer.
+    {'EXIT', {badarg, _}} = catch element(known_integer(-1), Tuple),
+    {'EXIT', {badarg, _}} = catch element(known_integer(0), Tuple),
+    {'EXIT', {badarg, _}} = catch element(known_integer(1 bsl 64), Tuple),
+    {'EXIT', {badarg, _}} = catch element(known_integer(tuple_size(Tuple)+1), Tuple),
+
+    %% Test unknown tuple and unknown position.
+    {'EXIT', {badarg, _}} = catch element(id(false), id(Tuple)),
+    {'EXIT', {badarg, _}} = catch element(id(-1), id(Tuple)),
+    {'EXIT', {badarg, _}} = catch element(id(0), id(Tuple)),
+    {'EXIT', {badarg, _}} = catch element(id(1 bsl 64), id(Tuple)),
+
     ok.
+
+known_integer(I) when is_integer(I) ->
+    I.
 
 get_elements([Element|Rest], Tuple, Pos) ->
     Element = element(Pos, Tuple),
@@ -607,9 +637,109 @@ get_two_tuple_elements(Config) ->
 
     ok.
 
+
+%% Do some basic tests of the destructive tuple update added in
+%% Erlang/OTP 27 (commit 8d4df9ae9fc9d1289b3c5a37e5bc6d73abb73297).
+
+-record(rec, {a,b,c,d,e}).
+record_update(_Config) ->
+    N = id(100_000),
+    First = id(1 bsl 64),
+    Last = id(First + N),
+
+    #rec{a=Last} = record_update_1(First, Last, #rec{b=id(42)}),
+    #rec{a=N} = record_update_1(id(0), N, #rec{b=id(42)}),
+
+    #rec{a=Last} = record_update_2(First, Last, #rec{b=id(42)}),
+
+    #rec{a=List} = record_update_3(id([]), N, #rec{b=id(42)}),
+    N = length(List),
+    true = lists:all(fun(a) -> true end, List),
+
+    ok.
+
+record_update_1(I, N, R) when is_integer(I) ->
+    do_record_update_1(I, N, R).
+
+do_record_update_1(I, Last, R0) ->
+    %% An incorrect test for an immediate would allow a boxed term
+    %% (such as a bignum) to be written into an existing tuple without
+    %% testing whether the tuple were in the safe part of the heap.
+    R = R0#rec{a=I},
+
+    %% Force a minor collection here to force the tuple over to the
+    %% unsafe part of the new heap (below the high-water mark).
+    erlang:garbage_collect(self(), [{type,minor}]),
+    if
+        I < Last ->
+            do_record_update_1(I + 1, Last, R);
+        true ->
+            R
+    end.
+
+record_update_2(I, Last, R0) ->
+    R = R0#rec{a=I},
+
+    %% Force a minor collection here to force the tuple over to the
+    %% unsafe part of the new heap (below the high-water mark).
+    erlang:garbage_collect(self(), [{type,minor}]),
+    if
+        I < Last ->
+            record_update_2(I + 1, Last, R);
+        true ->
+            R
+    end.
+
+record_update_3(L, N, R) when is_list(L); is_integer(L) ->
+    do_record_update_3(L, N, R).
+
+do_record_update_3(L, N, R0) ->
+    %% Test that the basic test for the tuple being in the
+    %% safe part of the new heap is correct.
+    R = R0#rec{a=L},
+
+    if
+        N > 0 ->
+            do_record_update_3(id([a|L]), N-1, R);
+        true ->
+            R
+    end.
+
+%% GH-8875
+bad_tuple_match(_Config) ->
+    ContentName = id(~"content-name"),
+    Content = id(#{ContentName => value}),
+
+    Find = case maps:find(ContentName, Content) of
+               {ok, _} -> {ok1, aa};
+               error -> ok
+           end,
+
+    Details = try id(good) of
+                  good ->
+                      {ok2, bb, cc}
+              catch
+                  _:_ ->
+                      {error, some_reason}
+              end,
+
+    %% Compiler optimizations will turn the following two lines into:
+    %%
+    %%    {test,is_tuple,Fail1,[{y,0}]}
+    %%    {test,test_arity,Fail2,[{x,0},3]}.
+    %%
+    %% The JIT would rewrite that to:
+    %%
+    %%    {i_is_tuple_of_arity_ff,Fail1,Fail2,{y,0},3}
+    %%
+    %% That is unsafe because the source tuples are distinct.
+    {ok1, _} = Find,
+    {ok2, _, _} = Details,
+
+    ok.
+
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
-
 
 sys_mem_cond_run(ReqSizeMB, TestFun) when is_integer(ReqSizeMB) ->
     case total_memory() of

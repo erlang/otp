@@ -132,8 +132,8 @@ CodeHolder::~CodeHolder() noexcept {
   CodeHolder_resetInternal(this, ResetPolicy::kHard);
 }
 
-// CodeHolder - Init & Reset
-// =========================
+// CodeHolder - Initialization & Reset
+// ===================================
 
 inline void CodeHolder_setSectionDefaultName(
   Section* section,
@@ -908,7 +908,7 @@ size_t CodeHolder::codeSize() const noexcept {
     }
   }
 
-  if ((sizeof(uint64_t) > sizeof(size_t) && offset > SIZE_MAX) || of)
+  if ((sizeof(uint64_t) > sizeof(size_t) && offset > uint64_t(SIZE_MAX)) || of)
     return SIZE_MAX;
 
   return size_t(offset);
@@ -1126,30 +1126,30 @@ UNIT(code_holder) {
   env.init(Arch::kX86);
 
   code.init(env);
-  EXPECT(code.arch() == Arch::kX86);
+  EXPECT_EQ(code.arch(), Arch::kX86);
 
   INFO("Verifying named labels");
   LabelEntry* le;
-  EXPECT(code.newNamedLabelEntry(&le, "NamedLabel", SIZE_MAX, LabelType::kGlobal) == kErrorOk);
-  EXPECT(strcmp(le->name(), "NamedLabel") == 0);
-  EXPECT(code.labelIdByName("NamedLabel") == le->id());
+  EXPECT_EQ(code.newNamedLabelEntry(&le, "NamedLabel", SIZE_MAX, LabelType::kGlobal), kErrorOk);
+  EXPECT_EQ(strcmp(le->name(), "NamedLabel"), 0);
+  EXPECT_EQ(code.labelIdByName("NamedLabel"), le->id());
 
   INFO("Verifying section ordering");
   Section* section1;
-  EXPECT(code.newSection(&section1, "high-priority", SIZE_MAX, SectionFlags::kNone, 1, -1) == kErrorOk);
-  EXPECT(code.sections()[1] == section1);
-  EXPECT(code.sectionsByOrder()[0] == section1);
+  EXPECT_EQ(code.newSection(&section1, "high-priority", SIZE_MAX, SectionFlags::kNone, 1, -1), kErrorOk);
+  EXPECT_EQ(code.sections()[1], section1);
+  EXPECT_EQ(code.sectionsByOrder()[0], section1);
 
   Section* section0;
-  EXPECT(code.newSection(&section0, "higher-priority", SIZE_MAX, SectionFlags::kNone, 1, -2) == kErrorOk);
-  EXPECT(code.sections()[2] == section0);
-  EXPECT(code.sectionsByOrder()[0] == section0);
-  EXPECT(code.sectionsByOrder()[1] == section1);
+  EXPECT_EQ(code.newSection(&section0, "higher-priority", SIZE_MAX, SectionFlags::kNone, 1, -2), kErrorOk);
+  EXPECT_EQ(code.sections()[2], section0);
+  EXPECT_EQ(code.sectionsByOrder()[0], section0);
+  EXPECT_EQ(code.sectionsByOrder()[1], section1);
 
   Section* section3;
-  EXPECT(code.newSection(&section3, "low-priority", SIZE_MAX, SectionFlags::kNone, 1, 2) == kErrorOk);
-  EXPECT(code.sections()[3] == section3);
-  EXPECT(code.sectionsByOrder()[3] == section3);
+  EXPECT_EQ(code.newSection(&section3, "low-priority", SIZE_MAX, SectionFlags::kNone, 1, 2), kErrorOk);
+  EXPECT_EQ(code.sections()[3], section3);
+  EXPECT_EQ(code.sectionsByOrder()[3], section3);
 }
 #endif
 

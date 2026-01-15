@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%-------------------------------------------------------------------
@@ -29,6 +31,8 @@
 -include_lib("wx/include/wx.hrl").
 
 -export([start/0]).
+
+-compile(nowarn_obsolete_bool_op).
 
 %%%Lots of IDs to declare!
 -define(menuID_FILE_QUIT,           ?wxID_EXIT).
@@ -105,7 +109,7 @@ start() ->
 %%    
 %%    
 create_frame(Wx) ->
-    Frame = wxFrame:new(Wx, -1, "wxErlang menu sample", [{size, {600,400}}]),
+    Frame = wxFrame:new(Wx, -1, "Wx menu sample", [{size, {600,400}}]),
 
     Path = code:priv_dir(wx),
     wxFrame:setIcon(Frame,  wxIcon:new(filename:join(Path,"erlang-logo128.png"), [{type, ?wxBITMAP_TYPE_PNG}])),
@@ -137,7 +141,7 @@ create_frame(Wx) ->
 				  {style, ?wxTE_MULTILINE}]),
     wxTextCtrl:setEditable(LogTextCtrl, false),
 
-    ok = wxFrame:setStatusText(Frame, "Welcome to wxErlang menu sample",[]),
+    ok = wxFrame:setStatusText(Frame, "Welcome to Wx menu sample",[]),
     
     ok = wxFrame:connect(Frame, command_menu_selected), 
     
@@ -161,14 +165,14 @@ create_file_menu() ->
             ])),
     ClearLogItem = wxMenuItem:new([
             {id,    ?menuID_FILE_CLEAR_LOG},
-            {text,  "Clear &log\tCtrl-L"}   %% note mnemonic and accelerator
+            {text,  "Clear &log\tCtrl+L"}   %% note mnemonic and accelerator
             ]),
 
     wxMenu:append(FileMenu, ClearLogItem ),
     wxMenu:appendSeparator(FileMenu),
     wxMenu:append(FileMenu, wxMenuItem:new([
             {id, ?menuID_FILE_QUIT} %,
-            %{text, "E&xit\tAlt-X"}
+            %{text, "E&xit\tAlt+X"}
             ])),
     FileMenu.
 
@@ -179,47 +183,47 @@ create_menubar_menu() ->
     MenuBarMenu   = wxMenu:new(),
     wxMenu:append(MenuBarMenu, wxMenuItem:new([
             {id,    ?menuID_MENUBAR_APPEND},
-            {text,  "&Append menu\tCtrl-A"},
+            {text,  "&Append menu\tCtrl+A"},
             {help,  "Append a menu to the menubar"}
             ])),
     wxMenu:append(MenuBarMenu, wxMenuItem:new([
             {id,    ?menuID_MENUBAR_INSERT},
-            {text,  "&Insert menu\tCtrl-I"},
+            {text,  "&Insert menu\tCtrl+I"},
             {help,  "Insert a menu into the menubar"}
             ])),
     wxMenu:append(MenuBarMenu, wxMenuItem:new([
             {id,    ?menuID_MENUBAR_DELETE},
-            {text,  "&Delete menu\tCtrl-D"},
+            {text,  "&Delete menu\tCtrl+D"},
             {help,  "Insert a menu into the menubar"}
             ])),
     wxMenu:append(MenuBarMenu, wxMenuItem:new([
             {id,    ?menuID_MENUBAR_TOGGLE},
-            {text,  "&Toggle menu\tCtrl-T"},
+            {text,  "&Toggle menu\tCtrl+T"},
             {help,  "Toggle the first menu in the menubar"},
             {kind,  ?wxITEM_CHECK}
             ])),   
     wxMenu:appendSeparator(MenuBarMenu), %% --------------------------
     wxMenu:append(MenuBarMenu, wxMenuItem:new([
             {id,    ?menuID_MENUBAR_ENABLE},
-            {text,  "&Enable menu\tCtrl-E"},
+            {text,  "&Enable menu\tCtrl+E"},
             {help,  "Enable or disable the last menu"},
             {kind,  ?wxITEM_CHECK}
             ])),
     wxMenu:appendSeparator(MenuBarMenu), %% --------------------------
     wxMenu:append(MenuBarMenu, wxMenuItem:new([
             {id,    ?menuID_MENUBAR_GET_LABEL},
-            {text,  "&Get menu label\tCtrl-G"},   
+            {text,  "&Get menu label\tCtrl+G"},
             {help,  "Get the label of the last menu"}
             ])),
     wxMenu:append(MenuBarMenu, wxMenuItem:new([
             {id,    ?menuID_MENUBAR_SET_LABEL},
-            {text,  "&Set menu label\tCtrl-S"},   
+            {text,  "&Set menu label\tCtrl+S"},
             {help,  "Change the label of the last menu"}
             ])),
     wxMenu:appendSeparator(MenuBarMenu), %% --------------------------
     wxMenu:append(MenuBarMenu, wxMenuItem:new([
             {id,    ?menuID_MENUBAR_FIND_MENU},
-            {text,  "&Find menu from label\tCtrl-F"},   
+            {text,  "&Find menu from label\tCtrl+F"},
             {help,  "Find a menu by searching for its label"}
             ])),
     MenuBarMenu.
@@ -232,46 +236,46 @@ create_menu_menu() ->
     MenuMenu   = wxMenu:new(),
     wxMenu:append(MenuMenu, wxMenuItem:new([
             {id,    ?menuID_MENU_APPEND},
-            {text,  "&Append menu item\tAlt-A"},
+            {text,  "&Append menu item\tAlt+A"},
             {help,  "Append a menu item to the last menu"}
             ])),
     wxMenu:append(MenuMenu, wxMenuItem:new([
             {id,    ?menuID_MENU_APPEND_SUB},
-            {text,  "&Append sub menu\tAlt-S"},
+            {text,  "&Append sub menu\tAlt+S"},
             {help,  "Append a sub menu to the last menu"}
             ])),
     wxMenu:append(MenuMenu, wxMenuItem:new([
             {id,    ?menuID_MENU_INSERT},
-            {text,  "&Insert menu item\tAlt-I"},   
+            {text,  "&Insert menu item\tAlt+I"},
             {help,  "Insert a menu item in head of the last menu"}
             ])),
     wxMenu:append(MenuMenu, wxMenuItem:new([
             {id,    ?menuID_MENU_DELETE},
-            {text,  "&Delete menu item\tAlt-D"},   
+            {text,  "&Delete menu item\tAlt+D"},
             {help,  "Delete the last menu item from the last menu"}
             ])),
     wxMenu:appendSeparator(MenuMenu), %% --------------------------
     wxMenu:append(MenuMenu, wxMenuItem:new([
             {id,    ?menuID_MENU_ENABLE},
-            {text,  "&Enable menu item\tAlt-E"},   
+            {text,  "&Enable menu item\tAlt+E"},
             {help,  "Enable or disable the last menu item"},
             {kind,  ?wxITEM_CHECK}
             ])),
     wxMenu:append(MenuMenu, wxMenuItem:new([
             {id,    ?menuID_MENU_CHECK},
-            {text,  "&Check menu item\tAlt-C"},   
+            {text,  "&Check menu item\tAlt+C"},
             {help,  "Check or uncheck the last menu item"},
             {kind,  ?wxITEM_CHECK}
             ])),   
     wxMenu:appendSeparator(MenuMenu), %% --------------------------
     wxMenu:append(MenuMenu, wxMenuItem:new([
             {id,    ?menuID_MENU_GET_INFO},
-            {text,  "Get menu item in&fo\tAlt-F"},   
+            {text,  "Get menu item in&fo\tAlt+F"},
             {help,  "Show the state of the last menu item"}
             ])),
     wxMenu:append(MenuMenu, wxMenuItem:new([
             {id,    ?menuID_MENU_SET_LABEL},
-            {text,  "&Set menu label\tCtrl-S"},   
+            {text,  "&Set menu label\tCtrl+S"},
             {help,  "Change the label of the last menu"}
             ])),
     wxMenu:appendSeparator(MenuMenu), %% --------------------------
@@ -378,9 +382,9 @@ create_stock_menu() ->
 
 create_dummy_menu() ->
     DummyMenu = wxMenu:new(),
-    wxMenu:append(DummyMenu, ?menuID_DUMMY_FIRST, "&First item\tCtrl-F1"),
+    wxMenu:append(DummyMenu, ?menuID_DUMMY_FIRST, "&First item\tCtrl+F1"),
     wxMenu:appendSeparator(DummyMenu), %% --------------------------
-    wxMenu:append(DummyMenu, ?menuID_DUMMY_SECOND, "&Second item\tCtrl-F2"),
+    wxMenu:append(DummyMenu, ?menuID_DUMMY_SECOND, "&Second item\tCtrl+F2"),
     DummyMenu.
 
 loop(State) ->
@@ -508,7 +512,7 @@ onMenuAction(#wx{id=?menuID_MENU_APPEND, obj=Frame}, #state{} = State) ->
     wxMenu:appendSeparator(Menu),
     wxMenu:append(Menu, wxMenuItem:new([
             {id,    ?menuID_DUMMY_THIRD},
-            {text,  "&Third dummy item\tCtrl-F3"},   
+            {text,  "&Third dummy item\tCtrl+F3"},
             {kind,  ?wxITEM_CHECK}
             ])),   
 
@@ -554,14 +558,14 @@ findLogger(Frame) ->
     
    
 showDialog(?menuID_HELP_ABOUT,  Frame) ->
-    String = lists:flatten(io_lib:format("Welcome to wxErlang 0.97.5.26!~n~n"
-		       "This is the minimal wxErlang sample~n"
+    String = lists:flatten(io_lib:format("Welcome to Wx 0.97.5.26!~n~n"
+		       "This is the minimal Wx sample~n"
 		       "running under ~p.",
 		       [wx_misc:getOsDescription()])),
     MessageDialog = wxMessageDialog:new(Frame,
    			     String,
    			     [{style, ?wxOK bor ?wxICON_INFORMATION}, 
-   			      {caption, "About wxErlang minimal sample"}]),
+			      {caption, "About Wx minimal sample"}]),
 
     wxDialog:showModal(MessageDialog),
     wxDialog:destroy(MessageDialog);
@@ -571,7 +575,7 @@ showDialog(Id,  Frame) ->
     MessageDialog = wxMessageDialog:new(Frame,
    			     String,
    			     [{style, ?wxOK bor ?wxICON_INFORMATION}, 
-   			      {caption, "wxErlang minimal sample"}]),
+			      {caption, "Wx minimal sample"}]),
 
     wxDialog:showModal(MessageDialog),
     wxDialog:destroy(MessageDialog).

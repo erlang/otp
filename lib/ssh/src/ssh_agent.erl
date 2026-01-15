@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +23,42 @@
 %% Reference: https://tools.ietf.org/html/draft-miller-ssh-agent-02
 
 -module(ssh_agent).
+-moduledoc """
+Callback module for using an SSH agent instead of the default ssh_file callback.
+
+This module defines a callback handler for the communication with an
+[SSH Agent](https://tools.ietf.org/html/draft-miller-ssh-agent-02) and can be
+used to replace the [default callback](`m:ssh_file`). This allows to issue
+signing requests to an agent that stores SSH private keys to perform
+authentication.
+
+Ssh_agent implements the `m:ssh_client_key_api`, to allow it to be used by
+setting the option [`key_cb`](`t:ssh:key_cb_common_option/0`) when starting a
+client (with for example [ssh:connect](`ssh:connect/3`),
+[ssh:shell](`ssh:shell/1`) ).
+
+```erlang
+      {key_cb, {ssh_agent, []}}
+```
+
+The agent communication is established through a UNIX domain socket. By default,
+the socket path will be fetched from the `SSH_AUTH_SOCK` environment variable,
+which is the default socket path in the agent implementation of
+[OpenSSH](http://www.openssh.com).
+
+[](){: #SOCKET_PATH } In order to set a different socket path the `socket_path`
+option can be set.
+
+```erlang
+      {key_cb, {ssh_agent, [{socket_path, SocketPath}]}}
+```
+
+> #### Note {: .info }
+>
+> The functions are _Callbacks_ for the SSH app. They are not intended to be
+> called from the user's code\!
+""".
+-moduledoc(#{since => "OTP 23.0"}).
 
 -behaviour(ssh_client_key_api).
 
@@ -30,13 +68,30 @@
 -export([send/2]).
 -export([add_host_key/3, add_host_key/4, is_host_key/4, is_host_key/5, user_key/2, sign/3]).
 
+-doc """
+Sets the [socket path](`m:ssh_agent#SOCKET_PATH`) for the communication with the
+agent.
+""".
+-doc(#{group => <<"Options">>}).
 -type socket_path_option() :: {socket_path,  string()}.
--type timeout_option() :: {timeout, integer()}.
+-doc """
+Sets the time-out in milliseconds when communicating with the agent via the
+socket. The default value is `1000`.
+""".
+-doc(#{group => <<"Options">>}).
+-type timeout_option() :: {timeout, timeout()}.
+-doc """
+The module which the `add_host_key` and `is_host_key` callbacks are delegated
+to. Defaults to the `m:ssh_file` module.
+""".
+-doc(#{group => <<"Options">>}).
 -type call_ssh_file_option() :: {call_ssh_file, atom()}.
 
 %% ssh_client_key_api implementation
 
 %% Old (compatibility) version
+-doc(#{equiv => add_host_key/4}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec add_host_key(string(),
                    public_key:public_key(),
                    Options
@@ -50,6 +105,8 @@ add_host_key(Host, PublicKey, Options) ->
     SshFileCb:add_host_key(Host, PublicKey, Options).
 
 
+-doc(#{equiv => is_host_key/5}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec is_host_key(Key :: public_key:public_key(),
                   Host :: string(),
                   Algorithm :: ssh:pubkey_alg(),
@@ -64,6 +121,8 @@ is_host_key(Key, PeerName, Algorithm, Opts) ->
     SshFileCb:is_host_key(Key, PeerName, Algorithm, Opts).
 
 %% New version
+-doc "This callback is delegated to the [ssh_file](`ssh_file:add_host_key/4`) module.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec add_host_key(Host,
                    inet:port_number(),
                    public_key:public_key(),
@@ -79,6 +138,8 @@ add_host_key(Host, Port, PublicKey, Options) ->
     SshFileCb:add_host_key(Host, Port, PublicKey, Options).
 
 
+-doc "This callback is delegated to the [ssh_file](`ssh_file:is_host_key/5`) module.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec is_host_key(public_key:public_key(),
                   Host,
                   inet:port_number(),
@@ -95,6 +156,13 @@ is_host_key(Key, PeerName, Port, Algorithm, Opts) ->
     SshFileCb:is_host_key(Key, PeerName, Port, Algorithm, Opts).
 
 
+-doc """
+**Types and description**
+
+See the api description in
+[ssh_client_key_api, Module:user_key/2](`c:ssh_client_key_api:user_key/2`).
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec user_key(Algorithm :: ssh:pubkey_alg(),
                Options) -> Result when 
       Result :: {ok, public_key:private_key()} |
@@ -125,6 +193,7 @@ user_key(Algorithm, Opts) ->
             {error, enoent}
     end.
 
+-doc false.
 -spec sign(binary(),
            binary(),
            Options
@@ -151,6 +220,7 @@ has_key_type(#ssh_agent_key{blob = KeyBlob}, Type) ->
 
 %% Agent communication
 
+-doc false.
 send(Request, Opts) ->
     SocketPath = proplists:get_value(socket_path, Opts, os:getenv("SSH_AUTH_SOCK")),
     Timeout = proplists:get_value(timeout, Opts, 1000),

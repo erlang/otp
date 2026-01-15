@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +21,9 @@
 %% 
 
 -module(snmp_log).
+-moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
 
 -export([
 	 create/4, create/5, create/6, open/1, open/2, 

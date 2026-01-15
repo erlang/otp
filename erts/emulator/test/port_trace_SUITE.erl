@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +23,8 @@
 
 -module(port_trace_SUITE).
 
--export([all/0, suite/0,init_per_suite/1, end_per_suite/1,
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([port_specs/1, ports/1, open_close/1,
@@ -55,6 +58,12 @@ suite() -> [{ct_hooks,[ts_install_cth]},
             {timetrap, {minutes, 2}}].
 
 all() ->
+    trace_sessions:all().
+
+groups() ->
+    trace_sessions:groups(testcases()).
+
+testcases() ->
     [port_specs, ports, open_close,
      command, control, connect, call,
      output, output2, output_binary,
@@ -66,27 +75,38 @@ all() ->
      driver_remote_send_term].
 
 init_per_suite(Config) ->
-    Config.
+    trace_sessions:init_per_suite(Config, ?MODULE).
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    trace_sessions:end_per_suite(Config).
 
-init_per_group(_GroupName, Config) ->
-    Config.
+init_per_group(Group, Config) ->
+    trace_sessions:init_per_group(Group, Config).
 
-end_per_group(_GroupName, Config) ->
-    Config.
-
+end_per_group(Group, Config) ->
+    trace_sessions:end_per_group(Group, Config).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    erlang:trace(all, false, [all]),
+    erlang_trace(all, false, [all]),
     os:unsetenv("OUTPUTV"),
     reload_drv(Config),
-    Config.
 
-end_per_testcase(_Func, _Config) ->
-    erlang:trace(all, false, [all]),
-    ok.
+    trace_sessions:init_per_testcase(Config).
+
+end_per_testcase(_Func, Config) ->
+    erlang_trace(all, false, [all]),
+    trace_sessions:end_per_testcase(Config).
+
+
+erlang_trace(A,B,C) ->
+    trace_sessions:erlang_trace(A,B,C).
+
+%erlang_trace_pattern(A,B,C) ->
+%    trace_sessions:erlang_trace_pattern(A,B,C).
+
+erlang_trace_info(A,B) ->
+    trace_sessions:erlang_trace_info(A,B).
+
 
 %% Test the first argument of trace/3
 port_specs(_Config) ->
@@ -106,20 +126,20 @@ port_specs(_Config) ->
     Test = fun(TraceSpec, Info1, Info2) ->
                    {TracerPid,Ref} = spawn_monitor(Tracer),
                    Prt1 = erlang:open_port({spawn, echo_drv}, [binary]),
-                   erlang:trace(TraceSpec, true, ['receive', {tracer, TracerPid}]),
+                   erlang_trace(TraceSpec, true, ['receive', {tracer, TracerPid}]),
                    %% We disable trace messages from the testcase process
-                   erlang:trace(self(), false, ['receive']),
+                   erlang_trace(self(), false, ['receive']),
                    Prt2 = erlang:open_port({spawn, echo_drv}, [binary]),
 
                    InfoCheck =
                        fun(Info, Prt) ->
                                if
                                    Info ->
-                                       {tracer, TracerPid} = erlang:trace_info(Prt, tracer),
-                                       {flags,['receive']} = erlang:trace_info(Prt, flags);
+                                       {tracer, TracerPid} = erlang_trace_info(Prt, tracer),
+                                       {flags,['receive']} = erlang_trace_info(Prt, flags);
                                    not Info ->
-                                       {tracer,[]} = erlang:trace_info(Prt, tracer),
-                                       {flags,[]} = erlang:trace_info(Prt, flags)
+                                       {tracer,[]} = erlang_trace_info(Prt, tracer),
+                                       {flags,[]} = erlang_trace_info(Prt, flags)
                                end
                        end,
                    InfoCheck(Info1, Prt1),
@@ -143,7 +163,7 @@ port_specs(_Config) ->
 
                    erlang:port_close(Prt1),
                    erlang:port_close(Prt2),
-                   erlang:trace(all, false, [all]),
+                   erlang_trace(all, false, [all]),
                    {Prt1, Prt2}
            end,
 
@@ -307,7 +327,7 @@ connect(_Config) ->
                                   receive {Prt, connected} -> unlink(Prt) end
                           end
                   end),
-    erlang:trace(Pid, true, [send, 'receive', procs]),
+    erlang_trace(Pid, true, [send, 'receive', procs]),
 
     erlang:port_connect(Prt, Pid),
     unlink(Prt),
@@ -562,7 +582,7 @@ driver_remote_send_term(_Config) ->
                     receive M -> S ! M end
             end),
     recv(ok),
-    erlang:trace(Pid, true, ['receive']),
+    erlang_trace(Pid, true, ['receive']),
 
     erlang:port_command(Prt, <<?ECHO_DRV_REMOTE_SEND_TERM, 123456:32>>),
     recv({echo, Prt, <<123456:32>>}),
@@ -577,7 +597,7 @@ driver_remote_send_term(_Config) ->
 %%%%%%%%%%%%%%%%%%%
 
 trace_ports(TraceFlags) ->
-    erlang:trace(new_ports, true, TraceFlags),
+    erlang_trace(new_ports, true, TraceFlags),
     self().
 
 trace_and_open(TraceFlags, OpenFlags) ->
@@ -585,7 +605,7 @@ trace_and_open(TraceFlags, OpenFlags) ->
     Ports = proplists:get_value(ports, TraceFlags),
     [trace_ports(TraceFlags) || Ports],
     Prt = erlang:open_port({spawn, echo_drv}, OpenFlags),
-    [erlang:trace(Prt, true, TraceFlags) || Ports == undefined],
+    [erlang_trace(Prt, true, TraceFlags) || Ports == undefined],
     {Prt, S}.
 
 close(Prt, Flags) ->
