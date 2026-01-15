@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2025. All Rights Reserved.
+SPDX-FileCopyrightText: Copyright (C) 2025 Richard Carlsson <carlsson.richard@gmail.com>
 
 %CopyrightEnd%
 -->
