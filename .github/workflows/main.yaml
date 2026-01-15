@@ -175,25 +175,26 @@ jobs:
 
   build-macos:
     name: Build Erlang/OTP (macOS)
-    runs-on: macos-12
+    runs-on: macos-15
     needs: pack
     if: needs.pack.outputs.c-code-changes
     env:
-      WXWIDGETS_VERSION: 3.1.5
+      WXWIDGETS_VERSION: 3.2.9
+      MACOS_VERSION: 15
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
 
       - name: Download source archive
-        uses: actions/download-artifact@v4.1.7
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
         with:
           name: otp_prebuilt
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # ratchet:actions/cache@v4.2.4
         with:
           path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-12
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
 
       - name: Compile wxWidgets
         if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
@@ -216,7 +217,7 @@ jobs:
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
-        uses: actions/upload-artifact@v4.3.3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
         with:
           name: otp_prebuilt_macos_x86-64
           path: otp/otp_macos_*_x86-64.tar.gz
