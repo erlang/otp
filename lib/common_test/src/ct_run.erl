@@ -2216,7 +2216,6 @@ do_run_test(Tests, Skip, Opts0) ->
 	    Suites1 = delete_dups(Suites),
 	    NoOfTests = length(Tests),
 	    NoOfSuites = length(Suites1),
-	    ct_util:warn_duplicates(Suites1),
 	    {ok,Cwd} = file:get_cwd(),
 	    io:format("~nCWD set to: ~tp~n", [Cwd]),
 	    if NoOfCases == unknown ->
@@ -3213,30 +3212,11 @@ is_suite(ModOrFile) when is_list(ModOrFile) ->
     end.
 
 get_all_testcases(Suite) ->
-    try ct_framework:get_all_cases(Suite) of
+    case ct_framework:get_all_cases(Suite) of
 	{error,_Reason} = Error ->
 	    Error;
 	SuiteCases ->
-	    Cases = [C || {_S,C} <- SuiteCases],
-	    try Suite:sequences() of
-		[] ->
-		    Cases;
-		Seqs ->
-		    TCs1 = lists:flatten([TCs || {_,TCs} <- Seqs]),
-		    lists:reverse(
-		      lists:foldl(fun(TC, Acc) ->
-					  case lists:member(TC, Acc) of
-					      true  -> Acc;
-					      false -> [TC | Acc]
-					  end
-				  end, [], Cases ++ TCs1))
-	    catch
-		_:_ ->
-		    Cases
-	    end
-    catch
-	_:Error ->
-	    {error,Error}
+	    [C || {_S,C} <- SuiteCases]
     end.
 
 %% Internal tracing support. If {ct_trace,TraceSpec} is present, the

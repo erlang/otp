@@ -110,29 +110,7 @@ init_tc(Mod,Func0,Args) ->
 					       (Running) ->
 						    [{Suite,Func}|Running]
 					    end, [create]),
-		    case ct_util:read_suite_data({seq,Suite,Func}) of
-			undefined ->
-			    init_tc1(Mod,Suite,Func,HookFunc,Args);
-			Seq when is_atom(Seq) ->
-			    case ct_util:read_suite_data({seq,Suite,Seq}) of
-				[Func|TCs] -> % this is the 1st case in Seq
-				    %% make sure no cases in this seq are
-				    %% marked as failed from an earlier execution
-				    %% in the same suite
-				    lists:foreach(
-				      fun(TC) ->
-					      ct_util:save_suite_data(
-						{seq,Suite,TC},
-						Seq)
-				      end, TCs);
-				_ ->
-				    ok
-			    end,
-			    init_tc1(Mod,Suite,Func,HookFunc,Args);
-			{failed,Seq,BadFunc} ->
-                            initialize(false,Mod,Func,Args),
-                            {auto_skip,{sequence_failed,Seq,BadFunc}}
-		    end
+                    init_tc1(Mod,Suite,Func,HookFunc,Args)
 	    end
     end.
 
@@ -841,24 +819,11 @@ end_tc(Mod,Func00,TCPid,Result,Args,Return) ->
 	    ok
     end,
 
-    case FinalResult of
-	{auto_skip,{sequence_failed,_,_}} ->
-	    %% ct_logs:init_tc is never called for a skipped test case
-	    %% in a failing sequence, so neither should end_tc	    
-	    ok;
-	_ ->
-	    case ct_logs:end_tc(TCPid) of
-		{error,Reason} ->
-		    exit({error,{logger,Reason}});
-		_ ->
-		    ok
-	    end
-    end,
-    case Func of
-	end_per_suite -> 
-	    ct_util:match_delete_suite_data({seq,Suite,'_'});
-	_ -> 
-	    ok
+    case ct_logs:end_tc(TCPid) of
+        {error,Reason} ->
+            exit({error,{logger,Reason}});
+        _ ->
+            ok
     end,
     FinalResult.	    
 
@@ -869,8 +834,6 @@ end_tc(Mod,Func00,TCPid,Result,Args,Return) ->
 %% ct_hooks:init_tc/3, e.g. if suite/0 fails, then we never call
 %% ct_hooks:init_tc for init_per_suite, and thus we must not call
 %% ct_hooks:end_tc for init_per_suite either.
-end_hook_func({init_per_testcase,_},{auto_skip,{sequence_failed,_,_}},_) ->
-    undefined;
 end_hook_func({init_per_testcase,_},{auto_skip,"Repeated test stopped by force_stop option"},_) ->
     undefined;
 end_hook_func({init_per_testcase,_},{fail,{config_name_already_in_use,_}},_) ->
@@ -934,7 +897,7 @@ tag(_Other) ->
 %%% This function is called as the result of testcase
 %%% Func in suite Mod crashing.
 %%% Error specifies the reason for failing.
-error_notification(Mod,Func,_Args,{Error,Loc}) ->
+error_notification(Mod,_Func,_Args,{Error,Loc}) ->
     ErrorSpec = case Error of
 		 {What={_E,_R},Trace} when is_list(Trace) ->
 		      What;
@@ -1034,33 +997,8 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	    %% print error to console, we are only
 	    %% interested in the last executed expression
 	    PrintError("~w:~tw failed on line ~w~nReason: ~ts",
-		     [LastMod,LastFunc,LastLine,ErrorStr]),
-	    
-	    case ct_util:read_suite_data({seq,Mod,Func}) of
-		undefined ->
-		    ok;
-		Seq ->
-		    SeqTCs = ct_util:read_suite_data({seq,Mod,Seq}),
-		    mark_as_failed(Seq,Mod,Func,SeqTCs)
-	    end	    
+		     [LastMod,LastFunc,LastLine,ErrorStr])
     end,
-    ok.
-
-%% cases in seq that have already run
-mark_as_failed(Seq,Mod,Func,[Func|TCs]) ->
-    mark_as_failed1(Seq,Mod,Func,TCs);
-mark_as_failed(Seq,Mod,Func,[_TC|TCs]) ->
-    mark_as_failed(Seq,Mod,Func,TCs);
-mark_as_failed(_,_,_,[]) ->
-    ok;
-mark_as_failed(_,_,_,undefined) ->
-    ok.
-
-%% mark rest of cases in seq to be skipped
-mark_as_failed1(Seq,Mod,Func,[TC|TCs]) ->
-    ct_util:save_suite_data({seq,Mod,TC},{failed,Seq,Func}),
-    mark_as_failed1(Seq,Mod,Func,TCs);
-mark_as_failed1(_,_,_,[]) ->
     ok.
 
 group_or_func(Func, Config) when Func == init_per_group; 
@@ -1118,11 +1056,6 @@ get_suite(Mod, all) ->
         {error,What} ->
             [{?MODULE,error_in_suite,[[{error,What}]]}]
     end;
-
-%%!============================================================
-%%! Note: The handling of sequences in get_suite/2 and get_all/2
-%%! is deprecated and should be removed at some point...
-%%!============================================================
 
 %% group
 get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
@@ -1192,8 +1125,8 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
     end;
 
 %% testcase
-get_suite(Mod, Name) ->
-    get_seq(Mod, Name).
+get_suite(_Mod, _Name) ->
+    [].
 
 %%%-----------------------------------------------------------------
 
@@ -1288,112 +1221,6 @@ get_all(Mod, ConfTests) ->
         {error,What} ->
             [{?MODULE,error_in_suite,[[{error,What}]]}]
     end.
-
-%%!============================================================
-%%! The support for sequences by means of using sequences/0
-%%! will be removed in OTP R15. The code below is only kept 
-%%! for backwards compatibility. From OTP R13 groups with
-%%! sequence property should be used instead!
-%%!============================================================
-%%!============================================================
-%%! START OF DEPRECATED SUPPORT FOR SEQUENCES --->
-
-get_seq(Mod, Func) ->
-    case ct_util:read_suite_data({seq,Mod,Func}) of
-	undefined ->
-	    case catch apply(Mod,sequences,[]) of
-		{'EXIT',_} ->
-		    [];
-		Seqs ->
-		    case lists:keysearch(Func,1,Seqs) of
-			{value,{Func,SeqTCs}} ->			    
-			    case catch save_seq(Mod,Func,SeqTCs) of
-				{error,What} ->
-				    [{?MODULE,error_in_suite,[[{error,What}]]}];
-				_ ->
-				    SeqTCs
-			    end;
-			false ->
-			    []
-		    end
-	    end;
-	TCs when is_list(TCs) ->
-	    TCs;
-	_ ->
-	    []
-    end.
-
-save_seqs(Mod,AllTCs) ->
-    case lists:keymember(sequence,1,AllTCs) of
-	true ->
-	    case catch apply(Mod,sequences,[]) of
-		{'EXIT',_} -> 
-		    Reason = list_to_atom(atom_to_list(Mod)++
-					  ":sequences/0 is missing"),
-		    throw({error,Reason});
-		Seqs ->
-		    save_seqs(Mod,AllTCs,Seqs,AllTCs)
-	    end;
-	false ->
-	    AllTCs
-    end.
-    
-save_seqs(Mod,[{sequence,Seq}|TCs],Seqs,All) ->
-    case lists:keysearch(Seq,1,Seqs) of
-	{value,{Seq,SeqTCs}} ->
-	    save_seq(Mod,Seq,SeqTCs,All),
-	    [Seq|save_seqs(Mod,TCs,Seqs,All)];
-	false ->
-	    Reason = list_to_atom(
-		       atom_to_list(Seq)++" is missing in "++
-		       atom_to_list(Mod)),
-	    throw({error,Reason})
-    end;
-save_seqs(Mod,[TC|TCs],Seqs,All) ->
-    [TC|save_seqs(Mod,TCs,Seqs,All)];
-save_seqs(_,[],_,_) ->
-    [].
-
-save_seq(Mod,Seq,SeqTCs) ->
-    save_seq(Mod,Seq,SeqTCs,apply(Mod,all,[])).
-    
-save_seq(Mod,Seq,SeqTCs,All) ->
-    check_private(Seq,SeqTCs,All),
-    check_multiple(Mod,Seq,SeqTCs),
-    ct_util:save_suite_data({seq,Mod,Seq},SeqTCs),
-    lists:foreach(fun(TC) -> 
-			  ct_util:save_suite_data({seq,Mod,TC},Seq)
-		  end, SeqTCs).
-
-check_private(Seq,TCs,All) ->    
-    Bad = lists:filter(fun(TC) -> lists:member(TC,All) end, TCs),
-    if Bad /= [] ->
-	    Reason = io_lib:format("regular test cases not allowed in sequence ~tp: "
-				   "~tp",[Seq,Bad]),
-	    throw({error,list_to_atom(lists:flatten(Reason))});
-       true ->
-	    ok
-    end.
-
-check_multiple(Mod,Seq,TCs) ->
-    Bad = lists:filter(fun(TC) ->
-			       case ct_util:read_suite_data({seq,Mod,TC}) of
-				   Seq1 when Seq1 /= undefined, Seq1 /= Seq -> 
-				       true;
-
-				   _ -> false
-			       end
-		       end,TCs),
-    if Bad /= [] ->
-	    Reason = io_lib:format("test cases found in multiple sequences: "
-				   "~tp",[Bad]),
-	    throw({error,list_to_atom(lists:flatten(Reason))});
-       true ->
-	    ok
-    end.
-
-%%! <---  END OF DEPRECATED SUPPORT FOR SEQUENCES
-%%!============================================================
 
 %% let test_server call this function as a testcase only so that
 %% the user may see info about what's missing in the suite
@@ -1649,12 +1476,7 @@ get_log_dir() ->
 safe_apply_all_0(Mod) ->
     try apply(Mod, all, []) of
         AllTCs0 when is_list(AllTCs0) ->
-	    try save_seqs(Mod,AllTCs0) of
-		SeqsAndTCs when is_list(SeqsAndTCs) ->
-                    all_hook(Mod,SeqsAndTCs)
-            catch throw:{error,What} ->
-		    {error,What}
-            end;
+            all_hook(Mod, AllTCs0);
         {skip,_}=Skip ->
             all_hook(Mod,Skip);
         Bad ->

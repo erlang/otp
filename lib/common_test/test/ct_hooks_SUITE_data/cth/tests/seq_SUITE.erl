@@ -33,10 +33,10 @@ end_per_testcase(_,_) ->
     ok.
 
 all() ->
-    [{sequence,seq1}].
+    [{group, seq1}].
 
-sequences() ->
-    [{seq1,[test_case_1,test_case_2]}].
+groups() ->
+    [{seq1, [sequence], [test_case_1, test_case_2]}].
 
 %% Test cases starts here.
 test_case_1(_Config) ->

@@ -116,19 +116,21 @@ end_per_testcase(TestCase, Config) ->
     {TestCase,data} = ?config(TestCase, Config).
 
 %%--------------------------------------------------------------------
-%% Function: sequences() -> Sequences
+%% Function: groups() -> Groups
 %%
-%% Sequences = [{SeqName,TestCases}]
-%% SeqName = atom()
-%%   Name of a sequence.
+%% Groups = [{GroupName, GroupOpts, TestCases}]
+%% GroupName = atom()
+%%   Name of the group.
+%% GroupOpts = [atom()]
+%%   Options to apply for the group.
 %% TestCases = [atom()]
-%%   List of test cases that are part of the sequence
+%%   List of test cases that are part of the group
 %%
-%% Description: Specifies test case sequences.
+%% Description: Specifies test case groups.
 %%--------------------------------------------------------------------
-sequences() -> 
-    [{seq1,[seq1_tc1, seq1_tc2]},
-     {seq2,[seq2_tc1, seq2_tc2]}].
+groups() ->
+    [{seq1, [sequence], [seq1_tc1, seq1_tc2]},
+     {seq2, [sequence], [seq2_tc1, seq2_tc2]}].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> TestCases | {skip,Reason}
@@ -146,9 +148,9 @@ sequences() ->
 all() -> 
     [tc1,
      tc2,
-     seq1,
+     {group, seq1},
      tc3,
-     seq2,
+     {group, seq2},
      tc4].
 
 
