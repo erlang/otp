@@ -77,7 +77,9 @@ release_spec:
 	@NSIS_VER=`makensis.exe -version`; \
 	case $$NSIS_VER in \
 	v2.* | v3.0 | v3.01) \
-	  echo "Unsupported NSIS version: $$NSIS_VER";;\
+	  echo "Unsupported NSIS version: $$NSIS_VER";\
+		exit -1;\
+	  ;;\
 	v3.*) \
 	  echo '!define OTP_RELEASE "$(SYSTEM_VSN)"' > $(VERSION_HEADER);\
 	  echo '!define OTP_VERSION "$(OTP_VERSION)"' >> $(VERSION_HEADER);\
@@ -108,7 +110,9 @@ release_spec:
 	  echo "Running $(MAKENSIS) $(MAKENSISFLAGS) erlang20.nsi";\
 	  $(MAKENSIS) $(MAKENSISFLAGS) erlang20.nsi;;\
 	*) \
-	  echo "Unsupported NSIS version: $$NSIS_VER";;\
+	  echo "Unsupported NSIS version: $$NSIS_VER";\
+	  exit -1;\
+	  ;;\
 	esac	
 
 release_docs release_docs_spec docs:
