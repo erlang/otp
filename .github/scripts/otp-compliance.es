@@ -62,7 +62,7 @@
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
          test_package_relations/1, test_has_extracted_licenses/1,
          test_vendor_packages/1, test_erts/1, test_download_vendor_location/1,
-         test_package_verification_code_value/1
+         test_package_verification_code_value/1, test_examples/1
          %% test_copyright_format/1, test_files_licenses/1,
         ]).
 
@@ -1916,7 +1916,7 @@ get_doc_files(~"erts", SpdxPackageFiles, PrefixPath) ->
     group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/**/doc/**");
 get_doc_files(_App, SpdxPackageFiles, PrefixPath) ->
     Docs = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/doc/**"),
-    Examples = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/examples*"),
+    Examples = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/examples/**"),
     lists:uniq(Docs ++ Examples).
 
 create_spdx_package_record(PackageName, Vsn, Description, SpdxPackageFiles,
@@ -2118,6 +2118,7 @@ package_generator(Sbom) ->
              test_erts,
              test_verificationCode,
              test_package_verification_code_value,
+             test_examples,
              test_supplier_Ericsson,
              test_originator_Ericsson,
              test_versionInfo_not_empty,
@@ -2389,10 +2390,41 @@ test_package_verification_code_value(#{~"packages" := Packages,
                       ok;
                   false ->
                       io:format("Error in ~s package verification code: ~s =/= ~s~n",
-                               [PackageId, PackageVerificationCodeValue, CodeValue])
+                               [PackageId, PackageVerificationCodeValue, CodeValue]),
+                      error(?FUNCTION_NAME)
               end
       end, Packages),
     ok.
+
+
+test_examples(#{~"packages" := Packages,
+                ~"files" := Files,
+                ~"relationships" := Relations}) ->
+    PackageNames = lists:filtermap(fun get_root_packages/1, Relations),
+    Packages1 = lists:filter(fun (#{~"SPDXID" := Id}) -> lists:member(Id, PackageNames) end, Packages),
+    Examples = group_files_by_folder(Files, "**/examples/**"),
+    %% io:format("Examples: ~p~n~n", [Examples]),
+    ExampleFileNames = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, Examples),
+    _ = lists:foreach(fun (#{~"hasFiles" := PackageFileNames,
+                             ~"SPDXID" := Id}) ->
+                                  SetDiff = PackageFileNames -- ExampleFileNames,
+                                  case PackageFileNames == SetDiff of
+                                      true ->
+                                          ok;
+                                      false ->
+                                          SetIntersection = PackageFileNames -- SetDiff,
+                                          io:format("Error, example file(s) ~p exists inside package ~s~n", [SetIntersection, Id])
+                                          %% error(?FUNCTION_NAME)
+                                  end
+                      end, Packages1),
+    ok.
+
+get_root_packages(#{~"relatedSpdxElement" := ~"SPDXRef-Project-OTP",
+                    ~"relationshipType"   := ~"PACKAGE_OF",
+                    ~"spdxElementId"      := PackageName}) ->
+    {true, PackageName};
+get_root_packages(_) ->
+    false.
 
 
 test_supplier_Ericsson(#{~"packages" := Packages}) ->
