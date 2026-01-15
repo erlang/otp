@@ -279,7 +279,7 @@ jobs:
     env:
       WXWIDGETS_VERSION: 3.2.6
     name: Build Erlang/OTP (Windows)
-    runs-on: windows-2022
+    runs-on: windows-2025
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
@@ -289,6 +289,11 @@ jobs:
 
       - name: Install WSL dependencies
         run: apt update && apt install -y make autoconf unzip
+
+      - name: Install NSIS
+        shell: cmd
+        run: |
+          choco install nsis --version 3.11.0
 
       - name: Install openssl
         shell: cmd
@@ -349,6 +354,7 @@ jobs:
           cp -R wxWidgets /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}
           tar -xzf ./otp_src.tar.gz
           cd otp
+          export PATH="/mnt/c/Program Files (x86)/NSIS/bin":$PATH
           export ERL_TOP=`pwd`
           export MAKEFLAGS=-j$(($(nproc) + 2))
           export ERLC_USE_SERVER=true
