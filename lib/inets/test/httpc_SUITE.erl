@@ -209,7 +209,10 @@ only_simulated() ->
      get_space,
      delete_no_body,
      post_with_content_type,
-     stream_fun_server_close
+     stream_fun_server_close,
+     no_content_length_for_bodyless_requests,
+     content_length_for_empty_body_requests,
+     content_length_via_headers_as_is
     ].
 
 server_closing_connection() ->
@@ -2115,6 +2118,54 @@ post_with_content_type(Config) when is_list(Config) ->
                       [?SSL_NO_VERIFY], RequestOpts, ?profile(Config)).
 
 %%--------------------------------------------------------------------
+no_content_length_for_bodyless_requests() ->
+    [{doc, "Test that bodyless requests (GET, HEAD, OPTIONS, TRACE, DELETE) "
+           "do not send Content-Length header (RFC 9110)"}].
+no_content_length_for_bodyless_requests(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/check_no_content_length.html", Config),
+    Profile = ?profile(Config),
+    %% Simulated server replies 500 if Content-Length header is present
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(head, {URL, []}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(options, {URL, []}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(trace, {URL, []}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(delete, {URL, []}, [?SSL_NO_VERIFY], [], Profile).
+
+%%--------------------------------------------------------------------
+content_length_for_empty_body_requests() ->
+    [{doc, "Test that POST/PUT with empty body DOES send Content-Length: 0 (RFC 9110)"}].
+content_length_for_empty_body_requests(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/check_has_content_length_zero.html", Config),
+    Profile = ?profile(Config),
+    %% Simulated server replies 500 if Content-Length header is NOT present or not "0"
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(post, {URL, [], "text/plain", ""}, [?SSL_NO_VERIFY], [], Profile),
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(put, {URL, [], "text/plain", ""}, [?SSL_NO_VERIFY], [], Profile).
+
+%%--------------------------------------------------------------------
+content_length_via_headers_as_is() ->
+    [{doc, "Test that explicit Content-Length via headers_as_is is respected "
+           "for bodyless requests"}].
+content_length_via_headers_as_is(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/check_has_content_length_zero.html", Config),
+    URLNoContentLength = url(group_name(Config), "/check_no_content_length.html", Config),
+    %% User explicitly sets Content-Length: 0 via headers_as_is - should be sent
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(get, {URL, [{"Host", "localhost"}, {"Content-Length", "0"}]},
+                      [?SSL_NO_VERIFY], [{headers_as_is, true}], ?profile(Config)),
+    %% User provides custom header but NOT Content-Length, without headers_as_is
+    %% - Content-Length should still be omitted
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(get, {URLNoContentLength, [{"X-Custom-Header", "value"}]},
+                      [?SSL_NO_VERIFY], [], ?profile(Config)).
+
+%%--------------------------------------------------------------------
 request_options() ->
     [{require, ipv6_hosts},
      {doc, "Test http get request with socket options against local server (IPv6)"}].
@@ -2623,6 +2674,13 @@ content_type_header([{"content-type", Value}|_]) ->
     {ok, string:strip(Value)};
 content_type_header([_|T]) ->
     content_type_header(T).
+
+content_length_header([]) ->
+    not_found;
+content_length_header([{"content-length", Value}|_]) ->
+    {ok, string:strip(Value)};
+content_length_header([_|T]) ->
+    content_length_header(T).
 
 handle_auth("Basic " ++ UserInfo, Challenge, DefaultResponse) ->
     case string:tokens(base64:decode_to_string(UserInfo), ":") of
@@ -3226,6 +3284,24 @@ handle_uri(_,"/delete_no_body.html", _,Headers,_, DefaultResponse) ->
 	    Error;
 	not_found ->
 	    DefaultResponse
+    end;
+handle_uri(_,"/check_no_content_length.html", _,Headers,_, DefaultResponse) ->
+    Error = "HTTP/1.1 500 Internal Server Error\r\n" ++
+        "Content-Length:0\r\n\r\n",
+    case content_length_header(Headers) of
+        {ok, _} ->
+            Error;
+        not_found ->
+            DefaultResponse
+    end;
+handle_uri(_,"/check_has_content_length_zero.html", _,Headers,_, DefaultResponse) ->
+    Error = "HTTP/1.1 500 Internal Server Error\r\n" ++
+        "Content-Length:0\r\n\r\n",
+    case content_length_header(Headers) of
+        {ok, "0"} ->
+            DefaultResponse;
+        _ ->
+            Error
     end;
 handle_uri(_,_,_,_,_,DefaultResponse) ->
     DefaultResponse.
