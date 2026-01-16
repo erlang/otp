@@ -1049,6 +1049,8 @@ action_function(trace,3) -> true;
 action_function(caller_line,0) -> true;
 action_function(current_stacktrace,0) -> true;
 action_function(current_stacktrace,1) -> true;
+action_function(maps_put,3) -> true;
+action_function(maps_remove,2) -> true;
 action_function(_,_) -> false.
 
 bool_operator('and',2) ->
