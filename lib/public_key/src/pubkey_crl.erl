@@ -600,7 +600,7 @@ check_revoked(#'DistributionPoint'{cRLIssuer = DPIssuer} = DP, IDP, DefaultIssue
 							    Extensions}| Rest],
 	      State) ->
     Reason = revoked_reason(Extensions),
-    case (DPIssuer =/= asn1_NOVALUE) andalso is_indirect_crl(IDP) of
+    case DPIssuer =/= asn1_NOVALUE andalso is_indirect_crl(IDP) of
 	true ->
 	    handle_indirect_crl_check(DP, IDP, DefaultIssuer0, Names, SerialNr, Extensions, Reason, Rest, State);
 	false ->
