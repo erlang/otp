@@ -198,6 +198,17 @@ is_client_closing(Headers) ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+post_data(Method, Headers, {[], []}, [])
+  when Method =:= get;
+       Method =:= head;
+       Method =:= options;
+       Method =:= trace;
+       Method =:= delete ->
+    %% RFC 9110: A user agent SHOULD NOT send a Content-Length header field
+    %% when the request message does not contain content and the method
+    %% semantics do not anticipate such data.
+    {Headers#http_request_h{'content-length' = undefined}, ""};
+
 post_data(Method, Headers, {ContentType, Body}, HeadersAsIs)
     when (Method =:= post)
          orelse (Method =:= put)
