@@ -511,7 +511,8 @@ handle_call(Req, From, #state{profile_name = ProfileName} = State) ->
 %%--------------------------------------------------------------------
 handle_cast({retry_or_redirect_request, {Time, Request}}, 
 	    #state{profile_name = ProfileName} = State) ->
-    {ok, _} = timer:apply_after(Time, ?MODULE, retry_request, [Request, ProfileName]),
+    NewRequest = Request#request{retried = true},
+    {ok, _} = timer:apply_after(Time, ?MODULE, retry_request, [NewRequest, ProfileName]),
     {noreply, State};
 
 handle_cast({retry_or_redirect_request, Request}, State) ->
