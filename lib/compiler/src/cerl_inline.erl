@@ -39,8 +39,6 @@
 -module(cerl_inline).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -export([core_transform/2, transform/1, transform/2]).
 
 -import(cerl, [abstract/1, alias_pat/1, alias_var/1, apply_args/1,
@@ -1084,7 +1082,7 @@ i_call(E, Ctxt, Ren, Env, S) ->
     %% Check if the name of the called function is static. If so,
     %% discard the size counts performed above, since the values will
     %% not cause any runtime cost.
-    Static =  is_c_atom(M) and is_c_atom(F),
+    Static = is_c_atom(M) andalso is_c_atom(F),
     S3 = case Static of
 	     true ->
 		 revert_size(S, S2);
@@ -2292,7 +2290,7 @@ equivalent(E1, E2, Env) ->
     end.
 
 equivalent_lists([E1 | Es1], [E2 | Es2], Env) ->
-    equivalent(E1, E2, Env) and equivalent_lists(Es1, Es2, Env);
+    equivalent(E1, E2, Env) andalso equivalent_lists(Es1, Es2, Env);
 equivalent_lists([], [], _) ->
     true;
 equivalent_lists(_, _, _) ->
@@ -2305,7 +2303,7 @@ reduce_bif_call(M, F, As, Env) ->
     reduce_bif_call_1(M, F, length(As), As, Env).
 
 reduce_bif_call_1(erlang, element, 2, [X, Y], _Env) ->
-    case is_c_int(X) and is_c_tuple(Y) of
+    case is_c_int(X) andalso is_c_tuple(Y) of
 	true ->
 	    %% We are free to change the relative evaluation order of
 	    %% the elements, so lifting out a particular element is OK.
@@ -2348,7 +2346,7 @@ reduce_bif_call_1(erlang, list_to_tuple, 1, [X], _Env) ->
 	    false
     end;
 reduce_bif_call_1(erlang, setelement, 3, [X, Y, Z], Env) ->
-    case is_c_int(X) and is_c_tuple(Y) of
+    case is_c_int(X) andalso is_c_tuple(Y) of
 	true ->
 	    %% Here, unless `Z' is a simple expression, we must bind it
 	    %% to a new variable, because in that case, `Z' must be

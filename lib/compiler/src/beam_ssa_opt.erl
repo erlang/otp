@@ -40,8 +40,6 @@
 -moduledoc false.
 -export([module/2]).
 
--compile(nowarn_obsolete_bool_op).
-
 -include("beam_ssa_opt.hrl").
 
 -import(lists, [all/2,append/1,droplast/1,duplicate/2,flatten/1,foldl/3,
@@ -3353,7 +3351,7 @@ unfold_literals([], _, _, Blocks) ->
     Blocks.
 
 unfold_update_succ([S|Ss], Safe, SafeMap0) ->
-    F = fun(Prev) -> Prev and Safe end,
+    F = fun(Prev) -> Prev andalso Safe end,
     SafeMap = maps:update_with(S, F, Safe, SafeMap0),
     unfold_update_succ(Ss, Safe, SafeMap);
 unfold_update_succ([], _, SafeMap) ->
