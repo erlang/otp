@@ -1150,9 +1150,9 @@ timeout_redirect(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 internal_server_error() ->
-    [{doc, "Test 50X codes"}].
+    [{doc, "Test 50X codes"},
+     {timetrap, timer:minutes(5)}].
 internal_server_error(Config) when is_list(Config) ->
-
     URL500 = url(group_name(Config), "/500.html", Config),
     RequestOpts = proplists:get_value(request_opts, Config, []),
     Profile = ?profile(Config),
@@ -1169,10 +1169,28 @@ internal_server_error(Config) when is_list(Config) ->
     {ok, {{_,200, _}, [_ | _], [_|_]}} =
 	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
 
+    ets:insert(unavailable, {503, unavailable}),
+    {ok, {{_,503, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [{autoretry, timer:seconds(0)}, ?SSL_NO_VERIFY], RequestOpts , Profile),
+
+    ets:insert(unavailable, {503, unavailable}),
+    %% 503.html returns Retry-After 5, test waiting time limit
+    {ok, {{_,503, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [{autoretry, timer:seconds(4)}, ?SSL_NO_VERIFY], RequestOpts , Profile),
+
     ets:insert(unavailable, {503, long_unavailable}),
 
     {ok, {{_,503, _}, [_ | _], [_|_]}} =
-	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+        httpc:request(get, {URL503, []}, [{autoretry, timer:seconds(0)}, ?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    ets:insert(unavailable, {503, long_unavailable}),
+
+    {ok, {{_,200, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    ets:insert(unavailable, {503, always_unavailable}),
+    {ok, {{_,503, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
 
     ets:delete(unavailable).
 
@@ -3030,8 +3048,28 @@ handle_uri(_,"/503.html",_,_,_,DefaultResponse) ->
 	[{503, available}]   ->
 	    DefaultResponse;
 	[{503, long_unavailable}]  ->
+            %% Available after 120 seconds, in http-date format
+            {MS0, S0, NS0} = erlang:timestamp(),
+            ModifiedTimestamp = {MS0, S0 + 120, NS0},
+            {{Year, Month, Day}, {H, M, S}} = calendar:now_to_datetime(ModifiedTimestamp),
+            HttpYear = integer_to_list(Year),
+            DoW = calendar:day_of_the_week(Year, Month, Day),
+            HttpDay = lists:flatten(string:pad(integer_to_list(Day), 2, leading, $0)),
+            DayName = http_util:convert_day(DoW),
+            MonthName = http_util:convert_month(Month),
+            HttpHour = lists:flatten(string:pad(integer_to_list(H), 2, leading, $0)),
+            HttpMin = lists:flatten(string:pad(integer_to_list(M), 2, leading, $0)),
+            HttpSec = lists:flatten(string:pad(integer_to_list(S), 2, leading, $0)),
+            HttpDate = lists:flatten(io_lib:format("~ts, ~ts ~ts ~ts ~ts:~ts:~ts GMT",
+                                     [DayName, HttpDay, MonthName, HttpYear, HttpHour, HttpMin, HttpSec])),
+            ets:insert(unavailable, {503, available}),
 	    "HTTP/1.1 503 Service Unavailable\r\n" ++
-		"Retry-After:120\r\n" ++
+		"Retry-After:" ++ HttpDate ++ "\r\n" ++
+		"Content-Length:47\r\n\r\n" ++
+		"<HTML><BODY>Internal Server Error</BODY></HTML>";
+        [{503, always_unavailable}] ->
+            "HTTP/1.1 503 Service Unavailable\r\n" ++
+		"Retry-After:5\r\n" ++
 		"Content-Length:47\r\n\r\n" ++
 		"<HTML><BODY>Internal Server Error</BODY></HTML>"
     end;

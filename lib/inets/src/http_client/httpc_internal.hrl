@@ -54,6 +54,9 @@
 	  %% true if auto redirect on 30x response
 	  autoredirect = true :: boolean(),
 
+          %% limits the maximum wait time before a retry
+          autoretry = infinity :: timeout(),
+
 	  %% ssl socket options
 	  ssl = [],
 
@@ -120,7 +123,8 @@
 	  socket_opts,   % undefined | [socket_option()]
 	  unix_socket,   % undefined | string()
 	  ipv6_host_with_brackets, % boolean()
-	  request_options :: undefined | proplists:proplist()
+	  request_options :: undefined | proplists:proplist(),
+          retried = false :: boolean() % indicates whether the request was already retried
 	}
        ).
 -type request() :: #request{}.

@@ -359,6 +359,26 @@ parse_headers(<<Octet, Rest/binary>>, Header, Headers,
 		  Result, Relaxed).
 
 
+get_ms_from_retry_after(undefined = _RetryAfterValue) ->
+    undefined;
+%% Parse as seconds
+get_ms_from_retry_after([C | _] = RetryAfterValue) when C >= $0
+                                                  andalso C =< $9 ->
+    list_to_integer(RetryAfterValue) * 1000; %% return milliseconds
+get_ms_from_retry_after(RetryAfterValue) ->
+    case httpd_util:convert_request_date(RetryAfterValue) of
+        {{Year, Month, Day}, {H,M,S}} ->
+                RetryAfterSeconds = calendar:datetime_to_gregorian_seconds({{Year, Month, Day}, {H, M, S}}),
+                TimeNow = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
+                calc_time_difference(RetryAfterSeconds, TimeNow); %% return milliseconds
+        _ -> undefined
+    end.
+
+calc_time_difference(T1, T2) when T1 >= T2 ->
+    (T1 - T2) * 1000;
+calc_time_difference(_, _) ->
+    undefined.
+
 %% RFC2616, Section 10.1.1
 %% Note:
 %% - Only act on the 100 status if the request included the
@@ -372,16 +392,25 @@ status_continue({_,_, Data}, _) ->
     %% response.
     {ignore, Data}.
 
-status_service_unavailable(Response = {_, Headers, _}, Request) ->
-    case Headers#http_response_h.'retry-after' of 
-	undefined ->
-	    status_server_error_50x(Response, Request);
-	Time when (length(Time) < 3) -> % Wait only 99 s or less 
-	    NewTime = list_to_integer(Time) * 1000, % time in ms
-	    {_, Data} =  format_response(Response),
-	    {retry, {NewTime, Request}, Data};
-	_ ->
-	    status_server_error_50x(Response, Request)
+status_service_unavailable(Response = {_, _, _},
+                           Request = #request{retried = true}) ->
+    status_server_error_50x(Response, Request);
+status_service_unavailable(Response = {_, Headers, _},
+                           Request = #request{settings =
+                                                  #http_options{autoretry = MaxSecondsBeforeRetry}}) ->
+    RetryAfter = get_ms_from_retry_after(Headers#http_response_h.'retry-after'),
+    case RetryAfter of
+        Undefined when
+              Undefined =:= undefined orelse
+              MaxSecondsBeforeRetry =:= 0 ->
+            status_server_error_50x(Response, Request);
+        Time when MaxSecondsBeforeRetry =:= infinity
+                  orelse (is_integer(MaxSecondsBeforeRetry)
+                          andalso Time =< MaxSecondsBeforeRetry) ->
+            {_, Data} = format_response(Response),
+            {retry, {Time, Request}, Data};
+        _ ->
+            status_server_error_50x(Response, Request)
     end.
 
 status_server_error_50x(Response, Request) ->
