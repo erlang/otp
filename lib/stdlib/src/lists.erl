@@ -66,8 +66,19 @@ An example of a typical ordering function is less than or equal to: `=</2`.
 -export([keydelete/3, keyreplace/4, keymap/3,
          keytake/3, keystore/4]).
 
+%% Functions taking a list of maps and a map with key association pairs.
+-export([ce2delete/2,
+         ce2find/2,
+         ce2member/2,
+         ce2replace/3,
+         ce2store/3,
+         ce2take/2]).
+
 %% Sort functions that operate on list of tuples.
 -export([keymerge/3, keysort/2, ukeymerge/3, ukeysort/2]).
+
+%% Sort functions that operate on list of maps.
+-export([ce2sort/2]).
 
 %% Sort and merge functions.
 -export([merge/1, merge/2, merge/3, merge3/3,
@@ -1607,6 +1618,336 @@ keymerge_1(_Index, [], [_|_]=L2) ->
     L2;
 keymerge_1(_Index, [], []) ->
     [].
+
+%% ce2delete(CompareSpec, [Map])
+%% ce2find(CompareSpec, [Map])
+%% ce2member(CompareSpec, [Map])
+%% ce2replace(CompareSpec, [Map])
+%% ce2sort(SortSpec, [Map])
+%% ce2store(CompareSpec, [Map])
+%% ce2take(CompareSpec, [Map])
+
+-doc """
+Returns a copy of `List1` where the first occurrence of an element
+that compares equal to (ce2) the filter criteria of `CompareSpec`
+is deleted, if there is such an element.
+
+When `CompareSpec` is a map:
+
+- The comparison evaluates to `true` when a map in `List1` contains association pairs that compares equal to all association pairs of `CompareSpec`.
+- Note that an empty map as `CompareSpec` will always evaluate to `true` for the first element in `List1`.
+- If `List1` contains an element that is not a map, an exception is raised when that element is compared to `CompareSpec`.
+
+## Examples
+
+```erlang
+1> lists:ce2delete(#{k=>55}, [#{b=>1,k=>22}, #{b=>99,k=>55}, #{d=>75}]).
+[#{b=>1,k=>22}, #{d=>75}]
+2> lists:ce2delete(#{k=>unknown}, [#{b=>1,k=>22}, #{b=>99,k=>55}, #{d=>75}]).
+[#{b=>1,k=>22}, #{b=>99,k=>55}, #{d=>75}]
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ce2delete(CompareSpec, List1) -> List2 when
+      CompareSpec :: Map,
+      List1 :: [Map],
+      List2 :: [Map],
+      Map :: map().
+ce2delete(CS, List) when is_map(CS) andalso is_list(List) ->
+    ce2delete_m(List, CS);
+ce2delete(_, _) ->
+    erlang:error(badarg).
+
+ce2delete_m([E | Tail], CS) when is_map(E) ->
+    case maps:with(maps:keys(CS), E) == CS of
+        false ->
+            [E | ce2delete_m(Tail, CS)];
+        true ->
+            Tail
+    end;
+ce2delete_m([], _) ->
+    [];
+ce2delete_m(_, _) ->
+    erlang:error(badarg).
+
+-doc """
+Searches `List` for an element that compares equal to (ce2) the filter
+criteria of `CompareSpec`.
+
+Returns `Element` if such an element is found; otherwise, returns `false`.
+
+When `CompareSpec` is a map:
+
+- The comparison evaluates to `true` when a map in `List` contains association pairs that compares equal to all association pairs of `CompareSpec`.
+- Note that an empty map as `CompareSpec` will always evaluate to `true` for the first element in `List`.
+- If `List` contains an element that is not a map, an exception is raised when that element is compared to `CompareSpec`.
+
+## Examples
+
+```erlang
+1> lists:ce2find(#{a=>10}, [#{a=>10,k=>11}, #{a=>10,k=>20,d=>90}, #{c=>30}]).
+#{a=>10,k=>11}
+2> lists:ce2find(#{a=>10,k=>20}, [#{a=>10,k=>11}, #{a=>10,k=>20,d=>90}, #{c=>30}]).
+#{a=>10,k=>20,d=>90}
+3> lists:ce2find(#{k=>unknown}, [#{a=>10,k=>11}, #{k=>20,d=>90}, #{c=>30}]).
+false
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ce2find(CompareSpec, List) -> Element | false when
+      CompareSpec :: Map,
+      List :: [Map],
+      Element :: Map,
+      Map :: map().
+ce2find(CS, List) when is_map(CS) andalso is_list(List) ->
+    ce2find_m(List, CS);
+ce2find(_, _) ->
+    erlang:error(badarg).
+
+ce2find_m([E | Tail], CS) when is_map(E) ->
+    case maps:with(maps:keys(CS), E) == CS of
+        false ->
+            ce2find_m(Tail, CS);
+        true ->
+            E
+    end;
+ce2find_m([], _) ->
+    false;
+ce2find_m(_, _) ->
+    erlang:error(badarg).
+
+-doc """
+Returns `true` if there is an element in `List` that compares equal to (ce2)
+the filter criteria of `CompareSpec`; otherwise, returns `false`.
+
+When `CompareSpec` is a map:
+
+- The comparison evaluates to `true` when a map in `List` contains association pairs that compares equal to all association pairs of `CompareSpec`.
+- Note that an empty map as `CompareSpec` will always evaluate to `true` for the first element in `List`.
+- If `List` contains an element that is not a map, an exception is raised when that element is compared to `CompareSpec`.
+
+## Examples
+
+```erlang
+1> lists:ce2member(#{a=>10,k=>20}, [#{a=>10,k=>11}, #{a=>10,k=>20,d=>90}, #{c=>30}]).
+true
+2> lists:ce2member(#{k=>unknown}, [#{a=>10,k=>11}, #{a=>10,k=>20,d=>90}, #{c=>30}]).
+false
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ce2member(CompareSpec, List) -> boolean() when
+      CompareSpec :: Map,
+      List :: [Map],
+      Map :: map().
+ce2member(CS, List) when is_map(CS) andalso is_list(List) ->
+    ce2member_m(List, CS);
+ce2member(_, _) ->
+    erlang:error(badarg).
+
+ce2member_m([E | Tail], CS) when is_map(E) ->
+    case maps:with(maps:keys(CS), E) == CS of
+        false ->
+            ce2member_m(Tail, CS);
+        true ->
+            true
+    end;
+ce2member_m([], _) ->
+    false;
+ce2member_m(_, _) ->
+    erlang:error(badarg).
+
+-doc """
+Returns a copy of `List1` where the first occurrence of an element
+that compares equal to (ce2) the filter criteria of `CompareSpec`
+is replaced with `NewElement`, if there is such an element.
+
+When `CompareSpec` is a map:
+
+- The comparison evaluates to `true` when a map in `List1` contains association pairs that compares equal to all association pairs of `CompareSpec`.
+- Note that an empty map as `CompareSpec` will always evaluate to `true` for the first element in `List1`.
+- If `List1` contains an element that is not a map, an exception is raised when that element is compared to `CompareSpec`.
+
+## Examples
+
+```erlang
+1> lists:ce2replace(#{c=>55}, [#{b=>1}, #{c=>55}, #{d=>75}], #{new=>map}).
+[#{b=>1}, #{new=>map}, #{d=>75}]
+2> lists:ce2replace(#{c=>unknown}, [#{b=>1}, #{c=>55}, #{d=>75}], #{new=>map}).
+[#{b=>1}, #{c=>55}, #{d=>75}]
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ce2replace(CompareSpec, List1, NewElement) -> List2 when
+      CompareSpec :: Map,
+      List1 :: [Map],
+      List2 :: [Map],
+      NewElement :: Map,
+      Map :: map().
+ce2replace(CS, List, NewE) when is_map(CS) andalso
+                                is_list(List) andalso
+                                is_map(NewE) ->
+    ce2replace_m(List, CS, NewE);
+ce2replace(_, _, _) ->
+    erlang:error(badarg).
+
+ce2replace_m([E | Tail], CS, NewE) when is_map(E) ->
+    case maps:with(maps:keys(CS), E) == CS of
+        false ->
+            [E | ce2replace_m(Tail, CS, NewE)];
+        true ->
+            [NewE | Tail]
+    end;
+ce2replace_m([], _, _) ->
+    [];
+ce2replace_m(_, _, _) ->
+    erlang:error(badarg).
+
+-doc """
+Returns a list of the elements in `List1`, sorted by the specification of
+`SortSpec`.
+
+The sort is stable.
+
+When `SortSpec` targets a list of maps:
+
+- Sorting is done on the specified map key.
+- `List1` is expected to contain only maps.
+- An exception is raised if an element in `List1` is not a map.
+
+## Examples
+
+```erlang
+1> lists:ce2sort(k, [#{a=>99, k=>77}, #{b=>17, k=>33}, #{c=>50, k=>44}, #{d=>50, k=>55}]).
+[#{b=>17, k=>33}, #{c=>50, k=>44}, #{d=>50, k=>55}, #{a=>99, k=>77}]
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ce2sort(SortSpec, List1) -> List2 when
+      SortSpec :: {map_key, MapKey},
+      List1 :: [Map],
+      List2 :: [Map],
+      MapKey :: term(),
+      Map :: map().
+ce2sort({map_key, MapKey}, List) ->
+    ce2sort_m(List, MapKey, []);
+ce2sort(_, _) ->
+    erlang:error(badarg).
+
+ce2sort_m([E | Tail], MapKey, AccSort) when is_map(E) ->
+    NewAccSort = ce2sort_m1(AccSort, E, MapKey),
+    ce2sort_m(Tail, MapKey, NewAccSort);
+ce2sort_m([], _, AccSort) ->
+    AccSort;
+ce2sort_m(_, _, _) ->
+    erlang:error(badarg).
+
+ce2sort_m1([SortedE | Tail], E, MapKey) ->
+    try maps:get(MapKey, E) < maps:get(MapKey, SortedE) of
+        false ->
+            [SortedE | ce2sort_m1(Tail, E, MapKey)];
+        true ->
+            [E, SortedE | Tail]
+    catch
+        _ : _ ->
+            [SortedE | ce2sort_m1(Tail, E, MapKey)]
+    end;
+ce2sort_m1([], E, _) ->
+    [E].
+
+-doc """
+Returns a copy of `List1` with the first occurrence of an element
+that compares equal to (ce2) the filter criteria of `CompareSpec`
+replaced by `NewElement`, or with `[NewElement]` appended if no such
+element exists.
+
+When `CompareSpec` is a map:
+
+- The comparison evaluates to `true` when a map in `List1` contains association pairs that compares equal to all association pairs of `CompareSpec`.
+- Note that an empty map as `CompareSpec` will always evaluate to `true` for the first element in `List1`.
+- If `List1` contains an element that is not a map, an exception is raised when that element is compared to `CompareSpec`.
+
+## Examples
+
+```erlang
+1> lists:ce2store(#{b=>23}, [#{a=>10}, #{b=>23}, #{c=>99}], #{bb=>1}).
+[#{a=>10}, #{bb=>1}, #{c=>99}]
+2> lists:ce2store(#{z=>100}, [#{a=>10}, #{b=>23}, #{c=>99}], #{z=>2}).
+[#{a=>10}, #{b=>23}, #{c=>99}, #{z=>2}]
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ce2store(CompareSpec, List1, NewElement) -> List2 when
+      CompareSpec :: Map,
+      List1 :: [Map],
+      List2 :: [Map],
+      NewElement :: Map,
+      Map :: map().
+ce2store(CS, List, NewE) when is_map(CS) andalso
+                              is_list(List) andalso
+                              is_map(NewE) ->
+    ce2store_m(List, CS, NewE);
+ce2store(_, _, _) ->
+    erlang:error(badarg).
+
+ce2store_m([E | Tail], CS, NewE) when is_map(E) ->
+    case maps:with(maps:keys(CS), E) == CS of
+        false ->
+            [E | ce2store_m(Tail, CS, NewE)];
+        true ->
+            [NewE | Tail]
+    end;
+ce2store_m([], _, NewE) ->
+    [NewE];
+ce2store_m(_, _, _) ->
+    erlang:error(badarg).
+
+-doc """
+Searches `List1` for an element that compares equal to (ce2) the filter
+criteria of `CompareSpec`, returning `{value, Element, List2}` if found,
+where `List2` is a copy of `List1` with the first occurrence of `Element`
+removed.
+
+Otherwise, returns `false` if no such element is found.
+
+When `CompareSpec` is a map:
+
+- The comparison evaluates to `true` when a map in `List1` contains association pairs that compares equal to all association pairs of `CompareSpec`.
+- Note that an empty map as `CompareSpec` will always evaluate to `true` for the first element in `List1`.
+- If `List1` contains an element that is not a map, an exception is raised when that element is compared to `CompareSpec`.
+
+## Examples
+
+```erlang
+1> lists:ce2take(#{k=>24}, [#{a=>10}, #{b=>23, k=>24}, #{c=>99}]).
+{value, #{b=>23, k=>24}, [#{a=>10}, #{c=>99}]}
+2> lists:ce2take(#{k=>99}, [#{a=>10}, #{b=>23, k=>24}, #{c=>99}]).
+false
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ce2take(CompareSpec, List1) -> {value, Element, List2} | false when
+      CompareSpec :: Map,
+      Element :: Map,
+      List1 :: [Map],
+      List2 :: [Map],
+      Map :: map().
+ce2take(CS, List) when is_map(CS) andalso is_list(List) ->
+    ce2take_m(List, CS, []);
+ce2take(_, _) ->
+    erlang:error(badarg).
+
+ce2take_m([E | Tail], CS, Acc) when is_map(E) ->
+    case maps:with(maps:keys(CS), E) == CS of
+        false ->
+            ce2take_m(Tail, CS, Acc ++ [E]);
+        true ->
+            {value, E, Acc ++ Tail}
+    end;
+ce2take_m([], _, _) ->
+    false;
+ce2take_m(_, _, _) ->
+    erlang:error(badarg).
 
 %% reverse(rkeymerge(I,reverse(A),reverse(B))) is equal to keymerge(I,A,B).
 

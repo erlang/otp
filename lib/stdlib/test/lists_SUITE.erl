@@ -35,6 +35,8 @@
 -export([member/1, reverse/1,
 	 keymember/1, keysearch_keyfind/1,
 	 keystore/1, keytake/1, keyreplace/1,
+         ce2delete/1, ce2find/1, ce2member/1, ce2replace/1,
+         ce2sort/1, ce2store/1, ce2take/1,
 	 append_1/1, append_2/1,
 	 seq_loop/1, seq_2/1, seq_3/1, seq_2_e/1, seq_3_e/1,
 
@@ -80,6 +82,7 @@ suite() ->
 all() -> 
     [{group, append},
      {group, key},
+     {group, ce2},
      {group, sort},
      {group, usort},
      {group, keysort},
@@ -101,6 +104,8 @@ groups() ->
        keysort_i, keysort_error]},
      {key, [parallel], [keymember, keysearch_keyfind, keystore,
 			keytake, keyreplace]},
+     {ce2, [parallel], [ce2delete, ce2find, ce2member, ce2replace,
+                        ce2sort, ce2store, ce2take]},
      {sort,[parallel],[merge, rmerge, sort_1, sort_2, sort_rand]},
      {ukeysort, [parallel],
       [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
@@ -423,6 +428,162 @@ keyreplace(Config) when is_list(Config) ->
     %% Error cases.
     {'EXIT',_} = (catch lists:keyreplace(k, 1, [], not_tuple)),
     {'EXIT',_} = (catch lists:keyreplace(k, 0, [], {a,b})),
+    ok.
+
+ce2delete(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    {'EXIT',{badarg,_}} = (catch lists:ce2delete(Any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:ce2delete(Any, [not_a_map])),
+
+    First = #{b=>1, k=>22},
+    Second = #{b=>99, k=>55},
+    Third = #{d=>75},
+    Fourth = Second,
+    List = [First, Second, Third, Fourth],
+
+    [First, Third, Fourth] = lists:ce2delete(#{k=>55}, List),
+    List = lists:ce2delete(#{k=>unknown}, List),
+    ok.
+
+ce2find(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    false = lists:ce2find(Any, []),
+    {'EXIT',{badarg,_}} = (catch lists:ce2find(Any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:ce2find(Any, [not_a_map])),
+
+    First = #{a=>10, k=>11},
+    Second = #{a=>10, k=>20, d=>90},
+    Third = #{c=>30, k=>-30},
+    Fourth = #{a=>10, k=>20, d=>88.0},
+    List = [First, Second, Third, Fourth],
+
+    false = lists:ce2find(Any, []),
+    false = lists:ce2find(#{a=>10, c=>30}, List),
+    false = lists:ce2find(#{a=>10, k=>11, c=>30}, List),
+
+    First = lists:ce2find(#{a=>10}, List),
+    Second = lists:ce2find(#{a=>10, k=>20}, List),
+    Third = lists:ce2find(#{c=>30}, List),
+    Third = lists:ce2find(#{k=>-30}, List),
+    Third = lists:ce2find(#{k=>-30.0}, List),
+    Fourth = lists:ce2find(#{k=>20, d=>88}, List),
+    Fourth = lists:ce2find(#{k=>20, d=>88.0}, List),
+    ok.
+
+ce2member(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    {'EXIT',{badarg,_}} = (catch lists:ce2member(Any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:ce2member(Any, [not_a_map])),
+
+    List = [#{a=>10, k=>11},
+            #{a=>10, k=>20, d=>90},
+            #{c=>30, k=>-30},
+            #{},
+            #{a=>10, k=>20, d=>88.0}],
+
+    false = lists:ce2member(Any, []),
+    false = lists:ce2member(#{k=>unknown}, List),
+    false = lists:ce2member(#{a=>10, k=>11, c=>30}, List),
+
+    true = lists:ce2member(#{a=>10, k=>20}, List),
+    true = lists:ce2member(#{k=>-30}, List),
+    true = lists:ce2member(#{k=>-30.0}, List),
+    true = lists:ce2member(#{d=>88}, List),
+    true = lists:ce2member(#{d=>88.0}, List),
+    ok.
+
+ce2replace(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    {'EXIT',{badarg,_}} = (catch lists:ce2replace(Any, {1,2,3}, Any)),
+    {'EXIT',{badarg,_}} = (catch lists:ce2replace(Any, [], {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:ce2replace(Any, [not_a_map], Any)),
+
+    First = #{a=>10, k=>11},
+    Second = #{a=>10, k=>20, d=>90},
+    Third = #{c=>30, k=>-30},
+    Fourth = #{a=>10, k=>20, d=>88.0},
+    New = #{new=>map},
+    List = [First, Second, Third, Fourth],
+
+    List = lists:ce2replace(#{k=>unknown}, List, New),
+    [New, Second, Third, Fourth] = lists:ce2replace(#{a=>10}, List, New),
+    [First, New, Third, Fourth] = lists:ce2replace(#{a=>10, k=>20}, List, New),
+    [First, Second, New, Fourth] = lists:ce2replace(#{k=>-30}, List, New),
+    [First, Second, New, Fourth] = lists:ce2replace(#{k=>-30.0}, List, New),
+    [First, Second, Third, New] = lists:ce2replace(#{d=>88}, List, New),
+    [First, Second, Third, New] = lists:ce2replace(#{d=>88.0}, List, New),
+    List = lists:ce2replace(#{a=>10, k=>20, un=>known}, List, New),
+    ok.
+
+ce2sort(Config) when is_list(Config) ->
+    {'EXIT',{badarg,_}} = (catch lists:ce2sort(any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:ce2sort(any, [not_a_map])),
+
+    First = #{a=>10, b=>10, k=>11},
+    Second = #{a=>10, b=>10.5, k=>20, d=>90},
+    Third = #{},
+    Fourth = #{c=>30, k=>-30},
+    Fifth = #{a=>10, b=>10, k=>20, d=>88.0},
+    List = [First, Second, Third, Fourth, Fifth],
+
+    [Fourth, First, Second, Third, Fifth] = lists:ce2sort({map_key, k}, List),
+    [First, Fifth, Second, Third, Fourth] = lists:ce2sort({map_key, d}, List),
+    List = lists:ce2sort({map_key, a}, List),
+    [First, Fifth, Second, Third, Fourth] = lists:ce2sort({map_key, b}, List),
+    ok.
+
+ce2store(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    {'EXIT',{badarg,_}} = (catch lists:ce2store(Any, {1,2,3}, Any)),
+    {'EXIT',{badarg,_}} = (catch lists:ce2store(Any, [], {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:ce2store(Any, [not_a_map], Any)),
+
+    First = #{a=>10, k=>11},
+    Second = #{a=>10, k=>20, d=>90},
+    Third = #{c=>30, k=>-30},
+    Fourth = #{a=>10, k=>20, d=>88.0},
+    New = #{new=>map},
+    List = [First, Second, Third, Fourth],
+
+    [First, Second, Third, Fourth, New] =
+        lists:ce2store(#{k=>unknown}, List, New),
+    [New, Second, Third, Fourth] = lists:ce2store(#{a=>10}, List, New),
+    [First, New, Third, Fourth] = lists:ce2store(#{a=>10, k=>20}, List, New),
+    [First, Second, New, Fourth] = lists:ce2store(#{k=>-30}, List, New),
+    [First, Second, New, Fourth] = lists:ce2store(#{k=>-30.0}, List, New),
+    [First, Second, Third, New] = lists:ce2store(#{d=>88}, List, New),
+    [First, Second, Third, New] = lists:ce2store(#{d=>88.0}, List, New),
+    [First, Second, Third, Fourth, New] =
+        lists:ce2store(#{a=>10, k=>20, un=>known}, List, New),
+    ok.
+
+ce2take(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    false = lists:ce2take(Any, []),
+    {'EXIT',{badarg,_}} = (catch lists:ce2take(Any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:ce2take(Any, [not_a_map])),
+
+    First = #{a=>10, k=>11},
+    Second = #{a=>10, k=>20, d=>90},
+    Third = #{c=>30, k=>-30},
+    Fourth = #{a=>10, k=>20, d=>88.0},
+    List = [First, Second, Third, Fourth],
+
+    false = lists:ce2take(Any, []),
+    false = lists:ce2take(#{a=>10, c=>30}, List),
+    false = lists:ce2take(#{a=>10, k=>11, c=>30}, List),
+
+    {value, First, [Second, Third, Fourth]} = lists:ce2take(#{a=>10}, List),
+    {value, Second, [First, Third, Fourth]} =
+        lists:ce2take(#{a=>10, k=>20}, List),
+    {value, Third, [First, Second, Fourth]} = lists:ce2take(#{c=>30}, List),
+    {value, Third, [First, Second, Fourth]} = lists:ce2take(#{k=>-30}, List),
+    {value, Third, [First, Second, Fourth]} =
+        lists:ce2take(#{k=>-30.0}, List),
+    {value, Fourth, [First, Second, Third]} =
+        lists:ce2take(#{k=>20, d=>88}, List),
+    {value, Fourth, [First, Second, Third]} =
+        lists:ce2take(#{k=>20, d=>88.0}, List),
     ok.
 
 merge(Config) when is_list(Config) ->
