@@ -332,6 +332,21 @@ resize_test_() ->
      ?_test(set(99, 17, resize(100, new(10)))),
      ?_assertError(badarg, set(100, 17, resize(100, new(10)))),
 
+     ?_test(set(9, 17, resize(10, new(100)))),
+     ?_assertError(badarg, set(10, 17, resize(10, new(100)))),
+
+     ?_test(set(9, 17, resize(10, fix(set(99, 17, new()))))),
+     ?_assertError(badarg, set(10, 17, resize(10, fix(set(99, 17, new()))))),
+
+     ?_assert(17 =:= get(99, resize(100, set(99, 17, set(999, 17, new(1000)))))),
+
+     ?_assert(undefined =:= get(55, resize(100, resize(10, set(55, 17, new()))))),
+     ?_assert(17 =:= get(55, resize(100, resize(56, set(55, 17, new()))))),
+     ?_assert(undefined =:= get(55, resize(100, resize(55, set(55, 17, new()))))),
+
+     ?_assertError(badarg, get(0, resize(0, set(0, 17, new(100))))),
+     ?_assert(undefined =:= get(0, resize(0, set(0, 17, set(99, 17, new()))))),
+
      ?_assert(array:size(resize(new())) =:= 0),
      ?_assert(array:size(resize(new(8))) =:= 0),
      ?_assert(array:size(resize(array:set(7, 0, new()))) =:= 8),

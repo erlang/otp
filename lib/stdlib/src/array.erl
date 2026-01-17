@@ -583,21 +583,57 @@ the specified array has fixed size, also the resulting array has fixed size.
 -spec resize(Size :: non_neg_integer(), Array :: array(Type)) ->
                     array(Type).
 
-resize(Size, #array{size = N, fix = Fix, elements = E}=A)
+resize(Size, #array{size = N, fix = Fix, cache = C, cache_index = CI, elements = E, default = D}=A)
   when is_integer(Size), Size >= 0,
        is_integer(N), N >= 0,
        is_boolean(Fix) ->
     if Size > N ->
-   	    {E1, _M1} = grow(Size-1, E, get_max(E)),
-	    A#array{size = Size, elements = E1};
+	    A#array{size = Size, elements = grow(Size-1, E, get_max(E))};
        Size < N ->
-	    %% TODO: shrink physical representation when shrinking the array
-	    A#array{size = Size};
+            E1 = set_leaf(CI, E, C),
+            E2 = shrink(Size-1, E1, D),
+            CI1 = 0,
+            C1 = get_leaf(CI1, E2, D),
+	    A#array{size = Size, elements = E2, cache = C1, cache_index = CI1};
        true ->
 	    A
     end;
 resize(_Size, _) ->
     erlang:error(badarg).
+
+%% like grow(), but only used when explicitly resizing down
+shrink(I, _E, D) when I < 0 ->
+    ?NEW_LEAF(D);
+shrink(I, E, _D) when is_integer(E) ->
+    find_max(I, ?LEAFSIZE);
+shrink(I, E, D) ->
+    shrink_1(I, E, D).
+
+%% I is the largest index, 0 or more (empty arrays handled above)
+shrink_1(I, E=?NODEPATTERN(S), D) when I < S ->
+    shrink_1(I rem S, element(1, E), D);
+shrink_1(I, E=?NODEPATTERN(S), D) ->
+    E1 = prune(E, I div S, ?NODESIZE, S),
+    I1 = I div S + 1,
+    case element(I1, E1) of
+        E2 when is_integer(E2) ->
+            E1;
+        E2 ->
+            setelement(I1, E1, shrink_1(I rem S, E2, D))
+    end;
+shrink_1(I, E, D) ->
+    prune(E, I, ?LEAFSIZE, D).
+
+%% the M limiter is needed for the extra data at the end of nodes
+prune(E, N, M, D) ->
+    list_to_tuple(prune(0, N, M, D, tuple_to_list(E))).
+
+prune(I, N, M, D, [E|Es]) when I =< N ->
+    [E | prune(I+1, N, M, D, Es)];
+prune(I, N, M, D, [_|Es]) when I < M ->
+    [D | prune(I+1, N, M, D, Es)];
+prune(_I, _N, _M, _D, Es) ->
+    Es.
 
 
 -doc """
@@ -690,7 +726,7 @@ set(I, Value, #array{size = N, fix = Fix, cache = C, cache_index = CI, default =
                             A#array{size = I+1, cache = C1, cache_index = CI1}
                     end;
                true ->
-                    {E1, _M1} = grow(I, E, M),
+                    E1 = grow(I, E, M),
                     E2 = set_leaf(CI, E1, C),
                     R = I rem ?LEAFSIZE,
                     CI1 = I - R,
@@ -726,15 +762,14 @@ set(_I, _V, _A) ->
 %% Enlarging the array upwards to accommodate an index `I'
 
 grow(I, E, _M) when is_integer(I), is_integer(E) ->
-    M1 = find_max(I, E),
-    {M1, M1};
+    find_max(I, E);
 grow(I, E, M) ->
     grow_1(I, E, M).
 
 grow_1(I, E, M) when I >= M ->
     grow_1(I, setelement(1, ?NEW_NODE(M), E), ?extend(M));
-grow_1(_I, E, M) ->
-    {E, M}.
+grow_1(_I, E, _M) ->
+    E.
 
 
 -doc """
