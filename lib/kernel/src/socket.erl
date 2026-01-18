@@ -286,6 +286,7 @@ server(Addr, Port) ->
          send/2, send/3, send/4,
          sendto/3, sendto/4, sendto/5,
          sendmsg/2, sendmsg/3, sendmsg/4,
+         sendmmsg/4,
          sendv/2, sendv/3, sendv/4, rest_iov/2,
 
          sendfile/2, sendfile/3, sendfile/4, sendfile/5,
@@ -293,6 +294,7 @@ server(Addr, Port) ->
          recv/1, recv/2, recv/3, recv/4,
          recvfrom/1, recvfrom/2, recvfrom/3, recvfrom/4,
          recvmsg/1, recvmsg/2, recvmsg/3, recvmsg/4, recvmsg/5,
+         recvmmsg/6,
 
          close/1,
          shutdown/2,
@@ -2174,8 +2176,8 @@ Information element designators for the  `i/1` and `i/2` functions.
 %% Interface term formats
 %%
 
--define(ASYNCH_DATA_TAG, (recv | recvfrom | recvmsg |
-                          send | sendv | sendto | sendmsg | sendfile)).
+-define(ASYNCH_DATA_TAG, (recv | recvfrom | recvmsg | recvmmsg |
+                          send | sendv | sendto | sendmsg | sendmmsg | sendfile)).
 -define(ASYNCH_TAG,      ((accept | connect) | ?ASYNCH_DATA_TAG)).
 
 %% -type asynch_data_tag() :: send | sendv | sendto | sendmsg |
@@ -4948,6 +4950,171 @@ sendmsg_deadline(SockRef, Msg, Flags, Deadline, HasWritten, IOV) ->
       sendmsg, fun sendmsg_deadline_cont/5,
       prim_socket:sendmsg(SockRef, Msg, Flags, Handle, IOV)).
 
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Send multiple messages on a socket.
+
+This function is equivalent to calling [`sendmsg/4`](`sendmsg/4`) multiple times,
+but uses the platform's `sendmmsg` syscall for better performance when sending
+multiple datagrams.
+
+This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
+On unsupported platforms, it will return `{error, notsup}`.
+
+Returns `{ok, SentCount}` where `SentCount` is the number of messages successfully sent.
+""".
+-spec sendmmsg(Socket, Msgs, Flags, Timeout :: 'infinity') ->
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
+      Socket     :: socket(),
+      Msgs       :: [msg_send()],
+      Flags      :: [msg_flag() | integer()],
+      RestData   :: erlang:iovec(),
+      Reason     :: posix() | 'closed' | invalid();
+
+             (Socket, Msgs, Flags, Timeout :: non_neg_integer()) ->
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason | 'timeout'} |
+          {'error', {Reason | 'timeout', RestData}}
+              when
+      Socket     :: socket(),
+      Msgs       :: [msg_send()],
+      Flags      :: [msg_flag() | integer()],
+      RestData   :: erlang:iovec(),
+      Reason     :: posix() | 'closed' | invalid();
+
+             (Socket, Msgs, Flags, 'nowait' | Handle) ->
+                  'ok' |
+                  {'ok', RestData} |
+                  {'select', SelectInfo} |
+                  {'select', {SelectInfo, RestData}} |
+                  {'completion', CompletionInfo} |
+                  {'error', Reason} |
+                  {'error', {Reason, RestData}}
+                      when
+      Socket         :: socket(),
+      Msgs           :: [msg_send()],
+      Flags          :: [msg_flag() | integer()],
+      Handle         :: select_handle() | completion_handle(),
+      RestData       :: erlang:iovec(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
+
+             (Socket, Data, Cont, Timeout :: 'infinity') ->
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
+      Socket     :: socket(),
+      Data       :: msg_send() | erlang:iovec(),
+      Cont       :: select_info(),
+      RestData   :: erlang:iovec(),
+      Reason     :: posix() | 'closed' | invalid();
+
+             (Socket, Data, Cont, Timeout :: non_neg_integer()) ->
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason | 'timeout'} |
+          {'error', {Reason | 'timeout', RestData}}
+              when
+      Socket     :: socket(),
+      Data       :: msg_send() | erlang:iovec(),
+      Cont       :: select_info(),
+      RestData   :: erlang:iovec(),
+      Reason     :: posix() | 'closed' | invalid();
+
+             (Socket, Data, Cont, 'nowait' | Handle) ->
+                  'ok' |
+                  {'ok', RestData} |
+                  {'select', SelectInfo} |
+                  {'select', {SelectInfo, RestData}} |
+                  {'completion', CompletionInfo} |
+                  {'error', Reason} |
+                  {'error', {Reason, RestData}}
+                      when
+      Socket         :: socket(),
+      Data           :: msg_send() | erlang:iovec(),
+      Cont           :: select_info(),
+      Handle         :: select_handle(),
+      RestData       :: erlang:iovec(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid().
+
+sendmmsg(?socket(SockRef), Msgs, Flags, Timeout)
+  when is_reference(SockRef), is_list(Msgs), is_list(Flags) ->
+    try
+        case deadline(Timeout) of
+            invalid ->
+                erlang:error({invalid, {timeout, Timeout}});
+            nowait ->
+                Handle = make_ref(),
+                sendmmsg_nowait(SockRef, Msgs, Flags, Handle);
+            handle ->
+                Handle = Timeout,
+                sendmmsg_nowait(SockRef, Msgs, Flags, Handle);
+            Deadline ->
+                sendmmsg_deadline(SockRef, Msgs, Flags, Deadline)
+        end
+    catch
+        error:undef:ST ->
+            case ST of
+                [{prim_socket,sendmmsg,_,_}|_] ->
+                    {error, notsup};
+                _ ->
+                    erlang:raise(error, undef, ST)
+            end
+    end;
+sendmmsg(Socket, Msgs, Flags, Timeout) ->
+    error(badarg, [Socket, Msgs, Flags, Timeout]).
+
+sendmmsg_nowait(SockRef, Msgs, Flags, Handle) ->
+    case prim_socket:sendmmsg(SockRef, Msgs, Flags, Handle) of
+        {select_write = Tag, SentCount} ->
+            {Tag, {?SELECT_INFO(sendmmsg, Handle), SentCount}};
+        select = Tag ->
+            {Tag, ?SELECT_INFO(sendmmsg, Handle)};
+        completion = Tag ->
+            {Tag, ?COMPLETION_INFO(sendmmsg, Handle)};
+        {ok, SentCount} ->
+            {ok, SentCount};
+        {error, _} = Error ->
+            Error
+    end.
+
+sendmmsg_deadline(SockRef, Msgs, Flags, Deadline) ->
+    Handle = make_ref(),
+    case prim_socket:sendmmsg(SockRef, Msgs, Flags, Handle) of
+        {select_write, _SentCount} ->
+            Now = erlang:monotonic_time(millisecond),
+            case Deadline - Now of
+                TimeLeft when TimeLeft > 0 ->
+                    receive
+                        ?socket_msg(_Socket, select, Handle) ->
+                            sendmmsg_deadline(SockRef, Msgs, Flags, Deadline);
+                        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                            _ = cancel(SockRef, sendmmsg, Handle),
+                            {error, Reason}
+                    after TimeLeft ->
+                            _ = cancel(SockRef, sendmmsg, Handle),
+                            {error, timeout}
+                    end;
+                _ ->
+                    _ = cancel(SockRef, sendmmsg, Handle),
+                    {error, timeout}
+            end;
+        {ok, SentCount} ->
+            {ok, SentCount};
+        {error, _} = Error ->
+            Error
+    end.
+
 sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
     SelectHandle = make_ref(),
     send_common_deadline_result(
@@ -6600,6 +6767,148 @@ recvmsg_deadline(SockRef, BufSz, CtrlSz, Flags, Deadline)  ->
 
         Result ->
             recvmsg_result(Result)
+    end.
+
+-doc(#{since => <<"OTP 29.0">>}).
+-doc """
+Receive multiple messages on a socket.
+
+This function is equivalent to calling [`recvmsg/5`](`recvmsg/5`) multiple times,
+but uses the platform's `recvmmsg` syscall for better performance when receiving
+multiple datagrams.
+
+This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
+On unsupported platforms, it will return `{error, notsup}`.
+
+Arguments:
+- `VLen` - Maximum number of messages to receive (must be >= 1).
+- `BufSz` - Buffer size for each message (0 uses default).
+- `CtrlSz` - Control message buffer size for each message (0 uses default).
+- `Flags` - Receive flags (same as `recvmsg/5`).
+- `Timeout` - Timeout or `nowait` or `infinity`.
+
+Returns a list of message maps, one per received message. The list length
+indicates how many messages were actually received.
+""".
+-spec recvmmsg(Socket, VLen, BufSz, CtrlSz, Flags, Timeout :: 'infinity') ->
+          {'ok', Msg} |
+          {'error', Reason} when
+      Socket  :: socket(),
+      VLen    :: non_neg_integer(),
+      BufSz   :: non_neg_integer(),
+      CtrlSz  :: non_neg_integer(),
+      Flags   :: [msg_flag() | integer()],
+      Msg     :: msg_recv(),
+      Reason  :: posix() | 'closed' | invalid();
+
+             (Socket, VLen, BufSz, CtrlSz, Flags, Timeout :: non_neg_integer()) ->
+          {'ok', Msg} |
+          {'error', Reason} when
+      Socket  :: socket(),
+      VLen    :: non_neg_integer(),
+      BufSz   :: non_neg_integer(),
+      CtrlSz  :: non_neg_integer(),
+      Flags   :: [msg_flag() | integer()],
+      Msg     :: msg_recv(),
+      Reason  :: posix() | 'closed' | invalid() | 'timeout';
+
+             (Socket, VLen, BufSz, CtrlSz, Flags, 'nowait' | Handle) ->
+          {'ok', Msg} |
+          {'select', SelectInfo} |
+          {'select_read', {SelectInfo, Msg}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} when
+      Socket         :: socket(),
+      VLen           :: non_neg_integer(),
+      BufSz          :: non_neg_integer(),
+      CtrlSz         :: non_neg_integer(),
+      Handle         :: select_handle() | completion_handle(),
+      Flags          :: [msg_flag() | integer()],
+      Msg            :: msg_recv(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid().
+
+recvmmsg(?socket(SockRef), VLen, BufSz, CtrlSz, Flags, Timeout)
+  when is_reference(SockRef),
+       is_integer(VLen), VLen >= 1,
+       is_integer(BufSz), BufSz >= 0,
+       is_integer(CtrlSz), CtrlSz >= 0,
+       is_list(Flags) ->
+    try
+        case deadline(Timeout) of
+            invalid ->
+                erlang:error({invalid, {timeout, Timeout}});
+            nowait ->
+                Handle = make_ref(),
+                recvmmsg_nowait(SockRef, VLen, BufSz, CtrlSz, Flags, Handle);
+            handle ->
+                Handle = Timeout,
+                recvmmsg_nowait(SockRef, VLen, BufSz, CtrlSz, Flags, Handle);
+            zero ->
+                case prim_socket:recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, zero) of
+                    timeout ->
+                        {error, timeout};
+                    {ok, _} = Result ->
+                        Result;
+                    {error, _} = Result ->
+                        Result
+                end;
+            Deadline ->
+                recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline)
+        end
+    catch
+        error:undef:ST ->
+            case ST of
+                [{prim_socket,recvmmsg,_,_}|_] ->
+                    {error, notsup};
+                _ ->
+                    erlang:raise(error, undef, ST)
+            end
+    end;
+recvmmsg(Socket, VLen, BufSz, CtrlSz, Flags, Timeout) ->
+    error(badarg, [Socket, VLen, BufSz, CtrlSz, Flags, Timeout]).
+
+recvmmsg_nowait(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) ->
+    case prim_socket:recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) of
+        {select_read = Tag, Msgs} ->
+            {Tag, {?SELECT_INFO(recvmmsg, Handle), Msgs}};
+        select = Tag ->
+            {Tag, ?SELECT_INFO(recvmmsg, Handle)};
+        completion = Tag ->
+            {Tag, ?COMPLETION_INFO(recvmmsg, Handle)};
+        {ok, Msgs} ->
+            {ok, Msgs};
+        {error, _} = Error ->
+            Error
+    end.
+
+recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline) ->
+    Handle = make_ref(),
+    case prim_socket:recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) of
+        {select_read, _Msgs} ->
+            _ = cancel(SockRef, recvmmsg, Handle),
+            Now = erlang:monotonic_time(millisecond),
+            case Deadline - Now of
+                TimeLeft when TimeLeft > 0 ->
+                    receive
+                        ?socket_msg(_Socket, select, Handle) ->
+                            recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline);
+                        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                            _ = cancel(SockRef, recvmmsg, Handle),
+                            {error, Reason}
+                    after TimeLeft ->
+                            _ = cancel(SockRef, recvmmsg, Handle),
+                            {error, timeout}
+                    end;
+                _ ->
+                    _ = cancel(SockRef, recvmmsg, Handle),
+                    {error, timeout}
+            end;
+        {ok, Msgs} ->
+            {ok, Msgs};
+        {error, _} = Error ->
+            Error
     end.
 
 recvmsg_result(Result) ->

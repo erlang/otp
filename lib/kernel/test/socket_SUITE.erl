@@ -139,6 +139,27 @@
          sc_rs_recvmsg_send_shutdown_receive_tcp6/1,
          sc_rs_recvmsg_send_shutdown_receive_tcpL/1,
 
+         %% recvmmsg and sendmmsg tests
+         recvmmsg_basic_udp4/1,
+         recvmmsg_basic_udp6/1,
+         sendmmsg_basic_udp4/1,
+         sendmmsg_basic_udp6/1,
+         recvmmsg_sendmmsg_loopback_udp4/1,
+         recvmmsg_sendmmsg_loopback_udp6/1,
+         recvmmsg_notsup/1,
+         sendmmsg_notsup/1,
+         sendmmsg_concurrent_writers_udp4/1,
+         recvmmsg_concurrent_readers_udp4/1,
+         recvmmsg_large_batch_udp4/1,
+         sendmmsg_large_batch_udp4/1,
+         recvmmsg_partial_receive_udp4/1,
+         recvmmsg_select_nowait_udp4/1,
+         sendmmsg_select_nowait_udp4/1,
+         sendmmsg_with_addresses_udp4/1,
+         sendmmsg_invalid_msg_format/1,
+         recvmmsg_dirty_scheduler_udp4/1,
+         sendmmsg_dirty_scheduler_udp4/1,
+
          %% Socket IOCTL simple
          ioctl_simple1/1,
          ioctl_simple2/1,
@@ -206,7 +227,8 @@ all() ->
               {monitor,      "ESOCK_TEST_MON",        include},
               {ioctl,        "ESOCK_TEST_IOCTL",      include},
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
-	      {tickets,      "ESOCK_TEST_TICKETS",    include}],
+	      {tickets,      "ESOCK_TEST_TICKETS",    include},
+	      {batch_cases,  "ESOCK_TEST_BATCH",      include}],
     [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
 use_group(_Group, undefined, exclude) ->
@@ -241,6 +263,7 @@ groups() ->
      {sc_local_close,              [], sc_lc_cases()},
      {sc_remote_close,             [], sc_rc_cases()},
      {sc_remote_shutdown,          [], sc_rs_cases()},
+     {batch_cases,                 [], batch_cases()},
 
      {ioctl,                       [], ioctl_cases()},
      {ioctl_simple,                [], ioctl_simple_cases()},
@@ -350,6 +373,28 @@ sc_rs_cases() ->
      sc_rs_recvmsg_send_shutdown_receive_tcpL
     ].
 
+batch_cases() ->
+    [
+     recvmmsg_basic_udp4,
+     recvmmsg_basic_udp6,
+     sendmmsg_basic_udp4,
+     sendmmsg_basic_udp6,
+     recvmmsg_sendmmsg_loopback_udp4,
+     recvmmsg_sendmmsg_loopback_udp6,
+     recvmmsg_notsup,
+     sendmmsg_notsup,
+     sendmmsg_concurrent_writers_udp4,
+     recvmmsg_concurrent_readers_udp4,
+     recvmmsg_large_batch_udp4,
+     sendmmsg_large_batch_udp4,
+     recvmmsg_partial_receive_udp4,
+     recvmmsg_select_nowait_udp4,
+     sendmmsg_select_nowait_udp4,
+     sendmmsg_with_addresses_udp4,
+     sendmmsg_invalid_msg_format,
+     recvmmsg_dirty_scheduler_udp4,
+     sendmmsg_dirty_scheduler_udp4
+    ].
 
 ioctl_cases() ->
     [
@@ -14782,3 +14827,836 @@ i(F, A) ->
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                    RECVMMSG AND SENDMMSG TESTS                      %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Basic recvmmsg test - IPv4 UDP
+%%
+
+recvmmsg_basic_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_basic_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Send 5 messages
+            Msgs = [
+                #{iov => [<<"msg1">>]},
+                #{iov => [<<"msg2">>]},
+                #{iov => [<<"msg3">>]},
+                #{iov => [<<"msg4">>]},
+                #{iov => [<<"msg5">>]}
+            ],
+            lists:foreach(
+                fun(Msg) ->
+                    ok = socket:sendmsg(S2, Msg)
+                end,
+                Msgs
+            ),
+            %% Receive all 5 messages at once
+            {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
+            true = length(Received) =:= 5,
+            [<<"msg1">>, <<"msg2">>, <<"msg3">>, <<"msg4">>, <<"msg5">>] =
+                [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Basic recvmmsg test - IPv6 UDP
+%%
+
+recvmmsg_basic_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_basic_udp6,
+        fun() ->
+            has_support_ipv6(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet6, dgram, udp),
+            {ok, S2} = socket:open(inet6, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet6),
+            ok = socket:bind(S1, #{family => inet6, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet6, addr => Addr, port => LocalPort}),
+            %% Send 3 messages
+            Msgs = [
+                #{iov => [<<"msg1">>]},
+                #{iov => [<<"msg2">>]},
+                #{iov => [<<"msg3">>]}
+            ],
+            lists:foreach(
+                fun(Msg) ->
+                    ok = socket:sendmsg(S2, Msg)
+                end,
+                Msgs
+            ),
+            %% Receive all 3 messages at once
+            {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
+            true = length(Received) =:= 3,
+            [<<"msg1">>, <<"msg2">>, <<"msg3">>] =
+                [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Basic sendmmsg test - IPv4 UDP
+%%
+
+sendmmsg_basic_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        sendmmsg_basic_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Send 5 messages at once
+            Msgs = [
+                #{iov => [<<"msg1">>]},
+                #{iov => [<<"msg2">>]},
+                #{iov => [<<"msg3">>]},
+                #{iov => [<<"msg4">>]},
+                #{iov => [<<"msg5">>]}
+            ],
+            {ok, 5} = socket:sendmmsg(S2, Msgs, [], infinity),
+            %% Receive them one by one
+            lists:foreach(
+                fun(Expected) ->
+                    {ok, Msg} = socket:recvmsg(S1),
+                    [Data] = maps:get(iov, Msg),
+                    Expected = Data
+                end,
+                [<<"msg1">>, <<"msg2">>, <<"msg3">>, <<"msg4">>, <<"msg5">>]
+            ),
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Basic sendmmsg test - IPv6 UDP
+%%
+
+sendmmsg_basic_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        sendmmsg_basic_udp6,
+        fun() ->
+            has_support_ipv6(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet6, dgram, udp),
+            {ok, S2} = socket:open(inet6, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet6),
+            ok = socket:bind(S1, #{family => inet6, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet6, addr => Addr, port => LocalPort}),
+            %% Send 3 messages at once
+            Msgs = [
+                #{iov => [<<"msg1">>]},
+                #{iov => [<<"msg2">>]},
+                #{iov => [<<"msg3">>]}
+            ],
+            {ok, 3} = socket:sendmmsg(S2, Msgs, [], infinity),
+            %% Receive them one by one
+            lists:foreach(
+                fun(Expected) ->
+                    {ok, Msg} = socket:recvmsg(S1),
+                    [Data] = maps:get(iov, Msg),
+                    Expected = Data
+                end,
+                [<<"msg1">>, <<"msg2">>, <<"msg3">>]
+            ),
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Loopback test: send multiple messages with sendmmsg, receive with recvmmsg
+%%
+
+recvmmsg_sendmmsg_loopback_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_sendmmsg_loopback_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Send 10 messages at once
+            Msgs = [
+                #{iov => [list_to_binary(["msg", integer_to_list(N)])]}
+             || N <- lists:seq(1, 10)
+            ],
+            {ok, 10} = socket:sendmmsg(S2, Msgs, [], infinity),
+            %% Receive all 10 messages at once
+            {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
+            true = length(Received) =:= 10,
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Loopback test: send multiple messages with sendmmsg, receive with recvmmsg - IPv6
+%%
+
+recvmmsg_sendmmsg_loopback_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_sendmmsg_loopback_udp6,
+        fun() ->
+            has_support_ipv6(),
+            has_recvmmsg_support(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet6, dgram, udp),
+            {ok, S2} = socket:open(inet6, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet6),
+            ok = socket:bind(S1, #{family => inet6, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet6, addr => Addr, port => LocalPort}),
+            %% Send 5 messages at once
+            Msgs = [
+                #{iov => [list_to_binary(["msg", integer_to_list(N)])]}
+             || N <- lists:seq(1, 5)
+            ],
+            {ok, 5} = socket:sendmmsg(S2, Msgs, [], infinity),
+            %% Receive all 5 messages at once
+            {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
+            true = length(Received) =:= 5,
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that recvmmsg returns notsup on unsupported platforms
+%%
+
+recvmmsg_notsup(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_notsup,
+        fun() -> is_windows() end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            {error, notsup} = socket:recvmmsg(S, 10, 0, 0, [], infinity),
+            ok = socket:close(S),
+            ok
+        end
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that sendmmsg returns notsup on unsupported platforms
+%%
+
+sendmmsg_notsup(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        sendmmsg_notsup,
+        fun() -> is_windows() end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            Msgs = [#{iov => [<<"test">>]}],
+            {error, notsup} = socket:sendmmsg(S, Msgs, [], infinity),
+            ok = socket:close(S),
+            ok
+        end
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test concurrent writers for sendmmsg - verifies writer queue mechanism
+%%
+sendmmsg_concurrent_writers_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        sendmmsg_concurrent_writers_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Spawn multiple processes that try to sendmmsg concurrently
+            NumWriters = 5,
+            Self = self(),
+            Writers = lists:map(
+                fun(Id) -> {Id, spawn_monitor(fun() -> sendmmsg_writer(S2, Id, Self) end)} end,
+                lists:seq(1, NumWriters)
+            ),
+            %% Collect all results
+            Results = lists:map(
+                fun({Id, {Pid, Mon}}) -> collect_writers(Id, Pid, Mon) end, Writers
+            ),
+            %% Verify all sends completed successfully
+            lists:foreach(
+                fun({Id, Result}) ->
+                    ok =:= Result orelse ct:fail("Writer ~p failed: ~p", [Id, Result])
+                end,
+                Results
+            ),
+            %% Verify all messages were received
+            Received = lists:map(
+                fun(_) ->
+                    {ok, Msg} = socket:recvmsg(S1),
+                    [Data] = maps:get(iov, Msg),
+                    Data
+                end,
+                lists:seq(1, NumWriters)
+            ),
+            %% Check that we got all expected messages
+            Expected = [
+                list_to_binary(io_lib:format("msg~p", [Id]))
+             || Id <- lists:seq(1, NumWriters)
+            ],
+            SortedReceived = lists:sort(Received),
+            SortedExpected = lists:sort(Expected),
+            SortedExpected = SortedReceived,
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+sendmmsg_writer(Sock, Id, Parent) ->
+    Msg = list_to_binary(io_lib:format("msg~p", [Id])),
+    Msgs = [#{iov => [Msg]}],
+    case socket:sendmmsg(Sock, Msgs, [], infinity) of
+        {ok, 1} ->
+            Parent ! {self(), ok};
+        Other ->
+            Parent ! {self(), Other}
+    end.
+
+collect_writers(Id, Pid, Mon) ->
+    receive
+        {Pid, Result} ->
+            receive
+                {'DOWN', Mon, process, Pid, normal} ->
+                    {Id, Result}
+            end;
+        {'DOWN', Mon, process, Pid, Reason} ->
+            {Id, {error, Reason}}
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test concurrent readers for recvmmsg - verifies reader queue mechanism
+%%
+recvmmsg_concurrent_readers_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(
+        recvmmsg_concurrent_readers_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% First send some messages
+            NumMessages = 10,
+            lists:foreach(
+                fun(N) ->
+                    Msg = list_to_binary(io_lib:format("msg~p", [N])),
+                    ok = socket:sendmsg(S2, #{iov => [Msg]})
+                end,
+                lists:seq(1, NumMessages)
+            ),
+            %% Spawn multiple processes that try to recvmmsg concurrently
+            NumReaders = 3,
+            Self = self(),
+            Readers = lists:map(
+                fun(Id) ->
+                    {Id, spawn_monitor(fun() -> recvmmsg_reader(S1, Id, Self) end)}
+                end,
+                lists:seq(1, NumReaders)
+            ),
+            %% Collect all results
+            Results = lists:map(
+                fun({Id, {Pid, Mon}}) -> collect_readers(Id, Pid, Mon) end,
+                Readers
+            ),
+            %% Count total messages received
+            TotalReceived = lists:sum([length(Msgs) || {_Id, {ok, Msgs}} <- Results]),
+            %% We should have received all messages (distributed among readers)
+            true = TotalReceived =:= NumMessages,
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+recvmmsg_reader(Sock, Id, Parent) ->
+    %% Try to receive up to 5 messages
+    case socket:recvmmsg(Sock, 5, 0, 0, [], 1000) of
+        {ok, Msgs} ->
+            Parent ! {self(), {ok, Msgs}};
+        {error, timeout} ->
+            Parent ! {self(), {ok, []}};
+        Other ->
+            Parent ! {self(), {error, {Id, Other}}}
+    end.
+
+collect_readers(Id, Pid, Mon) ->
+    receive
+        {Pid, Result} ->
+            receive
+                {'DOWN', Mon, process, Pid, normal} ->
+                    {Id, Result}
+            end;
+        {'DOWN', Mon, process, Pid, Reason} ->
+            {Id, {error, Reason}}
+    after 5000 ->
+        {Id, {error, timeout}}
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test large batch (vlen > 64) to exercise heap allocation path
+%%
+recvmmsg_large_batch_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(
+        recvmmsg_large_batch_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Send 100 messages to exercise heap allocation path (> 64)
+            NumMessages = 100,
+            lists:foreach(
+                fun(N) ->
+                    Msg = list_to_binary(io_lib:format("msg~p", [N])),
+                    ok = socket:sendmsg(S2, #{iov => [Msg]})
+                end,
+                lists:seq(1, NumMessages)
+            ),
+            %% Receive all 100 messages at once (vlen > 64 triggers heap allocation)
+            {ok, Received} = socket:recvmmsg(S1, 100, 0, 0, [], infinity),
+            100 = length(Received),
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test large batch sendmmsg (msgCount > 64) to exercise heap allocation path
+%%
+sendmmsg_large_batch_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(
+        sendmmsg_large_batch_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Send 100 messages at once (msgCount > 64 triggers heap allocation)
+            NumMessages = 100,
+            Msgs = [#{iov => [list_to_binary(io_lib:format("msg~p", [N]))]}
+                    || N <- lists:seq(1, NumMessages)],
+            {ok, 100} = socket:sendmmsg(S2, Msgs, [], infinity),
+            %% Receive them to verify
+            ReceivedMsgs = lists:map(
+                fun(_) ->
+                    {ok, Msg} = socket:recvmsg(S1),
+                    [Data] = maps:get(iov, Msg),
+                    Data
+                end,
+                lists:seq(1, NumMessages)
+            ),
+            100 = length(ReceivedMsgs),
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test partial receive - request more messages than available
+%%
+recvmmsg_partial_receive_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_partial_receive_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Send only 3 messages
+            lists:foreach(
+                fun(Msg) -> ok = socket:sendmsg(S2, Msg) end,
+                [#{iov => [<<"m1">>]}, #{iov => [<<"m2">>]}, #{iov => [<<"m3">>]}]
+            ),
+            %% Request 10 messages, should only get 3
+            {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
+            3 = length(Received),
+            %% Verify the data
+            [<<"m1">>, <<"m2">>, <<"m3">>] =
+                [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test recvmmsg with nowait - verifies select path (EAGAIN handling)
+%%
+recvmmsg_select_nowait_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        recvmmsg_select_nowait_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S, #{family => inet, addr => Addr, port => 0}),
+            %% Call recvmmsg with nowait on empty socket - should get select
+            case socket:recvmmsg(S, 10, 0, 0, [], nowait) of
+                {select, {select_info, recvmmsg, _SelectHandle}} ->
+                    ok;
+                {error, timeout} ->
+                    %% Also acceptable on some platforms
+                    ok;
+                Other ->
+                    ct:fail("Unexpected result: ~p", [Other])
+            end,
+            ok = socket:close(S),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test sendmmsg with nowait on a potentially blocking socket
+%%
+sendmmsg_select_nowait_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        sendmmsg_select_nowait_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Normal case: sendmmsg with nowait should succeed immediately for small data
+            Msgs = [#{iov => [<<"test">>]}],
+            case socket:sendmmsg(S2, Msgs, [], nowait) of
+                {ok, 1} ->
+                    ok;
+                {select, {select_info, sendmmsg, _SelectHandle}} ->
+                    %% Socket buffer might be full (unlikely but possible)
+                    ok;
+                Other ->
+                    ct:fail("Unexpected result: ~p", [Other])
+            end,
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test sendmmsg with explicit destination addresses (unconnected socket)
+%%
+sendmmsg_with_addresses_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        sendmmsg_with_addresses_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            %% Create sender (unconnected)
+            {ok, Sender} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(Sender, #{family => inet, addr => Addr, port => 0}),
+            %% Create two receivers
+            {ok, R1} = socket:open(inet, dgram, udp),
+            {ok, R2} = socket:open(inet, dgram, udp),
+            ok = socket:bind(R1, #{family => inet, addr => Addr, port => 0}),
+            ok = socket:bind(R2, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := R1Port}} = socket:sockname(R1),
+            {ok, #{port := R2Port}} = socket:sockname(R2),
+            %% Send to both receivers using explicit addresses
+            Msgs = [
+                #{addr => #{family => inet, addr => Addr, port => R1Port},
+                  iov => [<<"to_r1">>]},
+                #{addr => #{family => inet, addr => Addr, port => R2Port},
+                  iov => [<<"to_r2">>]}
+            ],
+            {ok, 2} = socket:sendmmsg(Sender, Msgs, [], infinity),
+            %% Verify R1 got its message
+            {ok, Msg1} = socket:recvmsg(R1),
+            [<<"to_r1">>] = maps:get(iov, Msg1),
+            %% Verify R2 got its message
+            {ok, Msg2} = socket:recvmsg(R2),
+            [<<"to_r2">>] = maps:get(iov, Msg2),
+            ok = socket:close(Sender),
+            ok = socket:close(R1),
+            ok = socket:close(R2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test sendmmsg with invalid message format - missing iov field
+%%
+sendmmsg_invalid_msg_format(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        sendmmsg_invalid_msg_format,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Empty message list should return {ok, 0}
+            {ok, 0} = socket:sendmmsg(S2, [], [], infinity),
+            %% Message without iov field should fail
+            InvalidMsgs1 = [#{addr => #{family => inet, addr => Addr, port => LocalPort}}],
+            case catch socket:sendmmsg(S2, InvalidMsgs1, [], infinity) of
+                {'EXIT', {badarg, _}} -> ok;
+                E1 -> ct:fail("Expected badarg for message without iov field, returned: ~p~n", [E1])
+            end,
+            %% Message with invalid iov type should fail
+            InvalidMsgs2 = [#{iov => not_a_list}],
+            case catch socket:sendmmsg(S2, InvalidMsgs2, [], infinity) of
+                {'EXIT', {badarg, _}} -> ok;
+                E2 -> ct:fail("Expected badarg for invalid iov type, returned: ~p~n", [E2])
+            end,
+            %% Not a list should fail
+            case catch socket:sendmmsg(S2, not_a_list, [], infinity) of
+                {'EXIT', {badarg, _}} -> ok;
+                E3 -> ct:fail("Expected error for non-list messages, returned ~p~n", [E3])
+            end,
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test recvmmsg with large batch (> 64) to verify dirty scheduler rescheduling
+%% This test verifies that large batches are processed correctly when
+%% rescheduled to dirty I/O schedulers.
+%%
+recvmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(60)),
+    tc_try(
+        recvmmsg_dirty_scheduler_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Send 200 messages (> 64 threshold for dirty scheduler)
+            NumMessages = 200,
+            lists:foreach(
+                fun(N) ->
+                    Msg = list_to_binary(io_lib:format("dirty_msg~p", [N])),
+                    ok = socket:send(S2, Msg)
+                end,
+                lists:seq(1, NumMessages)
+            ),
+            %% Receive with vlen > 64 to trigger dirty scheduler rescheduling
+            %% The NIF should reschedule to a dirty I/O scheduler
+            {ok, Received} = socket:recvmmsg(S1, 200, 0, 0, [], infinity),
+            ReceivedCount = length(Received),
+            true = ReceivedCount =:= NumMessages,
+            %% Verify data integrity
+            ReceivedData = [Data || Msg <- Received, [Data] <- [maps:get(iov, Msg)]],
+            ExpectedData = [list_to_binary(io_lib:format("dirty_msg~p", [N]))
+                           || N <- lists:seq(1, NumMessages)],
+            true = lists:sort(ReceivedData) =:= lists:sort(ExpectedData),
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test sendmmsg with large batch (> 64) to verify dirty scheduler rescheduling
+%% This test verifies that large batches are processed correctly when
+%% rescheduled to dirty I/O schedulers.
+%%
+sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(60)),
+    tc_try(
+        sendmmsg_dirty_scheduler_udp4,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S1} = socket:open(inet, dgram, udp),
+            {ok, S2} = socket:open(inet, dgram, udp),
+            {ok, Addr} = inet:getaddr("localhost", inet),
+            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+            {ok, #{port := LocalPort}} = socket:sockname(S1),
+            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+            %% Create 200 messages (> 64 threshold for dirty scheduler)
+            NumMessages = 200,
+            Msgs = [#{iov => [list_to_binary(io_lib:format("dirty_send~p", [N]))]}
+                    || N <- lists:seq(1, NumMessages)],
+            %% Send with msgCount > 64 to trigger dirty scheduler rescheduling
+            %% The NIF should reschedule to a dirty I/O scheduler
+            {ok, SentCount} = socket:sendmmsg(S2, Msgs, [], infinity),
+            true = SentCount =:= NumMessages,
+            %% Receive and verify all messages
+            ReceivedMsgs = lists:map(
+                fun(_) ->
+                    {ok, Data} = socket:recv(S1, 0, [], infinity),
+                    Data
+                end,
+                lists:seq(1, NumMessages)
+            ),
+            ExpectedData = [list_to_binary(io_lib:format("dirty_send~p", [N]))
+                           || N <- lists:seq(1, NumMessages)],
+            true = lists:sort(ReceivedMsgs) =:= lists:sort(ExpectedData),
+            ok = socket:close(S1),
+            ok = socket:close(S2),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Helper function to check if recvmmsg is supported
+%%
+
+has_recvmmsg_support() ->
+    {ok, S} = socket:open(inet, dgram, udp),
+    case socket:recvmmsg(S, 1, 0, 0, [], 0) of
+        {error, notsup} ->
+            ok = socket:close(S),
+            skip("recvmmsg not supported on this platform");
+        _ ->
+            ok = socket:close(S),
+            ok
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Helper function to check if sendmmsg is supported
+%%
+
+has_sendmmsg_support() ->
+    {ok, S} = socket:open(inet, dgram, udp),
+    Msgs = [#{iov => [<<"test">>]}],
+    case socket:sendmmsg(S, Msgs, [], 0) of
+        {error, notsup} ->
+            ok = socket:close(S),
+            skip("sendmmsg not supported on this platform");
+        _ ->
+            ok = socket:close(S),
+            ok
+    end.
