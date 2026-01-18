@@ -40,6 +40,11 @@
          sparse_to_list_test/1,
          from_list_test/1,
          from_test/1,
+         shift_test/1,
+         slice_test/1,
+         prepend_test/1,
+         append_test/1,
+         concat_test/1,
          to_orddict_test/1,
          sparse_to_orddict_test/1,
          from_orddict_test/1,
@@ -57,9 +62,9 @@
 -export([t/0,t/1]).
 
 -import(array,
-        [new/0, new/1, new/2, is_array/1, set/3, get/2, %size/1,
-         sparse_size/1, default/1, reset/2, to_list/1, sparse_to_list/1,
-         from/2, from/3,
+        [new/0, new/1, new/2, is_array/1, set/3, get/2, sparse_size/1,
+         default/1, reset/2, to_list/1, sparse_to_list/1, shift/2, slice/3,
+         prepend/2, append/2, concat/2, concat/1, from/2, from/3,
          from_list/1, from_list/2, to_orddict/1, sparse_to_orddict/1,
          from_orddict/1, from_orddict/2, map/2, sparse_map/2, foldl/3,
          foldr/3, sparse_foldl/3, sparse_foldr/3, fix/1, relax/1, is_fix/1,
@@ -75,8 +80,9 @@ suite() ->
 all() ->
     [new_test, fix_test, relax_test, resize_test,
      set_get_test, to_list_test, sparse_to_list_test,
-     from_test,
-     from_list_test, to_orddict_test, sparse_to_orddict_test,
+     from_list_test, from_test,
+     shift_test, slice_test, prepend_test, append_test,
+     concat_test, to_orddict_test, sparse_to_orddict_test,
      from_orddict_test, map_test, sparse_map_test,
      foldl_test, sparse_foldl_test, foldr_test, sparse_foldr_test,
      import_export, doctests].
@@ -103,16 +109,17 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
--define(LEAFSIZE,8).
+-define(LEAFSIZE,16).
 -define(NODESIZE,?LEAFSIZE).
 
 -record(array,  {size,          %% number of defined entries
+                 zero,          %% offset of zero point
                  fix,           %% not automatically growing
                  default,       %% the default value (usually 'undefined')
                  cache,         %% cached leaf tuple
                  cache_index,   %% low index of cache
                  elements,      %% the tuple tree
-                 max
+                 bits
                 }).
 
 -define(test(Expr), begin Expr end).
@@ -252,6 +259,7 @@ relax_test(_Config) ->
 
 resize_test(_Config) ->
     ?assert(resize(0, new()) =:= new()),
+    ?assert(array:to_list(resize(1, new())) == [undefined]), %% Bug found by prop tests
     ?assert(resize(99, new(99)) =:= new(99)),
     ?assert(resize(99, relax(new(99))) =:= relax(new(99))),
     ?assert(is_fix(resize(100, new(10)))),
@@ -459,7 +467,94 @@ from_test(_Config) ->
      ?assertError(badarg, from(no_fun, foo))
     ].
 
+shift_test(_Config) ->
+    [
+     ?assertEqual(5, array:size(shift(0, fix(array:new(5))))),
+     ?assertEqual(4, array:size(shift(1, fix(array:new(5))))),
+     ?assertEqual(0, array:size(shift(5, fix(array:new(5))))),
 
+     ?assertEqual(1, array:get(0, shift(0, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(2, array:get(0, shift(1, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(4, array:get(0, shift(3, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(0, array:size(shift(5, from_list(lists:seq(1,5))))),
+     ?assertError(badarg, shift(6, from_list(lists:seq(1,5)))),
+     ?assertError(badarg, shift(0, no_array)),
+
+     ?assertEqual([1,2,3,4,5], to_list(shift(0, from_list(lists:seq(1,5))))),
+     ?assertEqual([2,3,4,5], to_list(shift(1, from_list(lists:seq(1,5))))),
+     ?assertEqual([4,5], to_list(shift(3, from_list(lists:seq(1,5))))),
+     ?assertEqual([], to_list(shift(5, from_list(lists:seq(1,5))))),
+
+     ?assertEqual(lists:seq(?LEAFSIZE+2,?LEAFSIZE*?NODESIZE),
+                  to_list(shift(?LEAFSIZE+1, from_list(lists:seq(1,?LEAFSIZE*?NODESIZE))))),
+     ?assertEqual(lists:seq(3,3*?NODESIZE+1),
+                  to_list(shift(-3, shift(5, from_list(lists:seq(1,3*?NODESIZE+1)))))),
+     ?assertEqual(lists:seq(13,3*?NODESIZE+1),
+                  to_list(shift(-5, shift(?LEAFSIZE+1, from_list(lists:seq(1,3*?NODESIZE+1)))))),
+
+     ?assertEqual(6, array:size(shift(-1, fix(array:new(5))))),
+     ?assertEqual(5+?LEAFSIZE, array:size(shift(-?LEAFSIZE, fix(array:new(5))))),
+     ?assertEqual(3*?LEAFSIZE+7, array:size(shift(-7, fix(array:new(3*?LEAFSIZE))))),
+     ?assertEqual([x] ++ lists:duplicate(2+?LEAFSIZE+1,undefined), array:to_list(array:set(0,x,shift(-3, fix(array:new(?LEAFSIZE+1)))))),
+
+     ?assertEqual(undefined, array:get(0, shift(-1, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(1, array:get(1, shift(-1, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(3, array:get(4, shift(-2, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(1, array:get(?LEAFSIZE, shift(-?LEAFSIZE, fix(from_list(lists:seq(1,5)))))),
+
+     ?assertEqual([undefined,1,2,3,4,5], to_list(shift(-1, from_list(lists:seq(1,5))))),
+     ?assertEqual([undefined,undefined,undefined,1,2,3,4,5], to_list(shift(-3, from_list(lists:seq(1,5))))),
+     ?assertEqual(lists:duplicate(?LEAFSIZE+1,undefined) ++ lists:seq(1,5), to_list(shift(-(?LEAFSIZE+1), from_list(lists:seq(1,5)))))
+    ].
+
+slice_test(_Config) ->
+    [
+     ?assertEqual(lists:seq(1,?LEAFSIZE), to_list(slice(0, ?LEAFSIZE, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertEqual(lists:seq(2,?LEAFSIZE), to_list(slice(1, ?LEAFSIZE-1, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertEqual(lists:seq(3,?LEAFSIZE), to_list(slice(2, ?LEAFSIZE-2, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertEqual(lists:seq(1,?LEAFSIZE-1), to_list(slice(0, ?LEAFSIZE-1, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertEqual(lists:seq(1,?LEAFSIZE-2), to_list(slice(0, ?LEAFSIZE-2, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertEqual(lists:seq(4,?LEAFSIZE-3), to_list(slice(3, ?LEAFSIZE-6, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertEqual([4], to_list(slice(3, 1, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertEqual([], to_list(slice(3, 0, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertEqual([], to_list(slice(0, -1, fix(from_list(lists:seq(1,?LEAFSIZE)))))),
+     ?assertError(badarg, to_list(slice(-1, 3, fix(from_list(lists:seq(1,?LEAFSIZE))))))
+    ].
+
+prepend_test(_Config) ->
+    [
+     ?assertEqual(6, array:size(prepend(0, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(0, array:get(0, prepend(0, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(1, array:get(1, prepend(0, from_list(lists:seq(1,5))))),
+     ?assertEqual([0,1,2,3,4,5], to_list(prepend(0, from_list(lists:seq(1,5))))),
+     ?assertEqual(lists:seq(0,?LEAFSIZE+1), to_list(prepend(0, from_list(lists:seq(1,?LEAFSIZE+1)))))
+    ].
+
+append_test(_Config) ->
+    [
+     ?assertEqual(6, array:size(append(6, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(6, array:get(5, append(6, fix(from_list(lists:seq(1,5)))))),
+     ?assertEqual(5, array:get(4, append(6, from_list(lists:seq(1,5))))),
+     ?assertEqual([1,2,3,4,5,6], to_list(append(6, from_list(lists:seq(1,5))))),
+     ?assertEqual(lists:seq(1,?LEAFSIZE+1), to_list(append(?LEAFSIZE+1, from_list(lists:seq(1,?LEAFSIZE)))))
+    ].
+
+concat_test(_Config) ->
+     ?assertEqual([1,2], to_list(concat(from_list([1]), from_list([2])))),
+     ?assertEqual([1,2,3,4,5,6], to_list(concat(from_list([1,2,3]), from_list([4,5,6])))),
+     ?assertEqual([2,3,4,5,6], to_list(concat(from_list([2,3]), from_list([4,5,6])))),
+     ?assertEqual([1,2,3], to_list(concat(from_list([1,2,3]), from_list([])))),
+     ?assertEqual([1,2,3], to_list(concat(from_list([]), from_list([1,2,3])))),
+     ?assertEqual([], to_list(concat(from_list([]), from_list([])))),
+     ?assertEqual([], to_list(concat(new(), new()))),
+     ?assertError(badarg, concat(from_list([1,2,3]),no_array)),
+     ?assertError(badarg, concat(no_array,from_list([1,2,3]))),
+     ?assertNot(is_fix(concat(from_list([1,2,3]), from_list([4,5,6])))),
+
+     ?assertEqual([2,3,4,5,6], to_list(concat([from_list([2,3]), from_list([4,5,6])]))),
+     ?assertEqual([1,2,3,4,5,6], to_list(concat([from_list([1]), from_list([2,3]), new(), from_list([4,5,6]), new()]))),
+     ?assertError(badarg, concat(no_list)),
+     ?assertError(badarg, concat([])).
 
 to_orddict_test(_Config) ->
     N0 = ?LEAFSIZE,
@@ -608,7 +703,7 @@ map_test(_Config) ->
               =:= lists:seq(0,10)),
      ?assert(to_list(map(Plus(11), from_list(lists:seq(0,99999))))
               =:= lists:seq(11,100010)),
-     ?assert([{0,0},{N0*2+1,N0*2+1+1},{N0*100+1,N0*100+1+2}] =:=
+     ?assertEqual([{0,0},{N0*2+1,N0*2+1+1},{N0*100+1,N0*100+1+2}],
               sparse_to_orddict((map(Default,
                                      set(N0*100+1,2,
                                          set(N0*2+1,1,
