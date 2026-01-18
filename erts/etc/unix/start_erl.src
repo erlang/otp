@@ -34,12 +34,11 @@ shift
 DataFile=$1
 shift
 
-ERTS_VSN=`awk '{print $1}' $DataFile`
-VSN=`awk '{print $2}' $DataFile`
+read -r ERTS_VSN VSN _ < "$DataFile"
 
 BINDIR=$ROOTDIR/erts-$ERTS_VSN/bin
 EMU=beam
-PROGNAME=`echo $0 | sed 's/.*\///'`
+PROGNAME="${0##*/}"
 export EMU
 export ROOTDIR
 export BINDIR
