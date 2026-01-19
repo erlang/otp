@@ -592,6 +592,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(tcp);                      \
     GLOBAL_ATOM_DEF(throughput);               \
     GLOBAL_ATOM_DEF(timestamp);                \
+    GLOBAL_ATOM_DEF(timestampns);              \
     GLOBAL_ATOM_DEF(tos);                      \
     GLOBAL_ATOM_DEF(transparent);              \
     GLOBAL_ATOM_DEF(timeout);                  \
@@ -613,6 +614,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(unspec);                   \
     GLOBAL_ATOM_DEF(up);                       \
     GLOBAL_ATOM_DEF(usec);                     \
+    GLOBAL_ATOM_DEF(nsec);                     \
     GLOBAL_ATOM_DEF(user);                     \
     GLOBAL_ATOM_DEF(user_timeout);             \
     GLOBAL_ATOM_DEF(use_ext_recvinfo);         \
