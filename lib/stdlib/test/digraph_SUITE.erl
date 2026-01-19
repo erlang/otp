@@ -488,9 +488,6 @@ sane1(G) ->
               end
       end, EVs),
 
-    %% sink_vertices and source_vertices were introduced in 2001. They
-    %% are not documented.
-
     %% sink: a vertex with no outgoing edges
     SinkVs = [V || V <- Vs, digraph:out_edges(G, V) =:= [] ],
     case lists:sort(SinkVs) =:=  lists:sort(digraph:sink_vertices(G)) of
@@ -498,7 +495,7 @@ sane1(G) ->
         false -> 
             io:format("Bad sinks~n"), put(sane, no)
     end,
-    %% sink: a vertex with no incoming edges
+    %% source: a vertex with no incoming edges
     SourceVs = [V || V <- Vs, digraph:in_edges(G, V) =:= [] ],
     case lists:sort(SourceVs) =:=  lists:sort(digraph:source_vertices(G)) of
         true -> ok;
