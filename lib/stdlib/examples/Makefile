@@ -40,7 +40,7 @@ docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(STDLIB_VSN)/examples
+RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(STDLIB_VSN)/doc/examples
 
 # Pack and install the complete directory structure from 
 # here (CWD) and down, for all examples.
@@ -48,6 +48,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(STDLIB_VSN)/examples
 EXAMPLES  = erl_id_trans.erl
 
 release_spec:
+
+release_docs_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(EXAMPLES) "$(RELSYSDIR)"
-release_docs_spec:
