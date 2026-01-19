@@ -2086,6 +2086,80 @@ BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
 
 
 
+/* +++ esock_encode_timespec +++
+ *
+ * Encode a timespec struct into its erlang form, a map with two fields:
+ *
+ *    sec
+ *    nsec
+ *
+ */
+extern
+void esock_encode_timespec(ErlNifEnv*      env,
+                           struct timespec* timeP,
+                           ERL_NIF_TERM*   eTime)
+{
+    ERL_NIF_TERM keys[]  = {esock_atom_sec, esock_atom_nsec};
+    ERL_NIF_TERM vals[]  = {MKL(env, timeP->tv_sec), MKL(env, timeP->tv_nsec)};
+    size_t       numKeys = NUM(keys);
+
+    ESOCK_ASSERT( numKeys == NUM(vals) );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eTime) );
+}
+
+
+
+/* +++ esock_decode_timespec +++
+ *
+ * Decode a timespec in its erlang form (a map) into its native form,
+ * a timespec struct.
+ *
+ */
+extern
+BOOLEAN_T esock_decode_timespec(ErlNifEnv*      env,
+                                ERL_NIF_TERM    eTime,
+                                struct timespec* timeP)
+{
+    ERL_NIF_TERM eSec, eNSec;
+
+    if (! GET_MAP_VAL(env, eTime, esock_atom_sec, &eSec))
+        return FALSE;
+
+    if (! GET_MAP_VAL(env, eTime, esock_atom_nsec, &eNSec))
+        return FALSE;
+
+    /* Use the appropriate variable type and nif function
+     * to decode the value from Erlang into the struct timespec fields
+     */
+    { /* time_t tv_sec; */
+#if (SIZEOF_TIME_T == 8)
+        ErlNifSInt64 sec;
+        if (! GET_INT64(env, eSec, &sec))
+            return FALSE;
+#elif (SIZEOF_TIME_T == SIZEOF_INT)
+        int sec;
+        if (! GET_INT(env, eSec, &sec))
+            return FALSE;
+#else /* long or other e.g undefined */
+        long sec;
+        if (! GET_LONG(env, eSec, &sec))
+            return FALSE;
+#endif
+        timeP->tv_sec = sec;
+    }
+
+    { /* long tv_nsec; */
+        long nsec;
+        if (! GET_LONG(env, eNSec, &nsec))
+            return FALSE;
+        timeP->tv_nsec = nsec;
+    }
+
+    return TRUE;
+}
+
+
+
 /* +++ esock_decode_domain +++
  *
  * Decode the Erlang form of the 'domain' type, that is: 

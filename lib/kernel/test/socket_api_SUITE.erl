@@ -232,6 +232,7 @@
          api_opt_sock_sndtimeo_udp4/1,
          api_opt_sock_timestamp_udp4/1,
          api_opt_sock_timestamp_tcp4/1,
+         api_opt_sock_timestampns_udp4/1,
          api_opt_ip_add_drop_membership/0, api_opt_ip_add_drop_membership/1,
          api_opt_ip_pktinfo_udp4/1,
          api_opt_ip_recvopts_udp4/1,
@@ -353,6 +354,7 @@ groups() ->
      {option_sock_lowat,       [], api_option_sock_lowat_cases()},
      {option_sock_timeo,       [], api_option_sock_timeo_cases()},
      {option_sock_timestamp,   [], api_option_sock_timestamp_cases()},
+     {option_sock_timestampns, [], api_option_sock_timestampns_cases()},
      {options_ip,              [], api_options_ip_cases()},
      {options_ipv6,            [], api_options_ipv6_cases()},
      {options_tcp,             [], api_options_tcp_cases()},
@@ -535,6 +537,7 @@ api_options_socket_cases() ->
      {group, option_sock_lowat},
      {group, option_sock_timeo},
      {group, option_sock_timestamp},
+     {group, option_sock_timestampns},
      api_opt_sock_reuseaddr,
      api_opt_sock_exclusiveaddruse,
      api_opt_sock_bsp_state
@@ -583,6 +586,11 @@ api_option_sock_timestamp_cases() ->
     [
      api_opt_sock_timestamp_udp4,
      api_opt_sock_timestamp_tcp4
+    ].
+
+api_option_sock_timestampns_cases() ->
+    [
+     api_opt_sock_timestampns_udp4
     ].
 
 api_options_ip_cases() ->
@@ -27159,6 +27167,284 @@ has_support_sock_sndtimeo() ->
 
 has_support_sock_timestamp() ->
     has_support_socket_option_sock(timestamp).
+
+has_support_sock_timestampns() ->
+    has_support_socket_option_sock(timestampns).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% SO_TIMESTAMPNS tests
+%%
+
+%% Tests that the timestampns control message header is received when
+%% setting the socket 'socket' option true when using sendmsg/recvmsg
+%% on an IPv4 UDP (dgram) socket.
+%% So, this is done on the receiving side: 
+%%
+%%               socket:setopt(Sock, socket, timestampns, boolean()).
+%%
+%% All subsequent *received* messages will be timestamped with nanosecond precision.
+
+api_opt_sock_timestampns_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_timestampns_udp4,
+           fun() -> has_support_ipv4(), has_support_sock_timestampns() end,
+           fun() ->
+                   Set  = fun(Sock, Value) ->
+                                  socket:setopt(Sock, socket, timestampns, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, socket, timestampns)
+                          end,
+                   Send = fun(Sock, Data, Dest) ->
+                                  Msg = #{addr => Dest, iov => [Data]},
+                                  socket:sendmsg(Sock, Msg)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock) of
+                                      {ok, #{addr := Source,
+                                             ctrl := CMsgs,
+                                             iov  := [Data]}} ->
+                                          {ok, {Source, CMsgs, Data}};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => udp,
+                                 send   => Send,
+                                 recv   => Recv,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_sock_timestampns_udp(InitState)
+           end).
+
+api_opt_sock_timestampns_udp(InitState) ->
+    Seq =
+        [
+         #{desc => "local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa_src => LSA,
+                                       lsa_dst => LSA}}
+                   end},
+         #{desc => "open src socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
+                           {ok, State#{sock_src => Sock}}
+                   end},
+         #{desc => "bind src",
+           cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
+                           case sock_bind(Sock, LSA) of
+                               ok ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "sockname src socket",
+           cmd  => fun(#{sock_src := Sock} = State) ->
+                           SASrc = sock_sockname(Sock),
+                           ?SEV_IPRINT("src sockaddr: "
+                                       "~n   ~p", [SASrc]),
+                           {ok, State#{sa_src => SASrc}}
+                   end},
+         #{desc => "get current (default) timestampns for src socket",
+           cmd  => fun(#{sock_src := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, false = Value} ->
+                                   ?SEV_IPRINT("src timestampns: ~p", [Value]),
+                                   ok;
+                               {ok, Unexpected} ->
+                                   ?SEV_EPRINT("Unexpected src timestampns: ~p",
+                                               [Unexpected]),
+                                   {error, {unexpected, Unexpected}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed getting (default) timestampns:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "open dst socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
+                           {ok, State#{sock_dst => Sock}}
+                   end},
+         #{desc => "bind dst",
+           cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
+                           case sock_bind(Sock, LSA) of
+                               ok ->
+                                   ?SEV_IPRINT("dst bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("dst bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "sockname dst socket",
+           cmd  => fun(#{sock_dst := Sock} = State) ->
+                           SADst = sock_sockname(Sock),
+                           ?SEV_IPRINT("dst sockaddr: "
+                                       "~n   ~p", [SADst]),
+                           {ok, State#{sa_dst => SADst}}
+                   end},
+         #{desc => "send req (to dst) (WO TIMESTAMPNS)",
+           cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
+                           Send(Sock, ?BASIC_REQ, Dst)
+                   end},
+         #{desc => "recv req (from src)",
+           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, {Src, [], ?BASIC_REQ}} ->
+                                   ok;
+                               {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg: "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Recv Source:   ~p"
+                                               "~n   Expect CHdrs:  ~p"
+                                               "~n   Recv CHdrs:    ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Recv Msg:      ~p",
+                                               [Src, BadSrc,
+                                                [], BadCHdrs,
+                                                ?BASIC_REQ, BadReq]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed recv: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "enable timestampns on dst socket",
+           cmd  => fun(#{sock_dst := Sock, set := Set}) ->
+                           case Set(Sock, true) of
+                               ok ->
+                                   ?SEV_IPRINT("dst timestampns enabled"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestampns:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "send req 1 (to dst) (W TIMESTAMPNS)",
+           cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
+                           Send(Sock, ?BASIC_REQ, Dst)
+                   end},
+         #{desc => "recv req 1 (from src) (W TIMESTAMPNS)",
+           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, {Src, [#{level := socket,
+                                             type  := timestampns,
+                                             value  := #{sec := Sec, nsec := NSec}}], ?BASIC_REQ}} ->
+                                   ?SEV_IPRINT("received req *with* timestampns: "
+                                               "~n   sec:  ~p"
+                                               "~n   nsec: ~p",
+                                               [Sec, NSec]),
+                                   ok;
+                               {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg (expected timestampns): "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Recv Source:   ~p"
+                                               "~n   Expect CHdrs:  [timestampns]"
+                                               "~n   Recv CHdrs:    ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Recv Msg:      ~p",
+                                               [Src, BadSrc,
+                                                BadCHdrs,
+                                                ?BASIC_REQ, BadReq]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed recv: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "send req 2 (to dst) (W TIMESTAMPNS)",
+           cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
+                           Send(Sock, ?BASIC_REQ, Dst)
+                   end},
+         #{desc => "recv req 2 (from src) (W TIMESTAMPNS)",
+           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, {Src, [#{level := socket,
+                                             type  := timestampns,
+                                             value  := #{sec := Sec, nsec := NSec}}], ?BASIC_REQ}} ->
+                                   ?SEV_IPRINT("received req *with* timestampns: "
+                                               "~n   sec:  ~p"
+                                               "~n   nsec: ~p",
+                                               [Sec, NSec]),
+                                   ok;
+                               {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg (expected timestampns): "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Recv Source:   ~p"
+                                               "~n   Expect CHdrs:  [timestampns]"
+                                               "~n   Recv CHdrs:    ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Recv Msg:      ~p",
+                                               [Src, BadSrc,
+                                                BadCHdrs,
+                                                ?BASIC_REQ, BadReq]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed recv: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "disable timestampns on dst socket",
+           cmd  => fun(#{sock_dst := Sock, set := Set}) ->
+                           case Set(Sock, false) of
+                               ok ->
+                                   ?SEV_IPRINT("dst timestampns disabled"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting timestampns:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "send req (to dst) (WO TIMESTAMPNS)",
+           cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
+                           Send(Sock, ?BASIC_REQ, Dst)
+                   end},
+         #{desc => "recv req (from src) (WO TIMESTAMPNS)",
+           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, {Src, [], ?BASIC_REQ}} ->
+                                   ?SEV_IPRINT("received req *without* timestampns"),
+                                   ok;
+                               {ok, {BadSrc, BadCHdrs, BadReq} = UnexpData} ->
+                                   ?SEV_EPRINT("Unexpected msg (expected no timestampns): "
+                                               "~n   Expect Source: ~p"
+                                               "~n   Recv Source:   ~p"
+                                               "~n   Expect CHdrs:  []"
+                                               "~n   Recv CHdrs:    ~p"
+                                               "~n   Expect Msg:    ~p"
+                                               "~n   Recv Msg:      ~p",
+                                               [Src, BadSrc,
+                                                BadCHdrs,
+                                                ?BASIC_REQ, BadReq]),
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed recv: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close sockets",
+           cmd  => fun(#{sock_src := Src, sock_dst := Dst}) ->
+                           (catch socket:close(Src)),
+                           (catch socket:close(Dst)),
+                           ok
+                   end},
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
 
 
 %% --- IP socket option test functions ---

@@ -544,6 +544,7 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(num_unexpected_reads);     \
     GLOBAL_ATOM_DEF(num_unexpected_writes);    \
     GLOBAL_ATOM_DEF(num_unknown_cmds);         \
+    GLOBAL_ATOM_DEF(nsec);                     \
     GLOBAL_ATOM_DEF(nxtinfo);                  \
     GLOBAL_ATOM_DEF(oactive);		       \
     GLOBAL_ATOM_DEF(off);                      \
@@ -703,6 +704,7 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(tcp);                      \
     GLOBAL_ATOM_DEF(throughput);               \
     GLOBAL_ATOM_DEF(timestamp);                \
+    GLOBAL_ATOM_DEF(timestampns);              \
     GLOBAL_ATOM_DEF(tos);                      \
     GLOBAL_ATOM_DEF(transparent);              \
     GLOBAL_ATOM_DEF(timeout);                  \

@@ -2423,6 +2423,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(num_unexpected_reads);            \
     GLOBAL_ATOM_DECL(num_unexpected_writes);           \
     GLOBAL_ATOM_DECL(num_unknown_cmds);                \
+    GLOBAL_ATOM_DECL(nsec);                            \
     GLOBAL_ATOM_DECL(nxtinfo);                         \
     GLOBAL_ATOM_DECL(oactive);			       \
     GLOBAL_ATOM_DECL(off);                             \
@@ -2582,6 +2583,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(tcp);                             \
     GLOBAL_ATOM_DECL(throughput);                      \
     GLOBAL_ATOM_DECL(timestamp);                       \
+    GLOBAL_ATOM_DECL(timestampns);                     \
     GLOBAL_ATOM_DECL(tos);                             \
     GLOBAL_ATOM_DECL(transparent);                     \
     GLOBAL_ATOM_DECL(timeout);                         \
@@ -3360,6 +3362,16 @@ static struct ESockOpt optLevelSocket[] =
 #endif
             &esock_atom_timestamp},
 
+        {
+#ifdef SO_TIMESTAMPNS
+            SO_TIMESTAMPNS,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_timestampns},
+
+        {
         {
 #ifdef SO_TYPE
             SO_TYPE,
@@ -13912,6 +13924,40 @@ static BOOLEAN_T esock_cmsg_decode_timeval(ErlNifEnv *env,
 }
 #endif
 
+#ifdef SCM_TIMESTAMPNS
+static
+BOOLEAN_T esock_cmsg_encode_timespec(ErlNifEnv     *env,
+                                     unsigned char *data,
+                                     size_t         dataLen,
+                                     ERL_NIF_TERM  *eResult) {
+    struct timespec* timeP = (struct timespec *) data;
+
+    if (dataLen < sizeof(*timeP))
+        return FALSE;
+
+    esock_encode_timespec(env, timeP, eResult);
+    return TRUE;
+}
+
+static BOOLEAN_T esock_cmsg_decode_timespec(ErlNifEnv *env,
+                                           ERL_NIF_TERM eValue,
+                                           struct cmsghdr *cmsgP,
+                                           size_t rem,
+                                           size_t *usedP)
+{
+    struct timespec time, *timeP;
+
+    if (! esock_decode_timespec(env, eValue, &time))
+        return FALSE;
+
+    if ((timeP = esock_init_cmsghdr(cmsgP, rem, sizeof(*timeP), usedP)) == NULL)
+        return FALSE;
+
+    *timeP = time;
+    return TRUE;
+}
+#endif
+
 
 #if defined(IP_TOS) || defined(IP_RECVTOS)
 static
@@ -15218,8 +15264,8 @@ static int cmpESockCmsgSpec(const void *vpa, const void *vpb) {
     return COMPARE(*(a->nameP), *(b->nameP));
 }
 
-
-#if defined(SCM_CREDENTIALS) || defined(SCM_RIGHTS) || defined(SCM_TIMESTAMP)
+#if defined(SCM_CREDENTIALS) || defined(SCM_RIGHTS) ||                         \
+    defined(SCM_TIMESTAMP) || defined(SCM_TIMESTAMPNS)
 #define HAVE_ESOCK_CMSG_SOCKET
 #endif
 
@@ -15244,6 +15290,12 @@ static ESockCmsgSpec cmsgLevelSocket[] =
         {SCM_TIMESTAMP,
          &esock_cmsg_encode_timeval, esock_cmsg_decode_timeval,
          &esock_atom_timestamp},
+#endif
+
+#if defined(SCM_TIMESTAMPNS)
+        {SCM_TIMESTAMPNS,
+         &esock_cmsg_encode_timespec, esock_cmsg_decode_timespec,
+         &esock_atom_timestampns},
 #endif
     };
 #endif
