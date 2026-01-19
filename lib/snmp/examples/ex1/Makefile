@@ -50,7 +50,7 @@ ERL_COMPILE_FLAGS += -I../include \
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR         = $(RELEASE_PATH)/lib/snmp-$(VSN)
-EXAMPLE_RELSYSDIR = "$(RELSYSDIR)/examples"
+EXAMPLE_RELSYSDIR = "$(RELSYSDIR)/doc/examples"
 EX1_RELSYSDIR     = $(EXAMPLE_RELSYSDIR)/ex1
 
 # ----------------------------------------------------
@@ -91,11 +91,11 @@ info:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_spec: opt
+release_spec:
+
+release_docs_spec: opt
 	$(INSTALL_DIR) $(EXAMPLE_RELSYSDIR)
 	$(INSTALL_DIR) $(EX1_RELSYSDIR)
 	$(INSTALL_DATA) $(MIB_FILES) $(EX1_RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(EX1_RELSYSDIR)
 	$(INSTALL_DATA) $(TARGET_FILES) $(EX1_RELSYSDIR)
-
-release_docs_spec:
