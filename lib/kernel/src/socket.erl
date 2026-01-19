@@ -362,6 +362,7 @@ server(Addr, Port) ->
               %% Option values' types
               linger/0,
               timeval/0,
+              timespec/0,
               ip_mreq/0,
               ip_mreq_source/0,
               ip_msfilter/0,
@@ -608,6 +609,17 @@ microseconds.
 -type timeval() ::
         #{sec  := integer(),
           usec := integer()}.
+
+-doc """
+C: `struct timespec`
+
+Corresponds to the C `struct timespec`. The field `sec` holds seconds, and `nsec`
+nanoseconds.
+""".
+-type timespec() ::
+        #{sec  := integer(),
+          nsec := integer()}.
+
 
 -doc """
 C: `struct ip_mreq`
@@ -1192,6 +1204,15 @@ _Options for protocol level_ [_`socket`_:](`t:level/0`)
 
 - **`{socket, timestamp}`** - `Value = boolean()`
 
+  Enable or disable the `SO_TIMESTAMP` socket option. When enabled, the socket
+  will receive timestamps in control messages for received packets.
+
+- **`{socket, timestampns}`** - `Value = boolean()`
+
+  Enable or disable the `SO_TIMESTAMPNS` socket option. When enabled, the socket
+  will receive nanosecond-precision timestamps in control messages for received
+  packets.
+
 - **`{socket, type}`** - `Value =` `t:type/0`
 
   Only valid to _get_.
@@ -1458,6 +1479,7 @@ _Options for protocol level_ [_`udp`:_](`t:level/0`)
            sndlowat |
            sndtimeo |
            timestamp |
+           timestampns |
            type} |
         {Level :: ip,
          Opt ::
@@ -2031,6 +2053,8 @@ successfully decoded the data.
 -type cmsg_recv() ::
         #{level := socket,  type := timestamp,    data := binary(),
           value => timeval()}                                       |
+        #{level := socket,  type := timestampns,  data := binary(),
+          value => timespec()}                                      |
         #{level := socket,  type := rights,       data := binary()} |
         #{level := socket,  type := credentials,  data := binary()} |
         #{level := ip,      type := tos,          data := binary(),
