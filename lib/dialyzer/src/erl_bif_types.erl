@@ -954,6 +954,8 @@ type(erlang, system_info, 1, Xs) ->
 		     t_non_neg_fixnum();
 		   ['trace_control_word'] ->
 		     t_integer();
+		   ['bif_timer_count'] ->
+		     t_non_neg_fixnum();
 		   ['version'] ->
 		     t_string();
 		   ['wordsize'] ->
