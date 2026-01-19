@@ -302,7 +302,7 @@ export PATH=$PATH:<your-path-to-vexctl>/vexctl/
 
 ### HOW-TO
 
-Erlang/OTP will maintain VEX files for the latests three releases.
+Erlang/OTP will maintain VEX files for the latest three releases.
 Because of this, Erlang/OTP will always contain the latest information in the `master` branch.
 Any OpenVEX file in other branches is considered outdated.
 
