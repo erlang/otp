@@ -33,7 +33,7 @@ VSN=$(MNESIA_VSN)
 # ----------------------------------------------------
 # Release Macros
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/mnesia-$(VSN)
+RELSYSDIR = $(RELEASE_PATH)/lib/mnesia-$(VSN)/doc
 
 # ----------------------------------------------------
 # Common Macros
@@ -80,7 +80,9 @@ docs:
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_spec: opt
+release_spec:
+
+release_docs_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
 	$(INSTALL_DATA) $(ERL_FILES) $(DATA_FILES) $(HRL_FILES) "$(RELSYSDIR)/examples"
 	$(INSTALL_DIR) "$(RELSYSDIR)/examples/bench"
@@ -101,6 +103,3 @@ release_spec: opt
           bench.config7 \
           "$(RELSYSDIR)/examples/bench")
 	(cd bench; $(INSTALL_SCRIPT) bench.sh "$(RELSYSDIR)/examples/bench")
-
-release_docs_spec:
-
