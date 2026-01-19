@@ -40,7 +40,7 @@ docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-RELSYSDIR = $(RELEASE_PATH)/lib/kernel-$(KERNEL_VSN)/examples
+RELSYSDIR = $(RELEASE_PATH)/lib/kernel-$(KERNEL_VSN)/doc/examples
 
 # Pack and install the complete directory structure from
 # here (CWD) and down, for all examples.
@@ -48,8 +48,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/kernel-$(KERNEL_VSN)/examples
 EXAMPLES  = uds_dist erl_uds_dist gen_tcp_dist
 
 release_spec:
+
+release_docs_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	tar cf - $(EXAMPLES) | \
 	(cd "$(RELSYSDIR)"; tar xf - ; chmod -R ug+w $(EXAMPLES) )
-
-release_docs_spec:
