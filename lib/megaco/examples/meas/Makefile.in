@@ -48,7 +48,7 @@ PERL = @PERL@
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR         = $(RELEASE_PATH)/lib/megaco-$(VSN)
-EXAMPLE_RELSYSDIR = $(RELSYSDIR)/examples
+EXAMPLE_RELSYSDIR = $(RELSYSDIR)/doc/examples
 MEAS_RELSYSDIR    = $(EXAMPLE_RELSYSDIR)/meas
 
 
@@ -149,16 +149,15 @@ conf:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 
-release_spec: opt
+release_spec:
+
+release_docs_spec: opt
 	$(INSTALL_DIR)  "$(EXAMPLE_RELSYSDIR)"
 	$(INSTALL_DIR)  "$(MEAS_RELSYSDIR)"
 	$(INSTALL_DATA) $(MESSAGE_PACKAGES) "$(MEAS_RELSYSDIR)"
 	$(INSTALL_DATA) $(SCRIPT_SKELETONS) "$(MEAS_RELSYSDIR)"
 	$(INSTALL_DATA) $(TARGET_FILES) "$(MEAS_RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES) "$(MEAS_RELSYSDIR)"
-
-
-release_docs_spec:
 
 
 dclean:
@@ -178,7 +177,7 @@ $(DIA_PLT): $(ERL_FILES)
 dialyzer: $(DIA_PLT)
 	@echo "Running dialyzer on megaco example meas"
 	@dialyzer --plt $< \
-                  $(ERL_TOP)/lib/megaco/examples/meas \
+                  $(ERL_TOP)/lib/megaco/doc/examples/meas \
                   $(DIA_WARNINGS) \
                   --verbose
 

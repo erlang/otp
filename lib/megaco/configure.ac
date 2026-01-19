@@ -176,8 +176,9 @@ fi
 
 ERL_POP_WERROR
 
-AC_CONFIG_FILES([examples/meas/Makefile:examples/meas/Makefile.in])
-AC_OUTPUT
-AC_CONFIG_FILES([src/flex/$host/Makefile:src/flex/Makefile.in])
+AC_CONFIG_FILES([
+examples/meas/Makefile:examples/meas/Makefile.in
+src/flex/$host/Makefile:src/flex/Makefile.in
+])
 AC_OUTPUT
 

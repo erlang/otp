@@ -303,7 +303,7 @@ load_example(Example) ->
 	{error, Reason} ->
 	    {error, Reason};
 	Dir ->
-	    ExampleDir = filename:join([Dir, examples, Example]),
+	    ExampleDir = filename:join([Dir, doc, examples, Example]),
 	    case code:add_path(ExampleDir) of
 		true ->
 		    ok;
