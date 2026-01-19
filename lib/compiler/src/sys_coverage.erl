@@ -511,16 +511,15 @@ munge_expr({call,Anno,Expr,Exprs}, Vars0) ->
     {MungedExprs, Vars2} = munge_args(Exprs, Vars1),
     {{call,Anno,MungedExpr,MungedExprs}, Vars2};
 munge_expr({lc,Anno,Expr,Qs}, Vars0) ->
-    {MungedExpr, Vars1} = munge_expr(?BLOCK1(Expr), Vars0),
+    {MungedExpr, Vars1} = munge_comprehension(Expr, Vars0),
     {MungedQs, Vars2} = munge_qualifiers(Qs, Vars1),
     {{lc,Anno,MungedExpr,MungedQs}, Vars2};
 munge_expr({bc,Anno,Expr,Qs}, Vars0) ->
     {MungedExpr,Vars1} = munge_expr(?BLOCK1(Expr), Vars0),
     {MungedQs, Vars2} = munge_qualifiers(Qs, Vars1),
     {{bc,Anno,MungedExpr,MungedQs}, Vars2};
-munge_expr({mc,Anno,{map_field_assoc,FAnno,K,V},Qs}, Vars0) ->
-    Expr = {map_field_assoc,FAnno,?BLOCK1(K),?BLOCK1(V)},
-    {MungedExpr, Vars1} = munge_expr(Expr, Vars0),
+munge_expr({mc,Anno,Expr,Qs}, Vars0) ->
+    {MungedExpr, Vars1} = munge_comprehension(Expr, Vars0),
     {MungedQs, Vars2} = munge_qualifiers(Qs, Vars1),
     {{mc,Anno,MungedExpr,MungedQs}, Vars2};
 munge_expr({block,Anno,Body}, Vars0) ->
@@ -608,6 +607,18 @@ is_atomic({integer,_,_}) -> true;
 is_atomic({nil,_}) -> true;
 is_atomic({var,_,_}) -> true;
 is_atomic(_) -> false.
+
+munge_comprehension([Expr|Exprs], Vars0) ->
+    {MungedExpr, Vars1} = munge_comprehension(Expr, Vars0),
+    {MungedExprs, Vars2} = munge_comprehension(Exprs, Vars1),
+    {[MungedExpr|MungedExprs], Vars2};
+munge_comprehension([], Vars) ->
+    {[], Vars};
+munge_comprehension({map_field_assoc,Anno,K,V}, Vars0) ->
+    Expr = {map_field_assoc,Anno,?BLOCK(K),?BLOCK(V)},
+    munge_expr(Expr, Vars0);
+munge_comprehension(Expr, Vars0) ->
+    munge_expr(?BLOCK1(Expr), Vars0).
 
 munge_exprs(Exprs, Vars) ->
     munge_exprs(Exprs, Vars, []).

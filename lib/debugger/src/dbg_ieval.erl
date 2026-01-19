@@ -1107,33 +1107,35 @@ eval_fun(As, {Info,Bs,Cs}) ->
 eval_named_fun(As, RF, {Info,Bs,Cs,FName}) ->
     dbg_debugged:eval(?MODULE, eval_named_fun, [Cs,As,Bs,FName,RF,Info]).
 
-%% eval_lc(Expr,[Qualifier],Bindings,IevalState) ->
+%% eval_lc(ExprOrExprs,[Qualifier],Bindings,IevalState) ->
 %%	{value,Value,Bindings}.
 %% This is evaluating list comprehensions "straight out of the book".
 %% Copied from rv's implementation in erl_eval.
+eval_lc(Es, Qs, Bs, Ieval) when is_list(Es) ->
+    {value,eval_lc1(Es, Qs, Bs, Ieval),Bs};
 eval_lc(E, Qs, Bs, Ieval) ->
-    {value,eval_lc1(E, Qs, Bs, Ieval),Bs}.
+    eval_lc([E], Qs, Bs, Ieval).
 
-eval_lc1(E, [{zip, Anno, Gens}|Qs], Bs0, Ieval) ->
+eval_lc1(Es, [{zip, Anno, Gens}|Qs], Bs0, Ieval) ->
     {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Ieval),
-    eval_zip(E, [{zip, Anno, VarList}|Qs], Bs1, fun eval_lc1/4, Ieval);
-eval_lc1(E, [{generator,G}|Qs], Bs, Ieval) ->
-    CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
+    eval_zip(Es, [{zip, Anno, VarList}|Qs], Bs1, fun eval_lc1/4, Ieval);
+eval_lc1(Es, [{generator,G}|Qs], Bs, Ieval) ->
+    CompFun = fun(NewBs) -> eval_lc1(Es, Qs, NewBs, Ieval) end,
     eval_generator(G, Bs, CompFun, Ieval);
-eval_lc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
+eval_lc1(Es, [{guard,Q}|Qs], Bs0, Ieval) ->
     case guard(Q, Bs0) of
-	true -> eval_lc1(E, Qs, Bs0, Ieval);
+	true -> eval_lc1(Es, Qs, Bs0, Ieval);
 	false -> []
     end;
-eval_lc1(E, [Q|Qs], Bs0, Ieval) ->
+eval_lc1(Es, [Q|Qs], Bs0, Ieval) ->
     case expr(Q, Bs0, Ieval#ieval{top=false}) of
-	{value,true,Bs} -> eval_lc1(E, Qs, Bs, Ieval);
+	{value,true,Bs} -> eval_lc1(Es, Qs, Bs, Ieval);
 	{value,false,_Bs} -> [];
 	{value,V,Bs} -> exception(error, {bad_filter,V}, Bs, Ieval)
     end;
-eval_lc1(E, [], Bs, Ieval) ->
-    {value,V,_} = expr(E, Bs, Ieval#ieval{top=false}),
-    [V].
+eval_lc1(Es, [], Bs, Ieval) ->
+    {Vs, _Bs} = eval_list(Es, Bs, Ieval#ieval{top=false}),
+    Vs.
 
 %% convert values for generator vars from abstract form to flattened lists
 convert_gen_values([{generator,{Generate, Line, P, L0}}|Qs], Acc, Bs0, Ieval0)
@@ -1405,33 +1407,40 @@ eval_bc1(E, [], Bs, Ieval) ->
     {value,V,_} = expr(E, Bs, Ieval#ieval{top=false}),
     [V].
 
+eval_mc(Es, Qs, Bs, Ieval) when is_list(Es) ->
+    Map = eval_mc1(Es, Qs, Bs, Ieval),
+    {value,maps:from_list(Map),Bs};
 eval_mc(E, Qs, Bs, Ieval) ->
-    Map = eval_mc1(E, Qs, Bs, Ieval),
-    {value,maps:from_list(Map),Bs}.
+    eval_mc([E], Qs, Bs, Ieval).
 
-eval_mc1(E, [{zip, Anno, Gens}|Qs], Bs0, Ieval) ->
+eval_mc1(Es, [{zip, Anno, Gens}|Qs], Bs0, Ieval) ->
     {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Ieval),
-    eval_zip(E, [{zip, Anno, VarList}|Qs], Bs1, fun eval_mc1/4, Ieval);
-eval_mc1(E, [{generator,G}|Qs], Bs, Ieval) ->
-    CompFun = fun(NewBs) -> eval_mc1(E, Qs, NewBs, Ieval) end,
+    eval_zip(Es, [{zip, Anno, VarList}|Qs], Bs1, fun eval_mc1/4, Ieval);
+eval_mc1(Es, [{generator,G}|Qs], Bs, Ieval) ->
+    CompFun = fun(NewBs) -> eval_mc1(Es, Qs, NewBs, Ieval) end,
     eval_generator(G, Bs, CompFun, Ieval);
-eval_mc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
+eval_mc1(Es, [{guard,Q}|Qs], Bs0, Ieval) ->
     case guard(Q, Bs0) of
-	true -> eval_mc1(E, Qs, Bs0, Ieval);
+	true -> eval_mc1(Es, Qs, Bs0, Ieval);
 	false -> []
     end;
-eval_mc1(E, [Q|Qs], Bs0, Ieval) ->
+eval_mc1(Es, [Q|Qs], Bs0, Ieval) ->
     case expr(Q, Bs0, Ieval#ieval{top=false}) of
-	{value,true,Bs} -> eval_mc1(E, Qs, Bs, Ieval);
+	{value,true,Bs} -> eval_mc1(Es, Qs, Bs, Ieval);
 	{value,false,_Bs} -> [];
 	{value,V,Bs} -> exception(error, {bad_filter,V}, Bs, Ieval)
     end;
-eval_mc1({map_field_assoc,_,K0,V0}, [], Bs, Ieval) ->
-    {value,K,_} = expr(K0, Bs, Ieval#ieval{top=false}),
-    {value,V,_} = expr(V0, Bs, Ieval#ieval{top=false}),
-    [{K,V}].
+eval_mc1(Es, [], Bs, Ieval) ->
+    eval_mc2(Es, Bs, Ieval#ieval{top=false}).
 
-eval_zip(E, [{zip, Anno, VarList}|Qs], Bs0, Fun, Ieval) ->
+eval_mc2([{map_field_assoc,_,K0,V0}|Es], Bs, Ieval) ->
+    {value,K,_} = expr(K0, Bs, Ieval),
+    {value,V,_} = expr(V0, Bs, Ieval),
+    [{K,V}|eval_mc2(Es, Bs, Ieval)];
+eval_mc2([], _Bs, _Ieval) ->
+    [].
+
+eval_zip(Es, [{zip, Anno, VarList}|Qs], Bs0, Fun, Ieval) ->
     Gens = case check_bad_generators(VarList, Bs0, []) of
                {ok, Acc} -> Acc;
                {error, Reason} ->
@@ -1445,10 +1454,10 @@ eval_zip(E, [{zip, Anno, VarList}|Qs], Bs0, Fun, Ieval) ->
         {[], _, _} -> [];
         {_,_,done} -> [];
         {_, _, skip} ->
-            eval_zip(E, [{zip, Anno, lists:reverse(Rest)}|Qs], Bs0, Fun, Ieval);
+            eval_zip(Es, [{zip, Anno, lists:reverse(Rest)}|Qs], Bs0, Fun, Ieval);
         {_, _, _} ->
-            Fun(E, Qs, add_bindings(Bs1, Bs0), Ieval) ++
-                eval_zip(E, [{zip, Anno, lists:reverse(Rest)}|Qs], Bs0, Fun, Ieval)
+            Fun(Es, Qs, add_bindings(Bs1, Bs0), Ieval) ++
+                eval_zip(Es, [{zip, Anno, lists:reverse(Rest)}|Qs], Bs0, Fun, Ieval)
     end.
 
 eval_generator({Generate,Line,P,L0}, Bs0, CompFun, Ieval0) when Generate =:= generate;

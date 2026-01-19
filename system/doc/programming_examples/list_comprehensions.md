@@ -60,6 +60,12 @@ follows:
 [{1,a},{2,b},{3,c}]
 ```
 
+Finally, multiple elements can be emitted by the list comprehension in each iteration:
+```
+> [X, X + 100 || X <:- [1, 2, 3]].
+[1,101,2,102,3,103]
+```
+
 > #### Change {: .info }
 >
 > Strict generators are used by default in the examples. More details and

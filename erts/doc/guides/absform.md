@@ -221,10 +221,18 @@ An expression E is one of the following:
 - If E is a list comprehension `[E_0 || Q_1, ..., Q_k]`, where each `Q_i` is a
   qualifier, then Rep(E) = `{lc,ANNO,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}`. For
   Rep(Q), see below.
+- If E is a list comprehension with multiple expressions `[E_0, ..., E_k || Q_1, ..., Q_k]`,
+  where each `E_i` is an expression and each `Q_i` is a qualifier, then
+  Rep(E) = `{lc,ANNO,[Rep(E_0),...,Rep(E_k)],[Rep(Q_1),...Rep(Q_k)]}`. For `Rep(Q)`,
+  see below.
 - If E is a map comprehension `#{E_0 || Q_1, ..., Q_k}`, where `E_0` is an
   association `K => V` and each `Q_i` is a qualifier, then Rep(E) =
   `{mc,ANNO,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}`. For Rep(E_0) and Rep(Q), see
   below.
+- If E is a map comprehension with multiple expressions `#{E_0, ..., E_k || Q_1, ..., Q_k}`,
+  where each `E_i` is an association `K_i => V_i` and each `Q_i` is a qualifier, then
+  Rep(E) = `{mc,ANNO,[Rep(E_0),...,Rep(E_k)],[Rep(Q_1),...Rep(Q_k)]}`. 
+  For `Rep(E)` and `Rep(Q)`, see below.
 - If E is a map creation `#{A_1, ..., A_k}`, where each `A_i` is an association
   `E_i_1 => E_i_2`, then Rep(E) = `{map,ANNO,[Rep(A_1), ..., Rep(A_k)]}`. For
   Rep(A), see below.
