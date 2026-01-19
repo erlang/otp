@@ -2657,8 +2657,12 @@ shutdown_deadlock(Config) when is_list(Config) ->
 	    erlang:display({self(), "Sending Continue", Server}),
 	    Server ! continue
     end,
+    %% Wait for stop to complete before unloading
+    receive
+        {stop, ok} -> ok
+    end,
     [_|_] = application:which_applications(),
-    application:unload(deadlock), % clean up!
+    ok = application:unload(deadlock), % clean up!
     ok.
 
 

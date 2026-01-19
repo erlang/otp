@@ -29,6 +29,7 @@
 	 load_application/1, unload_application/1,
 	 start_application/2, start_application_request/2,
 	 start_boot_application/2, stop_application/1,
+	 stop_application_request/1,
 	 control_application/1, is_running/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
@@ -143,7 +144,7 @@
 -type appname() :: atom().
 
 -record(state, {loading = [], starting = [], start_p_false = [], running = [],
-		control = [], started = [], start_req = [], conf_data}).
+		control = [], started = [], start_req = [], stop_req = [], conf_data}).
 -type state() :: #state{}.
 
 %%-----------------------------------------------------------------
@@ -160,6 +161,7 @@
 %%                 permission = false)
 %% conf_data   = [{AppName, Env}]
 %% start_req   = [{AppName, From}] - list of all start requests
+%% stop_req    = [{AppName, From}] - list of all stop requests
 %% Id          = AMPid | undefined | {distributed, Node}
 %% Env         = [{Key, Value}]
 %%-----------------------------------------------------------------
@@ -281,6 +283,9 @@ start_boot_application(Application, RestartType) ->
 
 stop_application(AppName) ->
     call({stop_application, AppName}, infinity).
+
+stop_application_request(AppName) ->
+    gen_server:send_request(?AC, {stop_application, AppName}).
 
 %%-----------------------------------------------------------------
 %% Returns: [{Name, Descr, Vsn}]
@@ -838,25 +843,31 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 	    end
     end;
 
-handle_call({stop_application, AppName}, _From, S) ->
-    #state{running = Running, started = Started} = S,
-    case lists:keyfind(AppName, 1, Running) of
-	{_AppName, Id} ->
-	    {_AppName2, Type} = lists:keyfind(AppName, 1, Started),
-	    stop_appl(AppName, Id, Type),
-	    NRunning = keydelete(AppName, 1, Running),
-	    NStarted = keydelete(AppName, 1, Started),
-	    cntrl(AppName, S, {ac_application_stopped, AppName}),
-	    {reply, ok, S#state{running = NRunning, started = NStarted}};
+handle_call({stop_application, AppName}, From, S) ->
+    #state{running = Running, starting = _Starting, started = Started,
+	   start_req = _Start_req, stop_req = Stop_req} = S,
+    %% Check if already stopping
+    case lists:keyfind(AppName, 1, Stop_req) of
 	false ->
-	    case lists:keymember(AppName, 1, Started) of
-		true ->
-		    NStarted = keydelete(AppName, 1, Started),
-		    cntrl(AppName, S, {ac_application_stopped, AppName}),
-		    {reply, ok, S#state{started = NStarted}};
+	    case lists:keyfind(AppName, 1, Running) of
+		{_AppName, Id} ->
+		    {_AppName2, Type} = lists:keyfind(AppName, 1, Started),
+		    spawn_stopper(AppName, Id, Type),
+		    {noreply, S#state{stop_req = [{AppName, From} | Stop_req]}};
 		false ->
-		    {reply, {error, {not_started, AppName}}, S}
-	    end
+		    case lists:keymember(AppName, 1, Started) of
+			true ->
+			    NStarted = keydelete(AppName, 1, Started),
+			    cntrl(AppName, S, {ac_application_stopped, AppName}),
+			    {reply, ok, S#state{started = NStarted}};
+			false ->
+			    {reply, {error, {not_started, AppName}}, S}
+		    end
+	    end;
+	{AppName, _FromX} ->
+	    %% Already stopping, add requester to list
+	    SS = S#state{stop_req = [{AppName, From} | Stop_req]},
+	    {noreply, SS}
     end;
 
 handle_call({change_application_data, Applications, Config}, _From, S) ->
@@ -960,11 +971,23 @@ handle_call(info, _From, S) ->
 	     {starting, S#state.starting}],
     {reply, Reply, S}.
 
--spec handle_cast({'application_started', appname(), _}, state()) ->
+-spec handle_cast({'application_started', appname(), _} |
+                  {'application_stopped', appname()}, state()) ->
         {'noreply', state()} | {'stop', string(), state()}.
 
 handle_cast({application_started, AppName, Res}, S) ->
-    handle_application_started(AppName, Res, S).
+    handle_application_started(AppName, Res, S);
+
+handle_cast({application_stopped, AppName}, S) ->
+    handle_application_stopped(S,AppName).
+
+handle_application_stopped(S,AppName) ->
+    #state{running = Running, started = Started, stop_req = Stop_req} = S,
+    NRunning = keydelete(AppName, 1, Running),
+    NStarted = keydelete(AppName, 1, Started),
+    cntrl(AppName, S, {ac_application_stopped, AppName}),
+    Stop_reqN = reply_to_stop_requester(AppName, Stop_req),
+    {noreply, S#state{running = NRunning, started = NStarted, stop_req = Stop_reqN}}.
 
 handle_application_started(AppName, Res, S) ->
     #state{starting = Starting, running = Running, started = Started,
@@ -1209,17 +1232,23 @@ handle_info({'EXIT', Pid, Reason}, S) ->
     NewS = S#state{running = NRunning},
     case lists:keyfind(Pid, 2, S#state.running) of
 	{AppName, _AmPid} ->
-	    cntrl(AppName, S, {ac_application_stopped, AppName}),
-	    case lists:keyfind(AppName, 1, S#state.started) of
-		{_AppName, temporary} ->
-		    info_exited(AppName, Reason, temporary),
-		    {noreply, NewS};
-		{_AppName, transient} when Reason =:= normal ->
-		    info_exited(AppName, Reason, transient),
-		    {noreply, NewS};
-		{_AppName, Type} ->
-		    info_exited(AppName, Reason, Type),
-		    {stop, to_string({application_terminated, AppName, Reason}), NewS}
+	    %% check wether the application is in the process of being stopped
+	    %% and if so, ignore the message
+	    case lists:keyfind(AppName, 1, S#state.stop_req) of
+		{_AppName, _Req} -> {noreply, S};
+		false ->
+		    cntrl(AppName, S, {ac_application_stopped, AppName}),
+		    case lists:keyfind(AppName, 1, S#state.started) of
+			{_AppName, temporary} ->
+			    info_exited(AppName, Reason, temporary),
+		    	    {noreply, NewS};
+			{_AppName, transient} when Reason =:= normal ->
+		    	    info_exited(AppName, Reason, transient),
+		    	    {noreply, NewS};
+			{_AppName, Type} ->
+		    	    info_exited(AppName, Reason, Type),
+		    	    {stop, to_string({application_terminated, AppName, Reason}), NewS}
+	    	    end
 	    end;
 	false ->
 	    {noreply, S#state{control = del_cntrl(S#state.control, Pid)}}
@@ -1417,6 +1446,12 @@ spawn_starter(Appl, S, Type) ->
         false ->
             application_master:start_link(Appl#appl.appl_data, Type)
     end.
+
+spawn_stopper(AppName, Id, Type) ->
+    spawn(fun() ->
+		  stop_appl(AppName, Id, Type),
+		  gen_server:cast(?AC, {application_stopped, AppName})
+	  end).
 
 reply(undefined, _Reply) ->
     ok;
@@ -2291,6 +2326,22 @@ reply_to_requester(AppName, Start_req, Res) ->
 		end,
 		[],
 		Start_req).
+
+%%-----------------------------------------------------------------
+%% Reply to all processes waiting this application to be stopped.
+%%-----------------------------------------------------------------
+reply_to_stop_requester(AppName, Stop_req) ->
+    lists:foldl(fun(Sp, AccIn) ->
+			case Sp of
+			    {AppName, From} ->
+				reply(From, ok),
+				AccIn;
+			    _ ->
+				[Sp | AccIn]
+			end
+		end,
+		[],
+		Stop_req).
 
 
 %%-----------------------------------------------------------------
