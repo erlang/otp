@@ -157,8 +157,6 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(INTERNAL_HRL_FILES) "$(RELSYSDIR)/src"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
-	$(INSTALL_DATA) $(EXAMPLE_FILES) "$(RELSYSDIR)/examples"
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(HRL_FILES) "$(RELSYSDIR)/include"
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
@@ -167,11 +165,6 @@ release_spec: opt
 	$(INSTALL_SCRIPT) $(EXECUTABLES) "$(RELSYSDIR)/priv/bin"
 	$(INSTALL_DATA) $(PNGFILES) "$(RELSYSDIR)/priv"
 
-release_docs_spec:
-
-
-
-
-
-
-
+release_docs_spec: opt
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples"
+	$(INSTALL_DATA) $(EXAMPLE_FILES) "$(RELSYSDIR)/doc/examples"
