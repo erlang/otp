@@ -3,8 +3,8 @@
   "@id": "https://erlang.org/download/vex/otp-28.openvex.json",
   "author": "vexctl",
   "timestamp": "2025-11-28T16:37:17.252127+01:00",
-  "last_updated": "2025-11-28T16:37:19.835503595+01:00",
-  "version": 28,
+  "last_updated": "2026-01-19T09:26:51.546974174+01:00",
+  "version": 30,
   "statements": [
     {
       "vulnerability": {
@@ -673,6 +673,83 @@
         }
       ],
       "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22184"
+      },
+      "timestamp": "2026-01-19T09:26:51.53126652+01:00",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.2"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.4"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.1.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.1.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.2"
+        },
+        {
+          "@id": "pkg:otp/erts@16.1.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.3.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22184"
+      },
+      "timestamp": "2026-01-19T09:26:51.546974928+01:00",
+      "products": [
+        {
+          "@id": "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
     }
   ]
 }
