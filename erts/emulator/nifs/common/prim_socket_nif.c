@@ -2344,12 +2344,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(timestamping_rx_software);        \
     GLOBAL_ATOM_DECL(timestamping_tx_hardware);        \
     GLOBAL_ATOM_DECL(timestamping_tx_software);        \
-    GLOBAL_ATOM_DECL(timestamping_tx_sched);           \
-    GLOBAL_ATOM_DECL(timestamping_tx_ack);             \
-    GLOBAL_ATOM_DECL(timestamping_tx_completion);      \
     GLOBAL_ATOM_DECL(timestamping_software);           \
     GLOBAL_ATOM_DECL(timestamping_raw_hardware);       \
-    GLOBAL_ATOM_DECL(timestamping_opt_id);             \
     GLOBAL_ATOM_DECL(tos);                             \
     GLOBAL_ATOM_DECL(transparent);                     \
     GLOBAL_ATOM_DECL(timeout);                         \
@@ -8426,20 +8422,12 @@ ERL_NIF_TERM esock_setopt_timestamping(ErlNifEnv*       env,
             flags |= SOF_TIMESTAMPING_TX_HARDWARE;
         } else if (COMPARE(head, esock_atom_timestamping_tx_software) == 0) {
             flags |= SOF_TIMESTAMPING_TX_SOFTWARE;
-        } else if (COMPARE(head, esock_atom_timestamping_tx_sched) == 0) {
-            flags |= SOF_TIMESTAMPING_TX_SCHED;
-        } else if (COMPARE(head, esock_atom_timestamping_tx_ack) == 0) {
-            flags |= SOF_TIMESTAMPING_TX_ACK;
-        } else if (COMPARE(head, esock_atom_timestamping_tx_completion) == 0) {
-            flags |= SOF_TIMESTAMPING_TX_COMPLETION;
         } else if (COMPARE(head, esock_atom_timestamping_software) == 0) {
             flags |= SOF_TIMESTAMPING_SOFTWARE;
         } else if (COMPARE(head, esock_atom_timestamping_raw_hardware) == 0) {
             flags |= SOF_TIMESTAMPING_RAW_HARDWARE;
-        } else if (COMPARE(head, esock_atom_timestamping_opt_id) == 0) {
-            flags |= SOF_TIMESTAMPING_OPT_ID;
         } else {
-            /* Unknown atom or invalid value */
+            /* Unknown atom - user can pass integer flags for other values */
             goto invalid;
         }
         list = tail;
@@ -8498,23 +8486,11 @@ ERL_NIF_TERM esock_getopt_timestamping(ErlNifEnv*       env,
     if (flags & SOF_TIMESTAMPING_TX_SOFTWARE) {
         list = enif_make_list_cell(env, esock_atom_timestamping_tx_software, list);
     }
-    if (flags & SOF_TIMESTAMPING_TX_SCHED) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_tx_sched, list);
-    }
-    if (flags & SOF_TIMESTAMPING_TX_ACK) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_tx_ack, list);
-    }
-    if (flags & SOF_TIMESTAMPING_TX_COMPLETION) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_tx_completion, list);
-    }
     if (flags & SOF_TIMESTAMPING_SOFTWARE) {
         list = enif_make_list_cell(env, esock_atom_timestamping_software, list);
     }
     if (flags & SOF_TIMESTAMPING_RAW_HARDWARE) {
         list = enif_make_list_cell(env, esock_atom_timestamping_raw_hardware, list);
-    }
-    if (flags & SOF_TIMESTAMPING_OPT_ID) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_opt_id, list);
     }
 
     result = esock_make_ok2(env, list);

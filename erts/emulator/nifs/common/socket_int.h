@@ -598,12 +598,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(timestamping_rx_software); \
     GLOBAL_ATOM_DEF(timestamping_tx_hardware); \
     GLOBAL_ATOM_DEF(timestamping_tx_software); \
-    GLOBAL_ATOM_DEF(timestamping_tx_sched);    \
-    GLOBAL_ATOM_DEF(timestamping_tx_ack);      \
-    GLOBAL_ATOM_DEF(timestamping_tx_completion);\
     GLOBAL_ATOM_DEF(timestamping_software);    \
     GLOBAL_ATOM_DEF(timestamping_raw_hardware);\
-    GLOBAL_ATOM_DEF(timestamping_opt_id);      \
     GLOBAL_ATOM_DEF(tos);                      \
     GLOBAL_ATOM_DEF(transparent);              \
     GLOBAL_ATOM_DEF(timeout);                  \
