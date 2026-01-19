@@ -77,17 +77,17 @@ docs:
 run: opt
 	erl -smp -detached -pa $(TOPDIR)/ebin -s demo
 
-EXRELSYSDIR = "$(RELSYSDIR)/examples/demo"
+EXRELSYSDIR = "$(RELSYSDIR)/doc/examples/demo"
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 docs:
 
-release_spec: opt
+release_spec:
+
+release_tests_spec:
+
+release_docs_spec:  opt
 	$(INSTALL_DIR) $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTSRC)  $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTTARGETS) $(EXRELSYSDIR)
 	$(INSTALL_DATA) image.jpg erlang.png ex_htmlWindow.html $(EXRELSYSDIR)
-
-release_tests_spec:
-
-release_docs_spec:
