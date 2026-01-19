@@ -232,6 +232,9 @@ ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
 #endif
+#ifdef SO_TIMESTAMPING
+#include <linux/net_tstamp.h>
+#endif
 
 #define HAVE_UDP
 
@@ -1906,6 +1909,17 @@ static ERL_NIF_TERM esock_setopt_uint_opt(ErlNifEnv*       env,
                                           int              opt,
                                           ERL_NIF_TERM     eVal);
 #endif
+#ifdef SO_TIMESTAMPING
+static ERL_NIF_TERM esock_setopt_timestamping(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              level,
+                                              int              opt,
+                                              ERL_NIF_TERM     eVal);
+static ERL_NIF_TERM esock_getopt_timestamping(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              level,
+                                              int              opt);
+#endif
 #if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO))      \
     && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
@@ -2592,6 +2606,17 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(throughput);                      \
     GLOBAL_ATOM_DECL(timestamp);                       \
     GLOBAL_ATOM_DECL(timestampns);                     \
+    GLOBAL_ATOM_DECL(timestamping);                    \
+    GLOBAL_ATOM_DECL(timestamping_rx_hardware);        \
+    GLOBAL_ATOM_DECL(timestamping_rx_software);        \
+    GLOBAL_ATOM_DECL(timestamping_tx_hardware);        \
+    GLOBAL_ATOM_DECL(timestamping_tx_software);        \
+    GLOBAL_ATOM_DECL(timestamping_tx_sched);           \
+    GLOBAL_ATOM_DECL(timestamping_tx_ack);             \
+    GLOBAL_ATOM_DECL(timestamping_tx_completion);      \
+    GLOBAL_ATOM_DECL(timestamping_software);           \
+    GLOBAL_ATOM_DECL(timestamping_raw_hardware);       \
+    GLOBAL_ATOM_DECL(timestamping_opt_id);             \
     GLOBAL_ATOM_DECL(tos);                             \
     GLOBAL_ATOM_DECL(transparent);                     \
     GLOBAL_ATOM_DECL(timeout);                         \
@@ -3395,6 +3420,14 @@ static struct ESockOpt optLevelSocket[] =
             &esock_atom_timestampns},
 
         {
+#ifdef SO_TIMESTAMPING
+            SO_TIMESTAMPING,
+            esock_setopt_timestamping, esock_getopt_timestamping,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_timestamping},
+
         {
 #ifdef SO_TYPE
             SO_TYPE,
@@ -11204,6 +11237,142 @@ ERL_NIF_TERM esock_setopt_uint_opt(ErlNifEnv*       env,
 #endif
 
 
+#ifdef SO_TIMESTAMPING
+/* esock_setopt_timestamping - set SO_TIMESTAMPING option
+ * Accepts a list of atoms representing SOF_TIMESTAMPING flags
+ * and converts them to the bit-AND flag value.
+ */
+static
+ERL_NIF_TERM esock_setopt_timestamping(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       int              level,
+                                       int              opt,
+                                       ERL_NIF_TERM     eVal)
+{
+    ERL_NIF_TERM result;
+    unsigned int flags = 0;
+    ERL_NIF_TERM head, tail;
+    ERL_NIF_TERM list = eVal;
+
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_timestamping -> entry with"
+            "\r\n   eVal: %T"
+            "\r\n", eVal) );
+
+    if (! enif_is_list(env, eVal)) {
+        goto invalid;
+    }
+
+    while (enif_get_list_cell(env, list, &head, &tail)) {
+        unsigned int intFlag;
+        if (GET_UINT(env, head, &intFlag)) {
+            flags |= intFlag;
+        } else if (COMPARE(head, esock_atom_timestamping_rx_hardware) == 0) {
+            flags |= SOF_TIMESTAMPING_RX_HARDWARE;
+        } else if (COMPARE(head, esock_atom_timestamping_rx_software) == 0) {
+            flags |= SOF_TIMESTAMPING_RX_SOFTWARE;
+        } else if (COMPARE(head, esock_atom_timestamping_tx_hardware) == 0) {
+            flags |= SOF_TIMESTAMPING_TX_HARDWARE;
+        } else if (COMPARE(head, esock_atom_timestamping_tx_software) == 0) {
+            flags |= SOF_TIMESTAMPING_TX_SOFTWARE;
+        } else if (COMPARE(head, esock_atom_timestamping_tx_sched) == 0) {
+            flags |= SOF_TIMESTAMPING_TX_SCHED;
+        } else if (COMPARE(head, esock_atom_timestamping_tx_ack) == 0) {
+            flags |= SOF_TIMESTAMPING_TX_ACK;
+        } else if (COMPARE(head, esock_atom_timestamping_tx_completion) == 0) {
+            flags |= SOF_TIMESTAMPING_TX_COMPLETION;
+        } else if (COMPARE(head, esock_atom_timestamping_software) == 0) {
+            flags |= SOF_TIMESTAMPING_SOFTWARE;
+        } else if (COMPARE(head, esock_atom_timestamping_raw_hardware) == 0) {
+            flags |= SOF_TIMESTAMPING_RAW_HARDWARE;
+        } else if (COMPARE(head, esock_atom_timestamping_opt_id) == 0) {
+            flags |= SOF_TIMESTAMPING_OPT_ID;
+        } else {
+            /* Unknown atom or invalid value */
+            goto invalid;
+        }
+        list = tail;
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_timestamping -> flags: %u"
+            "\r\n", flags) );
+
+    result = esock_setopt_level_opt(env, descP, level, opt,
+                                   &flags, sizeof(flags));
+    return result;
+
+ invalid:
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_timestamping -> invalid"
+            "\r\n") );
+    return esock_make_invalid(env, esock_atom_value);
+}
+
+/* esock_getopt_timestamping - get SO_TIMESTAMPING option
+ * Converts the integer flag value back to a list of atoms.
+ */
+static
+ERL_NIF_TERM esock_getopt_timestamping(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       int              level,
+                                       int              opt)
+{
+    unsigned int flags;
+    ERL_NIF_TERM result;
+    ERL_NIF_TERM list = enif_make_list(env, 0); /* Empty list */
+
+    SSDBG( descP,
+           ("SOCKET", "esock_getopt_timestamping -> entry"
+            "\r\n") );
+
+    if (! esock_getopt_uint(descP->sock, level, opt, &flags)) {
+        return esock_make_error_errno(env, sock_errno());
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "esock_getopt_timestamping -> flags: %u"
+            "\r\n", flags) );
+
+    /* Build list of atoms from flags */
+    if (flags & SOF_TIMESTAMPING_RX_HARDWARE) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_rx_hardware, list);
+    }
+    if (flags & SOF_TIMESTAMPING_RX_SOFTWARE) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_rx_software, list);
+    }
+    if (flags & SOF_TIMESTAMPING_TX_HARDWARE) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_tx_hardware, list);
+    }
+    if (flags & SOF_TIMESTAMPING_TX_SOFTWARE) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_tx_software, list);
+    }
+    if (flags & SOF_TIMESTAMPING_TX_SCHED) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_tx_sched, list);
+    }
+    if (flags & SOF_TIMESTAMPING_TX_ACK) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_tx_ack, list);
+    }
+    if (flags & SOF_TIMESTAMPING_TX_COMPLETION) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_tx_completion, list);
+    }
+    if (flags & SOF_TIMESTAMPING_SOFTWARE) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_software, list);
+    }
+    if (flags & SOF_TIMESTAMPING_RAW_HARDWARE) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_raw_hardware, list);
+    }
+    if (flags & SOF_TIMESTAMPING_OPT_ID) {
+        list = enif_make_list_cell(env, esock_atom_timestamping_opt_id, list);
+    }
+
+    result = esock_make_ok2(env, list);
+    return result;
+}
+#endif /* SO_TIMESTAMPING */
+
+
+
 /* esock_setopt_str_opt - set an option that has an string value
  */
 
@@ -14244,6 +14413,64 @@ static BOOLEAN_T esock_cmsg_decode_timespec(ErlNifEnv *env,
 }
 #endif
 
+#ifdef SCM_TIMESTAMPING
+static
+BOOLEAN_T esock_cmsg_encode_scm_timestamping(ErlNifEnv     *env,
+                                             unsigned char *data,
+                                             size_t         dataLen,
+                                             ERL_NIF_TERM  *eResult) {
+    struct scm_timestamping* tsP = (struct scm_timestamping *) data;
+    ERL_NIF_TERM tsList[3];
+
+    if (dataLen < sizeof(*tsP))
+        return FALSE;
+
+    esock_encode_timespec(env, &tsP->ts[0], &tsList[0]);
+    esock_encode_timespec(env, &tsP->ts[1], &tsList[1]);
+    esock_encode_timespec(env, &tsP->ts[2], &tsList[2]);
+
+    *eResult = MKLA(env, tsList, 3);
+    return TRUE;
+}
+
+static BOOLEAN_T esock_cmsg_decode_scm_timestamping(ErlNifEnv *env,
+                                                    ERL_NIF_TERM eValue,
+                                                    struct cmsghdr *cmsgP,
+                                                    size_t rem,
+                                                    size_t *usedP)
+{
+    struct scm_timestamping *tsP;
+    ERL_NIF_TERM eTs[3];
+    unsigned int listLen;
+
+    /* Expect a list of 3 timespec maps */
+    if (! enif_is_list(env, eValue))
+        return FALSE;
+
+    if (! enif_get_list_length(env, eValue, &listLen) || listLen != 3)
+        return FALSE;
+
+    if (! enif_get_list_cell(env, eValue, &eTs[0], &eValue))
+        return FALSE;
+    if (! enif_get_list_cell(env, eValue, &eTs[1], &eValue))
+        return FALSE;
+    if (! enif_get_list_cell(env, eValue, &eTs[2], NULL))
+        return FALSE;
+
+    if ((tsP = esock_init_cmsghdr(cmsgP, rem, sizeof(*tsP), usedP)) == NULL)
+        return FALSE;
+
+    if (! esock_decode_timespec(env, eTs[0], &tsP->ts[0]))
+        return FALSE;
+    if (! esock_decode_timespec(env, eTs[1], &tsP->ts[1]))
+        return FALSE;
+    if (! esock_decode_timespec(env, eTs[2], &tsP->ts[2]))
+        return FALSE;
+
+    return TRUE;
+}
+#endif
+
 
 #if defined(IP_TOS) || defined(IP_RECVTOS)
 static
@@ -15551,7 +15778,8 @@ static int cmpESockCmsgSpec(const void *vpa, const void *vpb) {
 }
 
 #if defined(SCM_CREDENTIALS) || defined(SCM_RIGHTS) ||                         \
-    defined(SCM_TIMESTAMP) || defined(SCM_TIMESTAMPNS)
+    defined(SCM_TIMESTAMP) || defined(SCM_TIMESTAMPNS) ||                      \
+    defined(SCM_TIMESTAMPING)
 #define HAVE_ESOCK_CMSG_SOCKET
 #endif
 
@@ -15582,6 +15810,12 @@ static ESockCmsgSpec cmsgLevelSocket[] =
         {SCM_TIMESTAMPNS,
          &esock_cmsg_encode_timespec, esock_cmsg_decode_timespec,
          &esock_atom_timestampns},
+#endif
+
+#if defined(SCM_TIMESTAMPING)
+        {SCM_TIMESTAMPING,
+         &esock_cmsg_encode_scm_timestamping, esock_cmsg_decode_scm_timestamping,
+         &esock_atom_timestamping},
 #endif
     };
 #endif
