@@ -419,7 +419,7 @@ postorder(G) ->
 
 roots(G) ->
     R1 = [V || V <- digraph:vertices(G), digraph:in_degree(G, V) =:= 0],
-    R2 = [X || [X|_] <- components(G)],
+    R2 = [X || [X|_] <- cyclic_strong_components(G)],
     R1 ++ R2.
 
 forest(G, SF) ->
