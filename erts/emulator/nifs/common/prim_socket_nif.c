@@ -2250,6 +2250,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(protocol);                        \
     GLOBAL_ATOM_DECL(pup);                             \
     GLOBAL_ATOM_DECL(raw);                             \
+    GLOBAL_ATOM_DECL(raw_hardware);                    \
     GLOBAL_ATOM_DECL(rawip);                           \
     GLOBAL_ATOM_DECL(rcvbuf);                          \
     GLOBAL_ATOM_DECL(rcvbufforce);                     \
@@ -2289,6 +2290,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(rtoinfo);                         \
     GLOBAL_ATOM_DECL(rtt);                             \
     GLOBAL_ATOM_DECL(running);                         \
+    GLOBAL_ATOM_DECL(rx_hardware);                     \
+    GLOBAL_ATOM_DECL(rx_software);                     \
     GLOBAL_ATOM_DECL(rxq_ovfl);                        \
     GLOBAL_ATOM_DECL(scope_id);                        \
     GLOBAL_ATOM_DECL(sctp);                            \
@@ -2324,6 +2327,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(sockaddr);                        \
     GLOBAL_ATOM_DECL(socket);                          \
     GLOBAL_ATOM_DECL(socktype);                        \
+    GLOBAL_ATOM_DECL(software);                        \
     GLOBAL_ATOM_DECL(spec_dst);                        \
     GLOBAL_ATOM_DECL(staticarp);		       \
     GLOBAL_ATOM_DECL(state);                           \
@@ -2340,12 +2344,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(timestamp);                       \
     GLOBAL_ATOM_DECL(timestampns);                     \
     GLOBAL_ATOM_DECL(timestamping);                    \
-    GLOBAL_ATOM_DECL(timestamping_rx_hardware);        \
-    GLOBAL_ATOM_DECL(timestamping_rx_software);        \
-    GLOBAL_ATOM_DECL(timestamping_tx_hardware);        \
-    GLOBAL_ATOM_DECL(timestamping_tx_software);        \
-    GLOBAL_ATOM_DECL(timestamping_software);           \
-    GLOBAL_ATOM_DECL(timestamping_raw_hardware);       \
+    GLOBAL_ATOM_DECL(tx_hardware);                     \
+    GLOBAL_ATOM_DECL(tx_software);                     \
     GLOBAL_ATOM_DECL(tos);                             \
     GLOBAL_ATOM_DECL(transparent);                     \
     GLOBAL_ATOM_DECL(timeout);                         \
@@ -8414,17 +8414,17 @@ ERL_NIF_TERM esock_setopt_timestamping(ErlNifEnv*       env,
         unsigned int intFlag;
         if (GET_UINT(env, head, &intFlag)) {
             flags |= intFlag;
-        } else if (COMPARE(head, esock_atom_timestamping_rx_hardware) == 0) {
+        } else if (COMPARE(head, esock_atom_rx_hardware) == 0) {
             flags |= SOF_TIMESTAMPING_RX_HARDWARE;
-        } else if (COMPARE(head, esock_atom_timestamping_rx_software) == 0) {
+        } else if (COMPARE(head, esock_atom_rx_software) == 0) {
             flags |= SOF_TIMESTAMPING_RX_SOFTWARE;
-        } else if (COMPARE(head, esock_atom_timestamping_tx_hardware) == 0) {
+        } else if (COMPARE(head, esock_atom_tx_hardware) == 0) {
             flags |= SOF_TIMESTAMPING_TX_HARDWARE;
-        } else if (COMPARE(head, esock_atom_timestamping_tx_software) == 0) {
+        } else if (COMPARE(head, esock_atom_tx_software) == 0) {
             flags |= SOF_TIMESTAMPING_TX_SOFTWARE;
-        } else if (COMPARE(head, esock_atom_timestamping_software) == 0) {
+        } else if (COMPARE(head, esock_atom_software) == 0) {
             flags |= SOF_TIMESTAMPING_SOFTWARE;
-        } else if (COMPARE(head, esock_atom_timestamping_raw_hardware) == 0) {
+        } else if (COMPARE(head, esock_atom_raw_hardware) == 0) {
             flags |= SOF_TIMESTAMPING_RAW_HARDWARE;
         } else {
             /* Unknown atom - user can pass integer flags for other values */
@@ -8475,22 +8475,22 @@ ERL_NIF_TERM esock_getopt_timestamping(ErlNifEnv*       env,
 
     /* Build list of atoms from flags */
     if (flags & SOF_TIMESTAMPING_RX_HARDWARE) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_rx_hardware, list);
+        list = enif_make_list_cell(env, esock_atom_rx_hardware, list);
     }
     if (flags & SOF_TIMESTAMPING_RX_SOFTWARE) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_rx_software, list);
+        list = enif_make_list_cell(env, esock_atom_rx_software, list);
     }
     if (flags & SOF_TIMESTAMPING_TX_HARDWARE) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_tx_hardware, list);
+        list = enif_make_list_cell(env, esock_atom_tx_hardware, list);
     }
     if (flags & SOF_TIMESTAMPING_TX_SOFTWARE) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_tx_software, list);
+        list = enif_make_list_cell(env, esock_atom_tx_software, list);
     }
     if (flags & SOF_TIMESTAMPING_SOFTWARE) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_software, list);
+        list = enif_make_list_cell(env, esock_atom_software, list);
     }
     if (flags & SOF_TIMESTAMPING_RAW_HARDWARE) {
-        list = enif_make_list_cell(env, esock_atom_timestamping_raw_hardware, list);
+        list = enif_make_list_cell(env, esock_atom_raw_hardware, list);
     }
 
     result = esock_make_ok2(env, list);
