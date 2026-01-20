@@ -3472,6 +3472,8 @@ check_type_2({remote_type, A, [{atom, _, Mod}, {atom, _, Name}, Args]},
 			end, {SeenVars, St}, Args)
     end;
 check_type_2({integer, _A, _}, SeenVars, St) -> {SeenVars, St};
+check_type_2({type, A, int, [Width]}, SeenVars, St) ->
+    check_int_type(A, Width, SeenVars, St);
 check_type_2({atom, _A, _}, SeenVars, St) -> {SeenVars, St};
 check_type_2({var, _A, '_'}, SeenVars, St) -> {SeenVars, St};
 check_type_2({var, A, Name}, SeenVars, St) ->
@@ -3554,6 +3556,8 @@ check_type_2({type, _A, union, Args}=_F, SeenVars0, St) ->
                                         end, AccSeenVars0, SeenVars1),
                         {AccSeenVars, St0}
                 end, {SeenVars0, St}, Args);
+check_type_2({type, A, uint, [Width]}, SeenVars, St) ->
+    check_int_type(A, Width, SeenVars, St);
 check_type_2({type, Anno, TypeName, Args}, SeenVars, St) ->
     #lint{module = Module, types=Types} = St,
     Arity = length(Args),
@@ -3594,6 +3598,26 @@ check_type_2(I, SeenVars, St) ->
         {integer,_A,_Integer} -> {SeenVars, St};
         _Other ->
             {SeenVars, add_error(element(2, I), {type_syntax, integer}, St)}
+    end.
+
+check_int_type(A, Width, SeenVars0, St) ->
+    case erl_eval:partial_eval(Width) of
+        {integer, _, X} when X >= 1, X < (1 bsl 20) ->
+            {SeenVars0, St};
+        {var, _Anno, Name} ->
+            SeenVars = case maps:find(Name, SeenVars0) of
+                           {ok, {seen_once, _}} ->
+                               maps:put(Name, seen_multiple, SeenVars0);
+                           {ok, {seen_once_union, _}} ->
+                               maps:put(Name, seen_multiple, SeenVars0);
+                           {ok, seen_multiple} ->
+                               SeenVars0;
+                           error ->
+                               maps:put(Name, {seen_once, A}, SeenVars0)
+                       end,
+            {SeenVars, St};
+        _ ->
+            {SeenVars0, add_error(A, {type_syntax, integer}, St)}
     end.
 
 check_record_types(Anno, Name, Fields, SeenVars, St) ->

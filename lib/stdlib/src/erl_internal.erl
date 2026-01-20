@@ -476,6 +476,7 @@ is_type(float, 0) -> true;
 is_type(function, 0) -> true;
 is_type(identifier, 0) -> true;
 is_type(integer, 0) -> true;
+is_type(int, 1) -> true;
 is_type(iodata, 0) -> true;
 is_type(iolist, 0) -> true;
 is_type(list, 0) -> true;
@@ -508,6 +509,7 @@ is_type(string, 0) -> true;
 is_type(term, 0) -> true;
 is_type(timeout, 0) -> true;
 is_type(tuple, 0) -> true;
+is_type(uint, 1) -> true;
 is_type(_, _) -> false.
 
 %%%
