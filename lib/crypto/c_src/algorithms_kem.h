@@ -75,7 +75,7 @@ struct kem_probe_t {
     const char *str_v3;
     ERL_NIF_TERM atom;
 
-    constexpr explicit kem_probe_t(const char *str_v3_): str_v3(str_v3_), atom(0) {}
+    constexpr explicit kem_probe_t(const char *str_v3_): str_v3(str_v3_), atom(CRYPTOENIF_BAD_ATOM_VALUE) {}
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<kem_type_t> &output);

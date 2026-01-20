@@ -74,7 +74,7 @@ struct rsaopt_probe_t {
     const char *str_v3;
     ERL_NIF_TERM atom;
 
-    explicit constexpr rsaopt_probe_t(const char *str_v3_): str_v3(str_v3_), atom(0) {}
+    explicit constexpr rsaopt_probe_t(const char *str_v3_): str_v3(str_v3_), atom(CRYPTOENIF_BAD_ATOM_VALUE) {}
 
     // Attempt to add a new known RSA option. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<rsaopt_type_t> &output);

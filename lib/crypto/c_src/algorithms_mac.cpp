@@ -122,7 +122,7 @@ void mac_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<mac
 extern "C" mac_type_C *find_mac_type_by_name_keylen(ErlNifEnv *env, ERL_NIF_TERM type, const size_t key_len) {
     const bool fips_enabled = FIPS_MODE();
     for (auto p = mac_collection.begin(env, fips_enabled); p != mac_collection.end(fips_enabled); ++p) {
-        if (p->get_atom() == type && p->init->key_len == key_len) {
+        if (p->get_atom() == type && (p->init->key_len == 0 || p->init->key_len == key_len)) {
             return &*p;
         }
     }

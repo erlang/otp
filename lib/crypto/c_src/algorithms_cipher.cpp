@@ -261,26 +261,26 @@ cipher_collection_t cipher_collection("crypto.cipher_collection",
 //
 
 void cipher_probe_t::post_lazy_init(std::vector<cipher_type_t> &algorithms) {
-    std::sort(algorithms.begin(), algorithms.end(), cipher_type_t::compare_function);
+    // Sort by atom numeric value
+    std::sort(algorithms.begin(), algorithms.end(), cipher_type_t::compare_less_than);
 }
 
 // Partial order compare, returns a.atom < b.atom && a.key < b.key
-bool cipher_type_t::compare_function(const cipher_type_t &a, const cipher_type_t &b) {
-    return (a.atom < b.atom) || (a.atom == b.atom && a.key_len < b.key_len);
+bool cipher_type_t::compare_less_than(const cipher_type_t &a, const cipher_type_t &b) {
+    // Compare atoms by their internal numeric value
+    if (a.atom < b.atom) return true;
+    if (a.atom > b.atom) return false;
+    return a.key_len < b.key_len;
 }
 
 // Partial order compare, returns a.atom < b.atom
-bool cipher_type_t::compare_function_no_key(const cipher_type_t &a, const cipher_type_t &b) {
+bool cipher_type_t::compare_atom_less_than(const cipher_type_t &a, const cipher_type_t &b) {
     return a.atom < b.atom;
 }
 
 // C API: Proxy the call to generic algorithm_collection_t
 extern "C" ERL_NIF_TERM cipher_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return cipher_collection.to_list(env, fips_enabled);
-}
-
-ERL_NIF_TERM cipher_type_t::get_atom() const {
-    return this->init->atom;
 }
 
 #if defined(HAS_3_0_API)
@@ -368,29 +368,42 @@ void cipher_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<
     algo.check_availability(fips_enabled);
 }
 
-extern "C" const cipher_type_C *get_cipher_type(ErlNifEnv *env, ERL_NIF_TERM type, size_t key_len) {
-    cipher_type_t sample(type, key_len);
+extern "C" const cipher_type_C *find_cipher_type_by_name_keylen(ErlNifEnv *env, ERL_NIF_TERM atom, const size_t key_len) {
+    cipher_type_t sample(atom, key_len);
     const bool fips_enabled = FIPS_MODE();
-    auto result = std::lower_bound(cipher_collection.cbegin(env, fips_enabled),
-                                   cipher_collection.cend(fips_enabled),
-                                   sample,
-                                   cipher_type_t::compare_function);
-    if (result != cipher_collection.cend(fips_enabled) && result->eq(sample)) {
-        return &*result;
+
+    // NOTE: The expected search function behavior is to allow key_len=0 as wildcard matching any length
+    // function compare_less_than is weak ordering function only comparing "less than"
+    auto collection_begin = cipher_collection.cbegin(env, fips_enabled);
+    auto collection_end = cipher_collection.cend(fips_enabled);
+
+    // Find where the sorted array contains the first matching probe with this atom value.
+    // For lower_bound use only atoms comparison function, because key_len requires special handling
+    // Scan forward, find a match, respecting iter->key_len=0 as wildcard match
+    for (auto iter = std::lower_bound(collection_begin, collection_end, sample, cipher_type_t::compare_atom_less_than);
+         iter != collection_end && iter->atom == atom;
+         ++iter) {
+        if (iter->eq(sample)) {
+            return &*iter;
+        }
     }
+
     return nullptr;
 }
 
-extern "C" const cipher_type_C *get_cipher_type_no_key(ErlNifEnv *env, ERL_NIF_TERM type) {
-    cipher_type_t sample(type);
+extern "C" const cipher_type_C *find_cipher_type_by_name(ErlNifEnv *env, ERL_NIF_TERM type) {
+    cipher_type_t sample(type, 0);
     const bool fips_enabled = FIPS_MODE();
-    auto result = std::lower_bound(cipher_collection.cbegin(env, fips_enabled),
-                                   cipher_collection.cend(fips_enabled),
-                                   sample,
-                                   cipher_type_t::compare_function_no_key);
-    if (result != cipher_collection.cend(fips_enabled) && result->eq_no_key(sample)) {
-        return &*result;
+
+    auto collection_start = cipher_collection.cbegin(env, fips_enabled);
+    auto collection_end = cipher_collection.cend(fips_enabled);
+
+    // Find the lower bound, where first equal atom is located, and return it, no key_len checking
+    auto iter = std::lower_bound(collection_start, collection_end, sample, cipher_type_t::compare_atom_less_than);
+    if (iter != collection_end && iter->eq_atom(sample)) {
+        return &*iter;
     }
+
     return nullptr;
 }
 

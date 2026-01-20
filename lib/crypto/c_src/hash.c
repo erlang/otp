@@ -121,34 +121,36 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return EXCP_BADARG_N(env, 1, "Not iolist");
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
-    /* Set xoflen for SHAKE digests if needed */
-    unsigned xof_default_length = get_digest_type_xof_default_length(digp);
-    if (xof_default_length) {
-        EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-        OSSL_PARAM params[2];
+    {
+        /* Set xoflen for SHAKE digests if needed */
+        unsigned xof_default_length = get_digest_type_xof_default_length(digp);
+        if (xof_default_length) {
+            EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+            OSSL_PARAM params[2];
 
-        if (!ctx) {
-            return EXCP_ERROR(env, "EVP_MD_CTX_new failed");
+            if (!ctx) {
+                return EXCP_ERROR(env, "EVP_MD_CTX_new failed");
+            }
+            params[0] = OSSL_PARAM_construct_uint("xoflen", &xof_default_length);
+            params[1] = OSSL_PARAM_construct_end();
+            if (EVP_DigestInit_ex2(ctx, md, params) != 1) {
+                assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestInit failed"));
+            }
+            ret_size = xof_default_length;
+            if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL) {
+                assign_goto(ret, done, EXCP_ERROR(env, "Can't allocate binary"));
+            }
+            if (EVP_DigestUpdate(ctx, data.data, data.size) != 1) {
+                assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestUpdate failed"));
+            }
+            if (EVP_DigestFinalXOF(ctx, outp, ret_size) != 1) {
+                assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestFinalXOF failed"));
+            }
+            CONSUME_REDS(env, data);
+            done:
+                EVP_MD_CTX_free(ctx);
+            return ret;
         }
-        params[0] = OSSL_PARAM_construct_uint("xoflen", &xof_default_length);
-        params[1] = OSSL_PARAM_construct_end();
-        if (EVP_DigestInit_ex2(ctx, md, params) != 1) {
-            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestInit failed"));
-        }
-        ret_size = xof_default_length;
-        if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL) {
-            assign_goto(ret, done, EXCP_ERROR(env, "Can't allocate binary"));
-        }
-        if (EVP_DigestUpdate(ctx, data.data, data.size) != 1) {
-            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestUpdate failed"));
-        }
-        if (EVP_DigestFinalXOF(ctx, outp, ret_size) != 1) {
-            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestFinalXOF failed"));
-        }
-        CONSUME_REDS(env, data);
-    done:
-        EVP_MD_CTX_free(ctx);
-        return ret;
     }
 #endif
 
@@ -191,17 +193,19 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestInit failed"));
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
-    /*
-     * The default digest length for shake128 and shake256 was removed
-     * in OpenSSL 3.4, so we set them to be backward compatible with ourself.
-     */
-    unsigned xof_default_length = get_digest_type_xof_default_length(digp);
-    if (xof_default_length) {
-        OSSL_PARAM params[2];
-        params[0] = OSSL_PARAM_construct_uint("xoflen", &xof_default_length);
-        params[1] = OSSL_PARAM_construct_end();
-        if (!EVP_MD_CTX_set_params(ctx->ctx, params)) {
-            assign_goto(ret, done, EXCP_ERROR(env, "Can't set param xoflen"));
+    {
+        /*
+         * The default digest length for shake128 and shake256 was removed
+         * in OpenSSL 3.4, so we set them to be backward compatible with ourself.
+         */
+        unsigned xof_default_length = get_digest_type_xof_default_length(digp);
+        if (xof_default_length) {
+            OSSL_PARAM params[2];
+            params[0] = OSSL_PARAM_construct_uint("xoflen", &xof_default_length);
+            params[1] = OSSL_PARAM_construct_end();
+            if (!EVP_MD_CTX_set_params(ctx->ctx, params)) {
+                assign_goto(ret, done, EXCP_ERROR(env, "Can't set param xoflen"));
+            }
         }
     }
 #endif

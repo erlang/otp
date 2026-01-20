@@ -67,7 +67,7 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ERL_NIF_TERM vals[6];
     int ok;
 
-    if ((cipherp = get_cipher_type_no_key(env, argv[0])) == NULL)
+    if ((cipherp = find_cipher_type_by_name(env, argv[0])) == NULL)
         return enif_make_badarg(env);
 
     if (is_cipher_forbidden_in_fips(cipherp))
