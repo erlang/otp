@@ -106,7 +106,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         || key.size > INT_MAX)
         {ret = EXCP_BADARG_N(env, 1, "key or tag too long"); goto done;}
 
-    if ((ctx_res->cipherp = get_cipher_type(env, type, key.size)) == NULL)
+    if ((ctx_res->cipherp = find_cipher_type_by_name_keylen(env, type, key.size)) == NULL)
         {ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size"); goto done;}
 
     flags = get_cipher_type_flags(ctx_res->cipherp);
@@ -216,7 +216,7 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             {ret = EXCP_BADARG_N(env, 5, "binary too long"); goto done;
         }
 
-        if ((cipherp = get_cipher_type(env, type, key.size)) == NULL) {
+        if ((cipherp = find_cipher_type_by_name_keylen(env, type, key.size)) == NULL) {
             ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size");
             goto done;
         }

@@ -75,9 +75,11 @@ struct curve_type_t {
 struct curve_probe_t {
     int nid; // NID_xxxx value (an OpenSSL macro)
     const char *sn; // serves as Erlang atom name, also equal to SN_xxxxx macro of OpenSSL
-    ERL_NIF_TERM atom; // Atom for this->sn is cached here
+    ERL_NIF_TERM atom = CRYPTOENIF_BAD_ATOM_VALUE; // Atom for this->sn is cached here
 
-    static constexpr curve_probe_t make(const int nid, const char *sn) { return {nid, sn, /* atom= */ 0}; }
+    static constexpr curve_probe_t make(const int nid, const char *sn) {
+        return {nid, sn, /* atom= */ CRYPTOENIF_BAD_ATOM_VALUE};
+    }
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_type_t> &output);

@@ -108,7 +108,7 @@ struct mac_type_t {
 struct mac_probe_t {
     const char *str;
     const char *str_v3;
-    ERL_NIF_TERM atom = 0;
+    ERL_NIF_TERM atom = CRYPTOENIF_BAD_ATOM_VALUE;
     // Suggests that the algorithm is not available in FIPS to skip the probe
     bool fips_forbidden_hint;
     int pkey_type = EVP_PKEY_NONE; // contains EVP_PKEY_* macro (a NID)

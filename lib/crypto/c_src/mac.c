@@ -104,8 +104,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     macp = find_mac_type_by_name_keylen(env, argv[0], key_bin.size);
     if (!macp) {
-        mac_type_C* macp2 = find_mac_type_by_name(env, argv[0]);
-        if (!macp2)
+        if (!find_mac_type_by_name(env, argv[0]))
             return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
         else
             return_term = EXCP_BADARG_N(env, 2, "Bad key length");
@@ -179,10 +178,10 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
 #ifdef HAVE_CMAC
     case CMAC_mac: {
-            const cipher_type_C *cipherp = get_cipher_type(env, argv[1], key_bin.size);
+            const cipher_type_C *cipherp = find_cipher_type_by_name_keylen(env, argv[1], key_bin.size);
             if (!cipherp)
                 { /* Something went wrong. Find out what by retrying in another way. */
-                    if (!get_cipher_type_no_key(env, argv[1]))
+                    if (!find_cipher_type_by_name(env, argv[1]))
                         return_term = EXCP_BADARG_N(env, 1, "Unknown cipher");
                     else
                         /* Cipher exists, so it must be the key size that is wrong */
@@ -517,10 +516,10 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # if defined(HAVE_CMAC) && defined(HAVE_EVP_PKEY_new_CMAC_key)
     case CMAC_mac:
         {
-            const struct cipher_type_t *cipherp = get_cipher_type(env, argv[1], key_bin.size);
+            const struct cipher_type_t *cipherp = find_cipher_type_by_name_keylen(env, argv[1], key_bin.size);
             if (!cipherp)
                 { /* Something went wrong. Find out what by retrying in another way. */
-                    if (!get_cipher_type_no_key(env, argv[1]))
+                    if (!find_cipher_type_by_name(env, argv[1]))
                         return_term = EXCP_BADARG_N(env, 1, "Unknown cipher");
                     else
                         /* Cipher exists, so it must be the key size that is wrong */

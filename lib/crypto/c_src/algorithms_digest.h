@@ -106,7 +106,7 @@ struct digest_probe_t {
     // the algorithm name as in OpenSSL 3.x
     const char *str_v3;
     // This will be updated to created atomfound exi
-    ERL_NIF_TERM atom = 0;
+    ERL_NIF_TERM atom = CRYPTOENIF_BAD_ATOM_VALUE;
     digest_type_flags_t flags = {};
     // OpenSSL 1.0 API to create a resource for this digest algorithm (not used in 3.0 API)
     digest_construction_fn_t v1_ctor;
