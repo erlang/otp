@@ -2007,7 +2007,11 @@ update_successors(#b_ret{}=Last, _Ts, _Ds, Ls, _UsedOnce) ->
 
 update_switch([{Val, Lbl}=Sw | List],
               V, FailType0, Ts, Ds, Ls0, IsTempVar, Acc) ->
-    FailType = beam_types:subtract(FailType0, concrete_type(Val, Ts)),
+    ValType = concrete_type(Val, Ts),
+    FailType = case beam_types:is_singleton_type(ValType) of
+                   true -> beam_types:subtract(FailType0, ValType);
+                   false -> FailType0
+               end,
     case infer_types_switch(V, Val, Ts, IsTempVar, Ds) of
         none ->
             update_switch(List, V, FailType, Ts, Ds, Ls0, IsTempVar, Acc);
