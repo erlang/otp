@@ -199,7 +199,7 @@ compile_dicts(Dir) ->
     ?EL("compile_dicts -> entry"),
     Out = mkdir(Dir, "dict"),
     ?EL("compile_dicts -> create paths"),
-    Dirs = [filename:join(H ++ ["examples", "dict"])
+    Dirs = [filename:join(H ++ ["doc", "examples", "dict"])
             || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
     [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
                       D <- ?DICT0,
@@ -322,7 +322,7 @@ install(Tmpdir) ->
     true = code:add_patha(Ebin),
     Dia = code:lib_dir(diameter),  %% assert
 
-    Src = filename:join([Top, "examples", "code"]),
+    Src = filename:join([Top, "doc", "examples", "code"]),
     Files = find_files([Src], ".*\\.erl$"),
     [] = [{F,T} || {_,F} <- Files,
                    T <- [compile:file(F, [warnings_as_errors,
