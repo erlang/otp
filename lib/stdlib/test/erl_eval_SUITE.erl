@@ -21,6 +21,8 @@
 
 -module(erl_eval_SUITE).
 
+-feature(compr_assign, enable).
+
 -compile(nowarn_obsolete_bool_op).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
@@ -66,6 +68,7 @@
          binary_and_map_aliases/1,
          eep58/1,
          strict_generators/1,
+         assignment_generators/1,
          binary_skip/1]).
 
 %%
@@ -109,7 +112,7 @@ all() ->
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
      eep49, binary_and_map_aliases, eep58, strict_generators, binary_skip,
-     zlc, zbc, zmc].
+     assignment_generators, zlc, zbc, zmc].
 
 groups() ->
     [].
@@ -2332,6 +2335,22 @@ binary_skip(Config) when is_list(Config) ->
     check(fun() -> [a || <<0:64/float>> <= <<0:64, 1:64, 0:64, 0:64>> ] end,
 	  "begin [a || <<0:64/float>> <= <<0:64, 1:64, 0:64, 0:64>> ] end.",
 	  [a,a,a]),
+    ok.
+
+%% requires compr_assign feature for now
+assignment_generators(Config) when is_list(Config) ->
+    %% erl_eval accepts only features that are enabled in the runtime
+    case lists:member(compr_assign, erl_features:enabled()) of
+        false ->
+            ok;
+        true ->
+            check(fun() -> [Res1 + Res2 || E <- [1,2], EE <- [1,2,3], Res1 = 3*EE, Res2 = 7*E] end,
+                  "[Res1 + Res2 || E <- [1,2], EE <- [1,2,3], Res1 = 3*EE, Res2 = 7*E].",
+                  [10,13,16,17,20,23]),
+            check(fun() -> [Sqr || E <- [1,2,3,4,5], is_integer(E), Sqr = E*E, Sqr < 20] end,
+                  "[Sqr || E <- [1,2,3,4,5], is_integer(E), Sqr = E*E, Sqr < 20].",
+                  [1,4,9,16])
+    end,
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

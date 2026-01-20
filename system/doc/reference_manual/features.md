@@ -133,3 +133,6 @@ The following configurable features exist:
   [`maybe`](expressions.md#maybe) expression proposed in
   [EEP 49](https://www.erlang.org/eeps/eep-0049).
   It was approved in Erlang/OTP 27.
+- **`compr_assign` (experimental)** - Implementation of `Pattern = Expr`
+  assignments in [comprehensions](expressions.md#comprehensions)
+  proposed in [EEP 77](https://www.erlang.org/eeps/eep-0077).

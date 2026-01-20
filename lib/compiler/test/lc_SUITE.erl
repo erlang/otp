@@ -21,12 +21,14 @@
 %%
 -module(lc_SUITE).
 
+-feature(compr_assign, enable).
+
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1,no_export/1,shadow/1,
-	 effect/1,singleton_generator/1,gh10020/1]).
+	 effect/1,singleton_generator/1,assignment_generator/1,gh10020/1]).
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -48,6 +50,7 @@ groups() ->
        shadow,
        effect,
        singleton_generator,
+       assignment_generator,
        gh10020
       ]}].
 
@@ -307,6 +310,30 @@ singleton_generator(_Config) ->
 
     ok.
 
+%% requires compr_assign feature for now
+assignment_generator(_Config) ->
+    Seq = lists:seq(1, 100),
+    Mixed = [<<I:32>> || I <- Seq] ++ Seq,
+    Bin = << <<E:16>> || E <- Seq >>,
+
+    ?assertEqual(singleton_generator_1a(Seq), assignment_generator_1(Seq)),
+    ?assertEqual(singleton_generator_2a(Seq), assignment_generator_2(Seq)),
+    ?assertEqual(singleton_generator_3a(Seq), assignment_generator_3(Seq)),
+    ?assertEqual(singleton_generator_4a(Seq), assignment_generator_4(Seq)),
+
+    ?assertEqual(singleton_generator_5a(Mixed),
+                 assignment_generator_5(Mixed)),
+
+    ?assertEqual(singleton_generator_bin_1a(Bin),
+                 assignment_generator_bin_1(Bin)),
+
+    ok.
+
+assignment_generator_1(L) ->
+    [{H,E} || E <- L,
+              H = erlang:phash2(E),
+              H rem 10 =:= 0].
+
 singleton_generator_1a(L) ->
     [{H,E} || E <- L,
               H <- [erlang:phash2(E)],
@@ -317,12 +344,22 @@ singleton_generator_1b(L) ->
         E <- L,
         erlang:phash2(E) rem 10 =:= 0].
 
+assignment_generator_2(L) ->
+    [true = B || E <- L,
+                 B = is_integer(E)].
+
 singleton_generator_2a(L) ->
     [true = B || E <- L,
                  B <- [is_integer(E)]].
 
 singleton_generator_2b(L) ->
     lists:duplicate(length(L), true).
+
+assignment_generator_3(L) ->
+    [if
+         Sqr > 500 -> Sqr;
+         true -> 500
+     end || E <- L, Sqr = E*E].
 
 singleton_generator_3a(L) ->
     [if
@@ -336,17 +373,26 @@ singleton_generator_3b(L) ->
          true -> 500
      end || E <- L].
 
+assignment_generator_4(L) ->
+    [Res1 + Res2 || E <- L, EE <- L, Res1 = 3*EE, Res2 = 7*E].
+
 singleton_generator_4a(L) ->
     [Res1 + Res2 || E <- L, EE <- L, Res1 <- [3*EE], Res2 <- [7*E]].
 
 singleton_generator_4b(L) ->
     [7*E + 3*EE || E <- L, EE <- L].
 
+assignment_generator_5(L) ->
+    [Sqr || E <- L, is_integer(E), Sqr = E*E, Sqr < 100].
+
 singleton_generator_5a(L) ->
     [Sqr || E <- L, is_integer(E), Sqr <- [E*E], Sqr < 100].
 
 singleton_generator_5b(L) ->
     [E*E || E <- L, is_integer(E), E*E < 100].
+
+assignment_generator_bin_1(Bin) ->
+    << <<N:8>> || <<B:16>> <= Bin, N = B * 7, N < 256 >>.
 
 singleton_generator_bin_1a(Bin) ->
     << <<N:8>> || <<B:16>> <= Bin, N <- [B * 7], N < 256 >>.

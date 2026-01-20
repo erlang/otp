@@ -37,11 +37,14 @@ functions that might be useful when writing tools.
          enabled/0,
          keywords/0,
          keywords/1,
-         keyword_fun/2,
-         keyword_fun/4,
+         init_parse_state/2,
+         update_parse_state/4,
          used/1,
          format_error/1,
          format_error/2]).
+
+%% temporary export for bootstrapping build
+-export([keyword_fun/2, keyword_fun/4]).
 
 -type type() :: 'extension' | 'backwards_incompatible_change'.
 -type status() :: 'experimental'
@@ -76,6 +79,14 @@ feature_specs() ->
             experimental => 25,
             approved => 27,
             keywords => ['maybe', 'else'],
+            type => extension},
+      compr_assign =>
+          #{short => "Assignment in comprehensions (EEP77)",
+            description =>
+                "Implementation of '=' assignments in comprehensions proposed in EEP77.",
+            status => experimental,
+            experimental => 29,
+            keywords => [],
             type => extension}}.
 
 %% Return all currently known features.
@@ -220,12 +231,33 @@ keywords(Ftr, Map) ->
     maps:get(keywords, maps:get(Ftr, Map)).
 
 %% Utilities
-%% Returns list of enabled features and a new keywords function
--doc false.
+
+%% temporary aliases for bootstrapping build
+
 -spec keyword_fun([term()], fun((atom()) -> boolean())) ->
           {'ok', {[feature()], fun((atom()) -> boolean())}}
               | {'error', error()}.
 keyword_fun(Opts, KeywordFun) ->
+    init_parse_state(Opts, KeywordFun).
+
+-doc false.
+-spec keyword_fun('enable' | 'disable', feature(), [feature()],
+                  fun((atom()) -> boolean())) ->
+          {'ok', {[feature()], fun((atom()) -> boolean())}}
+              | {'error', error()}.
+keyword_fun(Ind, Feature, Ftrs, KeywordFun) ->
+    update_parse_state(Ind, Feature, Ftrs, KeywordFun).
+
+%% Handles `{feature, F, State}` options and returns the list of enabled
+%% features together with a keywords function, as the initial state for
+%% parsing, starting from the set of statically enabled features. This
+%% is then modified (in epp) using `update_parse_state/4` when a
+%% declaration `-feature(...)` is encountered.
+-doc false.
+-spec init_parse_state([term()], fun((atom()) -> boolean())) ->
+          {'ok', {[feature()], fun((atom()) -> boolean())}}
+              | {'error', error()}.
+init_parse_state(Opts, KeywordFun) ->
     %% Get items enabling or disabling features, preserving order.
     IsFtr = fun({feature, _, enable}) -> true;
                ({feature, _, disable}) -> true;
@@ -242,12 +274,14 @@ keyword_fun(Opts, KeywordFun) ->
             Error
     end.
 
+%% Modifies the given keyword fun to accept/deny keywords when a feature
+%% is turned on or off. Used by epp when scanning feature declarations.
 -doc false.
--spec keyword_fun('enable' | 'disable', feature(), [feature()],
+-spec update_parse_state('enable' | 'disable', feature(), [feature()],
                   fun((atom()) -> boolean())) ->
           {'ok', {[feature()], fun((atom()) -> boolean())}}
               | {'error', error()}.
-keyword_fun(Ind, Feature, Ftrs, KeywordFun) ->
+update_parse_state(Ind, Feature, Ftrs, KeywordFun) ->
     case is_configurable(Feature) of
         true ->
             case Ind of

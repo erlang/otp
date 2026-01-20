@@ -821,7 +821,7 @@ init_server(Pid, FileName, Options, St0) ->
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
             {ok,{_,ResWordFun0}} =
-                erl_features:keyword_fun([], fun erl_scan:f_reserved_word/1),
+                erl_features:init_parse_state([], fun erl_scan:f_reserved_word/1),
             ResWordFun =
                 proplists:get_value(reserved_word_fun, Options,
                                     ResWordFun0),
@@ -1335,7 +1335,7 @@ update_features(St0, Ind, Ftr, Loc) ->
             undefined -> fun erl_scan:f_reserved_word/1;
             Fun -> Fun
         end,
-    case erl_features:keyword_fun(Ind, Ftr, Ftrs0, KeywordFun) of
+    case erl_features:update_parse_state(Ind, Ftr, Ftrs0, KeywordFun) of
         {error, Reason} ->
             {error, {Reason, Loc}};
         {ok, {Ftrs1, ResWordFun1}} ->

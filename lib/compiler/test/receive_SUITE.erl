@@ -192,7 +192,7 @@ coverage(Config) when is_list(Config) ->
 
     %% Cover code for handling a non-boolean `br` in beam_ssa_dead.
     self() ! whatever,
-    {'EXIT',{{badmatch,_},_}} = (catch [a || other = receive whatever -> false end]),
+    {'EXIT',{{badmatch,_},_}} = (catch [a || true =:= (other = receive whatever -> false end)]),
 
     %% Cover code in beam_ssa_pre_codegen.
     self() ! 0,

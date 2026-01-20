@@ -786,5 +786,5 @@ p_run_loop(Test, List, N, Refs0, Errors0) ->
 res_word_option() ->
     Options = [{feature, maybe_expr, enable}],
     {ok, {_Ftrs, ResWordFun}} =
-        erl_features:keyword_fun(Options, fun erl_scan:f_reserved_word/1),
+        erl_features:init_parse_state(Options, fun erl_scan:f_reserved_word/1),
     {reserved_word_fun, ResWordFun}.
