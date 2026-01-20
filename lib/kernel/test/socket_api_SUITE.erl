@@ -27610,7 +27610,7 @@ api_opt_sock_timestamping_udp(InitState) ->
 
          #{desc => "enable timestamping on dst socket (RX_SOFTWARE)",
            cmd  => fun(#{sock_dst := Sock, set := Set}) ->
-                           case Set(Sock, [timestamping_software, timestamping_rx_software]) of
+                           case Set(Sock, [software, rx_software]) of
                                ok ->
                                    ?SEV_IPRINT("dst timestamping enabled (RX_SOFTWARE)"),
                                    ok;

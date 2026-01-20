@@ -589,6 +589,7 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(protocol);                 \
     GLOBAL_ATOM_DEF(pup);                      \
     GLOBAL_ATOM_DEF(raw);                      \
+    GLOBAL_ATOM_DEF(raw_hardware);             \
     GLOBAL_ATOM_DEF(rawip);                    \
     GLOBAL_ATOM_DEF(rcvbuf);                   \
     GLOBAL_ATOM_DEF(rcvbufforce);              \
@@ -635,6 +636,8 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(rtoinfo);                  \
     GLOBAL_ATOM_DEF(rtt);                      \
     GLOBAL_ATOM_DEF(running);                  \
+    GLOBAL_ATOM_DEF(rx_hardware);              \
+    GLOBAL_ATOM_DEF(rx_software);              \
     GLOBAL_ATOM_DEF(rxq_ovfl);                 \
     GLOBAL_ATOM_DEF(scope_id);                 \
     GLOBAL_ATOM_DEF(sctp);                     \
@@ -687,6 +690,7 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(socket_debug);             \
     GLOBAL_ATOM_DEF(socket_tag);               \
     GLOBAL_ATOM_DEF(socktype);                 \
+    GLOBAL_ATOM_DEF(software);                 \
     GLOBAL_ATOM_DEF(spec_dst);                 \
     GLOBAL_ATOM_DEF(ssn);                      \
     GLOBAL_ATOM_DEF(state);                    \
@@ -707,12 +711,8 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(timestamp);                \
     GLOBAL_ATOM_DEF(timestampns);              \
     GLOBAL_ATOM_DEF(timestamping);             \
-    GLOBAL_ATOM_DEF(timestamping_rx_hardware); \
-    GLOBAL_ATOM_DEF(timestamping_rx_software); \
-    GLOBAL_ATOM_DEF(timestamping_tx_hardware); \
-    GLOBAL_ATOM_DEF(timestamping_tx_software); \
-    GLOBAL_ATOM_DEF(timestamping_software);    \
-    GLOBAL_ATOM_DEF(timestamping_raw_hardware);\
+    GLOBAL_ATOM_DEF(tx_hardware);              \
+    GLOBAL_ATOM_DEF(tx_software);              \
     GLOBAL_ATOM_DEF(tos);                      \
     GLOBAL_ATOM_DEF(transparent);              \
     GLOBAL_ATOM_DEF(timeout);                  \
