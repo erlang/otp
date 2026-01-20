@@ -23,8 +23,6 @@
 -module(pubkey_crl).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -include("public_key_internal.hrl").
 
 -export([validate/7, init_revokation_state/0, fresh_crl/3, verify_crl_signature/4,
@@ -139,7 +137,7 @@ verify_crl(OtpCert, DP, CRL, DerCRL, DeltaCRL, DerDeltaCRL, OtherDPCRLs,
 
     DeltaRevoked = delta_revoked(DeltaCRL),
 
-    ValidExt = verify_extensions(Extensions) and
+    ValidExt = verify_extensions(Extensions) andalso
 	verify_extensions(Revoked),
 
     IntMask = compute_interim_reasons_mask(DP, IDP),
@@ -320,7 +318,7 @@ verify_issuer_and_scope(#'OTPCertificate'{tbsCertificate = TBSCert} = Cert,
   when DPIssuer =/= asn1_NOVALUE ->
     CRLIssuer = pubkey_cert_records:transform(TBSCRL#'TBSCertList'.issuer, decode),
     Issuer = dp_crlissuer_to_issuer(DPIssuer),
-    case pubkey_cert:is_issuer(Issuer, CRLIssuer) and is_indirect_crl(IDP) of
+    case pubkey_cert:is_issuer(Issuer, CRLIssuer) andalso is_indirect_crl(IDP) of
 	true ->
 	    verify_scope(Cert, DP, IDP),
 	    issuer_id(Cert, CRL);
@@ -602,7 +600,7 @@ check_revoked(#'DistributionPoint'{cRLIssuer = DPIssuer} = DP, IDP, DefaultIssue
 							    Extensions}| Rest],
 	      State) ->
     Reason = revoked_reason(Extensions),
-    case (DPIssuer =/= asn1_NOVALUE) and is_indirect_crl(IDP) of
+    case DPIssuer =/= asn1_NOVALUE andalso is_indirect_crl(IDP) of
 	true ->
 	    handle_indirect_crl_check(DP, IDP, DefaultIssuer0, Names, SerialNr, Extensions, Reason, Rest, State);
 	false ->
@@ -683,7 +681,7 @@ status(Reason) ->
     {revoked, Reason}.
 
 verify_extensions([#'TBSCertList_revokedCertificates_SEQOF'{crlEntryExtensions = Ext} | Rest]) ->
-    verify_extensions(pubkey_cert:extensions_list(Ext)) and verify_extensions(Rest);
+    verify_extensions(pubkey_cert:extensions_list(Ext)) andalso verify_extensions(Rest);
 verify_extensions([]) ->
     true;
 verify_extensions(asn1_NOVALUE) ->
