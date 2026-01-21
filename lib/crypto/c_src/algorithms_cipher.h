@@ -156,7 +156,7 @@ struct cipher_probe_t {
         : str(str_), str_v3(str_v3_), ctor_v1(ctor), atom(CRYPTOENIF_BAD_ATOM_VALUE), key_len(0) {
     }
 #ifdef HAVE_AEAD
-    constexpr cipher_probe_t set_aead(const AEAD_CTRL_TYPE aead_ctrl_type_,
+    constexpr cipher_probe_t &set_aead(const AEAD_CTRL_TYPE aead_ctrl_type_,
                        const bool ccm_mode = false, const bool gcm_mode = false) {
         this->aead_ctrl_type = aead_ctrl_type_;
         this->flags.aead_cipher = true;
@@ -165,15 +165,15 @@ struct cipher_probe_t {
         return *this;
     }
 #endif
-    constexpr cipher_probe_t set_fips_forbidden() {
+    constexpr cipher_probe_t &set_fips_forbidden() {
         this->flags.fips_forbidden = true;
         return *this;
     }
-    constexpr cipher_probe_t set_aes_cfbx() {
+    constexpr cipher_probe_t &set_aes_cfbx() {
         this->flags.aes_cfbx = true;
         return *this;
     }
-    constexpr cipher_probe_t set_keylen(const size_t key_len_) {
+    constexpr cipher_probe_t &set_keylen(const size_t key_len_) {
         this->key_len = key_len_;
         return *this;
     }

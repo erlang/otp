@@ -115,11 +115,11 @@ struct digest_probe_t {
     constexpr digest_probe_t(const char *str_, const char *str_v3_,
                             const digest_construction_fn_t ctor_): str(str_), str_v3(str_v3_), v1_ctor(ctor_) {
     }
-    constexpr digest_probe_t set_pbkdf() {
+    constexpr digest_probe_t &set_pbkdf() {
         this->flags.pbkdf2_eligible = true;
         return *this;
     }
-    constexpr digest_probe_t set_xof_default_length(const size_t xof_default_length_) {
+    constexpr digest_probe_t &set_xof_default_length(const size_t xof_default_length_) {
         this->xof_default_length = xof_default_length_;
         return *this;
     }

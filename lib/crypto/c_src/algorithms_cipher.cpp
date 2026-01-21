@@ -342,10 +342,8 @@ void cipher_type_t::check_availability(bool fips_enabled) {
         this->aead = {0, 0, 0};
         break;
     case AEAD_CTRL:
-#if defined(HAVE_3_0_API)
         // This is defined in a much later version of OpenSSL like 3.x, AEAD was available from 1.0.1
         this->aead = {EVP_CTRL_AEAD_SET_IVLEN, EVP_CTRL_AEAD_GET_TAG, EVP_CTRL_AEAD_SET_TAG};
-#endif
         break;
     case AEAD_CTRL_GCM:
         this->aead = {EVP_CTRL_GCM_SET_IVLEN, EVP_CTRL_GCM_GET_TAG, EVP_CTRL_GCM_SET_TAG};
