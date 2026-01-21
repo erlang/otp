@@ -64,8 +64,6 @@ For details about applications and behaviours, see
 
 -export_type([start_type/0, restart_type/0]).
 
--compile(nowarn_obsolete_bool_op).
-
 %%%-----------------------------------------------------------------
 
 -doc "The reason for the application to be started on the current node.".
@@ -418,7 +416,7 @@ enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) ->
     %% is always empty.
     case enqueue_or_start(ChildApps, OptionalApps, DAG, [], Started, Opts) of
         {ok, NewDAG, NewPending, NewStarted}
-        when NewPending =:= [], (Mode =:= serial) or (Mod =:= []) ->
+        when NewPending =:= [], Mode =:= serial orelse Mod =:= [] ->
             case application_controller:start_application(App, Type) of
                 ok ->
                     {ok, NewDAG, Pending, [App | NewStarted]};
