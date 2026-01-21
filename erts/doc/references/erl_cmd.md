@@ -503,7 +503,7 @@ described in the corresponding application documentation.
   with a custom implementation (for example, a custom communication
   protocol or a specialized embedded interface).
 
-  > #### Note {: .warning }
+  > #### Warning {: .warning }
   >
   > Because the `-user` flag replaces the standard I/O handler, the `io`
   > module will not function correctly until the replacement module
