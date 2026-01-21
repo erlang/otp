@@ -762,7 +762,6 @@
 -define(TPP_SMALL_NUM,  5000).
 -define(TPP_MEDIUM_NUM, 500).
 -define(TPP_LARGE_NUM,  50).
--define(TPP_NUM(Config, Base), (Base) div lookup(kernel_factor, 1, Config)).
 
 -define(WINDOWS, {win32,nt}).
 
