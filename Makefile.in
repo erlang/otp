@@ -994,3 +994,7 @@ APPS_TEST=$(patsubst %, %_test,$(APPS))
 $(NO_DIALYZER_APPS): $$(patsubst %,%_build,$$@)
 $(APPS_TEST): $$(patsubst %_test,%_build,$$@)
 	ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) -C lib/$(patsubst %_test,%,$@) test
+
+.PHONY: clean_docs
+clean_docs:
+	rm -rf $(ERL_TOP)/doc $(ERL_TOP)/make/otp_doc_built
