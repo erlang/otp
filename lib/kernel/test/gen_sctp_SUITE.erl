@@ -142,10 +142,8 @@ init_per_suite(Config0) ->
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
-    case gen_sctp:open() of
-	{ok, Socket} ->
-	    gen_sctp:close(Socket),
-
+    case is_sctp_supported() of
+        ok ->
             case ?LIB:init_per_suite(Config0) of
                 {skip, _} = SKIP ->
                     SKIP;
@@ -161,10 +159,8 @@ init_per_suite(Config0) ->
                     Config1
             end;
 
-	{error, Error}
-	  when Error =:= eprotonosupport;
-	       Error =:= esocktnosupport ->
-	    {skip,"SCTP not supported on this machine"}
+        {skip, _} = SKIP ->
+            SKIP
     end.
 
 end_per_suite(Config0) ->
@@ -305,17 +301,17 @@ do_xfer_min(Config, LAddr) when is_list(Config) ->
 	[recv_avg,recv_cnt,recv_max,recv_oct,
 	 send_avg,send_cnt,send_max,send_oct],
 
-    ?P("~w -> [b] try create server socket", [?FUNCTION_NAME]),
+    ?P("~s -> [b] try create server socket", [?FUNCTION_NAME]),
     {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
     {ok,SbStat1} = inet:getstat(Sb, StatOpts),
     {ok,Pb} = inet:port(Sb),
     ok = gen_sctp:listen(Sb, true),
 
-    ?P("~w -> [a] try create client socket", [?FUNCTION_NAME]),
+    ?P("~s -> [a] try create client socket", [?FUNCTION_NAME]),
     {ok,Sa} = gen_sctp:open(),
     {ok,Pa} = inet:port(Sa),
 
-    ?P("~w -> [a] try connect (to server)", [?FUNCTION_NAME]),
+    ?P("~s -> [a] try connect (to server)", [?FUNCTION_NAME]),
     {ok,#sctp_assoc_change{state=comm_up,
 			   error=0,
 			   outbound_streams=SaOutboundStreams,
@@ -323,7 +319,7 @@ do_xfer_min(Config, LAddr) when is_list(Config) ->
 			   assoc_id=SaAssocId}=SaAssocChange} =
 	gen_sctp:connect(Sa, Loopback, Pb, []),
 
-    ?P("~w -> [b] try accept connection", [?FUNCTION_NAME]),
+    ?P("~s -> [b] try accept connection", [?FUNCTION_NAME]),
     {SbAssocId,SaOutboundStreams,SaInboundStreams} =
 	case recv_event(log_ok(gen_sctp:recv(Sb, infinity))) of
 	    {Loopback,Pa,
@@ -348,12 +344,16 @@ do_xfer_min(Config, LAddr) when is_list(Config) ->
 		{AssocId,SbInboundStreams,SbOutboundStreams}
 	end,
 
+    ?P("~s -> send data (client -> server)", [?FUNCTION_NAME]),
     ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
+    ?P("~s -> recv data (server)", [?FUNCTION_NAME]),
     ok = await_first_data(Loopback, LAddr,
                           Pa, SaAssocId,
                           Sb, Pb, SbAssocId,
                           Data),
+    ?P("~s -> send data (server -> client)", [?FUNCTION_NAME]),
     ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
+    ?P("~s -> recv data (client)", [?FUNCTION_NAME]),
     case log_ok(gen_sctp:recv(Sa, infinity)) of
 	{Loopback,Pb,
 	 [#sctp_sndrcvinfo{stream=Stream,
@@ -375,28 +375,36 @@ do_xfer_min(Config, LAddr) when is_list(Config) ->
 		log_ok(gen_sctp:recv(Sa, infinity))
     end,
     %%
+    ?P("~s -> (client) graceful shutdown (eof)", [?FUNCTION_NAME]),
     ok = gen_sctp:eof(Sa, SaAssocChange),
+    ?P("~s -> (server) receive shutdown event", [?FUNCTION_NAME]),
     {Loopback,Pa,#sctp_shutdown_event{assoc_id=SbAssocId}} =
 	recv_event(log_ok(gen_sctp:recv(Sb, infinity))),
+    ?P("~s -> (server) receive shutdown-complete event", [?FUNCTION_NAME]),
     {Loopback,Pb,
      #sctp_assoc_change{state=shutdown_comp,
 			error=0,
 			assoc_id=SaAssocId}} =
 	recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
+    ?P("~s -> (client) receive shutdown-complete event", [?FUNCTION_NAME]),
     {Loopback,Pa,
      #sctp_assoc_change{state=shutdown_comp,
 			error=0,
 			assoc_id=SbAssocId}} =
 	recv_event(log_ok(gen_sctp:recv(Sb, infinity))),
+    ?P("~s -> (client) close socket", [?FUNCTION_NAME]),
     ok = gen_sctp:close(Sa),
     {ok,SbStat2} = inet:getstat(Sb, StatOpts),
     [] = filter_stat_eq(SbStat1, SbStat2),
+    ?P("~s -> (server) close socket", [?FUNCTION_NAME]),
     ok = gen_sctp:close(Sb),
 
+    ?P("~s -> expect nothing", [?FUNCTION_NAME]),
     receive
 	Msg -> ct:fail({received,Msg})
     after 17 -> ok
     end,
+    ?P("~s -> done", [?FUNCTION_NAME]),
     ok.
 
 await_first_data(Loopback, LAddr,
@@ -965,6 +973,8 @@ do_api_open_close() ->
 
 %% Test the API function listen/2.
 api_listen(Config) when is_list(Config) ->
+    ?P("~s -> entry", [?FUNCTION_NAME]),
+
     Localhost = {127,0,0,1},
 
     try gen_sctp:listen(0, true)
@@ -990,24 +1000,37 @@ api_listen(Config) when is_list(Config) ->
     {error, nxdomain} = gen_sctp:connect(Sa, ".", 65535, []),
     {error, nxdomain} = gen_sctp:connect(Sa, '.', 65535, []),
 
+    ?P("~s -> try connect to localhost:~w (before listen) - expect failure",
+       [?FUNCTION_NAME, Pb]),
     case gen_sctp:connect(Sa, localhost, Pb, []) of
-	{error,econnrefused} ->
+	{error,econnrefused = Reason} ->
+            ?P("~s -> ~w => await assoc-change (with state = 'comm_lost')",
+               [?FUNCTION_NAME, Reason]),
 	    {ok,{Localhost,
 		 Pb,[],
 		 #sctp_assoc_change{
 		    state=comm_lost}}} =
 		gen_sctp:recv(Sa, infinity);
-	{error,#sctp_assoc_change{state=cant_assoc}} ->
-	    ok%;
-	    %% {error,{Localhost,Pb,_,#sctp_assoc_change{state=cant_assoc}}} ->
-	    %% 	  ok
+	{error,#sctp_assoc_change{state=cant_assoc = State}} ->
+            ?P("~s -> expected assoc-change event (state = ~w)",
+               [?FUNCTION_NAME, State]),
+	    ok;
+        {error, UnexpectedReason} ->
+            ?P("~s -> unexpected error:"
+               "~n   ~p", [?FUNCTION_NAME, UnexpectedReason]),
+            exit(UnexpectedReason)
     end,
+    ?P("~s -> try listen", [?FUNCTION_NAME]),
     ok = gen_sctp:listen(Sb, true),
+    ?P("~s -> try connect to localhost:~w (before listen) - expect success",
+       [?FUNCTION_NAME, Pb]),
     {ok,#sctp_assoc_change{state=comm_up,
 			   error=0}} =
 	gen_sctp:connect(Sa, localhost, Pb, []),
+    ?P("~s -> close sockets", [?FUNCTION_NAME]),
     ok = gen_sctp:close(Sa),
     ok = gen_sctp:close(Sb),
+    ?P("~s -> done", [?FUNCTION_NAME]),
     ok.
 
 %% Test the API function connect_init/4.
@@ -3514,3 +3537,23 @@ err([_|Reasons], Result) ->
 open_failed_str(Reason) ->
     ?F("Open failed: ~w", [Reason]).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_sctp_supported() ->
+    case os:type() of
+        {unix, netbsd} ->
+            %% SCTP is "fishy" on (our) NetBSD, so skip just to
+            %% avoid fatal crashes...
+            {skip, "SCTP \"fishy\" on NetBSD"};
+        _ ->
+            case gen_sctp:open() of
+                {ok, Socket} ->
+                    gen_sctp:close(Socket),
+                    ok;
+                {error, Reason}
+                  when (Reason =:= eprotonosupport) orelse
+                       (Reason =:= esocktnosupport) ->
+                    {skip, "SCTP not supported on this machine"}
+            end
+    end.

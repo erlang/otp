@@ -1218,6 +1218,6 @@ i(F) ->
 
 i(F, A) ->
     FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
-    io:format(user, FStr ++ "~n", []),
-    io:format(FStr, []).
+    io:format(user, "~ts~n", [FStr]),
+    io:format("~ts", [FStr]).
 
