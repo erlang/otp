@@ -27,6 +27,7 @@
          atime = undefined,
          mtime = undefined,
          ctime = undefined,
+         mode = 8#100644,
          uid = 0,
          gid = 0}).
 -type add_opts() :: #add_opts{}.
@@ -47,6 +48,7 @@
                    {atime, non_neg_integer()} |
                    {mtime, non_neg_integer()} |
                    {ctime, non_neg_integer()} |
+                   {mode, non_neg_integer()} |
                    {uid, non_neg_integer()} |
                    {gid, non_neg_integer()}.
 
