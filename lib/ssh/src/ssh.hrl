@@ -1222,6 +1222,8 @@ Experimental options that should not to be used in products.
 
           kex_strict_negotiated = false,
 
+	  ignore_initial_kex_message = false, %% RFC 4253 section 7, if true peer's guess was wrong
+
 	  algorithms,   %% #alg{}
 	  
 	  send_mac = none, %% send MAC algorithm
