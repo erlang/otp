@@ -493,6 +493,30 @@ described in the corresponding application documentation.
 
   Note that a distributed node will fail to start if epmd is not running.
 
+- **`-user Module`** - Specifies the module to be used as the initial user
+  process in the Erlang runtime system. By default, the `user` module is
+  used to handle standard I/O.
+
+  When this flag is present, the `init` process calls `Module:start/0`
+  instead of the default `user:start/0`. This is a low-level hook
+  primarily used to replace the default Erlang shell or I/O server
+  with a custom implementation (for example, a custom communication
+  protocol or a specialized embedded interface).
+
+  > #### Note {: .warning }
+  >
+  > Because the `-user` flag replaces the standard I/O handler, the `io`
+  > module will not function correctly until the replacement module
+  > provides a compatible interface. If the replacement module does
+  > not handle I/O protocol messages, calling `io:format/2` or
+  > similar functions will cause the calling process to terminate.
+  > Use `erlang:display/1` for primitive output during the
+  > development of a custom user driver.
+
+  The specified `Module` must be available in the code path. It is
+  recommended to use the `-pa` flag to ensure the module is reachable
+  during the early boot stage.
+
 - **`-version` (emulator flag)** - Makes the emulator print its version number.
   The same as `erl +V`.
 
