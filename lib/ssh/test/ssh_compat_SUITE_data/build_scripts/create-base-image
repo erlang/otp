@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # %CopyrightBegin%
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -18,6 +18,8 @@
 # limitations under the License.
 #
 # %CopyrightEnd%
+#
+# ./create-base-image
 
 UBUNTU_VER=${1:-16.04}
 
@@ -25,22 +27,23 @@ USER=sshtester
 PWD=foobar
 
 docker build \
-    -t ssh_compat_suite-ubuntu \
+    -t ssh_compat_suite_img-ubuntu:$UBUNTU_VER \
     --build-arg https_proxy=$HTTPS_PROXY \
     --build-arg http_proxy=$HTTP_PROXY \
     - <<EOF
 
     FROM ubuntu:$UBUNTU_VER
+    ARG DEBIAN_FRONTEND=noninteractive
     WORKDIR /buildroot
 
     # Prepare for installing OpenSSH
     RUN apt-get update
     RUN apt-get upgrade -y
-    RUN apt-get -y install apt-utils
-    RUN apt-get -y install build-essential zlib1g-dev
-    RUN apt-get -y install sudo iputils-ping tcptraceroute net-tools
-    RUN apt-get -y install sshpass expect
-    RUN apt-get -y install libpam0g-dev
+    RUN apt-get -y install apt-utils \
+                           build-essential zlib1g-dev \
+                           sudo iputils-ping tcptraceroute net-tools \
+                           sshpass expect \
+                           libpam0g-dev
 
     # A user for the tests
     RUN (echo $PWD; echo $PWD; echo; echo; echo; echo; echo; echo ) | adduser $USER

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # %CopyrightBegin%
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -19,27 +19,36 @@
 #
 # %CopyrightEnd%
 
-# ./create-image openssh 7.3p1 openssl 1.0.2m [in-file]
+# ./create-ssh-image openssh 7.3p1 openssl 1.0.2m [in-file]
 
 case $1 in
     openssh)
-	FAMssh=openssh
-	VERssh=$2
-	PFX=https://ftp.eu.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-
-	SFX=.tar.gz
-	TMP=tmp.tar.gz
-	;;
+        FAMssh=openssh
+        VERssh=$2
+        LINK=https://ftp.eu.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${VERssh}.tar.gz
+        TMP=tmp.tar.gz
+    ;;
     *)
-	echo "Unsupported: $1"
-	exit
+        echo "Unsupported: $1"
+        exit 2
 esac
 
 FAMssl=$3
 VERssl=$4
+BASE_VER=$5
 
-INPUT_FILE=$5
+INPUT_FILE=$6
 
-VER=${FAMssh}${VERssh}-${FAMssl}${VERssl}
+VER=${FAMssh}${VERssh}-${FAMssl}${VERssl}-${BASE_VER}
+
+case $FAMssl$VERssl in
+    openssl3*)
+        LIB_DIR="lib64"
+    ;;
+    *)
+        LIB_DIR="lib"
+    ;;
+esac
 
 # This way of fetching the tar-file separate from the docker commands makes
 # http-proxy handling way easier. The wget command handles the $https_proxy
@@ -49,7 +58,8 @@ VER=${FAMssh}${VERssh}-${FAMssl}${VERssl}
 # Make a Dockerfile. This method simplifies env variable handling considerably:
 cat - > TempDockerFile <<EOF
 
-    FROM  ssh_compat_suite-${FAMssl}:${VERssl}
+    FROM ssh_compat_suite_img-${FAMssl}:${VERssl}-${BASE_VER}
+    ARG  DEBIAN_FRONTEND=noninteractive
 
     LABEL openssh-version=${VER}
 
@@ -67,7 +77,7 @@ cat - > TempDockerFile <<EOF
                     --prefix=/buildroot/ssh \
                     --with-ssl-dir=/buildroot/ssl \
                     --with-pam \
-                    LDFLAGS=-Wl,-R/buildroot/ssl/lib
+                    LDFLAGS=-Wl,-R/buildroot/ssl/${LIB_DIR}
     RUN  make
     RUN  make install
     RUN  echo UsePAM yes >> /buildroot/ssh/etc/sshd_config
@@ -75,26 +85,28 @@ cat - > TempDockerFile <<EOF
     RUN echo Built ${VER}
 
     # Start the daemon, but keep it in foreground to avoid killing the container
-    CMD /buildroot/ssh/sbin/sshd -D -p 1234
+    CMD ["/buildroot/ssh/sbin/sshd", "-D", "-e", "-p", "1234"]
 
 EOF
 
 # Fetch the tar file. This could be done in an "ADD ..." in the Dockerfile,
 # but then we hit the proxy problem...
 
-if [ "x$INPUT_FILE" = "x" ]
+if [[ "x$INPUT_FILE" == "x" ]]
 then
-    wget -O $TMP $PFX$VERssh$SFX
+    wget -O $TMP $LINK
 
-elif [ "x$INPUT_FILE" != "x$TMP" ]
+elif [[ "x$INPUT_FILE" != "x$TMP" ]]
 then
     echo "Use $INPUT_FILE for input"
     cp $INPUT_FILE $TMP
 fi
 
 # Build the image:
-docker build -t  ssh_compat_suite-ssh:$VER -f ./TempDockerFile .
+docker build -t ssh_compat_suite_img-ssh:$VER -f ./TempDockerFile .
+CODE=$?
 
 # Cleaning
 rm -fr ./TempDockerFile $TMP
 
+exit $CODE
