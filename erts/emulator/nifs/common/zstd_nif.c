@@ -27,6 +27,11 @@
 
 #define STATIC_ERLANG_NIF 1
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+
+#include "sys.h"
 #include "erl_nif.h"
 #define ZSTD_STATIC_LINKING_ONLY
 #include "erl_zstd.h"
@@ -582,7 +587,11 @@ static ERL_NIF_TERM codec_nif(ZstdCtx* ctx,
     ZSTD_outBuffer out_buffer;
     ZSTD_inBuffer in_buffer;
     size_t remaining;
-    int flush = enif_is_identical(argv[1], am_true);
+    int flush;
+
+    if (!enif_get_int(env, argv[1], &flush)) {
+        return enif_make_badarg(env);
+    }
 
     if (!enif_inspect_binary(env, argv[0], &input)) {
         return enif_make_badarg(env);
@@ -663,7 +672,7 @@ static size_t compress_stream_callback(
     return ZSTD_compressStream2(ctx->handle.c,
                                 out_buffer,
                                 in_buffer,
-                                flush ? ZSTD_e_end : ZSTD_e_continue);
+                                (ZSTD_EndDirective)flush);
 }
 
 static ERL_NIF_TERM compress_stream_nif(ErlNifEnv *env,
@@ -1043,6 +1052,12 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM arg) {
     *priv_data = NULL;
 
     (void)arg;
+
+    /* Compile-time checks to ensure ZSTD_EndDirective values
+     * match Erlang defines. */
+    ERTS_CT_ASSERT(ZSTD_e_continue == 0);
+    ERTS_CT_ASSERT(ZSTD_e_flush == 1);
+    ERTS_CT_ASSERT(ZSTD_e_end == 2);
 
     return 0;
 }

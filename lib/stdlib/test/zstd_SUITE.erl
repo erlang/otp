@@ -207,6 +207,18 @@ cstream(_Config) ->
     {done, C5_1} = zstd:finish(CCtx, [LargeData, LargeData]),
     ?assertEqual(iob([LargeData, LargeData]), iob(zstd:decompress([C5_1]))),
 
+    %% Test flushing of compressed data. Both partial and full decompression
+    %% are confirmed to work.
+    {ok, FCtx} = zstd:context(decompress),
+    {continue, F1} = zstd:stream(CCtx, ~"hello"),
+    {continue, F2} = zstd:flush(CCtx, <<>>),
+    ?assertEqual(~"hello", iob(zstd:decompress([F1, F2], FCtx))),
+    {continue, F3} = zstd:stream(CCtx, ~"world"),
+    {done, F4} = zstd:finish(CCtx, <<>>),
+    ?assertEqual(~"world", iob(zstd:decompress([F3, F4], FCtx))),
+    Final = iolist_to_binary([F1, F2, F3, F4]),
+    ?assertEqual(~"helloworld", iob(zstd:decompress(Final))),
+
     ok = zstd:close(CCtx),
     {'EXIT',{badarg,_}} = catch zstd:finish(CCtx, Data),
 

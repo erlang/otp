@@ -210,7 +210,7 @@ To reset the context to not use any dictionary use the empty dictionary, that is
 -export([compress/1, compress/2, decompress/1, decompress/2]).
 
 %% Streaming API
--export([context/1, context/2, stream/2, finish/2, set_parameter/3,
+-export([context/1, context/2, stream/2, flush/2, finish/2, set_parameter/3,
          get_parameter/2, reset/1, close/1]).
 
 %% Dict API
@@ -238,6 +238,11 @@ To reset the context to not use any dictionary use the empty dictionary, that is
 
        get_frame_header_nif/1
       ]).
+
+%% ZSTD_EndDirective.
+-define(ZSTD_e_continue, 0).
+-define(ZSTD_e_flush,    1).
+-define(ZSTD_e_end,      2).
 
 -spec on_load() -> ok.
 on_load() ->
@@ -493,9 +498,57 @@ stream(Ctx, Data) when is_list(Data) ->
             error(badarg)
     end;
 stream({compress, Ref}, Data) ->
-    compress_stream_nif(Ref, Data, false);
+    compress_stream_nif(Ref, Data, ?ZSTD_e_continue);
 stream({decompress, Ref}, Data) ->
-    decompress_stream_nif(Ref, Data, false).
+    decompress_stream_nif(Ref, Data, ?ZSTD_e_continue).
+
+-doc """
+Flush the compression stream.
+
+This flushes all pending compressed data without ending the frame,
+allowing the compressed data to be read immediately while keeping
+the context open for further compression.
+
+Example:
+
+```
+1> {ok, CCtx} = zstd:context(compress).
+2> {continue, C1} = zstd:stream(CCtx, ~"hello").
+3> {continue, C2} = zstd:flush(CCtx, ~"").
+4> zstd:decompress([C1, C2]).
+[<<"hello">>]
+```
+""".
+-doc #{ since => "OTP 29.0" }.
+-spec flush(Ctx :: context(), Data :: iodata()) -> Result when
+      Result :: {continue, Remainder :: erlang:iovec(), Output :: binary()} |
+                {continue, Output :: binary()}.
+flush({compress, Ref}, Data) when is_binary(Data) ->
+    case compress_stream_nif(Ref, Data, ?ZSTD_e_flush) of
+        {done, Output} ->
+            {continue, Output};
+        Res ->
+            Res
+    end;
+flush(Ctx, Data) when is_list(Data) ->
+    %% Handle iodata similar to stream/2
+    try erlang:iolist_to_iovec(Data) of
+        [] ->
+            flush(Ctx, <<>>);
+        [H] ->
+            flush(Ctx, H);
+        [H|T] ->
+            case flush(Ctx, H) of
+                {continue, Rem, Out} ->
+                    {continue, [Rem | T], Out};
+                {continue, Out} ->
+                    {continue, T, Out}
+            end
+    catch _:_ ->
+            error(badarg)
+    end;
+flush(Ctx={decompress, _}, _) ->
+    error({badarg, {invalid_context, Ctx}}).
 
 -doc """
 Finish compressing/decompressing data.
@@ -543,7 +596,7 @@ finish(Ctx, Data) ->
     end.
 
 finish_1(Codec, Ref, Data) when is_binary(Data) ->
-    case Codec(Ref, Data, true) of
+    case Codec(Ref, Data, ?ZSTD_e_end) of
         {continue, Remainder, Output} ->
             case finish_1(Codec, Ref, Remainder) of
                 {done, Tail} ->
@@ -670,7 +723,11 @@ decompress(Data, {decompress, Ref}) ->
                erlang:iolist_to_iovec(Data)).
 
 codec_loop(Codec, Ref, [Data | Next]) ->
-    case Codec(Ref, Data, Next =:= []) of
+    EndDirective = case Next of
+        [] -> ?ZSTD_e_end;
+        _ -> ?ZSTD_e_continue
+    end,
+    case Codec(Ref, Data, EndDirective) of
         {continue, Remainder, Output} ->
             [Output | codec_loop(Codec, Ref, [Remainder | Next])];
         {continue, <<>>} ->
