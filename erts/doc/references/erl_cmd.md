@@ -349,6 +349,18 @@ described in the corresponding application documentation.
   > extension the cluster. When using un-secure distributed nodes, make sure
   > that the network is configured to keep potential attackers out.
 
+- **`-nocookie`** - Prevents the node from creating or using the magic
+  cookie.
+
+  When this flag is used, the node will not read the `~/.erlang.cookie` file on startup.
+
+  The node's own cookie will remain "undefined" unless explicitly set later via
+  `erlang:set_cookie/1` or `erlang:set_cookie/2`.
+
+  This effectively prevents the node from participating in a distributed Erlang
+  cluster with nodes that require cookie authentication. It is primarily used
+  for nodes that are intended to be isolated.
+
 - **`-no_epmd`** - Specifies that the distributed node does not need
   [epmd](epmd_cmd.md) at all.
 
