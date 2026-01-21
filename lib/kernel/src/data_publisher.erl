@@ -83,7 +83,10 @@ are calculated and propagated. This is a generalization of the `pg` module.
 
 % Current version of data_publisher instance
 -callback version() -> version().
-% Init data cache for all nodes
+% Init custom publisher state, which should include a local cache storing all nodes' data,
+% and potentially some internal state.
+% For example, it can also store some monitors, so that it can automatically do some data
+% updates when monitored events happened, see the optional translate_message callback
 -callback init_storage(scope()) -> storage().
 % Init data of one node
 -callback init_data() -> data().
