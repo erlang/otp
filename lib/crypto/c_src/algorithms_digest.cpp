@@ -65,7 +65,7 @@ static digest_probe_t digest_probes[] = {
         digest_probe_t("sha3_512", "SHA3-512", &EVP_sha3_512),
 #endif
 #ifdef HAVE_SHAKE128
-        digest_probe_t("shake128", "SHAKE-128", &EVP_shake128).set_xof_default_length(6),
+        digest_probe_t("shake128", "SHAKE-128", &EVP_shake128).set_xof_default_length(16),
 #endif
 #ifdef HAVE_SHAKE256
         digest_probe_t("shake256", "SHAKE-256", &EVP_shake256).set_xof_default_length(32),
@@ -137,10 +137,12 @@ void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<dig
     this->atom = create_or_existing_atom(env, this->str, this->atom);
 }
 
-// Array lookup
+// Array lookup (linear scan)
 extern "C" digest_type_C *get_digest_type(ErlNifEnv *env, ERL_NIF_TERM type) {
     const bool fips_enabled = FIPS_MODE();
-    for (auto p = digest_collection.begin(env, fips_enabled); p != digest_collection.end(fips_enabled); ++p) {
+    const auto collection_begin = digest_collection.begin(env, fips_enabled);
+    const auto collection_end = digest_collection.end(fips_enabled);
+    for (auto p = collection_begin; p != collection_end; ++p) {
         if (type == p->get_atom()) {
             return &*p;
         }

@@ -35,9 +35,9 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
     if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     if (get_digest_type_resource(digp) == NULL)
-        return EXCP_BADARG_N(env, 0, "md.p is not NULL");
-    if (is_digest_eligible_for_pbkdf2(digp))
-        return EXCP_BADARG_N(env, 0, "Not eligible digest type");
+        return EXCP_BADARG_N(env, 0, "md.p is expected to be not NULL");
+    if (!is_digest_eligible_for_pbkdf2(digp))
+        return EXCP_BADARG_N(env, 0, "Digest type is not eligible for PBKDF2");
 
     if (!enif_inspect_binary(env, argv[1], &pass))
         return EXCP_BADARG_N(env, 1, "Not binary");
