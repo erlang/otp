@@ -3801,12 +3801,7 @@ bad_table_call(T,{F,Args,_}) ->
 bad_table_call(T,{F,Args,_,tabarg_last}) ->
     {'EXIT',{badarg,_}} = (catch apply(ets, F, Args++[T]));
 bad_table_call(T,{F,Args,_,{return,Return}}) ->
-    try
-	Return = apply(ets, F, [T|Args])
-    catch
-	error:badarg -> ok
-    end.
-
+    Return = apply(ets, F, [T|Args]).
 
 %% Check rename of ets tables.
 rename(Config) when is_list(Config) ->
