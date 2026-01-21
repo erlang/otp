@@ -335,6 +335,10 @@ graph is built and the leaves of the graph are started concurrently and
 recursively. In both modes, no assertion can be made about the order the
 applications are started. If not supplied, it defaults to `serial`.
 
+`Mode` can also be `{concurrent, Limit}` where `Limit` is a positive integer
+or `infinity`. `Limit` controls the maximum number of concurrent application
+starts when in `concurrent` mode. Defaults to `infinity` (no limit).
+
 Returns `{ok, AppNames}` for a successful start or for an already started
 application (which is, however, omitted from the `AppNames` list).
 
@@ -349,18 +353,30 @@ bring the set of running applications back to its initial state.
 -spec ensure_all_started(Applications, Type, Mode) -> {'ok', Started} | {'error', AppReason} when
       Applications :: atom() | [atom()],
       Type :: restart_type(),
-      Mode :: serial | concurrent,
+      Mode :: serial | concurrent | {concurrent, Limit :: pos_integer() | infinity},
       Started :: [atom()],
       AppReason :: {atom(), term()}.
 ensure_all_started(Application, Type, Mode) when is_atom(Application) ->
     ensure_all_started([Application], Type, Mode);
-ensure_all_started(Applications, Type, Mode) when is_list(Applications) ->
-    Opts = #{type => Type, mode => Mode},
+ensure_all_started(Applications, Type, serial) when is_list(Applications) ->
+    ensure_all_started_1(Applications, Type, serial, infinity);
+ensure_all_started(Applications, Type, concurrent) when is_list(Applications) ->
+    ensure_all_started_1(Applications, Type, concurrent, infinity);
+ensure_all_started(Applications, Type, {concurrent, Limit}) when is_list(Applications),
+      is_integer(Limit), Limit > 0 ->
+    ensure_all_started_1(Applications, Type, concurrent, Limit);
+ensure_all_started(Applications, Type, {concurrent, infinity}) when is_list(Applications) ->
+    ensure_all_started_1(Applications, Type, concurrent, infinity);
+ensure_all_started(_Applications, _Type, _Mode) ->
+    erlang:error(badarg).
 
-    case enqueue_or_start(Applications, [], #{}, [], [], Opts) of
+ensure_all_started_1(Applications, Type, Mode, Limit) ->
+    InternalOpts = #{type => Type, mode => Mode, limit => Limit},
+
+    case enqueue_or_start(Applications, [], #{}, [], [], InternalOpts) of
         {ok, DAG, _Pending, Started} when Mode =:= concurrent ->
             ReqIDs = gen_server:reqids_new(),
-            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, Type);
+            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, InternalOpts);
         {ok, DAG, _Pending, Started} when Mode =:= serial ->
             0 = map_size(DAG),
             {ok, lists:reverse(Started)};
@@ -431,29 +447,37 @@ enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) ->
             ErrorAppReasonStarted
     end.
 
-concurrent_dag_start([], ReqIDs, _Done, Started, _Type) ->
+concurrent_dag_start([], ReqIDs, _Done, Started, _Opts) ->
     wait_all_enqueued(ReqIDs, Started, false);
-concurrent_dag_start(Pending0, ReqIDs0, Done, Started0, Type) ->
-    {Pending1, ReqIDs1} = enqueue_dag_leaves(Pending0, ReqIDs0, [], Done, Type),
+concurrent_dag_start(Pending0, ReqIDs0, Done, Started0, Opts) ->
+    #{type := Type, limit := Limit} = Opts,
+    {Pending1, ReqIDs1} = enqueue_dag_leaves(Pending0, ReqIDs0, [], Done, Type, Limit),
 
     case wait_one_enqueued(ReqIDs1, Started0) of
         {ok, App, ReqIDs2, Started1} ->
-            concurrent_dag_start(Pending1, ReqIDs2, [App], Started1, Type);
+            concurrent_dag_start(Pending1, ReqIDs2, [App | Done], Started1, Opts);
         {error, AppReason, ReqIDs2} ->
             wait_all_enqueued(ReqIDs2, Started0, AppReason)
     end.
 
-enqueue_dag_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Type) ->
-    case Children -- Done of
-        [] ->
-            Req = application_controller:start_application_request(App, Type),
-            NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
-            enqueue_dag_leaves(Rest, NewReqIDs, Acc, Done, Type);
-        NewChildren ->
-            NewAcc = [{App, NewChildren} | Acc],
-            enqueue_dag_leaves(Rest, ReqIDs, NewAcc, Done, Type)
+enqueue_dag_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Type, Limit) ->
+    CurrentSize = gen_server:reqids_size(ReqIDs),
+    case (Limit =:= infinity) orelse (CurrentSize < Limit) of
+        true ->
+            case Children -- Done of
+                [] ->
+                    Req = application_controller:start_application_request(App, Type),
+                    NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
+                    enqueue_dag_leaves(Rest, NewReqIDs, Acc, Done, Type, Limit);
+                NewChildren ->
+                    NewAcc = [{App, NewChildren} | Acc],
+                    enqueue_dag_leaves(Rest, ReqIDs, NewAcc, Done, Type, Limit)
+            end;
+        false ->
+            %% Limit reached, keep this and remaining items for later
+            enqueue_dag_leaves([], ReqIDs, [{App, Children} | Rest] ++ Acc, Done, Type, Limit)
     end;
-enqueue_dag_leaves([], ReqIDs, Acc, _Done, _Type) ->
+enqueue_dag_leaves([], ReqIDs, Acc, _Done, _Type, _Limit) ->
     {Acc, ReqIDs}.
 
 wait_one_enqueued(ReqIDs0, Started) ->
