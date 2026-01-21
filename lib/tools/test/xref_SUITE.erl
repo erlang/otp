@@ -1188,7 +1188,7 @@ read_expected() ->
 
 %% Data read from the Abstract Code (cont)
 read2(Conf) when is_list(Conf) ->
-    %% Handles the spawn_opt versions added in R9 (OTP-4180).
+    %% Handles spawn_opt-related variations in older OTP versions.
     %% Expected augmentations: try/catch, cond.
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"read"),
