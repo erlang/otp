@@ -40,7 +40,7 @@
 
 -export([config_change/1, persistent_env/1, invalid_app_file/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
-	 ensure_started/1, ensure_all_started/1,
+	 ensure_started/1, ensure_all_started/1, ensure_all_started_limit/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1,
          shutdown_application_call/1,shutdown_deadlock/1,
          config_relative_paths/1, handle_many_config_files/1,
@@ -61,7 +61,7 @@ all() ->
     [failover, failover_comp, permissions, load,
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
-     permit_false_start_dist, get_key, get_env, ensure_all_started,
+     permit_false_start_dist, get_key, get_env, ensure_all_started, ensure_all_started_limit,
      set_env, set_env_persistent, set_env_errors, get_supervisor,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
      shutdown_application_call, shutdown_deadlock, config_relative_paths, optional_applications,
@@ -1059,6 +1059,27 @@ do_ensure_all_started(Mode) ->
     ok = application:unload(app10),
     ok = application:unload(app_chain_error2),
     ok = application:unload(app_chain_error),
+    ok.
+
+%% Test application:ensure_all_started/3 with limit option.
+ensure_all_started_limit(_Conf) ->
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10(Fd10, [app9], []),
+    file:close(Fd10),
+
+    %% Test various limit values
+    lists:foreach(fun(Limit) ->
+        {ok, Started} = application:ensure_all_started(app10, temporary,
+                                                        #{mode => concurrent, limit => Limit}),
+        [app10, app9] = lists:sort(Started),
+        ok = application:stop(app9),
+        ok = application:unload(app9),
+        ok = application:stop(app10),
+        ok = application:unload(app10)
+    end, [1, 2, 10, inf]),
     ok.
 
 optional_applications(_Conf) ->
