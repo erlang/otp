@@ -28,8 +28,6 @@
 -module(ssl_gen_statem).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_connection.hrl").
@@ -1768,8 +1766,8 @@ deliver_app_data(UserSocket, #socket_options{active=Active, packet=Type} = SOpts
     SO =
         case Data of
             {P, _, _, _}
-              when ((P =:= http_request) or (P =:= http_response)),
-                   ((Type =:= http) or (Type =:= http_bin)) ->
+              when P =:= http_request orelse P =:= http_response,
+                   Type =:= http orelse Type =:= http_bin ->
                 SOpts#socket_options{packet={Type, headers}};
             http_eoh when tuple_size(Type) =:= 2 ->
                 %% End of headers - expect another Request/Response line

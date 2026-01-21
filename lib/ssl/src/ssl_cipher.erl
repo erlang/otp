@@ -29,8 +29,6 @@
 -module(ssl_cipher).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
@@ -893,8 +891,8 @@ hash_algorithm(?SHA224) -> sha224;
 hash_algorithm(?SHA256) -> sha256;
 hash_algorithm(?SHA384) -> sha384;
 hash_algorithm(?SHA512) -> sha512;
-hash_algorithm(Other)  when is_integer(Other) andalso ((Other >= 7) and (Other =< 223)) -> unassigned;
-hash_algorithm(Other)  when is_integer(Other) andalso ((Other >= 224) and (Other =< 255)) -> Other.
+hash_algorithm(Other)  when is_integer(Other), Other >= 7, Other =< 223 -> unassigned;
+hash_algorithm(Other)  when is_integer(Other), Other >= 224, Other =< 255 -> Other.
 
 sign_algorithm(anon)  -> ?ANON;
 sign_algorithm(rsa)   -> ?RSA;
@@ -904,8 +902,8 @@ sign_algorithm(?ANON) -> anon;
 sign_algorithm(?RSA) -> rsa;
 sign_algorithm(?DSA) -> dsa;
 sign_algorithm(?ECDSA) -> ecdsa;
-sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 4) and (Other =< 223)) -> unassigned;
-sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 224) and (Other =< 255)) -> Other.
+sign_algorithm(Other) when is_integer(Other), Other >= 4, Other =< 223 -> unassigned;
+sign_algorithm(Other) when is_integer(Other), Other >= 224, Other =< 255 -> Other.
 
 
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
