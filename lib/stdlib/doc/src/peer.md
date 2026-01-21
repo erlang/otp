@@ -203,7 +203,7 @@ build_image(Dir) ->
       "COPY lambda.tar.gz /tmp\n"
       "RUN tar -zxvf /tmp/lambda.tar.gz -C /opt/lambda\n"
       "ENTRYPOINT [\"/opt/lambda/erts-" ++ erlang:system_info(version) ++
-      "/bin/dyn_erl\", \"-boot\", \"/opt/lambda/releases/1.0.0/start\","
+      "/bin/erl\", \"-boot\", \"/opt/lambda/releases/1.0.0/start\","
       " \"-kernel\", \"inet_dist_listen_min\", \"4445\","
       " \"-erl_epmd_port\", \"4445\","
       " \"-setcookie\", \"secret\"]\n",
