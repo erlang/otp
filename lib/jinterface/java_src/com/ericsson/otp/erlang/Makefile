@@ -79,15 +79,18 @@ CLASSPATH = $(JAVA_SRC_ROOT)
 
 JAVADOCFLAGS=-d $(DOCDIR)
 JAVAFLAGS=-d $(JAVA_DEST_ROOT) 
-JARFLAGS=-c -f
-ifneq ($(V),0)
-	JARFLAGS := -v $(JARFLAGS)
+ifeq ($(V),0)
+	JARFLAGS=-cf
+	JARFLAGS2=-c -f
+else
+	JARFLAGS=-cvf
+	JARFLAGS2=-c -v -f
 endif
 ifdef SOURCE_DATE_EPOCH
 # We hardcode the date, because the complexity of converting
 # seconds to a date string to work on all OSes is not worth it.
 # The --date option requires openjdk-17 or later.
-	JARFLAGS := --date=1980-01-01T12:00:00Z $(JARFLAGS)
+	JARFLAGS := --date=1980-01-01T12:00:00Z $(JARFLAGS2)
 endif
 
 JAVA_OPTIONS = -Xlint -encoding UTF-8
