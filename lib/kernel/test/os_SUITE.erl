@@ -31,7 +31,8 @@
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
          cmd_exception/1, os_cmd_shell/1, os_cmd_shell_peer/1,
-         perf_counter_api/1, error_info/1]).
+         perf_counter_api/1, error_info/1,
+         os_version/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -48,7 +49,8 @@ all() ->
      large_output_command, background_command, message_leak,
      close_stdin, max_size_command, perf_counter_api,
      error_info, os_cmd_shell, os_cmd_shell_peer,
-     cmd_exception].
+     cmd_exception,
+     os_version].
 
 groups() ->
     [].
@@ -563,4 +565,38 @@ receive_all() ->
     receive
 	X -> [X|receive_all()]
     after 0 -> []
+    end.
+
+
+get_windows_version_from_cmd() ->
+    VerOutput = os:cmd("ver"),
+    %% Expected format: "Microsoft Windows [Version 10.0.19045.1234]" or similar
+    case re:run(VerOutput, "(\\d+)\\.(\\d+)\\.(\\d+)",
+        [{capture, all_but_first, list}]) of
+        {match, [Major, Minor, Build]} ->
+            {list_to_integer(Major), list_to_integer(Minor), list_to_integer(Build)};
+        nomatch ->
+            {0, 0, 0}
+    end.
+
+%% On Windows, make sure that appropriate Windows version is returned
+%% Example versions:
+%%   {5,0,_}=Windows 2000, {6,0,_}=Vista, {6,1,_}=Windows 7, {6,2,_}=Windows 8 and Server 2012,
+%%   {10,0,_}=Windows 10 and 11, Server 2016, 2019, 2022
+os_version_win32() ->
+    V = os:version(),
+    CmdV = get_windows_version_from_cmd(),
+
+    %% Verify that command line version matches os:version()
+    ct:log("os:version() returned: ~p~n", [V]),
+    ct:log("Command line version: ~p~n", [CmdV]),
+
+    %% This test will fail if Windows manifest.xml does not include the Windows OS where the test is run.
+    %% If a new version has been released, please update erts/etc/win32/manifest.xml
+    ?assertEqual(V, CmdV, "Windows versions from os:version and from 'ver' command are expected to match").
+
+os_version(_Config) ->
+    case os:type() of
+        {win32, nt} -> os_version_win32();
+        _ -> ok
     end.
