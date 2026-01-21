@@ -1495,6 +1495,31 @@ AC_CHECK_MEMBERS([struct sockaddr_dl.sdl_len],
 	])
 
 dnl
+dnl On some platforms (Linux) the SCTP_DATA_UNSENT and SCTP_DATA_SENT flags
+dnl are defined with 'enum' (meaning "#if defined(...) does not work) but
+dnl on others (FreeBSD) they are defined with '#define ...'.
+dnl So to simplyfy the code we create our own flags for if-def testing.
+dnl
+AC_CHECK_DECL(SCTP_DATA_UNSENT,
+        [AC_DEFINE(ESOCK_SCTP_DATA_UNSENT, [], [SCTP flag DATA-UNSENT defined])],
+        [],
+        [
+         #if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+        ])
+AC_CHECK_DECL(SCTP_DATA_SENT,
+        [AC_DEFINE(ESOCK_SCTP_DATA_SENT, [], [SCTP flag DATA-SENT defined])],
+        [],
+        [
+         #if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+        ])
+
+dnl
 dnl This test kindly borrowed from Tcl
 dnl
 #--------------------------------------------------------------------

@@ -90,6 +90,12 @@
 /* Enable esock */
 #undef ESOCK_ENABLE
 
+/* SCTP flag DATA-SENT defined */
+#undef ESOCK_SCTP_DATA_SENT
+
+/* SCTP flag DATA-UNSENT defined */
+#undef ESOCK_SCTP_DATA_UNSENT
+
 /* Socket address dl length */
 #undef ESOCK_SDL_LEN
 
