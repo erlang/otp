@@ -23,8 +23,6 @@
 -module(select_SUITE).
 -author('pan@erix.ericsson.se').
 
--compile(nowarn_obsolete_bool_op).
-
 -export([test/0]).
 
 %%
@@ -628,8 +626,8 @@ multi_mixed_key(Tabs,Type) ->
 					    [ {A,F} | 
 					      Acc];
 					Else ->
-					    case FunE(Else) or 
-						FunG(Else) or
+					    case FunE(Else) orelse 
+						FunG(Else) orelse
 						FunJ(Else) of
 						true ->
 						    [ {A,F} | 

@@ -23,7 +23,6 @@
 -moduledoc false.
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% Dets files, implementation part. This module handles version 9.

@@ -27,8 +27,6 @@
 	 longest_common_prefix/1,longest_common_suffix/1,bin_to_list/1,
 	 bin_to_list/2,bin_to_list/3,list_to_bin/1]).
 
--compile(nowarn_obsolete_bool_op).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% compile_pattern, a dummy
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -55,7 +53,7 @@ match(Haystack,{Needles},Options) ->
     match(Haystack,Needles,Options);
 match(Haystack,Needles,Options) ->
     try
-	true = is_binary(Haystack) and is_list(Needles), % badarg, not function_clause
+	true = is_binary(Haystack) andalso is_list(Needles), % badarg, not function_clause
 	case get_opts_match(Options,nomatch) of
 	    nomatch ->
 		mloop(Haystack,Needles);
@@ -82,7 +80,7 @@ matches(Haystack,{Needles},Options) ->
     matches(Haystack,Needles,Options);
 matches(Haystack,Needles,Options) ->
     try
-	true = is_binary(Haystack) and is_list(Needles), % badarg, not function_clause
+	true = is_binary(Haystack) andalso is_list(Needles), % badarg, not function_clause
 	case get_opts_match(Options,nomatch) of
 	    nomatch ->
 		msloop(Haystack,Needles);
@@ -398,7 +396,7 @@ list_to_bin(List) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 longest_common_prefix(LB) ->
     try
-	true = is_list(LB) and (length(LB) > 0), % Make badarg instead of function clause
+	true = is_list(LB) andalso length(LB) > 0, % Make badarg instead of function clause
 	do_longest_common_prefix(LB,0)
     catch
 	_:_ ->
@@ -433,7 +431,7 @@ do_lcp([Bin|T],X,Ch) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 longest_common_suffix(LB) ->
     try
-	true = is_list(LB) and (length(LB) > 0), % Make badarg instead of function clause
+	true = is_list(LB) andalso length(LB) > 0, % Make badarg instead of function clause
 	do_longest_common_suffix(LB,0)
     catch
 	_:_ ->
@@ -495,7 +493,7 @@ copy(Subject) ->
     copy(Subject,1).
 copy(Subject,N) ->
     try
-	true = is_integer(N) and (N >= 0) and is_binary(Subject), % Badarg, not function clause
+	true = is_integer(N) andalso N >= 0 andalso is_binary(Subject), % Badarg, not function clause
 	erlang:list_to_binary(lists:duplicate(N,Subject))
     catch
 	_:_ ->
@@ -509,7 +507,7 @@ encode_unsigned(Unsigned) ->
     encode_unsigned(Unsigned,big).
 encode_unsigned(Unsigned,Endian) ->
     try
-	true = is_integer(Unsigned) and (Unsigned >= 0),
+	true = is_integer(Unsigned) andalso Unsigned >= 0,
 	if
 	    Unsigned =:= 0 ->
 		<<0>>;

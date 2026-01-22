@@ -86,8 +86,6 @@ Module:format_error(ErrorDescriptor)
                 map/2,mapfoldl/3,member/2,
                 reverse/1]).
 
--compile(nowarn_obsolete_bool_op).
-
 %% Removed functions
 
 -removed([{modify_line,2,"use erl_parse:map_anno/2 instead"}]).
@@ -1900,7 +1898,7 @@ import(Anno, {Mod,Fs}, St00) ->
 				  (not bif_clash_specifically_disabled(St0,{F,A})),
 			      AutoImpSup = is_autoimport_suppressed(St0#lint.no_auto,{F,A}),
 			      {Err,if
-				       Warn and (not AutoImpSup) ->
+				       Warn, not AutoImpSup ->
 					   add_warning
 					     (Anno,
 					      {redefine_bif_import, {F,A}},
@@ -2374,7 +2372,7 @@ bit_type(Anno, Size0, Type, St) ->
 
 bit_size_check(_Anno, unknown, _, St) -> {unknown,St};
 bit_size_check(_Anno, undefined, #bittype{type=Type}, St) ->
-    true = (Type =:= utf8) or (Type =:= utf16) or (Type =:= utf32), %Assertion.
+    true = Type =:= utf8 orelse Type =:= utf16 orelse Type =:= utf32, %Assertion.
     {undefined,St};
 bit_size_check(Anno, all, #bittype{type=Type}, St) ->
     case Type of
@@ -2686,7 +2684,7 @@ is_gexpr({record,A,Name,Inits}, Info0) ->
     is_gexpr_fields(Inits, A, Name, Info);
 is_gexpr({bin,_A,Fs}, Info) ->
     all(fun ({bin_element,_Anno,E,Sz,_Ts}) ->
-                is_gexpr(E, Info) and (Sz =:= default orelse is_gexpr(Sz, Info))
+                is_gexpr(E, Info) andalso (Sz =:= default orelse is_gexpr(Sz, Info))
         end, Fs);
 is_gexpr({call,_A,{atom,_Af,F},As}, {_,IsOverridden}=Info) ->
     A = length(As),

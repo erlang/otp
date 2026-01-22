@@ -21,8 +21,6 @@
 %%
 -module(io_SUITE).
 
--compile(nowarn_obsolete_bool_op).
-
 -export([all/0, suite/0]).
 
 -export([error_1/1, float_g/1, float_w/1, otp_5403/1, otp_5813/1, otp_6230/1, 
@@ -1725,7 +1723,7 @@ g_choice_small(S) when is_list(S) ->
     El = length(ES),
     I = list_to_integer(IS),
     if
-        El =/= 0, ((I > 9) or (I < -9)) ->
+        El =/= 0, I > 9 orelse I < -9 ->
             throw(too_many_digits_before_the_dot);
         El =/= 0, I =:= 0 ->
             throw(zero_before_the_dot);

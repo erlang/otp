@@ -23,8 +23,6 @@
 
 -feature(compr_assign, enable).
 
--compile(nowarn_obsolete_bool_op).
-
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
@@ -673,9 +671,9 @@ simple_cases(Config) when is_list(Config) ->
                 "(2#101 band 2#10101) bor (2#110 bxor 2#010).", 5),
 	  check(fun() -> (2#1 bsl 4) + (2#10000 bsr 3) end,
                 "(2#1 bsl 4) + (2#10000 bsr 3).", 18),
-	  check(fun() -> ((1<3) and ((1 =:= 2) or (1 =/= 2))) xor (1=<2) end,
+	  check(fun() -> (1<3 andalso (1 =:= 2 orelse 1 =/= 2)) xor (1=<2) end,
                 "((1<3) and ((1 =:= 2) or (1 =/= 2))) xor (1=<2).", false),
-	  check(fun() -> (a /= b) or (2 > 4) or (3 >= 3) end,
+	  check(fun() -> a /= b orelse 2 > 4 orelse 3 >= 3 end,
                 "(a /= b) or (2 > 4) or (3 >= 3).", true),
 	  check(fun() -> "hej" ++ "san" =/= "hejsan" -- "san" end,
                 "\"hej\" ++ \"san\" =/= \"hejsan\" -- \"san\".", true),

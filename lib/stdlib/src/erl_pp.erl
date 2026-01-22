@@ -59,8 +59,6 @@ expressions.
 -import(erl_parse, [inop_prec/1,preop_prec/1,func_prec/0,max_prec/0,
                     type_inop_prec/1, type_preop_prec/1]).
 
--compile(nowarn_obsolete_bool_op).
-
 -define(DEFAULT_LINEWIDTH, 72).
 -define(DEFAULT_INDENT, 4).
 
@@ -1430,7 +1428,7 @@ write_a_string([], _N, _Len, _PP) ->
 write_a_string(S, N, Len, PP) ->
     SS = string:slice(S, 0, N),
     Sl = write_string(SS, PP),
-    case (string:length(Sl) > Len) and (N > ?MIN_SUBSTRING) of
+    case string:length(Sl) > Len andalso N > ?MIN_SUBSTRING of
         true ->
             write_a_string(S, N-1, Len, PP);
         false ->

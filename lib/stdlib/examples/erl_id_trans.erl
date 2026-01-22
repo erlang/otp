@@ -60,8 +60,6 @@ code is then transformed into other Erlang code.
 %% N.B. if this module is to be used as a basis for transforms then
 %% all the error cases must be handled otherwise this module just crashes!
 
--compile(nowarn_obsolete_bool_op).
-
 -export([parse_transform/2, parse_transform_info/0]).
 
 -doc "Performs an identity transformation on Erlang forms, as an example.".
@@ -383,9 +381,9 @@ gexpr({call,Anno,{atom,Aa,F},As0}) ->
     end;
 % Guard bif's can be remote, but only in the module erlang...
 gexpr({call,Anno,{remote,Aa,{atom,Ab,erlang},{atom,Ac,F}},As0}) ->
-    case erl_internal:guard_bif(F, length(As0)) or
-	 erl_internal:arith_op(F, length(As0)) or
-	 erl_internal:comp_op(F, length(As0)) or
+    case erl_internal:guard_bif(F, length(As0)) orelse
+	 erl_internal:arith_op(F, length(As0)) orelse
+	 erl_internal:comp_op(F, length(As0)) orelse
 	 erl_internal:bool_op(F, length(As0)) of
 	true -> As1 = gexpr_list(As0),
 		{call,Anno,{remote,Aa,{atom,Ab,erlang},{atom,Ac,F}},As1}
@@ -394,7 +392,7 @@ gexpr({bin,Anno,Fs}) ->
     Fs2 = pattern_grp(Fs),
     {bin,Anno,Fs2};
 gexpr({op,Anno,Op,A0}) ->
-    case erl_internal:arith_op(Op, 1) or
+    case erl_internal:arith_op(Op, 1) orelse
 	 erl_internal:bool_op(Op, 1) of
 	true -> A1 = gexpr(A0),
 		{op,Anno,Op,A1}
@@ -405,8 +403,8 @@ gexpr({op,Anno,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
     R1 = gexpr(R0),			%They see the same variables
     {op,Anno,Op,L1,R1};
 gexpr({op,Anno,Op,L0,R0}) ->
-    case erl_internal:arith_op(Op, 2) or
-	  erl_internal:bool_op(Op, 2) or
+    case erl_internal:arith_op(Op, 2) orelse
+	  erl_internal:bool_op(Op, 2) orelse
 	  erl_internal:comp_op(Op, 2) of
 	true ->
 	    L1 = gexpr(L0),

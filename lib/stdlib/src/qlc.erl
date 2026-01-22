@@ -28,7 +28,6 @@
 
 %% External exports 
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
@@ -2239,7 +2238,7 @@ prep_le(#qlc_lc{lc = LC_fun, opt = #qlc_opt{} = Opt0}=H, GOpt) ->
     #qlc_opt{unique = GUnique, cache = GCache, 
              tmpdir = TmpDir, max_list = MaxList, 
              tmpdir_usage = TmpUsage} = GOpt,
-    Unique = Opt0#qlc_opt.unique or GUnique,
+    Unique = Opt0#qlc_opt.unique orelse GUnique,
     Cache = if
                 not GCache -> Opt0#qlc_opt.cache;
                 true -> GCache
@@ -2254,7 +2253,7 @@ prep_le(#qlc_table{info_fun = IF}=T, GOpt) ->
     Prep = #prepared{qh = T, sort_info = SortInfo, sorted = Sorted,
                      is_unique_objects = IsUnique},
     Opt = if 
-              IsUnique or not GOpt#qlc_opt.unique,
+              IsUnique orelse not GOpt#qlc_opt.unique,
               T#qlc_table.ms =:= no_match_spec -> 
                   GOpt#qlc_opt{cache = false};
               true ->
@@ -2424,8 +2423,8 @@ may_create_simple(#qlc_opt{unique = Unique, cache = Cache} = Opt,
                   #prepared{is_cached = IsCached, 
                             is_unique_objects = IsUnique} = Prep) ->
     if 
-        Unique and not IsUnique; 
-        (Cache =/= false) and not IsCached ->
+        Unique andalso not IsUnique; 
+        Cache =/= false andalso not IsCached ->
             prep_simple_qlc(?SIMPLE_QVAR, anno(1), Prep, Opt);
         true ->
             Prep
@@ -2442,14 +2441,14 @@ prep_simple_qlc(PVar, Anno, LE, Opt) ->
                  not IsCached -> Cache;
                  true -> false
              end,
-    Optz = #optz{unique = Unique and not IsUnique, 
+    Optz = #optz{unique = Unique andalso not IsUnique, 
                  cache = Cachez, opt = Opt},
     QLC = #simple_qlc{p = PVar, le = LE, anno = Anno,
                       init_value = not_a_list, optz = Optz},
     %% LE#prepared.join is not copied
-    #prepared{qh = QLC, is_unique_objects = IsUnique or Unique, 
+    #prepared{qh = QLC, is_unique_objects = IsUnique orelse Unique, 
               sort_info = SortInfo, sorted = Sorted,
-              is_cached = IsCached or (Cachez =/= false)}.
+              is_cached = IsCached orelse Cachez =/= false}.
 
 prep_sort(#qlc_sort{h = #prepared{sorted = yes}=Prep}, _GOpt) ->
     Prep;
@@ -2461,7 +2460,7 @@ prep_sort(#qlc_sort{h = #prepared{is_unique_objects = IsUniqueObjs}}=Q,
     {SortInfo, Sorted} = sort_sort_info(S),
     #prepared{qh = S, is_cached = true, sort_info = SortInfo,
               sorted = Sorted,
-              is_unique_objects = S#qlc_sort.unique or IsUniqueObjs}.
+              is_unique_objects = S#qlc_sort.unique orelse IsUniqueObjs}.
 
 prep_qlc(QFun, CodeF, Qdata0, QOpt, Opt) ->
     #qlc_opt{unique = Unique, cache = Cache, join = Join} = Opt,
@@ -2807,7 +2806,7 @@ opt_le(#prepared{qh = #simple_qlc{le = LE0, optz = Optz0}=QLC}=Prep0,
                          Cache2 -> Cache2
                      end,
             Optz = Optz0#optz{cache = Cachez,
-                              unique = Optz0#optz.unique or Optz2#optz.unique},
+                              unique = Optz0#optz.unique orelse Optz2#optz.unique},
             PVar = if 
                        LE_Pvar =:= ?SIMPLE_QVAR -> QLC#simple_qlc.p;
                        true -> LE_Pvar

@@ -24,8 +24,6 @@
 
 -include_lib("kernel/include/file.hrl").
 
--compile(nowarn_obsolete_bool_op).
-
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 id_transform/1]).
@@ -345,29 +343,29 @@ t2(A) when reference(A); reference(A) ->
 t2(A) when tuple(A); tuple(A) ->
     tuple.
 
-t3(A) when is_atom(A) or is_atom(A) ->
+t3(A) when is_atom(A) orelse is_atom(A) ->
     is_atom;
-t3(A) when is_binary(A) or is_binary(A) ->
+t3(A) when is_binary(A) orelse is_binary(A) ->
     is_binary;
-t3(A) when is_float(A) or is_float(A) ->
+t3(A) when is_float(A) orelse is_float(A) ->
     is_float;
-t3(A) when is_function(A) or is_function(A) ->
+t3(A) when is_function(A) orelse is_function(A) ->
     is_function;
-t3(A) when is_integer(A) or is_integer(A) ->
+t3(A) when is_integer(A) orelse is_integer(A) ->
     is_integer;
-t3(A) when is_list(A) or is_list(A) ->
+t3(A) when is_list(A) orelse is_list(A) ->
     is_list;
-t3(A) when is_number(A) or is_number(A) ->
+t3(A) when is_number(A) orelse is_number(A) ->
     is_number;
-t3(A) when is_pid(A) or is_pid(A) ->
+t3(A) when is_pid(A) orelse is_pid(A) ->
     is_pid;
-t3(A) when is_port(A) or is_port(A) ->
+t3(A) when is_port(A) orelse is_port(A) ->
     is_port;
-t3(A) when is_record(A, apa) or is_record(A, apa) ->
+t3(A) when is_record(A, apa) orelse is_record(A, apa) ->
    is_record;
-t3(A) when is_reference(A) or is_reference(A) ->
+t3(A) when is_reference(A) orelse is_reference(A) ->
    is_reference;
-t3(A) when is_tuple(A) or is_tuple(A) ->
+t3(A) when is_tuple(A) orelse is_tuple(A) ->
    is_tuple; 
 t3(A) when record(A, apa) ->
    foo;

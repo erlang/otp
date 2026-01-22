@@ -24,8 +24,6 @@
 %%%-----------------------------------------------------------------
 -module(erl_pp_SUITE).
 
--compile(nowarn_obsolete_bool_op).
-
 %%-define(debug, true).
 
 -ifdef(debug).
@@ -1549,7 +1547,7 @@ pp_expr(List, Options) when is_list(List) ->
     if
         PP1 =:= PP2 -> % same line numbers
             case
-                (test_max_line(PP1) =:= ok) and (test_new_line(PPneg) =:= ok)
+                test_max_line(PP1) =:= ok andalso test_new_line(PPneg) =:= ok
             of
                 true ->
                     ok;

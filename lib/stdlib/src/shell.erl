@@ -22,7 +22,6 @@
 -module(shell).
 -moduledoc({file, "../doc/src/shell.md"}).
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 -export([start/0, start/1, start/2, server/1, server/2, history/1, results/1]).
@@ -866,7 +865,7 @@ report_exception(Class, Severity, {Reason,Stacktrace}, RT) ->
     Tag = severity_tag(Severity),
     I = iolist_size(Tag) + 1,
     PF = fun(Term, I1) -> pp(Term, I1, RT) end,
-    SF = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
+    SF = fun(M, _F, _A) -> M =:= erl_eval orelse M =:= ?MODULE end,
     Enc = encoding(),
     Str = erl_error:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
     io:requests([{put_chars, latin1, Tag},

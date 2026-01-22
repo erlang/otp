@@ -21,8 +21,6 @@
 %%
 -module(erl_lint_SUITE).
 
--compile(nowarn_obsolete_bool_op).
-
 %%-define(debug, true).
 
 -ifdef(debug).
