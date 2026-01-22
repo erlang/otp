@@ -112,6 +112,7 @@
          verify_active_session_resumption/5,
          verify_server_early_data/3,
          verify_session_ticket_extension/2,
+         verify_no_session_ticket_early_data_extension/1,
          update_session_ticket_extension/2,
          check_sane_openssl_version/2,
          check_ok/1,
@@ -3226,17 +3227,30 @@ verify_session_ticket_extension([Ticket0|_], MaxEarlyDataSize) ->
                      [MaxEarlyDataSize, Else])
       end.
 
+verify_no_session_ticket_early_data_extension([Ticket0|_]) ->
+    #{ticket := #new_session_ticket{extensions = Extensions}} = Ticket0,
+    case maps:is_key(early_data, Extensions) of
+        true ->
+            ?CT_FAIL("~nUnexpected early_data extension in session ticket: ~p",
+                     [Extensions]);
+        false ->
+            ?CT_LOG("~nNo early_data extension in session ticket as expected.")
+    end.
+
 update_session_ticket_extension([Ticket|_], MaxEarlyDataSize) ->
     #{ticket := #new_session_ticket{
-                   extensions = #{early_data :=
-                                      #early_data_indication_nst{
-                                         indication = Size}}}} = Ticket,
+                   extensions = Extensions0} = NST0} = Ticket,
+    Size0 = case Extensions0 of
+                #{early_data := #early_data_indication_nst{indication = Size}} ->
+                    Size;
+                _ ->
+                    undefined
+            end,
     ?CT_LOG("~nOverwrite max_early_data_size (from ~p to ~p)!",
-                     [Size, MaxEarlyDataSize]),
-    #{ticket := #new_session_ticket{
-                   extensions = #{early_data := _Extensions0}} = NST0} = Ticket,
-    Extensions = #{early_data => #early_data_indication_nst{
-                                    indication = MaxEarlyDataSize}},
+            [Size0, MaxEarlyDataSize]),
+    Extensions = Extensions0#{early_data =>
+                                  #early_data_indication_nst{
+                                     indication = MaxEarlyDataSize}},
     NST = NST0#new_session_ticket{extensions = Extensions},
     [Ticket#{ticket => NST}].
 

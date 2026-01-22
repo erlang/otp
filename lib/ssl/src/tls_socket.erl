@@ -297,7 +297,9 @@ session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSiz
                         #{erl_dist := true,
                           session_tickets := Mode,
                           anti_replay := AntiReplay,
-                          stateless_tickets_seed := Seed}) ->
+                          stateless_tickets_seed := Seed,
+                          early_data := EarlyData}) ->
+    EarlyDataEnabled = (EarlyData =:= enabled),
     SupName = tls_server_session_ticket_sup:sup_name(dist),
     Children = supervisor:count_children(SupName),
     Workers = proplists:get_value(workers, Children),
@@ -305,7 +307,7 @@ session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSiz
         0 ->
             tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
                                                        TicketStoreSize, MaxEarlyDataSize,
-                                                       AntiReplay, Seed]);
+                                                       AntiReplay, Seed, EarlyDataEnabled]);
         1 ->
             [{_,Child,_, _}] = supervisor:which_children(SupName),
             {ok, Child}
@@ -315,10 +317,12 @@ session_tickets_tracker(_,_, _, _, #{session_tickets := disabled}) ->
 session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
                         #{session_tickets := Mode,
                           anti_replay := AntiReplay,
-                          stateless_tickets_seed := Seed}) ->
+                          stateless_tickets_seed := Seed,
+                          early_data := EarlyData}) ->
+    EarlyDataEnabled = (EarlyData =:= enabled),
     tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
                                                TicketStoreSize, MaxEarlyDataSize,
-                                               AntiReplay, Seed]).
+                                               AntiReplay, Seed, EarlyDataEnabled]).
 
 session_id_tracker(_, #{versions := [?TLS_1_3]}) ->
     {ok, not_relevant};

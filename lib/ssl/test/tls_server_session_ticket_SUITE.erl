@@ -114,7 +114,7 @@ init_per_testcase(_TestCase, Config)  ->
     {ok, Pid} = tls_server_session_ticket:start_link(
                   ListenSocket, ?config(server_session_tickets, Config),
                   ?LIFETIME, ?TICKET_STORE_SIZE, _MaxEarlyDataSize = 100,
-                  AntiReplay, ?SEED),
+                  AntiReplay, ?SEED, _EarlyDataEnabled = false),
     % For all anti-replay test-cases we will sleep longer than the warmup period
     case AntiReplay of
         undefined -> undefined;

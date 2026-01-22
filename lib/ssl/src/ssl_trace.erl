@@ -505,7 +505,7 @@ trace_profiles() ->
       fun(M, F, A) -> dbg:ctpl(M, F, A) end,
       [{tls_server_session_ticket,
         [{handle_call,3}, {handle_cast,2}, {handle_info,2},
-         {terminate,2}, {start_link,7},
+         {terminate,2}, {start_link,8},
          {init,1}, {initial_state,1}, {validate_binder,5}, {stateful_store,0},
          {stateful_ticket_store,6}, {stateful_use,4}, {stateful_use,6},
          {stateful_usable_ticket,5}, {stateful_living_ticket,2},
