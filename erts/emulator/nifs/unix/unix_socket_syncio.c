@@ -936,7 +936,7 @@ static void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
                                                  struct sctp_assoc_change* acp,
                                                  ERL_NIF_TERM*             eEvent);
 #endif
-#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR)
+#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR) || defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
 static ERL_NIF_TERM essio_encode_sctp_operation_error(ErlNifEnv*       env,
                                                       ESockDescriptor* descP,
                                                       uint16_t         error);
@@ -7476,7 +7476,7 @@ void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
 #endif
 
 
-#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR)
+#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR) || defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
 
 /*
  * SCTP Operation Error according to RFC 4960.
@@ -7757,7 +7757,7 @@ void essio_encode_sctp_notif_send_failed(ErlNifEnv*               env,
 
     eflags = essio_encode_sctp_notif_send_failed_flags(env, descP,
                                                        p->ssf_flags);
-    eerr   = MKUI(env, p->ssf_error); // We should translate this also...
+    eerr   = essio_encode_sctp_operation_error(env, descP, p->ssf_error);
     eaid   = MKUI(env, p->ssf_assoc_id);
 
     essio_encode_sctp_sndrcvinfo(env, descP, &p->ssf_info, &einfo);
@@ -7901,7 +7901,8 @@ void essio_encode_sctp_notif_send_failed_event(ErlNifEnv*               env,
 
     eflags = essio_encode_sctp_notif_send_failed_event_flags(env, descP,
                                                              p->SSFE_MEMBER(flags));
-    eerr   = MKUI(env, p->SSFE_MEMBER(error)); // Should translate this...
+    eerr   = essio_encode_sctp_operation_error(env, descP,
+                                               p->SSFE_MEMBER(error));
     eaid   = MKUI(env, p->SSFE_MEMBER(assoc_id));
 
     essio_encode_sctp_sndinfo(env, descP, &p->ssfe_info, &einfo);
