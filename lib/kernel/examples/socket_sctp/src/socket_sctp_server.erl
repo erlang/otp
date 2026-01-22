@@ -395,7 +395,7 @@ acceptor_loop(#{parent      := Parent,
             ?DEBUG("~s -> close socket when:"
                    "~n   Socket Info: ~p",
                    [?FUNCTION_NAME, (catch socket:info(Sock))]),
-            (catch socket:close(Sock)),
+            ?CATCH_AND_IGNORE(socket:close(Sock)),
             ?DEBUG("~s -> stopped", [?FUNCTION_NAME]),
             exit(normal);
             
@@ -404,7 +404,7 @@ acceptor_loop(#{parent      := Parent,
                    "when awaiting connection:"
                    "~n   ~p", [Info]),
             acceptor_stop_all_handlers(Connections),
-            (catch socket:close(Sock)),
+            ?CATCH_AND_IGNORE(socket:close(Sock)),
             exit({parent_died, Info});
 
         {'DOWN', MRef, process, Pid, Info} ->
@@ -554,7 +554,7 @@ handler_loop(#{sock        := Sock,
                assoc_id    := undefined,
                shutdown    := complete} = _State) ->
     ?DEBUG("~s -> shutdown complete", [?FUNCTION_NAME]),
-    (catch socket:close(Sock)),
+    ?CATCH_AND_IGNORE(socket:close(Sock)),
     exit(normal);
 
 handler_loop(#{sock     := Sock,
@@ -652,7 +652,7 @@ handler_loop(#{parent      := Parent,
         {'DOWN', MRef, process, Parent, Reason} ->
             ?ERROR("Received unexpected down from parent:"
                    "~n   Reason:  ~p", [Reason]),
-            (catch socket:close(Sock)),
+            ?CATCH_AND_IGNORE(socket:close(Sock)),
             exit({server, Reason});
 
         {'$socket', Sock, select, SelectHandle} ->
@@ -661,7 +661,7 @@ handler_loop(#{parent      := Parent,
 
         {?MODULE, Parent, terminate} ->
             ?INFO("Received terminate request"),
-            (catch socket:close(Sock)),
+            ?CATCH_AND_IGNORE(socket:close(Sock)),
             exit(normal)
     end.
 

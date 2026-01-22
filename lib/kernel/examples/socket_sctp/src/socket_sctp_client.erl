@@ -431,7 +431,7 @@ loop(#{mode     := shutdown,
                           type  => sndrcv,
                           value => EofSRI}]},
     _ = socket:sendmsg(Sock, EofMsg),
-    (catch socket:close(Sock));
+    ?CATCH_AND_IGNORE(socket:close(Sock));
     
 loop(#{sock     := Sock,
        assoc_id := AID,
@@ -466,7 +466,7 @@ loop(#{sock     := Sock,
     end;
 loop(#{sock := Sock}, [] = _Messages) ->
     ?INFO("done"),
-    (catch socket:close(Sock)),
+    ?CATCH_AND_IGNORE(socket:close(Sock)),
     exit(normal);
     
 %% Send the message
@@ -563,7 +563,7 @@ loop(#{mode        := Mode,
         {'DOWN', MRef, process, Parent, Info} ->
             ?ERROR("Received unexpected DOWN from parent:"
                "~n   ~p", [Info]),
-            (catch socket:close(Sock)),
+            ?CATCH_AND_IGNORE(socket:close(Sock)),
             exit({parent_died, Info});
 
         {'$socket', Sock, select, SelectHandle} ->
@@ -607,7 +607,7 @@ handle_echo_timeout(#{mode       := recv,
 		      select     := SelectInfo} = State, TRef)
     when (NumResend < MaxResend) andalso (SelectInfo =/= undefined) ->
     ?WARNING("echo timeout - issue resend"),
-    (catch socket:cancel(Sock, SelectInfo)),
+    ?CATCH_AND_IGNORE(socket:cancel(Sock, SelectInfo)),
     State#{mode   => send,
            resend => {NumResend, undefined},
 	   select => undefined};

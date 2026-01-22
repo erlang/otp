@@ -26,6 +26,12 @@
 
 -define(LIB, socket_sctp_lib).
 
+-define(CATCH_AND_IGNORE(EXPR),
+        try EXPR
+        catch _:_:_ ->
+                ok
+        end).
+
 -define(WHICH_DOMAIN(IP), ?LIB:which_domain((IP))).
 -define(WHICH_ADDR(D),    ?LIB:which_local_addr((D))).
 
