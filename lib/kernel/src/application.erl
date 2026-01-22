@@ -51,7 +51,7 @@ For details about applications and behaviours, see
 """.
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
 	 start/1, start/2,
-	 start_boot/1, start_boot/2, stop/1, 
+	 start_boot/1, start_boot/2, stop/1,
 	 load/1, load/2, unload/1, takeover/2,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, permit/2]).
@@ -748,13 +748,13 @@ and `vsn` application specification keys, respectively.
       Description :: string(),
       Vsn :: string().
 
-loaded_applications() -> 
+loaded_applications() ->
     application_controller:loaded_applications().
 
 -doc false.
 -spec info() -> term().
 
-info() -> 
+info() ->
     application_controller:info().
 
 -doc(#{equiv => set_env(Config, [])}).
@@ -814,7 +814,7 @@ set_env(Config, Opts) when is_list(Config), is_list(Opts) ->
       Par :: atom(),
       Val :: term().
 
-set_env(Application, Key, Val) -> 
+set_env(Application, Key, Val) ->
     application_controller:set_env(Application, Key, Val).
 
 -doc """
@@ -859,7 +859,7 @@ set_env(Application, Key, Val, Opts) when is_list(Opts) ->
       Application :: atom(),
       Par :: atom().
 
-unset_env(Application, Key) -> 
+unset_env(Application, Key) ->
     application_controller:unset_env(Application, Key).
 
 -doc """
@@ -898,7 +898,7 @@ unset_env(Application, Key, Opts) when is_list(Opts) ->
       Par :: atom(),
       Val :: term().
 
-get_env(Key) -> 
+get_env(Key) ->
     application_controller:get_pid_env(group_leader(), Key).
 
 -doc """
@@ -915,7 +915,7 @@ Returns `undefined` if any of the following applies:
       Par :: atom(),
       Val :: term().
 
-get_env(Application, Key) -> 
+get_env(Application, Key) ->
     application_controller:get_env(Application, Key).
 
 -doc """
@@ -936,7 +936,7 @@ get_env(Application, Key, Default) ->
 -spec get_all_env() -> Env when
       Env :: [{Par :: atom(), Val :: term()}].
 
-get_all_env() -> 
+get_all_env() ->
     application_controller:get_pid_all_env(group_leader()).
 
 -doc """
@@ -949,7 +949,7 @@ does not belong to any application, the function returns `[]`.
       Application :: atom(),
       Env :: [{Par :: atom(), Val :: term()}].
 
-get_all_env(Application) -> 
+get_all_env(Application) ->
     application_controller:get_all_env(Application).
 
 -doc(#{equiv => get_key(application:get_application(), Key)}).
@@ -957,7 +957,7 @@ get_all_env(Application) ->
       Key :: atom(),
       Val :: term().
 
-get_key(Key) -> 
+get_key(Key) ->
     application_controller:get_pid_key(group_leader(), Key).
 
 -doc """
@@ -974,7 +974,7 @@ Returns `undefined` if any of the following applies:
       Key :: atom(),
       Val :: term().
 
-get_key(Application, Key) -> 
+get_key(Application, Key) ->
     application_controller:get_key(Application, Key).
 
 -doc(#{equiv => get_all_key(application:get_application())}).
@@ -997,14 +997,14 @@ returns `[]`.
       Application :: atom(),
       Keys :: {'ok', [{Key :: atom(),Val :: term()},...]}.
 
-get_all_key(Application) -> 
+get_all_key(Application) ->
     application_controller:get_all_key(Application).
 
 -doc(#{equiv => get_application(self())}).
 -spec get_application() -> 'undefined' | {'ok', Application} when
       Application :: atom().
 
-get_application() -> 
+get_application() ->
     application_controller:get_application(group_leader()).
 
 -doc """
