@@ -816,7 +816,7 @@ early_data_trial_decryption(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto},
+    ClientOpts1 = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send maximum sized early data to verify calculation of plain text size
     %% in the server.
@@ -840,16 +840,16 @@ early_data_trial_decryption(Config) when is_list(Config) ->
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib,  %% Full handshake
                                                 verify_active_session_resumption,
-                                                [false]}},
+                                                [false, wait_reply, {tickets, 1}]}},
                                          {from, self()}, {options, ClientOpts1}]),
-    ssl_test_lib:check_result(Server0, ok, Client0, ok),
-
     Server0 ! {listen, {mfa, {ssl_test_lib,
                               verify_active_session_resumption,
                               [true]}}},
 
     %% Wait for session ticket
-    ct:sleep(100),
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
+    ssl_test_lib:verify_no_session_ticket_early_data_extension(Tickets0),
+    ssl_test_lib:check_result(Server0, ok),
 
     ssl_test_lib:close(Client0),
 
@@ -859,7 +859,8 @@ early_data_trial_decryption(Config) when is_list(Config) ->
                                          {mfa, {ssl_test_lib,  %% Short handshake
                                                 verify_active_session_resumption,
                                                 [true]}},
-                                         {from, self()}, {options, ClientOpts2}]),
+                                         {from, self()},
+                                         {options, [{use_ticket, Tickets0} | ClientOpts2]}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
@@ -901,18 +902,16 @@ early_data_client_too_much_data(Config) when is_list(Config) ->
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib,  %% Full handshake
                                                 verify_active_session_resumption,
-                                                [false, no_reply, {tickets, 1}]}},
+                                                [false, wait_reply, {tickets, 1}]}},
                                          {from, self()}, {options, ClientOpts1}]),
     Tickets0 = ssl_test_lib:check_tickets(Client0),
-    ssl_test_lib:verify_session_ticket_extension(Tickets0, MaxEarlyDataSize),
+    ssl_test_lib:verify_no_session_ticket_early_data_extension(Tickets0),
+    Tickets1 = ssl_test_lib:update_session_ticket_extension(Tickets0, MaxEarlyDataSize),
     %% ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
     Server0 ! {listen, {mfa, {ssl_test_lib,
                               verify_active_session_resumption,
                               [false, no_reply]}}},
-
-    %% Wait for session ticket
-    ct:sleep(100),
 
     ssl_test_lib:close(Client0),
 
@@ -922,7 +921,7 @@ early_data_client_too_much_data(Config) when is_list(Config) ->
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,
                                                       [false, no_reply, no_tickets]}},
-                                               {from, self()}, {options, [{use_ticket, Tickets0}|ClientOpts2]}]),
+                                               {from, self()}, {options, [{use_ticket, Tickets1}|ClientOpts2]}]),
     ssl_test_lib:check_client_alert(Client1, illegal_parameter),
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server0).
@@ -970,9 +969,10 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib,  %% Full handshake
                                                 verify_active_session_resumption,
-                                                [false, no_reply, {tickets, 1}]}},
+                                                [false, wait_reply, {tickets, 1}]}},
                                          {from, self()}, {options, ClientOpts1}]),
     Tickets0 = ssl_test_lib:check_tickets(Client0),
+    ssl_test_lib:verify_no_session_ticket_early_data_extension(Tickets0),
     %% Simulate a faulty client by updating the max_early_data_size extension in
     %% the received session ticket
     Tickets1 = ssl_test_lib:update_session_ticket_extension(Tickets0, 16385),
@@ -1089,7 +1089,7 @@ early_data_disabled_small_limit(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto},
+    ClientOpts1 = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send maximum sized early data to verify calculation of plain text size
     %% in the server.
@@ -1114,16 +1114,16 @@ early_data_disabled_small_limit(Config) when is_list(Config) ->
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib,  %% Full handshake
                                                 verify_active_session_resumption,
-                                                [false]}},
+                                                [false, wait_reply, {tickets, 1}]}},
                                          {from, self()}, {options, ClientOpts1}]),
-    ssl_test_lib:check_result(Server0, ok, Client0, ok),
-
     Server0 ! {listen, {mfa, {ssl_test_lib,
                               verify_active_session_resumption,
                               [true]}}},
 
     %% Wait for session ticket
-    ct:sleep(100),
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
+    ssl_test_lib:verify_no_session_ticket_early_data_extension(Tickets0),
+    ssl_test_lib:check_result(Server0, ok),
 
     ssl_test_lib:close(Client0),
 
@@ -1133,7 +1133,8 @@ early_data_disabled_small_limit(Config) when is_list(Config) ->
                                          {mfa, {ssl_test_lib,  %% Short handshake
                                                 verify_active_session_resumption,
                                                 [true]}},
-                                         {from, self()}, {options, ClientOpts2}]),
+                                         {from, self()},
+                                         {options, [{use_ticket, Tickets0} | ClientOpts2]}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
@@ -1150,7 +1151,7 @@ early_data_enabled_small_limit(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto},
+    ClientOpts1 = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send maximum sized early data to verify calculation of plain text size
     %% in the server.
@@ -1175,16 +1176,16 @@ early_data_enabled_small_limit(Config) when is_list(Config) ->
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib,  %% Full handshake
                                                 verify_active_session_resumption,
-                                                [false]}},
+                                                [false, wait_reply, {tickets, 1}]}},
                                          {from, self()}, {options, ClientOpts1}]),
-    ssl_test_lib:check_result(Server0, ok, Client0, ok),
-
     Server0 ! {listen, {mfa, {ssl_test_lib,
                               verify_active_session_resumption,
                               [true]}}},
 
     %% Wait for session ticket
-    ct:sleep(100),
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
+    ssl_test_lib:verify_session_ticket_extension(Tickets0, MaxEarlyDataSize),
+    ssl_test_lib:check_result(Server0, ok),
 
     ssl_test_lib:close(Client0),
 
@@ -1194,7 +1195,8 @@ early_data_enabled_small_limit(Config) when is_list(Config) ->
                                          {mfa, {ssl_test_lib,  %% Short handshake
                                                 verify_active_session_resumption,
                                                 [true]}},
-                                         {from, self()}, {options, ClientOpts2}]),
+                                         {from, self()},
+                                         {options, [{use_ticket, Tickets0} | ClientOpts2]}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
