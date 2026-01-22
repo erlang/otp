@@ -78,8 +78,10 @@ jobs:
                        -H "X-GitHub-Api-Version: 2022-11-28" \
                        /repos/{owner}/{repo}/collaborators/$PR_AUTHOR/permission --jq '.role_name')
 
-          MODIFIED_BEAM_FILES=$(git diff --name-only ${{github.event.pull_request.base.sha}} \
-                                                     ${{ github.event.pull_request.head.sha }} | grep '\.beam$' || true)
+          MODIFIED_BEAM_FILES=$(git diff --name-only --merge-base \
+                                         ${{github.event.pull_request.base.sha}} \
+                                         ${{github.event.pull_request.head.sha}} \
+		                | grep '\.beam$' || true)
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "maintain" && "$PERMISSION" != "Security Master" && -n "$MODIFIED_BEAM_FILES" ]]; then
              echo "::error::Workflow failed: Only maintainers can make modifications to '*.beam' files:"
              echo "$MODIFIED_BEAM_FILES"
