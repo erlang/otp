@@ -559,12 +559,14 @@ translate_update(1, 0, Update) ->
     LeaveMessages =
         [
             {leave, self(), Remove, Groups}
-         || Remove := Groups <- Leaves
+         || Remove := Groups <- Leaves,
+            Remove =/= []
         ],
     JoinMessages =
         [
             {join, self(), Group, Add}
-         || {Group, Add, _Remove} <- Update
+         || {Group, Add, _Remove} <- Update,
+            Add =/= []
         ],
     {'$plain_messages', LeaveMessages ++ JoinMessages};
 translate_update(1, _, Update) ->
