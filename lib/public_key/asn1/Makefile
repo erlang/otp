@@ -95,7 +95,7 @@ HRL_FILES = $(ASN_HRLS:%=$(INCLUDE)/%)
 # FLAGS
 # ----------------------------------------------------
 EXTRA_ERLC_FLAGS = 
-ERL_COMPILE_FLAGS += $(EXTRA_ERLC_FLAGS)
+ERL_COMPILE_FLAGS += $(EXTRA_ERLC_FLAGS) +nowarn_deprecated_catch
 
 ASN_FLAGS = -bber +der +noobj +asn1config
 

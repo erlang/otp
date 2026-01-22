@@ -33,6 +33,7 @@
 -moduledoc false.
 
 -compile(nowarn_obsolete_bool_op).
+-compile(nowarn_deprecated_catch).
 
 -export([get_fun_types/5, get_warnings/5, format_args/3]).
 

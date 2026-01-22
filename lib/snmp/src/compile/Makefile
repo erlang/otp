@@ -61,7 +61,7 @@ PARSER_TARGET = $(PARSER_MODULE).$(EMULATOR)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin +nowarn_deprecated_catch
 
 ifeq ($(SNMP_WARNING_AS_ERROR),)
   ERL_COMPILE_FLAGS += -Werror

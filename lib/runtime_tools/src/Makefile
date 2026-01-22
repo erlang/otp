@@ -76,7 +76,7 @@ ERL_COMPILE_FLAGS += \
 	-I../include \
 	-I ../../et/include \
 	-I ../../../libraries/et/include \
-	-Werror
+	-Werror +nowarn_deprecated_catch
 
 # ----------------------------------------------------
 # Targets

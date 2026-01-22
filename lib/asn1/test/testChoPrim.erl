@@ -27,6 +27,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+-compile(nowarn_deprecated_catch).
+
 bool(Rules) ->
     roundtrip('ChoCon', {bool0,true}),
     roundtrip('ChoCon', {bool1,true}),

@@ -792,7 +792,7 @@ unused_unsafe_vars_warn(Config) when is_list(Config) ->
                   _ = case ok of _ -> fun() -> ok end end,
                   fun (X) -> X end.
            ">>,
-           [warn_unused_vars],
+           [warn_unused_vars,nowarn_deprecated_catch],
            []}],
     run(Config, Ts),
     ok.
@@ -914,7 +914,7 @@ shadow_vars(Config) when is_list(Config) ->
                   _ = case ok of _ -> fun() -> ok end end,
                   fun (MS) -> MS end. % MS not shadowed here
            ">>,
-           [],
+           [nowarn_deprecated_catch],
            []}],
     [] = run(Config, Ts),
     ok.
@@ -1376,7 +1376,7 @@ unsafe_vars(Config) when is_list(Config) ->
                   case X of _ -> catch _Y = 1 end,
                   _Y."
            >>,
-           [],
+           [nowarn_deprecated_catch],
            {errors,[{{3,19},erl_lint,{unsafe_var,'_Y',{'catch',{2,34}}}}],
             []}},
            {unsafe9,
@@ -1405,7 +1405,7 @@ unsafe_vars(Config) when is_list(Config) ->
                   end,
                   {A,B,C,D}."
            >>,
-           [],
+           [nowarn_deprecated_catch],
            {errors,[{{24,20},erl_lint,{unsafe_var,'A',{'catch',{4,27}}}},
                     {{24,22},erl_lint,{unsafe_var,'B',{'case',{2,19}}}},
                     {{24,26},erl_lint,{unsafe_var,'D',{'case',{2,19}}}}],

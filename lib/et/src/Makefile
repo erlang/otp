@@ -72,7 +72,7 @@ ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/et/ebin \
 		     -pa $(ERL_TOP)/lib/wx/ebin \
 		     -I../include \
 		     -I $(ERL_TOP)/lib \
-		     -Werror
+		     -Werror +nowarn_deprecated_catch
 
 # ----------------------------------------------------
 # Special Build Targets
