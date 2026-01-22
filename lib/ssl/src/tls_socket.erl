@@ -92,7 +92,12 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
             LifeTime = ssl_config:get_ticket_lifetime(),
             TicketStoreSize = ssl_config:get_ticket_store_size(),
-            MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
+            MaxEarlyDataSize = case maps:get(early_data, SslOpts, disabled) of
+                                   disabled ->
+                                       0;
+                                   enabled ->
+                                       ssl_config:get_max_early_data_size()
+                               end,
             %% TLS-1.3 session handling
             {ok, SessionHandler} =
                 session_tickets_tracker(ListenSocket, LifeTime,

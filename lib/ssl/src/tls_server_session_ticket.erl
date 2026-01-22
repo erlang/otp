@@ -220,9 +220,14 @@ new_session_ticket_base(#state{nonce = Nonce,
 
 new_session_ticket(Id, Nonce, Lifetime, MaxEarlyDataSize) ->
     TicketAgeAdd = ticket_age_add(),
-    Extensions = #{early_data =>
-                       #early_data_indication_nst{
-                          indication = MaxEarlyDataSize}},
+    Extensions = case MaxEarlyDataSize of
+                     0 ->
+                         #{};
+                     _ ->
+                         #{early_data =>
+                                    #early_data_indication_nst{
+                                       indication = MaxEarlyDataSize}}
+                 end,
     #new_session_ticket{
        ticket = Id,
        ticket_lifetime = Lifetime,
@@ -230,7 +235,6 @@ new_session_ticket(Id, Nonce, Lifetime, MaxEarlyDataSize) ->
        ticket_nonce = ticket_nonce(Nonce),
        extensions = Extensions
       }.
-
 
 validate_binder(Binder, HandshakeHist, PSK, Prf, AlertDetail) ->
       case tls_handshake_1_3:is_valid_binder(Binder, HandshakeHist, PSK, Prf) of
