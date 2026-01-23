@@ -364,7 +364,8 @@ do_server_hello(Type, #{next_protocol_negotiation := NextProtocols} =
 
     State = server_hello(ServerHello,
 			 State1#state{handshake_env =
-                                          HsEnv#handshake_env{expecting_next_protocol_negotiation =
+                                          HsEnv#handshake_env{resumption = (Type == resumed),
+                                                              expecting_next_protocol_negotiation =
                                                                   NextProtocols =/= undefined}},
                          Connection),
     case Type of
