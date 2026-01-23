@@ -299,22 +299,17 @@ load_example_meas() ->
     load_example(meas).
 
 load_example(Example) ->
-    case code:lib_dir(megaco) of
-	{error, Reason} ->
-	    {error, Reason};
-	Dir ->
-	    ExampleDir = filename:join([Dir, doc, examples, Example]),
-	    case code:add_path(ExampleDir) of
-		true ->
-		    ok;
-		{error, What} ->
-		    error_logger:error_msg("failed adding examples ~p path: "
-					   "~n   ~p"
-					   "~n", [Example, What]),
-		    {error, {failed_add_path, Example, What}}
-	    end
+    ModulePath = code:which(?MODULE),
+    ExampleDir = filename:join([filename:dirname(ModulePath), examples, Example]),
+    case code:add_path(ExampleDir) of
+        true ->
+            ok;
+        {error, What} ->
+            error_logger:error_msg("failed adding examples ~p path: "
+                                   "~n   ~p"
+                                   "~n", [Example, What]),
+            {error, {failed_add_path, Example, What}}
     end.
-
 
 example_simple_modules() ->
     [
@@ -349,10 +344,10 @@ example_meas_mstone2_modules() ->
 
 purge_example(Mods) ->
     case code:lib_dir(megaco) of
-	{error, Reason} ->
-	    {error, Reason};
-	_Dir ->
-	    [code:purge(M) || M <- Mods]
+        {error, Reason} ->
+            {error, Reason};
+        _Dir ->
+            [code:purge(M) || M <- Mods]
     end.
 
 
