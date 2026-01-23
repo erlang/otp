@@ -394,7 +394,7 @@ acceptor_loop(#{parent      := Parent,
             acceptor_stop_all_handlers(Connections),
             ?DEBUG("~s -> close socket when:"
                    "~n   Socket Info: ~p",
-                   [?FUNCTION_NAME, (catch socket:info(Sock))]),
+                   [?FUNCTION_NAME, ?CATCH_AND_RETURN(socket:info(Sock))]),
             ?CATCH_AND_IGNORE(socket:close(Sock)),
             ?DEBUG("~s -> stopped", [?FUNCTION_NAME]),
             exit(normal);

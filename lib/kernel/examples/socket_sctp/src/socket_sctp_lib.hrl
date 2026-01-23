@@ -31,6 +31,11 @@
         catch _:_:_ ->
                 ok
         end).
+-define(CATCH_AND_RETURN(EXPR),
+        try EXPR
+        catch __C:__E ->
+                {error, {__C, __E}}
+        end).
 
 -define(WHICH_DOMAIN(IP), ?LIB:which_domain((IP))).
 -define(WHICH_ADDR(D),    ?LIB:which_local_addr((D))).
