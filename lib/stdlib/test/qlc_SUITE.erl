@@ -8014,7 +8014,7 @@ compile_file(Config, Test0, Opts0) ->
                            "-import(qlc_SUITE, [lookup_keys/1]). "
                            "-include_lib(\"stdlib/include/qlc.hrl\"). ",
                            Test0]),
-    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,nowarn_deprecated_catch,{outdir,?privdir}|Opts0],
+    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,nowarn_deprecated_catch,nowarn_match_alias_pats,{outdir,?privdir}|Opts0],
     ok = file:write_file(File, Test),
     case compile:file(File, Opts) of
         {ok, _M, Ws} -> warnings(File, Ws);

@@ -506,6 +506,15 @@ format_error_1({match_underscore_var_pat, V}) ->
       If you mean to ignore this value, use '_' or
       a different underscore-prefixed name
       """, [V]};
+format_error_1(match_alias_pats) ->
+    ~"""
+     a pattern `P1=P2` where both sides are constructors
+     may yield an error in a future version of Erlang/OTP.
+     Note that a pattern such as `{a,B}={Y,Z} -> ...` can always be
+     written in a unified form `{a=Y,B=Z} -> ...`.
+     Compile directive 'nowarn_match_alias_pats' can be used to suppress
+     warnings in selected modules.
+     """;
 format_error_1({shadowed_var,V,In}) ->
     {~"variable ~w shadowed in ~w", [V,In]};
 format_error_1({unused_var, V}) ->
@@ -886,6 +895,7 @@ bool_options() ->
      {keywords,false},
      {redefined_builtin_type,true},
      {match_float_zero,true},
+     {match_alias_pats,true},
      {update_literal,true},
      {behaviours,true},
      {conflicting_behaviours,true},
@@ -2138,12 +2148,16 @@ pattern({op,_Anno,'++',{cons,Ai,{integer,_A2,_I},T},R}, Vt, Old, St) ->
     pattern({op,Ai,'++',T,R}, Vt, Old, St);    %Weird, but compatible!
 pattern({op,_Anno,'++',{string,_Ai,_S},R}, Vt, Old, St) ->
     pattern(R, Vt, Old, St);                   %String unimportant here
-pattern({match,_Anno,Pat1,Pat2}, Vt0, Old, St0) ->
+pattern({match,Anno,Pat1,Pat2}, Vt0, Old, St0) ->
     {Lvt, Lnew, St1} = pattern(Pat1, Vt0, Old, St0),
     {Rvt, Rnew, St2} = pattern(Pat2, Vt0, Old, St1),
     {Vt1, St3} = vtmerge_pat(Lvt, Rvt, St2),
     {New, St4} = vtmerge_pat(Lnew, Rnew, St3),
-    {Vt1, New, St4};
+    St5 = case only_vars(Pat1) orelse only_vars(Pat2) of
+              true -> St4;
+              false -> maybe_add_warning(Anno, match_alias_pats, St4)
+          end,
+    {Vt1, New, St5};
 %% Catch legal constant expressions, including unary +,-.
 pattern(Pat, _Vt, _Old, St) ->
     case is_pattern_expr(Pat) of
@@ -2158,6 +2172,14 @@ pattern_list(Ps, Vt0, Old, St) ->
                   {New, St3} = vtmerge_pat(Psnew, Pnew, St2),
                   {Vt1, New, St3}
           end, {[],[],St}, Ps).
+
+only_vars({var,_,_}) ->
+    true;
+only_vars({match,_,P1,P2}) ->
+    only_vars(P1) andalso only_vars(P2);
+only_vars(_) ->
+    false.
+
 
 %% Check for '_' initializing no fields.
 check_multi_field_init(Fs, Anno, Fields, St) ->
