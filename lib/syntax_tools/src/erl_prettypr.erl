@@ -38,7 +38,6 @@ This module is a front end to the pretty-printing library module `prettypr`, for
 text formatting of abstract syntax trees defined by the module `erl_syntax`.
 """.
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 -export([format/1, format/2, best/1, best/2, layout/1, layout/2,
@@ -1565,7 +1564,7 @@ is_last_and_before_empty_line(H, [], #ctxt{empty_lines = EmptyLines}) ->
     catch error:badarith -> false
     end;
 is_last_and_before_empty_line(H, [H2 | _], #ctxt{empty_lines = EmptyLines}) ->
-    try ((get_line(H2) - get_line(H)) >= 2) and sets:is_element(get_line(H) + 1, EmptyLines)
+    try get_line(H2) - get_line(H) >= 2 andalso sets:is_element(get_line(H) + 1, EmptyLines)
     catch error:badarith -> false
     end.
 
