@@ -40,21 +40,13 @@ ERL_NIF_TERM enable_fips_mode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode_to_set)
 #ifdef FIPS_SUPPORT
 {
-    bool previous_setting = FIPS_MODE();
     bool fips_mode = fips_mode_to_set == atom_true;
 
     /* Badarg if not atom 'true' and the false value is not coming from atom 'false' */
     if (!fips_mode && fips_mode_to_set != atom_false) {
         return enif_make_badarg(env);
     }
-    else {
-        bool result = FIPS_mode_set(fips_mode);
-        if (result && previous_setting != fips_mode) {
-            /* Reinitialize the algorithms which may disappear or reappear when FIPS mode changes */
-            algorithms_reset_cache();
-        }
-        return result ? atom_true : atom_false;
-    }
+    return FIPS_mode_set(fips_mode) ? atom_true : atom_false;
 }
 #else
 {

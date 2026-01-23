@@ -52,6 +52,13 @@
 #include <openssl/hmac.h>
 #include <openssl/err.h>
 
+/* Modified old versions of OpenSSL, when building for Apple Silicon, might not have this constant */
+#ifndef EVP_CTRL_AEAD_SET_IVLEN
+# define         EVP_CTRL_AEAD_SET_IVLEN         0x9
+# define         EVP_CTRL_AEAD_GET_TAG           0x10
+# define         EVP_CTRL_AEAD_SET_TAG           0x11
+#endif
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAS_3_0_API
 # include <openssl/provider.h>
