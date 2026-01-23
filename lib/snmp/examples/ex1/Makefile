@@ -91,9 +91,9 @@ info:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_spec:
+release_spec: opt
 
-release_docs_spec: opt
+release_docs_spec:
 	$(INSTALL_DIR) $(EXAMPLE_RELSYSDIR)
 	$(INSTALL_DIR) $(EX1_RELSYSDIR)
 	$(INSTALL_DATA) $(MIB_FILES) $(EX1_RELSYSDIR)

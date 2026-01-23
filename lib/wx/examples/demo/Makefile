@@ -82,11 +82,11 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 docs:
 
-release_spec:
+release_spec: opt
 
 release_tests_spec:
 
-release_docs_spec:  opt
+release_docs_spec:
 	$(INSTALL_DIR) $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTSRC)  $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTTARGETS) $(EXRELSYSDIR)

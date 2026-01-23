@@ -124,9 +124,9 @@ dialyzer: $(DIA_PLT)
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_spec:
+release_spec: opt
 
-release_docs_spec: opt
+release_docs_spec:
 	$(INSTALL_DIR) $(EXAMPLE_RELSYSDIR)
 	$(INSTALL_DIR) $(EX2_RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(EX2_RELSYSDIR)

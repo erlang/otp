@@ -165,6 +165,6 @@ release_spec: opt
 	$(INSTALL_SCRIPT) $(EXECUTABLES) "$(RELSYSDIR)/priv/bin"
 	$(INSTALL_DATA) $(PNGFILES) "$(RELSYSDIR)/priv"
 
-release_docs_spec: opt
+release_docs_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples"
 	$(INSTALL_DATA) $(EXAMPLE_FILES) "$(RELSYSDIR)/doc/examples"

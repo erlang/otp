@@ -175,9 +175,9 @@ docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_spec:
+release_spec: opt
 
-release_docs_spec: opt
+release_docs_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/auth"
 	$(INSTALL_DATA) $(AUTH_FILES) "$(RELSYSDIR)/doc/examples/server_root/auth"
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/cgi-bin"

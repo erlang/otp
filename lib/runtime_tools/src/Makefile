@@ -109,6 +109,6 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
 
-release_docs_spec: opt
+release_docs_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples"
 	$(INSTALL_DATA) $(EXAMPLE_FILES) "$(RELSYSDIR)/doc/examples"
