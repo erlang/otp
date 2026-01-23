@@ -2084,9 +2084,11 @@ static ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env,
 
 static BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how);
 
+#if defined(HAVE_SCTP)
 static BOOLEAN_T esock_decode_action(ErlNifEnv*   env,
                                      ERL_NIF_TERM eAction,
                                      int*         action);
+#endif
 
 
 /*
@@ -5861,14 +5863,13 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
 
 
 /* This function is only used for SCTP and if we do not "have" sctp,
- * it should not be called. But just to be on the safe side, return FALSE.
  */
+#if defined(HAVE_SCTP)
 static
 BOOLEAN_T esock_decode_action(ErlNifEnv*   env,
                               ERL_NIF_TERM eAction,
                               int*         action)
 {
-#if defined(HAVE_SCTP)
     BOOLEAN_T res;
     int       a;
 
@@ -5886,10 +5887,8 @@ BOOLEAN_T esock_decode_action(ErlNifEnv*   env,
     *action = a;
 
     return res;
-#else
-    return FALSE;
-#endif
 }
+#endif
 
 
 
