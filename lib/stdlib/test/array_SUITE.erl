@@ -102,7 +102,7 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
--define(LEAFSIZE,10).
+-define(LEAFSIZE,8).
 -define(NODESIZE,?LEAFSIZE).
 
 -record(array,  {size,		%% number of defined entries
@@ -141,7 +141,7 @@ end_per_testcase(_Case, _Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Some helpers to be able to run the tests without testserver
 %%%%%%%%%%%%%%%%%%%%%%%%%
-t() -> t([all]).
+t() -> t(all()).
 
 t(What) when not is_list(What) ->
     t([What]);
@@ -243,19 +243,19 @@ new_test_() ->
      ?_assertError(badarg, new(10.0, [])),
      ?_assertError(badarg, new(undefined, [])),
 
-     ?_assertMatch(#array{size=0,fix=false,default=undefined,elements=N0},
+     ?_assertMatch(#array{size=0,fix=false,default=undefined},
 		   new()),
-     ?_assertMatch(#array{size=0,fix=true,default=undefined,elements=N0},
+     ?_assertMatch(#array{size=0,fix=true,default=undefined},
 		   new(fixed)),
-     ?_assertMatch(#array{size=N0,fix=false,elements=N0},
+     ?_assertMatch(#array{size=N0,fix=false},
 		   new(N0, {fixed,false})),
-     ?_assertMatch(#array{size=N01,fix=false,elements=N1},
+     ?_assertMatch(#array{size=N01,fix=false},
 		   new(N01, {fixed,false})),
-     ?_assertMatch(#array{size=N1,fix=false,elements=N1},
+     ?_assertMatch(#array{size=N1,fix=false},
 		   new(N1, {fixed,false})),
-     ?_assertMatch(#array{size=N11,fix=false,elements=N2},
+     ?_assertMatch(#array{size=N11,fix=false},
 		   new(N11, {fixed,false})),
-     ?_assertMatch(#array{size=N2, fix=false, default=42,elements=N2},
+     ?_assertMatch(#array{size=N2, fix=false, default=42},
 		   new(N2, [{fixed,false},{default,42}])),
 
      ?_assert(0 =:= array:size(new())),
@@ -714,12 +714,11 @@ foldl_test_() ->
      ?_assert(foldl(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
      ?_assert(foldl(Reverse, [], from_list(lists:seq(0,1000)))
 	      =:= lists:reverse(lists:seq(0,1000))),
-     ?_assert({999,[N0*100+1+2,N0*2+1+1,0]} =:= 
-	      foldl(Vals, {0,[]}, 
-		    set(N0*100+1,2,
-			set(N0*2+1,1,
-			    set(0,0,new())))))
-     
+     ?_assert({N0*100-1,[N0*100+1+2,N0*2+1+1,0]} =:=
+              foldl(Vals, {0,[]},
+                    set(N0*100+1,2,
+                        set(N0*2+1,1,
+                            set(0,0,new())))))
     ].
 
 sparse_foldl_test_() ->
@@ -769,12 +768,11 @@ foldr_test_() ->
      ?_assert(foldr(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
      ?_assert(foldr(List, [], from_list(lists:seq(0,1000)))
  	      =:= lists:seq(0,1000)),
-     ?_assert({999,[0,N0*2+1+1,N0*100+1+2]} =:= 
-	      foldr(Vals, {0,[]}, 
-		    set(N0*100+1,2,
-			set(N0*2+1,1,
-			    set(0,0,new())))))
-     
+     ?_assert({N0*100-1,[0,N0*2+1+1,N0*100+1+2]} =:=
+                  foldr(Vals, {0,[]},
+                        set(N0*100+1,2,
+                            set(N0*2+1,1,
+                                set(0,0,new())))))
     ].
 
 sparse_foldr_test_() ->

@@ -116,15 +116,11 @@ beyond the last set entry:
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
+-compile({inline, [get_max/1]}).
 
 
-%% Developers: 
-%% 
-%% For OTP devs: Both tests and documentation is extracted from this
-%% file, keep and update this file, 
-%% test are extracted with array_SUITE:extract_tests().
-%% Doc with docb_gen array.erl
-%%  
+%% Developers:
+%%
 %% The key to speed is to minimize the number of tests, on
 %% large input. Always make the most probable path as short as possible.
 %% In particular, keep in mind that for large trees, the probability of
@@ -155,29 +151,32 @@ beyond the last set entry:
 %% per write than base 10, but the speedup is only 21%.)
 
 -define(DEFAULT, undefined).
--define(LEAFSIZE, 10).         % the "base" (assumed to be > 1)
+-define(LEAFSIZE, 16).         % the "base" (assumed to be > 1)
+-define(MASK, 15).             % LEAFSIZE - 1, for bitwise rem operation
+-define(MASK(X), ((1 bsl (X))-1)).
+-define(SHIFT, 4).             % log2(LEAFSIZE), for bitwise div operation
+-define(SIZE(M), (1 bsl (M))).
 -define(NODESIZE, ?LEAFSIZE).  % must not be LEAFSIZE-1; keep same as leaf
--define(NODEPATTERN(S), {_,_,_,_,_,_,_,_,_,_,S}). % NODESIZE+1 elements!
--define(NEW_NODE(E,S),  % general case (currently unused)
-        setelement((?NODESIZE+1),erlang:make_tuple((?NODESIZE+1),(E)),(S))).
+-define(NODEPATTERN(S), {_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,S}). % NODESIZE+1 elements!
 -define(NEW_NODE(S), erlang:make_tuple((?NODESIZE+1),(S))).  % when E = S
 -define(NEW_LEAF(D), erlang:make_tuple(?LEAFSIZE,(D))).
--define(NODELEAFS, ?NODESIZE*?LEAFSIZE).
 
 -define(NEW_CACHE(D), ?NEW_LEAF(D)).
 
 %% These make the code a little easier to experiment with.
 %% It turned out that using shifts (when NODESIZE=2^n) was not faster.
--define(reduce(X), ((X) div (?NODESIZE))).
--define(extend(X), ((X) * (?NODESIZE))).
+-define(reduce(X), ((X) - ?SHIFT)).
+-define(extend(X), ((X) + ?SHIFT)).
 
 %%--------------------------------------------------------------------------
 
--type leaf_tuple(T) :: {T, T, T, T, T, T, T, T, T, T}.
+-type leaf_tuple(T) :: {T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T}.
 
 -type element_tuple(T) ::
         leaf_tuple(T)
       | {element_tuple(T), element_tuple(T), element_tuple(T),
+         element_tuple(T), element_tuple(T), element_tuple(T),
+         element_tuple(T), element_tuple(T), element_tuple(T),
          element_tuple(T), element_tuple(T), element_tuple(T),
          element_tuple(T), element_tuple(T), element_tuple(T),
          element_tuple(T), non_neg_integer()}.
@@ -335,14 +334,14 @@ new_1(_Options, _Size, _Fixed, _Default) ->
     erlang:error(badarg).
 
 new(Size, Fixed, Default) ->
-    E = find_max(Size - 1, ?LEAFSIZE),
+    E = find_max(Size - 1, ?SHIFT),
     C = ?NEW_CACHE(Default),
     #array{size = Size, fix = Fixed, cache = C, cache_index = 0,
            default = Default, elements = E}.
 
 -spec find_max(integer(), non_neg_integer()) -> non_neg_integer().
 
-find_max(I, M) when I >= M ->
+find_max(I, M) when I >= (1 bsl M) ->
     find_max(I, ?extend(M));
 find_max(_I, M) ->
     M.
@@ -350,9 +349,9 @@ find_max(_I, M) ->
 -spec get_max(elements(_)) -> non_neg_integer().
 
 get_max(?NODEPATTERN(M)) ->
-    ?extend(M);
+    1 bsl ?extend(M);
 get_max(M) when is_integer(M) ->
-    M;
+    1 bsl M;
 get_max(_) -> ?LEAFSIZE.
 
 
@@ -480,22 +479,24 @@ fix(#array{}=A) ->
     A#array{fix = true}.
 
 %% similar to set_1()
-set_leaf(I, E=?NODEPATTERN(S), C) ->
-    I1 = I div S + 1,
-    setelement(I1, E, set_leaf(I rem S, element(I1, E), C));
+set_leaf(I, E=?NODEPATTERN(Shift), C) ->
+    IDiv = I bsr Shift,
+    IRem = I band ?MASK(Shift),
+    I1 = IDiv+1,
+    setelement(I1, E, set_leaf(IRem, element(I1, E), C));
 set_leaf(I, E, C) when is_integer(E) ->
     set_leaf_1(I, E, C);
 set_leaf(_I, _E, C) ->
     C.
 
 %% similar to expand()
-set_leaf_1(I, S, C) when S > ?LEAFSIZE ->
-    S1 = ?reduce(S),
-    setelement(I div S1 + 1, ?NEW_NODE(S1),
-	       set_leaf_1(I rem S1, S1, C));
+set_leaf_1(I, S, C) when ?SIZE(S) > ?LEAFSIZE ->
+    Shift = ?reduce(S),
+    IDiv = I bsr Shift,
+    IRem = I band ?MASK(Shift),
+    setelement(IDiv+1, ?NEW_NODE(Shift), set_leaf_1(IRem, Shift, C));
 set_leaf_1(_I, _S, C) ->
     C.
-
 
 -doc """
 Checks if the array has fixed size. Returns `true` if the array is fixed,
@@ -551,7 +552,9 @@ relax(#array{size = N, elements = E, default = D}=A) when is_integer(N), N >= 0 
 
 %% similar to get_1
 get_leaf(I, E=?NODEPATTERN(S), D) ->
-    get_leaf(I rem S, element(I div S + 1, E), D);
+    IDiv = I bsr S,
+    IRem = I band ?MASK(S),
+    get_leaf(IRem, element(IDiv + 1, E), D);
 get_leaf(_I, E, D) when is_integer(E) ->
     ?NEW_CACHE(D);
 get_leaf(_I, E, _D) ->
@@ -586,7 +589,8 @@ the specified array has fixed size, also the resulting array has fixed size.
 resize(Size, #array{size = N, fix = Fix, cache = C, cache_index = CI, elements = E, default = D}=A)
   when is_integer(Size), Size >= 0,
        is_integer(N), N >= 0,
-       is_boolean(Fix) ->
+       is_boolean(Fix),
+       is_integer(CI) ->
     if Size > N ->
 	    A#array{size = Size, elements = grow(Size-1, E, get_max(E))};
        Size < N ->
@@ -611,15 +615,17 @@ shrink(I, E, D) ->
 
 %% I is the largest index, 0 or more (empty arrays handled above)
 shrink_1(I, E=?NODEPATTERN(S), D) when I < S ->
-    shrink_1(I rem S, element(1, E), D);
+    shrink_1(I band ?MASK(S), element(1, E), D);
 shrink_1(I, E=?NODEPATTERN(S), D) ->
-    E1 = prune(E, I div S, ?NODESIZE, S),
-    I1 = I div S + 1,
+    IDiv = I bsr S,
+    IRem = I band ?MASK(S),
+    E1 = prune(E, IDiv, ?NODESIZE, S),
+    I1 = IDiv + 1,
     case element(I1, E1) of
         E2 when is_integer(E2) ->
             E1;
         E2 ->
-            setelement(I1, E1, shrink_1(I rem S, E2, D))
+            setelement(I1, E1, shrink_1(IRem, E2, D))
     end;
 shrink_1(I, E, D) ->
     prune(E, I, ?LEAFSIZE, D).
@@ -696,12 +702,12 @@ See also `get/2`, `reset/2`.
 -spec set(I :: array_indx(), Value :: Type, Array :: array(Type)) -> array(Type).
 
 set(I, Value, #array{size = N, fix = Fix, cache = C, cache_index = CI, default = D, elements = E}=A)
-  when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
+  when is_integer(I), I >= 0, is_integer(N), is_integer(CI) ->
     if I < N ->
             if I >= CI, I < CI + ?LEAFSIZE ->
                     A#array{cache = setelement(1 + I - CI, C, Value)};
                true ->
-                    R = I rem ?LEAFSIZE,
+                    R = I band ?MASK,
                     CI1 = I - R,
                     E1 = set_leaf(CI, E, C),
                     C1 = get_leaf(CI1, E1, D),
@@ -713,7 +719,7 @@ set(I, Value, #array{size = N, fix = Fix, cache = C, cache_index = CI, default =
        true ->
             M = get_max(E),
             if I < M ->
-                    R = I rem ?LEAFSIZE,
+                    R = I band ?MASK,
                     CI1 = I - R,
                     if CI1 =/= CI ->
                             E1 = set_leaf(CI, E, C),
@@ -728,7 +734,7 @@ set(I, Value, #array{size = N, fix = Fix, cache = C, cache_index = CI, default =
                true ->
                     E1 = grow(I, E, M),
                     E2 = set_leaf(CI, E1, C),
-                    R = I rem ?LEAFSIZE,
+                    R = I band ?MASK,
                     CI1 = I - R,
                     C1 = get_leaf(CI1, E2, D),
                     C2 = setelement(1 + R, C1, Value),
@@ -763,10 +769,10 @@ set(_I, _V, _A) ->
 
 grow(I, E, _M) when is_integer(I), is_integer(E) ->
     find_max(I, E);
-grow(I, E, M) ->
-    grow_1(I, E, M).
+grow(I, ?NODEPATTERN(S)=E, _) ->
+    grow_1(I, E, ?extend(S)).
 
-grow_1(I, E, M) when I >= M ->
+grow_1(I, E, M) when I >= ?SIZE(M) ->
     grow_1(I, setelement(1, ?NEW_NODE(M), E), ?extend(M));
 grow_1(_I, E, _M) ->
     E.
@@ -786,13 +792,13 @@ See also `set/3`.
 -spec get(I :: array_indx(), Array :: array(Type)) -> Value :: Type.
 
 get(I, #array{size = N, fix = Fix, cache = C, cache_index = CI, elements = E, default = D})
-  when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
+  when is_integer(I), I >= 0, is_integer(N), is_integer(CI) ->
     if I < N ->
             if I >= CI, I < CI + ?LEAFSIZE ->
                     element(1 + I - CI, C);
                true ->
                     get_1(I, E, D)
-            end;
+            end; 
        Fix ->
 	    erlang:error(badarg);
        true ->
@@ -806,7 +812,9 @@ get(_I, _A) ->
 %% (using the Beam compiler in OTP 11).
 
 get_1(I, E=?NODEPATTERN(S), D) ->
-    get_1(I rem S, element(I div S + 1, E), D);
+    IDiv = I bsr S,
+    IRem = I band ?MASK(S),
+    get_1(IRem, element(IDiv + 1, E), D);
 get_1(_I, E, D) when is_integer(E) ->
     D;
 get_1(I, E, _D) ->
@@ -831,7 +839,7 @@ See also `new/2`, `set/3`.
 -spec reset(I :: array_indx(), Array :: array(Type)) -> array(Type).
 
 reset(I, #array{size = N, fix = Fix, cache = C, cache_index = CI, default = D, elements = E}=A)
-    when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
+    when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix), is_integer(CI) ->
     if I < N ->
             if I >= CI, I < CI + ?LEAFSIZE ->
                     A#array{cache = setelement(1 + I - CI, C, D)};
@@ -849,8 +857,10 @@ reset(_I, _A) ->
     erlang:error(badarg).
 
 reset_1(I, E=?NODEPATTERN(S), D) ->
-    I1 = I div S + 1,
-    setelement(I1, E, reset_1(I rem S, element(I1, E), D));
+    IDiv = I bsr S,
+    IRem = I band ?MASK(S),
+    I1 = IDiv + 1,
+    setelement(I1, E, reset_1(IRem, element(I1, E), D));
 reset_1(_I, E, _D) when is_integer(E) ->
     throw(default);
 reset_1(I, E, D) ->
@@ -922,7 +932,8 @@ See also `from_list/2`, `sparse_to_list/1`.
 
 to_list(#array{size = 0}) ->
     [];
-to_list(#array{size = N, cache = C, cache_index = CI, elements = E, default = D}) when is_integer(N) ->
+to_list(#array{size = N, cache = C, cache_index = CI, elements = E, default = D})
+  when is_integer(N), is_integer(CI) ->
     E1 = set_leaf(CI, E, C),
     to_list_1(E1, D, N - 1);
 to_list(_) ->
@@ -931,8 +942,9 @@ to_list(_) ->
 %% this part handles the rightmost subtrees
 
 to_list_1(E=?NODEPATTERN(S), D, I) ->
-    N = I div S,
-    to_list_3(N, D, to_list_1(element(N+1, E), D, I rem S), E);
+    N = I bsr S,
+    IRem = I band ?MASK(S),
+    to_list_3(N, D, to_list_1(element(N+1, E), D, IRem), E);
 to_list_1(E, D, I) when is_integer(E) ->
     push(I+1, D, []);
 to_list_1(E, _D, I) ->
@@ -943,7 +955,7 @@ to_list_1(E, _D, I) ->
 to_list_2(E=?NODEPATTERN(_S), D, L) ->
     to_list_3(?NODESIZE, D, L, E);
 to_list_2(E, D, L) when is_integer(E) ->
-    push(E, D, L);
+    push(?SIZE(E), D, L);
 to_list_2(E, _D, L) ->
     push_tuple(?LEAFSIZE, E, L).
 
@@ -997,7 +1009,7 @@ See also `to_list/1`.
 
 sparse_to_list(#array{size = 0}) ->
     [];
-sparse_to_list(#array{size = N, cache = C, cache_index = CI, elements = E, default = D}) when is_integer(N) ->
+sparse_to_list(#array{size = N, cache = C, cache_index = CI, elements = E, default = D}) when is_integer(N), is_integer(CI) ->
     E1 = set_leaf(CI, E, C),
     sparse_to_list_1(E1, D, N - 1);
 sparse_to_list(_) ->
@@ -1006,9 +1018,10 @@ sparse_to_list(_) ->
 %% see to_list/1 for details
 
 sparse_to_list_1(E=?NODEPATTERN(S), D, I) ->
-    N = I div S,
+    N = I bsr S,
+    IRem = I band ?MASK(S),
     sparse_to_list_3(N, D,
-		     sparse_to_list_1(element(N+1, E), D, I rem S),
+		     sparse_to_list_1(element(N+1, E), D, IRem),
 		     E);
 sparse_to_list_1(E, _D, _I) when is_integer(E) ->
     [];
@@ -1100,9 +1113,9 @@ from_list_1(0, Xs, D, N, As, Es) ->
 	[] ->
 	    case Es of
 		[] ->
-		    {E, N, ?LEAFSIZE};
+		    {E, N, ?SHIFT};
 		_ ->
-		    from_list_2_0(N, [E | Es], ?LEAFSIZE)
+		    from_list_2_0(N, [E | Es], ?SHIFT)
 	    end;
 	[_|_] ->
 	    from_list_1(?LEAFSIZE, Xs, D, N, [], [E | Es]);
@@ -1119,7 +1132,7 @@ from_list_1(I, Xs, D, N, As, Es) ->
 
 %% Building the internal nodes (note that the input is reversed).
 from_list_2_0(N, Es, S) ->
-    from_list_2(?NODESIZE, pad((N-1) div S + 1, ?NODESIZE, S, Es),
+    from_list_2(?NODESIZE, pad(((N-1) bsr S) + 1, ?NODESIZE, S, Es),
 		S, N, [S], []).
 
 from_list_2(0, Xs, S, N, As, Es) ->
@@ -1235,7 +1248,7 @@ from_fun_1(0, D, Fun, VS, N, As, Es) ->
 		[] ->
 		    {E, N, ?LEAFSIZE};
 		_ ->
-		    from_list_2_0(N, [E | Es], ?LEAFSIZE)
+		    from_list_2_0(N, [E | Es], ?SHIFT)
 	    end;
 	_ ->
 	    from_fun_1(?LEAFSIZE, D, Fun, VS, N, [], [E | Es])
@@ -1257,7 +1270,7 @@ See also `from_orddict/2`, `sparse_to_orddict/1`.
 
 to_orddict(#array{size = 0}) ->
     [];
-to_orddict(#array{size = N, cache = C, cache_index = CI, elements = E, default = D}) when is_integer(N) ->
+to_orddict(#array{size = N, cache = C, cache_index = CI, elements = E, default = D}) when is_integer(N), is_integer(CI) ->
     E1 = set_leaf(CI, E, C),
     I = N - 1,
     to_orddict_1(E1, I, D, I);
@@ -1267,8 +1280,8 @@ to_orddict(_) ->
 %% see to_list/1 for comparison
 
 to_orddict_1(E=?NODEPATTERN(S), R, D, I) ->
-    N = I div S,
-    I1 = I rem S,
+    N = I bsr S,
+    I1 = I band ?MASK(S),
     to_orddict_3(N, R - I1 - 1, D,
  		 to_orddict_1(element(N+1, E), R, D, I1),
  		 E, S);
@@ -1280,14 +1293,14 @@ to_orddict_1(E, R, _D, I) ->
 to_orddict_2(E=?NODEPATTERN(S), R, D, L) when is_integer(S) ->
     to_orddict_3(?NODESIZE, R, D, L, E, S);
 to_orddict_2(E, R, D, L) when is_integer(E) ->
-    push_pairs(E, R, D, L);
+    push_pairs(?SIZE(E), R, D, L);
 to_orddict_2(E, R, _D, L) ->
     push_tuple_pairs(?LEAFSIZE, R, E, L).
 
 to_orddict_3(0, _R, _D, L, _E, _S) -> %% when is_integer(R) ->
     L;
 to_orddict_3(N, R, D, L, E, S) ->
-    to_orddict_3(N-1, R - S, D,
+    to_orddict_3(N-1, R - ?SIZE(S), D,
  		 to_orddict_2(element(N, E), R, D, L),
  		 E, S).
 
@@ -1352,7 +1365,7 @@ See also `to_orddict/1`.
 sparse_to_orddict(#array{size = 0}) ->
     [];
 sparse_to_orddict(#array{size = N, cache = C, cache_index = CI, elements = E, default = D})
-  when is_integer(N) ->
+  when is_integer(N), is_integer(CI) ->
     E1 = set_leaf(CI, E, C),
     I = N - 1,
     sparse_to_orddict_1(E1, I, D, I);
@@ -1362,8 +1375,8 @@ sparse_to_orddict(_) ->
 %% see to_orddict/1 for details
 
 sparse_to_orddict_1(E=?NODEPATTERN(S), R, D, I) ->
-    N = I div S,
-    I1 = I rem S,
+    N = I bsr S,
+    I1 = I band ?MASK(S),
     sparse_to_orddict_3(N, R - I1 - 1, D,
  		 sparse_to_orddict_1(element(N+1, E), R, D, I1),
  		 E, S);
@@ -1382,7 +1395,7 @@ sparse_to_orddict_2(E, R, D, L) ->
 sparse_to_orddict_3(0, _R, _D, L, _E, _S) -> % when is_integer(R) ->
     L;
 sparse_to_orddict_3(N, R, D, L, E, S) ->
-    sparse_to_orddict_3(N-1, R - S, D,
+    sparse_to_orddict_3(N-1, R - ?SIZE(S), D,
  		 sparse_to_orddict_2(element(N, E), R, D, L),
  		 E, S).
 
@@ -1470,14 +1483,14 @@ from_orddict_0([], N, _Max, _D, Es) ->
 	[E] -> 
 	    {E, N, ?LEAFSIZE};
 	_ -> 
-	    collect_leafs(N, Es, ?LEAFSIZE)
+	    collect_leafs(N, Es, ?SHIFT)
     end;
 
 from_orddict_0(Xs=[{Ix1, _}|_], Ix, Max0, D, Es0) 
   when is_integer(Ix1), Ix1 > Max0  ->
     %% We have a hole larger than a leaf
     Hole = Ix1-Ix,
-    Step = Hole - (Hole rem ?LEAFSIZE),
+    Step = Hole - (Hole band ?MASK),
     Next = Ix+Step,
     from_orddict_0(Xs, Next, Next+?LEAFSIZE, D, [Step|Es0]);
 from_orddict_0(Xs0=[{_, _}|_], Ix0, Max, D, Es) ->
@@ -1507,8 +1520,8 @@ from_orddict_1(Ix, Max, Xs, N0, D, As) ->
 
 %% Es is reversed i.e. starting from the largest leafs
 collect_leafs(N, Es, S) -> 
-    I = (N-1) div S + 1,
-    Pad = ((?NODESIZE - (I rem ?NODESIZE)) rem ?NODESIZE) * S,
+    I = ((N-1) bsr S) + 1,
+    Pad = ((?NODESIZE - (I rem ?NODESIZE)) rem ?NODESIZE) * ?SIZE(S),
     case Pad of
 	0 -> 
 	    collect_leafs(?NODESIZE, Es, S, N, [S], []);
@@ -1533,7 +1546,7 @@ collect_leafs(0, Xs, S, N, As, Es) ->
 collect_leafs(I, [X | Xs], S, N, As0, Es0) 
   when is_integer(X) ->
     %% A hole, pad accordingly.
-    Step0 = (X div S),
+    Step0 = (X bsr S),
     if 
 	Step0 < I ->
 	    As = push(Step0, S, As0),
@@ -1548,7 +1561,7 @@ collect_leafs(I, [X | Xs], S, N, As0, Es0)
 	true ->
 	    As = push(I, S, As0),
 	    Step = Step0 - I,
-	    collect_leafs(0, [Step*S|Xs], S, N, As, Es0)
+	    collect_leafs(0, [Step bsl S|Xs], S, N, As, Es0)
     end;
 collect_leafs(I, [X | Xs], S, N, As, Es) ->
     collect_leafs(I-1, Xs, S, N, [X | As], Es);
@@ -1645,7 +1658,7 @@ See also `foldl/3`, `foldr/3`, `sparse_map/2`.
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
 map(Function, Array=#array{size = N, cache = C, cache_index = CI, elements = E, default = D})
-  when is_function(Function, 2), is_integer(N) ->
+  when is_function(Function, 2), is_integer(N), is_integer(CI) ->
     if N > 0 ->
             E1 = set_leaf(CI, E, C),
 	    A = Array#array{elements = []}, % kill reference, for GC
@@ -1666,7 +1679,7 @@ map(_, _) ->
 
 map_1(N, E=?NODEPATTERN(S), Ix, F, D) ->
     list_to_tuple(lists:reverse([S | map_2(1, E, Ix, F, D, [],
-					   N div S + 1, N rem S, S)]));
+					   (N bsr S) + 1, N band ?MASK(S), S)]));
 map_1(N, E, Ix, F, D) when is_integer(E) ->
     map_1(N, unfold(E, D), Ix, F, D);
 map_1(N, E, Ix, F, D) ->
@@ -1675,8 +1688,9 @@ map_1(N, E, Ix, F, D) ->
 map_2(I, E, Ix, F, D, L, I, R, _S) ->
     map_2_1(I+1, E, [map_1(R, element(I, E), Ix, F, D) | L]);
 map_2(I, E, Ix, F, D, L, N, R, S) ->
-    map_2(I+1, E, Ix + S, F, D, 
-	  [map_1(S-1, element(I, E), Ix, F, D) | L],
+    Sz = ?SIZE(S),
+    map_2(I+1, E, Ix + Sz, F, D,
+	  [map_1(Sz-1, element(I, E), Ix, F, D) | L],
 	  N, R, S).
 
 map_2_1(I, E, L) when I =< ?NODESIZE ->
@@ -1695,7 +1709,7 @@ map_3(_I, _E, _Ix, _F, _D, _N, L) ->
     L.
 
 
-unfold(S, _D) when S > ?LEAFSIZE ->
+unfold(S, _D) when ?SIZE(S) > ?LEAFSIZE ->
     ?NEW_NODE(?reduce(S));
 unfold(_S, D) ->
     ?NEW_LEAF(D).
@@ -1741,7 +1755,7 @@ See also `map/2`.
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
 sparse_map(Function, Array=#array{size = N, cache = C, cache_index = CI, elements = E, default = D})
-  when is_function(Function, 2), is_integer(N) ->
+  when is_function(Function, 2), is_integer(N), is_integer(CI) ->
     if N > 0 ->
             E1 = set_leaf(CI, E, C),
 	    A = Array#array{elements = []}, % kill reference, for GC
@@ -1760,8 +1774,8 @@ sparse_map(_, _) ->
 
 sparse_map_1(N, E=?NODEPATTERN(S), Ix, F, D) ->
     list_to_tuple(lists:reverse([S | sparse_map_2(1, E, Ix, F, D, [],
-						  N div S + 1,
-						  N rem S, S)]));
+						  (N bsr S) + 1,
+						  N band ?MASK(S), S)]));
 sparse_map_1(_N, E, _Ix, _F, _D) when is_integer(E) ->
     E;
 sparse_map_1(_N, E, Ix, F, D) ->
@@ -1771,9 +1785,10 @@ sparse_map_2(I, E, Ix, F, D, L, I, R, _S) ->
     sparse_map_2_1(I+1, E,
 		   [sparse_map_1(R, element(I, E), Ix, F, D) | L]);
 sparse_map_2(I, E, Ix, F, D, L, N, R, S) ->
-    sparse_map_2(I+1, E, Ix + S, F, D, 
-	  [sparse_map_1(S-1, element(I, E), Ix, F, D) | L],
-	  N, R, S).
+    Sz = ?SIZE(S),
+    sparse_map_2(I+1, E, Ix + Sz, F, D,
+                 [sparse_map_1(Sz-1, element(I, E), Ix, F, D) | L],
+                 N, R, S).
 
 sparse_map_2_1(I, E, L) when I =< ?NODESIZE ->
     sparse_map_2_1(I+1, E, [element(I, E) | L]);
@@ -1840,7 +1855,7 @@ See also `foldr/3`, `map/2`, `sparse_foldl/3`.
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 foldl(Function, A, #array{size = N, cache = C, cache_index = CI, elements = E, default = D})
-  when is_function(Function, 3), is_integer(N) ->
+  when is_function(Function, 3), is_integer(N), is_integer(CI) ->
     if N > 0 ->
             E1 = set_leaf(CI, E, C),
 	    foldl_1(N-1, E1, A, 0, Function, D);
@@ -1851,7 +1866,7 @@ foldl(_, _, _) ->
     erlang:error(badarg).
 
 foldl_1(N, E=?NODEPATTERN(S), A, Ix, F, D) ->
-    foldl_2(1, E, A, Ix, F, D, N div S + 1, N rem S, S);
+    foldl_2(1, E, A, Ix, F, D, (N bsr S) + 1, N band ?MASK(S), S);
 foldl_1(N, E, A, Ix, F, D) when is_integer(E) ->
     foldl_1(N, unfold(E, D), A, Ix, F, D);
 foldl_1(N, E, A, Ix, F, _D) ->
@@ -1860,8 +1875,9 @@ foldl_1(N, E, A, Ix, F, _D) ->
 foldl_2(I, E, A, Ix, F, D, I, R, _S) ->
     foldl_1(R, element(I, E), A, Ix, F, D);
 foldl_2(I, E, A, Ix, F, D, N, R, S) ->
-    foldl_2(I+1, E, foldl_1(S-1, element(I, E), A, Ix, F, D),
-	    Ix + S, F, D, N, R, S).
+    Sz = ?SIZE(S),
+    Acc = foldl_1(Sz-1, element(I, E), A, Ix, F, D),
+    foldl_2(I+1, E, Acc, Ix + Sz, F, D, N, R, S).
 
 -spec foldl_3(pos_integer(), _, A, array_indx(),
 	      fun((array_indx(), _, A) -> B), integer()) -> B.
@@ -1914,7 +1930,7 @@ See also `foldl/3`, `sparse_foldr/3`.
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 sparse_foldl(Function, A, #array{size = N, cache = C, cache_index = CI, elements = E, default = D})
-  when is_function(Function, 3), is_integer(N) ->
+  when is_function(Function, 3), is_integer(N), is_integer(CI) ->
     if N > 0 ->
             E1 = set_leaf(CI, E, C),
 	    sparse_foldl_1(N-1, E1, A, 0, Function, D);
@@ -1928,7 +1944,7 @@ sparse_foldl(_, _, _) ->
 %% TODO: this can be optimized
 
 sparse_foldl_1(N, E=?NODEPATTERN(S), A, Ix, F, D) ->
-    sparse_foldl_2(1, E, A, Ix, F, D, N div S + 1, N rem S, S);
+    sparse_foldl_2(1, E, A, Ix, F, D, (N bsr S) + 1, N band ?MASK(S), S);
 sparse_foldl_1(_N, E, A, _Ix, _F, _D) when is_integer(E) ->
     A;
 sparse_foldl_1(N, E, A, Ix, F, D) ->
@@ -1937,8 +1953,9 @@ sparse_foldl_1(N, E, A, Ix, F, D) ->
 sparse_foldl_2(I, E, A, Ix, F, D, I, R, _S) ->
     sparse_foldl_1(R, element(I, E), A, Ix, F, D);
 sparse_foldl_2(I, E, A, Ix, F, D, N, R, S) ->
-    sparse_foldl_2(I+1, E, sparse_foldl_1(S-1, element(I, E), A, Ix, F, D),
-	    Ix + S, F, D, N, R, S).
+    Sz = ?SIZE(S),
+    sparse_foldl_2(I+1, E, sparse_foldl_1(Sz-1, element(I, E), A, Ix, F, D),
+                   Ix + Sz, F, D, N, R, S).
 
 sparse_foldl_3(I, T, A, Ix, F, D, N) when I =< N ->
     case element(I, T) of
@@ -1993,7 +2010,7 @@ See also `foldl/3`, `map/2`.
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 foldr(Function, A, #array{size = N, cache = C, cache_index = CI, elements = E, default = D})
-  when is_function(Function, 3), is_integer(N) ->
+  when is_function(Function, 3), is_integer(N), is_integer(CI) ->
     if N > 0 ->
 	    I = N - 1,
             E1 = set_leaf(CI, E, C),
@@ -2007,7 +2024,7 @@ foldr(_, _, _) ->
 %% this is based on to_orddict/1
 
 foldr_1(I, E=?NODEPATTERN(S), Ix, A, F, D) ->
-    foldr_2(I div S + 1, E, Ix, A, F, D, I rem S, S-1);
+    foldr_2((I bsr S) + 1, E, Ix, A, F, D, I band ?MASK(S), ?SIZE(S)-1);
 foldr_1(I, E, Ix, A, F, D) when is_integer(E) ->
     foldr_1(I, unfold(E, D), Ix, A, F, D);
 foldr_1(I, E, Ix, A, F, _D) ->
@@ -2072,7 +2089,7 @@ See also `foldr/3`, `sparse_foldl/3`.
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 sparse_foldr(Function, A, #array{size = N, cache = C, cache_index = CI, elements = E, default = D})
-  when is_function(Function, 3), is_integer(N) ->
+  when is_function(Function, 3), is_integer(N), is_integer(CI) ->
     if N > 0 ->
 	    I = N - 1,
             E1 = set_leaf(CI, E, C),
@@ -2087,7 +2104,7 @@ sparse_foldr(_, _, _) ->
 %% TODO: this can be optimized
 
 sparse_foldr_1(I, E=?NODEPATTERN(S), Ix, A, F, D) ->
-    sparse_foldr_2(I div S + 1, E, Ix, A, F, D, I rem S, S-1);
+    sparse_foldr_2((I bsr S) + 1, E, Ix, A, F, D, I band ?MASK(S), ?SIZE(S)-1);
 sparse_foldr_1(_I, E, _Ix, A, _F, _D) when is_integer(E) ->
     A;
 sparse_foldr_1(I, E, Ix, A, F, D) ->
