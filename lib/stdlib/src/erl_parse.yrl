@@ -113,8 +113,8 @@ Right 300 list_op.
 Left 400 add_op.
 Left 500 mult_op.
 Unary 600 prefix_op.
-Nonassoc 700 '#'.
-Left 750 '('.
+Left 700 '('.
+Left 750 '#'.
 Nonassoc 800 ':'.
 Nonassoc 900 clause_body_exprs.
 
@@ -385,9 +385,7 @@ tuple -> '{' exprs '}' : {tuple,?anno('$1'),'$2'}.
 
 map_expr -> '#' map_tuple :
 	{map, ?anno('$1'),'$2'}.
-map_expr -> expr_max '#' map_tuple :
-	{map, ?anno('$2'),'$1','$3'}.
-map_expr -> map_expr '#' map_tuple :
+map_expr -> expr '#' map_tuple :
 	{map, ?anno('$2'),'$1','$3'}.
 
 map_tuple -> '{' '}' : [].
@@ -416,13 +414,9 @@ record_expr -> '#' atom '.' atom :
 	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
 record_expr -> '#' atom record_tuple :
 	{record,?anno('$1'),element(3, '$2'),'$3'}.
-record_expr -> expr_max '#' atom '.' atom :
+record_expr -> expr '#' atom '.' atom :
 	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
-record_expr -> expr_max '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
-record_expr -> record_expr '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
-record_expr -> record_expr '#' atom record_tuple :
+record_expr -> expr '#' atom record_tuple :
 	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
 
 record_tuple -> '{' '}' : [].
@@ -2035,27 +2029,27 @@ inop_prec('div') -> {500,500,600};
 inop_prec('rem') -> {500,500,600};
 inop_prec('band') -> {500,500,600};
 inop_prec('and') -> {500,500,600};
-inop_prec('#') -> {750,700,750};
-inop_prec('(') -> {750,750,800};
+inop_prec('#') -> {750,750,800};
 inop_prec(':') -> {900,800,900};
 inop_prec('.') -> {900,900,1000}.
 
 -type pre_op() :: 'catch' | '+' | '-' | 'bnot' | 'not' | '#'.
 
 -doc false.
--spec preop_prec(pre_op()) -> {0 | 600 | 700, 100 | 700 | 800}.
+-spec preop_prec(pre_op()) -> {0 | 600 | 700 | 750, 100 | 700 | 800}.
 
+%% note that we must not print "+ + X" as "++X", but "+(+X)"
 preop_prec('catch') -> {0,100};
 preop_prec('+') -> {600,700};
 preop_prec('-') -> {600,700};
 preop_prec('bnot') -> {600,700};
 preop_prec('not') -> {600,700};
-preop_prec('#') -> {700,800}.
+preop_prec('#') -> {750,800}.
 
 -doc false.
--spec func_prec() -> {800,700}.
+-spec func_prec() -> {700,700}.
 
-func_prec() -> {800,700}.
+func_prec() -> {700,700}.  % may be chained
 
 -doc false.
 -spec max_prec() -> 900.
@@ -2087,7 +2081,7 @@ type_inop_prec('/') -> {500,500,600};
 type_inop_prec('div') -> {500,500,600};
 type_inop_prec('rem') -> {500,500,600};
 type_inop_prec('band') -> {500,500,600};
-type_inop_prec('#') -> {800,700,800}.
+type_inop_prec('#') -> {750,750,800}.
 
 -doc false.
 -spec type_preop_prec(type_preop()) -> {prec(), prec()}.
@@ -2095,7 +2089,7 @@ type_inop_prec('#') -> {800,700,800}.
 type_preop_prec('+') -> {600,700};
 type_preop_prec('-') -> {600,700};
 type_preop_prec('bnot') -> {600,700};
-type_preop_prec('#') -> {700,800}.
+type_preop_prec('#') -> {750,800}.
 
 -type erl_parse_tree() :: abstract_clause()
                         | abstract_expr()

@@ -967,6 +967,7 @@ t_update_map_expressions(Config) when is_list(Config) ->
     #{ b := {X} } = M1#{ a := 1, b => {X} },
 
     #{ b := 2 } = (maps:new())#{ b => 2 },
+    #{ b := 2 } = maps:new()#{ b => 2 },  % extra parens no longer required
 
     #{ a :=42, b:=42, c:=42 } = (maps:from_list([{a,1},{b,2},{c,3}]))#{ a := 42, b := 42, c := 42 },
     #{ "a" :=1, "b":=42, "c":=42 } = (maps:from_list([{"a",1},{"b",2}]))#{ "b" := 42, "c" => 42 },
@@ -981,6 +982,9 @@ t_update_map_expressions(Config) when is_list(Config) ->
     end,
 
     #{ "a" := b } = F(),
+
+    %% test expression chaining and precedence
+    #{ "a" := b, "b" := c, "c" := d } = (maps:from_list([{"a",b}]))#{"b" => c}#{"c" => d},
 
     %% Error cases.
     {'EXIT',{{badmap,<<>>},_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
