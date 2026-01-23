@@ -222,7 +222,7 @@ fread1([$#|Format], F, Sup, false, Line0, N, Res) ->
 	begin
 	    {Line1,Cs1} = fread_chars(Line0, F, false),
 	    {Line2,_,B2} = fread_base(reverse(Cs1), N),
-	    true = B2 >= 2 andalso B2 =< 1+$Z-$A+10,
+	    true = is_integer(B2, 2, 1+$Z-$A+10),
 	    fread_based(Line2, B2, Sup, Format, Line1, N+F, Res)
 	end	of
 	{'EXIT',_} ->
