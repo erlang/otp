@@ -750,9 +750,9 @@ encode_decode_loop(Range, X) ->
 
     CmpFn = fun(Cmp1) -> fun(Cmp2) -> Cmp2 =:= Cmp1 end end,
     case
-	lists:all(CmpFn(A), [B, C, D]) andalso
-	E =:= F andalso
-	lists:all(CmpFn(G), [H, I, J, K, L, M, N, O, P, Q, R, S, T])
+        lists:all(CmpFn(A), [B, C, D]) andalso
+        E =:= F andalso
+        lists:all(CmpFn(G), [H, I, J, K, L, M, N, O, P, Q, R, S, T])
     of
 	true ->
 	    encode_decode_loop(Range,X-1);
