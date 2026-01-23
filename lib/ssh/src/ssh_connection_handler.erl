@@ -87,7 +87,7 @@
 %%% Exports not intended to be used :). They are used for spawning and tests
 -export([init_ssh_record/3,		   % Export of this internal function
 					   % intended for low-level protocol test suites
-	 renegotiate/1, alg/1 % Export intended for test cases
+	 renegotiate/1, alg/1, conn_info_keys_base/0 % Export intended for test cases
 	]).
 
 -behaviour(ssh_dbg).
@@ -1879,12 +1879,7 @@ send_disconnect(Reason, #{code := Code} = DisconnectContext, D0) ->
     call_disconnectfun_log_cond(maps:merge(DisconnectContext, MoreContext), D),
     {{shutdown,Reason}, D}.
 
-call_disconnectfun_log_cond(#{state_name := StateName,
-                              log_msg := LogMsg,
-                              code := Code,
-                              details := Details,
-                              module := Module,
-                              line := Line} = DisconnectContext0, D) ->
+call_disconnectfun_log_cond(#{code := Code} = DisconnectContext0, D) ->
     DisconnectType = case Code of
                          undefined -> internal_disconnect;
                          Code when is_integer(Code) -> disconnect_sent
@@ -1892,6 +1887,8 @@ call_disconnectfun_log_cond(#{state_name := StateName,
     DisconnectContext = maps:merge(DisconnectContext0, #{type => DisconnectType}),
     case disconnect_fun(DisconnectContext, D) of
         void ->
+            #{log_msg := LogMsg, state_name := StateName, module := Module, line := Line,
+              details := Details} = DisconnectContext,
             log(info, D,
                 "~s~n"
                 "State = ~p~n"
@@ -2127,9 +2124,9 @@ disconnect_fun(DisconnectContext, D) ->
             #{details := Details} = DisconnectContext,
             Fun(Details);
         {arity, 2} ->
+            DisconnectType = maps:get(type, DisconnectContext),
             Keys = conn_info_keys_base() ++ [user_auth],
             ConnInfo = fold_keys(Keys, fun conn_info/2, D),
-            #{type := DisconnectType} = DisconnectContext,
             Fun(DisconnectType, #{disconnect_context => DisconnectContext,
                                   connection_info => ConnInfo})
     end.

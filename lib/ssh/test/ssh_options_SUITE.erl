@@ -812,8 +812,7 @@ connectfun4_server(Config) ->
                         {User, Method, ConnInfo} = receive_event(Ref, Event),
                         "foo" = User = proplists:get_value(user, ConnInfo),
                         "keyboard-interactive" = Method,
-                        Keys = [client_version, server_version, peer, user, sockname, options, algorithms],
-                                true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+                        true = verify_conn_info(ConnInfo),
                         ssh:close(ConnectionRef)
                 end).
 
@@ -905,7 +904,7 @@ disconnectfun2_client(Config) ->
                         #{disconnect_context := DisconnectContext,
                           connection_info := ConnInfo} = DisconnectInfo,
                         #{code := undefined} = DisconnectContext,
-                        true = verify_conn_info(ConnInfo),
+                        true = verify_conn_info(ConnInfo, [user_auth]),
                         ok
                 end).
 
@@ -941,7 +940,7 @@ disconnectfun2_server(Config) ->
                         <<"Received disconnect: "
                           "Unable to connect using the available authentication methods">> =
                             iolist_to_binary(details(ContextS)),
-                        [true = verify_conn_info(CI) || CI <- [ConnInfoC, ConnInfoS]],
+                        [true = verify_conn_info(CI, [user_auth]) || CI <- [ConnInfoC, ConnInfoS]],
                         ok
                 end).
 
@@ -962,11 +961,11 @@ disconnectfun2_kexinit_error(Config) ->
                         ?CT_LOG("Error reason: ~p", [Reason]),
                         [{FailTypeS, DisconnectInfoS}, {FailTypeC, DisconnectInfoC}] =
                             [receive_event(Ref, E) || E <- Events],
-                        %% RFC4253 Code 3 is SSH_DISCONNECT_KEY_EXCHANGE_FAILED
                         #{disconnect_context := ContextC,
                           connection_info := ConnInfoC} = DisconnectInfoC,
                         #{disconnect_context := ContextS,
                           connection_info := ConnInfoS} = DisconnectInfoS,
+                        %% RFC4253 Code 3 is SSH_DISCONNECT_KEY_EXCHANGE_FAILED
                         [#{code := 3} = C || C <- [ContextS, ContextC]],
                         [begin
                              disconnect_sent = maps:get(type, Context),
@@ -977,7 +976,7 @@ disconnectfun2_kexinit_error(Config) ->
                          end ||
                             Context <- [ContextC, ContextS]],
                         [disconnect_sent = FT || FT <- [FailTypeC, FailTypeS]],
-                        [true = verify_conn_info(CI) || CI <- [ConnInfoC, ConnInfoS]],
+                        [true = verify_conn_info(CI, [user_auth]) || CI <- [ConnInfoC, ConnInfoS]],
                         ok
                 end).
 
@@ -1015,8 +1014,10 @@ send_disconnect_data(Recipient, Ref, Event) ->
     end.
 
 verify_conn_info(ConnInfo) ->
-    Keys = [client_version, server_version, peer, user, sockname, options,
-            algorithms, user_auth],
+    verify_conn_info(ConnInfo, []).
+
+verify_conn_info(ConnInfo, ExtraKeys) ->
+    Keys = ssh_connection_handler:conn_info_keys_base() ++ ExtraKeys,
     true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo).
 
 details(#{details := Details}) ->

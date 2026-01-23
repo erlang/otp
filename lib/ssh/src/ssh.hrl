@@ -487,13 +487,14 @@ message with detailed information `Details`, the connection information
 of the disconnect message as defined in section-11.1 of the RFC4253.
 """.
 -doc(#{group => <<"Common Options">>}).
--type disconnect_reason() ::  disconnect_received | disconnect_sent
-                            | internal_disconnect | transport_close_received.
+-type disconnect_type() ::  disconnect_received | disconnect_sent |
+                            internal_disconnect | transport_close_received.
 -type disconnectfun_common_option()     ::
         {disconnectfun, fun((Reason::term()) -> void | any()) |
-        fun((Reason::disconnect_reason(), #{code := undefined | Code::pos_integer(),
-                                            details := undefined | Details::iodata(),
-                                            connection_info := Info::proplists:proplist()}) -> void | any())}.
+         fun((DisconnectType::disconnect_type(),
+              #{code := undefined | Code::pos_integer(),
+                details := undefined | Details::iodata(),
+                connection_info := Info::proplists:proplist()}) -> void | any())}.
 -doc """
 Provides a fun to implement your own logging or other action when an unexpected
 message arrives. If the fun returns `report` the usual info report is issued but
@@ -1235,7 +1236,6 @@ in the User's Guide chapter.
         | fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string(), Info::proplists:proplist()) ->_)}
       | {bannerfun, fun((User::string()) -> binary())}.
 
-
 -doc """
 Experimental options that should not to be used in products.
 """.
@@ -1245,7 +1245,6 @@ Experimental options that should not to be used in products.
 -type ip_port() :: {inet:ip_address(), inet:port_number()} .
 -type mod_args() :: {Module::atom(), Args::list()} .
 -type mod_fun_args() :: {Module::atom(), Function::atom(), Args::list()} .
-
 
 %% Records
 -record(address, {address,
@@ -1335,7 +1334,7 @@ Experimental options that should not to be used in products.
           %% Keep-alive
           alive_last_sent_at = 0              :: non_neg_integer(),
           alive_probes_sent = 0               :: non_neg_integer(),
-	  last_userauth_tried = "none" %% Not used for server role
+          last_userauth_tried = "none" %% Not used for server role
 	 }).
 
 -record(alg,
