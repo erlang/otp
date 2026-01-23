@@ -70,6 +70,7 @@ struct cipher_probe_t;
 // created again.
 struct cipher_type_t {
     const cipher_probe_t *init = nullptr; // the cipher_probe_t used to create this record
+    // Set by either the constructor function from the probe, or EVP_CIPHER_fetch if API is 3.0+
     auto_cipher_t resource{};
     cipher_type_aead_t aead{};
     ERL_NIF_TERM atom = CRYPTOENIF_BAD_ATOM_VALUE; // copy of init->atom
@@ -91,7 +92,7 @@ struct cipher_type_t {
     }
     bool is_available() const {
         // Available if cipher could be initialized, and (has a EVP_CIPHER resource, or is AES_CTR compatible)
-        return !this->flags.algorithm_init_failed;
+        return !this->flags.algorithm_init_failed && this->resource;
     }
     // The atom which goes to the Erlang caller (used by the algorithm collection generic)
     ERL_NIF_TERM get_atom() const { return this->atom; }
@@ -108,7 +109,7 @@ struct cipher_type_t {
     bool eq_atom(const cipher_type_t &other) const { return this->atom == other.atom; }
 
 private:
-    void check_fips_availability(bool fips_enabled);
+    void attempt_to_instantiate_cipher(bool fips_enabled);
 #if defined(HAS_3_0_API)
     bool can_cipher_be_instantiated() const;
 #endif

@@ -301,7 +301,7 @@ bool cipher_type_t::can_cipher_be_instantiated() const {
 }
 #endif // HAS_3_0_API
 
-void cipher_type_t::check_fips_availability(const bool fips_enabled) {
+void cipher_type_t::attempt_to_instantiate_cipher(const bool fips_enabled) {
 #ifdef HAS_3_0_API
     const auto name = this->init->get_v3_name();
     if (name) {
@@ -334,9 +334,6 @@ void cipher_type_t::check_fips_availability(const bool fips_enabled) {
 }
 
 void cipher_type_t::check_availability(bool fips_enabled) {
-    if (this->init->ctor_v1) {
-        this->resource.reset(this->init->ctor_v1()); // take ownership on the cipher
-    }
 #ifdef HAVE_AEAD
     switch (this->init->aead_ctrl_type) {
     case NOT_AEAD:
@@ -354,7 +351,11 @@ void cipher_type_t::check_availability(bool fips_enabled) {
     }
 #endif // HAVE_AEAD
     // We do not know for sure that the algorithm is unavailable (normal or FIPS)
-    this->check_fips_availability(fips_enabled);
+    this->attempt_to_instantiate_cipher(fips_enabled);
+
+    if (!this->resource) {
+        this->flags.algorithm_init_failed = true;
+    }
 }
 
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
