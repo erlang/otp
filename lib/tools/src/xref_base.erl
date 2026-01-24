@@ -744,12 +744,6 @@ read_module(SplitName, AppName, Builtins, Verbose, Warnings, State) ->
 read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
     File = filename:join(Dir, BaseName),
     case abst(File, Builtins, Mode) of
-	{ok, _M, no_abstract_code} when Verbose ->
-	    message(Verbose, no_debug_info, [File]),
-	    no;
-	{ok, _M, no_abstract_code} when not Verbose ->
-	    message(Warnings, no_debug_info, [File]),
-	    no;
 	{ok, M, Data, UnresCalls0}  ->
 	    message(Verbose, done_file, [File]),
             %% Remove duplicates. Identical unresolved calls on the
@@ -797,7 +791,19 @@ process_module(State) ->
 abst(File, Builtins, _Mode = functions) ->
     case beam_lib:chunks(File, [abstract_code, exports, attributes]) of
 	{ok, {M,[{abstract_code,NoA},_X,_A]}} when NoA =:= no_abstract_code ->
-	    {ok, M, NoA};
+            {ok, {_M, [{exports,X0}, {attributes,A}]}} =
+                beam_lib:chunks(File, [exports, attributes]),
+	    X = mfa_exports(X0, A, M),
+            D = deprecated(A, X, M),
+            Data = beam(File),
+            #{on_load := OL,
+              def_at := DefAt,
+              l_call := LC,
+              l_call_at := LCallAt,
+              x_call := XC,
+              x_call_at := XCallAt
+             } = Data,
+            {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, {[],[],[]}, D, OL}, []};
 	{ok, {M, [{abstract_code, {raw_abstract_v1, Code}},
                   {exports,X0}, {attributes,A}]}} ->
 	    %% R9C-
@@ -829,6 +835,15 @@ abst(File, Builtins, _Mode = modules) ->
 	Error when element(1, Error) =:= error ->
 	    Error
     end.
+
+beam(File) ->
+    {beam_file, Module, Exports, Attributes, CompInfo, Code} =
+        beam_disasm:file(File),
+    Map = beam_asm:xref(Module, Code),
+    Map#{module => Module,
+         exports => Exports,
+         attributes => Attributes,
+         comp_info => CompInfo}.
 
 mfa_exports(X0, Attributes, M) ->
     %% Adjust arities for abstract modules.
