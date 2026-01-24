@@ -753,12 +753,6 @@ read_module(SplitName, AppName, Builtins, Verbose, Warnings, State) ->
 read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
     File = filename:join(Dir, BaseName),
     case abst(File, Builtins, Mode) of
-        {ok, _M, _Attrs, no_abstract_code} when Verbose ->
-	    message(Verbose, no_debug_info, [File]),
-	    no;
-        {ok, _M, _Attrs, no_abstract_code} when not Verbose ->
-	    message(Warnings, no_debug_info, [File]),
-	    no;
         {ok, M, Attrs, Data, UnresCalls0}  ->
 	    message(Verbose, done_file, [File]),
             %% Remove duplicates. Identical unresolved calls on the
@@ -808,10 +802,21 @@ abst(File, Builtins, _Mode = functions) ->
                          [abstract_code, exports, attributes, documentation],
                          [allow_missing_chunks]) of
         {ok, {M,[{abstract_code,no_abstract_code},
-                 _X,
-                 Attrs,
-                 {documentation,missing_chunk}]}} ->
-            {ok, M, Attrs, no_abstract_code};
+                 {exports,X0}, {attributes,A},
+                 {documentation, Doc}]}} ->
+            X = mfa_exports(X0, A, M),
+            D = deprecated(A, X, M),
+            Data = beam(File),
+            #{on_load := OL,
+              def_at := DefAt,
+              l_call := LC,
+              l_call_at := LCallAt,
+              x_call := XC,
+              x_call_at := XCallAt
+             } = Data,
+            Documented = documented(Doc, A, M),
+            Unsafe = unsafe(A, X, M),
+            {ok, M, A, {DefAt, LCallAt, XCallAt, LC, XC, X, D, OL, Documented, Unsafe}, []};
 	{ok, {M, [{abstract_code, {raw_abstract_v1, Code}},
                   {exports,X0}, {attributes,A},
                   {documentation, Doc}]}} ->
@@ -860,6 +865,15 @@ abst(File, Builtins, _Mode = modules) ->
 	Error when element(1, Error) =:= error ->
 	    Error
     end.
+
+beam(File) ->
+    {beam_file, Module, Exports, Attributes, CompInfo, Code} =
+        beam_disasm:file(File),
+    Map = beam_asm:xref(Module, Code),
+    Map#{module => Module,
+         exports => Exports,
+         attributes => Attributes,
+         comp_info => CompInfo}.
 
 mfa_exports(X0, Attributes, M) ->
     %% Adjust arities for abstract modules.
