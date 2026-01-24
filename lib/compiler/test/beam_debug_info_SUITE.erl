@@ -35,6 +35,8 @@
          init_per_group/2,end_per_group/2,
          smoke_default/1,
          smoke_save_vars/1,
+         calls_reported_correctly/1,
+         calls_cornercase_reg_in_call/1,
          fixed_bugs/1,
          empty_module/1,
          call_in_call_args/1,
@@ -45,6 +47,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [smoke_default,
      smoke_save_vars,
+     calls_reported_correctly,
+     calls_cornercase_reg_in_call,
      {group,p}].
 
 groups() ->
@@ -218,7 +222,8 @@ debug_info_vars(DebugInfo, IndexToFunctionMap) ->
     Literals = family_union(Literals0),
     {Vars,Literals}.
 
-debug_info_vars_1([{I,{_FrameSize,List}}|T], IndexToFunctionMap, VarAcc, LitAcc) ->
+debug_info_vars_1([{I,Info}|T], IndexToFunctionMap, VarAcc, LitAcc) ->
+    List = maps:get(vars, Info, []),
     case debug_info_vars_2(List, [], []) of
         {[],[]} ->
             debug_info_vars_1(T, IndexToFunctionMap, VarAcc, LitAcc);
@@ -539,13 +544,12 @@ get_debug_info(Mod, Beam) ->
                    {error,_,_} ->
                        []
                end,
-    Op = beam_opcodes:opcode(call, 2),
     <<Version:32,
       _NumItems:32,
-      _NumVars:32,
+      _NumTerms:32,
       DebugInfo1/binary>> = DebugInfo0,
-    0 = Version,
-    RawDebugInfo0 = decode_debug_info(DebugInfo1, Literals, Atoms, Op),
+    1 = Version,
+    RawDebugInfo0 = decode_debug_info(DebugInfo1, Literals, Atoms),
     RawDebugInfo = lists:zip(lists:seq(1, length(RawDebugInfo0)), RawDebugInfo0),
 
     %% The cooked debug info has line numbers instead of indices.
@@ -584,25 +588,69 @@ decode_literal_table(<<0:32,N:32,Tab/binary>>) ->
         Index <- lists:seq(0, N - 1) &&
             <<Size:32,Literal:Size/binary>> <:= Tab}.
 
-decode_debug_info(Code0, Literals, Atoms, Op) ->
+decode_debug_info(Code0, Literals, Atoms) ->
+    Entries = decode_entries(Code0, Literals, Atoms),
+    {Infos, NextEntry} = lists:foldr(
+        fun
+            ({K, V}, {InfosN, NextN}) ->
+                Next = case NextN of
+                    #{K := _} -> error({duplicated, K});
+                    _ -> NextN#{K => V}
+                end,
+                case K of
+                    frame_size -> {[Next|InfosN], #{}};
+                    _ -> {InfosN, Next}
+                end
+
+        end,
+        {[], #{}},
+        Entries
+    ),
+    0 = map_size(NextEntry),
+    Infos.
+
+decode_entries(<<>>, _Literals, _Atoms) ->
+    [];
+decode_entries(Code0, Literals, Atoms) ->
+    {Entry, Code1} = decode_entry(Code0, Literals, Atoms),
+    [Entry|decode_entries(Code1, Literals, Atoms)].
+
+decode_entry(Code0, Literals, Atoms) ->
+    Op = beam_opcodes:opcode(call, 2),
     case Code0 of
         <<Op,Code1/binary>> ->
-            {FrameSize0,Code2} = decode_arg(Code1, Literals, Atoms),
-            FrameSize = case FrameSize0 of
-                            nil -> none;
-                            {atom,entry} -> entry;
-                            _ -> FrameSize0
-                        end,
-            {{list,List0},Code3} = decode_arg(Code2, Literals, Atoms),
-            List = decode_list(List0),
-            [{FrameSize,List}|decode_debug_info(Code3, Literals, Atoms, Op)];
-        <<>> ->
-            []
+            {EntryType, Code2} = decode_arg(Code1, Literals, Atoms),
+            {Value, Code3} = decode_arg(Code2, Literals, Atoms),
+            Entry = case EntryType of
+                0 ->
+                    case Value of
+                        nil ->
+                            {frame_size, none};
+                        {atom,entry} ->
+                            {frame_size, entry};
+                        _ when is_integer(Value), Value >= 0 ->
+                            {frame_size, Value}
+                    end;
+
+                1 ->
+                    case Value of
+                        {list,List} -> {vars, decode_var_mappings(List)}
+                    end;
+
+                2 ->
+                    case Value of
+                        {list,List} -> {calls, decode_calls(List)}
+                    end;
+
+                _ ->
+                    error({unknown_entry_type, EntryType})
+            end,
+            {Entry, Code3}
     end.
 
-decode_list([{integer,Var}|T]) when is_integer(Var) ->
-    decode_list([{literal,Var}|T]);
-decode_list([{literal,Var},Where0|T]) ->
+decode_var_mappings([{integer,Var}|T]) when is_integer(Var) ->
+    decode_var_mappings([{literal,Var}|T]);
+decode_var_mappings([{literal,Var},Where0|T]) ->
     Where = case Where0 of
                 {literal,Lit} -> {value,Lit};
                 {atom,A} -> {value,A};
@@ -611,8 +659,26 @@ decode_list([{literal,Var},Where0|T]) ->
                 {x,_} -> Where0;
                 {y,_} -> Where0
             end,
-    [{Var,Where}|decode_list(T)];
-decode_list([]) -> [].
+    [{Var,Where}|decode_var_mappings(T)];
+decode_var_mappings([]) -> [].
+
+decode_calls([{literal, V}|Rest]) when is_binary(V) ->
+    [V|decode_calls(Rest)];
+decode_calls([A,M0,F0|Rest]) when A>=0, A=<255 ->
+    M = decode_var_or_atom(M0),
+    F = decode_var_or_atom(F0),
+    [{M,F,A}|decode_calls(Rest)];
+decode_calls([A0,F0|Rest]) when A0>=256, A0=<511->
+    F = decode_var_or_atom(F0),
+    A = A0-256,
+    [{F,A}|decode_calls(Rest)];
+decode_calls([]) ->
+    [].
+
+decode_var_or_atom({literal, V}) when is_binary(V) ->
+    V;
+decode_var_or_atom({atom, A}) when is_atom(A) ->
+    A.
 
 decode_args(0, Code, _Literals, _Atoms) ->
     {[],Code};
@@ -779,9 +845,8 @@ missing_vars(Config) ->
     DebugLines0 = [begin
                        {location,_File,Line} = lists:keyfind(location, 1, Anno),
                        {Kind,Line,FrameSz,[Name || {Name,_} <- Vars]}
-                   end || {debug_line,{atom,Kind},Anno,_,_,{FrameSz,Vars}} <- Is],
+                   end || {debug_line,{atom,Kind},Anno,_,_,#{frame_size:=FrameSz,vars:=Vars}} <- Is],
     DebugLines = lists:sort(DebugLines0),
-    io:format("~p\n", [DebugLines]),
     Expected = [{entry,3,entry,[1,2,3]},
                 {line,4,none,['X','Y','Z0']},
                 {line,6,none,['X','Y','Z0']},
@@ -793,6 +858,149 @@ missing_vars(Config) ->
     ?assertEqual(Expected, DebugLines),
 
     ok.
+
+calls_reported_correctly(Config) ->
+    M = ?FUNCTION_NAME,
+    S = ~"""
+        -module(calls_reported_correctly).                         %L01
+        -export([fixtures/1]).                                     %L02
+        -record(my_rec, {fld1 :: atom(), fld2 :: integer()}).      %L03
+        local() -> ok.                                             %L04                                                          %L04
+        fixtures(F) ->                                             %L05
+            Y = 42, 'not':toplevel(a, b),                          %L06
+            foo:bar(13, Y), Z = 43,                                %L07
+            local(),                                               %L08
+            X = catch local(),                                     %L09
+            ok = foo:bar(Y),                                       %L10
+            case foo:blah() of ok -> local();                      %L11
+                _ -> foo:bar()                                     %L12
+            end,                                                   %L13
+            try X = hey:ho(42), local() of                         %L14
+                _ -> foo:bar()                                     %L15
+            catch                                                  %L16
+                _:_ -> foo:blah()                                  %L17
+            end,                                                   %L18
+            hey:ho(X) + foo:bar(Y),                                %L19
+            self() ! foo:bar(Y),                                   %L20
+            {hey:ho(X), foo:bar(Y)},                               %L21
+            [hey:ho(X), foo:bar(Y) | pim:pam()],                   %L22
+            #{hey:ho(X) => foo:bar(Y), blah => pim:pam()},         %L23
+            #my_rec{fld1 = hey:ho(X), fld2 = foo:bar(Y)},          %L24
+            X:handle_call(1,2,3),                                  %L25
+            foo:F(1,2,3),                                          %L26
+            X:F(),                                                 %L27
+            F(),                                                   %L28
+            G = bam, foo:G(42),                                    %L29
+            X:G(),                                                 %L30
+            G(),  % invalid call                                   %L31
+            (fun foo:bar/1)(Z),                                    %L32
+            Ref=fun foo:blah/2, Ref(X,Y),                          %L33
+            (fun local/0)(),                                       %L34
+            erlang:apply(foo, bar, [true, 42]),                    %L35
+            erlang:apply(foo, bar, [X, Y]),                        %L36
+            [pim:pum(E) || L <- foo:bar(), E <- hey:ho(L)],        %L37
+            [ pim:pum(E) ||                                        %L38
+                L <- foo:bar(),                                    %L39
+                E <- hey:ho(L)],                                   %L40
+            [                                                      %L41
+                pim:pum(E) ||                                      %L42
+                L <- foo:bar(),                                    %L43
+                E <- hey:ho(L)                                     %L44
+            ],                                                     %L45
+            H = fun(X) -> foo:bar(X) + 1 end,                      %L46,
+            H(42),                                                 %L47
+            K = fun(X) ->                                          %L48
+                foo:bar(X) + 1                                     %L49
+            end,                                                   %L50,
+            K(42).                                                 %L51
+    """,
+    Expected =  [
+        {04, #{calls => []}},
+        {06, #{calls => [{'not',toplevel,2}]}},
+        {07, #{calls => [{foo, bar, 2}]}},
+        {08, #{calls => [{local, 0}]}},
+        {09, #{calls => [{local, 0}]}},
+        {10, #{calls => [{foo, bar, 1}]}},
+        {11, #{calls => [{foo, blah, 0}, {local, 0}]}},
+        {12, #{calls => [{foo, bar, 0}]}},
+        {14, #{calls => [{hey, ho, 1}, {local, 0}]}},
+        {15, #{calls => [{foo, bar, 0}]}},
+        {17, #{calls => [{foo, blah, 0}]}},
+        {19, #{calls => [{hey, ho, 1}, {foo, bar, 1}]}},
+        {20, #{calls => [{foo, bar, 1}, {erlang, '!', 2}]}},
+        {21, #{calls => [{hey, ho, 1}, {foo, bar, 1}]}},
+        {22, #{calls => [{hey, ho, 1}, {foo, bar, 1}, {pim, pam, 0}]}},
+        {23, #{calls => [{hey, ho, 1}, {foo, bar, 1}, {pim, pam, 0}]}},
+        {24, #{calls => [{hey, ho, 1}, {foo, bar, 1}]}},
+        {25, #{calls => [{~"X", handle_call, 3}]}},
+        {26, #{calls => [{foo, ~"F", 3}]}},
+        {27, #{calls => [{~"X", ~"F", 0}]}},
+        {28, #{calls => [~"F"]}},
+        {29, #{calls => [{foo, bam, 1}]}},
+        {30, #{calls => [{~"X", bam, 0}]}},
+        {31, #{calls => []}},
+        {32, #{calls => [{erlang, make_fun, 3}, {foo, bar, 1}]}},
+        {33, #{calls => [{erlang, make_fun, 3}, {foo, blah, 2}]}},
+        {34, #{calls => [{local, 0}]}},
+        {35, #{calls => [{foo, bar, 2}]}},
+        {36, #{calls => [{foo, bar, 2}]}},
+
+        % We currently can have a single entry for a debug_line,
+        % so the the other function calls, that end up
+        % inside the comprehension function, get no entry and no
+        % annotation
+        {37, #{calls => [{foo, bar, 0}, {'-fixtures/1-lc$^0/1-0-',1}]}},
+
+        % One call missing, still due to debug_line overlapping with
+        % main function
+        {38, #{calls => []}},
+        {39, #{calls => [{foo, bar, 0}, {'-fixtures/1-lc$^2/1-2-',1}]}},
+        {40, #{calls => [{hey, ho, 1}, {'-fixtures/1-lc$^3/1-3-',2}]}},
+
+        {41, #{calls => []}},
+        {42, #{calls => [{pim, pum, 1}]}},
+        {43, #{calls => [{foo, bar, 0}, {'-fixtures/1-lc$^4/1-4-',1}]}},
+        {44, #{calls => [{hey, ho, 1}, {'-fixtures/1-lc$^5/1-5-',2}]}},
+
+        % Call inside closure missed due to debug_line conflict
+        {46, #{calls => []}},
+        {47, #{calls => [{'-fixtures/1-fun-6-',1}]}},
+
+        {48, #{calls => []}},
+        {49, #{calls => [{foo, bar, 1}]}},
+        {51, #{calls => [{'-fixtures/1-fun-7-',1}]}}
+        ],
+    check_expected_calls(Config, M, S, Expected).
+
+
+calls_cornercase_reg_in_call(Config) ->
+    M = ?FUNCTION_NAME,
+    S = ~"""
+    -module(calls_cornercase_reg_in_call).  %L01
+    -export([go/1]).                        %L02
+    go(X) ->                                %L03
+        try                                 %L04
+            Y = foo:bar(),                  %L05
+            Z = Y:go(),                     %L06
+            hey:ho(Y, X, Z)                 %L07
+        catch _ -> ok                       %L08
+        end.                                %L09
+    """,
+    Expected = [
+        {04, #{calls => []}},
+        {05, #{calls => [{foo,bar,0}]}},
+
+        % The result from foo:bar() is in x0, which is
+        % passed directly in the `call` instruction as
+        % first argument, so we currently lose the
+        % connection with Z
+        % {06, #{calls => [{~"Y",go,0}]}},
+        {06, #{calls => []}},
+
+        {07, #{calls => [{hey,ho,3}]}},
+        {08, #{calls => []}}
+    ],
+    check_expected_calls(Config, M, S, Expected).
 
 
 %%%
@@ -811,3 +1019,28 @@ get_unique_beam_files() ->
     test_lib:get_unique_files(".beam", F).
 
 id(I) -> I.
+
+check_expected_calls(Config, Mod, ModSrc, Expected) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SrcName = filename:join(PrivDir, atom_to_list(Mod) ++ ".erl"),
+    BeamName = filename:join(PrivDir, atom_to_list(Mod) ++ ".beam"),
+
+    ok = file:write_file(SrcName, ModSrc),
+    {ok,M,Beam} = compile:file(SrcName, [return_errors, beam_debug_info,binary]),
+
+    {ok, Peer, Node} = ?CT_PEER(#{args => ["+D"]}),
+
+    ok = erpc:call(Node, fun() ->
+        code:load_binary(Mod, BeamName, Beam),
+
+        Actual = [{L, maps:with([calls], Item)} ||
+                    {L, Item} <:- code:get_debug_info(M)],
+
+        [?assertEqual(ExpectedL, ActualL) ||
+            ExpectedL <- Expected && ActualL <- Actual],
+
+        ok
+    end),
+
+    peer:stop(Peer),
+    ok.
