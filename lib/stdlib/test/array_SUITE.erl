@@ -53,7 +53,7 @@
 	]).
 
 
--export([t/0,t/1,extract_tests/0]).
+-export([t/0,t/1]).
 
 -import(array,
 	[new/0, new/1, new/2, is_array/1, set/3, get/2, %size/1,
@@ -141,14 +141,14 @@ end_per_testcase(_Case, _Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Some helpers to be able to run the tests without testserver
 %%%%%%%%%%%%%%%%%%%%%%%%%
-t() -> t(all()).
+t() -> t(all()--[doctests]).
 
 t(What) when not is_list(What) ->
     t([What]);
 t(What) ->
     lists:foreach(fun(T) ->
 			  io:format("Test ~p ~n",[T]),
-			  try 
+			  try
 			      ?MODULE:T([])
 			  catch _E:_R:_S ->
 				  Line = get(test_server_loc),
@@ -157,154 +157,107 @@ t(What) ->
 			  end
 		  end, What).
 
-%%%%% extract tests 
-
-extract_tests() ->
-    {ok, In} = file:open("../src/array.erl", [read]),
-    {ok, Out} = file:open("array_temp.erl", [write]),
-    try 
-	Tests = extract_tests(In,Out,[]),
-	Call = fun(Test) ->
-		       io:format(Out, "~s(Config) when is_list(Config) -> ~s_(), ok.~n",
-				 [Test, Test])
-	       end,
-	[Call(Test) || Test <- Tests],
-	io:format("Tests ~p~n", [Tests])
-    catch _:Err:Stacktrace ->
-	    io:format("Error: ~p ~p~n", [Err, Stacktrace])
-    end,
-    file:close(In),
-    file:close(Out).
-
-extract_tests(In,Out,Tests) ->
-    case io:get_line(In,"") of
-	eof -> lists:reverse(Tests);
-	"-ifdef(EUNIT)" ++ _ ->
-	    Test = write_test(In,Out),
-	    extract_tests(In,Out, [Test|Tests]);
-	_E ->
-	    extract_tests(In,Out,Tests)
-    end.
-
-write_test(In,Out) ->
-    Line = io:get_line(In,""),
-    io:put_chars(Out, Line),
-    [$_|Test] = lists:dropwhile(fun($_) -> false;(_) -> true end,lists:reverse(Line)),
-    write_test_1(In,Out),
-    lists:reverse(Test).
-   
-write_test_1(In,Out) ->
-    case io:get_line(In,"") of
-	"-endif" ++ _ ->
-	    io:nl(Out),
-	    ok;
-	Line ->
-	    io:put_chars(Out, Line),
-	    write_test_1(In,Out)
-    end.	   
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Actual tests
 
-new_test_() ->
+new_test(_Config) ->
     N0 = ?LEAFSIZE,
     N01 = N0+1,
     N1 = ?NODESIZE*N0,
     N11 = N1+1,
     N2 = ?NODESIZE*N1,
-    [?_test(new()),
+    ?_test(new()),
 
-     ?_test(new([])),
-     ?_test(new(10)),
-     ?_test(new({size,10})),
-     ?_test(new(fixed)),
-     ?_test(new({fixed,true})),
-     ?_test(new({fixed,false})),
-     ?_test(new({default,undefined})),
-     ?_test(new([{size,100},{fixed,false},{default,undefined}])),
-     ?_test(new([100,fixed,{default,0}])),
+    ?_test(new([])),
+    ?_test(new(10)),
+    ?_test(new({size,10})),
+    ?_test(new(fixed)),
+    ?_test(new({fixed,true})),
+    ?_test(new({fixed,false})),
+    ?_test(new({default,undefined})),
+    ?_test(new([{size,100},{fixed,false},{default,undefined}])),
+    ?_test(new([100,fixed,{default,0}])),
 
-     ?_assert(new() =:= new([])),
-     ?_assert(new() =:= new([{size,0},{default,undefined},{fixed,false}])),
-     ?_assert(new() =:= new(0, {fixed,false})),
-     ?_assert(new(fixed) =:= new(0)),
-     ?_assert(new(fixed) =:= new(0, [])),
-     ?_assert(new(10) =:= new([{size,0},{size,5},{size,10}])),
-     ?_assert(new(10) =:= new(0, {size,10})),
-     ?_assert(new(10, []) =:= new(10, [{default,undefined},{fixed,true}])),
+    ?_assert(new() =:= new([])),
+    ?_assert(new() =:= new([{size,0},{default,undefined},{fixed,false}])),
+    ?_assert(new() =:= new(0, {fixed,false})),
+    ?_assert(new(fixed) =:= new(0)),
+    ?_assert(new(fixed) =:= new(0, [])),
+    ?_assert(new(10) =:= new([{size,0},{size,5},{size,10}])),
+    ?_assert(new(10) =:= new(0, {size,10})),
+    ?_assert(new(10, []) =:= new(10, [{default,undefined},{fixed,true}])),
 
-     ?_assertError(badarg, new(-1)),
-     ?_assertError(badarg, new(10.0)),
-     ?_assertError(badarg, new(undefined)),
-     ?_assertError(badarg, new([undefined])),
-     ?_assertError(badarg, new([{default,0} | fixed])),
+    ?_assertError(badarg, new(-1)),
+    ?_assertError(badarg, new(10.0)),
+    ?_assertError(badarg, new(undefined)),
+    ?_assertError(badarg, new([undefined])),
+    ?_assertError(badarg, new([{default,0} | fixed])),
 
-     ?_assertError(badarg, new(-1, [])),
-     ?_assertError(badarg, new(10.0, [])),
-     ?_assertError(badarg, new(undefined, [])),
+    ?_assertError(badarg, new(-1, [])),
+    ?_assertError(badarg, new(10.0, [])),
+    ?_assertError(badarg, new(undefined, [])),
 
-     ?_assertMatch(#array{size=0,fix=false,default=undefined},
-		   new()),
-     ?_assertMatch(#array{size=0,fix=true,default=undefined},
-		   new(fixed)),
-     ?_assertMatch(#array{size=N0,fix=false},
-		   new(N0, {fixed,false})),
-     ?_assertMatch(#array{size=N01,fix=false},
-		   new(N01, {fixed,false})),
-     ?_assertMatch(#array{size=N1,fix=false},
-		   new(N1, {fixed,false})),
-     ?_assertMatch(#array{size=N11,fix=false},
-		   new(N11, {fixed,false})),
-     ?_assertMatch(#array{size=N2, fix=false, default=42},
-		   new(N2, [{fixed,false},{default,42}])),
+    ?_assertMatch(#array{size=0,fix=false,default=undefined},
+                  new()),
+    ?_assertMatch(#array{size=0,fix=true,default=undefined},
+                  new(fixed)),
+    ?_assertMatch(#array{size=N0,fix=false},
+                  new(N0, {fixed,false})),
+    ?_assertMatch(#array{size=N01,fix=false},
+                  new(N01, {fixed,false})),
+    ?_assertMatch(#array{size=N1,fix=false},
+                  new(N1, {fixed,false})),
+    ?_assertMatch(#array{size=N11,fix=false},
+                  new(N11, {fixed,false})),
+    ?_assertMatch(#array{size=N2, fix=false, default=42},
+                  new(N2, [{fixed,false},{default,42}])),
 
-     ?_assert(0 =:= array:size(new())),
-     ?_assert(17 =:= array:size(new(17))),
-     ?_assert(8 =:= array:size(array:set(7,0,new()))),
-     ?_assert(100 =:= array:size(array:set(99,0,new()))),
-     ?_assert(100 =:= array:size(array:set(7,0,array:set(99,0,new())))),
-     ?_assert(100 =:= array:size(array:set(99,0,array:set(7,0,new())))),
-     ?_assertError(badarg, array:size({bad_data,gives_error})),
+    ?_assert(0 =:= array:size(new())),
+    ?_assert(17 =:= array:size(new(17))),
+    ?_assert(8 =:= array:size(array:set(7,0,new()))),
+    ?_assert(100 =:= array:size(array:set(99,0,new()))),
+    ?_assert(100 =:= array:size(array:set(7,0,array:set(99,0,new())))),
+    ?_assert(100 =:= array:size(array:set(99,0,array:set(7,0,new())))),
+    ?_assertError(badarg, array:size({bad_data,gives_error})),
 
-     ?_assert(undefined =:= default(new())),
-     ?_assert(4711 =:= default(new({default,4711}))),
-     ?_assert(0 =:= default(new(10, {default,0}))),
-     ?_assertError(badarg, default({bad_data,gives_error})),
+    ?_assert(undefined =:= default(new())),
+    ?_assert(4711 =:= default(new({default,4711}))),
+    ?_assert(0 =:= default(new(10, {default,0}))),
+    ?_assertError(badarg, default({bad_data,gives_error})),
 
-     ?_assert(is_array(new())),
-     ?_assert(false =:= is_array({foobar, 23, 23})),
-     ?_assert(false =:= is_array(#array{size=bad})),
-     %?_assert(false =:= is_array(#array{fix=bad})),
-     ?_assert(is_array(new(10))),
-     ?_assert(is_array(new(10, {fixed,false})))
-    ].
+    ?_assert(is_array(new())),
+    ?_assert(false =:= is_array({foobar, 23, 23})),
+    ?_assert(false =:= is_array(#array{size=bad})),
+    %%?_assert(false =:= is_array(#array{fix=bad})),
+    ?_assert(is_array(new(10))),
+    ?_assert(is_array(new(10, {fixed,false}))).
 
-fix_test_() ->
-    [?_assert(is_array(fix(new()))),
-     %?_assert(fix(new()) =:= new(fixed)),
+fix_test(_Config) ->
+    ?_assert(is_array(fix(new()))),
+    %%?_assert(fix(new()) =:= new(fixed)),
 
-     ?_assertNot(is_fix(new())),
-     ?_assertNot(is_fix(new([]))),
-     ?_assertNot(is_fix(new({fixed,false}))),
-     ?_assertNot(is_fix(new(10, {fixed,false}))),
-     ?_assert(is_fix(new({fixed,true}))),
-     ?_assert(is_fix(new(fixed))),
-     ?_assert(is_fix(new(10))),
-     ?_assert(is_fix(new(10, []))),
-     ?_assert(is_fix(new(10, {fixed,true}))),
-     ?_assert(is_fix(fix(new()))),
-     ?_assert(is_fix(fix(new({fixed,false})))),
+    ?_assertNot(is_fix(new())),
+    ?_assertNot(is_fix(new([]))),
+    ?_assertNot(is_fix(new({fixed,false}))),
+    ?_assertNot(is_fix(new(10, {fixed,false}))),
+    ?_assert(is_fix(new({fixed,true}))),
+    ?_assert(is_fix(new(fixed))),
+    ?_assert(is_fix(new(10))),
+    ?_assert(is_fix(new(10, []))),
+    ?_assert(is_fix(new(10, {fixed,true}))),
+    ?_assert(is_fix(fix(new()))),
+    ?_assert(is_fix(fix(new({fixed,false})))),
 
-     ?_test(set(0, 17, new())),
-     ?_assertError(badarg, set(0, 17, new(fixed))),
-     ?_assertError(badarg, set(1, 42, fix(set(0, 17, new())))),
+    ?_test(set(0, 17, new())),
+    ?_assertError(badarg, set(0, 17, new(fixed))),
+    ?_assertError(badarg, set(1, 42, fix(set(0, 17, new())))),
 
-     ?_test(set(9, 17, new(10))),
-     ?_assertError(badarg, set(10, 17, new(10))),
-     ?_assertError(badarg, set(10, 17, fix(new(10, {fixed,false}))))
-    ].
+    ?_test(set(9, 17, new(10))),
+    ?_assertError(badarg, set(10, 17, new(10))),
+    ?_assertError(badarg, set(10, 17, fix(new(10, {fixed,false})))).
 
-relax_test_() ->
+relax_test(_Config) ->
     [?_assert(is_array(relax(new(fixed)))),
      ?_assertNot(is_fix(relax(fix(new())))),
      ?_assertNot(is_fix(relax(new(fixed)))),
@@ -316,7 +269,7 @@ relax_test_() ->
   %	      =:= relax(fix(new(100, {fixed,false}))))
     ].
 
-resize_test_() ->
+resize_test(_Config) ->
     [?_assert(resize(0, new()) =:= new()),
      ?_assert(resize(99, new(99)) =:= new(99)),
      ?_assert(resize(99, relax(new(99))) =:= relax(new(99))),
@@ -362,7 +315,7 @@ resize_test_() ->
      ?_assertError(badarg, resize(foo, bad_argument))
     ].
 
-set_get_test_() ->
+set_get_test(_Config) ->
     N0 = ?LEAFSIZE,
     N1 = ?NODESIZE*N0,
     [?_assert(array:get(0, new()) =:= undefined),
@@ -413,7 +366,7 @@ set_get_test_() ->
      ?_assert(array:get(0, reset(0,  new({default,42}))) =:= 42)
     ].
 
-to_list_test_() ->
+to_list_test(_Config) ->
     N0 = ?LEAFSIZE,
     [?_assert([] =:= to_list(new())),
      ?_assert([undefined] =:= to_list(new(1))),
@@ -435,7 +388,7 @@ to_list_test_() ->
      ?_assertError(badarg, to_list(no_array))
     ].
 
-sparse_to_list_test_() ->
+sparse_to_list_test(_Config) ->
     N0 = ?LEAFSIZE,
     [?_assert([] =:= sparse_to_list(new())),
      ?_assert([] =:= sparse_to_list(new(1))),
@@ -455,7 +408,7 @@ sparse_to_list_test_() ->
      ?_assertError(badarg, sparse_to_list(no_array))
     ].
 
-from_list_test_() ->
+from_list_test(_Config) ->
     N0 = ?LEAFSIZE,
     N1 = ?NODESIZE*N0,
     N2 = ?NODESIZE*N1,
@@ -477,7 +430,7 @@ from_list_test_() ->
      ?_assertError(badarg, from_list(no_array))     
     ].
 
-from_test_() ->
+from_test(_Config) ->
     Seq = fun({N,Max}) ->
                   if N =< Max -> {N, {N+1, Max}};
                      true -> done
@@ -508,7 +461,7 @@ from_test_() ->
 
 
 
-to_orddict_test_() ->
+to_orddict_test(_Config) ->
     N0 = ?LEAFSIZE,
     [?_assert([] =:= to_orddict(new())),
      ?_assert([{0,undefined}] =:= to_orddict(new(1))),
@@ -538,7 +491,7 @@ to_orddict_test_() ->
      ?_assertError(badarg, to_orddict(no_array))     
     ].
 
-sparse_to_orddict_test_() ->
+sparse_to_orddict_test(_Config) ->
     N0 = ?LEAFSIZE,
     [?_assert([] =:= sparse_to_orddict(new())),
      ?_assert([] =:= sparse_to_orddict(new(1))),
@@ -564,7 +517,7 @@ sparse_to_orddict_test_() ->
      ?_assertError(badarg, sparse_to_orddict(no_array))     
     ].
 
-from_orddict_test_() ->
+from_orddict_test(_Config) ->
     N0 = ?LEAFSIZE,
     N1 = ?NODESIZE*N0,
     N2 = ?NODESIZE*N1,
@@ -637,7 +590,7 @@ from_orddict_test_() ->
      
     ].
 
-map_test_() ->
+map_test(_Config) ->
     N0 = ?LEAFSIZE,
     Id = fun (_,X) -> X end,
     Plus = fun(N) -> fun (_,X) -> X+N end end,
@@ -662,7 +615,7 @@ map_test_() ->
 					     set(0,0,new())))))#array{default = no_value}))
     ].
 
-sparse_map_test_() ->
+sparse_map_test(_Config) ->
     N0 = ?LEAFSIZE,
     Id = fun (_,X) -> X end,
     Plus = fun(N) -> fun (_,X) -> X+N end end,
@@ -695,7 +648,7 @@ sparse_map_test_() ->
 
     ].
 
-foldl_test_() ->
+foldl_test(_Config) ->
     N0 = ?LEAFSIZE,
     Count = fun (_,_,N) -> N+1 end,
     Sum = fun (_,X,N) -> N+X end,
@@ -721,7 +674,7 @@ foldl_test_() ->
                             set(0,0,new())))))
     ].
 
-sparse_foldl_test_() ->
+sparse_foldl_test(_Config) ->
     N0 = ?LEAFSIZE,
     Count = fun (_,_,N) -> N+1 end,
     Sum = fun (_,X,N) -> N+X end,
@@ -749,7 +702,7 @@ sparse_foldl_test_() ->
 				   set(0,0,new())))))
     ].
 
-foldr_test_() ->
+foldr_test(_Config) ->
     N0 = ?LEAFSIZE,
     Count = fun (_,_,N) -> N+1 end,
     Sum = fun (_,X,N) -> N+X end,
@@ -775,7 +728,7 @@ foldr_test_() ->
                                 set(0,0,new())))))
     ].
 
-sparse_foldr_test_() ->
+sparse_foldr_test(_Config) ->
     N0 = ?LEAFSIZE,
     Count = fun (_,_,N) -> N+1 end,
     Sum = fun (_,X,N) -> N+X end,
@@ -842,23 +795,3 @@ import_export(_Config) ->
 
 doctests(Config) when is_list(Config) ->
     shell_docs:test(array, []).
-
-
-new_test(Config) when is_list(Config) -> new_test_(), ok.
-fix_test(Config) when is_list(Config) -> fix_test_(), ok.
-relax_test(Config) when is_list(Config) -> relax_test_(), ok.
-resize_test(Config) when is_list(Config) -> resize_test_(), ok.
-set_get_test(Config) when is_list(Config) -> set_get_test_(), ok.
-to_list_test(Config) when is_list(Config) -> to_list_test_(), ok.
-sparse_to_list_test(Config) when is_list(Config) -> sparse_to_list_test_(), ok.
-from_list_test(Config) when is_list(Config) -> from_list_test_(), ok.
-to_orddict_test(Config) when is_list(Config) -> to_orddict_test_(), ok.
-sparse_to_orddict_test(Config) when is_list(Config) -> sparse_to_orddict_test_(), ok.
-from_orddict_test(Config) when is_list(Config) -> from_orddict_test_(), ok.
-map_test(Config) when is_list(Config) -> map_test_(), ok.
-sparse_map_test(Config) when is_list(Config) -> sparse_map_test_(), ok.
-foldl_test(Config) when is_list(Config) -> foldl_test_(), ok.
-sparse_foldl_test(Config) when is_list(Config) -> sparse_foldl_test_(), ok.
-foldr_test(Config) when is_list(Config) -> foldr_test_(), ok.
-sparse_foldr_test(Config) when is_list(Config) -> sparse_foldr_test_(), ok.
-from_test(Config) when is_list(Config) -> from_test_(), ok.
