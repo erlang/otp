@@ -111,11 +111,6 @@ beyond the last set entry:
 -moduledoc(#{ authors => [~"Richard Carlsson <carlsson.richard@gmail.com>",
                           ~"Dan Gudmundsson <dgud@erix.ericsson.se>"] }).
 
--include_lib("stdlib/include/assert.hrl").
-%%-define(TEST,1).
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
 -compile({inline, [get_max/1]}).
 
 
@@ -138,12 +133,14 @@ beyond the last set entry:
 %% stored in the tree when it is expanded. The last element of an
 %% internal node caches the number of elements that may be stored in
 %% each of its subtrees.
-%% 
+%%
 %% Note that to update an entry in a tree of height h = log[b] n, the
 %% total number of written words is (b+1)+(h-1)*(b+2), since tuples use
 %% a header word on the heap. 4 is the optimal base for minimizing the
 %% number of words written, but causes higher trees, which takes time.
-%% The best compromise between speed and memory usage seems to lie
+%% Current measurements gives a size of 16 as the best.
+%%
+%% Old comment: The best compromise between speed and memory usage seems to lie
 %% around 8-10. Measurements indicate that the optimum base for speed is
 %% 24 - above that, it gets slower again due to the high memory usage.
 %% Base 10 is a good choice, giving 2/3 of the possible speedup from
@@ -394,79 +391,6 @@ default(#array{default = D}) -> D;
 default(_) -> erlang:error(badarg).
 
 
--ifdef(EUNIT).
-new_test_() ->
-    N0 = ?LEAFSIZE,
-    N01 = N0+1,
-    N1 = ?NODESIZE*N0,
-    N11 = N1+1,
-    N2 = ?NODESIZE*N1,
-    [?_test(new()),
-
-     ?_test(new([])),
-     ?_test(new(10)),
-     ?_test(new({size,10})),
-     ?_test(new(fixed)),
-     ?_test(new({fixed,true})),
-     ?_test(new({fixed,false})),
-     ?_test(new({default,undefined})),
-     ?_test(new([{size,100},{fixed,false},{default,undefined}])),
-     ?_test(new([100,fixed,{default,0}])),
-
-     ?_assert(new() =:= new([])),
-     ?_assert(new() =:= new([{size,0},{default,undefined},{fixed,false}])),
-     ?_assert(new() =:= new(0, {fixed,false})),
-     ?_assert(new(fixed) =:= new(0)),
-     ?_assert(new(fixed) =:= new(0, [])),
-     ?_assert(new(10) =:= new([{size,0},{size,5},{size,10}])),
-     ?_assert(new(10) =:= new(0, {size,10})),
-     ?_assert(new(10, []) =:= new(10, [{default,undefined},{fixed,true}])),
-
-     ?_assertError(badarg, new(-1)),
-     ?_assertError(badarg, new(10.0)),
-     ?_assertError(badarg, new(undefined)),
-     ?_assertError(badarg, new([undefined])),
-     ?_assertError(badarg, new([{default,0} | fixed])),
-
-     ?_assertError(badarg, new(-1, [])),
-     ?_assertError(badarg, new(10.0, [])),
-     ?_assertError(badarg, new(undefined, [])),
-
-     ?_assertMatch(#array{size=0,max=N0,default=undefined,elements=N0},
-		   new()),
-     ?_assertMatch(#array{size=0,max=0,default=undefined,elements=N0},
-		   new(fixed)),
-     ?_assertMatch(#array{size=N0,max=N0,elements=N0},
-		   new(N0, {fixed,false})),
-     ?_assertMatch(#array{size=N01,max=N1,elements=N1},
-		   new(N01, {fixed,false})),
-     ?_assertMatch(#array{size=N1,max=N1,elements=N1},
-		   new(N1, {fixed,false})),
-     ?_assertMatch(#array{size=N11,max=N2,elements=N2},
-		   new(N11, {fixed,false})),
-     ?_assertMatch(#array{size=N2, max=N2, default=42,elements=N2},
-		   new(N2, [{fixed,false},{default,42}])),
-
-     ?_assert(0 =:= array:size(new())),
-     ?_assert(17 =:= array:size(new(17))),
-     ?_assert(100 =:= array:size(array:set(99,0,new()))),
-     ?_assertError(badarg, array:size({bad_data,gives_error})),
-
-     ?_assert(undefined =:= default(new())),
-     ?_assert(4711 =:= default(new({default,4711}))),
-     ?_assert(0 =:= default(new(10, {default,0}))),
-     ?_assertError(badarg, default({bad_data,gives_error})),
-
-     ?_assert(is_array(new())),
-     ?_assert(false =:= is_array({foobar, 23, 23})),
-     ?_assert(false =:= is_array(#array{size=bad})),
-     ?_assert(false =:= is_array(#array{max=bad})),
-     ?_assert(is_array(new(10))),
-     ?_assert(is_array(new(10, {fixed,false})))
-    ].
--endif.
-
-
 -doc """
 Fixes the array size. This prevents it from growing automatically upon
 insertion.
@@ -510,34 +434,6 @@ is_fix(#array{fix = true}) -> true;
 is_fix(#array{}) -> false.
 
 
--ifdef(EUNIT).
-fix_test_() ->
-    [?_assert(is_array(fix(new()))),
-     ?_assert(fix(new()) =:= new(fixed)),
-
-     ?_assertNot(is_fix(new())),
-     ?_assertNot(is_fix(new([]))),
-     ?_assertNot(is_fix(new({fixed,false}))),
-     ?_assertNot(is_fix(new(10, {fixed,false}))),
-     ?_assert(is_fix(new({fixed,true}))),
-     ?_assert(is_fix(new(fixed))),
-     ?_assert(is_fix(new(10))),
-     ?_assert(is_fix(new(10, []))),
-     ?_assert(is_fix(new(10, {fixed,true}))),
-     ?_assert(is_fix(fix(new()))),
-     ?_assert(is_fix(fix(new({fixed,false})))),
-
-     ?_test(set(0, 17, new())),
-     ?_assertError(badarg, set(0, 17, new(fixed))),
-     ?_assertError(badarg, set(1, 42, fix(set(0, 17, new())))),
-
-     ?_test(set(9, 17, new(10))),
-     ?_assertError(badarg, set(10, 17, new(10))),
-     ?_assertError(badarg, set(10, 17, fix(new(10, {fixed,false}))))
-    ].
--endif.
-
-
 -doc """
 Makes the array resizable. (Reverses the effects of `fix/1`.)
 
@@ -559,23 +455,6 @@ get_leaf(_I, E, D) when is_integer(E) ->
     ?NEW_CACHE(D);
 get_leaf(_I, E, _D) ->
     E.
-
-
-
--ifdef(EUNIT).
-relax_test_() ->
-    [?_assert(is_array(relax(new(fixed)))),
-     ?_assertNot(is_fix(relax(fix(new())))),
-     ?_assertNot(is_fix(relax(new(fixed)))),
-
-     ?_assert(new() =:= relax(new(fixed))),
-     ?_assert(new() =:= relax(new(0))),
-     ?_assert(new(17, {fixed,false}) =:= relax(new(17))),
-     ?_assert(new(100, {fixed,false})
-	      =:= relax(fix(new(100, {fixed,false}))))
-    ].
--endif.
-
 
 -doc """
 Change the array size.
@@ -653,41 +532,6 @@ See also `resize/2`, `sparse_size/1`.
 resize(Array) ->
     resize(sparse_size(Array), Array).
 
-
--ifdef(EUNIT).
-resize_test_() ->
-    [?_assert(resize(0, new()) =:= new()),
-     ?_assert(resize(99, new(99)) =:= new(99)),
-     ?_assert(resize(99, relax(new(99))) =:= relax(new(99))),
-     ?_assert(is_fix(resize(100, new(10)))),
-     ?_assertNot(is_fix(resize(100, relax(new(10))))),
-
-     ?_assert(array:size(resize(100, new())) =:= 100),
-     ?_assert(array:size(resize(0, new(100))) =:= 0),
-     ?_assert(array:size(resize(99, new(10))) =:= 99),
-     ?_assert(array:size(resize(99, new(1000))) =:= 99),
-
-     ?_assertError(badarg, set(99, 17, new(10))),
-     ?_test(set(99, 17, resize(100, new(10)))),
-     ?_assertError(badarg, set(100, 17, resize(100, new(10)))),
-
-     ?_assert(array:size(resize(new())) =:= 0),
-     ?_assert(array:size(resize(new(8))) =:= 0),
-     ?_assert(array:size(resize(array:set(7, 0, new()))) =:= 8),
-     ?_assert(array:size(resize(array:set(7, 0, new(10)))) =:= 8),
-     ?_assert(array:size(resize(array:set(99, 0, new(10,{fixed,false}))))
-	      =:= 100),
-     ?_assert(array:size(resize(array:set(7, undefined, new()))) =:= 0),
-     ?_assert(array:size(resize(array:from_list([1,2,3,undefined])))
-	      =:= 3),
-     ?_assert(array:size(
-		resize(array:from_orddict([{3,0},{17,0},{99,undefined}])))
-	      =:= 18),
-     ?_assertError(badarg, resize(foo, bad_argument))
-    ].
--endif.
-
-
 -doc """
 Sets entry `I` of the array to `Value`.
 
@@ -745,26 +589,6 @@ set(I, Value, #array{size = N, fix = Fix, cache = C, cache_index = CI, default =
 set(_I, _V, _A) ->
     erlang:error(badarg).
 
-%% Currently unused because set_leaf() handles all tree updates
-%% %% See get_1/3 for details about switching and the NODEPATTERN macro.
-%% set_1(I, E=?NODEPATTERN(S), X, D) ->
-%%     I1 = I div S + 1,
-%%     setelement(I1, E, set_1(I rem S, element(I1, E), X, D));
-%% set_1(I, E, X, D) when is_integer(E) ->
-%%     expand(I, E, X, D);
-%% set_1(I, E, X, _D) ->
-%%     setelement(I+1, E, X).
-
-
-%% %% Insert an element in an unexpanded node, expanding it as necessary.
-%% expand(I, S, X, D) when S > ?LEAFSIZE ->
-%%     S1 = ?reduce(S),
-%%     setelement(I div S1 + 1, ?NEW_NODE(S1),
-%%             expand(I rem S1, S1, X, D));
-%% expand(I, _S, X, D) ->
-%%     setelement(I+1, ?NEW_LEAF(D), X).
-
-
 %% Enlarging the array upwards to accommodate an index `I'
 
 grow(I, E, _M) when is_integer(I), is_integer(E) ->
@@ -798,7 +622,7 @@ get(I, #array{size = N, fix = Fix, cache = C, cache_index = CI, elements = E, de
                     element(1 + I - CI, C);
                true ->
                     get_1(I, E, D)
-            end; 
+            end;
        Fix ->
 	    erlang:error(badarg);
        true ->
@@ -870,59 +694,6 @@ reset_1(I, E, D) ->
 	_ -> setelement(I+1, E, D)
     end.
 
-
--ifdef(EUNIT).
-set_get_test_() ->
-    N0 = ?LEAFSIZE,
-    N1 = ?NODESIZE*N0,
-    [?_assert(array:get(0, new()) =:= undefined),
-     ?_assert(array:get(1, new()) =:= undefined),
-     ?_assert(array:get(99999, new()) =:= undefined),
-
-     ?_assert(array:get(0, new(1)) =:= undefined),
-     ?_assert(array:get(0, new(1,{default,0})) =:= 0),
-     ?_assert(array:get(9, new(10)) =:= undefined),
-
-     ?_assertError(badarg, array:get(0, new(fixed))),
-     ?_assertError(badarg, array:get(1, new(1))),
-     ?_assertError(badarg, array:get(-1, new(1))),
-     ?_assertError(badarg, array:get(10, new(10))),
-     ?_assertError(badarg, array:set(-1, foo, new(10))),
-     ?_assertError(badarg, array:set(10, foo, no_array)),
-
-     ?_assert(array:size(set(0, 17, new())) =:= 1),
-     ?_assert(array:size(set(N1-1, 17, new())) =:= N1),
-     ?_assert(array:size(set(0, 42, set(0, 17, new()))) =:= 1),
-     ?_assert(array:size(set(9, 42, set(0, 17, new()))) =:= 10),
-
-     ?_assert(array:get(0, set(0, 17, new())) =:= 17),
-     ?_assert(array:get(0, set(1, 17, new())) =:= undefined),
-     ?_assert(array:get(1, set(1, 17, new())) =:= 17),
-
-     ?_assert(array:get(0, fix(set(0, 17, new()))) =:= 17),
-     ?_assertError(badarg, array:get(1, fix(set(0, 17, new())))),
-
-     ?_assert(array:get(N1-2, set(N1-1, 17, new())) =:= undefined),
-     ?_assert(array:get(N1-1, set(N1-1, 17, new())) =:= 17),
-     ?_assertError(badarg, array:get(N1, fix(set(N1-1, 17, new())))),
-
-     ?_assert(array:get(0, set(0, 42, set(0, 17, new()))) =:= 42),
-
-     ?_assertError(badarg, array:get(0, reset(11, new([{size,10}])))),
-     ?_assertError(badarg, array:get(0, reset(-1, new([{size,10}])))),
-     ?_assert(array:get(0, reset(0,  new())) =:= undefined),
-     ?_assert(array:get(0, reset(0,  set(0,  17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(9,  set(9,  17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(11, set(11, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(11, set(12, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(1,  set(12, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(11, new())) =:= undefined),
-     ?_assert(array:get(0, reset(0,  set(0,  17, new({default,42})))) =:= 42),
-     ?_assert(array:get(0, reset(0,  new({default,42}))) =:= 42)
-    ].
--endif.
-
-
 -doc """
 Converts the array to a list.
 
@@ -974,32 +745,6 @@ push_tuple(0, _T, L) ->
 push_tuple(N, T, L) ->
     push_tuple(N - 1, T, [element(N, T) | L]).
 
-
--ifdef(EUNIT).
-to_list_test_() ->
-    N0 = ?LEAFSIZE,
-    [?_assert([] =:= to_list(new())),
-     ?_assert([undefined] =:= to_list(new(1))),
-     ?_assert([undefined,undefined] =:= to_list(new(2))),
-     ?_assert(lists:duplicate(N0,0) =:= to_list(new(N0,{default,0}))),
-     ?_assert(lists:duplicate(N0+1,1) =:= to_list(new(N0+1,{default,1}))),
-     ?_assert(lists:duplicate(N0+2,2) =:= to_list(new(N0+2,{default,2}))),
-     ?_assert(lists:duplicate(666,6) =:= to_list(new(666,{default,6}))),
-     ?_assert([1,2,3] =:= to_list(set(2,3,set(1,2,set(0,1,new()))))),
-     ?_assert([3,2,1] =:= to_list(set(0,3,set(1,2,set(2,1,new()))))),
-     ?_assert([1|lists:duplicate(N0-2,0)++[1]] =:= 
-	      to_list(set(N0-1,1,set(0,1,new({default,0}))))),
-     ?_assert([1|lists:duplicate(N0-1,0)++[1]] =:= 
-	      to_list(set(N0,1,set(0,1,new({default,0}))))),
-     ?_assert([1|lists:duplicate(N0,0)++[1]] =:= 
-	      to_list(set(N0+1,1,set(0,1,new({default,0}))))),
-     ?_assert([1|lists:duplicate(N0*3,0)++[1]] =:= 
-	      to_list(set((N0*3)+1,1,set(0,1,new({default,0}))))),
-     ?_assertError(badarg, to_list(no_array))
-    ].
--endif.
-
-
 -doc """
 Converts the array to a list, skipping default-valued entries.
 
@@ -1047,30 +792,6 @@ sparse_push_tuple(N, D, T, L) ->
 	D -> sparse_push_tuple(N - 1, D, T, L);
 	E -> sparse_push_tuple(N - 1, D, T, [E | L])
     end.
-
-
--ifdef(EUNIT).
-sparse_to_list_test_() ->
-    N0 = ?LEAFSIZE,
-    [?_assert([] =:= sparse_to_list(new())),
-     ?_assert([] =:= sparse_to_list(new(1))),
-     ?_assert([] =:= sparse_to_list(new(1,{default,0}))),
-     ?_assert([] =:= sparse_to_list(new(2))),
-     ?_assert([] =:= sparse_to_list(new(2,{default,0}))),
-     ?_assert([] =:= sparse_to_list(new(N0,{default,0}))),
-     ?_assert([] =:= sparse_to_list(new(N0+1,{default,1}))),
-     ?_assert([] =:= sparse_to_list(new(N0+2,{default,2}))),
-     ?_assert([] =:= sparse_to_list(new(666,{default,6}))),
-     ?_assert([1,2,3] =:= sparse_to_list(set(2,3,set(1,2,set(0,1,new()))))),
-     ?_assert([3,2,1] =:= sparse_to_list(set(0,3,set(1,2,set(2,1,new()))))),
-     ?_assert([0,1] =:= sparse_to_list(set(N0-1,1,set(0,0,new())))),
-     ?_assert([0,1] =:= sparse_to_list(set(N0,1,set(0,0,new())))),
-     ?_assert([0,1] =:= sparse_to_list(set(N0+1,1,set(0,0,new())))),
-     ?_assert([0,1,2] =:= sparse_to_list(set(N0*10+1,2,set(N0*2+1,1,set(0,0,new()))))),
-     ?_assertError(badarg, sparse_to_list(no_array))
-    ].
--endif.
-
 
 %% @equiv from_list(List, undefined)
 
@@ -1157,31 +878,6 @@ from_list_2(I, [X | Xs], S, N, As, Es) ->
 %% elements from N (adding 0 to K-1 elements).
 pad(N, K, P, Es) ->
     push((K - (N rem K)) rem K, P, Es).
-
-
--ifdef(EUNIT).
-from_list_test_() ->
-    N0 = ?LEAFSIZE,
-    N1 = ?NODESIZE*N0,
-    N2 = ?NODESIZE*N1,
-    N3 = ?NODESIZE*N2,
-    N4 = ?NODESIZE*N3,
-    [?_assert(array:size(from_list([])) =:= 0),
-     ?_assert(array:is_fix(from_list([])) =:= false),
-     ?_assert(array:size(from_list([undefined])) =:= 1),
-     ?_assert(array:is_fix(from_list([undefined])) =:= false),
-     ?_assert(array:size(from_list(lists:seq(1,N1))) =:= N1),
-     ?_assert(to_list(from_list(lists:seq(1,N0))) =:= lists:seq(1,N0)),
-     ?_assert(to_list(from_list(lists:seq(1,N0+1))) =:= lists:seq(1,N0+1)),
-     ?_assert(to_list(from_list(lists:seq(1,N0+2))) =:= lists:seq(1,N0+2)),
-     ?_assert(to_list(from_list(lists:seq(1,N2))) =:= lists:seq(1,N2)),
-     ?_assert(to_list(from_list(lists:seq(1,N2+1))) =:= lists:seq(1,N2+1)),
-     ?_assert(to_list(from_list(lists:seq(0,N3))) =:= lists:seq(0,N3)),
-     ?_assert(to_list(from_list(lists:seq(0,N4))) =:= lists:seq(0,N4)),
-     ?_assertError(badarg, from_list([a,b,a,c|d])),
-     ?_assertError(badarg, from_list(no_array))     
-    ].
--endif.
 
 
 -doc "Equivalent to [`from(Fun, State, undefined)`](`from/3`).".
@@ -1321,39 +1017,6 @@ push_tuple_pairs(N, I, T, L) ->
     push_tuple_pairs(N-1, I-1, T, [{I, element(N, T)} | L]).
 
 
--ifdef(EUNIT).
-to_orddict_test_() ->
-    N0 = ?LEAFSIZE,
-    [?_assert([] =:= to_orddict(new())),
-     ?_assert([{0,undefined}] =:= to_orddict(new(1))),
-     ?_assert([{0,undefined},{1,undefined}] =:= to_orddict(new(2))),
-     ?_assert([{N,0}||N<-lists:seq(0,N0-1)]
-	      =:= to_orddict(new(N0,{default,0}))),
-     ?_assert([{N,1}||N<-lists:seq(0,N0)]
-	      =:= to_orddict(new(N0+1,{default,1}))),
-     ?_assert([{N,2}||N<-lists:seq(0,N0+1)]
-	      =:= to_orddict(new(N0+2,{default,2}))),
-     ?_assert([{N,6}||N<-lists:seq(0,665)]
-	      =:= to_orddict(new(666,{default,6}))),
-     ?_assert([{0,1},{1,2},{2,3}] =:=
-	      to_orddict(set(2,3,set(1,2,set(0,1,new()))))),
-     ?_assert([{0,3},{1,2},{2,1}] =:=
-	      to_orddict(set(0,3,set(1,2,set(2,1,new()))))),
-     ?_assert([{0,1}|[{N,0}||N<-lists:seq(1,N0-2)]++[{N0-1,1}]]
-	      =:= to_orddict(set(N0-1,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,1}|[{N,0}||N<-lists:seq(1,N0-1)]++[{N0,1}]]
-	      =:= to_orddict(set(N0,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,1}|[{N,0}||N<-lists:seq(1,N0)]++[{N0+1,1}]]
-	      =:= to_orddict(set(N0+1,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,0} | [{N,undefined}||N<-lists:seq(1,N0*2)]] ++ 
-	      [{N0*2+1,1} | [{N,undefined}||N<-lists:seq(N0*2+2,N0*10)]] ++
-	      [{N0*10+1,2}] =:= 
-	      to_orddict(set(N0*10+1,2,set(N0*2+1,1,set(0,0,new()))))),
-     ?_assertError(badarg, to_orddict(no_array))     
-    ].
--endif.
-
-
 -doc """
 Converts the array to an ordered list of pairs `{Index, Value}`, skipping
 default-valued entries.
@@ -1410,36 +1073,6 @@ sparse_push_tuple_pairs(N, I, D, T, L) ->
 	E -> sparse_push_tuple_pairs(N-1, I-1, D, T, [{I, E} | L])
     end.
 
-
--ifdef(EUNIT).
-sparse_to_orddict_test_() ->
-    N0 = ?LEAFSIZE,
-    [?_assert([] =:= sparse_to_orddict(new())),
-     ?_assert([] =:= sparse_to_orddict(new(1))),
-     ?_assert([] =:= sparse_to_orddict(new(1,{default,0}))),
-     ?_assert([] =:= sparse_to_orddict(new(2))),
-     ?_assert([] =:= sparse_to_orddict(new(2,{default,0}))),
-     ?_assert([] =:= sparse_to_orddict(new(N0,{default,0}))),
-     ?_assert([] =:= sparse_to_orddict(new(N0+1,{default,1}))),
-     ?_assert([] =:= sparse_to_orddict(new(N0+2,{default,2}))),
-     ?_assert([] =:= sparse_to_orddict(new(666,{default,6}))),
-     ?_assert([{0,1},{1,2},{2,3}] =:=
-	      sparse_to_orddict(set(2,3,set(1,2,set(0,1,new()))))),
-     ?_assert([{0,3},{1,2},{2,1}] =:=
-	      sparse_to_orddict(set(0,3,set(1,2,set(2,1,new()))))),
-     ?_assert([{0,1},{N0-1,1}] =:=
-	      sparse_to_orddict(set(N0-1,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,1},{N0,1}] =:=
-	      sparse_to_orddict(set(N0,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,1},{N0+1,1}] =:=
-	      sparse_to_orddict(set(N0+1,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,0},{N0*2+1,1},{N0*10+1,2}] =:= 
-	      sparse_to_orddict(set(N0*10+1,2,set(N0*2+1,1,set(0,0,new()))))),
-     ?_assertError(badarg, sparse_to_orddict(no_array))     
-    ].
--endif.
-
-
 -doc "Equivalent to [`from_orddict(Orddict, undefined)`](`from_orddict/2`).".
 -spec from_orddict(Orddict :: indx_pairs(Value :: Type)) -> array(Type).
 
@@ -1470,7 +1103,7 @@ from_orddict(_, _) ->
 
 %% 2 pass implementation, first pass builds the needed leaf nodes
 %% and adds hole sizes.
-%% (inserts default elements for missing list entries in the leafs 
+%% (inserts default elements for missing list entries in the leafs
 %%  and pads the last tuple if necessary).
 %% Second pass builds the tree from the leafs and the holes.
 %%
@@ -1480,13 +1113,13 @@ from_orddict(_, _) ->
 from_orddict_0([], N, _Max, _D, Es) ->
     %% Finished, build the resulting tree
     case Es of
-	[E] -> 
+	[E] ->
 	    {E, N, ?LEAFSIZE};
-	_ -> 
+	_ ->
 	    collect_leafs(N, Es, ?SHIFT)
     end;
 
-from_orddict_0(Xs=[{Ix1, _}|_], Ix, Max0, D, Es0) 
+from_orddict_0(Xs=[{Ix1, _}|_], Ix, Max0, D, Es0)
   when is_integer(Ix1), Ix1 > Max0  ->
     %% We have a hole larger than a leaf
     Hole = Ix1-Ix,
@@ -1494,7 +1127,7 @@ from_orddict_0(Xs=[{Ix1, _}|_], Ix, Max0, D, Es0)
     Next = Ix+Step,
     from_orddict_0(Xs, Next, Next+?LEAFSIZE, D, [Step|Es0]);
 from_orddict_0(Xs0=[{_, _}|_], Ix0, Max, D, Es) ->
-    %% Fill a leaf 
+    %% Fill a leaf
     {Xs,E,Ix} = from_orddict_1(Ix0, Max, Xs0, Ix0, D, []),
     from_orddict_0(Xs, Ix, Ix+?LEAFSIZE, D, [E|Es]);
 from_orddict_0(Xs, _, _, _,_) ->
@@ -1519,11 +1152,11 @@ from_orddict_1(Ix, Max, Xs, N0, D, As) ->
     end.
 
 %% Es is reversed i.e. starting from the largest leafs
-collect_leafs(N, Es, S) -> 
+collect_leafs(N, Es, S) ->
     I = ((N-1) bsr S) + 1,
     Pad = ((?NODESIZE - (I rem ?NODESIZE)) rem ?NODESIZE) * ?SIZE(S),
     case Pad of
-	0 -> 
+	0 ->
 	    collect_leafs(?NODESIZE, Es, S, N, [S], []);
 	_ ->  %% Pad the end
 	    collect_leafs(?NODESIZE, [Pad|Es], S, N, [S], [])
@@ -1541,13 +1174,13 @@ collect_leafs(0, Xs, S, N, As, Es) ->
 			       ?extend(S))
 	    end;
 	_ ->
-	    collect_leafs(?NODESIZE, Xs, S, N, [S], [E | Es])		
+	    collect_leafs(?NODESIZE, Xs, S, N, [S], [E | Es])
     end;
-collect_leafs(I, [X | Xs], S, N, As0, Es0) 
+collect_leafs(I, [X | Xs], S, N, As0, Es0)
   when is_integer(X) ->
     %% A hole, pad accordingly.
     Step0 = (X bsr S),
-    if 
+    if
 	Step0 < I ->
 	    As = push(Step0, S, As0),
 	    collect_leafs(I-Step0, Xs, S, N, As, Es0);
@@ -1567,82 +1200,6 @@ collect_leafs(I, [X | Xs], S, N, As, Es) ->
     collect_leafs(I-1, Xs, S, N, [X | As], Es);
 collect_leafs(?NODESIZE, [], S, N, [_], Es) ->
     collect_leafs(N, lists:reverse(Es), ?extend(S)).
-
--ifdef(EUNIT).
-from_orddict_test_() ->
-    N0 = ?LEAFSIZE,
-    N1 = ?NODESIZE*N0,
-    N2 = ?NODESIZE*N1,
-    N3 = ?NODESIZE*N2,
-    N4 = ?NODESIZE*N3,
-    [?_assert(array:size(from_orddict([])) =:= 0),
-     ?_assert(array:is_fix(from_orddict([])) =:= false),
-     ?_assert(array:size(from_orddict([{0,undefined}])) =:= 1),
-     ?_assert(array:is_fix(from_orddict([{0,undefined}])) =:= false),
-     ?_assert(array:size(from_orddict([{N0-1,undefined}])) =:= N0),
-     ?_assert(array:size(from_orddict([{N,0}||N<-lists:seq(0,N1-1)]))
-	      =:= N1),
-     ?_assertError({badarg,_}, from_orddict([foo])),
-     ?_assertError({badarg,_}, from_orddict([{200,foo},{1,bar}])),
-     ?_assertError({badarg,_}, from_orddict([{N,0}||N<-lists:seq(0,N0-1)] ++ not_a_list)),
-     ?_assertError(badarg, from_orddict(no_array)),
-
-
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N0-1)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N0)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N2-1)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N2)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N3-1)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N4-1)],
-		   L =:= to_orddict(from_orddict(L)))),
-
-     %% Hole in the begining
-     ?_assert(?LET(L, [{0,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N0,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N3,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N4,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N0-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N1-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N3-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N4-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-
-     %% Hole in middle 
-     
-     ?_assert(?LET(L, [{0,0},{N0,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N3,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N4,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N0-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N1-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N3-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N4-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L))))
-     
-    ].
--endif.
-
 
 %%    Function = (Index::integer(), Value::term()) -> term()
 
@@ -1713,35 +1270,6 @@ unfold(S, _D) when ?SIZE(S) > ?LEAFSIZE ->
     ?NEW_NODE(?reduce(S));
 unfold(_S, D) ->
     ?NEW_LEAF(D).
-    
-
--ifdef(EUNIT).
-map_test_() ->
-    N0 = ?LEAFSIZE,
-    Id = fun (_,X) -> X end,
-    Plus = fun(N) -> fun (_,X) -> X+N end end,
-    Default = fun(_K,undefined) ->  no_value;
-		 (K,V) -> K+V
-	      end,
-    [?_assertError(badarg, map([], new())),
-     ?_assertError(badarg, map([], new(10))),
-     ?_assert(to_list(map(Id, new())) =:= []),
-     ?_assert(to_list(map(Id, new(1))) =:= [undefined]),
-     ?_assert(to_list(map(Id, new(5,{default,0}))) =:= [0,0,0,0,0]),
-     ?_assert(to_list(map(Id, from_list([1,2,3,4]))) =:= [1,2,3,4]),
-     ?_assert(to_list(map(Plus(1), from_list([0,1,2,3]))) =:= [1,2,3,4]),
-     ?_assert(to_list(map(Plus(-1), from_list(lists:seq(1,11))))
-	      =:= lists:seq(0,10)),
-     ?_assert(to_list(map(Plus(11), from_list(lists:seq(0,99999))))
-	      =:= lists:seq(11,100010)),
-     ?_assert([{0,0},{N0*2+1,N0*2+1+1},{N0*100+1,N0*100+1+2}] =:= 
-	      sparse_to_orddict((map(Default, 
-				     set(N0*100+1,2,
-					 set(N0*2+1,1,
-					     set(0,0,new())))))#array{default = no_value}))
-    ].
--endif.
-
 
 -doc """
 Maps the specified function onto each array element, skipping default-valued
@@ -1806,43 +1334,6 @@ sparse_map_3(I, T, Ix, F, D, L) when I =< ?LEAFSIZE ->
 sparse_map_3(_I, _E, _Ix, _F, _D, L) ->
     L.
 
-
--ifdef(EUNIT).
-sparse_map_test_() ->
-    N0 = ?LEAFSIZE,
-    Id = fun (_,X) -> X end,
-    Plus = fun(N) -> fun (_,X) -> X+N end end,
-    KeyPlus = fun (K,X) -> K+X end,
-    [?_assertError(badarg, sparse_map([], new())),
-     ?_assertError(badarg, sparse_map([], new(10))),
-     ?_assert(to_list(sparse_map(Id, new())) =:= []),
-     ?_assert(to_list(sparse_map(Id, new(1))) =:= [undefined]),
-     ?_assert(to_list(sparse_map(Id, new(5,{default,0}))) =:= [0,0,0,0,0]),
-     ?_assert(to_list(sparse_map(Id, from_list([1,2,3,4]))) =:= [1,2,3,4]),
-     ?_assert(to_list(sparse_map(Plus(1), from_list([0,1,2,3])))
-	      =:= [1,2,3,4]),
-     ?_assert(to_list(sparse_map(Plus(-1), from_list(lists:seq(1,11))))
-	      =:= lists:seq(0,10)),
-     ?_assert(to_list(sparse_map(Plus(11), from_list(lists:seq(0,99999))))
-	      =:= lists:seq(11,100010)),
-     ?_assert(to_list(sparse_map(Plus(1), set(1,1,new({default,0}))))
-	      =:= [0,2]),
-     ?_assert(to_list(sparse_map(Plus(1),
-				 set(3,4,set(0,1,new({default,0})))))
-	      =:= [2,0,0,5]),
-     ?_assert(to_list(sparse_map(Plus(1),
-				 set(9,9,set(1,1,new({default,0})))))
-	      =:= [0,2,0,0,0,0,0,0,0,10]),
-     ?_assert([{0,0},{N0*2+1,N0*2+1+1},{N0*100+1,N0*100+1+2}] =:= 
-	      sparse_to_orddict(sparse_map(KeyPlus, 
-					   set(N0*100+1,2,
-					       set(N0*2+1,1,
-						   set(0,0,new()))))))
-
-    ].
--endif.
-
-
 -doc """
 Folds the array elements using the specified function and initial accumulator
 value. The elements are visited in order from the lowest index to the highest.
@@ -1886,35 +1377,6 @@ foldl_3(I, E, A, Ix, F, N) when I =< N ->
     foldl_3(I+1, E, F(Ix, element(I, E), A), Ix+1, F, N);
 foldl_3(_I, _E, A, _Ix, _F, _N) ->
     A.
-
-
--ifdef(EUNIT).
-foldl_test_() ->
-    N0 = ?LEAFSIZE,
-    Count = fun (_,_,N) -> N+1 end,
-    Sum = fun (_,X,N) -> N+X end,
-    Reverse = fun (_,X,L) -> [X|L] end,
-    Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
-	      (K,X,{C,L}) -> {C,[K+X|L]} 
-	   end,
-    [?_assertError(badarg, foldl([], 0, new())),
-     ?_assertError(badarg, foldl([], 0, new(10))),
-     ?_assert(foldl(Count, 0, new()) =:= 0),
-     ?_assert(foldl(Count, 0, new(1)) =:= 1),
-     ?_assert(foldl(Count, 0, new(10)) =:= 10),
-     ?_assert(foldl(Count, 0, from_list([1,2,3,4])) =:= 4),
-     ?_assert(foldl(Count, 10, from_list([0,1,2,3,4,5,6,7,8,9])) =:= 20),
-     ?_assert(foldl(Count, 1000, from_list(lists:seq(0,999))) =:= 2000),
-     ?_assert(foldl(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
-     ?_assert(foldl(Reverse, [], from_list(lists:seq(0,1000)))
-	      =:= lists:reverse(lists:seq(0,1000))),
-     ?_assertEqual({N0*100+1-2,[N0*100+1+2,N0*2+1+1,0]},
-	      foldl(Vals, {0,[]},
-		    set(N0*100+1,2,
-			set(N0*2+1,1,
-			    set(0,0,new())))))
-    ].
--endif.
 
 
 -doc """
@@ -1966,37 +1428,6 @@ sparse_foldl_3(_I, _T, A, _Ix, _F, _D, _N) ->
     A.
 
 
--ifdef(EUNIT).
-sparse_foldl_test_() ->
-    N0 = ?LEAFSIZE,
-    Count = fun (_,_,N) -> N+1 end,
-    Sum = fun (_,X,N) -> N+X end,
-    Reverse = fun (_,X,L) -> [X|L] end,
-    Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
-	      (K,X,{C,L}) -> {C,[K+X|L]} 
-	   end,
-    [?_assertError(badarg, sparse_foldl([], 0, new())),
-     ?_assertError(badarg, sparse_foldl([], 0, new(10))),
-     ?_assert(sparse_foldl(Count, 0, new()) =:= 0),
-     ?_assert(sparse_foldl(Count, 0, new(1)) =:= 0),
-     ?_assert(sparse_foldl(Count, 0, new(10,{default,1})) =:= 0),
-     ?_assert(sparse_foldl(Count, 0, from_list([0,1,2,3,4],0)) =:= 4),
-     ?_assert(sparse_foldl(Count, 0, from_list([0,1,2,3,4,5,6,7,8,9,0],0))
-	      =:= 9),
-     ?_assert(sparse_foldl(Count, 0, from_list(lists:seq(0,999),0))
-	      =:= 999),
-     ?_assert(sparse_foldl(Sum, 0, from_list(lists:seq(0,10), 5)) =:= 50),
-     ?_assert(sparse_foldl(Reverse, [], from_list(lists:seq(0,1000), 0))
-	      =:= lists:reverse(lists:seq(1,1000))),
-     ?_assert({0,[N0*100+1+2,N0*2+1+1,0]} =:= 
-	      sparse_foldl(Vals, {0,[]}, 
-			   set(N0*100+1,2,
-			       set(N0*2+1,1,
-				   set(0,0,new())))))
-    ].
--endif.
-
-
 -doc """
 Folds the array elements right-to-left using the specified function and initial
 accumulator value. The elements are visited in order from the highest index to
@@ -2045,35 +1476,6 @@ foldr_3(0, _E, _Ix, A, _F) ->
     A;
 foldr_3(I, E, Ix, A, F) ->
     foldr_3(I-1, E, Ix, F(Ix+I, element(I, E), A), F).
-
-
--ifdef(EUNIT).
-foldr_test_() ->
-    N0 = ?LEAFSIZE,
-    Count = fun (_,_,N) -> N+1 end,
-    Sum = fun (_,X,N) -> N+X end,
-    List = fun (_,X,L) -> [X|L] end,
-    Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
-	      (K,X,{C,L}) -> {C,[K+X|L]} 
-	   end,
-    [?_assertError(badarg, foldr([], 0, new())),
-     ?_assertError(badarg, foldr([], 0, new(10))),
-     ?_assert(foldr(Count, 0, new()) =:= 0),
-     ?_assert(foldr(Count, 0, new(1)) =:= 1),
-     ?_assert(foldr(Count, 0, new(10)) =:= 10),
-     ?_assert(foldr(Count, 0, from_list([1,2,3,4])) =:= 4),
-     ?_assert(foldr(Count, 10, from_list([0,1,2,3,4,5,6,7,8,9])) =:= 20),
-     ?_assert(foldr(Count, 1000, from_list(lists:seq(0,999))) =:= 2000),
-     ?_assert(foldr(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
-     ?_assert(foldr(List, [], from_list(lists:seq(0,1000)))
- 	      =:= lists:seq(0,1000)),
-     ?_assertEqual({N0*100+1-2,[0,N0*2+1+1,N0*100+1+2]},
-	      foldr(Vals, {0,[]},
-		    set(N0*100+1,2,
-			set(N0*2+1,1,
-			    set(0,0,new())))))
-    ].
--endif.
 
 
 -doc """
@@ -2147,46 +1549,3 @@ sparse_size(A) ->
 	{value, I} when is_integer(I) ->
 	    I + 1
     end.
-
-
--ifdef(EUNIT).
-sparse_foldr_test_() ->
-    N0 = ?LEAFSIZE,
-    Count = fun (_,_,N) -> N+1 end,
-    Sum = fun (_,X,N) -> N+X end,
-    List = fun (_,X,L) -> [X|L] end,
-    Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
-	      (K,X,{C,L}) -> {C,[K+X|L]} 
-	   end,
-
-    [?_assertError(badarg, sparse_foldr([], 0, new())),
-     ?_assertError(badarg, sparse_foldr([], 0, new(10))),
-     ?_assert(sparse_foldr(Count, 0, new()) =:= 0),
-     ?_assert(sparse_foldr(Count, 0, new(1)) =:= 0),
-     ?_assert(sparse_foldr(Count, 0, new(10,{default,1})) =:= 0),
-     ?_assert(sparse_foldr(Count, 0, from_list([0,1,2,3,4],0)) =:= 4),
-     ?_assert(sparse_foldr(Count, 0, from_list([0,1,2,3,4,5,6,7,8,9,0],0))
-	      =:= 9),
-     ?_assert(sparse_foldr(Count, 0, from_list(lists:seq(0,999),0))
-	      =:= 999),
-     ?_assert(sparse_foldr(Sum, 0, from_list(lists:seq(0,10),5)) =:= 50),
-     ?_assert(sparse_foldr(List, [], from_list(lists:seq(0,1000),0))
- 	      =:= lists:seq(1,1000)),
-
-     ?_assert(sparse_size(new()) =:= 0),
-     ?_assert(sparse_size(new(8)) =:= 0),
-     ?_assert(sparse_size(array:set(7, 0, new())) =:= 8),
-     ?_assert(sparse_size(array:set(7, 0, new(10))) =:= 8),
-     ?_assert(sparse_size(array:set(99, 0, new(10,{fixed,false})))
-	      =:= 100),
-     ?_assert(sparse_size(array:set(7, undefined, new())) =:= 0),
-     ?_assert(sparse_size(array:from_list([1,2,3,undefined])) =:= 3),
-     ?_assert(sparse_size(array:from_orddict([{3,0},{17,0},{99,undefined}]))
-			  =:= 18),
-     ?_assert({0,[0,N0*2+1+1,N0*100+1+2]} =:= 
-	      sparse_foldr(Vals, {0,[]}, 
-			   set(N0*100+1,2,
-			       set(N0*2+1,1,
-				   set(0,0,new())))))     
-    ].
--endif.
