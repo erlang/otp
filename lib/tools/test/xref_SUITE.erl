@@ -2509,12 +2509,11 @@ eval(Query, S) ->
     unsetify(Answer).
 
 add_module(S, XMod, DefAt, X, LCallAt, XCallAt, XC, LC) ->
-    Attr = {[], [], []},
     Depr0 = {[], [], [], []},
     DBad = [],
     Depr = {Depr0,DBad},
     OL = [],
-    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attr, Depr, OL},
+    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Depr, OL},
     Unres = [],
     {ok, _Module, _Bad, State} =
     xref_base:do_add_module(S, XMod, Unres, Data),

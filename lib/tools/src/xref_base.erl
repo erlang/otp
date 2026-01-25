@@ -744,7 +744,7 @@ read_module(SplitName, AppName, Builtins, Verbose, Warnings, State) ->
 read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
     File = filename:join(Dir, BaseName),
     case abst(File, Builtins, Mode) of
-	{ok, M, Data, UnresCalls0}  ->
+	{ok, M, Attrs, Data, UnresCalls0}  ->
 	    message(Verbose, done_file, [File]),
             %% Remove duplicates. Identical unresolved calls on the
             %% same line are counted as _one_ unresolved call.
@@ -759,7 +759,7 @@ read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
                 {ok, {_, _, _, Time}} ->
                     XMod = #xref_mod{name = M, app_name = AppName,
                                      dir = Dir, mtime = Time,
-                                     builtins = Builtins,
+                                     builtins = Builtins, attributes = Attrs,
                                      no_unresolved = NoUnresCalls},
                     {ok, PrepMod, Bad} =
                         prepare_module(Mode, XMod, UnresCalls, Data),
@@ -803,7 +803,7 @@ abst(File, Builtins, _Mode = functions) ->
               x_call := XC,
               x_call_at := XCallAt
              } = Data,
-            {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, {[],[],[]}, D, OL}, []};
+            {ok, M, A, {DefAt, LCallAt, XCallAt, LC, XC, X, D, OL}, []};
 	{ok, {M, [{abstract_code, {raw_abstract_v1, Code}},
                   {exports,X0}, {attributes,A}]}} ->
 	    %% R9C-
@@ -812,7 +812,8 @@ abst(File, Builtins, _Mode = functions) ->
 	    Forms = erl_internal:add_predefined_functions(Forms1),
 	    X = mfa_exports(X0, A, M),
             D = deprecated(A, X, M),
-	    xref_reader:module(M, Forms, Builtins, X, D);
+            {Data, U} = xref_reader:module(M, Forms, Builtins, X, D),
+	    {ok, M, A, Data, U};
 	Error when element(1, Error) =:= error ->
 	    Error
     end;
@@ -831,7 +832,7 @@ abst(File, Builtins, _Mode = modules) ->
 			      end,
 			filter(Fun, I0)
 		end,
-	    {ok, Mod, {X, I, D}, []};
+	    {ok, Mod, At, {X, I, D}, []};
 	Error when element(1, Error) =:= error ->
 	    Error
     end.
@@ -930,7 +931,7 @@ do_add_module(S, XMod, Unres, Data) ->
     {ok, Ms, Bad, NS}.
 
 prepare_module(_Mode = functions, XMod, Unres0, Data) ->
-    {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, _, Depr, OL0} = Data,
+    {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, Depr, OL0} = Data,
     FT = [tspec(func)],
     FET = [tspec(fun_edge)],
     PCA = [tspec(pre_call_at)],
@@ -985,7 +986,8 @@ finish_module({functions, XMod, List, NoCalls, Unres}, S) ->
     Info = no_info(X2, L2, LC2, XC2, EE2, Unres, NoCalls, NoUnres),
 
     XMod1 = XMod#xref_mod{data = T, info = Info},
-    S1 = S#xref{modules = dict:store(M, XMod1, S#xref.modules)},
+    S1 = S#xref{modules = dict:store(M, XMod1, S#xref.modules),
+                ignores = ignores(M, XMod#xref_mod.attributes) ++ S#xref.ignores},
     {ok, [M], take_down(S1)};
 finish_module({modules, XMod, List}, S) ->
     ok = check_module(XMod, S),
@@ -997,6 +999,24 @@ finish_module({modules, XMod, List}, S) ->
     XMod1 = XMod#xref_mod{data = T, info = Info},
     S1 = S#xref{modules = dict:store(M, XMod1, S#xref.modules)},
     {ok, [M], take_down(S1)}.
+
+ignores(M, Attrs) ->
+    case lists:keyfind(ignore_xref, 1, Attrs) of
+        {ignore_xref, Xs} when is_list(Xs) -> normalize_ignores(M, Xs);
+        {ignore_xref, X} -> normalize_ignores(M, [X]);
+        _ -> []
+    end.
+
+normalize_ignores(M, [{F, A} | Xs]) ->
+    [{M, F, A} | normalize_ignores(M, Xs)];
+normalize_ignores(M, [{_M, _F, _A}=X | Xs]) ->
+    [X | normalize_ignores(M, Xs)];
+normalize_ignores(M, [X | Xs]) when is_atom(X) ->
+    [X | normalize_ignores(M, Xs)];
+normalize_ignores(M, [_ | Xs]) ->
+    normalize_ignores(M, Xs);
+normalize_ignores(_M, []) ->
+    [].
 
 check_module(XMod, State) ->
     M = XMod#xref_mod.name,
