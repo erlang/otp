@@ -133,12 +133,12 @@ A function suitable for `eldoc-documentation-function'.\n\n(fn)" nil nil)
 (add-to-list 'interpreter-mode-alist (cons "escript" 'erlang-mode))
 
 ;;
-;; Ignore files ending in ".jam", ".vee", and ".beam" when performing
+;; Ignore files ending in ".beam" when performing
 ;; file completion and in dired omit mode.
 ;;
 
 ;;;###autoload
-(let ((erl-ext '(".jam" ".vee" ".beam")))
+(let ((erl-ext '(".beam")))
   (while erl-ext
     (add-to-list 'completion-ignored-extensions (car erl-ext))
     (when (boundp 'dired-omit-extensions)

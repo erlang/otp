@@ -1839,10 +1839,9 @@ reverse([A, B | L]) ->
 -doc false.
 -spec objfile_extension() -> nonempty_string().
 objfile_extension() ->
-    ".beam".
+    ".beam".  % currently only one possibility
+%%    %% if there are several implementations:
 %%    case erlang:system_info(machine) of
-%%      "JAM" -> ".jam";
-%%      "VEE" -> ".vee";
 %%      "BEAM" -> ".beam"
 %%    end.
 

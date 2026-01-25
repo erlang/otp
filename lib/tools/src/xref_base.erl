@@ -668,9 +668,8 @@ do_add_application(S, XApp) ->
 %% -> {ok, Modules, NewState} | throw(Error)
 do_add_directory(Dir, AppName, Bui, Rec, Ver, War, State) ->
     ok = is_filename(Dir),
-    {FileNames, Errors, Jams, Unreadable} =
-	xref_utils:scan_directory(Dir, Rec, [?Suffix], [".jam"]),
-    warnings(War, jam, Jams),
+    {FileNames, Errors, _Watched, Unreadable} =
+	xref_utils:scan_directory(Dir, Rec, [?Suffix], []),
     warnings(War, unreadable, Unreadable),
     case Errors of
 	[] ->
@@ -1805,8 +1804,6 @@ message(true, What, Arg) ->
 	    io:format("~tp: 1 unresolved call~n", Arg);
 	unresolved_summary ->
 	    io:format("~tp: ~tp unresolved calls~n", Arg);
-	jam ->
-	    io:format("Skipping ~ts (probably JAM file)~n", [Arg]);
 	unreadable ->
 	    io:format("Skipping ~ts (unreadable)~n", [Arg]);
 	xref_attr ->

@@ -30,10 +30,6 @@
 -m(?MODULE).
 -ms(?MODULE_STRING).
 
--ifdef(JAM).
--machine2(jam).
--endif.
-
 -ifdef(BEAM).
 -machine2(beam).
 -endif.

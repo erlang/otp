@@ -926,7 +926,7 @@ void erts_do_break_handling(void)
 }
 
 
-/* Fills in the systems representation of the jam/beam process identifier.
+/* Fills in the systems representation of the Beam process identifier.
 ** The Pid is put in STRING representation in the supplied buffer,
 ** no interpretatione of this should be done by the rest of the
 ** emulator. The buffer should be at least 21 bytes long.

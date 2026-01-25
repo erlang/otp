@@ -338,10 +338,10 @@ skip_prefix(Name, _) ->
 %% that you know exists, but you are not sure which one it is.
 %%
 %% Example: basename("~/src/kalle.erl", ".erl") -> "kalle"
-%%	    basename("~/src/kalle.jam", ".erl") -> "kalle.jam"
+%%	    basename("~/src/kalle.beam", ".erl") -> "kalle.beam"
 %%	    basename("~/src/kalle.old.erl", ".erl") -> "kalle.old"
 %%
-%%	    rootname(basename("xxx.jam")) -> "xxx"
+%%	    rootname(basename("xxx.beam")) -> "xxx"
 %%	    rootname(basename("xxx.erl")) -> "xxx"
 
 -doc """
@@ -521,7 +521,7 @@ dirjoin1([H|T],Acc,Sep) ->
 %% is no extension.
 %%
 %% Example: extension("foo.erl") -> ".erl"
-%%	    extension("jam.src/kalle") -> ""
+%%	    extension("bork.src/kalle") -> ""
 %%
 %% On Windows:  fn:dirname("\\usr\\src/kalle.erl") -> "/usr/src"
 
@@ -534,7 +534,7 @@ _Examples:_
 ```erlang
 15> filename:extension("foo.erl").
 ".erl"
-16> filename:extension("beam.src/kalle").
+16> filename:extension("bork.src/kalle").
 []
 ```
 """.
@@ -832,8 +832,8 @@ win32_pathtype(_) 		  -> relative.
 
 %% Returns all characters in the filename, except the extension.
 %%
-%% Examples: rootname("/jam.src/kalle") -> "/jam.src/kalle"
-%%           rootname("/jam.src/foo.erl") -> "/jam.src/foo"
+%% Examples: rootname("/bork.src/kalle") -> "/bork.src/kalle"
+%%           rootname("/bork.src/foo.erl") -> "/bork.src/foo"
 
 -doc """
 Removes the filename extension.
@@ -841,10 +841,10 @@ Removes the filename extension.
 _Examples:_
 
 ```erlang
-1> filename:rootname("/beam.src/kalle").
-"/beam.src/kalle"
-2> filename:rootname("/beam.src/foo.erl").
-"/beam.src/foo"
+1> filename:rootname("/bork.src/kalle").
+"/bork.src/kalle"
+2> filename:rootname("/bork.src/foo.erl").
+"/bork.src/foo"
 ```
 """.
 -spec rootname(Filename) -> file:filename_all() when
@@ -874,8 +874,8 @@ rootname([], Root, _Ext, _OsType) ->
 %% If the filename has another extension, the complete filename is
 %% returned.
 %%
-%% Examples: rootname("/jam.src/kalle.jam", ".erl") -> "/jam.src/kalle.jam"
-%%           rootname("/jam.src/foo.erl", ".erl") -> "/jam.src/foo"
+%% Examples: rootname("/bork.src/kalle.beam", ".erl") -> "/bork.src/kalle.beam"
+%%           rootname("/bork.src/foo.erl", ".erl") -> "/bork.src/foo"
 
 -doc """
 Removes the filename extension `Ext` from `Filename`.
@@ -883,10 +883,10 @@ Removes the filename extension `Ext` from `Filename`.
 _Examples:_
 
 ```erlang
-1> filename:rootname("/beam.src/foo.erl", ".erl").
-"/beam.src/foo"
-2> filename:rootname("/beam.src/foo.beam", ".erl").
-"/beam.src/foo.beam"
+1> filename:rootname("/bork.src/foo.erl", ".erl").
+"/bork.src/foo"
+2> filename:rootname("/bork.src/foo.beam", ".erl").
+"/bork.src/foo.beam"
 ```
 """.
 -spec rootname(Filename, Ext) -> file:filename_all() when
