@@ -308,7 +308,6 @@ eserver_oclient_renegotiate_helper1(Config) ->
                                      [" -o UserKnownHostsFile=", "/dev/null",
                                       " -o CheckHostIP=no"
                                       " -o StrictHostKeyChecking=no"
-                                      " -q"
                                       " -x",
                                       " -o RekeyLimit=",integer_to_list(RenegLimitK),"K"]),
 
@@ -318,6 +317,12 @@ eserver_oclient_renegotiate_helper1(Config) ->
 
 eserver_oclient_renegotiate_helper2({Data, OpenSsh, Pid}) ->
     Expect = fun({data,R}) ->
+                     case binary:match(R, <<"post-quantum">>) of
+                         nomatch -> ok;
+                         _ ->
+                             ?CT_PAL("~p", [R]),
+                             ct:fail(pqc_warning_detected)
+                     end,
 		     try
 			 NonAlphaChars = [C || C<-lists:seq(1,255),
 					       not lists:member(C,lists:seq($a,$z)),
