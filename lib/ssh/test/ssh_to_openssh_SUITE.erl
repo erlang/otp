@@ -317,7 +317,9 @@ eserver_oclient_renegotiate_helper1(Config) ->
 
 eserver_oclient_renegotiate_helper2({Data, OpenSsh, Pid}) ->
     Expect = fun({data,R}) ->
-                     case binary:match(R, <<"post-quantum">>) of
+                     Warning =
+                         <<"WARNING: connection is not using a post-quantum key exchange algorithm">>,
+                     case binary:match(R, Warning) of
                          nomatch -> ok;
                          _ ->
                              ?CT_PAL("~p", [R]),

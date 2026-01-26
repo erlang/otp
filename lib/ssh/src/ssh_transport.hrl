@@ -238,7 +238,6 @@
          h_sig              % string (the signature on the exchange hash)
 	}).
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% error codes

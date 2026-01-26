@@ -2305,12 +2305,14 @@ generate_key(dh, [P,G,Sz2]) ->
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
 compute_key(hybrid_server, C_init, S_privkey1, Curve) ->
-    <<C_publickey2:1184/binary, C_publickey1:32/binary>> = C_init,
+    <<C_publickey2:?MLKEM768_PUBLICKEY_SIZE/binary,
+      C_publickey1:32/binary>> = C_init,
     {K_pq_secret, S_ciphertext2} = crypto:encapsulate_key(mlkem768, C_publickey2),
     SharedSecret = hybrid_common(K_pq_secret, Curve, C_publickey1, S_privkey1),
     {S_ciphertext2, <<?Ebinary(SharedSecret)>>};
 compute_key(hybrid_client, S_reply, {C_privkey2, C_privkey1}, Curve) ->
-    <<S_ciphertext2:1088/binary, S_publickey1:32/binary>> = S_reply,
+    <<S_ciphertext2:?MLKEM768_CIPHERTEXT_SIZE/binary,
+      S_publickey1:?X25519_PUBLICKEY_SIZE/binary>> = S_reply,
     K_pq_secret = crypto:decapsulate_key(mlkem768, C_privkey2, S_ciphertext2),
     SharedSecret = hybrid_common(K_pq_secret, Curve, S_publickey1, C_privkey1),
     <<?Ebinary(SharedSecret)>>;
@@ -2322,7 +2324,7 @@ hybrid_common(K_pq_secret, Curve, PeerPublic, MyPrivate) ->
     K_cl_secret = compute_key(ecdh, PeerPublic, MyPrivate, Curve),
     K_cl_secret_mpint = <<?Empint(K_cl_secret)>>,
     K_cl_secret_mpint_trim =
-        binary:part(K_cl_secret_mpint, byte_size(K_cl_secret_mpint), -32),
+        binary:part(K_cl_secret_mpint, byte_size(K_cl_secret_mpint), -?X25519_PUBLICKEY_SIZE),
     crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_mpint_trim/binary>>).
 
 dh_bits(#alg{encrypt = Encrypt,
