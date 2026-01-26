@@ -397,6 +397,18 @@ BIF_RETTYPE persistent_term_get_2(BIF_ALIST_2)
     BIF_RET(result);
 }
 
+BIF_RETTYPE persistent_term_has_key_1(BIF_ALIST_1)
+{
+    Eterm result = persistent_term_get(BIF_ARG_1);
+    if (is_non_value(result)) {
+        result = am_false;
+    } else {
+        result = am_true;
+    }
+
+    BIF_RET(result);
+}
+
 static int persistent_term_erase_1_ctx_bin_dtor(Binary *context_bin)
 {
     ErtsPersistentTermErase1Context* ctx = ERTS_MAGIC_BIN_DATA(context_bin);
