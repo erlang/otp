@@ -215,6 +215,28 @@
 	  h_sig              % string (the signature on the exchange hash)
 	}).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% KEY ML-KEM messages
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% mlkem768x25519-sha256
+
+-define(SSH_MSG_KEX_HYBRID_INIT,                30).
+-define(SSH_MSG_KEX_HYBRID_REPLY,               31).
+
+-record(ssh_msg_kex_hybrid_init,
+	{
+         c_init    % string (concatenation of C_PK2 and C_PK1)
+	}).
+
+-record(ssh_msg_kex_hybrid_reply,
+	{
+         public_host_key,   % string (server's public host key) (k_s)
+         s_reply,           % string (concatenation of S_CT2 and S_PK1)
+         h_sig              % string (the signature on the exchange hash)
+	}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

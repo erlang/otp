@@ -297,6 +297,15 @@ encode(#ssh_msg_kex_ecdh_reply{public_host_key = {Key,SigAlg}, q_s = Q_s, h_sig 
     EncSign = encode_signature(Key, SigAlg, Sign),
     <<?Ebyte(?SSH_MSG_KEX_ECDH_REPLY), ?Ebinary(EncKey), ?Ebinary(Q_s), ?Ebinary(EncSign)>>;
 
+encode(#ssh_msg_kex_hybrid_init{c_init = {C_pk2, C_pk1}}) ->
+    <<?Ebyte(?SSH_MSG_KEX_HYBRID_INIT), ?Ebinary(<<C_pk2/binary, C_pk1/binary>>)>>;
+
+encode(#ssh_msg_kex_hybrid_reply{public_host_key = {Key,SigAlg}, s_reply = S_reply,
+                                 h_sig = Sign}) ->
+    EncKey = ssh2_pubkey_encode(Key),
+    EncSign = encode_signature(Key, SigAlg, Sign),
+    <<?Ebyte(?SSH_MSG_KEX_HYBRID_REPLY), ?Ebinary(EncKey), ?Ebinary(S_reply), ?Ebinary(EncSign)>>;
+
 encode(#ssh_msg_ignore{data = Data}) ->
     <<?Ebyte(?SSH_MSG_IGNORE), ?Estring_utf8(Data)>>;
 
@@ -529,6 +538,35 @@ decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
        q_s = Q_s,
        h_sig = decode_signature(Sig)
       };
+
+decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_INIT), ?DEC_BIN(C_init, CLen)>>)
+  when CLen =:= ?MLKEM768_INIT_SIZE->
+    #ssh_msg_kex_hybrid_init{
+       c_init = C_init
+      };
+%% Reject invalid ML-KEM messages with proper error
+decode(<<"mlkem", ?BYTE(?SSH_MSG_KEX_HYBRID_INIT), ?DEC_BIN(_, CLen)>>) ->
+    throw({error, {mlkem_init_invalid_size, CLen, ?MLKEM768_INIT_SIZE}});
+
+decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
+         ?DEC_BIN(Key, KLen), ?DEC_BIN(S_reply, SLen), ?DEC_BIN(Sig, SigLen)>>)
+  when KLen =< ?MAX_HOST_KEY_SIZE,
+       SLen =:= ?MLKEM768_REPLY_SIZE,
+       SigLen =< ?MAX_SIGNATURE_SIZE ->
+    #ssh_msg_kex_hybrid_reply{
+       public_host_key = ssh2_pubkey_decode(Key),
+       s_reply = S_reply,
+       h_sig = decode_signature(Sig)
+      };
+decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
+         ?DEC_BIN(_, KLen), ?DEC_BIN(_, SLen), ?DEC_BIN(_Sig, SigLen)>>) ->
+    Error = if
+                KLen > ?MAX_HOST_KEY_SIZE -> {mlkem_host_key_too_large, KLen, ?MAX_HOST_KEY_SIZE};
+                SLen =/= ?MLKEM768_REPLY_SIZE -> {mlkem_reply_invalid_size, SLen, ?MLKEM768_REPLY_SIZE};
+                SigLen > ?MAX_SIGNATURE_SIZE -> {mlkem_signature_too_large, SigLen, ?MAX_SIGNATURE_SIZE};
+                true -> {mlkem_reply_invalid, KLen, SLen, SigLen}
+            end,
+    throw({error, Error});
 
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_request{

@@ -42,6 +42,17 @@
 
 -define(MAX_RND_PADDING_LEN, 15).
 
+%% Hybrid KEX limits
+-define(MLKEM768_PUBLICKEY_SIZE, 1184).
+-define(MLKEM768_CIPHERTEXT_SIZE, 1088).
+-define(X25519_PUBLICKEY_SIZE, 32).
+-define(MLKEM768_INIT_SIZE, ?MLKEM768_PUBLICKEY_SIZE + ?X25519_PUBLICKEY_SIZE).   % NIST FIPS 203: 1184 + 32
+-define(MLKEM768_REPLY_SIZE, ?MLKEM768_CIPHERTEXT_SIZE + ?X25519_PUBLICKEY_SIZE). % NIST FIPS 203: 1088 + 32
+
+%% Cryptographic limits
+-define(MAX_HOST_KEY_SIZE, 4096).       % RSA-4096 + ASN.1/SSH encoding
+-define(MAX_SIGNATURE_SIZE, 1536).      % RSA-8192 (1044) + margin for future algorithms
+
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
 
 -define(FALSE, 0).
@@ -174,6 +185,7 @@ to run any subsystems.
         'ecdh-sha2-nistp256' |
         'ecdh-sha2-nistp384' |
         'ecdh-sha2-nistp521' |
+        'mlkem768x25519-sha256' |
         legacy_kex_alg().
 
 -doc(#{group => <<"Legacy Algorithms">>}).

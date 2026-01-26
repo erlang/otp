@@ -140,6 +140,25 @@ handle_event(internal, #ssh_msg_kex_ecdh_reply{} = Msg, {key_exchange,client,ReN
     ssh_connection_handler:send_bytes(ExtInfo, D),
     {next_state, {new_keys,client,ReNeg}, D#data{ssh_params=Ssh}};
 
+%%%---- PQ/T Hybrid Key Exchange Method
+handle_event(internal, #ssh_msg_kex_hybrid_init{} = Msg, {key_exchange,server,ReNeg}, D) ->
+    ok = check_kex_strict(Msg, D),
+    {ok, KexHybridReply, Ssh1} = ssh_transport:handle_kex_hybrid_init(Msg, D#data.ssh_params),
+    ssh_connection_handler:send_bytes(KexHybridReply, D),
+    {ok, NewKeys, Ssh2} = ssh_transport:new_keys_message(Ssh1),
+    ssh_connection_handler:send_bytes(NewKeys, D),
+    {ok, ExtInfo, Ssh} = ssh_transport:ext_info_message(Ssh2),
+    ssh_connection_handler:send_bytes(ExtInfo, D),
+    {next_state, {new_keys,server,ReNeg}, D#data{ssh_params=Ssh}};
+
+handle_event(internal, #ssh_msg_kex_hybrid_reply{} = Msg, {key_exchange,client,ReNeg}, D) ->
+    ok = check_kex_strict(Msg, D),
+    {ok, NewKeys, Ssh1} = ssh_transport:handle_kex_hybrid_reply(Msg, D#data.ssh_params),
+    ssh_connection_handler:send_bytes(NewKeys, D),
+    {ok, ExtInfo, Ssh} = ssh_transport:ext_info_message(Ssh1),
+    ssh_connection_handler:send_bytes(ExtInfo, D),
+    {next_state, {new_keys,client,ReNeg}, D#data{ssh_params=Ssh}};
+
 %%% ######## handle KEX strict
 handle_event(internal, _Event, {key_exchange,_Role,init},
              #data{ssh_params = #ssh{algorithms = #alg{kex_strict_negotiated = true},
@@ -296,7 +315,9 @@ get_alg_group(Kex) when Kex == 'curve25519-sha256';
                         Kex == 'ecdh-sha2-nistp521';
                         Kex == 'ecdh-sha2-nistp384';
                         Kex == 'ecdh-sha2-nistp256' ->
-    ecdh_alg.
+    ecdh_alg;
+get_alg_group(Kex) when Kex == 'mlkem768x25519-sha256' ->
+    mlkem_alg.
 
 check_msg_group(_Msg, _AlgGroup, false) -> ok;
 check_msg_group(#ssh_msg_kexdh_init{},  dh_alg, true) -> ok;
@@ -308,6 +329,8 @@ check_msg_group(#ssh_msg_kex_dh_gex_init{},        dh_gex_alg, true) -> ok;
 check_msg_group(#ssh_msg_kex_dh_gex_reply{},       dh_gex_alg, true) -> ok;
 check_msg_group(#ssh_msg_kex_ecdh_init{},  ecdh_alg, true) -> ok;
 check_msg_group(#ssh_msg_kex_ecdh_reply{}, ecdh_alg, true) -> ok;
+check_msg_group(#ssh_msg_kex_hybrid_init{},  mlkem_alg, true) -> ok;
+check_msg_group(#ssh_msg_kex_hybrid_reply{}, mlkem_alg, true) -> ok;
 check_msg_group(_Msg, _AlgGroup, _) -> error.
 
 %%%################################################################
