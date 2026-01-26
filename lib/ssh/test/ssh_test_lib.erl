@@ -180,7 +180,7 @@ connect(Host, Port, Options0) ->
 
 do_connect(Host, Port, Options) ->
     R = ssh:connect(Host, Port, Options),
-    ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
+    ?CT_LOG("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
     {ok, ConnectionRef} = R,
     ConnectionRef.
 
@@ -308,13 +308,13 @@ std_simple_exec(Host, Port, Config) ->
     std_simple_exec(Host, Port, Config, []).
 
 std_simple_exec(Host, Port, Config, Opts) ->
-    ct:log("~p:~p std_simple_exec",[?MODULE,?LINE]),
+    ?CT_LOG("~p:~p std_simple_exec",[?MODULE,?LINE]),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
-    ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
+    ?CT_LOG("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    ct:log("~p:~p session_channel ok ~p",[?MODULE,?LINE,ChannelId]),
+    ?CT_LOG("~p:~p session_channel ok ~p",[?MODULE,?LINE,ChannelId]),
     ExecResult = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
-    ct:log("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
+    ?CT_LOG("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
     case ExecResult of
 	success ->
 	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42">>}},
