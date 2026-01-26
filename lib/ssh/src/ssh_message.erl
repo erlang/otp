@@ -297,6 +297,15 @@ encode(#ssh_msg_kex_ecdh_reply{public_host_key = {Key,SigAlg}, q_s = Q_s, h_sig 
     EncSign = encode_signature(Key, SigAlg, Sign),
     <<?Ebyte(?SSH_MSG_KEX_ECDH_REPLY), ?Ebinary(EncKey), ?Ebinary(Q_s), ?Ebinary(EncSign)>>;
 
+encode(#ssh_msg_kex_hybrid_init{c_init = {C_pk2, C_pk1}}) ->
+    <<?Ebyte(?SSH_MSG_KEX_HYBRID_INIT), ?Ebinary(<<C_pk2/binary, C_pk1/binary>>)>>;
+
+encode(#ssh_msg_kex_hybrid_reply{public_host_key = {Key,SigAlg}, s_reply = S_reply,
+                                 h_sig = Sign}) ->
+    EncKey = ssh2_pubkey_encode(Key),
+    EncSign = encode_signature(Key, SigAlg, Sign),
+    <<?Ebyte(?SSH_MSG_KEX_HYBRID_REPLY), ?Ebinary(EncKey), ?Ebinary(S_reply), ?Ebinary(EncSign)>>;
+
 encode(#ssh_msg_ignore{data = Data}) ->
     <<?Ebyte(?SSH_MSG_IGNORE), ?Estring_utf8(Data)>>;
 
@@ -527,6 +536,19 @@ decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
     #ssh_msg_kex_ecdh_reply{
        public_host_key = ssh2_pubkey_decode(Key),
        q_s = Q_s,
+       h_sig = decode_signature(Sig)
+      };
+
+decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_INIT), ?DEC_BIN(C_init,__0)>>) ->
+    #ssh_msg_kex_hybrid_init{
+       c_init = C_init
+      };
+
+decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
+	 ?DEC_BIN(Key,__1), ?DEC_BIN(S_reply,__2), ?DEC_BIN(Sig,__3)>>) ->
+    #ssh_msg_kex_hybrid_reply{
+       public_host_key = ssh2_pubkey_decode(Key),
+       s_reply = S_reply,
        h_sig = decode_signature(Sig)
       };
 

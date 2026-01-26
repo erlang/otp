@@ -174,6 +174,7 @@ to run any subsystems.
         'ecdh-sha2-nistp256' |
         'ecdh-sha2-nistp384' |
         'ecdh-sha2-nistp521' |
+        'mlkem768x25519-sha256' |
         legacy_kex_alg().
 
 -doc(#{group => <<"Legacy Algorithms">>}).
