@@ -461,7 +461,8 @@ handle_session(#server_hello{cipher_suite = CipherSuite},
 	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
 	       #state{session = Session,
 		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv,
-                      connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv} = State0) ->
+                      connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv}
+               = State0) ->
     #{key_exchange := KeyAlgorithm} =
 	ssl_cipher_format:suite_bin_to_map(CipherSuite),
 
@@ -473,14 +474,18 @@ handle_session(#server_hello{cipher_suite = CipherSuite},
             _ -> {ProtoExt =:= npn, Protocol0}
         end,
 
+    IsNew = ssl_session:is_new(Session, NewId),
+
     State = State0#state{connection_states = ConnectionStates,
-			 handshake_env = HsEnv#handshake_env{kex_algorithm = KeyAlgorithm,
-                                                             premaster_secret = PremasterSecret,
-                                                             expecting_next_protocol_negotiation = ExpectNPN,
-                                                             negotiated_protocol = Protocol},
+			 handshake_env =
+                             HsEnv#handshake_env{resumption = not IsNew,
+                                                 kex_algorithm = KeyAlgorithm,
+                                                 premaster_secret = PremasterSecret,
+                                                 expecting_next_protocol_negotiation = ExpectNPN,
+                                                 negotiated_protocol = Protocol},
                          connection_env = CEnv#connection_env{negotiated_version = Version}},
 
-    case ssl_session:is_new(Session, NewId) of
+    case IsNew of
 	true ->
 	    handle_new_session(NewId, CipherSuite, State);
 	false ->
