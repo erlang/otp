@@ -481,7 +481,7 @@ trees.
                    | erl_parse:form_info()
                    | erl_parse:af_binelement(term())
                    | erl_parse:af_generator()
-                   | erl_parse:af_zip_generator()
+                   | [erl_parse:af_generator()]
                    | erl_parse:af_remote_function().
 
 %% The representation built by the Erlang standard library parser
