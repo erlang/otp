@@ -66,7 +66,6 @@ list `[]`. This can be relied on when writing functions that operate on syntax
 trees.
 """.
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 -export([type/1,
@@ -8450,7 +8449,7 @@ fold_function_names(Ns) ->
 fold_function_name(N) ->
     Name = arity_qualifier_body(N),
     Arity = arity_qualifier_argument(N),
-    true = ((type(Name) =:= atom) and (type(Arity) =:= integer)),
+    true = type(Name) =:= atom andalso type(Arity) =:= integer,
     {concrete(Name), concrete(Arity)}.
 
 fold_variable_names(Vs) ->
