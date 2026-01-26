@@ -11177,7 +11177,7 @@ static BOOLEAN_T esock_cmsg_decode_timespec(ErlNifEnv *env,
 }
 #endif
 
-#ifdef SCM_TIMESTAMPING
+#if defined(SCM_TIMESTAMPING) && defined(HAVE_STRUCT_SCM_TIMESTAMPING)
 static
 BOOLEAN_T esock_cmsg_encode_scm_timestamping(ErlNifEnv     *env,
                                              unsigned char *data,
@@ -11752,7 +11752,7 @@ static ESockCmsgSpec cmsgLevelSocket[] =
          &esock_atom_timestampns},
 #endif
 
-#if defined(SCM_TIMESTAMPING)
+#if defined(SCM_TIMESTAMPING) && defined(HAVE_STRUCT_SCM_TIMESTAMPING)
         {SCM_TIMESTAMPING,
          &esock_cmsg_encode_scm_timestamping, esock_cmsg_decode_scm_timestamping,
          &esock_atom_timestamping},

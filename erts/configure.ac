@@ -1685,6 +1685,15 @@ AC_CHECK_TYPES([struct ip_mreqn], [], [],
                 #include <netinet/in.h>
                ])
 
+AC_CHECK_TYPES([struct scm_timestamping], [], [],
+               [
+                #define _GNU_SOURCE
+                #include <sys/socket.h>
+                #include <linux/types.h>
+                #include <linux/errqueue.h>
+                #include <linux/net_tstamp.h>
+               ])
+
 
 dnl ----------------------------------------------------------------------
 dnl  Check the availability of systemd
