@@ -697,6 +697,8 @@ jobs:
         run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
       - name: Check OSSF compiler flags
         uses: ./.github/actions/ossf-compiler-flags-scanner
+        with:
+          upload: true
 
   test:
     name: Test Erlang/OTP
