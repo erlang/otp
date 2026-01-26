@@ -62,7 +62,6 @@ processes that terminate as a result of this process terminating.
 `m:logger`
 """.
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% This module is used to set some initial information
@@ -1444,7 +1443,7 @@ format_rep(_, _, _Extra, _Limit) ->
 
 format_exception(Class, Reason, StackTrace, Extra, Limit) ->
     #{encoding:=Enc,depth:=Depth, single_line:=Single} = Extra,
-    StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
+    StackFun = fun(M, _F, _A) -> M =:= erl_eval orelse M =:= ?MODULE end,
     if Single ->
             {P,Tl} = p(Enc,Depth),
             Opts = chars_limit_opt(Limit),

@@ -35,8 +35,6 @@ The following functions are to be exported from an Error Info handler.
 """.
 -moduledoc(#{since => "OTP 24.0"}).
 
--compile(nowarn_obsolete_bool_op).
-
 %% Supported and documented exported functions in this module.
 -export([format_exception/3, format_exception/4]).
 
@@ -568,7 +566,7 @@ format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc, CL) ->
              S2 = pp_arguments(PF, As, string:length([Pre1|MFs]), Enc, CL),
              S3 = pp_arguments(PF, [a2345,b2345], I1, Enc, CL),
              Long = count_nl(S3) > 0,
-             case Long or (count_nl(S2) < count_nl(S1)) of
+             case Long orelse count_nl(S2) < count_nl(S1) of
                  true ->
                      [$\n, Pre1, MFs, S2];
                  false ->

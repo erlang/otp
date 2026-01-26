@@ -127,7 +127,6 @@ the local function handler argument. A possible use is to call
 to be called.
 """.
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% An evaluator for Erlang abstract syntax.
@@ -732,7 +731,7 @@ find_maxline(LC) ->
                     true ->
                         L = erl_anno:line(A),
                         case
-                            is_integer(L) and (L > get('$erl_eval_max_line'))
+                            is_integer(L) andalso L > get('$erl_eval_max_line')
                         of
                             true -> put('$erl_eval_max_line', L);
                             false -> ok

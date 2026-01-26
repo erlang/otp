@@ -121,8 +121,6 @@ the `m:file` module.
 %% Undocumented and unsupported exports.
 -export([append/2]).
 
--compile(nowarn_obsolete_bool_op).
-
 -include_lib("kernel/include/file.hrl").
 
 -define(IS_DRIVELETTER(Letter),
@@ -785,7 +783,7 @@ Returns the path type, which is one of the following:
       Path :: file:name_all().
 pathtype(Atom) when is_atom(Atom) ->
     pathtype(atom_to_list(Atom));
-pathtype(Name) when is_list(Name) or is_binary(Name) ->
+pathtype(Name) when is_list(Name); is_binary(Name) ->
     case os:type() of
 	{win32, _} ->
 	    win32_pathtype(Name);

@@ -23,8 +23,6 @@
 
 -module(supervisor_SUITE).
 
--compile(nowarn_obsolete_bool_op).
-
 -include_lib("common_test/include/ct.hrl").
 
 %% Testserver specific export
@@ -52,7 +50,6 @@
 	  sup_stop_brutal_kill/1, sup_stop_brutal_kill_dynamic/1,
           sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1, auto_hibernate/1,
 	  sup_stop_manual/1, sup_stop_manual_timeout/1,
-          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1,
 	  child_adm/1, child_adm_simple/1, child_specs/1, child_specs_map/1,
 	  extra_return/1, sup_flags/1]).
 
@@ -2189,7 +2186,7 @@ dont_save_start_parameters_for_temporary_children(simple_one_for_one = Type) ->
     Size2 = erts_debug:flat_size(sys:get_status(Sup2)),
     Size3 = erts_debug:flat_size(sys:get_status(Sup3)),
 
-    true = (Size3 < Size1)  and  (Size3 < Size2),
+    true = Size3 < Size1 andalso Size3 < Size2,
 
     terminate(Sup1, shutdown),
     terminate(Sup2, shutdown),
@@ -2217,7 +2214,7 @@ dont_save_start_parameters_for_temporary_children(Type) ->
     Size2 = erts_debug:flat_size(sys:get_status(Sup2)),
     Size3 = erts_debug:flat_size(sys:get_status(Sup3)),
 
-    true = (Size3 < Size1)  and  (Size3 < Size2),
+    true = Size3 < Size1 andalso Size3 < Size2,
 
     terminate(Sup1, shutdown),
     terminate(Sup2, shutdown),

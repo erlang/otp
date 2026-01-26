@@ -22,9 +22,7 @@
 -module(run_pcre_tests).
 -export([test/1,gen_split_test/1,gen_repl_test/1]).
 
--compile(nowarn_obsolete_bool_op).
-
--define(is_hex_char(C),(((C >= $0) and (C =< $9)) or ((C >= $A) and (C =< $F)) or ((C >= $a) and (C =< $f)))).
+-define(is_hex_char(C), (C >= $0 andalso C =< $9 orelse C >= $A andalso C =< $F orelse C >= $a andalso C =< $f)).
 -define(SPACE,32). % space character ($ )
 
 test(RootDir) ->
@@ -448,7 +446,7 @@ contains_lang_sens(<<_,R/binary>>) ->
 
 interpret_options_x(Options,RE) ->
     {O,R,E} = interpret_options(<<Options/binary, $,>>),
-    case (contains_lang_sens(RE) or lists:member(caseless,O)) of
+    case contains_lang_sens(RE) orelse lists:member(caseless,O) of
 	false ->
 	    {[{exec_option,accept_nonascii}|O],R,E};
 	true ->
@@ -963,7 +961,7 @@ escape2(<<>>,_) ->
 escape2(<<$\\, Rest/binary>>,U) ->
     {CharBin,NewRest} =
         case multi_hex_esc(Rest,U) of
-            {Ch, _} when (Ch =:= no) or ((Ch >= 32) and (Ch =< 126)) ->
+            {Ch, _} when Ch =:= no; Ch >= 32 andalso Ch =< 126 ->
                 {<<$\\>>, Rest};
 
             {_, Tpl} ->
@@ -978,7 +976,7 @@ escape2(Any,_) ->
     Any.
 
 
-trx(N) when ((N >= $0) and (N =< $9)) ->
+trx(N) when N >= $0, N =< $9 ->
     N - $0;
 trx($A) -> 10;
 trx($B) -> 11;
@@ -1063,8 +1061,8 @@ multi_hex_esc(<<"N{U+", Rest0/binary>>, Unicode) ->
         _Error ->
             {no, no}
     end;
-multi_hex_esc(<<$x,N,O,Rest/binary>>,_) when (?is_hex_char(N) and
-                                              ?is_hex_char(O)) ->
+multi_hex_esc(<<$x,N,O,Rest/binary>>,_) when ?is_hex_char(N),
+                                             ?is_hex_char(O) ->
     Cha = (trx(N) bsl 4) bor trx(O),
     {Cha, {<<Cha>>,Rest}};
 multi_hex_esc(<<$x,N,Rest/binary>>,_) when ?is_hex_char(N) ->

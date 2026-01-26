@@ -22,7 +22,6 @@
 -module(io_lib_fread).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% Formatted input functions of io library.
@@ -209,7 +208,7 @@ fread1([$#|Format], none, Sup, false, Line0, N0, Res) ->
 	begin
 	    {Line1,N1,B1} = fread_base(Line0, N0),
 	    B = abs(B1),
-	    true = (B >= 2) and (B =< 1+$Z-$A+10),
+	    true = B >= 2 andalso B =< 1+$Z-$A+10,
 	    {Line2,N2,Cs2} = fread_digits(Line1, N1, B, []),
 	    fread_based(reverse(Cs2), B1, Sup, Format, Line2, N2, Res)
 	end of
@@ -223,7 +222,7 @@ fread1([$#|Format], F, Sup, false, Line0, N, Res) ->
 	begin
 	    {Line1,Cs1} = fread_chars(Line0, F, false),
 	    {Line2,_,B2} = fread_base(reverse(Cs1), N),
-	    true = ((B2 >= 2) and (B2 =< 1+$Z-$A+10)),
+	    true = is_integer(B2, 2, 1+$Z-$A+10),
 	    fread_based(Line2, B2, Sup, Format, Line1, N+F, Res)
 	end	of
 	{'EXIT',_} ->

@@ -23,8 +23,6 @@
 
 %%-define(debug, true).
 
--compile(nowarn_obsolete_bool_op).
-
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
 -define(line, put(line, ?LINE), ).
@@ -964,7 +962,7 @@ verify_error(S, R) ->
 
     %% Also make sure that formatted message is not just the term printed.
     Handled = beam_lib:format_error(R) =/= io_lib:format("~p~n", [R]),
-    true = ((FM > 0) or (BM > 0)) and Handled.
+    true = (FM > 0 orelse BM > 0) andalso Handled.
 
 ver(S, {error, beam_lib, R}) ->
     [S|_] = tuple_to_list(R),

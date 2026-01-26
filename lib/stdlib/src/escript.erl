@@ -33,8 +33,6 @@ for more details on how to use escripts.
 %% Internal API.
 -export([start/0, start/1, parse_file/1]).
 
--compile(nowarn_obsolete_bool_op).
-
 %%-----------------------------------------------------------------------
 
 -define(SHEBANG,  "/usr/bin/env escript").
@@ -1036,7 +1034,7 @@ format_exception(Class, Reason, StackTrace) ->
     PF = fun(Term, I) ->
                  io_lib:format("~." ++ integer_to_list(I) ++ P, [Term, 50])
          end,
-    StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
+    StackFun = fun(M, _F, _A) -> M =:= erl_eval orelse M =:= ?MODULE end,
     erl_error:format_exception(1, Class, Reason, StackTrace, StackFun, PF, Enc).
 
 encoding() ->

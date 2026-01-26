@@ -88,7 +88,6 @@ message.
 `m:ets`, `m:mnesia`, `m:qlc`
 """.
 
--compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% Disk based linear hashing lookup dictionary.

@@ -21,8 +21,6 @@
 %%
 -module(ets_SUITE).
 
--compile(nowarn_obsolete_bool_op).
-
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
@@ -5435,8 +5433,8 @@ info_do(Opts) ->
                   end, set, Opts),
     PublicOrCurr =
         fun(Curr) ->
-                case lists:member({write_concurrency, false}, Opts) or
-                    lists:member(private, Opts) or
+                case lists:member({write_concurrency, false}, Opts) orelse
+                    lists:member(private, Opts) orelse
                     lists:member(protected, Opts) of
                     true -> Curr;
                     false -> public
