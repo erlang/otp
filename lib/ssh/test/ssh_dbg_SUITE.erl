@@ -338,6 +338,11 @@ dbg_ssh_messages(Config) ->
     ?DBG_RECEIVE("Received SSH_MSG_KEXINIT:",      Ref, C, Pid),
 
     case atom_to_list( (ssh_connection_handler:alg(C))#alg.kex ) of
+        "mlkem"++_ ->
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_HYBRID_INIT:",  Ref, C, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_HYBRID_INIT:",       Ref, D, Pid),
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_HYBRID_REPLY:", Ref, D, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_HYBRID_REPLY:",      Ref, C, Pid);
         "curve"++_ ->
             ?DBG_RECEIVE("Going to send SSH_MSG_KEX_ECDH_INIT:",  Ref, C, Pid),
             ?DBG_RECEIVE("Received SSH_MSG_KEX_ECDH_INIT:",       Ref, D, Pid),

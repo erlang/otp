@@ -47,9 +47,11 @@
 	 handle_kexinit_msg/4, handle_kexdh_init/2,
 	 handle_kex_dh_gex_group/2, handle_kex_dh_gex_init/2, handle_kex_dh_gex_reply/2,
 	 handle_new_keys/2, handle_kex_dh_gex_request/2,
-	 handle_kexdh_reply/2, 
+	 handle_kexdh_reply/2,
 	 handle_kex_ecdh_init/2,
 	 handle_kex_ecdh_reply/2,
+	 handle_kex_hybrid_init/2,
+	 handle_kex_hybrid_reply/2,
          parallell_gen_key/1,
 	 ssh_packet/2, pack/2,
          valid_key_sha_alg/3,
@@ -208,6 +210,7 @@ supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 supported_algorithms(kex) ->
     select_crypto_supported(
       [
+       {'mlkem768x25519-sha256',                [{kems, mlkem768}, {public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve25519-sha256',                    [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve25519-sha256@libssh.org',         [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve448-sha512',                      [{public_keys,ecdh}, {curves,x448},   {hashs,sha512}]},
@@ -573,8 +576,17 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
     Curve = ecdh_curve(Kex),
     {Public, Private} = generate_key(ecdh, Curve),
     {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kex_ecdh_init{q_c=Public},  Ssh0),
-    {ok, SshPacket, 
-     Ssh1#ssh{keyex_key = {{Public,Private},Curve}}}.
+    {ok, SshPacket,
+     Ssh1#ssh{keyex_key = {{Public,Private},Curve}}};
+key_exchange_first_msg(Kex, Ssh0) when Kex == 'mlkem768x25519-sha256' ->
+    Curve = ecdh_curve(Kex),
+    {C_publickey1, C_privkey1} = generate_key(ecdh, Curve),
+    {C_publickey2, C_privkey2} = generate_key(mlkem768, []),
+    {SshPacket, Ssh1} = ssh_packet(
+                          #ssh_msg_kex_hybrid_init{c_init = {C_publickey2, C_publickey1}},  Ssh0),
+    {ok, SshPacket,
+     Ssh1#ssh{keyex_key = {{mlkem768, {C_publickey2, C_privkey2}},
+                           {Curve, {C_publickey1, C_privkey1}}}}}.
 
 %%%----------------------------------------------------------------
 %%%
@@ -904,6 +916,91 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
                                       [Class,Error], [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
     end.
 
+%%%---- PQ/T Hybrid Key Exchange Method
+handle_kex_hybrid_init(#ssh_msg_kex_hybrid_init{c_init = C_init},
+                       Ssh0 = #ssh{algorithms = #alg{kex = Kex,
+                                                     hkey = SignAlg},
+                                   opts = Opts}) ->
+    %% at server
+    Curve = ecdh_curve(Kex),
+    {S_publickey1, S_privkey1} = generate_key(ecdh, Curve),
+    try
+        compute_key(hybrid_server, C_init, S_privkey1, Curve)
+    of
+        {S_ciphertext2, K_enc} ->
+            MyPrivHostKey = get_host_key(SignAlg, Opts),
+            MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
+            S_reply = <<S_ciphertext2/binary, S_publickey1/binary>>,
+            H = kex_hash(Ssh0, MyPubHostKey, sha(Curve),
+                         {mlkem, C_init, S_reply, K_enc}),
+            case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
+                {ok, H_SIG} ->
+                    {SshPacket, Ssh1} =
+                        ssh_packet(#ssh_msg_kex_hybrid_reply{
+                                      public_host_key = {MyPubHostKey,SignAlg},
+                                      s_reply = S_reply,
+                                      h_sig = H_SIG
+                                     },
+                                   Ssh0),
+                    {ok, SshPacket, Ssh1#ssh{
+                                      shared_secret = K_enc,
+                                      exchanged_hash = H,
+                                      session_id = sid(Ssh1, H)}};
+                {error, unsupported_sign_alg} ->
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                io_lib:format("Unsupported algorithm ~p", [SignAlg],
+                                             [{chars_limit, ssh_lib:max_log_len(Opts)}]))
+            end
+    catch
+        Class:Reason0:_Stacktrace ->
+            Reason = ssh_lib:trim_reason(Reason0),
+            MsgFun =
+                fun(debug) ->
+                        io_lib:format("Hybrid compute key failed in server: ~p:~p~n"
+                                      "Kex: ~p, Curve: ~p~n"
+                                      "C_init: ~p~n",
+                                      [Class, Reason, Kex, Curve, C_init],
+                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}]);
+                   (_) ->
+                        io_lib:format("Hybrid compute key failed in server: ~p:~p",
+                                      [Class,Reason],
+                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
+                end,
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, ?SELECT_MSG(MsgFun))
+    end.
+
+handle_kex_hybrid_reply(#ssh_msg_kex_hybrid_reply{public_host_key = PeerPubHostKey,
+                                                  s_reply = S_reply,
+                                                  h_sig = H_SIG},
+                        #ssh{keyex_key =
+                                 {{mlkem768, {C_publickey2, C_privkey2}},
+                                  {Curve, {C_publickey1, C_privkey1}}}
+                            } = Ssh0
+                       ) ->
+    %% at client
+    try
+        compute_key(hybrid_client, S_reply, {C_privkey2, C_privkey1}, Curve)
+    of
+	K_enc ->
+            H = kex_hash(Ssh0, PeerPubHostKey, sha(Curve),
+                         {mlkem, {C_publickey2, C_publickey1}, S_reply, K_enc}),
+	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
+		ok ->
+		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
+		    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = K_enc,
+                                                             exchanged_hash = H,
+                                                             session_id = sid(Ssh, H)})};
+		Error ->
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                io_lib:format("Hybrid reply failed. Verify host key: ~p",[Error],
+                                              [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
+	    end
+    catch
+        Class:Error:_Stacktrace ->
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("Peer Hybrid public key seem invalid: ~p:~p",
+                                      [Class,Error], [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
+    end.
 
 %%%----------------------------------------------------------------
 handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
@@ -1388,8 +1485,6 @@ pack(common, rfc4253, PlainText, DeltaLenTst,
     {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
     MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPkt),
     {<<CipherPkt/binary,MAC0/binary>>, Ssh1};
-
-
 pack(common, enc_then_mac, PlainText, DeltaLenTst,
      #ssh{send_sequence = SeqNum,
           send_mac = MacAlg,
@@ -1402,7 +1497,6 @@ pack(common, enc_then_mac, PlainText, DeltaLenTst,
     EncPacketPkt = <<?UINT32(PlainLen), CipherPkt/binary>>,
     MAC0 = mac(MacAlg, MacKey, SeqNum, EncPacketPkt),
     {<<?UINT32(PlainLen), CipherPkt/binary, MAC0/binary>>, Ssh1};
-
 pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
     PadLen = padding_length(1+byte_size(PlainText), Ssh0),
     Pad =  ssh_bits:random(PadLen),
@@ -1762,10 +1856,8 @@ encrypt_final(Ssh) ->
 		 encrypt_ctx = undefined
 		}}.
 
-
 encrypt(#ssh{encrypt = none} = Ssh, Data) ->
     {Ssh, Data};
-
 encrypt(#ssh{encrypt = 'chacha20-poly1305@openssh.com',
              encrypt_keys = {K1,K2},
              send_sequence = Seq} = Ssh,
@@ -1782,7 +1874,6 @@ encrypt(#ssh{encrypt = 'chacha20-poly1305@openssh.com',
     Ctag = crypto:mac(poly1305, PolyKey, EncBytes),
     %% Result
     {Ssh, {EncBytes,Ctag}};
-
 encrypt(#ssh{encrypt = SshCipher,
              encrypt_cipher = CryptoCipher,
              encrypt_keys = K,
@@ -1792,7 +1883,6 @@ encrypt(#ssh{encrypt = SshCipher,
     {Ctext,Ctag} = crypto:crypto_one_time_aead(CryptoCipher, K, IV0, PayloadData, LenData, true),
     IV = next_gcm_iv(IV0),
     {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
-
 encrypt(#ssh{encrypt_ctx = Ctx0} = Ssh, Data) ->
     Enc = crypto:crypto_update(Ctx0, Data),
     {Ssh, Enc}.
@@ -1847,7 +1937,6 @@ decrypt_final(Ssh) ->
 
 decrypt(Ssh, <<>>) ->
     {Ssh, <<>>};
-
 decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
              decrypt_keys = {K1,K2},
              recv_sequence = Seq} = Ssh, Data) ->
@@ -1870,10 +1959,8 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
                     {Ssh,error}
             end
     end;
-
 decrypt(#ssh{decrypt = none} = Ssh, Data) ->
     {Ssh, Data};
-
 decrypt(#ssh{decrypt = SshCipher,
              decrypt_cipher = CryptoCipher,
 	     decrypt_keys = K,
@@ -2071,20 +2158,23 @@ kex_plaintext(SSH, Key, Args) ->
       ?Ebinary(EncodedKey),
       (kex_alg_dependent(Args))/binary>>.
 
-
+kex_alg_dependent({mlkem, {C_publickey2, C_publickey1}, S_reply, K_enc}) ->
+    %% mlkem client
+    C_init = <<C_publickey2/binary, C_publickey1/binary>>,
+    kex_alg_dependent({mlkem, C_init, S_reply, K_enc});
+kex_alg_dependent({mlkem, C_init, S_reply, K_enc}) ->
+    %% mlkem common
+    <<?Ebinary(C_init), ?Ebinary(S_reply), K_enc/binary>>;
 kex_alg_dependent({Q_c, Q_s, K}) when is_binary(Q_c), is_binary(Q_s) ->
     %% ecdh
     <<?Ebinary(Q_c), ?Ebinary(Q_s), ?Empint(K)>>;
-
 kex_alg_dependent({E, F, K}) ->
     %% diffie-hellman
     <<?Empint(E), ?Empint(F), ?Empint(K)>>;
-
 kex_alg_dependent({-1, NBits, -1, Prime, Gen, E, F, K}) ->
     %% ssh_msg_kex_dh_gex_request_old
     <<?Euint32(NBits),
       ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>;
-
 kex_alg_dependent({Min, NBits, Max, Prime, Gen, E, F, K}) ->
     %% diffie-hellman group exchange
     <<?Euint32(Min), ?Euint32(NBits), ?Euint32(Max),
@@ -2160,9 +2250,9 @@ sha('curve25519-sha256' ) -> sha256;
 sha('curve25519-sha256@libssh.org' ) -> sha256;
 sha('curve448-sha512') -> sha512;
 sha(x25519) -> sha256;
+sha('mlkem768x25519-sha256') -> sha256;
 sha(x448) -> sha512;
 sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_existing_atom(Str)).
-
 
 mac_key_bytes('hmac-sha1')    -> 20;
 mac_key_bytes('hmac-sha1-etm@openssh.com') -> 20;
@@ -2197,7 +2287,6 @@ mac_digest_size(none) -> 0.
 %% Diffie-Hellman utils
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 dh_group('diffie-hellman-group1-sha1') ->  ?dh_group1;
 dh_group('diffie-hellman-group14-sha1') -> ?dh_group14;
 dh_group('diffie-hellman-group14-sha256') -> ?dh_group14;
@@ -2211,18 +2300,36 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
     {Public, Private} = generate_key(dh, [P,G,2*Sz]),
     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}}}.
 
-
+generate_key(mlkem768, Args) ->
+    crypto:generate_key(mlkem768, Args);
 generate_key(ecdh, Args) ->
     crypto:generate_key(ecdh, Args);
 generate_key(dh, [P,G,Sz2]) ->
     {Public,Private} = crypto:generate_key(dh, [P, G, max(Sz2,?MIN_DH_KEY_SIZE)] ),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
-
-compute_key(Algorithm, OthersPublic, MyPrivate, Args) ->
-    Shared = crypto:compute_key(Algorithm, OthersPublic, MyPrivate, Args),
+compute_key(hybrid_server, C_init, S_privkey1, Curve) ->
+    <<C_publickey2:?MLKEM768_PUBLICKEY_SIZE/binary,
+      C_publickey1:32/binary>> = C_init,
+    {K_pq_secret, S_ciphertext2} = crypto:encapsulate_key(mlkem768, C_publickey2),
+    SharedSecret = hybrid_common(K_pq_secret, Curve, C_publickey1, S_privkey1),
+    {S_ciphertext2, <<?Ebinary(SharedSecret)>>};
+compute_key(hybrid_client, S_reply, {C_privkey2, C_privkey1}, Curve) ->
+    <<S_ciphertext2:?MLKEM768_CIPHERTEXT_SIZE/binary,
+      S_publickey1:?X25519_PUBLICKEY_SIZE/binary>> = S_reply,
+    K_pq_secret = crypto:decapsulate_key(mlkem768, C_privkey2, S_ciphertext2),
+    SharedSecret = hybrid_common(K_pq_secret, Curve, S_publickey1, C_privkey1),
+    <<?Ebinary(SharedSecret)>>;
+compute_key(Algorithm, PeerPublic, MyPrivate, Args) ->
+    Shared = crypto:compute_key(Algorithm, PeerPublic, MyPrivate, Args),
     crypto:bytes_to_integer(Shared).
 
+hybrid_common(K_pq_secret, Curve, PeerPublic, MyPrivate) ->
+    K_cl_secret = compute_key(ecdh, PeerPublic, MyPrivate, Curve),
+    K_cl_secret_mpint = <<?Empint(K_cl_secret)>>,
+    K_cl_secret_mpint_trim =
+        binary:part(K_cl_secret_mpint, byte_size(K_cl_secret_mpint), -?X25519_PUBLICKEY_SIZE),
+    crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_mpint_trim/binary>>).
 
 dh_bits(#alg{encrypt = Encrypt,
              send_mac = SendMac}) ->
@@ -2237,8 +2344,9 @@ ecdh_curve('ecdh-sha2-nistp256') -> secp256r1;
 ecdh_curve('ecdh-sha2-nistp384') -> secp384r1;
 ecdh_curve('ecdh-sha2-nistp521') -> secp521r1;
 ecdh_curve('curve448-sha512'   ) -> x448;
-ecdh_curve('curve25519-sha256' ) -> x25519;
-ecdh_curve('curve25519-sha256@libssh.org' ) -> x25519.
+ecdh_curve('curve25519-sha256') -> x25519;
+ecdh_curve('mlkem768x25519-sha256') -> x25519;
+ecdh_curve('curve25519-sha256@libssh.org') -> x25519.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

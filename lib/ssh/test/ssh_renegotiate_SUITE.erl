@@ -272,7 +272,7 @@ rekey_limit_daemon(Config) ->
 %% Check that datatransfer in the other direction does not trigger re-keying
 norekey_limit_client() -> [{timetrap,{seconds,500}}].
 norekey_limit_client(Config) ->
-    Limit = 6000,
+    Limit = 6500,
     UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "rekey3.data"),
     file:write_file(DataFile, lists:duplicate(Limit+10,1)),

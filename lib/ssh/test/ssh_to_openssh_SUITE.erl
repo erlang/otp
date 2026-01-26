@@ -316,7 +316,6 @@ eserver_oclient_renegotiate_helper1(Config) ->
                                       " -o StrictHostKeyChecking=no"
                                       " -o ServerAliveCountMax=3"
                                       " -o ServerAliveInterval=100"
-                                      " -q"
                                       " -x",
                                       " -o RekeyLimit=",integer_to_list(RenegLimitK),"K"]),
 
@@ -326,6 +325,14 @@ eserver_oclient_renegotiate_helper1(Config) ->
 
 eserver_oclient_renegotiate_helper2({Data, OpenSsh, Pid}) ->
     Expect = fun({data,R}) ->
+                     Warning =
+                         <<"WARNING: connection is not using a post-quantum key exchange algorithm">>,
+                     case binary:match(R, Warning) of
+                         nomatch -> ok;
+                         _ ->
+                             ?CT_PAL("~p", [R]),
+                             ct:fail(pqc_warning_detected)
+                     end,
 		     try
 			 NonAlphaChars = [C || C<-lists:seq(1,255),
 					       not lists:member(C,lists:seq($a,$z)),
