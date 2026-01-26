@@ -67,7 +67,7 @@
         ]},
   {mod, {ssh_app, []}},
   {runtime_dependencies, [
-			  "crypto-5.0",
+			  "crypto-5.7",
 			  "erts-14.0",
 			  "kernel-10.3",
 			  "public_key-1.6.1",
