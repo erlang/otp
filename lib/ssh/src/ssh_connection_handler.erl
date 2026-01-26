@@ -31,8 +31,6 @@
 -module(ssh_connection_handler).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -behaviour(gen_statem).
 
 -include("ssh.hrl").
@@ -762,13 +760,13 @@ handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
 handle_event(internal, {conn_msg, Msg}, StateName, #data{connection_state = Connection0,
                                                          event_queue = Qev0} = D0) ->
     Role = ?role(StateName),
-    Rengotation = renegotiation(StateName),
+    Renegotiation = renegotiation(StateName),
     try ssh_connection:handle_msg(Msg, Connection0, Role, D0#data.ssh_params) of
 	{disconnect, Reason0, RepliesConn} ->
             {Repls, D} = send_replies(RepliesConn, D0),
             case {Reason0,Role} of
-                {{_, Reason}, client} when ((StateName =/= {connected,client})
-                                            and (not Rengotation)) ->
+                {{_, Reason}, client} when StateName =/= {connected,client},
+                                           not Renegotiation ->
                     handshake({not_connected,Reason}, D);
                 _ ->
                     ok

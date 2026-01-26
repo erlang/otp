@@ -45,8 +45,6 @@ these messages are handled by
 [handle_ssh_msg/2](`c:ssh_client_channel:handle_ssh_msg/2`).
 """.
 
--compile(nowarn_obsolete_bool_op).
-
 -include_lib("kernel/include/logger.hrl").
 
 -include("ssh.hrl").
@@ -1925,7 +1923,7 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 	    {[{channel_request_reply, From, Reply}],
 	     Connection#connection{requests = 
 				       lists:keydelete(ChannelId, 1, Requests)}};
-	false when (Reply == success) or (Reply == failure) ->
+	false when Reply == success; Reply == failure ->
 	    {[], Connection};
 	false ->
 	    {[{channel_data, ChannelPid, Reply}], Connection}

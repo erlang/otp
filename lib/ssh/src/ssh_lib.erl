@@ -27,8 +27,6 @@
 -module(ssh_lib).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -export([
          format_address_port/2, format_address_port/1,
          format_address/1,
@@ -75,25 +73,26 @@ format_time_ms(T) when is_integer(T) ->
             
 %%%----------------------------------------------------------------
 
+%% Compares X1 and X2 such that X1 (but not X2) is always iterated fully,
+%% ie without returning early on the first difference.
 comp(X1, X2) ->
-    comp(X1, X2, true).
+    comp(X1, X2, 0).
 
-%%% yes - very far from best implementation
-comp(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
-    comp(R1, R2, Truth and (B1 == B2));
-comp(<<_,R1/binary>>, <<>>, Truth) ->
-    comp(R1, <<>>, Truth and false);
-comp(<<>>, <<>>, Truth) ->
-    Truth;
+comp(<<B1, R1/binary>>, <<B2, R2/binary>>, Diff) ->
+    comp(R1, R2, Diff bor (B1 bxor B2));
+comp(<<B1, R1/binary>>, <<>>, _Diff) ->
+    comp(R1, <<>>, 1 bor (B1 bxor 0));
+comp(<<>>, <<>>, Diff) ->
+    Diff =:= 0;
 
-comp([H1|T1], [H2|T2], Truth) ->
-    comp(T1, T2, Truth and (H1 == H2));
-comp([_|T1], [], Truth) ->
-    comp(T1, [], Truth and false);
-comp([], [], Truth) ->
-    Truth;
+comp([H1|T1], [H2|T2], Diff) ->
+    comp(T1, T2, Diff bor (H1 bxor H2));
+comp([H1|T1], [], _Diff) ->
+    comp(T1, [], 1 bor (H1 bxor 0));
+comp([], [], Diff) ->
+    Diff =:= 0;
 
-comp(_, _, _) ->
+comp(_X1, _X2, _Diff) ->
     false.
 
 set_label(Details) ->
