@@ -59,9 +59,9 @@
          no_reuses_session_server_restart_new_cert_file/0,
          no_reuses_session_server_restart_new_cert_file/1,
          client_max_session_table/0,
-         client_max_session_table/1, 
+         client_max_session_table/1,
          server_max_session_table/0,
-         server_max_session_table/1, 
+         server_max_session_table/1,
          session_table_stable_size_on_tcp_close/0,
          session_table_stable_size_on_tcp_close/1
         ]).
@@ -73,7 +73,7 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-all() -> 
+all() ->
     [
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
@@ -122,7 +122,7 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 init_per_group(GroupName, Config) ->
-    ssl_test_lib:init_per_group(GroupName, Config). 
+    ssl_test_lib:init_per_group(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
@@ -131,7 +131,7 @@ init_per_testcase(TestCase, Config)  when TestCase == reuse_session_expired;
                                           TestCase == explicit_session_reuse_expired ->
     Versions = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
-    application:load(ssl),    
+    application:load(ssl),
     ssl_test_lib:clean_env(),
     ssl_test_lib:set_protocol_versions(Versions),
     application:set_env(ssl, session_lifetime, ?EXPIRE),
@@ -142,7 +142,7 @@ init_per_testcase(TestCase, Config)  when TestCase == reuse_session_expired;
 init_per_testcase(client_max_session_table, Config) ->
     Versions = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
-    application:load(ssl),    
+    application:load(ssl),
     ssl_test_lib:clean_env(),
     ssl_test_lib:set_protocol_versions(Versions),
     application:set_env(ssl, session_cache_client_max, 2),
@@ -153,7 +153,7 @@ init_per_testcase(client_max_session_table, Config) ->
 init_per_testcase(server_max_session_table, Config) ->
     Versions = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
-    application:load(ssl),    
+    application:load(ssl),
     ssl_test_lib:clean_env(),
     ssl_test_lib:set_protocol_versions(Versions),
     application:set_env(ssl, session_cache_server_max, 2),
@@ -166,7 +166,7 @@ init_per_testcase(_, Config) ->
     Config.
 
 end_per_testcase(reuse_session_expired, Config) ->
-    application:unset_env(ssl, session_lifetime),    
+    application:unset_env(ssl, session_lifetime),
     Config;
 end_per_testcase(_, Config) ->
     Config.
@@ -176,16 +176,16 @@ end_per_testcase(_, Config) ->
 %%--------------------------------------------------------------------
 reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
-reuse_session(Config) when is_list(Config) -> 
+reuse_session(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Version = ssl_test_lib:protocol_version(Config),
-    ssl_test_lib:reuse_session([{versions,[Version]} | ClientOpts], 
+    ssl_test_lib:reuse_session([{versions,[Version]} | ClientOpts],
                                [{versions,[Version]} | ServerOpts], Config).
 %%--------------------------------------------------------------------
 reuse_session_expired() ->
     [{doc,"Test sessions is not reused when it has expired"}].
-reuse_session_expired(Config) when is_list(Config) -> 
+reuse_session_expired(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     TestVersion = ssl_test_lib:protocol_version(Config),
@@ -203,43 +203,46 @@ reuse_session_expired(Config) when is_list(Config) ->
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port0 = ssl_test_lib:inet_port(Server0),
-    
+
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save},
-                                                                     {ciphers, Ciphers}| ClientOpts]}]),
+                                         {from, self()},
+                                         {options, [{reuse_sessions, save},
+                                                    {ciphers, Ciphers}| ClientOpts]}]),
     Server0 ! listen,
-    
+
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options,  [{ciphers, Ciphers} | ClientOpts]}]),
-    
+                                         {mfa, {ssl, connection_information,
+                                                [[session_id, session_resumption]]}},
+                                         {from, self()},
+                                         {options, [{ciphers, Ciphers} | ClientOpts]}]),
+
     SID = receive
               {Client0, Id0} ->
                   Id0
           end,
-       
+
     receive
-        {Client1, SID} ->
+        {Client1, {ok, [{session_id, SID}, {session_resumption, true}]}} ->
             ok
     after ?SLEEP ->
               ct:fail(session_not_reused)
     end,
-    
+
     Server0 ! listen,
-    
+
     %% Make sure session is unregistered due to expiration
     ct:sleep({seconds, ?EXPIRE*2}),
 
     make_sure_expired(Hostname, Port0, SID),
-    
+
     Client2 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
+	ssl_test_lib:start_client([{node, ClientNode},
 				   {port, Port0}, {host, Hostname},
 				   {mfa, {ssl_test_lib, session_id, []}},
-				   {from, self()}, {options, ClientOpts}]),   
+				   {from, self()}, {options, ClientOpts}]),
     receive
 	{Client2, SID} ->
             end_per_testcase(?FUNCTION_NAME, Config),
@@ -261,52 +264,52 @@ make_sure_expired(Host, Port, Id) ->
 
     case ssl_client_session_cache_db:lookup(ClientCache, {{Host,  Port}, Id}) of
 	undefined ->
-   	   ok; 
+   	   ok;
 	#session{is_resumable = false} ->
    	   ok;
 	_ ->
 	    ct:sleep(?SLEEP),
             make_sure_expired(Host, Port, Id)
-    end.     
+    end.
 
 %%--------------------------------------------------------------------
 server_does_not_want_to_reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
-server_does_not_want_to_reuse_session(Config) when is_list(Config) -> 
+server_does_not_want_to_reuse_session(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    Server = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 		      {mfa, {ssl_test_lib, session_info_result, []}},
 				   {options, [{reuse_session, fun(_,_,_,_) ->
 								      false
-							      end} | 
+							      end} |
 					      ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client0 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
+	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
 			    {mfa, {ssl_test_lib, no_result, []}},
-		      {from, self()},  {options, ClientOpts}]),   
-    SessionInfo = 
+		      {from, self()},  {options, ClientOpts}]),
+    SessionInfo =
 	receive
 	    {Server, Info} ->
 		Info
 	end,
-       
+
     Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
-    
+
     %% Make sure session is registered
     ct:sleep(?SLEEP),
 
     Client1 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
+	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
 		      {mfa, {ssl_test_lib, session_info_result, []}},
-		      {from, self()},  {options, ClientOpts}]),    
+		      {from, self()},  {options, ClientOpts}]),
     receive
 	{Client1, SessionInfo} ->
 	    ct:fail(session_reused_when_server_does_not_want_to);
@@ -340,7 +343,8 @@ explicit_session_reuse(Config) when is_list(Config) ->
                                    return_socket
                                   ]),
 
-    {ok, [{session_id, ID}, {session_data, SessData}]} = ssl:connection_information(Client0Sock, [session_id, session_data]),
+    {ok, [{session_id, ID}, {session_data, SessData}]} =
+        ssl:connection_information(Client0Sock, [session_id, session_data]),
 
     ssl_test_lib:close(Client0),
 
@@ -350,7 +354,8 @@ explicit_session_reuse(Config) when is_list(Config) ->
 	ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, no_result, []}},
-                                   {from, self()}, {options, [{reuse_session, {ID, SessData}} | ClientOpts]},
+                                   {from, self()},
+                                   {options, [{reuse_session, {ID, SessData}} | ClientOpts]},
                                    return_socket]),
 
     {ok, [{session_id, ID}]} = ssl:connection_information(Client1Sock, [session_id]).
@@ -359,7 +364,8 @@ explicit_session_reuse(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 explicit_session_reuse_expired() ->
-    [{doc,"Test to reuse a session that has expired and make sure server session table is correctly handled"}].
+    [{doc,"Test to reuse a session that has expired and make sure server "
+      " session table is correctly handled"}].
 explicit_session_reuse_expired(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -375,11 +381,13 @@ explicit_session_reuse_expired(Config) when is_list(Config) ->
 	ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, no_result, []}},
-                                   {from, self()}, {options, [{reuse_sessions, false} | ClientOpts]},
+                                   {from, self()},
+                                   {options, [{reuse_sessions, false} | ClientOpts]},
                                    return_socket
                                   ]),
     %% Retrieve session data
-    {ok, [{session_id, ID0}, {session_data, SessData}]} = ssl:connection_information(Client0Sock, [session_id, session_data]),
+    {ok, [{session_id, ID0}, {session_data, SessData}]} =
+        ssl:connection_information(Client0Sock, [session_id, session_data]),
 
     ssl_test_lib:close(Client0),
 
@@ -391,19 +399,23 @@ explicit_session_reuse_expired(Config) when is_list(Config) ->
     [{_, SessionCachePid, worker,[ssl_server_session_cache]}] = supervisor:which_children(Sup),
 
     %% Start a new connections so there are three sessions
-    {Client1, Client1Sock}  = ssl_test_lib:start_client([{node, ClientNode},
-                                          {port, Port}, {host, Hostname},
-                                                         {mfa, {ssl_test_lib, no_result, []}},
-                                          {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]},
-                                                         return_socket]),
+    {Client1, Client1Sock}  =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()},
+                                   {options, [{reuse_sessions, save} | ClientOpts]},
+                                   return_socket]),
 
     Server ! listen,
 
-    {Client2, Client2Sock}  = ssl_test_lib:start_client([{node, ClientNode},
-                                                         {port, Port}, {host, Hostname},
-                                                         {mfa, {ssl_test_lib, no_result, []}},
-                                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]},
-                                                         return_socket]),
+    {Client2, Client2Sock}  =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()},
+                                   {options, [{reuse_sessions, save} | ClientOpts]},
+                                   return_socket]),
 
     {ok, [{session_id, ID1}]} = ssl:connection_information(Client1Sock, [session_id]),
 
@@ -426,7 +438,8 @@ explicit_session_reuse_expired(Config) when is_list(Config) ->
 	ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, no_result, []}},
-                                   {from, self()}, {options, [{reuse_session, {ID0, SessData}} | ClientOpts]},
+                                   {from, self()},
+                                   {options, [{reuse_session, {ID0, SessData}} | ClientOpts]},
                                    return_socket]),
 
     %% Verify that we got a new session
@@ -477,10 +490,11 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     POpts = proplists:get_value(group_opts, Config, []),
 
     #{client_config := NewCOpts,
-      server_config := NewSOpts} = ssl_test_lib:make_cert_chains_der(rsa,
-                                                                     [[{key, ssl_test_lib:hardcode_rsa_key(4)}],
-                                                                      [{key, ssl_test_lib:hardcode_rsa_key(5)}],
-                                                                      [{key, ssl_test_lib:hardcode_rsa_key(6)}]]),
+      server_config := NewSOpts} =
+        ssl_test_lib:make_cert_chains_der(rsa,
+                                          [[{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                                           [{key, ssl_test_lib:hardcode_rsa_key(5)}],
+                                           [{key, ssl_test_lib:hardcode_rsa_key(6)}]]),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -535,11 +549,12 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     POpts = proplists:get_value(group_opts, Config, []),
 
     #{client_config := NewCOpts,
-      server_config := NewSOpts} = ssl_test_lib:make_cert_chains_pem(rsa,
-                                                                     [[{key, ssl_test_lib:hardcode_rsa_key(4)}],
-                                                                      [{key, ssl_test_lib:hardcode_rsa_key(5)}],
-                                                                      [{key, ssl_test_lib:hardcode_rsa_key(6)}]],
-                                                                     Config, "ssl_session_new_rsa"),
+      server_config := NewSOpts} =
+        ssl_test_lib:make_cert_chains_pem(rsa,
+                                          [[{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                                           [{key, ssl_test_lib:hardcode_rsa_key(5)}],
+                                           [{key, ssl_test_lib:hardcode_rsa_key(6)}]],
+                                          Config, "ssl_session_new_rsa"),
     PrivDir =  proplists:get_value(priv_dir, Config),
 
     NewServerOpts0 = ssl_test_lib:new_config(PrivDir, ServerOpts),
@@ -593,20 +608,21 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
 
 
 client_max_session_table() ->
-      [{doc, "Check that max session table limit is not exceeded, set max to 2 in init_per_testcase"}].
+      [{doc, "Check that max session table limit is not exceeded,"
+        " set max to 2 in init_per_testcase"}].
 
 client_max_session_table(Config) when is_list(Config)->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
-    test_max_session_limit(ClientOpts,ServerOpts,ClientNode, ServerNode, HostName),    
+    test_max_session_limit(ClientOpts,ServerOpts,ClientNode, ServerNode, HostName),
     %% Explicit check table size
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    ClientCache = element(2, State),	
+    ClientCache = element(2, State),
     2 = ?CLIENT_CB:size(ClientCache).
-    
+
 server_max_session_table() ->
       [{doc, "Check that max session table limit exceeded, set max to 2 in init_per_testcase"}].
 
@@ -625,7 +641,8 @@ server_max_session_table(Config) when is_list(Config)->
     true = N == 2.
 
 session_table_stable_size_on_tcp_close() ->
-      [{doc, "Check that new sessions are cleanup when connection is closed abruptly during first handshake"}].
+      [{doc, "Check that new sessions are cleanup when connection is closed "
+        "abruptly during first handshake"}].
 
 session_table_stable_size_on_tcp_close(Config) when is_list(Config)->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -804,52 +821,54 @@ test_max_session_limit(ClientOpts, ServerOpts, ClientNode, ServerNode, HostName)
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port0 = ssl_test_lib:inet_port(Server0),
-    
+
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, HostName},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+                                         {from, self()},
+                                         {options, [{reuse_sessions, save} | ClientOpts]}]),
     SID0 = receive
           {Client0, Id0} ->
                   Id0
           end,
-       
-   
+
     Server0 ! listen,
-    
+
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, HostName},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),    
-       
+                                         {from, self()},
+                                         {options, [{reuse_sessions, save} | ClientOpts]}]),
+
     SID1 = receive
                {Client1, Id1} ->
-                   Id1 
+                   Id1
            end,
-       
+
     false = SID0 == SID1,
-    
-    
+
     Server0 ! listen,
-    
+
     Client2 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, HostName},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save}| ClientOpts]}]),  
+                                         {from, self()},
+                                         {options, [{reuse_sessions, save}| ClientOpts]}]),
 
-    
+
     SID2 = receive
                {Client2, Id2} ->
-                   Id2 
+                   Id2
            end,
 
     Server0 ! listen,
-    
+
     Client3 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, HostName},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_session, SID2}| ClientOpts]}]),   
-    
+                                         {from, self()},
+                                         {options, [{reuse_session, SID2}| ClientOpts]}]),
+
     receive
         {Client3, SID2} ->
             ok;
