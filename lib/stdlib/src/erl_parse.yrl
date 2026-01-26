@@ -1700,6 +1700,31 @@ build_sigil(SigilPrefix, String, SigilSuffix) ->
                       element(2, SigilSuffix),
                       "illegal sigil suffix")
             end;
+        Type =:= 'fs';
+        Type =:= 'fS';
+        Type =:= 'sf';
+        Type =:= 'Sf' ->
+            case Suffix of
+                "" ->
+                    build_f_sigil_str(?anno(SigilPrefix), String);
+                _ ->
+                    ret_err(
+                      element(2, SigilSuffix),
+                      "illegal sigil suffix")
+            end;
+        Type =:= 'f';
+        Type =:= 'fb';
+        Type =:= 'fB';
+        Type =:= 'bf';
+        Type =:= 'Bf' ->
+            case Suffix of
+                "" ->
+                    build_f_sigil_bin(?anno(SigilPrefix), String);
+                _ ->
+                    ret_err(
+                      element(2, SigilSuffix),
+                      "illegal sigil suffix")
+            end;
 %%%         Type =:= 'r' -> % Regular expression
 %%%             %% Convert to {re,RE,Flags}
 %%%             {tuple, ?anno(SigilPrefix),
@@ -1711,6 +1736,97 @@ build_sigil(SigilPrefix, String, SigilSuffix) ->
               element(2, SigilPrefix),
               "illegal sigil prefix")
     end.
+
+build_f_sigil_str(Anno, String) ->
+    Str = erl_syntax:string_value(String),
+    Elems = [f_sigil_str_elem(Elem) || Elem <- f_sigil_elems(Anno, Str)],
+    erl_syntax:revert(erl_syntax:list(Elems)).
+
+f_sigil_str_elem({string, Anno, Str}) ->
+    {bin, Anno, [{bin_element, Anno, {string, Anno, Str}, default, [utf8]}]};
+f_sigil_str_elem({block, _Anno, Block}) ->
+    Block.
+
+build_f_sigil_bin(Anno, String) ->
+    Str = erl_syntax:string_value(String),
+    Elems = [f_sigil_bin_elem(Elem) || Elem <- f_sigil_elems(Anno, Str)],
+    {bin, Anno, Elems}.
+
+f_sigil_bin_elem({string, Anno, Str}) ->
+    {bin_element, Anno, {string, Anno, Str}, default, [utf8]};
+f_sigil_bin_elem({block, Anno, Block}) ->
+    {bin_element, Anno, Block, default, [binary]}.
+
+f_sigil_elems(Anno, Str) ->
+    Ln = erl_anno:line(Anno),
+    f_sigil_elems(Str, Ln, Ln, []).
+
+f_sigil_elems([], _StrLn, _ExprLn, []) ->
+    [];
+f_sigil_elems([], StrLn, _ExprLn, Acc) ->
+    [f_sigil_str_tuple(StrLn, Acc)];
+f_sigil_elems([$\\, ${ | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn, [${ | Acc]);
+f_sigil_elems([${ | T0], _StrLn, ExprLn, []) ->
+    {ExprElem, T, EndLn} = f_sigil_expr_elem(T0, 1, ExprLn, ExprLn, []),
+    [ExprElem | f_sigil_elems(T, EndLn, EndLn, [])];
+f_sigil_elems([${ | T0], StrLn, ExprLn, Acc) ->
+    StrElem = f_sigil_str_tuple(StrLn, Acc),
+    {ExprElem, T, EndLn} = f_sigil_expr_elem(T0, 1, ExprLn, ExprLn, []),
+    [StrElem, ExprElem | f_sigil_elems(T, EndLn, EndLn, [])];
+f_sigil_elems([$\r, $\n | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn + 1, [$\n, $\r | Acc]);
+f_sigil_elems([$\r | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn + 1, [$\r | Acc]);
+f_sigil_elems([$\n | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn + 1, [$\n | Acc]);
+f_sigil_elems([H | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn, [H | Acc]).
+
+f_sigil_expr_elem([$} | T], Depth, ExprLn, StrLn, Acc) ->
+    case Depth - 1 of
+        0 ->
+            Elem = f_sigil_block_tuple(ExprLn, Acc),
+            case T of
+                [$\r, $\n | _] ->
+                    {Elem, T, StrLn + 1};
+                [$\r | _] ->
+                    {Elem, T, StrLn + 1};
+                [$\n | _] ->
+                    {Elem, T, StrLn + 1};
+                _ ->
+                    {Elem, T, StrLn}
+            end;
+        _ ->
+            f_sigil_expr_elem(T, Depth - 1, ExprLn, StrLn, [$} | Acc])
+    end;
+f_sigil_expr_elem([${ | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth + 1, ExprLn, StrLn, [${ | Acc]);
+f_sigil_expr_elem([$\r, $\n | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth, ExprLn, StrLn + 1, [$\n, $\r | Acc]);
+f_sigil_expr_elem([$\r | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth, ExprLn, StrLn + 1, [$\r | Acc]);
+f_sigil_expr_elem([$\n | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth, ExprLn, StrLn + 1, [$\n | Acc]);
+f_sigil_expr_elem([H | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth, ExprLn, StrLn, [H | Acc]);
+f_sigil_expr_elem([], _Depth, ExprLn, _StrLn, _Acc) ->
+    Anno = erl_anno:new(ExprLn),
+    ret_err(Anno, "Unterminated interpolation expression in ~f string. Expected '}'.").
+
+f_sigil_str_tuple(Ln, Acc) ->
+    Anno = erl_anno:new(Ln),
+    Str = lists:reverse(Acc),
+    {string, Anno, Str}.
+
+f_sigil_block_tuple(Ln, Acc) ->
+    Anno = erl_anno:new(Ln),
+    Expr = lists:reverse([$. | Acc]),
+    {ok, Tokens, _} = erl_scan:string(Expr),
+    {ok, Forms0} = parse_exprs(Tokens),
+    Forms = map_anno(fun(_Anno) -> Anno end, Forms0),
+    Block = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:block_expr(Forms), Anno)),
+    {block, Anno, Block}.
 
 -spec ret_err(_, _) -> no_return().
 ret_err(Anno, S) ->
