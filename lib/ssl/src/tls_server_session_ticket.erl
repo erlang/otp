@@ -21,7 +21,7 @@
 %%
 
 %%----------------------------------------------------------------------
-%% Purpose: Handle server side TLS-1.3 session ticket storage 
+%% Purpose: Handle server side TLS-1.3 session ticket storage
 %%----------------------------------------------------------------------
 
 -module(tls_server_session_ticket).
@@ -80,14 +80,14 @@ new(Pid, Prf, MasterSecret, PeerCert) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret, PeerCert}, infinity).
 
 use(Pid, Identifiers, Prf, HandshakeHist) ->
-    gen_server:call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist}, 
+    gen_server:call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist},
                     infinity).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
--spec init(Args :: term()) -> {ok, State :: term()}.                             
+-spec init(Args :: term()) -> {ok, State :: term()}.
 init([Listener | Args]) ->
     process_flag(trap_exit, true),
     proc_lib:set_label({tls_13_server_session_tickets, Listener}),
@@ -98,41 +98,41 @@ init([Listener | Args]) ->
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
                          {reply, Reply :: term(), NewState :: term()} .
 handle_call({new_session_ticket, Prf, MasterSecret, PeerCert}, _From,
-            #state{nonce = Nonce, 
+            #state{nonce = Nonce,
                    lifetime = LifeTime,
                    max_early_data_size = MaxEarlyDataSize,
-                   stateful = #{id_generator := IdGen}} = State0) -> 
+                   stateful = #{id_generator := IdGen}} = State0) ->
     Id = stateful_psk_ticket_id(IdGen),
     PSK = tls_v1:pre_shared_key(MasterSecret, ticket_nonce(Nonce), Prf),
     SessionTicket = new_session_ticket(Id, Nonce, LifeTime, MaxEarlyDataSize),
     State = stateful_ticket_store(Id, SessionTicket, Prf, PSK, PeerCert, State0),
     {reply, SessionTicket, State};
 handle_call({new_session_ticket, Prf, MasterSecret, PeerCert}, _From,
-            #state{nonce = Nonce, 
-                   stateless = #{}} = State) -> 
+            #state{nonce = Nonce,
+                   stateless = #{}} = State) ->
     BaseSessionTicket = new_session_ticket_base(State),
-    SessionTicket = generate_stateless_ticket(BaseSessionTicket, Prf, 
+    SessionTicket = generate_stateless_ticket(BaseSessionTicket, Prf,
                                               MasterSecret, PeerCert, State),
     {reply, SessionTicket, State#state{nonce = Nonce+1}};
-handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From, 
-            #state{stateful = #{}} = State0) -> 
-    {Result, State} = stateful_use(Identifiers, Prf, 
+handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From,
+            #state{stateful = #{}} = State0) ->
+    {Result, State} = stateful_use(Identifiers, Prf,
                                         HandshakeHist, State0),
     {reply, Result, State};
-handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From, 
-            #state{stateless = #{}} = State0) -> 
-    {Result, State} = stateless_use(Identifiers, Prf, 
+handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From,
+            #state{stateless = #{}} = State0) ->
+    {Result, State} = stateless_use(Identifiers, Prf,
                                          HandshakeHist, State0),
     {reply, Result, State}.
 
 -spec handle_cast(Request :: term(), State :: term()) ->
-           {noreply, NewState :: term()}. 
+           {noreply, NewState :: term()}.
 handle_cast(_Request, State) ->
     {noreply, State}.
 
 -spec handle_info(Info :: timeout() | term(), State :: term()) ->
           {noreply, NewState :: term()}.
-handle_info(rotate_bloom_filters, 
+handle_info(rotate_bloom_filters,
             #state{stateless = #{bloom_filter := BloomFilter0,
                                  warm_up_windows_remaining := WarmUp0,
                                  window := Window} = Stateless} = State) ->
@@ -191,7 +191,7 @@ initial_state([stateful, Lifetime, TicketStoreSize, MaxEarlyDataSize|_]) ->
     #state{lifetime = Lifetime,
            max_early_data_size = MaxEarlyDataSize,
            nonce = 0,
-           stateful = #{db => stateful_store(),                    
+           stateful = #{db => stateful_store(),
                         max => TicketStoreSize,
                         ref_index => #{},
                         id_generator => crypto:strong_rand_bytes(16)
@@ -220,9 +220,14 @@ new_session_ticket_base(#state{nonce = Nonce,
 
 new_session_ticket(Id, Nonce, Lifetime, MaxEarlyDataSize) ->
     TicketAgeAdd = ticket_age_add(),
-    Extensions = #{early_data =>
-                       #early_data_indication_nst{
-                          indication = MaxEarlyDataSize}},
+    Extensions = case MaxEarlyDataSize of
+                     0 ->
+                         #{};
+                     _ ->
+                         #{early_data =>
+                                    #early_data_indication_nst{
+                                       indication = MaxEarlyDataSize}}
+                 end,
     #new_session_ticket{
        ticket = Id,
        ticket_lifetime = Lifetime,
@@ -230,7 +235,6 @@ new_session_ticket(Id, Nonce, Lifetime, MaxEarlyDataSize) ->
        ticket_nonce = ticket_nonce(Nonce),
        extensions = Extensions
       }.
-
 
 validate_binder(Binder, HandshakeHist, PSK, Prf, AlertDetail) ->
       case tls_handshake_1_3:is_valid_binder(Binder, HandshakeHist, PSK, Prf) of
@@ -241,18 +245,18 @@ validate_binder(Binder, HandshakeHist, PSK, Prf, AlertDetail) ->
       end.
 
 %%%===================================================================
-%%% Stateful store 
+%%% Stateful store
 %%%===================================================================
 
 stateful_store() ->
     gb_trees:empty().
 
 stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk, PeerCert,
-                      #state{nonce = Nonce, 
-                             stateful = #{db := Tree0, 
+                      #state{nonce = Nonce,
+                             stateful = #{db := Tree0,
                                           max := Max,
-                                          ref_index := Index0} = Stateful} 
-                      = State0) ->    
+                                          ref_index := Index0} = Stateful}
+                      = State0) ->
     Id = {erlang:monotonic_time(), erlang:unique_integer([monotonic])},
     StatefulTicket = {NewSessionTicket, Hash, Psk, PeerCert},
     case gb_trees:size(Tree0) of
@@ -262,46 +266,46 @@ stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk, PeerCert,
                 = gb_trees:take_smallest(Tree0),
             Tree = gb_trees:insert(Id, StatefulTicket, Tree1),
             Index = maps:without([OldRef], Index0),
-            State0#state{nonce = Nonce+1, stateful = 
-                             Stateful#{db => Tree, 
+            State0#state{nonce = Nonce+1, stateful =
+                             Stateful#{db => Tree,
                                        ref_index => Index#{Ref => Id}}};
         _ ->
             Tree = gb_trees:insert(Id, StatefulTicket, Tree0),
-            State0#state{nonce = Nonce+1, stateful = 
-                             Stateful#{db => Tree, 
-                                       ref_index => Index0#{Ref => Id}}}   
+            State0#state{nonce = Nonce+1, stateful =
+                             Stateful#{db => Tree,
+                                       ref_index => Index0#{Ref => Id}}}
     end.
 
 stateful_use(#offered_psks{
                 identities = Identities,
                 binders = Binders
-               }, Prf, HandshakeHist, State) ->    
+               }, Prf, HandshakeHist, State) ->
     stateful_use(Identities, Binders, Prf, HandshakeHist, 0, State).
 
 stateful_use([], [], _, _, _, State) ->
     {{ok, undefined}, State};
-stateful_use([#psk_identity{identity = Ref} | Refs], [Binder | Binders], 
-             Prf, HandshakeHist, Index, 
-             #state{stateful = #{db := Tree0, 
+stateful_use([#psk_identity{identity = Ref} | Refs], [Binder | Binders],
+             Prf, HandshakeHist, Index,
+             #state{stateful = #{db := Tree0,
                                  ref_index := RefIndex0} = Stateful} = State) ->
     try maps:get(Ref, RefIndex0) of
         Key ->
-            case stateful_usable_ticket(Key, Prf, Binder, 
+            case stateful_usable_ticket(Key, Prf, Binder,
                                         HandshakeHist, Tree0) of
                 true ->
                     RefIndex = maps:without([Ref], RefIndex0),
                     {{_,_, PSK, PeerCert}, Tree} = gb_trees:take(Key, Tree0),
                     {{ok, {Index, PSK, PeerCert}},
-                     State#state{stateful = Stateful#{db => Tree, 
+                     State#state{stateful = Stateful#{db => Tree,
                                                       ref_index => RefIndex}}};
                 false ->
-                    stateful_use(Refs, Binders, Prf, 
+                    stateful_use(Refs, Binders, Prf,
                                  HandshakeHist, Index + 1, State);
                 {error, _} = Error ->
                     {Error, State}
             end
     catch
-        _:{badkey, Ref} -> 
+        _:{badkey, Ref} ->
             stateful_use(Refs, Binders, Prf, HandshakeHist, Index + 1, State)
     end.
 
@@ -314,13 +318,13 @@ stateful_usable_ticket(Key, Prf, Binder, HandshakeHist, Tree) ->
                 true ->
                     validate_binder(Binder, HandshakeHist, PSK, Prf, stateful);
                 _ ->
-                    false 
+                    false
             end;
         _ ->
             false
     end.
 
-stateful_living_ticket({TimeStamp,_}, 
+stateful_living_ticket({TimeStamp,_},
                        #new_session_ticket{ticket_lifetime = LifeTime}) ->
     Now = erlang:monotonic_time(),
     Lived = erlang:convert_time_unit(Now-TimeStamp, native, seconds),
@@ -336,11 +340,11 @@ stateful_psk_ticket_id(Key) ->
     crypto:crypto_one_time(aes_128_ecb, Key, <<Unique:128>>, true).
 
 %%%===================================================================
-%%% Stateless ticket 
+%%% Stateless ticket
 %%%===================================================================
-generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce, 
+generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce,
                                               ticket_age_add = TicketAgeAdd,
-                                              ticket_lifetime = Lifetime} 
+                                              ticket_lifetime = Lifetime}
                          = Ticket, Prf, MasterSecret, PeerCert,
                          #state{stateless = #{seed := {IV, Shard}}}) ->
     PSK = tls_v1:pre_shared_key(MasterSecret, Nonce, Prf),
@@ -358,14 +362,14 @@ generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce,
 stateless_use(#offered_psks{
                  identities = Identities,
                  binders = Binders
-                }, Prf, HandshakeHist, State) ->    
+                }, Prf, HandshakeHist, State) ->
     stateless_use(Identities, Binders, Prf, HandshakeHist, 0, State).
 
 stateless_use([], [], _, _, _, State) ->
     {{ok, undefined}, State};
 stateless_use([#psk_identity{identity = Encrypted,
-                             obfuscated_ticket_age = ObfAge} |  Ids], 
-              [Binder | Binders], Prf, HandshakeHist, Index, 
+                             obfuscated_ticket_age = ObfAge} |  Ids],
+              [Binder | Binders], Prf, HandshakeHist, Index,
               #state{stateless = #{seed := {IV, Shard},
                                    window := Window}} = State) ->
     case ssl_cipher:decrypt_ticket(Encrypted, Shard, IV) of
@@ -377,7 +381,7 @@ stateless_use([#psk_identity{identity = Encrypted,
                 true ->
                     stateless_anti_replay(Index, PSK, Binder, PeerCert, State);
                 false ->
-                    stateless_use(Ids, Binders, Prf, HandshakeHist, 
+                    stateless_use(Ids, Binders, Prf, HandshakeHist,
                                   Index+1, State);
                 {error, _} = Error ->
                     {Error, State}
@@ -390,12 +394,12 @@ stateless_usable_ticket(#stateless_ticket{hash = Prf,
                                           ticket_age_add = TicketAgeAdd,
                                           lifetime = Lifetime,
                                           timestamp = Timestamp,
-                                          pre_shared_key = PSK}, ObfAge, 
+                                          pre_shared_key = PSK}, ObfAge,
                        Binder, HandshakeHist, Window) ->
-    case stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, 
+    case stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime,
                                  Timestamp, Window) of
         true ->
-           validate_binder(Binder, HandshakeHist, PSK, Prf, stateless); 
+           validate_binder(Binder, HandshakeHist, PSK, Prf, stateless);
         false ->
             false
     end.
@@ -458,7 +462,7 @@ stateless_anti_replay(_Index, _PSK, _Binder, _PeerCert,
     %% long as any portion of their recording window overlaps the startup time."
     {{ok, undefined}, State};
 stateless_anti_replay(Index, PSK, Binder, PeerCert,
-                      #state{stateless = #{bloom_filter := BloomFilter0} 
+                      #state{stateless = #{bloom_filter := BloomFilter0}
                              = Stateless} = State) ->
     case tls_bloom_filter:contains(BloomFilter0, Binder) of
         true ->

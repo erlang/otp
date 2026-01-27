@@ -564,13 +564,14 @@ basic_stateless_stateful_faulty_ticket(Config) when is_list(Config) ->
                    {versions, ['tlsv1.2','tlsv1.3']}]).
 
 hello_retry_request() ->
-    [{doc,"Test session resumption with session tickets and hello_retry_request (erlang client - erlang server)"}].
+    [{doc,"Test session resumption with session tickets and hello_retry_request "
+      "(erlang client - erlang server)"}].
 hello_retry_request(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
-    
+
     %% Configure session tickets
     ClientOpts = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']},
@@ -877,14 +878,14 @@ early_data_client_too_much_data(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, manual},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send more early data than max_early_data_size to verify calculation
     %% of plain text size in the server.
     MaxEarlyDataSize = 10000,
     ClientOpts2 = [{early_data, binary:copy(<<"F">>, 16384)}|ClientOpts1],
 
-    ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, disabled},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+    ServerOpts = [{session_tickets, ServerTicketMode},
+                  {versions, ['tlsv1.2','tlsv1.3']},{early_data, enabled} |ServerOpts0],
 
     application:set_env(ssl, server_session_ticket_max_early_data, MaxEarlyDataSize),
     Server0 =
@@ -905,7 +906,7 @@ early_data_client_too_much_data(Config) when is_list(Config) ->
                                                 [false, no_reply, {tickets, 1}]}},
                                          {from, self()}, {options, ClientOpts1}]),
     Tickets0 = ssl_test_lib:check_tickets(Client0),
-    ssl_test_lib:verify_session_ticket_extension(Tickets0, MaxEarlyDataSize),
+    true = ssl_test_lib:verify_session_ticket_extension(Tickets0, MaxEarlyDataSize),
     %% ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
     Server0 ! {listen, {mfa, {ssl_test_lib,
@@ -923,7 +924,8 @@ early_data_client_too_much_data(Config) when is_list(Config) ->
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,
                                                       [false, no_reply, no_tickets]}},
-                                               {from, self()}, {options, [{use_ticket, Tickets0}|ClientOpts2]}]),
+                                               {from, self()},
+                                               {options, [{use_ticket, Tickets0}|ClientOpts2]}]),
     ssl_test_lib:check_client_alert(Client1, illegal_parameter),
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server0).
@@ -938,10 +940,9 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, manual},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send more early data than max_early_data_size to verify calculation
     %% of plain text size in the server.
-    MaxEarlyDataSize = 10000,
     ClientOpts2 = [{early_data, binary:copy(<<"F">>, 16385)}|ClientOpts1],
 
     %% Disabled early data triggers trial decryption upon receiving early data
@@ -956,13 +957,12 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, disabled},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
-    application:set_env(ssl, server_session_ticket_max_early_data, MaxEarlyDataSize),
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib,
                                           verify_active_session_resumption,
-                                          [false]}},
+                                          [false, no_reply]}},
 				   {options, ServerOpts}]),
     Port0 = ssl_test_lib:inet_port(Server0),
 
@@ -974,10 +974,10 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
                                                 [false, no_reply, {tickets, 1}]}},
                                          {from, self()}, {options, ClientOpts1}]),
     Tickets0 = ssl_test_lib:check_tickets(Client0),
+    true = ssl_test_lib:verify_session_ticket_extension(Tickets0, 0),
     %% Simulate a faulty client by updating the max_early_data_size extension in
     %% the received session ticket
     Tickets1 = ssl_test_lib:update_session_ticket_extension(Tickets0, 16385),
-    %% ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
     Server0 ! {listen, {mfa, {ssl_test_lib,
                               verify_active_session_resumption,
@@ -994,14 +994,16 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,
                                                       [false, no_reply, no_tickets]}},
-                                               {from, self()}, {options, [{use_ticket, Tickets1}|ClientOpts2]}]),
+                                               {from, self()},
+                                                {options, [{use_ticket, Tickets1}|ClientOpts2]}]),
     ssl_test_lib:check_server_alert(Server0, bad_record_mac),
     process_flag(trap_exit, false),
     application:unset_env(ssl, server_session_ticket_max_early_data),
     ssl_test_lib:close(Server0).
 
 early_data_decryption_failure() ->
-    [{doc,"Emulate faulty client that sends too much early data - server early_data enabled (erlang client - erlang server)"}].
+    [{doc,"Emulate faulty client that sends too much early data - server early_data enabled "
+      "(erlang client - erlang server)"}].
 early_data_decryption_failure(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -1057,7 +1059,8 @@ early_data_decryption_failure(Config) when is_list(Config) ->
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,
                                                       [false, no_reply, no_tickets]}},
-                                               {from, self()}, {options, [{use_ticket, Tickets1}|ClientOpts2]}]),
+                                                {from, self()},
+                                                {options, [{use_ticket, Tickets1}|ClientOpts2]}]),
     ssl_test_lib:check_server_alert(Server0, unexpected_message),
     process_flag(trap_exit, false),
     application:unset_env(ssl, server_session_ticket_max_early_data),
@@ -1328,7 +1331,8 @@ early_data_basic_auth(Config) when is_list(Config) ->
                                          {from, self()},
                                          {options,
                                           proplists:delete(keyfile,
-                                                           proplists:delete(certfile, ClientOpts2))}]),
+                                                           proplists:delete(certfile,
+                                                                            ClientOpts2))}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),

@@ -1503,7 +1503,7 @@ opt_handshake(UserOpts, Opts, _Env) ->
     Opts#{handshake => HS, max_handshake_size => MHSS}.
 
 default_max_hs(#{signature_algs:= undefined}) ->
-    ?DEFAULT_MAX_EARLY_DATA_SIZE;
+    ?DEFAULT_MAX_HANDSHAKE_SIZE;
 default_max_hs(#{signature_algs:= Algs}) ->
     %%% In OTP-26 max handshake_size was lowered by half for most
     %%% handshakes would fit that size and OpenSSL had a lower default

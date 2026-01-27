@@ -29,16 +29,16 @@
 -include("ssl_record.hrl").
 
 -export([send/3, send/4,
-         listen/3, 
-         accept/3, 
+         listen/3,
+         accept/3,
          socket/6,
-         connect/4, 
+         connect/4,
          upgrade/4,
-	 setopts/3, 
-         getopts/3, 
-         getstat/3, 
-         peername/2, 
-         sockname/2, 
+	 setopts/3,
+         getopts/3,
+         getstat/3,
+         peername/2,
+         sockname/2,
          port/2,
          close/2,
          monitor_socket/1]).
@@ -50,24 +50,24 @@
          emulated_options/2,
          internal_inet_values/1,
          default_inet_values/1,
-	 init/1, 
-         start_link/3, 
-         terminate/2, 
-         inherit_tracker/3, 
-	 emulated_socket_options/2, 
-         get_emulated_opts/1, 
-	 set_emulated_opts/2, 
-         get_all_opts/1, 
-         handle_call/3, 
+	 init/1,
+         start_link/3,
+         terminate/2,
+         inherit_tracker/3,
+	 emulated_socket_options/2,
+         get_emulated_opts/1,
+	 set_emulated_opts/2,
+         get_all_opts/1,
+         handle_call/3,
          handle_cast/2,
-	 handle_info/2, 
+	 handle_info/2,
          code_change/3]).
 
 -export([update_active_n/2]).
 
 -record(state, {
 	  emulated_opts,
-          listen_monitor,      
+          listen_monitor,
 	  ssl_opts
 	 }).
 
@@ -84,18 +84,24 @@ send(tls_socket_tcp, Socket, Data, Handle) ->
 send(Transport, Socket, Data, _Handle) ->
     Transport:send(Socket, Data).
 
-listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _}, 
-				inet_user = Options, 
+listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
+				inet_user = Options,
 				ssl = SslOpts, emulated = EmOpts} = Config) ->
     case Transport:listen(Port, Options ++ internal_inet_values(Transport)) of
 	{ok, ListenSocket} ->
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
             LifeTime = ssl_config:get_ticket_lifetime(),
             TicketStoreSize = ssl_config:get_ticket_store_size(),
-            MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
+            MaxEarlyDataSize = case maps:get(early_data, SslOpts, disabled) of
+                                   disabled ->
+                                       0;
+                                   enabled ->
+                                       ssl_config:get_max_early_data_size()
+                               end,
             %% TLS-1.3 session handling
             {ok, SessionHandler} =
-                session_tickets_tracker(ListenSocket, LifeTime, TicketStoreSize, MaxEarlyDataSize, SslOpts),
+                session_tickets_tracker(ListenSocket, LifeTime,
+                                        TicketStoreSize, MaxEarlyDataSize, SslOpts),
             %% PRE TLS-1.3 session handling
             {ok, SessionIdHandle} = session_id_tracker(ListenSocket, SslOpts),
             Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler},
@@ -110,7 +116,7 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
 
 accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
 			     ssl = SslOpts,
-			     trackers = Trackers}, Timeout) -> 
+			     trackers = Trackers}, Timeout) ->
     case Transport:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
             Tracker = proplists:get_value(option_tracker, Trackers),
@@ -171,14 +177,14 @@ socket([Receiver, Sender], Transport, Socket, ConnectionCb, Tab, Trackers) ->
                tab = Tab,
                listener_config = Trackers}.
 
-setopts(gen_tcp, Socket = #sslsocket{socket_handle = ListenSocket, 
+setopts(gen_tcp, Socket = #sslsocket{socket_handle = ListenSocket,
                                      listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOpts, EmulatedOpts} = split_options(gen_tcp, Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
     check_active_n(EmulatedOpts, Socket),
     inet:setopts(ListenSocket, SockOpts);
-setopts(Transport, Socket = #sslsocket{socket_handle = ListenSocket, 
+setopts(Transport, Socket = #sslsocket{socket_handle = ListenSocket,
                                listener_config = #config{transport_info = Info,
                                                          trackers = Trackers}}, Options) ->
     Transport = element(1, Info),
@@ -187,7 +193,8 @@ setopts(Transport, Socket = #sslsocket{socket_handle = ListenSocket,
     ok = set_emulated_opts(Tracker, EmulatedOpts),
     check_active_n(EmulatedOpts, Socket),
     Transport:setopts(ListenSocket, SockOpts);
-%%% Following clauses will not be called for emulated options, they are handled in the connection process
+%%% Following clauses will not be called for emulated options, they
+%%% are handled in the connection process
 setopts(gen_tcp, Socket, Options) ->
     inet:setopts(Socket, Options);
 setopts(Transport, Socket, Options) ->
@@ -219,21 +226,22 @@ check_active_n(EmulatedOpts, Socket = #sslsocket{listener_config = #config{track
             ok
     end.
 
-getopts(gen_tcp,  #sslsocket{socket_handle = ListenSocket, 
+getopts(gen_tcp,  #sslsocket{socket_handle = ListenSocket,
                              listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOptNames, EmulatedOptNames} = split_options(gen_tcp, Options),
     EmulatedOpts = get_emulated_opts(Tracker, EmulatedOptNames),
     SocketOpts = get_socket_opts(ListenSocket, SockOptNames, inet),
-    {ok, EmulatedOpts ++ SocketOpts}; 
-getopts(Transport,  #sslsocket{socket_handle = ListenSocket, 
+    {ok, EmulatedOpts ++ SocketOpts};
+getopts(Transport,  #sslsocket{socket_handle = ListenSocket,
                                listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOptNames, EmulatedOptNames} = split_options(Transport, Options),
     EmulatedOpts = get_emulated_opts(Tracker, EmulatedOptNames),
     SocketOpts = get_socket_opts(ListenSocket, SockOptNames, Transport),
-    {ok, EmulatedOpts ++ SocketOpts}; 
-%%% Following clauses will not be called for emulated options, they are  handled in the connection process
+    {ok, EmulatedOpts ++ SocketOpts};
+%%% Following clauses will not be called for emulated options, they
+%%% are handled in the connection process
 getopts(gen_tcp, Socket, Options) ->
     inet:getopts(Socket, Options);
 getopts(Transport, Socket, Options) ->
@@ -331,12 +339,12 @@ session_id_tracker(ssl_unknown_listener, _) ->
     ssl_upgrade_server_session_cache_sup:start_child(normal);
 session_id_tracker(ListenSocket, _) ->
     ssl_server_session_cache_sup:start_child(ListenSocket).
-       
-get_emulated_opts(TrackerPid) -> 
+
+get_emulated_opts(TrackerPid) ->
     call(TrackerPid, get_emulated_opts).
-set_emulated_opts(TrackerPid, InetValues) -> 
+set_emulated_opts(TrackerPid, InetValues) ->
     call(TrackerPid, {set_emulated_opts, InetValues}).
-get_all_opts(TrackerPid) -> 
+get_all_opts(TrackerPid) ->
     call(TrackerPid, get_all_opts).
 
 %%====================================================================
@@ -348,8 +356,8 @@ start_link(Port, SockOpts, SslOpts) ->
 
 %%--------------------------------------------------------------------
 -spec init(list()) -> {ok, #state{}}.
-%% Possible return values not used now. 
-%% |  {ok, #state{}, timeout()} | ignore | {stop, term()}.		  
+%% Possible return values not used now.
+%% |  {ok, #state{}, timeout()} | ignore | {stop, term()}.
 %%
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
@@ -357,13 +365,13 @@ init([Listen, Opts, SslOpts]) ->
     process_flag(trap_exit, true),
     proc_lib:set_label({tls_listen_tracker, Listen}),
     Monitor = monitor_socket(Listen),
-    {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), 
+    {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []),
                 listen_monitor = Monitor,
                 ssl_opts = SslOpts}}.
 
 %%--------------------------------------------------------------------
 -spec handle_call(term(), gen_server:from(), #state{}) -> {reply, Reply::term(), #state{}}.
-%% Possible return values not used now.  
+%% Possible return values not used now.
 %%					      {reply, term(), #state{}, timeout()} |
 %%					      {noreply, #state{}} |
 %%					      {noreply, #state{}, timeout()} |
@@ -386,13 +394,13 @@ handle_call(get_all_opts, _From,
 
 %%--------------------------------------------------------------------
 -spec  handle_cast(term(), #state{}) -> {noreply, #state{}}.
-%% Possible return values not used now.  
+%% Possible return values not used now.
 %%				      | {noreply, #state{}, timeout()} |
 %%				       {stop, reason(), #state{}}.
 %%
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast(_, State)-> 
+handle_cast(_, State)->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -400,7 +408,7 @@ handle_cast(_, State)->
 %% Possible return values not used now.
 %%			              {noreply, #state{}}.
 %%				      |{noreply, #state{}, timeout()} |
-%%				     
+%%
 %%
 %% Description: Handling all non call/cast messages
 %%-------------------------------------------------------------------
@@ -410,7 +418,7 @@ handle_info({'DOWN', Monitor, _, _, _}, #state{listen_monitor = Monitor} = State
 
 %%--------------------------------------------------------------------
 -spec terminate(ssl:reason(), #state{}) -> ok.
-%%		       
+%%
 %% Description: This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any necessary
 %% cleaning up. When it returns, the gen_server terminates with Reason.
@@ -420,7 +428,7 @@ terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
--spec code_change(term(), #state{}, list()) -> {ok, #state{}}.			 
+-spec code_change(term(), #state{}, list()) -> {ok, #state{}}.
 %%
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
@@ -499,7 +507,7 @@ get_socket_opts(ListenSocket, SockOptNames, Cb) ->
     {ok, Opts} = Cb:getopts(ListenSocket, SockOptNames),
     Opts.
 
-get_emulated_opts(TrackerPid, EmOptNames) -> 
+get_emulated_opts(TrackerPid, EmOptNames) ->
     {ok, EmOpts} = get_emulated_opts(TrackerPid),
     lists:map(fun(Name) -> {value, Value} = lists:keysearch(Name, 1, EmOpts),
 			   Value end,

@@ -3211,30 +3211,21 @@ verify_server_early_data(Socket, WaitForReply, EarlyData) ->
             ?CT_FAIL("~nFaulty parameter: ~p", [Else1])
     end,
     ok.
-
+verify_session_ticket_extension([Ticket0|_], 0) ->
+    #{ticket := #new_session_ticket{extensions = #{}}} = Ticket0,
+    true;
 verify_session_ticket_extension([Ticket0|_], MaxEarlyDataSize) ->
     #{ticket := #new_session_ticket{
                    extensions = #{early_data :=
                                       #early_data_indication_nst{
-                                         indication = Size}}}} = Ticket0,
-      case Size of
-          MaxEarlyDataSize ->
-              ?CT_LOG("~nmax_early_data_size verified! (expected ~p, got ~p)!",
-                     [MaxEarlyDataSize, Size]);
-          Else ->
-              ?CT_LOG("~nFailed to verify max_early_data_size! (expected ~p, got ~p)!",
-                     [MaxEarlyDataSize, Else])
-      end.
+                                         indication = TicketMaxEarlyDataSize}}}} = Ticket0,
+    TicketMaxEarlyDataSize == MaxEarlyDataSize;
+verify_session_ticket_extension(_,_) ->
+    false.
 
 update_session_ticket_extension([Ticket|_], MaxEarlyDataSize) ->
-    #{ticket := #new_session_ticket{
-                   extensions = #{early_data :=
-                                      #early_data_indication_nst{
-                                         indication = Size}}}} = Ticket,
-    ?CT_LOG("~nOverwrite max_early_data_size (from ~p to ~p)!",
-                     [Size, MaxEarlyDataSize]),
-    #{ticket := #new_session_ticket{
-                   extensions = #{early_data := _Extensions0}} = NST0} = Ticket,
+    #{ticket := #new_session_ticket{} = NST0} = Ticket,
+
     Extensions = #{early_data => #early_data_indication_nst{
                                     indication = MaxEarlyDataSize}},
     NST = NST0#new_session_ticket{extensions = Extensions},
