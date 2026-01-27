@@ -1127,7 +1127,7 @@ typedef struct external_thing_ {
 	    Uint32 high;
 #endif
 	} port;
-	Uint32              ui32[1];
+	Uint32              ui32[2];
 	Uint                ui[1];
     } data;
 } ExternalThing;

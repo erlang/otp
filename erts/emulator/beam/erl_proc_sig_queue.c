@@ -1887,7 +1887,7 @@ get_altact_msg_data(ErtsMessage *sig, void **attachedp,
     prio = !!(extra & ERTS_SIG_ALTACT_SIG_X_PRIO);
 
     if (type == ERTS_SIG_Q_TYPE_DIST || type == ERTS_SIG_Q_TYPE_DIST_FRAG) {
-        int ix = 0;
+        const Eterm* hp = sig->hfrag.mem;
         ASSERT(sig->hfrag.alloc_size
                >= (!!(extra & ERTS_SIG_ALTACT_SIG_X_PRIO)
                    + !!(extra & ERTS_SIG_ALTACT_SIG_X_ALIAS)
@@ -1895,13 +1895,13 @@ get_altact_msg_data(ErtsMessage *sig, void **attachedp,
         from = ERL_MESSAGE_FROM(sig);
         msg = THE_NON_VALUE;
         sender = ((extra & ERTS_SIG_ALTACT_SIG_X_PRIO)
-                  ? sig->hfrag.mem[ix++] /* pid */
+                  ? *hp++ /* pid */
                   : from); /* node name */
         alias = ((extra & ERTS_SIG_ALTACT_SIG_X_ALIAS)
-                 ? sig->hfrag.mem[ix++]
+                 ? *hp++
                  : THE_NON_VALUE);
         token = ((extra & ERTS_SIG_ALTACT_SIG_X_TOKEN)
-                 ? sig->hfrag.mem[ix++]
+                 ? *hp++
                  : NIL);
         attached = ERTS_MSG_COMBINED_HFRAG;
     }
