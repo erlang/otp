@@ -1252,7 +1252,13 @@ create_vendor_relations(NewVendorPackages, #{~"packages" := Packages, ~"relation
                                 end,
                           Pkgs = lists:filter(fun (#{~"name" := N}) -> App == generate_spdx_valid_name(N) end, Packages),
                           case Pkgs of
-                              [#{~"SPDXID" := RootId}=_RootPackage] ->
+                              [#{~"SPDXID" := RootId}=_RootPackage] when
+                                    ID == ~"SPDXRef-otp-erts-zlib",
+                                    ID == ~"SPDXRef-otp-erts-asmjit" ->
+                                  %% hard-code that zlib and asmjit are optional components
+                                  create_spdx_relation('OPTIONAL_COMPONENT_OF', ID, RootId);
+                              [#{~"SPDXID" := RootId}] ->
+                                  %% other packages
                                   create_spdx_relation('PACKAGE_OF', ID, RootId);
                               [] ->
                                   %% Attach to root level package
@@ -2448,18 +2454,20 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
                             ~"spdxElementId" := PackageId}=Rel) ->
                              Result =
                                  lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"TEST_OF",
-                                                         ~"OPTIONAL_DEPENDENCY_OF", ~"DOCUMENTATION_OF"]) andalso
+                                                         ~"OPTIONAL_DEPENDENCY_OF",
+                                                         ~"DOCUMENTATION_OF",
+                                                         ~"OPTIONAL_COMPONENT_OF"]) andalso
                                  lists:member(Related, PackageIds) andalso
                                  lists:member(PackageId, PackageIds) andalso
                                  PackageId =/= Related andalso
                                  PackageId =/= ?spdxref_project_name,
-                            case Result of
-                                false ->
-                                    io:format("Error in relation: ~p~n", [Rel]),
-                                    false;
-                                true ->
-                                    true
-                            end
+                             case Result of
+                                 false ->
+                                     io:format("Error in relation: ~p~n", [Rel]),
+                                     false;
+                                 true ->
+                                     true
+                             end
                      end, Relations),
 
     %% test_known_special_cases(),
@@ -2477,7 +2485,13 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
                       ~"spdxElementId" => ~"SPDXRef-otp-commontest-tablesorter"},
                     #{~"relatedSpdxElement" => ~"SPDXRef-otp-commontest",
                       ~"relationshipType" => ~"PACKAGE_OF",
-                      ~"spdxElementId" => ~"SPDXRef-otp-commontest-jquery"}],
+                      ~"spdxElementId" => ~"SPDXRef-otp-commontest-jquery"},
+                    #{~"relatedSpdxElement" => ~"SPDXRef-otp-erts",
+                      ~"relationshipType" => ~"OPTIONAL_COMPONENT_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-erts-zlib"},
+                    #{~"relatedSpdxElement" => ~"SPDXRef-otp-erts",
+                      ~"relationshipType" => ~"OPTIONAL_COMPONENT_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-erts-asmjit"}],
     true = lists:all(fun (Case) -> lists:member(Case, Relations) end, SpecialCases),
     ok.
 
