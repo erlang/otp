@@ -14,7 +14,7 @@
     "homepage": "https://github.com/asmjit/asmjit",
     "licenseDeclared": "Zlib",
     "name": "asmjit",
-    "versionInfo": "029075b84bf0161a761beb63e6eda519a29020db",
+    "versionInfo": "f64c90818ff2ef87ec4f73f44d0a7e73fbff3229",
     "path": "./erts/emulator/asmjit",
     "exclude": ["./erts/emulator/asmjit/vendor.info"],
     "supplier": "Person: Petr Kobalicek",
