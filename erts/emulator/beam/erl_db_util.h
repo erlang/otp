@@ -71,7 +71,7 @@ typedef struct db_term {
 #ifdef DEBUG_CLONE
     Eterm* debug_clone;    /* An uncompressed copy */
 #endif
-    Eterm tpl[1];          /* Term data. Top tuple always first */
+    Eterm tpl[];           /* Term data. Top tuple always first */
 
     /* Compression: is_immed and key element are uncompressed.
        Compressed elements are stored in external format after each other
@@ -80,6 +80,8 @@ typedef struct db_term {
        The allocated size of the dbterm in bytes is stored at tpl[arity+1].
      */
 } DbTerm;
+
+#define ERTS_SIZEOF_DBTERM(WORDS) (offsetof(DbTerm,tpl) + sizeof(Eterm)*(WORDS))
 
 #define DB_MUST_RESIZE 1
 #define DB_NEW_OBJECT 2

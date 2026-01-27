@@ -3401,9 +3401,8 @@ static Uint db_size_dbterm_comp(int keypos, Eterm obj)
 {
     Eterm* tpl = tuple_val(obj);
     int i;
-    Uint size = sizeof(DbTerm)
-	+ arityval(*tpl) * sizeof(Eterm)
-        + sizeof(Uint); /* "alloc_size" */
+    Uint size = (ERTS_SIZEOF_DBTERM(1 + arityval(*tpl))
+                 + sizeof(Uint)); /* "alloc_size" */
 
     for (i = arityval(*tpl); i>0; i--) {
 	if (i != keypos && is_not_immed(tpl[i])) {
@@ -3549,8 +3548,8 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
 	    newp = old;
 	}
 	else {
-	    Uint new_sz = offset + sizeof(DbTerm) + sizeof(Eterm)*(size-1);
-	    Uint old_sz = offset + sizeof(DbTerm) + sizeof(Eterm)*(old->size-1);
+	    Uint new_sz = offset + ERTS_SIZEOF_DBTERM(size);
+	    Uint old_sz = offset + ERTS_SIZEOF_DBTERM(old->size);
 
 	    basep = db_realloc_term(tb, basep, old_sz, new_sz, offset);
 	    newp = (DbTerm*) (basep + offset);
@@ -3558,7 +3557,7 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     }
     else {
 	basep = erts_db_alloc(ERTS_ALC_T_DB_TERM, (DbTable *)tb,
-			      (offset + sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
+			      (offset + ERTS_SIZEOF_DBTERM(size)));
 	newp = (DbTerm*) (basep + offset);
     }
 
@@ -3632,7 +3631,7 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
     Uint alloc_sz = offset +
 	(tbl->common.compress ?
 	 db_size_dbterm_comp(tbl->common.keypos, make_tuple(handle->dbterm->tpl)) :
-	 sizeof(DbTerm)+sizeof(Eterm)*(handle->new_size-1));
+	 ERTS_SIZEOF_DBTERM(handle->new_size));
     byte* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM, tbl, alloc_sz);
     byte* oldp = *(handle->bp);
 
@@ -6134,8 +6133,7 @@ static Eterm seq_trace_fake(Process *p, Eterm arg1)
 DbTerm* db_alloc_tmp_uncompressed(DbTableCommon* tb, DbTerm* org)
 {
     ErlOffHeap tmp_offheap;
-    DbTerm* res = erts_alloc(ERTS_ALC_T_TMP,
-			     sizeof(DbTerm) + org->size*sizeof(Eterm));
+    DbTerm* res = erts_alloc(ERTS_ALC_T_TMP, ERTS_SIZEOF_DBTERM(org->size));
     Eterm* hp = res->tpl;
     tmp_offheap.first = NULL;
     db_copy_from_comp(tb, org, &hp, &tmp_offheap);

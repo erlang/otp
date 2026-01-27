@@ -5337,7 +5337,7 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
 	wrap_tpl = TUPLE1(tmp,heir_data);
 	size = size_object(wrap_tpl);
 	dbterm = erts_db_alloc(ERTS_ALC_T_DB_HEIR_DATA, (DbTable *)tb,
-			       (sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
+                               ERTS_SIZEOF_DBTERM(size));
 	dbterm->size = size;
 	top = dbterm->tpl;
 	tmp_offheap.first  = NULL;
@@ -5357,7 +5357,7 @@ static void free_heir_data(DbTable* tb)
 	DbTerm* p = (DbTerm*) boxed_val(tb->common.heir_data);
 	db_cleanup_offheap_comp(p);
 	erts_db_free(ERTS_ALC_T_DB_HEIR_DATA, tb, (void *)p,
-		     sizeof(DbTerm) + (p->size-1)*sizeof(Eterm));
+                     ERTS_SIZEOF_DBTERM(p->size));
     }
     #ifdef DEBUG
     tb->common.heir_data = am_undefined;
