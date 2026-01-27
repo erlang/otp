@@ -92,7 +92,8 @@
 	 ip                    = default, % specify local interface
 	 port                  = default, % specify local port
 	 socket_opts           = [],      % other socket options
-	 unix_socket           = undefined % Local unix socket
+	 unix_socket           = undefined, % Local unix socket
+         max_connections_open  = infinity   % Maximum number of open handlers
 	}
        ).
 -type options() :: #options{}.
