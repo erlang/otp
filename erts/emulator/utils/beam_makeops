@@ -1255,7 +1255,11 @@ sub compiler_output {
 	print "-define(tag_$tag_type[$i], $i).\n";
     }
     print "\n";
-
+    for ($i = 0; $i < @gen_opname; $i++) {
+        next unless defined $gen_opname[$i];
+        print "-define(BEAMop_$gen_opname[$i], $i).\n";
+        print "-define(BEAMop_ARGS_$gen_opname[$i], $gen_arity[$i]).\n";
+    }
 }
 
 #
