@@ -41,7 +41,7 @@
 	 set_renegotiation_flag/2,
 	 set_client_verify_data/3,
 	 set_server_verify_data/3,
-         set_max_fragment_length/2,
+         maybe_set_max_fragment_length/2,
 	 empty_connection_state/1,
 	 empty_connection_state/3,
          record_protocol_role/1,
@@ -212,11 +212,12 @@ set_renegotiation_flag(Flag, #{current_read := CurrentRead,
 		      pending_write => Update(PendingWrite)}.
 
 %%--------------------------------------------------------------------
--spec set_max_fragment_length(term(), connection_states()) -> connection_states().
+-spec maybe_set_max_fragment_length(term(), connection_states()) -> connection_states().
 %%
-%% Description: Set maximum fragment length in all connection states
+%% Description: Set maximum fragment length in all connection states when
+%% it has been negotiated.
 %%--------------------------------------------------------------------
-set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum}, ConnectionStates)
+maybe_set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum}, ConnectionStates)
   when is_integer(MaxFragEnum), 1 =< MaxFragEnum, MaxFragEnum =< 4 ->
     MaxFragmentLength = if MaxFragEnum == 1 -> ?MAX_FRAGMENT_LENGTH_BYTES_1;
                            MaxFragEnum == 2 -> ?MAX_FRAGMENT_LENGTH_BYTES_2;
@@ -224,7 +225,7 @@ set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum}, ConnectionStates)
                            MaxFragEnum == 4 -> ?MAX_FRAGMENT_LENGTH_BYTES_4
                         end,
     ConnectionStates#{max_fragment_length => MaxFragmentLength};
-set_max_fragment_length(_,ConnectionStates) ->
+maybe_set_max_fragment_length(_,ConnectionStates) ->
     ConnectionStates.
 
 %%--------------------------------------------------------------------

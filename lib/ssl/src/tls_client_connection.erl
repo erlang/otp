@@ -214,7 +214,7 @@ initial_hello({call, From}, {start, Timeout},
     Hello2 = tls_handshake_1_3:maybe_add_binders(Hello1, TicketData, HelloVersion),
 
     MaxFragEnum = maps:get(max_frag_enum, Hello1#client_hello.extensions, undefined),
-    ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
+    ConnectionStates1 = ssl_record:maybe_set_max_fragment_length(MaxFragEnum, ConnectionStates0),
     State2 = State1#state{connection_states = ConnectionStates1,
                           connection_env = CEnv#connection_env{negotiated_version = HelloVersion}},
 
