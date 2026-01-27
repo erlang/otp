@@ -230,7 +230,6 @@ do_much(N) ->
 
 %% Test that statistics(reductions) is callable, and that
 %% Total_Reductions and Reductions_Since_Last_Call make sense.
-%% This to fail on pre-R3A version of JAM.
 reductions(Config) when is_list(Config) ->
     {Reductions, _} = statistics(reductions),
 

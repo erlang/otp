@@ -302,7 +302,7 @@ release_handler does.
 %%       |       |- start_erl (reads start_erl.data)
 %%       |       |_ <to_erl>
 %%       |
-%%       |- erts-EVsn1 --- bin --- <jam44>
+%%       |- erts-EVsn1 --- bin --- <beam.smp>
 %%       |                      |- <epmd>
 %%       |                      |_ erl
 %%       |- erts-EVsn2

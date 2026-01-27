@@ -167,7 +167,7 @@ emake_opts(Config) when is_list(Config) ->
     ok.
 
 %% Moves to the data directory of this suite, clean it from any object
-%% files (*.jam for a JAM emulator).  Returns the previous directory.
+%% files. Returns the previous directory.
 prepare_data_dir(Config) ->
     {ok, Current} = file:get_cwd(),
     {value, {data_dir, Dir}} = lists:keysearch(data_dir, 1, Config),

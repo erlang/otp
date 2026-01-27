@@ -30,7 +30,7 @@ use File::Basename;
 #   standard output.
 #
 # Usage:
-#	make_preload [ Options ] file.{jam,beam}
+#	make_preload [ Options ] file.beam
 #
 # Options:
 #	-rc		Produce a resource script rather than C source.
@@ -133,7 +133,7 @@ if ($gen_rc) {
 
 sub usage {
     warn "$progname: ", @_, "\n";
-    die "usage: $progname -o output-directory file.{jam,beam}\n";
+    die "usage: $progname -o output-directory file.beam\n";
 }
 
 sub error {

@@ -1312,7 +1312,7 @@ Please see the function `tempo-define-template'.")
     appwiz-erlang-modulename appwiz-erlang-ext ".erl" n
     n
     (upcase appwiz-erlang-modulename) "_OBJECT_FILES = $("
-    (upcase appwiz-erlang-modulename) "_SOURCE_FILES:.erl=.jam)" n
+    (upcase appwiz-erlang-modulename) "_SOURCE_FILES:.erl=.beam)" n
     n
     n
     (erlang-skel-makefile-separator)
@@ -1320,7 +1320,7 @@ Please see the function `tempo-define-template'.")
     "# Transformations " n
     "#" n
     n
-    ".erl.jam:" n
+    ".erl.beam:" n
     "	$(ERL) $<" n
     n
     (erlang-skel-makefile-separator) n
@@ -1341,7 +1341,7 @@ Please see the function `tempo-define-template'.")
     "$(" (upcase appwiz-erlang-modulename) "_OBJECT_FILES): $("
     (upcase appwiz-erlang-modulename) "_HEADER_FILES)" n
     n
-    ".SUFFIXES : .erl .jam" n
+    ".SUFFIXES : .erl .beam" n
     n
     ))
 
