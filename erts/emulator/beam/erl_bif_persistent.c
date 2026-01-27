@@ -949,8 +949,7 @@ do_info(Process* c_p, TrapData* trap_data)
         if (is_boxed(bucket)) {
             ErtsLiteralArea* area = term_to_area(bucket);
 
-            trap_data->memory += sizeof(ErtsLiteralArea) +
-                                 sizeof(Eterm) * (area->end - area->start - 1);
+            trap_data->memory += ERTS_LITERAL_AREA_SIZE(area);
 
             remaining--;
         }
