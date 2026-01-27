@@ -1632,7 +1632,7 @@ call_fun(Process* p,    /* Current process. */
         if (is_local_fun(funp)) {
             DTRACE_LOCAL_CALL(p, erts_code_to_codemfa(code_ptr));
         } else {
-            Export *ep = funp->entry.exp;
+            const Export *ep = funp->entry.exp;
             DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
         }
 #endif
