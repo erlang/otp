@@ -188,7 +188,7 @@ press([H|T]) ->
 
 testrun(_,_,_,[],_,_,_) ->
     0;
-testrun(ReFun, RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
+testrun(ReFun, RE,P,[{Chal,Line,ExecOpt,Responses}|Rest],EO,Xopt0,XMode) ->
     Global = case lists:member(g, EO) of true -> [global]; false -> [] end,
     ReturnType = if ReFun =:= run -> [{capture,all,XMode}];
                     true -> [{return,XMode}] end,
@@ -256,15 +256,22 @@ testrun(ReFun, RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 	
     case compare_sloppy(Res,Responses) of
 	true ->
-	    testrun(ReFun, RE,P,T,EO,Xopt0,XMode);
+	    testrun(ReFun, RE,P,Rest,EO,Xopt0,XMode);
 	false ->
-        case ReFun of
-	        run -> io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
-		      [get(testfile), Line,RE,Chal,binary_to_list(Chal),used_options(),Responses,Res]);
-            {replace, Repl} -> io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nreplace with: ~p, ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
-                [get(testfile), Line,RE,Chal,binary_to_list(Chal),Repl,used_options(),Responses,Res])
-        end,
-	    case get(error_limit) of
+            case ReFun of
+                run ->
+                    io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~n"
+                              "with options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
+                              [get(testfile), Line,RE,Chal,binary_to_list(Chal),
+                               used_options(),Responses,Res]);
+
+                {replace, Repl} ->
+                    io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~n"
+                              "replace with: ~p, ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
+                              [get(testfile), Line,RE,Chal,binary_to_list(Chal),
+                               Repl,used_options(),Responses,Res])
+            end,
+            case get(error_limit) of
 		infinite -> ok;
 		X ->
 		    case X-1 of

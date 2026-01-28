@@ -24,7 +24,8 @@ $(PCRE_OBJDIR)/pcre2_find_bracket.o: $(PCRE_DIR)/pcre2_find_bracket.c $(PCRE_DIR
  $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h $(PCRE_DIR)/pcre2_util.h
 $(PCRE_OBJDIR)/pcre2_match.o: $(PCRE_DIR)/pcre2_match.c $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h \
  $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h $(PCRE_DIR)/pcre2_util.h \
- $(PCRE_DIR)/pcre2_match_yield_coverage.gen.h $(PCRE_DIR)/pcre2_match_loop_break_cases.gen.h
+ $(PCRE_DIR)/pcre2_match_yield_coverage.gen.h $(PCRE_DIR)/pcre2_match_loop_break_cases.gen.h \
+ $(PCRE_DIR)/pcre2_match_memchr_break_cases.gen.h
 $(PCRE_OBJDIR)/pcre2_match_data.o: $(PCRE_DIR)/pcre2_match_data.c $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h \
  $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h $(PCRE_DIR)/pcre2_util.h
 $(PCRE_OBJDIR)/pcre2_newline.o: $(PCRE_DIR)/pcre2_newline.c $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h \

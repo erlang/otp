@@ -39,7 +39,7 @@
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include "../pcre/pcre2.h"
 
-#define LOOP_FACTOR 10
+#define LOOP_FACTOR 16
 
 static Uint max_loop_limit;
 static Export re_match_trap_export;
