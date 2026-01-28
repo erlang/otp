@@ -2898,7 +2898,7 @@ erts_finish_breakpointing(void)
 	    }
             /* Neither local or global set for event tracing */
 	}
-        /* Nothing to do here. Fall through to next stage. */
+        /* Nothing to do here. Continue to next stage. */
         finish_bp.current++;
         ERTS_FALLTHROUGH();
     case 1:
@@ -2935,7 +2935,7 @@ erts_finish_breakpointing(void)
         if (finish_bp.local || finish_bp.global) {
             return 1;
         }
-        /* Nothing done here. Fall through to next stage. */
+        /* Nothing done here. Continue to next stage. */
         finish_bp.current++;
         ERTS_FALLTHROUGH();
     case 3:
