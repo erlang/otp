@@ -1286,18 +1286,28 @@ create_vendor_relations(NewVendorPackages, #{~"packages" := Packages, ~"relation
                                 end,
                           Pkgs = lists:filter(fun (#{~"name" := N}) -> App == generate_spdx_valid_name(N) end, Packages),
                           case Pkgs of
-                              [#{~"SPDXID" := RootId}=_RootPackage] when
-                                    ID == ~"SPDXRef-otp-erts-zlib",
-                                    ID == ~"SPDXRef-otp-erts-asmjit" ->
-                                  %% hard-code that zlib and asmjit are optional components
-                                  create_spdx_relation('OPTIONAL_COMPONENT_OF', ID, RootId);
                               [#{~"SPDXID" := RootId}] ->
-                                  %% other packages
-                                  create_spdx_relation('PACKAGE_OF', ID, RootId);
+                                  case ID of
+                                      ~"SPDXRef-otp-erts-zlib" ->
+                                          create_spdx_relation('OPTIONAL_COMPONENT_OF', ID, RootId);
+                                      ~"SPDXRef-otp-erts-asmjit" ->
+                                          create_spdx_relation('OPTIONAL_COMPONENT_OF', ID, RootId);
+                                      ~"SPDXRef-otp-erts-autoconf" ->
+                                          %% hard-code that erts-autoconf is a build tool of
+                                          create_spdx_relation('BUILD_TOOL_OF', ID, RootId);
+                                      _ ->
+                                          create_spdx_relation('PACKAGE_OF', ID, RootId)
+                                  end;
                               [] ->
-                                  %% Attach to root level package
-                                  create_spdx_relation('PACKAGE_OF', ID, ?spdxref_project_name)
-                              end
+                                  case ID of
+                                      ~"SPDXRef-otp-make-autoconf" ->
+                                          %% hard-code that make-autoconf is a build tool of
+                                          create_spdx_relation('BUILD_TOOL_OF', ID, ?spdxref_project_name);
+                                      _ ->
+                                          %% Attach to root level package
+                                          create_spdx_relation('PACKAGE_OF', ID, ?spdxref_project_name)
+                                  end
+                          end
                   end, NewVendorPackages),
     SpdxWithVendor#{~"relationships" := Relations ++ VendorRelations}.
 
@@ -2553,7 +2563,7 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
                              Result =
                                  lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"TEST_OF",
                                                          ~"OPTIONAL_DEPENDENCY_OF",
-                                                         ~"DOCUMENTATION_OF",
+                                                         ~"DOCUMENTATION_OF", ~"BUILD_TOOL_OF",
                                                          ~"OPTIONAL_COMPONENT_OF"]) andalso
                                  lists:member(Related, PackageIds) andalso
                                  lists:member(PackageId, PackageIds) andalso
@@ -2589,7 +2599,14 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
                       ~"spdxElementId" => ~"SPDXRef-otp-erts-zlib"},
                     #{~"relatedSpdxElement" => ~"SPDXRef-otp-erts",
                       ~"relationshipType" => ~"OPTIONAL_COMPONENT_OF",
-                      ~"spdxElementId" => ~"SPDXRef-otp-erts-asmjit"}],
+                      ~"spdxElementId" => ~"SPDXRef-otp-erts-asmjit"},
+                    #{~"relatedSpdxElement" => ~"SPDXRef-Project-OTP",
+                      ~"relationshipType" => ~"BUILD_TOOL_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-make-autoconf"},
+                    #{~"relatedSpdxElement" => ~"SPDXRef-otp-erts",
+                      ~"relationshipType" => ~"BUILD_TOOL_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-erts-autoconf"}
+                   ],
     true = lists:all(fun (Case) -> lists:member(Case, Relations) end, SpecialCases),
     ok.
 
