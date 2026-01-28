@@ -112,6 +112,7 @@ The boot server listening port can be configured with `listen_port`.
 If an empty map is provided, or `listen_port` is zero, then an ephemeral port
 is used.
 """.
+-doc #{ since => <<"OTP @OTP-19944@">> }.
 -spec start(Slaves, Options) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
       Host :: inet:ip_address() | inet:hostname(),
@@ -143,6 +144,7 @@ start_link(Slaves) ->
 The same as [`start(Slaves, Options)`](`start/2`), but it also links to the
 caller.
 """.
+-doc #{ since => <<"OTP @OTP-19944@">> }.
 -spec start_link(Slaves, Options) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
       Host :: inet:ip_address() | inet:hostname(),
