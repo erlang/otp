@@ -593,8 +593,6 @@ $(BOOTSTRAP_ROOT)/bootstrap/bin/erl: $(ERL_TOP)/erts/etc/unix/erl.src.src $(BOOT
 	@sed	-e "s;%FINAL_ROOTDIR%;$(BOOTSTRAP_ROOT)/bootstrap;"   \
 		-e "s;\$$ROOTDIR/erts-.*/bin;$(ERL_TOP)/bin/$(TARGET);"    \
 		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
-		-e "s;%DYN_ERL_PATH%;../../bin/$(TARGET)/dyn_erl;" \
-		-e "s;%DYN_ROOTDIR_BASE_EXT%;/bootstrap;"	\
 	        $(ERL_TOP)/erts/etc/unix/erl.src.src > \
 			$(BOOTSTRAP_ROOT)/bootstrap/bin/erl
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl

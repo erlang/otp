@@ -1,3 +1,26 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
+%% Copyright Ericsson AB 2022-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
 %%% @doc
 %%% Smoke tests for peer node controller
 %%% @end
@@ -599,7 +622,7 @@ build_image(Dir) ->
         "WORKDIR /opt/lambda\n"
         "COPY lambda.tar.gz /tmp\n"
         "RUN tar -zxvf /tmp/lambda.tar.gz -C /opt/lambda\n"
-        "ENTRYPOINT [\"/opt/lambda/erts-" ++ erlang:system_info(version) ++ "/bin/dyn_erl\", \"-boot\", \"/opt/lambda/releases/1.0.0/start\"]\n",
+        "ENTRYPOINT [\"/opt/lambda/erts-" ++ erlang:system_info(version) ++ "/bin/erl\", \"-boot\", \"/opt/lambda/releases/1.0.0/start\"]\n",
     ok = file:write_file(BuildScript, Dockerfile),
     Output = os:cmd("docker build -t lambda " ++ Dir),
     ct:log("Build result: ~s~n", [Output]).

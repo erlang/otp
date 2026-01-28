@@ -20,35 +20,35 @@
 #
 # %CopyrightEnd%
 #
-prog="$0"
-progdir=`dirname "${prog}"`
-dyn_erl_path="${progdir}/%DYN_ERL_PATH%"
-if [ ! -f "$dyn_erl_path" ]
-then
-    dyn_erl_path="${progdir}/dyn_erl"
-fi
 
-if [ -f "$dyn_erl_path" ]
-then
-    dyn_rootdir=`"${dyn_erl_path}" --realpath`
-    dyn_rootdir=`dirname "${dyn_rootdir}"`
-    dyn_rootdir=`dirname "${dyn_rootdir}"`
-    dyn_rootdir="${dyn_rootdir}%DYN_ROOTDIR_BASE_EXT%"
-else
-    dyn_rootdir=""
-fi
+absolute_parent() {
+    DIR=$(dirname "${1}");
+    (cd "$DIR" && pwd -P || echo "/");
+}
+
+find_rootdir() {
+    CANDIDATE="${1}";
+    while
+        CANDIDATE=$(absolute_parent "$CANDIDATE");
+        [ "$CANDIDATE" != "/" ] && [ ! -d "$CANDIDATE/erts-%VSN%" ];
+    do :; done;
+
+    if [ "$CANDIDATE" != "/" ]
+    then
+        # It is likely that the files have been copied or moved
+        echo "$CANDIDATE";
+    else
+        echo "${2}";
+    fi
+}
 
 if [ -z "$ERL_ROOTDIR" ]
 then
-    ROOTDIR="%FINAL_ROOTDIR%"
-    if [ "$dyn_rootdir" != "$ROOTDIR" ] && [ "$dyn_rootdir" != "" ]
-    then
-        # It is likely that the files have been copied or moved
-        ROOTDIR="$dyn_rootdir"
-    fi
+    ROOTDIR=$(find_rootdir "$0" "%FINAL_ROOTDIR%")
 else
     ROOTDIR="$ERL_ROOTDIR"
 fi
+
 BINDIR="$ROOTDIR/erts-%VSN%/bin"
 EMU=%EMULATOR%%EMULATOR_NUMBER%
 PROGNAME=`basename "$0"`

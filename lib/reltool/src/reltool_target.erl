@@ -870,8 +870,8 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
 			reltool_utils:throw_error("This system is not installed. "
 						  "The directory ~ts is missing.",
 				    [Erts#app.label]);
-		    _ when File =:= Erts#app.label ->
-			replace_dyn_erl(Relocatable, Spec);
+                    _ when File =:= Erts#app.label ->
+                        true;
                     "erts-" ++ _ ->
 			false;
                     _ ->
@@ -884,41 +884,6 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
 			    ["releases", "lib", "bin"]),
     {ExclRegexps2, SysFiles3}.
 
-replace_dyn_erl(false, _ErtsSpec) ->
-    true;
-replace_dyn_erl(true, {create_dir, ErtsDir, ErtsFiles}) ->
-    [{create_dir, _, BinFiles}] =
-	safe_lookup_spec("bin", ErtsFiles),
-    case lookup_spec("dyn_erl", BinFiles) of
-        [] ->
-            case lookup_spec("erl.ini", BinFiles) of
-                [] ->
-                    true;
-                [{copy_file, ErlIni}] ->
-                    %% Remove Windows .ini file
-                    BinFiles2 = lists:keydelete(ErlIni, 2, BinFiles),
-                    ErtsFiles2 =
-			lists:keyreplace("bin",
-					 2,
-					 ErtsFiles,
-					 {create_dir, "bin", BinFiles2}),
-                    {true, {create_dir, ErtsDir, ErtsFiles2}}
-            end;
-        [{copy_file, DynErlExe}] ->
-            %% Replace erl with dyn_erl
-            ErlExe = "erl" ++ filename:extension(DynErlExe),
-            BinFiles2 = lists:keydelete(DynErlExe, 2, BinFiles),
-            DynErlExe2 = filename:join([ErtsDir, "bin", DynErlExe]),
-            BinFiles3 = lists:keyreplace(ErlExe,
-					 2,
-					 BinFiles2,
-					 {copy_file, ErlExe, DynErlExe2}),
-            ErtsFiles2 = lists:keyreplace("bin",
-					  2,
-					  ErtsFiles,
-					  {create_dir, "bin", BinFiles3}),
-            {true, {create_dir, ErtsDir, ErtsFiles2}}
-    end.
 
 spec_bin_files(Sys, AllSysFiles, StrippedSysFiles, RelFiles, InclRegexps) ->
     [{create_dir, ErtsLabel, ErtsFiles}] =
