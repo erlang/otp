@@ -26,8 +26,6 @@
 
 %%% This test suite tests different options for the ssh functions
 
--compile(nowarn_obsolete_bool_op).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
@@ -1125,7 +1123,7 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
                                end,
 			   ct:log("check ~p == ~p (~p) and ~n~p~n in ~p (~p)~n",
 				  [PeerName,Host,HostCheck,FP,FPs,FPCheck]),
-			   HostCheck and FPCheck
+			   HostCheck andalso FPCheck
 		   end,
     
     ssh_test_lib:connect(Host, Port, [{silently_accept_hosts,
