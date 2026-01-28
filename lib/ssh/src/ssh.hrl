@@ -1290,7 +1290,8 @@ Experimental options that should not to be used in products.
 	  available_host_keys,
 	  pwdfun_user_state,
 	  authenticated = false,
-	  userauth_banner_sent = false
+	  userauth_banner_sent = false,
+    authenticated_public_key          % user's public key that was authenticated
 	 }).
 
 -record(alg,

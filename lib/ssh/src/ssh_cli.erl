@@ -598,6 +598,15 @@ exec_direct(ConnectionHandler, ChannelId, Cmd, ExecSpec, WantReply, State) ->
                         {_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
                         ExecSpec(Cmd, User, PeerAddr);
 
+                    is_function(ExecSpec, 4) ->
+                        ConnectionInfo =
+                            ssh_connection_handler:connection_info(ConnectionHandler, [peer, user, public_key]),
+                        User = proplists:get_value(user, ConnectionInfo),
+                        {_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
+                        PublicKey = proplists:get_value(public_key, ConnectionInfo),
+                        Additional = #{version => 1, public_key => PublicKey},
+                        
+
                     true ->
                         {error, "Bad exec fun in server"}
                 end
