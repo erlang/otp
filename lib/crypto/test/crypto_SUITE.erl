@@ -198,7 +198,9 @@
          ripemd160_incr_msgs/0,
          rsa_oaep/0,
          rsa_oaep256/0,
-         rsa_oaep_label/0
+         rsa_oaep_label/0,
+         fips_forbidden_algorithms/1,
+         nofips_no_forbidden_algorithms/1
         ]).
 
 
@@ -241,6 +243,7 @@ all() ->
         
 groups() ->
     [{non_fips, [], [
+                     nofips_no_forbidden_algorithms,
                      {group, blake2b},
                      {group, blake2s},
                      {group, poly1305},
@@ -323,6 +326,7 @@ groups() ->
                      {group, aes_256_ofb}
                     ]},
      {fips, [], [
+                 fips_forbidden_algorithms,
                  {group, no_blake2b},
                  {group, no_blake2s},
                  {group, no_poly1305},
@@ -5259,3 +5263,31 @@ openssl_version() ->
         _ ->
             undefined
     end.
+
+%% The key must appear in supports[fips_forbidden][section] and NOT appear in supports[section]
+assert_forbidden_or_not_supported(Section, Key, Supports) ->
+    SupportedSection = proplists:get_value(Section, Supports),
+    AllForbidden = proplists:get_value(fips_forbidden, Supports),
+    ForbiddenSection = proplists:get_value(Section, AllForbidden),
+    true = lists:member(Key, ForbiddenSection),
+    false = lists:member(Key, SupportedSection).
+
+%% When FIPS is enabled, crypto:supports() returns a section with forbidden algorithms
+%% Check for a few algorithms that we know always exist and always forbidden in FIPS
+fips_forbidden_algorithms(Config) when is_list(Config) ->
+    enabled = crypto:info_fips(),
+    Supports = crypto:supports(),
+
+    assert_forbidden_or_not_supported(hashs, blake2s, Supports),
+    assert_forbidden_or_not_supported(hashs, md4, Supports),
+    assert_forbidden_or_not_supported(hashs, ripemd160, Supports),
+
+    assert_forbidden_or_not_supported(public_keys, dss, Supports),
+    assert_forbidden_or_not_supported(public_keys, eddsa, Supports),
+
+    assert_forbidden_or_not_supported(macs, hmac, Supports).
+
+%% When FIPS is disabled, crypto:supports() should not return forbidden algorithms section
+nofips_no_forbidden_algorithms(Config) when is_list(Config) ->
+    true = lists:member(crypto:info_fips(), [not_supported, not_enabled]),
+    undefined = proplists:get_value(fips_forbidden, crypto:supports()).

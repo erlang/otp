@@ -30,12 +30,11 @@
 #include "aead.h"
 #include "aes.h"
 #include "algorithms.h"
+#include "algorithms_digest.h"
 #include "api_ng.h"
 #include "bn.h"
 #include "cipher.h"
-#include "mac.h"
 #include "dh.h"
-#include "digest.h"
 #include "dss.h"
 #include "ec.h"
 #include "ecdh.h"
@@ -47,12 +46,15 @@
 #include "hash_equals.h"
 #include "hmac.h"
 #include "info.h"
+#include "mac.h"
 #include "math.h"
 #include "pbkdf2_hmac.h"
 #include "pkey.h"
 #include "rand.h"
 #include "rsa.h"
 #include "srp.h"
+
+#include "algorithms_collection.h"
 
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
@@ -70,12 +72,27 @@ static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib, 0},
     {"info_fips", 0, info_fips, 0},
     {"enable_fips_mode_nif", 1, enable_fips_mode_nif, 0},
+
     {"hash_algorithms", 0, hash_algorithms, 0},
+    {"fips_forbidden_hash_algorithms", 0, fips_forbidden_hash_algorithms, 0},
+
     {"pubkey_algorithms", 0, pubkey_algorithms, 0},
+    {"fips_forbidden_pubkey_algorithms", 0, fips_forbidden_pubkey_algorithms, 0},
+
     {"cipher_algorithms", 0, cipher_algorithms, 0},
+    {"fips_forbidden_cipher_algorithms", 0, fips_forbidden_cipher_algorithms, 0},
+
+    {"kem_algorithms_nif", 0, kem_algorithms_nif, 0},
+    {"fips_forbidden_kem_algorithms", 0, fips_forbidden_kem_algorithms, 0},
+
     {"mac_algorithms", 0, mac_algorithms, 0},
+    {"fips_forbidden_mac_algorithms", 0, fips_forbidden_mac_algorithms, 0},
+
     {"curve_algorithms", 0, curve_algorithms, 0},
+    {"fips_forbidden_curve_algorithms", 0, fips_forbidden_curve_algorithms, 0},
+
     {"rsa_opts_algorithms", 0, rsa_opts_algorithms, 0},
+
     {"hash_info", 1, hash_info_nif, 0},
     {"hash_nif", 2, hash_nif, 0},
     {"hash_init_nif", 1, hash_init_nif, 0},
@@ -99,7 +116,7 @@ static ErlNifFunc nif_funcs[] = {
     {"do_exor", 2, do_exor, 0},
 
     {"hash_equals_nif", 2, hash_equals_nif, 0},
-    
+
     {"pbkdf2_hmac_nif", 5, pbkdf2_hmac_nif, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_sign_heavy_nif", 5, pkey_sign_heavy_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
@@ -107,7 +124,6 @@ static ErlNifFunc nif_funcs[] = {
     {"pkey_crypt_nif", 6, pkey_crypt_nif, 0},
     {"encapsulate_key_nif", 2, encapsulate_key_nif, 0},
     {"decapsulate_key_nif", 3, decapsulate_key_nif, 0},
-    {"kem_algorithms_nif", 0, kem_algorithms_nif, 0},
     {"rsa_generate_key_nif", 2, rsa_generate_key_nif, 0},
     {"dh_generate_key_nif", 4, dh_generate_key_nif, 0},
     {"dh_compute_key_nif", 3, dh_compute_key_nif, 0},
@@ -175,6 +191,8 @@ static int verify_lib_version(void)
     return 1;
 }
 
+#define REPORT_FAILURE(M) error_message = (M); ret = __LINE__; goto done
+#define REPORT_FAILURE_NO_MESSAGE() error_message = NULL; ret = __LINE__; goto done
 
 static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
@@ -191,6 +209,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     int vernum;
     ErlNifBinary rt_buf = { 0, NULL };
     ErlNifBinary lib_bin;
+    const char* error_message = NULL; // To be printed before failing library init
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     char lib_buf[1000];
     void *handle;
@@ -198,7 +217,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     int ret = -1;
 
     if (!verify_lib_version()) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Incompatible OpenSSL version found");
     }
     /* load_info: {302, <<"/full/path/of/this/library">>,true|false} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)) {
@@ -245,7 +264,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!create_engine_mutex(env)) {
         ret = __LINE__; goto done;
     }
-    if (!create_curve_mutex()) {
+    if (!create_algorithm_mutexes(env)) {
         ret = __LINE__; goto done;
     }
 
@@ -265,37 +284,41 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     prov_cnt = 0;
 # ifdef FIPS_SUPPORT
     fips_provider = OSSL_PROVIDER_load(NULL, "fips");
+    if (!fips_provider) {
+        enif_fprintf(stderr, "crypto: With FIPS enabled, attempt to load OpenSSL 'fips' provider has failed.\r\n");
+    }
 # endif
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to load OpenSSL 'default' provider failed");
     }
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) {
-            ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to load OpenSSL 'base' provider failed");
     }
     if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "legacy"))) {
         /* Don't fail loading if the legacy provider is missing */
         prov_cnt++;
     }
+
 #endif
-    prefetched_sign_algo_init(env);
 
     if (!init_atoms(env)) {
         ret = __LINE__; goto done;
     }
     /* Check if enter FIPS mode at module load (happening now) */
     if (enable_fips_mode(env, tpl_array[2]) != atom_true) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to set FIPS mode failed. "\
+            "Are OpenSSL and OS environment configured properly for FIPS?");
     }
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
         ret = __LINE__; goto done;
     }
     if ((handle = enif_dlopen(lib_buf, &error_handler, NULL)) == NULL) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to load OpenSSL dynamic library failed");
     }
     if ((funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
                                                        &error_handler, NULL)) == NULL) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to load OpenSSL dynamic library succeeded but finding crypto callbacks in it failed");
     }
 #else /* !HAVE_DYNAMIC_CRYPTO_LIB */
     funcp = &get_crypto_callbacks;
@@ -315,7 +338,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 
     if (!ccb || ccb->sizeof_me != sizeof(*ccb)) {
 	PRINTF_ERR0("Invalid 'crypto_callbacks'");
-	ret = __LINE__; goto done;
+        REPORT_FAILURE("Finding crypto callbacks in the OpenSSL library failed");
     }
 
 #ifdef HAS_CRYPTO_MEM_FUNCTIONS
@@ -337,19 +360,18 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif /* OPENSSL_THREADS */
 #endif
 
-    init_digest_types(env);
-    init_mac_types(env);
-    init_cipher_types(env);
-    init_algorithms_types(env);
-
     library_initialized = 1;
     ret = 0;
 
 done:
     ASSERT(ret >= 0);
 
-    if (rt_buf.data)
+    if (rt_buf.data) {
         enif_release_binary(&rt_buf);
+    }
+    if (ret > 0 && error_message != NULL) {
+        fprintf(stderr, "crypto NIF initialization failed: %s\r\n", error_message);
+    }
 
     return ret;
 }
@@ -396,7 +418,7 @@ static void unload_thread(void* priv_data)
 static void unload(ErlNifEnv* env, void* priv_data)
 {
     if (--library_refc == 0) {
-        destroy_curve_mutex();
+        free_algorithm_mutexes();
         destroy_engine_mutex(env);
 
         /*
@@ -411,4 +433,3 @@ static void unload(ErlNifEnv* env, void* priv_data)
          */
     }
 }
-
