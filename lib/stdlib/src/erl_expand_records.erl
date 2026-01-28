@@ -30,20 +30,35 @@ This module expands records in a module.
 
 Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
 """.
-
+-compile(warn_missing_spec_all).
 -export([module/2]).
 
 -import(lists, [map/2,foldl/3,foldr/3,sort/1,reverse/1,duplicate/2]).
 
 -record(exprec, {vcount=0,             % Variable counter
-                 calltype=#{},         % Call types
-                 records=#{},          % Record definitions
-                 raw_records=[],       % Raw record forms
-                 strict_ra=[],         % Strict record accesses
-                 checked_ra=[],        % Successfully accessed records
-                 dialyzer=false,       % Compiler option 'dialyzer'
+                 % Call types
+                 calltype=#{} :: calltype_map(),
+                 % Record definitions
+                 records=#{} :: #{erl_parse:record_name() => [erl_parse:af_field_decl()]},
+                 % Raw record forms
+                 raw_records=[] :: [erl_parse:af_record_decl()],
+                 % Strict record accesses
+                 strict_ra=[] :: [record_access()],
+                 % Successfully accessed records
+                 checked_ra=[] :: [record_access()],
+                 % Compiler option 'dialyzer'
+                 dialyzer=false :: boolean(),
                  strict_rec_tests=true :: boolean()
                 }).
+
+-type record_access() :: {
+    {atom(), erl_parse:abstract_expr()},
+    erl_anno:anno(),
+    erl_parse:abstract_expr(),
+    integer()
+}.
+-type calltype() :: local | {imported, module()}.
+-type calltype_map() :: #{{atom(), arity()} => calltype()}.
 
 -doc """
 Expands all records in a module to use explicit tuple operations and adds
@@ -67,13 +82,16 @@ module(Fs0, Opts0) ->
     erase(erl_expand_records_in_guard),
     Fs.
 
+-spec compiler_options([erl_parse:abstract_form()]) -> list().
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
 
+-spec init_calltype(Forms :: [erl_parse:abstract_form()]) -> calltype_map().
 init_calltype(Forms) ->
     Ctype = #{{Name,Arity} => local || {function,_,Name,Arity,_} <- Forms},
     init_calltype_imports(Forms, Ctype).
 
+-spec init_calltype_imports(Forms :: [erl_parse:abstract_form()], calltype_map()) -> calltype_map().
 init_calltype_imports([{attribute,_,import,{Mod,Fs}}|T], Ctype0) ->
     true = is_atom(Mod),
     Ctype = foldl(fun(FA, Acc) ->
@@ -84,6 +102,7 @@ init_calltype_imports([_|T], Ctype) ->
     init_calltype_imports(T, Ctype);
 init_calltype_imports([], Ctype) -> Ctype.
 
+-spec forms([erl_parse:abstract_form()], #exprec{}) -> {[erl_parse:abstract_form()], #exprec{}}.
 forms([{attribute,_,record,{Name,Defs}}=Attr | Fs], St0) ->
     NDefs = normalise_fields(Defs),
     St = St0#exprec{records=maps:put(Name, NDefs, St0#exprec.records),
@@ -99,6 +118,7 @@ forms([F | Fs0], St0) ->
     {[F | Fs], St};
 forms([], St) -> {[],St}.
 
+-spec clauses([erl_parse:abstract_clause()], #exprec{}) -> {[erl_parse:abstract_clause()], #exprec{}}.
 clauses([{clause,Anno,H0,G0,B0} | Cs0], St0) ->
     {H1,St1} = head(H0, St0),
     {G1,St2} = guard(G0, St1),
@@ -108,8 +128,14 @@ clauses([{clause,Anno,H0,G0,B0} | Cs0], St0) ->
     {[{clause,Anno,H,G,B} | Cs],St4};
 clauses([], St) -> {[],St}.
 
+-spec head([erl_parse:af_pattern()], #exprec{}) -> {[erl_parse:af_pattern()], #exprec{}}.
 head(As, St) -> pattern_list(As, St).
 
+-spec pattern
+    (erl_parse:af_pattern(), #exprec{}) ->
+        {erl_parse:af_pattern(), #exprec{}};
+    (erl_parse:af_assoc_exact(erl_parse:af_pattern()), #exprec{}) ->
+        {erl_parse:af_assoc_exact(erl_parse:af_pattern()), #exprec{}}.
 pattern({var,_,'_'}=Var, St) ->
     {Var,St};
 pattern({var,_,_}=Var, St) ->
@@ -162,28 +188,36 @@ pattern({op,Anno,Op,L0,R0}, St0) ->
     {R,St2} = pattern(R0, St1),
     {{op,Anno,Op,L,R},St2}.
 
+-spec pattern_list
+    ([], #exprec{}) -> {[], #exprec{}};
+    ([erl_parse:af_pattern(), ...], #exprec{}) -> {[erl_parse:af_pattern(), ...], #exprec{}};
+    ([erl_parse:af_assoc_exact(erl_parse:af_pattern()), ...], #exprec{}) -> {[erl_parse:af_assoc_exact(erl_parse:af_pattern()), ...], #exprec{}}.
 pattern_list([P0 | Ps0], St0) ->
     {P,St1} = pattern(P0, St0),
     {Ps,St2} = pattern_list(Ps0, St1),
     {[P | Ps],St2};
 pattern_list([], St) -> {[],St}.
 
+-spec guard(erl_parse:af_guard_seq(), #exprec{}) -> {erl_parse:af_guard_seq(), #exprec{}}.
 guard([G0 | Gs0], St0) ->
     {G,St1} = guard_tests(G0, St0),
     {Gs,St2} = guard(Gs0, St1),
     {[G | Gs],St2};
 guard([], St) -> {[],St}.
 
+-spec guard_tests(erl_parse:af_guard(), #exprec{}) -> {erl_parse:af_guard(), #exprec{}}.
 guard_tests(Gts0, St0) ->
     {Gts1,St1} = guard_tests1(Gts0, St0),
     {Gts1,St1#exprec{checked_ra = []}}.
 
+-spec guard_tests1([erl_parse:af_guard_test()], #exprec{}) -> {[erl_parse:af_guard_test()], #exprec{}}.
 guard_tests1([Gt0 | Gts0], St0) ->
     {Gt1,St1} = guard_test(Gt0, St0),
     {Gts1,St2} = guard_tests1(Gts0, St1),
     {[Gt1 | Gts1],St2};
 guard_tests1([], St) -> {[],St}.
 
+-spec guard_test(erl_parse:af_guard_test(), #exprec{}) -> {erl_parse:af_guard_test(), #exprec{}}.
 guard_test(G0, St0) ->
     in_guard(fun() ->
                      {G1,St1} = guard_test1(G0, St0),
@@ -192,12 +226,14 @@ guard_test(G0, St0) ->
 
 %% Normalising guard tests ensures that none of the Boolean operands
 %% created by strict_record_access/2 calls any of the old guard tests.
+-spec guard_test1(erl_parse:af_guard_test(), #exprec{}) -> {erl_parse:af_guard_test(), #exprec{}}.
 guard_test1({call,Anno,{atom,Tanno,Tname},As}, St) ->
     Test = {atom,Tanno,normalise_test(Tname, length(As))},
     expr({call,Anno,Test,As}, St);
 guard_test1(Test, St) ->
     expr(Test, St).
 
+-spec normalise_test(atom(), arity()) -> atom().
 normalise_test(atom, 1)      -> is_atom;
 normalise_test(binary, 1)    -> is_binary;
 normalise_test(float, 1)     -> is_float;
@@ -212,15 +248,18 @@ normalise_test(reference, 1) -> is_reference;
 normalise_test(tuple, 1)     -> is_tuple;
 normalise_test(Name, _) -> Name.
 
+-spec is_in_guard() -> boolean().
 is_in_guard() ->
     get(erl_expand_records_in_guard).
 
+-spec in_guard(fun(() -> Res)) -> Res.
 in_guard(F) ->
     InGuard = put(erl_expand_records_in_guard, true),
     Res = F(),
     true = put(erl_expand_records_in_guard, InGuard),
     Res.
 
+-spec not_in_guard(fun(() -> Res)) -> Res.
 not_in_guard(F) ->
     InGuard = put(erl_expand_records_in_guard, false),
     Res = F(),
@@ -230,6 +269,7 @@ not_in_guard(F) ->
 %% record_test(Anno, Term, Name, Vs, St) -> TransformedExpr
 %%  Generate code for is_record/1.
 
+-spec record_test(erl_anno:anno(), erl_parse:abstract_expr(), atom(), #exprec{}) -> {erl_parse:abstract_expr(), #exprec{}}.
 record_test(Anno, Term, Name, St) ->
     case is_in_guard() of
         false ->
@@ -238,6 +278,7 @@ record_test(Anno, Term, Name, St) ->
             record_test_in_guard(Anno, Term, Name, St)
     end.
 
+-spec record_test_in_guard(erl_anno:anno(), erl_parse:abstract_expr(), atom(), #exprec{}) -> {erl_parse:abstract_expr(), #exprec{}}.
 record_test_in_guard(Anno, Term, Name, St) ->
     case not_a_tuple(Term) of
         true ->
@@ -251,6 +292,7 @@ record_test_in_guard(Anno, Term, Name, St) ->
                  St)
     end.
 
+-spec not_a_tuple(erl_parse:abstract_expr()) -> boolean().
 not_a_tuple({atom,_,_}) -> true;
 not_a_tuple({integer,_,_}) -> true;
 not_a_tuple({float,_,_}) -> true;
@@ -264,6 +306,7 @@ not_a_tuple({op,_,_,_}) -> true;
 not_a_tuple({op,_,_,_,_}) -> true;
 not_a_tuple(_) -> false.
 
+-spec record_test_in_body(erl_anno:anno(), erl_parse:abstract_expr(), atom(), #exprec{}) -> {erl_parse:abstract_expr(), #exprec{}}.
 record_test_in_body(Anno, Expr, Name, St0) ->
     %% As Expr may have side effects, we must evaluate it
     %% first and bind the value to a new variable.
@@ -278,12 +321,19 @@ record_test_in_body(Anno, Expr, Name, St0) ->
                         {atom,NAnno,is_record}},
             [Var,{atom,Anno,Name},{integer,Anno,length(Fs)+1}]}]}, St).
 
+-spec exprs([erl_parse:abstract_expr()], #exprec{}) -> {[erl_parse:abstract_expr()], #exprec{}}.
 exprs([E0 | Es0], St0) ->
     {E,St1} = expr(E0, St0),
     {Es,St2} = exprs(Es0, St1),
     {[E | Es],St2};
 exprs([], St) -> {[],St}.
 
+% overlapping domains
+-dialyzer({nowarn_function, expr/2}).
+-spec expr
+    (erl_parse:abstract_expr(), #exprec{}) -> {erl_parse:abstract_expr(), #exprec{}};
+    (erl_parse:af_pattern(), #exprec{}) -> {erl_parse:af_pattern(), #exprec{}};
+    (erl_parse:af_assoc(erl_parse:abstract_expr()), #exprec{}) -> {erl_parse:af_assoc(erl_parse:abstract_expr()), #exprec{}}.
 expr({var,_,_}=Var, St) ->
     {Var,St};
 expr({char,_,_}=Char, St) ->
@@ -505,16 +555,32 @@ expr({debug_line,_,_}=E, St) ->
 expr({ssa_check_when,_,_,_,_,_}=E, St) ->
     {E, St}.
 
+% overlapping domains
+-dialyzer({nowarn_function, expr_list/2}).
+-spec expr_list
+    ([erl_parse:abstract_expr()], #exprec{}) -> {[erl_parse:abstract_expr()], #exprec{}};
+    ([erl_parse:af_pattern()], #exprec{}) -> {[erl_parse:af_pattern()], #exprec{}};
+    ([erl_parse:af_assoc(erl_parse:abstract_expr())], #exprec{}) -> {[erl_parse:af_assoc(erl_parse:abstract_expr())], #exprec{}}.
 expr_list([E0 | Es0], St0) ->
     {E,St1} = expr(E0, St0),
     {Es,St2} = expr_list(Es0, St1),
     {[E | Es],St2};
 expr_list([], St) -> {[],St}.
 
+% overlapping domains
+-dialyzer({nowarn_function, bool_operand/2}).
+-spec bool_operand
+    (erl_parse:abstract_expr(), #exprec{}) -> {erl_parse:abstract_expr(), #exprec{}};
+    (erl_parse:af_pattern(), #exprec{}) -> {erl_parse:af_pattern(), #exprec{}}.
 bool_operand(E0, St0) ->
     {E1,St1} = expr(E0, St0),
     strict_record_access(E1, St1).
 
+% overlapping domains
+-dialyzer({nowarn_function, strict_record_access/2}).
+-spec strict_record_access
+    (erl_parse:abstract_expr(), #exprec{}) -> {erl_parse:abstract_expr(), #exprec{}};
+    (erl_parse:af_pattern(), #exprec{}) -> {erl_parse:af_pattern(), #exprec{}}.
 strict_record_access(E, #exprec{strict_ra = []} = St) ->
     {E, St};
 strict_record_access(E0, St0) ->
@@ -531,6 +597,7 @@ strict_record_access(E0, St0) ->
 
 %% Make it look nice (?) when compiled with the 'E' flag
 %% ('and'/2 is left recursive).
+-spec conj([record_access()], erl_parse:abstract_expr() | none) -> erl_parse:abstract_expr() | empty.
 conj([], _E) ->
     empty;
 conj([{{Name,_Rp},Anno,R,Sz} | AL], E) ->
@@ -561,9 +628,8 @@ conj([{{Name,_Rp},Anno,R,Sz} | AL], E) ->
 	    {op,NAnno,'and',T2,E}
     end.
 
-%% lc_tq(Anno, Qualifiers, State) ->
-%%      {[TransQual],State'}
 
+-spec lc_tq(erl_anno:anno(), [erl_parse:af_qualifier()], #exprec{}) -> {[erl_parse:af_qualifier()], #exprec{}}.
 lc_tq(Anno, [{generate,AnnoG,P0,G0} | Qs0], St0) ->
     {G1,St1} = expr(G0, St0),
     {P1,St2} = pattern(P0, St1),
@@ -630,6 +696,7 @@ lc_tq(_Anno, [], St0) ->
 %%  Normalise the field definitions to always have a default value. If
 %%  none has been given then use 'undefined'.
 
+-spec normalise_fields([erl_parse:af_field_decl()]) -> [erl_parse:af_field_decl()].
 normalise_fields(Fs) ->
     map(fun ({record_field,Anno,Field}) ->
                 {record_field,Anno,Field,{atom,Anno,undefined}};
@@ -640,38 +707,36 @@ normalise_fields(Fs) ->
             (F) -> F
 	end, Fs).
 
-%% record_fields(RecordName, Anno, State)
-%% find_field(FieldName, Fields)
-
+-spec record_fields(erl_parse:record_name(), erl_anno:anno(), #exprec{}) -> [erl_parse:af_field()].
 record_fields(R, Anno, St) ->
     Fields = maps:get(R, St#exprec.records),
     [{record_field,Anno,{atom,Anno,F},copy_expr(Di, Anno)} ||
         {record_field,_Anno,{atom,_AnnoA,F},Di} <- Fields].
 
+-spec find_field(atom(), [erl_parse:af_record_field(T)]) -> {ok, T} | error.
 find_field(F, [{record_field,_,{atom,_,F},Val} | _]) -> {ok,Val};
 find_field(F, [_ | Fs]) -> find_field(F, Fs);
 find_field(_, []) -> error.
 
-%% copy_expr(Expr, Anno) -> Expr.
-%%  Make a copy of Expr converting all annotations to Anno.
-
+-spec copy_expr(erl_parse:abstract_expr(), erl_anno:anno()) -> erl_parse:abstract_expr().
 copy_expr(Expr, Anno) ->
     erl_parse:map_anno(fun(_A) -> Anno end, Expr).
 
-%% field_names(RecFields) -> [Name].
 %%  Return a list of the field names structures.
 
+-spec field_names([erl_parse:af_field()]) -> [erl_parse:af_field_name()].
 field_names(Fs) ->
     map(fun ({record_field,_,Field,_Val}) -> Field end, Fs).
 
-%% index_expr(Anno, FieldExpr, Name, Fields) -> IndexExpr.
 %%  Return an expression which evaluates to the index of a
 %%  field. Currently only handle the case where the field is an
 %%  atom. This expansion must be passed through expr again.
 
+-spec index_expr(erl_anno:anno(), erl_parse:af_field_name(), erl_parse:record_name(), [erl_parse:af_field()]) -> {integer, erl_anno:anno(), integer()}.
 index_expr(Anno, {atom,_,F}, _Name, Fs) ->
     {integer,Anno,index_expr(F, Fs, 2)}.
 
+-spec index_expr(atom(), [erl_parse:af_field()], integer()) -> integer().
 index_expr(F, [{record_field,_,{atom,_,F},_} | _], I) -> I;
 index_expr(F, [_ | Fs], I) -> index_expr(F, Fs, I+1).
 
@@ -680,6 +745,13 @@ index_expr(F, [_ | Fs], I) -> index_expr(F, Fs, I+1).
 %%  is correct and then returns the value of the field.
 %%  This expansion must be passed through expr again.
 
+-spec get_record_field(
+    erl_anno:anno(),
+    erl_parse:abstract_expr(),
+    erl_parse:af_field_name(),
+    atom(),
+    #exprec{}
+) -> {erl_parse:abstract_expr(), #exprec{}}.
 get_record_field(Anno, R, Index, Name, St) ->
     case St#exprec.strict_rec_tests of
         false ->
@@ -688,6 +760,13 @@ get_record_field(Anno, R, Index, Name, St) ->
             strict_get_record_field(Anno, R, Index, Name, St)
     end.
 
+-spec strict_get_record_field(
+    erl_anno:anno(),
+    erl_parse:abstract_expr(),
+    erl_parse:af_field_name(),
+    atom(),
+    #exprec{}
+) -> {erl_parse:abstract_expr(), #exprec{}}.
 strict_get_record_field(Anno, R, {atom,_,F}=Index, Name, St0) ->
     case is_in_guard() of
         false ->                                %Body context.
@@ -719,12 +798,22 @@ strict_get_record_field(Anno, R, {atom,_,F}=Index, Name, St0) ->
 	      [I,ExpR]},St2}
     end.
 
+-spec record_pattern
+    (integer(), integer(), erl_parse:af_variable(), integer(), erl_anno:anno(), [erl_parse:af_atom() | erl_parse:af_variable()]) -> [erl_parse:af_atom() | erl_parse:af_variable()];
+    (integer(), integer(), ignore, integer(), erl_anno:anno(), [erl_parse:af_atom() | erl_parse:af_variable() | ignore]) -> [erl_parse:af_atom() | erl_parse:af_variable() | ignore].
 record_pattern(I, I, Var, Sz, Anno, Acc) ->
     record_pattern(I+1, I, Var, Sz, Anno, [Var | Acc]);
 record_pattern(Cur, I, Var, Sz, Anno, Acc) when Cur =< Sz ->
     record_pattern(Cur+1, I, Var, Sz, Anno, [{var,Anno,'_'} | Acc]);
 record_pattern(_, _, _, _, _, Acc) -> reverse(Acc).
 
+-spec sloppy_get_record_field(
+    erl_anno:anno(),
+    erl_parse:abstract_expr(),
+    erl_parse:af_field_name(),
+    atom(),
+    #exprec{}
+) -> {erl_parse:abstract_expr(), #exprec{}}.
 sloppy_get_record_field(Anno, R, Index, Name, St) ->
     Fs = record_fields(Name, Anno, St),
     I = index_expr(Anno, Index, Name, Fs),
@@ -732,9 +821,11 @@ sloppy_get_record_field(Anno, R, Index, Name, St) ->
 	  {remote,Anno,{atom,Anno,erlang},{atom,Anno,element}},
 	  [I,R]}, St).
 
+-spec strict_record_tests(proplists:proplist()) -> boolean().
 strict_record_tests(Opts) ->
     strict_record_tests(Opts, true).
 
+-spec strict_record_tests(proplists:proplist(), boolean()) -> boolean().
 strict_record_tests([strict_record_tests | Os], _) ->
     strict_record_tests(Os, true);
 strict_record_tests([no_strict_record_tests | Os], _) ->
@@ -749,6 +840,7 @@ strict_record_tests([], Bool) ->
 %%  This expansion must be passed through pattern again. N.B. We are
 %%  scanning the record definition field list!
 
+-spec pattern_fields([erl_parse:af_field()], [erl_parse:af_record_field(erl_parse:af_pattern())]) -> [erl_parse:af_pattern()].
 pattern_fields(Fs, Ms) ->
     Wildcard = record_wildcard_init(Ms),
     map(fun ({record_field,Anno,{atom,_,F},_}) ->
@@ -764,6 +856,7 @@ pattern_fields(Fs, Ms) ->
 %%  elements. This expansion must be passed through expr
 %%  again. N.B. We are scanning the record definition field list!
 
+-spec record_inits([erl_parse:af_field()], [erl_parse:af_record_field(erl_parse:abstract_expr())]) -> [erl_parse:abstract_expr()].
 record_inits(Fs, Is) ->
     WildcardInit = record_wildcard_init(Is),
     map(fun ({record_field,_,{atom,_,F},D}) ->
@@ -774,6 +867,7 @@ record_inits(Fs, Is) ->
                 end
 	end, Fs).
 
+-spec record_wildcard_init([erl_parse:af_record_field(T)]) -> T | none.
 record_wildcard_init([{record_field,_,{var,_,'_'},D} | _]) -> D;
 record_wildcard_init([_ | Is]) -> record_wildcard_init(Is);
 record_wildcard_init([]) -> none.
@@ -784,6 +878,13 @@ record_wildcard_init([]) -> none.
 %%  record.  Try to be smart and optimise this. This expansion must be
 %%  passed through expr again.
 
+-spec record_update(
+    erl_parse:abstract_expr(),
+    erl_parse:record_name(),
+    [erl_parse:af_field()],
+    [erl_parse:af_record_field(erl_parse:abstract_expr())],
+    #exprec{}
+) -> {erl_parse:abstract_expr(), #exprec{}}.
 record_update(R, Name, Fs, Us0, St0) ->
     Anno = element(2, R),
     {Pre,Us,St1} = record_exprs(Us0, St0),
@@ -809,6 +910,14 @@ record_update(R, Name, Fs, Us0, St0) ->
 %% record_match(Record, RecordName, Anno, [RecDefField], [Update], State)
 %%  Build a 'case' expression to modify record fields.
 
+-spec record_match(
+    erl_parse:af_variable(),
+    erl_parse:record_name(),
+    erl_anno:anno(),
+    [erl_parse:af_field()],
+    [erl_parse:af_record_field(erl_parse:abstract_expr())],
+    #exprec{}
+) -> {erl_parse:af_case(), #exprec{}}.
 record_match(R, Name, AnnoR, Fs, Us, St0) ->
     {Ps,News,St1} = record_upd_fs(Fs, Us, St0),
     NAnnoR = no_compiler_warning(AnnoR),
@@ -821,6 +930,11 @@ record_match(R, Name, AnnoR, Fs, Us, St0) ->
       ]},
      St1}.
 
+-spec record_upd_fs(
+    [erl_parse:af_field()],
+    [erl_parse:af_record_field(erl_parse:abstract_expr())],
+    #exprec{}
+) -> {[erl_parse:af_variable()], [erl_parse:abstract_expr()], #exprec{}}.
 record_upd_fs([{record_field,Anno,{atom,_AnnoA,F},_Val} | Fs], Us, St0) ->
     {P,St1} = new_var(Anno, St0),
     {Ps,News,St2} = record_upd_fs(Fs, Us, St1),
@@ -834,6 +948,12 @@ record_upd_fs([], _, St) -> {[],[],St}.
 %%  Build a nested chain of setelement calls to build the
 %%  updated record tuple.
 
+-spec record_setel(
+    erl_parse:af_variable(),
+    erl_parse:record_name(),
+    [erl_parse:af_field()],
+    [erl_parse:af_record_field(erl_parse:abstract_expr())]
+) -> erl_parse:abstract_expr().
 record_setel(R, Name, Fs, Us0) ->
     Us1 = foldl(fun ({record_field,Anno,Field,Val}, Acc) ->
                         {integer,_,FieldIndex} = I = index_expr(Anno, Field, Name, Fs),
@@ -860,6 +980,7 @@ record_setel(R, Name, Fs, Us0) ->
 %% Expand a call to record_info/2. We have checked that it is not
 %% shadowed by an import.
 
+-spec record_info_call(erl_anno:anno(), [erl_parse:abstract_expr()], #exprec{}) -> {erl_parse:abstract_expr(), #exprec{}}.
 record_info_call(Anno, [{atom,_AnnoI,Info},{atom,_AnnoN,Name}], St) ->
     case Info of
         size ->
@@ -872,9 +993,18 @@ record_info_call(Anno, [{atom,_AnnoI,Info},{atom,_AnnoN,Name}], St) ->
 %% variables. The idea is that we will evaluate all update expressions
 %% before starting to update the record.
 
+-spec record_exprs(
+    [erl_parse:af_record_field(erl_parse:abstract_expr())], #exprec{}
+) -> {[erl_parse:af_match(erl_parse:abstract_expr())], [erl_parse:af_record_field(erl_parse:abstract_expr())], #exprec{}}.
 record_exprs(Us, St) ->
     record_exprs(Us, St, [], []).
 
+-spec record_exprs(
+    [erl_parse:af_record_field(erl_parse:abstract_expr())],
+    #exprec{},
+    [erl_parse:af_match(erl_parse:abstract_expr())],
+    [erl_parse:af_record_field(erl_parse:abstract_expr())]
+) -> {[erl_parse:af_match(erl_parse:abstract_expr())], [erl_parse:af_record_field(erl_parse:abstract_expr())], #exprec{}}.
 record_exprs([{record_field,Anno,{atom,_AnnoA,_F}=Name,Val}=Field0 | Us], St0, Pre, Fs) ->
     case is_simple_val(Val) of
         true ->
@@ -888,6 +1018,7 @@ record_exprs([{record_field,Anno,{atom,_AnnoA,_F}=Name,Val}=Field0 | Us], St0, P
 record_exprs([], St, Pre, Fs) ->
     {reverse(Pre),Fs,St}.
 
+-spec is_simple_val(erl_parse:abstract_expr()) -> boolean().
 is_simple_val({var,_,_}) -> true;
 is_simple_val(Val) ->
     try
@@ -897,11 +1028,16 @@ is_simple_val(Val) ->
         false
     end.
 
-%% pattern_bin([Element], State) -> {[Element],[Variable],[UsedVar],State}.
-
+-spec pattern_bin(
+    [erl_parse:af_binelement(erl_parse:af_pattern())], #exprec{}
+) -> {[erl_parse:af_binelement(erl_parse:af_pattern())], #exprec{}}.
 pattern_bin(Es0, St) ->
     foldr(fun (E, Acc) -> pattern_element(E, Acc) end, {[],St}, Es0).
 
+-spec pattern_element(
+    erl_parse:af_binelement(erl_parse:af_pattern()),
+    {[erl_parse:af_binelement(erl_parse:af_pattern())], #exprec{}}
+) -> {[erl_parse:af_binelement(erl_parse:af_pattern())], #exprec{}}.
 pattern_element({bin_element,Anno,Expr0,Size0,Type}, {Es,St0}) ->
     {Expr,St1} = pattern(Expr0, St0),
     {Size,St2} = case Size0 of
@@ -910,11 +1046,19 @@ pattern_element({bin_element,Anno,Expr0,Size0,Type}, {Es,St0}) ->
                  end,
     {[{bin_element,Anno,Expr,Size,Type} | Es],St2}.
 
-%% expr_bin([Element], State) -> {[Element],State}.
-
+% overlapping domains
+-dialyzer({nowarn_function, expr_bin/2}).
+-spec expr_bin
+    ([erl_parse:af_binelement(erl_parse:abstract_expr())], #exprec{}) -> {[erl_parse:af_binelement(erl_parse:abstract_expr())], #exprec{}};
+    ([erl_parse:af_binelement(erl_parse:af_pattern())], #exprec{}) -> {[erl_parse:af_binelement(erl_parse:af_pattern())], #exprec{}}.
 expr_bin(Es0, St) ->
     foldr(fun (E, Acc) -> bin_element(E, Acc) end, {[],St}, Es0).
 
+% overlapping domains
+-dialyzer({nowarn_function, bin_element/2}).
+-spec bin_element
+    (erl_parse:af_binelement(erl_parse:abstract_expr()), Acc) -> Acc when Acc :: {[erl_parse:af_binelement(erl_parse:abstract_expr())], #exprec{}};
+    (erl_parse:af_binelement(erl_parse:af_pattern()), Acc) -> Acc when Acc :: {[erl_parse:af_binelement(erl_parse:af_pattern())], #exprec{}}.
 bin_element({bin_element,Anno,Expr,Size,Type}, {Es,St0}) ->
     {Expr1,St1} = expr(Expr, St0),
     {Size1,St2} = if Size =:= default -> {default,St1};
@@ -922,24 +1066,30 @@ bin_element({bin_element,Anno,Expr,Size,Type}, {Es,St0}) ->
                   end,
     {[{bin_element,Anno,Expr1,Size1,Type} | Es],St2}.
 
+-spec new_vars(integer(), erl_anno:anno(), #exprec{}) -> {[erl_parse:af_variable()], #exprec{}}.
 new_vars(N, Anno, St) -> new_vars(N, Anno, St, []).
 
+-spec new_vars(integer(), erl_anno:anno(), #exprec{}, [erl_parse:af_variable()]) -> {[erl_parse:af_variable()], #exprec{}}.
 new_vars(N, Anno, St0, Vs) when N > 0 ->
     {V,St1} = new_var(Anno, St0),
     new_vars(N-1, Anno, St1, [V|Vs]);
 new_vars(0, _Anno, St, Vs) -> {Vs,St}.
 
+-spec new_var(erl_anno:anno(), #exprec{}) -> {erl_parse:af_variable(), #exprec{}}.
 new_var(Anno, St0) ->
     {New,St1} = new_var_name(St0),
     {{var,Anno,New},St1}.
 
+-spec new_var_name(#exprec{}) -> {atom(), #exprec{}}.
 new_var_name(St) ->
     C = St#exprec.vcount,
     {list_to_atom("rec" ++ integer_to_list(C)),St#exprec{vcount=C+1}}.
 
+-spec make_list([erl_parse:af_field_name()], erl_anno:anno()) -> erl_parse:abstract_expr().
 make_list(Ts, Anno) ->
     foldr(fun (H, T) -> {cons,Anno,H,T} end, {nil,Anno}, Ts).
 
+-spec call_error(erl_anno:anno(), erl_parse:abstract_expr()) -> erl_parse:abstract_expr().
 call_error(Anno, R) ->
     {call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,error}},[R]}.
 
@@ -947,6 +1097,7 @@ call_error(Anno, R) ->
 %%% Replace is_record/3 in guards with matching if possible.
 %%%
 
+-spec optimize_is_record([erl_parse:af_pattern()], erl_parse:af_guard_seq(), #exprec{}) -> {[erl_parse:af_pattern()], erl_parse:af_guard_seq()}.
 optimize_is_record(H0, G0, #exprec{dialyzer=Dialyzer}) ->
     case opt_rec_vars(G0) of
 	[] ->
@@ -962,6 +1113,7 @@ optimize_is_record(H0, G0, #exprec{dialyzer=Dialyzer}) ->
 	    end
     end.
 
+-type dict() :: orddict:orddict(atom(), {atom(), integer()} | {remove, atom(), number()}).
 
 %% opt_rec_vars(Guards) -> Vars.
 %%  Search through the guard expression, looking for
@@ -979,22 +1131,26 @@ optimize_is_record(H0, G0, #exprec{dialyzer=Dialyzer}) ->
 %%      f({r1,...}=X, Y, Z) when true andalso
 %%                              (is_record(Y, r2) or is_record(Z, r3))
 %%
+-spec opt_rec_vars(erl_parse:af_guard_seq()) -> dict().
 opt_rec_vars([G|Gs]) ->
     Rs = opt_rec_vars_1(G, orddict:new()),
     opt_rec_vars(Gs, Rs);
 opt_rec_vars([]) -> orddict:new().
 
+-spec opt_rec_vars(erl_parse:af_guard_seq(), dict()) -> dict().
 opt_rec_vars([G|Gs], Rs0) ->
     Rs1 = opt_rec_vars_1(G, orddict:new()),
     Rs = ordsets:intersection(Rs0, Rs1),
     opt_rec_vars(Gs, Rs);
 opt_rec_vars([], Rs) -> Rs.
 
+-spec opt_rec_vars_1(erl_parse:af_guard(), dict()) -> dict().
 opt_rec_vars_1([T|Ts], Rs0) ->
     Rs = opt_rec_vars_2(T, Rs0),
     opt_rec_vars_1(Ts, Rs);
 opt_rec_vars_1([], Rs) -> Rs.
 
+-spec opt_rec_vars_2(erl_parse:af_guard_test(), dict()) -> dict().
 opt_rec_vars_2({op,_,'and',A1,A2}, Rs) ->
     opt_rec_vars_1([A1,A2], Rs);
 opt_rec_vars_2({op,_,'andalso',A1,A2}, Rs) ->
@@ -1013,15 +1169,28 @@ opt_rec_vars_2({call,_,{atom,_,is_record},
     orddict:store(V, {Tag,Sz}, Rs);
 opt_rec_vars_2(_, Rs) -> Rs.
 
+-spec opt_pattern_list(
+    [erl_parse:af_pattern()],
+    dict()
+) -> {[erl_parse:af_pattern()], dict()}.
 opt_pattern_list(Ps, Rs) ->
     opt_pattern_list(Ps, Rs, []).
 
+-spec opt_pattern_list(
+    [erl_parse:af_pattern()],
+    dict(),
+    [erl_parse:af_pattern()]
+) -> {[erl_parse:af_pattern()], dict()}.
 opt_pattern_list([P0|Ps], Rs0, Acc) ->
     {P,Rs} = opt_pattern(P0, Rs0),
     opt_pattern_list(Ps, Rs, [P|Acc]);
 opt_pattern_list([], Rs, Acc) ->
     {reverse(Acc),Rs}.
 
+-spec opt_pattern(
+    erl_parse:af_pattern(),
+    dict()
+) -> {erl_parse:af_pattern(), dict()}.
 opt_pattern({var,_,V}=Var, Rs0) ->
     case orddict:find(V, Rs0) of
 	{ok,{Tag,Sz}} ->
@@ -1043,16 +1212,20 @@ opt_pattern({match,Anno,Pa0,Pb0}, Rs0) ->
     {{match,Anno,Pa,Pb},Rs};
 opt_pattern(P, Rs) -> {P,Rs}.
 
+-spec opt_var(erl_parse:af_variable(), atom(), integer()) -> erl_parse:af_match(erl_parse:af_pattern()).
 opt_var({var,Anno,_}=Var, Tag, Sz) ->
     Rp = record_pattern(2, -1, ignore, Sz, Anno, [{atom,Anno,Tag}]),
     {match,Anno,{tuple,Anno,Rp},Var}.
 
+-spec opt_remove(erl_parse:af_guard_seq(), dict()) -> erl_parse:af_guard_seq().
 opt_remove(Gs, Rs) ->
     [opt_remove_1(G, Rs) || G <- Gs].
 
+-spec opt_remove_1(erl_parse:af_guard(), dict()) -> erl_parse:af_guard().
 opt_remove_1(Ts, Rs) ->
     [opt_remove_2(T, Rs) || T <- Ts].
 
+-spec opt_remove_2(erl_parse:af_guard_test(), dict()) -> erl_parse:af_guard_test().
 opt_remove_2({op,Anno,'and'=Op,A1,A2}, Rs) ->
     {op,Anno,Op,opt_remove_2(A1, Rs),opt_remove_2(A2, Rs)};
 opt_remove_2({op,Anno,'andalso'=Op,A1,A2}, Rs) ->
@@ -1077,9 +1250,11 @@ opt_remove_2({call,Anno,{atom,_,is_record},
     end;
 opt_remove_2(A, _) -> A.
 
+-spec no_compiler_warning(erl_anno:anno()) -> erl_anno:anno().
 no_compiler_warning(Anno) ->
     erl_anno:set_generated(true, Anno).
 
+-spec mark_record(erl_anno:anno(), #exprec{}) -> erl_anno:anno().
 mark_record(Anno, St) ->
     case St#exprec.dialyzer of
         true -> erl_anno:set_record(true, Anno);
