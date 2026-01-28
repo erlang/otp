@@ -864,17 +864,28 @@ that the fun either returns a list `(Body)` that is an HTTP response, or the
 atom `sent` if the HTTP response is sent back to the client. If `close` is
 returned from the fun, something has gone wrong and the server signals this to
 the client by closing the connection.
+
+> #### Note {: .info }
+>
+> It is strongly advised to use NewDataFormat in the return value of `do/1`
+> as it uses a different mechanism to send the headers and the body.
+>
+
 """.
 -doc(#{group => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
 -callback do(ModData) -> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done when
       ModData :: [{data,NewData} | {'Body', Body} | {'Head',Head}],
       OldData :: list(),
-      NewData :: [{response, {StatusCode, Body}}],
+      NewData :: [{response, NewDataCompatFormat}] | [{response, NewDataFormat}],
+      NewDataCompatFormat :: {StatusCode, Body},
+      NewDataFormat :: {response, Head, Body} | {already_sent, StatusCode, Size},
       StatusCode :: integer(),
+      Size :: non_neg_integer(),
       Body :: iolist() | nobody | {Fun, FunArg},
-      Head :: [HeaderOption],
+      Head :: [HeaderOption] | {Key, Value},
       HeaderOption :: {Option, Value} | {code, StatusCode},
       Option :: accept_ranges | allow,
+      Key :: atom() | string(),
       Value :: string(),
       FunArg :: [term()],
       Fun :: fun((FunArg) -> sent | close | Body).
