@@ -516,8 +516,12 @@ check_password(User, Password, #ssh{opts=Opts} = Ssh) ->
             end;
 
 	undefined ->
-	    Static = get_password_option(Opts, User),
-	    {ssh_lib:comp(Password,Static), Ssh};
+	    case get_password_option(Opts, User) of
+		Checker when is_function(Checker, 1) ->
+		    {Checker(Password), Ssh};
+		_ ->
+		    {false, Ssh}
+	    end;
 
 	Checker when is_function(Checker,2) ->
 	    {Checker(User, Password), Ssh};

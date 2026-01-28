@@ -482,12 +482,29 @@ default(server) ->
 
       user_passwords =>
           #{default => [],
-            chk => fun(V) ->
+            chk => fun
+                       Chk({HashOpts, V}) ->
+                           (default =:= HashOpts orelse
+                            is_tuple(HashOpts) andalso
+                            3 =:= tuple_size(HashOpts)) andalso
                            is_list(V) andalso
-                               lists:all(fun({S1,S2}) ->
-                                                 check_string(S1) andalso 
-                                                     check_string(S2)   
-                                         end, V)
+                           lists:foldr(
+                               fun
+                                   (_, false) ->
+                                       false;
+                                   ({User, Passwd}, {true, Acc}) ->
+                                       case make_passwd_fun(HashOpts, Passwd) of
+                                           false ->
+                                               false;
+                                           Fun ->
+                                               {true, [{User, Fun} | Acc]}
+                                       end
+                               end,
+                               {true, []},
+                               V
+                           );
+                       Chk(V) ->
+                           Chk({default, V})
                    end,
             class => user_option
            },
@@ -506,7 +523,21 @@ default(server) ->
 
       password =>
           #{default => undefined,
-            chk => fun(V) -> check_string(V) end,
+            chk => fun
+                       Chk({HashOpts, V}) ->
+                           (default =:= HashOpts orelse
+                            is_tuple(HashOpts) andalso
+                            3 =:= tuple_size(HashOpts)) andalso
+                           check_string(V) andalso
+                           case make_passwd_fun(HashOpts, V) of
+                               false ->
+                                   false;
+                               Fun ->
+                                   {true, Fun}
+                           end;
+                       Chk(V) ->
+                           Chk({default, V})
+                   end,
             class => user_option
            },
 
@@ -910,6 +941,63 @@ default(common) ->
              class => undoc_user_option
             }
      }.
+
+make_passwd_fun(HashOpts, PlainPwd) ->
+    try
+        make_passwd_fun1(HashOpts, PlainPwd)
+    catch
+        _:_ ->
+            false
+    end.
+
+make_passwd_fun1(default, PlainPwd) ->
+    make_passwd_fun1({default, default, default}, PlainPwd);
+make_passwd_fun1({Digest0, Iterations0, KeyLength0}, PlainPwd) when is_binary(PlainPwd) ->
+    Digest = pkbdf2_digest(Digest0),
+    Iterations = pkbdf2_iterations(Iterations0, Digest),
+    KeyLength = pkbdf2_keylength(KeyLength0, Digest),
+    Salt = crypto:strong_rand_bytes(32),
+    HashedPwd = crypto:pbkdf2_hmac(Digest, PlainPwd, Salt, Iterations, KeyLength),
+    fun
+        Check(PlainCheckPwd) when is_binary(PlainCheckPwd) ->
+            HashedCheckPwd = crypto:pbkdf2_hmac(Digest, PlainCheckPwd, Salt, Iterations, KeyLength),
+            crypto:hash_equals(HashedPwd, HashedCheckPwd);
+        Check(PlainCheckPwd) when is_list(PlainCheckPwd) ->
+            Check(unicode:characters_to_binary(PlainCheckPwd))
+    end;
+make_passwd_fun1(HashOpts, P) when is_list(P) ->
+    make_passwd_fun1(HashOpts, unicode:characters_to_binary(P)).
+
+pkbdf2_digest(default) ->
+    sha512;
+pkbdf2_digest(Digest) ->
+    Digest.
+
+pkbdf2_iterations(default, Digest) ->
+    default_pkbdf2_iterations(pkbdf2_digest(Digest));
+pkbdf2_iterations(Iterations, _) when is_integer(Iterations), Iterations > 0 ->
+    Iterations.
+
+default_pkbdf2_iterations(sha) -> 1_300_000;
+default_pkbdf2_iterations(sha256) -> 300_000;
+default_pkbdf2_iterations(sha348) -> 210_000;
+default_pkbdf2_iterations(sha512) -> 210_000;
+default_pkbdf2_iterations(sha512_224) -> 210_000;
+default_pkbdf2_iterations(sha512_256) -> 210_000;
+default_pkbdf2_iterations(_) -> 1_300_000.
+
+pkbdf2_keylength(default, Digest) ->
+    default_pkbdf2_keylength(pkbdf2_digest(Digest));
+pkbdf2_keylength(KeyLength, _) when is_integer(KeyLength), KeyLength > 0 ->
+    KeyLength.
+
+default_pkbdf2_keylength(sha) -> 20;
+default_pkbdf2_keylength(sha256) -> 32;
+default_pkbdf2_keylength(sha348) -> 48;
+default_pkbdf2_keylength(sha512) -> 64;
+default_pkbdf2_keylength(sha512_224) -> 28;
+default_pkbdf2_keylength(sha512_256) -> 32;
+default_pkbdf2_keylength(_) -> 64.
 
 
 %%%================================================================

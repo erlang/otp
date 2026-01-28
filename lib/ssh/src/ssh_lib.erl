@@ -85,6 +85,11 @@ comp(<<B1, R1/binary>>, <<>>, _Diff) ->
 comp(<<>>, <<>>, Diff) ->
     Diff =:= 0;
 
+comp(L1, L2, Diff) when is_list(L1) ->
+	comp(iolist_to_binary(L1), L2, Diff);
+comp(L1, L2, Diff) when is_list(L2) ->
+	comp(L1, iolist_to_binary(L2), Diff);
+
 comp([H1|T1], [H2|T2], Diff) ->
     comp(T1, T2, Diff bor (H1 bxor H2));
 comp([H1|T1], [], _Diff) ->
