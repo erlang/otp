@@ -60,3 +60,8 @@ release_spec:
 release_docs_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(EXAMPLES) "$(RELSYSDIR)"
+
+release_tests_spec:
+	$(INSTALL_DIR) "$(RELEASE_PATH)/stdlib_test/"
+	(cd ..; tar cf - examples  | (cd "$(RELEASE_PATH)/stdlib_test"; tar xf -))
+	chmod -R ug+w "$(RELEASE_PATH)/stdlib_test/examples"
