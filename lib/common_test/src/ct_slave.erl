@@ -36,8 +36,6 @@ term in the Test Specification.
 """.
 -moduledoc(#{since => "OTP R14B"}).
 
--compile(nowarn_obsolete_bool_op).
-
 -export([start/1, start/2, start/3, stop/1, stop/2]).
 
 -export([slave_started/2, slave_ready/2, monitor_master/1]).
@@ -352,7 +350,7 @@ do_start(Host, Node, Options) ->
 	{ok, ENode}->
 	     ok;
 	{error, Timeout, ENode}
-	     when ((Timeout==init_timeout) or (Timeout==startup_timeout)) and
+	     when Timeout==init_timeout orelse Timeout==startup_timeout,
 		  Options#options.kill_if_fail->
 	     do_stop(ENode);
 	_-> ok

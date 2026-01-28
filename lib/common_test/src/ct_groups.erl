@@ -32,8 +32,6 @@
 -export([delete_subs/2]).
 -export([expand_groups/3, search_and_override/3]).
 
--compile(nowarn_obsolete_bool_op).
-
 -define(val(Key, List), proplists:get_value(Key, List)). 
 -define(val(Key, List, Def), proplists:get_value(Key, List, Def)).
 -define(rev(L), lists:reverse(L)).
@@ -62,7 +60,7 @@ find_groups1(Mod, GrNames, TCs, GroupDefs) ->
 	    Path ->
 		{Path,true}
 	end,
-    TCs1 = if (is_atom(TCs) and (TCs /= all)) or is_tuple(TCs) ->
+    TCs1 = if is_atom(TCs), TCs /= all; is_tuple(TCs) ->
 		   [TCs];
 	      true -> 
 		   TCs 
