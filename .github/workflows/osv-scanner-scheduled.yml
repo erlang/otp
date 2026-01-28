@@ -20,7 +20,7 @@ jobs:
     outputs:
        versions: ${{ steps.get-versions.outputs.versions }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - id: get-versions
         name: Fetch latest 3 OTP versions
         run: |
@@ -46,7 +46,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ matrix.type }}
 
@@ -74,4 +74,4 @@ jobs:
         security-events: write
         # Only needs to read contents
         contents: read
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@e69cc6c86b31f1e7e23935bbe7031b50e51082de" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.2
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@2c222dbe8cbd6baffa4929823c8e5c3ab481d4d0" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.2
