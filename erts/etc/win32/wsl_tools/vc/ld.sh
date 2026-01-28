@@ -101,21 +101,18 @@ fi
 linkadd_pdb=""
 case "$OUTPUT_FILENAME" in
     *.exe|*.EXE)
-        fn=`echo "$OUTPUT_FILENAME" | sed 's,[eE][xX][eE]$,,g'`;
-        # fn=`w32_path.sh -a -d $fn0`
-	# echo EXE "$OUTPUT_FILENAME" $fn
+        fn=`printf "%s\n" "$OUTPUT_FILENAME" | sed 's,exe\$,,gi'`;
+	# printf "EXE %s %s\n" "$OUTPUT_FILENAME" "$fn"
 	linkadd_pdb="-pdb:\"${fn}pdb\"";;
     *.dll|*.DLL)
-        fn=`echo "$OUTPUT_FILENAME" | sed 's,[dD][lL][lL]$,,g'`;
-        # fn=`w32_path.sh -a -d $fn0`
-	# echo DLL "$OUTPUT_FILENAME" $fn
+        fn=`printf "%s\n" "$OUTPUT_FILENAME" | sed 's,[dD][lL][lL]$,,g'`;
+	# printf "DLL %s %s\n" "$OUTPUT_FILENAME" "$fn"
 	linkadd_pdb="-pdb:\"${fn}pdb\"";;
     "")
 	linkadd_pdb="-pdb:\"a.pdb\"";;
     *)
 	fn="$OUTPUT_FILENAME"
-        # fn=`w32_path.sh -a -d $OUTPUT_FILENAME`
-	# echo * "$OUTPUT_FILENAME" $fn
+	# printf "debug %s %s\n" "$OUTPUT_FILENAME" "$fn"
 	linkadd_pdb="-pdb:\"${fn}.pdb\"";;
 esac
 
@@ -127,7 +124,7 @@ if [ $BUILD_DLL = true ];then
     case "$OUTPUT_FILENAME" in
 	*.exe|*.EXE)
 	    echo "Warning, output set to .exe when building DLL" >&2
-	    CHMOD_FILE="$OUTPUT_FILENAME";
+	    CHMOD_FILE=`w32_path.sh -u "$OUTPUT_FILENAME"`;
 	    CMD="-dll -out:\"$OUTPUT_FILENAME\" $CMD";
 	    OUTPUTRES="${OUTPUT_FILENAME}\;2";
 	    MANIFEST="${OUTPUT_FILENAME}.manifest";;
@@ -147,7 +144,7 @@ if [ $BUILD_DLL = true ];then
 else
     case "$OUTPUT_FILENAME" in
 	*.exe|*.EXE)
-	    CHMOD_FILE="$OUTPUT_FILENAME";
+            CHMOD_FILE=`w32_path.sh -u "$OUTPUT_FILENAME"`;
 	    CMD="-out:\"$OUTPUT_FILENAME\" $CMD";
 	    OUTPUTRES="${OUTPUT_FILENAME}\;1"
 	    MANIFEST="${OUTPUT_FILENAME}.manifest";;
@@ -163,6 +160,7 @@ else
 	    MANIFEST="a.exe.manifest";;
 	*)
 	    CMD="-out:\"${OUTPUT_FILENAME}.exe\" $CMD";
+            CHMOD_FILE=`w32_path.sh -u "${OUTPUT_FILENAME}.exe"`;
 	    OUTPUTRES="${OUTPUT_FILENAME}.exe\;1";
 	    MANIFEST="${OUTPUT_FILENAME}.exe.manifest";;
     esac
@@ -201,8 +199,8 @@ if [ "$RES" = "0" ]; then
     fi
 fi
 
-# This works around some strange behaviour
-# in cygwin 1.7 Beta on Windows 7 with samba drive.
+# This works around executables on a linux disk
+# The linux executable flag will not be set by windows tools
 # Configure will think the compiler failed if test -x fails,
 # which it might do as we might not be the owner of the
 # file.
