@@ -109,7 +109,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth,
+    [{ct_hooks,[ts_install_cth, cth_fips,
                 {cth_events,
                  [{verify_fun, fun verify_events/2}]}]},
      {timetrap,{seconds,90}}].
