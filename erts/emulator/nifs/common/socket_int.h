@@ -503,6 +503,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(protocol);                 \
     GLOBAL_ATOM_DEF(pup);                      \
     GLOBAL_ATOM_DEF(raw);                      \
+    GLOBAL_ATOM_DEF(raw_hardware);             \
     GLOBAL_ATOM_DEF(rawip);                    \
     GLOBAL_ATOM_DEF(rcvbuf);                   \
     GLOBAL_ATOM_DEF(rcvbufforce);              \
@@ -542,6 +543,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(rtoinfo);                  \
     GLOBAL_ATOM_DEF(rtt);                      \
     GLOBAL_ATOM_DEF(running);                  \
+    GLOBAL_ATOM_DEF(rx_hardware);              \
+    GLOBAL_ATOM_DEF(rx_software);              \
     GLOBAL_ATOM_DEF(rxq_ovfl);                 \
     GLOBAL_ATOM_DEF(scope_id);                 \
     GLOBAL_ATOM_DEF(sctp);                     \
@@ -578,6 +581,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(socket);                   \
     GLOBAL_ATOM_DEF(socket_tag);               \
     GLOBAL_ATOM_DEF(socktype);                 \
+    GLOBAL_ATOM_DEF(software);                 \
     GLOBAL_ATOM_DEF(spec_dst);                 \
     GLOBAL_ATOM_DEF(state);                    \
     GLOBAL_ATOM_DEF(status);                   \
@@ -592,6 +596,10 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(tcp);                      \
     GLOBAL_ATOM_DEF(throughput);               \
     GLOBAL_ATOM_DEF(timestamp);                \
+    GLOBAL_ATOM_DEF(timestampns);              \
+    GLOBAL_ATOM_DEF(timestamping);             \
+    GLOBAL_ATOM_DEF(tx_hardware);              \
+    GLOBAL_ATOM_DEF(tx_software);              \
     GLOBAL_ATOM_DEF(tos);                      \
     GLOBAL_ATOM_DEF(transparent);              \
     GLOBAL_ATOM_DEF(timeout);                  \
@@ -613,6 +621,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(unspec);                   \
     GLOBAL_ATOM_DEF(up);                       \
     GLOBAL_ATOM_DEF(usec);                     \
+    GLOBAL_ATOM_DEF(nsec);                     \
     GLOBAL_ATOM_DEF(user);                     \
     GLOBAL_ATOM_DEF(user_timeout);             \
     GLOBAL_ATOM_DEF(use_ext_recvinfo);         \
