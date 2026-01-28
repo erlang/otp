@@ -81,6 +81,15 @@ handle_event(internal, {#ssh_msg_kexinit{}=Kex, Payload}, {kexinit,Role,ReNeg},
     {next_state, {key_exchange,Role,ReNeg}, D#data{ssh_params=Ssh}};
 
 %%% ######## {key_exchange, client|server, init|renegotiate} ####
+%%%---- RFC 4253 section 7 guess was wrong
+handle_event(internal, Msg, {key_exchange,server,_ReNeg},
+             D = #data{ssh_params = Ssh0 = #ssh{ignore_initial_kex_message = true}}) when
+      is_record(Msg, ssh_msg_kexdh_init);
+      is_record(Msg, ssh_msg_kex_ecdh_init) ->
+    DebugMsg = ["server ignored ", element(1, Msg), " message due to wrong guess."],
+    logger:debug(lists:concat(DebugMsg)),
+    Ssh = Ssh0#ssh{ignore_initial_kex_message = false},
+    {keep_state, D#data{ssh_params = Ssh}};
 %%%---- diffie-hellman
 handle_event(internal, #ssh_msg_kexdh_init{} = Msg, {key_exchange,server,ReNeg}, D) ->
     ok = check_kex_strict(Msg, D),

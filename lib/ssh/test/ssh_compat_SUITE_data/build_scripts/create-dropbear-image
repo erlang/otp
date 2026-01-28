@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Copyright Ericsson AB 2017-2025. All Rights Reserved.
+# Copyright Ericsson AB 2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,43 +19,24 @@
 #
 # %CopyrightEnd%
 
+# ./create-dropbear-image dropbear 2025.88 [in-file]
 
-# ./create-ssl-image openssl 1.0.2m [in-file]
-
-case $1$2 in
-    openssl[0-1]*)
-        FAM=openssl
-        VER=$2
-        DASH_VER=$(echo -n $VER | sed 's/\./_/g')
-        LINK=https://github.com/openssl/openssl/releases/download/OpenSSL_${DASH_VER}/openssl-${VER}.tar.gz
-        TMP=tmp.tar.gz
-    ;;
-    openssl3*)
-        FAM=openssl
-        VER=$2
-        LINK=https://github.com/openssl/openssl/releases/download/openssl-${VER}/openssl-${VER}.tar.gz
-        TMP=tmp.tar.gz
-    ;;
-    libressl[2-3].[0-7]*)
-        FAM=libressl
-        VER=$2
-        LINK=https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${VER}.tar.gz
-        TMP=tmp.tar.gz
-    ;;
-    libressl[3-4]*)
-        FAM=libressl
-        VER=$2
-        LINK=https://github.com/libressl/portable/releases/download/v${VER}/libressl-${VER}.tar.gz
-        TMP=tmp.tar.gz
-    ;;
+case $1 in
+    dropbear)
+        FAMssh=dropbear
+        VERssh=$2
+        LINK=https://matt.ucc.asn.au/dropbear/releases/dropbear-${VERssh}.tar.bz2
+        TMP=tmp.tar.bz2
+        ;;
     *)
-        echo No lib type
+        echo "Unsupported: $1"
         exit 1
-    ;;
 esac
 
 BASE_VER=$3
 INPUT_FILE=$4
+
+VER=${FAMssh}${VERssh}-${BASE_VER}
 
 BASE_IMG=ssh_compat_suite_img-ubuntu:$BASE_VER
 
@@ -66,15 +47,6 @@ if [[ $(docker images -q $BASE_IMG 2> /dev/null) == "" ]] ; then
         exit 1
     fi
 fi
-
-case $FAM$VER in
-    openssl0.9.8[a-l])
-        CONFIG_FLAGS=no-asm
-    ;;
-    *)
-        CONFIG_FLAGS=
-    ;;
-esac
 
 # This way of fetching the tar-file separate from the docker commands makes
 # http-proxy handling way easier. The wget command handles the $https_proxy
@@ -87,27 +59,42 @@ cat - > TempDockerFile <<EOF
     FROM $BASE_IMG
     ARG  DEBIAN_FRONTEND=noninteractive
 
-    LABEL version=$FAM-$VER
+    LABEL ${FAMssh}-version=${VER}
 
     WORKDIR /buildroot
 
     COPY ${TMP} .
     RUN  tar xf ${TMP}
 
-    WORKDIR ${FAM}-${VER}
+    # Build and install
 
-    RUN  ./config --prefix=/buildroot/ssl ${CONFIG_FLAGS}
+    WORKDIR ${FAMssh}-${VERssh}
 
+    RUN apt-get update
+    RUN apt-get -y install openssh-sftp-server
+
+    # Probably VERY dropbear dependent...:
+    RUN ./configure --without-pie \
+                    --prefix=/buildroot/ssh \
+                    --enable-pam \
+                    LDFLAGS=-Wl,-R/buildroot/ssl/lib
     RUN  make
-    RUN  make install_sw
+    RUN  make install
+    RUN  mkdir -p /etc/dropbear
+    RUN  mkdir -p /usr/libexec
+    RUN  ln -s /usr/lib/sftp-server /usr/libexec/sftp-server
 
-    RUN  echo Built ${FAM}-${VER}
+    RUN echo Built ${VER}
+
+    # Start the daemon, but keep it in foreground to avoid killing the container
+    CMD ["/buildroot/ssh/sbin/dropbear", "-R", "-F", "-E", "-p", "1234"]
+
 EOF
 
 # Fetch the tar file. This could be done in an "ADD ..." in the Dockerfile,
 # but then we hit the proxy problem...
 
-if [[ "x$INPUT_FILE" == "x" ]]
+if [[ "x$INPUT_FILE" = "x" ]]
 then
     wget -O $TMP $LINK
 
@@ -118,7 +105,7 @@ then
 fi
 
 # Build the image:
-docker build -t ssh_compat_suite_img-$FAM:$VER-$BASE_VER -f ./TempDockerFile .
+docker build -t ssh_compat_suite_img-ssh:$VER -f ./TempDockerFile .
 CODE=$?
 
 # Cleaning
