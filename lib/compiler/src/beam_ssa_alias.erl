@@ -866,10 +866,16 @@ aa_update_annotation1(ArgsStatus,
     %% annotation now, instead of trying to reconstruct the
     %% kill map during the later transform pass.
     Anno = case {Op,Args} of
-               {bs_create_bin,[#b_literal{val=append},_,Var|_]} ->
+               {bs_create_bin,[#b_literal{val=append},_,Var|Rest]} ->
                    %% For the private-append optimization we need to
-                   %% know if the first fragment dies.
-                   Anno1#{first_fragment_dies => dies_at(Var, I, AAS)};
+                   %% know if the first fragment dies. Additionally, if
+                   %% the first fragment variable is used in other
+                   %% segments, it should not be considered as dying with
+                   %% this instruction since the later uses would read
+                   %% corrupted data after a destructive append.
+                   Dies = dies_at(Var, I, AAS) andalso
+                       not bs_create_bin_var_in_segments(Var, Rest),
+                   Anno1#{first_fragment_dies => Dies};
                {update_record,[_Hint,_Size,Src|_Updates]} ->
                    %% One of the requirements for valid destructive
                    %% record updates is that the source tuple dies
@@ -981,6 +987,17 @@ aa_alias_repeated_args([_|Args], SS, Seen) ->
     aa_alias_repeated_args(Args, SS, Seen);
 aa_alias_repeated_args([], SS, _Seen) ->
     SS.
+
+%% Check if Var appears anywhere in the remaining segment arguments
+%% of a bs_create_bin instruction. The Var is the first fragment source,
+%% and Rest contains all arguments after the first fragment source.
+%% If Var appears again in Rest, using private_append would be unsafe
+%% because the later uses would read corrupted data after the first
+%% destructive append.
+bs_create_bin_var_in_segments(#b_var{}=Var, Args) ->
+    lists:member(Var, Args);
+bs_create_bin_var_in_segments(#b_literal{}, _Args) ->
+    false.
 
 %% Return the kill-set for the instruction defining Dst.
 aa_killset_for_instr(Dst, #aas{caller=Caller,kills=Kills}) ->
