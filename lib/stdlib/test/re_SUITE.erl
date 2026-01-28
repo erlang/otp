@@ -1282,30 +1282,33 @@ last_test(Config) when is_list(Config) ->
                   end;
               Coverage ->
                   io:format("re_yield_coverage = ~p\n", [Coverage]),
-                  ok = check_yield_coverage(Coverage, ok)
+                  ok = check_yield_coverage(Coverage, 0, ok)
           end,
     erts_debug:set_internal_state(available_internal_state, false),
     Res.
 
-check_yield_coverage([], Err) ->
+check_yield_coverage([], Yields, Err) ->
+    io:format("Total number of yields: ~p\n", [Yields]),
+    io:format("Note: The number of yields per seconds are probably way higher than expected in a healthy system\n"
+              "      due to the use of erts_debug:set_internal_state(re_loop_limit,_) to get good code coverage.", []),
     Err;
-check_yield_coverage([Tuple | Tail], Err0) ->
-    Err1 =
+check_yield_coverage([Tuple | Tail], YieldAcc, Err0) ->
+    {Err1, Yields} =
         case Tuple of
             {Line, 0, 0} ->
                 io:format("COST_CHK at line ~p never visited", [Line]),
-                error;
+                {error, 0};
             {Line, Visits, 0} ->
                 io:format("COST_CHK at line ~p visited ~p times but never yielded",
                           [Line, Visits]),
-                error;
-            {Line, 0, Yields} ->
-                io:format("COST_CHK at line ~p never visited but has yielded ~p times ????",
-                          [Line, Yields]),
-                error;
-            {_,_,_} ->
-                Err0
+                {error, 0};
+            {Line, V, Y} when V < Y ->
+                io:format("COST_CHK at line ~p visited only ~p times but has yielded ~p times ????",
+                          [Line, V, Y]),
+                {error, Y};
+            {_,_,Y} ->
+                {Err0, Y}
         end,
-    check_yield_coverage(Tail, Err1).
+    check_yield_coverage(Tail, YieldAcc + Yields, Err1).
 
 id(X) -> X.
