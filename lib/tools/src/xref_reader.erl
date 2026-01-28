@@ -47,9 +47,7 @@
 
 -include("xref.hrl").
 
-%% -> {ok, Module, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL},
-%%         Unresolved}} | EXIT
-%% Attrs = {[], [], []} (no longer used)
+%% -> {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL, Unresolved}
 module(Module, Forms, CollectBuiltins, X, DF) ->
     Attrs = [{Attr,V} || {attribute,_Anno,Attr,V} <- Forms],
     IsAbstract = xref_utils:is_abstract_module(Attrs),
@@ -70,8 +68,7 @@ forms([], S) ->
              F ->
                  [{M, F, 0}]
          end,
-    Attrs = {[], [], []},
-    {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL}, U}.
+    {{DefAt, LCallAt, XCallAt, LC, XC, X, Depr, OL}, U}.
 
 form({attribute, _, on_load, {F, 0}}, S) ->
     S#xrefr{on_load = F};

@@ -26,6 +26,7 @@
 
 -export([module/4]).
 -export([encode/2]).
+-export([xref/2]).
 
 -export_type([fail/0,label/0,src/0,module_code/0,function_name/0]).
 
@@ -735,3 +736,95 @@ negative_to_bytes(N) ->
 	<<0:1,_/bits>> -> [16#ff,Bin];
 	<<1:1,_/bits>> -> Bin
     end.
+
+%% collect xref information
+-spec xref(module(), [asm_function()]) -> map().
+xref(Module, Code) ->
+    xref_funcs(Code, Module,
+               #{on_load => [],
+                 def_at => [],
+                 l_call => [],
+                 l_call_at => [],
+                 x_call => [],
+                 x_call_at => []
+                }).
+
+xref_funcs([{function,F,A,_Lbl,Ops} | Fs], M, #{def_at := Defs}=Map0) ->
+    L = func_line(Ops),
+    {Generated, F1, A1} = func_name(F, A),
+    Func = {M, F1, A1},
+    Map = case Generated of
+              true ->
+                  Map0;
+              false ->
+                  Map0#{def_at => [{Func,L} | Defs]}
+          end,
+    Map1 = xref_code(Ops, L, Func, Map),
+    xref_funcs(Fs, M, Map1);
+xref_funcs([], _M, #{def_at := Defs}=Map) ->
+    Map#{def_at := lists:keysort(2, Defs)}.
+
+func_line([{label,_} | Ops]) -> func_line(Ops);
+func_line([{line,[]} | _]) -> 0;
+func_line([{line,[{location,F,L}]} | _]) -> {F,L};
+func_line(_) -> 0.
+
+func_name(F, A) ->
+    case re:run(atom_to_binary(F),
+                <<"^-(inlined-)?([^/]+)/([0-9]+)-.*$">>,
+                [{capture,all_but_first,binary}]) of
+        {match, [_,F1,A1]} ->
+            {true, F1, binary_to_integer(A1)};
+        _ ->
+            {false, F, A}
+    end.
+
+xref_code([{line,[{location,F,L}]} | Ops], _L, Func, #{module := M}=Map) ->
+    xref_code(Ops, {M,F,L}, Func, Map);
+xref_code([{line,_} | Ops], _L, Func, Map) ->
+    xref_code(Ops, 0, Func, Map);
+xref_code([{call,_Lbl,Dest} | Ops], L, Func, Map) ->
+    xref_code_local(Ops, L, Func, Map, Dest);
+xref_code([{call_only,_Lbl,Dest} | Ops], L, Func, Map) ->
+    xref_code_local(Ops, L, Func, Map, Dest);
+xref_code([{call_last,_Lbl,Dest,_} | Ops], L, Func, Map) ->
+    xref_code_local(Ops, L, Func, Map, Dest);
+xref_code([{make_fun3,Dest,_,_,_,_} | Ops], L, Func, Map) ->
+    xref_code_local(Ops, L, Func, Map, Dest);
+xref_code([{call_ext,_Lbl,Dest} | Ops], L, Func, Map) ->
+    xref_code_external(Ops, L, Func, Map, Dest);
+xref_code([{call_ext_only,_Lbl,Dest} | Ops], L, Func, Map) ->
+    xref_code_external(Ops, L, Func, Map, Dest);
+xref_code([{call_ext_last,_Lbl,Dest,_} | Ops], L, Func, Map) ->
+    xref_code_external(Ops, L, Func, Map, Dest);
+xref_code([on_load | Ops], L, Func, #{on_load := OnLoad}=Map0) ->
+    Map = Map0#{on_load => [Func | OnLoad]},
+    xref_code(Ops, L, Func, Map);
+xref_code([_Op | Ops], L, Func, Map) ->
+    xref_code(Ops, L, Func, Map);
+xref_code([], _L, _Func, Map) ->
+    Map.
+
+xref_code_local(Ops, L, Func, #{l_call := Calls, l_call_at := CallsAt}=Map,
+                {_, F, A}=Dest) ->
+    {Generated, _F1, _A1} = func_name(F, A),
+    case Generated of
+        true ->
+            xref_code(Ops, L, Func, Map);
+        false ->
+            Edge = {Func, Dest},
+            Map1 = Map#{l_call => [Edge | Calls],
+                        l_call_at => [{Edge,L} | CallsAt]},
+            xref_code(Ops, L, Func, Map1)
+    end;
+xref_code_local(Ops, L, Func, Map, _Dest) ->
+    xref_code(Ops, L, Func, Map).
+
+xref_code_external(Ops, L, Func, #{x_call := Calls, x_call_at := CallsAt}=Map,
+                   {extfunc, M, F, A}) ->
+    Edge = {Func, {M, F, A}},
+    Map1 = Map#{x_call => [Edge | Calls],
+                x_call_at => [{Edge,L} | CallsAt]},
+    xref_code(Ops, L, Func, Map1);
+xref_code_external(Ops, L, Func, Map, _Dest) ->
+    xref_code(Ops, L, Func, Map).
