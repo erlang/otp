@@ -1319,7 +1319,7 @@ replace(Conf) when is_list(Conf) ->
     keysearch(application, 1, ModInfo),
 
     {ok, x} = compile:file(X, [no_debug_info, {outdir,EB1_1}]),
-    {error, _, {no_debug_info, _}} = xref:replace_module(s, x, Xbeam),
+    {ok, x} = xref:replace_module(s, x, Xbeam),
     {error, _, {module_mismatch, x,y}} =
     xref:replace_module(s, x, Ybeam),
     case os:type() of
@@ -1332,7 +1332,7 @@ replace(Conf) when is_list(Conf) ->
             true
     end,
     ok = xref:remove_module(s, x),
-    {error, _, {no_debug_info, _}} = xref:add_module(s, Xbeam),
+    {ok, x} = xref:add_module(s, Xbeam),
 
     %% "app2" is ignored, the old application name is kept
     {ok, app1} = xref:replace_application(s, app1, A2),
@@ -1373,7 +1373,7 @@ update(Conf) when is_list(Conf) ->
 
     timer:sleep(2000),
     {ok, x} = compile:file(Source, [no_debug_info,{outdir,Dir}]),
-    {error, _, {no_debug_info, _}} = xref:update(s),
+    {ok, [x]} = xref:update(s),
 
     xref:stop(s),
     ok = file:delete(Beam),
@@ -2021,10 +2021,11 @@ md(Conf) when is_list(Conf) ->
     {ok, x__x} = compile:file(X, [no_debug_info, {outdir,Dir}]),
     {ok, y__y} = compile:file(Y, [no_debug_info, {outdir,Dir}]),
     MInfoMod = xref:m(x__x),
-    [{y__y,t,2}] = info_tag(MInfoMod, undefined),
+    io:format("MInfoMod: ~p.\n",[MInfoMod]),
+    [{{x__x,t,1},{y__y,t,2}}] = info_tag(MInfoMod, undefined),
     [] = info_tag(MInfo, deprecated),
     DInfoMod = xref:d(Dir),
-    [{y__y,t,2}] = info_tag(DInfoMod, undefined),
+    [{{x__x,t,1},{y__y,t,2}}] = info_tag(DInfoMod, undefined),
     [] = info_tag(MInfo, deprecated),
 
     true = code:set_path(OldPath),
