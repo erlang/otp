@@ -1530,7 +1530,7 @@ Returns one of the following:
 - The number of bytes written (including the terminating NUL byte)
 - `-size` if the string was truncated because of buffer space
 - `0` if `list` is not a string that can be encoded with `encoding` or if `size`
-  was < `1`.
+  was `0`.
 
 The written string is always NUL\-terminated, unless buffer `size` is `0`.
 
