@@ -1523,28 +1523,34 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 			       #session{cipher_suite = NegotiatedCipherSuite} = Session0,
 			       ConnectionStates0, Renegotiation, IsResumed) ->
     Session = handle_srp_extension(maps:get(srp, Exts, undefined), Session0),
-    MaxFragEnum = handle_mfl_extension(maps:get(max_frag_enum, Exts, undefined)),
-    ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
-    ConnectionStates = handle_renegotiation_extension(server, RecordCB, Version, maps:get(renegotiation_info, Exts, undefined),
-						      Random, NegotiatedCipherSuite, 
-						      ClientCipherSuites,
-						      ConnectionStates1, Renegotiation, SecureRenegotation),
+    ConnectionStates1 = handle_renegotiation_extension(server, RecordCB, Version,
+                                                       maps:get(renegotiation_info, Exts, undefined),
+                                                       Random, NegotiatedCipherSuite,
+                                                       ClientCipherSuites,
+                                                       ConnectionStates0,
+                                                       Renegotiation, SecureRenegotation),
 
     Empty = empty_extensions(Version, server_hello),
-    %% RFC 6066 - server doesn't include max_fragment_length for resumed sessions
-    ServerMaxFragEnum = if IsResumed ->
-                                undefined;
-                           true ->
-                                MaxFragEnum
-                        end,
-    ServerHelloExtensions = Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
-                                                                            ConnectionStates, Renegotiation),
-                                   ec_point_formats => server_ecc_extension(Version, 
-                                                                            maps:get(ec_point_formats, Exts, undefined)),
-                                   use_srtp => use_srtp_ext(Opts),
-                                   max_frag_enum => ServerMaxFragEnum
-                                  },
-    
+    %% RFC 6066 - TLS-1.2 (or previous version) server doesn't include
+    %% max_fragment_length in server hello extensions for resumed
+    %% sessions ...
+    {ServerMaxFragEnum, ConnectionStates} =
+        if IsResumed ->
+                %% ... and continues using previously negotiate value if it exists
+                {undefined, ConnectionStates1};
+           true ->
+                MaxFragEnum = handle_mfl_extension(maps:get(max_frag_enum, Exts, undefined)),
+                {MaxFragEnum,  ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates1)}
+        end,
+    ServerHelloExtensions =
+        Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
+                                                        ConnectionStates, Renegotiation),
+               ec_point_formats => server_ecc_extension(Version,
+                                                        maps:get(ec_point_formats, Exts, undefined)),
+               use_srtp => use_srtp_ext(Opts),
+               max_frag_enum => ServerMaxFragEnum
+              },
+
     %% If we receive an ALPN extension and have ALPN configured for this connection,
     %% we handle it. Otherwise we check for the NPN extension.
     ALPN = maps:get(alpn, Exts, undefined),
@@ -1555,7 +1561,8 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
              ServerHelloExtensions#{alpn => encode_alpn([Protocol], Renegotiation)}};
         true ->
             NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
-            ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
+            ProtocolsToAdvertise =
+                handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
             {Session, ConnectionStates, undefined,
              ServerHelloExtensions#{next_protocol_negotiation =>
                                         encode_protocols_advertised_on_server(ProtocolsToAdvertise)}}
