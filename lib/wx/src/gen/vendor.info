@@ -18,8 +18,8 @@
     "sha": "dc585039bbd426829e3433002023a93f9bedd0c2",
     "path": "./lib/wx/src/gen",
     "exclude": ["./lib/wx/src/gen/gl.erl",
-                      "./lib/wx/src/gen/glu.erl",
-                      ./lib/wx/src/gen/vendor.info"],
+                "./lib/wx/src/gen/glu.erl",
+                "./lib/wx/src/gen/vendor.info"],
     "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
     "supplier": "NOASSERTION",
     "purl": "pkg:github/wxwidgets/wxwidgets"
