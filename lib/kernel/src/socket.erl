@@ -4958,8 +4958,10 @@ This function is equivalent to calling [`sendmsg/4`](`sendmsg/4`) multiple times
 but uses the platform's `sendmmsg` syscall for better performance when sending
 multiple datagrams.
 
-This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
-On unsupported platforms, it will return `{error, notsup}`.
+> #### Note {: .info }
+>
+> This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
+> On unsupported platforms, it will return `{error, notsup}`.
 
 Returns `{ok, SentCount}` where `SentCount` is the number of messages successfully sent.
 """.
@@ -6777,8 +6779,10 @@ This function is equivalent to calling [`recvmsg/5`](`recvmsg/5`) multiple times
 but uses the platform's `recvmmsg` syscall for better performance when receiving
 multiple datagrams.
 
-This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
-On unsupported platforms, it will return `{error, notsup}`.
+> #### Note {: .info }
+>
+> This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
+> On unsupported platforms, it will return `{error, notsup}`.
 
 Arguments:
 - `VLen` - Maximum number of messages to receive (must be >= 1).
@@ -6791,31 +6795,31 @@ Returns a list of message maps, one per received message. The list length
 indicates how many messages were actually received.
 """.
 -spec recvmmsg(Socket, VLen, BufSz, CtrlSz, Flags, Timeout :: 'infinity') ->
-          {'ok', Msg} |
+          {'ok', Msgs} |
           {'error', Reason} when
       Socket  :: socket(),
       VLen    :: non_neg_integer(),
       BufSz   :: non_neg_integer(),
       CtrlSz  :: non_neg_integer(),
       Flags   :: [msg_flag() | integer()],
-      Msg     :: msg_recv(),
+      Msgs    :: [msg_recv()],
       Reason  :: posix() | 'closed' | invalid();
 
              (Socket, VLen, BufSz, CtrlSz, Flags, Timeout :: non_neg_integer()) ->
-          {'ok', Msg} |
+          {'ok', Msgs} |
           {'error', Reason} when
       Socket  :: socket(),
       VLen    :: non_neg_integer(),
       BufSz   :: non_neg_integer(),
       CtrlSz  :: non_neg_integer(),
       Flags   :: [msg_flag() | integer()],
-      Msg     :: msg_recv(),
+      Msgs    :: [msg_recv()],
       Reason  :: posix() | 'closed' | invalid() | 'timeout';
 
              (Socket, VLen, BufSz, CtrlSz, Flags, 'nowait' | Handle) ->
-          {'ok', Msg} |
+          {'ok', Msgs} |
           {'select', SelectInfo} |
-          {'select_read', {SelectInfo, Msg}} |
+          {'select_read', {SelectInfo, Msgs}} |
           {'completion', CompletionInfo} |
           {'error', Reason} when
       Socket         :: socket(),
@@ -6824,7 +6828,7 @@ indicates how many messages were actually received.
       CtrlSz         :: non_neg_integer(),
       Handle         :: select_handle() | completion_handle(),
       Flags          :: [msg_flag() | integer()],
-      Msg            :: msg_recv(),
+      Msgs           :: [msg_recv()],
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
       Reason         :: posix() | 'closed' | invalid().
