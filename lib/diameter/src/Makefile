@@ -274,7 +274,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 # Can't $(INSTALL_DIR) more than one directory at a time on Solaris.
 
 release_spec: opt
-	for d in bin ebin examples include src/dict; do \
+	for d in bin ebin include src/dict; do \
 	    $(INSTALL_DIR) "$(RELSYSDIR)/$$d"; \
 	done
 	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) "$(RELSYSDIR)/bin"
@@ -283,7 +283,7 @@ release_spec: opt
 	                "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(DICTS:%=dict/%.dia) "$(RELSYSDIR)/src/dict"
 	$(MAKE) ERL_DETERMINISTIC=$(ERL_DETERMINISTIC) $(TARGET_DIRS:%/=release_src_%)
-	$(MAKE) ERL_DETERMINISTIC=$(ERL_DETERMINISTIC) $(EXAMPLE_DIRS:%/=release_examples_%)
+
 
 $(TARGET_DIRS:%/=release_src_%): release_src_%:
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/$*"
@@ -293,11 +293,13 @@ $(TARGET_DIRS:%/=release_src_%): release_src_%:
 	                "$(RELSYSDIR)/src/$*"
 
 $(EXAMPLE_DIRS:%/=release_examples_%): release_examples_%:
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/$*"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/$*"
 	$(INSTALL_DATA) $(patsubst %, ../examples/%, $(filter $*/%, $(EXAMPLES))) \
-	                "$(RELSYSDIR)/examples/$*"
+	                "$(RELSYSDIR)/doc/examples/$*"
 
 release_docs_spec:
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples"
+	$(MAKE) ERL_DETERMINISTIC=$(ERL_DETERMINISTIC) $(EXAMPLE_DIRS:%/=release_examples_%)
 
 # ----------------------------------------------------
 # Dependencies

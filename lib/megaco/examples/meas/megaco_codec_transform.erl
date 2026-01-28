@@ -98,8 +98,7 @@ messages(MessagePackage) when is_atom(MessagePackage) ->
     %% Try the CWD first, and if that does not work try the installation directory
     case load_messages(".", MessagePackage) of
 	{error, _Reason} ->
-	    AppLibDir = code:lib_dir(megaco),
-	    Dir = filename:join([AppLibDir, examples, meas]),
+        Dir = filename:dirname(code:which(?MODULE)),
 	    load_messages(Dir, MessagePackage);
 	Else ->
 	    Else

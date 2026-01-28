@@ -950,7 +950,8 @@ create_embedded(_Config) ->
 
 create_standalone(_Config) ->
     %% Configure the server
-    ExDir = code:lib_dir(reltool, examples),
+    ModulePath = code:which(?MODULE),
+    ExDir = filename:join([filename:dirname(ModulePath), "examples"]),
     EscriptName = "display_args",
     Escript = filename:join([ExDir, EscriptName]),
     Config =
@@ -1125,7 +1126,8 @@ create_standalone_app_clash(Config) ->
 
 create_multiple_standalone(Config) ->
     %% First escript
-    ExDir = code:lib_dir(reltool, examples),
+    ModulePath = code:which(?MODULE),
+    ExDir = filename:join([filename:dirname(ModulePath), "examples"]),
     EscriptName1 = "display_args",
     Escript1 = filename:join([ExDir, EscriptName1]),
 
@@ -1921,7 +1923,8 @@ load_config_escript_path(Config) ->
 
 load_config_same_escript_source(_Config) ->
     %% Create escript
-    ExDir = code:lib_dir(reltool, examples),
+    ModulePath = code:which(?MODULE),
+    ExDir = filename:join([filename:dirname(ModulePath), "examples"]),
     EscriptName = "display_args",
     Escript = filename:join([ExDir, EscriptName]),
 
@@ -1988,7 +1991,8 @@ load_config_same_escript_beam(Config) ->
 
 load_config_add_escript(Config) ->
     %% First escript
-    ExDir = code:lib_dir(reltool, examples),
+    ModulePath = code:which(?MODULE),
+    ExDir = filename:join([filename:dirname(ModulePath), "examples"]),
     EscriptName1 = "display_args",
     Escript1 = filename:join([ExDir, EscriptName1]),
 

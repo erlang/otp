@@ -199,8 +199,8 @@ compile_dicts(Dir) ->
     ?EL("compile_dicts -> entry"),
     Out = mkdir(Dir, "dict"),
     ?EL("compile_dicts -> create paths"),
-    Dirs = [filename:join(H ++ ["examples", "dict"])
-            || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
+    ModulePath = code:which(?MODULE),
+    Dirs = [filename:join([filename:dirname(ModulePath), "examples", "dict"])],
     [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
                       D <- ?DICT0,
                       RC <- [make(F, D, Out)],
@@ -315,14 +315,16 @@ compile_code(Tmpdir) ->
 
 %% Compile in another node since the code path is modified.
 install(Tmpdir) ->
-    {Top, Dia, Ebin} = install(here(), Tmpdir),
+    {_Top, Dia, Ebin} = install(here(), Tmpdir),
 
     %% Prepend the created directory just so that code:lib_dir/1 finds
     %% it when compile:file/2 tries to resolve include_lib.
     true = code:add_patha(Ebin),
     Dia = code:lib_dir(diameter),  %% assert
 
-    Src = filename:join([Top, "examples", "code"]),
+    ModulePath = code:which(?MODULE),
+    Src = filename:join([filename:dirname(ModulePath), "examples", "code"]),
+
     Files = find_files([Src], ".*\\.erl$"),
     [] = [{F,T} || {_,F} <- Files,
                    T <- [compile:file(F, [warnings_as_errors,

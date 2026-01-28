@@ -87,5 +87,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) eunit.spec $(EMAKEFILE) \
 		$(COVERFILE) $(ERL_FILES) \
 		"$(RELSYSDIR)"
+	(cd ..; tar cf - examples | (cd "$(RELSYSDIR)/"; tar xf -))
+	chmod -R ug+w "$(RELSYSDIR)/examples"
 
 release_docs_spec:

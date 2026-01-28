@@ -190,6 +190,8 @@ release_tests_spec:
 	                $(TEST_SPEC_FILE) \
 	                $(COVER_SPEC_FILE) \
 	                "$(RELSYSDIR)"
+	(cd ..; tar cf - examples | (cd "$(RELSYSDIR)/"; tar xf -))
+	chmod -R ug+w "$(RELSYSDIR)/examples"
 	$(MAKE) $(DATA_DIRS:%/=release_data_%)
 	$(MAKE) $(ERL_FILES:%=/%)
 

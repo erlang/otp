@@ -1863,11 +1863,9 @@ message(ack, _, N) ->
 %% ------------------------------------------------------------------------
 
 compile_and_load() ->
-    Path = hd([P || H <- [[here(), ".."], [code:lib_dir(diameter)]],
-                    P <- [filename:join(H ++ ["examples",
-                                              "dict",
-                                              "rfc4005_nas.dia"])],
-                    {ok, _} <- [file:read_file_info(P)]]),
+    ModulePath = code:which(?MODULE),
+    Path = filename:join([filename:dirname(ModulePath), "examples", "dict", "rfc4005_nas.dia"]),
+    {ok, _} = file:read_file_info(Path),
     Opts = [return,
             forms,
             {name, "nas4005"},
@@ -1876,6 +1874,3 @@ compile_and_load() ->
     {ok, [Forms]} = diameter_make:codec(Path, Opts),
     {ok, nas4005, Bin, []} = compile:forms(Forms, [debug_info, return]),
     {module, nas4005} = code:load_binary(nas4005, "nas4005", Bin).
-
-here() ->
-    filename:dirname(code:which(?MODULE)).

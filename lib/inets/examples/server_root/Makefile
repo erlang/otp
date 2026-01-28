@@ -176,36 +176,35 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/auth"
-	$(INSTALL_DATA) $(AUTH_FILES) "$(RELSYSDIR)/examples/server_root/auth"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/cgi-bin"
-	$(INSTALL_SCRIPT) $(CGI_FILES) "$(RELSYSDIR)/examples/server_root/cgi-bin"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/conf"
-	$(INSTALL_DATA) $(CONF_FILES) "$(RELSYSDIR)/examples/server_root/conf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/htdocs/open"
-	$(INSTALL_DATA) $(OPEN_FILES) \
-		"$(RELSYSDIR)/examples/server_root/htdocs/open"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/htdocs/mnesia_open"
-	$(INSTALL_DATA) $(MNESIA_OPEN_FILES) \
-		"$(RELSYSDIR)/examples/server_root/htdocs/mnesia_open"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/htdocs/misc"
-	$(INSTALL_DATA) $(MISC_FILES) \
-		"$(RELSYSDIR)/examples/server_root/htdocs/misc"
-	$(INSTALL_DIR)  \
-		"$(RELSYSDIR)/examples/server_root/htdocs/secret/top_secret"
-	$(INSTALL_DIR)  \
-		"$(RELSYSDIR)/examples/server_root/htdocs/mnesia_secret/top_secret"
-	$(INSTALL_DATA) $(SECRET_FILES)  \
-		"$(RELSYSDIR)/examples/server_root/htdocs/secret"
-	$(INSTALL_DATA) $(MNESIA_SECRET_FILES)  \
-		"$(RELSYSDIR)/examples/server_root/htdocs/mnesia_secret"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/htdocs"
-	$(INSTALL_DATA) $(HTDOCS_FILES) "$(RELSYSDIR)/examples/server_root/htdocs"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/icons"
-	$(INSTALL_DATA) $(ICON_FILES) "$(RELSYSDIR)/examples/server_root/icons"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/ssl"
-	$(INSTALL_DATA) $(SSL_FILES) "$(RELSYSDIR)/examples/server_root/ssl"
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/server_root/logs"
 
 release_docs_spec:
-
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/auth"
+	$(INSTALL_DATA) $(AUTH_FILES) "$(RELSYSDIR)/doc/examples/server_root/auth"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/cgi-bin"
+	$(INSTALL_SCRIPT) $(CGI_FILES) "$(RELSYSDIR)/doc/examples/server_root/cgi-bin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/conf"
+	$(INSTALL_DATA) $(CONF_FILES) "$(RELSYSDIR)/doc/examples/server_root/conf"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/htdocs/open"
+	$(INSTALL_DATA) $(OPEN_FILES) \
+		"$(RELSYSDIR)/doc/examples/server_root/htdocs/open"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/htdocs/mnesia_open"
+	$(INSTALL_DATA) $(MNESIA_OPEN_FILES) \
+		"$(RELSYSDIR)/doc/examples/server_root/htdocs/mnesia_open"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/htdocs/misc"
+	$(INSTALL_DATA) $(MISC_FILES) \
+		"$(RELSYSDIR)/doc/examples/server_root/htdocs/misc"
+	$(INSTALL_DIR)  \
+		"$(RELSYSDIR)/doc/examples/server_root/htdocs/secret/top_secret"
+	$(INSTALL_DIR)  \
+		"$(RELSYSDIR)/doc/examples/server_root/htdocs/mnesia_secret/top_secret"
+	$(INSTALL_DATA) $(SECRET_FILES)  \
+		"$(RELSYSDIR)/doc/examples/server_root/htdocs/secret"
+	$(INSTALL_DATA) $(MNESIA_SECRET_FILES)  \
+		"$(RELSYSDIR)/doc/examples/server_root/htdocs/mnesia_secret"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/htdocs"
+	$(INSTALL_DATA) $(HTDOCS_FILES) "$(RELSYSDIR)/doc/examples/server_root/htdocs"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/icons"
+	$(INSTALL_DATA) $(ICON_FILES) "$(RELSYSDIR)/doc/examples/server_root/icons"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/ssl"
+	$(INSTALL_DATA) $(SSL_FILES) "$(RELSYSDIR)/doc/examples/server_root/ssl"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/server_root/logs"

@@ -398,5 +398,5 @@ release_tests_spec: tests
 #                        $(HRL_FILES) $(ERL_FILES) \
 #                        "$(RELSYSDIR)"
 #
+	(cd ..; tar cf - examples | (cd "$(RELSYSDIR)/"; tar xf -))
 	chmod -R u+w "$(RELSYSDIR)"
-

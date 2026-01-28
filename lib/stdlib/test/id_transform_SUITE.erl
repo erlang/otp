@@ -59,8 +59,8 @@ end_per_group(_GroupName, Config) ->
 
 %% Test erl_id_trans.
 id_transform(Config) when is_list(Config) ->
-    File = filename:join([code:lib_dir(stdlib),"examples",
-			"erl_id_trans.erl"]),
+    ModulePath = code:which(?MODULE),
+    File = filename:join([filename:dirname(ModulePath), examples, "erl_id_trans.erl"]),
     {ok,erl_id_trans,Bin} = compile:file(File, [binary,report]),
     {module,erl_id_trans} = code:load_binary(erl_id_trans, File, Bin),
     case test_server:is_valgrind() of
