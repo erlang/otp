@@ -61,7 +61,8 @@
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
          test_package_relations/1, test_has_extracted_licenses/1,
-         test_vendor_packages/1, test_erts/1, test_download_vendor_location/1
+         test_vendor_packages/1, test_erts/1, test_download_vendor_location/1,
+         test_build_packages/1
          %% test_copyright_format/1, test_files_licenses/1,
         ]).
 
@@ -124,6 +125,7 @@
 -type spdx_relations() :: #{ 'DOCUMENTATION_OF' => [],
                              'CONTAINS' => [],
                              'TEST_OF' => [],
+                             'BUILD_TOOL_OF' => [],
                              'PACKAGE_OF' => []}.
 
 -record(spdx_package, {'SPDXID'           :: unicode:chardata(),
@@ -144,6 +146,7 @@
                        'relationships' = #{ 'DOCUMENTATION_OF' => [],
                                             'CONTAINS' => [],
                                             'TEST_OF' => [],
+                                            'BUILD_TOOL_OF' => [],
                                             'PACKAGE_OF' => []} :: spdx_relations()
                       }).
 -type spdx_package() :: #spdx_package{}.
@@ -1109,9 +1112,9 @@ create_otp_relationships(Packages, PackageTemplates, Spdx) ->
     create_opt_depency_relationships(PackageTemplates, Spdx2).
 
 -spec add_packages(Packages :: [spdx_package()], Spdx :: map()) -> SpdxResult :: map().
-add_packages(AppPackages, Spdx) ->
-    #{~"packages" := SpdxPackages}=Spdx1 = remove_package_files_from_project(Spdx, AppPackages),
-    Spdx1#{~"packages" := SpdxPackages ++ AppPackages}.
+add_packages(VendorSpdxPackages, Spdx) ->
+    #{~"packages" := SpdxPackages}=Spdx1 = remove_package_files_from_project(Spdx, VendorSpdxPackages),
+    Spdx1#{~"packages" := SpdxPackages ++ VendorSpdxPackages}.
 
 %% Removes duplicate packages and adds a comment for existing vendor Packages in SPDX
 %% it also remove files in top-level directories and they onyly exist  in vendor libraries
@@ -1199,6 +1202,7 @@ create_package_relationships(Packages, Spdx) ->
                             {Key, Ls} = case Pkg#spdx_package.'relationships' of
                                             #{'PACKAGE_OF' := L } -> {'PACKAGE_OF', L};
                                             #{'TEST_OF' := L} -> {'TEST_OF', L};
+                                            #{'BUILD_TOOL_OF' := L} -> {'BUILD_TOOL_OF', L};
                                             #{'DOCUMENTATION_OF' := L} -> {'DOCUMENTATION_OF', L}
                                         end,
                             lists:foldl(fun ({ElementId, RelatedElement}, Acc1) ->
@@ -1842,7 +1846,16 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                       SpdxPackageFiles = group_files_by_app(Files, PrefixPath),
                       TestFiles = get_test_files(PackageName, SpdxPackageFiles, PrefixPath),
                       DocFiles = get_doc_files(PackageName, SpdxPackageFiles, PrefixPath),
-                      OTPAppFiles = (SpdxPackageFiles -- TestFiles) -- DocFiles,
+                      BuildFiles = get_build_files(PackageName, SpdxPackageFiles, PrefixPath),
+
+                      io:format("package name: ~s~n", [PackageName]),
+                      OTPAppFiles = ((SpdxPackageFiles -- TestFiles) -- DocFiles) -- BuildFiles,
+                      UpdatedTestFiles = TestFiles -- BuildFiles,
+                      UpdatedDocFiles = DocFiles -- BuildFiles,
+                      %% case PackageName == ~"megaco" of
+                      %%     true ->
+                      %%         io:format("BuildFiles: ~p~n", [BuildFiles])
+                      %% end
 
                       LicenseOTPApp = otp_app_license_mapping(PackageName),
                       Package = create_spdx_package_record(PackageName, AppInfo#app_info.vsn,
@@ -1852,23 +1865,38 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                       DocPackage = create_spdx_package_record(<<PackageName/binary, "-documentation">>,
                                                               AppInfo#app_info.vsn,
                                                               <<"Documentation of ", PackageName/binary>>,
-                                                              DocFiles, ?spdx_homepage,
+                                                              UpdatedDocFiles, ?spdx_homepage,
                                                               LicenseOTPApp, LicenseOTPApp, false),
                       TestPackage = create_spdx_package_record(<<PackageName/binary, "-test">>,
                                                               AppInfo#app_info.vsn,
                                                               <<"Tests of ", PackageName/binary>>,
-                                                              TestFiles, ?spdx_homepage,
+                                                              UpdatedTestFiles, ?spdx_homepage,
                                                               LicenseOTPApp, LicenseOTPApp, false),
+                      BuildPackage = create_spdx_package_record(<<PackageName/binary, "-build">>,
+                                                                AppInfo#app_info.vsn,
+                                                                <<"Build tools of ", PackageName/binary>>,
+                                                                BuildFiles, ?spdx_homepage,
+                                                                LicenseOTPApp, LicenseOTPApp, false),
+                      %% io:format("[build package]~n~p~n~n", [BuildPackage]),
 
                       Relations = [ {'PACKAGE_OF', [{ Package#spdx_package.'SPDXID', ProjectName }]},
                                     {'DOCUMENTATION_OF', [{ DocPackage#spdx_package.'SPDXID', Package#spdx_package.'SPDXID' }]},
-                                    {'TEST_OF', [{ TestPackage#spdx_package.'SPDXID', Package#spdx_package.'SPDXID' }]} ],
+                                    {'TEST_OF', [{ TestPackage#spdx_package.'SPDXID', Package#spdx_package.'SPDXID' }]}
+                                  ],
 
                       Packages = lists:zipwith(fun (P, {K, R}) ->
                                                        P#spdx_package { 'relationships' = #{ K => R} }
                                                end, [Package, DocPackage, TestPackage], Relations),
-                      Packages ++ Acc
+                      AllPackages = append_build_package(BuildPackage, Package, Packages),
+                      AllPackages ++ Acc
                end, [SystemDocs], PackageMappings).
+
+append_build_package(#spdx_package{'hasFiles' = []}, _, AllPackages) ->
+    AllPackages;
+append_build_package(#spdx_package{'SPDXID' = BuildID}=BuildPackage,
+                     #spdx_package{'SPDXID' = ID},
+                     AllPackages) ->
+    [BuildPackage#spdx_package { 'relationships' = #{ 'BUILD_TOOL_OF' => [{ BuildID, ID}]} } | AllPackages].
 
 generate_spdx_system_docs(Files, ParentSPDXPackageId) ->
     PrefixPath = ~"system",
@@ -1899,6 +1927,25 @@ get_doc_files(~"erts", SpdxPackageFiles, PrefixPath) ->
 get_doc_files(_App, SpdxPackageFiles, PrefixPath) ->
     group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/doc/**").
 
+get_build_files(_, SpdxPackageFiles, PrefixPath) ->
+    BuildTools = build_tools_files(),
+    lists:flatmap(fun (Config) ->
+                          group_files_by_folder(SpdxPackageFiles,
+                                                binary_to_list(PrefixPath)++ "/**/" ++ Config)
+                  end, BuildTools).
+
+
+build_tools_files() ->
+    [
+      "configure",
+      "configure.ac",
+      "config.h.in",
+      "Makefile.in",
+      "Makefile.src",
+      "Emakefile",
+      "GNUmakefile"
+    ].
+
 create_spdx_package_record(PackageName, Vsn, Description, SpdxPackageFiles,
                            Homepage, LicenseConcluded, LicenseDeclared, Purl) ->
     SpdxPackageName = generate_spdxid_name(PackageName),
@@ -1908,6 +1955,18 @@ create_spdx_package_record(PackageName, Vsn, Description, SpdxPackageFiles,
                 true -> [create_externalRef_purl(Description, otp_purl(PackageName, Vsn)),
                          fix_openvex_reference()]
             end,
+    %% case where a vendor file is part of "SPDXRef-otp-commontest-autoconf"
+    %% but the licenses of "SPDXRef-otp-commontest" still contain the license of the file.
+    %% essentially, licenses of packages need to be recomputed.
+    case SpdxPackageName of
+        ~"SPDXRef-otp-commontest" ->
+            lists:foreach(
+                  fun (#{~"licenseInfoInFiles" := LicenseInfoInFiles, ~"SPDXID" := Id}) ->
+                          io:format("~s:~n~p~n~n", [Id, LicenseInfoInFiles])
+                  end, SpdxPackageFiles);
+        _ ->
+            ok
+    end,
     #spdx_package {
        'SPDXID' = SpdxPackageName,
        'versionInfo' = Vsn,
@@ -2107,7 +2166,8 @@ package_generator(Sbom) ->
              test_download_vendor_location,
              test_package_relations,
              test_has_extracted_licenses,
-             test_vendor_packages],
+             test_vendor_packages,
+             test_build_packages],
     true = ?CALL_TEST_FUNCTIONS(Tests, Sbom),
     ok.
 
@@ -2455,6 +2515,58 @@ vendor_relations(#{~"packages" := Packages, ~"relationships" := Relations}) ->
                              end
                      end, Relations),
     ok.
+
+test_build_packages(Spdx) ->
+    test_build_packages_contents(Spdx),
+    test_build_relations(Spdx),
+    ok.
+
+%% Checks that build packages contain only files from build_tools_files().
+test_build_packages_contents(#{~"packages" := Packages,
+                               ~"files" := Files}) ->
+    BuildPkgs = get_build_packages(Packages),
+    lists:foreach(fun (#{~"hasFiles" := FileIds}=_Pkg) ->
+                          true =
+                              lists:all(fun (#{~"SPDXID" := Id,
+                                               ~"fileName" := F}) ->
+                                            Filename = lists:last(string:split(F, "/", all)),
+                                            %% satisfy both conditions or consider it true (ignore)
+                                            (lists:member(Id, FileIds) andalso
+                                             lists:member(Filename, build_tools_files())) orelse
+                                                true
+                                        end, Files)
+                  end, BuildPkgs).
+
+test_build_relations(#{~"packages" := Packages}=Spdx) ->
+    Relations = get_relations(Spdx),
+    BuildPkgs = get_build_packages(Packages),
+    BuildPkgIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, BuildPkgs),
+    BuildRelations = lists:filter(fun (#{~"relationshipType" := Type}) -> Type == ~"BUILD_TOOL_OF" end, Relations),
+    true = lists:all(fun (Id) ->
+                             R = lists:any(fun (M) ->
+                                                   maps:get(~"spdxElementId", M) == Id
+                                           end, BuildRelations),
+                             case R of
+                                 false ->
+                                     io:format("Error: ~p~n", [Id]),
+                                     false;
+                                 true ->
+                                     true
+                             end
+                     end, BuildPkgIds).
+
+get_build_packages(Packages) ->
+    lists:filter(fun (#{~"SPDXID" := Id}) ->
+                         case string:split(Id, "-build") of
+                             [_, _ | _] ->
+                                 true;
+                             _ ->
+                                 false
+                         end
+                 end, Packages).
+
+get_relations(Spdx) ->
+    maps:get(~"relationships", Spdx).
 
 test_package_relations(#{~"packages" := Packages}=Spdx) ->
     PackageIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, Packages),
