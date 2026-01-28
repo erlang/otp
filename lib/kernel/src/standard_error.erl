@@ -260,7 +260,8 @@ getopts() ->
     Uni = {encoding,get(encoding)},
     Onlcr = {onlcr, get(onlcr)},
     Log = {log, get(log)},
-    {reply,[Uni, Onlcr, Log]}.
+    Terminal = {terminal, get(onlcr)},
+    {reply,[Uni, Onlcr, Log, Terminal]}.
 
 wrap_characters_to_binary(Chars,From,To) ->
     TrNl = get(onlcr),

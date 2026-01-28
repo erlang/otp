@@ -111,21 +111,25 @@
          handle_signal/2, window_size/1, update_geometry/3, handle_request/2,
          write/2, write/3,
          npwcwidth/1, npwcwidth/2,
-         ansi_regexp/0, ansi_color/2]).
+         ansi_regexp/0]).
 -export([reader_stop/1, disable_reader/1, enable_reader/1, read/1, read/2,
          is_reader/2, is_writer/2, output_mode/1]).
+
+%% Export to io_ansi
+-export([tigetstr/1, tputs/2, tigetflag/1, tigetnum/1, tinfo/0]).
 
 -nifs([isatty/1, tty_create/1, tty_init/2, setlocale/1,
        tty_select/2, tty_window_size/1,
        tty_encoding/1, tty_is_open/2, write_nif/2, read_nif/3, isprint/1,
        wcwidth/1, wcswidth/1,
-       sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
-       tgoto_nif/1, tgoto_nif/2, tgoto_nif/3]).
+       sizeof_wchar/0, setupterm_nif/0, tigetnum_nif/1, tigetflag_nif/1,
+       tigetstr_nif/1, tinfo_nif/0, tputs_nif/2
+    ]).
 
 -export([reader_loop/2, writer_loop/2]).
 
 %% Exported in order to remove "unused function" warning
--export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3, tty_is_open/2]).
+-export([sizeof_wchar/0, wcswidth/1, tty_is_open/2]).
 
 %% proc_lib exports
 -export([reader/1, writer/1]).
@@ -142,6 +146,7 @@
                 reader :: {pid(), reference()} | undefined,
                 writer :: {pid(), reference()} | undefined,
                 options = #{ input => cooked, output => cooked } :: options(),
+                have_termcap = false :: boolean(),
                 unicode = true :: boolean(),
                 lines_before = [],   %% All lines before the current line in reverse order
                 lines_after = [],    %% All lines after the current line.
@@ -154,18 +159,6 @@
                 cols = 80,
                 rows = 24,
                 xn = false,
-                clear = <<"\e[H\e[2J">>,
-                up = <<"\e[A">>,
-                down = <<"\n">>,
-                left = <<"\b">>,
-                right = <<"\e[C">>,
-                %% Tab to next 8 column windows is "\e[1I", for unix "ta" termcap
-                tab = <<"\e[1I">>,
-                delete_after_cursor = <<"\e[J">>,
-                insert = false, %% Not used
-                delete = false, %% Not used
-                position = <<"\e[6n">>, %% "u7" on my Linux, Not used
-                position_reply = <<"\e\\[([0-9]+);([0-9]+)R">>, %% Not used
                 ansi_regexp
                }).
 
@@ -198,32 +191,6 @@
 -spec ansi_regexp() -> binary().
 ansi_regexp() ->
     ?ANSI_REGEXP.
-
-ansi_fg_color(Color) ->
-    case Color of
-        black -> 30;
-        red -> 31;
-        green -> 32;
-        yellow -> 33;
-        blue -> 34;
-        magenta -> 35;
-        cyan -> 36;
-        white -> 37;
-        bright_black -> 90;
-        bright_red -> 91;
-        bright_green -> 92;
-        bright_yellow -> 93;
-        bright_blue -> 94;
-        bright_magenta -> 95;
-        bright_cyan -> 96;
-        bright_white -> 97
-    end.
-ansi_bg_color(Color) ->
-    ansi_fg_color(Color) + 10.
-
--spec ansi_color(BgColor :: atom(), FgColor :: atom()) -> iolist().
-ansi_color(BgColor, FgColor) ->
-    io_lib:format("\e[~w;~wm", [ansi_bg_color(BgColor), ansi_fg_color(FgColor)]).
 
 -spec load() -> ok.
 load() ->
@@ -267,7 +234,12 @@ init(UserOptions) when is_map(UserOptions) ->
                      true -> UnicodeSupported
                   end,
     {ok, ANSI_RE_MP} = re:compile(?ANSI_REGEXP, [unicode]),
-    init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
+
+    HaveTermCap = setupterm() =:= ok,
+
+    init_term(#state{ tty = TTY, have_termcap = HaveTermCap,
+                      unicode = UnicodeMode, options = Options,
+                      ansi_regexp = ANSI_RE_MP }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
         case maps:get(input, Options) of
@@ -358,93 +330,16 @@ init(State, ssh) ->
     State#state{ xn = true };
 init(State, {unix,_}) ->
 
-    case os:getenv("TERM") of
-        false ->
-            error(enotsup);
-        Term ->
-            case tgetent(Term) of
-                ok -> ok;
-                {error,_} -> error(enotsup)
-            end
-    end,
+    State#state.have_termcap orelse error(enotsup),
 
-    %% See https://www.gnu.org/software/termutils/manual/termcap-1.3/html_mono/termcap.html#SEC23
-    %% for a list of all possible termcap capabilities
-    Clear = case tgetstr("clear") of
-                {ok, C} -> C;
-                false -> (#state{})#state.clear
-            end,
-    Cols = case tgetnum("co") of
+    Cols = case tigetnum("co") of
                {ok, Cs} -> Cs;
                _ -> (#state{})#state.cols
            end,
-    Up = case tgetstr("up") of
-             {ok, U} -> U;
-             false -> error(enotsup)
-         end,
-    Down = case tgetstr("do") of
-               false -> (#state{})#state.down;
-               {ok, D} -> D
-           end,
-    Left = case {tgetflag("bs"),tgetstr("bc")} of
-               {true,_} -> (#state{})#state.left;
-               {_,false} -> (#state{})#state.left;
-               {_,{ok, L}} -> L
-           end,
-
-    Right = case tgetstr("nd") of
-                {ok, R} -> R;
-                false -> error(enotsup)
-            end,
-    Insert =
-        case tgetstr("IC") of
-            {ok, IC} -> IC;
-            false -> (#state{})#state.insert
-        end,
-
-    Tab = case tgetstr("ta") of
-              {ok, TA} -> TA;
-              false -> (#state{})#state.tab
-          end,
-
-    Delete = case tgetstr("DC") of
-                 {ok, DC} -> DC;
-                 false -> (#state{})#state.delete
-             end,
-
-    Position = case tgetstr("u7") of
-                   {ok, <<"\e[6n">> = U7} ->
-                       %% User 7 should contain the codes for getting
-                       %% cursor position.
-                       %% User 6 should contain how to parse the reply
-                       {ok, <<"\e[%i%d;%dR">>} = tgetstr("u6"),
-                       <<"\e[6n">> = U7;
-                   false -> (#state{})#state.position
-               end,
-
-    %% According to the manual this should only be issued when the cursor
-    %% is at position 0, but until we encounter such a console we keep things
-    %% simple and issue this with the cursor anywhere
-    DeleteAfter = case tgetstr("cd") of
-                      {ok, DA} ->
-                          DA;
-                      false ->
-                          (#state{})#state.delete_after_cursor
-                  end,
 
     State#state{
       cols = Cols,
-      clear = Clear,
-      xn = tgetflag("xn"),
-      up = Up,
-      down = Down,
-      left = Left,
-      right = Right,
-      insert = Insert,
-      delete = Delete,
-      tab = Tab,
-      position = Position,
-      delete_after_cursor = DeleteAfter
+      xn = tigetflag("xn")
      };
 init(State, {win32, _}) ->
     State#state{
@@ -732,9 +627,8 @@ handle_request(State = #state{unicode = U, cols = W, rows = R}, redraw_prompt_pr
                             ExpandRowsLimit1 = min(ExpandRowsLimit, R-1-InputRows),
                             BufferExpand1 = case ExpandRows > ExpandRowsLimit1 of
                                 true ->
-                                        Color = lists:flatten(ansi_color(cyan, bright_white)),
-                                        StatusLine = io_lib:format(Color ++"\e[1m" ++ "rows ~w to ~w of ~w" ++ "\e[0m",
-                                                                   [ERow, (ERow-1) + ExpandRowsLimit1, ExpandRows]),
+                                        StatusLine = io_ansi:format([cyan_background, light_white, bold, "rows ~w to ~w of ~w"],
+                                                                   [ERow, (ERow-1) + ExpandRowsLimit1, ExpandRows], [{enabled, true}]),
                                         Cols1 = max(0,W*ExpandRowsLimit1),
                                         Cols0 = max(0,W*(ERow-1)),
                                         {_, _, BufferExpandLinesInViewStart, {_, BEStartIVHalf}} = split_cols_multiline(Cols0, BufferExpandLines, U, W),
@@ -776,7 +670,7 @@ handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow,
 handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
                               lines_before = LinesBefore}, delete_line) ->
     MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
-    {[MoveToBeg, State#state.delete_after_cursor],
+    {[MoveToBeg, io_ansi:erase_display()],
      State#state{buffer_before = [],
                  buffer_after = [],
                  lines_before = [],
@@ -844,7 +738,7 @@ handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
             {[Delete, Moves, encode(PutBuffer, U), Redraw], PutcBufferState}
     end;
 handle_request(State = #state{}, delete_after_cursor) ->
-    {[State#state.delete_after_cursor],
+    {[io_ansi:erase_display()],
      State#state{buffer_after = [],
                  lines_after = []}};
 handle_request(State = #state{ unicode = U, cols = W }, {delete, N}) when N > 0 ->
@@ -1007,10 +901,10 @@ handle_request(State = #state{cols = W, xn = OrigXn, unicode = U,lines_after = L
 handle_request(State, beep) ->
     {<<7>>, State};
 handle_request(State, clear) ->
-    {State#state.clear, State#state{buffer_before = [],
-                                    buffer_after = [],
-                                    lines_before = [],
-                                    lines_after = []}};
+    {io_ansi:clear(), State#state{buffer_before = [],
+                                  buffer_after = [],
+                                  lines_before = [],
+                                  lines_after = []}};
 handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
     {"", State}.
@@ -1111,14 +1005,14 @@ move_cursor(#state{ cols = W } = State, FromCol, ToCol) ->
              move(right, State, N)
      end].
 
-move(up, #state{ up = Up }, N) ->
-    lists:duplicate(N, Up);
-move(down, #state{ down = Down }, N) ->
-    lists:duplicate(N, Down);
-move(left, #state{ left = Left }, N) ->
-    lists:duplicate(N, Left);
-move(right, #state{ right = Right }, N) ->
-    lists:duplicate(N, Right).
+move(up, _, N) ->
+    lists:duplicate(N, io_ansi:cursor_up());
+move(down, _, N) ->
+    lists:duplicate(N, io_ansi:cursor_down());
+move(left, _, N) ->
+    lists:duplicate(N, io_ansi:cursor_backward());
+move(right, _, N) ->
+    lists:duplicate(N, io_ansi:cursor_forward()).
 
 in_view(#state{lines_after = LinesAfter, buffer_before = Bef, buffer_after = Aft, lines_before = LinesBefore,
                rows=R, cols=W, unicode=U, buffer_expand = BufferExpand, buffer_expand_limit = BufferExpandLimit} = State) ->
@@ -1263,16 +1157,8 @@ npwcwidth(Char, Encoding) ->
 
 
 %% Return the xn fix for the current cursor position.
-%% We use get_position to figure out if we need to calculate the current columns
-%%  or not.
 %%
-%% We need to know the actual column because get_position will return the last
-%% column number when the cursor is:
-%%   * in the last column
-%%   * off screen
-%%
-%% and it is when the cursor is off screen that we should do the xnfix.
-xnfix(#state{ position = _, unicode = U } = State) ->
+xnfix(#state{ unicode = U } = State) ->
     xnfix(State, cols(State#state.buffer_before, U)).
 %% Return the xn fix for CurrCols location.
 xnfix(#state{ xn = true, cols = Cols } = State, CurrCols)
@@ -1318,8 +1204,8 @@ insert_buf(State, Bin, LineAcc, Acc) ->
             {[Acc, characters_to_output(lists:reverse(LineAcc)), xnfix(NewState)],
              NewState};
         [$\t | Rest] ->
-            insert_buf(State, Rest, [State#state.tab | LineAcc], Acc);
-        [$\e | Rest] ->
+            insert_buf(State, Rest, [io_ansi:tab() | LineAcc], Acc);
+        [CSI | Rest] when CSI =:= $\e; CSI =:= 155 ->
             case ansi_sgr(Bin) of
                 none ->
                     case re:run(Bin, State#state.ansi_regexp) of
@@ -1404,12 +1290,28 @@ insert_buf(State, Bin, LineAcc, Acc) ->
 %% This function replicates this regex pattern <<"^[\e",194,155,"]\\[[0-9;:]*m">>
 %% calling re:run/2 nif on compiled regex_pattern was significantly
 %% slower than this implementation.
-ansi_sgr(<<N, $[, Rest/binary>> = Bin) when N =:= $\e; N =:= 194; N =:= 155 ->
-    case ansi_sgr(Rest, 2) of
-        {ok, Size} ->
-            <<Result:Size/binary, Bin1/binary>> = Bin,
-            {Result, Bin1};
-        none -> none
+ansi_sgr(<<N/utf8, $[, Rest/binary>> = Bin) when N =:= $\e; N =:= 155 ->
+    case os:getenv("NO_COLOR") of
+        false ->
+            case ansi_sgr(Rest, 2) of
+                {ok, Size} ->
+                    <<Result:Size/binary, Bin1/binary>> = Bin,
+                    {Result, Bin1};
+                none -> none
+            end;
+        _ ->
+            case filter_sgr_colors(Bin) of
+                <<>> -> none; %% No SGR left, return none
+                <<N/utf8, $[, RestFiltered/binary>> = BinFiltered ->
+                    %% Filtered SGR, so we return the filtered binary
+                    %% without any ANSI escape sequences
+                    case ansi_sgr(RestFiltered, 2) of
+                        {ok, Size} ->
+                            <<Result:Size/binary, Bin1/binary>> = BinFiltered,
+                            {Result, Bin1};
+                        none -> none
+                    end
+            end
     end;
 ansi_sgr(<<_/binary>>) -> none.
 ansi_sgr(<<M, Rest/binary>>, Size) when $0 =< M, M =< $; ->
@@ -1417,6 +1319,70 @@ ansi_sgr(<<M, Rest/binary>>, Size) when $0 =< M, M =< $; ->
 ansi_sgr(<<$m, _Rest/binary>>, Size) ->
     {ok, Size + 1};
 ansi_sgr(<<_/binary>>, _) -> none.
+
+-spec filter_sgr_colors(binary()) -> binary().
+filter_sgr_colors(<<N/utf8, $[, Rest/binary>>) when N =:= $\e; N =:= 155 ->
+    case binary:split(Rest, <<"m">>) of
+        [Params, Tail] ->
+            FilteredParams = filter_sgr_params(binary:split(Params, <<";">>, [global])),
+            case FilteredParams of
+                [] -> Tail;  %% No params left, skip the whole sequence
+                _ -> iolist_to_binary([N, $[, lists:join($;, FilteredParams), "m", Tail])
+            end;
+        _ ->
+            <<N, $[, Rest/binary>>  %% Not a valid SGR, return as-is
+    end;
+filter_sgr_colors(Other) ->
+    Other.
+
+%% Filter a list of SGR parameter binaries, removing color-related ones
+filter_sgr_params(Params) ->
+    filter_sgr_params(Params, []).
+
+filter_sgr_params([], Acc) ->
+    lists:reverse(Acc);
+filter_sgr_params([<<>> | Rest], Acc) ->
+    %% Skip empty parameters
+    filter_sgr_params(Rest, Acc);
+filter_sgr_params([P | Rest], Acc) ->
+    try
+        N = binary_to_integer(P),
+        case is_color_param(N) of
+            true ->
+                %% Check if this is an extended color (38, 48, 58)
+                Skip = extended_color_skip(N, Rest),
+                filter_sgr_params(lists:nthtail(Skip, Rest), Acc);
+            false ->
+                filter_sgr_params(Rest, [P | Acc])
+        end
+    catch _:_ ->
+            %% Not a number, keep it (shouldn't happen in valid SGR)
+            filter_sgr_params(Rest, [P | Acc])
+    end.
+
+%% Returns true if this SGR parameter is color-related
+is_color_param(N) when N >= 30, N =< 37 -> true;   %% Foreground colors
+is_color_param(38) -> true;                         %% Extended foreground
+is_color_param(39) -> true;                         %% Default foreground
+is_color_param(N) when N >= 40, N =< 47 -> true;   %% Background colors
+is_color_param(48) -> true;                         %% Extended background
+is_color_param(49) -> true;                         %% Default background
+is_color_param(58) -> true;                         %% Underline color
+is_color_param(59) -> true;                         %% Default underline color
+is_color_param(N) when N >= 90, N =< 97 -> true;   %% Bright foreground
+is_color_param(N) when N >= 100, N =< 107 -> true; %% Bright background
+is_color_param(_) -> false.
+
+%% Returns how many additional parameters to skip for extended colors
+%% 38;5;N (256 color) = skip 2 more
+%% 38;2;R;G;B (RGB) = skip 4 more
+extended_color_skip(N, Rest) when N =:= 38; N =:= 48; N =:= 58 ->
+    case Rest of
+        [<<"5">> | _] -> 2;      %% 256-color: skip "5" and the color index
+        [<<"2">> | _] -> 4;      %% RGB: skip "2", R, G, B
+        _ -> 0
+    end;
+extended_color_skip(_, _) -> 0.
 
 -spec to_latin1(erlang:binary(), TTY :: boolean()) -> erlang:iovec().
 to_latin1(Bin, TTY) ->
@@ -1512,36 +1478,28 @@ sizeof_wchar() ->
     erlang:nif_error(undef).
 wcswidth(_Char) ->
     erlang:nif_error(undef).
-tgetent(Char) ->
-    tgetent_nif([Char,0]).
-tgetnum(Char) ->
-    tgetnum_nif([Char,0]).
-tgetflag(Char) ->
-    tgetflag_nif([Char,0]).
-tgetstr(Char) ->
-    case tgetstr_nif([Char,0]) of
-        {ok, Str} ->
-            {ok, re:replace(Str, "\\$<[^>]*>","")};
-        Error ->
-            Error
-    end.
-tgoto(Char) ->
-    tgoto_nif([Char,0]).
-tgoto(Char, Arg) ->
-    tgoto_nif([Char,0], Arg).
-tgoto(Char, Arg1, Arg2) ->
-    tgoto_nif([Char,0], Arg1, Arg2).
-tgetent_nif(_Char) ->
+setupterm() ->
+    setupterm_nif().
+tigetnum(Char) ->
+    tigetnum_nif([Char,0]).
+tigetflag(Char) ->
+    tigetflag_nif([Char,0]).
+tigetstr(Char) ->
+    tigetstr_nif([Char,0]).
+tinfo() ->
+    tinfo_nif().
+tputs(Char, Args) ->
+    tputs_nif([Char,0], Args).
+
+setupterm_nif() ->
     erlang:nif_error(undef).
-tgetnum_nif(_Char) ->
+tigetnum_nif(_Char) ->
     erlang:nif_error(undef).
-tgetflag_nif(_Char) ->
+tigetflag_nif(_Char) ->
     erlang:nif_error(undef).
-tgetstr_nif(_Char) ->
+tinfo_nif() ->
     erlang:nif_error(undef).
-tgoto_nif(_Ent) ->
+tigetstr_nif(_Char) ->
     erlang:nif_error(undef).
-tgoto_nif(_Ent, _Arg) ->
-    erlang:nif_error(undef).
-tgoto_nif(_Ent, _Arg1, _Arg2) ->
+tputs_nif(_Ent, _Args) ->
     erlang:nif_error(undef).
