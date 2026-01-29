@@ -98,6 +98,10 @@
 -define(call_disconnectfun_and_log_cond(LogMsg, DetailedText, StateName, D),
         call_disconnectfun_and_log_cond(LogMsg, DetailedText, ?MODULE, ?LINE, StateName, D)).
 
+%% Minimum number of bytes reported by the "upper layer" that cause
+%% #ssh_msg_channel_adjust_window to be sent to the SSH peer
+-define(MIN_ADJUST, 64).
+
 %%====================================================================
 %% Start / stop
 %%====================================================================
@@ -871,6 +875,17 @@ handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTE
 	    %% The peer can send at least two more *full* packet, no hurry.
 	    ssh_client_channel:cache_update(cache(D),
 				     Channel#channel{recv_window_pending = Pending + Bytes}),
+	    keep_state_and_data;
+
+        #channel{recv_window_size = WinSize,
+                 recv_window_pending = Pending,
+                 recv_packet_size = _PktSize} = Channel
+            when ((Bytes + Pending) < ?MIN_ADJUST andalso (WinSize > 0)) ->
+            %% It does not make sense to send updates of e.g. 1 byte
+            %% if we are still able to receive something
+	    ssh_client_channel:cache_update(cache(D),
+				     Channel#channel{recv_window_pending =
+                                                            Pending + Bytes}),
 	    keep_state_and_data;
 
 	#channel{recv_window_size = WinSize,
