@@ -1302,7 +1302,7 @@ Experimental options that should not to be used in products.
 	  pwdfun_user_state,
 	  authenticated = false,
 	  userauth_banner_sent = false,
-    authenticated_public_key          % user's public key that was authenticated
+	  authenticated_public_key          % user's public key that was authenticated
 	 }).
 
 -record(alg,
