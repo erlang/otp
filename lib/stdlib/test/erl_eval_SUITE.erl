@@ -37,6 +37,8 @@
          zlc/1,
          zbc/1,
          zmc/1,
+         multi_lc/1,
+         multi_mc/1,
          simple_cases/1,
          unary_plus/1,
          apply_atom/1,
@@ -110,7 +112,7 @@ all() ->
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
      eep49, binary_and_map_aliases, eep58, strict_generators, binary_skip,
-     assignment_generators, zlc, zbc, zmc].
+     assignment_generators, zlc, zbc, zmc, multi_lc, multi_mc].
 
 groups() ->
     [].
@@ -454,6 +456,28 @@ zmc(Config) when is_list(Config) ->
     error_check("begin #{K => V || K := V <- #{1=>2} && K := _ <:- #{2=>3}} end.",
         {bad_generators,{#{1 => 2},#{2 => 3}}}),
     ok.
+
+%% EEP 78: multi-comprehensions
+multi_lc(Config) when is_list(Config) ->
+    check(fun() -> lists:append([[1, 2] || _ <- [1, 2]]) end,
+          "[1, 2 || _ <- [1, 2]].",
+          [1, 2, 1, 2]),
+    check(fun() -> lists:append([[one, two] || true]) end,
+          "[one, two || true].",
+          [one, two]),
+    error_check("[X = 1, X || true].", {unbound_var,'X'}).
+
+multi_mc(Config) when is_list(Config) ->
+    check(fun() -> #{A => B || X <- [1, 5], {A, B} <- [{X, X+1}, {X+2, X+3}]} end,
+        "#{X => X+1, X+2 => X+3 || X <- [1, 5]}.",
+        #{1 => 2, 3 => 4, 5 => 6, 7 => 8}),
+    check(fun() -> #{A => B || X <- [1, 5], {A, B} <- [{X, X+1}, {X, X+3}]} end,
+        "#{X => X+1, X => X+3 || X <- [1, 5]}.",
+        #{1 => 4, 5 => 8}),
+    error_check("#{1 := 2 || _ <- []}.", illegal_map_exact_in_comprehension),
+    error_check("#{1 => 2, 3 := 4 || _ <- []}.", illegal_map_exact_in_comprehension),
+    error_check("#{X = key => value, X => value2 || true}.", {unbound_var,'X'}),
+    error_check("#{key => x = value, key2 => X || true}.", {unbound_var,'X'}).
 
 %% Simple cases, just to cover some code.
 simple_cases(Config) when is_list(Config) ->

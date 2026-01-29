@@ -541,6 +541,11 @@ vann_list_join(Env) ->
 vann_list(Ts, Env) ->
     lists:mapfoldl(vann_list_join(Env), {[], []}, Ts).
 
+vann_expr_or_list(Ts, Env) when is_list(Ts) ->
+    vann_list(Ts, Env);
+vann_expr_or_list(T, Env) ->
+    vann(T, Env).
+
 vann_function(Tree, Env) ->
     Cs = erl_syntax:function_clauses(Tree),
     {Cs1, {_, Free}} = vann_clauses(Cs, Env),
@@ -676,7 +681,7 @@ vann_list_comp(Tree, Env) ->
     {Es1, {Bound1, Free1}} = vann_comp_body(Es, Env),
     Env1 = ordsets:union(Env, Bound1),
     T = erl_syntax:list_comp_template(Tree),
-    {T1, _, Free2} = vann(T, Env1),
+    {T1, _, Free2} = vann_expr_or_list(T, Env1),
     Free = ordsets:union(Free1, ordsets:subtract(Free2, Bound1)),
     Bound = [],
     Tree1 = rewrite(Tree, erl_syntax:list_comp(T1, Es1)),
@@ -698,7 +703,7 @@ vann_map_comp(Tree, Env) ->
     {Es1, {Bound1, Free1}} = vann_comp_body(Es, Env),
     Env1 = ordsets:union(Env, Bound1),
     T = erl_syntax:map_comp_template(Tree),
-    {T1, _, Free2} = vann(T, Env1),
+    {T1, _, Free2} = vann_expr_or_list(T, Env1),
     Free = ordsets:union(Free1, ordsets:subtract(Free2, Bound1)),
     Bound = [],
     Tree1 = rewrite(Tree, erl_syntax:map_comp(T1, Es1)),
@@ -2217,4 +2222,3 @@ push(N, C, Cs) when N > 0 ->
     push(N - 1, C, [C | Cs]);
 push(0, _, Cs) ->
     Cs.
-

@@ -710,7 +710,7 @@ expr_comprehension({Tag,Anno,E0,Gs0}, St) ->
                       false -> expr(Expr, false, St)
                   end
           end || G <- Gs0],
-    {Tag,ln(Anno),expr(E0, false, St),Gs};
+    {Tag,ln(Anno),expr_or_exprs(E0, false, St),Gs};
 expr_comprehension({zip,Anno,Gens}, St) ->
     Gs = [case G of
               ({generate,L,P0,Qs}) ->
@@ -727,6 +727,11 @@ expr_comprehension({zip,Anno,Gens}, St) ->
                   {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}}
           end || G <- Gens],
     {zip,ln(Anno),Gs}.
+
+expr_or_exprs(Es, Lc, St) when is_list(Es) ->
+    exprs(Es, Lc, St);
+expr_or_exprs(E, Lc, St) ->
+    expr(E, Lc, St).
 
 mc_pattern({map_field_exact,L,KeyP0,ValP0}, St) ->
     KeyP1 = pattern(KeyP0, St),

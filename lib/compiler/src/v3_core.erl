@@ -712,12 +712,12 @@ expr({cons,L,H0,T0}, St0) ->
     {annotate_cons(A, H1, T1, St1),Eps,St1};
 expr({lc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
-    lc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
+    lc_tq(L, wrap_list(E), Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
 expr({bc,L,E,Qs}, St) ->
     bc_tq(L, E, Qs, St);
 expr({mc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
-    mc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
+    mc_tq(L, wrap_list(E), Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
 expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
     A = record_anno(L, St1),
@@ -969,7 +969,7 @@ expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     %% number variables in the environment for letrec.
     {Mc,Mps,St1} = safe(More, St0),
     {Qs,St2} = preprocess_quals(Llc, Qs0, St1),
-    {Y,Yps,St} = lc_tq(Llc, E, Qs, Mc, St2),
+    {Y,Yps,St} = lc_tq(Llc, wrap_list(E), Qs, Mc, St2),
     {Y,Mps++Yps,St};
 expr({op,_,'andalso',_,_}=E0, St0) ->
     {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso'),
@@ -1626,21 +1626,29 @@ fun_tq(Cs0, L, St0, NameInfo) ->
 		vars=Args,clauses=Cs2,fc=Fc,name=NameInfo},
     {Fun,[],St4}.
 
-%% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
+wrap_list(List) when is_list(List) -> List;
+wrap_list(Other) -> [Other].
+
+%% lc_tq(Line, Exprs, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
 %%  This TQ from Simon PJ pp 127-138.
 
-lc_tq(Line, E, [#igen{}|_T] = Qs, Mc, St) ->
-    lc_tq1(Line, E, Qs, Mc, St);
-lc_tq(Line, E, [#izip{}=Zip|Qs], Mc, St) ->
-    zip_tq(Line, E, Zip, Mc, St, Qs);
-lc_tq(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
-    filter_tq(Line, E, Filter, Mc, St, Qs, fun lc_tq/5);
-lc_tq(Line, E0, [], Mc0, St0) ->
-    {H1,Hps,St1} = safe(E0, St0),
+lc_tq(Line, Es, [#igen{}|_T] = Qs, Mc, St) ->
+    lc_tq1(Line, Es, Qs, Mc, St);
+lc_tq(Line, Es, [#izip{}=Zip|Qs], Mc, St) ->
+    zip_tq(Line, Es, Zip, Mc, St, Qs);
+lc_tq(Line, Es, [#ifilter{}=Filter|Qs], Mc, St) ->
+    filter_tq(Line, Es, Filter, Mc, St, Qs, fun lc_tq/5);
+lc_tq(Line, Es0, [], Mc0, St0) ->
+    {Hs1,Hps,St1} = safe_list(Es0, St0),
     {T1,Tps,St} = force_safe(Mc0, St1),
-    Anno = lineno_anno(Line, St),
-    E = ann_c_cons(Anno, H1, T1),
-    {set_anno(E, [compiler_generated|Anno]),Hps ++ Tps,St}.
+    Anno = lineno_anno(erl_anno:set_generated(true, Line), St),
+    E = ann_c_cons_all(Anno, Hs1, T1),
+    {E,Hps ++ Tps,St}.
+
+ann_c_cons_all(Anno, [H | Hs], T) ->
+    ann_c_cons(Anno, H, ann_c_cons_all(Anno, Hs, T));
+ann_c_cons_all(_Anno, [], T) ->
+    T.
 
 lc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
 		      acc_pat=AccPat,acc_guard=AccGuard,
@@ -1927,9 +1935,9 @@ bzip_tq1(Line, E, #izip{anno=#a{anno=_GA}=GAnno,
               body=append(Pres) ++
                   [#iapply{anno=LAnno,op=F,args=Args++[Mc]}]},[],St4}.
 
-mc_tq(Line, {map_field_assoc,Lf,K,V}, Qs, Mc, St0) ->
-    E = {tuple,Lf,[K,V]},
-    {Lc,Pre0,St1} = lc_tq(Line, E, Qs, Mc, St0),
+mc_tq(Line, Es0, Qs, Mc, St0) ->
+    Es = map(fun({map_field_assoc,Lf,K,V}) -> {tuple,Lf,[K,V]} end, Es0),
+    {Lc,Pre0,St1} = lc_tq(Line, Es, Qs, Mc, St0),
     {LcVar,St2} = new_var(St1),
     Pre = Pre0 ++ [#iset{var=LcVar,arg=Lc}],
     Call = #icall{module=#c_literal{val=maps},

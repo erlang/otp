@@ -877,7 +877,12 @@ lay_2(Node, Ctxt) ->
 
 	list_comp ->
 	    Ctxt1 = reset_prec(Ctxt),
-	    D1 = lay(erl_syntax:list_comp_template(Node), Ctxt1),
+            D1 = case erl_syntax:list_comp_template(Node) of
+                List when is_list(List) ->
+                    par(seq(List, floating(text(",")), Ctxt1, fun lay/2));
+                Single ->
+                    lay(Single, Ctxt1)
+            end,
 	    D2 = par(seq(erl_syntax:list_comp_body(Node),
 			 floating(text(",")), Ctxt1,
 			 fun lay/2)),
@@ -897,7 +902,12 @@ lay_2(Node, Ctxt) ->
 
 	map_comp ->
 	    Ctxt1 = set_prec(Ctxt, max_prec()),
-	    D1 = lay(erl_syntax:map_comp_template(Node), Ctxt1),
+            D1 = case erl_syntax:map_comp_template(Node) of
+                List when is_list(List) ->
+                    par(seq(List, floating(text(",")), Ctxt1, fun lay/2));
+                Single ->
+                    lay(Single, Ctxt1)
+            end,
 	    D2 = par(seq(erl_syntax:map_comp_body(Node),
 			 floating(text(",")), Ctxt1,
 			 fun lay/2)),

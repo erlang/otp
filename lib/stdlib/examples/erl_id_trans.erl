@@ -453,7 +453,7 @@ expr({cons,Anno,H0,T0}) ->
     {cons,Anno,H1,T1};
 expr({lc,Anno,E0,Qs0}) ->
     Qs1 = comprehension_quals(Qs0),
-    E1 = expr(E0),
+    E1 = expr_or_exprs(E0),
     {lc,Anno,E1,Qs1};
 expr({bc,Anno,E0,Qs0}) ->
     Qs1 = comprehension_quals(Qs0),
@@ -461,7 +461,7 @@ expr({bc,Anno,E0,Qs0}) ->
     {bc,Anno,E1,Qs1};
 expr({mc,Anno,E0,Qs0}) ->
     Qs1 = comprehension_quals(Qs0),
-    E1 = expr(E0),
+    E1 = expr_or_exprs(E0),
     {mc,Anno,E1,Qs1};
 expr({tuple,Anno,Es0}) ->
     Es1 = expr_list(Es0),
@@ -588,6 +588,14 @@ expr_list([E0|Es]) ->
     E1 = expr(E0),
     [E1|expr_list(Es)];
 expr_list([]) -> [].
+
+%% -type expr_or_exprs(Expression) -> Expression.
+%% -type expr_or_exprs([Expression]) -> [Expression].
+%%  Comprehensions can have a single or multiple emitting expressions
+expr_or_exprs(Es) when is_list(Es) ->
+    expr_list(Es);
+expr_or_exprs(E) ->
+    expr(E).
 
 %% -type record_inits([RecordInit]) -> [RecordInit].
 %%  N.B. Field names are full expressions here but only atoms are allowed
