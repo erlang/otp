@@ -1881,15 +1881,10 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                       TestFiles = get_test_files(PackageName, SpdxPackageFiles, PrefixPath),
                       DocFiles = get_doc_files(PackageName, SpdxPackageFiles, PrefixPath),
                       BuildFiles = get_build_files(PackageName, SpdxPackageFiles, PrefixPath),
-
-                      io:format("package name: ~s~n", [PackageName]),
+                      
                       OTPAppFiles = ((SpdxPackageFiles -- TestFiles) -- DocFiles) -- BuildFiles,
                       UpdatedTestFiles = TestFiles -- BuildFiles,
-                      UpdatedDocFiles = DocFiles -- BuildFiles,
-                      %% case PackageName == ~"megaco" of
-                      %%     true ->
-                      %%         io:format("BuildFiles: ~p~n", [BuildFiles])
-                      %% end
+                      UpdatedDocFiles = DocFiles -- BuildFiles,                      
 
                       LicenseOTPApp = otp_app_license_mapping(PackageName),
                       Package = create_spdx_package_record(PackageName, AppInfo#app_info.vsn,
@@ -1911,7 +1906,6 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                                                                 <<"Build tools of ", PackageName/binary>>,
                                                                 BuildFiles, ?spdx_homepage,
                                                                 LicenseOTPApp, LicenseOTPApp, false),
-                      %% io:format("[build package]~n~p~n~n", [BuildPackage]),
 
                       Relations = [ {'PACKAGE_OF', [{ Package#spdx_package.'SPDXID', ProjectName }]},
                                     {'DOCUMENTATION_OF', [{ DocPackage#spdx_package.'SPDXID', Package#spdx_package.'SPDXID' }]},
