@@ -212,6 +212,10 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd0}},
                 %% The standard I/O is directed from/to the channel ChannelId.
                 exec_direct(ConnectionHandler, ChannelId, Cmd, F, WantReply, S1);
 
+            {direct_extended,F} ->
+                %% Same as above, but passes arguments to F as a map
+                exec_direct_extended(ConnectionHandler, ChannelId, Cmd, F, WantReply, S1);
+
             undefined when S0#state.shell == ?DEFAULT_SHELL ; 
                            S0#state.shell == disabled ->
                 %% Exec called and the shell is the default shell (= Erlang shell).
@@ -598,14 +602,31 @@ exec_direct(ConnectionHandler, ChannelId, Cmd, ExecSpec, WantReply, State) ->
                         {_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
                         ExecSpec(Cmd, User, PeerAddr);
 
-                    is_function(ExecSpec, 4) ->
+                    true ->
+                        {error, "Bad exec fun in server"}
+                end
+        end,
+    exec_in_self_group(ConnectionHandler, ChannelId, WantReply, State, Fun).
+
+%%--------------------------------------------------------------------
+exec_direct_extended(ConnectionHandler, ChannelId, Cmd, ExecSpec, WantReply, State) ->
+    Fun =
+        fun() ->
+                if
+                    is_function(ExecSpec, 1) ->
                         ConnectionInfo =
-                            ssh_connection_handler:connection_info(ConnectionHandler, [peer, user, public_key]),
+                            ssh_connection_handler:connection_info(ConnectionHandler,
+                                                                   [peer, user, public_key]),
                         User = proplists:get_value(user, ConnectionInfo),
                         {_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
                         PublicKey = proplists:get_value(public_key, ConnectionInfo),
-                        Additional = #{version => 1, public_key => PublicKey},
-                        
+                        ExecSpec(#{
+                                   version => 1,
+                                   cmd => Cmd,
+                                   user => User,
+                                   client_address => PeerAddr,
+                                   public_key => PublicKey
+                                  });
 
                     true ->
                         {error, "Bad exec fun in server"}
