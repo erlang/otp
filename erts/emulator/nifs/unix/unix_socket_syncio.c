@@ -4320,6 +4320,10 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
 
 #ifdef HAVE_SENDMMSG
 /* ========================================================================
+ * Same criterion as send_check_result: written < dataSize => partial.
+ * We do not call send_check_result (it has side effects: writer state,
+ * stats). We only produce per-message result: 'full' or bytes written,
+ * so Erlang can build rest iovecs by slicing (same as sendmsg continuation).
  */
 ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
                             ESockDescriptor* descP,
@@ -4374,7 +4378,7 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
     }
 
     if (msgCount == 0) {
-        return esock_make_ok2(env, MKI(env, 0));
+        return esock_atom_ok;
     }
 
     if (msgCount > ESOCK_MMSG_MAX)
@@ -4421,9 +4425,6 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
     while (!enif_is_empty_list(env, tail) && i < msgCount) {
         ERL_NIF_TERM tail2;
         sys_memzero((char*) &sendMmsghdrs[i], sizeof(struct mmsghdr));
-        ctrlBufLens[i] = 0;
-        ctrlBufUseds[i] = 0;
-
         enif_get_list_cell(env, tail, &eMsg, &tail);
 
         /* Extract address */
@@ -4439,7 +4440,6 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
             }
         } else {
             sendMmsghdrs[i].msg_hdr.msg_name = NULL;
-            sendMmsghdrs[i].msg_hdr.msg_namelen = 0;
         }
 
         /* Extract IOV */
@@ -4470,9 +4470,7 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
             sendMmsghdrs[i].msg_hdr.msg_controllen = ctrlBufUseds[i];
         } else {
             sendMmsghdrs[i].msg_hdr.msg_control = NULL;
-            sendMmsghdrs[i].msg_hdr.msg_controllen = 0;
         }
-        sendMmsghdrs[i].msg_hdr.msg_flags = 0;
 
         i++;
     }
@@ -4487,7 +4485,47 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         ret = send_check_result(env, descP, sendResult, 0, FALSE,
                                 sockRef, sendRef);
     } else {
-        ret = esock_make_ok2(env, MKI(env, sendResult));
+        /*
+         * Same criterion as send_check_result: for each updated message,
+         * written < dataSize => partial. Only add partials to the result
+         * list; each element is {Index, Written} so Erlang can slice the
+         * right message. Two indexes: i over messages, resultIdx over
+         * result list (only incremented for partials).
+         */
+        unsigned int updatedCount = (unsigned int) sendResult;
+        BOOLEAN_T allFull = TRUE;
+        ERL_NIF_TERM* resultElems = NULL;
+        unsigned int resultIdx = 0;
+        unsigned int k;
+
+        if (updatedCount > 0) {
+            resultElems = (ERL_NIF_TERM*) enif_alloc(updatedCount * sizeof(ERL_NIF_TERM));
+            if (!resultElems) {
+                ret = esock_make_error_errno(env, ENOMEM);
+                goto cleanup;
+            }
+            for (i = 0; i < updatedCount; i++) {
+                size_t expectedLen = 0;
+                for (k = 0; k < iovecPtrs[i]->iovcnt; k++) {
+                    expectedLen += iovecPtrs[i]->iov[k].iov_len;
+                }
+                if (sendMmsghdrs[i].msg_len != expectedLen) {
+                    allFull = FALSE;
+                    resultElems[resultIdx++] = MKT2(env, MKI(env, (int) i),
+                        MKI(env, (int) sendMmsghdrs[i].msg_len));
+                }
+            }
+            if (allFull) {
+                enif_free(resultElems);
+                ret = esock_atom_ok;
+            } else {
+                ret = esock_make_ok2(env,
+                    enif_make_list_from_array(env, resultElems, resultIdx));
+                enif_free(resultElems);
+            }
+        } else {
+            ret = esock_atom_ok;
+        }
     }
 
 cleanup:

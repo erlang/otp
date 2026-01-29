@@ -14949,7 +14949,7 @@ sendmmsg_basic_udp4(_Config) when is_list(_Config) ->
                 #{iov => [<<"msg4">>]},
                 #{iov => [<<"msg5">>]}
             ],
-            {ok, 5} = socket:sendmmsg(S2, Msgs, [], infinity),
+            ok = socket:sendmmsg(S2, Msgs, [], infinity),
             %% Receive them one by one
             lists:foreach(
                 fun(Expected) ->
@@ -14990,7 +14990,7 @@ sendmmsg_basic_udp6(_Config) when is_list(_Config) ->
                 #{iov => [<<"msg2">>]},
                 #{iov => [<<"msg3">>]}
             ],
-            {ok, 3} = socket:sendmmsg(S2, Msgs, [], infinity),
+            ok = socket:sendmmsg(S2, Msgs, [], infinity),
             %% Receive them one by one
             lists:foreach(
                 fun(Expected) ->
@@ -15031,7 +15031,7 @@ recvmmsg_sendmmsg_loopback_udp4(_Config) when is_list(_Config) ->
                 #{iov => [list_to_binary(["msg", integer_to_list(N)])]}
              || N <- lists:seq(1, 10)
             ],
-            {ok, 10} = socket:sendmmsg(S2, Msgs, [], infinity),
+            ok = socket:sendmmsg(S2, Msgs, [], infinity),
             %% Receive all 10 messages at once
             {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
             true = length(Received) =:= 10,
@@ -15066,7 +15066,7 @@ recvmmsg_sendmmsg_loopback_udp6(_Config) when is_list(_Config) ->
                 #{iov => [list_to_binary(["msg", integer_to_list(N)])]}
              || N <- lists:seq(1, 5)
             ],
-            {ok, 5} = socket:sendmmsg(S2, Msgs, [], infinity),
+            ok = socket:sendmmsg(S2, Msgs, [], infinity),
             %% Receive all 5 messages at once
             {ok, Received} = socket:recvmmsg(S1, 10, 0, 0, [], infinity),
             true = length(Received) =:= 5,
@@ -15174,7 +15174,7 @@ sendmmsg_writer(Sock, Id, Parent) ->
     Msg = list_to_binary(io_lib:format("msg~p", [Id])),
     Msgs = [#{iov => [Msg]}],
     case socket:sendmmsg(Sock, Msgs, [], infinity) of
-        {ok, 1} ->
+        ok ->
             Parent ! {self(), ok};
         Other ->
             Parent ! {self(), Other}
@@ -15327,7 +15327,7 @@ sendmmsg_large_batch_udp4(_Config) when is_list(_Config) ->
             NumMessages = 100,
             Msgs = [#{iov => [list_to_binary(io_lib:format("msg~p", [N]))]}
                     || N <- lists:seq(1, NumMessages)],
-            {ok, 100} = socket:sendmmsg(S2, Msgs, [], infinity),
+            ok = socket:sendmmsg(S2, Msgs, [], infinity),
             %% Receive them to verify
             ReceivedMsgs = lists:map(
                 fun(_) ->
@@ -15433,7 +15433,7 @@ sendmmsg_select_nowait_udp4(_Config) when is_list(_Config) ->
             %% Normal case: sendmmsg with nowait should succeed immediately for small data
             Msgs = [#{iov => [<<"test">>]}],
             case socket:sendmmsg(S2, Msgs, [], nowait) of
-                {ok, 1} ->
+                ok ->
                     ok;
                 {select, {select_info, sendmmsg, _SelectHandle}} ->
                     %% Socket buffer might be full (unlikely but possible)
@@ -15478,7 +15478,7 @@ sendmmsg_with_addresses_udp4(_Config) when is_list(_Config) ->
                 #{addr => #{family => inet, addr => Addr, port => R2Port},
                   iov => [<<"to_r2">>]}
             ],
-            {ok, 2} = socket:sendmmsg(Sender, Msgs, [], infinity),
+            ok = socket:sendmmsg(Sender, Msgs, [], infinity),
             %% Verify R1 got its message
             {ok, Msg1} = socket:recvmsg(R1),
             [<<"to_r1">>] = maps:get(iov, Msg1),
@@ -15512,7 +15512,7 @@ sendmmsg_invalid_msg_format(_Config) when is_list(_Config) ->
             {ok, #{port := LocalPort}} = socket:sockname(S1),
             ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
             %% Empty message list should return {ok, 0}
-            {ok, 0} = socket:sendmmsg(S2, [], [], infinity),
+            ok = socket:sendmmsg(S2, [], [], infinity),
             %% Message without iov field should fail
             InvalidMsgs1 = [#{addr => #{family => inet, addr => Addr, port => LocalPort}}],
             case catch socket:sendmmsg(S2, InvalidMsgs1, [], infinity) of
@@ -15609,8 +15609,7 @@ sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
                     || N <- lists:seq(1, NumMessages)],
             %% Send with msgCount > 64 to trigger dirty scheduler rescheduling
             %% The NIF should reschedule to a dirty I/O scheduler
-            {ok, SentCount} = socket:sendmmsg(S2, Msgs, [], infinity),
-            true = SentCount =:= NumMessages,
+            ok = socket:sendmmsg(S2, Msgs, [], infinity),
             %% Receive and verify all messages
             ReceivedMsgs = lists:map(
                 fun(_) ->

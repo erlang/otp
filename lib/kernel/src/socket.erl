@@ -4963,88 +4963,51 @@ multiple datagrams.
 > This function is only available on Linux and BSD systems (not macOS/Darwin or Windows).
 > On unsupported platforms, it will return `{error, notsup}`.
 
-Returns `{ok, SentCount}` where `SentCount` is the number of messages successfully sent.
+On success, returns either:
+- **`ok`** – when all messages were sent in full (or there were zero messages).
+- **`{ok, Rest}`** – when one or more messages had a partial write. `Rest` is a list with one
+  element per message that was not fully sent, in message order. Each element is the
+  remaining data for that message in the same form as [`sendmsg/4`](`sendmsg/4`)'s rest data
+  (`t:erlang:iovec/0`), so you can retry with `sendmsg` for each.
+
+On error returns `{error, Reason}`.
 """.
 -spec sendmmsg(Socket, Msgs, Flags, Timeout :: 'infinity') ->
           'ok' |
-          {'ok', RestData} |
-          {'error', Reason} |
-          {'error', {Reason, RestData}}
+          {'ok', Rest} |
+          {'error', Reason}
               when
-      Socket     :: socket(),
-      Msgs       :: [msg_send()],
-      Flags      :: [msg_flag() | integer()],
-      RestData   :: erlang:iovec(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket  :: socket(),
+      Msgs    :: [msg_send()],
+      Flags   :: [msg_flag() | integer()],
+      Rest    :: [erlang:iovec()],
+      Reason  :: posix() | 'closed' | invalid();
 
              (Socket, Msgs, Flags, Timeout :: non_neg_integer()) ->
           'ok' |
-          {'ok', RestData} |
-          {'error', Reason | 'timeout'} |
-          {'error', {Reason | 'timeout', RestData}}
+          {'ok', Rest} |
+          {'error', Reason | 'timeout'}
               when
-      Socket     :: socket(),
-      Msgs       :: [msg_send()],
-      Flags      :: [msg_flag() | integer()],
-      RestData   :: erlang:iovec(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket  :: socket(),
+      Msgs    :: [msg_send()],
+      Flags   :: [msg_flag() | integer()],
+      Rest    :: [erlang:iovec()],
+      Reason  :: posix() | 'closed' | invalid();
 
              (Socket, Msgs, Flags, 'nowait' | Handle) ->
                   'ok' |
-                  {'ok', RestData} |
+                  {'ok', Rest} |
+                  {'select_write', {SelectInfo, SentCount}} |
                   {'select', SelectInfo} |
-                  {'select', {SelectInfo, RestData}} |
                   {'completion', CompletionInfo} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
+                  {'error', Reason}
                       when
       Socket         :: socket(),
       Msgs           :: [msg_send()],
       Flags          :: [msg_flag() | integer()],
       Handle         :: select_handle() | completion_handle(),
-      RestData       :: erlang:iovec(),
-      SelectInfo     :: select_info(),
-      CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid();
-
-             (Socket, Data, Cont, Timeout :: 'infinity') ->
-          'ok' |
-          {'ok', RestData} |
-          {'error', Reason} |
-          {'error', {Reason, RestData}}
-              when
-      Socket     :: socket(),
-      Data       :: msg_send() | erlang:iovec(),
-      Cont       :: select_info(),
-      RestData   :: erlang:iovec(),
-      Reason     :: posix() | 'closed' | invalid();
-
-             (Socket, Data, Cont, Timeout :: non_neg_integer()) ->
-          'ok' |
-          {'ok', RestData} |
-          {'error', Reason | 'timeout'} |
-          {'error', {Reason | 'timeout', RestData}}
-              when
-      Socket     :: socket(),
-      Data       :: msg_send() | erlang:iovec(),
-      Cont       :: select_info(),
-      RestData   :: erlang:iovec(),
-      Reason     :: posix() | 'closed' | invalid();
-
-             (Socket, Data, Cont, 'nowait' | Handle) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'select', SelectInfo} |
-                  {'select', {SelectInfo, RestData}} |
-                  {'completion', CompletionInfo} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
-      Socket         :: socket(),
-      Data           :: msg_send() | erlang:iovec(),
-      Cont           :: select_info(),
-      Handle         :: select_handle(),
-      RestData       :: erlang:iovec(),
+      Rest           :: [erlang:iovec()],
+      SentCount      :: non_neg_integer(),
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
       Reason         :: posix() | 'closed' | invalid().
@@ -5076,6 +5039,22 @@ sendmmsg(?socket(SockRef), Msgs, Flags, Timeout)
 sendmmsg(Socket, Msgs, Flags, Timeout) ->
     error(badarg, [Socket, Msgs, Flags, Timeout]).
 
+%% Build rest iovecs from partials-only result list.
+%% C returns [{Index, Written}, ...] in message order; we slice the Index-th message's iov.
+sendmmsg_rest_from_result(Msgs, ResultList) ->
+    [iovec_rest(maps:get(iov, lists:nth(Index + 1, Msgs)), Written) ||
+        {Index, Written} <- ResultList].
+
+%% Skip first Written bytes from IOV; return rest as iovec (same as sendmsg rest).
+iovec_rest(IOV, Written) when Written =< 0 ->
+    IOV;
+iovec_rest([], _) ->
+    [];
+iovec_rest([Bin | Rest], Written) when byte_size(Bin) =< Written ->
+    iovec_rest(Rest, Written - byte_size(Bin));
+iovec_rest([Bin | Rest], Written) when byte_size(Bin) > Written ->
+    [binary:part(Bin, Written, byte_size(Bin) - Written) | Rest].
+
 sendmmsg_nowait(SockRef, Msgs, Flags, Handle) ->
     case prim_socket:sendmmsg(SockRef, Msgs, Flags, Handle) of
         {select_write = Tag, SentCount} ->
@@ -5084,8 +5063,10 @@ sendmmsg_nowait(SockRef, Msgs, Flags, Handle) ->
             {Tag, ?SELECT_INFO(sendmmsg, Handle)};
         completion = Tag ->
             {Tag, ?COMPLETION_INFO(sendmmsg, Handle)};
-        {ok, SentCount} ->
-            {ok, SentCount};
+        ok ->
+            ok;
+        {ok, ResultList} ->
+            {ok, sendmmsg_rest_from_result(Msgs, ResultList)};
         {error, _} = Error ->
             Error
     end.
@@ -5111,8 +5092,10 @@ sendmmsg_deadline(SockRef, Msgs, Flags, Deadline) ->
                     _ = cancel(SockRef, sendmmsg, Handle),
                     {error, timeout}
             end;
-        {ok, SentCount} ->
-            {ok, SentCount};
+        ok ->
+            ok;
+        {ok, ResultList} ->
+            {ok, sendmmsg_rest_from_result(Msgs, ResultList)};
         {error, _} = Error ->
             Error
     end.
