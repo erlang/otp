@@ -905,6 +905,10 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
     if (menv) {
         Eterm token = c_p ? SEQ_TRACE_TOKEN(c_p) : am_undefined;
+#ifdef USE_VM_PROBES
+        Eterm utag = NIL;
+#endif
+
         if (token != NIL && token != am_undefined) {
             /* This code is copied from erts_send_message */
             Eterm stoken = SEQ_TRACE_TOKEN(c_p);
@@ -914,7 +918,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             Sint tok_label = 0;
             Sint tok_lastcnt = 0;
             Sint tok_serial = 0;
-            Eterm utag = NIL;
+
             *sender_name = *receiver_name = '\0';
             if (DTRACE_ENABLED(message_send)) {
                 erts_snprintf(sender_name, sizeof(DTRACE_CHARBUF_NAME(sender_name)),
@@ -955,6 +959,9 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         }
         mp = erts_create_message_from_nif_env(msg_env, 0);
         ERL_MESSAGE_TOKEN(mp) = token;
+#ifdef USE_VM_PROBES
+        ERL_MESSAGE_DT_UTAG(mp) = utag;
+#endif
     } else {
         erts_literal_area_t litarea;
 	ErlOffHeap *ohp;
