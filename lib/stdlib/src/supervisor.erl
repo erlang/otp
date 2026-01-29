@@ -298,6 +298,7 @@ but the map is preferred.
 
 %% External exports
 -export([start_link/2, start_link/3,
+	 start_as_child/2, start_as_child/3, start_as_child/4,
 	 start_child/2, restart_child/2,
 	 delete_child/2, terminate_child/2,
 	 which_children/1, which_child/2,
@@ -335,6 +336,7 @@ but the map is preferred.
 -export_type([sup_flags/0, child_spec/0, strategy/0,
               startchild_ret/0, startchild_err/0,
               startlink_ret/0, startlink_err/0,
+	      start_as_child_ret/0,
               sup_name/0, sup_ref/0]).
 
 %%--------------------------------------------------------------------------
@@ -457,6 +459,7 @@ see more details [above](`m:supervisor#sup_flags`).
 	        pid = undefined :: child()
 	                         | {restarting, pid() | undefined}
 	                         | [pid()],
+		priority_alias  :: reference() | pid() | undefined,
 		id              :: child_id(),
 		mfargs          :: mfargs(),
 		restart_type    :: restart(),
@@ -469,8 +472,8 @@ see more details [above](`m:supervisor#sup_flags`).
 -record(state, {name,
 		strategy = one_for_one :: strategy(),
 		children = {[],#{}}    :: children(), % Ids in start order
-                dynamics               :: {'maps', #{pid() => list()}}
-                                        | {'mapsets', #{pid() => []}}
+                dynamics               :: {'maps', #{pid() => {term(), list()}}}
+                                        | {'mapsets', #{pid() => {term(), []}}}
                                         | 'undefined',
 		intensity = 1          :: non_neg_integer(),
 		period    = 5          :: pos_integer(),
@@ -536,6 +539,9 @@ Principles.
                          | {'shutdown', term()}
                          | term().
 -type startlink_ret() :: {'ok', pid()} | 'ignore' | {'error', startlink_err()}.
+-type start_as_child_ret() :: {'child', pid(), map()}
+			      | 'ignore'
+			      | {'error', startlink_err()}.
 
 -doc """
 Creates a nameless supervisor process as part of a supervision tree.
@@ -599,7 +605,36 @@ started.
       Args :: term().
 start_link(SupName, Mod, Args) ->
     gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, []).
- 
+
+-spec start_as_child(Module, Args) -> start_as_child_ret() when
+      Module :: module(),
+      Args :: term().
+start_as_child(Mod, Args) ->
+    gen_server:start_as_child(supervisor, {self, Mod, Args}, []).
+
+-spec start_as_child(SupName, Module, Args) -> start_as_child_ret() when
+      SupName :: sup_name(),
+      Module :: module(),
+      Args :: term();
+		    (Module, Args, Options) -> start_as_child_ret() when
+      Module :: module(),
+      Args :: term(),
+      Options :: [{'shutdown_priority', boolean()}].
+start_as_child(SupName, Mod, Args) when is_tuple(SupName) ->
+    gen_server:start_as_child(SupName, supervisor, {SupName, Mod, Args}, []);
+start_as_child(Mod, Args, Opts) when is_atom(Mod) ->
+    gen_server:start_as_child(supervisor, {self, Mod, Args}, Opts);
+start_as_child(SupNameOrMod, ModOrArgs, ArgsOrOpts) ->
+    error(badarg, [SupNameOrMod, ModOrArgs, ArgsOrOpts]).
+
+-spec start_as_child(SupName, Module, Args, Options) -> start_as_child_ret() when
+      SupName :: sup_name(),
+      Module :: module(),
+      Args :: term(),
+      Options :: [{'shutdown_priority', boolean()}].
+start_as_child(SupName, Mod, Args, Opts) ->
+    gen_server:start_as_child(SupName, supervisor, {SupName, Mod, Args}, Opts).
+
 %%% ---------------------------------------------------
 %%% Interface functions.
 %%% ---------------------------------------------------
@@ -1008,9 +1043,13 @@ start_children(Children, SupName) ->
                     {ok, undefined} when ?is_temporary(Child) ->
                         remove;
                     {ok, Pid} ->
-                        {update,Child#child{pid = Pid}};
+                        {update,Child#child{pid = Pid, priority_alias = undefined}};
+		    {child, Pid, #{priority_alias := PrioAlias}} ->
+			{update, Child#child{pid = Pid, priority_alias = PrioAlias}};
+		    {child, Pid, #{}} ->
+			{update, Child#child{pid = Pid, priority_alias = undefined}};
                     {ok, Pid, _Extra} ->
-                        {update,Child#child{pid = Pid}};
+                        {update,Child#child{pid = Pid, priority_alias = undefined}};
                     {error, Reason} ->
                         ?report_error(start_error, Reason, Child, SupName),
                         {abort,{failed_to_start_child,Id,Reason}}
@@ -1029,6 +1068,10 @@ do_start_child(SupName, Child, Report) ->
 	    NChild = Child#child{pid = Pid},
 	    report_progress(NChild, SupName, Report),
 	    {ok, Pid, Extra};
+	{child, Pid, Data} when is_pid(Pid) ->
+	    NChild = Child#child{pid = Pid},
+	    report_progress(NChild, SupName, Report),
+	    {child, Pid, Data};
         Other ->
             Other
     end.
@@ -1039,6 +1082,8 @@ do_start_child_i(M, F, A) ->
 	    {ok, Pid};
 	{ok, Pid, Extra} when is_pid(Pid) ->
 	    {ok, Pid, Extra};
+	{child, Pid, #{} = Data} when is_pid(Pid) ->
+	    {child, Pid, Data};
 	ignore ->
 	    {ok, undefined};
 	{error, Error} ->
@@ -1067,10 +1112,16 @@ handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
 	{ok, undefined} ->
 	    {reply, {ok, undefined}, State, hibernate_after_action(State)};
 	{ok, Pid} ->
-	    NState = dyn_store(Pid, Args, State),
+	    NState = dyn_store(Pid, undefined, Args, State),
+	    {reply, {ok, Pid}, NState, hibernate_after_action(State)};
+	{child, Pid, #{priority_alias := PrioAlias}} ->
+	    NState = dyn_store(Pid, PrioAlias, Args, State),
+	    {reply, {ok, Pid}, NState, hibernate_after_action(State)};
+	{child, Pid, #{}} ->
+	    NState = dyn_store(Pid, undefined, Args, State),
 	    {reply, {ok, Pid}, NState, hibernate_after_action(State)};
 	{ok, Pid, Extra} ->
-	    NState = dyn_store(Pid, Args, State),
+	    NState = dyn_store(Pid, undefined, Args, State),
 	    {reply, {ok, Pid, Extra}, NState, hibernate_after_action(State)};
 	What ->
 	    {reply, What, State, hibernate_after_action(State)}
@@ -1108,10 +1159,16 @@ handle_call({restart_child, Id}, _From, State) ->
 	{ok, Child} when Child#child.pid =:= undefined ->
 	    case do_start_child(State#state.name, Child, debug_report) of
 		{ok, Pid} ->
-		    NState = set_pid(Pid, Id, State),
+		    NState = set_pid_and_alias(Pid, undefined, Id, State),
+		    {reply, {ok, Pid}, NState, hibernate_after_action(State)};
+		{child, Pid, #{priority_alias := PrioAlias}} ->
+		    NState = set_pid_and_alias(Pid, PrioAlias, Id, State),
+		    {reply, {ok, Pid}, NState, hibernate_after_action(State)};
+		{child, Pid, #{}} ->
+		    NState = set_pid_and_alias(Pid, undefined, Id, State),
 		    {reply, {ok, Pid}, NState, hibernate_after_action(State)};
 		{ok, Pid, Extra} ->
-		    NState = set_pid(Pid, Id, State),
+		    NState = set_pid_and_alias(Pid, undefined, Id, State),
 		    {reply, {ok, Pid, Extra}, NState, hibernate_after_action(State)};
 		Error ->
 		    {reply, Error, State, hibernate_after_action(State)}
@@ -1369,7 +1426,7 @@ update_childspec1({[],OldDb}, {Ids,Db}, KeepOld) ->
 update_chsp(#child{id=Id}=OldChild, NewDb) ->
     case maps:find(Id, NewDb) of
         {ok,Child} ->
-            {ok,NewDb#{Id => Child#child{pid = OldChild#child.pid}}};
+            {ok,NewDb#{Id => Child#child{pid = OldChild#child.pid, priority_alias = OldChild#child.priority_alias}}};
         error -> % Id not found in new spec.
             false
     end.
@@ -1386,9 +1443,13 @@ handle_start_child(Child, State) ->
 		{ok, undefined} when ?is_temporary(Child) ->
 		    {{ok, undefined}, State};
 		{ok, Pid} ->
-		    {{ok, Pid}, save_child(Child#child{pid = Pid}, State)};
+		    {{ok, Pid}, save_child(Child#child{pid = Pid, priority_alias = undefined}, State)};
+		{child, Pid, #{priority_alias := PrioAlias}} ->
+		    {{ok, Pid}, save_child(Child#child{pid = Pid, priority_alias = PrioAlias}, State)};
+		{child, Pid, #{}} ->
+		    {{ok, Pid}, save_child(Child#child{pid = Pid, priority_alias = undefined}, State)};
 		{ok, Pid, Extra} ->
-		    {{ok, Pid, Extra}, save_child(Child#child{pid = Pid}, State)};
+		    {{ok, Pid, Extra}, save_child(Child#child{pid = Pid, priority_alias = undefined}, State)};
 		{error, {already_started, _Pid} = What} ->
 		    {{error, What}, State};
 		{error, What} ->
@@ -1501,16 +1562,22 @@ restart(simple_one_for_one, Child, State0) ->
             %% simple_one_for_one supervisors.
             {ok, State2};
 	{ok, Pid} ->
-            NState = dyn_store(Pid, A, State2),
+            NState = dyn_store(Pid, undefined, A, State2),
+	    {ok, NState};
+	{child, Pid, #{priority_alias := PrioAlias}} ->
+            NState = dyn_store(Pid, PrioAlias, A, State2),
+	    {ok, NState};
+	{child, Pid, #{}} ->
+            NState = dyn_store(Pid, undefined, A, State2),
 	    {ok, NState};
 	{ok, Pid, _Extra} ->
-            NState = dyn_store(Pid, A, State2),
+            NState = dyn_store(Pid, undefined, A, State2),
 	    {ok, NState};
 	{error, Error} ->
             ROldPid = restarting(OldPid),
 	    NRestarts = State2#state.dynamic_restarts + 1,
 	    State3 = State2#state{dynamic_restarts = NRestarts},
-            NState = dyn_store(ROldPid, A, State3),
+            NState = dyn_store(ROldPid, undefined, A, State3),
 	    ?report_error(start_error, Error, Child, NState#state.name),
 	    {{try_again, ROldPid}, NState}
     end;
@@ -1518,13 +1585,19 @@ restart(one_for_one, #child{id=Id} = Child, State) ->
     OldPid = Child#child.pid,
     case do_start_child(State#state.name, Child, info_report) of
 	{ok, Pid} ->
-	    NState = set_pid(Pid, Id, State),
+	    NState = set_pid_and_alias(Pid, undefined, Id, State),
+	    {ok, NState};
+	{child, Pid, #{priority_alias := PrioAlias}} ->
+	    NState = set_pid_and_alias(Pid, PrioAlias, Id, State),
+	    {ok, NState};
+	{child, Pid, #{}} ->
+	    NState = set_pid_and_alias(Pid, undefined, Id, State),
 	    {ok, NState};
 	{ok, Pid, _Extra} ->
-	    NState = set_pid(Pid, Id, State),
+	    NState = set_pid_and_alias(Pid, undefined, Id, State),
 	    {ok, NState};
 	{error, Reason} ->
-	    NState = set_pid(restarting(OldPid), Id, State),
+	    NState = set_pid_and_alias(restarting(OldPid), undefined, Id, State),
 	    ?report_error(start_error, Reason, Child, State#state.name),
 	    {{try_again,Id}, NState}
     end;
@@ -1548,7 +1621,7 @@ restart_multiple_children(Child, Children, SupName) ->
                         true ->
                              ?restarting(undefined)
                      end,
-	    {{try_again, FailedId}, set_pid(NewPid,FailedId,NChildren)}
+	    {{try_again, FailedId}, set_pid_and_alias(NewPid,undefined,FailedId,NChildren)}
     end.
 
 restarting(Pid) when is_pid(Pid) -> ?restarting(Pid);
@@ -1574,7 +1647,7 @@ terminate_children(Children, SupName) ->
                 remove;
            (_Id,Child) ->
                 do_terminate(Child, SupName),
-                {update,Child#child{pid=undefined}}
+                {update,Child#child{pid=undefined, priority_alias=undefined}}
         end,
     {ok,NChildren} = children_map(Terminate, Children),
     NChildren.
@@ -1618,9 +1691,13 @@ shutdown(#child{pid=Pid, shutdown=brutal_kill} = Child) ->
                     {error, Reason}
             end
     end;
-shutdown(#child{pid=Pid, shutdown=Time} = Child) ->
+shutdown(#child{pid=Pid, priority_alias=PrioAlias, shutdown=Time} = Child) ->
     Mon = monitor(process, Pid),
-    exit(Pid, shutdown),
+    ExitTarget = if
+		     is_reference(PrioAlias) -> PrioAlias;
+		     true -> Pid
+		 end,
+    exit(ExitTarget, shutdown, [priority]),
     receive
         {'DOWN', Mon, process, Pid, Reason0} ->
             case unlink_flush(Pid, Reason0) of
@@ -1691,14 +1768,21 @@ terminate_dynamic_children(State) ->
     Child = get_dynamic_child(State),
     Pids = dyn_fold(
         fun
-            (P, Acc) when is_pid(P) ->
+            (P, undefined, Acc) when is_pid(P) ->
                 Mon = monitor(process, P),
                 case Child#child.shutdown of
                     brutal_kill -> exit(P, kill);
-                    _ -> exit(P, shutdown)
+                    _ -> exit(P, shutdown, [priority])
                 end,
                 Acc#{{P, Mon} => true};
-            (?restarting(_), Acc) ->
+            (P, PrioAlias, Acc) when is_pid(P) ->
+                Mon = monitor(process, P),
+                case Child#child.shutdown of
+                    brutal_kill -> exit(P, kill);
+                    _ -> exit(PrioAlias, shutdown, [priority])
+                end,
+                Acc#{{P, Mon} => true};
+            (?restarting(_), undefined, Acc) ->
                 Acc
         end,
         #{},
@@ -1826,7 +1910,7 @@ del_child(Id, {Ids,Db}) ->
         Child when Child#child.restart_type =:= temporary ->
             {lists:delete(Id, Ids), maps:remove(Id, Db)};
         Child ->
-            {Ids, Db#{Id=>Child#child{pid=undefined}}}
+            {Ids, Db#{Id=>Child#child{pid=undefined, priority_alias=undefined}}}
     end.
 
 %% In: {[S4, S3, Ch, S1, S0],Db}
@@ -1837,7 +1921,7 @@ split_child(Id, {Ids,Db}) ->
     {IdsAfter,IdsBefore} = split_ids(Id, Ids, []),
     DbBefore = maps:with(IdsBefore,Db),
     #{Id:=Ch} = DbAfter = maps:with(IdsAfter,Db),
-    {{IdsAfter,DbAfter#{Id=>Ch#child{pid=undefined}}},{IdsBefore,DbBefore}}.
+    {{IdsAfter,DbAfter#{Id=>Ch#child{pid=undefined, priority_alias=undefined}}},{IdsBefore,DbBefore}}.
 
 split_ids(Id, [Id|Ids], After) ->
     {lists:reverse([Id|After]), Ids};
@@ -1888,11 +1972,11 @@ find_child_and_args(Id, #state{children={_Ids,Db}})  ->
 -spec find_dynamic_child(IdOrPid, state()) -> {ok, child_rec()} | error when
       IdOrPid :: pid() | {restarting,pid()} | child_id().
 find_dynamic_child(Pid, State) ->
-    case dyn_exists(Pid, State) of
-        true ->
+    case dyn_alias(Pid, State) of
+	{ok, PrioAlias} ->
             Child = get_dynamic_child(State),
-            {ok, Child#child{pid=Pid}};
-        false ->
+            {ok, Child#child{pid=Pid, priority_alias=PrioAlias}};
+        error ->
             error
     end.
 
@@ -1917,12 +2001,10 @@ get_dynamic_child(#state{children={[Id],Db}}) ->
     Child.
 
 %% Update pid in the given child record and store it in the process state
--spec set_pid(term(), child_id(), state()) -> state();
-             (term(), child_id(), children()) -> children().
-set_pid(Pid, Id, #state{children=Children} = State) ->
-    State#state{children = set_pid(Pid, Id, Children)};
-set_pid(Pid, Id, {Ids, Db}) ->
-    NewDb = maps:update_with(Id, fun(Child) -> Child#child{pid=Pid} end, Db),
+set_pid_and_alias(Pid, PrioAlias, Id, #state{children = Children} = State) ->
+    State#state{children = set_pid_and_alias(Pid, PrioAlias, Id, Children)};
+set_pid_and_alias(Pid, PrioAlias, Id, {Ids, Db}) ->
+    NewDb = maps:update_with(Id, fun(Child) -> Child#child{pid=Pid, priority_alias=PrioAlias} end, Db),
     {Ids,NewDb}.
 
 %% Remove the Id and the child record from the process state
@@ -2489,31 +2571,37 @@ dyn_size(#state{dynamics = {_Kind,Db}}) ->
 dyn_erase(Pid,#state{dynamics={Kind,Db}}=State) ->
     State#state{dynamics={Kind,maps:remove(Pid,Db)}}.
 
-dyn_store(Pid,Args,#state{dynamics={Kind,Db}}=State) ->
+dyn_store(Pid,Alias,Args,#state{dynamics={Kind,Db}}=State) ->
     case Kind of
         mapsets ->
             %% Children are temporary. The start arguments
             %% will not be needed again. Store [].
-            State#state{dynamics={mapsets,Db#{Pid => []}}};
+            State#state{dynamics={mapsets,Db#{Pid => {Alias, []}}}};
         maps ->
             %% Children are permanent and may be restarted.
             %% Store the start arguments.
-            State#state{dynamics={maps,Db#{Pid => Args}}}
+            State#state{dynamics={maps,Db#{Pid => {Alias, Args}}}}
     end.
 
 dyn_fold(Fun,Init,#state{dynamics={_Kind,Db}}) ->
-    maps:fold(fun(Pid,_,Acc) -> Fun(Pid,Acc) end, Init, Db).
+    maps:fold(fun(Pid, {Alias, _}, Acc) -> Fun(Pid, Alias, Acc) end, Init, Db).
 
 dyn_map(Fun, #state{dynamics={_Kind,Db}}) ->
     lists:map(Fun, maps:keys(Db)).
 
-dyn_exists(Pid, #state{dynamics={_Kind, Db}}) ->
-    is_map_key(Pid, Db).
+dyn_alias(Pid, #state{dynamics={_Kind, Db}}) ->
+    case Db of
+	#{Pid := {PrioAlias, _}} -> {ok, PrioAlias};
+	#{} -> error
+    end.
 
 dyn_args(_Pid, #state{dynamics={mapsets, _Db}}) ->
     {ok,undefined};
 dyn_args(Pid, #state{dynamics={maps, Db}}) ->
-    maps:find(Pid, Db).
+    case Db of
+	#{Pid := {_, Args}} -> {ok, Args};
+	#{} -> error
+    end.
 
 dyn_init(State) ->
     dyn_init(get_dynamic_child(State),State).

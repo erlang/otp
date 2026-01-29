@@ -190,6 +190,7 @@ using exit signals.
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
          start_monitor/3, start_monitor/4,
+	 start_as_child/3, start_as_child/4,
 	 stop/1, stop/3,
 	 call/2, call/3,
          send_request/2, send_request/4,
@@ -216,7 +217,7 @@ using exit signals.
 -export([format_log/1, format_log/2]).
 
 %% Internal exports
--export([init_it/6]).
+-export([init_it/7]).
 
 -include("logger.hrl").
 
@@ -232,9 +233,11 @@ using exit signals.
    [server_name/0,
     server_ref/0,
     start_opt/0,
+    start_as_child_opt/0,
     enter_loop_opt/0,
     start_ret/0,
-    start_mon_ret/0]).
+    start_mon_ret/0,
+    start_as_child_ret/0]).
 
 -define(
    STACKTRACE(),
@@ -875,7 +878,9 @@ It can be:
       | {'via', RegMod :: module(), ViaName :: term()}.
 
 -doc """
-Server start options for the [`start` functions](`start_link/3`).
+Server start options for the [`start`](`start/3`),
+[`start_link`](`start_link/3`) and [`start_monitor`](`start_monitor/3`)
+functions.
 
 Options that can be used when starting a `gen_server` server through,
 for example, [`start_link/3,4`](`start_link/4`).
@@ -901,6 +906,28 @@ for example, [`start_link/3,4`](`start_link/4`).
         {'timeout', Timeout :: timeout()}
       | {'spawn_opt', SpawnOptions :: [proc_lib:start_spawn_option()]}
       | enter_loop_opt().
+
+-doc """
+Server start options for the [`start_as_child`](`start_as_child/3`)
+functions.
+
+Same as `t:start_opt/0`, but adds more options specific
+to starting a server as a child of a supervisor.
+
+- **`{shutdown_priority, ShutdownPriority}`** - If the server process is
+  trapping exits: If `true`, shutdown events such as an order from the parent
+  to shut down or the death of the parent process take priority over other
+  `call`s, `cast`s or messages. That is, the server process will terminate
+  (calling the `c:terminate/2` callback if provided) even if there are events
+  that arrived earlier remaining unprocessed in its message queue. If `false`
+  (the default), shutdown events will be processed only after all other events
+  that arrived earlier have been processed.
+  If the server process is not trapping exits, this option has no effect.
+""".
+-type start_as_child_opt() ::
+        start_opt()
+      | {'shutdown_priority', ShutdownPriority :: boolean()}.
+
 %%
 -doc """
 Server start options for the [`start`](`start_link/4`) or
@@ -963,6 +990,19 @@ and a [`monitor/2,3`](`erlang:monitor/2`) [`MonRef`](`t:reference/0`).
 """.
 -type start_mon_ret() :: % gen:start_ret() with only monitor return
         {'ok', {Pid :: pid(), MonRef :: reference()}}
+      | 'ignore'
+      | {'error', Reason :: term()}.
+
+-doc """
+Return value from the [`start_as_child/3,4`](`start_as_child/3`) functions.
+
+The same as type `t:start_ret/0` except that for a successful start
+it returns `{child, Pid, Extra}`, where `Pid` is the process identifier of
+the started `gen_server` process and `Extra` is a map of supplementary
+information.
+""".
+-type start_as_child_ret() ::
+	{'child', Pid :: pid(), Extra :: map()}
       | 'ignore'
       | {'error', Reason :: term()}.
 
@@ -1051,8 +1091,8 @@ for different name registrations.
 `Args` is any term that is passed as the argument to
 [`Module:init/1`](`c:init/1`).
 
-See type `t:start_opt/0` for `Options` for starting
-the `gen_server` process.
+See types `t:start_opt/0` for `Options` for starting the `gen_server`
+process.
 
 See type `t:start_ret/0` for a description this function's return values.
 
@@ -1150,6 +1190,46 @@ start_monitor(ServerName, Module, Args, Options)
 start_monitor(ServerName, Module, Args, Options) ->
     error(badarg, [ServerName, Module, Args, Options]).
 
+-doc """
+Start a server as a child of a supervisor, linked but not registered.
+
+Equivalent to `start_child/4` except that the `gen_server` process is
+not registered with any [name service](`t:server_name/0`).
+""".
+-spec start_as_child(
+	Module     :: module(),
+	Args       :: term(),
+	Options    :: [start_as_child_opt()]
+       ) ->
+		   start_as_child_ret().
+%%
+start_as_child(Module, Args, Options)
+  when is_atom(Module), is_list(Options) ->
+    gen:start(?MODULE, child, Module, Args, Options);
+start_as_child(Module, Args, Options) ->
+    error(badarg, [Module, Args, Options]).
+
+-doc """
+Start a server as a child of a supervisor, linked and registered.
+
+Creates a `gen_server` process as part of a supervision tree.
+This function is to be called, directly or indirectly, by the supervisor.
+For example, it ensures that the `gen_server` process is spawned
+as linked to the caller (supervisor).
+""".
+-spec start_as_child(
+	ServerName :: server_name(),
+	Module     :: module(),
+	Args       :: term(),
+	Options    :: [start_as_child_opt()]
+       ) ->
+		   start_as_child_ret().
+%%
+start_as_child(ServerName, Module, Args, Options)
+  when is_tuple(ServerName), is_atom(Module), is_list(Options) ->
+    gen:start(?MODULE, child, ServerName, Module, Args, Options);
+start_as_child(ServerName, Module, Args, Options) ->
+    error(badarg, [ServerName, Module, Args, Options]).
 
 %% -----------------------------------------------------------------
 %% Stop a generic server and wait for it to terminate.
@@ -2226,16 +2306,25 @@ enter_loop(Mod, Options, State, ServerName, Action)
 %%% Finally an acknowledge is sent to Parent and the main
 %%% loop is entered.
 %%% ---------------------------------------------------
+
+init_ack_return(Parent, child, true) ->
+    erlang:link(Parent, [priority]),
+    {child, self(), #{priority_alias => alias([priority])}};
+init_ack_return(_Parent, child, false) ->
+    {child, self(), #{}};
+init_ack_return(_Parent, _LinkP, _ShutdownPriority) ->
+    {ok, self()}.
+
 -doc false.
-init_it(Starter, self, Name, Mod, Args, Options) ->
-    init_it(Starter, self(), Name, Mod, Args, Options);
-init_it(Starter, Parent, Name0, Mod, Args, Options) ->
+init_it(Starter, self, LinkP, Name, Mod, Args, Options) ->
+    init_it(Starter, self(), LinkP, Name, Mod, Args, Options);
+init_it(Starter, Parent, LinkP, Name0, Mod, Args, Options) ->
     Name = gen:name(Name0),
     ServerData = server_data(Parent, Name, Mod, gen:hibernate_after(Options)),
     Debug = gen:debug_options(Name, Options),
     case init_it(Mod, Args) of
 	{ok, {ok, State}} ->
-	    proc_lib:init_ack(Starter, {ok, self()}),
+	    proc_lib:init_ack(Starter, init_ack_return(Parent, LinkP, gen:shutdown_priority(Options))),
 	    loop(ServerData, State, infinity, Debug);
 	{ok, {ok, State, Action} = Return} ->
             case handle_action(ServerData, Action) of
@@ -2243,7 +2332,7 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 		    gen:unregister_name(Name0),
 		    exit({bad_return_value, Return});
                 LoopAction ->
-                    proc_lib:init_ack(Starter, {ok, self()}),
+                    proc_lib:init_ack(Starter, init_ack_return(Parent, LinkP, gen:shutdown_priority(Options))),
                     loop(ServerData, State, LoopAction, Debug)
             end;
 	{ok, {stop, Reason}} ->

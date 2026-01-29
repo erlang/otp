@@ -926,19 +926,19 @@ raw_initial_call(ProcInfo) when is_list(ProcInfo) ->
 %% Translate the initial call to some useful information.
 %% -----------------------------------------------------
 
-trans_init(gen,init_it,[gen_server,_,_,supervisor,{_,Module,_},_]) ->
-    {supervisor,Module,1};
 trans_init(gen,init_it,[gen_server,_,_,_,supervisor,{_,Module,_},_]) ->
     {supervisor,Module,1};
-trans_init(gen,init_it,[gen_server,_,_,supervisor_bridge,[Module|_],_]) ->
-    {supervisor_bridge,Module,1};
+trans_init(gen,init_it,[gen_server,_,_,_,_,supervisor,{_,Module,_},_]) ->
+    {supervisor,Module,1};
 trans_init(gen,init_it,[gen_server,_,_,_,supervisor_bridge,[Module|_],_]) ->
     {supervisor_bridge,Module,1};
+trans_init(gen,init_it,[gen_server,_,_,_,_,supervisor_bridge,[Module|_],_]) ->
+    {supervisor_bridge,Module,1};
 trans_init(gen,init_it,[gen_event|_]) ->
-    {gen_event,init_it,6};
-trans_init(gen,init_it,[_GenMod,_,_,Module,_,_]) when is_atom(Module) ->
+    {gen_event,init_it,7};
+trans_init(gen,init_it,[_GenMod,_,_,_,Module,_,_]) when is_atom(Module) ->
     {Module,init,1};
-trans_init(gen,init_it,[_GenMod,_,_,_,Module|_]) when is_atom(Module) ->
+trans_init(gen,init_it,[_GenMod,_,_,_,_,Module|_]) when is_atom(Module) ->
     {Module,init,1};
 trans_init(M, F, A) when is_atom(M), is_atom(F) ->
     {M,F,length(A)}.
