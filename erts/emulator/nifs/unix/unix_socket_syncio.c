@@ -4161,7 +4161,7 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
         size_t bufdata_sz  = vlen * bufSz;
         size_t ctrldata_sz = vlen * ctrlSz;
         size_t total_sz = bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + bufdata_sz + ctrldata_sz;
-        heapPool = (char*) enif_alloc(total_sz);
+        ESOCK_ASSERT(heapPool = (char*) MALLOC(total_sz));
         if (!heapPool) return esock_make_error_errno(env, ENOMEM);
         sys_memzero(heapPool, bufs_sz + ctrls_sz + addrs_sz);
         bufs         = (ErlNifBinary*)   (heapPool);
@@ -4208,34 +4208,22 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
      * copying data from raw memory blocks.
      */
     {
-        ERL_NIF_TERM* elems = (ERL_NIF_TERM*) enif_alloc(readResult * sizeof(ERL_NIF_TERM));
-        size_t totalBytes = 0;
+        ERL_NIF_TERM* elems;
+        ESOCK_ASSERT( (elems = MALLOC(readResult * sizeof(ERL_NIF_TERM))) != NULL );
 
-        if (!elems) {
-            ret = esock_make_error_errno(env, ENOMEM);
-            goto cleanup;
-        }
+        size_t totalBytes = 0;
 
         for (i = 0; i < (unsigned int) readResult; i++) {
             ErlNifBinary bin;
             size_t       ctrlLen;
             unsigned int msgLen = recvMmsghdrs[i].msg_len;
 
-            if (!ALLOC_BIN(bufSz, &bufs[i])) {
-                enif_free(elems);
-                ret = esock_make_error_errno(env, ENOMEM);
-                goto cleanup;
-            }
+
+            ESOCK_ASSERT( ALLOC_BIN(bufSz, &bufs[i]) );
             sys_memcpy(bufs[i].data, recvBufs + (i * bufSz), msgLen);
             bufs[i].size = bufSz;
 
-            if (!ALLOC_BIN(ctrlSz, &ctrls[i])) {
-                FREE_BIN(&bufs[i]);
-                enif_free(elems);
-                ret = esock_make_error_errno(env, ENOMEM);
-                goto cleanup;
-            }
-
+            ESOCK_ASSERT( ALLOC_BIN(ctrlSz, &ctrls[i]) );
             ctrlLen = (recvMmsghdrs[i].msg_hdr.msg_controllen < ctrlSz)
                 ? recvMmsghdrs[i].msg_hdr.msg_controllen
                 : ctrlSz;
@@ -4393,7 +4381,7 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         size_t iovecPtrs_sz    = msgCount * sizeof(ErlNifIOVec*);
         size_t ctrlBufData_sz  = msgCount * descP->wCtrlSz;
         size_t total_sz = mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz + ctrlBufData_sz;
-        heapPool = (char*) enif_alloc(total_sz);
+        ESOCK_ASSERT(heapPool = (char*) MALLOC(total_sz));
         if (!heapPool) {
             ret = esock_make_error_errno(env, ENOMEM);
             goto cleanup;
@@ -4499,7 +4487,7 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         unsigned int k;
 
         if (updatedCount > 0) {
-            resultElems = (ERL_NIF_TERM*) enif_alloc(updatedCount * sizeof(ERL_NIF_TERM));
+            ESOCK_ASSERT(resultElems = (ERL_NIF_TERM*) MALLOC(updatedCount * sizeof(ERL_NIF_TERM)));
             if (!resultElems) {
                 ret = esock_make_error_errno(env, ENOMEM);
                 goto cleanup;
