@@ -596,6 +596,126 @@
         ],
         "not_affected": "vulnerable_code_not_present"
       }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-11187",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-15467",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-15468",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-15469",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-66199",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-68160",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-69418",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-69419",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-69420",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-69421",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2026-22795",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2026-22796",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ],
   "otp-29": [
