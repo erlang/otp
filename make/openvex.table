@@ -626,6 +626,54 @@
     {
       "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2": "CVE-2026-22184",
       "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+        {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-11187",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-15467",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-15468",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-15469",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-66199",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-68160",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-69418",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-69419",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-69420",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2025-69421",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2026-22795",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@7b371d80d959ec9ab4139d09d78e83c090de9779": "CVE-2026-22796",
+      "status": { "not_affected": "vulnerable_code_not_present" }
     }
   ]
 }
