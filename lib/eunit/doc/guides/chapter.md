@@ -486,6 +486,7 @@ compiled with testing enabled or disabled.
 - [Assert macros](chapter.md#Assert_macros)
 - [Macros for checking output](chapter.md#Macros_for_checking_output)
 - [Macros for running external commands](chapter.md#Macros_for_running_external_commands)
+- [Macros for instrumentation](chapter.md#Macros_for_instrumentation)
 - [Debugging macros](chapter.md#Debugging_macros)
 
 [](){: #Basic_macros }
@@ -753,6 +754,22 @@ compiled with testing enabled.
       fun (FileName) -> ?cmd("rm " ++ FileName) end,
       ...}
   ```
+
+[](){: #Macros_for_instrumentation }
+
+### Macros for instrumentation
+
+To help with instrumenting, EUnit defines a macro that can introduce
+delays into the runtime.  This can help uncover subtle timing bugs
+that may not be evident when timing is perfect.
+
+If the macro `NODEBUG` is defined before the EUnit header file is included,
+these macros have no effect; see
+[Compilation control macros](chapter.md#Compilation_control_macros) for details.
+
+- **`randomDelay(Probability, Min, Max)`** This macro is used to cause
+non-deterministic latency into execution, which is useful for uncovering 
+race conditions and timing-dependent bugs during testing.
 
 [](){: #Debugging_macros }
 
