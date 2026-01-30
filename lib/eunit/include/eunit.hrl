@@ -246,7 +246,7 @@
             case rand:uniform() < (Prob) of
                 true ->
                     %% Convert seconds to milliseconds for timer:sleep
-                    Delay = (MinSec) +   () * ((MaxSec) - (MinSec)),
+                    Delay = (MinSec) + rand:uniform() * ((MaxSec) - (MinSec))
                     timer:sleep(round(Delay * 1000));
                 false ->
                     ok
