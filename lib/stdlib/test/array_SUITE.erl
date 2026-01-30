@@ -110,7 +110,8 @@ end_per_testcase(_Case, _Config) ->
 		 default,	%% the default value (usually 'undefined')
                  cache,         %% cached leaf tuple
                  cache_index,   %% low index of cache
-		 elements	%% the tuple tree
+		 elements,	%% the tuple tree
+                 max
 		}).
 
 -define(_assert(What), 
@@ -356,14 +357,15 @@ set_get_test(_Config) ->
      ?_assertError(badarg, array:get(0, reset(11, new([{size,10}])))),
      ?_assertError(badarg, array:get(0, reset(-1, new([{size,10}])))),
      ?_assert(array:get(0, reset(0,  new())) =:= undefined),
-     ?_assert(array:get(0, reset(0,  set(0,  17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(9,  set(9,  17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(11, set(11, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(11, set(12, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(1,  set(12, 17, new()))) =:= undefined),
+     ?_assert(array:get(0, reset(0,  set(127, set_cache, set(0,  17, new())))) =:= undefined),
+     ?_assert(array:get(9, reset(9,  set(127, set_cache, set(9,  17, new())))) =:= undefined),
+     ?_assert(array:get(21, reset(21, set(127, set_cache, set(21, 17, new())))) =:= undefined),
+     ?_assert(array:get(0, reset(32, set(127, set_cache, set(22, 17, new())))) =:= undefined),
+     ?_assert(array:get(1, reset(1,  set(22, 17, new()))) =:= undefined),
      ?_assert(array:get(0, reset(11, new())) =:= undefined),
-     ?_assert(array:get(0, reset(0,  set(0,  17, new({default,42})))) =:= 42),
-     ?_assert(array:get(0, reset(0,  new({default,42}))) =:= 42)
+     ?_assert(array:get(0, reset(11, new(31))) =:= undefined),
+     ?_assert(array:get(0, reset(0,  set(127, set_cache, set(0,  17, new({default,42}))))) =:= 42),
+     ?_assert(array:get(0, reset(0,  set(127, set_cache, new({default,42})))) =:= 42)
     ].
 
 to_list_test(_Config) ->
