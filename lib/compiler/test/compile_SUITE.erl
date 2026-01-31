@@ -40,7 +40,7 @@
          beam_ssa_pp_smoke_test/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
-         deterministic_docs/1,
+         deterministic_docs/1, preserve_paths/1, modify_paths/1,
          compile_attribute/1, message_printing/1, other_options/1,
          transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
          annotations_pp/1, option_order/1,
@@ -64,7 +64,7 @@ all() ->
      warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
-     deterministic_docs,
+     deterministic_docs, preserve_paths, modify_paths,
      compile_attribute, message_printing, other_options, transforms,
      erl_compile_api, types_pp, bs_init_writable, annotations_pp,
      option_order, sys_coverage].
@@ -1783,6 +1783,26 @@ deterministic_include(Config) when is_list(Config) ->
     {ok,_,DetD} = compile:file(Simple, [binary, deterministic, {i,"gaffel"}]),
     true = DetC =:= DetD,
 
+    %% ... and files with +preserve_paths should.
+    {ok,_,DetE} = compile:file(
+                    Simple, [binary, deterministic,
+                             preserve_paths, {i,"gurka"}]),
+    {ok,_,DetF} = compile:file(
+                    Simple, [binary, deterministic,
+                             preserve_paths, {i,"gaffel"}]),
+    true = DetE =/= DetF,
+
+    %% ... and files with {modify_paths, {From, To}} shouldn't.
+    {ok,_,DetG} = compile:file(
+                    Simple, [binary, deterministic,
+                             preserve_paths, {i,"gurka"},
+                             {modify_path, {"gurka", "tallrik"}}]),
+    {ok,_,DetH} = compile:file(
+                    Simple, [binary, deterministic,
+                             preserve_paths, {i,"gaffel"},
+                             {modify_path, {"gaffel", "tallrik"}}]),
+    true = DetG =:= DetH,
+
     ok.
 
 deterministic_paths(Config) when is_list(Config) ->
@@ -1794,6 +1814,15 @@ deterministic_paths(Config) when is_list(Config) ->
 
     %% ... but files with +deterministic shouldn't.
     false = deterministic_paths_1(DataDir, "simple", [deterministic]),
+
+    %% ... and files with +preserve_paths shouldn't.
+    false = deterministic_paths_1(DataDir, "simple",
+                                 [deterministic, preserve_paths]),
+
+    %% ... and files with {modify_path, {From, To}} shouldn't.
+    false = deterministic_paths_1(DataDir, "simple",
+                                  [deterministic, preserve_paths,
+                                  {modify_path, {DataDir, "/app/"}}]),
 
     ok.
 
@@ -1830,6 +1859,68 @@ deterministic_docs_1(Filepath, Opts, Checks) ->
               peer:stop(Peer),
               Testing =:= Reference
       end, lists:seq(1, Checks)).
+
+preserve_paths(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Simple = filename:join(DataDir, "simple"),
+    Opts = [{i, "/path/to/sked"}],
+
+    ModuleInfo1 = preserve_paths_1(Simple, Opts),
+    {options, Options1} = lists:keyfind(options, 1, ModuleInfo1),
+    true = lists:keymember(i, 1, Options1),
+    true = lists:keymember(source, 1, ModuleInfo1),
+
+    ModuleInfo2 = preserve_paths_1(Simple, [deterministic | Opts]),
+    false = lists:keymember(options, 1, ModuleInfo2),
+    false = lists:keymember(source, 1, ModuleInfo2),
+
+    ModuleInfo3 = preserve_paths_1(
+                    Simple, [deterministic, preserve_paths | Opts]),
+    {options, Options3} = lists:keyfind(options, 1, ModuleInfo3),
+    true = lists:keymember(i, 1, Options3),
+    true = lists:keymember(source, 1, ModuleInfo3),
+
+    ok.
+
+preserve_paths_1(Simple, Opts) ->
+    {ok, simple} = compile:file(Simple, Opts),
+    {module, simple} = c:l(simple),
+    ModuleInfo = simple:module_info(compile),
+    true = code:delete(simple),
+    false = code:purge(simple),
+    ModuleInfo.
+
+modify_paths(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Simple = filename:join(DataDir, "simple"),
+    Opts = [{i, "/path/to/sked"},
+            {modify_path, {"/path/to", "/tallrik"}},
+            {modify_path, {DataDir, "/app/"}}],
+
+    ModuleInfo1 = modify_paths_1(Simple, Opts),
+    {options, Options1} = lists:keyfind(options, 1, ModuleInfo1),
+    {i, "/tallrik/sked"} = lists:keyfind(i, 1, Options1),
+    {source, "/app/simple.erl"} = lists:keyfind(source, 1, ModuleInfo1),
+
+    ModuleInfo2 = modify_paths_1(Simple, [deterministic | Opts]),
+    false = lists:keymember(options, 1, ModuleInfo2),
+    false = lists:keymember(source, 1, ModuleInfo2),
+
+    ModuleInfo3 = modify_paths_1(
+                    Simple, [deterministic, preserve_paths | Opts]),
+    {options, Options3} = lists:keyfind(options, 1, ModuleInfo3),
+    {i, "/tallrik/sked"} = lists:keyfind(i, 1, Options3),
+    {source, "/app/simple.erl"} = lists:keyfind(source, 1, ModuleInfo3),
+
+    ok.
+
+modify_paths_1(Simple, Opts) ->
+    {ok, simple} = compile:file(Simple, Opts),
+    {module, simple} = c:l(simple),
+    ModuleInfo = simple:module_info(compile),
+    true = code:delete(simple),
+    false = code:purge(simple),
+    ModuleInfo.
 
 %% ERL-1058: -compile(debug_info) had no effect
 compile_attribute(Config) when is_list(Config) ->
