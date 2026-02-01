@@ -1358,6 +1358,12 @@ cover_maps_functions(_Config) ->
     {'EXIT',_} = catch maps:without(not_a_list, #{}),
     {'EXIT',_} = catch maps:without([], not_a_map),
 
+    Fails = fun(_) -> error(blurf) end,
+    EmptyMap = #{},
+
+    {'EXIT',_} = catch maps:from_list(lists:map(Fails, [id(a), id(b)])),
+    EmptyMap = maps:from_list(lists:map(Fails, [])),
+
     ok.
 
 %% The types for erlang:min/2 and erlang:max/2 were wrong, assuming that the
