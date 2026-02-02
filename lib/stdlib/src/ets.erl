@@ -1728,14 +1728,15 @@ If a default object `Default` is specified, it is used as the object to be
 updated if the key is missing from the table. The value in place of the key is
 ignored and replaced by the proper key value. The return value is as if the
 default object had not been used, that is, a single updated element or a list of
-them.
+them. An invalid default object will fail the function even if the key exists in
+the table.
 
 The function fails with reason `badarg` in the following situations:
 
 - The table type is not `set` or `ordered_set`.
 - No object with the correct key exists and no default object was supplied.
 - The object has the wrong arity.
-- The default object arity is smaller than `<keypos>`.
+- The default object is not a tuple with an arity of at least `<keypos>` of the table.
 - Any field from the default object that is updated is not an integer.
 - The element to update is not an integer.
 - The element to update is also the key.
@@ -1790,14 +1791,15 @@ of an object in a `set` table, or _compare equal_ to the key of an object in an
 
 If a default object `Default` is specified, it is used as the object to be
 updated if the key is missing from the table. The value in place of the key is
-ignored and replaced by the proper key value.
+ignored and replaced by the proper key value. An invalid default object will
+fail the function even if the key exists in the table.
 
 The function fails with reason `badarg` in the following situations:
 
 - The table type is not `set` or `ordered_set`.
 - `Pos` < 1.
 - `Pos` > object arity.
-- The default object arity is smaller than `<keypos>`.
+- The default object is not a tuple with an arity of at least `<keypos>` of the table.
 - The element to update is also the key.
 """.
 -doc(#{since => <<"OTP 27.0">>}).

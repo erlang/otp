@@ -3505,9 +3505,7 @@ bool db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
             int arity = arityval(*objp);
             Eterm *htop, *hend;
 
-            if (arity < tbl->common.keypos) {
-                return 0;
-            }
+            ASSERT(arity >= tbl->common.keypos);
             htop = HAlloc(p, arity + 1);
             hend = htop + arity + 1;
             sys_memcpy(htop, objp, sizeof(Eterm) * (arity + 1));
