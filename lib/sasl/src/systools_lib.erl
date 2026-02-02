@@ -96,7 +96,20 @@ read_term_from_stream(Stream, File) ->
 %%% ----------------------------------------------------
 
 get_dirs(RegPath) when is_list(RegPath) ->
-    Names = filename:split(RegPath),
+    Names =
+        case filename:split(RegPath) of
+            ["//", ServerName, ShareName|Rest] = Split ->
+                case os:type() of
+                    {win32, nt} ->
+                        Root = "//" ++ filename:join(ServerName, ShareName),
+                        [Root|Rest];
+                    _ ->
+                        Split
+                end;
+            Split ->
+                Split
+        end,
+
     ExpNames = expand_names(Names),
     catch get_dirs(ExpNames, [], true);
 get_dirs(_) ->
