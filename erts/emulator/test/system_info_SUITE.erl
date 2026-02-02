@@ -39,7 +39,7 @@
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
          heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
-         procs_bug/1,
+         procs_bug/1, bif_timer_count/1,
          ets_count/1, atom_count/1, system_logger/1]).
 
 -export([init/1, handle_event/2, handle_call/2]).
@@ -53,7 +53,7 @@ suite() ->
 all() -> 
     [process_count, system_version, misc_smoke_tests,
      ets_count, heap_size, wordsize, memory, ets_limit, atom_limit, atom_count,
-     procs_bug,
+     procs_bug, bif_timer_count,
      system_logger].
 
 
@@ -519,6 +519,44 @@ ets_count_do(Opts) ->
     ets:delete(T),
     Before = erlang:system_info(ets_count).
 
+bif_timer_count(Config) when is_list(Config) ->
+    NumTmrs = 1000, ShortTimeout = 1_000, LongTimeout = 1_000_000_000,
+    bif_timer_count_single_threaded(NumTmrs, ShortTimeout),
+    bif_timer_count_single_threaded(NumTmrs, LongTimeout),
+    bif_timer_count_multi_threaded(NumTmrs, ShortTimeout),
+    bif_timer_count_multi_threaded(NumTmrs, LongTimeout),
+    ok.
+
+bif_timer_count_do(NumTmrs, Fun) ->
+    Before = erlang:system_info(bif_timer_count),
+    Tmrs = Fun(),
+    After = erlang:system_info(bif_timer_count),
+    MaxJitter = 10,
+    ActualJitter = abs(After - Before - NumTmrs),
+    true = ActualJitter < MaxJitter,
+    Tmrs.
+
+bif_timer_count_single_threaded(NumTmrs, Timeout) ->
+    Tmrs = bif_timer_count_do(NumTmrs, fun () ->
+        [erlang:start_timer(Timeout, self(), bif_timer_count_test) || _ <- lists:seq(1, NumTmrs)] end),
+    lists:foreach(fun (Tmr) -> erlang:cancel_timer(Tmr) end, Tmrs).
+
+bif_timer_count_multi_threaded(NumTmrs, Timeout) ->
+    SpawnerPid = self(),
+    _ = bif_timer_count_do(NumTmrs, fun () ->
+        [erlang:spawn_link(fun () ->
+            Tmr = erlang:start_timer(Timeout, SpawnerPid, bif_timer_count_test),
+            SpawnerPid ! {timer_initialized, Tmr},
+            % We're cancelling the timers in the spawned processes, because cancelling timers across schedulers is done lazily,
+            % and we want to make sure that the timers are cancelled before we start the next test (otherwise the second multithreaded test fails).
+            % 2s should be enough for the counting to be long finished (it takes about 1s to count 1M timers on my machine, so 2s for 1k timers is very conservative)
+            receive after 2_000 -> ok end,
+            erlang:cancel_timer(Tmr),
+            SpawnerPid ! timer_cancelled
+        end) || _ <- lists:seq(1, NumTmrs)],
+        [receive {timer_initialized, Tmr} -> Tmr end || _ <- lists:seq(1, NumTmrs)]
+        end),
+    [receive timer_cancelled -> ok end || _ <- lists:seq(1, NumTmrs)].
 
 %% Verify system_info(ets_limit) reflects max ETS table settings.
 ets_limit(Config0) when is_list(Config0) ->

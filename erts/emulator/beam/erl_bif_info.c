@@ -2938,6 +2938,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_min_bin_vheap_size,make_small(BIN_VH_MIN_SIZE));
 	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_bif_timer_count) {
+	BIF_RET(make_small(erts_bif_timer_count()));
     } else if (BIF_ARG_1 == am_process_count) {
 	BIF_RET(make_small(erts_ptab_count(&erts_proc)));
     } else if (BIF_ARG_1 == am_process_limit) {
