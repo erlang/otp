@@ -245,8 +245,14 @@ call that initiates an ssh connection.
 -doc(#{group => <<"Options">>}).
 -type key() :: public_key:public_key() | public_key:private_key() .
 -doc(#{group => <<"Options">>}).
--type experimental_openssh_key_v1() :: [{key(), openssh_key_v1_attributes()}].
--doc "Types for the experimental implementaition of the `openssh_key_v1` format.".
+-type experimental_openssh_key_v1_encode() ::
+        [{[{public_key:public_key(), public_key:private_key(), Comment::binary()} |
+           {public_key:private_key(), Comment::binary()}],
+          openssh_key_v1_attributes()}].
+-doc(#{group => <<"Options">>}).
+-type experimental_openssh_key_v1_decode() ::
+        [{key(), openssh_key_v1_attributes()}].
+-doc "Types for the experimental implementation of the `openssh_key_v1` format.".
 -doc(#{group => <<"Options">>}).
 -type openssh_key_v1_attributes() :: [{atom(),term()}].
 
@@ -479,7 +485,7 @@ OpenSSH public key.
                                                        | Decoded_openssh,
                                        Decoded_openssh :: [{public_key:public_key(), [{comment,string()}]}],
                                        Decoded_rfc4716 :: [{key(), [{headers,Attrs}]}],
-                                       Decoded_openssh_key_v1 :: experimental_openssh_key_v1(),
+                                       Decoded_openssh_key_v1 :: experimental_openssh_key_v1_decode(),
                                        Decoded_known_hosts :: [{public_key:public_key(), [{comment,string()}
                                                                                           | {hostnames,[string()]}]}],
                                        Decoded_auth_keys :: [{public_key:public_key(), [{comment,string()}
@@ -626,7 +632,7 @@ Encodes a list of SSH file entries (public keys and attributes) to a binary.
                                        InData_ssh2_pubkey :: public_key:public_key(),
                                        InData_openssh :: [{public_key:public_key(), [{comment,string()}]}],
                                        InData_rfc4716 :: [{key(), [{headers,Attrs}]}],
-                                       InData_openssh_key_v1 :: experimental_openssh_key_v1(),
+                                       InData_openssh_key_v1 :: experimental_openssh_key_v1_encode(),
                                        InData_known_hosts :: [{public_key:public_key(), [{comment,string()}
                                                                                           | {hostnames,[string()]}]}],
                                        InData_auth_keys :: [{public_key:public_key(), [{comment,string()}
@@ -651,16 +657,12 @@ encode(KeyAttrs, Type) when Type==rfc4716_key ;
                  fun openssh_key_v1_encode/1}
         end,
     iolist_to_binary(
-      [
-       [Begin,
+      [[Begin,
         [rfc4716_encode_header(H) || H <- proplists:get_value(headers, Attrs, [])],
-        split_long_lines( base64:encode( F(Key) ) ),
+        split_long_lines(base64:encode(F(Key))),
         "\n",
-        End
-       ] ||
-          {Key,Attrs} <- KeyAttrs
-      ]
-     );
+        End] ||
+          {Key,Attrs} <- KeyAttrs]);
 
 encode(KeyAttrs, Type) when Type == known_hosts;
                             Type == auth_keys ;
@@ -1177,16 +1179,14 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
             {error, key_decode_failed}
     end.
 
-
 decode_pem_keys(RawBin, Password) ->
     PemLines = split_in_nonempty_lines(
                  binary:replace(RawBin, [<<"\\\n">>,<<"\\\r\\\n">>],  <<"">>, [global])
                 ),
     decode_pem_keys(PemLines, Password, []).
+
 decode_pem_keys([], _, Acc) ->
     {ok,lists:reverse(Acc)};
-
-
 decode_pem_keys(PemLines, Password, Acc) ->
     %% Private Key
     try get_key_part(PemLines) of
@@ -1384,12 +1384,10 @@ openssh_key_v1_decode(<<"openssh-key-v1",0,
                       >>, Pwd) ->
     openssh_key_v1_decode(Rest, N, Pwd, CipherName, KdfName, KdfOptions, N, []).
 
-
 openssh_key_v1_decode(<<?DEC_BIN(BinKey,_L1), Rest/binary>>, I,
                       Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAcc) when I>0 ->
     PublicKey = ssh_message:ssh2_pubkey_decode(BinKey),
     openssh_key_v1_decode(Rest, I-1, Pwd, CipherName, KdfName, KdfOptions, N, [PublicKey|PubKeyAcc]);
-
 openssh_key_v1_decode(<<?DEC_BIN(Encrypted,_L)>>,
                       0, Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAccRev) ->
     PubKeys = lists:reverse(PubKeyAccRev),
@@ -1404,7 +1402,6 @@ openssh_key_v1_decode(<<?DEC_BIN(Encrypted,_L)>>,
         error:{decryption, DecryptError} ->
             error({decryption, DecryptError})
     end.
-
 
 openssh_key_v1_decode_priv_keys(Bin, I, N, KeyAcc, CmntAcc) when I>0 ->
     {PrivKey, <<?DEC_BIN(Comment,_Lc),Rest/binary>>} = ssh_message:ssh2_privkey_decode2(Bin),
@@ -1448,7 +1445,7 @@ check_padding(Bin, BlockSize) ->
     end.
 
 %%%----------------------------------------------------------------
-%% KeyPairs :: [ {Pub,Priv,Comment} ]
+%% KeyPairs :: [ {Pub,Priv,Comment} | {Priv,Comment} ]
 openssh_key_v1_encode(KeyPairs) ->
     CipherName = <<"none">>,
     BlockSize = ?NON_CRYPT_BLOCKSIZE, % Cipher dependent

@@ -90,12 +90,14 @@
          ssh_hostkey_fingerprint_list/1,
 
          chk_known_hosts/1,
-         ssh_hostkey_pkcs8/1
+         ssh_hostkey_pkcs8/1,
+         ec_private_key_version_compat/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include("ssh_test_lib.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %%%----------------------------------------------------------------
 %%% Common Test interface functions -------------------------------
@@ -112,7 +114,8 @@ all() ->
      {group, ssh_hostkey_fingerprint},
      {group, ssh_public_key_decode_encode},
      {group, pkcs8},
-     chk_known_hosts
+     chk_known_hosts,
+     ec_private_key_version_compat
     ].
 
 
@@ -797,6 +800,32 @@ ssh_openssh_key_long_header(Config) when is_list(Config) ->
 
     Encoded = ssh_file:encode(Decoded, rfc4716_key),
     Decoded = ssh_file:decode(Encoded, rfc4716_key).
+
+ec_private_key_version_compat(Config) when is_list(Config) ->
+    Keys =
+        [begin
+             try
+                 % with OTP 28: version = ecPrivkeyVer1 (atom) not integer
+                 {Curve, public_key:generate_key({namedCurve, Curve})}
+             catch Error:Reason:Stacktrace ->
+                     ?CT_LOG("SKIP Curve = ~p Error = ~p Reason = ~p~n~p",
+                             [Curve, Error, Reason, Stacktrace]),
+                     skip
+             end
+         end || Curve <- [ed25519, ed448, secp256r1, secp384r1]],
+    case lists:any(fun(I) -> I /= skip end, Keys) of
+        true ->
+            [begin
+                 PrivLegacy = K#'ECPrivateKey'{version = 1}, % OTP-26, OTP-27
+                 Encoded = ssh_message:ssh2_privkey_encode(K),
+                 EncodedLegacy = ssh_message:ssh2_privkey_encode(PrivLegacy),
+                 ?assertEqual(Encoded, EncodedLegacy),
+                 ?CT_LOG("Curve = ~p [OK]", [Curve])
+             end || {Curve, K} <- Keys, K /= skip];
+        false ->
+            ct:fail(no_keys)
+    end,
+    ok.
 
 %%%----------------------------------------------------------------
 %%% Test case helpers
