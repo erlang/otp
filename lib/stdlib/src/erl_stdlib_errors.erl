@@ -745,7 +745,7 @@ format_ets_error(update_counter, [_,_,UpdateOp,Default]=Args, Cause) ->
         "" ->
             %% The table is OK. The error is in one or more of the
             %% other arguments.
-            TupleCause = format_tuple(Default),
+            TupleCause = format_default_tuple(Default, Cause),
             case Cause of
                 badkey ->
                     ["", bad_key, format_update_op(UpdateOp) | TupleCause];
@@ -828,6 +828,11 @@ format_non_negative_integer(N) ->
 format_object([_,Object|_]=Args, Cause) ->
     [format_cause(Args, Cause) | format_tuple(Object)].
 
+format_default_tuple(Tuple, default) when is_tuple(Tuple) ->
+    [<<"default tuple too small">>];
+format_default_tuple(Term, _Cause) ->
+    format_tuple(Term).
+
 format_tuple(Term) ->
     if tuple_size(Term) > 0 -> [""];
        is_tuple(Term) -> [empty_tuple];
@@ -877,6 +882,8 @@ format_cause(Args, Cause) ->
         owner ->
             "";
         not_owner ->
+            "";
+        default ->
             ""
     end.
 
