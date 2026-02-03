@@ -556,7 +556,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on FreeBSD
-        uses: vmactions/freebsd-vm@966989c456d41351f095a421f60e71342d3bce41 # v1
+        uses: vmactions/freebsd-vm@ba6bedee4a4884da2b782a41a64329a1c8e42ffb # v1
         with:
             usesh: true
             copyback: false
@@ -585,7 +585,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on OpenBSD
-        uses: vmactions/openbsd-vm@0d65352eee1508bab7cb12d130536d3a556be487 # v1.1.8
+        uses: vmactions/openbsd-vm@a23337e408f7990a9369882eafbc24af55f5d3af # v1.3.3
         with:
             usesh: true
             copyback: false
@@ -611,7 +611,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on Solaris
-        uses: vmactions/solaris-vm@170f1f96f376cf7467cc41627e0c7590932fccaa # v1.1.4
+        uses: vmactions/solaris-vm@6fcd81bcefc0d16635f2c1969274288464dc5039 # v1.2.8
         with:
             usesh: true
             copyback: false
@@ -879,7 +879,7 @@ jobs:
         run: ln -s analyzer-result.json $HOME/.ort/ort-results/current-result.json
 
       - name: Restore ORT Scanner cache
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # ratchet:actions/cache/restore@v4
+        uses: actions/cache/restore@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/restore@v4
         id: ort-cache
         if: ${{ env.FULL_BUILD_AND_CHECK == 'false' }}
         with:
@@ -956,7 +956,7 @@ jobs:
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
       - name: Save ORT Scanner cache
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # ratchet:actions/cache/save@v4
+        uses: actions/cache/save@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/save@v4
         if: steps.ort-cache.outputs.cache-hit != 'true'
         with:
             path: ${{ env.SCAN_RESULT_CACHE_PATH }}
@@ -1039,7 +1039,7 @@ jobs:
       #
       - name: Upload SBOM to Github Dependency API
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-        uses: advanced-security/spdx-dependency-submission-action@5530bab9ee4bbe66420ce8280624036c77f89746 # ratchet:advanced-security/spdx-dependency-submission-action@v0.1.1
+        uses: advanced-security/spdx-dependency-submission-action@f957edbb35161c1f9e33f61026fc86a671c58cae # v0.1.2
 
   ## If this is an "OTP-*" tag that has been pushed we do some release work
   release:
@@ -1136,7 +1136,7 @@ jobs:
           path: "attestations/*.sigstore"
 
       - name: Upload pre-built and doc tar archives
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           name: OTP ${{ steps.tag.outputs.vsn }}
           files: |
