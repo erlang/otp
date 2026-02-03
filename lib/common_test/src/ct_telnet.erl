@@ -173,8 +173,6 @@ suite() ->
 	 format_data/2]).
 -export([start_gen_log/1, end_gen_log/0, log/3, log/4]).
 
--compile(nowarn_obsolete_bool_op).
-
 -define(RECONNS,3).
 -define(RECONN_TIMEOUT,5000).
 -define(DEFAULT_TIMEOUT,10000).
@@ -1192,7 +1190,7 @@ teln_expect(Name,Pid,Data,Pattern0,Prx,Opts) ->
     end.
 
 convert_pattern(Pattern0,Seq)
-  when Pattern0==[] orelse (is_list(Pattern0) and not is_integer(hd(Pattern0))) ->
+  when Pattern0==[]; is_list(Pattern0), not is_integer(hd(Pattern0)) ->
     Pattern =
         case Seq of
             true -> Pattern0;
