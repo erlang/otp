@@ -41,6 +41,6 @@ jobs:
             echo "${FILES}"
             echo "files=${FILES}" >> $GITHUB_OUTPUT
 
-      - uses: 'docker://ghcr.io/sethvargo/ratchet:latest@sha256:2946723648d429c1939025f7e4b140d874b9d9a07a01c379b1eccd61b5fd28a5' # ratchet:docker://ghcr.io/sethvargo/ratchet:latest
+      - uses: 'docker://ghcr.io/sethvargo/ratchet:latest@sha256:527e78e6d29a9ac306e843cf766afe0604a0b35633f16913d85dd522218e8ca1' # ratchet:docker://ghcr.io/sethvargo/ratchet:latest
         with:
           args: 'check ${{ steps.files.outputs.files }}'
