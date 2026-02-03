@@ -17,14 +17,14 @@ permissions:
 
 jobs:
   pr-number:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     if: github.repository == 'erlang/otp'
     permissions:
       issues: read
     outputs:
       result: ${{ steps.pr-number.outputs.result }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Fetch PR number
         id: pr-number
         env:
@@ -43,9 +43,9 @@ jobs:
       pull-requests: write
     if: github.event.action == 'requested' && needs.pr-number.outputs.result != ''
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       ## We create an initial comment with some useful help to the user
-      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # ratchet:actions/github-script@v7.0.1
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const script = require('./.github/scripts/pr-comment.js');
@@ -53,7 +53,7 @@ jobs:
                    pr_number: ${{ needs.pr-number.outputs.result }} });
 
   finished-tests:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs: pr-number
     ## Limit concurrency so that only one job deploys to erlang.github.io
     concurrency: erlang.github.io-deploy
@@ -66,7 +66,7 @@ jobs:
           needs.pr-number.outputs.result != '' &&
           github.event.workflow_run.conclusion != 'skipped'
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Download and Extract Artifacts
         id: extract
         env:
@@ -91,7 +91,7 @@ jobs:
              echo "HAS_TEST_ARTIFACTS=false" >> $GITHUB_OUTPUT
            fi
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           token: ${{ secrets.ERLANG_TOKEN }}
           repository: 'erlang/erlang.github.io'
@@ -134,7 +134,7 @@ jobs:
 
         ## Append some useful links and tips to the test results posted by
         ## Publish CT Test Results
-      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # ratchet:actions/github-script@v7.0.1
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         if: always()
         with:
           script: |
