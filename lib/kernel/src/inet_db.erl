@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -638,15 +638,23 @@ res_cache_answer(RRs) ->
 getbyname(Name, Type) ->
     {EmbeddedDots, TrailingDot} = inet_parse:dots(Name),
     Dot = if TrailingDot -> ""; true -> "." end,
-    if  TrailingDot ->
+    if
+        TrailingDot ->
 	    hostent_by_domain(Name, Type);
 	EmbeddedDots =:= 0 ->
-	    getbysearch(Name, Dot, get_searchlist(), Type, {error,nxdomain});
+            case
+                getbysearch(
+                  Name, Dot, get_searchlist(), Type, {error,nxdomain})
+            of
+                {error,_} ->
+                    hostent_by_domain(Name, Type);
+                Other1 -> Other1
+            end;
 	true ->
 	    case hostent_by_domain(Name, Type) of
 		{error,_}=Error ->
 		    getbysearch(Name, Dot, get_searchlist(), Type, Error);
-		Other -> Other
+		Other2 -> Other2
 	    end
     end.
 

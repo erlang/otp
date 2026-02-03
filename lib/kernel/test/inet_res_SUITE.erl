@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -630,6 +630,8 @@ basic(Config) when is_list(Config) ->
     {ok,#hostent{h_addr_list=IPs2}} =
         inet_res:gethostbyname(NameC, inet, Options, infinity),
     [IP1, IP2] = lists:sort(IPs2),
+    {ok,#hostent{h_addr_list=[{127,0,0,0}]}} =
+        inet_res:gethostbyname("otptest", inet, Options, infinity),
     %%
     %% getbyname
     ?P("getbyname"),
@@ -1193,12 +1195,17 @@ txt_record(Config) when is_list(Config) ->
 %% Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them.
 files_monitor(Config) when is_list(Config) ->
     ?P("begin"),
+    Nameservers = inet_db:res_option(nameservers),
+    AltNameservers = inet_db:res_option(alt_nameservers),
     Search = inet_db:res_option(search),
     HostsFile = inet_db:res_option(hosts_file),
     ResolvConf = inet_db:res_option(resolv_conf),
     Inet6 = inet_db:res_option(inet6),
-    try do_files_monitor(Config)
+    {_,Ns,_} = proplists:get_value(nameserver, Config),
+    try do_files_monitor(Config, Ns)
     after
+        inet_db:res_option(nameservers, Nameservers),
+        inet_db:res_option(alt_nameservers, AltNameservers),
         inet_db:res_option(search, Search),
         inet_db:res_option(resolv_conf, ResolvConf),
 	inet_db:res_option(hosts_file, HostsFile),
@@ -1207,7 +1214,7 @@ files_monitor(Config) when is_list(Config) ->
     ?P("done"),
     ok.
 
-do_files_monitor(Config) ->
+do_files_monitor(Config, Ns = {NsIP,NsPort}) ->
     Dir = proplists:get_value(priv_dir, Config),
     {ok,Hostname} = inet:gethostname(),
     ?P("Hostname: ~p", [Hostname]),
@@ -1223,6 +1230,9 @@ do_files_monitor(Config) ->
     ResolvConf = filename:join(Dir, "files_monitor_resolv.conf"),
     ok = inet_db:res_option(resolv_conf, ResolvConf),
     ok = inet_db:res_option(hosts_file, HostsFile),
+    ok = inet_db:res_option(nameservers, [Ns]),
+    [Ns] = inet_db:res_option(nameservers),
+    ok = inet_db:res_option(alt_nameservers, []),
     [] = inet_db:res_option(search),
     %% The inet function will use its final fallback to find this host
     {ok,#hostent{h_name = Hostname,
@@ -1233,8 +1243,8 @@ do_files_monitor(Config) ->
 		 h_addrtype = inet,
 		 h_length = 4,
 		 h_addr_list = [{127,0,0,1}]}} = inet:gethostbyname(FQDN),
-    {error,nxdomain} = inet_res:gethostbyname(Hostname),
-    {error,nxdomain} = inet_res:gethostbyname(FQDN),
+    {error,_} = inet_res:gethostbyname(Hostname),
+    {error,_} = inet_res:gethostbyname(FQDN),
     {ok,{127,0,0,10}} = inet:getaddr("mx.otptest", inet),
     {ok,{0,0,0,0,0,0,32512,28}} = inet:getaddr("resolve.otptest", inet6),
     %% The inet function will use its final fallback to find this host
@@ -1248,19 +1258,43 @@ do_files_monitor(Config) ->
 		 h_length = 16,
 		 h_addr_list = [{0,0,0,0,0,0,0,1}]}} =
 	inet:gethostbyname(FQDN, inet6),
-    {error,nxdomain} = inet_res:gethostbyname("resolve"),
-    %% XXX inet does not honour res_option inet6, might be a problem?
-    %% therefore inet_res is called here
+    {error,_} = inet_res:gethostbyname("resolve"),
     ok = inet_db:res_option(inet6, true),
     {ok,#hostent{h_name = "resolve.otptest",
 		 h_addrtype = inet6,
 		 h_length = 16,
 		 h_addr_list = [{0,0,0,0,0,0,32512,28}]}} =
 	inet_res:gethostbyname("resolve.otptest"),
+    %% The search list is empty so "otptest" will be tried
+    %% as an absolute name, and resolves to the A record
+    %% for the "otptest" domain.
+    {ok,#hostent{h_name = "otptest",
+		 h_addrtype = inet6,
+		 h_length = 16,
+		 h_addr_list = [{0,0,0,0,0,0,32512,0}]}} =
+        inet_res:gethostbyname("otptest"),
+    {ok,#hostent{h_name = "otptest.otptest",
+		 h_addrtype = inet6,
+		 h_length = 16,
+		 h_addr_list = [{0,0,0,0,0,0,32512,29}]}} =
+        inet_res:gethostbyname("otptest.otptest"),
     {error,nxdomain} = inet_hosts:gethostbyname("files_monitor"),
     ok = file:write_file(ResolvConf, "search otptest\n"),
     ok = file:write_file(HostsFile, "::100 files_monitor\n"),
     receive after 7000 -> ok end, % RES_FILE_UPDATE_TM in inet_res.hrl is 5 s
+    %% The following lookup will trigger a resolv.conf file read,
+    %% but the file contains no name servers, so inet_res
+    %% will return nxdomain, and inet will fall back to gethostbyname_self.
+    {ok,#hostent{h_name = Hostname,
+		 h_addrtype = inet6,
+		 h_length = 16,
+		 h_addr_list = [{0,0,0,0,0,0,0,1}]}} =
+	inet:gethostbyname(Hostname),
+    %% We cannot add a name server with port number through
+    %% resolv.conf, so we will have to add it manually here,
+    %% after the file has been read
+    [] = inet_db:res_option(nameservers),
+    ok = inet_db:add_ns(NsIP, NsPort),
     {ok,#hostent{h_name = "resolve.otptest",
 		 h_addrtype = inet6,
 		 h_length = 16,
@@ -1278,6 +1312,18 @@ do_files_monitor(Config) ->
 		 h_length = 4,
 		 h_addr_list = [{127,0,0,28}]}} =
 	inet:gethostbyname("resolve.otptest"),
+    %% Now the search list contains "otptest", so the short name
+    %% "otptest" will be tried as "otptest.otptest"v
+    {ok,#hostent{h_name = "otptest.otptest",
+		 h_addrtype = inet,
+		 h_length = 4,
+		 h_addr_list = [{127,0,0,29}]}} =
+        inet_res:gethostbyname("otptest", inet, [verbose], infinity),
+    {ok,#hostent{h_name = "otptest.otptest",
+		 h_addrtype = inet,
+		 h_length = 4,
+		 h_addr_list = [{127,0,0,29}]}} =
+        inet_res:gethostbyname("otptest.otptest"),
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
