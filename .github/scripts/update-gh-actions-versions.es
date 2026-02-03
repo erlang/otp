@@ -112,7 +112,7 @@ run(Opts) ->
     SupportedMajorVersions = string:split(cmd(Opts, ".github/scripts/get-supported-versions.sh"),"\n", all),
 
     %% Fetch all PRs done by renovate
-    PRs = cmd(Opts, ["gh pr -R ", Upstream, " list | grep 'renovate/[a-z0-9-]\\+github-actions' | awk '{print $1}'"]),
+    PRs = cmd(Opts, ["gh pr -R ", Upstream, " list -L 100 | grep 'renovate/[a-z0-9-]\\+github-actions' | awk '{print $1}'"]),
 
     %% If string is non-empty we have some PRs that we need to deal with
     case not string:equal(PRs,"") of
