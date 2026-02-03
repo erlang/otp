@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'erlang/otp' && github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
@@ -98,7 +98,7 @@ jobs:
         build-c-code: ${{ steps.c-code-changes.outputs.changes != '[]' || env.FULL_BUILD_AND_CHECK == 'true' }}
         all: ${{ steps.apps.outputs.all }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -136,14 +136,14 @@ jobs:
         with:
           filters: .github/scripts/c-code-path-filters.yaml
       - name: Cache pre-built src
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
             restore-keys: |
                 prebuilt-src-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
       - name: Cache pre-built binaries
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-64-bit-${{ github.ref_name }}-${{ github.sha }}
@@ -152,7 +152,7 @@ jobs:
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
       - name: Upload source tar archive
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
@@ -184,7 +184,7 @@ jobs:
               "`pwd`/.github/otp.tar.gz" \
               "`pwd`/otp_archive.tar.gz"
       - name: Upload restored cache
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: runner.debug == 1
         with:
           name: restored-cache
@@ -211,7 +211,7 @@ jobs:
             bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" \! -path "./erts/preloaded/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
           gzip otp_cache.tar
       - name: Upload pre-built tar archives
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: otp_prebuilt
           path: |
@@ -227,16 +227,16 @@ jobs:
       WXWIDGETS_VERSION: 3.2.9
       MACOS_VERSION: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Download source archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_prebuilt
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # ratchet:actions/cache@v4.2.4
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
@@ -262,7 +262,7 @@ jobs:
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: otp_prebuilt_macos_x86-64
           path: otp/otp_macos_*_x86-64.tar.gz
@@ -276,9 +276,9 @@ jobs:
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Download source archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_prebuilt
 
@@ -297,7 +297,7 @@ jobs:
           xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
 
       - name: Upload framework
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: ios_framework_${{ env.TARGET_ARCH }}
           path: otp/liberlang.xcframework
@@ -313,7 +313,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
-      - uses: Vampire/setup-wsl@3b46b44374d5d0ae94654c45d114a3ed7a0e07a8 # ratchet:Vampire/setup-wsl@v5.0.1
+      - uses: Vampire/setup-wsl@6a8db447be7ed35f2f499c02c6e60ff77ef11278 # v6.0.0
         with:
           distribution: Ubuntu-18.04
 
@@ -332,7 +332,7 @@ jobs:
           IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
 
       - name: Cache wxWidgets
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
@@ -374,7 +374,7 @@ jobs:
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
       - name: Download source archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_prebuilt
 
@@ -404,7 +404,7 @@ jobs:
           ./otp_build installer_win32
 
       - name: Upload installer
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
@@ -421,7 +421,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -500,7 +500,7 @@ jobs:
     outputs:
       vendor-files: ${{ steps.vendor-files.outputs.MODIFIED_FILES != '0' }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
       - name: Get modified vendor files
@@ -539,7 +539,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -552,7 +552,7 @@ jobs:
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
       - name: Download source archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_prebuilt
       - name: Build on FreeBSD
@@ -581,7 +581,7 @@ jobs:
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
       - name: Download source archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_prebuilt
       - name: Build on OpenBSD
@@ -607,7 +607,7 @@ jobs:
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
       - name: Download source archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_prebuilt
       - name: Build on Solaris
@@ -631,7 +631,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -662,12 +662,12 @@ jobs:
             rm -rf man
             tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
       - name: Upload man documentation archive
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
@@ -685,7 +685,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -712,7 +712,7 @@ jobs:
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -753,7 +753,7 @@ jobs:
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
       - name: Upload test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.type }}_test_results
@@ -765,12 +765,12 @@ jobs:
     if: ${{ !cancelled() }} # Run even if the need has failed
     needs: test
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Download test results
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       - name: Merge test results
         run: |
           shopt -s nullglob
@@ -805,14 +805,14 @@ jobs:
               -e 's:\(file="erts/\)make_test_dir/[^/]*:\1test:g' \
               make_test_dir/*_junit.xml
       - name: Upload test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ !cancelled() }}
         with:
           name: test_results
           path: test_results.tar.gz
       - name: Upload Test Results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: Unit Test Results
           path: |
@@ -842,13 +842,13 @@ jobs:
       - name: Use HTTPS instead of SSH for Git cloning
         run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
 
       - name: Fetch Default ORT Config
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
           repository: oss-review-toolkit/ort-config
           ref: "d2978deb230beae095bb6cfec074b94f1a74fd34"
@@ -933,7 +933,7 @@ jobs:
                -o $HOME/.ort/ort-results/scan-result.reuse.json /github"
 
       - name: Upload scan results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: ort-scan-results
           path: |
@@ -976,7 +976,7 @@ jobs:
               --sbom-file $HOME/.ort/ort-results/bom.spdx.json"
 
       - name: Upload SPDX SBOM result
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: spdx-sbom-result
           path: /home/runner/.ort/ort-results/bom.spdx.json
@@ -1015,13 +1015,13 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
 
       - name: Download SBoM
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
 
@@ -1066,19 +1066,19 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "vsn=${VSN}" >> $GITHUB_OUTPUT
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       ## Publish the pre-built archive and docs
       - name: Download source archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_prebuilt
       - name: Download html docs
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_doc_html
       - name: Download man docs
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_doc_man
 
@@ -1097,18 +1097,18 @@ jobs:
           sha256sum $FILES > SHA256.txt
 
       - name: Download SBoM
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
 
       - name: Download ORT Scan Results
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
 
       - name: Attest Distribution Assets with SBoM
         id: attest-sbom
-        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
         with:
           subject-path: |
             artifacts/*.tar.gz
@@ -1129,7 +1129,7 @@ jobs:
         env:
           ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
       - name: "Assemble Distribution Attestations"
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
 
           name: "Attestations"
@@ -1158,7 +1158,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: Event File
           path: ${{ github.event_path }}
