@@ -3894,11 +3894,10 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_outputv)) {
         DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
-
-        ERTS_ASSUME(dep);
-
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
+
+        ERTS_ASSUME(dep);
 
         erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                       "%T", prt->common.id);
@@ -4750,11 +4749,10 @@ erts_dist_port_not_busy(Port *prt)
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_port_not_busy)) {
         DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
-
-        ERTS_ASSUME(dep);
-
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
+
+        ERTS_ASSUME(dep);
 
         erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                       "%T", prt->common.id);

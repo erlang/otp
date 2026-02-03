@@ -1134,6 +1134,10 @@ get_cgroup_path(const char *controller,
         return ERTS_CGROUP_NONE;
     }
 
+#ifndef VALGRIND
+    child_path = NULL; // ERTS_UNDEF
+#endif
+
     version = get_cgroup_child_path(controller, &child_path);
 
     if (version == ERTS_CGROUP_NONE) {

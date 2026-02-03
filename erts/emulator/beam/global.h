@@ -946,13 +946,13 @@ void erts_debug_foreach_release_literal_area_off_heap(void (*func)(ErlOffHeap *,
 typedef struct ErtsLiteralArea_ {
     struct erl_off_heap_header *off_heap;
     Eterm *end;
-    Eterm start[1]; /* beginning of area */
+    Eterm start[]; /* beginning of area */
 } ErtsLiteralArea;
 
 void erts_queue_release_literals(Process *c_p, ErtsLiteralArea* literals);
 
 #define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
-    (sizeof(ErtsLiteralArea) + sizeof(Eterm)*(N - 1))
+    (offsetof(ErtsLiteralArea,start) + sizeof(Eterm)*(N))
 #define ERTS_LITERAL_AREA_SIZE(AP) \
     (ERTS_LITERAL_AREA_ALLOC_SIZE((AP)->end - (AP)->start))
 

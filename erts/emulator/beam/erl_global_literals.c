@@ -90,8 +90,8 @@ ErtsLiteralArea *erts_global_literal_iterate_area(ErtsLiteralArea *prev)
 
 static void expand_shared_global_literal_area(Uint heap_size)
 {
-    const size_t size = sizeof(struct global_literal_chunk) +
-                        (heap_size - 1) * sizeof(Eterm);
+    const size_t size = (offsetof(struct global_literal_chunk, area)
+                         + ERTS_LITERAL_AREA_ALLOC_SIZE(heap_size));
     struct global_literal_chunk *chunk;
                         
 #ifndef DEBUG 

@@ -5959,9 +5959,9 @@ BIF_RETTYPE dt_prepend_vm_tag_data_1(BIF_ALIST_1)
     const byte *temp_alloc = NULL;
     const byte *p;
     Uint size;
-    if (p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
-                                          &size,
-                                          &temp_alloc)) {
+
+    p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P), &size, &temp_alloc);
+    if (p) {
         byte *q;
         Uint i;
         b = erts_new_binary(BIF_P, (size + 1), &q);
@@ -5987,9 +5987,9 @@ BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
     const byte *temp_alloc = NULL;
     const byte *p;
     Uint size;
-    if (p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
-                                          &size,
-                                          &temp_alloc)) {
+
+    p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P), &size, &temp_alloc);
+    if (p) {
         byte *q;
         Uint i;
         p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),

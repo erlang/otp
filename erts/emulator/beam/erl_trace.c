@@ -3535,7 +3535,8 @@ erts_tracer_update_impl(ErtsTracer *tracer, ErtsTracer new_tracer)
         hp = hf->mem + 2;
         hf->used_size -= (sizeof(ErtsThrPrgrLaterOp)+sizeof(Eterm)-1)/sizeof(Eterm) + 1;
         *tracer = copy_struct(tracer_state, sz, &hp, &hf->off_heap);
-        *tracer = CONS(hf->mem, tracer_module, *tracer);
+        hp = hf->mem;
+        *tracer = CONS(hp, tracer_module, *tracer);
         ASSERT((void*)(((char*)(ptr_val(*tracer)) - offsetof(ErlHeapFragment, mem))) == hf);
     }
 }
