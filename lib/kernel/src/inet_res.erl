@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -881,21 +881,13 @@ type_p(Type) ->
 %%
 %% New behaviour (this code), honoring the old behaviour but
 %% doing better for absolute names:
-%% * For Name = "foo"       try "foo.dom1", "foo.dom2" at normal nameservers
+%% * For Name = "foo"       try "foo.dom1", "foo.dom2" at normal nameservers,
+%%                              then "foo" at normal then alt. nameservers
 %% * For Name = "foo.bar"   try "foo.bar" at normal then alt. nameservers
 %%                          then try "foo.bar.dom1", "foo.bar.dom2"
 %%                                   at normal nameservers
 %% * For Name = "foo."      try "foo" at normal then alt. nameservers
 %% * For Name = "foo.bar."  try "foo.bar" at normal then alt. nameservers
-%%
-%%
-%% FIXME This is probably how it should be done:
-%% Common behaviour (Solaris resolver) is:
-%% * For Name = "foo."      try "foo"
-%% * For Name = "foo.bar."  try "foo.bar"
-%% * For Name = "foo"       try "foo.dom1", "foo.dom2", "foo"
-%% * For Name = "foo.bar"   try "foo.bar.dom1", "foo.bar.dom2", "foo.bar"
-%% That is to try Name as it is as a last resort if it is not absolute.
 %%
 res_getbyname(Name, Type, Options, Timer) ->
     {EmbeddedDots, TrailingDot} = inet_parse:dots(Name),
@@ -903,13 +895,22 @@ res_getbyname(Name, Type, Options, Timer) ->
         TrailingDot ->
 	    res_getby_query(lists:droplast(Name), Type, Options, Timer);
 	EmbeddedDots =:= 0 ->
-	    res_getby_search(Name, inet_db:get_searchlist(),
-			     nxdomain, Type, Options, Timer);
+            case
+                res_getby_search(
+                  Name, inet_db:get_searchlist(),
+                  nxdomain, Type, Options, Timer)
+            of
+                {error, _Reason} ->
+                    res_getby_query(Name, Type, Options, Timer);
+                Other ->
+                    Other
+            end;
 	true ->
 	    case res_getby_query(Name, Type, Options, Timer) of
-		{error,_Reason}=Error ->
-		    res_getby_search(Name, inet_db:get_searchlist(),
-				     Error, Type, Options, Timer);
+		{error, Reason} ->
+		    res_getby_search(
+                      Name, inet_db:get_searchlist(),
+                      Reason, Type, Options, Timer);
 		Other -> Other
 	    end
     end.
@@ -966,30 +967,39 @@ res_getby_query(Name, Type, Options, Timer, NSs) ->
 
 
 
-%% Query first nameservers list then alt_nameservers list
-res_query(Name, Class, Type, Options, Timer) ->
-    Q = make_query(Name, Class, Type, Options),
-    case do_query(Q, Options#options.nameservers, Timer) of
-	{error,nxdomain}=Error ->
-	    res_query_alt(Q, Error, Timer);
-	{error,{nxdomain,_}}=Error ->
-	    res_query_alt(Q, Error, Timer);
-	{ok,#dns_rec{anlist=[]}}=Reply ->
-	    res_query_alt(Q, Reply, Timer);
-	Reply -> Reply
-    end.
-
 %% Query just the argument nameservers list
 res_query(Name, Class, Type, Options, Timer, NSs) ->
-    Q = make_query(Name, Class, Type, Options),
-    do_query(Q, NSs, Timer).
-
-res_query_alt(#q{options=#options{alt_nameservers=NSs}}=Q, Reply, Timer) ->
     case NSs of
-	[] -> Reply;
-	_ ->
-	    do_query(Q, NSs, Timer)
+        [] ->
+            {error,nxdomain};
+        [_|_] ->
+            Q = make_query(Name, Class, Type, Options),
+            do_query(Q, NSs, Timer)
     end.
+
+%% Query first nameservers list then alt_nameservers list;
+res_query(Name, Class, Type, Options, Timer) ->
+    case Options of
+        #options{nameservers = [], alt_nameservers = []} ->
+            {error,nxdomain};
+        #options{
+           nameservers = Nameservers,
+           alt_nameservers = AltNameservers} ->
+            Q = make_query(Name, Class, Type, Options),
+            case res_query(Q, Nameservers, {error,nxdomain}, Timer) of
+                {error,nxdomain} = Error ->
+                    res_query(Q, AltNameservers, Error, Timer);
+                {error,{nxdomain,_}} = Error ->
+                    res_query(Q, AltNameservers, Error, Timer);
+                {ok,#dns_rec{anlist=[]}} = Reply ->
+                    res_query(Q, AltNameservers, Reply, Timer);
+                Reply -> Reply
+            end
+    end.
+
+res_query(_Q, [], Result, _Timer) -> Result;
+res_query(Q, NSs, _Result, Timer) -> do_query(Q, NSs, Timer).
+
 
 make_query(Dname, Class, Type, Options) ->
     case Options#options.edns of
@@ -1145,9 +1155,6 @@ udp_close(#sock{inet=I,inet6=I6}) ->
 %%
 %% And that is what the code seems to do, now fixed, hopefully...
 
-do_query(_Q, [], _Timer) ->
-    %% We have no name server to ask, so say nxdomain
-    {error,nxdomain};
 do_query(#q{options=#options{retry=Retry}}=Q, NSs, Timer) ->
     %% We have at least one name server,
     %% so a failure will be a time-out,
@@ -1354,7 +1361,9 @@ query_ns(S0, {Msg, Buffer}, IP, Port, Timer, Retry, I,
 	    end
     end.
 
-query_udp(_S, _Msg, _Buffer, _IP, _Port, 0, _Verbose) ->
+query_udp(_S, _Msg, _Buffer, IP, Port, 0, Verbose) ->
+    ?verbose(Verbose, "No try UDP server : ~p:~p (overdue)\n",
+	     [IP,Port]),
     timeout;
 query_udp(S, Msg, Buffer, IP, Port, Timeout, Verbose) ->
     ?verbose(Verbose, "Try UDP server : ~p:~p (timeout=~w)\n",
@@ -1390,7 +1399,9 @@ query_udp(S, Msg, Buffer, IP, Port, Timeout, Verbose) ->
 	    {error,econnrefused}
     end.
 
-query_tcp(0, _Msg, _Buffer, _IP, _Port, _Verbose) ->
+query_tcp(0, _Msg, _Buffer, IP, Port, Verbose) ->
+    ?verbose(Verbose, "No try TCP server : ~p:~p (overdue)\n",
+             [IP, Port]),
     timeout;
 query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
     ?verbose(Verbose, "Try TCP server : ~p:~p (timeout=~w)\n",

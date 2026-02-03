@@ -1,3 +1,25 @@
+;;
+;; %CopyrightBegin%
+;;
+;; SPDX-License-Identifier: Apache-2.0
+;;
+;; Copyright Ericsson AB 2020-2026. All Rights Reserved.
+;;
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
+;;
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
+;;
+;; %CopyrightEnd%
+;;
+
 $TTL	3600
 @	IN SOA	ns lsa\.soa (
 		1		; serial
@@ -17,6 +39,8 @@ $TTL	3600
 	IN MX	20	mx5-5678901234567890123456789012345678
 	IN MX	20	mx6-5678901234567890123456789012345678
 	IN MX	20	mx7-5678901234567890123456789012345678
+        IN A            127.0.0.0
+        IN AAAA         ::127.0.0.0
 
 test1-78901234567890123456789012345678	IN A	127.0.0.1
 test2-78901234567890123456789012345678	IN A	127.0.0.2
@@ -38,6 +62,9 @@ ns		IN AAAA		::127.0.0.253
 resolve		IN A		127.0.0.28
 resolve		IN AAAA 	::127.0.0.28
 cname.resolve	IN CNAME	resolve
+otptest		IN A		127.0.0.29
+otptest		IN AAAA		::127.0.0.29
+
 ;wks.resolve	IN WKS		127.0.0.28 TCP ( TELNET SMTP )
 wks.resolve	IN TYPE11	\# 9 7f00001c 06 00000140 ; ... (23 25)
 resolve		IN HINFO	"BEAM" "Erlang/OTP"
@@ -61,6 +88,7 @@ minfo.resolve	IN MINFO	minfo-owner.resolve minfo-bounce.resolve
 uri.resolve     IN TYPE256	\# 21 000a 0003 (68747470 3a2f2f 65726c616e67 2e 6f7267)
 ;caa.resolve     IN CAA          1 iodef "http://iodef.erlang.org"
 caa.resolve     IN TYPE257       \# 30 01 (05 696f646566) (68747470 3a2f2f 696f646566 2e 65726c616e67 2e 6f7267)
+
 
 ; for testing TSIG we need a multi-message response so we use AXFR but need
 ; to juice up the zone file to meet our needs, the following creates 3 messages
