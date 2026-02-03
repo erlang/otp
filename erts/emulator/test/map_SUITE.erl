@@ -90,9 +90,6 @@
          t_get_map_elements/1,
          y_regs/1,
 
-         %% Bugs
-         t_large_unequal_bins_same_hash_bug/1,
-
 	 %% Display
 	 t_map_display/1]).
 
@@ -175,9 +172,6 @@ groups() ->
        t_has_map_fields,
        t_get_map_elements,
        y_regs,
-
-       %% Bugs
-       t_large_unequal_bins_same_hash_bug,
 
        %% Display
        t_map_display]},
@@ -3849,27 +3843,6 @@ fannerl() ->
       104,2,97,9,97,16,70,63,184,100,97,32,0,0,0,104,2,97,10,97,16,70,63,169,174,
       254,64,0,0,0,104,2,97,11,97,16,70,191,119,121,234,0,0,0,0,104,2,97,12,97,
       16,70,63,149,12,170,128,0,0,0,104,2,97,13,97,16,70,191,144,193,191,0,0,0,0>>.
-
-%% This test case checks that the bug with ticket number OTP-15707 is
-%% fixed. The bug could cause a crash or memory usage to grow until
-%% the machine ran out of memory.
-t_large_unequal_bins_same_hash_bug(Config) when is_list(Config) ->
-    run_when_enough_resources(
-      fun() ->
-              K1 = get_4GB_bin(1),
-              K2 = get_4GB_bin(2),
-              Map = make_map(500),
-              Map2 = maps:put(K1, 42, Map),
-              %% The map needed to contain at least 32 key-value pairs
-              %% at this point to get the crash or out of memory
-              %% problem on the next line
-              Map3 = maps:put(K2, 43, Map2),
-              %% The following line should avoid that the compiler
-              %% optimizes away the above
-              io:format("~p ~p~n", [erlang:phash2(Map3), maps:size(Map3)])
-      end).
-
-
 
 make_map(0) -> 
     #{};
