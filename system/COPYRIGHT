@@ -30,7 +30,7 @@ limitations under the License.
 * Info:
   * SPDX-License-Identifier: FSFUL
   * Tool: Autoconf
-  * Version: 2.71
+  * Version: 2.72
   * Website: https://www.gnu.org/software/autoconf/
   * OTP Location: ./make/configure and
                   ./erts/configure and
@@ -55,7 +55,7 @@ limitations under the License.
 * Info:
   * SPDX-License-Identifier: GPL-3.0-or-later WITH Autoconf-exception-generic-3.0
   * Tool: Autoconf
-  * Version: 2.71
+  * Version: 2.72
   * Website: https://www.gnu.org/software/autoconf/
   * OTP Location: ./make/autoconf/config.{guess,sub} and
                   ./erts/autoconf/config.{guess,sub} and
@@ -96,7 +96,7 @@ limitations under the License.
 * Info:
   * SPDX-License-Identifier: MIT
   * Tool: Autoconf
-  * Version: 2.71
+  * Version: 2.72
   * Website: https://www.gnu.org/software/autoconf/
   * OTP Location: ./make/autoconf/install-sh and
                   ./erts/autoconf/install-sh and
