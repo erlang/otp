@@ -80,6 +80,8 @@
         (#{family => local, path => <<"">>})).
 -define(ESOCK_SOCKADDR_UNSPEC_DEFAULTS,
         (#{family => unspec, addr => <<>>})).
+-define(ESOCK_SOCKADDR_VSOCK_DEFAULTS,
+        (#{family => vsock, port => any, cid => any})).
 -define(ESOCK_SOCKADDR_NATIVE_DEFAULTS,
         (#{family => 0, addr => <<>>})).
 
@@ -1039,6 +1041,8 @@ enc_sockaddr(#{family := local} = SockAddr) ->
     throw({invalid, {sockaddr, path, SockAddr}});
 enc_sockaddr(#{family := unspec} = SockAddr) ->
     merge_sockaddr(?ESOCK_SOCKADDR_UNSPEC_DEFAULTS, SockAddr);
+enc_sockaddr(#{family := vsock} = SockAddr) ->
+    merge_sockaddr(?ESOCK_SOCKADDR_VSOCK_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := Native} = SockAddr) when is_integer(Native) ->
     merge_sockaddr(?ESOCK_SOCKADDR_NATIVE_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := _} = SockAddr) ->

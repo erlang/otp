@@ -81,6 +81,14 @@
 #include <netpacket/packet.h>
 #endif
 
+#if defined(HAVE_LINUX_VM_SOCKETS_H)
+#include <linux/vm_sockets.h>
+#define HAS_AF_VSOCK 1
+#elif defined(HAVE_SYS_VSOCK_H)
+#include <sys/vsock.h>
+#define HAS_AF_VSOCK 1
+#endif
+
 #endif
 
 /* Copied from sys.h
@@ -148,6 +156,10 @@ typedef union {
 
 #if defined(AF_LINK)
     struct sockaddr_dl dl;
+#endif
+
+#ifdef HAS_AF_VSOCK
+    struct sockaddr_vm vm;
 #endif
 
     /* Max size sockaddr on system */
@@ -283,6 +295,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(cellular);                 \
     GLOBAL_ATOM_DEF(chaos);                    \
     GLOBAL_ATOM_DEF(checksum);                 \
+    GLOBAL_ATOM_DEF(cid);                      \
     GLOBAL_ATOM_DEF(close);                    \
     GLOBAL_ATOM_DEF(closed);                   \
     GLOBAL_ATOM_DEF(close_wait);               \
@@ -367,6 +380,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(hoplimit);                 \
     GLOBAL_ATOM_DEF(hopopts);                  \
     GLOBAL_ATOM_DEF(host);                     \
+    GLOBAL_ATOM_DEF(hypervisor);               \
     GLOBAL_ATOM_DEF(hwaddr);                   \
     GLOBAL_ATOM_DEF(icmp);                     \
     GLOBAL_ATOM_DEF(icmp6);                    \
@@ -620,6 +634,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(use_registry);             \
     GLOBAL_ATOM_DEF(value);                    \
     GLOBAL_ATOM_DEF(void);                     \
+    GLOBAL_ATOM_DEF(vsock);                    \
     GLOBAL_ATOM_DEF(v6only);                   \
     GLOBAL_ATOM_DEF(write_byte);               \
     GLOBAL_ATOM_DEF(write_fails);              \
