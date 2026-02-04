@@ -1171,10 +1171,17 @@ collect_call_targets_is([I=#cg_set{anno=Anno,op=call,args=Args}|Is], Acc0) ->
                 Arity =
                     case As of
                         #b_literal{val=ArgList} when is_list(ArgList) ->
-                            length(ArgList);
+                            case safe_length(ArgList) of
+                                improper -> undefined;
+                                Len -> Len
+                            end;
                         V=#b_var{} ->
                             case Acc0 of
-                                #{{list, V} := L} -> length(L);
+                                #{{list, V} := L} ->
+                                    case safe_length(L) of
+                                        improper -> undefined;
+                                        Len -> Len
+                                    end;
                                 _ -> undefined
                             end;
                         _ -> undefined
@@ -1221,6 +1228,17 @@ collect_call_targets_is([_|Is], Acc) ->
     collect_call_targets_is(Is, Acc);
 collect_call_targets_is([], Acc) ->
     Acc.
+
+-spec safe_length(L) -> non_neg_integer() | improper when
+    L :: maybe_improper_list().
+safe_length(L) -> safe_length(L, 0).
+
+-spec safe_length(L, Acc) -> Acc | improper when
+    L :: maybe_improper_list(),
+    Acc :: non_neg_integer().
+safe_length([], Acc) -> Acc;
+safe_length([_|L], Acc) -> safe_length(L, 1 + Acc);
+safe_length(_Improper, _Acc) -> improper.
 
 format_call_target(#b_remote{mod=M0,name=F0,arity=A}, VarAliases) ->
     maybe
