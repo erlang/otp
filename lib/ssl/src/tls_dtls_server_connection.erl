@@ -146,7 +146,7 @@ certify(internal, #certificate{asn1_certificates = []},
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server,
                                         protocol_cb = Connection},
-               handshake_env = HsEnv0,
+               handshake_env = #handshake_env{client_certificate_status = requested} = HsEnv0,
 	       ssl_options = #{verify := verify_peer,
                                fail_if_no_peer_cert := false}} =
 	State0) ->
@@ -163,7 +163,8 @@ certify(internal, #certificate{asn1_certificates = DerCerts},
                                cert_db = CertDbHandle,
                                cert_db_ref = CertDbRef,
                                crl_db = CRLDbInfo},
-               handshake_env = #handshake_env{stapling_state = StaplingState} = HsEnv0,
+               handshake_env = #handshake_env{client_certificate_status = requested,
+                                              stapling_state = StaplingState} = HsEnv0,
                connection_env = #connection_env{
                                    negotiated_version = Version},
                ssl_options = Opts} = State0) ->
