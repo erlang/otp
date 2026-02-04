@@ -57,8 +57,8 @@
 
 -record(b_literal, {val :: beam_ssa:literal_value()}).
 
--record(b_remote, {mod   :: beam_ssa:value(),
-                   name  :: beam_ssa:value(),
+-record(b_remote, {mod   :: beam_ssa:value() | XReg :: {x, non_neg_integer()},
+                   name  :: beam_ssa:value() | XReg :: {x, non_neg_integer()},
                    arity :: non_neg_integer()}).
 
 -record(b_local, {name  :: beam_ssa:b_literal(),
