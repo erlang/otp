@@ -1522,29 +1522,27 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                  alpn_preferred_protocols := ALPNPreferredProtocols} = Opts,
 			       #session{cipher_suite = NegotiatedCipherSuite} = Session0,
 			       ConnectionStates0, Renegotiation, IsResumed) ->
-    Session = handle_srp_extension(maps:get(srp, Exts, undefined), Session0),
-    MaxFragEnum = handle_mfl_extension(maps:get(max_frag_enum, Exts, undefined)),
-    ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
-    ConnectionStates = handle_renegotiation_extension(server, RecordCB, Version, maps:get(renegotiation_info, Exts, undefined),
-						      Random, NegotiatedCipherSuite, 
-						      ClientCipherSuites,
-						      ConnectionStates1, Renegotiation, SecureRenegotation),
+    Session1 = handle_srp_extension(maps:get(srp, Exts, undefined), Session0),
+    ConnectionStates1 = handle_renegotiation_extension(server, RecordCB, Version,
+                                                       maps:get(renegotiation_info, Exts, undefined),
+                                                       Random, NegotiatedCipherSuite,
+                                                       ClientCipherSuites,
+                                                       ConnectionStates0,
+                                                       Renegotiation, SecureRenegotation),
 
     Empty = empty_extensions(Version, server_hello),
-    %% RFC 6066 - server doesn't include max_fragment_length for resumed sessions
-    ServerMaxFragEnum = if IsResumed ->
-                                undefined;
-                           true ->
-                                MaxFragEnum
-                        end,
-    ServerHelloExtensions = Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
-                                                                            ConnectionStates, Renegotiation),
-                                   ec_point_formats => server_ecc_extension(Version, 
-                                                                            maps:get(ec_point_formats, Exts, undefined)),
-                                   use_srtp => use_srtp_ext(Opts),
-                                   max_frag_enum => ServerMaxFragEnum
-                                  },
-    
+    {ServerMaxFragEnum, ConnectionStates, Session} =
+        handle_max_fragment_length(Exts, Renegotiation, IsResumed,
+                                   Session1, ConnectionStates1),
+    ServerHelloExtensions =
+        Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
+                                                        ConnectionStates, Renegotiation),
+               ec_point_formats => server_ecc_extension(Version,
+                                                        maps:get(ec_point_formats, Exts, undefined)),
+               use_srtp => use_srtp_ext(Opts),
+               max_frag_enum => ServerMaxFragEnum
+              },
+
     %% If we receive an ALPN extension and have ALPN configured for this connection,
     %% we handle it. Otherwise we check for the NPN extension.
     ALPN = maps:get(alpn, Exts, undefined),
@@ -1555,7 +1553,8 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
              ServerHelloExtensions#{alpn => encode_alpn([Protocol], Renegotiation)}};
         true ->
             NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
-            ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
+            ProtocolsToAdvertise =
+                handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
             {Session, ConnectionStates, undefined,
              ServerHelloExtensions#{next_protocol_negotiation =>
                                         encode_protocols_advertised_on_server(ProtocolsToAdvertise)}}
@@ -1594,6 +1593,23 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite,
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, no_protocols_in_server_hello));
         [_|_] ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, too_many_protocols_in_server_hello))
+    end.
+
+handle_max_fragment_length(Exts, Renegotiation, IsResumed,
+                           #session{max_frag_enum = MaxFragEnum0} = Session, ConnectionStates0) ->
+    %% RFC 6066 - TLS-1.2 (or previous version) server doesn't include
+    %% max_fragment_length in server hello extensions for resumed or renegotiated
+    %% sessions ...
+    if IsResumed orelse Renegotiation ->
+            %% ... and continues using previously negotiate value if it exists
+            {undefined,
+             ssl_record:maybe_set_max_fragment_length(MaxFragEnum0, ConnectionStates0),
+             Session};
+       true ->
+            MaxFragEnum = handle_mfl_extension(maps:get(max_frag_enum, Exts, undefined)),
+            {MaxFragEnum,
+             ssl_record:maybe_set_max_fragment_length(MaxFragEnum, ConnectionStates0),
+             Session#session{max_frag_enum = MaxFragEnum}}
     end.
 
 select_curve(Client, Server) ->
