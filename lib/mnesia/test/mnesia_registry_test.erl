@@ -29,6 +29,8 @@
 
 -include("mnesia_test_lib.hrl").
 
+-compile(nowarn_deprecated_function).
+
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 

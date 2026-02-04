@@ -1808,6 +1808,7 @@ update_where_to_wlock(Tab) ->
 %% This code is rpc:call'ed from the tab_copier process
 %% when it has *not* released it's table lock
 unannounce_add_table_copy(Tab, To) ->
+    verbose("unannounce_add_table_copy ~w ~w~n", [Tab,To]),
     ?CATCH(del_active_replica(Tab, To)),
     try To = val({Tab , where_to_read}),
 	 mnesia_lib:set_remote_where_to_read(Tab)
