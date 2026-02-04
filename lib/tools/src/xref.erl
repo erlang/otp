@@ -103,6 +103,12 @@ module. All unknown functions are also undefined functions; there is a
 [figure](xref_chapter.md#venn2) in the User's Guide that illustrates
 this relationship.
 
+A _documented function_{: #documented_function } is a function that has a
+corresponding `-doc()` attribute. These are further divided into two
+categories: a function whose `-doc()` attribute is `false` or `hidden` is
+_documented as private_{: #private_function }, and function whose `-doc()` is
+not is _documented as public_{: #public_function }.
+
 The module attribute tag `deprecated` can be used to inform
 Xref about _deprecated functions_{: #deprecated_function } and optionally when
 functions are planned to be removed. A few examples show the idea:
@@ -131,6 +137,17 @@ functions are planned to be removed. A few examples show the idea:
 
 - `-deprecated({'_','_',eventually}).` - All exported functions in the
   module are deprecated and will eventually be removed.
+
+Likewise, the module attribute tag `unsafe` can be used to inform
+Xref about _unsafe functions_{: #unsafe_function }.
+
+- `-unsafe({f,1}).` - The exported function `f/1` is always unsafe.
+
+- `-unsafe({f,1,"Use g/1 instead"}).` - As above but with a descriptive
+  string. The string is currently unused by `xref` but other tools can make use
+  of it.
+
+- `-unsafe({f,1,possibly}).` - The exported function `f/1` is _possibly unsafe_
 
 Before any analysis can take place, module data must be _set up_. For instance,
 the cross reference and the unknown functions are computed when all module data
@@ -306,6 +323,20 @@ in `functions` mode only):
 - **`DF_3`** - Deprecated Functions. All deprecated functions to be removed in
   next version, next major release, or later.
 
+- **`DC`** - Documented Functions. All functions with a `-doc` directive.
+
+- **`DC_1`** - Documented Public Functions. All functions whose `-doc`
+  directive is not `false` or `hidden`.
+
+- **`DC_2`** - Documented Private Functions. All functions whose `-doc`
+  directive is `false` or `hidden`.
+
+- **`US`** - Unsafe Functions. All unsafe functions.
+
+- **`US_1`** - Unsafe Functions that cannot be used safely in any way.
+
+- **`US_2`** - Unsafe Functions that could potentially be used safely.
+
 These are a few [](){: #simple_facts } facts about the predefined variables (the
 set operators `+` (union) and `-` (difference) as well as the cast operator
 `(`Type`)` are described below):
@@ -342,6 +373,12 @@ set operators `+` (union) and `-` (difference) as well as the cast operator
 - `DF_2` is a subset of `DF_3`.
 - `DF_3` is a subset of `DF`.
 - `DF` is a subset of `X + B`.
+- `DC_2` is a subset of `DC`.
+- `DC_1` is a subset of `DC`.
+- `DC` is a subset of `X + B`.
+- `US_2` is a subset of `US`.
+- `US_1` is a subset of `US`.
+- `US` is a subset of `X + B`.
 
 An important notion is that of _conversion_{: #conversion } of expressions. The
 syntax of a cast expression is:
@@ -1502,6 +1539,9 @@ analyse(Name, What, Options) ->
                   | {'deprecated_function_calls', DeprFlag :: depr_flag()}
                   | 'deprecated_functions'
                   | {'deprecated_functions', DeprFlag :: depr_flag()}
+                  | 'private_function_calls'
+                  | 'undocumented_function_calls'
+                  | 'unsafe_function_calls'
                   | {'call', FuncSpec :: func_spec()}
                   | {'use', FuncSpec :: func_spec()}
                   | {'module_call', ModSpec :: mod_spec()}
@@ -1538,6 +1578,18 @@ Returns a sorted list without duplicates of `t:call/0` or
 analyses, which operate on all [analyzed
 modules](`m:xref#analyzed_module`), are (analyses marked with (\*) are
 available only in [mode `functions`](`m:xref#mode`)):
+
+- **`private_function_calls`** - Returns a list of calls to
+  [private functions](`m:xref#private_function`) from applications other than
+  the one the callee is defined in.
+
+- **`undocumented_function_calls`** - Returns a list of calls to
+  functions _lacking_ a `-doc()` directive from applications other than the one
+  the callee is defined in.
+
+- **`unsafe_function_calls`** - Returns a list of
+  [unsafe functions](`m:xref#unsafe_function`). Note that this implies
+  `private_function_calls`.
 
 - **`undefined_function_calls`(\*)** - Returns a list of calls to
   [undefined functions](`m:xref#undefined_function`).

@@ -22,7 +22,7 @@
 -module(xref_reader).
 -moduledoc false.
 
--export([module/5]).
+-export([module/7]).
 
 -import(lists, [keysearch/3, member/2, reverse/1]).
 
@@ -35,6 +35,8 @@
 	 el=[],
 	 ex=[],
 	 x=[],
+         documented=[],
+         unsafe=[],
          df,
 	 builtins_too=false,
          is_abstr,            % abstract module?
@@ -60,11 +62,12 @@
 %%         Unresolved}} | EXIT
 %% Attrs = {ALC, AXC, Bad}
 %% ALC, AXC and Bad are extracted from the attribute 'xref'. An experiment.
-module(Module, Forms, CollectBuiltins, X, DF) ->
+module(Module, Forms, CollectBuiltins, X, Deprecated, Documented, Unsafe) ->
     Attrs = [{Attr,V} || {attribute,_Anno,Attr,V} <- Forms],
     IsAbstract = xref_utils:is_abstract_module(Attrs),
     S = #xrefr{module = Module, builtins_too = CollectBuiltins,
-               is_abstr = IsAbstract, x = X, df = DF},
+               is_abstr = IsAbstract, x = X, df = Deprecated,
+               documented = Documented, unsafe = Unsafe},
     forms(Forms, S).
 
 forms([F | Fs], S) ->
@@ -73,15 +76,18 @@ forms([F | Fs], S) ->
 forms([], S) ->
     #xrefr{module = M, def_at = DefAt,
 	   l_call_at = LCallAt, x_call_at = XCallAt,
-	   el = LC, ex = XC, x = X, df = Depr, on_load = OnLoad,
-	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U} = S,
+	   el = LC, ex = XC, x = X, df = Deprecated, on_load = OnLoad,
+	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U,
+       documented = Documented, unsafe = Unsafe} = S,
     OL = case OnLoad of
              undefined -> [];
              F ->
                  [{M, F, 0}]
          end,
     Attrs = {lists:reverse(AL), lists:reverse(AX), lists:reverse(B)},
-    {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL}, U}.
+    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Deprecated, OL,
+            Documented, Unsafe},
+    {ok, M, Data, U}.
 
 form({attribute, Anno, xref, Calls}, S) -> % experimental
     #xrefr{module = M, function = Fun,
