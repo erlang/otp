@@ -48,6 +48,7 @@
                   cipher_suite,
                   master_secret,
                   srp_username,
+                  max_frag_enum,
                   is_resumable,
                   time_stamp,
                   ecc,                   %% TLS 1.3 Group
