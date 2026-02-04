@@ -1976,16 +1976,16 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
      {sni_hostname, SNIHostname},
      {srp_username, SrpUsername} | CurveInfo] ++ MFLInfo ++ ssl_options_list(Opts).
 
-security_info(#state{connection_states = ConnectionStates,
+security_info(#state{connection_states = #{current_read := Read,
+                                           current_write := Write},
                      static_env = #static_env{role = Role},
                      connection_env = #connection_env{negotiated_version = Version},
                      ssl_options = Opts,
                      protocol_specific = ProtocolSpecific}) ->
-    ReadState = ssl_record:current_connection_state(ConnectionStates, read),
     #{security_parameters :=
 	  #security_parameters{client_random = ClientRand,
                                server_random = ServerRand,
-                               master_secret = MasterSecret}} = ReadState,
+                               master_secret = MasterSecret}} = Read,
     SecInfo = [{client_random, ClientRand},
                {server_random, ServerRand}, {master_secret, MasterSecret}],
     KeepSecrets = maps:get(keep_secrets, Opts, false),
@@ -1995,30 +1995,31 @@ security_info(#state{connection_states = ConnectionStates,
             %% to be able to run in user process context
             [{keep_secrets, false} | SecInfo];
         _  -> %% true or keylog fun tuple
-            maybe_security_info_1_3(Version, ReadState, ProtocolSpecific, Role)
+            maybe_security_info_1_3(Version, Read, Write,  ProtocolSpecific, Role)
                 ++ SecInfo
     end.
 
-maybe_security_info_1_3(Version, #{security_parameters :=
-                             #security_parameters{application_traffic_secret = AppTrafSecretRead,
-                                                  client_early_data_secret = EarlyData
-                                                 }} = ReadState,
-              ProtocolSpecific, Role) when ?TLS_GTE(Version, ?TLS_1_3)->
+maybe_security_info_1_3(Version,
+                        #{security_parameters :=
+                              #security_parameters{application_traffic_secret = AppTrafSecretRead,
+                                                   client_early_data_secret = EarlyData
+                                                  }} = Read, Write,
+                        ProtocolSpecific, Role) when ?TLS_GTE(Version, ?TLS_1_3)->
     N = maps:get(num_key_updates, ProtocolSpecific, 0),
     Sender = maps:get(sender, ProtocolSpecific, undefined),
     case Role of
         server ->
             tls_handshake_1_3:early_data_secret(EarlyData) ++
-                tls_handshake_1_3:hs_traffic_secrets(ReadState) ++
+                tls_handshake_1_3:hs_traffic_secrets(Read, Write) ++
                 [{client_traffic_secret, AppTrafSecretRead, N},
                  {Role, Sender}];
         client ->
             tls_handshake_1_3:early_data_secret(EarlyData) ++
-                tls_handshake_1_3:hs_traffic_secrets(ReadState) ++
+                tls_handshake_1_3:hs_traffic_secrets(Read, Write) ++
                 [{server_traffic_secret, AppTrafSecretRead, N},
                  {Role, Sender}]
     end;
-maybe_security_info_1_3(_,_,_,_) ->
+maybe_security_info_1_3(_,_,_,_,_) ->
     [].
 
 record_cb(tls) ->
@@ -2244,56 +2245,111 @@ maybe_keylog_hs_callback(#alert{level = ?FATAL}, StateName,
     end;
 maybe_keylog_hs_callback(_, _, _) ->
     ok.
- 
+
 keylog_hs_alert(start, _) -> %% TLS 1.3: No secrets yet established
     {[], undefined};
 keylog_hs_alert(wait_sh, _) -> %% TLS 1.3: No secrets yet established
     {[], undefined};
-%% Server alert for certificate validation can happen when client is in connection state already.
-keylog_hs_alert(connection,  #state{static_env = #static_env{role = client},
-                                    connection_env =
-                                        #connection_env{negotiated_version = TlsVersion},
-                                    connection_states = ConnectionStates,
-                                    protocol_specific = #{sender := Sender} = PS})
+keylog_hs_alert(negotiated, #state{static_env = #static_env{role = server},
+                                   connection_env =
+                                       #connection_env{negotiated_version = TlsVersion},
+                                   connection_states = #{current_read := Read,
+                                                         current_write := Write
+                                                        }})
   when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
-    CSRead =  #{security_parameters :=
-                    #security_parameters{application_traffic_secret = SecretRead,
-                                         client_random = ClientRandom,
-                                         prf_algorithm = Prf}}
-        = ssl_record:current_connection_state(ConnectionStates, read),
-    NRead = maps:get(num_key_updates, PS, 0),
-    {ok, SecretWrite, NWrite} = call(Sender, get_application_traffic_secret),
-    {keylog_hs_1_3(CSRead) ++
-        ssl_logger:keylog_traffic_1_3(client, ClientRandom, Prf, SecretWrite, NWrite) ++
-        ssl_logger:keylog_traffic_1_3(server, ClientRandom, Prf, SecretRead, NRead), ClientRandom};
-keylog_hs_alert(_, #state{connection_env =
+     #{server_handshake_traffic_secret := ServerHSSecret,
+      security_parameters :=
+          #security_parameters{client_random = ClientRandomBin,
+                               client_early_data_secret = EarlySecret,
+                               prf_algorithm = Prf
+                              }} = Write,
+    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret),
+     ClientRandomBin};
+keylog_hs_alert(wait_eoed, #state{static_env = #static_env{role = server},
+                                  connection_env =
+                                      #connection_env{negotiated_version = TlsVersion},
+                                  connection_states = #{pending_read := Read,
+                                                        current_write := Write
+                                                       }})
+  when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
+    keylog_1_3_client_finished(Read, Write);
+keylog_hs_alert(StateName, #state{static_env = #static_env{role = server},
+                                  connection_states =
+                                      #{current_read := Read,
+                                        current_write := Write
+                                       }}) when StateName == wait_cert;
+                                                StateName == wait_cv;
+                                                StateName == wait_finished ->
+    keylog_1_3_client_finished(Read, Write);
+keylog_hs_alert(connection, #state{static_env = #static_env{role = client},
+                                   connection_env =
+                                       #connection_env{negotiated_version = TlsVersion},
+                                   connection_states = #{current_read := Read,
+                                                         current_write := Write
+                                               }})
+  when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
+    #{server_handshake_traffic_secret := ServerHSSecret,
+      security_parameters :=
+          #security_parameters{client_random = ClientRandomBin,
+                               client_early_data_secret = EarlySecret,
+                               prf_algorithm = Prf,
+                               master_secret = {master_secret, STrafficSecret}
+                              }}
+        = Read,
+    #{client_handshake_traffic_secret := ClientHSSecret,
+       security_parameters :=
+          #security_parameters{master_secret = {master_secret, CTrafficSecret}
+                              }} = Write,
+
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret) ++
+         ssl_logger:keylog_traffic_1_3(client, ClientRandomBin, Prf, CTrafficSecret, 0) ++
+         ssl_logger:keylog_traffic_1_3(server, ClientRandomBin, Prf, STrafficSecret, 0),
+     ClientRandomBin};
+keylog_hs_alert(_, #state{static_env = #static_env{role = client},
+                          connection_env =
                               #connection_env{negotiated_version = TlsVersion},
-                          connection_states = ConnectionStates})
+                          connection_states = #{current_read := Read,
+                                                current_write := Write
+                                               }})
   when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
-    CSRead = #{security_parameters :=
-                   #security_parameters{client_random = ClientRandom}}
-        = ssl_record:pending_connection_state(ConnectionStates, read),
-    {keylog_hs_1_3(CSRead), ClientRandom};
-keylog_hs_alert(_,_) -> % NOT Relevant pre TLS-1.3
+   #{server_handshake_traffic_secret := ServerHSSecret,
+      security_parameters :=
+                   #security_parameters{client_random = ClientRandomBin,
+                                        client_early_data_secret = EarlySecret,
+                                        prf_algorithm = Prf
+                                       }}
+        = Write,
+    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret),
+     ClientRandomBin};
+keylog_hs_alert(_, _) -> % NOT Relevant pre TLS-1.3
     {[], undefined}.
 
-keylog_hs_1_3(#{client_handshake_traffic_secret := ClientHSTrafficSecret,
-                server_handshake_traffic_secret := ServerHSTrafficSecret,
-                security_parameters := #security_parameters{client_random = ClientRandomBin,
-                                                            prf_algorithm = Prf,
-                                                            client_early_data_secret = EarlySecret}}) ->
+keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientSecret, ServerSecret) ->
     HSItems =
-        ssl_logger:keylog_hs(ClientRandomBin, Prf, ClientHSTrafficSecret, ServerHSTrafficSecret),
+        ssl_logger:keylog_hs(ClientRandomBin, Prf, ClientSecret, ServerSecret),
     case EarlySecret of
         undefined ->
             HSItems;
         _  ->
             [ssl_logger:keylog_early_data(ClientRandomBin, Prf, EarlySecret) | HSItems]
-    end;
-keylog_hs_1_3(_) ->
-    [].
+    end.
 
- 
+keylog_1_3_client_finished(Read, Write) ->
+    #{server_handshake_traffic_secret := ServerHSSecret,
+      security_parameters :=
+                   #security_parameters{client_random = ClientRandomBin,
+                                        client_early_data_secret = EarlySecret,
+                                        prf_algorithm = Prf,
+                                        master_secret = {master_secret, TrafficSecret}
+                                       }}
+        = Write,
+    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret) ++
+         ssl_logger:keylog_traffic_1_3(server, ClientRandomBin, Prf, TrafficSecret, 0),
+     ClientRandomBin}.
+
 %%%################################################################
 %%%#
 %%%# Tracing

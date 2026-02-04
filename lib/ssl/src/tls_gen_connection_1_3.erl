@@ -52,7 +52,7 @@
          do_maybe/0]).
 
 %%--------------------------------------------------------------------
-%%  Internal API 
+%%  Internal API
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,
@@ -247,13 +247,17 @@ handle_resumption(#state{handshake_env = HSEnv0} = State, _) ->
     HSEnv = HSEnv0#handshake_env{resumption = true},
     State#state{handshake_env = HSEnv}.
 
-maybe_forget_hs_secrets({keylog_hs, _}, #state{connection_states = CS} = State) ->
+maybe_forget_hs_secrets({keylog_hs, _}, #state{connection_states =
+                                                   #{current_read := Read0,
+                                                     current_write := Write0} = CS} = State) ->
     %% Server finishes the handshake last and  is able to immediately forget
     %% hs secrets used for handshake alert logging.
-    Read0 = #{security_parameters := SecParams} = ssl_record:current_connection_state(CS, read),
-    Read1 = Read0#{security_parameters => SecParams#security_parameters{client_early_data_secret = undefined}},
-    Read = maps:without([client_handshake_traffic_secret, server_handshake_traffic_secret], Read1),
-    State#state{connection_states = CS#{current_read => Read}};
+    #{security_parameters := SecParams} = Read0,
+    Read1 = Read0#{security_parameters =>
+                       SecParams#security_parameters{client_early_data_secret = undefined}},
+    Read = maps:without([client_handshake_traffic_secret], Read1),
+    Write = maps:without([server_handshake_traffic_secret], Write0),
+    State#state{connection_states = CS#{current_read => Read, current_write => Write}};
 maybe_forget_hs_secrets(_, State) ->
     State.
 
