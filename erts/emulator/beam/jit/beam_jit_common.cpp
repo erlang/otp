@@ -55,12 +55,15 @@ BeamAssemblerCommon::BeamAssemblerCommon(BaseAssembler &assembler_)
                           8);
     ERTS_ASSERT(!err && "Failed to create .rodata section");
 
+    code.setErrorHandler(this);
+}
+
+void BeamAssemblerCommon::lateInit() {
 #ifdef DEBUG
     assembler.addDiagnosticOptions(DiagnosticOptions::kValidateAssembler);
 #endif
     assembler.addEncodingOptions(EncodingOptions::kOptimizeForSize |
                                  EncodingOptions::kOptimizedAlign);
-    code.setErrorHandler(this);
 }
 
 BeamAssemblerCommon::~BeamAssemblerCommon() {
