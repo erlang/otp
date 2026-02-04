@@ -68,7 +68,6 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_html \
 	xmerl_lib \
 	xmerl_otpsgml \
-	xmerl_regexp \
 	xmerl_sgml \
 	xmerl_simple \
 	xmerl_text \
@@ -90,7 +89,9 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_sax_parser_utf16be \
 	xmerl_sax_parser_utf16le \
 	xmerl_sax_simple_dom \
-	xmerl_sax_old_dom 
+	xmerl_sax_old_dom \
+	xmerl_xsd_re \
+	xmerl_xsd_re_parse
 
 
 
@@ -183,6 +184,9 @@ xmerl_xpath_parse.erl:	xmerl_xpath_parse.yrl
 	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $(DETERMINISM_FLAG) $<
 
 xmerl_b64Bin.erl: xmerl_b64Bin.yrl
+	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $(DETERMINISM_FLAG) $<
+
+xmerl_xsd_re_parse.erl:	xmerl_xsd_re_parse.yrl
 	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $(DETERMINISM_FLAG) $<
 
 xmerl_sax_parser_list.erl: xmerl_sax_parser_list.erlsrc xmerl_sax_parser_base.erlsrc
