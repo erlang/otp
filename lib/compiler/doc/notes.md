@@ -21,6 +21,22 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.6.1.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed broken type inference for lists:mapfoldl/r.
+
+  Own Id: OTP-19845 Aux Id: [GH-10354], [PR-10358]
+
+- Fix a compiler alias analysis bug that can generate unsafe code for repeated binary segments.
+
+  Own Id: OTP-19951 Aux Id: [PR-10588]
+
+[GH-10354]: https://github.com/erlang/otp/issues/10354
+[PR-10358]: https://github.com/erlang/otp/pull/10358
+[PR-10588]: https://github.com/erlang/otp/pull/10588
+
 ## Compiler 8.6.1.2
 
 ### Fixed Bugs and Malfunctions
