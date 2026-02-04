@@ -186,7 +186,8 @@ maybe_add_cookie_extension(Cookie,
     Extensions = Extensions0#{cookie => Cookie},
     ClientHello#client_hello{extensions = Extensions}.
 
-encrypted_extensions(#state{handshake_env = HandshakeEnv}) ->
+encrypted_extensions(#state{session = #session{max_frag_enum = MaxFragEnum},
+                            handshake_env = HandshakeEnv}) ->
     E0 = #{},
     E1 = case HandshakeEnv#handshake_env.alpn of
              undefined ->
@@ -194,7 +195,7 @@ encrypted_extensions(#state{handshake_env = HandshakeEnv}) ->
              ALPNProtocol ->
                  ssl_handshake:add_alpn(#{}, ALPNProtocol)
          end,
-    E2 = case HandshakeEnv#handshake_env.max_frag_enum of
+    E2 = case MaxFragEnum of
              undefined ->
                  E1;
              MaxFragEnum ->

@@ -460,11 +460,8 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         State2 = case maps:get(max_frag_enum, Extensions, undefined) of
                       MaxFragEnum when is_record(MaxFragEnum, max_frag_enum) ->
                          ConnectionStates1 =
-                             ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
-                         HsEnv1 = (State1#state.handshake_env)#handshake_env{max_frag_enum =
-                                                                                 MaxFragEnum},
-                         State1#state{handshake_env = HsEnv1,
-                                      session = Session,
+                             ssl_record:maybe_set_max_fragment_length(MaxFragEnum, ConnectionStates0),
+                         State1#state{session = Session#session{max_frag_enum = MaxFragEnum},
                                       connection_states = ConnectionStates1};
                      _ ->
                          State1#state{session = Session}

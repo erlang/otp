@@ -204,7 +204,7 @@ initial_hello({call, From}, {start, Timeout},
 					Session#session.session_id, Renegotiation),
 
     MaxFragEnum = maps:get(max_frag_enum, Hello#client_hello.extensions, undefined),
-    ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
+    ConnectionStates1 = ssl_record:maybe_set_max_fragment_length(MaxFragEnum, ConnectionStates0),
     Version = Hello#client_hello.client_version,
     HelloVersion = dtls_record:hello_version(Version, Versions),
     State1 = dtls_gen_connection:prepare_flight(
