@@ -190,8 +190,6 @@ has been received.
 > #### Note {: .info }
 >
 > Support for IPv6 has been implemented but not _fully_ tested.
->
-> SCTP has only been partly implemented and tested.
 
 This module was introduced in OTP 22.0, as experimental code.
 * In OTP 22.1, the `nowait` argument was added for many functions,
@@ -222,6 +220,7 @@ This module was introduced in OTP 22.0, as experimental code.
   API features could be considered no longer experimental.
 * In OTP @OTP-19834@, (experimental) complete support for SCTP was added
   (functionally feature compatible with inet).
+  Not (yet) supported for FreeBSD.
 
 ## Examples
 
