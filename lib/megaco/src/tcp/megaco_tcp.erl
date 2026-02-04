@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ protocol for Megaco/H.248.
 %%-----------------------------------------------------------------
 %% Include files
 %%-----------------------------------------------------------------
--define(megaco_debug, true).
+
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/src/tcp/megaco_tcp.hrl"). 
 -include_lib("megaco/src/app/megaco_internal.hrl"). 
