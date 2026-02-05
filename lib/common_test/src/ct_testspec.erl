@@ -28,6 +28,8 @@ This module exports help functions for parsing of test specifications.
 """.
 -moduledoc(#{since => "OTP 19.3"}).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
 	 collect_tests_from_file/2, collect_tests_from_file/3,

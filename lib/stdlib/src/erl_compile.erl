@@ -22,6 +22,8 @@
 -module(erl_compile).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("erl_compile.hrl").
 -include("file.hrl").
 

@@ -40,6 +40,8 @@
 -module(cerl_inline).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([core_transform/2, transform/1, transform/2]).
 
 -import(cerl, [abstract/1, alias_pat/1, alias_var/1, apply_args/1,

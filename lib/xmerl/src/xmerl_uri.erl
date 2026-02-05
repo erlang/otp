@@ -24,6 +24,7 @@
 -module(xmerl_uri).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([parse/1,resolve/2
 %	 scan_abspath/1

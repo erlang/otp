@@ -22,6 +22,8 @@
 -module(man_docs).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include_lib("kernel/include/eep48.hrl").
 
 -export([module_to_manpage/3, module_to_manpage/4, markdown_to_manpage/3]).

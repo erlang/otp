@@ -120,6 +120,8 @@
 -module(ct_release_test).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([init/1, upgrade/4, cleanup/1, get_app_vsns/2, get_appup/2]).
 
 -include_lib("kernel/include/file.hrl").

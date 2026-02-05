@@ -40,6 +40,8 @@ For more information about URI, see
 
 -export([encode/1, decode/1]).
 
+-unsafe([{'_', '_', "use uri_string instead"}]).
+
 -deprecated({encode, 1, "use uri_string:quote function instead"}).
 -deprecated({decode, 1, "use uri_string:unquote function instead"}).
 -removed({parse, 1, "use uri_string functions instead"}).

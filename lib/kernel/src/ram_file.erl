@@ -22,6 +22,8 @@
 -module(ram_file).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Binary RAM file interface
 
 %% Generic file contents operations

@@ -24,6 +24,8 @@
 -module(inet_tls_dist).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([childspecs/0]).
 -export([select/1, address/0, is_node_name/1,
          listen/2, accept/1, accept_connection/5,

@@ -101,6 +101,7 @@ example_lookup(Name, Class, Type) ->
 ```
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
 %-compile(export_all).
 
 -export([gethostbyname/1, gethostbyname/2, gethostbyname/3, gethostbyname/4,

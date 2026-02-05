@@ -27,6 +27,9 @@
 
 -module(ts).
 
+-compile([{nowarn_unsafe_function, {file, consult, 1}},
+          {nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([cl_run/1,
 	 run/0, run/1, run/2, run/3, run/4, run/5,
 	 run_category/1, run_category/2, run_category/3,

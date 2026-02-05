@@ -47,7 +47,8 @@
 %% `tokens' function *always* returns `{more, Continuation}' unless an
 %% error occurs.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([string/1,string/2,format_error/1]).
 

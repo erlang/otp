@@ -183,6 +183,20 @@ end
             ]).
 
 %%%----------------------------------------------------------------
+%% Unsafe functions
+-unsafe([{start, 0, "use application:start(crypto) instead"},
+         {stop,  0, "use application:stop(crypto) instead"},
+         {enable_fips_mode, 1, "use config parameter fips_mode"},
+
+         {rand_uniform, 2,
+          "use rand:uniform_s/2 with a cryptographically strong generator"},
+
+         {public_encrypt, 4, possibly},
+         {public_decrypt, 4, possibly},
+         {private_encrypt, 4, possibly},
+         {private_decrypt, 4, possibly}]).
+
+%%%----------------------------------------------------------------
 %% Removed functions.
 %%
 %% Old interface. Now implemented with the New interface.

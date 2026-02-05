@@ -22,6 +22,9 @@
 -module(user_drv).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {os, cmd, 1}}]).
+
 %% Basic interface to stdin/stdout.
 %%
 %% This is responsible for a couple of things:

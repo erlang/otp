@@ -32,6 +32,8 @@ For details about how to get started, see the [`User's Guide`](observer_ug.md).
 """.
 -moduledoc(#{since => "OTP R15B"}).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([start/0, start/1, start_and_wait/0, start_and_wait/1, stop/0]).
 
 -doc """

@@ -22,7 +22,8 @@
 -module(group).
 -moduledoc false.
 
--compile(nowarn_deprecated_catch).
+-compile([nowarn_deprecated_catch,
+          {nowarn_unsafe_function, {os, cmd, 1}}]).
 
 -include_lib("kernel/include/logger.hrl").
 

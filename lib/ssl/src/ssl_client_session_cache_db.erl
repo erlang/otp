@@ -24,6 +24,8 @@
 -module(ssl_client_session_cache_db).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -behaviour(ssl_session_cache_api).
 
 -include("ssl_handshake.hrl").

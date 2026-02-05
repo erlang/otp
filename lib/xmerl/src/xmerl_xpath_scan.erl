@@ -49,6 +49,7 @@
 -module(xmerl_xpath_scan).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% main API
 -export([tokens/1]).

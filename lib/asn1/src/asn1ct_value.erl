@@ -23,6 +23,8 @@
 -module(asn1ct_value).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %%  Generate Erlang values for ASN.1 types.
 %%  The value is randomized within it's constraints
 

@@ -26,6 +26,8 @@
 -module(xmerl_lib).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([normalize_content/1, normalize_content/3, expand_content/1,
 	 expand_content/3, normalize_element/1, normalize_element/3,
 	 expand_element/1, expand_element/3, expand_attributes/1,

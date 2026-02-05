@@ -251,7 +251,7 @@ obsolete(zlib, inflateChunk, 2) ->
 obsolete(zlib, setBufSize, 2) ->
     {removed, "this function has been removed"};
 obsolete(erlang, list_to_atom, 1) ->
-    {unsafe, "is possibly unsafe. See the documentation for details"};
+    {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 obsolete(mnesia_registry, create_table, _) ->
@@ -273,7 +273,7 @@ obsolete(filename, find_src, _) ->
 obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl:handshake/1,2,3 instead"};
 obsolete(erlang, binary_to_atom, _) ->
-    {unsafe, "is possibly unsafe. See the documentation for details"};
+    {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
 obsolete(ct_slave, _, _) ->
     {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 29"};
 obsolete(gen_fsm, _, _) ->

@@ -147,7 +147,10 @@ providing one key for module `t` and another key for all other modules:
 """.
 -behaviour(gen_server).
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {erlang, binary_to_atom, 2}},
+          {nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 -include_lib("kernel/include/eep48.hrl").
 

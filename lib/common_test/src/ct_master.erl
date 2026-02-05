@@ -28,6 +28,8 @@ This module exports functions for running `Common Test` nodes on multiple hosts
 in parallel.
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([run/1,run/3,run/4]).
 -export([run_on_node/2,run_on_node/3]).
 -export([run_test/1,run_test/2]).

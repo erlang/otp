@@ -23,6 +23,9 @@
 
 -module(sys_coverage).
 -moduledoc false.
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([module/2,cover_transform/2,beam_debug_info/1]).
 -import(lists, [duplicate/2,member/2,reverse/1,reverse/2]).
 

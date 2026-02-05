@@ -23,6 +23,8 @@
 -module(asn1ct_gen).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("asn1_records.hrl").
 
 -export([emit/1,

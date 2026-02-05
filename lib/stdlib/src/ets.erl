@@ -228,7 +228,8 @@ A match specifications with excessive nesting will cause a
 [`system_limit`](`m:ets#ets_failures`) error exception to be raised.
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% Interface to the Term store BIF's
 %% ets == Erlang Term Store

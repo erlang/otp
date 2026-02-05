@@ -22,6 +22,8 @@
 -module(erts_debug).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {file, consult, 1}}]).
+
 %% Low-level debugging support. EXPERIMENTAL!
 
 -export([size/1,df/1,df/2,df/3,dis_to_file/2,ic/1]).

@@ -21,6 +21,8 @@
 -module(cdv_virtual_list_wx).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -behaviour(wx_object).
 
 -export([start_link/2, start_link/3,

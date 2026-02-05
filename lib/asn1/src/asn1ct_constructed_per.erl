@@ -23,6 +23,8 @@
 -module(asn1ct_constructed_per).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([gen_encode_sequence/3]).
 -export([gen_decode_sequence/3]).
 -export([gen_encode_set/3]).

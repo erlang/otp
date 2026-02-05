@@ -28,6 +28,9 @@ This module provides an expand_fun for the erlang shell
 [`io:setopts/1,2`](`io:setopts/1`).
 """.
 -moduledoc(#{since => "OTP 26.0"}).
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% a default expand function for edlin, expanding modules, functions
 %% filepaths, variable binding, record names, function parameter values,
 %% record fields and map keys and record field values.

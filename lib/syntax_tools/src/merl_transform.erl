@@ -45,6 +45,8 @@ Using `-include_lib("syntax_tools/include/merl.hrl").` enables this transform,
 unless the macro `MERL_NO_TRANSFORM` is defined first.
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([parse_transform/2]).
 
 %% NOTE: We cannot use inline metavariables or any other parse transform

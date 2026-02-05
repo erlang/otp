@@ -46,6 +46,8 @@ expressions.
 `m:erl_eval`, `m:erl_parse`, `m:io`
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %%% Pretty printer for Erlang code in the same format as returned from
 %%% the parser. It does not always produce pretty code.
 

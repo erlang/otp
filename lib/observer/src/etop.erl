@@ -87,6 +87,8 @@ For details about Erlang Top, see the [User's Guide](etop_ug.md).
 """.
 -author('siri@erix.ericsson.se').
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([start/0, start/1, config/2, stop/0, dump/1, help/0]).
 %% Internal
 -export([update/1]).

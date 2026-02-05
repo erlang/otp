@@ -21,6 +21,9 @@
 %%
 
 -module(asn1rtt_jer).
+
+-compile([{nowarn_unsafe_function, {erlang, binary_to_atom, 1}}]).
+
 %% encoding / decoding of BER
 -ifdef(DEBUG).
 -compile(export_all).

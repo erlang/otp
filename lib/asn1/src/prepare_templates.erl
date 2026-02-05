@@ -21,6 +21,9 @@
 %%
 
 -module(prepare_templates).
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([gen_asn1ct_rtt/1,gen_asn1ct_eval/1]).
 
 gen_asn1ct_rtt(Ms) ->

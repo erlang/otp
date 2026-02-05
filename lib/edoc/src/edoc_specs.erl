@@ -33,6 +33,8 @@
 
 -module(edoc_specs).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([type/2, spec/1, dummy_spec/1, docs/2]).
 
 -export([add_type_data/4, tag/1, is_tag/1]).

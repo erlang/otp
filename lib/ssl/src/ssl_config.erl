@@ -25,6 +25,8 @@
 -module(ssl_config).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("ssl_internal.hrl").
 -include("ssl_connection.hrl").
 -include_lib("public_key/include/public_key.hrl").

@@ -21,6 +21,8 @@
 %%
 -module(gen_tcp_dist).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %%
 %% This is an example of how to plug in an arbitrary distribution
 %% carrier for Erlang using distribution processes.

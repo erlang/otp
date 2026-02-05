@@ -40,6 +40,8 @@
 -include("beam_disasm.hrl").
 -include("beam_asm.hrl").
 
+-compile([{nowarn_unsafe_function, {erlang, binary_to_term, 1}}]).
+
 %%-----------------------------------------------------------------------
 
 -type index()        :: non_neg_integer().

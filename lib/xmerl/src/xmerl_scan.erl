@@ -36,6 +36,12 @@ See also the
 -vsn('0.20').
 -date('03-09-16').
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
+-unsafe([{'_', '_',
+          "this module cannot be used with untrusted input, use "
+          "xmerl_sax_parser instead"}]).
+
 %% main API
 -export([string/1, string/2,
 	 file/1, file/2]).

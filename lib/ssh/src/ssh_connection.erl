@@ -45,6 +45,8 @@ these messages are handled by
 [handle_ssh_msg/2](`c:ssh_client_channel:handle_ssh_msg/2`).
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include_lib("kernel/include/logger.hrl").
 
 -include("ssh.hrl").

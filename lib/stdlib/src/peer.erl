@@ -48,6 +48,8 @@
 -module(peer).
 -author("maximfca@gmail.com").
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% This mode has to be compilable on old nodes, so we ifdef out all
 %% -doc attributes when compiling before 27.
 -if(?OTP_RELEASE < 27).
@@ -59,7 +61,8 @@
 -moduledoc(#{since => "OTP 25.0"}).
 -endif.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% API
 -export([

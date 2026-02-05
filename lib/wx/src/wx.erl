@@ -179,6 +179,8 @@ Global (classless) functions are located in the wx_misc module.
   See #wxMouseState\{\} defined in wx.hrl
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([parent_class/1, new/0, new/1, destroy/0,
 	 get_env/0, set_env/1, subscribe_events/0, debug/1,
 	 batch/1,foreach/2,map/2,foldl/3,foldr/3,

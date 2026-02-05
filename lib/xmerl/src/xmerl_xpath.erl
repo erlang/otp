@@ -48,6 +48,7 @@ Some useful shell commands for debugging the XPath parser
 ```
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 %% main API
 -export([string/2,

@@ -24,6 +24,8 @@
 -module(dbg_wx_trace_win).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% External exports
 -export([init/0, stop/1]).
 -export([create_win/4,

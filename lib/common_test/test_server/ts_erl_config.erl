@@ -25,6 +25,7 @@
 
 -module(ts_erl_config).
 
+-compile([{nowarn_unsafe_function, {os, cmd, 1}}]).
 
 -export([variables/2]).
 

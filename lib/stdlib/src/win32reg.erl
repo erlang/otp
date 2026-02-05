@@ -95,6 +95,8 @@ Reference.
 Programmer's Reference (from Microsoft)
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([open/1, close/1,
 	 current_key/1, change_key/2, change_key_create/2,
 	 sub_keys/1, delete_key/1,

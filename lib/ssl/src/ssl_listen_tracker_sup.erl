@@ -27,6 +27,8 @@
 -module(ssl_listen_tracker_sup).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -behaviour(supervisor).
 
 %% API

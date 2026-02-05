@@ -36,7 +36,8 @@ commands.
 `m:filename`, `m:compile`, `m:erlang`, `m:yecc`, `m:xref`
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -include_lib("kernel/include/eep48.hrl").
 

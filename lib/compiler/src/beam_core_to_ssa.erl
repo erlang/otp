@@ -62,6 +62,8 @@
 -module(beam_core_to_ssa).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([module/2,format_error/1]).
 
 -import(lists, [all/2,append/1,droplast/1,

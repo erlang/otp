@@ -39,7 +39,9 @@
 
 -include_lib("kernel/include/eep48.hrl").
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {erlang, binary_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([convert_html/2, convert_xml/2, convert_html/3, convert_xml/3]).
 

@@ -70,6 +70,8 @@ Module:format_error(ErrorDescriptor)
 `m:epp`, `m:erl_parse`
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([module/1,module/2,module/3,format_error/1]).
 -export([exprs/2,exprs_opt/3,used_vars/2]). % Used from erl_eval.erl.
 -export([is_pattern_expr/1,is_guard_test/1,is_guard_test/2,is_guard_test/3]).

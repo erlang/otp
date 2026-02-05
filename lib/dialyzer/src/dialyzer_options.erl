@@ -27,6 +27,8 @@
 -module(dialyzer_options).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([build/1, build_warnings/2, get_default_config_filename/0]).
 
 -include("dialyzer.hrl").

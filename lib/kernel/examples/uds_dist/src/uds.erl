@@ -1,5 +1,7 @@
 -module(uds).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([listen/1, connect/1, accept/1, send/2, recv/1, close/1,
 	 get_port/1, get_status_counters/1, set_mode/2, controlling_process/2,
 	 tick/1, get_creation/1]).

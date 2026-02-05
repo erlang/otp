@@ -38,6 +38,9 @@
 
 -module(beam_ssa_opt).
 -moduledoc false.
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([module/2]).
 
 -include("beam_ssa_opt.hrl").

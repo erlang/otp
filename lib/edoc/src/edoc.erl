@@ -59,6 +59,8 @@
 
 -module(edoc).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([files/1, files/2,
 	 application/1, application/2, application/3,
 	 toc/1, toc/2, toc/3,

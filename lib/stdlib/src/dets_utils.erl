@@ -24,7 +24,8 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% Utility functions common to several dets file formats.
 %% To be used from modules dets and dets_v9 only.

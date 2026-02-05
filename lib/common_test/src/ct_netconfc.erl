@@ -214,6 +214,7 @@ logging of all NETCONF connections in to the test case HTML log.
 """.
 -moduledoc(#{since => "OTP R15B02"}).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
 -dialyzer(no_improper_lists).
 
 -include("ct_netconfc.hrl").

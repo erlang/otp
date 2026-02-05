@@ -70,7 +70,8 @@ list `[]`. This can be relied on when writing functions that operate on syntax
 trees.
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([type/1,
 	 is_leaf/1,

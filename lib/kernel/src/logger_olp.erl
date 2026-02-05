@@ -23,6 +23,8 @@
 -moduledoc false.
 -behaviour(gen_server).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("logger_olp.hrl").
 -include("logger_internal.hrl").
 

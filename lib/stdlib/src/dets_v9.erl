@@ -21,9 +21,10 @@
 %%
 -module(dets_v9).
 -moduledoc false.
--compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]},
+          {nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% Dets files, implementation part. This module handles version 9.
 %% To be called from dets.erl only.

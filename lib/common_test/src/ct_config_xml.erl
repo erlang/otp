@@ -26,6 +26,9 @@
 %%----------------------------------------------------------------------
 -module(ct_config_xml).
 -moduledoc false.
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([read_config/1, check_parameter/1]).
 
 % read config file

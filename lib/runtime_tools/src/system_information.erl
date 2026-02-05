@@ -29,6 +29,9 @@
 -module(system_information).
 -moduledoc "System Information".
 -moduledoc(#{since => "OTP 17.0"}).
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -behaviour(gen_server).
 
 %% API

@@ -29,6 +29,9 @@ functions that might be useful when writing tools.
 """.
 -moduledoc(#{since => "OTP 25.0"}).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {erlang, binary_to_term, 1}}]).
+
 -export([all/0,
          configurable/0,
          info/1,

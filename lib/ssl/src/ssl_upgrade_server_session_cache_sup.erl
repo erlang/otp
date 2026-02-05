@@ -27,6 +27,8 @@
 -module(ssl_upgrade_server_session_cache_sup).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -behaviour(supervisor).
 
 -include("ssl_internal.hrl").

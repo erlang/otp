@@ -22,6 +22,8 @@
 -module(reltool_utils).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Public
 -export([root_dir/0, erl_libs/0, lib_dirs/1,
 	 split_app_name/1, prim_consult/1,

@@ -31,6 +31,8 @@ This module expands records in a module.
 Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([module/2]).
 
 -import(lists, [map/2,foldl/3,foldr/3,sort/1,reverse/1,duplicate/2]).

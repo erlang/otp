@@ -153,6 +153,8 @@ found.
 -moduledoc(#{since => "OTP 26.0"}).
 -author("maximfca@gmail.com").
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% API Exports
 -export([
     run/3,

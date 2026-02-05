@@ -73,6 +73,8 @@ Windows](debugger_chapter.md#breakpoints-and-break-dialog-windows)
 in the User's Guide for Debugger.
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% External exports
 -export([i/1, i/2, ni/1, ni/2, n/1, nn/1, interpreted/0, file/1,
 	 interpretable/1]).

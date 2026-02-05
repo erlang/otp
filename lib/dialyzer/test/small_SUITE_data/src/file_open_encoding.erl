@@ -4,6 +4,8 @@
 %%-----------------------------------------------------------------------
 -module(file_open_encoding).
 
+-compile([{nowarn_unsafe_function, {erlang, binary_to_atom, 2}}]).
+
 -export([parse/1]).
 
 -spec parse(string()) -> proplists:proplist().

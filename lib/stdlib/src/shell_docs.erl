@@ -51,6 +51,8 @@ be rendered as is.
 """.
 -moduledoc(#{since => "OTP 23.0"}).
 
+-compile([{nowarn_unsafe_function, {erlang, binary_to_atom, 1}}]).
+
 %% This module takes care of rendering and normalization of
 %% application/erlang+html style documentation.
 

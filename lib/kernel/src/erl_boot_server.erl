@@ -54,7 +54,8 @@ and `m:erl_prim_loader` in ERTS.
 [`erts:init`](`m:init`), [`erts:erl_prim_loader`](`m:erl_prim_loader`)
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 -include("inet_boot.hrl").
 

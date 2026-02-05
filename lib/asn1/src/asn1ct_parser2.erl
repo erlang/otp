@@ -24,6 +24,8 @@
 -module(asn1ct_parser2).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([parse/2,format_error/1]).
 -include("asn1_records.hrl").
 

@@ -21,6 +21,8 @@
 -module(prim_tty).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Todo:
 %%  * Try to move buffer handling logic to Erlang
 %%    * This may not be possible for performance reasons, but should be tried

@@ -92,6 +92,16 @@ macros described here and in the User's Guide:
 %% Tracing
 -export([handle_trace/3]).
 
+-unsafe([{encrypt_private, 2},
+         {encrypt_private, 3, possibly},
+         {decrypt_private, 2},
+         {decrypt_private, 3, possibly},
+
+         {encrypt_public, 2},
+         {encrypt_public, 3, possibly},
+         {decrypt_public, 2},
+         {decrypt_public, 3, possibly}]).
+
 %%----------------
 %% Moved to ssh
 -removed([{ssh_decode,2, "use ssh_file:decode/2 instead"},

@@ -22,16 +22,19 @@
 -module(qlc).
 -moduledoc({file, "../doc/src/qlc.md"}).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch,
+          %% Avoid warning for local function error/1 clashing with
+          %% autoimported BIF.
+          {no_auto_import, [error/1]}]).
+
 %%% Purpose: Main API module qlc. Functions for evaluation.
 %%% Other files:
 %%% qlc_pt. Implements the parse transform.
 
 %% External exports 
 
--compile(nowarn_deprecated_catch).
-
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
 -export([parse_transform/2,
          parse_transform_info/0,
          transform_from_evaluator/2]).

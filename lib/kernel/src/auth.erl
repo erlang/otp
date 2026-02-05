@@ -30,7 +30,8 @@ Manual.
 -moduledoc(#{ deprecated => ~"See each function for what to use instead" }).
 -behaviour(gen_server).
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([start_link/0]).
 

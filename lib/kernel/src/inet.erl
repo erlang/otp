@@ -246,6 +246,8 @@ Function `parse_address/1` can be useful:
 - `nxdomain` - Hostname or domain name cannot be found
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("inet.hrl").
 -include("inet_int.hrl").
 -include("inet_sctp.hrl").

@@ -24,6 +24,8 @@
 -module(asn1ct_check).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Main Module for ASN.1 compile time functions
 
 -export([check/2,storeindb/2,format_error/1]).

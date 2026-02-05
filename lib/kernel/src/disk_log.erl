@@ -135,7 +135,8 @@ Nothing is said about whether the disk log files exist or not.
 `m:file`, `m:wrap_log_reader`
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% Efficient file based log - process part
 

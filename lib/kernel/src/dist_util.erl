@@ -28,6 +28,9 @@
 -module(dist_util).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {erlang, binary_to_atom, 2}}]).
+
 %%-compile(export_all).
 -export([handshake_we_started/1, handshake_other_started/1,
          strict_order_flags/0, rejectable_flags/0,

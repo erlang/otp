@@ -62,6 +62,8 @@ function `type/1`.
 > trees.
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([abstract/1, add_ann/2, alias_pat/1, alias_var/1,
          ann_abstract/2, ann_c_alias/3, ann_c_apply/3, ann_c_atom/2,
          ann_c_bitstr/5, ann_c_bitstr/6,

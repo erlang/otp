@@ -86,6 +86,12 @@ in the description of each individual BIF.
            "use the new try/catch syntax for retrieving the "
            "stack backtrace"}]).
 
+-unsafe([{list_to_atom, 1, possibly},
+         {binary_to_atom, '_', possibly},
+         {binary_to_term, '_', possibly}]).
+
+-compile([{nowarn_unsafe_function, {erlang, binary_to_atom, 2}}]).
+
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
 -compile({no_auto_import,[spawn_link/1]}).
 -compile({no_auto_import,[spawn_link/4]}).

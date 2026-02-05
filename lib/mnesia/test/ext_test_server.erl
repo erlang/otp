@@ -22,6 +22,8 @@
 
 -module(ext_test_server).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("ext_test_server.hrl").
 
 %% This process is supposed to emulate external database process, it should not be linked

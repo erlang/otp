@@ -66,7 +66,8 @@ Module:format_error(ErrorDescriptor)
 `m:erl_parse`
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 %% An Erlang code preprocessor.
 

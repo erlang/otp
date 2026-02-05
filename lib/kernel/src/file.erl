@@ -190,6 +190,8 @@ operating system kernel.
 
 -removed([{pid2name,1,"this functionality is no longer supported"}]).
 
+-unsafe([{consult, '_'}, {path_consult, '_'}]).
+
 %% Interface module for the file server and the file io servers.
 
 

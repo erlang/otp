@@ -39,7 +39,8 @@
 
 -module(edoc_lib).
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([count/2, lines/1, split_at/2, split_at_stop/1,
 	 split_at_space/1, filename/1, transpose/1, segment/2,

@@ -41,7 +41,8 @@
 	 read_config/0, write_config/1      % Config admin
 	]).
 
--compile({no_auto_import,[alias/1]}).
+-compile([{no_auto_import,[alias/1]},
+          {nowarn_unsafe_function, {file, consult, 1}}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Aliases for the (sub) test suites

@@ -23,6 +23,8 @@
 -module(xmerl_xsd_re).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([map/1]). %% api
 
 -export([scan/1]).  %% test

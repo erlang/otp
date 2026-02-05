@@ -45,7 +45,9 @@ _Example:_
 ```
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {file, path_consult, 2}},
+          nowarn_deprecated_catch]).
 
 -export([host_file/0,
 	 localhost/0,

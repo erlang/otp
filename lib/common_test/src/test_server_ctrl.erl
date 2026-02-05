@@ -21,6 +21,9 @@
 %%
 -module(test_server_ctrl).
 -moduledoc false.
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                  %%
 %%                      The Erlang Test Server                      %%

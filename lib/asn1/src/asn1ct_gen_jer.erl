@@ -23,6 +23,9 @@
 -module(asn1ct_gen_jer).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {erlang, binary_to_atom, 1}}]).
+
 %% Generate erlang module which handles (PER) encode and decode for
 %% all types in an ASN.1 module
 

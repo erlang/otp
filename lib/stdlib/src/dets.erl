@@ -88,7 +88,8 @@ message.
 `m:ets`, `m:mnesia`, `m:qlc`
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% Disk based linear hashing lookup dictionary.
 

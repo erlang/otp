@@ -78,6 +78,8 @@ prop_ftp() ->
 """.
 -moduledoc(#{since => "OTP 17.3"}).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %%% API
 %% Main functions
 -export([init_per_suite/1,

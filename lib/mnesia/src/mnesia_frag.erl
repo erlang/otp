@@ -31,6 +31,8 @@
 -module(mnesia_frag).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Callback functions when accessed within an activity
 -export([
 	 lock/4,

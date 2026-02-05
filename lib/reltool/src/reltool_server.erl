@@ -22,6 +22,8 @@
 -module(reltool_server).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Public
 -export([
          start_link/0, start_link/1,

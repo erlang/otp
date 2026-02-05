@@ -133,6 +133,8 @@ Special Erlang node configuration for the application can be found in
               "Note that in OTP 28 the 'testing' way of calling this function will no longer be supported."
               }]).
 
+-unsafe([{prf, 5, "Use export_key_materials/4 instead."}]).
+
 -deprecated_type([{prf_random, 0,"Only used in deprecated function prf/5 and will no longer be needed."}]).
 
 -removed({ssl_accept, '_', 

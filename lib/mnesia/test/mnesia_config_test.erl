@@ -24,8 +24,10 @@
 -module(mnesia_config_test).
 -author('hakan@erix.ericsson.se').
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("mnesia_test_lib.hrl").
- 
+
 -record(test_table,{i,a1,a2,a3}).
 -record(test_table2,{i, b}).
 

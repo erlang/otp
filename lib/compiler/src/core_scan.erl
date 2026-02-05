@@ -48,7 +48,9 @@
 -module(core_scan).
 -moduledoc false.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {erlang, binary_to_atom, 2}},
+          nowarn_deprecated_catch]).
 
 -export([string/1, string/2, format_error/1]).
 

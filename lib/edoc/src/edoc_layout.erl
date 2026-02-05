@@ -42,6 +42,8 @@
 
 -module(edoc_layout).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([module/2, overview/2, type/1]).
 
 -export([copyright/1, version/1, since/1, authors/1, references/1, sees/1, todos/1]).

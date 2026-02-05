@@ -21,6 +21,8 @@
 -module(observer_app_wx).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([start_link/3]).
 
 %% wx_object callbacks

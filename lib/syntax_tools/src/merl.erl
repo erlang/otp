@@ -371,6 +371,8 @@ Thus, the following pattern matches all possible clauses:
 ```
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([term/1, var/1, print/1, show/1]).
 
 -export([quote/1, quote/2, qquote/2, qquote/3]).

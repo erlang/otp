@@ -23,6 +23,8 @@
 -module(asn1ct_tok).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Tokenize ASN.1 code (input to parser generated with yecc)   
 
 -export([file/1,format_error/1]).

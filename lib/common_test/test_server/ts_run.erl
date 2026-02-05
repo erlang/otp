@@ -26,6 +26,9 @@
 
 -export([run/4,ct_run_test/2]).
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {os, cmd, 1}}]).
+
 -define(DEFAULT_MAKE_TIMETRAP_MINUTES, 60).
 -define(DEFAULT_UNMAKE_TIMETRAP_MINUTES, 15).
 

@@ -79,7 +79,8 @@ preprocessor [`//stdlib/epp`](`m:epp`) before the parser sees them), an extended
 syntax tree is created, using the `m:erl_syntax` module.
 """.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([parse_file/1, quick_parse_file/1, parse_file/2,
 	 quick_parse_file/2, parse/1, quick_parse/1, parse/2,

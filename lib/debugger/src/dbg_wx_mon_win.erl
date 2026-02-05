@@ -24,6 +24,8 @@
 -module(dbg_wx_mon_win).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% External exports
 -export([init/0]).
 -export([create_win/3, get_window/1,

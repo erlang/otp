@@ -26,6 +26,8 @@
 -author('rossi@erix.ericsson.se').
 -include("mnesia_test_lib.hrl").
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([init_per_testcase/2, end_per_testcase/2,
          init_per_group/2, end_per_group/2,
          all/0, groups/0]).

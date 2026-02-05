@@ -23,6 +23,9 @@
 
 -module(sys_core_prepare).
 -moduledoc false.
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([module/2]).
 
 -include("core_parse.hrl").

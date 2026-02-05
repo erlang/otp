@@ -28,6 +28,10 @@
 
 -module(ts_install_cth).
 
+-compile([{nowarn_unsafe_function, {file, consult, 1}},
+          {nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_unsafe_function, {os, cmd, 1}}]).
+
 %% Suite Callbacks
 -export([id/1]).
 -export([init/2]).

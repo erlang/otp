@@ -37,6 +37,31 @@
 #
 
 #
+# Added in OTP 29.
+#
+crypto:private_decrypt/4 unsafe=29
+crypto:private_encrypt/4 unsafe=29
+crypto:public_decrypt/4 unsafe=29
+crypto:public_encrypt/4 unsafe=29
+erlang:binary_to_atom/_ unsafe=29
+erlang:binary_to_term/_ unsafe=29
+erlang:list_to_atom/1 unsafe=29
+file:consult/_ unsafe=29
+file:path_consult/_ unsafe=29
+http_uri:_/_ unsafe=29
+os:cmd/_ unsafe=29
+public_key:decrypt_private/2 unsafe=29
+public_key:decrypt_public/2 unsafe=29
+public_key:encrypt_private/2 unsafe=29
+public_key:encrypt_public/2 unsafe=29
+
+## Possibly unsafe
+public_key:decrypt_private/3 unsafe=29
+public_key:decrypt_public/3 unsafe=29
+public_key:encrypt_private/3 unsafe=29
+public_key:encrypt_public/3 unsafe=29
+
+#
 # Added in OTP 28.
 #
 crypto:start/0 since=28
@@ -48,7 +73,7 @@ crypto:enable_fips_mode/1 since=28
 #
 mnesia_registry:create_table/_ since=27 remove=29
 code:lib_dir/2 since=27
-ssl:prf/5 since=27
+ssl:prf/5 since=27 unsafe=29
 ssl:prf_random/0 since=27 remove=28
 
 #

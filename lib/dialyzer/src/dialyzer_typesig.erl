@@ -32,6 +32,8 @@
 -module(dialyzer_typesig).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([analyze_scc/7]).
 -export([get_safe_underapprox/2]).
 

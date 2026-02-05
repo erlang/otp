@@ -40,7 +40,8 @@
 
 -module(edoc_data).
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}},
+          nowarn_deprecated_catch]).
 
 -export([module/4, overview/4, type/3]).
 

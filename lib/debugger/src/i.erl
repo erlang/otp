@@ -47,6 +47,8 @@ true
 ```
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([help/0,ia/1,ia/2,ia/3,ia/4,iaa/1,iaa/2,
 	 ib/2,ib/3,ib/4,ibd/2,ibe/2,iba/3,ibc/3,ic/0,ii/1,ii/2,
 	 il/0,im/0,ini/1,ini/2,inq/1,ip/0,ipb/0,ipb/1,iq/1,

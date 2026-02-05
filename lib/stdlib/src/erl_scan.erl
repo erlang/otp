@@ -82,6 +82,8 @@ Armstrong, Virding and Williams: 'Concurrent Programming in Erlang', Chapter 13.
 `m:erl_anno`, `m:erl_parse`, `m:io`
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %%% External exports
 
 -export([string/1,string/2,string/3,tokens/3,tokens/4,

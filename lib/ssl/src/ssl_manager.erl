@@ -28,6 +28,9 @@
 
 -module(ssl_manager).
 -moduledoc false.
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -behaviour(gen_server).
 
 %% Internal application API

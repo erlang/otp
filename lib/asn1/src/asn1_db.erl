@@ -23,6 +23,8 @@
 -module(asn1_db).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([dbstart/1,dbnew/3,dbload/1,dbload/4,dbsave/2,dbput/2,
 	 dbput/3,dbget/2]).
 -export([dbstop/0]).

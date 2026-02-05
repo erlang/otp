@@ -22,6 +22,8 @@
 -module(reltool_app_win).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 %% Public
 -export([start_link/4, raise/1, refresh/1, open_mod/2]).
 

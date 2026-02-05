@@ -27,6 +27,8 @@
 -module(ssh_transport).
 -moduledoc false.
 
+-compile([{nowarn_unsafe_function, {erlang, binary_to_atom, 1}}]).
+
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include("ssh_transport.hrl").

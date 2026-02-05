@@ -50,7 +50,8 @@
 %% @end
 -module(edoc_layout_chunks).
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, binary_to_atom, 2}},
+          nowarn_deprecated_catch]).
 
 % -behaviour(edoc_layout).
 -export([module/2, overview/2]).

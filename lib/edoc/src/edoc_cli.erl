@@ -31,6 +31,9 @@
 %% @private
 %% @doc EDoc command line interface
 -module(edoc_cli).
+
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -export([main/1]).
 
 %% TODO: accept `private'/`hidden' and forward accordingly

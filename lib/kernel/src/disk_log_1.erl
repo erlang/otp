@@ -22,7 +22,8 @@
 -module(disk_log_1).
 -moduledoc false.
 
--compile(nowarn_deprecated_catch).
+-compile([{nowarn_unsafe_function, {erlang, binary_to_term, 1}},
+          nowarn_deprecated_catch]).
 
 %% Efficient file based log - implementation part
 

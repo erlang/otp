@@ -46,6 +46,8 @@ Possible configuration variables include:
 > instead.
 """.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
+
 -include("ct.hrl").
 -include("ct_util.hrl").
 
