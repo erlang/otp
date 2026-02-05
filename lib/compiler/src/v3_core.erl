@@ -716,7 +716,8 @@ expr({cons,L,H0,T0}, St0) ->
     {annotate_cons(A, H1, T1, St1),Eps,St1};
 expr({lc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
-    lc_tq(L, wrap_list(E), Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
+    {Lc, Pre, _OptInfo, St2} = lc_tq(L, {lc, wrap_list(E)}, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1),
+    {Lc, Pre, St2};
 expr({bc,L,E,Qs}, St) ->
     bc_tq(L, E, Qs, St);
 expr({mc,L,E,Qs0}, St0) ->
@@ -986,7 +987,7 @@ expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     %% number variables in the environment for letrec.
     {Mc,Mps,St1} = safe(More, St0),
     {Qs,St2} = preprocess_quals(Llc, Qs0, St1),
-    {Y,Yps,St} = lc_tq(Llc, wrap_list(E), Qs, Mc, St2),
+    {Y,Yps,_OptInfo,St} = lc_tq(Llc, {lc, wrap_list(E)}, Qs, Mc, St2),
     {Y,Mps++Yps,St};
 expr({op,_,'andalso',_,_}=E0, St0) ->
     {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso'),
@@ -1732,28 +1733,83 @@ fun_tq(Cs0, L, St0, NameInfo) ->
 wrap_list(List) when is_list(List) -> List;
 wrap_list(Other) -> [Other].
 
-%% lc_tq(Line, Exprs, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
+%% lc_tq(Line, Ctx, [Qualifier], Mc, State) -> {LetRec,[PreExp],OptInfo,State}.
+%%  Ctx = {lc, Es} (list comprehension)
+%%      | {mc, Pairs, BoundVars} (map comprehension context)
+%%  OptInfo = none | {from_keys, ValueExpr} | from_list
 %%  This TQ from Simon PJ pp 127-138.
 
-lc_tq(Line, Es, [#igen{}|_T] = Qs, Mc, St) ->
-    lc_tq1(Line, Es, Qs, Mc, St);
-lc_tq(Line, Es, [#izip{}=Zip|Qs], Mc, St) ->
-    zip_tq(Line, Es, Zip, Mc, St, Qs);
-lc_tq(Line, Es, [#ifilter{}=Filter|Qs], Mc, St) ->
-    filter_tq(Line, Es, Filter, Mc, St, Qs, fun lc_tq/5);
-lc_tq(Line, Es0, [], Mc0, St0) ->
-    {Hs1,Hps,St1} = safe_list(Es0, St0),
-    {T1,Tps,St} = force_safe(Mc0, St1),
-    Anno = lineno_anno(erl_anno:set_generated(true, Line), St),
-    E = ann_c_cons_all(Anno, Hs1, T1),
-    {E,Hps ++ Tps,St}.
+lc_tq(Line, Ctx, [#igen{}|_T] = Qs, Mc, St) ->
+    lc_tq1(Line, Ctx, Qs, Mc, St);
+lc_tq(Line, Ctx, [#izip{}=Zip|Qs], Mc, St) ->
+    zip_tq(Line, Ctx, Zip, Mc, St, Qs);
+lc_tq(Line, Ctx, [#ifilter{}=Filter|Qs], Mc, St) ->
+    filter_tq(Line, Ctx, Filter, Mc, St, Qs, fun lc_tq/5);
+lc_tq(Line, Ctx, [], Mc0, St0) ->
+    {Values,Pre,Opt,St} = lc_tq2(Ctx, St0),
+    {T1,Tps,St1} = force_safe(Mc0, St),
+    Anno = lineno_anno(erl_anno:set_generated(true, Line), St1),
+    E = ann_c_cons_all(Anno, Values, T1),
+    {E, Pre ++ Tps, Opt, St1}.
+
+lc_tq2({mc,Pairs,BoundVars}, St) ->
+    mc_pairs(Pairs, BoundVars, [], [], first, St);
+lc_tq2({lc,Es}, St0) ->
+    {Values,Pre,St1} = safe_list(Es, St0),
+    {Values,Pre,none,St1}.
+
+%% mc_pairs(Pairs, BoundVars, Keys, Pre, PrevVal, State) ->
+%%     {Keys,Pre,OptInfo,State}.
+%%  Verifies if it's safe to use maps:from_keys in the comprehension.
+%%  The conditions are:
+%%   1. All values are exactly the same, if comprehension has multiple values
+%%   2. Value is safe
+%%   3. Value is simple (no pre-expressions generated)
+%%   4. Value doesn't use any variables bound in generators
+mc_pairs([{map_field_assoc,Lf,Key,Val}|Pairs], BoundVars, Keys, Pre, PrevVal, St0) ->
+    {ValExpr,ValPre,St1} = expr(Val, St0),
+    {KeyExpr,KeyPre,St2} = safe(Key, St1),
+    case is_safe(ValExpr) andalso ValPre =:= [] andalso
+         not uses_bound_vars(ValExpr, BoundVars) andalso
+         (PrevVal =:= first orelse is_safe_same(ValExpr, PrevVal)) of
+        true ->
+            mc_pairs(Pairs, BoundVars, [KeyExpr|Keys], KeyPre ++ Pre, ValExpr, St2);
+        false ->
+            {ValExpr1,ValPre1,St3} = force_safe(ValExpr, St2),
+            Anno = lineno_anno(Lf, St3),
+            Tuple = ann_c_tuple(Anno, [KeyExpr,ValExpr1]),
+            Tuples = case PrevVal of
+                         first -> [Tuple];
+                         _ -> [Tuple|[ann_c_tuple(Anno, [K,PrevVal]) || K <- Keys]]
+                     end,
+            mc_tuples(Pairs, Tuples, ValPre ++ ValPre1 ++ KeyPre ++ Pre, St3)
+    end;
+mc_pairs([], _BoundVars, Keys, Pre, PrevVal, St) ->
+    {lists:reverse(Keys),Pre,{from_keys,PrevVal},St}.
+
+%% mc_tuples(Pairs, Tuples, Pre, State) -> {Tuples,Pre,from_list,State}.
+%%  Build tuples for the from_list path.
+mc_tuples([{map_field_assoc,Lf,Key,Val}|Pairs], Tuples, Pre, St0) ->
+    {Tuple,Pre1,St1} = safe({tuple,Lf,[Key,Val]}, St0),
+    mc_tuples(Pairs, [Tuple|Tuples], Pre ++ Pre1, St1);
+mc_tuples([], Tuples, Pre, St) ->
+    {lists:reverse(Tuples),Pre,from_list,St}.
+
+is_safe_same(#c_cons{hd=Hd1,tl=Tl1}, #c_cons{hd=Hd2,tl=Tl2}) ->
+    is_safe_same(Hd1, Hd2) andalso is_safe_same(Tl1, Tl2);
+is_safe_same(#c_tuple{es=Es1}, #c_tuple{es=Es2}) ->
+    length(Es1) =:= length(Es2) andalso
+        all(fun({E1,E2}) -> is_safe_same(E1, E2) end, lists:zip(Es1, Es2));
+is_safe_same(#c_var{name=N1}, #c_var{name=N2}) -> N1 =:= N2;
+is_safe_same(#c_literal{val=V1}, #c_literal{val=V2}) -> V1 =:= V2;
+is_safe_same(_, _) -> false.
 
 ann_c_cons_all(Anno, [H | Hs], T) ->
     ann_c_cons(Anno, H, ann_c_cons_all(Anno, Hs, T));
 ann_c_cons_all(_Anno, [], T) ->
     T.
 
-lc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
+lc_tq1(Line, Ctx, [#igen{anno=#a{anno=GA}=GAnno,
 		      acc_pat=AccPat,acc_guard=AccGuard,
                       nomatch_pat=NomatchPat,
                       nomatch_mode=NomatchMode,
@@ -1778,7 +1834,8 @@ lc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
     NomatchClause = make_clause([nomatch_clause,compiler_generated|LA],
                                 NomatchPat, [], [], [Nc]),
     TailClause = make_clause(LA, TailPat, [], [], [Mc]),
-    {Lc,Lps,St3} = lc_tq(Line, E, Qs, Sc, St2),
+    Ctx1 = add_bound_vars(Ctx, AccPat),
+    {Lc,Lps,OptInfo,St3} = lc_tq(Line, Ctx1, Qs, Sc, St2),
     AccClause = make_clause(LA, AccPat, [], AccGuard, Lps ++ [Lc]),
     AccClauseNoGuards = if
                             AccGuard =:= [] ->
@@ -1803,10 +1860,10 @@ lc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
     Fun = #ifun{anno=GAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
     {#iletrec{anno=GAnno#a{anno=[list_comprehension|GA]},defs=[{{Name,1},Fun}],
               body=Pre ++ [#iapply{anno=GAnno,op=F,args=[Arg]}]},
-     [],St3}.
+     [],OptInfo,St3}.
 
-%% zip_tq(Line, Exp, [Qualifier], Mc, State, TqFun) -> {LetRec,[PreExp],State}.
-zip_tq(Line, E, #izip{anno=#a{anno=GA}=GAnno,
+%% zip_tq(Line, Ctx, Zip, Mc, State, Qs) -> {LetRec,[PreExp],OptInfo,State}.
+zip_tq(Line, Ctx, #izip{anno=#a{anno=GA}=GAnno,
                       acc_pats=AccPats,acc_guard=AccGuard,
                       nomatch_total=NomatchTotal,
                       skip_pats=SkipPats,
@@ -1828,7 +1885,8 @@ zip_tq(Line, E, #izip{anno=#a{anno=GA}=GAnno,
     %% Generate the clauses for the letrec. First, the accumulating
     %% clause.
     Sc = #iapply{anno=GAnno,op=F,args=TailVars},
-    {Lc,Lps,St4} = lc_tq(Line, E, Qs, Sc, St3),
+    Ctx1 = lists:foldl(fun(Pat, C) -> add_bound_vars(C, Pat) end, Ctx, AccPats),
+    {Lc,Lps,OptInfo,St4} = lc_tq(Line, Ctx1, Qs, Sc, St3),
     AccClause = make_clause(LA, AccPats, AccGuard, Lps++[Lc]),
 
     %% Generate the skip clause unless all generators are strict, in
@@ -1857,7 +1915,7 @@ zip_tq(Line, E, #izip{anno=#a{anno=GA}=GAnno,
     {#iletrec{anno=GAnno#a{anno=[list_comprehension|GA]},
               defs=[{{Name,NumGenerators},Fun}],
               body=append(Pres) ++
-                  [#iapply{anno=GAnno,op=F,args=Args}]},[],St4}.
+                  [#iapply{anno=GAnno,op=F,args=Args}]},[],OptInfo,St4}.
 
 %% bc_tq(Line, Exp, [Qualifier], More, State) -> {LetRec,[PreExp],State}.
 %%  This TQ from Gustafsson ERLANG'05.
@@ -1943,7 +2001,12 @@ bc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
 bc_tq1(Line, E, [#izip{}=Zip|Qs], Mc, St) ->
     bzip_tq1(Line, E, Zip, Mc, St, Qs);
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
-    filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
+    TqFun = fun(L, {lc, Expr}, Qs1, Mc1, St1) ->
+                    {Bc, Bps, St2} = bc_tq1(L, Expr, Qs1, Mc1, St1),
+                    {Bc, Bps, none, St2}
+            end,
+    {Res, Pre, _OptInfo, St1} = filter_tq(Line, {lc, E}, Filter, Mc, St, Qs, TqFun),
+    {Res, Pre, St1};
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     bc_tq_build(Bl, [], AccVar, Elements, St0);
 bc_tq1(Line, E0, [], AccVar, St0) ->
@@ -2038,15 +2101,25 @@ bzip_tq1(Line, E, #izip{anno=#a{anno=_GA}=GAnno,
               body=append(Pres) ++
                   [#iapply{anno=LAnno,op=F,args=Args++[Mc]}]},[],St4}.
 
-mc_tq(Line, Es0, Qs, Mc, St0) ->
-    Es = map(fun({map_field_assoc,Lf,K,V}) -> {tuple,Lf,[K,V]} end, Es0),
-    {Lc,Pre0,St1} = lc_tq(Line, Es, Qs, Mc, St0),
-    {LcVar,St2} = new_var(St1),
+mc_tq(Line, Pairs, Qs, Mc, St0) ->
+    {Lc, Pre0, OptInfo, St1} = lc_tq(Line, {mc, Pairs, []}, Qs, Mc, St0),
+    {LcVar, St2} = new_var(St1),
+    Anno = #a{anno=lineno_anno(Line, St2)},
     Pre = Pre0 ++ [#iset{var=LcVar,arg=Lc}],
-    Call = #icall{module=#c_literal{val=maps},
-                  name=#c_literal{val=from_list},
-                  args=[LcVar]},
-    {Call,Pre,St2}.
+    case OptInfo of
+        {from_keys, ValueExpr} ->
+            Call = #icall{anno=Anno,
+                          module=#c_literal{val=maps},
+                          name=#c_literal{val=from_keys},
+                          args=[LcVar, ValueExpr]},
+            {Call, Pre, St2};
+        from_list ->
+            Call = #icall{anno=Anno,
+                          module=#c_literal{val=maps},
+                          name=#c_literal{val=from_list},
+                          args=[LcVar]},
+            {Call, Pre, St2}
+    end.
 
 make_refill([nomatch|RefillPats], Index, [_|Bodies], Args) ->
     make_refill(RefillPats, Index + 1, Bodies, Args);
@@ -2077,13 +2150,15 @@ make_clause(Anno, Pat, PatExtra, Guard, Body) ->
 %%  Transform an intermediate comprehension filter to its intermediate case
 %%  representation.
 
-filter_tq(Line, E, #ifilter{anno=#a{anno=LA}=LAnno,arg={Pre,Arg}},
+filter_tq(Line, Ctx0, #ifilter{anno=#a{anno=LA}=LAnno,arg={Pre,Arg}},
           Mc, St0, Qs, TqFun) ->
     %% The filter is an expression, it is compiled to a case of degree 1 with
     %% 3 clauses, one accumulating, one skipping and the final one throwing
     %% {case_clause,Value} where Value is the result of the filter and is not a
     %% boolean.
-    {Lc,Lps,St1} = TqFun(Line, E, Qs, Mc, St0),
+    %% Variables bound in Pre are visible in subsequent qualifiers and the body.
+    Ctx = add_pre_bound_vars(Ctx0, Pre),
+    {Lc,Lps,OptInfo,St1} = TqFun(Line, Ctx, Qs, Mc, St0),
     {FailPat,St2} = new_var(St1),
     Fc = fail_clause([FailPat], LA,
                      c_tuple([#c_literal{val=bad_filter},FailPat])),
@@ -2095,18 +2170,18 @@ filter_tq(Line, E, #ifilter{anno=#a{anno=LA}=LAnno,arg={Pre,Arg}},
                               pats=[#c_literal{val=false}],guard=[],
                               body=[Mc]}],
             fc=Fc},
-     Pre,St2};
-filter_tq(Line, E, #ifilter{anno=#a{anno=LA}=LAnno,arg=Guard},
+     Pre,OptInfo,St2};
+filter_tq(Line, Ctx, #ifilter{anno=#a{anno=LA}=LAnno,arg=Guard},
           Mc, St0, Qs, TqFun) when is_list(Guard) ->
     %% Otherwise it is a guard, compiled to a case of degree 0 with 2 clauses,
     %% the first matches if the guard succeeds and the comprehension continues
     %% or the second one is selected and the current element is skipped.
-    {Lc,Lps,St1} = TqFun(Line, E, Qs, Mc, St0),
+    {Lc,Lps,OptInfo,St1} = TqFun(Line, Ctx, Qs, Mc, St0),
     {#icase{anno=LAnno#a{anno=[list_comprehension|LA]},args=[],
             clauses=[#iclause{anno=LAnno,pats=[],guard=Guard,body=Lps ++ [Lc]}],
             fc=#iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
                         pats=[],guard=[],body=[Mc]}},
-     [],St1}.
+     [],OptInfo,St1}.
 
 %% preprocess_quals(Line, [Qualifier], State) -> {[Qualifier'],State}.
 %%  Preprocess a list of Erlang qualifiers into its intermediate representation,
@@ -2689,6 +2764,37 @@ is_safe(#c_var{name={_,_}}) -> false;           %Fun. Not safe.
 is_safe(#c_var{name=_}) -> true;                %Ordinary variable.
 is_safe(#c_literal{}) -> true;
 is_safe(_) -> false.
+
+%% add_bound_vars(Ctx, Pat) -> Ctx.
+%%  Add pattern vars to mc context (no-op for lc).
+%%  When Pat is 'nomatch', set BoundVars to 'nomatch' to disable optimization.
+add_bound_vars({lc, E}, _Pat) -> {lc, E};
+add_bound_vars({mc, Pairs, _BoundVars}, nomatch) -> {mc, Pairs, nomatch};
+add_bound_vars({mc, Pairs, nomatch}, _AccPat) -> {mc, Pairs, nomatch};
+add_bound_vars({mc, Pairs, BoundVars}, AccPat) ->
+    NewVars = lit_vars(AccPat),
+    {mc, Pairs, ordsets:union(NewVars, BoundVars)}.
+
+%% add_pre_bound_vars(Ctx, Pre) -> Ctx.
+%%  Add variables bound in pre-expressions (from filters) to mc context.
+add_pre_bound_vars({lc, E}, _Pre) -> {lc, E};
+add_pre_bound_vars({mc, Pairs, BoundVars}, Pre) ->
+    NewVars = ordsets:union([pre_expr_vars(E) || E <- Pre]),
+    {mc, Pairs, ordsets:union(NewVars, BoundVars)}.
+
+%% pre_bound_vars(Pre) -> ordset([Name]).
+%%  Extract variables bound in a list of pre-expressions.
+pre_expr_vars(#iset{var=#c_var{name=N}}) -> [N];
+pre_expr_vars(#imatch{pat=Pat}) -> lit_vars(Pat);
+pre_expr_vars(_) -> [].
+
+%% uses_bound_vars(Expr, BoundVars) -> boolean().
+%%  Check if a Core expression uses any of the bound variables.
+%%  When BoundVars is 'nomatch', always return true to disable optimization.
+uses_bound_vars(_Expr, nomatch) -> true;
+uses_bound_vars(Expr, BoundVars) ->
+    FreeVars = cerl_trees:free_variables(Expr),
+    not ordsets:is_disjoint(ordsets:from_list(FreeVars), BoundVars).
 
 %% fold_match(MatchExpr, Pat) -> {MatchPat,Expr}.
 %%  Fold nested matches into one match with aliased patterns.
@@ -4678,8 +4784,10 @@ lit_vars(#c_tuple{es=Es}, Vs) -> lit_list_vars(Es, Vs);
 lit_vars(#c_map{arg=V,es=Es}, Vs) -> lit_vars(V, lit_list_vars(Es, Vs));
 lit_vars(#c_map_pair{key=K,val=V}, Vs) -> lit_vars(K, lit_vars(V, Vs));
 lit_vars(#c_var{name=V}, Vs) -> add_element(V, Vs);
+lit_vars(#c_alias{var=#c_var{name=V},pat=P}, Vs) -> add_element(V, lit_vars(P, Vs));
 lit_vars(#imap{es=Es}, Vs) -> lit_list_vars(Es, Vs);
 lit_vars(#imappair{key=K,val=V}, Vs) -> lit_list_vars(K, lit_vars(V, Vs));
+lit_vars(#ibinary{segments=Segs}, Vs) -> ibitstr_vars(Segs, Vs);
 lit_vars(_, Vs) -> Vs.				%These are atomic
 
 lit_list_vars(Ls) -> lit_list_vars(Ls, []).

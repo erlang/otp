@@ -27,7 +27,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
          basic/1,duplicate_keys/1,mixed/1,
-         shadow/1,bad_generators/1,multi/1]).
+         shadow/1,bad_generators/1,multi/1,from_keys_optimization/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +43,8 @@ groups() ->
        mixed,
        shadow,
        bad_generators,
-       multi]}].
+       multi,
+       from_keys_optimization]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -307,7 +308,59 @@ multi(_Config) ->
     Exp2 = #{1 => 1, 2 => 2, 5 => 5, 6 => 6},
     Exp2 = #{X => X, X + 1 => X + 1 || X <- [1, 5]},
     Exp3 = #{1 => 4, 5 => 8},
-    Exp3 = #{X => X+1, X => X+3 || X <- [1, 5]}.
+    Exp3 = #{X => X+1, X => X+3 || X <- [1, 5]},
+    ok.
+
+from_keys_optimization(_Config) ->
+    %% Literal values - should use from_keys
+    #{a := 42, b := 42} = #{K => 42 || K <- [a, b]},
+    #{a := foo, b := foo} = #{K => foo || K <- [a, b]},
+
+    %% Outer variable - should use from_keys
+    Value = id(make_ref()),
+    #{a := Value, b := Value} = #{K => Value || K <- [a, b]},
+
+    %% Safe expression on outer vars (tuple) - should use from_keys
+    X = id(1), Y = id(2),
+    #{a := {1, 2}, b := {1, 2}} = #{K => {X, Y} || K <- [a, b]},
+
+    %% With filter - should still use from_keys
+    #{2 := ok, 4 := ok} = #{K => ok || K <- [1,2,3,4], K rem 2 =:= 0},
+
+    %% Multiple expressions with same value - should use from_keys
+    #{a := 42, b := 42, 1 := 42, 2 := 42} =
+        #{K => 42, K2 => 42 || K <- [a, b], K2 <- [1, 2]},
+
+    %% Multiple expressions with outer var as value - should use from_keys
+    Z = id(outer),
+    #{a := outer, 1 := outer} = #{K => Z, K2 => Z || K <- [a], K2 <- [1]},
+
+    %% Multiple expressions with DIFFERENT values - should NOT use from_keys
+    #{a := 1, b := 1, 1 := 2, 2 := 2} =
+        #{K => 1, K2 => 2 || K <- [a, b], K2 <- [1, 2]},
+    #{2 := [Value], 3 := [Value], 4 := [Value], 5 := [Value]} =
+        #{2*K => [Value], 2*K+1 => [Value] || K <- [1, 2]},
+    #{2 := {val, Value}, 3 := {val, Value},
+      4 := {val, Value}, 5 := {val, Value}} =
+        #{2*K => {val, Value}, 2*K+1 => {val, Value} || K <- [1, 2]},
+    #{2 := [Value], 3 := [42], 4 := [Value], 5 := [42]} =
+        #{2*K => [Value], 2*K+1 => [42] || K <- [1, 2]},
+
+    %% Value from generator - should NOT use from_keys
+    #{a := 1, b := 2} = #{K => V || {K, V} <- [{a, 1}, {b, 2}]},
+
+    %% Value depends on key - should NOT use from_keys
+    #{1 := 2, 2 := 4} = #{K => K * 2 || K <- [1, 2]},
+
+    %% Value depends on filter - should NOT use from_keys
+    #{1 := 2, 2 := 4} = #{K => V || K <- [1, 2], is_integer(V = K * 2)},
+
+    %% Failable expression on outer vars - should NOT use from_keys
+    %% (if list is empty, the division would never execute)
+    A = id(1), B = id(0),
+    #{} = #{K => A div B || K <- [], K > 0},
+
+    ok.
 
 id(I) -> I.
 
