@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2023-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2023-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -5752,12 +5752,12 @@ ERL_NIF_TERM esaio_cancel_accept(ErlNifEnv*       env,
         ESOCK_ASSERT( DEMONP("esaio_cancel_accept -> acceptor",
                              env, descP, &req.mon) == 0);
 
-         SSDBG( descP,
+        SSDBG( descP,
                ("WIN-ESAIO",
                 "esaio_cancel_accept {%d} -> try cancel accept I/O request\r\n",
                 descP->sock) );
 
-       if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) req.dataP)) {
+        if (! CancelIoEx((HANDLE) descP->sock, (OVERLAPPED*) req.dataP)) {
 
             /* What does this mean?
              * One of the possible reasons is that the accept succeeded.
@@ -5775,9 +5775,12 @@ ERL_NIF_TERM esaio_cancel_accept(ErlNifEnv*       env,
 
         }
 
-        /* Request cleanup (demonitor already done above) */
-        esock_clear_env("esaio_cancel_accept -> req cleanup", req.env);
-        esock_free_env("esaio_cancel_accept -> req cleanup", req.env);
+        /*
+         * Request env cleanup is done by the completion thread(s).
+         * (we *know* a request has been issued, so when we cancel,
+         * a thread will eventually be activated and expect the
+         * environment to be usable.
+         */
 
         /* *Maybe* update listen socket (read) state
          * (depends on if the queue is now empty)
@@ -7446,9 +7449,9 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
 
     SSDBG( descP,
            ("WIN-ESAIO",
-            "esaio_completion_accept_aborted(%d) -> "
+            "%s(%d) -> "
             "try get request"
-            "\r\n", descP->sock) );
+            "\r\n", __FUNCTION__, descP->sock) );
 
     if (esock_acceptor_get(env, descP,
                            &opDataP->accRef,
@@ -7459,13 +7462,17 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esaio_completion_accept_aborted(%d) -> "
+                "%s(%d) -> "
                 "send abort message to %T"
-                "\r\n", descP->sock, req.pid) );
+                "\r\n", __FUNCTION__, descP->sock, req.pid) );
 
         /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->lSockRef,
                              &req, reason);
+
+        /* *** cleanup *** */
+        esock_clear_env("esaio_cancel_accept -> req cleanup", req.env);
+        esock_free_env("esaio_cancel_accept -> req cleanup", req.env);
 
     }
 
@@ -7475,11 +7482,11 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
 
     SSDBG( descP,
            ("WIN-ESAIO",
-            "esaio_completion_accept_aborted(%d) -> "
+            "%s(%d) -> "
             "maybe send close message => "
             "\r\n   is socket (read) open: %s"
             "\r\n",
-            descP->sock, B2S((IS_OPEN(descP->readState)))) );
+            __FUNCTION__, descP->sock, B2S((IS_OPEN(descP->readState)))) );
 
     if (! IS_OPEN(descP->readState)) {
 
@@ -7496,11 +7503,11 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
 
                 SSDBG( descP,
                        ("WIN-ESAIO",
-                        "esaio_completion_accept_aborted(%d) -> "
+                        "%s(%d) -> "
                         "all queues are empty => "
                         "\r\n   send close message"
                         "\r\n",
-                        descP->sock) );
+                        __FUNCTION__, descP->sock) );
 
                 esaio_stop(env, descP);
 
@@ -7513,9 +7520,9 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
      */
     SSDBG( descP,
            ("WIN-ESAIO",
-            "esaio_completion_accept_aborted(%d) -> "
+            "%s(%d) -> "
             "maybe (%s) update (read) state (0x%X)\r\n",
-            descP->sock,
+            __FUNCTION__, descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
     if (descP->acceptorsQ.first == NULL) {
         descP->readState &= ~(ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
