@@ -1116,7 +1116,7 @@ erts_tar(Config) ->
     {Default, Ignored} =
         case os:type()  of
             {unix,_} ->
-                {["beam.smp","dyn_erl","epmd","erl","erl_call","erl_child_setup",
+                {["beam.smp","epmd","erl","erl_call","erl_child_setup",
                   "erlexec","erl.src","escript","heart","inet_gethost","run_erl",
                   "start","start_erl.src","start.src","to_erl"],
                  ["ct_run","dialyzer","erlc","typer","yielding_c_fun"]};
