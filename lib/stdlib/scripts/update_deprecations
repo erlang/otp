@@ -87,6 +87,10 @@ summarize_attributes([{removed, Rs} | As], Module, Acc0) ->
     Fs = sa_1(Rs, removed, Module, Acc0#st.functions),
     Acc = Acc0#st{ functions = Fs },
     summarize_attributes(As, Module, Acc);
+summarize_attributes([{unsafe, Rs} | As], Module, Acc0) ->
+    Fs = sa_1(Rs, unsafe, Module, Acc0#st.functions),
+    Acc = Acc0#st{ functions = Fs },
+    summarize_attributes(As, Module, Acc);
 summarize_attributes([{deprecated_type, Ds} | As], Module, Acc0) ->
     Ts = sa_1(Ds, deprecated, Module, Acc0#st.types),
     Acc = Acc0#st{ types = Ts },
@@ -227,6 +231,9 @@ info_string(next_major_release) ->
         "See the documentation for details";
 info_string(eventually) ->
     "will be removed in a future release. "
+        "See the documentation for details";
+info_string(possibly) ->
+    "however, it is possible to use it safely under some conditions. "
         "See the documentation for details";
 info_string(String) when is_list(String) ->
     String.
@@ -419,9 +426,9 @@ check_deprecations(Top, #st{functions = Fs} = St) ->
         [] ->
             St#st{deprecations = Depr};
         [_|_] ->
-            Msg = "The following function(s) have -deprecated() or "
-                "-removed() attributes, but are not present in the "
-                "DEPRECATIONS file:\n\n",
+            Msg = "The following function(s) have -deprecated(), -removed(), "
+                  "or `-unsafe()` attributes, but are not present in the "
+                  "DEPRECATIONS file:\n\n",
             Bad = [io_lib:format("  ~w:~w/~w\n", [M,F,A]) ||
                       {_,M,F,A,_} <- Bad0],
             Loc = ["\n","Please update ",DeprFile,".\n"],
@@ -437,7 +444,9 @@ read_deprecations(File) ->
 deprecation_file(Root) ->
     filename:join(Root, "system/doc/general_info/DEPRECATIONS").
 
-in_deprecations({Tag,M,F,A,_}, Depr) when Tag =:= deprecated; Tag =:= removed ->
+in_deprecations({Tag,M,F,A,_}, Depr) when Tag =:= deprecated;
+                                          Tag =:= removed;
+                                          Tag =:= unsafe ->
     is_map_key({M,F,A}, Depr).
 
 parse_deprecations([<<"#",_/binary>>|Lines]) ->
@@ -459,7 +468,9 @@ parse_part([<<"mfa">>,MFA]) ->
 parse_part([<<"since">>,Since]) ->
     {since,parse_release(Since)};
 parse_part([<<"remove">>,Remove]) ->
-    {remove,parse_release(Remove)}.
+    {remove,parse_release(Remove)};
+parse_part([<<"unsafe">>,Unsafe]) ->
+    {unsafe,parse_release(Unsafe)}.
 
 parse_release(Rel) ->
     binary_to_integer(Rel).
@@ -473,6 +484,7 @@ parse_mfa(MFA) ->
         end,
     {bin_to_atom(M0),bin_to_atom(F0),A}.
 
+-compile([{nowarn_unsafe_function, {erlang, list_to_atom, 1}}]).
 bin_to_atom(Bin) ->
     list_to_atom(binary_to_list(Bin)).
 
