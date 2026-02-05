@@ -190,8 +190,6 @@ has been received.
 > #### Note {: .info }
 >
 > Support for IPv6 has been implemented but not _fully_ tested.
->
-> SCTP has only been partly implemented (and not tested).
 
 This module was introduced in OTP 22.0, as experimental code.
 * In OTP 22.1, the `nowait` argument was added for many functions,
@@ -220,6 +218,9 @@ This module was introduced in OTP 22.0, as experimental code.
 * In OTP 27.0, the Windows flavored
   ([completion handle](`t:completion_handle/0`))
   API features could be considered no longer experimental.
+* In OTP @OTP-19834@, (experimental) complete support for SCTP was added
+  (functionally feature compatible with inet).
+  Not (yet) supported for FreeBSD.
 
 ## Examples
 
@@ -280,6 +281,7 @@ server(Addr, Port) ->
          connect/1, connect/2, connect/3,
          listen/1, listen/2,
          accept/1, accept/2,
+         peeloff/2, peeloff/3,
 
          send/2, send/3, send/4,
          sendto/3, sendto/4, sendto/5,
@@ -296,10 +298,10 @@ server(Addr, Port) ->
          shutdown/2,
 
          setopt/3, setopt_native/3, setopt/4,
-         getopt/2, getopt_native/3, getopt/3,
+         getopt/2, getopt/3, getopt_native/3,
 
-         sockname/1,
-         peername/1,
+         sockname/1, socknames/2,
+         peername/1, peernames/2,
 
          ioctl/2, ioctl/3, ioctl/4,
 
@@ -310,7 +312,8 @@ server(Addr, Port) ->
 -export([
 	 which_socket_kind/1,
          options/0, options/1, options/2, option/1, option/2,
-         protocols/0, protocol/1
+         protocols/0, protocol/1,
+	 mk_sockaddr/2, mk_sockaddr/3
 	]).
 
 -export_type([
@@ -369,10 +372,22 @@ server(Addr, Port) ->
               ipv6_hops/0,
               ipv6_pktinfo/0,
 
+              sctp_assoc_id/0,
+              sctp_setadaption/0,
               sctp_assocparams/0,
               sctp_event_subscribe/0,
               sctp_initmsg/0,
               sctp_rtoinfo/0,
+              sctp_snd_rcv_info/0,
+              sctp_set_peer_primary_address/0,
+              sctp_set_primary_address/0,
+              sctp_set_adaptation_layer_ind/0,
+              sctp_peer_address_parameters/0,
+              sctp_pap_flags/0, sctp_pap_flag/0, 
+              sctp_assoc_stats/0,
+              sctp_status/0,
+              sctp_peer_address_info/0,
+              sctp_peer_address_state/0,
 
               msg/0, msg_send/0, msg_recv/0,
               cmsg/0, cmsg_send/0, cmsg_recv/0,
@@ -391,6 +406,7 @@ server(Addr, Port) ->
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
 
+
 %% -define(DBG(T),
 %%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
@@ -400,6 +416,11 @@ server(Addr, Port) ->
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
+
+-type uint8()  :: 0..16#FF.
+-type uint16() :: 0..16#FFFF.
+-type uint32() :: 0..16#FFFFFFFF.
+-type uint64() :: 0..16#FFFFFFFFFFFFFFFF.
 
 -type invalid() :: {invalid, What :: term()}.
 
@@ -619,7 +640,7 @@ multicast source filtering (RFC 3376).
 
 -doc """
 C: `IP_PMTUDISC_*` values.
-
+=>
 Lowercase `t:atom/0` values corresponding to the C library constants
 `IP_PMTUDISC_*`. Some constant(s) may be unsupported by the platform.
 """.
@@ -680,14 +701,21 @@ The value `default` is only valid to _set_ and is translated to the C value
           ifindex := integer()
          }.
 
+-doc "C: `sctp_assoc_t`".
+-type sctp_assoc_id() :: integer().
+
+-doc "C: `struct sctp_setadaption`".
+-type sctp_setadaption() ::
+        #{adaption_ind := uint32()}.
+
 -doc "C: `struct sctp_assocparams`".
 -type sctp_assocparams() ::
-        #{assoc_id                := integer(),
-          asocmaxrxt              := 0..16#ffff,
-          numbe_peer_destinations := 0..16#ffff,
-          peer_rwnd               := 0..16#ffffffff,
-          local_rwnd              := 0..16#ffffffff,
-          cookie_life             := 0..16#ffffffff}.
+        #{assoc_id                 := sctp_assoc_id(),
+          asocmaxrxt               := uint16(),
+          number_peer_destinations := uint16(),
+          peer_rwnd                := uint32(),
+          local_rwnd               := uint32(),
+          cookie_life              := uint32()}.
 
 -doc """
 C: `struct sctp_event_subscribe`.
@@ -705,21 +733,114 @@ have been stripped from the C struct field names, for convenience.
           shutdown         := boolean(),
           partial_delivery := boolean(),
           adaptation_layer => boolean(),
-          sender_dry       => boolean()}.
+          sender_dry       => boolean(),
+          stream_reset     => boolean(),
+          assoc_reset      => boolean(),
+          stream_change    => boolean()}.
 
 -doc "C: `struct sctp_initmsg`.".
 -type sctp_initmsg() ::
-        #{num_ostreams   := 0..16#ffff,
-          max_instreams  := 0..16#ffff,
-          max_attempts   := 0..16#ffff,
-          max_init_timeo := 0..16#ffff}.
+        #{num_ostreams   := uint16(),
+          max_instreams  := uint16(),
+          max_attempts   := uint16(),
+          max_init_timeo := uint16()}.
 
 -doc "C: `struct sctp_rtoinfo`.".
 -type sctp_rtoinfo() ::
-        #{assoc_id := integer(),
-          initial  := 0..16#ffffffff,
-          max      := 0..16#ffffffff,
-          min      := 0..16#ffffffff}.
+        #{assoc_id := sctp_assoc_id(),
+          initial  := uint32(),
+          max      := uint32(),
+          min      := uint32()}.
+
+-doc "C: `struct sctp_setpeerprim`.".
+-type sctp_set_peer_primary_address() ::
+        #{assoc_id := sctp_assoc_id(),
+          addr     := sockaddr()}.
+
+-doc "C: `struct sctp_prim`.".
+-type sctp_set_primary_address() ::
+        #{assoc_id := sctp_assoc_id(),
+          addr     := sockaddr()}.
+
+-doc "C: `struct sctp_setadaptation`.".
+-type sctp_set_adaptation_layer_ind() ::
+        #{ind := uint32()}.
+
+-doc "C: `struct sctp_paddrparams`.".
+-type sctp_peer_address_parameters() ::
+        #{assoc_id          := sctp_assoc_id(),
+          addr              := sockaddr(),
+          heatbeat_interval := uint32(),
+          path_max_rxt      := uint16(),
+          path_mtu          => uint32(),
+          sack_delay        => uint32(),
+          flags             => sctp_pap_flags(),
+          ipv6_flowlabel    => uint32(),
+          dscp              => uint8()}.
+
+-doc """
+There are three pairs of flags that cannot be both be set (maybe obviously) 
+at the same time:
+- `enable_heartbeats` and `disable_heartbeats`
+- `enable_pmtu_discovery` and `disable_pmtu_discovery`
+- `enable_sack` and `disable_sack`
+""".
+-type sctp_pap_flags() :: integer() | [sctp_pap_flag()].
+-doc "C: `enum  sctp_spp_flags`.".
+-type sctp_pap_flag()  :: enable_heartbeats | disable_heartbeats |
+                          send_heartbeat_immediately |
+                          enable_pmtu_discovery | disable_pmtu_discovery |
+                          enable_sack | disable_sack |
+                          set_heartbeat_delay_to_zero |
+                          ipv6_flowlabel |
+                          dscp.
+
+
+-doc "C: `struct sctp_status`.".
+-type sctp_status() ::
+        #{assoc_id            := sctp_assoc_id(),
+          state               := sctp_peer_address_state(),
+          rwnd                := uint32(),
+          unacked_data        := uint16(),
+          pending_data        := uint16(),
+          in_streams          := uint16(),
+          out_streams         := uint16(),
+          fragmentation_point := uint32(),
+          primary             := sctp_peer_address_info()}.
+
+-doc "C: `struct sctp_assoc_stats`.".
+-type sctp_assoc_stats() ::
+        #{assoc_id             := sctp_assoc_id(),
+          max_rto_addr         := sockaddr(),
+          max_rto              := uint64(),
+          in_sacks             := uint64(),
+          out_sacks            := uint64(),
+          in_packets           := uint64(),
+          out_packets          := uint64(),
+          rtx_chunks           := uint64(),
+          out_of_seq_tsns      := uint64(),
+          in_dup_chunks        := uint64(),
+          gap_ack_recv         := uint64(),
+          in_unordered_chunks  := uint64(),
+          out_unordered_chunks := uint64(),
+          in_ordered_chunks    := uint64(),
+          out_ordered_chunks   := uint64(),
+          in_ctrl_chunks       := uint64(),
+          out_ctrl_chunks      := uint64()}.
+
+-doc "C: `struct sctp_paddrinfo`.".
+-type sctp_peer_address_info() ::
+        #{assoc_id := sctp_assoc_id(),
+          address  := sockaddr(),
+          state    := sctp_peer_address_state(),
+          cwnd     := uint32(),
+          srtt     := uint32(),
+          rto      := uint32(),
+          mtu      := uint32()}.
+
+-doc "C: `enum sctp_spinfo_state`.".
+-type sctp_peer_address_state() :: inactive | potentially_failed |
+                                   active | unconfirmed | unknown.
 
 -type packet_type() :: host | broadcast | multicast | otherhost |
                        outgoing | loopback | user | kernel | fastroute |
@@ -1260,6 +1381,19 @@ _Options for protocol level_ [_`sctp`_](`t:level/0`). See also RFC 6458.
 
 - **`{sctp, rtoinfo}`** - `Value =` `t:sctp_rtoinfo/0`
 
+- **`{sctp, get_peer_addr_info}`** - `Value =` `t:sctp_peer_address_info/0`
+
+  Only valid for _get_.
+  Also, requires an OptValue (containing `t:sctp_assoc_id/0` and
+  `t:sockaddr/0`) specifying the peer. See [`getopt/3`](`getopt/3`)
+  for more info.
+
+- **`{sctp, status}`** - `Value =` `t:sctp_status/0`
+
+  Only valid for _get_.
+  Also, requires an OptValue (containing `t:sctp_assoc_id/0`)
+  specifying the association. See [`getopt/3`](`getopt/3`) for more info.
+
 _Options for protocol level_ [_`tcp`:_](`t:level/0`)
 
 - **`{tcp, congestion}`** - `Value = string()`
@@ -1419,7 +1553,7 @@ _Options for protocol level_ [_`udp`:_](`t:level/0`)
            auth_delete_key |
            autoclose |
            context |
-           default_send_params |
+           default_send_param |
            delayed_ack_time |
            disable_fragments |
            hmac_ident |
@@ -1557,29 +1691,322 @@ Corresponds to a C `struct msghdr`, see your platform documentation for
   `struct msghdr`. Unknown flags, if any, are returned in one `t:integer/0`,
   last in the containing list.
 """.
--type msg_recv() ::
+-type msg_data_recv() ::
         #{
-           %% *Optional* target address
-           %% Used on an unconnected socket to return the
-           %% source address for a message.
-           addr => sockaddr_recv(),
+          %% *Optional* target address
+          %% Used on an unconnected socket to return the
+          %% source address for a message.
+          addr => sockaddr_recv(),
 
-           iov := erlang:iovec(),
+          iov := erlang:iovec(),
 
-           %% Control messages (ancillary data).
-           %% The maximum size of the control buffer is platform
-           %% specific. It is the users responsibility to ensure
-           %% that its not exceeded.
-           %%
-           ctrl :=
-               ([cmsg_recv() |
-                 #{level := level() | integer(),
-                   type  := integer(),
-                   data  := binary()}]),
+          %% Control messages (ancillary data).
+          %% The maximum size of the control buffer is platform
+          %% specific. It is the users responsibility to ensure
+          %% that its not exceeded.
+          %%
+          ctrl :=
+              ([cmsg_recv() |
+                #{level := level() | integer(),
+                  type  := integer(),
+                  data  := binary()}]),
 
-           %% Received message flags
-           flags := [msg_flag() | integer()]
+          %% Received message flags
+          flags := [msg_flag() | integer()]
          }.
+
+-doc(#{since => ~"OTP @OTP-19834@"}).
+-doc """
+Notifications can be received on a SCTP socket (type = seqpacket and
+protocol = sctp).
+
+""".
+-type msg_notification_recv() ::
+        #{
+          %% *Optional* target address
+          %% Used on an unconnected socket to return the
+          %% source address for a message.
+          addr => sockaddr_recv(),
+
+          notification := sctp_notification(),
+
+          ctrl := [#{level := level() | integer(),
+                     type  := integer(),
+                     data  := binary()}],
+
+          %% Received message flags
+          %% Will contain the 'notification' flag
+          flags := [notification | [msg_flag() | integer()]]
+         }.
+
+-doc """
+Message returned by [`recvmsg/1,2,3,5`](`recvmsg/1`).
+""".
+-type msg_recv() :: msg_data_recv() | msg_notification_recv().
+
+
+-doc """
+All possible notification types. All of them has *at least* two fields:
+'type' and 'flags' ('flags' are not allways used).
+
+C: `union sctp_notification`
+""".
+-type sctp_notification() :: sctp_assoc_change()        |
+                             sctp_paddr_change()        |
+                             sctp_send_failed()         |
+                             sctp_remote_error()        |
+                             sctp_shutdown_event()      |
+                             sctp_adapt_event()         |
+                             sctp_pdapi_event()         |
+                             sctp_authkey()             |
+                             sctp_sender_dry()          |
+                             sctp_stream_reset_event()  |
+                             sctp_assoc_reset_event()   |
+                             sctp_stream_change_event() |
+                             sctp_send_failed_event()   |
+                             sctp_notification_generic().
+
+-doc """
+An SCTP association has either begun or ended.
+
+C: `struct sctp_assoc_change`
+""".
+-type sctp_assoc_change() ::
+        #{type             := assoc_change,
+          flags            := integer(),
+          state            := sctp_assoc_change_state(),
+          error            := sctp_operation_error(),
+          outbound_streams := integer(),
+          inbound_streams  := integer(),
+          assoc_id         := sctp_assoc_id()}.
+
+-type sctp_assoc_change_state() :: comm_up        |
+                                   comm_lost      |
+                                   restart        |
+                                   shutdown_comp  |
+                                   cant_str_assoc |
+                                   integer().
+
+-doc """
+These error codes are (currently) defined in RFC 4960,
+and named as *Operation Errors*.
+""".
+-type sctp_operation_error() :: unknown           |
+                                bad_sid           |
+                                missing_parm      |
+                                stale_cookie      |
+                                no_resources      |
+                                bad_addr          |
+                                unrec_chunk       |
+                                bad_mandparm      |
+                                unrec_parm        |
+                                no_usr_data       |
+                                cookie_shut       |
+                                restart_new_addrs |
+                                user_abort        |
+                                delete_lastaddr   |
+                                resource_shortage |
+                                delete_srcaddr    |
+                                auth_err          |
+                                pos_integer().
+
+-doc """
+A destination address on a multi-homed peer has encountered a change.
+
+C: `struct sctp_paddr_change`
+""".
+-type sctp_paddr_change() ::
+        #{type     := peer_addr_change,
+          flags    := pos_integer(),
+          addr     := socket:sockaddr(),
+          state    := sctp_peer_addr_change_state(),
+          error    := pos_integer(),
+          assoc_id := sctp_assoc_id()}.
+
+-type sctp_peer_addr_change_state() ::
+        addr_available          |
+        addr_unreachable        |
+        addr_removed            |
+        addr_added              |
+        addr_made_prim          |
+        addr_confirmed          |
+        addr_potentially_failed |
+        integer().
+
+%% DEPRECATED
+-doc """
+SCTP cannot deliver a message.
+
+C: `struct sctp_send_failed`
+
+Deprecated.
+""".
+-type sctp_send_failed() ::
+        #{type     := send_failed,
+          flags    := uint16(),
+          error    := uint32(),
+          info     := sctp_snd_rcv_info(),
+          assoc_id := sctp_assoc_id(),
+          data     := binary()}.
+
+-doc """
+A remote peer may send an operational error message to its peer.
+
+C: `struct sctp_remote_error`
+""".
+-type sctp_remote_error() ::
+        #{type          := remote_error,
+          flags         := uint16(), % Should be [flag()]
+          error         := sctp_operation_error(),
+          assoc_id      := sctp_assoc_id(),
+          remote_causes := [integer()]}.
+
+-doc """
+A peer has sent a SHUTDOWN.
+
+C: `struct sctp_shutdown_event`
+""".
+-type sctp_shutdown_event() ::
+        #{type     := shutdown_event,
+          flags    := uint16(), % Should be [flag()]
+          assoc_id := sctp_assoc_id()}.
+
+-doc """
+A peer has sent a Adaptation Layer Indication parameter.
+
+C: `struct sctp_adaptation_event`
+""".
+-type sctp_adapt_event() ::
+        #{type         := adaptation_event,
+          flags        := uint16(),
+          adaption_ind := uint32(),
+          assoc_id     := sctp_assoc_id()}.
+
+-doc """
+A receiver is engaged in a partial delivery.
+
+Note that not all fields are available on all platforms.
+The *stream* and/or *seq* fields may not be present.
+
+C: `struct sctp_pdapi_event`
+""".
+-type sctp_pdapi_event() ::
+        #{type       := partial_delivery_event,
+          flags      := uint16(), % Should be [flag()]
+          indication := uint16(),
+          assoc_id   := sctp_assoc_id(),
+          stream     => uint32(),
+          seq        => uint32()}.
+
+-doc """
+When a receiver is using authentication, info about new keys and errors are
+provided in this notification.
+
+C: `struct sctp_authkey_event`
+""".
+-type sctp_authkey() ::
+        #{type         := authkey,
+          flags        := uint16(), % Should be [flag()]
+          keynumber    := uint16(),
+          altkeynumber := uint16(),
+          indication   := uint32(),
+          assoc_id     := sctp_assoc_id()}.
+
+-doc """
+The SCTP stack has no more user data to send or retransmit.
+
+C: `struct sctp_sender_dry_event`
+""".
+-type sctp_sender_dry() ::
+        #{type     := sender_dry,
+          flags    := uint16(), % Should be [flag()]
+          assoc_id := sctp_assoc_id()}.
+
+-doc """
+C: `struct sctp_stream_reset_event`
+""".
+-type sctp_stream_reset_event() ::
+        #{type        := stream_reset,
+          flags       := [incoming_ssn | outgoing_ssn | denied | failed],
+          assoc_id    := sctp_assoc_id(),
+          stream_list := [uint16()]}.
+
+-doc """
+C: `struct sctp_assoc_reset_event`
+""".
+-type sctp_assoc_reset_event() ::
+        #{type       := assoc_reset,
+          flags      := [denied | failed],
+          assoc_id   := sctp_assoc_id(),
+          local_tsn  := uint32(),
+          remote_tsn := uint32()}.
+
+-doc """
+C: `struct sctp_stream_change_event`
+""".
+-type sctp_stream_change_event() ::
+        #{type             := stream_change,
+          flags            := [denied | failed],
+          assoc_id         := sctp_assoc_id(),
+          inbound_streams  := uint16(),
+          outbound_streams := uint16()}.
+
+-doc """
+SCTP cannot deliver a message.
+
+C: `struct sctp_send_failed_event`
+""".
+-type sctp_send_failed_event() ::
+        #{type     := send_failed_event,
+          flags    := [data_unsent | data_sent],
+          error    := uint32(),
+          info     := sctp_snd_info(),
+          assoc_id := sctp_assoc_id(),
+          data     := binary()}.
+
+-doc """
+C: `union sctp_notification`
+
+This is intended as a fallback type for any notification
+we have not yet implemented.
+""".
+-type sctp_notification_generic() ::
+        #{type  := uint16(),
+          flags := uint16()}.
+
+-doc """
+C: `struct sctp_sndinfo`
+""".
+-type sctp_snd_info() ::
+        #{sid      := uint16(),
+          flags    := uint16(), % Should be [flag()]
+          ppid     := uint16(),
+          context  := uint32(),
+          assic_id := sctp_assoc_id()}.
+
+-doc """
+SCTP options for 
+[`sendmsg()`](`socket:sendmsg/4`) and
+SCTP header information about a received message through
+[`recvmsg()`](`socket:recvmsg/5`).
+
+When sending, only the *stream* and *assoc_id* fields needs to be
+assigned. When receiving all values will be assigned.
+
+C: `struct sctp_sndrcvinfo`
+""".
+-type sctp_snd_rcv_info() ::
+        #{stream       := uint16(),
+          ssn          => uint16(),
+          flags        => sctp_snd_rcv_info_flags(),
+          ppid         => uint32(),
+          context      => uint32(),
+          time_to_live => uint32(),
+          tsn          => uint32(),
+          cum_tsn      => uint32(),
+          assoc_id     := sctp_assoc_id()}.
+
+-type sctp_snd_rcv_info_flags() :: [unordered | addr_over | abort | eof].
 
 
 %% We are able to (completely) decode *some* control message headers.
@@ -1639,6 +2066,8 @@ symbolic value, or a `data` field with a native value, that has to be binary
 compatible what is defined in the platform's header files.
 """.
 -type cmsg_send() ::
+        #{level := sctp,    type := sndrcv,
+          value := sctp_snd_rcv_info()}                                   |
         #{level := socket,  type := timestamp,    data => native_value(),
           value => timeval()}                                             |
         #{level := socket,  type := rights,       data := native_value()} |
@@ -2270,7 +2699,7 @@ i_socket_info(Proto, _Socket, #{type := Type} = _Info, protocol) ->
                                          Proto
                                  end));
 i_socket_info(_Proto, Socket, _Info, fd) ->
-    try socket:getopt(Socket, otp, fd) of
+    try socket:getopt(Socket, {otp, fd}) of
 	{ok,   FD} -> integer_to_list(FD);
 	{error, _} -> " "
     catch
@@ -2984,18 +3413,30 @@ bind(Socket, Addr) ->
 %% If the domain is inet6, the addresses can be either IPv4 or IPv6.
 %%
 
--doc false.
+-doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc """
+Bind a list of socket addreses to a socket.
+
+When a socket is created (with [`open`](`open/2`)), it has no address assigned
+to it. This `bind` assigns the address specified by the `Addr` argument.
+
+Calling this function is only valid if the socket is
+`type`  = `seqpacket` and `protocol` = `sctp`.
+
+If the domain is inet, then all addresses *must* be IPv4.
+If the domain is inet6, the addresses can be *either* IPv4 or IPv6.
+
+""".
 -spec bind(Socket, Addrs, Action) -> 'ok' | {'error', Reason} when
       Socket :: socket(),
-      Addrs  :: [sockaddr()],
+      Addrs  :: [sockaddr_in()] | [sockaddr_in() | sockaddr_in6()],
       Action :: 'add' | 'remove',
       Reason :: posix() | 'closed'.
 
 bind(?socket(SockRef), Addrs, Action)
   when is_reference(SockRef)
        andalso is_list(Addrs)
-       andalso (Action =:= add
-                orelse Action =:= remove) ->
+       andalso ((Action =:= add) orelse (Action =:= remove)) ->
     prim_socket:bind(SockRef, Addrs, Action);
 bind(Socket, Addrs, Action) ->
     erlang:error(badarg, [Socket, Addrs, Action]).
@@ -3043,20 +3484,23 @@ connect(Socket) ->
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
 Equivalent to
-[`connect(Socket, SockAddr, infinity)`](#connect-infinity).
+[`connect(Socket, SockAddr, infinity)`](#connect-infinity) or
+[`connect(Socket, SockAddrs, undefined, infinity)`](#connect-infinity).
 """.
--spec connect(Socket :: socket(), SockAddr :: sockaddr()) -> 'ok' | {'error', Reason :: dynamic()}.
+-spec connect(Socket :: socket(), SockAddr :: sockaddr() | [SockAddr :: term()]) -> 'ok' | {'error', Reason :: dynamic()}.
 
+connect(Socket, SockAddrs) when is_list(SockAddrs) ->
+    connect(Socket, SockAddrs, infinity);
 connect(Socket, SockAddr) ->
     connect(Socket, SockAddr, infinity).
 
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
-Connect the socket to the given address.
+Connect the socket to the given address(s).
 
-This function connects the socket to the address specified
-by the `SockAddr` argument.
+This function connects the socket to the address(s) specified
+by the `SockAddr`|`SockAddrs` argument.
 
 If a connection attempt is already in progress (by another process),
 `{error, already}` is returned.
@@ -3120,8 +3564,25 @@ The possible values for `CompletionStatus` in the completion message are:
 - **`{error, Reason}`** - An error occured and no connection was
   established.
 
+> #### Note {: .info }
+>
+> Note that calling with a list of socket addresses only works for
+> SCTP sockets (type = `seqpacket`). And that the family of *all*
+> addresses in the list is either IPv4 (`inet`) or IPv6 (`inet6`).
+
 """.
--spec connect(Socket, SockAddr, Timeout :: 'infinity') ->
+-spec connect(Socket, SockAddrs, TimeoutOrHandle) ->
+          {'ok', AssocId} |
+          {'error', Reason} when
+      Socket          :: socket(),
+      SockAddrs       :: [sockaddr_in()] | [sockaddr_in6()],
+      TimeoutOrHandle :: infinity | Timeout | 'nowait' | Handle,
+      Timeout         :: non_neg_integer(),
+      Handle          :: select_handle(),
+      AssocId         :: sctp_assoc_id(),
+      Reason          :: posix() | 'closed' | invalid() | 'already';
+
+             (Socket, SockAddr, Timeout :: 'infinity') ->
           'ok' |
           {'error', Reason} when
       Socket   :: socket(),
@@ -3159,25 +3620,26 @@ The possible values for `CompletionStatus` in the completion message are:
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
 %% </KOLLA>
-connect(?socket(SockRef), SockAddr, TimeoutOrHandle)
+connect(?socket(SockRef), SockAddrOrAddrs, TimeoutOrHandle)
   when is_reference(SockRef) ->
     case deadline(TimeoutOrHandle) of
         invalid ->
             erlang:error({invalid, {timeout, TimeoutOrHandle}});
         nowait ->
             Handle = make_ref(),
-            connect_nowait(SockRef, SockAddr, Handle);
+            connect_nowait(SockRef, SockAddrOrAddrs, Handle);
         handle ->
             Handle = TimeoutOrHandle,
-            connect_nowait(SockRef, SockAddr, Handle);
+            connect_nowait(SockRef, SockAddrOrAddrs, Handle);
         Deadline ->
-            connect_deadline(SockRef, SockAddr, Deadline)
+            connect_deadline(SockRef, SockAddrOrAddrs, Deadline)
     end;
-connect(Socket, SockAddr, Timeout) ->
-    erlang:error(badarg, [Socket, SockAddr, Timeout]).
+connect(Socket, SockAddrOrAddrs, Timeout) ->
+    erlang:error(badarg, [Socket, SockAddrOrAddrs, Timeout]).
 
-connect_nowait(SockRef, SockAddr, Handle) ->
-    case prim_socket:connect(SockRef, Handle, SockAddr) of
+
+connect_nowait(SockRef, SockAddrOrAddrs, Handle) ->
+    case prim_socket:connect(SockRef, Handle, SockAddrOrAddrs) of
         select ->
             {select, ?SELECT_INFO(connect, Handle)};
         completion ->
@@ -3186,36 +3648,37 @@ connect_nowait(SockRef, SockAddr, Handle) ->
             Result
     end.
 
-connect_deadline(SockRef, SockAddr, Deadline) ->
-    Ref = make_ref(),
-    case prim_socket:connect(SockRef, Ref, SockAddr) of
+connect_deadline(SockRef, SockAddrOrAddrs, Deadline) ->
+    Handle = make_ref(),
+    case prim_socket:connect(SockRef, Handle, SockAddrOrAddrs) of
         select ->
             %% Connecting...
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(_Socket, select, Ref) ->
+                ?socket_msg(_Socket, select, Handle) ->
                     prim_socket:connect(SockRef);
-                ?socket_msg(_Socket, abort, {Ref, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     {error, Reason}
             after Timeout ->
-                    _ = cancel(SockRef, connect, Ref),
+                    _ = cancel(SockRef, connect, Handle),
                     {error, timeout}
             end;
         completion ->
             %% Connecting...
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(_Socket, completion, {Ref, CompletionStatus}) ->
+                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
                     CompletionStatus;
-                ?socket_msg(_Socket, abort, {Ref, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     {error, Reason}
             after Timeout ->
-                    _ = cancel(SockRef, connect, Ref),
+                    _ = cancel(SockRef, connect, Handle),
                     {error, timeout}
             end;
         Result ->
             Result
     end.
+
 
 
 %% ===========================================================================
@@ -3239,6 +3702,7 @@ listen(Socket) ->
 -doc """
 Make a socket listen for connections.
 
+The `IsServer` clauses are intended to be used for SCTP sockets.
 The `Backlog` argument states the length of the queue for
 incoming not yet accepted connections.
 Exactly how that number is interpreted is up to the OS'
@@ -3249,8 +3713,21 @@ will most probably be perceived as at least that long.
 >
 > On _Windows_ the socket has to be _bound_.
 """.
--spec listen(Socket :: socket(), Backlog :: integer()) -> 'ok' | {'error', Reason  :: posix() | 'closed'}.
+-spec listen(Socket, IsServer) -> ok | {error, Reason} when
+      Socket   :: socket(),
+      IsServer :: boolean(),
+      Reason   :: posix() | 'closed';
+            (Socket, Backlog) -> 'ok' | {'error', Reason} when
+      Socket  :: socket(),
+      Backlog :: pos_integer(),
+      Reason  :: posix() | 'closed'.
 
+listen(?socket(SockRef), true = _IsServer)
+  when is_reference(SockRef) ->
+    prim_socket:listen(SockRef, ?ESOCK_LISTEN_BACKLOG_DEFAULT);
+listen(?socket(SockRef), false = _IsServer)
+  when is_reference(SockRef) ->
+    prim_socket:listen(SockRef, 0);
 listen(?socket(SockRef), Backlog)
   when is_reference(SockRef), is_integer(Backlog) ->
     prim_socket:listen(SockRef, Backlog);
@@ -3293,8 +3770,8 @@ and return the new connection socket.
 [](){: #accept-timeout }
 
 If the `Timeout` argument is a time-out value (`t:non_neg_integer/0`);
-returns `{error, timeout}` if no connection has arrived
-after `Timeout` milliseconds.
+returns `{error, timeout}` if no connection has arrived after `Timeout`
+milliseconds.
 
 [](){: #accept-nowait }
 
@@ -3302,10 +3779,9 @@ If the `Handle` argument `nowait` *(since OTP 22.1)*,
 starts an [asynchronous call](#asynchronous-calls) if the operation
 couldn't be completed immediately.
 
-If the `Handle` argument is a `t:select_handle/0`,
-*(since OTP 24.0)*, or on _Windows_, the equivalent
-`t:completion_handle/0` *(since OTP 26.0)*, starts
-an [asynchronous call](#asynchronous-calls) like for `nowait`.
+If the `Handle` argument is a `t:select_handle/0`, *(since OTP 24.0)*,
+or on _Windows_, the equivalent `t:completion_handle/0` *(since OTP 26.0)*,
+starts an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 [](){: #accept-completion_status }
 
@@ -3429,6 +3905,104 @@ accept_result(LSockRef, AccRef, Result) ->
             ERROR
     end.
 
+
+%% ===========================================================================
+%%
+%% peeloff - Branch off an association into a separate socket
+%%
+
+-doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc """
+Branch off an association into a separate socket.
+
+Equivalent to [`peeloff(Socket, AssocId, [])`](`peeloff/3`)
+
+""".
+-spec peeloff(Socket, AssocId) ->
+          {'ok', NewSock} |
+          {'ok', NewSock, InheritErrs} |
+          {'error', Reason} when
+      Socket  :: socket(),
+      AssocId :: sctp_assoc_id(),
+      NewSock :: socket(),
+      InheritErrs :: [{SockOpt, get | set, Reason}],
+      SockOpt :: socket_option(),
+      Reason  :: posix() | 'closed'.
+
+peeloff(Sock, AssocId) ->
+    peeloff(Sock, AssocId, []).
+
+-doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc """
+Branch off an association into a separate socket.
+
+Create a new one-to-one socket from an existing one-to-many socket.
+The specified `InheritOpts` will be inherited by the new socket (get from
+existing socket and then set on the new socket).
+
+If the peeloff operation is successful but some (or all) of the `InheritOpts`
+failed to transfer to the new socket, `{'ok', NewSock, InheritErrs}` is
+returned. It is then up to the caller to decide if this is acceptable.
+
+""".
+-spec peeloff(Socket, AssocId, InheritOpts) ->
+          {'ok', NewSock} |
+          {'ok', NewSock, InheritErrs} |
+          {'error', Reason} when
+      Socket  :: socket(),
+      AssocId :: sctp_assoc_id(),
+      InheritOpts :: [socket_option()],
+      NewSock :: socket(),
+      InheritErrs :: [{SockOpt, get | set, Reason}],
+      SockOpt :: socket_option(),
+      Reason  :: posix() | 'closed'.
+
+peeloff(?socket(SockRef) = Sock, AssocId, InheritOpts)
+  when is_reference(SockRef) andalso
+       is_integer(AssocId) andalso
+       is_list(InheritOpts) ->
+    case prim_socket:peeloff(SockRef, AssocId) of
+        {ok, NewSockRef} ->
+            NewSock = ?socket(NewSockRef),
+            inherit_opts(Sock, NewSock, InheritOpts);
+        {error, _} = ERROR ->
+            ERROR
+    end;
+peeloff(Socket, AssocId, InheritOpts) ->
+    erlang:error(badarg, [Socket, AssocId, InheritOpts]).
+
+inherit_opts(FromSock, ToSock, InheritOpts) ->
+    inherit_opts(FromSock, ToSock, InheritOpts, []).
+
+inherit_opts(_FromSock, ToSock, [], []) ->
+    {ok, ToSock};
+inherit_opts(_FromSock, ToSock, [], Errs) ->
+    {ok, ToSock, Errs};
+inherit_opts(FromSock, ToSock, [SockOpt | SockOpts], Errs) ->
+    case socket:getopt(FromSock, SockOpt) of
+        {ok, Value} ->
+            case socket:setopt(ToSock, SockOpt, Value) of
+                ok ->
+                    inherit_opts(FromSock, ToSock, SockOpts, Errs);
+                {error, Reason} ->
+                    inherit_opts(FromSock, ToSock, SockOpts,
+                                 [{SockOpt, set, Reason}|Errs])
+            end;
+        {error, Reason} ->
+            inherit_opts(FromSock, ToSock, SockOpts,
+                         [{SockOpt, get, Reason}|Errs])
+    end.
+
+%% peeloff_inherit_opts() ->
+%%     [{socket, priority},
+%%      {sctp,   nodelay},
+%%      {socket, linger},
+%%      {socket, reuseaddr},
+%%      {ip,     tos},
+%%      {ip,     ttl},
+%%      {ip,     recvtos},
+%%      {ip,     recvttl}].
+%% 
 
 %% ===========================================================================
 %%
@@ -5648,6 +6222,7 @@ The possible values for `CompletionStatus` in the completion message are:
 - **`{ok, {Source, Data}}`** - Success.
 - **`{error, Reason}`** - An error occured and no data was read.
 """.
+
 -spec recvfrom(Socket, BufSz, Flags, Timeout :: 'infinity') ->
           {'ok', {Source, Data}} |
           {'error', Reason} when
@@ -6291,23 +6866,29 @@ in the User's Guide for more info.
              SocketOption ::
                {Level :: 'otp',
                 Opt :: otp_socket_option()}) ->
-                    {'ok', Value :: term()} |
-                    {'error', invalid() | 'closed'};
+          {'ok', Value :: term()} |
+          {'error', invalid() | 'closed'};
             (socket(),
              SocketOption :: socket_option()) ->
-                    {'ok', Value :: term()} |
-                    {'error', posix() | invalid() | 'closed'}.
+          {'ok', Value :: term()} |
+          {'error', posix() | invalid() | 'closed'}.
 
 getopt(?socket(SockRef), SocketOption)
   when is_reference(SockRef) ->
     prim_socket:getopt(SockRef, SocketOption).
 
-%% Backwards compatibility
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
-Get a socket option _(backwards compatibility function)_.
+Get a socket option, with a specifier (extra input) `OptValue`.
 
-Equivalent to [`getopt(Socket, {Level, Opt})`](`getopt/2`),
+This function is used when the option takes an input 'value' argument.
+We only support this for a limited set of options:
+`{sctp, get_peer_addr_info}` and `{sctp, status}`.
+
+Some uses of this function is for _backwards compatibility reasons_.
+
+For instance, `getopt(Socket, Level, Opt)` is 
+equivalent to [`getopt(Socket, {Level, Opt})`](`getopt/2`),
 or as a special case if
 `Opt = {NativeOpt :: `[`integer/0`](`t:integer/0`)`, ValueSpec}`
 equivalent to
@@ -6317,12 +6898,43 @@ Use `getopt/2` or `getopt_native/3` instead to handle
 the option level and name as a single term, and to make the
 difference between known options and native options clear.
 """.
--spec getopt(Socket :: term(), Level :: term(), Opt :: term()) -> _.
+
+-spec getopt(Socket       :: socket(),
+             SocketOption :: {sctp, get_peer_addr_info},
+             OptValue     :: #{assoc_id := sctp_assoc_id(),
+                               addr     := sockaddr()}) ->
+          {'ok', Value :: sctp_peer_address_info()} |
+          {'error', posix() | invalid() | 'closed'};
+
+            (Socket       :: socket(),
+             SocketOption :: {sctp, status},
+             OptValue     :: #{assoc_id := sctp_assoc_id()}) ->
+          {'ok', Value :: sctp_status()} |
+          {'error', posix() | invalid() | 'closed'};
+
+            (Socket :: socket(),
+             Level  :: level(),
+             Opt    :: term()) ->
+          {'ok', Value :: term()} |
+          {'error', posix() | invalid() | 'closed'}.
+
+getopt(?socket(SockRef),
+       {sctp, get_peer_addr_info} = SocketOption,
+       #{assoc_id := _, addr := SA} = OptValue) % Sparse peer-addr-info
+  when is_reference(SockRef) ->
+    prim_socket:getopt(SockRef, SocketOption,
+		       OptValue#{addr => prim_socket:enc_sockaddr(SA)});
+getopt(?socket(SockRef),
+       {sctp, status} = SocketOption,
+       #{assoc_id := _} = OptValue) % Sparse status
+  when is_reference(SockRef) ->
+    prim_socket:getopt(SockRef, SocketOption, OptValue);
 getopt(Socket, Level, {NativeOpt, ValueSpec})
   when is_integer(NativeOpt) ->
     getopt_native(Socket, {Level,NativeOpt}, ValueSpec);
 getopt(Socket, Level, Opt) ->
     getopt(Socket, {Level,Opt}).
+
 
 -doc(#{since => <<"OTP 24.0">>}).
 -doc """
@@ -6420,6 +7032,41 @@ sockname(Socket) ->
 
 %% ===========================================================================
 %%
+%% socknames - Return all the current (locally bound) address(s) of the socket.
+%%
+%%
+
+-doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc """
+Get the socket's address.
+
+Returns all the locally bound addresses to which the socket is currently bound.
+
+If the socket is IPv4 then all returned addresess will be IPv4.
+If the socket is IPv6, then the returned addresess can be a mix of
+IPv4 and IPv6.
+
+For a one-to-many socket, AssocId specifies the association.
+For a one-to-one socket, AssocId is ignored.
+
+If AssocId is 0 (zero), then the returned addresses are without any
+particular association.
+""".
+-spec socknames(Socket :: socket(), AssocId :: sctp_assoc_id()) ->
+          {'ok', [SockAddr]} | {'error', Reason} when
+      SockAddr :: sockaddr_recv(),
+      Reason   :: posix() | 'closed'.
+
+socknames(?socket(SockRef), AssocId)
+  when is_reference(SockRef) andalso is_integer(AssocId) ->
+    prim_socket:socknames(SockRef, AssocId);
+socknames(Socket, AssocId) ->
+    erlang:error(badarg, [Socket, AssocId]).
+
+
+
+%% ===========================================================================
+%%
 %% peername - return the address of the peer *connected* to the socket.
 %%
 %%
@@ -6441,6 +7088,38 @@ peername(?socket(SockRef))
     prim_socket:peername(SockRef);
 peername(Socket) ->
     erlang:error(badarg, [Socket]).
+
+
+
+%% ===========================================================================
+%%
+%% peernames - Return the address(s) of the peer *connected* to the socket.
+%%
+%%
+
+-doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc """
+Return the remote (peer) address(s) of an association of a socket.
+
+If the socket is IPv4 then all returned addresess will be IPv4.
+If the socket is IPv6, then the returned addresess can be a mix of
+IPv4 and IPv6.
+
+For a one-to-many socket, AssocId specifies the association.
+For a one-to-one socket, AssocId is ignored.
+
+The behaviour if AssocId is 0 (zero), is undefined for one-to-many sockets.
+""".
+-spec peernames(Socket :: socket(), AssocId :: sctp_assoc_id()) ->
+          {'ok', [SockAddr]} | {'error', Reason} when
+      SockAddr :: sockaddr_recv(),
+      Reason   :: posix() | 'closed'.
+
+peernames(?socket(SockRef), AssocId)
+  when is_reference(SockRef) andalso is_integer(AssocId) ->
+    prim_socket:peernames(SockRef, AssocId);
+peernames(Socket, AssocId) ->
+    erlang:error(badarg, [Socket, AssocId]).
 
 
 
@@ -7006,6 +7685,16 @@ flush_abort_msg(SockRef, Ref) ->
 %%
 %% ===========================================================================
 
+-doc false.
+mk_sockaddr(Fam, Addr) when (Fam =:= inet) orelse (Fam =:= inet6) ->
+    mk_sockaddr(Fam, Addr, 0);
+mk_sockaddr(Fam, Path) when (Fam =:= local) ->
+    prim_socket:enc_sockaddr(#{family => Fam, path => Path}).
+
+-doc false.
+mk_sockaddr(Fam, Addr, Port) when (Fam =:= inet) orelse (Fam =:= inet6) ->
+    prim_socket:enc_sockaddr(#{family => Fam, addr => Addr, port => Port}).
+    
 deadline(Timeout) ->
     case Timeout of
         nowait ->

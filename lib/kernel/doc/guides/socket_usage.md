@@ -499,6 +499,142 @@ which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
     inet6.
 ```
 
+### Socket SCTP example snippets
+
+Here are couple of code snippets that attempts to explain
+some common use cases for socket SCTP.
+Note that this is in no way complete! Especially since the
+different implementations behaves slighly differently (different
+set of messages).
+
+#### Basic init
+
+This is an operation that *must* be performed before any
+active operations can be performed: *Subscribe to SCTP events*
+
+```erlang
+.
+.
+.
+%% data_io needs to be 'true' if data is to be exchanged
+Events = #{data_io          => true,
+           association      => true,
+           address          => true,
+           send_failure     => true,
+           peer_error       => true,
+           shutdown         => true,
+           partial_delivery => true,
+           adaptation_layer => false,
+           authentication   => false,
+           sender_dry       => false}),
+socket:setopt(Sock, {sctp, events}, Events),
+.
+.
+.
+```
+
+
+#### Accept
+
+There are basically two variants of this. The first is when the
+server attempts to handle all incoming connections itself
+(data_io = true).
+The second is when the server *only* handles the "accept" operation
+and then spawns a handler process (that does a peeloff) to handle
+the "work" (data_io = false).
+
+```erlang
+.
+.
+.
+case socket:recvmsg(Sock) of
+    {ok, #{notification := #{type := assoc_change,
+                             state := comm_up,
+                             assoc_id := AID}}} ->
+         %% Start the handler, that performs a peeloff
+         start_handler(Sock, AID);
+.
+.
+.
+```
+
+
+#### Connect
+
+This is a two step process. First perform connect and then await
+confirmation.
+
+```erlang
+.
+.
+.
+ServerSA = ...
+%% Issue a connect...
+ok = socket:connect(Sock, ServerSA),
+%% Wait for confirmation...
+AssocID = case socket:recvmsg(Sock) of
+              {ok, #{flags        := _,
+                     addr         := _,
+                     notification := #{type     := assoc_change,
+                                       state    := comm_up,
+                                       assoc_id := AID}}} ->
+	          AID;
+	      {error, Reason} ->
+	          exit(Reason)
+	  end,
+%% Ready for business...
+.
+.
+.
+```
+
+
+#### Graceful shutdown
+
+Perform a graceful shutdown by sending an message with the eof flag
+(in the SRI). On the "other end" a set of shutdown notification(s)
+will be received.
+
+```erlang
+.
+.
+.
+EofSRI = #{assoc_id => AssocID,
+           stream   => StreamID,
+           flags    => [eof]},
+EofMsg = #{iov  => [],
+           ctrl => [#{level => sctp,
+                      type  => sndrcv,
+                      value => EofSRI}]},
+ok = socket:sendmsg(Sock, EofMsg),
+.
+.
+.
+```
+
+
+#### Sending data
+
+When sending, a (sparse) SRI (send receive info) structure is needed.
+This identifies the Assoc and Stream.
+
+```erlang
+.
+.
+.
+SRI     = #{assoc_id => AssocID,
+            stream   => StreamID},
+CtrlSRI = #{level => sctp,
+            type  => sndrcv,
+            value => SRI},
+Msg     = #{iov => ... % List of binary()
+            ctrl => [CtrlSRI]},
+ok = socket:sendmsg(Sock, Msg),
+.
+.
+.
+```
+
 
 [](){: #socket_options }
 
@@ -654,16 +790,31 @@ _Table: udp options_
 [](){: #socket_options_sctp }
 Options for level `sctp`:
 
-| Option Name       | Value Type             | Set | Get | Other Requirements and comments |
-| ----------------- | ---------------------- | --- | --- | ------------------------------- |
-| associnfo         | sctp_assocparams()     | yes | yes | none                            |
-| autoclose         | non_neg_integer()      | yes | yes | none                            |
-| disable_fragments | boolean()              | yes | yes | none                            |
-| events            | sctp_event_subscribe() | yes | no  | none                            |
-| initmsg           | sctp_initmsg()         | yes | yes | none                            |
-| maxseg            | non_neg_integer()      | yes | yes | none                            |
-| nodelay           | boolean()              | yes | yes | none                            |
-| rtoinfo           | sctp_rtoinfo()         | yes | yes | none                            |
+| Option Name           | Value Type                      | Set | Get | Other Requirements and comments |
+| --------------------- | ------------------------------- | --- | --- | ------------------------------- |
+| adaption_layer        | sctp_setadaption()              | yes | yes | Maybe FreeBSD only              |
+| associnfo             | sctp_assocparams()              | yes | yes | none                            |
+| autoclose             | non_neg_integer()               | yes | yes | none                            |
+| disable_fragments     | boolean()                       | yes | yes | none                            |
+| default_send_param    | sctp_snd_rcv_info()             | yes | yes | none                            |
+| events                | sctp_event_subscribe()          | yes | no  | Note that not all events are    |
+|                       |                                 |     |     | supported on all platforms.     |
+| get_peer_addr_info    | sctp_peer_address_info()        | no  | yes | Requires the assoc id and       |
+|                       |                                 |     |     | peer socket address in the      |
+|                       |                                 |     |     | form of a sparse                |
+|                       |                                 |     |     | sctp_peer_address_info() as a   |
+|                       |                                 |     |     | third argument: getopt/3        |
+| initmsg               | sctp_initmsg()                  | yes | yes | none                            |
+| i_want_mapped_v4_addr | boolean()                       | yes | no  | none                            |
+| maxseg                | non_neg_integer()               | yes | yes | none                            |
+| nodelay               | boolean()                       | yes | yes | none                            |
+| primary_addr          | sctp_set_peer_primary_address() | yes | no  | none                            |
+| rtoinfo               | sctp_rtoinfo()                  | yes | yes | none                            |
+| peer_addr_params      | sctp_peer_address_parameters()  | yes | yes | This type looks different on    |
+|                       |                                 |     |     | diffent platforms.              |
+| status                | sctp_status()                   | no  | yes | Requires the assoc id in the    |
+|                       |                                 |     |     | form of a sparse sctp_status()  |
+|                       |                                 |     |     | as a third argument: getopt/3   |
 
 _Table: sctp options_
 

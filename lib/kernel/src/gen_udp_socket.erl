@@ -916,7 +916,7 @@ socket_setopt_opts([{_Level, _OptKey} = Opt|Opts], Socket, Tag, Value) ->
 %% We need to lookup the domain of the socket,
 %% so we can select which one to use.
 socket_setopt_opts(Opts, Socket, Tag, Value) ->
-    case socket:getopt(Socket, otp, domain) of
+    case socket:getopt(Socket, {otp, domain}) of
         {ok, Domain} ->
             case lists:keysearch(Domain, 1, Opts) of
                 {value, {Domain, Level, OptKey}} ->
@@ -994,7 +994,7 @@ socket_getopt_opts([{_Domain, _} = Opt|_], Socket, Tag) ->
     socket_getopt_opt(Socket, Opt, Tag);
 
 socket_getopt_opts(Opts, Socket, Tag) ->
-    case socket:getopt(Socket, otp, domain) of
+    case socket:getopt(Socket, {otp, domain}) of
         {ok, Domain} ->
             %% ?DBG([{'domain', Domain}]),
             case lists:keysearch(Domain, 1, Opts) of

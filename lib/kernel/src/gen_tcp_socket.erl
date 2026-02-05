@@ -1127,7 +1127,7 @@ socket_setopt(Socket, DomainProps, Value) when is_list(DomainProps) ->
     %% We need to lookup the domain of the socket,
     %% so we can select which one to use.
     %% ?DBG(Opt0),
-    case socket:getopt(Socket, otp, domain) of
+    case socket:getopt(Socket, {otp, domain}) of
         {ok, Domain} ->
             case lists:keysearch(Domain, 1, DomainProps) of
                 {value, {Domain, Opt}} ->
@@ -1185,7 +1185,7 @@ socket_getopt(Socket, DomainProps, _) when is_list(DomainProps) ->
     %% ?DBG([{domain_props, DomainProps}]),
     %% We need to lookup the domain of the socket,
     %% so we can select which one to use.
-    case socket:getopt(Socket, otp, domain) of
+    case socket:getopt(Socket, {otp, domain}) of
         {ok, Domain} ->
             %% ?DBG({'socket_getopt - domain', Tag, Domain}),
             case lists:keysearch(Domain, 1, DomainProps) of

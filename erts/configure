@@ -18678,16 +18678,16 @@ then :
 
 fi
 
-        ac_fn_c_check_member "$LINENO" "struct sctp_accoc_value" "assoc_id" "ac_cv_member_struct_sctp_accoc_value_assoc_id" "#if HAVE_SYS_SOCKET_H
+        ac_fn_c_check_member "$LINENO" "struct sctp_assoc_value" "assoc_id" "ac_cv_member_struct_sctp_assoc_value_assoc_id" "#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif
          #include <netinet/sctp.h>
 
 "
-if test "x$ac_cv_member_struct_sctp_accoc_value_assoc_id" = xyes
+if test "x$ac_cv_member_struct_sctp_assoc_value_assoc_id" = xyes
 then :
 
-printf "%s\n" "#define HAVE_STRUCT_SCTP_ACCOC_VALUE_ASSOC_ID 1" >>confdefs.h
+printf "%s\n" "#define HAVE_STRUCT_SCTP_ASSOC_VALUE_ASSOC_ID 1" >>confdefs.h
 
 
 fi
@@ -19099,7 +19099,72 @@ esac
 fi
 printf "%s\n" "#define HAVE_DECL_SCTPS_SHUTDOWN_ACK_SENT $ac_have_decl" >>confdefs.h
 
-    ac_fn_c_check_member "$LINENO" "struct sctp_paddrparams" "spp_pathmtu" "ac_cv_member_struct_sctp_paddrparams_spp_pathmtu" "#if HAVE_SYS_SOCKET_H
+    ac_fn_c_check_member "$LINENO" "struct sctp_assoc_stats" "sas_assoc_id" "ac_cv_member_struct_sctp_assoc_stats_sas_assoc_id" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_assoc_stats_sas_assoc_id" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_ASSOC_ID 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_assoc_stats" "sas_obs_rto_ipaddr" "ac_cv_member_struct_sctp_assoc_stats_sas_obs_rto_ipaddr" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_assoc_stats_sas_obs_rto_ipaddr" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OBS_RTO_IPADDR 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_assoc_stats" "sas_opackets" "ac_cv_member_struct_sctp_assoc_stats_sas_opackets" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_assoc_stats_sas_opackets" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OPACKETS 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_assoc_stats" "sas_ipackets" "ac_cv_member_struct_sctp_assoc_stats_sas_ipackets" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_assoc_stats_sas_ipackets" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_IPACKETS 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_assoc_stats" "sas_outofseqtsns" "ac_cv_member_struct_sctp_assoc_stats_sas_outofseqtsns" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_assoc_stats_sas_outofseqtsns" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OUTOFSEQTSNS 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_paddrparams" "spp_pathmtu" "ac_cv_member_struct_sctp_paddrparams_spp_pathmtu" "#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif
          #include <netinet/sctp.h>
@@ -19138,6 +19203,58 @@ printf "%s\n" "#define HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS 1" >>confdefs.h
 
 
 fi
+ac_fn_c_check_member "$LINENO" "struct sctp_paddrparams" "spp_pv6_flowlabel" "ac_cv_member_struct_sctp_paddrparams_spp_pv6_flowlabel" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_paddrparams_spp_pv6_flowlabel" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_PV6_FLOWLABEL 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_paddrparams" "spp_dscp" "ac_cv_member_struct_sctp_paddrparams_spp_dscp" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_paddrparams_spp_dscp" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_DSCP 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_pdapi_event" "pdapi_stream" "ac_cv_member_struct_sctp_pdapi_event_pdapi_stream" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_pdapi_event_pdapi_stream" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_STREAM 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_pdapi_event" "pdapi_seq" "ac_cv_member_struct_sctp_pdapi_event_pdapi_seq" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_pdapi_event_pdapi_seq" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_SEQ 1" >>confdefs.h
+
+
+fi
 ac_fn_c_check_member "$LINENO" "struct sctp_remote_error" "sre_data" "ac_cv_member_struct_sctp_remote_error_sre_data" "#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif
@@ -19164,6 +19281,19 @@ printf "%s\n" "#define HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA 1" >>confdefs.h
 
 
 fi
+ac_fn_c_check_member "$LINENO" "struct sctp_send_failed_event" "ssfe_data" "ac_cv_member_struct_sctp_send_failed_event_ssfe_data" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_send_failed_event_ssfe_data" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_SEND_FAILED_EVENT_SSFE_DATA 1" >>confdefs.h
+
+
+fi
 ac_fn_c_check_member "$LINENO" "struct sctp_event_subscribe" "sctp_authentication_event" "ac_cv_member_struct_sctp_event_subscribe_sctp_authentication_event" "#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif
@@ -19187,6 +19317,71 @@ if test "x$ac_cv_member_struct_sctp_event_subscribe_sctp_sender_dry_event" = xye
 then :
 
 printf "%s\n" "#define HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_event_subscribe" "sctp_stream_reset_event" "ac_cv_member_struct_sctp_event_subscribe_sctp_stream_reset_event" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_event_subscribe_sctp_stream_reset_event" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_STREAM_RESET_EVENT 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_event_subscribe" "sctp_assoc_reset_event" "ac_cv_member_struct_sctp_event_subscribe_sctp_assoc_reset_event" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_event_subscribe_sctp_assoc_reset_event" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_ASSOC_RESET_EVENT 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_event_subscribe" "sctp_stream_change_event" "ac_cv_member_struct_sctp_event_subscribe_sctp_stream_change_event" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_event_subscribe_sctp_stream_change_event" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_STREAM_CHANGE_EVENT 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_stream_reset_event" "strreset_stream_list" "ac_cv_member_struct_sctp_stream_reset_event_strreset_stream_list" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_stream_reset_event_strreset_stream_list" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_STREAM_LIST 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_stream_reset_event" "strreset_list" "ac_cv_member_struct_sctp_stream_reset_event_strreset_list" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_stream_reset_event_strreset_list" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_LIST 1" >>confdefs.h
 
 
 fi

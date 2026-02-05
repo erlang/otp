@@ -268,8 +268,18 @@ get_sock_opts(Port, [Opt|Opts], Acc) ->
 
 get_socket_list() ->
     GetOpt = fun(_Sock, {Opt, false}) ->
+                     %% d("~s -> ~p Not Supported", [?FUNCTION_NAME, Opt]),
 		     {Opt, "Not Supported"};
+		(_Sock, {Opt, require_value}) ->
+                     %% d("~s -> ~p Require Value", [?FUNCTION_NAME, Opt]),
+		     {Opt, "Require Value (e.g. AssocID)"};
 		(Sock, {Opt, true}) ->
+                     %% d("~s -> try getopt for"
+                     %%   "~n   Opt: ~p", [?FUNCTION_NAME, Opt]),
+                     %% We should use try catch here, but then we might
+                     %% miss if there is a fatal error (catched).
+                     %% If we implement more sctp options that are
+                     %% actually for associations (require a value part)...
 		     case socket:getopt(Sock, Opt) of
 			 %% Convert to string?
 			 {ok, Value0} ->
@@ -301,11 +311,19 @@ get_socket_list() ->
 			     %% 	"~n   Option: ~p"
 			     %% 	"~n   Reason: ~p", [Opt, _Reason]),
 			     {Opt, f("error:~p", [Reason])}
-		     end
+                     %% catch
+                     %%     C:E:_S ->
+                     %%         %% d("~s -> catched: "
+                     %%         %%   "~n   Class: ~p"
+                     %%         %%   "~n   Error: ~p"
+                     %%         %%   "~n   Stack: ~p", [?FUNCTION_NAME, C, E, _S]),
+                     %%         {Opt, f("catched:~w,~p", [C, E])}
+                     end
+                             
 	     end,
     [begin
 	 Kind  = socket:which_socket_kind(S),
-	 FD    = case socket:getopt(S, otp, fd) of
+	 FD    = case socket:getopt(S, {otp, fd}) of
 		     {ok, FD0} ->
 			 FD0;
 		     _ ->
@@ -362,6 +380,23 @@ get_socket_list() ->
 			     socket:supports(options, ip),
 			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)]
 	     end,
+         %% Some of the SCTP options are for associations,
+         %% which means that getopt require an extra value
+         %% argument (with the assoc-id and maybe other stuff).
+         %% These options can not be included
+         SctpRequireValue =
+             fun(_Opt, false = Supported) ->
+                     Supported;
+                (Opt, Supported) ->
+                     case lists:member(Opt,
+                                       [get_peer_addr_info,
+                                        status]) of
+                         true ->
+                             require_value;
+                         false ->
+                             Supported
+                     end
+             end,
 	 ProtoOpts =
 	     case Info7 of
 		 #{domain   := Domain,
@@ -384,7 +419,7 @@ get_socket_list() ->
 		   type     := seqpacket,
 		   protocol := sctp} when (Domain =:= inet) orelse
 					  (Domain =:= inet6) ->
-		     [{{sctp, Opt}, Supported} ||
+		     [{{sctp, Opt}, SctpRequireValue(Opt, Supported)} ||
 			 {Opt, Supported} <-
 			     socket:supports(options, sctp),
 			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
@@ -1058,5 +1093,8 @@ f(F, A) ->
 %%     io:format("[ob] " ++ F ++ "~n", A);
 %% d(_, _, _) ->
 %%     ok.
+
+%% d(F, A) ->
+%%     io:format("[ob] " ++ F ++ "~n", A).
 
 

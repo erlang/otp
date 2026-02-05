@@ -1807,13 +1807,15 @@ case "x$enable_sctp" in
 	fi;;
 esac
 
+dnl Check how the members of struct sctp_send_failed_event
+dnl are named: on linux prefixed by ssf_ but on freesd by ssfe_
 AS_IF([test x"$ac_cv_header_netinet_sctp_h" = x"yes"],
   [
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
     AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs \
                     sctp_connectx])
-        AC_CHECK_MEMBERS([struct sctp_accoc_value.assoc_id], [], [],
+        AC_CHECK_MEMBERS([struct sctp_assoc_value.assoc_id], [], [],
         [#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif
@@ -1838,13 +1840,28 @@ AS_IF([test x"$ac_cv_header_netinet_sctp_h" = x"yes"],
          #endif
          #include <netinet/sctp.h>
         ])
-    AC_CHECK_MEMBERS([struct sctp_paddrparams.spp_pathmtu,
+    AC_CHECK_MEMBERS([struct sctp_assoc_stats.sas_assoc_id,
+                      struct sctp_assoc_stats.sas_obs_rto_ipaddr,
+                      struct sctp_assoc_stats.sas_opackets,
+                      struct sctp_assoc_stats.sas_ipackets,
+                      struct sctp_assoc_stats.sas_outofseqtsns,
+                      struct sctp_paddrparams.spp_pathmtu,
                       struct sctp_paddrparams.spp_sackdelay,
                       struct sctp_paddrparams.spp_flags,
+                      struct sctp_paddrparams.spp_pv6_flowlabel,
+                      struct sctp_paddrparams.spp_dscp,
+                      struct sctp_pdapi_event.pdapi_stream,
+                      struct sctp_pdapi_event.pdapi_seq,
                       struct sctp_remote_error.sre_data,
                       struct sctp_send_failed.ssf_data,
+                      struct sctp_send_failed_event.ssfe_data,
                       struct sctp_event_subscribe.sctp_authentication_event,
-                      struct sctp_event_subscribe.sctp_sender_dry_event], [], [],
+                      struct sctp_event_subscribe.sctp_sender_dry_event,
+                      struct sctp_event_subscribe.sctp_stream_reset_event,
+                      struct sctp_event_subscribe.sctp_assoc_reset_event,
+                      struct sctp_event_subscribe.sctp_stream_change_event,
+                      struct sctp_stream_reset_event.strreset_stream_list,
+                      struct sctp_stream_reset_event.strreset_list], [], [],
         [#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif

@@ -46,7 +46,7 @@
 -export([
          sz/1,
          os_cmd/1, os_cmd/2,
-         mq/0, mq/1,
+         mq/1,
          ts/0, ts/1
         ]).
 
@@ -62,7 +62,7 @@
 	 has_support_unix_domain_socket/0,
 
          which_local_host_info/1, which_local_host_info/2,
-         which_local_addr/1, which_link_local_addr/1,
+         which_local_addr/1, which_local_addrs/2, which_link_local_addr/1,
 
          %% Skipping
          not_yet_implemented/0,
@@ -2370,6 +2370,13 @@ os_cond_skip_check(OsName, OsNames) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+mq(Pid) when is_pid(Pid) ->
+    {messages, MQ} = process_info(Pid, messages),
+    MQ.
+
+             
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 lookup(Key, Config, Default) ->
     case lists:keysearch(Key, 1, Config) of
         {value, {Key, Val}} ->
@@ -2653,16 +2660,6 @@ os_cmd(Cmd, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
     proxy_call(fun() -> {ok, os:cmd(Cmd)} end, Timeout, {error, timeout}).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-mq() ->
-    mq(self()).
-
-mq(Pid) when is_pid(Pid) ->
-    {messages, MQ} = process_info(Pid, messages),
-    MQ.
-
-             
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 socket_type(Config) ->
@@ -2724,18 +2721,35 @@ is_socket_backend(Config) when is_list(Config) ->
 %% ESOCK_TTEST_CONDITION
 
 ttest_condition() ->
-    case application:get_all_env(kernel) of
-        Env when is_list(Env) ->
-            case lists:keyfind(esock_ttest_condition, 1, Env) of
-                {_, infinity = Factor} ->
-                    Factor;
-                {_, Factor} when is_integer(Factor) andalso (Factor > 0) ->
-                    Factor;
+    case os:getenv("ESOCK_TTEST_CONDITION") of
+        false ->
+            case application:get_all_env(kernel) of
+                Env when is_list(Env) ->
+                    case lists:keyfind(esock_ttest_condition, 1, Env) of
+                        {_, infinity = Factor} ->
+                            Factor;
+                        {_, Factor} when is_integer(Factor) andalso
+                                         (Factor > 0) ->
+                            Factor;
+                        _X ->
+                            undefined
+                    end;
                 _ ->
                     undefined
             end;
-        _ ->
-            undefined
+        "infinity" ->
+            infinity;
+        MaybeIntStr ->
+            try list_to_integer(MaybeIntStr) of
+                Factor when is_integer(Factor) andalso
+                            (Factor > 0) ->
+                    Factor;
+                _ ->
+                    undefined
+            catch
+                _:_:_ ->
+                    undefined
+            end
     end.
     
 
@@ -2858,6 +2872,23 @@ which_local_addr(Domain) ->
         {ok, [#{addr := Addr}|_]} ->
             %% put(debug, false),
             {ok, Addr};
+        {error, _Reason} = ERROR ->
+            ERROR
+    end.
+
+which_local_addrs(Domain, NumAddrs)
+  when (is_integer(NumAddrs) andalso (NumAddrs > 0)) orelse
+       (NumAddrs =:= any) ->
+    %% put(debug, true),
+    case which_local_host_info(false, Domain) of
+	{ok, Addrs} = OK when is_list(Addrs) andalso (NumAddrs =:= any) ->
+	    OK;
+        {ok, Addrs} when (length(Addrs) >= NumAddrs) ->
+            %% put(debug, false),
+            Addrs2 = [Addr || #{addr := Addr} <- Addrs] ,
+            {ok, lists:sublist(Addrs2, NumAddrs)};
+        {ok, Addrs} ->
+            {error, {too_few_addrs, NumAddrs, length(Addrs)}};
         {error, _Reason} = ERROR ->
             ERROR
     end.
