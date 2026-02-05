@@ -90,6 +90,14 @@ is the version number of Megaco.
 [PR-9441]: https://github.com/erlang/otp/pull/9441
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## Megaco 4.7.2.1
+
+### Fixed Bugs and Malfunctions
+
+- The megaco_tcp module had debug unintentionally enabled.
+
+  Own Id: OTP-19896
+
 ## Megaco 4.7.2
 
 ### Fixed Bugs and Malfunctions

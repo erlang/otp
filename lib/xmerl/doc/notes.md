@@ -86,6 +86,16 @@ This document describes the changes made to the Xmerl application.
 
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## Xmerl 2.1.3.3
+
+### Fixed Bugs and Malfunctions
+
+- XML regular expressions in XSD validation now handle `\s` and `\S` correctly.
+
+  Own Id: OTP-19762 Aux Id: ERIERL-1260, [PR-10437]
+
+[PR-10437]: https://github.com/erlang/otp/pull/10437
+
 ## Xmerl 2.1.3.2
 
 ### Fixed Bugs and Malfunctions

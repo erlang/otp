@@ -253,6 +253,32 @@ This document describes the changes made to the SSL application.
 [PR-9511]: https://github.com/erlang/otp/pull/9511
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## SSL 11.2.12.5
+
+### Fixed Bugs and Malfunctions
+
+- Correct TLS-1.3 alert handling so server will always send the alert with the encryption keys that the client is expecting, that is if for instance if client certification fails the alert will be sent using application traffic encryption keys.
+
+  Own Id: OTP-19795 Aux Id: [PR-10465]
+
+- If two certificate massages are sent to the server generate an unexpected message alert for the second one.
+
+  Own Id: OTP-19830 Aux Id: [PR-10339]
+
+- Corrected app environment handling for session callback that was broken In 
+  OTP-23.
+
+  Own Id: OTP-19893 Aux Id: [PR-10480]
+
+- When preforming renegotiation, in TLS-1.2 or previous TLS versions,  max_frag_length should not be renegotiated the connection should adhere to originally negotiated value, and if a value  was not negotiated it shall not be negotiated now either.
+
+  Own Id: OTP-19948 Aux Id: [PR-10599]
+
+[PR-10465]: https://github.com/erlang/otp/pull/10465
+[PR-10339]: https://github.com/erlang/otp/pull/10339
+[PR-10480]: https://github.com/erlang/otp/pull/10480
+[PR-10599]: https://github.com/erlang/otp/pull/10599
+
 ## SSL 11.2.12.4
 
 ### Fixed Bugs and Malfunctions
