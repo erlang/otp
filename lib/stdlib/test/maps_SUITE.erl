@@ -34,6 +34,7 @@
          t_fold_3/1,t_map_2/1,t_size_1/1, t_foreach_2/1,
          t_iterator_1/1, t_iterator_2/1,
          t_iterator_valid/1,
+         t_order_consistency/1,
          t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
@@ -63,6 +64,7 @@ all() ->
      t_fold_3,t_map_2,t_size_1,t_foreach_2,
      t_iterator_1,t_iterator_2,
      t_iterator_valid,
+     t_order_consistency,
      t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
@@ -652,6 +654,47 @@ t_iterator_valid(Config) when is_list(Config) ->
     %%    maps:next({c, d, e}) -> {c, d, e}
     %%    maps:next(e) -> badarg
     false = maps:is_iterator_valid({a, b, {c, d, e}}),
+
+    ok.
+
+%% Test that maps:keys/1, maps:values/1, maps:to_list/1, iterators,
+%% and map comprehensions all return elements in the same order.
+t_order_consistency(Config) when is_list(Config) ->
+    %% Test small map (flatmap)
+    SmallMap = #{a => 1, b => 2, c => 3, z => 26, m => 13},
+    verify_order_consistency(SmallMap),
+
+    %% Test large map (hashmap)
+    LargeMap = maps:from_list([{I, I} || I <- lists:seq(1, 100)]),
+    verify_order_consistency(LargeMap),
+
+    %% Test very large map (hashmap with yielding)
+    VeryLargeMap = maps:from_list([{I, I * 10} || I <- lists:seq(1, 10000)]),
+    verify_order_consistency(VeryLargeMap),
+
+    %% Test with mixed key types
+    MixedMap = maps:from_list([{I, I} || I <- lists:seq(1, 50)] ++
+                              [{list_to_atom("k" ++ integer_to_list(I)), I}
+                               || I <- lists:seq(1, 50)]),
+    verify_order_consistency(MixedMap),
+
+    ok.
+
+verify_order_consistency(M) ->
+    Keys = maps:keys(M),
+    Values = maps:values(M),
+    ToList = maps:to_list(M),
+
+    %% to_list should match zip of keys and values
+    ToList = lists:zip(Keys, Values),
+
+    %% Iterator should produce same list
+    IterList = maps:to_list(maps:iterator(M)),
+    ToList = IterList,
+
+    %% Map comprehension should produce same list
+    CompList = [{K, V} || K := V <- M],
+    ToList = CompList,
 
     ok.
 
