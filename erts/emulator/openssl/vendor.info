@@ -14,14 +14,15 @@
     "homepage": "https://www.openssl.org/",
     "licenseDeclared": "Apache-2.0",
     "name": "openssl",
-    "versionInfo": "3.6.0",
-    "sha": "7b371d80d959ec9ab4139d09d78e83c090de9779",
+    "versionInfo": "3.6.1",
+    "sha": "c9a9e5b10105ad850b6e4d1122c645c67767c341",
     "path": "./erts/emulator/openssl",
+    "update": "./erts/emulator/openssl/update.sh",
     "exclude": [
       "./erts/emulator/openssl/vendor.info",
       "./erts/emulator/openssl/README",
       "./erts/emulator/openssl/openssl.mk",
-      "./erts/emulator/openssl/update"
+      "./erts/emulator/openssl/update.sh"
     ],
     "supplier": "Organization: OpenSSL Mission",
     "purl": "pkg:generic/openssl"

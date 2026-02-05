@@ -52,7 +52,6 @@ for VENDOR_INFO in $MODIFIED_FILES; do
     VENDOR_DIR=$(dirname "$VENDOR_INFO")
 
     # Parse the vendor.info file
-    sed 's@^/.*@@' "$VENDOR_INFO" | jq -c '.[]' |
     while read -r ENTRY; do
         ID=$(echo $ENTRY | jq -r '.ID')
         UPDATE_SCRIPT=$(echo $ENTRY | jq -r '.update')
@@ -76,7 +75,8 @@ for VENDOR_INFO in $MODIFIED_FILES; do
             SUCCESS=false
             FAILED_UPDATES="$FAILED_UPDATES\n- $ID ($VERSION): Update script not found: $UPDATE_SCRIPT"
         fi
-    done
+    done  < <(sed 's@^/.*@@' "$VENDOR_INFO" | jq -c '.[]')
+    # uses process substitution, so that variables do not end up in sub-shells and lost.
 done
 
 if $SUCCESS && ! git diff --quiet "${HEAD}"; then
