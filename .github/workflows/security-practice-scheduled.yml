@@ -1,0 +1,57 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+## Scheduled job alert to update security.txt and OpenChain Security and License compliance
+## The OpenChain License compliance and Security need to be reviewed every 18 months.
+name: Annual Security Review Practices
+
+on:
+  schedule:
+    - cron: 0 9 25 10 *
+
+jobs:
+  review-security-practices:
+    if: github.event_name == 'schedule' && github.repository == 'erlang/otp'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create GH Issue to Review Security Practices
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }} # in testing cases, this is your fork, e.g., kikofernandez/otp
+        run: |
+          CURRENT_YEAR=$(date +%Y)
+
+          gh issue create \
+             --repo ${{ github.repository }} \
+             -- title "Annual Security Review" \
+             --label "team:VM,team:PS" \
+             --body "## Annual Security Review
+
+          Time for the annual security review.
+          ### Checklist
+          - [ ] Review and update https://www.erlang.org/.well-known/security.txt in repo https://github.com/erlang/erlang-org
+          - [ ] Check practices of the OpenChain License Compliance (instructions in ISO/IEC 5230 Self-Certification) and update internal and external documents, if necessary
+          - [ ] Check practices of the OpenChain Security Compliance (instructions in ISO/IEC 18974 Self-Certification) and update internal and external documents, if necessary (we may not have yet implemented this ISO...)
+
+          **Scheduled for ${CURRENT_YEAR}
+
+          This issue was created automatically, and will be created again as a yearly reminder to check security practices."
