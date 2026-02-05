@@ -234,6 +234,7 @@ keywords(Ftr, Map) ->
 
 %% temporary aliases for bootstrapping build
 
+-doc false.
 -spec keyword_fun([term()], fun((atom()) -> boolean())) ->
           {'ok', {[feature()], fun((atom()) -> boolean())}}
               | {'error', error()}.
