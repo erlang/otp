@@ -936,7 +936,7 @@ static void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
                                                  struct sctp_assoc_change* acp,
                                                  ERL_NIF_TERM*             eEvent);
 #endif
-#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR)
+#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR) || defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
 static ERL_NIF_TERM essio_encode_sctp_operation_error(ErlNifEnv*       env,
                                                       ESockDescriptor* descP,
                                                       uint16_t         error);
@@ -956,6 +956,14 @@ static void essio_encode_sctp_notif_send_failed(ErlNifEnv*               env,
                                                 ESockDescriptor*         descP,
                                                 struct sctp_send_failed* p,
                                                 ERL_NIF_TERM*            eEvent);
+static ERL_NIF_TERM essio_encode_sctp_notif_send_failed_flags(ErlNifEnv*       env,
+                                                              ESockDescriptor* descP,
+                                                              unsigned int     flags);
+#endif
+#if defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
+static ERL_NIF_TERM essio_encode_sctp_send_failed_flags(ErlNifEnv*       env,
+                                                        ESockDescriptor* descP,
+                                                        unsigned int     flags);
 #endif
 #if defined(SCTP_REMOTE_ERROR)
 static void essio_encode_sctp_notif_remote_error(ErlNifEnv*                env,
@@ -7468,7 +7476,7 @@ void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
 #endif
 
 
-#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR)
+#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR) || defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
 
 /*
  * SCTP Operation Error according to RFC 4960.
@@ -7747,8 +7755,9 @@ void essio_encode_sctp_notif_send_failed(ErlNifEnv*               env,
     int          chunkLen;
     ERL_NIF_TERM eflags, eerr, einfo, eaid, edata;
 
-    eflags = MKUI(env, p->ssf_flags); // We should translate this also...
-    eerr   = MKUI(env, p->ssf_error); // We should translate this also...
+    eflags = essio_encode_sctp_notif_send_failed_flags(env, descP,
+                                                       p->ssf_flags);
+    eerr   = essio_encode_sctp_operation_error(env, descP, p->ssf_error);
     eaid   = MKUI(env, p->ssf_assoc_id);
 
     essio_encode_sctp_sndrcvinfo(env, descP, &p->ssf_info, &einfo);
@@ -7764,16 +7773,26 @@ void essio_encode_sctp_notif_send_failed(ErlNifEnv*               env,
     {
         ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
             esock_atom_type, esock_atom_flags, esock_atom_error,
-            esock_atom_assoc_id, esock_atom_data};
+            esock_atom_info, esock_atom_assoc_id, esock_atom_data};
         ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
             esock_atom_send_failed, eflags, eerr,
-            eaid, edata};
+            einfo, eaid, edata};
         size_t       numKeys = NUM(keys);
 
         ESOCK_ASSERT( numKeys == NUM(vals) );
         ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
     }
 }
+
+
+static
+ERL_NIF_TERM essio_encode_sctp_notif_send_failed_flags(ErlNifEnv*       env,
+                                                       ESockDescriptor* descP,
+                                                       unsigned int     flags)
+{
+    return essio_encode_sctp_send_failed_flags(env, descP, flags);
+}
+
 
 static
 void essio_encode_sctp_sndrcvinfo(ErlNifEnv*              env,
@@ -7802,6 +7821,40 @@ void essio_encode_sctp_sndrcvinfo(ErlNifEnv*              env,
     *einfo = esock_atom_undefined;
 
 #endif
+}
+
+#endif
+
+
+#if defined(SCTP_SEND_FAILED) || defined(SCTP_SEND_FAILED_EVENT)
+
+/* The 'send_failed' flags are identical for
+ * 'SCTP_SEND_FAILED' and 'SCTP_SEND_FAILED_EVENT'.
+ * So this is a common function for handle both.
+ * Note that on some platforms 'SCTP_SEND_FAILED'
+ * is deprecated.
+ */
+static
+ERL_NIF_TERM essio_encode_sctp_send_failed_flags(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 unsigned int     flags)
+{
+    SocketTArray ta = TARRAY_CREATE(2);
+    ERL_NIF_TERM eflags;
+
+#if defined(ESOCK_SCTP_DATA_UNSENT)
+    if (flags & SCTP_DATA_UNSENT)
+        TARRAY_ADD(ta, esock_atom_data_unsent);
+#endif
+
+#if defined(ESOCK_SCTP_DATA_SENT)
+    if (flags & SCTP_DATA_SENT)
+        TARRAY_ADD(ta, esock_atom_data_sent);
+#endif
+
+    TARRAY_TOLIST(ta, env, &eflags);
+
+    return eflags;
 }
 
 #endif
@@ -7848,7 +7901,8 @@ void essio_encode_sctp_notif_send_failed_event(ErlNifEnv*               env,
 
     eflags = essio_encode_sctp_notif_send_failed_event_flags(env, descP,
                                                              p->SSFE_MEMBER(flags));
-    eerr   = MKUI(env, p->SSFE_MEMBER(error)); // Should translate this...
+    eerr   = essio_encode_sctp_operation_error(env, descP,
+                                               p->SSFE_MEMBER(error));
     eaid   = MKUI(env, p->SSFE_MEMBER(assoc_id));
 
     essio_encode_sctp_sndinfo(env, descP, &p->ssfe_info, &einfo);
@@ -7862,8 +7916,8 @@ void essio_encode_sctp_notif_send_failed_event(ErlNifEnv*               env,
             esock_atom_type, esock_atom_flags, esock_atom_error,
             esock_atom_info, esock_atom_assoc_id, esock_atom_data};
         ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
-            esock_atom_send_failed_event, eflags, eerr, einfo,
-            eaid, edata};
+            esock_atom_send_failed_event, eflags, eerr,
+            einfo, eaid, edata};
         size_t       numKeys = NUM(keys);
 
         ESOCK_ASSERT( numKeys == NUM(vals) );
@@ -7876,22 +7930,7 @@ ERL_NIF_TERM essio_encode_sctp_notif_send_failed_event_flags(ErlNifEnv*       en
                                                              ESockDescriptor* descP,
                                                              unsigned int     flags)
 {
-    SocketTArray ta = TARRAY_CREATE(2);
-    ERL_NIF_TERM eflags;
-
-#if defined(SCTP_DATA_UNSENT)
-    if (flags & SCTP_DATA_UNSENT)
-        TARRAY_ADD(ta, esock_atom_data_unsent);
-#endif
-
-#if defined(SCTP_DATA_SENT)
-    if (flags & SCTP_DATA_SENT)
-        TARRAY_ADD(ta, esock_atom_data_sent);
-#endif
-
-    TARRAY_TOLIST(ta, env, &eflags);
-
-    return eflags;
+    return essio_encode_sctp_send_failed_flags(env, descP, flags);
 }
 
 static
