@@ -808,7 +808,8 @@ format_ets_error(update_element, [_, _, ElementSpec, Default]=Args, Cause) ->
 		    position ->
 			[update_op_range];
 		    _ ->
-			case {is_element_spec_top(ElementSpec), format_tuple(Default)} of
+			case {is_element_spec_top(ElementSpec),
+                              format_default_tuple(Default, Cause)} of
 			    {true, [""]} ->
 				[range];
 			    {true, TupleCause} ->

@@ -1320,7 +1320,13 @@ static BIF_RETTYPE do_update_element(Process *p, DbTable *tb,
     }
 
     if (!tb->common.meth->db_lookup_dbterm(p, tb, key, default_obj, &handle)) {
-	cret = DB_ERROR_BADKEY;
+        if (is_value(default_obj)) {
+            p->fvalue = EXI_DEFAULT;
+            cret = DB_ERROR_UNSPEC;
+        }
+        else {
+            cret = DB_ERROR_BADKEY;
+        }
 	goto bail_out;
     }
 

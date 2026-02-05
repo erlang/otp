@@ -2699,6 +2699,17 @@ update_element_default_opts(Opts) ->
 		    [{key1, key2, b, x}] = ets:lookup(Tab, Key),
 		    true = ets:update_element(Tab, Key, {3, c}, {key1, key2, a, y}),
 		    [{key1, key2, c, x}] = ets:lookup(Tab, Key),
+
+                    BadDefault = list_to_tuple(lists:seq(1, Pos-1)),
+                    badarg = try
+                                 ets:update_element(Tab, key_not_present, {1, x}, BadDefault)
+                             catch
+                                 error:badarg -> badarg
+                             end,
+
+                    %% Ignore bad default object if key exist (for backward bug-compat)
+                    true = ets:update_element(Tab, Key, {3, d}, BadDefault),
+
 		    ets:delete(Tab)
                 end
 	    )
