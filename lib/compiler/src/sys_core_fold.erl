@@ -77,7 +77,7 @@
 		reverse/1,reverse/2,member/2,flatten/1,
 		unzip/1,keyfind/3]).
 
--import(cerl, [ann_c_cons/3,ann_c_map/3,ann_c_tuple/2]).
+-import(cerl, [ann_c_cons/3,ann_c_map/3,ann_c_record/4,ann_c_tuple/2]).
 
 -include("core_parse.hrl").
 
@@ -105,6 +105,7 @@
               t=#{} :: map(),                       %Types
               in_guard=false,                       %In guard or not.
               top=true}).                           %Not inside a term.
+-type sub() :: #sub{}.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', cerl:c_module(), [_]}.
@@ -230,6 +231,16 @@ expr(#c_map{anno=Anno,arg=V0,es=Es0}=Map, Ctxt, Sub) ->
     Es = pair_list(Es0, descend(Map, Sub)),
     V = expr(V0, value, Sub),
     ann_c_map(Anno, V, Es);
+expr(#c_record{anno=Anno,arg=V0,id=Id,es=Es0}=Rec, Ctxt, Sub) ->
+    %% Warn for useless building, but always build the record
+    %% anyway to preserve a possible exception.
+    case Ctxt of
+        effect -> warn_useless_building(Rec, Sub);
+        value -> ok
+    end,
+    Es = pair_list(Es0, descend(Rec, Sub)),
+    V = expr(V0, value, Sub),
+    ann_c_record(Anno, V, Id, Es);
 expr(#c_binary{segments=Ss}=Bin0, Ctxt, Sub) ->
     %% Warn for useless building, but always build the binary
     %% anyway to preserve a possible exception.
@@ -496,7 +507,11 @@ pair_list(Es, Sub) ->
 pair(#c_map_pair{key=K0,val=V0}=Pair, Sub) ->
     K = expr(K0, value, Sub),
     V = expr(V0, value, Sub),
-    Pair#c_map_pair{key=K,val=V}.
+    Pair#c_map_pair{key=K,val=V};
+pair(#c_record_pair{key=K0,val=V0}=Pair, Sub) ->
+    K = expr(K0, value, Sub),
+    V = expr(V0, value, Sub),
+    Pair#c_record_pair{key=K,val=V}.
 
 bitstr_list(Es, Sub) ->
     [bitstr(E, Sub) || E <- Es].
@@ -1141,6 +1156,9 @@ pattern(#c_tuple{anno=Anno,es=Es0}, Isub, Osub0) ->
 pattern(#c_map{anno=Anno,es=Es0}=Map, Isub, Osub0) ->
     {Es1,Osub1} = map_pair_pattern_list(Es0, Isub, Osub0),
     {Map#c_map{anno=Anno,es=Es1},Osub1};
+pattern(#c_record{anno=Anno,es=Es0}=Rec, Isub, Osub0) ->
+    {Es1,Osub1} = record_pair_pattern_list(Es0, Isub, Osub0),
+    {Rec#c_record{anno=Anno,es=Es1},Osub1};
 pattern(#c_binary{segments=V0}=Pat, Isub, Osub0) ->
     {V1,Osub1} = bin_pattern_list(V0, Isub, Osub0),
     {Pat#c_binary{segments=V1},Osub1};
@@ -1157,6 +1175,18 @@ map_pair_pattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,{Isub,
     K = expr(K0, Isub),
     {V,Osub} = pattern(V0,Isub,Osub0),
     {Pair#c_map_pair{key=K,val=V},{Isub,Osub}}.
+
+-spec record_pair_pattern_list([cerl:c_record_pair()], sub(), sub()) ->
+          {[cerl:c_record_pair()], sub()}.
+record_pair_pattern_list(Ps0, Isub, Osub0) ->
+    {Ps,{_,Osub}} = mapfoldl(fun record_pair_pattern/2, {Isub,Osub0}, Ps0),
+    {Ps,Osub}.
+
+-spec record_pair_pattern(cerl:c_record_pair(), {sub(), sub()}) ->
+          {cerl:c_record_pair(), {sub(), sub()}}.
+record_pair_pattern(#c_record_pair{val=V0}=Pair,{Isub,Osub0}) ->
+    {V,Osub} = pattern(V0,Isub,Osub0),
+    {Pair#c_record_pair{val=V},{Isub,Osub}}.
 
 bin_pattern_list(Ps, Isub, Osub0) ->
     mapfoldl(fun(P, Osub) ->
@@ -1673,7 +1703,10 @@ eval_case_warn(#c_primop{anno=Anno,
 	    ok;
 	{eval_failure,badmap} ->
 	    %% Example: M = not_map, M#{k:=v}
-	    add_warning(Core, {failed,bad_map_update})
+	    add_warning(Core, {failed,bad_map_update});
+	{eval_failure,badrecord} ->
+	    %% Example: R = not_record, R#rec{name=value}
+	    add_warning(Core, {failed,bad_record_update})
     end;
 eval_case_warn(_) -> ok.
 
@@ -1790,7 +1823,13 @@ case_opt_compiler_generated(Core) ->
 		case cerl:type(C) of
 		    alias -> C;
 		    var -> C;
-		    _ -> cerl:set_ann(C, [compiler_generated])
+                    record ->
+                        Arg = cerl:record_arg(C),
+                        Id = cerl:set_ann(cerl:record_id(C), []),
+                        Es = cerl:record_es(C),
+                        cerl:update_c_record(C, Arg, Id, Es);
+		    _ ->
+                        cerl:set_ann(C, [compiler_generated])
 		end
 	end,
     cerl_trees:map(F, Core).
@@ -2966,6 +3005,8 @@ format_error({failed,bad_float_size}) ->
 	"(invalid size for a float segment)";
 format_error({failed,bad_map_update}) ->
     "map update will fail with a 'badmap' exception";
+format_error({failed,bad_record_update}) ->
+    "record update will fail with a 'badrecord' exception";
 format_error({failed,bad_call}) ->
     "invalid function call";
 format_error({nomatch,{shadow,Line,{Name, Arity}}}) ->

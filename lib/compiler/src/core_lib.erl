@@ -63,6 +63,10 @@ vu_expr(V, #c_map{arg=M,es=Es}) ->
     vu_expr(V, M) orelse vu_expr_list(V, Es);
 vu_expr(V, #c_map_pair{key=Key,val=Val}) ->
     vu_expr_list(V, [Key,Val]);
+vu_expr(V, #c_record{arg=Arg,es=Es}) ->
+    vu_expr(V, Arg) orelse vu_expr_list(V, Es);
+vu_expr(V, #c_record_pair{key=Key,val=Val}) ->
+    vu_expr_list(V, [Key,Val]);
 vu_expr(V, #c_binary{segments=Ss}) ->
     vu_seg_list(V, Ss);
 vu_expr(V, #c_fun{vars=Vs,body=B}) ->
@@ -145,6 +149,8 @@ vu_pattern(V, #c_binary{segments=Ss}) ->
     vu_pat_seg_list(V, Ss);
 vu_pattern(V, #c_map{es=Es}) ->
     vu_map_pairs(V, Es);
+vu_pattern(V, #c_record{es=Es}) ->
+    vu_record_pairs(V, Es);
 vu_pattern(V, #c_alias{var=Var,pat=P}) ->
     vu_pattern(V, Var) orelse vu_pattern(V, P);
 vu_pattern(_V, #c_literal{}) -> false.
@@ -162,6 +168,11 @@ vu_map_pairs(V, [#c_map_pair{key=Key,val=Pat}|T]) ->
         vu_pattern(V, Pat) orelse
         vu_map_pairs(V, T);
 vu_map_pairs(_, []) -> false.
+
+-spec vu_record_pairs(cerl:var_name(), [cerl:c_record_pair()]) -> boolean().
+vu_record_pairs(V, [#c_record_pair{val=Pat}|T]) ->
+    vu_pattern(V, Pat) orelse vu_record_pairs(V, T);
+vu_record_pairs(_, []) -> false.
 
 -spec vu_var_list(cerl:var_name(), [cerl:c_var()]) -> boolean().
 

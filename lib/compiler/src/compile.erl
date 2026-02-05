@@ -1873,15 +1873,17 @@ remove_file(Code, St) ->
 		     exports,
 		     labels,
 		     functions=[],
-		     attributes=[]}).
+		     attributes=[],
+                     anno=#{}}).
 
 preprocess_asm_forms(Forms) ->
-    R = #asm_module{},
-    R1 = collect_asm(Forms, R),
+    R0 = #asm_module{},
+    R1 = collect_asm(Forms, R0),
     {R1#asm_module.module,
      {R1#asm_module.module,
       R1#asm_module.exports,
       R1#asm_module.attributes,
+      R1#asm_module.anno,
       reverse(R1#asm_module.functions),
       R1#asm_module.labels}}.
 
@@ -1898,6 +1900,9 @@ collect_asm([{function,A,B,C} | Rest0], R0) ->
     collect_asm(Rest, R);
 collect_asm([{attributes, Attr} | Rest], R) ->
     collect_asm(Rest, R#asm_module{attributes=Attr});
+collect_asm([{Key,Val} | Rest], #asm_module{anno=Anno}=R) when is_atom(Key) ->
+    %% Annotation, for example `native_record`.
+    collect_asm(Rest, R#asm_module{anno=Anno#{Key => Val}});
 collect_asm([], R) -> R.
 
 collect_asm_function([{function,_,_,_}|_]=Is, Acc) ->
@@ -1918,7 +1923,11 @@ beam_consult_asm(_Code, St) ->
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
-get_module_name_from_asm({Mod,_,_,_,_}=Asm, St) ->
+get_module_name_from_asm({Mod,_Exp,_Attr,_Fs,_NumLbls}=Asm, St) ->
+    %% This is the old format before native records.
+    {ok,Asm,St#compile{module=Mod}};
+get_module_name_from_asm({Mod,_Exp,_Attr,_Anno,_Fs,_NumLbls}=Asm, St) ->
+    %% This is the new format that supports native records.
     {ok,Asm,St#compile{module=Mod}};
 get_module_name_from_asm(Asm, St) ->
     %% Invalid Beam assembly code. Let it crash in a later pass.
@@ -2973,11 +2982,11 @@ output_encoding(F, #compile{encoding = Encoding}) ->
 %%%
 
 diffable(Code0, St) ->
-    {Mod,Exp,Attr,Fs0,NumLabels} = Code0,
+    {Mod,Exp,Attr,Anno,Fs0,NumLabels} = Code0,
     EntryLabels = #{Entry => {Name,Arity} ||
                       {function,Name,Arity,Entry,_} <:- Fs0},
     Fs = [diffable_fix_function(F, EntryLabels) || F <- Fs0],
-    Code = {Mod,Exp,Attr,Fs,NumLabels},
+    Code = {Mod,Exp,Attr,Anno,Fs,NumLabels},
     {ok,Code,St}.
 
 diffable_fix_function({function,Name,Arity,Entry0,Is0}, LabelMap0) ->

@@ -1610,7 +1610,10 @@ test_unaligned_order(I, J) ->
 
 test_unaligned_order_1(Op, A, B, {Aa,Ba}) ->
     erlang:Op(unaligned_sub_bin(A, Aa), unaligned_sub_bin(B, Ba)).
-    
+
+-record #empty{}.
+-record #order{zzzz=0, true=1, aaaa=2, wwww=3, z=4, a=5}.
+
 test_terms(Test_Func) ->
     Test_Func(atom),
     Test_Func(''),
@@ -1737,6 +1740,14 @@ test_terms(Test_Func) ->
     Test_Func(LargeMap1),
     Test_Func(LargeMap2),
     Test_Func(MapWithMap),
+
+    %% Native records.
+    Test_Func(#empty{}),
+    OrderRec = #order{zzzz=SmallMap, true=LargeMap1, aaaa=MapWithMap},
+    Test_Func(#order{}),
+    Test_Func(OrderRec),
+    Test_Func(#order{z=OrderRec}),
+    Test_Func({a, #order{z=#order{}}, b}),
 
     ok.
 

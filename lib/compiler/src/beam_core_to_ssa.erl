@@ -98,6 +98,10 @@
 -record(cg_tuple, {es,keep=ordsets:new()}).
 -record(cg_map, {var=#b_literal{val=#{}},op,es}).
 -record(cg_map_pair, {key,val}).
+-record(cg_record, {rec}).
+-record(cg_record_id, {id :: {_,_} | [], es}).
+-record(cg_record_pairs, {local::boolean(),es}).
+-record(cg_record_pair, {key,val}).
 -record(cg_cons, {hd,tl}).
 -record(cg_binary, {segs}).
 -record(cg_bin_seg, {size,unit,type,flags,seg,next}).
@@ -157,6 +161,8 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
           {'ok', #b_module{}, [warning()]}.
 
 module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options) ->
+    Records = records(As),
+    Anno = #{records => Records},
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     DebugInfo = proplists:get_bool(beam_debug_info, Options),
@@ -164,7 +170,7 @@ module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options)
                 beam_debug_info=DebugInfo},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     Body = Kfs ++ St#kern.funs,
-    Code = #b_module{name=Mod,exports=Kes,attributes=Kas,body=Body},
+    Code = #b_module{anno=Anno,name=Mod,exports=Kes,attributes=Kas,body=Body},
     {ok,Code,sort(St#kern.ws)}.
 
 -spec format_error(warning()) -> string() | binary().
@@ -189,16 +195,39 @@ attributes([{#c_literal{val=Name},#c_literal{val=Val}}|As]) ->
     end;
 attributes([]) -> [].
 
-include_attribute(type) -> false;
-include_attribute(spec) -> false;
 include_attribute(callback) -> false;
-include_attribute(opaque) -> false;
-include_attribute(export_type) -> false;
-include_attribute(record) -> false;
-include_attribute(optional_callbacks) -> false;
-include_attribute(file) -> false;
 include_attribute(compile) -> false;
+include_attribute(export_record) -> false;
+include_attribute(export_type) -> false;
+include_attribute(file) -> false;
+include_attribute(native_record) -> false;
+include_attribute(opaque) -> false;
+include_attribute(optional_callbacks) -> false;
+include_attribute(record) -> false;
+include_attribute(spec) -> false;
+include_attribute(type) -> false;
 include_attribute(_) -> true.
+
+records(Attrs) ->
+    Exports0 = [sets:from_list(E) ||
+                   {#c_literal{val=export_record},
+                    #c_literal{val=E}} <- Attrs],
+    Exports = sets:union(Exports0),
+    [record(R, Exports) ||
+        {#c_literal{val=native_record},R} <- Attrs].
+
+record(#c_literal{val=[{Name,Fs0}]}, Exports) ->
+    Fs = [record_field(F) || F <- Fs0],
+    {Name,sets:is_element(Name, Exports),Fs}.
+
+record_field({record_field,_,{atom,_,Key},E}) ->
+    Bs = erl_eval:new_bindings(),
+    {value,Val,[]} = erl_eval:exprs([E], Bs),
+    {Key,Val};
+record_field({record_field,_,{atom,_,Key}}) ->
+    Key;
+record_field({typed_record_field,F,_}) ->
+    record_field(F).
 
 function({#c_var{anno=Anno,name={F,Arity}=FA},Body0}, St0) ->
     try
@@ -268,6 +297,8 @@ guard(G0, Sub, St0) ->
 %%  Must enter try blocks and isets and find the last Kexpr in them.
 %%  This must end in a recognised BEAM test!
 
+gexpr_test(#b_set{op=is_record_accessible=Op,args=Args}, St) ->
+    {#cg_test{op=Op,args=Args},St};
 gexpr_test(#b_set{op={bif,F},args=Args}, St) ->
     Ar = length(Args),
     true = erl_internal:new_type_test(F, Ar) orelse
@@ -310,6 +341,8 @@ expr(#c_tuple{es=Ces}, Sub, St0) ->
     {#b_set{op=put_tuple,args=Kes},Ep,St1};
 expr(#c_map{anno=A,arg=Var,es=Ces}, Sub, St0) ->
     expr_map(A, Var, Ces, Sub, St0);
+expr(#c_record{anno=A,arg=Var,id=Id,es=Ces}, Sub, St0) ->
+    expr_record(A, Var, Id, Ces, Sub, St0);
 expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
     try
         expr_binary(A, Cv, Sub, St0)
@@ -376,6 +409,9 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
         is_record ->
             {Args,Ap,St} = atomic_list(Cargs, Sub, St0),
             {#cg_internal{anno=internal_anno(A),op=is_record,args=Args},Ap,St};
+        is_native_record ->
+            {Args,Ap,St} = atomic_list(Cargs, Sub, St0),
+            {#cg_internal{anno=internal_anno(A),op=is_native_record,args=Args},Ap,St};
         error ->
             %% Invalid call (e.g. M:42/3). Issue a warning, and let
             %% the generated code call apply/3.
@@ -423,6 +459,19 @@ primop(raise, Anno, Args) ->
     primop_succeeded(resume, Anno, Args);
 primop(raw_raise, Anno, Args) ->
     primop_succeeded(raw_raise, Anno, Args);
+primop(record_field, Anno, Args0) ->
+    Args = case Args0 of
+               [Src,#b_literal{val=[]},F] ->
+                   [Src,#b_literal{val='_'},F];
+               _ ->
+                   Args0
+           end,
+    %% For simplicity, pretend that this instruction is a guard
+    %% BIF. The beam_asm pass will turn it into an instruction.
+    Set = #b_set{anno=internal_anno(Anno),op={bif,get_record_field},args=Args},
+    #cg_succeeded{set=Set};
+primop(is_native_record, Anno, Args) ->
+    #b_set{anno=internal_anno(Anno),op={bif,is_record},args=Args};
 primop(Op, Anno, Args) when Op =:= recv_peek_message;
                             Op =:= recv_wait_timeout ->
     #cg_internal{anno=internal_anno(Anno),op=Op,args=Args};
@@ -618,6 +667,45 @@ map_remove_dup_keys([], Used) ->
     %% order from compilation to compilation.
     sort(maps:to_list(Used)).
 
+expr_record(A, Var0, Id0, Ces, Sub, St0) ->
+    {Var,Mps,St1} = expr(Var0, Sub, St0),
+    {Id,Eps1,St2} = atomic(Id0, Sub, St1),
+    {Km,Eps2,St3} = record_split_pairs(A, Var, Id, Ces, Sub, St2),
+    {Km,Eps2++Eps1++Mps,St3}.
+
+record_split_pairs(A, Var, Id, Ces, Sub, St0) ->
+    %% 1. Force variables.
+    %% 2. Group adjacent pairs with literal keys.
+    %% 3. Within each such group, remove multiple assignments to
+    %%    the same key.
+    {Pairs,Esp,St1} =
+        foldr(fun(#c_record_pair{key=K0,val=V0},{KVs,Espi,Sti0}) ->
+                      {K,Eps1,Sti1} = atomic(K0, Sub, Sti0),
+                      {V,Eps2,Sti2} = atomic(V0, Sub, Sti1),
+                      {[{K,V}|KVs],Eps1 ++ Eps2 ++ Espi,Sti2}
+              end, {[],[],St0}, Ces),
+    record_split_pairs_1(A, Var, Id, Pairs, Esp, St1).
+
+record_split_pairs_1(A, Rec0, Id, Pairs0, Esp0, St0) ->
+    {Rec1,Em,St1} = force_atomic(Rec0, St0),
+    {Rec,Esp,St2} = record_group_pairs(A, Rec1, Id, Pairs0, Esp0 ++ Em, St1),
+    {Rec,Esp,St2}.
+
+record_group_pairs(A, Var, Id, Pairs0, Esp, St0) ->
+    Pairs = ordsets:from_list(Pairs0),
+    Flatten = append([[K,V] || {K,V} <- Pairs]),
+    {ssa_struct(A, Var, Id, Flatten),Esp,St0}.
+
+ssa_struct(A, SrcRec, Id0, Pairs) ->
+    Id = case Id0 of
+             #b_literal{val=[]} -> #b_literal{val='_'};
+             #b_literal{} -> Id0
+         end,
+    Args = [SrcRec,Id|Pairs],
+    LineAnno = line_anno(A),
+    Set = #b_set{anno=LineAnno,op=put_record,args=Args},
+    #cg_succeeded{set=Set}.
+
 %% match_vars(Kexpr, State) -> {[Kvar],[PreKexpr],State}.
 %%  Force return from body into a list of variables.
 
@@ -787,6 +875,16 @@ pattern(#c_tuple{es=Ces}, Sub0, St0) ->
 pattern(#c_map{es=Ces}, Sub0, St0) ->
     {Kes,Sub1,St1} = pattern_map_pairs(Ces, Sub0, St0),
     {#cg_map{op=exact,es=Kes},Sub1,St1};
+pattern(#c_record{id=#c_literal{val=Id}, es=Ces}, Sub0,
+        #kern{module=Mod}=St0) ->
+    {Kes,Sub1,St1} = pattern_record_pairs(Ces, Sub0, St0),
+    Local = case Id of
+                {Mod,_} -> true;
+                {_,_} -> false;
+                [] -> false
+            end,
+    Pairs = #cg_record_pairs{local=Local,es=Kes},
+    {#cg_record{rec=#cg_record_id{id=Id,es=Pairs}},Sub1,St1};
 pattern(#c_binary{segments=Cv}, Sub0, St0) ->
     {Kv,Sub1,St1} = pattern_bin(Cv, Sub0, St0),
     {#cg_binary{segs=Kv},Sub1,St1};
@@ -815,6 +913,16 @@ pattern_map_pairs(Ces0, Sub0, St0) ->
                         erts_internal:cmp_term(A, B) < 0
                 end, Kes),
     {Kes1,Sub1,St1}.
+
+pattern_record_pairs(Ces0, Sub0, St0) ->
+    {Kes0,{Sub1,St1}} =
+        mapfoldl(fun(#c_record_pair{key=K,val=Cv},{Subi0,Sti0}) ->
+                         {Kk,Subi1,Sti1} = pattern(K, Subi0, Sti0),
+                         {Kv,Subi2,Sti2} = pattern(Cv, Subi1, Sti1),
+                         {#cg_record_pair{key=Kk,val=Kv},{Subi2,Sti2}}
+                 end, {Sub0, St0}, Ces0),
+    Kes = sort(Kes0),
+    {Kes,Sub1,St1}.
 
 pattern_bin([#c_bitstr{val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
             Sub0, St0) ->
@@ -1026,8 +1134,15 @@ new_vars(0, St, Vs) -> {Vs,St}.
 
 make_vars(Vs) -> [#b_var{name=V} || V <- Vs].
 
-%% call_type(Mod, Name, [Arg], State) -> bif | call | is_record | error.
+-spec call_type(Mod, Name, Args) ->
+          'bif' | 'call' | 'is_record' | 'is_native_record' | 'error'  when
+      Mod :: cerl:c_literal(),
+      Name :: cerl:c_literal(),
+      Args :: [cerl:cerl()].
 
+call_type(#c_literal{val=erlang}, #c_literal{val=is_record},
+          [_,_,#c_literal{val=Name}]) when is_atom(Name) ->
+    is_native_record;
 call_type(#c_literal{val=M}, #c_literal{val=F}, As) when is_atom(M), is_atom(F) ->
     case is_guard_bif(M, F, As) of
         false ->
@@ -1200,7 +1315,7 @@ match_var([U|Us], Cs0, Def, St) ->
 %%  smart.
 match_con([U|_Us]=L, Cs, Def, St0) ->
     %% Extract clauses for different constructors (types).
-    Ttcs0 = select_types(Cs, [], [], [], [], [], [], [], [], []),
+    Ttcs0 = select_types(Cs, [], [], [], [], [], [], [], [], [], []),
     Ttcs1 = [{T, Types} || {T, [_ | _] = Types} <- Ttcs0],
     Ttcs = opt_single_valued(Ttcs1),
     {Scs,St1} =
@@ -1211,31 +1326,41 @@ match_con([U|_Us]=L, Cs, Def, St0) ->
                  St0, Ttcs),
     {build_alt(build_select(U, Scs), Def),St1}.
 
-select_types([NoExpC|Cs], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil) ->
+select_types([NoExpC|Cs], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil, Rec) ->
     C = expand_pat_lit_clause(NoExpC),
     case clause_con(C) of
         cg_binary ->
-            select_types(Cs, [C|Bin], BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil);
+            select_types(Cs, [C|Bin], BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil, Rec);
         cg_bin_seg ->
-            select_types(Cs, Bin, [C|BinCon], Cons, Tuple, Map, Atom, Float, Int, Nil);
+            select_types(Cs, Bin, [C|BinCon], Cons, Tuple, Map, Atom, Float, Int, Nil, Rec);
         cg_bin_end ->
-            select_types(Cs, Bin, [C|BinCon], Cons, Tuple, Map, Atom, Float, Int, Nil);
+            select_types(Cs, Bin, [C|BinCon], Cons, Tuple, Map, Atom, Float, Int, Nil, Rec);
         cg_cons ->
-            select_types(Cs, Bin, BinCon, [C|Cons], Tuple, Map, Atom, Float, Int, Nil);
+            select_types(Cs, Bin, BinCon, [C|Cons], Tuple, Map, Atom, Float, Int, Nil, Rec);
         cg_tuple ->
-            select_types(Cs, Bin, BinCon, Cons, [C|Tuple], Map, Atom, Float, Int, Nil);
+            select_types(Cs, Bin, BinCon, Cons, [C|Tuple], Map, Atom, Float, Int, Nil, Rec);
         cg_map ->
-            select_types(Cs, Bin, BinCon, Cons, Tuple, [C|Map], Atom, Float, Int, Nil);
+            select_types(Cs, Bin, BinCon, Cons, Tuple, [C|Map], Atom, Float, Int, Nil, Rec);
         cg_nil ->
-            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, [C|Nil]);
+            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, [C|Nil], Rec);
         cg_atom ->
-            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, [C|Atom], Float, Int, Nil);
+            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, [C|Atom], Float, Int, Nil, Rec);
         cg_float ->
-            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, [C|Float], Int, Nil);
+            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, [C|Float], Int, Nil, Rec);
         cg_int ->
-            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, [C|Int], Nil)
+            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, [C|Int], Nil, Rec);
+        cg_record ->
+            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil, [C|Rec]);
+        cg_record_id ->
+            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil, [C|Rec]);
+        cg_record_pairs ->
+            select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil, [C|Rec])
     end;
-select_types([], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil) ->
+select_types([], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil, Rec0) ->
+    Rec1 = reverse(Rec0),
+    Rec2 = maps:groups_from_list(fun(C) -> clause_con(C) end, Rec1),
+    Recs = maps:to_list(Rec2),
+
     [{cg_binary, reverse(Bin)}] ++ handle_bin_con(reverse(BinCon)) ++
         [
          {cg_cons, reverse(Cons)},
@@ -1244,9 +1369,11 @@ select_types([], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil) ->
          {{bif,is_atom}, reverse(Atom)},
          {{bif,is_float}, reverse(Float)},
          {{bif,is_integer}, reverse(Int)},
-         {cg_nil, reverse(Nil)}
+         {cg_nil, reverse(Nil)} |
+         Recs
         ].
 
+-spec expand_pat_lit_clause(#iclause{}) -> #iclause{}.
 expand_pat_lit_clause(#iclause{pats=[#ialias{pat=#b_literal{val=Val}}=Alias|Ps]}=C) ->
     P = expand_pat_lit(Val),
     C#iclause{pats=[Alias#ialias{pat=P}|Ps]};
@@ -1537,7 +1664,9 @@ match_value(Us0, T, Cs0, Def, St0) ->
 
 do_match_value(Us0, T, Cs0, Def, St0) ->
     UCss = group_value(T, Us0, Cs0),
-    mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St0, UCss).
+    mapfoldl(fun ({Us,Cs}, St) ->
+                     match_clause(Us, Cs, Def, St)
+             end, St0, UCss).
 
 %% remove_unreachable([Clause], State) -> {[Clause],State}
 %%  Remove all clauses after a clause that will always match any
@@ -1635,8 +1764,8 @@ find_key_intersection(Ps) ->
 %% group_value([Clause]) -> [[Clause]].
 %%  Group clauses according to value.  Here we know that:
 %%  1. Some types are singled valued
-%%  2. The clauses in maps and bin_segs cannot be reordered,
-%%     only grouped
+%%  2. The clauses in maps, bin_segs, and native records cannot
+%%     be reordered, only grouped
 %%  3. Other types are disjoint and can be reordered
 
 group_value(cg_cons, Us, Cs)    -> [{Us,Cs}];  %These are single valued
@@ -1646,6 +1775,9 @@ group_value(cg_bin_end, Us, Cs) -> [{Us,Cs}];
 group_value(cg_bin_seg, Us, Cs) -> group_keeping_order(Us, Cs);
 group_value(cg_bin_int, Us, Cs) -> [{Us,Cs}];
 group_value(cg_map, Us, Cs)     -> group_keeping_order(Us, Cs);
+group_value(cg_record, Us, Cs)  -> [{Us,Cs}];
+group_value(cg_record_id, Us, Cs) -> group_native_records(Us, Cs);
+group_value(cg_record_pairs, Us, Cs) -> group_keeping_order(Us, Cs);
 group_value(_, Us, Cs) ->
     Map = group_values(Cs),
 
@@ -1662,6 +1794,51 @@ group_keeping_order(Us, [C1|Cs]) ->
     {More,Rest} = splitwith(SplitFun, Cs),
     [{Us,[C1|More]}|group_keeping_order(Us, Rest)];
 group_keeping_order(_, []) -> [].
+
+group_native_records(Us, [C1|Cs]) ->
+    %% Consider:
+    %%
+    %%   case R of
+    %%     #r1{f1=_,f2=_} -> ... ;
+    %%     #r2{f1=_} -> ... ;
+    %%     #r1{f3_=} -> ... ;
+    %%
+    %%     #_{...} -> ... ;
+    %%
+    %%     #r1{f4...} -> ...
+    %%   end
+    %%
+    %% We can group clauses matching the same record, but we must keep
+    %% the order within each group. Also, since an anonymous record
+    %% match can match any record, we must not move any clause across
+    %% an anonymous match. Thus, the clauses can be re-arranged like
+    %% so:
+    %%
+    %%   case R of
+    %%     #r1{f1=_,f2=_} -> ... ;
+    %%     #r1{f3_=} -> ... ;
+    %%     #r2{f1=_} -> ... ;
+    %%
+    %%     #_{...} -> ... ;
+    %%
+    %%     #r1{f4...} -> ...
+    %%   end
+
+    Anon = (arg_arg(clause_arg(C1)))#cg_record_id.id =:= [],
+    SplitFun = fun(C) ->
+                       ((arg_arg(clause_arg(C)))#cg_record_id.id =:= []) =:= Anon
+               end,
+    {More,Rest} = splitwith(SplitFun, Cs),
+    Part = [C1|More],
+
+    %% The clauses in `Part` all match definite records or they all match any record.
+    %% Group clauses matching the same record.
+    Gs0 = maps:groups_from_list(fun(C) -> (arg_arg(clause_arg(C)))#cg_record_id.id end, Part),
+    Gs = [{Us,C} || _ := C <- maps:iterator(Gs0, ordered)],
+
+    %% Partition the rest of the clauses.
+    Gs ++ group_native_records(Us, Rest);
+group_native_records(_Us, []) -> [].
 
 group_keeping_order_fun(C1) ->
     case is_suitable_bin_seg(C1) of
@@ -1689,7 +1866,7 @@ group_keeping_order_fun(C1) ->
                     end
             end;
         false ->
-            %% Handle map or "unsuitable" binary segment.
+            %% Handle map, native record, or "unsuitable" binary segment.
             V1 = clause_val(C1),
             fun(C) ->
                     V1 =:= clause_val(C)
@@ -1787,6 +1964,17 @@ get_match(#cg_map{op=exact,es=Es0}, St0) ->
                               {Pair#cg_map_pair{val=V},Vs}
                       end, Mes, Es0),
     {#cg_map{op=exact,es=Es},Mes,St1};
+get_match(#cg_record{}, St0) ->
+    {V,St1} = new_var(St0),
+    {#cg_record{rec=V},[V],St1};
+get_match(#cg_record_id{id=Id}, St0) ->
+    {V,St1} = new_var(St0),
+    {#cg_record_id{id=Id,es=V},[V],St1};
+get_match(#cg_record_pairs{es=Es0}=Pairs, St0) ->
+    {Mes,St1} = new_vars(length(Es0), St0),
+    Es = [Pair#cg_record_pair{val=V} ||
+             #cg_record_pair{}=Pair <:- Es0 && V <- Mes],
+    {Pairs#cg_record_pairs{es=Es},Mes,St1};
 get_match(M, St) ->
     {M,[],St}.
 
@@ -1805,6 +1993,13 @@ new_clauses(Cs, #b_var{name=U}) ->
                                [N|As];
                            #cg_map{op=exact,es=Es} ->
                                Vals = [V || #cg_map_pair{val=V} <:- Es],
+                               Vals ++ As;
+                           #cg_record{rec=#cg_record_id{}=R} ->
+                               [R|As];
+                           #cg_record_id{es=#cg_record_pairs{}=Es} ->
+                               [Es|As];
+                           #cg_record_pairs{es=Es} ->
+                               Vals = [V || #cg_record_pair{val=V} <:- Es],
                                Vals ++ As;
                            _Other ->
                                As
@@ -1999,6 +2194,9 @@ arg_con(Arg) ->
         #cg_cons{} -> cg_cons;
         #cg_tuple{} -> cg_tuple;
         #cg_map{} -> cg_map;
+        #cg_record{} -> cg_record;
+        #cg_record_id{} -> cg_record_id;
+        #cg_record_pairs{} -> cg_record_pairs;
         #cg_binary{} -> cg_binary;
         #cg_bin_end{} -> cg_bin_end;
         #cg_bin_seg{} -> cg_bin_seg;
@@ -2033,7 +2231,9 @@ arg_val(Arg, C) ->
                          %% Literals will sort before variables
                          %% as intended.
                          erts_internal:cmp_term(A, B) < 0
-                 end, [Key || #cg_map_pair{key=Key} <:- Es])
+                 end, [Key || #cg_map_pair{key=Key} <:- Es]);
+        #cg_record_pairs{es=Es} ->
+            sort([K || #cg_record_pair{key=K} <:- Es])
     end.
 
 %%%
@@ -2422,7 +2622,15 @@ pat_vars(#cg_map{es=Es}) ->
 pat_vars(#cg_map_pair{key=K,val=V}) ->
     {U1,New} = pat_vars(V),
     {[],U2} = pat_vars(K),
-    {union(U1, U2),New}.
+    {union(U1, U2),New};
+pat_vars(#cg_record{rec=R}) ->
+    pat_vars(R);
+pat_vars(#cg_record_id{es=E}) ->
+    pat_list_vars([E]);
+pat_vars(#cg_record_pairs{es=Es}) ->
+    pat_list_vars(Es);
+pat_vars(#cg_record_pair{val=V}) ->
+    pat_vars(V).
 
 pat_list_vars(Ps) ->
     foldl(fun (P, {Used0,New0}) ->
@@ -2607,6 +2815,8 @@ select_cg(cg_bin_end, [S], Var, Tf, _Vf, St) ->
     select_bin_end(S, Var, Tf, St);
 select_cg(cg_map, Vs, Var, Tf, Vf, St) ->
     select_map(Vs, Var, Tf, Vf, St);
+select_cg(cg_record, Vs, Var, Tf, Vf, St) ->
+    select_record(Vs, Var, Tf, Vf, St);
 select_cg(cg_cons, [S], Var, Tf, Vf, St) ->
     select_cons(S, Var, Tf, Vf, St);
 select_cg(cg_nil, [_]=Vs, Var, Tf, Vf, St) ->
@@ -2878,6 +3088,85 @@ select_extract_map([P|Ps], MapSrc, Fail, St0) ->
 select_extract_map([], _, _, St) ->
     {[],St}.
 
+select_record(Scs, Src, Tf, Vf, St0) ->
+    [#cg_val_clause{val=#cg_record{rec=Rec},
+                    body=#cg_select{var=Rec,types=Types}}] = Scs,
+    {Is,St1} = select_record_id(Types, Src, Tf, Vf, St0),
+    {TestIs,St} = make_cond_branch({bif,is_record}, [Src], Tf, St1),
+    {TestIs++Is,St}.
+
+select_record_id([#cg_type_clause{type=cg_record_id,values=Scs}],
+                 Src, _Tf, Vf, St0) ->
+    NoAnonMatch =
+        all(fun(#cg_val_clause{val=#cg_record_id{id={_,_}}}) ->
+                    true;
+               (#cg_val_clause{}) ->
+                    false
+            end, Scs),
+    F = fun(#cg_val_clause{val=#cg_record_id{id={Mod,Name},es=Es},body=B},
+            Fail0, St1) ->
+                #cg_select{var=Es,types=Types} = B,
+                {TestIs,St2} =
+                    make_cond_branch({bif,is_record},
+                                     [Src, #b_literal{val=Mod},
+                                      #b_literal{val=Name}],
+                                     Fail0, St1),
+                Fail = if
+                           NoAnonMatch ->
+                               %% Since there are no anonymous matches, we know
+                               %% that there is no need to check any other
+                               %% records.
+                               Vf;
+                           true -> Fail0
+                       end,
+                {Is,St} = select_record_pairs(Types, Src, Fail, St2),
+                {TestIs++Is,St};
+           (#cg_val_clause{val=#cg_record_id{id=[],es=Es},body=B},
+            Fail, St1) ->
+                %% Anonymous match.
+                #cg_select{var=Es,types=Types} = B,
+                select_record_pairs(Types, Src, Fail, St1)
+        end,
+    match_fmf(F, Vf, St0, Scs).
+
+select_record_pairs([#cg_type_clause{type=cg_record_pairs,values=Scs}],
+                    Src, Vf, St0) ->
+    F = fun(#cg_val_clause{val=#cg_record_pairs{es=Es,local=Local},
+                           body=B}, Fail, St1) ->
+                select_record_pairs_val(Local, Src, Es, B, Fail, St1)
+        end,
+    match_fmf(F, Vf, St0, Scs).
+
+select_record_pairs_val(_Local, _Src, [], B, Fail, St0) ->
+    %% Matching only on the record name. This should always succeed,
+    %% so we must not emit an `is_record_accessible` instruction.
+    match_cg(B, Fail, St0);
+select_record_pairs_val(Local, Src, Es, B, Fail, St0) ->
+    {ExpIs,St1} =
+        case Local of
+            true ->
+                %% The record is used in its defining module -- no
+                %% need to check for accessibility.
+                {[],St0};
+            false ->
+                %% The definining module is either unknown or known to
+                %% be a module other than the current. We must check
+                %% for accessibility at runtime.
+                make_cond_branch(is_record_accessible, [Src], Fail, St0)
+        end,
+    {Eis,St2} = select_extract_record(Es, Src, Fail, St1),
+    {Bis,St3} = match_cg(B, Fail, St2),
+    {ExpIs++Eis++Bis,St3}.
+
+select_extract_record([P|Ps], StrSrc, Fail, St0) ->
+    #cg_record_pair{key=Key,val=Dst} = P,
+    Set = #b_set{op=get_record_element,dst=Dst,args=[StrSrc,Key]},
+    {TestIs,St1} = make_succeeded(Dst, {guard,Fail}, St0),
+    {Is,St} = select_extract_record(Ps, StrSrc, Fail, St1),
+    {[Set|TestIs]++Is,St};
+select_extract_record([], _, _, St) ->
+    {[],St}.
+
 guard_clause_cg(#cg_guard_clause{guard=G,body=B}, Fail, St0) ->
     {Gis,St1} = guard_cg(G, Fail, St0),
     {Bis,St} = match_cg(B, Fail, St1),
@@ -2922,7 +3211,11 @@ test_cg(Test, Inverted, As0, Fail, St0) ->
     As = ssa_args(As0, St0),
     {Succ,St} = new_label(St0),
     Bool = #b_var{name=Succ},
-    Bif = #b_set{op={bif,Test},dst=Bool,args=As},
+    Op = case Test of
+             is_record_accessible -> Test;
+             _ -> {bif,Test}
+         end,
+    Bif = #b_set{op=Op,dst=Bool,args=As},
     Br = case Inverted of
              false ->
                  #b_br{bool=Bool,succ=Succ,fail=Fail};
@@ -3003,6 +3296,7 @@ internal_anno(Le) ->
 %% internal_cg(Anno, Op, [Arg], [Ret], State) ->
 %%      {[Ainstr],State}.
 internal_cg(_Anno, is_record, [Tuple,TagVal,ArityVal], [Dst], St0) ->
+    %% Test for a tuple record.
     {Arity,St1} = new_ssa_var(St0),
     {Tag,St2} = new_ssa_var(St1),
     {Phi,St3} = new_label(St2),
@@ -3019,6 +3313,19 @@ internal_cg(_Anno, is_record, [Tuple,TagVal,ArityVal], [Dst], St0) ->
            {label,Phi},
            #cg_phi{vars=[Dst]}],
     Is = Is0 ++ [GetArity] ++ Is1 ++ [GetTag] ++ Is2 ++ Is3,
+    {Is,St};
+internal_cg(_Anno, is_native_record, [Record,Mod,Name], [Dst], St0) ->
+    %% Test for a native record.
+    {Phi,St1} = new_label(St0),
+    {False,St2} = new_label(St1),
+    {Is0,St3} = make_cond_branch({bif,is_record}, [Record], False, St2),
+    {Is1,St} = make_cond_branch({bif,is_record}, [Record,Mod,Name], False, St3),
+    Is2 = [#cg_break{args=[#b_literal{val=true}],phi=Phi},
+           {label,False},
+           #cg_break{args=[#b_literal{val=false}],phi=Phi},
+           {label,Phi},
+           #cg_phi{vars=[Dst]}],
+    Is = Is0 ++ Is1 ++ Is2,
     {Is,St};
 internal_cg(Anno, recv_peek_message, [], [#b_var{name=Succeeded0},
                                           #b_var{}=Dst], St0) ->

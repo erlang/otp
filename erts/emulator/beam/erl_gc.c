@@ -2522,6 +2522,7 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    *hp++ = val;
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case ARITYVAL_SUBTAG:
+	    case RECORD_SUBTAG:
 		break;
 	    case REF_SUBTAG:
 		if (!is_magic_ref_thing(fhp - 1))
@@ -3981,6 +3982,7 @@ check_all_heap_terms_in_range(int (*check_eterm)(Eterm),
         case TAG_PRIMARY_HEADER:
             switch (val & _HEADER_SUBTAG_MASK) {
             case ARITYVAL_SUBTAG:
+            case RECORD_SUBTAG:
                 break;
             case BIN_REF_SUBTAG:
             case EXTERNAL_PID_SUBTAG:

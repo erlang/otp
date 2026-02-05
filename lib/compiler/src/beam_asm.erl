@@ -29,13 +29,14 @@
 
 -export_type([fail/0,label/0,src/0,module_code/0,function_name/0]).
 
--import(lists, [append/1,duplicate/2,keymember/3,last/1,map/2,
-                member/2,splitwith/2]).
+-import(lists, [append/1,duplicate/2,keymember/3,last/1,
+                map/2,member/2,splitwith/2]).
 
 -include("beam_opcodes.hrl").
 -include("beam_asm.hrl").
 
 -define(BEAM_DEBUG_INFO_VERSION, 0).
+-define(BEAM_RECORD_VERSION, 0).
 
 %% Common types for describing operands for BEAM instructions.
 -type src() :: beam_reg() |
@@ -58,8 +59,10 @@
 -type asm_function() ::
         {'function',function_name(),arity(),label(),[asm_instruction()]}.
 
+-type beam_anno() :: #{'native_record' => tuple()}.
+
 -type module_code() ::
-        {module(),[_],[_],[asm_function()],pos_integer()}.
+        {module(),[_],[_],beam_anno(),[asm_function()],pos_integer()}.
 
 %% Flags for the line table.
 -define(BEAMFILE_EXECUTABLE_LINE, 1).
@@ -70,7 +73,7 @@
           {'ok',binary()}.
 
 module(Code0, ExtraChunks, CompileInfo, CompilerOpts) ->
-    {Mod,Exp0,Attr0,Asm0,NumLabels} = Code0,
+    {Mod,Exp0,Attr0,Anno,Asm0,NumLabels} = Code0,
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     {0,Dict2} = beam_dict:type(any, Dict1),
@@ -80,7 +83,7 @@ module(Code0, ExtraChunks, CompileInfo, CompilerOpts) ->
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = sets:from_list(Exp0),
     {Code,Dict} = assemble(Asm, Exp, Dict3, []),
-    Beam = build_file(Code, Attr, Dict, NumLabels, NumFuncs,
+    Beam = build_file(Code, Attr, Anno, Dict, NumLabels, NumFuncs,
                       ExtraChunks, CompileInfo, CompilerOpts),
     {ok,Beam}.
 
@@ -131,7 +134,7 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict0, NumLabels, NumFuncs, ExtraChunks0,
+build_file(Code, Attr, Anno, Dict0, NumLabels, NumFuncs, ExtraChunks0,
            CompileInfo, CompilerOpts) ->
     %% Create the code chunk.
 
@@ -143,10 +146,14 @@ build_file(Code, Attr, Dict0, NumLabels, NumFuncs, ExtraChunks0,
 		       NumFuncs:32>>,
 		      Code),
 
-    %% Build the BEAM debug information chunk. It is important
-    %% to build it early, because it will add entries to the
-    %% atom and literal tables.
-    {ExtraChunks1,Dict} = build_beam_debug_info(ExtraChunks0, CompilerOpts, Dict0),
+    %% First build the chunks that update the atom and/or
+    %% literal tables.
+
+    %% Build the BEAM debug information chunk.
+    {ExtraChunks1,Dict1} = build_beam_debug_info(ExtraChunks0, CompilerOpts, Dict0),
+
+    %% Build the native-record record definition chunk.
+    {RecordChunk,Dict} = build_record_chunk(Anno, Dict1),
 
     %% Create the atom table chunk.
     AtomChunk = build_atom_table(CompilerOpts, Dict),
@@ -210,7 +217,8 @@ build_file(Code, Attr, Dict0, NumLabels, NumFuncs, ExtraChunks0,
     %% Create the attributes and compile info chunks.
 
     Essentials0 = [AtomChunk,CodeChunk,StringChunk,ImportChunk,
-		   ExpChunk,LambdaChunk,LiteralChunk,MetaChunk],
+                   ExpChunk,LambdaChunk,LiteralChunk,MetaChunk,
+                   RecordChunk],
     Essentials1 = [iolist_to_binary(C) || C <- Essentials0],
     MD5 = module_md5(Essentials1),
     Essentials = finalize_fun_table(Essentials1, MD5),
@@ -499,6 +507,75 @@ bdi_name_to_term(Atom) when is_atom(Atom) ->
     {literal,atom_to_binary(Atom)}.
 
 %%%
+%%% Build the "Recs" chunk to contain the definitions for all
+%%% native records in this module.
+%%%
+
+build_record_chunk(Anno, Dict0) ->
+    case Anno of
+        #{records := [_|_]=Defs0} ->
+            {Defs,Dict} = build_record_def(Defs0, Dict0),
+            NumFields = lists:sum([length(Fs) || {_,_,Fs} <:- Defs0]),
+            NumItems = length(Defs),
+            0 = NumItems bsr 31,                %Assertion.
+            Contents = <<?BEAM_RECORD_VERSION:32,
+                         NumItems:32,
+                         NumFields:32,
+                         (iolist_to_binary(Defs))/binary>>,
+            Chunk = chunk(~"Recs", Contents),
+            {Chunk,Dict};
+        #{} ->
+            {[],Dict0}
+    end.
+
+build_record_def([{Name,IsExported,Fs}|Defs], Dict0) ->
+    %% The native-record definitions utilizes the encoding machinery
+    %% for BEAM instructions. Each record definition is translated to:
+    %%
+    %%    {call_last,RecordName,Exported,
+    %%               {list,[FieldName,OptionalValue,...]}}
+    %%
+    %% Where:
+    %%
+    %%    RecordName := atom(),
+    %%    Exported := boolean(),
+    %%    FieldName := atom(),
+    %%    OptionalValue := term() | Absent
+    %%    Absent := 0 tagged with the u tag
+    %%
+    %% The only reason the `call_last` instruction is used is because
+    %% it has three operands.
+    %%
+    %% As an example, the following non-exported native-record:
+    %%
+    %%    -struct user, {
+    %%       id = -1,
+    %%       name,
+    %%       city
+    %%    }.
+    %%
+    %% will be translated to the following instruction:
+    %%
+    %%     {call_last,{atom,user},{atom,false},
+    %%                {list,[{atom,id},{literal,-1},
+    %%                       {atom,name},0,
+    %%                       {atom,city},0]}}
+    Def = build_record_def_fs(Fs),
+    Instr0 = {call_last,{atom,Name},{atom,IsExported},{list,Def}},
+    {Instr,Dict1} = make_op(Instr0, Dict0),
+    {Tail,Dict2} = build_record_def(Defs, Dict1),
+    {[Instr|Tail],Dict2};
+build_record_def([], Dict) ->
+    {[],Dict}.
+
+build_record_def_fs([{Key,Val}|Fs]) when is_atom(Key) ->
+    [{atom,Key},{literal,Val}|build_record_def_fs(Fs)];
+build_record_def_fs([Key|Fs]) when is_atom(Key) ->
+    [{atom,Key},0|build_record_def_fs(Fs)];
+build_record_def_fs([]) ->
+    [].
+
+%%%
 %%% Functions for assembling BEAM instruction.
 %%%
 
@@ -507,6 +584,7 @@ bif_type(fadd, 2)   -> {op,fadd};
 bif_type(fsub, 2)   -> {op,fsub};
 bif_type(fmul, 2)   -> {op,fmul};
 bif_type(fdiv, 2)   -> {op,fdiv};
+bif_type(get_record_field, 3) -> {op,get_record_field};
 bif_type(_, 1)      -> bif1;
 bif_type(_, 2)      -> bif2;
 bif_type(_, 3)      -> bif3.

@@ -51,10 +51,8 @@
       Level :: strong | weak,
       Result :: ok | {error, [{atom(), list()}]}.
 
-validate({Mod,Exp,Attr,Fs,Lc}, Level) when is_atom(Mod),
-                                           is_list(Exp),
-                                           is_list(Attr),
-                                           is_integer(Lc) ->
+validate({Mod,Exp,Attr,Anno, Fs,Lc}, Level)
+  when is_atom(Mod), is_list(Exp), is_list(Attr), is_map(Anno), is_integer(Lc) ->
     Ft = build_function_table(Fs, #{}),
     case validate_0(Fs, Mod, Level, Ft) of
         [] ->
@@ -861,6 +859,15 @@ vi({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
 vi({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 
+
+%%
+%% Native record instructions.
+%%
+vi({put_record,{f,Fail},Id,Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_record(Fail, Id, Src, Dst, Live, List, Vst);
+vi({get_record_elements,{f,Fail},Src,{list,List}}, Vst) ->
+    verify_get_record_elements(Fail, Src, List, Vst);
+
 %%
 %% Bit syntax matching
 %%
@@ -1259,7 +1266,7 @@ init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
 
 verify_has_map_fields(Lbl, Src, List, Vst) ->
     assert_type(#t_map{}, Src, Vst),
-    assert_unique_map_keys(List),
+    verify_keys(allow_single_register, forbid_empty, List),
     verify_map_fields(List, Src, Lbl, Vst).
 
 verify_map_fields([Key | Keys], Map, Lbl, Vst) ->
@@ -1281,9 +1288,9 @@ verify_get_map(Fail, Src, List, Vst0) ->
                    clobber_map_vals(List, Src, FailVst)
            end,
            fun(SuccVst) ->
-                   Keys = extract_map_keys(List, SuccVst),
-                   assert_unique_map_keys(Keys),
-                   extract_map_vals(List, Src, SuccVst)
+                   Keys = extract_keys(List, SuccVst),
+                   verify_keys(allow_single_register, forbid_empty, Keys),
+                   extract_vals(map_get, List, Src, SuccVst)
            end).
 
 %% get_map_elements may leave its destinations in an inconsistent state when
@@ -1307,6 +1314,18 @@ clobber_map_vals([Key0, Dst | T], Map, Vst0) ->
 clobber_map_vals([], _Map, Vst) ->
     Vst.
 
+clobber_record_vals([Key0, Dst | T], Rec, Vst0) ->
+    Key = unpack_typed_arg(Key0, Vst0),
+    case is_reg_initialized(Dst, Vst0) of
+        true ->
+            Vst = extract_term(any, {bif,record_get}, [Key, Rec], Dst, Vst0),
+            clobber_record_vals(T, Rec, Vst);
+        false ->
+            clobber_record_vals(T, Rec, Vst0)
+    end;
+clobber_record_vals([], _Rec, Vst) ->
+    Vst.
+
 is_reg_initialized({x,_}=Reg, #vst{current=#st{xs=Xs}}) ->
     is_map_key(Reg, Xs);
 is_reg_initialized({y,_}=Reg, #vst{current=#st{ys=Ys}}) ->
@@ -1318,17 +1337,17 @@ is_reg_initialized({y,_}=Reg, #vst{current=#st{ys=Ys}}) ->
     end;
 is_reg_initialized(V, #vst{}) -> error({not_a_register, V}).
 
-extract_map_keys([Key,_Val | T], Vst) ->
-    [unpack_typed_arg(Key, Vst) | extract_map_keys(T, Vst)];
-extract_map_keys([], _Vst) ->
+%% Extra keys for either a map or a native record.
+extract_keys([Key,_Val | T], Vst) ->
+    [unpack_typed_arg(Key, Vst) | extract_keys(T, Vst)];
+extract_keys([], _Vst) ->
     [].
 
-
-extract_map_vals(List, Src, SuccVst) ->
+extract_vals(Op, List, Src, SuccVst) ->
     Seen = sets:new(),
-    extract_map_vals(List, Src, Seen, SuccVst, SuccVst).
+    extract_vals(List, Src, Op, Seen, SuccVst, SuccVst).
 
-extract_map_vals([Key0, Dst | Vs], Map, Seen0, Vst0, Vsti0) ->
+extract_vals([Key0, Dst | Vs], Rec, Op, Seen0, Vst0, Vsti0) ->
     case sets:is_element(Dst, Seen0) of
         true ->
             %% The destinations must not overwrite each other.
@@ -1336,17 +1355,17 @@ extract_map_vals([Key0, Dst | Vs], Map, Seen0, Vst0, Vsti0) ->
         false ->
             Key = unpack_typed_arg(Key0, Vsti0),
             assert_term(Key, Vst0),
-            case bif_types(map_get, [Key, Map], Vst0) of
+            case bif_types(Op, [Key, Rec], Vst0) of
                 {none, _, _} ->
                     kill_state(Vsti0);
                 {DstType, _, _} ->
-                    Vsti = extract_term(DstType, {bif,map_get},
-                                        [Key, Map], Dst, Vsti0),
+                    Vsti = extract_term(DstType, {bif,Op},
+                                        [Key, Rec], Dst, Vsti0),
                     Seen = sets:add_element(Dst, Seen0),
-                    extract_map_vals(Vs, Map, Seen, Vst0, Vsti)
+                    extract_vals(Vs, Rec, Op, Seen, Vst0, Vsti)
             end
     end;
-extract_map_vals([], _Map, _Seen, _Vst0, Vst) ->
+extract_vals([], _Rec, _Op, _Seen, _Vst0, Vst) ->
     Vst.
 
 verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
@@ -1359,8 +1378,8 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
 
     SuccFun = fun(SuccVst0) ->
                       SuccVst = prune_x_regs(Live, SuccVst0),
-                      Keys = extract_map_keys(List, SuccVst),
-                      assert_unique_map_keys(Keys),
+                      Keys = extract_keys(List, SuccVst),
+                      verify_keys(allow_single_register, forbid_empty, Keys),
 
                       Type = put_map_type(Src, List, Vst),
                       create_term(Type, Op, [Src], Dst, SuccVst, SuccVst0)
@@ -1387,6 +1406,55 @@ pmt_1([Key0, Value0 | List], Vst, Acc0) ->
 pmt_1([], _Vst, Acc) ->
     Acc.
 
+verify_put_record(Fail, Id, Src, Dst, Live, List, Vst0) ->
+    case Id of
+        {literal,{Mod,Name}} when is_atom(Mod), is_atom(Name) ->
+            ok;
+        {atom,'_'} ->
+            ok;
+        _ ->
+            error({bad_record_id,Id})
+    end,
+    assert_term(Src, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    _ = [assert_term(Term, Vst0) || Term <- List],
+    Vst = heap_alloc(0, Vst0),
+
+    SuccFun = fun(SuccVst0) ->
+                      SuccVst = prune_x_regs(Live, SuccVst0),
+                      Keys = extract_keys(List, SuccVst),
+                      EmptyHandling = case Src of
+                                          nil -> allow_empty;
+                                          _ -> forbid_empty
+                                      end,
+                      verify_keys(only_literals, EmptyHandling, Keys),
+
+                      Type = put_record_type(Src, List, Vst),
+                      create_term(Type, put_record, [Src], Dst, SuccVst, SuccVst0)
+              end,
+    branch(Fail, Vst, SuccFun).
+
+put_record_type(_Rec0, _List, _Vst) ->
+    %% TODO: We currently don't have any representation for records in the
+    %% type lattice.
+    any.
+
+verify_get_record_elements(Fail, Src, List, Vst0) ->
+    assert_no_exception(Fail),
+    assert_not_literal(Src),
+    branch(Fail, Vst0,
+           fun(FailVst) ->
+                   clobber_record_vals(List, Src, FailVst)
+           end,
+           fun(SuccVst) ->
+                   Keys = extract_keys(List, SuccVst),
+                   verify_keys(only_literals, forbid_empty, Keys),
+                   extract_vals(record_get, List, Src, SuccVst)
+           end).
+
+%% Check an update of a traditional tuple record.
 verify_update_record(Size, Src0, Dst, List0, Vst0) ->
     Src = unpack_typed_arg(Src0, Vst0),
     List = [unpack_typed_arg(Arg, Vst0) || Arg <- List0],
@@ -2063,26 +2131,23 @@ assert_freg_set({fr,Fr}=Freg, #vst{current=#st{f=Fregs}})
     end;
 assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 
-%%% Maps
-
-%% A single item list may be either a list or a register.
-%%
-%% A list with more than item must contain unique literals.
-%%
-%% An empty list is not allowed.
-
-assert_unique_map_keys([]) ->
-    %% There is no reason to use the get_map_elements and
-    %% has_map_fields instructions with empty lists.
+-spec verify_keys(only_literals | allow_single_register,
+                  allow_empty | forbid_empty,
+                  [_]) -> ok.
+verify_keys(_, forbid_empty, []) ->
     error(empty_field_list);
-assert_unique_map_keys([_]) ->
+verify_keys(_, allow_empty, []) ->
     ok;
-assert_unique_map_keys([_,_|_]=Ls) ->
-    Vs = [begin
-              assert_literal(L),
-              L
-          end || L <- Ls],
-    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
+verify_keys(allow_single_register, _, [_]) ->
+    %% Allow register or literal (map).
+    ok;
+verify_keys(_, _, [_|_]=Keys) ->
+    %% Record or map with at least two keys. All keys must be
+    %% literals.
+    _ = [assert_literal(K) || K <- Keys],
+
+    %% Keys must be unique.
+    case length(Keys) =:= sets:size(sets:from_list(Keys)) of
         true -> ok;
         false -> error(keys_not_unique)
     end.

@@ -126,7 +126,6 @@ do {									\
         dst = x(loader_x_reg_index(dst));       \
         break;					\
      case LOADER_Y_REG:				\
-        ASSERT(loader_y_reg_index(dst) >= 1);	\
         dst = y(loader_y_reg_index(dst));       \
         break;					\
      }						\

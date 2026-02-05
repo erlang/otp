@@ -2633,6 +2633,9 @@ sub tr_parse_op {
         error("$op: the type 'n' must not be given a value")
             if $type eq 'n';
 	$type_val = $1;
+        if ($type_val eq '$MODULE') {
+            $type_val = 'st->module';
+        }
 	$_ = '';
     }
 

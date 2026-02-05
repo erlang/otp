@@ -843,3 +843,17 @@ bif persistent_term:put_new/2
 # New in 29.
 #
 ubif erlang:is_integer/3
+
+#
+# Native records.
+#
+
+ubif erlang:is_record/1
+
+bif records:get_module/1
+bif records:get_name/1
+bif records:get/2
+bif records:get_field_names/1
+bif records:is_exported/1
+bif records:create/4
+bif records:update/4

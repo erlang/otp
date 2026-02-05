@@ -170,6 +170,13 @@ get_record_and_type_info(Core) ->
   Tuples = core_to_attr_tuples(Core),
   get_record_and_type_info(Tuples, Module, maps:new(), "nofile").
 
+get_record_and_type_info([{native_record, Location, [{Name, Fields0}]}|Left],
+			 Module, RecDict, File) ->
+  {ok, Fields} = get_record_fields(Fields0, RecDict),
+  Arity = length(Fields),
+  FN = {File, Location},
+  NewRecDict = maps:put({native_record, Name}, {FN, [{Arity,Fields}]}, RecDict),
+  get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{record, Location, [{Name, Fields0}]}|Left],
 			 Module, RecDict, File) ->
   {ok, Fields} = get_record_fields(Fields0, RecDict),
@@ -299,6 +306,29 @@ process_record_remote_types_module(Module, CServer) ->
   RecordFun =
     fun({Key, Value}, C2) ->
         case Key of
+          {native_record, Name} ->
+            {FileLocation, Fields} = Value,
+            {File, _Location} = FileLocation,
+            FieldFun =
+              fun({Arity, Fields0}, C4) ->
+                  MRA = {Module, Name, Arity},
+                  Site = {native_record, MRA, File},
+                  {Fields1, C7} =
+                    lists:mapfoldl(fun({FieldName, Field, _}, C5) ->
+                                       check_remote(Field, ExpTypes, MRA,
+                                                    File, RecordTable),
+                                       {FieldT, C6} =
+                                         erl_types:t_from_form
+                                           (Field, ExpTypes, Site,
+                                            RecordTable, VarTable,
+                                            C5),
+                                       {{FieldName, Field, FieldT}, C6}
+                                   end, C4, Fields0),
+                  {{Arity, Fields1}, C7}
+              end,
+            {FieldsList, C3} =
+              lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
+            {{{native_record, {Module,Name}}, {FileLocation, orddict:from_list(FieldsList)}}, C3};
           {record, Name} ->
             {FileLocation, Fields} = Value,
             {File, _Location} = FileLocation,
@@ -389,6 +419,8 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
                 {nominal, _Name, _NArgs} ->
                   {{Key, Value}, C2};
                 {record, _RecName} ->
+                  {{Key, Value}, C2};
+                {native_record, _RecName} ->
                   {{Key, Value}, C2}
               end
           end,
@@ -421,6 +453,18 @@ check_record_fields(AllModules, CServer, TempExpTypes) ->
                   FieldFun =
                     fun({Arity, Fields0}, C3) ->
                         Site = {record, {Module, Name, Arity}, File},
+                        lists:foldl(fun({_, Field, _}, C4) ->
+                                        CheckForm(Field, Site, C4)
+                                    end, C3, Fields0)
+                    end,
+                  Fun = fun() -> lists:foldl(FieldFun, C2, Fields) end,
+                  msg_with_position(Fun, FileLocation);
+                {native_record, Name} ->
+                  {FileLocation, Fields} = Value,
+                  {File, _Location} = FileLocation,
+                  FieldFun =
+                    fun({Arity, Fields0}, C3) ->
+                        Site = {native_record, {Module, Name, Arity}, File},
                         lists:foldl(fun({_, Field, _}, C4) ->
                                         CheckForm(Field, Site, C4)
                                     end, C3, Fields0)

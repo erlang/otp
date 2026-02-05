@@ -406,7 +406,11 @@ shell_attribute_test(Config) ->
          {putline, "rl()."},
          {expect, "\\Q-record(hej,{a = \"\", b = 0 :: integer()}).\\E"},
          {putline, "#hej{a = \"hej\", b=1}."},
-         {expect, "\\Q#hej{a = \"hej\", b=1}\\E"}
+         {expect, "\\Q#hej{a = \"hej\", b=1}\\E"},
+         {putline, "-record #native{i = 42}."},
+         {expect, "ok"},
+         {putline, "rl()."},
+         {expect, "\\Q-record #native{i = 42}.\\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
@@ -3159,7 +3163,7 @@ otp_14296(Config) when is_list(Config) ->
             F = fun() -> a end,
             LocalFun = term_to_string(F),
             S = LocalFun ++ ".",
-            "1:2: syntax error before: Fun" = comm_err(S)
+            "1:5: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->
@@ -3194,13 +3198,13 @@ otp_14296(Config) when is_list(Config) ->
     fun() ->
             UnknownPort = "#Port<100000.0>",
             S = UnknownPort ++ ".",
-            "1:2: syntax error before: Port" = comm_err(S)
+            "1:6: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->
             UnknownRef = "#Ref<100000.0.0.0>",
             S = UnknownRef ++ ".",
-            "1:2: syntax error before: Ref" = comm_err(S)
+            "1:5: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->

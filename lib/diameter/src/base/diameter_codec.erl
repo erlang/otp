@@ -21,6 +21,8 @@
 %%
 
 -module(diameter_codec).
+-compile([{nowarn_redefined_builtin_type,{record,0}}]).
+
 -moduledoc """
 Decode and encode of Diameter messages.
 

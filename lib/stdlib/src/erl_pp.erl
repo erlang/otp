@@ -437,6 +437,9 @@ lattribute(file, {Name,Anno}, _Opts) ->
 lattribute(record, {Name,Is}, Opts) ->
     Nl = [leaf("-record("),{atom,Name},$,],
     [{first,Nl,record_fields(Is, Opts)},$)];
+lattribute(native_record, {Name,Is}, Opts) ->
+    Nl = [leaf("-record #"),{atom,Name}],
+    [{first,Nl,record_fields(Is, Opts)}];
 lattribute(Name, Arg, Options) ->
     attr(Name, [abstract(Arg, Options)]).
 
@@ -691,11 +694,12 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
     Nl = record_name(Name),
     El = {first,Nl,record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
-lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
+lexpr({record_field, _, Rec, Name0, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
     Sep = hash_after_integer(Rec, [$#]),
-    Nl = [Sep,{atom,Name},$.],
+    [$#|Name] = record_name(Name0),
+    Nl = [Sep,Name,$.],
     El = [Rl,Nl,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
 lexpr({record, _, Rec, Name, Fs}, Prec, Opts) ->
@@ -922,8 +926,12 @@ bit_elem_type(T) ->
 
 %% end of BITS
 
-record_name(Name) ->
-    [$#,{atom,Name}].
+record_name({M, N}) when is_atom(M), is_atom(N) ->
+    [$#,{atom,M},$:,{atom,N}];
+record_name([]) ->
+    [$#, $_];
+record_name(M) when is_atom(M) ->
+    [$#,{atom,M}].
 
 record_fields(Fs, Opts) ->
     tuple(Fs, fun record_field/2, Opts).

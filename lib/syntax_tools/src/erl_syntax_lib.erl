@@ -1694,6 +1694,11 @@ analyze_record_expr(Node) ->
                            || F <- erl_syntax:record_expr_fields(Node)],
                     Fs = [{N, D} || {N, {D, _T}} <- Fs0],
                     {record_expr, {erl_syntax:atom_value(A), Fs}};
+                list ->
+                    Fs0 = [analyze_record_field(F)
+                           || F <- erl_syntax:record_expr_fields(Node)],
+                    Fs = [{N, D} || {N, {D, _T}} <- Fs0],
+                    {record_expr, {erl_syntax:list_elements(A), Fs}};
                 _ ->
                     throw(syntax_error)
             end;

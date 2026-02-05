@@ -128,6 +128,7 @@
 	 t_is_pid/1,
 	 t_is_port/1,
 	 t_is_maybe_improper_list/1,
+         t_is_record/1,
 	 t_is_reference/1,
          t_is_same_opaque/2,
 	 t_is_singleton/1,
@@ -173,6 +174,9 @@
 	 t_port/0,
 	 t_maybe_improper_list/0,
 	 t_product/1,
+         t_record/0,
+         t_record/1,
+         t_record_put/2,
 	 t_reference/0,
 	 t_string/0,
 	 t_subst/2,
@@ -205,7 +209,7 @@
 	 var_table__new/0,
 	 cache__new/0,
 	 module_type_deps_of_type_defs/1,
-   type_form_to_remote_modules/1
+         type_form_to_remote_modules/1
 	]).
 
 -compile({no_auto_import,[min/2,max/2,map_get/2]}).
@@ -261,6 +265,7 @@
 -define(nil_tag,        nil).
 -define(number_tag,     number).
 -define(product_tag,    product).
+-define(record_tag,     record).
 -define(tuple_set_tag,  tuple_set).
 -define(tuple_tag,      tuple).
 -define(union_tag,      union).
@@ -341,6 +346,7 @@
 -define(map(Pairs,DefKey,DefVal),
 	#c{tag=?map_tag, elements={Pairs,DefKey,DefVal}}).
 -define(product(Types),            #c{tag=?product_tag, elements=Types}).
+-define(record(Name, Types),       #c{tag=?record_tag, elements={Name, Types}}).
 -define(tuple(Types, Arity, Qual), #c{tag=?tuple_tag, elements=Types,
                                       qualifier={Arity, Qual}}).
 -define(tuple_set(Tuples),         #c{tag=?tuple_set_tag, elements=Tuples}).
@@ -353,7 +359,7 @@
 -define(integer_neg,               ?int_range(neg_inf, -1)).
 
 -type file_line()    :: {file:name(), erl_anno:line()}.
--type record_key()   :: {'record', atom()}.
+-type record_key()   :: {'record', atom()} | {'native_record', any()}.
 -type type_key()     :: {'type' | 'opaque' | 'nominal', atom(), arity()}.
 -type field()        :: {atom(), erl_parse:abstract_expr(), erl_type()}.
 -type record_value() :: {file_line(),
@@ -748,6 +754,42 @@ t_is_fun(Type) ->
 
 is_fun(?function(_, _)) -> true;
 is_fun(_) -> false.
+
+%%------------------------------------
+%% Native Records
+%% Representation:
+%% ?record(Name, Pairs)
+%%
+%% An instance of native record
+%% Name is a tuple, consisting of {Module, Name}.
+%% Pairs is a map of key-value pairs
+
+-spec t_record() -> erl_type().
+
+t_record() ->
+  ?record(?any, ?any).
+
+-spec t_record(any()) -> erl_type().
+
+t_record(Name) ->
+  ?record(Name, ?any).
+
+-spec t_is_record(erl_type()) -> boolean().
+
+t_is_record(Type) ->
+  structural(Type, fun is_record1/1).
+
+is_record1(?record(_, _)) -> true;
+is_record1(_) -> false.
+
+-spec t_record_put({atom(), erl_type()}, erl_type()) -> erl_type().
+t_record_put({K, V}, ?record(Name, Fields)) ->
+  NewFields = case Fields of
+                #{K := OldV} -> Fields#{K => t_sup(OldV, V)};
+                #{} -> Fields#{K => V};
+                _ -> #{K => V}
+              end,
+  ?record(Name, NewFields).
 
 %%-----------------------------------------------------------------------------
 %% Identifiers. Includes ports, pids and refs.
@@ -2067,6 +2109,8 @@ t_sup_aux(?opaque, T) -> T;
 t_sup_aux(T, ?opaque) -> T;
 t_sup_aux(?var(_), _) -> ?any;
 t_sup_aux(_, ?var(_)) -> ?any;
+t_sup_aux(?record(_,_), _) -> ?any;
+t_sup_aux(_, ?record(_,_)) -> ?any;
 t_sup_aux(?atom(Set1), ?atom(Set2)) ->
   ?atom(set_union(Set1, Set2));
 t_sup_aux(?bitstr(U1, B1), ?bitstr(U2, B2)) ->
@@ -2446,6 +2490,7 @@ t_elements(?tuple_set(_) = TS) ->
     unknown -> [];
     Elems -> Elems
   end;
+t_elements(?record(_,_) = T) -> [T];
 t_elements(?union(_) = T) ->
   do_elements(T);
 t_elements(?var(_)) -> [?any].  %% yes, vars exist -- what else to do here?
@@ -2720,6 +2765,10 @@ t_inf_aux(?union(U1), T) ->
 t_inf_aux(T, ?union(U2)) ->
   ?union(U1) = force_union(T),
   inf_union(U1, U2);
+t_inf_aux(?record(_,_)=T, _) ->
+  T;
+t_inf_aux(_, ?record(_,_)=T) ->
+  T;
 t_inf_aux(#c{}, #c{}) ->
   ?none.
 
@@ -3342,6 +3391,8 @@ t_subtract_aux(?product(P1), _) ->
   ?product(P1);
 t_subtract_aux(T, ?product(_)) ->
   T;
+t_subtract_aux(?record(_,_) = T, _) ->
+  T;
 t_subtract_aux(?union(U1), ?union(U2)) ->
   subtract_union(U1, U2);
 t_subtract_aux(T1, T2) ->
@@ -3832,6 +3883,17 @@ t_to_string(?map(Pairs0,DefK,DefV), RecDict) ->
   "#{" ++ flat_join([K ++ ":=" ++ V||{K,V}<-StrMand]
                     ++ [K ++ "=>" ++ V||{K,V}<-StrOpt]
                     ++ ExtraEl, ", ") ++ "}";
+t_to_string(?record(?any, ?any), _RecDict) ->
+  "record()";
+t_to_string(?record({Module, Name}, ?any), _RecDict) ->
+  ModName = flat_format("~w:~tw", [Module, Name]),
+  ModName ++ "#{any()}";
+t_to_string(?record({Module, Name}, Pairs), RecDict) ->
+  ModName = flat_format("~w:~tw", [Module, Name]),
+  ModName ++ "#{" ++
+  flat_join([t_to_string(K, RecDict) ++ "=" ++ t_to_string(V, RecDict)
+             || K := V <:- Pairs], ", ")
+  ++ "}";
 t_to_string(?tuple(?any, ?any, ?any), _RecDict) -> "tuple()";
 t_to_string(?tuple(Elements, _Arity, ?any), RecDict) ->
   "{" ++ comma_sequence(Elements, RecDict) ++ "}";
@@ -3921,7 +3983,8 @@ union_sequence(Types, RecDict) ->
 -type site()  :: {'type', mta(), file:filename()}
                | {'spec', mfa(), file:filename()}
                | {'record', mra(), file:filename()}
-               | {'check', mta(), file:filename()}.
+               | {'check', mta(), file:filename()}
+               | {'native_record', mra(), file:filename()}.
 -type cache_key() :: {module(), atom(), expand_depth(),
                       [erl_type()], type_names()}.
 -type mod_type_table() :: ets:tid().
@@ -4013,7 +4076,8 @@ t_from_form2(Form, State, D, L, C) ->
 
 initial_typenames({type, MTA, _File}) -> [{type, MTA}];
 initial_typenames({spec, _MFA, _File}) -> [];
-initial_typenames({record, _MRA, _File}) -> [].
+initial_typenames({record, _MRA, _File}) -> [];
+initial_typenames({native_record, _MRA, _File}) -> [].
 
 %% 4 is the maximal depth used by any Dialyzer module
 %% (5 is used internally).
@@ -4229,6 +4293,8 @@ from_form({type, _Anno, range, [From, To]} = Type, _S, _D, L, C) ->
       {t_from_range(FromVal, ToVal), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
   end;
+from_form({type, _Anno, record, []}, _S, _D, L, C) ->
+  {t_record(), L, C};
 from_form({type, _Anno, record, [Name|Fields]}, S, D, L, C) ->
   record_from_form(Name, Fields, S, D, L, C);
 from_form({type, _Anno, reference, []}, _S, _D, L, C) ->
@@ -4886,7 +4952,7 @@ lookup_module_types(Module, CodeTable, Cache) ->
       end
   end.
 
--spec lookup_record(atom(), type_table()) ->
+-spec lookup_record(any(), type_table()) ->
         'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.
 
 lookup_record(Tag, Table) when is_atom(Tag) ->
@@ -4900,9 +4966,19 @@ lookup_record(Tag, Table) when is_atom(Tag) ->
       error;
     #{} ->
       error
+  end;
+lookup_record(Tag, Table) ->
+  Key = {native_record, Tag},
+  case Table of
+    #{Key := {_FileLocation, [{_Arity, Fields}]}} ->
+      {ok, Fields};
+    #{Key := {_FileLocation, List}} when is_list(List) ->
+      error;
+    #{} ->
+      error
   end.
 
--spec lookup_record(atom(), arity(), type_table()) ->
+-spec lookup_record(any(), arity(), type_table()) ->
         'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.
 
 lookup_record(Tag, Arity, Table) when is_atom(Tag) ->
@@ -4912,6 +4988,16 @@ lookup_record(Tag, Arity, Table) when is_atom(Tag) ->
       {ok, Fields};
     #{Key := {_FileLocation, OrdDict}} ->
       orddict:find(Arity, OrdDict);
+    #{} ->
+      error
+  end;
+lookup_record(Tag, 0, Table) ->
+  Key = {native_record, Tag},
+  case Table of
+    #{Key := {_FileLocation, [{_Arity, Fields}]}} ->
+      {ok, Fields};
+    #{Key := _OrdDict} ->
+      error;
     #{} ->
       error
   end.
@@ -5145,6 +5231,11 @@ module_type_deps_of_entry({{'nominal', _TypeName, _A}, {{_FromM, _FileLine, Abst
 
 module_type_deps_of_entry({{'opaque', _TypeName, _A}, {{_FromM, _FileLine, AbstractType, _ArgNames}, _}}) ->
   type_form_to_remote_modules(AbstractType);
+
+module_type_deps_of_entry({{'native_record', _Name}, {_FileLine, SizesAndFields}}) ->
+  AllFields = lists:append([Fields || {_Size, Fields} <- SizesAndFields]),
+  FieldTypes = [AbstractType || {_, AbstractType, _} <- AllFields],
+  type_form_to_remote_modules(FieldTypes);
 
 module_type_deps_of_entry({{'record', _Name}, {_FileLine, SizesAndFields}}) ->
   AllFields = lists:append([Fields || {_Size, Fields} <- SizesAndFields]),

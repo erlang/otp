@@ -943,8 +943,11 @@ error_info(_Config) ->
          {is_integer, [5, a, b]},
          {is_map_key, [key, not_map]},
          {is_process_alive, [abc]},
+
+         {is_record, 1},                        %Can't fail.
          {is_record, [not_tuple,42]},
-         {is_record, [not_tuple,42,bad_size]},
+         {is_record, [not_tuple,mod,42.0]},
+
          {length, [abc]},
          {link, [42]},
          {link, [DeadProcess]},

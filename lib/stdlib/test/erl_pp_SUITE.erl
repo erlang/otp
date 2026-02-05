@@ -52,6 +52,7 @@
 	  format_options/1,
           form_vars/1,
 	  quoted_atom_types/1,
+          native_records/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
@@ -82,7 +83,7 @@ groups() ->
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
        messages, maps_syntax, quoted_atom_types,
-       format_options, form_vars
+       format_options, form_vars, native_records
     ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
@@ -774,6 +775,20 @@ neg_indent(Config) when is_list(Config) ->
     "fun True() -> true end" = flat_expr(Fun3),
 
     ok.
+
+native_records(Config) ->
+    Ts = [{?FUNCTION_NAME,
+           ~"""
+           -record #a{x, y}.
+           m1(#a{x=X, y=Y}) -> X + Y.
+           m2(R) ->
+               #a{x=X, y=Y} = R,
+               X + Y.
+           c() -> #a{x=1, y=2}.
+           u(R) -> R#a{x=10}.
+           a(R) -> R#a.x.
+           """}],
+    compile(Config, Ts).
 
 
 %% OTP_6321. Bug fix of exprs().
@@ -1473,9 +1488,11 @@ compile_file(Config, Test, Opts0) ->
     case compile:file(FileName, Opts) of
         {ok, _M, _Ws} ->
             {ok, filename:rootname(FileName)};
-        Error -> Error
+        Error ->
+            io:format("~ts\n", [Test]),
+            _ = compile:file(FileName, [report|Opts]),
+            Error
     end.
-
 flat_expr1(Expr0) ->
     Expr = erl_parse:new_anno(Expr0),
     lists:flatten(erl_pp:expr(Expr)).

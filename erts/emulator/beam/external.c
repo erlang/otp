@@ -50,7 +50,7 @@
 #include "erl_trace.h"
 #include "erl_global_literals.h"
 #include "erl_term_hashing.h"
-
+#include "erl_record.h"
 
 #define PASS_THROUGH 'p'
 
@@ -3996,6 +3996,37 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                 }
             }
             break;
+        case RECORD_DEF:
+            {
+                Sint size;
+                ErtsRecordInstance *instance;
+                ErtsRecordDefinition *defp;
+                Eterm *values;
+                Eterm *order;
+
+                instance = RECORD_INST_P(obj);
+                size = RECORD_INST_FIELD_COUNT(instance);
+                defp = RECORD_DEF_P(instance);
+
+                *ep++ = RECORD_EXT;
+                put_int32(size, ep); ep += 4;
+                ASSERT(defp->is_exported == am_false || defp->is_exported == am_true);
+                *ep++ = defp->is_exported == am_false ? 0 : 1;
+                ep = enc_atom(acmp, defp->module, ep, dflags);
+                ep = enc_atom(acmp, defp->name, ep, dflags);
+
+                order = tuple_val(defp->field_order) + 1;
+                for (int i = 0; i < size; i++) {
+                    Eterm key = defp->keys[unsigned_val(order[i])];
+                    ep = enc_atom(acmp, key, ep, dflags);
+                }
+                values = instance->values;
+
+                for (Sint i = size-1; i >= 0; i--) {
+                    WSTACK_PUSH2(s, ENC_TERM, (UWord) values[unsigned_val(order[i])]);
+                }
+            }
+            break;
         }
     }
     DESTROY_WSTACK(s);
@@ -4246,6 +4277,22 @@ struct dec_term_map
     } u;
 };
 
+struct erl_record_field {
+    Uint order;
+    Eterm key;
+};
+
+static int record_compare(const struct erl_record_field *a, const struct erl_record_field *b) {
+    Sint res = erts_cmp_flatmap_keys(a->key, b->key);
+
+    if (res < 0) {
+        return -1;
+    } else if (res > 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
 
 /* Decode term from external format into *objp.
 ** On failure calls erts_factory_undo() and returns NULL
@@ -5191,6 +5238,114 @@ dec_term_atom_common:
             ep += 4; /* 32-bit hash (verified in decoded_size()) */
             goto continue_this_obj;
 
+        case RECORD_EXT:
+            {
+                Uint32 num_fields;
+                ErtsRecordInstance *instance;
+                ErtsRecordDefinition *defp;
+                Eterm *values;
+                Eterm *order;
+                Eterm order_tuple;
+                struct erl_record_field *fields;
+                Uint32 hash;
+                Uint hash_tuple_size;
+                Eterm tagged_hash;
+#if !defined(ARCH_64)
+                Eterm *big_buf = hp;
+                *hp++ = NIL;
+                *hp++ = NIL;
+#endif
+                num_fields = get_uint32(ep); ep += 4;
+
+                order = (Eterm *)hp;
+                if (num_fields > 0) {
+                    hp += (num_fields + 1);
+                }
+
+                defp = (ErtsRecordDefinition *)hp;
+                hp += sizeof(ErtsRecordDefinition)/sizeof(Eterm) + num_fields;
+                defp->thing_word = make_arityval(RECORD_DEF_SIZE(num_fields) - 1);
+
+                /* Flags */
+                defp->is_exported = (*ep & 1) ? am_true : am_false;
+                ep++;
+
+                /* Module */
+                if ((ep = dec_atom(edep, ep, &defp->module, 0)) == NULL) {
+                    goto error;
+                }
+                /* Name */
+                if ((ep = dec_atom(edep, ep, &defp->name, 0)) == NULL) {
+                    goto error;
+                }
+
+                fields = erts_alloc(ERTS_ALC_T_TMP,
+                                    num_fields * sizeof(struct erl_record_field));
+
+                for (int i = 0; i < num_fields; i++) {
+                    Eterm key;
+
+                    if ((ep = dec_atom(edep, ep, &key, 0)) == NULL) {
+                        erts_free(ERTS_ALC_T_TMP, fields);
+                        goto error;
+                    }
+                    fields[i].order = i;
+                    fields[i].key = key;
+                    defp->keys[i] = key;
+                }
+
+                hash_tuple_size = defp->keys - &defp->hash - 1 + num_fields;
+                defp->hash = make_arityval(hash_tuple_size);
+                hash = make_hash2(make_tuple((Eterm *)&defp->hash));
+#if defined(ARCH_64)
+                tagged_hash = make_small(hash);
+#else
+                if (IS_USMALL(0, hash)) {
+                    tagged_hash = make_small(hash);
+                } else {
+                    tagged_hash = uint_to_big(hash, big_buf);
+                }
+#endif
+                defp->hash = tagged_hash;
+
+                if (num_fields == 0) {
+                    order_tuple = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                } else {
+                    qsort(fields, num_fields, sizeof(struct erl_record_field),
+                          (int (*)(const void *, const void *)) record_compare);
+
+                    order_tuple = make_boxed(order);
+                    *order++ = make_arityval(num_fields);
+                    for (int i = 0; i < num_fields; i++) {
+                        order[fields[i].order] = make_small(i);
+                        defp->keys[i] = fields[i].key;
+                    }
+                }
+
+                erts_free(ERTS_ALC_T_TMP, fields);
+
+                defp->field_order = order_tuple;
+
+                instance = (ErtsRecordInstance *)hp;
+                hp += RECORD_INST_SIZE(num_fields);
+
+                instance->thing_word = MAKE_RECORD_HEADER(num_fields);
+                instance->record_definition = erts_canonical_record_def(defp);
+                values = instance->values;
+
+                if (num_fields > 0) {
+                    for (Sint i = num_fields - 1; i >= 0; i--) {
+                        int index = unsigned_val(order[i]);
+                        ASSERT(index < num_fields);
+                        values[index] = (Eterm)next;
+                        next = &values[index];
+                    }
+                }
+
+                *objp = make_boxed((Eterm *)instance);
+            }
+            break;
+
 	default:
 	    goto error;
 	}
@@ -5725,6 +5880,41 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                 break;
         }
 
+        case RECORD_DEF:
+            {
+                Sint size;
+                ErtsRecordInstance *instance;
+                ErtsRecordDefinition *defp;
+                Eterm *values;
+
+                instance = RECORD_INST_P(obj);
+                size = RECORD_INST_FIELD_COUNT(instance);
+                defp = RECORD_DEF_P(instance);
+
+                result += 1     /* tag */
+                    + 4         /* length field */
+                    + 1;        /* flags */
+
+                result += encode_atom_size(acmp, defp->module, dflags);
+                result += encode_atom_size(acmp, defp->name, dflags);
+
+                for (int i = 0; i < size; i++) {
+                    result += encode_atom_size(acmp, defp->keys[i], dflags);
+                }
+
+                values = instance->values;
+                if (size > 1) {
+                    WSTACK_PUSH2(s, (UWord) (values + 1),
+                                 (UWord) TERM_ARRAY_OP(size-1));
+                }
+
+                if (size != 0) {
+                    obj = values[0];
+                    continue; /* big loop */
+                }
+            }
+            break;
+
 	default:
 	    erts_exit(ERTS_ERROR_EXIT,"Internal data structure error (in encode_size_struct_int) %x\n",
 		     obj);
@@ -6216,6 +6406,23 @@ init_done:
             lext_term_end = terms - 1;
             terms++;
             ep += 4;
+            break;
+        case RECORD_EXT:
+            {
+                CHKSIZE(4);
+                n = get_uint32(ep); ep += 4;
+                heap_size += RECORD_INST_SIZE(n) + RECORD_DEF_SIZE(n);
+#if !defined(ARCH_64)
+                heap_size += BIG_UINT_HEAP_SIZE;
+#endif
+                if (n > 0) {
+                    heap_size += 1 + n; /* field_order tuple */
+                }
+                SKIP(1);        /* Skip flags */
+                ADDTERMS(2);    /* Module, name */
+                ADDTERMS(n);
+                ADDTERMS(n);
+            }
             break;
 	default:
 	    goto error;

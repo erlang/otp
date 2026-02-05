@@ -61,7 +61,9 @@
 	       try_body/1, try_vars/1, try_evars/1, try_handler/1,
 	       tuple_es/1, type/1, values_es/1, var_name/1,
 	       map_arg/1, map_es/1, is_c_map_empty/1,
-	       map_pair_key/1, map_pair_val/1, map_pair_op/1
+               map_pair_key/1, map_pair_val/1, map_pair_op/1,
+               record_arg/1, record_es/1, record_id/1,
+               record_pair_key/1, record_pair_val/1
 	   ]).
 
 -define(PAPER, 76).
@@ -420,6 +422,10 @@ lay_1(Node, Ctxt) ->
 	    lay_map(Node, Ctxt);
 	map_pair ->
 	    lay_map_pair(Node, Ctxt);
+	record ->
+            lay_record(Node, Ctxt);
+	record_pair ->
+	    lay_record_pair(Node, Ctxt);
 	'let' ->
 	    lay_let(Node, Ctxt);
 	seq ->
@@ -615,6 +621,19 @@ lay_map_pair(Node, Ctxt) ->
 	exact -> ":="
     end,
     beside(lay(K,Ctxt),beside(floating(text(OpTxt)),lay(V,Ctxt))).
+
+lay_record(Node, Ctxt) ->
+    Arg = record_arg(Node),
+    Id = record_id(Node),
+    N = beside(lay(Arg, Ctxt), beside(floating(text("#")), lay(Id, Ctxt))),
+    beside(N, beside(floating(text("~{")),
+            beside(par(seq(record_es(Node), floating(text(",")), Ctxt, fun lay/2)),
+	        floating(text("}~"))))).
+
+lay_record_pair(Node, Ctxt) ->
+    K = record_pair_key(Node),
+    V = record_pair_val(Node),
+    beside(lay(K,Ctxt),beside(floating(text(" =")),lay(V,Ctxt))).
 
 lay_let(Node, Ctxt) ->
     V = lay_value_list(let_vars(Node), Ctxt),

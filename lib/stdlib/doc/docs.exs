@@ -46,7 +46,7 @@
         :base64,
         :erl_error
       ],
-      DATATYPES: [:binary, :maps, :lists, :math],
+      DATATYPES: [:binary, :maps, :lists, :math, :records],
       CODE: [
         :erl_scan,
         :erl_pp,

@@ -168,6 +168,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
               :: #{ta() := [used_type()]}
          }).
 
+-type record_flavor() :: 'tuple' | 'native'.
 
 %% Define the lint state record.
 %% 'called' and 'exports' contain {Anno, {Function, Arity}},
@@ -179,12 +180,13 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                imports=[] :: orddict:orddict(fa(), module()),%Imports
                remote_self_calls=#{} :: #{ fa() => gb_sets:set() },
                compile=[],                      %Compile flags
-               records=maps:new()               %Record definitions
-                   :: #{atom() => {anno(),Fields :: term()}},
+               records=maps:new()                %Record definitions
+                   :: #{atom() => {anno(),record_flavor(),Fields :: term()}},
                locals=gb_sets:empty()     %All defined functions (prescanned)
                    :: gb_sets:set(fa()),
                no_auto={set, gb_sets:empty()} %Functions explicitly not autoimported
                    :: 'all' | {set, gb_sets:set(fa())},
+               rec_imports=#{} :: #{atom() => module()},
                defined=gb_sets:empty()          %Defined fuctions
                    :: gb_sets:set(fa()),
 	       on_load=[] :: [fa()],		%On-load function
@@ -335,6 +337,8 @@ format_error_1({undefined_on_load,{F,A},GuessF}) ->
     {~"function ~tw/~w undefined, did you mean ~ts/~w?", [F,A,GuessF,A]};
 format_error_1(nif_inline) ->
     ~"inlining is enabled - local calls to NIFs may call their Erlang implementation instead";
+format_error_1(bad_export_record) ->
+    ~"badly formed -export_record(); expected a list of record names";
 
 format_error_1(export_all) ->
     ~"export_all flag enabled - all functions will be exported";
@@ -458,13 +462,38 @@ format_error_1({undefined_record,T,GuessT}) ->
 format_error_1({redefine_record,T}) ->
     {~"record ~tw already defined", [T]};
 format_error_1({redefine_field,T,F}) ->
-    {~"field ~tw already defined in record ~tw", [F,T]};
+    {~"field ~tw already defined in record ~ts", [F,format_record_name(T)]};
+format_error_1({redefine_imported_record,{Mod,R}}) ->
+    {~"record ~tw already imported from ~w", [R,Mod]};
+format_error_1({redefine_local_record,R}) ->
+    {~"record ~ts is already defined locally", [format_record_name(R)]};
+format_error_1({undefined_native_record,T}) ->
+    {~"native record ~tw undefined", [T]};
+format_error_1({undefined_native_record_field,N,F}) ->
+    {~"field ~tw not defined in native record ~ts", [F,format_record_name(N)]};
+format_error_1({no_init_native_record_field,N,F}) ->
+    {~"field ~tw is not initialized in native record ~ts", [F,format_record_name(N)]};
+format_error_1({illegal_native_record_default,N,F}) ->
+    {~"illegal default value for field ~tw in native record ~tw", [F,N]};
+format_error_1({native_record_illegal_record_index,Name,F}) ->
+    {~"syntax #~tw.~tw is only supported for tuple records",
+     [Name,F]};
+format_error_1(native_record_in_guard) ->
+    ~"creating a record in a guard is only supported for tuple records";
+format_error_1(native_record_illegal_multi_field_init) ->
+    ~"multi-field initialization (assigning to _) is only supported for tuple records";
+format_error_1({native_record_already_exported,N}) ->
+    {~"native record ~tw already exported",[N]};
+format_error_1(tuple_record_export) ->
+    ~"tuple records cannot be exported; only native records can";
 format_error_1(bad_multi_field_init) ->
     {~"'_' initializes no omitted fields", []};
 format_error_1({undefined_field,T,F}) ->
     {~"field ~tw undefined in record ~tw", [F,T]};
 format_error_1({undefined_field,T,F,GuessF}) ->
     {~"field ~tw undefined in record ~tw, did you mean ~ts?", [F,T,GuessF]};
+format_error_1(native_record_illegal_record_info) ->
+    ~"record_info/2 is only supported for tuple records";
 format_error_1(illegal_record_info) ->
     ~"illegal record info";
 format_error_1({field_name_is_variable,T,F}) ->
@@ -683,6 +712,11 @@ format_where(L) when is_integer(L) ->
     io_lib:format("(line ~p)", [L]);
 format_where({L,C}) when is_integer(L), is_integer(C) ->
     io_lib:format("(line ~p, column ~p)", [L, C]).
+
+format_record_name({Mod, Name}) ->
+    io_lib:format(~"#~tw:~tw", [Mod,Name]);
+format_record_name(Name) when is_atom(Name) ->
+    io_lib:format(~"~ts", [Name]).
 
 %% Local functions that are somehow automatically generated.
 
@@ -995,7 +1029,7 @@ forms(Forms0, St0) ->
     AutoImportSuppressed = auto_import_suppressed(St0#lint.compile),
     StDeprecated = disallowed_compile_flags(Forms,St0),
     St1 = includes_qlc_hrl(Forms, StDeprecated#lint{locals = Locals,
-						    no_auto = AutoImportSuppressed}),
+                                                    no_auto = AutoImportSuppressed}),
     St2 = bif_clashes(Forms, St1),
     St3 = not_deprecated(Forms, St2),
     St4 = not_removed(Forms, St3),
@@ -1099,8 +1133,12 @@ attribute_state({attribute,A,export_type,Es}, St) ->
     export_type(A, Es, St);
 attribute_state({attribute,A,import,Is}, St) ->
     import(A, Is, St);
+attribute_state({attribute,A,import_record,Ss}, St) ->
+    import_native_record(A, Ss, St);
 attribute_state({attribute,A,record,{Name,Fields}}, St) ->
-    record_def(A, Name, Fields, St);
+    record_def(A, tuple, Name, Fields, St);
+attribute_state({attribute,A,native_record,{Name,Fields}}, St) ->
+    record_def(A, native, Name, Fields, St);
 attribute_state({attribute,Aa,behaviour,Behaviour}, St) ->
     St#lint{behaviour=St#lint.behaviour ++ [{Aa,Behaviour}]};
 attribute_state({attribute,Aa,behavior,Behaviour}, St) ->
@@ -1188,7 +1226,9 @@ untrack_doc(_KFA, St) ->
 %%  Dialyzer attributes are also allowed everywhere.
 
 function_state({attribute,A,record,{Name,Fields}}, St) ->
-    record_def(A, Name, Fields, St);
+    record_def(A, tuple, Name, Fields, St);
+function_state({attribute,A,native_record,{Name,Fields}}, St) ->
+    record_def(A, native, Name, Fields, St);
 function_state({attribute,A,type,{TypeName,TypeDef,Args}}, St) ->
     St1 = untrack_doc({type, TypeName, length(Args)}, St),
     type_def(type, A, TypeName, TypeDef, Args, St1);
@@ -1300,13 +1340,14 @@ post_traversal_check(Forms, St0) ->
     StB = check_unused_types(Forms, StA),
     StC = check_untyped_records(Forms, StB),
     StD = check_on_load(StC),
-    StE = check_unused_records(Forms, StD),
-    StF = check_local_opaque_types(StE),
-    StG = check_dialyzer_attribute(Forms, StF),
-    StH = check_callback_information(StG),
-    StI = check_nifs(Forms, StH),
-    StJ = check_unexported_functions(StI),
-    check_removed(Forms, StJ).
+    StE = check_export_record(Forms, StD),
+    StF = check_unused_records(Forms, StE),
+    StG = check_local_opaque_types(StF),
+    StH = check_dialyzer_attribute(Forms, StG),
+    StI = check_callback_information(StH),
+    StJ = check_nifs(Forms, StI),
+    StK = check_unexported_functions(StJ),
+    check_removed(Forms, StK).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -1774,7 +1815,7 @@ check_untyped_records(Forms, St0) ->
 					  (_) -> false
 				      end, Fields)],
 	    foldl(fun (N, St) ->
-			  {Anno, Fields} = map_get(N, St0#lint.records),
+			  {Anno, _Flavor, Fields} = map_get(N, St0#lint.records),
 			  case Fields of
 			      [] -> St; % exclude records with no fields
 			      [_|_] -> add_warning(Anno, {untyped_record, N}, St)
@@ -1795,7 +1836,7 @@ check_unused_records(Forms, St0) ->
                           {nowarn_unused_record, Recs0} <- lists:flatten([Args]),
                           Rec <- lists:flatten([Recs0])],
             St1 = foldl(fun ({Rec, Anno}, St2) ->
-                                exist_record(Anno, Rec, St2)
+                                exist_any_record(Anno, Rec, St2)
                         end, St0, RecAnno),
             %% The check is a bit imprecise in that uses from unused
             %% functions count.
@@ -1805,7 +1846,7 @@ check_unused_records(Forms, St0) ->
                                          maps:remove(Used, Recs)
                                  end, St1#lint.records, UsedRecords),
             Unused = [{Name,Anno} ||
-                         Name := {Anno,_Fields} <- URecs,
+                         Name := {Anno,_Flavor,_Fields} <:- URecs,
                          element(1, loc(Anno, St1)) =:= FirstFile],
             foldl(fun ({N,Anno}, St) ->
                           add_warning(Anno, {unused_record, N}, St)
@@ -1839,6 +1880,42 @@ check_callback_information(#lint{callbacks = Callbacks,
                     maps:fold(FoldFun, St1, Callbacks)
 	    end
     end.
+
+check_export_record(Forms, #lint{records=Recs}=St) ->
+    check_export_record_1(Forms, Recs, sets:new(), St).
+
+check_export_record_1([{attribute,A,export_record,Es}|Fs], Recs, Seen0, St0) ->
+    {Seen,St} = check_export_record_2(A, Es, Recs, Seen0, St0),
+    check_export_record_1(Fs, Recs, Seen, St);
+check_export_record_1([_|Fs], Recs, Seen, St) ->
+    check_export_record_1(Fs, Recs, Seen, St);
+check_export_record_1([], _, _, St) -> St.
+
+check_export_record_2(A, [R|Rs], Recs, Seen0, St0) when is_atom(R) ->
+    case sets:is_element(R, Seen0) of
+        true ->
+            St = add_error(A, {native_record_already_exported,R}, St0),
+            check_export_record_2(A, Rs, Recs, Seen0, St);
+        false ->
+            Seen = sets:add_element(R, Seen0),
+            case Recs of
+                #{R := {_,tuple,_}} ->
+                    St1 = used_record(R, St0),
+                    St = add_error(A, tuple_record_export, St1),
+                    check_export_record_2(A, Rs, Recs, Seen, St);
+                #{R := {_,native,_}} ->
+                    St1 = used_record(R, St0),
+                    check_export_record_2(A, Rs, Recs, Seen0, St1);
+                #{} ->
+                    St = add_error(A, {undefined_native_record,R}, St0),
+                    check_export_record_2(A, Rs, Recs, Seen, St)
+            end
+    end;
+check_export_record_2(_A, [], _Recs, Seen, St) ->
+    {Seen,St};
+check_export_record_2(A, _, _Recs, Seen, St0) ->
+    St = add_error(A, bad_export_record, St0),
+    {Seen,St}.
 
 %% For storing the import list we use the orddict module.
 %% We know an empty set is [].
@@ -1950,6 +2027,38 @@ check_imports(_Anno, Fs, Is) ->
 add_imports(Mod, Fs, Is) ->
     foldl(fun (F, Is0) -> orddict:store(F, Mod, Is0) end, Is, Fs).
 
+-spec import_native_record(anno(), {module(), [atom()]}, lint_state()) -> lint_state().
+import_native_record(Anno, {Mod, Rs}, #lint{rec_imports=Imports,
+                                            records=Records}=St0) ->
+    St = check_module_name(Mod, Anno, St0),
+    case check_nn_imports(Anno, Rs, Imports, Records) of
+        [] ->
+            NewImports = #{Name => Mod || Name <- Rs},
+            RecImports = maps:merge(Imports, NewImports),
+            St#lint{rec_imports = RecImports};
+        Es ->
+            foldl(fun({_Mod,_Name}=ModName, S0) ->
+                          Error = {redefine_imported_record, ModName},
+                          add_error(Anno, Error, S0);
+                     (Name, S0) when is_atom(Name) ->
+                          Error = {redefine_local_record, Name},
+                          add_error(Anno, Error, S0)
+                  end, St, Es)
+    end.
+
+check_nn_imports(_Anno, Rs, Is, Records) ->
+    foldl(fun (Name, Efs) ->
+                  case is_map_key(Name, Records) of
+                      true ->
+                          [Name|Efs];
+                      false ->
+                          case Is of
+                              #{Name := Mod} -> [{Mod,Name}|Efs];
+                              #{} -> Efs
+                          end
+                  end
+          end, [], Rs).
+
 -spec imported(atom(), arity(), lint_state()) -> {'yes',module()} | 'no'.
 
 imported(F, A, St) ->
@@ -1958,9 +2067,8 @@ imported(F, A, St) ->
         error -> no
     end.
 
+%% Check an on_load directive and remember it.
 -spec on_load(erl_anno:anno(), fa(), lint_state()) -> lint_state().
-%%  Check an on_load directive and remember it.
-
 on_load(Anno, {Name,Arity}=Fa, #lint{on_load=OnLoad0}=St0)
   when is_atom(Name), is_integer(Arity) ->
     %% Always add the function name (even if there is a problem),
@@ -1982,6 +2090,7 @@ on_load(Anno, Val, St) ->
     %% Bad syntax.
     add_error(Anno, {bad_on_load,Val}, St).
 
+-spec check_on_load(lint_state()) -> lint_state().
 check_on_load(#lint{defined=Defined,on_load=[{_,0}=Fa],
 		    on_load_anno=Anno}=St) ->
     case gb_sets:is_member(Fa, Defined) of
@@ -2121,21 +2230,44 @@ pattern({map,_Anno,Ps}, Vt, Old, St) ->
 pattern({record_index,Anno,Name,Field}, _Vt, _Old, St) ->
     {Vt1,St1} =
         check_record(Anno, Name, St,
-                     fun (Dfs, St1) ->
-                             pattern_field(Field, Name, Dfs, St1)
+                     fun (tuple, Dfs, St1) ->
+                             pattern_field(Field, Name, Dfs, St1);
+                         (native, _Dfs, St1) ->
+                             {atom, _, F} = Field,
+                             Error = {native_record_illegal_record_index,
+                                      Name,F},
+                             {[], add_error(Anno, Error, St1)}
                      end),
     {Vt1,[],St1};
-pattern({record,Anno,Name,Pfs}, Vt, Old, St) ->
-    case maps:find(Name, St#lint.records) of
-        {ok,{_Anno,Fields}} ->
-            St1 = used_record(Name, St),
-            St2 = check_multi_field_init(Pfs, Anno, Fields, St1),
-            pattern_fields(Pfs, Name, Fields, Vt, Old, St2);
-        error ->
-            DefRecords = [atom_to_list(R) || R <- maps:keys(St#lint.records)],
-            case most_possible_string(Name, DefRecords) of
-                [] -> {[],[],add_error(Anno, {undefined_record,Name}, St)};
-                GuessF -> {[],[],add_error(Anno, {undefined_record,Name,GuessF}, St)}
+pattern({record, Anno, {Mod, Name}=ModName, Pfs}, Vt, Old, St) ->
+    if
+        Mod =:= St#lint.module ->
+            pattern({record, Anno, Name, Pfs}, Vt, Old, St);
+        true ->
+            pattern_native_record_fields(ModName, Pfs, Vt, Old, St)
+    end;
+pattern({record, _Anno, [], Fs}, Vt, Old, St) ->
+    pattern_native_record_fields([], Fs, Vt, Old, St);
+pattern({record,Anno,Name,Pfs}, Vt, Old, St0) ->
+    IsNative = case St0#lint.records of
+                   #{Name := {_, native, _}} ->
+                       true;
+                   #{} ->
+                       is_map_key(Name, St0#lint.rec_imports)
+               end,
+    case IsNative of
+        true ->
+            St1 = used_record(Name, St0),
+            St2 = check_native_record_fields_usage(Name, Pfs, St1),
+            pattern_native_record_fields(Name, Pfs, Vt, Old, St2);
+        false ->
+            case maps:find(Name, St0#lint.records) of
+                {ok,{_Anno,_Flavor,Fields}} ->
+                    St1 = used_record(Name, St0),
+                    St2 = check_multi_field_init(Pfs, Anno, Fields, St1),
+                    pattern_fields(Pfs, Name, Fields, Vt, Old, St2);
+                error ->
+                    {[],[],suggest_record_name(Anno, undefined_record, Name, St0)}
             end
     end;
 pattern({bin,_,Fs}, Vt, Old, St) ->
@@ -2492,32 +2624,41 @@ gexpr({map,_Anno,Src,Es}, Vt, St) ->
     {vtmerge(Svt, Fvt),St2};
 gexpr({record_index,Anno,Name,Field}, _Vt, St) ->
     check_record(Anno, Name, St,
-                 fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end );
+                 fun (tuple=Flavor, Dfs, St1) ->
+                         record_field(Field, Flavor, Name, Dfs, St1);
+                     (native, _Dfs, St1) ->
+                         {atom, _, F} = Field,
+                         Error = {native_record_illegal_record_index,
+                                  Name,F},
+                         {[], add_error(Anno, Error, St1)}
+                 end);
 gexpr({record_field,Anno,Rec,Name,Field}, Vt, St0) ->
     {Rvt,St1} = gexpr(Rec, Vt, St0),
     {Fvt,St2} = check_record(Anno, Name, St1,
-                             fun (Dfs, St) ->
-                                     record_field(Field, Name, Dfs, St)
+                             fun (Flavor, Dfs, St) ->
+                                     record_field(Field, Flavor, Name, Dfs, St)
                              end),
     {vtmerge(Rvt, Fvt),St2};
 gexpr({record,Anno,Name,Inits}, Vt, St) ->
     check_record(Anno, Name, St,
-                 fun (Dfs, St1) ->
-                         ginit_fields(Inits, Anno, Name, Dfs, Vt, St1)
+                 fun (tuple, Dfs, St1) ->
+                         ginit_fields(Inits, Anno, Name, Dfs, Vt, St1);
+                     (native, _Dfs, St1) ->
+                         {[], add_error(Anno, native_record_in_guard, St1)}
                  end);
 gexpr({bin,_Anno,Fs}, Vt,St) ->
     expr_bin(Fs, Vt, St, fun gexpr/3);
 gexpr({call,_Anno,{atom,_Ar,is_record},[E,{atom,An,Name}]}, Vt, St0) ->
     {Rvt,St1} = gexpr(E, Vt, St0),
-    {Rvt,exist_record(An, Name, St1)};
+    {Rvt,exist_any_record(An, Name, St1)};
 gexpr({call,Anno,{atom,_Ar,is_record},[E,R]}, Vt, St0) ->
     {Asvt,St1} = gexpr_list([E,R], Vt, St0),
     {Asvt,add_error(Anno, illegal_guard_expr, St1)};
 gexpr({call,Anno,{remote,_Ar,{atom,_Am,erlang},{atom,Af,is_record}},[E,A]},
       Vt, St0) ->
     gexpr({call,Anno,{atom,Af,is_record},[E,A]}, Vt, St0);
-gexpr({call,Anno,{atom,_Ar,is_record},[E0,{atom,_,_Name},{integer,_,_}]},
-      Vt, St0) ->
+gexpr({call,Anno,{atom,_Ar,is_record},[E0,{atom,_,_Name},{Type,_,_}]},
+      Vt, St0) when Type =:= integer; Type =:= atom ->
     {E,St1} = gexpr(E0, Vt, St0),
     case no_guard_bif_clash(St0, {is_record,3}) of
 	true ->
@@ -2752,7 +2893,11 @@ is_map_fields(_T, _Info) -> false.
 
 is_gexpr_fields(Fs, A, Name, {RDs,_}=Info) ->
     IFs = case maps:find(Name, RDs) of
-              {ok,{_Anno,Fields}} -> Fs ++ init_fields(Fs, A, Fields);
+              {ok,{_Anno,_Flavor,Fields}} ->
+                  Fs ++ init_fields(Fs, A, Fields);
+              {ok,{_Anno,Fields}} ->
+                  %% Called from is_guard_test/3.
+                  Fs ++ init_fields(Fs, A, Fields);
               error  -> Fs
           end,
     all(fun ({record_field,_Af,_Name,V}) -> is_gexpr(V, Info);
@@ -2807,28 +2952,44 @@ expr({map,Anno,Src,Es}, Vt, St) ->
     {vtupdate(Svt, Fvt), warn_if_literal_update(Anno, Src, St2)};
 expr({record_index,Anno,Name,Field}, _Vt, St) ->
     check_record(Anno, Name, St,
-                 fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end);
+                 fun (tuple=Flavor, Dfs, St1) ->
+                         record_field(Field, Flavor, Name, Dfs, St1);
+                     (native, _Dfs, St1) ->
+                         {atom, _, F} = Field,
+                         Error = {native_record_illegal_record_index,
+                                  Name,F},
+                         {[], add_error(Anno, Error, St1)}
+                 end);
+expr({record, Anno, [], _Inits}, _Vt, St) ->
+    {[], add_error(Anno, {undefined_native_record, '_'}, St)};
 expr({record,Anno,Name,Inits}, Vt, St) ->
     check_record(Anno, Name, St,
-                 fun (Dfs, St1) ->
-                         init_fields(Inits, Anno, Name, Dfs, Vt, St1)
+                 fun (Flavor, Dfs, St1) ->
+                         init_fields(Flavor, Inits, Anno, Name, Dfs, Vt, St1)
                  end);
 expr({record_field,Anno,Rec,Name,Field}, Vt, St0) ->
     {Rvt,St1} = record_expr(Anno, Rec, Vt, St0),
     {Fvt,St2} = check_record(Anno, Name, St1,
-                             fun (Dfs, St) ->
-                                     record_field(Field, Name, Dfs, St)
+                             fun (Flavor, Dfs, St) ->
+                                     record_field(Field, Flavor, Name, Dfs, St)
                              end),
     {vtmerge(Rvt, Fvt),St2};
 expr({record,Anno,Rec,Name,Upds}, Vt, St0) ->
     {Rvt,St1} = record_expr(Anno, Rec, Vt, St0),
     {Usvt,St2} = check_record(Anno, Name, St1,
-                          fun (Dfs, St) ->
-                                  update_fields(Upds, Name, Dfs, Vt, St)
-                          end ),
-    case has_wildcard_field(Upds) of
-        no -> {vtmerge(Rvt, Usvt), warn_if_literal_update(Anno, Rec, St2)};
-        WildAnno -> {[],add_error(WildAnno, {wildcard_in_update,Name}, St2)}
+                              fun (Flavor, Dfs, St) ->
+                                      update_fields(Upds, Flavor, Name, Dfs, Vt, St)
+                              end ),
+    case St2#lint.records of
+        #{Name := {_,tuple,_}} ->
+            case has_wildcard_field(Upds) of
+                no ->
+                    {vtmerge(Rvt, Usvt), warn_if_literal_update(Anno, Rec, St2)};
+                WildAnno ->
+                    {[],add_error(WildAnno, {wildcard_in_update,Name}, St2)}
+            end;
+        #{} ->
+            {vtmerge(Rvt, Usvt), warn_if_literal_update(Anno, Rec, St2)}
     end;
 expr({bin,Anno,Fs}, Vt, St) ->
     {Vt1, St1} = expr_bin(Fs, Vt, St, fun expr/3),
@@ -2897,7 +3058,7 @@ expr({named_fun,Anno,Name,Cs}, Vt, St0) ->
     {vtold(Csvt, Vt),St3};
 expr({call,_Anno,{atom,_Ar,is_record},[E,{atom,An,Name}]}, Vt, St0) ->
     {Rvt,St1} = expr(E, Vt, St0),
-    {Rvt,exist_record(An, Name, St1)};
+    {Rvt,exist_any_record(An, Name, St1)};
 expr({call,Anno,{remote,_Ar,{atom,_Am,erlang},{atom,Af,is_record}},[E,A]},
       Vt, St0) ->
     expr({call,Anno,{atom,Af,is_record},[E,A]}, Vt, St0);
@@ -3168,26 +3329,49 @@ check_remote_self_call(_Anno, _M, _F, _A, St) ->
 %%  Add a record definition if it does not already exist. Normalise
 %%  so that all fields have explicit initial value.
 
-record_def(Anno, Name, Fs0, St0) ->
-    case is_map_key(Name, St0#lint.records) of
-        true -> add_error(Anno, {redefine_record,Name}, St0);
+record_def(Anno, Flavor, Name, Fs, St) ->
+    case is_map_key(Name, St#lint.records) of
+        true ->
+            add_error(Anno, {redefine_record,Name}, St);
         false ->
-            {Fs1,St1} = def_fields(normalise_fields(Fs0), Name, St0),
-            St2 = St1#lint{records=maps:put(Name, {Anno,Fs1},
-                                            St1#lint.records)},
-            Types = [T || {typed_record_field, _, T} <- Fs0],
-            St3 = St2#lint{type_id = {record, Name}},
-            check_type({type, nowarn(), product, Types}, St3)
+            case St#lint.rec_imports of
+                #{Name := Mod} ->
+                    add_error(Anno, {redefine_imported_record,{Mod,Name}}, St);
+                #{} ->
+                    record_def_1(Anno, Flavor, Name, Fs, St)
+            end
     end.
 
-%% def_fields([RecDef], RecordName, State) -> {[DefField],State}.
+record_def_1(Anno, Flavor, Name, Fs0, St0) ->
+    {Fs,St1} =
+        case Flavor of
+            native ->
+                Fs1 = normalise_fields(Flavor, Fs0),
+                def_fields(Fs1, Flavor, Name, St0);
+            tuple ->
+                def_fields(normalise_fields(Flavor, Fs0), Flavor, Name, St0)
+        end,
+    St2 = St1#lint{records=maps:put(Name, {Anno,Flavor,Fs},
+                                    St1#lint.records)},
+    Types = [T || {typed_record_field, _, T} <- Fs0],
+    St3 = St2#lint{type_id = {record, Name}},
+    check_type({type, nowarn(), product, Types}, St3).
+
+
+%% def_fields([RecDef], Flavor, RecordName, State) -> {[DefField],State}.
 %%  Check (normalised) fields for duplicates.  Return unduplicated
 %%  record and set State.
 
-def_fields(Fs0, Name, St0) ->
-    foldl(fun ({record_field,Af,{atom,Aa,F},V}, {Fs,St}) ->
+def_fields(Fs0, Flavor, Name, St0) ->
+    foldl(fun ({record_field,Af,{atom,Aa,F},V}=Field, {Fs,St}) ->
                   case exist_field(F, Fs) of
-                      true -> {Fs,add_error(Af, {redefine_field,Name,F}, St)};
+                      true ->
+                          {Fs,add_error(Af, {redefine_field,Name,F}, St)};
+                      false when element(1, V) =:= no_value ->
+                          {[{record_field,Af,{atom,Aa,F},V}|Fs],St};
+                      false when Flavor =:= native ->
+                          St1 = check_field_default(Name, Field, St),
+                          {[{record_field,Af,{atom,Aa,F},V}|Fs],St1};
                       false ->
                           St1 = St#lint{recdef_top = true},
                           {_,St2} = expr(V, [], St1),
@@ -3207,31 +3391,76 @@ def_fields(Fs0, Name, St0) ->
                   end
           end, {[],St0}, Fs0).
 
+%% Currently, we only allow compile-time constant expressions in native
+%% record definitions.
+check_field_default(Name, Field, St) ->
+    {record_field, Af, {atom, _Aa, F}, Init} = Field,
+    case check_field_default_1(Init) of
+        true -> St;
+        false -> add_error(Af, {illegal_native_record_default,Name,F}, St)
+    end.
+
+check_field_default_1(Init) ->
+    case erl_eval:partial_eval(Init) of
+        {integer,_,_} -> true;
+        {char,_,_} -> true;
+        {float,_,_} -> true;
+        {atom,_,_} -> true;
+        {nil,_} -> true;
+        {string,_,_} -> true;
+        {cons,_,H,T} ->
+            check_field_default_1(H) andalso check_field_default_1(T);
+        {tuple,_,E} ->
+            all(fun check_field_default_1/1, E);
+        {map,_,E} ->
+            Ks = [K || {_,_,K,_} <- E],
+            Vs = [V || {_,_,_,V} <- E],
+            all(fun check_field_default_1/1, Ks) andalso
+            all(fun check_field_default_1/1, Vs);
+        {bin,_,Segs} ->
+            all(fun check_field_default_1/1, Segs);
+        {bin_element,_,{string,_,_},_,_} ->
+            true;
+        _ -> false
+    end.
+
 %% normalise_fields([RecDef]) -> [Field].
 %%  Normalise the field definitions to always have a default value. If
 %%  none has been given then use 'undefined'.
 %%  Also, strip type information from typed record fields.
 
-normalise_fields(Fs) ->
+normalise_fields(native, Fs) ->
+    map(fun ({record_field,Af,Field}) ->
+		{record_field,Af,Field,{no_value,Af}};
+	    ({typed_record_field,{record_field,Af,Field},_Type}) ->
+		{record_field,Af,Field,{no_value,Af}};
+	    ({typed_record_field,Field,_Type}) ->
+		Field;
+            (F) -> F
+        end, Fs);
+normalise_fields(tuple, Fs) ->
     map(fun ({record_field,Af,Field}) ->
 		{record_field,Af,Field,{atom,Af,undefined}};
 	    ({typed_record_field,{record_field,Af,Field},_Type}) ->
 		{record_field,Af,Field,{atom,Af,undefined}};
 	    ({typed_record_field,Field,_Type}) ->
 		Field;
-            (F) -> F end, Fs).
+            (F) -> F
+        end, Fs).
 
-%% exist_record(Anno, RecordName, State) -> State.
-%%  Check if a record exists.  Set State.
+%% exist_any_record(Anno, RecordName, State) -> State.
+%%  Check if RecordName is either a tuple record or a native record.  Set State.
 
-exist_record(Anno, Name, St) ->
+exist_any_record(Anno, Name, St) ->
     case is_map_key(Name, St#lint.records) of
-        true -> used_record(Name, St);
+        true ->
+            used_record(Name, St);
         false ->
-            RecordNames = [atom_to_list(R) || R <- maps:keys(St#lint.records)],
-            case most_possible_string(Name, RecordNames) of
-                [] -> add_error(Anno, {undefined_record,Name}, St);
-                GuessF -> add_error(Anno, {undefined_record,Name,GuessF}, St)
+            case is_map_key(Name, St#lint.rec_imports) of
+                true ->
+                    St;
+                false ->
+                    suggest_record_name(Anno, undefined_record, Name, St)
             end
     end.
 
@@ -3246,15 +3475,43 @@ exist_record(Anno, Name, St) ->
 %%  and must return
 %%      {UpdatedVarTable,State}
 
-check_record(Anno, Name, St, CheckFun) ->
+check_record(_Anno, [], St, CheckFun) ->
+    CheckFun(native, unknown, St);
+check_record(Anno, {Mod, Name}, St, CheckFun) ->
+    if
+        Mod =:= St#lint.module ->
+            case St#lint.records of
+                #{Name := {_, Flavor, Fields}} ->
+                    native = Flavor,            %Assertion.
+                    CheckFun(Flavor, Fields, used_record(Name, St));
+                #{} ->
+                    {[],suggest_record_name(Anno, undefined_record, Name, St)}
+            end;
+        true ->
+            CheckFun(native, unknown, used_record(Name, St))
+    end;
+check_record(Anno, Name, St, CheckFun) when is_atom(Name) ->
     case maps:find(Name, St#lint.records) of
-        {ok,{_Anno,Fields}} -> CheckFun(Fields, used_record(Name, St));
+        {ok,{_Anno,Flavor,Fields}} ->
+            CheckFun(Flavor, Fields, used_record(Name, St));
         error ->
-            RecordNames = [atom_to_list(R) || R <- maps:keys(St#lint.records)],
-            case most_possible_string(Name, RecordNames) of
-                [] -> {[],add_error(Anno, {undefined_record,Name}, St)};
-                GuessF -> {[],add_error(Anno, {undefined_record,Name,GuessF}, St)}
+            case is_map_key(Name, St#lint.rec_imports) of
+                true ->
+                    CheckFun(native, unknown, used_record(Name, St));
+                false ->
+                    {[],suggest_record_name(Anno, undefined_record, Name, St)}
             end
+    end.
+
+suggest_record_name(Anno, Error, Name, St) ->
+    RecordNames = [atom_to_list(R) ||
+                      R <- maps:keys(St#lint.records)] ++
+        [atom_to_list(R) || R := _Mod <- St#lint.rec_imports],
+    case most_possible_string(Name, RecordNames) of
+        [] ->
+            add_error(Anno, {Error,Name}, St);
+        GuessF ->
+            add_error(Anno, {Error,Name,GuessF}, St)
     end.
 
 used_record(Name, #lint{usage=Usage}=St) ->
@@ -3266,41 +3523,66 @@ used_record(Name, #lint{usage=Usage}=St) ->
 %% check_fields([ChkField], RecordName, [RecDefField], VarTable, State, CheckFun) ->
 %%      {UpdVarTable,State}.
 
-check_fields(Fs, Name, Fields, Vt0, St0, CheckFun) ->
+check_fields(Fs, Flavor, Name, Fields, Vt0, St0, CheckFun) ->
     {_SeenFields,Uvt,St1} =
-        foldl(fun (Field, {Sfsa,Vta,Sta}) ->
-                      {Sfsb,{Vtb,Stb}} = check_field(Field, Name, Fields,
-                                                     Vt0, Sta, Sfsa, CheckFun),
+        foldl(fun (Field, {Rfsa,Vta,Sta}) ->
+                      {Rfsb,{Vtb,Stb}} = check_field(Field, Flavor, Name, Fields,
+                                                     Vt0, Sta, Rfsa, CheckFun),
                       {Vt1, St1} = vtmerge_pat(Vta, Vtb, Stb),
-                      {Sfsb, Vt1, St1}
+                      {Rfsb, Vt1, St1}
               end, {[],[], St0}, Fs),
     {Uvt,St1}.
 
-check_field({record_field,Af,{atom,Aa,F},Val}, Name, Fields,
-            Vt, St, Sfs, CheckFun) ->
-    case member(F, Sfs) of
-        true -> {Sfs,{[],add_error(Af, {redefine_field,Name,F}, St)}};
+check_field({record_field,_Af,_F,Val}, native, _Name, unknown,
+            Vt, St0, Rfs, CheckFun) ->
+    {Rfs, CheckFun(Val, Vt, St0)};
+check_field({record_field,Af,{atom,Aa,F},Val}, Flavor, Name, Fields,
+            Vt, St0, Rfs, CheckFun) ->
+    case member(F, Rfs) of
+        true ->
+            {Rfs,{[],add_error(Af, {redefine_field,Name,F}, St0)}};
         false ->
-            {[F|Sfs],
+            {[F|Rfs],
              case find_field(F, Fields) of
-                 {ok,_I} -> CheckFun(Val, Vt, St);
+                 {ok,_} ->
+                     case Flavor of
+                         native ->
+                             case Val of
+                                 {no_value,Anno} ->
+                                     W = {no_init_native_record_field, Name, F},
+                                     {[], add_warning(Anno, W, St0)};
+                                 _ ->
+                                     CheckFun(Val, Vt, St0)
+                             end;
+                         tuple ->
+                             CheckFun(Val, Vt, St0)
+                     end;
+                 error when Flavor =:= native ->
+                     {[],add_warning(Aa, {undefined_native_record_field,Name,F}, St0)};
                  error ->
-                     FieldNames = [atom_to_list(R) || {record_field, _L, {_, _, R}, _} <- Fields],
+                     FieldNames = [atom_to_list(R) ||
+                                      {record_field, _L, {_, _, R}, _} <:- Fields],
                      case most_possible_string(F, FieldNames) of
-                         [] -> {[],add_error(Aa, {undefined_field,Name,F}, St)};
-                         GuessF -> {[],add_error(Aa, {undefined_field,Name,F,GuessF}, St)}
+                         [] ->
+                             {[],add_error(Aa, {undefined_field,Name,F}, St0)};
+                         GuessF ->
+                             {[],add_error(Aa, {undefined_field,Name,F,GuessF}, St0)}
                      end
              end}
     end;
-check_field({record_field,_Af,{var,Aa,'_'=F},Val}, _Name, _Fields,
-            Vt, St, Sfs, CheckFun) ->
-    case member(F, Sfs) of
-        true -> {Sfs,{[],add_error(Aa, bad_multi_field_init, St)}};
-        false -> {[F|Sfs],CheckFun(Val, Vt, St)}
+check_field({record_field,_Af,{var,Aa,'_'=F},Val}, tuple, _Name, _Fields,
+            Vt, St, Rfs, CheckFun) ->
+    %% Multi-field init for tuple records.
+    case member(F, Rfs) of
+        true -> {Rfs,{[],add_error(Aa, bad_multi_field_init, St)}};
+        false -> {[F|Rfs],CheckFun(Val, Vt, St)}
     end;
-check_field({record_field,_Af,{var,Aa,V},_Val}, Name, _Fields,
-            Vt, St, Sfs, _CheckFun) ->
-    {Sfs,{Vt,add_error(Aa, {field_name_is_variable,Name,V}, St)}}.
+check_field({record_field,_Af,{var,Aa,'_'},_Val}, native, _Name, _Fields,
+            _Vt, St, Rfs, _CheckFun) ->
+    {Rfs,{[],add_error(Aa, native_record_illegal_multi_field_init, St)}};
+check_field({record_field,_Af,{var,Aa,V},_Val}, _Flavor, Name, _Fields,
+            Vt, St, Rfs, _CheckFun) ->
+    {Rfs,{Vt,add_error(Aa, {field_name_is_variable,Name,V}, St)}}.
 
 %% pattern_field(Field, RecordName, [RecDefField], State) ->
 %%      {UpdVarTable,State}.
@@ -3324,16 +3606,16 @@ pattern_field({atom,Aa,F}, Name, Fields, St) ->
 pattern_fields(Fs, Name, Fields, Vt0, Old, St0) ->
     CheckFun = fun (Val, Vt, St) -> pattern(Val, Vt, Old, St) end,
     {_SeenFields,Uvt,Unew,St1} =
-        foldl(fun (Field, {Sfsa,Vta,Newa,Sta}) ->
-                      case check_field(Field, Name, Fields,
-                                       Vt0, Sta, Sfsa, CheckFun) of
-                          {Sfsb,{Vtb,Stb}} ->
+        foldl(fun (Field, {Rfsa,Vta,Newa,Sta}) ->
+                      case check_field(Field, tuple, Name, Fields,
+                                       Vt0, Sta, Rfsa, CheckFun) of
+                          {Rfsb,{Vtb,Stb}} ->
                               {Vt, St1} = vtmerge_pat(Vta, Vtb, Stb),
-                              {Sfsb, Vt, [], St1};
-                          {Sfsb,{Vtb,Newb,Stb}} ->
+                              {Rfsb, Vt, [], St1};
+                          {Rfsb,{Vtb,Newb,Stb}} ->
                               {Vt, Mst0} = vtmerge_pat(Vta, Vtb, Stb),
                               {New, Mst} = vtmerge_pat(Newa, Newb, Mst0),
-                              {Sfsb, Vt, New, Mst}
+                              {Rfsb, Vt, New, Mst}
                       end
               end, {[],[],[],St0}, Fs),
     {Uvt,Unew,St1}.
@@ -3342,14 +3624,20 @@ pattern_fields(Fs, Name, Fields, Vt0, Old, St0) ->
 %%      {UpdVarTable,State}.
 %%  Test if record RecordName has field Field. Set State.
 
-record_field({atom,Aa,F}, Name, Fields, St) ->
+record_field(_F, native, _Name, unknown, St) ->
+    {[],St};
+record_field({atom,Anno,F}, Flavor, Name, Fields, St) ->
     case find_field(F, Fields) of
         {ok,_I} -> {[],St};
+        error when Flavor =:= native ->
+            {[],add_warning(Anno, {undefined_native_record_field,Name,F}, St)};
         error ->
             FieldNames = [atom_to_list(R) || {record_field, _L, {_, _, R}, _} <- Fields],
             case most_possible_string(F, FieldNames) of
-                [] -> {[],add_error(Aa, {undefined_field,Name,F}, St)};
-                GuessF -> {[],add_error(Aa, {undefined_field,Name,F,GuessF}, St)}
+                [] ->
+                    {[],add_error(Anno, {undefined_field,Name,F}, St)};
+                GuessF ->
+                    {[],add_error(Anno, {undefined_field,Name,F,GuessF}, St)}
             end
     end.
 
@@ -3365,17 +3653,32 @@ record_field({atom,Aa,F}, Name, Fields, St) ->
 %%  record definitions were checked. Usage of records, imports, and
 %%  functions is collected.
 
-init_fields(Ifs, Anno, Name, Dfs, Vt0, St0) ->
-    {Vt1,St1} = check_fields(Ifs, Name, Dfs, Vt0, St0, fun expr/3),
-    Defs = init_fields(Ifs, Anno, Dfs),
-    {_,St2} = check_fields(Defs, Name, Dfs, Vt1, St1, fun expr/3),
-    {Vt1,St1#lint{usage = St2#lint.usage}}.
+init_fields(native, Ifs, _Anno, Name, unknown, Vt0, St0) ->
+    check_nn_fields(Name, Ifs, Vt0, St0);
+init_fields(Flavor, Ifs, Anno, Name, Dfs, Vt0, St0)
+  when Flavor =:= tuple; Flavor =:= native ->
+    {Vt1,St1} = check_fields(Ifs, Flavor, Name, Dfs, Vt0, St0, fun expr/3),
+    if
+        Flavor =:= native, St0#lint.errors =/= St1#lint.errors ->
+            %% Don't check for more errors and warnings.
+            {Vt1,St1};
+        true ->
+            Defs = init_fields(Ifs, Anno, Dfs),
+            {_,St2} = check_fields(Defs, Flavor, Name, Dfs, Vt1, St1, fun expr/3),
+            case Flavor of
+                native ->
+                    {Vt1,St1#lint{usage = St2#lint.usage, warnings=St2#lint.warnings}};
+                tuple ->
+                    {Vt1,St1#lint{usage = St2#lint.usage}}
+            end
+    end.
 
 ginit_fields(Ifs, Anno, Name, Dfs, Vt0, St0) ->
-    {Vt1,St1} = check_fields(Ifs, Name, Dfs, Vt0, St0, fun gexpr/3),
+    Flavor = tuple,
+    {Vt1,St1} = check_fields(Ifs, Flavor, Name, Dfs, Vt0, St0, fun gexpr/3),
     Defs = init_fields(Ifs, Anno, Dfs),
     St2 = St1#lint{errors = []},
-    {_,St3} = check_fields(Defs, Name, Dfs, Vt1, St2, fun gexpr/3),
+    {_,St3} = check_fields(Defs, Flavor, Name, Dfs, Vt1, St2, fun gexpr/3),
     #lint{usage = Usage, errors = IllErrors} = St3,
     St4 = St1#lint{usage = Usage, errors = IllErrors ++ St1#lint.errors},
     {Vt1,St4}.
@@ -3389,8 +3692,8 @@ init_fields(Ifs, Anno, Dfs) ->
 %% update_fields(UpdFields, RecordName, RecDefFields, VarTable, State) ->
 %%      {UpdVarTable,State}
 
-update_fields(Ufs, Name, Dfs, Vt, St) ->
-    check_fields(Ufs, Name, Dfs, Vt, St, fun expr/3).
+update_fields(Ufs, Flavor, Name, Dfs, Vt, St) ->
+    check_fields(Ufs, Flavor, Name, Dfs, Vt, St, fun expr/3).
 
 %% exist_field(FieldName, [Field]) -> boolean().
 %%  Find a record field in a field list.
@@ -3399,12 +3702,75 @@ exist_field(F, [{record_field,_Af,{atom,_Aa,F},_Val}|_Fs]) -> true;
 exist_field(F, [_|Fs]) -> exist_field(F, Fs);
 exist_field(_F, []) -> false.
 
+-spec exist_native_record_field(atom(), [erl_parse:af_field_decl()]) -> boolean().
+exist_native_record_field(F, [{record_field,_Af,{atom,_Aa,F},_Val}|_Fs]) -> true;
+exist_native_record_field(F, [{record_field,_Af,{atom,_Aa,F}}|_Fs]) -> true;
+exist_native_record_field(F, [_|Fs]) -> exist_native_record_field(F, Fs);
+exist_native_record_field(_F, []) -> false.
+
 %% find_field(FieldName, [Field]) -> {ok,Val} | error.
 %%  Find a record field in a field list.
 
 find_field(F, [{record_field,_Af,{atom,_Aa,F},Val}|_Fs]) -> {ok,Val};
 find_field(F, [_|Fs]) -> find_field(F, Fs);
 find_field(_F, []) -> error.
+
+pattern_native_record_fields(Name, Fs, Vt0, Old, St0) ->
+    CheckFun = fun (Val, Vt, St) -> pattern(Val, Vt, Old, St) end,
+    {_SeenFields,Uvt,Unew,St1} =
+        foldl(fun (Field, {Rfsa,Vta,Newa,Sta}) ->
+                      case check_nn_field(Name, Field, Vt0, Sta, Rfsa, CheckFun) of
+                          {Rfsb,{Vtb,Stb}} ->
+                              {Vt, St1} = vtmerge_pat(Vta, Vtb, Stb),
+                              {Rfsb, Vt, [], St1};
+                          {Rfsb,{Vtb,Newb,Stb}} ->
+                              {Vt, Mst0} = vtmerge_pat(Vta, Vtb, Stb),
+                              {New, Mst} = vtmerge_pat(Newa, Newb, Mst0),
+                              {Rfsb, Vt, New, Mst}
+                      end
+              end, {[],[],[],St0}, Fs),
+    {Uvt,Unew,St1}.
+
+%% Check that there are no duplicate fields in native record usages. We
+%% don't have the definition of the native record here.
+check_nn_fields(Name, Fs, Vt0, St0) ->
+    CheckFun = fun expr/3,
+    {_SeenFields,Uvt,St1} =
+        foldl(fun (Field, {Rfsa,Vta,Sta}) ->
+                      {Rfsb,{Vtb,Stb}} = check_nn_field(Name, Field, Vt0, Sta, Rfsa, CheckFun),
+                      {Vt1, St1} = vtmerge_pat(Vta, Vtb, Stb),
+                      {Rfsb, Vt1, St1}
+              end, {[],[], St0}, Fs),
+    {Uvt,St1}.
+
+check_nn_field(Name, {record_field, Af, {atom, _, F}, Val}, Vt, St, Rfs, CheckFun) ->
+    case member(F, Rfs) of
+        true ->
+            {Rfs, {[], add_error(Af, {redefine_field, Name, F}, St)}};
+        false ->
+            {[F|Rfs],CheckFun(Val, Vt, St)}
+    end.
+
+%% Check native record fields against the definition and issue
+%% warnings.
+-spec check_native_record_fields_usage(atom(),
+                                [erl_parse:af_record_field(erl_parse:abstract_expr())],
+                                lint_state()) ->
+          lint_state().
+check_native_record_fields_usage(Name, Fs, St0) ->
+    case St0#lint.records of
+        #{Name := {_A, native, FieldDefs}} ->
+            foldl(fun({record_field, Af, {atom, _, F}, _Val}, St) ->
+                          case exist_native_record_field(F, FieldDefs) of
+                              true ->
+                                  St;
+                              false ->
+                                  add_warning(Af, {undefined_native_record_field, Name, F}, St)
+                          end
+                  end, St0, Fs);
+        #{} ->
+            St0
+    end.
 
 %% type_def(Attr, Anno, TypeName, PatField, Args, State) -> State.
 %%    Attr :: 'type' | 'opaque'
@@ -3553,10 +3919,19 @@ check_type_2({type, A, binary, [Base, Unit]}, SeenVars, St) ->
     {SeenVars, St1};
 check_type_2({type, A, record, [Name|Fields]}, SeenVars, St) ->
     case Name of
-	{atom, _, Atom} ->
+        {atom, _, Atom} ->
 	    St1 = used_record(Atom, St),
 	    check_record_types(A, Atom, Fields, SeenVars, St1);
-	_ -> {SeenVars, add_error(A, {type_syntax, record}, St)}
+	{tuple, _, [{atom, _, Mod}, {atom, _, Atom}]} ->
+            if
+                Mod =:= St#lint.module ->
+                    St1 = used_record(Atom, St),
+                    check_record_types(A, Atom, Fields, SeenVars, St1);
+                true ->
+                    check_record_types(A, {Mod, Atom}, Fields, SeenVars, St)
+            end;
+	_ ->
+            {SeenVars, add_error(A, {type_syntax, record}, St)}
     end;
 check_type_2({type, _A, Tag, Args}=_F, SeenVars, St) when Tag =:= product;
                                                           Tag =:= tuple ->
@@ -3629,22 +4004,30 @@ check_type_2(I, SeenVars, St) ->
             {SeenVars, add_error(element(2, I), {type_syntax, integer}, St)}
     end.
 
-check_record_types(Anno, Name, Fields, SeenVars, St) ->
+check_record_types(Anno, {Mod, Name}, Fields, SeenVars, St) ->
+    if
+        Mod =:= St#lint.module ->
+            check_record_types(Anno, Name, Fields, SeenVars, St);
+        true ->
+            {SeenVars, St}
+    end;
+check_record_types(Anno, Name, Fields, SeenVars, St) when is_atom(Name) ->
     case maps:find(Name, St#lint.records) of
-        {ok,{_A,DefFields}} ->
-	    case lists:all(fun({type, _, field_type, _}) -> true;
-			      (_) -> false
-			   end, Fields) of
+        {ok,{_A,_,DefFields}} ->
+	    case all(fun({type, _, field_type, _}) -> true;
+                        (_) -> false
+                     end, Fields) of
 		true ->
 		    check_record_types(Fields, Name, DefFields, SeenVars, St, []);
 		false ->
 		    {SeenVars, add_error(Anno, {type_syntax, record}, St)}
 	    end;
         error ->
-            RecordNames = [atom_to_list(R) || R <- maps:keys(St#lint.records)],
-            case most_possible_string(Name, RecordNames) of
-                [] -> {SeenVars, add_error(Anno, {undefined_record, Name}, St)};
-                GuessF -> {SeenVars, add_error(Anno, {undefined_record, Name, GuessF}, St)}
+            case St#lint.rec_imports of
+                #{Name := _Mod} ->
+                    {SeenVars, St};
+                #{} ->
+                    {SeenVars, suggest_record_name(Anno, undefined_record, Name, St)}
             end
     end.
 
@@ -4736,10 +5119,17 @@ copy_expr(Expr, Anno) ->
 %% Check a record_info call. We have already checked that it is not
 %% shadowed by an import.
 
-check_record_info_call(_Anno,Aa,[{atom,Ai,Info},{atom,_An,Name}],St) ->
+check_record_info_call(_Anno,_Aa,[{atom,Ai,Info},{atom,_An,Name}], St) ->
     case member(Info, [fields,size]) of
-        true -> exist_record(Aa, Name, St);
-        false -> add_error(Ai, illegal_record_info, St)
+        true ->
+            case St#lint.records of
+                #{Name := {_,tuple,_}} ->
+                    St;
+                #{} ->
+                    add_error(Ai, native_record_illegal_record_info, St)
+            end;
+        false ->
+            add_error(Ai, illegal_record_info, St)
     end;
 check_record_info_call(Anno,_Aa,_As,St) ->
     add_error(Anno, illegal_record_info, St).

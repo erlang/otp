@@ -31,7 +31,7 @@
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
-module({Mod,Exp,Attr,Fs0,_}, Opts) ->
+module({Mod,Exp,Attr,Anno,Fs0,_}, Opts) ->
     Fs1 = move_out_funs(Fs0),
     Order = [Lbl || {function,_,_,Lbl,_} <:- Fs1],
     All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <:- Fs1},
@@ -40,7 +40,7 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Fs2 = remove_unused(Order, Used, All),
     {Fs3,Lc} = clean_labels(Fs2),
     Fs = maybe_remove_lines(Fs3, Opts),
-    {ok,{Mod,Exp,Attr,Fs,Lc}}.
+    {ok,{Mod,Exp,Attr,Anno,Fs,Lc}}.
 
 %% Determine the rootset, i.e. exported functions and
 %% the on_load function (if any).
