@@ -104,6 +104,16 @@ is the version number of Mnesia.
 [PR-9079]: https://github.com/erlang/otp/pull/9079
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## Mnesia 4.23.5.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug where `mnesia:del_table_copy/3` could fail when deleting a node that had tables which was not active anywhere.
+
+  Own Id: OTP-19890 Aux Id: ERIERL-1268, [PR-10482]
+
+[PR-10482]: https://github.com/erlang/otp/pull/10482
+
 ## Mnesia 4.23.5
 
 ### Fixed Bugs and Malfunctions

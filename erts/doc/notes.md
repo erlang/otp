@@ -593,6 +593,21 @@ This document describes the changes made to the ERTS application.
 [PR-9759]: https://github.com/erlang/otp/pull/9759
 [PR-9809]: https://github.com/erlang/otp/pull/9809
 
+## Erts 15.2.7.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a JIT bug that could miscompile equality tests on empty bitstrings.
+
+  Own Id: OTP-19846 Aux Id: [PR-10359]
+
+- Fail the windows build properly when nsis is not recognised.
+
+  Own Id: OTP-19926 Aux Id: [PR-10547]
+
+[PR-10359]: https://github.com/erlang/otp/pull/10359
+[PR-10547]: https://github.com/erlang/otp/pull/10547
+
 ## Erts 15.2.7.4
 
 ### Improvements and New Features
