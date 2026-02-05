@@ -152,6 +152,11 @@ typedef struct {
     BeamType *entries;
 } BeamFile_TypeTable;
 
+
+#define BEAMFILE_DEBUG_INFO_ENTRY_FRAME_SIZE 0
+#define BEAMFILE_DEBUG_INFO_ENTRY_VAR_MAPPINGS 1
+#define BEAMFILE_DEBUG_INFO_ENTRY_CALLS 2
+
 #define BEAMFILE_FRAMESIZE_ENTRY (-2)
 #define BEAMFILE_FRAMESIZE_NONE (-1)
 
@@ -159,6 +164,7 @@ typedef struct {
     Uint32 location_index;
     Sint32 frame_size;
     Sint32 num_vars;
+    Sint32 num_calls_terms;
     Eterm *first;
 } BeamFile_DebugItem;
 

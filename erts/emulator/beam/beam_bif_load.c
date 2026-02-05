@@ -35,6 +35,7 @@
 #include "beam_bp.h"
 #include "beam_catches.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 #include "erl_nif.h"
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
@@ -1278,7 +1279,7 @@ BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
     const BeamCodeHeader* hdr;
     const BeamCodeLineTab* lt;
     const BeamDebugTab* debug;
-    Sint i;
+    Sint i, j;
     Uint alloc_size;
     Eterm result = NIL;
     Eterm* hp;
@@ -1307,29 +1308,55 @@ BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
     alloc_size = 0;
 
     for (i = 0; i < debug->item_count; i++) {
-        /* [ {Line, {FrameSize, Pairs}} ] */
-        alloc_size += 2 + 3 + 3;
+        Uint num_vars = debug->items[i].num_vars;
+        Uint num_calls_terms = debug->items[i].num_calls_terms;
+
+        /* [ {Line, #{frame_size => FrameSize, vars => Pairs, calls => Calls}} ] */
+        alloc_size += 2 + 3 + MAP3_SZ;
+
         /* Pairs = [{Name, Value}], where Value is an atom or 2-tuple.
          *
          * Assume they are all 2-tuples and HRelease() the excess
          * later. */
-        alloc_size += debug->items[i].num_vars * (2 + 3 + 3);
+        alloc_size += num_vars * (2 + 3 + 3);
+
+        /* Calls = [mfa() | {atom(), arity()} | binary() */
+         for(j=0; j < num_calls_terms; j++) {
+             Eterm curr = debug->items[i].first[num_vars + j];
+
+             alloc_size += 2; /* cons */
+             if (is_integer(curr)) {
+                 if (unsigned_val(curr) <= MAX_ARG) {
+                     /* mfa() */
+                     alloc_size += 4;
+                     j+=2;
+                 } else {
+                     /* {atom, arity()} */
+                     alloc_size += 3;
+                     j+=1;
+                 }
+             }
+         }
     }
 
     hp = HAlloc(BIF_P, alloc_size);
     hend = hp + alloc_size;
 
     for (i = debug->item_count-1; i >= 0; i--) {
-        BeamDebugItem* items = &debug->items[i];
-        Sint frame_size = items->frame_size;
-        Uint num_vars = items->num_vars;
-        Eterm *tp = &items->first[2 * (num_vars - 1)];
+        BeamDebugItem* item = &debug->items[i];
+        Sint frame_size = item->frame_size;
+        Uint num_vars = item->num_vars;
+        Uint num_calls_terms = item->num_calls_terms;
+        Eterm *tp;
         Uint32 location_index, location;
         Eterm frame_size_term;
         Eterm var_list = NIL;
+        Eterm calls_list = NIL;
         Eterm tmp;
+        int last_vars_idx = 2 * (num_vars - 1);
+        int last_calls_term_idx = 2 * num_vars + (num_calls_terms - 1);
 
-        location_index = items->location_index;
+        location_index = item->location_index;
 
         if (location_index == ERTS_UINT32_MAX) {
             continue;
@@ -1354,6 +1381,7 @@ BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
             break;
         }
 
+        tp = &item->first[last_vars_idx];
         while (num_vars-- != 0) {
             Eterm val;
             Eterm tag;
@@ -1384,8 +1412,39 @@ BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
             hp += 2;
         }
 
-        tmp = TUPLE2(hp, frame_size_term, var_list);
-        hp += 3;
+        tp = &item->first[last_calls_term_idx];
+        while(num_calls_terms != 0) {
+            if (num_calls_terms > 1 && is_integer(tp[-1])) {
+                Uint arity = unsigned_val(tp[-1]) - (MAX_ARG+1);
+                ASSERT(arity >= 0 && arity <= MAX_ARG);
+
+                tmp = TUPLE2(hp, tp[0], make_small(arity));
+                hp += 3;
+
+                num_calls_terms -= 2;
+                tp -= 2;
+            } else if (num_calls_terms > 2 &&
+                       is_integer(tp[-2]) && unsigned_val(tp[-2]) <= MAX_ARG) {
+                tmp = TUPLE3(hp, tp[-1], tp[0], tp[-2]);
+                hp += 4;
+
+                num_calls_terms -= 3;
+                tp -= 3;
+            } else {
+                tmp = tp[0];
+                num_calls_terms -= 1;
+                tp -= 1;
+            }
+
+            calls_list = CONS(hp, tmp, calls_list);
+            hp += 2;
+        }
+
+        tmp = MAP3(hp,
+                   am_frame_size, frame_size_term,
+                   am_vars, var_list,
+                   am_calls, calls_list);
+        hp += MAP3_SZ;
 
         tmp = TUPLE2(hp, make_small(LOC_LINE(location)), tmp);
         hp += 3;

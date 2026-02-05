@@ -152,7 +152,7 @@ fix_debug_line(Is0, Live, #cg{debug_info=true}) ->
          {line,_}=Li,
          {func_info,_,_,_}=Fi,
          {label,_}=Entry,
-         {debug_line,Location,Index,Live,{none,Args0}}|Is] ->
+         {debug_line,Location,Index,Live,#{frame_size:=none, vars:=Args0}=Info0}|Is] ->
             %% Mark this debug_line instruction as being the
             %% very first instruction in the function.
             RegToVar = #{Reg => Var || {Var,[{x,_}=Reg|_]} <- Args0},
@@ -163,7 +163,8 @@ fix_debug_line(Is0, Live, #cg{debug_info=true}) ->
                             #{} -> {I,[X]}
                         end
                     end || I <- lists:seq(1, Live)],
-            DbgLine = {debug_line,Location,Index,Live,{entry,Args}},
+            Info=Info0#{frame_size:=entry,vars:=Args},
+            DbgLine = {debug_line,Location,Index,Live,Info},
             [FiLbl,Li,Fi,Entry,DbgLine|Is];
         _ ->
             Is0
@@ -1012,49 +1013,50 @@ add_debug_info(Linear0, Args, #cg{regs=Regs,debug_info=true}) ->
     Linear = anno_defined_regs(Linear0, Def0, Regs),
     FrameSzMap = #{0 => none},
     VarMap = #{},
-    add_debug_info_blk(Linear, Regs, FrameSzMap, VarMap);
+    CallTargets = collect_call_targets(Linear, #{}),
+    add_debug_info_blk(Linear, Regs, CallTargets, FrameSzMap, VarMap);
 add_debug_info(Linear, _Args, #cg{debug_info=false}) ->
     Linear.
 
 add_debug_info_blk([{L,#cg_blk{is=Is0,last=Last}=Blk0}|Bs],
-                   Regs, FrameSzMap0, VarMap0) ->
+                   Regs, CallTargets, FrameSzMap0, VarMap0) ->
     FrameSize0 = map_get(L, FrameSzMap0),
     {Is,VarMap,FrameSize} =
-        add_debug_info_is(Is0, Regs, FrameSize0, VarMap0, []),
+        add_debug_info_is(Is0, Regs, CallTargets, FrameSize0, VarMap0, []),
     Successors = successors(Last),
     FrameSzMap = foldl(fun(Succ, Acc) ->
                                Acc#{Succ => FrameSize}
                        end, FrameSzMap0, Successors),
     Blk = Blk0#cg_blk{is=Is},
-    [{L,Blk}|add_debug_info_blk(Bs, Regs, FrameSzMap, VarMap)];
-add_debug_info_blk([], _Regs, _FrameSzMap, _VarMap) ->
+    [{L,Blk}|add_debug_info_blk(Bs, Regs, CallTargets, FrameSzMap, VarMap)];
+add_debug_info_blk([], _Regs, _CallTargets,  _FrameSzMap, _VarMap) ->
     [].
 
 add_debug_info_is([#cg_alloc{stack=FrameSize}=I|Is],
-                  Regs, FrameSize0, VarMap, Acc) ->
+                  Regs, CallTargets, FrameSize0, VarMap, Acc) ->
     if
         is_integer(FrameSize) ->
-            add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+            add_debug_info_is(Is, Regs, CallTargets, FrameSize, VarMap, [I|Acc]);
         true ->
-            add_debug_info_is(Is, Regs, FrameSize0, VarMap, [I|Acc])
+            add_debug_info_is(Is, Regs, CallTargets, FrameSize0, VarMap, [I|Acc])
     end;
 add_debug_info_is([#cg_set{anno=#{was_phi := true},op=copy}=I|Is],
-                  Regs, FrameSize, VarMap, Acc) ->
+                  Regs, CallTargets, FrameSize, VarMap, Acc) ->
     %% This copy operation originates from a phi node. The source and
     %% destination are not equivalent and must not be added to VarMap.
-    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+    add_debug_info_is(Is, Regs, CallTargets, FrameSize, VarMap, [I|Acc]);
 add_debug_info_is([#cg_set{anno=Anno,op=copy,dst=#b_var{name=Dst},
                            args=[#b_var{name=Src}]}=I|Is],
-                  Regs, FrameSize, VarMap0, Acc) ->
+                  Regs, CallTargets, FrameSize, VarMap0, Acc) ->
     VarMap = case Anno of
                  #{delayed_yreg_copy := true} ->
                      VarMap0#{Src => [Dst]};
                  #{} ->
                      VarMap0#{Dst => [Src]}
              end,
-    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+    add_debug_info_is(Is, Regs, CallTargets, FrameSize, VarMap, [I|Acc]);
 add_debug_info_is([#cg_set{anno=Anno0,op=debug_line,args=[Index]}=I0|Is],
-                  Regs, FrameSize, VarMap, Acc) ->
+                  Regs, CallTargets, FrameSize, VarMap, Acc) ->
     #{def_regs := DefRegs,
       alias := Alias,
       literals := Literals0,
@@ -1074,12 +1076,23 @@ add_debug_info_is([#cg_set{anno=Anno0,op=debug_line,args=[Index]}=I0|Is],
     S3 = sofs:relation_to_family(S2),
     S = sort(Literals ++ sofs:to_external(S3)),
     Live = max(NumLive0, num_live(DefRegs, Regs)),
-    Info = {FrameSize,S},
+    Loc = maps:get(location, Anno0, undefined),
+    Info0 = #{frame_size => FrameSize, vars => S},
+    Info =
+        case maps:get(Loc, CallTargets, []) of
+            [] ->
+                Info0;
+            Targets0 ->
+                Targets = [T || T0 <- lists:reverse(Targets0),
+                            T <- [format_call_target(T0, AliasMap)],
+                            T /= none],
+                Info0#{calls => Targets}
+        end,
     I = I0#cg_set{args=[Index,#b_literal{val=Live},#b_literal{val=Info}]},
-    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
-add_debug_info_is([#cg_set{}=I|Is], Regs, FrameSize, VarMap, Acc) ->
-    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
-add_debug_info_is([], _Regs, FrameSize, VarMap, Info) ->
+    add_debug_info_is(Is, Regs, CallTargets, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([#cg_set{}=I|Is], Regs, CallTargets, FrameSize, VarMap, Acc) ->
+    add_debug_info_is(Is, Regs, CallTargets, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([], _Regs, _CallTargets, FrameSize, VarMap, Info) ->
     {reverse(Info),VarMap,FrameSize}.
 
 get_original_names(#b_var{name=Name}, AliasMap) ->
@@ -1129,6 +1142,138 @@ is_original_variable(Name) when is_atom(Name) ->
     end;
 is_original_variable(Name) when is_integer(Name) ->
     false.
+
+
+%% Collect all call targets and group them by location, so they cann later
+%% be associated to the corresponding debug_line instruction
+
+collect_call_targets([{_,#cg_blk{is=Is}}|Bs], Acc0) ->
+    Acc = collect_call_targets_is(Is, Acc0),
+    collect_call_targets(Bs, Acc);
+collect_call_targets([], Acc) ->
+    Acc.
+
+collect_call_targets_is([I=#cg_set{anno=Anno,op=call,args=Args}|Is], Acc0) ->
+    {Target, Acc1} =
+        case Args of
+            [Local=#b_local{} |_] ->
+                {Local, Acc0};
+
+            [MakeFun=#b_remote{mod=#b_literal{val=erlang},
+                               name=#b_literal{val=make_fun},
+                               arity=3}, M, F, #b_literal{val=A}] when is_integer(A) ->
+                Dst = I#cg_set.dst,
+                Remote = #b_remote{mod=M, name=F, arity=A},
+                {MakeFun, Acc0#{{ref, Dst} => Remote}};
+            [Apply=#b_remote{mod=#b_literal{val=erlang},
+                       name=#b_literal{val=apply},
+                       arity=3}, M, F, As] ->
+                Arity =
+                    case As of
+                        #b_literal{val=ArgList} when is_list(ArgList) ->
+                            case safe_length(ArgList) of
+                                improper -> undefined;
+                                Len -> Len
+                            end;
+                        V=#b_var{} ->
+                            case Acc0 of
+                                #{{list, V} := L} ->
+                                    case safe_length(L) of
+                                        improper -> undefined;
+                                        Len -> Len
+                                    end;
+                                _ -> undefined
+                            end;
+                        _ -> undefined
+                    end,
+                if
+                    is_integer(Arity) ->
+                        Remote = #b_remote{mod=M, name=F, arity=Arity},
+                        {Remote, Acc0};
+                    true ->
+                        {Apply, Acc0}
+                end;
+            [Remote=#b_remote{}|_] ->
+                {Remote, Acc0};
+            [Var=#b_var{} |_] ->
+                case Acc0 of
+                    #{{ref, Var} := LocalOrRemote} -> {LocalOrRemote, Acc0};
+                    _ -> {Var, Acc0}
+                end;
+            _ ->
+                {invalid, Acc0}
+         end,
+    Acc = case Target of
+            invalid ->
+                Acc1;
+            _  ->
+                case Anno of
+                    #{location := Loc} ->
+                        maps:update_with(Loc,
+                                         fun(Prev) -> [Target | Prev] end,
+                                         [Target],
+                                         Acc1);
+                    _ ->
+                        Acc1
+                end
+          end,
+    collect_call_targets_is(Is, Acc);
+collect_call_targets_is([#cg_set{dst=Dst,op=make_fun,args=[Local]}|Is], Acc0) ->
+    Acc = Acc0#{{ref, Dst} => Local},
+    collect_call_targets_is(Is, Acc);
+collect_call_targets_is([#cg_set{dst=Dst,op=put_list,args=Args}|Is], Acc0) ->
+    Acc = Acc0#{{list, Dst} => Args},
+    collect_call_targets_is(Is, Acc);
+collect_call_targets_is([_|Is], Acc) ->
+    collect_call_targets_is(Is, Acc);
+collect_call_targets_is([], Acc) ->
+    Acc.
+
+-spec safe_length(L) -> non_neg_integer() | improper when
+    L :: maybe_improper_list().
+safe_length(L) -> safe_length(L, 0).
+
+-spec safe_length(L, Acc) -> Acc | improper when
+    L :: maybe_improper_list(),
+    Acc :: non_neg_integer().
+safe_length([], Acc) -> Acc;
+safe_length([_|L], Acc) -> safe_length(L, 1 + Acc);
+safe_length(_Improper, _Acc) -> improper.
+
+format_call_target(#b_remote{mod=M0,name=F0,arity=A}, VarAliases) ->
+    maybe
+        M = {_,_} ?= resolve_var_alias(M0, VarAliases),
+        F = {_,_} ?= resolve_var_alias(F0, VarAliases),
+        {remote, M,F,A}
+    end;
+format_call_target(#b_local{name=F0,arity=A}, VarAliases) ->
+    maybe
+        F = {_,_} ?= resolve_var_alias(F0, VarAliases),
+        {local, F, A}
+    end;
+format_call_target(#b_var{} = V, VarAliases) ->
+    resolve_var_alias(V, VarAliases).
+
+-spec resolve_var_alias(VarOrLit, VarAliases) -> none | AtomOrVar when
+    VarOrLit :: b_var() | b_literal() | XReg,
+    XReg :: {x, non_neg_integer()},
+    AtomOrVar :: {var, binary()} | {atom, atom()},
+    VarAliases :: #{beam_ssa:var_name() => [beam_ssa:var_name()]}.
+resolve_var_alias(#b_var{name=V}, VarAliases) ->
+    case maps:get(V, VarAliases,[]) of
+        [Alias|_] when is_atom(Alias) ->
+            {var, atom_to_binary(Alias)};
+        [Alias|_] when is_integer(Alias) ->
+            resolve_var_alias(#b_var{name=Alias}, VarAliases);
+        _ ->
+            none
+    end;
+resolve_var_alias(#b_literal{val=Atom}, _VarAliases) when is_atom(Atom) ->
+    {atom, Atom};
+resolve_var_alias(#b_literal{}, _VarAliases) ->
+    none;
+resolve_var_alias({x,_}, _VarAliases) ->
+    none.
 
 %%%
 %%% Annotate `debug_line` instructions with all variables that have
