@@ -26,8 +26,6 @@
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
 
--compile(nowarn_obsolete_bool_op).
-
 %% API
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
 -compile({no_auto_import,[error/2]}).
@@ -285,7 +283,7 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
     HTTPHeaders = [lists:reverse(Header) | Headers],
     Length = lists:foldl(fun(H, Acc) -> length(H) + Acc end,
 			   0, HTTPHeaders),
-    case ((Length =< MaxHeaderSize) or (MaxHeaderSize == nolimit)) of
+    case Length =< MaxHeaderSize orelse MaxHeaderSize == nolimit of
  	true ->   
 	    ResponseHeaderRcord = 
 		http_response:headers(HTTPHeaders, #http_response_h{}),

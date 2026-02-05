@@ -30,8 +30,6 @@
 %%% Callback API
 -export([do/1, store/2]).
 
--compile(nowarn_obsolete_bool_op).
-
 -include("http_internal.hrl").
 -include("httpd_internal.hrl").
 -include("httpd.hrl").
@@ -216,8 +214,8 @@ deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
 		{ok, HTTPHeaders, Status} when is_binary(Body)->
 		    IsDisableChunkedSend = 
 			httpd_response:is_disable_chunked_send(Db),
-		    case (ModData#mod.http_version =/= "HTTP/1.1") or 
-			(IsDisableChunkedSend) of
+		    case ModData#mod.http_version =/= "HTTP/1.1" orelse 
+			IsDisableChunkedSend of
 			true ->
 			    send_headers(ModData, Status, 
 					 [{"connection", "close"}
