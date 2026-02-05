@@ -34,7 +34,7 @@
 
 %% The default repetitions of 100 is a bit too low to reliably cover all type
 %% combinations, so we crank it up a bit.
--define(REPETITIONS, 5000).
+-define(REPETITIONS, 15000).
 
 absorption() ->
     numtests(?REPETITIONS, absorption_1()).
@@ -192,6 +192,7 @@ nested_generators(Depth) ->
      gen_fun(Depth - 1),
      gen_map(Depth - 1),
      ?LAZY(gen_tuple(Depth - 1)),
+     ?LAZY(gen_native_record(Depth - 1)),
      ?LAZY(gen_union(Depth - 1))].
 
 %% Proper's atom generator is far too wide, generating strings like 'û\2144Bò}'
@@ -306,29 +307,62 @@ gen_tuple_elements_1(Index, End, Gen) ->
         2 -> gen_tuple_elements_1(Index + 1, End, Gen)
     end.
 
+gen_native_record(Depth) ->
+    ?SHRINK(gen_native_record_1(Depth),
+            [#t_record{}]).
+
+gen_native_record_1(Depth) ->
+    ?LET(Size, ?CT_RANGE(1, 3),
+        ?LET({Name, Es}, {oneof([nil, {readable_atom(),readable_atom()}]),
+                          gen_native_record_elements(Size, Depth)},
+             #t_record{name=Name,type=Es})).
+
+gen_native_record_elements(Size, Depth) ->
+    ?SHRINK(?LET(Types, duplicate(Size, {readable_atom(),
+                                         oneof([missing, present]),
+                                         term_type(Depth)}),
+                 foldl(fun({Index, Label, Type}, Acc) ->
+                               case Label of
+                                   missing -> Acc#{ Index => missing};
+                                   present -> Acc#{ Index => {present,Type} }
+                               end
+                       end, #{}, Types)),
+            [#{}]).
+
 gen_union(Depth) ->
-    ?SHRINK(oneof([gen_union_wide(Depth), gen_union_record(Depth)]),
-            [gen_union_record(?MAX_TYPE_DEPTH)]).
+    ?SHRINK(oneof([gen_union_wide(Depth),
+                   gen_union_record(Depth),
+                   gen_union_native_record(Depth)]),
+            [gen_union_record(?MAX_TYPE_DEPTH),
+             #t_record{}]).
 
 %% Creates a union with most (if not all) slots filled.
 gen_union_wide(Depth) ->
-    ?LET({A, B, C, D, E, F}, {gen_atom(),
-                              gen_bs_matchable(),
-                              gen_list(Depth),
-                              gen_tuple(Depth),
-                              oneof(nested_generators(Depth)),
-                              oneof(numerical_generators())},
+    ?LET({A, B, C, D, E, F, G},
+         {gen_atom(),
+          gen_bs_matchable(),
+          gen_list(Depth),
+          gen_tuple(Depth),
+          oneof(nested_generators(Depth)),
+          oneof(numerical_generators()),
+          gen_native_record(Depth)},
          begin
              T0 = join(A, B),
              T1 = join(T0, C),
              T2 = join(T1, D),
              T3 = join(T2, E),
-             join(T3, F)
+             T4 = join(T3, F),
+             join(T4, G)
          end).
 
 %% Creates a union consisting solely of records
 gen_union_record(Depth) ->
     ?LET(Size, ?CT_RANGE(2, ?TUPLE_SET_LIMIT),
          ?LET(Tuples, duplicate(Size, gen_tuple_record(Depth)),
+              foldl(fun join/2, none, Tuples))).
+
+gen_union_native_record(Depth) ->
+    ?LET(Size, ?CT_RANGE(2, ?TUPLE_SET_LIMIT),
+         ?LET(Tuples, duplicate(Size, gen_native_record(Depth)),
               foldl(fun join/2, none, Tuples))).
 

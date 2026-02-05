@@ -1,4 +1,26 @@
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
+%%
 %% Compiled from get_two_tuple_elements.erl like this:
 %%
 %%     erlc +no_ssa_opt_sink get_two_tuple_elements.erl
@@ -38,7 +60,7 @@
                    [{type,{t_union,{t_atom,[x]},
                                    none,
                                    {t_integer,{1,2}},
-                                   none,none}}]}}.
+                                   none,none,none}}]}}.
     {move,{x,0},{y,1}}.
     {move,{integer,1},{x,0}}.
     {line,[{location,"get_two_tuple_elements.erl",5}]}.
@@ -47,7 +69,7 @@
                    [{type,{t_union,{t_atom,[x]},
                                    none,
                                    {t_integer,{1,2}},
-                                   none,none}}]}}.
+                                   none,none,none}}]}}.
     {move,{x,0},{y,0}}.
     {move,{integer,2},{x,0}}.
     {line,[{location,"get_two_tuple_elements.erl",5}]}.
@@ -56,7 +78,7 @@
                    [{type,{t_union,{t_atom,[x]},
                                    none,
                                    {t_integer,{1,2}},
-                                   none,none}}]}}.
+                                   none,none,none}}]}}.
     {test_heap,7,1}.
     {put_tuple2,{x,0},{list,[{atom,x},{atom,y},{x,0}]}}.
     {put_tuple2,{x,1},{list,[{y,0},{x,0}]}}.
@@ -83,13 +105,13 @@
                    [{type,{t_union,{t_atom,[x]},
                                    none,
                                    {t_integer,{1,2}},
-                                   none,none}}]}}.
+                                   none,none,none}}]}}.
     {'%',
      {var_info,
       {x,1},
       [{type,
         {t_tuple,2,true,
-         #{1 => {t_union,{t_atom,[x]},none,{t_integer,{1,2}},none,none},
+         #{1 => {t_union,{t_atom,[x]},none,{t_integer,{1,2}},none,none,none},
            2 =>
             {t_tuple,3,true,
              #{1 => {t_atom,[x]},
@@ -99,7 +121,7 @@
                  {t_atom,[x]},
                  none,
                  {t_integer,{1,2}},
-                 none,none}}}}}}]}}.
+                 none,none,none}}}}}}]}}.
     {get_tuple_element,{x,1},0,{x,0}}.
     {get_tuple_element,{x,1},1,{x,1}}.
     {get_tuple_element,{x,1},2,{x,1}}.
@@ -116,12 +138,12 @@
                    [{type,{t_union,{t_atom,[x]},
                                    none,
                                    {t_integer,{1,2}},
-                                   none,none}}]}}.
+                                   none,none,none}}]}}.
     {'%',{var_info,{x,1},
                    [{type,{t_union,{t_atom,[x]},
                                    none,
                                    {t_integer,{1,2}},
-                                   none,none}}]}}.
+                                   none,none,none}}]}}.
     {'%',{var_info,{x,2},[{type,nil}]}}.
     {line,[{location,"get_two_tuple_elements.erl",18}]}.
     {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}.
@@ -137,7 +159,7 @@
                    [{type,{t_union,{t_atom,[x]},
                                    none,
                                    {t_integer,{1,2}},
-                                   none,none}}]}}.
+                                   none,none,none}}]}}.
     return.
 
 
