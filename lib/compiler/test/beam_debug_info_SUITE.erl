@@ -431,9 +431,9 @@ extract_src_vars({record_field,_,_,E}, Lc, Acc0) ->
     extract_src_vars(E, Lc, Acc0);
 extract_src_vars({record_field,_,R,_,F}, Lc, Acc0) ->
     extract_src_vars(F, Lc, extract_src_vars(R, Lc, Acc0));
-extract_src_vars({C,_,Build,Qs0}, Lc, Acc0)
+extract_src_vars({C,_,Build0,Qs0}, Lc, Acc0)
   when C =:= lc; C =:= bc; C =:= mc ->
-    case any_debug_line_instrs(Build) of
+    case any_debug_line_instrs(Build0) of
         false ->
             Qs = extract_sv_qs(Qs0),
             case any_debug_line_instrs(Qs) of
@@ -443,7 +443,13 @@ extract_src_vars({C,_,Build,Qs0}, Lc, Acc0)
                     extract_args(Qs, Acc0)
             end;
         true ->
-            Acc1 = extract_src_vars(Build, Lc, Acc0),
+            Build = case Build0 of
+                        [_|_] -> Build0;
+                        _ -> [Build0]
+                    end,
+            Acc1 = lists:foldl(fun(B, A) ->
+                                       extract_src_vars(B, Lc, A)
+                               end, Acc0, Build),
             extract_args(Qs0, Acc1)
     end;
 extract_src_vars({G,_,P,E}=X, _Lc, Acc0) ->
