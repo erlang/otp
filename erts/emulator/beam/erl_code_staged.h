@@ -373,6 +373,21 @@ ERTS_CODE_STAGED_FUNC__(init)(void)
     }
 }
 
+/*
+ * Optimized start_staging.
+ *
+ * Instead of unconditionally calling index_put_entry (hash operation) for
+ * every entry in src, we check if the entry already exists in dst using
+ * fast O(1) array lookups.
+ *
+ * Each blob has entryv[ERTS_NUM_CODE_IX] entries. To check if an object
+ * exists in dst, we examine each entryv[] slot - if slot.index is valid
+ * for dst and the entry at that index in dst points to the same object,
+ * then it's already in dst.
+ *
+ * This replaces hash operations with up to ERTS_NUM_CODE_IX (typically 3)
+ * array lookups per entry, which is significantly faster.
+ */
 static void
 ERTS_CODE_STAGED_FUNC__(start_staging)(void)
 {
@@ -382,6 +397,7 @@ ERTS_CODE_STAGED_FUNC__(start_staging)(void)
     const ErtsCodeIndex src_ix = erts_active_code_ix();
     IndexTable *dst = &tables[dst_ix];
     IndexTable *src = &tables[src_ix];
+    int dst_entries = dst->entries;
 
     ASSERT(dst_ix != src_ix);
     ASSERT(ERTS_CODE_STAGED_CONCAT_MACRO_VALUES__
@@ -389,17 +405,36 @@ ERTS_CODE_STAGED_FUNC__(start_staging)(void)
 
     ERTS_CODE_STAGED_FUNC__(write_lock)();
 
-    /* Insert all entries in src into dst table */
     for (int ix = 0; ix < src->entries; ix++) {
         ERTS_CODE_STAGED_ENTRY_T__ *src_entry;
+        ERTS_CODE_STAGED_BLOB_T__ *blob;
+        int in_dst = 0;
 
         src_entry = (ERTS_CODE_STAGED_ENTRY_T__*)erts_index_lookup(src, ix);
+        blob = ERTS_CODE_STAGED_FUNC__(entry_to_blob)(src_entry);
+
         ERTS_CODE_STAGED_OBJECT_STAGE(src_entry->object, src_ix, dst_ix);
 
-#ifndef DEBUG
-        index_put_entry(dst, src_entry);
-#else /* DEBUG */
+        /* Check if this entry exists in dst by examining blob's entryv[].
+         * If any entryv[] has a valid index within dst's current entries
+         * and that slot in dst points to the same object, then it's in dst. */
+        for (int j = 0; j < ERTS_NUM_CODE_IX && !in_dst; j++) {
+            int idx = blob->entryv[j].slot.index;
+            if (idx >= 0 && idx < dst_entries) {
+                ERTS_CODE_STAGED_ENTRY_T__ *check =
+                    (ERTS_CODE_STAGED_ENTRY_T__*)erts_index_lookup(dst, idx);
+                if (check->object == src_entry->object) {
+                    in_dst = 1;
+                }
+            }
+        }
+
+        if (!in_dst) {
+            index_put_entry(dst, src_entry);
+        }
+#ifdef DEBUG
         {
+            /* Verify index_put_entry agrees with our in_dst search result. */
             ERTS_CODE_STAGED_ENTRY_T__* dst_entry =
                 (ERTS_CODE_STAGED_ENTRY_T__*)index_put_entry(dst, src_entry);
             ASSERT(ERTS_CODE_STAGED_FUNC__(entry_to_blob)(src_entry)
