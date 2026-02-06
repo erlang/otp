@@ -42,8 +42,28 @@ init({Owner, Secret, [compressed]}) ->
            monitor => Monitor,
            secret => Secret,
            position => 0,
-           zlib => Z },
-    {ok, opening, Data}.
+           deflate => fun(Data) -> zlib:deflate(Z, Data) end,
+           flush => fun() -> zlib:deflate(Z, [], finish) end },
+    {ok, opening, Data};
+init({Owner, Secret, [{zstd, Parameters}]}) ->
+    Monitor = monitor(process, Owner),
+    try zstd:context(compress, Parameters) of
+        {ok, Z} ->
+            Data =
+                #{ owner => Owner,
+                   monitor => Monitor,
+                   secret => Secret,
+                   position => 0,
+                   deflate => fun(Data) -> zstd:compress(Data, Z) end,
+                   flush => fun() ->
+                                    {done, Data} = zstd:finish(Z, []),
+                                    Data
+                            end},
+            {ok, opening, Data}
+    catch
+        _:_ ->
+            {error, badarg}
+    end.
 
 opening({call, From}, {'$open', Secret, Filename, Modes}, #{ secret := Secret } = Data) ->
     case raw_file_io:open(Filename, Modes) of
@@ -113,9 +133,9 @@ opened(_Event, _Request, _Data) ->
     keep_state_and_data.
 
 write(Data, IOVec) ->
-    #{ handle := PrivateFd, position := Position, zlib := Z } = Data,
+    #{ handle := PrivateFd, position := Position, deflate := Deflate } = Data,
     UncompressedSize = iolist_size(IOVec),
-    case ?CALL_FD(PrivateFd, write, [zlib:deflate(Z, IOVec)]) of
+    case ?CALL_FD(PrivateFd, write, [Deflate(IOVec)]) of
         ok -> {ok, Data#{ position := (Position + UncompressedSize) }};
         Other -> Other
     end.
@@ -152,8 +172,8 @@ position_1(#{ position := Current } = Data, Desired) when Current < Desired ->
 position_1(#{ position := Current }, Desired) when Current > Desired ->
     {error, einval}.
 
-flush_deflate_state(#{ handle := PrivateFd, zlib := Z }) ->
-    case ?CALL_FD(PrivateFd, write, [zlib:deflate(Z, [], finish)]) of
+flush_deflate_state(#{ handle := PrivateFd, flush := Flush }) ->
+    case ?CALL_FD(PrivateFd, write, [Flush()]) of
         ok -> ok;
         Other -> Other
     end.

@@ -168,7 +168,7 @@
          {shell_history_drop,[]}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-19834@", "stdlib-6.0",
+  {runtime_dependencies, ["erts-@OTP-19834@", "stdlib-7.0",
                           "sasl-3.0", "crypto-5.0"]}
   ]
 }.

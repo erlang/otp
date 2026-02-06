@@ -72,7 +72,10 @@ did not create it.
 """.
 -moduledoc #{ since => "OTP 28.0" }.
 
--export_type([context/0, dict/0]).
+-export_type([context/0,
+              dict/0,
+              compress_parameters/0,
+              decompress_parameters/0]).
 
 -doc """
 A compression or decompression context that can be used

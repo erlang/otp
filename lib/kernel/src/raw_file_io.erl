@@ -60,6 +60,7 @@ match_list(_Other) -> false.
 
 match_compressed(compressed) -> true;
 match_compressed(compressed_one) -> true;
+match_compressed({zstd, _}) -> true;
 match_compressed(_Other) -> false.
 
 match_delayed({delayed_write, _Size, _Timeout}) -> true;
