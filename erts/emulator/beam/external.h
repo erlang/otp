@@ -132,6 +132,7 @@ typedef struct {
 #define ERTS_DIST_EXT_DFLAG_HDR      ((Uint32) 0x1)
 #define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x2)
 #define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x4)
+#define ERTS_DIST_EXT_INTERNAL_NC    ((Uint32) 0x8)
 
 #define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff)
 
@@ -149,21 +150,12 @@ struct erl_dist_external_data {
 typedef struct erl_dist_external {
     ErtsDistExternalData *data;
     Uint32 flags;
-
     Uint32 connection_id;
     Sint heap_size;
     DistEntry *dep;
     struct ErtsMonLnkDist__ *mld;   /* copied from DistEntry.mld */
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
-
-/* This fake one is used to impersonate ErtsDistExternal for dec_term()
- * just for the flags without a large unused ErtsAtomTranslationTable.
- */
-typedef struct {
-    ErtsDistExternalData *data;
-    Uint32 flags;
-} ErtsDistExternalFake;
 
 typedef struct {
     byte *extp;

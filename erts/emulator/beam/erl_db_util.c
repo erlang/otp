@@ -2056,7 +2056,7 @@ restart:
 #endif
 
     /* 
-     * Fall through to cleanup code, but context.save should not be free'd
+     * Continue to cleanup code, but context.save should not be free'd
      */  
     context.save = NULL;
 error: /* Here is were we land when compilation failed. */
@@ -5611,8 +5611,8 @@ static DMCRet dmc_expr(DMCContext *context,
 		!= retOk)
 		return ret;
 	    break;
-	}	    
-	/* Fall through */
+	}
+        ERTS_FALLTHROUGH();
     default:
     simple_term:
 	*constant = true;
@@ -5866,7 +5866,7 @@ static Uint my_size_object(Eterm t, bool is_hashmap_node)
             }
             break;
         }
-        /* fall through */
+        ERTS_FALLTHROUGH();
     default:
 	sum += size_object(t);
 	break;

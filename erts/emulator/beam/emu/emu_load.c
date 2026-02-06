@@ -965,7 +965,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                 break;
             case TAG_n:
                 ASSERT(tmp_op->a[arg].val == NIL);
-                /* ! Fall through ! */
+                ERTS_FALLTHROUGH();
             case TAG_a:
                 code[ci++] = tmp_op->a[arg].val;
                 break;
