@@ -466,37 +466,52 @@ resize(_Size, _) ->
 %% like grow(), but only used when explicitly resizing down
 shrink(I, _S, _E, D) when I < 0 ->
     {?NEW_LEAF(D), 0};
+shrink(I, 0, E, D) ->
+    {prune(E, I, D), 0};
 shrink(I, S, E, D) ->
     shrink_1(I, S, E, D).
 
-%% I is the largest index, 0 or more (empty arrays handled above)
-shrink_1(I, S, E, D) when I < ?SIZE(S) ->
+shrink_1(_I, S, E, _D) when is_integer(E) ->
+    {E, S};
+shrink_1(I, 0, E, D) ->
+    {prune(E, I, D), 0};
+shrink_1(I, S, E, D) when S > 0, I < ?SIZE(S) ->
     shrink_1(I band ?MASK(S), ?reduce(S), element(1, E), D);
 shrink_1(I, S, E, D) when S > 0 ->
     IDiv = I bsr S,
     IRem = I band ?MASK(S),
-    E1 = prune(E, IDiv, ?NODESIZE, S),
+    E1 = prune(E, IDiv, S),
     I1 = IDiv + 1,
     case element(I1, E1) of
         E2 when is_integer(E2) ->
             {E1, S};
         E2 ->
-            {E3,_} = shrink_1(IRem, ?reduce(S), E2, D),
-            {setelement(I1, E1, E3), S}
-    end;
-shrink_1(I, _S, E, D) ->
-    {prune(E, I, ?LEAFSIZE, D), 0}.
+            {E3, S1} = shrink_1(IRem, ?reduce(S), E2, D),
+            if S1 < ?reduce(S) ->
+                    E4 = wrap_subtree(E3, S1, ?reduce(S)),
+                    {setelement(I1, E1, E4), S};
+               true ->
+                    {setelement(I1, E1, E3), S}
+            end
+    end.
+
+%% Wrap a collapsed subtree to match the expected level
+wrap_subtree(E, S, S) ->
+    E;
+wrap_subtree(E, S1, S2) when S1 < S2 ->
+    Wrapped = setelement(1, erlang:make_tuple(?NODESIZE, S1), E),
+    wrap_subtree(Wrapped, S1 + ?SHIFT, S2).
 
 %% the M limiter is needed for the extra data at the end of nodes
-prune(E, N, M, D) ->  %% M Can be removed later
-    list_to_tuple(prune(0, N, M, D, tuple_to_list(E))).
+prune(E, N, D) ->
+    list_to_tuple(prune(0, N, D, tuple_to_list(E))).
 
-prune(I, N, M, D, [E|Es]) when I =< N ->
-    [E | prune(I+1, N, M, D, Es)];
-prune(I, N, M, D, [_|Es]) when I < M ->
-    [D | prune(I+1, N, M, D, Es)];
-prune(_I, _N, _M, _D, Es) ->
-    Es.
+prune(I, N, D, [E|Es]) when I =< N ->
+    [E | prune(I+1, N, D, Es)];
+prune(I, N, D, [_|Es]) ->
+    [D | prune(I+1, N, D, Es)];
+prune(_I, _N, _D, []) ->
+    [].
 
 
 -doc """

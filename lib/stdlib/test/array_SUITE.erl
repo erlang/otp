@@ -251,50 +251,68 @@ relax_test(_Config) ->
     ].
 
 resize_test(_Config) ->
-    [?assert(resize(0, new()) =:= new()),
-     ?assert(resize(99, new(99)) =:= new(99)),
-     ?assert(resize(99, relax(new(99))) =:= relax(new(99))),
-     ?assert(is_fix(resize(100, new(10)))),
-     ?assertNot(is_fix(resize(100, relax(new(10))))),
+    ?assert(resize(0, new()) =:= new()),
+    ?assert(resize(99, new(99)) =:= new(99)),
+    ?assert(resize(99, relax(new(99))) =:= relax(new(99))),
+    ?assert(is_fix(resize(100, new(10)))),
+    ?assertNot(is_fix(resize(100, relax(new(10))))),
 
-     ?assert(array:size(resize(100, new())) =:= 100),
-     ?assert(array:size(resize(0, new(100))) =:= 0),
-     ?assert(array:size(resize(99, new(10))) =:= 99),
-     ?assert(array:size(resize(99, new(1000))) =:= 99),
+    ?assert(array:size(resize(100, new())) =:= 100),
+    ?assert(array:size(resize(0, new(100))) =:= 0),
+    ?assert(array:size(resize(1, new(100))) =:= 1),
+    ?assert(array:size(resize(99, new(10))) =:= 99),
+    ?assert(array:size(resize(99, new(1000))) =:= 99),
 
-     ?assertError(badarg, set(99, 17, new(10))),
-     ?test(set(99, 17, resize(100, new(10)))),
-     ?assertError(badarg, set(100, 17, resize(100, new(10)))),
+    ?assertError(badarg, set(99, 17, new(10))),
+    ?test(set(99, 17, resize(100, new(10)))),
+    ?assertError(badarg, set(100, 17, resize(100, new(10)))),
 
-     ?test(set(9, 17, resize(10, new(100)))),
-     ?assertError(badarg, set(10, 17, resize(10, new(100)))),
+    ?test(set(9, 17, resize(10, new(100)))),
+    ?assertError(badarg, set(10, 17, resize(10, new(100)))),
 
-     ?test(set(9, 17, resize(10, fix(set(99, 17, new()))))),
-     ?assertError(badarg, set(10, 17, resize(10, fix(set(99, 17, new()))))),
+    ?test(set(9, 17, resize(10, fix(set(99, 17, new()))))),
+    ?assertError(badarg, set(10, 17, resize(10, fix(set(99, 17, new()))))),
 
-     ?assert(17 =:= get(99, resize(100, set(99, 17, set(999, 17, new(1000)))))),
+    ?assert(17 =:= get(99, resize(100, set(99, 17, set(999, 17, new(1000)))))),
 
-     ?assert(undefined =:= get(55, resize(100, resize(10, set(55, 17, new()))))),
-     ?assert(17 =:= get(55, resize(100, resize(56, set(55, 17, new()))))),
-     ?assert(undefined =:= get(55, resize(100, resize(55, set(55, 17, new()))))),
+    ?assert(undefined =:= get(55, resize(100, resize(10, set(55, 17, new()))))),
+    ?assert(17 =:= get(55, resize(100, resize(56, set(55, 17, new()))))),
+    ?assert(undefined =:= get(55, resize(100, resize(55, set(55, 17, new()))))),
 
-     ?assertError(badarg, get(0, resize(0, set(0, 17, new(100))))),
-     ?assert(undefined =:= get(0, resize(0, set(0, 17, set(99, 17, new()))))),
+    ?assertError(badarg, get(0, resize(0, set(0, 17, new(100))))),
+    ?assert(undefined =:= get(0, resize(0, set(0, 17, set(99, 17, new()))))),
 
-     ?assert(array:size(resize(new())) =:= 0),
-     ?assert(array:size(resize(new(8))) =:= 0),
-     ?assert(array:size(resize(array:set(7, 0, new()))) =:= 8),
-     ?assert(array:size(resize(array:set(7, 0, new(10)))) =:= 8),
-     ?assert(array:size(resize(array:set(99, 0, new(10,{fixed,false}))))
-              =:= 100),
-     ?assert(array:size(resize(array:set(7, undefined, new()))) =:= 0),
-     ?assert(array:size(resize(array:from_list([1,2,3,undefined])))
-              =:= 3),
-     ?assert(array:size(
-                resize(array:from_orddict([{3,0},{17,0},{99,undefined}])))
-              =:= 18),
-     ?assertError(badarg, resize(foo, bad_argument))
-    ].
+    ?assert(array:size(resize(new())) =:= 0),
+    ?assert(array:size(resize(new(8))) =:= 0),
+    ?assert(array:size(resize(array:set(7, 0, new()))) =:= 8),
+    ?assert(array:size(resize(array:set(7, 0, new(10)))) =:= 8),
+    ?assert(array:size(resize(array:set(99, 0, new(10,{fixed,false}))))
+            =:= 100),
+    ?assert(array:size(resize(array:set(7, undefined, new()))) =:= 0),
+    ?assert(array:size(resize(array:from_list([1,2,3,undefined])))
+            =:= 3),
+    ?assert(array:size(
+              resize(array:from_orddict([{3,0},{17,0},{99,undefined}])))
+            =:= 18),
+    ?assertError(badarg, resize(foo, bad_argument)),
+
+    %% Regression test for shrink bugs
+    A258 = array:from_list(lists:seq(1,258)),
+    ?assert(244 =:= array:get(0, array:resize(1, array:set(1, 1744, array:set(0, 244, array:new()))))),
+    ?assert(258 =:= array:get(257, array:resize(261, array:set(261, foo, A258)))),
+    ?assert(258 =:= array:get(257, array:resize(315, array:set(0, x, array:set(600, foo, A258))))),
+    %% Test multi-level collapse wrapping
+    ?test(begin
+              A0 = array:new(),
+              A1 = lists:foldl(fun(I, Acc) -> array:set(I, I, Acc) end, A0, lists:seq(0, 300)),
+              A2 = array:resize(50, A1),
+              ?assert(49 =:= array:get(49, A2)),
+              A3 = array:resize(300, A2),
+              ?assert(49 =:= array:get(49, A3)),
+              ?assert(undefined =:= array:get(299, A3))
+          end),
+
+    ok.
 
 set_get_test(_Config) ->
     N0 = ?LEAFSIZE,
