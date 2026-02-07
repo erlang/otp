@@ -31,7 +31,6 @@
 	     beam_clean,
 	     beam_core_to_ssa,
 	     beam_dict,
-	     beam_digraph,
 	     beam_disasm,
          beam_doc,
 	     beam_flatten,
@@ -87,5 +86,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-6.0","kernel-8.4","erts-13.0",
+  {runtime_dependencies, ["stdlib-@OTP-19922@","kernel-8.4","erts-13.0",
 			  "crypto-5.1"]}]}.
