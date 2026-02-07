@@ -5002,8 +5002,7 @@ dec_term_atom_common:
                     map->objp = NULL;
                     map->u.flatmap = mp;
 
-                    mp->thing_word = MAP_HEADER_FLATMAP;
-                    mp->size       = size;
+                    mp->thing_word = make_flatmap_header(size);
                     mp->keys       = keys;
                     *objp          = make_flatmap(mp);
 
@@ -6073,7 +6072,7 @@ init_done:
 	    n = get_uint32(ep);
 	    ep += 4;
             if (n <= MAP_SMALL_MAP_LIMIT) {
-                heap_size += 3 + n;
+                heap_size += MAP_HEADER_FLATMAP_SZ + n;
 
                 /* When decoding the empty tuple we always use the canonical
                  * global literal, so it won't occupy any heap space in the

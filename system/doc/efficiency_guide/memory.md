@@ -82,7 +82,7 @@ for a running system can be determined by calling
 <tr>
   <td align="left" valign="middle">Small Map</td>
   <td align="left" valign="middle">(up to 32 keys)<br>
-    5 words + the size of all keys and values.</td>
+    4 words + the size of all keys and values.</td>
 </tr>
 <tr>
   <td align="left" valign="middle">Large Map</td>

@@ -9197,7 +9197,7 @@ prio_queue_check_recv_marks(Eterm obj, Eterm *ref,
                                 n   = flatmap_get_size(mp) + 1;
                                 ASSERT(flatmap_get_size(mp)
                                        <= MAP_SMALL_MAP_LIMIT);
-                                ptr += 2; /* hdr + size words */
+                                ptr += 1; /* hdr word */
                                 while (n--) {
                                     obj = *ptr++;
                                     if (!IS_CONST(obj)) {

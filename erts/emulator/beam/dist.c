@@ -6895,7 +6895,7 @@ save_nodes_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
      + 4 /* top 3-tuple */)
 #define ERTS_MON_NODES_MAX_INFO_MAP_SZ__(MAX_ELEMS)             \
     ((MAX_ELEMS)*2 /* keys and values */                        \
-     + 1 /* key tuple header */ + MAP_HEADER_FLATMAP_SZ /* 3 */ \
+     + 1 /* key tuple header */ + MAP_HEADER_FLATMAP_SZ /* 2 */ \
      + BIG_UINT_HEAP_SIZE /* connection id value */             \
      + 4 /* top 3-tuple */)
 #define ERTS_MON_NODES_MAX_INFO_SZ__(MAX_ELEMS)                 \

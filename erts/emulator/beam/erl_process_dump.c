@@ -634,7 +634,7 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
                     if (is_flatmap_header(hdr)) {
                         flatmap_t* fmp = (flatmap_t *) flatmap_val(x);
                         Eterm* values = ptr + sizeof(flatmap_t) / sizeof(Eterm);
-                        Uint map_size = fmp->size;
+                        Uint map_size = flatmap_get_size(fmp);
                         int i;
 
                         erts_print(to, to_arg, "Mf" ETERM_FMT ":", map_size);
@@ -975,7 +975,7 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                 if (is_flatmap_header(w)) {
                     flatmap_t* fmp = (flatmap_t *) flatmap_val(term);
                     Eterm* values = htop + sizeof(flatmap_t) / sizeof(Eterm);
-                    Uint map_size = fmp->size;
+                    Uint map_size = flatmap_get_size(fmp);
                     int i;
 
                     erts_print(to, to_arg, "Mf" ETERM_FMT ":", map_size);

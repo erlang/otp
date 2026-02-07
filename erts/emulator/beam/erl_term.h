@@ -1292,9 +1292,8 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define is_not_map(x)          (!is_map(x))
 
 #define MAP_HEADER(hp, sz, keys)                \
-    ((hp)[0] = MAP_HEADER_FLATMAP,              \
-     (hp)[1] = sz,                              \
-     (hp)[2] = keys)
+    ((hp)[0] = make_flatmap_header(sz),         \
+     (hp)[1] = keys)
 
 /* NB. When sz is 0, TUPLE0 is shared, so takes no space */
 #define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + !!sz)

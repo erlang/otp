@@ -200,8 +200,7 @@ Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, ErtsHeapFactory *factory) {
     hp = erts_produce_heap(factory, MAP_HEADER_FLATMAP_SZ + 3, 0);
     map = (flatmap_t*)hp;
     hp += MAP_HEADER_FLATMAP_SZ;
-    map->thing_word = MAP_HEADER_FLATMAP;
-    map->size = 3;
+    map->thing_word = make_flatmap_header(3);
     map->keys = key;
     hp[0] = state_map;
     hp[1] = msacc->id;

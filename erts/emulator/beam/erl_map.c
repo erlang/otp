@@ -373,7 +373,7 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
     Sint  idx = 0;
 
 
-    hp    = HAlloc(p, 3 + (size == 0 ? 0 : 1) + (2 * size));
+    hp    = HAlloc(p, MAP_HEADER_FLATMAP_SZ + (size == 0 ? 0 : 1) + (2 * size));
     thp   = hp;
     if (size == 0) {
         keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
@@ -388,8 +388,7 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
     hp   += MAP_HEADER_FLATMAP_SZ;
     vs    = hp;
 
-    mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->size = size; /* set later, might shrink*/
+    mp->thing_word = make_flatmap_header(size);
     mp->keys = keys;
 
     if (size == 0)
@@ -468,7 +467,7 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
     }
 
     *thp = make_arityval(size);
-    mp->size = size;
+    mp->thing_word = make_flatmap_header(size);
     return res;
 }
 
@@ -562,7 +561,7 @@ static Eterm hashmap_from_validated_list(Process *p,
         Uint n = hashmap_size(res);
         ASSERT(n > 0);
 	/* build flat structure */
-	hp    = HAlloc(p, 3 + 1 + (2 * n));
+	hp    = HAlloc(p, MAP_HEADER_FLATMAP_SZ + 1 + (2 * n));
 	keys  = make_tuple(hp);
 	*hp++ = make_arityval(n);
 	ks    = hp;
@@ -571,8 +570,7 @@ static Eterm hashmap_from_validated_list(Process *p,
 	hp   += MAP_HEADER_FLATMAP_SZ;
 	vs    = hp;
 
-	mp->thing_word = MAP_HEADER_FLATMAP;
-	mp->size = n;
+	mp->thing_word = make_flatmap_header(n);
 	mp->keys = keys;
 
 	hashmap_iterator_init(&wstack, res, 0);
@@ -694,8 +692,7 @@ from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
 	fmp = (flatmap_t*)hp;
 	hp += MAP_HEADER_FLATMAP_SZ;
 
-        fmp->thing_word = MAP_HEADER_FLATMAP;
-	fmp->size = n;
+        fmp->thing_word = make_flatmap_header(n);
 	fmp->keys = keys;
 
         sys_memcpy((void *) hp, (void *) vs, n * sizeof(Eterm));
@@ -1316,7 +1313,7 @@ static Eterm flatmap_merge(Process *p, Eterm map1, Eterm map2) {
     thp    = hp;
     ks     = hp + 1; hp += 1 + n1 + n2;
 
-    mp_new->thing_word = MAP_HEADER_FLATMAP;
+    mp_new->thing_word = make_flatmap_header(n1 + n2);
     mp_new->keys = make_tuple(thp);
 
     i1  = 0; i2 = 0;
@@ -1358,7 +1355,7 @@ static Eterm flatmap_merge(Process *p, Eterm map1, Eterm map2) {
     }
 
     n = n1 + n2 - unused_size;
-    mp_new->size = n;
+    mp_new->thing_word = make_flatmap_header(n);
     *thp = make_arityval(n);
 
     if (unused_size ) {
@@ -1977,7 +1974,7 @@ int erts_maps_take(Process *p, Eterm key, Eterm map,
 	 * Allocate key tuple first.
 	 */
 
-	need   = n + ((n-1) == 0 ? 0 : 1) - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
+	need   = n + ((n-1) == 0 ? 0 : 1) - 1 + MAP_HEADER_FLATMAP_SZ + n - 1; /* tuple - 1 + map - 1 */
 	hp_start = HAlloc(p, need);
 	thp    = hp_start;
 	mhp    = thp + n + ((n-1) == 0 ? -1 : 0);  /* offset with tuple heap size */
@@ -1988,8 +1985,7 @@ int erts_maps_take(Process *p, Eterm key, Eterm map,
             *thp++ = make_arityval(n - 1);
         }
 	*res   = make_flatmap(mhp);
-	*mhp++ = MAP_HEADER_FLATMAP;
-	*mhp++ = n - 1;
+	*mhp++ = make_flatmap_header(n - 1);
 	*mhp++ = tup;
 
 	if (is_immed(key)) {
@@ -2064,8 +2060,7 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 
 	hp  = HAlloc(p, MAP_HEADER_FLATMAP_SZ + n);
 	shp = hp;
-	*hp++ = MAP_HEADER_FLATMAP;
-	*hp++ = n;
+	*hp++ = make_flatmap_header(n);
 	*hp++ = mp->keys;
 
 	if (is_immed(key)) {
@@ -2130,8 +2125,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	    *hp++ = make_arityval(1);
 	    *hp++ = key;
 	    res   = make_flatmap(hp);
-	    *hp++ = MAP_HEADER_FLATMAP;
-	    *hp++ = 1;
+	    *hp++ = make_flatmap_header(1);
 	    *hp++ = tup;
 	    *hp++ = value;
 
@@ -2148,8 +2142,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	hp  = HAlloc(p, MAP_HEADER_FLATMAP_SZ + n);
 	shp = hp; /* save hp, used if optimistic update fails */
 	res = make_flatmap(hp);
-	*hp++ = MAP_HEADER_FLATMAP;
-	*hp++ = n;
+	*hp++ = make_flatmap_header(n);
 	*hp++ = mp->keys;
 
 	if (is_immed(key)) {
@@ -2191,10 +2184,9 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	tup    = make_tuple(shp);
 	*shp++ = make_arityval(n+1);
 
-	hp    = HAlloc(p, 3 + n + 1);
+	hp    = HAlloc(p, MAP_HEADER_FLATMAP_SZ + n + 1);
 	res   = make_flatmap(hp);
-	*hp++ = MAP_HEADER_FLATMAP;
-	*hp++ = n + 1;
+	*hp++ = make_flatmap_header(n + 1);
 	*hp++ = tup;
 
 	ks = flatmap_get_keys(mp);
@@ -2218,11 +2210,6 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	    *shp++ = *ks++;
 	    *hp++  = *vs++;
 	}
-	/* we have one word remaining
-	 * this will work out fine once we get the size word
-	 * in the header.
-	 */
-	erts_write_heap_filler(shp, 1);
 	return res;
 
 found_key:
@@ -3005,7 +2992,7 @@ unroll:
 	DESTROY_ESTACK(stack);
 
 	/* build flat structure */
-	hp    = HAlloc(p, 3 + 1 + (2 * n));
+	hp    = HAlloc(p, MAP_HEADER_FLATMAP_SZ + 1 + (2 * n));
 	keys  = make_tuple(hp);
 	*hp++ = make_arityval(n);
 	ks    = hp;
@@ -3014,8 +3001,7 @@ unroll:
 	hp   += MAP_HEADER_FLATMAP_SZ;
 	vs    = hp;
 
-	mp->thing_word = MAP_HEADER_FLATMAP;
-	mp->size = n;
+	mp->thing_word = make_flatmap_header(n);
 	mp->keys = keys;
 
 	hashmap_iterator_init(&wstack, map, 0);
@@ -3259,7 +3245,7 @@ void erts_usort_flatmap(flatmap_t* mp)
 	    jx--;
 	}
     }
-    mp->size = sz;
+    mp->thing_word = make_flatmap_header(sz);
     *tuple_val(mp->keys) = make_arityval(sz);
 }
 

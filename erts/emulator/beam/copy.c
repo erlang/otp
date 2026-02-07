@@ -176,8 +176,8 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
                                 ptr = (Eterm *)mp;
                                 n   = flatmap_get_size(mp) + 1;
                                 ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
-                                sum += n + 2;
-                                ptr += 2; /* hdr + size words */
+                                sum += n + 1;
+                                ptr += 1; /* hdr word */
                                 while (n--) {
                                     obj = *ptr++;
                                     if (!IS_CONST(obj)) {
@@ -440,8 +440,8 @@ Uint size_shared(Eterm obj)
                         Uint n = flatmap_get_size(mp) + 1;
                         ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
                         ptr  = (Eterm *)mp;
-                        sum += n + 2;
-                        ptr += 2; /* hdr + size words */
+                        sum += n + 1;
+                        ptr += 1; /* hdr word */
                         while (n--) {
                             obj = *ptr++;
                             if (!IS_CONST(obj)) {
@@ -582,7 +582,7 @@ cleanup:
                         flatmap_t *mp = (flatmap_t *) ptr;
                         Uint n = flatmap_get_size(mp) + 1;
                         ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
-                        ptr += 2; /* hdr + size words */
+                        ptr += 1; /* hdr word */
                         while (n--) {
                             obj = *ptr++;
                             if (!IS_CONST(obj)) {
@@ -890,7 +890,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		tp = htop;
 		switch (MAP_HEADER_TYPE(hdr)) {
 		    case MAP_HEADER_TAG_FLATMAP_HEAD :
-                        i = flatmap_get_size(objp) + 3;
+                        i = flatmap_get_size(objp) + MAP_HEADER_FLATMAP_SZ;
                         ASSERT(flatmap_get_size(objp) <= MAP_SMALL_MAP_LIMIT);
                         *argp = make_flatmap(htop);
                         while (i--) {
@@ -1286,8 +1286,8 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                         flatmap_t *mp = (flatmap_t *) ptr;
                         Uint n = flatmap_get_size(mp) + 1;
                         ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
-                        sum += n + 2;
-                        ptr += 2; /* hdr + size words */
+                        sum += n + 1;
+                        ptr += 1; /* hdr word */
                         while (n--) {
                             obj = *ptr++;
                             if (!IS_CONST(obj)) {
@@ -1589,8 +1589,8 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                 switch (MAP_HEADER_TYPE(hdr)) {
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
                         flatmap_t *mp = (flatmap_t *) ptr;
-                        Uint n = flatmap_get_size(mp) + 1;
-                        ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
+                        Uint n = flatmap_get_size(mp);
+                        ASSERT(n <= MAP_SMALL_MAP_LIMIT);
                         *hp++  = *++ptr; /* keys */
                         while (n--) {
                             obj = *++ptr;
@@ -1771,7 +1771,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                                     flatmap_t *mp = (flatmap_t *) hscan;
                                     remaining = flatmap_get_size(mp) + 1;
                                     ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
-                                    hscan += 2;
+                                    hscan += 1; /* skip hdr word */
                                     break;
                                 }
                                 case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
