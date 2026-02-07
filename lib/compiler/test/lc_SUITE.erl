@@ -329,6 +329,9 @@ assignment_generator(_Config) ->
     ?assertEqual(singleton_generator_bin_1a(Bin),
                  assignment_generator_bin_1(Bin)),
 
+    ?assertEqual(singleton_generator_6(Seq),
+                 assignment_generator_6(Seq)),
+
     ok.
 
 assignment_generator_1(L) ->
@@ -386,6 +389,12 @@ singleton_generator_4b(L) ->
 
 assignment_generator_5(L) ->
     [Sqr || E <- L, is_integer(E), Sqr = E*E, Sqr < 100].
+
+singleton_generator_6(L) ->
+    #{E => true || E <- L, is_integer(E), Sqr <- [E*E], Sqr < 100}.
+
+assignment_generator_6(L) ->
+    #{E => true || E <- L, is_integer(E), Sqr = E*E, Sqr < 100}.
 
 singleton_generator_5a(L) ->
     [Sqr || E <- L, is_integer(E), Sqr <- [E*E], Sqr < 100].
