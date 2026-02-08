@@ -2,9 +2,9 @@
 %% %CopyrightBegin%
 %%
 %% SPDX-License-Identifier: Apache-2.0
-%% 
+%%
 %% Copyright Ericsson AB 1996-2025. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(application).
@@ -50,8 +50,9 @@ For details about applications and behaviours, see
 [kernel](kernel_app.md), [app](app.md)
 """.
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
+	 ensure_all_stopped/1, ensure_all_stopped/2,
 	 start/1, start/2,
-	 start_boot/1, start_boot/2, stop/1, 
+	 start_boot/1, start_boot/2, stop/1,
 	 load/1, load/2, unload/1, takeover/2,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, permit/2]).
@@ -329,11 +330,18 @@ This function is equivalent to calling [`start/1,2`](`start/1`) repeatedly on
 all dependencies that are not yet started of each application. Optional
 dependencies will also be loaded and started if they are available.
 
-The `Mode` argument controls if the applications should be started in `serial`
+The `Opts` argument controls if the applications should be started in `serial`
 mode (one at a time) or `concurrent` mode. In concurrent mode, a dependency
 graph is built and the leaves of the graph are started concurrently and
 recursively. In both modes, no assertion can be made about the order the
 applications are started. If not supplied, it defaults to `serial`.
+
+`Opts` can also be a map with options:
+
+- `mode` - Required. Either `serial` or `concurrent`.
+- `limit` - Optional. The maximum number of concurrent application starts when
+  `mode` is `concurrent`. Can be a positive integer or `inf` for no limit.
+  Defaults to `inf`.
 
 Returns `{ok, AppNames}` for a successful start or for an already started
 application (which is, however, omitted from the `AppNames` list).
@@ -346,21 +354,24 @@ If an error occurs, the applications started by the function are stopped to
 bring the set of running applications back to its initial state.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec ensure_all_started(Applications, Type, Mode) -> {'ok', Started} | {'error', AppReason} when
+-spec ensure_all_started(Applications, Type, Opts) -> {'ok', Started} | {'error', AppReason} when
       Applications :: atom() | [atom()],
       Type :: restart_type(),
-      Mode :: serial | concurrent,
+      Opts :: serial | concurrent | #{mode := serial | concurrent, limit => pos_integer() | inf},
       Started :: [atom()],
       AppReason :: {atom(), term()}.
-ensure_all_started(Application, Type, Mode) when is_atom(Application) ->
-    ensure_all_started([Application], Type, Mode);
-ensure_all_started(Applications, Type, Mode) when is_list(Applications) ->
-    Opts = #{type => Type, mode => Mode},
+ensure_all_started(Application, Type, Opts) when is_atom(Application) ->
+    ensure_all_started([Application], Type, Opts);
+ensure_all_started(Applications, Type, Opts) when is_list(Applications), is_atom(Opts) ->
+    ensure_all_started(Applications, Type, #{mode => Opts});
+ensure_all_started(Applications, Type, #{mode := Mode} = Opts) when is_list(Applications) ->
+    Limit = maps:get(limit, Opts, inf),
+    InternalOpts = #{type => Type, mode => Mode, limit => Limit},
 
-    case enqueue_or_start(Applications, [], #{}, [], [], Opts) of
+    case enqueue_or_start(Applications, [], #{}, [], [], InternalOpts) of
         {ok, DAG, _Pending, Started} when Mode =:= concurrent ->
             ReqIDs = gen_server:reqids_new(),
-            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, Type);
+            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, InternalOpts);
         {ok, DAG, _Pending, Started} when Mode =:= serial ->
             0 = map_size(DAG),
             {ok, lists:reverse(Started)};
@@ -431,29 +442,37 @@ enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) ->
             ErrorAppReasonStarted
     end.
 
-concurrent_dag_start([], ReqIDs, _Done, Started, _Type) ->
+concurrent_dag_start([], ReqIDs, _Done, Started, _Opts) ->
     wait_all_enqueued(ReqIDs, Started, false);
-concurrent_dag_start(Pending0, ReqIDs0, Done, Started0, Type) ->
-    {Pending1, ReqIDs1} = enqueue_dag_leaves(Pending0, ReqIDs0, [], Done, Type),
+concurrent_dag_start(Pending0, ReqIDs0, Done, Started0, Opts) ->
+    #{type := Type, limit := Limit} = Opts,
+    {Pending1, ReqIDs1} = enqueue_dag_leaves(Pending0, ReqIDs0, [], Done, Type, Limit),
 
     case wait_one_enqueued(ReqIDs1, Started0) of
         {ok, App, ReqIDs2, Started1} ->
-            concurrent_dag_start(Pending1, ReqIDs2, [App], Started1, Type);
+            concurrent_dag_start(Pending1, ReqIDs2, [App | Done], Started1, Opts);
         {error, AppReason, ReqIDs2} ->
             wait_all_enqueued(ReqIDs2, Started0, AppReason)
     end.
 
-enqueue_dag_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Type) ->
-    case Children -- Done of
-        [] ->
-            Req = application_controller:start_application_request(App, Type),
-            NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
-            enqueue_dag_leaves(Rest, NewReqIDs, Acc, Done, Type);
-        NewChildren ->
-            NewAcc = [{App, NewChildren} | Acc],
-            enqueue_dag_leaves(Rest, ReqIDs, NewAcc, Done, Type)
+enqueue_dag_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Type, Limit) ->
+    CurrentSize = gen_server:reqids_size(ReqIDs),
+    case (Limit =:= inf) orelse (CurrentSize < Limit) of
+        true ->
+            case Children -- Done of
+                [] ->
+                    Req = application_controller:start_application_request(App, Type),
+                    NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
+                    enqueue_dag_leaves(Rest, NewReqIDs, Acc, Done, Type, Limit);
+                NewChildren ->
+                    NewAcc = [{App, NewChildren} | Acc],
+                    enqueue_dag_leaves(Rest, ReqIDs, NewAcc, Done, Type, Limit)
+            end;
+        false ->
+            %% Limit reached, keep this and remaining items for later
+            enqueue_dag_leaves([], ReqIDs, [{App, Children} | Rest] ++ Acc, Done, Type, Limit)
     end;
-enqueue_dag_leaves([], ReqIDs, Acc, _Done, _Type) ->
+enqueue_dag_leaves([], ReqIDs, Acc, _Done, _Type, _Limit) ->
     {Acc, ReqIDs}.
 
 wait_one_enqueued(ReqIDs0, Started) ->
@@ -483,6 +502,225 @@ wait_all_enqueued(ReqIDs0, Started0, LastAppReason) ->
                     wait_all_enqueued(ReqIDs1, Started1, LastAppReason);
                 {error, NewAppReason, ReqIDs1} ->
                     wait_all_enqueued(ReqIDs1, Started0, NewAppReason)
+            end
+    end.
+
+%% ensure_all_stopped/1
+-doc(#{equiv => ensure_all_stopped(Applications, #{mode => serial})}).
+-doc(#{since => <<"OTP 27.0">>}).
+-spec ensure_all_stopped(Applications) -> {'ok', Stopped} | {'error', Reason} when
+      Applications :: atom() | [atom()],
+      Stopped :: [atom()],
+      Reason :: term().
+ensure_all_stopped(Application) ->
+    ensure_all_stopped(Application, #{mode => serial}).
+
+%% ensure_all_stopped/2
+-doc """
+`Applications` is either an `t:atom/0` or a list of `t:atom/0` representing
+multiple applications.
+
+This function is the inverse of [`ensure_all_started/1,2`](`ensure_all_started/1`).
+It stops each of the given applications along with all applications that depend
+on them (their dependents). The function will first stop all dependents, then
+stop the requested applications.
+
+The `Opts` argument controls if the applications should be stopped in `serial`
+mode (one at a time) or `concurrent` mode. In concurrent mode, a dependency
+graph is built and applications are stopped concurrently when possible, ensuring
+dependents are stopped before the applications they depend on. If not supplied,
+it defaults to `serial`.
+
+`Opts` can also be a map with options:
+
+- `mode` - Required. Either `serial` or `concurrent`.
+- `limit` - Optional. The maximum number of concurrent application stops when
+  `mode` is `concurrent`. Can be a positive integer or `inf` for no limit.
+  Defaults to `inf`.
+
+Returns `{ok, AppNames}` for a successful stop or for an already stopped
+application (which is, however, omitted from the `AppNames` list).
+
+The function reports `{error, {AppName, Reason}}` for errors, where `Reason` is
+any possible reason returned by [`stop/1`](`stop/1`) when stopping a
+specific application.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec ensure_all_stopped(Applications, Opts) -> {'ok', Stopped} | {'error', AppReason} when
+      Applications :: atom() | [atom()],
+      Opts :: serial | concurrent | #{mode := serial | concurrent, limit => pos_integer() | inf},
+      Stopped :: [atom()],
+      AppReason :: {atom(), term()}.
+ensure_all_stopped(Application, Opts) when is_atom(Application) ->
+    ensure_all_stopped([Application], Opts);
+ensure_all_stopped(Applications, Opts) when is_list(Applications), is_atom(Opts) ->
+    ensure_all_stopped(Applications, #{mode => Opts});
+ensure_all_stopped(Applications, #{mode := Mode} = Opts) when is_list(Applications) ->
+    %% Build a map of running applications to their dependencies
+    Running = [App || {App, _, _} <- which_applications()],
+    DepGraph = build_dep_graph(Running),
+
+    case Mode of
+        serial ->
+            serial_ensure_all_stopped(Applications, DepGraph, []);
+        concurrent ->
+            Limit = maps:get(limit, Opts, inf),
+            concurrent_ensure_all_stopped(Applications, DepGraph, Limit)
+    end.
+
+%% Build a map from each app to its dependencies (apps it depends on)
+build_dep_graph(Apps) ->
+    lists:foldl(
+      fun(App, Acc) ->
+          case get_key(App, applications) of
+              {ok, Deps} -> Acc#{App => Deps};
+              undefined -> Acc#{App => []}
+          end
+      end, #{}, Apps).
+
+%% Find all running applications that depend on App (directly or indirectly)
+find_dependents(App, DepGraph) ->
+    find_dependents([App], DepGraph, []).
+
+find_dependents([], _DepGraph, Acc) ->
+    lists:usort(Acc);
+find_dependents([App | Rest], DepGraph, Acc) ->
+    %% Find apps that directly depend on App
+    DirectDeps = [A || {A, Deps} <- maps:to_list(DepGraph),
+                       lists:member(App, Deps),
+                       not lists:member(A, Acc)],
+    find_dependents(Rest ++ DirectDeps, DepGraph, DirectDeps ++ Acc).
+
+%% Serial mode: simple recursive stop
+serial_ensure_all_stopped([], _DepGraph, Stopped) ->
+    {ok, Stopped};
+serial_ensure_all_stopped([App | Apps], DepGraph, Stopped) ->
+    case lists:member(App, Stopped) of
+        true ->
+            serial_ensure_all_stopped(Apps, DepGraph, Stopped);
+        false ->
+            case serial_stop_with_dependents(App, DepGraph, Stopped) of
+                {ok, NewStopped} ->
+                    serial_ensure_all_stopped(Apps, DepGraph, NewStopped);
+                Error ->
+                    Error
+            end
+    end.
+
+serial_stop_with_dependents(App, DepGraph, Stopped) ->
+    case application_controller:is_running(App) of
+        false ->
+            {ok, Stopped};
+        true ->
+            %% Stop dependents first
+            Dependents = find_dependents(App, DepGraph),
+            case serial_ensure_all_stopped(Dependents, DepGraph, Stopped) of
+                {ok, NewStopped} ->
+                    case stop(App) of
+                        ok ->
+                            {ok, [App | NewStopped]};
+                        {error, {not_started, App}} ->
+                            {ok, NewStopped};
+                        {error, Reason} ->
+                            {error, {App, Reason}}
+                    end;
+                Error ->
+                    Error
+            end
+    end.
+
+%% Concurrent mode: build DAG then process leaves
+concurrent_ensure_all_stopped(Applications, DepGraph, Limit) ->
+    case build_stop_dag(Applications, DepGraph, #{}) of
+        {ok, DAG} ->
+            ReqIDs = gen_server:reqids_new(),
+            concurrent_dag_stop(maps:to_list(DAG), ReqIDs, [], [], #{limit => Limit});
+        Error ->
+            Error
+    end.
+
+build_stop_dag([], _DepGraph, DAG) ->
+    {ok, DAG};
+build_stop_dag([App | Apps], DepGraph, DAG) ->
+    case is_map_key(App, DAG) of
+        true ->
+            build_stop_dag(Apps, DepGraph, DAG);
+        false ->
+            case application_controller:is_running(App) of
+                false ->
+                    build_stop_dag(Apps, DepGraph, DAG);
+                true ->
+                    Dependents = find_dependents(App, DepGraph),
+                    case build_stop_dag(Dependents, DepGraph, DAG) of
+                        {ok, NewDAG} ->
+                            %% This app depends on its dependents being stopped first
+                            DepsInDAG = [D || D <- Dependents, is_map_key(D, NewDAG)],
+                            build_stop_dag(Apps, DepGraph, NewDAG#{App => DepsInDAG});
+                        Error ->
+                            Error
+                    end
+            end
+    end.
+
+concurrent_dag_stop([], ReqIDs, _Done, Stopped, _Opts) ->
+    wait_all_stop_enqueued(ReqIDs, Stopped, false);
+concurrent_dag_stop(Pending0, ReqIDs0, Done, Stopped0, Opts) ->
+    #{limit := Limit} = Opts,
+    {Pending1, ReqIDs1} = enqueue_dag_stop_leaves(Pending0, ReqIDs0, [], Done, Limit),
+
+    case wait_one_stop_enqueued(ReqIDs1, Stopped0) of
+        {ok, App, ReqIDs2, Stopped1} ->
+            concurrent_dag_stop(Pending1, ReqIDs2, [App | Done], Stopped1, Opts);
+        {error, AppReason, ReqIDs2} ->
+            wait_all_stop_enqueued(ReqIDs2, Stopped0, AppReason)
+    end.
+
+enqueue_dag_stop_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Limit) ->
+    CurrentSize = gen_server:reqids_size(ReqIDs),
+    case (Limit =:= inf) orelse (CurrentSize < Limit) of
+        true ->
+            case Children -- Done of
+                [] ->
+                    Req = application_controller:stop_application_request(App),
+                    NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
+                    enqueue_dag_stop_leaves(Rest, NewReqIDs, Acc, Done, Limit);
+                NewChildren ->
+                    NewAcc = [{App, NewChildren} | Acc],
+                    enqueue_dag_stop_leaves(Rest, ReqIDs, NewAcc, Done, Limit)
+            end;
+        false ->
+            %% Limit reached, keep this and remaining items for later
+            enqueue_dag_stop_leaves([], ReqIDs, [{App, Children} | Rest] ++ Acc, Done, Limit)
+    end;
+enqueue_dag_stop_leaves([], ReqIDs, Acc, _Done, _Limit) ->
+    {Acc, ReqIDs}.
+
+wait_one_stop_enqueued(ReqIDs0, Stopped) ->
+    case gen_server:wait_response(ReqIDs0, infinity, true) of
+        {{reply, ok}, App, ReqIDs1} ->
+            {ok, App, ReqIDs1, [App | Stopped]};
+        {{reply, {error, {not_started, App}}}, App, ReqIDs1} ->
+            {ok, App, ReqIDs1, Stopped};
+        {{reply, {error, Reason}}, App, ReqIDs1} ->
+            {error, {App, Reason}, ReqIDs1};
+        {{error, {Reason, _Ref}}, _App, _ReqIDs1} ->
+            exit(Reason);
+        no_request ->
+            exit(deadlock)
+    end.
+
+wait_all_stop_enqueued(ReqIDs0, Stopped0, LastAppReason) ->
+    case gen_server:reqids_size(ReqIDs0) of
+        0 when LastAppReason =:= false ->
+            {ok, lists:reverse(Stopped0)};
+        0 ->
+            {error, LastAppReason};
+        _ ->
+            case wait_one_stop_enqueued(ReqIDs0, Stopped0) of
+                {ok, _App, ReqIDs1, Stopped1} ->
+                    wait_all_stop_enqueued(ReqIDs1, Stopped1, LastAppReason);
+                {error, NewAppReason, ReqIDs1} ->
+                    wait_all_stop_enqueued(ReqIDs1, Stopped0, NewAppReason)
             end
     end.
 
@@ -753,13 +991,13 @@ and `vsn` application specification keys, respectively.
       Description :: string(),
       Vsn :: string().
 
-loaded_applications() -> 
+loaded_applications() ->
     application_controller:loaded_applications().
 
 -doc false.
 -spec info() -> term().
 
-info() -> 
+info() ->
     application_controller:info().
 
 -doc(#{equiv => set_env(Config, [])}).
@@ -819,7 +1057,7 @@ set_env(Config, Opts) when is_list(Config), is_list(Opts) ->
       Par :: atom(),
       Val :: term().
 
-set_env(Application, Key, Val) -> 
+set_env(Application, Key, Val) ->
     application_controller:set_env(Application, Key, Val).
 
 -doc """
@@ -864,7 +1102,7 @@ set_env(Application, Key, Val, Opts) when is_list(Opts) ->
       Application :: atom(),
       Par :: atom().
 
-unset_env(Application, Key) -> 
+unset_env(Application, Key) ->
     application_controller:unset_env(Application, Key).
 
 -doc """
@@ -903,7 +1141,7 @@ unset_env(Application, Key, Opts) when is_list(Opts) ->
       Par :: atom(),
       Val :: term().
 
-get_env(Key) -> 
+get_env(Key) ->
     application_controller:get_pid_env(group_leader(), Key).
 
 -doc """
@@ -920,7 +1158,7 @@ Returns `undefined` if any of the following applies:
       Par :: atom(),
       Val :: term().
 
-get_env(Application, Key) -> 
+get_env(Application, Key) ->
     application_controller:get_env(Application, Key).
 
 -doc """
@@ -941,7 +1179,7 @@ get_env(Application, Key, Default) ->
 -spec get_all_env() -> Env when
       Env :: [{Par :: atom(), Val :: term()}].
 
-get_all_env() -> 
+get_all_env() ->
     application_controller:get_pid_all_env(group_leader()).
 
 -doc """
@@ -954,7 +1192,7 @@ does not belong to any application, the function returns `[]`.
       Application :: atom(),
       Env :: [{Par :: atom(), Val :: term()}].
 
-get_all_env(Application) -> 
+get_all_env(Application) ->
     application_controller:get_all_env(Application).
 
 -doc(#{equiv => get_key(application:get_application(), Key)}).
@@ -962,7 +1200,7 @@ get_all_env(Application) ->
       Key :: atom(),
       Val :: term().
 
-get_key(Key) -> 
+get_key(Key) ->
     application_controller:get_pid_key(group_leader(), Key).
 
 -doc """
@@ -979,7 +1217,7 @@ Returns `undefined` if any of the following applies:
       Key :: atom(),
       Val :: term().
 
-get_key(Application, Key) -> 
+get_key(Application, Key) ->
     application_controller:get_key(Application, Key).
 
 -doc(#{equiv => get_all_key(application:get_application())}).
@@ -1002,14 +1240,14 @@ returns `[]`.
       Application :: atom(),
       Keys :: {'ok', [{Key :: atom(),Val :: term()},...]}.
 
-get_all_key(Application) -> 
+get_all_key(Application) ->
     application_controller:get_all_key(Application).
 
 -doc(#{equiv => get_application(self())}).
 -spec get_application() -> 'undefined' | {'ok', Application} when
       Application :: atom().
 
-get_application() -> 
+get_application() ->
     application_controller:get_application(group_leader()).
 
 -doc """
