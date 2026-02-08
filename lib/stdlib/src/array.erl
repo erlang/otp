@@ -453,7 +453,6 @@ resize(Size, #array{size = N, fix = Fix, cache = C, cache_index = CI, elements =
        Size < N ->
             E1 = set_leaf(CI, S, E, C),
             {E2, S1} = shrink(Size-1, S, E1, D),
-
             CI1 = 0,
             C1 = get_leaf(CI1, S1, E2, D),
 	    A#array{size = Size, elements = E2, cache = C1, cache_index = CI1, bits = S1};
@@ -464,47 +463,44 @@ resize(_Size, _) ->
     erlang:error(badarg).
 
 %% like grow(), but only used when explicitly resizing down
-shrink(I, _S, _E, D) when I < 0 ->
-    {?NEW_LEAF(D), 0};
-shrink(I, 0, E, D) ->
-    {prune(E, I, D), 0};
+shrink(I, _S, _E, _D) when I < 0 ->
+    S = find_max(I, ?SHIFT),
+    {S, ?reduce(S)};
 shrink(I, S, E, D) ->
     shrink_1(I, S, E, D).
 
-shrink_1(_I, S, E, _D) when is_integer(E) ->
-    {E, S};
+%% I is the largest index, 0 or more (empty arrays handled above)
+%% This first discards any unnecessary tuples from the top
+shrink_1(I, _S, E, _D) when is_integer(E) ->
+    S = find_max(I, ?SHIFT),
+    {S, ?reduce(S)};
 shrink_1(I, 0, E, D) ->
     {prune(E, I, D), 0};
-shrink_1(I, S, E, D) when S > 0, I < ?SIZE(S) ->
-    shrink_1(I band ?MASK(S), ?reduce(S), element(1, E), D);
-shrink_1(I, S, E, D) when S > 0 ->
+shrink_1(I, S, E, D) when I < ?SIZE(S) ->
+    shrink_1(I, ?reduce(S), element(1, E), D);
+shrink_1(I, S, E, D) ->
+    shrink_2(I, S, E, D).
+
+%% Here we have at least one top tuple that should be kept
+%% and we must not discard any intermediate levels
+shrink_2(_I, S, E, _D) when is_integer(E) ->
+    {E, S};
+shrink_2(I, 0, E, D) ->
+    {prune(E, I, D), 0};
+shrink_2(I, S, E, D) ->
     IDiv = I bsr S,
     IRem = I band ?MASK(S),
     E1 = prune(E, IDiv, S),
     I1 = IDiv + 1,
-    case element(I1, E1) of
-        E2 when is_integer(E2) ->
-            {E1, S};
-        E2 ->
-            {E3, S1} = shrink_1(IRem, ?reduce(S), E2, D),
-            if S1 < ?reduce(S) ->
-                    E4 = wrap_subtree(E3, S1, ?reduce(S)),
-                    {setelement(I1, E1, E4), S};
-               true ->
-                    {setelement(I1, E1, E3), S}
-            end
+    {E2,_} = shrink_2(IRem, ?reduce(S), element(I1, E1), D),
+    {setelement(I1, E1, E2), S}.
+
+prune(E, N, D) when is_tuple(E) ->
+    if N < tuple_size(E) - 1 ->
+            list_to_tuple(prune(0, N, D, tuple_to_list(E)));
+       true ->
+            E
     end.
-
-%% Wrap a collapsed subtree to match the expected level
-wrap_subtree(E, S, S) ->
-    E;
-wrap_subtree(E, S1, S2) when S1 < S2 ->
-    Wrapped = setelement(1, erlang:make_tuple(?NODESIZE, S1), E),
-    wrap_subtree(Wrapped, S1 + ?SHIFT, S2).
-
-%% the M limiter is needed for the extra data at the end of nodes
-prune(E, N, D) ->
-    list_to_tuple(prune(0, N, D, tuple_to_list(E))).
 
 prune(I, N, D, [E|Es]) when I =< N ->
     [E | prune(I+1, N, D, Es)];
