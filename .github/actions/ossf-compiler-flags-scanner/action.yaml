@@ -57,6 +57,6 @@ runs:
       # Upload the results to GitHub's code scanning dashboard.
       - name: "Upload to code-scanning"
         if: ${{ !cancelled() && inputs.upload == 'true' }}
-        uses: github/codeql-action/upload-sarif@7deb0a15d3029449bc515a36324b0b21d24f6e27 # ratchet:github/codeql-action/upload-sarif@v3.29.7
+        uses: github/codeql-action/upload-sarif@b13d724d35ff0a814e21683638ed68ed34cf53d1 # ratchet:github/codeql-action/upload-sarif@v3.29.7
         with:
             sarif_file: results.sarif
