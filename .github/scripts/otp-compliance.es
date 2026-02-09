@@ -1876,6 +1876,7 @@ app_key_to_record(AppKey) ->
 generate_spdx_packages(PackageMappings, #{~"files" := Files,
                                           ~"documentDescribes" := [ProjectName]}=_Spdx) ->
     SystemDocs = generate_spdx_system_docs(Files, ProjectName),
+    OTPBuild = generate_spdx_otp_build(Files, ProjectName),
     maps:fold(fun (PackageName, {PrefixPath, AppInfo}, Acc) ->
                       SpdxPackageFiles = group_files_by_app(Files, PrefixPath),
                       TestFiles = get_test_files(PackageName, SpdxPackageFiles, PrefixPath),
@@ -1917,7 +1918,7 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                                                end, [Package, DocPackage, TestPackage], Relations),
                       AllPackages = append_build_package(BuildPackage, Package, Packages),
                       AllPackages ++ Acc
-               end, [SystemDocs], PackageMappings).
+               end, [SystemDocs, OTPBuild], PackageMappings).
 
 append_build_package(#spdx_package{'hasFiles' = []}, _, AllPackages) ->
     AllPackages;
@@ -1925,6 +1926,28 @@ append_build_package(#spdx_package{'SPDXID' = BuildID}=BuildPackage,
                      #spdx_package{'SPDXID' = ID},
                      AllPackages) ->
     [BuildPackage#spdx_package { 'relationships' = #{ 'BUILD_TOOL_OF' => [{ BuildID, ID}]} } | AllPackages].
+
+generate_spdx_otp_build(Files, ParentSPDXPackageId) ->
+    PrefixPath = [~"make", ~"bootstrap"],
+    SpdxPackageFiles = lists:flatmap(fun (Prefix) ->
+                                             group_files_by_app(Files, Prefix)
+                                     end, PrefixPath),
+
+    PackageName = ~"build",
+    BuildFiles = lists:flatmap(fun (Prefix) ->
+                                       get_folder_files(SpdxPackageFiles, Prefix)
+                               end, PrefixPath),
+
+    LicenseUpdated = generate_license_info_from_files(BuildFiles),
+    ValidLicense = remove_invalid_spdx_licenses(LicenseUpdated),
+    OneLinerLicense = binary:join(ValidLicense, ~" AND "),
+    BuildPackage = create_spdx_package_record(<<PackageName/binary>>,
+                                              get_otp_version(),
+                                              <<"OTP Build files">>,
+                                              BuildFiles, ?spdx_homepage,
+                                              OneLinerLicense, OneLinerLicense, false),
+    Relations = #{ 'BUILD_TOOL_OF' => [{ BuildPackage#spdx_package.'SPDXID', ParentSPDXPackageId }]},
+    BuildPackage#spdx_package { 'relationships' = Relations }.
 
 generate_spdx_system_docs(Files, ParentSPDXPackageId) ->
     PrefixPath = ~"system",
@@ -1964,6 +1987,8 @@ get_build_files(_, SpdxPackageFiles, PrefixPath) ->
                                                 binary_to_list(PrefixPath)++ "/**/" ++ Config)
                   end, BuildTools).
 
+get_folder_files(SpdxPackageFiles, PrefixPath) ->
+    group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/**").
 
 build_tools_files() ->
     [
@@ -1971,6 +1996,7 @@ build_tools_files() ->
       "configure.ac",
       "config.h.in",
       "Makefile.in",
+      "Makefile",
       "Makefile.src",
       "Emakefile",
       "GNUmakefile"
@@ -1985,18 +2011,6 @@ create_spdx_package_record(PackageName, Vsn, Description, SpdxPackageFiles,
                 true -> [create_externalRef_purl(Description, otp_purl(PackageName, Vsn)),
                          fix_openvex_reference()]
             end,
-    %% case where a vendor file is part of "SPDXRef-otp-commontest-autoconf"
-    %% but the licenses of "SPDXRef-otp-commontest" still contain the license of the file.
-    %% essentially, licenses of packages need to be recomputed.
-    case SpdxPackageName of
-        ~"SPDXRef-otp-commontest" ->
-            lists:foreach(
-                  fun (#{~"licenseInfoInFiles" := LicenseInfoInFiles, ~"SPDXID" := Id}) ->
-                          io:format("~s:~n~p~n~n", [Id, LicenseInfoInFiles])
-                  end, SpdxPackageFiles);
-        _ ->
-            ok
-    end,
     #spdx_package {
        'SPDXID' = SpdxPackageName,
        'versionInfo' = Vsn,
@@ -2473,7 +2487,6 @@ test_examples(#{~"packages" := Packages,
     PackageNames = lists:filtermap(fun get_root_packages/1, Relations),
     Packages1 = lists:filter(fun (#{~"SPDXID" := Id}) -> lists:member(Id, PackageNames) end, Packages),
     Examples = group_files_by_folder(Files, "**/examples/**"),
-    %% io:format("Examples: ~p~n~n", [Examples]),
     ExampleFileNames = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, Examples),
     _ = lists:foreach(fun (#{~"hasFiles" := PackageFileNames,
                              ~"SPDXID" := Id}) ->
