@@ -419,7 +419,8 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
         end;
 
-handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
+handle_kexinit_msg(#ssh_msg_kexinit{first_kex_packet_follows = CounterGuess} = CounterPart,
+                   #ssh_msg_kexinit{} = Own,
                    #ssh{role = server} = Ssh, ReNeg) ->
     try
         {ok, Algorithms} =
@@ -429,13 +430,24 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
         Algorithms
     of
 	Algos ->
-            {ok, Ssh#ssh{algorithms = Algos}}
+            IsGuessWrong = is_guess_wrong(CounterGuess, CounterPart, Own),
+            {ok, Ssh#ssh{algorithms = Algos, ignore_initial_kex_message = IsGuessWrong}}
     catch
         Class:Reason0 ->
             Reason = ssh_lib:trim_reason(Reason0),
             Msg = kexinit_error(Class, Reason, server, Own, CounterPart, Ssh),
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
     end.
+
+%% RFC 4253 section 7 check if guess is wrong
+is_guess_wrong(false, _, _) ->
+    false;
+is_guess_wrong(true,
+               #ssh_msg_kexinit{kex_algorithms = [CounterKex | _],
+                                server_host_key_algorithms = [CounterHKey | _]},
+               #ssh_msg_kexinit{kex_algorithms = [OwnKex | _],
+                                server_host_key_algorithms = [OwnHKey | _]}) ->
+    {CounterKex, CounterHKey} /= {OwnKex, OwnHKey}.
 
 kexinit_error(Class, Error, Role, Own, CounterPart, Ssh) ->
     {Fmt,Args} =
