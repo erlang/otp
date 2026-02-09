@@ -31,21 +31,26 @@ in its implementation.
 
 ## DEPENDENCIES
 
-The current crypto implementation uses nifs to interface OpenSSLs crypto library
-and may work with limited functionality with as old versions as _OpenSSL_
-0\.9.8c. FIPS mode support requires at least version 1.0.1 and a FIPS capable
+The current crypto implementation uses a NIF module to interface OpenSSLs crypto 
+library. FIPS mode support requires at least version 1.0.1 and a FIPS capable
 OpenSSL installation. We recommend using a version that is officially supported
 by the OpenSSL project. API compatible backends like LibreSSL should also work.
 
-The crypto app is tested daily with at least one version of each of the OpenSSL
-1.0.1, 1.0.2, 1.1.0, 1.1.1 and 3.0. FIPS mode is also tested for 1.0.1, 1.0.2
-and 3.0.
+The crypto app is tested daily with at least one version of:
+* OpenSSL 1.0 (oldest 1.0.1f)
+* OpenSSL 1.1 (multiple tags) 
+* OpenSSL 3.0 (multiple tags) 
+* OpenSSL 3.2
+* OpenSSL 3.5
+* LibreSSL 4.0 and 4.1.
 
+FIPS mode is also tested for 1.0, 1.1 and 3.x. 
+OpenSSL versions 0.x and 1.0.0 are not supported anymore.
 Using OpenSSL 3.0 with Engines is supported since OTP 26.2.
 
 Source releases of OpenSSL can be downloaded from the
-[OpenSSL](http://www.openssl.org) project home page, or mirror sites listed
-there.
+[OpenSSL Library](https://www.openssl-library.org/source/)
+project home page, or mirror sites listed there.
 
 ## CONFIGURATION
 
