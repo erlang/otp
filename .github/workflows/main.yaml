@@ -555,6 +555,10 @@ jobs:
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: otp_prebuilt
+
+      - name: Check initial ulimit size
+        run: ulimit -n
+
       - name: Build on FreeBSD
         uses: vmactions/freebsd-vm@80bcb19d617fe71c9db00e6297b16fb184dac498 # v1
         with:
