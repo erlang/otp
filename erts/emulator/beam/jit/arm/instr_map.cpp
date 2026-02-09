@@ -263,6 +263,9 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(
         const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
+    // Optimised in the loader to a move
+    ASSERT(Size.get() > 0);
+
     emit_gc_test(ArgWord(0),
                  ArgWord(args.size() + MAP_HEADER_FLATMAP_SZ + 1),
                  Live);

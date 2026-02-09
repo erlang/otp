@@ -397,7 +397,7 @@ move_trim s d t
 
 move Src Dst => i_move Src Dst
 
-i_move s d
+i_move Ws d
 store_two_values s d s d
 load_two_xregs d x d x
 

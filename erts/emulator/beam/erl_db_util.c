@@ -2448,21 +2448,26 @@ restart:
 	    break;
         case matchMkFlatMap:
             n = *pc++;
-            ehp = HAllocX(build_proc, MAP_HEADER_FLATMAP_SZ + n, HEAP_XTRA);
-            t = *--esp;
-            {
-                flatmap_t *m = (flatmap_t *)ehp;
-                m->thing_word = MAP_HEADER_FLATMAP;
-                m->size = n;
-                m->keys = t;
+            if (n == 0) {
+                (void) *--esp; /* pop the empty keys tuple */
+                *esp++ = ERTS_GLOBAL_LIT_EMPTY_MAP;
+            } else {
+                ehp = HAllocX(build_proc, MAP_HEADER_FLATMAP_SZ + n, HEAP_XTRA);
+                t = *--esp;
+                {
+                    flatmap_t *m = (flatmap_t *)ehp;
+                    m->thing_word = MAP_HEADER_FLATMAP;
+                    m->size = n;
+                    m->keys = t;
+                }
+                t = make_flatmap(ehp);
+                ehp += MAP_HEADER_FLATMAP_SZ;
+                while (n--) {
+                    *ehp++ = *--esp;
+                }
+                erts_usort_flatmap((flatmap_t*)flatmap_val(t));
+                *esp++ = t;
             }
-            t = make_flatmap(ehp);
-            ehp += MAP_HEADER_FLATMAP_SZ;
-            while (n--) {
-                *ehp++ = *--esp;
-            }
-            erts_usort_flatmap((flatmap_t*)flatmap_val(t));
-            *esp++ = t;
             break;
         case matchMkHashMap:
             n = *pc++;
@@ -2488,16 +2493,14 @@ restart:
                     flatmap_t *mp;
                     Eterm keys, *hp;
                     Uint n = hashmap_size(t);
+                    /* deduplication can reduce n but never to zero */
+                    ASSERT(n > 0);
                     erts_factory_proc_init(&factory, build_proc);
 
                     /* build flat structure */
-                    hp    = erts_produce_heap(&factory, 3 + (n==0 ? 0 : 1) + (2 * n), 0);
-                    if (n == 0) {
-                        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-                    } else {
-                        keys  = make_tuple(hp);
-                        *hp++ = make_arityval(n);
-                    }
+                    hp    = erts_produce_heap(&factory, 3 + 1 + (2 * n), 0);
+                    keys  = make_tuple(hp);
+                    *hp++ = make_arityval(n);
                     ks    = hp;
                     hp   += n;
                     mp    = (flatmap_t*)hp;
