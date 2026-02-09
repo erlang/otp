@@ -2138,7 +2138,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
          * some values were changed. We can retain the old key tuple.
          */
         ASSERT(n == 0);
-        mp->thing_word = make_flatmap_header(flatmap_get_size(old_mp));
+        mp->thing_word = old_mp->thing_word
         mp->keys = old_mp->keys;
         while (num_old-- > 0) {
             *hp++ = *old_vals++;
