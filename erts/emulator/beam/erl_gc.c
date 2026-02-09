@@ -3840,6 +3840,163 @@ erts_max_heap_size(Eterm arg, Uint *max_heap_size, Uint *max_heap_flags)
     return 1;
 }
 
+typedef struct binary_range_info {
+    BinRef *bin_ref;
+    /* pairs of start and end offsets for each reference to the binary */
+    ErtsDynamicWStack ws;
+} BinaryRangeInfo;
+
+static void gather_binaries(BinaryRangeInfo *range_infos, const Uint count,
+                            const Eterm *start, const Eterm *stop) {
+    const Eterm* tp = start;
+    while (tp < stop) {
+        Eterm val = *tp++;
+
+        if (primary_tag(val) == TAG_PRIMARY_HEADER &&
+            !header_is_transparent(val)) {
+
+            if (thing_subtag(val) == SUB_BITS_SUBTAG) {
+                const ErlSubBits *sb = (ErlSubBits*)(tp-1);
+                const BinRef *underlying = (BinRef*)boxed_val(sb->orig);
+                if (thing_subtag(underlying->thing_word) != HEAP_BITS_SUBTAG) {
+                    for (Uint i = 0; i < count; i++) {
+                        BinaryRangeInfo* info = &range_infos[i];
+                        if (info->bin_ref == underlying) {
+                            WSTACK_PUSH2(info->ws.ws, sb->start, sb->end);
+                            break;
+                        }
+                    }
+                }
+            }
+            tp += header_arity(val);
+        }
+    }
+}
+
+Eterm
+erts_gather_binaries(ErtsHeapFactory *hfact, Process *rp) {
+    #define PSTACK_TYPE BinaryRangeInfo
+    PSTACK_DECLARE(range_infos, 16);
+
+    union erl_off_heap_ptr u;
+    Eterm res = NIL;
+    Eterm tuple;
+    union erts_tmp_aligned_offheap tmp;
+    Uint binaries_count;
+    BinaryRangeInfo* range_infosp;
+
+    ErlHeapFragment* bp;
+    ErtsMessage* mp;
+    Eterm *htop, *heap;
+    Uint sz = 0;
+    Eterm *hp;
+
+    for (u.hdr = MSO(rp).first; u.hdr; u.hdr = u.hdr->next) {
+        erts_align_offheap(&u, &tmp);
+        if (u.hdr->thing_word == HEADER_BIN_REF) {
+            BinaryRangeInfo* info = PSTACK_PUSH(range_infos);
+            info->bin_ref = u.br;
+            WSTACK_INIT(&info->ws, ERTS_ALC_T_ESTACK);
+        }
+    }
+
+    for (u.hdr = rp->wrt_bins; u.hdr; u.hdr = u.hdr->next) {
+        erts_align_offheap(&u, &tmp);
+        if (u.hdr->thing_word == HEADER_BIN_REF) {
+            BinaryRangeInfo* info = PSTACK_PUSH(range_infos);
+            info->bin_ref = u.br;
+            WSTACK_INIT(&info->ws, ERTS_ALC_T_ESTACK);
+        }
+    }
+
+    range_infosp = (BinaryRangeInfo*)range_infos.pstart;
+    binaries_count = PSTACK_COUNT(range_infos);
+
+    if (rp->abandoned_heap) {
+        heap = get_orig_heap(rp, &htop, NULL);
+        gather_binaries(range_infosp, binaries_count, heap, htop);
+    }
+
+    if (OLD_HEAP(rp)) {
+        gather_binaries(range_infosp, binaries_count, OLD_HEAP(rp), OLD_HTOP(rp) /*OLD_HEND(p)*/);
+    }
+
+    gather_binaries(range_infosp, binaries_count, HEAP_START(rp), HEAP_TOP(rp));
+
+    mp = rp->msg_frag;
+    bp = rp->mbuf;
+
+    if (bp)
+        goto search_heap_frags;
+
+    while (mp) {
+
+        bp = erts_message_to_heap_frag(mp);
+        mp = mp->next;
+
+    search_heap_frags:
+
+        while (bp) {
+            gather_binaries(range_infosp, binaries_count,
+                bp->mem, bp->mem + bp->used_size);
+            bp = bp->next;
+        }
+    }
+
+    for (Uint i = 0; i < binaries_count; i++) {
+        BinaryRangeInfo* info = &range_infosp[i];
+        sz += 2 /* cons */ + 6 /* tuple (ptr, sz, refc, binary, subs) */;
+        erts_bld_uword(NULL, &sz, (UWord) info->bin_ref->val);
+        erts_bld_uint(NULL, &sz, info->bin_ref->val->orig_size);
+        sz += ERL_REFC_BITS_SIZE;
+        for (UWord *bits = info->ws.ws.wstart; bits < info->ws.ws.wsp; bits += 2) {
+            sz += 2 /* cons */ + 3 /* tuple*/;
+            erts_bld_uword(NULL, &sz, bits[0]);
+            erts_bld_uword(NULL, &sz, bits[1]);
+        }
+    }
+
+    hp = erts_produce_heap(hfact, sz, 2);
+
+    for (Uint i = 0; i < binaries_count; i++) {
+        const BinaryRangeInfo *info = &range_infosp[i];
+        Eterm range_list = NIL;
+        Eterm val = erts_bld_uword(&hp, NULL, (UWord)info->bin_ref->val);
+        Eterm orig_size = erts_bld_uint(&hp, NULL, info->bin_ref->val->orig_size);
+        Eterm bitstring;
+        Eterm refc = make_small(erts_refc_read(&info->bin_ref->val->intern.refc, 1));
+        for (UWord *range_infos = info->ws.ws.wstart; range_infos < info->ws.ws.wsp; range_infos += 2) {
+            Eterm start = erts_bld_uword(&hp, NULL, range_infos[0]);
+            Eterm end = erts_bld_uword(&hp, NULL, range_infos[1]);
+            Eterm tuple = TUPLE2(hp, start, end);
+            hp += 3;
+            range_list = CONS(hp, tuple, range_list);
+            hp += 2;
+        }
+        WSTACK_DESTROY(info->ws.ws);
+
+        erts_refc_inc(&info->bin_ref->val->intern.refc, 1);
+        bitstring = erts_wrap_refc_bitstring(
+                &hfact->off_heap->first,
+                &hfact->off_heap->overhead,
+                &hp,
+                info->bin_ref->val,
+                (byte*)info->bin_ref->val->orig_bytes,
+                0,
+                NBITS(info->bin_ref->val->orig_size));
+        tuple = TUPLE5(hp, val, orig_size, refc, bitstring, range_list);
+        hp += 6;
+        res = CONS(hp, tuple, res);
+        hp += 2;
+
+    }
+
+    PSTACK_DESTROY(range_infos);
+    #undef PSTACK_TYPE
+
+    return res;
+}
+
 #if defined(DEBUG) && defined(ERLANG_FRAME_POINTERS)
 void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
     Eterm *stack_bottom = HEAP_END(p);
