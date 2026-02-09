@@ -106,7 +106,7 @@ init(Parent,LogDir,Nodes) ->
 	    %% copy priv files to log dir (both top dir and test run
 	    %% dir) so logs are independent of Common Test installation
 	    CTPath = code:lib_dir(common_test),
-	    PrivFiles = [?css_default,?jquery_script,?tablesorter_script],
+	    PrivFiles = [?css_default,?jquery_script,?jquery_migrate_script,?tablesorter_script],
 	    PrivFilesSrc = [filename:join(filename:join(CTPath, "priv"), F) ||
 			       F <- PrivFiles],
 	    PrivFilesDestTop = [filename:join(LogDir, F) || F <- PrivFiles],
@@ -369,6 +369,9 @@ header(Title, TableCols) ->
     JQueryFile =
 	xhtml(fun() -> "" end, 
 	      fun() -> make_relative(locate_priv_file(?jquery_script)) end),
+    JQueryMigrateFile =
+	xhtml(fun() -> "" end, 
+	      fun() -> make_relative(locate_priv_file(?jquery_migrate_script)) end),
     TableSorterFile =
 	xhtml(fun() -> "" end, 
 	      fun() -> make_relative(locate_priv_file(?tablesorter_script)) end),
@@ -389,6 +392,9 @@ header(Title, TableCols) ->
 	    "\" type=\"text/css\"></link>\n"]),
      xhtml("",
 	   ["<script type=\"text/javascript\" src=\"",JQueryFile,
+	    "\"></script>\n"]),
+     xhtml("",
+	   ["<script type=\"text/javascript\" src=\"",JQueryMigrateFile,
 	    "\"></script>\n"]),
      xhtml("",
 	   ["<script type=\"text/javascript\" src=\"",TableSorterFile,

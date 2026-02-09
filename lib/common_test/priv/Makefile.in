@@ -63,7 +63,7 @@ FILES =
 SCRIPTS = 
 IMAGES = tile1.jpg
 CSS = ct_default.css
-JS = jquery-latest.js jquery.tablesorter.min.js 
+JS = jquery-latest.js jquery-migrate.js jquery.tablesorter.min.js
 
 #
 # Rules
@@ -106,7 +106,7 @@ else
 FILES =
 IMAGES = tile1.jpg
 CSS = ct_default.css
-JS = jquery-latest.js jquery.tablesorter.min.js 
+JS = jquery-latest.js jquery-migrate.js jquery.tablesorter.min.js 
 
 #
 # Rules

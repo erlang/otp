@@ -85,6 +85,7 @@
 -define(css_default, "ct_default.css").
 -define(sortable_table_name, "SortableTable").
 -define(jquery_script, "jquery-latest.js").
+-define(jquery_migrate_script, "jquery-migrate.js").
 -define(tablesorter_script, "jquery.tablesorter.min.js").
 
 %% Logging information for error handler

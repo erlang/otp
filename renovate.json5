@@ -61,7 +61,7 @@
 
         // The patterns below are used to match out the X.Y.Z version of the github tag
         {
-            "matchPackageNames": ["facebook/zstd", "jquery/jquery", "Mottie/tablesorter"],
+            "matchPackageNames": ["facebook/zstd", "jquery/jquery", "jquery/jquery-migrate", "Mottie/tablesorter"],
             "extractVersion": "^(?<version>v?.*)"
         },
         {
