@@ -251,3 +251,47 @@ gen.has_map_fields(Fail, Src, Size, Rest) {
     }
     return op;
 }
+
+gen.create_local_record(Name, Dst, Live, Size, New) {
+    BeamOp* op;
+    Uint i;
+    Uint n;
+    BeamFile_Record *records;
+    Eterm def = THE_NON_VALUE;
+
+    n = S->beam.record.record_count;
+    records = S->beam.record.records;
+    for (i = 0; i < n; i++) {
+        if (records[i].name == Name.val) {
+            def = records[i].def_literal;
+            break;
+        }
+    }
+
+    ASSERT(Size.type == TAG_u);
+    n = Size.val;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, create_local_native_record, 4);
+    $BeamOpArity(op, 4 + n);
+
+    if (is_value(def)) {
+        op->a[0].type = TAG_q;
+        op->a[0].val = def;
+    } else {
+        /* This record does not have a definition. This should not
+         * happen. Force an error at load-time. */
+        op->a[0].type = TAG_a;
+        op->a[0].val = am_badrecord;
+    }
+    op->a[1] = Dst;
+    op->a[2] = Live;
+    op->a[3].type = TAG_u;
+    op->a[3].val = n;
+
+    for (i = 0; i < n; i++) {
+        op->a[4+i] = New[i];
+    }
+
+    return op;
+}

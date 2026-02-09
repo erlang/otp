@@ -1404,18 +1404,25 @@ is_native_record f xy a a
 get_record_elements Fail Src Size Matches=* | map_key_sort(Size, Matches) =>
     i_get_record_elements Fail Src Size Matches
 
-put_record p Id n Dst Live Size New=* |
-  local_record(Id) | map_key_sort(Size, New) =>
-    i_create_native_record u=1 Id Dst Live Size New
+put_record p Name=a n Dst Live Size New=* =>
+    create_local_record(Name, Dst, Live, Size, New)
 put_record p Id n Dst Live Size New=* | map_key_sort(Size, New) =>
-    i_create_native_record u Id Dst Live Size New
+    i_create_native_record Id Dst Live Size New
 
 put_record p _Id Src=xy Dst Live Size Updates=* | map_key_sort(Size, Updates) =>
-    i_update_native_record a=$MODULE Src Dst Live Size Updates
+    i_update_native_record Src Dst Live Size Updates
+
+create_local_native_record Def=q Dst Live Size New=* |
+  map_key_sort(Size, New) =>
+    i_create_local_native_record Def Dst Live Size New
+
+create_local_native_record/4
+
+i_create_local_native_record q d t I *
 
 i_get_record_elements f xy I *
-i_create_native_record t c d t I *
-i_update_native_record a s d t I *
+i_create_native_record c d t I *
+i_update_native_record s d t I *
 
 is_record_accessible f xy
 

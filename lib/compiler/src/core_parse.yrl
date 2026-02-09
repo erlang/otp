@@ -220,9 +220,15 @@ map_pair_pattern -> '(' anno_expression ':=' anno_pattern '-|' annotation ')' :
 native_record_pattern -> '~' '#' anno_atom ':' anno_atom '{' '}' :
                       #c_record{id = #c_literal{val={tok_val('$3'),tok_val('$5')}},
                                 es = []}.
+native_record_pattern -> '~' '#' anno_atom '{' '}' :
+                      #c_record{id = '$3',
+                                es = []}.
 native_record_pattern -> '~' '#' anno_atom ':' anno_atom '{' native_record_pair_patterns '}' :
                       #c_record{id = #c_literal{val={tok_val('$3'),tok_val('$5')}},
                                 es = '$7'}.
+native_record_pattern -> '~' '#' anno_atom '{' native_record_pair_patterns '}' :
+                      #c_record{id = '$3',
+                                es = '$5'}.
 native_record_pattern -> '~' '#' '/' '{' '}' :
                       #c_record{id = #c_literal{val=[]}, es = []}.
 native_record_pattern -> '~' '#' '/' '{' native_record_pair_patterns '}' :
@@ -365,10 +371,20 @@ native_record_expr ->
 	          id = #c_literal{val={tok_val('$3'),tok_val('$5')}},
 	          es = []}.
 native_record_expr ->
+    '~' '#' anno_atom '{' '}' :
+	#c_record{arg = #c_literal{val=empty},
+	          id = '$3',
+	          es = []}.
+native_record_expr ->
     '~' '#' anno_atom ':' anno_atom '{' native_record_pairs '}' :
 	#c_record{arg = #c_literal{val=empty},
 	          id = #c_literal{val={tok_val('$3'),tok_val('$5')}},
 	          es = '$7'}.
+native_record_expr ->
+    '~' '#' anno_atom '{' native_record_pairs '}' :
+	#c_record{arg = #c_literal{val=empty},
+	          id = '$3',
+	          es = '$5'}.
 native_record_expr ->
     '~' anno_native_record_expr '#' '/' '{' native_record_pairs '}' :
 	#c_record{arg = '$2', id = #c_literal{val=[]}, es = '$6'}.
@@ -376,11 +392,17 @@ native_record_expr ->
     '~' anno_native_record_expr '#' anno_atom ':' anno_atom '{' native_record_pairs '}' :
 	#c_record{arg = '$2', id = #c_literal{val={tok_val('$4'),tok_val('$6')}}, es = '$8'}.
 native_record_expr ->
+    '~' anno_native_record_expr '#' anno_atom '{' native_record_pairs '}' :
+	#c_record{arg = '$2', id = '$4', es = '$6'}.
+native_record_expr ->
     '~' anno_variable '#' '/' '{' native_record_pairs '}' :
 	#c_record{arg = '$2', id = #c_literal{val=[]}, es = '$6'}.
 native_record_expr ->
     '~' anno_variable '#' anno_atom ':' anno_atom '{' native_record_pairs '}' :
 	#c_record{arg = '$2', id = #c_literal{val={tok_val('$4'),tok_val('$6')}}, es = '$8'}.
+native_record_expr ->
+    '~' anno_variable '#' anno_atom '{' native_record_pairs '}' :
+	#c_record{arg = '$2', id = '$4', es = '$6'}.
 
 anno_native_record_expr -> native_record_expr : '$1'.
 anno_native_record_expr -> '(' native_record_expr '-|' annotation ')' : cerl:set_ann('$2', '$4').

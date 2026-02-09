@@ -251,6 +251,83 @@ bool erl_get_record_elements(Process* p, Eterm* reg, Eterm src,
     return false;
 }
 
+Eterm erl_create_local_native_record(Process* p, Eterm* reg,
+                                     Eterm cons, Uint live,
+                                     Uint size,
+                                     const Eterm* new_p) {
+    Eterm def;
+    ErtsRecordDefinition *defp;
+    ErtsRecordInstance *instance;
+    int field_count;
+    Eterm *hp;
+    Eterm* E;
+    Uint num_words_needed;
+    Eterm res;
+    Eterm sentinel = NIL;
+    const Eterm *new_end = new_p + size;
+    Eterm *def_values;
+
+    def = CAR(list_val(cons));
+    defp = (ErtsRecordDefinition*)tuple_val(def);
+    def_values = tuple_val(CDR(list_val(cons))) + 1;
+
+    field_count = RECORD_DEF_FIELD_COUNT(defp);
+
+    num_words_needed = RECORD_INST_SIZE(field_count);
+    if (HeapWordsLeft(p) < num_words_needed) {
+        erts_garbage_collect(p, num_words_needed, reg, live);
+    }
+    hp = p->htop;
+    E = p->stop;
+
+    instance = (ErtsRecordInstance*)hp;
+    res = make_record(hp);
+
+    instance->thing_word = MAKE_RECORD_HEADER(field_count);
+    instance->record_definition = def;
+
+    hp = (Eterm*) &(instance->values);
+
+    if (new_p == new_end) {
+        new_p = &sentinel;
+    }
+
+    for (int i = 0; i < field_count; i++) {
+        if (new_p[0] == defp->keys[i]) {
+            GetSource(new_p[1], *hp);
+            hp++;
+            new_p += 2;
+            if (new_p >= new_end) {
+                new_p = &sentinel;
+            }
+        } else {
+            Eterm value = def_values[i];
+            if (is_catch(value)) {
+                if (is_value(res)) {
+                    /* Delay this error. */
+                    p->fvalue = defp->keys[i];
+                    p->freason = EXC_NOVALUE;
+                    res = THE_NON_VALUE;
+                }
+                value = NIL;
+            }
+            *hp++ = value;
+        }
+    }
+
+    /* A `badfield` error has higher priority than a
+     * `no_value` error. */
+    if (new_p != &sentinel) {
+        p->fvalue = new_p[0];
+        p->freason = EXC_BADFIELD;
+        return THE_NON_VALUE;
+    } else if (is_value(res)) {
+        p->htop += num_words_needed;
+    }
+
+    return res;
+}
+
 Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
                                Uint size, const Eterm* new_p) {
     /* Module, Name */
@@ -258,7 +335,6 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
     const ErtsRecordEntry *entry;
     Uint code_ix;
     Eterm* tuple_ptr = boxed_val(id);
-    Uint local = reg[live];
 
     module = tuple_ptr[1];
     name = tuple_ptr[2];
@@ -274,84 +350,17 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
         if (is_value(cons)) {
             Eterm def;
             ErtsRecordDefinition *defp;
-            ErtsRecordInstance *instance;
-            int field_count;
-            Eterm *hp;
-            Eterm* E;
-            Uint num_words_needed;
-            Eterm res;
-            Eterm sentinel = NIL;
-            const Eterm *new_end = new_p + size;
-            Eterm *def_values;
 
             def = CAR(list_val(cons));
             defp = (ErtsRecordDefinition*)tuple_val(def);
-            def_values = tuple_val(CDR(list_val(cons))) + 1;
-
-            if (!local && defp->is_exported == am_false) {
-                goto badrecord;
+            if (defp->is_exported == am_true) {
+                return erl_create_local_native_record(p, reg, cons,
+                                                      live, size, new_p);
             }
-
-            field_count = RECORD_DEF_FIELD_COUNT(defp);
-
-            num_words_needed = RECORD_INST_SIZE(field_count);
-            if (HeapWordsLeft(p) < num_words_needed) {
-                erts_garbage_collect(p, num_words_needed, reg, live);
-            }
-            hp = p->htop;
-            E = p->stop;
-
-            instance = (ErtsRecordInstance*)hp;
-            res = make_record(hp);
-
-            instance->thing_word = MAKE_RECORD_HEADER(field_count);
-            instance->record_definition = def;
-
-            hp = (Eterm*) &(instance->values);
-
-            if (new_p == new_end) {
-                new_p = &sentinel;
-            }
-
-            for (int i = 0; i < field_count; i++) {
-                if (new_p[0] == defp->keys[i]) {
-                    GetSource(new_p[1], *hp);
-                    hp++;
-                    new_p += 2;
-                    if (new_p >= new_end) {
-                        new_p = &sentinel;
-                    }
-                } else {
-                    Eterm value = def_values[i];
-                    if (is_catch(value)) {
-                        if (is_value(res)) {
-                            /* Delay this error. */
-                            p->fvalue = defp->keys[i];
-                            p->freason = EXC_NOVALUE;
-                            res = THE_NON_VALUE;
-                        }
-                        value = NIL;
-                    }
-                    *hp++ = value;
-                }
-            }
-
-            /* A `badfield` error has higher priority than a
-             * `no_value` error. */
-            if (new_p != &sentinel) {
-                p->fvalue = new_p[0];
-                p->freason = EXC_BADFIELD;
-                return THE_NON_VALUE;
-            } else if (is_value(res)) {
-                p->htop += num_words_needed;
-            }
-
-            return res;
         }
     }
 
- badrecord:
-    p->fvalue = local ? name : id;
+    p->fvalue = id;
     p->freason = EXC_BADRECORD;
     return THE_NON_VALUE;
 }
@@ -420,16 +429,52 @@ Eterm erl_update_native_record(Process* p, Eterm* reg, Eterm src,
     return res;
 }
 
-bool erl_is_record_accessible(Eterm src, Eterm mod) {
+bool erl_is_record_accessible(Eterm src) {
     ErtsRecordDefinition *defp;
 
     ASSERT(is_record(src));
     defp = RECORD_DEF_P(RECORD_INST_P(src));
 
-    return defp->is_exported == am_true || defp->module == mod;
+    return defp->is_exported == am_true;
 }
 
-Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm field) {
+
+Eterm erl_get_local_record_field(Process* p, Eterm src, Eterm name, Eterm field) {
+    ErtsRecordInstance *instance;
+    ErtsRecordDefinition *defp;
+    Eterm *values;
+    int field_count;
+
+    if (is_not_record(src)) {
+    badrecord:
+        p->fvalue = src;
+        p->freason = EXC_BADRECORD;
+        return THE_NON_VALUE;
+    }
+
+    instance = RECORD_INST_P(src);
+    defp = RECORD_DEF_P(instance);
+
+    if (name != am_Underscore && defp->name != name) {
+        /* Record name mismatch. */
+        goto badrecord;
+    }
+
+    field_count = RECORD_INST_FIELD_COUNT(instance);
+    values = instance->values;
+
+    for (int i = 0; i < field_count; i++) {
+        if (field == defp->keys[i]) {
+            return values[i];
+        }
+    }
+
+    p->fvalue = field;
+    p->freason = EXC_BADFIELD;
+    return THE_NON_VALUE;
+}
+
+Eterm erl_get_record_field(Process* p, Eterm src, Eterm id, Eterm field) {
     ErtsRecordInstance *instance;
     ErtsRecordDefinition *defp;
     Eterm *values;
@@ -462,7 +507,7 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm fie
         }
     }
 
-    if (!(defp->is_exported == am_true || defp->module == mod)) {
+    if (defp->is_exported == am_false) {
         goto badrecord;
     }
 

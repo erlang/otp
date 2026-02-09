@@ -25,6 +25,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
+         create/1,explicit_module_name/1,
          term_order/1,gc/1,external_term_format/1,
          messages/1,errors/1,records_module/1, dist/1]).
 
@@ -33,8 +34,6 @@
 -record #bb{a=1, b=2}.
 -record #c{x::integer, y=0::integer, z=[]}.
 -record #empty{}.
--record #f{a, b, c, d}.
--record #r{f1, f2, f3, f4, f5, f6, f7, f8}.
 -record #singleton{false}.
 
 -record #big{f1, f2, f3, f4, f5, f6, f7, f8,
@@ -51,7 +50,9 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [term_order,
+    [create,
+     explicit_module_name,
+     term_order,
      gc,
      external_term_format,
      messages,
@@ -74,6 +75,57 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+create(_Config) ->
+    try
+        do_create()
+    after
+        _ = code:purge(ext_records)
+    end.
+
+do_create() ->
+    Pid = ext_records:server(),
+    1 = req(Pid, bump),
+    2 = req(Pid, bump),
+
+    true = code:delete(ext_records),
+
+    ?assertError({badrecord,{ext_records,quad}},
+                 #ext_records:quad{a=0, b=1, c=2, d=3}),
+
+    3 = req(Pid, bump),
+    done = req(Pid, done),
+    ok.
+
+req(Pid, Request) ->
+    Pid ! {self(), Request},
+    receive
+        {Pid, Reply} ->
+            Reply
+    after 10_000 ->
+            ct:fail(timeout)
+    end.
+
+explicit_module_name(_Config) ->
+    R = #bb{},
+
+    %% Updating an unexported record with an explicit module name
+    %% should fail.
+    ?assertError({badrecord,R}, R#?MODULE:bb{a=42}),
+
+    %% Matching an unexported record with an explicit module name
+    %% should fail.
+    case R of
+        #?MODULE:bb{a=_, b=_} ->
+            ct:fail(match_should_fail);
+        #?MODULE:bb{} ->
+            %% Matching only module and name always succeeds.
+            ok
+    end,
+
+    ?assertError({badrecord,R}, R#?MODULE:bb.a),
+
+    ok.
 
 term_order(_Config) ->
     RecA = id(#a{}),
@@ -378,7 +430,7 @@ records_module(_Config) ->
     R0 = R0#b{},
     R1 = records:update(R0, ?MODULE, b, #{x=>foo}),
     #b{x=foo, y=none, z=none} = id(R1),
-    #?MODULE:b{x=foo, y=none, z=none} = id(R1),
+    ?assertError({badmatch,_}, #?MODULE:b{x=foo, y=none, z=none} = id(R1)),
 
     ?assertError({badmap,not_a_map}, records:update(CRec, ?MODULE, c, not_a_map)),
     ?assertError({badfield,a}, records:update(CRec, ?MODULE, c, #{a => b})),

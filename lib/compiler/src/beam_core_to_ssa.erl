@@ -99,7 +99,7 @@
 -record(cg_map, {var=#b_literal{val=#{}},op,es}).
 -record(cg_map_pair, {key,val}).
 -record(cg_record, {rec}).
--record(cg_record_id, {id :: {_,_} | [], es}).
+-record(cg_record_id, {id :: {_,_} | atom() | [], es}).
 -record(cg_record_pairs, {local::boolean(),es}).
 -record(cg_record_pair, {key,val}).
 -record(cg_cons, {hd,tl}).
@@ -875,13 +875,12 @@ pattern(#c_tuple{es=Ces}, Sub0, St0) ->
 pattern(#c_map{es=Ces}, Sub0, St0) ->
     {Kes,Sub1,St1} = pattern_map_pairs(Ces, Sub0, St0),
     {#cg_map{op=exact,es=Kes},Sub1,St1};
-pattern(#c_record{id=#c_literal{val=Id}, es=Ces}, Sub0,
-        #kern{module=Mod}=St0) ->
+pattern(#c_record{id=#c_literal{val=Id}, es=Ces}, Sub0, St0) ->
     {Kes,Sub1,St1} = pattern_record_pairs(Ces, Sub0, St0),
     Local = case Id of
-                {Mod,_} -> true;
                 {_,_} -> false;
-                [] -> false
+                [] -> false;
+                _ when is_atom(Id) -> true
             end,
     Pairs = #cg_record_pairs{local=Local,es=Kes},
     {#cg_record{rec=#cg_record_id{id=Id,es=Pairs}},Sub1,St1};
@@ -2645,11 +2644,12 @@ pat_list_vars(Ps) ->
 -type label() :: beam_ssa:label().
 
 %% Main codegen structure for the SSA pass (formerly `beam_kernel_to_ssa`).
--record(cg, {lcount=1 :: label(),   %Label counter
+-record(cg, {module :: atom(),                  %Current module
+             lcount=1 :: label(),               %Label counter
              bfail=1 :: label(),
              catch_label=none :: 'none' | label(),
-             vars=#{} :: map(),     %Defined variables.
-             break=0 :: label(),    %Break label
+             vars=#{} :: map(),                 %Defined variables.
+             break=0 :: label(),                %Break label
              checks=[] :: [term()]
             }).
 
@@ -2657,7 +2657,7 @@ make_ssa_function(Anno0, Name, As, #cg_match{}=Body,
                   #kern{module=Mod,vcount=Count0}) ->
     Anno1 = line_anno(Anno0),
     Anno2 = Anno1#{func_info => {Mod,Name,length(As)}},
-    St0 = #cg{lcount=Count0},
+    St0 = #cg{module=Mod,lcount=Count0},
     {Asm,St} = cg_fun(Body, St0),
     #cg{checks=Checks,lcount=Count} = St,
     Anno = case Checks of
@@ -3103,9 +3103,21 @@ select_record_id([#cg_type_clause{type=cg_record_id,values=Scs}],
                (#cg_val_clause{}) ->
                     false
             end, Scs),
-    F = fun(#cg_val_clause{val=#cg_record_id{id={Mod,Name},es=Es},body=B},
+    F = fun(#cg_val_clause{val=#cg_record_id{id=[],es=Es},body=B},
+            Fail, St1) ->
+                %% Anonymous match.
+                #cg_select{var=Es,types=Types} = B,
+                select_record_pairs(Types, Src, Fail, St1);
+           (#cg_val_clause{val=#cg_record_id{id=Id,es=Es},body=B},
             Fail0, St1) ->
                 #cg_select{var=Es,types=Types} = B,
+                {Mod,Name} =
+                    case Id of
+                        {Mod0, Name0} ->
+                            {Mod0,Name0};
+                        Name0 when is_atom(Name0) ->
+                            {St1#cg.module,Name0}
+                    end,
                 {TestIs,St2} =
                     make_cond_branch({bif,is_record},
                                      [Src, #b_literal{val=Mod},
@@ -3120,12 +3132,7 @@ select_record_id([#cg_type_clause{type=cg_record_id,values=Scs}],
                            true -> Fail0
                        end,
                 {Is,St} = select_record_pairs(Types, Src, Fail, St2),
-                {TestIs++Is,St};
-           (#cg_val_clause{val=#cg_record_id{id=[],es=Es},body=B},
-            Fail, St1) ->
-                %% Anonymous match.
-                #cg_select{var=Es,types=Types} = B,
-                select_record_pairs(Types, Src, Fail, St1)
+                {TestIs++Is,St}
         end,
     match_fmf(F, Vf, St0, Scs).
 

@@ -1332,8 +1332,8 @@ i_is_native_record(Fail, Src, Mod, Name) {
     }
 }
 
-i_is_record_accessible(Fail, Src, Mod) {
-    if (!erl_is_record_accessible($Src, $Mod)) {
+is_record_accessible(Fail, Src) {
+    if (!erl_is_record_accessible($Src)) {
         $FAIL($Fail);
     }
 }
@@ -1349,11 +1349,25 @@ i_get_record_elements(Fail, Src, N) {
     $NEXT($NEXT_INSTRUCTION+$N);
 }
 
-i_create_native_record(Local, Id, Dst, Live, N) {
+i_create_local_native_record(Def, Dst, Live, N) {
     Eterm res;
 
     HEAVY_SWAPOUT;
-    reg[$Live] = $Local;
+    res = erl_create_local_native_record(c_p, reg, $Def, $Live, $N, $NEXT_INSTRUCTION);
+    HEAVY_SWAPIN;
+    if (is_non_value(res)) {
+        $FAIL_BODY();
+    } else {
+        $REFRESH_GEN_DEST();
+        $Dst = res;
+        $NEXT($NEXT_INSTRUCTION+$N);
+    }
+}
+
+i_create_native_record(Id, Dst, Live, N) {
+    Eterm res;
+
+    HEAVY_SWAPOUT;
     res = erl_create_native_record(c_p, reg, $Id, $Live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     if (is_non_value(res)) {
@@ -1365,7 +1379,7 @@ i_create_native_record(Local, Id, Dst, Live, N) {
     }
 }
 
-i_update_native_record(Mod, Id, Src, Dst, Live, N) {
+i_update_native_record(Src, Dst, Live, N) {
     Eterm res;
 
     HEAVY_SWAPOUT;
@@ -1380,8 +1394,17 @@ i_update_native_record(Mod, Id, Src, Dst, Live, N) {
     }
 }
 
-i_get_record_field(Fail, Src, Mod, Id, Field, Dst) {
-    Eterm res = erl_get_record_field(c_p, $Src, $Mod, $Id, $Field);
+i_get_local_record_field(Fail, Src, Id, Field, Dst) {
+    Eterm res = erl_get_local_record_field(c_p, $Src, $Id, $Field);
+    if (is_non_value(res)) {
+        $FAIL_HEAD_OR_BODY($Fail);
+    } else {
+        $Dst = res;
+    }
+}
+
+i_get_record_field(Fail, Src, Id, Field, Dst) {
+    Eterm res = erl_get_record_field(c_p, $Src, $Id, $Field);
     if (is_non_value(res)) {
         $FAIL_HEAD_OR_BODY($Fail);
     } else {
