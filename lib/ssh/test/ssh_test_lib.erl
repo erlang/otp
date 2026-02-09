@@ -124,7 +124,14 @@ setup_known_host/3,
 get_addr_str/0,
 file_base_name/2,
 kex_strict_negotiated/2,
-event_logged/3
+event_logged/3,
+server_host/1,
+server_port/1,
+server_pid/1,
+system_dir/1,
+user_dir/1,
+get_public_key_algorithms_with_valid_host_key/1,
+get_public_key_algorithms_with_valid_host_key/2
         ]).
 %% logger callbacks and related helpers
 -export([log/2,
@@ -142,6 +149,9 @@ event_logged/3
         "{ok, _} = ssh:connect(\"localhost\", 22, "
         "[{password,\"\"},{silently_accept_hosts, true}, "
         "{save_accepted_host, false}, {user_interaction, false}]).").
+
+-define(HAS_HOST_KEY(Alg, Options),
+        try ssh_transport:get_host_key(Alg, Options), true catch _:_:_ -> false end).
 
 %%%----------------------------------------------------------------
 connect(Port, Options) when is_integer(Port) ->
@@ -1373,3 +1383,25 @@ log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
     #{test_ref := TestRef, recipient := Recipient}) ->
     Recipient ! {TestRef, LogEvent},
     ok.
+
+server_pid(Config)  -> element(1,?v(server,Config)).
+server_host(Config) -> element(2,?v(server,Config)).
+server_port(Config) -> element(3,?v(server,Config)).
+
+%%%----------------------------------------------------------------
+system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).
+
+user_dir(Config) -> proplists:get_value(priv_dir, Config).
+
+%%%----------------------------------------------------------------
+get_public_key_algorithms_with_valid_host_key(Config) ->
+    get_public_key_algorithms_with_valid_host_key(Config, no_options).
+get_public_key_algorithms_with_valid_host_key(Config, no_options) ->
+    #{key_cb := KeyCb} = ssh_options:default(server),
+    #{default := Default} = KeyCb,
+    get_public_key_algorithms_with_valid_host_key(Config, [{key_cb, Default}]);
+get_public_key_algorithms_with_valid_host_key(Config, Options) ->
+    KeyCb = ?v(key_cb, Options),
+    Opts = #{key_cb => KeyCb, key_cb_options => [{system_dir, system_dir(Config)}]},
+    PubKeyAlgs = ssh_transport:supported_algorithms(public_key),
+    lists:filter(fun(Alg) -> ?HAS_HOST_KEY(Alg, Opts) end, PubKeyAlgs).

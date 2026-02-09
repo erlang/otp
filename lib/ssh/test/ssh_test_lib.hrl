@@ -10,6 +10,8 @@
 %% Timeout time in ms
 %%-------------------------------------------------------------------------
 -define(TIMEOUT, 15000).
+-define(v(Key, Config), proplists:get_value(Key, Config)).
+-define(v(Key, Config, Default), proplists:get_value(Key, Config, Default)).
 
 %%-------------------------------------------------------------------------
 %% Check for usable crypto
@@ -67,3 +69,20 @@
                 ct:log("~p:~p Show file~n~s =~n~s~n",
                        [?MODULE,?LINE,File__, Contents__])
         end)(File)).
+
+-define(SSH_TEST_LIB_FORMAT, "(~s ~p:~p in ~p) ").
+-define(SSH_TEST_LIB_ARGS,
+        [erlang:pid_to_list(self()), ?MODULE, ?LINE, ?FUNCTION_NAME]).
+-define(CT_LOG(F),
+        (ct:log(?SSH_TEST_LIB_FORMAT ++ F, ?SSH_TEST_LIB_ARGS, [esc_chars]))).
+-define(CT_LOG(F, Args),
+        (ct:log(
+           ?SSH_TEST_LIB_FORMAT ++ F,
+           ?SSH_TEST_LIB_ARGS ++ Args,
+           [esc_chars]))).
+-define(CT_PAL(F),
+        (ct:pal(?SSH_TEST_LIB_FORMAT ++ F, ?SSH_TEST_LIB_ARGS))).
+-define(CT_PAL(F, Args),
+        (ct:pal(?SSH_TEST_LIB_FORMAT ++ F, ?SSH_TEST_LIB_ARGS ++ Args))).
+-define(CT_FAIL(F, Args),
+        (ct:fail(?SSH_TEST_LIB_FORMAT ++ F, ?SSH_TEST_LIB_ARGS ++ Args))).
