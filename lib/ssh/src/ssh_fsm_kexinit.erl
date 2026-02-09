@@ -79,6 +79,13 @@ handle_event(internal, {#ssh_msg_kexinit{}=Kex, Payload}, {kexinit,Role,ReNeg},
     {next_state, {key_exchange,Role,ReNeg}, D#data{ssh_params=Ssh}};
 
 %%% ######## {key_exchange, client|server, init|renegotiate} ####
+%%%---- RFC 4253 section 7 guess was wrong
+handle_event(internal, Msg, {key_exchange,server,_ReNeg},
+             D = #data{ssh_params = Ssh0 = #ssh{ignore_initial_kex_message = true}}) when
+      is_record(Msg, ssh_msg_kexdh_init);
+      is_record(Msg, ssh_msg_kex_ecdh_init) ->
+    Ssh = Ssh0#ssh{ignore_initial_kex_message = false},
+    {keep_state, D#data{ssh_params = Ssh}};
 %%%---- diffie-hellman
 handle_event(internal, #ssh_msg_kexdh_init{} = Msg, {key_exchange,server,ReNeg}, D) ->
     ok = check_kex_strict(Msg, D),
@@ -321,6 +328,14 @@ ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x).
 
 ssh_dbg_off(connection_events) -> dbg:ctpg(?MODULE, handle_event, 4).
 
+ssh_dbg_format(connection_events, {call, {?MODULE,handle_event,
+                                          [internal, Msg, {key_exchange,server,_ReNeg},
+                                           #data{ssh_params = #ssh{ignore_initial_kex_message = true}}]}})
+  when is_record(Msg, ssh_msg_kexdh_init);
+       is_record(Msg, ssh_msg_kex_ecdh_init) ->
+    ["Connection event - Dropped message due to incorrect guess\n",
+     io_lib:format("[~w] Message: ~p~nState: {key_exchange,server,_}~n", [?MODULE, element(1, Msg)])
+    ];
 ssh_dbg_format(connection_events, {call, {?MODULE,handle_event, [EventType, EventContent, State, _Data]}}) ->
     ["Connection event\n",
      io_lib:format("[~w] EventType: ~p~nEventContent: ~p~nState: ~p~n", [?MODULE, EventType, EventContent, State])
