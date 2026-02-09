@@ -187,7 +187,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #endif
 #define is_not_both_immed(x,y)	(!is_both_immed((x),(y)))
 
-#define is_zero_sized(x)        (is_immed(x) || (x) == ERTS_GLOBAL_LIT_EMPTY_TUPLE)
+#define is_zero_sized(x)        (is_immed(x) || (x) == ERTS_GLOBAL_LIT_EMPTY_TUPLE || (x) == ERTS_GLOBAL_LIT_EMPTY_MAP)
 
 /* boxed object access methods */
 
@@ -1322,19 +1322,21 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
      (hp)[1] = sz,                              \
      (hp)[2] = keys)
 
-/* NB. When sz is 0, TUPLE0 is shared, so takes no space */
-#define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + !!sz)
+/*
+  Due to an optimization that assumes there's just one, global
+  empty map one should always use ERTS_GLOBAL_LIT_EMPTY_TUPLE
+  to get the empty map.
+ */
+extern Eterm ERTS_GLOBAL_LIT_EMPTY_MAP;
 
-#define MAP0_SZ MAP_SZ(0)
+#define MAP_SZ(sz) ((sz) == 0 ? 0 : MAP_HEADER_FLATMAP_SZ + 2*(sz) + 1)
+
 #define MAP1_SZ MAP_SZ(1)
 #define MAP2_SZ MAP_SZ(2)
 #define MAP3_SZ MAP_SZ(3)
 #define MAP4_SZ MAP_SZ(4)
 #define MAP5_SZ MAP_SZ(5)
 
-#define MAP0(hp)                                                        \
-    (MAP_HEADER(hp, 0, TUPLE0),                    \
-     make_flatmap(hp))
 #define MAP1(hp, k1, v1)                                                \
     (MAP_HEADER(hp, 1, TUPLE1(hp+1+MAP_HEADER_FLATMAP_SZ, k1)),         \
      (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
