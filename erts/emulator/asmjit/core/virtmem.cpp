@@ -1,15 +1,15 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
+#include <asmjit/core/api-build_p.h>
 #ifndef ASMJIT_NO_JIT
 
-#include "../core/osutils_p.h"
-#include "../core/string.h"
-#include "../core/support.h"
-#include "../core/virtmem.h"
+#include <asmjit/core/osutils_p.h>
+#include <asmjit/core/string.h>
+#include <asmjit/core/virtmem.h>
+#include <asmjit/support/support.h>
 
 #if !defined(_WIN32)
   #include <errno.h>
@@ -146,8 +146,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(VirtMem)
 // Virtual Memory Utilities
 // ========================
 
-ASMJIT_MAYBE_UNUSED
-static const constexpr MemoryFlags dualMappingFilter[2] = {
+[[maybe_unused]]
+static const constexpr MemoryFlags dual_mapping_filter[2] = {
   MemoryFlags::kAccessWrite | MemoryFlags::kMMapMaxAccessWrite,
   MemoryFlags::kAccessExecute | MemoryFlags::kMMapMaxAccessExecute
 };
@@ -162,116 +162,133 @@ struct ScopedHandle {
     : value(nullptr) {}
 
   inline ~ScopedHandle() noexcept {
-    if (value != nullptr)
+    if (value != nullptr) {
       ::CloseHandle(value);
+    }
   }
 
   HANDLE value;
 };
 
-static void detectVMInfo(Info& vmInfo) noexcept {
-  SYSTEM_INFO systemInfo;
+static void detect_vm_info(Info& vm_info) noexcept {
+  SYSTEM_INFO system_info;
 
-  ::GetSystemInfo(&systemInfo);
-  vmInfo.pageSize = Support::alignUpPowerOf2<uint32_t>(systemInfo.dwPageSize);
-  vmInfo.pageGranularity = systemInfo.dwAllocationGranularity;
+  ::GetSystemInfo(&system_info);
+  vm_info.page_size = Support::align_up_power_of_2<uint32_t>(system_info.dwPageSize);
+  vm_info.page_granularity = system_info.dwAllocationGranularity;
 }
 
-static size_t detectLargePageSize() noexcept {
+static size_t detect_large_page_size() noexcept {
   return ::GetLargePageMinimum();
 }
 
-static bool hasDualMappingSupport() noexcept {
+static bool has_dual_mapping_support() noexcept {
   // TODO: This assumption works on X86 platforms, this may not work on AArch64.
   return true;
 }
 
-// Returns windows-specific protectFlags from \ref MemoryFlags.
-static DWORD protectFlagsFromMemoryFlags(MemoryFlags memoryFlags) noexcept {
-  DWORD protectFlags;
+// Returns windows-specific protect_flags from \ref MemoryFlags.
+static DWORD protect_flags_from_memory_flags(MemoryFlags memory_flags) noexcept {
+  DWORD protect_flags;
 
   // READ|WRITE|EXECUTE.
-  if (Support::test(memoryFlags, MemoryFlags::kAccessExecute))
-    protectFlags = Support::test(memoryFlags, MemoryFlags::kAccessWrite) ? PAGE_EXECUTE_READWRITE : PAGE_EXECUTE_READ;
-  else if (Support::test(memoryFlags, MemoryFlags::kAccessRW))
-    protectFlags = Support::test(memoryFlags, MemoryFlags::kAccessWrite) ? PAGE_READWRITE : PAGE_READONLY;
-  else
-    protectFlags = PAGE_NOACCESS;
+  if (Support::test(memory_flags, MemoryFlags::kAccessExecute)) {
+    protect_flags = Support::test(memory_flags, MemoryFlags::kAccessWrite) ? PAGE_EXECUTE_READWRITE : PAGE_EXECUTE_READ;
+  }
+  else if (Support::test(memory_flags, MemoryFlags::kAccessRW)) {
+    protect_flags = Support::test(memory_flags, MemoryFlags::kAccessWrite) ? PAGE_READWRITE : PAGE_READONLY;
+  }
+  else {
+    protect_flags = PAGE_NOACCESS;
+  }
 
   // Any other flags to consider?
-  return protectFlags;
+  return protect_flags;
 }
 
-static DWORD desiredAccessFromMemoryFlags(MemoryFlags memoryFlags) noexcept {
-  DWORD access = Support::test(memoryFlags, MemoryFlags::kAccessWrite) ? FILE_MAP_WRITE : FILE_MAP_READ;
-  if (Support::test(memoryFlags, MemoryFlags::kAccessExecute))
+static DWORD desired_access_from_memory_flags(MemoryFlags memory_flags) noexcept {
+  DWORD access = Support::test(memory_flags, MemoryFlags::kAccessWrite) ? FILE_MAP_WRITE : FILE_MAP_READ;
+  if (Support::test(memory_flags, MemoryFlags::kAccessExecute)) {
     access |= FILE_MAP_EXECUTE;
+  }
   return access;
 }
 
-static HardenedRuntimeFlags getHardenedRuntimeFlags() noexcept {
+static HardenedRuntimeFlags get_hardened_runtime_flags() noexcept {
   HardenedRuntimeFlags flags = HardenedRuntimeFlags::kNone;
 
-  if (hasDualMappingSupport())
+  if (has_dual_mapping_support()) {
     flags |= HardenedRuntimeFlags::kDualMapping;
+  }
 
   return flags;
 }
 
-Error alloc(void** p, size_t size, MemoryFlags memoryFlags) noexcept {
+Error alloc(void** p, size_t size, MemoryFlags memory_flags) noexcept {
   *p = nullptr;
-  if (size == 0)
-    return DebugUtils::errored(kErrorInvalidArgument);
 
-  DWORD allocationType = MEM_COMMIT | MEM_RESERVE;
-  DWORD protectFlags = protectFlagsFromMemoryFlags(memoryFlags);
-
-  if (Support::test(memoryFlags, MemoryFlags::kMMapLargePages)) {
-    size_t lpSize = largePageSize();
-
-    // Does it make sense to call VirtualAlloc() if we failed to query large page size?
-    if (lpSize == 0)
-      return DebugUtils::errored(kErrorFeatureNotEnabled);
-
-    if (!Support::isAligned(size, lpSize))
-      return DebugUtils::errored(kErrorInvalidArgument);
-
-    allocationType |= MEM_LARGE_PAGES;
+  if (size == 0) {
+    return make_error(Error::kInvalidArgument);
   }
 
-  void* result = ::VirtualAlloc(nullptr, size, allocationType, protectFlags);
-  if (!result)
-    return DebugUtils::errored(kErrorOutOfMemory);
+  DWORD allocation_type = MEM_COMMIT | MEM_RESERVE;
+  DWORD protect_flags = protect_flags_from_memory_flags(memory_flags);
+
+  if (Support::test(memory_flags, MemoryFlags::kMMapLargePages)) {
+    size_t lp_size = large_page_size();
+
+    // Does it make sense to call VirtualAlloc() if we failed to query large page size?
+    if (lp_size == 0) {
+      return make_error(Error::kFeatureNotEnabled);
+    }
+
+    if (!Support::is_aligned(size, lp_size)) {
+      return make_error(Error::kInvalidArgument);
+    }
+
+    allocation_type |= MEM_LARGE_PAGES;
+  }
+
+  void* result = ::VirtualAlloc(nullptr, size, allocation_type, protect_flags);
+  if (!result) {
+    return make_error(Error::kOutOfMemory);
+  }
 
   *p = result;
-  return kErrorOk;
+  return Error::kOk;
 }
 
 Error release(void* p, size_t size) noexcept {
-  DebugUtils::unused(size);
-  // NOTE: If the `dwFreeType` parameter is MEM_RELEASE, `size` parameter must be zero.
-  constexpr DWORD dwFreeType = MEM_RELEASE;
-  if (ASMJIT_UNLIKELY(!::VirtualFree(p, 0, dwFreeType)))
-    return DebugUtils::errored(kErrorInvalidArgument);
-  return kErrorOk;
+  Support::maybe_unused(size);
+
+  // NOTE: If the `dw_free_type` parameter is MEM_RELEASE, `size` parameter must be zero.
+  constexpr DWORD dw_free_type = MEM_RELEASE;
+
+  if (ASMJIT_UNLIKELY(!::VirtualFree(p, 0, dw_free_type))) {
+    return make_error(Error::kInvalidArgument);
+
+  }
+  return Error::kOk;
 }
 
-Error protect(void* p, size_t size, MemoryFlags memoryFlags) noexcept {
-  DWORD protectFlags = protectFlagsFromMemoryFlags(memoryFlags);
-  DWORD oldFlags;
+Error protect(void* p, size_t size, MemoryFlags memory_flags) noexcept {
+  DWORD protect_flags = protect_flags_from_memory_flags(memory_flags);
+  DWORD old_flags;
 
-  if (::VirtualProtect(p, size, protectFlags, &oldFlags))
-    return kErrorOk;
+  if (::VirtualProtect(p, size, protect_flags, &old_flags)) {
+    return Error::kOk;
+  }
 
-  return DebugUtils::errored(kErrorInvalidArgument);
+  return make_error(Error::kInvalidArgument);
 }
 
-Error allocDualMapping(DualMapping* dm, size_t size, MemoryFlags memoryFlags) noexcept {
+Error alloc_dual_mapping(Out<DualMapping> dm, size_t size, MemoryFlags memory_flags) noexcept {
   dm->rx = nullptr;
   dm->rw = nullptr;
 
-  if (size == 0)
-    return DebugUtils::errored(kErrorInvalidArgument);
+  if (size == 0) {
+    return make_error(Error::kInvalidArgument);
+  }
 
   ScopedHandle handle;
   handle.value = ::CreateFileMappingW(
@@ -282,43 +299,48 @@ Error allocDualMapping(DualMapping* dm, size_t size, MemoryFlags memoryFlags) no
     (DWORD)(size & 0xFFFFFFFFu),
     nullptr);
 
-  if (ASMJIT_UNLIKELY(!handle.value))
-    return DebugUtils::errored(kErrorOutOfMemory);
+  if (ASMJIT_UNLIKELY(!handle.value)) {
+    return make_error(Error::kOutOfMemory);
+  }
 
   void* ptr[2];
   for (uint32_t i = 0; i < 2; i++) {
-    MemoryFlags accessFlags = memoryFlags & ~dualMappingFilter[i];
-    DWORD desiredAccess = desiredAccessFromMemoryFlags(accessFlags);
-    ptr[i] = ::MapViewOfFile(handle.value, desiredAccess, 0, 0, size);
+    MemoryFlags access_flags = memory_flags & ~dual_mapping_filter[i];
+    DWORD desired_access = desired_access_from_memory_flags(access_flags);
+    ptr[i] = ::MapViewOfFile(handle.value, desired_access, 0, 0, size);
 
     if (ptr[i] == nullptr) {
-      if (i == 1u)
+      if (i == 1u) {
         ::UnmapViewOfFile(ptr[0]);
-      return DebugUtils::errored(kErrorOutOfMemory);
+      }
+      return make_error(Error::kOutOfMemory);
     }
   }
 
   dm->rx = ptr[0];
   dm->rw = ptr[1];
-  return kErrorOk;
+  return Error::kOk;
 }
 
-Error releaseDualMapping(DualMapping* dm, size_t size) noexcept {
-  DebugUtils::unused(size);
+Error release_dual_mapping(DualMapping& dm, size_t size) noexcept {
+  Support::maybe_unused(size);
   bool failed = false;
 
-  if (!::UnmapViewOfFile(dm->rx))
+  if (!::UnmapViewOfFile(dm.rx)) {
     failed = true;
+  }
 
-  if (dm->rx != dm->rw && !UnmapViewOfFile(dm->rw))
+  if (dm.rx != dm.rw && !UnmapViewOfFile(dm.rw)) {
     failed = true;
+  }
 
-  if (failed)
-    return DebugUtils::errored(kErrorInvalidArgument);
+  if (failed) {
+    return make_error(Error::kInvalidArgument);
+  }
 
-  dm->rx = nullptr;
-  dm->rw = nullptr;
-  return kErrorOk;
+  dm.rx = nullptr;
+  dm.rw = nullptr;
+  return Error::kOk;
 }
 
 #endif
@@ -342,8 +364,8 @@ struct KernelVersion {
   inline bool ge(long major, long minor) const noexcept { return ver[0] > major || (ver[0] == major && ver[1] >= minor); }
 };
 
-ASMJIT_MAYBE_UNUSED
-static KernelVersion getKernelVersion() noexcept {
+[[maybe_unused]]
+static KernelVersion get_kernel_version() noexcept {
   KernelVersion out {};
   struct utsname buf {};
 
@@ -365,67 +387,67 @@ static KernelVersion getKernelVersion() noexcept {
 
   return out;
 }
-#endif // getKernelVersion
+#endif // get_kernel_version
 
 // Translates libc errors specific to VirtualMemory mapping to `asmjit::Error`.
-ASMJIT_MAYBE_UNUSED
-static Error asmjitErrorFromErrno(int e) noexcept {
+[[maybe_unused]]
+static Error asmjit_error_from_errno(int e) noexcept {
   switch (e) {
     case EACCES:
     case EAGAIN:
     case ENODEV:
     case EPERM:
-      return kErrorInvalidState;
+      return Error::kInvalidState;
 
     case EFBIG:
     case ENOMEM:
     case EOVERFLOW:
-      return kErrorOutOfMemory;
+      return Error::kOutOfMemory;
 
     case EMFILE:
     case ENFILE:
-      return kErrorTooManyHandles;
+      return Error::kTooManyHandles;
 
     default:
-      return kErrorInvalidArgument;
+      return Error::kInvalidArgument;
   }
 }
 
-ASMJIT_MAYBE_UNUSED
-static MemoryFlags maxAccessFlagsToRegularAccessFlags(MemoryFlags memoryFlags) noexcept {
-  static constexpr uint32_t kMaxProtShift = Support::ConstCTZ<uint32_t(MemoryFlags::kMMapMaxAccessRead)>::value;
-  return MemoryFlags(uint32_t(memoryFlags & MemoryFlags::kMMapMaxAccessRWX) >> kMaxProtShift);
+[[maybe_unused]]
+static MemoryFlags max_access_flags_to_regular_access_flags(MemoryFlags memory_flags) noexcept {
+  static constexpr uint32_t kMaxProtShift = Support::ctz_const<MemoryFlags::kMMapMaxAccessRead>;
+  return MemoryFlags(uint32_t(memory_flags & MemoryFlags::kMMapMaxAccessRWX) >> kMaxProtShift);
 }
 
-ASMJIT_MAYBE_UNUSED
-static MemoryFlags regularAccessFlagsToMaxAccessFlags(MemoryFlags memoryFlags) noexcept {
-  static constexpr uint32_t kMaxProtShift = Support::ConstCTZ<uint32_t(MemoryFlags::kMMapMaxAccessRead)>::value;
-  return MemoryFlags(uint32_t(memoryFlags & MemoryFlags::kAccessRWX) << kMaxProtShift);
+[[maybe_unused]]
+static MemoryFlags regular_access_flags_to_max_access_flags(MemoryFlags memory_flags) noexcept {
+  static constexpr uint32_t kMaxProtShift = Support::ctz_const<MemoryFlags::kMMapMaxAccessRead>;
+  return MemoryFlags(uint32_t(memory_flags & MemoryFlags::kAccessRWX) << kMaxProtShift);
 }
 
 // Returns `mmap()` protection flags from \ref MemoryFlags.
-ASMJIT_MAYBE_UNUSED
-static int mmProtFromMemoryFlags(MemoryFlags memoryFlags) noexcept {
+[[maybe_unused]]
+static int mm_prot_from_memory_flags(MemoryFlags memory_flags) noexcept {
   int protection = 0;
-  if (Support::test(memoryFlags, MemoryFlags::kAccessRead)) protection |= PROT_READ;
-  if (Support::test(memoryFlags, MemoryFlags::kAccessWrite)) protection |= PROT_READ | PROT_WRITE;
-  if (Support::test(memoryFlags, MemoryFlags::kAccessExecute)) protection |= PROT_READ | PROT_EXEC;
+  if (Support::test(memory_flags, MemoryFlags::kAccessRead)) protection |= PROT_READ;
+  if (Support::test(memory_flags, MemoryFlags::kAccessWrite)) protection |= PROT_READ | PROT_WRITE;
+  if (Support::test(memory_flags, MemoryFlags::kAccessExecute)) protection |= PROT_READ | PROT_EXEC;
   return protection;
 }
 
-// Returns maximum protection flags from `memoryFlags`.
+// Returns maximum protection flags from `memory_flags`.
 //
 // Uses:
 //   - `PROT_MPROTECT()` on NetBSD.
 //   - `PROT_MAX()` when available on other BSDs.
-ASMJIT_MAYBE_UNUSED
-static inline int mmMaxProtFromMemoryFlags(MemoryFlags memoryFlags) noexcept {
-  MemoryFlags acc = maxAccessFlagsToRegularAccessFlags(memoryFlags);
+[[maybe_unused]]
+static inline int mm_max_prot_from_memory_flags(MemoryFlags memory_flags) noexcept {
+  MemoryFlags acc = max_access_flags_to_regular_access_flags(memory_flags);
   if (acc != MemoryFlags::kNone) {
 #if defined(__NetBSD__) && defined(PROT_MPROTECT)
-    return PROT_MPROTECT(mmProtFromMemoryFlags(acc));
+    return PROT_MPROTECT(mm_prot_from_memory_flags(acc));
 #elif defined(PROT_MAX)
-    return PROT_MAX(mmProtFromMemoryFlags(acc));
+    return PROT_MAX(mm_prot_from_memory_flags(acc));
 #else
     return 0;
 #endif
@@ -434,40 +456,43 @@ static inline int mmMaxProtFromMemoryFlags(MemoryFlags memoryFlags) noexcept {
   return 0;
 }
 
-static void detectVMInfo(Info& vmInfo) noexcept {
-  uint32_t pageSize = uint32_t(::getpagesize());
+static void detect_vm_info(Info& vm_info) noexcept {
+  uint32_t page_size = uint32_t(::getpagesize());
 
-  vmInfo.pageSize = pageSize;
-  vmInfo.pageGranularity = Support::max<uint32_t>(pageSize, 65536);
+  vm_info.page_size = page_size;
+  vm_info.page_granularity = Support::max<uint32_t>(page_size, 65536);
 }
 
-static size_t detectLargePageSize() noexcept {
+static size_t detect_large_page_size() noexcept {
 #if defined(__APPLE__) && defined(VM_FLAGS_SUPERPAGE_SIZE_2MB) && ASMJIT_ARCH_X86
   return 2u * 1024u * 1024u;
 #elif defined(__FreeBSD__)
-  Support::Array<size_t, 2> pageSize;
+  Support::Array<size_t, 2> page_size;
   // TODO: Does it return unsigned?
-  return (getpagesizes(pageSize.data(), 2) < 2) ? 0 : uint32_t(pageSize[1]);
+  return (getpagesizes(page_size.data(), 2) < 2) ? 0 : uint32_t(page_size[1]);
 #elif defined(__linux__)
   StringTmp<128> storage;
-  if (OSUtils::readFile("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", storage, 16) != kErrorOk || storage.empty())
+
+  if (OSUtils::read_file("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", storage, 16) != Error::kOk || storage.is_empty()) {
     return 0u;
-
-  // The first value should be the size of the page (hpage_pmd_size).
-  size_t largePageSize = 0;
-
-  const char* buf = storage.data();
-  size_t bufSize = storage.size();
-
-  for (size_t i = 0; i < bufSize; i++) {
-    uint32_t digit = uint32_t(uint8_t(buf[i]) - uint8_t('0'));
-    if (digit >= 10u)
-      break;
-    largePageSize = largePageSize * 10 + digit;
   }
 
-  if (Support::isPowerOf2(largePageSize))
-    return largePageSize;
+  // The first value should be the size of the page (hpage_pmd_size).
+  size_t large_page_size = 0;
+
+  const char* buf = storage.data();
+  size_t buf_size = storage.size();
+
+  for (size_t i = 0; i < buf_size; i++) {
+    uint32_t digit = uint32_t(uint8_t(buf[i]) - uint8_t('0'));
+    if (digit >= 10u) {
+      break;
+    }
+    large_page_size = large_page_size * 10 + digit;
+  }
+
+  if (Support::is_power_of_2(large_page_size))
+    return large_page_size;
   else
     return 0u;
 #else
@@ -491,21 +516,21 @@ enum class AnonymousMemoryStrategy : uint32_t {
 };
 
 #if !defined(SHM_ANON)
-static const char* getTmpDir() noexcept {
-  const char* tmpDir = getenv("TMPDIR");
-  return tmpDir ? tmpDir : "/tmp";
+static const char* get_tmp_dir() noexcept {
+  const char* tmp_dir = getenv("TMPDIR");
+  return tmp_dir ? tmp_dir : "/tmp";
 }
 #endif
 
 #if defined(__linux__) && defined(__NR_memfd_create)
-static uint32_t getMfdExecFlag() noexcept {
-  static std::atomic<uint32_t> cachedMfdExecSupported;
-  uint32_t val = cachedMfdExecSupported.load();
+static uint32_t get_mfd_exec_flag() noexcept {
+  static std::atomic<uint32_t> cached_mfd_exec_supported;
+  uint32_t val = cached_mfd_exec_supported.load();
 
   if (val == 0u) {
-    KernelVersion ver = getKernelVersion();
+    KernelVersion ver = get_kernel_version();
     val = uint32_t(ver.ge(6, 3)) + 1u;
-    cachedMfdExecSupported.store(val);
+    cached_mfd_exec_supported.store(val);
   }
 
   return val == 2u ? uint32_t(MFD_EXEC) : uint32_t(0u);
@@ -514,9 +539,9 @@ static uint32_t getMfdExecFlag() noexcept {
 
 
 // It's not fully random, just to avoid collisions when opening TMP or SHM file.
-ASMJIT_MAYBE_UNUSED
-static uint64_t generateRandomBits(uintptr_t stackPtr, uint32_t attempt) noexcept {
-  static std::atomic<uint32_t> internalCounter;
+[[maybe_unused]]
+static uint64_t generate_random_bits(uintptr_t stack_ptr, uint32_t attempt) noexcept {
+  static std::atomic<uint32_t> internal_counter;
 
 #if defined(__GNUC__) && ASMJIT_ARCH_X86
   // Use RDTSC instruction to avoid gettimeofday() as we just need some "random" bits.
@@ -529,9 +554,9 @@ static uint64_t generateRandomBits(uintptr_t stackPtr, uint32_t attempt) noexcep
   }
 #endif
 
-  uint64_t bits = (uint64_t(stackPtr) & 0x1010505000055590u) - mix * 773703683;
+  uint64_t bits = (uint64_t(stack_ptr) & 0x1010505000055590u) - mix * 773703683;
   bits = (bits >> 33) ^ (bits << 7) ^ (attempt * 87178291199);
-  return bits + uint64_t(++internalCounter) * 10619863;
+  return bits + uint64_t(++internal_counter) * 10619863;
 }
 
 class AnonymousMemory {
@@ -543,13 +568,13 @@ public:
   };
 
   int _fd;
-  FileType _fileType;
-  StringTmp<128> _tmpName;
+  FileType _file_type;
+  StringTmp<128> _tmp_name;
 
   inline AnonymousMemory() noexcept
     : _fd(-1),
-      _fileType(kFileTypeNone),
-      _tmpName() {}
+      _file_type(kFileTypeNone),
+      _tmp_name() {}
 
   inline ~AnonymousMemory() noexcept {
     unlink();
@@ -558,7 +583,7 @@ public:
 
   inline int fd() const noexcept { return _fd; }
 
-  Error open(bool preferTmpOverDevShm) noexcept {
+  Error open(bool prefer_tmp_over_dev_shm) noexcept {
 #if defined(__linux__) && defined(__NR_memfd_create)
     // Linux specific 'memfd_create' - if the syscall returns `ENOSYS` it means
     // it's not available and we will never call it again (would be pointless).
@@ -572,80 +597,86 @@ public:
     static volatile uint32_t memfd_create_not_supported;
 
     if (!memfd_create_not_supported) {
-      _fd = (int)syscall(__NR_memfd_create, "vmem", MFD_CLOEXEC | getMfdExecFlag());
-      if (ASMJIT_LIKELY(_fd >= 0))
-        return kErrorOk;
+      _fd = (int)syscall(__NR_memfd_create, "vmem", MFD_CLOEXEC | get_mfd_exec_flag());
+      if (ASMJIT_LIKELY(_fd >= 0)) {
+        return Error::kOk;
+      }
 
       int e = errno;
-      if (e == ENOSYS)
+      if (e == ENOSYS) {
         memfd_create_not_supported = 1;
-      else
-        return DebugUtils::errored(asmjitErrorFromErrno(e));
+      }
+      else {
+        return make_error(asmjit_error_from_errno(e));
+      }
     }
 #endif // __linux__ && __NR_memfd_create
 
 #if defined(ASMJIT_HAS_SHM_OPEN) && defined(SHM_ANON)
     // Originally FreeBSD extension, apparently works in other BSDs too.
-    DebugUtils::unused(preferTmpOverDevShm);
+    Support::maybe_unused(prefer_tmp_over_dev_shm);
     _fd = ::shm_open(SHM_ANON, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 
-    if (ASMJIT_LIKELY(_fd >= 0))
-      return kErrorOk;
-    else
-      return DebugUtils::errored(asmjitErrorFromErrno(errno));
+    if (ASMJIT_LIKELY(_fd >= 0)) {
+      return Error::kOk;
+    }
+    else {
+      return make_error(asmjit_error_from_errno(errno));
+    }
 #else
-    // POSIX API. We have to generate somehow a unique name, so use `generateRandomBits()` helper. To prevent
+    // POSIX API. We have to generate somehow a unique name, so use `generate_random_bits()` helper. To prevent
     // having file collisions we use `shm_open()` with flags that require creation of the file so we never open
     // an existing shared memory.
-    static const char kShmFormat[] = "/shm-id-%016llX";
-    uint32_t kRetryCount = 100;
+    static const char shm_format_string[] = "/shm-id-%016llX";
+    uint32_t retry_count = 100;
 
-    for (uint32_t i = 0; i < kRetryCount; i++) {
-      bool useTmp = !ASMJIT_VM_SHM_DETECT || preferTmpOverDevShm;
-      uint64_t bits = generateRandomBits((uintptr_t)this, i);
+    for (uint32_t i = 0; i < retry_count; i++) {
+      bool use_tmp = !ASMJIT_VM_SHM_DETECT || prefer_tmp_over_dev_shm;
+      uint64_t bits = generate_random_bits((uintptr_t)this, i);
 
-      if (useTmp) {
-        _tmpName.assign(getTmpDir());
-        _tmpName.appendFormat(kShmFormat, (unsigned long long)bits);
-        _fd = ASMJIT_FILE64_API(::open)(_tmpName.data(), O_RDWR | O_CREAT | O_EXCL, 0);
+      if (use_tmp) {
+        _tmp_name.assign(get_tmp_dir());
+        _tmp_name.append_format(shm_format_string, (unsigned long long)bits);
+        _fd = ASMJIT_FILE64_API(::open)(_tmp_name.data(), O_RDWR | O_CREAT | O_EXCL, 0);
         if (ASMJIT_LIKELY(_fd >= 0)) {
-          _fileType = kFileTypeTmp;
-          return kErrorOk;
+          _file_type = kFileTypeTmp;
+          return Error::kOk;
         }
       }
 #if defined(ASMJIT_HAS_SHM_OPEN)
       else {
-        _tmpName.assignFormat(kShmFormat, (unsigned long long)bits);
-        _fd = ::shm_open(_tmpName.data(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+        _tmp_name.assign_format(shm_format_string, (unsigned long long)bits);
+        _fd = ::shm_open(_tmp_name.data(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
         if (ASMJIT_LIKELY(_fd >= 0)) {
-          _fileType = kFileTypeShm;
-          return kErrorOk;
+          _file_type = kFileTypeShm;
+          return Error::kOk;
         }
       }
 #endif
 
       int e = errno;
-      if (e != EEXIST)
-        return DebugUtils::errored(asmjitErrorFromErrno(e));
+      if (e != EEXIST) {
+        return make_error(asmjit_error_from_errno(e));
+      }
     }
 
-    return DebugUtils::errored(kErrorFailedToOpenAnonymousMemory);
+    return make_error(Error::kFailedToOpenAnonymousMemory);
 #endif
   }
 
   void unlink() noexcept {
-    FileType type = _fileType;
-    _fileType = kFileTypeNone;
+    FileType type = _file_type;
+    _file_type = kFileTypeNone;
 
 #ifdef ASMJIT_HAS_SHM_OPEN
     if (type == kFileTypeShm) {
-      ::shm_unlink(_tmpName.data());
+      ::shm_unlink(_tmp_name.data());
       return;
     }
 #endif
 
     if (type == kFileTypeTmp) {
-      ::unlink(_tmpName.data());
+      ::unlink(_tmp_name.data());
       return;
     }
   }
@@ -659,54 +690,55 @@ public:
 
   Error allocate(size_t size) noexcept {
     // TODO: Improve this by using `posix_fallocate()` when available.
-    if (ASMJIT_FILE64_API(ftruncate)(_fd, off_t(size)) != 0)
-      return DebugUtils::errored(asmjitErrorFromErrno(errno));
+    if (ASMJIT_FILE64_API(ftruncate)(_fd, off_t(size)) != 0) {
+      return make_error(asmjit_error_from_errno(errno));
+    }
 
-    return kErrorOk;
+    return Error::kOk;
   }
 };
 
 #if ASMJIT_VM_SHM_DETECT
-static Error detectAnonymousMemoryStrategy(AnonymousMemoryStrategy* strategyOut) noexcept {
-  AnonymousMemory anonMem;
-  Info vmInfo = info();
+static Error detect_anonymous_memory_strategy(Out<AnonymousMemoryStrategy> strategy_out) noexcept {
+  AnonymousMemory anon_mem;
+  Info vm_info = info();
 
-  ASMJIT_PROPAGATE(anonMem.open(false));
-  ASMJIT_PROPAGATE(anonMem.allocate(vmInfo.pageSize));
+  ASMJIT_PROPAGATE(anon_mem.open(false));
+  ASMJIT_PROPAGATE(anon_mem.allocate(vm_info.page_size));
 
-  void* ptr = mmap(nullptr, vmInfo.pageSize, PROT_READ | PROT_EXEC, MAP_SHARED, anonMem.fd(), 0);
+  void* ptr = mmap(nullptr, vm_info.page_size, PROT_READ | PROT_EXEC, MAP_SHARED, anon_mem.fd(), 0);
   if (ptr == MAP_FAILED) {
     int e = errno;
     if (e == EINVAL) {
-      *strategyOut = AnonymousMemoryStrategy::kTmpDir;
-      return kErrorOk;
+      *strategy_out = AnonymousMemoryStrategy::kTmpDir;
+      return Error::kOk;
     }
-    return DebugUtils::errored(asmjitErrorFromErrno(e));
+    return make_error(asmjit_error_from_errno(e));
   }
   else {
-    munmap(ptr, vmInfo.pageSize);
-    *strategyOut = AnonymousMemoryStrategy::kDevShm;
-    return kErrorOk;
+    munmap(ptr, vm_info.page_size);
+    *strategy_out = AnonymousMemoryStrategy::kDevShm;
+    return Error::kOk;
   }
 }
 #endif
 
-static Error getAnonymousMemoryStrategy(AnonymousMemoryStrategy* strategyOut) noexcept {
+static Error get_anonymous_memory_strategy(AnonymousMemoryStrategy* strategy_out) noexcept {
 #if ASMJIT_VM_SHM_DETECT
   // Initially don't assume anything. It has to be tested whether '/dev/shm' was mounted with 'noexec' flag or not.
-  static std::atomic<uint32_t> cachedStrategy;
+  static std::atomic<uint32_t> cached_strategy;
 
-  AnonymousMemoryStrategy strategy = static_cast<AnonymousMemoryStrategy>(cachedStrategy.load());
+  AnonymousMemoryStrategy strategy = static_cast<AnonymousMemoryStrategy>(cached_strategy.load());
   if (strategy == AnonymousMemoryStrategy::kUnknown) {
-    ASMJIT_PROPAGATE(detectAnonymousMemoryStrategy(&strategy));
-    cachedStrategy.store(static_cast<uint32_t>(strategy));
+    ASMJIT_PROPAGATE(detect_anonymous_memory_strategy(Out(strategy)));
+    cached_strategy.store(static_cast<uint32_t>(strategy));
   }
 
-  *strategyOut = strategy;
-  return kErrorOk;
+  *strategy_out = strategy;
+  return Error::kOk;
 #else
-  *strategyOut = AnonymousMemoryStrategy::kTmpDir;
-  return kErrorOk;
+  *strategy_out = AnonymousMemoryStrategy::kTmpDir;
+  return Error::kOk;
 #endif
 }
 
@@ -718,54 +750,52 @@ static Error getAnonymousMemoryStrategy(AnonymousMemoryStrategy* strategyOut) no
 // Detects whether the current process is hardened, which means that pages that have WRITE and EXECUTABLE flags
 // cannot be normally allocated. On OSX + AArch64 such allocation requires MAP_JIT flag, other platforms don't
 // support this combination.
-static bool hasHardenedRuntime() noexcept {
+static bool has_hardened_runtime() noexcept {
 #if defined(__APPLE__) && TARGET_OS_OSX && ASMJIT_ARCH_ARM >= 64
   // OSX on AArch64 has always hardened runtime enabled.
   return true;
 #else
-  static std::atomic<uint32_t> cachedHardenedFlag;
+  static std::atomic<uint32_t> cached_hardened_flag;
 
-  enum HardenedFlag : uint32_t {
-    kHardenedFlagUnknown  = 0,
-    kHardenedFlagDisabled = 1,
-    kHardenedFlagEnabled  = 2
-  };
+  constexpr uint32_t hf_unknown  = 0;
+  constexpr uint32_t hf_disabled = 1;
+  constexpr uint32_t hf_enabled  = 2;
 
-  uint32_t flag = cachedHardenedFlag.load();
-  if (flag == kHardenedFlagUnknown) {
-    size_t pageSize = size_t(::getpagesize());
-    void* ptr = mmap(nullptr, pageSize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  uint32_t flag = cached_hardened_flag.load();
+  if (flag == hf_unknown) {
+    size_t page_size = size_t(::getpagesize());
+    void* ptr = mmap(nullptr, page_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if (ptr == MAP_FAILED) {
-      flag = kHardenedFlagEnabled;
+      flag = hf_enabled;
     }
     else {
-      flag = kHardenedFlagDisabled;
-      munmap(ptr, pageSize);
+      flag = hf_disabled;
+      munmap(ptr, page_size);
     }
 
-    cachedHardenedFlag.store(flag);
+    cached_hardened_flag.store(flag);
   }
 
-  return flag == kHardenedFlagEnabled;
+  return flag == hf_enabled;
 #endif
 }
 
 // Detects whether MAP_JIT is available.
-static inline bool hasMapJitSupport() noexcept {
+static inline bool has_mapjit_support() noexcept {
 #if defined(__APPLE__) && TARGET_OS_OSX && ASMJIT_ARCH_X86 == 0
   // Apple platforms always use hardened runtime + MAP_JIT on non-x86 hardware:
   //   - https://developer.apple.com/documentation/apple_silicon/porting_just-in-time_compilers_to_apple_silicon
   return true;
 #elif defined(__APPLE__) && TARGET_OS_OSX
   // MAP_JIT flag required to run unsigned JIT code is only supported by kernel version 10.14+ (Mojave).
-  static std::atomic<uint32_t> cachedMapJitSupport;
-  uint32_t val = cachedMapJitSupport.load();
+  static std::atomic<uint32_t> cached_mapjit_support;
+  uint32_t val = cached_mapjit_support.load();
 
   if (val == 0u) {
-    KernelVersion ver = getKernelVersion();
+    KernelVersion ver = get_kernel_version();
     val = uint32_t(ver.ge(18, 0)) + 1u;
-    cachedMapJitSupport.store(val);
+    cached_mapjit_support.store(val);
   }
 
   return val == 2u;
@@ -775,28 +805,30 @@ static inline bool hasMapJitSupport() noexcept {
 #endif
 }
 
-// Returns either MAP_JIT or 0 based on `memoryFlags` and the host operating system.
-static inline int mmMapJitFromMemoryFlags(MemoryFlags memoryFlags) noexcept {
+// Returns either MAP_JIT or 0 based on `memory_flags` and the host operating system.
+static inline int mm_mapjit_from_memory_flags(MemoryFlags memory_flags) noexcept {
 #if defined(__APPLE__)
   // Always use MAP_JIT flag if user asked for it (could be used for testing on non-hardened processes) and detect
   // whether it must be used when the process is actually hardened (in that case it doesn't make sense to rely on
-  // user `memoryFlags`).
+  // user `memory_flags`).
   //
   // MAP_JIT is not required when dual-mapping memory and is incompatible with MAP_SHARED, so it will not be
   // added when the latter is enabled.
-  bool useMapJit = (Support::test(memoryFlags, MemoryFlags::kMMapEnableMapJit) || hasHardenedRuntime())
-                   && !Support::test(memoryFlags, MemoryFlags::kMapShared);
-  if (useMapJit)
-    return hasMapJitSupport() ? int(MAP_JIT) : 0;
-  else
+  bool use_mapjit = (Support::test(memory_flags, MemoryFlags::kMMapEnableMapJit) || has_hardened_runtime()) &&
+                    !Support::test(memory_flags, MemoryFlags::kMapShared);
+  if (use_mapjit) {
+    return has_mapjit_support() ? int(MAP_JIT) : 0;
+  }
+  else {
     return 0;
+  }
 #else
-  DebugUtils::unused(memoryFlags);
+  Support::maybe_unused(memory_flags);
   return 0;
 #endif
 }
 
-static inline bool hasDualMappingSupport() noexcept {
+static inline bool has_dual_mapping_support() noexcept {
 #if defined(ASMJIT_NO_DUAL_MAPPING)
   return false;
 #else
@@ -804,296 +836,313 @@ static inline bool hasDualMappingSupport() noexcept {
 #endif
 }
 
-static HardenedRuntimeFlags getHardenedRuntimeFlags() noexcept {
+static HardenedRuntimeFlags get_hardened_runtime_flags() noexcept {
   HardenedRuntimeFlags flags = HardenedRuntimeFlags::kNone;
 
-  if (hasHardenedRuntime())
+  if (has_hardened_runtime()) {
     flags |= HardenedRuntimeFlags::kEnabled;
+  }
 
-  if (hasMapJitSupport())
+  if (has_mapjit_support()) {
     flags |= HardenedRuntimeFlags::kMapJit;
+  }
 
-  if (hasDualMappingSupport())
+  if (has_dual_mapping_support()) {
     flags |= HardenedRuntimeFlags::kDualMapping;
+  }
 
   return flags;
 }
 
-static Error mapMemory(void** p, size_t size, MemoryFlags memoryFlags, int fd = -1, off_t offset = 0) noexcept {
+static Error map_memory(void** p, size_t size, MemoryFlags memory_flags, int fd = -1, off_t offset = 0) noexcept {
   *p = nullptr;
-  if (size == 0)
-    return DebugUtils::errored(kErrorInvalidArgument);
 
-  int protection = mmProtFromMemoryFlags(memoryFlags) | mmMaxProtFromMemoryFlags(memoryFlags);
-  int mmFlags = mmMapJitFromMemoryFlags(memoryFlags);
+  if (size == 0) {
+    return make_error(Error::kInvalidArgument);
+  }
 
-  mmFlags |= Support::test(memoryFlags, MemoryFlags::kMapShared) ? MAP_SHARED : MAP_PRIVATE;
-  if (fd == -1)
-    mmFlags |= MAP_ANONYMOUS;
+  int protection = mm_prot_from_memory_flags(memory_flags) | mm_max_prot_from_memory_flags(memory_flags);
+  int mm_flags = mm_mapjit_from_memory_flags(memory_flags);
 
-  bool useLargePages = Support::test(memoryFlags, VirtMem::MemoryFlags::kMMapLargePages);
+  mm_flags |= Support::test(memory_flags, MemoryFlags::kMapShared) ? MAP_SHARED : MAP_PRIVATE;
+  if (fd == -1) {
+    mm_flags |= MAP_ANONYMOUS;
+  }
 
-  if (useLargePages) {
+  bool use_large_pages = Support::test(memory_flags, VirtMem::MemoryFlags::kMMapLargePages);
+
+  if (use_large_pages) {
 #if defined(__linux__)
-    size_t lpSize = largePageSize();
-    if (lpSize == 0)
-      return DebugUtils::errored(kErrorFeatureNotEnabled);
+    size_t lp_size = large_page_size();
+    if (lp_size == 0) {
+      return make_error(Error::kFeatureNotEnabled);
+    }
 
-    if (!Support::isAligned(size, lpSize))
-      return DebugUtils::errored(kErrorInvalidArgument);
+    if (!Support::is_aligned(size, lp_size)) {
+      return make_error(Error::kInvalidArgument);
+    }
 
-    unsigned lpSizeLog2 = Support::ctz(lpSize);
-    mmFlags |= int(unsigned(MAP_HUGETLB) | (lpSizeLog2 << MAP_HUGE_SHIFT));
+    unsigned lp_size_log2 = Support::ctz(lp_size);
+    mm_flags |= int(unsigned(MAP_HUGETLB) | (lp_size_log2 << MAP_HUGE_SHIFT));
 #else
-    return DebugUtils::errored(kErrorFeatureNotEnabled);
+    return make_error(Error::kFeatureNotEnabled);
 #endif // __linux__
   }
 
-  void* ptr = mmap(nullptr, size, protection, mmFlags, fd, offset);
-  if (ptr == MAP_FAILED)
-    return DebugUtils::errored(asmjitErrorFromErrno(errno));
+  void* ptr = mmap(nullptr, size, protection, mm_flags, fd, offset);
+  if (ptr == MAP_FAILED) {
+    return make_error(asmjit_error_from_errno(errno));
+  }
 
 #if defined(MADV_HUGEPAGE)
-  if (useLargePages) {
+  if (use_large_pages) {
     madvise(ptr, size, MADV_HUGEPAGE);
   }
 #endif
 
   *p = ptr;
-  return kErrorOk;
+  return Error::kOk;
 }
 
-static Error unmapMemory(void* p, size_t size) noexcept {
-  if (ASMJIT_UNLIKELY(munmap(p, size) != 0))
-    return DebugUtils::errored(asmjitErrorFromErrno(errno));
+static Error unmap_memory(void* p, size_t size) noexcept {
+  if (ASMJIT_UNLIKELY(munmap(p, size) != 0)) {
+    return make_error(asmjit_error_from_errno(errno));
+  }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-Error alloc(void** p, size_t size, MemoryFlags memoryFlags) noexcept {
-  return mapMemory(p, size, memoryFlags);
+Error alloc(void** p, size_t size, MemoryFlags memory_flags) noexcept {
+  return map_memory(p, size, memory_flags);
 }
 
 Error release(void* p, size_t size) noexcept {
-  return unmapMemory(p, size);
+  return unmap_memory(p, size);
 }
 
-Error protect(void* p, size_t size, MemoryFlags memoryFlags) noexcept {
-  int protection = mmProtFromMemoryFlags(memoryFlags);
-  if (mprotect(p, size, protection) == 0)
-    return kErrorOk;
-
-  return DebugUtils::errored(asmjitErrorFromErrno(errno));
+Error protect(void* p, size_t size, MemoryFlags memory_flags) noexcept {
+  int protection = mm_prot_from_memory_flags(memory_flags);
+  if (mprotect(p, size, protection) == 0) {
+    return Error::kOk;
+  }
+  return make_error(asmjit_error_from_errno(errno));
 }
 
 // Virtual Memory [Posix] - Dual Mapping
 // =====================================
 
 #if !defined(ASMJIT_NO_DUAL_MAPPING)
-static Error unmapDualMapping(DualMapping* dm, size_t size) noexcept {
-  Error err1 = unmapMemory(dm->rx, size);
-  Error err2 = kErrorOk;
+static Error unmap_dual_mapping(DualMapping& dm, size_t size) noexcept {
+  Error err1 = unmap_memory(dm.rx, size);
+  Error err2 = Error::kOk;
 
-  if (dm->rx != dm->rw)
-    err2 = unmapMemory(dm->rw, size);
+  if (dm.rx != dm.rw) {
+    err2 = unmap_memory(dm.rw, size);
+  }
 
   // We can report only one error, so report the first...
-  if (err1 || err2)
-    return DebugUtils::errored(err1 ? err1 : err2);
+  if (err1 != Error::kOk || err2 != Error::kOk) {
+    return make_error(err1 != Error::kOk ? err1 : err2);
+  }
 
-  dm->rx = nullptr;
-  dm->rw = nullptr;
-  return kErrorOk;
+  dm.rx = nullptr;
+  dm.rw = nullptr;
+  return Error::kOk;
 }
 #endif // !ASMJIT_NO_DUAL_MAPPING
 
 #if defined(ASMJIT_ANONYMOUS_MEMORY_USE_REMAPDUP)
-static Error allocDualMappingUsingRemapdup(DualMapping* dmOut, size_t size, MemoryFlags memoryFlags) noexcept {
-  MemoryFlags maxAccessFlags = regularAccessFlagsToMaxAccessFlags(memoryFlags);
-  MemoryFlags finalFlags = memoryFlags | maxAccessFlags | MemoryFlags::kMapShared;
+static Error alloc_dual_mapping_via_remapdup(Out<DualMapping> dm_out, size_t size, MemoryFlags memory_flags) noexcept {
+  MemoryFlags max_access_flags = regular_access_flags_to_max_access_flags(memory_flags);
+  MemoryFlags final_flags = memory_flags | max_access_flags | MemoryFlags::kMapShared;
 
-  MemoryFlags rxFlags = finalFlags & ~(MemoryFlags::kAccessWrite | MemoryFlags::kMMapMaxAccessWrite);
-  MemoryFlags rwFlags = finalFlags & ~(MemoryFlags::kAccessExecute);
+  MemoryFlags rx_flags = final_flags & ~(MemoryFlags::kAccessWrite | MemoryFlags::kMMapMaxAccessWrite);
+  MemoryFlags rw_flags = final_flags & ~(MemoryFlags::kAccessExecute);
 
   // Allocate RW mapping.
   DualMapping dm {};
-  ASMJIT_PROPAGATE(mapMemory(&dm.rw, size, rwFlags));
+  ASMJIT_PROPAGATE(map_memory(&dm.rw, size, rw_flags));
 
   // Allocate RX mapping.
   dm.rx = mremap(dm.rw, size, nullptr, size, MAP_REMAPDUP);
   if (dm.rx == MAP_FAILED) {
     int e = errno;
     munmap(dm.rw, size);
-    return DebugUtils::errored(asmjitErrorFromErrno(e));
+    return make_error(asmjit_error_from_errno(e));
   }
 
-  if (mprotect(dm.rx, size, mmProtFromMemoryFlags(rxFlags)) != 0) {
+  if (mprotect(dm.rx, size, mm_prot_from_memory_flags(rx_flags)) != 0) {
     int e = errno;
-    unmapDualMapping(&dm, size);
-    return DebugUtils::errored(asmjitErrorFromErrno(e));
+    unmap_dual_mapping(dm, size);
+    return make_error(asmjit_error_from_errno(e));
   }
 
-  *dmOut = dm;
-  return kErrorOk;
+  *dm_out = dm;
+  return Error::kOk;
 }
 #endif
 
 #if defined(ASMJIT_ANONYMOUS_MEMORY_USE_MACH_VM_REMAP)
-static Error asmjitErrorFromKernResult(kern_return_t result) noexcept {
+static Error asmjit_error_from_kern_result(kern_return_t result) noexcept {
   switch (result) {
     case KERN_PROTECTION_FAILURE:
-      return DebugUtils::errored(kErrorProtectionFailure);
+      return make_error(Error::kProtectionFailure);
     case KERN_NO_SPACE:
-      return DebugUtils::errored(kErrorOutOfMemory);
+      return make_error(Error::kOutOfMemory);
     case KERN_INVALID_ARGUMENT:
-      return DebugUtils::errored(kErrorInvalidArgument);
+      return make_error(Error::kInvalidArgument);
     default:
-      return DebugUtils::errored(kErrorInvalidState);
+      return make_error(Error::kInvalidState);
   }
 }
 
-static Error allocDualMappingUsingMachVmRemap(DualMapping* dmOut, size_t size, MemoryFlags memoryFlags) noexcept {
+static Error alloc_dual_mapping_using_mach_vm_remap(Out<DualMapping> dm_out, size_t size, MemoryFlags memory_flags) noexcept {
   DualMapping dm {};
+  MemoryFlags mmap_flags = MemoryFlags::kAccessReadWrite | (memory_flags & MemoryFlags::kMapShared);
 
-  MemoryFlags mmapFlags = MemoryFlags::kAccessReadWrite | (memoryFlags & MemoryFlags::kMapShared);
-  ASMJIT_PROPAGATE(mapMemory(&dm.rx, size, mmapFlags));
+  ASMJIT_PROPAGATE(map_memory(&dm.rx, size, mmap_flags));
 
-  vm_prot_t curProt;
-  vm_prot_t maxProt;
+  vm_prot_t cur_prot;
+  vm_prot_t max_prot;
 
-  int rwProtectFlags = VM_PROT_READ | VM_PROT_WRITE;
-  int rxProtectFlags = VM_PROT_READ;
+  int rw_protect_flags = VM_PROT_READ | VM_PROT_WRITE;
+  int rx_protect_flags = VM_PROT_READ;
 
-  if (Support::test(memoryFlags, MemoryFlags::kAccessExecute))
-    rxProtectFlags |= VM_PROT_EXECUTE;
+  if (Support::test(memory_flags, MemoryFlags::kAccessExecute)) {
+    rx_protect_flags |= VM_PROT_EXECUTE;
+  }
 
   kern_return_t result {};
   do {
     vm_map_t task = mach_task_self();
-    mach_vm_address_t remappedAddr {};
+    mach_vm_address_t remapped_addr {};
 
 #if defined(VM_FLAGS_RANDOM_ADDR)
-    int remapFlags = VM_FLAGS_ANYWHERE | VM_FLAGS_RANDOM_ADDR;
+    int remap_flags = VM_FLAGS_ANYWHERE | VM_FLAGS_RANDOM_ADDR;
 #else
-    int remapFlags = VM_FLAGS_ANYWHERE;
+    int remap_flags = VM_FLAGS_ANYWHERE;
 #endif
 
     // Try to remap the existing memory into a different address.
     result = mach_vm_remap(
       task,                       // target_task
-      &remappedAddr,              // target_address
+      &remapped_addr,             // target_address
       size,                       // size
       0,                          // mask
-      remapFlags,                 // flags
+      remap_flags,                // flags
       task,                       // src_task
       (mach_vm_address_t)dm.rx,   // src_address
       false,                      // copy
-      &curProt,                   // cur_protection
-      &maxProt,                   // max_protection
+      &cur_prot,                  // cur_protection
+      &max_prot,                  // max_protection
       VM_INHERIT_DEFAULT);        // inheritance
 
-    if (result != KERN_SUCCESS)
+    if (result != KERN_SUCCESS) {
       break;
+    }
 
-    dm.rw = (void*)remappedAddr;
+    dm.rw = (void*)remapped_addr;
 
     // Now, try to change permissions of both map regions into RW and RX. The vm_protect()
     // API is used twice as we also want to set maximum permissions, so nobody would be
     // allowed to change the RX region back to RW or RWX (if RWX is allowed).
     uint32_t i;
     for (i = 0; i < 2; i++) {
-      bool setMaximum = (i == 0);
+      bool set_maximum = (i == 0);
 
       result = vm_protect(
         task,                       // target_task
         (vm_address_t)dm.rx,        // address
         size,                       // size
-        setMaximum,                 // set_maximum
-        rxProtectFlags);            // new_protection
+        set_maximum,                // set_maximum
+        rx_protect_flags);          // new_protection
 
-      if (result != KERN_SUCCESS)
+      if (result != KERN_SUCCESS) {
         break;
+      }
 
       result = vm_protect(task,     // target_task
         (vm_address_t)dm.rw,        // address
         size,                       // size
-        setMaximum,                 // set_maximum
-        rwProtectFlags);            // new_protection
+        set_maximum,                // set_maximum
+        rw_protect_flags);          // new_protection
 
-      if (result != KERN_SUCCESS)
+      if (result != KERN_SUCCESS) {
         break;
+      }
     }
   } while (0);
 
   if (result != KERN_SUCCESS) {
-    unmapDualMapping(&dm, size);
-    return DebugUtils::errored(asmjitErrorFromKernResult(result));
+    unmap_dual_mapping(dm, size);
+    return make_error(asmjit_error_from_kern_result(result));
   }
 
-  *dmOut = dm;
-  return kErrorOk;
+  *dm_out = dm;
+  return Error::kOk;
 }
 #endif // ASMJIT_ANONYMOUS_MEMORY_USE_MACH_VM_REMAP
 
 #if defined(ASMJIT_ANONYMOUS_MEMORY_USE_FD)
-static Error allocDualMappingUsingFile(DualMapping* dm, size_t size, MemoryFlags memoryFlags) noexcept {
-  bool preferTmpOverDevShm = Support::test(memoryFlags, MemoryFlags::kMappingPreferTmp);
-  if (!preferTmpOverDevShm) {
+static Error alloc_dual_mapping_using_file(Out<DualMapping> dm, size_t size, MemoryFlags memory_flags) noexcept {
+  bool prefer_tmp_over_dev_shm = Support::test(memory_flags, MemoryFlags::kMappingPreferTmp);
+  if (!prefer_tmp_over_dev_shm) {
     AnonymousMemoryStrategy strategy;
-    ASMJIT_PROPAGATE(getAnonymousMemoryStrategy(&strategy));
-    preferTmpOverDevShm = (strategy == AnonymousMemoryStrategy::kTmpDir);
+    ASMJIT_PROPAGATE(get_anonymous_memory_strategy(&strategy));
+    prefer_tmp_over_dev_shm = (strategy == AnonymousMemoryStrategy::kTmpDir);
   }
 
-  AnonymousMemory anonMem;
-  ASMJIT_PROPAGATE(anonMem.open(preferTmpOverDevShm));
-  ASMJIT_PROPAGATE(anonMem.allocate(size));
+  AnonymousMemory anon_mem;
+  ASMJIT_PROPAGATE(anon_mem.open(prefer_tmp_over_dev_shm));
+  ASMJIT_PROPAGATE(anon_mem.allocate(size));
 
   void* ptr[2];
   for (uint32_t i = 0; i < 2; i++) {
-    MemoryFlags restrictedMemoryFlags = memoryFlags & ~dualMappingFilter[i];
-    Error err = mapMemory(&ptr[i], size, restrictedMemoryFlags | MemoryFlags::kMapShared, anonMem.fd(), 0);
-    if (err != kErrorOk) {
-      if (i == 1)
-        unmapMemory(ptr[0], size);
+    MemoryFlags restricted_memory_flags = memory_flags & ~dual_mapping_filter[i];
+    Error err = map_memory(&ptr[i], size, restricted_memory_flags | MemoryFlags::kMapShared, anon_mem.fd(), 0);
+    if (err != Error::kOk) {
+      if (i == 1) {
+        unmap_memory(ptr[0], size);
+      }
       return err;
     }
   }
 
   dm->rx = ptr[0];
   dm->rw = ptr[1];
-  return kErrorOk;
+  return Error::kOk;
 }
 #endif // ASMJIT_ANONYMOUS_MEMORY_USE_FD
 
-Error allocDualMapping(DualMapping* dm, size_t size, MemoryFlags memoryFlags) noexcept {
-  dm->rx = nullptr;
-  dm->rw = nullptr;
+Error alloc_dual_mapping(Out<DualMapping> dm, size_t size, MemoryFlags memory_flags) noexcept {
+  dm = DualMapping{};
 
 #if defined(ASMJIT_NO_DUAL_MAPPING)
-  DebugUtils::unused(size, memoryFlags);
-  return DebugUtils::errored(kErrorFeatureNotEnabled);
+  Support::maybe_unused(size, memory_flags);
+  return make_error(Error::kFeatureNotEnabled);
 #else
-  if (off_t(size) <= 0)
-    return DebugUtils::errored(size == 0 ? kErrorInvalidArgument : kErrorTooLarge);
+  if (off_t(size) <= 0) {
+    return make_error(size == 0 ? Error::kInvalidArgument : Error::kTooLarge);
+  }
 
 #if defined(ASMJIT_ANONYMOUS_MEMORY_USE_REMAPDUP)
-  return allocDualMappingUsingRemapdup(dm, size, memoryFlags);
+  return alloc_dual_mapping_via_remapdup(dm, size, memory_flags);
 #elif defined(ASMJIT_ANONYMOUS_MEMORY_USE_MACH_VM_REMAP)
-  return allocDualMappingUsingMachVmRemap(dm, size, memoryFlags);
+  return alloc_dual_mapping_using_mach_vm_remap(dm, size, memory_flags);
 #elif defined(ASMJIT_ANONYMOUS_MEMORY_USE_FD)
-  return allocDualMappingUsingFile(dm, size, memoryFlags);
+  return alloc_dual_mapping_using_file(dm, size, memory_flags);
 #else
-  #error "[asmjit] VirtMem::allocDualMapping() doesn't have implementation for the target OS or architecture"
+  #error "[asmjit] VirtMem::alloc_dual_mapping() doesn't have implementation for the target OS or architecture"
 #endif
 #endif // ASMJIT_NO_DUAL_MAPPING
 }
 
-Error releaseDualMapping(DualMapping* dm, size_t size) noexcept {
+Error release_dual_mapping(DualMapping& dm, size_t size) noexcept {
 #if defined(ASMJIT_NO_DUAL_MAPPING)
-  DebugUtils::unused(dm, size);
-  return DebugUtils::errored(kErrorFeatureNotEnabled);
+  Support::maybe_unused(dm, size);
+  return make_error(Error::kFeatureNotEnabled);
 #else
-  return unmapDualMapping(dm, size);
+  return unmap_dual_mapping(dm, size);
 #endif // ASMJIT_NO_DUAL_MAPPING
 }
 #endif
@@ -1101,10 +1150,10 @@ Error releaseDualMapping(DualMapping* dm, size_t size) noexcept {
 // Virtual Memory - Flush Instruction Cache
 // ========================================
 
-void flushInstructionCache(void* p, size_t size) noexcept {
+void flush_instruction_cache(void* p, size_t size) noexcept {
 #if ASMJIT_ARCH_X86 || defined(__EMSCRIPTEN__)
-  // X86/X86_64 architecture doesn't require to do anything to flush instruction cache.
-  DebugUtils::unused(p, size);
+  // X86|X86_64 architecture doesn't require to do anything to flush instruction cache.
+  Support::maybe_unused(p, size);
 #elif defined(__APPLE__)
   sys_icache_invalidate(p, size);
 #elif defined(_WIN32)
@@ -1115,8 +1164,8 @@ void flushInstructionCache(void* p, size_t size) noexcept {
   char* end = start + size;
   __builtin___clear_cache(start, end);
 #else
-  #pragma message("[asmjit] VirtMem::flushInstructionCache() doesn't have implementation for the target OS and compiler")
-  DebugUtils::unused(p, size);
+  #pragma message("[asmjit] VirtMem::flush_instruction_cache() doesn't have implementation for the target OS and compiler")
+  Support::maybe_unused(p, size);
 #endif
 }
 
@@ -1124,51 +1173,53 @@ void flushInstructionCache(void* p, size_t size) noexcept {
 // ============================
 
 Info info() noexcept {
-  static std::atomic<uint32_t> vmInfoInitialized;
-  static Info vmInfo;
+  static std::atomic<uint32_t> vm_info_initialized;
+  static Info vm_info;
 
-  if (!vmInfoInitialized.load()) {
-    Info localMemInfo;
-    detectVMInfo(localMemInfo);
+  if (!vm_info_initialized.load()) {
+    Info local_mem_info;
+    detect_vm_info(local_mem_info);
 
-    vmInfo = localMemInfo;
-    vmInfoInitialized.store(1u);
+    vm_info = local_mem_info;
+    vm_info_initialized.store(1u);
   }
 
-  return vmInfo;
+  return vm_info;
 }
 
-size_t largePageSize() noexcept {
-  static std::atomic<size_t> largePageSize;
-  static constexpr size_t kNotAvailable = 1;
+size_t large_page_size() noexcept {
+  static std::atomic<size_t> large_page_size;
+  static constexpr size_t not_available = 1;
 
-  size_t size = largePageSize.load();
-  if (ASMJIT_LIKELY(size > kNotAvailable))
+  size_t size = large_page_size.load();
+  if (ASMJIT_LIKELY(size > not_available)) {
     return size;
+  }
 
-  if (size == kNotAvailable)
+  if (size == not_available) {
     return 0;
+  }
 
-  size = detectLargePageSize();
-  largePageSize.store(size != 0 ? size : kNotAvailable);
+  size = detect_large_page_size();
+  large_page_size.store(size != 0 ? size : not_available);
   return size;
 }
 
 // Virtual Memory - Hardened Runtime Info
 // ======================================
 
-HardenedRuntimeInfo hardenedRuntimeInfo() noexcept {
-  return HardenedRuntimeInfo { getHardenedRuntimeFlags() };
+HardenedRuntimeInfo hardened_runtime_info() noexcept {
+  return HardenedRuntimeInfo { get_hardened_runtime_flags() };
 }
 
 // Virtual Memory - Project JIT Memory
 // ===================================
 
-void protectJitMemory(ProtectJitAccess access) noexcept {
+void protect_jit_memory(ProtectJitAccess access) noexcept {
 #if defined(ASMJIT_HAS_PTHREAD_JIT_WRITE_PROTECT_NP)
   pthread_jit_write_protect_np(static_cast<int>(access));
 #else
-  DebugUtils::unused(access);
+  Support::maybe_unused(access);
 #endif
 }
 
@@ -1181,23 +1232,23 @@ ASMJIT_END_SUB_NAMESPACE
 ASMJIT_BEGIN_NAMESPACE
 
 UNIT(virt_mem) {
-  VirtMem::Info vmInfo = VirtMem::info();
+  VirtMem::Info vm_info = VirtMem::info();
 
   INFO("VirtMem::info():");
-  INFO("  pageSize: %zu", size_t(vmInfo.pageSize));
-  INFO("  pageGranularity: %zu", size_t(vmInfo.pageGranularity));
+  INFO("  page_size: %zu", size_t(vm_info.page_size));
+  INFO("  page_granularity: %zu", size_t(vm_info.page_granularity));
 
-  INFO("VirtMem::largePageSize():");
-  INFO("  largePageSize: %zu", size_t(VirtMem::largePageSize()));
+  INFO("VirtMem::large_page_size():");
+  INFO("  large_page_size: %zu", size_t(VirtMem::large_page_size()));
 
-  VirtMem::HardenedRuntimeInfo hardenedRtInfo = VirtMem::hardenedRuntimeInfo();
-  VirtMem::HardenedRuntimeFlags hardenedFlags = hardenedRtInfo.flags;
+  VirtMem::HardenedRuntimeInfo hardened_rt_info = VirtMem::hardened_runtime_info();
+  VirtMem::HardenedRuntimeFlags hardened_rt_flags = hardened_rt_info.flags;
 
-  INFO("VirtMem::hardenedRuntimeInfo():");
+  INFO("VirtMem::hardened_runtime_info():");
   INFO("  flags:");
-  INFO("    kEnabled: %s"    , Support::test(hardenedFlags, VirtMem::HardenedRuntimeFlags::kEnabled    ) ? "true" : "false");
-  INFO("    kMapJit: %s"     , Support::test(hardenedFlags, VirtMem::HardenedRuntimeFlags::kMapJit     ) ? "true" : "false");
-  INFO("    kDualMapping: %s", Support::test(hardenedFlags, VirtMem::HardenedRuntimeFlags::kDualMapping) ? "true" : "false");
+  INFO("    kEnabled: %s"    , Support::test(hardened_rt_flags, VirtMem::HardenedRuntimeFlags::kEnabled    ) ? "true" : "false");
+  INFO("    kMapJit: %s"     , Support::test(hardened_rt_flags, VirtMem::HardenedRuntimeFlags::kMapJit     ) ? "true" : "false");
+  INFO("    kDualMapping: %s", Support::test(hardened_rt_flags, VirtMem::HardenedRuntimeFlags::kDualMapping) ? "true" : "false");
 }
 
 ASMJIT_END_NAMESPACE

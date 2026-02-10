@@ -51,7 +51,7 @@ using namespace asmjit;
 /* Raise a badarg exception for the given MFA. */
 void BeamGlobalAssembler::emit_raise_badarg(const ErtsCodeMFA *mfa) {
     mov_imm(TMP1, BADARG);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+    a.str(TMP1, a64::Mem(c_p, offsetof(Process, freason)));
     mov_imm(ARG4, mfa);
     a.b(labels[raise_exception]);
 }
@@ -65,7 +65,7 @@ void BeamGlobalAssembler::emit_raise_badarg(const ErtsCodeMFA *mfa) {
  */
 
 void BeamGlobalAssembler::emit_bif_is_eq_exact_shared() {
-    Label succ = a.newLabel(), fail = a.newLabel();
+    Label succ = a.new_label(), fail = a.new_label();
 
     a.cmp(ARG1, ARG2);
     a.b_eq(succ);
@@ -99,7 +99,7 @@ void BeamGlobalAssembler::emit_bif_is_eq_exact_shared() {
 }
 
 void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
-    Label succ = a.newLabel(), fail = a.newLabel();
+    Label succ = a.new_label(), fail = a.new_label();
 
     a.cmp(ARG1, ARG2);
     a.b_eq(fail);
@@ -200,7 +200,7 @@ void BeamModuleAssembler::emit_bif_is_ge_lt(arm::CondCode cc,
                                             const ArgRegister &Dst) {
     auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
 
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), next = a.new_label();
 
     if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS) &&
         always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(RHS)) {
@@ -296,7 +296,7 @@ void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
                                        const ArgSource &Src2,
                                        const ArgRegister &Dst) {
     static const Uint diff_bit = am_true - am_false;
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
     auto dst = init_destination(Dst, TMP3);
@@ -341,14 +341,14 @@ void BeamGlobalAssembler::emit_bif_bit_size_helper(Label error) {
     emit_untag_ptr(TMP3, ARG1);
 
     ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
-    a.ldp(TMP1, TMP2, arm::Mem(TMP3));
+    a.ldp(TMP1, TMP2, a64::Mem(TMP3));
 
-    Label not_sub_bits = a.newLabel();
+    Label not_sub_bits = a.new_label();
     a.cmp(TMP1, imm(HEADER_SUB_BITS));
     a.b_ne(not_sub_bits);
     {
         ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
-        a.ldp(TMP2, TMP3, arm::Mem(TMP3, offsetof(ErlSubBits, start)));
+        a.ldp(TMP2, TMP3, a64::Mem(TMP3, offsetof(ErlSubBits, start)));
         a.sub(TMP2, TMP3, TMP2);
     }
     a.bind(not_sub_bits);
@@ -362,7 +362,7 @@ void BeamGlobalAssembler::emit_bif_bit_size_helper(Label error) {
 }
 
 void BeamGlobalAssembler::emit_bif_bit_size_body() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_bif_bit_size_helper(error);
 
@@ -393,14 +393,14 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
         emit_untag_ptr(ARG1, src.reg);
 
         ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
-        a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+        a.ldp(TMP1, TMP2, a64::Mem(ARG1));
 
-        Label not_sub_bits = a.newLabel();
+        Label not_sub_bits = a.new_label();
         a.cmp(TMP1, imm(HEADER_SUB_BITS));
         a.b_ne(not_sub_bits);
         {
             ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
-            a.ldp(TMP2, TMP3, arm::Mem(ARG1, offsetof(ErlSubBits, start)));
+            a.ldp(TMP2, TMP3, a64::Mem(ARG1, offsetof(ErlSubBits, start)));
             a.sub(TMP2, TMP3, TMP2);
         }
         a.bind(not_sub_bits);
@@ -436,7 +436,7 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
  */
 
 void BeamGlobalAssembler::emit_bif_byte_size_body() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_bif_bit_size_helper(error);
 
@@ -469,14 +469,14 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
         emit_untag_ptr(ARG1, src.reg);
 
         ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
-        a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+        a.ldp(TMP1, TMP2, a64::Mem(ARG1));
 
-        Label not_sub_bits = a.newLabel();
+        Label not_sub_bits = a.new_label();
         a.cmp(TMP1, imm(HEADER_SUB_BITS));
         a.b_ne(not_sub_bits);
         {
             ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
-            a.ldp(TMP2, TMP3, arm::Mem(ARG1, offsetof(ErlSubBits, start)));
+            a.ldp(TMP2, TMP3, a64::Mem(ARG1, offsetof(ErlSubBits, start)));
             a.sub(TMP2, TMP3, TMP2);
         }
         a.bind(not_sub_bits);
@@ -524,7 +524,7 @@ void BeamGlobalAssembler::emit_bif_element_helper(Label fail) {
     emit_is_boxed(fail, ARG2);
     a64::Gp boxed_ptr = emit_ptr_val(TMP1, ARG2);
     lea(TMP1, emit_boxed_val(boxed_ptr));
-    a.ldr(TMP2, arm::Mem(TMP1));
+    a.ldr(TMP2, a64::Mem(TMP1));
     ERTS_CT_ASSERT(make_arityval_zero() == 0);
     a.tst(TMP2, imm(_TAG_HEADER_MASK));
     a.b_ne(fail);
@@ -536,15 +536,15 @@ void BeamGlobalAssembler::emit_bif_element_helper(Label fail) {
 
     /* Ensure that the position points within the tuple. */
     a.asr(TMP3, ARG1, imm(_TAG_IMMED1_SIZE));
-    a.cmp(TMP3, TMP2, arm::lsr(_HEADER_ARITY_OFFS));
+    a.cmp(TMP3, TMP2, a64::lsr(_HEADER_ARITY_OFFS));
     a.b_hi(fail);
 
-    a.ldr(ARG1, arm::Mem(TMP1, TMP3, arm::lsl(3)));
+    a.ldr(ARG1, a64::Mem(TMP1, TMP3, a64::lsl(3)));
     a.ret(a64::x30);
 }
 
 void BeamGlobalAssembler::emit_bif_element_body_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_bif_element_helper(error);
 
@@ -558,7 +558,7 @@ void BeamGlobalAssembler::emit_bif_element_body_shared() {
 }
 
 void BeamGlobalAssembler::emit_bif_element_guard_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_bif_element_helper(error);
 
@@ -588,7 +588,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
                 beamfile_get_literal(beam, Tuple.as<ArgLiteral>().get());
 
         if (is_tuple(tuple_literal)) {
-            Label next = a.newLabel(), fail = a.newLabel();
+            Label next = a.new_label(), fail = a.new_label();
             Sint size = Sint(arityval(*tuple_val(tuple_literal)));
             auto [min, max] = getClampedRange(Pos);
             bool can_fail = min < 1 || size < max;
@@ -619,7 +619,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
                 a.b_hs(fail);
             }
 
-            a.ldr(dst.reg, arm::Mem(TMP1, TMP3, arm::lsl(3)));
+            a.ldr(dst.reg, a64::Mem(TMP1, TMP3, a64::lsl(3)));
 
             if (can_fail) {
                 a.b(next);
@@ -658,7 +658,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
         auto dst = init_destination(Dst, ARG1);
         Uint position = Pos.as<ArgSmall>().getUnsigned();
         a64::Gp boxed_ptr;
-        Label fail = a.newLabel();
+        Label fail = a.new_label();
 
         if (exact_type<BeamTypeId::Tuple>(Tuple)) {
             boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
@@ -685,7 +685,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
             a.b_lo(resolve_beam_label(Fail, disp1MB));
             a.bind(fail);
         } else {
-            Label good = a.newLabel();
+            Label good = a.new_label();
 
             a.b_hs(good);
 
@@ -704,11 +704,11 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
         auto [pos, tuple] = load_sources(Pos, ARG1, Tuple, ARG2);
         auto dst = init_destination(Dst, ARG1);
         a64::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
-        Label fail = a.newLabel();
-        Label good = a.newLabel();
+        Label fail = a.new_label();
+        Label good = a.new_label();
 
         lea(TMP1, emit_boxed_val(boxed_ptr));
-        a.ldr(TMP2, arm::Mem(TMP1));
+        a.ldr(TMP2, a64::Mem(TMP1));
 
         if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(Pos)) {
             ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
@@ -730,7 +730,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
         /* Ensure that the position points within the tuple. */
         a.asr(TMP3, pos.reg, imm(_TAG_IMMED1_SIZE));
-        a.cmp(TMP3, TMP2, arm::lsr(_HEADER_ARITY_OFFS));
+        a.cmp(TMP3, TMP2, a64::lsr(_HEADER_ARITY_OFFS));
         a.b_ls(good);
 
         a.bind(fail);
@@ -739,7 +739,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
         fragment_call(ga->get_handle_element_error_shared());
 
         a.bind(good);
-        a.ldr(dst.reg, arm::Mem(TMP1, TMP3, arm::lsl(3)));
+        a.ldr(dst.reg, a64::Mem(TMP1, TMP3, a64::lsl(3)));
         flush_var(dst);
     } else {
         /* Too much code to inline. Call a helper fragment. */
@@ -772,7 +772,7 @@ void BeamGlobalAssembler::emit_handle_hd_error() {
 
 void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
                                       const ArgRegister &Hd) {
-    Label good_cons = a.newLabel();
+    Label good_cons = a.new_label();
     auto src = load_source(Src, TMP1);
     auto hd = init_destination(Hd, TMP2);
     const int bitNumber = 1;
@@ -833,7 +833,7 @@ void BeamGlobalAssembler::emit_handle_map_get_badmap() {
     static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
     mov_imm(TMP1, BADMAP);
     ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
-    a.stp(TMP1, ARG1, arm::Mem(c_p, offsetof(Process, freason)));
+    a.stp(TMP1, ARG1, a64::Mem(c_p, offsetof(Process, freason)));
     a.mov(XREG0, ARG2);
     a.mov(XREG1, ARG1);
     mov_imm(ARG4, &mfa);
@@ -844,7 +844,7 @@ void BeamGlobalAssembler::emit_handle_map_get_badkey() {
     static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
     mov_imm(TMP1, BADKEY);
     ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
-    a.stp(TMP1, ARG2, arm::Mem(c_p, offsetof(Process, freason)));
+    a.stp(TMP1, ARG2, a64::Mem(c_p, offsetof(Process, freason)));
     a.mov(XREG0, ARG2);
     a.mov(XREG1, ARG1);
     mov_imm(ARG4, &mfa);
@@ -855,7 +855,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
                                            const ArgSource &Key,
                                            const ArgSource &Src,
                                            const ArgRegister &Dst) {
-    Label good_key = a.newLabel();
+    Label good_key = a.new_label();
 
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
@@ -863,8 +863,8 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
     if (exact_type<BeamTypeId::Map>(Src)) {
         comment("skipped test for map for known map argument");
     } else {
-        Label bad_map = a.newLabel();
-        Label good_map = a.newLabel();
+        Label bad_map = a.new_label();
+        Label good_map = a.new_label();
 
         if (Fail.get() == 0) {
             emit_is_boxed(bad_map, Src, ARG1);
@@ -939,7 +939,7 @@ void BeamGlobalAssembler::emit_handle_map_size_error() {
     static ErtsCodeMFA mfa = {am_erlang, am_map_size, 1};
     mov_imm(TMP1, BADMAP);
     ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
-    a.stp(TMP1, XREG0, arm::Mem(c_p, offsetof(Process, freason)));
+    a.stp(TMP1, XREG0, a64::Mem(c_p, offsetof(Process, freason)));
     mov_imm(ARG4, &mfa);
     a.b(labels[raise_exception]);
 }
@@ -947,7 +947,7 @@ void BeamGlobalAssembler::emit_handle_map_size_error() {
 void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgRegister &Dst) {
-    Label error = a.newLabel(), good_map = a.newLabel();
+    Label error = a.new_label(), good_map = a.new_label();
     auto src = load_source(Src, TMP1);
     auto dst = init_destination(Dst, TMP2);
 
@@ -1004,7 +1004,7 @@ void BeamModuleAssembler::emit_bif_min_max(arm::CondCode cc,
     auto dst = init_destination(Dst, ARG1);
     bool both_small = always_small(LHS) && always_small(RHS);
     bool need_generic = !both_small;
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), next = a.new_label();
 
     if (both_small) {
         comment("skipped test for small operands since they are always small");
@@ -1090,16 +1090,16 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
                                         const ArgRegister &Src,
                                         const ArgRegister &Dst) {
     bool always_identifier = always_one_of<BeamTypeId::Identifier>(Src);
-    Label test_internal = a.newLabel();
-    Label internal = a.newLabel();
-    Label next = a.newLabel();
+    Label test_internal = a.new_label();
+    Label internal = a.new_label();
+    Label next = a.new_label();
     auto src = load_source(Src, ARG2);
     Label fail;
 
     if (Fail.get() != 0) {
         fail = resolve_beam_label(Fail, dispUnknown);
     } else if (!always_identifier) {
-        fail = a.newLabel();
+        fail = a.new_label();
     }
 
     emit_is_boxed(test_internal, Src, src.reg);
@@ -1117,7 +1117,7 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
     }
 
     if (!always_identifier) {
-        Label external = a.newLabel();
+        Label external = a.new_label();
         ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PORT - _TAG_HEADER_EXTERNAL_PID) >>
                                _TAG_PRIMARY_SIZE ==
                        1);
@@ -1158,10 +1158,10 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
 
     a.bind(internal);
     a.ldr(TMP1, embed_constant(&erts_this_node, disp32K));
-    a.ldr(TMP1, arm::Mem(TMP1));
+    a.ldr(TMP1, a64::Mem(TMP1));
 
     a.bind(next);
-    mov_arg(Dst, arm::Mem(TMP1, offsetof(ErlNode, sysname)));
+    mov_arg(Dst, a64::Mem(TMP1, offsetof(ErlNode, sysname)));
 }
 
 /* ================================================================
@@ -1177,7 +1177,7 @@ void BeamGlobalAssembler::emit_handle_not_error() {
 void BeamModuleAssembler::emit_bif_not(const ArgLabel &Fail,
                                        const ArgRegister &Src,
                                        const ArgRegister &Dst) {
-    Label next = a.newLabel();
+    Label next = a.new_label();
     auto src = load_source(Src, TMP1);
     auto dst = init_destination(Dst, TMP2);
     ERTS_CT_ASSERT(am_false == make_atom(0));
@@ -1217,7 +1217,7 @@ void BeamModuleAssembler::emit_bif_or(const ArgLabel &Fail,
                                       const ArgSource &Src2,
                                       const ArgRegister &Dst) {
     static const Uint diff_bit = am_true - am_false;
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
     auto dst = init_destination(Dst, TMP3);
@@ -1265,7 +1265,7 @@ void BeamGlobalAssembler::emit_handle_tl_error() {
 
 void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
                                       const ArgRegister &Tl) {
-    Label good_cons = a.newLabel();
+    Label good_cons = a.new_label();
     auto src = load_source(Src, TMP1);
     auto tl = init_destination(Tl, TMP2);
     const int bitNumber = 1;
@@ -1308,7 +1308,7 @@ void BeamGlobalAssembler::emit_bif_tuple_size_helper(Label fail) {
 }
 
 void BeamGlobalAssembler::emit_bif_tuple_size_body() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_bif_tuple_size_helper(error);
 
@@ -1321,7 +1321,7 @@ void BeamGlobalAssembler::emit_bif_tuple_size_body() {
 }
 
 void BeamGlobalAssembler::emit_bif_tuple_size_guard() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_bif_tuple_size_helper(error);
 

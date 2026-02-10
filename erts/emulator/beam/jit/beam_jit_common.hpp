@@ -23,9 +23,7 @@
 #ifndef __BEAM_JIT_COMMON_HPP__
 #define __BEAM_JIT_COMMON_HPP__
 
-#ifndef ASMJIT_ASMJIT_H_INCLUDED
-#    include <asmjit/asmjit.hpp>
-#endif
+#include <asmjit/core.h>
 
 #include <string>
 #include <vector>
@@ -428,68 +426,6 @@ struct BeamModuleAssemblerCommon {
 
     bool hasUpperBound(const ArgSource &arg) const {
         return getTypeEntry(arg).hasUpperBound();
-    }
-};
-
-/* This is a view into a contiguous container (like an array or `std::vector`),
- * letting us reuse the existing argument array in `beamasm_emit` while keeping
- * our interfaces convenient.
- *
- * Needless to say, spans must not live longer than the container they wrap, so
- * you must be careful not to return a span of an rvalue or stack-allocated
- * container.
- *
- * We can replace this with std::span once we require C++20. */
-template<typename T>
-class Span {
-    const T *_data;
-    size_t _size;
-
-public:
-    template<typename Container>
-    Span(const Container &other) : Span(other.data(), other.size()) {
-    }
-
-    template<typename Container>
-    Span(Container &other) : Span(other.data(), other.size()) {
-    }
-
-    Span(const T *begin, const T *end) : Span(begin, end - begin) {
-    }
-
-    Span(const T *data, size_t size) : _data(data), _size(size) {
-    }
-
-    Span<T> subspan(size_t index, size_t count) const {
-        ASSERT(index <= size() && count <= (size() - index));
-        return Span<T>(begin() + index, count);
-    }
-
-    const auto size() const {
-        return _size;
-    }
-
-    const auto begin() const {
-        return &_data[0];
-    }
-
-    const auto end() const {
-        return &_data[size()];
-    }
-
-    const T &operator[](size_t index) const {
-#ifdef DEBUG
-        ASSERT(index < _size);
-#endif
-        return _data[index];
-    }
-
-    const T &front() const {
-        return operator[](0);
-    }
-
-    const T &back() const {
-        return operator[](size() - 1);
     }
 };
 

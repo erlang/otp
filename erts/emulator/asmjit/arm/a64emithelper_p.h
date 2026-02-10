@@ -1,17 +1,17 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_ARM_A64EMITHELPER_P_H_INCLUDED
 #define ASMJIT_ARM_A64EMITHELPER_P_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 
-#include "../core/emithelper_p.h"
-#include "../core/func.h"
-#include "../arm/a64emitter.h"
-#include "../arm/a64operand.h"
+#include <asmjit/core/emithelper_p.h>
+#include <asmjit/core/func.h>
+#include <asmjit/arm/a64emitter.h>
+#include <asmjit/arm/a64operand.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
@@ -24,25 +24,32 @@ public:
   ASMJIT_INLINE_NODEBUG explicit EmitHelper(BaseEmitter* emitter = nullptr) noexcept
     : BaseEmitHelper(emitter) {}
 
-  ASMJIT_INLINE_NODEBUG virtual ~EmitHelper() noexcept = default;
+  ASMJIT_INLINE_NODEBUG ~EmitHelper() noexcept override = default;
 
-  Error emitRegMove(
+  ASMJIT_INLINE void reset(BaseEmitter* emitter) noexcept {
+    _emitter = emitter;
+  }
+
+  Error emit_reg_move(
     const Operand_& dst_,
-    const Operand_& src_, TypeId typeId, const char* comment = nullptr) override;
+    const Operand_& src_, TypeId type_id, const char* comment = nullptr) override;
 
-  Error emitRegSwap(
-    const BaseReg& a,
-    const BaseReg& b, const char* comment = nullptr) override;
+  Error emit_reg_swap(
+    const Reg& a,
+    const Reg& b, const char* comment = nullptr) override;
 
-  Error emitArgMove(
-    const BaseReg& dst_, TypeId dstTypeId,
-    const Operand_& src_, TypeId srcTypeId, const char* comment = nullptr) override;
+  Error emit_arg_move(
+    const Reg& dst_, TypeId dst_type_id,
+    const Operand_& src_, TypeId src_type_id, const char* comment = nullptr) override;
 
-  Error emitProlog(const FuncFrame& frame);
-  Error emitEpilog(const FuncFrame& frame);
+  Error emit_prolog(const FuncFrame& frame);
+  Error emit_epilog(const FuncFrame& frame);
 };
 
-void assignEmitterFuncs(BaseEmitter* emitter);
+void init_emitter_funcs(BaseEmitter* emitter);
+
+[[maybe_unused]]
+static inline void update_emitter_funcs(BaseEmitter* emitter) noexcept { Support::maybe_unused(emitter); }
 
 //! \}
 //! \endcond

@@ -1,10 +1,10 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
-#include "../core/instdb_p.h"
+#include <asmjit/core/api-build_p.h>
+#include <asmjit/core/instdb_p.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -12,88 +12,129 @@ namespace InstNameUtils {
 
 static constexpr uint32_t kBufferSize = 32;
 
-static ASMJIT_FORCE_INLINE char decode5BitChar(uint32_t c) noexcept {
+static ASMJIT_INLINE_CONSTEXPR char decode_5bit_char(uint32_t c) noexcept {
   uint32_t base = c <= 26 ? uint32_t('a') - 1u : uint32_t('0') - 27u;
   return char(base + c);
 }
 
-static ASMJIT_FORCE_INLINE size_t decodeToBuffer(char nameOut[kBufferSize], uint32_t nameValue, const char* stringTable) noexcept {
+static ASMJIT_INLINE size_t decode_to_buffer(char name_out[kBufferSize], uint32_t name_value, InstStringifyOptions options, const char* string_table) noexcept {
   size_t i;
 
-  if (nameValue & 0x80000000u) {
+  if (name_value & 0x80000000u) {
     // Small string of 5-bit characters.
-    for (i = 0; i < 6; i++, nameValue >>= 5) {
-      uint32_t c = nameValue & 0x1F;
+    //
+    // NOTE: Small string optimization never provides additional
+    // aliases formatting, so we don't have to consider `options`.
+    for (i = 0; i < 6; i++, name_value >>= 5) {
+      uint32_t c = name_value & 0x1F;
       if (c == 0)
         break;
-      nameOut[i] = decode5BitChar(c);
+      name_out[i] = decode_5bit_char(c);
     }
     return i;
   }
   else {
-    size_t prefixBase = nameValue & 0xFFFu;
-    size_t prefixSize = (nameValue >> 12) & 0xFu;
+    size_t prefix_base = name_value & 0xFFFu;
+    size_t prefix_size = (name_value >> 12) & 0xFu;
 
-    size_t suffixBase = (nameValue >> 16) & 0xFFFu;
-    size_t suffixSize = (nameValue >> 28) & 0x7u;
+    size_t suffix_base = (name_value >> 16) & 0xFFFu;
+    size_t suffix_size = (name_value >> 28) & 0x7u;
 
-    for (i = 0; i < prefixSize; i++)
-      nameOut[i] = stringTable[prefixBase + i];
+    if (Support::test(options, InstStringifyOptions::kAliases) && suffix_base == 0xFFFu) {
+      // Alias formatting immediately follows the instruction name in string table.
+      // The first character specifies the length and then string data follows.
+      prefix_base += prefix_size;
+      prefix_size = uint8_t(string_table[prefix_base]);
+      ASMJIT_ASSERT(prefix_size <= kBufferSize);
 
-    char* suffixOut = nameOut + prefixSize;
-    for (i = 0; i < suffixSize; i++)
-      suffixOut[i] = stringTable[suffixBase + i];
+      prefix_base += 1; // Skip the byte that specifies the length of a formatted alias.
+    }
 
-    return prefixSize + suffixSize;
+    for (i = 0; i < prefix_size; i++) {
+      name_out[i] = string_table[prefix_base + i];
+    }
+
+    char* suffix_out = name_out + prefix_size;
+    for (i = 0; i < suffix_size; i++) {
+      suffix_out[i] = string_table[suffix_base + i];
+    }
+
+    return prefix_size + suffix_size;
   }
 }
 
-Error decode(String& output, uint32_t nameValue, const char* stringTable) noexcept {
-  char nameData[kBufferSize];
-  size_t nameSize = decodeToBuffer(nameData, nameValue, stringTable);
+Error decode(uint32_t name_value, InstStringifyOptions options, const char* string_table, String& output) noexcept {
+  char name_data[kBufferSize];
+  size_t name_size = decode_to_buffer(name_data, name_value, options, string_table);
 
-  return output.append(nameData, nameSize);
+  return output.append(name_data, name_size);
 }
 
-InstId find(const char* s, size_t len, const InstNameIndex& nameIndex, const uint32_t* nameTable, const char* stringTable) noexcept {
-  if (ASMJIT_UNLIKELY(!s))
+InstId find_instruction(const char* s, size_t len, const uint32_t* name_table, const char* string_table, const InstNameIndex& name_index) noexcept {
+  ASMJIT_ASSERT(s != nullptr);
+  ASMJIT_ASSERT(len > 0u);
+
+  uint32_t prefix = uint32_t(s[0]) - uint32_t('a');
+  if (ASMJIT_UNLIKELY(prefix > uint32_t('z') - uint32_t('a'))) {
     return BaseInst::kIdNone;
+  }
 
-  if (len == SIZE_MAX)
-    len = strlen(s);
+  size_t base = name_index.data[prefix].start;
+  size_t end = name_index.data[prefix].end;
 
-  if (ASMJIT_UNLIKELY(len == 0 || len > nameIndex.maxNameLength))
+  if (ASMJIT_UNLIKELY(!base)) {
     return BaseInst::kIdNone;
+  }
 
-  uint32_t prefix = uint32_t(s[0]) - 'a';
-  if (ASMJIT_UNLIKELY(prefix > 'z' - 'a'))
-    return BaseInst::kIdNone;
-
-  size_t base = nameIndex.data[prefix].start;
-  size_t end = nameIndex.data[prefix].end;
-
-  if (ASMJIT_UNLIKELY(!base))
-    return BaseInst::kIdNone;
-
-  char nameData[kBufferSize];
+  char name_data[kBufferSize];
   for (size_t lim = end - base; lim != 0; lim >>= 1) {
-    size_t instId = base + (lim >> 1);
-    size_t nameSize = decodeToBuffer(nameData, nameTable[instId], stringTable);
+    size_t inst_id = base + (lim >> 1);
+    size_t name_size = decode_to_buffer(name_data, name_table[inst_id], InstStringifyOptions::kNone, string_table);
 
-    int result = Support::compareStringViews(s, len, nameData, nameSize);
-    if (result < 0)
+    int result = Support::compare_string_views(s, len, name_data, name_size);
+    if (result < 0) {
       continue;
+    }
 
     if (result > 0) {
-      base = instId + 1;
+      base = inst_id + 1;
       lim--;
       continue;
     }
 
-    return InstId(instId);
+    return InstId(inst_id);
   }
 
   return BaseInst::kIdNone;
+}
+
+
+uint32_t find_alias(const char* s, size_t len, const uint32_t* name_table, const char* string_table, uint32_t alias_name_count) noexcept {
+  ASMJIT_ASSERT(s != nullptr);
+  ASMJIT_ASSERT(len > 0u);
+
+  size_t base = 0;
+  char name_data[kBufferSize];
+
+  for (size_t lim = size_t(alias_name_count) - base; lim != 0; lim >>= 1) {
+    size_t index = base + (lim >> 1);
+    size_t name_size = decode_to_buffer(name_data, name_table[index], InstStringifyOptions::kNone, string_table);
+
+    int result = Support::compare_string_views(s, len, name_data, name_size);
+    if (result < 0) {
+      continue;
+    }
+
+    if (result > 0) {
+      base = index + 1;
+      lim--;
+      continue;
+    }
+
+    return uint32_t(index);
+  }
+
+  return Globals::kInvalidId;
 }
 
 } // {InstNameUtils}

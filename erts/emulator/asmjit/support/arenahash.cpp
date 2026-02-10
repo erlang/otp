@@ -1,16 +1,16 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
-#include "../core/support.h"
-#include "../core/zone.h"
-#include "../core/zonehash.h"
+#include <asmjit/core/api-build_p.h>
+#include <asmjit/support/support.h>
+#include <asmjit/support/arena.h>
+#include <asmjit/support/arenahash.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ZoneHashBase - Prime Numbers
+// ArenaHashBase - Prime Numbers
 // ============================
 
 #define ASMJIT_POPULATE_PRIMES(ENTRY) \
@@ -152,106 +152,108 @@ struct HashPrime {
   uint32_t rcp;
 };
 
-static const HashPrime ZoneHash_primeArray[] = {
+static const HashPrime ArenaHash_prime_array[] = {
   #define E(PRIME, RCP, SHIFT) { PRIME, RCP }
   ASMJIT_POPULATE_PRIMES(E)
   #undef E
 };
 
-static const uint8_t ZoneHash_primeShift[] = {
+static const uint8_t ArenaHash_prime_shift[] = {
   #define E(PRIME, RCP, SHIFT) uint8_t(SHIFT)
   ASMJIT_POPULATE_PRIMES(E)
   #undef E
 };
 
-// ZoneHashBase - Rehash
+// ArenaHashBase - Rehash
 // =====================
 
-void ZoneHashBase::_rehash(ZoneAllocator* allocator, uint32_t primeIndex) noexcept {
-  ASMJIT_ASSERT(primeIndex < ASMJIT_ARRAY_SIZE(ZoneHash_primeArray));
-  uint32_t newCount = ZoneHash_primeArray[primeIndex].prime;
+void ArenaHashBase::_rehash(Arena& arena, uint32_t prime_index) noexcept {
+  ASMJIT_ASSERT(prime_index < ASMJIT_ARRAY_SIZE(ArenaHash_prime_array));
+  uint32_t new_count = ArenaHash_prime_array[prime_index].prime;
 
-  ZoneHashNode** oldData = _data;
-  ZoneHashNode** newData = reinterpret_cast<ZoneHashNode**>(
-    allocator->allocZeroed(size_t(newCount) * sizeof(ZoneHashNode*)));
+  ArenaHashNode** old_data = _data;
+  ArenaHashNode** new_data = reinterpret_cast<ArenaHashNode**>(arena.alloc_reusable_zeroed(size_t(new_count) * sizeof(ArenaHashNode*)));
 
   // We can still store nodes into the table, but it will degrade.
-  if (ASMJIT_UNLIKELY(newData == nullptr))
+  if (ASMJIT_UNLIKELY(new_data == nullptr)) {
     return;
+  }
 
   uint32_t i;
-  uint32_t oldCount = _bucketsCount;
+  uint32_t old_count = _buckets_count;
 
-  _data = newData;
-  _bucketsCount = newCount;
-  _bucketsGrow = uint32_t(newCount * 0.9);
-  _rcpValue = ZoneHash_primeArray[primeIndex].rcp;
-  _rcpShift = ZoneHash_primeShift[primeIndex];
-  _primeIndex = uint8_t(primeIndex);
+  _data = new_data;
+  _buckets_count = new_count;
+  _buckets_grow = uint32_t(new_count * 0.9);
+  _rcp_value = ArenaHash_prime_array[prime_index].rcp;
+  _rcp_shift = ArenaHash_prime_shift[prime_index];
+  _prime_index = uint8_t(prime_index);
 
-  for (i = 0; i < oldCount; i++) {
-    ZoneHashNode* node = oldData[i];
+  for (i = 0; i < old_count; i++) {
+    ArenaHashNode* node = old_data[i];
     while (node) {
-      ZoneHashNode* next = node->_hashNext;
-      uint32_t hashMod = _calcMod(node->_hashCode);
+      ArenaHashNode* next = node->_hash_next;
+      uint32_t hash_mod = _calc_mod(node->_hash_code);
 
-      node->_hashNext = newData[hashMod];
-      newData[hashMod] = node;
+      node->_hash_next = new_data[hash_mod];
+      new_data[hash_mod] = node;
       node = next;
     }
   }
 
-  if (oldData != _embedded)
-    allocator->release(oldData, oldCount * sizeof(ZoneHashNode*));
+  if (old_data != _embedded) {
+    arena.free_reusable(old_data, old_count * sizeof(ArenaHashNode*));
+  }
 }
 
-// ZoneHashBase - Operations
+// ArenaHashBase - Operations
 // =========================
 
-ZoneHashNode* ZoneHashBase::_insert(ZoneAllocator* allocator, ZoneHashNode* node) noexcept {
-  uint32_t hashMod = _calcMod(node->_hashCode);
-  ZoneHashNode* next = _data[hashMod];
+ArenaHashNode* ArenaHashBase::_insert(Arena& arena, ArenaHashNode* node) noexcept {
+  uint32_t hash_mod = _calc_mod(node->_hash_code);
+  ArenaHashNode* next = _data[hash_mod];
 
-  node->_hashNext = next;
-  _data[hashMod] = node;
+  node->_hash_next = next;
+  _data[hash_mod] = node;
 
-  if (++_size > _bucketsGrow) {
-    uint32_t primeIndex = Support::min<uint32_t>(_primeIndex + 2, ASMJIT_ARRAY_SIZE(ZoneHash_primeArray) - 1);
-    if (primeIndex > _primeIndex)
-      _rehash(allocator, primeIndex);
+  if (++_size > _buckets_grow) {
+    uint32_t prime_index = Support::min<uint32_t>(_prime_index + 2, ASMJIT_ARRAY_SIZE(ArenaHash_prime_array) - 1);
+    if (prime_index > _prime_index) {
+      _rehash(arena, prime_index);
+    }
   }
 
   return node;
 }
 
-ZoneHashNode* ZoneHashBase::_remove(ZoneAllocator* allocator, ZoneHashNode* node) noexcept {
-  DebugUtils::unused(allocator);
-  uint32_t hashMod = _calcMod(node->_hashCode);
+ArenaHashNode* ArenaHashBase::_remove(Arena& arena, ArenaHashNode* node) noexcept {
+  Support::maybe_unused(arena);
+  uint32_t hash_mod = _calc_mod(node->_hash_code);
 
-  ZoneHashNode** pPrev = &_data[hashMod];
-  ZoneHashNode* p = *pPrev;
+  ArenaHashNode** prev_ptr = &_data[hash_mod];
+  ArenaHashNode* p = *prev_ptr;
 
   while (p) {
     if (p == node) {
-      *pPrev = p->_hashNext;
+      *prev_ptr = p->_hash_next;
       _size--;
       return node;
     }
 
-    pPrev = &p->_hashNext;
-    p = *pPrev;
+    prev_ptr = &p->_hash_next;
+    p = *prev_ptr;
   }
 
   return nullptr;
 }
 
-// ZoneHashBase - Tests
+// ArenaHashBase - Tests
 // ====================
 
 #if defined(ASMJIT_TEST)
-struct MyHashNode : public ZoneHashNode {
+struct MyHashNode : public ArenaHashNode {
   inline MyHashNode(uint32_t key) noexcept
-    : ZoneHashNode(key),
+    : ArenaHashNode(key),
       _key(key) {}
 
   uint32_t _key;
@@ -261,24 +263,22 @@ struct MyKeyMatcher {
   inline MyKeyMatcher(uint32_t key) noexcept
     : _key(key) {}
 
-  inline uint32_t hashCode() const noexcept { return _key; }
+  inline uint32_t hash_code() const noexcept { return _key; }
   inline bool matches(const MyHashNode* node) const noexcept { return node->_key == _key; }
 
   uint32_t _key;
 };
 
-UNIT(zone_hash) {
-  uint32_t kCount = BrokenAPI::hasArg("--quick") ? 1000 : 10000;
+UNIT(arena_hash) {
+  uint32_t kCount = BrokenAPI::has_arg("--quick") ? 1000 : 10000;
 
-  Zone zone(4096);
-  ZoneAllocator allocator(&zone);
-
-  ZoneHash<MyHashNode> hashTable;
+  Arena arena(4096);
+  ArenaHash<MyHashNode> hash_table;
 
   uint32_t key;
   INFO("Inserting %u elements to HashTable", unsigned(kCount));
   for (key = 0; key < kCount; key++) {
-    hashTable.insert(&allocator, zone.newT<MyHashNode>(key));
+    hash_table.insert(arena, arena.new_oneshot<MyHashNode>(key));
   }
 
   uint32_t count = kCount;
@@ -287,22 +287,22 @@ UNIT(zone_hash) {
     MyHashNode* node;
 
     for (key = 0; key < count; key++) {
-      node = hashTable.get(MyKeyMatcher(key));
+      node = hash_table.get(MyKeyMatcher(key));
       EXPECT_NOT_NULL(node);
       EXPECT_EQ(node->_key, key);
     }
 
     {
       count--;
-      node = hashTable.get(MyKeyMatcher(count));
-      hashTable.remove(&allocator, node);
+      node = hash_table.get(MyKeyMatcher(count));
+      hash_table.remove(arena, node);
 
-      node = hashTable.get(MyKeyMatcher(count));
+      node = hash_table.get(MyKeyMatcher(count));
       EXPECT_NULL(node);
     }
   } while (count);
 
-  EXPECT_TRUE(hashTable.empty());
+  EXPECT_TRUE(hash_table.is_empty());
 }
 #endif
 

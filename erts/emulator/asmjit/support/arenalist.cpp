@@ -1,37 +1,37 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
-#include "../core/zone.h"
-#include "../core/zonelist.h"
+#include <asmjit/core/api-build_p.h>
+#include <asmjit/support/arena.h>
+#include <asmjit/support/arenalist.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ZoneList - Tests
+// ArenaList - Tests
 // ================
 
 #if defined(ASMJIT_TEST)
-class MyListNode : public ZoneListNode<MyListNode> {};
+class MyListNode : public ArenaListNode<MyListNode> {};
 
-UNIT(zone_list) {
-  Zone zone(4096);
-  ZoneList<MyListNode> list;
+UNIT(arena_list) {
+  Arena arena(4096);
+  ArenaList<MyListNode> list;
 
-  MyListNode* a = zone.newT<MyListNode>();
-  MyListNode* b = zone.newT<MyListNode>();
-  MyListNode* c = zone.newT<MyListNode>();
-  MyListNode* d = zone.newT<MyListNode>();
+  MyListNode* a = arena.new_oneshot<MyListNode>();
+  MyListNode* b = arena.new_oneshot<MyListNode>();
+  MyListNode* c = arena.new_oneshot<MyListNode>();
+  MyListNode* d = arena.new_oneshot<MyListNode>();
 
   INFO("Append / Unlink");
 
   // []
-  EXPECT_TRUE(list.empty());
+  EXPECT_TRUE(list.is_empty());
 
   // [A]
   list.append(a);
-  EXPECT_FALSE(list.empty());
+  EXPECT_FALSE(list.is_empty());
   EXPECT_EQ(list.first(), a);
   EXPECT_EQ(list.last(), a);
   EXPECT_NULL(a->prev());
@@ -79,7 +79,7 @@ UNIT(zone_list) {
 
   // []
   list.unlink(b);
-  EXPECT_TRUE(list.empty());
+  EXPECT_TRUE(list.is_empty());
   EXPECT_NULL(list.first());
   EXPECT_NULL(list.last());
   EXPECT_NULL(b->prev());
@@ -89,7 +89,7 @@ UNIT(zone_list) {
 
   // [A]
   list.prepend(a);
-  EXPECT_FALSE(list.empty());
+  EXPECT_FALSE(list.is_empty());
   EXPECT_EQ(list.first(), a);
   EXPECT_EQ(list.last(), a);
   EXPECT_NULL(a->prev());
@@ -107,7 +107,7 @@ UNIT(zone_list) {
   INFO("InsertAfter / InsertBefore");
 
   // [B, A, C]
-  list.insertAfter(a, c);
+  list.insert_after(a, c);
   EXPECT_EQ(list.first(), b);
   EXPECT_EQ(list.last(), c);
   EXPECT_NULL(b->prev());
@@ -118,7 +118,7 @@ UNIT(zone_list) {
   EXPECT_NULL(c->next());
 
   // [B, D, A, C]
-  list.insertBefore(a, d);
+  list.insert_before(a, d);
   EXPECT_EQ(list.first(), b);
   EXPECT_EQ(list.last(), c);
   EXPECT_NULL(b->prev());
@@ -133,7 +133,7 @@ UNIT(zone_list) {
   INFO("PopFirst / Pop");
 
   // [D, A, C]
-  EXPECT_EQ(list.popFirst(), b);
+  EXPECT_EQ(list.pop_first(), b);
   EXPECT_NULL(b->prev());
   EXPECT_NULL(b->next());
 

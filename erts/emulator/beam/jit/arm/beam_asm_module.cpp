@@ -89,7 +89,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
         : BeamModuleAssembler(ga, mod, num_labels, file) {
     _veneers.reserve(num_labels + 1);
 
-    code_header = a.newLabel();
+    code_header = a.new_label();
     a.align(AlignMode::kCode, 8);
     a.bind(code_header);
 
@@ -101,13 +101,13 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
 #endif
 }
 
-void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
+void BeamModuleAssembler::embed_vararg_rodata(const Span<const ArgVal> &args,
                                               a64::Gp reg) {
     /* Short sequences are inlined in the .text section for slightly better
      * speed. */
     bool inlineData = args.size() <= 6;
 
-    Label data = a.newLabel(), next = a.newLabel();
+    Label data = a.new_label(), next = a.new_label();
 
     if (inlineData) {
         a.adr(reg, data);
@@ -122,40 +122,31 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
     a.bind(data);
 
     for (const ArgVal &arg : args) {
-        union {
-            BeamInstr as_beam;
-            char as_char[1];
-        } data;
-
         a.align(AlignMode::kData, 8);
         switch (arg.getType()) {
         case ArgVal::Type::Literal: {
             auto &patches = literals[arg.as<ArgLiteral>().get()].patches;
-            Label patch = a.newLabel();
+            Label patch = a.new_label();
 
             a.bind(patch);
-            a.embedUInt64(LLONG_MAX);
+            a.embed_uint64(LLONG_MAX);
             patches.push_back({patch, 0});
             break;
         }
         case ArgVal::Type::XReg:
-            data.as_beam = make_loader_x_reg(arg.as<ArgXRegister>().get());
-            a.embed(&data.as_char, sizeof(data.as_beam));
+            a.embed_uint64(make_loader_x_reg(arg.as<ArgXRegister>().get()));
             break;
         case ArgVal::Type::YReg:
-            data.as_beam = make_loader_y_reg(arg.as<ArgYRegister>().get());
-            a.embed(&data.as_char, sizeof(data.as_beam));
+            a.embed_uint64(make_loader_y_reg(arg.as<ArgYRegister>().get()));
             break;
         case ArgVal::Type::Label:
-            a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
+            a.embed_label(rawLabels[arg.as<ArgLabel>().get()]);
             break;
         case ArgVal::Type::Immediate:
-            data.as_beam = arg.as<ArgImmed>().get();
-            a.embed(&data.as_char, sizeof(data.as_beam));
+            a.embed_uint64(arg.as<ArgImmed>().get());
             break;
         case ArgVal::Type::Word:
-            data.as_beam = arg.as<ArgWord>().get();
-            a.embed(&data.as_char, sizeof(data.as_beam));
+            a.embed_uint64(arg.as<ArgWord>().get());
             break;
         default:
             ERTS_ASSERT(!"error");
@@ -163,7 +154,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
     }
 
     if (!inlineData) {
-        a.section(code.textSection());
+        a.section(code.text_section());
     }
 
     a.bind(next);
@@ -173,7 +164,8 @@ void BeamModuleAssembler::emit_i_nif_padding() {
     const size_t minimum_size = sizeof(UWord[BEAM_NATIVE_MIN_FUNC_SZ]);
     size_t prev_func_start, diff;
 
-    prev_func_start = code.labelOffsetFromBase(rawLabels[functions.back() + 1]);
+    prev_func_start =
+            code.label_offset_from_base(rawLabels[functions.back() + 1]);
     diff = a.offset() - prev_func_start;
 
     if (diff < minimum_size) {
@@ -186,10 +178,10 @@ void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
             sizeof(ErtsCodeInfo) + BEAM_ASM_FUNC_PROLOGUE_SIZE -
             offsetof(ErtsCodeInfo, u.metadata.breakpoint_flag);
 
-    Label bp_and_nif = a.newLabel(), bp_only = a.newLabel(),
-          nif_only = a.newLabel();
+    Label bp_and_nif = a.new_label(), bp_only = a.new_label(),
+          nif_only = a.new_label();
 
-    a.ldrb(ARG1.w(), arm::Mem(a64::x30, -flag_offset));
+    a.ldrb(ARG1.w(), a64::Mem(a64::x30, -flag_offset));
 
     a.cmp(ARG1, imm(ERTS_ASM_BP_FLAG_BP_NIF_CALL_NIF_EARLY));
     a.b_eq(bp_and_nif);
@@ -201,7 +193,7 @@ void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
 #ifndef DEBUG
     a.ret(a64::x30);
 #else
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     /* ARG1 must be a valid breakpoint flag. */
     a.cbnz(ARG1, error);
@@ -239,7 +231,7 @@ void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
 void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     /* This little prologue is used by nif loading and tracing to insert
      * alternative instructions. */
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     emit_enter_erlang_frame();
 
@@ -247,7 +239,7 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
      * breakpoint is enabled. */
     a.b(next);
 
-    if (code_header.isValid()) {
+    if (code_header.is_valid()) {
         a.bl(resolve_fragment(ga->get_i_breakpoint_trampoline_shared(),
                               disp128MB));
     } else {
@@ -258,15 +250,15 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
 
     a.bind(next);
 
-    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
+    ASSERT((a.offset() - code.label_offset_from_base(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 }
 
 void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
-    Label exit_trampoline = a.newLabel();
-    Label dealloc_and_exit_trampoline = a.newLabel();
-    Label after_gc_check = a.newLabel();
-    Label dispatch_call = a.newLabel();
+    Label exit_trampoline = a.new_label();
+    Label dealloc_and_exit_trampoline = a.new_label();
+    Label after_gc_check = a.new_label();
+    Label dispatch_call = a.new_label();
 
     const auto &saved_live = TMP_MEM1q;
     const auto &saved_pc = TMP_MEM2q;
@@ -346,7 +338,7 @@ void BeamModuleAssembler::emit_i_line_breakpoint_trampoline() {
     /* This prologue is used to implement line-breakpoints. The "b next" can
      * be replaced by nops when the breakpoint is enabled, which will instead
      * trigger the breakpoint when control goes through here */
-    Label next = a.newLabel();
+    Label next = a.new_label();
     a.b(next);
 
     a.bl(resolve_fragment(ga->get_i_line_breakpoint_trampoline_shared(),
@@ -455,7 +447,8 @@ void BeamModuleAssembler::emit_nyi() {
     emit_nyi("<unspecified>");
 }
 
-bool BeamModuleAssembler::emit(unsigned specific_op, const Span<ArgVal> &args) {
+bool BeamModuleAssembler::emit(unsigned specific_op,
+                               const Span<const ArgVal> &args) {
     check_pending_stubs();
 
 #ifdef BEAMASM_DUMP_SIZES
@@ -494,8 +487,8 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
     a.add(ARG1, a64::x30, offsetof(ErtsCodeInfo, mfa) - 4);
 
     mov_imm(TMP1, EXC_FUNCTION_CLAUSE);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
-    a.str(ARG1, arm::Mem(c_p, offsetof(Process, current)));
+    a.str(TMP1, a64::Mem(c_p, offsetof(Process, freason)));
+    a.str(ARG1, a64::Mem(c_p, offsetof(Process, current)));
 
     mov_imm(ARG2, 0);
     mov_imm(ARG4, 0);
@@ -529,7 +522,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
      * can be safely modified without issuing an ISB. By storing the flag here
      * and reading it in the fragment, we don't have to change any code other
      * than the branch instruction. */
-    if (code_header.isValid()) {
+    if (code_header.is_valid()) {
         /* We avoid using the `fragment_call` helper to ensure a constant
          * layout, as it adds code in certain debug configurations. */
         a.bl(resolve_fragment(ga->get_i_func_info_shared(), disp128MB));
@@ -538,7 +531,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     }
 
     ERTS_CT_ASSERT(ERTS_ASM_BP_FLAG_NONE == 0);
-    a.embedUInt32(0);
+    a.embed_uint32(0);
 
     ASSERT(a.offset() % sizeof(UWord) == 0);
     a.embed(&info.gen_bp, sizeof(info.gen_bp));
@@ -576,7 +569,7 @@ void BeamModuleAssembler::bind_veneer_target(const Label &target) {
 
         ASSERT(veneer.target == target);
 
-        if (!code.isLabelBound(veneer.anchor)) {
+        if (!code.is_label_bound(veneer.anchor)) {
             ASSERT((ssize_t)a.offset() <= veneer.latestOffset);
             a.bind(veneer.anchor);
 
@@ -589,7 +582,7 @@ void BeamModuleAssembler::bind_veneer_target(const Label &target) {
 
 void BeamModuleAssembler::emit_int_code_end() {
     /* This label is used to figure out the end of the last function */
-    code_end = a.newLabel();
+    code_end = a.new_label();
     a.bind(code_end);
 
     emit_nyi("int_code_end");
@@ -659,10 +652,10 @@ const Label &BeamModuleAssembler::resolve_beam_label(const ArgLabel &Lbl,
     ASSERT(Lbl.isLabel());
 
     const Label &beamLabel = rawLabels.at(Lbl.get());
-    const auto &labelEntry = code.labelEntry(beamLabel);
+    const auto &labelEntry = code.label_entry_of(beamLabel);
 
-    if (labelEntry->hasName()) {
-        return resolve_label(rawLabels.at(Lbl.get()), disp, labelEntry->name());
+    if (labelEntry.has_name()) {
+        return resolve_label(rawLabels.at(Lbl.get()), disp, labelEntry.name());
     } else {
         return resolve_label(rawLabels.at(Lbl.get()), disp);
     }
@@ -677,10 +670,10 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
     ssize_t maxOffset = currOffset + disp;
 
     ASSERT(disp >= dispMin && disp <= dispMax);
-    ASSERT(target.isValid());
+    ASSERT(target.is_valid());
 
-    if (code.isLabelBound(target)) {
-        ssize_t targetOffset = code.labelOffsetFromBase(target);
+    if (code.is_label_bound(target)) {
+        ssize_t targetOffset = code.label_offset_from_base(target);
 
         /* Backward reference: skip veneers if it's already in range. */
         if (targetOffset >= minOffset) {
@@ -694,8 +687,8 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
     for (auto it = range.first; it != range.second; it++) {
         const Veneer &veneer = it->second;
 
-        if (code.isLabelBound(veneer.anchor)) {
-            ssize_t veneerOffset = code.labelOffsetFromBase(veneer.anchor);
+        if (code.is_label_bound(veneer.anchor)) {
+            ssize_t veneerOffset = code.label_offset_from_base(veneer.anchor);
 
             if (veneerOffset >= minOffset && veneerOffset <= maxOffset) {
                 return veneer.anchor;
@@ -708,7 +701,7 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
     Label anchor;
 
     if (!labelName) {
-        anchor = a.newLabel();
+        anchor = a.new_label();
     } else {
         /* This is the entry label for a function. Create an unique
          * name for the anchor label. It is necessary to include a
@@ -717,7 +710,7 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
          * label. */
         std::stringstream name;
         name << '@' << labelName << '-' << labelSeq++;
-        anchor = a.newNamedLabel(name.str().c_str());
+        anchor = a.new_named_label(name.str().c_str());
     }
 
     auto it = _veneers.emplace(target.id(), Veneer{maxOffset, anchor, target});
@@ -733,13 +726,13 @@ const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)(),
     auto it = _dispatchTable.find(fragment);
 
     if (it == _dispatchTable.end()) {
-        it = _dispatchTable.emplace(fragment, a.newLabel()).first;
+        it = _dispatchTable.emplace(fragment, a.new_label()).first;
     }
 
     return resolve_label(it->second, disp);
 }
 
-arm::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,
+a64::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,
                                              enum Displacement disp) {
     ssize_t currOffset = a.offset();
 
@@ -755,26 +748,26 @@ arm::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,
     for (auto it = range.first; it != range.second; it++) {
         const Constant &constant = it->second;
 
-        if (code.isLabelBound(constant.anchor)) {
-            ssize_t constOffset = code.labelOffsetFromBase(constant.anchor);
+        if (code.is_label_bound(constant.anchor)) {
+            ssize_t constOffset = code.label_offset_from_base(constant.anchor);
 
             if (constOffset >= minOffset && constOffset <= maxOffset) {
-                return arm::Mem(constant.anchor);
+                return a64::Mem(constant.anchor);
             }
         } else if (constant.latestOffset <= maxOffset) {
-            return arm::Mem(constant.anchor);
+            return a64::Mem(constant.anchor);
         }
     }
 
-    auto it =
-            _constants.emplace(value, Constant{maxOffset, a.newLabel(), value});
+    auto it = _constants.emplace(value,
+                                 Constant{maxOffset, a.new_label(), value});
     const Constant &constant = it->second;
     _pending_constants.emplace(constant);
 
-    return arm::Mem(constant.anchor);
+    return a64::Mem(constant.anchor);
 }
 
-arm::Mem BeamModuleAssembler::embed_label(const Label &label,
+a64::Mem BeamModuleAssembler::embed_label(const Label &label,
                                           enum Displacement disp) {
     ssize_t currOffset = a.offset();
 
@@ -784,12 +777,12 @@ arm::Mem BeamModuleAssembler::embed_label(const Label &label,
 
     auto it = _embedded_labels.emplace(
             label.id(),
-            EmbeddedLabel{maxOffset, a.newLabel(), label});
+            EmbeddedLabel{maxOffset, a.new_label(), label});
     ASSERT(it.second);
     const EmbeddedLabel &embedded_label = it.first->second;
     _pending_labels.emplace(embedded_label);
 
-    return arm::Mem(embedded_label.anchor);
+    return a64::Mem(embedded_label.anchor);
 }
 
 void BeamModuleAssembler::emit_i_flush_stubs() {
@@ -825,7 +818,7 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
     Label next;
 
     if (!_pending_labels.empty()) {
-        next = a.newLabel();
+        next = a.new_label();
 
         comment("Begin stub section");
         if (!is_unreachable()) {
@@ -842,9 +835,9 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
             break;
         }
 
-        if (!code.isLabelBound(veneer.anchor)) {
-            if (!next.isValid()) {
-                next = a.newLabel();
+        if (!code.is_label_bound(veneer.anchor)) {
+            if (!next.is_valid()) {
+                next = a.new_label();
 
                 comment("Begin stub section");
                 if (!is_unreachable()) {
@@ -868,10 +861,10 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
         }
 
         /* Unlike veneers, we never bind constants ahead of time. */
-        ASSERT(!code.isLabelBound(constant.anchor));
+        ASSERT(!code.is_label_bound(constant.anchor));
 
-        if (!next.isValid()) {
-            next = a.newLabel();
+        if (!next.is_valid()) {
+            next = a.new_label();
 
             comment("Begin stub section");
             if (!is_unreachable()) {
@@ -886,7 +879,7 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
         _pending_constants.pop();
     }
 
-    if (next.isValid()) {
+    if (next.is_valid()) {
         comment("End stub section");
         a.bind(next);
     }
@@ -901,7 +894,7 @@ void BeamModuleAssembler::flush_pending_labels() {
         const EmbeddedLabel &embedded_label = _pending_labels.top();
 
         a.bind(embedded_label.anchor);
-        a.embedLabel(embedded_label.label, 8);
+        a.embed_label(embedded_label.label, 8);
 
         _pending_labels.pop();
     }
@@ -912,12 +905,12 @@ void BeamModuleAssembler::emit_veneer(const Veneer &veneer) {
     const Label &target = veneer.target;
     bool directBranch;
 
-    ASSERT(!code.isLabelBound(anchor));
+    ASSERT(!code.is_label_bound(anchor));
     a.bind(anchor);
 
     /* Prefer direct branches when possible. */
-    if (code.isLabelBound(target)) {
-        auto targetOffset = code.labelOffsetFromBase(target);
+    if (code.is_label_bound(target)) {
+        auto targetOffset = code.label_offset_from_base(target);
         directBranch = (a.offset() - targetOffset) <= disp128MB;
     } else {
         directBranch = false;
@@ -930,14 +923,14 @@ void BeamModuleAssembler::emit_veneer(const Veneer &veneer) {
     if (ERTS_LIKELY(directBranch)) {
         a.b(target);
     } else {
-        Label pointer = a.newLabel();
+        Label pointer = a.new_label();
 
-        a.ldr(SUPER_TMP, arm::Mem(pointer));
+        a.ldr(SUPER_TMP, a64::Mem(pointer));
         a.br(SUPER_TMP);
 
         a.align(AlignMode::kCode, 8);
         a.bind(pointer);
-        a.embedLabel(veneer.target);
+        a.embed_label(veneer.target);
     }
 }
 
@@ -945,23 +938,23 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
     const Label &anchor = constant.anchor;
     const ArgVal &value = constant.value;
 
-    ASSERT(!code.isLabelBound(anchor));
+    ASSERT(!code.is_label_bound(anchor));
     a.align(AlignMode::kData, 8);
     a.bind(anchor);
 
     ASSERT(!value.isRegister());
 
     if (value.isImmed()) {
-        a.embedUInt64(value.as<ArgImmed>().get());
+        a.embed_uint64(value.as<ArgImmed>().get());
     } else if (value.isWord()) {
-        a.embedUInt64(value.as<ArgWord>().get());
+        a.embed_uint64(value.as<ArgWord>().get());
     } else if (value.isLabel()) {
-        a.embedLabel(rawLabels.at(value.as<ArgLabel>().get()));
+        a.embed_label(rawLabels.at(value.as<ArgLabel>().get()));
     } else {
         switch (value.getType()) {
         case ArgVal::Type::BytePtr:
             strings.push_back({anchor, 0, value.as<ArgBytePtr>().get()});
-            a.embedUInt64(LLONG_MAX);
+            a.embed_uint64(LLONG_MAX);
             break;
         case ArgVal::Type::Catch: {
             auto handler = rawLabels[value.as<ArgCatch>().get()];
@@ -970,25 +963,25 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
             /* Catches are limited to 32 bits, but since we don't want to load
              * 32-bit argument values due to displacement limits, we'll store
              * this as a 64-bit value with the upper bits cleared. */
-            a.embedUInt64(INT_MAX);
+            a.embed_uint64(INT_MAX);
             break;
         }
         case ArgVal::Type::Export: {
             auto index = value.as<ArgExport>().get();
             imports[index].patches.push_back({anchor, 0, 0});
-            a.embedUInt64(LLONG_MAX);
+            a.embed_uint64(LLONG_MAX);
             break;
         }
         case ArgVal::Type::FunEntry: {
             auto index = value.as<ArgLambda>().get();
             lambdas[index].patches.push_back({anchor, 0, 0});
-            a.embedUInt64(LLONG_MAX);
+            a.embed_uint64(LLONG_MAX);
             break;
         }
         case ArgVal::Type::Literal: {
             auto index = value.as<ArgLiteral>().get();
             literals[index].patches.push_back({anchor, 0, 0});
-            a.embedUInt64(LLONG_MAX);
+            a.embed_uint64(LLONG_MAX);
             break;
         }
         default:
