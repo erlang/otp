@@ -9128,7 +9128,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
                  | ERTS_PSFLG_DIRTY_RUNNING_SYS);
 
         rp = erts_try_lock_sig_free_proc(BIF_ARG_1,
-                                         ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
+                                         ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_BTM,
                                          &state);
         if (!rp)
             goto noproc;
@@ -9138,11 +9138,12 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
             send_sig = !suspend_process(BIF_P, rp);
             if (!send_sig) {
                 erts_pause_proc_timer(rp);
+                erts_pause_bif_timers(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_BTM);
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->u.target);
                 erts_atomic_read_bor_relb(&msp->state,
                                           ERTS_MSUSPEND_STATE_FLG_ACTIVE);
             }
-            erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
+            erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_BTM);
         }
         if (send_sig) {
             if (erts_proc_sig_send_monitor(&BIF_P->common, BIF_P->common.id,
@@ -12740,6 +12741,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_inq.may_contain_heap_terms = 0;
 #endif
     p->bif_timers = NULL;
+    p->paused_bif_timers = NULL;
     p->mbuf = NULL;
     p->msg_frag = NULL;
     p->mbuf_sz = 0;
@@ -13268,6 +13270,7 @@ void erts_init_empty_process(Process *p)
     p->sig_inq.may_contain_heap_terms = 0;
 #endif
     p->bif_timers = NULL;
+    p->paused_bif_timers = NULL;
     p->dictionary = NULL;
     p->seq_trace_clock = 0;
     p->seq_trace_lastcnt = 0;
