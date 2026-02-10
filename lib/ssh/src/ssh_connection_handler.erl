@@ -65,15 +65,16 @@
          send_bytes/2,
          send_msg/2,
 	 send_eof/2,
-         send_disconnect/6,
-         send_disconnect/7,
+         send_disconnect/2,
+         send_disconnect/3,
          store/3,
          retrieve/2,
 	 info/1, info/2,
 	 connection_info/2,
+	 connection_info_server/1,
 	 channel_info/3,
 	 adjust_window/3, close/2,
-	 disconnect/4,
+	 disconnect/1,
 	 get_print_info/1,
          set_sock_opts/2, get_sock_opts/2,
          prohibited_sock_option/1
@@ -86,7 +87,7 @@
 %%% Exports not intended to be used :). They are used for spawning and tests
 -export([init_ssh_record/3,		   % Export of this internal function
 					   % intended for low-level protocol test suites
-	 renegotiate/1, alg/1 % Export intended for test cases
+	 renegotiate/1, alg/1, conn_info_keys_base/0 % Export intended for test cases
 	]).
 
 -behaviour(ssh_dbg).
@@ -95,8 +96,13 @@
          ssh_dbg_format/2, ssh_dbg_format/3]).
 
 
--define(call_disconnectfun_and_log_cond(LogMsg, DetailedText, StateName, D),
-        call_disconnectfun_and_log_cond(LogMsg, DetailedText, ?MODULE, ?LINE, StateName, D)).
+-define(CALL_DISCONNECTFUN_LOG_COND(LogMsg, Details, StateName, D),
+        call_disconnectfun_log_cond(#{log_msg => LogMsg,
+                                      details => Details,
+                                      module => ?MODULE,
+                                      line => ?LINE,
+                                      code => undefined,
+                                      state_name => StateName}, D)).
 
 %%====================================================================
 %% Start / stop
@@ -162,16 +168,11 @@ stop(ConnectionHandler)->
 
 %%--------------------------------------------------------------------
 %%% Some other module has decided to disconnect.
-
--spec disconnect(Code::integer(), Details::iodata(),
-                      Module::atom(), Line::integer()) -> no_return().
-%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-% Preferable called with the macro ?DISCONNECT
-
-disconnect(Code, DetailedText, Module, Line) ->
+% Preferably called with the macro ?DISCONNECT
+-spec disconnect(DisconnectContext::map()) -> no_return().
+disconnect(DisconnectContext) ->
     throw({keep_state_and_data,
-	   [{next_event, internal, {send_disconnect, Code, DetailedText, Module, Line}}]}).
+	   [{next_event, internal, {send_disconnect, DisconnectContext}}]}).
 
 %%--------------------------------------------------------------------
 %%% Open a channel in the connection to the peer, that is, do the ssh
@@ -310,6 +311,10 @@ connection_info(ConnectionHandler, Key) when is_atom(Key) ->
     end;
 connection_info(ConnectionHandler, Options) ->
     call(ConnectionHandler, {connection_info, Options}).
+
+%%--------------------------------------------------------------------
+connection_info_server(D) when is_tuple(D) ->
+    fold_keys(conn_info_keys_base(), fun conn_info/2, D).
 
 %%--------------------------------------------------------------------
 -spec channel_info(connection_ref(),
@@ -632,9 +637,9 @@ handle_event(internal, socket_ready, {hello,_}=StateName, #data{ssh_params = Ssh
 	    {keep_state, D#data{inet_initial_buffer_size=Size}, [{state_timeout,Time,no_hello_received}] };
 
 	Other ->
-            ?call_disconnectfun_and_log_cond("Option return", 
-                                             io_lib:format("Unexpected getopts return:~n  ~p",[Other]),
-                                             StateName, D),
+            LogMsg = "Option return",
+            Details = io_lib:format("Unexpected getopts return:~n  ~p", [Other]),
+            ?CALL_DISCONNECTFUN_LOG_COND(LogMsg, Details, StateName, D),
 	    {stop, {shutdown,{unexpected_getopts_return, Other}}}
     end;
 
@@ -648,12 +653,13 @@ handle_event(internal, {info_line,Line}, {hello,server}=StateName, D) ->
     %% But the client may NOT send them to the server. Openssh answers with cleartext,
     %% and so do we
     send_bytes("Protocol mismatch.", D),
-    Msg = io_lib:format("Protocol mismatch in version exchange. Client sent info lines.~n~s",
-                        [ssh_dbg:hex_dump(Line, 64)]),
-    ?call_disconnectfun_and_log_cond("Protocol mismatch.", Msg, StateName, D),
+    LogMsg = "Protocol mismatch.",
+    Details = io_lib:format("Protocol mismatch in version exchange. Client sent info lines.~n~s",
+                            [ssh_dbg:hex_dump(Line, 64)]),
+    ?CALL_DISCONNECTFUN_LOG_COND(LogMsg, Details, StateName, D),
     {stop, {shutdown,"Protocol mismatch in version exchange. Client sent info lines."}};
 
-handle_event(internal, {version_exchange,Version}, {hello,Role}, D0) ->
+handle_event(internal, {version_exchange,Version}, {hello,Role}=StateName, D0) ->
     {NumVsn, StrVsn} = ssh_transport:handle_hello_version(Version),
     case handle_version(NumVsn, StrVsn, D0#data.ssh_params) of
 	{ok, Ssh1} ->
@@ -671,11 +677,10 @@ handle_event(internal, {version_exchange,Version}, {hello,Role}, D0) ->
 	    {next_state, {kexinit,Role,init}, D, {change_callback_module, ssh_fsm_kexinit}};
 
 	not_supported ->
+            Details = io_lib:format("Offending version is ~p",[string:chomp(Version)]),
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED,
-                                 io_lib:format("Offending version is ~p",[string:chomp(Version)]),
-                                 {hello,Role},
-                                 D0),
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED, Details,
+                                 StateName, D0),
 	    {stop, Shutdown, D}
     end;
 
@@ -688,8 +693,8 @@ handle_event(state_timeout, no_hello_received, {hello,_Role}=StateName, D0 = #da
             (_) ->
                 ["No HELLO received within hello_timeout"]
         end,
-    {Shutdown, D} =
-        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, ?SELECT_MSG(MsgFun), StateName, D0),
+    Details = ?SELECT_MSG(MsgFun),
+    {Shutdown, D} = ?SEND_DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D0),
     {stop, Shutdown, D};
 
 
@@ -705,12 +710,10 @@ handle_event(internal, Msg = #ssh_msg_service_request{name=ServiceName}, StateNa
 	    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0),
             D = send_msg(Reply, D0#data{ssh_params = Ssh}),
 	    {next_state, {userauth,server}, D, {change_callback_module,ssh_fsm_userauth_server}};
-
 	_ ->
+            Details = io_lib:format("Unknown service: ~p",[ServiceName]),
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-                                 io_lib:format("Unknown service: ~p",[ServiceName]),
-                                 StateName, D0),
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE, Details, StateName, D0),
             {stop, Shutdown, D}
     end;
 
@@ -742,7 +745,9 @@ handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D
     {disconnect, _, RepliesCon} =
 	ssh_connection:handle_msg(Msg, D0#data.connection_state, ?role(StateName), D0#data.ssh_params),
     {Actions,D} = send_replies(RepliesCon, D0),
-    disconnect_fun("Received disconnect: "++Desc, D),
+    DisconnectType = disconnect_received,
+    Details = "Received disconnect: " ++ Desc,
+    disconnect_fun(DisconnectType, Details, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
 
 handle_event(internal, #ssh_msg_ignore{}, _StateName, _) ->
@@ -797,9 +802,9 @@ handle_event(internal, {conn_msg, Msg}, StateName, #data{connection_state = Conn
     catch
 	Class:Error ->
             {Repls, D1} = send_replies(ssh_connection:handle_stop(Connection0), D0),
-            {Shutdown, D} = ?send_disconnect(?SSH_DISCONNECT_BY_APPLICATION,
-                                             io_lib:format("Internal error: ~p:~p",[Class,Error]),
-                                             StateName, D1),
+            Details = io_lib:format("Internal error: ~p:~p",[Class,Error]),
+            {Shutdown, D} =
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_BY_APPLICATION, Details, StateName, D1),
             {stop_and_reply, Shutdown, Repls, D}
     end;
 
@@ -851,7 +856,7 @@ handle_event({timeout, alive}, _, StateName, D = #data{ssh_params=Ssh}) ->
 
 handle_event({timeout, renegotiation_alive}, _, StateName, D) ->
     Details = "Renegotiation alive timeout reached.",
-    {Shutdown, D1} = ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D),
+    {Shutdown, D1} = ?SEND_DISCONNECT(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D),
     {stop, Shutdown, D1};
 
 
@@ -902,7 +907,7 @@ handle_event(cast, {reply_request,Resp,ChannelId}, StateName, D) when ?CONNECTED
         #channel{} ->
             Details = io_lib:format("Unhandled reply in state ~p:~n~p", [StateName,Resp]),
             {_Shutdown, D1} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D),
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D),
             {keep_state, D1};
 
 	undefined ->
@@ -1185,18 +1190,15 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
 	    try
 		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D2))
 	    of
-		#ssh_msg_kexinit{} = Msg ->
+		#ssh_msg_kexinit{}                   = Msg ->
 		    {keep_state, D2, [{next_event, internal, prepare_next_packet},
-				     {next_event, internal, {Msg,DecryptedBytes}}
-				    ]};
-
+                                      {next_event, internal, {Msg,DecryptedBytes}}]};
                 #ssh_msg_global_request{}            = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_request_success{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_request_failure{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_channel_open{}              = Msg -> {keep_state, D2,
                                                                [{{timeout, max_initial_idle_time}, cancel} |
-                                                                ?CONNECTION_MSG(Msg)
-                                                               ]};
+                                                                ?CONNECTION_MSG(Msg)]};
                 #ssh_msg_channel_open_confirmation{} = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_channel_open_failure{}      = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_channel_window_adjust{}     = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
@@ -1207,11 +1209,10 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                 #ssh_msg_channel_request{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_channel_failure{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_channel_success{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
-
 		Msg ->
 		    {keep_state, D2, [{next_event, internal, prepare_next_packet},
                                       {next_event, internal, Msg}
-				    ]}
+                                     ]}
 	    catch
 		Class:Reason0:Stacktrace  ->
                     Reason = ssh_lib:trim_reason(Reason0),
@@ -1225,10 +1226,9 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                                               [Class, Reason],
                                               [{chars_limit, ssh_lib:max_log_len(SshParams)}])
                         end,
+                    Details = ?SELECT_MSG(MsgFun),
                     {Shutdown, D} =
-                        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         ?SELECT_MSG(MsgFun),
-                                         StateName, D2),
+                        ?SEND_DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D2),
                     {stop, Shutdown, D}
 	    end;
 
@@ -1243,18 +1243,17 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
 				 ssh_params = Ssh1}};
 
 	{bad_mac, Ssh1} ->
+            Details = "Bad packet: bad mac",
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 "Bad packet: bad mac",
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR, Details,
                                  StateName, D1#data{ssh_params=Ssh1}),
             {stop, Shutdown, D};
 
 	{error, {exceeds_max_size,PacketLen}} ->
+            Details = io_lib:format("Bad packet: Size (~p bytes) exceeds max size",
+                                    [PacketLen]),
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Size (~p bytes) exceeds max size",
-                                               [PacketLen]),
-                                 StateName, D1),
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D1),
             {stop, Shutdown, D}
     catch
 	Class:Reason0:Stacktrace ->
@@ -1269,9 +1268,9 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                                       [Class,Reason],
                                       [{chars_limit, ssh_lib:max_log_len(SshParams)}])
                 end,
+            Details = ?SELECT_MSG(MsgFun),
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, ?SELECT_MSG(MsgFun),
-                                 StateName, D1),
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D1),
             {stop, Shutdown, D}
     end;
 
@@ -1293,7 +1292,9 @@ handle_event(info, {CloseTag,Socket}, _StateName,
                         transport_close_tag = CloseTag,
                         connection_state = C0}) ->
     {Repls, D} = send_replies(ssh_connection:handle_stop(C0), D0),
-    disconnect_fun("Received a transport close", D),
+    DisconnectType = transport_close_received,
+    Details = "Received a transport close",
+    disconnect_fun(DisconnectType, Details, D),
     {stop_and_reply, {shutdown,"Connection closed"}, Repls, D};
 
 handle_event(info, {timeout, {_, From} = Request}, _,
@@ -1447,11 +1448,10 @@ handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
 	    keep_state_and_data
     end;
 
-handle_event(internal, {send_disconnect,Code,DetailedText,Module,Line}, StateName, D0) ->
-    {Shutdown, D} =
-        send_disconnect(Code, DetailedText, Module, Line, StateName, D0),
+handle_event(internal, {send_disconnect,DisconnectContext0}, StateName, D0) ->
+    DisconnectContext = maps:merge(DisconnectContext0, #{state_name => StateName}),
+    {Shutdown, D} = send_disconnect(DisconnectContext, D0),
     {stop, Shutdown, D};
-
 
 handle_event(enter, _OldState, State, D) ->
     %% Just skip
@@ -1470,7 +1470,7 @@ handle_event(Type, Ev, StateName, D0) ->
 		io_lib:format("Unhandled event in state ~p and type ~p:~n~p", [StateName,Type,Ev])
 	end,
     {Shutdown, D} =
-        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D0),
+        ?SEND_DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D0),
     {stop, Shutdown, D}.
 
 
@@ -1490,12 +1490,12 @@ terminate(normal, _StateName, D) ->
     close_transport(D);
 
 terminate({shutdown,_R}, _StateName, D) ->
-    %% Internal termination, usually already reported via ?send_disconnect resulting in a log entry
+    %% Internal termination, usually already reported via ?SEND_DISCONNECT resulting in a log entry
     close_transport(D);
 
 terminate(shutdown, _StateName, D0) ->
     %% Terminated by supervisor
-    %% Use send_msg directly instead of ?send_disconnect to avoid filling the log
+    %% Use send_msg directly instead of ?SEND_DISCONNECT to avoid filling the log
     D = send_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
                                      description = "Terminated (shutdown) by supervisor"},
                  D0),
@@ -1504,10 +1504,10 @@ terminate(shutdown, _StateName, D0) ->
 terminate(Reason, StateName, D0) ->
     %% Others, e.g  undef, {badmatch,_}, ...
     log(error, D0, Reason),
-    {_ShutdownReason, D} = ?send_disconnect(?SSH_DISCONNECT_BY_APPLICATION,
-                                            "Internal error",
-                                            io_lib:format("Reason: ~p",[Reason]),
-                                            StateName, D0),
+    Reason = "Internal error",
+    Details = io_lib:format("Reason: ~p",[Reason]),
+    {_ShutdownReason, D} =
+        ?SEND_DISCONNECT(?SSH_DISCONNECT_BY_APPLICATION, Reason, Details, StateName, D0),
     close_transport(D).
 
 %%--------------------------------------------------------------------
@@ -1871,27 +1871,33 @@ check_data_rekeying_dbg(SentSinceRekey, MaxSent) ->
 %%%----------------------------------------------------------------
 %%% This server/client has decided to disconnect via the state machine:
 %%% The unused arguments are for debugging.
+send_disconnect(#{code := Code} = DisconnectContext, D) ->
+    send_disconnect(default_text(Code), DisconnectContext, D).
 
-send_disconnect(Code, DetailedText, Module, Line, StateName, D) ->
-    send_disconnect(Code, default_text(Code), DetailedText, Module, Line, StateName, D).
-
-send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
-    Msg = #ssh_msg_disconnect{code = Code,
-                              description = Reason},
+send_disconnect(Reason, #{code := Code} = DisconnectContext, D0) ->
+    Msg = #ssh_msg_disconnect{code = Code, description = Reason},
     D = send_msg(Msg, D0),
-    LogMsg = io_lib:format("Disconnects with code = ~p [RFC4253 11.1]: ~s",[Code,Reason]),
-    call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D),
+    LogMsg = io_lib:format("Disconnects with code = ~p [RFC4253 11.1]: ~s", [Code, Reason]),
+    MoreContext = #{log_msg => LogMsg},
+    call_disconnectfun_log_cond(maps:merge(DisconnectContext, MoreContext), D),
     {{shutdown,Reason}, D}.
 
-call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D) ->
-    case disconnect_fun(LogMsg, D) of
+call_disconnectfun_log_cond(#{code := Code} = DisconnectContext0, D) ->
+    DisconnectType = case Code of
+                         undefined -> internal_disconnect;
+                         Code when is_integer(Code) -> disconnect_sent
+                     end,
+    DisconnectContext = maps:merge(DisconnectContext0, #{type => DisconnectType}),
+    case disconnect_fun(DisconnectContext, D) of
         void ->
+            #{log_msg := LogMsg, state_name := StateName, module := Module, line := Line,
+              details := Details} = DisconnectContext,
             log(info, D,
                 "~s~n"
                 "State = ~p~n"
                 "Module = ~p, Line = ~p.~n"
                 "Details:~n  ~s~n",
-                [LogMsg, StateName, Module, Line, DetailedText]);
+                [LogMsg, StateName, Module, Line, Details]);
         _ ->
             ok
     end.
@@ -1921,15 +1927,10 @@ counterpart_versions(NumVsn, StrVsn, #ssh{role = client} = Ssh) ->
 
 %%%----------------------------------------------------------------
 conn_info_keys() ->
-    [client_version,
-     server_version,
-     peer,
-     user,
-     sockname,
-     options,
-     algorithms,
-     channels
-    ].
+    conn_info_keys_base() ++ [channels, user_auth].
+
+conn_info_keys_base() ->
+    [client_version, server_version, peer, user, sockname, options, algorithms].
 
 conn_info(client_version, #data{ssh_params=S}) -> {S#ssh.c_vsn, S#ssh.c_version};
 conn_info(server_version, #data{ssh_params=S}) -> {S#ssh.s_vsn, S#ssh.s_version};
@@ -1949,8 +1950,9 @@ conn_info(channels, D) -> try conn_info_chans(ets:tab2list(cache(D)))
 conn_info(socket, D) ->   D#data.socket;
 conn_info(chan_ids, D) ->
     ssh_client_channel:cache_foldl(fun(#channel{local_id=Id}, Acc) ->
-				    [Id | Acc]
-			    end, [], cache(D)).
+                                           [Id | Acc]
+                                   end, [], cache(D));
+conn_info(user_auth, #data{ssh_params=#ssh{last_userauth_tried=UserAuth}}) -> UserAuth.
 
 conn_info_chans(Chs) ->
     Fs = record_info(fields, channel),
@@ -2115,8 +2117,22 @@ get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
 %%%----------------------------------------------------------------
-%%disconnect_fun({disconnect,Msg}, D) -> ?CALL_FUN(disconnectfun,D)(Msg);
-disconnect_fun(Reason, D)           -> ?CALL_FUN(disconnectfun,D)(Reason).
+disconnect_fun(DisconnectType, Details, D) ->
+    disconnect_fun(#{type => DisconnectType, details => Details, code => undefined}, D).
+
+disconnect_fun(DisconnectContext, D) ->
+    Fun = ?GET_OPT(disconnectfun, (D#data.ssh_params)#ssh.opts),
+    case erlang:fun_info(Fun, arity) of
+        {arity, 1} ->
+            #{details := Details} = DisconnectContext,
+            Fun(Details);
+        {arity, 2} ->
+            DisconnectType = maps:get(type, DisconnectContext),
+            Keys = conn_info_keys_base() ++ [user_auth],
+            ConnInfo = fold_keys(Keys, fun conn_info/2, D),
+            Fun(DisconnectType, #{disconnect_context => DisconnectContext,
+                                  connection_info => ConnInfo})
+    end.
 
 unexpected_fun(UnexpectedMessage, #data{ssh_params = #ssh{peer = {_,Peer} }} = D) ->
     ?CALL_FUN(unexpectedfun,D)(UnexpectedMessage, Peer).
@@ -2217,7 +2233,7 @@ triggered_alive(StateName, D0 = #data{},
             %% Max probes count reached (equal to `alive_count`), we disconnect
             Details = "Alive timeout triggered",
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D0),
+                ?SEND_DISCONNECT(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D0),
             {stop, Shutdown, D};
         _ ->
             D = send_msg({ssh_msg_global_request,"keepalive@erlang.org", true, <<>>},
@@ -2509,13 +2525,13 @@ ssh_dbg_format(renegotiation, {return_from, {?MODULE,terminate,3}, _Ret}) ->
     skip;
 
 ssh_dbg_format(disconnect, {call,{?MODULE,send_disconnect,
-                                     [Code, Reason, DetailedText, Module, Line, StateName, _D]}}) ->
+                                     [Code, Reason, Details, Module, Line, StateName, _D]}}) ->
     ["Disconnecting:\n",
      io_lib:format(" Module = ~p, Line = ~p, StateName = ~p,~n"
                    " Code = ~p, Reason = ~p,~n"
-                   " DetailedText =~n"
+                   " Details =~n"
                    " ~p",
-                   [Module, Line, StateName, Code, Reason, lists:flatten(DetailedText)])
+                   [Module, Line, StateName, Code, Reason, lists:flatten(Details)])
     ];
 ssh_dbg_format(renegotiation, {return_from, {?MODULE,send_disconnect,7}, _Ret}) ->
     skip.

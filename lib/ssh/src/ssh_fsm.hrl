@@ -67,12 +67,16 @@
 %%====================================================================
 %% Macros
 %%====================================================================
--define(send_disconnect(Code, DetailedText, StateName, State),
-        ssh_connection_handler:send_disconnect(Code, DetailedText, ?MODULE, ?LINE, StateName, State)).
+-define(SEND_DISCONNECT(Code, Details, StateName, State),
+        ssh_connection_handler:send_disconnect(#{code => Code, state_name => StateName,
+                                                 details => Details, module => ?MODULE, line => ?LINE},
+                                               State)).
 
--define(send_disconnect(Code, Reason, DetailedText, StateName, State),
-        ssh_connection_handler:send_disconnect(Code, Reason, DetailedText, ?MODULE, ?LINE, StateName, State)).
-
+-define(SEND_DISCONNECT(Code, Reason, Details, StateName, State),
+        ssh_connection_handler:send_disconnect(Reason,
+                                               #{code => Code, state_name => StateName,
+                                                 details => Details, module => ?MODULE, line => ?LINE},
+                                               State)).
 
 -define(CALL_FUN(Key,D), catch (?GET_OPT(Key, (D#data.ssh_params)#ssh.opts)) ).
 

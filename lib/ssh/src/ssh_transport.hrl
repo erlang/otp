@@ -244,8 +244,15 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(DISCONNECT(Code, DetailedText),
-        ssh_connection_handler:disconnect(Code, DetailedText, ?MODULE, ?LINE)).
+-define(DISCONNECT_CONTEXT(__Code, __DisconnectContext0),
+        begin
+            __DisconnectContext =
+                maps:merge(__DisconnectContext0, #{code => __Code, module => ?MODULE, line => ?LINE}),
+            ssh_connection_handler:disconnect(__DisconnectContext)
+        end).
+
+-define(DISCONNECT(__Code, __Msg),
+        ?DISCONNECT_CONTEXT(__Code, #{details => __Msg})).
 
 -define(SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT,   1).
 -define(SSH_DISCONNECT_PROTOCOL_ERROR,   2).

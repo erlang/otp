@@ -60,11 +60,9 @@ callback_mode() ->
      state_enter].
 
 %%--------------------------------------------------------------------
-
-
 handle_event(Type, Event = prepare_next_packet, StateName, D) ->
     ssh_connection_handler:handle_event(Type, Event, StateName, D);
-handle_event(Type, Event = {send_disconnect, _, _, _, _}, StateName, D) ->
+handle_event(Type, Event = {send_disconnect, _}, StateName, D) ->
     ssh_connection_handler:handle_event(Type, Event, StateName, D);
 
 %%% ######## {kexinit, client|server, init|renegotiate} ####
@@ -164,9 +162,10 @@ handle_event(internal, _Event, {key_exchange,_Role,init},
              #data{ssh_params = #ssh{algorithms = #alg{kex_strict_negotiated = true},
                                      send_sequence = SendSeq,
                                      recv_sequence = RecvSeq}}) ->
-    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                io_lib:format("KEX strict violation: send_sequence = ~p  recv_sequence = ~p",
-                              [SendSeq, RecvSeq]));
+    Details =
+        io_lib:format("KEX strict violation: send_sequence = ~p  recv_sequence = ~p",
+                      [SendSeq, RecvSeq]),
+    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Details);
 
 %%% ######## {key_exchange_dh_gex_init, server, init|renegotiate} ####
 handle_event(internal, #ssh_msg_kex_dh_gex_init{} = Msg, {key_exchange_dh_gex_init,server,ReNeg}, D) ->

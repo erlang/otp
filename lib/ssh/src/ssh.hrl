@@ -478,10 +478,35 @@ where `...` are arguments to `F` as in `m:ssh_client_key_api` and/or
 """.
 -doc(#{group => <<"Common Options">>}).
 -type key_cb_common_option()            :: {key_cb,  Module::atom() | {Module::atom(),Opts::[term()]} } .
--doc "Provides a fun to implement your own logging or other handling at disconnects.".
+-doc """
+Provides a fun to implement your own logging or other handling at disconnects.
+
+disconnect_fun/1 receives a pre prepared log message.
+
+disconnect_fun/2 can be used if more information is needed and
+there's four types of disconnect `Reason` which is provided as the first
+argument of the callback:
+- `disconnect_received` when a disconnect message is received from the peer;
+- `disconnect_sent` - when a disconnect message is sent to the peer, `code` will
+  have the disconnect message reason code;
+- `internal_disconnect` when an error occurred and the connection can't proceed,
+  e.g. a protocol mismatch was detected;
+- `transport_close_received` when a transport close was received.
+
+The second argument of the callback contains extra information, a text
+message with detailed information `Details`, the connection information
+`Info` and in case the disconnect `Reason` is `disconnect_sent` the `Code`
+of the disconnect message as defined in section-11.1 of the RFC4253.
+""".
 -doc(#{group => <<"Common Options">>}).
+-type disconnect_type() ::  disconnect_received | disconnect_sent |
+                            internal_disconnect | transport_close_received.
 -type disconnectfun_common_option()     ::
-        {disconnectfun, fun((Reason::term()) -> void | any()) }.
+        {disconnectfun, fun((Reason::term()) -> void | any()) |
+         fun((DisconnectType::disconnect_type(),
+              #{code := undefined | Code::pos_integer(),
+                details := undefined | Details::iodata(),
+                connection_info := Info::proplists:proplist()}) -> void | any())}.
 -doc """
 Provides a fun to implement your own logging or other action when an unexpected
 message arrives. If the fun returns `report` the usual info report is issued but
@@ -1219,7 +1244,8 @@ in the User's Guide chapter.
 -doc(#{group => <<"Daemon Options">>}).
 -type callbacks_daemon_options() ::
         {failfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Reason::term()) -> _)}
-      | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)}
+      | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)
+        | fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string(), Info::proplists:proplist()) ->_)}
       | {bannerfun, fun((User::string()) -> binary())}.
 
 -doc """
@@ -1231,7 +1257,6 @@ Experimental options that should not to be used in products.
 -type ip_port() :: {inet:ip_address(), inet:port_number()} .
 -type mod_args() :: {Module::atom(), Args::list()} .
 -type mod_fun_args() :: {Module::atom(), Function::atom(), Args::list()} .
-
 
 %% Records
 -record(address, {address,
@@ -1320,7 +1345,8 @@ Experimental options that should not to be used in products.
 	  userauth_banner_sent = false,
           %% Keep-alive
           alive_last_sent_at = 0              :: non_neg_integer(),
-          alive_probes_sent = 0               :: non_neg_integer()
+          alive_probes_sent = 0               :: non_neg_integer(),
+          last_userauth_tried = "none" %% Not used for server role
 	 }).
 
 -record(alg,
@@ -1386,6 +1412,6 @@ Experimental options that should not to be used in products.
         (fun() ->
                 #{level := __Level} = logger:get_primary_config(),
                 __Fun(__Level)
-        end)()).
+         end)()).
 
 -endif. % SSH_HRL defined
