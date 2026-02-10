@@ -285,7 +285,7 @@ reply(From, Msg) ->
       SshConnection :: ssh:connection_ref(),
       ChannelId :: ssh:channel_id(),
       ChannelCb :: atom(),
-      CbInitArgs :: [term()],
+      CbInitArgs :: term(),
       ChannelRef :: pid().
 start(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     start(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
@@ -303,6 +303,12 @@ start(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
 Starts a process that handles an SSH channel. It is called internally, by the
 `ssh` daemon, or explicitly by the `ssh` client implementations. The behavior
 sets the `trap_exit` flag to `true`.
+
+The `CbInitArgs` parameter can be any Erlang term and will be passed as-is to
+the callback module's `init/1` function. Common patterns include:
+- A list of parameters: `[Param1, Param2, ...]`
+- A map: `#{key => value}`
+- A single value: an atom, tuple, or other term
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) ->
@@ -311,7 +317,7 @@ sets the `trap_exit` flag to `true`.
       SshConnection :: ssh:connection_ref(),
       ChannelId :: ssh:channel_id(),
       ChannelCb :: atom(),
-      CbInitArgs :: [term()],
+      CbInitArgs :: term(),
       ChannelRef :: pid().
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
@@ -359,7 +365,7 @@ The following options must be present:
 
 - **`{channel_cb, atom()}`** - The module that implements the channel behaviour.
 
-- **`{init_args(), list()}`** - The list of arguments to the `init` function of
+- **`{init_args(), term()}`** - The arguments to the `init` function of
   the callback module.
 
 - **`{cm,` `t:ssh:connection_ref/0` `}`** - Reference to the `ssh` connection as
@@ -376,14 +382,14 @@ The following options must be present:
 > calling [`start/4`](`start/4`) or [`start_link/4`](`start_link/4`).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec init(Options) ->
+-spec init(Args) ->
               {ok, State} | {ok, State, Timeout} | {stop, Reason}
               when
-                  Options :: [[{Option :: term(), Value :: term()}]],
+                  Args :: [[{Option :: term(), Value :: term()}]],
                   State :: term(),
                   Timeout :: timeout(),
                   Reason :: term().
-init([Options]) ->    
+init([Options]) ->
     Cb = proplists:get_value(channel_cb, Options),
     ConnectionManager =  proplists:get_value(cm, Options),
     ChannelId = proplists:get_value(channel_id, Options),
