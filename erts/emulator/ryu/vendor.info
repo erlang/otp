@@ -14,19 +14,21 @@
     "homepage": "https://github.com/ulfjack/ryu",
     "licenseDeclared": "Apache-2.0 OR BSL-1.0",
     "name": "ryu",
-    "versionInfo": "1264a946ba66eab320e927bfd2362e0c8580c42f",
-    "path": ["./erts/emulator/ryu/common.h",
-             "./erts/emulator/ryu/d2s.c",
-             "./erts/emulator/ryu/d2s_full_table.h",
-             "./erts/emulator/ryu/d2s_intrinsics.h",
-             "./erts/emulator/ryu/digit_table.h",
-             "./erts/emulator/ryu/ryu.h",
-             "./erts/emulator/ryu/LICENSE-Apache2",
-             "./erts/emulator/ryu/LICENSE-Boost"],
+    "versionInfo": "4c0618b0e44f7ef027ebae05d2cc7812048f7c8f",
+    "path": [
+      "./erts/emulator/ryu/common.h",
+      "./erts/emulator/ryu/d2s.c",
+      "./erts/emulator/ryu/d2s_full_table.h",
+      "./erts/emulator/ryu/d2s_intrinsics.h",
+      "./erts/emulator/ryu/digit_table.h",
+      "./erts/emulator/ryu/ryu.h",
+      "./erts/emulator/ryu/LICENSE-Apache2",
+      "./erts/emulator/ryu/LICENSE-Boost"
+    ],
     "supplier": "Person: Ulf Adams",
     "purl": "pkg:github/ulfjack/ryu#ryu",
     "update": "./erts/emulator/ryu/update.sh",
-    "sha": "1264a946ba66eab320e927bfd2362e0c8580c42f"
+    "sha": "4c0618b0e44f7ef027ebae05d2cc7812048f7c8f"
   },
   {
     "ID": "ryu-to_chars",
@@ -36,13 +38,13 @@
     "homepage": "https://github.com/microsoft/STL",
     "licenseDeclared": "Apache-2.0 WITH LLVM-exception AND BSL-1.0",
     "name": "STL",
-    "versionInfo": "vs-2022-17.14",
+    "versionInfo": "msvc-build-tools-14.50",
     "path": [
       "./erts/emulator/ryu/to_chars.h"
     ],
     "supplier": "Organization: Microsoft Corporation",
     "purl": "pkg:github/microsoft/STL#stl/inc/xcharconv_ryu.h",
     "update": "./erts/emulator/ryu/update.sh",
-    "sha": "1f6e5b16ec02216665624c1e762f3732605cf2b4"
+    "sha": "37d575ede5ade50ad95b857f22ed7f1be4b1f2df"
   }
 ]
