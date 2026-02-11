@@ -480,15 +480,30 @@ protected:
     }
 
     void mov_imm(a32::Gp to, std::nullptr_t value) {
-        // TODO
-        //ASSERT(false);
-        emit_nyi("mov_imm");
+        (void)value;
+        mov_imm(to, 0);
     }
 
     void sub(a32::Gp to, a32::Gp src, int64_t val) {
-        // TODO
-        //ASSERT(false);
-        emit_nyi("sub");
+        if (val < 0) {
+            add(to, src, -val);
+        } else if (val == 0 && to != src) {
+            a.mov(to, src);
+        } else if (val < (1 << 24)) {
+            if (val & 0xFFF) {                   // subtract the lower 12 bits
+                a.sub(to, src, imm(val & 0xFFF));
+                src = to;
+            }
+
+            if (val & 0xFFF000) {                // subtract the upper 12 bits
+                a.sub(to, src, imm(val & 0xFFF000));
+            }
+        } else {
+            a32::Gp tmp = follow_size(TMP, to);
+
+            mov_imm(tmp, val);
+            a.sub(to, src, tmp);
+        }
     }
 
     void add(a32::Gp to, a32::Gp src, int32_t val) {
