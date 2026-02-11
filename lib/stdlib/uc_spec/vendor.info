@@ -9,12 +9,12 @@
   {
     "ID": "stdlib-unicode",
     "description": "Unicode Character Database used for generating code",
-    "copyrightText": "© 2024 Unicode®, Inc.",
-    "downloadLocation": "https://www.unicode.org/Public/16.0.0/ucd/",
+    "copyrightText": "© 2025 Unicode®, Inc.",
+    "downloadLocation": "https://www.unicode.org/Public/17.0.0/ucd/",
     "homepage": "https://www.unicode.org/",
     "licenseDeclared": "Unicode-3.0",
     "name": "Unicode Character Database",
-    "versionInfo": "16.0.0",
+    "versionInfo": "17.0.0",
     "path": [
       "./lib/stdlib/uc_spec/CaseFolding.txt",
       "./lib/stdlib/uc_spec/CompositionExclusions.txt",
