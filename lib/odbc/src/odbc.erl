@@ -87,11 +87,16 @@ See also http://msdn.microsoft.com/
 -doc(#{group => <<"Types used in ODBC application">>}).
 -type col_name()             :: string().
 -doc """
-A tuple, with the number of elements selected form columns in a database row,
-containg the values of the columns such as `{value(), value() ... value()} `.
+A tuple, with the number of elements selected from columns in a database row,
+containg the values of the columns such as `{value(), value() ... value()}`.
+
+When the `tuple_row` option is set to `off` this is a list containing the values
+of the columns in a database row such as `[value(), value() ... value()]`.
+
+Please see `connect/2`.
 """.
 -doc(#{group => <<"Types used in ODBC application">>}).
--type row()                  :: tuple().
+-type row()                  :: tuple() | list().
 -doc "Erlang data type that corresponds to the ODBC data type being handled.".
 -doc(#{group => <<"Types used in ODBC application">>}).
 -type value()                :: null | term().
