@@ -40,6 +40,7 @@
 	  modules = dict:new(),         % dict-of(xref_mod())
 	  applications = dict:new(),    % dict-of(xref_app())
 	  releases = dict:new(),        % dict-of(xref_rel())
+          ignores = [],
 
 	  library_path = [],         % [string()] | code_path
 	  libraries = dict:new(),    % dict-of(xref_lib())
@@ -58,6 +59,7 @@
 	  builtins,          % whether calls to built-in functions are included
 	  info,              % number of exports, locals etc.
 	  no_unresolved = 0, % number of unresolved calls
+          attributes = [],   % module attributes
 	  data               
 	  %% Data has been read from the BEAM file, and is represented here
           %% as a list of sets.

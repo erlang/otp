@@ -595,6 +595,8 @@ called, all user variables are forgotten.
 
 -import(sofs, [to_external/1, is_sofs_set/1]).
 
+-include("xref.hrl").
+
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
@@ -1965,16 +1967,16 @@ handle_call({variables, Options}, _From, State) ->
     {reply, Reply, NewState};
 handle_call({analyze, What}, _From, State) ->
     {Reply, NewState} = xref_base:analyze(State, What),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({analyze, What, Options}, _From, State) ->
     {Reply, NewState} = xref_base:analyze(State, What, Options),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({qry, Q}, _From, State) ->
     {Reply, NewState} = xref_base:q(State, Q),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({qry, Q, Options}, _From, State) ->
     {Reply, NewState} = xref_base:q(State, Q, Options),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call(get_default, _From, State) ->
     Reply = xref_base:get_default(State),
     {reply, Reply, State};
@@ -2075,10 +2077,63 @@ do_analysis(State, Analysis) ->
 	    throw(Error)
     end.
 
-unsetify(Reply={ok, X}) ->
+finalize({ok, X}, #xref{ignores = Ignores}) ->
+    {ok, filter_xref_results(Ignores, unsetify(X))};
+finalize(Error, _State) ->
+    Error.
+
+unsetify(X) ->
     case is_sofs_set(X) of
-	true -> {ok, to_external(X)};
-	false -> Reply
-    end;
-unsetify(Reply) ->
-    Reply.
+	true -> to_external(X);
+	false -> X
+    end.
+
+%% Filters out behaviour functions and explicitly marked functions
+%% For example: `-ignore_xref([{F, A}, {M, F, A}, M, ...]).`
+filter_xref_results(_Ignores, Results) when not is_list(Results) ->
+    Results;
+filter_xref_results(Ignores, Results) ->
+    SearchModules = lists:usort(
+                      lists:map(
+                        fun({Mt,_Ft,_At}) -> Mt;
+                           ({{Ms,_Fs,_As},{_Mt,_Ft,_At}}) -> Ms;
+                           (_) -> undefined
+                        end, Results)),
+
+    Ignores1 = Ignores ++ lists:flatmap(fun(Module) ->
+                                    get_xref_ignorelist(Module)
+                            end, SearchModules),
+
+    lists:filter( fun(Result) -> pred_xref_result(Result, Ignores1) end, Results).
+
+pred_xref_result({Src, Dest}, Ignores) ->
+    pred_xref_result1(Src, Ignores)
+        andalso pred_xref_result1(Dest, Ignores);
+pred_xref_result(Vertex, Ignores) ->
+    pred_xref_result1(Vertex, Ignores).
+
+pred_xref_result1(Vertex, Ignores) ->
+    Mod = case Vertex of
+              {Module, _Func, _Arity} -> Module;
+              _ -> Vertex
+          end,
+    not lists:member(Vertex, Ignores) andalso not lists:member(Mod, Ignores).
+
+get_xref_ignorelist(Mod) ->
+    %% Get ignore_xref attribute and combine them in one list
+    Attributes =
+        try
+            Mod:module_info(attributes)
+        catch
+            _Class:_Error -> []
+        end,
+    IgnoreXref = keyall(ignore_xref, Attributes),
+
+    lists:foldl(
+      fun({F, A}, Acc) -> [{Mod,F,A} | Acc];
+         ({M, F, A}, Acc) -> [{M,F,A} | Acc];
+         (M, Acc) when is_atom(M) -> [M | Acc]
+      end, [], lists:flatten([IgnoreXref])).
+
+keyall(Key, List) ->
+    lists:flatmap(fun({K, L}) when Key =:= K -> L; (_) -> [] end, List).
