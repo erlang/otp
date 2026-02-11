@@ -622,8 +622,11 @@ class BeamModuleAssembler : public BeamAssembler,
          * backward displacements. */
         dispUnknown = (4 << 10) - sizeof(Uint32) - STUB_CHECK_INTERVAL,
         
-        /* +- 4KB: `ldr` of 4-byte literal. */
-        disp4KB = (4 << 10) - sizeof(Uint32),
+        /* +- 4KB: `ldr` of 4-byte literal.
+         * ARM LDR (literal) encodes offset from PC+8; valid range ±4095 bytes. 
+         * For such, we reduce further the range by 8 to be safe when applied
+         * as negative offset. */
+        disp4KB = (4 << 10) - 1 - 2 * sizeof(Uint32),
 
         /* +- 32MB: `b`, `bl`, `blx`, b.cond */
         disp32MB = (32 << 20) - sizeof(Uint32),
