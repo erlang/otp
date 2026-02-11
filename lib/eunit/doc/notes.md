@@ -23,14 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the EUnit application.
 
-## Eunit 2.11
-
-### Improvements and New Features
-
-- Only minor internal changes.
-
-  Own Id: OTP-19964
-
 ## Eunit 2.10.1
 
 ### Improvements and New Features

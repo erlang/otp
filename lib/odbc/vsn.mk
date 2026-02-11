@@ -1,4 +1,4 @@
-ODBC_VSN = 2.17
+ODBC_VSN = 2.16
 
 # %CopyrightBegin%
 #

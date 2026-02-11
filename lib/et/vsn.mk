@@ -1,4 +1,4 @@
-ET_VSN  = 1.8
+ET_VSN  = 1.7.2
 
 # %CopyrightBegin%
 #

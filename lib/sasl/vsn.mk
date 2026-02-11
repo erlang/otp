@@ -1,4 +1,4 @@
-SASL_VSN = 4.4
+SASL_VSN = 4.3
 
 # %CopyrightBegin%
 #

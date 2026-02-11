@@ -21,37 +21,6 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
-## Common_Test 1.30
-
-### Improvements and New Features
-
-- Vendor dependencies and OpenVEX statements in the otp repository is now scanned for vulnerabilities.
-
-  Own Id: OTP-19652 Aux Id: [PR-9790]
-
-- The legacy `and` and `or` operators have been replaced with `andalso` and `orelse`.
-
-  Own Id: OTP-19744 Aux Id: [PR-10114], [PR-10554], [PR-10568], [PR-10579], [PR-10585], [PR-10598]
-
-- `'EXIT'` messages are now formatted in the same way as `badmatch` errors.
-
-  Own Id: OTP-19910 Aux Id: [PR-10277]
-
-- Error notifications now contain the name of the source file in which the error occurred.
-
-  Own Id: OTP-19925 Aux Id: [GH-10260], [PR-10269]
-
-[PR-9790]: https://github.com/erlang/otp/pull/9790
-[PR-10114]: https://github.com/erlang/otp/pull/10114
-[PR-10554]: https://github.com/erlang/otp/pull/10554
-[PR-10568]: https://github.com/erlang/otp/pull/10568
-[PR-10579]: https://github.com/erlang/otp/pull/10579
-[PR-10585]: https://github.com/erlang/otp/pull/10585
-[PR-10598]: https://github.com/erlang/otp/pull/10598
-[PR-10277]: https://github.com/erlang/otp/pull/10277
-[GH-10260]: https://github.com/erlang/otp/issues/10260
-[PR-10269]: https://github.com/erlang/otp/pull/10269
-
 ## Common_Test 1.29.1
 
 ### Improvements and New Features

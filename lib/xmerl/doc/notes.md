@@ -23,14 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
-## Xmerl 2.2
-
-### Improvements and New Features
-
-- Only minor internal changes.
-
-  Own Id: OTP-19964
-
 ## Xmerl 2.1.8
 
 ### Fixed Bugs and Malfunctions

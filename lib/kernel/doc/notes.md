@@ -23,69 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
-## Kernel 11.0
-
-### Fixed Bugs and Malfunctions
-
-- Fixed (`inet`) module selection when calling (`gen_tcp`) listen and connect and (`gen_udp`) open. Depending on the order of the options, the module option (`tcp_module` or `udp_module`) was sometimes ignored.
-
-  *** POTENTIAL INCOMPATIBILITY ***
-
-  Own Id: OTP-19695 Aux Id: [GH-9822], [PR-10013]
-
-- The TCP/UDP compatibility layer has been fixed so that `inet_backend = socket` now supports socket options `reuseport` and `reuseport_lb` for `gen_tcp` and `gen_udp`.
-
-  Own Id: OTP-19917 Aux Id: [PR-10514]
-
-[GH-9822]: https://github.com/erlang/otp/issues/9822
-[PR-10013]: https://github.com/erlang/otp/pull/10013
-[PR-10514]: https://github.com/erlang/otp/pull/10514
-
-### Improvements and New Features
-
-- Added an option to set the `erl_boot_server` listen port.
-
-  Own Id: OTP-19708 Aux Id: [PR-9894]
-
-- The memory footprint of some supervisors has been reduced by purging obsoleted data when the supervisor is transitioning to and from hibernation.
-
-  Own Id: OTP-19713 Aux Id: [PR-9866]
-
-- Improved name consistency of EPMD protocol messages in documentation and code. Renamed `PORT_PLEASE2_REQ` to `PORT2_REQ` and added prefix `EPMD_`.
-
-  Own Id: OTP-19734 Aux Id: [GH-10071], [PR-10078]
-
-- The legacy `and` and `or` operators have been replaced with `andalso` and `orelse`.
-
-  Own Id: OTP-19744 Aux Id: [PR-10114], [PR-10554], [PR-10568], [PR-10579], [PR-10585], [PR-10598]
-
-- Refactored a `kernel_load_completed` clause for conciseness.
-
-  Own Id: OTP-19786 Aux Id: [PR-10134]
-
-- Full support for SCTP in socket.
-  Not (yet) supported for FreeBSD.
-
-  Own Id: OTP-19834
-
-- In the default code path for the Erlang system, the current working directory (`.`) is now in the last position instead of the first.
-
-  *** POTENTIAL INCOMPATIBILITY ***
-
-  Own Id: OTP-19842
-
-[PR-9894]: https://github.com/erlang/otp/pull/9894
-[PR-9866]: https://github.com/erlang/otp/pull/9866
-[GH-10071]: https://github.com/erlang/otp/issues/10071
-[PR-10078]: https://github.com/erlang/otp/pull/10078
-[PR-10114]: https://github.com/erlang/otp/pull/10114
-[PR-10554]: https://github.com/erlang/otp/pull/10554
-[PR-10568]: https://github.com/erlang/otp/pull/10568
-[PR-10579]: https://github.com/erlang/otp/pull/10579
-[PR-10585]: https://github.com/erlang/otp/pull/10585
-[PR-10598]: https://github.com/erlang/otp/pull/10598
-[PR-10134]: https://github.com/erlang/otp/pull/10134
-
 ## Kernel 10.5
 
 ### Fixed Bugs and Malfunctions

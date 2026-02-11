@@ -21,14 +21,6 @@ limitations under the License.
 -->
 # FTP Release Notes
 
-## Ftp 1.3
-
-### Improvements and New Features
-
-- Only minor internal changes.
-
-  Own Id: OTP-19964
-
 ## Ftp 1.2.4
 
 ### Improvements and New Features

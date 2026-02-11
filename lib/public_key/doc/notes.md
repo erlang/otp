@@ -21,27 +21,6 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
-## Public_Key 1.21
-
-### Improvements and New Features
-
-- The legacy `and` and `or` operators have been replaced with `andalso` and `orelse`.
-
-  Own Id: OTP-19744 Aux Id: [PR-10114], [PR-10554], [PR-10568], [PR-10579], [PR-10585], [PR-10598]
-
-- Added an option for relaxed encoding of certificates, to allow some values to be empty. This may be used by 
-  other applications for interoperability reasons. This option is not used by the `ssl` application.
-
-  Own Id: OTP-19822 Aux Id: [PR-10033]
-
-[PR-10114]: https://github.com/erlang/otp/pull/10114
-[PR-10554]: https://github.com/erlang/otp/pull/10554
-[PR-10568]: https://github.com/erlang/otp/pull/10568
-[PR-10579]: https://github.com/erlang/otp/pull/10579
-[PR-10585]: https://github.com/erlang/otp/pull/10585
-[PR-10598]: https://github.com/erlang/otp/pull/10598
-[PR-10033]: https://github.com/erlang/otp/pull/10033
-
 ## Public_Key 1.20.1
 
 ### Fixed Bugs and Malfunctions

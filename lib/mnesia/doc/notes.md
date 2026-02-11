@@ -27,22 +27,6 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
-## Mnesia 4.26
-
-### Improvements and New Features
-
-- `mnesia` now has new functions `select_reverse/1-6` supporting iteration over tables in reverse order.
-
-  Own Id: OTP-19611 Aux Id: [GH-8993], [PR-9475]
-
-- The `mnesia_registry` module has been removed.
-
-  Own Id: OTP-19807 Aux Id: [PR-7315]
-
-[GH-8993]: https://github.com/erlang/otp/issues/8993
-[PR-9475]: https://github.com/erlang/otp/pull/9475
-[PR-7315]: https://github.com/erlang/otp/pull/7315
-
 ## Mnesia 4.25.1
 
 ### Fixed Bugs and Malfunctions

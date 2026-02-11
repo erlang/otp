@@ -1,4 +1,4 @@
-COMMON_TEST_VSN = 1.30
+COMMON_TEST_VSN = 1.29.1
 
 # %CopyrightBegin%
 #

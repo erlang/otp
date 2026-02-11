@@ -21,6 +21,6 @@
 # %CopyrightEnd%
 
 APPLICATION = inets
-INETS_VSN   = 9.6
+INETS_VSN   = 9.5
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(INETS_VSN)$(PRE_VSN)"

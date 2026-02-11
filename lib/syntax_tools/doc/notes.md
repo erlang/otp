@@ -23,33 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the Syntax_Tools application.
 
-## Syntax_Tools 4.1
-
-### Improvements and New Features
-
-- The legacy `and` and `or` operators have been replaced with `andalso` and `orelse`.
-
-  Own Id: OTP-19744 Aux Id: [PR-10114], [PR-10554], [PR-10568], [PR-10579], [PR-10585], [PR-10598]
-
-- Multi-valued comprehensions according to [EEP 78](https://www.erlang.org/eeps/eep-0078) has been implemented.
-  
-  Example:
-  
-  ```erlang
-  > [I, -I || I <- lists:seq(1, 5)].
-  [1,-1,2,-2,3,-3,4,-4,5,-5]
-  ```
-
-  Own Id: OTP-19942 Aux Id: [PR-9374]
-
-[PR-10114]: https://github.com/erlang/otp/pull/10114
-[PR-10554]: https://github.com/erlang/otp/pull/10554
-[PR-10568]: https://github.com/erlang/otp/pull/10568
-[PR-10579]: https://github.com/erlang/otp/pull/10579
-[PR-10585]: https://github.com/erlang/otp/pull/10585
-[PR-10598]: https://github.com/erlang/otp/pull/10598
-[PR-9374]: https://github.com/erlang/otp/pull/9374
-
 ## Syntax_Tools 4.0.2
 
 ### Fixed Bugs and Malfunctions

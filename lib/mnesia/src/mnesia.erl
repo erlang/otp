@@ -2468,12 +2468,12 @@ select(Cont) ->
 
 % select_reverse
 -doc(#{equiv => select_reverse(Tab, MatchSpec, read)}).
--doc(#{since => <<"OTP 29.0">>}).
+-doc(#{since => <<"OTP @OTP-19611@">>}).
 -spec select_reverse(Tab, MatchSpec) -> [Match] when
       Tab::table(), MatchSpec::ets:match_spec(), Match::term().
 select_reverse(Tab, Pat) ->
     select_reverse(Tab, Pat, read).
--doc(#{since => <<"OTP 29.0">>}).
+-doc(#{since => <<"OTP @OTP-19611@">>}).
 -doc """
 Works like `select/3`, but for table type `ordered_set`, traversing is done
 starting at the last object in Erlang term order, and moves to the first. For
@@ -2531,7 +2531,7 @@ fun_select_reverse(Tid, Ts, Tab, Spec, LockKind, TabPat, SelectFun) ->
     end.
 
 %% Breakable Select Reverse
--doc(#{since => <<"OTP 29.0">>}).
+-doc(#{since => <<"OTP @OTP-19611@">>}).
 -doc """
 Select the objects in `Tab` against `MatchSpec` in reverse order.
 
@@ -2608,7 +2608,7 @@ fun_select_reverse(Tid, Ts, Tab, Spec, LockKind, TabPat, Init, NObjects, Node, S
 	    select_state(Init(Spec),Def)
     end.
 
--doc(#{since => <<"OTP 29.0">>}).
+-doc(#{since => <<"OTP @OTP-19611@">>}).
 -doc """
 Continue selecting objects.
 
@@ -3067,7 +3067,7 @@ remote_dirty_select(Tab, [{HeadPat,_, _}] = Spec, [Pos | Tail])
 remote_dirty_select(Tab, Spec, _) ->
     mnesia_lib:db_select(Tab, Spec).
 
--doc(#{since => <<"OTP 29.0">>}).
+-doc(#{since => <<"OTP @OTP-19611@">>}).
 -doc """
 Dirty equivalent to `mnesia:select_reverse/2`.
 """.

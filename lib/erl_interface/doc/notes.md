@@ -23,28 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the Erl_interface application.
 
-## Erl_Interface 5.7
-
-### Improvements and New Features
-
-- Vendor dependencies and OpenVEX statements in the otp repository is now scanned for vulnerabilities.
-
-  Own Id: OTP-19652 Aux Id: [PR-9790]
-
-- Improved name consistency of EPMD protocol messages in documentation and code. Renamed `PORT_PLEASE2_REQ` to `PORT2_REQ` and added prefix `EPMD_`.
-
-  Own Id: OTP-19734 Aux Id: [GH-10071], [PR-10078]
-
-[PR-9790]: https://github.com/erlang/otp/pull/9790
-[GH-10071]: https://github.com/erlang/otp/issues/10071
-[PR-10078]: https://github.com/erlang/otp/pull/10078
-
-### Known Bugs and Problems
-
-- The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
-
-  Own Id: OTP-16607 Aux Id: OTP-16608
-
 ## Erl_Interface 5.6.2
 
 ### Improvements and New Features

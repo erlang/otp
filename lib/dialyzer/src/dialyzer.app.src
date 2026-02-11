@@ -58,4 +58,4 @@
   {env, []},
   {runtime_dependencies, ["syntax_tools-2.0","stdlib-5.0",
 			  "kernel-8.0","erts-12.0",
-			  "compiler-10.0"]}]}.
+			  "compiler-@OTP-19785@"]}]}.

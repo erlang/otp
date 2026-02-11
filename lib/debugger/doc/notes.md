@@ -23,28 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the Debugger application.
 
-## Debugger 6.1
-
-### Improvements and New Features
-
-- Tools such as the debugger, `m:beam_lib`, and `m:xref` no longer support BEAM files created before OTP 13B.
-
-  Own Id: OTP-19906 Aux Id: [PR-10519]
-
-- Multi-valued comprehensions according to [EEP 78](https://www.erlang.org/eeps/eep-0078) has been implemented.
-  
-  Example:
-  
-  ```erlang
-  > [I, -I || I <- lists:seq(1, 5)].
-  [1,-1,2,-2,3,-3,4,-4,5,-5]
-  ```
-
-  Own Id: OTP-19942 Aux Id: [PR-9374]
-
-[PR-10519]: https://github.com/erlang/otp/pull/10519
-[PR-9374]: https://github.com/erlang/otp/pull/9374
-
 ## Debugger 6.0.3
 
 ### Fixed Bugs and Malfunctions

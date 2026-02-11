@@ -23,14 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the EDoc application.
 
-## Edoc 1.5
-
-### Improvements and New Features
-
-- Only minor internal changes.
-
-  Own Id: OTP-19964
-
 ## Edoc 1.4.1
 
 ### Fixed Bugs and Malfunctions

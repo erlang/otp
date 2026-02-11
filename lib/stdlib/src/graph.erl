@@ -142,7 +142,7 @@ directed graphs.
   multiple edges between vertices). If the graph has no cycles of length
   two or more, the reflexive and transitive closure of E is a partial ordering.
 """.
--moduledoc(#{ since => ~"OTP 29.0"}).
+-moduledoc(#{ since => ~"OTP @OTP-19922@"}).
 
 %% Basic functionality
 -export([new/0, new/1, info/1,
@@ -203,7 +203,7 @@ directed graphs.
 -type graph_type()       :: graph_cyclicity().
 
 -doc(#{ equiv => new([]) }).
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec new() -> graph().
 new() ->
     new([]).
@@ -223,7 +223,7 @@ the options in `Options`:
 If an unrecognized option is specified or `Options` is not a proper list, a
 `badarg` exception is raised.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec new([graph_type()]) -> graph().
 new(Options) when is_list(Options) ->
     new_1(Options, #graph{}).
@@ -245,7 +245,7 @@ The following pairs are returned:
 - `{cyclicity, Cyclicity}`, where `Cyclicity` is `cyclic` or `acyclic`,
   according to the options given to `new`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec info(graph()) -> [{'cyclicity', graph_cyclicity()}].
 info(G) ->
     Cyclicity = case G#graph.cyclic of
@@ -264,7 +264,7 @@ zero. If you use `add_vertex/2` or `add_vertex/3` to insert vertices with
 your own identifiers, this function could generate an ID that already exists
 in the graph.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec add_vertex(graph()) -> {vertex(), graph()}.
 add_vertex(G) ->
     {V, G1} = new_vertex_id(G),
@@ -274,7 +274,7 @@ new_vertex_id(#graph{next_vid=V}=G) ->
     {V, G#graph{next_vid=V+1}}.
 
 -doc(#{equiv => add_vertex(G, V, [])}).
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec add_vertex(graph(), vertex()) -> graph().
 add_vertex(G, V) ->
     add_vertex(G, V, []).
@@ -283,7 +283,7 @@ add_vertex(G, V) ->
 Creates or modifies vertex `V` of graph `G`, using `L` as the (new)
 [label](`m:graph#label`) of the vertex.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec add_vertex(graph(), vertex(), label()) -> graph().
 add_vertex(G, V, L) ->
     #graph{vs=Vs0} = G,
@@ -296,7 +296,7 @@ Deletes vertex `V` from graph `G`.
 Any edges [emanating](`m:graph#emanate`) from `V` or
 [incident](`m:graph#incident`) on `V` are also deleted.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec del_vertex(graph(), vertex()) -> graph().
 del_vertex(G, V) ->
     #graph{vs=Vs0,in_es=InEsMap0,out_es=OutEsMap0} = G,
@@ -310,7 +310,7 @@ del_vertex(G, V) ->
     G#graph{vs=Vs,in_es=InEsMap,out_es=OutEsMap}.
 
 -doc "Deletes the vertices in list `Vs` from graph `G`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec del_vertices(G::graph(), Vs::[vertex()]) -> graph().
 del_vertices(G, [V | Vs]) ->
     del_vertices(del_vertex(G, V), Vs);
@@ -321,7 +321,7 @@ Returns the [label](`m:graph#label`) of the vertex `V` of graph `G`.
 
 An exception is raised if `V` does not exist in `G`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec vertex(G::graph(), V::vertex()) -> label().
 vertex(#graph{vs=Vs}, V) ->
     map_get(V, Vs).
@@ -330,19 +330,19 @@ vertex(#graph{vs=Vs}, V) ->
 Returns the [label](`m:graph#label`) of the vertex `V` of graph `G`,
 or returns `Default` if `V` does not exist in `G`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec vertex(G::graph(), V::vertex(), Default::label()) -> label().
 vertex(#graph{vs=Vs}, V, Default) ->
     maps:get(V, Vs, Default).
 
 -doc "Returns the number of vertices of graph `G`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec no_vertices(G::graph()) -> non_neg_integer().
 no_vertices(#graph{vs=Vs}) ->
     map_size(Vs).
 
 -doc "Returns a list of all vertices of graph `G`, in some unspecified order.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec vertices(G::graph()) -> [vertex()].
 vertices(#graph{vs=Vs}) ->
     maps:keys(Vs).
@@ -351,7 +351,7 @@ vertices(#graph{vs=Vs}) ->
 Returns a list of all pairs `{V, L}` of vertices of graph `G` and their
 respective labels, in some unspecified order.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec vertices_with_labels(G::graph()) -> [{vertex(), label()}].
 vertices_with_labels(#graph{vs=Vs}) ->
     maps:to_list(Vs).
@@ -360,7 +360,7 @@ vertices_with_labels(#graph{vs=Vs}) ->
 Returns a list of all vertices of graph `G` with
 [in-degree](`m:graph#in_degree`) zero.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec source_vertices(G::graph()) -> [vertex()].
 source_vertices(#graph{vs=Vs, in_es=InEsMap}) ->
     maps:fold(fun(V, _, Acc) ->
@@ -374,7 +374,7 @@ source_vertices(#graph{vs=Vs, in_es=InEsMap}) ->
 Returns a list of all vertices of graph `G` with
 [out-degree](`m:graph#in_degree`) zero.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec sink_vertices(G::graph()) -> [vertex()].
 sink_vertices(#graph{vs=Vs, out_es=OutEsMap}) ->
     maps:fold(fun(V, _, Acc) ->
@@ -385,7 +385,7 @@ sink_vertices(#graph{vs=Vs, out_es=OutEsMap}) ->
               end, [], Vs).
 
 -doc "Returns the [in-degree](`m:graph#in_degree`) of vertex `V` of graph `G`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec in_degree(G::graph(), V::vertex()) -> non_neg_integer().
 in_degree(#graph{in_es=InEsMap}, V) ->
     length(maps:get(V, InEsMap, [])).
@@ -394,7 +394,7 @@ in_degree(#graph{in_es=InEsMap}, V) ->
 Returns a list of all [in-neighbors](`m:graph#in_neighbour`) of `V` of graph
 `G`, in some unspecified order.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec in_neighbours(G::graph(), V::vertex()) -> [vertex()].
 in_neighbours(#graph{in_es=InEsMap}, V) ->
     [From || {From,_,_} <:- maps:get(V, InEsMap, [])].
@@ -403,13 +403,13 @@ in_neighbours(#graph{in_es=InEsMap}, V) ->
 Returns a list of all edges [incident](`m:graph#incident`) on `V` of graph
 `G`, in some unspecified order.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec in_edges(G::graph(), V::vertex()) -> [edge()].
 in_edges(#graph{in_es=InEsMap}, V) ->
     maps:get(V, InEsMap, []).
 
 -doc "Returns the [out-degree](`m:graph#out_degree`) of vertex `V` of graph `G`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec out_degree(G::graph(), V::vertex()) -> non_neg_integer().
 out_degree(#graph{out_es=OutEsMap}, V) ->
     length(maps:get(V, OutEsMap, [])).
@@ -418,7 +418,7 @@ out_degree(#graph{out_es=OutEsMap}, V) ->
 Returns a list of all [out-neighbors](`m:graph#out_neighbour`) of `V` of
 graph `G`, in some unspecified order.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec out_neighbours(G::graph(), V::vertex()) -> [vertex()].
 out_neighbours(#graph{out_es=OutEsMap}, V) ->
     [To || {_,To,_} <:- maps:get(V, OutEsMap, [])].
@@ -427,13 +427,13 @@ out_neighbours(#graph{out_es=OutEsMap}, V) ->
 Returns a list of all edges [emanating](`m:graph#emanate`) from `V` of graph
 `G`, in some unspecified order.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec out_edges(G::graph(), V::vertex()) -> [edge()].
 out_edges(#graph{out_es=OutEsMap}, V) ->
     maps:get(V, OutEsMap, []).
 
 -doc(#{equiv => add_edge(G, V1, V2, [])}).
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec add_edge(graph(), vertex(), vertex()) -> graph().
 add_edge(G, V1, V2) ->
     add_edge(G, V1, V2, []).
@@ -451,7 +451,7 @@ If `G` was created with option `acyclic`, then attempting to add an edge that
 would introduce a cycle will raise an error `{bad_edge, {From, To}}`. Note
 that checking for cyclicity slows down the adding of edges.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec add_edge(G, V1, V2, L) -> graph() when
       G :: graph(),
       V1 :: vertex(),
@@ -489,7 +489,7 @@ acyclic_add_edge(G, From, To, Label) ->
     end.
 
 -doc "Deletes edge `E` from graph `G`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec del_edge(G::graph(), E::edge()) -> graph().
 del_edge(G, {From,To,_}=E) ->
     #graph{in_es=InEsMap0,out_es=OutEsMap0} = G,
@@ -506,13 +506,13 @@ edge_map_del(V, E, EsMap) ->
     end.
 
 -doc "Deletes the edges in list `Es` from graph `G`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec del_edges(graph(), [edge()]) -> graph().
 del_edges(G, Es) when is_list(Es) ->
     foldl(fun(E, A) -> del_edge(A, E) end, G, Es).
 
 -doc "Deletes all edges from vertex `V1` to vertex `V2` in graph `G`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec del_edges(graph(), vertex(), vertex()) -> graph().
 del_edges(G, V1, V2) ->
     Es = out_edges(G, V1),
@@ -525,14 +525,14 @@ del_edges(G, V1, V2, [_|Es]) ->
 del_edges(G, _, _, []) -> G.
 
 -doc "Returns the number of edges of graph `G`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec no_edges(G::graph()) -> non_neg_integer().
 no_edges(#graph{out_es=OutEsMap}) ->
     maps:fold(fun (_, Es, Acc) -> length(Es) + Acc end,
               0, OutEsMap).
 
 -doc "Returns a list of all edges of graph `G`, in some unspecified order.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec edges(G::graph()) -> [edge()].
 edges(#graph{out_es=OutEsMap}) ->
     maps:fold(fun(_, Es, Acc) ->
@@ -547,14 +547,14 @@ order.
 Edges may occur twice in the list. Use `ordsets:from_list/1` on the
 result if you need to remove duplicates.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec edges(G::graph(), V::vertex()) -> [edge()].
 edges(#graph{in_es=InEsMap, out_es=OutEsMap}, V) ->
     maps:get(V, OutEsMap, [])
         ++ maps:get(V, InEsMap, []).
 
 -doc "Returns the ordered set of edges from V1 to V2.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec edges(G::graph(), V1::vertex(), V2::vertex()) -> ordsets:ordset(edge()).
 edges(#graph{out_es=OutEsMap}, V1, V2) ->
     case OutEsMap of
@@ -568,7 +568,7 @@ Returns `true` if and only if `G` contains edge `E`.
 Note that the identity of an edge includes its label. To check for an
 arbitrary edge between two vertices, use `has_edge/3`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec has_edge(G::graph(), E::edge()) -> boolean().
 has_edge(#graph{out_es=OutEsMap}, {V1, _, _}=E) ->
     case OutEsMap of
@@ -577,7 +577,7 @@ has_edge(#graph{out_es=OutEsMap}, {V1, _, _}=E) ->
    end.
 
 -doc "Returns `true` if and only if `G` contains some edge from `V1` to `V2`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec has_edge(G::graph(), V1::vertex(), V2::vertex()) -> boolean().
 has_edge(#graph{out_es=OutEsMap}, V1, V2) ->
     case OutEsMap of
@@ -593,7 +593,7 @@ has_edge_1([], _, _) ->
     false.
 
 -doc "Fold `Fun` over the vertices of graph `G`, in some unspecified order.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec fold_vertices(G, Fun, Acc) -> any() when
       G :: graph(),
       Fun :: fun((vertex(), label(), any()) -> any()),
@@ -602,7 +602,7 @@ fold_vertices(#graph{vs=Vs}, Fun, Acc) ->
     maps:fold(Fun, Acc, Vs).
 
 -doc "Returns `true` if and only if `G` contains vertex `V`.".
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec has_vertex(G::graph(), V::vertex()) -> boolean().
 has_vertex(#graph{vs=Vs}, V) ->
     is_map_key(V, Vs).
@@ -611,7 +611,7 @@ has_vertex(#graph{vs=Vs}, V) ->
 Returns `true` if and only if there is a [path](`m:graph#path`) in `G` from
 vertex `V1` to vertex `V2`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec has_path(G::graph(), V1::vertex(), V2::vertex()) -> boolean().
 has_path(G, From, To) ->
     Seen = sets:new(),
@@ -651,7 +651,7 @@ A sketch of the procedure employed:
   edges).
 - Repeat until there is no path between `V1` and `V2`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec del_path(graph(), vertex(), vertex()) -> graph().
 del_path(G, V1, V2) ->
     case get_path(G, V1, V2) of
@@ -672,7 +672,7 @@ through vertex `V`, the cycle is returned as a list `[V, ..., V]` of vertices.
 If a [loop](`m:graph#loop`) through `V` exists, the loop is returned as a list
 `[V]`. If no cycles through `V` exist, `false` is returned.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec get_cycle(graph(), vertex()) -> [vertex(),...] | 'false'.
 get_cycle(G, V) ->
     case one_path(out_neighbours(G, V), V, [], [V], [V], 2, G, 1) of
@@ -694,7 +694,7 @@ simple path from `V1` to `V2` of length one or more exists.
 The graph is traversed in a depth-first manner, and the first found path is
 returned.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec get_path(graph(), vertex(), vertex()) -> [vertex(),...] | 'false'.
 get_path(G, V1, V2) ->
     one_path(out_neighbours(G, V1), V2, [], [V1], [V1], 1, G, 1).
@@ -723,7 +723,7 @@ the cycle as a list `[V, ..., V]` of vertices, or `false` if no simple
 cycle through `V` exists. Notice that a [loop](`m:graph#loop`) through
 `V` is returned as list `[V, V]`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec get_short_cycle(graph(), vertex()) -> [vertex(),...] | 'false'.
 get_short_cycle(G, V) ->
     get_short_path(G, V, V).
@@ -739,7 +739,7 @@ length one or more exists.
 Graph `G` is traversed in a breadth-first manner, and the first found path is
 returned.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec get_short_path(graph(), vertex(), vertex()) -> [vertex(),...] | 'false'.
 get_short_path(G, V1, V2) ->
     T = new(),
@@ -855,7 +855,7 @@ Each component is represented by its vertices. The order of the vertices
 and the order of the components are arbitrary. Each vertex of graph `G`
 occurs in exactly one component.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec components(graph()) -> [[vertex()]].
 components(G) ->
     revpreorders(G, fun inout/3).
@@ -868,7 +868,7 @@ Each strongly component is represented by its vertices. The order of the
 vertices and the order of the components are arbitrary. Each vertex of
 graph `G` occurs in exactly one strong component.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec strong_components(graph()) -> [[vertex()]].
 strong_components(G) ->
     revpreorders(G, fun in/3, reverse_postorder(G, vertices(G))).
@@ -883,7 +883,7 @@ that are included in some [cycle](`m:graph#cycle`) in `G` are returned,
 otherwise the returned list is equal to that returned by
 `strong_components/1`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec cyclic_strong_components(graph()) -> [[vertex()]].
 cyclic_strong_components(G) ->
     remove_singletons(strong_components(G), G, []).
@@ -896,7 +896,7 @@ the vertex.
 In particular, as paths can have length zero, the vertices of `Vs` are all
 included in the returned list.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec reachable(graph(), [vertex()]) -> [vertex()].
 reachable(G, Vs) when is_list(Vs) ->
     lists:append(revpreorders(G, fun out/3, Vs, first)).
@@ -909,7 +909,7 @@ some vertex of `Vs` to the vertex.
 Hence, vertices in `Vs` will only be included in the result if they are part
 of some [cycle](`m:graph#cycle`).
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec reachable_via_neighbours(graph(), [vertex()]) -> [vertex()].
 reachable_via_neighbours(G, Vs) when is_list(Vs) ->
     lists:append(revpreorders(G, fun out/3, Vs, not_first)).
@@ -922,7 +922,7 @@ list, there is a [path](`m:graph#path`) from the vertex to some vertex of
 In particular, as paths can have length zero, the vertices of `Vs` are all
 included in the returned list.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec reaching(graph(), [vertex()]) -> [vertex()].
 reaching(G, Vs) when is_list(Vs) ->
     lists:append(revpreorders(G, fun in/3, Vs, first)).
@@ -935,7 +935,7 @@ vertex to some vertex of `Vs`.
 Hence, vertices in `Vs` will only be included in the result if they are part
 of some [cycle](`m:graph#cycle`).
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec reaching_via_neighbours(graph(), [vertex()]) -> [vertex()].
 reaching_via_neighbours(G, Vs) when is_list(Vs) ->
     lists:append(revpreorders(G, fun in/3, Vs, not_first)).
@@ -950,7 +950,7 @@ For each vertex in the returned list, no
 This is currently implemented simply as `reverse_postorder(G)`, but this
 detail is subject to change and should not be relied on.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec topsort(graph()) -> [vertex()].
 topsort(G) ->
     reverse_postorder(G).
@@ -959,7 +959,7 @@ topsort(G) ->
 Returns `true` if and only if graph `G` is
 [acyclic](`m:graph#acyclic_graph`).
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec is_acyclic(graph()) -> boolean().
 is_acyclic(G) ->
     cyclic_strong_components(G) =:= [].
@@ -968,7 +968,7 @@ is_acyclic(G) ->
 Returns a minimal list of vertices of `G` from which all vertices of `G` can
 be reached.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec roots(graph()) -> [vertex()].
 roots(G) ->
     R1 = [V || V <- vertices(G), in_degree(G, V) =:= 0],
@@ -979,7 +979,7 @@ roots(G) ->
 Returns `{yes, V}` if `G` is an [arborescence](`m:graph#arborescence`) (a
 directed tree) with vertex `V` as the [root](`m:graph#root`), otherwise `no`.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec arborescence_root(graph()) -> 'no' | {'yes', vertex()}.
 arborescence_root(G) ->
     case no_edges(G) =:= no_vertices(G) - 1 of
@@ -1004,7 +1004,7 @@ arborescence_root(G) ->
 Returns `true` if and only if graph `G` is an
 [arborescence](`m:graph#arborescence`) (a directed tree with a unique root).
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec is_arborescence(graph()) -> boolean().
 is_arborescence(G) ->
     arborescence_root(G) =/= no.
@@ -1013,7 +1013,7 @@ is_arborescence(G) ->
 Returns `true` if and only if graph `G` is a
 [tree](`m:graph#tree`), considering all edges undirected.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec is_tree(graph()) -> boolean().
 is_tree(G) ->
     (no_edges(G) =:= no_vertices(G) - 1)
@@ -1023,13 +1023,13 @@ is_tree(G) ->
 Returns a list of all vertices of `G` that are included in some
 [loop](`m:graph#loop`).
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec loop_vertices(graph()) -> [vertex()].
 loop_vertices(G) ->
     [V || V <- vertices(G), is_reflexive_vertex(G, V)].
 
 -doc(#{equiv => subgraph(G, Vs, [])}).
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec subgraph(graph(), [vertex()]) -> graph().
 subgraph(G, Vs) ->
     try
@@ -1055,7 +1055,7 @@ subgraph will have the default labels.
 
 If any of the arguments are invalid, a `badarg` exception is raised.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec subgraph(graph(), [vertex()], Options) -> graph() when
       Options :: [{'type', SubgraphType} | {'keep_labels', boolean()}],
       SubgraphType :: 'inherit' | [graph_type()].
@@ -1085,7 +1085,7 @@ component, which implies that a
 [topological ordering](`m:graph#topsort`) of the created graph always
 exists.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec condensation(graph()) -> graph().
 condensation(G) ->
     SCs = strong_components(G),
@@ -1105,7 +1105,7 @@ condensation(G) ->
           G0, SCs).
 
 -doc(#{ equiv => preorder(G, roots(G)) }).
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec preorder(graph()) -> [vertex()].
 preorder(G) ->
     preorder(G, roots(G)).
@@ -1117,7 +1117,7 @@ The order is given by a [depth-first
 traversal](`m:graph#depth_first_traversal`) of the graph, collecting visited
 vertices in preorder.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec preorder(graph(), [vertex()]) -> [vertex()].
 preorder(G, Vs) ->
     T = sets:new(),
@@ -1125,7 +1125,7 @@ preorder(G, Vs) ->
     reverse(lists:append(Acc)).
 
 -doc(#{ equiv => postorder(G, roots(G)) }).
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec postorder(graph()) -> [vertex()].
 postorder(G) ->
     postorder(G, roots(G)).
@@ -1139,7 +1139,7 @@ vertices in postorder. More precisely, the vertices visited while searching
 from an arbitrarily chosen vertex are collected in postorder, and all those
 collected vertices are placed before the subsequently visited vertices.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec postorder(graph(), [vertex()]) -> [vertex()].
 postorder(G, Vs) ->
     T = sets:new(),
@@ -1147,7 +1147,7 @@ postorder(G, Vs) ->
     reverse(Acc).
 
 -doc(#{ equiv => reverse_postorder(G, roots(G)) }).
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec reverse_postorder(graph()) -> [vertex()].
 reverse_postorder(G) ->
     reverse_postorder(G, roots(G)).
@@ -1161,7 +1161,7 @@ This effectively performs a topological sort of the reachable nodes.
 The graph is traversed as for `postorder/2`, but producing the result in
 reverse order.
 """.
--doc(#{ since => ~"OTP 29.0"}).
+-doc(#{ since => ~"OTP @OTP-19922@"}).
 -spec reverse_postorder(graph(), [vertex()]) -> [vertex()].
 reverse_postorder(G, Vs) ->
     T = sets:new(),

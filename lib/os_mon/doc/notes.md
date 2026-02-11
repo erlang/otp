@@ -23,14 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the OS_Mon application.
 
-## Os_Mon 2.12
-
-### Improvements and New Features
-
-- Only minor internal changes.
-
-  Own Id: OTP-19964
-
 ## Os_Mon 2.11.2
 
 ### Fixed Bugs and Malfunctions
