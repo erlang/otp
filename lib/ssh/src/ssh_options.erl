@@ -286,7 +286,7 @@ check_fun(Key, Defs) ->
             #{chk := Fun} = maps:get(Key, Defs),
             Fun;
         true ->
-            fun(_,_) -> forbidden end
+            fun(_) -> forbidden end
     end.
 
 %%%================================================================
@@ -483,11 +483,28 @@ default(server) ->
       user_passwords =>
           #{default => [],
             chk => fun(V) ->
-                           is_list(V) andalso
-                               lists:all(fun({S1,S2}) ->
-                                                 check_string(S1) andalso 
-                                                     check_string(S2)   
-                                         end, V)
+                       is_list(V) andalso
+                       lists:foldr(
+                           fun
+                               (_, false) ->
+                                   false;
+                               ({User, Passwd}, {true, Acc}) ->
+                                   case
+                                       check_string(User) andalso
+                                       check_string(Passwd) andalso
+                                       make_passwd_fun(Passwd)
+                                   of
+                                       Fun when is_function(Fun, 1) ->
+                                           {true, [{User, Fun} | Acc]};
+                                       _ ->
+                                           false
+                                   end;
+                               (_, _) ->
+                                   false
+                           end,
+                           {true, []},
+                           V
+                       )
                    end,
             class => user_option
            },
@@ -506,7 +523,17 @@ default(server) ->
 
       password =>
           #{default => undefined,
-            chk => fun(V) -> check_string(V) end,
+            chk => fun(V) ->
+                       case
+                           check_string(V) andalso
+                           make_passwd_fun(V)
+                       of
+                           Fun when is_function(Fun, 1) ->
+                               {true, Fun};
+                           _ ->
+                               false
+                       end
+                   end,
             class => user_option
            },
 
@@ -910,6 +937,26 @@ default(common) ->
              class => undoc_user_option
             }
      }.
+
+make_passwd_fun(PlainPwd) ->
+    PlainPwdBin = unicode:characters_to_binary(PlainPwd),
+    Salt = crypto:strong_rand_bytes(?SSH_PKBDF2_KEYLENGTH),
+    HashedPwd = crypto:pbkdf2_hmac(?SSH_PKBDF2_DIGEST,
+                                   PlainPwdBin, Salt,
+                                   ?SSH_PKBDF2_ITERATIONS,
+                                   ?SSH_PKBDF2_KEYLENGTH),
+    fun
+        Chk(PlainCheckPwd) when is_binary(PlainCheckPwd) ->
+            HashedCheckPwd = crypto:pbkdf2_hmac(?SSH_PKBDF2_DIGEST,
+                                                PlainCheckPwd, Salt,
+                                                ?SSH_PKBDF2_ITERATIONS,
+                                                ?SSH_PKBDF2_KEYLENGTH),
+            crypto:hash_equals(HashedPwd, HashedCheckPwd);
+        Chk(PlainCheckPwd) when is_list(PlainCheckPwd) ->
+            Chk(unicode:characters_to_binary(PlainCheckPwd));
+        Chk(_) ->
+            false
+    end.
 
 
 %%%================================================================

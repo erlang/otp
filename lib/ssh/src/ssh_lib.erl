@@ -31,7 +31,6 @@
          format_address_port/2, format_address_port/1,
          format_address/1,
          format_time_ms/1,
-         comp/2,
          set_label/1,
          set_label/2,
          trim_reason/1,
@@ -72,28 +71,6 @@ format_time_ms(T) when is_integer(T) ->
 
             
 %%%----------------------------------------------------------------
-
-%% Compares X1 and X2 such that X1 (but not X2) is always iterated fully,
-%% ie without returning early on the first difference.
-comp(X1, X2) ->
-    comp(X1, X2, 0).
-
-comp(<<B1, R1/binary>>, <<B2, R2/binary>>, Diff) ->
-    comp(R1, R2, Diff bor (B1 bxor B2));
-comp(<<B1, R1/binary>>, <<>>, _Diff) ->
-    comp(R1, <<>>, 1 bor (B1 bxor 0));
-comp(<<>>, <<>>, Diff) ->
-    Diff =:= 0;
-
-comp([H1|T1], [H2|T2], Diff) ->
-    comp(T1, T2, Diff bor (H1 bxor H2));
-comp([H1|T1], [], _Diff) ->
-    comp(T1, [], 1 bor (H1 bxor 0));
-comp([], [], Diff) ->
-    Diff =:= 0;
-
-comp(_X1, _X2, _Diff) ->
-    false.
 
 set_label(Details) ->
     proc_lib:set_label({ssh, Details}).

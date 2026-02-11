@@ -111,6 +111,11 @@
 -define(SSH_CIPHER_3DES, 3).
 -define(SSH_CIPHER_AUTHFILE, ?SSH_CIPHER_3DES).
 
+%% PKBDF2 password hashing parameters
+-define(SSH_PKBDF2_DIGEST, sha256).
+-define(SSH_PKBDF2_ITERATIONS, 600_000).
+-define(SSH_PKBDF2_KEYLENGTH, 32). %% matches digest output length
+
 %% Option access macros
 -define(do_get_opt(C,K,O),   ssh_options:get_value(C,K,O,  ?MODULE,?LINE)).
 -define(do_get_opt(C,K,O,D), ssh_options:get_value(C,K,O,?LAZY(D),?MODULE,?LINE)).
