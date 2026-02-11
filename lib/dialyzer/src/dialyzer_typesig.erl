@@ -58,7 +58,7 @@
 	 t_list_elements/1, t_nonempty_list/1, t_maybe_improper_list/0,
 	 t_module/0, t_number/0, t_number_vals/1,
 	 t_pid/0, t_port/0, t_product/1, t_reference/0,
-	 t_record/1, t_subst/2,
+	 t_record/0, t_subst/2,
 	 t_timeout/0, t_tuple/0, t_tuple/1,
          t_var/1, t_var_name/1,
 	 t_none/0, t_unit/0,
@@ -614,35 +614,7 @@ traverse(Tree, DefinedVars, State) ->
 	end,
       {state__store_conj(MapVar, sub, MapType, State4), MapVar};
     record ->
-      Id = cerl:concrete(cerl:record_id(Tree)),
-      RecordFoldFun = fun(Entry, AccState) ->
-                          AccState1 = state__set_in_match(AccState, false),
-                          {AccState2, KeyVar} = traverse(cerl:record_pair_key(Entry),
-                                                         DefinedVars, AccState1),
-                          AccState3 = state__set_in_match(
-                                        AccState2, state__is_in_match(AccState)),
-                          {AccState4, ValVar} = traverse(cerl:record_pair_val(Entry),
-                                                         DefinedVars, AccState3),
-                          {{KeyVar, ValVar}, AccState4}
-                      end,
-      Entries = cerl:record_es(Tree),
-      {_EVars, State1} = lists:mapfoldl(RecordFoldFun, State, Entries),
-      {State2, _ArgVar} = case cerl:record_arg(Tree) of
-                            {c_literal,[],empty} ->
-                              {State1, t_record(Id)};
-                            {c_literal,[],ok} ->
-                              {State1, t_record(Id)};
-                            _ ->
-                              traverse(cerl:record_arg(Tree), DefinedVars, State1)
-                          end,
-      RecordVar = mk_var(Tree),
-      RecordType = t_record(Id),
-      case lookup_record(State2, Id, 0) of
-        {error, State3} -> {State3, RecordType};
-        {ok, RecordType1, State3} ->
-          State4 = state__store_conj(RecordVar, sub, RecordType1, State3),
-          {State4, RecordType}
-        end;
+      {State, t_any()};
     values ->
       %% We can get into trouble when unifying products that have the
       %% same element appearing several times. Handle these cases by
@@ -1078,8 +1050,6 @@ get_type_test({erlang, is_map, 1}) ->       {ok, t_map()};
 get_type_test({erlang, is_number, 1}) ->    {ok, t_number()};
 get_type_test({erlang, is_pid, 1}) ->       {ok, t_pid()};
 get_type_test({erlang, is_port, 1}) ->      {ok, t_port()};
-%% get_type_test({erlang, is_record, 2}) ->    {ok, t_tuple()};
-%% get_type_test({erlang, is_record, 3}) ->    {ok, t_tuple()};
 get_type_test({erlang, is_reference, 1}) -> {ok, t_reference()};
 get_type_test({erlang, is_tuple, 1}) ->     {ok, t_tuple()};
 get_type_test({M, F, A}) when is_atom(M), is_atom(F), is_integer(A) -> error.
@@ -1462,7 +1432,6 @@ get_bif_constr({erlang, is_record, 2}, Dst, [Var, Tag] = Args, _State) ->
 			   mk_constraint(Tag, sub, t_atom()),
 			   mk_constraint(Var, sub, ArgV)]);
 get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
-  %% TODO: Revise this to make it precise for Tag and Arity.
   ArgFun =
     fun(Map) ->
 	case t_is_any_atom(true, lookup_type(Dst, Map)) of
@@ -1490,7 +1459,7 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 		    end;
 		  _ -> t_tuple()
 		end;
-	      false -> t_tuple()
+	      false -> t_sup(t_tuple(), t_record())
 	    end;
 	  false -> t_any()
 	end
@@ -1502,10 +1471,20 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 	       bif_return(erlang, is_record, 3, TmpArgTypes)
 	   end,
   DstV = ?mk_fun_var(DstFun, Args),
-  mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
-			   mk_constraint(Arity, sub, t_integer()),
-			   mk_constraint(Tag, sub, t_atom()),
-			   mk_constraint(Var, sub, ArgV)]);
+  case {t_is_atom(Arity),t_is_integer(Arity)} of
+    {false, true} ->
+      %% Tuple record
+      mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
+                               mk_constraint(Arity, sub, t_integer()),
+                               mk_constraint(Tag, sub, t_atom()),
+                               mk_constraint(Var, sub, ArgV)]);
+    {true, false} ->
+      %% Native record
+      mk_conj_constraint_list([mk_constraint(Var, sub, t_record()),
+                               mk_constraint(Tag, sub, t_atom())]);
+    {_, _} ->
+      mk_constraint_any(sub)
+  end;
 get_bif_constr({erlang, is_tuple, 1}, Dst, [Arg], State) ->
   get_bif_test_constr(Dst, Arg, t_tuple(), State);
 get_bif_constr({erlang, 'and', 2}, Dst, [Arg1, Arg2] = Args, _State) ->
@@ -3143,9 +3122,8 @@ lookup_record(State, Tag, Arity) ->
     end,
   case erl_types:lookup_record(Tag, Arity, Rec) of
     {ok, Fields} ->
-      RecType =
-        t_tuple([t_from_term(Tag)|
-                 [FieldType || {_FieldName, _Abstr, FieldType} <- Fields]]),
+      RecType = t_tuple([t_from_term(Tag)|
+                            [FieldType || {_FieldName, _Abstr, FieldType} <- Fields]]),
       {ok, RecType, State1};
     error ->
       {error, State1}

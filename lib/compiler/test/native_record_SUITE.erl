@@ -31,7 +31,7 @@
 %% Unexported records.
 -record #empty{}.
 -record #a{x, y}.
--record #c{x::integer, y=0::integer, z=[]}.
+-record #c{x::integer(), y=0::integer(), z=[]}.
 -record #d{f=3.1416, l=[a,b,c], t={a,b,c},
            m=#{a => 1}}.
 

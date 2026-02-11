@@ -625,10 +625,13 @@ lay_map_pair(Node, Ctxt) ->
 lay_record(Node, Ctxt) ->
     Arg = record_arg(Node),
     Id = record_id(Node),
-    N = beside(lay(Arg, Ctxt), beside(floating(text("#")), lay(Id, Ctxt))),
-    beside(N, beside(floating(text("~{")),
+    N = case cerl:concrete(Arg) of
+	ok -> beside(floating(text("#")), lay(Id, Ctxt));
+	_ -> beside(lay(Arg, Ctxt), beside(floating(text("#")), lay(Id, Ctxt)))
+        end,
+    beside(N, beside(floating(text("{")),
             beside(par(seq(record_es(Node), floating(text(",")), Ctxt, fun lay/2)),
-	        floating(text("}~"))))).
+	        floating(text("}"))))).
 
 lay_record_pair(Node, Ctxt) ->
     K = record_pair_key(Node),

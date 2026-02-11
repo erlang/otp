@@ -126,7 +126,9 @@
 	 t_is_pid/1,
 	 t_is_port/1,
 	 t_is_maybe_improper_list/1,
-         t_is_record/1,
+	 t_is_record/1,
+	 t_is_record/2,
+	 t_is_record/3,
 	 t_is_reference/1,
          t_is_same_opaque/2,
 	 t_is_singleton/1,
@@ -172,9 +174,11 @@
 	 t_port/0,
 	 t_maybe_improper_list/0,
 	 t_product/1,
-         t_record/0,
-         t_record/1,
-         t_record_put/2,
+	 t_record/0,
+	 t_record/1,
+	 t_record/2,
+	 t_record_replace/2,
+	 t_record_get/2,
 	 t_reference/0,
 	 t_string/0,
 	 t_subst/2,
@@ -200,6 +204,7 @@
          t_widen_to_number/1,
 	 type_is_defined/4,
 	 record_field_diffs_to_string/2,
+	 native_record_field_diffs/2,
 	 subst_all_vars_to_any/1,
          lift_list_to_pos_empty/1,
 	 is_erl_type/1,
@@ -264,6 +269,7 @@
 -define(number_tag,     number).
 -define(product_tag,    product).
 -define(record_tag,     record).
+-define(record_set_tag, record_set).
 -define(tuple_set_tag,  tuple_set).
 -define(tuple_tag,      tuple).
 -define(union_tag,      union).
@@ -272,7 +278,7 @@
 -type tag()  :: ?atom_tag | ?binary_tag | ?function_tag | ?identifier_tag
               | ?list_tag | ?map_tag | ?nil_tag | ?number_tag
               | ?nominal_tag | ?nominal_set_tag
-              | ?product_tag
+              | ?product_tag | ?record_tag | ?record_set_tag
               | ?tuple_tag | ?tuple_set_tag | ?union_tag | ?var_tag.
 
 -define(float_qual,     float).
@@ -345,6 +351,7 @@
 	#c{tag=?map_tag, elements={Pairs,DefKey,DefVal}}).
 -define(product(Types),            #c{tag=?product_tag, elements=Types}).
 -define(record(Name, Types),       #c{tag=?record_tag, elements={Name, Types}}).
+-define(record_set(Types),          #c{tag=?record_set_tag, elements=Types}).
 -define(tuple(Types, Arity, Qual), #c{tag=?tuple_tag, elements=Types,
                                       qualifier={Arity, Qual}}).
 -define(tuple_set(Tuples),         #c{tag=?tuple_set_tag, elements=Tuples}).
@@ -376,19 +383,20 @@
 %%
 
 -define(union(List), #c{tag=?union_tag, elements=List}).
--define(untagged_union(A, B, F, I, L, N, T, Map), [A,B,F,I,L,N,T,Map]).
+-define(untagged_union(A, B, F, I, L, N, T, Map, R), [A,B,F,I,L,N,T,Map,R]).
 
 -define(num_types_in_union, length(?untagged_union(?any, ?any, ?any, ?any, ?any,
-                                                   ?any, ?any, ?any))).
+                                                   ?any, ?any, ?any, ?any))).
 
--define(atom_union(T),       ?union([T,?none,?none,?none,?none,?none,?none,?none])).
--define(bitstr_union(T),     ?union([?none,T,?none,?none,?none,?none,?none,?none])).
--define(function_union(T),   ?union([?none,?none,T,?none,?none,?none,?none,?none])).
--define(identifier_union(T), ?union([?none,?none,?none,T,?none,?none,?none,?none])).
--define(list_union(T),       ?union([?none,?none,?none,?none,T,?none,?none,?none])).
--define(number_union(T),     ?union([?none,?none,?none,?none,?none,T,?none,?none])).
--define(tuple_union(T),      ?union([?none,?none,?none,?none,?none,?none,T,?none])).
--define(map_union(T),        ?union([?none,?none,?none,?none,?none,?none,?none,T])).
+-define(atom_union(T),       ?union([T,?none,?none,?none,?none,?none,?none,?none,?none])).
+-define(bitstr_union(T),     ?union([?none,T,?none,?none,?none,?none,?none,?none,?none])).
+-define(function_union(T),   ?union([?none,?none,T,?none,?none,?none,?none,?none,?none])).
+-define(identifier_union(T), ?union([?none,?none,?none,T,?none,?none,?none,?none,?none])).
+-define(list_union(T),       ?union([?none,?none,?none,?none,T,?none,?none,?none,?none])).
+-define(number_union(T),     ?union([?none,?none,?none,?none,?none,T,?none,?none,?none])).
+-define(tuple_union(T),      ?union([?none,?none,?none,?none,?none,?none,T,?none,?none])).
+-define(map_union(T),        ?union([?none,?none,?none,?none,?none,?none,?none,T,?none])).
+-define(record_union(T),     ?union([?none,?none,?none,?none,?none,?none,?none,?none,T])).
 -define(integer_union(T),    ?number_union(T)).
 -define(float_union(T),      ?number_union(T)).
 -define(nil_union(T),        ?list_union(T)).
@@ -765,27 +773,57 @@ is_fun(_) -> false.
 -spec t_record() -> erl_type().
 
 t_record() ->
-  ?record(?any, ?any).
+  ?record(nil, #{}).
 
 -spec t_record(any()) -> erl_type().
 
+t_record([]) ->
+  ?record(nil, #{});
 t_record(Name) ->
-  ?record(Name, ?any).
+  ?record(Name, #{}).
+
+-spec t_record(any(), any()) -> erl_type().
+
+t_record([], Fields) ->
+  ?record(nil, #{K => {present, V} || {K, V} <- Fields});
+t_record(Name, Fields) ->
+  ?record(Name, #{K => {present, V} || {K, V} <- Fields}).
 
 -spec t_is_record(erl_type()) -> boolean().
 
-t_is_record(Type) ->
-  structural(Type, fun is_record1/1).
+t_is_record(?record(_, _)) -> true;
+t_is_record(_) -> false.
 
-is_record1(?record(_, _)) -> true;
-is_record1(_) -> false.
+-spec t_is_record(erl_type(), any()) -> atom().
+t_is_record(?record({_,Name}, _), Name) -> true;
+t_is_record(?record(_, _), Name) when is_atom(Name) -> unknown;
+t_is_record(_, _) -> false.
 
--spec t_record_put({atom(), erl_type()}, erl_type()) -> erl_type().
-t_record_put({K, V}, ?record(Name, Fields)) ->
+-spec t_is_record(erl_type(), any(), any()) -> atom().
+t_is_record(?record({Mod, Name}, _), Mod, Name) ->
+  true;
+t_is_record(?record({_, _}, _), Mod, Name) when is_atom(Mod), is_atom(Name) ->
+  unknown;
+t_is_record(_, _, _) ->
+  false.
+
+-spec t_record_get(atom(), erl_type()) -> erl_type().
+t_record_get(K, ?record(_, Fields)) ->
+  case Fields of
+    #{K := {present, V}} -> V;
+    #{K := _} -> ?none;
+    #{} -> ?any
+  end.
+
+-spec t_record_replace(any(), erl_type()) -> erl_type().
+t_record_replace([KV|KVs], Record) ->
+  t_record_replace(KVs, t_record_replace(KV, Record));
+t_record_replace([], Record) ->
+  Record;
+t_record_replace({K, V}, ?record(Name, Fields)) ->
   NewFields = case Fields of
-                #{K := OldV} -> Fields#{K => t_sup(OldV, V)};
-                #{} -> Fields#{K => V};
-                _ -> #{K => V}
+                #{K := _OldV} -> Fields#{K => {present, V}};
+                #{} -> Fields#{K => {present, V}}
               end,
   ?record(Name, NewFields).
 
@@ -1865,6 +1903,8 @@ t_has_var(?tuple_set(_) = T) ->
 t_has_var(?map(_, DefK, _)= Map) ->
   t_has_var_list(map_all_values(Map)) orelse
     t_has_var(DefK);
+t_has_var(?record(_,Type)) ->
+  t_has_var_list(maps:to_list(Type));
 t_has_var(?union(List)) ->
   t_has_var_list(List);
 t_has_var(_) -> false.
@@ -1949,6 +1989,7 @@ t_from_term(T) when is_map(T) ->
 t_from_term(T) when is_pid(T) ->       t_pid();
 t_from_term(T) when is_port(T) ->      t_port();
 t_from_term(T) when is_reference(T) -> t_reference();
+t_from_term(T) when is_record(T) ->    t_record();
 t_from_term(T) when is_tuple(T) ->
   t_tuple([t_from_term(E) || E <- tuple_to_list(T)]).
 
@@ -2107,8 +2148,6 @@ t_sup_aux(?opaque, T) -> T;
 t_sup_aux(T, ?opaque) -> T;
 t_sup_aux(?var(_), _) -> ?any;
 t_sup_aux(_, ?var(_)) -> ?any;
-t_sup_aux(?record(_,_), _) -> ?any;
-t_sup_aux(_, ?record(_,_)) -> ?any;
 t_sup_aux(?atom(Set1), ?atom(Set2)) ->
   ?atom(set_union(Set1, Set2));
 t_sup_aux(?bitstr(U1, B1), ?bitstr(U2, B2)) ->
@@ -2163,6 +2202,27 @@ t_sup_aux(?product(_), _) ->
   ?any;
 t_sup_aux(_, ?product(_)) ->
   ?any;
+t_sup_aux(?record(nil, Es1), ?record(nil, Es2)) ->
+  ?record(nil, sup_record_fields(Es1, Es2));
+t_sup_aux(?record(_, Es1), ?record(nil, Es2)) ->
+  ?record(nil, sup_record_fields(Es1, Es2));
+t_sup_aux(?record(nil, Es1), ?record(_, Es2)) ->
+  ?record(nil, sup_record_fields(Es1, Es2));
+t_sup_aux(?record(N, Es1), ?record(N, Es2)) ->
+  ?record(N, sup_record_fields(Es1, Es2));
+t_sup_aux(?record(N1, _)=A, ?record(N2, _)=B) ->
+  case N1 < N2 of
+    true ->
+      ?record_set([A, B]);
+    false ->
+      ?record_set([B, A])
+  end;
+t_sup_aux(?record(_,_)=Record, ?record_set(Records)) ->
+  record_set_merge(Records, [Record], []);
+t_sup_aux(?record_set(Records), ?record(_,_)=Record) ->
+  record_set_merge(Records, [Record], []);
+t_sup_aux(?record_set(RecordsA), ?record_set(RecordsB)) ->
+  record_set_merge(RecordsA, RecordsB, []);
 t_sup_aux(?tuple(?any, ?any, ?any) = T, ?tuple(_, _, _)) -> T;
 t_sup_aux(?tuple(_, _, _), ?tuple(?any, ?any, ?any) = T) -> T;
 t_sup_aux(?tuple(?any, ?any, ?any) = T, ?tuple_set(_)) -> T;
@@ -2283,6 +2343,86 @@ t_sup_aux(T1, T2) ->
 
 t_sup_lists(Ts1, Ts2) ->
   [t_sup(T1, T2) || T1 <- Ts1 && T2 <- Ts2].
+
+
+sup_record_fields(Es1, Es2) ->
+  Keys = if
+            map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
+            map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
+          end,
+  sup_record_fields(Keys, Es1, Es2, #{}).
+
+sup_record_fields([Key | Keys], Es1, Es2, Acc0) ->
+  case {Es1, Es2} of
+    {#{ Key := {present, Type1 }}, #{ Key := {present, Type2} }} ->
+      Acc = set_record_field(Key, t_sup_aux(Type1, Type2), Acc0),
+      sup_record_fields(Keys, Es1, Es2, Acc);
+    {#{ Key := missing }, #{ Key := missing }} ->
+      sup_record_fields(Keys, Es1, Es2, Acc0#{ Key => missing });
+    {#{ Key := {present, _ }}, #{ Key := missing }} ->
+      Acc = maps:remove(Key, Acc0),
+      sup_record_fields(Keys, Es1, Es2, Acc);
+    {#{ Key := missing }, #{ Key := {present, _} }} ->
+      Acc = maps:remove(Key, Acc0),
+      sup_record_fields(Keys, Es1, Es2, Acc);
+    {#{}, #{}} ->
+      sup_record_fields(Keys, Es1, Es2, Acc0)
+  end;
+sup_record_fields([], _Es1, _Es2, Acc) ->
+  Acc.
+
+set_record_field(_Index, none, Es) ->
+  Es;
+set_record_field(Index, Type, Es) ->
+  Es#{ Index => {present, Type} }.
+
+record_set_merge([], [], [Record]) ->
+  Record;
+record_set_merge([], [], Acc) ->
+  ?record_set(lists:reverse(Acc));
+record_set_merge([?record(N1,_)=A | _]=RsA, [?record(N2,_)=B | _]=RsB, [?record(nil,_)=Acc]) ->
+  case N1 < N2 of
+    true ->
+      ?record(_,_) = t_sup_aux(A, Acc), %Assertion.
+      record_set_merge(tl(RsA), RsB, [t_sup_aux(A, Acc)]);
+    false ->
+      ?record(_,_) = t_sup_aux(B, Acc), %Assertion.
+      record_set_merge(RsA, tl(RsB), [t_sup_aux(B, Acc)])
+  end;
+record_set_merge([?record(N1,_)=A | TsA]=RsA, [?record(N2,_)=B | TsB]=RsB, Acc) ->
+  case {N1, N2} of
+    {nil, _} ->
+      T = t_sup_aux(A, B),
+      ?record(_,_) = T, %Assertion.
+      record_set_merge(Acc ++ TsA, TsB, [T]);
+    {_, nil} ->
+      T = t_sup_aux(B, A),
+      ?record(_,_) = T, %Assertion.
+      record_set_merge(Acc ++ TsA, TsB, [T]);
+    {Same, Same} ->
+      T = t_sup_aux(A, B),
+      ?record(_,_) = T, %Assertion.
+      record_set_merge(TsA, TsB, [T | Acc]);
+    _ ->
+      case N1 < N2 of
+        true ->
+          record_set_merge(TsA, RsB, [A | Acc]);
+        false ->
+          record_set_merge(RsA, TsB, [B | Acc])
+      end
+  end;
+record_set_merge([A | RsA], [], [?record(nil,_)=Acc]) ->
+  record_set_merge(RsA, [], [t_sup_aux(A, Acc)]);
+record_set_merge([?record(nil,_)=A], [], Acc) ->
+  record_set_merge(Acc, [], [A]);
+record_set_merge([A | RsA], [], Acc) ->
+  record_set_merge(RsA, [], [A | Acc]);
+record_set_merge([], [B | RsB], [?record(nil,_)=Acc]) ->
+  record_set_merge([], RsB, [t_sup_aux(B, Acc)]);
+record_set_merge([], [?record(nil,_)=B], Acc) ->
+  record_set_merge(Acc, [], [B]);
+record_set_merge([], [B | RsB], Acc) ->
+  record_set_merge([], RsB, [B | Acc]).
 
 %% Adds the new nominal `Sup` into the set of nominals `Ns0`. Note that it does
 %% not handle structurals; the caller is expected to normalize the result
@@ -2448,6 +2588,8 @@ force_union(T = ?number(_, _)) ->     ?number_union(T);
 force_union(T = ?map(_,_,_)) ->       ?map_union(T);
 force_union(T = ?tuple(_, _, _)) ->   ?tuple_union(T);
 force_union(T = ?tuple_set(_)) ->     ?tuple_union(T);
+force_union(T = ?record(_,_)) ->      ?record_union(T);
+force_union(T = ?record_set(_)) ->    ?record_union(T);
 force_union(T = ?union(_)) ->         T.
 
 %%-----------------------------------------------------------------------------
@@ -2734,6 +2876,26 @@ t_inf_aux(?product(_), _) ->
   ?none;
 t_inf_aux(_, ?product(_)) ->
   ?none;
+t_inf_aux(?record(N1, Es1), ?record(N2, Es2)) ->
+  maybe
+    {ok, Name} ?=
+      case {N1, N2} of
+        {Same, Same} -> {ok, Same};
+        {nil, N} -> {ok, N};
+        {N, nil} -> {ok, N};
+        {_, _} -> error
+      end,
+    #{} ?= Es = inf_record_elements(Es1, Es2),
+    ?record(Name, Es)
+  else
+    _ -> ?none
+  end;
+t_inf_aux(?record(_, _)=Record, ?record_set(Records)) ->
+    inf_record_sets(Records, [Record], []);
+t_inf_aux(?record_set(_)=Records, ?record(_, _)=Record) ->
+    inf_record_sets(Records, [Record], []);
+t_inf_aux(?record_set(RecordsA), ?record_set(RecordsB)) ->
+    inf_record_sets(RecordsA, RecordsB, []);
 t_inf_aux(?tuple(?any, ?any, ?any), ?tuple(_, _, _) = T) ->
   T;
 t_inf_aux(?tuple(_, _, _) = T, ?tuple(?any, ?any, ?any)) ->
@@ -2763,10 +2925,6 @@ t_inf_aux(?union(U1), T) ->
 t_inf_aux(T, ?union(U2)) ->
   ?union(U1) = force_union(T),
   inf_union(U1, U2);
-t_inf_aux(?record(_,_)=T, _) ->
-  T;
-t_inf_aux(_, ?record(_,_)=T) ->
-  T;
 t_inf_aux(#c{}, #c{}) ->
   ?none.
 
@@ -2790,6 +2948,56 @@ t_inf_lists_strict([T1|Left1], [T2|Left2], Acc) ->
   end;
 t_inf_lists_strict([], [], Acc) ->
   lists:reverse(Acc).
+
+inf_record_elements(Es1, Es2) ->
+  Keys = lists:usort(maps:keys(Es1) ++ maps:keys(Es2)),
+  inf_record_elements(Keys, Es1, Es2, #{}).
+
+inf_record_elements([Key | Keys], Es1, Es2, Acc) ->
+  case {Es1, Es2} of
+    {#{ Key := {present, Type1} }, #{ Key := {present, Type2} }} ->
+      case t_inf_aux(Type1, Type2) of
+        ?none -> ?none;
+        Type -> inf_record_elements(Keys, Es1, Es2, Acc#{ Key => {present, Type} })
+      end;
+    {#{ Key := {present, _ }}, #{ Key := missing}} ->
+      ?none;
+    {#{ Key := missing}, #{ Key := {present, _}}} ->
+      ?none;
+    {#{ Key := Type1 }, _} ->
+      inf_record_elements(Keys, Es1, Es2, Acc#{ Key => Type1 });
+    {_, #{ Key := Type2 }} ->
+      inf_record_elements(Keys, Es1, Es2, Acc#{ Key => Type2 })
+  end;
+inf_record_elements([], _Es1, _Es2, Acc) ->
+  Acc.
+
+inf_record_sets([?record(N1, _) | _]=RsA,
+                [?record(N2, _) | _]=RsB, Acc) when N1 =/= N2 andalso N1 =/= nil andalso N2 =/= nil ->
+  case N1 < N2 of
+    true ->
+      inf_record_sets(tl(RsA), RsB, Acc);
+    false ->
+      inf_record_sets(RsA, tl(RsB), Acc)
+  end;
+inf_record_sets([A | RsA], [B | RsB], Acc) ->
+  maybe
+    ?record(_,_)=T ?= t_inf_aux(A, B),
+    case T of
+      ?record(nil, _) -> T; 
+      _ -> inf_record_sets(RsA, RsB, [T | Acc])
+    end
+  else
+    _ -> ?none
+  end;
+inf_record_sets(_RsA, [], [_,_|_]=Acc) ->
+  ?record_set(lists:reverse(Acc));
+inf_record_sets([], _RsB, [_,_|_]=Acc) ->
+  ?record_set(lists:reverse(Acc));
+inf_record_sets(_RsA, _RsB, [Record]) ->
+  Record;
+inf_record_sets(_RsA, _RsB, []) ->
+  ?none.
 
 inf_nominal_sets([_|_]=LHS, [_|_]=RHS) ->
   %% Because a nominal in LHS_Ns can be a subtype of another in RHS_Ns or of
@@ -2866,9 +3074,9 @@ inf_tuples_in_sets2(_, [], Acc) -> lists:reverse(Acc).
 inf_union(U1, U2) ->
   OpaqueFun =
     fun(Union1, Union2, InfFun) ->
-        ?untagged_union(_,_,_,_,_,_,_,_) = Union1,
-        ?untagged_union(A,B,F,I,L,N,T,Map) = Union2,
-        List = [A,B,F,I,L,N,T,Map],
+        ?untagged_union(_,_,_,_,_,_,_,_,_) = Union1,
+        ?untagged_union(A,B,F,I,L,N,T,Map,R) = Union2,
+        List = [A,B,F,I,L,N,T,Map,R],
         %% FIXME: Faking ?none opaque -- remove argument.
         inf_union_collect(List, InfFun, [], [])
     end,
@@ -2998,6 +3206,11 @@ t_subst_aux(?tuple_set(_) = TS, Map) ->
 t_subst_aux(?map(Pairs, DefK, DefV), Map) ->
   t_map([{K, MNess, t_subst_aux(V, Map)} || {K, MNess, V} <- Pairs],
 	t_subst_aux(DefK, Map), t_subst_aux(DefV, Map));
+t_subst_aux(?record(Name, Type), Map) ->
+  Type1 = #{K => {present, t_subst_aux(V, Map)} || K := {present, V} <- Type},
+  ?record(Name, Type1);
+t_subst_aux(?record_set(Rs), Map) ->
+  ?record_set([t_subst_aux(R, Map) || R <- Rs]);
 t_subst_aux(?union(List), Map) ->
   ?union([t_subst_aux(E, Map) || E <- List]);
 t_subst_aux(T, _Map) ->
@@ -3391,6 +3604,13 @@ t_subtract_aux(T, ?product(_)) ->
   T;
 t_subtract_aux(?record(_,_) = T, _) ->
   T;
+t_subtract_aux(?record_set([_|_]=Records0), ?record(_, _)=B) ->
+  %% Filter out all records that are more specific than B.
+  case [T || T <:- Records0, t_inf_aux(T, B) =/= T] of
+    [_,_|_]=Records -> ?record_set(Records);
+    [Record] -> Record;
+    [] -> ?none
+  end;
 t_subtract_aux(?union(U1), ?union(U2)) ->
   subtract_union(U1, U2);
 t_subtract_aux(T1, T2) ->
@@ -3406,10 +3626,10 @@ t_subtract_lists(L1, L2) ->
 -spec subtract_union([erl_type(),...], [erl_type(),...]) -> erl_type().
 
 subtract_union(U1, U2) ->
-  ?untagged_union(A1,B1,F1,I1,L1,N1,T1,Map1) = U1,
-  ?untagged_union(A2,B2,F2,I2,L2,N2,T2,Map2) = U2,
-  List1 = ?untagged_union(A1,B1,F1,I1,L1,N1,T1,Map1),
-  List2 = ?untagged_union(A2,B2,F2,I2,L2,N2,T2,Map2),
+  ?untagged_union(A1,B1,F1,I1,L1,N1,T1,Map1,R1) = U1,
+  ?untagged_union(A2,B2,F2,I2,L2,N2,T2,Map2,R2) = U2,
+  List1 = ?untagged_union(A1,B1,F1,I1,L1,N1,T1,Map1,R1),
+  List2 = ?untagged_union(A2,B2,F2,I2,L2,N2,T2,Map2,R2),
   subtract_union(List1, List2, ?none, []).
 
 subtract_union([T1|Left1], [T2|Left2], Type, Acc) ->
@@ -3520,12 +3740,12 @@ t_structural(?product(Types)) ->
   ?product([t_structural(T) || T <- Types]);
 t_structural(?function(Domain, Range)) ->
   ?function(t_structural(Domain), t_structural(Range));
-t_structural(?union(?untagged_union(A,B,F,I,L,N,T,Map))) ->
+t_structural(?union(?untagged_union(A,B,F,I,L,N,T,Map,R))) ->
   UL = t_structural(L),
   UT = t_structural(T),
   UF = t_structural(F),
   UMap = t_structural(Map),
-  t_sup([A,B,UF,I,UL,N,UT,UMap]);
+  t_sup([A,B,UF,I,UL,N,UT,UMap,R]);
 t_structural(?map(Pairs,DefK,DefV)) ->
   t_map([{t_structural(K), MNess, t_structural(V)}
          || {K, MNess, V} <- Pairs],
@@ -3714,6 +3934,11 @@ t_abstract_records(?tuple(Elements, _Arity, _Tag), RecDict) ->
   t_tuple([t_abstract_records(E, RecDict) || E <- Elements]);
 t_abstract_records(?tuple_set(_) = Tuples, RecDict) ->
   t_sup([t_abstract_records(T, RecDict) || T <- t_tuple_subtypes(Tuples)]);
+t_abstract_records(?record(Name, Type), RecDict) ->
+  Type1 = #{K => {present, t_abstract_records(V, RecDict)} || K := {present, V} <- Type},
+  ?record(Name, Type1);
+t_abstract_records(?record_set(Rs), RecDict) ->
+  ?record_set([t_abstract_records(R, RecDict) || R <- Rs]);
 t_abstract_records(T, _RecDict) ->
   T.
 
@@ -3881,17 +4106,19 @@ t_to_string(?map(Pairs0,DefK,DefV), RecDict) ->
   "#{" ++ flat_join([K ++ ":=" ++ V||{K,V}<-StrMand]
                     ++ [K ++ "=>" ++ V||{K,V}<-StrOpt]
                     ++ ExtraEl, ", ") ++ "}";
-t_to_string(?record(?any, ?any), _RecDict) ->
+t_to_string(?record(nil, Pairs), _RecDict) when map_size(Pairs) =:= 0 ->
   "record()";
-t_to_string(?record({Module, Name}, ?any), _RecDict) ->
-  ModName = flat_format("~w:~tw", [Module, Name]),
-  ModName ++ "#{any()}";
+t_to_string(?record(nil, Pairs), RecDict) ->
+  "_#{" ++ record_fields_to_ordered(Pairs, RecDict);
 t_to_string(?record({Module, Name}, Pairs), RecDict) ->
   ModName = flat_format("~w:~tw", [Module, Name]),
-  ModName ++ "#{" ++
-  flat_join([t_to_string(K, RecDict) ++ "=" ++ t_to_string(V, RecDict)
-             || K := V <:- Pairs], ", ")
-  ++ "}";
+  "#" ++ ModName ++ "{" ++
+  record_fields_to_ordered(Pairs, RecDict);
+t_to_string(?record(Name, Pairs), RecDict) ->
+  "#" ++ atom_to_string(Name) ++ "{" ++
+  record_fields_to_ordered(Pairs, RecDict);
+t_to_string(?record_set(Ts), RecDict) ->
+  union_sequence([T || T <- Ts], RecDict);
 t_to_string(?tuple(?any, ?any, ?any), _RecDict) -> "tuple()";
 t_to_string(?tuple(Elements, _Arity, ?any), RecDict) ->
   "{" ++ comma_sequence(Elements, RecDict) ++ "}";
@@ -3911,6 +4138,11 @@ t_to_string(?var(Id), _RecDict) when is_atom(Id) ->
 t_to_string(?var(Id), _RecDict) when is_integer(Id) ->
   flat_format("var(~w)", [Id]).
 
+record_fields_to_ordered(Pairs, RecDict) ->
+  Pairs1 = lists:keysort(1, maps:to_list(Pairs)),
+  flat_join([atom_to_string(K) ++ "=" ++ t_to_string(V, RecDict)
+             || {K, {present, V}} <- Pairs1], ", ")
+  ++ "}".
 
 record_to_string(Tag, [_|Fields], FieldNames, RecDict) ->
   FieldStrings = record_fields_to_string(Fields, FieldNames, RecDict, []),
@@ -3957,6 +4189,33 @@ field_diffs([F|Fs], [{FName, _Abstr, DefType}|FDefs], Pos, RecDict, Acc) ->
 field_diffs([], [], _, _, Acc) ->
   lists:reverse(Acc).
 
+-spec native_record_field_diffs(erl_type(), erl_type()) -> string().
+native_record_field_diffs(?record(Name1, Fields1), ?record(Name2, Fields2)) ->
+  case Name1 =:= Name2 of
+    true ->
+      Keys = lists:sort(maps:keys(Fields2)),
+      native_record_field_diffs_1(Keys, Fields1, Fields2, []);
+    false ->
+      {M, N} = Name1,
+      ["#", atom_to_string(M), ":", atom_to_string(N), "{}"]
+  end.
+
+native_record_field_diffs_1([K|Keys], Fields1, Fields2, Acc) ->
+  %% Fields1 are in the definition. Fields2 are in the instance.
+  %% Only warn about type conflicts for keys in the instance.
+  case {Fields1, Fields2} of
+    {#{K := {present, V1}}, #{K := {present, V2}}} ->
+      case t_inf_aux(V1, V2) of
+        none -> native_record_field_diffs_1(Keys, Fields1, Fields2, [{K, V1}|Acc]);
+        _ -> native_record_field_diffs_1(Keys, Fields1, Fields2, Acc)
+      end;
+    _ ->
+      native_record_field_diffs_1(Keys, Fields1, Fields2, Acc)
+  end;
+native_record_field_diffs_1([], _, _, Acc) ->
+    lists:flatten([lists:join(", ", [atom_to_string(K) ++ "::" ++
+                                     t_to_string(V1, #{}) || {K, V1} <- Acc])]).
+
 comma_sequence(Types, RecDict) ->
   List = [case T =:= ?any of
 	    true -> "_";
@@ -3982,7 +4241,7 @@ union_sequence(Types, RecDict) ->
                | {'spec', mfa(), file:filename()}
                | {'record', mra(), file:filename()}
                | {'check', mta(), file:filename()}
-               | {'native_record', mra(), file:filename()}.
+               | {'native_record', any(), file:filename()}.
 -type cache_key() :: {module(), atom(), expand_depth(),
                       [erl_type()], type_names()}.
 -type mod_type_table() :: ets:tid().
@@ -4459,7 +4718,45 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
   end.
 
 
-
+record_from_form({tuple, _, [{atom, _, M}, {atom, _, N}]}, ModFields, S, D0, L0, C) ->
+  #from_form{site = Site, mrecs = MR, tnames = TypeNames} = S,
+  RecName = {M, N},
+  RecordType = {native_record, {M, N}},
+  case can_unfold_more(RecordType, TypeNames) of
+    true ->
+      {R, C1} = case lookup_module_types(M, MR, C) of
+                  error -> throw({error, io_lib:format("Unknown record #~tw:~tw{}\n", [M, N])});
+                  Res -> Res
+                end,
+      case lookup_record(RecName, R) of
+        {ok, DeclFields} ->
+          NewTypeNames = [RecordType|TypeNames],
+          Site1 = {native_record, RecName, site_file(Site)},
+          S1 = S#from_form{site = Site1, tnames = NewTypeNames},
+          Fun = fun(D, L) ->
+                    {GetModRec, L1, C2} =
+                      get_mod_record(ModFields, DeclFields, S1, D, L, C1),
+                    case GetModRec of
+                      {error, FieldName} ->
+                        throw({error,
+                                io_lib:format("Illegal declaration of #~tw:~tw{~tw}\n",
+                                              [M, N, FieldName])});
+                      {ok, NewFields} ->
+                        S2 = S1#from_form{vtab = var_table__new()},
+                        {NewFields1, L2, C3} =
+                          fields_from_form(NewFields, S2, D, L1, C2),
+                        Rec = t_record(RecName,
+                                [{FieldName, Type} || {FieldName, Type} <- NewFields1]),
+                        {Rec, L2, C3}
+                    end
+                end,
+          recur_limit(Fun, D0, L0, RecordType, TypeNames);
+        error ->
+          throw({error, io_lib:format("Unknown record #~tw:~tw{}\n", [M, N])})
+      end;
+    false ->
+      {t_any(), L0, C}
+  end;
 record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
   #from_form{site = Site, mrecs = MR, tnames = TypeNames} = S,
   RecordType = {record, Name},
@@ -4494,7 +4791,11 @@ record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
                 end,
           recur_limit(Fun, D0, L0, RecordType, TypeNames);
         error ->
-          throw({error, io_lib:format("Unknown record #~tw{}\n", [Name])})
+          RecName = case Name of
+                      {M1, N1} -> {tuple, 0, [{atom, 0, M1}, {atom, 0, N1}]};
+                      _ -> {tuple, 0, [{atom, 0, M}, {atom, 0, Name}]}
+                    end,
+          record_from_form(RecName, ModFields, S, D0, L0, C)
       end;
     false ->
        {t_any(), L0, C}
@@ -4686,18 +4987,53 @@ check_record_fields({type, _Anno, _, Args}, S, C) ->
 check_record_fields({user_type, _Anno, _Name, Args}, S, C) ->
   list_check_record_fields(Args, S, C).
 
+
+check_record({tuple, _, [{atom, _, M}, {atom, _, N}]}, ModFields, S, C) ->
+  %% Remote native record with syntax #Mod:Name{}.
+  #from_form{site = Site, mrecs = MR} = S,
+  M = site_module(Site),
+  {R, C1} = case lookup_module_types(M, MR, C) of
+              error ->
+                throw({error, io_lib:format("Unknown record #~tw:~tw{}\n", [M, N])});
+              Res ->
+                Res
+            end,
+  {RecName, DeclFields} = lookup_record({M, N}, R),
+  case check_fields(RecName, ModFields, DeclFields, S, C1) of
+    {error, FieldName} ->
+      throw({error, io_lib:format("Illegal declaration of #~tw:~tw{~tw}\n",
+                                  [M, N, FieldName])});
+    C2 -> C2
+  end;
 check_record({atom, _, Name}, ModFields, S, C) ->
   #from_form{site = Site, mrecs = MR} = S,
   M = site_module(Site),
   {R, C1} = lookup_module_types(M, MR, C),
-  {ok, DeclFields} = lookup_record(Name, R),
-  case check_fields(Name, ModFields, DeclFields, S, C1) of
+  {RecName, DeclFields} = case lookup_record(Name, R) of
+                            {ok, Fields} ->
+                              {Name, Fields};
+                            error ->
+                              {ok, Fields} = lookup_record({M, Name}, R),
+                              {{M, Name}, Fields}
+                          end,
+  case check_fields(RecName, ModFields, DeclFields, S, C1) of
     {error, FieldName} ->
       throw({error, io_lib:format("Illegal declaration of #~tw{~tw}\n",
                                   [Name, FieldName])});
     C2 -> C2
   end.
 
+check_fields({M, RecName}, [{type, _, field_type, [{atom, _, Name}, Abstr]}|Left],
+             DeclFields, S, C) ->
+  #from_form{site = Site0, xtypes = ET, mrecs = MR, vtab = V} = S,
+  Site = {native_record, {M, RecName}, site_file(Site0)},
+  {Type, C1} = t_from_form(Abstr, ET, Site, MR, V, C),
+  {Name, _, DeclType} = lists:keyfind(Name, 1, DeclFields),
+  TypeNoVars = subst_all_vars_to_any(Type),
+  case t_is_impossible(t_inf(TypeNoVars, DeclType)) of
+    true -> {error, Name};
+    false -> check_fields(RecName, Left, DeclFields, S, C1)
+  end;
 check_fields(RecName, [{type, _, field_type, [{atom, _, Name}, Abstr]}|Left],
              DeclFields, S, C) ->
   #from_form{site = Site0, xtypes = ET, mrecs = MR, vtab = V} = S,
@@ -4719,6 +5055,8 @@ list_check_record_fields([H|Tail], S, C) ->
   C1 = check_record_fields(H, S, C),
   list_check_record_fields(Tail, S, C1).
 
+site_module({_, {Module, _}, _}) ->
+  Module;
 site_module({_, {Module, _, _}, _}) ->
   Module.
 
@@ -4848,6 +5186,8 @@ t_form_to_string({type, _Anno, range, [From, To]} = Type) ->
       flat_format("~w..~w", [FromVal, ToVal]);
     _ -> flat_format("Badly formed type ~w",[Type])
   end;
+t_form_to_string({type, _Anno, record, []}) ->
+  "record()";
 t_form_to_string({type, _Anno, record, [{atom, _, Name}]}) ->
   flat_format("#~tw{}", [Name]);
 t_form_to_string({type, _Anno, record, [{atom, _, Name}|Fields]}) ->
@@ -4965,13 +5305,11 @@ lookup_record(Tag, Table) when is_atom(Tag) ->
     #{} ->
       error
   end;
-lookup_record(Tag, Table) ->
+lookup_record(Tag, Table) when is_tuple(Tag) ->
   Key = {native_record, Tag},
   case Table of
-    #{Key := {_FileLocation, [{_Arity, Fields}]}} ->
+    #{Key := {_FileLocation, Fields}} ->
       {ok, Fields};
-    #{Key := {_FileLocation, List}} when is_list(List) ->
-      error;
     #{} ->
       error
   end.
@@ -4989,13 +5327,11 @@ lookup_record(Tag, Arity, Table) when is_atom(Tag) ->
     #{} ->
       error
   end;
-lookup_record(Tag, 0, Table) ->
+lookup_record(Tag, 0, Table) when is_tuple(Tag) ->
   Key = {native_record, Tag},
   case Table of
-    #{Key := {_FileLocation, [{_Arity, Fields}]}} ->
+    #{Key := {_FileLocation, Fields}} ->
       {ok, Fields};
-    #{Key := _OrdDict} ->
-      error;
     #{} ->
       error
   end.
@@ -5281,6 +5617,8 @@ get_modules_mentioned({char, _L, _Char}, _D, L, Acc) ->
 get_modules_mentioned({op, _L, _Op, _Arg}, _D, L, Acc) ->
   {L, Acc};
 get_modules_mentioned({op, _L, _Op, _Arg1, _Arg2}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({tuple, _, _}, _D, L, Acc) ->
   {L, Acc};
 get_modules_mentioned({type, _L, 'fun', [{type, _, any}, Range]}, D, L, Acc) ->
   get_modules_mentioned(Range, D - 1, L - 1, Acc);

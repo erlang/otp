@@ -1699,7 +1699,7 @@ _See also: _`c_record/2`.
 """.
 -doc(#{since => <<"OTP @OTP-19785@">>}).
 
--spec record_arg(Node :: c_record()) -> c_record() | c_literal().
+-spec record_arg(Node :: c_record()) -> c_var() | c_literal().
 
 record_arg(#c_record{arg = M}) ->
     M.
