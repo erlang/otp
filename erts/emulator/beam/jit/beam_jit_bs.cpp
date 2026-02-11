@@ -20,10 +20,6 @@
  * %CopyrightEnd%
  */
 
-#ifndef ASMJIT_ASMJIT_H_INCLUDED
-#    include <asmjit/asmjit.hpp>
-#endif
-
 #include "beam_asm.hpp"
 #include "beam_jit_common.hpp"
 #include "beam_jit_bs.hpp"
@@ -36,7 +32,7 @@ extern "C"
 #include "beam_file.h"
 };
 
-std::vector<BscSegment> beam_jit_bsc_init(const Span<ArgVal> &args) {
+std::vector<BscSegment> beam_jit_bsc_init(const Span<const ArgVal> &args) {
     std::size_t n = args.size();
     std::vector<BscSegment> segments;
 
@@ -289,7 +285,7 @@ static UWord bs_get_flags(const BeamFile *beam, const ArgVal &val) {
 }
 
 std::vector<BsmSegment> beam_jit_bsm_init(const BeamFile *beam,
-                                          Span<ArgVal> const &List) {
+                                          const Span<const ArgVal> &List) {
     std::vector<BsmSegment> segments;
 
     auto current = List.begin();

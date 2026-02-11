@@ -567,6 +567,7 @@ is_ignored(Filename) ->
               [
                "/LICENSE$",
                "^LICENSE.txt$",
+               "^LICENSE.md$",
                "^LICENSES/.*",
                "^FILE-HEADERS/.*",
                "^system/COPYRIGHT$",

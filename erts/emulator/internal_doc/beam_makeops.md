@@ -2119,7 +2119,7 @@ Here is the emitter function:
     void BeamModuleAssembler::emit_select_val(const ArgVal &Src,
                                               const ArgVal &Fail,
                                               const ArgVal &Size,
-                                              const Span<ArgVal> &args) {
+                                              const Span<const ArgVal> &args) {
         ASSERT(Size.getValue() == args.size());
            .
            .

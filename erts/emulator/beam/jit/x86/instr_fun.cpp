@@ -28,7 +28,7 @@
  * ARG4 = fun thing
  * ARG5 = current PC */
 void BeamGlobalAssembler::emit_unloaded_fun() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
 
@@ -71,7 +71,7 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
  * ARG4 = fun thing
  * ARG5 = current PC */
 void BeamGlobalAssembler::emit_handle_call_fun_error() {
-    Label bad_arity = a.newLabel(), bad_fun = a.newLabel();
+    Label bad_arity = a.new_label(), bad_fun = a.new_label();
 
     emit_enter_frame();
     emit_is_boxed(bad_fun, ARG4);
@@ -117,7 +117,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         /* Create the {Fun, Args} tuple. */
         {
             const int32_t bytes_needed = (3 + S_RESERVED) * sizeof(Eterm);
-            Label after_gc = a.newLabel();
+            Label after_gc = a.new_label();
 
             a.lea(ARG3, x86::qword_ptr(HTOP, bytes_needed));
             a.cmp(ARG3, E);
@@ -196,7 +196,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgRegister &Dst,
                                            const ArgWord &Arity,
                                            const ArgWord &NumFree,
-                                           const Span<ArgVal> &env) {
+                                           const Span<const ArgVal> &env) {
     ASSERT((NumFree.get()) == env.size() &&
            (NumFree.get() + Arity.get()) < MAX_ARG);
 
@@ -267,7 +267,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
 /* Unwraps `apply_fun` so we can share the rest of the implementation with
  * `call_fun`. */
 void BeamGlobalAssembler::emit_apply_fun_shared() {
-    Label finished = a.newLabel();
+    Label finished = a.new_label();
 
     emit_enter_frame();
 
@@ -279,14 +279,14 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
     a.mov(ARG5, getXRef(1));
 
     {
-        Label unpack_next = a.newLabel(), malformed_list = a.newLabel(),
-              raise_error = a.newLabel();
+        Label unpack_next = a.new_label(), malformed_list = a.new_label(),
+              raise_error = a.new_label();
 
         auto x_register = getXRef(0);
 
         ASSERT(x_register.shift() == 0);
-        x_register.setIndex(ARG3);
-        x_register.setShift(3);
+        x_register.set_index(ARG3);
+        x_register.set_shift(3);
 
         a.mov(ARG1, ARG5);
         a.bind(unpack_next);
@@ -369,7 +369,7 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
 x86::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
                                            bool skip_header_test) {
     const bool can_fail = !(skip_box_test && skip_header_test);
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     /* Speculatively strip the literal tag when needed. */
     x86::Gp fun_thing = emit_ptr_val(RET, ARG4);

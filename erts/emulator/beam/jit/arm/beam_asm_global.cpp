@@ -40,7 +40,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
      * other freely without any order dependencies. */
     for (auto val : labelNames) {
         std::string name = "global::" + val.second;
-        labels[val.first] = a.newNamedLabel(name.c_str());
+        labels[val.first] = a.new_named_label(name.c_str());
     }
 
     /* Emit all of the code and bind all of the labels */
@@ -57,9 +57,9 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         void *writable_region;
 
         BeamAssembler::codegen(allocator, &executable_region, &writable_region);
-        VirtMem::flushInstructionCache((void *)executable_region,
-                                       code.codeSize());
-        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
+        VirtMem::flush_instruction_cache((void *)executable_region,
+                                         code.code_size());
+        VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
     std::vector<AsmRange> ranges;
@@ -73,18 +73,18 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         if (val.first + 1 < emitPtrs.size()) {
             stop = (ErtsCodePtr)getCode(labels[(GlobalLabels)(val.first + 1)]);
         } else {
-            stop = (ErtsCodePtr)((char *)getBaseAddress() + code.codeSize());
+            stop = (ErtsCodePtr)((char *)getBaseAddress() + code.code_size());
         }
 
         ranges.push_back(AsmRange{start,
                                   stop,
-                                  code.labelEntry(labels[val.first])->name(),
+                                  code.label_entry_of(labels[val.first]).name(),
                                   {}});
     }
 
     (void)beamasm_metadata_insert("global",
                                   (ErtsCodePtr)getBaseAddress(),
-                                  code.codeSize(),
+                                  code.code_size(),
                                   ranges);
 
     /* `this->get_xxx` are populated last to ensure that we crash if we use
@@ -110,7 +110,7 @@ void BeamGlobalAssembler::emit_garbage_collect() {
 
     /* Save our return address in c_p->i so we can tell where we crashed if we
      * did so during GC. */
-    a.str(a64::x30, arm::Mem(c_p, offsetof(Process, i)));
+    a.str(a64::x30, a64::Mem(c_p, offsetof(Process, i)));
 
     emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
 
@@ -126,7 +126,7 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
     emit_leave_runtime_frame();
 
-    a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, state.value)));
+    a.ldr(TMP1.w(), a64::Mem(c_p, offsetof(Process, state.value)));
     a.tst(TMP1, imm(ERTS_PSFLG_EXITING));
     a.b_ne(labels[do_schedule]);
 
@@ -145,7 +145,7 @@ void BeamGlobalAssembler::emit_garbage_collect() {
 void BeamGlobalAssembler::emit_bif_export_trap() {
     int export_offset = offsetof(Export, info.mfa);
 
-    a.ldr(ARG1, arm::Mem(c_p, offsetof(Process, current)));
+    a.ldr(ARG1, a64::Mem(c_p, offsetof(Process, current)));
     a.sub(ARG1, ARG1, export_offset);
 
     emit_leave_erlang_frame();
@@ -162,10 +162,10 @@ void BeamGlobalAssembler::emit_bif_export_trap() {
  * ARG1 = export entry
  */
 void BeamGlobalAssembler::emit_export_trampoline() {
-    Label call_bif = a.newLabel(), error_handler = a.newLabel();
+    Label call_bif = a.new_label(), error_handler = a.new_label();
 
     /* What are we supposed to do? */
-    a.ldr(TMP1, arm::Mem(ARG1, offsetof(Export, trampoline.common.op)));
+    a.ldr(TMP1, a64::Mem(ARG1, offsetof(Export, trampoline.common.op)));
 
     /* We test the generic bp first as it is most likely to be triggered in a
      * loop. */
@@ -190,9 +190,9 @@ void BeamGlobalAssembler::emit_export_trampoline() {
          * land here directly after being scheduled in. */
         ssize_t func_offset = offsetof(Export, trampoline.bif.address);
 
-        lea(ARG2, arm::Mem(ARG1, offsetof(Export, info.mfa)));
-        a.ldr(ARG3, arm::Mem(c_p, offsetof(Process, i)));
-        a.ldr(ARG4, arm::Mem(ARG1, func_offset));
+        lea(ARG2, a64::Mem(ARG1, offsetof(Export, info.mfa)));
+        a.ldr(ARG3, a64::Mem(c_p, offsetof(Process, i)));
+        a.ldr(ARG4, a64::Mem(ARG1, func_offset));
 
         /* `call_bif_shared` assumes that the return address has been pushed to
          * the stack as part of the prologue, so we have to do that manually
@@ -203,7 +203,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.bind(error_handler);
     {
-        lea(ARG2, arm::Mem(ARG1, offsetof(Export, info.mfa)));
+        lea(ARG2, a64::Mem(ARG1, offsetof(Export, info.mfa)));
         a.str(ARG2, TMP_MEM1q);
 
         emit_enter_runtime_frame();
@@ -276,7 +276,7 @@ void BeamGlobalAssembler::emit_process_exit() {
                                  ErtsCodePtr,
                                  Eterm *,
                                  const ErtsCodeMFA *),
-                 handle_error>();
+                 ::handle_error>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
 
@@ -298,7 +298,7 @@ void BeamGlobalAssembler::emit_raise_exception() {
 }
 
 void BeamGlobalAssembler::emit_raise_exception_shared() {
-    Label crash = a.newLabel();
+    Label crash = a.new_label();
 
     /* Push a fake CP to ensure that we can handle a topmost frame
      * with `catch` and an instruction raising and exception.
@@ -306,7 +306,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
      * The fake CP is discarded by handle_error() before jumping to
      * a catch handler, and is ignored as a duplicate in stack
      * traces because it's equal to the error address. */
-    a.str(ARG2, arm::Mem(E, -8).pre());
+    a.str(ARG2, a64::Mem(E, -8).pre());
 
     emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs>();
 
@@ -321,7 +321,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
                                  ErtsCodePtr,
                                  Eterm *,
                                  const ErtsCodeMFA *),
-                 handle_error>();
+                 ::handle_error>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs>();
 

@@ -145,7 +145,7 @@ void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
 
 x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
-    Label dispatch = a.newLabel(), entry = a.newLabel();
+    Label dispatch = a.new_label(), entry = a.new_label();
 
     align_erlang_cp();
     a.bind(entry);
@@ -195,7 +195,7 @@ void BeamModuleAssembler::emit_i_apply_only() {
 
 x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
                                                bool includeI) {
-    Label dispatch = a.newLabel(), entry = a.newLabel();
+    Label dispatch = a.new_label(), entry = a.new_label();
 
     align_erlang_cp();
     a.bind(entry);

@@ -77,7 +77,7 @@ public:
     }
 
     Reg find(size_t offset, Mem mem) {
-        ASSERT(mem.hasBase());
+        ASSERT(mem.has_base());
         consolidate(offset);
 
         auto it = std::find_if(cbegin(), cend(), [&](const auto &entry) {
@@ -85,7 +85,7 @@ public:
         });
 
         if (it != cend()) {
-            ASSERT(it->reg.isValid());
+            ASSERT(it->reg.is_valid());
             return it->reg;
         }
 
@@ -93,7 +93,7 @@ public:
     }
 
     void invalidate(Mem mem) {
-        ASSERT(mem.hasBase());
+        ASSERT(mem.has_base());
 
         auto i = 0;
         while (i < entries) {
@@ -110,7 +110,7 @@ public:
     }
 
     void invalidate(Reg reg) {
-        ASSERT(reg.isValid());
+        ASSERT(reg.is_valid());
 
         auto i = 0;
         while (i < entries) {
@@ -135,8 +135,8 @@ public:
         for (int i = 0; i < entries; i++) {
             auto &entry = cache[i];
 
-            if (entry.mem.hasBase() && entry.mem.baseReg() == yregs_base) {
-                entry.mem = entry.mem.cloneAdjusted(offset);
+            if (entry.mem.has_base() && entry.mem.base_reg() == yregs_base) {
+                entry.mem = entry.mem.clone_adjusted(offset);
             }
         }
     }
@@ -161,7 +161,7 @@ public:
         if (it != temporaries.cend()) {
             ASSERT(std::none_of(cbegin(), cend(), [&](const auto &entry) {
                 return (*it == entry.reg) ||
-                       (entry.mem.hasBase() && entry.mem.baseReg() == *it);
+                       (entry.mem.has_base() && entry.mem.base_reg() == *it);
             }));
 
             return *it;
@@ -171,15 +171,15 @@ public:
     }
 
     void put(Mem mem, Reg reg) {
-        ASSERT(mem.hasBase());
+        ASSERT(mem.has_base());
 
         /* Only allow caching of X and Y registers. */
-        auto base = mem.baseReg();
+        auto base = mem.base_reg();
         if (base != xregs_base && base != yregs_base) {
             return;
         }
 
-        ASSERT(mem.baseReg() != reg);
+        ASSERT(mem.base_reg() != reg);
 
         auto it = std::find_if(begin(), end(), [&](const auto &entry) {
             return mem == entry.mem;

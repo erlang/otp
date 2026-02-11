@@ -104,7 +104,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
  *
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_hashmap_get_element() {
-    Label node_loop = a.newLabel();
+    Label node_loop = a.new_label();
 
     x86::Gp node = ARG1, key = ARG2, key_hash = ARG3, header_val = RETd,
             index = ARG4d, depth = ARG5d;
@@ -118,9 +118,9 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
 
     a.bind(node_loop);
     {
-        Label done = a.newLabel(), leaf_node = a.newLabel(),
-              skip_index_adjustment = a.newLabel(),
-              collision_node = a.newLabel();
+        Label done = a.new_label(), leaf_node = a.new_label(),
+              skip_index_adjustment = a.new_label(),
+              collision_node = a.new_label();
 
         /* Find out which child we should follow, and shift the hash for the
          * next round. */
@@ -185,7 +185,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
         /* A collision node is a tuple of leafs where we do linear search.*/
         a.bind(collision_node);
         {
-            Label linear_loop = a.newLabel();
+            Label linear_loop = a.new_label();
 
             a.shr(header_val, imm(_HEADER_ARITY_OFFS));
             a.lea(ARG6d, x86::qword_ptr(header_val, -1));
@@ -213,7 +213,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
  *
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_flatmap_get_element() {
-    Label fail = a.newLabel(), loop = a.newLabel();
+    Label fail = a.new_label(), loop = a.new_label();
 
     a.mov(RETd, emit_boxed_val(ARG1, offsetof(flatmap_t, size), 4));
     a.mov(ARG4, emit_boxed_val(ARG1, offsetof(flatmap_t, keys)));
@@ -243,11 +243,7 @@ void BeamGlobalAssembler::emit_new_map_shared() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<Eterm (*)(Process * p,
-                           Eterm * reg,
-                           Uint live,
-                           Uint n,
-                           const Eterm *ptr),
+    runtime_call<Eterm (*)(Process *, Eterm *, Uint, Uint, const Eterm *),
                  erts_gc_new_map>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
@@ -259,24 +255,23 @@ void BeamGlobalAssembler::emit_new_map_shared() {
 void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
                                        const ArgWord &Live,
                                        const ArgWord &Size,
-                                       const Span<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args, CP_SIZE);
-
+                                       const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     mov_imm(ARG3, Live.get());
     mov_imm(ARG4, args.size());
-    a.lea(ARG5, x86::qword_ptr(data));
+    embed_vararg_rodata(args, ARG5, CP_SIZE);
     fragment_call(ga->get_new_map_shared());
 
     mov_arg(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
-                                                   const ArgWord &Live,
-                                                   const ArgLiteral &Keys,
-                                                   const ArgWord &Size,
-                                                   const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_new_small_map_lit(
+        const ArgRegister &Dst,
+        const ArgWord &Live,
+        const ArgLiteral &Keys,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     emit_gc_test(ArgWord(0),
@@ -311,7 +306,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
             x86::Mem src_ptr = getArgRef(first, 16);
 
             comment("(initializing two elements at once)");
-            dst_ptr0.setSize(16);
+            dst_ptr0.set_size(16);
             vmovups(x86::xmm0, src_ptr);
             vmovups(dst_ptr0, x86::xmm0);
             break;
@@ -324,7 +319,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
                 x86::Mem src_ptr = getArgRef(second, 16);
 
                 comment("(initializing with two swapped elements at once)");
-                dst_ptr0.setSize(16);
+                dst_ptr0.set_size(16);
                 a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
                 a.vmovups(dst_ptr0, x86::xmm0);
             }
@@ -352,7 +347,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
  *
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_i_get_map_element_shared() {
-    Label generic = a.newLabel(), hashmap = a.newLabel();
+    Label generic = a.new_label(), hashmap = a.new_label();
 
     a.mov(RETd, ARG2d);
 
@@ -424,12 +419,12 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
     }
 }
 
-void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
-                                                  const ArgSource &Src,
-                                                  const ArgWord &Size,
-                                                  const Span<ArgVal> &args) {
-    Label generic = a.newLabel(), next = a.newLabel();
-    Label data = embed_vararg_rodata(args, 0);
+void BeamModuleAssembler::emit_i_get_map_elements(
+        const ArgLabel &Fail,
+        const ArgSource &Src,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
+    Label generic = a.new_label(), next = a.new_label();
 
     /* We're not likely to gain much from inlining huge extractions, and the
      * resulting code is quite large, so we'll cut it off after a handful
@@ -466,7 +461,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
         emit_ptr_val(ARG2, ARG2);
 
         for (ssize_t i = args.size() - 3; i >= 0; i -= 3) {
-            Label loop = a.newLabel();
+            Label loop = a.new_label();
 
             a.bind(loop);
             {
@@ -501,7 +496,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
     a.bind(generic);
     {
         mov_imm(ARG4, args.size() / 3);
-        a.lea(ARG5, x86::qword_ptr(data));
+        embed_vararg_rodata(args, ARG5, 0);
         a.mov(ARG3, E);
 
         emit_enter_runtime();
@@ -523,7 +518,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
  *
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_i_get_map_element_hash_shared() {
-    Label hashmap = a.newLabel();
+    Label hashmap = a.new_label();
 
     emit_ptr_val(ARG1, ARG1);
 
@@ -602,11 +597,12 @@ void BeamGlobalAssembler::emit_update_map_single_assoc_shared() {
     a.ret();
 }
 
-void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
-                                                const ArgRegister &Dst,
-                                                const ArgWord &Live,
-                                                const ArgWord &Size,
-                                                const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_update_map_assoc(
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &Live,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     if (args.size() == 2) {
@@ -615,13 +611,11 @@ void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
         mov_arg(ARG4, Src);
         safe_fragment_call(ga->get_update_map_single_assoc_shared());
     } else {
-        Label data = embed_vararg_rodata(args, CP_SIZE);
-
         mov_arg(getXRef(Live.get()), Src);
 
         mov_imm(ARG3, Live.get());
         mov_imm(ARG4, args.size());
-        a.lea(ARG5, x86::qword_ptr(data));
+        embed_vararg_rodata(args, ARG5, CP_SIZE);
         fragment_call(ga->get_update_map_assoc_shared());
     }
 
@@ -651,7 +645,7 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
  *
  * Does not return on error. */
 void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
     emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
@@ -682,7 +676,7 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
  *
  * Does not return on error. */
 void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     a.mov(TMP_MEM2q, ARG2);
 
@@ -713,12 +707,13 @@ void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,
-                                                const ArgLabel &Fail,
-                                                const ArgRegister &Dst,
-                                                const ArgWord &Live,
-                                                const ArgWord &Size,
-                                                const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_update_map_exact(
+        const ArgSource &Src,
+        const ArgLabel &Fail,
+        const ArgRegister &Dst,
+        const ArgWord &Live,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     if (args.size() == 2 && Fail.get() == 0) {
@@ -727,13 +722,11 @@ void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,
         mov_arg(ARG4, Src);
         fragment_call(ga->get_update_map_single_exact_body_shared());
     } else {
-        Label data = embed_vararg_rodata(args, CP_SIZE);
-
         mov_arg(getXRef(Live.get()), Src);
 
         mov_imm(ARG3, Live.get());
         mov_imm(ARG4, args.size());
-        a.lea(ARG5, x86::qword_ptr(data));
+        embed_vararg_rodata(args, ARG5, CP_SIZE);
 
         if (Fail.get() != 0) {
             fragment_call(ga->get_update_map_exact_guard_shared());

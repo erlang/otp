@@ -1,13 +1,13 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_OSUTILS_P_H_INCLUDED
 #define ASMJIT_CORE_OSUTILS_P_H_INCLUDED
 
-#include "../core/osutils.h"
-#include "../core/string.h"
+#include <asmjit/core/osutils.h>
+#include <asmjit/core/string.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -64,7 +64,7 @@ public:
 namespace OSUtils {
 
 //! Reads a file, only used on non-Windows platforms to access /sys or other files when necessary.
-Error readFile(const char* name, String& dst, size_t maxSize) noexcept;
+Error read_file(const char* name, String& dst, size_t max_size) noexcept;
 
 } // {OSUtils}
 #endif

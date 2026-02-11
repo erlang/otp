@@ -1,14 +1,14 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_ASSEMBLER_H_INCLUDED
 #define ASMJIT_CORE_ASSEMBLER_H_INCLUDED
 
-#include "../core/codeholder.h"
-#include "../core/emitter.h"
-#include "../core/operand.h"
+#include <asmjit/core/codeholder.h>
+#include <asmjit/core/emitter.h>
+#include <asmjit/core/operand.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -17,10 +17,9 @@ ASMJIT_BEGIN_NAMESPACE
 
 //! Base assembler.
 //!
-//! This is a base class that provides interface used by architecture specific
-//! assembler implementations. Assembler doesn't hold any data, instead it's
-//! attached to \ref CodeHolder, which provides all the data that Assembler
-//! needs and which can be altered by it.
+//! This is a base class that provides interface used by architecture specific assembler implementations. Assembler
+//! doesn't hold any data, instead it's attached to \ref CodeHolder, which provides all the data that Assembler needs
+//! and which can be altered by it.
 //!
 //! Check out architecture specific assemblers for more details and examples:
 //!
@@ -29,16 +28,21 @@ ASMJIT_BEGIN_NAMESPACE
 class ASMJIT_VIRTAPI BaseAssembler : public BaseEmitter {
 public:
   ASMJIT_NONCOPYABLE(BaseAssembler)
-  typedef BaseEmitter Base;
+  using Base = BaseEmitter;
+
+  //! \name Members
+  //! \{
 
   //! Current section where the assembling happens.
   Section* _section = nullptr;
   //! Start of the CodeBuffer of the current section.
-  uint8_t* _bufferData = nullptr;
+  uint8_t* _buffer_data = nullptr;
   //! End (first invalid byte) of the current section.
-  uint8_t* _bufferEnd = nullptr;
+  uint8_t* _buffer_end = nullptr;
   //! Pointer in the CodeBuffer of the current section.
-  uint8_t* _bufferPtr = nullptr;
+  uint8_t* _buffer_ptr = nullptr;
+
+  //! \}
 
   //! \name Construction & Destruction
   //! \{
@@ -54,25 +58,33 @@ public:
   //! \{
 
   //! Returns the capacity of the current CodeBuffer.
-  ASMJIT_INLINE_NODEBUG size_t bufferCapacity() const noexcept { return (size_t)(_bufferEnd - _bufferData); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG size_t buffer_capacity() const noexcept { return (size_t)(_buffer_end - _buffer_data); }
+
   //! Returns the number of remaining bytes in the current CodeBuffer.
-  ASMJIT_INLINE_NODEBUG size_t remainingSpace() const noexcept { return (size_t)(_bufferEnd - _bufferPtr); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG size_t remaining_space() const noexcept { return (size_t)(_buffer_end - _buffer_ptr); }
 
   //! Returns the current position in the CodeBuffer.
-  ASMJIT_INLINE_NODEBUG size_t offset() const noexcept { return (size_t)(_bufferPtr - _bufferData); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG size_t offset() const noexcept { return (size_t)(_buffer_ptr - _buffer_data); }
 
   //! Sets the current position in the CodeBuffer to `offset`.
   //!
-  //! \note The `offset` cannot be greater than buffer size even if it's
-  //! within the buffer's capacity.
-  ASMJIT_API Error setOffset(size_t offset);
+  //! \note The `offset` cannot be greater than buffer size even if it's within the buffer's capacity.
+  ASMJIT_API Error set_offset(size_t offset);
 
   //! Returns the start of the CodeBuffer in the current section.
-  ASMJIT_INLINE_NODEBUG uint8_t* bufferData() const noexcept { return _bufferData; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint8_t* buffer_data() const noexcept { return _buffer_data; }
+
   //! Returns the end (first invalid byte) in the current section.
-  ASMJIT_INLINE_NODEBUG uint8_t* bufferEnd() const noexcept { return _bufferEnd; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint8_t* buffer_end() const noexcept { return _buffer_end; }
+
   //! Returns the current pointer in the CodeBuffer in the current section.
-  ASMJIT_INLINE_NODEBUG uint8_t* bufferPtr() const noexcept { return _bufferPtr; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint8_t* buffer_ptr() const noexcept { return _buffer_ptr; }
 
   //! \}
 
@@ -80,7 +92,8 @@ public:
   //! \{
 
   //! Returns the current section.
-  ASMJIT_INLINE_NODEBUG Section* currentSection() const noexcept { return _section; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG Section* current_section() const noexcept { return _section; }
 
   ASMJIT_API Error section(Section* section) override;
 
@@ -89,8 +102,9 @@ public:
   //! \name Label Management
   //! \{
 
-  ASMJIT_API Label newLabel() override;
-  ASMJIT_API Label newNamedLabel(const char* name, size_t nameSize = SIZE_MAX, LabelType type = LabelType::kGlobal, uint32_t parentId = Globals::kInvalidId) override;
+  ASMJIT_API Label new_label() override;
+  ASMJIT_API Label new_named_label(const char* name, size_t name_size = SIZE_MAX, LabelType type = LabelType::kGlobal, uint32_t parent_id = Globals::kInvalidId) override;
+
   ASMJIT_API Error bind(const Label& label) override;
 
   //! \}
@@ -98,12 +112,12 @@ public:
   //! \name Embed
   //! \{
 
-  ASMJIT_API Error embed(const void* data, size_t dataSize) override;
-  ASMJIT_API Error embedDataArray(TypeId typeId, const void* data, size_t itemCount, size_t repeatCount = 1) override;
-  ASMJIT_API Error embedConstPool(const Label& label, const ConstPool& pool) override;
+  ASMJIT_API Error embed(const void* data, size_t data_size) override;
+  ASMJIT_API Error embed_data_array(TypeId type_id, const void* data, size_t item_count, size_t repeat_count = 1) override;
+  ASMJIT_API Error embed_const_pool(const Label& label, const ConstPool& pool) override;
 
-  ASMJIT_API Error embedLabel(const Label& label, size_t dataSize = 0) override;
-  ASMJIT_API Error embedLabelDelta(const Label& label, const Label& base, size_t dataSize = 0) override;
+  ASMJIT_API Error embed_label(const Label& label, size_t data_size = 0) override;
+  ASMJIT_API Error embed_label_delta(const Label& label, const Label& base, size_t data_size = 0) override;
 
   //! \}
 
@@ -112,13 +126,16 @@ public:
 
   ASMJIT_API Error comment(const char* data, size_t size = SIZE_MAX) override;
 
+  ASMJIT_INLINE Error comment(Span<const char> data) { return comment(data.data(), data.size()); }
+
   //! \}
 
   //! \name Events
   //! \{
 
-  ASMJIT_API Error onAttach(CodeHolder* code) noexcept override;
-  ASMJIT_API Error onDetach(CodeHolder* code) noexcept override;
+  ASMJIT_API Error on_attach(CodeHolder& code) noexcept override;
+  ASMJIT_API Error on_detach(CodeHolder& code) noexcept override;
+  ASMJIT_API Error on_reinit(CodeHolder& code) noexcept override;
 
   //! \}
 };

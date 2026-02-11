@@ -83,7 +83,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
 
 #ifdef DEBUG
     {
-        Label next = a.newLabel();
+        Label next = a.new_label();
 
         /* Crash if our return address isn't word-aligned. */
         a.test(ARG2, imm(sizeof(UWord) - 1));
@@ -129,7 +129,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
  *
  * The only place that we can come to here is from generic_bp_local */
 void BeamGlobalAssembler::emit_debug_bp() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
 #ifndef NATIVE_ERLANG_STACK
     /* We're never going to return to module code, so we have to discard the
@@ -268,7 +268,7 @@ void BeamModuleAssembler::emit_i_hibernate() {
 #ifdef NATIVE_ERLANG_STACK
     fragment_call(resolve_fragment(ga->get_dispatch_return()));
 #else
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     a.lea(ARG3, x86::qword_ptr(next));
     a.jmp(resolve_fragment(ga->get_dispatch_return()));
