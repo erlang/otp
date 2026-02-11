@@ -151,15 +151,15 @@ information. Default scope `pg` is started automatically when
 %% data_publisher callbacks
 -export([
     version/0,
-    init_storage/1,
-    init_data/0,
-    stop_storage/1,
-    update/2,
-    update_storage_and_notify/4,
+    init_global_view/1,
+    init_local_data/0,
+    stop_global_view/1,
+    update_local_data/2,
+    update_global_view_and_notify/4,
     data_diff/2,
     new_subscription/2,
     translate_update/3,
-    translate_data/3,
+    translate_local_data/3,
     translate_message/2
 ]).
 
@@ -168,9 +168,9 @@ information. Default scope `pg` is started automatically when
 -type group() :: any().
 -type scope() :: atom().
 -type version() :: 0 | 1.
--type data() :: #{group() => [pid()]}.
+-type local_data() :: #{group() => [pid()]}.
 -type update() :: [{group(), Add :: [pid()], Remove :: [pid()]}].
--type storage() :: {atom(), #{pid() => {reference(), [group()]}}}.
+-type global_view() :: {atom(), #{pid() => {reference(), [group()]}}}.
 -type subscribe_result() :: #{group() => [pid()]} | [pid()].
 -type subscription() :: scope | {group, group()}.
 -type subscriptions() :: #{subscription() => #{reference() => pid()}}.
@@ -427,44 +427,44 @@ which_local_groups(Scope) when is_atom(Scope) ->
 %%--------------------------------------------------------------------
 %% Internal implementation
 
-%% data_published implementation
+%% local_data_published implementation
 -spec version() -> version().
 version() ->
     1.
 
--spec init_storage(scope()) -> storage().
-init_storage(Scope) ->
+-spec init_global_view(scope()) -> global_view().
+init_global_view(Scope) ->
     _ = ets:new(Scope, [set, protected, named_table, {read_concurrency, true}]),
     {Scope, #{}}.
 
--spec init_data() -> data().
-init_data() ->
+-spec init_local_data() -> local_data().
+init_local_data() ->
     #{}.
 
--spec stop_storage(storage()) -> term().
-stop_storage({Scope, _Monitors}) ->
+-spec stop_global_view(global_view()) -> term().
+stop_global_view({Scope, _Monitors}) ->
     ets:delete(Scope).
 
--spec update(update(), data()) -> data().
-update([], Data) ->
-    Data;
-update([{Group, Add, Remove} | Tail], Data) ->
-    case Data of
+-spec update_local_data(update(), local_data()) -> local_data().
+update_local_data([], LocalState) ->
+    LocalState;
+update_local_data([{Group, Add, Remove} | Tail], LocalState) ->
+    case LocalState of
         #{Group := Pids} ->
             case Add ++ (Pids -- Remove) of
                 [] ->
-                    update(Tail, maps:remove(Group, Data));
+                    update_local_data(Tail, maps:remove(Group, LocalState));
                 NewPids ->
-                    update(Tail, Data#{Group => NewPids})
+                    update_local_data(Tail, LocalState#{Group => NewPids})
             end;
         _ ->
-            update(Tail, Data#{Group => Add})
+            update_local_data(Tail, LocalState#{Group => Add})
     end.
 
--spec update_storage_and_notify(node(), update(), subscriptions(), storage()) -> storage().
-update_storage_and_notify(_Node, [], _Subscriptions, Storage) ->
-    Storage;
-update_storage_and_notify(Node, [{Group, Add, Remove} | Tail], Subscriptions, {Scope, Monitors}) when Node =:= node()->
+-spec update_global_view_and_notify(node(), update(), subscriptions(), global_view()) -> global_view().
+update_global_view_and_notify(_Node, [], _Subscriptions, GlobalView) ->
+    GlobalView;
+update_global_view_and_notify(Node, [{Group, Add, Remove} | Tail], Subscriptions, {Scope, Monitors}) when Node =:= node()->
     case ets:lookup(Scope, Group) of
         [{_Group, All, Local}] ->
             case Add ++ (All -- Remove) of
@@ -507,8 +507,8 @@ update_storage_and_notify(Node, [{Group, Add, Remove} | Tail], Subscriptions, {S
             MonitorsAfterAdd,
             Remove
         ),
-    update_storage_and_notify(Node, Tail, Subscriptions, {Scope, MonitorsAfterRemove});
-update_storage_and_notify(Node, [{Group, Add, Remove} | Tail], Subscriptions, {Scope, Monitors}) ->
+    update_global_view_and_notify(Node, Tail, Subscriptions, {Scope, MonitorsAfterRemove});
+update_global_view_and_notify(Node, [{Group, Add, Remove} | Tail], Subscriptions, {Scope, Monitors}) ->
     case ets:lookup(Scope, Group) of
         [{_Group, All, Local}] ->
             ets:insert(Scope, {Group, Add ++ (All -- Remove), Local});
@@ -516,9 +516,9 @@ update_storage_and_notify(Node, [{Group, Add, Remove} | Tail], Subscriptions, {S
             ets:insert(Scope, {Group, Add, []})
     end,
     _ = notify(Group, Add, Remove, Subscriptions),
-    update_storage_and_notify(Node, Tail, Subscriptions, {Scope, Monitors}).
+    update_global_view_and_notify(Node, Tail, Subscriptions, {Scope, Monitors}).
 
--spec data_diff(Old :: data(), New :: data()) -> update().
+-spec data_diff(Old :: local_data(), New :: local_data()) -> update().
 data_diff(Old, New) ->
     OldKeys = maps:keys(Old),
     NewKeys = maps:keys(New),
@@ -541,7 +541,7 @@ data_diff(Old, New) ->
         end
     ].
 
--spec new_subscription(subscription(), storage()) -> subscribe_result().
+-spec new_subscription(subscription(), global_view()) -> subscribe_result().
 new_subscription(scope, {Scope, _Monitors}) ->
     #{G => P || [G, P] <- ets:match(Scope, {'$1', '$2', '_'})};
 new_subscription({group, Group}, {Scope, _Monitors}) ->
@@ -572,48 +572,48 @@ translate_update(1, 0, Update) ->
 translate_update(1, _, Update) ->
     Update.
 
--spec translate_data(MyVersion :: version(), PeerVersion :: version(), data()) ->
-    data() | {'$plain_message', dynamic()}.
+-spec translate_local_data(MyVersion :: version(), PeerVersion :: version(), local_data()) ->
+    local_data() | {'$plain_message', dynamic()}.
 % legacy support, to be removed
-translate_data(1, 0, Data) ->
-    {'$plain_message', {sync, self(), maps:to_list(Data)}};
-translate_data(1, _, Data) ->
-    Data.
+translate_local_data(1, 0, LocalState) ->
+    {'$plain_message', {sync, self(), maps:to_list(LocalState)}};
+translate_local_data(1, _, LocalState) ->
+    LocalState.
 
 -spec translate_message
-    ({join, pid(), group(), pid() | [pid()]}, storage()) -> {update, pid(), update(), storage()};
-    ({leave, pid(), pid() | [pid()], [group()]}, storage()) -> {update, pid(), update(), storage()};
-    ({{'DOWN', ?MODULE}, reference(), process, pid(), dynamic()}, storage()) -> {update, update(), storage()};
-    ({sync, pid(), [{group(), [pid()]}]}, storage()) -> {data, pid(), version(), data(), storage()};
-    ({discover, pid()}, storage()) -> {discover, pid(), version(), storage()}.
+    ({join, pid(), group(), pid() | [pid()]}, global_view()) -> {update, pid(), update(), global_view()};
+    ({leave, pid(), pid() | [pid()], [group()]}, global_view()) -> {update, pid(), update(), global_view()};
+    ({{'DOWN', ?MODULE}, reference(), process, pid(), dynamic()}, global_view()) -> {update, update(), global_view()};
+    ({sync, pid(), [{group(), [pid()]}]}, global_view()) -> {local_data, pid(), version(), local_data(), global_view()};
+    ({discover, pid()}, global_view()) -> {discover, pid(), version(), global_view()}.
 % legacy support, to be removed
-translate_message({join, Peer, Group, PidOrPids}, Storage) ->
-    {update, Peer, [{Group, to_list(PidOrPids), []}], Storage};
+translate_message({join, Peer, Group, PidOrPids}, GlobalView) ->
+    {update, Peer, [{Group, to_list(PidOrPids), []}], GlobalView};
 % legacy support, to be removed
-translate_message({leave, Peer, PidOrPids, Groups}, Storage) ->
+translate_message({leave, Peer, PidOrPids, Groups}, GlobalView) ->
     Update =
         [
             {Group, [], to_list(PidOrPids)}
          || Group <- Groups
         ],
-    {update, Peer, Update, Storage};
-translate_message({{'DOWN', ?MODULE}, Ref, process, Pid, _Info}, {Scope, Monitors} = Storage) ->
+    {update, Peer, Update, GlobalView};
+translate_message({{'DOWN', ?MODULE}, Ref, process, Pid, _Info}, {Scope, Monitors} = GlobalView) ->
     case Monitors of
         #{Pid := {Ref, Groups}} ->
             Update = [{Group, [], [Pid]} || Group <- Groups],
             {update, Update, {Scope, maps:remove(Ref, Monitors)}};
         _ ->
-            {drop, Storage}
+            {drop, GlobalView}
     end;
 % legacy support, to be removed
-translate_message({sync, Peer, Sync}, Storage) ->
-    {data, Peer, 0, maps:from_list(Sync), Storage};
+translate_message({sync, Peer, Sync}, GlobalView) ->
+    {local_data, Peer, 0, maps:from_list(Sync), GlobalView};
 % legacy support, to be removed
-translate_message({discover, Peer}, Storage) ->
-    {discover, Peer, 0, Storage};
-translate_message(_, _Storage) ->
+translate_message({discover, Peer}, GlobalView) ->
+    {discover, Peer, 0, GlobalView};
+translate_message(_, _GlobalView) ->
     error(badarg).
-    %{drop, Storage}.
+    %{drop, GlobalView}.
 
 -spec notify(group(), [pid()], [pid()], subscriptions()) -> term().
 notify(Group, Add, Remove, Subscriptions) ->

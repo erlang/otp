@@ -61,9 +61,9 @@ are calculated and propagated. This is a generalization of the `pg` module.
 -type scope() :: atom().
 -type options() :: #{standalone => boolean()}.
 -type version() :: dynamic().
--type data() :: dynamic().
+-type local_data() :: dynamic().
 -type update() :: dynamic().
--type storage() :: dynamic().
+-type global_view() :: dynamic().
 -type subscribe_result() :: dynamic().
 -type subscription() :: dynamic().
 -type subscriptions() :: #{subscription() => #{reference() => pid()}}.
@@ -73,9 +73,9 @@ are calculated and propagated. This is a generalization of the `pg` module.
     module :: module(),
     options :: options(),
     version :: version(),
-    storage :: storage(),
-    data :: data(),
-    peers = #{} :: #{pid() => {reference(), version(), data()}},
+    global_view :: global_view(),
+    local_data :: local_data(),
+    peers = #{} :: #{pid() => {reference(), version(), local_data()}},
     subscriptions = #{} :: subscriptions(),
     subscribe_refs = #{} :: #{reference() => subscription()}
 }).
@@ -83,46 +83,47 @@ are calculated and propagated. This is a generalization of the `pg` module.
 
 % Current version of data_publisher instance
 -callback version() -> version().
-% Init custom publisher state, which should include a local cache storing all nodes' data,
-% and potentially some internal state.
-% For example, it can also store some monitors, so that it can automatically do some data
+% Init custom publisher state, which should include a global view cache (e.g. an ETS table)
+% of all nodes' local data, and potentially some internal state.
+% For example, it can also store some monitors, so that it can automatically do some local data
 % updates when monitored events happened, see the optional translate_message callback
--callback init_storage(scope()) -> storage().
-% Init data of one node
--callback init_data() -> data().
-% Delete data cache storage
--callback stop_storage(storage()) -> term().
-% Update data of one node
+-callback init_global_view(scope()) -> global_view().
+% Init local data of one node
+-callback init_local_data() -> local_data().
+% Stop global view cache
+-callback stop_global_view(global_view()) -> term().
+% Apply an update to local data (used for internal transitions)
 % Need to be backward compatible for all possible update() in older versions
--callback update(update(), data()) -> data().
-% Update data cache of all nodes, with notifying subscribers
+-callback update_local_data(update(), local_data()) -> local_data().
+% Update global view cache with a change from any node in the cluster,
+% and notify subscribers for the update
 % Need to be backward compatible for all possible update() in older versions
--callback update_storage_and_notify(node(), update(), subscriptions(), storage()) -> storage().
-% Calculate the update of data
-% Need to be backward compatible for all possible  New :: data() in older versions
--callback data_diff(Old :: data(), New :: data()) -> update().
-% Return initial subscription result from data cache for all nodes
--callback new_subscription(subscription(), storage()) -> subscribe_result().
+-callback update_global_view_and_notify(node(), update(), subscriptions(), global_view()) -> global_view().
+% Calculate the diff (delta) between two local data
+% Need to be backward compatible for all possible  New :: local_data() in older versions
+-callback data_diff(Old :: local_data(), New :: local_data()) -> update().
+% Return initial result for a new subscriber based on the global view cache
+-callback new_subscription(subscription(), global_view()) -> subscribe_result().
 % Translate an update to an older version
 -callback translate_update(MyVersion :: version(), PeerVersion :: version(), update()) ->
     update()
     % legacy support, to be removed
     | {'$plain_messages', [dynamic()]}.
-% Translate data to an older version
--callback translate_data(MyVersion :: version(), PeerVersion :: version(), data()) ->
-    data()
+% Translate local_data to an older version
+-callback translate_local_data(MyVersion :: version(), PeerVersion :: version(), local_data()) ->
+    local_data()
     % legacy support, to be removed
     | {'$plain_message', dynamic()}.
 % Translate cast / info message to a potential update, for example a monitor is DOWN
--callback translate_message(dynamic(), storage()) ->
-    {update, update(), storage()}
-    | {drop, storage()}
+-callback translate_message(dynamic(), global_view()) ->
+    {update, update(), global_view()}
+    | {drop, global_view()}
     % legacy support, to be removed
-    | {update, pid(), update(), storage()}
+    | {update, pid(), update(), global_view()}
     % legacy support, to be removed
-    | {data, pid(), version(), data(), storage()}
+    | {local_data, pid(), version(), local_data(), global_view()}
     % legacy support, to be removed
-    | {discover, pid(), version(), storage()}.
+    | {discover, pid(), version(), global_view()}.
 
 -optional_callbacks([
     translate_message/2
@@ -165,8 +166,8 @@ init({Scope, Module, Options}) ->
         module = Module,
         options = Options,
         version = Module:version(),
-        storage = Module:init_storage(Scope),
-        data = Module:init_data()
+        global_view = Module:init_global_view(Scope),
+        local_data = Module:init_local_data()
     },
     %% discover all nodes running this scope in the cluster
     _ = Standalone orelse [do_send({Scope, Node}, {discover, self(), State#state.version}) || Node <- nodes()],
@@ -180,7 +181,7 @@ handle_call({update, Update}, _From, State) ->
     {reply, ok, do_update(Update, State)};
 handle_call({subscribe, Subscription}, {Pid, _Tag}, #state{module = Module, subscriptions = Subscriptions} = State) ->
     Ref = erlang:monitor(process, Pid, [{tag, {'DOWN', subscribe}}]),
-    SubscribeResult = Module:new_subscription(Subscription, State#state.storage),
+    SubscribeResult = Module:new_subscription(Subscription, State#state.global_view),
     NewSubscriptions = Subscriptions#{Subscription => (maps:get(Subscription, Subscriptions, #{}))#{Ref => Pid}},
     NewSubscribeRefs = (State#state.subscribe_refs)#{Ref => Subscription},
     {reply, {Ref, SubscribeResult}, State#state{subscriptions = NewSubscriptions, subscribe_refs = NewSubscribeRefs}};
@@ -189,25 +190,25 @@ handle_call({unsubscribe, Ref}, _From, State) ->
 
 -spec handle_cast(Message, state()) -> {noreply, state()} when
     Message ::
-        {data, pid(), version(), data()}
+        {local_data, pid(), version(), local_data()}
         | dynamic().
-handle_cast({data, Peer, Version, Data}, #state{module = Module} = State) ->
+handle_cast({local_data, Peer, Version, LocalState}, #state{module = Module} = State) ->
     case Peers = State#state.peers of
-        #{Peer := {Ref, _Version, OldData}} ->
-            Update = Module:data_diff(OldData, Data),
-            NewStorage = Module:update_storage_and_notify(
-                node(Peer), Update, State#state.subscriptions, State#state.storage
+        #{Peer := {Ref, _Version, OldLocalState}} ->
+            Update = Module:data_diff(OldLocalState, LocalState),
+            NewGlobalView = Module:update_global_view_and_notify(
+                node(Peer), Update, State#state.subscriptions, State#state.global_view
             ),
-            NewPeers = Peers#{Peer => {Ref, Version, Data}},
-            {noreply, State#state{storage = NewStorage, peers = NewPeers}};
+            NewPeers = Peers#{Peer => {Ref, Version, LocalState}},
+            {noreply, State#state{global_view = NewGlobalView, peers = NewPeers}};
         _ ->
             Ref = erlang:monitor(process, Peer, [{tag, {'DOWN', peer}}]),
-            Update = Module:data_diff(Module:init_data(), Data),
-            NewStorage = Module:update_storage_and_notify(
-                node(Peer), Update, State#state.subscriptions, State#state.storage
+            Update = Module:data_diff(Module:init_local_data(), LocalState),
+            NewGlobalView = Module:update_global_view_and_notify(
+                node(Peer), Update, State#state.subscriptions, State#state.global_view
             ),
-            NewPeers = Peers#{Peer => {Ref, Version, Data}},
-            {noreply, State#state{storage = NewStorage, peers = NewPeers}}
+            NewPeers = Peers#{Peer => {Ref, Version, LocalState}},
+            {noreply, State#state{global_view = NewGlobalView, peers = NewPeers}}
     end;
 handle_cast(Message, State) ->
     do_message(Message, State).
@@ -224,24 +225,24 @@ handle_cast(Message, State) ->
 handle_info({discover, Peer, _Version}, #state{options = #{standalone := true}} = State) when is_pid(Peer) ->
     {noreply, State};
 handle_info({discover, Peer, Version}, #state{module = Module} = State) ->
-    gen_server:cast(Peer, translate_data(State#state.data, Version, State)),
+    gen_server:cast(Peer, translate_local_data(State#state.local_data, Version, State)),
     case is_map_key(Peer, State#state.peers) of
         true ->
             {noreply, State};
         _ ->
             Ref = erlang:monitor(process, Peer, [{tag, {'DOWN', peer}}]),
             erlang:send(Peer, {discover, self(), State#state.version}, [noconnect]),
-            {noreply, State#state{peers = (State#state.peers)#{Peer => {Ref, Version, Module:init_data()}}}}
+            {noreply, State#state{peers = (State#state.peers)#{Peer => {Ref, Version, Module:init_local_data()}}}}
     end;
 handle_info({update, Peer, Update}, #state{module = Module} = State) ->
     case State#state.peers of
-        #{Peer := {Ref, Version, Data}} = Peers ->
-            NewStorage = Module:update_storage_and_notify(
-                node(Peer), Update, State#state.subscriptions, State#state.storage
+        #{Peer := {Ref, Version, LocalState}} = Peers ->
+            NewGlobalView = Module:update_global_view_and_notify(
+                node(Peer), Update, State#state.subscriptions, State#state.global_view
             ),
-            NewData = Module:update(Update, Data),
-            NewPeers = Peers#{Peer => {Ref, Version, NewData}},
-            {noreply, State#state{storage = NewStorage, peers = NewPeers}};
+            NewLocalState = Module:update_local_data(Update, LocalState),
+            NewPeers = Peers#{Peer => {Ref, Version, NewLocalState}},
+            {noreply, State#state{global_view = NewGlobalView, peers = NewPeers}};
         _ ->
             %% Handle race condition: remote node disconnected, but scope process
             %%  of the remote node was just about to send update message. In this
@@ -262,12 +263,12 @@ handle_info({{'DOWN', subscribe}, Ref, process, _Pid, _Info}, State) ->
     {noreply, remove_subscribe(Ref, State)};
 handle_info({{'DOWN', peer}, Ref, process, Peer, _Info}, #state{module = Module} = State) ->
     case maps:take(Peer, State#state.peers) of
-        {{Ref, _Version, Data}, NewPeers} ->
-            Update = Module:data_diff(Data, Module:init_data()),
-            NewStorage = Module:update_storage_and_notify(
-                node(Peer), Update, State#state.subscriptions, State#state.storage
+        {{Ref, _Version, LocalState}, NewPeers} ->
+            Update = Module:data_diff(LocalState, Module:init_local_data()),
+            NewGlobalView = Module:update_global_view_and_notify(
+                node(Peer), Update, State#state.subscriptions, State#state.global_view
             ),
-            {noreply, State#state{storage = NewStorage, peers = NewPeers}};
+            {noreply, State#state{global_view = NewGlobalView, peers = NewPeers}};
         _ ->
             % should never happen
             {noreply, State}
@@ -277,27 +278,27 @@ handle_info(Message, State) ->
 
 -spec terminate(dynamic(), state()) -> term().
 terminate(_Reasion, #state{module = Module} = State) ->
-    Module:stop_storage(State#state.storage).
+    Module:stop_global_view(State#state.global_view).
 
 -spec do_message(dynamic(), state()) -> {noreply, state()}.
 do_message(Message, #state{module = Module} = State) ->
     case
         erlang:function_exported(Module, translate_message, 2) andalso
-            Module:translate_message(Message, State#state.storage)
+            Module:translate_message(Message, State#state.global_view)
     of
-        {drop, Storage} ->
-            {noreply, State#state{storage = Storage}};
-        {update, Update, Storage} ->
-            {noreply, do_update(Update, State#state{storage = Storage})};
+        {drop, GlobalView} ->
+            {noreply, State#state{global_view = GlobalView}};
+        {update, Update, GlobalView} ->
+            {noreply, do_update(Update, State#state{global_view = GlobalView})};
         % legacy support, to be removed
-        {update, Peer, Update, Storage} ->
-            handle_info({update, Peer, Update}, State#state{storage = Storage});
+        {update, Peer, Update, GlobalView} ->
+            handle_info({update, Peer, Update}, State#state{global_view = GlobalView});
         % legacy support, to be removed
-        {data, Peer, Version, Data, Storage} ->
-            handle_cast({data, Peer, Version, Data}, State#state{storage = Storage});
+        {local_data, Peer, Version, LocalState, GlobalView} ->
+            handle_cast({local_data, Peer, Version, LocalState}, State#state{global_view = GlobalView});
         % legacy support, to be removed
-        {discover, Peer, Version, Storage} ->
-            handle_info({discover, Peer, Version}, State#state{storage = Storage});
+        {discover, Peer, Version, GlobalView} ->
+            handle_info({discover, Peer, Version}, State#state{global_view = GlobalView});
         _ ->
             {noreply, State}
     end.
@@ -312,14 +313,14 @@ translate_update(Update, Version, #state{module = Module} = State) ->
             {update, self(), TranslatedUpdate}
     end.
 
--spec translate_data(data(), version(), state()) -> {data, pid(), version(), data()} | dynamic().
-translate_data(Data, Version, #state{module = Module} = State) ->
-    case Module:translate_data(State#state.version, Version, Data) of
+-spec translate_local_data(local_data(), version(), state()) -> {local_data, pid(), version(), local_data()} | dynamic().
+translate_local_data(LocalState, Version, #state{module = Module} = State) ->
+    case Module:translate_local_data(State#state.version, Version, LocalState) of
         % legacy support, to be removed
         {'$plain_message', Message} ->
             Message;
-        TranslatedData ->
-            {data, self(), Version, TranslatedData}
+        TranslatedLocalState ->
+            {local_data, self(), Version, TranslatedLocalState}
     end.
 
 -spec do_send(pid() | {scope(), node()}, dynamic()) -> term().
@@ -332,10 +333,10 @@ do_send(Dest, Msg) ->
 
 -spec do_update(update(), state()) -> state().
 do_update(Update, #state{module = Module} = State) ->
-    NewStorage = Module:update_storage_and_notify(node(), Update, State#state.subscriptions, State#state.storage),
-    NewData = Module:update(Update, State#state.data),
+    NewGlobalView = Module:update_global_view_and_notify(node(), Update, State#state.subscriptions, State#state.global_view),
+    NewLocalState = Module:update_local_data(Update, State#state.local_data),
     _ = [do_send(Peer, translate_update(Update, Version, State)) || Peer := {_, Version, _} <- State#state.peers],
-    State#state{storage = NewStorage, data = NewData}.
+    State#state{global_view = NewGlobalView, local_data = NewLocalState}.
 
 -spec remove_subscribe(reference(), state()) -> state().
 remove_subscribe(Ref, State) ->
