@@ -1,4 +1,4 @@
-OBSERVER_VSN = 2.18.1
+OBSERVER_VSN = 2.19
 
 # %CopyrightBegin%
 #

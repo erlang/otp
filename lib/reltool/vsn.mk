@@ -1,4 +1,4 @@
-RELTOOL_VSN = 1.0.2
+RELTOOL_VSN = 1.1
 
 # %CopyrightBegin%
 #

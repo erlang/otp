@@ -261,7 +261,7 @@ If the value `Value` is equal to the value previously stored for the key,
 If there existed a previous persistent term associated with key `Key`, the
 function fails with a `badarg` exception.
 """.
--doc(#{since => <<"OTP @OTP-19908@">>}).
+-doc(#{since => <<"OTP 29.0">>}).
 -spec put_new(Key, Value) -> 'ok' when
       Key :: key(),
       Value :: value().

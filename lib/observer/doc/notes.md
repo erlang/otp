@@ -23,6 +23,14 @@ limitations under the License.
 
 This document describes the changes made to the Observer application.
 
+## Observer 2.19
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## Observer 2.18.1
 
 ### Fixed Bugs and Malfunctions

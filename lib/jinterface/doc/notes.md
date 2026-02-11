@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Jinterface application.
 
+## Jinterface 1.16
+
+### Improvements and New Features
+
+- The `jinterface` build now honors `SOURCE_DATE_EPOCH` for deterministic build of `OtpErlang.jar`.
+
+  Own Id: OTP-19956 Aux Id: [PR-10556]
+
+[PR-10556]: https://github.com/erlang/otp/pull/10556
+
 ## Jinterface 1.15
 
 ### Improvements and New Features

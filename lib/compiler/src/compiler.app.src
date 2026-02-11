@@ -86,5 +86,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-@OTP-19922@","kernel-8.4","erts-13.0",
+  {runtime_dependencies, ["stdlib-8.0","kernel-8.4","erts-13.0",
 			  "crypto-5.1"]}]}.

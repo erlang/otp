@@ -23,6 +23,14 @@ limitations under the License.
 
 This document describes the changes made to the odbc application.
 
+## ODBC 2.17
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## ODBC 2.16
 
 ### Fixed Bugs and Malfunctions

@@ -23,6 +23,14 @@ limitations under the License.
 
 This document describes the changes made to the Eldap application.
 
+## Eldap 1.3
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## Eldap 1.2.16
 
 ### Fixed Bugs and Malfunctions

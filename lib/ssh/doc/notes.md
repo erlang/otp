@@ -21,6 +21,38 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.5
+
+### Improvements and New Features
+
+- Use KEX strict extension names as specified in draft-ietf-sshm-strict-kex-00. Pre standard names are still supported.
+
+  Own Id: OTP-19709 Aux Id: [PR-10115]
+
+- Added an 'alive' option to detect and terminate dead SSH connections. Functionally equivalent to OpenSSH's ClientAlive*/ServerAlive* settings.
+
+  Own Id: OTP-19750 Aux Id: [PR-9125], [PR-10372]
+
+- `ssh:stop_deamon` now uses `supervisor:stop` for shutting down daemons. With this change, the scenario when `ssh:stop_daemon` is called for a non-existing process results in calling process exiting. Previously an error tuple was returned (which was not documented).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19801 Aux Id: [PR-10253]
+
+- The default key exchange algorithm is now mlkem768x25519-sha256, a hybrid quantum-resistant algorithm combining ML-KEM-768 with X25519. This
+  provides protection against both classical and quantum computer attacks while maintaining backward compatibility through automatic fallback to
+  other algorithms when peers don't support it.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19965 Aux Id: [PR-10656]
+
+[PR-10115]: https://github.com/erlang/otp/pull/10115
+[PR-9125]: https://github.com/erlang/otp/pull/9125
+[PR-10372]: https://github.com/erlang/otp/pull/10372
+[PR-10253]: https://github.com/erlang/otp/pull/10253
+[PR-10656]: https://github.com/erlang/otp/pull/10656
+
 ## Ssh 5.4
 
 ### Improvements and New Features

@@ -6,4 +6,4 @@
 #
 # %CopyrightEnd%
 
-ELDAP_VSN = 1.2.16
+ELDAP_VSN = 1.3

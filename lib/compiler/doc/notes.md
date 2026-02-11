@@ -23,6 +23,214 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0
+
+### Fixed Bugs and Malfunctions
+
+- For a function such as the following:
+  
+  ```
+  bar(S0) ->
+      S1 = setelement(8, S0, a),
+      S2 = setelement(7, S1, b),
+      setelement(5, S2, c).
+  ```
+  
+  the compiler would keep all of the calls to `setelement/3` and emit extra unnecessary `set_tuple_element` instructions.
+  
+  This has been corrected so that the compiler will never emit code that uses the `set_tuple_element` instruction. In a future release, support for the `set_tuple_element` will be removed from the runtime system.
+
+  Own Id: OTP-19751 Aux Id: [GH-10125], [PR-10144]
+
+[GH-10125]: https://github.com/erlang/otp/issues/10125
+[PR-10144]: https://github.com/erlang/otp/pull/10144
+
+### Improvements and New Features
+
+- In comprehensions, a generator that builds a list with a single element will now be optimized to avoid building and matching the list. Example:
+  
+  ```
+  [H || E <- List, H <- [erlang:phash2(E)], H rem 10 =:= 0]
+  ```
+
+  Own Id: OTP-19672 Aux Id: [PR-9934]
+
+- In the documentation for the `m:compile` module, a section has been added with recommendations for implementors of languages running on the BEAM. Documentation has also been added for the `to_abstr`, `to_exp`, and `from_abstr` options.
+  
+  The documentation for [erlc](`e:erts:erlc_cmd.md`) now lists `.abstr` as one of the supported options.
+  
+  When compiling with the `to_abstr` option, the resulting `.abstr` file now retains any `-doc` attributes present in the source code.
+
+  Own Id: OTP-19784 Aux Id: [PR-10230], [PR-10234]
+
+- Native records as described in EEP-79 has been implemented.
+  
+  A native record is a data structure similar to the traditional tuple-based records, except that is a true data type.
+  
+  Native records are considered experimental in Erlang/OTP 29 and possibly also in Erlang/OTP 30, meaning that their behavior may change, potentially requiring updates to applications that use them.
+
+  Own Id: OTP-19785 Aux Id: [PR-10617]
+
+- The guard BIF `is_integer/3` has been added. It follows the design of the original EEP-16, only changing the name from `is_between` to `is_integer`. This BIF takes in 3 parameters, `Term`, `LowerBound`, and `UpperBound`.
+  
+  It returns `true` if `Term`, `LowerBound`, and `UpperBound` are all integers, and `LowerBound =< Term =< UpperBound`; otherwise, it returns false.
+  
+  Example:
+  
+  ```erlang
+  1> I = 42.
+  2> is_integer(I, 0, 100).
+  true
+  ```
+
+  Own Id: OTP-19809 Aux Id: [PR-10276]
+
+- Function application is now left associative. That means one can now write:
+  
+  ```
+  f(X)(Y)
+  ```
+  
+  instead of:
+  
+  ```
+  (f(X))(Y)
+  ```
+
+  Own Id: OTP-19866 Aux Id: [PR-9223]
+
+- There will now be a warning when exporting variables out of a subexpression. For example:
+  
+  ```
+  case file:open(File, AllOpts = [write,{encoding,utf8}]) of
+      {ok,Fd} ->
+          {Fd,AllOpts}
+  end
+  ```
+  
+  To avoid the warning, this can be rewritten to:
+  
+  ```
+  AllOpts = [write,{encoding,utf8}],
+  case file:open(File, AllOpts) of
+      {ok,Fd} ->
+          {Fd,AllOpts}
+  end
+  ```
+  
+  The warning can be suppressed by giving option `nowarn_export_var_subexpr` to the compiler.
+
+  Own Id: OTP-19898 Aux Id: [PR-9134]
+
+- By default, the compiler will now warn for uses of the `and` and `or` operators.
+  
+  This warning can be suppressed using the `nowarn_obsolete_bool_op` compiler option.
+
+  Own Id: OTP-19918 Aux Id: [PR-9115]
+
+- Before Erlang/OTP 29, attempting to bind variables in a comprehension would compile successfully but fail at runtime. Example:
+  
+  ```
+  1> fh(List) -> [H || E <- List, H = erlang:phash2(E), H rem 10 =:= 0].
+  ok
+  2> fh(lists:seq(1, 10)).
+  * exception error: bad filter 2614250
+  ```
+  
+  In Erlang/OTP 29, attempting to bind a variable in a comprehension will fail by default:
+  
+  ```
+  1> fh(List) -> [H || E <- List, H = erlang:phash2(E), H rem 10 =:= 0].
+  * 5:14: matches using '=' are not allowed in comprehension qualifiers
+  unless the experimental 'compr_assign' language feature is enabled.
+  With 'compr_assign' enabled, a match 'P = E' will behave as a
+  strict generator 'P <-:- [E]'."
+  ```
+  
+  However, this example will work as expected if the `compr_assign` feature is enabled when starting the runtime system:
+  
+  ```
+  $ erl -enable-feature compr_assign
+  . . .
+  1> fh(List) -> [H || E <- List, H = erlang:phash2(E), H rem 10 =:= 0].
+  ok
+  2> fh(lists:seq(1, 10)).
+  [2614250]
+  ```
+  Here is another example how `compr_assign` can be used:
+  
+  ```
+  -module(example).
+  -feature(compr_assign, enable).
+  -export([cat/1]).
+  
+  cat(Files) ->
+      [Char || F <- Files,
+               {ok, Bin} = file:read_file(F),
+               Char <- unicode:characters_to_list(Bin)].
+  ```
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19927 Aux Id: [PR-9153]
+
+- There will now be a warning when using the `catch` operator, which has been deprecated for a long time.
+  
+  It is recommended to instead use `try`...`catch` but is also possible to disable the warning by using the `nowarn_deprecated_catch` option.
+
+  Own Id: OTP-19938 Aux Id: [PR-10421]
+
+- Multi-valued comprehensions according to [EEP 78](https://www.erlang.org/eeps/eep-0078) has been implemented.
+  
+  Example:
+  
+  ```erlang
+  > [I, -I || I <- lists:seq(1, 5)].
+  [1,-1,2,-2,3,-3,4,-4,5,-5]
+  ```
+
+  Own Id: OTP-19942 Aux Id: [PR-9374]
+
+- There will now be a warning for matches that unify constructors, such as the following:
+  
+  ```
+  m({a,B} = {Y,Z}) -> . . .
+  ```
+  
+  Such a match can be rewritten to:
+  
+  ```
+  m({a=Y,B=B}) -> . . .
+  ```
+  
+  The compiler option `nowarn_match_alias_pats` can be used to disable the warning.
+
+  Own Id: OTP-19943 Aux Id: [PR-10433]
+
+- The compiler now generates more efficient code for map comprehensions with constant values that don't depend on the generator, such as the following:
+  
+  ```
+  #{K => 42} || K <- List}.
+  #{K => X || K <- List}.
+  #{K => {X, Y} || K <- List}.
+  ```
+
+  Own Id: OTP-19968 Aux Id: [PR-10646]
+
+[PR-9934]: https://github.com/erlang/otp/pull/9934
+[PR-10230]: https://github.com/erlang/otp/pull/10230
+[PR-10234]: https://github.com/erlang/otp/pull/10234
+[PR-10617]: https://github.com/erlang/otp/pull/10617
+[PR-10276]: https://github.com/erlang/otp/pull/10276
+[PR-9223]: https://github.com/erlang/otp/pull/9223
+[PR-9134]: https://github.com/erlang/otp/pull/9134
+[PR-9115]: https://github.com/erlang/otp/pull/9115
+[PR-9153]: https://github.com/erlang/otp/pull/9153
+[PR-10421]: https://github.com/erlang/otp/pull/10421
+[PR-9374]: https://github.com/erlang/otp/pull/9374
+[PR-10433]: https://github.com/erlang/otp/pull/10433
+[PR-10646]: https://github.com/erlang/otp/pull/10646
+
 ## Compiler 9.0.4
 
 ### Fixed Bugs and Malfunctions

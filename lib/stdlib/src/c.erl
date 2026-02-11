@@ -969,7 +969,7 @@ i(X, Y, Z) -> pi(X, Y, Z).
 -doc """
 Equivalent to `pi(pid(X, Y, Z))`.
 """.
--doc(#{since => ~"OTP @OTP-19903@"}).
+-doc(#{since => ~"OTP 29.0"}).
 -spec pi(X, Y, Z) -> [{atom(), term()}] when
       X :: non_neg_integer(),
       Y :: non_neg_integer(),
@@ -981,7 +981,7 @@ pi(X, Y, Z) -> pi(pid(X, Y, Z)).
 Displays information about a process, Equivalent to
 [`process_info(Pid)`](`process_info/1`), but location transparent.
 """.
--doc(#{since => ~"OTP @OTP-19903@"}).
+-doc(#{since => ~"OTP 29.0"}).
 -spec pi(Pid) -> [{atom(), term()}] when
       Pid :: pid().
 

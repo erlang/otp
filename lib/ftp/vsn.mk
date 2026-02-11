@@ -21,6 +21,6 @@
 # %CopyrightEnd%
 
 APPLICATION = ftp
-FTP_VSN   = 1.2.4
+FTP_VSN   = 1.3
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(FTP_VSN)$(PRE_VSN)"

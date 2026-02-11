@@ -23,6 +23,22 @@ limitations under the License.
 
 This document describes the changes made to the Wx application.
 
+## Wx 2.6
+
+### Improvements and New Features
+
+- Vendor dependencies and OpenVEX statements in the otp repository is now scanned for vulnerabilities.
+
+  Own Id: OTP-19652 Aux Id: [PR-9790]
+
+- Documentation about how to validate the SBOM using sigstore has been added.
+
+  Own Id: OTP-19766 Aux Id: [GH-10151], [PR-10187]
+
+[PR-9790]: https://github.com/erlang/otp/pull/9790
+[GH-10151]: https://github.com/erlang/otp/issues/10151
+[PR-10187]: https://github.com/erlang/otp/pull/10187
+
 ## Wx 2.5.3
 
 ### Fixed Bugs and Malfunctions

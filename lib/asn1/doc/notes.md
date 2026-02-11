@@ -23,6 +23,14 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.5
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## Asn1 5.4.2
 
 ### Fixed Bugs and Malfunctions

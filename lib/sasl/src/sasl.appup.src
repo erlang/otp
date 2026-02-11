@@ -21,16 +21,18 @@
 %%
 %% We allow upgrade from, and downgrade to all previous
 %% versions from the following OTP releases:
-%% - OTP 26
 %% - OTP 27
 %% - OTP 28
+%% - OTP 29
 %%
 %% We also allow upgrade from, and downgrade to all
 %% versions that have branched off from the above
 %% stated previous versions.
 %%
 {"%VSN%",
- [{<<"^4\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^4\\.2\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
- [{<<"^4\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^4\\.2\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}]}.
+ [{<<"^4\\.2\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^4\\.3$">>,[restart_new_emulator]},
+  {<<"^4\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}],
+ [{<<"^4\\.2\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^4\\.3$">>,[restart_new_emulator]},
+  {<<"^4\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}]}.

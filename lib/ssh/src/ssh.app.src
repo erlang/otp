@@ -71,6 +71,6 @@
 			  "erts-14.0",
 			  "kernel-10.3",
 			  "public_key-1.6.1",
-                          "stdlib-@OTP-19800@",
+                          "stdlib-8.0",
                           "runtime_tools-1.15.1"
 			 ]}]}.

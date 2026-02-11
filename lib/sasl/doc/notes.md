@@ -23,6 +23,24 @@ limitations under the License.
 
 This document describes the changes made to the SASL application.
 
+## SASL 4.4
+
+### Fixed Bugs and Malfunctions
+
+- UNC paths are now handled on Windows.
+
+  Own Id: OTP-19949 Aux Id: [PR-10601]
+
+[PR-10601]: https://github.com/erlang/otp/pull/10601
+
+### Improvements and New Features
+
+- Removed the undocumented `dyn_erl` utility.
+
+  Own Id: OTP-19933 Aux Id: [PR-10573]
+
+[PR-10573]: https://github.com/erlang/otp/pull/10573
+
 ## SASL 4.3
 
 ### Fixed Bugs and Malfunctions

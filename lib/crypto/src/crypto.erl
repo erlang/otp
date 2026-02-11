@@ -2200,7 +2200,7 @@ which when used by the `m:rand` functions produce
 This generator also implements generating bytes efficiently
 (based on OpenSSL's `RAND_bytes` function).
 See `rand:bytes_s/2` and `strong_rand_bytes/1`.
-*Since OTP @OTP-19882@*.
+*Since OTP 29.0*.
 
 #### _Example_
 
@@ -2328,7 +2328,7 @@ for uniform integers and floats.
 
 The generator also implements generating bytes efficiently
 with OpenSSL's `RAND_bytes`, just like `strong_rand_bytes/1`.
-See also `rand:bytes_s/2`.  *Since OTP @OTP-19882@*.
+See also `rand:bytes_s/2`.  *Since OTP 29.0*.
 
 Because the OpenSSL library is called for every request,
 this generator has got a very small generator state, but a large
@@ -2348,7 +2348,7 @@ Then 56 bit numbers are extracted from the cache, which makes operations
 in module `m:rand` fast on 64 bit machines.
 
 The generator also implements extracting bytes efficiently.
-See also `rand:bytes_s/2`.  *Since OTP @OTP-19882@*.
+See also `rand:bytes_s/2`.  *Since OTP 29.0*.
 
 Caching random data improves *amortized* performance a lot
 so for numbers it becomes less than a factor 2 slower than
@@ -2538,7 +2538,7 @@ is faster, for larger numbers of bytes significantly faster,
 but cannot be used to reproduce a sequence.  Another alternative
 is `Alg = crypto_prng1` that follows here.
 
-#### With `Alg = crypto_prng1` *Since OTP @OTP-19882@*.
+#### With `Alg = crypto_prng1` *Since OTP 29.0*.
 
 The created generator uses a stream cipher to encrypt data blocks of zeros,
 which effectively results in the stream cipher's key stream as binary data.

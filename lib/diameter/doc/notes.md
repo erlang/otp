@@ -23,6 +23,14 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.7
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## diameter 2.6
 
 ### Improvements and New Features

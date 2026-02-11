@@ -23,6 +23,14 @@ limitations under the License.
 
 This document describes the changes made to the Runtime_Tools application.
 
+## Runtime_Tools 2.4
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## Runtime_Tools 2.3
 
 ### Fixed Bugs and Malfunctions

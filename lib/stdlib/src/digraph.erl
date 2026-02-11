@@ -328,7 +328,7 @@ vertices(G) ->
 Returns a list of all vertices of graph `G` with
 [in-degree](`m:graph#in_degree`) zero.
 """.
--doc(#{ since => ~"OTP @OTP-19922@"}).
+-doc(#{ since => ~"OTP 29.0"}).
 -spec source_vertices(graph()) -> [vertex()].
 
 source_vertices(G) ->
@@ -338,7 +338,7 @@ source_vertices(G) ->
 Returns a list of all vertices of graph `G` with
 [out-degree](`m:graph#in_degree`) zero.
 """.
--doc(#{ since => ~"OTP @OTP-19922@"}).
+-doc(#{ since => ~"OTP 29.0"}).
 -spec sink_vertices(graph()) -> [vertex()].
 
 sink_vertices(G) ->

@@ -21,6 +21,14 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.21
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## SNMP 5.20
 
 ### Fixed Bugs and Malfunctions

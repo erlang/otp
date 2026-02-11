@@ -21,6 +21,14 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.6
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## Inets 9.5
 
 ### Fixed Bugs and Malfunctions

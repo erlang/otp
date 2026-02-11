@@ -218,7 +218,7 @@ This module was introduced in OTP 22.0, as experimental code.
 * In OTP 27.0, the Windows flavored
   ([completion handle](`t:completion_handle/0`))
   API features could be considered no longer experimental.
-* In OTP @OTP-19834@, (experimental) complete support for SCTP was added
+* In OTP 29.0, (experimental) complete support for SCTP was added
   (functionally feature compatible with inet).
   Not (yet) supported for FreeBSD.
 
@@ -1715,7 +1715,7 @@ Corresponds to a C `struct msghdr`, see your platform documentation for
           flags := [msg_flag() | integer()]
          }.
 
--doc(#{since => ~"OTP @OTP-19834@"}).
+-doc(#{since => ~"OTP 29.0"}).
 -doc """
 Notifications can be received on a SCTP socket (type = seqpacket and
 protocol = sctp).
@@ -3413,7 +3413,7 @@ bind(Socket, Addr) ->
 %% If the domain is inet6, the addresses can be either IPv4 or IPv6.
 %%
 
--doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc(#{since => <<"OTP 29.0">>}).
 -doc """
 Bind a list of socket addreses to a socket.
 
@@ -3911,7 +3911,7 @@ accept_result(LSockRef, AccRef, Result) ->
 %% peeloff - Branch off an association into a separate socket
 %%
 
--doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc(#{since => <<"OTP 29.0">>}).
 -doc """
 Branch off an association into a separate socket.
 
@@ -3932,7 +3932,7 @@ Equivalent to [`peeloff(Socket, AssocId, [])`](`peeloff/3`)
 peeloff(Sock, AssocId) ->
     peeloff(Sock, AssocId, []).
 
--doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc(#{since => <<"OTP 29.0">>}).
 -doc """
 Branch off an association into a separate socket.
 
@@ -7036,7 +7036,7 @@ sockname(Socket) ->
 %%
 %%
 
--doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc(#{since => <<"OTP 29.0">>}).
 -doc """
 Get the socket's address.
 
@@ -7097,7 +7097,7 @@ peername(Socket) ->
 %%
 %%
 
--doc(#{since => <<"OTP @OTP-19834@">>}).
+-doc(#{since => <<"OTP 29.0">>}).
 -doc """
 Return the remote (peer) address(s) of an association of a socket.
 

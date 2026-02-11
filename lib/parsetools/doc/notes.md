@@ -23,6 +23,14 @@ limitations under the License.
 
 This document describes the changes made to the Parsetools application.
 
+## Parsetools 2.8
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## Parsetools 2.7
 
 ### Improvements and New Features

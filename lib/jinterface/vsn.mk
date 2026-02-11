@@ -1,4 +1,4 @@
-JINTERFACE_VSN = 1.15
+JINTERFACE_VSN = 1.16
 
 # %CopyrightBegin%
 #

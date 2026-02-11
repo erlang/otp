@@ -23,6 +23,25 @@ limitations under the License.
 
 This document describes the changes made to the Tools application.
 
+## Tools 4.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed "unbalanced parenthesis" issue when pressing TAB in emacs erlang shell.
+
+  Own Id: OTP-19921 Aux Id: [PR-10642], [GH-8569]
+
+[PR-10642]: https://github.com/erlang/otp/pull/10642
+[GH-8569]: https://github.com/erlang/otp/issues/8569
+
+### Improvements and New Features
+
+- Tools such as the debugger, `m:beam_lib`, and `m:xref` no longer support BEAM files created before OTP 13B.
+
+  Own Id: OTP-19906 Aux Id: [PR-10519]
+
+[PR-10519]: https://github.com/erlang/otp/pull/10519
+
 ## Tools 4.1.3
 
 ### Improvements and New Features

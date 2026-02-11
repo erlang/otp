@@ -7239,7 +7239,7 @@ false
 ```
 """.
 -doc #{ category => terms }.
--doc #{ since => ~"OTP @OTP-19785@" }.
+-doc #{ since => ~"OTP 29.0" }.
 -spec is_record(Term) -> boolean() when
       Term :: term().
 is_record(_Term) ->
@@ -7358,7 +7358,7 @@ false
 
 Failure: `badarg` if `LB` or `UB` does not evaluate to an integer.
 """.
--doc(#{since => ~"OTP @OTP-19809@"}).
+-doc(#{since => ~"OTP 29.0"}).
 -doc #{ category => terms }.
 -spec is_integer(Term, LB, UB) -> boolean() when
       Term :: integer(),

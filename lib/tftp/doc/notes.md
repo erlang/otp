@@ -21,6 +21,14 @@ limitations under the License.
 -->
 # TFTP Release Notes
 
+## Tftp 1.3
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## Tftp 1.2.3
 
 ### Improvements and New Features

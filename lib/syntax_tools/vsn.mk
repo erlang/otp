@@ -5,4 +5,4 @@
 # Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # %CopyrightEnd%
-SYNTAX_TOOLS_VSN = 4.0.2
+SYNTAX_TOOLS_VSN = 4.1

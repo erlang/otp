@@ -28,6 +28,14 @@ incompatibilities as well as all enhancements and bugfixes for every release of
 section in this document. The title of each section is the version number of
 `Event Tracer (ET)`.
 
+## ET 1.8
+
+### Improvements and New Features
+
+- Only minor internal changes.
+
+  Own Id: OTP-19964
+
 ## ET 1.7.2
 
 ### Improvements and New Features
