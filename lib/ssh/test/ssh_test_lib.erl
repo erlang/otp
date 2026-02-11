@@ -131,7 +131,11 @@ event_logged/3,
 server_host/1,
 server_port/1,
 server_pid/1,
-find_handshake_parent/1
+find_handshake_parent/1,
+system_dir/1,
+user_dir/1,
+get_public_key_algorithms_with_valid_host_key/1,
+get_public_key_algorithms_with_valid_host_key/2
         ]).
 %% logger callbacks and related helpers
 -export([log/2,
@@ -150,6 +154,9 @@ find_handshake_parent/1
         "{ok, _} = ssh:connect(\"localhost\", 22, "
         "[{password,\"\"},{silently_accept_hosts, true}, "
         "{save_accepted_host, false}, {user_interaction, false}]).").
+
+-define(HAS_HOST_KEY(Alg, Options),
+        try ssh_transport:get_host_key(Alg, Options), true catch _:_:_ -> false end).
 
 %%%----------------------------------------------------------------
 connect(Port, Options) when is_integer(Port) ->
@@ -1558,3 +1565,21 @@ find_handshake_parent([_|T], Port, Acc) ->
     find_handshake_parent(T, Port, Acc);
 find_handshake_parent(_, _,  {AccP,AccC,AccH}) ->
     {lists:usort(AccP), lists:usort(AccC), lists:usort(AccH)}.
+
+%%%----------------------------------------------------------------
+system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).
+
+user_dir(Config) -> proplists:get_value(priv_dir, Config).
+
+%%%----------------------------------------------------------------
+get_public_key_algorithms_with_valid_host_key(Config) ->
+    get_public_key_algorithms_with_valid_host_key(Config, no_options).
+get_public_key_algorithms_with_valid_host_key(Config, no_options) ->
+    #{key_cb := KeyCb} = ssh_options:default(server),
+    #{default := Default} = KeyCb,
+    get_public_key_algorithms_with_valid_host_key(Config, [{key_cb, Default}]);
+get_public_key_algorithms_with_valid_host_key(Config, Options) ->
+    KeyCb = ?v(key_cb, Options),
+    Opts = #{key_cb => KeyCb, key_cb_options => [{system_dir, system_dir(Config)}]},
+    PubKeyAlgs = ssh_transport:supported_algorithms(public_key),
+    lists:filter(fun(Alg) -> ?HAS_HOST_KEY(Alg, Opts) end, PubKeyAlgs).
