@@ -6126,8 +6126,7 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
                     *tp = make_arityval(size);
                 }
                 mp = (flatmap_t*) (tp + (size==0 ? 0 : 1) + size);
-                mp->thing_word = MAP_HEADER_FLATMAP;
-                mp->size = size;
+                mp->thing_word = make_flatmap_header(size);
                 mp->keys = (size!= 0 ? make_tuple(tp) : ERTS_GLOBAL_LIT_EMPTY_TUPLE);
                 mess = make_flatmap(mp);
 

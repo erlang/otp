@@ -3186,7 +3186,7 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
 {
     if (tnif || (tnif = lookup_tracer_nif(tracer)) != NULL) {
 #define MAP_SIZE 4
-        Eterm argv[5], local_heap[3+MAP_SIZE /* values */ + (MAP_SIZE+1 /* keys */)];
+        Eterm argv[5], local_heap[MAP_HEADER_FLATMAP_SZ+MAP_SIZE /* values */ + (MAP_SIZE+1 /* keys */)];
         flatmap_t *map = (flatmap_t*)(local_heap+(MAP_SIZE+1));
         Eterm *map_values = flatmap_get_values(map);
         Eterm *map_keys = local_heap + 1;
@@ -3201,7 +3201,7 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
         argv[3] = msg;
         argv[4] = make_flatmap(map);
 
-        map->thing_word = MAP_HEADER_FLATMAP;
+        map->thing_word = make_flatmap_header(0); /* Updated below when size is known */
 
         if (extra != THE_NON_VALUE) {
             map_keys[map_elem_count] = am_extra;
@@ -3230,7 +3230,7 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
         else if (tracee_flags & F_MON_TS)
             map_values[map_elem_count++] = am_monotonic;
 
-        map->size = map_elem_count;
+        map->thing_word = make_flatmap_header(map_elem_count);
         if (map_elem_count == 0) {
             map->keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
         } else {

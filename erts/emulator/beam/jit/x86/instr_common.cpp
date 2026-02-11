@@ -1900,9 +1900,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
             mov_arg(ARG1, X);
             emit_is_boxed(resolve_beam_label(Fail), X, ARG1);
             (void)emit_ptr_val(ARG1, ARG1);
-            a.cmp(emit_boxed_val(ARG1, 0, sizeof(Uint32)), MAP_HEADER_FLATMAP);
-            a.jne(resolve_beam_label(Fail));
-            a.cmp(emit_boxed_val(ARG1, sizeof(Eterm), sizeof(Uint32)), imm(0));
+            a.cmp(emit_boxed_val(ARG1, 0, sizeof(Uint32)), make_flatmap_header(0));
             a.jne(resolve_beam_label(Fail));
 
             return;
@@ -2063,9 +2061,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
             mov_arg(ARG1, X);
             emit_is_boxed(next, X, ARG1, dShort);
             (void)emit_ptr_val(ARG1, ARG1);
-            a.cmp(emit_boxed_val(ARG1, 0, sizeof(Uint32)), MAP_HEADER_FLATMAP);
-            a.short_().jne(next);
-            a.cmp(emit_boxed_val(ARG1, sizeof(Eterm), sizeof(Uint32)), imm(0));
+            a.cmp(emit_boxed_val(ARG1, 0, sizeof(Uint32)), make_flatmap_header(0));
             a.je(resolve_beam_label(Fail));
 
             a.bind(next);

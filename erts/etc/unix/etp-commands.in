@@ -367,8 +367,8 @@ define etp-boxed-1
 	    printf "#{Keys:"
 	    etp-1 ((flatmap_t*)(($arg0)&etp_ptr_mask))->keys (($arg1)+1)
 	    printf " Values:{"
-	    etp-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)+3) ($arg1) ($arg1) \
-                        0 ((flatmap_t*)(($arg0)&etp_ptr_mask))->size '}'
+	    etp-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)+2) ($arg1) ($arg1) \
+                        0 (((((Eterm*)(($arg0)&etp_ptr_mask))[0])>>(6+2+8))&0xffff) '}'
 	    printf "}"
           else
 	    # Hashmap

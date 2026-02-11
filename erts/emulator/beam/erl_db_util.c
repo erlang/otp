@@ -2452,8 +2452,7 @@ restart:
             t = *--esp;
             {
                 flatmap_t *m = (flatmap_t *)ehp;
-                m->thing_word = MAP_HEADER_FLATMAP;
-                m->size = n;
+                m->thing_word = make_flatmap_header(n);
                 m->keys = t;
             }
             t = make_flatmap(ehp);
@@ -2491,7 +2490,7 @@ restart:
                     erts_factory_proc_init(&factory, build_proc);
 
                     /* build flat structure */
-                    hp    = erts_produce_heap(&factory, 3 + (n==0 ? 0 : 1) + (2 * n), 0);
+                    hp    = erts_produce_heap(&factory, MAP_HEADER_FLATMAP_SZ + (n==0 ? 0 : 1) + (2 * n), 0);
                     if (n == 0) {
                         keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
                     } else {
@@ -2504,8 +2503,7 @@ restart:
                     hp   += MAP_HEADER_FLATMAP_SZ;
                     vs    = hp;
 
-                    mp->thing_word = MAP_HEADER_FLATMAP;
-                    mp->size = n;
+                    mp->thing_word = make_flatmap_header(n);
                     mp->keys = keys;
 
                     hashmap_iterator_init(&wstack, t, 0);
@@ -5846,8 +5844,8 @@ static Uint my_size_object(Eterm t, bool is_hashmap_node)
                 /* Calculate size of values */
                 p = (Eterm *)mp;
                 n   = flatmap_get_size(mp);
-                sum += n + 3;
-                p += 3; /* hdr + size + keys words */
+                sum += n + MAP_HEADER_FLATMAP_SZ;
+                p += MAP_HEADER_FLATMAP_SZ; /* hdr + keys words */
                 while (n--) {
                     sum += my_size_object(*p++, false);
                 }
@@ -5948,11 +5946,10 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
                 ret = make_flatmap(savep);
                 n = flatmap_get_size(mp);
                 p = (Eterm *)mp;
-                *hp += n + 3;
+                *hp += n + MAP_HEADER_FLATMAP_SZ;
                 *savep++ = mp->thing_word;
-                *savep++ = mp->size;
                 *savep++ = keys;
-                p += 3; /* hdr + size + keys words */
+                p += MAP_HEADER_FLATMAP_SZ; /* hdr + keys words */
                 for (i = 0; i < n; i++)
                     *savep++ = my_copy_struct(p[i], hp, off_heap, false);
                 erts_usort_flatmap((flatmap_t*)flatmap_val(ret));

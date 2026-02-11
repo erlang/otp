@@ -285,8 +285,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
 
     std::vector<ArgVal> data;
     data.reserve(args.size() + MAP_HEADER_FLATMAP_SZ + 1);
-    data.push_back(ArgWord(MAP_HEADER_FLATMAP));
-    data.push_back(Size);
+    data.push_back(ArgWord(make_flatmap_header(Size.get())));
     data.push_back(Keys);
 
     for (auto arg : args) {

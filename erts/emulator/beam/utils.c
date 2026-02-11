@@ -1444,8 +1444,8 @@ tailrecur_ne:
 		    if (sz != flatmap_get_size((flatmap_t*)bb)) goto not_equal;
 		    if (sz == 0) goto pop_next;
 
-		    aa += 2;
-		    bb += 2;
+		    aa += MAP_HEADER_FLATMAP_SZ - 1; /* skip non-term header fields */
+		    bb += MAP_HEADER_FLATMAP_SZ - 1;
 		    sz += 1; /* increment for tuple-keys */
 		    goto term_array;
 

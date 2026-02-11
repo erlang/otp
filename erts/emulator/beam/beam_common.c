@@ -1865,7 +1865,7 @@ erts_gc_new_map(Process* p, Eterm* reg, Uint live,
                 Uint n, const Eterm* ptr)
 {
     Uint i;
-    Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
+    Uint need = n + 1 /* arity */ + MAP_HEADER_FLATMAP_SZ;
     Eterm keys;
     Eterm *mhp,*thp;
     Eterm *E;
@@ -1909,8 +1909,7 @@ erts_gc_new_map(Process* p, Eterm* reg, Uint live,
         *thp++ = make_arityval(n/2);
     }
     mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
-    mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->size = n/2;
+    mp->thing_word = make_flatmap_header(n/2);
     mp->keys = keys;
 
     for (i = 0; i < n/2; i++) {
@@ -1927,7 +1926,7 @@ erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
 {
     Eterm* keys = tuple_val(keys_literal);
     Uint n = arityval(*keys);
-    Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
+    Uint need = n + MAP_HEADER_FLATMAP_SZ;
     Uint i;
     flatmap_t *mp;
     Eterm *mhp;
@@ -1943,8 +1942,7 @@ erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
     E   = p->stop;
 
     mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
-    mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->size = n;
+    mp->thing_word = make_flatmap_header(n);
     mp->keys = keys_literal;
 
     for (i = 0; i < n; i++) {
@@ -2027,8 +2025,6 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
      * +-----------------------------------+
      * | MAP_HEADER_FLATMAP                |
      * +-----------------------------------+
-     * | (Space for number of keys/values) |
-     * +-----------------------------------+
      * | Boxed tuple pointer            >----------------+
      * +-----------------------------------+             |
      * | (Space for value 1)               |             |    <-- hp
@@ -2058,7 +2054,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
     res = make_flatmap(hp);
     mp = (flatmap_t *)hp;
     hp += MAP_HEADER_FLATMAP_SZ;
-    mp->thing_word = MAP_HEADER_FLATMAP;
+    mp->thing_word = make_flatmap_header(0); /* Updated below when size is known */
 
     kp = hp + num_old + num_updates; /* Point to key tuple. */
 
@@ -2146,7 +2142,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
          * some values were changed. We can retain the old key tuple.
          */
         ASSERT(n == 0);
-        mp->size = old_mp->size;
+        mp->thing_word = old_mp->thing_word
         mp->keys = old_mp->keys;
         while (num_old-- > 0) {
             *hp++ = *old_vals++;
@@ -2179,8 +2175,8 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
      */
 
     n = hp - (Eterm *)mp - MAP_HEADER_FLATMAP_SZ;	/* Actual number of keys/values */
-    ASSERT(n <= old_mp->size + num_updates);
-    mp->size = n;
+    ASSERT(n <= (Sint)(flatmap_get_size(old_mp) + num_updates));
+    mp->thing_word = make_flatmap_header(n);
     *(boxed_val(mp->keys)) = make_arityval(n);
     p->htop  = kp;
 
@@ -2292,8 +2288,7 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
     res = make_flatmap(hp);
     mp = (flatmap_t *)hp;
     hp += MAP_HEADER_FLATMAP_SZ;
-    mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->size = num_old;
+    mp->thing_word = make_flatmap_header(num_old);
     mp->keys = old_mp->keys;
 
     /* Get array of key/value pairs to be updated */
