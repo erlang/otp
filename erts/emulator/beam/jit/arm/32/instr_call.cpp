@@ -64,8 +64,9 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
 }
 
 void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
-    // TODO
-    emit_nyi("emit_i_call_only");
+    emit_leave_erlang_frame();
+    a.b(resolve_beam_label(CallTarget, disp32MB));
+    mark_unreachable();
 }
 
 /* Handles save_calls for remote calls. When the active code index is
