@@ -66,6 +66,7 @@ ERL_NIF_TERM atom_cfb_mode;
 ERL_NIF_TERM atom_ofb_mode;
 ERL_NIF_TERM atom_ctr_mode;
 ERL_NIF_TERM atom_gcm_mode;
+ERL_NIF_TERM atom_gcm_siv_mode;
 ERL_NIF_TERM atom_ccm_mode;
 ERL_NIF_TERM atom_xts_mode;
 ERL_NIF_TERM atom_wrap_mode;
@@ -87,6 +88,9 @@ ERL_NIF_TERM atom_aes_cfb8;
 ERL_NIF_TERM atom_aes_cfb128;
 #ifdef HAVE_GCM
 ERL_NIF_TERM atom_aes_gcm;
+#endif
+#ifdef HAVE_GCM_SIV
+ERL_NIF_TERM atom_aes_gcm_siv;
 #endif
 #ifdef HAVE_CCM
 ERL_NIF_TERM atom_aes_ccm;
@@ -203,6 +207,7 @@ int init_atoms(ErlNifEnv *env) {
     atom_ofb_mode = enif_make_atom(env,"ofb_mode");
     atom_ctr_mode = enif_make_atom(env,"ctr_mode");
     atom_gcm_mode = enif_make_atom(env,"gcm_mode");
+    atom_gcm_siv_mode = enif_make_atom(env,"gcm_siv_mode");
     atom_ccm_mode = enif_make_atom(env,"ccm_mode");
     atom_xts_mode = enif_make_atom(env,"xts_mode");
     atom_wrap_mode = enif_make_atom(env,"wrap_mode");
@@ -224,6 +229,9 @@ int init_atoms(ErlNifEnv *env) {
     atom_aes_cfb128 = enif_make_atom(env, "aes_cfb128");
 #ifdef HAVE_GCM
     atom_aes_gcm = enif_make_atom(env, "aes_gcm");
+#endif
+#ifdef HAVE_GCM_SIV
+    atom_aes_gcm_siv = enif_make_atom(env, "aes_gcm_siv");
 #endif
 #ifdef HAVE_CCM
     atom_aes_ccm = enif_make_atom(env, "aes_ccm");

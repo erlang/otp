@@ -70,6 +70,7 @@ extern ERL_NIF_TERM atom_cfb_mode;
 extern ERL_NIF_TERM atom_ofb_mode;
 extern ERL_NIF_TERM atom_ctr_mode;
 extern ERL_NIF_TERM atom_gcm_mode;
+extern ERL_NIF_TERM atom_gcm_siv_mode;
 extern ERL_NIF_TERM atom_ccm_mode;
 extern ERL_NIF_TERM atom_xts_mode;
 extern ERL_NIF_TERM atom_wrap_mode;
@@ -91,6 +92,9 @@ extern ERL_NIF_TERM atom_aes_cfb8;
 extern ERL_NIF_TERM atom_aes_cfb128;
 #ifdef HAVE_GCM
 extern ERL_NIF_TERM atom_aes_gcm;
+#endif
+#ifdef HAVE_GCM_SIV
+extern ERL_NIF_TERM atom_aes_gcm_siv;
 #endif
 #ifdef HAVE_CCM
 extern ERL_NIF_TERM atom_aes_ccm;

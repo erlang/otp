@@ -153,6 +153,16 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_256_gcm"}, "aes-256-gcm", {NULL}, 32, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
 #endif
 
+#if defined(HAVE_GCM_SIV)
+    {{"aes_128_gcm_siv"}, "AES-128-GCM-SIV", {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, AEAD_CTRL},
+    {{"aes_192_gcm_siv"}, "AES-192-GCM-SIV", {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, AEAD_CTRL},
+    {{"aes_256_gcm_siv"}, "AES-256-GCM-SIV", {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, AEAD_CTRL},
+#else
+    {{"aes_128_gcm_siv"}, "AES-128-GCM-SIV", {NULL}, 16, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, {{0,0,0}}},
+    {{"aes_192_gcm_siv"}, "AES-192-GCM-SIV", {NULL}, 24, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, {{0,0,0}}},
+    {{"aes_256_gcm_siv"}, "AES-256-GCM-SIV", {NULL}, 32, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, {{0,0,0}}},
+#endif
+
 #if defined(HAVE_CCM) && defined(HAS_3_0_API)
     {{"aes_128_ccm"}, "aes-128-ccm", {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, AEAD_CTRL},
     {{"aes_192_ccm"}, "aes-192-ccm", {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, AEAD_CTRL},
@@ -326,6 +336,12 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 #ifdef EVP_CIPH_GCM_MODE
         case EVP_CIPH_GCM_MODE:
             ret_mode = atom_gcm_mode;
+            break;
+#endif
+
+#ifdef EVP_CIPH_GCM_SIV_MODE
+        case EVP_CIPH_GCM_SIV_MODE:
+            ret_mode = atom_gcm_siv_mode;
             break;
 #endif
 

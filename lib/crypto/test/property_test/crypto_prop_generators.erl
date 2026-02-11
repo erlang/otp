@@ -71,7 +71,7 @@ non_aead_ciphers() ->
           C =/= chacha20_poly1305,
           begin
               #{mode := Mode} = crypto:cipher_info(C),
-              not lists:member(Mode, [ccm_mode, gcm_mode])
+              not lists:member(Mode, [ccm_mode, gcm_mode, gcm_siv_mode])
           end].
 
 block_size(Cipher) -> maps:get(block_size, crypto:cipher_info(Cipher)).
