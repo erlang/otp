@@ -5266,11 +5266,11 @@ dec_term_atom_common:
                 ep++;
 
                 /* Module */
-                if ((ep = dec_atom(edep, ep, &defp->module, 0)) == NULL) {
+                if ((ep = dec_atom(edep, ep, &defp->module, flags)) == NULL) {
                     goto error;
                 }
                 /* Name */
-                if ((ep = dec_atom(edep, ep, &defp->name, 0)) == NULL) {
+                if ((ep = dec_atom(edep, ep, &defp->name, flags)) == NULL) {
                     goto error;
                 }
 
@@ -5280,7 +5280,7 @@ dec_term_atom_common:
                 for (int i = 0; i < num_fields; i++) {
                     Eterm key;
 
-                    if ((ep = dec_atom(edep, ep, &key, 0)) == NULL) {
+                    if ((ep = dec_atom(edep, ep, &key, flags)) == NULL) {
                         erts_free(ERTS_ALC_T_TMP, fields);
                         goto error;
                     }

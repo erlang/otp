@@ -21,11 +21,12 @@
 %%
 -module(native_record_SUITE).
 -include_lib("stdlib/include/assert.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
          term_order/1,gc/1,external_term_format/1,
-         messages/1,errors/1,records_module/1]).
+         messages/1,errors/1,records_module/1, dist/1]).
 
 -record #a{x=1, y=2}.
 -record #b{x=none, y=none, z=none}.
@@ -55,7 +56,8 @@ all() ->
      external_term_format,
      messages,
      errors,
-     records_module].
+     records_module,
+     dist].
 
 groups() ->
     [].
@@ -429,6 +431,24 @@ records_create(Mod, Name, Fields, IsExported) ->
 
 record_to_list(R) ->
     [{K,records:get(K, R)} || K <- records:get_field_names(R)].
+
+%% Test that records work over the distribution
+dist(_Config) ->
+
+    {ok, Peer, Node} = ?CT_PEER(),
+
+    Record = #b{},
+
+    %% Test that sending and receiving works
+    Record = erpc:call(Node, fun() -> Record end),
+
+    %% Test that it still works now that the record fields are in the atom cache
+    Record = erpc:call(Node, fun() -> Record end),
+
+    peer:stop(Peer),
+
+    ok.
+
 
 %%% Common utilities.
 
