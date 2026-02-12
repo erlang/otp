@@ -61,7 +61,7 @@ struct BscSegment {
     enum class action { DIRECT, ACCUMULATE_FIRST, ACCUMULATE, STORE } action;
 };
 
-std::vector<BscSegment> beam_jit_bsc_init(const Span<ArgVal> &args);
+std::vector<BscSegment> beam_jit_bsc_init(const Span<const ArgVal> &args);
 
 std::vector<BscSegment> beam_jit_bsc_combine_segments(
         const std::vector<BscSegment> segments);
@@ -98,7 +98,7 @@ struct BsmSegment {
 };
 
 std::vector<BsmSegment> beam_jit_bsm_init(const BeamFile *beam,
-                                          Span<ArgVal> const &List);
+                                          const Span<const ArgVal> &List);
 
 std::vector<BsmSegment> beam_jit_opt_bsm_segments(
         const std::vector<BsmSegment> segments,

@@ -1,14 +1,14 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_CODEBUFFERWRITER_P_H_INCLUDED
 #define ASMJIT_CORE_CODEBUFFERWRITER_P_H_INCLUDED
 
-#include "../core/assembler.h"
-#include "../core/codebuffer.h"
-#include "../core/support.h"
+#include <asmjit/core/assembler.h>
+#include <asmjit/core/codebuffer.h>
+#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -23,40 +23,45 @@ class CodeWriter {
 public:
   uint8_t* _cursor;
 
-  ASMJIT_FORCE_INLINE explicit CodeWriter(BaseAssembler* a) noexcept
-    : _cursor(a->_bufferPtr) {}
+  ASMJIT_INLINE_NODEBUG explicit CodeWriter(BaseAssembler* a) noexcept
+    : _cursor(a->_buffer_ptr) {}
 
-  ASMJIT_FORCE_INLINE Error ensureSpace(BaseAssembler* a, size_t n) noexcept {
-    size_t remainingSpace = (size_t)(a->_bufferEnd - _cursor);
-    if (ASMJIT_UNLIKELY(remainingSpace < n)) {
+  [[nodiscard]]
+  ASMJIT_INLINE Error ensure_space(BaseAssembler* a, size_t n) noexcept {
+    size_t remaining_space = (size_t)(a->_buffer_end - _cursor);
+    if (ASMJIT_UNLIKELY(remaining_space < n)) {
       CodeBuffer& buffer = a->_section->_buffer;
-      Error err = a->_code->growBuffer(&buffer, n);
-      if (ASMJIT_UNLIKELY(err))
-        return a->reportError(err);
-      _cursor = a->_bufferPtr;
+      Error err = a->_code->grow_buffer(&buffer, n);
+      if (ASMJIT_UNLIKELY(err != Error::kOk)) {
+        return a->report_error(err);
+      }
+      _cursor = a->_buffer_ptr;
     }
-    return kErrorOk;
+    return Error::kOk;
   }
 
-  ASMJIT_FORCE_INLINE uint8_t* cursor() const noexcept { return _cursor; }
-  ASMJIT_FORCE_INLINE void setCursor(uint8_t* cursor) noexcept { _cursor = cursor; }
-  ASMJIT_FORCE_INLINE void advance(size_t n) noexcept { _cursor += n; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint8_t* cursor() const noexcept { return _cursor; }
 
-  ASMJIT_FORCE_INLINE size_t offsetFrom(uint8_t* from) const noexcept {
+  ASMJIT_INLINE_NODEBUG void set_cursor(uint8_t* cursor) noexcept { _cursor = cursor; }
+  ASMJIT_INLINE_NODEBUG void advance(size_t n) noexcept { _cursor += n; }
+
+  [[nodiscard]]
+  ASMJIT_INLINE size_t offset_from(uint8_t* from) const noexcept {
     ASMJIT_ASSERT(_cursor >= from);
     return (size_t)(_cursor - from);
   }
 
   template<typename T>
-  ASMJIT_FORCE_INLINE void emit8(T val) noexcept {
-    typedef typename std::make_unsigned<T>::type U;
+  ASMJIT_INLINE void emit8(T val) noexcept {
+    using U = std::make_unsigned_t<T>;
     _cursor[0] = uint8_t(U(val) & U(0xFF));
     _cursor++;
   }
 
   template<typename T, typename Y>
-  ASMJIT_FORCE_INLINE void emit8If(T val, Y cond) noexcept {
-    typedef typename std::make_unsigned<T>::type U;
+  ASMJIT_INLINE void emit8_if(T val, Y cond) noexcept {
+    using U = std::make_unsigned_t<T>;
     ASMJIT_ASSERT(size_t(cond) <= 1u);
 
     _cursor[0] = uint8_t(U(val) & U(0xFF));
@@ -64,42 +69,42 @@ public:
   }
 
   template<typename T>
-  ASMJIT_FORCE_INLINE void emit16uLE(T val) noexcept {
-    typedef typename std::make_unsigned<T>::type U;
-    Support::writeU16uLE(_cursor, uint16_t(U(val) & 0xFFFFu));
+  ASMJIT_INLINE void emit16u_le(T val) noexcept {
+    using U = std::make_unsigned_t<T>;
+    Support::storeu_u16_le(_cursor, uint16_t(U(val) & 0xFFFFu));
     _cursor += 2;
   }
 
   template<typename T>
-  ASMJIT_FORCE_INLINE void emit16uBE(T val) noexcept {
-    typedef typename std::make_unsigned<T>::type U;
-    Support::writeU16uBE(_cursor, uint16_t(U(val) & 0xFFFFu));
+  ASMJIT_INLINE void emit16u_be(T val) noexcept {
+    using U = std::make_unsigned_t<T>;
+    Support::storeu_u16_be(_cursor, uint16_t(U(val) & 0xFFFFu));
     _cursor += 2;
   }
 
   template<typename T>
-  ASMJIT_FORCE_INLINE void emit32uLE(T val) noexcept {
-    typedef typename std::make_unsigned<T>::type U;
-    Support::writeU32uLE(_cursor, uint32_t(U(val) & 0xFFFFFFFFu));
+  ASMJIT_INLINE void emit32u_le(T val) noexcept {
+    using U = std::make_unsigned_t<T>;
+    Support::storeu_u32_le(_cursor, uint32_t(U(val) & 0xFFFFFFFFu));
     _cursor += 4;
   }
 
   template<typename T>
-  ASMJIT_FORCE_INLINE void emit32uBE(T val) noexcept {
-    typedef typename std::make_unsigned<T>::type U;
-    Support::writeU32uBE(_cursor, uint32_t(U(val) & 0xFFFFFFFFu));
+  ASMJIT_INLINE void emit32u_be(T val) noexcept {
+    using U = std::make_unsigned_t<T>;
+    Support::storeu_u32_be(_cursor, uint32_t(U(val) & 0xFFFFFFFFu));
     _cursor += 4;
   }
 
-  ASMJIT_FORCE_INLINE void emitData(const void* data, size_t size) noexcept {
+  ASMJIT_INLINE void emit_data(const void* data, size_t size) noexcept {
     ASMJIT_ASSERT(size != 0);
     memcpy(_cursor, data, size);
     _cursor += size;
   }
 
   template<typename T>
-  ASMJIT_FORCE_INLINE void emitValueLE(const T& value, size_t size) noexcept {
-    typedef typename std::make_unsigned<T>::type U;
+  ASMJIT_INLINE void emit_value_le(const T& value, size_t size) noexcept {
+    using U = std::make_unsigned_t<T>;
     ASMJIT_ASSERT(size <= sizeof(T));
 
     U v = U(value);
@@ -111,8 +116,8 @@ public:
   }
 
   template<typename T>
-  ASMJIT_FORCE_INLINE void emitValueBE(const T& value, size_t size) noexcept {
-    typedef typename std::make_unsigned<T>::type U;
+  ASMJIT_INLINE void emit_value_be(const T& value, size_t size) noexcept {
+    using U = std::make_unsigned_t<T>;
     ASMJIT_ASSERT(size <= sizeof(T));
 
     U v = U(value);
@@ -123,13 +128,13 @@ public:
     _cursor += size;
   }
 
-  ASMJIT_FORCE_INLINE void emitZeros(size_t size) noexcept {
+  ASMJIT_INLINE void emit_zeros(size_t size) noexcept {
     ASMJIT_ASSERT(size != 0);
     memset(_cursor, 0, size);
     _cursor += size;
   }
 
-  ASMJIT_FORCE_INLINE void remove8(uint8_t* where) noexcept {
+  ASMJIT_INLINE void remove8(uint8_t* where) noexcept {
     ASMJIT_ASSERT(where < _cursor);
 
     uint8_t* p = where;
@@ -139,7 +144,7 @@ public:
   }
 
   template<typename T>
-  ASMJIT_FORCE_INLINE void insert8(uint8_t* where, T val) noexcept {
+  ASMJIT_INLINE void insert8(uint8_t* where, T val) noexcept {
     uint8_t* p = _cursor;
 
     while (p != where) {
@@ -151,23 +156,27 @@ public:
     _cursor++;
   }
 
-  ASMJIT_FORCE_INLINE void done(BaseAssembler* a) noexcept {
+  ASMJIT_INLINE void done(BaseAssembler* a) noexcept {
     CodeBuffer& buffer = a->_section->_buffer;
-    size_t newSize = (size_t)(_cursor - a->_bufferData);
-    ASMJIT_ASSERT(newSize <= buffer.capacity());
+    size_t new_size = (size_t)(_cursor - a->_buffer_data);
+    ASMJIT_ASSERT(new_size <= buffer.capacity());
 
-    a->_bufferPtr = _cursor;
-    buffer._size = Support::max(buffer._size, newSize);
+    a->_buffer_ptr = _cursor;
+    buffer._size = Support::max(buffer._size, new_size);
   }
 };
 
 //! Code writer utilities.
 namespace CodeWriterUtils {
 
-bool encodeOffset32(uint32_t* dst, int64_t offset64, const OffsetFormat& format) noexcept;
-bool encodeOffset64(uint64_t* dst, int64_t offset64, const OffsetFormat& format) noexcept;
+[[nodiscard]]
+bool encode_offset32(uint32_t* dst, int64_t offset64, const OffsetFormat& format) noexcept;
 
-bool writeOffset(void* dst, int64_t offset64, const OffsetFormat& format) noexcept;
+[[nodiscard]]
+bool encode_offset64(uint64_t* dst, int64_t offset64, const OffsetFormat& format) noexcept;
+
+[[nodiscard]]
+bool write_offset(void* dst, int64_t offset64, const OffsetFormat& format) noexcept;
 
 } // {CodeWriterUtils}
 

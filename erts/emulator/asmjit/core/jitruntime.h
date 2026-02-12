@@ -1,17 +1,17 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_JITRUNTIME_H_INCLUDED
 #define ASMJIT_CORE_JITRUNTIME_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 #ifndef ASMJIT_NO_JIT
 
-#include "../core/codeholder.h"
-#include "../core/jitallocator.h"
-#include "../core/target.h"
+#include <asmjit/core/codeholder.h>
+#include <asmjit/core/jitallocator.h>
+#include <asmjit/core/target.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -36,6 +36,11 @@ public:
 
   //! Creates a `JitRuntime` instance.
   ASMJIT_API explicit JitRuntime(const JitAllocator::CreateParams* params = nullptr) noexcept;
+
+  //! Creates a `JitRuntime` instance.
+  ASMJIT_INLINE explicit JitRuntime(const JitAllocator::CreateParams& params) noexcept
+    : JitRuntime(&params) {}
+
   //! Destroys the `JitRuntime` instance.
   ASMJIT_API ~JitRuntime() noexcept override;
 
@@ -46,11 +51,11 @@ public:
 
   //! Resets the \ref JitRuntime, freeing everything that was allocated by it.
   //!
-  //! Depending on `resetPolicy` the currently held memory can be either freed entirely when ResetPolicy::kHard is used,
+  //! Depending on `reset_policy` the currently held memory can be either freed entirely when ResetPolicy::kHard is used,
   //! or the allocator can keep some of it for next allocations when ResetPolicy::kSoft is used, which is the default
   //! behavior.
-  ASMJIT_INLINE_NODEBUG void reset(ResetPolicy resetPolicy = ResetPolicy::kSoft) noexcept {
-    _allocator.reset(resetPolicy);
+  ASMJIT_INLINE_NODEBUG void reset(ResetPolicy reset_policy = ResetPolicy::kSoft) noexcept {
+    _allocator.reset(reset_policy);
   }
 
   //! \}
@@ -59,7 +64,8 @@ public:
   //! \{
 
   //! Returns the associated `JitAllocator`.
-  ASMJIT_INLINE_NODEBUG JitAllocator* allocator() const noexcept { return const_cast<JitAllocator*>(&_allocator); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG JitAllocator& allocator() const noexcept { return const_cast<JitAllocator&>(_allocator); }
 
   //! \}
 

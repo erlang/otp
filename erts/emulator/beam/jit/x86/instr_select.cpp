@@ -26,7 +26,7 @@ using namespace asmjit;
 
 void BeamModuleAssembler::emit_linear_search(x86::Gp comparand,
                                              const ArgVal &Fail,
-                                             const Span<ArgVal> &args) {
+                                             const Span<const ArgVal> &args) {
     int count = args.size() / 2;
 
     for (int i = 0; i < count; i++) {
@@ -55,16 +55,17 @@ void BeamModuleAssembler::emit_linear_search(x86::Gp comparand,
     }
 }
 
-void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
-                                                    const ArgLabel &Fail,
-                                                    const ArgWord &Size,
-                                                    const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_tuple_arity(
+        const ArgRegister &Src,
+        const ArgLabel &Fail,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     mov_arg(ARG2, Src);
 
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
-    ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
     a.mov(ARG2d, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
@@ -76,7 +77,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
         a.jne(resolve_beam_label(Fail));
     }
 
-    ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
 
     int count = args.size() / 2;
     for (int i = 0; i < count; i++) {
@@ -90,10 +91,11 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
     a.jne(resolve_beam_label(Fail));
 }
 
-void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
-                                                 const ArgVal &Fail,
-                                                 const ArgWord &Size,
-                                                 const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_val_lins(
+        const ArgSource &Src,
+        const ArgVal &Fail,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     mov_arg(ARG2, Src);
@@ -101,10 +103,11 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
     emit_linear_search(ARG2, Fail, args);
 }
 
-void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
-                                                 const ArgVal &Fail,
-                                                 const ArgWord &Size,
-                                                 const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_val_bins(
+        const ArgSource &Src,
+        const ArgVal &Fail,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     int count = args.size() / 2;
@@ -115,7 +118,7 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
     } else {
         /* NIL means fallthrough to the next instruction. */
         ASSERT(Fail.isNil());
-        fail = a.newLabel();
+        fail = a.new_label();
     }
 
     mov_arg(ARG2, Src);
@@ -136,7 +139,7 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
 void BeamModuleAssembler::emit_binsearch_nodes(size_t Left,
                                                size_t Right,
                                                const ArgVal &Fail,
-                                               const Span<ArgVal> &args) {
+                                               const Span<const ArgVal> &args) {
     ASSERT(Left <= Right);
     ASSERT(Right < args.size() / 2);
     size_t mid = (Left + Right) >> 1;
@@ -165,7 +168,7 @@ void BeamModuleAssembler::emit_binsearch_nodes(size_t Left,
                       args.begin() + Left + count,
                       args.begin() + count + Left + remaining);
 
-        emit_linear_search(ARG2, Fail, shrunk);
+        emit_linear_search(ARG2, Fail, Span(shrunk.data(), shrunk.size()));
 
         return;
     }
@@ -184,7 +187,7 @@ void BeamModuleAssembler::emit_binsearch_nodes(size_t Left,
     if (Left == mid) {
         a.jb(resolve_beam_label(Fail));
     } else {
-        Label right_tree = a.newLabel();
+        Label right_tree = a.new_label();
         a.ja(right_tree);
         emit_binsearch_nodes(Left, mid - 1, Fail, args);
         a.bind(right_tree);
@@ -197,8 +200,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
                                              const ArgVal &Fail,
                                              const ArgWord &Base,
                                              const ArgWord &Size,
-                                             const Span<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args, 0);
+                                             const Span<const ArgVal> &args) {
     Label fail;
 
     ASSERT(Size.get() == args.size());
@@ -215,14 +217,14 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         /* NIL means fallthrough to the next instruction. */
         ASSERT(Fail.isNil());
 
-        fail = a.newLabel();
+        fail = a.new_label();
         a.short_().jne(fail);
     }
 
     a.sar(ARG1, imm(_TAG_IMMED1_SIZE));
 
     if (Base.get() != 0) {
-        if (Support::isInt32((Sint)Base.get())) {
+        if (Support::is_int_n<32>((Sint)Base.get())) {
             a.sub(ARG1, imm(Base.get()));
         } else {
             a.mov(ARG2, imm(Base.get()));
@@ -237,7 +239,13 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         a.short_().jae(fail);
     }
 
-    a.lea(RET, x86::qword_ptr(data));
+#ifdef DEBUG
+    for (auto &arg : args) {
+        ASSERT(arg.isLabel());
+    }
+#endif
+
+    embed_vararg_rodata(args, RET, 0);
     a.jmp(x86::qword_ptr(RET, ARG1, 3));
 
     if (Fail.isNil()) {
@@ -278,7 +286,7 @@ bool BeamModuleAssembler::emit_optimized_two_way_select(bool destructive,
             diff,
             combined);
 
-    if (destructive && Support::isInt32((Sint)diff)) {
+    if (destructive && Support::is_int_n<32>((Sint)diff)) {
         a.or_(ARG2, imm(diff));
         cmp_arg(ARG2, val, RET);
     } else {

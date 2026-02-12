@@ -111,7 +111,7 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
                                                 const ArgSource &Preserve,
                                                 x86::Gp preserve_reg) {
     const int32_t bytes_needed = (Need.get() + S_RESERVED) * sizeof(Eterm);
-    Label after_gc_check = a.newLabel();
+    Label after_gc_check = a.new_label();
 
     ASSERT(preserve_reg != ARG3);
 
@@ -155,7 +155,7 @@ void BeamModuleAssembler::emit_gc_test(const ArgWord &Ns,
                                        const ArgWord &Live) {
     const int32_t bytes_needed =
             (Ns.get() + Nh.get() + S_RESERVED) * sizeof(Eterm);
-    Label after_gc_check = a.newLabel();
+    Label after_gc_check = a.new_label();
 
 #ifdef DEBUG
     comment("(debug: fill dead X registers with garbage)");
@@ -176,7 +176,7 @@ void BeamModuleAssembler::emit_gc_test(const ArgWord &Ns,
 
 void BeamModuleAssembler::emit_validate(const ArgWord &Arity) {
 #ifdef DEBUG
-    Label next = a.newLabel(), crash = a.newLabel();
+    Label next = a.new_label(), crash = a.new_label();
 
     /* Crash if the Erlang heap is not word-aligned */
     a.test(HTOP, imm(sizeof(Eterm) - 1));
@@ -458,7 +458,7 @@ void BeamModuleAssembler::emit_load_tuple_ptr(const ArgSource &Term) {
  * tuple as Src. */
 void BeamModuleAssembler::emit_tuple_assertion(const ArgSource &Src,
                                                x86::Gp tuple_reg) {
-    Label ok = a.newLabel(), fatal = a.newLabel();
+    Label ok = a.new_label(), fatal = a.new_label();
     ASSERT(tuple_reg != RET);
     mov_arg(RET, Src);
     emit_is_boxed(fatal, RET, dShort);
@@ -567,12 +567,12 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
 }
 
 void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
-                                          const Span<ArgVal> &args) {
+                                          const Span<const ArgVal> &args) {
     unsigned count = Size.get();
     ASSERT(count == args.size());
 
     if (count == 1) {
-        mov_arg(args.front(), NIL);
+        mov_arg(args.first(), NIL);
         return;
     }
 
@@ -824,7 +824,7 @@ void BeamModuleAssembler::emit_store_cons(const ArgWord &Len,
 
 void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                                           const ArgWord &Arity,
-                                          const Span<ArgVal> &args) {
+                                          const Span<const ArgVal> &args) {
     size_t size = args.size();
     ArgVal value = ArgWord(0);
 
@@ -845,7 +845,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                 x86::Mem src_ptr = getArgRef(args[i], 16);
 
                 comment("(moving two elements at once)");
-                dst_ptr.setSize(16);
+                dst_ptr.set_size(16);
                 preserve_cache([&]() {
                     vmovups(x86::xmm0, src_ptr);
                     vmovups(dst_ptr, x86::xmm0);
@@ -860,7 +860,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                     x86::Mem src_ptr = getArgRef(args[i + 1], 16);
 
                     comment("(moving and swapping two elements at once)");
-                    dst_ptr.setSize(16);
+                    dst_ptr.set_size(16);
                     preserve_cache([&]() {
                         a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
                         a.vmovups(dst_ptr, x86::xmm0);
@@ -923,14 +923,15 @@ void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
     mov_arg(Dst, reg);
 }
 
-void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
-                                             const ArgWord &TupleSize,
-                                             const ArgSource &Src,
-                                             const ArgRegister &Dst,
-                                             const ArgWord &UpdateCount,
-                                             const Span<ArgVal> &updates) {
+void BeamModuleAssembler::emit_update_record(
+        const ArgAtom &Hint,
+        const ArgWord &TupleSize,
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &UpdateCount,
+        const Span<const ArgVal> &updates) {
     size_t copy_index = 0, size_on_heap = TupleSize.get() + 1;
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     x86::Gp ptr_val;
 
@@ -992,7 +993,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
         const ArgSource &Src,
         const ArgRegister &Dst,
         const ArgWord &UpdateCount,
-        const Span<ArgVal> &updates) {
+        const Span<const ArgVal> &updates) {
     bool all_safe = true;
     ArgSource maybe_immediate = ArgNil();
     const size_t size_on_heap = TupleSize.get() + 1;
@@ -1023,7 +1024,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
 #if defined(DEBUG) && defined(TAG_LITERAL_PTR)
     /* The compiler guarantees that the tuple is not a literal. */
     {
-        Label not_literal = a.newLabel();
+        Label not_literal = a.new_label();
 
         a.test(tagged_ptr, imm(TAG_LITERAL_PTR));
         a.short_().je(not_literal);
@@ -1036,7 +1037,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
     if (all_safe) {
         comment("skipped copy fallback because all new values are safe");
     } else {
-        Label update = a.newLabel();
+        Label update = a.new_label();
 
         if (!maybe_immediate.isNil()) {
             mov_arg(ARG4, maybe_immediate);
@@ -1047,7 +1048,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
 
         preserve_cache(
                 [&]() {
-                    Label copy = a.newLabel();
+                    Label copy = a.new_label();
 
                     a.mov(ARG1, x86::Mem(c_p, offsetof(Process, high_water)));
                     a.cmp(tagged_ptr, HTOP);
@@ -1084,7 +1085,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
 
 #ifdef DEBUG
     if (!all_safe && maybe_immediate.isNil()) {
-        Label bad_pointer = a.newLabel(), pointer_ok = a.newLabel();
+        Label bad_pointer = a.new_label(), pointer_ok = a.new_label();
 
         /* If p->high_water contained a garbage value, a tuple not in
          * the safe part of the new heap could have been destructively
@@ -1198,7 +1199,7 @@ void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
                                          const ArgSource &Src) {
-    Label not_sub_bits = a.newLabel();
+    Label not_sub_bits = a.new_label();
 
     mov_arg(ARG1, Src);
 
@@ -1354,7 +1355,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
         return;
     }
 
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(ARG1, Src);
 
@@ -1396,7 +1397,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_list(const ArgLabel &Fail,
                                        const ArgSource &Src) {
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(RET, Src);
     preserve_cache([&]() {
@@ -1442,7 +1443,7 @@ void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
                                          const ArgSource &Src) {
     Label fail = resolve_beam_label(Fail);
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(ARG1, Src);
 
@@ -1479,7 +1480,7 @@ void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
                                       const ArgSource &Src) {
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(ARG1, Src);
 
@@ -1519,7 +1520,7 @@ void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_port(const ArgLabel &Fail,
                                        const ArgSource &Src) {
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(ARG1, Src);
 
@@ -1558,7 +1559,7 @@ void BeamModuleAssembler::emit_is_reference(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Reference) {
         comment("skipped header test since we know it's a ref when boxed");
     } else {
-        Label next = a.newLabel();
+        Label next = a.new_label();
 
         preserve_cache(
                 [&]() {
@@ -1586,7 +1587,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgLabel &Fail,
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
-    ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
     preserve_cache([&]() {
         a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)), imm(Arity.get()));
         a.jne(resolve_beam_label(Fail));
@@ -1613,7 +1614,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgLabel &NotTuple,
     a.test(ARG1.r8(), imm(_TAG_HEADER_MASK));
     a.jne(resolve_beam_label(NotTuple));
 
-    ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
     a.cmp(ARG1d, imm(Arity.get()));
     a.jne(resolve_beam_label(NotRecord));
 
@@ -1660,7 +1661,7 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
 
     (void)emit_ptr_val(ARG2, ARG2);
-    ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
 
     preserve_cache([&]() {
         a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.get()));
@@ -1684,14 +1685,14 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
         (void)emit_ptr_val(ARG2, ARG2);
         emit_is_boxed(resolve_beam_label(NotTuple), ARG2);
         preserve_cache([&]() {
-            ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+            ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
             a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.get()));
             a.jne(resolve_beam_label(BadArity));
         });
     } else {
         emit_is_boxed(resolve_beam_label(NotTuple), Src, ARG2);
         (void)emit_ptr_val(ARG2, ARG2);
-        ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+        ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
         preserve_cache(
                 [&]() {
                     a.mov(RETd, emit_boxed_val(ARG2, 0, sizeof(Uint32)));
@@ -1711,7 +1712,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
     mov_arg(ARG2, Src);
 
     (void)emit_ptr_val(ARG2, ARG2);
-    ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
     preserve_cache([&]() {
         a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.get()));
         a.jne(resolve_beam_label(Fail));
@@ -1725,7 +1726,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
  * The result is returned in the Z flag.
  */
 void BeamGlobalAssembler::emit_is_eq_exact_list_shared() {
-    Label loop = a.newLabel(), mid = a.newLabel(), done = a.newLabel();
+    Label loop = a.new_label(), mid = a.new_label(), done = a.new_label();
 
     a.short_().jmp(mid);
 
@@ -1767,9 +1768,9 @@ void BeamGlobalAssembler::emit_is_eq_exact_list_shared() {
  * The result is returned in the Z flag.
  */
 void BeamGlobalAssembler::emit_is_eq_exact_shallow_boxed_shared() {
-    Label loop = a.newLabel();
-    Label done = a.newLabel();
-    Label not_equal = a.newLabel();
+    Label loop = a.new_label();
+    Label done = a.new_label();
+    Label not_equal = a.new_label();
 
     a.mov(RETd, ARG1d);
     a.or_(RETd, ARG2d);
@@ -1832,7 +1833,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                 emit_is_cons(resolve_beam_label(Fail), RET);
             }
             (void)emit_ptr_val(RET, RET);
-            if (Support::isInt32(head)) {
+            if (Support::is_int_n<32>(head)) {
                 a.cmp(getCARRef(RET), imm(head));
             } else {
                 mov_imm(ARG1, head);
@@ -1868,7 +1869,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
             ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
             a.mov(ARG1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
 
-            Label not_sub_bits = a.newLabel();
+            Label not_sub_bits = a.new_label();
             if (masked_types<BeamTypeId::MaybeBoxed>(X) ==
                 BeamTypeId::Bitstring) {
                 a.cmp(emit_boxed_val(boxed_ptr), imm(HEADER_SUB_BITS));
@@ -1922,7 +1923,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
         return;
     }
 
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(ARG2, Y); /* May clobber ARG1 */
     mov_arg(ARG1, X);
@@ -1979,7 +1980,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 
         if (imm_list && erts_list_length(literal) == 1) {
             Sint head = (Sint)CAR(list_val(literal));
-            Label next = a.newLabel();
+            Label next = a.new_label();
 
             comment("optimized non-equality test with %T", literal);
             mov_arg(RET, X);
@@ -1987,7 +1988,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                 emit_is_cons(next, RET, dShort);
             }
             (void)emit_ptr_val(RET, RET);
-            if (Support::isInt32(head)) {
+            if (Support::is_int_n<32>(head)) {
                 a.cmp(getCARRef(RET), imm(head));
             } else {
                 mov_imm(ARG1, head);
@@ -2017,7 +2018,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 
             return;
         } else if (is_bitstring(literal) && bitstring_size(literal) == 0) {
-            Label next = a.newLabel();
+            Label next = a.new_label();
 
             comment("simplified non-equality test with empty bitstring");
             mov_arg(ARG2, X);
@@ -2027,7 +2028,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
             ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
             a.mov(ARG1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
 
-            Label not_sub_bits = a.newLabel();
+            Label not_sub_bits = a.new_label();
             if (masked_types<BeamTypeId::MaybeBoxed>(X) ==
                 BeamTypeId::Bitstring) {
                 a.cmp(emit_boxed_val(boxed_ptr), imm(HEADER_SUB_BITS));
@@ -2057,7 +2058,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 
             return;
         } else if (is_map(literal) && erts_map_size(literal) == 0) {
-            Label next = a.newLabel();
+            Label next = a.new_label();
 
             comment("optimized non-equality test with empty map", literal);
             mov_arg(ARG1, X);
@@ -2086,7 +2087,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
         return;
     }
 
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(ARG2, Y); /* May clobber ARG1 */
     mov_arg(ARG1, X);
@@ -2129,7 +2130,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 }
 
 void BeamGlobalAssembler::emit_arith_eq_shared() {
-    Label generic_compare = a.newLabel();
+    Label generic_compare = a.new_label();
 
     /* Are both floats? */
     a.mov(ARG3d, ARG1d);
@@ -2180,7 +2181,7 @@ void BeamGlobalAssembler::emit_arith_eq_shared() {
 void BeamModuleAssembler::emit_is_eq(const ArgLabel &Fail,
                                      const ArgSource &A,
                                      const ArgSource &B) {
-    Label fail = resolve_beam_label(Fail), next = a.newLabel();
+    Label fail = resolve_beam_label(Fail), next = a.new_label();
 
     mov_arg(ARG2, B); /* May clobber ARG1 */
     mov_arg(ARG1, A);
@@ -2205,7 +2206,7 @@ void BeamModuleAssembler::emit_is_eq(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
                                      const ArgSource &A,
                                      const ArgSource &B) {
-    Label fail = resolve_beam_label(Fail), next = a.newLabel();
+    Label fail = resolve_beam_label(Fail), next = a.new_label();
 
     mov_arg(ARG2, B); /* May clobber ARG1 */
     mov_arg(ARG1, A);
@@ -2230,8 +2231,8 @@ void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
 void BeamGlobalAssembler::emit_arith_compare_shared() {
     Label atom_compare, generic_compare;
 
-    atom_compare = a.newLabel();
-    generic_compare = a.newLabel();
+    atom_compare = a.new_label();
+    generic_compare = a.new_label();
 
     emit_enter_frame();
 
@@ -2320,7 +2321,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
-    Label generic = a.newLabel(), do_jge = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), do_jge = a.new_label(), next = a.new_label();
     bool both_small = always_small(LHS) && always_small(RHS);
     bool need_generic = !both_small;
     bool never_small = LHS.isLiteral() || RHS.isLiteral();
@@ -2420,7 +2421,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
     bool both_small = always_small(LHS) && always_small(RHS);
 
     if (both_small && LHS.isRegister() && RHS.isImmed() &&
-        Support::isInt32(RHS.as<ArgImmed>().get())) {
+        Support::is_int_n<32>(RHS.as<ArgImmed>().get())) {
         comment("simplified compare because one operand is an immediate small");
         preserve_cache([&]() {
             a.cmp(getArgRef(LHS.as<ArgRegister>()),
@@ -2429,7 +2430,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         });
         return;
     } else if (both_small && RHS.isRegister() && LHS.isImmed() &&
-               Support::isInt32(LHS.as<ArgImmed>().get())) {
+               Support::is_int_n<32>(LHS.as<ArgImmed>().get())) {
         comment("simplified compare because one operand is an immediate small");
         preserve_cache([&]() {
             a.cmp(getArgRef(RHS.as<ArgRegister>()),
@@ -2439,8 +2440,8 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         return;
     }
 
-    Label generic = a.newLabel(), small = a.newLabel(), do_jl = a.newLabel(),
-          next = a.newLabel();
+    Label generic = a.new_label(), small = a.new_label(), do_jl = a.new_label(),
+          next = a.new_label();
     bool need_generic = !both_small;
     bool never_small = LHS.isLiteral() || RHS.isLiteral();
 
@@ -2574,9 +2575,9 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
  * Result is returned in the flags.
  */
 void BeamGlobalAssembler::emit_is_in_range_shared() {
-    Label immediate = a.newLabel();
-    Label generic_compare = a.newLabel();
-    Label done = a.newLabel();
+    Label immediate = a.new_label();
+    Label generic_compare = a.new_label();
+    Label done = a.new_label();
 
     /* Is the source a float? */
     emit_is_boxed(immediate, ARG1);
@@ -2655,7 +2656,7 @@ void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
                                            ArgRegister const &Src,
                                            ArgConstant const &Min,
                                            ArgConstant const &Max) {
-    Label next = a.newLabel(), generic = a.newLabel();
+    Label next = a.new_label(), generic = a.new_label();
     bool need_generic = true;
 
     mov_arg(ARG1, Src);
@@ -2770,7 +2771,7 @@ test_done:
  * Result is returned in the flags.
  */
 void BeamGlobalAssembler::emit_is_ge_lt_shared() {
-    Label done = a.newLabel();
+    Label done = a.new_label();
 
     emit_enter_runtime();
 
@@ -2822,7 +2823,7 @@ void BeamModuleAssembler::emit_is_ge_lt(ArgLabel const &Fail1,
                                         ArgRegister const &Src,
                                         ArgConstant const &A,
                                         ArgConstant const &B) {
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), next = a.new_label();
 
     mov_arg(ARG2, A);
     mov_arg(ARG3, B);
@@ -2913,9 +2914,9 @@ void BeamModuleAssembler::emit_is_int_in_range(ArgLabel const &Fail,
 void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
                                          ArgRegister const &Src,
                                          ArgConstant const &Min) {
-    Label small = a.newLabel();
-    Label fail = a.newLabel();
-    Label next = a.newLabel();
+    Label small = a.new_label();
+    Label fail = a.new_label();
+    Label next = a.new_label();
     /* On Unix, using rcx instead of ARG1 makes the `test` instruction
      * in the boxed test one byte shorter. */
     const x86::Gp src_reg = x86::rcx;
@@ -2986,7 +2987,7 @@ void BeamModuleAssembler::emit_catch(const ArgYRegister &CatchTag,
                                      const ArgLabel &Handler) {
     a.inc(x86::qword_ptr(c_p, offsetof(Process, catches)));
 
-    Label patch_addr = a.newLabel();
+    Label patch_addr = a.new_label();
 
     /*
      * Emit the following instruction:
@@ -3015,8 +3016,8 @@ void BeamModuleAssembler::emit_catch(const ArgYRegister &CatchTag,
  *    x3 = Exception class
  */
 void BeamGlobalAssembler::emit_catch_end_shared() {
-    Label not_throw = a.newLabel(), not_error = a.newLabel(),
-          after_gc = a.newLabel();
+    Label not_throw = a.new_label(), not_error = a.new_label(),
+          after_gc = a.new_label();
 
     emit_enter_frame();
 
@@ -3083,7 +3084,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
 }
 
 void BeamModuleAssembler::emit_catch_end(const ArgYRegister &CatchTag) {
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     emit_try_end(CatchTag);
 
@@ -3111,7 +3112,7 @@ void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
     a.mov(getXRef(0), RET);
 
 #ifdef DEBUG
-    Label fvalue_ok = a.newLabel(), assertion_failed = a.newLabel();
+    Label fvalue_ok = a.new_label(), assertion_failed = a.new_label();
     comment("Start of assertion code");
     a.cmp(x86::qword_ptr(c_p, offsetof(Process, fvalue)), NIL);
     a.short_().je(fvalue_ok);
@@ -3173,7 +3174,7 @@ void BeamModuleAssembler::emit_build_stacktrace() {
 }
 
 void BeamModuleAssembler::emit_raw_raise() {
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(ARG1, ArgXRegister(2));
     mov_arg(ARG2, ArgXRegister(0));
@@ -3213,7 +3214,7 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
 void BeamModuleAssembler::emit_i_test_yield() {
     /* When present, this is guaranteed to be the first instruction after
      * the breakpoint trampoline. */
-    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
+    ASSERT((a.offset() - code.label_offset_from_base(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 
     emit_enter_frame();
@@ -3233,7 +3234,7 @@ void BeamModuleAssembler::emit_i_test_yield() {
     a.long_().jle(resolve_fragment(ga->get_i_test_yield_shared()));
     a.align(AlignMode::kCode, 4);
 
-    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
+    ASSERT((a.offset() - code.label_offset_from_base(current_label)) ==
            TEST_YIELD_RETURN_OFFSET);
 
 #if defined(JIT_HARD_DEBUG) && defined(ERLANG_FRAME_POINTERS)
@@ -3252,7 +3253,7 @@ void BeamModuleAssembler::emit_i_yield() {
 #ifdef NATIVE_ERLANG_STACK
     fragment_call(resolve_fragment(ga->get_dispatch_return()));
 #else
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     a.lea(ARG3, x86::qword_ptr(next));
     a.jmp(resolve_fragment(ga->get_dispatch_return()));
@@ -3275,7 +3276,7 @@ static Uint64 ERTS_CCONV_JIT i_perf_counter(void) {
 #endif
 
 void BeamModuleAssembler::emit_i_perf_counter() {
-    Label next = a.newLabel(), small = a.newLabel();
+    Label next = a.new_label(), small = a.new_label();
 
     emit_enter_runtime();
 

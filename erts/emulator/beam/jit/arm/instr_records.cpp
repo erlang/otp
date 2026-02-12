@@ -67,10 +67,11 @@ void BeamModuleAssembler::emit_is_record_accessible(const ArgLabel &Fail,
     a.tbz(ARG1.w(), imm(0), resolve_beam_label(Fail, disp32K));
 }
 
-void BeamModuleAssembler::emit_i_get_record_elements(const ArgLabel &Fail,
-                                                     const ArgRegister &Src,
-                                                     const ArgWord &Size,
-                                                     const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_get_record_elements(
+        const ArgLabel &Fail,
+        const ArgRegister &Src,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     mov_arg(ARG3, Src);
@@ -94,8 +95,8 @@ void BeamModuleAssembler::emit_i_create_native_record(
         const ArgRegister &Dst,
         const ArgWord &Live,
         const ArgWord &size,
-        const Span<ArgVal> &args) {
-    Label next = a.newLabel();
+        const Span<const ArgVal> &args) {
+    Label next = a.new_label();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -128,8 +129,8 @@ void BeamModuleAssembler::emit_i_update_native_record(
         const ArgRegister &Dst,
         const ArgWord &Live,
         const ArgWord &size,
-        const Span<ArgVal> &args) {
-    Label next = a.newLabel();
+        const Span<const ArgVal> &args) {
+    Label next = a.new_label();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -174,7 +175,7 @@ void BeamModuleAssembler::emit_get_record_field(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
-        Label next = a.newLabel();
+        Label next = a.new_label();
 
         emit_branch_if_value(ARG1, next);
         emit_raise_exception();

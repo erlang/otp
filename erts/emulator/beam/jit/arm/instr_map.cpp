@@ -42,21 +42,21 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
     a64::Gp key = ARG2, key_hash = ARG3;
 
     /* key_hash = key ^ (key >> 33); */
-    a.eor(key_hash, key, key, arm::lsr(33));
+    a.eor(key_hash, key, key, a64::lsr(33));
 
     /* key_hash *= 0xFF51AFD7ED558CCDull */
     mov_imm(TMP1, 0xFF51AFD7ED558CCDull);
     a.mul(key_hash, key_hash, TMP1);
 
     /* key_hash ^= key_hash >> 33; */
-    a.eor(key_hash, key_hash, key_hash, arm::lsr(33));
+    a.eor(key_hash, key_hash, key_hash, a64::lsr(33));
 
     /* key_hash *= 0xC4CEB9FE1A85EC53ull */
     mov_imm(TMP1, 0xC4CEB9FE1A85EC53ull);
     a.mul(key_hash, key_hash, TMP1);
 
     /* key_hash ^= key_hash >> 33; */
-    a.eor(key_hash, key_hash, key_hash, arm::lsr(33));
+    a.eor(key_hash, key_hash, key_hash, a64::lsr(33));
 
 #ifdef DBG_HASHMAP_COLLISION_BONANZA
     emit_enter_runtime_frame();
@@ -85,7 +85,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
  *
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_hashmap_get_element() {
-    Label node_loop = a.newLabel();
+    Label node_loop = a.new_label();
 
     a64::Gp node = ARG1, key = ARG2, key_hash = ARG3, header_val = ARG4,
             depth = TMP5, index = TMP6;
@@ -100,9 +100,9 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
 
     a.bind(node_loop);
     {
-        Label done = a.newLabel(), leaf_node = a.newLabel(),
-              skip_index_adjustment = a.newLabel(),
-              collision_node = a.newLabel();
+        Label done = a.new_label(), leaf_node = a.new_label(),
+              skip_index_adjustment = a.new_label(),
+              collision_node = a.new_label();
 
         /* Find out which child we should follow, and shift the hash for the
          * next round. */
@@ -136,7 +136,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
         }
         a.bind(skip_index_adjustment);
 
-        a.ldr(TMP1, arm::Mem(node, index, arm::lsl(3)));
+        a.ldr(TMP1, a64::Mem(node, index, a64::lsl(3)));
         emit_untag_ptr(node, TMP1);
 
         /* Have we found our leaf? */
@@ -144,7 +144,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
 
         /* Nope, we have to search another node. Read and skip past the header
          * word. */
-        a.ldr(header_val, arm::Mem(node).post(sizeof(Eterm)));
+        a.ldr(header_val, a64::Mem(node).post(sizeof(Eterm)));
 
         /* After 8/16 nodes we've run out of the hash bits we've started with
          * and we end up in a collision node. */
@@ -156,7 +156,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
         {
             /* We've arrived at a leaf, set ZF according to whether its key
              * matches ours and speculatively place the element in ARG1. */
-            a.ldp(TMP1, ARG1, arm::Mem(node));
+            a.ldp(TMP1, ARG1, a64::Mem(node));
             a.cmp(TMP1, key);
 
             /* See comment at the jump. */
@@ -167,7 +167,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
         /* A collision node is a tuple of leafs where we do linear search.*/
         a.bind(collision_node);
         {
-            Label linear_loop = a.newLabel();
+            Label linear_loop = a.new_label();
 
             a.lsr(TMP1, header_val, imm(_HEADER_ARITY_OFFS - 3));
 
@@ -175,10 +175,10 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
             {
                 a.sub(TMP1, TMP1, imm(8));
 
-                a.ldr(TMP2, arm::Mem(node, TMP1));
+                a.ldr(TMP2, a64::Mem(node, TMP1));
 
                 emit_untag_ptr(TMP2, TMP2);
-                a.ldp(TMP3, TMP4, arm::Mem(TMP2));
+                a.ldp(TMP3, TMP4, a64::Mem(TMP2));
                 a.cmp(key, TMP3);
                 a.csel(ARG1, node, TMP4, imm(arm::CondCode::kNE));
                 a.b_eq(done);
@@ -197,7 +197,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
  *
  * Result is returned in ARG1. ZF is set on success. */
 void BeamGlobalAssembler::emit_flatmap_get_element() {
-    Label fail = a.newLabel(), loop = a.newLabel();
+    Label fail = a.new_label(), loop = a.new_label();
 
     /* Bump size by 1 to slide past the `keys` field in the map, and the header
      * word in the key array. Also set flags to ensure ZF == 0 when entering
@@ -206,7 +206,7 @@ void BeamGlobalAssembler::emit_flatmap_get_element() {
 
     /* Adjust our map pointer to the `keys` field before loading it. This
      * saves us from having to bump it to point at the values later on. */
-    a.ldr(TMP1, arm::Mem(ARG1).pre(offsetof(flatmap_t, keys)));
+    a.ldr(TMP1, a64::Mem(ARG1).pre(offsetof(flatmap_t, keys)));
     emit_untag_ptr(TMP1, TMP1);
 
     a.bind(loop);
@@ -214,12 +214,12 @@ void BeamGlobalAssembler::emit_flatmap_get_element() {
         a.sub(ARG5, ARG5, imm(1));
         a.cbz(ARG5, fail);
 
-        a.ldr(TMP4, arm::Mem(TMP1, ARG5, arm::lsl(3)));
+        a.ldr(TMP4, a64::Mem(TMP1, ARG5, a64::lsl(3)));
         a.cmp(ARG2, TMP4);
         a.b_ne(loop);
     }
 
-    a.ldr(ARG1, arm::Mem(ARG1, ARG5, arm::lsl(3)));
+    a.ldr(ARG1, a64::Mem(ARG1, ARG5, a64::lsl(3)));
 
     a.bind(fail);
     a.ret(a64::x30);
@@ -232,11 +232,7 @@ void BeamGlobalAssembler::emit_new_map_shared() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<Eterm (*)(Process * p,
-                           Eterm * reg,
-                           Uint live,
-                           Uint n,
-                           const Eterm *ptr),
+    runtime_call<Eterm (*)(Process *, Eterm *, Uint, Uint, const Eterm *),
                  erts_gc_new_map>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
@@ -249,7 +245,7 @@ void BeamGlobalAssembler::emit_new_map_shared() {
 void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
                                        const ArgWord &Live,
                                        const ArgWord &Size,
-                                       const Span<ArgVal> &args) {
+                                       const Span<const ArgVal> &args) {
     embed_vararg_rodata(args, ARG5);
 
     mov_arg(ARG3, Live);
@@ -259,11 +255,12 @@ void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
     mov_arg(Dst, ARG1);
 }
 
-void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
-                                                   const ArgWord &Live,
-                                                   const ArgLiteral &Keys,
-                                                   const ArgWord &Size,
-                                                   const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_new_small_map_lit(
+        const ArgRegister &Dst,
+        const ArgWord &Live,
+        const ArgLiteral &Keys,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     emit_gc_test(ArgWord(0),
@@ -298,11 +295,11 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
         }
 
         auto [first, second] = load_sources(data[i], TMP2, data[i + 1], TMP3);
-        a.stp(first.reg, second.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        a.stp(first.reg, second.reg, a64::Mem(HTOP).post(sizeof(Eterm[2])));
     }
 
     if (i < size) {
-        mov_arg(arm::Mem(HTOP).post(sizeof(Eterm)), data[i]);
+        mov_arg(a64::Mem(HTOP).post(sizeof(Eterm)), data[i]);
     }
 
     if (dst_is_src) {
@@ -317,7 +314,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
  *
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_i_get_map_element_shared() {
-    Label generic = a.newLabel(), hashmap = a.newLabel();
+    Label generic = a.new_label(), hashmap = a.new_label();
 
     a.and_(TMP1, ARG2, imm(_TAG_PRIMARY_MASK));
     a.cmp(TMP1, imm(TAG_PRIMARY_IMMED1));
@@ -328,7 +325,7 @@ void BeamGlobalAssembler::emit_i_get_map_element_shared() {
     /* hashmap_get_element expects node header in ARG4, flatmap_get_element
      * expects size in ARG5 */
     ERTS_CT_ASSERT_FIELD_PAIR(flatmap_t, thing_word, size);
-    a.ldp(ARG4, ARG5, arm::Mem(ARG1));
+    a.ldp(ARG4, ARG5, a64::Mem(ARG1));
     a.and_(TMP1, ARG4, imm(_HEADER_MAP_SUBTAG_MASK));
     a.cmp(TMP1, imm(HAMT_SUBTAG_HEAD_FLATMAP));
     a.b_ne(hashmap);
@@ -391,11 +388,12 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
     }
 }
 
-void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
-                                                  const ArgSource &Src,
-                                                  const ArgWord &Size,
-                                                  const Span<ArgVal> &args) {
-    Label generic = a.newLabel(), next = a.newLabel();
+void BeamModuleAssembler::emit_i_get_map_elements(
+        const ArgLabel &Fail,
+        const ArgSource &Src,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
+    Label generic = a.new_label(), next = a.new_label();
 
     /* We're not likely to gain much from inlining huge extractions, and the
      * resulting code is quite large, so we'll cut it off after a handful
@@ -420,7 +418,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
         emit_untag_ptr(TMP1, ARG1);
 
         ERTS_CT_ASSERT_FIELD_PAIR(flatmap_t, thing_word, size);
-        a.ldp(TMP2, TMP3, arm::Mem(TMP1, offsetof(flatmap_t, thing_word)));
+        a.ldp(TMP2, TMP3, a64::Mem(TMP1, offsetof(flatmap_t, thing_word)));
         a.and_(TMP2, TMP2, imm(_HEADER_MAP_SUBTAG_MASK));
         a.cmp(TMP2, imm(HAMT_SUBTAG_HEAD_FLATMAP));
         a.b_ne(generic);
@@ -435,18 +433,18 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
          * saves us from having to bump it to point at the values later on. */
         ERTS_CT_ASSERT(sizeof(flatmap_t) ==
                        offsetof(flatmap_t, keys) + sizeof(Eterm));
-        a.ldr(TMP2, arm::Mem(TMP1).pre(offsetof(flatmap_t, keys)));
+        a.ldr(TMP2, a64::Mem(TMP1).pre(offsetof(flatmap_t, keys)));
         emit_untag_ptr(TMP2, TMP2);
 
         for (ssize_t i = args.size() - 3; i >= 0; i -= 3) {
-            Label loop = a.newLabel();
+            Label loop = a.new_label();
 
             a.bind(loop);
             {
                 a.subs(TMP3, TMP3, imm(1));
                 a.b_eq(resolve_beam_label(Fail, disp1MB));
 
-                a.ldr(TMP4, arm::Mem(TMP2, TMP3, arm::lsl(3)));
+                a.ldr(TMP4, a64::Mem(TMP2, TMP3, a64::lsl(3)));
 
                 const auto &Comparand = args[i];
                 cmp_arg(TMP4, Comparand);
@@ -459,7 +457,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
             const auto &Dst = args[i + 1];
             if (!(Dst.isXRegister() &&
                   Dst.as<ArgXRegister>().get() == SCRATCH_X_REG)) {
-                mov_arg(Dst, arm::Mem(TMP1, TMP3, arm::lsl(3)));
+                mov_arg(Dst, a64::Mem(TMP1, TMP3, a64::lsl(3)));
             }
         }
 
@@ -493,14 +491,14 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
  *
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_i_get_map_element_hash_shared() {
-    Label hashmap = a.newLabel();
+    Label hashmap = a.new_label();
 
     emit_untag_ptr(ARG1, ARG1);
 
     /* hashmap_get_element expects node header in ARG4, flatmap_get_element
      * expects size in ARG5 */
     ERTS_CT_ASSERT_FIELD_PAIR(flatmap_t, thing_word, size);
-    a.ldp(ARG4, ARG5, arm::Mem(ARG1));
+    a.ldp(ARG4, ARG5, a64::Mem(ARG1));
     a.and_(TMP1, ARG4, imm(_HEADER_MAP_SUBTAG_MASK));
     a.cmp(TMP1, imm(HAMT_SUBTAG_HEAD_FLATMAP));
     a.b_ne(hashmap);
@@ -575,11 +573,12 @@ void BeamGlobalAssembler::emit_update_map_single_assoc_shared() {
     a.ret(a64::x30);
 }
 
-void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
-                                                const ArgRegister &Dst,
-                                                const ArgWord &Live,
-                                                const ArgWord &Size,
-                                                const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_update_map_assoc(
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &Live,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     if (args.size() == 2) {
@@ -623,7 +622,7 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
  *
  * Does not return on error. */
 void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_runtime_frame();
     emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
@@ -654,7 +653,7 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
  *
  * Does not return on error. */
 void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     a.str(ARG2, TMP_MEM2q);
 
@@ -679,18 +678,19 @@ void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
         a.ldr(TMP2, TMP_MEM2q);
         mov_imm(TMP1, BADKEY);
         ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
-        a.stp(TMP1, TMP2, arm::Mem(c_p, offsetof(Process, freason)));
+        a.stp(TMP1, TMP2, a64::Mem(c_p, offsetof(Process, freason)));
         mov_imm(ARG4, 0);
         a.b(labels[raise_exception]);
     }
 }
 
-void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,
-                                                const ArgLabel &Fail,
-                                                const ArgRegister &Dst,
-                                                const ArgWord &Live,
-                                                const ArgWord &Size,
-                                                const Span<ArgVal> &args) {
+void BeamModuleAssembler::emit_update_map_exact(
+        const ArgSource &Src,
+        const ArgLabel &Fail,
+        const ArgRegister &Dst,
+        const ArgWord &Live,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
     if (args.size() == 2 && Fail.get() == 0) {

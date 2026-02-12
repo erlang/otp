@@ -1,21 +1,21 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
-#include "../core/globals.h"
-#include "../core/support.h"
+#include <asmjit/core/api-build_p.h>
+#include <asmjit/core/globals.h>
+#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
 // DebugUtils - Error As String
 // ============================
 
-ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
+ASMJIT_FAVOR_SIZE const char* DebugUtils::error_as_string(Error err) noexcept {
 #ifndef ASMJIT_NO_TEXT
-  // @EnumStringBegin{"enum": "ErrorCode", "output": "sError", "strip": "kError"}@
-  static const char sErrorString[] =
+  // @EnumStringBegin{"enum": "Error", "output": "error_string", "strip": "k"}@
+  static const char error_string_data[] =
     "Ok\0"
     "OutOfMemory\0"
     "InvalidArgument\0"
@@ -90,7 +90,7 @@ ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
     "ProtectionFailure\0"
     "<Unknown>\0";
 
-  static const uint16_t sErrorIndex[] = {
+  static const uint16_t error_string_index[] = {
     0, 3, 15, 31, 44, 56, 71, 90, 108, 123, 132, 148, 165, 178, 192, 210, 230,
     247, 264, 283, 298, 314, 333, 352, 370, 392, 410, 429, 444, 460, 474, 488,
     508, 533, 551, 573, 595, 612, 629, 645, 661, 677, 694, 709, 724, 744, 764,
@@ -99,18 +99,18 @@ ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
   };
   // @EnumStringEnd@
 
-  return sErrorString + sErrorIndex[Support::min<Error>(err, kErrorCount)];
+  return error_string_data + error_string_index[Support::min(uint32_t(err), uint32_t(Error::kMaxValue) + 1u)];
 #else
-  DebugUtils::unused(err);
-  static const char noMessage[] = "";
-  return noMessage;
+  Support::maybe_unused(err);
+  static const char no_message[] = "";
+  return no_message;
 #endif
 }
 
 // DebugUtils - Debug Output
 // =========================
 
-ASMJIT_FAVOR_SIZE void DebugUtils::debugOutput(const char* str) noexcept {
+ASMJIT_FAVOR_SIZE void DebugUtils::debug_output(const char* str) noexcept {
 #if defined(_WIN32)
   ::OutputDebugStringA(str);
 #else
@@ -121,14 +121,14 @@ ASMJIT_FAVOR_SIZE void DebugUtils::debugOutput(const char* str) noexcept {
 // DebugUtils - Fatal Errors
 // =========================
 
-ASMJIT_FAVOR_SIZE void DebugUtils::assertionFailed(const char* file, int line, const char* msg) noexcept {
+ASMJIT_FAVOR_SIZE void DebugUtils::assertion_failure(const char* file, int line, const char* msg) noexcept {
   char str[1024];
 
   snprintf(str, 1024,
     "[asmjit] Assertion failed at %s (line %d):\n"
     "[asmjit] %s\n", file, line, msg);
 
-  debugOutput(str);
+  debug_output(str);
   ::abort();
 }
 

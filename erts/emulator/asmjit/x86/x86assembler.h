@@ -1,14 +1,14 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86ASSEMBLER_H_INCLUDED
 #define ASMJIT_X86_X86ASSEMBLER_H_INCLUDED
 
-#include "../core/assembler.h"
-#include "../x86/x86emitter.h"
-#include "../x86/x86operand.h"
+#include <asmjit/core/assembler.h>
+#include <asmjit/x86/x86emitter.h>
+#include <asmjit/x86/x86operand.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -32,70 +32,72 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! using namespace asmjit;
 //!
 //! // Signature of the generated function.
-//! typedef int (*SumFunc)(const int* arr, size_t count);
+//! using SumFunc = int (*)(const int* arr, size_t count);
 //!
 //! int main() {
-//!   JitRuntime rt;                    // Create a runtime specialized for JIT.
-//!   CodeHolder code;                  // Create a CodeHolder.
+//!   JitRuntime rt;                      // Create a runtime specialized for JIT.
+//!   CodeHolder code;                    // Create a CodeHolder.
 //!
-//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
-//!             rt.cpuFeatures());
-//!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
+//!   code.init(rt.environment(),         // Initialize code to match the JIT environment.
+//!             rt.cpu_features());
+//!   x86::Assembler a(&code);            // Create and attach x86::Assembler to code.
 //!
 //!   // Decide between 32-bit CDECL, WIN64, and SysV64 calling conventions:
 //!   //   32-BIT - passed all arguments by stack.
 //!   //   WIN64  - passes first 4 arguments by RCX, RDX, R8, and R9.
 //!   //   UNIX64 - passes first 6 arguments by RDI, RSI, RDX, RCX, R8, and R9.
 //!   x86::Gp arr, cnt;
-//!   x86::Gp sum = x86::eax;           // Use EAX as 'sum' as it's a return register.
+//!   x86::Gp sum = x86::eax;             // Use EAX as 'sum' as it's a return register.
 //!
 //!   if (ASMJIT_ARCH_BITS == 64) {
 //!   #if defined(_WIN32)
-//!     arr = x86::rcx;                 // First argument (array ptr).
-//!     cnt = x86::rdx;                 // Second argument (number of elements)
+//!     arr = x86::rcx;                   // First argument (array ptr).
+//!     cnt = x86::rdx;                   // Second argument (number of elements)
 //!   #else
-//!     arr = x86::rdi;                 // First argument (array ptr).
-//!     cnt = x86::rsi;                 // Second argument (number of elements)
+//!     arr = x86::rdi;                   // First argument (array ptr).
+//!     cnt = x86::rsi;                   // Second argument (number of elements)
 //!   #endif
 //!   }
 //!   else {
-//!     arr = x86::edx;                 // Use EDX to hold the array pointer.
-//!     cnt = x86::ecx;                 // Use ECX to hold the counter.
+//!     arr = x86::edx;                   // Use EDX to hold the array pointer.
+//!     cnt = x86::ecx;                   // Use ECX to hold the counter.
 //!     // Fetch first and second arguments from [ESP + 4] and [ESP + 8].
 //!     a.mov(arr, x86::ptr(x86::esp, 4));
 //!     a.mov(cnt, x86::ptr(x86::esp, 8));
 //!   }
 //!
-//!   Label Loop = a.newLabel();        // To construct the loop, we need some labels.
-//!   Label Exit = a.newLabel();
+//!   Label Loop = a.new_label();         // To construct the loop, we need some labels.
+//!   Label Exit = a.new_label();
 //!
-//!   a.xor_(sum, sum);                 // Clear 'sum' register (shorter than 'mov').
-//!   a.test(cnt, cnt);                 // Border case:
-//!   a.jz(Exit);                       //   If 'cnt' is zero jump to 'Exit' now.
+//!   a.xor_(sum, sum);                   // Clear 'sum' register (shorter than 'mov').
+//!   a.test(cnt, cnt);                   // Border case:
+//!   a.jz(Exit);                         //   If 'cnt' is zero jump to 'Exit' now.
 //!
-//!   a.bind(Loop);                     // Start of a loop iteration.
-//!   a.add(sum, x86::dword_ptr(arr));  // Add int at [arr] to 'sum'.
-//!   a.add(arr, 4);                    // Increment 'arr' pointer.
-//!   a.dec(cnt);                       // Decrease 'cnt'.
-//!   a.jnz(Loop);                      // If not zero jump to 'Loop'.
+//!   a.bind(Loop);                       // Start of a loop iteration.
+//!   a.add(sum, x86::dword_ptr(arr));    // Add int at [arr] to 'sum'.
+//!   a.add(arr, 4);                      // Increment 'arr' pointer.
+//!   a.dec(cnt);                         // Decrease 'cnt'.
+//!   a.jnz(Loop);                        // If not zero jump to 'Loop'.
 //!
-//!   a.bind(Exit);                     // Exit to handle the border case.
-//!   a.ret();                          // Return from function ('sum' == 'eax').
+//!   a.bind(Exit);                       // Exit to handle the border case.
+//!   a.ret();                            // Return from function ('sum' == 'eax').
 //!   // ----> x86::Assembler is no longer needed from here and can be destroyed <----
 //!
 //!   SumFunc fn;
-//!   Error err = rt.add(&fn, &code);   // Add the generated code to the runtime.
+//!   Error err = rt.add(&fn, &code);     // Add the generated code to the runtime.
 //!
-//!   if (err) return 1;                // Handle a possible error returned by AsmJit.
+//!   if (err != Error::kOk) {
+//!     return 1;                         // Handle a possible error returned by AsmJit.
+//!   }
 //!   // ----> CodeHolder is no longer needed from here and can be destroyed <----
 //!
 //!   static const int array[6] = { 4, 8, 15, 16, 23, 42 };
 //!
-//!   int result = fn(array, 6);        // Execute the generated code.
-//!   printf("%d\n", result);           // Print sum of array (108).
+//!   int result = fn(array, 6);          // Execute the generated code.
+//!   printf("%d\n", result);             // Print sum of array (108).
 //!
-//!   rt.release(fn);                   // Explicitly remove the function from the runtime
-//!   return 0;                         // Everything successful...
+//!   rt.release(fn);                     // Explicitly remove the function from the runtime
+//!   return 0;                           // Everything successful...
 //! }
 //! ```
 //!
@@ -129,30 +131,30 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! using namespace asmjit;
 //!
 //! int main(int argc, char* argv[]) {
-//!   JitRuntime rt;                    // Create a runtime specialized for JIT.
-//!   CodeHolder code;                  // Create a CodeHolder.
+//!   JitRuntime rt;                      // Create a runtime specialized for JIT.
+//!   CodeHolder code;                    // Create a CodeHolder.
 //!
-//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
-//!             rt.cpuFeatures());
-//!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
+//!   code.init(rt.environment(),         // Initialize code to match the JIT environment.
+//!             rt.cpu_features());
+//!   x86::Assembler a(&code);            // Create and attach x86::Assembler to code.
 //!
 //!   // Enable strict validation.
-//!   a.addDiagnosticOptions(DiagnosticOptions::kValidateAssembler);
+//!   a.add_diagnostic_options(DiagnosticOptions::kValidateAssembler);
 //!
 //!   // Try to encode invalid or ill-formed instructions.
 //!   Error err;
 //!
 //!   // Invalid instruction.
 //!   err = a.mov(x86::eax, x86::al);
-//!   printf("Status: %s\n", DebugUtils::errorAsString(err));
+//!   printf("Status: %s\n", DebugUtils::error_as_string(err));
 //!
 //!   // Invalid instruction.
 //!   err = a.emit(x86::Inst::kIdMovss, x86::eax, x86::xmm0);
-//!   printf("Status: %s\n", DebugUtils::errorAsString(err));
+//!   printf("Status: %s\n", DebugUtils::error_as_string(err));
 //!
 //!   // Ambiguous operand size - the pointer requires size.
 //!   err = a.inc(x86::ptr(x86::rax));
-//!   printf("Status: %s\n", DebugUtils::errorAsString(err));
+//!   printf("Status: %s\n", DebugUtils::error_as_string(err));
 //!
 //!   return 0;
 //! }
@@ -183,26 +185,26 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! using namespace asmjit;
 //!
-//! typedef int (*Func)(void);
+//! using Func = int (*)(void);
 //!
 //! int main(int argc, char* argv[]) {
-//!   JitRuntime rt;                    // Create a runtime specialized for JIT.
-//!   CodeHolder code;                  // Create a CodeHolder.
+//!   JitRuntime rt;                      // Create a runtime specialized for JIT.
+//!   CodeHolder code;                    // Create a CodeHolder.
 //!
-//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
-//!             rt.cpuFeatures());
-//!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
+//!   code.init(rt.environment(),         // Initialize code to match the JIT environment.
+//!             rt.cpu_features());
+//!   x86::Assembler a(&code);            // Create and attach x86::Assembler to code.
 //!
 //!   // Let's get these registers from x86::Assembler.
 //!   x86::Gp zbp = a.zbp();
 //!   x86::Gp zsp = a.zsp();
 //!
-//!   int stackSize = 32;
+//!   int stack_size = 32;
 //!
 //!   // Function prolog.
 //!   a.push(zbp);
 //!   a.mov(zbp, zsp);
-//!   a.sub(zsp, stackSize);
+//!   a.sub(zsp, stack_size);
 //!
 //!   // ... emit some code (this just sets return value to zero) ...
 //!   a.xor_(x86::eax, x86::eax);
@@ -214,13 +216,16 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //!   // To make the example complete let's call it.
 //!   Func fn;
-//!   Error err = rt.add(&fn, &code);   // Add the generated code to the runtime.
-//!   if (err) return 1;                // Handle a possible error returned by AsmJit.
+//!   Error err = rt.add(&fn, &code);     // Add the generated code to the runtime.
 //!
-//!   int result = fn();                // Execute the generated code.
-//!   printf("%d\n", result);           // Print the resulting "0".
+//!   if (err != Error::kOk) {
+//!     return 1;                         // Handle a possible error returned by AsmJit.
+//!   }
 //!
-//!   rt.release(fn);                   // Remove the function from the runtime.
+//!   int result = fn();                  // Execute the generated code.
+//!   printf("%d\n", result);             // Print the resulting "0".
+//!
+//!   rt.release(fn);                     // Remove the function from the runtime.
 //!   return 0;
 //! }
 //! ```
@@ -241,7 +246,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //!   // You can also change register's id easily.
 //!   x86::Gp zsp = zax;
-//!   zsp.setId(4); // or x86::Gp::kIdSp.
+//!   zsp.set_id(4); // or x86::Gp::kIdSp.
 //! }
 //! ```
 //!
@@ -250,16 +255,16 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! x86::Assembler extends the standard \ref BaseAssembler with X86/X64 specific conventions that are often used by
 //! assemblers to embed data next to the code. The following functions can be used to embed data:
 //!
-//!   - \ref BaseAssembler::embedInt8() - embeds int8_t (portable naming).
-//!   - \ref BaseAssembler::embedUInt8() - embeds uint8_t (portable naming).
-//!   - \ref BaseAssembler::embedInt16() - embeds int16_t (portable naming).
-//!   - \ref BaseAssembler::embedUInt16() - embeds uint16_t (portable naming).
-//!   - \ref BaseAssembler::embedInt32() - embeds int32_t (portable naming).
-//!   - \ref BaseAssembler::embedUInt32() - embeds uint32_t (portable naming).
-//!   - \ref BaseAssembler::embedInt64() - embeds int64_t (portable naming).
-//!   - \ref BaseAssembler::embedUInt64() - embeds uint64_t (portable naming).
-//!   - \ref BaseAssembler::embedFloat() - embeds float (portable naming).
-//!   - \ref BaseAssembler::embedDouble() - embeds double (portable naming).
+//!   - \ref BaseAssembler::embed_int8() - embeds int8_t (portable naming).
+//!   - \ref BaseAssembler::embed_uint8() - embeds uint8_t (portable naming).
+//!   - \ref BaseAssembler::embed_int16() - embeds int16_t (portable naming).
+//!   - \ref BaseAssembler::embed_uint16() - embeds uint16_t (portable naming).
+//!   - \ref BaseAssembler::embed_int32() - embeds int32_t (portable naming).
+//!   - \ref BaseAssembler::embed_uint32() - embeds uint32_t (portable naming).
+//!   - \ref BaseAssembler::embed_int64() - embeds int64_t (portable naming).
+//!   - \ref BaseAssembler::embed_uint64() - embeds uint64_t (portable naming).
+//!   - \ref BaseAssembler::embed_float() - embeds float (portable naming).
+//!   - \ref BaseAssembler::embed_double() - embeds double (portable naming).
 //!
 //!   - \ref x86::Assembler::db() - embeds byte (8 bits) (x86 naming).
 //!   - \ref x86::Assembler::dw() - embeds word (16 bits) (x86 naming).
@@ -272,11 +277,11 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! #include <asmjit/x86.h>
 //! using namespace asmjit;
 //!
-//! void embedData(x86::Assembler& a) {
-//!   a.db(0xFF);         // Embeds 0xFF byte.
-//!   a.dw(0xFF00);       // Embeds 0xFF00 word (little-endian).
-//!   a.dd(0xFF000000);   // Embeds 0xFF000000 dword (little-endian).
-//!   a.embedFloat(0.4f); // Embeds 0.4f (32-bit float, little-endian).
+//! void embed_data(x86::Assembler& a) {
+//!   a.db(0xFF);          // Embeds 0xFF byte.
+//!   a.dw(0xFF00);        // Embeds 0xFF00 word (little-endian).
+//!   a.dd(0xFF000000) ;   // Embeds 0xFF000000 dword (little-endian).
+//!   a.embed_float(0.4f); // Embeds 0.4f (32-bit float, little-endian).
 //! }
 //! ```
 //!
@@ -287,7 +292,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! #include <asmjit/x86.h>
 //! using namespace asmjit;
 //!
-//! void processData(x86::Assembler& a, const Label& L_Data) {
+//! void process_data(x86::Assembler& a, const Label& L_Data) {
 //!   x86::Gp addr = a.zax();  // EAX or RAX.
 //!   x86::Gp val = x86::edi;  // Where to store some value...
 //!
@@ -309,11 +314,11 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! It's also possible to embed labels. In general AsmJit provides the following options:
 //!
-//!   - \ref BaseEmitter::embedLabel() - Embeds absolute address of a label. This is target dependent and would
+//!   - \ref BaseEmitter::embed_label() - Embeds absolute address of a label. This is target dependent and would
 //!     embed either 32-bit or 64-bit data that embeds absolute label address. This kind of embedding cannot be
 //!     used in a position independent code.
 //!
-//!   - \ref BaseEmitter::embedLabelDelta() - Embeds a difference between two labels. The size of the difference
+//!   - \ref BaseEmitter::embed_label_delta() - Embeds a difference between two labels. The size of the difference
 //!     can be specified so it's possible to embed 8-bit, 16-bit, 32-bit, and 64-bit difference, which is sufficient
 //!     for most purposes.
 //!
@@ -323,15 +328,15 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! #include <asmjit/x86.h>
 //! using namespace asmjit;
 //!
-//! void embedLabel(x86::Assembler& a, const Label& L_Data) {
+//! void embed_label(x86::Assembler& a, const Label& L_Data) {
 //!   // [1] Embed L_Data - the size of the data will be dependent on the target.
-//!   a.embedLabel(L_Data);
+//!   a.embed_label(L_Data);
 //!
 //!   // [2] Embed a 32-bit difference of two labels.
-//!   Label L_Here = a.newLabel();
+//!   Label L_Here = a.new_label();
 //!   a.bind(L_Here);
 //!   // Embeds int32_t(L_Data - L_Here).
-//!   a.embedLabelDelta(L_Data, L_Here, 4);
+//!   a.embed_label_delta(L_Data, L_Here, 4);
 //! }
 //! ```
 //!
@@ -346,15 +351,15 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! using namespace asmjit;
 //!
-//! typedef void (*SumIntsFunc)(int* dst, const int* a, const int* b);
+//! using SumIntsFunc = void (*)(int* dst, const int* a, const int* b);
 //!
 //! int main(int argc, char* argv[]) {
-//!   JitRuntime rt;                    // Create JIT Runtime.
-//!   CodeHolder code;                  // Create a CodeHolder.
+//!   JitRuntime rt;                      // Create JIT Runtime.
+//!   CodeHolder code;                    // Create a CodeHolder.
 //!
-//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
-//!             rt.cpuFeatures());
-//!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
+//!   code.init(rt.environment(),         // Initialize code to match the JIT environment.
+//!             rt.cpu_features());
+//!   x86::Assembler a(&code);            // Create and attach x86::Assembler to code.
 //!
 //!   // Decide which registers will be mapped to function arguments. Try changing
 //!   // registers of dst, src_a, and src_b and see what happens in function's
@@ -363,8 +368,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   x86::Gp src_a = a.zcx();
 //!   x86::Gp src_b = a.zdx();
 //!
-//!   x86::Xmm vec0 = x86::xmm0;
-//!   x86::Xmm vec1 = x86::xmm1;
+//!   x86::Vec vec0 = x86::xmm0;
+//!   x86::Vec vec1 = x86::xmm1;
 //!
 //!   // Create/initialize FuncDetail and FuncFrame.
 //!   FuncDetail func;
@@ -375,34 +380,37 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   frame.init(func);
 //!
 //!   // Make XMM0 and XMM1 dirty - RegGroup::kVec describes XMM|YMM|ZMM registers.
-//!   frame.setDirtyRegs(RegGroup::kVec, Support::bitMask(0, 1));
+//!   frame.set_dirty_regs(RegGroup::kVec, Support::bit_mask<RegMask>(0, 1));
 //!
-//!   // Alternatively, if you don't want to use register masks you can pass BaseReg
-//!   // to addDirtyRegs(). The following code would add both xmm0 and xmm1.
-//!   frame.addDirtyRegs(x86::xmm0, x86::xmm1);
+//!   // Alternatively, if you don't want to use register masks you can pass Reg
+//!   // to add_dirty_regs(). The following code would add both xmm0 and xmm1.
+//!   frame.add_dirty_regs(x86::xmm0, x86::xmm1);
 //!
-//!   FuncArgsAssignment args(&func);   // Create arguments assignment context.
-//!   args.assignAll(dst, src_a, src_b);// Assign our registers to arguments.
-//!   args.updateFuncFrame(frame);      // Reflect our args in FuncFrame.
-//!   frame.finalize();                 // Finalize the FuncFrame (updates it).
+//!   FuncArgsAssignment args(&func);     // Create arguments assignment context.
+//!   args.assign_all(dst, src_a, src_b); // Assign our registers to arguments.
+//!   args.update_func_frame(frame);      // Reflect our args in FuncFrame.
+//!   frame.finalize();                   // Finalize the FuncFrame (updates it).
 //!
-//!   a.emitProlog(frame);              // Emit function prolog.
-//!   a.emitArgsAssignment(frame, args);// Assign arguments to registers.
-//!   a.movdqu(vec0, x86::ptr(src_a));  // Load 4 ints from [src_a] to XMM0.
-//!   a.movdqu(vec1, x86::ptr(src_b));  // Load 4 ints from [src_b] to XMM1.
-//!   a.paddd(vec0, vec1);              // Add 4 ints in XMM1 to XMM0.
-//!   a.movdqu(x86::ptr(dst), vec0);    // Store the result to [dst].
-//!   a.emitEpilog(frame);              // Emit function epilog and return.
+//!   a.emit_prolog(frame);               // Emit function prolog.
+//!   a.emit_args_assignment(frame, args);// Assign arguments to registers.
+//!   a.movdqu(vec0, x86::ptr(src_a));    // Load 4 ints from [src_a] to XMM0.
+//!   a.movdqu(vec1, x86::ptr(src_b));    // Load 4 ints from [src_b] to XMM1.
+//!   a.paddd(vec0, vec1);                // Add 4 ints in XMM1 to XMM0.
+//!   a.movdqu(x86::ptr(dst), vec0);      // Store the result to [dst].
+//!   a.emit_epilog(frame);               // Emit function epilog and return.
 //!
 //!   SumIntsFunc fn;
-//!   Error err = rt.add(&fn, &code);   // Add the generated code to the runtime.
-//!   if (err) return 1;                // Handle a possible error case.
+//!   Error err = rt.add(&fn, &code);     // Add the generated code to the runtime.
+//!
+//!   if (err != Error::kOk) {
+//!     return 1;                         // Handle a possible error case.
+//!   }
 //!
 //!   // Execute the generated function.
-//!   int inA[4] = { 4, 3, 2, 1 };
-//!   int inB[4] = { 1, 5, 2, 8 };
+//!   int in_a[4] = { 4, 3, 2, 1 };
+//!   int in_b[4] = { 1, 5, 2, 8 };
 //!   int out[4];
-//!   fn(out, inA, inB);
+//!   fn(out, in_a, in_b);
 //!
 //!   // Prints {5 8 4 9}
 //!   printf("{%d %d %d %d}\n", out[0], out[1], out[2], out[3]);
@@ -455,15 +463,15 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! using namespace asmjit;
 //!
-//! typedef int (*Func)(void);
-//!
 //! int main(int argc, char* argv[]) {
-//!   JitRuntime rt;                    // Create a runtime specialized for JIT.
-//!   CodeHolder code;                  // Create a CodeHolder.
+//!   using Func = int (*)(void);
 //!
-//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
-//!             rt.cpuFeatures());
-//!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
+//!   JitRuntime rt;                      // Create a runtime specialized for JIT.
+//!   CodeHolder code;                    // Create a CodeHolder.
+//!
+//!   code.init(rt.environment(),         // Initialize code to match the JIT environment.
+//!             rt.cpu_features());
+//!   x86::Assembler a(&code);            // Create and attach x86::Assembler to code.
 //!
 //!   // Let's get these registers from x86::Assembler.
 //!   x86::Gp zbp = a.zbp();
@@ -475,7 +483,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //!   // This is where we are gonna patch the code later, so let's get the offset
 //!   // (the current location) from the beginning of the code-buffer.
-//!   size_t patchOffset = a.offset();
+//!   size_t patch_offset = a.offset();
 //!   // Let's just emit 'sub zsp, 0' for now, but don't forget to use LONG form.
 //!   a.long_().sub(zsp, 0);
 //!
@@ -490,19 +498,22 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   // Now we know how much stack size we want to reserve. I have chosen 128
 //!   // bytes on purpose as it's encodable only in long form that we have used.
 //!
-//!   int stackSize = 128;              // Number of bytes to reserve on the stack.
-//!   a.setOffset(patchOffset);         // Move the current cursor to `patchOffset`.
-//!   a.long_().sub(zsp, stackSize);    // Patch the code; don't forget to use LONG form.
+//!   int stack_size = 128;               // Number of bytes to reserve on the stack.
+//!   a.set_offset(patch_offset);         // Move the current cursor to `patch_offset`.
+//!   a.long_().sub(zsp, stack_size);     // Patch the code; don't forget to use LONG form.
 //!
 //!   // Now the code is ready to be called
 //!   Func fn;
-//!   Error err = rt.add(&fn, &code);   // Add the generated code to the runtime.
-//!   if (err) return 1;                // Handle a possible error returned by AsmJit.
+//!   Error err = rt.add(&fn, &code);     // Add the generated code to the runtime.
 //!
-//!   int result = fn();                // Execute the generated code.
-//!   printf("%d\n", result);           // Print the resulting "0".
+//!   if (err != Error::kOk) {
+//!     return 1;                         // Handle a possible error returned by AsmJit.
+//!   }
 //!
-//!   rt.release(fn);                   // Remove the function from the runtime.
+//!   int result = fn();                  // Execute the generated code.
+//!   printf("%d\n", result);             // Print the resulting "0".
+//!
+//!   rt.release(fn);                     // Remove the function from the runtime.
 //!   return 0;
 //! }
 //! ```
@@ -539,7 +550,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! using namespace asmjit;
 //!
-//! void prefixesExample(x86::Assembler& a) {
+//! void prefixes_example(x86::Assembler& a) {
 //!   // Lock prefix for implementing atomics:
 //!   //   lock add dword ptr [rdi], 1
 //!   a.lock().add(x86::dword_ptr(x86::rdi), 1);
@@ -578,7 +589,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! adding a prefix is called the prefix is combined with existing instruction options, which will affect the next
 //! instruction generated.
 //!
-//! ### Generating AVX512 code.
+//! ### Generating AVX512 Code
 //!
 //! x86::Assembler can generate AVX512+ code including the use of opmask registers. Opmask can be specified through
 //! \ref x86::Assembler::k() function, which stores it as an extra register, which will be used by the next
@@ -597,13 +608,13 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! using namespace asmjit;
 //!
-//! void generateAVX512Code(x86::Assembler& a) {
+//! void generate_avx512_code(x86::Assembler& a) {
 //!   using namespace x86;
 //!
 //!   // Opmask Selectors
 //!   // ----------------
 //!   //
-//!   //   - Opmask / zeroing is part of the instruction options / extraReg.
+//!   //   - Opmask / zeroing is part of the instruction options / extra_reg.
 //!   //   - k(reg) is like {kreg} in Intel syntax.
 //!   //   - z() is like {z} in Intel syntax.
 //!
@@ -640,7 +651,7 @@ class ASMJIT_VIRTAPI Assembler
     public EmitterImplicitT<Assembler> {
 public:
   ASMJIT_NONCOPYABLE(Assembler)
-  typedef BaseAssembler Base;
+  using Base = BaseAssembler;
 
   //! \name Construction & Destruction
   //! \{
@@ -654,11 +665,11 @@ public:
   //! \name Internal
   //! \{
 
-  // NOTE: x86::Assembler uses _privateData to store 'address-override' bit that is used to decide whether to emit
+  // NOTE: x86::Assembler uses _private_data to store 'address-override' bit that is used to decide whether to emit
   // address-override (67H) prefix based on the memory BASE+INDEX registers. It's either `kX86MemInfo_67H_X86` or
   // `kX86MemInfo_67H_X64`.
-  ASMJIT_INLINE_NODEBUG uint32_t _addressOverrideMask() const noexcept { return _privateData; }
-  ASMJIT_INLINE_NODEBUG void _setAddressOverrideMask(uint32_t m) noexcept { _privateData = m; }
+  ASMJIT_INLINE_NODEBUG uint32_t _address_override_mask() const noexcept { return _private_data; }
+  ASMJIT_INLINE_NODEBUG void _set_address_override_mask(uint32_t m) noexcept { _private_data = m; }
 
   //! \}
   //! \endcond
@@ -667,7 +678,7 @@ public:
   //! \name Emit
   //! \{
 
-  ASMJIT_API Error _emit(InstId instId, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt) override;
+  ASMJIT_API Error _emit(InstId inst_id, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* op_ext) override;
 
   //! \}
   //! \endcond
@@ -675,15 +686,15 @@ public:
   //! \name Align
   //! \{
 
-  ASMJIT_API Error align(AlignMode alignMode, uint32_t alignment) override;
+  ASMJIT_API Error align(AlignMode align_mode, uint32_t alignment) override;
 
   //! \}
 
   //! \name Events
   //! \{
 
-  ASMJIT_API Error onAttach(CodeHolder* code) noexcept override;
-  ASMJIT_API Error onDetach(CodeHolder* code) noexcept override;
+  ASMJIT_API Error on_attach(CodeHolder& code) noexcept override;
+  ASMJIT_API Error on_detach(CodeHolder& code) noexcept override;
 
   //! \}
 };

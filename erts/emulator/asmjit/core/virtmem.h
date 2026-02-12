@@ -1,16 +1,16 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_VIRTMEM_H_INCLUDED
 #define ASMJIT_CORE_VIRTMEM_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 #ifndef ASMJIT_NO_JIT
 
-#include "../core/globals.h"
-#include "../core/support.h"
+#include <asmjit/core/globals.h>
+#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -39,17 +39,18 @@ enum class CachePolicy : uint32_t {
 //!
 //! Only useful on non-x86 architectures, however, it's a good practice to call it on any platform to make your
 //! code more portable.
-ASMJIT_API void flushInstructionCache(void* p, size_t size) noexcept;
+ASMJIT_API void flush_instruction_cache(void* p, size_t size) noexcept;
 
 //! Virtual memory information.
 struct Info {
   //! Virtual memory page size.
-  uint32_t pageSize;
+  uint32_t page_size;
   //! Virtual memory page granularity.
-  uint32_t pageGranularity;
+  uint32_t page_granularity;
 };
 
 //! Returns virtual memory information, see `VirtMem::Info` for more details.
+[[nodiscard]]
 ASMJIT_API Info info() noexcept;
 
 //! Returns the size of the smallest large page supported.
@@ -59,7 +60,8 @@ ASMJIT_API Info info() noexcept;
 //!
 //! Returns either the detected large page size or 0, if large page support is either not supported by AsmJit
 //! or not accessible to the process.
-ASMJIT_API size_t largePageSize() noexcept;
+[[nodiscard]]
+ASMJIT_API size_t large_page_size() noexcept;
 
 //! Virtual memory access and mmap-specific flags.
 enum class MemoryFlags : uint32_t {
@@ -101,8 +103,8 @@ enum class MemoryFlags : uint32_t {
   //! This flag allows to set a "maximum access" that the memory page can get during its lifetime. Use
   //! \ref VirtMem::protect() to change the access flags.
   //!
-  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::allocDualMapping().
-  //! However \ref VirtMem::allocDualMapping() may automatically use this if \ref kAccessRead is used.
+  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::alloc_dual_mapping().
+  //! However \ref VirtMem::alloc_dual_mapping() may automatically use this if \ref kAccessRead is used.
   kMMapMaxAccessRead = 0x00000020u,
 
   //! Pass `PROT_MAX(PROT_WRITE)` or `PROT_MPROTECT(PROT_WRITE)` to `mmap()` on platforms that support it.
@@ -110,8 +112,8 @@ enum class MemoryFlags : uint32_t {
   //! This flag allows to set a "maximum access" that the memory page can get during its lifetime. Use
   //! \ref VirtMem::protect() to change the access flags.
   //!
-  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::allocDualMapping().
-  //! However \ref VirtMem::allocDualMapping() may automatically use this if \ref kAccessWrite is used.
+  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::alloc_dual_mapping().
+  //! However \ref VirtMem::alloc_dual_mapping() may automatically use this if \ref kAccessWrite is used.
   kMMapMaxAccessWrite = 0x00000040u,
 
   //! Pass `PROT_MAX(PROT_EXEC)` or `PROT_MPROTECT(PROT_EXEC)` to `mmap()` on platforms that support it.
@@ -119,8 +121,8 @@ enum class MemoryFlags : uint32_t {
   //! This flag allows to set a "maximum access" that the memory page can get during its lifetime. Use
   //! \ref VirtMem::protect() to change the access flags.
   //!
-  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::allocDualMapping().
-  //! However \ref VirtMem::allocDualMapping() may automatically use this if \ref kAccessExecute is used.
+  //! \note This flag can only be used with \ref VirtMem::alloc() and \ref VirtMem::alloc_dual_mapping().
+  //! However \ref VirtMem::alloc_dual_mapping() may automatically use this if \ref kAccessExecute is used.
   kMMapMaxAccessExecute = 0x00000080u,
 
   //! A combination of \ref kMMapMaxAccessRead and \ref kMMapMaxAccessWrite.
@@ -149,7 +151,7 @@ enum class MemoryFlags : uint32_t {
   //! additional mechanism to allocate regular page(s) when large page(s) allocation fails.
   kMMapLargePages = 0x00000200u,
 
-  //! Not an access flag, only used by `allocDualMapping()` to override the default allocation strategy to always use
+  //! Not an access flag, only used by `alloc_dual_mapping()` to override the default allocation strategy to always use
   //! a 'tmp' directory instead of "/dev/shm" (on POSIX platforms). Please note that this flag will be ignored if the
   //! operating system allows to allocate an executable memory by a different API than `open()` or `shm_open()`. For
   //! example on Linux `memfd_create()` is preferred and on BSDs `shm_open(SHM_ANON, ...)` is used if SHM_ANON is
@@ -164,19 +166,22 @@ ASMJIT_DEFINE_ENUM_FLAGS(MemoryFlags)
 //!
 //! \note `size` should be aligned to page size, use \ref VirtMem::info() to obtain it. Invalid size will not be
 //! corrected by the implementation and the allocation would not succeed in such case.
+[[nodiscard]]
 ASMJIT_API Error alloc(void** p, size_t size, MemoryFlags flags) noexcept;
 
 //! Releases virtual memory previously allocated by \ref VirtMem::alloc().
 //!
 //! \note The size must be the same as used by \ref VirtMem::alloc(). If the size is not the same value the call
 //! will fail on any POSIX system, but pass on Windows, because it's implemented differently.
+[[nodiscard]]
 ASMJIT_API Error release(void* p, size_t size) noexcept;
 
 //! A cross-platform wrapper around `mprotect()` (POSIX) and `VirtualProtect()` (Windows).
+[[nodiscard]]
 ASMJIT_API Error protect(void* p, size_t size, MemoryFlags flags) noexcept;
 
 //! Dual memory mapping used to map an anonymous memory into two memory regions where one region is read-only, but
-//! executable, and the second region is read+write, but not executable. See \ref VirtMem::allocDualMapping() for
+//! executable, and the second region is read+write, but not executable. See \ref VirtMem::alloc_dual_mapping() for
 //! more details.
 struct DualMapping {
   //! Pointer to data with 'Read+Execute' access (this memory is not writable).
@@ -191,16 +196,18 @@ struct DualMapping {
 //! self-modifying code.
 //!
 //! The memory returned in the `dm` are two independent mappings of the same shared memory region. You must use
-//! \ref VirtMem::releaseDualMapping() to release it when it's no longer needed. Never use `VirtMem::release()` to
-//! release the memory returned by `allocDualMapping()` as that would fail on Windows.
+//! \ref VirtMem::release_dual_mapping() to release it when it's no longer needed. Never use `VirtMem::release()` to
+//! release the memory returned by `alloc_dual_mapping()` as that would fail on Windows.
 //!
 //! \remarks Both pointers in `dm` would be set to `nullptr` if the function fails.
-ASMJIT_API Error allocDualMapping(DualMapping* dm, size_t size, MemoryFlags flags) noexcept;
+[[nodiscard]]
+ASMJIT_API Error alloc_dual_mapping(Out<DualMapping> dm, size_t size, MemoryFlags flags) noexcept;
 
-//! Releases virtual memory mapping previously allocated by \ref VirtMem::allocDualMapping().
+//! Releases virtual memory mapping previously allocated by \ref VirtMem::alloc_dual_mapping().
 //!
 //! \remarks Both pointers in `dm` would be set to `nullptr` if the function succeeds.
-ASMJIT_API Error releaseDualMapping(DualMapping* dm, size_t size) noexcept;
+[[nodiscard]]
+ASMJIT_API Error release_dual_mapping(DualMapping& dm, size_t size) noexcept;
 
 //! Hardened runtime flags.
 enum class HardenedRuntimeFlags : uint32_t {
@@ -238,15 +245,17 @@ struct HardenedRuntimeInfo {
   //! \{
 
   //! Tests whether the hardened runtime `flag` is set.
-  ASMJIT_INLINE_NODEBUG bool hasFlag(HardenedRuntimeFlags flag) const noexcept { return Support::test(flags, flag); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool has_flag(HardenedRuntimeFlags flag) const noexcept { return Support::test(flags, flag); }
 
   //! \}
 };
 
 //! Returns runtime features provided by the OS.
-ASMJIT_API HardenedRuntimeInfo hardenedRuntimeInfo() noexcept;
+[[nodiscard]]
+ASMJIT_API HardenedRuntimeInfo hardened_runtime_info() noexcept;
 
-//! Values that can be used with `protectJitMemory()` function.
+//! Values that can be used with `protect_jit_memory()` function.
 enum class ProtectJitAccess : uint32_t {
   //! Protect JIT memory with Read+Write permissions.
   kReadWrite = 0,
@@ -262,22 +271,22 @@ enum class ProtectJitAccess : uint32_t {
 //! This function must be called before and after a memory mapped with MAP_JIT flag is modified. Example:
 //!
 //! ```
-//! void* codePtr = ...;
-//! size_t codeSize = ...;
+//! void* code_ptr = ...;
+//! size_t code_size = ...;
 //!
-//! VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite);
-//! memcpy(codePtr, source, codeSize);
-//! VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
-//! VirtMem::flushInstructionCache(codePtr, codeSize);
+//! VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadWrite);
+//! memcpy(code_ptr, source, code_size);
+//! VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadExecute);
+//! VirtMem::flush_instruction_cache(code_ptr, code_size);
 //! ```
 //!
 //! See \ref ProtectJitReadWriteScope, which makes it simpler than the code above.
-ASMJIT_API void protectJitMemory(ProtectJitAccess access) noexcept;
+ASMJIT_API void protect_jit_memory(ProtectJitAccess access) noexcept;
 
 //! JIT protection scope that prepares the given memory block to be written to in the current thread.
 //!
-//! It calls `VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite)` at construction time and
-//! `VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute)` combined with `flushInstructionCache()`
+//! It calls `VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadWrite)` at construction time and
+//! `VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadExecute)` combined with `flush_instruction_cache()`
 //! in destructor. The purpose of this class is to make writing to JIT memory easier.
 class ProtectJitReadWriteScope {
 public:
@@ -286,7 +295,7 @@ public:
   //! \name Members
   //! \{
 
-  void* _rxPtr;
+  void* _rx_ptr;
   size_t _size;
   CachePolicy _policy;
 
@@ -296,22 +305,24 @@ public:
   //! \{
 
   //! Makes the given memory block RW protected.
-  ASMJIT_FORCE_INLINE ProtectJitReadWriteScope(
-    void* rxPtr,
+  ASMJIT_INLINE ProtectJitReadWriteScope(
+    void* rx_ptr,
     size_t size,
-    CachePolicy policy = CachePolicy::kDefault) noexcept
-    : _rxPtr(rxPtr),
+    CachePolicy policy = CachePolicy::kDefault
+  ) noexcept
+    : _rx_ptr(rx_ptr),
       _size(size),
       _policy(policy) {
-    protectJitMemory(ProtectJitAccess::kReadWrite);
+    protect_jit_memory(ProtectJitAccess::kReadWrite);
   }
 
   //! Makes the memory block RX protected again and flushes instruction cache.
-  ASMJIT_FORCE_INLINE  ~ProtectJitReadWriteScope() noexcept {
-    protectJitMemory(ProtectJitAccess::kReadExecute);
+  ASMJIT_INLINE  ~ProtectJitReadWriteScope() noexcept {
+    protect_jit_memory(ProtectJitAccess::kReadExecute);
 
-    if (_policy != CachePolicy::kNeverFlush)
-      flushInstructionCache(_rxPtr, _size);
+    if (_policy != CachePolicy::kNeverFlush) {
+      flush_instruction_cache(_rx_ptr, _size);
+    }
   }
 
   //! \}

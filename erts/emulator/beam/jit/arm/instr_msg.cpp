@@ -104,20 +104,20 @@ int erts_lc_proc_sig_receive_helper(Process *c_p,
 #endif
 
 void BeamGlobalAssembler::emit_i_loop_rec_shared() {
-    Label restart = a.newLabel(), peek_message = a.newLabel(),
-          schedule_out = a.newLabel(), check_is_distributed = a.newLabel(),
-          done = a.newLabel();
+    Label restart = a.new_label(), peek_message = a.new_label(),
+          schedule_out = a.new_label(), check_is_distributed = a.new_label(),
+          done = a.new_label();
 
-    arm::Mem await_addr = TMP_MEM1q, message_ptr = TMP_MEM2q,
+    a64::Mem await_addr = TMP_MEM1q, message_ptr = TMP_MEM2q,
              get_out = TMP_MEM3q;
-    arm::Mem flags = arm::Mem(c_p, offsetof(Process, flags));
+    a64::Mem flags = a64::Mem(c_p, offsetof(Process, flags));
 
     a.mov(XREG1, a64::x30);
 
     a.ldr(TMP1.w(), flags);
     a.orr(TMP1, TMP1, imm(F_DELAY_GC));
     a.str(TMP1.w(), flags);
-    a.str(ARG1, arm::Mem(c_p, offsetof(Process, i)));
+    a.str(ARG1, a64::Mem(c_p, offsetof(Process, i)));
     a.str(ARG2, await_addr);
 
     a.bind(restart);
@@ -131,8 +131,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     comment("Peek next message");
     a.bind(peek_message);
     {
-        a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, sig_qs.save)));
-        a.ldr(ARG1, arm::Mem(TMP1));
+        a.ldr(TMP1, a64::Mem(c_p, offsetof(Process, sig_qs.save)));
+        a.ldr(ARG1, a64::Mem(TMP1));
         a.cbnz(ARG1, check_is_distributed);
         comment("Inner queue empty, fetch more from outer/middle queues");
 
@@ -190,8 +190,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.ldr(TMP1.w(), flags);
         a.and_(TMP1, TMP1, imm(~F_DELAY_GC));
         a.str(TMP1.w(), flags);
-        a.strb(ZERO.w(), arm::Mem(c_p, offsetof(Process, arity)));
-        a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
+        a.strb(ZERO.w(), a64::Mem(c_p, offsetof(Process, arity)));
+        a.str(ZERO, a64::Mem(c_p, offsetof(Process, current)));
 
         a.b(labels[do_schedule]);
     }
@@ -202,7 +202,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     comment("Check if message is distributed");
     a.bind(check_is_distributed);
     {
-        a.ldr(TMP1, arm::Mem(ARG1, offsetof(ErtsSignal, common.tag)));
+        a.ldr(TMP1, a64::Mem(ARG1, offsetof(ErtsSignal, common.tag)));
         emit_branch_if_value(TMP1, done);
 
         sub(FCALLS, FCALLS, 10);
@@ -223,13 +223,13 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
     a.bind(done);
     {
-        a.ldr(XREG0, arm::Mem(ARG1, offsetof(ErtsMessage, m[0])));
+        a.ldr(XREG0, a64::Mem(ARG1, offsetof(ErtsMessage, m[0])));
         a.ret(XREG1);
     }
 }
 
 void BeamModuleAssembler::emit_i_loop_rec(const ArgLabel &Wait) {
-    Label entry = a.newLabel();
+    Label entry = a.new_label();
 
     a.bind(entry);
     a.adr(ARG1, entry);
@@ -311,7 +311,7 @@ void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
 
 void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
                                                    const ArgLabel &Dest) {
-    Label wait = a.newLabel(), next = a.newLabel();
+    Label wait = a.new_label(), next = a.new_label();
 
     mov_arg(ARG2, Src);
 

@@ -1,12 +1,12 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_OSUTILS_H_INCLUDED
 #define ASMJIT_CORE_OSUTILS_H_INCLUDED
 
-#include "../core/globals.h"
+#include <asmjit/core/globals.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -35,7 +35,7 @@ public:
   Handle _handle;
 #pragma pack(pop)
 #elif !defined(__EMSCRIPTEN__)
-  typedef pthread_mutex_t Handle;
+  using Handle = pthread_mutex_t;
   Handle _handle;
 #endif
 

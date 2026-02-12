@@ -1,15 +1,15 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_INST_H_INCLUDED
 #define ASMJIT_CORE_INST_H_INCLUDED
 
-#include "../core/cpuinfo.h"
-#include "../core/operand.h"
-#include "../core/string.h"
-#include "../core/support.h"
+#include <asmjit/core/cpuinfo.h>
+#include <asmjit/core/operand.h>
+#include <asmjit/core/string.h>
+#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -26,7 +26,7 @@ ASMJIT_BEGIN_NAMESPACE
 //!
 //!   - \ref x86::Inst (X86 and X86_64)
 //!   - \ref a64::Inst (AArch64)
-typedef uint32_t InstId;
+using InstId = uint32_t;
 
 //! Instruction id parts.
 //!
@@ -92,7 +92,7 @@ enum class InstOptions : uint32_t {
   //!     - `pinsrq xmm0, ?, 0` followed by `pinsrq xmm0, ?, 1`
   //!
   //!   - If the allocated virtual register is used temporarily for scalar operations. For example if you allocate a
-  //!     full vector like `x86::Compiler::newXmm()` and then use that vector for scalar operations you should use
+  //!     full vector like `x86::Compiler::new_xmm()` and then use that vector for scalar operations you should use
   //!     `overwrite()` directive:
   //!
   //!     - `sqrtss x, y` - only LO element of `x` is changed, if you don't
@@ -155,13 +155,13 @@ enum class InstOptions : uint32_t {
   //! AVX-512: Mask of all possible AVX-512 options except EVEX prefix flag.
   kX86_AVX512Mask = 0x00FC0000u,
 
-  //! Force REX.B and/or VEX.B field (X64 only).
+  //! Force REX.B and/or VEX.B field (X64 only, used internally).
   kX86_OpCodeB = 0x01000000u,
-  //! Force REX.X and/or VEX.X field (X64 only).
+  //! Force REX.X and/or VEX.X field (X64 only, used internally).
   kX86_OpCodeX = 0x02000000u,
-  //! Force REX.R and/or VEX.R field (X64 only).
+  //! Force REX.R and/or VEX.R field (X64 only, used internally).
   kX86_OpCodeR = 0x04000000u,
-  //! Force REX.W and/or VEX.W field (X64 only).
+  //! Force REX.W and/or VEX.W field (X64 only, used internally).
   kX86_OpCodeW = 0x08000000u,
   //! Force REX prefix (X64 only).
   kX86_Rex = 0x40000000u,
@@ -201,7 +201,22 @@ enum class InstSameRegHint : uint8_t {
   kWO = 2
 };
 
-//! Instruction id, options, and extraReg in a single structure. This structure exists mainly to simplify analysis
+//! Options that can be used when converting instruction IDs to strings.
+enum class InstStringifyOptions : uint32_t {
+  //! No options.
+  kNone = 0x00000000u,
+
+  //! Stringify a full instruction name with known aliases.
+  //!
+  //! This option is designed for architectures where instruction aliases are common, for example X86, and where
+  //! multiple aliases can be used in assembly code to distinguish between intention - for example instructions
+  //! such as JZ and JE are the same, but the first is used in a context of equality to zero, and the second is
+  //! used when two values equal (for example JE next to CMP).
+  kAliases = 0x00000001u
+};
+ASMJIT_DEFINE_ENUM_FLAGS(InstStringifyOptions)
+
+//! Instruction id, options, and extra_reg in a single structure. This structure exists mainly to simplify analysis
 //! and validation API that requires `BaseInst` and `Operand[]` array.
 class BaseInst {
 public:
@@ -209,11 +224,11 @@ public:
   //! \{
 
   //! Instruction id with modifiers.
-  InstId _id;
+  InstId _inst_id;
   //! Instruction options.
   InstOptions _options;
   //! Extra register used by the instruction (either REP register or AVX-512 selector).
-  RegOnly _extraReg;
+  RegOnly _extra_reg;
 
   enum Id : uint32_t {
     //! Invalid or uninitialized instruction id.
@@ -231,20 +246,20 @@ public:
   //!
   //! Default values of `id` and `options` are zero, which means 'none' instruction. Such instruction is guaranteed
   //! to never exist for any architecture supported by AsmJit.
-  ASMJIT_INLINE_NODEBUG explicit BaseInst(InstId instId = 0, InstOptions options = InstOptions::kNone) noexcept
-    : _id(instId),
+  ASMJIT_INLINE_NODEBUG explicit BaseInst(InstId inst_id = 0, InstOptions options = InstOptions::kNone) noexcept
+    : _inst_id(inst_id),
       _options(options),
-      _extraReg() {}
+      _extra_reg() {}
 
-  ASMJIT_INLINE_NODEBUG BaseInst(InstId instId, InstOptions options, const RegOnly& extraReg) noexcept
-    : _id(instId),
+  ASMJIT_INLINE_NODEBUG BaseInst(InstId inst_id, InstOptions options, const RegOnly& extra_reg) noexcept
+    : _inst_id(inst_id),
       _options(options),
-      _extraReg(extraReg) {}
+      _extra_reg(extra_reg) {}
 
-  ASMJIT_INLINE_NODEBUG BaseInst(InstId instId, InstOptions options, const BaseReg& extraReg) noexcept
-    : _id(instId),
+  ASMJIT_INLINE_NODEBUG BaseInst(InstId inst_id, InstOptions options, const Reg& extra_reg) noexcept
+    : _inst_id(inst_id),
       _options(options),
-      _extraReg { extraReg.signature(), extraReg.id() } {}
+      _extra_reg{extra_reg.signature(), extra_reg.id()} {}
 
   //! \}
 
@@ -252,23 +267,28 @@ public:
   //! \{
 
   //! Returns the instruction id with modifiers.
-  ASMJIT_INLINE_NODEBUG InstId id() const noexcept { return _id; }
-  //! Sets the instruction id and modiiers from `id`.
-  ASMJIT_INLINE_NODEBUG void setId(InstId id) noexcept { _id = id; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG InstId inst_id() const noexcept { return _inst_id; }
+
+  //! Sets the instruction id and modifiers from `inst_id`.
+  ASMJIT_INLINE_NODEBUG void set_inst_id(InstId inst_id) noexcept { _inst_id = inst_id; }
+
   //! Resets the instruction id and modifiers to zero, see \ref kIdNone.
-  ASMJIT_INLINE_NODEBUG void resetId() noexcept { _id = 0; }
+  ASMJIT_INLINE_NODEBUG void reset_inst_id() noexcept { _inst_id = 0; }
 
   //! Returns a real instruction id that doesn't contain any modifiers.
-  ASMJIT_INLINE_NODEBUG InstId realId() const noexcept { return _id & uint32_t(InstIdParts::kRealId); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG InstId real_id() const noexcept { return _inst_id & uint32_t(InstIdParts::kRealId); }
 
   template<InstIdParts kPart>
-  ASMJIT_INLINE_NODEBUG uint32_t getInstIdPart() const noexcept {
-    return (uint32_t(_id) & uint32_t(kPart)) >> Support::ConstCTZ<uint32_t(kPart)>::value;
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint32_t inst_id_part() const noexcept {
+    return (uint32_t(_inst_id) & uint32_t(kPart)) >> Support::ctz_const<kPart>;
   }
 
   template<InstIdParts kPart>
-  ASMJIT_INLINE_NODEBUG void setInstIdPart(uint32_t value) noexcept {
-    _id = (_id & ~uint32_t(kPart)) | (value << Support::ConstCTZ<uint32_t(kPart)>::value);
+  ASMJIT_INLINE_NODEBUG void set_inst_id_part(uint32_t value) noexcept {
+    _inst_id = (_inst_id & ~uint32_t(kPart)) | (value << Support::ctz_const<kPart>);
   }
 
   //! \}
@@ -276,62 +296,97 @@ public:
   //! \name Instruction Options
   //! \{
 
+  //! Returns instruction options associated with this instruction.
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG InstOptions options() const noexcept { return _options; }
-  ASMJIT_INLINE_NODEBUG bool hasOption(InstOptions option) const noexcept { return Support::test(_options, option); }
-  ASMJIT_INLINE_NODEBUG void setOptions(InstOptions options) noexcept { _options = options; }
-  ASMJIT_INLINE_NODEBUG void addOptions(InstOptions options) noexcept { _options |= options; }
-  ASMJIT_INLINE_NODEBUG void clearOptions(InstOptions options) noexcept { _options &= ~options; }
-  ASMJIT_INLINE_NODEBUG void resetOptions() noexcept { _options = InstOptions::kNone; }
+
+  //! Tests whether the given instruction `option` is enabled.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool has_option(InstOptions option) const noexcept { return Support::test(_options, option); }
+
+  //! Replaces all instruction options by the given `options`.
+  ASMJIT_INLINE_NODEBUG void set_options(InstOptions options) noexcept { _options = options; }
+
+  //! Adds instruction options provided by `options`.
+  ASMJIT_INLINE_NODEBUG void add_options(InstOptions options) noexcept { _options |= options; }
+
+  //! Clears instruction options provided by `options`.
+  ASMJIT_INLINE_NODEBUG void clear_options(InstOptions options) noexcept { _options &= ~options; }
+
+  //! Resets all instruction options to `InstOptions::kNone` (there will be no instruction options active after reset).
+  ASMJIT_INLINE_NODEBUG void reset_options() noexcept { _options = InstOptions::kNone; }
 
   //! \}
 
   //! \name Extra Register
   //! \{
 
-  ASMJIT_INLINE_NODEBUG bool hasExtraReg() const noexcept { return _extraReg.isReg(); }
-  ASMJIT_INLINE_NODEBUG RegOnly& extraReg() noexcept { return _extraReg; }
-  ASMJIT_INLINE_NODEBUG const RegOnly& extraReg() const noexcept { return _extraReg; }
-  ASMJIT_INLINE_NODEBUG void setExtraReg(const BaseReg& reg) noexcept { _extraReg.init(reg); }
-  ASMJIT_INLINE_NODEBUG void setExtraReg(const RegOnly& reg) noexcept { _extraReg.init(reg); }
-  ASMJIT_INLINE_NODEBUG void resetExtraReg() noexcept { _extraReg.reset(); }
+  //! Tests whether the instruction has associated an extra register.
+  //!
+  //! \note Extra registers are currently only used on X86 by AVX-512 masking such as `{k}` and `{k}{z}` and by repeated
+  //! instructions to explicitly assign a virtual register that would be ECX/RCX.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool has_extra_reg() const noexcept { return _extra_reg.is_reg(); }
+
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG RegOnly& extra_reg() noexcept { return _extra_reg; }
+
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG const RegOnly& extra_reg() const noexcept { return _extra_reg; }
+
+  ASMJIT_INLINE_NODEBUG void set_extra_reg(const Reg& reg) noexcept { _extra_reg.init(reg); }
+
+  ASMJIT_INLINE_NODEBUG void set_extra_reg(const RegOnly& reg) noexcept { _extra_reg.init(reg); }
+
+  ASMJIT_INLINE_NODEBUG void reset_extra_reg() noexcept { _extra_reg.reset(); }
 
   //! \}
 
   //! \name ARM Specific
   //! \{
 
-  ASMJIT_INLINE_NODEBUG arm::CondCode armCondCode() const noexcept { return (arm::CondCode)getInstIdPart<InstIdParts::kARM_Cond>(); }
-  ASMJIT_INLINE_NODEBUG void setArmCondCode(arm::CondCode cc) noexcept { setInstIdPart<InstIdParts::kARM_Cond>(uint32_t(cc)); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG arm::CondCode arm_cond_code() const noexcept { return (arm::CondCode)inst_id_part<InstIdParts::kARM_Cond>(); }
 
-  ASMJIT_INLINE_NODEBUG a32::DataType armDt() const noexcept { return (a32::DataType)getInstIdPart<InstIdParts::kA32_DT>(); }
-  ASMJIT_INLINE_NODEBUG a32::DataType armDt2() const noexcept { return (a32::DataType)getInstIdPart<InstIdParts::kA32_DT2>(); }
+  ASMJIT_INLINE_NODEBUG void set_arm_cond_code(arm::CondCode cc) noexcept { set_inst_id_part<InstIdParts::kARM_Cond>(uint32_t(cc)); }
+
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG a32::DataType arm_dt() const noexcept { return (a32::DataType)inst_id_part<InstIdParts::kA32_DT>(); }
+
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG a32::DataType arm_dt2() const noexcept { return (a32::DataType)inst_id_part<InstIdParts::kA32_DT2>(); }
 
   //! \}
 
   //! \name Statics
   //! \{
 
-  static ASMJIT_INLINE_NODEBUG constexpr InstId composeARMInstId(uint32_t id, arm::CondCode cc) noexcept {
-    return id | (uint32_t(cc) << Support::ConstCTZ<uint32_t(InstIdParts::kARM_Cond)>::value);
+  [[nodiscard]]
+  static ASMJIT_INLINE_CONSTEXPR InstId compose_arm_inst_id(uint32_t id, arm::CondCode cc) noexcept {
+    return id | (uint32_t(cc) << Support::ctz_const<InstIdParts::kARM_Cond>);
   }
 
-  static ASMJIT_INLINE_NODEBUG constexpr InstId composeARMInstId(uint32_t id, a32::DataType dt, arm::CondCode cc = arm::CondCode::kAL) noexcept {
-    return id | (uint32_t(dt) << Support::ConstCTZ<uint32_t(InstIdParts::kA32_DT)>::value)
-              | (uint32_t(cc) << Support::ConstCTZ<uint32_t(InstIdParts::kARM_Cond)>::value);
+  [[nodiscard]]
+  static ASMJIT_INLINE_CONSTEXPR InstId compose_arm_inst_id(uint32_t id, a32::DataType dt, arm::CondCode cc = arm::CondCode::kAL) noexcept {
+    return id | (uint32_t(dt) << Support::ctz_const<InstIdParts::kA32_DT>)
+              | (uint32_t(cc) << Support::ctz_const<InstIdParts::kARM_Cond>);
   }
 
-  static ASMJIT_INLINE_NODEBUG constexpr InstId composeARMInstId(uint32_t id, a32::DataType dt, a32::DataType dt2, arm::CondCode cc = arm::CondCode::kAL) noexcept {
-    return id | (uint32_t(dt) << Support::ConstCTZ<uint32_t(InstIdParts::kA32_DT)>::value)
-              | (uint32_t(dt2) << Support::ConstCTZ<uint32_t(InstIdParts::kA32_DT2)>::value)
-              | (uint32_t(cc) << Support::ConstCTZ<uint32_t(InstIdParts::kARM_Cond)>::value);
+  [[nodiscard]]
+  static ASMJIT_INLINE_CONSTEXPR InstId compose_arm_inst_id(uint32_t id, a32::DataType dt, a32::DataType dt2, arm::CondCode cc = arm::CondCode::kAL) noexcept {
+    return id | (uint32_t(dt) << Support::ctz_const<InstIdParts::kA32_DT>)
+              | (uint32_t(dt2) << Support::ctz_const<InstIdParts::kA32_DT2>)
+              | (uint32_t(cc) << Support::ctz_const<InstIdParts::kARM_Cond>);
   }
 
-  static ASMJIT_INLINE_NODEBUG constexpr InstId extractRealId(uint32_t id) noexcept {
+  [[nodiscard]]
+  static ASMJIT_INLINE_CONSTEXPR InstId extract_real_id(uint32_t id) noexcept {
     return id & uint32_t(InstIdParts::kRealId);
   }
 
-  static ASMJIT_INLINE_NODEBUG constexpr arm::CondCode extractARMCondCode(uint32_t id) noexcept {
-    return (arm::CondCode)((uint32_t(id) & uint32_t(InstIdParts::kARM_Cond)) >> Support::ConstCTZ<uint32_t(InstIdParts::kARM_Cond)>::value);
+  [[nodiscard]]
+  static ASMJIT_INLINE_CONSTEXPR arm::CondCode extract_arm_cond_code(uint32_t id) noexcept {
+    return (arm::CondCode)((uint32_t(id) & uint32_t(InstIdParts::kARM_Cond)) >> Support::ctz_const<InstIdParts::kARM_Cond>);
   }
 
   //! \}
@@ -359,34 +414,34 @@ enum class CpuRWFlags : uint32_t {
   // X86 Specific RW Flags
   // ----------------------------------
 
-  //! Carry flag (X86, X86_64).
+  //! Carry flag (X86|X86_64).
   kX86_CF = kCF,
-  //! Overflow flag (X86, X86_64).
+  //! Overflow flag (X86|X86_64).
   kX86_OF = kOF,
-  //! Sign flag (X86, X86_64).
+  //! Sign flag (X86|X86_64).
   kX86_SF = kSF,
-  //! Zero flag (X86, X86_64).
+  //! Zero flag (X86|X86_64).
   kX86_ZF = kZF,
 
-  //! Adjust flag (X86, X86_64).
+  //! Adjust flag (X86|X86_64).
   kX86_AF = 0x00000100u,
-  //! Parity flag (X86, X86_64).
+  //! Parity flag (X86|X86_64).
   kX86_PF = 0x00000200u,
-  //! Direction flag (X86, X86_64).
+  //! Direction flag (X86|X86_64).
   kX86_DF = 0x00000400u,
-  //! Interrupt enable flag (X86, X86_64).
+  //! Interrupt enable flag (X86|X86_64).
   kX86_IF = 0x00000800u,
 
-  //! Alignment check flag (X86, X86_64).
+  //! Alignment check flag (X86|X86_64).
   kX86_AC = 0x00001000u,
 
-  //! FPU C0 status flag (X86, X86_64).
+  //! FPU C0 status flag (X86|X86_64).
   kX86_C0 = 0x00010000u,
-  //! FPU C1 status flag (X86, X86_64).
+  //! FPU C1 status flag (X86|X86_64).
   kX86_C1 = 0x00020000u,
-  //! FPU C2 status flag (X86, X86_64).
+  //! FPU C2 status flag (X86|X86_64).
   kX86_C2 = 0x00040000u,
-  //! FPU C3 status flag (X86, X86_64).
+  //! FPU C3 status flag (X86|X86_64).
   kX86_C3 = 0x00080000u,
 
   // ARM Specific RW Flags
@@ -422,20 +477,19 @@ enum class OpRWFlags : uint32_t {
   //!
   //! This flag is used by all architectures to describe instructions that use consecutive registers, where only the
   //! first one is encoded in the instruction, and the others are just a sequence that starts with the first one. On
-  //! X86/X86_64 architecture this is used by instructions such as V4FMADDPS, V4FMADDSS, V4FNMADDPS, V4FNMADDSS,
-  //! VP4DPWSSD, VP4DPWSSDS, VP2INTERSECTD, and VP2INTERSECTQ. On ARM/AArch64 this is used by vector load and store
-  //! instructions that can load or store multiple registers at once.
+  //! X86|X86_64 architecture this is used by instructions such as VP2INTERSECTD and VP2INTERSECTQ. On ARM/AArch64
+  //! this is used by vector load and store instructions that can load or store multiple registers at once.
   kConsecutive = 0x00000008u,
 
-  //! The `extendByteMask()` represents a zero extension.
+  //! The `extend_byte_mask()` represents a zero extension.
   kZExt = 0x00000010u,
 
   //! The register must have assigned a unique physical ID, which cannot be assigned to any other register.
   kUnique = 0x00000080u,
 
-  //! Register operand must use \ref OpRWInfo::physId().
+  //! Register operand must use \ref OpRWInfo::phys_id().
   kRegPhysId = 0x00000100u,
-  //! Base register of a memory operand must use \ref OpRWInfo::physId().
+  //! Base register of a memory operand must use \ref OpRWInfo::phys_id().
   kMemPhysId = 0x00000200u,
 
   //! This memory operand is only used to encode registers and doesn't access memory.
@@ -479,21 +533,21 @@ struct OpRWInfo {
   //! \{
 
   //! Read/Write flags.
-  OpRWFlags _opFlags;
+  OpRWFlags _op_flags;
   //! Physical register index, if required.
-  uint8_t _physId;
+  uint8_t _phys_id;
   //! Size of a possible memory operand that can replace a register operand.
-  uint8_t _rmSize;
+  uint8_t _rm_size;
   //! If non-zero, then this is a consecutive lead register, and the value describes how many registers follow.
-  uint8_t _consecutiveLeadCount;
+  uint8_t _consecutive_lead_count;
   //! Reserved for future use.
   uint8_t _reserved[1];
   //! Read bit-mask where each bit represents one byte read from Reg/Mem.
-  uint64_t _readByteMask;
+  uint64_t _read_byte_mask;
   //! Write bit-mask where each bit represents one byte written to Reg/Mem.
-  uint64_t _writeByteMask;
+  uint64_t _write_byte_mask;
   //! Zero/Sign extend bit-mask where each bit represents one byte written to Reg/Mem.
-  uint64_t _extendByteMask;
+  uint64_t _extend_byte_mask;
 
   //! \}
 
@@ -503,24 +557,23 @@ struct OpRWInfo {
   //! Resets this operand information to all zeros.
   ASMJIT_INLINE_NODEBUG void reset() noexcept { *this = OpRWInfo{}; }
 
-  //! Resets this operand info (resets all members) and set common information
-  //! to the given `opFlags`, `regSize`, and possibly `physId`.
-  inline void reset(OpRWFlags opFlags, uint32_t regSize, uint32_t physId = BaseReg::kIdBad) noexcept {
-    _opFlags = opFlags;
-    _physId = uint8_t(physId);
-    _rmSize = Support::test(opFlags, OpRWFlags::kRegMem) ? uint8_t(regSize) : uint8_t(0);
-    _consecutiveLeadCount = 0;
-    _resetReserved();
+  //! Resets this operand info (resets all members) and set common information to the given `op_flags`,
+  //! `register_size`, and possibly `phys_id`.
+  inline void reset(OpRWFlags op_flags, uint32_t register_size, uint32_t phys_id = Reg::kIdBad) noexcept {
+    _op_flags = op_flags;
+    _phys_id = uint8_t(phys_id);
+    _rm_size = Support::test(op_flags, OpRWFlags::kRegMem) ? uint8_t(register_size) : uint8_t(0);
+    _consecutive_lead_count = 0;
+    _reset_reserved();
 
-    uint64_t mask = Support::lsbMask<uint64_t>(Support::min<uint32_t>(regSize, 64));
-
-    _readByteMask = Support::test(opFlags, OpRWFlags::kRead) ? mask : uint64_t(0);
-    _writeByteMask = Support::test(opFlags, OpRWFlags::kWrite) ? mask : uint64_t(0);
-    _extendByteMask = 0;
+    uint64_t mask = Support::lsb_mask<uint64_t>(Support::min<uint32_t>(register_size, 64));
+    _read_byte_mask = Support::test(op_flags, OpRWFlags::kRead) ? mask : uint64_t(0);
+    _write_byte_mask = Support::test(op_flags, OpRWFlags::kWrite) ? mask : uint64_t(0);
+    _extend_byte_mask = 0;
   }
 
-  ASMJIT_INLINE_NODEBUG void _resetReserved() noexcept {
-    _reserved[0] = 0;
+  ASMJIT_INLINE_NODEBUG void _reset_reserved() noexcept {
+    _reserved[0] = uint8_t(0);
   }
 
   //! \}
@@ -529,40 +582,57 @@ struct OpRWInfo {
   //! \{
 
   //! Returns operand flags.
-  ASMJIT_INLINE_NODEBUG OpRWFlags opFlags() const noexcept { return _opFlags; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG OpRWFlags op_flags() const noexcept { return _op_flags; }
+
   //! Tests whether operand flags contain the given `flag`.
-  ASMJIT_INLINE_NODEBUG bool hasOpFlag(OpRWFlags flag) const noexcept { return Support::test(_opFlags, flag); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool has_op_flag(OpRWFlags flag) const noexcept { return Support::test(_op_flags, flag); }
 
   //! Adds the given `flags` to operand flags.
-  ASMJIT_INLINE_NODEBUG void addOpFlags(OpRWFlags flags) noexcept { _opFlags |= flags; }
+  ASMJIT_INLINE_NODEBUG void add_op_flags(OpRWFlags flags) noexcept { _op_flags |= flags; }
+
   //! Removes the given `flags` from operand flags.
-  ASMJIT_INLINE_NODEBUG void clearOpFlags(OpRWFlags flags) noexcept { _opFlags &= ~flags; }
+  ASMJIT_INLINE_NODEBUG void clear_op_flags(OpRWFlags flags) noexcept { _op_flags &= ~flags; }
 
   //! Tests whether this operand is read from.
-  ASMJIT_INLINE_NODEBUG bool isRead() const noexcept { return hasOpFlag(OpRWFlags::kRead); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_read() const noexcept { return has_op_flag(OpRWFlags::kRead); }
+
   //! Tests whether this operand is written to.
-  ASMJIT_INLINE_NODEBUG bool isWrite() const noexcept { return hasOpFlag(OpRWFlags::kWrite); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_write() const noexcept { return has_op_flag(OpRWFlags::kWrite); }
+
   //! Tests whether this operand is both read and write.
-  ASMJIT_INLINE_NODEBUG bool isReadWrite() const noexcept { return (_opFlags & OpRWFlags::kRW) == OpRWFlags::kRW; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_read_write() const noexcept { return (_op_flags & OpRWFlags::kRW) == OpRWFlags::kRW; }
+
   //! Tests whether this operand is read only.
-  ASMJIT_INLINE_NODEBUG bool isReadOnly() const noexcept { return (_opFlags & OpRWFlags::kRW) == OpRWFlags::kRead; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_read_only() const noexcept { return (_op_flags & OpRWFlags::kRW) == OpRWFlags::kRead; }
+
   //! Tests whether this operand is write only.
-  ASMJIT_INLINE_NODEBUG bool isWriteOnly() const noexcept { return (_opFlags & OpRWFlags::kRW) == OpRWFlags::kWrite; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_write_only() const noexcept { return (_op_flags & OpRWFlags::kRW) == OpRWFlags::kWrite; }
 
   //! Returns the type of a lead register, which is followed by consecutive registers.
-  ASMJIT_INLINE_NODEBUG uint32_t consecutiveLeadCount() const noexcept { return _consecutiveLeadCount; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint32_t consecutive_lead_count() const noexcept { return _consecutive_lead_count; }
 
   //! Tests whether this operand is Reg/Mem
   //!
   //! Reg/Mem operands can use either register or memory.
-  ASMJIT_INLINE_NODEBUG bool isRm() const noexcept { return hasOpFlag(OpRWFlags::kRegMem); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_rm() const noexcept { return has_op_flag(OpRWFlags::kRegMem); }
 
   //! Tests whether the operand will be zero extended.
-  ASMJIT_INLINE_NODEBUG bool isZExt() const noexcept { return hasOpFlag(OpRWFlags::kZExt); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_zext() const noexcept { return has_op_flag(OpRWFlags::kZExt); }
 
   //! Tests whether the operand must have allocated a unique physical id that cannot be shared with other register
   //! operands.
-  ASMJIT_INLINE_NODEBUG bool isUnique() const noexcept { return hasOpFlag(OpRWFlags::kUnique); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_unique() const noexcept { return has_op_flag(OpRWFlags::kUnique); }
 
   //! \}
 
@@ -571,38 +641,64 @@ struct OpRWInfo {
 
   //! Tests whether this is a fake memory operand, which is only used, because of encoding. Fake memory operands do
   //! not access any memory, they are only used to encode registers.
-  ASMJIT_INLINE_NODEBUG bool isMemFake() const noexcept { return hasOpFlag(OpRWFlags::kMemFake); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_fake() const noexcept { return has_op_flag(OpRWFlags::kMemFake); }
 
   //! Tests whether the instruction's memory BASE register is used.
-  ASMJIT_INLINE_NODEBUG bool isMemBaseUsed() const noexcept { return hasOpFlag(OpRWFlags::kMemBaseRW); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_base_used() const noexcept { return has_op_flag(OpRWFlags::kMemBaseRW); }
+
   //! Tests whether the instruction reads from its BASE registers.
-  ASMJIT_INLINE_NODEBUG bool isMemBaseRead() const noexcept { return hasOpFlag(OpRWFlags::kMemBaseRead); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_base_read() const noexcept { return has_op_flag(OpRWFlags::kMemBaseRead); }
+
   //! Tests whether the instruction writes to its BASE registers.
-  ASMJIT_INLINE_NODEBUG bool isMemBaseWrite() const noexcept { return hasOpFlag(OpRWFlags::kMemBaseWrite); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_base_write() const noexcept { return has_op_flag(OpRWFlags::kMemBaseWrite); }
+
   //! Tests whether the instruction reads and writes from/to its BASE registers.
-  ASMJIT_INLINE_NODEBUG bool isMemBaseReadWrite() const noexcept { return (_opFlags & OpRWFlags::kMemBaseRW) == OpRWFlags::kMemBaseRW; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_base_read_write() const noexcept { return (_op_flags & OpRWFlags::kMemBaseRW) == OpRWFlags::kMemBaseRW; }
+
   //! Tests whether the instruction only reads from its BASE registers.
-  ASMJIT_INLINE_NODEBUG bool isMemBaseReadOnly() const noexcept { return (_opFlags & OpRWFlags::kMemBaseRW) == OpRWFlags::kMemBaseRead; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_base_read_only() const noexcept { return (_op_flags & OpRWFlags::kMemBaseRW) == OpRWFlags::kMemBaseRead; }
+
   //! Tests whether the instruction only writes to its BASE registers.
-  ASMJIT_INLINE_NODEBUG bool isMemBaseWriteOnly() const noexcept { return (_opFlags & OpRWFlags::kMemBaseRW) == OpRWFlags::kMemBaseWrite; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_base_write_only() const noexcept { return (_op_flags & OpRWFlags::kMemBaseRW) == OpRWFlags::kMemBaseWrite; }
 
   //! Tests whether the instruction modifies the BASE register before it uses it to calculate the target address.
-  ASMJIT_INLINE_NODEBUG bool isMemBasePreModify() const noexcept { return hasOpFlag(OpRWFlags::kMemBasePreModify); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_base_pre_modify() const noexcept { return has_op_flag(OpRWFlags::kMemBasePreModify); }
+
   //! Tests whether the instruction modifies the BASE register after it uses it to calculate the target address.
-  ASMJIT_INLINE_NODEBUG bool isMemBasePostModify() const noexcept { return hasOpFlag(OpRWFlags::kMemBasePostModify); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_base_post_modify() const noexcept { return has_op_flag(OpRWFlags::kMemBasePostModify); }
 
   //! Tests whether the instruction's memory INDEX register is used.
-  ASMJIT_INLINE_NODEBUG bool isMemIndexUsed() const noexcept { return hasOpFlag(OpRWFlags::kMemIndexRW); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_index_used() const noexcept { return has_op_flag(OpRWFlags::kMemIndexRW); }
+
   //! Tests whether the instruction reads the INDEX registers.
-  ASMJIT_INLINE_NODEBUG bool isMemIndexRead() const noexcept { return hasOpFlag(OpRWFlags::kMemIndexRead); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_index_read() const noexcept { return has_op_flag(OpRWFlags::kMemIndexRead); }
+
   //! Tests whether the instruction writes to its INDEX registers.
-  ASMJIT_INLINE_NODEBUG bool isMemIndexWrite() const noexcept { return hasOpFlag(OpRWFlags::kMemIndexWrite); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_index_write() const noexcept { return has_op_flag(OpRWFlags::kMemIndexWrite); }
+
   //! Tests whether the instruction reads and writes from/to its INDEX registers.
-  ASMJIT_INLINE_NODEBUG bool isMemIndexReadWrite() const noexcept { return (_opFlags & OpRWFlags::kMemIndexRW) == OpRWFlags::kMemIndexRW; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_index_read_write() const noexcept { return (_op_flags & OpRWFlags::kMemIndexRW) == OpRWFlags::kMemIndexRW; }
+
   //! Tests whether the instruction only reads from its INDEX registers.
-  ASMJIT_INLINE_NODEBUG bool isMemIndexReadOnly() const noexcept { return (_opFlags & OpRWFlags::kMemIndexRW) == OpRWFlags::kMemIndexRead; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_index_read_only() const noexcept { return (_op_flags & OpRWFlags::kMemIndexRW) == OpRWFlags::kMemIndexRead; }
+
   //! Tests whether the instruction only writes to its INDEX registers.
-  ASMJIT_INLINE_NODEBUG bool isMemIndexWriteOnly() const noexcept { return (_opFlags & OpRWFlags::kMemIndexRW) == OpRWFlags::kMemIndexWrite; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mem_index_write_only() const noexcept { return (_op_flags & OpRWFlags::kMemIndexRW) == OpRWFlags::kMemIndexWrite; }
 
   //! \}
 
@@ -611,12 +707,16 @@ struct OpRWInfo {
 
   //! Returns a physical id of the register that is fixed for this operand.
   //!
-  //! Returns \ref BaseReg::kIdBad if any register can be used.
-  ASMJIT_INLINE_NODEBUG uint32_t physId() const noexcept { return _physId; }
-  //! Tests whether \ref physId() would return a valid physical register id.
-  ASMJIT_INLINE_NODEBUG bool hasPhysId() const noexcept { return _physId != BaseReg::kIdBad; }
+  //! Returns \ref Reg::kIdBad if any register can be used.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint32_t phys_id() const noexcept { return _phys_id; }
+
+  //! Tests whether \ref phys_id() would return a valid physical register id.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool has_phys_id() const noexcept { return _phys_id != Reg::kIdBad; }
+
   //! Sets physical register id, which would be fixed for this operand.
-  ASMJIT_INLINE_NODEBUG void setPhysId(uint32_t physId) noexcept { _physId = uint8_t(physId); }
+  ASMJIT_INLINE_NODEBUG void set_phys_id(uint32_t phys_id) noexcept { _phys_id = uint8_t(phys_id); }
 
   //! \}
 
@@ -624,9 +724,11 @@ struct OpRWInfo {
   //! \{
 
   //! Returns Reg/Mem size of the operand.
-  ASMJIT_INLINE_NODEBUG uint32_t rmSize() const noexcept { return _rmSize; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint32_t rm_size() const noexcept { return _rm_size; }
+
   //! Sets Reg/Mem size of the operand.
-  ASMJIT_INLINE_NODEBUG void setRmSize(uint32_t rmSize) noexcept { _rmSize = uint8_t(rmSize); }
+  ASMJIT_INLINE_NODEBUG void set_rm_size(uint32_t rm_size) noexcept { _rm_size = uint8_t(rm_size); }
 
   //! \}
 
@@ -634,18 +736,25 @@ struct OpRWInfo {
   //! \{
 
   //! Returns read mask.
-  ASMJIT_INLINE_NODEBUG uint64_t readByteMask() const noexcept { return _readByteMask; }
-  //! Returns write mask.
-  ASMJIT_INLINE_NODEBUG uint64_t writeByteMask() const noexcept { return _writeByteMask; }
-  //! Returns extend mask.
-  ASMJIT_INLINE_NODEBUG uint64_t extendByteMask() const noexcept { return _extendByteMask; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint64_t read_byte_mask() const noexcept { return _read_byte_mask; }
 
   //! Sets read mask.
-  ASMJIT_INLINE_NODEBUG void setReadByteMask(uint64_t mask) noexcept { _readByteMask = mask; }
+  ASMJIT_INLINE_NODEBUG void set_read_byte_mask(uint64_t mask) noexcept { _read_byte_mask = mask; }
+
+  //! Returns write mask.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint64_t write_byte_mask() const noexcept { return _write_byte_mask; }
+
   //! Sets write mask.
-  ASMJIT_INLINE_NODEBUG void setWriteByteMask(uint64_t mask) noexcept { _writeByteMask = mask; }
+  ASMJIT_INLINE_NODEBUG void set_write_byte_mask(uint64_t mask) noexcept { _write_byte_mask = mask; }
+
+  //! Returns extend mask.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint64_t extend_byte_mask() const noexcept { return _extend_byte_mask; }
+
   //! Sets extend mask.
-  ASMJIT_INLINE_NODEBUG void setExtendByteMask(uint64_t mask) noexcept { _extendByteMask = mask; }
+  ASMJIT_INLINE_NODEBUG void set_extend_byte_mask(uint64_t mask) noexcept { _extend_byte_mask = mask; }
 
   //! \}
 };
@@ -668,19 +777,19 @@ struct InstRWInfo {
   //! \{
 
   //! Instruction flags (there are no flags at the moment, this field is reserved).
-  InstRWFlags _instFlags;
+  InstRWFlags _inst_flags;
   //! CPU flags read.
-  CpuRWFlags _readFlags;
+  CpuRWFlags _read_flags;
   //! CPU flags written.
-  CpuRWFlags _writeFlags;
+  CpuRWFlags _write_flags;
   //! Count of operands.
-  uint8_t _opCount;
+  uint8_t _op_count;
   //! CPU feature required for replacing register operand with memory operand.
-  uint8_t _rmFeature;
+  uint8_t _rm_feature;
   //! Reserved for future use.
   uint8_t _reserved[18];
   //! Read/Write info of extra register (rep{} or kz{}).
-  OpRWInfo _extraReg;
+  OpRWInfo _extra_reg;
   //! Read/Write info of instruction operands.
   OpRWInfo _operands[Globals::kMaxOpCount];
 
@@ -698,13 +807,16 @@ struct InstRWInfo {
   //! \{
 
   //! Returns flags associated with the instruction, see \ref InstRWFlags.
-  ASMJIT_INLINE_NODEBUG InstRWFlags instFlags() const noexcept { return _instFlags; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG InstRWFlags inst_flags() const noexcept { return _inst_flags; }
 
   //! Tests whether the instruction flags contain `flag`.
-  ASMJIT_INLINE_NODEBUG bool hasInstFlag(InstRWFlags flag) const noexcept { return Support::test(_instFlags, flag); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool has_inst_flag(InstRWFlags flag) const noexcept { return Support::test(_inst_flags, flag); }
 
   //! Tests whether the instruction flags contain \ref InstRWFlags::kMovOp.
-  ASMJIT_INLINE_NODEBUG bool isMovOp() const noexcept { return hasInstFlag(InstRWFlags::kMovOp); }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool is_mov_op() const noexcept { return has_inst_flag(InstRWFlags::kMovOp); }
 
   //! \}
 
@@ -712,9 +824,12 @@ struct InstRWInfo {
   //! \{
 
   //! Returns a mask of CPU flags read.
-  ASMJIT_INLINE_NODEBUG CpuRWFlags readFlags() const noexcept { return _readFlags; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG CpuRWFlags read_flags() const noexcept { return _read_flags; }
+
   //! Returns a mask of CPU flags written.
-  ASMJIT_INLINE_NODEBUG CpuRWFlags writeFlags() const noexcept { return _writeFlags; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG CpuRWFlags write_flags() const noexcept { return _write_flags; }
 
   //! \}
 
@@ -731,33 +846,38 @@ struct InstRWInfo {
   //! Some AVX+ instructions may require extra features for replacing registers with memory operands, for example
   //! VPSLLDQ instruction only supports `vpslldq reg, reg, imm` combination on AVX/AVX2 capable CPUs and requires
   //! AVX-512 for `vpslldq reg, mem, imm` combination.
-  ASMJIT_INLINE_NODEBUG uint32_t rmFeature() const noexcept { return _rmFeature; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint32_t rm_feature() const noexcept { return _rm_feature; }
 
   //! \}
 
   //! \name Operand Read/Write Information
   //! \{
 
-  //! Returns RW information of extra register operand (extraReg).
-  ASMJIT_INLINE_NODEBUG const OpRWInfo& extraReg() const noexcept { return _extraReg; }
+  //! Returns RW information of extra register operand (extra_reg).
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG const OpRWInfo& extra_reg() const noexcept { return _extra_reg; }
 
   //! Returns RW information of all instruction's operands.
+  [[nodiscard]]
   ASMJIT_INLINE_NODEBUG const OpRWInfo* operands() const noexcept { return _operands; }
 
   //! Returns RW information of the operand at the given `index`.
+  [[nodiscard]]
   inline const OpRWInfo& operand(size_t index) const noexcept {
     ASMJIT_ASSERT(index < Globals::kMaxOpCount);
     return _operands[index];
   }
 
   //! Returns the number of operands this instruction has.
-  ASMJIT_INLINE_NODEBUG uint32_t opCount() const noexcept { return _opCount; }
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint32_t op_count() const noexcept { return _op_count; }
 
   //! \}
 };
 
 //! Validation flags that can be used with \ref InstAPI::validate().
-enum class ValidationFlags : uint32_t {
+enum class ValidationFlags : uint8_t {
   //! No flags.
   kNone = 0,
   //! Allow virtual registers in the instruction.
@@ -769,30 +889,30 @@ ASMJIT_DEFINE_ENUM_FLAGS(ValidationFlags)
 namespace InstAPI {
 
 #ifndef ASMJIT_NO_TEXT
-//! Appends the name of the instruction specified by `instId` and `instOptions` into the `output` string.
+//! Appends the name of the instruction specified by `inst_id` and `options` into the `output` string.
 //!
 //! \note Instruction options would only affect instruction prefix & suffix, other options would be ignored.
-//! If `instOptions` is zero then only raw instruction name (without any additional text) will be appended.
-ASMJIT_API Error instIdToString(Arch arch, InstId instId, String& output) noexcept;
+//! If `inst_options` is zero then only raw instruction name (without any additional text) will be appended.
+ASMJIT_API Error inst_id_to_string(Arch arch, InstId inst_id, InstStringifyOptions options, String& output) noexcept;
 
 //! Parses an instruction name in the given string `s`. Length is specified by `len` argument, which can be
 //! `SIZE_MAX` if `s` is known to be null terminated.
 //!
 //! Returns the parsed instruction id or \ref BaseInst::kIdNone if no such instruction exists.
-ASMJIT_API InstId stringToInstId(Arch arch, const char* s, size_t len) noexcept;
+[[nodiscard]]
+ASMJIT_API InstId string_to_inst_id(Arch arch, const char* s, size_t len) noexcept;
 #endif // !ASMJIT_NO_TEXT
 
-#ifndef ASMJIT_NO_VALIDATION
-//! Validates the given instruction considering the given `validationFlags`.
-ASMJIT_API Error validate(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, ValidationFlags validationFlags = ValidationFlags::kNone) noexcept;
-#endif // !ASMJIT_NO_VALIDATION
-
 #ifndef ASMJIT_NO_INTROSPECTION
+//! Validates the given instruction considering the given `validation_flags`.
+[[nodiscard]]
+ASMJIT_API Error validate(Arch arch, const BaseInst& inst, const Operand_* operands, size_t op_count, ValidationFlags validation_flags = ValidationFlags::kNone) noexcept;
+
 //! Gets Read/Write information of the given instruction.
-ASMJIT_API Error queryRWInfo(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, InstRWInfo* out) noexcept;
+ASMJIT_API Error query_rw_info(Arch arch, const BaseInst& inst, const Operand_* operands, size_t op_count, InstRWInfo* out) noexcept;
 
 //! Gets CPU features required by the given instruction.
-ASMJIT_API Error queryFeatures(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, CpuFeatures* out) noexcept;
+ASMJIT_API Error query_features(Arch arch, const BaseInst& inst, const Operand_* operands, size_t op_count, CpuFeatures* out) noexcept;
 #endif // !ASMJIT_NO_INTROSPECTION
 
 } // {InstAPI}

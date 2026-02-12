@@ -73,17 +73,16 @@ void BeamModuleAssembler::emit_is_record_accessible(const ArgLabel &Fail,
     a.je(resolve_beam_label(Fail));
 }
 
-void BeamModuleAssembler::emit_i_get_record_elements(const ArgLabel &Fail,
-                                                     const ArgRegister &Src,
-                                                     const ArgWord &Size,
-                                                     const Span<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args, 0);
-
+void BeamModuleAssembler::emit_i_get_record_elements(
+        const ArgLabel &Fail,
+        const ArgRegister &Src,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     mov_arg(ARG3, Src);
     mov_imm(ARG4, args.size());
-    a.lea(ARG5, x86::qword_ptr(data));
+    embed_vararg_rodata(args, ARG5, 0);
 
     emit_enter_runtime<Update::eHeapAlloc>();
     runtime_call<bool (*)(Process *, Eterm *, Eterm, Uint, const Eterm *),
@@ -100,16 +99,15 @@ void BeamModuleAssembler::emit_i_create_native_record(
         const ArgRegister &Dst,
         const ArgWord &Live,
         const ArgWord &size,
-        const Span<ArgVal> &args) {
-    Label next = a.newLabel();
-    Label data = embed_vararg_rodata(args, 0);
+        const Span<const ArgVal> &args) {
+    Label next = a.new_label();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     mov_arg(ARG3, Id);
     mov_arg(ARG4, Live);
     mov_imm(ARG5, args.size());
-    a.lea(ARG6, x86::qword_ptr(data));
+    embed_vararg_rodata(args, ARG6, 0);
     mov_arg(ArgXRegister(Live.get()), Local);
 
     emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
@@ -135,16 +133,15 @@ void BeamModuleAssembler::emit_i_update_native_record(
         const ArgRegister &Dst,
         const ArgWord &Live,
         const ArgWord &size,
-        const Span<ArgVal> &args) {
-    Label next = a.newLabel();
-    Label data = embed_vararg_rodata(args, 0);
+        const Span<const ArgVal> &args) {
+    Label next = a.new_label();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     mov_arg(ARG3, Src);
     mov_arg(ARG4, Live);
     mov_imm(ARG5, args.size());
-    a.lea(ARG6, x86::qword_ptr(data));
+    embed_vararg_rodata(args, ARG6, 0);
 
     emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
 
@@ -183,7 +180,7 @@ void BeamModuleAssembler::emit_get_record_field(const ArgLabel &Fail,
         emit_test_the_non_value(RET);
         a.je(resolve_beam_label(Fail));
     } else {
-        Label next = a.newLabel();
+        Label next = a.new_label();
 
         emit_test_the_non_value(RET);
         a.short_().jne(next);

@@ -1,14 +1,14 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
+#include <asmjit/core/api-build_p.h>
 #ifndef ASMJIT_NO_LOGGING
 
-#include "../core/logger.h"
-#include "../core/string.h"
-#include "../core/support.h"
+#include <asmjit/core/logger.h>
+#include <asmjit/core/string.h>
+#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -21,10 +21,10 @@ Logger::~Logger() noexcept {}
 
 // [[pure virtual]]
 Error Logger::_log(const char* data, size_t size) noexcept {
-  DebugUtils::unused(data, size);
+  Support::maybe_unused(data, size);
 
   // Do not error in this case - the logger would just sink to /dev/null.
-  return kErrorOk;
+  return Error::kOk;
 }
 
 Error Logger::logf(const char* fmt, ...) noexcept {
@@ -40,7 +40,7 @@ Error Logger::logf(const char* fmt, ...) noexcept {
 
 Error Logger::logv(const char* fmt, va_list ap) noexcept {
   StringTmp<2048> sb;
-  ASMJIT_PROPAGATE(sb.appendVFormat(fmt, ap));
+  ASMJIT_PROPAGATE(sb.append_vformat(fmt, ap));
   return log(sb);
 }
 
@@ -52,14 +52,16 @@ FileLogger::FileLogger(FILE* file) noexcept
 FileLogger::~FileLogger() noexcept {}
 
 Error FileLogger::_log(const char* data, size_t size) noexcept {
-  if (!_file)
-    return kErrorOk;
+  if (!_file) {
+    return Error::kOk;
+  }
 
-  if (size == SIZE_MAX)
+  if (size == SIZE_MAX) {
     size = strlen(data);
+  }
 
   fwrite(data, 1, size, _file);
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // StringLogger - Implementation
