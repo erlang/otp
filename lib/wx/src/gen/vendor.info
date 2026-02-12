@@ -259,5 +259,21 @@
     "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
     "supplier": "Organization: Ericsson AB",
     "purl": "pkg:github/wxwidgets/wxwidgets"
-  }
+  },
+  {
+    "ID": "wx-opengl",
+    "description": "OpenGL documentation inserted from original project into Erlang bindings",
+    "copyrightText": "Copyright 2017-2026 The Khronos Group, Inc.",
+    "downloadLocation": "https://github.com/KhronosGroup/OpenGL-Refpages",
+    "homepage": "https://registry.khronos.org/OpenGL-Refpages/",
+    "licenseDeclared": "SGI-B-2.0",
+    "name": "opengl",
+    "versionInfo": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "sha": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "path": ["./lib/wx/src/gen/gl.erl",
+            "./lib/wx/src/gen/glu.erl"],
+    "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
+    "supplier": "Organization: KhronosGroup",
+    "purl": "pkg:github/KhronosGroup/OpenGL-Refpages"
+    }
 ]
