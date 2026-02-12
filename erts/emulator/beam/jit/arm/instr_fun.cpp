@@ -32,7 +32,7 @@
  * ARG5 = address of the call_fun instruction that got us here. Note that we
  *        can't use LR (x30) for this because tail calls point elsewhere. */
 void BeamGlobalAssembler::emit_unloaded_fun() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     a.str(ARG5, TMP_MEM1q);
 
@@ -75,11 +75,12 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
  * ARG5 = address of the call_fun instruction that got us here. Note that we
  *        can't use LR (x30) for this because tail calls point elsewhere. */
 void BeamGlobalAssembler::emit_handle_call_fun_error() {
-    Label bad_arity = a.newLabel(), bad_fun = a.newLabel();
+    Label bad_arity = a.new_label(), bad_fun = a.new_label();
 
     emit_is_boxed(bad_fun, ARG4);
 
     a64::Gp fun_thing = emit_ptr_val(TMP1, ARG4);
+    ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
     a.ldurb(TMP1.w(), emit_boxed_val(fun_thing));
     a.cmp(TMP1, imm(FUN_SUBTAG));
     a.b_eq(bad_arity);
@@ -88,7 +89,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     {
         mov_imm(TMP1, EXC_BADFUN);
         ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
-        a.stp(TMP1, ARG4, arm::Mem(c_p, offsetof(Process, freason)));
+        a.stp(TMP1, ARG4, a64::Mem(c_p, offsetof(Process, freason)));
 
         a.mov(ARG2, ARG5);
         mov_imm(ARG4, nullptr);
@@ -115,7 +116,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         /* Create the {Fun, Args} tuple. */
         {
             const int32_t bytes_needed = (3 + S_RESERVED) * sizeof(Eterm);
-            Label after_gc = a.newLabel();
+            Label after_gc = a.new_label();
 
             add(ARG3, HTOP, bytes_needed);
             a.cmp(ARG3, E);
@@ -129,13 +130,13 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
             a.add(ARG1, HTOP, imm(TAG_PRIMARY_BOXED));
 
             mov_imm(TMP1, make_arityval(2));
-            a.str(TMP1, arm::Mem(HTOP).post(sizeof(Eterm)));
-            a.stp(XREG0, XREG1, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+            a.str(TMP1, a64::Mem(HTOP).post(sizeof(Eterm)));
+            a.stp(XREG0, XREG1, a64::Mem(HTOP).post(sizeof(Eterm[2])));
         }
 
         a.mov(TMP1, imm(EXC_BADARITY));
         ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
-        a.stp(TMP1, ARG1, arm::Mem(c_p, offsetof(Process, freason)));
+        a.stp(TMP1, ARG1, a64::Mem(c_p, offsetof(Process, freason)));
 
         a.ldr(ARG2, TMP_MEM2q);
         mov_imm(ARG4, nullptr);
@@ -151,7 +152,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
 void BeamGlobalAssembler::emit_dispatch_save_calls_fun() {
     /* Keep going with the actual code index. */
     a.mov(TMP1, imm(&the_active_code_index));
-    a.ldr(TMP1.w(), arm::Mem(TMP1));
+    a.ldr(TMP1.w(), a64::Mem(TMP1));
 
     branch(emit_setup_dispatchable_call(ARG1, TMP1));
 }
@@ -180,7 +181,7 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
         /* Don't bother untagging when there's only a single element, it's
          * guaranteed to be within range of LDUR. */
         emit_ptr_val(ARG4, ARG4);
-        a.ldur(first.reg, arm::Mem(ARG4, env_offset));
+        a.ldur(first.reg, a64::Mem(ARG4, env_offset));
         flush_var(first);
     } else if (NumFree.get() >= 2) {
         ssize_t i;
@@ -192,13 +193,13 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
             auto first = init_destination(ArgXRegister(i), TMP1);
             auto second = init_destination(ArgXRegister(i + 1), TMP2);
 
-            a.ldp(first.reg, second.reg, arm::Mem(ARG4).post(sizeof(Eterm[2])));
+            a.ldp(first.reg, second.reg, a64::Mem(ARG4).post(sizeof(Eterm[2])));
             flush_vars(first, second);
         }
 
         if (i < total_arity) {
             auto last = init_destination(ArgXRegister(i), TMP1);
-            a.ldr(last.reg, arm::Mem(ARG4));
+            a.ldr(last.reg, a64::Mem(ARG4));
             flush_var(last);
         }
     }
@@ -211,7 +212,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgRegister &Dst,
                                            const ArgWord &Arity,
                                            const ArgWord &NumFree,
-                                           const Span<ArgVal> &env) {
+                                           const Span<const ArgVal> &env) {
     Uint i = 0;
 
     ASSERT(NumFree.get() == env.size() &&
@@ -222,7 +223,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
     comment("Create fun thing");
     mov_imm(TMP1, MAKE_FUN_HEADER(Arity.get(), NumFree.get(), 0));
     ERTS_CT_ASSERT_FIELD_PAIR(ErlFunThing, thing_word, entry.fun);
-    a.stp(TMP1, TMP2, arm::Mem(HTOP, offsetof(ErlFunThing, thing_word)));
+    a.stp(TMP1, TMP2, a64::Mem(HTOP, offsetof(ErlFunThing, thing_word)));
 
     comment("Move fun environment");
     while (i < env.size() - 1) {
@@ -233,13 +234,13 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
         }
 
         auto [first, second] = load_sources(env[i], TMP1, env[i + 1], TMP2);
-        safe_stp(first.reg, second.reg, arm::Mem(HTOP, offset));
+        safe_stp(first.reg, second.reg, a64::Mem(HTOP, offset));
         i += 2;
     }
 
     if (i < env.size()) {
         int offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
-        mov_arg(arm::Mem(HTOP, offset), env[i]);
+        mov_arg(a64::Mem(HTOP, offset), env[i]);
     }
 
     comment("Create boxed ptr");
@@ -250,7 +251,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
 }
 
 void BeamGlobalAssembler::emit_apply_fun_shared() {
-    Label finished = a.newLabel();
+    Label finished = a.new_label();
 
     /* Put the arity and fun into the right registers for `call_fun`, and stash
      * the argument list in ARG5 for the error path. We'll bump the arity as
@@ -260,8 +261,8 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
     a.mov(ARG5, XREG1);
 
     {
-        Label unpack_next = a.newLabel(), malformed_list = a.newLabel(),
-              raise_error = a.newLabel();
+        Label unpack_next = a.new_label(), malformed_list = a.new_label(),
+              raise_error = a.new_label();
 
         /* apply/2 is rarely used on a hot code path, so we'll simplify things
          * by switching to the runtime environment where we can operate
@@ -283,8 +284,8 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
 
             emit_ptr_val(TMP1, TMP1);
             a.sub(TMP1, TMP1, imm(TAG_PRIMARY_LIST));
-            a.ldp(TMP3, TMP1, arm::Mem(TMP1));
-            a.str(TMP3, arm::Mem(TMP2).post(sizeof(Eterm)));
+            a.ldp(TMP3, TMP1, a64::Mem(TMP1));
+            a.str(TMP3, a64::Mem(TMP2).post(sizeof(Eterm)));
 
             /* We bail at MAX_REG-1 rather than MAX_REG as the highest register
              * is reserved for the loader. */
@@ -308,7 +309,7 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
             a.mov(XREG0, ARG4);
             a.mov(XREG1, ARG5);
 
-            a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+            a.str(TMP1, a64::Mem(c_p, offsetof(Process, freason)));
             mov_imm(ARG4, &apply_mfa);
             a.b(labels[raise_exception]);
         }
@@ -348,7 +349,7 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
 a64::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
                                            bool skip_header_test) {
     const bool can_fail = !(skip_box_test && skip_header_test);
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     /* Speculatively untag the ErlFunThing. */
     emit_untag_ptr(TMP2, ARG4);
@@ -376,15 +377,17 @@ a64::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     if (skip_header_test) {
         comment("skipped fun/arity test since source is always a fun of the "
                 "right arity when boxed");
-        a.ldr(ARG1, arm::Mem(TMP2, offsetof(ErlFunThing, entry)));
+        a.ldr(ARG1, a64::Mem(TMP2, offsetof(ErlFunThing, entry)));
     } else {
         /* Load header word and `ErlFunThing->entry`. We can safely do this
          * before testing the header because boxed terms are guaranteed to be
          * at least two words long. */
         ERTS_CT_ASSERT_FIELD_PAIR(ErlFunThing, thing_word, entry);
-        a.ldp(TMP2, ARG1, arm::Mem(TMP2));
+        a.ldp(TMP2, ARG1, a64::Mem(TMP2));
 
         /* Combined fun type and arity test. */
+        ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
+        ERTS_CT_ASSERT(FUN_HEADER_ENV_SIZE_OFFS == 16);
         a.cmp(ARG3, TMP2.r32(), a64::uxth(0));
         a.b_ne(next);
     }

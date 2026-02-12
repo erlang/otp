@@ -37,7 +37,7 @@ void BeamGlobalAssembler::emit_generic_bp_global() {
      * breakpoints. */
     emit_enter_erlang_frame();
 
-    lea(ARG2, arm::Mem(ARG1, offsetof(Export, info)));
+    lea(ARG2, a64::Mem(ARG1, offsetof(Export, info)));
 
     emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -64,7 +64,7 @@ void BeamGlobalAssembler::emit_generic_bp_global() {
  *
  * See beam_asm.h for more details */
 void BeamGlobalAssembler::emit_generic_bp_local() {
-    a.ldr(ARG2, arm::Mem(a64::sp, 8));
+    a.ldr(ARG2, a64::Mem(a64::sp, 8));
 
     /* Stash return address for later use in `debug_bp` */
     a.str(ARG2, TMP_MEM1q);
@@ -99,7 +99,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
  *
  * The only place that we can come to here is from generic_bp_local */
 void BeamGlobalAssembler::emit_debug_bp() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     /* Read and adjust the return address we saved in generic_bp_local. */
     a.ldr(ARG2, TMP_MEM1q);
@@ -229,9 +229,9 @@ void BeamModuleAssembler::emit_i_hibernate() {
 
     emit_leave_runtime<Update::eReductions | Update::eHeap | Update::eStack>(0);
 
-    a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, flags)));
+    a.ldr(TMP1.w(), a64::Mem(c_p, offsetof(Process, flags)));
     a.and_(TMP1, TMP1, imm(~F_HIBERNATE_SCHED));
-    a.str(TMP1.w(), arm::Mem(c_p, offsetof(Process, flags)));
+    a.str(TMP1.w(), a64::Mem(c_p, offsetof(Process, flags)));
 
     mov_imm(XREG0, am_ok);
     fragment_call(ga->get_dispatch_return());

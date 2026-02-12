@@ -124,7 +124,7 @@ void BeamModuleAssembler::emit_are_both_small(Label fail,
 void BeamGlobalAssembler::emit_plus_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_Plus, 2};
 
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
     emit_enter_runtime();
@@ -182,10 +182,10 @@ void BeamModuleAssembler::emit_i_plus(const ArgSource &LHS,
     bool small_result = is_sum_small_if_args_are_small(LHS, RHS);
 
     if (RHS.isSmall()) {
-        /* Must be signed for the template magic in isInt32 to work for
+        /* Must be signed for the template magic in is_int_n<32> to work for
          * negative numbers. */
         rhs_untagged = RHS.as<ArgSmall>().getSigned() << _TAG_IMMED1_SIZE;
-        is_rhs_literal = Support::isInt32(rhs_untagged);
+        is_rhs_literal = Support::is_int_n<32>(rhs_untagged);
     }
 
     if (always_small(LHS) && always_small(RHS) && small_result) {
@@ -222,7 +222,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgSource &LHS,
         return;
     }
 
-    Label next = a.newLabel(), mixed = a.newLabel();
+    Label next = a.new_label(), mixed = a.new_label();
 
     mov_arg(ARG2, LHS); /* Used by erts_mixed_plus in this slot */
     mov_arg(ARG3, RHS); /* Used by erts_mixed_plus in this slot */
@@ -261,7 +261,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgSource &LHS,
 void BeamGlobalAssembler::emit_minus_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_Minus, 2};
 
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
     emit_enter_runtime();
@@ -318,10 +318,10 @@ void BeamModuleAssembler::emit_i_minus(const ArgSource &LHS,
     bool small_result = is_diff_small_if_args_are_small(LHS, RHS);
 
     if (RHS.isSmall()) {
-        /* Must be signed for the template magic in isInt32 to work for
+        /* Must be signed for the template magic in is_int_n<32> to work for
          * negative numbers. */
         rhs_untagged = RHS.as<ArgSmall>().getSigned() << _TAG_IMMED1_SIZE;
-        is_rhs_literal = Support::isInt32(rhs_untagged);
+        is_rhs_literal = Support::is_int_n<32>(rhs_untagged);
     }
 
     if (always_small(LHS) && always_small(RHS) && small_result) {
@@ -347,7 +347,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgSource &LHS,
         return;
     }
 
-    Label next = a.newLabel(), mixed = a.newLabel();
+    Label next = a.new_label(), mixed = a.new_label();
 
     mov_arg(ARG2, LHS); /* Used by erts_mixed_plus in this slot */
     mov_arg(ARG3, RHS); /* Used by erts_mixed_plus in this slot */
@@ -394,7 +394,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgSource &LHS,
 void BeamGlobalAssembler::emit_unary_minus_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_Minus, 1};
 
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
     emit_enter_runtime();
@@ -456,7 +456,7 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgSource &Src,
         return;
     }
 
-    Label next = a.newLabel(), mixed = a.newLabel();
+    Label next = a.new_label(), mixed = a.new_label();
 
     mov_arg(ARG2, Src);
     a.mov(RETd, ARG2d);
@@ -496,7 +496,7 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgSource &Src,
  *
  * Quotient is returned in RAX, remainder in RDX. Error is indicated by ZF. */
 void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
-    Label exit = a.newLabel(), generic = a.newLabel();
+    Label exit = a.new_label(), generic = a.new_label();
 
     emit_enter_frame();
 
@@ -576,8 +576,8 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
  *
  * Quotient is returned in RAX, remainder in RDX. */
 void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
-    Label div_zero = a.newLabel(), generic_div = a.newLabel(),
-          generic_error = a.newLabel();
+    Label div_zero = a.new_label(), generic_div = a.new_label(),
+          generic_error = a.new_label();
 
     emit_enter_frame();
 
@@ -685,7 +685,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                                        const ErtsCodeMFA *error_mfa,
                                        bool need_div,
                                        bool need_rem) {
-    Label generic_div = a.newLabel(), next = a.newLabel();
+    Label generic_div = a.new_label(), next = a.new_label();
     bool need_generic = true;
     Sint divisor = 0;
 
@@ -713,14 +713,14 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
             a.short_().jne(generic_div);
         }
 
-        if (Support::isPowerOf2(divisor) &&
+        if (Support::is_power_of_2(divisor) &&
             std::get<0>(getClampedRange(LHS)) >= 0) {
             /* Unsigned integer division. */
             int trailing_bits = Support::ctz<Eterm>(divisor);
 
             if (need_rem) {
-                Uint mask = Support::lsbMask<Uint>(trailing_bits +
-                                                   _TAG_IMMED1_SIZE);
+                Uint mask = Support::lsb_mask<Uint>(trailing_bits +
+                                                    _TAG_IMMED1_SIZE);
                 mask = (1ULL << (trailing_bits + _TAG_IMMED1_SIZE)) - 1;
                 comment("optimized rem by replacing with masking");
                 mov_imm(x86::rdx, mask);
@@ -732,7 +732,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 a.shr(x86::rax, imm(trailing_bits));
                 a.or_(x86::rax, imm(_TAG_IMMED1_SMALL));
             }
-        } else if (Support::isPowerOf2(divisor)) {
+        } else if (Support::is_power_of_2(divisor)) {
             /* Signed integer division. */
             int shift = Support::ctz<Eterm>(divisor);
             Sint offset = (divisor - 1) << _TAG_IMMED1_SIZE;
@@ -752,7 +752,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 a.shr(ARG1, imm(63));
                 a.add(x86::rax, ARG1);
             } else {
-                if (Support::isInt32(offset)) {
+                if (Support::is_int_n<32>(offset)) {
                     a.lea(ARG1, x86::qword_ptr(x86::rax, offset));
                 } else {
                     a.mov(ARG1, offset);
@@ -875,7 +875,7 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
                                        const ArgRegister &Dst) {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_Div, 2};
 
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(ARG2, LHS);
     mov_arg(ARG3, RHS);
@@ -913,7 +913,7 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
  *
  * Result is returned in RET, error is indicated by ZF. */
 void BeamGlobalAssembler::emit_mul_add_guard_shared() {
-    Label done = a.newLabel();
+    Label done = a.new_label();
 
     emit_enter_frame();
     emit_enter_runtime();
@@ -947,8 +947,8 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
  *
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_mul_add_body_shared() {
-    Label mul_only = a.newLabel(), error = a.newLabel(),
-          mul_error = a.newLabel(), do_error = a.newLabel();
+    Label mul_only = a.new_label(), error = a.new_label(),
+          mul_error = a.new_label(), do_error = a.new_label();
 
     emit_enter_frame();
     emit_enter_runtime();
@@ -1049,7 +1049,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 
     if (Src2.isSmall()) {
         factor = Src2.as<ArgSmall>().getSigned();
-        if (Support::isPowerOf2(factor)) {
+        if (Support::is_power_of_2(factor)) {
             left_shift = Support::ctz<Eterm>(factor);
         }
     }
@@ -1081,7 +1081,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             break;
         }
 
-        if (Support::isInt32(increment) && p.hasIndex()) {
+        if (Support::is_int_n<32>(increment) && p.has_index()) {
             comment("optimizing multiplication and addition using LEA");
             mov_arg(RET, Src1);
             a.lea(RET, p);
@@ -1096,7 +1096,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         if (Src2.isSmall()) {
             mov_arg(RET, Src1);
             a.and_(RET, imm(~_TAG_IMMED1_MASK));
-            if (Support::isPowerOf2(factor)) {
+            if (Support::is_power_of_2(factor)) {
                 comment("optimized multiplication by replacing with left "
                         "shift");
                 a.shl(RET, imm(left_shift));
@@ -1123,7 +1123,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         return;
     }
 
-    Label next = a.newLabel(), mixed = a.newLabel();
+    Label next = a.new_label(), mixed = a.new_label();
 
     mov_arg(ARG2, Src1);
     mov_arg(ARG3, Src2);
@@ -1236,7 +1236,7 @@ void BeamGlobalAssembler::emit_bitwise_fallback_guard() {
  * Result is returned in RET. */
 template<typename T, T Func>
 void BeamGlobalAssembler::emit_bitwise_fallback_body(const ErtsCodeMFA *mfa) {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
     emit_enter_runtime();
@@ -1288,14 +1288,14 @@ void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
         mov_arg(RET, LHS);
-        if (RHS.isSmall() && Support::isInt32(RHS.as<ArgSmall>().get())) {
+        if (RHS.isSmall() && Support::is_int_n<32>(RHS.as<ArgSmall>().get())) {
             preserve_cache(
                     [&]() {
                         a.and_(RETd, imm(RHS.as<ArgSmall>().get()));
                     },
                     RET);
         } else if (RHS.isSmall() &&
-                   Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+                   Support::is_int_n<32>((Sint)RHS.as<ArgSmall>().get())) {
             preserve_cache(
                     [&]() {
                         a.and_(RET, imm(RHS.as<ArgSmall>().get()));
@@ -1312,7 +1312,7 @@ void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
 
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), next = a.new_label();
 
     if (RHS.isLiteral()) {
         comment("skipped test for small because one operand is never small");
@@ -1361,7 +1361,8 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
         mov_arg(RET, LHS);
-        if (RHS.isImmed() && Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+        if (RHS.isImmed() &&
+            Support::is_int_n<32>((Sint)RHS.as<ArgSmall>().get())) {
             a.or_(RET, imm(RHS.as<ArgSmall>().get()));
         } else {
             mov_arg(ARG2, RHS);
@@ -1374,7 +1375,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
 
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), next = a.new_label();
 
     emit_are_both_small(generic, LHS, ARG2, RHS, RET);
 
@@ -1420,7 +1421,8 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
         mov_arg(RET, LHS);
-        if (RHS.isImmed() && Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+        if (RHS.isImmed() &&
+            Support::is_int_n<32>((Sint)RHS.as<ArgSmall>().get())) {
             preserve_cache(
                     [&]() {
                         a.xor_(RET,
@@ -1445,7 +1447,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
 
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), next = a.new_label();
 
     emit_are_both_small(generic, LHS, ARG2, RHS, RET);
 
@@ -1496,7 +1498,7 @@ void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
 void BeamGlobalAssembler::emit_i_bnot_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bnot, 1};
 
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
 
@@ -1533,7 +1535,7 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
 void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
                                       const ArgSource &Src,
                                       const ArgRegister &Dst) {
-    Label next = a.newLabel();
+    Label next = a.new_label();
 
     mov_arg(RET, Src);
 
@@ -1584,7 +1586,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgLabel &Fail,
                                      const ArgRegister &Dst) {
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), next = a.new_label();
     bool need_generic = true;
     bool need_register_load = true;
 
@@ -1703,7 +1705,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgSource &LHS,
     }
 
     bool inline_shift = hasCpuFeature(CpuFeatures::X86::kLZCNT);
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.new_label(), next = a.new_label();
 
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
@@ -1786,7 +1788,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgSource &LHS,
 
             shiftCount = x86::cl;
         } else {
-            ASSERT(!shiftLimit.isImm());
+            ASSERT(!shiftLimit.is_imm());
 
             shiftCount = imm(RHS.as<ArgSmall>().getSigned());
 

@@ -62,7 +62,7 @@ void BeamModuleAssembler::emit_bif_is_eq_ne_exact(const ArgSource &LHS,
         mov_imm(ARG1, fail_value);
         a.cmovne(RET, ARG1);
     } else {
-        Label next = a.newLabel();
+        Label next = a.new_label();
 
         a.je(next);
 
@@ -109,7 +109,7 @@ void BeamModuleAssembler::emit_bif_is_ge_lt(uint32_t instId,
                                             const ArgSource &LHS,
                                             const ArgSource &RHS,
                                             const ArgRegister &Dst) {
-    Label generic = a.newLabel(), make_boolean = a.newLabel();
+    Label generic = a.new_label(), make_boolean = a.new_label();
 
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
     mov_arg(ARG1, LHS);
@@ -167,14 +167,14 @@ void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
     bool both_small = always_small(LHS) && always_small(RHS);
 
     if (both_small && LHS.isRegister() && RHS.isImmed() &&
-        Support::isInt32(RHS.as<ArgImmed>().get())) {
+        Support::is_int_n<32>(RHS.as<ArgImmed>().get())) {
         comment("simplified compare because one operand is an immediate small");
         a.cmp(getArgRef(LHS.as<ArgRegister>()), imm(RHS.as<ArgImmed>().get()));
         emit_cond_to_bool(x86::Inst::kIdCmovl, Dst);
 
         return;
     } else if (both_small && RHS.isRegister() && LHS.isImmed() &&
-               Support::isInt32(LHS.as<ArgImmed>().get())) {
+               Support::is_int_n<32>(LHS.as<ArgImmed>().get())) {
         comment("simplified compare because one operand is an immediate small");
         a.cmp(getArgRef(RHS.as<ArgRegister>()), imm(LHS.as<ArgImmed>().get()));
         emit_cond_to_bool(x86::Inst::kIdCmovg, Dst);
@@ -213,7 +213,7 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgWord &Bif,
     ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
     a.mov(ARG1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
 
-    Label not_sub_bits = a.newLabel();
+    Label not_sub_bits = a.new_label();
     a.cmp(emit_boxed_val(boxed_ptr), imm(HEADER_SUB_BITS));
     a.short_().jne(not_sub_bits);
     {
@@ -250,7 +250,7 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgWord &Bif,
     ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
     a.mov(ARG1, emit_boxed_val(boxed_ptr, offsetof(ErlHeapBits, size)));
 
-    Label not_sub_bits = a.newLabel();
+    Label not_sub_bits = a.new_label();
     a.cmp(emit_boxed_val(boxed_ptr), imm(HEADER_SUB_BITS));
     a.short_().jne(not_sub_bits);
     {
@@ -289,7 +289,7 @@ void BeamGlobalAssembler::emit_handle_element_error() {
  *
  * Will return with a value in RET only if the element operation succeeds. */
 void BeamGlobalAssembler::emit_bif_element_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     emit_enter_frame();
 
@@ -359,7 +359,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
         Eterm tuple = beamfile_get_literal(beam, Tuple.as<ArgLiteral>().get());
 
         if (is_tuple(tuple)) {
-            Label error = a.newLabel(), next = a.newLabel();
+            Label error = a.new_label(), next = a.new_label();
             Sint size = Sint(arityval(*tuple_val(tuple)));
             auto [min, max] = getClampedRange(Pos);
             bool can_fail = min < 1 || size < max;
@@ -425,12 +425,12 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
         if (exact_type<BeamTypeId::Tuple>(Tuple)) {
             comment("skipped tuple test since source is always a tuple");
-            ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+            ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
             a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)),
                   imm(make_arityval_unchecked(position)));
 
             if (Fail.get() == 0) {
-                Label next = a.newLabel();
+                Label next = a.new_label();
 
                 a.short_().jae(next);
 
@@ -446,7 +446,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
             Label error;
 
             if (Fail.get() == 0) {
-                error = a.newLabel();
+                error = a.new_label();
                 dist = dShort;
             } else {
                 error = resolve_beam_label(Fail);
@@ -468,7 +468,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
             a.and_(RETb, imm(_TAG_HEADER_MASK));
 
             if (Fail.get() == 0) {
-                Label next = a.newLabel();
+                Label next = a.new_label();
 
                 a.short_().je(next);
 
@@ -530,7 +530,7 @@ void BeamGlobalAssembler::emit_handle_hd_error() {
 
 void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
                                       const ArgRegister &Hd) {
-    Label good_cons = a.newLabel();
+    Label good_cons = a.new_label();
 
     mov_arg(RET, Src);
     a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
@@ -609,7 +609,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
                                            const ArgSource &Key,
                                            const ArgSource &Src,
                                            const ArgRegister &Dst) {
-    Label good_key = a.newLabel();
+    Label good_key = a.new_label();
 
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
@@ -617,8 +617,8 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
     if (exact_type<BeamTypeId::Map>(Src)) {
         comment("skipped test for map for known map argument");
     } else {
-        Label bad_map = a.newLabel();
-        Label good_map = a.newLabel();
+        Label bad_map = a.new_label();
+        Label good_map = a.new_label();
 
         if (Fail.get() == 0) {
             emit_is_boxed(bad_map, Src, ARG1);
@@ -703,7 +703,7 @@ void BeamGlobalAssembler::emit_handle_map_size_error() {
 void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgRegister &Dst) {
-    Label error = a.newLabel(), good_map = a.newLabel();
+    Label error = a.new_label(), good_map = a.new_label();
 
     mov_arg(RET, Src);
 
@@ -757,7 +757,7 @@ void BeamModuleAssembler::emit_bif_min_max(uint32_t instId,
                                            const ArgSource &LHS,
                                            const ArgSource &RHS,
                                            const ArgRegister &Dst) {
-    Label generic = a.newLabel(), do_cmov = a.newLabel();
+    Label generic = a.new_label(), do_cmov = a.new_label();
     bool both_small = always_small(LHS) && always_small(RHS);
     bool need_generic = !both_small;
 
@@ -852,13 +852,13 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
                                         const ArgRegister &Src,
                                         const ArgRegister &Dst) {
     bool always_identifier = always_one_of<BeamTypeId::Identifier>(Src);
-    Label test_internal = a.newLabel();
-    Label internal = a.newLabel();
-    Label next = a.newLabel();
+    Label test_internal = a.new_label();
+    Label internal = a.new_label();
+    Label next = a.new_label();
     Label fail;
 
     if (Fail.get() == 0 && !always_identifier) {
-        fail = a.newLabel();
+        fail = a.new_label();
     }
 
     mov_arg(ARG1, Src);
@@ -877,7 +877,7 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
     }
 
     if (!always_identifier) {
-        Label external = a.newLabel();
+        Label external = a.new_label();
 
         ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PORT - _TAG_HEADER_EXTERNAL_PID) >>
                                _TAG_PRIMARY_SIZE ==
@@ -942,7 +942,7 @@ void BeamModuleAssembler::emit_bif_tuple_size(const ArgWord &Bif,
         mov_arg(RET, Src);
 
         /* Instructions operating on dwords are shorter. */
-        ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+        ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
         x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
         a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 

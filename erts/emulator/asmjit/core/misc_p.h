@@ -1,12 +1,12 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_MISC_P_H_INCLUDED
 #define ASMJIT_CORE_MISC_P_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 
 ASMJIT_BEGIN_NAMESPACE
 

@@ -31,23 +31,23 @@ extern "C"
  *
  * Clobbers d30 and d31. */
 void BeamGlobalAssembler::emit_check_float_error() {
-    Label double_max = a.newLabel(), error = a.newLabel();
+    Label double_max = a.new_label(), error = a.new_label();
 
     a.fabs(a64::d30, a64::d0);
-    a.ldr(a64::d31, arm::Mem(double_max));
+    a.ldr(a64::d31, a64::Mem(double_max));
     a.fcmp(a64::d30, a64::d31);
     a.b_hi(error);
     a.ret(a64::x30);
 
     a.align(AlignMode::kCode, 8);
     a.bind(double_max);
-    a.embedUInt64(0x7FEFFFFFFFFFFFFFul);
+    a.embed_uint64(0x7FEFFFFFFFFFFFFFul);
 
     a.bind(error);
     {
         mov_imm(ARG4, 0);
         mov_imm(TMP1, EXC_BADARITH);
-        a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+        a.str(TMP1, a64::Mem(c_p, offsetof(Process, freason)));
         a.b(labels[raise_exception]);
     }
 }
@@ -86,22 +86,22 @@ void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
     a.add(dst.reg, HTOP, imm(TAG_PRIMARY_BOXED));
 
     mov_imm(TMP2, HEADER_FLONUM);
-    a.str(TMP2, arm::Mem(HTOP).post(sizeof(Eterm)));
-    a.str(src.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+    a.str(TMP2, a64::Mem(HTOP).post(sizeof(Eterm)));
+    a.str(src.reg, a64::Mem(HTOP).post(sizeof(Eterm)));
 
     flush_var(dst);
 }
 
 /* ARG1 = source term */
 void BeamGlobalAssembler::emit_fconv_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     /* Is the source a bignum? */
     {
         emit_is_boxed(error, ARG1);
 
         emit_untag_ptr(TMP1, ARG1);
-        a.ldr(TMP1, arm::Mem(TMP1));
+        a.ldr(TMP1, a64::Mem(TMP1));
 
         /* The mask (0b111011) cannot be encoded as an immediate operand for
          * 'and'. */
@@ -130,7 +130,7 @@ void BeamGlobalAssembler::emit_fconv_shared() {
     {
         mov_imm(ARG4, 0);
         mov_imm(TMP1, EXC_BADARITH);
-        a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+        a.str(TMP1, a64::Mem(c_p, offsetof(Process, freason)));
         a.b(labels[raise_exception]);
     }
 }
@@ -148,8 +148,8 @@ void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
         return;
     }
 
-    Label next = a.newLabel(), not_small = a.newLabel(),
-          fallback = a.newLabel();
+    Label next = a.new_label(), not_small = a.new_label(),
+          fallback = a.new_label();
 
     a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED1_MASK));
@@ -176,9 +176,9 @@ void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
 
             /* Speculatively load the float value, this is safe since all boxed
              * terms are at least two words long. */
-            a.ldr(dst.reg, arm::Mem(TMP1, sizeof(Eterm)));
+            a.ldr(dst.reg, a64::Mem(TMP1, sizeof(Eterm)));
 
-            a.ldr(TMP1, arm::Mem(TMP1));
+            a.ldr(TMP1, a64::Mem(TMP1));
             a.cmp(TMP1, imm(HEADER_FLONUM));
             a.b_eq(next);
         }

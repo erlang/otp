@@ -1,228 +1,311 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "../core/api-build_p.h"
+#include <asmjit/core/api-build_p.h>
 #ifndef ASMJIT_NO_COMPILER
 
-#include "../core/formatter.h"
-#include "../core/ralocal_p.h"
-#include "../core/rapass_p.h"
-#include "../core/support.h"
-#include "../core/type.h"
-#include "../core/zonestack.h"
+#include <asmjit/core/formatter_p.h>
+#include <asmjit/core/ralocal_p.h>
+#include <asmjit/core/rapass_p.h>
+#include <asmjit/core/type.h>
+#include <asmjit/support/arenavector.h>
+#include <asmjit/support/support_p.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
 // RABlock - Control Flow
 // ======================
 
-Error RABlock::appendSuccessor(RABlock* successor) noexcept {
+Error RABlock::append_successor(RABlock* successor) noexcept {
   RABlock* predecessor = this;
 
-  if (predecessor->hasSuccessor(successor))
-    return kErrorOk;
+  if (predecessor->has_successor(successor)) {
+    return Error::kOk;
+  }
 
-  ASMJIT_PROPAGATE(successor->_predecessors.willGrow(allocator()));
-  ASMJIT_PROPAGATE(predecessor->_successors.willGrow(allocator()));
+  ASMJIT_PROPAGATE(successor->_predecessors.reserve_additional(arena()));
+  ASMJIT_PROPAGATE(predecessor->_successors.reserve_additional(arena()));
 
-  predecessor->_successors.appendUnsafe(successor);
-  successor->_predecessors.appendUnsafe(predecessor);
+  predecessor->_successors.append_unchecked(successor);
+  successor->_predecessors.append_unchecked(predecessor);
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-Error RABlock::prependSuccessor(RABlock* successor) noexcept {
+Error RABlock::prepend_successor(RABlock* successor) noexcept {
   RABlock* predecessor = this;
 
-  if (predecessor->hasSuccessor(successor))
-    return kErrorOk;
+  if (predecessor->has_successor(successor)) {
+    return Error::kOk;
+  }
 
-  ASMJIT_PROPAGATE(successor->_predecessors.willGrow(allocator()));
-  ASMJIT_PROPAGATE(predecessor->_successors.willGrow(allocator()));
+  ASMJIT_PROPAGATE(successor->_predecessors.reserve_additional(arena()));
+  ASMJIT_PROPAGATE(predecessor->_successors.reserve_additional(arena()));
 
-  predecessor->_successors.prependUnsafe(successor);
-  successor->_predecessors.prependUnsafe(predecessor);
+  predecessor->_successors.prepend_unchecked(successor);
+  successor->_predecessors.prepend_unchecked(predecessor);
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // BaseRAPass - Construction & Destruction
 // =======================================
 
-BaseRAPass::BaseRAPass() noexcept : FuncPass("BaseRAPass") {}
+BaseRAPass::BaseRAPass(BaseCompiler& cc) noexcept : Pass(cc, "RAPass") {}
 BaseRAPass::~BaseRAPass() noexcept {}
 
-// BaseRAPass - RunOnFunction
-// ==========================
-
-static void BaseRAPass_reset(BaseRAPass* self, FuncDetail* funcDetail) noexcept {
-  ZoneAllocator* allocator = self->allocator();
-
-  self->_blocks.reset();
-  self->_exits.reset();
-  self->_pov.reset();
-  self->_workRegs.reset();
-  self->_instructionCount = 0;
-  self->_createdBlockCount = 0;
-
-  self->_sharedAssignments.reset();
-  self->_lastTimestamp = 0;
-
-  self->_archTraits = nullptr;
-  self->_physRegIndex.reset();
-  self->_physRegCount.reset();
-  self->_physRegTotal = 0;
-  self->_scratchRegIndexes.fill(BaseReg::kIdBad);
-
-  self->_availableRegs.reset();
-  self->_availableRegCount.reset();
-  self->_clobberedRegs.reset();
-
-  self->_workRegs.reset();
-  self->_workRegsOfGroup.forEach([](RAWorkRegs& regs) { regs.reset(); });
-  self->_strategy.forEach([](RAStrategy& strategy) { strategy.reset(); });
-  self->_globalLiveSpans.fill(nullptr);
-  self->_globalMaxLiveCount.reset();
-  self->_temporaryMem.reset();
-
-  self->_stackAllocator.reset(allocator);
-  self->_argsAssignment.reset(funcDetail);
-  self->_numStackArgsToStackSlots = 0;
-  self->_maxWorkRegNameSize = 0;
-}
-
-static void BaseRAPass_resetVirtRegData(BaseRAPass* self) noexcept {
-  for (RAWorkReg* wReg : self->_workRegs) {
-    VirtReg* vReg = wReg->virtReg();
+static void RAPass_reset_virt_reg_data(BaseRAPass* self) noexcept {
+  for (RAWorkReg* work_reg : self->_work_regs) {
+    VirtReg* virt_reg = work_reg->virt_reg();
 
     // Update the information regarding the stack of the virtual register.
-    if (wReg->hasStackSlot()) {
-      RAStackSlot* slot = wReg->stackSlot();
-      vReg->assignStackSlot(slot->offset());
+    if (work_reg->has_stack_slot()) {
+      RAStackSlot* slot = work_reg->stack_slot();
+      virt_reg->assign_stack_slot(slot->offset());
     }
 
     // Reset work reg association so it cannot be used by accident (RAWorkReg data will be destroyed).
-    vReg->_workReg = nullptr;
+    virt_reg->_work_reg = nullptr;
   }
 }
 
-Error BaseRAPass::runOnFunction(Zone* zone, Logger* logger, FuncNode* func) {
-  _allocator.reset(zone);
+// BaseRAPass - Run Prepare & Cleanup
+// ==================================
 
 #ifndef ASMJIT_NO_LOGGING
-  _logger = logger;
-  _formatOptions.reset();
-  _diagnosticOptions = _cb->diagnosticOptions();
+static ASMJIT_INLINE void RAPass_prepare_logging(BaseRAPass& pass, Logger* logger) noexcept {
+  DiagnosticOptions diag = pass._cb.diagnostic_options();
+
+  pass._logger = logger;
 
   if (logger) {
-    _formatOptions = logger->options();
+    pass._format_options = logger->options();
+    pass._diagnostic_options = diag;
   }
   else {
-    _diagnosticOptions &= ~(DiagnosticOptions::kRADebugCFG |
-                            DiagnosticOptions::kRADebugUnreachable);
+    pass._format_options.reset();
+    pass._diagnostic_options = diag & ~(DiagnosticOptions::kRADebugCFG |
+                                       DiagnosticOptions::kRADebugUnreachable);
   }
+}
+
+static ASMJIT_INLINE void RAPass_cleanup_logging(BaseRAPass& pass) noexcept {
+  pass._logger = nullptr;
+  pass._format_options.reset();
+  pass._diagnostic_options = DiagnosticOptions::kNone;
+}
 #else
-  DebugUtils::unused(logger);
+static ASMJIT_INLINE void RAPass_prepare_logging(BaseRAPass&, Logger*) noexcept {}
+static ASMJIT_INLINE void RAPass_cleanup_logging(BaseRAPass&) noexcept {}
 #endif
 
-  // Initialize all core structures to use `zone` and `func`.
-  BaseNode* end = func->endNode();
-  _func = func;
-  _stop = end->next();
-  _extraBlock = end;
+static void RAPass_prepare_for_function(BaseRAPass* pass, FuncDetail* func_detail) noexcept {
+  pass->_args_assignment.reset(func_detail);
+  pass->_stack_allocator.reset(pass->_arena);
+}
 
-  BaseRAPass_reset(this, &_func->_funcDetail);
+static void RAPass_cleanup_after_function(BaseRAPass* pass) noexcept {
+  pass->_blocks.reset();
+  pass->_exits.reset();
+  pass->_pov.reset();
+  pass->_instruction_count = 0;
+  pass->_created_block_count = 0;
 
-  // Initialize architecture-specific members.
-  onInit();
+  pass->_shared_assignments.reset();
+  pass->_last_timestamp = 0;
 
-  // Perform all allocation steps required.
-  Error err = onPerformAllSteps();
+  pass->_arch_traits = nullptr;
+  pass->_phys_reg_index.reset();
+  pass->_phys_reg_count.reset();
+  pass->_phys_reg_total = 0;
+  pass->_scratch_reg_indexes.fill(Reg::kIdBad);
 
-  // Must be called regardless of the allocation status.
-  onDone();
+  pass->_available_regs.reset();
+  pass->_clobbered_regs.reset();
 
-  // Reset possible connections introduced by the register allocator.
-  BaseRAPass_resetVirtRegData(this);
+  pass->_work_regs.reset();
+  pass->_work_regs_of_group.for_each([](ArenaVector<RAWorkReg*>& regs) { regs.reset(); });
+  pass->_multi_work_reg_count = 0u;
+  pass->_total_work_reg_count = 0u;
 
-  // Reset all core structures and everything that depends on the passed `Zone`.
-  BaseRAPass_reset(this, nullptr);
-  _allocator.reset(nullptr);
+  pass->_strategy.for_each([](RAStrategy& strategy) { strategy.reset(); });
+  pass->_global_live_spans.fill(nullptr);
+  pass->_global_live_max_count.reset();
+  pass->_temporary_mem.reset();
 
-#ifndef ASMJIT_NO_LOGGING
-  _logger = nullptr;
-  _formatOptions.reset();
-  _diagnosticOptions = DiagnosticOptions::kNone;
-#endif
+  pass->_stack_allocator.reset(nullptr);
+  pass->_args_assignment.reset(nullptr);
+  pass->_num_stack_args_to_stack_slots = 0;
+  pass->_max_work_reg_name_size = 0;
+}
 
-  _func = nullptr;
-  _stop = nullptr;
-  _extraBlock = nullptr;
+// BaseRAPass - Run & RunOnFunction
+// ================================
 
-  // Reset `Zone` as nothing should persist between `runOnFunction()` calls.
-  zone->reset();
+Error BaseRAPass::run(Arena& arena, Logger* logger) {
+  // Find the first function node by skipping all nodes that are not of `NodeType::kFunc` type.
+  // If there is no function in the whole code, we would just return early and not setup anything.
+  BaseNode* node = cc().first_node();
+  for (;;) {
+    if (!node) {
+      // The code has no function.
+      return Error::kOk;
+    }
 
-  // We alter the compiler cursor, because it doesn't make sense to reference it after the compilation - some
-  // nodes may disappear and the old cursor can go out anyway.
-  cc()->_setCursor(cc()->lastNode());
+    if (node->type() == NodeType::kFunc) {
+      break;
+    }
+
+    node = node->next();
+  }
+
+  Error err = Error::kOk;
+  FuncNode* func = node->as<FuncNode>();
+
+  RAPass_prepare_logging(*this, logger);
+  do {
+    // Try to find a second function in the code in order to know whether this function is last. Generally,
+    // there are two use-cases we want to optimize for: The first is generating a function at a time and the
+    // second is generating multiple functions at a time. In the first case we know we can do a little bit
+    // cheaper cleanup at the end as we know we won't be running the register allocator again in this run().
+    node = func->end_node();
+
+    FuncNode* next_func = nullptr;
+    while (node) {
+      if (node->type() == NodeType::kFunc) {
+        next_func = node->as<FuncNode>();
+        break;
+      }
+      node = node->next();
+    }
+
+    err = run_on_function(arena, func, next_func != nullptr);
+    if (err != Error::kOk) {
+      break;
+    }
+
+    func = next_func;
+  } while (func);
+  RAPass_cleanup_logging(*this);
+
+  if (ASMJIT_UNLIKELY(err != Error::kOk)) {
+    return _cb.report_error(err);
+  }
 
   return err;
 }
 
-Error BaseRAPass::onPerformAllSteps() noexcept {
-  ASMJIT_PROPAGATE(buildCFG());
-  ASMJIT_PROPAGATE(buildCFGViews());
-  ASMJIT_PROPAGATE(removeUnreachableCode());
+Error BaseRAPass::run_on_function(Arena& arena, FuncNode* func, [[maybe_unused]] bool last) noexcept {
+  // Initialize all core structures to use `arena` and `func`.
+  BaseNode* end = func->end_node();
 
-  ASMJIT_PROPAGATE(buildCFGDominators());
-  ASMJIT_PROPAGATE(buildLiveness());
-  ASMJIT_PROPAGATE(assignArgIndexToWorkRegs());
+  _arena = &arena;
+  _func = func;
+  _stop = end->next();
+  _injection_start = nullptr;
+  _injection_end = end;
+
+  RAPass_prepare_for_function(this, &_func->_func_detail);
+
+  // Initialize architecture-specific members.
+  on_init();
+
+  // Perform all allocation steps required.
+  Error err = on_perform_all_steps();
+
+  // Must be called regardless of the allocation status.
+  on_done();
+
+  // Reset possible connections introduced by the register allocator.
+  RAPass_reset_virt_reg_data(this);
+
+  // Reset all core structures and everything that depends on the passed `Arena`.
+  RAPass_cleanup_after_function(this);
+
+  _arena = nullptr;
+  _func = nullptr;
+  _stop = nullptr;
+  _injection_start = nullptr;
+  _injection_end = nullptr;
+
+  // Reset `Arena` as nothing should persist between `run_on_function()` calls.
+  arena.reset();
+
+  // We alter the compiler cursor, because it doesn't make sense to reference it after the compilation - some nodes
+  // may disappear and the old cursor could be unreachable, so just set the cursor to the last node for better safety.
+  cc().set_cursor(cc().last_node());
+
+  return err;
+}
+
+// BaseRAPass - Perform All Steps
+// ==============================
+
+Error BaseRAPass::on_perform_all_steps() noexcept {
+  ASMJIT_PROPAGATE(build_cfg_nodes());
+  ASMJIT_PROPAGATE(build_cfg_views());
+  ASMJIT_PROPAGATE(remove_unreachable_code());
+  ASMJIT_PROPAGATE(build_cfg_dominators());
+  ASMJIT_PROPAGATE(build_reg_ids());
+  ASMJIT_PROPAGATE(build_liveness());
+  ASMJIT_PROPAGATE(assign_arg_index_to_work_regs());
 
 #ifndef ASMJIT_NO_LOGGING
-  if (hasDiagnosticOption(DiagnosticOptions::kRAAnnotate))
-    ASMJIT_PROPAGATE(annotateCode());
+  if (has_diagnostic_option(DiagnosticOptions::kRAAnnotate)) {
+    ASMJIT_PROPAGATE(annotate_code());
+  }
 #endif
 
-  ASMJIT_PROPAGATE(runGlobalAllocator());
-  ASMJIT_PROPAGATE(runLocalAllocator());
+  ASMJIT_PROPAGATE(run_global_allocator());
+  ASMJIT_PROPAGATE(run_local_allocator());
 
-  ASMJIT_PROPAGATE(updateStackFrame());
-  ASMJIT_PROPAGATE(insertPrologEpilog());
+  ASMJIT_PROPAGATE(update_stack_frame());
+  ASMJIT_PROPAGATE(insert_prolog_epilog());
 
   ASMJIT_PROPAGATE(rewrite());
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // BaseRAPass - Events
 // ===================
 
-void BaseRAPass::onInit() noexcept {}
-void BaseRAPass::onDone() noexcept {}
+void BaseRAPass::on_init() noexcept {}
+void BaseRAPass::on_done() noexcept {}
 
 // BaseRAPass - CFG - Basic Block Management
 // =========================================
 
-RABlock* BaseRAPass::newBlock(BaseNode* initialNode) noexcept {
-  RABlock* block = zone()->newT<RABlock>(this);
-  if (ASMJIT_UNLIKELY(!block))
+RABlock* BaseRAPass::new_block(BaseNode* initial_node) noexcept {
+  RABlock* block = arena().new_oneshot<RABlock>(this);
+
+  if (ASMJIT_UNLIKELY(!block)) {
     return nullptr;
+  }
 
-  block->setFirst(initialNode);
-  block->setLast(initialNode);
+  block->set_first(initial_node);
+  block->set_last(initial_node);
 
-  _createdBlockCount++;
+  // Ignore return values here as we don't care if it was successful or not - this is a pre-allocation only
+  // to make the default allocated block close to the block itself. In general, it's very common to have at
+  // least 1 predecessor and successor, and in case of branches it's either 2 successors or predecessors in
+  // case two basic blocks merge.
+  (void)block->_predecessors.reserve_fit(arena(), 2u);
+  (void)block->_successors.reserve_fit(arena(), 2u);
+
+  _created_block_count++;
   return block;
 }
 
-RABlock* BaseRAPass::newBlockOrExistingAt(LabelNode* cbLabel, BaseNode** stoppedAt) noexcept {
-  if (cbLabel->hasPassData())
-    return cbLabel->passData<RABlock>();
+RABlock* BaseRAPass::new_block_or_existing_at(LabelNode* label_node, BaseNode** stopped_at) noexcept {
+  if (label_node->has_pass_data()) {
+    return label_node->pass_data<RABlock>();
+  }
 
   FuncNode* func = this->func();
-  BaseNode* node = cbLabel->prev();
+  BaseNode* node = label_node->prev();
   RABlock* block = nullptr;
 
   // Try to find some label, but terminate the loop on any code. We try hard to coalesce code that contains two
@@ -239,7 +322,7 @@ RABlock* BaseRAPass::newBlockOrExistingAt(LabelNode* cbLabel, BaseNode** stopped
   //     ; Some comment...
   //     .align 16
   //     Label2:
-  size_t nPendingLabels = 0;
+  size_t num_pending_labels = 0;
 
   while (node) {
     if (node->type() == NodeType::kLabel) {
@@ -247,16 +330,17 @@ RABlock* BaseRAPass::newBlockOrExistingAt(LabelNode* cbLabel, BaseNode** stopped
       // BasicBlock with a `func` itself.
       ASMJIT_ASSERT(node != func);
 
-      block = node->passData<RABlock>();
+      block = node->pass_data<RABlock>();
       if (block) {
-        // Exit node has always a block associated with it. If we went here it means that `cbLabel` passed here
-        // is after the end of the function and cannot be merged with the function exit block.
-        if (node == func->exitNode())
+        // Exit node has always a block associated with it. If we went here it means that `label_node` passed
+        // here is after the end of the function and cannot be merged with the function exit block.
+        if (node == func->exit_node()) {
           block = nullptr;
+        }
         break;
       }
 
-      nPendingLabels++;
+      num_pending_labels++;
     }
     else if (node->type() == NodeType::kAlign) {
       // Align node is fine.
@@ -268,24 +352,25 @@ RABlock* BaseRAPass::newBlockOrExistingAt(LabelNode* cbLabel, BaseNode** stopped
     node = node->prev();
   }
 
-  if (stoppedAt)
-    *stoppedAt = node;
+  if (stopped_at)
+    *stopped_at = node;
 
   if (!block) {
-    block = newBlock();
-    if (ASMJIT_UNLIKELY(!block))
+    block = new_block();
+    if (ASMJIT_UNLIKELY(!block)) {
       return nullptr;
+    }
   }
 
-  cbLabel->setPassData<RABlock>(block);
-  node = cbLabel;
+  label_node->set_pass_data<RABlock>(block);
+  node = label_node;
 
-  while (nPendingLabels) {
+  while (num_pending_labels) {
     node = node->prev();
     for (;;) {
       if (node->type() == NodeType::kLabel) {
-        node->setPassData<RABlock>(block);
-        nPendingLabels--;
+        node->set_pass_data<RABlock>(block);
+        num_pending_labels--;
         break;
       }
 
@@ -295,56 +380,57 @@ RABlock* BaseRAPass::newBlockOrExistingAt(LabelNode* cbLabel, BaseNode** stopped
   }
 
   if (!block->first()) {
-    block->setFirst(node);
-    block->setLast(cbLabel);
+    block->set_first(node);
+    block->set_last(label_node);
   }
 
   return block;
 }
 
-Error BaseRAPass::addBlock(RABlock* block) noexcept {
-  ASMJIT_PROPAGATE(_blocks.willGrow(allocator()));
+Error BaseRAPass::add_block(RABlock* block) noexcept {
+  ASMJIT_PROPAGATE(_blocks.reserve_additional(arena()));
 
-  block->_blockId = blockCount();
-  _blocks.appendUnsafe(block);
-  return kErrorOk;
+  block->_block_id = RABlockId(block_count());
+  _blocks.append_unchecked(block);
+  return Error::kOk;
 }
 
 // BaseRAPass - CFG - Build
 // ========================
 
 // [[pure virtual]]
-Error BaseRAPass::buildCFG() noexcept {
-  return DebugUtils::errored(kErrorInvalidState);
+Error BaseRAPass::build_cfg_nodes() noexcept {
+  return make_error(Error::kInvalidState);
 }
 
-Error BaseRAPass::initSharedAssignments(const ZoneVector<uint32_t>& sharedAssignmentsMap) noexcept {
-  if (sharedAssignmentsMap.empty())
-    return kErrorOk;
+Error BaseRAPass::init_shared_assignments(Span<uint32_t> shared_assignments_map) noexcept {
+  if (shared_assignments_map.is_empty()) {
+    return Error::kOk;
+  }
 
   uint32_t count = 0;
   for (RABlock* block : _blocks) {
-    if (block->hasSharedAssignmentId()) {
-      uint32_t sharedAssignmentId = sharedAssignmentsMap[block->sharedAssignmentId()];
-      block->setSharedAssignmentId(sharedAssignmentId);
-      count = Support::max(count, sharedAssignmentId + 1);
+    if (block->has_shared_assignment_id()) {
+      uint32_t shared_assignment_id = shared_assignments_map[block->shared_assignment_id()];
+      block->set_shared_assignment_id(shared_assignment_id);
+      count = Support::max(count, shared_assignment_id + 1);
     }
   }
 
-  ASMJIT_PROPAGATE(_sharedAssignments.resize(allocator(), count));
+  ASMJIT_PROPAGATE(_shared_assignments.resize_fit(arena(), count));
 
   // Aggregate all entry scratch GP regs from blocks of the same assignment to the assignment itself. It will then be
   // used instead of RABlock's own scratch regs mask, as shared assignments have precedence.
   for (RABlock* block : _blocks) {
-    if (block->hasJumpTable()) {
-      const RABlocks& successors = block->successors();
-      if (!successors.empty()) {
-        RABlock* firstSuccessor = successors[0];
+    if (block->has_jump_table()) {
+      Span<RABlock*> successors = block->successors();
+      if (!successors.is_empty()) {
+        RABlock* first_successor = successors[0];
         // NOTE: Shared assignments connect all possible successors so we only need the first to propagate exit scratch
         // GP registers.
-        if (firstSuccessor->hasSharedAssignmentId()) {
-          RASharedAssignment& sa = _sharedAssignments[firstSuccessor->sharedAssignmentId()];
-          sa.addEntryScratchGpRegs(block->exitScratchGpRegs());
+        if (first_successor->has_shared_assignment_id()) {
+          RASharedAssignment& sa = _shared_assignments[first_successor->shared_assignment_id()];
+          sa.add_entry_scratch_gp_regs(block->exit_scratch_gp_regs());
         }
         else {
           // This is only allowed if there is a single successor - in that case shared assignment is not necessary.
@@ -352,364 +438,405 @@ Error BaseRAPass::initSharedAssignments(const ZoneVector<uint32_t>& sharedAssign
         }
       }
     }
-    if (block->hasSharedAssignmentId()) {
-      RASharedAssignment& sa = _sharedAssignments[block->sharedAssignmentId()];
-      sa.addEntryScratchGpRegs(block->_entryScratchGpRegs);
+    if (block->has_shared_assignment_id()) {
+      RASharedAssignment& sa = _shared_assignments[block->shared_assignment_id()];
+      sa.add_entry_scratch_gp_regs(block->_entry_scratch_gp_regs);
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // BaseRAPass - CFG - Views Order
 // ==============================
 
-class RABlockVisitItem {
+// Stack specific to building a post-order-view. It reuses the POV vector in a way that stacked items
+// are added from the end, which would never collide with items already added to the POV vector as
+// they are added from the beginning (and the number of stacked items cannot exceed the number of
+// blocks). Additionally, it needs one vector of uint32_t to store the index of successors where it
+// ended before it was pushed on the stack.
+class RAPOVBuilderStack {
+protected:
+  RABlock** _block_ptr;
+  uint32_t* _index_ptr;
+  uint32_t* _index_begin;
+
 public:
-  RABlock* _block {};
-  uint32_t _index {};
+  ASMJIT_INLINE RAPOVBuilderStack(RABlock** pov_stack, uint32_t* index_stack, size_t block_count) noexcept
+    : _block_ptr(pov_stack + block_count),
+      _index_ptr(index_stack),
+      _index_begin(index_stack) {}
 
-  inline RABlockVisitItem(RABlock* block, uint32_t index) noexcept
-    : _block(block),
-      _index(index) {}
+  ASMJIT_INLINE void push(RABlock* block, uint32_t index) noexcept {
+    *--_block_ptr = block;
+    *_index_ptr++ = index;
+  }
 
-  inline RABlockVisitItem(const RABlockVisitItem& other) noexcept = default;
-  inline RABlockVisitItem& operator=(const RABlockVisitItem& other) noexcept = default;
+  ASMJIT_INLINE void pop(RABlock*& block, uint32_t& index) noexcept {
+    ASMJIT_ASSERT(_index_ptr != _index_begin);
 
-  inline RABlock* block() const noexcept { return _block; }
-  inline uint32_t index() const noexcept { return _index; }
+    block = *_block_ptr++;
+    index = *--_index_ptr;
+  }
+
+  ASMJIT_INLINE_NODEBUG bool is_empty() const noexcept { return _index_ptr == _index_begin; }
 };
 
-Error BaseRAPass::buildCFGViews() noexcept {
+Error BaseRAPass::build_cfg_views() noexcept {
 #ifndef ASMJIT_NO_LOGGING
-  Logger* logger = getLoggerIf(DiagnosticOptions::kRADebugCFG);
-  ASMJIT_RA_LOG_FORMAT("[BuildCFGViews]\n");
-#endif
+  Logger* logger = logger_if(DiagnosticOptions::kRADebugCFG);
+  ASMJIT_RA_LOG_FORMAT("[build_cfg_views]\n");
+#endif // !ASMJIT_NO_LOGGING
 
-  uint32_t count = blockCount();
-  if (ASMJIT_UNLIKELY(!count)) return kErrorOk;
+  size_t count = block_count();
+  if (ASMJIT_UNLIKELY(!count)) {
+    return Error::kOk;
+  }
 
-  ASMJIT_PROPAGATE(_pov.reserve(allocator(), count));
+  ArenaVector<uint32_t> indexes;
 
-  ZoneStack<RABlockVisitItem> stack;
-  ASMJIT_PROPAGATE(stack.init(allocator()));
+  ASMJIT_PROPAGATE(_pov.reserve_fit(arena(), count));
+  ASMJIT_PROPAGATE(indexes.reserve_fit(arena(), count));
 
-  ZoneBitVector visited;
-  ASMJIT_PROPAGATE(visited.resize(allocator(), count));
+  RABlock** pov_data = _pov.data();
+  size_t pov_index = 0u;
 
-  RABlock* current = _blocks[0];
-  uint32_t i = 0;
+  RABlock* cur_block = _blocks[0];
+  uint32_t cur_index = 0u;
 
+  RAPOVBuilderStack stack(pov_data, indexes.data(), count);
+
+  // This loop uses reachable bit in a RABlock to mark visited blocks.
+  cur_block->make_reachable();
   for (;;) {
-    for (;;) {
-      if (i >= current->successors().size())
-        break;
+    while (cur_index < cur_block->successors().size()) {
+      RABlock* child = cur_block->successors()[cur_index++];
+      if (!child->is_reachable()) {
+        // Mark the block as reachable to prevent visiting the same block again.
+        child->make_reachable();
 
-      // Skip if already visited.
-      RABlock* child = current->successors()[i++];
-      if (visited.bitAt(child->blockId()))
-        continue;
+        // Add the cur_block block to the stack, we will get back to it later.
+        stack.push(cur_block, cur_index);
 
-      // Mark as visited to prevent visiting the same block multiple times.
-      visited.setBit(child->blockId(), true);
-
-      // Add the current block on the stack, we will get back to it later.
-      ASMJIT_PROPAGATE(stack.append(RABlockVisitItem(current, i)));
-      current = child;
-      i = 0;
+        // Visit the first successor.
+        cur_block = child;
+        cur_index = 0u;
+      }
     }
 
-    current->makeReachable();
-    current->_povOrder = _pov.size();
-    _pov.appendUnsafe(current);
+    cur_block->_pov_index = uint32_t(pov_index);
+    pov_data[pov_index++] = cur_block;
 
-    if (stack.empty())
+    if (stack.is_empty()) {
       break;
+    }
 
-    RABlockVisitItem top = stack.pop();
-    current = top.block();
-    i = top.index();
+    stack.pop(cur_block, cur_index);
   }
+
+  _pov._set_size(pov_index);
+  indexes.release(arena());
 
   ASMJIT_RA_LOG_COMPLEX({
     StringTmp<1024> sb;
     for (RABlock* block : blocks()) {
       sb.clear();
-      if (block->hasSuccessors()) {
-        sb.appendFormat("  #%u -> {", block->blockId());
-        _dumpBlockIds(sb, block->successors());
+      if (block->has_successors()) {
+        sb.append_format("  #%u -> {", block->block_id());
+        dump_block_ids(sb, block->successors());
         sb.append("}\n");
       }
       else {
-        sb.appendFormat("  #%u -> {Exit}\n", block->blockId());
+        sb.append_format("  #%u -> {Exit}\n", block->block_id());
       }
       logger->log(sb);
     }
   });
 
-  visited.release(allocator());
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // BaseRAPass - CFG - Dominators
 // =============================
 
-static ASMJIT_FORCE_INLINE RABlock* intersectBlocks(RABlock* b1, RABlock* b2) noexcept {
+static ASMJIT_INLINE RABlock* intersect_blocks(RABlock* b1, RABlock* b2) noexcept {
   while (b1 != b2) {
-    while (b2->povOrder() > b1->povOrder()) b1 = b1->iDom();
-    while (b1->povOrder() > b2->povOrder()) b2 = b2->iDom();
+    while (b2->pov_index() > b1->pov_index()) b1 = b1->idom();
+    while (b1->pov_index() > b2->pov_index()) b2 = b2->idom();
   }
   return b1;
 }
 
 // Based on "A Simple, Fast Dominance Algorithm".
-Error BaseRAPass::buildCFGDominators() noexcept {
+Error BaseRAPass::build_cfg_dominators() noexcept {
 #ifndef ASMJIT_NO_LOGGING
-  Logger* logger = getLoggerIf(DiagnosticOptions::kRADebugCFG);
-  ASMJIT_RA_LOG_FORMAT("[BuildCFGDominators]\n");
-#endif
+  Logger* logger = logger_if(DiagnosticOptions::kRADebugCFG);
+  ASMJIT_RA_LOG_FORMAT("[build_cfg_dominators]\n");
+#endif // !ASMJIT_NO_LOGGING
 
-  if (_blocks.empty())
-    return kErrorOk;
+  if (_blocks.is_empty()) {
+    return Error::kOk;
+  }
 
-  RABlock* entryBlock = this->entryBlock();
-  entryBlock->setIDom(entryBlock);
+  RABlock* entry_block = this->entry_block();
+  entry_block->_idom = entry_block;
 
   bool changed = true;
 
 #ifndef ASMJIT_NO_LOGGING
-  uint32_t numIters = 0;
-#endif
+  uint32_t iter_count = 0;
+#endif // !ASMJIT_NO_LOGGING
 
   while (changed) {
     changed = false;
 
 #ifndef ASMJIT_NO_LOGGING
-    numIters++;
-#endif
+    iter_count++;
+#endif // !ASMJIT_NO_LOGGING
 
-    uint32_t i = _pov.size();
-    while (i) {
-      RABlock* block = _pov[--i];
-      if (block == entryBlock)
+    for (RABlock* block : _pov.iterate_reverse()) {
+      if (block == entry_block) {
         continue;
-
-      RABlock* iDom = nullptr;
-      const RABlocks& preds = block->predecessors();
-
-      uint32_t j = preds.size();
-      while (j) {
-        RABlock* p = preds[--j];
-        if (!p->iDom())
-          continue;
-        iDom = !iDom ? p : intersectBlocks(iDom, p);
       }
 
-      if (block->iDom() != iDom) {
-        ASMJIT_ASSUME(iDom != nullptr);
-        ASMJIT_RA_LOG_FORMAT("  IDom of #%u -> #%u\n", block->blockId(), iDom->blockId());
-        block->setIDom(iDom);
+      RABlock* idom = nullptr;
+      Span<RABlock*> predecessors = block->predecessors();
+
+      for (RABlock* p : predecessors.iterate_reverse()) {
+        if (!p->idom()) {
+          continue;
+        }
+        idom = !idom ? p : intersect_blocks(idom, p);
+      }
+
+      if (block->idom() != idom) {
+        ASMJIT_ASSUME(idom != nullptr);
+        ASMJIT_RA_LOG_FORMAT("  idom of #%u -> #%u\n", block->block_id(), idom->block_id());
+        block->_idom = idom;
         changed = true;
       }
     }
   }
 
-  ASMJIT_RA_LOG_FORMAT("  Done (%u iterations)\n", numIters);
-  return kErrorOk;
+  ASMJIT_RA_LOG_FORMAT("  done (%u iterations)\n", iter_count);
+  return Error::kOk;
 }
 
-bool BaseRAPass::_strictlyDominates(const RABlock* a, const RABlock* b) const noexcept {
+bool BaseRAPass::_strictly_dominates(const RABlock* a, const RABlock* b) const noexcept {
   ASMJIT_ASSERT(a != nullptr); // There must be at least one block if this function is
   ASMJIT_ASSERT(b != nullptr); // called, as both `a` and `b` must be valid blocks.
-  ASMJIT_ASSERT(a != b);       // Checked by `dominates()` and `strictlyDominates()`.
+  ASMJIT_ASSERT(a != b);       // Checked by `dominates()` and `strictly_dominates()`.
 
   // Nothing strictly dominates the entry block.
-  const RABlock* entryBlock = this->entryBlock();
-  if (a == entryBlock)
+  const RABlock* entry_block = this->entry_block();
+  if (a == entry_block) {
     return false;
+  }
 
-  const RABlock* iDom = b->iDom();
-  while (iDom != a && iDom != entryBlock)
-    iDom = iDom->iDom();
+  const RABlock* idom = b->idom();
+  while (idom != a && idom != entry_block) {
+    idom = idom->idom();
+  }
 
-  return iDom != entryBlock;
+  return idom != entry_block;
 }
 
-const RABlock* BaseRAPass::_nearestCommonDominator(const RABlock* a, const RABlock* b) const noexcept {
+const RABlock* BaseRAPass::_nearest_common_dominator(const RABlock* a, const RABlock* b) const noexcept {
   ASMJIT_ASSERT(a != nullptr); // There must be at least one block if this function is
   ASMJIT_ASSERT(b != nullptr); // called, as both `a` and `b` must be valid blocks.
-  ASMJIT_ASSERT(a != b);       // Checked by `dominates()` and `properlyDominates()`.
+  ASMJIT_ASSERT(a != b);       // Checked by `dominates()` and `_strictly_dominates()`.
 
-  if (a == b)
+  if (a == b) {
     return a;
+  }
 
   // If `a` strictly dominates `b` then `a` is the nearest common dominator.
-  if (_strictlyDominates(a, b))
+  if (_strictly_dominates(a, b)) {
     return a;
+  }
 
   // If `b` strictly dominates `a` then `b` is the nearest common dominator.
-  if (_strictlyDominates(b, a))
+  if (_strictly_dominates(b, a)) {
     return b;
+  }
 
-  const RABlock* entryBlock = this->entryBlock();
-  uint64_t timestamp = nextTimestamp();
+  const RABlock* entry_block = this->entry_block();
+  RABlockTimestamp timestamp = next_timestamp();
 
   // Mark all A's dominators.
-  const RABlock* block = a->iDom();
-  while (block != entryBlock) {
-    block->setTimestamp(timestamp);
-    block = block->iDom();
+  const RABlock* block = a->idom();
+  while (block != entry_block) {
+    block->set_timestamp(timestamp);
+    block = block->idom();
   }
 
   // Check all B's dominators against marked dominators of A.
-  block = b->iDom();
-  while (block != entryBlock) {
-    if (block->hasTimestamp(timestamp))
+  block = b->idom();
+  while (block != entry_block) {
+    if (block->has_timestamp(timestamp)) {
       return block;
-    block = block->iDom();
+    }
+    block = block->idom();
   }
 
-  return entryBlock;
+  return entry_block;
 }
 
 // BaseRAPass - CFG - Utilities
 // ============================
 
-Error BaseRAPass::removeUnreachableCode() noexcept {
-  uint32_t numAllBlocks = blockCount();
-  uint32_t numReachableBlocks = reachableBlockCount();
+Error BaseRAPass::remove_unreachable_code() noexcept {
+  size_t num_all_blocks = block_count();
+  size_t num_reachable_blocks = reachable_block_count();
 
   // All reachable -> nothing to do.
-  if (numAllBlocks == numReachableBlocks)
-    return kErrorOk;
+  if (num_all_blocks == num_reachable_blocks) {
+    return Error::kOk;
+  }
 
 #ifndef ASMJIT_NO_LOGGING
-  StringTmp<256> sb;
-  Logger* logger = getLoggerIf(DiagnosticOptions::kRADebugUnreachable);
-  ASMJIT_RA_LOG_FORMAT("[RemoveUnreachableCode - detected %u of %u unreachable blocks]\n", numAllBlocks - numReachableBlocks, numAllBlocks);
+  Logger* logger = logger_if(DiagnosticOptions::kRADebugUnreachable);
+  String& sb = _tmp_string;
+  ASMJIT_RA_LOG_FORMAT("[remove_unreachable_code - detected %zu of %zu unreachable blocks]\n", num_all_blocks - num_reachable_blocks, num_all_blocks);
 #endif
 
-  for (uint32_t i = 0; i < numAllBlocks; i++) {
-    RABlock* block = _blocks[i];
-    if (block->isReachable())
+  for (RABlock* block : _blocks.iterate()) {
+    if (block->is_reachable()) {
       continue;
+    }
 
-    ASMJIT_RA_LOG_FORMAT("  Removing code from unreachable block {%u}\n", i);
+    ASMJIT_RA_LOG_FORMAT("  removing code from unreachable block {%u}\n", uint32_t(block->block_id()));
     BaseNode* first = block->first();
     BaseNode* last = block->last();
 
-    BaseNode* beforeFirst = first->prev();
-    BaseNode* afterLast = last->next();
+    BaseNode* before_first = first->prev();
+    BaseNode* after_last = last->next();
 
     BaseNode* node = first;
-    while (node != afterLast) {
+    while (node != after_last) {
       BaseNode* next = node->next();
 
-      if (node->isCode() || node->isRemovable()) {
+      if (node->is_code() || node->is_removable()) {
 #ifndef ASMJIT_NO_LOGGING
         if (logger) {
           sb.clear();
-          Formatter::formatNode(sb, _formatOptions, cc(), node);
+          Formatter::format_node(sb, _format_options, &_cb, node);
           logger->logf("    %s\n", sb.data());
         }
 #endif
-        cc()->removeNode(node);
+        cc().remove_node(node);
       }
       node = next;
     }
 
-    if (beforeFirst->next() == afterLast) {
-      block->setFirst(nullptr);
-      block->setLast(nullptr);
+    if (before_first->next() == after_last) {
+      block->set_first(nullptr);
+      block->set_last(nullptr);
     }
     else {
-      block->setFirst(beforeFirst->next());
-      block->setLast(afterLast->prev());
+      block->set_first(before_first->next());
+      block->set_last(after_last->prev());
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-BaseNode* BaseRAPass::findSuccessorStartingAt(BaseNode* node) noexcept {
-  while (node && (node->isInformative() || node->hasNoEffect()))
+BaseNode* BaseRAPass::find_successor_starting_at(BaseNode* node) noexcept {
+  while (node && (node->is_informative() || node->has_no_effect())) {
     node = node->next();
+  }
   return node;
 }
 
-bool BaseRAPass::isNextTo(BaseNode* node, BaseNode* target) noexcept {
+bool BaseRAPass::is_next_to(BaseNode* node, BaseNode* target) noexcept {
   for (;;) {
     node = node->next();
-    if (node == target)
+    if (node == target) {
       return true;
+    }
 
-    if (!node)
+    if (!node) {
       return false;
+    }
 
-    if (node->isCode() || node->isData())
+    if (node->is_code() || node->is_data()) {
       return false;
+    }
   }
 }
 
 // BaseRAPass - Registers - VirtReg / WorkReg Mapping
 // ==================================================
 
-Error BaseRAPass::_asWorkReg(VirtReg* vReg, RAWorkReg** out) noexcept {
-  // Checked by `asWorkReg()` - must be true.
-  ASMJIT_ASSERT(vReg->_workReg == nullptr);
+Error BaseRAPass::_as_work_reg(RAWorkReg** out, VirtReg* virt_reg) noexcept {
+  // Checked by `as_work_reg()` - must be true.
+  ASMJIT_ASSERT(virt_reg->_work_reg == nullptr);
 
-  RegGroup group = vReg->group();
+  OperandSignature signature = RegUtils::signature_of(virt_reg->reg_type());
+  RegGroup group = signature.reg_group();
   ASMJIT_ASSERT(group <= RegGroup::kMaxVirt);
 
-  RAWorkRegs& wRegs = workRegs();
-  RAWorkRegs& wRegsByGroup = workRegs(group);
+  ArenaVector<RAWorkReg*>& work_regs_by_group = work_regs(group);
+  ASMJIT_PROPAGATE(work_regs_by_group.reserve_additional(arena()));
 
-  ASMJIT_PROPAGATE(wRegs.willGrow(allocator()));
-  ASMJIT_PROPAGATE(wRegsByGroup.willGrow(allocator()));
-
-  RAWorkReg* wReg = zone()->newT<RAWorkReg>(vReg, wRegs.size());
-  if (ASMJIT_UNLIKELY(!wReg))
-    return DebugUtils::errored(kErrorOutOfMemory);
-
-  vReg->setWorkReg(wReg);
-  if (!vReg->isStack())
-    wReg->setRegByteMask(Support::lsbMask<uint64_t>(vReg->virtSize()));
-  wRegs.appendUnsafe(wReg);
-  wRegsByGroup.appendUnsafe(wReg);
-
-  // Only used by RA logging.
-  _maxWorkRegNameSize = Support::max(_maxWorkRegNameSize, vReg->nameSize());
-
-  *out = wReg;
-  return kErrorOk;
-}
-
-RAAssignment::WorkToPhysMap* BaseRAPass::newWorkToPhysMap() noexcept {
-  uint32_t count = workRegCount();
-  size_t size = WorkToPhysMap::sizeOf(count);
-
-  // If no registers are used it could be zero, in that case return a dummy
-  // map instead of NULL.
-  if (ASMJIT_UNLIKELY(!size)) {
-    static const RAAssignment::WorkToPhysMap nullMap = {{ 0 }};
-    return const_cast<RAAssignment::WorkToPhysMap*>(&nullMap);
+  RAWorkReg* work_reg = arena().new_oneshot<RAWorkReg>(virt_reg, signature, kBadWorkId);
+  if (ASMJIT_UNLIKELY(!work_reg)) {
+    return make_error(Error::kOutOfMemory);
   }
 
-  WorkToPhysMap* map = zone()->allocT<WorkToPhysMap>(size);
-  if (ASMJIT_UNLIKELY(!map))
+  virt_reg->set_work_reg(work_reg);
+  if (!virt_reg->is_stack_area()) {
+    work_reg->set_reg_byte_mask(Support::lsb_mask<uint64_t>(virt_reg->virt_size()));
+  }
+
+  work_regs_by_group.append_unchecked(work_reg);
+  _total_work_reg_count++;
+
+  // Only used by RA logging.
+  _max_work_reg_name_size = Support::max(_max_work_reg_name_size, virt_reg->name_size());
+
+  *out = work_reg;
+  return Error::kOk;
+}
+
+RAStackSlot* BaseRAPass::_create_stack_slot(RAWorkReg* work_reg) noexcept {
+  VirtReg* virt_reg = work_reg->virt_reg();
+  RAStackSlot* slot = _stack_allocator.new_slot(_sp.id(), virt_reg->virt_size(), virt_reg->alignment(), RAStackSlot::kFlagRegHome);
+
+  work_reg->_stack_slot = slot;
+  work_reg->mark_stack_used();
+
+  return slot;
+}
+
+RAAssignment::WorkToPhysMap* BaseRAPass::new_work_to_phys_map() noexcept {
+  size_t count = work_reg_count();
+  size_t size = WorkToPhysMap::size_of(count);
+
+  // If no registers are used it could be zero, in that case return a dummy map instead of NULL.
+  if (ASMJIT_UNLIKELY(!size)) {
+    static const RAAssignment::WorkToPhysMap null_map = {{ 0 }};
+    return const_cast<RAAssignment::WorkToPhysMap*>(&null_map);
+  }
+
+  WorkToPhysMap* map = arena().alloc_oneshot<WorkToPhysMap>(size);
+  if (ASMJIT_UNLIKELY(!map)) {
     return nullptr;
+  }
 
   map->reset(count);
   return map;
 }
 
-RAAssignment::PhysToWorkMap* BaseRAPass::newPhysToWorkMap() noexcept {
-  uint32_t count = physRegTotal();
-  size_t size = PhysToWorkMap::sizeOf(count);
+RAAssignment::PhysToWorkMap* BaseRAPass::new_phys_to_work_map() noexcept {
+  uint32_t count = phys_reg_total();
+  size_t size = PhysToWorkMap::size_of(count);
 
-  PhysToWorkMap* map = zone()->allocT<PhysToWorkMap>(size);
-  if (ASMJIT_UNLIKELY(!map))
+  PhysToWorkMap* map = arena().alloc_oneshot<PhysToWorkMap>(size);
+  if (ASMJIT_UNLIKELY(!map)) {
     return nullptr;
+  }
 
   map->reset(count);
   return map;
@@ -718,574 +845,689 @@ RAAssignment::PhysToWorkMap* BaseRAPass::newPhysToWorkMap() noexcept {
 // BaseRAPass - Registers - Liveness Analysis and Statistics
 // =========================================================
 
-namespace LiveOps {
-  typedef ZoneBitVector::BitWord BitWord;
+ASMJIT_FAVOR_SPEED Error BaseRAPass::build_reg_ids() noexcept {
+  uint32_t count = _total_work_reg_count;
+  ASMJIT_PROPAGATE(_work_regs.reserve_fit(arena(), count));
 
-  struct In {
-    static ASMJIT_FORCE_INLINE BitWord op(BitWord dst, BitWord out, BitWord gen, BitWord kill) noexcept {
-      DebugUtils::unused(dst);
-      return (out | gen) & ~kill;
+  RAWorkReg** work_regs = _work_regs.data();
+  _work_regs._set_size(count);
+
+  uint32_t multi_id = 0u;
+  uint32_t single_id = count;
+
+  for (uint32_t rg = 0; rg < Globals::kNumVirtGroups; rg++) {
+    for (RAWorkReg* work_reg : _work_regs_of_group[rg]) {
+      if (work_reg->is_within_single_basic_block()) {
+        work_reg->_work_id = RAWorkId(--single_id);
+        work_regs[single_id] = work_reg;
+      }
+      else {
+        work_reg->_work_id = RAWorkId(multi_id);
+        work_reg->_single_basic_block_id = kBadBlockId;
+        work_regs[multi_id++] = work_reg;
+      }
     }
-  };
-
-  template<typename Operator>
-  static ASMJIT_FORCE_INLINE bool op(BitWord* dst, const BitWord* a, uint32_t n) noexcept {
-    BitWord changed = 0;
-
-    for (uint32_t i = 0; i < n; i++) {
-      BitWord before = dst[i];
-      BitWord after = Operator::op(before, a[i]);
-
-      dst[i] = after;
-      changed |= (before ^ after);
-    }
-
-    return changed != 0;
   }
 
-  template<typename Operator>
-  static ASMJIT_FORCE_INLINE bool op(BitWord* dst, const BitWord* a, const BitWord* b, uint32_t n) noexcept {
-    BitWord changed = 0;
+  ASMJIT_ASSERT(single_id == multi_id);
+  _multi_work_reg_count = multi_id;
 
-    for (uint32_t i = 0; i < n; i++) {
-      BitWord before = dst[i];
-      BitWord after = Operator::op(before, a[i], b[i]);
+  return Error::kOk;
+}
 
-      dst[i] = after;
-      changed |= (before ^ after);
+// BaseRAPass - Registers - Liveness Analysis and Statistics
+// =========================================================
+
+template<typename BitMutator>
+static ASMJIT_INLINE void BaseRAPass_calculate_initial_in_out(RABlock* block, size_t live_word_count, Support::FixedStack<RABlock*>& queue, uint32_t pov_index) noexcept {
+  using BitWord = Support::BitWord;
+
+  // Calculate LIVE-OUT based on LIVE-IN of all successors and then recalculate LIVE-IN based on LIVE-OUT and KILL bits.
+  Span<RABlock*> successors = block->successors();
+  if (!successors.is_empty()) {
+    BitMutator bm_live_in(block->live_in());
+    BitMutator bm_live_out(block->live_out());
+    BitMutator bm_kill(block->kill());
+
+    for (RABlock* successor : successors.iterate_reverse()) {
+      if (Support::bool_and(successor->pov_index() > pov_index, !successor->is_enqueued())) {
+        successor->add_flags(RABlockFlags::kIsEnqueued);
+        queue.push(successor);
+        continue;
+      }
+
+      BitMutator bm_successor_live_in(successor->live_in());
+      for (uint32_t bw = 0; bw < live_word_count; bw++) {
+        BitWord sc = bm_successor_live_in.bit_word(bw);
+
+        BitWord in = bm_live_in.bit_word(bw) | sc;
+        BitWord out = bm_live_out.bit_word(bw) | sc;
+
+        bm_live_in.set_bit_word(bw, in & ~bm_kill.bit_word(bw));
+        bm_live_out.set_bit_word(bw, out);
+      }
+
+      bm_live_in.commit(block->live_in());
+      bm_live_out.commit(block->live_out());
     }
-
-    return changed != 0;
-  }
-
-  template<typename Operator>
-  static ASMJIT_FORCE_INLINE bool op(BitWord* dst, const BitWord* a, const BitWord* b, const BitWord* c, uint32_t n) noexcept {
-    BitWord changed = 0;
-
-#if defined(_MSC_VER) && _MSC_VER <= 1938
-    // MSVC workaround (see #427).
-    //
-    // MSVC incorrectly auto-vectorizes this loop when used with <In> operator. For some reason it trashes a content
-    // of a register, which causes the result to be incorrect. It's a compiler bug we have to prevent unfortunately.
-    #pragma loop(no_vector)
-#endif
-    for (uint32_t i = 0; i < n; i++) {
-      BitWord before = dst[i];
-      BitWord after = Operator::op(before, a[i], b[i], c[i]);
-
-      dst[i] = after;
-      changed |= (before ^ after);
-    }
-
-    return changed != 0;
-  }
-
-  static ASMJIT_NOINLINE bool recalcInOut(RABlock* block, uint32_t numBitWords, bool initial = false) noexcept {
-    bool changed = initial;
-
-    const RABlocks& successors = block->successors();
-    uint32_t numSuccessors = successors.size();
-
-    // Calculate `OUT` based on `IN` of all successors.
-    for (uint32_t i = 0; i < numSuccessors; i++)
-      changed |= op<Support::Or>(block->liveOut().data(), successors[i]->liveIn().data(), numBitWords);
-
-    // Calculate `IN` based on `OUT`, `GEN`, and `KILL` bits.
-    if (changed)
-      changed = op<In>(block->liveIn().data(), block->liveOut().data(), block->gen().data(), block->kill().data(), numBitWords);
-
-    return changed;
   }
 }
 
-ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
-#ifndef ASMJIT_NO_LOGGING
-  Logger* logger = getLoggerIf(DiagnosticOptions::kRADebugLiveness);
-  StringTmp<512> sb;
-#endif
+// Calculate LIVE-IN and LIVE-OUT of the given `block` and a single `successor` that has changed its LIVE-IN bits.
+template<typename BitMutator>
+static ASMJIT_INLINE Support::BitWord BaseRAPass_recalculateInOut(RABlock* block, size_t live_word_count, RABlock* successor) noexcept {
+  using BitWord = Support::BitWord;
 
-  ASMJIT_RA_LOG_FORMAT("[BuildLiveness]\n");
+  BitMutator bm_live_in(block->live_in());
+  BitMutator bm_live_out(block->live_out());
+  BitMutator bm_kill(block->kill());
 
-  uint32_t i;
+  BitMutator bm_successor_live_in(successor->live_in());
+  BitWord changed = 0u;
 
-  uint32_t numAllBlocks = blockCount();
-  uint32_t numReachableBlocks = reachableBlockCount();
+  for (size_t i = 0; i < live_word_count; i++) {
+    BitWord succ_in = bm_successor_live_in.bit_word(i);
 
-  uint32_t numWorkRegs = workRegCount();
-  uint32_t numBitWords = ZoneBitVector::_wordsPerBits(numWorkRegs);
+    BitWord in = bm_live_in.bit_word(i);
+    BitWord out = bm_live_out.bit_word(i);
+    BitWord kill = bm_kill.bit_word(i);
 
-  if (!numWorkRegs) {
-    ASMJIT_RA_LOG_FORMAT("  Done (no virtual registers)\n");
-    return kErrorOk;
+    BitWord new_in = (in | succ_in) & ~kill;
+    BitWord new_out = (out | succ_in);
+
+    bm_live_in.set_bit_word(i, new_in);
+    bm_live_out.set_bit_word(i, new_out);
+
+    changed |= in ^ new_in;
   }
 
-  ZoneVector<uint32_t> nUsesPerWorkReg; // Number of USEs of each RAWorkReg.
-  ZoneVector<uint32_t> nOutsPerWorkReg; // Number of OUTs of each RAWorkReg.
-  ZoneVector<uint32_t> nInstsPerBlock;  // Number of instructions of each RABlock.
+  bm_live_in.commit(block->live_in());
+  bm_live_out.commit(block->live_out());
 
-  ASMJIT_PROPAGATE(nUsesPerWorkReg.resize(allocator(), numWorkRegs));
-  ASMJIT_PROPAGATE(nOutsPerWorkReg.resize(allocator(), numWorkRegs));
-  ASMJIT_PROPAGATE(nInstsPerBlock.resize(allocator(), numAllBlocks));
+  return changed;
+}
 
-  // Calculate GEN/KILL of Each Block
-  // --------------------------------
+template<typename BitMutator>
+static ASMJIT_INLINE Error BaseRAPass_calculateInOutKill(
+  BaseRAPass* pass,
+  uint32_t* n_uses_per_work_reg,
+  uint32_t* n_outs_per_work_reg,
+  uint32_t* n_insts_per_block,
+  Out<uint32_t> num_visits_out
+) noexcept {
+  Span<RABlock*> pov = pass->_pov.as_span();
 
-  for (i = 0; i < numReachableBlocks; i++) {
-    RABlock* block = _pov[i];
-    ASMJIT_PROPAGATE(block->resizeLiveBits(numWorkRegs));
+  size_t multi_work_reg_count = pass->multi_work_reg_count();
+  size_t multi_work_reg_count_as_bit_words = BitOps::size_in_words<BitWord>(multi_work_reg_count);
+
+  constexpr RAWorkRegFlags kLiveFlag = RAWorkRegFlags::kSingleBlockLiveFlag;
+  constexpr RAWorkRegFlags kVisitedFlag = RAWorkRegFlags::kSingleBlockVisitedFlag;
+
+  // Calculate GEN and KILL and then initial LIVE-IN and LIVE-OUT bits.
+  //
+  // GEN is mapped to LIVE-IN, because it's not needed after LIVE-IN is calculated,
+  // which is essentially `LIVE-IN = GEN & ~KILL` - so once we know GEN and KILL for
+  // each block, calculating LIVE-IN is trivial.
+  for (RABlock* block : pov.iterate()) {
+    ASMJIT_PROPAGATE(block->alloc_live_bits(multi_work_reg_count));
 
     BaseNode* node = block->last();
     BaseNode* stop = block->first();
 
-    uint32_t nInsts = 0;
-    for (;;) {
-      if (node->isInst()) {
-        InstNode* inst = node->as<InstNode>();
-        RAInst* raInst = inst->passData<RAInst>();
-        ASMJIT_ASSERT(raInst != nullptr);
+    BitMutator live_in(block->live_in()); // LIVE-IN which maps to GEN as well.
+    BitMutator kill(block->kill());     // KILL only.
 
-        RATiedReg* tiedRegs = raInst->tiedRegs();
-        uint32_t count = raInst->tiedCount();
+    RABlockId block_id = block->block_id();
+    uint32_t inst_count = 0;
+
+    for (;;) {
+      if (node->is_inst()) {
+        InstNode* inst = node->as<InstNode>();
+        RAInst* ra_inst = inst->pass_data<RAInst>();
+        ASMJIT_ASSERT(ra_inst != nullptr);
+
+        RATiedReg* tied_regs = ra_inst->tied_regs();
+        uint32_t count = ra_inst->tied_count();
 
         for (uint32_t j = 0; j < count; j++) {
-          RATiedReg* tiedReg = &tiedRegs[j];
-          uint32_t workId = tiedReg->workId();
+          RATiedReg* tied_reg = &tied_regs[j];
+          RAWorkReg* work_reg = tied_reg->work_reg();
 
-          // Update `nUses` and `nOuts`.
-          nUsesPerWorkReg[workId] += 1u;
-          nOutsPerWorkReg[workId] += uint32_t(tiedReg->isWrite());
+          RAWorkId work_id = work_reg->work_id();
+
+          // Update `n_uses` and `n_outs`.
+          n_uses_per_work_reg[uint32_t(work_id)] += 1u;
+          n_outs_per_work_reg[uint32_t(work_id)] += uint32_t(tied_reg->is_write());
+
+          bool is_kill = tied_reg->is_write_only();
+          RATiedFlags tied_flags = tied_reg->flags();
 
           // Mark as:
           //   KILL - if this VirtReg is killed afterwards.
           //   LAST - if this VirtReg is last in this basic block.
-          if (block->kill().bitAt(workId))
-            tiedReg->addFlags(RATiedFlags::kKill);
-          else if (!block->gen().bitAt(workId))
-            tiedReg->addFlags(RATiedFlags::kLast);
+          if (work_reg->is_within_single_basic_block()) {
+            bool was_kill = !Support::test(work_reg->flags(), kLiveFlag);
+            bool was_last = !Support::test(work_reg->flags(), kVisitedFlag);
 
-          if (tiedReg->isWriteOnly()) {
-            // KILL.
-            block->kill().setBit(workId, true);
+            tied_flags |= Support::bool_as_flag<RATiedFlags::kKill>(was_kill);
+            tied_flags |= Support::bool_as_flag<RATiedFlags::kLast>(was_last);
+
+            work_reg->add_flags(kVisitedFlag);
+            work_reg->xor_flags(Support::bool_as_flag<kLiveFlag>(uint32_t(is_kill ^ was_kill)));
           }
           else {
-            // GEN.
-            block->kill().setBit(workId, false);
-            block->gen().setBit(workId, true);
+            bool was_kill = kill.bit_at(work_id);
+            bool was_last = !live_in.bit_at(work_id);
+
+            tied_flags |= Support::bool_as_flag<RATiedFlags::kKill>(was_kill);
+            tied_flags |= Support::bool_as_flag<RATiedFlags::kLast>(was_last);
+
+            // KILL if the register is write only, otherwise GEN.
+            live_in.add_bit(work_id, !is_kill);
+            kill.xor_bit(work_id, bool(is_kill ^ was_kill));
           }
 
-          if (tiedReg->isLeadConsecutive()) {
-            RAWorkReg* workReg = workRegById(workId);
-            workReg->markLeadConsecutive();
+          tied_reg->_flags = tied_flags;
+
+          if (tied_reg->is_lead_consecutive()) {
+            work_reg->mark_lead_consecutive();
           }
 
-          if (tiedReg->hasConsecutiveParent()) {
-            RAWorkReg* consecutiveParentReg = workRegById(tiedReg->consecutiveParent());
-            ASMJIT_PROPAGATE(consecutiveParentReg->addImmediateConsecutive(allocator(), workId));
+          if (tied_reg->has_consecutive_parent()) {
+            RAWorkReg* consecutive_parent_reg = tied_reg->consecutive_parent();
+            ASMJIT_PROPAGATE(consecutive_parent_reg->add_immediate_consecutive(pass->arena(), work_id));
           }
         }
 
-        nInsts++;
+        inst_count++;
       }
 
-      if (node == stop)
+      if (node == stop) {
         break;
+      }
 
       node = node->prev();
       ASMJIT_ASSERT(node != nullptr);
     }
 
-    nInstsPerBlock[block->blockId()] = nInsts;
+    n_insts_per_block[uint32_t(block_id)] = inst_count;
+
+    // Calculate initial LIVE-IN from GEN - LIVE-IN = GEN & ~KILL.
+    live_in.clear_bits(kill);
+
+    live_in.commit(block->live_in());
+    kill.commit(block->kill());
   }
 
-  // Calculate IN/OUT of Each Block
-  // ------------------------------
+  // Calculate initial values of LIVE-OUT and update LIVE-IN accordingly to LIVE-OUT.
+  //
+  // This step requires a queue, however, we only add a node's successors to the queue, which post-order-index
+  // is greater than the post-order-index of the block being processed. This makes the next pass much faster to
+  // converge.
+  uint32_t num_visits = 0u;
+  if (multi_work_reg_count_as_bit_words > 0u) {
+    ArenaVector<RABlock*> queue_storage;
+    ASMJIT_PROPAGATE(queue_storage.reserve_fit(pass->arena(), pov.size()));
+    Support::FixedStack<RABlock*> queue(queue_storage.data(), pov.size());
 
-#ifndef ASMJIT_NO_LOGGING
-  uint32_t numVisits = numReachableBlocks;
-#endif
-
-  {
-    ZoneStack<RABlock*> workList;
-    ZoneBitVector workBits;
-
-    ASMJIT_PROPAGATE(workList.init(allocator()));
-    ASMJIT_PROPAGATE(workBits.resize(allocator(), blockCount(), true));
-
-    for (i = 0; i < numReachableBlocks; i++) {
-      RABlock* block = _pov[i];
-      LiveOps::recalcInOut(block, numBitWords, true);
-      ASMJIT_PROPAGATE(workList.append(block));
+    for (size_t pov_index = 0u; pov_index < pov.size(); pov_index++) {
+      RABlock* block = pov[pov_index];
+      BaseRAPass_calculate_initial_in_out<BitMutator>(block, multi_work_reg_count_as_bit_words, queue, uint32_t(pov_index));
     }
 
-    while (!workList.empty()) {
-      RABlock* block = workList.popFirst();
-      uint32_t blockId = block->blockId();
+    // Iteratively keep recalculating LIVE-IN and LIVE-OUT once there are no more changes to the bits. This is
+    // needed as there may be cycles in the CFG, which have to be propagated. This algorithm essentially uses a
+    // work queue where nodes that change are pushed to propagate the changes to all predecessor nodes.
+    while (!queue.is_empty()) {
+      num_visits++;
 
-      workBits.setBit(blockId, false);
-      if (LiveOps::recalcInOut(block, numBitWords)) {
-        const RABlocks& predecessors = block->predecessors();
-        uint32_t numPredecessors = predecessors.size();
+      RABlock* block = queue.pop();
+      block->clear_flags(RABlockFlags::kIsEnqueued);
 
-        for (uint32_t j = 0; j < numPredecessors; j++) {
-          RABlock* pred = predecessors[j];
-          if (!workBits.bitAt(pred->blockId())) {
-            workBits.setBit(pred->blockId(), true);
-            ASMJIT_PROPAGATE(workList.append(pred));
-          }
+      for (RABlock* predecessor : block->predecessors()) {
+        Support::BitWord changed = BaseRAPass_recalculateInOut<BitMutator>(predecessor, multi_work_reg_count_as_bit_words, block);
+        if (Support::bool_and(changed, !predecessor->is_enqueued())) {
+          predecessor->add_flags(RABlockFlags::kIsEnqueued);
+          queue.push(predecessor);
         }
       }
-#ifndef ASMJIT_NO_LOGGING
-      numVisits++;
-#endif
     }
 
-    workList.reset();
-    workBits.release(allocator());
+    queue_storage.release(pass->arena());
   }
 
-  ASMJIT_RA_LOG_COMPLEX({
-    logger->logf("  LiveIn/Out Done (%u visits)\n", numVisits);
-    for (i = 0; i < numAllBlocks; i++) {
-      RABlock* block = _blocks[i];
+  num_visits_out = num_visits;
+  return Error::kOk;
+}
 
-      ASMJIT_PROPAGATE(sb.assignFormat("  {#%u}\n", block->blockId()));
-      ASMJIT_PROPAGATE(_dumpBlockLiveness(sb, block));
+ASMJIT_FAVOR_SPEED Error BaseRAPass::build_liveness() noexcept {
+#ifndef ASMJIT_NO_LOGGING
+  Logger* logger = logger_if(DiagnosticOptions::kRADebugLiveness);
+#endif
 
-      logger->log(sb);
+  ASMJIT_RA_LOG_FORMAT("[build_liveness]\n");
+
+  size_t num_all_blocks = block_count();
+  size_t num_work_regs = work_reg_count();
+  size_t multi_work_reg_count = _multi_work_reg_count;
+
+  if (!num_work_regs) {
+    ASMJIT_RA_LOG_FORMAT("  done (no virtual registers)\n");
+    return Error::kOk;
+  }
+
+  ArenaVector<uint32_t> n_uses_per_work_reg; // Number of USEs of each RAWorkReg.
+  ArenaVector<uint32_t> n_outs_per_work_reg; // Number of OUTs of each RAWorkReg.
+  ArenaVector<uint32_t> n_insts_per_block;  // Number of instructions of each RABlock.
+
+  ASMJIT_PROPAGATE(n_uses_per_work_reg.resize_fit(arena(), num_work_regs));
+  ASMJIT_PROPAGATE(n_outs_per_work_reg.resize_fit(arena(), num_work_regs));
+  ASMJIT_PROPAGATE(n_insts_per_block.resize_fit(arena(), num_all_blocks));
+
+  // Calculate GEN/KILL and then IN/OUT of Each Block
+  // ------------------------------------------------
+
+  {
+    uint32_t num_visits = 0;
+
+    if (multi_work_reg_count > 0u && multi_work_reg_count <= Support::bit_size_of<BitWord>) {
+      // If the number of work registers as a mask fits into a single BitWord use a separate code-path that optimizes
+      // for such case. This makes faster generating smaller code that doesn't have many virtual registers in use.
+      ASMJIT_PROPAGATE(
+        BaseRAPass_calculateInOutKill<Support::BitWordMutator>(
+          this, n_uses_per_work_reg.data(), n_outs_per_work_reg.data(), n_insts_per_block.data(), Out(num_visits)
+        )
+      );
     }
-  });
+    else {
+      ASMJIT_PROPAGATE(
+        BaseRAPass_calculateInOutKill<Support::BitVectorMutator>(
+          this, n_uses_per_work_reg.data(), n_outs_per_work_reg.data(), n_insts_per_block.data(), Out(num_visits)
+        )
+      );
+    }
+
+    ASMJIT_RA_LOG_COMPLEX({
+      String& sb = _tmp_string;
+      logger->logf("  LiveIn/Out Done (%u visits)\n", num_visits);
+
+      for (uint32_t i = 0; i < num_all_blocks; i++) {
+        RABlock* block = _blocks[i];
+
+        ASMJIT_PROPAGATE(sb.assign_format("  {#%u}\n", block->block_id()));
+        ASMJIT_PROPAGATE(dump_block_liveness(sb, block));
+
+        logger->log(sb);
+      }
+    });
+  }
 
   // Reserve the space in each `RAWorkReg` for references
   // ----------------------------------------------------
 
-  for (i = 0; i < numWorkRegs; i++) {
-    RAWorkReg* workReg = workRegById(i);
-    ASMJIT_PROPAGATE(workReg->_refs.reserve(allocator(), nUsesPerWorkReg[i]));
-    ASMJIT_PROPAGATE(workReg->_writes.reserve(allocator(), nOutsPerWorkReg[i]));
+  for (uint32_t i = 0; i < num_work_regs; i++) {
+    RAWorkReg* work_reg = work_reg_by_id(RAWorkId(i));
+    ASMJIT_PROPAGATE(work_reg->_refs.reserve_fit(arena(), n_uses_per_work_reg[i]));
+    ASMJIT_PROPAGATE(work_reg->_writes.reserve_fit(arena(), n_outs_per_work_reg[i]));
   }
+
+  // These are not needed anymore, so release the memory now so other allocations can reuse it.
+  n_uses_per_work_reg.release(arena());
+  n_outs_per_work_reg.release(arena());
 
   // Assign block and instruction positions, build LiveCount and LiveSpans
   // ---------------------------------------------------------------------
 
+  // This is a starting position, reserving [0, 1] for function arguments.
   uint32_t position = 2;
-  for (i = 0; i < numAllBlocks; i++) {
+
+  for (uint32_t i = 0; i < num_all_blocks; i++) {
     RABlock* block = _blocks[i];
-    if (!block->isReachable())
+    if (!block->is_reachable()) {
       continue;
+    }
 
     BaseNode* node = block->first();
     BaseNode* stop = block->last();
 
-    uint32_t endPosition = position + nInstsPerBlock[i] * 2;
-    block->setFirstPosition(position);
-    block->setEndPosition(endPosition);
+    Span<const BitWord> live_out = block->live_out();
 
-    RALiveCount curLiveCount;
-    RALiveCount maxLiveCount;
+    uint32_t end_position = position + n_insts_per_block[i] * 2u;
+    block->set_first_position(NodePosition(position));
+    block->set_end_position(NodePosition(end_position));
+
+    RALiveCount cur_live_count;
+    RALiveCount max_live_count;
 
     // Process LIVE-IN.
-    ZoneBitVector::ForEachBitSet it(block->liveIn());
-    while (it.hasNext()) {
-      RAWorkReg* workReg = _workRegs[uint32_t(it.next())];
-      curLiveCount[workReg->group()]++;
-      ASMJIT_PROPAGATE(workReg->liveSpans().openAt(allocator(), position, endPosition));
+    Support::BitVectorIterator<BitWord> it(block->live_in());
+    while (it.has_next()) {
+      RAWorkReg* work_reg = _work_regs[uint32_t(it.next())];
+      cur_live_count[work_reg->group()]++;
+      ASMJIT_PROPAGATE(work_reg->live_spans().open_at(arena(), NodePosition(position), NodePosition(end_position)));
     }
 
     for (;;) {
-      if (node->isInst()) {
+      if (node->is_inst()) {
         InstNode* inst = node->as<InstNode>();
-        RAInst* raInst = inst->passData<RAInst>();
-        ASMJIT_ASSERT(raInst != nullptr);
+        RAInst* ra_inst = inst->pass_data<RAInst>();
 
-        RATiedReg* tiedRegs = raInst->tiedRegs();
-        uint32_t count = raInst->tiedCount();
+        // Impossible - each processed instruction node must have an associated RAInst.
+        ASMJIT_ASSERT(ra_inst != nullptr);
 
-        inst->setPosition(position);
-        raInst->_liveCount = curLiveCount;
+        RATiedReg* tied_regs = ra_inst->tied_regs();
+        uint32_t count = ra_inst->tied_count();
+
+        inst->set_position(NodePosition(position));
+        ra_inst->_live_count = cur_live_count;
 
         for (uint32_t j = 0; j < count; j++) {
-          RATiedReg* tiedReg = &tiedRegs[j];
-          uint32_t workId = tiedReg->workId();
+          RATiedReg* tied_reg = &tied_regs[j];
+          RAWorkReg* work_reg = tied_reg->work_reg();
+
+          RAWorkId work_id = work_reg->work_id();
 
           // Create refs and writes.
-          RAWorkReg* workReg = workRegById(workId);
-          workReg->_refs.appendUnsafe(node);
-          if (tiedReg->isWrite())
-            workReg->_writes.appendUnsafe(node);
+          work_reg->_refs.append_unchecked(node);
+          if (tied_reg->is_write()) {
+            work_reg->_writes.append_unchecked(node);
+          }
 
           // We couldn't calculate this in previous steps, but since we know all LIVE-OUT at this point it becomes
-          // trivial. If this is the last instruction that uses this `workReg` and it's not LIVE-OUT then it is
-          // KILLed here.
-          if (tiedReg->isLast() && !block->liveOut().bitAt(workId))
-            tiedReg->addFlags(RATiedFlags::kKill);
-
-          LiveRegSpans& liveSpans = workReg->liveSpans();
-          bool wasOpen;
-          ASMJIT_PROPAGATE(liveSpans.openAt(allocator(), position + !tiedReg->isRead(), endPosition, wasOpen));
-
-          RegGroup group = workReg->group();
-          if (!wasOpen) {
-            curLiveCount[group]++;
-            raInst->_liveCount[group]++;
+          // trivial. If this is the last instruction that uses this `work_reg` and it's not LIVE-OUT then it is a
+          // KILL here.
+          if (tied_reg->is_last() && (size_t(work_id) >= multi_work_reg_count || !BitOps::bit_at(live_out, work_id))) {
+            tied_reg->add_flags(RATiedFlags::kKill);
           }
 
-          if (tiedReg->isKill()) {
-            liveSpans.closeAt(position + !tiedReg->isRead() + 1);
-            curLiveCount[group]--;
+          RALiveSpans& live_spans = work_reg->live_spans();
+          bool was_open;
+
+          ASMJIT_PROPAGATE(live_spans.open_at(
+            arena(), NodePosition(position + !tied_reg->is_read()), NodePosition(end_position), was_open));
+
+          RegGroup group = work_reg->group();
+          if (!was_open) {
+            cur_live_count[group]++;
+            ra_inst->_live_count[group]++;
           }
 
-          // Update `RAWorkReg::useIdMask` and `RAWorkReg::hintRegId`.
-          if (tiedReg->hasUseId()) {
-            uint32_t useId = tiedReg->useId();
-            workReg->addUseIdMask(Support::bitMask(useId));
-            if (!workReg->hasHintRegId() && !Support::bitTest(raInst->_clobberedRegs[group], useId))
-              workReg->setHintRegId(useId);
+          if (tied_reg->is_kill()) {
+            live_spans.close_at(NodePosition(position + !tied_reg->is_read() + 1u));
+            cur_live_count[group]--;
           }
 
-          if (tiedReg->useRegMask()) {
-            workReg->restrictPreferredMask(tiedReg->useRegMask());
-            if (workReg->isLeadConsecutive())
-              workReg->restrictConsecutiveMask(tiedReg->useRegMask());
+          // Update `RAWorkReg::use_id_mask` and `RAWorkReg::hint_reg_id`.
+          if (tied_reg->has_use_id()) {
+            uint32_t use_id = tied_reg->use_id();
+            work_reg->add_use_id_mask(Support::bit_mask<RegMask>(use_id));
+            if (!work_reg->has_hint_reg_id() && !Support::bit_test(ra_inst->_clobbered_regs[group], use_id)) {
+              work_reg->set_hint_reg_id(use_id);
+            }
           }
 
-          if (tiedReg->outRegMask()) {
-            workReg->restrictPreferredMask(tiedReg->outRegMask());
-            if (workReg->isLeadConsecutive())
-              workReg->restrictConsecutiveMask(tiedReg->outRegMask());
+          if (tied_reg->use_reg_mask()) {
+            work_reg->restrict_preferred_mask(tied_reg->use_reg_mask());
+            if (work_reg->is_lead_consecutive()) {
+              work_reg->restrict_consecutive_mask(tied_reg->use_reg_mask());
+            }
           }
 
-          // Update `RAWorkReg::clobberedSurvivalMask`.
-          if (raInst->_clobberedRegs[group] && !tiedReg->isOutOrKill()) {
-            workReg->addClobberSurvivalMask(raInst->_clobberedRegs[group]);
+          if (tied_reg->out_reg_mask()) {
+            work_reg->restrict_preferred_mask(tied_reg->out_reg_mask());
+            if (work_reg->is_lead_consecutive()) {
+              work_reg->restrict_consecutive_mask(tied_reg->out_reg_mask());
+            }
+          }
+
+          // Update `RAWorkReg::clobber_survival_mask`.
+          if (ra_inst->_clobbered_regs[group] && !tied_reg->is_out_or_kill()) {
+            work_reg->add_clobber_survival_mask(ra_inst->_clobbered_regs[group]);
           }
         }
 
+        if (node->is_invoke()) {
+          func()->frame().update_call_stack_alignment(node->as<InvokeNode>()->detail().natural_stack_alignment());
+        }
+
         position += 2;
-        maxLiveCount.op<Support::Max>(raInst->_liveCount);
+        max_live_count.op<Support::Max>(ra_inst->_live_count);
       }
 
-      if (node == stop)
+      if (node == stop) {
         break;
+      }
 
       node = node->next();
       ASMJIT_ASSERT(node != nullptr);
     }
 
-    block->_maxLiveCount = maxLiveCount;
-    _globalMaxLiveCount.op<Support::Max>(maxLiveCount);
-    ASMJIT_ASSERT(position == block->endPosition());
+    block->_max_live_count = max_live_count;
+    _global_live_max_count.op<Support::Max>(max_live_count);
+    ASMJIT_ASSERT(NodePosition(position) == block->end_position());
   }
 
   // Calculate WorkReg statistics
   // ----------------------------
 
-  for (i = 0; i < numWorkRegs; i++) {
-    RAWorkReg* workReg = _workRegs[i];
+  for (uint32_t i = 0; i < num_work_regs; i++) {
+    RAWorkReg* work_reg = _work_regs[i];
 
-    LiveRegSpans& spans = workReg->liveSpans();
+    RALiveSpans& spans = work_reg->live_spans();
     uint32_t width = spans.width();
-    float freq = width ? float(double(workReg->_refs.size()) / double(width)) : float(0);
+    float freq = width ? float(double(work_reg->_refs.size()) / double(width)) : float(0);
 
-    RALiveStats& stats = workReg->liveStats();
+    RALiveStats& stats = work_reg->live_stats();
     stats._width = width;
     stats._freq = freq;
-    stats._priority = freq + float(int(workReg->virtReg()->weight())) * 0.01f;
+    stats._priority = freq + float(int(work_reg->virt_reg()->weight())) * 0.01f;
   }
 
   ASMJIT_RA_LOG_COMPLEX({
+    String& sb = _tmp_string;
     sb.clear();
-    _dumpLiveSpans(sb);
+    dump_live_spans(sb);
     logger->log(sb);
   });
 
-  nUsesPerWorkReg.release(allocator());
-  nOutsPerWorkReg.release(allocator());
-  nInstsPerBlock.release(allocator());
-
-  return kErrorOk;
+  n_insts_per_block.release(arena());
+  return Error::kOk;
 }
 
-Error BaseRAPass::assignArgIndexToWorkRegs() noexcept {
-  ZoneBitVector& liveIn = entryBlock()->liveIn();
-  uint32_t argCount = func()->argCount();
+Error BaseRAPass::assign_arg_index_to_work_regs() noexcept {
+  Span<const BitWord> live_in = entry_block()->live_in();
 
-  for (uint32_t argIndex = 0; argIndex < argCount; argIndex++) {
-    for (uint32_t valueIndex = 0; valueIndex < Globals::kMaxValuePack; valueIndex++) {
+  uint32_t arg_count = func()->arg_count();
+  uint32_t multi_work_reg_count = _multi_work_reg_count;
+
+  for (uint32_t arg_index = 0; arg_index < arg_count; arg_index++) {
+    for (uint32_t value_index = 0; value_index < Globals::kMaxValuePack; value_index++) {
       // Unassigned argument.
-      const RegOnly& regArg = func()->argPack(argIndex)[valueIndex];
-      if (!regArg.isReg() || !cc()->isVirtIdValid(regArg.id()))
+      const RegOnly& reg_arg = func()->arg_pack(arg_index)[value_index];
+      if (!reg_arg.is_reg() || !cc().is_virt_id_valid(reg_arg.id())) {
         continue;
+      }
 
-      VirtReg* virtReg = cc()->virtRegById(regArg.id());
-      if (!virtReg)
+      VirtReg* virt_reg = cc().virt_reg_by_id(reg_arg.id());
+      if (!virt_reg) {
         continue;
+      }
 
       // Unreferenced argument.
-      RAWorkReg* workReg = virtReg->workReg();
-      if (!workReg)
+      RAWorkReg* work_reg = virt_reg->work_reg();
+      if (!work_reg) {
         continue;
+      }
 
       // Overwritten argument.
-      uint32_t workId = workReg->workId();
-      if (!liveIn.bitAt(workId))
+      RAWorkId work_id = work_reg->work_id();
+      if (uint32_t(work_id) >= multi_work_reg_count || !BitOps::bit_at(live_in, work_id)) {
         continue;
+      }
 
-      workReg->setArgIndex(argIndex, valueIndex);
-      const FuncValue& arg = func()->detail().arg(argIndex, valueIndex);
+      work_reg->set_arg_index(arg_index, value_index);
+      const FuncValue& arg = func()->detail().arg(arg_index, value_index);
 
-      if (arg.isReg() && _archTraits->regTypeToGroup(arg.regType()) == workReg->group()) {
-        workReg->setHintRegId(arg.regId());
+      if (arg.is_reg() && RegUtils::group_of(arg.reg_type()) == work_reg->group()) {
+        work_reg->set_hint_reg_id(arg.reg_id());
       }
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // BaseRAPass - Allocation - Global
 // ================================
 
 #ifndef ASMJIT_NO_LOGGING
-static void RAPass_dumpSpans(String& sb, uint32_t index, const LiveRegSpans& liveSpans) noexcept {
-  sb.appendFormat("  %02u: ", index);
+static void RAPass_dump_spans(String& sb, uint32_t index, const RALiveSpans& live_spans) noexcept {
+  sb.append_format("  %02u: ", index);
 
-  for (uint32_t i = 0; i < liveSpans.size(); i++) {
-    const LiveRegSpan& liveSpan = liveSpans[i];
-    if (i) sb.append(", ");
-    sb.appendFormat("[%u:%u@%u]", liveSpan.a, liveSpan.b, liveSpan.id);
+  for (uint32_t i = 0; i < live_spans.size(); i++) {
+    const RALiveSpan& live_span = live_spans[i];
+    if (i) {
+      sb.append(", ");
+    }
+    sb.append_format("[%u:%u]", live_span.a, live_span.b);
   }
 
   sb.append('\n');
 }
 #endif
 
-Error BaseRAPass::runGlobalAllocator() noexcept {
-  ASMJIT_PROPAGATE(initGlobalLiveSpans());
+Error BaseRAPass::run_global_allocator() noexcept {
+  ASMJIT_PROPAGATE(init_global_live_spans());
 
-  for (RegGroup group : RegGroupVirtValues{}) {
-    ASMJIT_PROPAGATE(binPack(group));
+  for (RegGroup group : Support::enumerate(RegGroup::kMaxVirt)) {
+    ASMJIT_PROPAGATE(bin_pack(group));
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-ASMJIT_FAVOR_SPEED Error BaseRAPass::initGlobalLiveSpans() noexcept {
-  for (RegGroup group : RegGroupVirtValues{}) {
-    size_t physCount = _physRegCount[group];
-    LiveRegSpans* liveSpans = nullptr;
+ASMJIT_FAVOR_SPEED Error BaseRAPass::init_global_live_spans() noexcept {
+  for (RegGroup group : Support::enumerate(RegGroup::kMaxVirt)) {
+    size_t phys_count = _phys_reg_count.get(group);
+    RALiveSpans* live_spans = nullptr;
 
-    if (physCount) {
-      liveSpans = allocator()->allocT<LiveRegSpans>(physCount * sizeof(LiveRegSpans));
-      if (ASMJIT_UNLIKELY(!liveSpans))
-        return DebugUtils::errored(kErrorOutOfMemory);
+    if (phys_count) {
+      live_spans = arena().alloc_oneshot<RALiveSpans>(phys_count * sizeof(RALiveSpans));
+      if (ASMJIT_UNLIKELY(!live_spans)) {
+        return make_error(Error::kOutOfMemory);
+      }
 
-      for (size_t physId = 0; physId < physCount; physId++)
-        new(Support::PlacementNew{&liveSpans[physId]}) LiveRegSpans();
+      for (size_t phys_id = 0; phys_id < phys_count; phys_id++) {
+        new(Support::PlacementNew{&live_spans[phys_id]}) RALiveSpans();
+      }
     }
 
-    _globalLiveSpans[group] = liveSpans;
+    _global_live_spans[group] = live_spans;
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 struct RAConsecutiveReg {
-  RAWorkReg* workReg;
-  RAWorkReg* parentReg;
+  RAWorkReg* work_reg;
+  RAWorkReg* parent_reg;
 };
 
-ASMJIT_FAVOR_SPEED Error BaseRAPass::binPack(RegGroup group) noexcept {
-  if (workRegCount(group) == 0)
-    return kErrorOk;
+ASMJIT_FAVOR_SPEED Error BaseRAPass::bin_pack(RegGroup group) noexcept {
+  if (work_reg_count(group) == 0)
+    return Error::kOk;
 
 #ifndef ASMJIT_NO_LOGGING
-  Logger* logger = getLoggerIf(DiagnosticOptions::kRADebugAssignment);
-  StringTmp<512> sb;
+  Logger* logger = logger_if(DiagnosticOptions::kRADebugAssignment);
+  String& sb = _tmp_string;
 
-  ASMJIT_RA_LOG_FORMAT("[BinPack] Available=%u (0x%08X) Count=%u RegGroup=%u\n",
-    Support::popcnt(_availableRegs[group]),
-    _availableRegs[group],
-    workRegCount(group),
+  ASMJIT_RA_LOG_FORMAT("[bin_pack] Available=%u (0x%08X) Count=%u RegGroup=%u\n",
+    Support::popcnt(_available_regs[group]),
+    _available_regs[group],
+    work_reg_count(group),
     uint32_t(group));
 #endif
 
-  uint32_t i;
-  uint32_t physCount = _physRegCount[group];
+  uint32_t phys_count = _phys_reg_count.get(group);
 
-  RAWorkRegs workRegs;
-  ZoneVector<RAConsecutiveReg> consecutiveRegs;
-  LiveRegSpans tmpSpans;
+  ArenaVector<RAWorkReg*> work_regs;
+  ArenaVector<RAConsecutiveReg> consecutive_regs;
+  RALiveSpans tmp_spans;
 
-  ASMJIT_PROPAGATE(workRegs.concat(allocator(), this->workRegs(group)));
-  workRegs.sort([](const RAWorkReg* a, const RAWorkReg* b) noexcept {
-    return b->liveStats().priority() - a->liveStats().priority();
+  ArenaVector<RAWorkReg*>& group_regs = this->work_regs(group);
+  ASMJIT_PROPAGATE(work_regs.reserve_fit(arena(), group_regs.size()));
+
+  work_regs.assign_unchecked(group_regs);
+  work_regs.sort([](const RAWorkReg* a, const RAWorkReg* b) noexcept {
+    return b->live_stats().priority() - a->live_stats().priority();
   });
 
-  uint32_t numWorkRegs = workRegs.size();
-  RegMask availableRegs = _availableRegs[group];
-  RegMask preservedRegs = func()->frame().preservedRegs(group);
+  size_t num_work_regs = work_regs.size();
+  RegMask available_regs = _available_regs[group];
+  RegMask preserved_regs = func()->frame().preserved_regs(group);
 
   // First try to pack everything that provides register-id hint as these are most likely function arguments and fixed
-  // (precolored) virtual registers.
-  if (!workRegs.empty()) {
-    uint32_t dstIndex = 0;
+  // (pre-colored) virtual registers.
+  if (!work_regs.is_empty()) {
+    uint32_t dst_index = 0;
 
-    for (i = 0; i < numWorkRegs; i++) {
-      RAWorkReg* workReg = workRegs[i];
+    for (uint32_t index = 0; index < num_work_regs; index++) {
+      RAWorkReg* work_reg = work_regs[index];
 
-      if (workReg->isLeadConsecutive()) {
-        ASMJIT_PROPAGATE(consecutiveRegs.append(allocator(), RAConsecutiveReg{workReg, nullptr}));
-        workReg->markProcessedConsecutive();
+      if (work_reg->is_lead_consecutive()) {
+        ASMJIT_PROPAGATE(consecutive_regs.append(arena(), RAConsecutiveReg{work_reg, nullptr}));
+        work_reg->mark_processed_consecutive();
       }
 
-      if (workReg->hasHintRegId()) {
-        uint32_t physId = workReg->hintRegId();
-        if (Support::bitTest(availableRegs, physId)) {
-          LiveRegSpans& live = _globalLiveSpans[group][physId];
-          Error err = tmpSpans.nonOverlappingUnionOf(allocator(), live, workReg->liveSpans(), LiveRegData(workReg->virtId()));
+      if (work_reg->has_hint_reg_id()) {
+        uint32_t phys_id = work_reg->hint_reg_id();
+        if (Support::bit_test(available_regs, phys_id)) {
+          RALiveSpans& live = _global_live_spans[group][phys_id];
+          Error err = tmp_spans.non_overlapping_union_of(arena(), live, work_reg->live_spans());
 
-          if (err == kErrorOk) {
-            live.swap(tmpSpans);
-            workReg->setHomeRegId(physId);
-            workReg->markAllocated();
+          if (err == Error::kOk) {
+            live.swap(tmp_spans);
+            work_reg->set_home_reg_id(phys_id);
+            work_reg->mark_allocated();
             continue;
           }
 
-          if (err != 0xFFFFFFFFu)
+          if (err != Error::kByPass) {
             return err;
+          }
         }
       }
 
-      workRegs[dstIndex++] = workReg;
+      work_regs[dst_index++] = work_reg;
     }
 
-    workRegs._setSize(dstIndex);
-    numWorkRegs = dstIndex;
+    work_regs._set_size(dst_index);
+    num_work_regs = dst_index;
   }
 
   // Allocate consecutive registers - both leads and all consecutives. This is important and prioritized over the rest,
   // because once a lead is allocated we really need to allocate its consecutives, otherwise we may bin pack other
   // registers into their places, which would result in wrong hints to the local allocator, and then into many moves
   // or spills.
-  if (!consecutiveRegs.empty()) {
-    // This loop appends all other consecutive registers into `consecutiveRegs` array. Leads are at the beginning,
+  if (!consecutive_regs.is_empty()) {
+    // This loop appends all other consecutive registers into `consecutive_regs` array. Leads are at the beginning,
     // non-leads follow.
-    i = 0;
-    for (;;) {
-      uint32_t stop = consecutiveRegs.size();
-      if (i == stop)
+    for (size_t i = 0;;) {
+      size_t stop = consecutive_regs.size();
+      if (i == stop) {
         break;
+      }
 
       while (i < stop) {
-        RAWorkReg* workReg = consecutiveRegs[i].workReg;
-        if (workReg->hasImmediateConsecutives()) {
-          ZoneBitVector::ForEachBitSet it(workReg->immediateConsecutives());
-          while (it.hasNext()) {
-            uint32_t consecutiveWorkId = uint32_t(it.next());
-            RAWorkReg* consecutiveReg = workRegById(consecutiveWorkId);
-            if (!consecutiveReg->isProcessedConsecutive()) {
-              ASMJIT_PROPAGATE(consecutiveRegs.append(allocator(), RAConsecutiveReg{consecutiveReg, workReg}));
-              consecutiveReg->markProcessedConsecutive();
+        RAWorkReg* work_reg = consecutive_regs[i].work_reg;
+        if (work_reg->has_immediate_consecutives()) {
+          ArenaBitSet::ForEachBitSet it(work_reg->immediate_consecutives());
+          while (it.has_next()) {
+            RAWorkId consecutive_work_id = RAWorkId(it.next());
+            RAWorkReg* consecutive_reg = work_reg_by_id(consecutive_work_id);
+            if (!consecutive_reg->is_processed_consecutive()) {
+              ASMJIT_PROPAGATE(consecutive_regs.append(arena(), RAConsecutiveReg{consecutive_reg, work_reg}));
+              consecutive_reg->mark_processed_consecutive();
             }
           }
         }
@@ -1293,766 +1535,815 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::binPack(RegGroup group) noexcept {
       }
     }
 
-    uint32_t numConsecutiveRegs = consecutiveRegs.size();
-    for (i = 0; i < numConsecutiveRegs; i++) {
-      RAWorkReg* workReg = consecutiveRegs[i].workReg;
-      if (workReg->isAllocated())
+    for (RAConsecutiveReg& consecutive_reg : consecutive_regs) {
+      RAWorkReg* work_reg = consecutive_reg.work_reg;
+      if (work_reg->is_allocated()) {
         continue;
+      }
 
-      RAWorkReg* parentReg = consecutiveRegs[i].parentReg;
-      RegMask physRegs = 0;
+      RAWorkReg* parent_reg = consecutive_reg.parent_reg;
+      RegMask phys_regs = 0;
 
-      if (!parentReg) {
-        physRegs = availableRegs & workReg->preferredMask();
-        if (!physRegs) {
-          physRegs = availableRegs & workReg->consecutiveMask();
+      if (!parent_reg) {
+        phys_regs = available_regs & work_reg->preferred_mask();
+        if (!phys_regs) {
+          phys_regs = available_regs & work_reg->consecutive_mask();
 
           // NOTE: This should never be true as it would mean we would never allocate this virtual register
           // (not here, and not later when local register allocator processes RATiedReg sets).
-          if (ASMJIT_UNLIKELY(!physRegs))
-            return DebugUtils::errored(kErrorConsecutiveRegsAllocation);
+          if (ASMJIT_UNLIKELY(!phys_regs)) {
+            return make_error(Error::kConsecutiveRegsAllocation);
+          }
         }
       }
-      else if (parentReg->hasHomeRegId()) {
-        uint32_t consecutiveId = parentReg->homeRegId() + 1;
+      else if (parent_reg->has_home_reg_id()) {
+        uint32_t consecutive_id = parent_reg->home_reg_id() + 1;
 
         // NOTE: We don't support wrapping. If this goes beyond all allocable registers there is something wrong.
-        if (consecutiveId > 31 || !Support::bitTest(availableRegs, consecutiveId))
-          return DebugUtils::errored(kErrorConsecutiveRegsAllocation);
+        if (consecutive_id > 31 || !Support::bit_test(available_regs, consecutive_id)) {
+          return make_error(Error::kConsecutiveRegsAllocation);
+        }
 
-        workReg->setHintRegId(consecutiveId);
-        physRegs = Support::bitMask(consecutiveId);
+        work_reg->set_hint_reg_id(consecutive_id);
+        phys_regs = Support::bit_mask<uint32_t>(consecutive_id);
       }
 
-      while (physRegs) {
-        uint32_t physId = Support::bitSizeOf<RegMask>() - 1 - Support::clz(physRegs);
+      while (phys_regs) {
+        uint32_t phys_id = Support::bit_size_of<RegMask> - 1 - Support::clz(phys_regs);
 
-        LiveRegSpans& live = _globalLiveSpans[group][physId];
-        Error err = tmpSpans.nonOverlappingUnionOf(allocator(), live, workReg->liveSpans(), LiveRegData(workReg->virtId()));
+        RALiveSpans& live = _global_live_spans[group][phys_id];
+        Error err = tmp_spans.non_overlapping_union_of(arena(), live, work_reg->live_spans());
 
-        if (err == kErrorOk) {
-          workReg->setHomeRegId(physId);
-          workReg->markAllocated();
-          live.swap(tmpSpans);
+        if (err == Error::kOk) {
+          work_reg->set_home_reg_id(phys_id);
+          work_reg->mark_allocated();
+          live.swap(tmp_spans);
           break;
         }
 
-        if (ASMJIT_UNLIKELY(err != 0xFFFFFFFFu))
+        if (ASMJIT_UNLIKELY(err != Error::kByPass)) {
           return err;
+        }
 
-        physRegs ^= Support::bitMask(physId);
+        phys_regs ^= Support::bit_mask<RegMask>(phys_id);
       }
     }
   }
 
   // Try to pack the rest.
-  if (!workRegs.empty()) {
-    uint32_t dstIndex = 0;
+  if (!work_regs.is_empty()) {
+    size_t dst_index = 0;
 
-    for (i = 0; i < numWorkRegs; i++) {
-      RAWorkReg* workReg = workRegs[i];
-
-      if (workReg->isAllocated())
+    for (size_t index = 0; index < num_work_regs; index++) {
+      RAWorkReg* work_reg = work_regs[index];
+      if (work_reg->is_allocated()) {
         continue;
+      }
 
-      RegMask remainingPhysRegs = availableRegs;
-      if (remainingPhysRegs & workReg->preferredMask())
-        remainingPhysRegs &= workReg->preferredMask();
+      RegMask remaining_phys_regs = available_regs;
+      if (remaining_phys_regs & work_reg->preferred_mask()) {
+        remaining_phys_regs &= work_reg->preferred_mask();
+      }
 
-      RegMask physRegs = remainingPhysRegs & ~preservedRegs;
-      remainingPhysRegs &= preservedRegs;
+      RegMask phys_regs = remaining_phys_regs & ~preserved_regs;
+      remaining_phys_regs &= preserved_regs;
 
       for (;;) {
-        if (!physRegs) {
-          if (!remainingPhysRegs)
+        if (!phys_regs) {
+          if (!remaining_phys_regs) {
             break;
-          physRegs = remainingPhysRegs;
-          remainingPhysRegs = 0;
+          }
+          phys_regs = remaining_phys_regs;
+          remaining_phys_regs = 0;
         }
 
-        uint32_t physId = Support::ctz(physRegs);
+        uint32_t phys_id = Support::ctz(phys_regs);
 
-        if (workReg->clobberSurvivalMask()) {
-          RegMask preferredMask = (physRegs | remainingPhysRegs) & workReg->clobberSurvivalMask();
-          if (preferredMask) {
-            if (preferredMask & ~remainingPhysRegs)
-              preferredMask &= ~remainingPhysRegs;
-            physId = Support::ctz(preferredMask);
+        if (work_reg->clobber_survival_mask()) {
+          RegMask preferred_mask = (phys_regs | remaining_phys_regs) & work_reg->clobber_survival_mask();
+          if (preferred_mask) {
+            if (preferred_mask & ~remaining_phys_regs) {
+              preferred_mask &= ~remaining_phys_regs;
+            }
+            phys_id = Support::ctz(preferred_mask);
           }
         }
 
-        LiveRegSpans& live = _globalLiveSpans[group][physId];
-        Error err = tmpSpans.nonOverlappingUnionOf(allocator(), live, workReg->liveSpans(), LiveRegData(workReg->virtId()));
+        RALiveSpans& live = _global_live_spans[group][phys_id];
+        Error err = tmp_spans.non_overlapping_union_of(arena(), live, work_reg->live_spans());
 
-        if (err == kErrorOk) {
-          workReg->setHomeRegId(physId);
-          workReg->markAllocated();
-          live.swap(tmpSpans);
+        if (err == Error::kOk) {
+          work_reg->set_home_reg_id(phys_id);
+          work_reg->mark_allocated();
+          live.swap(tmp_spans);
           break;
         }
 
-        if (ASMJIT_UNLIKELY(err != 0xFFFFFFFFu))
+        if (ASMJIT_UNLIKELY(err != Error::kByPass)) {
           return err;
+        }
 
-        physRegs &= ~Support::bitMask(physId);
-        remainingPhysRegs &= ~Support::bitMask(physId);
+        phys_regs &= ~Support::bit_mask<RegMask>(phys_id);
+        remaining_phys_regs &= ~Support::bit_mask<RegMask>(phys_id);
       }
 
-      // Keep it in `workRegs` if it was not allocated.
-      if (!physRegs)
-        workRegs[dstIndex++] = workReg;
+      // Keep it in `work_regs` if it was not allocated.
+      if (!phys_regs) {
+        work_regs[dst_index++] = work_reg;
+      }
     }
 
-    workRegs._setSize(dstIndex);
-    numWorkRegs = dstIndex;
+    work_regs._set_size(dst_index);
+    num_work_regs = dst_index;
   }
 
   ASMJIT_RA_LOG_COMPLEX({
-    for (uint32_t physId = 0; physId < physCount; physId++) {
-      LiveRegSpans& live = _globalLiveSpans[group][physId];
-      if (live.empty())
+    for (uint32_t phys_id = 0; phys_id < phys_count; phys_id++) {
+      RALiveSpans& live = _global_live_spans[group][phys_id];
+      if (live.is_empty()) {
         continue;
+      }
 
       sb.clear();
-      RAPass_dumpSpans(sb, physId, live);
+      RAPass_dump_spans(sb, phys_id, live);
       logger->log(sb);
     }
   });
 
   // Maybe unused if logging is disabled.
-  DebugUtils::unused(physCount);
+  Support::maybe_unused(phys_count);
 
-  if (workRegs.empty()) {
-    ASMJIT_RA_LOG_FORMAT("  Completed.\n");
+  if (work_regs.is_empty()) {
+    ASMJIT_RA_LOG_FORMAT("  completed.\n");
   }
   else {
-    _strategy[group].setType(RAStrategyType::kComplex);
-    for (RAWorkReg* workReg : workRegs)
-      workReg->markStackPreferred();
+    _strategy[group].set_type(RAStrategyType::kComplex);
+    for (RAWorkReg* work_reg : work_regs) {
+      work_reg->mark_stack_preferred();
+    }
 
     ASMJIT_RA_LOG_COMPLEX({
-      uint32_t count = workRegs.size();
+      size_t count = work_regs.size();
       sb.clear();
-      sb.appendFormat("  Unassigned (%u): ", count);
-      for (i = 0; i < numWorkRegs; i++) {
-        RAWorkReg* workReg = workRegs[i];
-        if (i) sb.append(", ");
-        sb.append(workReg->name());
+      sb.append_format("  Unassigned (%zu): ", count);
+      for (uint32_t i = 0; i < num_work_regs; i++) {
+        RAWorkReg* work_reg = work_regs[i];
+        if (i) {
+          sb.append(", ");
+        }
+        Formatter::format_virt_reg_name(sb, work_reg->virt_reg());
       }
       sb.append('\n');
       logger->log(sb);
     });
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // BaseRAPass - Allocation - Local
 // ===============================
 
-Error BaseRAPass::runLocalAllocator() noexcept {
-  RALocalAllocator lra(this);
+Error BaseRAPass::run_local_allocator() noexcept {
+  RALocalAllocator lra(*this);
   ASMJIT_PROPAGATE(lra.init());
 
-  if (!blockCount())
-    return kErrorOk;
+  if (!block_count()) {
+    return Error::kOk;
+  }
 
   // The allocation is done when this reaches zero.
-  uint32_t blocksRemaining = reachableBlockCount();
+  size_t blocks_remaining = reachable_block_count();
 
   // Current block.
-  uint32_t blockId = 0;
-  RABlock* block = _blocks[blockId];
+  uint32_t block_id = 0;
+  RABlock* block = _blocks[block_id];
 
   // The first block (entry) must always be reachable.
-  ASMJIT_ASSERT(block->isReachable());
+  ASMJIT_ASSERT(block->is_reachable());
 
   // Assign function arguments for the initial block. The `lra` is valid now.
-  lra.makeInitialAssignment();
-  ASMJIT_PROPAGATE(setBlockEntryAssignment(block, block, lra._curAssignment));
+  ASMJIT_PROPAGATE(lra.make_initial_assignment());
+  ASMJIT_PROPAGATE(set_block_entry_assignment(block, block, lra._cur_assignment));
 
   // The loop starts from the first block and iterates blocks in order, however, the algorithm also allows to jump to
   // any other block when finished if it's a jump target. In-order iteration just makes sure that all blocks are visited.
   for (;;) {
     BaseNode* first = block->first();
     BaseNode* last = block->last();
-    BaseNode* terminator = block->hasTerminator() ? last : nullptr;
+    BaseNode* terminator = block->has_terminator() ? last : nullptr;
 
-    BaseNode* beforeFirst = first->prev();
-    BaseNode* afterLast = last->next();
+    BaseNode* before_first = first->prev();
+    BaseNode* after_last = last->next();
 
-    bool unconditionalJump = false;
-    RABlock* consecutive = nullptr;
+    bool is_unconditional_jump = false;
+    RABlock* consecutive = block->has_successors() ? block->successors()[0] : nullptr;
 
-    if (block->hasSuccessors())
-      consecutive = block->successors()[0];
-
-    lra.setBlock(block);
-    block->makeAllocated();
+    lra.set_block(block);
+    block->make_allocated();
 
     BaseNode* node = first;
-    while (node != afterLast) {
+    while (node != after_last) {
       BaseNode* next = node->next();
-      if (node->isInst()) {
+      if (node->is_inst()) {
         InstNode* inst = node->as<InstNode>();
 
         if (ASMJIT_UNLIKELY(inst == terminator)) {
-          const RABlocks& successors = block->successors();
-          if (block->hasConsecutive()) {
-            ASMJIT_PROPAGATE(lra.allocBranch(inst, successors.last(), successors.first()));
+          Span<RABlock*> successors = block->successors();
+          if (block->has_consecutive()) {
+            ASMJIT_PROPAGATE(lra.alloc_branch(inst, successors.last(), successors.first()));
 
             node = next;
             continue;
           }
           else if (successors.size() > 1) {
-            RABlock* cont = block->hasConsecutive() ? successors.first() : nullptr;
-            ASMJIT_PROPAGATE(lra.allocJumpTable(inst, successors, cont));
+            RABlock* cont = block->has_consecutive() ? successors.first() : nullptr;
+            ASMJIT_PROPAGATE(lra.alloc_jump_table(inst, successors, cont));
 
             node = next;
             continue;
           }
           else {
             // Otherwise this is an unconditional jump, special handling isn't required.
-            unconditionalJump = true;
+            is_unconditional_jump = true;
           }
         }
 
-        ASMJIT_PROPAGATE(lra.allocInst(inst));
-        if (inst->type() == NodeType::kInvoke)
-          ASMJIT_PROPAGATE(emitPreCall(inst->as<InvokeNode>()));
-        else
-          ASMJIT_PROPAGATE(lra.spillAfterAllocation(inst));
+        ASMJIT_PROPAGATE(lra.alloc_instruction(inst));
+        if (inst->type() == NodeType::kInvoke) {
+          ASMJIT_PROPAGATE(emit_pre_call(inst->as<InvokeNode>()));
+        }
+        else {
+          ASMJIT_PROPAGATE(lra.spill_after_allocation(inst));
+        }
       }
       node = next;
     }
 
     if (consecutive) {
-      BaseNode* prev = afterLast ? afterLast->prev() : cc()->lastNode();
-      cc()->_setCursor(unconditionalJump ? prev->prev() : prev);
+      BaseNode* prev = after_last ? after_last->prev() : cc().last_node();
+      cc().set_cursor(is_unconditional_jump ? prev->prev() : prev);
 
-      if (consecutive->hasEntryAssignment()) {
-        ASMJIT_PROPAGATE(lra.switchToAssignment(consecutive->entryPhysToWorkMap(), consecutive->liveIn(), consecutive->isAllocated(), false));
+      if (consecutive->has_entry_assignment()) {
+        ASMJIT_PROPAGATE(lra.switch_to_assignment(consecutive->entry_phys_to_work_map(), consecutive->live_in(), consecutive->is_allocated(), false));
       }
       else {
-        ASMJIT_PROPAGATE(lra.spillRegsBeforeEntry(consecutive));
-        ASMJIT_PROPAGATE(setBlockEntryAssignment(consecutive, block, lra._curAssignment));
-        lra._curAssignment.copyFrom(consecutive->entryPhysToWorkMap());
+        ASMJIT_PROPAGATE(lra.spill_regs_before_entry(consecutive));
+        ASMJIT_PROPAGATE(set_block_entry_assignment(consecutive, block, lra._cur_assignment));
+        lra._cur_assignment.copy_from(consecutive->entry_phys_to_work_map());
       }
     }
 
     // Important as the local allocator can insert instructions before
     // and after any instruction within the basic block.
-    block->setFirst(beforeFirst->next());
-    block->setLast(afterLast ? afterLast->prev() : cc()->lastNode());
+    block->set_first(before_first->next());
+    block->set_last(after_last ? after_last->prev() : cc().last_node());
 
-    if (--blocksRemaining == 0)
+    if (--blocks_remaining == 0) {
       break;
+    }
 
     // Switch to the next consecutive block, if any.
     if (consecutive) {
       block = consecutive;
-      if (!block->isAllocated())
+      if (!block->is_allocated()) {
         continue;
+      }
     }
 
     // Get the next block.
     for (;;) {
-      if (++blockId >= blockCount())
-        blockId = 0;
+      if (++block_id >= block_count()) {
+        block_id = 0;
+      }
 
-      block = _blocks[blockId];
-      if (!block->isReachable() || block->isAllocated() || !block->hasEntryAssignment())
+      block = _blocks[block_id];
+      if (!block->is_reachable() || block->is_allocated() || !block->has_entry_assignment()) {
         continue;
+      }
 
       break;
     }
 
-    // If we switched to some block we have to update the local allocator.
-    lra.replaceAssignment(block->entryPhysToWorkMap());
+    // If we switched to another block we have to update the local allocator.
+    ASMJIT_PROPAGATE(lra.replace_assignment(block->entry_phys_to_work_map()));
   }
 
-  _clobberedRegs.op<Support::Or>(lra._clobberedRegs);
-  return kErrorOk;
+  _clobbered_regs.op<Support::Or>(lra._clobbered_regs);
+  return Error::kOk;
 }
 
-Error BaseRAPass::setBlockEntryAssignment(RABlock* block, const RABlock* fromBlock, const RAAssignment& fromAssignment) noexcept {
-  if (block->hasSharedAssignmentId()) {
-    uint32_t sharedAssignmentId = block->sharedAssignmentId();
+Error BaseRAPass::set_block_entry_assignment(RABlock* block, const RABlock* from_block, const RAAssignment& from_assignment) noexcept {
+  if (block->has_shared_assignment_id()) {
+    uint32_t shared_assignment_id = block->shared_assignment_id();
 
     // Shouldn't happen. Entry assignment of a block that has a shared-state will assign to all blocks
-    // with the same sharedAssignmentId. It's a bug if the shared state has been already assigned.
-    if (!_sharedAssignments[sharedAssignmentId].empty())
-      return DebugUtils::errored(kErrorInvalidState);
+    // with the same shared_assignment_id. It's a bug if the shared state has been already assigned.
+    if (!_shared_assignments[shared_assignment_id].is_empty()) {
+      return make_error(Error::kInvalidState);
+    }
 
-    return setSharedAssignment(sharedAssignmentId, fromAssignment);
+    return set_shared_assignment(shared_assignment_id, from_assignment);
   }
 
-  PhysToWorkMap* physToWorkMap = clonePhysToWorkMap(fromAssignment.physToWorkMap());
-  if (ASMJIT_UNLIKELY(!physToWorkMap))
-    return DebugUtils::errored(kErrorOutOfMemory);
+  PhysToWorkMap* phys_to_work_map = clone_phys_to_work_map(from_assignment.phys_to_work_map());
+  if (ASMJIT_UNLIKELY(!phys_to_work_map)) {
+    return make_error(Error::kOutOfMemory);
+  }
 
-  block->setEntryAssignment(physToWorkMap);
+  block->set_entry_assignment(phys_to_work_map);
 
   // True if this is the first (entry) block, nothing to do in this case.
-  if (block == fromBlock) {
+  if (block == from_block) {
     // Entry block should never have a shared state.
-    if (block->hasSharedAssignmentId())
-      return DebugUtils::errored(kErrorInvalidState);
+    if (block->has_shared_assignment_id()) {
+      return make_error(Error::kInvalidState);
+    }
 
-    return kErrorOk;
+    return Error::kOk;
   }
 
-  const ZoneBitVector& liveOut = fromBlock->liveOut();
-  const ZoneBitVector& liveIn = block->liveIn();
+  Span<const BitWord> live_out = from_block->live_out();
+  Span<const BitWord> live_in = block->live_in();
 
-  // It's possible that `fromBlock` has LIVE-OUT regs that `block` doesn't
+  // It's possible that `from_block` has LIVE-OUT regs that `block` doesn't
   // have in LIVE-IN, these have to be unassigned.
   {
-    ZoneBitVector::ForEachBitOp<Support::AndNot> it(liveOut, liveIn);
-    while (it.hasNext()) {
-      uint32_t workId = uint32_t(it.next());
-      RAWorkReg* workReg = workRegById(workId);
+    Support::BitVectorOpIterator<BitWord, Support::AndNot> it(live_out, live_in);
+    while (it.has_next()) {
+      RAWorkId work_id = RAWorkId(it.next());
+      RAWorkReg* work_reg = work_reg_by_id(work_id);
 
-      RegGroup group = workReg->group();
-      uint32_t physId = fromAssignment.workToPhysId(group, workId);
+      RegGroup group = work_reg->group();
+      uint32_t phys_id = from_assignment.work_to_phys_id(group, work_id);
 
-      if (physId != RAAssignment::kPhysNone)
-        physToWorkMap->unassign(group, physId, _physRegIndex.get(group) + physId);
+      if (phys_id != RAAssignment::kPhysNone) {
+        phys_to_work_map->unassign(group, phys_id, _phys_reg_index.get(group) + phys_id);
+      }
     }
   }
 
-  return blockEntryAssigned(physToWorkMap);
+  return block_entry_assigned(phys_to_work_map);
 }
 
-Error BaseRAPass::setSharedAssignment(uint32_t sharedAssignmentId, const RAAssignment& fromAssignment) noexcept {
-  ASMJIT_ASSERT(_sharedAssignments[sharedAssignmentId].empty());
+Error BaseRAPass::set_shared_assignment(uint32_t shared_assignment_id, const RAAssignment& from_assignment) noexcept {
+  ASMJIT_ASSERT(_shared_assignments[shared_assignment_id].is_empty());
 
-  PhysToWorkMap* physToWorkMap = clonePhysToWorkMap(fromAssignment.physToWorkMap());
-  if (ASMJIT_UNLIKELY(!physToWorkMap))
-    return DebugUtils::errored(kErrorOutOfMemory);
+  PhysToWorkMap* phys_to_work_map = clone_phys_to_work_map(from_assignment.phys_to_work_map());
+  if (ASMJIT_UNLIKELY(!phys_to_work_map)) {
+    return make_error(Error::kOutOfMemory);
+  }
 
-  _sharedAssignments[sharedAssignmentId].assignPhysToWorkMap(physToWorkMap);
+  _shared_assignments[shared_assignment_id].assign_phys_to_work_map(phys_to_work_map);
+  ASMJIT_PROPAGATE(_shared_assignments[shared_assignment_id]._live_in.resize(arena(), multi_work_reg_count()));
 
-  ZoneBitVector& sharedLiveIn = _sharedAssignments[sharedAssignmentId]._liveIn;
-  ASMJIT_PROPAGATE(sharedLiveIn.resize(allocator(), workRegCount()));
+  Span<BitWord> shared_live_in = _shared_assignments[shared_assignment_id]._live_in.as_span();
+  Support::Array<uint32_t, Globals::kNumVirtGroups> shared_assigned {};
 
-  Support::Array<uint32_t, Globals::kNumVirtGroups> sharedAssigned {};
   for (RABlock* block : blocks()) {
-    if (block->sharedAssignmentId() == sharedAssignmentId) {
-      ASMJIT_ASSERT(!block->hasEntryAssignment());
+    if (block->shared_assignment_id() == shared_assignment_id) {
+      ASMJIT_ASSERT(!block->has_entry_assignment());
 
-      PhysToWorkMap* entryPhysToWorkMap = clonePhysToWorkMap(fromAssignment.physToWorkMap());
-      if (ASMJIT_UNLIKELY(!entryPhysToWorkMap))
-        return DebugUtils::errored(kErrorOutOfMemory);
+      PhysToWorkMap* entry_phys_to_work_map = clone_phys_to_work_map(from_assignment.phys_to_work_map());
+      if (ASMJIT_UNLIKELY(!entry_phys_to_work_map)) {
+        return make_error(Error::kOutOfMemory);
+      }
 
-      block->setEntryAssignment(entryPhysToWorkMap);
+      block->set_entry_assignment(entry_phys_to_work_map);
 
-      const ZoneBitVector& liveIn = block->liveIn();
-      sharedLiveIn.or_(liveIn);
+      Span<const BitWord> live_in = block->live_in();
+      BitOps::or_(shared_live_in, shared_live_in, live_in);
 
-      for (RegGroup group : RegGroupVirtValues{}) {
-        sharedAssigned[group] |= entryPhysToWorkMap->assigned[group];
+      for (RegGroup group : Support::enumerate(RegGroup::kMaxVirt)) {
+        shared_assigned[group] |= entry_phys_to_work_map->assigned[group];
 
-        uint32_t physBaseIndex = _physRegIndex.get(group);
-        Support::BitWordIterator<RegMask> it(entryPhysToWorkMap->assigned[group]);
+        uint32_t phys_base_index = _phys_reg_index.get(group);
+        Support::BitWordIterator<RegMask> it(entry_phys_to_work_map->assigned[group]);
 
-        while (it.hasNext()) {
-          uint32_t physId = it.next();
-          uint32_t workId = entryPhysToWorkMap->workIds[physBaseIndex + physId];
+        while (it.has_next()) {
+          uint32_t phys_id = it.next();
+          RAWorkId work_id = entry_phys_to_work_map->work_ids[phys_base_index + phys_id];
 
-          if (!liveIn.bitAt(workId))
-            entryPhysToWorkMap->unassign(group, physId, physBaseIndex + physId);
+          // Should not happen as a register that only lives in a single basic block should not appear in the map.
+          ASMJIT_ASSERT(uint32_t(work_id) < _multi_work_reg_count);
+
+          if (!BitOps::bit_at(live_in, work_id)) {
+            entry_phys_to_work_map->unassign(group, phys_id, phys_base_index + phys_id);
+          }
         }
       }
     }
   }
 
-  for (RegGroup group : RegGroupVirtValues{}) {
-    uint32_t physBaseIndex = _physRegIndex.get(group);
-    Support::BitWordIterator<RegMask> it(_availableRegs[group] & ~sharedAssigned[group]);
+  for (RegGroup group : Support::enumerate(RegGroup::kMaxVirt)) {
+    uint32_t phys_base_index = _phys_reg_index.get(group);
+    Support::BitWordIterator<RegMask> it(_available_regs[group] & ~shared_assigned[group]);
 
-    while (it.hasNext()) {
-      uint32_t physId = it.next();
-      if (Support::bitTest(physToWorkMap->assigned[group], physId))
-        physToWorkMap->unassign(group, physId, physBaseIndex + physId);
+    while (it.has_next()) {
+      uint32_t phys_id = it.next();
+      if (Support::bit_test(phys_to_work_map->assigned[group], phys_id)) {
+        phys_to_work_map->unassign(group, phys_id, phys_base_index + phys_id);
+      }
     }
   }
 
-  return blockEntryAssigned(physToWorkMap);
+  return block_entry_assigned(phys_to_work_map);
 }
 
-Error BaseRAPass::blockEntryAssigned(const PhysToWorkMap* physToWorkMap) noexcept {
+Error BaseRAPass::block_entry_assigned(const PhysToWorkMap* phys_to_work_map) noexcept {
   // Complex allocation strategy requires to record register assignments upon block entry (or per shared state).
-  for (RegGroup group : RegGroupVirtValues{}) {
-    if (!_strategy[group].isComplex())
+  for (RegGroup group : Support::enumerate(RegGroup::kMaxVirt)) {
+    if (!_strategy[group].is_complex()) {
       continue;
+    }
 
-    uint32_t physBaseIndex = _physRegIndex[group];
-    Support::BitWordIterator<RegMask> it(physToWorkMap->assigned[group]);
+    uint32_t phys_base_index = _phys_reg_index.get(group);
+    Support::BitWordIterator<RegMask> it(phys_to_work_map->assigned[group]);
 
-    while (it.hasNext()) {
-      uint32_t physId = it.next();
-      uint32_t workId = physToWorkMap->workIds[physBaseIndex + physId];
+    while (it.has_next()) {
+      uint32_t phys_id = it.next();
+      RAWorkId work_id = phys_to_work_map->work_ids[phys_base_index + phys_id];
 
-      RAWorkReg* workReg = workRegById(workId);
-      workReg->addAllocatedMask(Support::bitMask(physId));
+      RAWorkReg* work_reg = work_reg_by_id(work_id);
+      work_reg->add_allocated_mask(Support::bit_mask<RegMask>(phys_id));
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // BaseRAPass - Allocation - Utilities
 // ===================================
 
-Error BaseRAPass::useTemporaryMem(BaseMem& out, uint32_t size, uint32_t alignment) noexcept {
+Error BaseRAPass::use_temporary_mem(BaseMem& out, uint32_t size, uint32_t alignment) noexcept {
   ASMJIT_ASSERT(alignment <= 64);
 
-  if (_temporaryMem.isNone()) {
-    ASMJIT_PROPAGATE(cc()->_newStack(&_temporaryMem.as<BaseMem>(), size, alignment));
+  if (_temporary_mem.is_none()) {
+    ASMJIT_PROPAGATE(cc()._new_stack(Out(_temporary_mem.as<BaseMem>()), size, alignment));
   }
   else {
-    ASMJIT_ASSERT(_temporaryMem.as<BaseMem>().isRegHome());
+    ASMJIT_ASSERT(_temporary_mem.as<BaseMem>().is_reg_home());
 
-    uint32_t virtId = _temporaryMem.as<BaseMem>().baseId();
-    VirtReg* virtReg = cc()->virtRegById(virtId);
+    uint32_t virt_id = _temporary_mem.as<BaseMem>().base_id();
+    VirtReg* virt_reg = cc().virt_reg_by_id(virt_id);
 
-    cc()->setStackSize(virtId, Support::max(virtReg->virtSize(), size),
-                               Support::max(virtReg->alignment(), alignment));
+    cc().set_stack_size(virt_id, Support::max(virt_reg->virt_size(), size),
+                               Support::max(virt_reg->alignment(), alignment));
   }
 
-  out = _temporaryMem.as<BaseMem>();
-  return kErrorOk;
+  out = _temporary_mem.as<BaseMem>();
+  return Error::kOk;
 }
 
 // BaseRAPass - Allocation - Prolog & Epilog
 // =========================================
 
-Error BaseRAPass::updateStackFrame() noexcept {
+Error BaseRAPass::update_stack_frame() noexcept {
   // Update some StackFrame information that we updated during allocation. The only information we don't have at the
   // moment is final local stack size, which is calculated last.
   FuncFrame& frame = func()->frame();
-  for (RegGroup group : RegGroupVirtValues{})
-    frame.addDirtyRegs(group, _clobberedRegs[group]);
-  frame.setLocalStackAlignment(_stackAllocator.alignment());
+  for (RegGroup group : Support::enumerate(RegGroup::kMaxVirt)) {
+    frame.add_dirty_regs(group, _clobbered_regs[group]);
+  }
+  frame.set_local_stack_alignment(_stack_allocator.alignment());
 
   // If there are stack arguments that are not assigned to registers upon entry and the function doesn't require
   // dynamic stack alignment we keep these arguments where they are. This will also mark all stack slots that match
   // these arguments as allocated.
-  if (_numStackArgsToStackSlots)
-    ASMJIT_PROPAGATE(_markStackArgsToKeep());
+  if (_num_stack_args_to_stack_slots) {
+    ASMJIT_PROPAGATE(_mark_stack_args_to_keep());
+  }
 
   // Calculate offsets of all stack slots and update StackSize to reflect the calculated local stack size.
-  ASMJIT_PROPAGATE(_stackAllocator.calculateStackFrame());
-  frame.setLocalStackSize(_stackAllocator.stackSize());
+  ASMJIT_PROPAGATE(_stack_allocator.calculate_stack_frame());
+  frame.set_local_stack_size(_stack_allocator.stack_size());
 
-  // Update the stack frame based on `_argsAssignment` and finalize it. Finalization means to apply final calculation
+  // Update the stack frame based on `_args_assignment` and finalize it. Finalization means to apply final calculation
   // to the stack layout.
-  ASMJIT_PROPAGATE(_argsAssignment.updateFuncFrame(frame));
+  ASMJIT_PROPAGATE(_args_assignment.update_func_frame(frame));
   ASMJIT_PROPAGATE(frame.finalize());
 
   // StackAllocator allocates all stots starting from [0], adjust them when necessary.
-  if (frame.localStackOffset() != 0)
-    ASMJIT_PROPAGATE(_stackAllocator.adjustSlotOffsets(int32_t(frame.localStackOffset())));
+  if (frame.local_stack_offset() != 0) {
+    ASMJIT_PROPAGATE(_stack_allocator.adjust_slot_offsets(int32_t(frame.local_stack_offset())));
+  }
 
   // Again, if there are stack arguments allocated in function's stack we have to handle them. This handles all cases
   // (either regular or dynamic stack alignment).
-  if (_numStackArgsToStackSlots)
-    ASMJIT_PROPAGATE(_updateStackArgs());
+  if (_num_stack_args_to_stack_slots) {
+    ASMJIT_PROPAGATE(_update_stack_args());
+  }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-Error BaseRAPass::_markStackArgsToKeep() noexcept {
+Error BaseRAPass::_mark_stack_args_to_keep() noexcept {
   FuncFrame& frame = func()->frame();
-  bool hasSAReg = frame.hasPreservedFP() || !frame.hasDynamicAlignment();
+  bool has_sa_reg = frame.has_preserved_fp() || !frame.has_dynamic_alignment();
 
-  RAWorkRegs& workRegs = _workRegs;
-  uint32_t numWorkRegs = workRegCount();
+  ArenaVector<RAWorkReg*>& work_regs = _work_regs;
+  size_t num_work_regs = work_reg_count();
 
-  for (uint32_t workId = 0; workId < numWorkRegs; workId++) {
-    RAWorkReg* workReg = workRegs[workId];
-    if (workReg->hasFlag(RAWorkRegFlags::kStackArgToStack)) {
-      ASMJIT_ASSERT(workReg->hasArgIndex());
-      const FuncValue& srcArg = _func->detail().arg(workReg->argIndex());
+  for (size_t work_id = 0; work_id < num_work_regs; work_id++) {
+    RAWorkReg* work_reg = work_regs[work_id];
+    if (work_reg->has_flag(RAWorkRegFlags::kStackArgToStack)) {
+      ASMJIT_ASSERT(work_reg->has_arg_index());
+      const FuncValue& src_arg = _func->detail().arg(work_reg->arg_index());
 
       // If the register doesn't have stack slot then we failed. It doesn't make much sense as it was marked as
       // `kFlagStackArgToStack`, which requires the WorkReg was live-in upon function entry.
-      RAStackSlot* slot = workReg->stackSlot();
-      if (ASMJIT_UNLIKELY(!slot))
-        return DebugUtils::errored(kErrorInvalidState);
+      RAStackSlot* slot = work_reg->stack_slot();
+      if (ASMJIT_UNLIKELY(!slot)) {
+        return make_error(Error::kInvalidState);
+      }
 
-      if (hasSAReg && srcArg.isStack() && !srcArg.isIndirect()) {
-        uint32_t typeSize = TypeUtils::sizeOf(srcArg.typeId());
-        if (typeSize == slot->size()) {
-          slot->addFlags(RAStackSlot::kFlagStackArg);
+      if (has_sa_reg && src_arg.is_stack() && !src_arg.is_indirect()) {
+        uint32_t type_size = TypeUtils::size_of(src_arg.type_id());
+        if (type_size == slot->size()) {
+          slot->add_flags(RAStackSlot::kFlagStackArg);
           continue;
         }
       }
 
-      // NOTE: Update StackOffset here so when `_argsAssignment.updateFuncFrame()` is called it will take into
+      // NOTE: Update StackOffset here so when `_args_assignment.update_func_frame()` is called it will take into
       // consideration moving to stack slots. Without this we may miss some scratch registers later.
-      FuncValue& dstArg = _argsAssignment.arg(workReg->argIndex(), workReg->argValueIndex());
-      dstArg.assignStackOffset(0);
+      FuncValue& dst_arg = _args_assignment.arg(work_reg->arg_index(), work_reg->arg_value_index());
+      dst_arg.assign_stack_offset(0);
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-Error BaseRAPass::_updateStackArgs() noexcept {
+Error BaseRAPass::_update_stack_args() noexcept {
   FuncFrame& frame = func()->frame();
-  RAWorkRegs& workRegs = _workRegs;
-  uint32_t numWorkRegs = workRegCount();
 
-  for (uint32_t workId = 0; workId < numWorkRegs; workId++) {
-    RAWorkReg* workReg = workRegs[workId];
-    if (workReg->hasFlag(RAWorkRegFlags::kStackArgToStack)) {
-      ASMJIT_ASSERT(workReg->hasArgIndex());
-      RAStackSlot* slot = workReg->stackSlot();
+  ArenaVector<RAWorkReg*>& work_regs = _work_regs;
+  size_t num_work_regs = work_reg_count();
 
-      if (ASMJIT_UNLIKELY(!slot))
-        return DebugUtils::errored(kErrorInvalidState);
+  for (size_t work_id = 0; work_id < num_work_regs; work_id++) {
+    RAWorkReg* work_reg = work_regs[work_id];
+    if (work_reg->has_flag(RAWorkRegFlags::kStackArgToStack)) {
+      ASMJIT_ASSERT(work_reg->has_arg_index());
+      RAStackSlot* slot = work_reg->stack_slot();
 
-      if (slot->isStackArg()) {
-        const FuncValue& srcArg = _func->detail().arg(workReg->argIndex());
-        if (frame.hasPreservedFP()) {
-          slot->setBaseRegId(_fp.id());
-          slot->setOffset(int32_t(frame.saOffsetFromSA()) + srcArg.stackOffset());
+      if (ASMJIT_UNLIKELY(!slot)) {
+        return make_error(Error::kInvalidState);
+      }
+
+      if (slot->is_stack_arg()) {
+        const FuncValue& src_arg = _func->detail().arg(work_reg->arg_index());
+        if (frame.has_preserved_fp()) {
+          slot->set_base_reg_id(_fp.id());
+          slot->set_offset(int32_t(frame.sa_offset_from_sa()) + src_arg.stack_offset());
         }
         else {
-          slot->setOffset(int32_t(frame.saOffsetFromSP()) + srcArg.stackOffset());
+          slot->set_offset(int32_t(frame.sa_offset_from_sp()) + src_arg.stack_offset());
         }
       }
       else {
-        FuncValue& dstArg = _argsAssignment.arg(workReg->argIndex(), workReg->argValueIndex());
-        dstArg.setStackOffset(slot->offset());
+        FuncValue& dst_arg = _args_assignment.arg(work_reg->arg_index(), work_reg->arg_value_index());
+        dst_arg.set_stack_offset(slot->offset());
       }
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-Error BaseRAPass::insertPrologEpilog() noexcept {
+Error BaseRAPass::insert_prolog_epilog() noexcept {
   FuncFrame& frame = _func->frame();
 
-  cc()->_setCursor(func());
-  ASMJIT_PROPAGATE(cc()->emitProlog(frame));
-  ASMJIT_PROPAGATE(_iEmitHelper->emitArgsAssignment(frame, _argsAssignment));
+  cc().set_cursor(func());
+  ASMJIT_PROPAGATE(cc().emit_prolog(frame));
+  ASMJIT_PROPAGATE(_emit_helper_ptr->emit_args_assignment(frame, _args_assignment));
 
-  cc()->_setCursor(func()->exitNode());
-  ASMJIT_PROPAGATE(cc()->emitEpilog(frame));
+  cc().set_cursor(func()->exit_node());
+  ASMJIT_PROPAGATE(cc().emit_epilog(frame));
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
 // BaseRAPass - Rewriter
 // =====================
 
-Error BaseRAPass::rewrite() noexcept {
-  return _rewrite(_func, _stop);
-}
-
 // [[pure virtual]]
-Error BaseRAPass::_rewrite(BaseNode* first, BaseNode* stop) noexcept {
-  DebugUtils::unused(first, stop);
-  return DebugUtils::errored(kErrorInvalidState);
+Error BaseRAPass::rewrite() noexcept {
+  return make_error(Error::kInvalidState);
 }
 
 // BaseRAPass - Emit
 // =================
 
 // [[pure virtual]]
-Error BaseRAPass::emitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept {
-  DebugUtils::unused(workId, dstPhysId, srcPhysId);
-  return DebugUtils::errored(kErrorInvalidState);
+Error BaseRAPass::emit_move(RAWorkReg* work_reg, uint32_t dst_phys_id, uint32_t src_phys_id) noexcept {
+  Support::maybe_unused(work_reg, dst_phys_id, src_phys_id);
+  return make_error(Error::kInvalidState);
 }
 
 // [[pure virtual]]
-Error BaseRAPass::emitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, uint32_t bPhysId) noexcept {
-  DebugUtils::unused(aWorkId, aPhysId, bWorkId, bPhysId);
-  return DebugUtils::errored(kErrorInvalidState);
+Error BaseRAPass::emit_swap(RAWorkReg* a_reg, uint32_t a_phys_id, RAWorkReg* b_reg, uint32_t b_phys_id) noexcept {
+  Support::maybe_unused(a_reg, a_phys_id, b_reg, b_phys_id);
+  return make_error(Error::kInvalidState);
 }
 
 // [[pure virtual]]
-Error BaseRAPass::emitLoad(uint32_t workId, uint32_t dstPhysId) noexcept {
-  DebugUtils::unused(workId, dstPhysId);
-  return DebugUtils::errored(kErrorInvalidState);
+Error BaseRAPass::emit_load(RAWorkReg* work_reg, uint32_t dst_phys_id) noexcept {
+  Support::maybe_unused(work_reg, dst_phys_id);
+  return make_error(Error::kInvalidState);
 }
 
 // [[pure virtual]]
-Error BaseRAPass::emitSave(uint32_t workId, uint32_t srcPhysId) noexcept {
-  DebugUtils::unused(workId, srcPhysId);
-  return DebugUtils::errored(kErrorInvalidState);
+Error BaseRAPass::emit_save(RAWorkReg* work_reg, uint32_t src_phys_id) noexcept {
+  Support::maybe_unused(work_reg, src_phys_id);
+  return make_error(Error::kInvalidState);
 }
 
 // [[pure virtual]]
-Error BaseRAPass::emitJump(const Label& label) noexcept {
-  DebugUtils::unused(label);
-  return DebugUtils::errored(kErrorInvalidState);
+Error BaseRAPass::emit_jump(const Label& label) noexcept {
+  Support::maybe_unused(label);
+  return make_error(Error::kInvalidState);
 }
 
-Error BaseRAPass::emitPreCall(InvokeNode* invokeNode) noexcept {
-  DebugUtils::unused(invokeNode);
-  return DebugUtils::errored(kErrorOk);
+Error BaseRAPass::emit_pre_call(InvokeNode* invoke_node) noexcept {
+  Support::maybe_unused(invoke_node);
+  return make_error(Error::kOk);
 }
 
 // BaseRAPass - Logging
 // ====================
 
 #ifndef ASMJIT_NO_LOGGING
-static void RAPass_formatLiveness(BaseRAPass* pass, String& sb, const RAInst* raInst) noexcept {
-  const RATiedReg* tiedRegs = raInst->tiedRegs();
-  uint32_t tiedCount = raInst->tiedCount();
+static void RAPass_formatLiveness(BaseRAPass* pass, String& sb, const RAInst* ra_inst) noexcept {
+  Support::maybe_unused(pass);
 
-  for (uint32_t i = 0; i < tiedCount; i++) {
-    const RATiedReg& tiedReg = tiedRegs[i];
+  const RATiedReg* tied_regs = ra_inst->tied_regs();
+  uint32_t tied_count = ra_inst->tied_count();
 
-    if (i != 0)
+  for (uint32_t i = 0; i < tied_count; i++) {
+    const RATiedReg& tied_reg = tied_regs[i];
+
+    if (i != 0) {
       sb.append(' ');
+    }
 
-    sb.appendFormat("%s{", pass->workRegById(tiedReg.workId())->name());
-    sb.append(tiedReg.isReadWrite() ? 'X' :
-              tiedReg.isRead()      ? 'R' :
-              tiedReg.isWrite()     ? 'W' : '?');
+    Formatter::format_virt_reg_name(sb, tied_reg.work_reg()->virt_reg());
+    sb.append('{');
+    sb.append(tied_reg.is_read_write() ? 'X' :
+              tied_reg.is_read()      ? 'R' :
+              tied_reg.is_write()     ? 'W' : '?');
 
-    if (tiedReg.isLeadConsecutive())
-      sb.appendFormat("|Lead[%u]", tiedReg.consecutiveData() + 1u);
+    if (tied_reg.is_lead_consecutive()) {
+      sb.append_format("|Lead[%u]", tied_reg.consecutive_data() + 1u);
+    }
 
-    if (tiedReg.hasUseId())
-      sb.appendFormat("|Use=%u", tiedReg.useId());
-    else if (tiedReg.isUse())
+    if (tied_reg.has_use_id()) {
+      sb.append_format("|Use=%u", tied_reg.use_id());
+    }
+    else if (tied_reg.is_use()) {
       sb.append("|Use");
+    }
 
-    if (tiedReg.isUseConsecutive() && !tiedReg.isLeadConsecutive())
-      sb.appendFormat("+%u", tiedReg.consecutiveData());
+    if (tied_reg.is_use_consecutive() && !tied_reg.is_lead_consecutive()) {
+      sb.append_format("+%u", tied_reg.consecutive_data());
+    }
 
-    if (tiedReg.hasOutId())
-      sb.appendFormat("|Out=%u", tiedReg.outId());
-    else if (tiedReg.isOut())
+    if (tied_reg.has_out_id()) {
+      sb.append_format("|Out=%u", tied_reg.out_id());
+    }
+    else if (tied_reg.is_out()) {
       sb.append("|Out");
+    }
 
-    if (tiedReg.isOutConsecutive() && !tiedReg.isLeadConsecutive())
-      sb.appendFormat("+%u", tiedReg.consecutiveData());
+    if (tied_reg.is_out_consecutive() && !tied_reg.is_lead_consecutive()) {
+      sb.append_format("+%u", tied_reg.consecutive_data());
+    }
 
-    if (tiedReg.isLast())
+    if (tied_reg.is_first()) {
+      sb.append("|First");
+    }
+
+    if (tied_reg.is_last()) {
       sb.append("|Last");
+    }
 
-    if (tiedReg.isKill())
+    if (tied_reg.is_kill()) {
       sb.append("|Kill");
+    }
 
     sb.append("}");
   }
 }
 
-ASMJIT_FAVOR_SIZE Error BaseRAPass::annotateCode() noexcept {
+ASMJIT_FAVOR_SIZE Error BaseRAPass::annotate_code() noexcept {
   StringTmp<1024> sb;
 
   for (const RABlock* block : _blocks) {
     BaseNode* node = block->first();
-    if (!node) continue;
+    if (!node) {
+      continue;
+    }
 
     BaseNode* last = block->last();
     for (;;) {
       sb.clear();
-      Formatter::formatNode(sb, _formatOptions, cc(), node);
+      Formatter::format_node(sb, _format_options, &_cb, node);
 
-      if (hasDiagnosticOption(DiagnosticOptions::kRADebugLiveness) && node->isInst() && node->hasPassData()) {
-        const RAInst* raInst = node->passData<RAInst>();
-        if (raInst->tiedCount() > 0) {
-          sb.padEnd(40);
+      if (has_diagnostic_option(DiagnosticOptions::kRADebugLiveness) && node->is_inst() && node->has_pass_data()) {
+        const RAInst* ra_inst = node->pass_data<RAInst>();
+        if (ra_inst->tied_count() > 0) {
+          sb.pad_end(40);
           sb.append(" | ");
-          RAPass_formatLiveness(this, sb, raInst);
+          RAPass_formatLiveness(this, sb, ra_inst);
         }
       }
 
-      node->setInlineComment(static_cast<char*>(cc()->_dataZone.dup(sb.data(), sb.size(), true)));
-      if (node == last)
+      node->set_inline_comment(static_cast<char*>(cc()._builder_arena.dup(sb.data(), sb.size(), true)));
+      if (node == last) {
         break;
+      }
       node = node->next();
     }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-ASMJIT_FAVOR_SIZE Error BaseRAPass::_dumpBlockIds(String& sb, const RABlocks& blocks) noexcept {
-  for (uint32_t i = 0, size = blocks.size(); i < size; i++) {
+ASMJIT_FAVOR_SIZE Error BaseRAPass::dump_block_ids(String& sb, Span<RABlock*> blocks) noexcept {
+  for (size_t i = 0; i < blocks.size(); i++) {
     const RABlock* block = blocks[i];
-    if (i != 0)
-      ASMJIT_PROPAGATE(sb.appendFormat(", #%u", block->blockId()));
-    else
-      ASMJIT_PROPAGATE(sb.appendFormat("#%u", block->blockId()));
+    ASMJIT_PROPAGATE(sb.append_format(!i ? "#%u" : ", #%u", uint32_t(block->block_id())));
   }
-  return kErrorOk;
+  return Error::kOk;
 }
 
-ASMJIT_FAVOR_SIZE Error BaseRAPass::_dumpBlockLiveness(String& sb, const RABlock* block) noexcept {
-  for (uint32_t liveType = 0; liveType < RABlock::kLiveCount; liveType++) {
-    const char* bitsName = liveType == RABlock::kLiveIn  ? "IN  " :
-                           liveType == RABlock::kLiveOut ? "OUT " :
-                           liveType == RABlock::kLiveGen ? "GEN " : "KILL";
+ASMJIT_FAVOR_SIZE Error BaseRAPass::dump_block_liveness(String& sb, const RABlock* block) noexcept {
+  for (uint32_t live_type = 0; live_type < RABlock::kLiveCount; live_type++) {
+    const char* info_name = live_type == RABlock::kLiveIn  ? "IN  " :
+                            live_type == RABlock::kLiveOut ? "OUT " : "KILL";
 
-    const ZoneBitVector& bits = block->_liveBits[liveType];
-    uint32_t size = bits.size();
-    ASMJIT_ASSERT(size <= workRegCount());
+    Support::BitVectorIterator<BitWord> it(block->live_bits(live_type));
+    if (it.has_next()) {
+      bool first = true;
 
-    uint32_t n = 0;
-    for (uint32_t workId = 0; workId < size; workId++) {
-      if (bits.bitAt(workId)) {
-        RAWorkReg* wReg = workRegById(workId);
-
-        if (!n)
-          sb.appendFormat("    %s [", bitsName);
-        else
+      sb.append_format("    %s [", info_name);
+      do {
+        const RAWorkReg* work_reg = work_reg_by_id(RAWorkId(it.next()));
+        if (!first) {
           sb.append(", ");
+        }
 
-        sb.append(wReg->name());
-        n++;
-      }
-    }
-
-    if (n)
+        Formatter::format_virt_reg_name(sb, work_reg->virt_reg());
+        first = false;
+      } while (it.has_next());
       sb.append("]\n");
+    }
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 
-ASMJIT_FAVOR_SIZE Error BaseRAPass::_dumpLiveSpans(String& sb) noexcept {
-  uint32_t numWorkRegs = _workRegs.size();
-  uint32_t maxSize = _maxWorkRegNameSize;
+ASMJIT_FAVOR_SIZE Error BaseRAPass::dump_live_spans(String& sb) noexcept {
+  size_t max_size = _max_work_reg_name_size;
 
-  for (uint32_t workId = 0; workId < numWorkRegs; workId++) {
-    RAWorkReg* workReg = _workRegs[workId];
+  for (RAWorkReg* work_reg : _work_regs.iterate()) {
+    RALiveStats& stats = work_reg->live_stats();
 
     sb.append("  ");
+    size_t old_size = sb.size();
 
-    size_t oldSize = sb.size();
-    sb.append(workReg->name());
-    sb.padEnd(oldSize + maxSize);
+    Formatter::format_virt_reg_name(sb, work_reg->virt_reg());
+    sb.pad_end(old_size + max_size);
 
-    RALiveStats& stats = workReg->liveStats();
-    sb.appendFormat(" {id:%04u width: %-4u freq: %0.4f priority=%0.4f}",
-      workReg->virtId(),
+    sb.append_format(" {ra_id=%-5u virt_id=%-5u width=%-5u freq=%0.5f priority=%0.5f ",
+      uint32_t(work_reg->work_id()),
+      work_reg->virt_id(),
       stats.width(),
-      stats.freq(),
-      stats.priority());
-    sb.append(": ");
+      double(stats.freq()),
+      double(stats.priority()));
 
-    LiveRegSpans& liveSpans = workReg->liveSpans();
-    for (uint32_t x = 0; x < liveSpans.size(); x++) {
-      const LiveRegSpan& liveSpan = liveSpans[x];
-      if (x)
+    if (work_reg->is_within_single_basic_block()) {
+      sb.append_format("bb=#%-4u", uint32_t(work_reg->single_basic_block_id()));
+    }
+    else {
+      sb.append("bb=<...>");
+    }
+
+    sb.append_format("}: ");
+
+    RALiveSpans& live_spans = work_reg->live_spans();
+    for (uint32_t x = 0; x < live_spans.size(); x++) {
+      const RALiveSpan& live_span = live_spans[x];
+      if (x) {
         sb.append(", ");
-      sb.appendFormat("[%u:%u]", liveSpan.a, liveSpan.b);
+      }
+      sb.append_format("[%u:%u]", live_span.a, live_span.b);
     }
 
     sb.append('\n');
   }
 
-  return kErrorOk;
+  return Error::kOk;
 }
 #endif
 
