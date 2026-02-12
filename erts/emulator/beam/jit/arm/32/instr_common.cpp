@@ -745,8 +745,11 @@ void BeamModuleAssembler::emit_badrecord(const ArgSource &Src) {
 
 void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,
                                      const ArgCatch &Handler) {
-    // TODO
-    emit_nyi("emit_catch");
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+    a.add(TMP, TMP, imm(1));
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+
+    mov_arg(Y, Handler);
 }
 
 void BeamGlobalAssembler::emit_catch_end_shared() {
