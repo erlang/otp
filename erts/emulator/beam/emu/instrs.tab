@@ -1332,8 +1332,14 @@ i_is_native_record(Fail, Src, Mod, Name) {
     }
 }
 
-is_record_accessible(Fail, Src) {
+i_is_record_accessible(Fail, Src) {
     if (!erl_is_record_accessible($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+i_is_wildcard_record_accessible(Fail, Src, Module) {
+    if (!erl_is_wildcard_record_accessible($Src, $Module)) {
         $FAIL($Fail);
     }
 }
@@ -1395,7 +1401,11 @@ i_update_native_record(Src, Dst, Live, N) {
 }
 
 i_get_local_record_field(Fail, Src, Id, Field, Dst) {
-    Eterm res = erl_get_local_record_field(c_p, $Src, $Id, $Field);
+    Eterm res;
+
+    HEAVY_SWAPOUT;
+    res = erl_get_local_record_field(c_p, $Src, $Id, $Field);
+    HEAVY_SWAPIN;
     if (is_non_value(res)) {
         $FAIL_HEAD_OR_BODY($Fail);
     } else {
@@ -1404,7 +1414,12 @@ i_get_local_record_field(Fail, Src, Id, Field, Dst) {
 }
 
 i_get_record_field(Fail, Src, Id, Field, Dst) {
-    Eterm res = erl_get_record_field(c_p, $Src, $Id, $Field);
+    Eterm res;
+
+    HEAVY_SWAPOUT;
+    res = erl_get_record_field(c_p, $Src, $Id, $Field);
+    HEAVY_SWAPIN;
+
     if (is_non_value(res)) {
         $FAIL_HEAD_OR_BODY($Fail);
     } else {

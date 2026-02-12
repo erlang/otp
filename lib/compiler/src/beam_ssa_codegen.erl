@@ -1580,9 +1580,11 @@ cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
 cg_block([#cg_set{op=bs_test_tail,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     [Ctx,{integer,Bits}] = beam_args(Args0, St),
     {[{test,bs_test_tail2,bif_fail(Fail),[Ctx,Bits]}],St};
-cg_block([#cg_set{op=is_record_accessible,dst=Bool,args=[Src0]}], {Bool,Fail}, St) ->
-    Src = beam_arg(Src0, St),
-    {[{test,is_record_accessible,ensure_label(Fail, St),[Src]}],St};
+cg_block([#cg_set{op=is_record_accessible,dst=Bool,args=[_,_]=Args}],
+         {Bool,Fail}, St) ->
+    [Src,Scope] = beam_args(Args, St),
+    {[{test,is_record_accessible,ensure_label(Fail, St),
+       [Src,Scope]}],St};
 cg_block([#cg_set{op=is_tagged_tuple,anno=Anno,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     case Anno of
         #{constraints := arity} ->

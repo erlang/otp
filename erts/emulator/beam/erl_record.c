@@ -292,6 +292,7 @@ Eterm erl_create_local_native_record(Process* p, Eterm* reg,
         new_p = &sentinel;
     }
 
+    p->freason = EXC_NORMAL;
     for (int i = 0; i < field_count; i++) {
         if (new_p[0] == defp->keys[i]) {
             GetSource(new_p[1], *hp);
@@ -318,11 +319,23 @@ Eterm erl_create_local_native_record(Process* p, Eterm* reg,
     /* A `badfield` error has higher priority than a
      * `no_value` error. */
     if (new_p != &sentinel) {
-        p->fvalue = new_p[0];
         p->freason = EXC_BADFIELD;
-        return THE_NON_VALUE;
-    } else if (is_value(res)) {
+        p->fvalue = new_p[0];
+        res = THE_NON_VALUE;
+    }
+
+    if (is_value(res)) {
         p->htop += num_words_needed;
+    } else {
+        Eterm *hp = HAlloc(p, 3 + 3);
+        Eterm tmp;
+
+        tmp = TUPLE2(hp, defp->module, defp->name);
+        hp += 3;
+        tmp = TUPLE2(hp, tmp, p->fvalue);
+        hp += 3;
+        p->fvalue = tmp;
+        return THE_NON_VALUE;
     }
 
     return res;
@@ -419,7 +432,14 @@ Eterm erl_update_native_record(Process* p, Eterm* reg, Eterm src,
     }
 
     if (new_p != &sentinel) {
-        p->fvalue = new_p[0];
+        Eterm tmp;
+
+        hp = HAlloc(p, 3 + 3);
+        tmp = TUPLE2(hp, defp->module, defp->name);
+        hp += 3;
+        tmp = TUPLE2(hp, tmp, new_p[0]);
+        hp += 3;
+        p->fvalue = tmp;
         p->freason = EXC_BADFIELD;
         return THE_NON_VALUE;
     }
@@ -438,12 +458,22 @@ bool erl_is_record_accessible(Eterm src) {
     return defp->is_exported == am_true;
 }
 
+bool erl_is_wildcard_record_accessible(Eterm src, Eterm module) {
+    ErtsRecordDefinition *defp;
+
+    ASSERT(is_record(src));
+    defp = RECORD_DEF_P(RECORD_INST_P(src));
+
+    return defp->is_exported == am_true || defp->module == module;
+}
 
 Eterm erl_get_local_record_field(Process* p, Eterm src, Eterm name, Eterm field) {
     ErtsRecordInstance *instance;
     ErtsRecordDefinition *defp;
     Eterm *values;
     int field_count;
+    Eterm *hp;
+    Eterm tmp;
 
     if (is_not_record(src)) {
     badrecord:
@@ -469,7 +499,12 @@ Eterm erl_get_local_record_field(Process* p, Eterm src, Eterm name, Eterm field)
         }
     }
 
-    p->fvalue = field;
+    hp = HAlloc(p, 3 + 3);
+    tmp = TUPLE2(hp, defp->module, defp->name);
+    hp += 3;
+    tmp = TUPLE2(hp, tmp, field);
+    hp += 3;
+    p->fvalue = tmp;
     p->freason = EXC_BADFIELD;
     return THE_NON_VALUE;
 }
@@ -479,6 +514,8 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm id, Eterm field) {
     ErtsRecordDefinition *defp;
     Eterm *values;
     int field_count;
+    Eterm *hp;
+    Eterm tmp;
 
     if (is_not_record(src)) {
     badrecord:
@@ -520,7 +557,12 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm id, Eterm field) {
         }
     }
 
-    p->fvalue = field;
+    hp = HAlloc(p, 3 + 3);
+    tmp = TUPLE2(hp, defp->module, defp->name);
+    hp += 3;
+    tmp = TUPLE2(hp, tmp, field);
+    hp += 3;
+    p->fvalue = tmp;
     p->freason = EXC_BADFIELD;
     return THE_NON_VALUE;
 }
@@ -665,9 +707,15 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
         key = val[1];
 
         if (is_not_atom(key)) {
-            BIF_P->fvalue = key;
+            Eterm tmp;
             HRelease(BIF_P, hp_end, hp);
             erts_free(ERTS_ALC_T_TMP, fields);
+            hp = HAlloc(BIF_P, 3 + 3);
+            tmp = TUPLE2(hp, module, name);
+            hp += 3;
+            tmp = TUPLE2(hp, tmp, key);
+            hp += 3;
+            BIF_P->fvalue = tmp;
             BIF_ERROR(BIF_P, EXC_BADFIELD);
         }
 
@@ -815,8 +863,8 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
         }
 
         if (ks != &sentinel) {
-            BIF_P->fvalue = ks[0];
-            BIF_ERROR(BIF_P, EXC_BADFIELD);
+            res = ks[0];
+            goto badfield;
         }
     } else {
         DECLARE_WSTACK(wstack);
@@ -863,12 +911,25 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
             }
         }
 
-        BIF_P->fvalue = fields[0].key;
+        res = fields[0].key;
         erts_free(ERTS_ALC_T_TMP, tmp_array);
-        BIF_ERROR(BIF_P, EXC_BADFIELD);
+        goto badfield;
     }
 
     BIF_RET(res);
+
+ badfield:
+    {
+        Eterm tmp;
+
+        hp = HAlloc(BIF_P, 3 + 3);
+        tmp = TUPLE2(hp, defp->module, defp->name);
+        hp += 3;
+        tmp = TUPLE2(hp, tmp, res);
+        hp += 3;
+        BIF_P->fvalue = tmp;
+        BIF_ERROR(BIF_P, EXC_BADFIELD);
+    }
 }
 
 BIF_RETTYPE records_get_2(BIF_ALIST_2) {

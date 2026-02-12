@@ -209,7 +209,7 @@ being repeated in `Fields`.
 2> records:is_exported(R).
 true
 3> records:create(test, a, [{42,1}], #{is_exported => true}).
-** exception error: bad field name: 42
+** exception error: bad field name: {{test,a},42}
      in function  records:create/4
         called as records:create(test,a,[{42,1}],#{is_exported => true})
 4> records:create(test, a, [{x,1}, {x,2}], #{is_exported => true}).
@@ -245,7 +245,7 @@ exist in `Record`.
 2> Updated = records:update(R, test, a, #{x => 10, y => 20}).
 #test:a{x = 10,y = 20,z = 3}
 3> records:update(R, test, a, #{w => 42}).
-** exception error: bad field name: w
+** exception error: bad field name: {{test,a},w}
      in function  records:update/4
         called as records:update(#test:a{x = 1,y = 2,z = 3},test,a,#{w => 42})
 ```

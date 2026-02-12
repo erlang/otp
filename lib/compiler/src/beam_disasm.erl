@@ -1401,8 +1401,9 @@ resolve_inst({put_record,Args0},_,_,_) ->
     [FLbl,Id,Src,Dst,{u,_},{{z,1},{u,_Len},List0}] = Args0,
     List = resolve_args(List0),
     {put_record,FLbl,Id,Src,Dst,{list,List}};
-resolve_inst({is_record_accessible,[Location,Src]},_,_,_) ->
-    {test,is_record_accessible,resolve_arg(Location),resolve_arg(Src)};
+resolve_inst({is_record_accessible,[Location,Src,Scope]},_,_,_) ->
+    {test,is_record_accessible,resolve_arg(Location),
+     resolve_arg(Src),resolve_arg(Scope)};
 resolve_inst({get_record_field,[Location,Src,Id,Name,Dst]},_,_,_) ->
     {test,get_record_field,resolve_arg(Location),resolve_arg(Src),Id,
      resolve_arg(Name),resolve_arg(Dst)};

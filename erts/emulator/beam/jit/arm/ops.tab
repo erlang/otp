@@ -1424,6 +1424,6 @@ i_get_record_elements f xy I *
 i_create_native_record c d t I *
 i_update_native_record s d t I *
 
-is_record_accessible f xy
+is_record_accessible f xy a
 
 get_record_field j xy c a d

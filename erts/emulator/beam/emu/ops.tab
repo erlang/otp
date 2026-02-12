@@ -1655,7 +1655,13 @@ i_get_record_elements f? xy I *
 i_create_native_record c d t I *
 i_update_native_record s d t I *
 
-is_record_accessible f? xy
+is_record_accessible Fail=f Src=xy a==am_external =>
+    i_is_record_accessible Fail Src
+is_record_accessible Fail=f Src=xy a =>
+    i_is_wildcard_record_accessible Fail Src a=$MODULE
+
+i_is_record_accessible f? xy
+i_is_wildcard_record_accessible f? xy a
 
 get_record_field Fail Src Id=a Field Dst =>
     i_get_local_record_field Fail Src Id Field Dst

@@ -112,18 +112,21 @@ local_basic(_Config) ->
     b = NameFun(BRec),
 
     %% Test errors when constructing or updating native records.
-    ?assertError({badfield,foobar}, #b{foobar = some_value}),
+    ?assertError({badfield,{{?MODULE,b},foobar}},
+                 #b{foobar = some_value}),
 
     ?assertError({badrecord,not_a_record}, (not_a_record)#b{x=99}),
     ?assertError({badrecord,ARec}, ARec#b{x=99}),
-    ?assertError({badfield,bad_field}, BRec#b{bad_field = some_value}),
+    ?assertError({badfield,{{?MODULE,b},bad_field}},
+                 BRec#b{bad_field = some_value}),
 
-    ?assertError({novalue,x}, #a{}),
-    ?assertError({novalue,y}, #a{x=1}),
-    ?assertError({novalue,x}, #a{y=1}),
+    ?assertError({novalue,{{?MODULE,a},x}}, #a{}),
+    ?assertError({novalue,{{?MODULE,a},y}}, #a{x=1}),
+    ?assertError({novalue,{{?MODULE,a},x}}, #a{y=1}),
 
     %% Test errors when accessing native records
-    ?assertError({badfield,zoo}, BRec#b.zoo),
+    ?assertError({badfield,{{?MODULE,b},zoo}}, BRec#b.zoo),
+    ?assertError({badfield,{{?MODULE,b},zoo}}, BRec#?MODULE:b.zoo),
     ?assertError({badrecord,ARec}, ARec#b.x),
     ?assertError({badrecord,ARec}, ARec#non_existing_module:rec.x),
 
@@ -299,10 +302,12 @@ external_records(_Config) ->
     ok.
 
 any_record(_Config) ->
+    ARec0 = #a{x=0, y=1},
+
     {777,888} = get_any_xy(#b{x=777,y=888}),
     {77,88} = get_any_xy(#Point{x=77,y=88}),
+    {0,1} = get_any_xy(ARec0),
     none = get_any_xy(#div{}),
-    none = get_any_xy(#a{x=0, y=1}),
     none = get_any_xy(#order{}),
 
     BRec0 = id(#b{}),
@@ -313,8 +318,13 @@ any_record(_Config) ->
     #Point{x=77.0,y=100.0,z=0} = Point = update_any_xy(Point0, 77.0, 100.0),
     #_{x=77.0,y=100.0} = Point,
 
-    ?assertError({badfield,x}, update_any_xy(id(#exp_abc{}), 0, 0)),
-    ?assertError({badfield,y}, update_any_xy(id(#exp_x{}), 0, 0)),
+    #a{x=777, y=100} = ARec = update_any_xy(ARec0, 777, 100),
+    #_{x=777, y=100} = ARec,
+
+    ?assertError({badfield,{{?MODULE,exp_abc},x}},
+                 update_any_xy(id(#exp_abc{}), 0, 0)),
+    ?assertError({badfield,{{?MODULE,exp_x},y}},
+                 update_any_xy(id(#exp_x{}), 0, 0)),
 
     {10,1} = get_any_xy(#ext_records:vector{}),
     {77,88} = get_any_xy(#ext_records:vector{x=77,y=88}),

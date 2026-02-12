@@ -100,7 +100,10 @@
 -record(cg_map_pair, {key,val}).
 -record(cg_record, {rec}).
 -record(cg_record_id, {id :: {_,_} | atom() | [], es}).
--record(cg_record_pairs, {local::boolean(),es}).
+-type scope() :: #b_literal{val::'local'} |
+                 #b_literal{val::'external'} |
+                 #b_literal{val::'auto_local'}.
+-record(cg_record_pairs, {scope::scope(),es}).
 -record(cg_record_pair, {key,val}).
 -record(cg_cons, {hd,tl}).
 -record(cg_binary, {segs}).
@@ -877,12 +880,12 @@ pattern(#c_map{es=Ces}, Sub0, St0) ->
     {#cg_map{op=exact,es=Kes},Sub1,St1};
 pattern(#c_record{id=#c_literal{val=Id}, es=Ces}, Sub0, St0) ->
     {Kes,Sub1,St1} = pattern_record_pairs(Ces, Sub0, St0),
-    Local = case Id of
-                {_,_} -> false;
-                [] -> false;
-                _ when is_atom(Id) -> true
+    Scope = case Id of
+                {_,_} -> #b_literal{val=external};
+                [] -> #b_literal{val=auto_local};
+                _ when is_atom(Id) -> #b_literal{val=local}
             end,
-    Pairs = #cg_record_pairs{local=Local,es=Kes},
+    Pairs = #cg_record_pairs{scope=Scope,es=Kes},
     {#cg_record{rec=#cg_record_id{id=Id,es=Pairs}},Sub1,St1};
 pattern(#c_binary{segments=Cv}, Sub0, St0) ->
     {Kv,Sub1,St1} = pattern_bin(Cv, Sub0, St0),
@@ -3138,28 +3141,29 @@ select_record_id([#cg_type_clause{type=cg_record_id,values=Scs}],
 
 select_record_pairs([#cg_type_clause{type=cg_record_pairs,values=Scs}],
                     Src, Vf, St0) ->
-    F = fun(#cg_val_clause{val=#cg_record_pairs{es=Es,local=Local},
+    F = fun(#cg_val_clause{val=#cg_record_pairs{es=Es,scope=Scope},
                            body=B}, Fail, St1) ->
-                select_record_pairs_val(Local, Src, Es, B, Fail, St1)
+                select_record_pairs_val(Scope, Src, Es, B, Fail, St1)
         end,
     match_fmf(F, Vf, St0, Scs).
 
-select_record_pairs_val(_Local, _Src, [], B, Fail, St0) ->
+select_record_pairs_val(_Scope, _Src, [], B, Fail, St0) ->
     %% Matching only on the record name. This should always succeed,
     %% so we must not emit an `is_record_accessible` instruction.
     match_cg(B, Fail, St0);
-select_record_pairs_val(Local, Src, Es, B, Fail, St0) ->
+select_record_pairs_val(Scope, Src, Es, B, Fail, St0) ->
     {ExpIs,St1} =
-        case Local of
-            true ->
+        case Scope of
+            #b_literal{val=local} ->
                 %% The record is used in its defining module -- no
                 %% need to check for accessibility.
                 {[],St0};
-            false ->
+            #b_literal{} ->
                 %% The definining module is either unknown or known to
-                %% be a module other than the current. We must check
-                %% for accessibility at runtime.
-                make_cond_branch(is_record_accessible, [Src], Fail, St0)
+                %% be a module other than the current. Check
+                %% accessibility using Scope.
+                make_cond_branch(is_record_accessible,
+                                 [Src,Scope], Fail, St0)
         end,
     {Eis,St2} = select_extract_record(Es, Src, Fail, St1),
     {Bis,St3} = match_cg(B, Fail, St2),

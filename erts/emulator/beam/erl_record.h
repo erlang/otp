@@ -105,6 +105,7 @@ ErtsRecordEntry *erts_record_put(Eterm module,
 
 bool erl_is_native_record(Eterm Src, Eterm Mod, Eterm Name);
 bool erl_is_record_accessible(Eterm src);
+bool erl_is_wildcard_record_accessible(Eterm src, Eterm module);
 
 Eterm erl_get_local_record_field(Process* p, Eterm src, Eterm name, Eterm field);
 Eterm erl_get_record_field(Process* p, Eterm src, Eterm id, Eterm field);

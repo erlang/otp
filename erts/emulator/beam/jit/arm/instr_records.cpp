@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2025-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2025-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,15 @@ void BeamModuleAssembler::emit_is_record_accessible(const ArgLabel &Fail,
     mov_arg(ARG1, Src);
 
     emit_enter_runtime();
-    runtime_call<bool (*)(Eterm), erl_is_record_accessible>();
+    if (Scope.get() == am_external) {
+        comment("external operation");
+        runtime_call<bool (*)(Eterm), erl_is_record_accessible>();
+    } else {
+        comment("auto_local operation");
+        mov_arg(ARG2, ArgAtom(mod));
+        runtime_call<bool (*)(Eterm, Eterm),
+                     erl_is_wildcard_record_accessible>();
+    }
     emit_leave_runtime();
 
     a.tbz(ARG1.w(), imm(0), resolve_beam_label(Fail, disp32K));
@@ -195,7 +203,7 @@ void BeamModuleAssembler::emit_get_record_field(const ArgLabel &Fail,
     mov_arg(ARG3, Id);
     mov_arg(ARG4, Name);
 
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eHeapAlloc>();
     if (Id.isImmed()) {
         comment("local record");
         runtime_call<Eterm (*)(Process *, Eterm, Eterm, Eterm),
@@ -205,7 +213,7 @@ void BeamModuleAssembler::emit_get_record_field(const ArgLabel &Fail,
         runtime_call<Eterm (*)(Process *, Eterm, Eterm, Eterm),
                      erl_get_record_field>();
     }
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     if (Fail.get() != 0) {
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));

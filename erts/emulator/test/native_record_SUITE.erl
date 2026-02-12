@@ -349,9 +349,12 @@ echo_loop() ->
     end.
 
 errors(_Config) ->
-    ?assertError({badfield,qqq}, #ext_records:quad{qqq=0}),
-    ?assertError({badfield,true}, #ext_records:quad{true=0}),
-    ?assertError({badfield,zzzz}, #ext_records:quad{zzzz=0}),
+    ?assertError({badfield,{{ext_records,quad},qqq}},
+                 #ext_records:quad{qqq=0}),
+    ?assertError({badfield,{{ext_records,quad},true}},
+                 #ext_records:quad{true=0}),
+    ?assertError({badfield,{{ext_records,quad},zzzz}},
+                 #ext_records:quad{zzzz=0}),
 
     ok.
 
@@ -386,7 +389,7 @@ records_module(_Config) ->
     ?assertError(badarg, records_create(?MODULE, b, {a,b,c})),
     ?assertError(badarg, records_create(?MODULE, b, #{})),
 
-    ?assertError({badfield,{bad,key}},
+    ?assertError({badfield,{{?MODULE,b},{bad,key}}},
                  records_create(?MODULE, b, [{{bad,key},value}])),
 
     ?assertError({badmap,badopts}, records:create(?MODULE, b, [], badopts)),
@@ -433,8 +436,9 @@ records_module(_Config) ->
     ?assertError({badmatch,_}, #?MODULE:b{x=foo, y=none, z=none} = id(R1)),
 
     ?assertError({badmap,not_a_map}, records:update(CRec, ?MODULE, c, not_a_map)),
-    ?assertError({badfield,a}, records:update(CRec, ?MODULE, c, #{a => b})),
-    ?assertError({badfield,{really,bad}},
+    ?assertError({badfield,{{?MODULE,c},a}},
+                 records:update(CRec, ?MODULE, c, #{a => b})),
+    ?assertError({badfield,{{?MODULE,c},{really,bad}}},
                  records:update(CRec, ?MODULE, c, #{{really,bad} => b})),
 
     LargeUpdate0 = #{Field => I * 2 || {Field,I} <- Large0},
@@ -451,21 +455,24 @@ records_module(_Config) ->
     UpdatedBigRecord = records:update(BigRecord, ?MODULE, big, LargeUpdate0),
 
     LargeUpdate1 = LargeUpdate0#{whatever => value},
-    ?assertError({badfield,whatever},
+    ?assertError({badfield,{{?MODULE,big},whatever}},
                  records:update(BigRecord, ?MODULE, big, LargeUpdate1)),
 
     %% We KNOW that `false` is the atom with the smallest atom index.
     Empty = id(#empty{}),
     LargeUpdate2 = LargeUpdate0#{false => 0},
-    ?assertError({badfield,false}, records:update(Empty, ?MODULE, empty, LargeUpdate2)),
+    ?assertError({badfield,{{?MODULE,empty},false}},
+                 records:update(Empty, ?MODULE, empty, LargeUpdate2)),
 
     S = #singleton{false = 0},
     #singleton{false = 10} = records:update(S, ?MODULE, singleton, #{false => 10}),
     #singleton{false = 0} = records:update(S, ?MODULE, singleton, id(#{})),
-    ?assertError({badfield,other}, records:update(S, ?MODULE, singleton,
-                                                  #{other => 100})),
-    ?assertError({badfield,other}, records:update(S, ?MODULE, singleton,
-                                                  #{false => 10, other => 100})),
+    ?assertError({badfield,{{?MODULE,singleton},other}},
+                 records:update(S, ?MODULE, singleton,
+                                #{other => 100})),
+    ?assertError({badfield,{{?MODULE,singleton},other}},
+                 records:update(S, ?MODULE, singleton,
+                                #{false => 10, other => 100})),
 
     N = 10000,
     #a{x=N,y=0} =
