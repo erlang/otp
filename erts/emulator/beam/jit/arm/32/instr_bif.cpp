@@ -252,12 +252,57 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 
         /* ERTS_IS_GC_DESIRED_INTERNAL */
         {
-            emit_nyi("emit_call_light_bif_ERTS_IS_GC_DESIRED_INTERNAL");
+            Label check_fragments = a.newLabel();
+
+            /* Test whether GC is forced. */
+            a.ldr(TMP, arm::Mem(c_p, offsetof(Process, flags)));
+            a.tst(TMP, imm(F_FORCE_GC | F_DISABLE_GC));
+            a.b_ne(gc_after_bif_call);
+
+            /* Test if binary heap size should trigger GC. */
+            a.ldr(TMP, arm::Mem(c_p, offsetof(Process, bin_vheap_sz)));
+            a.ldr(VAR, arm::Mem(c_p, offsetof(Process, off_heap.overhead)));
+            a.cmp(VAR, TMP);
+            a.b_ls(check_fragments);
+            a.b(gc_after_bif_call);
+
+            /* Test if heap fragment size is larger than remaining heap size. */
+            a.bind(check_fragments);
+            a.sub(TMP, E, HTOP);
+            a.ldr(VAR, arm::Mem(c_p, offsetof(Process, mbuf_sz)));
+            a.lsl(VAR, VAR, imm(3));
+            a.cmp(TMP, VAR);
+            a.b_lo(gc_after_bif_call);
         }
 
         a.bind(check_bif_return);
         {
-          emit_nyi("emit_call_light_bif_check_bif_return");
+            Label trap = a.newLabel(), error = a.newLabel();
+
+            emit_branch_if_not_value(ARG1, trap);
+
+            a.str(ARG1, getXRef(0));
+            a.bx(a32::lr);
+
+            a.bind(trap);
+            {
+                a.ldr(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+                a.cmp(TMP, imm(TRAP));
+                a.b_ne(error);
+
+                /* Trap out, preserving our continuation on the Erlang stack. */
+                emit_enter_erlang_frame();
+                a.ldr(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+                a.b(labels[context_switch_simplified]);
+            }
+
+            a.bind(error);
+            {
+                a.ldr(ARG2, entry_mem);
+                a.ldr(ARG4, export_mem);
+                add(ARG4, ARG4, offsetof(Export, info.mfa));
+                a.b(labels[raise_exception_shared]);
+            }
         }
 
         a.bind(gc_after_bif_call);
