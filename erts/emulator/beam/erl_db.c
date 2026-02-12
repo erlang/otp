@@ -60,6 +60,7 @@
 #define EXI_OWNER    am_owner	 /* The receiving process is already the owner. */
 #define EXI_NOT_OWNER am_not_owner /* The current process is not the owner. */
 #define EXI_ALREADY_EXISTS am_already_exists /* The table identifier already exists. */
+#define EXI_DEFAULT  am_default /* Invalid default tuple */
 
 #define DB_WRITE_CONCURRENCY_MIN_LOCKS 1
 #define DB_WRITE_CONCURRENCY_MAX_LOCKS 32768
@@ -1321,7 +1322,13 @@ static BIF_RETTYPE do_update_element(Process *p, DbTable *tb,
     }
 
     if (!tb->common.meth->db_lookup_dbterm(p, tb, key, default_obj, &handle)) {
-	cret = DB_ERROR_BADKEY;
+        if (is_value(default_obj)) {
+            p->fvalue = EXI_DEFAULT;
+            cret = DB_ERROR_UNSPEC;
+        }
+        else {
+            cret = DB_ERROR_BADKEY;
+        }
 	goto bail_out;
     }
 
@@ -1457,7 +1464,7 @@ do_update_counter(Process *p, DbTable* tb,
     }
 
     if (!tb->common.meth->db_lookup_dbterm(p, tb, arg2, arg4, &handle)) {
-	p->fvalue = EXI_BAD_KEY;
+        p->fvalue = is_value(arg4) ? EXI_DEFAULT : EXI_BAD_KEY;
 	cret = DB_ERROR_BADPARAM;
 	goto bail_out; /* key not found */
     }
