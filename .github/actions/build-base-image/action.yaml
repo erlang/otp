@@ -54,7 +54,7 @@ runs:
 
       - name: Download pre-built src
         if: inputs.BUILD_IMAGE == 'true' && steps.cache-src.outputs.cache-hit != 'true'
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: otp_prebuilt
 
@@ -68,7 +68,7 @@ runs:
 
       - name: Download pre-built binaries
         if: inputs.BUILD_IMAGE == 'true' && steps.cache-binary.outputs.cache-hit != 'true'
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: otp_prebuilt
 
