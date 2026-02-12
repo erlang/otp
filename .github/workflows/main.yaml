@@ -51,7 +51,9 @@ env:
     BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
     OTP_SBOM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
     ## 'true' if all steps should be built and all tests run
-    FULL_BUILD_AND_CHECK: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') || github.event_name == 'schedule' }}
+    FULL_BUILD_AND_CHECK: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') || github.event_name == 'scheduled' }}
+    ## number of file descriptors needed for Solaris and OpenBSD after testing soft and hard limits
+    NUMBER_FD: 7030
 
 permissions:
   contents: read
@@ -555,7 +557,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on FreeBSD
-        uses: vmactions/freebsd-vm@262fcf6e3e09d447753de95ad05d006c26e11f22 # v1
+        uses: vmactions/freebsd-vm@c9f815bc7aa0d34c9fdd0619b034a32d6ca7b57e
         with:
             usesh: true
             copyback: false
@@ -568,7 +570,6 @@ jobs:
                 tar -xzf ./otp_src.tar.gz
                 cd otp
                 export ERL_TOP=`pwd`
-                export MAKEFLAGS=-j$(($(nproc) + 2))
                 export ERLC_USE_SERVER=true
                 export ERTS_SKIP_DEPEND=true
                 ./configure
@@ -584,17 +585,17 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on OpenBSD
-        uses: vmactions/openbsd-vm@a23337e408f7990a9369882eafbc24af55f5d3af # v1.3.3
+        uses: vmactions/openbsd-vm@d6c29ce1b4d9620b1f472e0022c106703387358f # v1.3.5
         with:
             usesh: true
             copyback: false
             prepare: |
                 pkg_add -I bash gmake gtar autoconf ncurses pkgconf
             run: |
+                ulimit -n "${{ env.NUMBER_FD }}"
                 tar -xzf ./otp_src.tar.gz
                 cd otp
                 export ERL_TOP=`pwd`
-                export MAKEFLAGS=-j$($(nproc))
                 export ERLC_USE_SERVER=true
                 export ERTS_SKIP_DEPEND=true
                 ./configure
@@ -610,17 +611,17 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on Solaris
-        uses: vmactions/solaris-vm@6fcd81bcefc0d16635f2c1969274288464dc5039 # v1.2.8
+        uses: vmactions/solaris-vm@a5f280f06289e0d16f882b06a22c922517baa857 # v1.3.0
         with:
             usesh: true
             copyback: false
             prepare: |
                 pkg refresh --full && pkg install --accept bash developer/build/gnu-make archiver/gnu-tar autoconf ncurses developer/build/pkg-config developer/gcc
             run: |
+                ulimit -n "${{ env.NUMBER_FD }}"
                 tar -xzf ./otp_src.tar.gz
                 cd otp
                 export ERL_TOP=`pwd`
-                export MAKEFLAGS=-j$($(nproc))
                 export ERLC_USE_SERVER=true
                 export ERTS_SKIP_DEPEND=true
                 ./configure
