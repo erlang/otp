@@ -966,8 +966,12 @@ start_children(Children, SupName) ->
                 case do_start_child(SupName, Child, info_report) of
                     {ok, undefined} when ?is_temporary(Child) ->
                         remove;
+                    {ok, Pid} when ?is_temporary(Child) ->
+                        do_not_save_start_args(Pid, Child);
                     {ok, Pid} ->
                         {update,Child#child{pid = Pid}};
+                    {ok, Pid, _Extra} when ?is_temporary(Child) ->
+                        do_not_save_start_args(Pid, Child);
                     {ok, Pid, _Extra} ->
                         {update,Child#child{pid = Pid}};
                     {error, Reason} ->
@@ -976,6 +980,9 @@ start_children(Children, SupName) ->
                 end
         end,
     children_map(Start,Children).
+
+do_not_save_start_args(Pid, #child{mfargs = {M,F, _}} = Child) ->
+    {update,Child#child{pid = Pid, mfargs = {M,F, undefined}}}.
 
 do_start_child(SupName, Child, Report) ->
     #child{mfargs = {M, F, Args}} = Child,
@@ -1938,7 +1945,7 @@ append({Ids1,Db1},{Ids2,Db2}) ->
 %%-----------------------------------------------------------------
 %% Func: init_state/4
 %% Args: SupName = {local, atom()} | {global, term()} | self
-%%       Type = {Strategy, MaxIntensity, Period}
+%%       Type = {Strategy, MaxIntensity, Period} | map()
 %%         Strategy = one_for_one | one_for_all | simple_one_for_one |
 %%                    rest_for_one
 %%         MaxIntensity = integer() >= 0

@@ -79,7 +79,8 @@
 	  significant_escalation/1, significant_upgrade_never_any/1,
 	  significant_upgrade_any_never/1, significant_upgrade_never_all/1,
 	  significant_upgrade_all_never/1, significant_upgrade_any_all/1,
-	  significant_upgrade_all_any/1, significant_upgrade_child/1]).
+	  significant_upgrade_all_any/1, significant_upgrade_child/1,
+          temporary_dynamic_subtree/1]).
 
 %% Misc tests
 -export([child_unlink/1, tree/1, count_children/1, count_children_supervisor/1,
@@ -170,7 +171,7 @@ groups() ->
        significant_upgrade_never_any, significant_upgrade_any_never,
        significant_upgrade_never_all, significant_upgrade_all_never,
        significant_upgrade_any_all, significant_upgrade_all_any,
-       significant_upgrade_child]}].
+       significant_upgrade_child, temporary_dynamic_subtree]}].
 
 init_per_suite(Config) ->
     Config.
@@ -3739,6 +3740,23 @@ significant_upgrade_child(_Config) ->
     ok = check_exit([Sup3]),
 
     ok.
+
+%% For a dynamic a sub-tree  with temporary children where at least one
+%% will be significant and that will be placed under a simple_one_for_one
+%% supervisor in an application. Check that it does not consume
+%% unnecessary memory
+temporary_dynamic_subtree(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Sup} = dyn_sup:start_link([foo], [bar]),
+    State = sys:get_state(Sup),
+    {Children, ChildInfo} = element(4,State),
+    %% Check that temporary children argument lists are
+    %% not stored.
+    false = lists:any(fun(Child) ->
+                              Tuple = maps:get(Child, ChildInfo),
+                              {supervisor_1, start_child, Args} = element(4, Tuple),
+                              Args =/= undefined
+                      end, Children).
 
 %% Test trying to start a child that uses an already registered name.
 already_started_outside_supervisor(_Config) ->

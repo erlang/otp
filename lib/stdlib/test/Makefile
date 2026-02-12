@@ -45,6 +45,7 @@ MODULES= \
 	dummy1_h \
 	dummy_h \
 	dummy_via \
+	dyn_sup \
 	edlin_expand_SUITE \
 	edlin_context_SUITE \
 	epp_SUITE \
