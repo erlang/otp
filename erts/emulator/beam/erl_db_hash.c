@@ -3909,7 +3909,10 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
         int arity = arityval(*objp);
         Eterm *htop, *hend;
 
-        ASSERT(arity >= tb->common.keypos);
+        if (arity < tb->common.keypos) {
+            WUNLOCK_HASH_LCK_CTR(lck_ctr);
+            return 0;
+        }
         htop = HAlloc(p, arity + 1);
         hend = htop + arity + 1;
         sys_memcpy(htop, objp, sizeof(Eterm) * (arity + 1));

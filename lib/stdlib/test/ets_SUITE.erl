@@ -68,7 +68,8 @@
          fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
 	 update_element/1, update_element_default/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
 -export([update_counter_with_default/1]).
--export([update_counter_with_default_bad_pos/1]).
+-export([update_counter_with_default_bad_pos/1,
+	 update_counter_with_default_bad_default/1]).
 -export([update_counter_table_growth/1]).
 -export([member/1]).
 -export([memory/1]).
@@ -159,6 +160,7 @@ all() ->
      update_counter, evil_update_counter,
      update_counter_with_default,
      update_counter_with_default_bad_pos,
+     update_counter_with_default_bad_default,
      partly_bound,
      update_counter_table_growth,
      match_heavy, {group, fold}, member, t_delete_object,
@@ -2702,6 +2704,17 @@ update_element_default_opts(Opts) ->
 		    [{key1, key2, b, x}] = ets:lookup(Tab, Key),
 		    true = ets:update_element(Tab, Key, {3, c}, {key1, key2, a, y}),
 		    [{key1, key2, c, x}] = ets:lookup(Tab, Key),
+
+                    BadDefault = list_to_tuple(lists:seq(1, Pos-1)),
+                    badarg = try
+                                 ets:update_element(Tab, key_not_present, {1, x}, BadDefault)
+                             catch
+                                 error:badarg -> badarg
+                             end,
+
+                    %% Ignore bad default object if key exist (for backward bug-compat)
+                    true = ets:update_element(Tab, Key, {3, d}, BadDefault),
+
 		    ets:delete(Tab)
                 end
 	    )
@@ -3073,6 +3086,25 @@ update_counter_with_default_bad_pos_do(Opts) ->
              Class:Reason -> {Class, Reason}
          end,
     0 = ets:info(T, size),
+    ok.
+
+update_counter_with_default_bad_default(Config) when is_list(Config) ->
+    repeat_for_opts_all_set_table_types(fun update_counter_with_default_bad_default_do/1).
+
+update_counter_with_default_bad_default_do(Opts) ->
+    T = ets_new(a, [{keypos, 3} | Opts]),
+    0 = ets:info(T, size),
+    ok = try ets:update_counter(T, key, {2, 1}, {0, 0})
+	 catch
+	     error:badarg -> ok;
+	     Class:Reason -> {Class, Reason}
+	 end,
+    0 = ets:info(T, size),
+
+    %% Ignore bad default object if key exist (for backward bug-compat)
+    true = ets:insert(T, {0,0,key}),
+    1 = ets:update_counter(T, key, {2, 1}, {0, 0}),
+    1 = ets:info(T, size),
     ok.
 
 update_counter_table_growth(_Config) ->
