@@ -669,8 +669,7 @@ format_error_1({deprecated_builtin_type, {Name, Arity},
      [Name, Arity, Rel, UseS]};
 format_error_1(deprecated_catch) ->
     ~"""
-     'catch ...' is deprecated and will be removed in a
-     future version of Erlang/OTP; please use 'try ... catch ... end' instead.
+     'catch ...' is deprecated; please use 'try ... catch ... end' instead.
      Compile directive 'nowarn_deprecated_catch' can be used to suppress
      warnings in selected modules.
      """;
