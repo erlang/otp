@@ -80,6 +80,9 @@ See also http://msdn.microsoft.com/
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
 	 terminate/2, code_change/3]).
 
+-deprecated([{'_','_',"Legacy protocol support will be dropped in OTP-30, does not really provide "
+              "backend transparency and known usage is low."}]).
+
 -doc "Opaque reference to an ODBC connection as returnded by connect/2.".
 -doc(#{group => <<"Types used in ODBC application">>}).
 -opaque connection_reference() :: pid().

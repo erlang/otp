@@ -40,6 +40,8 @@
 # Added in OTP 29.
 #
 lists:zf/2 since=29
+ftp:_/_  since=29 remove=30
+odbc:_/_  since=29 remove=30
 
 #
 # Added in OTP 28.
