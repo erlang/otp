@@ -235,7 +235,7 @@ memory. The `space` variant shrinks the memory requirements, but with a higher
 time consumption.
 
 To set it, set the option `{key_cb, {ssh_file, [{optimize,TimeOrSpace}]}` in the
-call of ["ssh:connect/3](`ssh:connect/3`), `ssh:daemon/2` or similar function
+call of [ssh:connect/3](`ssh:connect/3`), `ssh:daemon/2` or similar function
 call that initiates an ssh connection.
 """.
 -doc(#{group => <<"Options">>}).
