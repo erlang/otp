@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ obsolete(code, lib_dir, 2) ->
 obsolete(crypto, enable_fips_mode, 1) ->
     {deprecated, "use config parameter fips_mode"};
 obsolete(crypto, rand_uniform, 2) ->
-    {deprecated, "use rand:uniform/1 instead"};
+    {deprecated, "use strong_rand_range/1 instead"};
 obsolete(crypto, start, 0) ->
     {deprecated, "use application:start(crypto) instead"};
 obsolete(crypto, stop, 0) ->
@@ -254,8 +254,6 @@ obsolete(zlib, setBufSize, 2) ->
     {removed, "this function has been removed"};
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
-obsolete(mnesia_registry, create_table, _) ->
-    {deprecated, "use mnesia:create_table/2 instead", "OTP 29"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->
@@ -270,10 +268,14 @@ obsolete(erl_scan, token_info, _) ->
     {removed, "use erl_scan:{category,column,line,location,symbol,text}/1 instead"};
 obsolete(filename, find_src, _) ->
     {removed, "use filelib:find_source/1,3 instead"};
+obsolete(mnesia_registry, create_table, _) ->
+    {removed, "use mnesia:create_table/2 instead"};
 obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl:handshake/1,2,3 instead"};
 obsolete(ct_slave, _, _) ->
     {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 29"};
+obsolete(ftp, _, _) ->
+    {deprecated, "Legacy protocol support will be dropped in OTP-30, use more modern approach for file transfer as for instance SFTP (SSH File Transfer Protocol).", "OTP 30"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(random, _, _) ->
