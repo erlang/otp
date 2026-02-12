@@ -83,6 +83,10 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 docs:
 
 release_spec: opt
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/demo"
+	$(INSTALL_DATA) $(TESTSRC)  "$(RELSYSDIR)/examples/demo"
+	$(INSTALL_DATA) $(TESTTARGETS) "$(RELSYSDIR)/examples/demo"
+	$(INSTALL_DATA) image.jpg erlang.png ex_htmlWindow.html "$(RELSYSDIR)/examples/demo"
 
 release_tests_spec:
 
