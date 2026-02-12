@@ -31,7 +31,7 @@ enum chars_format {
 static inline int to_chars(const floating_decimal_64 v, const bool sign, char* const result) {
   // Step 5: Print the decimal representation.
   uint64_t __output = v.mantissa;
-  int32_t _Ryu_exponent = v.exponent;
+  const int32_t _Ryu_exponent = v.exponent;
   const uint32_t __olength = decimalLength17(__output);
   int32_t _Scientific_exponent = _Ryu_exponent + ((int32_t) __olength) - 1;
 
