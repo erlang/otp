@@ -316,7 +316,12 @@ is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
     true;
 is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
-    ssh_lib:comp(Mac, mac(Algorithm, Key, SeqNum, Data)).
+    try
+        crypto:hash_equals(Mac, mac(Algorithm, Key, SeqNum, Data))
+    catch
+        _:_ ->
+            false
+    end.
 
 handle_hello_version(Version) ->
     try
@@ -1959,11 +1964,13 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
             %% The length is decrypted separately in a first step
             PacketLenBin = crypto:crypto_one_time(chacha20, K1, <<0:8/unit:8, Seq:8/unit:8>>, EncryptedLen, false),
             {Ssh, PacketLenBin};
-         {AAD,Ctext,Ctag} ->
+        {AAD,Ctext,Ctag} ->
             %% The length is already decrypted and used to divide the input
             %% Check the mac (important that it is timing-safe):
             PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
-            case ssh_lib:comp(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>)) of
+	    try
+                crypto:hash_equals(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>))
+	    of
                 true ->
                     %% MAC is ok, decode
                     IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
@@ -1971,6 +1978,9 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
                     {Ssh, PlainText};
                 false ->
                     {Ssh,error}
+            catch
+                _:_ ->
+                    {Ssh, error}
             end
     end;
 decrypt(#ssh{decrypt = none} = Ssh, Data) ->

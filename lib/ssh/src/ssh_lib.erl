@@ -27,13 +27,10 @@
 -module(ssh_lib).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -export([
          format_address_port/2, format_address_port/1,
          format_address/1,
          format_time_ms/1,
-         comp/2,
          set_label/1,
          set_label/2,
          trim_reason/1,
@@ -74,27 +71,6 @@ format_time_ms(T) when is_integer(T) ->
 
             
 %%%----------------------------------------------------------------
-
-comp(X1, X2) ->
-    comp(X1, X2, true).
-
-%%% yes - very far from best implementation
-comp(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
-    comp(R1, R2, Truth and (B1 == B2));
-comp(<<_,R1/binary>>, <<>>, Truth) ->
-    comp(R1, <<>>, Truth and false);
-comp(<<>>, <<>>, Truth) ->
-    Truth;
-
-comp([H1|T1], [H2|T2], Truth) ->
-    comp(T1, T2, Truth and (H1 == H2));
-comp([_|T1], [], Truth) ->
-    comp(T1, [], Truth and false);
-comp([], [], Truth) ->
-    Truth;
-
-comp(_, _, _) ->
-    false.
 
 set_label(Details) ->
     proc_lib:set_label({ssh, Details}).
