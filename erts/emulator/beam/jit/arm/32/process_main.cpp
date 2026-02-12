@@ -54,6 +54,17 @@ void BeamGlobalAssembler::emit_process_main() {
     /* Be kind to debuggers and `perf` by setting up a proper stack frame. */
     emit_enter_runtime_frame();
 
+    /* Normal schedulers don't get a preallocated register block; keep it on
+     * the runtime stack like other JIT backends do. */
+    sub(a32::sp,
+        a32::sp,
+        sizeof(ErtsSchedulerRegisters) + ERTS_CACHE_LINE_SIZE);
+    mov_imm(TMP, ~ERTS_CACHE_LINE_MASK);
+    a.and_(a32::sp, a32::sp, TMP);
+
+    a.str(a32::sp, arm::Mem(ARG1, offsetof(ErtsSchedulerData, registers)));
+    a.mov(scheduler_registers, a32::sp);
+
     /* The offset of start_time_i in ErtsSchedulerRegisters cannot stay
      * in the 12 bit immediate accepted by the STR instruction.
      *
