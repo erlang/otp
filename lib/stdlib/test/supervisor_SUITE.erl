@@ -3747,7 +3747,9 @@ significant_upgrade_child(_Config) ->
 %% unnecessary memory
 temporary_dynamic_subtree(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    {ok, Sup} = dyn_sup:start_link([foo], [bar]),
+
+    {ok, _TopSup} = dyn_top_sup:start_link(), % Registered locally
+    {ok, Sup} = dyn_top_sup:start_child([[foo], [bar]]),
     State = sys:get_state(Sup),
     {Children, ChildInfo} = element(4,State),
     %% Check that temporary children argument lists are
@@ -3756,7 +3758,11 @@ temporary_dynamic_subtree(Config) when is_list(Config) ->
                               Tuple = maps:get(Child, ChildInfo),
                               {supervisor_1, start_child, Args} = element(4, Tuple),
                               Args =/= undefined
-                      end, Children).
+                      end, Children),
+    %% Check that we do not store unnecessary information
+    %% in args  field of state that where provided as
+    %% arguments to the supervisor.
+    [dyn_subtree] = element(15,State).
 
 %% Test trying to start a child that uses an already registered name.
 already_started_outside_supervisor(_Config) ->
