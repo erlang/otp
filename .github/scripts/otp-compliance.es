@@ -127,6 +127,7 @@
                              'CONTAINS' => [],
                              'TEST_OF' => [],
                              'BUILD_TOOL_OF' => [],
+                             'DEPENDENCY_MANIFEST_OF' => [],
                              'PACKAGE_OF' => []}.
 
 -record(spdx_package, {'SPDXID'           :: unicode:chardata(),
@@ -148,6 +149,7 @@
                                             'CONTAINS' => [],
                                             'TEST_OF' => [],
                                             'BUILD_TOOL_OF' => [],
+                                            'DEPENDENCY_MANIFEST_OF' => [],
                                             'PACKAGE_OF' => []} :: spdx_relations()
                       }).
 -type spdx_package() :: #spdx_package{}.
@@ -1237,6 +1239,7 @@ create_package_relationships(Packages, Spdx) ->
                                             #{'PACKAGE_OF' := L } -> {'PACKAGE_OF', L};
                                             #{'TEST_OF' := L} -> {'TEST_OF', L};
                                             #{'BUILD_TOOL_OF' := L} -> {'BUILD_TOOL_OF', L};
+                                            #{'DEPENDENCY_MANIFEST_OF' := L} -> {'DEPENDENCY_MANIFEST_OF', L};
                                             #{'DOCUMENTATION_OF' := L} -> {'DOCUMENTATION_OF', L}
                                         end,
                             lists:foldl(fun ({ElementId, RelatedElement}, Acc1) ->
@@ -1877,6 +1880,7 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                                           ~"documentDescribes" := [ProjectName]}=_Spdx) ->
     SystemDocs = generate_spdx_system_docs(Files, ProjectName),
     OTPBuild = generate_spdx_otp_build(Files, ProjectName),
+    Licenses = generate_spdx_otp_licenses(Files, ProjectName),
     maps:fold(fun (PackageName, {PrefixPath, AppInfo}, Acc) ->
                       SpdxPackageFiles = group_files_by_app(Files, PrefixPath),
                       TestFiles = get_test_files(PackageName, SpdxPackageFiles, PrefixPath),
@@ -1918,7 +1922,7 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                                                end, [Package, DocPackage, TestPackage], Relations),
                       AllPackages = append_build_package(BuildPackage, Package, Packages),
                       AllPackages ++ Acc
-               end, [SystemDocs, OTPBuild], PackageMappings).
+               end, [SystemDocs, OTPBuild, Licenses], PackageMappings).
 
 append_build_package(#spdx_package{'hasFiles' = []}, _, AllPackages) ->
     AllPackages;
@@ -1948,6 +1952,25 @@ generate_spdx_otp_build(Files, ParentSPDXPackageId) ->
                                               OneLinerLicense, OneLinerLicense, false),
     Relations = #{ 'BUILD_TOOL_OF' => [{ BuildPackage#spdx_package.'SPDXID', ParentSPDXPackageId }]},
     BuildPackage#spdx_package { 'relationships' = Relations }.
+
+generate_spdx_otp_licenses(Files, ParentSPDXPackageId) ->
+    PrefixPath = [~"LICENSES", ~"FILE-HEADERS"],
+    SpdxPackageFiles = lists:flatmap(fun (Prefix) ->
+                                             group_files_by_app(Files, Prefix)
+                                     end, PrefixPath),
+
+    PackageName = ~"license-headers",
+    LicenseFiles = lists:flatmap(fun (Prefix) ->
+                                       get_folder_files(SpdxPackageFiles, Prefix)
+                               end, PrefixPath),
+    LicensingPackage = create_spdx_package_record(<<PackageName/binary>>,
+                                              get_otp_version(),
+                                              <<"OTP License header files">>,
+                                              LicenseFiles, ?spdx_homepage,
+                                              ~"NOASSERTION", ~"NOASSERTION", false),
+    Relations = #{ 'DEPENDENCY_MANIFEST_OF' => [{ LicensingPackage#spdx_package.'SPDXID', ParentSPDXPackageId }]},
+    LicensingPackage#spdx_package { 'relationships' = Relations }.
+
 
 generate_spdx_system_docs(Files, ParentSPDXPackageId) ->
     PrefixPath = ~"system",
@@ -2683,6 +2706,7 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
                                  lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"TEST_OF",
                                                          ~"OPTIONAL_DEPENDENCY_OF",
                                                          ~"DOCUMENTATION_OF", ~"BUILD_TOOL_OF",
+                                                         ~"DEPENDENCY_MANIFEST_OF",
                                                          ~"OPTIONAL_COMPONENT_OF"]) andalso
                                  lists:member(Related, PackageIds) andalso
                                  lists:member(PackageId, PackageIds) andalso
