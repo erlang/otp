@@ -66,7 +66,8 @@ sup_flags() = #{strategy => strategy(),           % optional
                 intensity => non_neg_integer(),   % optional
                 period => pos_integer(),          % optional
                 hibernate_after => timeout(),     % optional, available since OTP 28.0
-                auto_shutdown => auto_shutdown()} % optional
+                auto_shutdown => auto_shutdown(), % optional
+                dyn_subtree => boolean()}         % optional, available since OTP 28.4
 ```
 
 #### Restart Strategies
@@ -162,6 +163,13 @@ Behavior in OTP Design Principles.
 > applications may be compiled with older OTP versions.
 
 [](){: #child_spec }
+
+### Dynamic Sub-tree
+
+A supervisor sub-tree started under a simple_one_for_one supervisor
+may specify the ´dyn_subtree' optional flag to enable the supervisor
+to save memory as initial arguments for temporary processes of such
+trees does not have to be saved for any later use.
 
 ### Child specification
 
@@ -433,7 +441,8 @@ see more details [above](`m:supervisor#sup_flags`).
 		       intensity => non_neg_integer(),   % optional
 		       period => pos_integer(),          % optional
 		       auto_shutdown => auto_shutdown(), % optional
-		       hibernate_after => timeout()}     % optional
+		       hibernate_after => timeout(),     % optional
+                       dyn_subtree => boolean()}         % optional
                    | {RestartStrategy :: strategy(),
                       Intensity :: non_neg_integer(),
                       Period :: pos_integer()}.
@@ -444,7 +453,8 @@ see more details [above](`m:supervisor#sup_flags`).
 -define(default_flags, #{strategy        => one_for_one,
 			 intensity       => 1,
 			 period          => 5,
-			 auto_shutdown   => never}).
+			 auto_shutdown   => never,
+                         dyn_subtree    =>  false}).
 -define(default_child_spec, #{restart    => permanent,
 			      type       => worker}).
 %% Default 'shutdown' is 5000 for workers and infinity for supervisors.
@@ -927,9 +937,15 @@ init({SupName, Mod, Args}) ->
 
 init_children(State, StartSpec) ->
     SupName = State#state.name,
+    DynSubTree = case State#state.args of
+                     [dyn_subtree] ->
+                         true;
+                     _ ->
+                         false
+                 end,
     case check_startspec(StartSpec, State#state.auto_shutdown) of
         {ok, Children} ->
-            case start_children(Children, SupName) of
+            case start_children(Children, SupName, DynSubTree) of
                 {ok, NChildren} ->
                     {ok, State#state{children = NChildren}, hibernate_after_action(State)};
                 {error, NChildren, Reason} ->
@@ -960,17 +976,17 @@ init_dynamic(_State, StartSpec) ->
 %%          NChildren = children() % Ids in termination order
 %%                                   (reversed start order)
 %%-----------------------------------------------------------------
-start_children(Children, SupName) ->
+start_children(Children, SupName, DynSubTree) ->
     Start =
         fun(Id,Child) ->
                 case do_start_child(SupName, Child, info_report) of
                     {ok, undefined} when ?is_temporary(Child) ->
                         remove;
-                    {ok, Pid} when ?is_temporary(Child) ->
+                    {ok, Pid} when DynSubTree andalso ?is_temporary(Child) ->
                         do_not_save_start_args(Pid, Child);
                     {ok, Pid} ->
                         {update,Child#child{pid = Pid}};
-                    {ok, Pid, _Extra} when ?is_temporary(Child) ->
+                    {ok, Pid, _Extra} when DynSubTree andalso ?is_temporary(Child) ->
                         do_not_save_start_args(Pid, Child);
                     {ok, Pid, _Extra} ->
                         {update,Child#child{pid = Pid}};
@@ -1272,7 +1288,9 @@ terminate(_Reason, State) ->
 code_change(_, State, _) ->
     case (State#state.module):init(State#state.args) of
 	{ok, {SupFlags, StartSpec}} ->
-	    case set_flags(SupFlags, State) of
+            %% This preserves the current behaviour,
+            %% you can not update the init args of this sup
+	    case set_flags(SupFlags, State#state.args, State) of
 		{ok, State1}  ->
                     update_childspec(State1, StartSpec);
 		{invalid_type, SupFlags} ->
@@ -1488,7 +1506,7 @@ restart(one_for_all, Child, #state{name=SupName} = State) ->
 
 restart_multiple_children(Child, Children, SupName) ->
     Children1 = terminate_children(Children, SupName),
-    case start_children(Children1, SupName) of
+    case start_children(Children1, SupName, false) of
 	{ok, NChildren} ->
 	    {ok, NChildren};
 	{error, NChildren, {failed_to_start_child, FailedId, _Reason}} ->
@@ -1956,23 +1974,35 @@ append({Ids1,Db1},{Ids2,Db2}) ->
 %% Returns: {ok, state()} | Error
 %%-----------------------------------------------------------------
 init_state(SupName, Type, Mod, Args) ->
-    set_flags(Type, #state{name = supname(SupName,Mod),
-			   module = Mod,
-			   args = Args,
-			   auto_shutdown = never}).
-
-set_flags(Flags, State) ->
+    set_flags(Type, Args, #state{name = supname(SupName,Mod),
+                                 module = Mod,
+                                 auto_shutdown = never}).
+set_flags(Flags, Args, State) ->
     try check_flags(Flags) of
 	#{strategy := Strategy, intensity := MaxIntensity, period := Period,
-	  auto_shutdown := AutoShutdown, hibernate_after := HibernateAfter} ->
+	  auto_shutdown := AutoShutdown, hibernate_after := HibernateAfter,
+          dyn_subtree := Bool} ->
 	    {ok, State#state{strategy = Strategy,
 			     intensity = MaxIntensity,
 			     period = Period,
+                             args = maybe_save_sup_init_args(Args, Bool),
 			     auto_shutdown = AutoShutdown,
 			     hibernate_after = HibernateAfter}}
     catch
 	Thrown -> Thrown
     end.
+
+maybe_save_sup_init_args(_, true) ->
+    %% Supervisors started under a simple_one_for_one supervisor
+    %% that is stated dynamically in run-time does not need to
+    %% save initial arguments for possible code_change.
+    %% Supervisor can signal this condition by setting
+    %% optional dyn_subtree flag. Save special value
+    %% that can be also used to skip saving
+    %% init args of temporary children
+    [dyn_subtree];
+maybe_save_sup_init_args(Args, false) ->
+    Args.
 
 check_flags(SupFlags) when is_map(SupFlags) ->
     case maps:merge(?default_flags, SupFlags) of
@@ -1992,13 +2022,15 @@ do_check_flags(#{strategy := Strategy,
 		 intensity := MaxIntensity,
 		 period := Period,
 		 auto_shutdown := AutoShutdown,
-		 hibernate_after := HibernateAfter} = Flags) ->
+		 hibernate_after := HibernateAfter,
+                 dyn_subtree := Bool} = Flags) ->
     validStrategy(Strategy),
     validIntensity(MaxIntensity),
     validPeriod(Period),
     validAutoShutdown(AutoShutdown),
     validAutoShutdownForStrategy(AutoShutdown, Strategy),
     validHibernateAfter(HibernateAfter),
+    validDynSubTree(Bool),
     Flags.
 
 validStrategy(simple_one_for_one) -> true;
@@ -2033,6 +2065,11 @@ validHibernateAfter(Timeout) when is_integer(Timeout), Timeout >= 0 ->
     true;
 validHibernateAfter(What) ->
     throw({invalid_hibernate_after, What}).
+
+validDynSubTree(Value) when is_boolean(Value) ->
+    true;
+validDynSubTree(What) ->
+    throw({invalid_dyn_subtree, What}).
 
 -compile({inline, [hibernate_after_action/1]}).
 hibernate_after_action(#state{tag = Tag, hibernate_after = HibernateAfter}) ->

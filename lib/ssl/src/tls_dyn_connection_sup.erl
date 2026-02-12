@@ -52,7 +52,8 @@ init([SenderArgs, ReciverArgs]) ->
     SupFlags = #{strategy      => one_for_all,
                  auto_shutdown => any_significant,
                  intensity     =>    0,
-                 period        => 3600
+                 period        => 3600,
+                 dyn_subtree =>  true
                 },
     ChildSpecs = [sender(SenderArgs), receiver(ReciverArgs)],
     {ok, {SupFlags, ChildSpecs}}.
