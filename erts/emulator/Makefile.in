@@ -455,8 +455,16 @@ CREATE_DIRS += $(OBJDIR) \
         $(ZSTD_OBJDIR)
 
 ifeq ($(FLAVOR),jit)
-CREATE_DIRS+=$(OBJDIR)/asmjit/ $(OBJDIR)/asmjit/core $(OBJDIR)/asmjit/$(JIT_ARCH)
-CREATE_DIRS+=$(TTF_DIR)/asmjit $(TTF_DIR)/asmjit/core $(TTF_DIR)/asmjit/$(JIT_ARCH)
+CREATE_DIRS+=$(OBJDIR)/asmjit/ \
+	$(OBJDIR)/asmjit/core \
+	$(OBJDIR)/asmjit/support \
+	$(OBJDIR)/asmjit/arm \
+	$(OBJDIR)/asmjit/x86
+CREATE_DIRS+=$(TTF_DIR)/asmjit \
+	$(TTF_DIR)/asmjit/core \
+	$(TTF_DIR)/asmjit/support \
+	$(TTF_DIR)/asmjit/arm \
+	$(TTF_DIR)/asmjit/x86
 endif
 
 BINDIR = $(ERL_TOP)/bin/$(TARGET)
@@ -747,9 +755,16 @@ $(UTILS_YCF_OUTPUT): beam/utils.c $(ERTS_LIB)
 
 GENERATE += $(DB_INSERT_LIST_OUTPUT) $(MAPS_YCF_OUTPUT) $(UTILS_YCF_OUTPUT)
 
-## ASMJIT source files and headers
-ASMJIT_CPP = $(wildcard asmjit/core/*.cpp) $(wildcard asmjit/$(JIT_ARCH)/*.cpp)
-ASMJIT_H = $(wildcard asmjit/*.h) $(wildcard asmjit/core/*.h) $(wildcard asmjit/$(JIT_ARCH)/*.h)
+## ASMJIT source files and headers. Note that ARM and x86 are both included,
+## unconditionally, since `core` sometimes references them.
+ASMJIT_CPP = $(wildcard asmjit/core/*.cpp) \
+	$(wildcard asmjit/support/*.cpp) \
+	$(wildcard asmjit/$(JIT_ARCH)/*.cpp)
+ASMJIT_H = $(wildcard asmjit/*.h) \
+	$(wildcard asmjit/core/*.h) \
+	$(wildcard asmjit/arm/*.h) \
+	$(wildcard asmjit/x86/*.h) \
+	$(wildcard asmjit/support/*.h)
 ASMJIT_TTF_H = $(foreach HEADER,$(ASMJIT_H),$(TTF_DIR)/$(HEADER))
 
 ifeq ($(FLAVOR),jit)
@@ -959,37 +974,41 @@ $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 # because GCC only allows one precompiled header, and requires it to be
 # included before any other directives, including other #includes.
 #
-ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DASMJIT_STATIC=1 -DASMJIT_NO_FOREIGN=1
+ASMJIT_FLAGS=-DASMJIT_EMBED=1 \
+	-DASMJIT_NO_BUILDER=1 \
+	-DASMJIT_NO_COMPILER=1 \
+	-DASMJIT_NO_UJIT=1 \
+	-DASMJIT_NO_DEPRECATED=1 \
+	-DASMJIT_STATIC=1 \
+	-DASMJIT_NO_FOREIGN=1
 ASMJIT_CXXFLAGS=$(filter-out -Wformat -Wformat=2, $(CXXFLAGS)) @NO_MAYBE_UNINITIALIZED@
-ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.hpp.gch
-ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.hpp
+ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/core.h.gch
+ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/core.h
 
 $(OBJDIR)/%.o: beam/jit/%.cpp $(ASMJIT_PCH_OBJ)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                        \
-          $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) , $(CXXFLAGS))                \
-          -include $(ASMJIT_PCH_SRC) -c $< -o $@
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                                  \
+          $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) , $(CXXFLAGS))         \
+          -x c++-header -include $(ASMJIT_PCH_SRC) -x c++ -c $< -o $@
 
 $(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp $(ASMJIT_PCH_OBJ)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                        \
-          $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) , $(CXXFLAGS))                \
-          -include $(ASMJIT_PCH_SRC) -c $< -o $@
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                                  \
+          $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) , $(CXXFLAGS))         \
+          -x c++-header -include $(ASMJIT_PCH_SRC) -x c++ -c $< -o $@
 
 $(OBJDIR)/asmjit/%.o: asmjit/%.cpp $(ASMJIT_PCH_OBJ) $(dir $@)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                        \
-          $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) , $(ASMJIT_CXXFLAGS))         \
-          -include $(ASMJIT_PCH_SRC) -c $< -o $@
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                                  \
+          $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) , $(ASMJIT_CXXFLAGS))  \
+          -x c++-header -include $(ASMJIT_PCH_SRC) -x c++ -c $< -o $@
 
 ## The dependency on erl_bif_info.c is in order to trigger a rebuild when
 ## the git sha define on the command line argument changes
 $(ASMJIT_PCH_OBJ): $(ASMJIT_PCH_SRC) $(ASMJIT_TTF_H) beam/erl_bif_info.c
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                        \
-          $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) , $(CXXFLAGS))                \
-          -I$(TTF_DIR) -c $< -o $@
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                                  \
+          $(subst $(space)-O2$(space), $(GEN_OPT_FLGS) , $(CXXFLAGS))         \
+          -I$(TTF_DIR) -x c++-header -c $< -o $@
 
 ## We copy all asmjit headers into TTF_DIR in order for cross-compilation
 ## with pre-compiled header to work.
-$(TTF_DIR)/asmjit/asmjit.hpp: asmjit/asmjit.h
-	$(V_at)cp $< $@
 $(TTF_DIR)/asmjit/%.h: asmjit/%.h
 	$(V_at)cp $< $@
 

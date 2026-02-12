@@ -1,16 +1,16 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86BUILDER_H_INCLUDED
 #define ASMJIT_X86_X86BUILDER_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 #ifndef ASMJIT_NO_BUILDER
 
-#include "../core/builder.h"
-#include "../x86/x86emitter.h"
+#include <asmjit/core/builder.h>
+#include <asmjit/x86/x86emitter.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -31,52 +31,52 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! using namespace asmjit;
 //!
-//! typedef void (*SumIntsFunc)(int* dst, const int* a, const int* b);
-//!
 //! // Small helper function to print the current content of `cb`.
-//! static void dumpCode(BaseBuilder& builder, const char* phase) {
+//! static void dump_code(BaseBuilder& builder, const char* phase) {
 //!   String sb;
-//!   formatOptions formatOptions {};
+//!   format_options format_options {};
 //!
-//!   Formatter::formatNodeList(sb, formatOptions, &builder);
+//!   Formatter::format_node_list(sb, format_options, &builder);
 //!   printf("%s:\n%s\n", phase, sb.data());
 //! }
 //!
 //! int main() {
-//!   JitRuntime rt;                    // Create JIT Runtime.
-//!   CodeHolder code;                  // Create a CodeHolder.
+//!   using SumIntsFunc = void (*)(int* dst, const int* a, const int* b);
 //!
-//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
-//!             rt.cpuFeatures());
-//!   x86::Builder cb(&code);           // Create and attach x86::Builder to `code`.
+//!   JitRuntime rt;                      // Create JIT Runtime.
+//!   CodeHolder code;                    // Create a CodeHolder.
+//!
+//!   code.init(rt.environment(),         // Initialize code to match the JIT environment.
+//!             rt.cpu_features());
+//!   x86::Builder cb(&code);             // Create and attach x86::Builder to `code`.
 //!
 //!   // Decide which registers will be mapped to function arguments. Try changing registers
-//!   // of `dst`, `srcA`, and `srcB` and see what happens in function's prolog and epilog.
+//!   // of `dst`, `src_a`, and `src_b` and see what happens in function's prolog and epilog.
 //!   x86::Gp dst = cb.zax();
-//!   x86::Gp srcA = cb.zcx();
-//!   x86::Gp srcB = cb.zdx();
+//!   x86::Gp src_a = cb.zcx();
+//!   x86::Gp src_b = cb.zdx();
 //!
-//!   X86::Xmm vec0 = x86::xmm0;
-//!   X86::Xmm vec1 = x86::xmm1;
+//!   X86::Vec vec0 = x86::xmm0;
+//!   X86::Vec vec1 = x86::xmm1;
 //!
 //!   // Create and initialize `FuncDetail`.
 //!   FuncDetail func;
 //!   func.init(FuncSignature::build<void, int*, const int*, const int*>());
 //!
 //!   // Remember prolog insertion point.
-//!   BaseNode* prologInsertionPoint = cb.cursor();
+//!   BaseNode* prolog_insertion_point = cb.cursor();
 //!
 //!   // Emit function body:
-//!   cb.movdqu(vec0, x86::ptr(srcA));  // Load 4 ints from [srcA] to XMM0.
-//!   cb.movdqu(vec1, x86::ptr(srcB));  // Load 4 ints from [srcB] to XMM1.
-//!   cb.paddd(vec0, vec1);             // Add 4 ints in XMM1 to XMM0.
-//!   cb.movdqu(x86::ptr(dst), vec0);   // Store the result to [dst].
+//!   cb.movdqu(vec0, x86::ptr(src_a));   // Load 4 ints from [src_a] to XMM0.
+//!   cb.movdqu(vec1, x86::ptr(src_b));   // Load 4 ints from [src_b] to XMM1.
+//!   cb.paddd(vec0, vec1);               // Add 4 ints in XMM1 to XMM0.
+//!   cb.movdqu(x86::ptr(dst), vec0);     // Store the result to [dst].
 //!
 //!   // Remember epilog insertion point.
-//!   BaseNode* epilogInsertionPoint = cb.cursor();
+//!   BaseNode* epilog_insertion_point = cb.cursor();
 //!
 //!   // Let's see what we have now.
-//!   dumpCode(cb, "Raw Function");
+//!   dump_code(cb, "Raw Function");
 //!
 //!   // Now, after we emitted the function body, we can insert the prolog, arguments
 //!   // allocation, and epilog. This is not possible with using pure x86::Assembler.
@@ -84,43 +84,46 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   frame.init(func);
 //!
 //!   // Make XMM0 and XMM1 dirty; RegGroup::kVec describes XMM|YMM|ZMM registers.
-//!   frame.setDirtyRegs(RegGroup::kVec, IntUtils::mask(0, 1));
+//!   frame.set_dirty_regs(RegGroup::kVec, IntUtils::mask(0, 1));
 //!
-//!   FuncArgsAssignment args(&func);   // Create arguments assignment context.
-//!   args.assignAll(dst, srcA, srcB);  // Assign our registers to arguments.
-//!   args.updateFrame(frame);          // Reflect our args in FuncFrame.
-//!   frame.finalize();                 // Finalize the FuncFrame (updates it).
+//!   FuncArgsAssignment args(&func);     // Create arguments assignment context.
+//!   args.assign_all(dst, src_a, src_b); // Assign our registers to arguments.
+//!   args.update_func_frame(frame);      // Reflect our args in FuncFrame.
+//!   frame.finalize();                   // Finalize the FuncFrame (updates it).
 //!
 //!   // Insert function prolog and allocate arguments to registers.
-//!   cb.setCursor(prologInsertionPoint);
-//!   cb.emitProlog(frame);
-//!   cb.emitArgsAssignment(frame, args);
+//!   cb.set_cursor(prolog_insertion_point);
+//!   cb.emit_prolog(frame);
+//!   cb.emit_args_assignment(frame, args);
 //!
 //!   // Insert function epilog.
-//!   cb.setCursor(epilogInsertionPoint);
-//!   cb.emitEpilog(frame);
+//!   cb.set_cursor(epilog_insertion_point);
+//!   cb.emit_epilog(frame);
 //!
 //!   // Let's see how the function's prolog and epilog looks.
-//!   dumpCode(cb, "Prolog & Epilog");
+//!   dump_code(cb, "Prolog & Epilog");
 //!
 //!   // IMPORTANT: Builder requires finalize() to be called to serialize its
 //!   // code to the Assembler (it automatically creates one if not attached).
 //!   cb.finalize();
 //!
 //!   SumIntsFunc fn;
-//!   Error err = rt.add(&fn, &code);   // Add the generated code to the runtime.
-//!   if (err) return 1;                // Handle a possible error case.
+//!   Error err = rt.add(&fn, &code);     // Add the generated code to the runtime.
+//!
+//!   if (err != Error::kOk) {
+//!     return 1;                         // Handle a possible error case.
+//!   }
 //!
 //!   // Execute the generated function.
-//!   int inA[4] = { 4, 3, 2, 1 };
-//!   int inB[4] = { 1, 5, 2, 8 };
+//!   int in_a[4] = { 4, 3, 2, 1 };
+//!   int in_b[4] = { 1, 5, 2, 8 };
 //!   int out[4];
-//!   fn(out, inA, inB);
+//!   fn(out, in_a, in_b);
 //!
 //!   // Prints {5 8 4 9}
 //!   printf("{%d %d %d %d}\n", out[0], out[1], out[2], out[3]);
 //!
-//!   rt.release(fn);                   // Explicitly remove the function from the runtime.
+//!   rt.release(fn);                     // Explicitly remove the function from the runtime.
 //!   return 0;
 //! }
 //! ```
@@ -148,7 +151,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! The number of use-cases of \ref BaseBuilder is not limited and highly depends on your creativity and experience.
 //! The previous example can be easily improved to collect all dirty registers inside the function programmatically
-//! and to pass them to \ref FuncFrame::setDirtyRegs().
+//! and to pass them to \ref FuncFrame::set_dirty_regs().
 //!
 //! ```
 //! #include <asmjit/x86.h>
@@ -158,39 +161,36 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! // NOTE: This function doesn't cover all possible constructs. It ignores instructions that write
 //! // to implicit registers that are not part of the operand list. It also counts read-only registers.
 //! // Real implementation would be a bit more complicated, but still relatively easy to implement.
-//! static void collectDirtyRegs(const BaseNode* first,
-//!                              const BaseNode* last,
-//!                              Support::Array<RegMask, Globals::kNumVirtGroups>& regMask) {
+//! static void collect_dirty_regs(const BaseNode* first,
+//!                                const BaseNode* last,
+//!                                Support::Array<RegMask, Globals::kNumVirtGroups>& reg_mask) {
 //!   const BaseNode* node = first;
 //!   while (node) {
-//!     if (node->actsAsInst()) {
-//!       const InstNode* inst = node->as<InstNode>();
-//!       const Operand* opArray = inst->operands();
-//!
-//!       for (uint32_t i = 0, opCount = inst->opCount(); i < opCount; i++) {
-//!         const Operand& op = opArray[i];
-//!         if (op.isReg()) {
-//!           const x86::Reg& reg = op.as<x86::Reg>();
+//!     if (node->is_inst()) {
+//!       for (Operand& op : node->as<InstNode>()->operands()) {
+//!         if (op.is_reg()) {
+//!           const Reg& reg = op.as<Reg>();
 //!           if (reg.group() <= RegGroup::kMaxVirt) {
-//!             regMask[reg.group()] |= 1u << reg.id();
+//!             reg_mask[reg.group()] |= 1u << reg.id();
 //!           }
 //!         }
 //!       }
 //!     }
 //!
-//!     if (node == last)
+//!     if (node == last) {
 //!       break;
+//!     }
 //!     node = node->next();
 //!   }
 //! }
 //!
-//! static void setDirtyRegsOfFuncFrame(const x86::Builder& builder, FuncFrame& frame) {
-//!   Support::Array<RegMask, Globals::kNumVirtGroups> regMask {};
-//!   collectDirtyRegs(builder.firstNode(), builder.lastNode(), regMask);
+//! static void set_dirty_regs_of_func_frame(const x86::Builder& builder, FuncFrame& frame) {
+//!   Support::Array<RegMask, Globals::kNumVirtGroups> reg_mask {};
+//!   collect_dirty_regs(builder.first_node(), builder.last_node(), reg_mask);
 //!
 //!   // X86/X64 ABIs only require to save GP/XMM registers:
-//!   frame.setDirtyRegs(RegGroup::kGp, regMask[RegGroup::kGp]);
-//!   frame.setDirtyRegs(RegGroup::kVec, regMask[RegGroup::kVec]);
+//!   frame.set_dirty_regs(RegGroup::kGp, reg_mask[RegGroup::kGp]);
+//!   frame.set_dirty_regs(RegGroup::kVec, reg_mask[RegGroup::kVec]);
 //! }
 //! ```
 //!
@@ -238,18 +238,18 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! using namespace asmjit;
 //!
-//! static void emitSomething(x86::Emitter* e) {
+//! static void emit_something(x86::Emitter* e) {
 //!   e->mov(x86::eax, x86::ebx);
 //! }
 //!
-//! static void assemble(CodeHolder& code, bool useAsm) {
-//!   if (useAsm) {
+//! static void assemble(CodeHolder& code, bool use_asm) {
+//!   if (use_asm) {
 //!     x86::Assembler assembler(&code);
-//!     emitSomething(assembler.as<x86::Emitter>());
+//!     emit_something(assembler.as<x86::Emitter>());
 //!   }
 //!   else {
 //!     x86::Builder builder(&code);
-//!     emitSomething(builder.as<x86::Emitter>());
+//!     emit_something(builder.as<x86::Emitter>());
 //!
 //!     // NOTE: Builder requires `finalize()` to be called to serialize its
 //!     // content to Assembler (it automatically creates one if not attached).
@@ -260,14 +260,14 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! The example above shows how to create a function that can emit code to either \ref x86::Assembler or \ref
 //! x86::Builder through \ref x86::Emitter, which provides emitter-neutral functionality. \ref x86::Emitter,
-//! however, doesn't provide any emitter-specific functionality like `setCursor()`.
+//! however, doesn't provide any emitter-specific functionality like `set_cursor()`.
 //!
 //! ### Code Injection and Manipulation
 //!
 //! \ref BaseBuilder emitter stores its nodes in a double-linked list, which makes it easy to manipulate that
 //! list during the code generation or afterwards. Each node is always emitted next to the current cursor and
 //! the cursor is advanced to that newly emitted node. The cursor can be retrieved and changed by \ref
-//! BaseBuilder::cursor() and \ref BaseBuilder::setCursor(), respectively.
+//! BaseBuilder::cursor() and \ref BaseBuilder::set_cursor(), respectively.
 //!
 //! The example below demonstrates how to remember a node and inject something
 //! next to it.
@@ -282,10 +282,10 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   BaseNode* node = builder.cursor();
 //!
 //!   // Change the instruction we just emitted, just for fun...
-//!   if (node->isInst()) {
+//!   if (node->is_inst()) {
 //!     InstNode* inst = node->as<InstNode>();
 //!     // Changes the operands at index [1] to RCX.
-//!     inst->setOp(1, x86::rcx);
+//!     inst->set_op(1, x86::rcx);
 //!   }
 //!
 //!   // ------------------------- Generate Some Code -------------------------
@@ -294,16 +294,16 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   // ----------------------------------------------------------------------
 //!
 //!   // Now, we know where our node is, and we can simply change the cursor
-//!   // and start emitting something after it. The setCursor() function
+//!   // and start emitting something after it. The set_cursor() function
 //!   // returns the previous cursor, and it's always a good practice to remember
 //!   // it, because you never know if you are not already injecting the code
 //!   // somewhere else...
-//!   BaseNode* oldCursor = builder.setCursor(node);
+//!   BaseNode* old_cursor = builder.set_cursor(node);
 //!
 //!   builder.mul(x86::rax, 8);        // [4]
 //!
 //!   // Restore the cursor
-//!   builder.setCursor(oldCursor);
+//!   builder.set_cursor(old_cursor);
 //! }
 //! ```
 //!
@@ -320,7 +320,7 @@ class ASMJIT_VIRTAPI Builder
     public EmitterImplicitT<Builder> {
 public:
   ASMJIT_NONCOPYABLE(Builder)
-  typedef BaseBuilder Base;
+  using Base = BaseBuilder;
 
   //! \name Construction & Destruction
   //! \{
@@ -333,8 +333,8 @@ public:
   //! \name Events
   //! \{
 
-  ASMJIT_API Error onAttach(CodeHolder* code) noexcept override;
-  ASMJIT_API Error onDetach(CodeHolder* code) noexcept override;
+  ASMJIT_API Error on_attach(CodeHolder& code) noexcept override;
+  ASMJIT_API Error on_detach(CodeHolder& code) noexcept override;
 
   //! \}
 

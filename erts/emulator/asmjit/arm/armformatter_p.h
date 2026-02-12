@@ -1,17 +1,17 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_ARM_ARMFORMATTER_P_H_INCLUDED
 #define ASMJIT_ARM_ARMFORMATTER_P_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 #ifndef ASMJIT_NO_LOGGING
 
-#include "../core/formatter.h"
-#include "../core/string.h"
-#include "../arm/armglobals.h"
+#include <asmjit/core/formatter.h>
+#include <asmjit/core/string.h>
+#include <asmjit/arm/armglobals.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(arm)
 
@@ -21,37 +21,37 @@ ASMJIT_BEGIN_SUB_NAMESPACE(arm)
 
 namespace FormatterInternal {
 
-Error ASMJIT_CDECL formatFeature(
+Error ASMJIT_CDECL format_feature(
   String& sb,
-  uint32_t featureId) noexcept;
+  uint32_t feature_id) noexcept;
 
-Error ASMJIT_CDECL formatCondCode(
+Error ASMJIT_CDECL format_cond_code(
   String& sb,
   CondCode cc) noexcept;
 
-Error ASMJIT_CDECL formatShiftOp(
+Error ASMJIT_CDECL format_shift_op(
   String& sb,
-  ShiftOp shiftOp) noexcept;
+  ShiftOp shift_op) noexcept;
 
-Error ASMJIT_CDECL formatRegister(
-  String& sb,
-  FormatFlags flags,
-  const BaseEmitter* emitter,
-  Arch arch,
-  RegType regType,
-  uint32_t rId,
-  uint32_t elementType = 0,
-  uint32_t elementIndex = 0xFFFFFFFF) noexcept;
-
-Error ASMJIT_CDECL formatRegisterList(
+Error ASMJIT_CDECL format_register(
   String& sb,
   FormatFlags flags,
   const BaseEmitter* emitter,
   Arch arch,
-  RegType regType,
-  uint32_t rMask) noexcept;
+  RegType reg_type,
+  uint32_t reg_id,
+  uint32_t element_type = 0,
+  uint32_t element_index = 0xFFFFFFFF) noexcept;
 
-Error ASMJIT_CDECL formatOperand(
+Error ASMJIT_CDECL format_register_list(
+  String& sb,
+  FormatFlags flags,
+  const BaseEmitter* emitter,
+  Arch arch,
+  RegType reg_type,
+  uint32_t reg_mask) noexcept;
+
+Error ASMJIT_CDECL format_operand(
   String& sb,
   FormatFlags flags,
   const BaseEmitter* emitter,

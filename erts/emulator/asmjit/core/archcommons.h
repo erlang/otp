@@ -1,6 +1,6 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_ARCHCOMMONS_H_INCLUDED
@@ -10,7 +10,7 @@
 // allows to be created from arm::Shift in a const-expr way, so the arm::Shift must be provided. So this header file
 // provides everything architecture-specific that is used by the Core API.
 
-#include "../core/globals.h"
+#include <asmjit/core/globals.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(arm)
 
@@ -80,7 +80,7 @@ enum class CondCode : uint8_t {
 
 
 //! \cond
-static constexpr CondCode _reverseCondTable[] = {
+static constexpr CondCode _reverse_cond_table[] = {
   CondCode::kAL, // AL <- AL
   CondCode::kNA, // NA <- NA
   CondCode::kEQ, // EQ <- EQ
@@ -101,9 +101,12 @@ static constexpr CondCode _reverseCondTable[] = {
 //! \endcond
 
 //! Reverses a condition code (reverses the corresponding operands of a comparison).
-static ASMJIT_INLINE_NODEBUG constexpr CondCode reverseCond(CondCode cond) noexcept { return _reverseCondTable[uint8_t(cond)]; }
+[[nodiscard]]
+static ASMJIT_INLINE_CONSTEXPR CondCode reverse_cond(CondCode cond) noexcept { return _reverse_cond_table[uint8_t(cond)]; }
+
 //! Negates a condition code.
-static ASMJIT_INLINE_NODEBUG constexpr CondCode negateCond(CondCode cond) noexcept { return CondCode(uint8_t(cond) ^ uint8_t(1)); }
+[[nodiscard]]
+static ASMJIT_INLINE_CONSTEXPR CondCode negate_cond(CondCode cond) noexcept { return CondCode(uint8_t(cond) ^ uint8_t(1)); }
 
 //! Memory offset mode.
 //!
@@ -180,22 +183,26 @@ public:
   ASMJIT_INLINE_NODEBUG Shift() noexcept = default;
 
   //! Copy constructor (default)
-  ASMJIT_INLINE_NODEBUG constexpr Shift(const Shift& other) noexcept = default;
+  ASMJIT_INLINE_CONSTEXPR Shift(const Shift& other) noexcept = default;
 
   //! Constructs Shift from operation `op` and shift `value`.
-  ASMJIT_INLINE_NODEBUG constexpr Shift(ShiftOp op, uint32_t value) noexcept
+  ASMJIT_INLINE_CONSTEXPR Shift(ShiftOp op, uint32_t value) noexcept
     : _op(op),
       _value(value) {}
 
   //! Returns the shift operation.
-  ASMJIT_INLINE_NODEBUG constexpr ShiftOp op() const noexcept { return _op; }
+  [[nodiscard]]
+  ASMJIT_INLINE_CONSTEXPR ShiftOp op() const noexcept { return _op; }
+
   //! Sets shift operation to `op`.
-  ASMJIT_INLINE_NODEBUG void setOp(ShiftOp op) noexcept { _op = op; }
+  ASMJIT_INLINE_NODEBUG void set_pp(ShiftOp op) noexcept { _op = op; }
 
   //! Returns the shift amount.
-  ASMJIT_INLINE_NODEBUG constexpr uint32_t value() const noexcept { return _value; }
+  [[nodiscard]]
+  ASMJIT_INLINE_CONSTEXPR uint32_t value() const noexcept { return _value; }
+
   //! Sets shift amount to `value`.
-  ASMJIT_INLINE_NODEBUG void setValue(uint32_t value) noexcept { _value = value; }
+  ASMJIT_INLINE_NODEBUG void set_value(uint32_t value) noexcept { _value = value; }
 };
 
 //! \}
@@ -247,7 +254,7 @@ enum class DataType : uint32_t {
   kMaxValue = 15
 };
 
-static ASMJIT_INLINE_NODEBUG uint32_t dataTypeSize(DataType dt) noexcept {
+static ASMJIT_INLINE_NODEBUG uint32_t data_type_size(DataType dt) noexcept {
   static constexpr uint8_t table[] = { 0, 1, 2, 4, 8, 1, 2, 4, 8, 2, 4, 8, 1, 2, 8 };
   return table[size_t(dt)];
 }

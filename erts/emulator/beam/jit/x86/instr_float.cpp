@@ -34,8 +34,8 @@ extern "C"
 #endif
 
 void BeamGlobalAssembler::emit_check_float_error() {
-    Label error = a.newLabel(), floatMax = a.newLabel(),
-          floatSignMask = a.newLabel();
+    Label error = a.new_label(), floatMax = a.new_label(),
+          floatSignMask = a.new_label();
 
     vmovsd(x86::xmm1, x86::qword_ptr(floatMax));
     if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
@@ -58,9 +58,9 @@ void BeamGlobalAssembler::emit_check_float_error() {
 
     a.align(AlignMode::kCode, 16);
     a.bind(floatSignMask);
-    a.embedUInt64(0x7FFFFFFFFFFFFFFFul);
+    a.embed_uint64(0x7FFFFFFFFFFFFFFFul);
     a.bind(floatMax);
-    a.embedDouble(std::numeric_limits<double>::max());
+    a.embed_double(std::numeric_limits<double>::max());
 }
 
 void BeamModuleAssembler::emit_float_instr(uint32_t instIdSSE,
@@ -111,7 +111,7 @@ void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
 
 /* ARG2 = source term */
 void BeamGlobalAssembler::emit_fconv_shared() {
-    Label error = a.newLabel();
+    Label error = a.new_label();
 
     /* big_to_double expects source in ARG1 */
     a.mov(ARG1, ARG2);
@@ -164,8 +164,8 @@ void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
         return;
     }
 
-    Label next = a.newLabel(), not_small = a.newLabel(),
-          fallback = a.newLabel();
+    Label next = a.new_label(), not_small = a.new_label(),
+          fallback = a.new_label();
 
     mov_arg(ARG2, Src);
 

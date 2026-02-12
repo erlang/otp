@@ -159,9 +159,10 @@ static auto create_allocator(const JitAllocator::CreateParams &params) {
 
     auto *allocator = new JitAllocator(&params);
 
-    err = allocator->alloc(test_span, 1);
+    Out<JitAllocator::Span> out(test_span);
+    err = allocator->alloc(out, 1);
 
-    if (err == ErrorCode::kErrorOk) {
+    if (err == Error::kOk) {
         /* We can get dual-mapped memory when asking for single-mapped memory
          * if the latter is not possible: return whether that happened. */
         single_mapped = (test_span.rx() == test_span.rw());
@@ -169,7 +170,7 @@ static auto create_allocator(const JitAllocator::CreateParams &params) {
 
     allocator->release(test_span.rx());
 
-    if (err == ErrorCode::kErrorOk) {
+    if (err == Error::kOk) {
         return std::make_pair(allocator, single_mapped);
     }
 
@@ -212,7 +213,7 @@ static JitAllocator *pick_allocator() {
      * over time, but we don't want to waste half a dozen fds just to get to
      * the shell on platforms that are very fd-constrained. */
     params.reset();
-    params.blockSize = 32 << 20;
+    params.block_size = 32 << 20;
 
     allocator = nullptr;
     single_mapped = false;
@@ -328,26 +329,26 @@ void beamasm_init() {
 
         args = {ArgVal(ArgVal::Type::Label, func_label),
                 ArgVal(ArgVal::Type::Word, sizeof(UWord))};
-        bma->emit(op_aligned_label_Lt, args);
+        bma->emit(op_aligned_label_Lt, Span(args.data(), args.size()));
 
         args = {ArgVal(ArgVal::Type::Word, func_label),
                 ArgVal(ArgVal::Type::Immediate, mod_name),
                 ArgVal(ArgVal::Type::Immediate, op.name),
                 ArgVal(ArgVal::Type::Word, op.arity)};
-        bma->emit(op_i_func_info_IaaI, args);
+        bma->emit(op_i_func_info_IaaI, Span(args.data(), args.size()));
 
         args = {ArgVal(ArgVal::Type::Label, entry_label),
                 ArgVal(ArgVal::Type::Word, sizeof(UWord))};
-        bma->emit(op_aligned_label_Lt, args);
+        bma->emit(op_aligned_label_Lt, Span(args.data(), args.size()));
 
         args = {};
-        bma->emit(op.operand, args);
+        bma->emit(op.operand, Span(args.data(), args.size()));
 
         op.operand = entry_label;
     }
 
     args = {};
-    bma->emit(op_int_code_end, args);
+    bma->emit(op_int_code_end, Span(args.data(), args.size()));
 
     {
         /* We have no need of the module pointers as we use `getCode(...)`
@@ -402,7 +403,7 @@ void beamasm_init() {
 }
 
 bool BeamAssemblerCommon::hasCpuFeature(uint32_t featureId) {
-    return cpuinfo.hasFeature(featureId);
+    return cpuinfo.has_feature(featureId);
 }
 
 void init_emulator(void) {
@@ -433,7 +434,7 @@ extern "C"
         (void)writable_region;
         (void)size;
 
-        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite);
+        VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadWrite);
     }
 
     void beamasm_seal_module(const void *executable_region,
@@ -443,7 +444,7 @@ extern "C"
         (void)writable_region;
         (void)size;
 
-        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
+        VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
     void beamasm_flush_icache(const void *address, size_t size) {
@@ -526,7 +527,7 @@ extern "C"
         static_assert(std::is_standard_layout<ArgVal>::value);
 
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        const Span<ArgVal> args(static_cast<ArgVal *>(op->a), op->arity);
+        const Span<const ArgVal> args(static_cast<ArgVal *>(op->a), op->arity);
         return ba->emit(specific_op, args);
     }
 
@@ -549,25 +550,25 @@ extern "C"
 
         args = {ArgVal(ArgVal::Type::Label, 1),
                 ArgVal(ArgVal::Type::Word, sizeof(UWord))};
-        ba.emit(op_aligned_label_Lt, args);
+        ba.emit(op_aligned_label_Lt, Span(args.data(), args.size()));
 
         args = {ArgVal(ArgVal::Type::Word, 1),
                 ArgVal(ArgVal::Type::Immediate, info->mfa.module),
                 ArgVal(ArgVal::Type::Immediate, info->mfa.function),
                 ArgVal(ArgVal::Type::Word, info->mfa.arity)};
-        ba.emit(op_i_func_info_IaaI, args);
+        ba.emit(op_i_func_info_IaaI, Span(args.data(), args.size()));
 
         args = {ArgVal(ArgVal::Type::Label, 2),
                 ArgVal(ArgVal::Type::Word, sizeof(UWord))};
-        ba.emit(op_aligned_label_Lt, args);
+        ba.emit(op_aligned_label_Lt, Span(args.data(), args.size()));
 
         args = {};
-        ba.emit(op_i_breakpoint_trampoline, args);
+        ba.emit(op_i_breakpoint_trampoline, Span(args.data(), args.size()));
 
         args = {ArgVal(ArgVal::Type::Word, (BeamInstr)normal_fptr),
                 ArgVal(ArgVal::Type::Word, (BeamInstr)lib),
                 ArgVal(ArgVal::Type::Word, (BeamInstr)dirty_fptr)};
-        ba.emit(op_call_nif_WWW, args);
+        ba.emit(op_call_nif_WWW, Span(args.data(), args.size()));
 
         ba.codegen(buff, buff_len);
     }

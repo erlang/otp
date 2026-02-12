@@ -52,9 +52,9 @@ static Process *erts_debug_schedule(ErtsSchedulerData *esdp,
 
 /* void process_main(ErtsSchedulerData *esdp); */
 void BeamGlobalAssembler::emit_process_main() {
-    Label context_switch_local = a.newLabel(),
-          context_switch_simplified_local = a.newLabel(),
-          do_schedule_local = a.newLabel(), schedule_next = a.newLabel();
+    Label context_switch_local = a.new_label(),
+          context_switch_simplified_local = a.new_label(),
+          do_schedule_local = a.new_label(), schedule_next = a.new_label();
 
     const x86::Mem start_time_i =
             getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time_i));
@@ -140,7 +140,7 @@ void BeamGlobalAssembler::emit_process_main() {
     a.bind(context_switch_simplified_local);
     comment("Context switch, known arity and MFA");
     {
-        Label not_exiting = a.newLabel();
+        Label not_exiting = a.new_label();
 
 #ifdef ERLANG_FRAME_POINTERS
         /* Kill the current frame pointer to avoid confusing `perf` and similar
@@ -149,7 +149,7 @@ void BeamGlobalAssembler::emit_process_main() {
 #endif
 
 #ifdef DEBUG
-        Label check_i = a.newLabel();
+        Label check_i = a.new_label();
         /* Check that ARG3 is set to a valid CP. */
         a.test(ARG3, imm(_CPMASK));
         a.je(check_i);
@@ -208,7 +208,7 @@ void BeamGlobalAssembler::emit_process_main() {
     a.bind(schedule_next);
     comment("schedule_next");
     {
-        Label schedule = a.newLabel(), skip_long_schedule = a.newLabel();
+        Label schedule = a.new_label(), skip_long_schedule = a.new_label();
 
         /* ARG3 contains reds_used at this point */
 

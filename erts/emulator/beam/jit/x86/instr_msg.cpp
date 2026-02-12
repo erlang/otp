@@ -102,9 +102,9 @@ int erts_lc_proc_sig_receive_helper(Process *c_p,
 #endif
 
 void BeamGlobalAssembler::emit_i_loop_rec_shared() {
-    Label restart = a.newLabel(), peek_message = a.newLabel(),
-          schedule_out = a.newLabel(), check_is_distributed = a.newLabel(),
-          done = a.newLabel();
+    Label restart = a.new_label(), peek_message = a.new_label(),
+          schedule_out = a.new_label(), check_is_distributed = a.new_label(),
+          done = a.new_label();
 
     x86::Mem await_addr = TMP_MEM1q, message_ptr = TMP_MEM2q,
              get_out = TMP_MEM3d;
@@ -237,7 +237,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 }
 
 void BeamModuleAssembler::emit_i_loop_rec(const ArgLabel &Wait) {
-    Label entry = a.newLabel();
+    Label entry = a.new_label();
 
     align_erlang_cp();
     a.bind(entry);
@@ -315,7 +315,7 @@ void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
 
 void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
                                                    const ArgLabel &Dest) {
-    Label wait = a.newLabel(), next = a.newLabel();
+    Label wait = a.new_label(), next = a.new_label();
 
     mov_arg(ARG2, Src);
 

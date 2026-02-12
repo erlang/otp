@@ -1,13 +1,13 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86GLOBALS_H_INCLUDED
 #define ASMJIT_X86_X86GLOBALS_H_INCLUDED
 
-#include "../core/archtraits.h"
-#include "../core/inst.h"
+#include <asmjit/core/archtraits.h>
+#include <asmjit/core/inst.h>
 
 //! \namespace asmjit::x86
 //! \ingroup asmjit_x86
@@ -90,7 +90,7 @@ enum class CondCode : uint8_t {
 };
 
 //! \cond
-static constexpr CondCode _reverseCondTable[] = {
+static constexpr CondCode _reverse_cond_table[] = {
   CondCode::kO,  // O  <- O
   CondCode::kNO, // NO <- NO
   CondCode::kA , // A  <- B
@@ -111,9 +111,9 @@ static constexpr CondCode _reverseCondTable[] = {
 //! \endcond
 
 //! Reverses a condition code (reverses the corresponding operands of a comparison).
-static ASMJIT_INLINE_NODEBUG constexpr CondCode reverseCond(CondCode cond) noexcept { return _reverseCondTable[uint8_t(cond)]; }
+static ASMJIT_INLINE_CONSTEXPR CondCode reverse_cond(CondCode cond) noexcept { return _reverse_cond_table[uint8_t(cond)]; }
 //! Negates a condition code.
-static ASMJIT_INLINE_NODEBUG constexpr CondCode negateCond(CondCode cond) noexcept { return CondCode(uint8_t(cond) ^ 1u); }
+static ASMJIT_INLINE_CONSTEXPR CondCode negate_cond(CondCode cond) noexcept { return CondCode(uint8_t(cond) ^ 1u); }
 
 //! Instruction.
 //!
@@ -203,24 +203,12 @@ namespace Inst {
     kIdClwb,                             //!< Instruction 'clwb' {CLWB}.
     kIdClzero,                           //!< Instruction 'clzero' {CLZERO}.
     kIdCmc,                              //!< Instruction 'cmc'.
-    kIdCmova,                            //!< Instruction 'cmova' {CMOV}.
-    kIdCmovae,                           //!< Instruction 'cmovae' {CMOV}.
     kIdCmovb,                            //!< Instruction 'cmovb' {CMOV}.
     kIdCmovbe,                           //!< Instruction 'cmovbe' {CMOV}.
-    kIdCmovc,                            //!< Instruction 'cmovc' {CMOV}.
-    kIdCmove,                            //!< Instruction 'cmove' {CMOV}.
-    kIdCmovg,                            //!< Instruction 'cmovg' {CMOV}.
-    kIdCmovge,                           //!< Instruction 'cmovge' {CMOV}.
     kIdCmovl,                            //!< Instruction 'cmovl' {CMOV}.
     kIdCmovle,                           //!< Instruction 'cmovle' {CMOV}.
-    kIdCmovna,                           //!< Instruction 'cmovna' {CMOV}.
-    kIdCmovnae,                          //!< Instruction 'cmovnae' {CMOV}.
     kIdCmovnb,                           //!< Instruction 'cmovnb' {CMOV}.
     kIdCmovnbe,                          //!< Instruction 'cmovnbe' {CMOV}.
-    kIdCmovnc,                           //!< Instruction 'cmovnc' {CMOV}.
-    kIdCmovne,                           //!< Instruction 'cmovne' {CMOV}.
-    kIdCmovng,                           //!< Instruction 'cmovng' {CMOV}.
-    kIdCmovnge,                          //!< Instruction 'cmovnge' {CMOV}.
     kIdCmovnl,                           //!< Instruction 'cmovnl' {CMOV}.
     kIdCmovnle,                          //!< Instruction 'cmovnle' {CMOV}.
     kIdCmovno,                           //!< Instruction 'cmovno' {CMOV}.
@@ -229,8 +217,6 @@ namespace Inst {
     kIdCmovnz,                           //!< Instruction 'cmovnz' {CMOV}.
     kIdCmovo,                            //!< Instruction 'cmovo' {CMOV}.
     kIdCmovp,                            //!< Instruction 'cmovp' {CMOV}.
-    kIdCmovpe,                           //!< Instruction 'cmovpe' {CMOV}.
-    kIdCmovpo,                           //!< Instruction 'cmovpo' {CMOV}.
     kIdCmovs,                            //!< Instruction 'cmovs' {CMOV}.
     kIdCmovz,                            //!< Instruction 'cmovz' {CMOV}.
     kIdCmp,                              //!< Instruction 'cmp'.
@@ -435,26 +421,14 @@ namespace Inst {
     kIdIret,                             //!< Instruction 'iret'.
     kIdIretd,                            //!< Instruction 'iretd'.
     kIdIretq,                            //!< Instruction 'iretq' (X64).
-    kIdJa,                               //!< Instruction 'ja'.
-    kIdJae,                              //!< Instruction 'jae'.
     kIdJb,                               //!< Instruction 'jb'.
     kIdJbe,                              //!< Instruction 'jbe'.
-    kIdJc,                               //!< Instruction 'jc'.
-    kIdJe,                               //!< Instruction 'je'.
     kIdJecxz,                            //!< Instruction 'jecxz'.
-    kIdJg,                               //!< Instruction 'jg'.
-    kIdJge,                              //!< Instruction 'jge'.
     kIdJl,                               //!< Instruction 'jl'.
     kIdJle,                              //!< Instruction 'jle'.
     kIdJmp,                              //!< Instruction 'jmp'.
-    kIdJna,                              //!< Instruction 'jna'.
-    kIdJnae,                             //!< Instruction 'jnae'.
     kIdJnb,                              //!< Instruction 'jnb'.
     kIdJnbe,                             //!< Instruction 'jnbe'.
-    kIdJnc,                              //!< Instruction 'jnc'.
-    kIdJne,                              //!< Instruction 'jne'.
-    kIdJng,                              //!< Instruction 'jng'.
-    kIdJnge,                             //!< Instruction 'jnge'.
     kIdJnl,                              //!< Instruction 'jnl'.
     kIdJnle,                             //!< Instruction 'jnle'.
     kIdJno,                              //!< Instruction 'jno'.
@@ -463,8 +437,6 @@ namespace Inst {
     kIdJnz,                              //!< Instruction 'jnz'.
     kIdJo,                               //!< Instruction 'jo'.
     kIdJp,                               //!< Instruction 'jp'.
-    kIdJpe,                              //!< Instruction 'jpe'.
-    kIdJpo,                              //!< Instruction 'jpo'.
     kIdJs,                               //!< Instruction 'js'.
     kIdJz,                               //!< Instruction 'jz'.
     kIdKaddb,                            //!< Instruction 'kaddb' {AVX512_DQ}.
@@ -793,6 +765,7 @@ namespace Inst {
     kIdPushf,                            //!< Instruction 'pushf'.
     kIdPushfd,                           //!< Instruction 'pushfd' (X86).
     kIdPushfq,                           //!< Instruction 'pushfq' (X64).
+    kIdPushw,                            //!< Instruction 'pushw'.
     kIdPvalidate,                        //!< Instruction 'pvalidate' {SEV_SNP}.
     kIdPxor,                             //!< Instruction 'pxor' {MMX|SSE2}.
     kIdRcl,                              //!< Instruction 'rcl'.
@@ -801,7 +774,7 @@ namespace Inst {
     kIdRcr,                              //!< Instruction 'rcr'.
     kIdRdfsbase,                         //!< Instruction 'rdfsbase' {FSGSBASE} (X64).
     kIdRdgsbase,                         //!< Instruction 'rdgsbase' {FSGSBASE} (X64).
-    kIdRdmsr,                            //!< Instruction 'rdmsr' {MSR}.
+    kIdRdmsr,                            //!< Instruction 'rdmsr' {MSR|MSR_IMM}.
     kIdRdpid,                            //!< Instruction 'rdpid' {RDPID}.
     kIdRdpkru,                           //!< Instruction 'rdpkru' {OSPKE}.
     kIdRdpmc,                            //!< Instruction 'rdpmc'.
@@ -828,7 +801,6 @@ namespace Inst {
     kIdRsqrtss,                          //!< Instruction 'rsqrtss' {SSE}.
     kIdRstorssp,                         //!< Instruction 'rstorssp' {CET_SS}.
     kIdSahf,                             //!< Instruction 'sahf' {LAHFSAHF}.
-    kIdSal,                              //!< Instruction 'sal'.
     kIdSar,                              //!< Instruction 'sar'.
     kIdSarx,                             //!< Instruction 'sarx' {BMI2}.
     kIdSaveprevssp,                      //!< Instruction 'saveprevssp' {CET_SS}.
@@ -839,24 +811,12 @@ namespace Inst {
     kIdSeamret,                          //!< Instruction 'seamret' {SEAM}.
     kIdSenduipi,                         //!< Instruction 'senduipi' {UINTR} (X64).
     kIdSerialize,                        //!< Instruction 'serialize' {SERIALIZE}.
-    kIdSeta,                             //!< Instruction 'seta'.
-    kIdSetae,                            //!< Instruction 'setae'.
     kIdSetb,                             //!< Instruction 'setb'.
     kIdSetbe,                            //!< Instruction 'setbe'.
-    kIdSetc,                             //!< Instruction 'setc'.
-    kIdSete,                             //!< Instruction 'sete'.
-    kIdSetg,                             //!< Instruction 'setg'.
-    kIdSetge,                            //!< Instruction 'setge'.
     kIdSetl,                             //!< Instruction 'setl'.
     kIdSetle,                            //!< Instruction 'setle'.
-    kIdSetna,                            //!< Instruction 'setna'.
-    kIdSetnae,                           //!< Instruction 'setnae'.
     kIdSetnb,                            //!< Instruction 'setnb'.
     kIdSetnbe,                           //!< Instruction 'setnbe'.
-    kIdSetnc,                            //!< Instruction 'setnc'.
-    kIdSetne,                            //!< Instruction 'setne'.
-    kIdSetng,                            //!< Instruction 'setng'.
-    kIdSetnge,                           //!< Instruction 'setnge'.
     kIdSetnl,                            //!< Instruction 'setnl'.
     kIdSetnle,                           //!< Instruction 'setnle'.
     kIdSetno,                            //!< Instruction 'setno'.
@@ -865,8 +825,6 @@ namespace Inst {
     kIdSetnz,                            //!< Instruction 'setnz'.
     kIdSeto,                             //!< Instruction 'seto'.
     kIdSetp,                             //!< Instruction 'setp'.
-    kIdSetpe,                            //!< Instruction 'setpe'.
-    kIdSetpo,                            //!< Instruction 'setpo'.
     kIdSets,                             //!< Instruction 'sets'.
     kIdSetssbsy,                         //!< Instruction 'setssbsy' {CET_SS}.
     kIdSetz,                             //!< Instruction 'setz'.
@@ -951,16 +909,12 @@ namespace Inst {
     kIdUnpckhps,                         //!< Instruction 'unpckhps' {SSE}.
     kIdUnpcklpd,                         //!< Instruction 'unpcklpd' {SSE2}.
     kIdUnpcklps,                         //!< Instruction 'unpcklps' {SSE}.
-    kIdV4fmaddps,                        //!< Instruction 'v4fmaddps' {AVX512_4FMAPS}.
-    kIdV4fmaddss,                        //!< Instruction 'v4fmaddss' {AVX512_4FMAPS}.
-    kIdV4fnmaddps,                       //!< Instruction 'v4fnmaddps' {AVX512_4FMAPS}.
-    kIdV4fnmaddss,                       //!< Instruction 'v4fnmaddss' {AVX512_4FMAPS}.
     kIdVaddpd,                           //!< Instruction 'vaddpd' {AVX|AVX512_F+VL}.
     kIdVaddph,                           //!< Instruction 'vaddph' {AVX512_FP16+VL}.
     kIdVaddps,                           //!< Instruction 'vaddps' {AVX|AVX512_F+VL}.
-    kIdVaddsd,                           //!< Instruction 'vaddsd' {AVX|AVX512_F}.
-    kIdVaddsh,                           //!< Instruction 'vaddsh' {AVX512_FP16}.
-    kIdVaddss,                           //!< Instruction 'vaddss' {AVX|AVX512_F}.
+    kIdVaddsd,                           //!< Instruction 'vaddsd' {AVX|AVX512_F+VL}.
+    kIdVaddsh,                           //!< Instruction 'vaddsh' {AVX512_FP16+VL}.
+    kIdVaddss,                           //!< Instruction 'vaddss' {AVX|AVX512_F+VL}.
     kIdVaddsubpd,                        //!< Instruction 'vaddsubpd' {AVX}.
     kIdVaddsubps,                        //!< Instruction 'vaddsubps' {AVX}.
     kIdVaesdec,                          //!< Instruction 'vaesdec' {AVX|AVX512_F+VL & AESNI|VAES}.
@@ -985,27 +939,27 @@ namespace Inst {
     kIdVblendvps,                        //!< Instruction 'vblendvps' {AVX}.
     kIdVbroadcastf128,                   //!< Instruction 'vbroadcastf128' {AVX}.
     kIdVbroadcastf32x2,                  //!< Instruction 'vbroadcastf32x2' {AVX512_DQ+VL}.
-    kIdVbroadcastf32x4,                  //!< Instruction 'vbroadcastf32x4' {AVX512_F}.
-    kIdVbroadcastf32x8,                  //!< Instruction 'vbroadcastf32x8' {AVX512_DQ}.
+    kIdVbroadcastf32x4,                  //!< Instruction 'vbroadcastf32x4' {AVX512_F+VL}.
+    kIdVbroadcastf32x8,                  //!< Instruction 'vbroadcastf32x8' {AVX512_DQ+VL}.
     kIdVbroadcastf64x2,                  //!< Instruction 'vbroadcastf64x2' {AVX512_DQ+VL}.
-    kIdVbroadcastf64x4,                  //!< Instruction 'vbroadcastf64x4' {AVX512_F}.
+    kIdVbroadcastf64x4,                  //!< Instruction 'vbroadcastf64x4' {AVX512_F+VL}.
     kIdVbroadcasti128,                   //!< Instruction 'vbroadcasti128' {AVX2}.
     kIdVbroadcasti32x2,                  //!< Instruction 'vbroadcasti32x2' {AVX512_DQ+VL}.
     kIdVbroadcasti32x4,                  //!< Instruction 'vbroadcasti32x4' {AVX512_F+VL}.
-    kIdVbroadcasti32x8,                  //!< Instruction 'vbroadcasti32x8' {AVX512_DQ}.
+    kIdVbroadcasti32x8,                  //!< Instruction 'vbroadcasti32x8' {AVX512_DQ+VL}.
     kIdVbroadcasti64x2,                  //!< Instruction 'vbroadcasti64x2' {AVX512_DQ+VL}.
-    kIdVbroadcasti64x4,                  //!< Instruction 'vbroadcasti64x4' {AVX512_F}.
+    kIdVbroadcasti64x4,                  //!< Instruction 'vbroadcasti64x4' {AVX512_F+VL}.
     kIdVbroadcastsd,                     //!< Instruction 'vbroadcastsd' {AVX|AVX2|AVX512_F+VL}.
     kIdVbroadcastss,                     //!< Instruction 'vbroadcastss' {AVX|AVX2|AVX512_F+VL}.
     kIdVcmppd,                           //!< Instruction 'vcmppd' {AVX|AVX512_F+VL}.
     kIdVcmpph,                           //!< Instruction 'vcmpph' {AVX512_FP16+VL}.
     kIdVcmpps,                           //!< Instruction 'vcmpps' {AVX|AVX512_F+VL}.
-    kIdVcmpsd,                           //!< Instruction 'vcmpsd' {AVX|AVX512_F}.
-    kIdVcmpsh,                           //!< Instruction 'vcmpsh' {AVX512_FP16}.
-    kIdVcmpss,                           //!< Instruction 'vcmpss' {AVX|AVX512_F}.
-    kIdVcomisd,                          //!< Instruction 'vcomisd' {AVX|AVX512_F}.
-    kIdVcomish,                          //!< Instruction 'vcomish' {AVX512_FP16}.
-    kIdVcomiss,                          //!< Instruction 'vcomiss' {AVX|AVX512_F}.
+    kIdVcmpsd,                           //!< Instruction 'vcmpsd' {AVX|AVX512_F+VL}.
+    kIdVcmpsh,                           //!< Instruction 'vcmpsh' {AVX512_FP16+VL}.
+    kIdVcmpss,                           //!< Instruction 'vcmpss' {AVX|AVX512_F+VL}.
+    kIdVcomisd,                          //!< Instruction 'vcomisd' {AVX|AVX512_F+VL}.
+    kIdVcomish,                          //!< Instruction 'vcomish' {AVX512_FP16+VL}.
+    kIdVcomiss,                          //!< Instruction 'vcomiss' {AVX|AVX512_F+VL}.
     kIdVcompresspd,                      //!< Instruction 'vcompresspd' {AVX512_F+VL}.
     kIdVcompressps,                      //!< Instruction 'vcompressps' {AVX512_F+VL}.
     kIdVcvtdq2pd,                        //!< Instruction 'vcvtdq2pd' {AVX|AVX512_F+VL}.
@@ -1042,21 +996,21 @@ namespace Inst {
     kIdVcvtqq2pd,                        //!< Instruction 'vcvtqq2pd' {AVX512_DQ+VL}.
     kIdVcvtqq2ph,                        //!< Instruction 'vcvtqq2ph' {AVX512_FP16+VL}.
     kIdVcvtqq2ps,                        //!< Instruction 'vcvtqq2ps' {AVX512_DQ+VL}.
-    kIdVcvtsd2sh,                        //!< Instruction 'vcvtsd2sh' {AVX512_FP16}.
-    kIdVcvtsd2si,                        //!< Instruction 'vcvtsd2si' {AVX|AVX512_F}.
-    kIdVcvtsd2ss,                        //!< Instruction 'vcvtsd2ss' {AVX|AVX512_F}.
-    kIdVcvtsd2usi,                       //!< Instruction 'vcvtsd2usi' {AVX512_F}.
-    kIdVcvtsh2sd,                        //!< Instruction 'vcvtsh2sd' {AVX512_FP16}.
-    kIdVcvtsh2si,                        //!< Instruction 'vcvtsh2si' {AVX512_FP16}.
-    kIdVcvtsh2ss,                        //!< Instruction 'vcvtsh2ss' {AVX512_FP16}.
-    kIdVcvtsh2usi,                       //!< Instruction 'vcvtsh2usi' {AVX512_FP16}.
-    kIdVcvtsi2sd,                        //!< Instruction 'vcvtsi2sd' {AVX|AVX512_F}.
-    kIdVcvtsi2sh,                        //!< Instruction 'vcvtsi2sh' {AVX512_FP16}.
-    kIdVcvtsi2ss,                        //!< Instruction 'vcvtsi2ss' {AVX|AVX512_F}.
-    kIdVcvtss2sd,                        //!< Instruction 'vcvtss2sd' {AVX|AVX512_F}.
-    kIdVcvtss2sh,                        //!< Instruction 'vcvtss2sh' {AVX512_FP16}.
-    kIdVcvtss2si,                        //!< Instruction 'vcvtss2si' {AVX|AVX512_F}.
-    kIdVcvtss2usi,                       //!< Instruction 'vcvtss2usi' {AVX512_F}.
+    kIdVcvtsd2sh,                        //!< Instruction 'vcvtsd2sh' {AVX512_FP16+VL}.
+    kIdVcvtsd2si,                        //!< Instruction 'vcvtsd2si' {AVX|AVX512_F+VL}.
+    kIdVcvtsd2ss,                        //!< Instruction 'vcvtsd2ss' {AVX|AVX512_F+VL}.
+    kIdVcvtsd2usi,                       //!< Instruction 'vcvtsd2usi' {AVX512_F+VL}.
+    kIdVcvtsh2sd,                        //!< Instruction 'vcvtsh2sd' {AVX512_FP16+VL}.
+    kIdVcvtsh2si,                        //!< Instruction 'vcvtsh2si' {AVX512_FP16+VL}.
+    kIdVcvtsh2ss,                        //!< Instruction 'vcvtsh2ss' {AVX512_FP16+VL}.
+    kIdVcvtsh2usi,                       //!< Instruction 'vcvtsh2usi' {AVX512_FP16+VL}.
+    kIdVcvtsi2sd,                        //!< Instruction 'vcvtsi2sd' {AVX|AVX512_F+VL}.
+    kIdVcvtsi2sh,                        //!< Instruction 'vcvtsi2sh' {AVX512_FP16+VL}.
+    kIdVcvtsi2ss,                        //!< Instruction 'vcvtsi2ss' {AVX|AVX512_F+VL}.
+    kIdVcvtss2sd,                        //!< Instruction 'vcvtss2sd' {AVX|AVX512_F+VL}.
+    kIdVcvtss2sh,                        //!< Instruction 'vcvtss2sh' {AVX512_FP16+VL}.
+    kIdVcvtss2si,                        //!< Instruction 'vcvtss2si' {AVX|AVX512_F+VL}.
+    kIdVcvtss2usi,                       //!< Instruction 'vcvtss2usi' {AVX512_F+VL}.
     kIdVcvttpd2dq,                       //!< Instruction 'vcvttpd2dq' {AVX|AVX512_F+VL}.
     kIdVcvttpd2qq,                       //!< Instruction 'vcvttpd2qq' {AVX512_F+VL}.
     kIdVcvttpd2udq,                      //!< Instruction 'vcvttpd2udq' {AVX512_F+VL}.
@@ -1071,78 +1025,76 @@ namespace Inst {
     kIdVcvttps2qq,                       //!< Instruction 'vcvttps2qq' {AVX512_DQ+VL}.
     kIdVcvttps2udq,                      //!< Instruction 'vcvttps2udq' {AVX512_F+VL}.
     kIdVcvttps2uqq,                      //!< Instruction 'vcvttps2uqq' {AVX512_DQ+VL}.
-    kIdVcvttsd2si,                       //!< Instruction 'vcvttsd2si' {AVX|AVX512_F}.
-    kIdVcvttsd2usi,                      //!< Instruction 'vcvttsd2usi' {AVX512_F}.
-    kIdVcvttsh2si,                       //!< Instruction 'vcvttsh2si' {AVX512_FP16}.
-    kIdVcvttsh2usi,                      //!< Instruction 'vcvttsh2usi' {AVX512_FP16}.
-    kIdVcvttss2si,                       //!< Instruction 'vcvttss2si' {AVX|AVX512_F}.
-    kIdVcvttss2usi,                      //!< Instruction 'vcvttss2usi' {AVX512_F}.
+    kIdVcvttsd2si,                       //!< Instruction 'vcvttsd2si' {AVX|AVX512_F+VL}.
+    kIdVcvttsd2usi,                      //!< Instruction 'vcvttsd2usi' {AVX512_F+VL}.
+    kIdVcvttsh2si,                       //!< Instruction 'vcvttsh2si' {AVX512_FP16+VL}.
+    kIdVcvttsh2usi,                      //!< Instruction 'vcvttsh2usi' {AVX512_FP16+VL}.
+    kIdVcvttss2si,                       //!< Instruction 'vcvttss2si' {AVX|AVX512_F+VL}.
+    kIdVcvttss2usi,                      //!< Instruction 'vcvttss2usi' {AVX512_F+VL}.
     kIdVcvtudq2pd,                       //!< Instruction 'vcvtudq2pd' {AVX512_F+VL}.
     kIdVcvtudq2ph,                       //!< Instruction 'vcvtudq2ph' {AVX512_FP16+VL}.
     kIdVcvtudq2ps,                       //!< Instruction 'vcvtudq2ps' {AVX512_F+VL}.
     kIdVcvtuqq2pd,                       //!< Instruction 'vcvtuqq2pd' {AVX512_DQ+VL}.
     kIdVcvtuqq2ph,                       //!< Instruction 'vcvtuqq2ph' {AVX512_FP16+VL}.
     kIdVcvtuqq2ps,                       //!< Instruction 'vcvtuqq2ps' {AVX512_DQ+VL}.
-    kIdVcvtusi2sd,                       //!< Instruction 'vcvtusi2sd' {AVX512_F}.
-    kIdVcvtusi2sh,                       //!< Instruction 'vcvtusi2sh' {AVX512_FP16}.
-    kIdVcvtusi2ss,                       //!< Instruction 'vcvtusi2ss' {AVX512_F}.
+    kIdVcvtusi2sd,                       //!< Instruction 'vcvtusi2sd' {AVX512_F+VL}.
+    kIdVcvtusi2sh,                       //!< Instruction 'vcvtusi2sh' {AVX512_FP16+VL}.
+    kIdVcvtusi2ss,                       //!< Instruction 'vcvtusi2ss' {AVX512_F+VL}.
     kIdVcvtuw2ph,                        //!< Instruction 'vcvtuw2ph' {AVX512_FP16+VL}.
     kIdVcvtw2ph,                         //!< Instruction 'vcvtw2ph' {AVX512_FP16+VL}.
     kIdVdbpsadbw,                        //!< Instruction 'vdbpsadbw' {AVX512_BW+VL}.
     kIdVdivpd,                           //!< Instruction 'vdivpd' {AVX|AVX512_F+VL}.
     kIdVdivph,                           //!< Instruction 'vdivph' {AVX512_FP16+VL}.
     kIdVdivps,                           //!< Instruction 'vdivps' {AVX|AVX512_F+VL}.
-    kIdVdivsd,                           //!< Instruction 'vdivsd' {AVX|AVX512_F}.
-    kIdVdivsh,                           //!< Instruction 'vdivsh' {AVX512_FP16}.
-    kIdVdivss,                           //!< Instruction 'vdivss' {AVX|AVX512_F}.
+    kIdVdivsd,                           //!< Instruction 'vdivsd' {AVX|AVX512_F+VL}.
+    kIdVdivsh,                           //!< Instruction 'vdivsh' {AVX512_FP16+VL}.
+    kIdVdivss,                           //!< Instruction 'vdivss' {AVX|AVX512_F+VL}.
     kIdVdpbf16ps,                        //!< Instruction 'vdpbf16ps' {AVX512_BF16+VL}.
     kIdVdppd,                            //!< Instruction 'vdppd' {AVX}.
     kIdVdpps,                            //!< Instruction 'vdpps' {AVX}.
     kIdVerr,                             //!< Instruction 'verr'.
     kIdVerw,                             //!< Instruction 'verw'.
-    kIdVexp2pd,                          //!< Instruction 'vexp2pd' {AVX512_ER}.
-    kIdVexp2ps,                          //!< Instruction 'vexp2ps' {AVX512_ER}.
     kIdVexpandpd,                        //!< Instruction 'vexpandpd' {AVX512_F+VL}.
     kIdVexpandps,                        //!< Instruction 'vexpandps' {AVX512_F+VL}.
     kIdVextractf128,                     //!< Instruction 'vextractf128' {AVX}.
     kIdVextractf32x4,                    //!< Instruction 'vextractf32x4' {AVX512_F+VL}.
-    kIdVextractf32x8,                    //!< Instruction 'vextractf32x8' {AVX512_DQ}.
+    kIdVextractf32x8,                    //!< Instruction 'vextractf32x8' {AVX512_DQ+VL}.
     kIdVextractf64x2,                    //!< Instruction 'vextractf64x2' {AVX512_DQ+VL}.
-    kIdVextractf64x4,                    //!< Instruction 'vextractf64x4' {AVX512_F}.
+    kIdVextractf64x4,                    //!< Instruction 'vextractf64x4' {AVX512_F+VL}.
     kIdVextracti128,                     //!< Instruction 'vextracti128' {AVX2}.
     kIdVextracti32x4,                    //!< Instruction 'vextracti32x4' {AVX512_F+VL}.
-    kIdVextracti32x8,                    //!< Instruction 'vextracti32x8' {AVX512_DQ}.
+    kIdVextracti32x8,                    //!< Instruction 'vextracti32x8' {AVX512_DQ+VL}.
     kIdVextracti64x2,                    //!< Instruction 'vextracti64x2' {AVX512_DQ+VL}.
-    kIdVextracti64x4,                    //!< Instruction 'vextracti64x4' {AVX512_F}.
-    kIdVextractps,                       //!< Instruction 'vextractps' {AVX|AVX512_F}.
+    kIdVextracti64x4,                    //!< Instruction 'vextracti64x4' {AVX512_F+VL}.
+    kIdVextractps,                       //!< Instruction 'vextractps' {AVX|AVX512_F+VL}.
     kIdVfcmaddcph,                       //!< Instruction 'vfcmaddcph' {AVX512_FP16+VL}.
-    kIdVfcmaddcsh,                       //!< Instruction 'vfcmaddcsh' {AVX512_FP16}.
+    kIdVfcmaddcsh,                       //!< Instruction 'vfcmaddcsh' {AVX512_FP16+VL}.
     kIdVfcmulcph,                        //!< Instruction 'vfcmulcph' {AVX512_FP16+VL}.
-    kIdVfcmulcsh,                        //!< Instruction 'vfcmulcsh' {AVX512_FP16}.
+    kIdVfcmulcsh,                        //!< Instruction 'vfcmulcsh' {AVX512_FP16+VL}.
     kIdVfixupimmpd,                      //!< Instruction 'vfixupimmpd' {AVX512_F+VL}.
     kIdVfixupimmps,                      //!< Instruction 'vfixupimmps' {AVX512_F+VL}.
-    kIdVfixupimmsd,                      //!< Instruction 'vfixupimmsd' {AVX512_F}.
-    kIdVfixupimmss,                      //!< Instruction 'vfixupimmss' {AVX512_F}.
+    kIdVfixupimmsd,                      //!< Instruction 'vfixupimmsd' {AVX512_F+VL}.
+    kIdVfixupimmss,                      //!< Instruction 'vfixupimmss' {AVX512_F+VL}.
     kIdVfmadd132pd,                      //!< Instruction 'vfmadd132pd' {FMA|AVX512_F+VL}.
     kIdVfmadd132ph,                      //!< Instruction 'vfmadd132ph' {AVX512_FP16+VL}.
     kIdVfmadd132ps,                      //!< Instruction 'vfmadd132ps' {FMA|AVX512_F+VL}.
-    kIdVfmadd132sd,                      //!< Instruction 'vfmadd132sd' {FMA|AVX512_F}.
-    kIdVfmadd132sh,                      //!< Instruction 'vfmadd132sh' {AVX512_FP16}.
-    kIdVfmadd132ss,                      //!< Instruction 'vfmadd132ss' {FMA|AVX512_F}.
+    kIdVfmadd132sd,                      //!< Instruction 'vfmadd132sd' {FMA|AVX512_F+VL}.
+    kIdVfmadd132sh,                      //!< Instruction 'vfmadd132sh' {AVX512_FP16+VL}.
+    kIdVfmadd132ss,                      //!< Instruction 'vfmadd132ss' {FMA|AVX512_F+VL}.
     kIdVfmadd213pd,                      //!< Instruction 'vfmadd213pd' {FMA|AVX512_F+VL}.
     kIdVfmadd213ph,                      //!< Instruction 'vfmadd213ph' {AVX512_FP16+VL}.
     kIdVfmadd213ps,                      //!< Instruction 'vfmadd213ps' {FMA|AVX512_F+VL}.
-    kIdVfmadd213sd,                      //!< Instruction 'vfmadd213sd' {FMA|AVX512_F}.
-    kIdVfmadd213sh,                      //!< Instruction 'vfmadd213sh' {AVX512_FP16}.
-    kIdVfmadd213ss,                      //!< Instruction 'vfmadd213ss' {FMA|AVX512_F}.
+    kIdVfmadd213sd,                      //!< Instruction 'vfmadd213sd' {FMA|AVX512_F+VL}.
+    kIdVfmadd213sh,                      //!< Instruction 'vfmadd213sh' {AVX512_FP16+VL}.
+    kIdVfmadd213ss,                      //!< Instruction 'vfmadd213ss' {FMA|AVX512_F+VL}.
     kIdVfmadd231pd,                      //!< Instruction 'vfmadd231pd' {FMA|AVX512_F+VL}.
     kIdVfmadd231ph,                      //!< Instruction 'vfmadd231ph' {AVX512_FP16+VL}.
     kIdVfmadd231ps,                      //!< Instruction 'vfmadd231ps' {FMA|AVX512_F+VL}.
-    kIdVfmadd231sd,                      //!< Instruction 'vfmadd231sd' {FMA|AVX512_F}.
-    kIdVfmadd231sh,                      //!< Instruction 'vfmadd231sh' {AVX512_FP16}.
-    kIdVfmadd231ss,                      //!< Instruction 'vfmadd231ss' {FMA|AVX512_F}.
+    kIdVfmadd231sd,                      //!< Instruction 'vfmadd231sd' {FMA|AVX512_F+VL}.
+    kIdVfmadd231sh,                      //!< Instruction 'vfmadd231sh' {AVX512_FP16+VL}.
+    kIdVfmadd231ss,                      //!< Instruction 'vfmadd231ss' {FMA|AVX512_F+VL}.
     kIdVfmaddcph,                        //!< Instruction 'vfmaddcph' {AVX512_FP16+VL}.
-    kIdVfmaddcsh,                        //!< Instruction 'vfmaddcsh' {AVX512_FP16}.
+    kIdVfmaddcsh,                        //!< Instruction 'vfmaddcsh' {AVX512_FP16+VL}.
     kIdVfmaddpd,                         //!< Instruction 'vfmaddpd' {FMA4}.
     kIdVfmaddps,                         //!< Instruction 'vfmaddps' {FMA4}.
     kIdVfmaddsd,                         //!< Instruction 'vfmaddsd' {FMA4}.
@@ -1161,21 +1113,21 @@ namespace Inst {
     kIdVfmsub132pd,                      //!< Instruction 'vfmsub132pd' {FMA|AVX512_F+VL}.
     kIdVfmsub132ph,                      //!< Instruction 'vfmsub132ph' {AVX512_FP16+VL}.
     kIdVfmsub132ps,                      //!< Instruction 'vfmsub132ps' {FMA|AVX512_F+VL}.
-    kIdVfmsub132sd,                      //!< Instruction 'vfmsub132sd' {FMA|AVX512_F}.
-    kIdVfmsub132sh,                      //!< Instruction 'vfmsub132sh' {AVX512_FP16}.
-    kIdVfmsub132ss,                      //!< Instruction 'vfmsub132ss' {FMA|AVX512_F}.
+    kIdVfmsub132sd,                      //!< Instruction 'vfmsub132sd' {FMA|AVX512_F+VL}.
+    kIdVfmsub132sh,                      //!< Instruction 'vfmsub132sh' {AVX512_FP16+VL}.
+    kIdVfmsub132ss,                      //!< Instruction 'vfmsub132ss' {FMA|AVX512_F+VL}.
     kIdVfmsub213pd,                      //!< Instruction 'vfmsub213pd' {FMA|AVX512_F+VL}.
     kIdVfmsub213ph,                      //!< Instruction 'vfmsub213ph' {AVX512_FP16+VL}.
     kIdVfmsub213ps,                      //!< Instruction 'vfmsub213ps' {FMA|AVX512_F+VL}.
-    kIdVfmsub213sd,                      //!< Instruction 'vfmsub213sd' {FMA|AVX512_F}.
-    kIdVfmsub213sh,                      //!< Instruction 'vfmsub213sh' {AVX512_FP16}.
-    kIdVfmsub213ss,                      //!< Instruction 'vfmsub213ss' {FMA|AVX512_F}.
+    kIdVfmsub213sd,                      //!< Instruction 'vfmsub213sd' {FMA|AVX512_F+VL}.
+    kIdVfmsub213sh,                      //!< Instruction 'vfmsub213sh' {AVX512_FP16+VL}.
+    kIdVfmsub213ss,                      //!< Instruction 'vfmsub213ss' {FMA|AVX512_F+VL}.
     kIdVfmsub231pd,                      //!< Instruction 'vfmsub231pd' {FMA|AVX512_F+VL}.
     kIdVfmsub231ph,                      //!< Instruction 'vfmsub231ph' {AVX512_FP16+VL}.
     kIdVfmsub231ps,                      //!< Instruction 'vfmsub231ps' {FMA|AVX512_F+VL}.
-    kIdVfmsub231sd,                      //!< Instruction 'vfmsub231sd' {FMA|AVX512_F}.
-    kIdVfmsub231sh,                      //!< Instruction 'vfmsub231sh' {AVX512_FP16}.
-    kIdVfmsub231ss,                      //!< Instruction 'vfmsub231ss' {FMA|AVX512_F}.
+    kIdVfmsub231sd,                      //!< Instruction 'vfmsub231sd' {FMA|AVX512_F+VL}.
+    kIdVfmsub231sh,                      //!< Instruction 'vfmsub231sh' {AVX512_FP16+VL}.
+    kIdVfmsub231ss,                      //!< Instruction 'vfmsub231ss' {FMA|AVX512_F+VL}.
     kIdVfmsubadd132pd,                   //!< Instruction 'vfmsubadd132pd' {FMA|AVX512_F+VL}.
     kIdVfmsubadd132ph,                   //!< Instruction 'vfmsubadd132ph' {AVX512_FP16+VL}.
     kIdVfmsubadd132ps,                   //!< Instruction 'vfmsubadd132ps' {FMA|AVX512_F+VL}.
@@ -1196,21 +1148,21 @@ namespace Inst {
     kIdVfnmadd132pd,                     //!< Instruction 'vfnmadd132pd' {FMA|AVX512_F+VL}.
     kIdVfnmadd132ph,                     //!< Instruction 'vfnmadd132ph' {AVX512_FP16+VL}.
     kIdVfnmadd132ps,                     //!< Instruction 'vfnmadd132ps' {FMA|AVX512_F+VL}.
-    kIdVfnmadd132sd,                     //!< Instruction 'vfnmadd132sd' {FMA|AVX512_F}.
-    kIdVfnmadd132sh,                     //!< Instruction 'vfnmadd132sh' {AVX512_FP16}.
-    kIdVfnmadd132ss,                     //!< Instruction 'vfnmadd132ss' {FMA|AVX512_F}.
+    kIdVfnmadd132sd,                     //!< Instruction 'vfnmadd132sd' {FMA|AVX512_F+VL}.
+    kIdVfnmadd132sh,                     //!< Instruction 'vfnmadd132sh' {AVX512_FP16+VL}.
+    kIdVfnmadd132ss,                     //!< Instruction 'vfnmadd132ss' {FMA|AVX512_F+VL}.
     kIdVfnmadd213pd,                     //!< Instruction 'vfnmadd213pd' {FMA|AVX512_F+VL}.
     kIdVfnmadd213ph,                     //!< Instruction 'vfnmadd213ph' {AVX512_FP16+VL}.
     kIdVfnmadd213ps,                     //!< Instruction 'vfnmadd213ps' {FMA|AVX512_F+VL}.
-    kIdVfnmadd213sd,                     //!< Instruction 'vfnmadd213sd' {FMA|AVX512_F}.
-    kIdVfnmadd213sh,                     //!< Instruction 'vfnmadd213sh' {AVX512_FP16}.
-    kIdVfnmadd213ss,                     //!< Instruction 'vfnmadd213ss' {FMA|AVX512_F}.
+    kIdVfnmadd213sd,                     //!< Instruction 'vfnmadd213sd' {FMA|AVX512_F+VL}.
+    kIdVfnmadd213sh,                     //!< Instruction 'vfnmadd213sh' {AVX512_FP16+VL}.
+    kIdVfnmadd213ss,                     //!< Instruction 'vfnmadd213ss' {FMA|AVX512_F+VL}.
     kIdVfnmadd231pd,                     //!< Instruction 'vfnmadd231pd' {FMA|AVX512_F+VL}.
     kIdVfnmadd231ph,                     //!< Instruction 'vfnmadd231ph' {AVX512_FP16+VL}.
     kIdVfnmadd231ps,                     //!< Instruction 'vfnmadd231ps' {FMA|AVX512_F+VL}.
-    kIdVfnmadd231sd,                     //!< Instruction 'vfnmadd231sd' {FMA|AVX512_F}.
-    kIdVfnmadd231sh,                     //!< Instruction 'vfnmadd231sh' {AVX512_FP16}.
-    kIdVfnmadd231ss,                     //!< Instruction 'vfnmadd231ss' {FMA|AVX512_F}.
+    kIdVfnmadd231sd,                     //!< Instruction 'vfnmadd231sd' {FMA|AVX512_F+VL}.
+    kIdVfnmadd231sh,                     //!< Instruction 'vfnmadd231sh' {AVX512_FP16+VL}.
+    kIdVfnmadd231ss,                     //!< Instruction 'vfnmadd231ss' {FMA|AVX512_F+VL}.
     kIdVfnmaddpd,                        //!< Instruction 'vfnmaddpd' {FMA4}.
     kIdVfnmaddps,                        //!< Instruction 'vfnmaddps' {FMA4}.
     kIdVfnmaddsd,                        //!< Instruction 'vfnmaddsd' {FMA4}.
@@ -1218,21 +1170,21 @@ namespace Inst {
     kIdVfnmsub132pd,                     //!< Instruction 'vfnmsub132pd' {FMA|AVX512_F+VL}.
     kIdVfnmsub132ph,                     //!< Instruction 'vfnmsub132ph' {AVX512_FP16+VL}.
     kIdVfnmsub132ps,                     //!< Instruction 'vfnmsub132ps' {FMA|AVX512_F+VL}.
-    kIdVfnmsub132sd,                     //!< Instruction 'vfnmsub132sd' {FMA|AVX512_F}.
-    kIdVfnmsub132sh,                     //!< Instruction 'vfnmsub132sh' {AVX512_FP16}.
-    kIdVfnmsub132ss,                     //!< Instruction 'vfnmsub132ss' {FMA|AVX512_F}.
+    kIdVfnmsub132sd,                     //!< Instruction 'vfnmsub132sd' {FMA|AVX512_F+VL}.
+    kIdVfnmsub132sh,                     //!< Instruction 'vfnmsub132sh' {AVX512_FP16+VL}.
+    kIdVfnmsub132ss,                     //!< Instruction 'vfnmsub132ss' {FMA|AVX512_F+VL}.
     kIdVfnmsub213pd,                     //!< Instruction 'vfnmsub213pd' {FMA|AVX512_F+VL}.
     kIdVfnmsub213ph,                     //!< Instruction 'vfnmsub213ph' {AVX512_FP16+VL}.
     kIdVfnmsub213ps,                     //!< Instruction 'vfnmsub213ps' {FMA|AVX512_F+VL}.
-    kIdVfnmsub213sd,                     //!< Instruction 'vfnmsub213sd' {FMA|AVX512_F}.
-    kIdVfnmsub213sh,                     //!< Instruction 'vfnmsub213sh' {AVX512_FP16}.
-    kIdVfnmsub213ss,                     //!< Instruction 'vfnmsub213ss' {FMA|AVX512_F}.
+    kIdVfnmsub213sd,                     //!< Instruction 'vfnmsub213sd' {FMA|AVX512_F+VL}.
+    kIdVfnmsub213sh,                     //!< Instruction 'vfnmsub213sh' {AVX512_FP16+VL}.
+    kIdVfnmsub213ss,                     //!< Instruction 'vfnmsub213ss' {FMA|AVX512_F+VL}.
     kIdVfnmsub231pd,                     //!< Instruction 'vfnmsub231pd' {FMA|AVX512_F+VL}.
     kIdVfnmsub231ph,                     //!< Instruction 'vfnmsub231ph' {AVX512_FP16+VL}.
     kIdVfnmsub231ps,                     //!< Instruction 'vfnmsub231ps' {FMA|AVX512_F+VL}.
-    kIdVfnmsub231sd,                     //!< Instruction 'vfnmsub231sd' {FMA|AVX512_F}.
-    kIdVfnmsub231sh,                     //!< Instruction 'vfnmsub231sh' {AVX512_FP16}.
-    kIdVfnmsub231ss,                     //!< Instruction 'vfnmsub231ss' {FMA|AVX512_F}.
+    kIdVfnmsub231sd,                     //!< Instruction 'vfnmsub231sd' {FMA|AVX512_F+VL}.
+    kIdVfnmsub231sh,                     //!< Instruction 'vfnmsub231sh' {AVX512_FP16+VL}.
+    kIdVfnmsub231ss,                     //!< Instruction 'vfnmsub231ss' {FMA|AVX512_F+VL}.
     kIdVfnmsubpd,                        //!< Instruction 'vfnmsubpd' {FMA4}.
     kIdVfnmsubps,                        //!< Instruction 'vfnmsubps' {FMA4}.
     kIdVfnmsubsd,                        //!< Instruction 'vfnmsubsd' {FMA4}.
@@ -1240,37 +1192,29 @@ namespace Inst {
     kIdVfpclasspd,                       //!< Instruction 'vfpclasspd' {AVX512_DQ+VL}.
     kIdVfpclassph,                       //!< Instruction 'vfpclassph' {AVX512_FP16+VL}.
     kIdVfpclassps,                       //!< Instruction 'vfpclassps' {AVX512_DQ+VL}.
-    kIdVfpclasssd,                       //!< Instruction 'vfpclasssd' {AVX512_DQ}.
-    kIdVfpclasssh,                       //!< Instruction 'vfpclasssh' {AVX512_FP16}.
-    kIdVfpclassss,                       //!< Instruction 'vfpclassss' {AVX512_DQ}.
+    kIdVfpclasssd,                       //!< Instruction 'vfpclasssd' {AVX512_DQ+VL}.
+    kIdVfpclasssh,                       //!< Instruction 'vfpclasssh' {AVX512_FP16+VL}.
+    kIdVfpclassss,                       //!< Instruction 'vfpclassss' {AVX512_DQ+VL}.
     kIdVfrczpd,                          //!< Instruction 'vfrczpd' {XOP}.
     kIdVfrczps,                          //!< Instruction 'vfrczps' {XOP}.
     kIdVfrczsd,                          //!< Instruction 'vfrczsd' {XOP}.
     kIdVfrczss,                          //!< Instruction 'vfrczss' {XOP}.
     kIdVgatherdpd,                       //!< Instruction 'vgatherdpd' {AVX2|AVX512_F+VL}.
     kIdVgatherdps,                       //!< Instruction 'vgatherdps' {AVX2|AVX512_F+VL}.
-    kIdVgatherpf0dpd,                    //!< Instruction 'vgatherpf0dpd' {AVX512_PF}.
-    kIdVgatherpf0dps,                    //!< Instruction 'vgatherpf0dps' {AVX512_PF}.
-    kIdVgatherpf0qpd,                    //!< Instruction 'vgatherpf0qpd' {AVX512_PF}.
-    kIdVgatherpf0qps,                    //!< Instruction 'vgatherpf0qps' {AVX512_PF}.
-    kIdVgatherpf1dpd,                    //!< Instruction 'vgatherpf1dpd' {AVX512_PF}.
-    kIdVgatherpf1dps,                    //!< Instruction 'vgatherpf1dps' {AVX512_PF}.
-    kIdVgatherpf1qpd,                    //!< Instruction 'vgatherpf1qpd' {AVX512_PF}.
-    kIdVgatherpf1qps,                    //!< Instruction 'vgatherpf1qps' {AVX512_PF}.
     kIdVgatherqpd,                       //!< Instruction 'vgatherqpd' {AVX2|AVX512_F+VL}.
     kIdVgatherqps,                       //!< Instruction 'vgatherqps' {AVX2|AVX512_F+VL}.
     kIdVgetexppd,                        //!< Instruction 'vgetexppd' {AVX512_F+VL}.
     kIdVgetexpph,                        //!< Instruction 'vgetexpph' {AVX512_FP16+VL}.
     kIdVgetexpps,                        //!< Instruction 'vgetexpps' {AVX512_F+VL}.
-    kIdVgetexpsd,                        //!< Instruction 'vgetexpsd' {AVX512_F}.
-    kIdVgetexpsh,                        //!< Instruction 'vgetexpsh' {AVX512_FP16}.
-    kIdVgetexpss,                        //!< Instruction 'vgetexpss' {AVX512_F}.
+    kIdVgetexpsd,                        //!< Instruction 'vgetexpsd' {AVX512_F+VL}.
+    kIdVgetexpsh,                        //!< Instruction 'vgetexpsh' {AVX512_FP16+VL}.
+    kIdVgetexpss,                        //!< Instruction 'vgetexpss' {AVX512_F+VL}.
     kIdVgetmantpd,                       //!< Instruction 'vgetmantpd' {AVX512_F+VL}.
     kIdVgetmantph,                       //!< Instruction 'vgetmantph' {AVX512_FP16+VL}.
     kIdVgetmantps,                       //!< Instruction 'vgetmantps' {AVX512_F+VL}.
-    kIdVgetmantsd,                       //!< Instruction 'vgetmantsd' {AVX512_F}.
-    kIdVgetmantsh,                       //!< Instruction 'vgetmantsh' {AVX512_FP16}.
-    kIdVgetmantss,                       //!< Instruction 'vgetmantss' {AVX512_F}.
+    kIdVgetmantsd,                       //!< Instruction 'vgetmantsd' {AVX512_F+VL}.
+    kIdVgetmantsh,                       //!< Instruction 'vgetmantsh' {AVX512_FP16+VL}.
+    kIdVgetmantss,                       //!< Instruction 'vgetmantss' {AVX512_F+VL}.
     kIdVgf2p8affineinvqb,                //!< Instruction 'vgf2p8affineinvqb' {AVX|AVX512_F+VL & GFNI}.
     kIdVgf2p8affineqb,                   //!< Instruction 'vgf2p8affineqb' {AVX|AVX512_F+VL & GFNI}.
     kIdVgf2p8mulb,                       //!< Instruction 'vgf2p8mulb' {AVX|AVX512_F+VL & GFNI}.
@@ -1280,15 +1224,15 @@ namespace Inst {
     kIdVhsubps,                          //!< Instruction 'vhsubps' {AVX}.
     kIdVinsertf128,                      //!< Instruction 'vinsertf128' {AVX}.
     kIdVinsertf32x4,                     //!< Instruction 'vinsertf32x4' {AVX512_F+VL}.
-    kIdVinsertf32x8,                     //!< Instruction 'vinsertf32x8' {AVX512_DQ}.
+    kIdVinsertf32x8,                     //!< Instruction 'vinsertf32x8' {AVX512_DQ+VL}.
     kIdVinsertf64x2,                     //!< Instruction 'vinsertf64x2' {AVX512_DQ+VL}.
-    kIdVinsertf64x4,                     //!< Instruction 'vinsertf64x4' {AVX512_F}.
+    kIdVinsertf64x4,                     //!< Instruction 'vinsertf64x4' {AVX512_F+VL}.
     kIdVinserti128,                      //!< Instruction 'vinserti128' {AVX2}.
     kIdVinserti32x4,                     //!< Instruction 'vinserti32x4' {AVX512_F+VL}.
-    kIdVinserti32x8,                     //!< Instruction 'vinserti32x8' {AVX512_DQ}.
+    kIdVinserti32x8,                     //!< Instruction 'vinserti32x8' {AVX512_DQ+VL}.
     kIdVinserti64x2,                     //!< Instruction 'vinserti64x2' {AVX512_DQ+VL}.
-    kIdVinserti64x4,                     //!< Instruction 'vinserti64x4' {AVX512_F}.
-    kIdVinsertps,                        //!< Instruction 'vinsertps' {AVX|AVX512_F}.
+    kIdVinserti64x4,                     //!< Instruction 'vinserti64x4' {AVX512_F+VL}.
+    kIdVinsertps,                        //!< Instruction 'vinsertps' {AVX|AVX512_F+VL}.
     kIdVlddqu,                           //!< Instruction 'vlddqu' {AVX}.
     kIdVldmxcsr,                         //!< Instruction 'vldmxcsr' {AVX}.
     kIdVmaskmovdqu,                      //!< Instruction 'vmaskmovdqu' {AVX}.
@@ -1297,9 +1241,9 @@ namespace Inst {
     kIdVmaxpd,                           //!< Instruction 'vmaxpd' {AVX|AVX512_F+VL}.
     kIdVmaxph,                           //!< Instruction 'vmaxph' {AVX512_FP16+VL}.
     kIdVmaxps,                           //!< Instruction 'vmaxps' {AVX|AVX512_F+VL}.
-    kIdVmaxsd,                           //!< Instruction 'vmaxsd' {AVX|AVX512_F}.
-    kIdVmaxsh,                           //!< Instruction 'vmaxsh' {AVX512_FP16}.
-    kIdVmaxss,                           //!< Instruction 'vmaxss' {AVX|AVX512_F}.
+    kIdVmaxsd,                           //!< Instruction 'vmaxsd' {AVX|AVX512_F+VL}.
+    kIdVmaxsh,                           //!< Instruction 'vmaxsh' {AVX512_FP16+VL}.
+    kIdVmaxss,                           //!< Instruction 'vmaxss' {AVX|AVX512_F+VL}.
     kIdVmcall,                           //!< Instruction 'vmcall' {VMX}.
     kIdVmclear,                          //!< Instruction 'vmclear' {VMX}.
     kIdVmfunc,                           //!< Instruction 'vmfunc' {VMX}.
@@ -1307,15 +1251,15 @@ namespace Inst {
     kIdVminpd,                           //!< Instruction 'vminpd' {AVX|AVX512_F+VL}.
     kIdVminph,                           //!< Instruction 'vminph' {AVX512_FP16+VL}.
     kIdVminps,                           //!< Instruction 'vminps' {AVX|AVX512_F+VL}.
-    kIdVminsd,                           //!< Instruction 'vminsd' {AVX|AVX512_F}.
-    kIdVminsh,                           //!< Instruction 'vminsh' {AVX512_FP16}.
-    kIdVminss,                           //!< Instruction 'vminss' {AVX|AVX512_F}.
+    kIdVminsd,                           //!< Instruction 'vminsd' {AVX|AVX512_F+VL}.
+    kIdVminsh,                           //!< Instruction 'vminsh' {AVX512_FP16+VL}.
+    kIdVminss,                           //!< Instruction 'vminss' {AVX|AVX512_F+VL}.
     kIdVmlaunch,                         //!< Instruction 'vmlaunch' {VMX}.
     kIdVmload,                           //!< Instruction 'vmload' {SVM}.
     kIdVmmcall,                          //!< Instruction 'vmmcall' {SVM}.
     kIdVmovapd,                          //!< Instruction 'vmovapd' {AVX|AVX512_F+VL}.
     kIdVmovaps,                          //!< Instruction 'vmovaps' {AVX|AVX512_F+VL}.
-    kIdVmovd,                            //!< Instruction 'vmovd' {AVX|AVX512_F}.
+    kIdVmovd,                            //!< Instruction 'vmovd' {AVX|AVX512_F+VL}.
     kIdVmovddup,                         //!< Instruction 'vmovddup' {AVX|AVX512_F+VL}.
     kIdVmovdqa,                          //!< Instruction 'vmovdqa' {AVX}.
     kIdVmovdqa32,                        //!< Instruction 'vmovdqa32' {AVX512_F+VL}.
@@ -1325,27 +1269,27 @@ namespace Inst {
     kIdVmovdqu32,                        //!< Instruction 'vmovdqu32' {AVX512_F+VL}.
     kIdVmovdqu64,                        //!< Instruction 'vmovdqu64' {AVX512_F+VL}.
     kIdVmovdqu8,                         //!< Instruction 'vmovdqu8' {AVX512_BW+VL}.
-    kIdVmovhlps,                         //!< Instruction 'vmovhlps' {AVX|AVX512_F}.
-    kIdVmovhpd,                          //!< Instruction 'vmovhpd' {AVX|AVX512_F}.
-    kIdVmovhps,                          //!< Instruction 'vmovhps' {AVX|AVX512_F}.
-    kIdVmovlhps,                         //!< Instruction 'vmovlhps' {AVX|AVX512_F}.
-    kIdVmovlpd,                          //!< Instruction 'vmovlpd' {AVX|AVX512_F}.
-    kIdVmovlps,                          //!< Instruction 'vmovlps' {AVX|AVX512_F}.
+    kIdVmovhlps,                         //!< Instruction 'vmovhlps' {AVX|AVX512_F+VL}.
+    kIdVmovhpd,                          //!< Instruction 'vmovhpd' {AVX|AVX512_F+VL}.
+    kIdVmovhps,                          //!< Instruction 'vmovhps' {AVX|AVX512_F+VL}.
+    kIdVmovlhps,                         //!< Instruction 'vmovlhps' {AVX|AVX512_F+VL}.
+    kIdVmovlpd,                          //!< Instruction 'vmovlpd' {AVX|AVX512_F+VL}.
+    kIdVmovlps,                          //!< Instruction 'vmovlps' {AVX|AVX512_F+VL}.
     kIdVmovmskpd,                        //!< Instruction 'vmovmskpd' {AVX}.
     kIdVmovmskps,                        //!< Instruction 'vmovmskps' {AVX}.
     kIdVmovntdq,                         //!< Instruction 'vmovntdq' {AVX|AVX512_F+VL}.
     kIdVmovntdqa,                        //!< Instruction 'vmovntdqa' {AVX|AVX2|AVX512_F+VL}.
     kIdVmovntpd,                         //!< Instruction 'vmovntpd' {AVX|AVX512_F+VL}.
     kIdVmovntps,                         //!< Instruction 'vmovntps' {AVX|AVX512_F+VL}.
-    kIdVmovq,                            //!< Instruction 'vmovq' {AVX|AVX512_F}.
-    kIdVmovsd,                           //!< Instruction 'vmovsd' {AVX|AVX512_F}.
-    kIdVmovsh,                           //!< Instruction 'vmovsh' {AVX512_FP16}.
+    kIdVmovq,                            //!< Instruction 'vmovq' {AVX|AVX512_F+VL}.
+    kIdVmovsd,                           //!< Instruction 'vmovsd' {AVX|AVX512_F+VL}.
+    kIdVmovsh,                           //!< Instruction 'vmovsh' {AVX512_FP16+VL}.
     kIdVmovshdup,                        //!< Instruction 'vmovshdup' {AVX|AVX512_F+VL}.
     kIdVmovsldup,                        //!< Instruction 'vmovsldup' {AVX|AVX512_F+VL}.
-    kIdVmovss,                           //!< Instruction 'vmovss' {AVX|AVX512_F}.
+    kIdVmovss,                           //!< Instruction 'vmovss' {AVX|AVX512_F+VL}.
     kIdVmovupd,                          //!< Instruction 'vmovupd' {AVX|AVX512_F+VL}.
     kIdVmovups,                          //!< Instruction 'vmovups' {AVX|AVX512_F+VL}.
-    kIdVmovw,                            //!< Instruction 'vmovw' {AVX512_FP16}.
+    kIdVmovw,                            //!< Instruction 'vmovw' {AVX512_FP16+VL}.
     kIdVmpsadbw,                         //!< Instruction 'vmpsadbw' {AVX|AVX2}.
     kIdVmptrld,                          //!< Instruction 'vmptrld' {VMX}.
     kIdVmptrst,                          //!< Instruction 'vmptrst' {VMX}.
@@ -1356,9 +1300,9 @@ namespace Inst {
     kIdVmulpd,                           //!< Instruction 'vmulpd' {AVX|AVX512_F+VL}.
     kIdVmulph,                           //!< Instruction 'vmulph' {AVX512_FP16+VL}.
     kIdVmulps,                           //!< Instruction 'vmulps' {AVX|AVX512_F+VL}.
-    kIdVmulsd,                           //!< Instruction 'vmulsd' {AVX|AVX512_F}.
-    kIdVmulsh,                           //!< Instruction 'vmulsh' {AVX512_FP16}.
-    kIdVmulss,                           //!< Instruction 'vmulss' {AVX|AVX512_F}.
+    kIdVmulsd,                           //!< Instruction 'vmulsd' {AVX|AVX512_F+VL}.
+    kIdVmulsh,                           //!< Instruction 'vmulsh' {AVX512_FP16+VL}.
+    kIdVmulss,                           //!< Instruction 'vmulss' {AVX|AVX512_F+VL}.
     kIdVmwrite,                          //!< Instruction 'vmwrite' {VMX}.
     kIdVmxoff,                           //!< Instruction 'vmxoff' {VMX}.
     kIdVmxon,                            //!< Instruction 'vmxon' {VMX}.
@@ -1366,8 +1310,6 @@ namespace Inst {
     kIdVorps,                            //!< Instruction 'vorps' {AVX|AVX512_DQ+VL}.
     kIdVp2intersectd,                    //!< Instruction 'vp2intersectd' {AVX512_VP2INTERSECT+VL}.
     kIdVp2intersectq,                    //!< Instruction 'vp2intersectq' {AVX512_VP2INTERSECT+VL}.
-    kIdVp4dpwssd,                        //!< Instruction 'vp4dpwssd' {AVX512_4VNNIW}.
-    kIdVp4dpwssds,                       //!< Instruction 'vp4dpwssds' {AVX512_4VNNIW}.
     kIdVpabsb,                           //!< Instruction 'vpabsb' {AVX|AVX2|AVX512_BW+VL}.
     kIdVpabsd,                           //!< Instruction 'vpabsd' {AVX|AVX2|AVX512_F+VL}.
     kIdVpabsq,                           //!< Instruction 'vpabsq' {AVX512_F+VL}.
@@ -1486,10 +1428,10 @@ namespace Inst {
     kIdVpexpandd,                        //!< Instruction 'vpexpandd' {AVX512_F+VL}.
     kIdVpexpandq,                        //!< Instruction 'vpexpandq' {AVX512_F+VL}.
     kIdVpexpandw,                        //!< Instruction 'vpexpandw' {AVX512_VBMI2+VL}.
-    kIdVpextrb,                          //!< Instruction 'vpextrb' {AVX|AVX512_BW}.
-    kIdVpextrd,                          //!< Instruction 'vpextrd' {AVX|AVX512_DQ}.
-    kIdVpextrq,                          //!< Instruction 'vpextrq' {AVX|AVX512_DQ} (X64).
-    kIdVpextrw,                          //!< Instruction 'vpextrw' {AVX|AVX512_BW}.
+    kIdVpextrb,                          //!< Instruction 'vpextrb' {AVX|AVX512_BW+VL}.
+    kIdVpextrd,                          //!< Instruction 'vpextrd' {AVX|AVX512_DQ+VL}.
+    kIdVpextrq,                          //!< Instruction 'vpextrq' {AVX|AVX512_DQ+VL} (X64).
+    kIdVpextrw,                          //!< Instruction 'vpextrw' {AVX|AVX512_BW+VL}.
     kIdVpgatherdd,                       //!< Instruction 'vpgatherdd' {AVX2|AVX512_F+VL}.
     kIdVpgatherdq,                       //!< Instruction 'vpgatherdq' {AVX2|AVX512_F+VL}.
     kIdVpgatherqd,                       //!< Instruction 'vpgatherqd' {AVX2|AVX512_F+VL}.
@@ -1516,10 +1458,10 @@ namespace Inst {
     kIdVphsubsw,                         //!< Instruction 'vphsubsw' {AVX|AVX2}.
     kIdVphsubw,                          //!< Instruction 'vphsubw' {AVX|AVX2}.
     kIdVphsubwd,                         //!< Instruction 'vphsubwd' {XOP}.
-    kIdVpinsrb,                          //!< Instruction 'vpinsrb' {AVX|AVX512_BW}.
-    kIdVpinsrd,                          //!< Instruction 'vpinsrd' {AVX|AVX512_DQ}.
-    kIdVpinsrq,                          //!< Instruction 'vpinsrq' {AVX|AVX512_DQ} (X64).
-    kIdVpinsrw,                          //!< Instruction 'vpinsrw' {AVX|AVX512_BW}.
+    kIdVpinsrb,                          //!< Instruction 'vpinsrb' {AVX|AVX512_BW+VL}.
+    kIdVpinsrd,                          //!< Instruction 'vpinsrd' {AVX|AVX512_DQ+VL}.
+    kIdVpinsrq,                          //!< Instruction 'vpinsrq' {AVX|AVX512_DQ+VL} (X64).
+    kIdVpinsrw,                          //!< Instruction 'vpinsrw' {AVX|AVX512_BW+VL}.
     kIdVplzcntd,                         //!< Instruction 'vplzcntd' {AVX512_CD+VL}.
     kIdVplzcntq,                         //!< Instruction 'vplzcntq' {AVX512_CD+VL}.
     kIdVpmacsdd,                         //!< Instruction 'vpmacsdd' {XOP}.
@@ -1709,64 +1651,48 @@ namespace Inst {
     kIdVpxorq,                           //!< Instruction 'vpxorq' {AVX512_F+VL}.
     kIdVrangepd,                         //!< Instruction 'vrangepd' {AVX512_DQ+VL}.
     kIdVrangeps,                         //!< Instruction 'vrangeps' {AVX512_DQ+VL}.
-    kIdVrangesd,                         //!< Instruction 'vrangesd' {AVX512_DQ}.
-    kIdVrangess,                         //!< Instruction 'vrangess' {AVX512_DQ}.
+    kIdVrangesd,                         //!< Instruction 'vrangesd' {AVX512_DQ+VL}.
+    kIdVrangess,                         //!< Instruction 'vrangess' {AVX512_DQ+VL}.
     kIdVrcp14pd,                         //!< Instruction 'vrcp14pd' {AVX512_F+VL}.
     kIdVrcp14ps,                         //!< Instruction 'vrcp14ps' {AVX512_F+VL}.
-    kIdVrcp14sd,                         //!< Instruction 'vrcp14sd' {AVX512_F}.
-    kIdVrcp14ss,                         //!< Instruction 'vrcp14ss' {AVX512_F}.
-    kIdVrcp28pd,                         //!< Instruction 'vrcp28pd' {AVX512_ER}.
-    kIdVrcp28ps,                         //!< Instruction 'vrcp28ps' {AVX512_ER}.
-    kIdVrcp28sd,                         //!< Instruction 'vrcp28sd' {AVX512_ER}.
-    kIdVrcp28ss,                         //!< Instruction 'vrcp28ss' {AVX512_ER}.
-    kIdVrcpph,                           //!< Instruction 'vrcpph' {AVX512_FP16}.
+    kIdVrcp14sd,                         //!< Instruction 'vrcp14sd' {AVX512_F+VL}.
+    kIdVrcp14ss,                         //!< Instruction 'vrcp14ss' {AVX512_F+VL}.
+    kIdVrcpph,                           //!< Instruction 'vrcpph' {AVX512_FP16+VL}.
     kIdVrcpps,                           //!< Instruction 'vrcpps' {AVX}.
-    kIdVrcpsh,                           //!< Instruction 'vrcpsh' {AVX512_FP16}.
+    kIdVrcpsh,                           //!< Instruction 'vrcpsh' {AVX512_FP16+VL}.
     kIdVrcpss,                           //!< Instruction 'vrcpss' {AVX}.
     kIdVreducepd,                        //!< Instruction 'vreducepd' {AVX512_DQ+VL}.
     kIdVreduceph,                        //!< Instruction 'vreduceph' {AVX512_FP16+VL}.
     kIdVreduceps,                        //!< Instruction 'vreduceps' {AVX512_DQ+VL}.
-    kIdVreducesd,                        //!< Instruction 'vreducesd' {AVX512_DQ}.
-    kIdVreducesh,                        //!< Instruction 'vreducesh' {AVX512_FP16}.
-    kIdVreducess,                        //!< Instruction 'vreducess' {AVX512_DQ}.
+    kIdVreducesd,                        //!< Instruction 'vreducesd' {AVX512_DQ+VL}.
+    kIdVreducesh,                        //!< Instruction 'vreducesh' {AVX512_FP16+VL}.
+    kIdVreducess,                        //!< Instruction 'vreducess' {AVX512_DQ+VL}.
     kIdVrndscalepd,                      //!< Instruction 'vrndscalepd' {AVX512_F+VL}.
     kIdVrndscaleph,                      //!< Instruction 'vrndscaleph' {AVX512_FP16+VL}.
     kIdVrndscaleps,                      //!< Instruction 'vrndscaleps' {AVX512_F+VL}.
-    kIdVrndscalesd,                      //!< Instruction 'vrndscalesd' {AVX512_F}.
-    kIdVrndscalesh,                      //!< Instruction 'vrndscalesh' {AVX512_FP16}.
-    kIdVrndscaless,                      //!< Instruction 'vrndscaless' {AVX512_F}.
+    kIdVrndscalesd,                      //!< Instruction 'vrndscalesd' {AVX512_F+VL}.
+    kIdVrndscalesh,                      //!< Instruction 'vrndscalesh' {AVX512_FP16+VL}.
+    kIdVrndscaless,                      //!< Instruction 'vrndscaless' {AVX512_F+VL}.
     kIdVroundpd,                         //!< Instruction 'vroundpd' {AVX}.
     kIdVroundps,                         //!< Instruction 'vroundps' {AVX}.
     kIdVroundsd,                         //!< Instruction 'vroundsd' {AVX}.
     kIdVroundss,                         //!< Instruction 'vroundss' {AVX}.
     kIdVrsqrt14pd,                       //!< Instruction 'vrsqrt14pd' {AVX512_F+VL}.
     kIdVrsqrt14ps,                       //!< Instruction 'vrsqrt14ps' {AVX512_F+VL}.
-    kIdVrsqrt14sd,                       //!< Instruction 'vrsqrt14sd' {AVX512_F}.
-    kIdVrsqrt14ss,                       //!< Instruction 'vrsqrt14ss' {AVX512_F}.
-    kIdVrsqrt28pd,                       //!< Instruction 'vrsqrt28pd' {AVX512_ER}.
-    kIdVrsqrt28ps,                       //!< Instruction 'vrsqrt28ps' {AVX512_ER}.
-    kIdVrsqrt28sd,                       //!< Instruction 'vrsqrt28sd' {AVX512_ER}.
-    kIdVrsqrt28ss,                       //!< Instruction 'vrsqrt28ss' {AVX512_ER}.
+    kIdVrsqrt14sd,                       //!< Instruction 'vrsqrt14sd' {AVX512_F+VL}.
+    kIdVrsqrt14ss,                       //!< Instruction 'vrsqrt14ss' {AVX512_F+VL}.
     kIdVrsqrtph,                         //!< Instruction 'vrsqrtph' {AVX512_FP16+VL}.
     kIdVrsqrtps,                         //!< Instruction 'vrsqrtps' {AVX}.
-    kIdVrsqrtsh,                         //!< Instruction 'vrsqrtsh' {AVX512_FP16}.
+    kIdVrsqrtsh,                         //!< Instruction 'vrsqrtsh' {AVX512_FP16+VL}.
     kIdVrsqrtss,                         //!< Instruction 'vrsqrtss' {AVX}.
     kIdVscalefpd,                        //!< Instruction 'vscalefpd' {AVX512_F+VL}.
     kIdVscalefph,                        //!< Instruction 'vscalefph' {AVX512_FP16+VL}.
     kIdVscalefps,                        //!< Instruction 'vscalefps' {AVX512_F+VL}.
-    kIdVscalefsd,                        //!< Instruction 'vscalefsd' {AVX512_F}.
-    kIdVscalefsh,                        //!< Instruction 'vscalefsh' {AVX512_FP16}.
-    kIdVscalefss,                        //!< Instruction 'vscalefss' {AVX512_F}.
+    kIdVscalefsd,                        //!< Instruction 'vscalefsd' {AVX512_F+VL}.
+    kIdVscalefsh,                        //!< Instruction 'vscalefsh' {AVX512_FP16+VL}.
+    kIdVscalefss,                        //!< Instruction 'vscalefss' {AVX512_F+VL}.
     kIdVscatterdpd,                      //!< Instruction 'vscatterdpd' {AVX512_F+VL}.
     kIdVscatterdps,                      //!< Instruction 'vscatterdps' {AVX512_F+VL}.
-    kIdVscatterpf0dpd,                   //!< Instruction 'vscatterpf0dpd' {AVX512_PF}.
-    kIdVscatterpf0dps,                   //!< Instruction 'vscatterpf0dps' {AVX512_PF}.
-    kIdVscatterpf0qpd,                   //!< Instruction 'vscatterpf0qpd' {AVX512_PF}.
-    kIdVscatterpf0qps,                   //!< Instruction 'vscatterpf0qps' {AVX512_PF}.
-    kIdVscatterpf1dpd,                   //!< Instruction 'vscatterpf1dpd' {AVX512_PF}.
-    kIdVscatterpf1dps,                   //!< Instruction 'vscatterpf1dps' {AVX512_PF}.
-    kIdVscatterpf1qpd,                   //!< Instruction 'vscatterpf1qpd' {AVX512_PF}.
-    kIdVscatterpf1qps,                   //!< Instruction 'vscatterpf1qps' {AVX512_PF}.
     kIdVscatterqpd,                      //!< Instruction 'vscatterqpd' {AVX512_F+VL}.
     kIdVscatterqps,                      //!< Instruction 'vscatterqps' {AVX512_F+VL}.
     kIdVsha512msg1,                      //!< Instruction 'vsha512msg1' {AVX & SHA512}.
@@ -1786,21 +1712,21 @@ namespace Inst {
     kIdVsqrtpd,                          //!< Instruction 'vsqrtpd' {AVX|AVX512_F+VL}.
     kIdVsqrtph,                          //!< Instruction 'vsqrtph' {AVX512_FP16+VL}.
     kIdVsqrtps,                          //!< Instruction 'vsqrtps' {AVX|AVX512_F+VL}.
-    kIdVsqrtsd,                          //!< Instruction 'vsqrtsd' {AVX|AVX512_F}.
-    kIdVsqrtsh,                          //!< Instruction 'vsqrtsh' {AVX512_FP16}.
-    kIdVsqrtss,                          //!< Instruction 'vsqrtss' {AVX|AVX512_F}.
+    kIdVsqrtsd,                          //!< Instruction 'vsqrtsd' {AVX|AVX512_F+VL}.
+    kIdVsqrtsh,                          //!< Instruction 'vsqrtsh' {AVX512_FP16+VL}.
+    kIdVsqrtss,                          //!< Instruction 'vsqrtss' {AVX|AVX512_F+VL}.
     kIdVstmxcsr,                         //!< Instruction 'vstmxcsr' {AVX}.
     kIdVsubpd,                           //!< Instruction 'vsubpd' {AVX|AVX512_F+VL}.
     kIdVsubph,                           //!< Instruction 'vsubph' {AVX512_FP16+VL}.
     kIdVsubps,                           //!< Instruction 'vsubps' {AVX|AVX512_F+VL}.
-    kIdVsubsd,                           //!< Instruction 'vsubsd' {AVX|AVX512_F}.
-    kIdVsubsh,                           //!< Instruction 'vsubsh' {AVX512_FP16}.
-    kIdVsubss,                           //!< Instruction 'vsubss' {AVX|AVX512_F}.
+    kIdVsubsd,                           //!< Instruction 'vsubsd' {AVX|AVX512_F+VL}.
+    kIdVsubsh,                           //!< Instruction 'vsubsh' {AVX512_FP16+VL}.
+    kIdVsubss,                           //!< Instruction 'vsubss' {AVX|AVX512_F+VL}.
     kIdVtestpd,                          //!< Instruction 'vtestpd' {AVX}.
     kIdVtestps,                          //!< Instruction 'vtestps' {AVX}.
-    kIdVucomisd,                         //!< Instruction 'vucomisd' {AVX|AVX512_F}.
-    kIdVucomish,                         //!< Instruction 'vucomish' {AVX512_FP16}.
-    kIdVucomiss,                         //!< Instruction 'vucomiss' {AVX|AVX512_F}.
+    kIdVucomisd,                         //!< Instruction 'vucomisd' {AVX|AVX512_F+VL}.
+    kIdVucomish,                         //!< Instruction 'vucomish' {AVX512_FP16+VL}.
+    kIdVucomiss,                         //!< Instruction 'vucomiss' {AVX|AVX512_F+VL}.
     kIdVunpckhpd,                        //!< Instruction 'vunpckhpd' {AVX|AVX512_F+VL}.
     kIdVunpckhps,                        //!< Instruction 'vunpckhps' {AVX|AVX512_F+VL}.
     kIdVunpcklpd,                        //!< Instruction 'vunpcklpd' {AVX|AVX512_F+VL}.
@@ -1843,34 +1769,80 @@ namespace Inst {
     kIdXsaves64,                         //!< Instruction 'xsaves64' {XSAVES} (X64).
     kIdXsetbv,                           //!< Instruction 'xsetbv' {XSAVE}.
     kIdXsusldtrk,                        //!< Instruction 'xsusldtrk' {TSXLDTRK}.
-    kIdXtest,                            //!< Instruction 'xtest' {TSX}.
-    _kIdCount
+    kIdXtest,                            //!< Instruction 'xtest' {RTM}.
+    _kIdCount,
+
+    // Aliases.
+    kIdCmovnae = kIdCmovb,
+    kIdCmovc = kIdCmovb,
+    kIdCmovna = kIdCmovbe,
+    kIdCmovnge = kIdCmovl,
+    kIdCmovng = kIdCmovle,
+    kIdCmovae = kIdCmovnb,
+    kIdCmovnc = kIdCmovnb,
+    kIdCmova = kIdCmovnbe,
+    kIdCmovge = kIdCmovnl,
+    kIdCmovg = kIdCmovnle,
+    kIdCmovpo = kIdCmovnp,
+    kIdCmovne = kIdCmovnz,
+    kIdCmovpe = kIdCmovp,
+    kIdCmove = kIdCmovz,
+    kIdWait = kIdFwait,
+    kIdJnae = kIdJb,
+    kIdJc = kIdJb,
+    kIdJna = kIdJbe,
+    kIdJnge = kIdJl,
+    kIdJng = kIdJle,
+    kIdJae = kIdJnb,
+    kIdJnc = kIdJnb,
+    kIdJa = kIdJnbe,
+    kIdJge = kIdJnl,
+    kIdJg = kIdJnle,
+    kIdJpo = kIdJnp,
+    kIdJne = kIdJnz,
+    kIdJpe = kIdJp,
+    kIdJe = kIdJz,
+    kIdSetnae = kIdSetb,
+    kIdSetc = kIdSetb,
+    kIdSetna = kIdSetbe,
+    kIdSetnge = kIdSetl,
+    kIdSetng = kIdSetle,
+    kIdSetae = kIdSetnb,
+    kIdSetnc = kIdSetnb,
+    kIdSeta = kIdSetnbe,
+    kIdSetge = kIdSetnl,
+    kIdSetg = kIdSetnle,
+    kIdSetpo = kIdSetnp,
+    kIdSetne = kIdSetnz,
+    kIdSetpe = kIdSetp,
+    kIdSete = kIdSetz,
+    kIdSal = kIdShl
     // ${InstId:End}
   };
 
-  //! Tests whether the `instId` is defined.
-  static ASMJIT_INLINE_NODEBUG constexpr bool isDefinedId(InstId instId) noexcept { return instId < _kIdCount; }
+  //! Tests whether the `inst_id` is defined.
+  static ASMJIT_INLINE_CONSTEXPR bool is_defined_id(InstId inst_id) noexcept { return inst_id < _kIdCount; }
 
   //! \cond
   #define ASMJIT_INST_FROM_COND(ID) \
-    ID##o, ID##no, ID##b , ID##ae,  \
-    ID##e, ID##ne, ID##be, ID##a ,  \
-    ID##s, ID##ns, ID##pe, ID##po,  \
-    ID##l, ID##ge, ID##le, ID##g
+    ID##o, ID##no, ID##b , ID##nb , \
+    ID##z, ID##nz, ID##be, ID##nbe, \
+    ID##s, ID##ns, ID##p , ID##np , \
+    ID##l, ID##nl, ID##le, ID##nle
 
-    static constexpr uint16_t _jccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdJ) };
-    static constexpr uint16_t _setccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdSet) };
-    static constexpr uint16_t _cmovccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdCmov) };
+    static constexpr uint16_t _jcc_from_cond_table[] = { ASMJIT_INST_FROM_COND(Inst::kIdJ) };
+    static constexpr uint16_t _setcc_from_cond_table[] = { ASMJIT_INST_FROM_COND(Inst::kIdSet) };
+    static constexpr uint16_t _cmovcc_from_cond_table[] = { ASMJIT_INST_FROM_COND(Inst::kIdCmov) };
 
   #undef ASMJIT_INST_FROM_COND
   //! \endcond
 
   //! Translates a condition code `cond` to a `jcc` instruction id.
-  static ASMJIT_INLINE_NODEBUG constexpr InstId jccFromCond(CondCode cond) noexcept { return _jccTable[uint8_t(cond)]; }
+  static ASMJIT_INLINE_CONSTEXPR InstId jcc_from_cond(CondCode cond) noexcept { return _jcc_from_cond_table[uint8_t(cond)]; }
   //! Translates a condition code `cond` to a `setcc` instruction id.
-  static ASMJIT_INLINE_NODEBUG constexpr InstId setccFromCond(CondCode cond) noexcept { return _setccTable[uint8_t(cond)]; }
+  static ASMJIT_INLINE_CONSTEXPR InstId setcc_from_cond(CondCode cond) noexcept { return _setcc_from_cond_table[uint8_t(cond)]; }
   //! Translates a condition code `cond` to a `cmovcc` instruction id.
-  static ASMJIT_INLINE_NODEBUG constexpr InstId cmovccFromCond(CondCode cond) noexcept { return _cmovccTable[uint8_t(cond)]; }
+  static ASMJIT_INLINE_CONSTEXPR InstId cmovcc_from_cond(CondCode cond) noexcept { return _cmovcc_from_cond_table[uint8_t(cond)]; }
 } // {Inst}
 
 //! FPU status word bits.
@@ -2149,9 +2121,9 @@ enum class VReduceImm : uint8_t {
 };
 ASMJIT_DEFINE_ENUM_FLAGS(VReduceImm)
 
-//! Creates a \ref VReduceImm from a combination of `flags` and `fixedPointLength`.
-static ASMJIT_INLINE_NODEBUG constexpr VReduceImm vReduceImm(VReduceImm flags, uint32_t fixedPointLength) noexcept {
-  return flags | VReduceImm(fixedPointLength << 4);
+//! Creates a \ref VReduceImm from a combination of `flags` and `fixed_point_length`.
+static ASMJIT_INLINE_CONSTEXPR VReduceImm vreduce_imm(VReduceImm flags, uint32_t fixed_point_length) noexcept {
+  return flags | VReduceImm(fixed_point_length << 4);
 }
 
 //! A predicate that can be used as an immediate value with VPTERNLOG[D|Q] instruction.
@@ -2160,7 +2132,7 @@ static ASMJIT_INLINE_NODEBUG constexpr VReduceImm vReduceImm(VReduceImm flags, u
 //! that would be performed on these 3 inputs to get the desired output - any combination of AND, OR, XOR, NOT
 //! is possible.
 //!
-//! \sa \ref tLogFromBits and \ref fLogIfElse
+//! \sa \ref tlog_from_bits and \ref tlog_if_else
 enum class TLogImm : uint8_t {
   k0             = 0x00u,       //!< 0 value.
   k1             = 0xFFu,       //!< 1 value.
@@ -2185,7 +2157,7 @@ enum class TLogImm : uint8_t {
 ASMJIT_DEFINE_ENUM_FLAGS(TLogImm)
 
 //! Creates an immediate that can be used by VPTERNLOG[D|Q] instructions.
-static ASMJIT_INLINE_NODEBUG constexpr TLogImm tLogFromBits(uint8_t b000, uint8_t b001, uint8_t b010, uint8_t b011, uint8_t b100, uint8_t b101, uint8_t b110, uint8_t b111) noexcept {
+static ASMJIT_INLINE_CONSTEXPR TLogImm tlog_from_bits(uint8_t b000, uint8_t b001, uint8_t b010, uint8_t b011, uint8_t b100, uint8_t b101, uint8_t b110, uint8_t b111) noexcept {
   return TLogImm(uint8_t(b000 << 0) |
                  uint8_t(b001 << 1) |
                  uint8_t(b010 << 2) |
@@ -2197,7 +2169,7 @@ static ASMJIT_INLINE_NODEBUG constexpr TLogImm tLogFromBits(uint8_t b000, uint8_
 }
 
 //! Creates an if/else logic that can be used by VPTERNLOG[D|Q] instructions.
-static ASMJIT_INLINE_NODEBUG constexpr TLogImm fLogIfElse(TLogImm condition, TLogImm a, TLogImm b) noexcept { return (condition & a) | (~condition & b); }
+static ASMJIT_INLINE_CONSTEXPR TLogImm tlog_if_else(TLogImm condition, TLogImm a, TLogImm b) noexcept { return (condition & a) | (~condition & b); }
 
 //! Creates a shuffle immediate value that be used with SSE/AVX/AVX-512 instructions to shuffle 2 elements in a vector.
 //!
@@ -2206,7 +2178,7 @@ static ASMJIT_INLINE_NODEBUG constexpr TLogImm fLogIfElse(TLogImm condition, TLo
 //!
 //! Shuffle constants can be used to encode an immediate for these instructions:
 //!   - `shufpd|vshufpd`
-static ASMJIT_INLINE_NODEBUG constexpr uint32_t shuffleImm(uint32_t a, uint32_t b) noexcept {
+static ASMJIT_INLINE_CONSTEXPR uint32_t shuffle_imm(uint32_t a, uint32_t b) noexcept {
   return (a << 1) | b;
 }
 
@@ -2223,7 +2195,7 @@ static ASMJIT_INLINE_NODEBUG constexpr uint32_t shuffleImm(uint32_t a, uint32_t 
 //!   - `pshufhw|vpshufhw`
 //!   - `pshufd|vpshufd`
 //!   - `shufps|vshufps`
-static ASMJIT_INLINE_NODEBUG constexpr uint32_t shuffleImm(uint32_t a, uint32_t b, uint32_t c, uint32_t d) noexcept {
+static ASMJIT_INLINE_CONSTEXPR uint32_t shuffle_imm(uint32_t a, uint32_t b, uint32_t c, uint32_t d) noexcept {
   return (a << 6) | (b << 4) | (c << 2) | d;
 }
 

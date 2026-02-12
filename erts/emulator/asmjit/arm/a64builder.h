@@ -1,16 +1,16 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_ARM_A64BUILDER_H_INCLUDED
 #define ASMJIT_ARM_A64BUILDER_H_INCLUDED
 
-#include "../core/api-config.h"
+#include <asmjit/core/api-config.h>
 #ifndef ASMJIT_NO_BUILDER
 
-#include "../core/builder.h"
-#include "../arm/a64emitter.h"
+#include <asmjit/core/builder.h>
+#include <asmjit/arm/a64emitter.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
@@ -23,7 +23,7 @@ class ASMJIT_VIRTAPI Builder
     public EmitterExplicitT<Builder> {
 public:
   ASMJIT_NONCOPYABLE(Builder)
-  typedef BaseBuilder Base;
+  using Base = BaseBuilder;
 
   //! \name Construction & Destruction
   //! \{
@@ -36,8 +36,8 @@ public:
   //! \name Events
   //! \{
 
-  ASMJIT_API Error onAttach(CodeHolder* code) noexcept override;
-  ASMJIT_API Error onDetach(CodeHolder* code) noexcept override;
+  ASMJIT_API Error on_attach(CodeHolder& code) noexcept override;
+  ASMJIT_API Error on_detach(CodeHolder& code) noexcept override;
 
   //! \}
 

@@ -1,12 +1,12 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86OPCODE_P_H_INCLUDED
 #define ASMJIT_X86_X86OPCODE_P_H_INCLUDED
 
-#include "../x86/x86globals.h"
+#include <asmjit/x86/x86globals.h>
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -104,7 +104,7 @@ struct Opcode {
 
     // `XOP` field is only used to force XOP prefix instead of VEX3 prefix. We know XOP encodings always use 0b1000
     // bit of MM field and that no VEX and EVEX instruction use such bit yet, so we can use this bit to force XOP
-    // prefix to be emitted instead of VEX3 prefix. See `x86VEXPrefix` defined in `x86assembler.cpp`.
+    // prefix to be emitted instead of VEX3 prefix.
     kMM_XOP08      = 0x08u << kMM_Shift,   // XOP.M8.
     kMM_XOP09      = 0x09u << kMM_Shift,   // XOP.M9.
     kMM_XOP0A      = 0x0Au << kMM_Shift,   // XOP.MA.
@@ -173,8 +173,6 @@ struct Opcode {
     kCDTT_FVM      = kCDTT_ByLL,
     kCDTT_T1S      = kCDTT_None,
     kCDTT_T1F      = kCDTT_None,
-    kCDTT_T1_4X    = kCDTT_None,
-    kCDTT_T4X      = kCDTT_None,           // Alias to have only 3 letters.
     kCDTT_T2       = kCDTT_None,
     kCDTT_T4       = kCDTT_None,
     kCDTT_T8       = kCDTT_None,
@@ -338,26 +336,26 @@ struct Opcode {
 
   ASMJIT_INLINE_NODEBUG uint32_t get() const noexcept { return v; }
 
-  ASMJIT_INLINE_NODEBUG bool hasW() const noexcept { return (v & kW) != 0; }
-  ASMJIT_INLINE_NODEBUG bool has66h() const noexcept { return (v & kPP_66) != 0; }
+  ASMJIT_INLINE_NODEBUG bool has_w() const noexcept { return (v & kW) != 0; }
+  ASMJIT_INLINE_NODEBUG bool has_66h() const noexcept { return (v & kPP_66) != 0; }
 
   ASMJIT_INLINE_NODEBUG Opcode& add(uint32_t x) noexcept { return operator+=(x); }
 
-  ASMJIT_INLINE_NODEBUG Opcode& add66h() noexcept { return operator|=(kPP_66); }
+  ASMJIT_INLINE_NODEBUG Opcode& add_66h() noexcept { return operator|=(kPP_66); }
   template<typename T>
-  ASMJIT_INLINE_NODEBUG Opcode& add66hIf(T exp) noexcept { return operator|=(uint32_t(exp) << kPP_Shift); }
+  ASMJIT_INLINE_NODEBUG Opcode& add_66h_if(T exp) noexcept { return operator|=(uint32_t(exp) << kPP_Shift); }
   template<typename T>
-  ASMJIT_INLINE_NODEBUG Opcode& add66hBySize(T size) noexcept { return add66hIf(size == 2); }
+  ASMJIT_INLINE_NODEBUG Opcode& add_66h_by_size(T size) noexcept { return add_66h_if(size == 2); }
 
-  ASMJIT_INLINE_NODEBUG Opcode& addW() noexcept { return operator|=(kW); }
+  ASMJIT_INLINE_NODEBUG Opcode& add_w() noexcept { return operator|=(kW); }
   template<typename T>
-  ASMJIT_INLINE_NODEBUG Opcode& addWIf(T exp) noexcept { return operator|=(uint32_t(exp) << kW_Shift); }
+  ASMJIT_INLINE_NODEBUG Opcode& add_w_if(T exp) noexcept { return operator|=(uint32_t(exp) << kW_Shift); }
   template<typename T>
-  ASMJIT_INLINE_NODEBUG Opcode& addWBySize(T size) noexcept { return addWIf(size == 8); }
+  ASMJIT_INLINE_NODEBUG Opcode& add_w_by_size(T size) noexcept { return add_w_if(size == 8); }
 
   template<typename T>
-  ASMJIT_INLINE_NODEBUG Opcode& addPrefixBySize(T size) noexcept {
-    static const uint32_t mask[16] = {
+  ASMJIT_INLINE_NODEBUG Opcode& add_prefix_by_size(T size) noexcept {
+    static constexpr uint32_t mask[16] = {
       0,          // #0
       0,          // #1 -> nothing (already handled or not possible)
       kPP_66,     // #2 -> 66H
@@ -372,7 +370,7 @@ struct Opcode {
   }
 
   template<typename T>
-  ASMJIT_INLINE_NODEBUG Opcode& addArithBySize(T size) noexcept {
+  ASMJIT_INLINE_NODEBUG Opcode& add_arith_by_size(T size) noexcept {
     static const uint32_t mask[16] = {
       0,          // #0
       0,          // #1 -> nothing
@@ -387,31 +385,31 @@ struct Opcode {
     return operator|=(mask[size & 0xF]);
   }
 
-  ASMJIT_INLINE_NODEBUG Opcode& forceEvex() noexcept { return operator|=(kMM_ForceEvex); }
+  ASMJIT_INLINE_NODEBUG Opcode& force_evex() noexcept { return operator|=(kMM_ForceEvex); }
   template<typename T>
-  ASMJIT_INLINE_NODEBUG Opcode& forceEvexIf(T exp) noexcept { return operator|=(uint32_t(exp) << Support::ConstCTZ<uint32_t(kMM_ForceEvex)>::value); }
+  ASMJIT_INLINE_NODEBUG Opcode& force_evex_if(T exp) noexcept { return operator|=(uint32_t(exp) << Support::ctz_const<uint32_t(kMM_ForceEvex)>); }
 
   //! Extract `O` field (R) from the opcode (specified as /0..7 in instruction manuals).
-  ASMJIT_INLINE_NODEBUG uint32_t extractModO() const noexcept {
+  ASMJIT_INLINE_NODEBUG uint32_t extract_mod_o() const noexcept {
     return (v >> kModO_Shift) & 0x07;
   }
 
   //! Extract `RM` field (RM) from the opcode (usually specified as another opcode value).
-  ASMJIT_INLINE_NODEBUG uint32_t extractModRM() const noexcept {
+  ASMJIT_INLINE_NODEBUG uint32_t extract_mod_rm() const noexcept {
     return (v >> kModRM_Shift) & 0x07;
   }
 
   //! Extract `REX` prefix from opcode combined with `options`.
-  ASMJIT_INLINE_NODEBUG uint32_t extractRex(InstOptions options) const noexcept {
+  ASMJIT_INLINE_NODEBUG uint32_t extract_rex(InstOptions options) const noexcept {
     // kREX was designed in a way that when shifted there will be no bytes set except REX.[B|X|R|W].
     // The returned value forms a real REX prefix byte. This case should be unit-tested as well.
     return (v | uint32_t(options)) >> kREX_Shift;
   }
 
-  ASMJIT_INLINE_NODEBUG uint32_t extractLLMMMMM(InstOptions options) const noexcept {
-    uint32_t llMmmmm = uint32_t(v & (kLL_Mask | kMM_Mask));
-    uint32_t vexEvex = uint32_t(options & InstOptions::kX86_Evex);
-    return (llMmmmm | vexEvex) >> kMM_Shift;
+  ASMJIT_INLINE_NODEBUG uint32_t extract_ll_mmmmm(InstOptions options) const noexcept {
+    uint32_t ll_mmmmm = uint32_t(v & (kLL_Mask | kMM_Mask));
+    uint32_t vex_evex = uint32_t(options & InstOptions::kX86_Evex);
+    return (ll_mmmmm | vex_evex) >> kMM_Shift;
   }
 
   ASMJIT_INLINE_NODEBUG Opcode& operator=(uint32_t x) noexcept { v = x; return *this; }

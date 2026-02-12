@@ -799,8 +799,8 @@ sub emulator_output {
 		    # We pass variable argument lists as a Span of ArgVal,
 		    # slicing our argument vector after the argument count.
 		    $body .= $sep .
-			"args.subspan(" . scalar(@args) . "," .
-				      "args.size() - " . scalar(@args) . ")";
+			"Span(args.begin() + " . scalar(@args) . "," .
+			     "args.size() - " . scalar(@args) . ")";
 		}
 
                 $body .= ");";
@@ -842,7 +842,7 @@ sub emulator_output {
             }
 
             if ($varargs) {
-                push @typed_args, "const Span<ArgVal>&";
+                push @typed_args, "const Span<const ArgVal>&";
             }
 
             print "void emit_$name(", join(", ", @typed_args), ");\n";

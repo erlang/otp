@@ -40,7 +40,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
      * other freely without any order dependencies. */
     for (auto val : labelNames) {
         std::string name = "global::" + val.second;
-        labels[val.first] = a.newNamedLabel(name.c_str());
+        labels[val.first] = a.new_named_label(name.c_str());
     }
 
     /* Emit all of the code and bind all of the labels */
@@ -57,9 +57,9 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         void *writable_region;
 
         BeamAssembler::codegen(allocator, &executable_region, &writable_region);
-        VirtMem::flushInstructionCache((void *)executable_region,
-                                       code.codeSize());
-        VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadExecute);
+        VirtMem::flush_instruction_cache((void *)executable_region,
+                                         code.code_size());
+        VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
 #ifndef WIN32
@@ -74,17 +74,18 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         if (val.first + 1 < emitPtrs.size()) {
             stop = (ErtsCodePtr)getCode(labels[(GlobalLabels)(val.first + 1)]);
         } else {
-            stop = (ErtsCodePtr)((char *)getBaseAddress() + code.codeSize());
+            stop = (ErtsCodePtr)((char *)getBaseAddress() + code.code_size());
         }
 
-        ranges.push_back({.start = start,
-                          .stop = stop,
-                          .name = code.labelEntry(labels[val.first])->name()});
+        ranges.push_back(
+                {.start = start,
+                 .stop = stop,
+                 .name = code.label_entry_of(labels[val.first]).name()});
     }
 
     (void)beamasm_metadata_insert("global",
                                   (ErtsCodePtr)getBaseAddress(),
-                                  code.codeSize(),
+                                  code.code_size(),
                                   ranges);
 #endif
 
@@ -99,7 +100,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
 /* ARG3 = (HTOP + S_RESERVED + bytes needed) !!
  * ARG4 = Live registers */
 void BeamGlobalAssembler::emit_garbage_collect() {
-    Label exiting = a.newLabel();
+    Label exiting = a.new_label();
 
     emit_enter_frame();
 
@@ -167,7 +168,7 @@ void BeamGlobalAssembler::emit_bif_export_trap() {
  *
  * RET = export entry */
 void BeamGlobalAssembler::emit_export_trampoline() {
-    Label call_bif = a.newLabel(), error_handler = a.newLabel();
+    Label call_bif = a.new_label(), error_handler = a.new_label();
 
     /* What are we supposed to do? */
     a.mov(ARG1, x86::qword_ptr(RET, offsetof(Export, trampoline.common.op)));
@@ -211,7 +212,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 #ifdef NATIVE_ERLANG_STACK
         error = labels[raise_exception];
 #else
-        error = a.newLabel();
+        error = a.new_label();
 #endif
 
         a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info.mfa)));
@@ -311,7 +312,7 @@ void BeamGlobalAssembler::emit_process_exit() {
                                  ErtsCodePtr,
                                  Eterm *,
                                  const ErtsCodeMFA *),
-                 handle_error>();
+                 ::handle_error>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
 
@@ -353,7 +354,7 @@ void BeamGlobalAssembler::emit_raise_exception() {
 }
 
 void BeamGlobalAssembler::emit_raise_exception_shared() {
-    Label crash = a.newLabel();
+    Label crash = a.new_label();
 
     emit_enter_runtime<Update::eHeapAlloc>();
 
@@ -368,7 +369,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
                                  ErtsCodePtr,
                                  Eterm *,
                                  const ErtsCodeMFA *),
-                 handle_error>();
+                 ::handle_error>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
 

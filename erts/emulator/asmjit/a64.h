@@ -1,6 +1,6 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See asmjit.h or LICENSE.md for license and copyright information
+// See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_A64_H_INCLUDED
@@ -26,35 +26,30 @@
 //!
 //! ### Register Operands
 //!
-//!   - \ref arm::Reg - Base class of all AArch32/AArch64 registers.
-//!     - \ref a64::Gp - General purpose register (AArch64):
-//!       - \ref a64::GpW - 32-bit general purpose register (AArch64).
-//!       - \ref a64::GpX - 64-bit general purpose register (AArch64).
-//!     - \ref a64::Vec - Vector (SIMD) register:
-//!       - \ref a64::VecB - 8-bit SIMD register.
-//!       - \ref a64::VecH - 16-bit SIMD register.
-//!       - \ref a64::VecS - 32-bit SIMD register.
-//!       - \ref a64::VecD - 64-bit SIMD register.
-//!       - \ref a64::VecV - 128-bit SIMD register.
+//!   - \ref a64::Gp - General purpose register (abstracts 32-bit and 64-bit general purpose registers).
+//!   - \ref a64::Vec - Vector register (abstracts B, H, S, D, and Q NEON register with possible element type and index).
 //!
 //! ### Memory Operands
 //!
-//!   - \ref arm::Mem - AArch32/AArch64 memory operand that provides support for all ARM addressing features
-//!     including base, index, pre/post increment, and ARM-specific shift addressing and index extending.
+//!   - \ref a64::Mem - AArch64 memory operand that provides support for all ARM addressing features including base,
+//!     index, pre/post increment, and ARM-specific shift addressing + index extending.
 //!
 //! ### Other
 //!
 //!   - \ref arm::Shift - Shift operation and value.
 //!   - \ref arm::Utils - Utilities that can help during code generation for AArch32 and AArch64.
 
-#include "./arm.h"
-#include "./arm/a64assembler.h"
-#include "./arm/a64builder.h"
-#include "./arm/a64compiler.h"
-#include "./arm/a64emitter.h"
-#include "./arm/a64globals.h"
-#include "./arm/a64instdb.h"
-#include "./arm/a64operand.h"
+#include <asmjit/arm.h>
+
+#include <asmjit/asmjit-scope-begin.h>
+#include <asmjit/arm/a64assembler.h>
+#include <asmjit/arm/a64builder.h>
+#include <asmjit/arm/a64compiler.h>
+#include <asmjit/arm/a64emitter.h>
+#include <asmjit/arm/a64globals.h>
+#include <asmjit/arm/a64instdb.h>
+#include <asmjit/arm/a64operand.h>
+#include <asmjit/asmjit-scope-end.h>
 
 #endif // ASMJIT_A64_H_INCLUDED
 
