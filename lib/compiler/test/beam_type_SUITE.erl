@@ -1054,6 +1054,10 @@ type_subtraction(Config) when is_list(Config) ->
     ok = catch type_subtraction_4(id(ok)),
     {'EXIT', _} = catch type_subtraction_4(id(false)),
 
+    outside = id(type_subtraction_5(<<"c">>)),
+    {inside, 1} = id(type_subtraction_5(<<"a">>)),
+    {inside, 2} = id(type_subtraction_5(<<"b">>)),
+
     ok.
 
 
@@ -1116,6 +1120,16 @@ type_subtraction_4(_V0) ->
             >>
     end.
 
+%% GH-10562: Types were erroneously applied in #b_switch{} over bitstrings.
+type_subtraction_5(X) ->
+    _ = id(X),
+    case X =:= <<"a">> orelse X =:= <<"b">> of
+        false -> outside;
+        true ->
+            Y = case X of <<"a">> -> 1; _ -> 2 end,
+            {inside, Y}
+    end.
+    
 %% GH-4774: The validator didn't update container contents on type subtraction.
 container_subtraction(Config) when is_list(Config) ->
     A = id(baz),
