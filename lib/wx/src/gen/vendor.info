@@ -21,7 +21,7 @@
                       "./lib/wx/src/gen/glu.erl",
                       ./lib/wx/src/gen/vendor.info"],
     "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
-    "supplier": "Organization: Ericsson AB",
+    "supplier": "NOASSERTION",
     "purl": "pkg:github/wxwidgets/wxwidgets"
   },
   {
