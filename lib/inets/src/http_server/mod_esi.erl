@@ -40,8 +40,6 @@ them as common CGI scripts.
 
 -export_type([session_id/0]).
 
--compile(nowarn_obsolete_bool_op).
-
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -487,8 +485,8 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
                 StatusCode =:= 204 orelse                      %% No Content
                 StatusCode =:= 304 orelse                      %% Not Modified
                 (100 =< StatusCode andalso StatusCode =< 199), %% Informational
-            case (ModData#mod.http_version =/= "HTTP/1.1") or
-                (IsDisableChunkedSend) of
+            case ModData#mod.http_version =/= "HTTP/1.1" orelse
+                IsDisableChunkedSend of
                 true ->
                     send_headers(ModData, StatusCode, 
                                  [{"connection", "close"} | 

@@ -26,7 +26,6 @@
 -module(httpd_request_handler).
 -moduledoc false.
 -compile(nowarn_deprecated_callback).
--compile(nowarn_obsolete_bool_op).
 -behaviour(gen_server).
 
 %% Application internal API
@@ -530,7 +529,7 @@ handle_body(#state{headers = Headers, body = Body,
 	_ -> 
 	    Length = list_to_integer(Headers#http_request_h.'content-length'),
 	    MaxChunk = max_client_body_chunk(ConfigDB),
-	    case ((Length =< MaxBodySize) or (MaxBodySize == nolimit)) of
+	    case Length =< MaxBodySize orelse MaxBodySize == nolimit of
 		true ->
 		    case httpd_request:body_chunk_first(Body, Length, MaxChunk) of 
                         %% This is the case that the we need more data to complete

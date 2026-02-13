@@ -276,7 +276,7 @@ handle_http_body(Body, State = #state{headers = Headers,
 	 _ ->
 	     Length =
 		 list_to_integer(Headers#http_response_h.'content-length'),
-	     case ((Length =< MaxBodySize) or (MaxBodySize == nolimit)) of
+	     case Length =< MaxBodySize orelse MaxBodySize == nolimit of
 		 true ->
 		     case httpc_response:whole_body(Body, Length) of
 			 {ok, NewBody} ->
