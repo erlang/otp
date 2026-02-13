@@ -228,6 +228,10 @@
 -define(TCP_PB_SSL_TLS, 12).
 -define(TCP_PB_HTTP_BIN,13).
 -define(TCP_PB_HTTPH_BIN,14).
+-define(TCP_PB_2_LITTLE, 15).
+-define(TCP_PB_3,        16).
+-define(TCP_PB_3_LITTLE, 17).
+-define(TCP_PB_4_LITTLE, 18).
 
 
 %% getstat, INET_REQ_GETSTAT

@@ -246,7 +246,14 @@ echo_test(Config, SockOpts_0, EchoFun, EchoOpts_0) ->
 
     echo_packet(Config, [{packet, 1}|SockOpts], EchoFun, EchoOpts),
     echo_packet(Config, [{packet, 2}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, 3}|SockOpts], EchoFun, EchoOpts),
     echo_packet(Config, [{packet, 4}|SockOpts], EchoFun, EchoOpts),
+    %echo_packet(Config, [{packet, {2, big}}|SockOpts], EchoFun, EchoOpts),
+    %echo_packet(Config, [{packet, {3, big}}|SockOpts], EchoFun, EchoOpts),
+    %echo_packet(Config, [{packet, {4, big}}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, {2, little}}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, {3, little}}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, {4, little}}|SockOpts], EchoFun, EchoOpts),
     echo_packet(Config, [{packet, sunrm}|SockOpts], EchoFun, EchoOpts),
     echo_packet(Config, [{packet, cdr}|SockOpts], EchoFun,
 		[{type, {cdr, big}}|EchoOpts]),
@@ -484,6 +491,10 @@ packet({Size, _RecvLimit}, Type) ->
 packet(Size, 1) when Size > 255 ->
     false;
 packet(Size, 2) when Size > 65535 ->
+    false;
+packet(Size, {2, big}) when Size > 65535 ->
+    false;
+packet(Size, {2, little}) when Size > 65535 ->
     false;
 packet(Size, {asn1, _, Tag}) when Size < 128 ->
     Tag++[Size|random_packet(Size)];
