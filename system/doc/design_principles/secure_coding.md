@@ -196,7 +196,7 @@ expected and can be handled locally to avoid spamming the error logs, for
 example by responding to the request with an error message (such as "404 File
 not found" in a web context).
 
-The importance of this cannot be understated. Security issues are almost by
+The importance of this cannot be overstated. Security issues are almost by
 definition a result of unexpected program behavior, and restricting program
 behavior to only that which is expected greatly reduces the surface area for
 bugs and security issues.
@@ -928,8 +928,11 @@ Related CWEs and OWASP risks: [`CWE-20`], [`CWE-22`], [`CWE-74`], [`CWE-78`],
 [`DSG-008`]: #rule-dsg-008
 
 Much of what we do as programmers is to provide abstractions that make life
-easier for other people. For the most part this works fine, but it is important
-not to design interfaces that promise more than is possible to deliver.
+easier for other people. For the most part this works fine but it is important
+not to design interfaces that run afoul of mathematical, physical, or otherwise
+implacable constraints. As obvious as that might sound it is surprisingly easy
+to make promises that are impossible to deliver without realizing it, and it is
+difficult to back out once the interface is in wide use.
 
 The clearest example of this would be interfaces that hide the fact that they
 operate on a distributed system, whether through promising absolute consistency
@@ -1277,27 +1280,52 @@ than attempting to _validate_ the data before passing it in unaltered.
 
 Related CWEs and OWASP risks: [`CWE-74`]
 
+```erlang
+%% DO
+find(Table, Needle) ->
+    ets:match(Table, {'_', {const, Needle}, '$1'}).
+
+
+%% DO NOT
+find(Table, Needle) ->
+    ets:match(Table, {'_', Needle, '$1'}).
+```
+
 [](){: #rule-msc-006 }
 #### [`MSC-006`] - Consider "Link Following" Attacks
 [`MSC-006`]: #rule-msc-006
 
-When accessing a file through a name, it is possible that the name does not
-actually identify a file, but a link instead, which can in turn point at an
-unintended resource, potentially outside of the intended boundaries.
+When operating on untrusted file paths and trying to access files through them,
+it is possible that the name does not actually identify a file, but a link
+instead, which can in turn point at an unintended resource which is potentially
+outside of the intended boundaries.
 
-This can be mitigated by using `file:read_link_info/2` to determine whether it
-is a file or a symbolic link. It is important to call this with the file handle
-_after_ opening it, instead of the file name before opening the file, in order
-to avoid time-of-check time-of-use (TOCTOU) race condition where the file is
-swapped out with a link between the check and opening the file (see [CWE-367]).
+This can be mitigated by using `filelib:safe_relative_path/2` to ensure that
+the path does not escape the given bounds regardless of links. Note that it is
+impossible to guarantee atomicity across several filesystem operations, so care
+must be taken to avoid time-of-check time-of-use (TOCTOU) race conditions where
+a file or symbolic link is swapped out in the middle of these operations. When
+operating on a shared folder structure, ensure that only one entity has access
+to said structure.
 
 [Rule priority:] `Medium`
 
 Related CWEs and OWASP risks: [`CWE-22`], [`CWE-59`], [CWE-61]
 
-[`file:read_link_info/1,2`]: `file:read_link_info/2`
 [CWE-61]: https://cwe.mitre.org/data/definitions/61.html
 [CWE-367]: https://cwe.mitre.org/data/definitions/367.html
+
+```erlang
+%% DO
+open(UntrustedPath, Root, Opts) ->
+    case filelib:safe_relative_path(UntrustedPath, Root) of
+        unsafe -> {error, unsafe};
+        Path -> file:open(filename:join(Root, Path), Opts)
+    end.
+
+%% DO NOT
+file:open(UntrustedPath, Opts).
+```
 
 [](){: #rule-msc-007 }
 #### [`MSC-007`] - Avoid Using Debug Functionality in Production
