@@ -1166,6 +1166,12 @@ possibly_quote(char* arg)
 	    continue;
 	}
     }
+    if (*(s-1) == '"' && arg[0] == '"') {
+        /*
+        * Already quoted, nothing to do.
+        */
+        return arg;
+    }
     if (!mustQuote) {
 	return arg;
     }
