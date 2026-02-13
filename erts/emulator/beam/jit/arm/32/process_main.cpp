@@ -66,19 +66,38 @@ void BeamGlobalAssembler::emit_process_main() {
     a.mov(scheduler_registers, a32::sp);
 
     /* The offset of start_time_i in ErtsSchedulerRegisters cannot stay
-     * in the 12 bit immediate accepted by the STR instruction.
-     *
-     * We use ARG4 to point to start_time_i so then we can use a relative offset
-     * to point to start_time.
-     */
+     * in the 12-bit immediate accepted by STR/LDR. */
     const Uint start_t_i_offset = offsetof(ErtsSchedulerRegisters, start_time_i);
     const Uint start_t_offset = offsetof(ErtsSchedulerRegisters, start_time);
     // start_time precedes start_time_i in the struct
     const Uint relative_start_t_offset = start_t_offset - start_t_i_offset;
-    a.mov(ARG4, scheduler_registers);
-    a.add(ARG4, ARG4, imm(start_t_i_offset));
+    /*
+     * We use ARG4 as Base register for the memory operand. 
+     * This means we have to setup ARG4,
+     * each time we need to read or write start_time_i or start_time.
+    */
     const arm::Mem start_time_i = arm::Mem(ARG4);
     const arm::Mem start_time = arm::Mem(ARG4, relative_start_t_offset);
+    auto setup_start_time_base = [&]() {
+        a.mov(ARG4, scheduler_registers);
+        a.add(ARG4, ARG4, imm(start_t_i_offset));
+    };
+    auto load_start_time = [&](const a32::Gp &dst) {
+        setup_start_time_base();
+        a.ldr(dst, start_time);
+    };
+    auto load_start_time_i = [&](const a32::Gp &dst) {
+        setup_start_time_base();
+        a.ldr(dst, start_time_i);
+    };
+    auto store_start_time = [&](const a32::Gp &src) {
+        setup_start_time_base();
+        a.str(src, start_time);
+    };
+    auto store_start_time_i = [&](const a32::Gp &src) {
+        setup_start_time_base();
+        a.str(src, start_time_i);
+    };
 
     /* Save the initial SP of the thread so that we can verify that it
      * doesn't grow. */
@@ -91,8 +110,8 @@ void BeamGlobalAssembler::emit_process_main() {
 
     // Scheduling loop initialization
     mov_imm(TMP, 0);
-    a.str(TMP, start_time_i);
-    a.str(TMP, start_time);
+    store_start_time_i(TMP);
+    store_start_time(TMP);
 
     mov_imm(c_p, 0);
     mov_imm(FCALLS, 0);
@@ -110,11 +129,18 @@ void BeamGlobalAssembler::emit_process_main() {
         a.sub(ARG3, TMP, FCALLS);
         a.b(schedule_next);
     }
-
+    
+    /*
+     * The *next* instruction pointer is provided in ARG3, and must be preceded
+     * by an ErtsCodeMFA.
+     */
     a.bind(context_switch_local);
     comment("Context switch, unknown arity/MFA");
-    //TODO
-    emit_nyi("context_switch_local");
+    {
+        emit_nyi("context_switch_local unknown arity/MFA");        
+        /* !! Fall through !! */
+    }
+
     a.bind(context_switch_simplified_local);
     comment("Context switch, known arity and MFA");
     {
@@ -171,23 +197,23 @@ void BeamGlobalAssembler::emit_process_main() {
         /* ARG3 contains reds_used at this point */
 
         //Jump to schedule if start_time is 0
-        a.ldr(TMP, start_time);
+        load_start_time(TMP);
         a.tst(TMP, TMP);
         a.b_eq(schedule);
         // Call check_monitor_long_schedule, a performance monitoring function
         // that detects when Erlang processes run for too long without yielding.
         {
             a.mov(ARG1, c_p);
-            a.ldr(ARG2, start_time);
+            load_start_time(ARG2);
 
             /* Spill reds_used in start_time slot */
-            a.str(ARG3, start_time);
+            store_start_time(ARG3);
 
-            a.ldr(ARG3, start_time_i);
+            load_start_time_i(ARG3);
             runtime_call<3>(check_monitor_long_schedule);
 
             /* Restore reds_used */
-            a.ldr(ARG3, start_time);
+            load_start_time(ARG3);
         }
 
         a.bind(schedule);
@@ -206,7 +232,7 @@ void BeamGlobalAssembler::emit_process_main() {
 #endif
 
         mov_imm(TMP, 0);
-        a.str(TMP, start_time);
+        store_start_time(TMP);
         mov_imm(ARG1, &erts_system_monitor_long_schedule);
         a.ldr(TMP, arm::Mem(ARG1));
         a.tst(TMP, TMP);
@@ -215,9 +241,9 @@ void BeamGlobalAssembler::emit_process_main() {
         {
             /* Enable long schedule test */
             runtime_call<0>(erts_timestamp_millis);
-            a.str(ARG1, start_time);
+            store_start_time(ARG1);
             a.ldr(TMP, arm::Mem(c_p, offsetof(Process, i)));
-            a.str(TMP, start_time_i);
+            store_start_time_i(TMP);
         }
 
         a.bind(skip_long_schedule);
