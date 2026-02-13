@@ -776,15 +776,13 @@ erts_proc_unlock__(Process *p,
         /* What p->lock will look like with all non-waited locks released. */
         ErtsProcLocks want_lflgs = old_lflgs & (wait_locks | ~locks);
 
-        if (want_lflgs != old_lflgs) {
-            ErtsProcLocks new_lflgs =
-                ERTS_PROC_LOCK_FLGS_CMPXCHG_RELB_(&p->lock, want_lflgs, old_lflgs);
+        ErtsProcLocks new_lflgs =
+            ERTS_PROC_LOCK_FLGS_CMPXCHG_RELB_(&p->lock, want_lflgs, old_lflgs);
 
-            if (new_lflgs != old_lflgs) {
-                /* cmpxchg failed, try again. */
-                old_lflgs = new_lflgs;
-                continue;
-            }
+        if (new_lflgs != old_lflgs) {
+            /* cmpxchg failed, try again. */
+            old_lflgs = new_lflgs;
+            continue;
         }
 
         /* We have successfully unlocked every lock with no waiter. */
