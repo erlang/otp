@@ -15,7 +15,7 @@
       "licenseDeclared": "MIT",
       "ecosystem": "npm",
       "name": "jquery",
-      "versionInfo": "3.7.1",
+      "versionInfo": "4.0.0",
       "path": ["./lib/common_test/priv/jquery-latest.js"],
       "supplier": "Organization: The jQuery Team",
       "purl": "pkg:github/jquery/jquery"
