@@ -90,12 +90,14 @@ test_server_failing_logs(Config) ->
 
 crash_test_server(Config) ->
     DataDir = ?config(data_dir, Config),
+    Node = proplists:get_value(ct_node, Config),
+    [NodeName, _NodeHost] = binary:split(atom_to_binary(Node), ~"@"),
     Root = proplists:get_value(logdir, ct_test_support:get_opts(Config)),
     [$@|Host] = lists:dropwhile(fun(C) ->
 					C =/= $@
 				end, atom_to_list(node())),
     Format = filename:join(Root,
-			   "ct_run.ct@" ++ Host ++
+			   "ct_run." ++ binary_to_list(NodeName) ++ "@" ++ Host ++
 			       ".~4..0w-~2..0w-~2..0w_"
 			   "~2..0w.~2..0w.~2..0w"),
     [C2,C1|_] = lists:reverse(filename:split(DataDir)),
