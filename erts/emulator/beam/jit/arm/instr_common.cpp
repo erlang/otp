@@ -859,7 +859,7 @@ void BeamModuleAssembler::emit_copy_words_increment(a64::Gp from,
     } else {
         Label copy_next = a.new_label();
 
-        ASSERT(Support::isUInt16(count / 4));
+        ASSERT(Support::is_uint_n<16>(count / 4));
         mov_imm(SUPER_TMP, count / 4);
         a.bind(copy_next);
         {
