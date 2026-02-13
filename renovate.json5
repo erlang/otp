@@ -53,6 +53,16 @@
                 ".github/actions/*/*.yaml"
             ]
         },
+        // This is used to always update upload and download in lockstep
+        // e.g., if upload is update to version 5, so does need to be download.
+        {
+            "matchManagers": ["github-actions"],
+            "groupName": "github-actions-artifacts",
+            "matchPackageNames": [
+                "actions/upload-artifact",
+                "actions/download-artifact"
+            ]
+         }
         // This is used to match out the current version from vendor.info
         {
             "matchFileNames": ["**/vendor.info"],
