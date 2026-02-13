@@ -1,0 +1,1 @@
+# ERL-1273 - Undefined behaviour callback functions
