@@ -394,8 +394,24 @@ void BeamGlobalAssembler::emit_call_bif_shared(void) {
 }
 
 void BeamGlobalAssembler::emit_dispatch_bif(void) {
-    // TODO
-    emit_nyi("emit_dispatch_bif");
+    /* c_p->i points into the trampoline of a ErtsNativeFunc, right after the
+     * `info` structure. */
+    a.ldr(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+    
+    
+    ERTS_CT_ASSERT(offsetof(ErtsNativeFunc, trampoline.call_bif_nif) ==
+                   sizeof(ErtsCodeInfo));
+
+    ssize_t mfa_offset = offsetof(ErtsNativeFunc, trampoline.call_bif_nif) -
+                         offsetof(ErtsNativeFunc, trampoline.info.mfa);
+
+    a.sub(ARG2, ARG3, imm(mfa_offset));
+
+    ssize_t dfunc_offset = offsetof(ErtsNativeFunc, trampoline.dfunc) -
+                           offsetof(ErtsNativeFunc, trampoline.call_bif_nif);
+    a.ldr(ARG4, arm::Mem(ARG3, dfunc_offset));
+
+    a.b(labels[call_bif_shared]);
 }
 
 /* This is only used for opcode compatibility with the interpreter, it's never
