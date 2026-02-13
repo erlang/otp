@@ -15,10 +15,24 @@
       "licenseDeclared": "MIT",
       "ecosystem": "npm",
       "name": "jquery",
-      "versionInfo": "3.7.1",
+      "versionInfo": "4.0.0",
       "path": ["./lib/common_test/priv/jquery-latest.js"],
       "supplier": "Organization: The jQuery Team",
       "purl": "pkg:github/jquery/jquery"
+    },
+    {
+      "ID": "common_test-jquery-migrate",
+      "description": "jquery migrate package",
+      "copyrightText": "Copyright OpenJS Foundation and other contributors",
+      "downloadLocation": "https://github.com/jquery/jquery-migrate",
+      "homepage": "https://jquery.com",
+      "licenseDeclared": "MIT",
+      "ecosystem": "npm",
+      "name": "jquery-migrate",
+      "versionInfo": "4.0.2",
+      "path": ["./lib/common_test/priv/jquery-migrate.js"],
+      "supplier": "Organization: The jQuery Team",
+      "purl": "pkg:github/jquery/jquery-migrate"
     },
     {
       "ID": "common_test-tablesorter",
