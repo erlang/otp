@@ -44,14 +44,10 @@
 #include <stdio.h>
 #include <signal.h>
 #include <locale.h>
-#if defined(HAVE_TERMCAP) && (defined(HAVE_TERMCAP_H) || (defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)))
+#if defined(HAVE_TERMCAP) && defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)
 #include <termios.h>
-#ifdef HAVE_TERMCAP_H
-#include <termcap.h>
-#else /* !HAVE_TERMCAP_H */
 #include <curses.h>
 #include <term.h>
-#endif
 #else
 /* We detected TERMCAP support, but could not find the correct headers to include */
 #undef HAVE_TERMCAP
@@ -142,11 +138,12 @@ static ERL_NIF_TERM wcwidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM wcswidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sizeof_wchar_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_window_size_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM tty_tgetent_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM tty_tgetnum_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM tty_tgetflag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM tty_tgetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM tty_tgoto_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_setupterm_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tigetnum_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tigetflag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tinfo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tigetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
     {"isatty", 1, isatty_nif},
@@ -163,13 +160,12 @@ static ErlNifFunc nif_funcs[] = {
     {"wcwidth", 1, wcwidth_nif},
     {"wcswidth", 1, wcswidth_nif},
     {"sizeof_wchar", 0, sizeof_wchar_nif},
-    {"tgetent_nif", 1, tty_tgetent_nif},
-    {"tgetnum_nif", 1, tty_tgetnum_nif},
-    {"tgetflag_nif", 1, tty_tgetflag_nif},
-    {"tgetstr_nif", 1, tty_tgetstr_nif},
-    {"tgoto_nif", 1, tty_tgoto_nif},
-    {"tgoto_nif", 2, tty_tgoto_nif},
-    {"tgoto_nif", 3, tty_tgoto_nif}
+    {"setupterm_nif", 0, tty_setupterm_nif},
+    {"tigetnum_nif", 1, tty_tigetnum_nif},
+    {"tigetflag_nif", 1, tty_tigetflag_nif},
+    {"tinfo_nif", 0, tty_tinfo_nif},
+    {"tigetstr_nif", 1, tty_tigetstr_nif},
+    {"tputs_nif", 2, tty_tputs_nif}
 };
 
 /* NIF interface declarations */
@@ -771,13 +767,11 @@ static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #endif
 }
 
-static ERL_NIF_TERM tty_tgetent_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM tty_setupterm_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef HAVE_TERMCAP
-    ErlNifBinary TERM;
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
-        return enif_make_badarg(env);
-    if (tgetent((char *)NULL /* ignored */, (char *)TERM.data) <= 0) {
-        return make_errno_error(env, "tgetent");
+    int errret;
+    if (setupterm(NULL, -1, &errret) < 0) {
+        return make_errno_error(env, "setupterm");
     }
     return atom_ok;
 #else
@@ -785,23 +779,69 @@ static ERL_NIF_TERM tty_tgetent_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 #endif
 }
 
-static ERL_NIF_TERM tty_tgetnum_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM tty_tinfo_make_map(ErlNifEnv* env,
+                                       const char * const* names,
+                                       const char * const* codes,
+                                       const char * const* fnames) {
+    ERL_NIF_TERM res = enif_make_list(env, 0);
+    ERL_NIF_TERM ks[3] = {
+        enif_make_atom(env, "name"),
+        enif_make_atom(env, "code"),
+        enif_make_atom(env, "full_name")
+    };
+    for (int i = 0; names[i] && codes[i] && fnames[i]; i++) {
+        ERL_NIF_TERM map;
+        ERL_NIF_TERM vs[3] = {
+            enif_make_string(env, names[i], ERL_NIF_LATIN1),
+            enif_make_string(env, codes[i], ERL_NIF_LATIN1),
+            enif_make_string(env, fnames[i], ERL_NIF_LATIN1)
+        };
+         enif_make_map_from_arrays(env, ks, vs, 3, &map);
+        res = enif_make_list_cell(env, map, res);
+    }
+    return res;
+}
+
+static ERL_NIF_TERM tty_tinfo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef HAVE_TERMCAP
-    ErlNifBinary TERM;
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
-        return enif_make_badarg(env);
-    return enif_make_int(env, tgetnum((char*)TERM.data));
+    ERL_NIF_TERM ks[3] = {
+        enif_make_atom(env, "bool"),
+        enif_make_atom(env, "num"),
+        enif_make_atom(env, "str")
+    };
+
+    ERL_NIF_TERM vs[3] = {
+        tty_tinfo_make_map(env, boolnames, boolcodes, boolfnames),
+        tty_tinfo_make_map(env, numnames, numcodes, numfnames),
+        tty_tinfo_make_map(env, strnames, strcodes, strfnames)
+    };
+    ERL_NIF_TERM res;
+    
+    enif_make_map_from_arrays(env, ks, vs, 3, &res);
+
+    return res;
 #else
     return make_enotsup(env);
 #endif
 }
 
-static ERL_NIF_TERM tty_tgetflag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM tty_tigetnum_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef HAVE_TERMCAP
-    ErlNifBinary TERM;
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
+    ErlNifBinary CAP;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &CAP))
         return enif_make_badarg(env);
-    if (tgetflag((char*)TERM.data))
+    return enif_make_int(env, tgetnum((char*)CAP.data));
+#else
+    return make_enotsup(env);
+#endif
+}
+
+static ERL_NIF_TERM tty_tigetflag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+#ifdef HAVE_TERMCAP
+    ErlNifBinary CAP;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &CAP))
+        return enif_make_badarg(env);
+    if (tgetflag((char*)CAP.data))
         return atom_true;
     return atom_false;
 #else
@@ -809,19 +849,15 @@ static ERL_NIF_TERM tty_tgetflag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 #endif
 }
 
-static ERL_NIF_TERM tty_tgetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM tty_tigetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef HAVE_TERMCAP
-    ErlNifBinary TERM, ret;
-    /* tgetstr seems to use a lot of stack buffer space,
-       so buff needs to be relatively "small" */
-    char *str = NULL;
-    char buff_area[BUFSIZ] = {0};
-    char *buff = (char*)buff_area;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
+    ErlNifBinary CAP, ret;
+    char *str;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &CAP))
         return enif_make_badarg(env);
-    str = tgetstr((char*)TERM.data, &buff);
-    if (!str) return atom_false;
+    str = tigetstr((char*)CAP.data);
+    if (!str) return atom_false; /* Not supported by terminal */
+    if (str == (char*)-1) return enif_make_badarg(env); /* Invalid capability */
     enif_alloc_binary(strlen(str), &ret);
     memcpy(ret.data, str, strlen(str));
     return enif_make_tuple2(
@@ -832,6 +868,7 @@ static ERL_NIF_TERM tty_tgetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 }
 
 #ifdef HAVE_TERMCAP
+static ErlNifMutex *tputs_mutex;
 static int tputs_buffer_index;
 static unsigned char tputs_buffer[1024];
 
@@ -845,21 +882,50 @@ static int tty_puts_putc(int c) {
 }
 #endif
 
-static ERL_NIF_TERM tty_tgoto_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef HAVE_TERMCAP
-    ErlNifBinary TERM;
+    ErlNifBinary cap;
     ERL_NIF_TERM ret;
     char *ent;
-    int value1 = 0, value2 = 0;
     unsigned char *buff;
+    long params[9] = { 0 };
+    int slot = 0;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM) ||
-        (argc > 1 && !enif_get_int(env, argv[1], &value1)) ||
-        (argc > 2 && !enif_get_int(env, argv[2], &value2))
-        )
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &cap))
         return enif_make_badarg(env);
-    ent = tgoto((char*)TERM.data, value1, value2);
-    if (!ent) return make_errno_error(env, "tgoto");
+
+    {
+        ERL_NIF_TERM head, tail = argv[1];
+        while(enif_get_list_cell(env, tail, &head, &tail)) {
+            if (!enif_get_long(env, head, params + slot)) {
+                return enif_make_badarg(env);
+            }
+            slot++;
+        }
+        if (!enif_is_empty_list(env, tail)) {
+            enif_make_badarg(env);
+        }
+    }
+
+    /* Neither tparm nor tputs are thread safe.. */
+    enif_mutex_lock(tputs_mutex);
+
+    /* If the capability has arguments, we call tparm */
+    if (slot) {
+        /* The https://linux.die.net/man/3/tparm specifies that although tparm uses
+           a vararg prototype on Linux, to be portable we should always call it with
+           9 arguments as some implementation have a static prototype.
+        */
+        ent = tparm((char*)cap.data, params[0], params[1], params[2], params[3],
+                    params[4], params[5], params[6], params[7], params[8]);
+            
+        if (!ent) {
+            enif_mutex_unlock(tputs_mutex);
+            return make_errno_error(env, "tparm");
+        }
+    } else {
+        ent = (char*)cap.data;
+    }
 
     tputs_buffer_index = 0;
     (void)tputs(ent, 1, tty_puts_putc); /* tputs only fails if ent is null,
@@ -867,6 +933,9 @@ static ERL_NIF_TERM tty_tgoto_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     buff = enif_make_new_binary(env, tputs_buffer_index, &ret);
     memcpy(buff, tputs_buffer, tputs_buffer_index);
+
+    enif_mutex_unlock(tputs_mutex);
+
     return enif_make_tuple2(env, atom_ok, ret);
 #else
     return make_enotsup(env);
@@ -1150,6 +1219,9 @@ static void load_resources(ErlNifEnv* env, ErlNifResourceFlags rt_flags) {
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     *priv_data = NULL;
+#ifdef HAVE_TERMCAP
+    tputs_mutex = enif_mutex_create("tputs_muex");
+#endif
     load_resources(env, ERL_NIF_RT_CREATE);
     return 0;
 }

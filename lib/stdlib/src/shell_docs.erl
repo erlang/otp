@@ -930,13 +930,14 @@ render_meta_(_) ->
 render_headers_and_docs(Headers, DocContents, D, Config) ->
     render_headers_and_docs(Headers, DocContents, init_config(D, Config)).
 render_headers_and_docs(Headers, DocContents, #config{} = Config) ->
-    ["\n",render_docs(
+    unicode:characters_to_list(
+        ["\n",render_docs(
        lists:flatmap(
          fun(Header) ->
                  [{br,[],[]},Header]
          end,Headers), Config),
      "\n",
-     render_docs(DocContents, 2, Config)].
+     render_docs(DocContents, 2, Config)]).
 
 %%% Functions for rendering type/callback documentation
 render_signature_listing(Module, Type, D, Config) when is_map(Config) ->
@@ -983,7 +984,7 @@ render_docs(DocContents, Ind, D = #config{}) when is_integer(Ind) ->
     init_ansi(D),
     try
         {Doc,_} = trimnl(render_docs(DocContents, [], 0, Ind, D)),
-        Doc
+        io_ansi:format(Doc, [], [{reset, false} | D#config.ansi])
     after
         clean_ansi()
     end.
@@ -998,9 +999,20 @@ init_config(D, Config) when is_map(Config) ->
             {ok, C} ->
                 C
         end,
+    Ansi =
+        case maps:get(ansi, Config, undefined) of
+            undefined ->
+                case application:get_env(kernel, shell_docs_ansi) of
+                    {ok, Enabled} when is_boolean(Enabled) ->
+                        [{enabled, Enabled}];
+                    _ ->
+                        []
+                end;
+            Enabled when is_boolean(Enabled) -> [{enabled, Enabled}]
+        end,
     #config{ docs = D,
              encoding = maps:get(encoding, Config, DefaultEncoding),
-             ansi = maps:get(ansi, Config, undefined),
+             ansi = Ansi,
              columns = Columns,
              module = maps:get(module, Config, undefined)
            };
@@ -1210,7 +1222,7 @@ render_words([],_State,Pos,_Ind,Acc,_D) ->
                             Line = lists:reverse(RevLine),
                             lists:join($ ,Line)
                       end,lists:reverse(Acc)),
-    {iolist_to_binary(Lines), Pos}.
+    {Lines, Pos}.
 
 %% If the encoding is not unicode, we translate all nbsp to sp
 translate(UnicodeWord, #config{ encoding = unicode }) ->
@@ -1237,10 +1249,10 @@ nlpad(N) ->
 pad(N, Extra) ->
     Pad = lists:duplicate(N," "),
     case ansi() of
-        undefined ->
+        reset ->
             [Extra, Pad];
         Ansi ->
-            ["\033[0m",Extra,Pad,Ansi]
+            [reset,Extra,Pad,Ansi]
     end.
 
 get_bullet(_State,latin1) ->
@@ -1258,13 +1270,18 @@ get_bullet(State,unicode) ->
 
 %% Look for the length of the last line of a string
 lastline(Str) ->
-    LastStr = case string:find(Str,"\n",trailing) of
-                  nomatch ->
-                      Str;
-                  Match ->
-                      tl(string:next_codepoint(Match))
-              end,
-    string:length(LastStr).
+    lastline(lists:reverse(characters_to_binary(Str)), 0).
+lastline([Str | T], Sz) when is_atom(Str); is_tuple(Str) ->
+    lastline(T, Sz);
+lastline([Str | T], Sz) when is_binary(Str) ->
+    case string:find(Str,"\n",trailing) of
+        nomatch ->
+            lastline(T, string:length(Str) + Sz);
+        Match ->
+            string:length(tl(string:next_codepoint(Match))) + Sz
+    end;
+lastline([], Sz) ->
+    Sz.
 
 split_to_words(B) ->
     binary:split(B,[<<" ">>],[global]).
@@ -1274,82 +1291,71 @@ split_to_words(B) ->
 %% that would add 4 \n at after the last </li>. This is trimmed
 %% here to only be 2 \n
 trimnlnl({Chars, _Pos}) ->
-    nl(nl(string:trim(Chars, trailing, "\n")));
+    nl(nl(trim(Chars, trailing, "\n")));
 trimnlnl(Chars) ->
-    nl(nl(string:trim(Chars, trailing, "\n"))).
+    nl(nl(trim(Chars, trailing, "\n"))).
 trimnl({Chars, _Pos}) ->
-    nl(string:trim(Chars, trailing, "\n")).
+    nl(trim(Chars, trailing, "\n")).
 nl({Chars, _Pos}) ->
     nl(Chars);
 nl(Chars) ->
     {[Chars,"\n"],0}.
 
+trim(Chars, Dir, What) ->
+    trim_flat(characters_to_binary(Chars), Dir, What).
+trim_flat([H], Dir, What) when not is_atom(H), not is_tuple(H) ->
+    [string:trim([H], Dir, What)];
+trim_flat([H], _Dir, _What) when is_atom(H); is_tuple(H) ->
+    [H];
+trim_flat([H|T], Dir, What) when is_binary(H); is_atom(H); is_tuple(H) ->
+    [H | trim_flat(T, Dir, What)];
+trim_flat([], _, _) -> [].
+
+characters_to_binary(L) ->
+    characters_to_binary(lists:flatten(L), []).
+characters_to_binary([], Acc) ->
+    lists:reverse(Acc);
+characters_to_binary(L, Acc) ->
+    case lists:splitwith(fun is_not_ansi/1, L) of
+        {Str, []} ->
+            lists:reverse([unicode:characters_to_binary(Str) | Acc]);
+        {[], [Ansi | T]} ->
+            characters_to_binary(T, [Ansi | Acc]);
+        {Str, [Ansi | T]} ->
+            characters_to_binary(T, [Ansi, unicode:characters_to_binary(Str) | Acc])
+    end.
+
+is_not_ansi(C) ->
+    not (is_atom(C) orelse is_tuple(C)).
+
 %% We keep the current ansi state in the pdict so that we know
 %% what to disable and enable when doing padding
-init_ansi(#config{ ansi = undefined, io_opts = Opts }) ->
-    %% We use this as our heuristic to see if we should print ansi or not
-    case {application:get_env(kernel, shell_docs_ansi),
-          proplists:get_value(terminal, Opts, false),
-          proplists:is_defined(echo, Opts) andalso
-          proplists:is_defined(expand_fun, Opts)} of
-        {{ok,false}, _, _} ->
-            put(ansi, noansi);
-        {{ok,true}, _, _} ->
-            put(ansi, []);
-        {_, true, _} ->
-            put(ansi, []);
-        {_, _, true} ->
-            put(ansi, []);
-        {_, _, false} ->
-            put(ansi, noansi)
-    end;
-init_ansi(#config{ ansi = true }) ->
-    put(ansi, []);
-init_ansi(#config{ ansi = false }) ->
-    put(ansi, noansi).
-
-
+init_ansi(_) ->
+    put(ansi, []).
 
 clean_ansi() ->
-    case get(ansi) of
-        [] -> erase(ansi);
-        noansi -> erase(ansi)
-    end,
+    erase(ansi),
     ok.
 
 %% Set ansi
 sansi(Type) -> sansi(Type, get(ansi)).
-sansi(_Type, noansi) ->
-    [];
 sansi(Type, Curr) ->
     put(ansi,[Type | Curr]),
     ansi(get(ansi)).
 
 %% Clear ansi
 ransi(Type) -> ransi(Type, get(ansi)).
-ransi(_Type, noansi) ->
-    [];
 ransi(Type, Curr) ->
     put(ansi,proplists:delete(Type,Curr)),
-    case ansi(get(ansi)) of
-        undefined ->
-            "\033[0m";
-        Ansi ->
-            Ansi
-    end.
+    ansi(get(ansi)).
 
 ansi() -> ansi(get(ansi)).
-ansi(noansi) -> undefined;
 ansi(Curr) ->
     case lists:usort(Curr) of
         [] ->
-            undefined;
-        [bold] ->
-            "\033[;1m";
-        [underline] ->
-            "\033[;;4m";
-        [bold,underline] ->
-            "\033[;1;4m"
+            reset;
+        Else ->
+            Else
     end.
 
 filtermap_mfa({MetaKind, Function, none}, Map, Docs) ->

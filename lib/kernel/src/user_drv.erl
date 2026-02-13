@@ -57,6 +57,8 @@
         %% Output raw binary, should only be called if output mode is set to raw
         %% and encoding set to latin1.
         {put_chars_sync, latin1, binary(), {From :: pid(), Reply :: term()}} |
+        %% Print a terminal special character
+        {put_ansi_sync, list(), io_ansi:vts(), Reply :: term()} |
         %% Put text in expansion area
         {put_expand, unicode, binary(), integer()} |
         {move_expand, -32768..32767} |
@@ -358,8 +360,7 @@ init_shell(State, Slogan) ->
     {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
      {next_event, info,
       {gr_cur_pid(State#state.groups),
-       {put_chars, unicode,
-        unicode:characters_to_binary(io_lib:format("~ts", [Slogan]))}}}}.
+       {put_chars, unicode, io_lib:bformat("~ts", [Slogan])}}}}.
 
 %% start_user()
 %%  Start a group leader process and register it as 'user', unless,
@@ -544,7 +545,8 @@ server(info, {'DOWN', MonitorRef, _, _, Reason},
     Origin ! {reply, Reply, {error, Reason}},
     ?LOG_INFO("Failed to write to standard out (~p)", [Reason]),
     stop;
-server(info,{Requester, {put_chars_sync, _, _, Reply}}, _State) ->
+server(info,{Requester, {Request, _, _, Reply}}, _State)
+    when Request =:= put_chars_sync; Request =:= put_ansi_sync ->
     %% This is a sync request from an unknown or inactive group.
     %% We need to ack the Req otherwise originating process will hang forever.
     %% We discard the output to non visible shells
@@ -590,15 +592,15 @@ server(info,{'EXIT', Group, Reason}, State) ->
                 Group when Reason =/= die, Reason =/= terminated  ->	% current shell exited
                     Reqs = [if
                                 Reason =/= normal ->
-                                    {put_chars,unicode,<<"*** ERROR: ">>};
+                                    {put_chars,unicode,~"*** ERROR: "};
                                 true -> % exit not caused by error
-                                    {put_chars,unicode,<<"*** ">>}
+                                    {put_chars,unicode,~"*** "}
                             end,
-                            {put_chars,unicode,<<"Shell process terminated! ">>}],
+                            {put_chars,unicode,~"Shell process terminated! "}],
                     Gr1 = gr_del_pid(State#state.groups, Group),
                     case GroupInfo of
                         {Ix,{shell,start,Params}} -> % 3-tuple == local shell
-                            NewTTyState = io_requests(Reqs ++ [{put_chars,unicode,<<"***\n">>}],
+                            NewTTyState = io_requests(Reqs ++ [{put_chars,unicode,~"***\n"}],
                                                       State#state.tty),
                             %% restart group leader and shell, same index
                             NewGroup = group:start(self(), {shell,start,Params}),
@@ -613,7 +615,7 @@ server(info,{'EXIT', Group, Reason}, State) ->
                                 true ->
                                     NewTTYState = io_requests(Reqs,
                                                 State#state.tty),
-                                    _ = io_request({put_chars_sync,unicode,<<"Read EOF ***\n">>, {self(), none}}, NewTTYState),
+                                    _ = io_request({put_chars_sync,unicode,~"Read EOF ***\n", {self(), none}}, NewTTYState),
                                     WriterRef = State#state.write,
                                     receive
                                         {WriterRef, ok} -> ok
@@ -623,7 +625,7 @@ server(info,{'EXIT', Group, Reason}, State) ->
                                     erlang:halt(0, []);
                                 false ->
                                     NewTTYState = io_requests(
-                                                    Reqs ++ [{put_chars,unicode,<<"(^G to start new job) ***\n">>}],
+                                                    Reqs ++ [{put_chars,unicode,~"(^G to start new job) ***\n"}],
                                                     State#state.tty),
                                     {keep_state, State#state{ tty = NewTTYState, groups = Gr1 }}
                             end
@@ -661,13 +663,13 @@ switch_loop(internal, init, State) ->
 			end
 		end,
 	    NewGroup = group:start(self(), {shell,start,[]}),
-            NewTTYState = io_requests([{insert_chars,unicode,<<"\n">>}], State#state.tty),
+            NewTTYState = io_requests([{insert_chars,unicode,~"\n"}], State#state.tty),
             {next_state, server,
              State#state{ tty = NewTTYState,
                           groups = gr_add_cur(Gr1, NewGroup, {shell,start,[]})}};
 	jcl ->
             NewTTYState =
-                io_requests([{insert_chars,unicode,<<"\nUser switch command (enter 'h' for help)\n">>}],
+                io_requests([{insert_chars,unicode,~"\nUser switch command (enter 'h' for help)\n"}],
                             State#state.tty),
 	    %% init edlin used by switch command and have it copy the
 	    %% text buffer from current group process
@@ -688,22 +690,22 @@ switch_loop(internal, {line, Line}, State) ->
                     Curr ! {self(), activate},
                     {next_state, server,
                         State#state{ current_group = Curr, groups = Groups,
-                                     tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt], State#state.tty)}};
+                                     tty = io_requests([{insert_chars, unicode, ~"\n"},new_prompt], State#state.tty)}};
                 {retry, Requests} ->
-                    {keep_state, State#state{ tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt|Requests], State#state.tty) },
+                    {keep_state, State#state{ tty = io_requests([{insert_chars, unicode, ~"\n"},new_prompt|Requests], State#state.tty) },
                      {next_event, internal, line}};
                 {retry, Requests, Groups} ->
                     Curr = gr_cur_pid(Groups),
                     put(current_group, Curr),
                     {keep_state, State#state{
-                                   tty = io_requests([{insert_chars, unicode, <<"\n">>},new_prompt|Requests], State#state.tty),
+                                   tty = io_requests([{insert_chars, unicode, ~"\n"},new_prompt|Requests], State#state.tty),
                                    current_group = Curr,
                                    groups = Groups },
                      {next_event, internal, line}}
             end;
         {error, _, _} ->
             NewTTYState =
-                io_requests([{insert_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
+                io_requests([{insert_chars,unicode,~"Illegal input\n"}], State#state.tty),
             {keep_state, State#state{ tty = NewTTYState },
              {next_event, internal, line}}
     end;
@@ -771,8 +773,7 @@ switch_cmd({i, I}, Gr, _Dumb) ->
             exit(Pid, interrupt),
 
             {retry, [{put_chars, unicode,
-                      unicode:characters_to_binary(
-                        io_lib:format("Interrupted job ~p, enter 'c' to resume.~n",[I]))}]};
+                        io_lib:bformat("Interrupted job ~p, enter 'c' to resume.~n",[I])}]};
         undefined ->
             unknown_group()
     end;
@@ -809,7 +810,7 @@ switch_cmd(r, Gr0, _Dumb) ->
 	    Gr = gr_add_cur(Gr0, Pid, {Node,shell,start,[]}),
 	    {retry, [], Gr};
 	false ->
-	    {retry, [{put_chars,unicode,<<"Node is not alive\n">>}]}
+	    {retry, [{put_chars,unicode,~"Node is not alive\n"}]}
     end;
 switch_cmd({r, Node}, Gr, Dumb) when is_atom(Node)->
     switch_cmd({r, Node, shell}, Gr, Dumb);
@@ -822,17 +823,17 @@ switch_cmd({r,Node,Shell}, Gr0, Dumb) when is_atom(Node), is_atom(Shell) ->
                     Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
                     {retry, [], Gr};
                 false ->
-                    Bin = atom_to_binary(Node),
-                    {retry, [{put_chars,unicode,<<"Could not connect to node ", Bin/binary, "\n">>}]}
+                    {retry, [{put_chars,unicode,<<"Could not connect to node ",
+                                                  (atom_to_binary(Node))/binary, "\n">>}]}
             end;
         false ->
-            {retry, [{put_chars,unicode,"Node is not alive\n"}]}
+            {retry, [{put_chars,unicode,~"Node is not alive\n"}]}
     end;
 
 switch_cmd(q, _Gr, _Dumb) ->
     case erlang:system_info(break_ignored) of
 	true ->					% noop
-	    {retry, [{put_chars,unicode,<<"Unknown command\n">>}]};
+	    {retry, [{put_chars,unicode,~"Unknown command\n"}]};
 	false ->
 	    halt()
     end;
@@ -841,26 +842,26 @@ switch_cmd(h, _Gr, _Dumb) ->
 switch_cmd([], _Gr, _Dumb) ->
     {retry,[]};
 switch_cmd(_Ts, _Gr, _Dumb) ->
-    {retry, [{put_chars,unicode,<<"Unknown command\n">>}]}.
+    {retry, [{put_chars,unicode,~"Unknown command\n"}]}.
 
 unknown_group() ->
-    {retry,[{put_chars,unicode,<<"Unknown job\n">>}]}.
+    {retry,[{put_chars,unicode,~"Unknown job\n"}]}.
 
 list_commands() ->
     QuitReq = case erlang:system_info(break_ignored) of
 		  true ->
 		      [];
 		  false ->
-		      [{put_chars, unicode,<<"  q                 - quit erlang\n">>}]
+		      [{put_chars, unicode,~"  q                 - quit erlang\n"}]
 	      end,
-    [{put_chars, unicode,<<"  c [nn]            - connect to job\n">>},
-     {put_chars, unicode,<<"  i [nn]            - interrupt job\n">>},
-     {put_chars, unicode,<<"  k [nn]            - kill job\n">>},
-     {put_chars, unicode,<<"  j                 - list all jobs\n">>},
-     {put_chars, unicode,<<"  s [shell]         - start local shell\n">>},
-     {put_chars, unicode,<<"  r [node [shell]]  - start remote shell\n">>}] ++
+    [{put_chars, unicode,~"  c [nn]            - connect to job\n"},
+     {put_chars, unicode,~"  i [nn]            - interrupt job\n"},
+     {put_chars, unicode,~"  k [nn]            - kill job\n"},
+     {put_chars, unicode,~"  j                 - list all jobs\n"},
+     {put_chars, unicode,~"  s [shell]         - start local shell\n"},
+     {put_chars, unicode,~"  r [node [shell]]  - start remote shell\n"}] ++
         QuitReq ++
-        [{put_chars, unicode,<<"  ? | h             - this message\n">>}].
+        [{put_chars, unicode,~"  ? | h             - this message\n"}].
 
 group_opts(Node) ->
     VersionString = erpc:call(Node, erlang, system_info, [otp_release]),
@@ -910,6 +911,12 @@ io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
     {Output, NewTTY} = prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}),
     {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
     {Reply, MonitorRef, NewTTY};
+io_request({put_ansi_sync, Options, Ansi, Reply}, TTY) ->
+    try io_ansi:format([Ansi], [], [{reset,false}|Options]) of
+        AnsiVTS ->
+            io_request({put_chars_sync, unicode, AnsiVTS, Reply}, TTY)
+    catch _:_ -> {Reply, {error, {put_ansi, unicode, Ansi}}}
+    end;
 io_request({put_expand, unicode, Chars, N}, TTY) ->
     write(prim_tty:handle_request(TTY, {expand, unicode:characters_to_binary(Chars), N}));
 io_request({move_expand, N}, TTY) ->
@@ -1096,6 +1103,5 @@ gr_list(#gr{ current = Current, groups = Groups}) ->
          (#group{ index = I, shell = S }) ->
               Marker = ["*" || Current =:= I],
               [{put_chars, unicode,
-                unicode:characters_to_binary(
-                  io_lib:format("~4w~.1ts ~w\n", [I,Marker,S]))}]
+                  io_lib:bformat("~4w~.1ts ~w\n", [I,Marker,S])}]
       end, Groups).

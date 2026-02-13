@@ -97,6 +97,7 @@ MODULES= \
 	gen_server \
 	gen_statem \
 	io \
+	io_ansi \
 	io_lib \
 	io_lib_format \
 	io_lib_fread \
