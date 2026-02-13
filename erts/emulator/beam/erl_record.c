@@ -1026,3 +1026,66 @@ BIF_RETTYPE records_is_exported_1(BIF_ALIST_1) {
     defp = RECORD_DEF_P(RECORD_INST_P(BIF_ARG_1));
     BIF_RET(defp->is_exported);
 }
+
+BIF_RETTYPE records_get_definition_2(BIF_ALIST_2) {
+    Eterm module, name;
+    Uint code_ix;
+    const ErtsRecordEntry *entry;
+
+    module = BIF_ARG_1;
+    name = BIF_ARG_2;
+
+    if (is_not_atom(module) || is_not_atom(name)) {
+        BIF_ERROR(BIF_P, EXC_BADARG);
+    }
+
+    code_ix = erts_active_code_ix();
+    entry = erts_record_find_entry(module, name, code_ix);
+
+    if (entry != NULL) {
+        Eterm cons = entry->definitions[code_ix];
+
+        if (is_value(cons)) {
+            ErtsRecordDefinition *defp;
+            Eterm *def_values;
+            Eterm *order;
+            int field_count;
+            Uint num_words_needed;
+            Eterm *hp, *hp_end;
+            Eterm res = NIL;
+            Eterm tuple;
+
+            defp = (ErtsRecordDefinition*)tuple_val(CAR(list_val(cons)));
+            def_values = tuple_val(CDR(list_val(cons))) + 1;
+            order = tuple_val(defp->field_order) + 1;
+            field_count = RECORD_DEF_FIELD_COUNT(defp);
+            num_words_needed = field_count * (2 + 3) + 3 + MAP1_SZ;
+            hp = HAlloc(BIF_P, num_words_needed);
+            hp_end = hp + num_words_needed;
+
+            while (field_count--) {
+                Eterm key = defp->keys[unsigned_val(order[field_count])];
+                Eterm def = def_values[unsigned_val(order[field_count])];
+
+                if (is_catch(def)) {
+                    tuple = key;
+                } else {
+                    tuple = TUPLE2(hp, key, def);
+                    hp += 3;
+                }
+                res = CONS(hp, tuple, res);
+                hp += 2;
+            }
+
+            tuple = MAP1(hp, am_is_exported, defp->is_exported);
+            hp += MAP1_SZ;
+            res = TUPLE2(hp, tuple, res);
+            hp += 3;
+
+            HRelease(BIF_P, hp_end, hp);
+            BIF_RET(res);
+        }
+    }
+
+    BIF_ERROR(BIF_P, EXC_BADARG);
+}

@@ -36,7 +36,8 @@ This module contains functions for creating and inspecting native records.
 
 %% BIFs (implemented in the runtime system).
 -export([get/2, get_module/1, get_name/1, get_field_names/1,
-         is_exported/1, create/4, update/4]).
+         is_exported/1, create/4, update/4,
+         get_definition/2]).
 
 -doc """
 Options that can be used when creating a native record.
@@ -254,4 +255,17 @@ exist in `Record`.
 -spec update(Src :: record(), Module :: module(), RecordName :: atom(),
              FieldsMap :: #{atom() => term()}) -> record().
 update(_Src, _Module, _RecordName, _FieldsMap) ->
+    erlang:nif_error(undefined).
+
+-doc """
+Retrieves the definition for native record `Name` in module `Module`.
+""".
+-doc #{since => ~"OTP @OTP-19785@"}.
+-spec get_definition(Module :: module(),
+                     RecordName :: atom()) ->
+      {create_options(),
+       [{FieldName :: atom(), Default :: dynamic()} |
+        FieldName :: atom()]}.
+
+get_definition(_Module, _Name) ->
     erlang:nif_error(undefined).

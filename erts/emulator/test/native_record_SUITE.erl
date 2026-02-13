@@ -35,6 +35,10 @@
 -record #c{x::integer, y=0::integer, z=[]}.
 -record #empty{}.
 -record #singleton{false}.
+-record #order{zzzz=0, true=1, aaaa=2, wwww=3}.
+
+-export_record([exp]).
+-record #exp{a=1, b}.
 
 -record #big{f1, f2, f3, f4, f5, f6, f7, f8,
              f9, f10, f11, f12, f13, f14, f15, f16,
@@ -436,6 +440,9 @@ records_module(_Config) ->
     [x,y,z] = records:get_field_names(BRec),
     [x,y,z] = records:get_field_names(CRec),
 
+    Order = #order{},
+    [zzzz, true, aaaa, wwww] = records:get_field_names(Order),
+
     R0 = #b{},
     R0 = R0#b{},
     R1 = records:update(R0, ?MODULE, b, #{x=>foo}),
@@ -486,6 +493,25 @@ records_module(_Config) ->
         lists:foldl(fun(_, #a{x=X,y=Y}=R) ->
                             records:update(R, ?MODULE, a, #{x=>X+1,y=>Y-1})
                     end, #a{x=0,y=N}, lists:seq(1, N)),
+
+    %% Test records:get_definition/2.
+    ?assertError(badarg, records:get_definition(some_module,
+                                                some_non_existing_name)),
+    ?assertError(badarg, records:get_definition(1, any)),
+    ?assertError(badarg, records:get_definition(any, 2)),
+
+    NotExported = #{is_exported => false},
+    {NotExported, []} = records:get_definition(?MODULE, empty),
+    {NotExported, [{x,1}, {y,2}]} = records:get_definition(?MODULE, a),
+    {NotExported, [x, {y,0}, {z,[]}]} = records:get_definition(?MODULE, c),
+    BigFields = records:get_field_names(BigRecord),
+    {NotExported, BigFields} = records:get_definition(?MODULE, big),
+    {NotExported, [{zzzz,0}, {true,1}, {aaaa,2}, {wwww,3}]} =
+        records:get_definition(?MODULE, order),
+
+    IsExported = #{is_exported => true},
+    {IsExported, [{a,1}, b]} = records:get_definition(?MODULE, exp),
+
     ok.
 
 records_create(Mod, Name, Fields) ->
