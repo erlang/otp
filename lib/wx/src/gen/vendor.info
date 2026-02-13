@@ -1,0 +1,43 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+    "ID": "wx-wxwidgets",
+    "description": "wxWidgets documentation inserted from original project into Erlang bindings",
+    "copyrightText": "Copyright (c) 1998 Julian Smart, Robert Roebling et al",
+    "downloadLocation": "https://github.com/wxWidgets/wxWidgets",
+    "homepage": "https://github.com/wxWidgets/wxWidgets",
+    "licenseDeclared": "LicenseRef-scancode-wxwindows-free-doc-3",
+    "name": "wxwidgets",
+    "versionInfo": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "sha": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "path": "./lib/wx/src/gen",
+    "exclude": ["./lib/wx/src/gen/gl.erl",
+                "./lib/wx/src/gen/glu.erl",
+                "./lib/wx/src/gen/vendor.info"],
+    "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
+    "supplier": "Person: Vadim Zeitlin",
+    "purl": "pkg:github/wxwidgets/wxwidgets"
+  },
+  {
+    "ID": "wx-opengl",
+    "description": "OpenGL documentation inserted from original project into Erlang bindings",
+    "copyrightText": "Copyright 2017-2026 The Khronos Group, Inc.",
+    "downloadLocation": "https://github.com/KhronosGroup/OpenGL-Refpages",
+    "homepage": "https://registry.khronos.org/OpenGL-Refpages/",
+    "licenseDeclared": "SGI-B-2.0",
+    "name": "opengl",
+    "versionInfo": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "sha": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "path": ["./lib/wx/src/gen/gl.erl",
+            "./lib/wx/src/gen/glu.erl"],
+    "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
+    "supplier": "Organization: KhronosGroup",
+    "purl": "pkg:github/KhronosGroup/OpenGL-Refpages"
+    }
+]

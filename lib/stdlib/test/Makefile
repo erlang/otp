@@ -200,4 +200,6 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)/stdlib_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/stdlib_SUITE_data"
 
+	cd ../examples && $(MAKE) $@
+
 release_docs_spec:

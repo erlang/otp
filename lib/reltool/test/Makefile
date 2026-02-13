@@ -81,8 +81,9 @@ release_tests_spec: opt
 	$(INSTALL_DATA) reltool.spec reltool.cover $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_SCRIPT) rtt $(INSTALL_PROGS) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(INSTALL_PROGS) "$(RELSYSDIR)"
-	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	(cd ..; tar cf - examples | (cd "$(RELSYSDIR)/"; tar xf -))
+	chmod -R u+w "$(RELSYSDIR)"
 
 release_docs_spec:
 

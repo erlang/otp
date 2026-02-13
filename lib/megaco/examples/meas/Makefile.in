@@ -26,6 +26,7 @@ ERL_COMPILE_FLAGS += -Ddebug -W
 endif
 
 EBIN = ../../ebin
+EBIN_TEST = .
 MEGACO_INCLUDEDIR = ../../include
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
@@ -47,9 +48,12 @@ PERL = @PERL@
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR         = $(RELEASE_PATH)/lib/megaco-$(VSN)
-EXAMPLE_RELSYSDIR = $(RELSYSDIR)/examples
-MEAS_RELSYSDIR    = $(EXAMPLE_RELSYSDIR)/meas
+RELSYSDIR               = $(RELEASE_PATH)/lib/megaco-$(VSN)
+EXAMPLE_RELSYSDIR       = $(RELSYSDIR)/doc/examples
+MEAS_RELSYSDIR          = $(EXAMPLE_RELSYSDIR)/meas
+
+EXAMPLE_TEST_RELSYSDIR  = $(RELEASE_PATH)/megaco_test/examples
+MEAS_TEST_RELSYSDIR     = $(EXAMPLE_TEST_RELSYSDIR)/meas
 
 
 # ----------------------------------------------------
@@ -65,8 +69,11 @@ SCRIPT_SKELETONS = $(SCRIPT_SKELETON_SRC:%.src=%)
 ERL_TARGETS = \
 	$(ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR))
 
-TARGET_FILES = $(SCRIPT_SKELETONS) $(ERL_TARGETS)
+ERL_TEST_TARGETS = \
+	$(ERL_FILES:%.erl=$(EBIN_TEST)/%.$(EMULATOR))
 
+TARGET_FILES = $(SCRIPT_SKELETONS) $(ERL_TARGETS)
+TARGET_TEST_FILES = $(SCRIPT_SKELETONS) $(ERL_TEST_TARGETS)
 
 # ----------------------------------------------------
 # FLAGS
@@ -115,7 +122,7 @@ DIA_PLT_APPS = \
 $(filter-out opt, $(TYPES)):
 	@${MAKE} TYPE=$@ opt
 
-opt: $(TARGET_FILES) 
+opt: $(TARGET_FILES) $(TARGET_TEST_FILES)
 
 script_skeletons: $(SCRIPT_SKELETONS)
 
@@ -150,6 +157,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
+
+release_docs_spec: opt
 	$(INSTALL_DIR)  "$(EXAMPLE_RELSYSDIR)"
 	$(INSTALL_DIR)  "$(MEAS_RELSYSDIR)"
 	$(INSTALL_DATA) $(MESSAGE_PACKAGES) "$(MEAS_RELSYSDIR)"
@@ -157,9 +166,13 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) "$(MEAS_RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES) "$(MEAS_RELSYSDIR)"
 
-
-release_docs_spec:
-
+release_tests_spec:
+	$(INSTALL_DIR)  "$(EXAMPLE_TEST_RELSYSDIR)"
+	$(INSTALL_DIR)  "$(MEAS_TEST_RELSYSDIR)"
+	$(INSTALL_DATA) $(MESSAGE_PACKAGES) "$(MEAS_TEST_RELSYSDIR)"
+	$(INSTALL_DATA) $(SCRIPT_SKELETONS) "$(MEAS_TEST_RELSYSDIR)"
+	$(INSTALL_DATA) $(ERL_FILES) "$(MEAS_TEST_RELSYSDIR)"
+	$(INSTALL_DATA) $(TARGET_TEST_FILES) "$(MEAS_TEST_RELSYSDIR)"
 
 dclean:
 	rm -f $(DIA_PLT)
