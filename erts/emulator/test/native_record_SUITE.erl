@@ -316,6 +316,13 @@ external_term_format(_Config) ->
 
     _ = code:purge(ext_records),
 
+    [begin
+         BadBin = fake_record_bin(?MODULE, fake, Exp, []),
+         %% Decoding should fail when any of the reserved bits in
+         %% the flag byte are set.
+         ?assertError(badarg, binary_to_term(BadBin))
+     end || Exp <- lists:seq(2, 255)],
+
     ok.
 
 record_def(R) ->
@@ -514,21 +521,28 @@ dist(_Config) ->
 fake_record(Name, Exp, Fs) ->
     fake_record(?MODULE, Name, Exp, Fs).
 
-fake_record(Mod0, Name0, Exp0, Fs) ->
+fake_record(Mod, Name, Exp, Fs) ->
+    Bin = fake_record_bin(Mod, Name, Exp, Fs),
+    binary_to_term(Bin).
+
+fake_record_bin(Mod0, Name0, Exp0, Fs) ->
     Ext = 131,
     RecordExt = $C,
 
     Mod = fake_term(Mod0),
     Name = fake_term(Name0),
-    Exp = if Exp0 -> 1; true -> 0 end,
+    Exp = case Exp0 of
+              false -> 0;
+              true -> 1;
+              _ when is_integer(Exp0) -> Exp0
+          end,
 
     N = length(Fs),
 
     Defs = << <<(fake_term(K))/binary>> || {K,_} <- Fs >>,
     Vs = << <<(fake_term(V))/binary>> || {_,V} <- Fs >>,
 
-    Bin = <<Ext,RecordExt,N:32,Exp,Mod/binary,Name/binary,Defs/binary,Vs/binary>>,
-    binary_to_term(Bin).
+    <<Ext,RecordExt,N:32,Exp,Mod/binary,Name/binary,Defs/binary,Vs/binary>>.
 
 fake_term(Term) ->
     <<131,Bin/binary>> = term_to_binary(Term),
