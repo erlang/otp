@@ -389,8 +389,43 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
  * ARG3 = I (rip), doesn't need to point past an MFA
  * ARG4 = function to be called */
 void BeamGlobalAssembler::emit_call_bif_shared(void) {
-    // TODO
-    emit_nyi("emit_call_bif_shared");
+    /* "Heavy" BIFs need up-to-date values for `c_p->i`, `c_p->current`, and
+     * `c_p->arity`. */
+
+    emit_enter_runtime_frame();
+    a.str(ARG2, arm::Mem(c_p, offsetof(Process, current)));
+
+    a.ldr(TMP, arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, arity)));
+    a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+ 
+    /* The corresponding leave can be found in the epilogue. */
+    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+                       Update::eReductions>();
+ 
+ #ifdef ERTS_MSACC_EXTENDED_STATES
+    {
+        ASSERT(false);
+    }
+ #endif
+ 
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    /* ARG3 (I), ARG4 (func) have already been provided.
+     * `call_bif` wants arity as fifth argument. 
+     * This requires us to allocate it on the stack.
+     */
+    a.sub(a32::sp, a32::sp, imm(8)); // keep 8-byte alignment
+    a.str(TMP, arm::Mem(a32::sp, 0)); // store arity on the stack
+    runtime_call<5>(beam_jit_call_bif);
+    a.add(a32::sp, a32::sp, imm(8)); // delete arity from the stack
+ 
+ #ifdef ERTS_MSACC_EXTENDED_STATES
+    ASSERT(false); 
+ #endif
+ 
+    emit_leave_runtime_frame();
+    emit_bif_nif_epilogue();
 }
 
 void BeamGlobalAssembler::emit_dispatch_bif(void) {
