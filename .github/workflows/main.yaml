@@ -51,7 +51,7 @@ env:
     BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
     OTP_SBOM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
     ## 'true' if all steps should be built and all tests run
-    FULL_BUILD_AND_CHECK: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') || github.event_name == 'scheduled' }}
+    FULL_BUILD_AND_CHECK: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') || github.event_name == 'schedule' }}
 
 permissions:
   contents: read
@@ -91,8 +91,7 @@ jobs:
   pack:
     name: Build Erlang/OTP (64-bit)
     runs-on: ubuntu-latest
-    needs: check-beam
-    if: github.repository == 'erlang/otp' || github.event_name != 'scheduled'
+    if: github.repository == 'erlang/otp' || github.event_name != 'schedule'
     outputs:
         changes: ${{ steps.changes.outputs.changes }}
         build-c-code: ${{ steps.c-code-changes.outputs.changes != '[]' || env.FULL_BUILD_AND_CHECK == 'true' }}
