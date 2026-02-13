@@ -1058,39 +1058,34 @@ ntoa(A) ->
     
 %%%----------------------------------------------------------------
 try_enable_fips_mode() ->
+    %% FIPS mode must be configured before crypto app starts
+    %% This function can only check, not enable
     case crypto:info_fips() of
         enabled ->
-            report("FIPS mode already enabled", ?LINE),
+            report("FIPS mode enabled", ?LINE),
             ok;
         not_enabled ->
-            %% Erlang/crypto configured with --enable-fips
-            case crypto:enable_fips_mode(true) of
-		true ->
-                    %% and also the cryptolib is fips enabled
-                    report("FIPS mode enabled", ?LINE),
-		    enabled = crypto:info_fips(),
-		    ok;
-		false ->
-                    case is_cryptolib_fips_capable() of
-                        false ->
-                            report("No FIPS mode in cryptolib", ?LINE),
-                            {skip, "FIPS mode not supported in cryptolib"};
-                        true ->
-                            ct:fail("Failed to enable FIPS mode", [])
-                    end
-	    end;
+            report("FIPS mode not enabled (must be set via -crypto fips_mode true)", ?LINE),
+            {skip, "FIPS mode requires VM startup configuration"};
         not_supported ->
             report("FIPS mode not supported by Erlang/OTP", ?LINE),
             {skip, "FIPS mode not supported"}
     end.
 
 is_cryptolib_fips_capable() ->
-    [{_,_,Inf}] = crypto:info_lib(),
-    nomatch =/= re:run(Inf, "(F|f)(I|i)(P|p)(S|s)").
+    try
+        [{_,_,LibInfo}] = crypto:info_lib(),
+        case re:run(LibInfo, "\\bFIPS\\b", [caseless]) of
+            {match, _} -> true;
+            nomatch -> false
+        end
+    catch
+        _:_ -> false
+    end.
 
 report(Comment, Line) ->
     ct:comment(Comment),
-    ct:log("~p:~p  try_enable_fips_mode~n"
+    ct:log("~p:~p  FIPS check~n"
            "crypto:info_lib() = ~p~n"
            "crypto:info_fips() = ~p~n"
            "crypto:supports() =~n~p~n", 

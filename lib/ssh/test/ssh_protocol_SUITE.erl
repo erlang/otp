@@ -156,7 +156,7 @@ suite() ->
     SkipTc = [kex_strict_negotiated,
               kex_strict_violation,
               kex_strict_violation_2],
-    [{ct_hooks,[ts_install_cth,
+    [{ct_hooks,[ts_install_cth, cth_fips,
                 {cth_events,
                  [{verify_fun, VerifyFun},
                   {skip_tc, SkipTc}]}]},
