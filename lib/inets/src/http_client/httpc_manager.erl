@@ -58,12 +58,13 @@
 -record(state, 
 	{
 	  cancel = [],	 % [{RequestId, HandlerPid, ClientPid}]  
-	  handler_db,    % ets() - Entry: #handler_info{}
+	  handler_db,    % ets() - Entry:  {Id :: reference(), Pid :: pid(), From :: pid()}
 	  cookie_db,     % cookie_db()
 	  session_db,    % ets() - Entry:  #session{}
+	  request_db,    % ets() - Entry:  {Ref :: reference(), #request{}}
 	  profile_name,  % atom()
 	  options = #options{},
-          awaiting       % queue() - Entry: #request{}
+	  awaiting       % queue() - Entry: reference()
 	 }).
 
 -define(DELAY, 500).
@@ -437,12 +438,17 @@ do_init(ProfileName, CookiesDir) ->
     CookieDbName        = cookie_db_name(ProfileName), 
     CookieDb            = httpc_cookie:open_db(CookieDbName, CookiesDir, 
 					       SessionCookieDbName),
+    %% Request DB
+    ?hcrt("create request db", []),
+    RequestDbName = request_db_name(ProfileName),
+    ets:new(RequestDbName, [protected, set, named_table, {keypos, 1}]),
 
     State = #state{handler_db   = HandlerDbName, 
 		   cookie_db    = CookieDb, 
 		   session_db   = SessionDbName,
+		   request_db   = RequestDbName,
 		   profile_name = ProfileName,
-                   awaiting     = queue:new()},
+		   awaiting     = queue:new()},
     {ok, State}.
 
 
@@ -560,7 +566,7 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
 		 verbose               = get_verbose(Options, OldOptions),
 		 socket_opts           = get_socket_opts(Options, OldOptions),
 		 unix_socket           = get_unix_socket_opts(Options, OldOptions),
-                 max_connections_open  = get_max_connections_open(Options, OldOptions)
+		 max_connections_open  = get_max_connections_open(Options, OldOptions)
 		}, 
     case {OldOptions#options.verbose, NewOptions#options.verbose} of
 	{Same, Same} ->
@@ -585,8 +591,8 @@ handle_cast({store_cookies, {Cookies, _}}, State) ->
     ok = do_store_cookies(Cookies, State),
     {noreply, State};
 
-handle_cast({await, Request}, #state{awaiting = Awaiting} = State) ->
-    {noreply, State#state{awaiting = queue:in(Request, Awaiting)}};
+handle_cast({await, RequestRef}, #state{awaiting = Awaiting} = State) ->
+    {noreply, State#state{awaiting = queue:in(RequestRef, Awaiting)}};
 
 handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
     error_report(ProfileName, 
@@ -812,11 +818,12 @@ start_handler(#request{} = Request,
     do_start_handler(Request, State);
 start_handler(#request{} = Request,
               #state{handler_db   = HandlerDb,
+                     request_db   = RequestDb,
                      options      = #options{max_connections_open =
                                                  MaxConnectionsOpen}} = State) ->
     ReachedLimit = ets:info(HandlerDb, size) >= MaxConnectionsOpen,
     case ReachedLimit of
-        true -> wait_for_handler_to_end_then_start(Request);
+        true -> wait_for_handler_to_end_then_start(RequestDb, Request);
         false -> do_start_handler(Request, State)
     end.
 
@@ -837,11 +844,14 @@ do_start_handler(#request{id   = Id,
     ets:insert(HandlerDb, HandlerInfo),
     erlang:monitor(process, Pid).
 
-wait_for_handler_to_end_then_start(#request{} = Request) ->
-    gen_server:cast(self(), {await, Request}).
+wait_for_handler_to_end_then_start(RequestDb, #request{} = Request) ->
+    RequestRef = make_ref(),
+    ets:insert(RequestDb, {RequestRef, Request}),
+    gen_server:cast(self(), {await, RequestRef}).
 
 start_enqueued_request(#state{awaiting = Awaiting,
                               handler_db = HandlerDb,
+                              request_db = RequestDb,
                               options = #options{max_connections_open = MaxConnectionsOpen}}
                        = State0) ->
     ReachedLimit = ets:info(HandlerDb, size) >= MaxConnectionsOpen,
@@ -849,8 +859,9 @@ start_enqueued_request(#state{awaiting = Awaiting,
         true -> State0;
         false ->
             case queue:out(Awaiting) of
-                {{value, Request}, NewAwaiting} ->
+                {{value, RequestRef}, NewAwaiting} ->
                     State = State0#state{awaiting = NewAwaiting},
+                    [{RequestRef, Request}] = ets:take(RequestDb, RequestRef),
                     do_start_handler(Request, State),
                     State;
                 {empty, _} ->
@@ -975,6 +986,9 @@ session_cookie_db_name(ProfileName) ->
 
 handler_db_name(ProfileName) ->
     make_db_name(ProfileName, "__handler_db").
+
+request_db_name(ProfileName) ->
+    make_db_name(ProfileName, "__request_db").
 
 make_db_name(ProfileName, Post) ->
     list_to_atom(atom_to_list(ProfileName) ++ Post).

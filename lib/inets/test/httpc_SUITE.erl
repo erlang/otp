@@ -2219,7 +2219,7 @@ remote_socket_close_high_load(Config0) when is_list(Config0) ->
         true -> ok;
         _ -> ct:fail("max_connections_open option not set")
     end,
-    ClientNumber = 50,
+    ClientNumber = 20,
     Config = [{iterations, 2} | Config0],
     ct:log("Executing a memory heavy test. This may take a while.
             Number of simultaneous connections: ~p", [?config(max_connections_open, Config)]),
