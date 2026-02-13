@@ -71,6 +71,7 @@
          compute/1,
          compute_bug/0,
          compute_bug/1,
+         concurrent_access/1,
          crypto_load/1,
          crypto_load_and_call/1,
          encapsulate/1,
@@ -232,6 +233,7 @@ all() ->
      cipher_info,
      hash_info,
      hash_equals,
+     concurrent_access,
      pbkdf2_hmac,
      pbkdf2_hmac_invalid_input
     ].
@@ -1247,6 +1249,46 @@ compute(Config) when is_list(Config) ->
                   Gen0
     end,
     lists:foreach(fun do_compute/1, Gen).
+
+%%--------------------------------------------------------------------
+concurrent_access(_Config) ->
+    %% Check that we are thread safe, the states may not be used/updated
+    %% concurrently.
+
+    Algorithm = aes_128_gcm,
+    Secret = ~"secret",
+    #{iv_length := IvLen, key_length := KeyLen} = crypto:cipher_info(Algorithm),
+
+    IV = crypto:strong_rand_bytes(IvLen),
+    Key = crypto:pbkdf2_hmac(sha256, Secret, IV, 16, KeyLen),
+    EncState = crypto:crypto_one_time_aead_init(Algorithm, Key, 2, true),
+    DecState = crypto:crypto_one_time_aead_init(Algorithm, Key, 2, false),
+
+    Crypto = #{crypto_iv_len => IvLen,
+               crypto_key_len => KeyLen,
+               crypto_enc_state => EncState,
+               crypto_dec_state => DecState},
+    io:format("Crypto State: ~p\n", [Crypto]),
+    Bin = ~"Binary text",
+    AAD = ~"AAD",
+    persistent_term:put({?MODULE, concurrent_access}, Crypto),
+    _ = [spawn_link(fun() -> crypto_enc_test(Bin, AAD, 10_000) end) ||
+            _ <- lists:seq(1, erlang:system_info(schedulers)*3)],
+    ok.
+
+crypto_enc_test(_Bin, _AAD, 0) ->
+    ok;
+crypto_enc_test(Bin, AAD, Cnt) ->
+    #{crypto_iv_len := IvLen, crypto_enc_state := EncState} = persistent_term:get({?MODULE, concurrent_access}),
+    IV = crypto:strong_rand_bytes(IvLen),
+
+    try crypto:crypto_one_time_aead(EncState, IV, Bin, AAD)
+    catch
+        C:E:St ->
+            io:format("\nC: ~p\nE: ~p\nSt: ~p", [C, E, St]),
+            erlang:raise(C, E, St)
+    end,
+    crypto_enc_test(Bin, AAD, Cnt - 1).
 
 %%--------------------------------------------------------------------
 encapsulate(_Config) ->
