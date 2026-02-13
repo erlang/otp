@@ -350,33 +350,51 @@ void BeamModuleAssembler::emit_nif_start() {
 }
 
 void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
-//    Label check_trap = a.newLabel(), trap = a.newLabel(), error = a.newLabel();
-//
-//#ifdef ERTS_MSACC_EXTENDED_STATES
-//    // Skipping msacc profiling for now
-//    emit_nyi("emit_bif_nif_epilogue");
-//#endif
-//
-//    /* Another process may have loaded new code and somehow notified us through
-//     * this call, so we must update the active code index. */
-//    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
-//                       Update::eReductions | Update::eCodeIndex>();
-//
-//    emit_branch_if_not_value(ARG1, check_trap);
-//
-//    comment("Do return and dispatch to it");
-//    a.str(ARG1, getXRef(0));
-//
-//    emit_leave_erlang_frame();
-//
-//    if (erts_alcu_enable_code_atags) {
-//        /* See emit_i_test_yield. */
-//        a.str(a32::lr, arm::Mem(c_p, offsetof(Process, i)));
-//    }
-//
-//    a.bx(a32::lr);
+    Label check_trap = a.newLabel(), trap = a.newLabel(), error = a.newLabel();
 
-    emit_nyi("emit_bif_nif_epilogue");
+#ifdef ERTS_MSACC_EXTENDED_STATES
+    ASSERT(false);
+#endif
+
+    /* Another process may have loaded new code and somehow notified us through
+     * this call, so we must update the active code index. */
+    emit_leave_runtime<Update::eStack | Update::eHeap |
+                       Update::eReductions | Update::eCodeIndex>();
+
+    emit_branch_if_not_value(ARG1, check_trap);
+
+    comment("Do return and dispatch to it");
+    a.str(ARG1, getXRef(0));
+
+    emit_leave_erlang_frame();
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(a32::lr, arm::Mem(c_p, offsetof(Process, i)));
+    }
+    
+    a.bx(a32::lr);
+
+    a.bind(check_trap);
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+    a.cmp(TMP, imm(TRAP));
+    a.b_ne(error);
+    {
+        comment("yield");
+        emit_nyi("emit_bif_nif_epilogue_yield");
+        
+    }
+
+    a.bind(trap);
+    {
+        comment("do normal trap");
+        emit_nyi("emit_bif_nif_epilogue_normal_trap");
+    }
+
+    a.bind(error);
+    {
+        emit_nyi("emit_bif_nif_epilogue_error");
+    }
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.
@@ -400,7 +418,7 @@ void BeamGlobalAssembler::emit_call_bif_shared(void) {
     a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
  
     /* The corresponding leave can be found in the epilogue. */
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_enter_runtime<Update::eStack | Update::eHeap |
                        Update::eReductions>();
  
  #ifdef ERTS_MSACC_EXTENDED_STATES
