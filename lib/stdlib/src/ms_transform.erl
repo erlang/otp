@@ -79,7 +79,8 @@ Takes an error code returned by one of the other functions in the module and
 creates a textual description of the error.
 """.
 -spec(format_error(Error) -> Chars when
-      Error :: {error, module(), term()},
+      Error :: Code | {Code, _} | {Code, _, _} | {Code, _, _, _},
+      Code :: non_neg_integer(),
       Chars :: io_lib:chars()).
 
 format_error({?WARN_SHADOW_VAR,Name}) ->
