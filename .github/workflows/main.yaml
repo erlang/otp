@@ -555,7 +555,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on FreeBSD
-        uses: vmactions/freebsd-vm@262fcf6e3e09d447753de95ad05d006c26e11f22 # v1
+        uses: vmactions/freebsd-vm@c9f815bc7aa0d34c9fdd0619b034a32d6ca7b57e # v1
         with:
             usesh: true
             copyback: false
@@ -987,7 +987,7 @@ jobs:
       #
       - name: Upload SBOM to Github Dependency API
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-        uses: advanced-security/spdx-dependency-submission-action@f957edbb35161c1f9e33f61026fc86a671c58cae # v0.1.2
+        uses: advanced-security/spdx-dependency-submission-action@169d22427d74f3faf93504e70b03eede8dab272a # v0.2.0
 
   ## If this is an "OTP-*" tag that has been pushed we do some release work
   release:
