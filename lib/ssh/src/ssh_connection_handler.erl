@@ -1919,6 +1919,7 @@ conn_info(algorithms,     #data{ssh_params=#ssh{algorithms=A}}) -> conn_info_alg
 conn_info(channels, D) -> try conn_info_chans(ets:tab2list(cache(D)))
                           catch _:_ -> undefined
                           end;
+conn_info(public_key, #data{ssh_params=S}) -> S#ssh.authenticated_public_key;
 %% dbg options ( = not documented):
 conn_info(socket, D) ->   D#data.socket;
 conn_info(chan_ids, D) ->
