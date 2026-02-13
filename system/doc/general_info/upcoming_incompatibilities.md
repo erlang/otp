@@ -252,6 +252,17 @@ second argument.
 Escripts will be compiled, and it will no longer be possible to force an escript
 to be interpreted by using the directive `-mode(interpret)`.
 
+[]{}{: #max_connections_open }
+
+### New Inets http client option
+
+New option in Inets' http client `httpc:set_options([{max_connections_open, N}])`
+is introduced to prevent bandwidth exhaustion while trying to complete multiple
+requests at once, making the remote server close connection before the request
+is finished. The option is set for maintaining backwards compatibility allowing
+infinite amount of connections, but will be decreased in OTP 30 allowing as smooth
+request flow as possible.
+
 ## OTP 29
 
 ### It will no longer be possible to disable feature maybe_expr
