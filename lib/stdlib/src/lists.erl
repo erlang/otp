@@ -81,7 +81,7 @@ An example of a typical ordering function is less than or equal to: `=</2`.
          filter/2, filtermap/2, flatmap/2,
          foldl/3, foldr/3, foreach/2,
          map/2, mapfoldl/3, mapfoldr/3,
-         partition/2, search/2,
+         partition/2, reject/2, search/2,
          splitwith/2, takewhile/2, uniq/2,
          zipwith/3, zipwith/4, zipwith3/4, zipwith3/5]).
 
@@ -2525,6 +2525,28 @@ returns `true`.
 
 filter(Pred, List) when is_function(Pred, 1) ->
     [ E || E <- List, Pred(E) ].
+
+-doc """
+Returns a list of elements `Elem` in `List1` for which `Pred(Elem)`
+returns `false`.
+
+## Examples
+
+```erlang
+1> IsEven = fun(N) -> N rem 2 =:= 0 end.
+2> lists:filter(IsEven, [1,2,3,4,5]).
+[1,3,5]
+```
+
+""".
+-spec reject(Pred, List1) -> List2 when
+      Pred :: fun((Elem :: T) -> boolean()),
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+reject(Pred, List) when is_function(Pred, 1) ->
+    [ E || E <- List, not Pred(E) ].
 
 -doc """
 Partitions `List` into two lists: the first containing elements for
