@@ -316,7 +316,7 @@ protected:
     template<int Spec = 0>
     void emit_enter_runtime() {
         ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
-                                Update::eHeap | Update::eXRegs)) == Spec);
+                                Update::eHeap)) == Spec);
         if (Spec & Update::eStack) {
             a.str(E, arm::Mem(c_p, offsetof(Process, stop)));
         } else {
@@ -344,7 +344,7 @@ protected:
     void emit_leave_runtime() {
         ERTS_CT_ASSERT(
             (Spec & (Update::eReductions | Update::eStack | Update::eHeap |
-                     Update::eXRegs | Update::eCodeIndex)) == Spec);
+                     Update::eCodeIndex)) == Spec);
         if (Spec & Update::eStack) {
             a.ldr(E, arm::Mem(c_p, offsetof(Process, stop)));
         }
