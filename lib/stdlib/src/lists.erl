@@ -2534,7 +2534,7 @@ returns `false`.
 
 ```erlang
 1> IsEven = fun(N) -> N rem 2 =:= 0 end.
-2> lists:filter(IsEven, [1,2,3,4,5]).
+2> lists:reject(IsEven, [1,2,3,4,5]).
 [1,3,5]
 ```
 
