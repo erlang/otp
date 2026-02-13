@@ -553,13 +553,16 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
   following signature:
 
   ```erlang
-  fun (DistCtrlr, Node, DHandle) -> void()
+  fun (DistCtrlr, Node, DHandle) -> void() |
+  fun (DistCtrlr, Node, DHandle, Context) -> void()
   ```
 
   where `DistCtrlr` is the identifier of the distribution controller, `Node` is
-  the node name of the node connected at the other end, and `DHandle` is a
-  distribution handle needed by a distribution controller process when calling
-  the following BIFs:
+  the node name of the node connected at the other end. `Context` is a map of
+  `#{creation => Creation, flags => Flags}`, and `Creation` / `Flags` are the
+  node incarnation identifier / [capability flags](erl_dist_protocol.md#dflags)
+  of the node connected at the other end. `DHandle` is a distribution handle
+  needed by a distribution controller process when calling the following BIFs:
 
   - `erlang:dist_ctrl_get_data/1`
   - `erlang:dist_ctrl_get_data_notification/1`

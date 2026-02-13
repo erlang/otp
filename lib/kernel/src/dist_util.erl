@@ -494,6 +494,8 @@ convert_flags(_Undefined) ->
                 f_getopts       :: function() | 'undefined'}).
 
 connection(#hs_data{other_node = Node,
+		    other_creation = Creation,
+		    other_flags = Flags,
 		    socket = Socket,
 		    f_address = FAddress,
 		    f_setopts_pre_nodeup = FPreNodeup,
@@ -509,7 +511,11 @@ connection(#hs_data{other_node = Node,
 		ok ->
                     case HSData#hs_data.f_handshake_complete of
                         undefined -> ok;
-                        HsComplete -> HsComplete(Socket, Node, DHandle)
+                        HsComplete when is_function(HsComplete, 3) ->
+                            HsComplete(Socket, Node, DHandle);
+                        HsComplete when is_function(HsComplete, 4) ->
+                            Context = #{creation => Creation, flags => Flags},
+                            HsComplete(Socket, Node, DHandle, Context)
                     end,
 		    con_loop(#state{kernel = HSData#hs_data.kernel_pid,
                                     node = Node,
