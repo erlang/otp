@@ -85,6 +85,6 @@ jobs:
         # See: https://github.com/github/codeql-action/issues/2117
         actions: read
         contents: read
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@2c222dbe8cbd6baffa4929823c8e5c3ab481d4d0" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.2
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@c5996e0193a3df57d695c1b8a1dec2a4c62e8730" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.2
     with:
         upload-sarif: ${{ github.repository == 'erlang/otp' }}
