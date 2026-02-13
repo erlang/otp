@@ -5029,38 +5029,41 @@ dec_term_atom_common:
 
                 if (size <= MAP_SMALL_MAP_LIMIT) {
                     flatmap_t *mp;
+
                     if (size == 0) {
-                        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                        *objp = ERTS_GLOBAL_LIT_EMPTY_MAP;
+                        map->objp = NULL;
+                        map->u.flatmap = NULL;
                     } else {
                         keys  = make_tuple(hp);
                         *hp++ = make_arityval(size);
                         hp   += size;
-                    }
-                    kptr = hp - 1;
+                        kptr = hp - 1;
 
-                    mp    = (flatmap_t*)hp;
-                    hp   += MAP_HEADER_FLATMAP_SZ;
-                    hp   += size;
-                    vptr = hp - 1;
+                        mp    = (flatmap_t*)hp;
+                        hp   += MAP_HEADER_FLATMAP_SZ;
+                        hp   += size;
+                        vptr = hp - 1;
 
-                    /* kptr, last word for keys
-                     * vptr, last word for values
-                     */
+                        /* kptr, last word for keys
+                         * vptr, last word for values
+                         */
 
-                    map->objp = NULL;
-                    map->u.flatmap = mp;
+                        map->objp = NULL;
+                        map->u.flatmap = mp;
 
-                    mp->thing_word = MAP_HEADER_FLATMAP;
-                    mp->size       = size;
-                    mp->keys       = keys;
-                    *objp          = make_flatmap(mp);
+                        mp->thing_word = MAP_HEADER_FLATMAP;
+                        mp->size       = size;
+                        mp->keys       = keys;
+                        *objp          = make_flatmap(mp);
 
-                    for (n = size; n; n--) {
-                        *vptr = (Eterm) next;
-                        *kptr = (Eterm) vptr;
-                        next  = kptr;
-                        vptr--;
-                        kptr--;
+                        for (n = size; n; n--) {
+                            *vptr = (Eterm) next;
+                            *kptr = (Eterm) vptr;
+                            next  = kptr;
+                            vptr--;
+                            kptr--;
+                        }
                     }
                 }
                 else {  /* Make hamt */
@@ -5409,7 +5412,8 @@ dec_term_atom_common:
                     goto error_map_fixup;
             }
             else {
-                if (!erts_validate_and_sort_flatmap(map->u.flatmap))
+                if (map->u.flatmap &&
+                    !erts_validate_and_sort_flatmap(map->u.flatmap))
                     goto error_map_fixup;
             }
 
@@ -6258,13 +6262,11 @@ init_done:
 	    n = get_uint32(ep);
 	    ep += 4;
             if (n <= MAP_SMALL_MAP_LIMIT) {
-                heap_size += 3 + n;
-
-                /* When decoding the empty tuple we always use the canonical
-                 * global literal, so it won't occupy any heap space in the
-                 * block we're decoding to. */
+                /* When n == 0, we use the global literal empty map
+                 * which takes no heap space. */
                 if (n > 0) {
-                    heap_size += 1 + n;
+                    heap_size += 3 + n;   /* flatmap header (3 words) + values (n) */
+                    heap_size += 1 + n;   /* keys tuple header (1) + keys (n) */
                 }
 #if defined(ARCH_64)
             } else if ((n >> 31) != 0) {

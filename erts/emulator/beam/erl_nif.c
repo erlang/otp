@@ -3605,17 +3605,7 @@ int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)
 
 ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env)
 {
-    Eterm* hp = alloc_heap(env,MAP_HEADER_FLATMAP_SZ);
-    Eterm tup;
-    flatmap_t *mp;
-
-    tup   = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-    mp    = (flatmap_t*)hp;
-    mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->size = 0;
-    mp->keys = tup;
-
-    return make_flatmap(mp);
+    return ERTS_GLOBAL_LIT_EMPTY_MAP;
 }
 
 int enif_make_map_from_arrays(ErlNifEnv *env,

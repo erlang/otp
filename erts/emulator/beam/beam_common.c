@@ -1895,19 +1895,19 @@ erts_gc_new_map(Process* p, Eterm* reg, Uint live,
         return res;
     }
 
+    if (n == 0) {
+        return ERTS_GLOBAL_LIT_EMPTY_MAP;
+    }
+
     if (HeapWordsLeft(p) < need) {
 	erts_garbage_collect(p, need, reg, live);
     }
 
     thp    = p->htop;
-    mhp    = thp + (n == 0 ? 0 : 1) + n/2;
+    mhp    = thp + 1 + n/2;
     E      = p->stop;
-    if (n == 0) {
-        keys   = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-    } else {
-        keys   = make_tuple(thp);
-        *thp++ = make_arityval(n/2);
-    }
+    keys   = make_tuple(thp);
+    *thp++ = make_arityval(n/2);
     mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
     mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = n/2;
@@ -1934,6 +1934,10 @@ erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
     Eterm *E;
 
     ASSERT(n <= MAP_SMALL_MAP_LIMIT);
+
+    if (n == 0) {
+        return ERTS_GLOBAL_LIT_EMPTY_MAP;
+    }
 
     if (HeapWordsLeft(p) < need) {
         erts_garbage_collect(p, need, reg, live);

@@ -2234,6 +2234,7 @@ maps(Config) when is_list(Config) ->
     {0,-123} = get_map_size_nif({#{}}),
 
     #{} = M0 = make_new_map_nif(),
+    0 = erts_debug:flat_size(M0),
 
     {1, #{key := value}=M1} = make_map_put_nif(M0, key, value),
     {1, #{key := value, "key2" := "value2"}=M2} = make_map_put_nif(M1, "key2", "value2"),
@@ -2249,7 +2250,8 @@ maps(Config) when is_list(Config) ->
     {1, #{key := "value", "key2" := "value2"}} = make_map_update_nif(M2, key, "value"),
     {0, undefined} = make_map_update_nif(666, key, value),
 
-    {1, #{}} = make_map_remove_nif(M1, key),
+    {1, #{} = MR0} = make_map_remove_nif(M1, key),
+    0 = erts_debug:flat_size(MR0),
     {1, M1} = make_map_remove_nif(M2, "key2"),
     {1, M2} = make_map_remove_nif(M2, "key3"),
     {0, undefined} = make_map_remove_nif(self(), key),
@@ -2257,6 +2259,9 @@ maps(Config) when is_list(Config) ->
     M1 = maps_from_list_nif(maps:to_list(M1)),
     M2 = maps_from_list_nif(maps:to_list(M2)),
     M3 = maps_from_list_nif(maps:to_list(M3)),
+    MFL0 = maps_from_list_nif([]),
+    #{} = MFL0,
+    0 = erts_debug:flat_size(MFL0),
 
     %% Test different map sizes (OTP-15567)
     repeat_while(fun({35,_}) -> false;
@@ -2281,6 +2286,7 @@ maps(Config) when is_list(Config) ->
                      M5,
                      lists:seq(1,40)),
     true = (M6 =:= #{}),
+    0 = erts_debug:flat_size(M6),
 
     has_duplicate_keys = maps_from_list_nif([{1,1},{1,1}]),
 

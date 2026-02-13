@@ -372,15 +372,13 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
     Sint  c = 0;
     Sint  idx = 0;
 
+    if (size == 0)
+        return ERTS_GLOBAL_LIT_EMPTY_MAP;
 
-    hp    = HAlloc(p, 3 + (size == 0 ? 0 : 1) + (2 * size));
+    hp    = HAlloc(p, 3 + 1 + (2 * size));
     thp   = hp;
-    if (size == 0) {
-        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-    } else {
-        keys  = make_tuple(hp);
-        *hp++ = make_arityval(size);
-    }
+    keys  = make_tuple(hp);
+    *hp++ = make_arityval(size);
     ks    = hp;
     hp   += size;
     mp    = (flatmap_t*)hp;
@@ -391,9 +389,6 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
     mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = size; /* set later, might shrink*/
     mp->keys = keys;
-
-    if (size == 0)
-	return res;
 
     /* first entry */
     if (is_value(fill_value)) {
@@ -678,18 +673,17 @@ from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
 	Eterm keys;
 
         if (n == 0) {
-            keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-            hp = erts_produce_heap(factory, MAP_HEADER_FLATMAP_SZ + n, 0);
+            *fmpp = NULL;
+            return ERTS_GLOBAL_LIT_EMPTY_MAP;
         }
-        else {
-            hp = erts_produce_heap(factory, 1 + MAP_HEADER_FLATMAP_SZ + 2*n, 0);
-            keys = make_tuple(hp);
-            *hp++ = make_arityval(n);
-            sys_memcpy((void *) hp,
-                       (void *) ks,
-                       n * sizeof(Eterm));
-            hp += n;
-        }
+
+        hp = erts_produce_heap(factory, 1 + MAP_HEADER_FLATMAP_SZ + 2*n, 0);
+        keys = make_tuple(hp);
+        *hp++ = make_arityval(n);
+        sys_memcpy((void *) hp,
+                   (void *) ks,
+                   n * sizeof(Eterm));
+        hp += n;
 
 	fmp = (flatmap_t*)hp;
 	hp += MAP_HEADER_FLATMAP_SZ;
@@ -1977,16 +1971,26 @@ int erts_maps_take(Process *p, Eterm key, Eterm map,
 	 * Allocate key tuple first.
 	 */
 
-	need   = n + ((n-1) == 0 ? 0 : 1) - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
+        if (n == 1) {
+            /* Removing the only element. If found, use the global
+            * literal empty map. No heap allocation needed. */
+            ks = flatmap_get_keys(mp);
+            vs = flatmap_get_values(mp);
+            if (is_immed(key) ? (*ks == key) : EQ(*ks, key)) {
+                if (value) *value = *vs;
+                *res = ERTS_GLOBAL_LIT_EMPTY_MAP;
+                return 1;
+            }
+            *res = map;
+            return 0;
+        }
+
+	need   = n - 1 + 1 + 3 + n - 1; /* keys (n-1) + tuple hdr (1) + flatmap hdr (3) + values (n-1) */
 	hp_start = HAlloc(p, need);
 	thp    = hp_start;
-	mhp    = thp + n + ((n-1) == 0 ? -1 : 0);  /* offset with tuple heap size */
-        if ((n-1) == 0) {
-            tup = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-        } else {
-            tup    = make_tuple(thp);
-            *thp++ = make_arityval(n - 1);
-        }
+	mhp    = thp + n;  /* offset past keys tuple */
+        tup    = make_tuple(thp);
+        *thp++ = make_arityval(n - 1);
 	*res   = make_flatmap(mhp);
 	*mhp++ = MAP_HEADER_FLATMAP;
 	*mhp++ = n - 1;

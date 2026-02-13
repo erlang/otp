@@ -3232,7 +3232,7 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
 
         map->size = map_elem_count;
         if (map_elem_count == 0) {
-            map->keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+            argv[4] = ERTS_GLOBAL_LIT_EMPTY_MAP;
         } else {
             map->keys = make_tuple(local_heap);
             local_heap[0] = make_arityval(map_elem_count);

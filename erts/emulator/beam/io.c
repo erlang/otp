@@ -6116,19 +6116,19 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
                 mess = erts_hashmap_from_array(&factory, leafs, size, 1);
                 if (is_non_value(mess))
                     ERTS_DDT_FAIL;
+            } else if (size == 0) {
+                mess = ERTS_GLOBAL_LIT_EMPTY_MAP;
             } else {
                 Eterm* vp;
                 flatmap_t *mp;
 		Eterm* tp = erts_produce_heap(&factory,
-					      2*size + (size==0 ? 0 : 1) + MAP_HEADER_FLATMAP_SZ,
+					      2*size + 1 + MAP_HEADER_FLATMAP_SZ,
 					      HEAP_EXTRA);
-                if (size != 0) {
-                    *tp = make_arityval(size);
-                }
-                mp = (flatmap_t*) (tp + (size==0 ? 0 : 1) + size);
+                *tp = make_arityval(size);
+                mp = (flatmap_t*) (tp + 1 + size);
                 mp->thing_word = MAP_HEADER_FLATMAP;
                 mp->size = size;
-                mp->keys = (size!= 0 ? make_tuple(tp) : ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+                mp->keys = make_tuple(tp);
                 mess = make_flatmap(mp);
 
                 tp += size;    /* point at last key */

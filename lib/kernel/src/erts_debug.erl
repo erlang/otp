@@ -267,6 +267,10 @@ size({}, Seen0, Sum0) ->
     %% Tuples of size 0 all points to a constant literal so we count
     %% them as size zero
     {Sum0,Seen0};
+size(Map, Seen0, Sum0) when Map =:= #{} ->
+    %% Maps of size 0 all points to a constant literal so we count
+    %% them as size zero
+    {Sum0,Seen0};
 size(Tuple, Seen0, Sum0) when is_tuple(Tuple) ->
     case remember_term(Tuple, Seen0) of
 	seen -> {Sum0,Seen0};
