@@ -37,10 +37,13 @@ struct aead_cipher_ctx {
     int encflg;
     unsigned int tag_len;
     ErlNifEnv *env;
+    ErlNifMutex * aead_m;  /* Should protect 'ctx', which needs to be thread-safe */
 };
 
 static void aead_cipher_ctx_dtor(ErlNifEnv* env, struct aead_cipher_ctx* ctx) {
     enif_free_env(ctx->env);
+    if (ctx->aead_m)
+        enif_mutex_destroy(ctx->aead_m);
     if (ctx->ctx)
         EVP_CIPHER_CTX_free(ctx->ctx);
 
@@ -77,6 +80,9 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     ctx_res->env = enif_alloc_env();
     encflg_arg = argv[3];
+
+    if ((ctx_res->aead_m = enif_mutex_create("crypto_aead_m")) == NULL)
+        {ret = EXCP_ERROR(env, "Create mutex failed"); goto done;}
 
     /* Fetch the flag telling if we are going to encrypt (=true) or decrypt (=false) */
     if (encflg_arg == atom_true)
@@ -144,6 +150,7 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     const struct cipher_type_t *cipherp;
     EVP_CIPHER_CTX *ctx = NULL;
     const EVP_CIPHER *cipher = NULL;
+    struct aead_cipher_ctx *ctx_res = NULL;
     ErlNifBinary key, iv, aad, in, tag;
     unsigned int tag_len;
     unsigned char *outp, *tagp, *tag_data, *in_data;
@@ -228,9 +235,11 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
     } else {
         /* argc = 4  {state, IV, InData, AAD }  */
-        struct aead_cipher_ctx *ctx_res = NULL;
         if (!enif_get_resource(env, argv[0], aead_cipher_ctx_rtype, (void**)&ctx_res))
             {ret = EXCP_BADARG_N(env, 0, "Bad State"); goto done;}
+
+        enif_mutex_lock(ctx_res->aead_m);
+
         if (!enif_inspect_iolist_as_binary(env, argv[1], &iv))
             {ret = EXCP_BADARG_N(env, 1, "non-binary iv"); goto done;}
         if (!enif_inspect_iolist_as_binary(env, argv[2], &in))
@@ -352,6 +361,9 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 done:
     if (ctx && argc == 7 )
         EVP_CIPHER_CTX_free(ctx);
+    if (ctx_res) {
+        enif_mutex_unlock(ctx_res->aead_m);
+    }
     return ret;
 
 #else
