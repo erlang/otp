@@ -163,6 +163,8 @@ static char *erts_dop_to_string(enum dop dop) {
         return "UNLINK_ID";
     if (dop == DOP_UNLINK_ID_ACK)
         return "UNLINK_ID_ACK";
+    if (dop == DOP_ALTACT_SIG_SEND)
+        return "DOP_ALTACT_SIG_SEND";
     ASSERT(0);
     return "UNKNOWN";
 }
