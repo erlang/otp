@@ -239,12 +239,28 @@
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_recvmsg(s,msghdr,flag)     recvmsg((s),(msghdr),(flag))
+#ifdef HAVE_RECVMMSG
+#define sock_recvmmsg(s,mmsghdr,vlen,flag,timeout) \
+    recvmmsg((s),(mmsghdr),(vlen),(flag),(timeout))
+#endif
 #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
 #define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
+#ifdef HAVE_SENDMMSG
+#define sock_sendmmsg(s,mmsghdr,vlen,flag) \
+    sendmmsg((s),(mmsghdr),(vlen),(flag))
+#endif
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
     sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_sendv(s,iov,iovcnt)        writev((s), (iov), (iovcnt))
 #define sock_shutdown(s, how)           shutdown((s), (how))
+
+/* Maximum number of messages for sendmmsg/recvmmsg operations.
+ * This limit prevents excessive resource usage and ensures scheduler
+ * responsiveness. The Linux kernel's UIO_MAXIOV is typically 1024.
+ * For batches larger than this, callers should use multiple calls
+ * from the Erlang layer.
+ */
+#define ESOCK_MMSG_MAX 1024
 
 
 /* =================================================================== *
@@ -4089,6 +4105,443 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
 }
 
 
+#ifdef HAVE_RECVMMSG
+/* ========================================================================
+ */
+ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     recvRef,
+                            unsigned int     vlen,
+                            ssize_t          bufLen,
+                            ssize_t          ctrlLen,
+                            int              flags)
+{
+    int             readResult = 0;
+    ESockAddress*   addrs = NULL;
+    unsigned char*  recvBufs = NULL;
+    unsigned char*  recvCtrl = NULL;
+    struct mmsghdr* recvMmsghdrs = NULL;
+    struct iovec*   recvIovecs = NULL;
+    ErlNifBinary*   bufs = NULL;
+    ErlNifBinary*   ctrls = NULL;
+    char*           heapPool = NULL;
+    SOCKLEN_T       addrLen = sizeof(ESockAddress);
+    size_t          bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
+    size_t          ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
+    int             saveErrno;
+    ERL_NIF_TERM    ret;
+    ERL_NIF_TERM    resultList;
+    unsigned int    i = 0;
+
+    if (vlen > ESOCK_MMSG_MAX)
+        vlen = ESOCK_MMSG_MAX;
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_recvmmsg {%d} -> entry with"
+                   "\r\n   vlen:    %u"
+                   "\r\n   bufSz:   %lu (%ld)"
+                   "\r\n   ctrlSz:  %ld (%ld)"
+                   "\r\n", descP->sock,
+                   vlen, (unsigned long) bufSz, (long) bufLen,
+                   (unsigned long) ctrlSz, (long) ctrlLen) );
+
+    if (! recv_check_entry(env, descP, recvRef, &ret)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_recvmmsg {%d} -> entry failed: "
+                "\r\n   %T\r\n", descP->sock, ret) );
+        return ret;
+    }
+
+    {
+        size_t bufs_sz     = vlen * sizeof(ErlNifBinary);
+        size_t ctrls_sz    = vlen * sizeof(ErlNifBinary);
+        size_t addrs_sz    = vlen * sizeof(ESockAddress);
+        size_t mmsghdrs_sz = vlen * sizeof(struct mmsghdr);
+        size_t iovecs_sz   = vlen * sizeof(struct iovec);
+        size_t bufdata_sz  = vlen * bufSz;
+        size_t ctrldata_sz = vlen * ctrlSz;
+        size_t total_sz = bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + bufdata_sz + ctrldata_sz;
+        ESOCK_ASSERT(heapPool = (char*) MALLOC(total_sz));
+        if (!heapPool) return esock_make_error_errno(env, ENOMEM);
+        sys_memzero(heapPool, bufs_sz + ctrls_sz + addrs_sz);
+        bufs         = (ErlNifBinary*)   (heapPool);
+        ctrls        = (ErlNifBinary*)   (heapPool + bufs_sz);
+        addrs        = (ESockAddress*)   (heapPool + bufs_sz + ctrls_sz);
+        recvMmsghdrs = (struct mmsghdr*) (heapPool + bufs_sz + ctrls_sz + addrs_sz);
+        recvIovecs   = (struct iovec*)   (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz);
+        recvBufs     = (unsigned char*)  (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz);
+        recvCtrl     = (unsigned char*)  (heapPool + bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + bufdata_sz);
+    }
+
+    /* Set up mmsghdr structures to point into raw memory blocks */
+    for (i = 0; i < vlen; i++) {
+        recvIovecs[i].iov_base = recvBufs + (i * bufSz);
+        recvIovecs[i].iov_len  = bufSz;
+        recvMmsghdrs[i].msg_hdr.msg_name       = &addrs[i];
+        recvMmsghdrs[i].msg_hdr.msg_namelen    = addrLen;
+        recvMmsghdrs[i].msg_hdr.msg_iov        = &recvIovecs[i];
+        recvMmsghdrs[i].msg_hdr.msg_iovlen     = 1;
+        recvMmsghdrs[i].msg_hdr.msg_control    = recvCtrl + (i * ctrlSz);
+        recvMmsghdrs[i].msg_hdr.msg_controllen = ctrlSz;
+        recvMmsghdrs[i].msg_hdr.msg_flags      = 0;
+        recvMmsghdrs[i].msg_len                = 0;
+    }
+
+    ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_tries, &descP->readTries, 1);
+
+    /* Passing NULL for timeout makes recvmmsg return ALL available messages
+     * (up to vlen) in a single call.
+     */
+    readResult = sock_recvmmsg(descP->sock, recvMmsghdrs, vlen, flags, NULL);
+    saveErrno = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
+
+    if (readResult == 0) {
+        ret = esock_make_ok2(env, MKEL(env));
+        goto cleanup;
+    }
+
+    if (!recv_check_result(env, descP, sockRef, recvRef, readResult, saveErrno, &ret)) {
+        goto cleanup;
+    }
+
+    /* Allocate ErlNifBinary structures only for received messages (readResult),
+     * copying data from raw memory blocks.
+     */
+    {
+        ERL_NIF_TERM* elems;
+        ESOCK_ASSERT( (elems = MALLOC(readResult * sizeof(ERL_NIF_TERM))) != NULL );
+
+        size_t totalBytes = 0;
+
+        for (i = 0; i < (unsigned int) readResult; i++) {
+            ErlNifBinary bin;
+            size_t       ctrlLen;
+            unsigned int msgLen = recvMmsghdrs[i].msg_len;
+
+
+            ESOCK_ASSERT( ALLOC_BIN(bufSz, &bufs[i]) );
+            sys_memcpy(bufs[i].data, recvBufs + (i * bufSz), msgLen);
+            bufs[i].size = bufSz;
+
+            ESOCK_ASSERT( ALLOC_BIN(ctrlSz, &ctrls[i]) );
+            ctrlLen = (recvMmsghdrs[i].msg_hdr.msg_controllen < ctrlSz)
+                ? recvMmsghdrs[i].msg_hdr.msg_controllen
+                : ctrlSz;
+            sys_memcpy(ctrls[i].data, recvCtrl + (i * ctrlSz), ctrlLen);
+            ctrls[i].size = ctrlSz;
+
+            recvMmsghdrs[i].msg_hdr.msg_control = ctrls[i].data;
+
+            ESOCK_ASSERT( recv_create_bin(&bufs[i], msgLen, &bin) );
+            encode_msg(env, descP,
+                       msgLen, &recvMmsghdrs[i].msg_hdr, &bin, &ctrls[i],
+                       &elems[i]);
+
+            /* Update counters */
+            totalBytes += msgLen;
+            if (msgLen > descP->readPkgMax)
+                descP->readPkgMax = msgLen;
+        }
+
+        resultList = enif_make_list_from_array(env, elems, readResult);
+        enif_free(elems);
+
+        /* Update packet and byte counters */
+        ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_pkg, &descP->readPkgCnt, readResult);
+        ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte, &descP->readByteCnt, totalBytes);
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_recvmmsg {%d} -> ok, received %d messages\r\n",
+            descP->sock, readResult) );
+
+    if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        ret = MKT2(env, esock_atom_select_read, resultList);
+        ret = recv_check_select(env, descP, sockRef, recvRef, ret);
+    } else {
+        recv_update_current_reader(env, descP, sockRef);
+        ret = esock_make_ok2(env, resultList);
+    }
+
+cleanup:
+    /* Free ErlNifBinary structures only for received messages.
+     * Note: recv_create_bin may have transferred ownership (set data = NULL),
+     * in which case FREE_BIN is a no-op. We only free binaries we still own.
+     * When exiting early from the allocation loop, i is at the index where
+     * allocation failed, so we free indices 0 to i-1. On successful completion,
+     * i equals readResult, so we free indices 0 to readResult-1.
+     */
+    {
+        unsigned int countToFree = (i < (unsigned int) readResult) ? i : (unsigned int) readResult;
+        if (countToFree > 0) {
+            for (unsigned int j = 0; j < countToFree; j++) {
+                if (bufs[j].data != NULL) {
+                    FREE_BIN(&bufs[j]);
+                }
+                if (ctrls[j].data != NULL) {
+                    FREE_BIN(&ctrls[j]);
+                }
+            }
+        }
+    }
+
+    if (heapPool) enif_free(heapPool);
+
+    return ret;
+}
+#else /* HAVE_RECVMMSG */
+ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     recvRef,
+                            unsigned int     vlen,
+                            ssize_t          bufLen,
+                            ssize_t          ctrlLen,
+                            int              flags)
+{
+    (void)descP; (void)sockRef; (void)recvRef;
+    (void)vlen; (void)bufLen; (void)ctrlLen; (void)flags;
+    return enif_raise_exception(env, MKA(env, "notsup"));
+}
+#endif /* HAVE_RECVMMSG */
+
+
+#ifdef HAVE_SENDMMSG
+/* ========================================================================
+ * Same criterion as send_check_result: written < dataSize => partial.
+ * We do not call send_check_result (it has side effects: writer state,
+ * stats). We only produce per-message result: 'full' or bytes written,
+ * so Erlang can build rest iovecs by slicing (same as sendmsg continuation).
+ */
+ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     sendRef,
+                            ERL_NIF_TERM     eMsgs,
+                            int              flags,
+                            const ESockData* dataP)
+{
+    ERL_NIF_TERM    ret, eMsg, eAddr, eCtrl, eIOV, tail;
+    int             sendResult;
+    ERL_NIF_TERM    writerCheck;
+    unsigned int    i = 0;
+    unsigned int    msgCount = 0;
+    struct mmsghdr* sendMmsghdrs = NULL;
+    ESockAddress*   addrs = NULL;
+    char**          ctrlBufs = NULL;
+    size_t*         ctrlBufLens = NULL;
+    size_t*         ctrlBufUseds = NULL;
+    ErlNifIOVec**   iovecPtrs = NULL;
+    char*           heapPool = NULL;
+    char*           ctrlBufData = NULL;
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Ensure that we either have no current writer or we are it,
+     * or enqueue this process if there is a current writer  */
+    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_sendmmsg {%d} -> writer check failed: "
+                "\r\n   %T\r\n", descP->sock, writerCheck) );
+        return writerCheck;
+    }
+
+    /* Count messages */
+    tail = eMsgs;
+    while (!enif_is_empty_list(env, tail)) {
+        if (!enif_get_list_cell(env, tail, &eMsg, &tail)) {
+            return enif_make_badarg(env);
+        }
+        if (!IS_MAP(env, eMsg)) {
+            return enif_make_badarg(env);
+        }
+        msgCount++;
+    }
+
+    if (msgCount == 0) {
+        return esock_atom_ok;
+    }
+
+    if (msgCount > ESOCK_MMSG_MAX)
+        msgCount = ESOCK_MMSG_MAX;
+
+    {
+        size_t mmsghdrs_sz     = msgCount * sizeof(struct mmsghdr);
+        size_t addrs_sz        = msgCount * sizeof(ESockAddress);
+        size_t ctrlBufs_sz     = msgCount * sizeof(char*);
+        size_t ctrlBufLens_sz  = msgCount * sizeof(size_t);
+        size_t ctrlBufUseds_sz = msgCount * sizeof(size_t);
+        size_t iovecPtrs_sz    = msgCount * sizeof(ErlNifIOVec*);
+        size_t ctrlBufData_sz  = msgCount * descP->wCtrlSz;
+        size_t total_sz = mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz + ctrlBufData_sz;
+        ESOCK_ASSERT(heapPool = (char*) MALLOC(total_sz));
+        if (!heapPool) {
+            ret = esock_make_error_errno(env, ENOMEM);
+            goto cleanup;
+        }
+        sys_memzero(heapPool, total_sz);
+        sendMmsghdrs = (struct mmsghdr*) (heapPool);
+        addrs        = (ESockAddress*) (heapPool + mmsghdrs_sz);
+        ctrlBufs     = (char**) (heapPool + mmsghdrs_sz + addrs_sz);
+        ctrlBufLens  = (size_t*) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz);
+        ctrlBufUseds = (size_t*) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz);
+        iovecPtrs    = (ErlNifIOVec**) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz);
+        ctrlBufData  = (char*) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz);
+        for (i = 0; i < msgCount; i++) {
+            ctrlBufs[i] = ctrlBufData + (i * descP->wCtrlSz);
+        }
+    }
+
+    /* Initialize arrays to ensure safe cleanup on early exit.
+     * This is especially important for iovecPtrs which may not be
+     * set if validation fails before enif_inspect_iovec() is called.
+     */
+    for (i = 0; i < msgCount; i++) {
+        iovecPtrs[i] = NULL;
+    }
+
+    /* Process each message */
+    i = 0;
+    tail = eMsgs;
+    while (!enif_is_empty_list(env, tail) && i < msgCount) {
+        ERL_NIF_TERM tail2;
+        sys_memzero((char*) &sendMmsghdrs[i], sizeof(struct mmsghdr));
+        enif_get_list_cell(env, tail, &eMsg, &tail);
+
+        /* Extract address */
+        if (GET_MAP_VAL(env, eMsg, esock_atom_addr, &eAddr)) {
+            sendMmsghdrs[i].msg_hdr.msg_name = &addrs[i];
+            sendMmsghdrs[i].msg_hdr.msg_namelen = sizeof(ESockAddress);
+            sys_memzero((char*) &addrs[i], sizeof(ESockAddress));
+            if (!esock_decode_sockaddr(env, eAddr,
+                                      sendMmsghdrs[i].msg_hdr.msg_name,
+                                      &sendMmsghdrs[i].msg_hdr.msg_namelen)) {
+                ret = esock_make_invalid(env, esock_atom_addr);
+                goto cleanup;
+            }
+        } else {
+            sendMmsghdrs[i].msg_hdr.msg_name = NULL;
+        }
+
+        /* Extract IOV */
+        if (!GET_MAP_VAL(env, eMsg, esock_atom_iov, &eIOV)) {
+            ret = enif_make_badarg(env);
+            goto cleanup;
+        }
+        if (!enif_inspect_iovec(NULL, dataP->iov_max, eIOV, &tail2, &iovecPtrs[i])) {
+            ret = enif_make_badarg(env);
+            goto cleanup;
+        }
+        if (iovecPtrs[i]->iovcnt > dataP->iov_max) {
+            ret = esock_make_invalid(env, esock_atom_iov);
+            goto cleanup;
+        }
+        sendMmsghdrs[i].msg_hdr.msg_iov = iovecPtrs[i]->iov;
+        sendMmsghdrs[i].msg_hdr.msg_iovlen = iovecPtrs[i]->iovcnt;
+
+        /* Extract control messages */
+        if (GET_MAP_VAL(env, eMsg, esock_atom_ctrl, &eCtrl)) {
+            ctrlBufLens[i] = descP->wCtrlSz;
+            if (!decode_cmsghdrs(env, descP, eCtrl,
+                                ctrlBufs[i], ctrlBufLens[i], &ctrlBufUseds[i])) {
+                ret = esock_make_invalid(env, esock_atom_ctrl);
+                goto cleanup;
+            }
+            sendMmsghdrs[i].msg_hdr.msg_control = ctrlBufs[i];
+            sendMmsghdrs[i].msg_hdr.msg_controllen = ctrlBufUseds[i];
+        } else {
+            sendMmsghdrs[i].msg_hdr.msg_control = NULL;
+        }
+
+        i++;
+    }
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
+
+    /* Call sendmmsg */
+    sendResult = sock_sendmmsg(descP->sock, sendMmsghdrs, msgCount, flags);
+
+    if (sendResult < 0) {
+        ret = send_check_result(env, descP, sendResult, 0, FALSE,
+                                sockRef, sendRef);
+    } else {
+        /*
+         * Same criterion as send_check_result: for each updated message,
+         * written < dataSize => partial. Only add partials to the result
+         * list; each element is {Index, Written} so Erlang can slice the
+         * right message. Two indexes: i over messages, resultIdx over
+         * result list (only incremented for partials).
+         */
+        unsigned int updatedCount = (unsigned int) sendResult;
+        BOOLEAN_T allFull = TRUE;
+        ERL_NIF_TERM* resultElems = NULL;
+        unsigned int resultIdx = 0;
+        unsigned int k;
+
+        if (updatedCount > 0) {
+            ESOCK_ASSERT(resultElems = (ERL_NIF_TERM*) MALLOC(updatedCount * sizeof(ERL_NIF_TERM)));
+            if (!resultElems) {
+                ret = esock_make_error_errno(env, ENOMEM);
+                goto cleanup;
+            }
+            for (i = 0; i < updatedCount; i++) {
+                size_t expectedLen = 0;
+                for (k = 0; k < iovecPtrs[i]->iovcnt; k++) {
+                    expectedLen += iovecPtrs[i]->iov[k].iov_len;
+                }
+                if (sendMmsghdrs[i].msg_len != expectedLen) {
+                    allFull = FALSE;
+                    resultElems[resultIdx++] = MKT2(env, MKI(env, (int) i),
+                        MKI(env, (int) sendMmsghdrs[i].msg_len));
+                }
+            }
+            if (allFull) {
+                enif_free(resultElems);
+                ret = esock_atom_ok;
+            } else {
+                ret = esock_make_ok2(env,
+                    enif_make_list_from_array(env, resultElems, resultIdx));
+                enif_free(resultElems);
+            }
+        } else {
+            ret = esock_atom_ok;
+        }
+    }
+
+cleanup:
+    for (i = 0; i < msgCount; i++) {
+        if (iovecPtrs && iovecPtrs[i]) {
+            FREE_IOVEC(iovecPtrs[i]);
+        }
+    }
+    if (heapPool) enif_free(heapPool);
+
+    return ret;
+}
+#else /* HAVE_SENDMMSG */
+ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ERL_NIF_TERM     sockRef,
+                           ERL_NIF_TERM     sendRef,
+                           ERL_NIF_TERM     eMsgs,
+                           int              flags,
+                           const ESockData* dataP)
+{
+    (void)descP; (void)sockRef; (void)sendRef;
+    (void)eMsgs; (void)flags; (void)dataP;
+    return enif_raise_exception(env, MKA(env, "notsup"));
+}
+#endif /* HAVE_SENDMMSG */
+
+
 /* ========================================================================
  */
 extern
@@ -6332,6 +6785,29 @@ ERL_NIF_TERM make_ifreq(ErlNifEnv*   env,
  * Checks if we have a current writer and if that is us.
  * If not (current writer), then we must be made to wait
  * for our turn. This is done by pushing us unto the writer queue.
+ *
+ * Two-Level Locking Architecture:
+ * ------------------------------
+ * The socket implementation uses a two-level locking system to handle
+ * concurrency:
+ *
+ * 1. Mutex Level (writeMtx/readMtx):
+ *    - Acquired at the NIF entry point (e.g., nif_sendmsg, nif_sendmmsg)
+ *    - Protects C-level socket descriptor state during entire NIF execution
+ *    - Prevents concurrent access to descriptor fields from multiple threads
+ *    - Serializes C-level operations
+ *
+ * 2. Process-Level Queue (currentWriterP/currentReaderP):
+ *    - Managed by send_check_writer() and recv_check_entry()
+ *    - Handles Erlang process-level concurrency when multiple processes
+ *      try to write/read simultaneously
+ *    - Queues processes that aren't the "current writer/reader"
+ *    - Returns 'select' atom to queue the process for later execution
+ *    - Ensures only one Erlang process is active writer/reader at a time
+ *
+ * The mutex protects C-level state, while the process queue handles
+ * Erlang-level concurrency. Both sendmsg and sendmmsg must call
+ * send_check_writer() to maintain proper writer queue behavior.
  */
 static
 BOOLEAN_T send_check_writer(ErlNifEnv*       env,

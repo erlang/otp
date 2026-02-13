@@ -39,9 +39,9 @@
     listen/2,
     accept/2,
     peeloff/2,
-    send/4, sendto/4, sendto/5, sendmsg/4, sendmsg/5, sendv/3,
+    send/4, sendto/4, sendto/5, sendmsg/4, sendmsg/5, sendmmsg/4, sendv/3,
     sendfile/4, sendfile/5, sendfile_deferred_close/1,
-    recv/4, recvfrom/4, recvmsg/5,
+    recv/4, recvfrom/4, recvmsg/5, recvmmsg/6,
     close/1, finalize_close/1,
     shutdown/2,
     setopt/3, setopt_native/3,
@@ -61,7 +61,7 @@
        nif_connect/1, nif_connect/3,
        nif_listen/2, nif_accept/2,
        nif_peeloff/2,
-       nif_send/4, nif_sendto/5, nif_sendmsg/5, nif_sendv/3,
+       nif_send/4, nif_sendto/5, nif_sendmsg/5, nif_sendmmsg/4, nif_sendv/3,
        nif_sendfile/5, nif_sendfile/4, nif_sendfile/1,
        nif_recv/4, nif_recvfrom/4, nif_recvmsg/5,
        nif_close/1, nif_shutdown/2,
@@ -801,6 +801,16 @@ sendfile(SockRef, FileRef, Offset, Count, SendRef) ->
 sendfile_deferred_close(SockRef) ->
     nif_sendfile(SockRef).
 
+sendmmsg(SockRef, Msgs, Flags, SendRef) ->
+    try enc_msg_flags(Flags) of
+        EFlags ->
+            %% Encode all messages
+            EMsgs = [enc_msg(Msg) || Msg <- Msgs],
+            nif_sendmmsg(SockRef, EMsgs, EFlags, SendRef)
+    catch throw : Reason ->
+            {error, Reason}
+    end.
+
 %% ----------------------------------
 
 recv(SockRef, Length, Flags, RecvRef) ->
@@ -823,16 +833,34 @@ recvmsg(SockRef, BufSz, CtrlSz, Flags, RecvRef) ->
     try enc_msg_flags(Flags) of
         EFlags ->
             case nif_recvmsg(SockRef, BufSz, CtrlSz, EFlags, RecvRef) of
-		{ok, #{ctrl := []}} = Result ->
-		    Result;
-		{ok, #{ctrl := Cmsgs} = Msg} ->
-		    {ok, Msg#{ctrl := dec_cmsgs(Cmsgs, p_get(protocols))}};
+		{ok, Result} ->
+		    {ok, decode_control_messages(Result)};
 		Result ->
 		    Result
 	    end
     catch throw : Reason ->
             {error, Reason}
     end.
+
+recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, RecvRef) ->
+    try enc_msg_flags(Flags) of
+        EFlags ->
+            case nif_recvmmsg(SockRef, VLen, BufSz, CtrlSz, EFlags, RecvRef) of
+                {ok, Msgs} ->
+                    {ok, [ decode_control_messages(Msg) || Msg <- Msgs] };
+                Result ->
+                    Result
+            end
+    catch throw : Reason ->
+            {error, Reason}
+    end.
+
+decode_control_messages(#{ctrl := []} = Result) ->
+    Result;
+decode_control_messages(#{ctrl := Cmsgs} = Msg) ->
+    Msg#{ctrl := dec_cmsgs(Cmsgs, p_get(protocols))};
+decode_control_messages(Result) ->
+    Result.
 
 %% ----------------------------------
 
@@ -1308,6 +1336,7 @@ nif_peeloff(_SockRef, _AssocId) -> erlang:nif_error(notsup).
 nif_send(_SockRef, _Bin, _Flags, _SendRef) -> erlang:nif_error(notsup).
 nif_sendto(_SockRef, _Bin, _Dest, _Flags, _SendRef) -> erlang:nif_error(notsup).
 nif_sendmsg(_SockRef, _Msg, _Flags, _SendRef, _IOV) -> erlang:nif_error(notsup).
+nif_sendmmsg(_SockRef, _Msgs, _Flags, _SendRef) -> erlang:nif_error(notsup).
 nif_sendv(_SockRef, _IOVec, _SendRef) -> erlang:nif_error(notsup).
 
 nif_sendfile(_SockRef, _SendRef, _Offset, _Count, _InFileRef) ->
@@ -1319,6 +1348,8 @@ nif_sendfile(_SockRef) -> erlang:nif_error(notsup).
 nif_recv(_SockRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(notsup).
 nif_recvfrom(_SockRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(notsup).
 nif_recvmsg(_SockRef, _BufSz, _CtrlSz, _Flags, _RecvRef) ->
+    erlang:nif_error(notsup).
+nif_recvmmsg(_SockRef, _VLen, _BufSz, _CtrlSz, _Flags, _RecvRef) ->
     erlang:nif_error(notsup).
 
 nif_close(_SockRef) -> erlang:nif_error(notsup).

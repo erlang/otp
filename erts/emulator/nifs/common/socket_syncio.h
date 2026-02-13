@@ -165,6 +165,21 @@ extern ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
                                   ssize_t          bufLen,
                                   ssize_t          ctrlLen,
                                   int              flags);
+extern ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     recvRef,
+                                   unsigned int     vlen,
+                                   ssize_t          bufLen,
+                                   ssize_t          ctrlLen,
+                                   int              flags);
+extern ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     sendRef,
+                                   ERL_NIF_TERM     eMsgs,
+                                   int              flags,
+                                   const ESockData* dataP);
 extern ERL_NIF_TERM essio_close(ErlNifEnv*       env,
                                 ESockDescriptor* descP);
 extern ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
