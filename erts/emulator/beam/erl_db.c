@@ -1391,13 +1391,8 @@ static BIF_RETTYPE do_update_element(Process *p, DbTable *tb,
     }
 
     if (!tb->common.meth->db_lookup_dbterm(p, tb, key, default_obj, &handle)) {
-        if (is_value(default_obj)) {
-            p->fvalue = EXI_DEFAULT;
-            cret = DB_ERROR_UNSPEC;
-        }
-        else {
-            cret = DB_ERROR_BADKEY;
-        }
+        ASSERT(is_non_value(default_obj));
+        cret = DB_ERROR_BADKEY;
 	goto bail_out;
     }
 
@@ -1485,9 +1480,11 @@ BIF_RETTYPE ets_update_element_4(BIF_ALIST_4)
 
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_update_element_4);
 
-    if (is_not_tuple(BIF_ARG_4)) {
+    if (is_not_tuple(BIF_ARG_4)
+	|| arityval(*tuple_val(BIF_ARG_4)) < tb->common.keypos) {
         db_unlock(tb, LCK_WRITE_REC);
-        BIF_ERROR(BIF_P, BADARG);
+        BIF_P->fvalue = EXI_DEFAULT;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
 
     return do_update_element(BIF_P, tb, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
@@ -1533,7 +1530,8 @@ do_update_counter(Process *p, DbTable* tb,
     }
 
     if (!tb->common.meth->db_lookup_dbterm(p, tb, arg2, arg4, &handle)) {
-        p->fvalue = is_value(arg4) ? EXI_DEFAULT : EXI_BAD_KEY;
+        ASSERT(is_non_value(arg4));
+        p->fvalue = EXI_BAD_KEY;
 	cret = DB_ERROR_BADPARAM;
 	goto bail_out; /* key not found */
     }
@@ -1720,9 +1718,11 @@ BIF_RETTYPE ets_update_counter_4(BIF_ALIST_4)
 
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_update_counter_4);
 
-    if (is_not_tuple(BIF_ARG_4)) {
+    if (is_not_tuple(BIF_ARG_4)
+	|| arityval(*tuple_val(BIF_ARG_4)) < tb->common.keypos) {
         db_unlock(tb, LCK_WRITE_REC);
-        BIF_ERROR(BIF_P, BADARG);
+        BIF_P->fvalue = EXI_DEFAULT;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
 
     return do_update_counter(BIF_P, tb, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);

@@ -2712,8 +2712,12 @@ update_element_default_opts(Opts) ->
                                  error:badarg -> badarg
                              end,
 
-                    %% Ignore bad default object if key exist (for backward bug-compat)
-                    true = ets:update_element(Tab, Key, {3, d}, BadDefault),
+                    %% OTP 29: Reject bad default object even if key may exists
+                    badarg = try
+                                 ets:update_element(Tab, Key, {3, d}, BadDefault)
+                             catch
+                                 error:badarg -> badarg
+                             end,
 
 		    ets:delete(Tab)
                 end
@@ -3101,9 +3105,12 @@ update_counter_with_default_bad_default_do(Opts) ->
 	 end,
     0 = ets:info(T, size),
 
-    %% Ignore bad default object if key exist (for backward bug-compat)
+    %% OTP 29: Reject bad default object even if key exists
     true = ets:insert(T, {0,0,key}),
-    1 = ets:update_counter(T, key, {2, 1}, {0, 0}),
+    badarg = try ets:update_counter(T, key, {2, 1}, {0, 0})
+             catch
+                 error:badarg -> badarg
+             end,
     1 = ets:info(T, size),
     ok.
 
@@ -9684,7 +9691,7 @@ error_info(_Config) ->
          {update_counter, ['$Tab', key, 2, {key,not_integer}]},
          {update_counter, ['$Tab', key, 3, {key,whatever}]},
 
-         {update_counter, ['$Tab', no_key, 1, default]},
+         {update_counter, ['$Tab', no_key, 1, default], [{error_term,default}]},
          {update_counter, ['$Tab', no_key, bad_increment, {tag,0}]},
          {update_counter, ['$Tab', no_key, {1, bad_increment}, {tag,0}]},
          {update_counter, ['$Tab', no_key, {1, 42}, {tag,0}], [{error_term,keypos}]},
@@ -9708,12 +9715,12 @@ error_info(_Config) ->
 	 {update_element, ['$Tab', no_key, {0, new}, {no_key, old}], [{error_term, position}]},
 	 {update_element, ['$Tab', no_key, {1, new}, {no_key, old}], [{error_term, keypos}]},
 	 {update_element, ['$Tab', no_key, {4, new}, {no_key, old}], [{error_term, position}]},
-	 {update_element, ['$Tab', no_key, {4, new}, not_tuple]},
+	 {update_element, ['$Tab', no_key, {4, new}, not_tuple], [{error_term, default}]},
 	 {update_element, [BagTab, no_key, {1, bagged}, {no_key, old}], []},
 	 {update_element, [OneKeyTab, no_key, {0, new}, {no_key, old}], [{error_term, position}]},
 	 {update_element, [OneKeyTab, no_key, {1, new}, {no_key, old}], [{error_term, keypos}]},
 	 {update_element, [OneKeyTab, no_key, {4, new}, {no_key, old}], [{error_term, position}]},
-	 {update_element, [OneKeyTab, no_key, {4, new}, not_tuple]},
+	 {update_element, [OneKeyTab, no_key, {4, new}, not_tuple], [{error_term, default}]},
 
          {whereis, [{bad,name}], [no_table]}
         ],
