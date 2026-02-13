@@ -5782,6 +5782,8 @@ native_records(Config) ->
                R4 = R3#r{x = 1, y = 2},
                {X + Y, [R1,R2,R4]}.
 
+           -import_record(more_records, [whatever]).
+
            m(#lint_test:r{x=0,y=0}) -> 100;
            m(#r{x=X,y=Y}) -> X + Y;
            m(#ext_records:r{x=X,y=Y}) -> X + Y;

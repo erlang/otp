@@ -50,8 +50,6 @@
 -record #exp_abc{a=0, b=0}.
 -record #exp_x{x=0}.
 
--import_record(ext_records, [local,vector]).
-
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
@@ -272,6 +270,8 @@ non_atomic_names_match(R) ->
         #Point{x=X,y=Y,z=Z}=Point when X =/= 0, Y =/= 0, Z =/= 0 ->
             Point
     end.
+
+-import_record(ext_records, [local,vector]).
 
 external_records(_Config) ->
     DefVector = id(#vector{}),
