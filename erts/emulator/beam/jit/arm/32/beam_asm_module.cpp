@@ -99,8 +99,61 @@ void BeamModuleAssembler::emit_i_nif_padding() {
 }
 
 void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
-    // TODO
-    emit_nyi("emit_i_breakpoint_trampoline_shared");
+    constexpr ssize_t flag_offset =
+            sizeof(ErtsCodeInfo) + BEAM_ASM_FUNC_PROLOGUE_SIZE -
+            offsetof(ErtsCodeInfo, u.metadata.breakpoint_flag);
+
+    Label bp_and_nif = a.newLabel(), bp_only = a.newLabel(),
+          nif_only = a.newLabel();
+
+    a.ldrb(ARG1, arm::Mem(a32::lr, -flag_offset));
+
+    a.cmp(ARG1, imm(ERTS_ASM_BP_FLAG_BP_NIF_CALL_NIF_EARLY));
+    a.b_eq(bp_and_nif);
+    ERTS_CT_ASSERT((1 << 0) == ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
+    a.tst(ARG1, imm(1 << 0));
+    a.b_ne(nif_only);
+    ERTS_CT_ASSERT((1 << 1) == ERTS_ASM_BP_FLAG_BP);
+    a.tst(ARG1, imm(1 << 1));
+    a.b_ne(bp_only);
+
+#ifndef DEBUG
+    a.bx(a32::lr);
+#else
+    Label error = a.newLabel();
+
+    /* ARG1 must be a valid breakpoint flag. */
+    a.tst(ARG1, ARG1);
+    a.b_ne(error);
+    a.bx(a32::lr);
+
+    a.bind(error);
+    a.udf(0xBC0D);
+#endif
+
+    a.bind(bp_and_nif);
+    {
+        emit_enter_runtime_frame();
+        a.bl(labels[generic_bp_local]);
+        emit_leave_runtime_frame();
+
+        /* !! FALL THROUGH !! */
+    }
+
+    a.bind(nif_only);
+    {
+        /* call_nif_early returns on its own, unlike generic_bp_local. */
+        a.b(labels[call_nif_early]);
+    }
+
+    a.bind(bp_only);
+    {
+        emit_enter_runtime_frame();
+        a.bl(labels[generic_bp_local]);
+        emit_leave_runtime_frame();
+
+        a.bx(a32::lr);
+    }
 }
 
 void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
