@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2026-2026. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 %% the state machine process.
 %% ----------------------------------------------------------------------
 
--module(tls_dyn_connection_sup).
+-module(dyn_sup).
 -moduledoc false.
 
 -behaviour(supervisor).
@@ -42,41 +42,38 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(SenderArgs, ReciverArgs) ->
-    supervisor:start_link(?MODULE, [SenderArgs, ReciverArgs]).
+start_link(Args1, Args2) ->
+    supervisor:start_link(?MODULE, [Args1, Args2]).
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([SenderArgs, ReciverArgs]) ->
+init([Args1, Args2]) ->
     SupFlags = #{strategy      => one_for_all,
                  auto_shutdown => any_significant,
                  intensity     =>    0,
                  period        => 3600,
-                 dyn_subtree =>  true
+                 dyn_subtree  => true
                 },
-    ChildSpecs = [sender(SenderArgs), receiver(ReciverArgs)],
+    ChildSpecs = [foo(Args1), bar(Args2)],
     {ok, {SupFlags, ChildSpecs}}.
 
-sender(Args) ->
-    #{id          => sender,
+
+%% These are work processes using dummy
+%% child functions from supervisor_1 module
+foo(Args) ->
+    #{id          => foo,
       restart     => temporary,
       type        => worker,
-      start       => {tls_sender, start_link, Args},
-      modules     => [tls_sender]
+      start       => {supervisor_1, start_child, Args},
+      modules     => [supervisor_1]
      }.
 
-receiver(Args) ->
-    #{id          => receiver,
+bar(Args) ->
+    #{id          => bar,
       restart     => temporary,
       type        => worker,
       significant => true,
-      start       => {ssl_gen_statem, tls_start_link, Args},
-      modules     => [ssl_gen_statem,
-                      tls_client_connection,
-                      tls_server_connection,
-                      tls_gen_connection,
-                      tls_client_connection_1_3,
-                      tls_server_connection_1_3,
-                      tls_gen_connection_1_3]
+      start       => {supervisor_1, start_child, Args},
+      modules     => [supervisor_1]
      }.
