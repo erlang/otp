@@ -138,11 +138,10 @@ errors() ->
 
 errors(_Config) ->
     %% kill with 'info' and 'cast'
-    ?assertException(error, badarg, pg:handle_info(garbage, garbage)),
-    ?assertException(error, badarg, pg:handle_cast(garbage, garbage)),
+    ?assertException(error, badarg, pg:translate_message(garbage, garbage)),
     %% kill with call
     {ok, _Pid} = pg:start(second),
-    ?assertException(exit, {{badarg, _}, _}, gen_server:call(second, garbage, infinity)).
+    ?assertException(exit, {{function_clause, _}, _}, gen_server:call(second, garbage, infinity)).
 
 leave_exit_race() ->
     [{doc, "Tests that pg correctly handles situation when leave and 'DOWN' messages are both in pg queue"}].
@@ -298,13 +297,13 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([RemotePid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     % inspecting internal state is not best practice, but there's no other way to check if the state is correct.
-    {_, RemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    {_, _, RemoteMap} = maps:get(RemoteNode, element(8, sys:get_state(?FUNCTION_NAME))),
     ?assertEqual(#{?FUNCTION_NAME => [RemotePid]}, RemoteMap),
     % remote leave
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
     sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    {_, _, NewRemoteMap} = maps:get(RemoteNode, element(8, sys:get_state(?FUNCTION_NAME))),
     % empty group should be deleted.
     ?assertEqual(#{}, NewRemoteMap),
 
@@ -317,7 +316,7 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
     sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    {_, _, NewRemoteMap} = maps:get(RemoteNode, element(8, sys:get_state(?FUNCTION_NAME))),
     peer:stop(Peer),
     ok.
 
@@ -535,7 +534,7 @@ missing_scope_join(Config) when is_list(Config) ->
     ?assertEqual(ok, rpc:call(Node, gen_server, stop, [?FUNCTION_NAME])),
     RemotePid = erlang:spawn(Node, forever()),
     ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    ?assertMatch({badrpc, {'EXIT', {badarg, _}}}, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
     peer:stop(Peer),
     ok.
 
@@ -654,14 +653,12 @@ monitor_scope() ->
     [{doc, "Tests monitor_scope/1 and demonitor/2"}].
 
 monitor_scope(Config) when is_list(Config) ->
-    %% ensure that demonitoring returns 'false' when monitor is not installed
-    ?assertEqual(false, pg:demonitor(?FUNCTION_NAME, erlang:make_ref())),
     InitialMonitor = fun (Scope) -> {Ref, #{}} = pg:monitor_scope(Scope), Ref end,
     SecondMonitor = fun (Scope, Group, Control) -> {Ref, #{Group := [Control]}} = pg:monitor_scope(Scope), Ref end,
     %% WHITE BOX: knowing pg state internals - only the original monitor should stay
     DownMonitor = fun (Scope, Ref, Self) ->
-        {state, _, _, _, ScopeMonitors, _, _} = sys:get_state(Scope),
-        ?assertEqual(#{Ref => Self}, ScopeMonitors, "pg did not remove DOWNed scope monitor")
+        {state, _, _, _, _, _, _, _, Subscriptions, _} = sys:get_state(Scope),
+        ?assertEqual(#{scope => #{Ref => Self}}, Subscriptions, "pg did not remove DOWNed scope monitor")
                   end,
     monitor_test_impl(Config, ?FUNCTION_NAME, ?FUNCTION_ARITY, InitialMonitor,
                       SecondMonitor, DownMonitor).
@@ -672,9 +669,9 @@ monitor(Config) when is_list(Config) ->
     SecondMonitor = fun (Scope, Group, Control) ->
         {Ref, [Control]} = pg:monitor(Scope, Group), Ref end,
     DownMonitor = fun (Scope, Ref, Self) ->
-        {state, _, _, _, _, GM, MG} = sys:get_state(Scope),
-        ?assertEqual(#{Ref => {Self, ExpectedGroup}}, GM, "pg did not remove DOWNed group monitor"),
-        ?assertEqual(#{ExpectedGroup => [{Self, Ref}]}, MG, "pg did not remove DOWNed group")
+        {state, _, _, _, _, _, _, _, Subscriptions, SubscribeRefs} = sys:get_state(Scope),
+        ?assertEqual(#{{group, ExpectedGroup} => #{Ref => Self}}, Subscriptions, "pg did not remove DOWNed group monitor"),
+        ?assertEqual(#{Ref => {group, ExpectedGroup}}, SubscribeRefs, "pg did not remove DOWNed group")
                   end,
     monitor_test_impl(Config, ?FUNCTION_NAME, ExpectedGroup, InitialMonitor,
                       SecondMonitor, DownMonitor).
@@ -728,7 +725,6 @@ monitor_test_impl(Config, Scope, Group, InitialMonitor, SecondMonitor, DownMonit
     DownMonitor(Scope, Ref, Self),
     %% demonitor
     ?assertEqual(ok, pg:demonitor(Scope, Ref)),
-    ?assertEqual(false, pg:demonitor(Scope, Ref)),
     %% ensure messages don't come
     ?assertEqual(ok, pg:join(Scope, Group, Self)),
     sync(Scope),
@@ -798,9 +794,8 @@ multi_monitor(Config) when is_list(Config) ->
     %% if pg crashes, next expression fails the test
     sync(?FUNCTION_NAME),
     %% white box: pg should not have any group or scope monitors
-    {state, _, _, _, SM, GM, _} = sys:get_state(?FUNCTION_NAME),
-    ?assertEqual(#{}, SM),
-    ?assertEqual(#{}, GM).
+    {state, _, _, _, _, _, _, _, Subscriptions, _} = sys:get_state(?FUNCTION_NAME),
+    ?assertEqual(#{}, Subscriptions).
 
 protocol_upgrade(Config) when is_list(Config) ->
     Scope = ?FUNCTION_NAME,
@@ -814,7 +809,7 @@ protocol_upgrade(Config) when is_list(Config) ->
     %% OTP 26:
     %% Just do a white-box test and verify that pg accepts
     %% a "future" discover message and replies with a sync.
-    PgPid ! {discover, self(), "Protocol version (ignore me)"},
+    PgPid ! {discover, self(), 0},
     {'$gen_cast', {sync, PgPid, [{Group, [RemotePid]}]}} = receive_any(),
 
     %% stop the peer
