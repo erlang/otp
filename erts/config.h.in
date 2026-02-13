@@ -225,8 +225,11 @@
 /* Define if you have darwin style pthread_setname_np */
 #undef ETHR_HAVE_PTHREAD_SETNAME_NP_1
 
-/* Define if you have linux style pthread_setname_np */
+/* Define if you have linux style pthread_setname_np with 2 args */
 #undef ETHR_HAVE_PTHREAD_SETNAME_NP_2
+
+/* Define if you have netbsd style pthread_setname_np with 3 args */
+#undef ETHR_HAVE_PTHREAD_SETNAME_NP_3
 
 /* Define if you have bsd style pthread_set_name_np */
 #undef ETHR_HAVE_PTHREAD_SET_NAME_NP_2

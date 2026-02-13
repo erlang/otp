@@ -2120,12 +2120,16 @@ AS_CASE(
                      #include <pthread.h>]], [[pthread_setname_np(pthread_self(), "name");]])],[pthread_setname=linux],[])
 	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
                      #include <pthread.h>]], [[pthread_set_name_np(pthread_self(), "name");]])],[pthread_setname=bsd],[])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
+                     #include <pthread.h>]], [[pthread_setname_np(pthread_self(), "%s", "name");]])],[pthread_setname=netbsd],[])
 	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define _DARWIN_C_SOURCE
                      #include <pthread.h>]], [[pthread_setname_np("name");]])],[pthread_setname=darwin],[])
         AC_MSG_RESULT([$pthread_setname])
         case $with_threadnames-$pthread_setname in
              yes-linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
-                          [Define if you have linux style pthread_setname_np]);;
+                          [Define if you have linux style pthread_setname_np with 2 args]);;
+             yes-netbsd) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_3, 1,
+                          [Define if you have netbsd style pthread_setname_np with 3 args]);;
              yes-bsd) AC_DEFINE(ETHR_HAVE_PTHREAD_SET_NAME_NP_2, 1,
                           [Define if you have bsd style pthread_set_name_np]);;
              yes-darwin) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_1, 1,

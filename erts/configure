@@ -12896,6 +12896,24 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
 	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
+#define __USE_GNU
+                     #include <pthread.h>
+int
+main (void)
+{
+pthread_setname_np(pthread_self(), "%s", "name");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  pthread_setname=netbsd
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
 #define _DARWIN_C_SOURCE
                      #include <pthread.h>
 int
@@ -12917,6 +12935,9 @@ printf "%s\n" "$pthread_setname" >&6; }
         case $with_threadnames-$pthread_setname in
              yes-linux)
 printf "%s\n" "#define ETHR_HAVE_PTHREAD_SETNAME_NP_2 1" >>confdefs.h
+;;
+             yes-netbsd)
+printf "%s\n" "#define ETHR_HAVE_PTHREAD_SETNAME_NP_3 1" >>confdefs.h
 ;;
              yes-bsd)
 printf "%s\n" "#define ETHR_HAVE_PTHREAD_SET_NAME_NP_2 1" >>confdefs.h
