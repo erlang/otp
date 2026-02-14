@@ -51,7 +51,7 @@ fi
 
 BINDIR="$ROOTDIR/erts-%VSN%/bin"
 EMU=%EMULATOR%%EMULATOR_NUMBER%
-PROGNAME=`basename "$0"`
+PROGNAME="${0##*/}"
 export EMU
 export ROOTDIR
 export BINDIR
