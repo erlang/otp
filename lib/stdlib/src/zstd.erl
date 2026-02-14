@@ -685,7 +685,11 @@ compress(Data, Options) when is_map(Options) ->
         close(Ref)
     end;
 compress(Data, {compress, Ref}) ->
-    IOV = erlang:iolist_to_iovec(Data),
+    IOV = case erlang:iolist_to_iovec(Data) of
+        %% Empty data must still become an empty compressed frame.
+        [] -> [<<>>];
+        IOV0 -> IOV0
+    end,
     ok = set_pledged_src_size_nif(Ref, erlang:iolist_size(IOV)),
     codec_loop(fun compress_stream_nif/3,
                Ref,

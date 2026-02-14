@@ -94,6 +94,16 @@ end_per_suite(_Config) ->
 
 bulk(_Config) ->
 
+    %% Empty frame content.
+    EmptyCompressed = zstd:compress(<<>>),
+    ?assertEqual(<<>>, iob(zstd:decompress(EmptyCompressed))),
+
+    EmptyCompressed = zstd:compress([]),
+    ?assertEqual(<<>>, iob(zstd:decompress(EmptyCompressed))),
+
+    EmptyCompressed = zstd:compress([<<>>,[<<>>]]),
+    ?assertEqual(<<>>, iob(zstd:decompress(EmptyCompressed))),
+
     Data = ~"abc",
     Compressed = zstd:compress(Data),
     ?assertEqual(Data, iob(zstd:decompress(Compressed))),
