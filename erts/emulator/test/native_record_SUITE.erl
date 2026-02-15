@@ -25,6 +25,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
+         create/1,explicit_module_name/1,
          term_order/1,gc/1,external_term_format/1,
          messages/1,errors/1,records_module/1, dist/1]).
 
@@ -33,9 +34,11 @@
 -record #bb{a=1, b=2}.
 -record #c{x::integer, y=0::integer, z=[]}.
 -record #empty{}.
--record #f{a, b, c, d}.
--record #r{f1, f2, f3, f4, f5, f6, f7, f8}.
 -record #singleton{false}.
+-record #order{zzzz=0, true=1, aaaa=2, wwww=3}.
+
+-export_record([exp]).
+-record #exp{a=1, b}.
 
 -record #big{f1, f2, f3, f4, f5, f6, f7, f8,
              f9, f10, f11, f12, f13, f14, f15, f16,
@@ -51,7 +54,9 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [term_order,
+    [create,
+     explicit_module_name,
+     term_order,
      gc,
      external_term_format,
      messages,
@@ -74,6 +79,57 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+create(_Config) ->
+    try
+        do_create()
+    after
+        _ = code:purge(ext_records)
+    end.
+
+do_create() ->
+    Pid = ext_records:server(),
+    1 = req(Pid, bump),
+    2 = req(Pid, bump),
+
+    true = code:delete(ext_records),
+
+    ?assertError({badrecord,{ext_records,quad}},
+                 #ext_records:quad{a=0, b=1, c=2, d=3}),
+
+    3 = req(Pid, bump),
+    done = req(Pid, done),
+    ok.
+
+req(Pid, Request) ->
+    Pid ! {self(), Request},
+    receive
+        {Pid, Reply} ->
+            Reply
+    after 10_000 ->
+            ct:fail(timeout)
+    end.
+
+explicit_module_name(_Config) ->
+    R = #bb{},
+
+    %% Updating an unexported record with an explicit module name
+    %% should fail.
+    ?assertError({badrecord,R}, R#?MODULE:bb{a=42}),
+
+    %% Matching an unexported record with an explicit module name
+    %% should fail.
+    case R of
+        #?MODULE:bb{a=_, b=_} ->
+            ct:fail(match_should_fail);
+        #?MODULE:bb{} ->
+            %% Matching only module and name always succeeds.
+            ok
+    end,
+
+    ?assertError({badrecord,R}, R#?MODULE:bb.a),
+
+    ok.
 
 term_order(_Config) ->
     RecA = id(#a{}),
@@ -264,6 +320,13 @@ external_term_format(_Config) ->
 
     _ = code:purge(ext_records),
 
+    [begin
+         BadBin = fake_record_bin(?MODULE, fake, Exp, []),
+         %% Decoding should fail when any of the reserved bits in
+         %% the flag byte are set.
+         ?assertError(badarg, binary_to_term(BadBin))
+     end || Exp <- lists:seq(2, 255)],
+
     ok.
 
 record_def(R) ->
@@ -297,9 +360,12 @@ echo_loop() ->
     end.
 
 errors(_Config) ->
-    ?assertError({badfield,qqq}, #ext_records:quad{qqq=0}),
-    ?assertError({badfield,true}, #ext_records:quad{true=0}),
-    ?assertError({badfield,zzzz}, #ext_records:quad{zzzz=0}),
+    ?assertError({badfield,{{ext_records,quad},qqq}},
+                 #ext_records:quad{qqq=0}),
+    ?assertError({badfield,{{ext_records,quad},true}},
+                 #ext_records:quad{true=0}),
+    ?assertError({badfield,{{ext_records,quad},zzzz}},
+                 #ext_records:quad{zzzz=0}),
 
     ok.
 
@@ -334,7 +400,7 @@ records_module(_Config) ->
     ?assertError(badarg, records_create(?MODULE, b, {a,b,c})),
     ?assertError(badarg, records_create(?MODULE, b, #{})),
 
-    ?assertError({badfield,{bad,key}},
+    ?assertError({badfield,{{?MODULE,b},{bad,key}}},
                  records_create(?MODULE, b, [{{bad,key},value}])),
 
     ?assertError({badmap,badopts}, records:create(?MODULE, b, [], badopts)),
@@ -374,15 +440,19 @@ records_module(_Config) ->
     [x,y,z] = records:get_field_names(BRec),
     [x,y,z] = records:get_field_names(CRec),
 
+    Order = #order{},
+    [zzzz, true, aaaa, wwww] = records:get_field_names(Order),
+
     R0 = #b{},
     R0 = R0#b{},
     R1 = records:update(R0, ?MODULE, b, #{x=>foo}),
     #b{x=foo, y=none, z=none} = id(R1),
-    #?MODULE:b{x=foo, y=none, z=none} = id(R1),
+    ?assertError({badmatch,_}, #?MODULE:b{x=foo, y=none, z=none} = id(R1)),
 
     ?assertError({badmap,not_a_map}, records:update(CRec, ?MODULE, c, not_a_map)),
-    ?assertError({badfield,a}, records:update(CRec, ?MODULE, c, #{a => b})),
-    ?assertError({badfield,{really,bad}},
+    ?assertError({badfield,{{?MODULE,c},a}},
+                 records:update(CRec, ?MODULE, c, #{a => b})),
+    ?assertError({badfield,{{?MODULE,c},{really,bad}}},
                  records:update(CRec, ?MODULE, c, #{{really,bad} => b})),
 
     LargeUpdate0 = #{Field => I * 2 || {Field,I} <- Large0},
@@ -399,27 +469,49 @@ records_module(_Config) ->
     UpdatedBigRecord = records:update(BigRecord, ?MODULE, big, LargeUpdate0),
 
     LargeUpdate1 = LargeUpdate0#{whatever => value},
-    ?assertError({badfield,whatever},
+    ?assertError({badfield,{{?MODULE,big},whatever}},
                  records:update(BigRecord, ?MODULE, big, LargeUpdate1)),
 
     %% We KNOW that `false` is the atom with the smallest atom index.
     Empty = id(#empty{}),
     LargeUpdate2 = LargeUpdate0#{false => 0},
-    ?assertError({badfield,false}, records:update(Empty, ?MODULE, empty, LargeUpdate2)),
+    ?assertError({badfield,{{?MODULE,empty},false}},
+                 records:update(Empty, ?MODULE, empty, LargeUpdate2)),
 
     S = #singleton{false = 0},
     #singleton{false = 10} = records:update(S, ?MODULE, singleton, #{false => 10}),
     #singleton{false = 0} = records:update(S, ?MODULE, singleton, id(#{})),
-    ?assertError({badfield,other}, records:update(S, ?MODULE, singleton,
-                                                  #{other => 100})),
-    ?assertError({badfield,other}, records:update(S, ?MODULE, singleton,
-                                                  #{false => 10, other => 100})),
+    ?assertError({badfield,{{?MODULE,singleton},other}},
+                 records:update(S, ?MODULE, singleton,
+                                #{other => 100})),
+    ?assertError({badfield,{{?MODULE,singleton},other}},
+                 records:update(S, ?MODULE, singleton,
+                                #{false => 10, other => 100})),
 
     N = 10000,
     #a{x=N,y=0} =
         lists:foldl(fun(_, #a{x=X,y=Y}=R) ->
                             records:update(R, ?MODULE, a, #{x=>X+1,y=>Y-1})
                     end, #a{x=0,y=N}, lists:seq(1, N)),
+
+    %% Test records:get_definition/2.
+    ?assertError(badarg, records:get_definition(some_module,
+                                                some_non_existing_name)),
+    ?assertError(badarg, records:get_definition(1, any)),
+    ?assertError(badarg, records:get_definition(any, 2)),
+
+    NotExported = #{is_exported => false},
+    {NotExported, []} = records:get_definition(?MODULE, empty),
+    {NotExported, [{x,1}, {y,2}]} = records:get_definition(?MODULE, a),
+    {NotExported, [x, {y,0}, {z,[]}]} = records:get_definition(?MODULE, c),
+    BigFields = records:get_field_names(BigRecord),
+    {NotExported, BigFields} = records:get_definition(?MODULE, big),
+    {NotExported, [{zzzz,0}, {true,1}, {aaaa,2}, {wwww,3}]} =
+        records:get_definition(?MODULE, order),
+
+    IsExported = #{is_exported => true},
+    {IsExported, [{a,1}, b]} = records:get_definition(?MODULE, exp),
+
     ok.
 
 records_create(Mod, Name, Fields) ->
@@ -455,21 +547,28 @@ dist(_Config) ->
 fake_record(Name, Exp, Fs) ->
     fake_record(?MODULE, Name, Exp, Fs).
 
-fake_record(Mod0, Name0, Exp0, Fs) ->
+fake_record(Mod, Name, Exp, Fs) ->
+    Bin = fake_record_bin(Mod, Name, Exp, Fs),
+    binary_to_term(Bin).
+
+fake_record_bin(Mod0, Name0, Exp0, Fs) ->
     Ext = 131,
     RecordExt = $C,
 
     Mod = fake_term(Mod0),
     Name = fake_term(Name0),
-    Exp = if Exp0 -> 1; true -> 0 end,
+    Exp = case Exp0 of
+              false -> 0;
+              true -> 1;
+              _ when is_integer(Exp0) -> Exp0
+          end,
 
     N = length(Fs),
 
     Defs = << <<(fake_term(K))/binary>> || {K,_} <- Fs >>,
     Vs = << <<(fake_term(V))/binary>> || {_,V} <- Fs >>,
 
-    Bin = <<Ext,RecordExt,N:32,Exp,Mod/binary,Name/binary,Defs/binary,Vs/binary>>,
-    binary_to_term(Bin).
+    <<Ext,RecordExt,N:32,Exp,Mod/binary,Name/binary,Defs/binary,Vs/binary>>.
 
 fake_term(Term) ->
     <<131,Bin/binary>> = term_to_binary(Term),

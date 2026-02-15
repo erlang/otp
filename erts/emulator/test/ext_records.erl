@@ -21,8 +21,7 @@
 %%
 
 -module(ext_records).
-
--export([local/2]).
+-export([local/2,server/0]).
 
 -export_record([vector,quad]).
 -record #vector{x=10, y=1, z=5}.
@@ -30,6 +29,32 @@
 
 %% Local records.
 -record #local{x, y}.
+-record #state{counter=0}.
 
 local(X, Y) ->
     #local{x=X, y=Y}.
+
+server() ->
+    spawn_link(fun() ->
+                       State = #state{},
+                       server(State)
+               end).
+
+server(State0) ->
+    receive
+        {From, done} when is_pid(From) ->
+            From ! {self(), done};
+        {From, Request} when is_pid(From) ->
+            {Reply,State} = handle_request(Request, State0),
+            From ! {self(), Reply},
+            server(State)
+    end.
+
+handle_request(bump, State0) ->
+    Counter0 = State0#state.counter,
+    Counter = Counter0 + 1,
+
+    %% Creating a new record should always work, even if this code has
+    %% became old.
+    State = #state{counter=Counter},
+    {Counter, State}.

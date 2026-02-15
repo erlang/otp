@@ -251,6 +251,96 @@ bool erl_get_record_elements(Process* p, Eterm* reg, Eterm src,
     return false;
 }
 
+Eterm erl_create_local_native_record(Process* p, Eterm* reg,
+                                     Eterm cons, Uint live,
+                                     Uint size,
+                                     const Eterm* new_p) {
+    Eterm def;
+    ErtsRecordDefinition *defp;
+    ErtsRecordInstance *instance;
+    int field_count;
+    Eterm *hp;
+    Eterm* E;
+    Uint num_words_needed;
+    Eterm res;
+    Eterm sentinel = NIL;
+    const Eterm *new_end = new_p + size;
+    Eterm *def_values;
+
+    def = CAR(list_val(cons));
+    defp = (ErtsRecordDefinition*)tuple_val(def);
+    def_values = tuple_val(CDR(list_val(cons))) + 1;
+
+    field_count = RECORD_DEF_FIELD_COUNT(defp);
+
+    num_words_needed = RECORD_INST_SIZE(field_count);
+    if (HeapWordsLeft(p) < num_words_needed) {
+        erts_garbage_collect(p, num_words_needed, reg, live);
+    }
+    hp = p->htop;
+    E = p->stop;
+
+    instance = (ErtsRecordInstance*)hp;
+    res = make_record(hp);
+
+    instance->thing_word = MAKE_RECORD_HEADER(field_count);
+    instance->record_definition = def;
+
+    hp = (Eterm*) &(instance->values);
+
+    if (new_p == new_end) {
+        new_p = &sentinel;
+    }
+
+    p->freason = EXC_NORMAL;
+    for (int i = 0; i < field_count; i++) {
+        if (new_p[0] == defp->keys[i]) {
+            GetSource(new_p[1], *hp);
+            hp++;
+            new_p += 2;
+            if (new_p >= new_end) {
+                new_p = &sentinel;
+            }
+        } else {
+            Eterm value = def_values[i];
+            if (is_catch(value)) {
+                if (is_value(res)) {
+                    /* Delay this error. */
+                    p->fvalue = defp->keys[i];
+                    p->freason = EXC_NOVALUE;
+                    res = THE_NON_VALUE;
+                }
+                value = NIL;
+            }
+            *hp++ = value;
+        }
+    }
+
+    /* A `badfield` error has higher priority than a
+     * `no_value` error. */
+    if (new_p != &sentinel) {
+        p->freason = EXC_BADFIELD;
+        p->fvalue = new_p[0];
+        res = THE_NON_VALUE;
+    }
+
+    if (is_value(res)) {
+        p->htop += num_words_needed;
+    } else {
+        Eterm *hp = HAlloc(p, 3 + 3);
+        Eterm tmp;
+
+        tmp = TUPLE2(hp, defp->module, defp->name);
+        hp += 3;
+        tmp = TUPLE2(hp, tmp, p->fvalue);
+        hp += 3;
+        p->fvalue = tmp;
+        return THE_NON_VALUE;
+    }
+
+    return res;
+}
+
 Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
                                Uint size, const Eterm* new_p) {
     /* Module, Name */
@@ -258,7 +348,6 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
     const ErtsRecordEntry *entry;
     Uint code_ix;
     Eterm* tuple_ptr = boxed_val(id);
-    Uint local = reg[live];
 
     module = tuple_ptr[1];
     name = tuple_ptr[2];
@@ -274,84 +363,17 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
         if (is_value(cons)) {
             Eterm def;
             ErtsRecordDefinition *defp;
-            ErtsRecordInstance *instance;
-            int field_count;
-            Eterm *hp;
-            Eterm* E;
-            Uint num_words_needed;
-            Eterm res;
-            Eterm sentinel = NIL;
-            const Eterm *new_end = new_p + size;
-            Eterm *def_values;
 
             def = CAR(list_val(cons));
             defp = (ErtsRecordDefinition*)tuple_val(def);
-            def_values = tuple_val(CDR(list_val(cons))) + 1;
-
-            if (!local && defp->is_exported == am_false) {
-                goto badrecord;
+            if (defp->is_exported == am_true) {
+                return erl_create_local_native_record(p, reg, cons,
+                                                      live, size, new_p);
             }
-
-            field_count = RECORD_DEF_FIELD_COUNT(defp);
-
-            num_words_needed = RECORD_INST_SIZE(field_count);
-            if (HeapWordsLeft(p) < num_words_needed) {
-                erts_garbage_collect(p, num_words_needed, reg, live);
-            }
-            hp = p->htop;
-            E = p->stop;
-
-            instance = (ErtsRecordInstance*)hp;
-            res = make_record(hp);
-
-            instance->thing_word = MAKE_RECORD_HEADER(field_count);
-            instance->record_definition = def;
-
-            hp = (Eterm*) &(instance->values);
-
-            if (new_p == new_end) {
-                new_p = &sentinel;
-            }
-
-            for (int i = 0; i < field_count; i++) {
-                if (new_p[0] == defp->keys[i]) {
-                    GetSource(new_p[1], *hp);
-                    hp++;
-                    new_p += 2;
-                    if (new_p >= new_end) {
-                        new_p = &sentinel;
-                    }
-                } else {
-                    Eterm value = def_values[i];
-                    if (is_catch(value)) {
-                        if (is_value(res)) {
-                            /* Delay this error. */
-                            p->fvalue = defp->keys[i];
-                            p->freason = EXC_NOVALUE;
-                            res = THE_NON_VALUE;
-                        }
-                        value = NIL;
-                    }
-                    *hp++ = value;
-                }
-            }
-
-            /* A `badfield` error has higher priority than a
-             * `no_value` error. */
-            if (new_p != &sentinel) {
-                p->fvalue = new_p[0];
-                p->freason = EXC_BADFIELD;
-                return THE_NON_VALUE;
-            } else if (is_value(res)) {
-                p->htop += num_words_needed;
-            }
-
-            return res;
         }
     }
 
- badrecord:
-    p->fvalue = local ? name : id;
+    p->fvalue = id;
     p->freason = EXC_BADRECORD;
     return THE_NON_VALUE;
 }
@@ -410,7 +432,14 @@ Eterm erl_update_native_record(Process* p, Eterm* reg, Eterm src,
     }
 
     if (new_p != &sentinel) {
-        p->fvalue = new_p[0];
+        Eterm tmp;
+
+        hp = HAlloc(p, 3 + 3);
+        tmp = TUPLE2(hp, defp->module, defp->name);
+        hp += 3;
+        tmp = TUPLE2(hp, tmp, new_p[0]);
+        hp += 3;
+        p->fvalue = tmp;
         p->freason = EXC_BADFIELD;
         return THE_NON_VALUE;
     }
@@ -420,20 +449,73 @@ Eterm erl_update_native_record(Process* p, Eterm* reg, Eterm src,
     return res;
 }
 
-bool erl_is_record_accessible(Eterm src, Eterm mod) {
+bool erl_is_record_accessible(Eterm src) {
     ErtsRecordDefinition *defp;
 
     ASSERT(is_record(src));
     defp = RECORD_DEF_P(RECORD_INST_P(src));
 
-    return defp->is_exported == am_true || defp->module == mod;
+    return defp->is_exported == am_true;
 }
 
-Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm field) {
+bool erl_is_wildcard_record_accessible(Eterm src, Eterm module) {
+    ErtsRecordDefinition *defp;
+
+    ASSERT(is_record(src));
+    defp = RECORD_DEF_P(RECORD_INST_P(src));
+
+    return defp->is_exported == am_true || defp->module == module;
+}
+
+Eterm erl_get_local_record_field(Process* p, Eterm src, Eterm name, Eterm field) {
     ErtsRecordInstance *instance;
     ErtsRecordDefinition *defp;
     Eterm *values;
     int field_count;
+    Eterm *hp;
+    Eterm tmp;
+
+    if (is_not_record(src)) {
+    badrecord:
+        p->fvalue = src;
+        p->freason = EXC_BADRECORD;
+        return THE_NON_VALUE;
+    }
+
+    instance = RECORD_INST_P(src);
+    defp = RECORD_DEF_P(instance);
+
+    if (name != am_Underscore && defp->name != name) {
+        /* Record name mismatch. */
+        goto badrecord;
+    }
+
+    field_count = RECORD_INST_FIELD_COUNT(instance);
+    values = instance->values;
+
+    for (int i = 0; i < field_count; i++) {
+        if (field == defp->keys[i]) {
+            return values[i];
+        }
+    }
+
+    hp = HAlloc(p, 3 + 3);
+    tmp = TUPLE2(hp, defp->module, defp->name);
+    hp += 3;
+    tmp = TUPLE2(hp, tmp, field);
+    hp += 3;
+    p->fvalue = tmp;
+    p->freason = EXC_BADFIELD;
+    return THE_NON_VALUE;
+}
+
+Eterm erl_get_record_field(Process* p, Eterm src, Eterm id, Eterm field) {
+    ErtsRecordInstance *instance;
+    ErtsRecordDefinition *defp;
+    Eterm *values;
+    int field_count;
+    Eterm *hp;
+    Eterm tmp;
 
     if (is_not_record(src)) {
     badrecord:
@@ -462,7 +544,7 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm fie
         }
     }
 
-    if (!(defp->is_exported == am_true || defp->module == mod)) {
+    if (defp->is_exported == am_false) {
         goto badrecord;
     }
 
@@ -475,7 +557,12 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm fie
         }
     }
 
-    p->fvalue = field;
+    hp = HAlloc(p, 3 + 3);
+    tmp = TUPLE2(hp, defp->module, defp->name);
+    hp += 3;
+    tmp = TUPLE2(hp, tmp, field);
+    hp += 3;
+    p->fvalue = tmp;
     p->freason = EXC_BADFIELD;
     return THE_NON_VALUE;
 }
@@ -620,9 +707,15 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
         key = val[1];
 
         if (is_not_atom(key)) {
-            BIF_P->fvalue = key;
+            Eterm tmp;
             HRelease(BIF_P, hp_end, hp);
             erts_free(ERTS_ALC_T_TMP, fields);
+            hp = HAlloc(BIF_P, 3 + 3);
+            tmp = TUPLE2(hp, module, name);
+            hp += 3;
+            tmp = TUPLE2(hp, tmp, key);
+            hp += 3;
+            BIF_P->fvalue = tmp;
             BIF_ERROR(BIF_P, EXC_BADFIELD);
         }
 
@@ -770,8 +863,8 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
         }
 
         if (ks != &sentinel) {
-            BIF_P->fvalue = ks[0];
-            BIF_ERROR(BIF_P, EXC_BADFIELD);
+            res = ks[0];
+            goto badfield;
         }
     } else {
         DECLARE_WSTACK(wstack);
@@ -818,12 +911,25 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
             }
         }
 
-        BIF_P->fvalue = fields[0].key;
+        res = fields[0].key;
         erts_free(ERTS_ALC_T_TMP, tmp_array);
-        BIF_ERROR(BIF_P, EXC_BADFIELD);
+        goto badfield;
     }
 
     BIF_RET(res);
+
+ badfield:
+    {
+        Eterm tmp;
+
+        hp = HAlloc(BIF_P, 3 + 3);
+        tmp = TUPLE2(hp, defp->module, defp->name);
+        hp += 3;
+        tmp = TUPLE2(hp, tmp, res);
+        hp += 3;
+        BIF_P->fvalue = tmp;
+        BIF_ERROR(BIF_P, EXC_BADFIELD);
+    }
 }
 
 BIF_RETTYPE records_get_2(BIF_ALIST_2) {
@@ -919,4 +1025,67 @@ BIF_RETTYPE records_is_exported_1(BIF_ALIST_1) {
 
     defp = RECORD_DEF_P(RECORD_INST_P(BIF_ARG_1));
     BIF_RET(defp->is_exported);
+}
+
+BIF_RETTYPE records_get_definition_2(BIF_ALIST_2) {
+    Eterm module, name;
+    Uint code_ix;
+    const ErtsRecordEntry *entry;
+
+    module = BIF_ARG_1;
+    name = BIF_ARG_2;
+
+    if (is_not_atom(module) || is_not_atom(name)) {
+        BIF_ERROR(BIF_P, EXC_BADARG);
+    }
+
+    code_ix = erts_active_code_ix();
+    entry = erts_record_find_entry(module, name, code_ix);
+
+    if (entry != NULL) {
+        Eterm cons = entry->definitions[code_ix];
+
+        if (is_value(cons)) {
+            ErtsRecordDefinition *defp;
+            Eterm *def_values;
+            Eterm *order;
+            int field_count;
+            Uint num_words_needed;
+            Eterm *hp, *hp_end;
+            Eterm res = NIL;
+            Eterm tuple;
+
+            defp = (ErtsRecordDefinition*)tuple_val(CAR(list_val(cons)));
+            def_values = tuple_val(CDR(list_val(cons))) + 1;
+            order = tuple_val(defp->field_order) + 1;
+            field_count = RECORD_DEF_FIELD_COUNT(defp);
+            num_words_needed = field_count * (2 + 3) + 3 + MAP1_SZ;
+            hp = HAlloc(BIF_P, num_words_needed);
+            hp_end = hp + num_words_needed;
+
+            while (field_count--) {
+                Eterm key = defp->keys[unsigned_val(order[field_count])];
+                Eterm def = def_values[unsigned_val(order[field_count])];
+
+                if (is_catch(def)) {
+                    tuple = key;
+                } else {
+                    tuple = TUPLE2(hp, key, def);
+                    hp += 3;
+                }
+                res = CONS(hp, tuple, res);
+                hp += 2;
+            }
+
+            tuple = MAP1(hp, am_is_exported, defp->is_exported);
+            hp += MAP1_SZ;
+            res = TUPLE2(hp, tuple, res);
+            hp += 3;
+
+            HRelease(BIF_P, hp_end, hp);
+            BIF_RET(res);
+        }
+    }
+
+    BIF_ERROR(BIF_P, EXC_BADARG);
 }

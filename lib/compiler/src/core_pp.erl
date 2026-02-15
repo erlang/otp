@@ -214,25 +214,17 @@ format_1(#c_map{arg=Var,es=Es}, Ctxt) ->
      "}~"
     ];
 %% Native Record Pattern
-format_1(#c_record{arg=#c_literal{val=ok}, id = #c_literal{val={M, N}}, es = Es}, Ctxt) ->
-    ["~#" ++ core_atom(M) ++ ":" ++ core_atom(N) ++ "{",
-     format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
-     "}"];
-format_1(#c_record{arg=#c_literal{val=ok}, id = #c_literal{val=[]}, es = Es}, Ctxt) ->
-    ["~#/" ++ "{",
+format_1(#c_record{arg=#c_literal{val=ok}, id = Id, es = Es}, Ctxt) ->
+    ["~#" ++ format_record_id(Id) ++ "{",
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      "}"];
 %% Native Record Expression
-format_1(#c_record{arg=#c_literal{val=empty}, id = #c_literal{val={M, N}}, es = Es}, Ctxt) ->
-    ["~#" ++ core_atom(M) ++ ":" ++ core_atom(N) ++ "{",
+format_1(#c_record{arg=#c_literal{val=empty}, id = Id, es = Es}, Ctxt) ->
+    ["~#" ++ format_record_id(Id) ++ "{",
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      "}"];
-format_1(#c_record{arg=Arg, id = #c_literal{val={M, N}}, es = Es}, Ctxt) ->
-    ["~" ++ format(Arg, add_indent(Ctxt, 1)) ++ "#" ++ core_atom(M) ++ ":" ++ core_atom(N) ++ "{",
-     format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
-     "}"];
-format_1(#c_record{arg=Arg, id = #c_literal{val=[]}, es = Es}, Ctxt) ->
-    ["~" ++ format(Arg, add_indent(Ctxt, 1)) ++ "#/" ++ "{",
+format_1(#c_record{arg=Arg, id = Id, es = Es}, Ctxt) ->
+    ["~" ++ format(Arg, add_indent(Ctxt, 1)) ++ "#" ++ format_record_id(Id) ++ "{",
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      "}"];
 format_1(#c_record_pair{key=K,val=V}, Ctxt) ->
@@ -414,7 +406,13 @@ format_def({N,V}, Ctxt0) ->
      | format(V, Ctxt1)
     ].
 
-    
+format_record_id(#c_literal{val={M, N}}) ->
+    core_atom(M) ++ ":" ++ core_atom(N);
+format_record_id(#c_literal{val=[]}) ->
+    "/";
+format_record_id(#c_literal{val=Name}) when is_atom(Name) ->
+    core_atom(Name).
+
 format_values(Vs, Ctxt) ->
     [$<,
      format_hseq(Vs, ",", add_indent(Ctxt, 1), fun format/2),

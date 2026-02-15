@@ -452,7 +452,11 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 PRINT_CHAR(res, fn, arg, '>');
             }
 	    goto L_done;
-	}
+	} else if (is_catch(obj) && catch_val(obj) == 0) {
+            /* Missing default value in a native record definition. */
+            PRINT_STRING(res, fn, arg, "<novalue>");
+	    goto L_outer_loop;
+        }
 	wobj = (Eterm)obj;
 	switch (tag_val_def(wobj)) {
 	case NIL_DEF:

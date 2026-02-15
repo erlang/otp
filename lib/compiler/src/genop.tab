@@ -739,11 +739,16 @@ BEAM_FORMAT_NUMBER=0
 ##      for potential future release; it must be 0.)
 189: put_record/6
 
-## @spec is_record_accessible/2 Lbl Rec
+## @spec is_record_accessible/2 Lbl Rec Scope
 ## @doc Check whether the fields of native record Rec are accessible from
 ##      the executing module. Jump to label Lbl if not (Rec is defined in
 ##      another module and is not exported).
-190: is_record_accessible/2
+##
+##      Scope is any of:
+##
+##      * {atom,external}         - Must always be exported.
+##      * {atom,auto_local}       - Need not be exported if same module.
+190: is_record_accessible/3
 
 ## @spec get_record_field/5 Lbl Rec Id Field Dst
 ## @doc Get a single field from a record. If Lbl is 0, raise an exception

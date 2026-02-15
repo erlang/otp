@@ -190,10 +190,15 @@ pattern({record_index,Anno,Name,Field}, St) ->
     {index_expr(Anno, Field, Name, record_fields(Name, Anno, St)),St};
 pattern({record,Anno0,Name,Pfs}, St0) when is_atom(Name) ->
     case St0#exprec.rec_mod of
-        #{Name := M0} ->
-            M = native_record_mod(M0, St0),
+        #{Name := {local, _}} ->
+            %% Locally defined native record.
+            {TPs,St1} = pattern_list(Pfs, St0),
+            {{record,Anno0,Name,TPs},St1};
+        #{Name := {imported, M}} ->
+            %% Imported native record.
             pattern({record,Anno0,{M,Name},Pfs}, St0);
         #{} ->
+            %% Tuple record.
             Fs = record_fields(Name, Anno0, St0),
             {TMs,St1} = pattern_list(pattern_fields(Fs, Pfs), St0),
             Anno = mark_record(Anno0, St1),
@@ -203,8 +208,8 @@ pattern({record,Anno,[],Ps}, St0) ->
     %% Native record.
     {TPs,St1} = pattern_list(Ps, St0),
     {{record,Anno,[],TPs},St1};
-pattern({record,Anno,Id,Ps}, St0) ->
-    %% Native record.
+pattern({record,Anno,{_,_}=Id,Ps}, St0) ->
+    %% Native record with explicit module name.
     {TPs,St1} = pattern_list(Ps, St0),
     {{record,Anno,Id,TPs},St1};
 pattern({bin,Anno,Es0}, St0) ->
@@ -227,9 +232,6 @@ pattern_list([P0 | Ps0], St0) ->
     {Ps,St2} = pattern_list(Ps0, St1),
     {[P | Ps],St2};
 pattern_list([], St) -> {[],St}.
-
-native_record_mod({imported, M}, _St) -> M;
-native_record_mod({local,_}, #exprec{module=M}) -> M.
 
 guard([G0 | Gs0], St0) ->
     {G,St1} = guard_tests(G0, St0),
@@ -418,22 +420,25 @@ expr({record_index,Anno,Name,F}, St) ->
 expr({record,Anno,{M,N},Inits}, St0) ->
     {Es1, St1} = expr_list(Inits, St0),
     {{record,Anno,{M,N},Es1},St1};
-expr({record,Anno0,Name,Is}, St) when is_atom(Name) ->
-    case St#exprec.rec_mod of
-        #{Name := {_, Inits}=M0} ->
-            M = native_record_mod(M0, St),
+expr({record,Anno0,Name,Is}, St0) when is_atom(Name) ->
+    case St0#exprec.rec_mod of
+        #{Name := {local, Inits}} ->
+            M = St0#exprec.module,
             case M of
                 shell_default ->
                     Fs = native_record_inits(Anno0, Inits, Is),
-                    expr({record,Anno0,{M,Name},Fs}, St);
+                    expr({record,Anno0,{M,Name},Fs}, St0);
                 _ ->
-                    expr({record,Anno0,{M,Name},Is}, St)
+                    {Es1, St1} = expr_list(Is, St0),
+                    {{record,Anno0,Name,Es1},St1}
             end;
+        #{Name := {imported, M}} ->
+            expr({record,Anno0,{M,Name},Is}, St0);
         #{} ->
-            Anno = mark_record(Anno0, St),
+            Anno = mark_record(Anno0, St0),
             expr({tuple,Anno,[{atom,Anno0,Name} |
-                              record_inits(record_fields(Name, Anno0, St), Is)]},
-                 St)
+                              record_inits(record_fields(Name, Anno0, St0), Is)]},
+                 St0)
     end;
 expr({record,_A,Arg0,{_,_}=Id,Updates}, St0) ->
     Anno = erl_parse:first_anno(Arg0),
@@ -445,23 +450,38 @@ expr({record,_A,Arg0,[]=Id,Updates}, St0) ->
     {Arg1,St1} = expr(Arg0, St0),
     {Es1, St1} = expr_list(Updates, St0),
     {{record,Anno,Arg1,Id,Es1},St1};
-expr({record,Anno,R,Name,Us}, St0) when is_atom(Name) ->
+expr({record,Anno0,Arg0,Name,Updates}, St0) when is_atom(Name) ->
     case St0#exprec.rec_mod of
-        #{Name := M0} ->
-            M = native_record_mod(M0, St0),
-            expr({record,Anno,R,{M,Name},Us}, St0);
+        #{Name := {local, _}} ->
+            %% Locally defined native record.
+            Anno = erl_parse:first_anno(Arg0),
+            {Arg1,St1} = expr(Arg0, St0),
+            {Es1, St2} = expr_list(Updates, St1),
+            {{record,Anno,Arg1,Name,Es1},St2};
+        #{Name := {imported, M}} ->
+            %% Imported native record.
+            expr({record,Anno0,Arg0,{M,Name},Updates}, St0);
         #{} ->
-            {Ue,St1} = record_update(R, Name, record_fields(Name, Anno, St0), Us, St0),
+            %% Tuple record.
+            {Ue,St1} = record_update(Arg0, Name,
+                                     record_fields(Name, Anno0, St0),
+                                     Updates, St0),
             expr(Ue, St1)
     end;
-expr({record_field,A,R,Name,F}, St) when is_atom(Name) ->
-    case St#exprec.rec_mod of
-        #{Name := M0} ->
-            M = native_record_mod(M0, St),
-            expr({record_field,A,R,{M,Name},F}, St);
+expr({record_field,A,Rec0,Name,F}, St0) when is_atom(Name) ->
+    case St0#exprec.rec_mod of
+        #{Name := {local, _}} ->
+            %% Locally defined native record.
+            {Rec,St} = expr(Rec0, St0),
+            Anno = erl_parse:first_anno(Rec),
+            {{record_field,Anno,Rec,Name,F},St};
+        #{Name := {imported, M}} ->
+            %% Imported native record.
+            expr({record_field,A,Rec0,{M,Name},F}, St0);
         #{} ->
-            Anno = erl_parse:first_anno(R),
-            get_record_field(Anno, R, F, Name, St)
+            %% Tuple record.
+            Anno = erl_parse:first_anno(Rec0),
+            get_record_field(Anno, Rec0, F, Name, St0)
     end;
 expr({record_field,_A,Rec0,Id,F}, St0) ->
     {Rec,St} = expr(Rec0, St0),

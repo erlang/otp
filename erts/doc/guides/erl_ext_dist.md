@@ -774,3 +774,30 @@ guaranteed to, and is not intended to, prevent decoding of an intentionally
 forged encoding on the local external term format.
 
 `LOCAL_EXT` was introduced in OTP 26.0.
+
+## RECORD_EXT
+
+| 1     | 4         | 1       | N1       | N2     | N3            | N4       |
+| ----- | --------- | ------- | -------- | ------ | ------------- | -------- |
+| `67`  | `#Fields` | `Flags` | `Module` | `Name` | `Field Names` | `Values` |
+
+
+This is the encoding of a native record.
+
+- **`#Fields`** - Number of fields.
+
+- **`Flags`** - The least significant bit is 0 if this record is not
+    exported, and 1 if not exported. The other bits are reserved for
+    future use and must be set to zero.
+
+- **`Module`** - An atom. The module name of the module where the record is defined.
+
+- **`Name`** - An atom. The name of the record.
+
+- **`Field Names`** - All field names encoded as atoms in the same
+    order as in the record definition.
+
+- **`Values`** - The values of all fields; each one encoded according
+    to its type.
+
+`RECORD_EXT` was introduced in OTP 29.0.

@@ -5262,7 +5262,18 @@ dec_term_atom_common:
                 defp->thing_word = make_arityval(RECORD_DEF_SIZE(num_fields) - 1);
 
                 /* Flags */
-                defp->is_exported = (*ep & 1) ? am_true : am_false;
+                switch (*ep) {
+                case 0:
+                    defp->is_exported = am_false;
+                    break;
+                case 1:
+                    defp->is_exported = am_true;
+                    break;
+                default:
+                    /* The other bits in this byte are reserved and must be
+                     * set to zero. */
+                    goto error;
+                }
                 ep++;
 
                 /* Module */

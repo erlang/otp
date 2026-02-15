@@ -1409,6 +1409,10 @@ pmt_1([], _Vst, Acc) ->
 verify_put_record(Fail, Id, Src, Dst, Live, List, Vst0) ->
     case Id of
         {literal,{Mod,Name}} when is_atom(Mod), is_atom(Name) ->
+            %% Externally defined record.
+            ok;
+        {atom,Name} when is_atom(Name) ->
+            %% Locally defined record.
             ok;
         {atom,'_'} ->
             ok;

@@ -28,23 +28,27 @@
          external_records/1,any_record/1,
          matching/1,is_record_bif/1]).
 
+%% Unexported records.
 -record #empty{}.
 -record #a{x, y}.
--record #b{x=none, y=none, z=none}.
 -record #c{x::integer, y=0::integer, z=[]}.
 -record #d{f=3.1416, l=[a,b,c], t={a,b,c},
            m=#{a => 1}}.
--record #e{x=0.0}.
 
 -record #order{zzzz=0, true=1, aaaa=2, wwww=3}.
 
-%% Records with non-atomic names.
+%% Records with non-atomic names. All exported.
+-export_record(['div','rem','Seq','Point']).
 -record #div{attr=0}.
 -record #rem{n=0}.
 -record #Seq{elements=[]}.
 -record #Point{x=0,y=0,z=0}.
 
--import_record(ext_records, [local,vector]).
+%% Other exported records.
+-export_record([b, exp_abc, exp_x]).
+-record #b{x=none, y=none, z=none}.
+-record #exp_abc{a=0, b=0}.
+-record #exp_x{x=0}.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -106,18 +110,21 @@ local_basic(_Config) ->
     b = NameFun(BRec),
 
     %% Test errors when constructing or updating native records.
-    ?assertError({badfield,foobar}, #b{foobar = some_value}),
+    ?assertError({badfield,{{?MODULE,b},foobar}},
+                 #b{foobar = some_value}),
 
     ?assertError({badrecord,not_a_record}, (not_a_record)#b{x=99}),
     ?assertError({badrecord,ARec}, ARec#b{x=99}),
-    ?assertError({badfield,bad_field}, BRec#b{bad_field = some_value}),
+    ?assertError({badfield,{{?MODULE,b},bad_field}},
+                 BRec#b{bad_field = some_value}),
 
-    ?assertError({novalue,x}, #a{}),
-    ?assertError({novalue,y}, #a{x=1}),
-    ?assertError({novalue,x}, #a{y=1}),
+    ?assertError({novalue,{{?MODULE,a},x}}, #a{}),
+    ?assertError({novalue,{{?MODULE,a},y}}, #a{x=1}),
+    ?assertError({novalue,{{?MODULE,a},x}}, #a{y=1}),
 
     %% Test errors when accessing native records
-    ?assertError({badfield,zoo}, BRec#b.zoo),
+    ?assertError({badfield,{{?MODULE,b},zoo}}, BRec#b.zoo),
+    ?assertError({badfield,{{?MODULE,b},zoo}}, BRec#?MODULE:b.zoo),
     ?assertError({badrecord,ARec}, ARec#b.x),
     ?assertError({badrecord,ARec}, ARec#non_existing_module:rec.x),
 
@@ -172,6 +179,9 @@ local_updates(_Config) ->
     foo = R1#b.x,
     none = R1#b.y,
     none = R1#b.z,
+    foo = R1#?MODULE:b.x,
+    none = R1#?MODULE:b.y,
+    none = R1#?MODULE:b.z,
 
     R2 = id(R1#b{y=bar, z=baz}),
     R2 = id(R1#?MODULE:b{z=baz, y=bar}),
@@ -261,6 +271,8 @@ non_atomic_names_match(R) ->
             Point
     end.
 
+-import_record(ext_records, [local,vector]).
+
 external_records(_Config) ->
     DefVector = id(#vector{}),
     DefVector = id(#ext_records:vector{}),
@@ -290,21 +302,29 @@ external_records(_Config) ->
     ok.
 
 any_record(_Config) ->
-    {777,888} = get_any_xy(#a{x=777,y=888}),
+    ARec0 = #a{x=0, y=1},
+
+    {777,888} = get_any_xy(#b{x=777,y=888}),
     {77,88} = get_any_xy(#Point{x=77,y=88}),
+    {0,1} = get_any_xy(ARec0),
     none = get_any_xy(#div{}),
+    none = get_any_xy(#order{}),
 
-    ARec0 = id(#a{x=1,y=0}),
-    CRec0 = id(#c{x=1,y=0,z=[]}),
+    BRec0 = id(#b{}),
+    #b{x=7,y=13,z=none} = BRec = update_any_xy(BRec0, 7, 13),
+    #_{x=7,y=13} = BRec,
 
-    #a{x=7,y=13} = ARec = update_any_xy(ARec0, 7, 13),
-    #_{x=7,y=13} = ARec,
+    Point0 = id(#Point{}),
+    #Point{x=77.0,y=100.0,z=0} = Point = update_any_xy(Point0, 77.0, 100.0),
+    #_{x=77.0,y=100.0} = Point,
 
-    #c{x=100,y=200} = CRec = update_any_xy(CRec0, 100, 200),
-    #_{x=100,y=200} = CRec,
+    #a{x=777, y=100} = ARec = update_any_xy(ARec0, 777, 100),
+    #_{x=777, y=100} = ARec,
 
-    ?assertError({badfield,x}, update_any_xy(id(#d{}), 0, 0)),
-    ?assertError({badfield,y}, update_any_xy(id(#e{}), 0, 0)),
+    ?assertError({badfield,{{?MODULE,exp_abc},x}},
+                 update_any_xy(id(#exp_abc{}), 0, 0)),
+    ?assertError({badfield,{{?MODULE,exp_x},y}},
+                 update_any_xy(id(#exp_x{}), 0, 0)),
 
     {10,1} = get_any_xy(#ext_records:vector{}),
     {77,88} = get_any_xy(#ext_records:vector{x=77,y=88}),

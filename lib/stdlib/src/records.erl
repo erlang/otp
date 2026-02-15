@@ -36,7 +36,8 @@ This module contains functions for creating and inspecting native records.
 
 %% BIFs (implemented in the runtime system).
 -export([get/2, get_module/1, get_name/1, get_field_names/1,
-         is_exported/1, create/4, update/4]).
+         is_exported/1, create/4, update/4,
+         get_definition/2]).
 
 -doc """
 Options that can be used when creating a native record.
@@ -209,7 +210,7 @@ being repeated in `Fields`.
 2> records:is_exported(R).
 true
 3> records:create(test, a, [{42,1}], #{is_exported => true}).
-** exception error: bad field name: 42
+** exception error: bad field name: {{test,a},42}
      in function  records:create/4
         called as records:create(test,a,[{42,1}],#{is_exported => true})
 4> records:create(test, a, [{x,1}, {x,2}], #{is_exported => true}).
@@ -245,7 +246,7 @@ exist in `Record`.
 2> Updated = records:update(R, test, a, #{x => 10, y => 20}).
 #test:a{x = 10,y = 20,z = 3}
 3> records:update(R, test, a, #{w => 42}).
-** exception error: bad field name: w
+** exception error: bad field name: {{test,a},w}
      in function  records:update/4
         called as records:update(#test:a{x = 1,y = 2,z = 3},test,a,#{w => 42})
 ```
@@ -254,4 +255,17 @@ exist in `Record`.
 -spec update(Src :: record(), Module :: module(), RecordName :: atom(),
              FieldsMap :: #{atom() => term()}) -> record().
 update(_Src, _Module, _RecordName, _FieldsMap) ->
+    erlang:nif_error(undefined).
+
+-doc """
+Retrieves the definition for native record `Name` in module `Module`.
+""".
+-doc #{since => ~"OTP @OTP-19785@"}.
+-spec get_definition(Module :: module(),
+                     RecordName :: atom()) ->
+      {create_options(),
+       [{FieldName :: atom(), Default :: dynamic()} |
+        FieldName :: atom()]}.
+
+get_definition(_Module, _Name) ->
     erlang:nif_error(undefined).

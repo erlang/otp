@@ -1235,10 +1235,20 @@ expr_record(R0, Id, Es0, L, St0) ->
     {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St3}.
 
 expr_record_id(A, Rec, Body0, #c_literal{val={Mod0,Name0}}, St0) ->
+    %% External access.
     Mod = #c_literal{val=Mod0},
     Name = #c_literal{val=Name0},
     Args = [Rec,Mod,Name],
-    {Body,St} = expr_record_accessible(A, Rec, Body0, St0),
+    {Body,St} = expr_record_accessible(A, Rec, Body0, external, St0),
+    expr_record_id_1(A, Rec, Body, Args, St);
+expr_record_id(A, Rec, Body, #c_literal{val=[]}, St) ->
+    expr_record_accessible(A, Rec, Body, auto_local, St);
+expr_record_id(A, Rec, Body, #c_literal{val=Name}, St) when is_atom(Name) ->
+    %% Local access.
+    Args = [Rec,#c_literal{val=St#core.module},#c_literal{val=Name}],
+    expr_record_id_1(A, Rec, Body, Args, St).
+
+expr_record_id_1(A, Rec, Body, Args, St) ->
     Cs = [#iclause{anno=#a{anno=[compiler_generated|A]},
                    pats=[],
                    guard=[#iprimop{name=#c_literal{anno=A,val=is_native_record},
@@ -1246,16 +1256,14 @@ expr_record_id(A, Rec, Body0, #c_literal{val={Mod0,Name0}}, St0) ->
                    body=[Body]}],
     BadRecord = badrecord_term(Rec, St),
     Fc = fail_clause([], [{eval_failure,badrecord}|A], BadRecord),
-    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},St};
-expr_record_id(A, Rec, Body, #c_literal{val=[]}, St) ->
-    expr_record_accessible(A, Rec, Body, St).
+    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},St}.
 
-expr_record_accessible(A, Rec, Body, St) ->
+expr_record_accessible(A, Rec, Body, Scope, St) ->
     Cs = [#iclause{anno=#a{anno=[compiler_generated|A]},
                    pats=[],
                    guard=[#iprimop{anno=#a{anno=A},
                                    name=#c_literal{anno=A,val=is_record_accessible},
-                                   args=[Rec]}],
+                                   args=[Rec,#c_literal{val=Scope}]}],
                    body=[Body]}],
     BadRecord = badrecord_term(Rec, St),
     Fc = fail_clause([], [{eval_failure,badrecord}|A], BadRecord),
