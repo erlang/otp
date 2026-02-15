@@ -27,11 +27,11 @@
 -export([all/0, suite/0,
 	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
 	 messages_in_queue/1,undefined_mfa/1,no_heap/1,
-         wake_up_and_bif_trap/1,in_place/1]).
+         wake_up_and_bif_trap/1,in_place/1,stuck_dirty_hibernate/1]).
 
 %% Used by test cases.
 -export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2,
-         no_heap_loop/0,characters_to_list_trap/1]).
+         no_heap_loop/0,characters_to_list_trap/1, dirty_hibernate_proc/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -39,7 +39,8 @@ suite() ->
 
 all() -> 
     [basic, dynamic_call, min_heap_size, bad_args, messages_in_queue,
-     undefined_mfa, no_heap, wake_up_and_bif_trap, in_place].
+     undefined_mfa, no_heap, wake_up_and_bif_trap, in_place,
+     stuck_dirty_hibernate].
 
 %%%
 %%% Testing the basic functionality of erlang:hibernate/3.
@@ -367,6 +368,56 @@ wake_up_and_bif_trap(Config) when is_list(Config) ->
     end,
     unlink(Pid),
     exit(Pid, bye).
+
+stuck_dirty_hibernate(Config) when is_list(Config) ->
+    process_flag(scheduler, 1),
+    HibSched = case erlang:system_info(schedulers_online) of
+                   1 -> 1;
+                   _ -> 2
+               end,
+    Me = self(),
+    HibProc = spawn_opt(fun () ->
+                                %% Want lots of live data, so we trigger a
+                                %% dirty GC when hibernating...
+                                Data = lists:seq(1, 1000000),
+                                dirty_hibernate_proc(Me, Data)
+                        end, [link, {scheduler, HibSched}]),
+    receive {awaiting_go_hibernate_message, HibProc} -> ok end,
+    request_dirty_hibernate(100, HibProc),
+    unlink(HibProc),
+    exit(HibProc, kill),
+    false = is_process_alive(HibProc),
+    ok.
+
+request_dirty_hibernate(0, _HibProc) ->
+    ok;
+request_dirty_hibernate(N, HibProc) ->
+    GoTime = erlang:monotonic_time(microsecond) + 10000,
+    HibProc ! {go_hibernate, GoTime},
+    dirty_hib_wait(GoTime - rand:uniform(1000)),
+    Mon = erlang:monitor(process, HibProc),
+    HibProc ! disrupt_hibernation,
+    receive
+        {awaiting_go_hibernate_message, HibProc} ->
+            erlang:demonitor(Mon)
+    after
+        2000 ->
+            ct:fail(hibernate_stuck)
+    end,
+    request_dirty_hibernate(N-1, HibProc).
+
+dirty_hibernate_proc(Tester, Data) ->
+    flush(),
+    Tester ! {awaiting_go_hibernate_message, self()},
+    receive {go_hibernate, WaitUntil} -> ok end,
+    dirty_hib_wait(WaitUntil),
+    erlang:hibernate(?MODULE, dirty_hibernate_proc, [Tester, Data]).
+
+dirty_hib_wait(Time) ->
+    case Time =< erlang:monotonic_time(microsecond) of
+        true -> ok;
+        false -> dirty_hib_wait(Time)
+    end.
 
 %% Lengthy computation that traps (in characters_to_list_trap_3).
 characters_to_list_trap(Parent) ->
