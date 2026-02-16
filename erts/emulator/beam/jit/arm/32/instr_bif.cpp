@@ -483,7 +483,7 @@ void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
 
 void BeamGlobalAssembler::emit_call_nif_early() {
     // TODO
-    emit_nyi("emit_call_nif_shared");
+    emit_nyi("emit_call_nif_early");
 }
 
 /* Used by call_nif, call_nif_early, and dispatch_nif.
@@ -494,8 +494,30 @@ void BeamGlobalAssembler::emit_call_nif_early() {
  *
  * ARG3 = current I, just past the end of an ErtsCodeInfo. */
 void BeamGlobalAssembler::emit_call_nif_shared(void) {
-    // TODO
-    emit_nyi("emit_call_nif_shared");
+    /* The corresponding leave can be found in the epilogue. */
+    emit_enter_runtime<Update::eStack | Update::eHeap |
+                       Update::eReductions>();
+
+#ifdef ERTS_MSACC_EXTENDED_STATES
+    {
+        ASSERT(false);
+    }
+#endif
+
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, ARG3);
+    load_x_reg_array(ARG3);
+    ERTS_CT_ASSERT((4 + BEAM_ASM_FUNC_PROLOGUE_SIZE) % sizeof(UWord) == 0);
+    a.ldr(ARG4, arm::Mem(ARG2, 4 + BEAM_ASM_FUNC_PROLOGUE_SIZE));
+    // Loading NifMod as ARG5
+    a.ldr(TMP, arm::Mem(ARG2, 12 + BEAM_ASM_FUNC_PROLOGUE_SIZE));
+    
+    a.sub(a32::sp, a32::sp, imm(8));        // keep AAPCS alignment
+    a.str(TMP, arm::Mem(a32::sp, 0));       // arg5 at [sp]
+    runtime_call<5>(beam_jit_call_nif);
+    a.add(a32::sp, a32::sp, imm(8));
+
+    emit_bif_nif_epilogue();
 }
 
 void BeamGlobalAssembler::emit_dispatch_nif(void) {
