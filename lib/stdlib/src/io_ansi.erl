@@ -2224,16 +2224,21 @@ lookup_vts(Data) ->
     try
         %% Check that data starts with a known VTS sequence e.g. \e[34m for blue
         %% throws {blue, <<\e[34m>>, Rest} on success.
-        F = fun(VtsPrefixedData, Key, Value) -> 
+        F = fun(<<VTSCSI, VtsPrefixedData/binary>>, Key, <<CSI, Value/binary>>) -> 
                 case VtsPrefixedData of
-                    <<Value:(byte_size(Value))/binary, Rest/binary>> ->
-                        throw({Key, Value, Rest});
+                    <<Value:(byte_size(Value))/binary, Rest/binary>> when CSI =:= $\e; CSI =:= 155 ->
+                        [{Key, <<VTSCSI, Value/binary>>, Rest}];
                     _ ->
-                        ok
+                        []
                 end
             end,
-        [F(Data, Key, Value) || Key := Values <- get_vts_mappings(), Value <- Values],
-        undefined
+        %% There may be multiple matches since some VTSs are prefixes of other VTSs
+        %% e.g. `reset` is a prefix of `reset_underline_color`.
+        %% We want to find the longest match, so we take the last one after sorting by length.
+        case lists:flatten([F(Data, Key, Value) || Key := Values <- get_vts_mappings(), Value <- Values]) of
+            [] -> undefined;
+            Result -> lists:last(lists:keysort(2, Result))
+        end
     catch throw:KeyValueRest ->
         KeyValueRest
     end.
