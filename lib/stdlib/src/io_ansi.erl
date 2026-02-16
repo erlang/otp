@@ -190,7 +190,7 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 
 -doc "Virtual terminal sequences that control text formatting.".
 -type text_formatting() :: color() | style() | hyperlink().
--doc "Virtual terminal sequences that can erase or owerwrite text.".
+-doc "Virtual terminal sequences that can erase or overwrite text.".
 -type text_modification() :: clear | erase_display |
                              insert_character | delete_character | erase_character |
                              insert_line | delete_line | erase_line.
@@ -376,7 +376,7 @@ tinfo() ->
         -spec NAME(ARG1 :: integer(), ARG2 :: integer()) -> unicode:chardata()).
 
 -doc """
-Convert a color atom to its corresponding index (0-15)
+Convert a color atom to its corresponding index (0-15).
 
 Example:
 ```erlang
@@ -499,7 +499,7 @@ Example:
 ?FUNCTION(white).
 
 -doc """
-Change foreground (aka text) color to index color. `Index` 0-15 are equivilant to
+Change foreground (aka text) color to index color. `Index` 0-15 are equivalent to
 the named colors in `t:foreground_color/0` in the order that they are listed.
 
 Example:
@@ -2260,7 +2260,8 @@ Calling `format/3` will always emit a `reset/0` VTS at the end of the returned
 string. To not emit this, set the `reset` option to `false`.
 
 To force enabling or disabling of emitting VTSs set the `enabled` option to
-`true` or `false`.
+`true` or `false`. By default the emitting of VTSs is enabled if `enabled/0` returns `true`
+and disabled otherwise.
 
 To disable emitting of color VTSs but still emit other VTSs, set the `color` option to `false`.
 The default color option is `true` unless the `NO_COLOR` environment variable is set to a non-empty value,
