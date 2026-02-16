@@ -44,7 +44,6 @@
 
 -define(SSL_NO_VERIFY, {ssl, [{verify, verify_none}]}).
 
--define(DATA_20MB, <<0:16#A000000>>).
 %% Using hardcoded file path to keep it below 107 characters
 %% (maximum length supported by erlang)
 -define(UNIX_SOCKET, "/tmp/inets_httpc_SUITE.sock").
@@ -322,7 +321,7 @@ init_per_group(Group, Config0) when
     Self = self(),
     SslConfig = proplists:get_value(ssl_conf, Config, []),
     ServerConfig = proplists:get_value(server_config, SslConfig, []),
-    ListenerPid = spawn(fun() -> open_big_data_socket(SocketType, Self, ServerConfig) end),
+    ListenerPid = spawn(fun() -> http_test_lib:open_big_data_socket(SocketType, Self, ServerConfig) end),
     ListenPort = receive
                      {started_listen, Port} -> Port
                  end,
@@ -397,39 +396,18 @@ init_per_testcase(Name, Config) when Name == pipeline; Name == persistent_connec
 
     [{profile, Name} | Config];
 init_per_testcase(remote_socket_close_high_load = Case, Config0) ->
-    Profile = Case,
-    {ok, _} = inets:start(httpc, [{profile, Profile}]),
-    % application:start(os_mon),
-    % MemData = memsup:get_system_memory_data(),
-    % FreeMem = proplists:get_value(free_memory, MemData),
-    % MemoryProfile = tprof:profile(?MODULE, request, [[{client_id, 0} | Config0]],
-    %                               #{report => return, type => call_memory}),
-    % {_CallResult, {call_memory, CallMemory}} = MemoryProfile,
-    % WordsPerOneConnection = lists:foldl(fun(Element, Words) ->
-    %                                             {_Module, _Fun, _Arity, [{_Pid, _Count, UsedWords}]} = Element,
-    %                                             Words + UsedWords
-    %                                     end, 0, CallMemory),
-    % MEMORY_FOR_ONE_CONNECTION = WordsPerOneConnection * erlang:system_info(wordsize),
-    % %% To find an optimal point between execution speed of testcase and test stability
-    % %% across different machines we try to use about 20% of free resources available
-    % %% on the system
-    % MaxConnectionsCandidate = trunc((FreeMem div MEMORY_FOR_ONE_CONNECTION) * 0.2),
-    % MaxConnectionsOpen = case MaxConnectionsCandidate =< 5 of
-    %     true -> MaxConnectionsCandidate;
-    %     _ -> 5
-    %     end,
-    % case MaxConnectionsOpen =:= 0 orelse
-    %     MaxConnectionsOpen * 2 * MEMORY_FOR_ONE_CONNECTION >
-    %     proplists:get_value(free_memory, memsup:get_system_memory_data()) of
-    %     true -> {skip, "Not enough free memory for the test to run"};
-    %     false ->
+    case erlang:system_info(system_architecture) of
+        [$x, $8, $6, $_, $6, $4 | _] -> %% Run only on 64 bit systems
+            Profile = Case,
+            {ok, _} = inets:start(httpc, [{profile, Profile}]),
             MaxConnectionsOpen = 1,
             Config = [{profile, Profile}, {max_connections_open, MaxConnectionsOpen} | Config0],
             GivenOptions = proplists:get_value(httpc_options, Config, []),
             ok = httpc:set_options([{max_connections_open, MaxConnectionsOpen} | GivenOptions], Profile),
-            % application:stop(os_mon),
             Config;
-    % end;
+        _ ->
+            {skip, "Not a 64-bit system"}
+    end;
 init_per_testcase(Case, Config) ->
     {ok, _Pid} = inets:start(httpc, [{profile, Case}]),
     GivenOptions = proplists:get_value(httpc_options, Config, []),
@@ -3648,66 +3626,3 @@ is_ipv6_supported() ->
          _: _ ->
             false
     end.
-
-
-open_big_data_socket(gen_tcp, Pid, _Config) ->
-    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
-                                        {active, false}]),
-    {ok, Port} = inet:port(LSock),
-    Pid ! {started_listen, Port},
-    (fun F() ->
-        receive
-            {stop_listen, CleanupPid} ->
-                gen_tcp:close(LSock),
-                CleanupPid ! stopped_listen
-        after 0 ->
-            accept_and_send_data(gen_tcp, LSock),
-            F()
-        end
-    end)();
-
-open_big_data_socket(ssl, Pid, Config) ->
-    SSLOptions =  Config ++ [{verify, verify_none}, {reuseaddr, true}, binary, {packet, 0}, {active, false}],
-    {ok, LSock} = ssl:listen(0, SSLOptions),
-    {ok, {_, Port}} = ssl:sockname(LSock),
-    Pid ! {started_listen, Port},
-    (fun F() ->
-        receive
-            {stop_listen, CleanupPid} ->
-                ssl:close(LSock),
-                CleanupPid ! stopped_listen
-        after 0 ->
-            accept_and_send_data(ssl, LSock),
-            F()
-        end
-    end)().
-
-accept_and_send_data(gen_tcp, Sock) ->
-    {ok, Sock1} = gen_tcp:accept(Sock),
-    F = fun() ->
-        receive start -> ok end,
-        gen_tcp:recv(Sock1, 0),
-        gen_tcp:send(Sock1, ["HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"]),
-        ChunkSize = 1024*64*8, % 64KB
-        << begin gen_tcp:send(Sock1, <<Chunk:ChunkSize>>), <<>> end || <<Chunk:ChunkSize>> <= ?DATA_20MB>>,
-        receive after 10000 -> ok end,
-        gen_tcp:close(Sock1)
-    end,
-    HandlerPid = spawn(F),
-    gen_tcp:controlling_process(Sock1, HandlerPid),
-    HandlerPid ! start;
-accept_and_send_data(ssl, LSock) ->
-    {ok, Sock1} = ssl:transport_accept(LSock),
-    F = fun() ->
-        receive start -> ok end,
-        {ok, Sock} = ssl:handshake(Sock1),
-        ssl:recv(Sock, 0),
-        ssl:send(Sock, ["HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"]),
-        ChunkSize = 1024*64*8, % 64KB
-        << begin ssl:send(Sock, <<Chunk:ChunkSize>>), <<>> end || <<Chunk:ChunkSize>> <= ?DATA_20MB>>,
-        receive after 5000 -> ok end,
-        ssl:close(Sock)
-     end,
-    HandlerPid = spawn(F),
-    ssl:controlling_process(Sock1, HandlerPid),
-    HandlerPid ! start.
