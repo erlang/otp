@@ -28,7 +28,8 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
--export([enabled/1, fwrite/1, fwrite_test/0, format_color_option/1, doctests/1]).
+-export([enabled/1, fwrite/1, fwrite_test/0, format_color_option/1,
+         format_no_color_env/1, scan/1, doctests/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -37,7 +38,7 @@ suite() ->
     [].
 
 all() ->
-    [ doctests, enabled, fwrite, format_color_option ].
+    [ doctests, enabled, fwrite, format_color_option, format_no_color_env, scan ].
 
 
 groups() ->
@@ -101,6 +102,10 @@ enabled_test(Expect, TermType, Config) ->
     end.
 
 fwrite(Config) ->
+    %% Verifies fwrite behavior for:
+    %% - ANSI-capable terminal output
+    %% - remote dumb terminal output (no ANSI)
+    %% - NO_COLOR environment handling (strip colors, keep styles)
     {ok, Peer, Node} = ?CT_PEER(#{ env => [{"TERM","dumb"}] }),
     DumbUser = erpc:call(Node, erlang, whereis, [user]),
     false = erpc:call(Node, io_ansi, enabled, [DumbUser]),
@@ -113,7 +118,7 @@ fwrite(Config) ->
             shell_test_lib:send_tty(Term, atom_to_list(Node) ++ "\n"),
 
             shell_test_lib:check_content(Term, "\n\e\\[4m\e\\[34mblue", #{ args => "-e" }),
-            shell_test_lib:check_content(Term, "\n\e\\[1m\e\\[31mred", #{ args => "-e" })
+            shell_test_lib:check_content(Term, "\n\e\\[(0;)?1m\e\\[31m(\e\\[49m)?red", #{ args => "-e" })
 
         after
             shell_test_lib:stop_tty(Term)
@@ -139,7 +144,7 @@ fwrite(Config) ->
             shell_test_lib:send_tty(NoColorTerm, atom_to_list(Node) ++ "\n"),
 
             shell_test_lib:check_content(NoColorTerm, "\n\e\\[4mblue", #{ args => "-e" }),
-            shell_test_lib:check_content(NoColorTerm, "\n\e\\[1mred", #{ args => "-e" })
+            shell_test_lib:check_content(NoColorTerm, "\n\e\\[(0;)?1m(\e\\[39m)?(\e\\[49m)?red", #{ args => "-e" })
 
         after
             shell_test_lib:stop_tty(NoColorTerm)
@@ -151,12 +156,14 @@ fwrite(Config) ->
 fwrite_test() ->
     NodeName = string:trim(io:get_line("")),
 
-    io_ansi:fwrite([underline,blue, "blue\n"]),
+    io_ansi:fwrite([underline, blue, "blue\n"]),
     erpc:call(list_to_atom(NodeName), fun() -> io_ansi:fwrite([bold, red, "red\n"]) end),
     
     ok.
 
 format_color_option(Config) ->
+    %% Verifies explicit {color,false} strips both atom and tuple color directives,
+    %% while keeping non-color style directives.
     Term = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR",""}]}|Config]),
     try
         ?assertEqual(<<"x">>,
@@ -187,7 +194,60 @@ format_color_option(Config) ->
         shell_test_lib:stop_tty(Term)
     end.
 
+format_no_color_env(Config) ->
+    %% Verifies default color behavior from NO_COLOR:
+    %% - non-empty NO_COLOR disables colors by default
+    %% - {color,true} overrides NO_COLOR
+    %% - empty NO_COLOR keeps colors enabled by default
+    NoColorTerm = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR","1"}]}|Config]),
+    try
+        ?assertEqual(<<"\e[4mx">>,
+                     shell_test_lib:rpc(
+                       NoColorTerm,
+                       fun() ->
+                               group_leader(whereis(user), self()),
+                               io_ansi:format([blue, underline, "x"], [],
+                                              [{enabled,true}, {reset,false}])
+                       end)),
+        ?assertEqual(<<"\e[34m\e[4mx">>,
+                     shell_test_lib:rpc(
+                       NoColorTerm,
+                       fun() ->
+                               group_leader(whereis(user), self()),
+                               io_ansi:format([blue, underline, "x"], [],
+                                              [{enabled,true}, {color,true}, {reset,false}])
+                       end))
+    after
+        shell_test_lib:stop_tty(NoColorTerm)
+    end,
+
+    EmptyNoColorTerm = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR",""}]}|Config]),
+    try
+        ?assertEqual(<<"\e[34m\e[4mx">>,
+                     shell_test_lib:rpc(
+                       EmptyNoColorTerm,
+                       fun() ->
+                               group_leader(whereis(user), self()),
+                               io_ansi:format([blue, underline, "x"], [],
+                                              [{enabled,true}, {reset,false}])
+                       end))
+    after
+        shell_test_lib:stop_tty(EmptyNoColorTerm)
+    end.
+
+scan(_Config) ->
+    %% Verifies scan tokenization for:
+    %% - unknown CSI sequences
+    %% - mixed plain text + unknown CSI
+    %% - known emitted ANSI sequences
+    ?assertEqual([{csi, <<"\e[42">>}, <<"z">>], io_ansi:scan(<<"\e[42z">>)),
+    ?assertEqual([<<"aa">>, {csi, <<"\e[42">>}, <<"zbb">>], io_ansi:scan(<<"aa\e[42zbb">>)),
+    ?assertEqual([blue, <<"x">>, reset],
+                 io_ansi:scan(io_ansi:format([blue, "x"], [],
+                                             [{enabled,true}, {color,true}]))).
+
 doctests(Config) ->
+    %% Runs shell_docs doctests for io_ansi examples.
     Term = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR",""}]}|Config]),
     try
         shell_test_lib:rpc(Term, fun() ->
