@@ -28,7 +28,7 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
--export([enabled/1, fwrite/1, fwrite_test/0, doctests/1]).
+-export([enabled/1, fwrite/1, fwrite_test/0, format_color_option/1, doctests/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -37,7 +37,7 @@ suite() ->
     [].
 
 all() ->
-    [ doctests, enabled, fwrite ].
+    [ doctests, enabled, fwrite, format_color_option ].
 
 
 groups() ->
@@ -106,21 +106,21 @@ fwrite(Config) ->
     false = erpc:call(Node, io_ansi, enabled, [DumbUser]),
 
     Term = shell_test_lib:setup_tty([{args,["-noshell","-eval","io_ansi_SUITE:fwrite_test()."]},
-                                     {env, [{"TERM","xterm-256color"}]} | Config]),
+                                     {env, [{"TERM","xterm-256color"}, {"NO_COLOR",""}]} | Config]),
 
     try
         try
             shell_test_lib:send_tty(Term, atom_to_list(Node) ++ "\n"),
 
-            shell_test_lib:check_content(Term, "\n\e\\[34mblue", #{ args => "-e" }),
-            shell_test_lib:check_content(Term, "\n\e\\[31mred", #{ args => "-e" })
+            shell_test_lib:check_content(Term, "\n\e\\[4m\e\\[34mblue", #{ args => "-e" }),
+            shell_test_lib:check_content(Term, "\n\e\\[1m\e\\[31mred", #{ args => "-e" })
 
         after
             shell_test_lib:stop_tty(Term)
         end,
 
         DumbTerm = shell_test_lib:setup_tty([{args,["-noshell","-eval","io_ansi_SUITE:fwrite_test()."]},
-                                             {env, [{"TERM","dumb"}]} | Config]),
+                                             {env, [{"TERM","dumb"}, {"NO_COLOR",""}]} | Config]),
 
         try
             shell_test_lib:send_tty(DumbTerm, atom_to_list(Node) ++ "\n"),
@@ -130,6 +130,19 @@ fwrite(Config) ->
 
         after
             shell_test_lib:stop_tty(DumbTerm)
+        end,
+
+        NoColorTerm = shell_test_lib:setup_tty([{args,["-noshell","-eval","io_ansi_SUITE:fwrite_test()."]},
+                                             {env, [{"TERM","xterm-256color"}, {"NO_COLOR","1"}]} | Config]),
+
+        try
+            shell_test_lib:send_tty(NoColorTerm, atom_to_list(Node) ++ "\n"),
+
+            shell_test_lib:check_content(NoColorTerm, "\n\e\\[4mblue", #{ args => "-e" }),
+            shell_test_lib:check_content(NoColorTerm, "\n\e\\[1mred", #{ args => "-e" })
+
+        after
+            shell_test_lib:stop_tty(NoColorTerm)
         end
     after
         peer:stop(Peer)
@@ -138,13 +151,44 @@ fwrite(Config) ->
 fwrite_test() ->
     NodeName = string:trim(io:get_line("")),
 
-    io_ansi:fwrite([blue, "blue\n"]),
-    erpc:call(list_to_atom(NodeName), fun() -> io_ansi:fwrite([red, "red\n"]) end),
+    io_ansi:fwrite([underline,blue, "blue\n"]),
+    erpc:call(list_to_atom(NodeName), fun() -> io_ansi:fwrite([bold, red, "red\n"]) end),
     
     ok.
 
+format_color_option(Config) ->
+    Term = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR",""}]}|Config]),
+    try
+        ?assertEqual(<<"x">>,
+                     shell_test_lib:rpc(
+                       Term,
+                       fun() ->
+                               group_leader(whereis(user), self()),
+                               io_ansi:format([{color,4}, "x"], [],
+                                              [{enabled,true}, {color,false}, {reset,false}])
+                       end)),
+        ?assertEqual(<<"x">>,
+                     shell_test_lib:rpc(
+                       Term,
+                       fun() ->
+                               group_leader(whereis(user), self()),
+                               io_ansi:format([{underline_color,4}, "x"], [],
+                                              [{enabled,true}, {color,false}, {reset,false}])
+                       end)),
+        ?assertEqual(<<"\e[4mx">>,
+                     shell_test_lib:rpc(
+                       Term,
+                       fun() ->
+                               group_leader(whereis(user), self()),
+                               io_ansi:format([underline, "x"], [],
+                                              [{enabled,true}, {color,false}, {reset,false}])
+                       end))
+    after
+        shell_test_lib:stop_tty(Term)
+    end.
+
 doctests(Config) ->
-    Term = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}]}|Config]),
+    Term = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR",""}]}|Config]),
     try
         shell_test_lib:rpc(Term, fun() ->
             group_leader(whereis(user), self()),

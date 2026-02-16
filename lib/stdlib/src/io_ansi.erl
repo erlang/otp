@@ -219,7 +219,8 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 -doc "Virtual terminal sequences.".
 -type vts() :: text() | cursor() | window() | tab() | input() | reset | device_report_attributes.
 
--type option() :: {reset, boolean()} | { enabled, boolean()} | io_lib:format_options().
+-type option() :: {reset, boolean()} | { enabled, boolean()} |
+                  {color, boolean()} | io_lib:format_options().
 -type options() :: [option()].
 
 -export_type([vts/0]).
@@ -2257,6 +2258,10 @@ string. To not emit this, set the `reset` option to `false`.
 To force enabling or disabling of emitting VTSs set the `enabled` option to
 `true` or `false`.
 
+To disable emitting of color VTSs but still emit other VTSs, set the `color` option to `false`.
+The default color option is `true` unless the `NO_COLOR` environment variable is set to a non-empty value,
+in which case the default is `false`.
+
 Example:
 
 ```erlang
@@ -2268,7 +2273,9 @@ Example:
 ~"\e[34m\e[4mHello world"
 4> io_ansi:format([blue, underline, "Hello ~p"],[world],[{enabled,false}]).
 ~"Hello world"
-5> io_ansi:format([invalid_code, "Hello world"]).
+5> io_ansi:format([blue, underline, "Hello ~p"],[world],[{color,false}]).
+~"\e[4mHello world\e(B\e[m"
+6> io_ansi:format([invalid_code, "Hello world"]).
 ** exception error: {invalid_code,invalid_code}
      in function  io_ansi:format_internal/3
 ```
@@ -2287,17 +2294,25 @@ format_internal(Format, Data, Options) ->
     %% Only to be used by fwrite
     FormatOnly = proplists:get_value(format_only, Options, false),
     AppendReset = [reset || proplists:get_value(reset, Options, true)],
+    NoColor = os:getenv("NO_COLOR"),
+    DefaultColor = NoColor =:= false orelse NoColor =:= "",
+    Color = proplists:get_value(color, Options, DefaultColor),
     Mappings = get_mappings(),
     try lists:foldl(
           fun(Ansi, {Acc, Args}) when is_atom(Ansi) orelse is_tuple(Ansi), FormatOnly ->
                   {[Ansi | Acc], Args};
-             (Ansi, {Acc, Args}) when is_atom(Ansi), UseAnsi ->
-                AnsiFun = lookup(Mappings, Ansi, []),
-                  {[AnsiFun() | Acc], Args};
-             (Ansi, {Acc, Args}) when is_tuple(Ansi), UseAnsi ->
-                [AnsiCode | AnsiArgs] = tuple_to_list(Ansi),
-                AnsiFun = lookup(Mappings, AnsiCode, AnsiArgs),
-                  {[apply(AnsiFun, AnsiArgs) | Acc], Args};
+             (Ansi, {Acc, Args}) when is_atom(Ansi) orelse is_tuple(Ansi) ->
+                {Key, AnsiArgs} = case Ansi of
+                        Atom when is_atom(Atom) -> {Atom, []};
+                        Tuple when is_tuple(Tuple) -> {hd(tuple_to_list(Tuple)), tl(tuple_to_list(Tuple))}
+                    end,
+                RenderAnsi = UseAnsi andalso (Color orelse not is_color(Key)),
+                if RenderAnsi ->
+                    AnsiFun = lookup(Mappings, Key, AnsiArgs),
+                    {[apply(AnsiFun, AnsiArgs) | Acc], Args};
+                     not RenderAnsi ->
+                    {Acc, Args}
+                end;
              (Ansi, {Acc, Args}) when is_atom(Ansi); is_tuple(Ansi) ->
                   {Acc, Args};
              (Fmt, {Acc, Args}) ->
@@ -2320,6 +2335,15 @@ format_internal(Format, Data, Options) ->
             erlang:raise(E,R,ST)
             %%            erlang:error(badarg, [Format, Data, Options])
     end.
+
+is_color(AnsiKey) ->
+    Colors = ["blue", "red", "green", "yellow", "magenta", "cyan", "white"],
+    ColorAtoms = [list_to_atom(Prefixes ++ C ++ Postfixes) ||
+                     Postfixes <- ["","_background","_underline"],
+                     Prefixes <- ["", "light_"],
+                     C <- Colors],
+    lists:member(AnsiKey, ColorAtoms ++ [color, background_color, underline_color,
+                                         default_color, default_background, default_underline_color]).
 
 -doc #{ equiv => fwrite(standard_io, Format, [], []) }.
 -spec fwrite(Format :: format()) -> ok.
