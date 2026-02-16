@@ -106,7 +106,7 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
          light_cyan_underline/0, light_white_underline/0]).
 -export([modify_color/4]).
 -export([bold/0, bold_off/0, blink/0, blink_off/0, dim/0, dim_off/0,
-         invisible/0, invisible_off/0, italic/0, italic_off/0, negative/0, negative_off/0]).
+         invisible/0, invisible_off/0, italic/0, italic_off/0, inverse/0, inverse_off/0]).
 -export([strikethrough/0, strikethrough_off/0]).
 -export([underline/0, underline_off/0]).
 -export([underline_color/1, underline_color/3]).
@@ -176,7 +176,7 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 
 -doc "Virtual terminal sequences that control text style.".
 -type style() :: bold | bold_off | blink | blink_off | dim | dim_off | invisible | invisible_off |
-                 italic | italic_off | negative | negative_off | overline | overline_off |
+                 italic | italic_off | inverse | inverse_off | overline | overline_off |
                  strikethrough | strikethrough_off | underline_style().
 
 -type hyperlink_params() :: [{Key :: unicode:chardata(), Value :: unicode:chardata()}].
@@ -1092,28 +1092,32 @@ Example:
 
 
 -doc """
-Turn on negative text style.
+Turn on inverse text style.
+
+Inverse is also called reverse video or standout mode.
 
 Example:
 ```erlang
-1> io_ansi:negative().
+1> io_ansi:inverse().
 <<"\e[7m">>
 ```
 """.
-?SPEC(negative).
-?FUNCTION(negative).
+?SPEC(inverse).
+?FUNCTION(inverse).
 
 -doc """
-Turn off negative text style.
+Turn off inverse text style.
+
+Inverse is also called reverse video or standout mode.
 
 Example:
 ```erlang
-1> io_ansi:negative_off().
+1> io_ansi:inverse_off().
 <<"\e[27m">>
 ```
 """.
-?SPEC(negative_off).
-?FUNCTION(negative_off).
+?SPEC(inverse_off).
+?FUNCTION(inverse_off).
 
 
 -doc """
@@ -2697,8 +2701,8 @@ default_mappings() ->
        italic_off => { "ritm", "\e[23m" },
        blink => { "blink", "\e[5m" },
        blink_off => { undefined, "\e[25m" },
-       negative => { "smso", "\e[7m"},
-       negative_off => { "rmso", "\e[27m"},
+       inverse => { "smso", "\e[7m"},
+       inverse_off => { "rmso", "\e[27m"},
        invisible => { "smicm", "\e[8m" },
        invisible_off => { "rmicm", "\e[28m" },
        strikethrough => { "smxx", "\e[9m" },
