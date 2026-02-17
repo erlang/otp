@@ -83,7 +83,9 @@
          client_cert_fail_alert_passive/0,
          client_cert_fail_alert_passive/1,
          keylog_on_alert/0,
-         keylog_on_alert/1
+         keylog_on_alert/1,
+         client_keylog_on_alert/0,
+         client_keylog_on_alert/1
         ]).
 
 
@@ -122,7 +124,8 @@ tls_1_3_1_2_tests() ->
      renegotiate_error,
      client_cert_fail_alert_active,
      client_cert_fail_alert_passive,
-     keylog_on_alert
+     keylog_on_alert,
+     client_keylog_on_alert
     ].
 legacy_tests() ->
     [tls_client_tls10_server,
@@ -449,13 +452,10 @@ reject_legacy_cert(Version, Alert, Config) ->
       server_config := ServerOpts0} =
         public_key:pkix_test_data(#{client_chain =>
                                         #{root => root_key(sha256),
-                                          intermedites => intermediates(sha256, 1),
+                                          intermediates => intermediates(sha256, 1),
                                           peer => peer_key(sha256)}, 
                                     server_chain => 
                                         #{root => root_key(sha256, ssl_test_lib:pss_params(sha256)),
-                                          intermedites => intermediates(sha256, 
-                                                                        ssl_test_lib:pss_params(sha256), 
-                                                                        1),
                                           peer => peer_key(sha256, ssl_test_lib:pss_params(sha256))
                                          }}),   
     ClientOpts = ClientOpts0 ++ COpts,
@@ -626,7 +626,7 @@ keylog_on_alert(Config) when is_list(Config) ->
                          [{keep_secrets, {keylog_hs, Fun}} | ClientOpts], recv,
                          ServerNode, Hostname),
 
-    receive_client_keylog_for_client_cert_alert(),
+    receive_client_keylog_for_server_cert_alert(),
 
     ClientNoCert = proplists:delete(keyfile, proplists:delete(certfile, ClientOpts0)),
     keylog_alert_passive([{keep_secrets, {keylog_hs, Fun}} | ServerOpts],
@@ -634,12 +634,13 @@ keylog_on_alert(Config) when is_list(Config) ->
                          recv, ServerNode, Hostname),
     receive_server_keylog_for_server_cert_alert().
 
+
 receive_server_keylog_for_server_cert_alert() ->
     %% This alert will be decrypted with application secrets
     %% as client is already in connection
     receive
         {alert_info, #{items := SKeyLog}} ->
-            case keylog_prefixes(["CLIENT_HANDSHAKE_TRAFFIC_SECRET",
+            case ssl_test_lib:keylog_prefixes(["CLIENT_HANDSHAKE_TRAFFIC_SECRET",
                                   "SERVER_HANDSHAKE_TRAFFIC_SECRET",
                                   "SERVER_TRAFFIC_SECRET_0"], SKeyLog) of
                 true ->
@@ -649,10 +650,10 @@ receive_server_keylog_for_server_cert_alert() ->
             end
     end.
 
-receive_client_keylog_for_client_cert_alert() ->
+receive_client_keylog_for_server_cert_alert() ->
     receive
         {alert_info, #{items := CKeyLog}} ->
-            case keylog_prefixes(["CLIENT_HANDSHAKE_TRAFFIC_SECRET",
+            case ssl_test_lib:keylog_prefixes(["CLIENT_HANDSHAKE_TRAFFIC_SECRET",
                                   "SERVER_HANDSHAKE_TRAFFIC_SECRET",
                                   "CLIENT_TRAFFIC_SECRET_0",
                                   "SERVER_TRAFFIC_SECRET_0"], CKeyLog) of
@@ -662,16 +663,64 @@ receive_client_keylog_for_client_cert_alert() ->
                     ct:fail({client_received, CKeyLog})
             end
     end.
-keylog_prefixes([], []) ->
-    true;
-keylog_prefixes([Prefix | Prefixes], [Secret | Secrets]) ->
-    case lists:prefix(Prefix, Secret) of
-        true  ->
-            keylog_prefixes(Prefixes, Secrets);
-        false ->
-            false
+
+receive_client_keylog_for_client_cert_alert() ->
+    receive
+        {alert_info, #{items := CKeyLog}} ->
+            case ssl_test_lib:keylog_prefixes(["CLIENT_HANDSHAKE_TRAFFIC_SECRET",
+                                  "SERVER_HANDSHAKE_TRAFFIC_SECRET"], CKeyLog) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail({client_received, CKeyLog})
+            end
     end.
 
+client_keylog_on_alert() ->
+    [{doc,"Test that keep_secrets keylog_hs callback, if specified, "
+      "is called with keylog info when handshake alert is raised on client"}].
+
+client_keylog_on_alert(Config) when is_list(Config) ->
+    ssl:clear_pem_cache(),
+    SHA = sha256,
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    #{client_config := ClientOpts0} =
+        public_key:pkix_test_data(#{server_chain => #{root => root_key(SHA),
+                                                      intermediates => intermediates(SHA, 1),
+                                                      peer => peer_key(SHA)},
+                                    client_chain => #{root => root_key(SHA),
+                                                      intermediates => intermediates(SHA, 1),
+                                                      peer => peer_key(SHA)}}),
+    #{server_config := ServerOpts} =
+       public_key:pkix_test_data(#{client_chain =>
+                                        #{root => root_key(sha256),
+                                          intermediates => intermediates(sha256, 1),
+                                          peer => peer_key(sha256)},
+                                    server_chain =>
+                                        #{root => [{digest, sha256},{key, ssl_test_lib:hardcode_rsa_key(5)}],
+                                          intermediates => intermediates(sha256, 1),
+                                          peer => peer_key(sha256)
+                                         }}),
+
+    [_CertOpt, _KeyOpt, CaCerts] = ClientOpts0,
+    Me = self(),
+    Fun = fun(AlertInfo) ->
+                  Me ! {alert_info, AlertInfo}
+          end,
+    ClientOpts = [{verify, verify_peer},{keep_secrets, {keylog_hs, Fun}}, CaCerts],
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    ClientFun = fun() ->
+                  {error,{tls_alert,{unknown_ca, _}}} = ssl:connect(Hostname, Port, ClientOpts)
+                end,
+
+    %% Execute in other process and let test case detect key-log message.
+    spawn_link(ClientFun),
+    receive_client_keylog_for_client_cert_alert().
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
 %%--------------------------------------------------------------------
