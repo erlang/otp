@@ -420,7 +420,7 @@ default(server) ->
            },
 
       shell =>
-          #{default => ?DEFAULT_SHELL,
+          #{default => disabled,
             chk => fun({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
                       (disabled) -> true;
                       (V) -> check_function1(V) orelse
@@ -430,9 +430,10 @@ default(server) ->
            },
 
       exec =>
-          #{default => undefined,
+          #{default => disabled,
             chk => fun({direct, V}) ->  check_function1(V) orelse check_function2(V) orelse check_function3(V);
                       (disabled) -> true;
+                      (undefined) -> true; % Allow explicit legacy behavior
                       %% Compatibility (undocumented):
                       ({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
                       (V) -> check_function1(V) orelse check_function2(V) orelse check_function3(V)

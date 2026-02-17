@@ -36,8 +36,6 @@
 
 -define(DEFAULT_TRANSPORT,  {tcp, gen_tcp, tcp_closed} ).
 
--define(DEFAULT_SHELL, {shell, start, []} ).
-
 -define(DEFAULT_TIMEOUT, 5000).
 
 -define(MAX_RND_PADDING_LEN, 15).
@@ -794,6 +792,9 @@ risk.
 -type shell_daemon_option()     :: {shell, shell_spec()} .
 -doc(#{group => <<"Daemon Options">>}).
 -type shell_spec() :: mod_fun_args() | shell_fun() | disabled .
+-doc """
+The default is `disabled`.
+""".
 -doc(#{group => <<"Daemon Options">>,
        equiv => 'shell_fun/2'/0}).
 -type shell_fun() :: 'shell_fun/1'()  | 'shell_fun/2'() .
@@ -802,7 +803,7 @@ risk.
 -type 'shell_fun/1'() :: fun((User::string()) -> pid()) .
 -doc """
 Defines the read-eval-print loop used in a daemon when a shell is requested by
-the client. The default is to use the Erlang shell: `{shell, start, []}`
+the client.
 
 See the option [`exec-option`](`t:exec_daemon_option/0`) for a description of
 how the daemon executes shell-requests and exec-requests depending on the shell-
@@ -814,7 +815,12 @@ and exec-options.
 -doc(#{group => <<"Daemon Options">>}).
 -type exec_daemon_option()      :: {exec, exec_spec()} .
 -doc(#{group => <<"Daemon Options">>}).
--type exec_spec()               :: {direct, exec_fun()} | disabled | deprecated_exec_opt().
+-type exec_spec()               :: {direct, exec_fun()} | disabled | deprecated_exec_opt() | undefined.
+-doc """
+The default is `disabled`.
+
+Value `undefined` allows configuring legacy behavior.
+""".
 -doc(#{group => <<"Daemon Options">>}).
 -type exec_fun()                :: 'exec_fun/1'() | 'exec_fun/2'() | 'exec_fun/3'().
 -doc(#{group => <<"Daemon Options">>}).

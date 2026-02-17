@@ -427,7 +427,8 @@ daemon_start(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
                                              {user_dir, UserDir},
                                              {password, "morot"},
-                                             {exec, fun ssh_exec_echo/1}]),
+                                             {exec, fun ssh_exec_echo/1},
+                                             {shell, {shell, start, []}}]),
     {Pid, Host, Port, UserDir}.
 
 %%--------------------------------------------------------------------
@@ -891,9 +892,10 @@ start_shell_exec(Config) when is_list(Config) ->
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-					     {exec, {?MODULE,ssh_exec_echo,["foo"]}} ]),
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {exec, {?MODULE,ssh_exec_echo,["foo"]}},
+                                             {shell, {shell, start, []}}]),
 
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						      {user, "foo"},
@@ -912,9 +914,9 @@ exec_erlang_term(Config) when is_list(Config) ->
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"}
-                                            ]),
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {shell, {shell, start, []}}]),
 
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						      {user, "foo"},
@@ -955,10 +957,10 @@ exec_disabled(Config) when is_list(Config) ->
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-                                             {exec, disabled}
-                                            ]),
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {exec, disabled},
+                                             {shell, {shell, start, []}}]),
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						      {user, "foo"},
 						      {password, "morot"},
@@ -1768,11 +1770,12 @@ max_channels_option(Config) when is_list(Config) ->
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-					     {user_dir, UserDir},
-					     {password, "morot"},
-					     {max_channels, 3},
-					     {subsystems, [{"echo_n", {ssh_echo_server, [4000000]}}]}
-					    ]),
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {max_channels, 3},
+                                             {subsystems, [{"echo_n", {ssh_echo_server, [4000000]}}]},
+                                             {shell, {shell, start, []}},
+                                             {exec, undefined}]),
 
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						      {user, "foo"},
