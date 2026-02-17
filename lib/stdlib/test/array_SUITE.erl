@@ -54,8 +54,17 @@
          sparse_foldl_test/1,
          foldr_test/1,
          sparse_foldr_test/1,
+         mapfoldl_test/1,
          import_export/1,
-         doctests/1
+         doctests/1,
+         %% Property tests
+         prop_new/1, prop_is_array/1, prop_set_get/1, prop_size/1,
+         prop_sparse_size/1, prop_default/1, prop_fix_relax/1,
+         prop_resize/1, prop_reset/1, prop_to_list/1, prop_from_list/1,
+         prop_to_orddict/1, prop_from_orddict/1, prop_map/1,
+         prop_foldl/1, prop_foldr/1, prop_shift/1, prop_slice/1,
+         prop_append_prepend/1, prop_concat/1, prop_mapfoldl/1, prop_mapfoldr/1,
+         prop_sparse_mapfoldl/1, prop_sparse_mapfoldr/1
         ]).
 
 
@@ -68,7 +77,8 @@
          from_list/1, from_list/2, to_orddict/1, sparse_to_orddict/1,
          from_orddict/1, from_orddict/2, map/2, sparse_map/2, foldl/3,
          foldr/3, sparse_foldl/3, sparse_foldr/3, fix/1, relax/1, is_fix/1,
-         resize/1, resize/2]).
+         resize/1, resize/2, mapfoldl/3, mapfoldr/3, sparse_mapfoldl/3,
+         sparse_mapfoldr/3]).
 
 %%
 %% all/1
@@ -85,17 +95,38 @@ all() ->
      concat_test, to_orddict_test, sparse_to_orddict_test,
      from_orddict_test, map_test, sparse_map_test,
      foldl_test, sparse_foldl_test, foldr_test, sparse_foldr_test,
-     import_export, doctests].
+     mapfoldl_test,
+     import_export, doctests,
+     {group, property}].
 
 groups() ->
-    [].
+    [{property, [],
+      [prop_new, prop_is_array, prop_set_get, prop_size,
+       prop_sparse_size, prop_default, prop_fix_relax,
+       prop_resize, prop_reset, prop_to_list, prop_from_list,
+       prop_to_orddict, prop_from_orddict, prop_map,
+       prop_foldl, prop_foldr, prop_shift, prop_slice,
+       prop_append_prepend, prop_concat, prop_mapfoldl, prop_mapfoldr,
+       prop_sparse_mapfoldl, prop_sparse_mapfoldr]}].
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
+    case ct_property_test:init_per_suite(Config0) of
+        Config when is_list(Config) ->
+            Config;
+        {skip, _} -> Config0;
+        Fail -> Fail
+    end.
 
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(property, Config) ->
+    case proplists:get_value(property_test_tool, Config, none) of
+        none ->
+            {skip, "No known property based tool found"};
+        _ ->
+            Config
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -536,7 +567,8 @@ append_test(_Config) ->
      ?assertEqual(6, array:get(5, append(6, fix(from_list(lists:seq(1,5)))))),
      ?assertEqual(5, array:get(4, append(6, from_list(lists:seq(1,5))))),
      ?assertEqual([1,2,3,4,5,6], to_list(append(6, from_list(lists:seq(1,5))))),
-     ?assertEqual(lists:seq(1,?LEAFSIZE+1), to_list(append(?LEAFSIZE+1, from_list(lists:seq(1,?LEAFSIZE)))))
+     ?assertEqual(lists:seq(1,?LEAFSIZE+1), to_list(append(?LEAFSIZE+1, from_list(lists:seq(1,?LEAFSIZE))))),
+     ?assertError(badarg, append(5, foo))
     ].
 
 concat_test(_Config) ->
@@ -753,6 +785,7 @@ foldl_test(_Config) ->
            end,
     [?assertError(badarg, foldl([], 0, new())),
      ?assertError(badarg, foldl([], 0, new(10))),
+     ?assertError(badarg, foldl([], 0, not_an_array)),
      ?assert(foldl(Count, 0, new()) =:= 0),
      ?assert(foldl(Count, 0, new(1)) =:= 1),
      ?assert(foldl(Count, 0, new(10)) =:= 10),
@@ -779,6 +812,7 @@ sparse_foldl_test(_Config) ->
            end,
     [?assertError(badarg, sparse_foldl([], 0, new())),
      ?assertError(badarg, sparse_foldl([], 0, new(10))),
+     ?assertError(badarg, sparse_foldl([], 0, not_an_array)),
      ?assert(sparse_foldl(Count, 0, new()) =:= 0),
      ?assert(sparse_foldl(Count, 0, new(1)) =:= 0),
      ?assert(sparse_foldl(Count, 0, new(10,{default,1})) =:= 0),
@@ -862,6 +896,58 @@ sparse_foldr_test(_Config) ->
                                    set(0,0,new())))))
     ].
 
+mapfoldl_test(_Config) ->
+    N0 = ?LEAFSIZE,
+    Inc = fun(_, X, Acc) -> {X+1, Acc+X} end,
+    Double = fun(K, X, Acc) -> {X*2, Acc+K} end,
+    
+    %% mapfoldl
+    ?assertError(badarg, mapfoldl([], 0, new())),
+    ?assertError(badarg, mapfoldl([], 0, not_an_array)),
+
+    ?assert(begin {A1, 0} = mapfoldl(Inc, 0, new()),
+                  to_list(A1) =:= [] end),
+    ?assert(begin {A3, 10} = mapfoldl(Inc, 0, from_list([1,2,3,4])),
+                  to_list(A3) =:= [2,3,4,5] end),
+    ?assert(begin {A4, 55} = mapfoldl(Inc, 0, from_list(lists:seq(0,10))),
+                  to_list(A4) =:= lists:seq(1,11) end),
+    ?assert(begin {A5, 45} = mapfoldl(Double, 0, from_list(lists:seq(1,10))),
+                  to_list(A5) =:= [2,4,6,8,10,12,14,16,18,20] end),
+    
+    %% mapfoldr
+    ?assertError(badarg, mapfoldr([], 0, new())),
+    ?assertError(badarg, mapfoldr([], 0, not_an_aray)),
+    ?assert(begin {A6, 0} = mapfoldr(Inc, 0, new()),
+                  to_list(A6) =:= [] end),
+    ?assert(begin {A7, 10} = mapfoldr(Inc, 0, from_list([1,2,3,4])),
+                  to_list(A7) =:= [2,3,4,5] end),
+    ?assert(begin {A8, 55} = mapfoldr(Inc, 0, from_list(lists:seq(0,10))),
+                  to_list(A8) =:= lists:seq(1,11) end),
+
+    %% sparse_mapfoldl
+    ?assertError(badarg, sparse_mapfoldl([], 0, new())),
+    ?assertError(badarg, sparse_mapfoldl([], 0, not_an_aray)),
+    ?assert(begin {A9, 0} = sparse_mapfoldl(Inc, 0, new()), to_list(A9) =:= [] end),
+    ?assert(begin {A11, 10} = sparse_mapfoldl(Inc, 0, from_list([0,1,2,3,4],0)),
+                  to_list(A11) =:= [0,2,3,4,5] end),
+    ?assert(begin {A12, 45} = sparse_mapfoldl(Inc, 0, from_list(lists:seq(0,9),0)),
+                  to_list(A12) =:= [0,2,3,4,5,6,7,8,9,10] end),
+    
+    %% sparse_mapfoldr
+    ?assertError(badarg, sparse_mapfoldr([], 0, new())),
+    ?assertError(badarg, sparse_mapfoldr([], 0, not_an_aray)),
+    ?assert(begin {A13, 0} = sparse_mapfoldr(Inc, 0, new()), to_list(A13) =:= [] end),
+    ?assert(begin {A14, 10} = sparse_mapfoldr(Inc, 0, from_list([0,1,2,3,4],0)),
+                  to_list(A14) =:= [0,2,3,4,5] end),
+    ?assert(begin {A15, 45} = sparse_mapfoldr(Inc, 0, from_list(lists:seq(0,9),0)),
+                  to_list(A15) =:= [0,2,3,4,5,6,7,8,9,10] end),
+    
+    %% Test with sparse array
+    ?assert(begin {A16, 2} = sparse_mapfoldl(Inc, 0, set(N0*2+1,1,set(0,1,new()))),
+            sparse_to_orddict(A16) =:= [{0,2},{N0*2+1,2}] end),
+    
+    ok.
+
 import_export(_Config) ->
     %% Some examples of usages
     FloatBin = << <<N:32/float-native>> || N <- lists:seq(1, 20000)>>,
@@ -890,3 +976,85 @@ import_export(_Config) ->
 
 doctests(Config) when is_list(Config) ->
     shell_docs:test(array, []).
+
+
+%%
+%% Property-based tests
+%%
+
+prop_new(Config) ->
+    do_proptest(prop_new, Config).
+
+prop_is_array(Config) ->
+    do_proptest(prop_is_array, Config).
+
+prop_set_get(Config) ->
+    do_proptest(prop_set_get, Config).
+
+prop_size(Config) ->
+    do_proptest(prop_size, Config).
+
+prop_sparse_size(Config) ->
+    do_proptest(prop_sparse_size, Config).
+
+prop_default(Config) ->
+    do_proptest(prop_default, Config).
+
+prop_fix_relax(Config) ->
+    do_proptest(prop_fix_relax, Config).
+
+prop_resize(Config) ->
+    do_proptest(prop_resize, Config).
+
+prop_reset(Config) ->
+    do_proptest(prop_reset, Config).
+
+prop_to_list(Config) ->
+    do_proptest(prop_to_list, Config).
+
+prop_from_list(Config) ->
+    do_proptest(prop_from_list, Config).
+
+prop_to_orddict(Config) ->
+    do_proptest(prop_to_orddict, Config).
+
+prop_from_orddict(Config) ->
+    do_proptest(prop_from_orddict, Config).
+
+prop_map(Config) ->
+    do_proptest(prop_map, Config).
+
+prop_foldl(Config) ->
+    do_proptest(prop_foldl, Config).
+
+prop_foldr(Config) ->
+    do_proptest(prop_foldr, Config).
+
+prop_shift(Config) ->
+    do_proptest(prop_shift, Config).
+
+prop_slice(Config) ->
+    do_proptest(prop_slice, Config).
+
+prop_append_prepend(Config) ->
+    do_proptest(prop_append_prepend, Config).
+
+prop_concat(Config) ->
+    do_proptest(prop_concat, Config).
+
+prop_mapfoldl(Config) ->
+    do_proptest(prop_mapfoldl, Config).
+
+prop_mapfoldr(Config) ->
+    do_proptest(prop_mapfoldr, Config).
+
+prop_sparse_mapfoldl(Config) ->
+    do_proptest(prop_sparse_mapfoldl, Config).
+
+prop_sparse_mapfoldr(Config) ->
+    do_proptest(prop_sparse_mapfoldr, Config).
+
+do_proptest(Prop, Config) ->
+    ct_property_test:quickcheck(
+        array_prop:Prop(),
+        Config).

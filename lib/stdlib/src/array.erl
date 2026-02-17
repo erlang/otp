@@ -115,9 +115,6 @@ beyond the last set entry:
 -moduledoc(#{ authors => [~"Richard Carlsson <carlsson.richard@gmail.com>",
                           ~"Dan Gudmundsson <dgud@erix.ericsson.se>"] }).
 
-%% -define(PROPER_NO_IMPORTS, 1).
-%% -include_lib("proper/include/proper.hrl").
-
 %% Developers:
 %%
 %% The key to speed is to minimize the number of tests, on
@@ -873,17 +870,6 @@ to_list(Array) ->
     %% eqwalizer:ignore ambiguous_union
     foldr(fun (_I, V, A) -> [V|A] end, [], Array).
 
-%% -spec prop_to_list() -> term().
-%% prop_to_list() ->
-%%     ?FORALL(Low, proper_types:non_neg_integer(),
-%%             ?FORALL(Delta, proper_types:non_neg_integer(),
-%%                     begin
-%%                         L = lists:seq(0,Low+Delta),
-%%                         L =:= to_list(array:from_list(L))
-%%                     end)
-%%            ).
-
-
 -doc """
 Converts the array to a list, skipping default-valued entries.
 
@@ -1302,8 +1288,11 @@ See also `foldl/3`, `sparse_foldl/5`.
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A),
       Array :: array(Type).
 
-foldl(Low, High, Function, Acc, #array{size = N, zero = Z, cache = C, cache_index = CI, elements = E, default = D, bits = S})
-  when is_integer(Low), Low >= 0, is_integer(High), is_function(Function, 3), is_integer(N), High < N, is_integer(Z), is_integer(CI), is_integer(S) ->
+foldl(Low, High, Function, Acc,
+      #array{size = N, zero = Z, cache = C, cache_index = CI, elements = E, default = D, bits = S})
+  when is_integer(Low), Low >= 0, is_integer(High), is_integer(N), High < N,
+       is_function(Function, 3),
+       is_integer(Z), is_integer(CI), is_integer(S) ->
     if Low =< High ->
             E1 = set_leaf(CI, S, E, C),
             foldl_1(Low + Z, High + Z, Low, S, E1, D, Function, Acc);
@@ -1313,17 +1302,6 @@ foldl(Low, High, Function, Acc, #array{size = N, zero = Z, cache = C, cache_inde
 foldl(_, _, _, _, _) ->
     erlang:error(badarg).
 
-%% -spec prop_foldl1() -> term().
-%% prop_foldl1() ->
-%%     Fun = fun(I,_X,A)-> [I|A] end,
-%%     ?FORALL(Low, proper_types:non_neg_integer(),
-%%             ?FORALL(Delta, proper_types:non_neg_integer(),
-%%                     begin
-%%                         Arr = array:from_list(lists:seq(0,Low+Delta)),
-%%                         #array{elements = E, default = D, bits = S} = Arr,
-%%                         lists:reverse(foldl_1(Low, Low+Delta, Low, S, E, D, Fun, [])) =:= lists:seq(Low, Low+Delta)
-%%                     end)
-%%            ).
 
 foldl_1(Low, High, Ix, S, ?EMPTY, D, F, A) ->
     foldl_4(Low, High, Ix, S, D, F, A);
@@ -1381,20 +1359,6 @@ foldl_6(Low, High, Ix, D, F, A) when Low =< High ->
     foldl_6(Low+1, High, Ix+1, D, F, F(Ix, D, A));
 foldl_6(_Low, _High, _Ix, _D, _F, A) ->
     A.
-
-%% -spec prop_foldl4() -> term().
-%% prop_foldl4() ->
-%%     Fun = fun(I,_X,A)-> [I|A] end,
-%%     ?FORALL(Low, proper_types:non_neg_integer(),
-%%             ?FORALL(Delta, proper_types:non_neg_integer(),
-%%                     begin
-%%                         Arr = array:new(Low+Delta+1),
-%%                         #array{elements = E, default = D, bits = S} = Arr,
-%%                         S = E-4,
-%%                         lists:reverse(foldl_4(Low, Low+Delta, Low, S, D, Fun, [])) =:= lists:seq(Low, Low+Delta)
-%%                     end)
-%%            ).
-
 
 -doc """
 Folds the array elements using the specified function and initial accumulator
@@ -1485,18 +1449,6 @@ foldr(Low, High, Function, Acc, #array{size = N, zero = Z, cache = C,
 foldr(_, _, _, _, _) ->
     erlang:error(badarg).
 
-%% -spec prop_foldr1() -> term().
-%% prop_foldr1() ->
-%%     Fun = fun(I,_X,A)-> [I|A] end,
-%%     ?FORALL(Low, proper_types:non_neg_integer(),
-%%             ?FORALL(Delta, proper_types:non_neg_integer(),
-%%                     begin
-%%                         Arr = array:from_list(lists:seq(0,Low+Delta)),
-%%                         #array{elements = E, default = D, bits = S} = Arr,
-%%                         foldr_1(Low, Low+Delta, Low+Delta, S, E, D, Fun, []) =:= lists:seq(Low, Low+Delta)
-%%                     end)
-%%            ).
-
 foldr_1(Low, High, Ix, S, ?EMPTY, D, F, A) ->
     foldr_4(Low, High, Ix, S, D, F, A);
 foldr_1(Low, High, Ix, 0, E, _D, F, A) ->
@@ -1549,20 +1501,6 @@ foldr_6(Low, High, Ix, D, F, A) when Low =< High ->
     foldr_6(Low, High-1, Ix-1, D, F, F(Ix, D, A));
 foldr_6(_Low, _High, _Ix, _D, _F, A) ->
     A.
-
-%% -spec prop_foldr4() -> term().
-%% prop_foldr4() ->
-%%     Fun = fun(I,_X,A)-> [I|A] end,
-%%     ?FORALL(Low, proper_types:non_neg_integer(),
-%%             ?FORALL(Delta, proper_types:non_neg_integer(),
-%%                     begin
-%%                         Arr = array:new(Low+Delta+1),
-%%                         #array{elements = E, default = D, bits = S} = Arr,
-%%                         S = E-4,
-%%                         foldr_4(Low, Low+Delta, Low+Delta, S, D, Fun, []) =:= lists:seq(Low, Low+Delta)
-%%                     end)
-%%            ).
-
 
 -doc """
 Folds the array elements right-to-left using the specified function and initial
@@ -1718,34 +1656,6 @@ unfold(S, _D) when S > 0 ->
     ?NEW_NODE(S);
 unfold(_S, D) ->
     ?NEW_LEAF(D).
-
-%% -spec prop_mapfoldl1() -> term().
-%% prop_mapfoldl1() ->
-%%     Fun = fun(I,X,A)-> {X+10000, [I|A]} end,
-%%     ?FORALL(From, proper_types:non_neg_integer(),
-%%         ?FORALL(Length, proper_types:non_neg_integer(),
-%%                 ?FORALL(Tail, proper_types:non_neg_integer(),
-%%                     begin
-%%                         Max = From+Length-1+Tail,
-%%                         Arr = array:from_list(lists:seq(0,Max)),
-%%                         {Arr1, L} = mapfoldl(From, From+Length-1, Fun, [], Arr),
-%%                         lists:reverse(L) =:= lists:seq(From, From+Length-1) andalso to_list(Arr1) =:= lists:seq(0, From-1) ++ lists:seq(10000+From, 10000+From+Length-1) ++ lists:seq(From+Length, Max)
-%%                     end))
-%%            ).
-
-%% -spec prop_mapfoldl4() -> term().
-%% prop_mapfoldl4() ->
-%%     Fun = fun(I,_,A)-> {I+10000, [I|A]} end,
-%%     ?FORALL(From, proper_types:non_neg_integer(),
-%%         ?FORALL(Length, proper_types:non_neg_integer(),
-%%                 ?FORALL(Tail, proper_types:non_neg_integer(),
-%%                     begin
-%%                         Max = From+Length-1+Tail,
-%%                         Arr = array:new(Max+1),
-%%                         {Arr1, L} = mapfoldl(From, From+Length-1, Fun, [], Arr),
-%%                         lists:reverse(L) =:= lists:seq(From, From+Length-1) andalso to_list(Arr1) =:= lists:duplicate(From, undefined) ++ lists:seq(10000+From, 10000+From+Length-1) ++ lists:duplicate(Tail, undefined)
-%%                     end))
-%%            ).
 
 
 -doc """
@@ -1925,34 +1835,6 @@ mapfoldr_3_1(Low, High, Ix, [E|Es], F, A, Es1) when Low =< High ->
     mapfoldr_3_1(Low, High-1, Ix-1, Es, F, A1, [E1|Es1]);
 mapfoldr_3_1(_Low, _High, _Ix, Es, _F, A, Es1) ->
     {list_to_tuple(lists:reverse(Es, Es1)), A}.
-
-%% -spec prop_mapfoldr1() -> term().
-%% prop_mapfoldr1() ->
-%%     Fun = fun(I,X,A)-> {X+10000, [I|A]} end,
-%%     ?FORALL(From, proper_types:non_neg_integer(),
-%%         ?FORALL(Length, proper_types:non_neg_integer(),
-%%                 ?FORALL(Tail, proper_types:non_neg_integer(),
-%%                     begin
-%%                         Max = From+Length-1+Tail,
-%%                         Arr = array:from_list(lists:seq(0,Max)),
-%%                         {Arr1, L} = mapfoldr(From, From+Length-1, Fun, [], Arr),
-%%                         L =:= lists:seq(From, From+Length-1) andalso to_list(Arr1) =:= lists:seq(0, From-1) ++ lists:seq(10000+From, 10000+From+Length-1) ++ lists:seq(From+Length, Max)
-%%                     end))
-%%            ).
-
-%% -spec prop_mapfoldr4() -> term().
-%% prop_mapfoldr4() ->
-%%     Fun = fun(I,_,A)-> {I+10000, [I|A]} end,
-%%     ?FORALL(From, proper_types:non_neg_integer(),
-%%         ?FORALL(Length, proper_types:non_neg_integer(),
-%%                 ?FORALL(Tail, proper_types:non_neg_integer(),
-%%                     begin
-%%                         Max = From+Length-1+Tail,
-%%                         Arr = array:new(Max+1),
-%%                         {Arr1, L} = mapfoldr(From, From+Length-1, Fun, [], Arr),
-%%                         L =:= lists:seq(From, From+Length-1) andalso to_list(Arr1) =:= lists:duplicate(From, undefined) ++ lists:seq(10000+From, 10000+From+Length-1) ++ lists:duplicate(Tail, undefined)
-%%                     end))
-%%            ).
 
 
 -doc """
