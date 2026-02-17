@@ -398,7 +398,8 @@ start_portprogram() ->
 my_cmd(Cmd0, Port) ->
     %% Insert a new line after the command, in case the command
     %% contains a comment character
-    Cmd = io_lib:format("(~s\n) </dev/null; echo  \"\^M\"\n", [Cmd0]),
+    Cmd1 = io_lib:format("(~ts\n) </dev/null; echo  \"\^M\"\n", [Cmd0]),
+    Cmd = unicode:characters_to_binary(Cmd1),
     Port ! {self(), {command, [Cmd, 10]}},
     get_reply(Port, []).
 
