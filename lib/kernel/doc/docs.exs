@@ -19,16 +19,27 @@
 # %CopyrightEnd%
 [
   groups_for_modules: [
-    "Code & System": [
-      :application,
-      :code,
-      :erl_ddll,
-      :erl_debugger,
-      :error_handler,
-      :heart,
-      :os
+    NETWORKING: [
+      :gen_tcp,
+      :gen_udp,
+      :gen_sctp,
+      :socket,
+      :inet,
+      :inet_res,
+      :net
     ],
-    Distribution: [
+    LOGGING: [
+      :logger,
+      :disk_log,
+      :error_logger,
+      :logger_disk_log_h,
+      :logger_filters,
+      :logger_formatter,
+      :logger_handler,
+      :logger_std_h,
+      :wrap_log_reader
+    ],
+    DISTRIBUTION: [
       :net_adm,
       :net_kernel,
       :auth,
@@ -40,28 +51,12 @@
       :pg,
       :rpc
     ],
-    "Files & Networking": [
-      :file,
-      :gen_tcp,
-      :gen_udp,
-      :gen_sctp,
-      :socket,
-      :inet,
-      :inet_res,
-      :net
+    CODE: [
+      :code,
+      :erl_ddll,
+      :erl_debugger
     ],
-    Logging: [
-      :logger,
-      :disk_log,
-      :error_logger,
-      :logger_disk_log_h,
-      :logger_filters,
-      :logger_formatter,
-      :logger_handler,
-      :logger_std_h,
-      :wrap_log_reader
-    ],
-    Tracing: [
+    TRACING: [
       :seq_trace,
       :trace
     ]

@@ -1450,7 +1450,7 @@ call_on_load_function(_P1) ->
 
 %% cancel_timer/1
 -doc( #{ equiv =>  erlang:cancel_timer(TimerRef, []) }).
--doc #{ category => time }.
+-doc #{ category => timer }.
 -spec cancel_timer(TimerRef) -> Result when
       TimerRef :: reference(),
       Time :: non_neg_integer(),
@@ -1511,7 +1511,7 @@ See also [`erlang:send_after/4`](`send_after/4`),
 [`erlang:read_timer/2`](`read_timer/2`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ category => time }.
+-doc #{ category => timer }.
 -spec cancel_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
       Async :: boolean(),
