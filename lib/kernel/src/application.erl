@@ -129,7 +129,6 @@ of the top supervisor and `State` is any term. If omitted, `State` defaults to
 `[]`. If the application is stopped later, `State` is passed to
 [`Module:prep_stop/1`](`c:prep_stop/1`).
 """.
--doc(#{group => <<"Callback Module">>}).
 -callback start(StartType :: start_type(), StartArgs :: term()) ->
     {'ok', pid()} | {'ok', pid(), State :: term()} | {'error', Reason :: term()}.
 
@@ -142,7 +141,6 @@ cleaning up. The return value is ignored.
 a function exists. Otherwise `State` is taken from the return value of
 [`Module:start/2`](`c:start/2`).
 """.
--doc(#{group => <<"Callback Module">>}).
 -callback stop(State :: term()) ->
     term().
 
@@ -158,7 +156,6 @@ parameters.
 
 `Removed` is a list of all removed parameters.
 """.
--doc(#{group => <<"Callback Module">>}).
 -callback config_change(Changed, New, Removed) -> ok when
       Changed :: [{Par, Val}],
       New :: [{Par, Val}],
@@ -177,7 +174,6 @@ no state was returned. `NewState` is any term and is passed to
 The function is optional. If it is not defined, the processes are terminated and
 then [`Module:stop(State)`](`c:stop/1`) is called.
 """.
--doc(#{group => <<"Callback Module">>}).
 -callback prep_stop(State) -> NewState when
       State :: term(), NewState :: term().
 
@@ -196,7 +192,6 @@ which the start phase is defined.
 
 For a description of `StartType`, see [`Module:start/2`](`c:start/2`).
 """.
--doc(#{group => <<"Callback Module">>}).
 -callback start_phase(Phase, StartType, PhaseArgs) ->
     ok | {error, Reason} when
       Phase :: atom(),
