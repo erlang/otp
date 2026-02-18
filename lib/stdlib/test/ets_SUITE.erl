@@ -113,6 +113,7 @@
 -export([take/1]).
 -export([whereis_table/1]).
 -export([ms_excessive_nesting/1]).
+-export([doctests/1]).
 -export([error_info/1]).
 -export([bound_maps/1]).
 -export([racy_rename/1, racy_rename_writer/3]).
@@ -201,6 +202,7 @@ all() ->
      test_delete_table_while_size_snapshot,
      test_decentralized_counters_setting,
      ms_excessive_nesting,
+     doctests,
      error_info,
      bound_maps,
      racy_rename
@@ -8329,6 +8331,9 @@ ms_excessive_nesting(Config) when is_list(Config) ->
                   "got system_limit"
           end,
     {comment, "match_spec_compile() "++ENMSC++"; select_replace(_,[ordered_set]) "++SRT++"; select_replace(_,[set]) "++SRH}.
+
+doctests(_Config) ->
+    ct_doctest:module(ets, [{skipped_blocks, 16}]).
 
 %% The following help functions are used by
 %% throughput_benchmark. They are declared on the top level beacuse
