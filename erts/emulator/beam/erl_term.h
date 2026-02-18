@@ -1324,7 +1324,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 
 /*
   Due to an optimization that assumes there's just one, global
-  empty map one should always use ERTS_GLOBAL_LIT_EMPTY_TUPLE
+  empty map one should always use ERTS_GLOBAL_LIT_EMPTY_MAP
   to get the empty map.
  */
 extern Eterm ERTS_GLOBAL_LIT_EMPTY_MAP;

@@ -3490,7 +3490,7 @@ Eterm copy_ets_element(Eterm obj, int sz, Eterm **hpp, ErlOffHeap *off_heap)
     Eterm copy;
 
     if (sz == 0) {
-        ASSERT(is_immed(obj) || obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+        ASSERT(is_zero_sized(obj));
         return obj;
     }
     ASSERT(is_not_immed(obj));
@@ -4175,15 +4175,15 @@ dmc_private_copy(DMCContext *context, Eterm c)
 */
 
 static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
-			     Eterm t) 
+			     Eterm t)
 {
 	int sz;
 	ErlHeapFragment *emb;
 	Eterm *hp;
 	Eterm tmp;
 
-        if (is_immed(t)) {
-	    tmp = t;
+        if (is_zero_sized(t)) {
+            tmp = t;
 	} else {
 	    sz = my_size_object(t, false);
             if (sz) {
@@ -4194,9 +4194,9 @@ static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
                 context->save = emb;
             }
             else {
-                /* must be {const, Immed} or the empty tuple*/
+                /* must be {const, Immed}, the empty tuple, or the empty map */
                 ASSERT(is_tuple_arity(t,2) && tuple_val(t)[1] == am_const);
-                ASSERT(is_tuple_arity(tuple_val(t)[2],0) || is_immed(tuple_val(t)[2]));
+                ASSERT(is_zero_sized(tuple_val(t)[2]));
                 tmp = tuple_val(t)[2];
             }
 	}
@@ -5838,17 +5838,21 @@ static Uint my_size_object(Eterm t, bool is_hashmap_node)
                 Uint n;
                 flatmap_t *mp;
                 mp  = (flatmap_t*)flatmap_val(t);
+                n = flatmap_get_size(mp);
+
+                if (n == 0) {
+                    /* Empty map uses ERTS_GLOBAL_LIT_EMPTY_MAP, no heap needed */
+                    break;
+                }
 
                 /* Calculate size of keys */
                 p = tuple_val(mp->keys);
-                n = arityval(p[0]);
                 sum += 1 + n;
                 for (int i = 1; i <= n; ++i)
                     sum += my_size_object(p[i], false);
 
                 /* Calculate size of values */
                 p = (Eterm *)mp;
-                n   = flatmap_get_size(mp);
                 sum += n + 3;
                 p += 3; /* hdr + size + keys words */
                 while (n--) {
@@ -5933,32 +5937,32 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
                 Eterm keys;
 
                 mp  = (flatmap_t*)flatmap_val(t);
+                n = flatmap_get_size(mp);
 
-                /* Copy keys */
-                p = tuple_val(mp->keys);
-		n = arityval(p[0]);
                 if (n == 0) {
-                    keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                    ret = ERTS_GLOBAL_LIT_EMPTY_MAP;
                 } else {
+                    /* Copy keys */
+                    p = tuple_val(mp->keys);
                     savep = *hp;
                     keys = make_tuple(savep);
                     *hp += n + 1;
                     *savep++ = make_arityval(n);
                     for(i = 1; i <= n; ++i)
                         *savep++ = my_copy_struct(p[i], hp, off_heap, false);
+
+                    savep = *hp;
+                    ret = make_flatmap(savep);
+                    p = (Eterm *)mp;
+                    *hp += n + 3;
+                    *savep++ = mp->thing_word;
+                    *savep++ = mp->size;
+                    *savep++ = keys;
+                    p += 3; /* hdr + size + keys words */
+                    for (i = 0; i < n; i++)
+                        *savep++ = my_copy_struct(p[i], hp, off_heap, false);
+                    erts_usort_flatmap((flatmap_t*)flatmap_val(ret));
                 }
-                savep = *hp;
-                ret = make_flatmap(savep);
-                n = flatmap_get_size(mp);
-                p = (Eterm *)mp;
-                *hp += n + 3;
-                *savep++ = mp->thing_word;
-                *savep++ = mp->size;
-                *savep++ = keys;
-                p += 3; /* hdr + size + keys words */
-                for (i = 0; i < n; i++)
-                    *savep++ = my_copy_struct(p[i], hp, off_heap, false);
-                erts_usort_flatmap((flatmap_t*)flatmap_val(ret));
             } else {
                 Eterm *head = hashmap_val(t);
                 Eterm hdr = *head;

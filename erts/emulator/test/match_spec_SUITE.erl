@@ -1161,6 +1161,19 @@ maps(Config) when is_list(Config) ->
     0 = map_size(EmptyMap),
     0 = erts_debug:flat_size(EmptyMap),
 
+    %% Empty map used as a constant in match spec body ({const, #{}})
+    {ok, EmptyMap2,[],[]} = erlang:match_spec_test({}, [{{},[],[{const, #{}}]}], table),
+    #{} = EmptyMap2,
+    0 = map_size(EmptyMap2),
+    0 = erts_debug:flat_size(EmptyMap2),
+
+    %% Empty map as a constant value inside a constructed map
+    {ok, #{a := EmptyMap3},[],[]} =
+        erlang:match_spec_test({}, [{{},[],[#{a => {const, #{}}}]}], table),
+    #{} = EmptyMap3,
+    0 = map_size(EmptyMap3),
+    0 = erts_debug:flat_size(EmptyMap3),
+
     ok.
 
 maps_check_loop(M) ->
