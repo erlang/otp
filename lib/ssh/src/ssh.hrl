@@ -49,9 +49,52 @@
 -define(MLKEM768_INIT_SIZE, ?MLKEM768_PUBLICKEY_SIZE + ?X25519_PUBLICKEY_SIZE).   % NIST FIPS 203: 1184 + 32
 -define(MLKEM768_REPLY_SIZE, ?MLKEM768_CIPHERTEXT_SIZE + ?X25519_PUBLICKEY_SIZE). % NIST FIPS 203: 1088 + 32
 
+%% Pre-authentication message size limits
+%% Transport layer (RFC 4253 Section 11)
+
+%% OpenSSH uses 1024-byte C buffer (packet.c, commit d4a8b7e34);
+%% vsnprintf reserves 1 byte for null terminator, max wire length is
+%% 1023
+-define(MAX_DISCONNECT_DESC_SIZE, 1023).
+%% Practical limit (RFC 3066: subtags max 8 chars, no overall limit
+%% specified)
+-define(MAX_LANG_SIZE, 64).
+% RFC 4253 Section 6.1 (32768 byte payload)
+-define(MAX_IGNORE_DATA_SIZE, 32768).
+%% Limit for receiving debug messages from peers; intentionally larger
+%% than OpenSSH (1023 bytes, packet.c commit d4a8b7e34) to accommodate
+%% verbose diagnostics from various SSH implementations
+-define(MAX_DEBUG_MSG_SIZE, 4096).
+
+%% Key exchange (RFC 4253 Section 7-8, RFC 4419, RFC 5656, RFC 8270)
+
+%% RFC 4253 Section 6.1 (32768 byte payload, real-world: 500-2000 bytes)
+-define(MAX_KEXINIT_SIZE, 32768).
+% RFC 4253 Section 8 (8192-bit = 1024 bytes + mpint encoding overhead)
+-define(MAX_DH_MPINT_SIZE, 1032).
+%% RFC 5656 Section 4 (P-521 uncompressed: 133 bytes)
+-define(MAX_ECDH_POINT_SIZE, 256).
+
+%% Service request (RFC 4253 Section 10, RFC 8308)
+
+%% RFC 4251 Section 6 (SSH name limit)
+-define(MAX_SERVICE_NAME_SIZE, 64).
+% Practical limit (RFC 8308 defines no maximum)
+-define(MAX_EXT_INFO_SIZE, 8192).
+% Practical limit (typical: 200-400 bytes, allows future extensions)
+-define(MAX_EXT_VALUE_SIZE, 1024).
+
 %% Cryptographic limits
--define(MAX_HOST_KEY_SIZE, 4096).       % RSA-4096 + ASN.1/SSH encoding
--define(MAX_SIGNATURE_SIZE, 1536).      % RSA-8192 (1044) + margin for future algorithms
+
+%% Accommodates RSA-8192 keys (~1046 bytes, largest supported key type)
+%% and post-quantum algorithms (Dilithium5: 2592 bytes). Other key
+%% types are much smaller: DSA-1024 (~431 bytes), ECDSA P-521 (~172
+%% bytes), Ed25519 (~51 bytes)
+-define(MAX_HOST_KEY_SIZE, 4096).
+%% Accommodates RSA-8192 signatures (~1039 bytes) and post-quantum
+%% algorithms (Dilithium5: 4595 bytes). Provides consistent PQ
+%% readiness with MAX_HOST_KEY_SIZE.
+-define(MAX_SIGNATURE_SIZE, 5120).
 
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
 
