@@ -4121,6 +4121,17 @@ ensure_engine_unloaded(Engine, _EngineMethods) ->
 %%% On load
 %%--------------------------------------------------------------------
 on_load() ->
+    %% Make sure crypto app is loaded in order to do get_env below.
+    case {code:get_mode(),application:load(crypto)} of
+        {_, {error,{already_loaded,crypto}}} -> ok;
+        {interactive, ok} -> ok;
+        {embedded, ok} ->
+            %% Application not already loaded by boot script. Why?
+            %% Could happen if application start type was 'none' in .rel file.
+            erlang:error({on_load, "Module 'crypto' cannot be loaded in embedded"
+                          " mode without application 'crypto' being loaded"})
+    end,
+
     LibBaseName = "crypto",
     PrivDir = code:priv_dir(crypto),
     LibName = case erlang:system_info(build_type) of
@@ -4147,14 +4158,14 @@ on_load() ->
 	      end,
     Lib = filename:join([PrivDir, "lib", LibName]),
     LibBin   = path2bin(Lib),
-    {FipsMode,AppLoaded} =
+    FipsMode =
         case application:get_env(crypto, fips_mode) of
-            {ok, true} -> {true, loaded};
-            {ok, _} -> {false, loaded};
+            {ok, true} -> true;
+            {ok, false} -> false;
+            {ok, Other} ->
+                erlang:error({"crypto fips_mode must be true or false, not",Other});
             undefined ->
-                %% We assume application crypto has a default value for fips_mode.
-                %% If undefined the application has not been loaded.
-                {false, unloaded}
+                erlang:error({"crypto fips_mode is undefined"})
         end,
     Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,LibBin,FipsMode}) of
 		 ok -> ok;
@@ -4182,7 +4193,6 @@ on_load() ->
 	     end,
     case Status of
 	ok ->
-            warn_app_not_loaded_maybe(AppLoaded),
             ok;
 	{error, {E, Str}} ->
             Fmt = "Unable to load crypto library. Failed with error:~n\"~p, ~s\"~n~s",
@@ -4193,19 +4203,6 @@ on_load() ->
                     end,
 	    error_logger:error_msg(Fmt, [E,Str,Extra]),
 	    Status
-    end.
-
-warn_app_not_loaded_maybe(loaded) ->
-    ok;
-warn_app_not_loaded_maybe(unloaded) ->
-    %% For backward compatible reasons we allow application crypto
-    %% not being loaded.
-    case info_fips() of
-        not_enabled ->
-            logger:warning("Module 'crypto' loaded without application 'crypto' being loaded.\n"
-                           "Without application config 'fips_mode' loaded, FIPS mode is disabled by default.");
-        _ ->
-            ok
     end.
 
 path2bin(Path) when is_list(Path) ->
