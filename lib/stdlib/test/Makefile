@@ -141,6 +141,8 @@ ERTS_MODULES= erts_test_utils
 SASL_MODULES= otp_vsns
 KERNEL_MODULES= rtnode
 
+DOCTEST_MARKDOWN = ../doc/guides/uri_string_usage.md
+
 ERL_FILES=	$(MODULES:%=%.erl) \
 		$(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl) \
 		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl) \
@@ -204,6 +206,8 @@ release_tests_spec: make_emakefile
 	       "$(RELSYSDIR)/unicode_SUITE_data"
 	$(INSTALL_DIR) "$(RELSYSDIR)/stdlib_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/stdlib_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/uri_string_SUITE_data"
+	$(INSTALL_DATA) $(DOCTEST_MARKDOWN) "$(RELSYSDIR)/uri_string_SUITE_data"
 
 	cd ../examples && $(MAKE) $@
 

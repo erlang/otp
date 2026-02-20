@@ -108,8 +108,8 @@ characters that are not allowed in a URI such as "ö" and the space. We can
 verify this by parsing the URI:
 
 ```erlang
-  1> uri_string:parse("http://cities/örebro?foo bar").
-  {error,invalid_uri,":"}
+1> uri_string:parse("http://cities/örebro?foo bar").
+{error,invalid_uri,":"}
 ```
 
 The URI parser tries all possible combinations to interpret the input and fails
@@ -122,9 +122,9 @@ The proper way to solve this problem is to use `uri_string:recompose/1` with a
 [`uri_map()`](`t:uri_string:uri_map/0`) as input:
 
 ```erlang
-  2> uri_string:recompose(#{scheme => "http", host => "cities", path => "/örebro",
-  query => "foo bar"}).
-  "http://cities/%C3%B6rebro?foo%20bar"
+1> uri_string:recompose(#{scheme => "http", host => "cities", path => "/örebro",
+ query => "foo bar"}).
+"http://cities/%C3%B6rebro?foo%20bar"
 ```
 
 The result is a valid URI where all the special characters are encoded as
@@ -132,9 +132,9 @@ defined by the standard. Applying `uri_string:parse/1` and
 `uri_string:percent_decode/1` on the URI returns the original input:
 
 ```erlang
-  3> uri_string:percent_decode(uri_string:parse("http://cities/%C3%B6rebro?foo%20bar")).
-  #{host => "cities",path => "/örebro",query => "foo bar",
-  scheme => "http"}
+1> uri_string:percent_decode(uri_string:parse("http://cities/%C3%B6rebro?foo%20bar")).
+#{host => "cities",path => "/örebro",query => "foo bar",
+ scheme => "http"}
 ```
 
 This symmetric property is heavily used in our property test suite.
@@ -167,34 +167,34 @@ lists the allowed set of characters in each major URI component, and also in the
 most important standard character sets.
 
 ```erlang
-    1> uri_string:allowed_characters().
-    [{scheme,
-     "+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"},
-    {userinfo,
-     "!$%&'()*+,-.0123456789:;=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
-    {host,
-     "!$&'()*+,-.0123456789:;=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
-    {ipv4,".0123456789"},
-    {ipv6,".0123456789:ABCDEFabcdef"},
-    {regname,
-     "!$%&'()*+,-.0123456789;=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
-    {path,
-     "!$%&'()*+,-./0123456789:;=@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
-    {query,
-     "!$%&'()*+,-./0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
-    {fragment,
-     "!$%&'()*+,-./0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
-    {reserved,"!#$&'()*+,/:;=?@[]"},
-    {unreserved,
-     "-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"}]
+1> uri_string:allowed_characters().
+[{scheme,
+ "+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"},
+ {userinfo,
+ "!$%&'()*+,-.0123456789:;=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
+ {host,
+ "!$&'()*+,-.0123456789:;=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
+ {ipv4,".0123456789"},
+ {ipv6,".0123456789:ABCDEFabcdef"},
+ {regname,
+ "!$%&'()*+,-.0123456789;=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
+ {path,
+ "!$%&'()*+,-./0123456789:;=@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
+ {query,
+ "!$%&'()*+,-./0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
+ {fragment,
+ "!$%&'()*+,-./0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"},
+ {reserved,"!#$&'()*+,/:;=?@[]"},
+ {unreserved,
+ "-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"}]
 ```
 
 If a URI component has a character that is not allowed, it will be
 percent-encoded when the URI is produced:
 
 ```erlang
-    2> uri_string:recompose(#{scheme => "https", host => "local#host", path => ""}).
-    "https://local%23host"
+1> uri_string:recompose(#{scheme => "https", host => "local#host", path => ""}).
+"https://local%23host"
 ```
 
 Consuming a URI containing percent-encoded triplets can take many steps. The
@@ -204,10 +204,10 @@ contains multiple percent-encoded triplets. First, the input
 [`uri_map()`](`t:uri_string:uri_map/0`). The parsing only splits the URI into
 its components without doing any decoding:
 
-```text
-    3> uri_string:parse("http://%6C%6Fcal%23host/%F6re%26bro%20").
-    #{host => "%6C%6Fcal%23host",path => "/%F6re%26bro%20",
-      scheme => "http"}}
+```erlang
+1> uri_string:parse("http://%6C%6Fcal%23host/%F6re%26bro%20").
+#{host => "%6C%6Fcal%23host",path => "/%F6re%26bro%20",
+  scheme => "http"}
 ```
 
 The input is a valid URI but how can you decode those percent-encoded octets?
@@ -217,11 +217,11 @@ in the unreserved set. Normalization is a safe, idempotent operation that
 converts a URI into its canonical form:
 
 ```erlang
-    4> uri_string:normalize("http://%6C%6Fcal%23host/%F6re%26bro%20").
-    "http://local%23host/%F6re%26bro%20"
-    5> uri_string:normalize("http://%6C%6Fcal%23host/%F6re%26bro%20", [return_map]).
-    #{host => "local%23host",path => "/%F6re%26bro%20",
-      scheme => "http"}
+1> uri_string:normalize("http://%6C%6Fcal%23host/%F6re%26bro%20").
+"http://local%23host/%F6re%26bro%20"
+2> uri_string:normalize("http://%6C%6Fcal%23host/%F6re%26bro%20", [return_map]).
+#{host => "local%23host",path => "/%F6re%26bro%20",
+  scheme => "http"}
 ```
 
 There are still a few percent-encoded triplets left in the output. At this
@@ -231,13 +231,13 @@ decoding on the remaining character triplets. Erlang/OTP provides a function,
 host and path components, or on the whole map:
 
 ```erlang
-    6> uri_string:percent_decode("local%23host").
-    "local#host"
-    7> uri_string:percent_decode("/%F6re%26bro%20").
-    {error,invalid_utf8,<<"/öre&bro ">>}
-    8> uri_string:percent_decode(#{host => "local%23host",path => "/%F6re%26bro%20",
-    scheme => "http"}).
-    {error,{invalid,{path,{invalid_utf8,<<"/öre&bro ">>}}}}
+1> uri_string:percent_decode("local%23host").
+"local#host"
+2> uri_string:percent_decode("/%F6re%26bro%20").
+{error,invalid_utf8,<<"/\xf6re&bro ">>}
+3> uri_string:percent_decode(#{host => "local%23host",path => "/%F6re%26bro%20",
+ scheme => "http"}).
+{error,{invalid,{path,{invalid_utf8,<<"/\xf6re&bro ">>}}}}
 ```
 
 The `host` was successfully decoded but the path contains at least one character
@@ -247,20 +247,20 @@ is _latin-1_, so you can try `uri_string:transcode/2`, to transcode the path to
 UTF-8 and run the percent-decode operation on the transcoded string:
 
 ```erlang
-    9> uri_string:transcode("/%F6re%26bro%20", [{in_encoding, latin1}]).
-    "/%C3%B6re%26bro%20"
-    10> uri_string:percent_decode("/%C3%B6re%26bro%20").
-    "/öre&bro "
+1> uri_string:transcode("/%F6re%26bro%20", [{in_encoding, latin1}]).
+"/%C3%B6re%26bro%20"
+2> uri_string:percent_decode("/%C3%B6re%26bro%20").
+"/öre&bro "
 ```
 
 It is important to emphasize that it is not safe to apply
 `uri_string:percent_decode/1` directly on an input URI:
 
 ```erlang
-    11> uri_string:percent_decode("http://%6C%6Fcal%23host/%C3%B6re%26bro%20").
-    "http://local#host/öre&bro "
-    12> uri_string:parse("http://local#host/öre&bro ").
-    {error,invalid_uri,":"}
+1> uri_string:percent_decode("http://%6C%6Fcal%23host/%C3%B6re%26bro%20").
+"http://local#host/öre&bro "
+2> uri_string:parse("http://local#host/öre&bro ").
+{error,invalid_uri,":"}
 ```
 
 > #### Note {: .info }
@@ -311,12 +311,12 @@ used many times in this user guide is a shortcut in the normalization process
 returning the intermediate datastructure, and allowing us to inspect and apply
 further decoding on the remaining percent-encoded triplets.
 
-```text
-    13> uri_string:normalize("hTTp://LocalHost:80/%c3%B6rebro/a/../b").
-    "http://localhost/%C3%B6rebro/b"
-    14> uri_string:normalize("hTTp://LocalHost:80/%c3%B6rebro/a/../b", [return_map]).
-    #{host => "localhost",path => "/%C3%B6rebro/b",
-      scheme => "http"}
+```erlang
+1> uri_string:normalize("hTTp://LocalHost:80/%c3%B6rebro/a/../b").
+"http://localhost/%C3%B6rebro/b"
+2> uri_string:normalize("hTTp://LocalHost:80/%c3%B6rebro/a/../b", [return_map]).
+#{host => "localhost",path => "/%C3%B6rebro/b",
+  scheme => "http"}
 ```
 
 ## Special considerations
