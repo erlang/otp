@@ -21,13 +21,13 @@
 %%
 -module(ct_doctest).
 -moduledoc """"
-`ct_doctest` runs doctests on markdown documentation examples.
+`ct_doctest` runs doctests on documentation examples. Using `ct_doctest` ensures that the examples
+in the documentation are correct, up to date, and stylistically consistent.
 
-The tested examples can be either in a module (normally
-written using [documentation attributes](`e:system:documentation.md`)), or in markdown files.
-
-Using `ct_doctest` ensures that the examples in your documentation are correct, up to date,
-and stylistically consistent.
+The tested examples can be either in a module (normally written using
+[documentation attributes](`e:system:documentation.md`)) or in files.
+By default `ct_doctest` looks for markdown code blocks and runs any Erlang
+code block found that looks like a shell session.
 
 The doctest parser looks for examples that are formatted as if they were run in the
 Erlang shell, using prompts of the form `N>`, where `N` starts at `1` for each block.
@@ -160,8 +160,8 @@ Any variable defined in the examples will be available in the following prompts.
 ### Prebound variables
 
 If the documentation examples rely on certain variables being prebound, you can provide these
-bindings when calling `module/2`. For example, if you have a module doc that uses a variable `Prebound`,
-you can set it up like this:
+bindings in the `bindings` option when calling `module/2`. For example, if you have a module
+doc that uses a variable `Prebound`, you can set it up like this:
 
 ```
 1> Prebound.
@@ -272,8 +272,18 @@ should not be tested
 -export([module/1, module/2, file/1, file/2]).
 
 -doc "Variable bindings passed as option to `module/2` or `file/2`.".
--type doc_binding() :: {{function | type | callback, atom(), non_neg_integer()}
-                         | module_doc, erl_eval:binding_struct()}.
+-type doc_binding() :: {{function | type | callback, atom(), non_neg_integer()} |
+                        module_doc, erl_eval:binding_struct()}.
+
+-doc """
+Options for doctest execution.
+
+* `parser` - Use this option to plug in an external documentation parser. The
+  parser callback must be a `fun/1` and return a list of Erlang code block binaries.
+  The code blocks are then checked to determine whether they should be run as doctests.
+  If no parser is provided, a built-in markdown parser will be used.
+""".
+-type options() :: [{parser, fun((unicode:unicode_binary()) -> [unicode:unicode_binary()] | {error, term()}) }].
 
 -doc #{equiv => module(Module, [])}.
 -spec module(module()) ->
@@ -282,7 +292,7 @@ module(Module) ->
     module(Module, []).
 
 -doc """
-Run doctests for a module with markdown EEP-48 docs.
+Run tests for the documentation in a module with EEP-48 docs.
 
 When calling `module/2`, `ct_doctest` looks for documentation in the specified module and
 runs any examples found there. The module, function, type, and callback documentation
@@ -292,16 +302,25 @@ The function returns `ok` if all tests pass, or `{comment, Comment}` if all test
 functions lack tests. If any test fails, an exception in the form of `error({N, errors})` is raised,
 where `N` is the number of failed tests. The details of each failure are printed to the console.
 
-`Bindings` can provide prebound variables for a specific doc entry. Use
-`module_doc` for module docs and `{function, Name, Arity}` (or corresponding
-`type`/`callback` keys) for entry-specific bindings.
+*Options*:
+
+* `bindings` - Provide prebound variables for a specific doc entry. Use
+  `module_doc` for module docs and `{function, Name, Arity}` (or corresponding
+  `type`/`callback` keys) for entry-specific bindings.
+
+See `options/0` for more available options.
 """.
--spec module(module(), [doc_binding()]) ->
+-spec module(module(), [{bindings, [doc_binding()]}] | options()) ->
           ok | {comment, string()} | {error, term()} | no_return().
-module(Module, Bindings) ->
+module(Module, Options) ->
+    Bindings = options_bindings(Options),
+    HasParserKey = proplists:is_defined(parser, Options),
+    ParserFun = options_parser(Options),
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ~"text/markdown" } = Docs} ->
-            run_module_docs(Docs, Bindings);
+        {ok, #docs_v1{ format = ~"text/markdown" } = Docs} when not HasParserKey ->
+            run_module_docs(Docs, Bindings, ParserFun);
+        {ok, #docs_v1{} = Docs} when HasParserKey ->
+            run_module_docs(Docs, Bindings, ParserFun);
         {ok, _} ->
             {error, unsupported_format};
         Else ->
@@ -315,7 +334,7 @@ file(File) ->
     file(File, []).
 
 -doc """
-Run doctests for a markdown file.
+Run doctests for a file.
 
 The function returns `ok` if all tests pass. If any test fails, an exception in the form of
 `error({N, errors})` is raised, where `N` is the number of failed tests. The details of each
@@ -327,14 +346,16 @@ failure are printed to the console.
 
 See `options/0` for more available options.
 """.
--spec file(file:filename(), erl_eval:binding_struct()) ->
-          ok | {error, term()} | no_return().
-file(File, Bindings) ->
+-spec file(file:filename(), [{bindings, erl_eval:binding_struct()}] | options()) ->
+          ok | {comment, string()} | {error, term()} | no_return().
+file(File, Options) ->
+    Bindings = options_bindings(Options),
+    ParserFun = options_parser(Options),
     case file:read_file(File) of
-        {ok, Markdown} ->
+        {ok, Content} ->
             try
-                Items = inspect(shell_docs_markdown:parse_md(Markdown)),
-                _ = run_items(Items, Bindings),
+                Blocks = inspect(parse(Content, ParserFun)),
+                _ = run_blocks(Blocks, Bindings),
                 ok
             catch
                 throw:{error, Error} ->
@@ -348,11 +369,11 @@ file(File, Bindings) ->
             Error
     end.
 
-run_module_docs(#docs_v1{ docs = Docs, module_doc = MD }, Bindings) ->
-    MDRes = lists:append([parse_and_run(module_doc, MD, Bindings)]),
+run_module_docs(#docs_v1{ docs = Docs, module_doc = MD }, Bindings, ParserFun) ->
+    MDRes = lists:append([parse_and_run(module_doc, MD, Bindings, ParserFun)]),
     Res =
         lists:append(
-          [parse_and_run(KFA, EntryDocs, Bindings) ||
+          [parse_and_run(KFA, EntryDocs, Bindings, ParserFun) ||
               {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs,
               is_map(EntryDocs)]),
     Errors =
@@ -389,16 +410,16 @@ print_error({{Name,Arity},{Message,Line,Context}}) ->
 print_error({{Name,Arity},{Message,Context}}) ->
     io:format("~p/~p: ~ts~n~ts~n", [Name,Arity,Context,Message]).
 
-parse_and_run(_, hidden, _) -> [];
-parse_and_run(_, none, _) -> [];
-parse_and_run(KFA, #{} = Ds, Bindings) ->
-    [do_parse_and_run(KFA, D, Bindings) || _ := D <- Ds].
+parse_and_run(_, hidden, _, _) -> [];
+parse_and_run(_, none, _, _) -> [];
+parse_and_run(KFA, #{} = Ds, Bindings, ParserFun) ->
+    [do_parse_and_run(KFA, D, Bindings, ParserFun) || _ := D <- Ds].
 
-do_parse_and_run(KFA, Docs, Bindings) ->
+do_parse_and_run(KFA, Docs, Bindings, ParserFun) ->
     try
         InitialBindings = proplists:get_value(KFA, Bindings, erl_eval:new_bindings()),
-        Items = inspect(shell_docs_markdown:parse_md(Docs)),
-        {KFA, run_items(Items, InitialBindings)}
+        Blocks = inspect(parse(Docs, ParserFun)),
+        {KFA, run_blocks(Blocks, InitialBindings)}
     catch
         throw:{error,_}=Error ->
             {KFA, [Error]};
@@ -407,19 +428,58 @@ do_parse_and_run(KFA, Docs, Bindings) ->
             erlang:raise(C, R, ST)
     end.
 
-run_items(Tests, Bindings) ->
-    lists:flatmap(fun(Test) -> test_item(Test, Bindings) end, Tests).
+run_blocks(Blocks, Bindings) ->
+    lists:flatmap(fun(Test) -> test_block(Test, Bindings) end, Blocks).
 
-test_item({pre,[],[{code,Attrs,[Code]}]}, Bindings) when is_binary(Code) ->
-    case proplists:get_value(class, Attrs, ~"language-erlang") of
-        ~"language-erlang" ->
-            run_test(Code, Bindings);
-        _ ->
+test_block(Code, Bindings) when is_binary(Code) ->
+    run_test(Code, Bindings);
+test_block(Other, _Bindings) ->
+    throw({error, {invalid_code_block, Other}}).
+
+parse(Content, ParserFun) ->
+    validate_code_blocks(run_parser(ParserFun, Content)).
+
+run_parser(ParserFun, Content) when is_function(ParserFun, 1) ->
+    ParserFun(Content);
+run_parser(Parser, _Content) ->
+    throw({error, {unsupported_parser, Parser}}).
+
+validate_code_blocks({error, Reason}) ->
+    throw({error, {parser_error, Reason}});
+validate_code_blocks(Blocks) when is_list(Blocks) ->
+    [validate_code_block(Block) || Block <- Blocks];
+validate_code_blocks(Other) ->
+    throw({error, {invalid_parser_result, Other}}).
+
+validate_code_block(Block) when is_binary(Block) ->
+    Block;
+validate_code_block(Other) ->
+    throw({error, {invalid_code_block, Other}}).
+
+options_bindings(Options) ->
+    proplists:get_value(bindings, Options, []).
+
+options_parser(Options) ->
+    proplists:get_value(parser, Options,
+                        fun parse_markdown_builtin/1).
+
+parse_markdown_builtin(Markdown) ->
+    extract_erlang_code_blocks(inspect(shell_docs_markdown:parse_md(Markdown))).
+
+extract_erlang_code_blocks(Ast) when is_list(Ast) ->
+    lists:append([extract_erlang_code_blocks(Item) || Item <- Ast]);
+extract_erlang_code_blocks({pre, [], [{code, Attrs, [Code]}]}) when is_binary(Code) ->
+    Class = proplists:get_value(class, Attrs, ~"language-erlang"),
+    Tokens = string:split(unicode:characters_to_binary(Class), ~" ", all),
+    case lists:member(~"language-erlang", Tokens) of
+        true ->
+            [Code];
+        false ->
             []
     end;
-test_item({_Tag,_Attr, Content}, Bindings) ->
-    run_items(Content, Bindings);
-test_item(Header, _Bindings) when is_binary(Header) ->
+extract_erlang_code_blocks({_Tag, _Attrs, Content}) ->
+    extract_erlang_code_blocks(Content);
+extract_erlang_code_blocks(_Other) ->
     [].
 
 -define(RE_CAPTURE, ~"(?:(?'line_number'[0-9]+)(?'prefix'>\s))?(?'content'.*)").
@@ -584,18 +644,19 @@ rewrite([{match, Ann, LHS, RHS} | Rest]) ->
 
 rewrite_map_match(AST) ->
     erl_syntax:revert(
-    erl_syntax_lib:map(fun(Tree) ->
-        case erl_syntax:type(Tree) of
-            map_field_assoc ->
-                Name = erl_syntax:map_field_assoc_name(Tree),
-                Value = erl_syntax:map_field_assoc_value(Tree),
-                erl_syntax:map_field_exact(Name, Value);
-            _Else ->
-                Tree
-        end
-     end, AST)).
+      erl_syntax_lib:map(
+        fun(Tree) ->
+                case erl_syntax:type(Tree) of
+                    map_field_assoc ->
+                        Name = erl_syntax:map_field_assoc_name(Tree),
+                        Value = erl_syntax:map_field_assoc_value(Tree),
+                        erl_syntax:map_field_exact(Name, Value);
+                    _Else ->
+                        Tree
+                end
+        end, AST)).
 
 inspect(Term) ->
-%% Uncomment for debugging
-%    io:format("~tp~n",[Term]),
+    %% Uncomment for debugging
+    %% io:format("~tp~n",[Term]),
     Term.

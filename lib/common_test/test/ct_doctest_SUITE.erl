@@ -28,6 +28,7 @@
 -export([api_branches/1, module_result_modes/1,
          docs_filtering_and_error_formatting/1, parser_prompt_parsing/1,
          runtime_failure_matching/1, parse_rewrite_helpers/1, file_support/1,
+         external_parser/1,
          integration_smoke/1]).
 
 suite() ->
@@ -41,6 +42,7 @@ all() ->
      runtime_failure_matching,
      parse_rewrite_helpers,
      file_support,
+     external_parser,
      integration_smoke].
 
 init_per_suite(Config) ->
@@ -91,16 +93,34 @@ parse_rewrite_helpers(_Config) ->
 file_support(Config) ->
     DataDir = ?config(data_dir, Config),
     Bindings = erl_eval:add_binding('Prebound', hello, erl_eval:new_bindings()),
+    Opts = [{bindings, Bindings}],
     ParseErrorFile = filename:join(DataDir, "doctest_parse_error.md"),
-    ok = ct_doctest:file(filename:join(DataDir, "doctest_ok.md"), Bindings),
+    ok = ct_doctest:file(filename:join(DataDir, "doctest_ok.md"), Opts),
     expect_error_count(filename:join(DataDir, "doctest_fail.md"), [], 1),
     expect_error_count(ParseErrorFile, [], 1),
     {error, enoent} = ct_doctest:file(filename:join(DataDir, "missing_*.md"), []).
 
+external_parser(Config) ->
+    DataDir = ?config(data_dir, Config),
+    ParserOpt = {parser, fun ct_doctest_external_parser_mod:parse_doc/1},
+    ok = ct_doctest:module(ct_doctest_external_parser_mod, [ParserOpt]),
+    ok = ct_doctest:file(filename:join(DataDir, "custom_parser.txt"),
+                         [ParserOpt]),
+    expect_error_count(ct_doctest_external_parser_mod, [{parser, not_a_fun}], 1),
+    expect_error_count(ct_doctest_external_parser_mod,
+                       [{parser, fun(_) -> {error, bad_parser} end}], 1),
+    expect_error_count(ct_doctest_external_parser_mod,
+                       [{parser, fun(_) -> bad_result end}], 1),
+    expect_error_count(ct_doctest_external_parser_mod,
+                       [{parser, fun(_) -> [not_binary] end}], 1),
+    expect_exception(filename:join(DataDir, "doctest_ok.md"),
+                     [{parser, fun(_) -> erlang:error(boom) end}],
+                     error, boom).
+
 integration_smoke(_Config) ->
     Bindings = [{module_doc,
                  erl_eval:add_binding('Prebound', hello, erl_eval:new_bindings())}],
-    ct_doctest:module(ct_doctest, Bindings).
+    ct_doctest:module(ct_doctest, [{bindings, Bindings}]).
 
 compile_fixture(File, OutDir) ->
     Module = list_to_atom(filename:basename(File, ".erl")),

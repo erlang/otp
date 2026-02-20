@@ -480,11 +480,10 @@ doctests(Config) ->
             ok = file:write_file(File, ~"lorem ipsum"),
             ct_doctest:module(
               zstd,
-              [
-               {module_doc, erl_eval:add_binding('File', File, erl_eval:new_bindings())},
-               {{function, get_dict_id, 1}, DictBinding},
-               {{function, dict, 3}, DictBinding}
-              ]
+              [{bindings,
+                [{module_doc, erl_eval:add_binding('File', File, erl_eval:new_bindings())},
+                 {{function, get_dict_id, 1}, DictBinding},
+                 {{function, dict, 3}, DictBinding}]}]
              )
     end.
 
