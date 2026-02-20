@@ -1315,14 +1315,16 @@ gc_bif2 Fail1 Live1 u$bif:erlang:stimes/2 S1 S2 Dst1 |
   gc_bif2 Fail2 Live2 u$bif:erlang:splus/2 S3 S4 Dst2 |
   equal(Dst1, S3) |
   equal(Dst1, Dst2) |
-  equal(Fail1, Fail2) =>
+  equal(Fail1, Fail2) |
+  distinct(S3, S4) =>
     i_mul_add Fail1 S1 S2 S3 S4 Dst1
 
 gc_bif2 Fail1 Live1 u$bif:erlang:stimes/2 S1 S2 Dst1 |
   gc_bif2 Fail2 Live2 u$bif:erlang:splus/2 S3 S4 Dst2 |
   equal(Dst1, S4) |
   equal(Dst1, Dst2) |
-  equal(Fail1, Fail2) =>
+  equal(Fail1, Fail2) |
+  distinct(S3, S4) =>
     i_mul_add Fail1 S1 S2 S4 S3 Dst1
 
 gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst =>
