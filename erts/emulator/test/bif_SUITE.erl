@@ -1779,7 +1779,7 @@ node_error(E0) ->
     end.
 
 doctests(_Config) ->
-    ct_doctest:test(erlang, []).
+    ct_doctest:module(erlang, []).
 
 is_integer_3_test(_Config) ->
     _ = [is_between_ten(X) || X <- lists:seq(-2, 12)],

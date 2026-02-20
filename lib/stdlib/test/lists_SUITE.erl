@@ -2643,4 +2643,4 @@ uniq_2(_Config) ->
     ok.
 
 doctests(_Config) ->
-    ct_doctest:test(lists, []).
+    ct_doctest:module(lists, []).

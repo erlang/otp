@@ -21,8 +21,10 @@
 %%
 -module(ct_doctest).
 -moduledoc """"
-`ct_doctest` runs doctests embedded in EEP-48 markdown documentation, normally
-written using [documentation attributes](`e:system:documentation.md`).
+`ct_doctest` runs doctests on markdown documentation examples.
+
+The tested examples can be either in a module (normally
+written using [documentation attributes](`e:system:documentation.md`)), or in markdown files.
 
 Using `ct_doctest` ensures that the examples in your documentation are correct, up to date,
 and stylistically consistent.
@@ -158,7 +160,7 @@ Any variable defined in the examples will be available in the following prompts.
 ### Prebound variables
 
 If the documentation examples rely on certain variables being prebound, you can provide these
-bindings when calling `test/2`. For example, if you have a module doc that uses a variable `Prebound`,
+bindings when calling `module/2`. For example, if you have a module doc that uses a variable `Prebound`,
 you can set it up like this:
 
 ```
@@ -267,7 +269,7 @@ should not be tested
 
 -include_lib("kernel/include/eep48.hrl").
 
--export([test/2]).
+-export([module/2, file/2]).
 
 -doc "Variable bindings passed as option to `module/2` or `file/2`.".
 -type doc_binding() :: {{function | type | callback, atom(), non_neg_integer()}
@@ -288,18 +290,53 @@ where `N` is the number of failed tests. The details of each failure are printed
 `module_doc` for module docs and `{function, Name, Arity}` (or corresponding
 `type`/`callback` keys) for entry-specific bindings.
 """.
--spec test(module(), [doc_binding()]) -> ok | {comment, string()} | {error, term()} | no_return().
-test(Module, Bindings) ->
+-spec module(module(), [doc_binding()]) ->
+          ok | {comment, string()} | {error, term()} | no_return().
+module(Module, Bindings) ->
     case code:get_doc(Module) of
         {ok, #docs_v1{ format = ~"text/markdown" } = Docs} ->
-            module(Docs, Bindings);
+            run_module_docs(Docs, Bindings);
         {ok, _} ->
             {error, unsupported_format};
         Else ->
             Else
     end.
 
-module(#docs_v1{ docs = Docs, module_doc = MD }, Bindings) ->
+-doc """
+Run doctests for a markdown file.
+
+The function returns `ok` if all tests pass. If any test fails, an exception in the form of
+`error({N, errors})` is raised, where `N` is the number of failed tests. The details of each
+failure are printed to the console.
+
+*Options*:
+
+* `bindings` - Provide prebound variables.
+
+See `options/0` for more available options.
+""".
+-spec file(file:filename(), erl_eval:binding_struct()) ->
+          ok | {error, term()} | no_return().
+file(File, Bindings) ->
+    case file:read_file(File) of
+        {ok, Markdown} ->
+            try
+                Items = inspect(shell_docs_markdown:parse_md(Markdown)),
+                _ = run_items(Items, Bindings),
+                ok
+            catch
+                throw:{error, Error} ->
+                    print_error({file, File, Error}),
+                    error({1, errors});
+                C:R:ST ->
+                    io:format("Uncaught exception in file ~ts~n", [File]),
+                    erlang:raise(C, R, ST)
+            end;
+        {error, _} = Error ->
+            Error
+    end.
+
+run_module_docs(#docs_v1{ docs = Docs, module_doc = MD }, Bindings) ->
     MDRes = lists:append([parse_and_run(module_doc, MD, Bindings)]),
     Res =
         lists:append(
@@ -331,6 +368,10 @@ print_error({module_doc,{Message,Line,Context}}) ->
     io:format("Module Doc:~p: ~ts~n~ts~n", [Line,Context,Message]);
 print_error({module_doc,{Message,Context}}) ->
     io:format("Module Doc: ~ts~n~ts~n", [Context,Message]);
+print_error({file, Path, {Message,Line,Context}}) ->
+    io:format("File ~ts:~p: ~ts~n~ts~n", [Path,Line,Context,Message]);
+print_error({file, Path, {Message,Context}}) ->
+    io:format("File ~ts: ~ts~n~ts~n", [Path,Context,Message]);
 print_error({{Name,Arity},{Message,Line,Context}}) ->
     io:format("~p/~p:~p: ~ts~n~ts~n", [Name,Arity,Line,Context,Message]);
 print_error({{Name,Arity},{Message,Context}}) ->

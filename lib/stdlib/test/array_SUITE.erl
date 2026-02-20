@@ -1000,7 +1000,7 @@ old_format(_Config) ->
 
 
 doctests(Config) when is_list(Config) ->
-    ct_doctest:test(array, []).
+    ct_doctest:module(array, []).
 
 
 %%

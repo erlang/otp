@@ -179,4 +179,4 @@ ignore_undefined([]) ->
     [].
 
 doctests(_Config) ->
-    ct_doctest:test(math, []).
+    ct_doctest:module(math, []).
