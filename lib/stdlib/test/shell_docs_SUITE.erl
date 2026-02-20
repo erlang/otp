@@ -640,7 +640,7 @@ columns(_Config) ->
     ok.
 
 doctests(_Config) ->
-    ct_doctest:module(shell_docs,[]).
+    ct_doctest:module(shell_docs).
 
 %%
 %% Parallel map function.

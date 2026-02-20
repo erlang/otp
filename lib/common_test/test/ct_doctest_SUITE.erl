@@ -61,12 +61,12 @@ end_per_suite(Config) ->
     ok.
 
 api_branches(_Config) ->
-    {error, _} = ct_doctest:module(ct_doctest_missing_mod, []),
-    {error, unsupported_format} = ct_doctest:module(ct_doctest_unsupported_format_mod, []).
+    {error, _} = ct_doctest:module(ct_doctest_missing_mod),
+    {error, unsupported_format} = ct_doctest:module(ct_doctest_unsupported_format_mod).
 
 module_result_modes(_Config) ->
-    ok = ct_doctest:module(ct_doctest_none_mod, []),
-    {comment, _} = ct_doctest:module(ct_doctest_no_tests_mod, []),
+    ok = ct_doctest:module(ct_doctest_none_mod),
+    {comment, _} = ct_doctest:module(ct_doctest_no_tests_mod),
     expect_error_count(ct_doctest_module_doc_parse_error_mod, [], 1).
 
 docs_filtering_and_error_formatting(_Config) ->
@@ -77,15 +77,15 @@ docs_filtering_and_error_formatting(_Config) ->
 
 parser_prompt_parsing(_Config) ->
     expect_error_count(ct_doctest_prompt_parser_mod, [], 3),
-    ok = ct_doctest:module(ct_doctest_non_erlang_block_mod, []).
+    ok = ct_doctest:module(ct_doctest_non_erlang_block_mod).
 
 runtime_failure_matching(_Config) ->
-    ok = ct_doctest:module(ct_doctest_failure_match_mod, []),
+    ok = ct_doctest:module(ct_doctest_failure_match_mod),
     expect_error_count(ct_doctest_failure_unexpected_success_mod, [], 1),
     expect_exception(ct_doctest_failure_mismatch_mod, [], error, badarg).
 
 parse_rewrite_helpers(_Config) ->
-    ok = ct_doctest:module(ct_doctest_parse_rewrite_mod, []),
+    ok = ct_doctest:module(ct_doctest_parse_rewrite_mod),
     expect_error_count(ct_doctest_scan_error_mod, [], 1).
 
 file_support(Config) ->
@@ -135,7 +135,11 @@ expect_exception(Module, Bindings, Class, Reason) ->
                      {OtherClass, OtherReason}, Stacktrace})
     end.
 
+run_target(Target, []) when is_atom(Target) ->
+    ct_doctest:module(Target);
 run_target(Target, Bindings) when is_atom(Target) ->
     ct_doctest:module(Target, Bindings);
+run_target(Target, []) ->
+    ct_doctest:file(Target);
 run_target(Target, Bindings) ->
     ct_doctest:file(Target, Bindings).

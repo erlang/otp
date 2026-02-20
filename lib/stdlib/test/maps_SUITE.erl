@@ -1110,6 +1110,6 @@ error_info(_Config) ->
     error_info_lib:test_error_info(maps, L).
 
 doctests(_Config) ->
-    ct_doctest:module(maps, []).
+    ct_doctest:module(maps).
 
 id(I) -> I.

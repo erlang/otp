@@ -269,11 +269,17 @@ should not be tested
 
 -include_lib("kernel/include/eep48.hrl").
 
--export([module/2, file/2]).
+-export([module/1, module/2, file/1, file/2]).
 
 -doc "Variable bindings passed as option to `module/2` or `file/2`.".
 -type doc_binding() :: {{function | type | callback, atom(), non_neg_integer()}
                          | module_doc, erl_eval:binding_struct()}.
+
+-doc #{equiv => module(Module, [])}.
+-spec module(module()) ->
+          ok | {comment, string()} | {error, term()} | no_return().
+module(Module) ->
+    module(Module, []).
 
 -doc """
 Run doctests for a module with markdown EEP-48 docs.
@@ -301,6 +307,12 @@ module(Module, Bindings) ->
         Else ->
             Else
     end.
+
+-doc #{equiv => file(File, [], [])}.
+-spec file(file:filename()) ->
+          ok | {error, term()} | no_return().
+file(File) ->
+    file(File, []).
 
 -doc """
 Run doctests for a markdown file.
