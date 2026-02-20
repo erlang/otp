@@ -29,7 +29,7 @@
          cstream/1, cstream_with_dict/1,
          dstream/1, dstream_with_dict/1,
          parameters/1, dict_api/1,
-         doc_tests/1
+         doctests/1
         ]).
 
 -export([generate_dict/0]).
@@ -54,7 +54,7 @@ groups() ->
         cstream_with_dict,
         dstream_with_dict,
         dict_api,
-        doc_tests ]} ].
+        doctests ]} ].
 
 init_per_suite(Config) ->
     Config.
@@ -467,7 +467,7 @@ dict_api(Config) ->
     ok.
 
 
-doc_tests(Config) ->
+doctests(Config) ->
     case erlang:system_info(emu_type) of
         debug ->
             %% As return values from decompress are split into an iovec with
@@ -478,7 +478,7 @@ doc_tests(Config) ->
             DictBinding = erl_eval:add_binding('Dict', Dict, erl_eval:new_bindings()),
             File = filename:join(proplists:get_value(priv_dir, Config), "example"),
             ok = file:write_file(File, ~"lorem ipsum"),
-            shell_docs:test(
+            ct_doctest:test(
               zstd,
               [
                {module_doc, erl_eval:add_binding('File', File, erl_eval:new_bindings())},

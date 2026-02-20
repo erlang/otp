@@ -2643,4 +2643,4 @@ uniq_2(_Config) ->
     ok.
 
 doctests(_Config) ->
-    shell_docs:test(lists, []).
+    ct_doctest:test(lists, []).

@@ -24,6 +24,7 @@
   {vsn, "%VSN%"},
   {modules, [ct_cover,
 	     ct,
+	     ct_doctest,
              ct_default_gl,
 	     ct_event,
 	     ct_framework,

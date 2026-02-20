@@ -540,13 +540,13 @@ iterate_set_1(M, {E, I}, R) ->
     iterate_set_1(M, M(next, I), [E | R]).
 
 doctests_gb_sets(_Config) ->
-    shell_docs:test(gb_sets, []).
+    ct_doctest:test(gb_sets, []).
 
 doctests_ordsets(_Config) ->
-    shell_docs:test(ordsets, []).
+    ct_doctest:test(ordsets, []).
 
 doctests_sets(_Config) ->
-    shell_docs:test(sets, []).
+    ct_doctest:test(sets, []).
 
 %%%
 %%% Helper functions.

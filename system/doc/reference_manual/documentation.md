@@ -198,6 +198,8 @@ Adds two numbers.
 add({arith, One}, {arith, Two}) -> {arith, One + Two}.
 ````
 
+Examples in documentation can be tested using `m:ct_doctest`.
+
 ### Doc metadata
 
 There are four reserved metadata keys for `-doc`:

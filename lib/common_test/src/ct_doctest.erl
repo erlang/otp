@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2025. All Rights Reserved.
+%% Copyright Ericsson AB 2025-2026. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,33 +19,90 @@
 %% 
 %% %CopyrightEnd%
 %%
--module(shell_docs_test).
--moduledoc false.
+-module(ct_doctest).
+-moduledoc """"
+`ct_doctest` runs doctests embedded in EEP-48 markdown documentation, normally
+written using [documentation attributes](`e:system:documentation.md`).
 
--include_lib("kernel/include/eep48.hrl").
+Using `ct_doctest` ensures that the examples in your documentation are correct, up to date,
+and stylistically consistent.
 
--export([module/2]).
+The doctest parser looks for examples that are formatted as if they were run in the
+Erlang shell, using prompts of the form `N>`, where `N` starts at `1` for each block.
+The expected output is written on the lines following the prompt. For example:
 
--doc """
-Here are some examples of what should work:
 
-## Basic example:
+    -doc """
+    This is an example of a doctest:
+    
+    ```
+    1> 1+2.
+    3
+    ```
+    """.
+
+`ct_doctest` can be used in Common Test suites to validate documentation examples as part of your
+test runs. Normal usage is to call `module/1` with a module name. For example:
+
+```
+all() ->
+    [doctests].
+doctests(_Config) ->
+    ct_doctest:module(my_module).
+```
+
+## Prompt format rules
+
+For a code block to run as a doctest:
+
+- prompts must start at `1>` for each block
+- each subsequent prompt must increment (`2>`, `3>`, ...)
+- continuation lines must be indented
+- `%` style comment lines are allowed in prompt blocks
+- mismatched prompt numbering causes a doctest parse error
+
+## Troubleshooting
+
+If a doctest fails unexpectedly:
+
+- use `verbose` to print per-block execution details
+- verify that expected output matches the shell output exactly
+- verify prompt numbering and continuation-line indentation
+
+## Examples
+
+Below are examples of supported formats for the code blocks in the documentation. The parser
+is quite flexible and supports various styles, including multi-line expressions, comments,
+and even prebound variables.
+
+### Basic example
 
 ```
 1> 1+2.
 3
 ```
 
-## Basic example using erlang code:
+### Basic example using Erlang code
 
-```erlang
+This example uses an explicit Erlang code block. That is,
+
+    ```erlang
+    1> 1+2.
+    3
+    ```
+
+instead of the previous one which is a generic code block. Both formats are supported.
+
+```
 1> 1+2.
 3
 ```
 
-## Multi-line prompt example:
+### Multi-line prompt
 
-```erlang
+Use multiline prompts for expressions that span multiple lines by starting the prompt with `>` and indenting the continuation lines. For example:
+
+```
 1> 1
   +
   2
@@ -53,17 +110,21 @@ Here are some examples of what should work:
 3
 ```
 
-## Multi-line with comma example:
+### Multi-line with comma
 
-```erlang
+It is possible to have multiple expressions in the same prompt, separated by commas. For example:
+
+```
 1> A = 1,
   A + 2.
 3
 ```
 
-## Multi-match example:
+### Multi-line match
 
-```erlang
+The expected output can span multiple lines. For example:
+
+```
 1> [1, 2].
 [
  1
@@ -72,7 +133,9 @@ Here are some examples of what should work:
  ]
 ```
 
-## Multiple prompts:
+### Multiple prompts
+
+Examples can have multiple prompts. For example:
 
 ```
 1> 1 + 2.
@@ -81,21 +144,49 @@ Here are some examples of what should work:
 7
 ```
 
-## Ignore result:
+### Defining variables
+
+Any variable defined in the examples will be available in the following prompts. For example:
 
 ```
-1> 1 + 2.
-```
-
-## Defining variables:
-
-```
-1> A = 1+2.
+1> A = 1 + 2.
+3
 2> A + 3.
 6
 ```
 
-## Matching exceptions.
+### Prebound variables
+
+If the documentation examples rely on certain variables being prebound, you can provide these
+bindings when calling `test/2`. For example, if you have a module doc that uses a variable `Prebound`,
+you can set it up like this:
+
+```
+1> Prebound.
+hello
+```
+
+and then in your test suite:
+
+```
+binding_test(_Config) ->
+    Prebound = erl_eval:add_binding('Prebound', hello, erl_eval:new_bindings()),
+    ct_doctest:module(my_module, [{bindings, [{module_doc, Prebound}]}]).
+```
+
+### Ignore result
+
+To ignore the results of a prompt, just skip writing the expected output. For example:
+
+```
+1> 1 + 2.
+2> 3 + 4.
+7
+```
+
+### Matching exceptions
+
+Examples of failures can be tested by writing the expected exception after the prompt. For example:
 
 ```
 1> hello + 1.
@@ -106,9 +197,15 @@ Here are some examples of what should work:
 ** exception error: no function clause matching lists:last([])
 ```
 
-## Comments:
+The simplest way to know what output to write is to run the example in the shell and copy the output,
+including the `** exception` line.
+
+### Comments
+
+Comments can be inserted anywhere in the code block. For example:
 
 ```
+%% A comment before the first prompt
 1> [1,
 %% A comment between prompts
   2].
@@ -123,21 +220,20 @@ Here are some examples of what should work:
  2]
 ```
 
-## Prebound variables:
+### Matching of maps
 
-```
-1> Prebound.
-hello
-```
-
-## Matching of maps:
+When matching on maps, it is possible to use shell syntax, that is, `=>` and not `:=`, as in
+normal Erlang code. For example:
 
 ```
 1> #{ a => b }.
 #{ a => b }
 ```
 
-## Matching of ...:
+### Matching of ...
+
+It is possible to use `...` in the expected output to indicate that the rest of the output
+should be ignored. This is useful for outputs that are large or contain non-deterministic elements.
 
 ```
 1> lists:seq(1,100).
@@ -146,7 +242,9 @@ hello
 #{ a => ... }
 ```
 
-## Edge cases:
+### Edge cases
+
+The following are examples that are not supported by the parser and will be ignored.
 
 ```
 a> should not be tested
@@ -164,19 +262,43 @@ a> should not be tested
 should not be tested
 1> 
 ```
+"""".
+-moduledoc(#{since => ~"OTP @OTP-20034@"}).
 
-```
-%% should probably be tested?
-1> ok.
-```
+-include_lib("kernel/include/eep48.hrl").
 
-```
-%% should probably be tested?
+-export([test/2]).
 
-1> ok.
-```
+-doc "Variable bindings passed as option to `module/2` or `file/2`.".
+-type doc_binding() :: {{function | type | callback, atom(), non_neg_integer()}
+                         | module_doc, erl_eval:binding_struct()}.
+
+-doc """
+Run doctests for a module with markdown EEP-48 docs.
+
+When calling `module/2`, `ct_doctest` looks for documentation in the specified module and
+runs any examples found there. The module, function, type, and callback documentation
+are all checked for examples.
+
+The function returns `ok` if all tests pass, or `{comment, Comment}` if all tests pass but one or more
+functions lack tests. If any test fails, an exception in the form of `error({N, errors})` is raised,
+where `N` is the number of failed tests. The details of each failure are printed to the console.
+
+`Bindings` can provide prebound variables for a specific doc entry. Use
+`module_doc` for module docs and `{function, Name, Arity}` (or corresponding
+`type`/`callback` keys) for entry-specific bindings.
 """.
--spec module(#docs_v1{}, erl_eval:binding_struct()) -> _.
+-spec test(module(), [doc_binding()]) -> ok | {comment, string()} | {error, term()} | no_return().
+test(Module, Bindings) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ~"text/markdown" } = Docs} ->
+            module(Docs, Bindings);
+        {ok, _} ->
+            {error, unsupported_format};
+        Else ->
+            Else
+    end.
+
 module(#docs_v1{ docs = Docs, module_doc = MD }, Bindings) ->
     MDRes = lists:append([parse_and_run(module_doc, MD, Bindings)]),
     Res =
@@ -223,7 +345,7 @@ do_parse_and_run(KFA, Docs, Bindings) ->
     try
         InitialBindings = proplists:get_value(KFA, Bindings, erl_eval:new_bindings()),
         Items = inspect(shell_docs_markdown:parse_md(Docs)),
-        {KFA, test(Items, InitialBindings)}
+        {KFA, run_items(Items, InitialBindings)}
     catch
         throw:{error,_}=Error ->
             {KFA, [Error]};
@@ -232,7 +354,7 @@ do_parse_and_run(KFA, Docs, Bindings) ->
             erlang:raise(C, R, ST)
     end.
 
-test(Tests, Bindings) ->
+run_items(Tests, Bindings) ->
     lists:flatmap(fun(Test) -> test_item(Test, Bindings) end, Tests).
 
 test_item({pre,[],[{code,Attrs,[Code]}]}, Bindings) when is_binary(Code) ->
@@ -243,44 +365,46 @@ test_item({pre,[],[{code,Attrs,[Code]}]}, Bindings) when is_binary(Code) ->
             []
     end;
 test_item({_Tag,_Attr, Content}, Bindings) ->
-    test(Content, Bindings);
+    run_items(Content, Bindings);
 test_item(Header, _Bindings) when is_binary(Header) ->
     [].
 
--define(RE_CAPTURE, ~"(?:(?'line_number'[0-9]+)(?'prefix'>\s)|(?'prefix'%))?(?'content'.*)").
--define(RE_OPTIONS, [{capture, [line_number, prefix, content] ,binary}, dupnames]).
+-define(RE_CAPTURE, ~"(?:(?'line_number'[0-9]+)(?'prefix'>\s))?(?'content'.*)").
+-define(RE_OPTIONS, [{capture, [line_number, prefix, content] ,binary}, unicode]).
 
 run_test(Code, InitialBindings) ->
     Lines = string:split(Code, "\n", all),
-    ReLines = [re:run(Line, ?RE_CAPTURE, ?RE_OPTIONS) || Line <- Lines],
-    case ReLines of
-        [{match, [_Line_Number, _Prefix = <<"> ">>, _Code]} | _] ->
-            check_line_numbers(ReLines, 1),
-            Tests = inspect(parse_tests(ReLines, [])),
-            _ = lists:foldl(fun(Test, Bindings) ->
-                                    run_tests(Test, Bindings)
-                            end, InitialBindings, Tests),
-            [ok];
-        [{match, [_Line_Number, _Prefix = <<"%">>, _Skip]} | _] ->
-            Tests = inspect(parse_tests(ReLines, [])),
-            _ = lists:foldl(fun(Test, Bindings) ->
-                                    run_tests(Test, Bindings)
-                            end, InitialBindings, Tests),
-            [ok];
-        _ ->
-            []
+    CollapsedComments = [re:replace(Line, ~B"^\s*%.*$", <<"">>, [global, unicode]) || Line <- Lines],
+    case lists:search(fun(Line) ->
+                           re:run(Line, ~B"^\s*$", [unicode]) =:= nomatch
+                       end, CollapsedComments) of
+        false ->
+            [];
+        {value, FirstLine} ->
+            case re:run(FirstLine, ?RE_CAPTURE, ?RE_OPTIONS) of
+                {match, [_Line_Number, _Prefix = <<"> ">>, _Code]} ->
+                    ReLines = [re:run(Line, ?RE_CAPTURE, ?RE_OPTIONS) || Line <- CollapsedComments],
+                    check_prompt_numbers(ReLines, 1),
+                    Tests = inspect(parse_tests(ReLines, [])),
+                    _ = lists:foldl(fun(Test, Bindings) ->
+                                            run_tests(Test, Bindings)
+                                    end, InitialBindings, Tests),
+                    [ok];
+                _ ->
+                    []
+            end
     end.
 
-check_line_numbers([], _Expected) ->
+check_prompt_numbers([], _Expected) ->
     ok;
-check_line_numbers([{match, [<<>>|_]} | T], Expected) ->
-    check_line_numbers(T, Expected);
-check_line_numbers([{match, [LineNumber, _, Code]} | T], Expected) ->
+check_prompt_numbers([{match, [<<>>|_]} | T], Expected) ->
+    check_prompt_numbers(T, Expected);
+check_prompt_numbers([{match, [LineNumber, _, Code]} | T], Expected) ->
     case binary_to_integer(LineNumber) of
         Expected ->
-            check_line_numbers(T, Expected + 1);
+            check_prompt_numbers(T, Expected + 1);
         Actual ->
-            Message = io_lib:format("Bad line number ~p; expected ~p",
+            Message = io_lib:format("Bad prompt number ~p; expected ~p",
                                     [Actual,Expected]),
             throw({error,{Message,Code}})
     end.
@@ -290,8 +414,6 @@ parse_tests([], []) ->
 parse_tests([], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
 parse_tests([{match, [<<>>, <<>>, <<>>]} | T], Cmd) ->
-    parse_tests(T, Cmd);
-parse_tests([{match, [<<>>, <<"%">>, _Skip]} | T], Cmd) ->
     parse_tests(T, Cmd);
 parse_tests([{match, [_, <<"> ">>, NewCmd]} | T], []) ->
     parse_tests(T, [NewCmd]);
@@ -304,7 +426,7 @@ parse_tests([{match, [<<>>, <<>>, NewMatch]} | T], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)),
       lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])].
 
-parse_match([{match, [<<>>, <<"%">>, _Skip]} | T], Acc) ->
+parse_match([{match, [<<>>, <<>>, <<>>]} | T], Acc) ->
     parse_match(T, Acc);
 parse_match([{match, [<<>>, <<>>, <<" ", _/binary>> = More]} | T], Acc) ->
     parse_match(T, [More | Acc]);
@@ -328,8 +450,7 @@ run_tests({test, Test0, Match0}, Bindings) ->
     end.
 
 run_successful(Cmd, Test, Match, Bindings) ->
-    Ast0 = parse(Cmd, Test, Match),
-    Ast = rewrite(Ast0),
+    Ast = rewrite(parse(Cmd, Test, Match)),
     try
         {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast, Bindings)),
         NewBindings

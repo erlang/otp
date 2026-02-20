@@ -640,13 +640,7 @@ columns(_Config) ->
     ok.
 
 doctests(_Config) ->
-    shell_docs:test(
-      shell_docs_test,
-      [
-       {{function, module, 2}, erl_eval:add_binding('Prebound', hello,
-                                                   erl_eval:new_bindings())}
-      ]),
-    ok.
+    ct_doctest:test(shell_docs,[]).
 
 %%
 %% Parallel map function.

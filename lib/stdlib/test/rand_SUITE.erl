@@ -2566,7 +2566,7 @@ lists_generate(N, Fun, State0) when is_integer(N), 0 < N ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 doctests(Config) when is_list(Config) ->
-    shell_docs:test(rand, []).
+    ct_doctest:test(rand, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Data
