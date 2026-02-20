@@ -282,8 +282,12 @@ Options for doctest execution.
   parser callback must be a `fun/1` and return a list of Erlang code block binaries.
   The code blocks are then checked to determine whether they should be run as doctests.
   If no parser is provided, a built-in markdown parser will be used.
+* `skipped_blocks` - Sets the exact number of Erlang code blocks that are allowed
+  to be skipped because no runnable shell prompts were found. It defaults to `0`.
+  Set it to `false` to disable this check.
 """.
--type options() :: [{parser, fun((unicode:unicode_binary()) -> [unicode:unicode_binary()] | {error, term()}) }].
+-type options() :: [{parser, fun((unicode:unicode_binary()) -> [unicode:unicode_binary()] | {error, term()}) } |
+                    {skipped_blocks, non_neg_integer() | false}].
 
 -doc #{equiv => module(Module, [])}.
 -spec module(module()) ->
@@ -316,11 +320,12 @@ module(Module, Options) ->
     Bindings = options_bindings(Options),
     HasParserKey = proplists:is_defined(parser, Options),
     ParserFun = options_parser(Options),
+    ExpectedSkipped = options_skipped_blocks(Options),
     case code:get_doc(Module) of
         {ok, #docs_v1{ format = ~"text/markdown" } = Docs} when not HasParserKey ->
-            run_module_docs(Docs, Bindings, ParserFun);
+            run_module_docs(Docs, Bindings, ParserFun, ExpectedSkipped);
         {ok, #docs_v1{} = Docs} when HasParserKey ->
-            run_module_docs(Docs, Bindings, ParserFun);
+            run_module_docs(Docs, Bindings, ParserFun, ExpectedSkipped);
         {ok, _} ->
             {error, unsupported_format};
         Else ->
@@ -351,11 +356,13 @@ See `options/0` for more available options.
 file(File, Options) ->
     Bindings = options_bindings(Options),
     ParserFun = options_parser(Options),
+    ExpectedSkipped = options_skipped_blocks(Options),
     case file:read_file(File) of
         {ok, Content} ->
             try
                 Blocks = inspect(parse(Content, ParserFun)),
-                _ = run_blocks(Blocks, Bindings),
+                {_RunResult, Skipped} = run_blocks(Blocks, Bindings),
+                ensure_skipped_blocks(ExpectedSkipped, Skipped),
                 ok
             catch
                 throw:{error, Error} ->
@@ -369,7 +376,8 @@ file(File, Options) ->
             Error
     end.
 
-run_module_docs(#docs_v1{ docs = Docs, module_doc = MD }, Bindings, ParserFun) ->
+run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
+                Bindings, ParserFun, ExpectedSkipped) ->
     MDRes = lists:append([parse_and_run(module_doc, MD, Bindings, ParserFun)]),
     Res =
         lists:append(
@@ -377,13 +385,15 @@ run_module_docs(#docs_v1{ docs = Docs, module_doc = MD }, Bindings, ParserFun) -
               {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs,
               is_map(EntryDocs)]),
     Errors =
-        [{{F,A},E} || {{function,F,A},[{error,E}]} <- Res]
-        ++ [{module_doc,E} || {module_doc,[{error,E}]} <- MDRes],
+        [{{F,A},E} || {{function,F,A},[{error,E}],_} <- Res]
+        ++ [{module_doc,E} || {module_doc,[{error,E}],_} <- MDRes],
     _ = [print_error(E) || E <- Errors],
     case length(Errors) of
         0 ->
+            Skipped = lists:sum([Count || {_, _, Count} <- MDRes ++ Res]),
+            ensure_skipped_blocks(ExpectedSkipped, Skipped),
             NoTests = lists:sort([io_lib:format("  ~p/~p\n", [F,A]) ||
-                                     {{function,F,A},[]} <- Res]),
+                                     {{function,F,A},[],_} <- Res]),
             case length(NoTests) of
                 0 ->
                     ok;
@@ -419,20 +429,29 @@ do_parse_and_run(KFA, Docs, Bindings, ParserFun) ->
     try
         InitialBindings = proplists:get_value(KFA, Bindings, erl_eval:new_bindings()),
         Blocks = inspect(parse(Docs, ParserFun)),
-        {KFA, run_blocks(Blocks, InitialBindings)}
+        {RunResult, Skipped} = run_blocks(Blocks, InitialBindings),
+        {KFA, RunResult, Skipped}
     catch
         throw:{error,_}=Error ->
-            {KFA, [Error]};
+            {KFA, [Error], 0};
         C:R:ST ->
             io:format("Uncaught exception in ~p~n", [KFA]),
             erlang:raise(C, R, ST)
     end.
 
 run_blocks(Blocks, Bindings) ->
-    lists:flatmap(fun(Test) -> test_block(Test, Bindings) end, Blocks).
+    lists:foldl(fun(Test, {Acc, Skipped}) ->
+                        {Result, NewSkipped} = test_block(Test, Bindings),
+                        {Acc ++ Result, Skipped + NewSkipped}
+                end, {[], 0}, Blocks).
 
 test_block(Code, Bindings) when is_binary(Code) ->
-    run_test(Code, Bindings);
+    case run_test(Code, Bindings) of
+        [] ->
+            {[], 1};
+        Result ->
+            {Result, 0}
+    end;
 test_block(Other, _Bindings) ->
     throw({error, {invalid_code_block, Other}}).
 
@@ -481,6 +500,19 @@ extract_erlang_code_blocks({_Tag, _Attrs, Content}) ->
     extract_erlang_code_blocks(Content);
 extract_erlang_code_blocks(_Other) ->
     [].
+
+options_skipped_blocks(Options) ->
+    proplists:get_value(skipped_blocks, Options, 0).
+
+ensure_skipped_blocks(false, _Actual) ->
+    ok;
+ensure_skipped_blocks(Expected, Actual) when is_integer(Expected), Expected >= 0 ->
+    case Actual of
+        Expected ->
+            ok;
+        _ ->
+            error({unexpected_skipped_blocks, Expected, Actual})
+    end.
 
 -define(RE_CAPTURE, ~"(?:(?'line_number'[0-9]+)(?'prefix'>\s))?(?'content'.*)").
 -define(RE_OPTIONS, [{capture, [line_number, prefix, content] ,binary}, unicode]).

@@ -126,7 +126,7 @@ doctests_gb_trees(_Config) ->
     ct_doctest:module(gb_trees).
 
 doctests_orddict(_Config) ->
-    ct_doctest:module(orddict).
+    ct_doctest:module(orddict, [{skipped_blocks, 2}]).
 
 %%%
 %%% Test specifics for gb_trees.

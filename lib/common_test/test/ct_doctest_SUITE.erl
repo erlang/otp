@@ -28,7 +28,7 @@
 -export([api_branches/1, module_result_modes/1,
          docs_filtering_and_error_formatting/1, parser_prompt_parsing/1,
          runtime_failure_matching/1, parse_rewrite_helpers/1, file_support/1,
-         external_parser/1,
+         external_parser/1, skipped_blocks_option/1,
          integration_smoke/1]).
 
 suite() ->
@@ -43,6 +43,7 @@ all() ->
      parse_rewrite_helpers,
      file_support,
      external_parser,
+     skipped_blocks_option,
      integration_smoke].
 
 init_per_suite(Config) ->
@@ -117,10 +118,18 @@ external_parser(Config) ->
                      [{parser, fun(_) -> erlang:error(boom) end}],
                      error, boom).
 
+skipped_blocks_option(_Config) ->
+    expect_exception(ct_doctest_skipped_block_mod, [],
+                     error, {unexpected_skipped_blocks, 0, 1}),
+    ok = ct_doctest:module(ct_doctest_skipped_block_mod, [{skipped_blocks, false}]),
+    ok = ct_doctest:module(ct_doctest_skipped_block_mod,
+                           [{skipped_blocks, 1}]).
+
 integration_smoke(_Config) ->
     Bindings = [{module_doc,
                  erl_eval:add_binding('Prebound', hello, erl_eval:new_bindings())}],
-    ct_doctest:module(ct_doctest, [{bindings, Bindings}]).
+    ct_doctest:module(ct_doctest, [{bindings, Bindings},
+                                   {skipped_blocks, 8}]).
 
 compile_fixture(File, OutDir) ->
     Module = list_to_atom(filename:basename(File, ".erl")),
