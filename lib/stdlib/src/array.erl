@@ -40,7 +40,7 @@ The array never shrinks automatically. If an index `I` has been used to set an
 entry successfully, all indices in the range `[0,I]` stay accessible unless the
 array size is explicitly changed by calling `resize/2`.
 
-_Examples:_
+## Examples
 
 Create a fixed-size array with entries 0-9 set to `undefined`:
 
@@ -63,7 +63,7 @@ Read back a stored value:
 true = array:get(17, A1).
 ```
 
-Accessing an unset entry returns default value:
+Accessing an unset entry returns the default value:
 
 ```
 undefined = array:get(3, A1)
@@ -153,8 +153,8 @@ beyond the last set entry:
 -define(SIZE(S), (1 bsl (S))).
 -define(NODESIZE, ?LEAFSIZE).       % must not be LEAFSIZE-1; keep same as leaf
 -define(NEW_NODE(S),   %% Hardcoded to get a literal
-        {?EMPTY, ?EMPTY, ?EMPTY, ?EMPTY, ?EMPTY, ?EMPTY, ?EMPTY, ?EMPTY,
-         ?EMPTY, ?EMPTY, ?EMPTY, ?EMPTY,?EMPTY, ?EMPTY, ?EMPTY, ?EMPTY}).
+        {?EMPTY,?EMPTY,?EMPTY,?EMPTY, ?EMPTY,?EMPTY,?EMPTY,?EMPTY,
+         ?EMPTY,?EMPTY,?EMPTY,?EMPTY, ?EMPTY,?EMPTY,?EMPTY,?EMPTY}).
 %% -define(NEW_NODE(S), erlang:make_tuple(?NODESIZE,(?EMPTY))).     %% S not actually used
 -define(NEW_LEAF(D), erlang:make_tuple(?LEAFSIZE,(D))).
 -define(EMPTY, []).  % placeholder for empty subtree (keep as immediate)
@@ -192,9 +192,10 @@ beyond the last set entry:
 -type array() :: array(dynamic()).
 
 -doc """
-A functional, extendible array. The representation is not documented and is
-subject to change without notice. Notice that arrays cannot be directly compared
-for equality.
+A functional, extendible array.
+
+The representation is not documented and is subject to change without
+notice. Notice that arrays cannot be directly compared for equality.
 """.
 -opaque array(Type) ::
           #array{default :: Type, elements :: elements(Type)}.
@@ -225,8 +226,10 @@ new() ->
     new([]).
 
 -doc """
-Creates a new array according to the specified options. By default, the array is
-extendible and has initial size zero. Array indices start at `0`.
+Creates a new array according to the specified options.
+
+By default, the array is extendible and has initial size zero. Array
+indices start at `0`.
 
 `Options` is a single term or a list of terms, selected from the following:
 
@@ -246,22 +249,22 @@ options have higher precedence.
 The default value is used as the value of uninitialized entries, and cannot be
 changed once the array has been created.
 
-_Examples:_
+## Examples
 
-```
-array:new(100)
+```erlang
+1> array:new(100)
 ```
 
 creates a fixed-size array of size 100.
 
 ```
-array:new({default,0})
+1> array:new({default,0})
 ```
 
 creates an empty, extendible array whose default value is `0`.
 
 ```
-array:new([{size,10},{fixed,false},{default,-1}])
+1> array:new([{size,10},{fixed,false},{default,-1}])
 ```
 
 creates an extendible array with initial size 10 whose default value is `-1`.
@@ -285,13 +288,13 @@ If `Options` is a list, this is equivalent to
 [`new([{size, Size} | [Options]])`](`new/1`). However, using this function
 directly is more efficient.
 
-_Example:_
+## Examples
 
-```
-array:new(100, {default,0})
+```erlang
+1> array:new(100, {default,0})
 ```
 
-creates a fixed-size array of size 100, whose default value is `0`.
+Creates a fixed-size array of size 100, whose default value is `0`.
 """.
 -spec new(Size :: non_neg_integer(), Options :: array_opts()) -> array().
 
@@ -341,6 +344,14 @@ Returns `true` if `X` is an array, otherwise `false`.
 
 Notice that the check is only shallow, as there is no guarantee that `X` is a
 well-formed array representation even if this function returns `true`.
+
+## Examples
+
+```erlang
+1> array:is_array(array:new(4, [])).
+true
+```
+
 """.
 -spec is_array(X :: term()) -> boolean().
 
@@ -352,9 +363,20 @@ is_array(_) ->
 
 
 -doc """
-Gets the number of entries in the array. Entries are numbered from `0` to
-`size(Array)-1`. Hence, this is also the index of the first entry that is
-guaranteed to not have been previously set.
+Gets the number of entries in the array.
+
+Entries are numbered from `0` to `size(Array)-1`. Hence, this is also
+the index of the first entry that is guaranteed to not have been
+previously set.
+
+## Examples
+
+```erlang
+1> array:size(array:new(4, [])).
+4
+2> array:size(array:set(5, value, array:new())).
+6
+```
 """.
 -spec size(Array :: array()) -> non_neg_integer().
 
@@ -365,6 +387,19 @@ size(_) -> erlang:error(badarg).
 -doc """
 Gets the value used for uninitialized entries.
 
+## Examples
+
+```erlang
+1> array:default(array:new()).
+undefined
+2> array:get(52, array:new()).
+undefined
+3> array:default(array:new([{default, 0}])).
+0
+4> array:get(52, array:new([{default, 0}])).
+0
+```
+
 See also `new/2`.
 """.
 -spec default(Array :: array(Type)) -> Value :: Type.
@@ -374,11 +409,23 @@ default(_) -> erlang:error(badarg).
 
 
 -doc """
-Fixes the array size. This prevents it from growing automatically upon
+Fixes the array size to prevent it from growing automatically upon
 insertion.
 
-Note that operations such as `append/2` which explicitly increase the array
-size may still be used on a fixed size array.
+Note that operations which explicitly increase the array size, such as
+`append/2`, may still be used on a fixed size array.
+
+## Examples
+
+```erlang
+1> array:get(1, array:from_list([a,b,c])).
+b
+2> array:get(10, array:from_list([a,b,c])).
+undefined
+3> array:get(10, array:fix(array:from_list([a,b,c]))).
+** exception error: bad argument
+     in function  array:get/2
+```
 
 See also `relax/1`, `set/3`.
 """.
@@ -388,8 +435,18 @@ fix(#array{}=A) ->
     A#array{fix = true}.
 
 -doc """
-Checks if the array has fixed size. Returns `true` if the array is fixed,
-otherwise `false`.
+Checks if the array has fixed size.
+
+Returns `true` if the array is fixed, otherwise `false`.
+
+## Examples
+
+```erlang
+1> array:is_fix(array:new()).
+false
+2> array:is_fix(array:new({fixed, true})).
+true
+```
 
 See also `fix/1`.
 """.
@@ -400,7 +457,17 @@ is_fix(#array{}) -> false.
 
 
 -doc """
-Makes the array resizable. (Reverses the effects of `fix/1`.)
+Makes the array extendible, reversing the effects of `fix/1`.
+
+## Examples
+
+```erlang
+1> array:get(10, array:new({fixed, true})).
+** exception error: bad argument
+     in function  array:get/2
+2> array:get(10, array:relax(array:new())).
+undefined
+```
 
 See also `fix/1`.
 """.
@@ -418,6 +485,16 @@ the specified array has fixed size, also the resulting array has fixed size.
 
 Note: As of OTP 29, resizing ensures that entries outside the new range are
 pruned so that garbage collection can recover the memory.
+
+## Examples
+
+```erlang
+1> array:get(10, array:new({fixed, true})).
+** exception error: bad argument
+     in function  array:get/2
+2> array:get(10, array:resize(20, array:new({fixed, true}))).
+undefined
+```
 
 See also `shift/2`.
 """.
@@ -449,7 +526,7 @@ shrink(I, _S, _E, _D) when I < 0 ->
 shrink(I, S, E, D) ->
     shrink_1(I, S, E, D).
 
-%% I is the largest index, 0 or more (empty arrays handled above)
+%% I is the largest index, 0 or more (empty arrays handled above).
 %% This first discards any unnecessary tuples from the top
 shrink_1(I, _S, ?EMPTY, _D) ->
     S = find_bits(I, ?SHIFT),
@@ -491,8 +568,20 @@ prune(_I, _N, _D, []) ->
 
 
 -doc """
-Changes the array size to that reported by `sparse_size/1`. If the specified
-array has fixed size, also the resulting array has fixed size.
+Changes the array size to that reported by `sparse_size/1`.
+
+If the specified array has fixed size, the resulting array also has
+fixed size.
+
+## Examples
+
+```erlang
+1> A = array:set(1, x, array:new(4, [])).
+2> array:size(A).
+4
+3> array:size(array:resize(A)).
+2
+```
 
 See also `resize/2`, `sparse_size/1`.
 """.
@@ -511,6 +600,16 @@ larger than the maximum index, the call fails with reason `badarg`.
 
 If the array does not have fixed size, and `I` is greater than `size(Array)-1`,
 the array grows to size `I+1`.
+
+## Examples
+
+```erlang
+1> A = array:new(4, [{fixed,true}]).
+2> array:set(1, x, A).
+3> array:set(5, x, A).
+** exception error: bad argument
+     in function  array:set/3
+```
 
 See also `get/2`, `reset/2`.
 """.
@@ -614,11 +713,26 @@ Shifting left drops elements from the left side, reducing the array
 size, and shifting right adds space on the left, increasing the array
 size.
 
+The fixed option does not affect the result of shift.
+
 Note: For efficiency, this does not prune the representation, which means
 that a subsequent shift or similar operation can bring back the values that
 were shifted out. Use `resize/2` or `resize/1` if you want to ensure that
 values outside the range get pruned.
+
+## Examples
+
+```erlang
+1> A = array:new(10, [{fixed, true}]).
+2> array:size(A).
+10
+3> array:size(array:shift(-5, A)).
+15
+4> array:size(array:shift(5, A)).
+5
+```
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec shift(Steps :: integer(), Array :: array(Type)) -> array(Type).
 shift(0, A=#array{}) ->
     A;
@@ -673,7 +787,16 @@ Note: For efficiency, this does not prune the representation, which means
 that a subsequent shift or similar operation can bring back the values that
 were shifted out. Use `resize/2` or `resize/1` if you want to ensure that
 values outside the range get pruned.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:to_list(array:slice(2,3,A)).
+[2,3,4]
+```
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec slice(I :: array_indx(), Length :: non_neg_integer(), Array :: array(Type)) -> array(Type).
 slice(I, Length, #array{size = N}=A)
   when is_integer(I), I >= 0, is_integer(N), N >= 0, I + Length =< N ->
@@ -687,8 +810,19 @@ slice(_I, _N, _A) ->
 -doc """
 Append a single value to the right side of the array.
 
+The operation is always allowed even if the array is fixed.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:get(array:size(A), array:append(last, A)).
+last
+```
+
 See also `prepend/2`, `concat/2`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec append(Value :: any(), Array :: array(Type)) -> array(Type).
 append(Value, #array{size = N, zero = Z, cache = C, cache_index = CI,
                      default = D, elements = E, bits = S}=A)
@@ -725,8 +859,19 @@ append(_V, _A) ->
 -doc """
 Prepend a single value to the left side of the array.
 
+The operation is always allowed even if the array is fixed.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:get(0, array:prepend(first, A)).
+first
+```
+
 See also `append/2`, `concat/2`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec prepend(Value :: Type, Array :: array(Type)) -> array(Type).
 prepend(Value, #array{}=A) ->
     %% eqwalizer:ignore ambiguous_union
@@ -741,6 +886,16 @@ larger than the maximum index, the call fails with reason `badarg`.
 
 If the array does not have fixed size, the default value for any index `I`
 greater than `size(Array)-1` is returned.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:get(4,A).
+4
+3> array:get(10, A).
+undefined
+```
 
 See also `set/3`.
 """.
@@ -775,15 +930,25 @@ get_1(I, S, E, D) ->
 %% TODO: a reset_range function
 
 -doc """
-Resets entry `I` to the default value for the array. If the value of entry `I`
-is the default value, the array is returned unchanged.
+Resets entry `I` to the default value for the array.
+
+If the value of entry `I` is the default value, the array is returned
+unchanged.
 
 Reset never changes the array size. Shrinking can be done explicitly by calling
 `resize/2`.
 
 If `I` is not a non-negative integer, or if the array has fixed size and `I` is
 larger than the maximum index, the call fails with reason `badarg`; compare
-`set/3`
+`set/3`.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:get(5, array:reset(5, A)).
+undefined
+```
 
 See also `new/2`, `set/3`.
 """.
@@ -826,12 +991,22 @@ reset_1(I, S, E, D) ->
 -doc """
 Concatenates two arrays.
 
-Note: the result will always be an extendible array. Use `fix/1` on the
-result if you want to prevent accesses outside the size range.
+Adds the elements of `B` onto `A`.
+
+## Examples
+
+```erlang
+1> A = array:set(1, a, array:new([{default, xa}, {size,3}, {fixed, true}])).
+2> B = array:set(2, b, array:new([{default, xb}, {size,4}, {fixed, false}])).
+3> AB = array:concat(A,B).
+4> array:to_list(AB).
+[xa,a,xa,xb,xb,b,xb]
+```
 
 See also `concat/1`, `append/2`, `prepend/2`.
 """.
--spec concat(Left :: array(Type), Right :: array(Type)) -> array(Type).
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec concat(A :: array(Type), B :: array(Type)) -> AB :: array(Type).
 
 concat(#array{size = LeftN, fix = Fix, default = DefA}=Left,
        #array{size = RightN, default = DefB}=Right) ->
@@ -848,8 +1023,18 @@ concat(_, _) ->
 -doc """
 Concatenates a nonempty list of arrays.
 
+## Examples
+
+```erlang
+1> A = array:from_list([a]).
+2> B = array:from_list([b]).
+3> array:to_list(array:concat([A,B])).
+[a,b]
+```
+
 See also `concat/2`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec concat(Arrays :: [array(Type)]) -> array(Type).
 
 concat([A0|As]) ->
@@ -862,7 +1047,15 @@ concat(_) ->
 -doc """
 Converts the array to a list.
 
-See also `from_list/2`, `sparse_to_list/1`.
+## Examples
+
+```erlang
+1> A = array:set(2, x, array:new()).
+2> array:to_list(A).
+[undefined,undefined,x]
+```
+
+See also `from_list/2`, `sparse_to_list/1` and `to_orddict/1`.
 """.
 -spec to_list(Array :: array(Type)) -> list(Value :: Type).
 
@@ -873,7 +1066,17 @@ to_list(Array) ->
 -doc """
 Converts the array to a list, skipping default-valued entries.
 
-See also `to_list/1`.
+## Examples
+
+```erlang
+1> A = array:set(2, x, array:new()).
+2> array:to_list(A).
+[undefined,undefined,x]
+3> array:sparse_to_list(A).
+[x]
+```
+
+See also `to_list/1`  and `to_orddict/1`.
 """.
 -spec sparse_to_list(Array :: array(Type)) -> list(Value :: Type).
 
@@ -889,13 +1092,22 @@ from_list(List) ->
     from_list(List, undefined).
 
 -doc """
-Converts a list to an extendible array. `Default` is used as the value for
-uninitialized entries of the array.
+Converts a list to an extendible array.
+
+`Default` is used as the value for uninitialized entries of the array.
 
 If `List` is not a proper list, the call fails with reason `badarg`.
 
 Note: Use `fix/1` on the resulting array if you want to prevent accesses
 outside the size range.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,2), default).
+2> array:to_list(array:reset(1, A)).
+[0,default,2]
+```
 
 See also `new/2`, `to_list/1`.
 """.
@@ -1061,7 +1273,15 @@ from_fun_1(_I, _D, _Fun, _VS, _N, _As, _Es) ->
 -doc """
 Converts the array to an ordered list of pairs `{Index, Value}`.
 
-See also `from_orddict/2`, `sparse_to_orddict/1`.
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,2), default).
+2> array:to_orddict(array:reset(1, A)).
+[{0,0},{1,default},{2,2}]
+```
+
+See also `from_orddict/2`, `sparse_to_orddict/1` and `to_list/1`.
 """.
 -spec to_orddict(Array :: array(Type)) -> indx_pairs(Value :: Type).
 
@@ -1073,6 +1293,16 @@ to_orddict(Array) ->
 -doc """
 Converts the array to an ordered list of pairs `{Index, Value}`, skipping
 default-valued entries.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,2), default).
+2> array:to_orddict(array:reset(1, A)).
+[{0,0},{1,default},{2,2}]
+3> array:sparse_to_orddict(array:reset(1, A)).
+[{0,0},{2,2}]
+```
 
 See also `to_orddict/1`.
 """.
@@ -1091,13 +1321,23 @@ from_orddict(Orddict) ->
 
 -doc """
 Converts an ordered list of pairs `{Index, Value}` to a corresponding extendible
-array. `Default` is used as the value for uninitialized entries of the array.
+array.
+
+`Default` is used as the value for uninitialized entries of the array.
 
 If `Orddict` is not a proper, ordered list of pairs whose first elements are
 non-negative integers, the call fails with reason `badarg`.
 
 Note: Use `fix/1` on the resulting array if you want to prevent accesses
 outside the size range.
+
+## Examples
+
+```erlang
+1> A = array:from_orddict([{K,V} || K <:- lists:seq(2,4) && V <- [v1,v2,v3]], vx).
+2> array:to_orddict(A).
+[{0,vx},{1,vx},{2,v1},{3,v2},{4,v3}]
+```
 
 See also `new/2`, `to_orddict/1`.
 """.
@@ -1219,10 +1459,21 @@ collect_leafs(?NODESIZE, [], S, N, [], Es) ->
 %%    Function = (Index::integer(), Value::term()) -> term()
 
 -doc """
-Maps the specified function onto each array element. The elements are visited in
-order from the lowest index to the highest.
+Maps the specified function onto each array element.
+
+The elements are visited in order from the lowest index to the
+highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,3)).
+2> B = array:map(fun(K, V) -> K*V end, A).
+3> array:to_orddict(B).
+[{0,0},{1,1},{2,4},{3,9}]
+```
 
 See also `mapfoldl/3`, `sparse_map/2`.
 """.
@@ -1239,7 +1490,9 @@ map(_, _) ->
 
 -doc """
 Maps the specified function onto each array element, skipping default-valued
-entries. The elements are visited in order from the lowest index to the highest.
+entries.
+
+The elements are visited in order from the lowest index to the highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
@@ -1258,9 +1511,19 @@ sparse_map(_, _) ->
 
 -doc """
 Folds the array elements using the specified function and initial accumulator
-value. The elements are visited in order from the lowest index to the highest.
+value.
+
+The elements are visited in order from the lowest index to the highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,3)).
+2> array:foldl(fun(_K, V, Acc) -> V+Acc end, 0, A).
+6
+```
 
 See also `foldl/5`, `foldr/3`, `sparse_foldl/3`.
 """.
@@ -1275,13 +1538,24 @@ foldl(_, _, _) ->
 
 -doc """
 Folds the array elements from `Low` to `High` using the specified function and
-initial accumulator value. The elements are visited in order from the lowest
-index to the highest.
+initial accumulator value.
+
+The elements are visited in order from the lowest index to the
+highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,100)).
+2> array:foldl(50, 59, fun(_K, V, Acc) -> V+Acc end, 0, A).
+545
+```
+
 See also `foldl/3`, `sparse_foldl/5`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec foldl(Low, High, Function, InitialAcc :: A, Array) -> A when
       Low :: array_indx(),
       High :: array_indx(),
@@ -1362,8 +1636,10 @@ foldl_6(_Low, _High, _Ix, _D, _F, A) ->
 
 -doc """
 Folds the array elements using the specified function and initial accumulator
-value, skipping default-valued entries. The elements are visited in order from
-the lowest index to the highest.
+value, skipping default-valued entries.
+
+The elements are visited in order from the lowest index to the
+highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
@@ -1382,12 +1658,14 @@ sparse_foldl(_, _, _) ->
 -doc """
 Folds the array elements from `Low` to `High` using the specified
 function and initial accumulator value, skipping default-valued entries.
+
 The elements are visited in order from the lowest index to the highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
-See also `sparse_foldl/3`, `sparse_foldl/5`.
+See also `sparse_foldl/3`, `foldl/5`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec sparse_foldl(Low :: array_indx(), High :: array_indx(), Function,
                    InitialAcc :: A, Array :: array(Type)) -> A when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
@@ -1405,8 +1683,10 @@ sparse_foldl(_, _, _, _, _) ->
 
 -doc """
 Folds the array elements right-to-left using the specified function and initial
-accumulator value. The elements are visited in order from the highest index to
-the lowest.
+accumulator value.
+
+The elements are visited in order from the highest index to the
+lowest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
@@ -1424,13 +1704,16 @@ foldr(_, _, _) ->
 
 -doc """
 Folds the array elements from `High` to `Low` using the specified function and
-initial accumulator value. The elements are visited in order from the highest
-index to the lowest.
+initial accumulator value.
+
+The elements are visited in order from the highest index to the
+lowest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
-See also `foldr/3`, `sparse_foldr/5`.
+See also `foldr/3`, `foldl/5`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec foldr(Low, High, Function, InitialAcc :: A, Array :: array(Type)) -> A when
       Low :: array_indx(),
       High :: array_indx(),
@@ -1504,8 +1787,10 @@ foldr_6(_Low, _High, _Ix, _D, _F, A) ->
 
 -doc """
 Folds the array elements right-to-left using the specified function and initial
-accumulator value, skipping default-valued entries. The elements are visited in
-order from the highest index to the lowest.
+accumulator value, skipping default-valued entries.
+
+The elements are visited in order from the highest index to the
+lowest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
@@ -1524,12 +1809,14 @@ sparse_foldr(_, _, _) ->
 -doc """
 Folds the array elements from `High` to `Low` using the specified
 function and initial accumulator value, skipping default-valued entries.
+
 The elements are visited in order from the highest index to the lowest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
-See also `sparse_foldr/3`, `sparse_foldl/5`.
+See also `sparse_foldr/3`, `foldr/5`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec sparse_foldr(Low :: array_indx(), High :: array_indx(), Function,
                    InitialAcc :: A, Array :: array(Type)) -> A when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
@@ -1547,8 +1834,20 @@ sparse_foldr(_, _, _, _, _) ->
 
 -doc """
 Gets the number of entries in the array up until the last non-default-valued
-entry. That is, returns `I+1` if `I` is the last non-default-valued entry in the
-array, or zero if no such entry exists.
+entry.
+
+That is, returns `I+1` if `I` is the last non-default-valued entry in
+the array, or zero if no such entry exists.
+
+## Examples
+
+```erlang
+1> A = array:set(3, 42, array:new(10)).
+2> array:size(A).
+10
+3> array:sparse_size(A).
+4
+```
 
 See also `resize/1`, `size/1`.
 """.
@@ -1566,13 +1865,27 @@ sparse_size(A) ->
 
 -doc """
 Combined map and fold over the array elements using the specified
-function and initial accumulator value. The elements are visited in
-order from the lowest index to the highest.
+function and initial accumulator value.
+
+The elements are visited in order from the lowest index to the
+highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,3)).
+2> {B, Acc} = array:mapfoldl(fun(K, V, Sum) -> {K*V, V+Sum} end, 0, A).
+3> Acc.
+6
+4> array:to_orddict(B).
+[{0,0}, {1,1}, {2,4}, {3,9}]
+```
+
 See also `mapfoldl/5`, `foldl/3`, `map/2`, `sparse_mapfoldl/3`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec mapfoldl(Function, InitialAcc :: A, Array :: array(Type)) -> {array(Type), A} when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> {Type, A}).
 
@@ -1583,13 +1896,16 @@ mapfoldl(_, _, _) ->
 
 -doc """
 Combined map and fold over the array elements from `Low` to `High` using
-the specified function and initial accumulator value. The elements are
-visited in order from the lowest index to the highest.
+the specified function and initial accumulator value.
+
+The elements are visited in order from the lowest index to the
+highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
 See also `mapfoldl/3`, `sparse_mapfoldl/5`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec mapfoldl(Low, High, Function, InitialAcc :: A, Array :: array(Type)) -> {array(Type), A} when
       Low :: array_indx(),
       High :: array_indx(),
@@ -1663,6 +1979,7 @@ Like `mapfoldl/3` but skips default-valued entries.
 
 See also `sparse_mapfoldl/5`, `sparse_mapfoldr/3`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec sparse_mapfoldl(Function, InitialAcc :: A, Array) -> {ArrayRes, A} when
       Array :: array(Type1),
       Function :: fun((Index :: array_indx(), Value :: Type1, Acc :: A) -> {Type2, A}),
@@ -1679,6 +1996,7 @@ Like `mapfoldl/5` but skips default-valued entries.
 
 See also `sparse_mapfoldl/3`, `sparse_mapfoldr/5`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec sparse_mapfoldl(Low, High, Function, InitialAcc :: A, Array) -> {ArrayRes, A} when
       Low :: array_indx(),
       High :: array_indx(),
@@ -1750,13 +2068,16 @@ sparse_mapfoldl_3_1(_Low, _High, _Ix, Es, _D, _F, A, Es1) ->
 
 -doc """
 Combined map and fold over the array elements using the specified
-function and initial accumulator value. The elements are visited in
-order from the highest index to the lowest.
+function and initial accumulator value.
+
+The elements are visited in order from the highest index to the
+lowest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
 See also `mapfoldr/5`, `foldr/3`, `map/2`, `sparse_mapfoldr/3`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec mapfoldr(Function, InitialAcc :: A, Array :: array(Type)) -> {array(Type), A} when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> {Type, A}).
 
@@ -1767,13 +2088,15 @@ mapfoldr(_, _, _) ->
 
 -doc """
 Combined map and fold over the array elements from `Low` to `High` using
-the specified function and initial accumulator value. The elements are
-visited in order from the highest index to the lowest.
+the specified function and initial accumulator value.
+
+The elements are visited in order from the highest index to the lowest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
 See also `mapfoldr/3`, `mapfoldl/5`, `sparse_mapfoldr/5`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec mapfoldr(Low, High, Function, InitialAcc :: A, Array :: array(Type)) -> {array(Type), A} when
       Low :: array_indx(),
       High :: array_indx(),
@@ -1840,8 +2163,9 @@ mapfoldr_3_1(_Low, _High, _Ix, Es, _F, A, Es1) ->
 -doc """
 Like `mapfoldr/3` but skips default-valued entries.
 
-See also `sparse_mapfoldr/5`, `sparse_mapfoldl/3`
+See also `sparse_mapfoldr/5`, `sparse_mapfoldl/3`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec sparse_mapfoldr(Function, InitialAcc :: A, Array) -> {ArrayRes, A} when
       Array :: array(Type1),
       Function :: fun((Index :: array_indx(), Value :: Type1, Acc :: A) -> {Type2, A}),
@@ -1855,8 +2179,9 @@ sparse_mapfoldr(_, _, _) ->
 -doc """
 Like `mapfoldr/5` but skips default-valued entries.
 
-See also `sparse_mapfoldr/3`, `sparse_mapfoldl/5`
+See also `sparse_mapfoldr/3`, `sparse_mapfoldl/5`.
 """.
+-doc #{ since => ~"OTP @OTP-20004@" }.
 -spec sparse_mapfoldr(Low, High, Function, InitialAcc :: A, Array) -> {ArrayRes, A} when
       Low :: array_indx(),
       High :: array_indx(),

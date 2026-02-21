@@ -572,21 +572,23 @@ append_test(_Config) ->
     ].
 
 concat_test(_Config) ->
-     ?assertEqual([1,2], to_list(concat(from_list([1]), from_list([2])))),
-     ?assertEqual([1,2,3,4,5,6], to_list(concat(from_list([1,2,3]), from_list([4,5,6])))),
-     ?assertEqual([2,3,4,5,6], to_list(concat(from_list([2,3]), from_list([4,5,6])))),
-     ?assertEqual([1,2,3], to_list(concat(from_list([1,2,3]), from_list([])))),
-     ?assertEqual([1,2,3], to_list(concat(from_list([]), from_list([1,2,3])))),
-     ?assertEqual([], to_list(concat(from_list([]), from_list([])))),
-     ?assertEqual([], to_list(concat(new(), new()))),
-     ?assertError(badarg, concat(from_list([1,2,3]),no_array)),
-     ?assertError(badarg, concat(no_array,from_list([1,2,3]))),
-     ?assertNot(is_fix(concat(from_list([1,2,3]), from_list([4,5,6])))),
+    ?assertEqual([1,2], to_list(concat(from_list([1]), from_list([2])))),
+    ?assertEqual([1,2,3,4,5,6], to_list(concat(from_list([1,2,3]), from_list([4,5,6])))),
+    ?assertEqual([2,3,4,5,6], to_list(concat(from_list([2,3]), from_list([4,5,6])))),
+    ?assertEqual([1,2,3], to_list(concat(from_list([1,2,3]), from_list([])))),
+    ?assertEqual([1,2,3], to_list(concat(from_list([]), from_list([1,2,3])))),
+    ?assertEqual(a, default(concat(new({default, a}), from_list([1,2,3], b)))),
+    ?assertEqual(false, is_fix(concat(new(), fix(from_list([1,2,3], b))))),
+    ?assertEqual([], to_list(concat(from_list([]), from_list([])))),
+    ?assertEqual([], to_list(concat(new(), new()))),
+    ?assertError(badarg, concat(from_list([1,2,3]),no_array)),
+    ?assertError(badarg, concat(no_array,from_list([1,2,3]))),
+    ?assertNot(is_fix(concat(from_list([1,2,3]), from_list([4,5,6])))),
 
-     ?assertEqual([2,3,4,5,6], to_list(concat([from_list([2,3]), from_list([4,5,6])]))),
-     ?assertEqual([1,2,3,4,5,6], to_list(concat([from_list([1]), from_list([2,3]), new(), from_list([4,5,6]), new()]))),
-     ?assertError(badarg, concat(no_list)),
-     ?assertError(badarg, concat([])).
+    ?assertEqual([2,3,4,5,6], to_list(concat([from_list([2,3]), from_list([4,5,6])]))),
+    ?assertEqual([1,2,3,4,5,6], to_list(concat([from_list([1]), from_list([2,3]), new(), from_list([4,5,6]), new()]))),
+    ?assertError(badarg, concat(no_list)),
+    ?assertError(badarg, concat([])).
 
 to_orddict_test(_Config) ->
     N0 = ?LEAFSIZE,
