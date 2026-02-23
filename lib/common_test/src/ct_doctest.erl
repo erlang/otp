@@ -285,9 +285,12 @@ Options for doctest execution.
 * `skipped_blocks` - Sets the exact number of Erlang code blocks that are allowed
   to be skipped because no runnable shell prompts were found. It defaults to `0`.
   Set it to `false` to disable this check.
+* `verbose` - Print detailed information while running doctests, including each
+  block run and skipped block details.
 """.
 -type options() :: [{parser, fun((unicode:unicode_binary()) -> [unicode:unicode_binary()] | {error, term()}) } |
-                    {skipped_blocks, non_neg_integer() | false}].
+                    {skipped_blocks, non_neg_integer() | false} |
+                    {verbose, boolean()}].
 
 -doc #{equiv => module(Module, [])}.
 -spec module(module()) ->
@@ -321,11 +324,12 @@ module(Module, Options) ->
     HasParserKey = proplists:is_defined(parser, Options),
     ParserFun = options_parser(Options),
     ExpectedSkipped = options_skipped_blocks(Options),
+    Verbose = options_verbose(Options),
     case code:get_doc(Module) of
         {ok, #docs_v1{ format = ~"text/markdown" } = Docs} when not HasParserKey ->
-            run_module_docs(Docs, Bindings, ParserFun, ExpectedSkipped);
+            run_module_docs(Docs, Bindings, ParserFun, ExpectedSkipped, Verbose);
         {ok, #docs_v1{} = Docs} when HasParserKey ->
-            run_module_docs(Docs, Bindings, ParserFun, ExpectedSkipped);
+            run_module_docs(Docs, Bindings, ParserFun, ExpectedSkipped, Verbose);
         {ok, _} ->
             {error, unsupported_format};
         Else ->
@@ -357,11 +361,13 @@ file(File, Options) ->
     Bindings = options_bindings(Options),
     ParserFun = options_parser(Options),
     ExpectedSkipped = options_skipped_blocks(Options),
+    Verbose = options_verbose(Options),
     case file:read_file(File) of
         {ok, Content} ->
             try
                 Blocks = inspect(parse(Content, ParserFun)),
-                {_RunResult, Skipped} = run_blocks(Blocks, Bindings),
+                {_RunResult, Skipped} = run_blocks(Blocks, Bindings,
+                                {file, File}, Verbose),
                 ensure_skipped_blocks(ExpectedSkipped, Skipped),
                 ok
             catch
@@ -377,11 +383,12 @@ file(File, Options) ->
     end.
 
 run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
-                Bindings, ParserFun, ExpectedSkipped) ->
-    MDRes = lists:append([parse_and_run(module_doc, MD, Bindings, ParserFun)]),
+                Bindings, ParserFun, ExpectedSkipped, Verbose) ->
+    MDRes = lists:append([parse_and_run(module_doc, MD, Bindings,
+                                        ParserFun, Verbose)]),
     Res =
         lists:append(
-          [parse_and_run(KFA, EntryDocs, Bindings, ParserFun) ||
+          [parse_and_run(KFA, EntryDocs, Bindings, ParserFun, Verbose) ||
               {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs,
               is_map(EntryDocs)]),
     Errors =
@@ -391,6 +398,9 @@ run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
     case length(Errors) of
         0 ->
             Skipped = lists:sum([Count || {_, _, Count} <- MDRes ++ Res]),
+            verbose_log(Verbose,
+                        "module complete; total skipped blocks: ~p (expected ~p)",
+                        [Skipped, ExpectedSkipped]),
             ensure_skipped_blocks(ExpectedSkipped, Skipped),
             NoTests = lists:sort([io_lib:format("  ~p/~p\n", [F,A]) ||
                                      {{function,F,A},[],_} <- Res]),
@@ -420,16 +430,17 @@ print_error({{Name,Arity},{Message,Line,Context}}) ->
 print_error({{Name,Arity},{Message,Context}}) ->
     io:format("~p/~p: ~ts~n~ts~n", [Name,Arity,Context,Message]).
 
-parse_and_run(_, hidden, _, _) -> [];
-parse_and_run(_, none, _, _) -> [];
-parse_and_run(KFA, #{} = Ds, Bindings, ParserFun) ->
-    [do_parse_and_run(KFA, D, Bindings, ParserFun) || _ := D <- Ds].
+parse_and_run(_, hidden, _, _, _) -> [];
+parse_and_run(_, none, _, _, _) -> [];
+parse_and_run(KFA, #{} = Ds, Bindings, ParserFun, Verbose) ->
+    [do_parse_and_run(KFA, D, Bindings, ParserFun, Verbose) || _ := D <- Ds].
 
-do_parse_and_run(KFA, Docs, Bindings, ParserFun) ->
+do_parse_and_run(KFA, Docs, Bindings, ParserFun, Verbose) ->
     try
         InitialBindings = proplists:get_value(KFA, Bindings, erl_eval:new_bindings()),
         Blocks = inspect(parse(Docs, ParserFun)),
-        {RunResult, Skipped} = run_blocks(Blocks, InitialBindings),
+        {RunResult, Skipped} = run_blocks(Blocks, InitialBindings,
+                                          {module, KFA}, Verbose),
         {KFA, RunResult, Skipped}
     catch
         throw:{error,_}=Error ->
@@ -439,21 +450,69 @@ do_parse_and_run(KFA, Docs, Bindings, ParserFun) ->
             erlang:raise(C, R, ST)
     end.
 
-run_blocks(Blocks, Bindings) ->
-    lists:foldl(fun(Test, {Acc, Skipped}) ->
-                        {Result, NewSkipped} = test_block(Test, Bindings),
-                        {Acc ++ Result, Skipped + NewSkipped}
-                end, {[], 0}, Blocks).
+run_blocks(Blocks, Bindings, Context, Verbose) ->
+    {_Index, Result} =
+        lists:foldl(fun(Test, {Index, {Acc, Skipped}}) ->
+                            {Result0, NewSkipped} = test_block(Test, Bindings,
+                                                               Context, Index, Skipped, Verbose),
+                            {Index + 1, {Acc ++ Result0, NewSkipped}}
+                    end, {1, {[], 0}}, Blocks),
+    Result.
 
-test_block(Code, Bindings) when is_binary(Code) ->
-    case run_test(Code, Bindings) of
+test_block(Code, Bindings, Context, Index, Skipped, Verbose) when is_binary(Code) ->
+    ContextLabel = context_label(Context),
+    FirstLines = first_lines(Code),
+    verbose_log(Verbose, "running block ~p in ~ts: ~ts",
+                [Index, ContextLabel, Code]),
+    try run_test(Code, Bindings) of
         [] ->
-            {[], 1};
+            verbose_log(Verbose, "skipped block ~p in ~ts (no runnable prompt, ~p skipped): ~ts",
+                        [Index, ContextLabel, Skipped + 1, FirstLines]),
+            {[], Skipped + 1};
         Result ->
-            {Result, 0}
+            verbose_log(Verbose, "passed block ~p in ~ts", [Index, ContextLabel]),
+            {Result, Skipped}
+    catch
+        throw:{error, _} = Error ->
+            verbose_log(Verbose,
+                        "failed block ~p in ~ts:~n~ts~nblock snippet:~n~ts",
+                        [Index, ContextLabel,
+                         format_error_for_verbose(Error), Code]),
+            throw(Error);
+        C:R:ST ->
+            verbose_log(Verbose,
+                        "failed block ~p in ~ts with ~p:~tp~nblock snippet:~n~ts",
+                        [Index, ContextLabel, C, R, Code]),
+            erlang:raise(C, R, ST)
     end;
-test_block(Other, _Bindings) ->
+test_block(Other, _Bindings, _Context, _Index, _Skipped, _Verbose) ->
     throw({error, {invalid_code_block, Other}}).
+
+context_label({module, module_doc}) ->
+    ~"module_doc";
+context_label({module, {Kind, Name, Arity}}) ->
+    lists:flatten(io_lib:format("~p ~p/~p", [Kind, Name, Arity]));
+context_label({file, Path}) ->
+    unicode:characters_to_binary(Path);
+context_label(Other) ->
+    lists:flatten(io_lib:format("~tp", [Other])).
+
+first_lines(Code) ->
+    Lines = string:split(Code, "\n", all),
+    lists:join($\n, lists:sublist(Lines, 5)).
+
+format_error_for_verbose({error, {Message, Line, Source}}) ->
+    iolist_to_binary(io_lib:format("~ts (line ~p): ~ts",
+                                   [Message, Line, Source]));
+format_error_for_verbose({error, {Message, Source}}) ->
+    iolist_to_binary(io_lib:format("~ts: ~ts", [Message, Source]));
+format_error_for_verbose(Other) ->
+    iolist_to_binary(io_lib:format("~tp", [Other])).
+
+verbose_log(false, _Fmt, _Args) ->
+    ok;
+verbose_log(true, Fmt, Args) ->
+    io:format("ct_doctest(verbose): " ++ Fmt ++ "~n", Args).
 
 parse(Content, ParserFun) ->
     validate_code_blocks(run_parser(ParserFun, Content)).
@@ -503,6 +562,9 @@ extract_erlang_code_blocks(_Other) ->
 
 options_skipped_blocks(Options) ->
     proplists:get_value(skipped_blocks, Options, 0).
+
+options_verbose(Options) ->
+    proplists:get_value(verbose, Options, false) =:= true.
 
 ensure_skipped_blocks(false, _Actual) ->
     ok;
