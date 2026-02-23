@@ -568,7 +568,7 @@ jobs:
                 tar -xzf ./otp_src.tar.gz
                 cd otp
                 export ERL_TOP=`pwd`
-                export MAKEFLAGS=-j$(($(nproc) + 2))
+                export MAKEFLAGS=-j$(($(nproc) / 2))
                 export ERLC_USE_SERVER=true
                 export ERTS_SKIP_DEPEND=true
                 ./configure
@@ -594,7 +594,7 @@ jobs:
                 tar -xzf ./otp_src.tar.gz
                 cd otp
                 export ERL_TOP=`pwd`
-                export MAKEFLAGS=-j$($(nproc))
+                export MAKEFLAGS=-j$(($(nproc) / 2))
                 export ERLC_USE_SERVER=true
                 export ERTS_SKIP_DEPEND=true
                 ./configure
@@ -620,7 +620,7 @@ jobs:
                 tar -xzf ./otp_src.tar.gz
                 cd otp
                 export ERL_TOP=`pwd`
-                export MAKEFLAGS=-j$($(nproc))
+                export MAKEFLAGS=-j$(($(nproc) / 2))
                 export ERLC_USE_SERVER=true
                 export ERTS_SKIP_DEPEND=true
                 ./configure
