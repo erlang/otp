@@ -28,7 +28,7 @@
 -export([api_branches/1, module_result_modes/1,
          docs_filtering_and_error_formatting/1, parser_prompt_parsing/1,
          runtime_failure_matching/1, parse_rewrite_helpers/1, file_support/1,
-         external_parser/1, skipped_blocks_option/1,
+         external_parser/1, type_and_callback_docs/1, skipped_blocks_option/1,
          integration_smoke/1]).
 
 suite() ->
@@ -43,6 +43,7 @@ all() ->
      parse_rewrite_helpers,
      file_support,
      external_parser,
+     type_and_callback_docs,
      skipped_blocks_option,
      integration_smoke].
 
@@ -117,6 +118,10 @@ external_parser(Config) ->
     expect_exception(filename:join(DataDir, "doctest_ok.md"),
                      [{parser, fun(_) -> erlang:error(boom) end}],
                      error, boom).
+
+type_and_callback_docs(_Config) ->
+    ok = ct_doctest:module(ct_doctest_type_callback_mod),
+    expect_error_count(ct_doctest_type_callback_value_error_mod, [], 1).
 
 skipped_blocks_option(_Config) ->
     expect_exception(ct_doctest_skipped_block_mod, [],

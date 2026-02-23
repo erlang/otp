@@ -385,8 +385,8 @@ run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
               {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs,
               is_map(EntryDocs)]),
     Errors =
-        [{{F,A},E} || {{function,F,A},[{error,E}],_} <- Res]
-        ++ [{module_doc,E} || {module_doc,[{error,E}],_} <- MDRes],
+        [{{F,A},E} || {{_,F,A},[{error,E}],_} <- Res] ++
+        [{module_doc,E} || {module_doc,[{error,E}],_} <- MDRes],
     _ = [print_error(E) || E <- Errors],
     case length(Errors) of
         0 ->
