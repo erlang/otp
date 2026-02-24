@@ -82,6 +82,11 @@
 %% Defaults
 %%
 
+-define(ESOCK_ON_LOAD_EXTRA_DEFAULTS, #{}).
+%% -define(ESOCK_ON_LOAD_EXTRA_DEFAULTS,
+%% 	#{debug        => true,
+%% 	  socket_debug => true}).
+
 -define(ESOCK_SOCKADDR_IN_DEFAULTS,
         (#{family => inet, port => 0, addr => any})).
 -define(ESOCK_SOCKADDR_IN6_DEFAULTS,
@@ -127,7 +132,7 @@
 %%
 
 on_load() ->
-    on_load(#{}).
+    on_load(?ESOCK_ON_LOAD_EXTRA_DEFAULTS).
 
 on_load(Extra) when is_map(Extra) ->
     %% This is spawned as a system process to prevent init:restart/0 from
@@ -172,7 +177,8 @@ on_load(Extra) when is_map(Extra) ->
           end,
     %% This will fail if the user has disabled esock support, making all NIFs
     %% fall back to their Erlang implementation which throws `notsup`.
-    _ = erlang:load_nif(atom_to_list(?MODULE), Extra_2),
+    LoadRes = erlang:load_nif(atom_to_list(?MODULE), Extra_2),
+    p_put(load_nif_result, LoadRes),
     init().
 
 init() ->
