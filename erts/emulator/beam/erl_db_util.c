@@ -337,7 +337,8 @@ typedef enum {
     matchTrace2,
     matchTrace3,
     matchCallerLine,
-    matchCurrentStacktrace
+    matchCurrentStacktrace,
+    matchGetSilent
 } MatchOps;
 
 /*
@@ -2981,6 +2982,20 @@ restart:
 		erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	    break;
+        case matchGetSilent:
+            ASSERT(c_p == self);
+            {
+                ErtsTracerRef *ref = NULL;
+                if (prog->trace_session) {
+                    ref = get_tracer_ref(&c_p->common, prog->trace_session);
+                }
+                if (ref && (ref->flags & F_TRACE_SILENT)) {
+                    *esp++ = am_true;
+                } else {
+                    *esp++ = am_false;
+                }
+            }
+            break;
         case matchTrace2:
             ASSERT(c_p == self);
 	    {
@@ -5415,7 +5430,31 @@ static DMCRet dmc_silent(DMCContext *context,
     /* Push as much as we remove, stack_need is untouched */
     return retOk;
 }
-  
+
+static DMCRet dmc_get_silent(DMCContext *context,
+                             DMCHeap *heap,
+                             DMC_STACK_TYPE(UWord) *text,
+                             Eterm t,
+                             bool *constant)
+{
+    Eterm *p = tuple_val(t);
+
+    if (!(context->cflags & DCOMP_TRACE)) {
+        RETURN_ERROR("Special form 'silent' used in wrong dialect.",
+                     context, *constant);
+    }
+    if (p[0] != make_arityval(1)) {
+        RETURN_TERM_ERROR("Special form 'silent' called with wrong "
+                          "number of arguments in %T.", t, context,
+                          *constant);
+    }
+    *constant = false;
+    DMC_PUSH(*text, matchGetSilent);  /* Pushes true/false */
+    if (++context->stack_used > context->stack_need)
+        context->stack_need = context->stack_used;
+    return retOk;
+}
+
 
 
 static DMCRet dmc_fun(DMCContext *context,
@@ -5475,7 +5514,10 @@ static DMCRet dmc_fun(DMCContext *context,
     case am_current_stacktrace:
 	return dmc_current_stacktrace(context, heap, text, t, constant);
     case am_silent:
- 	return dmc_silent(context, heap, text, t, constant);
+        if (a == 1)  /* {silent} -- getter */
+            return dmc_get_silent(context, heap, text, t, constant);
+        else         /* {silent, Expr} -- setter */
+            return dmc_silent(context, heap, text, t, constant);
     case am_set_tcw:
 	if (context->cflags & DCOMP_FAKE_DESTRUCTIVE) {
 	    b = dmc_lookup_bif(am_set_tcw_fake, ((int) a) - 1);
@@ -6557,6 +6599,10 @@ void db_match_dis(Binary *bp)
 	case matchCurrentStacktrace:
 	    ++t;
 	    erts_printf("CurrentStacktrace\n");
+	    break;
+	case matchGetSilent:
+	    ++t;
+	    erts_printf("GetSilent\n");
 	    break;
 	default:
 	    erts_printf("??? (0x%bpx)\n", *t);

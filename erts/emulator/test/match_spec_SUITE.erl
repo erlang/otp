@@ -29,6 +29,7 @@
 -export([test_1/1, test_2/1, test_3/1, test_4a/1, test_4b/1, test_5a/1,
          test_5b/1, test_6/1, caller_and_return_to/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
+	 silent_guard/1,
 	 ms_trace2/1, ms_trace3/1, ms_trace_dead/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
 	 empty_list/1,
@@ -64,7 +65,7 @@ testcases_trace() ->
     [test_1, test_2, test_3, test_4a, test_4b, test_5a, test_5b, test_6,
      caller_and_return_to,
      trace_control_word,
-     silent, silent_no_ms, silent_test,
+     silent, silent_no_ms, silent_test, silent_guard,
      ms_trace2, ms_trace3, ms_trace_dead,
      otp_9422].
 
@@ -674,6 +675,55 @@ silent_test(_Config) ->
     {flags,[]} = erlang_trace_info(self(),flags),
     erlang:match_spec_test([],[{'_',[],[{silent,true}]}],trace),
     {flags,[]} = erlang_trace_info(self(),flags).
+
+%% Test {silent} as guard/body function — reads the silent flag
+silent_guard(Config) when is_list(Config) ->
+    %% 1. Test with match_spec_test: {silent} compiles in trace dialect
+    {ok, _, _, []} = erlang:match_spec_test(
+        [], [{'_', [], [{message, {silent}}]}], trace),
+
+    %% 2. Test {silent} in guard: only match when NOT silent
+    tr(fun() ->
+            ?MODULE:f1(start),    % unsilences — should trace
+            ?MODULE:f2(a, b),     % guard {'not', {silent}} matches — trace
+            ?MODULE:f1(stop),     % silences — no trace (silent takes effect)
+            ?MODULE:f2(c, d)      % guard {'not', {silent}} fails — no trace
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call, silent]),
+            erlang_trace_pattern(
+                {?MODULE, f1, 1},
+                [{[start], [], [{silent, false}, {message, start}]},
+                 {[stop],  [], [{silent, true}, {message, stop}]}],
+                [global]),
+            erlang_trace_pattern(
+                {?MODULE, f2, 2},
+                [{'_', [{'not', {silent}}], [{message, guarded}]}],
+                [global]),
+            [{trace, P, call, {?MODULE, f1, [start]}, start},
+             {trace, P, call, {?MODULE, f2, [a, b]}, guarded}]
+       end),
+
+    %% 3. Test {silent} in body — returns true/false as message
+    %%    Use a tuple wrapper to avoid {message, false} suppressing the trace.
+    %%    {{{silent}}} = construct tuple from result of calling silent/0.
+    tr(fun() ->
+            ?MODULE:f1(a)
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call]),
+            erlang_trace_pattern(
+                {?MODULE, f1, 1},
+                [{'_', [], [{message, {{{silent}}}}]}],
+                [global]),
+            [{trace, P, call, {?MODULE, f1, [a]}, {false}}]
+       end),
+
+    %% 4. Verify {silent} is rejected in ETS (table) dialect
+    {error, _} = erlang:match_spec_test(
+        {a}, [{{'$1'}, [{silent}], ['$1']}], table),
+
+    ok.
 
 
 %% Test the match spec functions {trace/2}

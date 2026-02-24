@@ -70,7 +70,7 @@ _informal_ grammar:
   | `ceil` | `size` | `bit_size` | `byte_size` | `tuple_size` | `tl` | `trunc` |
   `binary_part` | `'+'` | `'-'` | `'*'` | `'div'` | `'rem'` | `'band'` | `'bor'`
   | `'bxor'` | `'bnot'` | `'bsl'` | `'bsr'` | `'>'` | `'>='` | `'<'` | `'=<'` |
-  `'=:='` | `'=='` | `'=/='` | `'/='` | `self` | `get_tcw`
+  `'=:='` | `'=='` | `'=/='` | `'/='` | `self` | `get_tcw` | `silent`
 - MatchBody ::= [ ActionTerm ]
 - ActionTerm ::= ConditionExpression | ActionCall
 - ActionCall ::= {ActionFunction} | {ActionFunction, ActionTerm, ...}
@@ -319,10 +319,12 @@ The functions allowed only for tracing work as follows:
   `erlang:system_flag(trace_control_word, Value)`. It is only allowed to use
   `set_tcw` in the `MatchBody` part when tracing.
 
-- **`silent`** - Takes one argument. If the argument is `true`, the call trace
-  message mode for the current process is set to silent for this call and all
-  later calls, that is, call trace messages are inhibited even if
-  `{message, true}` is called in the `MatchBody` part for a traced function.
+- **`silent`** - Set or read the call trace message mode.
+
+  With one argument, if the argument is `true`, the call trace message mode for
+  the current process is set to silent for this call and all later calls, that
+  is, call trace messages are inhibited even if `{message, true}` is called in
+  the `MatchBody` part for a traced function.
 
   This mode can also be activated with flag `silent` to `erlang:trace/3`.
 
@@ -330,7 +332,13 @@ The functions allowed only for tracing work as follows:
   process is set to normal (non-silent) for this call and all later calls.
 
   If the argument is not `true` or `false`, the call trace message mode is
-  unaffected.
+  unaffected. Only allowed in the `MatchBody` part when tracing.
+
+  With no arguments, returns `true` if the current process has
+  the silent trace flag set for the current trace session, `false` otherwise.
+  Can be used in both `MatchConditions` and `MatchBody` parts when tracing.
+  This is useful for conditionally activating trace actions only when the
+  process is not already being traced.
 
 > #### Note {: .info }
 >
