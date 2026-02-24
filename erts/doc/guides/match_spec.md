@@ -46,7 +46,7 @@ _informal_ grammar:
 
 - MatchExpression ::= [ MatchFunction, ... ]
 - MatchFunction ::= { MatchHead, MatchConditions, MatchBody }
-- MatchHead ::= MatchVariable | `'_'` | [ MatchHeadPart, ... ]
+- MatchHead ::= MatchVariable | `'_'` | [ MatchHeadPart, ... ] | [ MatchHeadPart, ... | `'_'` ]
 - MatchHeadPart ::= [term()](`t:term/0`) | MatchVariable | `'_'`
 - MatchVariable ::= '$<number>'
 - MatchConditions ::= [ MatchCondition, ...] | `[]`
@@ -557,6 +557,19 @@ argument is `'trace'`:
   []},
  {'_',[],[]}]
 ```
+
+Match all calls with two or more arguments where the first argument is the atom
+`'error'`, using a prefix match head (note the `| '_'` tail):
+
+```erlang
+[{['error', '_' | '_'],
+  [],
+  []}]
+```
+
+This is mainly useful when combined with a wildcard arity in the trace pattern,
+for example `trace:function(S, {Mod, Fun, '_'}, MatchSpec, [])`, where the
+match specification needs to match calls regardless of their arity.
 
 ## ETS Examples
 
