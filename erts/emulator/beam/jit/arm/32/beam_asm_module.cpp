@@ -336,7 +336,7 @@ void BeamModuleAssembler::emit_int_code_end() {
         bind_veneer_target(pair.second);
 
         mov_imm(TMP, pair.first);
-        a.blx(TMP);
+        a.bx(TMP);
     }
 
     mark_unreachable();
