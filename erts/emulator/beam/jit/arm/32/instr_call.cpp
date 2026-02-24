@@ -26,18 +26,38 @@ extern "C"
 }
 
 void BeamGlobalAssembler::emit_dispatch_return() {
-    // TODO
-    emit_nyi("emit_dispatch_return");
+    a.mov(ARG3, a32::lr);
+    mov_imm(TMP, 0);
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, current)));
+    mov_imm(TMP, 1);
+    a.strb(TMP, arm::Mem(c_p, offsetof(Process, arity)));
+    a.b(labels[context_switch_simplified]);
 }
 
 void BeamModuleAssembler::emit_dispatch_return() {
-    // TODO
-    emit_nyi("emit_dispatch_return");
+#ifdef JIT_HARD_DEBUG
+    /* Validate return address and {x,0} */
+    emit_validate(ArgWord(1));
+#endif
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(a32::lr, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
+    /* The reduction test is kept in module code because moving it to a shared
+     * fragment caused major performance regressions in dialyzer. */
+    a.subs(FCALLS, FCALLS, imm(1));
+    a.b_le(resolve_fragment(ga->get_dispatch_return(), disp32MB));
+
+    a.bx(a32::lr);
+
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_return() {
-    // TODO
-    emit_nyi("emit_return");
+    emit_leave_erlang_frame();
+    emit_dispatch_return();
 }
 
 void BeamModuleAssembler::emit_move_deallocate_return() {
