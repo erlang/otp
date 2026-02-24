@@ -4208,10 +4208,9 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
      * copying data from raw memory blocks.
      */
     {
+        size_t totalBytes = 0;
         ERL_NIF_TERM* elems;
         ESOCK_ASSERT( (elems = MALLOC(readResult * sizeof(ERL_NIF_TERM))) != NULL );
-
-        size_t totalBytes = 0;
 
         for (i = 0; i < (unsigned int) readResult; i++) {
             ErlNifBinary bin;

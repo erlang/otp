@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@
        nif_peeloff/2,
        nif_send/4, nif_sendto/5, nif_sendmsg/5, nif_sendmmsg/4, nif_sendv/3,
        nif_sendfile/5, nif_sendfile/4, nif_sendfile/1,
-       nif_recv/4, nif_recvfrom/4, nif_recvmsg/5,
+       nif_recv/4, nif_recvfrom/4, nif_recvmsg/5, nif_recvmmsg/6,
        nif_close/1, nif_shutdown/2,
        nif_setopt/5, nif_getopt/3, nif_getopt/5,
        nif_sockname/1, nif_socknames/2, nif_peername/1, nif_peernames/2,
