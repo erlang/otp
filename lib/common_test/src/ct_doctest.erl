@@ -160,7 +160,7 @@ Any variable defined in the examples will be available in the following prompts.
 ### Prebound variables
 
 If the documentation examples rely on certain variables being prebound, you can provide these
-bindings in the `bindings` option when calling `module/2`. For example, if you have a module
+bindings when calling `module/3`. For example, if you have a module
 doc that uses a variable `Prebound`, you can set it up like this:
 
 ```
@@ -172,8 +172,8 @@ and then in your test suite:
 
 ```
 binding_test(_Config) ->
-    Prebound = erl_eval:add_binding('Prebound', hello, erl_eval:new_bindings()),
-    ct_doctest:module(my_module, [{bindings, [{module_doc, Prebound}]}]).
+    Bindings = [{moduledoc, #{'Prebound' => hello}}],
+    ct_doctest:module(my_module, Bindings, []).
 ```
 
 ### Ignore result
@@ -269,11 +269,7 @@ should not be tested
 
 -include_lib("kernel/include/eep48.hrl").
 
--export([module/1, module/2, file/1, file/2]).
-
--doc "Variable bindings passed as option to `module/2` or `file/2`.".
--type doc_binding() :: {{function | type | callback, atom(), non_neg_integer()} |
-                        module_doc, erl_eval:binding_struct()}.
+-export([module/1, module/2, module/3, file/1, file/2, file/3]).
 
 -doc """
 Options for doctest execution.
@@ -298,10 +294,16 @@ Options for doctest execution.
 module(Module) ->
     module(Module, []).
 
+-doc #{equiv => module(Module, [], Options)}.
+-spec module(module(), options()) ->
+          ok | {comment, string()} | {error, term()} | no_return().
+module(Module, Options) ->
+    module(Module, [], Options).
+
 -doc """
 Run tests for the documentation in a module with EEP-48 docs.
 
-When calling `module/2`, `ct_doctest` looks for documentation in the specified module and
+When calling `module/3`, `ct_doctest` looks for documentation in the specified module and
 runs any examples found there. The module, function, type, and callback documentation
 are all checked for examples.
 
@@ -309,18 +311,18 @@ The function returns `ok` if all tests pass, or `{comment, Comment}` if all test
 functions lack tests. If any test fails, an exception in the form of `error({N, errors})` is raised,
 where `N` is the number of failed tests. The details of each failure are printed to the console.
 
-*Options*:
+Use `Bindings` to provide prebound variables for a specific doc entry. Use
+`moduledoc` for module docs and `{function, Name, Arity}` (or corresponding
+`type`/`callback` keys) for entry-specific bindings.
 
-* `bindings` - Provide prebound variables for a specific doc entry. Use
-  `module_doc` for module docs and `{function, Name, Arity}` (or corresponding
-  `type`/`callback` keys) for entry-specific bindings.
-
-See `options/0` for more available options.
+See `t:options/0` for available options.
 """.
--spec module(module(), [{bindings, [doc_binding()]}] | options()) ->
-          ok | {comment, string()} | {error, term()} | no_return().
-module(Module, Options) ->
-    Bindings = options_bindings(Options),
+-spec module(module(), Bindings, options()) ->
+          ok | {comment, string()} | {error, term()} | no_return()
+          when 
+            KFA :: {Kind :: function | type | callback, atom(), arity()},
+            Bindings :: [{KFA | moduledoc, erl_eval:binding_struct()}].
+module(Module, Bindings, Options) ->
     HasParserKey = proplists:is_defined(parser, Options),
     ParserFun = options_parser(Options),
     ExpectedSkipped = options_skipped_blocks(Options),
@@ -342,23 +344,30 @@ module(Module, Options) ->
 file(File) ->
     file(File, []).
 
+-doc #{equiv => file(File, [], Options)}.
+-spec file(file:filename(), options()) ->
+          ok | {comment, string()} | {error, term()} | no_return().
+file(File, Options) ->
+    file(File, [], Options).
+
 -doc """
-Run doctests for a file.
+Run doctests for a markdown file.
 
 The function returns `ok` if all tests pass. If any test fails, an exception in the form of
 `error({N, errors})` is raised, where `N` is the number of failed tests. The details of each
 failure are printed to the console.
 
-*Options*:
+Use `Bindings` to provide prebound variables. Bindings are global for all files, so take
+care to avoid any naming conflicts.
 
-* `bindings` - Provide prebound variables.
+You can run doctests on non-markdown files by providing a custom parser that extracts the
+code blocks to be tested.
 
-See `options/0` for more available options.
+See `t:options/0` for available options.
 """.
--spec file(file:filename(), [{bindings, erl_eval:binding_struct()}] | options()) ->
+-spec file(file:filename(), Bindings :: [{atom(), term()}], options()) ->
           ok | {comment, string()} | {error, term()} | no_return().
-file(File, Options) ->
-    Bindings = options_bindings(Options),
+file(File, Bindings, Options) ->
     ParserFun = options_parser(Options),
     ExpectedSkipped = options_skipped_blocks(Options),
     Verbose = options_verbose(Options),
@@ -384,8 +393,7 @@ file(File, Options) ->
 
 run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
                 Bindings, ParserFun, ExpectedSkipped, Verbose) ->
-    MDRes = lists:append([parse_and_run(module_doc, MD, Bindings,
-                                        ParserFun, Verbose)]),
+    MDRes = parse_and_run(moduledoc, MD, Bindings, ParserFun, Verbose),
     Res =
         lists:append(
           [parse_and_run(KFA, EntryDocs, Bindings, ParserFun, Verbose) ||
@@ -393,7 +401,7 @@ run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
               is_map(EntryDocs)]),
     Errors =
         [{{F,A},E} || {{_,F,A},[{error,E}],_} <- Res] ++
-        [{module_doc,E} || {module_doc,[{error,E}],_} <- MDRes],
+        [{moduledoc,E} || {moduledoc,[{error,E}],_} <- MDRes],
     _ = [print_error(E) || E <- Errors],
     case length(Errors) of
         0 ->
@@ -417,9 +425,9 @@ run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
             error({N,errors})
     end.
 
-print_error({module_doc,{Message,Line,Context}}) ->
+print_error({moduledoc,{Message,Line,Context}}) ->
     io:format("Module Doc:~p: ~ts~n~ts~n", [Line,Context,Message]);
-print_error({module_doc,{Message,Context}}) ->
+print_error({moduledoc,{Message,Context}}) ->
     io:format("Module Doc: ~ts~n~ts~n", [Context,Message]);
 print_error({file, Path, {Message,Line,Context}}) ->
     io:format("File ~ts:~p: ~ts~n~ts~n", [Path,Line,Context,Message]);
@@ -437,7 +445,7 @@ parse_and_run(KFA, #{} = Ds, Bindings, ParserFun, Verbose) ->
 
 do_parse_and_run(KFA, Docs, Bindings, ParserFun, Verbose) ->
     try
-        InitialBindings = proplists:get_value(KFA, Bindings, erl_eval:new_bindings()),
+        InitialBindings = proplists:get_value(KFA, Bindings, []),
         Blocks = inspect(parse(Docs, ParserFun)),
         {RunResult, Skipped} = run_blocks(Blocks, InitialBindings,
                                           {module, KFA}, Verbose),
@@ -488,8 +496,8 @@ test_block(Code, Bindings, Context, Index, Skipped, Verbose) when is_binary(Code
 test_block(Other, _Bindings, _Context, _Index, _Skipped, _Verbose) ->
     throw({error, {invalid_code_block, Other}}).
 
-context_label({module, module_doc}) ->
-    ~"module_doc";
+context_label({module, moduledoc}) ->
+    ~"moduledoc";
 context_label({module, {Kind, Name, Arity}}) ->
     lists:flatten(io_lib:format("~p ~p/~p", [Kind, Name, Arity]));
 context_label({file, Path}) ->
@@ -533,9 +541,6 @@ validate_code_block(Block) when is_binary(Block) ->
     Block;
 validate_code_block(Other) ->
     throw({error, {invalid_code_block, Other}}).
-
-options_bindings(Options) ->
-    proplists:get_value(bindings, Options, []).
 
 options_parser(Options) ->
     proplists:get_value(parser, Options,

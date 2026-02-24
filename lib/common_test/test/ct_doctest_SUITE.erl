@@ -96,10 +96,9 @@ parse_rewrite_helpers(_Config) ->
 
 file_support(Config) ->
     DataDir = ?config(data_dir, Config),
-    Bindings = erl_eval:add_binding('Prebound', hello, erl_eval:new_bindings()),
-    Opts = [{bindings, Bindings}],
+    Bindings = #{'Prebound' => hello},
     ParseErrorFile = filename:join(DataDir, "doctest_parse_error.md"),
-    ok = ct_doctest:file(filename:join(DataDir, "doctest_ok.md"), Opts),
+    ok = ct_doctest:file(filename:join(DataDir, "doctest_ok.md"), Bindings, []),
     expect_error_count(filename:join(DataDir, "doctest_fail.md"), [], 1),
     expect_error_count(ParseErrorFile, [], 1),
     {error, enoent} = ct_doctest:file(filename:join(DataDir, "missing_*.md"), []).
@@ -127,14 +126,14 @@ type_and_callback_docs(_Config) ->
 
 verbose_option(Config) ->
     DataDir = ?config(data_dir, Config),
-    Bindings = erl_eval:add_binding('Prebound', hello, erl_eval:new_bindings()),
+    Bindings = [{'Prebound', hello}],
     ok = ct_doctest:module(ct_doctest_type_callback_mod, [{verbose, true}]),
     expect_error_count(ct_doctest_type_callback_value_error_mod,
                        [{verbose, true}], 1),
     ok = ct_doctest:module(ct_doctest_skipped_block_mod,
                            [{skipped_blocks, 1}, {verbose, true}]),
-    ok = ct_doctest:file(filename:join(DataDir, "doctest_ok.md"),
-                         [{bindings, Bindings}, {verbose, true}]).
+    ok = ct_doctest:file(filename:join(DataDir, "doctest_ok.md"), Bindings,
+                         [{verbose, true}]).
 
 skipped_blocks_option(_Config) ->
     expect_exception(ct_doctest_skipped_block_mod, [],
@@ -144,11 +143,9 @@ skipped_blocks_option(_Config) ->
                            [{skipped_blocks, 1}]).
 
 integration_smoke(_Config) ->
-    Bindings = [{module_doc,
-                 erl_eval:add_binding('Prebound', hello, erl_eval:new_bindings())}],
-    ct_doctest:module(ct_doctest, [{bindings, Bindings},
-                                   {skipped_blocks, 8},
-                                   {verbose, true}]).
+    Bindings = [{moduledoc, [{'Prebound', hello}]}],
+    ct_doctest:module(ct_doctest, Bindings, [{skipped_blocks, 8},
+                                             {verbose, true}]).
 
 compile_fixture(File, OutDir) ->
     Module = list_to_atom(filename:basename(File, ".erl")),
@@ -185,9 +182,9 @@ expect_exception(Module, Bindings, Class, Reason) ->
 
 run_target(Target, []) when is_atom(Target) ->
     ct_doctest:module(Target);
-run_target(Target, Bindings) when is_atom(Target) ->
-    ct_doctest:module(Target, Bindings);
+run_target(Target, Options) when is_atom(Target) ->
+    ct_doctest:module(Target, Options);
 run_target(Target, []) ->
     ct_doctest:file(Target);
-run_target(Target, Bindings) ->
-    ct_doctest:file(Target, Bindings).
+run_target(Target, Options) ->
+    ct_doctest:file(Target, Options).

@@ -475,15 +475,17 @@ doctests(Config) ->
             {skip, "Don't run in debug emulator"};
         _ ->
             {ok, Dict} = file:read_file(proplists:get_value(dict, Config)),
-            DictBinding = erl_eval:add_binding('Dict', Dict, erl_eval:new_bindings()),
+            DictBinding = #{'Dict' => Dict},
             File = filename:join(proplists:get_value(priv_dir, Config), "example"),
             ok = file:write_file(File, ~"lorem ipsum"),
+            Bindings =
+                [{moduledoc, #{'File' => File}},
+                 {{function, get_dict_id, 1}, DictBinding},
+                 {{function, dict, 3}, DictBinding}],
             ct_doctest:module(
               zstd,
-              [{bindings,
-                [{module_doc, erl_eval:add_binding('File', File, erl_eval:new_bindings())},
-                 {{function, get_dict_id, 1}, DictBinding},
-                 {{function, dict, 3}, DictBinding}]}]
+              Bindings,
+              []
              )
     end.
 
