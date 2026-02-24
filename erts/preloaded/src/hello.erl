@@ -73,18 +73,18 @@
 %%%
 start(_BootMod, BootArgs) ->
     hello(BootArgs),
-    halt(42).
+    halt(42, []).
 %
 %%% Entry from test suite.
-hello(_BootArgs) ->
-%    _ = id(BootArgs),
-%    erlang:display_string("hello, world\n"),
-%    erlang:display_string(id("arguments: ")),
-%    erlang:display(id(BootArgs)),
-%
-%    erlang:display_string("Testing stuff (should not crash)...\n"),
+hello(BootArgs) ->
+    _ = id(BootArgs),
+    erlang:display_string("hello, world\n"),
+    erlang:display_string(id("arguments: ")),
+    erlang:display(id(BootArgs)),
+ 
+    erlang:display_string("Testing stuff (should not crash)...\n"),
 %    test(BootArgs),
-     erlang:display_string("Everything is fine!\n").
+    erlang:display_string("Everything is fine!\n").
 %
 %    estone().
 %
@@ -123,8 +123,8 @@ hello(_BootArgs) ->
 %    end.
 %-endif.
 %
-%id(I) ->
-%    I.
+id(I) ->
+    I.
 %
 %test(BootArgs) ->
 %    external_call(),
