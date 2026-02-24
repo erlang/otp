@@ -108,7 +108,7 @@ or if bad arguments are specified.
 > Blocking signaling can, for example, cause call timeouts in `gen_event`
 > to be significantly delayed.
 
-## See Also
+### See Also
 
 `m:supervisor`, `m:sys`
 """.

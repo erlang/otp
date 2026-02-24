@@ -67,7 +67,7 @@ See the [Compatibility Section in the `sets` module](`m:sets#module-compatibilit
 for information about the compatibility of the different implementations of sets
 in the Standard Library.
 
-## See Also
+### See Also
 
 `m:gb_trees`, `m:ordsets`, `m:sets`
 """.

@@ -130,7 +130,7 @@ Nothing is said about whether the disk log files exist or not.
 > must check for error message `no_such_log` if some other process truncates or
 > reopens the log simultaneously.
 
-## See Also
+### See Also
 
 `m:file`, `m:wrap_log_reader`
 """.

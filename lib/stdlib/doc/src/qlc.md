@@ -501,7 +501,7 @@ join operator is `==/2`, and the table where constants are to be looked up uses
 `=:=/2` when testing keys for equality, then the `qlc` module does not consider
 lookup join for that table.
 
-## See Also
+### See Also
 
 `m:dets`, `m:erl_eval`, `m:erlang`, `m:error_logger`, `m:ets`, `m:file`,
 `m:file_sorter`, `m:mnesia`, `m:shell`,

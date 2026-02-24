@@ -70,7 +70,7 @@ the list of stored values, and storing the result.
 Function `fetch` is to be used if the key is known to be in the dictionary,
 otherwise function `find`.
 
-## See Also
+### See Also
 
 `m:gb_trees`, `m:orddict`
 """.

@@ -26,7 +26,7 @@ A Set of Release Handling Tools
 This module contains functions to generate boot scripts (`.boot`, `.script`), a
 release upgrade file (`relup`), and release packages.
 
-## See Also
+### See Also
 
 [`app(4)`](`e:kernel:app.md`), [`appup(4)`](appup.md),
 [`erl(1)`](`e:erts:erl_cmd.md`), [`rel(4)`](rel.md), `m:release_handler`,

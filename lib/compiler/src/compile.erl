@@ -197,7 +197,7 @@ to do that using documented functionality:
 Our recommendation is to use either the abstract format or Erlang
 source code.
 
-## See Also
+### See Also
 
 `m:epp`, `m:erl_expand_records`, `m:erl_id_trans`, `m:erl_lint`, `m:beam_lib`
 """.

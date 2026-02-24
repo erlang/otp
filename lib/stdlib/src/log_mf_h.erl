@@ -32,7 +32,7 @@ the first one is reused and overwritten. The directory location, the number of
 files, and the size of each file are configurable. The directory will include
 one file called `index`, and report files `1, 2, ...`.
 
-## See Also
+### See Also
 
 `m:gen_event`, `m:rb`
 """.

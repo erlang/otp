@@ -65,7 +65,7 @@ A string describing the error is obtained with the following call:
 Module:format_error(ErrorDescriptor)
 ```
 
-## See Also
+### See Also
 
 `m:epp`, `m:erl_parse`
 """.

@@ -54,7 +54,7 @@ are deleted. This behavior is by default turned off to save memory but can be
 turned on via `lcnt:rt_opt({copy_save, true})`. The `lcnt:apply/1,2,3` functions
 enables this behavior during profiling.
 
-## See Also
+### See Also
 
 [LCNT User's Guide](lcnt_chapter.md)
 """.

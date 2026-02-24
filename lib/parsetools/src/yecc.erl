@@ -480,7 +480,7 @@ grammar for Erlang.
 lib/parsetools/include/yeccpre.hrl
 ```
 
-## See Also
+### See Also
 
 * Aho & Johnson: 'LR Parsing', ACM Computing Surveys, vol. 6:2, 1974.
 

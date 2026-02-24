@@ -66,7 +66,7 @@ used for retrieving CPU utilization values.
 When run on Linux, `cpu_sup` assumes that the `/proc` file system is present and
 accessible by `cpu_sup`. If it is not, `cpu_sup` will terminate.
 
-## See Also
+### See Also
 
 [os_mon(3)](os_mon_app.md)
 """.

@@ -66,7 +66,7 @@ for time interval and threshold:
 See [config](`e:kernel:config.md`) for information about how to change the
 value of configuration parameters.
 
-## See Also
+### See Also
 
 `m:alarm_handler`, [os_mon](os_mon_app.md)
 """.

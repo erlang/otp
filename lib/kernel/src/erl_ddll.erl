@@ -151,7 +151,7 @@ follows:
     design is to not allow other [users](`m:erl_ddll#users`) than the "driver
     reloader" to demand loading of the driver in question.
 
-## See Also
+### See Also
 
 [`erl_driver(4)`](`e:erts:erl_driver.md`), [`driver_entry(4)`](`e:erts:driver_entry.md`)
 """.

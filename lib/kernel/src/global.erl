@@ -112,7 +112,7 @@ network problem.
 > If the fully connected network is not set up properly, try first to increase
 > the value of `net_setuptime`.
 
-## See Also
+### See Also
 
 `m:global_group`, `m:net_kernel`
 """.

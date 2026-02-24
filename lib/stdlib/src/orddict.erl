@@ -58,7 +58,7 @@ the list of stored values, and storing the result.
 Function [`fetch/2`](`fetch/2`) is to be used if the key is known to be in the
 dictionary, otherwise function [`find/2`](`find/2`).
 
-## See Also
+### See Also
 
 `m:dict`, `m:gb_trees`
 """.

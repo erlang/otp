@@ -79,7 +79,7 @@ For basic functions on directed graphs, see the `m:digraph` module.
 - A _tree_{: #tree } is an acyclic non-empty digraph such that there is a unique
   path between every pair of vertices, considering all edges undirected.
 
-## See Also
+### See Also
 
 `m:digraph`
 """.
