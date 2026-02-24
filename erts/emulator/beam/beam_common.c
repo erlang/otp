@@ -427,6 +427,8 @@ ErtsCodePtr erts_printable_return_address(const Process* p, const Eterm *E) {
             scanner += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
         } else if (BeamIsReturnToTrace(return_address)) {
             scanner += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
+        } else if (BeamIsAfterTrace(return_address)) {
+            scanner += CP_SIZE + BEAM_AFTER_TRACE_FRAME_SZ;
         } else {
             return return_address;
         }
@@ -629,6 +631,14 @@ next_catch(Process* c_p, Eterm *reg) {
                     have_return_to_trace = 1;
                 }
                 ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
+            } else if (BeamIsAfterTrace(return_address)) {
+                /* Execute after-actions even during exception unwinding
+                 * (like try/after semantics) */
+                Binary *after = (Binary*)frame[0];
+                erts_after_trace(c_p, after, frame[1], frame[2]);
+                /* erts_after_trace already decrements return_trace_frames
+                 * and calls MatchSetUnref */
+                ptr += CP_SIZE + BEAM_AFTER_TRACE_FRAME_SZ;
             } else {
             #ifdef DEBUG
                 dbg_return_to_trace_address = return_address;
@@ -813,6 +823,8 @@ gather_stacktrace(Process* p, struct StackTrace* s)
                 ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
                 ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
+            } else if (BeamIsAfterTrace(return_address)) {
+                ptr += CP_SIZE + BEAM_AFTER_TRACE_FRAME_SZ;
             } else {
                 if (return_address != prev) {
                     ErtsCodePtr adjusted_address;

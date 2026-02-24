@@ -501,6 +501,7 @@ typedef struct match_prog {
     Uint heap_size;          /* size of: heap + eheap + stack */
     Uint stack_offset;
     struct ErtsTraceSession* trace_session;
+    Binary *after_prog;  /* Separate after program, or NULL */
 #ifdef DMC_DEBUG
     UWord* prog_end;		/* End of program */
 #endif

@@ -45,6 +45,7 @@ nif_start
 i_generic_breakpoint
 i_debug_breakpoint
 i_call_trace_return
+i_after_trace
 i_return_to_trace
 i_disabled_line_breakpoint t
 i_enabled_line_breakpoint t

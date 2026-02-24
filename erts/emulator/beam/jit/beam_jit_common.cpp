@@ -1278,6 +1278,8 @@ void beam_jit_return_to_trace(Process *c_p,
                 cpp += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_to_address)) {
                 cpp += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
+            } else if (BeamIsAfterTrace(return_to_address)) {
+                cpp += CP_SIZE + BEAM_AFTER_TRACE_FRAME_SZ;
             } else {
                 break;
             }

@@ -56,6 +56,7 @@
 #include "erl_bif_unique.h"
 #include "erl_map.h"
 #include "erl_global_literals.h"
+#include "erl_db_util.h"
 
 #if 0
 #define DEBUG_PRINTOUTS
@@ -1104,7 +1105,28 @@ erts_trace_return(Process* p, ErtsCodeMFA *mfa,
                            retval, am_true);
 }
 
-/* Send {trace_ts, Pid, exception_from, {Mod, Name, Arity}, {Class,Value}, 
+/* Execute the after-trace program when a traced function exits
+ * (by normal return or exception). Similar to try/after semantics.
+ */
+void
+erts_after_trace(Process* p, Binary* after_prog,
+                 ErtsTracer tracer, Eterm session_weak_id)
+{
+    Uint32 dummy_flags = 0;
+
+    ASSERT(p->return_trace_frames > 0);
+    p->return_trace_frames--;
+
+    /* Execute the after match program.
+     * It's compiled as [{'_', [], [Actions]}] — head always matches,
+     * no guards, body contains the actions to execute. */
+    (void)db_prog_match(p, p, after_prog, am_true, NULL, 0,
+                        ERTS_PAM_TMP_RESULT, &dummy_flags);
+
+    MatchSetUnref(after_prog);  /* release frame's reference */
+}
+
+/* Send {trace_ts, Pid, exception_from, {Mod, Name, Arity}, {Class,Value},
  *       Timestamp}
  * or   {trace, Pid, exception_from, {Mod, Name, Arity}, {Class,Value}, 
  *       Timestamp}

@@ -338,7 +338,8 @@ typedef enum {
     matchTrace3,
     matchCallerLine,
     matchCurrentStacktrace,
-    matchGetSilent
+    matchGetSilent,
+    matchSetAfter
 } MatchOps;
 
 /*
@@ -412,6 +413,7 @@ typedef struct dmc_context {
     DMCErrInfo *err_info;
     char *stack_limit;
     Uint freason;
+    Eterm after_body;  /* THE_NON_VALUE if no {after, ...} action */
 } DMCContext;
 
 /*
@@ -1201,6 +1203,13 @@ Binary *erts_match_set_compile_trace(Process *p, Eterm matchexpr,
 	    copy_struct(matchexpr, sz, &hp, 
 			&(prog->saved_program_buf->off_heap));
         prog->trace_session = session;
+        if (prog->after_prog != NULL) {
+            MatchProg *after = Binary2MatchProg(prog->after_prog);
+            after->trace_session = session;
+#ifdef DEBUG
+            erts_refc_inc(&session->dbg_bp_refc, 1);
+#endif
+        }
 #ifdef DEBUG
         erts_refc_inc(&session->dbg_bp_refc, 1);
 #endif
@@ -1723,6 +1732,7 @@ Binary *db_match_compile(Eterm *matchexpr,
     context.bodyexpr = body;
     context.err_info = err_info;
     context.cflags = flags;
+    context.after_body = THE_NON_VALUE;
 
     heap.size = DMC_DEFAULT_SIZE;
     heap.vars = heap.vars_def;
@@ -2051,6 +2061,33 @@ restart:
     ret->stack_offset = heap.vars_used*sizeof(MatchVariable) + FENCE_PATTERN_SIZE;
     ret->heap_size = ret->stack_offset + context.stack_need * sizeof(Eterm*) + FENCE_PATTERN_SIZE;
     ret->trace_session = NULL;
+    ret->after_prog = NULL;
+
+    if (context.after_body != THE_NON_VALUE) {
+        /* Compile the after-action into a separate MatchProg.
+         * Build a match spec [{'_', [], [after_body]}] that always matches
+         * and executes the after-actions. */
+        Eterm after_ms_match, after_ms_guard, after_ms_body;
+        Eterm after_body_list[2];  /* One cons cell */
+
+        after_ms_match = am_Underscore;
+        after_ms_guard = NIL;
+        after_body_list[0] = context.after_body;
+        after_body_list[1] = NIL;
+        after_ms_body = make_list(after_body_list);
+
+        ret->after_prog = db_match_compile(&after_ms_match, &after_ms_guard,
+                                           &after_ms_body, 1,
+                                           flags & ~DCOMP_CALL_TRACE,
+                                           NULL, freasonp);
+        if (ret->after_prog == NULL) {
+            /* Compilation of after body failed, release the main Binary */
+            erts_bin_release(bp);
+            bp = NULL;
+            goto error;
+        }
+        MatchSetRef(ret->after_prog);
+    }
 
 #ifdef DMC_DEBUG
     ret->prog_end = ret->text + DMC_STACK_NUM(text);
@@ -2089,6 +2126,9 @@ int erts_db_match_prog_destructor(Binary *bprog)
     }
     if (prog->saved_program_buf != NULL)
 	free_message_buffer(prog->saved_program_buf);
+    if (prog->after_prog != NULL) {
+        MatchSetUnref(prog->after_prog);
+    }
 #ifdef DEBUG
     if (prog->trace_session) {
         erts_refc_dec(&prog->trace_session->dbg_bp_refc, 0);
@@ -2735,6 +2775,10 @@ restart:
 	    break;
 	case matchSetExceptionTrace:
 	    *return_flags |= MATCH_SET_EXCEPTION_TRACE;
+	    *esp++ = am_true;
+	    break;
+	case matchSetAfter:
+	    *return_flags |= MATCH_SET_AFTER;
 	    *esp++ = am_true;
 	    break;
         case matchIsSeqTrace:
@@ -5455,6 +5499,37 @@ static DMCRet dmc_get_silent(DMCContext *context,
     return retOk;
 }
 
+static DMCRet dmc_after(DMCContext *context,
+                        DMCHeap *heap,
+                        DMC_STACK_TYPE(UWord) *text,
+                        Eterm t,
+                        bool *constant)
+{
+    Eterm *p = tuple_val(t);
+    DMCRet ret;
+
+    if (!check_trace("after", context, constant,
+                     DCOMP_CALL_TRACE, false, &ret))
+        return ret;
+
+    if (p[0] != make_arityval(2)) {
+        RETURN_TERM_ERROR("Special form 'after' called with wrong "
+                          "number of arguments in %T.", t, context,
+                          *constant);
+    }
+    if (context->after_body != THE_NON_VALUE) {
+        RETURN_ERROR("Only one 'after' action is allowed per clause.",
+                     context, *constant);
+    }
+    *constant = false;
+    context->after_body = dmc_private_copy(context, p[2]);
+    DMC_PUSH(*text, matchSetAfter);
+    DMC_PUSH(*text, matchPushC);
+    DMC_PUSH(*text, am_true);
+    /* Push as much as we remove, stack_need is untouched */
+    return retOk;
+}
+
 
 
 static DMCRet dmc_fun(DMCContext *context,
@@ -5518,6 +5593,8 @@ static DMCRet dmc_fun(DMCContext *context,
             return dmc_get_silent(context, heap, text, t, constant);
         else         /* {silent, Expr} -- setter */
             return dmc_silent(context, heap, text, t, constant);
+    case am_after:
+        return dmc_after(context, heap, text, t, constant);
     case am_set_tcw:
 	if (context->cflags & DCOMP_FAKE_DESTRUCTIVE) {
 	    b = dmc_lookup_bif(am_set_tcw_fake, ((int) a) - 1);
@@ -6603,6 +6680,10 @@ void db_match_dis(Binary *bp)
 	case matchGetSilent:
 	    ++t;
 	    erts_printf("GetSilent\n");
+	    break;
+	case matchSetAfter:
+	    ++t;
+	    erts_printf("SetAfter\n");
 	    break;
 	default:
 	    erts_printf("??? (0x%bpx)\n", *t);

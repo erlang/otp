@@ -77,7 +77,7 @@ _informal_ grammar:
 - ActionFunction ::= `set_seq_token` | `get_seq_token` | `message` |
   `return_trace` | `exception_trace` | `process_dump` | `enable_trace` |
   `disable_trace` | `trace` | `display` | `caller` | `caller_line` |
-  `current_stacktrace` | `set_tcw` | `silent`
+  `current_stacktrace` | `set_tcw` | `silent` | `after`
 
 A match specification used in `m:ets` can be described in the following
 _informal_ grammar:
@@ -340,6 +340,23 @@ The functions allowed only for tracing work as follows:
   This is useful for conditionally activating trace actions only when the
   process is not already being traced.
 
+- **`after`** - Takes one argument which is an action expression. When the
+  traced function exits — whether by normal return or by exception — the action
+  expression is executed. This is analogous to the `after` clause in a
+  `try/after` expression: it always runs for cleanup purposes.
+
+  The action expression is compiled into a separate match program at trace
+  pattern setup time. Returns `true` and can only be used in the `MatchBody`
+  part when tracing call events.
+
+  _Note:_ The `after` action is always executed last, no matter the order
+  of actions in the match specs — inluding after `exception_trace` or `return_trace`,
+  and can't be used to supporess the messages emitted by those actions.
+
+  _Warning:_ Like `return_trace`, using `after` on a tail-recursive function
+  destroys the tail-call optimization. Use the `silent` flag guard to avoid
+  pushing after frames on recursive calls.
+
 > #### Note {: .info }
 >
 > All "function calls" must be tuples, even if they take no arguments. The value
@@ -565,6 +582,46 @@ argument is `'trace'`:
   []},
  {'_',[],[]}]
 ```
+
+Enable tracing only for the duration of a specific function call, using `silent`
+and `after`:
+
+```erlang
+[{'_',
+  [{silent}],
+  [{silent, false}, {'after', {silent, true}}]}]
+```
+
+When applied to a function with `erlang:trace/3` flag `silent` set, this match
+specification will unsilence the process when the function is called and
+re-silence it when the function exits (whether normally or by exception). The
+`{silent}` guard matches only when the process is currently silent, so once
+`{silent, false}` has unsilenced the process, recursive calls will not match
+the guard and no duplicate after frames are pushed.
+
+This pattern can be used to trace specific functions only when they are called
+within a particular code path. For example, to trace all calls to
+`ets:lookup/2` but only when they occur during execution of
+`my_module:handle_request/1`:
+
+```erlang
+%% Start the process as silent — no trace messages by default
+erlang:trace(Pid, true, [call, silent]).
+
+%% The "gate" function: unsilence on entry, re-silence on exit
+erlang:trace_pattern(
+    {my_module, handle_request, 1},
+    [{'_', [{silent}],
+      [{silent, false}, {'after', {silent, true}}]}],
+    [local]).
+
+%% The "observed" function: traced normally (no match spec needed)
+erlang:trace_pattern({ets, lookup, 2}, true, [global]).
+```
+
+With this setup, `ets:lookup/2` calls produce trace messages only while
+`my_module:handle_request/1` is on the call stack. All other `ets:lookup/2`
+calls are silenced.
 
 ## ETS Examples
 
