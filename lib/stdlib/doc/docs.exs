@@ -19,6 +19,12 @@
 # %CopyrightEnd%
 [
   groups_for_modules: [
+    "BASIC DATA TYPES": [
+      :binary,
+      :lists,
+      :maps,
+      :records
+    ],
     "HIGH-LEVEL DATA STRUCTURES": [
       :gb_sets,
       :gb_trees,
@@ -38,7 +44,8 @@
       :string,
       :unicode,
       :re,
-      :base64
+      :base64,
+      :uri_string
     ],
     PROCESSES: [
       :gen_event,
@@ -58,6 +65,11 @@
       :filelib,
       :filename,
       :file_sorter
+    ],
+    "TERM STORAGE": [
+      :ets,
+      :dets,
+      :qlc
     ],
     CODE: [
       :erl_scan,

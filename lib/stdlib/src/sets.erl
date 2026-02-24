@@ -110,7 +110,7 @@ representations.
 > true
 > ```
 
-## See Also
+### See Also
 
 `m:gb_sets`, `m:ordsets`
 """.

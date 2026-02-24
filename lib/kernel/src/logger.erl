@@ -96,7 +96,7 @@ is added to the metadata as described under the `t:metadata/0` type definition.
 The call is wrapped in a case statement and will be evaluated only if `Level` is
 equal to or below the configured log level.
 
-## See Also
+### See Also
 
 [`config`](config.md), `m:erlang`, `m:io`, `m:logger_disk_log_h`,
 `m:logger_filters`, `m:logger_handler`, `m:logger_formatter`, `m:logger_std_h`,

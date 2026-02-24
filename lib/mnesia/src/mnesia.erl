@@ -262,7 +262,7 @@ Mnesia reads the following application configuration parameters:
 First, the SASL application parameters are checked, then the command-line flags
 are checked, and finally, the default value is chosen.
 
-## See Also
+### See Also
 
 `m:application`, `m:dets`, `m:disk_log`, `m:ets`, `m:qlc`
 """.

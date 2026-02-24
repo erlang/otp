@@ -67,7 +67,7 @@ The functions [`anno_from_term()`](`erl_parse:anno_from_term/1`),
 [`new_anno()`](`erl_parse:new_anno/1`), in the `erl_parse` module can be used
 for manipulating annotations in abstract code.
 
-## See Also
+### See Also
 
 `m:erl_parse`, `m:erl_scan`
 """.

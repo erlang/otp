@@ -33,7 +33,7 @@ information.
 
 `m:logger_formatter` is the default formatter used by Logger.
 
-## See Also
+### See Also
 
 `m:calendar`, `m:error_logger`, `m:io`, `m:io_lib`, `m:logger`, `m:maps`,
 [`sasl(6)`](`e:sasl:sasl_app.md`), `m:unicode`

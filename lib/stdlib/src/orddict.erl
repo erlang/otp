@@ -34,7 +34,7 @@ defined representation. One difference is that while `dict` considers two keys
 as different if they do not match (`=:=`), this module considers two keys as
 different if and only if they do not compare equal (`==`).
 
-## See Also
+### See Also
 
 `m:dict`, `m:gb_trees`, `m:maps`
 """.

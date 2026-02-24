@@ -41,7 +41,7 @@ defines the initial hash state.
 This module implements dynamic hashing, which is a kind of hashing that grows
 nicely when new fragments are added. It is well suited for scalable hash tables.
 
-## See Also
+### See Also
 
 `m:mnesia`
 """.

@@ -55,7 +55,7 @@ calling `gen_event:swap_handler/3` as
 `NewHandler:init({Args, {alarm_handler, Alarms}})` is called. For more details,
 see `m:gen_event` in STDLIB.
 
-## See Also
+### See Also
 
 `m:error_logger`, `m:gen_event`
 """.

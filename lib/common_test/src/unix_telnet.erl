@@ -61,7 +61,7 @@ The `{port,PortNum}` tuple is optional and if omitted, default Telnet port 23 is
 used. Also the `keep_alive` tuple is optional, and the value default to `true`
 (enabled).
 
-## See Also
+### See Also
 
 `m:ct`, `m:ct_telnet`
 """.

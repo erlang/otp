@@ -64,7 +64,7 @@ The `erl_prim_loader` module interprets the following command-line flags:
 - **`-setcookie Cookie`** - Specifies the cookie of the Erlang runtime system.
   This flag is mandatory if flag `-loader inet` is present.
 
-## See Also
+### See Also
 
 `m:init`, `m:erl_boot_server`
 """.

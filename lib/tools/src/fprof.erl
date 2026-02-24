@@ -418,7 +418,7 @@ resolution CPU time measurements `fprof` will use wallclock time for its
 calculations, and it will appear as if functions are randomly burning virtual
 machine time.
 
-## See Also
+### See Also
 
 [fprof - The File Trace Profiler](fprof_chapter.md), `m:dbg`, `m:eprof`
 """.

@@ -155,7 +155,7 @@ suite() ->
     [{ct_hooks, [{cth_conn_log, []}]}].
 ```
 
-## See Also
+### See Also
 
 `m:unix_telnet`
 """.

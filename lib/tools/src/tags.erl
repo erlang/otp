@@ -60,7 +60,7 @@ The default behaviour is to create a file named `TAGS` in the current directory.
   directory `../projectdir`. The file contains information about the
   functions, records, and macro definitions of the three files.
 
-## See Also
+### See Also
 
 - Richard M. Stallman. GNU Emacs Manual, chapter "Editing Programs", section
   "Tag Tables". Free Software Foundation, 1995.

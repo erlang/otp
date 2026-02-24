@@ -123,7 +123,7 @@ erl -kernel logger '[{handler,default,logger_disk_log_h,
                       #{config => #{file => "./system_disk_log"}}}]'
 ```
 
-## See Also
+### See Also
 
 `m:logger`, `m:logger_std_h`, `m:disk_log`
 """.

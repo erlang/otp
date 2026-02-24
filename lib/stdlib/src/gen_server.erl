@@ -107,7 +107,7 @@ using exit signals.
 
 [1]: `e:system:ref_man_processes.md#blocking-signaling-over-distribution`
 
-## See Also
+### See Also
 
 `m:gen_event`, `m:gen_statem`, `m:proc_lib`, `m:supervisor`, `m:sys`
 """.

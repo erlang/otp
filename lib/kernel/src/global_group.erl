@@ -64,7 +64,7 @@ global group as the local node.
   group at failover/takeover. Nothing prevents this to be done, but the
   application code must then handle the situation.
 
-## See Also
+### See Also
 
 `m:global`, [`erl`](`e:erts:erl_cmd.md`)
 """.

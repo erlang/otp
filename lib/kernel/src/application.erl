@@ -44,7 +44,7 @@ module_, exporting a predefined set of functions.
 For details about applications and behaviours, see
 [OTP Design Principles](`e:system:design_principles.md`).
 
-## See Also
+### See Also
 
 [OTP Design Principles](`e:system:design_principles.md`),
 [kernel](kernel_app.md), [app](app.md)

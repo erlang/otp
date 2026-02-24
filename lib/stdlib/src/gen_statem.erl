@@ -459,7 +459,7 @@ handle_event(_, _, State, Data) ->
 > - In OTP 27.0 [`Module:format_status/2`](`c:format_status/2`)
 >   was deprecated.
 
-## See Also
+### See Also
 
 `m:gen_event`, `m:gen_fsm`, `m:gen_server`, `m:proc_lib`, `m:supervisor`,
 `m:sys`.

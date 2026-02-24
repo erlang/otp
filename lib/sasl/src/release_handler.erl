@@ -211,7 +211,7 @@ release_handler does.
 > If the upgrade or downgrade fails, the application can end up in an
 > inconsistent state.
 
-## See Also
+### See Also
 
 [OTP Design Principles](`e:system:index.html`),
 [`config`](`e:kernel:config.md`), [`rel`](rel.md), [`relup`](relup.md),

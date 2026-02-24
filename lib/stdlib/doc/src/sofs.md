@@ -340,6 +340,6 @@ of which are not compatible.
 
 When comparing external sets, operator `==/2` is used.
 
-## See Also
+### See Also
 
 `m:digraph`, `m:gb_sets`, `m:gb_trees`, `m:maps`, `m:orddict`, `m:ordsets`, `m:sets`
