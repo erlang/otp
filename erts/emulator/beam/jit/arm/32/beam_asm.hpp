@@ -792,8 +792,15 @@ class BeamModuleAssembler : public BeamAssembler,
     }
 
     void trim_preserve_cache(const ArgWord &Words) {
-        // TODO
-        ASSERT(false);
+        if (Words.get() > 0) {
+            ASSERT(Words.get() <= 1023);
+
+            preserve_cache([&]() {
+                auto offset = Words.get() * sizeof(Eterm);
+                add(E, E, offset);
+                reg_cache.trim_yregs(-offset);
+            });
+        }
     }
 
     void mov_preserve_cache(a32::VecD dst, a32::VecD src) {

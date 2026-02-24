@@ -290,8 +290,35 @@ void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
 void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
                                          const ArgRegister &Dst,
                                          const ArgWord &Words) {
-    // TODO
-    emit_nyi("emit_move_trim");
+    Sint trim = Words.get() * sizeof(Eterm);
+    ASSERT(Words.get() <= 1023);
+
+    if (Src.isYRegister()) {
+        auto src_index = Src.as<ArgYRegister>().get();
+        if (src_index == 0 && Support::isInt9(trim)) {
+            const arm::Mem src_ref = arm::Mem(E).post(trim);
+            auto dst = init_destination(Dst.trimmed(Words.get()), TMP);
+            a.ldr(dst.reg, src_ref);
+            flush_var(dst);
+
+            return;
+        }
+    }
+
+    if (Dst.isYRegister()) {
+        auto dst_index = Dst.as<ArgYRegister>().get();
+        if (dst_index == Words.get() && Support::isInt9(trim)) {
+            auto src = load_source(Src, TMP);
+            const arm::Mem dst_ref = arm::Mem(E, trim).pre();
+            a.str(src.reg, dst_ref);
+
+            return;
+        }
+    }
+
+    /* Fallback. */
+    mov_arg(Dst, Src);
+    trim_preserve_cache(Words);
 }
 
 void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
