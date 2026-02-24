@@ -212,8 +212,25 @@ void BeamModuleAssembler::emit_i_loop_rec(const ArgLabel &Wait) {
 }
 
 void BeamModuleAssembler::emit_remove_message() {
-    // TODO
-    emit_nyi("emit_remove_message");
+    /* HTOP and E are passed explicitly and only read from, so we don't need to
+     * swap them out. */
+    a.mov(ARG3, HTOP);
+    a.mov(ARG4, E);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, FCALLS);
+    a.mov(TMP, active_code_ix);
+
+    a.sub(a32::sp, a32::sp, imm(8));
+    a.str(TMP, arm::Mem(a32::sp, 0));
+    runtime_call<5>(beam_jit_remove_message);
+    a.add(a32::sp, a32::sp, imm(8));
+
+    a.mov(FCALLS, ARG1);
+
+    emit_leave_runtime();
 }
 
 void BeamModuleAssembler::emit_loop_rec_end(const ArgLabel &Dest) {
