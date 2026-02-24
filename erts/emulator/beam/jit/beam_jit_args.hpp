@@ -120,7 +120,12 @@ struct ArgVal : public BeamOpArg {
 
     struct Hash {
         constexpr size_t operator()(const ArgVal &key) const {
+#ifdef ARCH_32
+            /* TYPE fits in 8 bits; put in high byte to mimic 64-bit */
+            return ((size_t)key.getType() << 24) ^ (size_t)key.val;
+#else
             return ((size_t)key.getType() << 48) ^ (size_t)key.val;
+#endif
         }
     };
 
