@@ -217,10 +217,10 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 #endif
 
         {
-            // ARG2 is the BIF pointer
+            // ARG2 has been set to the BIF pointer, save it to TMP
             a.mov(TMP, ARG2);
 
-            /* Call the BIF proper. ARG3 and ARG8 have been set earlier. */
+            /* Call the BIF proper. ARG3 has been set earlier. */
             a.mov(ARG1, c_p);
             load_x_reg_array(ARG2);
 
@@ -340,8 +340,18 @@ void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
 }
 
 void BeamModuleAssembler::emit_send() {
-    // TODO
-    emit_nyi("emit_send");
+    Label entry = a.newLabel();
+
+    /* This is essentially a mirror of call_light_bif, there's no point to
+     * specializing send/2 anymore. We do it here because it's far more work to
+     * do it in the loader. */
+    a.bind(entry);
+
+    a.ldr(ARG4, embed_constant(BIF_TRAP_EXPORT(BIF_send_2), disp4KB));
+    a.ldr(ARG2, embed_constant(send_2, disp4KB));
+    a.adr(ARG3, entry);
+
+    fragment_call(ga->get_call_light_bif_shared());
 }
 
 void BeamModuleAssembler::emit_nif_start() {
