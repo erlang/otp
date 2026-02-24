@@ -420,8 +420,7 @@ protected:
     }
 
     void emit_branch_if_value(a32::Gp reg, Label lbl) {
-        // TODO
-        ASSERT(false);
+        emit_branch_if_ne(reg, THE_NON_VALUE, lbl);
     }
 
     void emit_branch_if_eq(a32::Gp reg, Uint value, Label lbl) {
@@ -435,8 +434,13 @@ protected:
     }
 
     void emit_branch_if_ne(a32::Gp reg, Uint value, Label lbl) {
-        // TODO
-        ASSERT(false);
+        if (value <= 255) {
+            a.cmp(reg, imm(value));
+        } else {
+            mov_imm(TMP, value);
+            a.cmp(reg, TMP);
+        }
+        a.b_ne(lbl);
     }
 
     /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
