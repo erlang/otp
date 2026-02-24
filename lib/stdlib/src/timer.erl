@@ -72,7 +72,7 @@ timer:cancel(R),
 ...
 ```
 
-## Notes
+## Notes on timer behavior
 
 A timer can always be removed by calling `cancel/1`.
 

@@ -117,7 +117,7 @@ and operate on grapheme clusters. The
 lists as input are still available but should not be used, they will be
 deprecated in a future release.
 
-## Notes
+## Overlapping Functions
 
 Some of the general string functions can seem to overlap each other. The reason
 is that this string package is the combination of two earlier packages and all

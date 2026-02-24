@@ -46,7 +46,7 @@ knowledge of the format is running on thin ice.
 This module considers two elements as different if and only if they do not
 compare equal (`==`).
 
-## Complexity Note
+## Complexity
 
 The complexity on set operations is bounded by either _O(|S|)_ or _O(|T| _
 log(|S|))\*, where S is the largest given set, depending on which is fastest for
