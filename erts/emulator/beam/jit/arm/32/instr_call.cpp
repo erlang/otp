@@ -115,8 +115,8 @@ void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
 
 void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
                                                const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_i_call_ext_last");
+    emit_deallocate(Deallocate);
+    emit_i_call_ext_only(Exp);
 }
 
 void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,

@@ -162,8 +162,11 @@ void BeamModuleAssembler::emit_allocate(const ArgWord &NeedStack,
 }
 
 void BeamModuleAssembler::emit_deallocate(const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_deallocate");
+    ASSERT(Deallocate.get() <= 1023);
+
+    if (Deallocate.get() > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
 }
 
 void BeamModuleAssembler::emit_test_heap(const ArgWord &Nh,
