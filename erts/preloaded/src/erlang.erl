@@ -102,7 +102,7 @@ in the description of each individual BIF.
 %% Built-in datatypes
 -doc "All possible Erlang terms. Synonym for `t:term/0`.".
 -type any() :: any().
--doc "The arity of a function or type.".
+-doc "The arity of a function, type or callback.".
 -type arity() :: arity().
 -doc "An Erlang [atom](`e:system:data_types.md#atom`).".
 -type atom() :: atom().
