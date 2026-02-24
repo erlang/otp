@@ -768,8 +768,12 @@ void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
 }
 
 void BeamModuleAssembler::emit_try_end_deallocate(const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_try_end_deallocate");
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+    a.sub(TMP, TMP, imm(1));
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+    if (Deallocate.get() > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
 }
 
 void BeamModuleAssembler::emit_try_end_move_deallocate(
