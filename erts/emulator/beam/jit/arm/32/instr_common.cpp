@@ -403,8 +403,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
 }
 
 void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_self");
+    mov_arg(Dst, arm::Mem(c_p, offsetof(Process, common.id)));
 }
 
 void BeamModuleAssembler::emit_copy_words_increment(a32::Gp from,
