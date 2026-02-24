@@ -414,7 +414,7 @@ void BeamGlobalAssembler::emit_call_bif_shared(void) {
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, current)));
 
     a.ldr(TMP, arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
-    a.str(TMP, arm::Mem(c_p, offsetof(Process, arity)));
+    a.strb(TMP, arm::Mem(c_p, offsetof(Process, arity)));
     a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
  
     /* The corresponding leave can be found in the epilogue. */
