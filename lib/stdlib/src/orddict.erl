@@ -34,9 +34,7 @@ defined representation. One difference is that while `dict` considers two keys
 as different if they do not match (`=:=`), this module considers two keys as
 different if and only if they do not compare equal (`==`).
 
-## Notes
-
-[](){: #notes }
+### Notes
 
 Functions [`append/3`](`append/3`) and [`append_list/3`](`append_list/3`) are
 included so that keyed values can be stored in a list _accumulator_, for

@@ -395,7 +395,7 @@ through `prim_file:open_int_setopts/3`, which complicates the picture.
   {{prim_file,open_int_setopts,3},        1,    0.000,    0.016}]}.
 ```
 
-## Notes
+## Notes on accuracy of measurements
 
 The actual supervision of execution times is in itself a CPU-intensive activity.
 A message is written on the trace file for every function call that is made by
