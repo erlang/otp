@@ -97,8 +97,43 @@ void BeamModuleAssembler::emit_gc_test(const ArgWord &Ns,
 }
 
 void BeamModuleAssembler::emit_validate(const ArgWord &Arity) {
-    // TODO
-    emit_nyi("emit_validate");
+#ifdef DEBUG
+    Label next = a.newLabel(), crash = a.newLabel();
+
+    /* Crash if the Erlang heap is not word-aligned */
+    a.tst(HTOP, imm(sizeof(Eterm) - 1));
+    a.b_ne(crash);
+
+    /* Crash if the Erlang stack is not word-aligned */
+    a.tst(E, imm(sizeof(Eterm) - 1));
+    a.b_ne(crash);
+
+    /* Crash if we've overrun the stack */
+    lea(TMP, arm::Mem(E, -(int32_t)(S_REDZONE * sizeof(Eterm))));
+    a.cmp(HTOP, TMP);
+    a.b_hi(crash);
+
+    a.b(next);
+
+    a.bind(crash);
+    a.udf(0xbad);
+    a.bind(next);
+
+#    ifdef JIT_HARD_DEBUG
+    emit_enter_runtime_frame();
+
+    for (unsigned i = 0; i < Arity.get(); i++) {
+        mov_arg(ARG1, ArgVal(ArgVal::XReg, i));
+
+        emit_enter_runtime();
+        runtime_call<1>(beam_jit_validate_term);
+        emit_leave_runtime();
+    }
+
+    emit_leave_runtime_frame();
+#    endif
+
+#endif
 }
 
 /* Instrs */
