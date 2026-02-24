@@ -73,7 +73,7 @@
 %%%
 start(_BootMod, BootArgs) ->
     hello(BootArgs),
-    halt(42, [{flush, false}]).
+    halt(42).
 %
 %%% Entry from test suite.
 hello(_BootArgs) ->
@@ -84,7 +84,7 @@ hello(_BootArgs) ->
 %
 %    erlang:display_string("Testing stuff (should not crash)...\n"),
 %    test(BootArgs),
-    erlang:display_string("Everything is fine!\n").
+     erlang:display_string("Everything is fine!\n").
 %
 %    estone().
 %
