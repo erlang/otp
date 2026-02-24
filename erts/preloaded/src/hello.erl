@@ -29,8 +29,7 @@
 %-define(RUN_ESTONE, true).
 %
 -module(hello).
--export([start/2]).
-%-export([start/0, start/2, hello/1, undefined_function/3, id/1]).
+-export([start/0, start/2, hello/1, undefined_function/3, id/1]).
 %
 %%% Internal exports.
 %-export([process_main/1, basic_hibernator/1]).
@@ -59,23 +58,23 @@
 %         run_micro/2,p1/1,ppp/3,ppp_loop/3,macro/1,micros/0]).
 %-endif.
 %
-%%% Suitable entry point as the first process being started.
-%%%
-%%% To make the runtime system call this function as the very first
-%%% process, replace the following line in erl_first_process_otp() in
-%%% erl_init.c:
-%%%
-%%%    res = erl_spawn_system_process(&parent, am_erl_init, am_start, args, &so);
-%%%
-%%% with:
-%%%
-%%%    res = erl_spawn_system_process(&parent, am_hello, am_start, args, &so);
-%%%
+%% Suitable entry point as the first process being started.
+%%
+%% To make the runtime system call this function as the very first
+%% process, replace the following line in erl_first_process_otp() in
+%% erl_init.c:
+%%
+%%    res = erl_spawn_system_process(&parent, am_erl_init, am_start, args, &so);
+%%
+%% with:
+%%
+%%    res = erl_spawn_system_process(&parent, am_hello, am_start, args, &so);
+%%
 start(_BootMod, BootArgs) ->
     hello(BootArgs),
     halt(42, []).
-%
-%%% Entry from test suite.
+
+%% Entry from test suite.
 hello(BootArgs) ->
     _ = id(BootArgs),
     erlang:display_string("hello, world\n"),
@@ -83,51 +82,51 @@ hello(BootArgs) ->
     erlang:display(id(BootArgs)),
  
     erlang:display_string("Testing stuff (should not crash)...\n"),
-%    test(BootArgs),
+    test(BootArgs),
     erlang:display_string("Everything is fine!\n").
 %
 %    estone().
 %
-%%% Suitable dummy process entry point for processes that must always be
-%%% running such as erts_code_purger, erts_literal_area_collector, and
-%%% so on.
-%%%
-%%% To let those processes call this function, replace the following line
-%%% in erl_system_process_otp() in erl_init.c:
-%%%
-%%%    res = erl_spawn_system_process(parent, mod, am_start, NIL, &so);
-%%%
-%%% with:
-%%%
-%%%    res = erl_spawn_system_process(parent, am_hello, am_start, NIL, &so);
-%%%
-%start() ->
-%   receive
-%       Any -> Any
-%   end.
-%
-%-define(EARLY_DAYS, false).
-%
-%-if(?EARLY_DAYS).
-%%% This definition will do if test_apply_errors/1 is commented out.
-%undefined_function(_, _, _) -> ok.
-%-else.
-%%% This definition is needed for test_apply_errors/1 to succeed.
-%undefined_function(Module, Func, Args) ->
-%    Tuple = {Module,Func,Args,[]},
-%    try erlang:error(undef)
-%    catch
-%        error:undef:Stacktrace ->
-%            Stk = [Tuple|tl(Stacktrace)],
-%            erlang:raise(error, undef, Stk)
-%    end.
-%-endif.
-%
+%% Suitable dummy process entry point for processes that must always be
+%% running such as erts_code_purger, erts_literal_area_collector, and
+%% so on.
+%%
+%% To let those processes call this function, replace the following line
+%% in erl_system_process_otp() in erl_init.c:
+%%
+%%    res = erl_spawn_system_process(parent, mod, am_start, NIL, &so);
+%%
+%% with:
+%%
+%%    res = erl_spawn_system_process(parent, am_hello, am_start, NIL, &so);
+%%
+start() ->
+   receive
+       Any -> Any
+   end.
+
+-define(EARLY_DAYS, false).
+
+-if(?EARLY_DAYS).
+%% This definition will do if test_apply_errors/1 is commented out.
+undefined_function(_, _, _) -> ok.
+-else.
+%% This definition is needed for test_apply_errors/1 to succeed.
+undefined_function(Module, Func, Args) ->
+    Tuple = {Module,Func,Args,[]},
+    try erlang:error(undef)
+    catch
+        error:undef:Stacktrace ->
+            Stk = [Tuple|tl(Stacktrace)],
+            erlang:raise(error, undef, Stk)
+    end.
+-endif.
+
 id(I) ->
     I.
-%
-%test(BootArgs) ->
-%    external_call(),
+
+test(BootArgs) ->
+    external_call(),
 %    BootArgs = rev_test(BootArgs),
 %    reductions(BootArgs),
 %    list_test(),
@@ -181,31 +180,31 @@ id(I) ->
 %    test_hibernate(),
 %    test_load_nif(),
 %
-%    ok.
-%
-%%% Test external calls, as well as '!', receive, self/0, and node/0.
-%external_call() ->
-%    self() ! call_ext,
-%    call_ext = ?MODULE:start(),
-%
-%    self() ! call_ext_only,
-%    call_ext_only = external_call_only(),
-%
-%    external_call_last = external_call_last(),
-%
-%    self() ! node(),
-%    Node = node(),
-%    Node = id(?MODULE:start()),
-%
-%    ok.
-%
-%external_call_only() ->
-%    ?MODULE:start().
-%
-%external_call_last() ->
-%    self() ! external_call_last,
-%    ?MODULE:start().
-%
+    ok.
+
+%% Test external calls, as well as '!', receive, self/0, and node/0.
+external_call() ->
+    self() ! call_ext,
+    call_ext = ?MODULE:start(),
+
+    self() ! call_ext_only,
+    call_ext_only = external_call_only(),
+
+    external_call_last = external_call_last(),
+
+    self() ! node(),
+    Node = node(),
+    Node = id(?MODULE:start()),
+
+    ok.
+
+external_call_only() ->
+    ?MODULE:start().
+
+external_call_last() ->
+    self() ! external_call_last,
+    ?MODULE:start().
+
 %rev_test(L0) ->
 %    L = rev(L0),
 %    L0 = rev(L).
