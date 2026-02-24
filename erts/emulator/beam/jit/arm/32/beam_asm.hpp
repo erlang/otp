@@ -1149,7 +1149,7 @@ protected:
     void runtime_call(T(*func)) {
         static_assert(expected_arity == function_arity<T>());
 
-        a.blx(resolve_fragment((void (*)())func, disp32MB));
+        a.bl(resolve_fragment((void (*)())func, disp32MB));
     }
 
     bool isRegisterBacked(const ArgVal &arg) {
