@@ -100,8 +100,10 @@ void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
 }
 
 void BeamModuleAssembler::emit_i_call_ext(const ArgExport &Exp) {
-    // TODO
-    emit_nyi("emit_i_call_ext");
+    mov_arg(ARG1, Exp);
+
+    arm::Mem target = emit_setup_dispatchable_call(ARG1);
+    erlang_call(target);
 }
 
 void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
