@@ -632,9 +632,37 @@ void BeamModuleAssembler::flush_pending_labels() {
 }
 
 void BeamModuleAssembler::emit_veneer(const Veneer &veneer) {
-    // TODO
-    ASSERT(false);
-    emit_nyi("emit_veneer");
+    const Label &anchor = veneer.anchor;
+    const Label &target = veneer.target;
+    bool directBranch;
+
+    ASSERT(!code.isLabelBound(anchor));
+    a.bind(anchor);
+
+    /* Prefer direct branches when possible. */
+    if (code.isLabelBound(target)) {
+        auto targetOffset = code.labelOffsetFromBase(target);
+        directBranch = (a.offset() - targetOffset) <= disp32MB;
+    } else {
+        directBranch = false;
+    }
+
+#ifdef DEBUG
+    directBranch &= (a.offset() % 512) >= 256;
+#endif
+
+    if (ERTS_LIKELY(directBranch)) {
+        a.b(target);
+    } else {
+        Label pointer = a.newLabel();
+
+        a.ldr(TMP, arm::Mem(pointer));
+        a.bx(TMP);
+
+        a.align(AlignMode::kCode, 4);
+        a.bind(pointer);
+        a.embedLabel(veneer.target);
+    }
 }
 
 void BeamModuleAssembler::emit_constant(const Constant &constant) {

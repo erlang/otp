@@ -91,9 +91,25 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
 
 void BeamModuleAssembler::emit_gc_test(const ArgWord &Ns,
                                        const ArgWord &Nh,
-                                       const ArgWord &Live) {
-    // TODO
-    emit_nyi("emit_gc_test");
+                                       const ArgWord &Live) {    
+    int32_t bytes_needed = (Ns.get() + Nh.get() + S_RESERVED) * sizeof(Eterm);
+    Label after_gc_check = a.newLabel();
+
+#ifdef DEBUG
+    comment("(debug: fill dead X registers with garbage)");
+    mov_imm(ARG4, ERTS_HOLE_MARKER);
+    mov_arg(ArgXRegister(Live.get()), ARG4);
+    mov_arg(ArgXRegister(Live.get() + 1), ARG4);
+#endif
+
+    add(ARG3, HTOP, bytes_needed);
+    a.cmp(ARG3, E);
+    a.b_ls(after_gc_check);
+
+    mov_imm(ARG4, Live.get());
+    fragment_call(ga->get_garbage_collect());
+
+    a.bind(after_gc_check);
 }
 
 void BeamModuleAssembler::emit_validate(const ArgWord &Arity) {
@@ -148,8 +164,7 @@ void BeamModuleAssembler::emit_allocate_heap(const ArgWord &NeedStack,
                                              const ArgWord &Live) {
     ASSERT(NeedStack.get() <= MAX_REG);
 
-    // TODO
-    //emit_gc_test(NeedStack, NeedHeap, Live);
+    emit_gc_test(NeedStack, NeedHeap, Live);
 
     if (NeedStack.get() > 0) {
         sub(E, E, NeedStack.get() * sizeof(Eterm));
@@ -171,8 +186,7 @@ void BeamModuleAssembler::emit_deallocate(const ArgWord &Deallocate) {
 
 void BeamModuleAssembler::emit_test_heap(const ArgWord &Nh,
                                          const ArgWord &Live) {
-    // TODO
-    emit_nyi("emit_test_heap");
+    emit_gc_test(ArgWord(0), Nh, Live);
 }
 
 void BeamModuleAssembler::emit_normal_exit() {

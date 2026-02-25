@@ -1371,8 +1371,11 @@ protected:
     }
 
     void mov_arg(const ArgVal &to, a32::Gp from) {
-        // TODO
-        ASSERT(false);
+        auto r = init_destination(to, from);
+        if (r.reg != from) {
+            mov_preserve_cache(r.reg, from);
+        }
+        flush_var(r);
     }
 
     void cmp_arg(a32::Gp gp, const ArgVal &arg) {
