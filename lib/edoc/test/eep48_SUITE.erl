@@ -53,7 +53,8 @@
 	 f_prefixed_spec/1,
 	 t_only_attr/1,
 	 t_only_tag/1,
-	 t_redundant/1]).
+	 t_redundant/1,
+         t_visibility/1]).
 
 -define(a2b(A), atom_to_binary(A, utf8)).
 -define(io2b(IO), iolist_to_binary(IO)).
@@ -106,7 +107,8 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  f_prefixed_spec,
 	  t_only_attr,
 	  t_only_tag,
-	  t_redundant].
+	  t_redundant,
+          t_visibility].
 
 %% TODO: remove these cases once EDoc supports extracting the relevant tags
 not_supported() -> [type_since_tag,
@@ -468,18 +470,62 @@ t_redundant(Config) ->
     ?assertEqual( <<"Type t_redundant defined with an attribute, redundant with a tag.">>,
 		  get_flat_doc({type, ?FUNCTION_NAME, 0}, Docs) ).
 
+t_visibility(Config) ->
+    Docs = get_docs(Config, eep48_visibility),
+    %?debugVal(Docs, 1000),
+    ?assertMatch([<<"public_function()">>], get_sig({function, public_function, 0}, Docs)),
+    ?assertException(error, {not_found, {function, hidden_function, 0}}, get_sig({function, hidden_function, 0}, Docs)),
+    ?assertException(error, {not_found, {function, private_function, 0}}, get_sig({function, private_function, 0}, Docs)),
+    ?assertException(error, {not_found, {function, non_exported_function, 0}}, get_sig({function, non_exported_function, 0}, Docs)),
+    ?assertMatch([<<"public_type/0">>], get_sig({type, public_type, 0}, Docs)),
+    ?assertException(error, {not_found, {type, non_exported_type, 0}}, get_sig({type, non_exported_type, 0}, Docs)),
+
+    PrivateDocs = get_docs(Config, eep48_visibility, [{private, true}]),
+    %?debugVal(Docs, 1000),
+    ?assertMatch([<<"public_function()">>], get_sig({function, public_function, 0}, PrivateDocs)),
+    ?assertException(error, {not_found, {function, hidden_function, 0}}, get_sig({function, hidden_function, 0}, PrivateDocs)),
+    ?assertMatch([<<"private_function()">>], get_sig({function, private_function, 0}, PrivateDocs)),
+    ?assertMatch([<<"non_exported_function()">>], get_sig({function, non_exported_function, 0}, PrivateDocs)),
+    ?assertMatch([<<"public_type/0">>], get_sig({type, public_type, 0}, PrivateDocs)),
+    ?assertMatch([<<"non_exported_type/0">>], get_sig({type, non_exported_type, 0}, PrivateDocs)),
+
+    HiddenDocs = get_docs(Config, eep48_visibility, [{hidden, true}]),
+    %?debugVal(Docs, 1000),
+    ?assertMatch([<<"public_function()">>], get_sig({function, public_function, 0}, HiddenDocs)),
+    ?assertMatch([<<"hidden_function()">>], get_sig({function, hidden_function, 0}, HiddenDocs)),
+    ?assertException(error, {not_found, {function, private_function, 0}}, get_sig({function, private_function, 0}, HiddenDocs)),
+    ?assertException(error, {not_found, {function, non_exported_function, 0}}, get_sig({function, non_exported_function, 0}, HiddenDocs)),
+    ?assertMatch([<<"public_type/0">>], get_sig({type, public_type, 0}, HiddenDocs)),
+    ?assertException(error, {not_found, {type, non_exported_type, 0}}, get_sig({type, non_exported_type, 0}, HiddenDocs)),
+
+    PrivateHiddenDocs = get_docs(Config, eep48_visibility, [{private, true}, {hidden, true}]),
+    %?debugVal(Docs, 1000),
+    ?assertMatch([<<"public_function()">>], get_sig({function, public_function, 0}, PrivateHiddenDocs)),
+    ?assertMatch([<<"hidden_function()">>], get_sig({function, hidden_function, 0}, PrivateHiddenDocs)),
+    ?assertMatch([<<"private_function()">>], get_sig({function, private_function, 0}, PrivateHiddenDocs)),
+    ?assertMatch([<<"non_exported_function()">>], get_sig({function, non_exported_function, 0}, PrivateHiddenDocs)),
+    ?assertMatch([<<"public_type/0">>], get_sig({type, public_type, 0}, PrivateHiddenDocs)),
+    ?assertMatch([<<"non_exported_type/0">>], get_sig({type, non_exported_type, 0}, PrivateHiddenDocs)),
+
+    ok.
+
 %%
 %% Helpers
 %%
 
 get_chunk(Config, M) ->
+    get_chunk(Config, M, []).
+
+get_chunk(Config, M, Options) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
-    {ok, Chunk} = get_doc_chunk(DataDir, PrivDir, M),
+    {ok, Chunk} = get_doc_chunk(DataDir, PrivDir, M, Options),
     Chunk.
 
 get_docs(Config, M) ->
-    Chunk = get_chunk(Config, M),
+    get_docs(Config, M, []).
+get_docs(Config, M, Options) ->
+    Chunk = get_chunk(Config, M, Options),
     Chunk#docs_v1.docs.
 
 get_function_meta_field(Field, F, A, Docs) ->
@@ -495,25 +541,28 @@ get_meta_field(Field, Kind, Name, Arity, Docs) ->
     Meta = get_metadata(lookup_entry(Kind, Name, Arity, Docs)),
     maps:get(Field, Meta).
 
-get_doc_chunk(DataDir, PrivDir, Mod) ->
+get_doc_chunk(DataDir, PrivDir, Mod, Options) ->
     TagsErl = filename:join([DataDir, atom_to_list(Mod) ++ ".erl"]),
     edoc:files([TagsErl], [{doclet, edoc_doclet_chunks},
 			   {layout, edoc_layout_chunks},
-			   {dir, PrivDir}]),
+			   {dir, PrivDir}|Options]),
     TagsChunk = filename:join([PrivDir, "chunks", atom_to_list(Mod) ++ ".chunk"]),
     {ok, BChunk} = file:read_file(TagsChunk),
     Chunk = binary_to_term(BChunk),
     {ok, Chunk}.
 
 lookup_entry(Kind, Function, Arity, Docs) ->
-    [Entry] = lists:filter(fun({{K, F, A},_Anno,_Sig,_Doc,_Meta})
+    case lists:filter(fun({{K, F, A},_Anno,_Sig,_Doc,_Meta})
 				 when K =:= Kind andalso F =:= Function, A =:= Arity ->
 				   true;
 			      (_) ->
 				   false
-			   end, Docs),
-    Entry.
-
+			   end, Docs) of
+        [Entry] ->
+            Entry;
+        [] ->
+            error({not_found, {Kind, Function, Arity}})
+    end.
 get_metadata({_, _, _, _, Metadata}) -> Metadata.
 
 get_doc_link(KNA, Docs) ->
@@ -582,9 +631,9 @@ copy_application(App, TargetDir) ->
     {ok, #{ebin => EbinDir, doc => DocDir, src => SrcDir}}.
 
 copy_app_dir(App, Dir, TargetDir) ->
-    {ok, Files} = file:list_dir(code:lib_dir(App, Dir)),
+    {ok, Files} = file:list_dir(filename:join(code:lib_dir(App), Dir)),
     lists:foreach(fun (F) ->
-			  file:copy(filename:join(code:lib_dir(App, Dir), F),
+			  file:copy(filename:join([code:lib_dir(App), Dir, F]),
 				    filename:join(TargetDir, F))
 		  end, Files).
 

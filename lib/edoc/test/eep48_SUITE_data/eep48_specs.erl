@@ -1,7 +1,21 @@
 %% @doc Fixtures for chunk specs.
 -module(eep48_specs).
 
--export([]).
+-export([f_spec_type_without_name/1,
+       f_spec_type_with_name/1,
+       f_spec_types_mixed/2,
+       f_spec_with_multiple_clauses/2,
+       f_spec_with_multiple_clauses_one_fun_clause/2,
+       f_spec_lhs_match_expr/1,
+       f_spec_rhs_match_expr/1,
+       f_spec_unnamed_pattern/1,
+       f_spec_bounded_single_clause_fun/4,
+       f_spec_bounded_multiple_clause_fun/4,
+       f_spec_bounded_singleton_atom/2,
+       f_spec_bounded_singleton_int/2,
+       f_spec_rettype_constraint/0,
+       f_spec_indirect_constraint/2,
+       f_spec_arg_type_in_retval/2]).
 
 -export_type([opaque_type/0,nominal_type/0]).
 

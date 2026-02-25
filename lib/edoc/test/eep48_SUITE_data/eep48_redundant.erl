@@ -1,5 +1,10 @@
 -module(eep48_redundant).
 
+-export([f_redundant_spec/0,
+         f_only_attr/0,
+         f_only_tag/0,
+         f_prefixed_spec/0]).
+
 -export_type([t_only_attr/0,
 	      t_only_tag/0,
 	      t_redundant/0]).

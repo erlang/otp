@@ -12,7 +12,10 @@
 	 local_function_link/0,
 	 local_type_link/0,
 	 local_type_link_macro/0,
-	 external_type_link/0]).
+	 external_type_link/0,
+	 fun_with_equiv_tag/0,
+	 fun_with_non_call_equiv_tag/0,
+	 fun_with_equiv_doc_and_see/0]).
 
 -export([see_module/0,
 	 see_app/0,
