@@ -365,14 +365,20 @@ protected:
         }
     }
 
-    void emit_is_cons(Label Fail, a32::Gp Src) {
-        // TODO
-        ASSERT(false);
+    void emit_is_cons(Label Fail, a32::Gp Src) {        
+        const int bitNumber = 1;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
+                       (1 << bitNumber));
+        a.tst(Src, imm(1 << bitNumber));
+        a.b_ne(Fail);
     }
 
-    void emit_is_not_cons(Label Fail, a32::Gp Src) {
-        // TODO
-        ASSERT(false);
+    void emit_is_not_cons(Label Fail, a32::Gp Src) {        
+        const int bitNumber = 1;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
+                       (1 << bitNumber));
+        a.tst(Src, imm(1 << bitNumber));
+        a.b_eq(Fail);
     }
 
     void emit_is_boxed(Label Fail, a32::Gp Src) {
@@ -406,8 +412,7 @@ protected:
     }
 
     void emit_untag_ptr(a32::Gp Dst, a32::Gp Src) {
-        // TODO
-        ASSERT(false);
+        a.bic(Dst, Src, imm(TAG_PTR_MASK__));
     }
 
     constexpr arm::Mem emit_boxed_val(a32::Gp Src, int32_t bytes = 0) const {
@@ -447,14 +452,18 @@ protected:
      * on their tags alone. (They may still be equal if both are
      * immediates and all other bits are equal too.) */
     void emit_is_unequal_based_on_tags(a32::Gp Reg1, a32::Gp Reg2) {
-        // TODO
-        ASSERT(false);
-    }
-
-    a32::Gp follow_size(const a32::Gp &reg, const a32::Gp &size) {
-        // TODO
-        ASSERT(false);
-        return reg;
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
+        a.orr(TMP, Reg1, Reg2);
+        a.and_(TMP, TMP, imm(_TAG_PRIMARY_MASK));
+        
+        /*
+         * SUPER_TMP will be now be TAG_PRIMARY_IMMED1 if either
+         * one or both registers are immediates, or if one register
+         * is a list and the other a boxed.
+         */
+        a.cmp(TMP, imm(TAG_PRIMARY_IMMED1));
     }
 
     template<typename T>
@@ -498,15 +507,12 @@ protected:
                 a.sub(to, src, imm(val & 0xFFF));
                 src = to;
             }
-
             if (val & 0xFFF000) {                // subtract the upper 12 bits
                 a.sub(to, src, imm(val & 0xFFF000));
             }
         } else {
-            a32::Gp tmp = follow_size(TMP, to);
-
-            mov_imm(tmp, val);
-            a.sub(to, src, tmp);
+            mov_imm(TMP, val);
+            a.sub(to, src, TMP);
         }
     }
 
@@ -520,24 +526,16 @@ protected:
                 a.add(to, src, imm(val & 0xFFF));
                 src = to;
             }
-
             if (val & 0xFFF000) {               // add the upper 12 bits
                 a.add(to, src, imm(val & 0xFFF000));
             }
         } else {
-            a32::Gp tmp = follow_size(TMP, to);
-
-            mov_imm(tmp, val);
-            a.add(to, src, tmp);
+            mov_imm(TMP, val);
+            a.add(to, src, TMP);
         }
     }
 
     void subs(a32::Gp to, a32::Gp src, int64_t val) {
-        // TODO
-        ASSERT(false);
-    }
-
-    void cmp(a32::Gp src, int64_t val) {
         // TODO
         ASSERT(false);
     }
@@ -901,13 +899,11 @@ protected:
                           bool skip_header_test = false);
 
     void emit_is_cons(Label Fail, a32::Gp Src) {
-        // TODO
-        emit_nyi("emit_is_cons");
+        BeamAssembler::emit_is_cons(Fail, Src);
     }
 
     void emit_is_not_cons(Label Fail, a32::Gp Src) {
-        // TODO
-        emit_nyi("emit_is_not_cons");
+        BeamAssembler::emit_is_not_cons(Fail, Src);
     }
 
     void emit_is_list(Label Fail, a32::Gp Src) {
@@ -916,8 +912,7 @@ protected:
     }
 
     void emit_is_boxed(Label Fail, a32::Gp Src) {
-        // TODO
-        emit_nyi("emit_is_boxed");
+        BeamAssembler::emit_is_boxed(Fail, Src);
     }
 
     void emit_is_boxed(Label Fail, const ArgVal &Arg, a32::Gp Src) {
@@ -1375,8 +1370,16 @@ protected:
     }
 
     void cmp_arg(a32::Gp gp, const ArgVal &arg) {
-        // TODO
-        ASSERT(false);
+        if (arg.isImmed() || arg.isWord()) {
+            Sint val = arg.isImmed() ? arg.as<ArgImmed>().get()
+                                     : arg.as<ArgWord>().get();
+            mov_imm(TMP, val);
+            a.cmp(gp, TMP);
+            return;
+        }
+
+        auto tmp = load_source(arg, TMP);
+        a.cmp(gp, tmp.reg);
     }
 
     void safe_str(a32::Gp gp, arm::Mem mem) {
@@ -1426,13 +1429,37 @@ protected:
      * on their tags alone. (They may still be equal if both are
      * immediates and all other bits are equal too.) */
     void emit_is_unequal_based_on_tags(Label Unequal,
-                                       const ArgVal &Src1,
+                                       const ArgSource &Src1,
                                        a32::Gp Reg1,
-                                       const ArgVal &Src2,
+                                       const ArgSource &Src2,
                                        a32::Gp Reg2) {
-        // TODO
-        ASSERT(false);
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
 
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Src1)) {
+            emit_is_boxed(Unequal, Reg2);
+        } else if (always_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+            emit_is_boxed(Unequal, Reg1);
+        } else if (exact_type<BeamTypeId::Cons>(Src1)) {
+            emit_is_cons(Unequal, Reg2);
+        } else if (exact_type<BeamTypeId::Cons>(Src2)) {
+            emit_is_cons(Unequal, Reg1);
+        } else {
+            a.orr(TMP, Reg1, Reg2);
+
+            if (never_one_of<BeamTypeId::Cons>(Src1) ||
+                never_one_of<BeamTypeId::Cons>(Src2)) {
+                emit_is_boxed(Unequal, TMP);
+            } else if (never_one_of<BeamTypeId::AlwaysBoxed>(Src1) ||
+                       never_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+                emit_is_cons(Unequal, TMP);
+            } else {
+                a.and_(TMP, TMP, imm(_TAG_PRIMARY_MASK));
+                a.cmp(TMP, imm(TAG_PRIMARY_IMMED1));
+                a.b_eq(Unequal);
+            }
+        }
     }
 
     /* Set the Z flag if Reg1 and Reg2 are both immediates. */
