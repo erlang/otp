@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15551,36 +15551,57 @@ sendmmsg_with_addresses_udp4(_Config) when is_list(_Config) ->
 sendmmsg_invalid_msg_format(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(
-        sendmmsg_invalid_msg_format,
-        fun() ->
-            has_support_ipv4(),
-            has_sendmmsg_support()
-        end,
-        fun() ->
-            {ok, S1} = socket:open(inet, dgram, udp),
-            {ok, S2} = socket:open(inet, dgram, udp),
-            {ok, Addr} = inet:getaddr("localhost", inet),
-            ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
-            {ok, #{port := LocalPort}} = socket:sockname(S1),
-            ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
-            %% Empty message list should return {ok, 0}
-            ok = socket:sendmmsg(S2, [], [], infinity),
-            %% Message without iov field should fail
-            InvalidMsgs1 = [#{addr => #{family => inet, addr => Addr, port => LocalPort}}],
-            case catch socket:sendmmsg(S2, InvalidMsgs1, [], infinity) of
-                {'EXIT', {badarg, _}} -> ok;
-                E1 -> ct:fail("Expected badarg for message without iov field, returned: ~p~n", [E1])
-            end,
-            %% Message with invalid iov type should fail
-            InvalidMsgs2 = [#{iov => not_a_list}],
-            case catch socket:sendmmsg(S2, InvalidMsgs2, [], infinity) of
-                {'EXIT', {badarg, _}} -> ok;
-                E2 -> ct:fail("Expected badarg for invalid iov type, returned: ~p~n", [E2])
+      sendmmsg_invalid_msg_format,
+      fun() ->
+	      has_support_ipv4(),
+	      has_sendmmsg_support()
+      end,
+      fun() ->
+	      {ok, S1} = socket:open(inet, dgram, udp),
+	      {ok, S2} = socket:open(inet, dgram, udp),
+	      {ok, Addr} = inet:getaddr("localhost", inet),
+	      ok = socket:bind(S1, #{family => inet, addr => Addr, port => 0}),
+	      {ok, #{port := LocalPort}} = socket:sockname(S1),
+	      ok = socket:connect(S2, #{family => inet, addr => Addr, port => LocalPort}),
+	      %% Empty message list should return {ok, 0}
+	      ok = socket:sendmmsg(S2, [], [], infinity),
+	      %% Message without iov field should fail
+	      InvalidMsgs1 = [#{addr => #{family => inet, addr => Addr, port => LocalPort}}],
+	      try socket:sendmmsg(S2, InvalidMsgs1, [], infinity) of
+		  E1 ->
+		      ?P("UnExpected result for message without iov field: "
+			 "~n   ~p"
+			 "~n", [E1]),
+		      ct:fail(E1)
+	      catch
+		  error:badarg:_ ->
+		      ?P("Expected failure (for message without iov field)"),
+		      ok
+	      end,
+	      %% Message with invalid iov type should fail
+	      InvalidMsgs2 = [#{iov => not_a_list}],
+	      try socket:sendmmsg(S2, InvalidMsgs2, [], infinity) of
+		  E2 ->
+		      ?P("UnExpected result for invalid iov type: "
+			 "~n   ~p"
+			 "~n", [E2]),
+		      ct:fail(E2)
+	      catch
+		  error:badarg:_ ->
+		      ?P("Expected failure (for invalid iov type)"),
+		      ok
             end,
             %% Not a list should fail
-            case catch socket:sendmmsg(S2, not_a_list, [], infinity) of
-                {'EXIT', {badarg, _}} -> ok;
-                E3 -> ct:fail("Expected error for non-list messages, returned ~p~n", [E3])
+            try socket:sendmmsg(S2, not_a_list, [], infinity) of
+                E3 ->
+		    ?P("UnExpected result for non-list messages:"
+		       "~n   ~p"
+		       "~n", [E3]),
+		    ct:fail(E3)
+	    catch
+		error:badarg:_ ->
+		    ?P("Expected failure (for non-list messages)"),
+		    ok
             end,
             ok = socket:close(S1),
             ok = socket:close(S2),
