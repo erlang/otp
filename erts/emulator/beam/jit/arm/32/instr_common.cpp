@@ -368,8 +368,9 @@ void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
 }
 
 void BeamModuleAssembler::emit_node(const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_node");
+    a.ldr(TMP, embed_constant(&erts_this_node, disp4KB));
+    a.ldr(TMP, arm::Mem(TMP));
+    mov_arg(Dst, arm::Mem(TMP, offsetof(ErlNode, sysname)));
 }
 
 void BeamModuleAssembler::emit_put_list(const ArgSource &Hd,
