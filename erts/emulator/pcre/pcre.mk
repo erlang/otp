@@ -72,20 +72,20 @@ $(PCRE_OBJDIR)/%.o: $(PCRE_DIR)/%.c
 	$(V_CC) -c $(PCRE_CFLAGS) -o $@ $<
 
 $(PCRE_GENINC): $(PCRE_DIR)/pcre2_match.c
-	$(gen_verbose)for line in `grep -n 'COST_CHK(' $(PCRE_DIR)/pcre2_match.c | grep -E -v 'define|DBG_FAKE_' | awk -F: '{print $$1}'`; \
+	$(gen_verbose)for line in `grep -n 'COST_CHK(' $(PCRE_DIR)/pcre2_match.c | grep -v 'define' | grep -v 'DBG_FAKE_' | awk -F: '{print $$1}'`; \
 	do \
 		echo "case $$line: goto L_LOOP_COUNT_$${line};"; \
 	done > $(PCRE_GENINC)
 
 $(PCRE_MEMCHR): $(PCRE_DIR)/pcre2_match.c
-	$(gen_verbose)for line in `grep -n 'MEMCHR_ERLANG(' $(PCRE_DIR)/pcre2_match.c | grep -E -v 'define' | awk -F: '{print $$1}'`; \
+	$(gen_verbose)for line in `grep -n 'MEMCHR_ERLANG(' $(PCRE_DIR)/pcre2_match.c | grep -v 'define' | awk -F: '{print $$1}'`; \
 	do \
 		echo "case $$line: goto ERLANG_PCRE2_MATCH_YIELD_LINE_$${line};"; \
 	done > $(PCRE_MEMCHR)
 
 $(PCRE_YIELD_COV): $(PCRE_DIR)/pcre2_match.c
 	$(gen_verbose) INDEX=0; \
-	for line in `grep -n -E 'COST_CHK\(|MEMCHR_ERLANG\(' $(PCRE_DIR)/pcre2_match.c | grep -v 'define' | awk -F: '{print $$1}'`; \
+	for line in `{ grep -n 'COST_CHK(' $(PCRE_DIR)/pcre2_match.c; grep -n 'MEMCHR_ERLANG(' $(PCRE_DIR)/pcre2_match.c; } | grep -v 'define' | awk -F: '{print $$1}'`; \
 	do \
 		echo "#define ERLANG_YIELD_POINT_$${line} $$INDEX"; \
 		echo "$$line,"; \
