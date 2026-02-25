@@ -1227,24 +1227,30 @@ protected:
      * the value will end up, the following code is UNSAFE:
      *
      *    auto src = load_source(Src);
-     *    a.tst(src.reg, ...);
-     *    a.mov(TMP2, NIL);
-     *    a.ccmp(src.reg, TMP2, ..., ...);
+     *    a.mov(TMP, imm(NIL));
+     *    a.cmp(src.reg, TMP);
      *
-     * If the value of Src happens to end up in TMP2, it will be
+     * If the value of Src happens to end up in TMP, it will be
      * overwritten before its second use.
      *
      * Basically, the only safe way to use this function is when the
      * register is used immediately and only once. For example:
      *
-     *    a.and_(TMP1, load_source(Src), imm(...));
-     *    a.cmp(TMP1, imm(...));
+     *    a.and_(TMP, load_source(Src), imm(...));
+     *    a.cmp(TMP, imm(...));
      */
     Variable<a32::Gp> load_source(const ArgVal &arg) {
-        a32::Gp todo;
-        // TODO
-        ASSERT(false);
-        return Variable(todo);
+        if (!arg.isRegister()) {
+            return load_source(arg, TMP);
+        } else {
+            a32::Gp cached_reg = find_cache(getArgRef(arg));
+
+            if (cached_reg.isValid()) {
+                return load_source(arg, cached_reg);
+            } else {
+                return load_source(arg, TMP);
+            }
+        }
     }
 
     auto load_sources(const ArgVal &Src1,

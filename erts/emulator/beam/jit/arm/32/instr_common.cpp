@@ -443,8 +443,8 @@ void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
 
 void BeamModuleAssembler::emit_is_nonempty_list(const ArgLabel &Fail,
                                                 const ArgRegister &Src) {
-    // TODO
-    emit_nyi("emit_is_nonempty_list");
+    auto list_ptr = load_source(Src);
+    emit_is_cons(resolve_beam_label(Fail, dispUnknown), list_ptr.reg);
 }
 
 void BeamModuleAssembler::emit_jump(const ArgLabel &Fail) {
