@@ -609,6 +609,7 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(recvfrom);                 \
     GLOBAL_ATOM_DEF(recvhoplimit);             \
     GLOBAL_ATOM_DEF(recvif);                   \
+    GLOBAL_ATOM_DEF(recvmmsg);                 \
     GLOBAL_ATOM_DEF(recvmsg);                  \
     GLOBAL_ATOM_DEF(recvopts);                 \
     GLOBAL_ATOM_DEF(recvorigdstaddr);          \
@@ -653,6 +654,7 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(sendfile_pkg_max);         \
     GLOBAL_ATOM_DEF(sendfile_tries);           \
     GLOBAL_ATOM_DEF(sendfile_waits);           \
+    GLOBAL_ATOM_DEF(sendmmsg);                 \
     GLOBAL_ATOM_DEF(sendmsg);                  \
     GLOBAL_ATOM_DEF(sendsrcaddr);              \
     GLOBAL_ATOM_DEF(sendto);                   \

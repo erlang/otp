@@ -2495,6 +2495,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(recvfrom);                        \
     GLOBAL_ATOM_DECL(recvhoplimit);                    \
     GLOBAL_ATOM_DECL(recvif);                          \
+    GLOBAL_ATOM_DECL(recvmmsg);                        \
     GLOBAL_ATOM_DECL(recvmsg);                         \
     GLOBAL_ATOM_DECL(recvopts);                        \
     GLOBAL_ATOM_DECL(recvorigdstaddr);                 \
@@ -2539,6 +2540,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(sendfile_pkg_max);                \
     GLOBAL_ATOM_DECL(sendfile_tries);                  \
     GLOBAL_ATOM_DECL(sendfile_waits);                  \
+    GLOBAL_ATOM_DECL(sendmmsg);                        \
     GLOBAL_ATOM_DECL(sendmsg);                         \
     GLOBAL_ATOM_DECL(sendsrcaddr);                     \
     GLOBAL_ATOM_DECL(sendto);                          \
@@ -13841,35 +13843,77 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
      * </KOLLA>
      */
 
-    /* Hand crafted binary search */
+    /*
+     * Hand crafted binary search
+     * This is the order:
+     * accept | connect |
+     * recv | recvfrom | recvmmsg | recvmsg |
+     * send | sendfile | sendmmsg | sendmsg | sendto | sendv
+     */
+
+    /*
+     * Initial check ('recvmsg' is "right" in the middle)
+     * Check if Op is esock_atom_recvmsg
+     */
     if ((cmp = COMPARE(op, esock_atom_recvmsg)) == 0) {
         MLOCK(descP->readMtx);
         result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
         MUNLOCK(descP->readMtx);
         return result;
     }
+    /*
+     * Check if Op < esock_atom_recvmsg
+     * That is, if Op is one of:
+     * accept | connect | recv | recvfrom | recvmmsg
+     */
     if (cmp < 0) {
+        /*
+         * It *may* be one of: 
+         * accept | connect | recv | recvfrom | recvmmsg
+         *
+         * Check if it is recv
+         */
         if ((cmp = COMPARE(op, esock_atom_recv)) == 0) {
             MLOCK(descP->readMtx);
             result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
             MUNLOCK(descP->readMtx);
             return result;
         }
+        /*
+         * It is *not* recv.
+         * Check if Op < esock_atom_recv
+         */
         if (cmp < 0) {
-            if (COMPARE(op, esock_atom_connect) == 0) {
+            /*
+             * Op < esock_atom_recv
+             * Check if Op is one of:
+             * accept | connect
+             */
+            if (IS_IDENTICAL(op, esock_atom_connect)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_CONNECT(env, descP, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
-            if (COMPARE(op, esock_atom_accept) == 0) {
+            if (IS_IDENTICAL(op, esock_atom_accept)) {
                 MLOCK(descP->readMtx);
                 result = ESOCK_IO_CANCEL_ACCEPT(env, descP, sockRef, opRef);
                 MUNLOCK(descP->readMtx);
                 return result;
             }
         } else {
-            if (COMPARE(op, esock_atom_recvfrom) == 0) {
+            /*
+             * Op > esock_atom_recv
+             * Check if Op is one of:
+             * recvfrom | recvmmsg
+             */
+            if (IS_IDENTICAL(op, esock_atom_recvfrom)) {
+                MLOCK(descP->readMtx);
+                result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
+                MUNLOCK(descP->readMtx);
+                return result;
+            }
+            if (IS_IDENTICAL(op, esock_atom_recvmmsg)) {
                 MLOCK(descP->readMtx);
                 result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
                 MUNLOCK(descP->readMtx);
@@ -13877,33 +13921,58 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
             }
         }
     } else {
+        /*
+         * Op > esock_atom_recvmsg
+         * Check if Op is sendmsg
+         */
         if ((cmp = COMPARE(op, esock_atom_sendmsg)) == 0) {
             MLOCK(descP->writeMtx);
             result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
             MUNLOCK(descP->writeMtx);
             return result;
         }
+        /*
+         * Check if Op < esock_atom_sendmsg
+         * That is, if Op is one of:
+         * send | sendfile | sendmmsg
+         */
         if (cmp < 0) {
-            if (COMPARE(op, esock_atom_send) == 0) {
+            /*
+             * Op < esock_atom_sendmsg
+             * Check if Op is one of:
+             * send | sendfile | sendmmsg
+             */
+            if (IS_IDENTICAL(op, esock_atom_send)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
-            if (COMPARE(op, esock_atom_sendfile) == 0) {
+            if (IS_IDENTICAL(op, esock_atom_sendfile)) {
+                MLOCK(descP->writeMtx);
+                result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
+                MUNLOCK(descP->writeMtx);
+                return result;
+            }
+            if (IS_IDENTICAL(op, esock_atom_sendmmsg)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
         } else {
-            if (COMPARE(op, esock_atom_sendto) == 0) {
+            /*
+             * Op > esock_atom_sendmsg
+             * Check if Op is one of:
+             * sendto | sendv
+             */
+            if (IS_IDENTICAL(op, esock_atom_sendto)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
-            if (COMPARE(op, esock_atom_sendv) == 0) {
+            if (IS_IDENTICAL(op, esock_atom_sendv)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);

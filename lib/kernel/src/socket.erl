@@ -6892,6 +6892,22 @@ recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline) ->
                     _ = cancel(SockRef, recvmmsg, Handle),
                     {error, timeout}
             end;
+
+        select = Tag ->
+            %% There is nothing just now, but we will be notified when there
+            %% is something to read (a select message).
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), Tag, Handle) ->
+                    recvmmsg_deadline(
+                      SockRef, VLen, BufSz, CtrlSz, Flags, Deadline);
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    {error, Reason}
+            after Timeout ->
+                    _ = cancel(SockRef, recvmmsg, Handle),
+                    {error, timeout}
+            end;
+
         {ok, Msgs} ->
             {ok, Msgs};
         {error, _} = Error ->
