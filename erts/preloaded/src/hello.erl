@@ -127,7 +127,7 @@ id(I) ->
 
 test(BootArgs) ->
     external_call(),
-%    BootArgs = rev_test(BootArgs),
+    BootArgs = rev_test(BootArgs),
 %    reductions(BootArgs),
 %    list_test(),
 %    tuple_test(),
@@ -205,14 +205,14 @@ external_call_last() ->
     self() ! external_call_last,
     ?MODULE:start().
 
-%rev_test(L0) ->
-%    L = rev(L0),
-%    L0 = rev(L).
-%
-%rev(L) -> rev(L, []).
-%
-%rev([H|T], Acc) -> rev(T, [H|Acc]);
-%rev([], Acc) -> Acc.
+rev_test(L0) ->
+    L = rev(L0),
+    L0 = rev(L).
+
+rev(L) -> rev(L, []).
+
+rev([H|T], Acc) -> rev(T, [H|Acc]);
+rev([], Acc) -> Acc.
 %
 %list_test() ->
 %    [a|_] = id([a]),
