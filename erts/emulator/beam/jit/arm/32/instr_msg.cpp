@@ -196,7 +196,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     a.bind(done);
     {
         a.ldr(TMP, arm::Mem(ARG1, offsetof(ErtsMessage, m[0])));
-        a.mov(ARG1, TMP);
+        a.str(TMP, getXRef(0)); // return message pointer in X0
         a.ldr(a32::lr, saved_lr);
         a.bx(a32::lr);
     }
