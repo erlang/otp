@@ -828,6 +828,18 @@ value are listed.
   behaviour module returns a badly formed list of functions. Use this
   option to turn off this kind of warning.
 
+- **`nowarn_novalue`** - Disable warnings for creating a
+  native record without giving values for all fields. Note that this
+  kind of warning is only emitted when the module name for the record
+  is explicitly given as the current module; when no module name is
+  given, not initializing all fields is a compilation error.
+
+- **`nowarn_undefined_field`** - Disable warnings for referencing
+  field names not present in the local native record definition.  This
+  warning is emitted when accessing, matching, or updating a native
+  record. It can also be emitted when creating a record if the module
+  name for the record is explicitly given as the current module.
+
 Other kinds of warnings are _opportunistic warnings_. They are generated when
 the compiler happens to notice potential issues during optimization and code
 generation.
