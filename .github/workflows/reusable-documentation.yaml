@@ -1,0 +1,95 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Build and Check Documentation
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        required: true
+        type: string
+      base_url:
+        required: false
+        type: string
+        default: ''
+      trigger_erlang_org_build:
+        required: true
+        type: boolean
+        description: "Trigger rebuild of erlang.org"
+    secrets:
+      TRIGGER_ERLANG_ORG_BUILD:
+        required: true
+
+
+jobs:
+  documentation:
+    name: Build and check documentation
+    runs-on: ubuntu-latest
+    steps:
+      # checks out the current branch, not some default
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+            ref: ${{ inputs.base_branch }}
+
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ inputs.base_branch }}
+
+      ## Build all the documentation
+      - name: Build documentation
+        env:
+            BASE_URL: ${{ inputs.base_url }}
+        run: |
+          docker build --build-arg BASE_URL="$BASE_URL" -t otp - <<EOF
+          FROM otp
+          ENV BASE_URL=$BASE_URL
+          RUN ./otp_build download_ex_doc
+          ## Need later jdk to create correct anchors in html docs
+          RUN sudo update-java-alternatives -s java-1.11.0-openjdk-amd64
+          RUN make release docs release_docs && sudo make install-docs
+          EOF
+      - name: Release docs to publish
+        run: |
+            docker run -v $PWD/:/github otp \
+              "make release_docs DOC_TARGETS='html man' RELEASE_ROOT=/github/docs"
+            sudo chown -R `whoami` docs
+            cd docs
+            tar czf ../otp_doc_man.tar.gz man
+            rm -rf man
+            tar czf ../otp_doc_html.tar.gz *
+      - name: Upload html documentation archive
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_doc_html
+          path: otp_doc_html.tar.gz
+      - name: Upload man documentation archive
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_doc_man
+          path: otp_doc_man.tar.gz
+      - name: Trigger rebuild of erlang.org/docs/
+        if: ${{ inputs.trigger_erlang_org_build }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+        run: |
+          curl -H "Authorization: token ${GITHUB_TOKEN}" -X POST -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/erlang/erlang-org/actions/workflows/update-gh-cache.yaml/dispatches" -d '{"ref":"master"}'
+      - name: Run html link check
+        run: docker run -v $PWD/:/github otp "cd /github/docs && /github/scripts/otp_check_html_links.exs"

@@ -1,0 +1,263 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+name: Create source Software Bill-of-Materials (SBOM)
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        required: true
+        type: string
+      full_build_and_check:
+        required: true
+        type: string
+        description: "'true' | 'false' as string"
+      ref_name:
+        required: true
+        type: string
+      base_ref:
+        required: true
+        type: string
+      pr_base_sha:
+        required: false
+        type: string
+        default: ''
+      otp_sbom_version:
+        required: true
+        type: string
+      ort_version:
+        required: true
+        type: string
+      fail_on_violations:
+        required: true
+        type: string
+      upload_sbom_to_dependency_api:
+        required: true
+        type: boolean
+
+env:
+  ORT_VERSION: ${{ inputs.ort_version }}
+  OTP_SBOM_VERSION: ${{ inputs.otp_sbom_version }}
+  SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
+
+jobs:
+  create-sbom:
+    name: Create SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use HTTPS instead of SSH for Git cloning
+        run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ inputs.base_branch }}
+
+      - name: Fetch Default ORT Config
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: oss-review-toolkit/ort-config
+          ref: "d2978deb230beae095bb6cfec074b94f1a74fd34"
+          path: ".ort-config"
+
+      - name: Setup ORT Config
+        id: setup-ort-config
+        run: |
+            mkdir -p "$HOME/.ort/"
+
+            # Move Fetched Default Config into Place
+            mv .ort-config "$HOME/.ort/config"
+
+            # Copy local configuration
+            cp .ort/config/* "$HOME/.ort/config/"
+
+      - name: Run OSS Review Toolkit (analyzer)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              labels,
+              cache-dependencies,
+              analyzer
+            sw-version: ${{ inputs.otp_sbom_version }}
+
+      - name: Link results
+        run: ln -s analyzer-result.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Restore ORT Scanner cache
+        uses: actions/cache/restore@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/restore@v4
+        id: ort-cache
+        if: ${{ inputs.full_build_and_check == 'false' }}
+        with:
+          path: ${{ env.SCAN_RESULT_CACHE_PATH }}
+          key: ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ inputs.ref_name }}-
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ inputs.base_ref }}-${{ inputs.pr_base_sha }}
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ inputs.base_ref }}-
+
+      - name: Install dependencies in docker image
+        run: |
+          SCANCODE_VERSION=$(docker run --entrypoint="" ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }} bash -c "scancode --version" | grep "ScanCode version" | awk '{print $3}')
+          docker build -t otp - <<EOF
+          FROM otp
+          RUN echo 'export PATH="\$HOME/.local/bin:\$PATH"' >> /home/otptest/.profile
+          RUN sudo apt-get install -y libicu-dev pip && \
+              pip install click==8.3.1 scancode-toolkit==${SCANCODE_VERSION} reuse && \
+              pip install -U ntia-conformance-checker
+          EOF
+
+      - name: Restore from cache
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) != ''
+        run: |
+            docker run -v $PWD/:/github -v $HOME:$HOME otp \
+               "/github/.github/scripts/ort-scanner.es init -i $HOME/.ort/ort-results/analyzer-result.json \
+               -o $HOME/.ort/ort-results/scan-result.init.json /github"
+            docker run -v $PWD/:/github -v $HOME:$HOME otp \
+               "/github/.github/scripts/ort-scanner.es restore-cache -i $HOME/.ort/ort-results/scan-result.init.json \
+               -o $HOME/.ort/ort-results/scan-result.cache.json /github/${{ env.SCAN_RESULT_CACHE_PATH }}"
+            docker run -v $PWD/:/github -v $HOME:$HOME otp \
+               "/github/.github/scripts/ort-scanner.es scan -t scancode -s fill \
+               -i $HOME/.ort/ort-results/scan-result.cache.json \
+               -o $HOME/.ort/ort-results/scan-result.json /github"
+
+      - name: Run OSS Review Toolkit (scanner)
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) == ''
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              scanner
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Overwrite scan results using reuse
+        run: |
+          cp $HOME/.ort/ort-results/scan-result.json $HOME/.ort/ort-results/scan-result.scanned.json
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+               "/github/.github/scripts/ort-scanner.es scan -t reuse -s overwrite \
+               -i $HOME/.ort/ort-results/scan-result.json \
+               -o $HOME/.ort/ort-results/scan-result.reuse.json /github"
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ort-scan-results
+          path: |
+            /home/runner/.ort/ort-results/*.json
+            ${{ env.SCAN_RESULT_CACHE_PATH }}
+
+      - name: Copy to cache and link results
+        run: |
+          cp $HOME/.ort/ort-results/scan-result.reuse.json ${{ env.SCAN_RESULT_CACHE_PATH }}
+          ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Run OSS Review Toolkit (reporter)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              reporter
+            report-formats: "SpdxDocument"
+            ort-cli-report-args: '-O SpdxDocument=outputFileFormats=JSON'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Save ORT Scanner cache
+        uses: actions/cache/save@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/save@v4
+        if: steps.ort-cache.outputs.cache-hit != 'true'
+        with:
+            path: ${{ env.SCAN_RESULT_CACHE_PATH }}
+            key: ${{ steps.ort-cache.outputs.cache-primary-key }}
+
+      - name: Process SBOM
+        run: |
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+            "/github/.github/scripts/otp-compliance.es sbom otp-info \
+              --sbom-file $HOME/.ort/ort-results/bom.spdx.json \
+              --input-file $HOME/.ort/ort-results/scan-result.json"
+
+      # - name: Verify SBOM
+      #   run: |
+      #     docker run -v $PWD/:/github -v $HOME:$HOME otp \
+      #       "/github/.github/scripts/otp-compliance.es sbom test-file \
+      #         --sbom-file $HOME/.ort/ort-results/bom.spdx.json"
+
+      - name: Upload SPDX SBOM result
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: spdx-sbom-result
+          path: /home/runner/.ort/ort-results/bom.spdx.json
+
+      - name: Run OSS Review Toolkit (upload)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              'upload-results',
+              'upload-scan-result'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Link results
+        run: ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Run OSS Review Toolkit (evaluator)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              advisor,
+              evaluator
+            fail-on: ${{ inputs.fail_on_violations }}
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+  vendor-dependency-upload:
+    name: Vendor Dependency Upload
+    runs-on: ubuntu-latest
+    needs: create-sbom
+    if: github.repository == 'erlang/otp'
+    ## Needed to use Github Dependency API
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ inputs.base_branch }}
+
+      - name: Download SBoM
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
+
+      - name: Generate Vendor SBOM
+        run: |
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+            "/github/.github/scripts/otp-compliance.es sbom vendor \
+              --sbom-file /github/bom.spdx.json"
+
+      # allows Dependabot to give us alert of the vendor libraries that use semantic versioning
+      # it also allows dependencies to be looked up from github dependencies
+      #
+      # trigger the upload only on merged pull requests
+      #
+      #
+      - name: Upload SBOM to Github Dependency API
+        if: ${{ inputs.upload_sbom_to_dependency_api }}
+        uses: advanced-security/spdx-dependency-submission-action@169d22427d74f3faf93504e70b03eede8dab272a # v0.2.0

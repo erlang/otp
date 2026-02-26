@@ -1,0 +1,228 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Build Erlang/OTP (64-bit)
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        required: true
+        type: string
+      full_build_and_check:
+        required: true
+        type: string
+        description: "'true' | 'false' as string"
+      ref_name:
+        required: true
+        type: string
+      base_ref:
+        required: false
+        type: string
+        default: ''
+      pr_base_sha:
+        required: false
+        type: string
+        default: ''
+      bypass_erlang_repo:
+        required: true
+        type: boolean
+        description: "Bypasses checks of github.repository being 'erlang/otp'. Used for testing in forks"
+    outputs:
+      changes:
+        description: "changed apps"
+        value: ${{ jobs.pack.outputs.changes }}
+      build-c-code:
+        description: "'true' if C code must be rebuilt"
+        value: ${{ jobs.pack.outputs.build-c-code }}
+      all:
+        description: "all apps"
+        value: ${{ jobs.pack.outputs.all }}
+      # this echo below is due to a limitation where github erases the outsputs from other jobs.
+      base_branch:
+        value: ${{ inputs.base_branch }}
+      full_build_and_check:
+        value: ${{ inputs.full_build_and_check }}
+      ref_name:
+        value: ${{ inputs.ref_name }}
+      base_ref:
+        value: ${{ inputs.base_ref }}
+      pr_base_sha:
+        value: ${{ inputs.pr_base_sha }}
+      bypass_erlang_repo:
+        value: ${{ inputs.bypass_erlang_repo }}
+
+jobs:
+  pack:
+    name: Build Erlang/OTP (64-bit)
+    runs-on: ubuntu-latest
+    if: github.repository == 'erlang/otp' || github.event_name != 'schedule' || inputs.bypass_erlang_repo
+    outputs:
+      changes:      ${{ steps.changes.outputs.changes }}
+      build-c-code: ${{ steps.build-c-code.outputs.value }}
+      all:          ${{ steps.apps.outputs.all }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.base_branch }}
+
+      - uses: ./.github/actions/build-base-image
+        with:
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          BUILD_IMAGE: false
+
+      - name: Get applications
+        id: apps
+        run: |
+          .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
+          .github/scripts/c-code-path-filters.sh > .github/scripts/c-code-path-filters.yaml
+          cat .github/scripts/path-filters.yaml
+          cat .github/scripts/c-code-path-filters.yaml
+          ALL_APPS=$(grep '^[a-z_]*:' .github/scripts/path-filters.yaml | sed 's/:.*$//')
+          ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
+          echo "all=${ALL_APPS}" >> $GITHUB_OUTPUT
+
+      - name: Check which applications have changed
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        id: app-changes
+        with:
+          filters: .github/scripts/path-filters.yaml
+
+      # 'changes' is an output parameter
+      - name: Override which applications have changed
+        id: changes
+        env:
+          ALL_APPS:    ${{ steps.apps.outputs.all }}
+          CHANGED_APPS: ${{ steps.app-changes.outputs.changes }}
+        run: |
+          if ${{ inputs.full_build_and_check }}; then
+            echo "changes=${ALL_APPS}" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check if there are any C-code changes, if not then limit CI run
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        id: c-code-changes
+        with:
+          filters: .github/scripts/c-code-path-filters.yaml
+
+      # 'value' is an output parameter
+      - name: Set build-c-code output
+        id: build-c-code
+        run: |
+          if [[ "${{ steps.c-code-changes.outputs.changes }}" != "[]" || "${{ inputs.full_build_and_check }}" == "true" ]]; then
+            echo "value=true"  >> $GITHUB_OUTPUT
+          else
+            echo "value=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cache pre-built src
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: otp_src.tar.gz
+          key: prebuilt-src-${{ inputs.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            prebuilt-src-${{ inputs.base_ref }}-${{ inputs.pr_base_sha }}
+
+      - name: Cache pre-built binaries
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: otp_cache.tar.gz
+          key: prebuilt-cache-64-bit-${{ inputs.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            prebuilt-cache-64-bit-${{ inputs.base_ref }}-${{ inputs.pr_base_sha }}
+
+      - name: Create initial pre-release tar
+        run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
+
+      - name: Upload source tar archive
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_git_archive
+          path: otp_archive.tar.gz
+
+      - name: Check how we can use the pre-built cache
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        id: cache
+        with:
+          filters: |
+            no-cache:
+                - '.github/**'
+                - deleted: '**/*.h'
+            deleted:
+                - deleted: '**'
+            bootstrap:
+                - 'bootstrap/**'
+            configure:
+                - '**.ac'
+                - '**.in'
+          list-files: shell
+
+      - name: Restore from cache
+        env:
+          NO_CACHE:  ${{ fromJson(steps.cache.outputs.no-cache) || fromJson(inputs.full_build_and_check) || fromJson(steps.cache.outputs.deleted_count) > 20 }}
+          BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
+          CONFIGURE: ${{ steps.cache.outputs.configure }}
+          EVENT:     ${{ github.event_name }}
+          DELETED:   ${{ fromJson(steps.cache.outputs.deleted_count) > 20 && '[]' || steps.cache.outputs.deleted_files }}
+        run: |
+          .github/scripts/restore-from-prebuilt.sh "`pwd`" \
+            "`pwd`/.github/otp.tar.gz" \
+            "`pwd`/otp_archive.tar.gz"
+
+      - name: Upload restored cache
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: runner.debug == 1
+        with:
+          name: restored-cache
+          path: .github/otp.tar.gz
+
+      - name: Build image
+        run: |
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
+
+      - name: Build pre-built tar archives
+        run: |
+          docker run -v $PWD:/github --entrypoint "" otp \
+            scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /github/otp_archive.tar.gz
+
+      - name: Build cache
+        run: |
+          if [ -f otp_cache.tar.gz ]; then
+            gunzip otp_cache.tar.gz
+          else
+            docker run -v $PWD:/github --entrypoint "" otp \
+              bash -c 'cp ../otp_cache.tar /github/'
+          fi
+          docker run -v $PWD:/github --entrypoint "" otp \
+            bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" \! -path "./erts/preloaded/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
+          gzip otp_cache.tar
+
+      - name: Upload pre-built tar archives
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_prebuilt
+          path: |
+            otp_src.tar.gz
+            otp_cache.tar.gz
