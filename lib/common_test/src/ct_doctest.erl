@@ -246,9 +246,11 @@ should be ignored. This is useful for outputs that are large or contain non-dete
 
 ```
 1> lists:seq(1,100).
-[1, 2, 3 | ...]
+[1, 2, 3, ...]
 2> #{ a => b }.
 #{ a => ... }
+3> <<1, 0:1024>>.
+<<1, 0, 0, 0, ...>>
 ```
 
 ### Compiling modules
@@ -779,6 +781,12 @@ parse(Cmd0, _Test, _Match) ->
             throw({error,{Message,Line,Cmd}})
     end.
 
+%% We rewrite ...>> to _/binary>> to match shell syntax better
+rewrite_tokens([{'...', L1}, {'>>', L2} | T]) ->
+    rewrite_tokens([{var, L1, '_'}, {'/', L1}, {atom, L1, binary}, {'>>', L2} | T]);
+%% We rewrite , ... ] to | _ ] to match shell syntax better
+rewrite_tokens([{',', L1}, {'...', L2}, {']', L3} | T]) ->
+    rewrite_tokens([{'|', L1}, {var, L2, '_'}, {']', L3} | T]);
 %% We rewrite ... to _ to match shell syntax better
 rewrite_tokens([{'...', L} | T]) ->
     rewrite_tokens([{var, L, '_'} | T]);
