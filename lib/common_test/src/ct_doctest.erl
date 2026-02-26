@@ -202,6 +202,13 @@ Examples of failures can be tested by writing the expected exception after the p
 The simplest way to know what output to write is to run the example in the shell and copy the output,
 including the `** exception` line.
 
+If you don't want to include the entire exception message, use only the start of the message.
+
+```
+1> hello + 1.
+** exception error
+```
+
 ### Comments
 
 Comments can be inserted anywhere in the code block. For example:
@@ -682,14 +689,15 @@ run_failing(Cmd, Test, Match, Bindings) ->
                                     [Match,Res]),
             throw({error,{Message,Match}})
     catch C:R:ST ->
-            case format_exception(C, R, ST) of
-                Match ->
-                    Bindings;
-                Actual ->
+            Actual = format_exception(C, R, ST),
+            case string:prefix(Actual,  Match) of
+                nomatch ->
                     Message = io_lib:format("Expected failure:~n~ts~n"
                                             "Got failure:~n~ts~n",
                                             [Match,Actual]),
-                    throw({error,{Message,Match}})
+                    throw({error,{Message,Match}});
+                _ ->
+                    Bindings
             end
     end.
 
