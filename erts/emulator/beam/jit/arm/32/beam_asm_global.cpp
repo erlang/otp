@@ -192,14 +192,28 @@ void BeamModuleAssembler::emit_raise_exception() {
 }
 
 void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
-    // TODO
-    emit_nyi("emit_raise_exception");
+    if (exp) {
+        a.ldr(ARG4, embed_constant(exp, disp4KB));
+        fragment_call(ga->get_raise_exception());
+    } else {
+        fragment_call(ga->get_raise_exception_null_exp());
+    }
+
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_raise_exception(Label I,
                                                const ErtsCodeMFA *exp) {
-    // TODO
-    emit_nyi("emit_raise_exception");
+    a.adr(ARG2, I);
+
+    if (exp) {
+        a.ldr(ARG4, embed_constant(exp, disp4KB));
+        a.b(resolve_fragment(ga->get_raise_exception_shared(), disp32MB));
+    } else {
+        a.b(resolve_fragment(ga->get_raise_exception_null_exp(), disp32MB));
+    }
 }
 
 void BeamGlobalAssembler::emit_process_exit() {
@@ -220,19 +234,51 @@ void BeamGlobalAssembler::emit_process_exit() {
 
 /* You must have already done emit_leave_runtime_frame()! */
 void BeamGlobalAssembler::emit_raise_exception_null_exp() {
-    // TODO
-    emit_nyi("emit_raise_exception_null_exp");
+    mov_imm(ARG4, 0);
+    a.mov(ARG2, a32::lr);
+    a.b(labels[raise_exception_shared]);
 }
 
 /* You must have already done emit_leave_runtime_frame()! */
 void BeamGlobalAssembler::emit_raise_exception() {
-    // TODO
-    emit_nyi("emit_raise_exception");
+    a.mov(ARG2, a32::lr);
+    a.b(labels[raise_exception_shared]);
 }
 
 void BeamGlobalAssembler::emit_raise_exception_shared() {
-    // TODO
-    emit_nyi("emit_raise_exception_shared");
+    Label crash = a.newLabel();
+
+    /* Push a fake CP to ensure that we can handle a topmost frame
+     * with `catch` and an instruction raising and exception.
+     *
+     * The fake CP is discarded by handle_error() before jumping to
+     * a catch handler, and is ignored as a duplicate in stack
+     * traces because it's equal to the error address. */
+    a.str(ARG2, arm::Mem(E, -8).pre());
+
+    emit_enter_runtime<Update::eHeapAlloc>();
+
+    /* The error address must be a valid CP or NULL. */
+    a.tst(ARG2, imm(_CPMASK));
+    a.b_ne(crash);
+
+    /* ARG2 and ARG4 must be set prior to jumping here! */
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG3);
+    runtime_call<4>(handle_error);
+
+    emit_leave_runtime<Update::eHeapAlloc>();
+
+    emit_branch_if_value(ARG1, labels[do_schedule]);
+
+    /* XREG0 = THE_NON_VALUE
+     * XREG1 = class
+     * XREG2 = error reason/thrown value
+     * XREG3 = raw stacktrace. */
+    a.bx(ARG1);
+
+    a.bind(crash);
+    a.udf(0xbad);
 }
 
 void BeamModuleAssembler::emit_proc_lc_unrequire(void) {

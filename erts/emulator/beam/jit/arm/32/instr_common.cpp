@@ -77,8 +77,11 @@ void BeamModuleAssembler::emit_error(int reason) {
 }
 
 void BeamModuleAssembler::emit_error(int reason, const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_error");
+    mov_imm(TMP, reason);
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));    
+    auto src = load_source(Src, TMP);
+    a.str(src.reg, arm::Mem(c_p, offsetof(Process, fvalue)));
+    emit_raise_exception();
 }
 
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
@@ -159,6 +162,12 @@ void BeamModuleAssembler::emit_i_validate(const ArgWord &Arity) {
     emit_nyi("emit_i_validate");
 }
 
+/*
+ * This does not allocate the heap, it prepares it to be allocated.
+ * It tests the heap and the stack, and if necessary, it will call the
+ * garbage collector.
+ * Only the Stack is immediatly adjusted.
+ */
 void BeamModuleAssembler::emit_allocate_heap(const ArgWord &NeedStack,
                                              const ArgWord &NeedHeap,
                                              const ArgWord &Live) {
