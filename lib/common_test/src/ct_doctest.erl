@@ -722,18 +722,13 @@ run_tests({test, Test0, Match0}, Bindings) ->
     case Match0 of
         [<<"** ", _/binary>> | _] ->
             Match = unicode:characters_to_list(Match0),
-            Cmd = Test ++ ".",
-            run_failing(Cmd, Test, Match, Bindings);
+            run_failing(Test, Match, Bindings);
         _ ->
-            Cmd = [unicode:characters_to_list(Match0),
-                   " = begin ",
-                   Test,
-                   " end."],
-            run_successful(Cmd, Test, Match0, Bindings)
+            run_successful(Test, Match0, Bindings)
     end.
 
-run_successful(Cmd, Test, Match, Bindings) ->
-    Ast = rewrite(parse(Cmd, Test, Match)),
+run_successful(Test, Match, Bindings) ->
+    Ast = parse_exprs(Test, Match),
     try
         {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast, Bindings)),
         NewBindings
@@ -745,8 +740,8 @@ run_successful(Cmd, Test, Match, Bindings) ->
             throw({error,{Message,Match}})
     end.
 
-run_failing(Cmd, Test, Match, Bindings) ->
-    Ast = parse(Cmd, Test, Match),
+run_failing(Test, Match, Bindings) ->
+    Ast = parse_exprs(Test, "_"),
     try inspect(erl_eval:exprs(Ast, Bindings)) of
         {value, Res, _} ->
             Message = io_lib:format("Expected failure ~ts; got ~ts",
@@ -765,13 +760,33 @@ run_failing(Cmd, Test, Match, Bindings) ->
             end
     end.
 
-parse(Cmd0, _Test, _Match) ->
-    Cmd = lists:flatten(Cmd0),
+%% As we allow <0.1.0> style matches we first need to check
+%% if the match actually is a valid pattern. So we parse and
+%% evaluate it first, and if that fails we convert it to a literal
+%% and try again.
+parse_exprs(Test, Match0) ->
+    try parse_exprs(Match0 ++ " = 1.") of
+        Ast ->
+            Match =
+                try erl_eval:exprs(Ast, #{}) of
+                    {value, _Res, _} ->
+                        Match0
+                catch
+                    error:_ ->
+                        maybe_convert_to_literal(Match0)
+                end,
+            parse_exprs(Match ++ " = begin " ++ Test ++ " end.")
+    catch throw:_ ->
+            parse_exprs(Match0 ++ " = begin " ++ Test ++ " end.")
+    end.
+
+parse_exprs(Str) ->
+    Cmd = lists:flatten(unicode:characters_to_list(Str)),
     maybe
-        {ok, T, _} ?= erl_scan:string(Cmd),
+        {ok, T, _} ?= erl_scan:string(Cmd, 0, [text]),
         RewrittenToks = rewrite_tokens(T),
-        {ok, Ast} ?= inspect(erl_parse:parse_exprs(RewrittenToks)),
-        Ast
+        {ok, Ast} ?= inspect(erl_eval:extended_parse_exprs(RewrittenToks)),
+        rewrite_match_ast(Ast)
     else
         {error, {Line,Mod,Reason}, _} ->
             Message = Mod:format_error(Reason),
@@ -795,6 +810,99 @@ rewrite_tokens([H | T]) ->
 rewrite_tokens([]) ->
     [].
 
+%% Rewrite the AST to convert map field associations to exact matches on the LHS
+rewrite_match_ast([{match, Ann, LHS, RHS}]) ->
+
+    RewrittenLHS =
+      erl_syntax_lib:map(
+        fun(Tree) ->
+                case erl_syntax:type(Tree) of
+                    map_field_assoc ->
+                        Name = erl_syntax:map_field_assoc_name(Tree),
+                        Value = erl_syntax:map_field_assoc_value(Tree),
+                        erl_syntax:map_field_exact(Name, Value);
+                    _Else ->
+                        Tree
+                end
+        end, LHS),
+    [{match, Ann, erl_syntax:revert(RewrittenLHS), RHS}];
+rewrite_match_ast([{match, _, _, _} = Match | Rest]) ->
+    [Match | rewrite_match_ast(Rest)].
+
+%% We do a little dance here in order to allow refs, pids and ports
+%% to be matched as literals, since the shell prints them as literals
+%% but erl_eval doesn't accept them as such.
+%%
+%% We traverse the AST and hoist only the literal-producing calls
+%% (list_to_pid, list_to_port, list_to_ref) into variable bindings,
+%% leaving the rest of the match pattern intact.
+%%
+%% For example, {ok, <0.1.0>} becomes: _L1 = <0.1.0>, {ok, _L1}
+maybe_convert_to_literal(Match0) ->
+    Match = unicode:characters_to_list(Match0),
+    maybe
+        {ok, Toks, _} ?= erl_scan:string(Match ++ ".", 0, [text]),
+        RewrittenToks = rewrite_tokens(Toks),
+        {ok, [Expr0]} ?= erl_eval:extended_parse_exprs(RewrittenToks),
+        {Expr1, Acc} = hoist_literal_calls(Expr0),
+        true ?= Acc =/= [],
+        Expr = erl_syntax:revert(Expr1),
+        Prefix = lists:join(", ",
+            [lists:flatten(io_lib:format("~s = ~p", [V, L]))
+             || {V, L} <- lists:reverse(Acc)]),
+        ExprStr = lists:flatten(erl_pp:expr(Expr)),
+        lists:flatten([Prefix, ", ", ExprStr])
+    else
+        _ ->
+            Match
+    end.
+
+hoist_literal_calls(Expr) ->
+    erl_syntax_lib:mapfold(
+      fun(Tree, Acc) ->
+              case is_literal_producing_call(Tree) of
+                  {yes, Value} ->
+                      VarName = "_L" ++ integer_to_list(
+                                          erlang:unique_integer([positive])),
+                      Var = erl_syntax:variable(list_to_atom(VarName)),
+                      {Var, [{VarName, Value} | Acc]};
+                  no ->
+                      {Tree, Acc}
+              end
+      end, [], Expr).
+
+is_literal_producing_call(Tree) ->
+    case erl_syntax:type(Tree) of
+        application ->
+            Op = erl_syntax:application_operator(Tree),
+            case erl_syntax:type(Op) of
+                module_qualifier ->
+                    Mod = erl_syntax:atom_value(
+                            erl_syntax:module_qualifier_argument(Op)),
+                    Fun = erl_syntax:atom_value(
+                            erl_syntax:module_qualifier_body(Op)),
+                    case {Mod, Fun} of
+                        {erlang, F} when F =:= list_to_pid;
+                                         F =:= list_to_port;
+                                         F =:= list_to_ref ->
+                            [Arg] = erl_syntax:application_arguments(Tree),
+                            S = erl_syntax:string_value(Arg),
+                            try {yes, erlang:F(S)} catch _:_ -> no end;
+                        _ ->
+                            no
+                    end;
+                _ ->
+                    no
+            end;
+        implicit_fun ->
+            %% Handles fun M:F/A references from shell syntax like M.F/A
+            Reverted = erl_syntax:revert(Tree),
+            {value, Val, _} = erl_eval:exprs([Reverted], #{}),
+            {yes, Val};
+        _ ->
+            no
+    end.
+
 format_exception(Class, Reason, [Top,Next|_]) ->
     Stacktrace = [clean_stacktrace_item(Item) || Item <- [Top,Next]],
     Tag = "** ",
@@ -815,23 +923,6 @@ pp(V, I) ->
                             {depth, D}, {line_max_chars, 100},
                             {strings, true},
                             {encoding, unicode}]).
-
-rewrite([{match, Ann, LHS, RHS} | Rest]) ->
-    [{match, Ann, rewrite_map_match(LHS), RHS} | Rest].
-
-rewrite_map_match(AST) ->
-    erl_syntax:revert(
-      erl_syntax_lib:map(
-        fun(Tree) ->
-                case erl_syntax:type(Tree) of
-                    map_field_assoc ->
-                        Name = erl_syntax:map_field_assoc_name(Tree),
-                        Value = erl_syntax:map_field_assoc_value(Tree),
-                        erl_syntax:map_field_exact(Name, Value);
-                    _Else ->
-                        Tree
-                end
-        end, AST)).
 
 inspect(Term) ->
     %% Uncomment for debugging

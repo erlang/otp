@@ -92,7 +92,7 @@ runtime_failure_matching(_Config) ->
     expect_exception(ct_doctest_failure_mismatch_mod, [], error, badarg).
 
 parse_rewrite_helpers(_Config) ->
-    ok = ct_doctest:module(ct_doctest_parse_rewrite_mod),
+    expect_error_count(ct_doctest_parse_rewrite_mod, [{verbose, true}], 2),
     expect_error_count(ct_doctest_scan_error_mod, [], 1).
 
 file_support(Config) ->
