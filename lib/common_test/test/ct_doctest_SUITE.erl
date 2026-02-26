@@ -28,7 +28,7 @@
 -export([api_branches/1, module_result_modes/1,
          docs_filtering_and_error_formatting/1, parser_prompt_parsing/1,
          runtime_failure_matching/1, parse_rewrite_helpers/1, file_support/1,
-         external_parser/1, type_and_callback_docs/1, verbose_option/1,
+         external_parser/1, module/1, type_and_callback_docs/1, verbose_option/1,
          skipped_blocks_option/1,
          integration_smoke/1]).
 
@@ -44,6 +44,7 @@ all() ->
      parse_rewrite_helpers,
      file_support,
      external_parser,
+     module,
      type_and_callback_docs,
      verbose_option,
      skipped_blocks_option,
@@ -102,6 +103,25 @@ file_support(Config) ->
     expect_error_count(filename:join(DataDir, "doctest_fail.md"), [], 1),
     expect_error_count(ParseErrorFile, [], 1),
     {error, enoent} = ct_doctest:file(filename:join(DataDir, "missing_*.md"), []).
+
+module(_Config) ->
+    ct:capture_start(),
+    expect_error_count(ct_doctest_module_mod, [], 3),
+    ct:capture_stop(),
+    OutputData = ct:capture_get(),
+
+    ExpectedSubstrings = ["h/0:2","unterminated atom starting with 'ok.\\n'",
+                          "g/0:2","syntax error before: ok",
+                          "test.erl:2: function f/0 undefined"],
+
+    lists:foreach(fun(Expected) ->
+                            case string:find(OutputData, Expected) of
+                                nomatch ->
+                                    ct:fail({expected_output, Expected, got, OutputData});
+                                _ ->
+                                    ok
+                            end
+                  end, ExpectedSubstrings).
 
 external_parser(Config) ->
     DataDir = ?config(data_dir, Config),

@@ -251,6 +251,25 @@ should be ignored. This is useful for outputs that are large or contain non-dete
 #{ a => ... }
 ```
 
+### Compiling modules
+
+ct_doctest can also compile full module code examples. It then looks for a
+`-module` declaration to determine the module name and compiles the code as
+if it were in a file. For example:
+
+```
+-module(my_module).
+-export([foo/0]).
+foo() ->
+    ok.
+```
+
+The module is then available for use in following prompts. For example:
+
+```
+1> my_module:foo().
+```
+
 ### Edge cases
 
 The following are examples that are not supported by the parser and will be ignored.
@@ -588,8 +607,8 @@ ensure_skipped_blocks(Expected, Actual) when is_integer(Expected), Expected >= 0
             error({unexpected_skipped_blocks, Expected, Actual})
     end.
 
--define(RE_CAPTURE, ~"(?:(?'line_number'[0-9]+)(?'prefix'>\s))?(?'content'.*)").
--define(RE_OPTIONS, [{capture, [line_number, prefix, content] ,binary}, unicode]).
+-define(RE_CAPTURE, ~B"(?:(?'line_number'[0-9]+)(?'prefix'>\s)|(?'prefix'\-module\())?(?'content'.*)").
+-define(RE_OPTIONS, [{capture, [line_number, prefix, content], binary}, dupnames, unicode]).
 
 run_test(Code, InitialBindings) ->
     Lines = string:split(Code, "\n", all),
@@ -609,8 +628,51 @@ run_test(Code, InitialBindings) ->
                                             run_tests(Test, Bindings)
                                     end, InitialBindings, Tests),
                     [ok];
+                {match, [_Line_Number, _Prefix = <<"-module(">>, _Code]} ->
+                    [compile_string(Code)];
                 _ ->
                     []
+            end
+    end.
+
+compile_string(Code) ->
+
+    Toks =
+        case erl_scan:string(unicode:characters_to_list(Code),
+                             0,
+                             [text]) of
+            {ok, T, _} ->
+                T;
+            {error, {Line,Mod,Reason}, _} ->
+                Message = Mod:format_error(Reason),
+                throw({error,{Message,Line,Code}})
+        end,
+
+    Forms = parse_tokens(Code, Toks),
+
+    {attribute,_,module,ModuleName} = lists:keyfind(module, 3, Forms),
+
+    case compile:forms(Forms, [binary, return_errors, {source, atom_to_list(ModuleName) ++ ".erl"}]) of
+        {ok, Module, Binary} ->
+            {module, Module} = code:load_binary(Module, "nofile", Binary),
+            ok;
+        {error, Errors, Warnings} ->
+            Messages = [begin [{_, M}] = sys_messages:format_messages(File, "", Msgs, []), M end || {File, Msgs} <- Errors ++ Warnings],
+            throw({error, {Messages, Code}})
+    end.
+
+parse_tokens(_Code, []) -> [];
+parse_tokens(Code, Toks) ->
+    case lists:splitwith(fun(T) ->
+            element(1, T) =/= dot
+        end, Toks) of
+        {Ts, [{dot, _} = Dot | Rest]} ->
+            case erl_parse:parse_form(Ts ++ [Dot]) of
+                {ok, Forms} ->
+                    [Forms | parse_tokens(Code, Rest)];
+                {error, {Line, Mod, Reason}} ->
+                    Message = Mod:format_error(Reason),
+                    throw({error,{Message,Line,Code}})
             end
     end.
 
