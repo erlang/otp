@@ -1,0 +1,502 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+## This workflow allows performing releases partly decoupling the CI logic
+## from the branch to be released. It can be used when the default deployment
+## logic has failed.
+##
+## The idea is that SBOM and documentation can be uploaded to the GH Release Assets
+## if the main Release job fails. To do this, we use a workflow_dispatch that allows
+## us to control what is executed in the CI. The code executed is not decoupled,
+## meaning that the code to be executed is exactly what comes from the dispatched branch.
+##
+## This is to prevent issues such as those of the past:
+##   https://github.com/erlang/otp/actions/runs/21907167857
+##
+## On a release, there is no need to continue testing, since all the tests have run
+## in the lab, before the release.
+##
+
+name: Release Action for Erlang/OTP
+
+on:
+    workflow_dispatch:
+      inputs:
+        branch-explanation:
+          description: |
+            Branch, Tag, or commit SHA in which to release GH assets.
+            The `branch` must start with `OTP-` for the release process to finish.
+            Otherwise, the action will build Erlang and test that the SBOM is satisfactory.
+          required: false
+          default: "Read before running"
+
+env:
+    BASE_BRANCH: ${{ github.ref_name }}
+    OTP_SBOM_VERSION: ${{ github.ref_name }}
+
+permissions:
+  contents: read
+  security-events: read
+
+jobs:
+  pack:
+    name: Build Erlang/OTP (64-bit)
+    runs-on: ubuntu-latest
+    if: github.repository == 'erlang/otp'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+            BUILD_IMAGE: false
+
+      - name: Cache pre-built src
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+            path: otp_src.tar.gz
+            key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-src-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+
+      - name: Cache pre-built binaries
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+            path: otp_cache.tar.gz
+            key: prebuilt-cache-64-bit-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-cache-64-bit-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+
+      - name: Create initial pre-release tar
+        run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
+
+      - name: Upload source tar archive
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_git_archive
+          path: otp_archive.tar.gz
+
+      - name: Check how we can use the pre-built cache
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        id: cache
+        with:
+          filters: |
+              no-cache:
+                  - '.github/**'
+                  - deleted: '**/*.h'
+              deleted:
+                  - deleted: '**'
+              bootstrap:
+                  - 'bootstrap/**'
+              configure:
+                  - '**.ac'
+                  - '**.in'
+          list-files: shell
+
+      - name: Restore from cache
+        env:
+            NO_CACHE: ${{ fromJson(steps.cache.outputs.no-cache) || fromJson(steps.cache.outputs.deleted_count) > 20 }}
+            BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
+            CONFIGURE: ${{ steps.cache.outputs.configure }}
+            EVENT: ${{ github.event_name }}
+            DELETED: ${{ fromJson(steps.cache.outputs.deleted_count) > 20 && '[]' || steps.cache.outputs.deleted_files }}
+        run: |
+            .github/scripts/restore-from-prebuilt.sh "`pwd`" \
+              "`pwd`/.github/otp.tar.gz" \
+              "`pwd`/otp_archive.tar.gz"
+
+      - name: Upload restored cache
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: runner.debug == 1
+        with:
+          name: restored-cache
+          path: .github/otp.tar.gz
+
+      - name: Build image
+        run: |
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
+
+      - name: Build pre-built tar archives
+        run: |
+          docker run -v $PWD:/github --entrypoint "" otp \
+            scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /github/otp_archive.tar.gz
+
+      - name: Build cache
+        run: |
+          if [ -f otp_cache.tar.gz ]; then
+            gunzip otp_cache.tar.gz
+          else
+            docker run -v $PWD:/github --entrypoint "" otp \
+              bash -c 'cp ../otp_cache.tar /github/'
+          fi
+          docker run -v $PWD:/github --entrypoint "" otp \
+            bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" \! -path "./erts/preloaded/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
+          gzip otp_cache.tar
+
+      - name: Upload pre-built tar archives
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_prebuilt
+          path: |
+              otp_src.tar.gz
+              otp_cache.tar.gz
+
+  documentation:
+    name: Build and check documentation
+    runs-on: ubuntu-latest
+    needs: pack
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+
+      ## Build all the documentation
+      - name: Build documentation
+        env:
+            BASE_URL: ${{ format('{0}/blob/{1}/',github.repository,github.ref_name) }}
+        run: |
+          docker build --build-arg BASE_URL="$BASE_URL" -t otp - <<EOF
+          FROM otp
+          ENV BASE_URL=$BASE_URL
+          RUN ./otp_build download_ex_doc
+          ## Need later jdk to create correct anchors in html docs
+          RUN sudo update-java-alternatives -s java-1.11.0-openjdk-amd64
+          RUN make release docs release_docs && sudo make install-docs
+          EOF
+
+      - name: Run html link check
+        run: docker run -v $PWD/:/github otp "cd /github/docs && /github/scripts/otp_check_html_links.exs"
+
+      - name: Release docs to publish
+        run: |
+            docker run -v $PWD/:/github otp \
+              "make release_docs DOC_TARGETS='html man' RELEASE_ROOT=/github/docs"
+            sudo chown -R `whoami` docs
+            cd docs
+            tar czf ../otp_doc_man.tar.gz man
+            rm -rf man
+            tar czf ../otp_doc_html.tar.gz *
+
+      - name: Upload html documentation archive
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_doc_html
+          path: otp_doc_html.tar.gz
+
+      - name: Upload man documentation archive
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_doc_man
+          path: otp_doc_man.tar.gz
+
+  sbom:
+    name: Create SBOM
+    runs-on: ubuntu-latest
+    env:
+        ORT_VERSION: 77.0.0
+        SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
+    steps:
+      - name: Use HTTPS instead of SSH for Git cloning
+        run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+
+      - name: Fetch Default ORT Config
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: oss-review-toolkit/ort-config
+          ref: "d2978deb230beae095bb6cfec074b94f1a74fd34"
+          path: ".ort-config"
+
+      - name: Setup ORT Config
+        id: setup-ort-config
+        run: |
+            mkdir -p "$HOME/.ort/"
+
+            # Move Fetched Default Config into Place
+            mv .ort-config "$HOME/.ort/config"
+
+            # Copy local configuration
+            cp .ort/config/* "$HOME/.ort/config/"
+
+      - name: Run OSS Review Toolkit (analyzer)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              labels,
+              cache-dependencies,
+              analyzer
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Link results
+        run: ln -s analyzer-result.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Restore ORT Scanner cache
+        uses: actions/cache/restore@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/restore@v4
+        id: ort-cache
+        with:
+          path: ${{ env.SCAN_RESULT_CACHE_PATH }}
+          key: ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-
+
+      - name: Install dependencies in docker image
+        run: |
+          SCANCODE_VERSION=$(docker run --entrypoint="" ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }} bash -c "scancode --version" | grep "ScanCode version" | awk '{print $3}')
+          docker build -t otp - <<EOF
+          FROM otp
+          RUN echo 'export PATH="\$HOME/.local/bin:\$PATH"' >> /home/otptest/.profile
+          RUN sudo apt-get install -y libicu-dev pip && \
+              pip install click==8.3.1 scancode-toolkit==${SCANCODE_VERSION} reuse && \
+              pip install -U ntia-conformance-checker
+          EOF
+
+      - name: Restore from cache
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) != ''
+        run: |
+            docker run -v $PWD/:/github -v $HOME:$HOME otp \
+               "/github/.github/scripts/ort-scanner.es init -i $HOME/.ort/ort-results/analyzer-result.json \
+               -o $HOME/.ort/ort-results/scan-result.init.json /github"
+            docker run -v $PWD/:/github -v $HOME:$HOME otp \
+               "/github/.github/scripts/ort-scanner.es restore-cache -i $HOME/.ort/ort-results/scan-result.init.json \
+               -o $HOME/.ort/ort-results/scan-result.cache.json /github/${{ env.SCAN_RESULT_CACHE_PATH }}"
+            docker run -v $PWD/:/github -v $HOME:$HOME otp \
+               "/github/.github/scripts/ort-scanner.es scan -t scancode -s fill \
+               -i $HOME/.ort/ort-results/scan-result.cache.json \
+               -o $HOME/.ort/ort-results/scan-result.json /github"
+
+      - name: Run OSS Review Toolkit (scanner)
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) == ''
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              scanner
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Overwrite scan results using reuse
+        run: |
+          cp $HOME/.ort/ort-results/scan-result.json $HOME/.ort/ort-results/scan-result.scanned.json
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+               "/github/.github/scripts/ort-scanner.es scan -t reuse -s overwrite \
+               -i $HOME/.ort/ort-results/scan-result.json \
+               -o $HOME/.ort/ort-results/scan-result.reuse.json /github"
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ort-scan-results
+          path: |
+            /home/runner/.ort/ort-results/*.json
+            ${{ env.SCAN_RESULT_CACHE_PATH }}
+
+      - name: Copy to cache and link results
+        run: |
+          cp $HOME/.ort/ort-results/scan-result.reuse.json ${{ env.SCAN_RESULT_CACHE_PATH }}
+          ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Run OSS Review Toolkit (reporter)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              reporter
+            report-formats: "SpdxDocument"
+            ort-cli-report-args: '-O SpdxDocument=outputFileFormats=JSON'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Save ORT Scanner cache
+        uses: actions/cache/save@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/save@v4
+        if: steps.ort-cache.outputs.cache-hit != 'true'
+        with:
+            path: ${{ env.SCAN_RESULT_CACHE_PATH }}
+            key: ${{ steps.ort-cache.outputs.cache-primary-key }}
+
+      - name: Process SBOM
+        run: |
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+            "/github/.github/scripts/otp-compliance.es sbom otp-info \
+              --sbom-file $HOME/.ort/ort-results/bom.spdx.json \
+              --input-file $HOME/.ort/ort-results/scan-result.json"
+
+      - name: Verify SBOM
+        run: |
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+            "/github/.github/scripts/otp-compliance.es sbom test-file \
+              --sbom-file $HOME/.ort/ort-results/bom.spdx.json"
+
+      - name: Upload SPDX SBOM result
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: spdx-sbom-result
+          path: /home/runner/.ort/ort-results/bom.spdx.json
+
+      - name: Run OSS Review Toolkit (upload)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              'upload-results',
+              'upload-scan-result'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Link results
+        run: ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
+
+  ## If this is an "OTP-*" tag that has been pushed we do some release work
+  release:
+    name: Release Erlang/OTP
+    runs-on: ubuntu-latest
+    needs:
+        - documentation
+        - sbom
+    if: startsWith(github.ref_name, 'OTP-') && github.repository == 'erlang/otp'
+    ## Needed to create releases
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      ## This step outputs the tag name and whether the tag is a release or patch
+      ## (all releases have only two version identifiers, while patches have three
+      ##  or more)
+      - name: Get Tag Name
+        id: tag
+        run: |
+          TAG=${{ env.BASE_BRANCH }}
+          VSN=${TAG#OTP-}
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "vsn=${VSN}" >> $GITHUB_OUTPUT
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      ## Publish the pre-built archive and docs
+      - name: Download source archive
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: otp_prebuilt
+
+      - name: Download html docs
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: otp_doc_html
+
+      - name: Download man docs
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: otp_doc_man
+
+      ## We add the correct version name into the file names
+      ## and create the hash files for all assets
+      - name: Create pre-build and doc archives
+        run: .github/scripts/create-artifacts.sh artifacts ${{ steps.tag.outputs.tag }}
+
+      ## Create hash files
+      - name: Create pre-build and doc archives
+        run: |
+          shopt -s nullglob
+          cd artifacts
+          FILES=$(ls {*.tar.gz,*.txt})
+          md5sum $FILES > MD5.txt
+          sha256sum $FILES > SHA256.txt
+
+      - name: Download SBoM
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
+
+      - name: Download ORT Scan Results
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
+
+      - name: Attest Distribution Assets with SBoM
+        id: attest-sbom
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: |
+            artifacts/*.tar.gz
+            bom.*.json
+            bom.*.yml
+            bom.*.xml
+          sbom-path: bom.spdx.json
+
+      - name: "Copy SBoM provenance"
+        id: sbom-provenance
+        shell: bash
+        run: |
+          shopt -s nullglob
+          mkdir attestations
+          for FILE in artifacts/*.tar.gz bom.*.xml bom.*.json bom.*.yml; do
+            cp "$ATTESTATION" "attestations/$(basename "$FILE").sigstore"
+          done
+        env:
+          ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
+
+      - name: "Assemble Distribution Attestations"
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: "Attestations"
+          path: "attestations/*.sigstore"
+
+      - name: Upload pre-built and doc tar archives
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          name: OTP ${{ steps.tag.outputs.vsn }}
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.txt
+            attestations/*.sigstore
+            scan-report-web-app.html
+            bom.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy on erlang.org
+        env:
+          GITHUB_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+        run: |
+          curl -H "Authorization: token ${GITHUB_TOKEN}" -X POST -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/erlang/erlang-org/actions/workflows/update-gh-cache.yaml/dispatches" -d '{"ref":"master"}'
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
