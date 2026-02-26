@@ -317,10 +317,10 @@ The following options modify the defaults for the extraction as follows:
 > with `{file,Fd}`. The file is assumed to have been opened with the appropriate
 > flags.
 """.
--spec extract(Open :: open_type(), [extract_opt()]) ->
-                     {ok, [{string(), binary()}]} |
-                     {error, term()} |
-                     ok.
+-spec extract(Open :: open_type(), []) ->
+                     ok | {error, term()};
+             (Open :: open_type(), [extract_opt(), ...]) ->
+                     ok | {ok, [{string(), binary()}]} | {error, term()}.
 extract({binary, Bin}, Opts) when is_list(Opts) ->
     do_extract({binary, Bin}, Opts);
 extract({file, Fd}, Opts) when is_list(Opts) ->
