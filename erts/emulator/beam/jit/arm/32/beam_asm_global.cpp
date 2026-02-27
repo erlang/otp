@@ -254,7 +254,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
      * The fake CP is discarded by handle_error() before jumping to
      * a catch handler, and is ignored as a duplicate in stack
      * traces because it's equal to the error address. */
-    a.str(ARG2, arm::Mem(E, -8).pre());
+    a.str(ARG2, arm::Mem(E, -4).pre());
 
     emit_enter_runtime<Update::eHeapAlloc>();
 

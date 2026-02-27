@@ -750,7 +750,7 @@ class BeamModuleAssembler : public BeamAssembler,
     }
 
     /* Works as the STMIA instruction, but also updates the cache. */
-    void stmia_cache(a32::Gp src1, a32::Gp src2, arm::Mem mem_dst) {
+    void stmia_cache(arm::Mem mem_dst, a32::Gp src1, a32::Gp src2) {
         arm::Mem next_dst =
                 arm::Mem(a32::Gp(mem_dst.baseId()), mem_dst.offset() + 8);
 
@@ -759,7 +759,7 @@ class BeamModuleAssembler : public BeamAssembler,
         reg_cache.invalidate(src1);
         reg_cache.invalidate(src2);
 
-        safe_stmia(src1, src2, mem_dst);
+        safe_stmia(mem_dst, src1, src2);
 
         reg_cache_put(mem_dst, src1);
         reg_cache_put(next_dst, src2);
@@ -1278,9 +1278,7 @@ protected:
             return std::make_pair(Variable(tmp1, getArgRef(Src1)),
                                   Variable(tmp2, getArgRef(Src2)));
         case ArgVal::Relation::reverse_consecutive:
-            safe_ldmia(tmp2, tmp1, Src2, Src1);
-            return std::make_pair(Variable(tmp1, getArgRef(Src1)),
-                                  Variable(tmp2, getArgRef(Src2)));
+            break;     
         case ArgVal::Relation::none:
             break;
         }
@@ -1357,13 +1355,13 @@ protected:
 
         switch (memory_relation(to1.mem, to2.mem)) {
         case Relation::consecutive:
-            stmia_cache(to1.reg, to2.reg, mem1);
+            stmia_cache(mem1, to1.reg, to2.reg);
             break;
-        case Relation::reverse_consecutive:
-            stmia_cache(to2.reg, to1.reg, mem2);
+        case Relation::reverse_consecutive:            
+            flush_var(to1);
+            flush_var(to2);
             break;
         case Relation::none:
-            /* Not possible to optimize with stp. */
             flush_var(to1);
             flush_var(to2);
             break;
@@ -1437,11 +1435,10 @@ protected:
         ASSERT(false);
     }
 
-    void safe_stmia(a32::Gp gp1, a32::Gp gp2, arm::Mem mem) {
-        size_t abs_offset = std::abs(mem.offset());
-        auto offset = mem.offset();
-
+    void safe_stmia(arm::Mem mem, a32::Gp gp1, a32::Gp gp2) {
         ASSERT(gp1.isGp() && gp2.isGp());
+        ASSERT(gp1 != gp2);
+        ASSERT(gp1.id() < gp2.id());
         
         lea(TMP, mem);
         a.stmia(arm::Mem(TMP), a32::GpList({gp1, gp2}));
@@ -1465,12 +1462,16 @@ protected:
         ASSERT(ArgVal::memory_relation(Src1, Src2) ==
                ArgVal::Relation::consecutive);
 
-        safe_ldmia(gp1, gp2, getArgRef(Src1));
+        safe_ldmia(getArgRef(Src1), gp1, gp2);
     }
 
-    void safe_ldmia(a32::Gp gp1, a32::Gp gp2, arm::Mem mem) {
+    void safe_ldmia(arm::Mem mem, a32::Gp gp1, a32::Gp gp2) {
         ASSERT(gp1.isGp() && gp2.isGp());
+        // ldmia requires different registers
         ASSERT(gp1 != gp2);
+        // ldmia always writes to the registers in ascending order 
+        // so we need to ensure that gp1.id() < gp2.id()
+        ASSERT(gp1.id() < gp2.id());
         
         lea(TMP, mem);
         preserve_cache(

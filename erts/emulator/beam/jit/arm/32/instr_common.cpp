@@ -226,7 +226,7 @@ void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
         flush_var(tl);
     } else {
         preserve_cache([&]() {
-            a.ldmia(arm::Mem(TMP), a32::GpList({hd.reg, tl.reg}));
+            safe_ldmia(arm::Mem(TMP), hd.reg, tl.reg);
         });
         flush_vars(hd, tl);
     }
@@ -422,7 +422,7 @@ void BeamModuleAssembler::emit_put_list(const ArgSource &Hd,
     auto dst = init_destination(Dst, TMP);
 
     preserve_cache([&]() {
-        a.stmia(arm::Mem(HTOP), a32::GpList({hd_reg, tl_reg}));
+        safe_stmia(arm::Mem(HTOP), hd_reg, tl_reg);
         a.add(HTOP, HTOP, imm(sizeof(Eterm[2])));
         a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
     });

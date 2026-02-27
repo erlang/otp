@@ -230,8 +230,18 @@ bool BeamModuleAssembler::emit(unsigned specific_op, const Span<ArgVal> &args) {
  */
 
 void BeamGlobalAssembler::emit_i_func_info_shared() {
-    // TODO
-    emit_nyi("emit_i_func_info_shared");
+    /* a32::lr now points 4 bytes into the ErtsCodeInfo struct for the
+     * function. Put the address of the MFA into ARG1. */
+    a.add(ARG1, a32::lr, offsetof(ErtsCodeInfo, mfa) - 4);
+
+    mov_imm(TMP, EXC_FUNCTION_CLAUSE);
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+    a.str(ARG1, arm::Mem(c_p, offsetof(Process, current)));
+
+    mov_imm(ARG2, 0);
+    mov_imm(ARG4, 0);
+
+    a.b(labels[raise_exception_shared]);
 }
 
 void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
