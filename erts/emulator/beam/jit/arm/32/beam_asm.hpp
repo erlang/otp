@@ -749,10 +749,22 @@ class BeamModuleAssembler : public BeamAssembler,
         reg_cache.update(a.offset());
     }
 
-    /* Works as the STP instruction, but also updates the cache. */
-    void stp_cache(a32::Gp src1, a32::Gp src2, arm::Mem mem_dst) {
-        // TODO
-        ASSERT(false);
+    /* Works as the STMIA instruction, but also updates the cache. */
+    void stmia_cache(a32::Gp src1, a32::Gp src2, arm::Mem mem_dst) {
+        arm::Mem next_dst =
+                arm::Mem(a32::Gp(mem_dst.baseId()), mem_dst.offset() + 8);
+
+        reg_cache.consolidate(a.offset());
+
+        reg_cache.invalidate(src1);
+        reg_cache.invalidate(src2);
+
+        safe_stmia(src1, src2, mem_dst);
+
+        reg_cache_put(mem_dst, src1);
+        reg_cache_put(next_dst, src2);
+
+        reg_cache.update(a.offset());
     }
 
     /* Works like LDR, but looks in the cache first. */
@@ -819,8 +831,11 @@ class BeamModuleAssembler : public BeamAssembler,
     }
 
     void untag_ptr_preserve_cache(a32::Gp dst, a32::Gp src) {
-        // TODO
-        ASSERT(false);
+        preserve_cache(
+            [&]() {
+                emit_untag_ptr(dst, src);
+            },
+            dst);
     }
 
     arm::Mem embed_label(const Label &label, enum Displacement disp);
@@ -1327,15 +1342,35 @@ protected:
 
     static Relation memory_relation(const arm::Mem &mem1,
                                     const arm::Mem &mem2) {
-        // TODO
-        ASSERT(false);
+        if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
+            mem1.baseId() == mem2.baseId()) {
+            if (mem1.offset() + 8 == mem2.offset()) {
+                return consecutive;
+            } else if (mem1.offset() == mem2.offset() + 8) {
+                return reverse_consecutive;
+            }
+        }
         return none;
     }
 
     void flush_vars(const Variable<a32::Gp> &to1,
                     const Variable<a32::Gp> &to2) {
-        // TODO
-        ASSERT(false);
+        const arm::Mem &mem1 = to1.mem;
+        const arm::Mem &mem2 = to2.mem;
+
+        switch (memory_relation(to1.mem, to2.mem)) {
+        case Relation::consecutive:
+            stmia_cache(to1.reg, to2.reg, mem1);
+            break;
+        case Relation::reverse_consecutive:
+            stmia_cache(to2.reg, to1.reg, mem2);
+            break;
+        case Relation::none:
+            /* Not possible to optimize with stp. */
+            flush_var(to1);
+            flush_var(to2);
+            break;
+        }
     }
 
     void flush_vars(const Variable<a32::Gp> &to1,
@@ -1396,7 +1431,7 @@ protected:
         ASSERT(false);
     }
 
-    void safe_stp(a32::Gp gp1,
+    void safe_stmia(a32::Gp gp1,
                   a32::Gp gp2,
 
                   const ArgVal &Dst1,
@@ -1405,9 +1440,14 @@ protected:
         ASSERT(false);
     }
 
-    void safe_stp(a32::Gp gp1, a32::Gp gp2, arm::Mem mem) {
-        // TODO
-        ASSERT(false);
+    void safe_stmia(a32::Gp gp1, a32::Gp gp2, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
+        auto offset = mem.offset();
+
+        ASSERT(gp1.isGp() && gp2.isGp());
+        
+        lea(TMP, mem);
+        a.stmia(arm::Mem(TMP), a32::GpList({gp1, gp2}));
     }
 
     void safe_ldr(a32::Gp gp, arm::Mem mem) {

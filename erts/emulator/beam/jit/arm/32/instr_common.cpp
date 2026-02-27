@@ -211,8 +211,25 @@ void BeamModuleAssembler::emit_continue_exit() {
 void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
                                         const ArgRegister &Hd,
                                         const ArgRegister &Tl) {
-    // TODO
-    emit_nyi("emit_get_list");
+    auto src = load_source(Src);
+
+    auto hd = init_destination(Hd, ARG1);
+    auto tl = init_destination(Tl, ARG2);
+
+    /* We need to get rid of tag bits before using the source register. */
+    untag_ptr_preserve_cache(TMP, src.reg);
+
+    if (hd.reg == tl.reg) {
+        /* ldmia with two identical registers is an illegal
+         * instruction. Produce the same result as the interpreter. */
+        a.ldr(tl.reg, arm::Mem(TMP, sizeof(Eterm)));
+        flush_var(tl);
+    } else {
+        preserve_cache([&]() {
+            a.ldmia(arm::Mem(TMP), a32::GpList({hd.reg, tl.reg}));
+        });
+        flush_vars(hd, tl);
+    }
 }
 
 void BeamModuleAssembler::emit_get_hd(const ArgRegister &Src,
