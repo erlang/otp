@@ -1272,21 +1272,18 @@ protected:
                       a32::Gp tmp1,
                       const ArgVal &Src2,
                       a32::Gp tmp2) {
-        if (!isRegisterBacked(Src1) && !isRegisterBacked(Src2)) {
-            switch (ArgVal::memory_relation(Src1, Src2)) {
-            case ArgVal::Relation::consecutive:
-                safe_ldp(tmp1, tmp2, Src1, Src2);
-                return std::make_pair(Variable(tmp1, getArgRef(Src1)),
-                                      Variable(tmp2, getArgRef(Src2)));
-            case ArgVal::Relation::reverse_consecutive:
-                safe_ldp(tmp2, tmp1, Src2, Src1);
-                return std::make_pair(Variable(tmp1, getArgRef(Src1)),
-                                      Variable(tmp2, getArgRef(Src2)));
-            case ArgVal::Relation::none:
-                break;
-            }
+        switch (ArgVal::memory_relation(Src1, Src2)) {
+        case ArgVal::Relation::consecutive:
+            safe_ldmia(tmp1, tmp2, Src1, Src2);
+            return std::make_pair(Variable(tmp1, getArgRef(Src1)),
+                                  Variable(tmp2, getArgRef(Src2)));
+        case ArgVal::Relation::reverse_consecutive:
+            safe_ldmia(tmp2, tmp1, Src2, Src1);
+            return std::make_pair(Variable(tmp1, getArgRef(Src1)),
+                                  Variable(tmp2, getArgRef(Src2)));
+        case ArgVal::Relation::none:
+            break;
         }
-
         return std::make_pair(load_source(Src1, tmp1), load_source(Src2, tmp2));
     }
 
@@ -1461,17 +1458,27 @@ protected:
         ASSERT(false);
     }
 
-    void safe_ldp(a32::Gp gp1,
+    void safe_ldmia(a32::Gp gp1,
                   a32::Gp gp2,
                   const ArgVal &Src1,
                   const ArgVal &Src2) {
-        // TODO
-        ASSERT(false);
+        ASSERT(ArgVal::memory_relation(Src1, Src2) ==
+               ArgVal::Relation::consecutive);
+
+        safe_ldmia(gp1, gp2, getArgRef(Src1));
     }
 
-    void safe_ldp(a32::Gp gp1, a32::Gp gp2, arm::Mem mem) {
-        // TODO
-        ASSERT(false);
+    void safe_ldmia(a32::Gp gp1, a32::Gp gp2, arm::Mem mem) {
+        ASSERT(gp1.isGp() && gp2.isGp());
+        ASSERT(gp1 != gp2);
+        
+        lea(TMP, mem);
+        preserve_cache(
+                [&]() {
+                    a.ldmia(arm::Mem(TMP), a32::GpList({gp1, gp2}));
+                },
+                gp1,
+                gp2);
     }
 
     /* Set the Z flag if Reg1 and Reg2 are definitely not equal based

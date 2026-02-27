@@ -416,8 +416,18 @@ void BeamModuleAssembler::emit_node(const ArgRegister &Dst) {
 void BeamModuleAssembler::emit_put_list(const ArgSource &Hd,
                                         const ArgSource &Tl,
                                         const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_put_list");
+    auto [hd, tl] = load_sources(Hd, ARG1, Tl, ARG2);
+    auto hd_reg = hd.reg;
+    auto tl_reg = tl.reg;
+    auto dst = init_destination(Dst, TMP);
+
+    preserve_cache([&]() {
+        a.stmia(arm::Mem(HTOP), a32::GpList({hd_reg, tl_reg}));
+        a.add(HTOP, HTOP, imm(sizeof(Eterm[2])));
+        a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
+    });
+
+    flush_var(dst);
 }
 
 void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
