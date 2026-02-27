@@ -128,7 +128,7 @@ id(I) ->
 test(BootArgs) ->
     external_call(),
     BootArgs = rev_test(BootArgs),
-%    reductions(BootArgs),
+    reductions(BootArgs),
 %    list_test(),
 %    tuple_test(),
 %    test_guard_tests(BootArgs),
@@ -392,18 +392,18 @@ rev([], Acc) -> Acc.
 %
 %get_args8(Tag) ->
 %    list_to_tuple([{Tag,1},{Tag,2}|tuple_to_list(get_args6(Tag))]).
-%
-%reductions(L0) ->
-%    L1 = red(L0, L0, []),
-%    L2 = red(L0, L1, []),
-%    L2 = rev(rev(L2)),
-%    ok.
-%
-%red([_|T], L, Acc) ->
-%    red(T, L, L++Acc);
-%red([], _, Acc) ->
-%    Acc.
-%
+
+reductions(L0) ->
+    L1 = red(L0, L0, []),
+    L2 = red(L0, L1, []),
+    L2 = rev(rev(L2)),
+    ok.
+
+red([_|T], L, Acc) ->
+    red(T, L, L++Acc);
+red([], _, Acc) ->
+    Acc.
+
 %apply_test() ->
 %    Mod = id(?MODULE),
 %    Id = id(id),
