@@ -116,7 +116,7 @@ jobs:
     secrets:
       TRIGGER_ERLANG_ORG_BUILD: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
     with:
-      base_branch:              ${{ env.BASE_BRANCH }}
+      base_branch:              ${{ needs.setup.outputs.base_branch }}
       base_url:                 ${{ needs.setup.outputs.docs_base_url }}
       trigger_erlang_org_build: ${{ github.ref_name == 'master' && github.repository == 'erlang/otp' }}
       # bypass_erlang_repo should not be applied here, as forks should not allow this trigger
