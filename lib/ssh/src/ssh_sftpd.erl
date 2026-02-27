@@ -877,7 +877,17 @@ relate_file_name(File, #state{cwd = CWD, root = Root}, Canonicalize) ->
     end.
 
 is_within_root(Root, File) ->
-    lists:prefix(Root, File).
+    RootParts = filename:split(Root),
+    FileParts = filename:split(File),
+    is_prefix_components(RootParts, FileParts).
+
+%% Verify if request file path is within configured root directory
+is_prefix_components([], _) ->
+    true;
+is_prefix_components([H|T1], [H|T2]) ->
+    is_prefix_components(T1, T2);
+is_prefix_components(_, _) ->
+    false.
 
 %% Remove leading slash (/), if any, in order to make the filename
 %% relative (to the root)

@@ -33,8 +33,7 @@
          end_per_testcase/2
         ]).
 
--export([
-         access_outside_root/1,
+-export([access_outside_root/1,
          links/1,
          mk_rm_dir/1,
          open_close_dir/1,
@@ -161,7 +160,7 @@ init_per_testcase(TestCase, Config) ->
                           RootDir = filename:join(BaseDir, a),
                           CWD     = filename:join(RootDir, b),
                           %% Make the directory chain:
-                          ok = filelib:ensure_dir(filename:join(CWD, tmp)),
+                          ok = filelib:ensure_path(CWD),
                           SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir},
                                                                   {cwd, CWD}])],
                           ssh:daemon(0, [{subsystems, SubSystems}|Options]);
@@ -222,7 +221,12 @@ init_per_testcase(TestCase, Config) ->
     [{sftp, {Cm, Channel}}, {sftpd, Sftpd }| Config].
 
 end_per_testcase(_TestCase, Config) ->
-    catch ssh:stop_daemon(proplists:get_value(sftpd, Config)),
+    try
+        ssh:stop_daemon(proplists:get_value(sftpd, Config))
+    catch
+        Class:Error:_Stack ->
+            ct:log("Class = ~p Error = ~p", [Class, Error])
+    end,
     {Cm, Channel} = proplists:get_value(sftp, Config),
     ssh_connection:close(Cm, Channel),
     ssh:close(Cm),
@@ -689,25 +693,38 @@ ver6_basic(Config) when is_list(Config) ->
 access_outside_root(Config) when is_list(Config) ->
     PrivDir  =  proplists:get_value(priv_dir, Config),
     BaseDir  = filename:join(PrivDir, access_outside_root),
-    %% A file outside the tree below RootDir which is BaseDir/a
-    %% Make the file  BaseDir/bad :
     BadFilePath = filename:join([BaseDir, bad]),
     ok = file:write_file(BadFilePath, <<>>),
+    FileInSiblingDir = filename:join([BaseDir, a2, "secret.txt"]),
+    ok = filelib:ensure_dir(FileInSiblingDir),
+    ok = file:write_file(FileInSiblingDir, <<"secret">>),
+    TestFolderStructure =
+        <<"PrivDir
+         |-- access_outside_root (BaseDir)
+         |   |-- a (RootDir folder)
+         |   |   +-- b (CWD folder)
+         |   |-- a2 (sibling folder with name prefix equal to RootDir)
+         |   |   +-- secret.txt
+         |   +-- bad.txt">>,
+    ct:log("TestFolderStructure = ~n~s", [TestFolderStructure]),
     {Cm, Channel} = proplists:get_value(sftp, Config),
-    %% Try to access a file parallel to the RootDir:
-    try_access("/../bad",   Cm, Channel, 0),
+    %% Try to access a file parallel to the RootDir using parent traversal:
+    try_access("/../bad.txt",   Cm, Channel, 0),
     %% Try to access the same file via the CWD which is /b relative to the RootDir:
-    try_access("../../bad", Cm, Channel, 1).
-
+    try_access("../../bad.txt", Cm, Channel, 1),
+    %% Try to access sibling folder name prefixed with root dir
+    try_access("/../a2/secret.txt", Cm, Channel, 2),
+    try_access("../../a2/secret.txt", Cm, Channel, 3).
 
 try_access(Path, Cm, Channel, ReqId) ->
     Return = 
         open_file(Path, Cm, Channel, ReqId, 
                   ?ACE4_READ_DATA bor ?ACE4_READ_ATTRIBUTES,
                   ?SSH_FXF_OPEN_EXISTING),
-    ct:log("Try open ~p -> ~p",[Path,Return]),
+    ct:log("Try open ~p -> ~w",[Path,Return]),
     case Return of
         {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), _Handle0/binary>>, _} ->
+            ct:log("Got the unexpected ?SSH_FXP_HANDLE",[]),
             ct:fail("Could open a file outside the root tree!");
         {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(Code), Rest/binary>>, <<>>} ->
             case Code of

@@ -293,4 +293,22 @@ end.
     </p>
   </section>
 
+  <section>
+    <title>SFTP Security</title>
+    <section>
+      <title>Root Directory Isolation</title>
+      <p>The <seeerl marker="ssh_sftpd"><c>root</c></seeerl>
+      option restricts SFTP users to a specific directory tree,
+      preventing access to files outside that directory. For example:</p>
+      <code>ssh:daemon(Port, [{subsystems, [ssh_sftpd:subsystem_spec([{root, "/home/sftpuser"}])]}, ...]).</code>
+      <p>Important: The <c>root</c> option is configured per daemon, not per user. All
+      users connecting to the same daemon share the same root directory. For per-user
+      isolation, consider running separate daemon instances on different ports or
+      using OS-level mechanisms (PAM chroot, containers, file permissions).</p>
+      <p>Defense-in-depth: For high-security deployments, combine the `root` option
+      with OS-level isolation mechanisms such as chroot jails, containers, or
+      mandatory access control (SELinux, AppArmor).</p>
+    </section>
+  </section>
+
 </chapter>

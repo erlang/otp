@@ -79,11 +79,14 @@
 	  </item>
 	  <tag><c>root</c></tag>
 	  <item>
-	    <p>Sets the SFTP root directory. Then the user cannot see any files
-	    above this root. If, for example, the root directory is set to <c>/tmp</c>,
-	    then the user sees this directory as <c>/</c>. If the user then writes
-	    <c>cd /etc</c>, the user moves to <c>/tmp/etc</c>.
-	    </p>
+	    <p>Sets the SFTP root directory. The user cannot access files
+            outside this directory tree. If, for example, the root directory is set to
+            <c>/tmp</c>, then the user sees this directory as <c>/</c>. If the user then writes
+            <c>cd /etc</c>, the user moves to <c>/tmp/etc</c>.</p>
+            <p>Note: This provides application-level isolation. For additional security,
+            consider using OS-level chroot or similar mechanisms. See the
+            <seeguide marker="hardening#sftp-security">SFTP Security</seeguide>
+            section in the Hardening guide for deployment recommendations.</p>
 	  </item>
 	  <tag><c>sftpd_vsn</c></tag>
 	  <item>
