@@ -500,7 +500,7 @@ test_block(Code, Bindings, Context, Index, Skipped, Verbose) when is_binary(Code
     FirstLines = first_lines(Code),
     verbose_log(Verbose, "running block ~p in ~ts: ~ts",
                 [Index, ContextLabel, Code]),
-    try run_test(Code, Bindings) of
+    try run_test(Code, Bindings, Verbose) of
         [] ->
             verbose_log(Verbose, "skipped block ~p in ~ts (no runnable prompt, ~p skipped): ~ts",
                         [Index, ContextLabel, Skipped + 1, FirstLines]),
@@ -612,7 +612,7 @@ ensure_skipped_blocks(Expected, Actual) when is_integer(Expected), Expected >= 0
 -define(RE_CAPTURE, ~B"(?:(?'line_number'[0-9]+)(?'prefix'>\s)|(?'prefix'\-module\())?(?'content'.*)").
 -define(RE_OPTIONS, [{capture, [line_number, prefix, content], binary}, dupnames, unicode]).
 
-run_test(Code, InitialBindings) ->
+run_test(Code, InitialBindings, Verbose) ->
     Lines = string:split(Code, "\n", all),
     CollapsedComments = [re:replace(Line, ~B"^\s*%.*$", <<"">>, [global, unicode]) || Line <- Lines],
     case lists:search(fun(Line) ->
@@ -627,7 +627,7 @@ run_test(Code, InitialBindings) ->
                     check_prompt_numbers(ReLines, 1),
                     Tests = inspect(parse_tests(ReLines, [])),
                     _ = lists:foldl(fun(Test, Bindings) ->
-                                            run_tests(Test, Bindings)
+                                            run_tests(Test, Bindings, Verbose)
                                     end, InitialBindings, Tests),
                     [ok];
                 {match, [_Line_Number, _Prefix = <<"-module(">>, _Code]} ->
@@ -716,18 +716,19 @@ parse_match([{match, [<<>>, <<>>, <<" ", _/binary>> = More]} | T], Acc) ->
 parse_match(Rest, Acc) ->
     {Acc, Rest}.
 
-run_tests({test, Test0, Match0}, Bindings) ->
+run_tests({test, Test0, Match0}, Bindings, Verbose) ->
     Test1 = unicode:characters_to_list(Test0),
     Test = string:trim(string:trim(Test1), trailing, "."),
     case Match0 of
         [<<"** ", _/binary>> | _] ->
             Match = unicode:characters_to_list(Match0),
-            run_failing(Test, Match, Bindings);
+            run_failing(Test, Match, Bindings, Verbose);
         _ ->
-            run_successful(Test, Match0, Bindings)
+            run_successful(Test, Match0, Bindings, Verbose)
     end.
 
-run_successful(Test, Match, Bindings) ->
+run_successful(Test, Match, Bindings, Verbose) ->
+    verbose_log(Verbose, "Running: ~ts = ~ts", [Match, Test]),
     Ast = parse_exprs(Test, Match),
     try
         {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast, Bindings)),
@@ -740,7 +741,8 @@ run_successful(Test, Match, Bindings) ->
             throw({error,{Message,Match}})
     end.
 
-run_failing(Test, Match, Bindings) ->
+run_failing(Test, Match, Bindings, Verbose) ->
+    verbose_log(Verbose, "Running: ~ts", [Test]),
     Ast = parse_exprs(Test, "_"),
     try inspect(erl_eval:exprs(Ast, Bindings)) of
         {value, Res, _} ->
