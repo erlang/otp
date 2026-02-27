@@ -263,7 +263,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     if (code_header.isValid()) {
         /* We avoid using the `fragment_call` helper to ensure a constant
          * layout, as it adds code in certain debug configurations. */
-        a.blx(resolve_fragment(ga->get_i_func_info_shared(), disp32MB));
+        a.bl(resolve_fragment(ga->get_i_func_info_shared(), disp32MB));
     } else {
         a.udf(0xF1F0);
     }
