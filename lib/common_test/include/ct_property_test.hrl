@@ -24,13 +24,32 @@
 -ifndef(CT_PROPERTY_TEST_HRL).
   -define(CT_PROPERTY_TEST_HRL, true).
 
+  -define(CT_BYTE(), choose(0, 255)).
+  -define(CT_NEG_INT(), ?LET(N, int(), -abs(N)-1)).
+  -define(CT_RANGE(Min,Max), choose(Min, Max)).
+  -define(CT_INT(Min,Max), choose(Min, Max)).
+
   -ifdef(EQC).
     -define(MOD_eqc, eqc).
     -include_lib("eqc/include/eqc.hrl").
+    -define(CT_SAFE_ANY(), ct_quickcheck_ext:safe_any()).
+    -define(CT_SAFE_ATOM(), ct_quickcheck_ext:safe_atom()).
+    -define(CT_SAFE_LIST(), ct_quickcheck_ext:safe_list()).
+    -define(CT_SAFE_MAP(), ct_quickcheck_ext:safe_map()).
+    -define(CT_SAFE_TERM(), ct_quickcheck_ext:safe_term()).
+    -define(CT_SAFE_TUPLE(), ct_quickcheck_ext:safe_tuple()).
+    -define(CT_EXISTING_ATOM(), ct_quickcheck_ext:existing_atom()).
   -else.
     -ifdef(PROPER).
       -define(MOD_eqc, proper).
       -include_lib("proper/include/proper.hrl").
+      -define(CT_SAFE_ANY(), ct_proper_ext:safe_any()).
+      -define(CT_SAFE_ATOM(), ct_proper_ext:safe_atom()).
+      -define(CT_SAFE_LIST(), ct_proper_ext:safe_list()).
+      -define(CT_SAFE_MAP(), ct_proper_ext:safe_map()).
+      -define(CT_SAFE_TERM(), ct_proper_ext:safe_term()).
+      -define(CT_SAFE_TUPLE(), ct_proper_ext:safe_tuple()).
+      -define(CT_EXISTING_ATOM(), ct_proper_ext:existing_atom()).
     -else.
       -ifdef(TRIQ).
         -define(MOD_eqc, triq).
