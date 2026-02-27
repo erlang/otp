@@ -565,8 +565,17 @@ void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
                                       const ArgRegister &Src) {
-    // TODO
-    emit_nyi("emit_is_nil");
+    auto src = load_source(Src);
+
+    if (always_one_of<BeamTypeId::List>(Src)) {
+        emit_is_not_cons(resolve_beam_label(Fail, dispUnknown), src.reg);
+    } else {
+        preserve_cache([&]() {
+            mov_imm(VAR, NIL);
+            a.cmp(src.reg, VAR);
+            a.b_ne(resolve_beam_label(Fail, disp32MB));
+        });
+    }
 }
 
 void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
