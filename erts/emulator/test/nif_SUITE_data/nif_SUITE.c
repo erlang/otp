@@ -3854,6 +3854,12 @@ static ERL_NIF_TERM term_type_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 }
 
+static ERL_NIF_TERM term_size_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    assert(argc == 1);
+    return enif_make_uint64(env, enif_term_size(argv[0]));
+}
+
 static ERL_NIF_TERM msa_find_y_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary bin;
@@ -3986,6 +3992,7 @@ static ErlNifFunc nif_funcs[] =
     {"is_pid_undefined_nif", 1, is_pid_undefined_nif},
     {"compare_pids_nif", 2, compare_pids_nif},
     {"term_type_nif", 1, term_type_nif},
+    {"term_size_nif", 1, term_size_nif},
     {"msa_find_y_nif", 1, msa_find_y_nif}
 };
 
