@@ -25,7 +25,7 @@
 %%% This will include the .hrl file for the installed testing tool:
 -include_lib("common_test/include/ct_property_test.hrl").
 -include_lib("kernel/include/eep48.hrl").
--compile([export_all]).
+-compile([export_all, nowarn_export_all]).
 
 prop_render() ->
     numtests(10000,
@@ -111,10 +111,10 @@ characters() ->
          unicode:characters_to_binary(Str)).
 
 printable_character() ->
-    oneof([integer($\040,$\176),
-           integer(16#A0, 16#D800-1),
-           integer(16#DFFF+1,16#FFFE-1),
-           integer(16#FFFF+1,16#10FFFF),
+    oneof([choose($\040,$\176),
+           choose(16#A0, 16#D800-1),
+           choose(16#DFFF+1,16#FFFE-1),
+           choose(16#FFFF+1,16#10FFFF),
            $\n,$\r,$\t,$\v,$\b,$\f,$\e]).
 
 fmax(What,Depth,S,E) when not is_list(What) ->
@@ -122,8 +122,8 @@ fmax(What,Depth,S,E) when not is_list(What) ->
 fmax(What,Depth,S,E) ->
     Cnt =
         lists:foldl(
-          fun(E,Cnt) ->
-                  case lists:member(E,What) of
+          fun(El,Cnt) ->
+                  case lists:member(El,What) of
                       true ->
                           Cnt+1;
                       false ->

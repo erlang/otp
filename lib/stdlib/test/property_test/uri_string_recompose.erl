@@ -21,7 +21,7 @@
 %%
 -module(uri_string_recompose).
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -proptest(eqc).
 -proptest([triq,proper]).
@@ -444,7 +444,7 @@ host_uri() ->
 %%-------------------------------------------------------------------------
 port() ->
     frequency([{10, undefined},
-               {10, range(1,65535)}
+               {10, choose(1,65535)}
               ]).
 
 query_map() ->
@@ -478,8 +478,8 @@ fragment_uri() ->
 scheme() ->
     ?SIZED(Length, scheme_start(Length, [])).
 %%
-scheme_start(0, L) ->
-    ?LET(Gen, L, lists:reverse(Gen));
+scheme_start(0, []) ->
+    [alpha()];
 scheme_start(N, L) ->
     scheme(N-1,[alpha()|L]).
 
@@ -528,14 +528,14 @@ unreserved() ->
               ]).
 
 unicode_char() ->
-    range(913, 1023).
+    choose(913, 1023).
 
 alpha() ->
-    frequency([{20, range($a, $z)},              % letters
-               {20, range($A, $Z)}]).            % letters
+    frequency([{20, choose($a, $z)},              % letters
+               {20, choose($A, $Z)}]).            % letters
 
 digit() ->
-    range($0, $9).                               % numbers
+    choose($0, $9).                               % numbers
 
 pct_encoded() ->
     oneof(["%C3%A4", "%C3%A5", "%C3%B6"]).
