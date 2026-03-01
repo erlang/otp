@@ -24,7 +24,7 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2,
 	 app_test/1, appup_test/1, eunit_test/1, eunit_exact_test/1,
-         fixture_test/1, primitive_test/1, surefire_utf8_test/1,
+         fixture_test/1, node_test/1, primitive_test/1, surefire_utf8_test/1,
          surefire_latin_test/1, surefire_c0_test/1, surefire_ensure_dir_test/1,
          stacktrace_at_timeout_test/1, scale_timeouts_test/1,
          report_failed_setup_inparallel_test/1, parse_commandline_test/1]).
@@ -42,8 +42,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app_test, appup_test, eunit_test, eunit_exact_test, primitive_test,
-     fixture_test, surefire_utf8_test, surefire_latin_test, surefire_c0_test,
-     surefire_ensure_dir_test, stacktrace_at_timeout_test,
+     fixture_test, node_test, surefire_utf8_test, surefire_latin_test,
+     surefire_c0_test, surefire_ensure_dir_test, stacktrace_at_timeout_test,
      scale_timeouts_test, report_failed_setup_inparallel_test,
      parse_commandline_test].
 
@@ -153,6 +153,26 @@ fixture_test(Config) when is_list(Config) ->
     eunit:test({foreach, fun() -> ok end, [fun() -> ok end]}),
     eunit:test({foreachx, fun(_A) -> ok end,
                 [{1, fun(_A, _B) -> fun() -> a_test end end}]}),
+    ok.
+
+node_test(Config) when is_list(Config) ->
+    T = fun() -> ok end,
+    %% Plain tests
+    ok = eunit:test({node, eunit_node_plain, [T, T, T]}),
+    %% Instantiator receives node name as atom
+    ok = eunit:test(
+        {node, eunit_node_inst, fun(Node) ->
+            true = is_atom(Node),
+            {spawn, Node, [
+                fun() -> Node = node() end
+            ]}
+        end}),
+    %% With extra args
+    ok = eunit:test(
+        {node, eunit_node_args, "+S 1", fun(Node) ->
+            true = is_atom(Node),
+            {spawn, Node, [T]}
+        end}),
     ok.
 
 check_test_results(Primitive, Expected) ->

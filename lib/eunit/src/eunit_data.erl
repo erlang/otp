@@ -388,45 +388,55 @@ parse({node, N, A, T1}=T, Options) when is_atom(N) ->
     case eunit_lib:is_string(A) of
 	true ->
 	    %% TODO: better stack traces for internal funs like these
+	    %% Wrap T1 so the instantiator receives the node name
+	    T2 = case T1 of
+		     F when is_function(F, 1) ->
+			 fun({_Peer, NodeName, _}) -> F(NodeName) end;
+		     {with, As} when is_list(As) ->
+			 fun({_Peer, NodeName, _}) ->
+			     {with, NodeName, As}
+			 end;
+		     _ ->
+			 T1
+		 end,
 	    parse({setup,
 		   fun () ->
-			   %% TODO: auto-start net_kernel if needed
- 			   StartedNet = false,
-%% The following is commented out because of problems when running
-%% eunit as part of the init sequence (from the command line):
-%% 			   StartedNet =
-%% 			       case whereis(net_kernel) of
-%% 				   undefined ->
-%% 				       M = list_to_atom(atom_to_list(N)
-%% 							++ "_master"),
-%% 				       case net_kernel:start([M]) of
-%% 					   {ok, _} ->
-%% 					       true;
-%% 					   {error, E} ->
-%% 					       throw({net_kernel_start, E})
-%% 				       end;
-%% 				   _ -> false
-%% 			       end,
-%% 			   ?debugVal({started, StartedNet}),
 			   {Name, Host} = eunit_lib:split_node(N),
-                           {ok, Node} = case peer:start_link(#{
-                               host => atom_to_list(Host),
-                               name => Name, args => parse_peer_args(A)}) of
-                                {ok, Pid} -> {ok, Pid};
-                                {ok, Pid, _Node} -> {ok, Pid};
+			   StartedNet =
+			       case node() of
+				   'nonode@nohost' ->
+				       M = list_to_atom(atom_to_list(Name)
+							++ "_eunit_master"),
+				       case net_kernel:start([M, shortnames]) of
+					   {ok, _} ->
+					       true;
+					   {error, E} ->
+					       throw({net_kernel_start, E})
+				       end;
+				   _ -> false
+			       end,
+			   PeerOpts0 = #{name => Name,
+					 args => parse_peer_args(A)},
+			   PeerOpts = case Host of
+					  localhost -> PeerOpts0;
+					  _ -> PeerOpts0#{host =>
+							      atom_to_list(Host)}
+				      end,
+                           {ok, Peer, NodeName} = case peer:start_link(PeerOpts) of
+                                {ok, Pid, Node0} -> {ok, Pid, Node0};
                                 {error, Rsn} -> throw({peer_start, Rsn})
                             end,
-			   {Node, StartedNet}
+			   {Peer, NodeName, StartedNet}
 		   end,
-		   fun ({Node, StopNet}) ->
+		   fun ({Peer, _NodeName, StopNet}) ->
 %% 			   ?debugVal({stop, StopNet}),
-                           peer:stop(Node),
+                           peer:stop(Peer),
 			   case StopNet of
 			       true -> net_kernel:stop();
 			       false -> ok
 			   end
 		   end,
-		   T1}, Options);
+		   T2}, Options);
 	false ->
 	    bad_test(T)
     end;
@@ -844,7 +854,7 @@ data_test_() ->
      ?_assertMatch(ok, eunit:test({spawn, Tests})),
      ?_assertMatch(ok, eunit:test({setup, Setup, Cleanup,
 				   fun (P) -> ?_test(ok = ping(P)) end})),
-     %%?_assertMatch(ok, eunit:test({node, test@localhost, Tests})),
+     ?_assertMatch(ok, eunit:test({node, test@localhost, Tests})),
      ?_assertMatch(ok, eunit:test({module, eunit_lib})),
      ?_assertMatch(ok, eunit:test(eunit_lib)),
      ?_assertMatch(ok, eunit:test("examples/tests.txt"))
