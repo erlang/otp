@@ -375,49 +375,58 @@ parse({node, N, T}, Options) when is_atom(N) ->
     parse({node, N, "", T}, Options);
 parse({node, N, A, T1}=T, Options) when is_atom(N) ->
     case eunit_lib:is_string(A) of
-	true ->
-	    %% TODO: better stack traces for internal funs like these
-	    parse({setup,
-		   fun () ->
-			   %% TODO: auto-start net_kernel if needed
- 			   StartedNet = false,
-%% The following is commented out because of problems when running
-%% eunit as part of the init sequence (from the command line):
-%% 			   StartedNet =
-%% 			       case whereis(net_kernel) of
-%% 				   undefined ->
-%% 				       M = list_to_atom(atom_to_list(N)
-%% 							++ "_master"),
-%% 				       case net_kernel:start([M]) of
-%% 					   {ok, _} ->
-%% 					       true;
-%% 					   {error, E} ->
-%% 					       throw({net_kernel_start, E})
-%% 				       end;
-%% 				   _ -> false
-%% 			       end,
-%% 			   ?debugVal({started, StartedNet}),
-			   {Name, Host} = eunit_lib:split_node(N),
-                           {ok, Node} = case peer:start_link(#{
+        true ->
+            %% TODO: better stack traces for internal funs like these
+            %% Wrap T1 so the instantiator receives the node name
+            T2 = case T1 of
+                     F when is_function(F, 1) ->
+                         fun({_Peer, NodeName, _}) -> F(NodeName) end;
+                     {with, As} when is_list(As) ->
+                         fun({_Peer, NodeName, _}) ->
+                             {with, NodeName, As}
+                         end;
+                     _ ->
+                         T1
+                 end,
+            parse({setup,
+                   fun () ->
+                           {Name, Host} = eunit_lib:split_node(N),
+                           StartedNet =
+                               case node() of
+                                   'nonode@nohost' ->
+                                       M = list_to_atom(atom_to_list(Name)
+                                                        ++ "_master"),
+                                       case net_kernel:start(M, #{name_domain => shortnames}) of
+                                           {ok, _} ->
+                                               true;
+                                           {error, E} ->
+                                               throw({net_kernel_start, E})
+                                       end;
+                                   _ -> false
+                               end,
+                           PathArgs = lists:flatmap(
+                                        fun(P) -> ["-pa", P] end,
+                                        code:get_path()),
+                           {ok, Peer, NodeName} = case peer:start_link(#{
                                host => atom_to_list(Host),
-                               name => Name, args => parse_peer_args(A)}) of
-                                {ok, Pid} -> {ok, Pid};
-                                {ok, Pid, _Node} -> {ok, Pid};
+                               name => Name,
+                               args => PathArgs ++ parse_peer_args(A)}) of
+                                {ok, Pid, Node0} -> {ok, Pid, Node0};
                                 {error, Rsn} -> throw({peer_start, Rsn})
                             end,
-			   {Node, StartedNet}
-		   end,
-		   fun ({Node, StopNet}) ->
-%% 			   ?debugVal({stop, StopNet}),
-                           peer:stop(Node),
-			   case StopNet of
-			       true -> net_kernel:stop();
-			       false -> ok
-			   end
-		   end,
-		   T1}, Options);
-	false ->
-	    bad_test(T)
+                           {Peer, NodeName, StartedNet}
+                   end,
+                   fun ({Peer, _NodeName, StopNet}) ->
+%%                         ?debugVal({stop, StopNet}),
+                           peer:stop(Peer),
+                           case StopNet of
+                               true -> net_kernel:stop();
+                               false -> ok
+                           end
+                   end,
+                   T2}, Options);
+        false ->
+            bad_test(T)
     end;
 parse({module, M}, Options) when is_atom(M) ->
     {data, {"module '" ++ atom_to_list(M) ++ "'", get_module_tests(M, Options)}};
@@ -833,7 +842,7 @@ data_test_() ->
      ?_assertMatch(ok, eunit:test({spawn, Tests})),
      ?_assertMatch(ok, eunit:test({setup, Setup, Cleanup,
 				   fun (P) -> ?_test(ok = ping(P)) end})),
-     %%?_assertMatch(ok, eunit:test({node, test@localhost, Tests})),
+     ?_assertMatch(ok, eunit:test({node, test@localhost, Tests})),
      ?_assertMatch(ok, eunit:test({module, eunit_lib})),
      ?_assertMatch(ok, eunit:test(eunit_lib)),
      ?_assertMatch(ok, eunit:test("examples/tests.txt"))

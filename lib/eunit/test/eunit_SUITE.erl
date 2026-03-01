@@ -24,7 +24,7 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2,
 	 app_test/1, appup_test/1, eunit_test/1, eunit_exact_test/1,
-         fixture_test/1, primitive_test/1, surefire_utf8_test/1,
+         fixture_test/1, node_test/1, primitive_test/1, surefire_utf8_test/1,
          surefire_latin_test/1, surefire_c0_test/1, surefire_ensure_dir_test/1,
          stacktrace_at_timeout_test/1, scale_timeouts_test/1,
          report_failed_setup_inparallel_test/1, parse_commandline_test/1]).
@@ -42,8 +42,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app_test, appup_test, eunit_test, eunit_exact_test, primitive_test,
-     fixture_test, surefire_utf8_test, surefire_latin_test, surefire_c0_test,
-     surefire_ensure_dir_test, stacktrace_at_timeout_test,
+     fixture_test, node_test, surefire_utf8_test, surefire_latin_test,
+     surefire_c0_test, surefire_ensure_dir_test, stacktrace_at_timeout_test,
      scale_timeouts_test, report_failed_setup_inparallel_test,
      parse_commandline_test].
 
@@ -154,6 +154,64 @@ fixture_test(Config) when is_list(Config) ->
     eunit:test({foreachx, fun(_A) -> ok end,
                 [{1, fun(_A, _B) -> fun() -> a_test end end}]}),
     ok.
+
+node_test(Config) when is_list(Config) ->
+    T = fun() -> ok end,
+    %% Plain tests
+    ok = eunit:test({node, eunit_node_plain, [T, T, T]}),
+    %% Instantiator receives node name as atom
+    ok = eunit:test(
+        {node, eunit_node_inst, fun(Node) ->
+            true = is_atom(Node),
+            {spawn, Node, [
+                fun() -> Node = node() end
+            ]}
+        end}),
+    %% With extra args
+    ok = eunit:test(
+        {node, eunit_node_args, "+S 1", fun(Node) ->
+            true = is_atom(Node),
+            {spawn, Node, [T]}
+        end}),
+    %% Test {node, ...} during system initialization (non-distributed).
+    %% Verifies that auto-starting net_kernel is safe with -eval, -s,
+    %% -run, and -S flags as described in init(3).
+    PrivDir = proplists:get_value(priv_dir, Config, "."),
+    HelperMod = eunit_node_init_test,
+    HelperSrc = filename:join(PrivDir, atom_to_list(HelperMod) ++ ".erl"),
+    ok = file:write_file(HelperSrc,
+        "-module(" ++ atom_to_list(HelperMod) ++ ").\n"
+        "-export([start/0, start/1]).\n"
+        "start() -> start([]).\n"
+        "start(_) ->\n"
+        "    ok = eunit:test({node, init_test, fun() -> ok end}),\n"
+        "    halt(0).\n"),
+    {ok, HelperMod} = compile:file(HelperSrc, [{outdir, PrivDir}]),
+    [Exec | ExecArgs] = string:split(ct:get_progname(), " ", all),
+    Erl = os:find_executable(Exec),
+    BaseArgs = ExecArgs ++ ["-noshell"],
+    %% -eval
+    0 = run_erl_cmd(Erl, BaseArgs ++ ["-eval",
+        "ok = eunit:test({node, init_eval, fun() -> ok end}), halt(0)."]),
+    %% -s
+    0 = run_erl_cmd(Erl, BaseArgs ++ ["-pa", PrivDir,
+        "-s", atom_to_list(HelperMod), "start"]),
+    %% -run
+    0 = run_erl_cmd(Erl, BaseArgs ++ ["-pa", PrivDir,
+        "-run", atom_to_list(HelperMod), "start"]),
+    %% -S
+    0 = run_erl_cmd(Erl, BaseArgs ++ ["-pa", PrivDir,
+        "-S", atom_to_list(HelperMod), "start"]),
+    ok.
+
+run_erl_cmd(Erl, Args) ->
+    Port = open_port({spawn_executable, Erl},
+                     [{args, Args}, stderr_to_stdout, exit_status, hide]),
+    receive
+        {Port, {exit_status, Status}} -> Status
+    after 30_000 ->
+        ct:fail({erl_timeout, Args})
+    end.
 
 check_test_results(Primitive, Expected) ->
     receive
