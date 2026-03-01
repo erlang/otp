@@ -415,14 +415,13 @@ parse({node, N, A, T1}=T, Options) when is_atom(N) ->
 				       end;
 				   _ -> false
 			       end,
-			   PeerOpts0 = #{name => Name,
-					 args => parse_peer_args(A)},
-			   PeerOpts = case Host of
-					  localhost -> PeerOpts0;
-					  _ -> PeerOpts0#{host =>
-							      atom_to_list(Host)}
-				      end,
-                           {ok, Peer, NodeName} = case peer:start_link(PeerOpts) of
+			   PathArgs = lists:flatmap(
+					fun(P) -> ["-pa", P] end,
+					code:get_path()),
+                           {ok, Peer, NodeName} = case peer:start_link(#{
+                               host => atom_to_list(Host),
+                               name => Name,
+			       args => PathArgs ++ parse_peer_args(A)}) of
                                 {ok, Pid, Node0} -> {ok, Pid, Node0};
                                 {error, Rsn} -> throw({peer_start, Rsn})
                             end,
