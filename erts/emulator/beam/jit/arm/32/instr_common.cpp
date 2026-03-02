@@ -234,8 +234,12 @@ void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
 
 void BeamModuleAssembler::emit_get_hd(const ArgRegister &Src,
                                       const ArgRegister &Hd) {
-    // TODO
-    emit_nyi("emit_get_hd");
+    auto src = load_source(Src);
+    auto hd = init_destination(Hd, VAR);
+    a32::Gp cons_ptr = emit_ptr_val(TMP, src.reg);
+
+    a.ldr(hd.reg, getCARRef(cons_ptr));
+    flush_var(hd);
 }
 
 void BeamModuleAssembler::emit_get_tl(const ArgRegister &Src,
