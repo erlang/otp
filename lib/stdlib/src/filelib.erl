@@ -51,8 +51,6 @@ For more information about raw filenames, see the `m:file` module.
 > filenames.
 """.
 
--compile(nowarn_deprecated_catch).
-
 %% File utilities.
 -export([wildcard/1, wildcard/2, is_dir/1, is_file/1, is_regular/1]).
 -export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1, ensure_path/1]).
@@ -322,29 +320,34 @@ do_fold_files2([], _Dir, _RegExp, _OrigRE, _Recursive, _Fun, Acc, _Mod) ->
     Acc;
 do_fold_files2([File|T], Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod) ->
     FullName = filename:join(Dir, File),
-    case do_is_regular(FullName, Mod) of
-	true  ->
-	    case (catch re:run(File, if is_binary(File) -> OrigRE; 
-					true -> RegExp end, 
-			       [{capture,none}])) of
-		match  -> 
-		    Acc = Fun(FullName, Acc0),
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc, Mod);
-		{'EXIT',_} ->
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod);
-		nomatch ->
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
-	    end;
-	false ->
-	    case Recursive andalso do_is_dir(FullName, Mod) of
-		true ->
-		    Acc1 = do_fold_files1(FullName, RegExp, OrigRE, Recursive,
-					  Fun, Acc0, Mod),
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc1, Mod);
-		false ->
-		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
-	    end
-    end.
+    Acc1 = case do_is_regular(FullName, Mod) of
+               true  ->
+                   try
+                       re:run(File,
+                              if
+                                  is_binary(File) -> OrigRE;
+                                  true -> RegExp
+                              end,
+                              [{capture,none}])
+                   of
+                       match ->
+                           Fun(FullName, Acc0);
+                       nomatch ->
+                           Acc0
+                   catch
+                       _:_ ->
+                           Acc0
+                   end;
+               false ->
+                   case Recursive andalso do_is_dir(FullName, Mod) of
+                       true ->
+                           do_fold_files1(FullName, RegExp, OrigRE, Recursive,
+                                          Fun, Acc0, Mod);
+                       false ->
+                           Acc0
+                   end
+           end,
+    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc1, Mod).
 
 do_last_modified(File, Mod) ->
     case eval_read_file_info(File, Mod) of
