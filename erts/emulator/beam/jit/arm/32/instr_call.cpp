@@ -71,8 +71,8 @@ void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {
 
 void BeamModuleAssembler::emit_i_call_last(const ArgLabel &CallTarget,
                                            const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_i_call_last");
+    emit_deallocate(Deallocate);
+    emit_i_call_only(CallTarget);
 }
 
 void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
