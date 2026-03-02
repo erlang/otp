@@ -56,7 +56,7 @@ env:
 permissions:
   contents: read
   pull-requests: read
-  security-events: read
+  security-events: write
 
 jobs:
 

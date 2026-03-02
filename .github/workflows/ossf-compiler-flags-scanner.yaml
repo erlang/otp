@@ -30,7 +30,7 @@ on:
 
 permissions:
   contents: read
-  security-events: read
+  security-events: write
 
 jobs:
   schedule-scan:
