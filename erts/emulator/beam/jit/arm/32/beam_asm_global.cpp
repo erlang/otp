@@ -94,8 +94,42 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
 /* ARG3 = (HTOP + S_RESERVED + bytes needed) !!
  * ARG4 = Live registers */
 void BeamGlobalAssembler::emit_garbage_collect() {
-    // TODO
-    emit_nyi("emit_garbage_collect");
+    emit_enter_runtime_frame();
+
+    /* Convert ARG3 to words needed and move it to the correct argument slot.
+     *
+     * Note that we cancel out the S_RESERVED that we added in the GC check, as
+     * the GC routines handle that separately and we don't want it to be added
+     * twice. */
+    a.sub(ARG2, ARG3, HTOP);
+    a.lsr(ARG2, ARG2, imm(3));
+    a.sub(ARG2, ARG2, imm(S_RESERVED));
+
+    /* Save our return address in c_p->i so we can tell where we crashed if we
+     * did so during GC. */
+    a.str(a32::lr, arm::Mem(c_p, offsetof(Process, i)));
+
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
+
+    a.mov(ARG1, c_p);
+    /* ARG2 is already loaded. */
+    load_x_reg_array(ARG3);
+    /* ARG4 (live registers) is already loaded. */
+    a.mov(TMP, FCALLS);
+    a.sub(a32::sp, a32::sp, imm(8));
+    a.str(TMP, arm::Mem(a32::sp, 0));
+    runtime_call<5>(erts_garbage_collect_nobump);
+    a.add(a32::sp, a32::sp, imm(8));
+    a.sub(FCALLS, FCALLS, ARG1);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime_frame();
+
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, state.value)));
+    a.tst(TMP, imm(ERTS_PSFLG_EXITING));
+    a.b_ne(labels[do_schedule]);
+
+    a.bx(a32::lr);
 }
 
 /* Handles trapping to exports from C code, setting registers up in the same
