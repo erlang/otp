@@ -79,8 +79,10 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
                                               const ArgRegister &Dst,
                                               const ArgLabel &CallTarget,
                                               const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_move_call_last");
+    // TODO: Optimize this, see arm64 implementation...
+    mov_arg(Dst, Src);
+    emit_deallocate(Deallocate);
+    emit_i_call_only(CallTarget);
 }
 
 void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
