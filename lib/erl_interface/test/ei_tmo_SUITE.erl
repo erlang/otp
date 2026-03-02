@@ -251,7 +251,7 @@ do_one_send_failure(Config,From,FakeName,CName) ->
 
     {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
     runner:recv_eot(P3),
-    true = ((Res < 0) and (Iters > 0)),
+    true = Res < 0 andalso Iters > 0,
     gen_tcp:close(SocketB),
     gen_tcp:close(EpmdSocket),
     ok.
