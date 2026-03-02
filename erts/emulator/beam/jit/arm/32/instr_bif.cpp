@@ -307,7 +307,26 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 
         a.bind(gc_after_bif_call);
         {
-          emit_nyi("emit_call_light_bif_gc_after_bif_call");
+            emit_enter_runtime_frame();
+            emit_enter_runtime<Update::eReductions | Update::eStack |
+                               Update::eHeap>();
+
+            a.mov(ARG3, ARG1);
+            a.mov(ARG1, c_p);
+            a.ldr(ARG2, mbuf_mem);
+            load_x_reg_array(ARG4);
+            a.ldr(TMP, export_mem);
+            a.ldrb(TMP, arm::Mem(TMP, offsetof(Export, info.mfa.arity)));
+            a.sub(a32::sp, a32::sp, imm(8));
+            a.str(TMP, arm::Mem(a32::sp, 0));
+            runtime_call<5>(erts_gc_after_bif_call_lhf);
+            a.add(a32::sp, a32::sp, imm(8));
+
+            emit_leave_runtime<Update::eReductions | Update::eStack |
+                               Update::eHeap>();
+            emit_leave_runtime_frame();
+
+            a.b(check_bif_return);
         }
     }
 
