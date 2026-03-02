@@ -37,7 +37,7 @@ unique_table_name() ->
 			      [], atom_to_list(node()))).
 
 match_float(Float, Match, Delta) ->
-    (Float < Match + Delta) and (Float > Match - Delta).
+    Float < Match + Delta andalso Float > Match - Delta.
 
 odbc_check() ->
     case os:type() of

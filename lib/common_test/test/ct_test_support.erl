@@ -1139,10 +1139,10 @@ locate({TEH,tc_done,{undefined,undefined,{testcase_aborted,
 
 %% to match variable data as a result of a failed test case
 locate({TEH,tc_done,{Mod,Func,R={SkipOrFail,{_ErrInd,ErrInfo}}}},
-       Node, [Ev|Evs], Config) when ((SkipOrFail == skipped) or
-				     (SkipOrFail == failed)) and
-				    ((size(ErrInfo) == 2) or
-				     (size(ErrInfo) == 3)) ->
+       Node, [Ev|Evs], Config) when SkipOrFail == skipped orelse
+                                    SkipOrFail == failed,
+                                    size(ErrInfo) == 2 orelse
+                                    size(ErrInfo) == 3 ->
     case Ev of
 	{TEH,#event{name=tc_done, node=Node, 
 		    data={Mod,Func,Result}}} ->

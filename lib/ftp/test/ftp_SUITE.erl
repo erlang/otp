@@ -558,8 +558,8 @@ rename(Config0) ->
                     id2ftp(OldFile,Config),
                     id2ftp(NewFile,Config)),
 
-    true = (chk_file(NewFile,Contents,Config)
-            and chk_no_file([OldFile],Config)),
+    true = chk_file(NewFile,Contents,Config)
+            andalso chk_no_file([OldFile],Config),
     {error,epath} = ftp:rename(Pid,
                                id2ftp("non_existing_file",Config),
                                id2ftp(NewFile,Config)),

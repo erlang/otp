@@ -1232,7 +1232,7 @@ compact_otp4085_1(Msg, Conf) ->
 
 compact_otp4085_1_chk1(Reason) ->
     case lists:keysearch(reason, 1, Reason) of
-	{value, {reason, {Line, Module, Crap}}} when is_integer(Line) and
+        {value, {reason, {Line, Module, Crap}}} when is_integer(Line),
 						     is_atom(Module) ->
 	    Crap2 =
 		case (catch lists:flatten(Crap)) of
@@ -2850,7 +2850,7 @@ pretty_otp4632_msg4() ->
     M = "MEGACO/" ?VERSION_STR " [124.124.124.222]\nTransaction = 9998 {\n\tContext = - {\n\t\tServiceChange = root {\n\t\t\tServices {\n\t\t\t\tMethod = Restart,\n\t\t\t\tServiceChangeAddress = 55555,\n\t\t\t\tProfile = resgw/1,\n\t\t\t\tReason = 901\n\t\t\t}\n\t\t}\n\t}\n}",
     M.
 
-pretty_otp4632_msg4_chk(B1, B2) when is_binary(B1) and is_binary(B2) ->
+pretty_otp4632_msg4_chk(B1, B2) when is_binary(B1), is_binary(B2) ->
     S1 = binary_to_list(B1),
     S2 = binary_to_list(B2),
     %%     io:format("~n"
@@ -2905,7 +2905,7 @@ pretty_otp4710_msg2(Config) when is_list(Config) ->
 pretty_otp4710_msg2() ->
     "Authentication = 0xEFCDAB89:0x12345678:0x1234567889ABCDEF76543210\nMEGACO/" ?VERSION_STR " [124.124.124.222]\nTransaction = 9998 {\n\tContext = - {\n\t\tServiceChange = root {\n\t\t\tServices {\n\t\t\t\tMethod = Restart,\n\t\t\t\tServiceChangeAddress = 55555,\n\t\t\t\tProfile = resgw/1,\n\t\t\t\tReason = \"901 mg col boot\"\n\t\t\t}\n\t\t}\n\t}\n}".
 
-pretty_otp4710_msg2_chk(B1, B2) when is_binary(B1) and is_binary(B2) ->
+pretty_otp4710_msg2_chk(B1, B2) when is_binary(B1), is_binary(B2) ->
     S1 = binary_to_list(B1),
     S2 = binary_to_list(B2),
     pretty_otp4710_msg2_chk(S1, S2);
@@ -8265,7 +8265,7 @@ ticket_decode_only(Msg, Codec, Check, Conf0) ->
     megaco_codec_test_lib:expect_decode_only(Msg, Decode, Check).
 
 ticket_check_decode_only_error_reason(R, Check)
-  when is_list(R) and is_function(Check) ->
+  when is_list(R), is_function(Check) ->
     case lists:keysearch(reason, 1, R) of
 	{value, {reason, Reason}} ->
 	    Check(Reason);
@@ -8753,8 +8753,8 @@ cre_SecReqEv(N) ->
 cre_SecReqEv(N, EPL) ->
     ?MSG_LIB:cre_SecondRequestedEvent(N, EPL).
 
-cre_SecReqEv(N, SID, EA) when is_list(N) and
-			      is_integer(SID) and
+cre_SecReqEv(N, SID, EA) when is_list(N),
+                              is_integer(SID),
 			      is_record(EA, 'SecondRequestedActions') ->
     cre_SecReqEv(N, SID, EA, []);
 cre_SecReqEv(A, B, C) ->

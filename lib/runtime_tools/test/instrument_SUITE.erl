@@ -137,7 +137,7 @@ verify_allocations_output(#{ histogram_start := HistStart,
     PerPort = lists:any(fun(K) -> is_port(K) end, Origins),
 
     true = lists:all(fun(K) ->
-                             is_pid(K) or is_port(K) or is_atom(K)
+                             is_pid(K) orelse is_port(K) orelse is_atom(K)
                      end, Origins),
 
     %% Do the histograms look alright?

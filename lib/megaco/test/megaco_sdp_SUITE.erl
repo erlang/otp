@@ -1054,7 +1054,7 @@ cre_PropertyParm_k(base64, EncryptionKey) when is_list(EncryptionKey) ->
 cre_PropertyParm_k(uri, EncryptionKey) when is_list(EncryptionKey) ->
     cre_PropertyParm("k", "uri:" ++ EncryptionKey);
 cre_PropertyParm_k(Method, EncryptionKey) 
-  when is_list(Method) and is_list(EncryptionKey) ->
+  when is_list(Method), is_list(EncryptionKey) ->
     cre_PropertyParm("k", Method ++ ":" ++ EncryptionKey).
 
 cre_sdp_k(M) ->
@@ -1072,7 +1072,7 @@ cre_sdp_z(LOA) ->
     #megaco_sdp_z{list_of_adjustments = LOA}.
 
 cre_PropertyParm_r(Repeat, Duration, ListOfOffsets) 
-  when is_list(Repeat) and is_list(Duration) and is_list(ListOfOffsets) ->
+  when is_list(Repeat), is_list(Duration), is_list(ListOfOffsets) ->
     F = fun(Elem, Str) -> Str ++ " " ++ Elem end, 
     Val = Repeat ++ " " ++ Duration ++  lists:foldl(F, [], ListOfOffsets),
     cre_PropertyParm("r", Val).
@@ -1083,7 +1083,7 @@ cre_sdp_r(Repeat, Duration, ListOfOffsets) ->
 		  list_of_offsets = ListOfOffsets}.
 
 cre_PropertyParm_t(Start, Stop) 
-  when is_list(Start) and is_list(Stop) ->
+  when is_list(Start), is_list(Stop) ->
     cre_PropertyParm("t", Start ++ " " ++ Stop);
 cre_PropertyParm_t(Start, Stop) ->
     cre_PropertyParm_t(i2s(Start), i2s(Stop)).
@@ -1092,10 +1092,10 @@ cre_sdp_t(Start, Stop) ->
     #megaco_sdp_t{start = Start, stop = Stop}.
 
 cre_PropertyParm_b(BwType, Bandwidth) 
-  when is_list(BwType) and is_integer(Bandwidth) ->
+  when is_list(BwType), is_integer(Bandwidth) ->
     cre_PropertyParm_b(BwType, i2s(Bandwidth));
 cre_PropertyParm_b(BwType, Bandwidth) 
-  when is_list(BwType) and is_list(Bandwidth) ->
+  when is_list(BwType), is_list(Bandwidth) ->
     cre_PropertyParm("b", BwType ++ ":" ++ Bandwidth).
 
 cre_sdp_b(BWT, BW) ->
@@ -1145,9 +1145,9 @@ cre_PropertyParm_rtpmap(Payload, EncName, ClockRate) ->
     cre_PropertyParm_rtpmap(Payload, EncName, ClockRate, []).
 
 cre_PropertyParm_rtpmap(Payload, EncName, ClockRate, EncPar)
-  when is_integer(Payload) and
-       is_list(EncName) and
-       is_integer(ClockRate) and
+  when is_integer(Payload),
+       is_list(EncName),
+       is_integer(ClockRate),
        is_list(EncPar) ->
     F = fun(Elem, Str) -> Str ++ "/" ++ Elem end, 
     Val = 
@@ -1213,14 +1213,14 @@ cre_sdp_a_quality(Qa) ->
     #megaco_sdp_a_quality{quality = Qa}.
 
 cre_PropertyParm_a(Attr, AttrValue) 
-  when is_list(Attr) and is_list(AttrValue) ->
+  when is_list(Attr), is_list(AttrValue) ->
     cre_PropertyParm("a", Attr ++ ":" ++ AttrValue).
 
 cre_PropertyParm_a(Attr) when is_list(Attr) ->
     cre_PropertyParm("a", Attr).
 
 cre_PropertyParm_a_fmtp(Format, Param) 
-  when is_list(Format) and is_list(Param) ->
+  when is_list(Format), is_list(Param) ->
     cre_PropertyParm_a("fmtp", Format ++ " " ++ Param).
 
 cre_sdp_a_fmtp(Fmt, Parm) ->
@@ -1237,11 +1237,11 @@ cre_PropertyParm_o(User, SID, Version, AddrType, Addr) ->
     cre_PropertyParm_o(User, SID, Version, in, AddrType, Addr).
 
 cre_PropertyParm_o(User, SID, Version, NetType, AddrType, Addr) 
-  when is_list(User) and
-       is_integer(SID) and
-       is_integer(Version) and
-       is_list(NetType) or (NetType == in) and
-       is_list(AddrType) or ((AddrType == ip4) or (AddrType == ip6)) and
+  when is_list(User),
+       is_integer(SID),
+       is_integer(Version),
+       (is_list(NetType) orelse NetType == in),
+       (is_list(AddrType) orelse AddrType == ip4 orelse AddrType == ip6),
        is_list(Addr) ->
     NT = case NetType of
 	     in -> "IN";
@@ -1276,7 +1276,7 @@ cre_PropertyParm_m(Media, Port, Transport, FmtList)
     cre_PropertyParm_m(atom_to_list(Media), 
 		       Port, Transport, FmtList);
 cre_PropertyParm_m(Media, Port0, Transport, FmtList) 
-  when is_list(Media) and is_list(Transport) and is_list(FmtList) ->
+  when is_list(Media), is_list(Transport), is_list(FmtList) ->
     Port = i2s(Port0),
     Val = 
 	Media ++ " " ++ Port ++ " " ++ Transport ++ " " ++ val(FmtList),
@@ -1287,7 +1287,7 @@ cre_PropertyParm_m(Media, Port, NumPorts, Transport, FmtList)
     cre_PropertyParm_m(atom_to_list(Media), 
 		       Port, NumPorts, Transport, FmtList);
 cre_PropertyParm_m(Media, Port0, NumPorts0, Transport, FmtList) 
-  when is_list(Media) and is_list(Transport) and is_list(FmtList) ->
+  when is_list(Media), is_list(Transport), is_list(FmtList) ->
     Port     = i2s(Port0),
     NumPorts = i2s(NumPorts0),
     Val = 
@@ -1314,15 +1314,15 @@ cre_PropertyParm_c(ip4, ConnAddr) ->
 cre_PropertyParm_c(ip6, ConnAddr) ->
     cre_PropertyParm_c("IP6", ConnAddr);
 cre_PropertyParm_c(AddrType, ConnAddr) 
-  when is_list(AddrType) and is_list(ConnAddr) ->
+  when is_list(AddrType), is_list(ConnAddr) ->
     Val = "IN " ++ AddrType ++ " " ++ ConnAddr, 
     cre_PropertyParm("c", Val).
 
 cre_PropertyParm_c(ip4, Base, TTL) ->
     cre_PropertyParm_c("IP4", Base, i2s(TTL));
 cre_PropertyParm_c(AddrType, Base, TTL) 
-  when is_list(AddrType) and 
-       is_list(Base)     and 
+  when is_list(AddrType),
+       is_list(Base),
        is_list(TTL) ->
     Val = "IN " ++ AddrType ++ " " ++ Base ++ "/" ++ TTL, 
     cre_PropertyParm("c", Val).
@@ -1330,9 +1330,9 @@ cre_PropertyParm_c(AddrType, Base, TTL)
 cre_PropertyParm_c(ip4, Base, TTL, NumOf) ->
     cre_PropertyParm_c("IP4", Base, i2s(TTL), i2s(NumOf));
 cre_PropertyParm_c(AddrType, Base, TTL, NumOf) 
-  when is_list(AddrType) and 
-       is_list(Base)     and 
-       is_list(TTL)      and 
+  when is_list(AddrType),
+       is_list(Base),
+       is_list(TTL),
        is_list(NumOf) ->
     Val = 
 	"IN " ++ AddrType ++ " " ++ Base ++ "/" ++ TTL ++ "/" ++ NumOf,
@@ -1357,7 +1357,7 @@ cre_sdp_v(Version) ->
     #megaco_sdp_v{version = Version}.
 	
 
-cre_PropertyParm(Name, Val) when is_list(Name) and is_list(Val) ->
+cre_PropertyParm(Name, Val) when is_list(Name), is_list(Val) ->
     #'PropertyParm'{name = Name, value = [Val]}.
 
 

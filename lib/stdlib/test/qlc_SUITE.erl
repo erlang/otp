@@ -7279,14 +7279,14 @@ manpage(Config) when is_list(Config) ->
     [2,3,4] = qlc:eval(QH),
 
     %% ets(3)
-    MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
+    MS = ets:fun2ms(fun({X,Y}) when X > 1 andalso X < 5 -> {Y} end),
     ETs = [
         [<<"Tab = ets:new(t, []),
             true = ets:insert(Tab,[{1,a},{2,b},{3,c},{4,d}]),
             MS = ">>, io_lib:format("~w", [MS]), <<",
             QH1 = ets:table(Tab, [{traverse, {select, MS}}]),
 
-            QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Tab), (X > 1) or (X < 5)]),
+            QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Tab), X > 1 andalso X < 5]),
 
             true = qlc:info(QH1) =:= qlc:info(QH2),
             true = ets:delete(Tab)">>]],
@@ -7299,7 +7299,7 @@ manpage(Config) when is_list(Config) ->
             MS = ">>, io_lib:format("~w", [MS]), <<",
             QH1 = dets:table(T, [{traverse, {select, MS}}]),
 
-            QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), (X > 1) or (X < 5)]),
+            QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), X > 1 andalso X < 5]),
 
             true = qlc:info(QH1) =:= qlc:info(QH2),
             ok = dets:close(T)">>]],
@@ -7700,7 +7700,7 @@ i(H, Option) ->
 has_format({format,_}) ->
     true;
 has_format([E | Es]) ->
-    has_format(E) or has_format(Es);
+    has_format(E) orelse has_format(Es);
 has_format(_) ->
     false.
 

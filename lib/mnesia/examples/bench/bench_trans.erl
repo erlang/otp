@@ -83,7 +83,7 @@ read_session_details(Wlock, SubscrId, ServerBit, ServerId) ->
 
     IsAllowed     = ((Group#group.allow_read band ServerBit) == ServerBit),
     IsActive      = ((Subscr#subscriber.active_sessions band ServerBit) == ServerBit),    
-    ExecuteBranch = (IsAllowed and IsActive),
+    ExecuteBranch = IsAllowed andalso IsActive,
 
     case ExecuteBranch of
         true ->
@@ -111,7 +111,7 @@ create_session_to_server(Wlock, SubscrId, ServerBit, ServerId, Details, DoRollba
 
     IsAllowed     = ((Group#group.allow_insert band ServerBit) == ServerBit),
     IsInactive    = ((Subscr#subscriber.active_sessions band ServerBit) == 0),
-    ExecuteBranch = (IsAllowed and IsInactive),
+    ExecuteBranch = IsAllowed andalso IsInactive,
     case ExecuteBranch of
         true ->
             SessionKey = {SubscrId, ServerId},
@@ -149,7 +149,7 @@ delete_session_from_server(Wlock, SubscrId, ServerBit, ServerId, DoRollback) ->
 
     IsAllowed     = ((Group#group.allow_delete band ServerBit) == ServerBit),
     IsActive      = ((Subscr#subscriber.active_sessions band ServerBit) == ServerBit),    
-    ExecuteBranch = (IsAllowed and IsActive),
+    ExecuteBranch = IsAllowed andalso IsActive,
     case ExecuteBranch of
         true ->
             SessionKey = {SubscrId, ServerId},

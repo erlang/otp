@@ -197,15 +197,15 @@ do_simple_init() ->
     Init = 
 	fun(Tmr) ->
 		case (catch megaco_timer:init(Tmr)) of
-		    {WaitFor, {NewTmr, _}} when 
-		        (((WaitFor == infinity) or is_integer(WaitFor)) andalso 
-			 is_record(NewTmr, megaco_incr_timer) andalso
-			 (is_record(Tmr, megaco_incr_timer) andalso 
-			  (Tmr#megaco_incr_timer.max_retries == infinity_restartable))) ->
+                    {WaitFor, {NewTmr, _}} when
+                          WaitFor == infinity orelse is_integer(WaitFor),
+                          is_record(NewTmr, megaco_incr_timer),
+                          is_record(Tmr, megaco_incr_timer),
+                          Tmr#megaco_incr_timer.max_retries == infinity_restartable ->
 			ok;
-		    {WaitFor, NewTmr} when 
-			 (((WaitFor == infinity) or is_integer(WaitFor)) andalso 
-			  ((NewTmr == timeout) or is_record(NewTmr, megaco_incr_timer))) ->
+                    {WaitFor, NewTmr} when
+                          WaitFor == infinity orelse is_integer(WaitFor),
+                          NewTmr == timeout orelse is_record(NewTmr, megaco_incr_timer) ->
 			ok;
 		    X ->
 			d("initiation of timer failed: "
