@@ -129,7 +129,7 @@ test(BootArgs) ->
     external_call(),
     BootArgs = rev_test(BootArgs),
     reductions(BootArgs),
-%    list_test(),
+    list_test(),
 %    tuple_test(),
 %    test_guard_tests(BootArgs),
 %    preserving_xregs(),
@@ -213,13 +213,13 @@ rev(L) -> rev(L, []).
 
 rev([H|T], Acc) -> rev(T, [H|Acc]);
 rev([], Acc) -> Acc.
-%
-%list_test() ->
-%    [a|_] = id([a]),
-%    [_|[b]] = id([a,b]),
-%
-%    ok.
-%
+
+list_test() ->
+    [a|_] = id([a]),
+    [_|[b]] = id([a,b]),
+
+    ok.
+
 %tuple_test() ->
 %    T = id({a,b,c}),
 %    if is_tuple(T) -> ok end,
