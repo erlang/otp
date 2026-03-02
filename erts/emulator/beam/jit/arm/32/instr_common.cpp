@@ -313,8 +313,7 @@ void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
 
 void BeamModuleAssembler::emit_trim(const ArgWord &Words,
                                     const ArgWord &Remaining) {
-    // TODO
-    emit_nyi("emit_trim");
+    trim_preserve_cache(Words);
 }
 
 void BeamModuleAssembler::emit_i_move(const ArgSource &Src,
