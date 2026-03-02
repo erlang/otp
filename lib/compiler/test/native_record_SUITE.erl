@@ -45,10 +45,11 @@
 -record #Point{x=0,y=0,z=0}.
 
 %% Other exported records.
--export_record([b, exp_abc, exp_x]).
+-export_record([b, exp_abc, exp_x, exp_xyz]).
 -record #b{x=none, y=none, z=none}.
 -record #exp_abc{a=0, b=0}.
 -record #exp_x{x=0}.
+-record #exp_xyz{x, y, z}.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -109,18 +110,16 @@ local_basic(_Config) ->
     a = NameFun(ARec),
     b = NameFun(BRec),
 
-    %% Test errors when constructing or updating native records.
-    ?assertError({badfield,{{?MODULE,b},foobar}},
-                 #b{foobar = some_value}),
+    %% Test errors when creating native records.
+    ?assertError({badfield,{{?MODULE,exp_abc},z}}, #?MODULE:exp_abc{z=99}),
+    ?assertError({novalue,{{?MODULE,exp_xyz},x}}, #?MODULE:exp_xyz{}),
+    ?assertError({badrecord,{?MODULE,a}}, #?MODULE:a{}),
 
+    %% Test errors when updating native records.
     ?assertError({badrecord,not_a_record}, (not_a_record)#b{x=99}),
     ?assertError({badrecord,ARec}, ARec#b{x=99}),
     ?assertError({badfield,{{?MODULE,b},bad_field}},
                  BRec#b{bad_field = some_value}),
-
-    ?assertError({novalue,{{?MODULE,a},x}}, #a{}),
-    ?assertError({novalue,{{?MODULE,a},y}}, #a{x=1}),
-    ?assertError({novalue,{{?MODULE,a},x}}, #a{y=1}),
 
     %% Test errors when accessing native records
     ?assertError({badfield,{{?MODULE,b},zoo}}, BRec#b.zoo),

@@ -5879,7 +5879,7 @@ native_records(Config) ->
                     {{2,35},erl_lint,{redefine_field,r2,a}},
                     {{3,30},erl_lint,{redefine_field,r3,a}}],
             []}},
-          {undefined_native_record_field,
+          {undefined_field_1,
            <<"-record #r{a=a, c=c}.
                mk() -> #r{a = a, b = b}.
                pat(#r{a = A, b = B}) -> {A, B}.
@@ -5887,19 +5887,45 @@ native_records(Config) ->
                get1(S) -> S#r.b.
                get2(S, B) when B == S#r.b -> ok.">>,
            [],
-           {warnings,[{{2,34},erl_lint,{undefined_native_record_field,r,b}},
-                      {{3,30},erl_lint,{undefined_native_record_field,r,b}},
-                      {{4,33},erl_lint,{undefined_native_record_field,r,b}},
-                      {{5,31},erl_lint,{undefined_native_record_field,r,b}},
-                      {{6,41},erl_lint,{undefined_native_record_field,r,b}}]}},
-          {no_init,
+           {error,
+            [{{2,34},erl_lint,{undefined_field,r,b}}],
+            [{{3,30},erl_lint,{undefined_field,r,b}},
+             {{4,33},erl_lint,{undefined_field,r,b}},
+             {{5,31},erl_lint,{undefined_field,r,b}},
+             {{6,41},erl_lint,{undefined_field,r,b}}]}},
+          {undefined_field_2,
+           <<"-record #r{a=a, c=c}.
+               mk() -> #r{a = a, b = b}.
+               pat(#r{a = A, b = B}) -> {A, B}.
+               update(S) -> S#r{b = b}.
+               get1(S) -> S#r.b.
+               get2(S, B) when B == S#r.b -> ok.">>,
+           [nowarn_undefined_field],
+           {errors,
+            [{{2,34},erl_lint,{undefined_field,r,b}}],
+            []}},
+          {no_init_1,
            <<"-record #r{a, b, c = c}.
                 mk1() -> #r{}.
-                mk2() -> #r{a = a}.">>,
+                mk2() -> #r{a = a}.
+                mk3() -> #?MODULE:r{}.">>,
            [],
-           {warnings,[{{2,26},erl_lint,{no_init_native_record_field,r,a}},
-                      {{2,26},erl_lint,{no_init_native_record_field,r,b}},
-                      {{3,26},erl_lint,{no_init_native_record_field,r,b}}]}},
+           {error,
+            [{{2,26},erl_lint,{novalue,r,a}},
+             {{2,26},erl_lint,{novalue,r,b}},
+             {{3,26},erl_lint,{novalue,r,b}}],
+            [{{4,26},erl_lint,{novalue,{lint_test,r},a}},
+             {{4,26},erl_lint,{novalue,{lint_test,r},b}}]}},
+          {no_init_2,
+           <<"-record #r{a, b, c = c}.
+                mk1() -> #r{}.
+                mk2() -> #r{a = a}.
+                mk3() -> #?MODULE:r{}.">>,
+           [nowarn_novalue],
+           {errors,[{{2,26},erl_lint,{novalue,r,a}},
+                    {{2,26},erl_lint,{novalue,r,b}},
+                    {{3,26},erl_lint,{novalue,r,b}}],
+            []}},
           {undefined_record_1,
            <<"t() ->
                   X = no_record,
