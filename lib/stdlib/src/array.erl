@@ -40,7 +40,7 @@ The array never shrinks automatically. If an index `I` has been used to set an
 entry successfully, all indices in the range `[0,I]` stay accessible unless the
 array size is explicitly changed by calling `resize/2`.
 
-_Examples:_
+## Examples
 
 Create a fixed-size array with entries 0-9 set to `undefined`:
 
@@ -63,7 +63,7 @@ Read back a stored value:
 true = array:get(17, A1).
 ```
 
-Accessing an unset entry returns default value:
+Accessing an unset entry returns the default value:
 
 ```
 undefined = array:get(3, A1)
@@ -101,29 +101,22 @@ beyond the last set entry:
 -export([new/0, new/1, new/2, is_array/1, set/3, get/2, size/1,
 	 sparse_size/1, default/1, reset/2, to_list/1, sparse_to_list/1,
 	 from_list/1, from_list/2, to_orddict/1, sparse_to_orddict/1,
-         from/2, from/3,
+         concat/2, concat/1, from/2, from/3,
 	 from_orddict/1, from_orddict/2, map/2, sparse_map/2, foldl/3,
-	 foldr/3, sparse_foldl/3, sparse_foldr/3, fix/1, relax/1, is_fix/1,
-	 resize/1, resize/2]).
+	 foldl/5, foldr/3, foldr/5, sparse_foldl/3, sparse_foldl/5,
+	 sparse_foldr/3, sparse_foldr/5, mapfoldl/3, mapfoldl/5,
+	 mapfoldr/3, mapfoldr/5, sparse_mapfoldl/3, sparse_mapfoldl/5,
+	 sparse_mapfoldr/3, sparse_mapfoldr/5,
+         fix/1, relax/1, is_fix/1,
+	 resize/1, resize/2, shift/2, slice/3, prepend/2, append/2]).
 
 -export_type([array/0, array/1]).
 
 -moduledoc(#{ authors => [~"Richard Carlsson <carlsson.richard@gmail.com>",
                           ~"Dan Gudmundsson <dgud@erix.ericsson.se>"] }).
 
-%%-define(TEST,1).
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
-
-%% Developers: 
-%% 
-%% For OTP devs: Both tests and documentation is extracted from this
-%% file, keep and update this file, 
-%% test are extracted with array_SUITE:extract_tests().
-%% Doc with docb_gen array.erl
-%%  
+%% Developers:
+%%
 %% The key to speed is to minimize the number of tests, on
 %% large input. Always make the most probable path as short as possible.
 %% In particular, keep in mind that for large trees, the probability of
@@ -136,17 +129,16 @@ beyond the last set entry:
 %% Representation:
 %%
 %% A tree is either a leaf, with LEAFSIZE elements (the "base"), an
-%% internal node with LEAFSIZE+1 elements, or an unexpanded tree,
-%% represented by a single integer: the number of elements that may be
-%% stored in the tree when it is expanded. The last element of an
-%% internal node caches the number of elements that may be stored in
-%% each of its subtrees.
-%% 
+%% internal node with LEAFSIZE elements, or an unexpanded tree,
+%% represented by EMPTY.
+%%
 %% Note that to update an entry in a tree of height h = log[b] n, the
 %% total number of written words is (b+1)+(h-1)*(b+2), since tuples use
 %% a header word on the heap. 4 is the optimal base for minimizing the
 %% number of words written, but causes higher trees, which takes time.
-%% The best compromise between speed and memory usage seems to lie
+%% Current measurements gives a size of 16 as the best.
+%%
+%% Old comment: The best compromise between speed and memory usage seems to lie
 %% around 8-10. Measurements indicate that the optimum base for speed is
 %% 24 - above that, it gets slower again due to the high memory usage.
 %% Base 10 is a good choice, giving 2/3 of the possible speedup from
@@ -154,46 +146,56 @@ beyond the last set entry:
 %% per write than base 10, but the speedup is only 21%.)
 
 -define(DEFAULT, undefined).
--define(LEAFSIZE, 10).         % the "base" (assumed to be > 1)
--define(NODESIZE, ?LEAFSIZE).  % must not be LEAFSIZE-1; keep same as leaf
--define(NODEPATTERN(S), {_,_,_,_,_,_,_,_,_,_,S}). % NODESIZE+1 elements!
--define(NEW_NODE(E,S),  % general case (currently unused)
-        setelement((?NODESIZE+1),erlang:make_tuple((?NODESIZE+1),(E)),(S))).
--define(NEW_NODE(S), erlang:make_tuple((?NODESIZE+1),(S))).  % when E = S
+-define(SHIFT, 4).                  % log2(LEAFSIZE), for bitwise div operation
+-define(LEAFSIZE, (1 bsl ?SHIFT)).  % the "base" (assumed to be > 1)
+-define(MASK, (?LEAFSIZE-1)).       % LEAFSIZE - 1, for bitwise rem operation
+-define(MASK(X), ((1 bsl (X))-1)).
+-define(SIZE(S), (1 bsl (S))).
+-define(NODESIZE, ?LEAFSIZE).       % must not be LEAFSIZE-1; keep same as leaf
+-define(NEW_NODE(S),   %% Hardcoded to get a literal
+        {?EMPTY,?EMPTY,?EMPTY,?EMPTY, ?EMPTY,?EMPTY,?EMPTY,?EMPTY,
+         ?EMPTY,?EMPTY,?EMPTY,?EMPTY, ?EMPTY,?EMPTY,?EMPTY,?EMPTY}).
+%% -define(NEW_NODE(S), erlang:make_tuple(?NODESIZE,(?EMPTY))).     %% S not actually used
 -define(NEW_LEAF(D), erlang:make_tuple(?LEAFSIZE,(D))).
--define(NODELEAFS, ?NODESIZE*?LEAFSIZE).
+-define(EMPTY, []).  % placeholder for empty subtree (keep as immediate)
+-define(NEW_CACHE(D), ?NEW_LEAF(D)).
 
-%% These make the code a little easier to experiment with.
-%% It turned out that using shifts (when NODESIZE=2^n) was not faster.
--define(reduce(X), ((X) div (?NODESIZE))).
--define(extend(X), ((X) * (?NODESIZE))).
+-define(reduce(X), ((X) - ?SHIFT)).
+-define(extend(X), ((X) + ?SHIFT)).
 
 %%--------------------------------------------------------------------------
 
+-type leaf_tuple(T) :: {T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T}.
+
 -type element_tuple(T) ::
-        {T, T, T, T, T, T, T, T, T, T}
-      | {element_tuple(T), element_tuple(T), element_tuple(T),
-         element_tuple(T), element_tuple(T), element_tuple(T),
-         element_tuple(T), element_tuple(T), element_tuple(T),
-         element_tuple(T), non_neg_integer()}.
+        leaf_tuple(T)
+      | ?EMPTY
+      | {element_tuple(T), element_tuple(T), element_tuple(T), element_tuple(T),
+         element_tuple(T), element_tuple(T), element_tuple(T), element_tuple(T),
+         element_tuple(T), element_tuple(T), element_tuple(T), element_tuple(T),
+         element_tuple(T), element_tuple(T), element_tuple(T), element_tuple(T)}.
 
--type elements(T) :: non_neg_integer()
-                   | element_tuple(T)
-                   | nil(). % kill reference, for GC
+-type elements(T) :: ?EMPTY | element_tuple(T).
 
--record(array, {size :: non_neg_integer(),	%% number of defined entries
-		max  :: non_neg_integer(),	%% maximum number of entries
-						%% in current tree
-		default,	%% the default value (usually 'undefined')
-                elements :: elements(_)         %% the tuple tree
+-type cache() :: leaf_tuple(dynamic()).
+
+-record(array, {size :: non_neg_integer(),	  %% number of defined entries
+                zero :: non_neg_integer(),        %% offset of zero point
+		fix  :: boolean(),	          %% not automatically growing
+		default :: dynamic(),   %% the default value (usually 'undefined')
+                cache :: cache(),                 %% cached leaf tuple
+                cache_index :: non_neg_integer(),
+                elements  :: elements(dynamic()), %% the tuple tree
+                bits :: integer()                 %% in bits
 	       }).
 
--type array() :: array(term()).
+-type array() :: array(dynamic()).
 
 -doc """
-A functional, extendible array. The representation is not documented and is
-subject to change without notice. Notice that arrays cannot be directly compared
-for equality.
+A functional, extendible array.
+
+The representation is not documented and is subject to change without
+notice. Notice that arrays cannot be directly compared for equality.
 """.
 -opaque array(Type) ::
           #array{default :: Type, elements :: elements(Type)}.
@@ -205,7 +207,7 @@ for equality.
 -type array_indx() :: non_neg_integer().
 
 -type array_opt()  :: {'fixed', boolean()} | 'fixed'
-                    | {'default', Type :: term()}
+                    | {'default', Type :: dynamic()}
                     | {'size', N :: non_neg_integer()}
                     | (N :: non_neg_integer()).
 -type array_opts() :: array_opt() | [array_opt()].
@@ -217,8 +219,6 @@ for equality.
 
 -doc """
 Creates a new, extendible array with initial size zero.
-
-See also `new/1`, `new/2`.
 """.
 -spec new() -> array().
 
@@ -226,8 +226,10 @@ new() ->
     new([]).
 
 -doc """
-Creates a new array according to the specified options. By default, the array is
-extendible and has initial size zero. Array indices start at `0`.
+Creates a new array according to the specified options.
+
+By default, the array is extendible and has initial size zero. Array
+indices start at `0`.
 
 `Options` is a single term or a list of terms, selected from the following:
 
@@ -247,22 +249,22 @@ options have higher precedence.
 The default value is used as the value of uninitialized entries, and cannot be
 changed once the array has been created.
 
-_Examples:_
+## Examples
 
-```
-array:new(100)
+```erlang
+1> array:new(100)
 ```
 
 creates a fixed-size array of size 100.
 
 ```
-array:new({default,0})
+1> array:new({default,0})
 ```
 
 creates an empty, extendible array whose default value is `0`.
 
 ```
-array:new([{size,10},{fixed,false},{default,-1}])
+1> array:new([{size,10},{fixed,false},{default,-1}])
 ```
 
 creates an extendible array with initial size 10 whose default value is `-1`.
@@ -286,15 +288,13 @@ If `Options` is a list, this is equivalent to
 [`new([{size, Size} | [Options]])`](`new/1`). However, using this function
 directly is more efficient.
 
-_Example:_
+## Examples
 
+```erlang
+1> array:new(100, {default,0})
 ```
-array:new(100, {default,0})
-```
 
-creates a fixed-size array of size 100, whose default value is `0`.
-
-See also `new/1`.
+Creates a fixed-size array of size 100, whose default value is `0`.
 """.
 -spec new(Size :: non_neg_integer(), Options :: array_opts()) -> array().
 
@@ -326,45 +326,57 @@ new_1([], Size, Fixed, Default) ->
 new_1(_Options, _Size, _Fixed, _Default) ->
     erlang:error(badarg).
 
-new(0, false, undefined) ->
-    %% Constant empty array
-    #array{size=0, max=?LEAFSIZE, elements=?LEAFSIZE};
 new(Size, Fixed, Default) ->
-    E = find_max(Size - 1, ?LEAFSIZE),
-    M = if Fixed -> 0;
-	   true -> E
-	end,
-    #array{size = Size, max = M, default = Default, elements = E}.
+    S = find_bits(Size - 1, ?SHIFT),
+    C = ?NEW_CACHE(Default),
+    #array{size = Size, zero = 0, fix = Fixed, cache = C, cache_index = 0,
+           default = Default, elements = ?EMPTY, bits = S}.
 
--spec find_max(integer(), non_neg_integer()) -> non_neg_integer().
+-spec find_bits(integer(), non_neg_integer()) -> non_neg_integer().
 
-find_max(I, M) when I >= M ->
-    find_max(I, ?extend(M));
-find_max(_I, M) ->
-    M.
-
+find_bits(I, S) when I < ?SIZE(?extend(S)) ->
+    S;
+find_bits(I, S) ->
+    find_bits(I, ?extend(S)).
 
 -doc """
 Returns `true` if `X` is an array, otherwise `false`.
 
 Notice that the check is only shallow, as there is no guarantee that `X` is a
 well-formed array representation even if this function returns `true`.
+
+## Examples
+
+```erlang
+1> array:is_array(array:new(4, [])).
+true
+```
+
 """.
 -spec is_array(X :: term()) -> boolean().
 
-is_array(#array{size = Size, max = Max})
-  when is_integer(Size), is_integer(Max) ->
+is_array(#array{size = Size})
+  when is_integer(Size) ->
     true;
 is_array(_) ->
     false.
 
 
 -doc """
-Gets the number of entries in the array. Entries are numbered from `0` to
-`size(Array)-1`. Hence, this is also the index of the first entry that is
-guaranteed to not have been previously set.
+Gets the number of entries in the array.
 
-See also `set/3`, `sparse_size/1`.
+Entries are numbered from `0` to `size(Array)-1`. Hence, this is also
+the index of the first entry that is guaranteed to not have been
+previously set.
+
+## Examples
+
+```erlang
+1> array:size(array:new(4, [])).
+4
+2> array:size(array:set(5, value, array:new())).
+6
+```
 """.
 -spec size(Array :: array()) -> non_neg_integer().
 
@@ -375,6 +387,19 @@ size(_) -> erlang:error(badarg).
 -doc """
 Gets the value used for uninitialized entries.
 
+## Examples
+
+```erlang
+1> array:default(array:new()).
+undefined
+2> array:get(52, array:new()).
+undefined
+3> array:default(array:new([{default, 0}])).
+0
+4> array:get(52, array:new([{default, 0}])).
+0
+```
+
 See also `new/2`.
 """.
 -spec default(Array :: array(Type)) -> Value :: Type.
@@ -383,155 +408,73 @@ default(#array{default = D}) -> D;
 default(_) -> erlang:error(badarg).
 
 
--ifdef(EUNIT).
-new_test_() ->
-    N0 = ?LEAFSIZE,
-    N01 = N0+1,
-    N1 = ?NODESIZE*N0,
-    N11 = N1+1,
-    N2 = ?NODESIZE*N1,
-    [?_test(new()),
-
-     ?_test(new([])),
-     ?_test(new(10)),
-     ?_test(new({size,10})),
-     ?_test(new(fixed)),
-     ?_test(new({fixed,true})),
-     ?_test(new({fixed,false})),
-     ?_test(new({default,undefined})),
-     ?_test(new([{size,100},{fixed,false},{default,undefined}])),
-     ?_test(new([100,fixed,{default,0}])),
-
-     ?_assert(new() =:= new([])),
-     ?_assert(new() =:= new([{size,0},{default,undefined},{fixed,false}])),
-     ?_assert(new() =:= new(0, {fixed,false})),
-     ?_assert(new(fixed) =:= new(0)),
-     ?_assert(new(fixed) =:= new(0, [])),
-     ?_assert(new(10) =:= new([{size,0},{size,5},{size,10}])),
-     ?_assert(new(10) =:= new(0, {size,10})),
-     ?_assert(new(10, []) =:= new(10, [{default,undefined},{fixed,true}])),
-
-     ?_assertError(badarg, new(-1)),
-     ?_assertError(badarg, new(10.0)),
-     ?_assertError(badarg, new(undefined)),
-     ?_assertError(badarg, new([undefined])),
-     ?_assertError(badarg, new([{default,0} | fixed])),
-
-     ?_assertError(badarg, new(-1, [])),
-     ?_assertError(badarg, new(10.0, [])),
-     ?_assertError(badarg, new(undefined, [])),
-
-     ?_assertMatch(#array{size=0,max=N0,default=undefined,elements=N0},
-		   new()),
-     ?_assertMatch(#array{size=0,max=0,default=undefined,elements=N0},
-		   new(fixed)),
-     ?_assertMatch(#array{size=N0,max=N0,elements=N0},
-		   new(N0, {fixed,false})),
-     ?_assertMatch(#array{size=N01,max=N1,elements=N1},
-		   new(N01, {fixed,false})),
-     ?_assertMatch(#array{size=N1,max=N1,elements=N1},
-		   new(N1, {fixed,false})),
-     ?_assertMatch(#array{size=N11,max=N2,elements=N2},
-		   new(N11, {fixed,false})),
-     ?_assertMatch(#array{size=N2, max=N2, default=42,elements=N2},
-		   new(N2, [{fixed,false},{default,42}])),
-
-     ?_assert(0 =:= array:size(new())),
-     ?_assert(17 =:= array:size(new(17))),
-     ?_assert(100 =:= array:size(array:set(99,0,new()))),
-     ?_assertError(badarg, array:size({bad_data,gives_error})),
-
-     ?_assert(undefined =:= default(new())),
-     ?_assert(4711 =:= default(new({default,4711}))),
-     ?_assert(0 =:= default(new(10, {default,0}))),
-     ?_assertError(badarg, default({bad_data,gives_error})),
-
-     ?_assert(is_array(new())),
-     ?_assert(false =:= is_array({foobar, 23, 23})),
-     ?_assert(false =:= is_array(#array{size=bad})),
-     ?_assert(false =:= is_array(#array{max=bad})),
-     ?_assert(is_array(new(10))),
-     ?_assert(is_array(new(10, {fixed,false})))
-    ].
--endif.
-
-
 -doc """
-Fixes the array size. This prevents it from growing automatically upon
+Fixes the array size to prevent it from growing automatically upon
 insertion.
 
-See also `set/3` and `relax/1`.
+Note that operations which explicitly increase the array size, such as
+`append/2`, may still be used on a fixed size array.
+
+## Examples
+
+```erlang
+1> array:get(1, array:from_list([a,b,c])).
+b
+2> array:get(10, array:from_list([a,b,c])).
+undefined
+3> array:get(10, array:fix(array:from_list([a,b,c]))).
+** exception error: bad argument
+     in function  array:get/2
+```
+
+See also `relax/1`, `set/3`.
 """.
 -spec fix(Array :: array(Type)) -> array(Type).
 
 fix(#array{}=A) ->
-    A#array{max = 0}.
-
+    A#array{fix = true}.
 
 -doc """
-Checks if the array has fixed size. Returns `true` if the array is fixed,
-otherwise `false`.
+Checks if the array has fixed size.
+
+Returns `true` if the array is fixed, otherwise `false`.
+
+## Examples
+
+```erlang
+1> array:is_fix(array:new()).
+false
+2> array:is_fix(array:new({fixed, true})).
+true
+```
 
 See also `fix/1`.
 """.
 -spec is_fix(Array :: array()) -> boolean().
 
-is_fix(#array{max = 0}) -> true;
+is_fix(#array{fix = true}) -> true;
 is_fix(#array{}) -> false.
 
 
--ifdef(EUNIT).
-fix_test_() ->
-    [?_assert(is_array(fix(new()))),
-     ?_assert(fix(new()) =:= new(fixed)),
-
-     ?_assertNot(is_fix(new())),
-     ?_assertNot(is_fix(new([]))),
-     ?_assertNot(is_fix(new({fixed,false}))),
-     ?_assertNot(is_fix(new(10, {fixed,false}))),
-     ?_assert(is_fix(new({fixed,true}))),
-     ?_assert(is_fix(new(fixed))),
-     ?_assert(is_fix(new(10))),
-     ?_assert(is_fix(new(10, []))),
-     ?_assert(is_fix(new(10, {fixed,true}))),
-     ?_assert(is_fix(fix(new()))),
-     ?_assert(is_fix(fix(new({fixed,false})))),
-
-     ?_test(set(0, 17, new())),
-     ?_assertError(badarg, set(0, 17, new(fixed))),
-     ?_assertError(badarg, set(1, 42, fix(set(0, 17, new())))),
-
-     ?_test(set(9, 17, new(10))),
-     ?_assertError(badarg, set(10, 17, new(10))),
-     ?_assertError(badarg, set(10, 17, fix(new(10, {fixed,false}))))
-    ].
--endif.
-
-
 -doc """
-Makes the array resizable. (Reverses the effects of `fix/1`.)
+Makes the array extendible, reversing the effects of `fix/1`.
+
+## Examples
+
+```erlang
+1> array:get(10, array:new({fixed, true})).
+** exception error: bad argument
+     in function  array:get/2
+2> array:get(10, array:relax(array:new())).
+undefined
+```
 
 See also `fix/1`.
 """.
 -spec relax(Array :: array(Type)) -> array(Type).
 
 relax(#array{size = N}=A) when is_integer(N), N >= 0 ->
-    A#array{max = find_max(N-1, ?LEAFSIZE)}.
-
-
--ifdef(EUNIT).
-relax_test_() ->
-    [?_assert(is_array(relax(new(fixed)))),
-     ?_assertNot(is_fix(relax(fix(new())))),
-     ?_assertNot(is_fix(relax(new(fixed)))),
-
-     ?_assert(new() =:= relax(new(fixed))),
-     ?_assert(new() =:= relax(new(0))),
-     ?_assert(new(17, {fixed,false}) =:= relax(new(17))),
-     ?_assert(new(100, {fixed,false})
-	      =:= relax(fix(new(100, {fixed,false}))))
-    ].
--endif.
+    A#array{fix = false}.
 
 
 -doc """
@@ -539,78 +482,114 @@ Change the array size.
 
 If `Size` is not a non-negative integer, the call fails with reason `badarg`. If
 the specified array has fixed size, also the resulting array has fixed size.
+
+Note: As of OTP 29, resizing ensures that entries outside the new range are
+pruned so that garbage collection can recover the memory.
+
+## Examples
+
+```erlang
+1> array:get(10, array:new({fixed, true})).
+** exception error: bad argument
+     in function  array:get/2
+2> array:get(10, array:resize(20, array:new({fixed, true}))).
+undefined
+```
+
+See also `shift/2`.
 """.
 -spec resize(Size :: non_neg_integer(), Array :: array(Type)) ->
                     array(Type).
 
-resize(Size, #array{size = N, max = M, elements = E}=A)
-  when is_integer(Size), Size >= 0,
-       is_integer(N), N >= 0,
-       is_integer(M), M >= 0 ->
+resize(Size, #array{size = N, zero = Z, cache = C, cache_index = CI, elements = E, default = D, bits = S}=A)
+  when is_integer(Size), Size >= 0, is_integer(N), N >= 0,
+       is_integer(CI), is_integer(S) ->
     if Size > N ->
-   	    {E1, M1} = grow(Size-1, E,
-			    if M > 0 -> M;
-			       true -> find_max(N-1, ?LEAFSIZE)
-			    end),
-	    A#array{size = Size,
-		    max = if M > 0 -> M1;
-			     true -> M
-			  end,
-		    elements = E1};
+            {E1, S1} = grow(Z + Size-1, E, S),
+	    A#array{size = Size, elements = E1, bits = S1};
        Size < N ->
-	    %% TODO: shrink physical representation when shrinking the array
-	    A#array{size = Size};
+            E1 = set_leaf(CI, S, E, C),
+            {E2, S1} = shrink(Z + Size-1, S, E1, D),
+            CI1 = 0,
+            C1 = get_leaf(CI1, S1, E2, D),
+	    A#array{size = Size, elements = E2, cache = C1, cache_index = CI1, bits = S1};
        true ->
 	    A
     end;
 resize(_Size, _) ->
     erlang:error(badarg).
 
+%% like grow(), but only used when explicitly resizing down
+shrink(I, _S, _E, _D) when I < 0 ->
+    S = find_bits(I, ?SHIFT),
+    {?EMPTY, S};
+shrink(I, S, E, D) ->
+    shrink_1(I, S, E, D).
+
+%% I is the largest index, 0 or more (empty arrays handled above).
+%% This first discards any unnecessary tuples from the top
+shrink_1(I, _S, ?EMPTY, _D) ->
+    S = find_bits(I, ?SHIFT),
+    {?EMPTY, S};
+shrink_1(I, 0, E, D) ->
+    {prune(E, I, D), 0};
+shrink_1(I, S, E, D) when I < ?SIZE(S) ->
+    shrink_1(I, ?reduce(S), element(1, E), D);
+shrink_1(I, S, E, D) ->
+    shrink_2(I, S, E, D).
+
+%% Here we have at least one top tuple that should be kept
+%% and we must not discard any intermediate levels
+shrink_2(_I, S, ?EMPTY, _D) ->
+    {?EMPTY, S};
+shrink_2(I, 0, E, D) ->
+    {prune(E, I, D), 0};
+shrink_2(I, S, E, D) ->
+    IDiv = I bsr S,
+    IRem = I band ?MASK(S),
+    E1 = prune(E, IDiv, ?EMPTY),
+    I1 = IDiv + 1,
+    {E2,_} = shrink_2(IRem, ?reduce(S), element(I1, E1), D),
+    {setelement(I1, E1, E2), S}.
+
+prune(E, N, D) when is_tuple(E) ->
+    if N < tuple_size(E) - 1 ->
+            list_to_tuple(prune(0, N, D, tuple_to_list(E)));
+       true ->
+            E
+    end.
+
+prune(I, N, D, [E|Es]) when I =< N ->
+    [E | prune(I+1, N, D, Es)];
+prune(I, N, D, [_|Es]) ->
+    [D | prune(I+1, N, D, Es)];
+prune(_I, _N, _D, []) ->
+    [].
+
 
 -doc """
-Changes the array size to that reported by `sparse_size/1`. If the specified
-array has fixed size, also the resulting array has fixed size.
+Changes the array size to that reported by `sparse_size/1`.
+
+If the specified array has fixed size, the resulting array also has
+fixed size.
+
+## Examples
+
+```erlang
+1> A = array:set(1, x, array:new(4, [])).
+2> array:size(A).
+4
+3> array:size(array:resize(A)).
+2
+```
 
 See also `resize/2`, `sparse_size/1`.
 """.
 -spec resize(Array :: array(Type)) -> array(Type).
 
 resize(Array) ->
+    %% eqwalizer:ignore ambiguous_union
     resize(sparse_size(Array), Array).
-
-
--ifdef(EUNIT).
-resize_test_() ->
-    [?_assert(resize(0, new()) =:= new()),
-     ?_assert(resize(99, new(99)) =:= new(99)),
-     ?_assert(resize(99, relax(new(99))) =:= relax(new(99))),
-     ?_assert(is_fix(resize(100, new(10)))),
-     ?_assertNot(is_fix(resize(100, relax(new(10))))),
-
-     ?_assert(array:size(resize(100, new())) =:= 100),
-     ?_assert(array:size(resize(0, new(100))) =:= 0),
-     ?_assert(array:size(resize(99, new(10))) =:= 99),
-     ?_assert(array:size(resize(99, new(1000))) =:= 99),
-
-     ?_assertError(badarg, set(99, 17, new(10))),
-     ?_test(set(99, 17, resize(100, new(10)))),
-     ?_assertError(badarg, set(100, 17, resize(100, new(10)))),
-
-     ?_assert(array:size(resize(new())) =:= 0),
-     ?_assert(array:size(resize(new(8))) =:= 0),
-     ?_assert(array:size(resize(array:set(7, 0, new()))) =:= 8),
-     ?_assert(array:size(resize(array:set(7, 0, new(10)))) =:= 8),
-     ?_assert(array:size(resize(array:set(99, 0, new(10,{fixed,false}))))
-	      =:= 100),
-     ?_assert(array:size(resize(array:set(7, undefined, new()))) =:= 0),
-     ?_assert(array:size(resize(array:from_list([1,2,3,undefined])))
-	      =:= 3),
-     ?_assert(array:size(
-		resize(array:from_orddict([{3,0},{17,0},{99,undefined}])))
-	      =:= 18),
-     ?_assertError(badarg, resize(foo, bad_argument))
-    ].
--endif.
 
 
 -doc """
@@ -622,60 +601,281 @@ larger than the maximum index, the call fails with reason `badarg`.
 If the array does not have fixed size, and `I` is greater than `size(Array)-1`,
 the array grows to size `I+1`.
 
+## Examples
+
+```erlang
+1> A = array:new(4, [{fixed,true}]).
+2> array:set(1, x, A).
+3> array:set(5, x, A).
+** exception error: bad argument
+     in function  array:set/3
+```
+
 See also `get/2`, `reset/2`.
 """.
 -spec set(I :: array_indx(), Value :: Type, Array :: array(Type)) -> array(Type).
 
-set(I, Value, #array{size = N, max = M, default = D, elements = E}=A)
-  when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
-    if I < N ->
-	    A#array{elements = set_1(I, E, Value, D)};
-       I < M ->
-	    %% (note that this cannot happen if M == 0, since N >= 0)
-	    A#array{size = I+1, elements = set_1(I, E, Value, D)};
-       M > 0 ->
-	    {E1, M1} = grow(I, E, M),
-	    A#array{size = I+1, max = M1,
-		    elements = set_1(I, E1, Value, D)};
+set(I0, Value, #array{size = N, zero = Z, fix = Fix, cache = C, cache_index = CI,
+                     default = D, elements = E, bits = S}=A)
+  when is_integer(I0), I0 >= 0, is_integer(N), is_integer(CI), is_integer(S), is_integer(Z) ->
+    I = I0 + Z,
+    if I0 < N ->
+            if I >= CI, I < CI + ?LEAFSIZE ->
+                    A#array{cache = setelement(1 + I - CI, C, Value)};
+               true ->
+                    R = I band ?MASK,
+                    CI1 = I - R,
+                    E1 = set_leaf(CI, S, E, C),
+                    C1 = get_leaf(CI1, S, E1, D),
+                    C2 = setelement(1 + R, C1, Value),
+                    A#array{elements = E1, cache = C2, cache_index = CI1}
+            end;
+       Fix ->
+	    erlang:error(badarg);
        true ->
-	    erlang:error(badarg)
+            N1 = I0 + 1,
+            if I < ?SIZE(?extend(S)) ->
+                    R = I band ?MASK,
+                    CI1 = I - R,
+                    if CI1 =/= CI ->
+                            E1 = set_leaf(CI, S, E, C),
+                            C1 = get_leaf(CI1, S, E1, D),
+                            C2 = setelement(1 + R, C1, Value),
+                            A#array{size = N1, elements = E1,
+                                    cache = C2, cache_index = CI1};
+                       true ->
+                            C1 = setelement(1 + R, C, Value),
+                            A#array{size = N1, cache = C1, cache_index = CI1}
+                    end;
+               true ->
+                    R = I band ?MASK,
+                    CI1 = I - R,
+                    {E1,S1} = grow(I, E, S),
+                    E2 = set_leaf(CI, S1, E1, C),
+                    C1 = get_leaf(CI1, S1, E2, D),
+                    C2 = setelement(1 + R, C1, Value),
+                    A#array{size = N1, elements = E2,
+                            cache = C2, cache_index = CI1, bits = S1}
+            end
     end;
 set(_I, _V, _A) ->
     erlang:error(badarg).
 
-%% See get_1/3 for details about switching and the NODEPATTERN macro.
-
-set_1(I, E=?NODEPATTERN(S), X, D) ->
-    I1 = I div S + 1,
-    setelement(I1, E, set_1(I rem S, element(I1, E), X, D));
-set_1(I, E, X, D) when is_integer(E) ->
-    expand(I, E, X, D);
-set_1(I, E, X, _D) ->
-    setelement(I+1, E, X).
-
-
 %% Enlarging the array upwards to accommodate an index `I'
 
-grow(I, E, _M) when is_integer(I), is_integer(E) ->
-    M1 = find_max(I, E),
-    {M1, M1};
-grow(I, E, M) ->
-    grow_1(I, E, M).
+grow(I, ?EMPTY, S) when is_integer(I) ->
+    S1 = find_bits(I, S),
+    {?EMPTY, S1};
+grow(I, E, 0) ->
+    grow_1(I, E, 0);
+grow(I, E, S) ->
+    grow_1(I, E, S).
 
-grow_1(I, E, M) when I >= M ->
-    grow_1(I, setelement(1, ?NEW_NODE(M), E), ?extend(M));
-grow_1(_I, E, M) ->
-    {E, M}.
+grow_1(I, E, S) ->
+    S1 = ?extend(S),
+    if I < ?SIZE(S1) ->
+            {E, S};
+        true ->
+            grow_1(I, setelement(1, ?NEW_NODE(S), E), S1)
+    end.
+
+%% similar to get_1
+get_leaf(_I, _, ?EMPTY, D) ->
+    ?NEW_CACHE(D);
+get_leaf(_I, 0, E, _D) ->
+    E;
+get_leaf(I, S, E, D) ->
+    IDiv = (I bsr S) band ?MASK,
+    get_leaf(I, ?reduce(S), element(IDiv + 1, E), D).
+
+%% similar to set_1()
+set_leaf(_I, 0, _E, C) ->
+    C;
+set_leaf(I, S, ?EMPTY, C) ->
+    set_leaf_1(I, S, C);
+set_leaf(I, S, E, C) when S > 0 ->
+    IDiv = (I bsr S) band ?MASK,
+    I1 = IDiv+1,
+    setelement(I1, E, set_leaf(I, ?reduce(S), element(I1, E), C)).
+
+set_leaf_1(I, S, C) when S > 0 ->
+    IDiv = (I bsr S) band ?MASK,
+    setelement(IDiv+1, ?NEW_NODE(S), set_leaf_1(I, ?reduce(S), C));
+set_leaf_1(_I, _S, C) ->
+    C.
 
 
-%% Insert an element in an unexpanded node, expanding it as necessary.
+-doc """
+Shift the array a number of steps to the left, or to the right if the
+number is negative.
 
-expand(I, S, X, D) when S > ?LEAFSIZE ->
-    S1 = ?reduce(S),
-    setelement(I div S1 + 1, ?NEW_NODE(S1),
-	       expand(I rem S1, S1, X, D));
-expand(I, _S, X, D) ->
-    setelement(I+1, ?NEW_LEAF(D), X).
+Shifting left drops elements from the left side, reducing the array
+size, and shifting right adds space on the left, increasing the array
+size.
+
+The fixed option does not affect the result of shift.
+
+Note: For efficiency, this does not prune the representation, which means
+that a subsequent shift or similar operation can bring back the values that
+were shifted out. Use `resize/2` or `resize/1` if you want to ensure that
+values outside the range get pruned.
+
+## Examples
+
+```erlang
+1> A = array:new(10, [{fixed, true}]).
+2> array:size(A).
+10
+3> array:size(array:shift(-5, A)).
+15
+4> array:size(array:shift(5, A)).
+5
+```
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec shift(Steps :: integer(), Array :: array(Type)) -> array(Type).
+shift(0, A=#array{}) ->
+    A;
+shift(Steps, #array{size = N, zero = Z}=A)
+  when is_integer(Steps), is_integer(N), Steps =< N, is_integer(Z) ->
+    Z1 = Z + Steps,
+    N1 = N - Steps,
+    if Z1 >= 0 ->
+            A#array{size = N1, zero = Z1};
+       true ->
+            #array{cache_index = CI, elements = E, bits = S} = A,
+            {E1, S1, Z2} = grow_left(Z1, E, S),
+            CI1 = CI + (Z2-Z1),
+            A#array{size = N1, zero = Z2, cache_index = CI1, elements = E1, bits = S1}
+    end;
+shift(_Steps, _A) ->
+    erlang:error(badarg).
+
+%% Enlarging the array to the left until the zero point is no longer negative.
+
+grow_left(Z, ?EMPTY, S) ->
+    grow_left_2(Z, S);
+grow_left(Z, E, S) ->
+    grow_left_1(Z, E, S).
+
+grow_left_1(Z, E, S) when Z >= 0 ->
+    {E, S, Z};
+grow_left_1(Z, E, S) ->
+    S1 = ?extend(S),
+    I = ?NODESIZE div 2,
+    grow_left_1(Z + I*?SIZE(S1), setelement(I+1, ?NEW_NODE(S1), E), S1).
+
+grow_left_2(Z, S) when Z >= 0 ->
+    {?EMPTY, S, Z};
+grow_left_2(Z, S) ->
+    S1 = ?extend(S),
+    I = ?NODESIZE div 2,
+    grow_left_2(Z + I*?SIZE(S1), S1).
+
+
+-doc """
+Extract a slice of the array.
+
+This drops elements before `I` as with `shift/2`, and takes the following
+`Length` elements starting from `I`.
+
+If `N` is less than or equal to zero, the resulting array is empty. To extract
+a slice from `Start` to `End` inclusive, use `slice(Start, End-Start+1,
+Array)`.
+
+Note: For efficiency, this does not prune the representation, which means
+that a subsequent shift or similar operation can bring back the values that
+were shifted out. Use `resize/2` or `resize/1` if you want to ensure that
+values outside the range get pruned.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:to_list(array:slice(2,3,A)).
+[2,3,4]
+```
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec slice(I :: array_indx(), Length :: non_neg_integer(), Array :: array(Type)) -> array(Type).
+slice(I, Length, #array{size = N}=A)
+  when is_integer(I), I >= 0, is_integer(N), N >= 0, I + Length =< N ->
+    %% eqwalizer:ignore ambiguous_union
+    A1 = shift(I, A),
+    A1#array{size = Length};
+slice(_I, _N, _A) ->
+    erlang:error(badarg).
+
+
+-doc """
+Append a single value to the right side of the array.
+
+The operation is always allowed even if the array is fixed.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:get(array:size(A), array:append(last, A)).
+last
+```
+
+See also `prepend/2`, `concat/2`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec append(Value :: any(), Array :: array(Type)) -> array(Type).
+append(Value, #array{size = N, zero = Z, cache = C, cache_index = CI,
+                     default = D, elements = E, bits = S}=A)
+  when is_integer(N), is_integer(CI), is_integer(S), is_integer(Z) ->
+    I = N + Z,
+    N1 = N + 1,
+    %% for speed, this is an inlined copy of the growing case from set/3
+    %% since append always allows growing
+    if
+        I < CI + ?LEAFSIZE ->
+            A#array{size = N1, cache = setelement(1 + I - CI, C, Value)};
+        I < ?SIZE(?extend(S)) ->
+            R = I band ?MASK,
+            CI1 = I - R,
+            E1 = set_leaf(CI, S, E, C),
+            C1 = get_leaf(CI1, S, E1, D),
+            C2 = setelement(1 + R, C1, Value),
+            A#array{size = N1, elements = E1,
+                    cache = C2, cache_index = CI1};
+       true ->
+            R = I band ?MASK,
+            CI1 = I - R,
+            {E1,S1} = grow(I, E, S),
+            E2 = set_leaf(CI, S1, E1, C),
+            C1 = get_leaf(CI1, S1, E2, D),
+            C2 = setelement(1 + R, C1, Value),
+            A#array{size = N1, elements = E2,
+                    cache = C2, cache_index = CI1, bits = S1}
+    end;
+append(_V, _A) ->
+    erlang:error(badarg).
+
+
+-doc """
+Prepend a single value to the left side of the array.
+
+The operation is always allowed even if the array is fixed.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:get(0, array:prepend(first, A)).
+first
+```
+
+See also `append/2`, `concat/2`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec prepend(Value :: Type, Array :: array(Type)) -> array(Type).
+prepend(Value, #array{}=A) ->
+    %% eqwalizer:ignore ambiguous_union
+    set(0, Value, shift(-1, A)).
 
 
 -doc """
@@ -687,275 +887,203 @@ larger than the maximum index, the call fails with reason `badarg`.
 If the array does not have fixed size, the default value for any index `I`
 greater than `size(Array)-1` is returned.
 
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:get(4,A).
+4
+3> array:get(10, A).
+undefined
+```
+
 See also `set/3`.
 """.
 -spec get(I :: array_indx(), Array :: array(Type)) -> Value :: Type.
 
-get(I, #array{size = N, max = M, elements = E, default = D})
-  when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
-    if I < N ->
-	    get_1(I, E, D);
-       M > 0 ->
-	    D;
+get(I0, #array{size = N, zero = Z, fix = Fix, cache = C, cache_index = CI,
+               elements = E, default = D, bits = S})
+  when is_integer(I0), I0 >= 0, is_integer(N), is_integer(CI), is_integer(S), is_integer(Z) ->
+    if I0 < N ->
+            I = I0 + Z,
+            if I >= CI, I < CI + ?LEAFSIZE ->
+                    element(1 + I - CI, C);
+               true ->
+                    get_1(I, S, E, D)
+            end;
+       Fix ->
+	    erlang:error(badarg);
        true ->
-	    erlang:error(badarg)
+	    D
     end;
 get(_I, _A) ->
     erlang:error(badarg).
 
-%% The use of NODEPATTERN(S) to select the right clause is just a hack,
-%% but it is the only way to get the maximum speed out of this loop
-%% (using the Beam compiler in OTP 11).
-
-get_1(I, E=?NODEPATTERN(S), D) ->
-    get_1(I rem S, element(I div S + 1, E), D);
-get_1(_I, E, D) when is_integer(E) ->
+get_1(_I, _S, ?EMPTY, D) ->
     D;
-get_1(I, E, _D) ->
-    element(I+1, E).
-
+get_1(I, 0, E, _D) ->
+    element((I band ?MASK)+1, E);
+get_1(I, S, E, D) ->
+    IDiv = (I bsr S) band ?MASK,
+    get_1(I, ?reduce(S), element(IDiv + 1, E), D).
 
 %% TODO: a reset_range function
 
 -doc """
-Resets entry `I` to the default value for the array. If the value of entry `I`
-is the default value, the array is returned unchanged.
+Resets entry `I` to the default value for the array.
+
+If the value of entry `I` is the default value, the array is returned
+unchanged.
 
 Reset never changes the array size. Shrinking can be done explicitly by calling
 `resize/2`.
 
 If `I` is not a non-negative integer, or if the array has fixed size and `I` is
 larger than the maximum index, the call fails with reason `badarg`; compare
-`set/3`
+`set/3`.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,9)).
+2> array:get(5, array:reset(5, A)).
+undefined
+```
 
 See also `new/2`, `set/3`.
 """.
 -spec reset(I :: array_indx(), Array :: array(Type)) -> array(Type).
 
-reset(I, #array{size = N, max = M, default = D, elements = E}=A) 
-    when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
-    if I < N ->
-	    try A#array{elements = reset_1(I, E, D)} 
-	    catch throw:default -> A
+reset(I0, #array{size = N, zero = Z, fix = Fix, cache = C, cache_index = CI,
+                 default = D, elements = E, bits = S}=A)
+  when is_integer(I0), I0 >= 0, is_integer(N), is_integer(CI), is_integer(S), is_integer(Z) ->
+    if I0 < N ->
+            I = I0 + Z,
+            if I >= CI, I < CI + ?LEAFSIZE ->
+                    A#array{cache = setelement(1 + I - CI, C, D)};
+               true ->
+                    try A#array{elements = reset_1(I, S, E, D)}
+                    catch throw:default -> A
+                    end
 	    end;
-       M > 0 ->
-	    A;
+       Fix ->
+	    erlang:error(badarg);
        true ->
-	    erlang:error(badarg)
+	    A
     end;
 reset(_I, _A) ->
     erlang:error(badarg).
 
-reset_1(I, E=?NODEPATTERN(S), D) ->
-    I1 = I div S + 1,
-    setelement(I1, E, reset_1(I rem S, element(I1, E), D));
-reset_1(_I, E, _D) when is_integer(E) ->
+reset_1(_I, _, ?EMPTY, _D) ->
     throw(default);
-reset_1(I, E, D) ->
-    Indx = I+1,
+reset_1(I, 0, E, D) ->
+    Indx = (I band ?MASK)+1,
     case element(Indx, E) of
 	D -> throw(default);
-	_ -> setelement(I+1, E, D)
-    end.
+	_ -> setelement(Indx, E, D)
+    end;
+reset_1(I, S, E, D) ->
+    IDiv = (I bsr S) band ?MASK,
+    I1 = IDiv + 1,
+    setelement(I1, E, reset_1(I, ?reduce(S), element(I1, E), D)).
 
 
--ifdef(EUNIT).
-set_get_test_() ->
-    N0 = ?LEAFSIZE,
-    N1 = ?NODESIZE*N0,
-    [?_assert(array:get(0, new()) =:= undefined),
-     ?_assert(array:get(1, new()) =:= undefined),
-     ?_assert(array:get(99999, new()) =:= undefined),
+-doc """
+Concatenates two arrays.
 
-     ?_assert(array:get(0, new(1)) =:= undefined),
-     ?_assert(array:get(0, new(1,{default,0})) =:= 0),
-     ?_assert(array:get(9, new(10)) =:= undefined),
+Adds the elements of `B` onto `A`.
 
-     ?_assertError(badarg, array:get(0, new(fixed))),
-     ?_assertError(badarg, array:get(1, new(1))),
-     ?_assertError(badarg, array:get(-1, new(1))),
-     ?_assertError(badarg, array:get(10, new(10))),
-     ?_assertError(badarg, array:set(-1, foo, new(10))),
-     ?_assertError(badarg, array:set(10, foo, no_array)),
+## Examples
 
-     ?_assert(array:size(set(0, 17, new())) =:= 1),
-     ?_assert(array:size(set(N1-1, 17, new())) =:= N1),
-     ?_assert(array:size(set(0, 42, set(0, 17, new()))) =:= 1),
-     ?_assert(array:size(set(9, 42, set(0, 17, new()))) =:= 10),
+```erlang
+1> A = array:set(1, a, array:new([{default, xa}, {size,3}, {fixed, true}])).
+2> B = array:set(2, b, array:new([{default, xb}, {size,4}, {fixed, false}])).
+3> AB = array:concat(A,B).
+4> array:to_list(AB).
+[xa,a,xa,xb,xb,b,xb]
+```
 
-     ?_assert(array:get(0, set(0, 17, new())) =:= 17),
-     ?_assert(array:get(0, set(1, 17, new())) =:= undefined),
-     ?_assert(array:get(1, set(1, 17, new())) =:= 17),
+See also `concat/1`, `append/2`, `prepend/2`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec concat(A :: array(Type), B :: array(Type)) -> AB :: array(Type).
 
-     ?_assert(array:get(0, fix(set(0, 17, new()))) =:= 17),
-     ?_assertError(badarg, array:get(1, fix(set(0, 17, new())))),
+concat(#array{size = LeftN, fix = Fix, default = DefA}=Left,
+       #array{size = RightN, default = DefB}=Right) ->
+    if RightN > LeftN, DefA =:= DefB ->
+            %% eqwalizer:ignore ambiguous_union
+            foldr(fun (_I, V, Acc) -> prepend(V, Acc) end, Right#array{fix = Fix}, Left);
+       true ->
+            %% eqwalizer:ignore ambiguous_union
+            foldl(fun (_I, V, Acc) -> append(V, Acc) end, Left, Right)
+    end;
+concat(_, _) ->
+    erlang:error(badarg).
 
-     ?_assert(array:get(N1-2, set(N1-1, 17, new())) =:= undefined),
-     ?_assert(array:get(N1-1, set(N1-1, 17, new())) =:= 17),
-     ?_assertError(badarg, array:get(N1, fix(set(N1-1, 17, new())))),
+-doc """
+Concatenates a nonempty list of arrays.
 
-     ?_assert(array:get(0, set(0, 42, set(0, 17, new()))) =:= 42),
+## Examples
 
-     ?_assertError(badarg, array:get(0, reset(11, new([{size,10}])))),
-     ?_assertError(badarg, array:get(0, reset(-1, new([{size,10}])))),
-     ?_assert(array:get(0, reset(0,  new())) =:= undefined),
-     ?_assert(array:get(0, reset(0,  set(0,  17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(9,  set(9,  17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(11, set(11, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(11, set(12, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(1,  set(12, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(11, new())) =:= undefined),
-     ?_assert(array:get(0, reset(0,  set(0,  17, new({default,42})))) =:= 42),
-     ?_assert(array:get(0, reset(0,  new({default,42}))) =:= 42)
-    ].
--endif.
+```erlang
+1> A = array:from_list([a]).
+2> B = array:from_list([b]).
+3> array:to_list(array:concat([A,B])).
+[a,b]
+```
+
+See also `concat/2`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec concat(Arrays :: [array(Type)]) -> array(Type).
+
+concat([A0|As]) ->
+    %% eqwalizer:ignore ambiguous_union
+    lists:foldl(fun (A, Acc) -> concat(Acc, A) end, A0, As);
+concat(_) ->
+    erlang:error(badarg).
 
 
 -doc """
 Converts the array to a list.
 
-See also `from_list/2`, `sparse_to_list/1`.
+## Examples
+
+```erlang
+1> A = array:set(2, x, array:new()).
+2> array:to_list(A).
+[undefined,undefined,x]
+```
+
+See also `from_list/2`, `sparse_to_list/1` and `to_orddict/1`.
 """.
 -spec to_list(Array :: array(Type)) -> list(Value :: Type).
 
-to_list(#array{size = 0}) ->
-    [];
-to_list(#array{size = N, elements = E, default = D}) when is_integer(N) ->
-    to_list_1(E, D, N - 1);
-to_list(_) ->
-    erlang:error(badarg).
-
-%% this part handles the rightmost subtrees
-
-to_list_1(E=?NODEPATTERN(S), D, I) ->
-    N = I div S,
-    to_list_3(N, D, to_list_1(element(N+1, E), D, I rem S), E);
-to_list_1(E, D, I) when is_integer(E) ->
-    push(I+1, D, []);
-to_list_1(E, _D, I) ->
-    push_tuple(I+1, E, []).
-
-%% this part handles full trees only
-
-to_list_2(E=?NODEPATTERN(_S), D, L) ->
-    to_list_3(?NODESIZE, D, L, E);
-to_list_2(E, D, L) when is_integer(E) ->
-    push(E, D, L);
-to_list_2(E, _D, L) ->
-    push_tuple(?LEAFSIZE, E, L).
-
-to_list_3(0, _D, L, _E) ->
-    L;
-to_list_3(N, D, L, E) ->
-    to_list_3(N-1, D, to_list_2(element(N, E), D, L), E).
-
-push(0, _E, L) ->
-    L;
-push(N, E, L) ->
-    push(N - 1, E, [E | L]).
-
-push_tuple(0, _T, L) ->
-    L;
-push_tuple(N, T, L) ->
-    push_tuple(N - 1, T, [element(N, T) | L]).
-
-
--ifdef(EUNIT).
-to_list_test_() ->
-    N0 = ?LEAFSIZE,
-    [?_assert([] =:= to_list(new())),
-     ?_assert([undefined] =:= to_list(new(1))),
-     ?_assert([undefined,undefined] =:= to_list(new(2))),
-     ?_assert(lists:duplicate(N0,0) =:= to_list(new(N0,{default,0}))),
-     ?_assert(lists:duplicate(N0+1,1) =:= to_list(new(N0+1,{default,1}))),
-     ?_assert(lists:duplicate(N0+2,2) =:= to_list(new(N0+2,{default,2}))),
-     ?_assert(lists:duplicate(666,6) =:= to_list(new(666,{default,6}))),
-     ?_assert([1,2,3] =:= to_list(set(2,3,set(1,2,set(0,1,new()))))),
-     ?_assert([3,2,1] =:= to_list(set(0,3,set(1,2,set(2,1,new()))))),
-     ?_assert([1|lists:duplicate(N0-2,0)++[1]] =:= 
-	      to_list(set(N0-1,1,set(0,1,new({default,0}))))),
-     ?_assert([1|lists:duplicate(N0-1,0)++[1]] =:= 
-	      to_list(set(N0,1,set(0,1,new({default,0}))))),
-     ?_assert([1|lists:duplicate(N0,0)++[1]] =:= 
-	      to_list(set(N0+1,1,set(0,1,new({default,0}))))),
-     ?_assert([1|lists:duplicate(N0*3,0)++[1]] =:= 
-	      to_list(set((N0*3)+1,1,set(0,1,new({default,0}))))),
-     ?_assertError(badarg, to_list(no_array))
-    ].
--endif.
-
+to_list(Array) ->
+    %% eqwalizer:ignore ambiguous_union
+    foldr(fun (_I, V, A) -> [V|A] end, [], Array).
 
 -doc """
 Converts the array to a list, skipping default-valued entries.
 
-See also `to_list/1`.
+## Examples
+
+```erlang
+1> A = array:set(2, x, array:new()).
+2> array:to_list(A).
+[undefined,undefined,x]
+3> array:sparse_to_list(A).
+[x]
+```
+
+See also `to_list/1`  and `to_orddict/1`.
 """.
 -spec sparse_to_list(Array :: array(Type)) -> list(Value :: Type).
 
-sparse_to_list(#array{size = 0}) ->
-    [];
-sparse_to_list(#array{size = N, elements = E, default = D}) when is_integer(N) ->
-    sparse_to_list_1(E, D, N - 1);
-sparse_to_list(_) ->
-    erlang:error(badarg).
+sparse_to_list(Array) ->
+    %% eqwalizer:ignore ambiguous_union
+    sparse_foldr(fun (_I, V, A) -> [V|A] end, [], Array).
 
-%% see to_list/1 for details
-
-sparse_to_list_1(E=?NODEPATTERN(S), D, I) ->
-    N = I div S,
-    sparse_to_list_3(N, D,
-		     sparse_to_list_1(element(N+1, E), D, I rem S),
-		     E);
-sparse_to_list_1(E, _D, _I) when is_integer(E) ->
-    [];
-sparse_to_list_1(E, D, I) ->
-    sparse_push_tuple(I+1, D, E, []).
-
-sparse_to_list_2(E=?NODEPATTERN(_S), D, L) ->
-    sparse_to_list_3(?NODESIZE, D, L, E);
-sparse_to_list_2(E, _D, L) when is_integer(E) ->
-    L;
-sparse_to_list_2(E, D, L) ->
-    sparse_push_tuple(?LEAFSIZE, D, E, L).
-
-sparse_to_list_3(0, _D, L, _E) ->
-    L;
-sparse_to_list_3(N, D, L, E) ->
-    sparse_to_list_3(N-1, D, sparse_to_list_2(element(N, E), D, L), E).
-
-sparse_push_tuple(0, _D, _T, L) ->
-    L;
-sparse_push_tuple(N, D, T, L) ->
-    case element(N, T) of
-	D -> sparse_push_tuple(N - 1, D, T, L);
-	E -> sparse_push_tuple(N - 1, D, T, [E | L])
-    end.
-
-
--ifdef(EUNIT).
-sparse_to_list_test_() ->
-    N0 = ?LEAFSIZE,
-    [?_assert([] =:= sparse_to_list(new())),
-     ?_assert([] =:= sparse_to_list(new(1))),
-     ?_assert([] =:= sparse_to_list(new(1,{default,0}))),
-     ?_assert([] =:= sparse_to_list(new(2))),
-     ?_assert([] =:= sparse_to_list(new(2,{default,0}))),
-     ?_assert([] =:= sparse_to_list(new(N0,{default,0}))),
-     ?_assert([] =:= sparse_to_list(new(N0+1,{default,1}))),
-     ?_assert([] =:= sparse_to_list(new(N0+2,{default,2}))),
-     ?_assert([] =:= sparse_to_list(new(666,{default,6}))),
-     ?_assert([1,2,3] =:= sparse_to_list(set(2,3,set(1,2,set(0,1,new()))))),
-     ?_assert([3,2,1] =:= sparse_to_list(set(0,3,set(1,2,set(2,1,new()))))),
-     ?_assert([0,1] =:= sparse_to_list(set(N0-1,1,set(0,0,new())))),
-     ?_assert([0,1] =:= sparse_to_list(set(N0,1,set(0,0,new())))),
-     ?_assert([0,1] =:= sparse_to_list(set(N0+1,1,set(0,0,new())))),
-     ?_assert([0,1,2] =:= sparse_to_list(set(N0*10+1,2,set(N0*2+1,1,set(0,0,new()))))),
-     ?_assertError(badarg, sparse_to_list(no_array))
-    ].
--endif.
-
-
-%% @equiv from_list(List, undefined)
 
 -doc "Equivalent to [`from_list(List, undefined)`](`from_list/2`).".
 -spec from_list(List :: list(Value :: Type)) -> array(Type).
@@ -964,10 +1092,22 @@ from_list(List) ->
     from_list(List, undefined).
 
 -doc """
-Converts a list to an extendible array. `Default` is used as the value for
-uninitialized entries of the array.
+Converts a list to an extendible array.
+
+`Default` is used as the value for uninitialized entries of the array.
 
 If `List` is not a proper list, the call fails with reason `badarg`.
+
+Note: Use `fix/1` on the resulting array if you want to prevent accesses
+outside the size range.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,2), default).
+2> array:to_list(array:reset(1, A)).
+[0,default,2]
+```
 
 See also `new/2`, `to_list/1`.
 """.
@@ -976,8 +1116,12 @@ See also `new/2`, `to_list/1`.
 from_list([], Default) ->
     new({default,Default});
 from_list(List, Default) when is_list(List) ->
-    {E, N, M} = from_list_1(?LEAFSIZE, List, Default, 0, [], []),
-    #array{size = N, max = M, default = Default, elements = E};
+    {E, N, S0} = from_list_1(?LEAFSIZE, List, Default, 0, [], []),
+    CI = 0,
+    S = ?reduce(S0),
+    C = get_leaf(CI, S, E, Default),
+    #array{size = N, zero = 0, fix = false, cache = C, cache_index = CI,
+           default = Default, elements = E, bits = S};
 from_list(_, _) ->
     erlang:error(badarg).
 
@@ -994,9 +1138,9 @@ from_list_1(0, Xs, D, N, As, Es) ->
 	[] ->
 	    case Es of
 		[] ->
-		    {E, N, ?LEAFSIZE};
+		    {E, N, ?SHIFT};
 		_ ->
-		    from_list_2_0(N, [E | Es], ?LEAFSIZE)
+		    from_list_2_0(N, [E | Es], ?SHIFT)
 	    end;
 	[_|_] ->
 	    from_list_1(?LEAFSIZE, Xs, D, N, [], [E | Es]);
@@ -1013,8 +1157,8 @@ from_list_1(I, Xs, D, N, As, Es) ->
 
 %% Building the internal nodes (note that the input is reversed).
 from_list_2_0(N, Es, S) ->
-    from_list_2(?NODESIZE, pad((N-1) div S + 1, ?NODESIZE, S, Es),
-		S, N, [S], []).
+    from_list_2(?NODESIZE, pad(((N-1) bsr S) + 1, ?NODESIZE, ?EMPTY, Es),
+		S, N, [], []).
 
 from_list_2(0, Xs, S, N, As, Es) ->
     E = list_to_tuple(As),
@@ -1028,7 +1172,7 @@ from_list_2(0, Xs, S, N, As, Es) ->
 				  ?extend(S))
 	    end;
 	_ ->
-	    from_list_2(?NODESIZE, Xs, S, N, [S], [E | Es])
+	    from_list_2(?NODESIZE, Xs, S, N, [], [E | Es])
     end;
 from_list_2(I, [X | Xs], S, N, As, Es) ->
     from_list_2(I-1, Xs, S, N, [X | As], Es).
@@ -1037,32 +1181,12 @@ from_list_2(I, [X | Xs], S, N, As, Es) ->
 %% left-padding a list Es with elements P to the nearest multiple of K
 %% elements from N (adding 0 to K-1 elements).
 pad(N, K, P, Es) ->
-    push((K - (N rem K)) rem K, P, Es).
+    push_n((K - (N rem K)) rem K, P, Es).
 
-
--ifdef(EUNIT).
-from_list_test_() ->
-    N0 = ?LEAFSIZE,
-    N1 = ?NODESIZE*N0,
-    N2 = ?NODESIZE*N1,
-    N3 = ?NODESIZE*N2,
-    N4 = ?NODESIZE*N3,
-    [?_assert(array:size(from_list([])) =:= 0),
-     ?_assert(array:is_fix(from_list([])) =:= false),
-     ?_assert(array:size(from_list([undefined])) =:= 1),
-     ?_assert(array:is_fix(from_list([undefined])) =:= false),
-     ?_assert(array:size(from_list(lists:seq(1,N1))) =:= N1),
-     ?_assert(to_list(from_list(lists:seq(1,N0))) =:= lists:seq(1,N0)),
-     ?_assert(to_list(from_list(lists:seq(1,N0+1))) =:= lists:seq(1,N0+1)),
-     ?_assert(to_list(from_list(lists:seq(1,N0+2))) =:= lists:seq(1,N0+2)),
-     ?_assert(to_list(from_list(lists:seq(1,N2))) =:= lists:seq(1,N2)),
-     ?_assert(to_list(from_list(lists:seq(1,N2+1))) =:= lists:seq(1,N2+1)),
-     ?_assert(to_list(from_list(lists:seq(0,N3))) =:= lists:seq(0,N3)),
-     ?_assert(to_list(from_list(lists:seq(0,N4))) =:= lists:seq(0,N4)),
-     ?_assertError(badarg, from_list([a,b,a,c|d])),
-     ?_assertError(badarg, from_list(no_array))     
-    ].
--endif.
+push_n(0, _E, L) ->
+    L;
+push_n(N, E, L) ->
+    push_n(N - 1, E, [E | L]).
 
 
 -doc "Equivalent to [`from(Fun, State, undefined)`](`from/3`).".
@@ -1081,6 +1205,9 @@ The 'Function(State)' shall return `{Value, NewState}` or `done`, and is invoked
 until `done` is returned, otherwise the call fails with reason `badarg`.
 
 `Default` is used as the value for uninitialized entries of the array.
+
+Note: Use `fix/1` on the resulting array if you want to prevent accesses
+outside the size range.
 
 ## Examples
 
@@ -1111,13 +1238,16 @@ See also `new/2`, `from_list/1`, `foldl/3`.
 -spec from(Function, State :: term(), Default :: term()) -> array(Type) when
       Function :: fun((State0 :: term()) -> {Type, State1 :: term()} | done).
 
-from(Fun, S0, Default) when is_function(Fun, 1) ->
-    VS = Fun(S0),
-    {E, N, M} = from_fun_1(?LEAFSIZE, Default, Fun, VS, 0, [], []),
-    #array{size = N, max = M, default = Default, elements = E};
+from(Fun, St0, Default) when is_function(Fun, 1) ->
+    VS = Fun(St0),
+    {E, N, S0} = from_fun_1(?LEAFSIZE, Default, Fun, VS, 0, [], []),
+    CI = 0,
+    S = ?reduce(S0),
+    C = get_leaf(CI, S, E, Default),
+    #array{size = N, zero = 0, fix = false, cache = C, cache_index = CI,
+           default = Default, elements = E, bits = S};
 from(_, _, _) ->
     error(badarg).
-
 
 from_fun_1(0, D, Fun, VS, N, As, Es) ->
     E = list_to_tuple(lists:reverse(As)),
@@ -1125,9 +1255,9 @@ from_fun_1(0, D, Fun, VS, N, As, Es) ->
 	done ->
 	    case Es of
 		[] ->
-		    {E, N, ?LEAFSIZE};
+		    {E, N, ?SHIFT};
 		_ ->
-		    from_list_2_0(N, [E | Es], ?LEAFSIZE)
+		    from_list_2_0(N, [E | Es], ?SHIFT)
 	    end;
 	_ ->
 	    from_fun_1(?LEAFSIZE, D, Fun, VS, N, [], [E | Es])
@@ -1143,178 +1273,44 @@ from_fun_1(_I, _D, _Fun, _VS, _N, _As, _Es) ->
 -doc """
 Converts the array to an ordered list of pairs `{Index, Value}`.
 
-See also `from_orddict/2`, `sparse_to_orddict/1`.
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,2), default).
+2> array:to_orddict(array:reset(1, A)).
+[{0,0},{1,default},{2,2}]
+```
+
+See also `from_orddict/2`, `sparse_to_orddict/1` and `to_list/1`.
 """.
 -spec to_orddict(Array :: array(Type)) -> indx_pairs(Value :: Type).
 
-to_orddict(#array{size = 0}) ->
-    [];
-to_orddict(#array{size = N, elements = E, default = D}) when is_integer(N) ->
-    I = N - 1,
-    to_orddict_1(E, I, D, I);
-to_orddict(_) ->
-    erlang:error(badarg).
-
-%% see to_list/1 for comparison
-
-to_orddict_1(E=?NODEPATTERN(S), R, D, I) ->
-    N = I div S,
-    I1 = I rem S,
-    to_orddict_3(N, R - I1 - 1, D,
- 		 to_orddict_1(element(N+1, E), R, D, I1),
- 		 E, S);
-to_orddict_1(E, R, D, I) when is_integer(E) ->
-    push_pairs(I+1, R, D, []);
-to_orddict_1(E, R, _D, I) ->
-    push_tuple_pairs(I+1, R, E, []).
-
-to_orddict_2(E=?NODEPATTERN(S), R, D, L) when is_integer(S) ->
-    to_orddict_3(?NODESIZE, R, D, L, E, S);
-to_orddict_2(E, R, D, L) when is_integer(E) ->
-    push_pairs(E, R, D, L);
-to_orddict_2(E, R, _D, L) ->
-    push_tuple_pairs(?LEAFSIZE, R, E, L).
-
-to_orddict_3(0, _R, _D, L, _E, _S) -> %% when is_integer(R) ->
-    L;
-to_orddict_3(N, R, D, L, E, S) ->
-    to_orddict_3(N-1, R - S, D,
- 		 to_orddict_2(element(N, E), R, D, L),
- 		 E, S).
-
--spec push_pairs(non_neg_integer(), array_indx(), term(), indx_pairs(Type)) ->
-	  indx_pairs(Type).
-
-push_pairs(0, _I, _E, L) ->
-    L;
-push_pairs(N, I, E, L) ->
-    push_pairs(N-1, I-1, E, [{I, E} | L]).
-
--spec push_tuple_pairs(non_neg_integer(), array_indx(), term(), indx_pairs(Type)) ->
-	  indx_pairs(Type).
-
-push_tuple_pairs(0, _I, _T, L) ->
-    L;
-push_tuple_pairs(N, I, T, L) ->
-    push_tuple_pairs(N-1, I-1, T, [{I, element(N, T)} | L]).
-
-
--ifdef(EUNIT).
-to_orddict_test_() ->
-    N0 = ?LEAFSIZE,
-    [?_assert([] =:= to_orddict(new())),
-     ?_assert([{0,undefined}] =:= to_orddict(new(1))),
-     ?_assert([{0,undefined},{1,undefined}] =:= to_orddict(new(2))),
-     ?_assert([{N,0}||N<-lists:seq(0,N0-1)]
-	      =:= to_orddict(new(N0,{default,0}))),
-     ?_assert([{N,1}||N<-lists:seq(0,N0)]
-	      =:= to_orddict(new(N0+1,{default,1}))),
-     ?_assert([{N,2}||N<-lists:seq(0,N0+1)]
-	      =:= to_orddict(new(N0+2,{default,2}))),
-     ?_assert([{N,6}||N<-lists:seq(0,665)]
-	      =:= to_orddict(new(666,{default,6}))),
-     ?_assert([{0,1},{1,2},{2,3}] =:=
-	      to_orddict(set(2,3,set(1,2,set(0,1,new()))))),
-     ?_assert([{0,3},{1,2},{2,1}] =:=
-	      to_orddict(set(0,3,set(1,2,set(2,1,new()))))),
-     ?_assert([{0,1}|[{N,0}||N<-lists:seq(1,N0-2)]++[{N0-1,1}]]
-	      =:= to_orddict(set(N0-1,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,1}|[{N,0}||N<-lists:seq(1,N0-1)]++[{N0,1}]]
-	      =:= to_orddict(set(N0,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,1}|[{N,0}||N<-lists:seq(1,N0)]++[{N0+1,1}]]
-	      =:= to_orddict(set(N0+1,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,0} | [{N,undefined}||N<-lists:seq(1,N0*2)]] ++ 
-	      [{N0*2+1,1} | [{N,undefined}||N<-lists:seq(N0*2+2,N0*10)]] ++
-	      [{N0*10+1,2}] =:= 
-	      to_orddict(set(N0*10+1,2,set(N0*2+1,1,set(0,0,new()))))),
-     ?_assertError(badarg, to_orddict(no_array))     
-    ].
--endif.
+to_orddict(Array) ->
+    %% eqwalizer:ignore ambiguous_union
+    foldr(fun (I, V, A) -> [{I,V}|A] end, [], Array).
 
 
 -doc """
 Converts the array to an ordered list of pairs `{Index, Value}`, skipping
 default-valued entries.
 
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,2), default).
+2> array:to_orddict(array:reset(1, A)).
+[{0,0},{1,default},{2,2}]
+3> array:sparse_to_orddict(array:reset(1, A)).
+[{0,0},{2,2}]
+```
+
 See also `to_orddict/1`.
 """.
 -spec sparse_to_orddict(Array :: array(Type)) -> indx_pairs(Value :: Type).
 
-sparse_to_orddict(#array{size = 0}) ->
-    [];
-sparse_to_orddict(#array{size = N, elements = E, default = D})
-  when is_integer(N) ->
-    I = N - 1,
-    sparse_to_orddict_1(E, I, D, I);
-sparse_to_orddict(_) ->
-    erlang:error(badarg).
-
-%% see to_orddict/1 for details
-
-sparse_to_orddict_1(E=?NODEPATTERN(S), R, D, I) ->
-    N = I div S,
-    I1 = I rem S,
-    sparse_to_orddict_3(N, R - I1 - 1, D,
- 		 sparse_to_orddict_1(element(N+1, E), R, D, I1),
- 		 E, S);
-sparse_to_orddict_1(E, _R, _D, _I) when is_integer(E) ->
-    [];
-sparse_to_orddict_1(E, R, D, I) ->
-    sparse_push_tuple_pairs(I+1, R, D, E, []).
-
-sparse_to_orddict_2(E=?NODEPATTERN(S), R, D, L) when is_integer(S) ->
-    sparse_to_orddict_3(?NODESIZE, R, D, L, E, S);
-sparse_to_orddict_2(E, _R, _D, L) when is_integer(E) ->
-    L;
-sparse_to_orddict_2(E, R, D, L) ->
-    sparse_push_tuple_pairs(?LEAFSIZE, R, D, E, L).
-
-sparse_to_orddict_3(0, _R, _D, L, _E, _S) -> % when is_integer(R) ->
-    L;
-sparse_to_orddict_3(N, R, D, L, E, S) ->
-    sparse_to_orddict_3(N-1, R - S, D,
- 		 sparse_to_orddict_2(element(N, E), R, D, L),
- 		 E, S).
-
--spec sparse_push_tuple_pairs(non_neg_integer(), array_indx(),
-			      _, _, indx_pairs(Type)) -> indx_pairs(Type).
-
-sparse_push_tuple_pairs(0, _I, _D, _T, L) ->
-    L;
-sparse_push_tuple_pairs(N, I, D, T, L) ->
-    case element(N, T) of
-	D -> sparse_push_tuple_pairs(N-1, I-1, D, T, L);
-	E -> sparse_push_tuple_pairs(N-1, I-1, D, T, [{I, E} | L])
-    end.
-
-
--ifdef(EUNIT).
-sparse_to_orddict_test_() ->
-    N0 = ?LEAFSIZE,
-    [?_assert([] =:= sparse_to_orddict(new())),
-     ?_assert([] =:= sparse_to_orddict(new(1))),
-     ?_assert([] =:= sparse_to_orddict(new(1,{default,0}))),
-     ?_assert([] =:= sparse_to_orddict(new(2))),
-     ?_assert([] =:= sparse_to_orddict(new(2,{default,0}))),
-     ?_assert([] =:= sparse_to_orddict(new(N0,{default,0}))),
-     ?_assert([] =:= sparse_to_orddict(new(N0+1,{default,1}))),
-     ?_assert([] =:= sparse_to_orddict(new(N0+2,{default,2}))),
-     ?_assert([] =:= sparse_to_orddict(new(666,{default,6}))),
-     ?_assert([{0,1},{1,2},{2,3}] =:=
-	      sparse_to_orddict(set(2,3,set(1,2,set(0,1,new()))))),
-     ?_assert([{0,3},{1,2},{2,1}] =:=
-	      sparse_to_orddict(set(0,3,set(1,2,set(2,1,new()))))),
-     ?_assert([{0,1},{N0-1,1}] =:=
-	      sparse_to_orddict(set(N0-1,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,1},{N0,1}] =:=
-	      sparse_to_orddict(set(N0,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,1},{N0+1,1}] =:=
-	      sparse_to_orddict(set(N0+1,1,set(0,1,new({default,0}))))),
-     ?_assert([{0,0},{N0*2+1,1},{N0*10+1,2}] =:= 
-	      sparse_to_orddict(set(N0*10+1,2,set(N0*2+1,1,set(0,0,new()))))),
-     ?_assertError(badarg, sparse_to_orddict(no_array))     
-    ].
--endif.
+sparse_to_orddict(Array) ->
+    %% eqwalizer:ignore ambiguous_union
+    sparse_foldr(fun (I, V, A) -> [{I,V}|A] end, [], Array).
 
 
 -doc "Equivalent to [`from_orddict(Orddict, undefined)`](`from_orddict/2`).".
@@ -1325,52 +1321,69 @@ from_orddict(Orddict) ->
 
 -doc """
 Converts an ordered list of pairs `{Index, Value}` to a corresponding extendible
-array. `Default` is used as the value for uninitialized entries of the array.
+array.
+
+`Default` is used as the value for uninitialized entries of the array.
 
 If `Orddict` is not a proper, ordered list of pairs whose first elements are
 non-negative integers, the call fails with reason `badarg`.
 
+Note: Use `fix/1` on the resulting array if you want to prevent accesses
+outside the size range.
+
+## Examples
+
+```erlang
+1> A = array:from_orddict([{K,V} || K <:- lists:seq(2,4) && V <- [v1,v2,v3]], vx).
+2> array:to_orddict(A).
+[{0,vx},{1,vx},{2,v1},{3,v2},{4,v3}]
+```
+
 See also `new/2`, `to_orddict/1`.
 """.
--spec from_orddict(Orddict :: indx_pairs(Value :: Type), Default :: Type) ->
+-spec from_orddict(Orddict :: indx_pairs(Value :: Type), Default :: dynamic()) ->
                           array(Type).
 
 from_orddict([], Default) ->
     new({default,Default});
 from_orddict(List, Default) when is_list(List) ->
-    {E, N, M} = from_orddict_0(List, 0, ?LEAFSIZE, Default, []),
-    #array{size = N, max = M, default = Default, elements = E};
+    {E, N, S0} = from_orddict_0(List, 0, ?LEAFSIZE, Default, []),
+    CI = 0,
+    S = ?reduce(S0),
+    C = get_leaf(CI, S, E, Default),
+    #array{size = N, zero = 0, fix = false, cache = C, cache_index = CI,
+           default = Default, elements = E, bits = S};
 from_orddict(_, _) ->
     erlang:error(badarg).
 
 %% 2 pass implementation, first pass builds the needed leaf nodes
 %% and adds hole sizes.
-%% (inserts default elements for missing list entries in the leafs 
+%% (inserts default elements for missing list entries in the leafs
 %%  and pads the last tuple if necessary).
 %% Second pass builds the tree from the leafs and the holes.
 %%
 %% Doesn't build/expand unnecessary leaf nodes which costs memory
 %% and time for sparse arrays.
 
-from_orddict_0([], N, _Max, _D, Es) ->
+from_orddict_0([], N, _Bits, _D, Es) ->
     %% Finished, build the resulting tree
     case Es of
-	[E] -> 
-	    {E, N, ?LEAFSIZE};
-	_ -> 
-	    collect_leafs(N, Es, ?LEAFSIZE)
+	[E] ->
+	    {E, N, ?SHIFT};
+	_ ->
+	    collect_leafs(N, Es, ?SHIFT)
     end;
 
-from_orddict_0(Xs=[{Ix1, _}|_], Ix, Max0, D, Es0) 
-  when is_integer(Ix1), Ix1 > Max0  ->
+from_orddict_0(Xs=[{Ix1, _}|_], Ix, S0, D, Es0)
+  when is_integer(Ix1), Ix1 > S0  ->
     %% We have a hole larger than a leaf
     Hole = Ix1-Ix,
-    Step = Hole - (Hole rem ?LEAFSIZE),
+    Step = Hole - (Hole band ?MASK),
     Next = Ix+Step,
     from_orddict_0(Xs, Next, Next+?LEAFSIZE, D, [Step|Es0]);
-from_orddict_0(Xs0=[{_, _}|_], Ix0, Max, D, Es) ->
-    %% Fill a leaf 
-    {Xs,E,Ix} = from_orddict_1(Ix0, Max, Xs0, Ix0, D, []),
+from_orddict_0(Xs0=[{_, _}|_], Ix0, S, D, Es) ->
+    %% Fill a leaf
+    {Xs,E,Ix} = from_orddict_1(Ix0, S, Xs0, Ix0, D, []),
     from_orddict_0(Xs, Ix, Ix+?LEAFSIZE, D, [E|Es]);
 from_orddict_0(Xs, _, _, _,_) ->
     erlang:error({badarg, Xs}).
@@ -1379,29 +1392,29 @@ from_orddict_1(Ix, Ix, Xs, N, _D, As) ->
     %% Leaf is full
     E = list_to_tuple(lists:reverse(As)),
     {Xs, E, N};
-from_orddict_1(Ix, Max, Xs, N0, D, As) ->
+from_orddict_1(Ix, S, Xs, N0, D, As) ->
     case Xs of
 	[{Ix, Val} | Xs1] ->
 	    N = Ix+1,
-	    from_orddict_1(N, Max, Xs1, N, D, [Val | As]);
+	    from_orddict_1(N, S, Xs1, N, D, [Val | As]);
 	[{Ix1, _} | _] when is_integer(Ix1), Ix1 > Ix ->
 	    N = Ix+1,
-	    from_orddict_1(N, Max, Xs, N, D, [D | As]);
+	    from_orddict_1(N, S, Xs, N, D, [D | As]);
 	[_ | _] ->
 	    erlang:error({badarg, Xs});
 	_ ->
-	    from_orddict_1(Ix+1, Max, Xs, N0, D, [D | As])
+	    from_orddict_1(Ix+1, S, Xs, N0, D, [D | As])
     end.
 
 %% Es is reversed i.e. starting from the largest leafs
-collect_leafs(N, Es, S) -> 
-    I = (N-1) div S + 1,
-    Pad = ((?NODESIZE - (I rem ?NODESIZE)) rem ?NODESIZE) * S,
+collect_leafs(N, Es, S) ->
+    I = ((N-1) bsr S) + 1,
+    Pad = ((?NODESIZE - (I rem ?NODESIZE)) rem ?NODESIZE) * ?SIZE(S),
     case Pad of
-	0 -> 
-	    collect_leafs(?NODESIZE, Es, S, N, [S], []);
+	0 ->
+	    collect_leafs(?NODESIZE, Es, S, N, [], []);
 	_ ->  %% Pad the end
-	    collect_leafs(?NODESIZE, [Pad|Es], S, N, [S], [])
+	    collect_leafs(?NODESIZE, [Pad|Es], S, N, [], [])
     end.
 
 collect_leafs(0, Xs, S, N, As, Es) ->
@@ -1416,583 +1429,425 @@ collect_leafs(0, Xs, S, N, As, Es) ->
 			       ?extend(S))
 	    end;
 	_ ->
-	    collect_leafs(?NODESIZE, Xs, S, N, [S], [E | Es])		
+	    collect_leafs(?NODESIZE, Xs, S, N, [], [E | Es])
     end;
-collect_leafs(I, [X | Xs], S, N, As0, Es0) 
+collect_leafs(I, [X | Xs], S, N, As0, Es0)
   when is_integer(X) ->
     %% A hole, pad accordingly.
-    Step0 = (X div S),
-    if 
+    Step0 = (X bsr S),
+    if
 	Step0 < I ->
-	    As = push(Step0, S, As0),
+	    As = push_n(Step0, ?EMPTY, As0),
 	    collect_leafs(I-Step0, Xs, S, N, As, Es0);
 	I =:= ?NODESIZE ->
 	    Step = Step0 rem ?NODESIZE,
-	    As = push(Step, S, As0),
+	    As = push_n(Step, ?EMPTY, As0),
 	    collect_leafs(I-Step, Xs, S, N, As, [X|Es0]);
 	I =:= Step0 ->
-	    As = push(I, S, As0),
+	    As = push_n(I, ?EMPTY, As0),
 	    collect_leafs(0, Xs, S, N, As, Es0);
 	true ->
-	    As = push(I, S, As0),
+	    As = push_n(I, ?EMPTY, As0),
 	    Step = Step0 - I,
-	    collect_leafs(0, [Step*S|Xs], S, N, As, Es0)
+	    collect_leafs(0, [Step bsl S|Xs], S, N, As, Es0)
     end;
 collect_leafs(I, [X | Xs], S, N, As, Es) ->
     collect_leafs(I-1, Xs, S, N, [X | As], Es);
-collect_leafs(?NODESIZE, [], S, N, [_], Es) ->
+collect_leafs(?NODESIZE, [], S, N, [], Es) ->
     collect_leafs(N, lists:reverse(Es), ?extend(S)).
-
--ifdef(EUNIT).
-from_orddict_test_() ->
-    N0 = ?LEAFSIZE,
-    N1 = ?NODESIZE*N0,
-    N2 = ?NODESIZE*N1,
-    N3 = ?NODESIZE*N2,
-    N4 = ?NODESIZE*N3,
-    [?_assert(array:size(from_orddict([])) =:= 0),
-     ?_assert(array:is_fix(from_orddict([])) =:= false),
-     ?_assert(array:size(from_orddict([{0,undefined}])) =:= 1),
-     ?_assert(array:is_fix(from_orddict([{0,undefined}])) =:= false),
-     ?_assert(array:size(from_orddict([{N0-1,undefined}])) =:= N0),
-     ?_assert(array:size(from_orddict([{N,0}||N<-lists:seq(0,N1-1)]))
-	      =:= N1),
-     ?_assertError({badarg,_}, from_orddict([foo])),
-     ?_assertError({badarg,_}, from_orddict([{200,foo},{1,bar}])),
-     ?_assertError({badarg,_}, from_orddict([{N,0}||N<-lists:seq(0,N0-1)] ++ not_a_list)),
-     ?_assertError(badarg, from_orddict(no_array)),
-
-
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N0-1)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N0)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N2-1)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N2)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N3-1)],
-		   L =:= to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N,0}||N<-lists:seq(0,N4-1)],
-		   L =:= to_orddict(from_orddict(L)))),
-
-     %% Hole in the begining
-     ?_assert(?LET(L, [{0,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N0,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N3,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N4,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N0-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N1-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N3-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{N4-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-
-     %% Hole in middle 
-     
-     ?_assert(?LET(L, [{0,0},{N0,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N3,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N4,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N0-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N1-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N3-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L)))),
-     ?_assert(?LET(L, [{0,0},{N4-1,0}],
-		   L =:= sparse_to_orddict(from_orddict(L))))
-     
-    ].
--endif.
-
 
 %%    Function = (Index::integer(), Value::term()) -> term()
 
 -doc """
-Maps the specified function onto each array element. The elements are visited in
-order from the lowest index to the highest.
+Maps the specified function onto each array element.
+
+The elements are visited in order from the lowest index to the
+highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
-See also `foldl/3`, `foldr/3`, `sparse_map/2`.
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,3)).
+2> B = array:map(fun(K, V) -> K*V end, A).
+3> array:to_orddict(B).
+[{0,0},{1,1},{2,4},{3,9}]
+```
+
+See also `mapfoldl/3`, `sparse_map/2`.
 """.
--spec map(Function, Array :: array(Type1)) -> array(Type2) when
+-spec map(Function, Array :: array(Type1)) -> array(Type1 | Type2) when
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
-map(Function, Array=#array{size = N, elements = E, default = D})
-  when is_function(Function, 2), is_integer(N) ->
-    if N > 0 ->
-	    A = Array#array{elements = []}, % kill reference, for GC
-	    A#array{elements = map_1(N-1, E, 0, Function, D)};
-       true ->
-	    Array
-    end;
+map(Function, Array) when is_function(Function, 2) ->
+    %% eqwalizer:ignore ambiguous_union
+    {Array1, _} = mapfoldl(fun (I, V, _) -> {Function(I, V), []} end, [], Array),
+    Array1;
 map(_, _) ->
     erlang:error(badarg).
-
-%% It might be simpler to traverse the array right-to-left, as done e.g.
-%% in the to_orddict/1 function, but it is better to guarantee
-%% left-to-right application over the elements - that is more likely to
-%% be a generally useful property.
-
-map_1(N, E=?NODEPATTERN(S), Ix, F, D) ->
-    list_to_tuple(lists:reverse([S | map_2(1, E, Ix, F, D, [],
-					   N div S + 1, N rem S, S)]));
-map_1(N, E, Ix, F, D) when is_integer(E) ->
-    map_1(N, unfold(E, D), Ix, F, D);
-map_1(N, E, Ix, F, D) ->
-    list_to_tuple(lists:reverse(map_3(1, E, Ix, F, D, N+1, []))).
-
-map_2(I, E, Ix, F, D, L, I, R, _S) ->
-    map_2_1(I+1, E, [map_1(R, element(I, E), Ix, F, D) | L]);
-map_2(I, E, Ix, F, D, L, N, R, S) ->
-    map_2(I+1, E, Ix + S, F, D, 
-	  [map_1(S-1, element(I, E), Ix, F, D) | L],
-	  N, R, S).
-
-map_2_1(I, E, L) when I =< ?NODESIZE ->
-    map_2_1(I+1, E, [element(I, E) | L]);
-map_2_1(_I, _E, L) ->
-    L.
-
--spec map_3(pos_integer(), _, array_indx(),
-	    fun((array_indx(),_) -> _), _, non_neg_integer(), [X]) -> [X].
-
-map_3(I, E, Ix, F, D, N, L) when I =< N ->
-    map_3(I+1, E, Ix+1, F, D, N, [F(Ix, element(I, E)) | L]);
-map_3(I, E, Ix, F, D, N, L) when I =< ?LEAFSIZE ->
-    map_3(I+1, E, Ix+1, F, D, N, [D | L]);
-map_3(_I, _E, _Ix, _F, _D, _N, L) ->
-    L.
-
-
-unfold(S, _D) when S > ?LEAFSIZE ->
-    ?NEW_NODE(?reduce(S));
-unfold(_S, D) ->
-    ?NEW_LEAF(D).
-    
-
--ifdef(EUNIT).
-map_test_() ->
-    N0 = ?LEAFSIZE,
-    Id = fun (_,X) -> X end,
-    Plus = fun(N) -> fun (_,X) -> X+N end end,
-    Default = fun(_K,undefined) ->  no_value;
-		 (K,V) -> K+V
-	      end,
-    [?_assertError(badarg, map([], new())),
-     ?_assertError(badarg, map([], new(10))),
-     ?_assert(to_list(map(Id, new())) =:= []),
-     ?_assert(to_list(map(Id, new(1))) =:= [undefined]),
-     ?_assert(to_list(map(Id, new(5,{default,0}))) =:= [0,0,0,0,0]),
-     ?_assert(to_list(map(Id, from_list([1,2,3,4]))) =:= [1,2,3,4]),
-     ?_assert(to_list(map(Plus(1), from_list([0,1,2,3]))) =:= [1,2,3,4]),
-     ?_assert(to_list(map(Plus(-1), from_list(lists:seq(1,11))))
-	      =:= lists:seq(0,10)),
-     ?_assert(to_list(map(Plus(11), from_list(lists:seq(0,99999))))
-	      =:= lists:seq(11,100010)),
-     ?_assert([{0,0},{N0*2+1,N0*2+1+1},{N0*100+1,N0*100+1+2}] =:= 
-	      sparse_to_orddict((map(Default, 
-				     set(N0*100+1,2,
-					 set(N0*2+1,1,
-					     set(0,0,new())))))#array{default = no_value}))
-    ].
--endif.
 
 
 -doc """
 Maps the specified function onto each array element, skipping default-valued
-entries. The elements are visited in order from the lowest index to the highest.
+entries.
+
+The elements are visited in order from the lowest index to the highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
 See also `map/2`.
 """.
--spec sparse_map(Function, Array :: array(Type1)) -> array(Type2) when
+-spec sparse_map(Function, Array :: array(Type1)) -> array(Type1 | Type2) when
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
-sparse_map(Function, Array=#array{size = N, elements = E, default = D})
-  when is_function(Function, 2), is_integer(N) ->
-    if N > 0 ->
-	    A = Array#array{elements = []}, % kill reference, for GC
-	    A#array{elements = sparse_map_1(N-1, E, 0, Function, D)};
-       true ->
-	    Array
-    end;
+sparse_map(Function, Array) when is_function(Function, 2) ->
+    %% eqwalizer:ignore ambiguous_union
+    {Array1, _} = sparse_mapfoldl(fun (I, V, _) -> {Function(I, V), []} end, [], Array),
+    Array1;
 sparse_map(_, _) ->
     erlang:error(badarg).
 
-%% see map/2 for details
-%% TODO: we can probably optimize away the use of div/rem here
-
-sparse_map_1(N, E=?NODEPATTERN(S), Ix, F, D) ->
-    list_to_tuple(lists:reverse([S | sparse_map_2(1, E, Ix, F, D, [],
-						  N div S + 1,
-						  N rem S, S)]));
-sparse_map_1(_N, E, _Ix, _F, _D) when is_integer(E) ->
-    E;
-sparse_map_1(_N, E, Ix, F, D) ->
-    list_to_tuple(lists:reverse(sparse_map_3(1, E, Ix, F, D, []))).
-
-sparse_map_2(I, E, Ix, F, D, L, I, R, _S) ->
-    sparse_map_2_1(I+1, E,
-		   [sparse_map_1(R, element(I, E), Ix, F, D) | L]);
-sparse_map_2(I, E, Ix, F, D, L, N, R, S) ->
-    sparse_map_2(I+1, E, Ix + S, F, D, 
-	  [sparse_map_1(S-1, element(I, E), Ix, F, D) | L],
-	  N, R, S).
-
-sparse_map_2_1(I, E, L) when I =< ?NODESIZE ->
-    sparse_map_2_1(I+1, E, [element(I, E) | L]);
-sparse_map_2_1(_I, _E, L) ->
-    L.
-
--spec sparse_map_3(pos_integer(), _, array_indx(),
-		   fun((array_indx(),_) -> _), _, [X]) -> [X].
-
-sparse_map_3(I, T, Ix, F, D, L) when I =< ?LEAFSIZE ->
-    case element(I, T) of
-	D -> sparse_map_3(I+1, T, Ix+1, F, D, [D | L]);
-	E -> sparse_map_3(I+1, T, Ix+1, F, D, [F(Ix, E) | L])
-    end;
-sparse_map_3(_I, _E, _Ix, _F, _D, L) ->
-    L.
-
-
--ifdef(EUNIT).
-sparse_map_test_() ->
-    N0 = ?LEAFSIZE,
-    Id = fun (_,X) -> X end,
-    Plus = fun(N) -> fun (_,X) -> X+N end end,
-    KeyPlus = fun (K,X) -> K+X end,
-    [?_assertError(badarg, sparse_map([], new())),
-     ?_assertError(badarg, sparse_map([], new(10))),
-     ?_assert(to_list(sparse_map(Id, new())) =:= []),
-     ?_assert(to_list(sparse_map(Id, new(1))) =:= [undefined]),
-     ?_assert(to_list(sparse_map(Id, new(5,{default,0}))) =:= [0,0,0,0,0]),
-     ?_assert(to_list(sparse_map(Id, from_list([1,2,3,4]))) =:= [1,2,3,4]),
-     ?_assert(to_list(sparse_map(Plus(1), from_list([0,1,2,3])))
-	      =:= [1,2,3,4]),
-     ?_assert(to_list(sparse_map(Plus(-1), from_list(lists:seq(1,11))))
-	      =:= lists:seq(0,10)),
-     ?_assert(to_list(sparse_map(Plus(11), from_list(lists:seq(0,99999))))
-	      =:= lists:seq(11,100010)),
-     ?_assert(to_list(sparse_map(Plus(1), set(1,1,new({default,0}))))
-	      =:= [0,2]),
-     ?_assert(to_list(sparse_map(Plus(1),
-				 set(3,4,set(0,1,new({default,0})))))
-	      =:= [2,0,0,5]),
-     ?_assert(to_list(sparse_map(Plus(1),
-				 set(9,9,set(1,1,new({default,0})))))
-	      =:= [0,2,0,0,0,0,0,0,0,10]),
-     ?_assert([{0,0},{N0*2+1,N0*2+1+1},{N0*100+1,N0*100+1+2}] =:= 
-	      sparse_to_orddict(sparse_map(KeyPlus, 
-					   set(N0*100+1,2,
-					       set(N0*2+1,1,
-						   set(0,0,new()))))))
-
-    ].
--endif.
-
 
 -doc """
 Folds the array elements using the specified function and initial accumulator
-value. The elements are visited in order from the lowest index to the highest.
+value.
+
+The elements are visited in order from the lowest index to the highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
-See also `foldr/3`, `map/2`, `sparse_foldl/3`.
-""".
--spec foldl(Function, InitialAcc :: A, Array :: array(Type)) -> B when
-      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
+## Examples
 
-foldl(Function, A, #array{size = N, elements = E, default = D})
-  when is_function(Function, 3), is_integer(N) ->
-    if N > 0 ->
-	    foldl_1(N-1, E, A, 0, Function, D);
-       true ->
-	    A
-    end;
+```erlang
+1> A = array:from_list(lists:seq(0,3)).
+2> array:foldl(fun(_K, V, Acc) -> V+Acc end, 0, A).
+6
+```
+
+See also `foldl/5`, `foldr/3`, `sparse_foldl/3`.
+""".
+-spec foldl(Function, InitialAcc :: A, Array :: array(Type)) -> A when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
+
+foldl(Function, Acc, #array{size = N}=Array) when is_integer(N) ->
+    %% eqwalizer:ignore ambiguous_union
+    foldl(0, N-1, Function, Acc, Array);
 foldl(_, _, _) ->
     erlang:error(badarg).
 
-foldl_1(N, E=?NODEPATTERN(S), A, Ix, F, D) ->
-    foldl_2(1, E, A, Ix, F, D, N div S + 1, N rem S, S);
-foldl_1(N, E, A, Ix, F, D) when is_integer(E) ->
-    foldl_1(N, unfold(E, D), A, Ix, F, D);
-foldl_1(N, E, A, Ix, F, _D) ->
-    foldl_3(1, E, A, Ix, F, N+1).
+-doc """
+Folds the array elements from `Low` to `High` using the specified function and
+initial accumulator value.
 
-foldl_2(I, E, A, Ix, F, D, I, R, _S) ->
-    foldl_1(R, element(I, E), A, Ix, F, D);
-foldl_2(I, E, A, Ix, F, D, N, R, S) ->
-    foldl_2(I+1, E, foldl_1(S-1, element(I, E), A, Ix, F, D),
-	    Ix + S, F, D, N, R, S).
+The elements are visited in order from the lowest index to the
+highest.
 
--spec foldl_3(pos_integer(), _, A, array_indx(),
-	      fun((array_indx(), _, A) -> B), integer()) -> B.
+If `Function` is not a function, the call fails with reason `badarg`.
 
-foldl_3(I, E, A, Ix, F, N) when I =< N ->
-    foldl_3(I+1, E, F(Ix, element(I, E), A), Ix+1, F, N);
-foldl_3(_I, _E, A, _Ix, _F, _N) ->
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,100)).
+2> array:foldl(50, 59, fun(_K, V, Acc) -> V+Acc end, 0, A).
+545
+```
+
+See also `foldl/3`, `sparse_foldl/5`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec foldl(Low, High, Function, InitialAcc :: A, Array) -> A when
+      Low :: array_indx(),
+      High :: array_indx(),
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A),
+      Array :: array(Type).
+
+foldl(Low, High, Function, Acc,
+      #array{size = N, zero = Z, cache = C, cache_index = CI, elements = E, default = D, bits = S})
+  when is_integer(Low), Low >= 0, is_integer(High), is_integer(N), High < N,
+       is_function(Function, 3),
+       is_integer(Z), is_integer(CI), is_integer(S) ->
+    if Low =< High ->
+            E1 = set_leaf(CI, S, E, C),
+            foldl_1(Low + Z, High + Z, Low, S, E1, D, Function, Acc);
+       true ->
+            Acc
+    end;
+foldl(_, _, _, _, _) ->
+    erlang:error(badarg).
+
+
+foldl_1(Low, High, Ix, S, ?EMPTY, D, F, A) ->
+    foldl_4(Low, High, Ix, S, D, F, A);
+foldl_1(Low, High, Ix, 0, E, _D, F, A) ->
+    foldl_3(Low, High, Ix, E, F, A);
+foldl_1(Low, High, Ix, S, E, D, F, A) ->
+    LDiv = Low bsr S,
+    HDiv = High bsr S,
+    LRem = Low band ?MASK(S),
+    HRem = High band ?MASK(S),
+    if LDiv =:= HDiv ->
+            foldl_1(LRem, HRem, Ix, ?reduce(S), element(LDiv+1, E), D, F, A);
+       true ->
+            A1 = foldl_1(LRem, ?SIZE(S)-1, Ix, ?reduce(S), element(LDiv+1, E), D, F, A),
+            foldl_2(LDiv+1, HDiv, Ix + ?SIZE(S) - LRem, S, E, D, F, A1, HRem)
+    end.
+
+foldl_2(Low, High, Ix, S, E, D, F, A, HRem) when Low < High ->
+    A1 = foldl_1(0, ?SIZE(S)-1, Ix, ?reduce(S), element(Low+1, E), D, F, A),
+    foldl_2(Low+1, High, Ix + ?SIZE(S), S, E, D, F, A1, HRem);
+foldl_2(Low, _High, Ix, S, E, D, F, A, HRem) ->
+    foldl_1(0, HRem, Ix, ?reduce(S), element(Low+1, E), D, F, A).
+
+
+-spec foldl_3(array_indx(), array_indx(), array_indx(), tuple(),
+	      fun((array_indx(), _, A) -> A), A) -> A.
+
+foldl_3(Low, High, Ix, E, F, A) when Low =< High ->
+    foldl_3(Low+1, High, Ix+1, E, F, F(Ix, element(Low+1, E), A));
+foldl_3(_Low, _High, _Ix, _E, _F, A) ->
     A.
 
+%% unexpanded tree
+foldl_4(Low, High, Ix, 0, D, F, A) ->
+    foldl_6(Low, High, Ix, D, F, A);
+foldl_4(Low, High, Ix, S, D, F, A) ->
+    LDiv = Low bsr S,
+    HDiv = High bsr S,
+    LRem = Low band ?MASK(S),
+    HRem = High band ?MASK(S),
+    if LDiv =:= HDiv ->
+            foldl_4(LRem, HRem, Ix, ?reduce(S), D, F, A);
+       true ->
+            A1 = foldl_4(LRem, ?SIZE(S)-1, Ix, ?reduce(S), D, F, A),
+            foldl_5(LDiv+1, HDiv, Ix + ?SIZE(S) - LRem, S, D, F, A1, HRem)
+    end.
 
--ifdef(EUNIT).
-foldl_test_() ->
-    N0 = ?LEAFSIZE,
-    Count = fun (_,_,N) -> N+1 end,
-    Sum = fun (_,X,N) -> N+X end,
-    Reverse = fun (_,X,L) -> [X|L] end,
-    Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
-	      (K,X,{C,L}) -> {C,[K+X|L]} 
-	   end,
-    [?_assertError(badarg, foldl([], 0, new())),
-     ?_assertError(badarg, foldl([], 0, new(10))),
-     ?_assert(foldl(Count, 0, new()) =:= 0),
-     ?_assert(foldl(Count, 0, new(1)) =:= 1),
-     ?_assert(foldl(Count, 0, new(10)) =:= 10),
-     ?_assert(foldl(Count, 0, from_list([1,2,3,4])) =:= 4),
-     ?_assert(foldl(Count, 10, from_list([0,1,2,3,4,5,6,7,8,9])) =:= 20),
-     ?_assert(foldl(Count, 1000, from_list(lists:seq(0,999))) =:= 2000),
-     ?_assert(foldl(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
-     ?_assert(foldl(Reverse, [], from_list(lists:seq(0,1000)))
-	      =:= lists:reverse(lists:seq(0,1000))),
-     ?_assertEqual({N0*100+1-2,[N0*100+1+2,N0*2+1+1,0]},
-	      foldl(Vals, {0,[]},
-		    set(N0*100+1,2,
-			set(N0*2+1,1,
-			    set(0,0,new())))))
-    ].
--endif.
+foldl_5(Low, High, Ix, S, D, F, A, HRem) when Low < High ->
+    A1 = foldl_4(0, ?SIZE(S)-1, Ix, ?reduce(S), D, F, A),
+    foldl_5(Low+1, High, Ix + ?SIZE(S), S, D, F, A1, HRem);
+foldl_5(_Low, _High, Ix, S, D, F, A, HRem) ->
+    foldl_4(0, HRem, Ix, ?reduce(S), D, F, A).
 
+foldl_6(Low, High, Ix, D, F, A) when Low =< High ->
+    foldl_6(Low+1, High, Ix+1, D, F, F(Ix, D, A));
+foldl_6(_Low, _High, _Ix, _D, _F, A) ->
+    A.
 
 -doc """
 Folds the array elements using the specified function and initial accumulator
-value, skipping default-valued entries. The elements are visited in order from
-the lowest index to the highest.
+value, skipping default-valued entries.
+
+The elements are visited in order from the lowest index to the
+highest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
-See also `foldl/3`, `sparse_foldr/3`.
+See also `sparse_foldl/5`, `foldl/3`.
 """.
--spec sparse_foldl(Function, InitialAcc :: A, Array :: array(Type)) -> B when
-      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
+-spec sparse_foldl(Function, InitialAcc :: A, Array :: array(Type)) -> A when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
 
-sparse_foldl(Function, A, #array{size = N, elements = E, default = D})
-  when is_function(Function, 3), is_integer(N) ->
-    if N > 0 ->
-	    sparse_foldl_1(N-1, E, A, 0, Function, D);
-       true ->
-	    A
-    end;
+sparse_foldl(Function, Acc, #array{size = N}=Array) when is_integer(N) ->
+    %% eqwalizer:ignore ambiguous_union
+    sparse_foldl(0, N-1, Function, Acc, Array);
 sparse_foldl(_, _, _) ->
     erlang:error(badarg).
 
-%% see foldl/3 for details
-%% TODO: this can be optimized
 
-sparse_foldl_1(N, E=?NODEPATTERN(S), A, Ix, F, D) ->
-    sparse_foldl_2(1, E, A, Ix, F, D, N div S + 1, N rem S, S);
-sparse_foldl_1(_N, E, A, _Ix, _F, _D) when is_integer(E) ->
-    A;
-sparse_foldl_1(N, E, A, Ix, F, D) ->
-    sparse_foldl_3(1, E, A, Ix, F, D, N+1).
+-doc """
+Folds the array elements from `Low` to `High` using the specified
+function and initial accumulator value, skipping default-valued entries.
 
-sparse_foldl_2(I, E, A, Ix, F, D, I, R, _S) ->
-    sparse_foldl_1(R, element(I, E), A, Ix, F, D);
-sparse_foldl_2(I, E, A, Ix, F, D, N, R, S) ->
-    sparse_foldl_2(I+1, E, sparse_foldl_1(S-1, element(I, E), A, Ix, F, D),
-	    Ix + S, F, D, N, R, S).
+The elements are visited in order from the lowest index to the highest.
 
-sparse_foldl_3(I, T, A, Ix, F, D, N) when I =< N ->
-    case element(I, T) of
-	D -> sparse_foldl_3(I+1, T, A, Ix+1, F, D, N);
-	E -> sparse_foldl_3(I+1, T, F(Ix, E, A), Ix+1, F, D, N)
-    end;
-sparse_foldl_3(_I, _T, A, _Ix, _F, _D, _N) ->
-    A.
+If `Function` is not a function, the call fails with reason `badarg`.
 
+See also `sparse_foldl/3`, `foldl/5`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec sparse_foldl(Low :: array_indx(), High :: array_indx(), Function,
+                   InitialAcc :: A, Array :: array(Type)) -> A when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
 
--ifdef(EUNIT).
-sparse_foldl_test_() ->
-    N0 = ?LEAFSIZE,
-    Count = fun (_,_,N) -> N+1 end,
-    Sum = fun (_,X,N) -> N+X end,
-    Reverse = fun (_,X,L) -> [X|L] end,
-    Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
-	      (K,X,{C,L}) -> {C,[K+X|L]} 
-	   end,
-    [?_assertError(badarg, sparse_foldl([], 0, new())),
-     ?_assertError(badarg, sparse_foldl([], 0, new(10))),
-     ?_assert(sparse_foldl(Count, 0, new()) =:= 0),
-     ?_assert(sparse_foldl(Count, 0, new(1)) =:= 0),
-     ?_assert(sparse_foldl(Count, 0, new(10,{default,1})) =:= 0),
-     ?_assert(sparse_foldl(Count, 0, from_list([0,1,2,3,4],0)) =:= 4),
-     ?_assert(sparse_foldl(Count, 0, from_list([0,1,2,3,4,5,6,7,8,9,0],0))
-	      =:= 9),
-     ?_assert(sparse_foldl(Count, 0, from_list(lists:seq(0,999),0))
-	      =:= 999),
-     ?_assert(sparse_foldl(Sum, 0, from_list(lists:seq(0,10), 5)) =:= 50),
-     ?_assert(sparse_foldl(Reverse, [], from_list(lists:seq(0,1000), 0))
-	      =:= lists:reverse(lists:seq(1,1000))),
-     ?_assert({0,[N0*100+1+2,N0*2+1+1,0]} =:= 
-	      sparse_foldl(Vals, {0,[]}, 
-			   set(N0*100+1,2,
-			       set(N0*2+1,1,
-				   set(0,0,new())))))
-    ].
--endif.
+sparse_foldl(Low, High, Function, InitialAcc, #array{default = D}=Array)
+  when is_function(Function, 3) ->
+    Skip = fun (_I, V, A) when V =:= D -> A;
+               (I, V, A) -> Function(I, V, A)
+           end,
+    %% eqwalizer:ignore ambiguous_union
+    foldl(Low, High, Skip, InitialAcc, Array);
+sparse_foldl(_, _, _, _, _) ->
+    erlang:error(badarg).
 
 
 -doc """
 Folds the array elements right-to-left using the specified function and initial
-accumulator value. The elements are visited in order from the highest index to
-the lowest.
+accumulator value.
+
+The elements are visited in order from the highest index to the
+lowest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
-See also `foldl/3`, `map/2`.
+See also `foldr/5`, `foldl/3`, `sparse_foldr/3`.
 """.
--spec foldr(Function, InitialAcc :: A, Array :: array(Type)) -> B when
-      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
+-spec foldr(Function, InitialAcc :: A, Array :: array(Type)) -> A when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
 
-foldr(Function, A, #array{size = N, elements = E, default = D})
-  when is_function(Function, 3), is_integer(N) ->
-    if N > 0 ->
-	    I = N - 1,
-	    foldr_1(I, E, I, A, Function, D);
-       true ->
-	    A
-    end;
+foldr(Function, Acc, #array{size = N}=Array) when is_integer(N) ->
+    %% eqwalizer:ignore ambiguous_union
+    foldr(0, N-1, Function, Acc, Array);
 foldr(_, _, _) ->
     erlang:error(badarg).
 
-%% this is based on to_orddict/1
-
-foldr_1(I, E=?NODEPATTERN(S), Ix, A, F, D) ->
-    foldr_2(I div S + 1, E, Ix, A, F, D, I rem S, S-1);
-foldr_1(I, E, Ix, A, F, D) when is_integer(E) ->
-    foldr_1(I, unfold(E, D), Ix, A, F, D);
-foldr_1(I, E, Ix, A, F, _D) ->
-    I1 = I+1,
-    foldr_3(I1, E, Ix-I1, A, F).
-
-foldr_2(0, _E, _Ix, A, _F, _D, _R, _R0) ->
-    A;
-foldr_2(I, E, Ix, A, F, D, R, R0) ->
-    foldr_2(I-1, E, Ix - R - 1,
-	    foldr_1(R, element(I, E), Ix, A, F, D),
-	    F, D, R0, R0).
-
--spec foldr_3(array_indx(), term(), integer(), A,
-	      fun((array_indx(), _, A) -> B)) -> B.
-
-foldr_3(0, _E, _Ix, A, _F) ->
-    A;
-foldr_3(I, E, Ix, A, F) ->
-    foldr_3(I-1, E, Ix, F(Ix+I, element(I, E), A), F).
-
-
--ifdef(EUNIT).
-foldr_test_() ->
-    N0 = ?LEAFSIZE,
-    Count = fun (_,_,N) -> N+1 end,
-    Sum = fun (_,X,N) -> N+X end,
-    List = fun (_,X,L) -> [X|L] end,
-    Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
-	      (K,X,{C,L}) -> {C,[K+X|L]} 
-	   end,
-    [?_assertError(badarg, foldr([], 0, new())),
-     ?_assertError(badarg, foldr([], 0, new(10))),
-     ?_assert(foldr(Count, 0, new()) =:= 0),
-     ?_assert(foldr(Count, 0, new(1)) =:= 1),
-     ?_assert(foldr(Count, 0, new(10)) =:= 10),
-     ?_assert(foldr(Count, 0, from_list([1,2,3,4])) =:= 4),
-     ?_assert(foldr(Count, 10, from_list([0,1,2,3,4,5,6,7,8,9])) =:= 20),
-     ?_assert(foldr(Count, 1000, from_list(lists:seq(0,999))) =:= 2000),
-     ?_assert(foldr(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
-     ?_assert(foldr(List, [], from_list(lists:seq(0,1000)))
- 	      =:= lists:seq(0,1000)),
-     ?_assertEqual({N0*100+1-2,[0,N0*2+1+1,N0*100+1+2]},
-	      foldr(Vals, {0,[]},
-		    set(N0*100+1,2,
-			set(N0*2+1,1,
-			    set(0,0,new())))))
-    ].
--endif.
-
 
 -doc """
-Folds the array elements right-to-left using the specified function and initial
-accumulator value, skipping default-valued entries. The elements are visited in
-order from the highest index to the lowest.
+Folds the array elements from `High` to `Low` using the specified function and
+initial accumulator value.
+
+The elements are visited in order from the highest index to the
+lowest.
 
 If `Function` is not a function, the call fails with reason `badarg`.
 
-See also `foldr/3`, `sparse_foldl/3`.
+See also `foldr/3`, `foldl/5`.
 """.
--spec sparse_foldr(Function, InitialAcc :: A, Array :: array(Type)) -> B when
-      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec foldr(Low, High, Function, InitialAcc :: A, Array :: array(Type)) -> A when
+      Low :: array_indx(),
+      High :: array_indx(),
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
 
-sparse_foldr(Function, A, #array{size = N, elements = E, default = D})
-  when is_function(Function, 3), is_integer(N) ->
-    if N > 0 ->
-	    I = N - 1,
-	    sparse_foldr_1(I, E, I, A, Function, D);
+foldr(Low, High, Function, Acc, #array{size = N, zero = Z, cache = C,
+                                       cache_index = CI, elements = E, default = D, bits = S})
+  when is_integer(Low), Low >= 0, is_integer(High), is_function(Function, 3),
+       is_integer(N), High < N, is_integer(Z), is_integer(CI), is_integer(S) ->
+    if Low =< High ->
+            E1 = set_leaf(CI, S, E, C),
+            foldr_1(Low + Z, High + Z, High, S, E1, D, Function, Acc);
        true ->
-	    A
+            Acc
     end;
+foldr(_, _, _, _, _) ->
+    erlang:error(badarg).
+
+foldr_1(Low, High, Ix, S, ?EMPTY, D, F, A) ->
+    foldr_4(Low, High, Ix, S, D, F, A);
+foldr_1(Low, High, Ix, 0, E, _D, F, A) ->
+    foldr_3(Low, High, Ix, E, F, A);
+foldr_1(Low, High, Ix, S, E, D, F, A) ->
+    LDiv = Low bsr S,
+    HDiv = High bsr S,
+    LRem = Low band ?MASK(S),
+    HRem = High band ?MASK(S),
+    if LDiv =:= HDiv ->
+            foldr_1(LRem, HRem, Ix, ?reduce(S), element(HDiv+1, E), D, F, A);
+       true ->
+            A1 = foldr_1(0, HRem, Ix, ?reduce(S), element(HDiv+1, E), D, F, A),
+            foldr_2(LDiv, HDiv-1, Ix - HRem - 1, S, E, D, F, A1, LRem)
+    end.
+
+foldr_2(Low, High, Ix, S, E, D, F, A, LRem) when Low < High ->
+    A1 = foldr_1(0, ?SIZE(S)-1, Ix, ?reduce(S), element(High+1, E), D, F, A),
+    foldr_2(Low, High-1, Ix - ?SIZE(S), S, E, D, F, A1, LRem);
+foldr_2(_Low, High, Ix, S, E, D, F, A, LRem) ->
+    foldr_1(LRem, ?SIZE(S)-1, Ix, ?reduce(S), element(High+1, E), D, F, A).
+
+foldr_3(Low, High, Ix, E, F, A) when Low =< High ->
+    foldr_3(Low, High-1, Ix-1, E, F, F(Ix, element(High+1, E), A));
+foldr_3(_Low, _High, _Ix, _D, _F, A) ->
+    A.
+
+%% unexpanded tree
+foldr_4(Low, High, Ix, 0, D, F, A) ->
+    foldr_6(Low, High, Ix, D, F, A);
+foldr_4(Low, High, Ix, S, D, F, A) ->
+    LDiv = Low bsr S,
+    HDiv = High bsr S,
+    LRem = Low band ?MASK(S),
+    HRem = High band ?MASK(S),
+    if LDiv =:= HDiv ->
+            foldr_4(LRem, HRem, Ix, ?reduce(S), D, F, A);
+       true ->
+            A1 = foldr_4(0, HRem, Ix, ?reduce(S), D, F, A),
+            foldr_5(LDiv, HDiv-1, Ix - HRem - 1, S, D, F, A1, LRem)
+    end.
+
+foldr_5(Low, High, Ix, S, D, F, A, LRem) when Low < High ->
+    A1 = foldr_4(0, ?SIZE(S)-1, Ix, ?reduce(S), D, F, A),
+    foldr_5(Low, High-1, Ix - ?SIZE(S), S, D, F, A1, LRem);
+foldr_5(_Low, _High, Ix, S, D, F, A, LRem) ->
+    foldr_4(LRem, ?SIZE(S)-1, Ix, ?reduce(S), D, F, A).
+
+foldr_6(Low, High, Ix, D, F, A) when Low =< High ->
+    foldr_6(Low, High-1, Ix-1, D, F, F(Ix, D, A));
+foldr_6(_Low, _High, _Ix, _D, _F, A) ->
+    A.
+
+-doc """
+Folds the array elements right-to-left using the specified function and initial
+accumulator value, skipping default-valued entries.
+
+The elements are visited in order from the highest index to the
+lowest.
+
+If `Function` is not a function, the call fails with reason `badarg`.
+
+See also `sparse_foldr/5`, `foldr/3`, `sparse_foldl/3`.
+""".
+-spec sparse_foldr(Function, InitialAcc :: A, Array :: array(Type)) -> A when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
+
+sparse_foldr(Function, Acc, #array{size = N}=Array) when is_integer(N) ->
+    %% eqwalizer:ignore ambiguous_union
+    sparse_foldr(0, N-1, Function, Acc, Array);
 sparse_foldr(_, _, _) ->
     erlang:error(badarg).
 
-%% see foldr/3 for details
-%% TODO: this can be optimized
 
-sparse_foldr_1(I, E=?NODEPATTERN(S), Ix, A, F, D) ->
-    sparse_foldr_2(I div S + 1, E, Ix, A, F, D, I rem S, S-1);
-sparse_foldr_1(_I, E, _Ix, A, _F, _D) when is_integer(E) ->
-    A;
-sparse_foldr_1(I, E, Ix, A, F, D) ->
-    I1 = I+1,
-    sparse_foldr_3(I1, E, Ix-I1, A, F, D).
+-doc """
+Folds the array elements from `High` to `Low` using the specified
+function and initial accumulator value, skipping default-valued entries.
 
-sparse_foldr_2(0, _E, _Ix, A, _F, _D, _R, _R0) ->
-    A;
-sparse_foldr_2(I, E, Ix, A, F, D, R, R0) ->
-    sparse_foldr_2(I-1, E, Ix - R - 1,
-	    sparse_foldr_1(R, element(I, E), Ix, A, F, D),
-	    F, D, R0, R0).
+The elements are visited in order from the highest index to the lowest.
 
--spec sparse_foldr_3(array_indx(), _, array_indx(), A,
-		     fun((array_indx(), _, A) -> B), _) -> B.
+If `Function` is not a function, the call fails with reason `badarg`.
 
-sparse_foldr_3(0, _T, _Ix, A, _F, _D) ->
-    A;
-sparse_foldr_3(I, T, Ix, A, F, D) ->
-    case element(I, T) of
-	D -> sparse_foldr_3(I-1, T, Ix, A, F, D);
-	E -> sparse_foldr_3(I-1, T, Ix, F(Ix+I, E, A), F, D)
-    end.
+See also `sparse_foldr/3`, `foldr/5`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec sparse_foldr(Low :: array_indx(), High :: array_indx(), Function,
+                   InitialAcc :: A, Array :: array(Type)) -> A when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> A).
+
+sparse_foldr(Low, High, Function, InitialAcc, #array{default = D}=Array)
+  when is_function(Function, 3) ->
+    Skip = fun (_I, V, A) when V =:= D -> A;
+               (I, V, A) -> Function(I, V, A)
+           end,
+    %% eqwalizer:ignore ambiguous_union
+    foldr(Low, High, Skip, InitialAcc, Array);
+sparse_foldr(_, _, _, _, _) ->
+    erlang:error(badarg).
 
 
 -doc """
 Gets the number of entries in the array up until the last non-default-valued
-entry. That is, returns `I+1` if `I` is the last non-default-valued entry in the
-array, or zero if no such entry exists.
+entry.
+
+That is, returns `I+1` if `I` is the last non-default-valued entry in
+the array, or zero if no such entry exists.
+
+## Examples
+
+```erlang
+1> A = array:set(3, 42, array:new(10)).
+2> array:size(A).
+10
+3> array:sparse_size(A).
+4
+```
 
 See also `resize/1`, `size/1`.
 """.
@@ -2008,44 +1863,389 @@ sparse_size(A) ->
     end.
 
 
--ifdef(EUNIT).
-sparse_foldr_test_() ->
-    N0 = ?LEAFSIZE,
-    Count = fun (_,_,N) -> N+1 end,
-    Sum = fun (_,X,N) -> N+X end,
-    List = fun (_,X,L) -> [X|L] end,
-    Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
-	      (K,X,{C,L}) -> {C,[K+X|L]} 
-	   end,
+-doc """
+Combined map and fold over the array elements using the specified
+function and initial accumulator value.
 
-    [?_assertError(badarg, sparse_foldr([], 0, new())),
-     ?_assertError(badarg, sparse_foldr([], 0, new(10))),
-     ?_assert(sparse_foldr(Count, 0, new()) =:= 0),
-     ?_assert(sparse_foldr(Count, 0, new(1)) =:= 0),
-     ?_assert(sparse_foldr(Count, 0, new(10,{default,1})) =:= 0),
-     ?_assert(sparse_foldr(Count, 0, from_list([0,1,2,3,4],0)) =:= 4),
-     ?_assert(sparse_foldr(Count, 0, from_list([0,1,2,3,4,5,6,7,8,9,0],0))
-	      =:= 9),
-     ?_assert(sparse_foldr(Count, 0, from_list(lists:seq(0,999),0))
-	      =:= 999),
-     ?_assert(sparse_foldr(Sum, 0, from_list(lists:seq(0,10),5)) =:= 50),
-     ?_assert(sparse_foldr(List, [], from_list(lists:seq(0,1000),0))
- 	      =:= lists:seq(1,1000)),
+The elements are visited in order from the lowest index to the
+highest.
 
-     ?_assert(sparse_size(new()) =:= 0),
-     ?_assert(sparse_size(new(8)) =:= 0),
-     ?_assert(sparse_size(array:set(7, 0, new())) =:= 8),
-     ?_assert(sparse_size(array:set(7, 0, new(10))) =:= 8),
-     ?_assert(sparse_size(array:set(99, 0, new(10,{fixed,false})))
-	      =:= 100),
-     ?_assert(sparse_size(array:set(7, undefined, new())) =:= 0),
-     ?_assert(sparse_size(array:from_list([1,2,3,undefined])) =:= 3),
-     ?_assert(sparse_size(array:from_orddict([{3,0},{17,0},{99,undefined}]))
-			  =:= 18),
-     ?_assert({0,[0,N0*2+1+1,N0*100+1+2]} =:= 
-	      sparse_foldr(Vals, {0,[]}, 
-			   set(N0*100+1,2,
-			       set(N0*2+1,1,
-				   set(0,0,new())))))     
-    ].
--endif.
+If `Function` is not a function, the call fails with reason `badarg`.
+
+## Examples
+
+```erlang
+1> A = array:from_list(lists:seq(0,3)).
+2> {B, Acc} = array:mapfoldl(fun(K, V, Sum) -> {K*V, V+Sum} end, 0, A).
+3> Acc.
+6
+4> array:to_orddict(B).
+[{0,0}, {1,1}, {2,4}, {3,9}]
+```
+
+See also `mapfoldl/5`, `foldl/3`, `map/2`, `sparse_mapfoldl/3`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec mapfoldl(Function, InitialAcc :: A, Array :: array(Type)) -> {array(Type), A} when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> {Type, A}).
+
+mapfoldl(Function, Acc, #array{size = N}=Array) when is_integer(N) ->
+    mapfoldl(0, N-1, Function, Acc, Array);
+mapfoldl(_, _, _) ->
+    erlang:error(badarg).
+
+-doc """
+Combined map and fold over the array elements from `Low` to `High` using
+the specified function and initial accumulator value.
+
+The elements are visited in order from the lowest index to the
+highest.
+
+If `Function` is not a function, the call fails with reason `badarg`.
+
+See also `mapfoldl/3`, `sparse_mapfoldl/5`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec mapfoldl(Low, High, Function, InitialAcc :: A, Array :: array(Type)) -> {array(Type), A} when
+      Low :: array_indx(),
+      High :: array_indx(),
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> {Type, A}).
+
+mapfoldl(Low, High, Function, Acc, #array{size = N, zero = Z, cache = C, cache_index = CI,
+                                          elements = E, default = D, bits = S}=Array)
+  when is_integer(Low), Low >= 0, is_integer(High), is_function(Function, 3),
+       is_integer(N), High < N, is_integer(Z), is_integer(CI), is_integer(S) ->
+    if Low =< High ->
+            E0 = set_leaf(CI, S, E, C),
+            {E1, Acc1} = mapfoldl_1(Low + Z, High + Z, Low, S, E0, D, Function, Acc),
+            C1 = get_leaf(CI, S, E1, D),
+            {Array#array{elements = E1, cache = C1}, Acc1};
+       true ->
+            {Array, Acc}
+    end;
+mapfoldl(_, _, _, _, _) ->
+    erlang:error(badarg).
+
+mapfoldl_1(Low, High, Ix, S, ?EMPTY, D, F, A) ->
+    mapfoldl_1(Low, High, Ix, S, unfold(S, D), D, F, A);
+mapfoldl_1(Low, High, Ix, 0, E, _D, F, A) ->
+    mapfoldl_3(Low, High, Ix, tuple_to_list(E), F, A, [], 0);
+mapfoldl_1(Low, High, Ix, S, E, D, F, A) ->
+    LDiv = Low bsr S,
+    HDiv = High bsr S,
+    LRem = Low band ?MASK(S),
+    HRem = High band ?MASK(S),
+    if LDiv =:= HDiv ->
+            {E1, A1} = mapfoldl_1(LRem, HRem, Ix, ?reduce(S), element(LDiv+1, E), D, F, A),
+            {setelement(LDiv+1, E, E1), A1};
+       true ->
+            Es = tuple_to_list(E),
+            {Es1, A1} = mapfoldl_2(LDiv, HDiv, Ix, S, Es, D, F, A, HRem, [], LRem, 0),
+            {list_to_tuple(Es1), A1}
+    end.
+
+mapfoldl_2(Low, High, Ix, S, [E|Es], D, F, A, HRem, Es1, LRem, I) when I < Low ->
+    mapfoldl_2(Low, High, Ix, S, Es, D, F, A, HRem, [E|Es1], LRem, I + 1);
+mapfoldl_2(Low, High, Ix, S, [E|Es], D, F, A, HRem, Es1, LRem, _I) ->
+    {E1, A1} = mapfoldl_1(LRem, ?SIZE(S)-1, Ix, ?reduce(S), E, D, F, A),
+    mapfoldl_2_1(Low+1, High, Ix + ?SIZE(S) - LRem, S, Es, D, F, A1, HRem, [E1|Es1]).
+
+mapfoldl_2_1(Low, High, Ix, S, [E|Es], D, F, A, HRem, Es1) when Low < High ->
+    {E1, A1} = mapfoldl_1(0, ?SIZE(S)-1, Ix, ?reduce(S), E, D, F, A),
+    mapfoldl_2_1(Low+1, High, Ix + ?SIZE(S), S, Es, D, F, A1, HRem, [E1|Es1]);
+mapfoldl_2_1(_Low, _High, Ix, S, [E|Es], D, F, A, HRem, Es1) ->
+    {E1, A1} = mapfoldl_1(0, HRem, Ix, ?reduce(S), E, D, F, A),
+    {lists:reverse(lists:reverse(Es, [E1|Es1])), A1}.
+
+mapfoldl_3(Low, High, Ix, [E|Es], F, A, Es1, I) when I < Low ->
+    mapfoldl_3(Low, High, Ix, Es, F, A, [E|Es1], I + 1);
+mapfoldl_3(Low, High, Ix, Es, F, A, Es1, _I) ->
+    mapfoldl_3_1(Low, High, Ix, Es, F, A, Es1).
+
+mapfoldl_3_1(Low, High, Ix, [E|Es], F, A, Es1) when Low =< High ->
+    {E1, A1} = F(Ix, E, A),
+    mapfoldl_3_1(Low+1, High, Ix+1, Es, F, A1, [E1|Es1]);
+mapfoldl_3_1(_Low, _High, _Ix, Es, _F, A, Es1) ->
+    {list_to_tuple(lists:reverse(lists:reverse(Es, Es1))), A}.
+
+unfold(S, _D) when S > 0 ->
+    ?NEW_NODE(S);
+unfold(_S, D) ->
+    ?NEW_LEAF(D).
+
+
+-doc """
+Like `mapfoldl/3` but skips default-valued entries.
+
+See also `sparse_mapfoldl/5`, `sparse_mapfoldr/3`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec sparse_mapfoldl(Function, InitialAcc :: A, Array) -> {ArrayRes, A} when
+      Array :: array(Type1),
+      Function :: fun((Index :: array_indx(), Value :: Type1, Acc :: A) -> {Type2, A}),
+      ArrayRes :: array(Type1 | Type2).
+
+sparse_mapfoldl(Function, Acc, #array{size = N}=Array) when is_integer(N) ->
+    %% eqwalizer:ignore ambiguous_union
+    sparse_mapfoldl(0, N-1, Function, Acc, Array);
+sparse_mapfoldl(_, _, _) ->
+    erlang:error(badarg).
+
+-doc """
+Like `mapfoldl/5` but skips default-valued entries.
+
+See also `sparse_mapfoldl/3`, `sparse_mapfoldr/5`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec sparse_mapfoldl(Low, High, Function, InitialAcc :: A, Array) -> {ArrayRes, A} when
+      Low :: array_indx(),
+      High :: array_indx(),
+      Function :: fun((Index :: array_indx(), Value :: Type1, Acc :: A) -> {Type2, A}),
+      Array :: array(Type1),
+      ArrayRes :: array(Type1 | Type2).
+
+sparse_mapfoldl(Low, High, Function, Acc, #array{size = N, zero = Z, cache = C, cache_index = CI,
+                                                 elements = E, default = D, bits = S}=Array)
+  when is_integer(Low), Low >= 0, is_integer(High), is_function(Function, 3), is_integer(N),
+       High < N, is_integer(Z), is_integer(CI), is_integer(S) ->
+    if Low =< High ->
+            E0 = set_leaf(CI, S, E, C),
+            {E1, Acc1} = sparse_mapfoldl_1(Low + Z, High + Z, Low, S, E0, D, Function, Acc),
+            C1 = get_leaf(CI, S, E1, D),
+            {Array#array{elements = E1, cache = C1}, Acc1};
+       true ->
+            {Array, Acc}
+    end;
+sparse_mapfoldl(_, _, _, _, _) ->
+    erlang:error(badarg).
+
+sparse_mapfoldl_1(_Low, _High, _Ix, _S, ?EMPTY, _D, _F, A) ->
+    {?EMPTY, A};
+sparse_mapfoldl_1(Low, High, Ix, 0, E, D, F, A) ->
+    sparse_mapfoldl_3(Low, High, Ix, tuple_to_list(E), D, F, A, [], 0);
+sparse_mapfoldl_1(Low, High, Ix, S, E, D, F, A) ->
+    LDiv = Low bsr S,
+    HDiv = High bsr S,
+    LRem = Low band ?MASK(S),
+    HRem = High band ?MASK(S),
+    if LDiv =:= HDiv ->
+            {E1, A1} = sparse_mapfoldl_1(LRem, HRem, Ix, ?reduce(S), element(LDiv+1, E), D, F, A),
+            {setelement(LDiv+1, E, E1), A1};
+       true ->
+            Es = tuple_to_list(E),
+            {Es1, A1} = sparse_mapfoldl_2(LDiv, HDiv, Ix, S, Es, D, F, A, HRem, [], LRem, 0),
+            {list_to_tuple(Es1), A1}
+    end.
+
+sparse_mapfoldl_2(Low, High, Ix, S, [E|Es], D, F, A, HRem, Es1, LRem, I) when I < Low ->
+    sparse_mapfoldl_2(Low, High, Ix, S, Es, D, F, A, HRem, [E|Es1], LRem, I + 1);
+sparse_mapfoldl_2(Low, High, Ix, S, [E|Es], D, F, A, HRem, Es1, LRem, _I) ->
+    {E1, A1} = sparse_mapfoldl_1(LRem, ?SIZE(S)-1, Ix, ?reduce(S), E, D, F, A),
+    sparse_mapfoldl_2_1(Low+1, High, Ix + ?SIZE(S) - LRem, S, Es, D, F, A1, HRem, [E1|Es1]).
+
+sparse_mapfoldl_2_1(Low, High, Ix, S, [E|Es], D, F, A, HRem, Es1) when Low < High ->
+    {E1, A1} = sparse_mapfoldl_1(0, ?SIZE(S)-1, Ix, ?reduce(S), E, D, F, A),
+    sparse_mapfoldl_2_1(Low+1, High, Ix + ?SIZE(S), S, Es, D, F, A1, HRem, [E1|Es1]);
+sparse_mapfoldl_2_1(_Low, _High, Ix, S, [E|Es], D, F, A, HRem, Es1) ->
+    {E1, A1} = sparse_mapfoldl_1(0, HRem, Ix, ?reduce(S), E, D, F, A),
+    {lists:reverse(lists:reverse(Es, [E1|Es1])), A1}.
+
+sparse_mapfoldl_3(Low, High, Ix, [E|Es], D, F, A, Es1, I) when I < Low ->
+    sparse_mapfoldl_3(Low, High, Ix, Es, D, F, A, [E|Es1], I + 1);
+sparse_mapfoldl_3(Low, High, Ix, Es, D, F, A, Es1, _I) ->
+    sparse_mapfoldl_3_1(Low, High, Ix, Es, D, F, A, Es1).
+
+sparse_mapfoldl_3_1(Low, High, Ix, [E|Es], D, F, A, Es1) when Low =< High ->
+    if E =:= D ->
+            sparse_mapfoldl_3_1(Low+1, High, Ix+1, Es, D, F, A, [E|Es1]);
+       true ->
+            {E1, A1} = F(Ix, E, A),
+            sparse_mapfoldl_3_1(Low+1, High, Ix+1, Es, D, F, A1, [E1|Es1])
+    end;
+sparse_mapfoldl_3_1(_Low, _High, _Ix, Es, _D, _F, A, Es1) ->
+    {list_to_tuple(lists:reverse(lists:reverse(Es, Es1))), A}.
+
+
+-doc """
+Combined map and fold over the array elements using the specified
+function and initial accumulator value.
+
+The elements are visited in order from the highest index to the
+lowest.
+
+If `Function` is not a function, the call fails with reason `badarg`.
+
+See also `mapfoldr/5`, `foldr/3`, `map/2`, `sparse_mapfoldr/3`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec mapfoldr(Function, InitialAcc :: A, Array :: array(Type)) -> {array(Type), A} when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> {Type, A}).
+
+mapfoldr(Function, Acc, #array{size = N}=Array) when is_integer(N) ->
+    mapfoldr(0, N-1, Function, Acc, Array);
+mapfoldr(_, _, _) ->
+    erlang:error(badarg).
+
+-doc """
+Combined map and fold over the array elements from `Low` to `High` using
+the specified function and initial accumulator value.
+
+The elements are visited in order from the highest index to the lowest.
+
+If `Function` is not a function, the call fails with reason `badarg`.
+
+See also `mapfoldr/3`, `mapfoldl/5`, `sparse_mapfoldr/5`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec mapfoldr(Low, High, Function, InitialAcc :: A, Array :: array(Type)) -> {array(Type), A} when
+      Low :: array_indx(),
+      High :: array_indx(),
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> {Type, A}).
+
+mapfoldr(Low, High, Function, Acc, #array{size = N, zero = Z, cache = C, cache_index = CI,
+                                          elements = E, default = D, bits = S}=Array)
+  when is_integer(Low), Low >= 0, is_integer(High), is_function(Function, 3), is_integer(N),
+       High < N, is_integer(Z), is_integer(CI), is_integer(S) ->
+    if Low =< High ->
+            E0 = set_leaf(CI, S, E, C),
+            {E1, Acc1} = mapfoldr_1(Low + Z, High + Z, High, S, E0, D, Function, Acc),
+            C1 = get_leaf(CI, S, E1, D),
+            {Array#array{elements = E1, cache = C1}, Acc1};
+       true ->
+            {Array, Acc}
+    end;
+mapfoldr(_, _, _, _, _) ->
+    erlang:error(badarg).
+
+mapfoldr_1(Low, High, Ix, S, ?EMPTY, D, F, A) ->
+    mapfoldr_1(Low, High, Ix, S, unfold(S, D), D, F, A);
+mapfoldr_1(Low, High, Ix, 0, E, _D, F, A) ->
+    mapfoldr_3(Low, High, Ix, lists:reverse(tuple_to_list(E)), F, A, [], ?LEAFSIZE-1);
+mapfoldr_1(Low, High, Ix, S, E, D, F, A) ->
+    LDiv = Low bsr S,
+    HDiv = High bsr S,
+    LRem = Low band ?MASK(S),
+    HRem = High band ?MASK(S),
+    if LDiv =:= HDiv ->
+            {E1, A1} = mapfoldr_1(LRem, HRem, Ix, ?reduce(S), element(HDiv+1, E), D, F, A),
+            {setelement(HDiv+1, E, E1), A1};
+       true ->
+            Es = lists:reverse(tuple_to_list(E)),
+            {Es1, A1} = mapfoldr_2(LDiv, HDiv, Ix, S, Es, D, F, A, LRem, [], HRem, ?NODESIZE-1),
+            {list_to_tuple(Es1), A1}
+    end.
+
+mapfoldr_2(Low, High, Ix, S, [E|Es], D, F, A, LRem, Es1, HRem, I) when High < I ->
+    mapfoldr_2(Low, High, Ix, S, Es, D, F, A, LRem, [E|Es1], HRem, I - 1);
+mapfoldr_2(Low, High, Ix, S, [E|Es], D, F, A, LRem, Es1, HRem, _I) ->
+    {E1, A1} = mapfoldr_1(0, HRem, Ix, ?reduce(S), E, D, F, A),
+    mapfoldr_2_1(Low, High-1, Ix - HRem - 1, S, Es, D, F, A1, LRem, [E1|Es1]).
+
+mapfoldr_2_1(Low, High, Ix, S, [E|Es], D, F, A, LRem, Es1) when Low < High ->
+    {E1, A1} = mapfoldr_1(0, ?SIZE(S)-1, Ix, ?reduce(S), E, D, F, A),
+    mapfoldr_2_1(Low, High-1, Ix - ?SIZE(S), S, Es, D, F, A1, LRem, [E1|Es1]);
+mapfoldr_2_1(_Low, _High, Ix, S, [E|Es], D, F, A, LRem, Es1) ->
+    {E1, A1} = mapfoldr_1(LRem, ?SIZE(S)-1, Ix, ?reduce(S), E, D, F, A),
+    {lists:reverse(Es, [E1|Es1]), A1}.
+
+mapfoldr_3(Low, High, Ix, [E|Es], F, A, Es1, I) when High < I ->
+    mapfoldr_3(Low, High, Ix, Es, F, A, [E|Es1], I - 1);
+mapfoldr_3(Low, High, Ix, Es, F, A, Es1, _I) ->
+    mapfoldr_3_1(Low, High, Ix, Es, F, A, Es1).
+
+mapfoldr_3_1(Low, High, Ix, [E|Es], F, A, Es1) when Low =< High ->
+    {E1, A1} = F(Ix, E, A),
+    mapfoldr_3_1(Low, High-1, Ix-1, Es, F, A1, [E1|Es1]);
+mapfoldr_3_1(_Low, _High, _Ix, Es, _F, A, Es1) ->
+    {list_to_tuple(lists:reverse(Es, Es1)), A}.
+
+
+-doc """
+Like `mapfoldr/3` but skips default-valued entries.
+
+See also `sparse_mapfoldr/5`, `sparse_mapfoldl/3`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec sparse_mapfoldr(Function, InitialAcc :: A, Array) -> {ArrayRes, A} when
+      Array :: array(Type1),
+      Function :: fun((Index :: array_indx(), Value :: Type1, Acc :: A) -> {Type2, A}),
+      ArrayRes :: array(Type1 | Type2).
+
+sparse_mapfoldr(Function, Acc, #array{size = N}=Array) when is_integer(N) ->
+    sparse_mapfoldr(0, N-1, Function, Acc, Array);
+sparse_mapfoldr(_, _, _) ->
+    erlang:error(badarg).
+
+-doc """
+Like `mapfoldr/5` but skips default-valued entries.
+
+See also `sparse_mapfoldr/3`, `sparse_mapfoldl/5`.
+""".
+-doc #{ since => ~"OTP @OTP-20004@" }.
+-spec sparse_mapfoldr(Low, High, Function, InitialAcc :: A, Array) -> {ArrayRes, A} when
+      Low :: array_indx(),
+      High :: array_indx(),
+      Function :: fun((Index :: array_indx(), Value :: Type1, Acc :: A) -> {Type2, A}),
+      Array :: array(Type1),
+      ArrayRes :: array(Type1 | Type2).
+
+sparse_mapfoldr(Low, High, Function, Acc, #array{size = N, zero = Z, cache = C, cache_index = CI,
+                                                 elements = E, default = D, bits = S}=Array)
+  when is_integer(Low), Low >= 0, is_integer(High), is_function(Function, 3), is_integer(N),
+       High < N, is_integer(Z), is_integer(CI), is_integer(S) ->
+    if Low =< High ->
+            E0 = set_leaf(CI, S, E, C),
+            {E1, Acc1} = sparse_mapfoldr_1(Low + Z, High + Z, High, S, E0, D, Function, Acc),
+            C1 = get_leaf(CI, S, E1, D),
+            {Array#array{elements = E1, cache = C1}, Acc1};
+       true ->
+            {Array, Acc}
+    end;
+sparse_mapfoldr(_, _, _, _, _) ->
+    erlang:error(badarg).
+
+sparse_mapfoldr_1(_Low, _High, _Ix, _S, ?EMPTY, _D, _F, A) ->
+    {?EMPTY, A};
+sparse_mapfoldr_1(Low, High, Ix, 0, E, D, F, A) ->
+    sparse_mapfoldr_3(Low, High, Ix, lists:reverse(tuple_to_list(E)), D, F, A, [], ?LEAFSIZE-1);
+sparse_mapfoldr_1(Low, High, Ix, S, E, D, F, A) ->
+    LDiv = Low bsr S,
+    HDiv = High bsr S,
+    LRem = Low band ?MASK(S),
+    HRem = High band ?MASK(S),
+    if LDiv =:= HDiv ->
+            {E1, A1} = sparse_mapfoldr_1(LRem, HRem, Ix, ?reduce(S), element(HDiv+1, E), D, F, A),
+            {setelement(HDiv+1, E, E1), A1};
+       true ->
+            Es = lists:reverse(tuple_to_list(E)),
+            {Es1, A1} = sparse_mapfoldr_2(LDiv, HDiv, Ix, S, Es, D, F, A, LRem, [], HRem, ?NODESIZE-1),
+            {list_to_tuple(Es1), A1}
+    end.
+
+sparse_mapfoldr_2(Low, High, Ix, S, [E|Es], D, F, A, LRem, Es1, HRem, I) when High < I ->
+    sparse_mapfoldr_2(Low, High, Ix, S, Es, D, F, A, LRem, [E|Es1], HRem, I - 1);
+sparse_mapfoldr_2(Low, High, Ix, S, [E|Es], D, F, A, LRem, Es1, HRem, _I) ->
+    {E1, A1} = sparse_mapfoldr_1(0, HRem, Ix, ?reduce(S), E, D, F, A),
+    sparse_mapfoldr_2_1(Low, High-1, Ix - HRem - 1, S, Es, D, F, A1, LRem, [E1|Es1]).
+
+sparse_mapfoldr_2_1(Low, High, Ix, S, [E|Es], D, F, A, LRem, Es1) when Low < High ->
+    {E1, A1} = sparse_mapfoldr_1(0, ?SIZE(S)-1, Ix, ?reduce(S), E, D, F, A),
+    sparse_mapfoldr_2_1(Low, High-1, Ix - ?SIZE(S), S, Es, D, F, A1, LRem, [E1|Es1]);
+sparse_mapfoldr_2_1(_Low, _High, Ix, S, [E|Es], D, F, A, LRem, Es1) ->
+    {E1, A1} = sparse_mapfoldr_1(LRem, ?SIZE(S)-1, Ix, ?reduce(S), E, D, F, A),
+    {lists:reverse(Es, [E1|Es1]), A1}.
+
+sparse_mapfoldr_3(Low, High, Ix, [E|Es], D, F, A, Es1, I) when High < I ->
+    sparse_mapfoldr_3(Low, High, Ix, Es, D, F, A, [E|Es1], I - 1);
+sparse_mapfoldr_3(Low, High, Ix, Es, D, F, A, Es1, _I) ->
+    sparse_mapfoldr_3_1(Low, High, Ix, Es, D, F, A, Es1).
+
+sparse_mapfoldr_3_1(Low, High, Ix, [E|Es], D, F, A, Es1) when Low =< High ->
+    if E =:= D ->
+            sparse_mapfoldr_3_1(Low, High-1, Ix-1, Es, D, F, A, [E|Es1]);
+       true ->
+            {E1, A1} = F(Ix, E, A),
+            sparse_mapfoldr_3_1(Low, High-1, Ix-1, Es, D, F, A1, [E1|Es1])
+    end;
+sparse_mapfoldr_3_1(_Low, _High, _Ix, Es, _D, _F, A, Es1) ->
+    {list_to_tuple(lists:reverse(Es, Es1)), A}.
