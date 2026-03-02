@@ -311,8 +311,58 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
 
 void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
                                           const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_init_yregs");
+    unsigned count = Size.get();
+    ASSERT(count == args.size());
+    unsigned i = 0;
+    bool x_initialized = false;
+    bool q_initialized = false;
+
+    while (i < count) {
+        unsigned first_y = args[i].as<ArgYRegister>().get();
+        unsigned slots = 1;
+
+        while (i + slots < count) {
+            unsigned current_y = args[i + slots].as<ArgYRegister>().get();
+
+            if (first_y + slots != current_y) {
+                break;
+            }
+            slots++;
+        }
+
+        i += slots;
+
+        /* Now first_y is the number of the first y register to be initialized
+         * and slots is the number of y registers to be initialized. */
+
+        while (slots >= 2 && first_y * sizeof(Eterm) <= disp1KB) {
+            // We can only store 64-bit values at a time, 
+            // so we initialize a double word with -1.
+            if (!q_initialized) {
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == 0x0f);
+                a.vmov_s64(a32::d0, imm(-1));
+                q_initialized = true;
+            }
+            // store the double word at the appropriate pair of Y registers
+            a.vstr_64(a32::d0, getYRef(first_y));
+            first_y += 2;
+            slots -= 2;
+        }
+
+        while (slots >= 1) {
+            if (q_initialized && first_y * sizeof(Eterm) <= disp1KB) {
+                a.vstr_32(a32::s0, getYRef(first_y));
+            } else {
+                if (!x_initialized) {
+                    mov_imm(TMP, NIL);
+                    x_initialized = true;
+                }
+                a.str(TMP, getYRef(first_y));
+            }
+            first_y += 1;
+            slots -= 1;
+        }
+    }
 }
 
 void BeamModuleAssembler::emit_trim(const ArgWord &Words,

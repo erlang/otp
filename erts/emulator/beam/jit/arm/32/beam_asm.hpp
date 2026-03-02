@@ -639,6 +639,12 @@ class BeamModuleAssembler : public BeamAssembler,
          * backward displacements. */
         dispUnknown = (4 << 10) - sizeof(Uint32) - STUB_CHECK_INTERVAL,
         
+        /* +- 1KB: vector operations: `vldr` `vstr` of 8-byte literal. 
+         * This is the maximum displacement for vector operations.
+         * Permitted values are multiples of 4 in the range 0 to 1020.
+         */
+        disp1KB = (1 << 10) - sizeof(Uint32),
+        
         /* +- 4KB: `ldr` of 4-byte literal.
          * ARM LDR (literal) encodes offset from PC+8; valid range ±4095 bytes. 
          * For such, we reduce further the range by 8 to be safe when applied
