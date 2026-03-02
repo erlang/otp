@@ -15708,15 +15708,12 @@ sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
 has_recvmmsg_support() ->
     {ok, S} = socket:open(inet, dgram, udp),
     try socket:recvmmsg(S, 1, 0, 0, [], 0) of
-        {error, notsup} ->
-            ok = socket:close(S),
-            skip("recvmmsg not supported on this platform");
         _ ->
             ok = socket:close(S),
             ok
     catch
-        _:_ ->
-            ok = socket:close(S),
+        error : notsup ->
+            _ = socket:close(S),
             skip("recvmmsg not supported on this platform")
     end.
 
@@ -15729,14 +15726,11 @@ has_sendmmsg_support() ->
     {ok, S} = socket:open(inet, dgram, udp),
     Msgs = [#{iov => [<<"test">>]}],
     try socket:sendmmsg(S, Msgs, [], 0) of
-        {error, notsup} ->
-            ok = socket:close(S),
-            skip("sendmmsg not supported on this platform");
         _ ->
             ok = socket:close(S),
             ok
     catch
-        _:_ ->
-            ok = socket:close(S),
+        error : notsup ->
+            _ = socket:close(S),
             skip("sendmmsg not supported on this platform")
     end.
