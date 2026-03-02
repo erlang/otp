@@ -24,6 +24,7 @@
 -module(supervisor_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %% Testserver specific export
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -832,8 +833,8 @@ child_adm(Config) when is_list(Config) ->
 
     %% Termination
     {error, not_found} = supervisor:terminate_child(sup_test, hej),
-    {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:terminate_child(foo, child1)),
+    ok = ?assertExit({noproc, {gen_server, call, _}},
+                     supervisor:terminate_child(foo, child1)),
     ok = supervisor:terminate_child(sup_test, child1),
     check_exit_reason(CPid, shutdown),
     [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
@@ -854,8 +855,8 @@ child_adm(Config) when is_list(Config) ->
     %% Deletion
     {error, running} = supervisor:delete_child(sup_test, child1),
     {error, not_found} = supervisor:delete_child(sup_test, hej),
-    {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:delete_child(foo, child1)),
+    ok = ?assertExit({noproc, {gen_server, call, _}},
+                     supervisor:delete_child(foo, child1)),
     ok = supervisor:terminate_child(sup_test, child1),
     ok = supervisor:delete_child(sup_test, child1),
     {error, not_found} = supervisor:restart_child(sup_test, child1),
@@ -863,8 +864,8 @@ child_adm(Config) when is_list(Config) ->
     [0,0,0,0] = get_child_counts(sup_test),
 
     %% Start
-    {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:start_child(foo, Child)),
+    ok = ?assertExit({noproc, {gen_server, call, _}},
+                     supervisor:start_child(foo, Child)),
     {ok, CPid3} = supervisor:start_child(sup_test, Child),
     [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test),
@@ -874,10 +875,10 @@ child_adm(Config) when is_list(Config) ->
     [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test),
 
-    {'EXIT',{noproc,{gen_server,call,[foo,which_children,infinity]}}}
-	= (catch supervisor:which_children(foo)),
-    {'EXIT',{noproc,{gen_server,call,[foo,count_children,infinity]}}}
-	= (catch supervisor:count_children(foo)),
+    ok = ?assertExit({noproc, {gen_server, call, [foo, which_children, infinity]}},
+                     supervisor:which_children(foo)),
+    ok = ?assertExit({noproc, {gen_server, call, [foo, count_children, infinity]}},
+                     supervisor:count_children(foo)),
     ok.
 %%-------------------------------------------------------------------------
 %% The API functions terminate_child/2, delete_child/2 restart_child/2
@@ -898,8 +899,8 @@ child_adm_simple(Config) when is_list(Config) ->
     [1,0,0,0] = get_child_counts(sup_test),
 
     %% Start
-    {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:start_child(foo, [])),
+    ok = ?assertExit({noproc, {gen_server, call, _}},
+                     supervisor:start_child(foo, [])),
     {ok, CPid1} = supervisor:start_child(sup_test, []),
     [{undefined, CPid1, worker, []}] =
 	supervisor:which_children(sup_test),
@@ -1392,8 +1393,8 @@ temporary_bystander(_Config) ->
     terminate(SupPid1, CPid1, child1, normal),
     terminate(SupPid2, CPid3, child1, normal),
     timer:sleep(350),
-    catch link(SupPid1),
-    catch link(SupPid2),
+    _ = try link(SupPid1) catch _:_ -> ok end,
+    _ = try link(SupPid2) catch _:_ -> ok end,
     %% The supervisor would die attempting to restart child2
     true = erlang:is_process_alive(SupPid1),
     true = erlang:is_process_alive(SupPid2),
