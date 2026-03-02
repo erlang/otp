@@ -772,7 +772,8 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
             cons_ptr = emit_ptr_val(TMP, x.reg);
             a.sub(TMP, cons_ptr, imm(TAG_PRIMARY_LIST));
             a.ldmia(arm::Mem(TMP), a32::GpList({ARG1, ARG2}));
-            a.cmp(ARG1, CAR(list_val(literal)));
+            mov_imm(TMP, CAR(list_val(literal)));
+            a.cmp(ARG1, TMP);
             a.b_ne(resolve_beam_label(Fail, disp32MB));
             mov_imm(TMP, NIL);
             a.cmp(ARG2, TMP);
