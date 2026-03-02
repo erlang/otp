@@ -466,7 +466,7 @@ the functions of the `qlc` module or the parse transform. This function is
 mainly used by the compiler invoking the parse transform.
 """.
 -spec(format_error(Error) -> Chars when
-      Error :: {error, module(), term()},
+      Error :: {error, module(), term()} | atom() | {atom(), term()} | {atom(), term(), term()},
       Chars :: io_lib:chars()).
 format_error(not_a_query_list_comprehension) ->
     io_lib:format("argument is not a query list comprehension", []);
