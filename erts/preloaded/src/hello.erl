@@ -130,7 +130,7 @@ test(BootArgs) ->
     BootArgs = rev_test(BootArgs),
     reductions(BootArgs),
     list_test(),
-%    tuple_test(),
+    tuple_test(),
 %    test_guard_tests(BootArgs),
 %    preserving_xregs(),
 %    swapping(),
@@ -220,36 +220,36 @@ list_test() ->
 
     ok.
 
-%tuple_test() ->
-%    T = id({a,b,c}),
-%    if is_tuple(T) -> ok end,
-%    {A,B,C} = T,
-%    [a,b,c] = [A,B,C],
-%
-%    {tag,xyz,b,42,w,x,y,z} = build_tuple(id(tag), id(b), id(42), id(w), id(x), id(y), id(z)),
-%
-%    {tag,X,Y} = id({tag,x,y}),
-%    [x,y] = [X,Y],
-%    ok = case id({short}) of
-%             {tag,_,_} -> error;
-%             _ -> ok
-%         end,
-%    ok = case id({wrong_tag,x,y}) of
-%             {tag,_,_} -> error;
-%             _ -> ok
-%         end,
-%
-%    %% Build a tuple and put into an Y register.
-%    Tuple = {id(a),b,c},
-%    _ = id(0),
-%    {a,b,c} = id(Tuple),
-%
-%    id(ok).
-%
-%%% Also test proper handling of X registers not backed by ARM registers.
-%build_tuple(Tag, A, B, C, D, E, F) ->
-%    {id(Tag),xyz,A,B,C,D,E,F}.
-%
+tuple_test() ->
+    T = id({a,b,c}),
+    if is_tuple(T) -> ok end,
+    {A,B,C} = T,
+    [a,b,c] = [A,B,C],
+
+    {tag,xyz,b,42,w,x,y,z} = build_tuple(id(tag), id(b), id(42), id(w), id(x), id(y), id(z)),
+
+    {tag,X,Y} = id({tag,x,y}),
+    [x,y] = [X,Y],
+    ok = case id({short}) of
+             {tag,_,_} -> error;
+             _ -> ok
+         end,
+    ok = case id({wrong_tag,x,y}) of
+             {tag,_,_} -> error;
+             _ -> ok
+         end,
+
+    %% Build a tuple and put into an Y register.
+    Tuple = {id(a),b,c},
+    _ = id(0),
+    {a,b,c} = id(Tuple),
+
+    id(ok).
+
+%% Also test proper handling of X registers not backed by ARM registers.
+build_tuple(Tag, A, B, C, D, E, F) ->
+    {id(Tag),xyz,A,B,C,D,E,F}.
+
 %test_guard_tests(BootArgs) ->
 %    test_numeric_guards(),
 %
