@@ -253,82 +253,82 @@ build_tuple(Tag, A, B, C, D, E, F) ->
 test_guard_tests(BootArgs) ->
     test_numeric_guards(),
 
-%    true = is_atom(id(a)),
-%    false = is_atom(id(42)),
-%
-%    true = is_tuple(id({})),
-%
-%    true = is_list(id([])),
-%    true = is_list(id([a])),
-%    false = is_list(id({a,b})),
-%    false = is_list(id(42)),
-%
-%    true = is_boolean(id(false)),
-%    true = is_boolean(id(true)),
-%    false = is_boolean(id(a)),
-%    false = is_boolean(id(42)),
-%    false = is_boolean({id(a),b}),
-%
-%    test_boot_args(BootArgs),
-%
-%    BigNum = id(16#fffffffffffffffffffffffffffff),
-%    {Sub1,Sub2} = split_binary(id(<<"abcde">>), 3),
-%    true = is_binary(id(<<"abc">>)),
-%    true = is_binary(list_to_binary(id([]))),
-%    true = is_binary(list_to_binary(BootArgs)),
-%    true = is_binary(id(Sub1)),
-%    true = is_binary(id(Sub2)),
-%    false = is_binary(id(a)),
-%    false = is_binary(id(<<1:1>>)),
-%    false = is_binary(BigNum),
-%
-%    true = is_bitstring(id(<<"abc">>)),
-%    true = is_bitstring(list_to_binary(id([]))),
-%    true = is_bitstring(list_to_binary(BootArgs)),
-%    true = is_bitstring(id(Sub1)),
-%    true = is_bitstring(id(Sub2)),
-%    true = is_bitstring(id(<<1:1>>)),
-%    false = is_bitstring(id(a)),
-%    false = is_bitstring(id(BigNum)),
-%
-%    true = is_pid(id(self())),
-%    true = is_pid(external_pid()),
-%    false = is_pid(BigNum),
-%    false = is_pid(Sub1),
-%    false = is_pid(id(a)),
-%    false = is_pid(BootArgs),
-%
-%    true = is_reference(make_ref()),
-%    true = is_reference(external_ref()),
-%    false = is_reference(external_pid()),
-%    false = is_reference(BigNum),
-%    false = is_reference(Sub1),
-%    false = is_reference(id(a)),
-%    false = is_reference(BootArgs),
-%
-%    true = is_map(id(#{})),
-%    true = is_map(id(#{a => b})),
-%    false = is_map(BigNum),
-%    false = is_map(Sub1),
-%    false = is_map(id(a)),
-%    false = is_map(BootArgs),
-%
+    true = is_atom(id(a)),
+    false = is_atom(id(42)),
+
+    true = is_tuple(id({})),
+
+    true = is_list(id([])),
+    true = is_list(id([a])),
+    false = is_list(id({a,b})),
+    false = is_list(id(42)),
+
+    true = is_boolean(id(false)),
+    true = is_boolean(id(true)),
+    false = is_boolean(id(a)),
+    false = is_boolean(id(42)),
+    false = is_boolean({id(a),b}),
+
+    test_boot_args(BootArgs),
+
+    BigNum = id(16#fffffffffffffffffffffffffffff),
+    {Sub1,Sub2} = split_binary(id(<<"abcde">>), 3),
+    true = is_binary(id(<<"abc">>)),
+    true = is_binary(list_to_binary(id([]))),
+    true = is_binary(list_to_binary(BootArgs)),
+    true = is_binary(id(Sub1)),
+    true = is_binary(id(Sub2)),
+    false = is_binary(id(a)),
+    false = is_binary(id(<<1:1>>)),
+    false = is_binary(BigNum),
+
+    true = is_bitstring(id(<<"abc">>)),
+    true = is_bitstring(list_to_binary(id([]))),
+    true = is_bitstring(list_to_binary(BootArgs)),
+    true = is_bitstring(id(Sub1)),
+    true = is_bitstring(id(Sub2)),
+    true = is_bitstring(id(<<1:1>>)),
+    false = is_bitstring(id(a)),
+    false = is_bitstring(id(BigNum)),
+
+    true = is_pid(id(self())),
+    true = is_pid(external_pid()),
+    false = is_pid(BigNum),
+    false = is_pid(Sub1),
+    false = is_pid(id(a)),
+    false = is_pid(BootArgs),
+
+    true = is_reference(make_ref()),
+    true = is_reference(external_ref()),
+    false = is_reference(external_pid()),
+    false = is_reference(BigNum),
+    false = is_reference(Sub1),
+    false = is_reference(id(a)),
+    false = is_reference(BootArgs),
+
+    true = is_map(id(#{})),
+    true = is_map(id(#{a => b})),
+    false = is_map(BigNum),
+    false = is_map(Sub1),
+    false = is_map(id(a)),
+    false = is_map(BootArgs),
+
     ok.
 
-%external_pid() ->
-%    B = <<131,88,100,0,11,97,114,110,101,64,115,101,108,100,111,
-%          110,0,0,0,50,0,0,0,0,96,96,14,170>>,
-%    binary_to_term(B).
-%
-%external_ref() ->
-%    B = <<131,90,0,3,100,0,11,97,114,110,101,64,122,97,112,104,111,
-%          100,96,96,14,188,0,1,106,122,169,196,0,1,6,56,120,157>>,
-%    binary_to_term(B).
-%
-%test_boot_args([H|T]) when is_binary(H) ->
-%    test_boot_args(T);
-%test_boot_args([]) -> ok.
-%
+external_pid() ->
+    B = <<131,88,100,0,11,97,114,110,101,64,115,101,108,100,111,
+          110,0,0,0,50,0,0,0,0,96,96,14,170>>,
+    binary_to_term(B).
+
+external_ref() ->
+    B = <<131,90,0,3,100,0,11,97,114,110,101,64,122,97,112,104,111,
+          100,96,96,14,188,0,1,106,122,169,196,0,1,6,56,120,157>>,
+    binary_to_term(B).
+
+test_boot_args([H|T]) when is_binary(H) ->
+    test_boot_args(T);
+test_boot_args([]) -> ok.
+
 test_numeric_guards() ->
     true = is_integer(id(42)),
     true = is_integer(id(16#7777777777777777777777777777777777)),
