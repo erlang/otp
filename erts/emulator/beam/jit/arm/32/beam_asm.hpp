@@ -1191,12 +1191,6 @@ protected:
         a.bl(resolve_fragment((void (*)())func, disp32MB));
     }
 
-    bool isRegisterBacked(const ArgVal &arg) {
-        // TODO
-        ASSERT(false);
-        return false;
-    }
-
     template<typename RegType = a32::Gp>
     struct Variable {
         RegType reg;

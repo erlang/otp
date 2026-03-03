@@ -452,8 +452,13 @@ void BeamModuleAssembler::emit_load_two_xregs(const ArgRegister &Src1,
                                               const ArgXRegister &Dst1,
                                               const ArgRegister &Src2,
                                               const ArgXRegister &Dst2) {
-    // TODO
-    emit_nyi("emit_load_two_xregs");
+    ASSERT(ArgVal::memory_relation(Src1, Src2) ==
+           ArgVal::Relation::consecutive);
+    auto dst1 = init_destination(Dst1, VAR);
+    auto dst2 = init_destination(Dst2, TMP);
+
+    safe_ldmia(dst1.reg, dst2.reg, Src1, Src2);
+    flush_vars(dst1, dst2);
 }
 
 void BeamModuleAssembler::emit_swap(const ArgRegister &R1,
