@@ -536,8 +536,24 @@ void BeamModuleAssembler::emit_put_list2(const ArgSource &Hd1,
 void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                                           const ArgWord &Arity,
                                           const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_put_tuple2");
+    ASSERT(arityval(Arity.get()) == args.size());
+    // TODO: check arm64 implementation to optimize this
+
+    const size_t size = args.size() + 1;
+
+    mov_arg(TMP, Arity);
+    a.str(TMP, arm::Mem(HTOP));
+    add(HTOP, HTOP, sizeof(Eterm));
+
+    for (size_t i = 0; i < args.size(); i++) {
+        auto src = load_source(args[i], TMP);
+        a.str(src.reg, arm::Mem(HTOP));
+        add(HTOP, HTOP, sizeof(Eterm));
+    }
+
+    auto ptr = init_destination(Dst, TMP);
+    sub(ptr.reg, HTOP, size * sizeof(Eterm) - TAG_PRIMARY_BOXED);
+    flush_var(ptr);
 }
 
 void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
