@@ -631,8 +631,19 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
                                         const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_float");
+    auto src = load_source(Src, TMP);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Float) {
+        comment("skipped header test since we know it's a float when boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+
+        a.cmp(TMP, imm(HEADER_FLONUM));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
@@ -728,8 +739,46 @@ void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
                                          const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_number");
+    auto src = load_source(Src, TMP);
+    Label next = a.newLabel();
+
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(Src)) {
+        comment("simplified small test since all other types are boxed");
+        emit_is_boxed(next, Src, src.reg);
+    } else {
+        a.and_(VAR, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(VAR, imm(_TAG_IMMED1_SMALL));
+        a.b_eq(next);
+
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+    }
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Number) {
+        comment("skipped header test since we know it's a number when boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+
+        /* The header mask with the sign bit removed (0b111011) is not
+         * possible to use as an immediate operand for 'and'. (See the
+         * note at the beginning of the file.) Therefore, use a
+         * simpler mask (0b111000) that will also clear the primary
+         * tag bits. That works because we KNOW that a boxed pointer
+         * always points to a header word and that the primary tag for
+         * a header is 0.
+         */
+        auto mask = _HEADER_SUBTAG_MASK - _BIG_SIGN_BIT;
+        ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+        a.and_(VAR, TMP, imm(mask));
+        a.cmp(VAR, imm(_TAG_HEADER_POS_BIG));
+        a.b_eq(next); // accept positive bignum
+
+        mov_imm(VAR, HEADER_FLONUM);
+        a.cmp(TMP, VAR);
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
+
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
