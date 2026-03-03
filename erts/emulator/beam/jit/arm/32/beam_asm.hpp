@@ -758,7 +758,8 @@ class BeamModuleAssembler : public BeamAssembler,
     /* Works as the STMIA instruction, but also updates the cache. */
     void stmia_cache(arm::Mem mem_dst, a32::Gp src1, a32::Gp src2) {
         arm::Mem next_dst =
-                arm::Mem(a32::Gp(mem_dst.baseId()), mem_dst.offset() + 8);
+                arm::Mem(a32::Gp(mem_dst.baseId()),
+                         mem_dst.offset() + sizeof(Eterm));
 
         reg_cache.consolidate(a.offset());
 
@@ -1360,9 +1361,9 @@ protected:
                                     const arm::Mem &mem2) {
         if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
             mem1.baseId() == mem2.baseId()) {
-            if (mem1.offset() + 8 == mem2.offset()) {
+            if (mem1.offset() + sizeof(Eterm) == mem2.offset()) {
                 return consecutive;
-            } else if (mem1.offset() == mem2.offset() + 8) {
+            } else if (mem1.offset() == mem2.offset() + sizeof(Eterm)) {
                 return reverse_consecutive;
             }
         }
@@ -1374,26 +1375,27 @@ protected:
         const arm::Mem &mem1 = to1.mem;
         const arm::Mem &mem2 = to2.mem;
 
-        switch (memory_relation(to1.mem, to2.mem)) {
-        case Relation::consecutive:
+        if (memory_relation(to1.mem, to2.mem) == Relation::consecutive) {
             stmia_cache(mem1, to1.reg, to2.reg);
-            break;
-        case Relation::reverse_consecutive:            
+        } else {
             flush_var(to1);
             flush_var(to2);
-            break;
-        case Relation::none:
-            flush_var(to1);
-            flush_var(to2);
-            break;
         }
     }
 
     void flush_vars(const Variable<a32::Gp> &to1,
                     const Variable<a32::Gp> &to2,
                     const Variable<a32::Gp> &to3) {
-        // TODO
-        ASSERT(false);
+        if (memory_relation(to2.mem, to3.mem) != Relation::none) {
+            flush_vars(to2, to3);
+            flush_var(to1);
+        } else if (memory_relation(to1.mem, to3.mem) != Relation::none) {
+            flush_vars(to1, to3);
+            flush_var(to2);
+        } else {
+            flush_vars(to1, to2);
+            flush_var(to3);
+        }
     }
 
     void mov_arg(const ArgRegister &To, const ArgVal &From) {
@@ -1460,7 +1462,11 @@ protected:
         ASSERT(gp1.isGp() && gp2.isGp());
         ASSERT(gp1 != gp2);
         ASSERT(gp1.id() < gp2.id());
-        
+        // We need the full memory address in a base register to use stmia
+        // a LEA(TMP) will work,
+        // but we need to make sure it's not used by the source registers
+        ASSERT(gp1.id() != TMP.id());
+        ASSERT(gp2.id() != TMP.id());
         lea(TMP, mem);
         a.stmia(arm::Mem(TMP), a32::GpList({gp1, gp2}));
     }

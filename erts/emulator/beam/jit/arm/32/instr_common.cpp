@@ -324,8 +324,8 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
     emit_tuple_assertion(Src, ARG1);
 #endif
 
-    auto dst1 = init_destination(Dst1, VAR);
-    auto dst2 = init_destination(Dst2, TMP);
+    auto dst1 = init_destination(Dst1, ARG2);
+    auto dst2 = init_destination(Dst2, ARG3);
 
     arm::Mem element_ptr = arm::Mem(ARG1, Element.get());
     safe_ldmia(element_ptr, dst1.reg, dst2.reg);
@@ -445,7 +445,7 @@ void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
                                                 const ArgRegister &Dst1,
                                                 const ArgSource &Src2,
                                                 const ArgRegister &Dst2) {
-    auto [src1, src2] = load_sources(Src1, VAR, Src2, TMP);
+    auto [src1, src2] = load_sources(Src1, ARG1, Src2, ARG2);
     auto dst1 = init_destination(Dst1, src1.reg);
     auto dst2 = init_destination(Dst2, src2.reg);
 
@@ -458,8 +458,8 @@ void BeamModuleAssembler::emit_load_two_xregs(const ArgRegister &Src1,
                                               const ArgXRegister &Dst2) {
     ASSERT(ArgVal::memory_relation(Src1, Src2) ==
            ArgVal::Relation::consecutive);
-    auto dst1 = init_destination(Dst1, VAR);
-    auto dst2 = init_destination(Dst2, TMP);
+    auto dst1 = init_destination(Dst1, ARG1);
+    auto dst2 = init_destination(Dst2, ARG2);
 
     safe_ldmia(dst1.reg, dst2.reg, Src1, Src2);
     flush_vars(dst1, dst2);
@@ -467,23 +467,41 @@ void BeamModuleAssembler::emit_load_two_xregs(const ArgRegister &Src1,
 
 void BeamModuleAssembler::emit_swap(const ArgRegister &R1,
                                     const ArgRegister &R2) {
-    // TODO
-    emit_nyi("emit_swap");
+    auto [arg1, arg2] = load_sources(R1, ARG1, R2, ARG2);
+    auto dst1 = init_destination(R2, arg1.reg);
+    auto dst2 = init_destination(R1, arg2.reg);
+    flush_vars(dst1, dst2);
 }
 
 void BeamModuleAssembler::emit_swap2(const ArgRegister &R1,
                                      const ArgRegister &R2,
                                      const ArgRegister &R3) {
-    // TODO
-    emit_nyi("emit_swap2");
+    auto [arg1, arg2] = load_sources(R1, ARG1, R2, ARG2);
+    auto arg3 = load_source(R3, ARG3);
+
+    mov_var(TMP, arg1);
+    mov_var(arg1, arg2);
+    mov_var(arg2, arg3);
+    mov_var(arg3, TMP);
+
+    flush_vars(arg1, arg2, arg3);
 }
 
 void BeamModuleAssembler::emit_swap3(const ArgRegister &R1,
                                      const ArgRegister &R2,
                                      const ArgRegister &R3,
                                      const ArgRegister &R4) {
-    // TODO
-    emit_nyi("emit_swap3");
+    auto [arg1, arg2] = load_sources(R1, ARG1, R2, ARG2);
+    auto [arg3, arg4] = load_sources(R3, ARG3, R4, ARG4);
+
+    mov_var(TMP, arg1);
+    mov_var(arg1, arg2);
+    mov_var(arg2, arg3);
+    mov_var(arg3, arg4);
+    mov_var(arg4, TMP);
+
+    flush_vars(arg1, arg2, arg3);
+    flush_var(arg4);
 }
 
 void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
@@ -491,8 +509,19 @@ void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
                                      const ArgRegister &R3,
                                      const ArgRegister &R4,
                                      const ArgRegister &R5) {
-    // TODO
-    emit_nyi("emit_swap4");
+    auto [arg1, arg2] = load_sources(R1, ARG1, R2, ARG2);
+    auto [arg3, arg4] = load_sources(R3, ARG3, R4, ARG4);
+    auto arg5 = load_source(R5, VAR);
+
+    mov_var(TMP, arg1);
+    mov_var(arg1, arg2);
+    mov_var(arg2, arg3);
+    mov_var(arg3, arg4);
+    mov_var(arg4, arg5);
+    mov_var(arg5, TMP);
+
+    flush_vars(arg1, arg2, arg3);
+    flush_vars(arg4, arg5);
 }
 
 void BeamModuleAssembler::emit_node(const ArgRegister &Dst) {
@@ -1025,8 +1054,12 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
 void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgWord &Arity) {
-    // TODO
-    emit_nyi("emit_i_test_arity");
+    auto src = load_source(Src, ARG1);
+    emit_untag_ptr(ARG1, src.reg);
+
+    a.ldr(TMP, arm::Mem(ARG1));
+    cmp_arg(TMP, Arity);
+    a.b_ne(resolve_beam_label(Fail, disp32MB));
 }
 
 /*

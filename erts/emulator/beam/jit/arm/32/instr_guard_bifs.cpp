@@ -404,6 +404,30 @@ void BeamGlobalAssembler::emit_bif_tuple_size_guard() {
 void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,
                                               const ArgRegister &Src,
                                               const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_tuple_size");
+    auto src = load_source(Src, ARG1);
+    auto dst = init_destination(Dst, ARG1);
+
+    if (exact_type<BeamTypeId::Tuple>(Src)) {
+        comment("simplifed tuple_size/1 because the argument is always a "
+                "tuple");
+        a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+        ERTS_CT_ASSERT(_HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE > 0);
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.lsr(TMP, TMP, _HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE);
+        a.orr(dst.reg, TMP, imm(_TAG_IMMED1_SMALL));
+    } else {
+        mov_var(ARG1, src);
+
+        if (Fail.get() == 0) {
+            fragment_call(ga->get_bif_tuple_size_body());
+        } else {
+            fragment_call(ga->get_bif_tuple_size_guard());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        }
+
+        mov_var(dst, ARG1);
+    }
+    flush_var(dst);
 }
