@@ -15121,20 +15121,22 @@ recvmmsg_sendmmsg_loopback_udp6(_Config) when is_list(_Config) ->
 recvmmsg_notsup(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(
-        recvmmsg_notsup,
-        fun() -> is_windows() end,
-        fun() ->
-            {ok, S} = socket:open(inet, dgram, udp),
-            try socket:recvmmsg(S, 10, 0, 0, [], infinity) of
-                {error, notsup} ->
-                    ok = socket:close(S),
-                    ok
-            catch
-                _:_ ->
-                    ok = socket:close(S),
-                    ok
-            end
-        end
+      ?FUNCTION_NAME,
+      fun() -> is_windows() end,
+      fun() ->
+	      {ok, S} = socket:open(inet, dgram, udp),
+	      try socket:recvmmsg(S, 10, 0, 0, [], infinity) of
+		  X ->
+		      ?P("unexpected return value from recvmmsg: "
+			 "~n   ~p", [X]),
+		      ct:fail(unexpected_return)
+	      catch
+		  error:notsup ->
+		      ok
+	      after
+		  _ = socket:close(S)
+	      end
+      end
     ).
 
 
@@ -15145,21 +15147,23 @@ recvmmsg_notsup(_Config) when is_list(_Config) ->
 sendmmsg_notsup(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(
-        sendmmsg_notsup,
-        fun() -> is_windows() end,
-        fun() ->
-            {ok, S} = socket:open(inet, dgram, udp),
-            Msgs = [#{iov => [<<"test">>]}],
-            try socket:sendmmsg(S, Msgs, [], infinity) of
-                {error, notsup} ->
-                    ok = socket:close(S),
-                    ok
-            catch
-                _:_ ->
-                    ok = socket:close(S),
-                    ok
-            end
-        end
+      ?FUNCTION_NAME,
+      fun() -> is_windows() end,
+      fun() ->
+	      {ok, S} = socket:open(inet, dgram, udp),
+	      Msgs = [#{iov => [<<"test">>]}],
+	      try socket:sendmmsg(S, Msgs, [], infinity) of
+		  X ->
+		      ?P("unexpected return value from sendmmsg: "
+			 "~n   ~p", [X]),
+		      ct:fail(unexpected_return)
+	      catch
+		  error:notsup ->
+		      ok
+	      after
+		  _ = socket:close(S)
+	      end
+      end
     ).
 
 
@@ -15709,13 +15713,14 @@ has_recvmmsg_support() ->
     {ok, S} = socket:open(inet, dgram, udp),
     try socket:recvmmsg(S, 1, 0, 0, [], 0) of
         _ ->
-            ok = socket:close(S),
+            _ = socket:close(S),
             ok
     catch
         error : notsup ->
             _ = socket:close(S),
             skip("recvmmsg not supported on this platform")
     end.
+	    
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -15727,7 +15732,7 @@ has_sendmmsg_support() ->
     Msgs = [#{iov => [<<"test">>]}],
     try socket:sendmmsg(S, Msgs, [], 0) of
         _ ->
-            ok = socket:close(S),
+            _ = socket:close(S),
             ok
     catch
         error : notsup ->
