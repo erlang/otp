@@ -56,6 +56,7 @@
          sparse_foldr_test/1,
          mapfoldl_test/1,
          import_export/1,
+         old_format/1,
          doctests/1,
          %% Property tests
          prop_new/1, prop_is_array/1, prop_set_get/1, prop_size/1,
@@ -96,7 +97,7 @@ all() ->
      from_orddict_test, map_test, sparse_map_test,
      foldl_test, sparse_foldl_test, foldr_test, sparse_foldr_test,
      mapfoldl_test,
-     import_export, doctests,
+     import_export, old_format, doctests,
      {group, property}].
 
 groups() ->
@@ -975,6 +976,28 @@ import_export(_Config) ->
     ?assert(RGBBin =:= array:foldl(RGB2Bin, <<>>, array:from(Bin2RGB, RGBBin))),
 
     ok.
+
+old_format(_Config) ->
+    %% array:fix(array:from_orddict([{3,a}, {42,b}, {43,c}, {44,d}, {45,e}, {500,x}], foo)).
+    List = [{3,a}, {42,b}, {43,c}, {44,d}, {45,e}, {500,x}],
+    Old = {array,501,0,foo,
+           {{{foo,foo,foo,a,foo,foo,foo,foo,foo,foo},
+             10,10,10,
+             {foo,foo,b,c,d,e,foo,foo,foo,foo},
+             10,10,10,10,10,10},
+            100,100,100,100,
+            {{x,foo,foo,foo,foo,foo,foo,foo,foo,foo},
+             10,10,10,10,10,10,10,10,10,10},
+            100,100,100,100,100}},
+    A = array:upgrade(Old),
+    ?assert(List =:= array:sparse_to_orddict(A)),
+    ?assert(true =:= array:is_fix(A)),
+    ?assert(foo =:= array:default(A)),
+    ?assert(x =:= array:get(500, A)),
+    ?assert(foo =:= array:get(499, A)),
+    ?assert(A =:= array:upgrade(A)),
+    ok.
+
 
 doctests(Config) when is_list(Config) ->
     shell_docs:test(array, []).
