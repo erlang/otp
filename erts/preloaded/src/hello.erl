@@ -132,7 +132,7 @@ test(BootArgs) ->
     list_test(),
     tuple_test(),
     test_guard_tests(BootArgs),
-%    preserving_xregs(),
+    preserving_xregs(),
 %    swapping(),
 %    apply_test(),
 %    guard_bif_test(),
@@ -352,19 +352,19 @@ test_numeric_guards() ->
     false = is_float(id([a,b])),
 
     ok.
-%
-%preserving_xregs() ->
-%    Args = get_args(?FUNCTION_NAME),
-%    {A,B,C,D,E,F} = Args,
-%    Args = do_preserving(A, B, C, D, E, F),
-%    ok.
-%
-%do_preserving(A, B, C, D, E, F) ->
-%    if
-%        E =/= F ->
-%            {A,B,C,D,E,F}
-%    end.
-%
+
+preserving_xregs() ->
+    Args = get_args(?FUNCTION_NAME),
+    {A,B,C,D,E,F} = Args,
+    Args = do_preserving(A, B, C, D, E, F),
+    ok.
+
+do_preserving(A, B, C, D, E, F) ->
+    if
+        E =/= F ->
+            {A,B,C,D,E,F}
+    end.
+
 %swapping() ->
 %    Args = get_args8(?FUNCTION_NAME),
 %    {A,B,C,D,E,F,G,H} = Args,
@@ -383,13 +383,13 @@ test_numeric_guards() ->
 %
 %swapping_build(_, _, _, A, B, C, D, E, F, G, H) ->
 %    {A,B,C,D,E,F,G,H}.
-%
-%get_args(Tag) ->
-%    get_args6(Tag).
-%
-%get_args6(Tag) ->
-%    {{Tag,a},{Tag,b},{Tag,make_ref()},[Tag,d],{Tag,e},[Tag,f]}.
-%
+
+get_args(Tag) ->
+    get_args6(Tag).
+
+get_args6(Tag) ->
+    {{Tag,a},{Tag,b},{Tag,make_ref()},[Tag,d],{Tag,e},[Tag,f]}.
+
 %get_args8(Tag) ->
 %    list_to_tuple([{Tag,1},{Tag,2}|tuple_to_list(get_args6(Tag))]).
 
