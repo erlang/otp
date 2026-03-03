@@ -635,8 +635,30 @@ void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
                                             const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_bitstring");
+    auto src = load_source(Src, ARG1);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Bitstring) {
+        comment("skipped header test since we know it's a bitstring when "
+                "boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+
+        /* The header mask with the binary sub tag bits removed (0b110011)
+         * is not possible to use as an immediate operand for 'and'. (See
+         * the note at the beginning of the file.) Therefore, use a simpler
+         * mask (0b110000) that will also clear the primary tag bits. That
+         * works because we KNOW that a boxed pointer always points to a header
+         * word and that the primary tag for a header is 0. */
+        const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
+        ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+        ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS == (_TAG_HEADER_HEAP_BITS & mask));
+        a.and_(TMP, TMP, imm(mask));
+        a.cmp(TMP, imm(_TAG_HEADER_HEAP_BITS));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
