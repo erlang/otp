@@ -794,8 +794,21 @@ void BeamModuleAssembler::emit_is_list(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
                                       const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_map");
+    auto src = load_source(Src);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    /* As an optimization for the `error | #{}` case, skip checking the header
+     * word when we know that the only possible boxed type is a map. */
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Map) {
+        comment("skipped header test since we know it's a map when boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+        a.and_(TMP, TMP, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP, imm(_TAG_HEADER_MAP));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
@@ -858,8 +871,32 @@ void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
                                       const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_pid");
+    auto src = load_source(Src, TMP);
+    Label next = a.newLabel();
+
+    if (always_one_of<BeamTypeId::Pid, BeamTypeId::AlwaysBoxed>(Src)) {
+        comment("simplified local pid test since all other types are boxed");
+        emit_is_boxed(next, Src, src.reg);
+    } else {
+        a.and_(VAR, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(VAR, imm(_TAG_IMMED1_PID));
+        a.b_eq(next);
+
+        /* Reuse VAR as the important bits are still available. */
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, VAR);
+    }
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Pid) {
+        comment("skipped header test since we know it's a pid when boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(VAR, emit_boxed_val(boxed_ptr));
+        a.and_(VAR, VAR, imm(_TAG_HEADER_MASK));
+        a.cmp(VAR, imm(_TAG_HEADER_EXTERNAL_PID));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
+
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_port(const ArgLabel &Fail,
@@ -870,8 +907,23 @@ void BeamModuleAssembler::emit_is_port(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_reference(const ArgLabel &Fail,
                                             const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_reference");
+    auto src = load_source(Src, TMP);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Reference) {
+        comment("skipped header test since we know it's a ref when boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+        a.and_(TMP, TMP, imm(_TAG_HEADER_MASK));
+        Label is_ref = a.newLabel();
+        a.cmp(TMP, imm(_TAG_HEADER_EXTERNAL_REF));
+        a.b_eq(is_ref);
+        a.cmp(TMP, imm(_TAG_HEADER_REF));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+        a.bind(is_ref);
+    }
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
