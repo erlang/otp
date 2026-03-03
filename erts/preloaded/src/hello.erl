@@ -131,7 +131,7 @@ test(BootArgs) ->
     reductions(BootArgs),
     list_test(),
     tuple_test(),
-%    test_guard_tests(BootArgs),
+    test_guard_tests(BootArgs),
 %    preserving_xregs(),
 %    swapping(),
 %    apply_test(),
@@ -250,9 +250,9 @@ tuple_test() ->
 build_tuple(Tag, A, B, C, D, E, F) ->
     {id(Tag),xyz,A,B,C,D,E,F}.
 
-%test_guard_tests(BootArgs) ->
-%    test_numeric_guards(),
-%
+test_guard_tests(BootArgs) ->
+    test_numeric_guards(),
+
 %    true = is_atom(id(a)),
 %    false = is_atom(id(42)),
 %
@@ -313,8 +313,8 @@ build_tuple(Tag, A, B, C, D, E, F) ->
 %    false = is_map(id(a)),
 %    false = is_map(BootArgs),
 %
-%    ok.
-%
+    ok.
+
 %external_pid() ->
 %    B = <<131,88,100,0,11,97,114,110,101,64,115,101,108,100,111,
 %          110,0,0,0,50,0,0,0,0,96,96,14,170>>,
@@ -329,29 +329,29 @@ build_tuple(Tag, A, B, C, D, E, F) ->
 %    test_boot_args(T);
 %test_boot_args([]) -> ok.
 %
-%test_numeric_guards() ->
-%    true = is_integer(id(42)),
-%    true = is_integer(id(16#7777777777777777777777777777777777)),
-%    false = is_integer(id(0.5)),
-%    false = is_integer(id(a)),
-%    false = is_integer(id({a,b})),
-%    false = is_integer(id([a,b])),
-%
-%    true = is_number(id(42)),
-%    true = is_number(id(16#7777777777777777777777777777777777)),
-%    true = is_number(id(0.5)),
-%    false = is_number(id(a)),
-%    false = is_float(id({a,b})),
-%    false = is_number(id([a,b])),
-%
-%    false = is_float(id(42)),
-%    false = is_float(id(16#7777777777777777777777777777777777)),
-%    true = is_float(id(0.5)),
-%    false = is_float(id(a)),
-%    false = is_float(id({a,b})),
-%    false = is_float(id([a,b])),
-%
-%    ok.
+test_numeric_guards() ->
+    true = is_integer(id(42)),
+    true = is_integer(id(16#7777777777777777777777777777777777)),
+    false = is_integer(id(0.5)),
+    false = is_integer(id(a)),
+    false = is_integer(id({a,b})),
+    false = is_integer(id([a,b])),
+
+    true = is_number(id(42)),
+    true = is_number(id(16#7777777777777777777777777777777777)),
+    true = is_number(id(0.5)),
+    false = is_number(id(a)),
+    false = is_float(id({a,b})),
+    false = is_number(id([a,b])),
+
+    false = is_float(id(42)),
+    false = is_float(id(16#7777777777777777777777777777777777)),
+    true = is_float(id(0.5)),
+    false = is_float(id(a)),
+    false = is_float(id({a,b})),
+    false = is_float(id([a,b])),
+
+    ok.
 %
 %preserving_xregs() ->
 %    Args = get_args(?FUNCTION_NAME),
