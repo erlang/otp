@@ -607,14 +607,29 @@ void BeamModuleAssembler::emit_jump(const ArgLabel &Fail) {
 
 void BeamModuleAssembler::emit_is_atom(const ArgLabel &Fail,
                                        const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_atom");
+    auto src = load_source(Src);
+
+    preserve_cache(
+            [&]() {
+                a.and_(TMP, src.reg, imm(_TAG_IMMED2_MASK));
+                a.cmp(TMP, imm(_TAG_IMMED2_ATOM));
+                a.b_ne(resolve_beam_label(Fail, disp32MB));
+            },
+            TMP);
 }
 
 void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
                                           const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_boolean");
+    /* Since am_true and am_false differ by a single bit, we can simplify the
+     * check by clearing said bit and comparing against the lesser one. */
+    ERTS_CT_ASSERT(am_false == make_atom(0));
+    ERTS_CT_ASSERT(am_true == make_atom(1));
+
+    auto src = load_source(Src, TMP);
+    mov_imm(VAR, ~(am_true & ~_TAG_IMMED2_MASK));
+    a.and_(TMP, src.reg, VAR);
+    a.cmp(TMP, imm(am_false));
+    a.b_ne(resolve_beam_label(Fail, disp32MB));
 }
 
 void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
