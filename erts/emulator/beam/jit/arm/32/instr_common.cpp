@@ -276,8 +276,17 @@ void BeamModuleAssembler::emit_load_tuple_ptr(const ArgSource &Src) {
  * tuple as Src. */
 void BeamModuleAssembler::emit_tuple_assertion(const ArgSource &Src,
                                                a32::Gp tuple_reg) {
-    // TODO
-    emit_nyi("emit_tuple_assertion");
+    Label ok = a.newLabel(), fatal = a.newLabel();
+    ASSERT(tuple_reg != TMP);
+    mov_arg(TMP, Src);
+    emit_is_boxed(fatal, TMP);
+    emit_untag_ptr(TMP, TMP);
+    a.cmp(TMP, tuple_reg);
+    a.b_eq(ok);
+
+    a.bind(fatal);
+    a.udf(0xaaaa);
+    a.bind(ok);
 }
 #endif
 
@@ -305,8 +314,16 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
                                                       const ArgWord &Element,
                                                       const ArgRegister &Dst1,
                                                       const ArgRegister &Dst2) {
-    // TODO
-    emit_nyi("emit_get_two_tuple_elements");
+#ifdef DEBUG
+    emit_tuple_assertion(Src, ARG1);
+#endif
+
+    auto dst1 = init_destination(Dst1, VAR);
+    auto dst2 = init_destination(Dst2, TMP);
+
+    arm::Mem element_ptr = arm::Mem(ARG1, Element.get());
+    safe_ldmia(element_ptr, dst1.reg, dst2.reg);
+    flush_vars(dst1, dst2);
 }
 
 void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,

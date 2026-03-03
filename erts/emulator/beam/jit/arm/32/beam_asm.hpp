@@ -920,11 +920,15 @@ protected:
                           bool skip_header_test = false);
 
     void emit_is_cons(Label Fail, a32::Gp Src) {
-        BeamAssembler::emit_is_cons(Fail, Src);
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_cons(Fail, Src);
+        });
     }
 
-    void emit_is_not_cons(Label Fail, a32::Gp Src) {
-        BeamAssembler::emit_is_not_cons(Fail, Src);
+    void emit_is_not_cons(Label Fail, a32::Gp Src) {        
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_not_cons(Fail, Src);
+        });
     }
 
     void emit_is_list(Label Fail, a32::Gp Src) {
@@ -932,13 +936,21 @@ protected:
         emit_nyi("emit_is_list");
     }
 
-    void emit_is_boxed(Label Fail, a32::Gp Src) {
-        BeamAssembler::emit_is_boxed(Fail, Src);
+    void emit_is_boxed(Label Fail, a32::Gp Src) {        
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_boxed(Fail, Src);
+        });
     }
 
     void emit_is_boxed(Label Fail, const ArgVal &Arg, a32::Gp Src) {
-        // TODO
-        emit_nyi("emit_is_boxed");
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Arg)) {
+            comment("skipped box test since argument is always boxed");
+            return;
+        }
+
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_boxed(Fail, Src);
+        });
     }
 
     /* Copies `count` words from the address at `from`, to the address at `to`.
