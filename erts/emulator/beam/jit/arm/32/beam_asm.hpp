@@ -932,8 +932,17 @@ protected:
     }
 
     void emit_is_list(Label Fail, a32::Gp Src) {
-        // TODO
-        emit_nyi("emit_is_list");
+        preserve_cache([&]() {
+            Label next = a.newLabel();
+
+            a.tst(Src, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
+            a.b_eq(next);
+
+            a.cmp(Src, imm(NIL));
+            a.b_ne(Fail);
+
+            a.bind(next);
+        });
     }
 
     void emit_is_boxed(Label Fail, a32::Gp Src) {        

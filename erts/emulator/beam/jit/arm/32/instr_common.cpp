@@ -727,8 +727,9 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_list(const ArgLabel &Fail,
                                        const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_list");
+    auto src = load_source(Src);
+
+    emit_is_list(resolve_beam_label(Fail, dispUnknown), src.reg);
 }
 
 void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
@@ -745,8 +746,7 @@ void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
         emit_is_not_cons(resolve_beam_label(Fail, dispUnknown), src.reg);
     } else {
         preserve_cache([&]() {
-            mov_imm(VAR, NIL);
-            a.cmp(src.reg, VAR);
+            a.cmp(src.reg, imm(NIL));
             a.b_ne(resolve_beam_label(Fail, disp32MB));
         });
     }
@@ -1029,8 +1029,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
             mov_imm(TMP, CAR(list_val(literal)));
             a.cmp(ARG1, TMP);
             a.b_ne(resolve_beam_label(Fail, disp32MB));
-            mov_imm(TMP, NIL);
-            a.cmp(ARG2, TMP);
+            a.cmp(ARG2, imm(NIL));
             a.b_ne(resolve_beam_label(Fail, disp32MB));
 
             return;
