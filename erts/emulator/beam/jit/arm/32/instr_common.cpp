@@ -650,8 +650,53 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
                                           const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_integer");
+    auto src = load_source(Src, VAR);
+
+    if (always_immediate(Src)) {
+        comment("skipped test for boxed since the value is always immediate");
+        a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+
+        return;
+    }
+
+    Label next = a.newLabel();
+
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(Src)) {
+        comment("simplified small test since all other types are boxed");
+        emit_is_boxed(next, Src, src.reg);
+    } else {
+        a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_eq(next);
+
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP);
+    }
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Integer) {
+        comment("skipped header test since we know it's a bignum when "
+                "boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+
+        /* The header mask with the sign bit removed (0b111011) is not
+         * possible to use as an immediate operand for 'and'. (See the
+         * note at the beginning of the file.) Therefore, use a
+         * simpler mask (0b111000) that will also clear the primary
+         * tag bits. That works because we KNOW that a boxed pointer
+         * always points to a header word and that the primary tag for
+         * a header is 0.
+         */
+        auto mask = _HEADER_SUBTAG_MASK - _BIG_SIGN_BIT;
+        ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+        a.and_(TMP, TMP, imm(mask));
+        a.cmp(TMP, imm(_TAG_HEADER_POS_BIG));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
+
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_list(const ArgLabel &Fail,
