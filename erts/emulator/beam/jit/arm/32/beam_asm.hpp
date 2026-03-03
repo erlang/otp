@@ -1462,9 +1462,24 @@ protected:
         a.stmia(arm::Mem(TMP), a32::GpList({gp1, gp2}));
     }
 
+    // This will use the TMP register if the offset is too large
     void safe_ldr(a32::Gp gp, arm::Mem mem) {
-        // TODO
-        ASSERT(false);
+        size_t abs_offset = std::abs(mem.offset());
+        auto offset = mem.offset();
+
+        ASSERT(mem.hasBaseReg() && !mem.hasIndex());
+        ASSERT(gp.isGp());
+
+        if (abs_offset <= disp4KB) {
+            preserve_cache(
+                    [&]() {
+                        a.ldr(gp, mem);
+                    },
+                    gp);
+        } else {
+            add(TMP, a32::Gp(mem.baseId()), offset);
+            a.ldr(gp, arm::Mem(TMP));
+        }
     }
 
     void safe_ldur(a32::Gp gp, arm::Mem mem) {

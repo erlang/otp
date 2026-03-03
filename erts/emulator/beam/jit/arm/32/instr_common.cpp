@@ -295,8 +295,13 @@ void BeamModuleAssembler::emit_tuple_assertion(const ArgSource &Src,
 void BeamModuleAssembler::emit_i_get_tuple_element(const ArgSource &Src,
                                                    const ArgWord &Element,
                                                    const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_get_tuple_element");
+#ifdef DEBUG
+    emit_tuple_assertion(Src, ARG1);
+#endif
+    // We use VAR instead of TMP because safe_ldr may make use of TMP
+    auto dst = init_destination(Dst, VAR);
+    safe_ldr(dst.reg, arm::Mem(ARG1, Element.get()));
+    flush_var(dst);
 }
 
 void BeamModuleAssembler::emit_get_tuple_element_swap(
