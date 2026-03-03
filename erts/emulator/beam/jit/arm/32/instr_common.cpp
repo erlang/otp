@@ -267,8 +267,9 @@ void BeamModuleAssembler::emit_i_get_hash(const ArgConstant &Src,
 
 /* Store the untagged pointer to a tuple in ARG1. */
 void BeamModuleAssembler::emit_load_tuple_ptr(const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_load_tuple_ptr");
+    auto src = load_source(Src);
+
+    untag_ptr_preserve_cache(ARG1, src.reg);
 }
 
 #ifdef DEBUG
