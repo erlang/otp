@@ -1292,7 +1292,7 @@ handle_info(Msg, State) ->
 %% Terminate this server.
 %%
 -doc false.
--spec terminate(term(), state()) -> 'ok' | children().
+-spec terminate(term(), state()) -> term().
 
 terminate(_Reason, State) when ?is_simple(State) ->
     terminate_dynamic_children(State);
