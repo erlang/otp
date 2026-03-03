@@ -152,7 +152,8 @@ void destroy_engine_mutex(ErlNifEnv *env) {
 }
 
 #ifdef HAS_ENGINE_SUPPORT
-static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i)
+static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds,
+                                    unsigned int *cmds_top)
 {
     ERL_NIF_TERM head, tail;
     const ERL_NIF_TERM *tmp_tuple;
@@ -161,7 +162,7 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     char *tuple1 = NULL, *tuple2 = NULL;
 
     if (enif_is_empty_list(env, term)) {
-        cmds[i] = NULL;
+        cmds[*cmds_top] = NULL;
         return 0;
     }
 
@@ -179,30 +180,26 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
 
     (void) memcpy(tuple1, tmpbin.data, tmpbin.size);
     tuple1[tmpbin.size] = '\0';
-    cmds[i] = tuple1;
-    i++;
+    cmds[*cmds_top] = tuple1;
+    (*cmds_top)++;
 
     if (!enif_inspect_binary(env, tmp_tuple[1], &tmpbin))
         goto err;
 
     if (tmpbin.size == 0) {
-        cmds[i] = NULL;
+        tuple2 = NULL;
     } else {
         if ((tuple2 = enif_alloc(tmpbin.size + 1)) == NULL)
             goto err;
         (void) memcpy(tuple2, tmpbin.data, tmpbin.size);
         tuple2[tmpbin.size] = '\0';
-        cmds[i] = tuple2;
     }
-    i++;
-    return get_engine_load_cmd_list(env, tail, cmds, i);
+    cmds[*cmds_top] = tuple2;
+    (*cmds_top)++;
+
+    return get_engine_load_cmd_list(env, tail, cmds, cmds_top);
 
  err:
-    if (tuple1 != NULL) {
-        i--;
-        enif_free(tuple1);
-    }
-    cmds[i] = NULL;
     return -1;
 }
 
@@ -490,11 +487,11 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
 #ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM ret;
     unsigned int cmds_len = 0;
+    unsigned int cmds_top = 0;
     char **cmds = NULL;
     struct engine_ctx *ctx;
     unsigned int i;
     int optional = 0;
-    int cmds_loaded = 0;
 
     /* Get Arguments */
     ASSERT(argc == 3);
@@ -505,6 +502,10 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
         goto bad_arg;
 
     PRINTF_ERR1("Engine Id:  %s\r\n", ENGINE_get_id(ctx->engine));
+
+    if (!enif_get_int(env, argv[2], &optional))
+        goto err;
+
     /* Command List */
     if (!enif_get_list_length(env, argv[1], &cmds_len))
         goto bad_arg;
@@ -517,19 +518,20 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
         goto err;
     if ((cmds = enif_alloc((cmds_len + 1) * sizeof(char*))) == NULL)
         goto err;
-    if (get_engine_load_cmd_list(env, argv[1], cmds, 0))
+
+    cmds_top = 0;
+    if (get_engine_load_cmd_list(env, argv[1], cmds, &cmds_top))
         goto err;
-    cmds_loaded = 1;
-    if (!enif_get_int(env, argv[2], &optional))
-        goto err;
+    ASSERT(cmds_top == cmds_len);
 
     for(i = 0; i < cmds_len; i+=2) {
+        ASSERT(cmds[i] != NULL);
         PRINTF_ERR2("Cmd:  %s:%s\r\n",
-                   cmds[i] ? cmds[i] : "(NULL)",
-                   cmds[i+1] ? cmds[i+1] : "(NULL)");
+                    cmds[i],
+                    cmds[i+1] ? cmds[i+1] : "(NULL)");
         if(!ENGINE_ctrl_cmd_string(ctx->engine, cmds[i], cmds[i+1], optional)) {
             PRINTF_ERR2("Command failed:  %s:%s\r\n",
-                        cmds[i] ? cmds[i] : "(NULL)",
+                        cmds[i],
                         cmds[i+1] ? cmds[i+1] : "(NULL)");
             goto cmd_failed;
         }
@@ -546,9 +548,10 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
     ret = ERROR_Atom(env, "ctrl_cmd_failed");
 
  done:
-    if (cmds_loaded) {
-        for (i = 0; cmds != NULL && cmds[i] != NULL; i++)
+    for (i = 0; i < cmds_top; i++) {
+        if (cmds[i]) {
             enif_free(cmds[i]);
+        }
     }
 
     if (cmds != NULL)
