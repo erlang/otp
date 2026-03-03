@@ -444,8 +444,11 @@ void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
                                                 const ArgRegister &Dst1,
                                                 const ArgSource &Src2,
                                                 const ArgRegister &Dst2) {
-    // TODO
-    emit_nyi("emit_store_two_values");
+    auto [src1, src2] = load_sources(Src1, VAR, Src2, TMP);
+    auto dst1 = init_destination(Dst1, src1.reg);
+    auto dst2 = init_destination(Dst2, src2.reg);
+
+    flush_vars(dst1, dst2);
 }
 
 void BeamModuleAssembler::emit_load_two_xregs(const ArgRegister &Src1,
