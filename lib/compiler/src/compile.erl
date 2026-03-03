@@ -335,9 +335,15 @@ Available options:
   For details, see [beam_lib(3)](`m:beam_lib#debug_info`).
 
 - **`deterministic`** - Omit the `options` and `source` tuples in the list
-  returned by `Module:module_info(compile)`, and reduce the paths in stack
-  traces to the module name alone. This option will make it easier to achieve
-  reproducible builds.
+  returned by `Module:module_info(compile)`, reduce the paths in stack traces
+  to the module name alone, and make embedded documentation ordered. This
+  option will make it easier to achieve reproducible builds.
+
+- **`preserve_paths`** - When used with `deterministic`, preserves
+  the paths in the list returned by `Module:module_info(compile)`.
+
+- **`{modify_path, {From, To}}`** - Modifies pathes such as `{source, Source}`
+  and `{i, Include}`.
 
 - **`{feature, Feature, enable | disable}`** - [](){: #feature-option } Enable
   (disable) the [feature](`e:system:features.md#features`) `Feature` during
@@ -2569,6 +2575,8 @@ keep_compile_option({i, _}, Deterministic) ->
     not Deterministic;
 keep_compile_option({cwd, _}, Deterministic) ->
     not Deterministic;
+keep_compile_option({modify_path, {_, _}}, _Deterministic) ->
+    false;
 %% We are storing abstract, not asm or core.
 keep_compile_option(from_asm, _Deterministic) ->
     false;
@@ -2644,18 +2652,29 @@ beam_strip_types(Beam0, #compile{}=St) ->
 compile_info(File, CompilerOpts, Opts) ->
     IsSlim = member(slim, CompilerOpts),
     IsDeterministic = member(deterministic, CompilerOpts),
+    IsPreservePaths = member(preserve_paths, CompilerOpts),
     Info0 = proplists:get_value(compile_info, Opts, []),
     Info1 =
 	case paranoid_absname(File) of
-	    [_|_] = Source when not IsSlim, not IsDeterministic ->
-		[{source,Source} | Info0];
+	    [_|_] = Source when (not IsSlim and not IsDeterministic)
+                            or IsPreservePaths ->
+		[{source,maybe_modify_path(Source, CompilerOpts)} | Info0];
 	    _ ->
 		Info0
 	end,
     Info2 =
 	case IsDeterministic of
-	    false -> [{options,proplists:delete(compile_info, Opts)} | Info1];
-	    true -> Info1
+	    false ->
+            Opts1 = proplists:delete(compile_info, Opts),
+            [{options, opts_modify_paths(Opts1, CompilerOpts)} | Info1];
+        true when IsPreservePaths ->
+            Opts1 = proplists:delete(compile_info, Opts),
+            Opts2 = lists:filter(fun ({i, _}) -> true;
+                                     (_) -> false
+                                 end, Opts1),
+            [{options, opts_modify_paths(Opts2, CompilerOpts)} | Info1];
+	    true ->
+            Info1
 	end,
     Info2.
 
@@ -2668,6 +2687,27 @@ paranoid_absname(File) ->
 	_ ->
 	    File
     end.
+
+maybe_modify_path(""=File, _) ->
+    File;
+maybe_modify_path(File, []) ->
+    File;
+maybe_modify_path(File0, [{modify_path, {From, To}} | CompilerOpts]) ->
+    File = lists:flatten(string:replace(File0, From, To)),
+    maybe_modify_path(File, CompilerOpts);
+maybe_modify_path(File, [_ | CompilerOpts]) ->
+    maybe_modify_path(File, CompilerOpts).
+
+opts_modify_paths(MOpts, CompilerOpts) ->
+    lists:map(
+      fun (MOpt) ->
+              opts_modify_path(MOpt, CompilerOpts)
+      end, MOpts).
+
+opts_modify_path({i, Path}, CompilerOpts) ->
+    {i, maybe_modify_path(Path, CompilerOpts)};
+opts_modify_path(Opt, _) ->
+    Opt.
 
 %% effects_code_generation(Option) -> true|false.
 %%  Determine whether the option could have any effect on the
