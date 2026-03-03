@@ -640,8 +640,45 @@ void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
                                          const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_binary");
+    auto src = load_source(Src, ARG1);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+    emit_untag_ptr(ARG1, src.reg);
+
+    ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
+    a.ldmia(arm::Mem(ARG1), a32::GpList({ARG2, ARG3}));
+
+    Label not_sub_bits = a.newLabel();
+    a.cmp(ARG2, imm(HEADER_SUB_BITS));
+    a.b_ne(not_sub_bits);
+    {
+        ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+        safe_ldmia(arm::Mem(ARG1, offsetof(ErlSubBits, start)), ARG3, ARG4);
+        a.sub(ARG3, ARG4, ARG3);
+    }
+    a.bind(not_sub_bits);
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Bitstring) {
+        comment("skipped header test since we know it's a bitstring when "
+                "boxed");
+        a.tst(ARG3, imm(7));
+    } else {
+        const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
+        ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+        ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS == (_TAG_HEADER_HEAP_BITS & mask));
+        a.and_(ARG2, ARG2, imm(mask));
+
+        /* Shift out all but the lowest three bits in the size, leaving a
+         * non-zero value if the size is not evenly divisible by 8.
+         *
+         * Thus, OR-ing this value into the header word forces the check to
+         * fail when we have a non-binary bitstring. */
+        ERTS_CT_ASSERT((UWORD_CONSTANT(7) << (32 - 3)) > _BITSTRING_TAG_MASK);
+        a.orr(ARG2, ARG2, ARG3, arm::lsl(32 - 3));
+        a.cmp(ARG2, imm(_TAG_HEADER_HEAP_BITS));
+    }
+
+    a.b_ne(resolve_beam_label(Fail, disp32MB));
 }
 
 void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
