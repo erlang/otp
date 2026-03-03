@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,8 @@
          edns0/1, edns0_multi_formerr/1, txt_record/1, files_monitor/1,
 	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
-         label_compression_limit/1, update/1, tsig_client/1, tsig_server/1,
+         label_compression_limit/1, update/1,
+         tsig_client/1, tsig_server/1, tsig_baderror/1,
          mdns_encode_decode/1
         ]).
 -export([
@@ -80,7 +81,8 @@ all() ->
      nxdomain_reply, last_ms_answer,
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
-     label_compression_limit, update, tsig_client, tsig_server,
+     label_compression_limit, update,
+     tsig_client, tsig_server, tsig_baderror,
      mdns_encode_decode,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
@@ -1714,6 +1716,36 @@ tsig_server(Domain, TS0, Sock) ->
     ?P("Response: ~s", [dns_pp(element(2, inet_dns:decode(PktR3S)))]),
     ok = gen_tcp:send(Sock, PktR3S).
 
+
+tsig_baderror(Config) when is_list(Config) ->
+    do_tsig_baderror(?BADSIG),
+    do_tsig_baderror(?BADKEY),
+    ok.
+
+do_tsig_baderror(Error) ->
+    Domain = "otptest",
+    Key = {"testkey","b0b8006a-04ad-4a96-841a-a4eae78011a1"},
+    Keys0 = [Key,{"grease0",""},{"grease1",""},{"grease2",""}],
+    Rand = [ rand:uniform() || _ <- lists:seq(1, length(Keys0)) ],
+    {_,Keys} = lists:unzip(lists:keysort(1, lists:zip(Rand, Keys0))),
+    TS = inet_dns_tsig:init([{keys,Keys}]),
+    %%
+    Algname = inet_dns:encode_algname(sha256),
+    Now = os:system_time(seconds),
+    Request =
+        #dns_rec{
+           header = #dns_header{},
+           qdlist = [#dns_query{ domain = Domain, class = in, type = axfr }],
+           arlist =
+               [#dns_rr_tsig{
+                   domain = "testkey",
+                   algname = Algname, now = Now, fudge = 300,
+                   error = Error, mac = <<>> }]
+          },
+    Pkt = inet_dns:encode(Request),
+    {ok, Msg} = inet_dns:decode(Pkt),
+    {error, formerr} = inet_dns_tsig:verify(Pkt, Msg, TS),
+    ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% inet_dns encode/decode specials
