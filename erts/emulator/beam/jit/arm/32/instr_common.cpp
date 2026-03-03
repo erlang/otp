@@ -854,8 +854,21 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgLabel &NotTuple,
  * ARG1. */
 void BeamModuleAssembler::emit_i_is_tuple(const ArgLabel &Fail,
                                           const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_i_is_tuple");
+    auto src = load_source(Src, ARG1);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+    emit_untag_ptr(ARG1, src.reg);
+
+    /* As an optimization for the `error | {ok, Value}` case, skip checking the
+     * header word when we know that the only possible boxed type is a tuple. */
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
+        comment("skipped header test since we know it's a tuple when boxed");
+    } else {
+        a.ldr(TMP, arm::Mem(ARG1));
+        ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+        a.tst(TMP, imm(_TAG_HEADER_MASK));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
