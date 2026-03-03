@@ -31,6 +31,7 @@
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
 	 silent_guard/1,
 	 after_silent/1, after_exception/1, after_compile/1,
+         after_kill/1,
 	 after_exception_trace/1,
 	 ms_trace2/1, ms_trace3/1, ms_trace_dead/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
@@ -70,6 +71,7 @@ testcases_trace() ->
      trace_control_word,
      silent, silent_no_ms, silent_test, silent_guard,
      after_silent, after_exception, after_exception_trace,
+     after_kill,
      ms_trace2, ms_trace3, ms_trace_dead,
      otp_9422].
 
@@ -783,6 +785,22 @@ after_exception(Config) when is_list(Config) ->
             %% (like try/after), re-silencing the process.
             %% So f2 after the catch should NOT be traced (silent again).
             [{trace, P, call, {?MODULE, f_error, [kaboom]}, error_fn}]
+       end),
+    ok.
+
+%% Test that after actions don't leak when process terminates prematurely
+after_kill(Config) when is_list(Config) ->
+    tr(fun() ->
+               ?MODULE:f_gate(fun() -> exit(self(), kill) end)
+       end,
+       fun(P) ->
+               erlang_trace(P, true, [call]),
+               erlang_trace_pattern(
+                 {?MODULE, f_gate, 1},
+                 [{'_', [],
+                   [{'after', {silent, false}}]}],
+                 [local]),
+               [fun({trace, P, call, {?MODULE, f_gate, [_]}}) -> true end]
        end),
     ok.
 
