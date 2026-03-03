@@ -26,7 +26,7 @@
 -include_lib("common_test/include/ct_property_test.hrl").
 
 prop_sort() ->
-    ?FORALL(UnSorted, list(),
+    ?FORALL(UnSorted, list(?CT_SAFE_ANY()),
             is_sorted(lists:sort(UnSorted))
            ).
 
