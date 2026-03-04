@@ -1078,7 +1078,8 @@ do_change_code(Mod, Module, Vsn, Extra, Misc) ->
         Else -> {{error, Else}, Misc}
     catch
         throw:{ok, _} = Res -> Res;
-        _:Else -> {{error, Else}, Misc}
+        error:Reason:Stack -> {{error, {'EXIT', {Reason, Stack}}}, Misc};
+        exit:Exit -> {{error, {'EXIT', Exit}}, Misc}
     end.
 
 print_event(X) -> print_event(standard_io, X).
