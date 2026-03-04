@@ -60,14 +60,29 @@ permissions:
 
 jobs:
 
-  check-beam:
-    name: Forbid non-maintainers from committing BEAM files
+  check-files:
+    name: Check modified files for errors
     runs-on: ubuntu-latest
     if: github.repository == 'erlang/otp' && github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Detect whitespace errors
+        run: |
+          git config --local --add core.whitespace tab-in-indent,-trailing-space
+          WHITESPACE_ERRORS=$(git diff --check --merge-base \
+                              ${{github.event.pull_request.base.sha}} \
+                              ${{github.event.pull_request.head.sha}} \
+                              "*.erl" "*.hrl" "*.c" "*.h" "*.cpp" "*.hpp" \
+                              || true)
+          if [[ -n "$WHITESPACE_ERRORS" ]]; then
+             echo "::error::Whitespace errors detected in modified lines."
+             echo "::error::Use only spaces for indentation."
+             echo "$WHITESPACE_ERRORS"
+             exit 1
+          fi
 
       - name: Detect modified BEAM files
         env:
