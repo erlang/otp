@@ -135,7 +135,7 @@ test(BootArgs) ->
     preserving_xregs(),
     swapping(),
     apply_test(),
-%    guard_bif_test(),
+    guard_bif_test(),
 %    test_catches(),
 %    test_try_catch(),
 %    test_return_yielding(),
@@ -427,59 +427,59 @@ apply_var_last(M, F, Args) ->
 apply_var_only(M, F, Args) ->
     apply(M, F, Args).
 
-%guard_bif_test() ->
-%    P = id(3.14),
-%    Bin = id(<<1,2,3,4,5,6>>),
-%    3 = floor(P),
-%
-%    T = id({a,b,c}),
-%    b = element(2, T),
-%
-%    <<3,4,5>> = binary_part(Bin, 2, 3),
-%
-%    Tuple = id(get_args8(?FUNCTION_NAME)),
-%    if element(1, Tuple) =:= {?FUNCTION_NAME,1} -> ok end,
-%
-%    gbif_preserving_xregs(Tuple),
-%    gbif_nofail(Tuple).
-%
-%%% Test that all X registers are preserved when calling a guard BIF.
-%gbif_preserving_xregs(Tuple) ->
-%    X = id(-42),
-%    {A,B,C,D,E,F,G,H} = id(Tuple),
-%
-%    %% We must prevent the compiler from delaying the extraction
-%    %% of the tuple elements in the tuple matching above by using
-%    %% all extracted elements.
-%    1 = element(2, A),
-%    2 = element(2, B),
-%    a = element(2, C),
-%    b = element(2, D),
-%    2 = tuple_size(E),
-%    d = hd(tl(F)),
-%    2 = tuple_size(G),
-%    f = hd(tl(H)),
-%
-%    if
-%        %% Test that guard BIFs called in a guard preserve all X registers.
-%        abs(X) =:= 42 ->
-%            %% Rebuild the tuple from the extracted X registers and match.
-%            Tuple = {A,B,C,D,E,F,G,H}
-%    end,
-%
-%    ok.
-%
-%%% Test guard BIFs that can't fail.
-%gbif_nofail(Tuple0) ->
-%    Tuple = id(Tuple0),
-%
-%    true = id(is_tuple(Tuple)),
-%    false = id(is_list(Tuple)),
-%
-%    true = id(Tuple0 =:= Tuple),
-%    false = id(Tuple =:= 42),
-%    ok.
-%
+guard_bif_test() ->
+    P = id(3.14),
+    Bin = id(<<1,2,3,4,5,6>>),
+    3 = floor(P),
+
+    T = id({a,b,c}),
+    b = element(2, T),
+
+    <<3,4,5>> = binary_part(Bin, 2, 3),
+
+    Tuple = id(get_args8(?FUNCTION_NAME)),
+    if element(1, Tuple) =:= {?FUNCTION_NAME,1} -> ok end,
+
+    gbif_preserving_xregs(Tuple),
+    gbif_nofail(Tuple).
+
+%% Test that all X registers are preserved when calling a guard BIF.
+gbif_preserving_xregs(Tuple) ->
+    X = id(-42),
+    {A,B,C,D,E,F,G,H} = id(Tuple),
+
+    %% We must prevent the compiler from delaying the extraction
+    %% of the tuple elements in the tuple matching above by using
+    %% all extracted elements.
+    1 = element(2, A),
+    2 = element(2, B),
+    a = element(2, C),
+    b = element(2, D),
+    2 = tuple_size(E),
+    d = hd(tl(F)),
+    2 = tuple_size(G),
+    f = hd(tl(H)),
+
+    if
+        %% Test that guard BIFs called in a guard preserve all X registers.
+        abs(X) =:= 42 ->
+            %% Rebuild the tuple from the extracted X registers and match.
+            Tuple = {A,B,C,D,E,F,G,H}
+    end,
+
+    ok.
+
+%% Test guard BIFs that can't fail.
+gbif_nofail(Tuple0) ->
+    Tuple = id(Tuple0),
+
+    true = id(is_tuple(Tuple)),
+    false = id(is_list(Tuple)),
+
+    true = id(Tuple0 =:= Tuple),
+    false = id(Tuple =:= 42),
+    ok.
+
 %test_catches() ->
 %    thrown = catch do_throw(id(thrown)),
 %
