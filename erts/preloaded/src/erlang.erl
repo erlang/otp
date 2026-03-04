@@ -81,6 +81,8 @@ in the description of each individual BIF.
               "see the \"Time and Time Correction in Erlang\" "
               "chapter of the ERTS User's Guide for more information"}]).
 -deprecated([{phash,2, "use erlang:phash2/2 instead"}]).
+-deprecated([{exit,2,"use erlang:exit_signal/2 instead"}]).
+-deprecated([{exit,3,"use erlang:exit_signal/3 instead"}]).
 -removed([{hash,2,"use erlang:phash2/2 instead"}]).
 -removed([{get_stacktrace,0,
            "use the new try/catch syntax for retrieving the "
@@ -437,7 +439,7 @@ A list of binaries. This datatype is useful to use together with
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
 -export([display_string/1, display_string/2, erase/0, erase/1]).
 -export([error/1, error/2, error/3, exit/1, exit/2, exit/3,
-         exit_signal/2, external_size/1]).
+         exit_signal/2, exit_signal/3, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
 	 float_to_list/1, float_to_list/2, floor/1]).
@@ -2495,7 +2497,7 @@ Example:
 > exit reason `kill` can be trapped by the linked processes. Note that this
 > means that signals with exit reason `kill` behave differently depending on how
 > they are sent because the signal will be untrappable if a process sends such a
-> signal to another process with [`erlang:exit/2`](`exit/2`).
+> signal to another process with [`erlang:exit_signal/2`](`exit_signal/2`).
 """.
 -doc #{ category => processes }.
 -spec exit(Reason) -> no_return() when
@@ -2503,7 +2505,7 @@ Example:
 exit(_Reason) ->
     erlang:nif_error(undefined).
 
-%% exit/2
+%% exit_signal/2
 -doc """
 Sends an exit signal with exit reason `Reason` to the process or port identified
 by `Dest`. If `Dest` is a reference, the exit signal will *only* affect the
@@ -2511,8 +2513,8 @@ identified process if the reference is an active
 [process alias](`e:system:ref_man_processes.md#process-aliases`) of a process
 executing on an OTP 28.0 node or newer.
 
-The following behavior applies if `Reason` is any term, except `normal` or
-`kill`, and `P` is the process or port identified by `Dest`:
+Let `P` be the process or port identified by `Dest`. The following behavior
+applies if `Reason` is any term except `normal` or `kill`:
 
 - If `P` is not [trapping exits](`process_flag/2`), `P` exits with exit reason
   `Reason`.
@@ -2521,47 +2523,19 @@ The following behavior applies if `Reason` is any term, except `normal` or
   identifier of the process that sent the exit signal, and delivered to the
   message queue of `P`.
 
-The following behavior applies if `Reason` is the term `normal` and `Dest` is the
-identifier of a process `P` which is not the same as the process that invoked
-`erlang:exit(Dest, normal)` (the behavior when a process sends a signal with the
-`normal` reason to itself is described in the warning):
+The following behavior applies if `Reason` is the term `normal`:
 
+- The signal has no effect if `P` is not trapping exits.
 - If `P` is [trapping exits](`process_flag/2`), the exit signal is transformed
   into a message `{'EXIT', From, normal}`, where `From` is the process
   identifier of the process that sent the exit signal, and delivered to `P`'s
   message queue.
-- The signal has no effect if `P` is not trapping exits.
 
-If `Reason` is the atom `kill`, that is, if [`exit(Dest, kill)`](`exit/2`) is
+If `Reason` is the atom `kill`, that is, if [`exit(Dest, kill)`](`exit_signal/2`) is
 called, an untrappable exit signal is sent to the process that is identified by
 `Dest`, which unconditionally exits with exit reason `killed`. The exit reason is
 changed from `kill` to `killed` to hint to linked processes that the killed
-process got killed by a call to [`exit(Dest, kill)`](`exit/2`).
-
-> #### Note {: .info }
->
-> The functions [`erlang:exit/1`](`exit/1`) and [`erlang:exit/2`](`exit/2`) are
-> named similarly but provide very different functionalities. The
-> `erlang:exit/1` function should be used when the intent is to stop the current
-> process while `erlang:exit/2` should be used when the intent is to send an
-> exit signal to another process. Note also that `erlang:exit/1` raises an
-> exception that can be caught while `erlang:exit/2` does not cause any
-> exception to be raised.
-
-> #### Warning {: .warning }
->
-> The only scenario that has not been covered by the description above is when a
-> process `P` sends an exit signal with reason `normal` to itself, that is
-> `erlang:exit(self(), normal)`. The behavior in this scenario is as follows:
->
-> - If `P` is [trapping exits](`process_flag/2`), the exit signal is transformed
->   into a message `{'EXIT', From, normal}`, where `From` is `P`'s process
->   identifier, and delivered to `P`'s message queue.
-> - `P` exits with reason `normal` if `P` is not trapping exits.
->
-> Note that the behavior described above is different from when a process sends
-> an exit signal with reason `normal` to another process. This is arguably
-> strange but this behavior is kept for backward compatibility reasons.
+process got killed by a call to [`exit(Dest, kill)`](`exit_signal/2`).
 
 > #### Note {: .info }
 >
@@ -2569,19 +2543,57 @@ process got killed by a call to [`exit(Dest, kill)`](`exit/2`).
 > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
-
 -doc #{ category => processes }.
+-doc(#{since => <<"OTP 29.0">>}).
+-spec exit_signal(Pid, Reason) -> true when
+      Pid :: pid() | port() | reference(),
+      Reason :: term().
+exit_signal(_Pid, _Reason) ->
+    erlang:nif_error(undefined).
+
+%% exit/2
+-doc """
+Deprecated form of `exit_signal/2`, with a quirk when sender and receiver are the same.
+
+> #### Note {: .info }
+>
+> The function [`erlang:exit/2`](`exit/2`) is named similarly to [`erlang:exit/1`](`exit/1`)
+> but provides very different functionality. The `erlang:exit/1` function should be used
+> when the intent is to stop the current process by raising an exception of class `exit`.
+
+> The `erlang:exit_signal/2` function, or the old form `erlang:exit/2`, should be used
+> when the intent is to send an exit signal to another process. Note also that
+> `erlang:exit/1` raises an exception that can be caught, while `erlang:exit_signal/2`
+> does not cause any exception to be raised.
+
+> #### Warning {: .warning }
+>
+> This function has a quirk: When a process `P` sends an exit signal with reason `normal`
+> to itself using this function, that is, `erlang:exit(self(), normal)`, the behavior is
+> as follows:
+>
+> - `P` exits with reason `normal` if `P` is not trapping exits.
+> - If `P` is [trapping exits](`process_flag/2`), the exit signal is transformed
+>   into a message `{'EXIT', From, normal}`, where `From` is `P`'s process
+>   identifier, and delivered to `P`'s message queue.
+>
+> Note that this differs from when a process sends an exit signal with reason `normal`
+> to another process than itself (see `exit_signal/2` for details). This behavior is kept
+> for backward compatibility reasons. Use `exit_signal/2` for new code.
+""".
+-doc #{ category => processes }.
+-doc #{ category => deprecated }.
 -spec exit(Dest, Reason) -> true when
       Dest :: pid() | port() | reference(),
       Reason :: term().
 exit(_Dest, _Reason) ->
     erlang:nif_error(undefined).
 
-%% exit/3
+%% exit_signal/3
 -doc """
 Provides an option list for modification of the functionality provided by the
-`exit/2` BIF. The `Dest` and `Reason` arguments has the same meaning as when
-passed to the `exit/2` BIF.
+`exit_signal/2` BIF. The `Dest` and `Reason` arguments has the same meaning as when
+passed to `exit_signal/2`.
 
 Currently available options:
 
@@ -2609,24 +2621,32 @@ Currently available options:
   and the
   [Enabling Priority Message Reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
   sections of the _Erlang Reference Manual_.
-
 """.
+-doc #{ category => processes }.
+-doc(#{since => <<"OTP 29.0">>}).
+-spec exit_signal(Dest, Reason, OptList) -> true when
+      Dest :: pid() | port() | reference(),
+      Reason :: term(),
+      OptList :: [priority].
+exit_signal(_Pid, _Reason, _OptList) ->
+    erlang:nif_error(undefined).
 
+%% exit/3
+-doc """
+Deprecated form of `exit_signal/3`, with a quirk when sender and receiver are the same.
+
+This allows passing options to `exit/2`, which preserves the behavior when a process `P`
+sends an exit signal with reason `normal` to itself; see `exit/2` for details. For new
+code, use `exit_signal/3`.
+""".
 -doc #{ category => processes }.
 -doc(#{since => <<"OTP 28.0">>}).
+-doc #{ category => deprecated }.
 -spec exit(Dest, Reason, OptList) -> true when
       Dest :: pid() | port() | reference(),
       Reason :: term(),
       OptList :: [priority].
 exit(_Pid, _Reason, _OptList) ->
-    erlang:nif_error(undefined).
-
-%% exit_signal/2
--doc false.
--spec exit_signal(Pid, Reason) -> true when
-      Pid :: pid() | port() | reference(),
-      Reason :: term().
-exit_signal(_Pid, _Reason) ->
     erlang:nif_error(undefined).
 
 -doc """
@@ -3783,8 +3803,8 @@ false
 ```
 
 See the documentation about [signals](`e:system:ref_man_processes.md#signals`)
-and [erlang:exit/2](`exit/2`) for more information about signals and exit
-signals.
+and [erlang:exit_signal/2](`exit_signal/2`) for more information about signals and
+exit signals.
 """.
 -doc #{ category => processes }.
 -spec is_process_alive(Pid) -> boolean() when
@@ -6830,7 +6850,7 @@ between the caller and the unlinkee has no effect on the caller in the future
 message queue of the caller before the [`unlink(Id)`](`unlink/1`) call
 completed. Also note that the `{'EXIT', Id, ExitReason}` message may be the
 result of the link, but may also be the result of the unlikee sending the caller
-an exit signal by calling the `exit/2` BIF. Therefore, it may or may not be
+an exit signal by calling the `exit_signal/2` BIF. Therefore, it may or may not be
 appropriate to clean up the message queue after a call to
 [`unlink(Id)`](`unlink/1`) as follows, when trapping exits:
 
@@ -8043,7 +8063,7 @@ of the flag.
   receives an exit signal other than `normal` and the exit signal is propagated to
   its linked processes. Application processes are normally not to trap exits.
   
-  See also `exit/2`.
+  See also `exit_signal/2`.
   
 - ```erlang
   process_flag(error_handler, module())

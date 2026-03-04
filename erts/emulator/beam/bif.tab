@@ -843,6 +843,7 @@ bif persistent_term:put_new/2
 # New in 29.
 #
 ubif erlang:is_integer/3
+bif erlang:exit_signal/3
 
 #
 # Native records.
