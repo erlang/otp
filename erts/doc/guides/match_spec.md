@@ -23,7 +23,7 @@ limitations under the License.
 
 A "match specification" (`match_spec`) is an Erlang term describing a small
 "program" that tries to match something. It can be used to either control
-tracing with `erlang:trace_pattern/3` or to search for objects in an ETS table
+tracing with `trace:function/4` or to search for objects in an ETS table
 with for example `ets:select/2`. The match specification in many ways works like
 a small function in Erlang, but is interpreted/compiled by the Erlang runtime
 system to something much more efficient than calling an Erlang function. The
@@ -324,7 +324,7 @@ The functions allowed only for tracing work as follows:
   later calls, that is, call trace messages are inhibited even if
   `{message, true}` is called in the `MatchBody` part for a traced function.
 
-  This mode can also be activated with flag `silent` to `erlang:trace/3`.
+  This mode can also be activated with flag `silent` to `trace:process/4`.
 
   If the argument is `false`, the call trace message mode for the current
   process is set to normal (non-silent) for this call and all later calls.
