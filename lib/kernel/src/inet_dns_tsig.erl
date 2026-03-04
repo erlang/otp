@@ -84,7 +84,9 @@ init(Config) ->
                     andalso
                    S >= ?MAC_SIZE_MIN
                     andalso
-                   S >= maps:get(size, crypto:hash_info(A)) div 2,
+                   S >= maps:get(size, crypto:hash_info(A)) div 2
+                    andalso
+                   S =< maps:get(size, crypto:hash_info(A)),
             {A,S};
         A when is_atom(A) ->
             true = lists:member(A, ?ALGS_SUPPORTED),
