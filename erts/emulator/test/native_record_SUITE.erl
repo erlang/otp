@@ -320,6 +320,9 @@ external_term_format(_Config) ->
 
     _ = code:purge(ext_records),
 
+    #ext_records:local{} = Local,
+    #ext_records:vector{x=10,y=1,z=5} = Vector,
+
     [begin
          BadBin = fake_record_bin(?MODULE, fake, Exp, []),
          %% Decoding should fail when any of the reserved bits in

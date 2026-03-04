@@ -154,12 +154,12 @@ typed_attr_val -> expr '::' top_type           : {type_def, '$1', '$3'}.
 
 %% Pretty much like attr_val, but record name must be an atom,
 %% to not allow variable names as record names when there is no leading '#'.
-record_spec -> atom : {record, ['$1']}.
+record_spec -> atom : error_bad_decl('$1', record).
 record_spec -> atom ',' exprs: {record, ['$1' | '$3']}.
 record_spec -> '(' atom ',' exprs ')': {record, ['$2' | '$4']}.
 
 %% More record-like record declaration that allows record_name.
-record_spec -> '#' record_name : {native_record, ['$2']}.
+record_spec -> '#' record_name : error_bad_decl('$1', record).
 record_spec -> '#' record_name exprs: {native_record, ['$2' | '$3']}.
 record_spec -> '(' '#' record_name exprs ')': {native_record, ['$3' | '$4']}.
 

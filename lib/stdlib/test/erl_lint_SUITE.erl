@@ -6010,7 +6010,26 @@ native_records(Config) ->
                     {{10,16},erl_lint,bad_export_record},
                     {{11,16},erl_lint,bad_export_record},
                     {{11,16},erl_lint,{undefined_native_record,a}}],
-            []}}
+            []}},
+          {bad_record_def,
+           <<"-record r0.
+              -record #r1.
+              -record #r2, {}.">>,
+           [],
+           {errors,[{{1,29},
+                     erl_parse,
+                     [98,97,100,32,"record",32,100,101,99,108,97,114,97,116,105,111,
+                      110]},
+                    {{2,23},
+                     erl_parse,
+                     [98,97,100,32,"record",32,100,101,99,108,97,114,97,116,105,111,
+                      110]},
+                    {{3,23},
+                     erl_parse,
+                     [98,97,100,32,"record",32,100,101,99,108,97,114,97,116,105,111,
+                      110]}],
+            []}
+          }
          ],
     [] = run(Config, Ts),
     ok.
