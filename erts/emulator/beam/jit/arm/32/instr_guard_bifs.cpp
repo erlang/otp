@@ -48,8 +48,10 @@ using namespace asmjit;
 
 /* Raise a badarg exception for the given MFA. */
 void BeamGlobalAssembler::emit_raise_badarg(const ErtsCodeMFA *mfa) {
-    // TODO
-    emit_nyi("emit_raise_badarg");
+    mov_imm(TMP, BADARG);
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+    mov_imm(ARG4, mfa);
+    a.b(labels[raise_exception]);
 }
 
 /* ================================================================
@@ -61,41 +63,163 @@ void BeamGlobalAssembler::emit_raise_badarg(const ErtsCodeMFA *mfa) {
  */
 
 void BeamGlobalAssembler::emit_bif_is_eq_exact_shared() {
-    // TODO
-    emit_nyi("emit_bif_is_eq_exact_shared");
+    Label succ = a.newLabel(), fail = a.newLabel();
+
+    a.cmp(ARG1, ARG2);
+    a.b_eq(succ);
+
+    /* Terms may still be equal if both are pointers with same tag. */
+    emit_is_unequal_based_on_tags(ARG1, ARG2);
+    a.b_eq(fail);
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    runtime_call<2>(eq);
+
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    a.cmp(ARG1, imm(0));
+    a.b_eq(fail);
+
+    a.bind(succ);
+    {
+        mov_imm(ARG1, am_true);
+        a.bx(a32::lr);
+    }
+
+    a.bind(fail);
+    {
+        mov_imm(ARG1, am_false);
+        a.bx(a32::lr);
+    }
 }
 
 void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
-    // TODO
-    emit_nyi("emit_bif_is_ne_exact_shared");
+    Label succ = a.newLabel(), fail = a.newLabel();
+
+    a.cmp(ARG1, ARG2);
+    a.b_eq(fail);
+
+    emit_is_unequal_based_on_tags(ARG1, ARG2);
+    a.b_eq(succ);
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    runtime_call<2>(eq);
+
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    a.cmp(ARG1, imm(0));
+    a.b_ne(fail);
+
+    a.bind(succ);
+    {
+        mov_imm(ARG1, am_true);
+        a.bx(a32::lr);
+    }
+
+    a.bind(fail);
+    {
+        mov_imm(ARG1, am_false);
+        a.bx(a32::lr);
+    }
 }
 
 void BeamModuleAssembler::emit_cond_to_bool(arm::CondCode cc,
                                             const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_cond_to_bool");
+    Label set_true = a.newLabel(), done = a.newLabel();
+    auto dst = init_destination(Dst, TMP);
+
+    switch (cc) {
+    case arm::CondCode::kEQ:
+        a.b_eq(set_true);
+        break;
+    case arm::CondCode::kNE:
+        a.b_ne(set_true);
+        break;
+    case arm::CondCode::kLT:
+        a.b_lt(set_true);
+        break;
+    case arm::CondCode::kLE:
+        a.b_le(set_true);
+        break;
+    case arm::CondCode::kGT:
+        a.b_gt(set_true);
+        break;
+    case arm::CondCode::kGE:
+        a.b_ge(set_true);
+        break;
+    default:
+        ASSERT(!"Unsupported condition code in emit_cond_to_bool");
+        break;
+    }
+
+    mov_imm(dst.reg, am_false);
+    a.b(done);
+
+    a.bind(set_true);
+    mov_imm(dst.reg, am_true);
+
+    a.bind(done);
+    flush_var(dst);
 }
 
 void BeamModuleAssembler::emit_cmp_immed_to_bool(arm::CondCode cc,
                                                  const ArgSource &LHS,
                                                  const ArgSource &RHS,
                                                  const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_cmp_immed_to_bool");
+    if (RHS.isImmed()) {
+        auto lhs = load_source(LHS, ARG1);
+        cmp_arg(lhs.reg, RHS);
+    } else {
+        auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
+        a.cmp(lhs.reg, rhs.reg);
+    }
+    emit_cond_to_bool(cc, Dst);
 }
 
 void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgRegister &LHS,
                                                const ArgSource &RHS,
                                                const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_is_eq_exact");
+    if (always_immediate(LHS) || always_immediate(RHS)) {
+        if (!LHS.isImmed() && !RHS.isImmed()) {
+            comment("simplified check since one argument is an immediate");
+        }
+        emit_cmp_immed_to_bool(arm::CondCode::kEQ, LHS, RHS, Dst);
+    } else {
+        auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
+        auto dst = init_destination(Dst, ARG1);
+
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
+        fragment_call(ga->get_bif_is_eq_exact_shared());
+        mov_var(dst, ARG1);
+        flush_var(dst);
+    }
 }
 
 void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgRegister &LHS,
                                                const ArgSource &RHS,
                                                const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_is_ne_exact");
+    if (always_immediate(LHS) || always_immediate(RHS)) {
+        if (!LHS.isImmed() && !RHS.isImmed()) {
+            comment("simplified check since one argument is an immediate");
+        }
+        emit_cmp_immed_to_bool(arm::CondCode::kNE, LHS, RHS, Dst);
+    } else {
+        auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
+        auto dst = init_destination(Dst, ARG1);
+
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
+        fragment_call(ga->get_bif_is_ne_exact_shared());
+        mov_var(dst, ARG1);
+        flush_var(dst);
+    }
 }
 
 void BeamModuleAssembler::emit_bif_is_ge_lt(arm::CondCode cc,
@@ -273,14 +397,27 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
  */
 
 void BeamGlobalAssembler::emit_handle_hd_error() {
-    // TODO
-    emit_nyi("emit_handle_hd_error");
+    static ErtsCodeMFA mfa = {am_erlang, am_hd, 1};
+    emit_raise_badarg(&mfa);
 }
 
 void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
                                       const ArgRegister &Hd) {
-    // TODO
-    emit_nyi("emit_bif_hd");
+    Label good_cons = a.newLabel();
+    auto src = load_source(Src, TMP);
+    auto hd = init_destination(Hd, ARG1);
+
+    /* A list has primary tag TAG_PRIMARY_LIST. */
+    emit_is_not_cons(good_cons, src.reg);
+    a.str(src.reg, getXRef(0));
+    fragment_call(ga->get_handle_hd_error());
+
+    a.bind(good_cons);
+    {
+        a32::Gp cons_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(hd.reg, getCARRef(cons_ptr));
+        flush_var(hd);
+    }
 }
 
 /* ================================================================
@@ -423,14 +560,27 @@ void BeamModuleAssembler::emit_bif_or(const ArgLabel &Fail,
  */
 
 void BeamGlobalAssembler::emit_handle_tl_error() {
-    // TODO
-    emit_nyi("emit_handle_tl_error");
+    static ErtsCodeMFA mfa = {am_erlang, am_tl, 1};
+    emit_raise_badarg(&mfa);
 }
 
 void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
                                       const ArgRegister &Tl) {
-    // TODO
-    emit_nyi("emit_bif_tl");
+    Label good_cons = a.newLabel();
+    auto src = load_source(Src, TMP);
+    auto tl = init_destination(Tl, ARG1);
+
+    /* A list has primary tag TAG_PRIMARY_LIST. */
+    emit_is_not_cons(good_cons, src.reg);
+    a.str(src.reg, getXRef(0));
+    fragment_call(ga->get_handle_tl_error());
+
+    a.bind(good_cons);
+    {
+        a32::Gp cons_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(tl.reg, getCDRRef(cons_ptr));
+        flush_var(tl);
+    }
 }
 
 /* ================================================================
@@ -439,13 +589,34 @@ void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
  */
 
 void BeamGlobalAssembler::emit_bif_tuple_size_helper(Label fail) {
-    // TODO
-    emit_nyi("emit_bif_tuple_size_helper");
+    a32::Gp boxed_ptr = emit_ptr_val(TMP, ARG1);
+
+    emit_is_boxed(fail, boxed_ptr);
+
+    ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+    a.ldr(TMP, emit_boxed_val(boxed_ptr));
+    a.tst(TMP, imm(_TAG_HEADER_MASK));
+    a.b_ne(fail);
+
+    ERTS_CT_ASSERT(_HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE > 0);
+    ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+    a.lsr(TMP, TMP, _HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE);
+    a.orr(ARG1, TMP, imm(_TAG_IMMED1_SMALL));
+
+    a.bx(a32::lr);
 }
 
 void BeamGlobalAssembler::emit_bif_tuple_size_body() {
-    // TODO
-    emit_nyi("emit_bif_tuple_size_body");
+    Label error = a.newLabel();
+
+    emit_bif_tuple_size_helper(error);
+
+    a.bind(error);
+    {
+        static ErtsCodeMFA mfa = {am_erlang, am_tuple_size, 1};
+        a.str(ARG1, getXRef(0));
+        emit_raise_badarg(&mfa);
+    }
 }
 
 void BeamGlobalAssembler::emit_bif_tuple_size_guard() {

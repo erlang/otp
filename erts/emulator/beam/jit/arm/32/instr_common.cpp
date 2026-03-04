@@ -1017,8 +1017,15 @@ void BeamModuleAssembler::emit_i_is_tuple(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
                                                    const ArgSource &Src,
                                                    const ArgWord &Arity) {
-    // TODO
-    emit_nyi("emit_i_is_tuple_of_arity");
+    auto src = load_source(Src, ARG1);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    emit_untag_ptr(ARG1, src.reg);
+
+    a.ldr(TMP, arm::Mem(ARG1));
+    cmp_arg(TMP, Arity);
+    a.b_ne(resolve_beam_label(Fail, disp32MB));
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in

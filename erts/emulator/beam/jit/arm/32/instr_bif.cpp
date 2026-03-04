@@ -174,16 +174,31 @@ void BeamModuleAssembler::emit_i_bif(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_nofail_bif1(const ArgSource &Src1,
                                            const ArgWord &Bif,
                                            const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_nofail_bif1");
+    auto src1 = load_source(Src1, ARG1);
+
+    a.str(src1.reg, TMP_MEM3q);
+    lea(ARG2, TMP_MEM3q);
+
+    ubif_comment(Bif);
+    mov_arg(ARG4, Bif);
+    fragment_call(ga->get_i_bif_guard_shared());
+    mov_arg(Dst, ARG1);
 }
 
 void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
                                            const ArgSource &Src2,
                                            const ArgWord &Bif,
                                            const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_nofail_bif2");
+    auto [src1, src2] = load_sources(Src1, ARG1, Src2, ARG2);
+
+    a.str(src1.reg, TMP_MEM3q);
+    a.str(src2.reg, TMP_MEM4q);
+    lea(ARG2, TMP_MEM3q);
+
+    ubif_comment(Bif);
+    mov_arg(ARG4, Bif);
+    fragment_call(ga->get_i_bif_guard_shared());
+    mov_arg(Dst, ARG1);
 }
 
 void BeamModuleAssembler::emit_i_length_setup(const ArgLabel &Fail,
