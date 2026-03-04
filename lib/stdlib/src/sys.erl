@@ -1074,10 +1074,11 @@ do_change_code(Mod, Module, Vsn, Extra, Misc) ->
     try
         Mod:system_code_change(Misc, Module, Vsn, Extra)
     of
-	{ok, _} = Res -> Res;
+        {ok, _} = Res -> Res;
         Else -> {{error, Else}, Misc}
     catch
         throw:{ok, _} = Res -> Res;
+        throw:Else -> {{error, Else}, Misc};
         error:Reason:Stack -> {{error, {'EXIT', {Reason, Stack}}}, Misc};
         exit:Exit -> {{error, {'EXIT', Exit}}, Misc}
     end.

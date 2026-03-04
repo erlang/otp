@@ -218,37 +218,37 @@ spec_proc(Mod) ->
     ok = try
              sys:get_state(Mod)
          of
-	     [] ->
-		 ok
+             [] ->
+                 ok
          catch
              error:{callback_failed, {Mod, system_get_state}, {throw, fail}} ->
                  ok
-	 end,
+         end,
     ok = sync_terminate(Mod),
     {ok,_} = Mod:start_link(4),
     ok = try
              sys:replace_state(Mod, fun(_) -> {} end)
          of
-	     {} ->
-		 ok
+             {} ->
+                 ok
          catch
-	     error:{callback_failed, {Mod, system_replace_state}, {throw, fail}} ->
-		 ok
-	 end,
+             error:{callback_failed, {Mod, system_replace_state}, {throw, fail}} ->
+                 ok
+         end,
     ok = sync_terminate(Mod),
     {ok,_} = Mod:start_link(4),
     StateFun = fun(_) -> error(fail) end,
     ok = try
              sys:replace_state(Mod, StateFun)
          of
-	     {} ->
-		 ok
+             {} ->
+                 ok
          catch
              error:{callback_failed, {Mod, system_replace_state}, {error, fail}} ->
-		 ok;
+                 ok;
              error:{callback_failed, StateFun, {error, fail}} ->
-		 ok
-	 end,
+                 ok
+         end,
     ok = sync_terminate(Mod).
 
 sync_terminate(Mod) ->
