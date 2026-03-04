@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,26 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # SSH Release Notes
+
+## Ssh 5.5
+
+### Fixed Bugs and Malfunctions
+
+- The type specification for the `CbInitArgs` parameter in `ssh_client_channel:start/4` and `ssh_client_channel:start_link/4` has been relaxed from `[term()]` to `term()`. This eliminates false Dialyzer warnings when passing non-list arguments (such as maps or atoms) to these functions. This change is backward compatible as `term()` includes `[term()`].
+
+  Own Id: OTP-19976 Aux Id: [GH-10351], [PR-10673]
+
+[GH-10351]: https://github.com/erlang/otp/issues/10351
+[PR-10673]: https://github.com/erlang/otp/pull/10673
+
+### Improvements and New Features
+
+- Added support for the PQC key exchange (kex) algorithm mlkem768x25519-sha256, a hybrid quantum-resistant algorithm combining ML-KEM-768 with X25519.
+
+  Own Id: OTP-19824 Aux Id: [PR-10512], [PR-10655]
+
+[PR-10512]: https://github.com/erlang/otp/pull/10512
+[PR-10655]: https://github.com/erlang/otp/pull/10655
 
 ## Ssh 5.4.1
 

@@ -21,6 +21,23 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.20.2
+
+### Fixed Bugs and Malfunctions
+
+- Added missing mapping for der_encode/decode to handle 'OCSPRequest'.
+
+  Own Id: OTP-19905 Aux Id: [PR-10522], [GH-10474]
+
+- `public_key:pkix_crl_verify/2` now handles certificates with EdDSA keys correctly instead of causing a runtime error.
+
+  Own Id: OTP-19907 Aux Id: [PR-10496], [GH-10495]
+
+[PR-10522]: https://github.com/erlang/otp/pull/10522
+[GH-10474]: https://github.com/erlang/otp/issues/10474
+[PR-10496]: https://github.com/erlang/otp/pull/10496
+[GH-10495]: https://github.com/erlang/otp/issues/10495
+
 ## Public_Key 1.20.1
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,53 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.6
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+- Added a new HttpOption `{autoretry, timeout()}` to `httpc:request/4,5`.
+  This option allows the client to decide how to act upon receiving a Retry-After response header. The default behavior changes, as now only one retry is made before returning the error code, instead of retrying infinitely.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19892 Aux Id: ERIERL-1283, [PR-10469]
+
+- Httpc will not add a Content-Length header for requests, that do not have defined semantics for request content in [RFC9110](https://datatracker.ietf.org/doc/html/rfc9110) and do not include content. The list includes methods: `[GET, HEAD, OPTIONS, TRACE, DELETE]`.
+  The behavior for `headers_as_is` option remains unchanged.
+
+  Own Id: OTP-19928 Aux Id: [PR-10521], [GH-10513]
+
+- Improved documentation and specs for `do/1` callback in httpd module.
+
+  Own Id: OTP-19952 Aux Id: [PR-10602], [GH-10501]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+[PR-10469]: https://github.com/erlang/otp/pull/10469
+[PR-10521]: https://github.com/erlang/otp/pull/10521
+[GH-10513]: https://github.com/erlang/otp/issues/10513
+[PR-10602]: https://github.com/erlang/otp/pull/10602
+[GH-10501]: https://github.com/erlang/otp/issues/10501
+
 ## Inets 9.5
 
 ### Fixed Bugs and Malfunctions

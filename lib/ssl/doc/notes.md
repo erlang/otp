@@ -23,6 +23,58 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.5.2
+
+### Fixed Bugs and Malfunctions
+
+- TLS servers that have `early_data` disabled will no longer include the `early_data` extension in its session tickets.
+
+  Own Id: OTP-19940 Aux Id: [PR-10583], [GH-10567]
+
+- `ssl:connection_information/2` will now return correct information for TLS-1.2 session resumption.
+
+  Own Id: OTP-19941 Aux Id: [PR-10586], [GH-10470]
+
+- When performing renegotiation, in TLS-1.2 or earlier, \`max_frag_length\` will no longer be renegotiated. Instead, the connection will adhere to its originally negotiated value, and if a value was not negotiated it will not be negotiated.
+
+  Own Id: OTP-19948 Aux Id: [PR-10599]
+
+- The NSS Keylogging refactoring mixed up of Read and Write connection states, could cause wrong NSS keylog labels, or `{error, closed}` returned without keylog.
+
+  Own Id: OTP-19990 Aux Id: [PR-10723], [GH-10698]
+
+[PR-10583]: https://github.com/erlang/otp/pull/10583
+[GH-10567]: https://github.com/erlang/otp/issues/10567
+[PR-10586]: https://github.com/erlang/otp/pull/10586
+[GH-10470]: https://github.com/erlang/otp/issues/10470
+[PR-10599]: https://github.com/erlang/otp/pull/10599
+[PR-10723]: https://github.com/erlang/otp/pull/10723
+[GH-10698]: https://github.com/erlang/otp/issues/10698
+
+### Improvements and New Features
+
+- Release applications, tests, and documentation are now placed in their respective directories. Source SBOM with more packages.
+  
+  A `make release` application places only the necessary code in the release folder. The main change is that the documentation and examples are not part of the release folder anymore.
+  
+  `make release_docs` places the documentation in the released code under the `doc` folder.
+  
+  `make release_tests` places the tests in their own directory. It used to be the case that some source code was mixed with the tests, and this should not happen anymore.
+  
+  The Software Bill of Materials places the examples folders as if they are part of the `SPDX-otp-<app>-doc` packge, instead of placing examples as if they were running source code.
+  
+  Overall, this change cleans up many things that were not quite correct by definition, and everything should still continue to work as expected. To test a release, one can still run `./Install -minimal \`pwd\`` and add the release to the `PATH`. After that, one can run tests as usual, going into the released tests directory, entering `test_server` and running the emulator.
+  
+  Improves the source Software-Bill-of-Materials
+  
+  - The improvements adds new SPDX relations for `asmjit` and `zlib` to be `optional_components_of` the Erlang/OTP project.
+  - The `autoconf` scripts in `make` and `erts` have now been categorised as `build_tool_of` the Erlang/OTP project.
+  - All remaining `configure`, `configure.ac`, `config.h.in`, `Makefile.in`, `Makefile.src`, `EMakefile`, and `GNUMakefile` are now part of a specific SPDX package with relation `build_tool_of` the Erlang/OTP project.
+
+  Own Id: OTP-19886 Aux Id: [PR-10434]
+
+[PR-10434]: https://github.com/erlang/otp/pull/10434
+
 ## SSL 11.5.1
 
 ### Fixed Bugs and Malfunctions

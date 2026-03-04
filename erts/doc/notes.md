@@ -23,6 +23,72 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a documentation build warning when one or more applications failed their configure step and were skipped.
+
+  Own Id: OTP-19914 Aux Id: ERIERL-1251,[PR-10537]
+
+- The (IPv6) flowinfo control message header was not properly supported.
+
+  Own Id: OTP-19977
+
+- Fixed NetBSD thread naming, using `pthread_setname_np()`; used for debugging.
+
+  Own Id: OTP-19987 Aux Id: [PR-10684]
+
+[PR-10537]: https://github.com/erlang/otp/pull/10537
+[PR-10684]: https://github.com/erlang/otp/pull/10684
+
+### Improvements and New Features
+
+- The `erlang:link_option/0` type is now exported.
+
+  Own Id: OTP-19904 Aux Id: [PR-10451]
+
+- Added `persistent_term:put_new/2` that will quickly do nothing if a term with the given name and value already exists, and raise a `badarg` exception if the term exists with a different value.
+
+  Own Id: OTP-19908 Aux Id: [GH-9681], [PR-9695]
+
+- The `manifest.xml` file for the Windows build now has version numbers updated to correctly report OS versions on Windows 10, 11, Server 2016, 2019, 2022.
+
+  Own Id: OTP-19920 Aux Id: [GH-10371], [PR-10546]
+
+- Improved yielding inside `re:run`. Regular expressions searching for *one* specific byte character could spin in `memchr()` without any yielding or reduction counting.
+
+  Own Id: OTP-19950 Aux Id: [PR-10486]
+
+- Updated `openssl` from `3.6.0` to `3.6.1`.
+  
+  This change does not perform any changes in the `md5` vendor implementation from `openssl`. The change merges upstream cosmetic changes from `openssl`. This is necessary to automatically migrate cleanly to the next `openssl` version without conflicts with upstream.
+
+  Own Id: OTP-19959 Aux Id: [PR-10630]
+
+- Updated `ryu` implementation used to convert floats to strings.
+
+  Own Id: OTP-19974 Aux Id: [PR-10672]
+
+- Upgraded `asmjit` to `v1.18`
+
+  Own Id: OTP-19979 Aux Id: [PR-10675]
+
+- Updated zlib to version 1.3.2.
+
+  Own Id: OTP-19998 Aux Id: [PR-10752]
+
+[PR-10451]: https://github.com/erlang/otp/pull/10451
+[GH-9681]: https://github.com/erlang/otp/issues/9681
+[PR-9695]: https://github.com/erlang/otp/pull/9695
+[GH-10371]: https://github.com/erlang/otp/issues/10371
+[PR-10546]: https://github.com/erlang/otp/pull/10546
+[PR-10486]: https://github.com/erlang/otp/pull/10486
+[PR-10630]: https://github.com/erlang/otp/pull/10630
+[PR-10672]: https://github.com/erlang/otp/pull/10672
+[PR-10675]: https://github.com/erlang/otp/pull/10675
+[PR-10752]: https://github.com/erlang/otp/pull/10752
+
 ## Erts 16.2.2
 
 ### Fixed Bugs and Malfunctions

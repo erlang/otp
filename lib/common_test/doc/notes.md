@@ -21,6 +21,34 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.30
+
+### Fixed Bugs and Malfunctions
+
+- Added documentation about the behavior of `ct:comment/1` and `ct:comment/2` when executed from processes other than the process running test functions.
+
+  Own Id: OTP-19913 Aux Id: ERIERL-1264, [PR-10271]
+
+[PR-10271]: https://github.com/erlang/otp/pull/10271
+
+### Improvements and New Features
+
+- Updated jquery to 4.0.0
+
+  Own Id: OTP-19972 Aux Id: [PR-10665], [PR-10623], [PR-10624], [PR-10625]
+
+- The removal of the `m:slave` and `m:slave` modules have been postponed to Erlang/OTP 31.
+  
+  The partial removal of the archive feature has been postponed to Erlang/OTP 30.
+
+  Own Id: OTP-19989 Aux Id: [PR-10714]
+
+[PR-10665]: https://github.com/erlang/otp/pull/10665
+[PR-10623]: https://github.com/erlang/otp/pull/10623
+[PR-10624]: https://github.com/erlang/otp/pull/10624
+[PR-10625]: https://github.com/erlang/otp/pull/10625
+[PR-10714]: https://github.com/erlang/otp/pull/10714
+
 ## Common_Test 1.29.1
 
 ### Improvements and New Features

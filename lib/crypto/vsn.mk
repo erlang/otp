@@ -1,4 +1,4 @@
-CRYPTO_VSN = 5.8.1
+CRYPTO_VSN = 5.8.2
 
 # %CopyrightBegin%
 #

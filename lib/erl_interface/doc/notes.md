@@ -23,6 +23,24 @@ limitations under the License.
 
 This document describes the changes made to the Erl_interface application.
 
+## Erl_Interface 5.6.4
+
+### Improvements and New Features
+
+- Updated `openssl` from `3.6.0` to `3.6.1`.
+  
+  This change does not perform any changes in the `md5` vendor implementation from `openssl`. The change merges upstream cosmetic changes from `openssl`. This is necessary to automatically migrate cleanly to the next `openssl` version without conflicts with upstream.
+
+  Own Id: OTP-19959 Aux Id: [PR-10630]
+
+[PR-10630]: https://github.com/erlang/otp/pull/10630
+
+### Known Bugs and Problems
+
+- The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
+
+  Own Id: OTP-16607 Aux Id: OTP-16608
+
 ## Erl_Interface 5.6.3
 
 ### Fixed Bugs and Malfunctions

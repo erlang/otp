@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,17 @@ limitations under the License.
 # Crypto Release Notes
 
 This document describes the changes made to the Crypto application.
+
+## Crypto 5.8.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed `crypto:crypto_one_time_aead/4`, which could crash the runtime system if invoked in parallel with the same state.
+
+  Own Id: OTP-19973 Aux Id: [GH-10652], [PR-10668]
+
+[GH-10652]: https://github.com/erlang/otp/issues/10652
+[PR-10668]: https://github.com/erlang/otp/pull/10668
 
 ## Crypto 5.8.1
 

@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.1.9
+
+### Fixed Bugs and Malfunctions
+
+- Fixed license headers and links in documentation.
+
+  Own Id: OTP-20006 Aux Id: [PR-10438]
+
+[PR-10438]: https://github.com/erlang/otp/pull/10438
+
 ## Xmerl 2.1.8
 
 ### Fixed Bugs and Malfunctions
