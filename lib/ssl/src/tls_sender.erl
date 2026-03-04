@@ -589,6 +589,9 @@ send_or_buffer(Transport, Socket, Msgs, From, #data{buff = undefined} = StateDat
         ok ->
             send_reply(From, ok),
             {ok, StateData0};
+        {error, timeout} = Error ->
+            send_reply(From, Error),
+            {ok, StateData0};
         {error, _Err} = Error ->
             send_reply(From, Error),
             Error;
