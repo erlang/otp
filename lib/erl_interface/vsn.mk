@@ -1,4 +1,4 @@
-EI_VSN = 5.6.3
+EI_VSN = 5.6.4
 ERL_INTERFACE_VSN = $(EI_VSN)
 
 # %CopyrightBegin%

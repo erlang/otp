@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Parsetools application.
 
+## Parsetools 2.7.1
+
+### Fixed Bugs and Malfunctions
+
+- The documentation for the `token/3` and `tokens/3` functions was corrected. The return value when there were too few characters is `{more,Cont}`.
+
+  Own Id: OTP-19901 Aux Id: [PR-10484]
+
+[PR-10484]: https://github.com/erlang/otp/pull/10484
+
 ## Parsetools 2.7
 
 ### Improvements and New Features

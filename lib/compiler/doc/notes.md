@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 9.0.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a compiler alias analysis bug that could generate unsafe code for repeated binary segments.
+
+  Own Id: OTP-19951 Aux Id: [PR-10588]
+
+[PR-10588]: https://github.com/erlang/otp/pull/10588
+
 ## Compiler 9.0.4
 
 ### Fixed Bugs and Malfunctions

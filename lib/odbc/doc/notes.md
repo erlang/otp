@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the odbc application.
 
+## ODBC 2.16.1
+
+### Improvements and New Features
+
+- Corrected specs to eliminate Dialyzer warnings for applications.
+
+  Own Id: OTP-19992 Aux Id: [PR-10678]
+
+[PR-10678]: https://github.com/erlang/otp/pull/10678
+
 ## ODBC 2.16
 
 ### Fixed Bugs and Malfunctions
