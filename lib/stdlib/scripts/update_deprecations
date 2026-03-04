@@ -49,11 +49,10 @@ ebin_directories(Top) ->
 
     %% Filter out erl_interface and jinterface since they lack Erlang code, and
     %% ODBC because we can't build it on all platforms we develop on. This must
-    %% be fixed before we deprecate or remove functionality in ODBC.
+    %% be fixed before we deprecate or remove functionality in *interface apps.
     AppDirs = [Dir || Dir <- AppDirs0,
                       not lists:suffix("erl_interface/ebin", Dir),
-                      not lists:suffix("jinterface/ebin", Dir),
-                      not lists:suffix("odbc/ebin", Dir)],
+                      not lists:suffix("jinterface/ebin", Dir)],
 
     [filename:join(Top, "erts/ebin")] ++ AppDirs.
 
