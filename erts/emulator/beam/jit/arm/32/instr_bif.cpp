@@ -30,33 +30,91 @@ extern "C"
 #include "erl_msacc.h"
 }
 
-void BeamModuleAssembler::ubif_comment(const ArgWord &Bif) {
-    // TODO
-    emit_nyi("ubif_comment");
+void BeamModuleAssembler::ubif_comment(const ArgWord &Bif) {    
+    if (logger.file()) {
+        ErtsCodeMFA *mfa = ubif2mfa((void *)Bif.get());
+        if (mfa) {
+            comment("UBIF: %T/%d", mfa->function, mfa->arity);
+        }
+    }
 }
 
 /* ARG2 = argument vector, ARG4 (!) = bif function pointer
  *
  * Result is returned in ARG1 (will be THE_NON_VALUE if the BIF call failed). */
 void BeamGlobalAssembler::emit_i_bif_guard_shared() {
-    // TODO
-    emit_nyi("emit_i_bif_guard_shared");
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime<Update::eReductions>();
+
+    a.mov(ARG1, c_p);
+    mov_imm(ARG3, 0);
+    runtime_call(ARG4, 3); /* ARG3 is never used by guard BIFs. */
+
+    emit_leave_runtime<Update::eReductions>();
+    emit_leave_runtime_frame();
+    a.bx(a32::lr);
 }
 
 /* ARG2 = argument vector, ARG4 (!) = bif function pointer
  *
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_bif_body_shared() {
-    // TODO
-    emit_nyi("emit_i_bif_body_shared");
+    Label error = a.newLabel();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime<Update::eReductions>();
+
+    /* Save current argument vector and BIF for the error path. */
+    a.mov(ARG1, c_p);
+    a.str(ARG2, TMP_MEM1q);
+    a.str(ARG4, TMP_MEM2q);
+    mov_imm(ARG3, 0); /* ARG3 is never used by guard BIFs. */
+
+    runtime_call(ARG4, 3);
+    emit_branch_if_not_value(ARG1, error);
+
+    emit_leave_runtime<Update::eReductions>();
+
+    emit_leave_runtime_frame();
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        /* Reload arguments into x_reg_array for exception handling. */
+        a.ldr(ARG2, TMP_MEM1q);
+        a.ldr(TMP, arm::Mem(ARG2, 0 * sizeof(Eterm)));
+        a.str(TMP, getXRef(0));
+        a.ldr(TMP, arm::Mem(ARG2, 1 * sizeof(Eterm)));
+        a.str(TMP, getXRef(1));
+        a.ldr(TMP, arm::Mem(ARG2, 2 * sizeof(Eterm)));
+        a.str(TMP, getXRef(2));
+
+        /* Find the correct MFA from the BIF's function address. */
+        a.ldr(ARG1, TMP_MEM2q);
+        runtime_call<1>(ubif2mfa);
+
+        /* The argument registers must be reloaded on error, as the machine
+         * registers may contain garbage, which will later be swapped into the
+         * register array in the `raise_exception` fragment. */
+        emit_leave_runtime<Update::eReductions>();
+        emit_leave_runtime_frame();
+
+        a.mov(ARG4, ARG1);
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
                                       const ArgLabel &Fail,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bif1");
+    auto src1 = load_source(Src1, ARG1);
+    a.str(src1.reg, TMP_MEM3q);
+    lea(ARG2, TMP_MEM3q);
+
+    ubif_comment(Bif);
+    emit_i_bif(Fail, Bif, Dst);
 }
 
 void BeamModuleAssembler::emit_i_bif2(const ArgSource &Src1,
@@ -64,8 +122,14 @@ void BeamModuleAssembler::emit_i_bif2(const ArgSource &Src1,
                                       const ArgLabel &Fail,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bif2");
+    auto [src1, src2] = load_sources(Src1, ARG1, Src2, ARG2);
+
+    a.str(src1.reg, TMP_MEM3q);
+    a.str(src2.reg, TMP_MEM4q);
+    lea(ARG2, TMP_MEM3q);
+
+    ubif_comment(Bif);
+    emit_i_bif(Fail, Bif, Dst);
 }
 
 void BeamModuleAssembler::emit_i_bif3(const ArgSource &Src1,
@@ -74,15 +138,32 @@ void BeamModuleAssembler::emit_i_bif3(const ArgSource &Src1,
                                       const ArgLabel &Fail,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bif3");
+    auto [src1, src2] = load_sources(Src1, ARG1, Src2, ARG2);
+    auto src3 = load_source(Src3, ARG3);
+
+    // TMP_MEM1q, TMP_MEM2q are used by the error path in emit_i_bif
+    a.str(src1.reg, TMP_MEM3q);
+    a.str(src2.reg, TMP_MEM4q);
+    a.str(src3.reg, TMP_MEM5q);
+    lea(ARG2, TMP_MEM3q);
+
+    ubif_comment(Bif);
+    emit_i_bif(Fail, Bif, Dst);
 }
 
 void BeamModuleAssembler::emit_i_bif(const ArgLabel &Fail,
                                      const ArgWord &Bif,
                                      const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bif");
+    mov_arg(ARG4, Bif);
+
+    if (Fail.get() != 0) {
+        fragment_call(ga->get_i_bif_guard_shared());
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        fragment_call(ga->get_i_bif_body_shared());
+    }
+
+    mov_arg(Dst, ARG1);
 }
 
 /*
