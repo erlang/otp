@@ -4161,8 +4161,7 @@ ERL_NIF_TERM essio_recvmmsg(ErlNifEnv*       env,
         size_t bufdata_sz  = vlen * bufSz;
         size_t ctrldata_sz = vlen * ctrlSz;
         size_t total_sz = bufs_sz + ctrls_sz + addrs_sz + mmsghdrs_sz + iovecs_sz + bufdata_sz + ctrldata_sz;
-        ESOCK_ASSERT(heapPool = (char*) MALLOC(total_sz));
-        if (!heapPool) return esock_make_error_errno(env, ENOMEM);
+        ESOCK_ASSERT((heapPool = (char*) MALLOC(total_sz)) != NULL );
         sys_memzero(heapPool, bufs_sz + ctrls_sz + addrs_sz);
         bufs         = (ErlNifBinary*)   (heapPool);
         ctrls        = (ErlNifBinary*)   (heapPool + bufs_sz);
@@ -4380,11 +4379,7 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         size_t iovecPtrs_sz    = msgCount * sizeof(ErlNifIOVec*);
         size_t ctrlBufData_sz  = msgCount * descP->wCtrlSz;
         size_t total_sz = mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz + ctrlBufData_sz;
-        ESOCK_ASSERT(heapPool = (char*) MALLOC(total_sz));
-        if (!heapPool) {
-            ret = esock_make_error_errno(env, ENOMEM);
-            goto cleanup;
-        }
+        ESOCK_ASSERT((heapPool = (char*) MALLOC(total_sz)) != NULL );
         sys_memzero(heapPool, total_sz);
         sendMmsghdrs = (struct mmsghdr*) (heapPool);
         addrs        = (ESockAddress*) (heapPool + mmsghdrs_sz);
@@ -4486,11 +4481,7 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         unsigned int k;
 
         if (updatedCount > 0) {
-            ESOCK_ASSERT(resultElems = (ERL_NIF_TERM*) MALLOC(updatedCount * sizeof(ERL_NIF_TERM)));
-            if (!resultElems) {
-                ret = esock_make_error_errno(env, ENOMEM);
-                goto cleanup;
-            }
+            ESOCK_ASSERT((resultElems = (ERL_NIF_TERM*) MALLOC(updatedCount * sizeof(ERL_NIF_TERM))) != NULL );
             for (i = 0; i < updatedCount; i++) {
                 size_t expectedLen = 0;
                 for (k = 0; k < iovecPtrs[i]->iovcnt; k++) {
