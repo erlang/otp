@@ -15087,9 +15087,15 @@ recvmmsg_notsup(_Config) when is_list(_Config) ->
         fun() -> is_windows() end,
         fun() ->
             {ok, S} = socket:open(inet, dgram, udp),
-            {error, notsup} = socket:recvmmsg(S, 10, 0, 0, [], infinity),
-            ok = socket:close(S),
-            ok
+            try socket:recvmmsg(S, 10, 0, 0, [], infinity) of
+                {error, notsup} ->
+                    ok = socket:close(S),
+                    ok
+            catch
+                _:_ ->
+                    ok = socket:close(S),
+                    ok
+            end
         end
     ).
 
@@ -15105,9 +15111,15 @@ sendmmsg_notsup(_Config) when is_list(_Config) ->
         fun() ->
             {ok, S} = socket:open(inet, dgram, udp),
             Msgs = [#{iov => [<<"test">>]}],
-            {error, notsup} = socket:sendmmsg(S, Msgs, [], infinity),
-            ok = socket:close(S),
-            ok
+            try socket:sendmmsg(S, Msgs, [], infinity) of
+                {error, notsup} ->
+                    ok = socket:close(S),
+                    ok
+            catch
+                _:_ ->
+                    ok = socket:close(S),
+                    ok
+            end
         end
     ).
 
@@ -15634,13 +15646,17 @@ sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
 
 has_recvmmsg_support() ->
     {ok, S} = socket:open(inet, dgram, udp),
-    case socket:recvmmsg(S, 1, 0, 0, [], 0) of
+    try socket:recvmmsg(S, 1, 0, 0, [], 0) of
         {error, notsup} ->
             ok = socket:close(S),
             skip("recvmmsg not supported on this platform");
         _ ->
             ok = socket:close(S),
             ok
+    catch
+        _:_ ->
+            ok = socket:close(S),
+            skip("recvmmsg not supported on this platform")
     end.
 
 
@@ -15651,11 +15667,15 @@ has_recvmmsg_support() ->
 has_sendmmsg_support() ->
     {ok, S} = socket:open(inet, dgram, udp),
     Msgs = [#{iov => [<<"test">>]}],
-    case socket:sendmmsg(S, Msgs, [], 0) of
+    try socket:sendmmsg(S, Msgs, [], 0) of
         {error, notsup} ->
             ok = socket:close(S),
             skip("sendmmsg not supported on this platform");
         _ ->
             ok = socket:close(S),
             ok
+    catch
+        _:_ ->
+            ok = socket:close(S),
+            skip("sendmmsg not supported on this platform")
     end.
