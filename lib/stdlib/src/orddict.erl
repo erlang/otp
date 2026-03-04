@@ -34,9 +34,7 @@ defined representation. One difference is that while `dict` considers two keys
 as different if they do not match (`=:=`), this module considers two keys as
 different if and only if they do not compare equal (`==`).
 
-## Notes
-
-[](){: #notes }
+### Notes
 
 Functions [`append/3`](`append/3`) and [`append_list/3`](`append_list/3`) are
 included so that keyed values can be stored in a list _accumulator_, for
@@ -58,7 +56,7 @@ the list of stored values, and storing the result.
 Function [`fetch/2`](`fetch/2`) is to be used if the key is known to be in the
 dictionary, otherwise function [`find/2`](`find/2`).
 
-## See Also
+### See Also
 
 `m:dict`, `m:gb_trees`
 """.

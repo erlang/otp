@@ -111,7 +111,7 @@ information. Default scope `pg` is started automatically when
 > A scope can be kept local-only by using a scope name that is unique
 > cluster-wide, e.g. the node name: `pg:start_link(node()).`
 
-## See Also
+### See Also
 
 [Kernel](kernel_app.md)
 """.

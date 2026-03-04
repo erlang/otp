@@ -249,7 +249,7 @@ The `init` module interprets the following command-line flags:
 error
 ```
 
-## See Also
+### See Also
 
 `m:erl_prim_loader`, `m:heart`
 """.

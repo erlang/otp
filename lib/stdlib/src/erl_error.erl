@@ -28,10 +28,6 @@ It is possible for the module raising an error to provide additional information
 by calling [`error/3`](`erlang:error/3`) with extra error information. More
 details about this mechanism is described in
 [EEP-54](https://www.erlang.org/erlang-enhancement-proposals/eep-0054.html).
-
-## Callback Functions
-
-The following functions are to be exported from an Error Info handler.
 """.
 -moduledoc(#{since => "OTP 24.0"}).
 

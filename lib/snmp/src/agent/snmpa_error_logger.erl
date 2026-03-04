@@ -35,7 +35,7 @@ This module is the default error report module, but can be explicitly
 configured, see [snmpa_error](`m:snmpa_error#desc`) and
 [configuration parameters](snmp_config.md#configuration_params).
 
-## See Also
+### See Also
 
 error_logger(3)
 """.

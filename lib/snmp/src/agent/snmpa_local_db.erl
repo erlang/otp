@@ -46,7 +46,7 @@ In the functions defined below, the following limitation applies:
 
 - `Db = volatile | persistent`
 
-## See Also
+### See Also
 
 ets(3), dets(3), snmp_generic(3)
 

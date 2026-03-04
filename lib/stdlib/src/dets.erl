@@ -83,7 +83,7 @@ All Dets functions return `{error, Reason}` if an error occurs (`first/1` and
 formed arguments are specified, all functions exit the process with a `badarg`
 message.
 
-## See Also
+### See Also
 
 `m:ets`, `m:mnesia`, `m:qlc`
 """.

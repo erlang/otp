@@ -32,7 +32,7 @@ Erlang runtime system. Currently, only the allocation of memory can be studied.
 > differ greatly from one version to another. We make no compatibility
 > guarantees in this module.
 
-## See Also
+### See Also
 
 [erts_alloc(3)](`e:erts:erts_alloc.md`), [erl(1)](`e:erts:erl_cmd.md`)
 """.

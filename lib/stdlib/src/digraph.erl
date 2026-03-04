@@ -70,7 +70,7 @@ directed graphs is used here.
 - A _simple cycle_{: #simple_cycle } is a path that is both a cycle and simple.
 - An _acyclic digraph_{: #acyclic_digraph } is a digraph without cycles.
 
-## See Also
+### See Also
 
 `m:digraph_utils`, `m:ets`
 """.

@@ -28,7 +28,7 @@ that is called when a log event has passed all filters and is ready to be logged
 somewhere. For more information see [Handlers](logger_chapter.md#handlers) in
 the Users Guide.
 
-## See Also
+### See Also
 
 `m:logger_filters`, `m:logger_formatter`, `m:logger`
 """.

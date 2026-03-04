@@ -47,9 +47,7 @@ difference is that while this module considers two keys as different if they do
 not match (`=:=`), `orddict` considers two keys as different if and only if they
 do not compare equal (`==`).
 
-## Notes
-
-[](){: #notes }
+### Notes
 
 Functions `append` and `append_list` are included so that keyed values can be
 stored in a list _accumulator_, for example:
@@ -70,7 +68,7 @@ the list of stored values, and storing the result.
 Function `fetch` is to be used if the key is known to be in the dictionary,
 otherwise function `find`.
 
-## See Also
+### See Also
 
 `m:gb_trees`, `m:orddict`
 """.

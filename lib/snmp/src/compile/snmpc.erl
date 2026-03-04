@@ -26,7 +26,7 @@ Interface Functions to the SNMP toolkit MIB compiler
 The module `snmpc` contains interface functions to the SNMP toolkit MIB
 compiler.
 
-## See Also
+### See Also
 
 erlc(1)
 

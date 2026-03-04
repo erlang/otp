@@ -31,7 +31,7 @@ commands.
 > These functions are intended for interactive use in the Erlang shell only. The
 > module prefix can be omitted.
 
-## See Also
+### See Also
 
 `m:filename`, `m:compile`, `m:erlang`, `m:yecc`, `m:xref`
 """.

@@ -102,7 +102,7 @@ catch-all clause last in the definition of the event handler callback function
 `c:gen_event:handle_info/2`, as the event handler must also take care of some
 system-internal messages.
 
-## See Also
+### See Also
 
 `m:gen_event`, `m:logger`, `m:log_mf_h`, [`kernel`](kernel_app.md),
 [`sasl`](`e:sasl:sasl_app.md`)

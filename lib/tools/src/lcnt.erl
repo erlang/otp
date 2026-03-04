@@ -54,7 +54,7 @@ are deleted. This behavior is by default turned off to save memory but can be
 turned on via `lcnt:rt_opt({copy_save, true})`. The `lcnt:apply/1,2,3` functions
 enables this behavior during profiling.
 
-## See Also
+### See Also
 
 [LCNT User's Guide](lcnt_chapter.md)
 """.
@@ -219,8 +219,7 @@ Valid categories are:
 This list is subject to change at any time, as is the category any given lock
 belongs to.
 """.
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP 20.1">>}).
+-doc(#{since => <<"OTP 20.1">>}).
 -spec rt_mask(Node, Categories) ->  'ok' | {'error', 'copy_save_enabled'} when
       Node :: node(),
       Categories :: [category_atom()].
@@ -242,8 +241,7 @@ call returns the current lock category mask for node `Arg`.
 If `Arg` is a list, this call is equivalent to
 [`rt_mask(node(), Arg)`](`rt_mask/2`).
 """.
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP 20.1">>}).
+-doc(#{since => <<"OTP 20.1">>}).
 -spec rt_mask(Node) -> [category_atom()] when
                   Node :: node();
              (Categories) -> 'ok' | {'error', 'copy_save_enabled'} when
@@ -262,8 +260,7 @@ rt_mask(Categories) when is_list(Categories) ->
 -doc """
 Return the current category mask for the current node.
 """.
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP 20.1">>}).
+-doc(#{since => <<"OTP 20.1">>}).
 -spec rt_mask() -> [category_atom()].
 
 rt_mask() ->
@@ -272,8 +269,8 @@ rt_mask() ->
 -type lock_counter_data() :: term().
 
 -doc "Returns a list of raw lock counter data.".
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
+
 -spec rt_collect(Node) -> [lock_counter_data()] when
       Node :: node().
 
@@ -281,8 +278,7 @@ rt_collect(Node) ->
     rpc:call(Node, lcnt, rt_collect, []).
 
 -doc #{equiv => rt_collect(node())}.
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec rt_collect() -> [lock_counter_data()].
 
 rt_collect() ->
@@ -293,8 +289,7 @@ Clear the internal counters.
 
 Equivalent to [`lcnt:clear(Node)`](`clear/1`).
 """.
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec rt_clear(Node) -> 'ok' when
       Node :: node().
 
@@ -302,8 +297,7 @@ rt_clear(Node) ->
     rpc:call(Node, lcnt, rt_clear, []).
 
 -doc #{equiv => rt_clear(node())}.
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec rt_clear() -> 'ok'.
 
 rt_clear() ->
@@ -329,8 +323,7 @@ Option description:
   `process` to the lock category mask; see `lcnt:rt_mask/2`.  
   Default: `true`
 """.
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec rt_opt(Node, Option) -> boolean() when
       Node :: node(),
       Option :: {Type, Value :: boolean()},
@@ -340,8 +333,7 @@ rt_opt(Node, Arg) ->
     rpc:call(Node, lcnt, rt_opt, [Arg]).
 
 -doc #{equiv => rt_opt(node(), {Type, Value})}.
--doc(#{group => <<"Internal runtime lock counter controllers">>,
-       since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec rt_opt(Option) -> boolean() when
       Option :: {Type, Value :: boolean()},
       Type :: 'copy_save' | 'process_locks'.
@@ -606,8 +598,7 @@ call(Msg) ->
 %% -------------------------------------------------------------------- %%
 
 -doc #{equiv => apply(fun() -> erlang:apply(Module, Function, Args) end)}.
--doc(#{group => <<"Convenience functions">>,
-       since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec apply(Module, Function, Args) -> term() when
       Module :: module(),
       Function :: atom(),
@@ -619,8 +610,7 @@ apply(M, F, As) when is_atom(M), is_atom(F), is_list(As) ->
           end).
 
 -doc #{equiv => apply(Fun, [])}.
--doc(#{group => <<"Convenience functions">>,
-       since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec apply(Fun) -> term() when
       Fun :: fun().
 
@@ -642,7 +632,7 @@ its previous behavior. The result of the applied function is returned.
 > `true` for the duration of the call, which can quickly lead to running out of
 > memory.
 """.
--doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec apply(Fun, Args) -> term() when
       Fun :: fun(),
       Args :: [term()].
@@ -664,7 +654,7 @@ all_conflicts(Sort) ->
     conflicts([{max_locks, none}, {thresholds, []},{combine,false}, {sort, Sort}, {reverse, true}]).
 
 -doc #{equiv => pid(node(), Id, Serial)}.
--doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec pid(Id, Serial) -> pid() when
       Id :: integer(),
       Serial :: integer().
@@ -672,7 +662,7 @@ all_conflicts(Sort) ->
 pid(Id, Serial) -> pid(node(), Id, Serial).
 
 -doc "Creates a process id with creation 0.".
--doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec pid(Node, Id, Serial) -> pid() when
       Node :: node(),
       Id :: integer(),
@@ -685,14 +675,14 @@ pid(Node, Id, Serial) when is_atom(Node) ->
     binary_to_term(list_to_binary([Header, bytes16(L), String, bytes32(Id), bytes32(Serial),0])).
 
 -doc #{equiv => port(node(), Id)}.
--doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec port(Id) -> port() when
       Id :: integer().
 
 port(Id) -> port(node(), Id).
 
 -doc "Creates a port id with creation 0.".
--doc(#{group => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec port(Node, Id) -> port() when
       Node :: node(),
       Id :: integer().
