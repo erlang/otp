@@ -134,7 +134,7 @@ test(BootArgs) ->
     test_guard_tests(BootArgs),
     preserving_xregs(),
     swapping(),
-%    apply_test(),
+    apply_test(),
 %    guard_bif_test(),
 %    test_catches(),
 %    test_try_catch(),
@@ -404,29 +404,29 @@ red([_|T], L, Acc) ->
 red([], _, Acc) ->
     Acc.
 
-%apply_test() ->
-%    Mod = id(?MODULE),
-%    Id = id(id),
-%    {a,b} = Mod:Id({a,b}),
-%    {x,y} = apply_fixed_last(Mod, Id, {x,y}),
-%
-%    Args = id([{a,b,c}]),
-%    {a,b,c} = apply(Mod, Id, Args),
-%    {a,b,c} = apply_var_last(Mod, Id, Args),
-%    {a,b,c} = apply_var_only(Mod, Id, Args),
-%
-%    ok.
-%
-%apply_fixed_last(M, F, Arg) ->
-%    M:F(Arg).
-%
-%apply_var_last(M, F, Args) ->
-%    _ = id(42),
-%    apply(M, F, Args).
-%
-%apply_var_only(M, F, Args) ->
-%    apply(M, F, Args).
-%
+apply_test() ->
+    Mod = id(?MODULE),
+    Id = id(id),
+    {a,b} = Mod:Id({a,b}),
+    {x,y} = apply_fixed_last(Mod, Id, {x,y}),
+
+    Args = id([{a,b,c}]),
+    {a,b,c} = apply(Mod, Id, Args),
+    {a,b,c} = apply_var_last(Mod, Id, Args),
+    {a,b,c} = apply_var_only(Mod, Id, Args),
+
+    ok.
+
+apply_fixed_last(M, F, Arg) ->
+    M:F(Arg).
+
+apply_var_last(M, F, Args) ->
+    _ = id(42),
+    apply(M, F, Args).
+
+apply_var_only(M, F, Args) ->
+    apply(M, F, Args).
+
 %guard_bif_test() ->
 %    P = id(3.14),
 %    Bin = id(<<1,2,3,4,5,6>>),
