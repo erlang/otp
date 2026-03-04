@@ -39,6 +39,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -define(PRIM_FILE, prim_file).
 
@@ -125,13 +126,9 @@ wildcard_errors(Config) when is_list(Config) ->
     ok.
 
 wcc(Wc, Error) ->
-    {'EXIT',{{badpattern,Error},
-	     [{filelib,compile_wildcard,1,_}|_]}} =
-	(catch filelib:compile_wildcard(Wc)),
-    {'EXIT',{{badpattern,Error},
-	     [{filelib,wildcard,1,_}|_]}} = (catch filelib:wildcard(Wc)),
-    {'EXIT',{{badpattern,Error},
-	     [{filelib,wildcard,2,_}|_]}} = (catch filelib:wildcard(Wc, ".")).
+    ok = ?assertError({badpattern, Error}, filelib:compile_wildcard(Wc)),
+    ok = ?assertError({badpattern, Error}, filelib:wildcard(Wc)),
+    ok = ?assertError({badpattern, Error}, filelib:wildcard(Wc, ".")).
 
 disable_prefix_opt([_,$:|_]=Wc) ->
     Wc;
