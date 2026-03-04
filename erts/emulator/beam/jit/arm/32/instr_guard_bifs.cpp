@@ -188,31 +188,83 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
  * the operation fails.
  */
 void BeamGlobalAssembler::emit_bif_element_helper(Label fail) {
-    // TODO
-    emit_nyi("emit_bif_element_helper");
+    /* Ensure that ARG2 contains a tuple. */
+    emit_is_boxed(fail, ARG2);
+    a32::Gp boxed_ptr = emit_ptr_val(TMP, ARG2);
+    lea(TMP, emit_boxed_val(boxed_ptr));
+    a.ldr(ARG3, arm::Mem(TMP));
+    ERTS_CT_ASSERT(make_arityval_zero() == 0);
+    a.tst(ARG3, imm(_TAG_HEADER_MASK));
+    a.b_ne(fail);
+
+    a.and_(ARG4, ARG1, imm(_TAG_IMMED1_MASK));
+    a.cmp(ARG4, imm(_TAG_IMMED1_SMALL));
+    a.b_ne(fail);
+    a.cmp(ARG1, imm(make_small(0)));
+    a.b_eq(fail);
+
+    /* Ensure that the position points within the tuple. */
+    a.lsr(ARG4, ARG3, _HEADER_ARITY_OFFS);
+    a.asr(ARG3, ARG1, imm(_TAG_IMMED1_SIZE));
+    a.cmp(ARG3, ARG4);
+    a.b_hi(fail);
+
+    a.ldr(ARG1, arm::Mem(TMP, ARG3, arm::lsl(2)));
+    a.bx(a32::lr);
 }
 
 void BeamGlobalAssembler::emit_bif_element_body_shared() {
-    // TODO
-    emit_nyi("emit_bif_element_body_shared");
+    Label error = a.newLabel();
+
+    emit_bif_element_helper(error);
+
+    a.bind(error);
+    {
+        static ErtsCodeMFA mfa = {am_erlang, am_element, 2};
+        a.str(ARG1, getXRef(0));
+        a.str(ARG2, getXRef(1));
+        emit_raise_badarg(&mfa);
+    }
 }
 
 void BeamGlobalAssembler::emit_bif_element_guard_shared() {
-    // TODO
-    emit_nyi("emit_bif_element_guard_shared");
+    Label error = a.newLabel();
+
+    emit_bif_element_helper(error);
+
+    a.bind(error);
+    {
+        mov_imm(ARG1, THE_NON_VALUE);
+        a.bx(a32::lr);
+    }
 }
 
 void BeamGlobalAssembler::emit_handle_element_error_shared() {
-    // TODO
-    emit_nyi("emit_handle_element_error_shared");
+    static ErtsCodeMFA mfa = {am_erlang, am_element, 2};
+    a.str(ARG1, getXRef(0));
+    a.str(ARG2, getXRef(1));
+    emit_raise_badarg(&mfa);
 }
 
 void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
                                            const ArgSource &Pos,
                                            const ArgSource &Tuple,
                                            const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_element");
+    // TODO: check arm64 implementation for fast paths to optimize this emitter
+    mov_arg(ARG1, Pos);
+    mov_arg(ARG2, Tuple);
+
+    if (Fail.get() != 0) {
+        fragment_call(ga->get_bif_element_guard_shared());
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        fragment_call(ga->get_bif_element_body_shared());
+    }
+
+    auto dst = init_destination(Dst, ARG1);
+    mov_var(dst, ARG1);
+    flush_var(dst);
+    reg_cache.invalidate();
 }
 
 /* ================================================================

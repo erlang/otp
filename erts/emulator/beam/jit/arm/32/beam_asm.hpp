@@ -214,7 +214,8 @@ protected:
     }
     
     void runtime_call(a32::Gp func, unsigned args) {
-        ASSERT(false);
+        ASSERT(args < 5);
+        a.blx(func);
     }
 
     template<typename T>
@@ -396,8 +397,11 @@ protected:
     }
 
     void emit_is_not_boxed(Label Fail, a32::Gp Src) {
-        // TODO
-        ASSERT(false);
+        const int bitNumber = 0;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED ==
+                       (1 << bitNumber));
+        a.tst(Src, imm(1 << bitNumber));
+        a.b_eq(Fail);
     }
 
     a32::Gp emit_ptr_val(a32::Gp Dst, a32::Gp Src) {
