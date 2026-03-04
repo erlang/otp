@@ -110,6 +110,8 @@ beyond the last set entry:
          fix/1, relax/1, is_fix/1,
 	 resize/1, resize/2, shift/2, slice/3, prepend/2, append/2]).
 
+-export([upgrade/1]).
+
 -export_type([array/0, array/1]).
 
 -moduledoc(#{ authors => [~"Richard Carlsson <carlsson.richard@gmail.com>",
@@ -2249,3 +2251,40 @@ sparse_mapfoldr_3_1(Low, High, Ix, [E|Es], D, F, A, Es1) when Low =< High ->
     end;
 sparse_mapfoldr_3_1(_Low, _High, _Ix, Es, _D, _F, A, Es1) ->
     {list_to_tuple(lists:reverse(Es, Es1)), A}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Be nice if someone did not read the docs and stored old format to disk.
+%%
+-doc false.
+-spec upgrade(OldArray::tuple() | array()) -> array().
+upgrade(A = #array{}) ->
+    A;
+upgrade({array, Size, Max, Def, Es}) ->
+    A = old_sparse_foldl_1(Size-1, Es, new({default, Def}), 0, fun set/3, Def),
+    case Max == 0 of
+        true -> fix(A);
+        false -> A
+    end;
+upgrade(A) ->
+    error({badarg, A}).
+
+old_sparse_foldl_1(N, E={_,_,_,_,_, _,_,_,_,_,S}, A, Ix, F, D) ->
+    old_sparse_foldl_2(1, E, A, Ix, F, D, N div S + 1, N rem S, S);
+old_sparse_foldl_1(_N, E, A, _Ix, _F, _D) when is_integer(E) ->
+    A;
+old_sparse_foldl_1(N, E, A, Ix, F, D) ->
+    old_sparse_foldl_3(1, E, A, Ix, F, D, N+1).
+
+old_sparse_foldl_2(I, E, A, Ix, F, D, I, R, _S) ->
+    old_sparse_foldl_1(R, element(I, E), A, Ix, F, D);
+old_sparse_foldl_2(I, E, A, Ix, F, D, N, R, S) ->
+    old_sparse_foldl_2(I+1, E, old_sparse_foldl_1(S-1, element(I, E), A, Ix, F, D),
+                       Ix + S, F, D, N, R, S).
+
+old_sparse_foldl_3(I, T, A, Ix, F, D, N) when I =< N ->
+    case element(I, T) of
+        D -> old_sparse_foldl_3(I+1, T, A, Ix+1, F, D, N);
+        E -> old_sparse_foldl_3(I+1, T, F(Ix, E, A), Ix+1, F, D, N)
+    end;
+old_sparse_foldl_3(_I, _T, A, _Ix, _F, _D, _N) ->
+    A.
