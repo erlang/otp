@@ -38,6 +38,7 @@
                 splitwith/2,takewhile/2]).
 
 -record(cg, {lcount=1 :: beam_label(),          %Label counter
+             vcount=1 :: pos_integer(),         %Variable counter
 	     functable=#{} :: #{fa() => beam_label()},
              labels=#{} :: #{ssa_label() => 0|beam_label()},
              used_labels=gb_sets:empty() :: gb_sets:set(ssa_label()),
@@ -67,7 +68,7 @@ module(#b_module{anno=Anno,name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) 
 -record(cg_set, {anno=#{} :: anno(),
                  dst :: b_var(),
                  op :: beam_ssa:op() | 'nop',
-                 args :: [beam_ssa:argument() | xreg()]}).
+                 args :: [beam_ssa:argument()]}).
 
 -record(cg_alloc, {anno=#{} :: anno(),
                    stack=none :: 'none' | pos_integer(),
@@ -118,7 +119,8 @@ functions(Forms, AtomMod, DebugInfo) ->
     mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
              #cg{lcount=1,debug_info=DebugInfo}, Forms).
 
-function(#b_function{anno=Anno,bs=Blocks,args=Args}, AtomMod, St0) ->
+function(#b_function{anno=Anno,bs=Blocks,args=Args,cnt=Count},
+         AtomMod, St0) ->
     #{func_info := {_,Name,Arity}} = Anno,
     NoBsMatch = not maps:get(bs_ensure_opt, Anno, false),
     try
@@ -130,7 +132,9 @@ function(#b_function{anno=Anno,bs=Blocks,args=Args}, AtomMod, St0) ->
         {Entry,St3} = local_func_label(Name, Arity, St2),
         {Ult,St4} = new_label(St3),             %Ultimate failure
         Labels = (St4#cg.labels)#{0=>Entry,?EXCEPTION_BLOCK=>0},
-        St5 = St4#cg{labels=Labels,used_labels=gb_sets:singleton(Entry),
+        St5 = St4#cg{vcount=Count,
+                     labels=Labels,
+                     used_labels=gb_sets:singleton(Entry),
                      ultimate_fail=Ult},
         {Body,St} = cg_fun(Blocks, Args, NoBsMatch, St5#cg{fc_label=Fi}),
         Asm0 = [{label,Fi},line(Anno),
@@ -201,13 +205,13 @@ cg_fun(Blocks, Args, NoBsMatch, St0) ->
     Linear0 = linearize(Blocks),
     St1 = collect_catch_labels(Linear0, St0),
     Linear1 = need_heap(Linear0),
-    Linear2 = prefer_xregs(Linear1, St1),
-    Linear3 = liveness(Linear2, St1),
-    Linear4 = defined(Linear3, St1),
-    Linear5 = opt_allocate(Linear4, St1),
+    {Linear2,St2} = prefer_xregs(Linear1, St1),
+    Linear3 = liveness(Linear2, St2),
+    Linear4 = defined(Linear3, St2),
+    Linear5 = opt_allocate(Linear4, St2),
     Linear6 = fix_wait_timeout(Linear5),
-    Linear = add_debug_info(Linear6, Args, St1),
-    {Asm,St} = cg_linear(Linear, St1),
+    Linear = add_debug_info(Linear6, Args, St2),
+    {Asm,St} = cg_linear(Linear, St2),
     case NoBsMatch of
         true -> {Asm,St};
         false -> {bs_translate(Asm),St}
@@ -482,17 +486,18 @@ classify_heap_need(wait_timeout) -> gc.
 %%%
 
 prefer_xregs(Linear, St) ->
-    prefer_xregs(Linear, St, #{0=>#{}}).
+    prefer_xregs(Linear, St, #{0 => #{}}, []).
 
-prefer_xregs([{L,#cg_blk{is=Is0,last=Last0}=Blk0}|Bs], St, Map0) ->
+prefer_xregs([{L,#cg_blk{is=Is0,last=Last0}=Blk0}|Bs], St0, Map0, Acc) ->
     Copies0 = maps:get(L, Map0),
-    {Is,Copies} = prefer_xregs_is(Is0, St, Copies0, []),
+    {Is,Copies,St} = prefer_xregs_is(Is0, St0, Copies0, []),
     Last = prefer_xregs_terminator(Last0, Copies, St),
     Blk = Blk0#cg_blk{is=Is,last=Last},
     Successors = successors(Last),
     Map = prefer_xregs_successors(Successors, Copies, Map0),
-    [{L,Blk}|prefer_xregs(Bs, St, Map)];
-prefer_xregs([], _St, _Map) -> [].
+    prefer_xregs(Bs, St, Map, [{L,Blk}|Acc]);
+prefer_xregs([], St, _Map, Acc) ->
+    {reverse(Acc),St}.
 
 prefer_xregs_successors([L|Ls], Copies0, Map0) ->
     case Map0 of
@@ -521,9 +526,25 @@ prefer_xregs_is([#cg_set{op=copy,dst=Dst,args=[Src]}=I|Is], St, Copies0, Acc) ->
                  [_,_] -> Copies1#{Dst=>Src}
              end,
     prefer_xregs_is(Is, St, Copies, [I|Acc]);
-prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St, Copies, Acc) ->
-    I = prefer_xregs_call(I0, Copies, St),
-    prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
+prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St0, Copies, Acc) ->
+    I1 = prefer_xregs_call(I0, Copies, St0),
+
+    case St0#cg.regs of
+        #{Dst := {x,0}} ->
+            prefer_xregs_is(Is, St0, #{}, [I1|Acc]);
+        #{} ->
+            %% The return value will be immediately copied to another
+            %% register (almost always a Y register). Create a new
+            %% variable and register it as a copy.
+            #cg{vcount=Count,regs=Regs0} = St0,
+            Copy = #b_var{name=Count},
+            Regs = Regs0#{Copy => {x,0}},
+            St = St0#cg{vcount=Count+1,regs=Regs},
+            Anno0 = I1#cg_set.anno,
+            Anno = Anno0#{return_register => Copy},
+            I = I1#cg_set{anno=Anno},
+            prefer_xregs_is(Is, St, #{Dst => Copy}, [I|Acc])
+    end;
 prefer_xregs_is([#cg_set{op=Op}=I|Is], St, Copies0, Acc)
   when Op =:= bs_ensured_get;
        Op =:= bs_ensured_skip;
@@ -539,8 +560,8 @@ prefer_xregs_is([#cg_set{args=Args0}=I0|Is], St, Copies0, Acc) ->
     I = I0#cg_set{args=Args},
     Copies = prefer_xregs_prune(I, Copies0, St),
     prefer_xregs_is(Is, St, Copies, [I|Acc]);
-prefer_xregs_is([], _St, Copies, Acc) ->
-    {reverse(Acc),Copies}.
+prefer_xregs_is([], St, Copies, Acc) ->
+    {reverse(Acc),Copies,St}.
 
 prefer_xregs_terminator(#cg_br{bool=Arg0}=I, Copies, St) ->
     Arg = do_prefer_xreg(Arg0, Copies, St),
@@ -645,22 +666,14 @@ liveness_terminator(#cg_ret{arg=Arg}, Live) ->
 liveness_terminator_1(#b_var{}=V, Live) ->
     ordsets:add_element(V, Live);
 liveness_terminator_1(#b_literal{}, Live) ->
-    Live;
-liveness_terminator_1(Reg, Live) ->
-    _ = verify_beam_register(Reg),
-    ordsets:add_element(Reg, Live).
+    Live.
 
 liveness_args([#b_var{}=V|As], Live) ->
     liveness_args(As, ordsets:add_element(V, Live));
 liveness_args([#b_remote{mod=Mod,name=Name}|As], Live) ->
     liveness_args([Mod,Name|As], Live);
-liveness_args([A|As], Live) ->
-    case is_beam_register(A) of
-        true ->
-            liveness_args(As, ordsets:add_element(A, Live));
-        false ->
-            liveness_args(As, Live)
-    end;
+liveness_args([_|As], Live) ->
+    liveness_args(As, Live);
 liveness_args([], Live) -> Live.
 
 liveness_anno(#cg_set{op=Op}=I, Live, Regs) ->
@@ -699,7 +712,7 @@ is_yreg(R, Regs) ->
     end.
 
 num_live(Live, Regs) ->
-    Rs = ordsets:from_list([get_register(V, Regs) || V <- Live]),
+    Rs = ordsets:from_list([map_get(V, Regs) || V <- Live]),
     num_live_1(Rs, 0).
 
 num_live_1([{x,X}|T], X) ->
@@ -1058,6 +1071,15 @@ add_debug_info_is([#cg_set{anno=Anno,op=copy,dst=#b_var{name=Dst},
                      VarMap0#{Dst => [Src]}
              end,
     add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([#cg_set{anno=Anno,op=call,dst=Dst}=I|Is],
+                  Regs, FrameSize, VarMap0, Acc) ->
+    VarMap = case Anno of
+                 #{return_register := Src} ->
+                     VarMap0#{Src#b_var.name => [Dst#b_var.name]};
+                 #{} ->
+                     VarMap0
+             end,
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
 add_debug_info_is([#cg_set{anno=Anno0,op=debug_line,args=[Index]}=I0|Is],
                   Regs, FrameSize, VarMap, Acc) ->
     #{def_regs := DefRegs,
@@ -1071,8 +1093,7 @@ add_debug_info_is([#cg_set{anno=Anno0,op=debug_line,args=[Index]}=I0|Is],
     Literals = [{hd(Vars),[{literal,Val}]} ||
                    {Vars,Val} <:- Literals1, Vars =/= []],
     RegVarMap = [{map_get(V, Regs),get_original_names(V, AliasMap)} ||
-                    V <- DefRegs,
-                    not is_beam_register(V)],
+                    V <- DefRegs],
     S0 = sofs:family(RegVarMap, [{reg,[variable]}]),
     S1 = sofs:family_to_relation(S0),
     S2 = sofs:converse(S1),
@@ -1209,14 +1230,20 @@ def_regs_is([#cg_set{anno=Anno,dst=Dst}=I|Is], Regs, Def0, Acc) ->
     case Anno of
         #{clobbers := true} ->
             Def3 = trim_xregs(Def2, 0, Regs),
-            Def = case Regs of
-                      #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
-                          Def4 = kill_reg(Def3, R, Regs),
-                          ordsets:add_element(Dst, Def4);
-                      #{} ->
-                          Def3
-                  end,
-            def_regs_is(Is, Regs, Def, [I|Acc]);
+            Def5 = case Regs of
+                       #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
+                           Def4 = kill_reg(Def3, R, Regs),
+                           ordsets:add_element(Dst, Def4);
+                       #{} ->
+                           Def3
+                   end,
+            case Anno of
+                #{return_register := Result} ->
+                    Def = ordsets:add_element(Result, Def5),
+                    def_regs_is(Is, Regs, Def, [I|Acc]);
+                #{} ->
+                    def_regs_is(Is, Regs, Def5, [I|Acc])
+            end;
         #{} ->
             case Regs of
                 #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
@@ -1243,7 +1270,7 @@ trim_xregs([], _, _) -> [].
 
 kill_reg([V|Vs], R, Regs) ->
     case Regs of
-        #{V := R} -> Vs;
+        #{V := R} -> kill_reg(Vs, R, Regs);
         #{} -> [V|kill_reg(Vs, R, Regs)]
     end;
 kill_reg([], _, _) -> [].
@@ -2719,17 +2746,6 @@ bs_translate_instr(_) -> none.
 %%% General utility functions.
 %%%
 
-verify_beam_register({x,_}=Reg) -> Reg.
-
-is_beam_register({x,_}) -> true;
-is_beam_register(_) -> false.
-
-get_register(V, Regs) ->
-    case is_beam_register(V) of
-        true -> V;
-        false -> maps:get(V, Regs)
-    end.
-
 typed_args(As, Anno, St) ->
     typed_args_1(As, Anno, St, 0).
 
@@ -2756,9 +2772,7 @@ beam_arg(#b_literal{val=Val}, _) ->
         is_integer(Val) -> {integer,Val};
         Val =:= [] -> nil;
         true -> {literal,Val}
-    end;
-beam_arg(Reg, _) ->
-    verify_beam_register(Reg).
+    end.
 
 new_block_label(L, St0) ->
     {_Lbl,St} = label_for_block(L, St0),
