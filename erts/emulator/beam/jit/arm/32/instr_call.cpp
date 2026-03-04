@@ -165,13 +165,13 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 }
 
 void BeamModuleAssembler::emit_i_apply() {
-    // TODO
-    emit_nyi("emit_i_apply");
+    arm::Mem target = emit_variable_apply(false);
+    erlang_call(target);
 }
 
 void BeamModuleAssembler::emit_i_apply_last(const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_i_apply_last");
+    emit_deallocate(Deallocate);
+    emit_i_apply_only();
 }
 
 void BeamModuleAssembler::emit_i_apply_only() {
@@ -184,19 +184,53 @@ void BeamModuleAssembler::emit_i_apply_only() {
 
 arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
                                                bool includeI) {
-    // TODO
-    emit_nyi("emit_fixed_apply");
-    arm::Mem m;
-    return m;
+    Label dispatch = a.newLabel(), entry = a.newLabel();
+
+    a.bind(entry);
+
+    mov_arg(ARG3, Arity);
+
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+
+    if (includeI) {
+        a.adr(ARG4, entry);
+    } else {
+        mov_imm(ARG4, 0);
+    }
+
+    mov_imm(TMP, 0);
+    a.sub(a32::sp, a32::sp, 8);
+    a.str(TMP, arm::Mem(a32::sp));
+    runtime_call<5>(fixed_apply);
+    a.add(a32::sp, a32::sp, 8);
+
+    /* We will need to reload all X registers in case there has been
+     * an error. */
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
+
+    emit_branch_if_value(ARG1, dispatch);
+    emit_raise_exception(entry, &apply3_mfa);
+
+    a.bind(dispatch);
+
+    return emit_setup_dispatchable_call(ARG1);
 }
 
 void BeamModuleAssembler::emit_apply(const ArgWord &Arity) {
-    // TODO
-    emit_nyi("emit_apply");
+    arm::Mem target = emit_fixed_apply(Arity, false);
+    erlang_call(target);
 }
 
 void BeamModuleAssembler::emit_apply_last(const ArgWord &Arity,
                                           const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_apply_last");
+    emit_deallocate(Deallocate);
+
+    arm::Mem target = emit_fixed_apply(Arity, true);
+
+    emit_leave_erlang_frame();
+    branch(target);
+    mark_unreachable();
 }
