@@ -23,8 +23,6 @@
 -module(snmp_log).
 -moduledoc false.
 
--compile(nowarn_obsolete_bool_op).
-
 -export([
 	 create/4, create/5, create/6, open/1, open/2, 
 	 change_size/2, close/1, sync/1, info/1, 
@@ -958,7 +956,7 @@ dat2str({{Y,M,D},{H,Min,S}}) ->
 
 
 timestamp_filter({Local,Universal},Start,Stop) ->
-    tsf_ge(Local,Universal,Start) and tsf_le(Local,Universal,Stop);
+    tsf_ge(Local,Universal,Start) andalso tsf_le(Local,Universal,Stop);
 timestamp_filter(_,_Start,_Stop) -> 
     true.
 
