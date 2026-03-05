@@ -1,0 +1,142 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Release Erlang/OTP
+
+on:
+  workflow_call:
+    inputs:
+      otp_sbom_version:
+        required: true
+        type: string
+    secrets:
+      TRIGGER_ERLANG_ORG_BUILD:
+        required: true
+
+env:
+  OTP_SBOM_VERSION: ${{ inputs.otp_sbom_version }}
+
+jobs:
+  release:
+    name: Release Erlang/OTP
+    runs-on: ubuntu-latest
+    ## Needed to create releases
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      ## This step outputs the tag name and whether the tag is a release or patch
+      ## (all releases have only two version identifiers, while patches have three
+      ##  or more)
+      - name: Get Tag Name
+        id: tag
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VSN=${TAG#OTP-}
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "vsn=${VSN}" >> $GITHUB_OUTPUT
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      ## Publish the pre-built archive and docs
+      - name: Download source archive
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: otp_prebuilt
+      - name: Download html docs
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: otp_doc_html
+      - name: Download man docs
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: otp_doc_man
+
+      ## We add the correct version name into the file names
+      ## and create the hash files for all assets
+      - name: Create pre-build and doc archives
+        run: .github/scripts/create-artifacts.sh artifacts ${{ steps.tag.outputs.tag }}
+
+      ## Create hash files
+      - name: Create pre-build and doc archives
+        run: |
+          shopt -s nullglob
+          cd artifacts
+          FILES=$(ls {*.tar.gz,*.txt})
+          md5sum $FILES > MD5.txt
+          sha256sum $FILES > SHA256.txt
+
+      - name: Download SBoM
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
+
+      - name: Download ORT Scan Results
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
+
+      - name: Attest Distribution Assets with SBoM
+        id: attest-sbom
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: |
+            artifacts/*.tar.gz
+            bom.*.json
+            bom.*.yml
+            bom.*.xml
+          sbom-path: bom.spdx.json
+
+      - name: "Copy SBoM provenance"
+        id: sbom-provenance
+        shell: bash
+        run: |
+          shopt -s nullglob
+          mkdir attestations
+          for FILE in artifacts/*.tar.gz bom.*.xml bom.*.json bom.*.yml; do
+            cp "$ATTESTATION" "attestations/$(basename "$FILE").sigstore"
+          done
+        env:
+          ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
+      - name: "Assemble Distribution Attestations"
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+
+          name: "Attestations"
+          path: "attestations/*.sigstore"
+
+      - name: Upload pre-built and doc tar archives
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          name: OTP ${{ steps.tag.outputs.vsn }}
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.txt
+            attestations/*.sigstore
+            scan-report-web-app.html
+            bom.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy on erlang.org
+        env:
+          GITHUB_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+        run: |
+          curl -H "Authorization: token ${GITHUB_TOKEN}" -X POST -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/erlang/erlang-org/actions/workflows/update-gh-cache.yaml/dispatches" -d '{"ref":"master"}'

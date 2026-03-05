@@ -1,0 +1,173 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+## This workflow allows performing releases partly decoupling the CI logic
+## from the branch to be released. It can be used when the default deployment
+## logic has failed.
+##
+## The idea is that SBOM and documentation can be uploaded to the GH Release Assets
+## if the main Release job fails. To do this, we use a workflow_dispatch that allows
+## us to control what is executed in the CI. The code executed is not decoupled,
+## meaning that the code to be executed is exactly what comes from the dispatched branch.
+##
+## This is to prevent issues such as those of the past:
+##   https://github.com/erlang/otp/actions/runs/21907167857
+##
+## On a release, there is no need to continue testing, since all the tests have run
+## in the lab, before the release.
+##
+
+name: Release Action for Erlang/OTP
+
+on:
+    workflow_dispatch:
+      inputs:
+        branch-explanation:
+          description: |
+            Branch, Tag, or commit SHA in which to release GH assets.
+            The `branch` must start with `OTP-` for the release process to finish.
+            Otherwise, the action will build Erlang and test that the SBOM is satisfactory.
+          required: false
+          default: "Read before running"
+
+env:
+  BASE_BRANCH:      ${{ github.ref_name }}
+  OTP_SBOM_VERSION: ${{ github.ref_name }}
+
+permissions:
+  packages:        read
+  security-events: read
+  actions:         read
+  contents:        write
+  id-token:        write
+  attestations:    write
+
+jobs:
+  setup:
+    name: Setup variables
+    runs-on: ubuntu-latest
+    outputs:
+      base_branch:          ${{ steps.setup.outputs.base_branch }}
+      full_build_and_check: ${{ steps.setup.outputs.full_build_and_check }}
+      ort_version:          ${{ steps.setup.outputs.ort_version }}
+      otp_sbom_version:     ${{ steps.setup.outputs.otp_sbom_version }}
+      docs_base_url:        ${{ steps.setup.outputs.docs_base_url }}
+    steps:
+      - id: setup
+        # github.event.pull_request.head.ref" is potentially untrusted.
+        # we avoid using it directly in inline scripts. instead, pass it through an environment variable
+        env:
+          EVENT_NAME:    ${{ github.event_name }}
+          PR_REPO:       ${{ github.event.pull_request.head.repo.full_name }}
+          PR_HEAD_REF:   ${{ github.event.pull_request.head.ref }}
+          REPO:          ${{ github.repository }}
+          REF_NAME:      ${{ github.ref_name }}
+        run: |
+          echo "base_branch=${{ env.BASE_BRANCH }}" >> $GITHUB_OUTPUT
+          echo "full_build_and_check=${{ env.FULL_BUILD_AND_CHECK }}" >> $GITHUB_OUTPUT
+          echo "ort_version=${{ env.ORT_VERSION }}" >> $GITHUB_OUTPUT
+          echo "otp_sbom_version=${{ env.OTP_SBOM_VERSION }}" >> $GITHUB_OUTPUT
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            echo "docs_base_url=${PR_REPO}/blob/${PR_HEAD_REF}/"   >> $GITHUB_OUTPUT
+          else
+            echo "docs_base_url=${REPO}/blob/${REF_NAME}/"         >> $GITHUB_OUTPUT
+          fi
+
+
+  pack:
+    name: Build Erlang/OTP (64-bit)
+    needs: setup
+    uses: ./.github/workflows/reusable-pack.yaml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      base_branch:          ${{ needs.setup.outputs.base_branch }}
+      full_build_and_check: ${{ needs.setup.outputs.full_build_and_check }}
+      ref_name:             ${{ github.ref_name }}
+      base_ref:             ${{ github.base_ref }}
+      pr_base_sha:          ${{ github.event.pull_request.base.sha }}
+      bypass_erlang_repo:   true
+
+  documentation:
+    name: Build and Check Documentation
+    needs:
+      - setup
+      - pack
+    uses: ./.github/workflows/reusable-documentation.yaml
+    secrets:
+      TRIGGER_ERLANG_ORG_BUILD: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+    with:
+      base_branch:              ${{ needs.setup.outputs.base_branch }}
+      base_url:                 ${{ needs.setup.outputs.docs_base_url }}
+      trigger_erlang_org_build: ${{ github.ref_name == 'master' && github.repository == 'erlang/otp' }}
+      # bypass_erlang_repo should not be applied here, as forks should not allow this trigger
+
+  sbom:
+    name: Create SBOM
+    needs:
+      - setup
+      - pack
+    uses: ./.github/workflows/reusable-sbom.yaml
+    permissions:
+      contents: write
+      actions:  read
+      packages: read
+      id-token: write
+    with:
+      base_branch:                   ${{ needs.setup.outputs.base_branch }}
+      full_build_and_check:          ${{ needs.setup.outputs.full_build_and_check }}
+      ref_name:                      ${{ github.ref_name }}
+      base_ref:                      ${{ github.base_ref }}
+      pr_base_sha:                   ${{ github.event.pull_request.base.sha }}
+      otp_sbom_version:              ${{ needs.setup.outputs.otp_sbom_version }}
+      ort_version:                   ${{ needs.setup.outputs.ort_version }}
+      fail_on_violations:            ${{ github.ref_type == 'tag' && '' || 'violations,issues' }}
+      upload_sbom_to_dependency_api: ${{ github.event_name == 'pull_request' &&
+                                         github.event.action == 'closed'     &&
+                                         github.event.pull_request.merged == true }}
+
+  ## If this is an "OTP-*" tag that has been pushed we do some release work
+  release:
+    name: Release Erlang/OTP
+    needs:
+      - setup
+      - sbom
+      - documentation
+    permissions:
+      contents:     write
+      attestations: write
+      id-token:     write
+    if: startsWith(github.ref, 'refs/tags/OTP-')
+    uses: ./.github/workflows/reusable-release.yaml
+    with:
+      otp_sbom_version: ${{ needs.setup.outputs.otp_sbom_version }}
+    secrets: inherit
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
