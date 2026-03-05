@@ -35,6 +35,7 @@
          insert_on_edges/3,
          is_loop_header/1,
          linearize/1,
+         linearize_only/1,
          mapfold_blocks/4,
          mapfold_instrs/4,
          merge_blocks/2,
@@ -146,7 +147,7 @@
                       'set_tuple_element' | 'succeeded' |
                       'update_record'.
 
--import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,reverse/2,sort/1]).
+-import(lists, [foldl/3,mapfoldl/3,reverse/1,reverse/2,sort/1]).
 
 -spec add_anno(Key, Value, Construct0) -> Construct when
       Key :: atom(),
@@ -650,7 +651,23 @@ fold_blocks(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
 linearize(Blocks) when is_map(Blocks) ->
     Seen = sets:new(),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
-    Linear = fix_phis(Linear0, #{}),
+    Linear = fix_phis(Linear0, maps:from_list(Linear0)),
+    Linear.
+
+%% linearize_only(Blocks) -> [{BlockLabel,#b_blk{}}].
+%%  Linearize the intermediate representation of the code, discarding
+%%  unreachable blocks. Phi nodes will not be be adjusted, which makes
+%%  this function somewhat faster than linearize/1. However, it must
+%%  only be called when we KNOW that there is no need to adjust phi
+%%  nodes.
+
+-spec linearize_only(Blocks) -> Linear when
+      Blocks :: block_map(),
+      Linear :: [{label(),b_blk()}].
+
+linearize_only(Blocks) when is_map(Blocks) ->
+    Seen = sets:new(),
+    {Linear,_} = linearize_1([0], Blocks, Seen, []),
     Linear.
 
 -spec rpo(Blocks) -> [Label] when
@@ -771,18 +788,11 @@ trim_unreachable([_|_]=Blocks) ->
 -spec used(b_blk() | b_set() | terminator()) -> [b_var()].
 
 used(#b_blk{is=Is,last=Last}) ->
-    used_1([Last|Is], ordsets:new());
-used(#b_br{bool=#b_var{}=V}) ->
-    [V];
-used(#b_ret{arg=#b_var{}=V}) ->
-    [V];
-used(#b_set{op=phi,args=Args}) ->
-    ordsets:from_list([V || {#b_var{}=V,_} <- Args]);
-used(#b_set{args=Args}) ->
-    ordsets:from_list(used_args(Args));
-used(#b_switch{arg=#b_var{}=V}) ->
-    [V];
-used(_) -> [].
+    used_is(Is, used_terminator(Last));
+used(#b_set{}=I) ->
+    used_instr(I);
+used(Terminator) ->
+    used_terminator(Terminator).
 
 -spec definitions(Labels :: [label()], Blocks :: block_map()) -> definition_map().
 definitions(Labels, Blocks) ->
@@ -978,8 +988,7 @@ fix_phis([{L,Blk0}|Bs], S) ->
               #b_blk{} ->
                   Blk0
           end,
-    Successors = successors(Blk),
-    [{L,Blk}|fix_phis(Bs, S#{L=>Successors})];
+    [{L,Blk}|fix_phis(Bs, S)];
 fix_phis([], _) -> [].
 
 fix_phis_1([#b_set{op=phi,args=Args0}=I|Is], L, S) ->
@@ -990,8 +999,16 @@ fix_phis_1(Is, _, _) -> Is.
 
 is_successor(L, Pred, S) ->
     case S of
-        #{Pred:=Successors} ->
-            member(L, Successors);
+        #{Pred := #b_blk{last=Last}} ->
+            case Last of
+                #b_br{bool=#b_literal{val=true},succ=L} ->
+                    true;
+                #b_br{bool=#b_literal{val=false},fail=L} ->
+                    true;
+                _ ->
+                    %% This predecessor no longer branches to block L.
+                    false
+            end;
         #{} ->
             %% This block has been removed.
             false
@@ -1154,16 +1171,30 @@ rename_label(Lbl, _Old, _New) -> Lbl.
 
 used_args([#b_var{}=V|As]) ->
     [V|used_args(As)];
+used_args([#b_remote{mod=#b_literal{},name=#b_literal{}}|As]) ->
+    used_args(As);
 used_args([#b_remote{mod=Mod,name=Name}|As]) ->
     used_args([Mod,Name|As]);
 used_args([_|As]) ->
     used_args(As);
 used_args([]) -> [].
 
-used_1([H|T], Used0) ->
-    Used = ordsets:union(used(H), Used0),
-    used_1(T, Used);
-used_1([], Used) -> Used.
+used_is([H|T], Used0) ->
+    Used = ordsets:union(used_instr(H), Used0),
+    used_is(T, Used);
+used_is([], Used) -> Used.
+
+used_instr(#b_set{op=phi,args=Args}) ->
+    ordsets:from_list([V || {#b_var{}=V,_} <- Args]);
+used_instr(#b_set{args=[#b_var{}]=Args}) ->
+    Args;
+used_instr(#b_set{args=Args}) ->
+    ordsets:from_list(used_args(Args)).
+
+used_terminator(#b_br{bool=#b_var{}=V}) -> [V];
+used_terminator(#b_ret{arg=#b_var{}=V}) -> [V];
+used_terminator(#b_switch{arg=#b_var{}=V}) -> [V];
+used_terminator(_) -> [].
 
 
 %%% Merge blocks.

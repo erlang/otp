@@ -2414,7 +2414,7 @@ successors(#cg_ret{}) -> [].
 %%  used only in this module.
 
 linearize(Blocks) ->
-    Linear = beam_ssa:linearize(Blocks),
+    Linear = beam_ssa:linearize_only(Blocks),
     linearize_1(Linear, Blocks).
 
 linearize_1([{?EXCEPTION_BLOCK,_}|Ls], Blocks) ->
