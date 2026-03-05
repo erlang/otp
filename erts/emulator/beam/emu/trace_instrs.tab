@@ -35,6 +35,18 @@ return_trace() {
     //| -no_next
 }
 
+i_after_trace() {
+    Binary *after_prog = (Binary*)E[1];
+
+    SWAPOUT;
+    erts_after_trace(c_p, after_prog, E[2]/*tracer*/, E[3]/*session_id*/);
+    SWAPIN;
+    E += 1 + BEAM_AFTER_TRACE_FRAME_SZ;
+    $RETURN();
+    Goto(*I);
+    //| -no_next
+}
+
 i_generic_breakpoint() {
     BeamInstr real_I;
     ErtsCodeInfo *ci;

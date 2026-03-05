@@ -308,6 +308,8 @@ extern void** beam_ops;
     BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_to_trace)
 #define BeamIsReturnTrace(w) \
     BeamIsOpCode(*(const BeamInstr*)(w), op_return_trace)
+#define BeamIsAfterTrace(w) \
+    BeamIsOpCode(*(const BeamInstr*)(w), op_i_after_trace)
 
 #else /* BEAMASM */
 
@@ -317,6 +319,8 @@ extern void** beam_ops;
     ((w) == beam_return_to_trace)
 #define BeamIsReturnTrace(w) \
     ((w) == beam_return_trace || (w) == beam_exception_trace)
+#define BeamIsAfterTrace(w) \
+    ((w) == beam_after_trace)
 
 #endif /* BEAMASM */
 
@@ -324,6 +328,7 @@ extern void** beam_ops;
 #define BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ 3
 #define BEAM_RETURN_TO_TRACE_FRAME_SZ   1
 #define BEAM_RETURN_TRACE_FRAME_SZ      3
+#define BEAM_AFTER_TRACE_FRAME_SZ       3
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE

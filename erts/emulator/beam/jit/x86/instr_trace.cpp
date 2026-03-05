@@ -226,6 +226,26 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
     emit_return_do(true);
 }
 
+void BeamModuleAssembler::emit_i_after_trace() {
+    a.mov(ARG2, getYRef(0)); /* after_prog Binary* */
+    a.mov(ARG3, getYRef(1)); /* tracer */
+    a.mov(ARG4, getYRef(2)); /* session_id */
+
+    emit_enter_runtime<Update::eHeapAlloc>();
+
+    a.mov(ARG1, c_p);
+    runtime_call<void (*)(Process *, Binary *, ErtsTracer, Eterm),
+                 erts_after_trace>();
+
+    emit_leave_runtime<Update::eHeapAlloc>();
+
+    emit_deallocate(ArgWord(BEAM_AFTER_TRACE_FRAME_SZ));
+
+    /* Return and set c_p->i to avoid calls to BeamIsAfterTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
+}
+
 void BeamModuleAssembler::emit_i_return_to_trace() {
     UWord frame_size = BEAM_RETURN_TO_TRACE_FRAME_SZ;
 

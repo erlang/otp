@@ -29,6 +29,10 @@
 -export([test_1/1, test_2/1, test_3/1, test_4a/1, test_4b/1, test_5a/1,
          test_5b/1, test_6/1, caller_and_return_to/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
+	 silent_guard/1,
+	 after_silent/1, after_exception/1, after_compile/1,
+         after_kill/1,
+	 after_exception_trace/1,
 	 ms_trace2/1, ms_trace3/1, ms_trace_dead/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
 	 empty_list/1,
@@ -40,6 +44,7 @@
 -export([maps/1]).
 -export([runner/2, loop_runner/3, fixed_runner/2]).
 -export([f1/1, f2/2, f3/2, fn/1, fn/2, fn/3]).
+-export([f_error/1, f_gate/1]).
 -export([do_boxed_and_small/0]).
 -export([f1_test4/1, f2_test4/2, f3_test4/2]).
 
@@ -64,7 +69,9 @@ testcases_trace() ->
     [test_1, test_2, test_3, test_4a, test_4b, test_5a, test_5b, test_6,
      caller_and_return_to,
      trace_control_word,
-     silent, silent_no_ms, silent_test,
+     silent, silent_no_ms, silent_test, silent_guard,
+     after_silent, after_exception, after_exception_trace,
+     after_kill,
      ms_trace2, ms_trace3, ms_trace_dead,
      otp_9422].
 
@@ -75,7 +82,7 @@ testcases_match_spec_test() ->
     [boxed_and_small, destructive_in_test_bif,
      guard_exceptions, unary_plus, unary_minus,
      moving_labels, faulty_seq_trace, empty_list,
-     maps, guard_bifs].
+     maps, guard_bifs, after_compile].
 
 init_per_suite(Config) ->
     trace_sessions:init_per_suite(Config, ?MODULE).
@@ -675,6 +682,271 @@ silent_test(_Config) ->
     erlang:match_spec_test([],[{'_',[],[{silent,true}]}],trace),
     {flags,[]} = erlang_trace_info(self(),flags).
 
+%% Test {silent} as guard/body function — reads the silent flag
+silent_guard(Config) when is_list(Config) ->
+    %% 1. Test with match_spec_test: {silent} compiles in trace dialect
+    {ok, _, _, []} = erlang:match_spec_test(
+        [], [{'_', [], [{message, {silent}}]}], trace),
+
+    %% 2. Test {silent} in guard: only match when NOT silent
+    tr(fun() ->
+            ?MODULE:f1(start),    % unsilences — should trace
+            ?MODULE:f2(a, b),     % guard {'not', {silent}} matches — trace
+            ?MODULE:f1(stop),     % silences — no trace (silent takes effect)
+            ?MODULE:f2(c, d)      % guard {'not', {silent}} fails — no trace
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call, silent]),
+            erlang_trace_pattern(
+                {?MODULE, f1, 1},
+                [{[start], [], [{silent, false}, {message, start}]},
+                 {[stop],  [], [{silent, true}, {message, stop}]}],
+                [global]),
+            erlang_trace_pattern(
+                {?MODULE, f2, 2},
+                [{'_', [{'not', {silent}}], [{message, guarded}]}],
+                [global]),
+            [{trace, P, call, {?MODULE, f1, [start]}, start},
+             {trace, P, call, {?MODULE, f2, [a, b]}, guarded}]
+       end),
+
+    %% 3. Test {silent} in body — returns true/false as message
+    %%    Use a tuple wrapper to avoid {message, false} suppressing the trace.
+    %%    {{{silent}}} = construct tuple from result of calling silent/0.
+    tr(fun() ->
+            ?MODULE:f1(a)
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call]),
+            erlang_trace_pattern(
+                {?MODULE, f1, 1},
+                [{'_', [], [{message, {{{silent}}}}]}],
+                [global]),
+            [{trace, P, call, {?MODULE, f1, [a]}, {false}}]
+       end),
+
+    %% 4. Verify {silent} is rejected in ETS (table) dialect
+    {error, _} = erlang:match_spec_test(
+        {a}, [{{'$1'}, [{silent}], ['$1']}], table),
+
+    ok.
+
+%% Test {after, {silent, true}} — re-silences on function exit
+after_silent(Config) when is_list(Config) ->
+    %% Process starts silent. The {silent} guard matches because the
+    %% process IS silent. The body unsilences and sets up after to
+    %% re-silence on exit. f2 is called INSIDE f_gate (via the fun),
+    %% so it should be traced. After f_gate returns, the after action
+    %% re-silences and f2 calls are silent again.
+    tr(fun() ->
+            ?MODULE:f2(before, call),     % silent — no trace
+            ?MODULE:f_gate(fun() ->
+                ?MODULE:f2(during, call)  % inside f_gate — trace
+            end),
+            ?MODULE:f2(after_ret, call)   % f_gate returned — silent again
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call, silent]),
+            erlang_trace_pattern(
+                {?MODULE, f_gate, 1},
+                [{'_', [{silent}],
+                  [{silent, false}, {'after', {silent, true}},
+                   {message, gate}]}],
+                [local]),
+            erlang_trace_pattern(
+                {?MODULE, f2, 2},
+                [{'_', [], [{message, active}]}],
+                [global]),
+            [fun({trace, Pid, call, {?MODULE, f_gate, [_Fun]}, gate})
+                   when Pid =:= P -> true end,
+             {trace, P, call, {?MODULE, f2, [during, call]}, active}]
+       end),
+    ok.
+
+%% Test that after actions execute on exception (like try/after)
+after_exception(Config) when is_list(Config) ->
+    tr(fun() ->
+            catch ?MODULE:f_error(kaboom),
+            ?MODULE:f2(after_exception, ok)
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call, silent]),
+            erlang_trace_pattern(
+                {?MODULE, f_error, 1},
+                [{'_', [{silent}],
+                  [{silent, false}, {'after', {silent, true}},
+                   {message, error_fn}]}],
+                [global]),
+            erlang_trace_pattern(
+                {?MODULE, f2, 2},
+                [{'_', [], [{message, after_msg}]}],
+                [global]),
+            %% f_error raises, but the after action STILL executes
+            %% (like try/after), re-silencing the process.
+            %% So f2 after the catch should NOT be traced (silent again).
+            [{trace, P, call, {?MODULE, f_error, [kaboom]}, error_fn}]
+       end),
+    ok.
+
+%% Test that after actions don't leak when process terminates prematurely
+after_kill(Config) when is_list(Config) ->
+    tr(fun() ->
+               ?MODULE:f_gate(fun() -> exit(self(), kill) end)
+       end,
+       fun(P) ->
+               erlang_trace(P, true, [call]),
+               erlang_trace_pattern(
+                 {?MODULE, f_gate, 1},
+                 [{'_', [],
+                   [{'after', {silent, false}}]}],
+                 [local]),
+               [fun({trace, P, call, {?MODULE, f_gate, [_]}}) -> true end]
+       end),
+    ok.
+
+%% Test after match spec compilation and validation
+after_compile(Config) when is_list(Config) ->
+    %% Valid: after in trace body
+    {ok, _, _, []} = erlang:match_spec_test(
+        [], [{'_', [], [{'after', {silent, true}}]}], trace),
+
+    %% Valid: after combined with exception_trace
+    {ok, _, _, []} = erlang:match_spec_test(
+        [], [{'_', [], [{exception_trace}, {'after', {silent, true}}]}], trace),
+
+    %% Valid: after combined with return_trace
+    {ok, _, _, []} = erlang:match_spec_test(
+        [], [{'_', [], [{return_trace}, {'after', {silent, true}}]}], trace),
+
+    %% Invalid: after in ETS (table) dialect
+    {error, _} = erlang:match_spec_test(
+        {a}, [{{'$1'}, [], [{'after', {silent, true}}]}], table),
+
+    %% Invalid: after in guard
+    {error, _} = erlang:match_spec_test(
+        [], [{'_', [{'after', {silent, true}}], [true]}], trace),
+
+    %% Invalid: two after clauses in the same body
+    {error, _} = erlang:match_spec_test(
+        [], [{'_', [], [{'after', {silent, true}},
+                        {'after', {silent, false}}]}], trace),
+
+    %% Invalid: nested after (after inside after)
+    {error, _} = erlang:match_spec_test(
+        [], [{'_', [], [{'after', {'after', {silent, true}}}]}], trace),
+
+    ok.
+
+%% Test {after, Action} combined with {exception_trace} or {return_trace}.
+%% The after action should execute last — after the return_from or
+%% exception_from trace message has been emitted.
+after_exception_trace(Config) when is_list(Config) ->
+    %% return_trace: return_from fires before after re-silences
+    tr(fun() ->
+            ?MODULE:f2(before, call),     % silent — no trace
+            ?MODULE:f_gate(fun() ->
+                ?MODULE:f2(during, call)  % inside f_gate — trace
+            end),
+            ?MODULE:f2(after_ret, call)   % f_gate returned — silent again
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call, silent]),
+            erlang_trace_pattern(
+                {?MODULE, f_gate, 1},
+                [{'_', [{silent}],
+                  [{silent, false}, {return_trace},
+                   {'after', {silent, true}},
+                   {message, gate}]}],
+                [local]),
+            erlang_trace_pattern(
+                {?MODULE, f2, 2},
+                [{'_', [], [{message, active}]}],
+                [global]),
+            [fun({trace, Pid, call, {?MODULE, f_gate, [_Fun]}, gate})
+                   when Pid =:= P -> true end,
+             {trace, P, call, {?MODULE, f2, [during, call]}, active},
+             fun({trace, Pid, return_from, {?MODULE, f_gate, 1}, _Ret})
+                   when Pid =:= P -> true end]
+       end),
+
+    %% exception_trace + normal return: return_from fires before after re-silences
+    tr(fun() ->
+            ?MODULE:f2(before, call),     % silent — no trace
+            ?MODULE:f_gate(fun() ->
+                ?MODULE:f2(during, call)  % inside f_gate — trace
+            end),
+            ?MODULE:f2(after_ret, call)   % f_gate returned — silent again
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call, silent]),
+            erlang_trace_pattern(
+                {?MODULE, f_gate, 1},
+                [{'_', [{silent}],
+                  [{silent, false}, {exception_trace},
+                   {'after', {silent, true}},
+                   {message, gate}]}],
+                [local]),
+            erlang_trace_pattern(
+                {?MODULE, f2, 2},
+                [{'_', [], [{message, active}]}],
+                [global]),
+            [fun({trace, Pid, call, {?MODULE, f_gate, [_Fun]}, gate})
+                   when Pid =:= P -> true end,
+             {trace, P, call, {?MODULE, f2, [during, call]}, active},
+             fun({trace, Pid, return_from, {?MODULE, f_gate, 1}, _Ret})
+                   when Pid =:= P -> true end]
+       end),
+
+    %% exception_trace + exception: exception_from fires before after re-silences
+    tr(fun() ->
+            catch ?MODULE:f_error(kaboom),
+            ?MODULE:f2(after_exception, ok)
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call, silent]),
+            erlang_trace_pattern(
+                {?MODULE, f_error, 1},
+                [{'_', [{silent}],
+                  [{silent, false}, {exception_trace},
+                   {'after', {silent, true}},
+                   {message, error_fn}]}],
+                [local]),
+            erlang_trace_pattern(
+                {?MODULE, f2, 2},
+                [{'_', [], [{message, after_msg}]}],
+                [global]),
+            [{trace, P, call, {?MODULE, f_error, [kaboom]}, error_fn},
+             fun({trace, Pid, exception_from,
+                  {?MODULE, f_error, 1}, {error, kaboom}})
+                   when Pid =:= P -> true end]
+       end),
+
+    %% Reversed order in match spec body: after before exception_trace.
+    %% Behaviour should be identical — after always executes last.
+    tr(fun() ->
+            catch ?MODULE:f_error(kaboom),
+            ?MODULE:f2(after_exception, ok)
+       end,
+       fun(P) ->
+            erlang_trace(P, true, [call, silent]),
+            erlang_trace_pattern(
+                {?MODULE, f_error, 1},
+                [{'_', [{silent}],
+                  [{silent, false},
+                   {'after', {silent, true}},
+                   {exception_trace},
+                   {message, error_fn}]}],
+                [local]),
+            erlang_trace_pattern(
+                {?MODULE, f2, 2},
+                [{'_', [], [{message, after_msg}]}],
+                [global]),
+            [{trace, P, call, {?MODULE, f_error, [kaboom]}, error_fn},
+             fun({trace, Pid, exception_from,
+                  {?MODULE, f_error, 1}, {error, kaboom}})
+                   when Pid =:= P -> true end]
+       end),
+    ok.
 
 %% Test the match spec functions {trace/2}
 ms_trace2(Config) when is_list(Config) ->
@@ -1362,6 +1634,11 @@ f2(X, Y) ->
 f3(X,Y) ->
     ?MODULE:f2(X,Y),
     ok.
+
+f_error(Reason) -> error(Reason).
+
+%% Gate function for after tests — calls f2 inside its call stack
+f_gate(Fun) -> Fun().
 
 fn(X) ->
     [X].

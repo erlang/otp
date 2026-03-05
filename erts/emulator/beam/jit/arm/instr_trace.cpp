@@ -198,6 +198,27 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
     emit_return_do(true);
 }
 
+void BeamModuleAssembler::emit_i_after_trace() {
+    a.ldr(ARG2, getYRef(0)); /* after_prog Binary* */
+    a.ldr(ARG3, getYRef(1)); /* tracer */
+    a.ldr(ARG4, getYRef(2)); /* session_id */
+
+    ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
+    emit_enter_runtime<Update::eHeapAlloc>(1);
+
+    a.mov(ARG1, c_p);
+    runtime_call<void (*)(Process *, Binary *, ErtsTracer, Eterm),
+                 erts_after_trace>();
+
+    emit_leave_runtime<Update::eHeapAlloc>(1);
+
+    emit_deallocate(ArgVal(ArgVal::Type::Word, BEAM_AFTER_TRACE_FRAME_SZ));
+
+    /* Return and set c_p->i to avoid calls to BeamIsAfterTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
+}
+
 void BeamModuleAssembler::emit_i_return_to_trace() {
     a.ldr(ARG2, getYRef(0)); /* session_id */
     a.add(ARG3, E, imm(BEAM_RETURN_TO_TRACE_FRAME_SZ * sizeof(Eterm)));

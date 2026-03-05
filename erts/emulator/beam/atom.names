@@ -80,6 +80,8 @@ atom access
 atom active
 atom active_tasks
 atom active_tasks_all
+atom after
+atom after_trace
 atom alias
 atom alive
 atom all

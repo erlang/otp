@@ -3868,6 +3868,9 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
     } else if (BeamIsReturnToTrace(p->i)) {
         assert_return_to_trace_frame(scanner);
         scanner += BEAM_RETURN_TO_TRACE_FRAME_SZ;
+    } else if (BeamIsAfterTrace(p->i)) {
+        assert_after_trace_frame(scanner);
+        scanner += BEAM_AFTER_TRACE_FRAME_SZ;
     }
 
     while (next_fp) {
@@ -3898,6 +3901,9 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
         } else if (BeamIsReturnToTrace(cp)) {
             assert_return_to_trace_frame(scanner);
             scanner += BEAM_RETURN_TO_TRACE_FRAME_SZ;
+        } else if (BeamIsAfterTrace(cp)) {
+            assert_after_trace_frame(scanner);
+            scanner += BEAM_AFTER_TRACE_FRAME_SZ;
         }
 
     }

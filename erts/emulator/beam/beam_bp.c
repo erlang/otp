@@ -37,6 +37,7 @@
 #include "erl_nfunc_sched.h"
 
 #include "beam_common.h"
+#include "erl_db_util.h"
 #include "jit/beam_asm.h"
 
 
@@ -964,6 +965,8 @@ static void fixup_cp_before_trace(Process *c_p,
                 *return_to_trace = 1;
             }
             cpp += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
+        } else if (BeamIsAfterTrace(w)) {
+            cpp += CP_SIZE + BEAM_AFTER_TRACE_FRAME_SZ;
         } else {
             if (frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
                 ASSERT(is_CP(cpp[1]));
@@ -1123,7 +1126,8 @@ do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
 
         if (!(BeamIsReturnTrace(w) ||
               BeamIsReturnToTrace(w) ||
-              BeamIsReturnCallAccTrace(w))) {
+              BeamIsReturnCallAccTrace(w) ||
+              BeamIsAfterTrace(w))) {
             int need = CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
 
             ASSERT(c_p->htop <= E && E <= c_p->hend);
@@ -1175,6 +1179,13 @@ void assert_return_call_acc_trace_frame(const Eterm *frame)
     ASSERT((unsigned_val(frame[1]) & ~ERTS_BPF_ALL) == 0); // bp_flags
     ASSERT(erts_is_trace_session_weak_id(frame[2]));
 }
+
+void assert_after_trace_frame(const Eterm *frame)
+{
+    ASSERT(frame[0] != 0);  /* Binary* after_prog */
+    ASSERT(IS_TRACER_VALID(frame[1]));
+    ASSERT(erts_is_trace_session_weak_id(frame[2]));
+}
 #endif
 
 static ErtsTracer
@@ -1209,6 +1220,10 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
         need += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ + size_object(tracer);
     }
 
+    if (flags & MATCH_SET_AFTER) {
+        need += CP_SIZE + BEAM_AFTER_TRACE_FRAME_SZ + size_object(tracer);
+    }
+
     if (need) {
         ASSERT(c_p->htop <= E && E <= c_p->hend);
 
@@ -1235,6 +1250,33 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
             ASSERT(c_p->htop <= E && E <= c_p->hend);
 
             c_p->stop = E;
+        }
+
+        if (flags & MATCH_SET_AFTER) {
+            MatchProg *main_prog = Binary2MatchProg(ms);
+            Binary *after = main_prog->after_prog;
+            ASSERT(after != NULL);
+            MatchSetRef(after);  /* increment refcount for the frame */
+
+            ERTS_CT_ASSERT(BEAM_AFTER_TRACE_FRAME_SZ == 3);
+            E -= 3;
+            E[2] = session->weak_id;
+            E[1] = copy_object(tracer, c_p);
+            E[0] = (Eterm)after;  /* raw Binary pointer */
+
+            E -= CP_SIZE;
+            if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+                E[0] = make_cp(beam_after_trace);
+            } else {
+                E[1] = make_cp(beam_after_trace);
+                E[0] = make_cp(FRAME_POINTER(c_p));
+                FRAME_POINTER(c_p) = E;
+            }
+
+            ASSERT(c_p->htop <= E && E <= c_p->hend);
+
+            c_p->stop = E;
+            c_p->return_trace_frames++;
         }
 
         if (flags & MATCH_SET_RX_TRACE) {

@@ -223,6 +223,7 @@ const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 void assert_return_trace_frame(const Eterm *frame);
 void assert_return_to_trace_frame(const Eterm *frame);
 void assert_return_call_acc_trace_frame(const Eterm *frame);
+void assert_after_trace_frame(const Eterm *frame);
 #endif
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
