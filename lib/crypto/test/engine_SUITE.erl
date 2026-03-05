@@ -459,6 +459,7 @@ bad_arguments(Config) when is_list(Config) ->
                     error:badarg ->
                        ok
                 end
+
           catch
               error:notsup ->
                   {skip, "Engine not supported on this SSL version"};
@@ -515,6 +516,8 @@ pre_command_fail_bad_key(Config) when is_list(Config) ->
             {ok, Engine} ->
                 case crypto:engine_load(<<"dynamic">>,
                                         [{<<"SO_WRONG_PATH">>, Engine},
+                                         %% OTP-20014: Provoke memory leak
+                                         <<"key without value in middle of list">>,
                                          {<<"ID">>, <<"MD5">>},
                                          <<"LOAD">>],
                                         []) of
