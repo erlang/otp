@@ -303,7 +303,9 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
-    emit_branch_if_value(ARG1, labels[do_schedule]);
+    /* handle_error() returns NULL when we should schedule. */
+    a.tst(ARG1, ARG1);
+    a.b_eq(labels[do_schedule]);
 
     /* XREG0 = THE_NON_VALUE
      * XREG1 = class
