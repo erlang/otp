@@ -1610,8 +1610,40 @@ void BeamModuleAssembler::emit_try_end_move_deallocate(
 }
 
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
-    // TODO
-    emit_nyi("emit_try_case");
+    (void)CatchTag;
+    /* x0 = THE_NON_VALUE
+     * x1 = error reason/thrown value
+     * x2 = raw stacktrace
+     * x3 = class */
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+    a.ldr(ARG1, getXRef(3));
+    a.str(ARG1, getXRef(0));
+    a.sub(TMP, TMP, imm(1));
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+
+    /* The try_tag in the Y slot in the stack frame has already been
+     * cleared. */
+
+#ifdef DEBUG
+    {
+        Label ok = a.newLabel();
+        Label bad = a.newLabel();
+        comment("Start of assertion code");
+        a.ldr(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
+        a.ldr(ARG2, arm::Mem(c_p, offsetof(Process, ftrace)));
+        mov_imm(TMP, NIL);
+
+        a.cmp(ARG1, TMP);
+        a.b_ne(bad);
+        a.cmp(ARG2, TMP);
+        a.b_eq(ok);
+
+        a.bind(bad);
+        comment("Assertion c_p->fvalue == NIL && c_p->ftrace == NIL failed");
+        a.udf(0x42);
+        a.bind(ok);
+    }
+#endif
 }
 
 void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
