@@ -25,6 +25,7 @@
 	 stats/1,trace/1,suspend/1,install/1,special_process/1]).
 -export([handle_call/3,terminate/2,init/1]).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -define(server,sys_SUITE_server).
 
@@ -112,15 +113,15 @@ trace(Config) when is_list(Config) ->
 suspend(Config) when is_list(Config) ->
     {ok,_Server} = start(),
     sys:suspend(?server,1000),
-    {'EXIT',_} = (catch public_call(48)),
+    ok = ?assertExit(_, public_call(48)),
     {status,_,_,[_,suspended,_,_,_]} = sys:get_status(?server),
     sys:suspend(?server,1000), %% doing it twice is no error
-    {'EXIT',_} = (catch public_call(48)),
+    ok = ?assertExit(_, public_call(48)),
     sys:resume(?server),
     {status,_,_,[_,running,_,_,_]} = sys:get_status(?server),
-    {ok,-48} = (catch public_call(48)),
+    {ok,-48} = public_call(48),
     sys:resume(?server), %% doing it twice is no error
-    {ok,-48} = (catch public_call(48)),
+    {ok,-48} = public_call(48),
     stop(),
     ok.
 
@@ -139,15 +140,15 @@ install(Config) when is_list(Config) ->
                 func_state
 	end,
     sys:install(?server,{SpyFun,func_state}),
-    {ok,-1} = (catch public_call(1)),
+    {ok,-1} = public_call(1),
     sys:no_debug(?server),
-    {ok,-2} = (catch public_call(2)),
+    {ok,-2} = public_call(2),
     sys:install(?server,{SpyFun,func_state}),
     sys:install(?server,{SpyFun,func_state}),
-    {ok,-3} = (catch public_call(3)),
-    {ok,-4} = (catch public_call(4)),
+    {ok,-3} = public_call(3),
+    {ok,-4} = public_call(4),
     sys:remove(?server,SpyFun),
-    {ok,-5} = (catch public_call(5)),
+    {ok,-5} = public_call(5),
     [{spy_got,{request,1},sys_SUITE_server},
      {spy_got,{request,3},sys_SUITE_server},
      {spy_got,{request,4},sys_SUITE_server}] = get_messages(),
@@ -155,16 +156,16 @@ install(Config) when is_list(Config) ->
     sys:install(?server,{id1, SpyFun, func_state}),
     sys:install(?server,{id1, SpyFun, func_state}), %% should not be installed
     sys:install(?server,{id2, SpyFun, func_state}),    
-    {ok,-1} = (catch public_call(1)),
+    {ok,-1} = public_call(1),
     %% We have two SpyFun installed:
     [{spy_got,{request,1},sys_SUITE_server},
      {spy_got,{request,1},sys_SUITE_server}] = get_messages(),
     sys:remove(?server, id1),
-    {ok,-1} = (catch public_call(1)),
+    {ok,-1} = public_call(1),
     %% We have one SpyFun installed:
     [{spy_got,{request,1},sys_SUITE_server}] = get_messages(),
     sys:no_debug(?server),
-    {ok,-1} = (catch public_call(1)),
+    {ok,-1} = public_call(1),
     [] = get_messages(),
     stop(),
     ok.
@@ -214,34 +215,40 @@ spec_proc(Mod) ->
     ok = sys:statistics(Mod,false),
     [] = sys:replace_state(Mod, fun(_) -> [] end),
     process_flag(trap_exit,true),
-    ok = case catch sys:get_state(Mod) of
-	     [] ->
-		 ok;
-	     {'EXIT',{{callback_failed,
-		       {Mod,system_get_state},{throw,fail}},_}} ->
-		 ok
-	 end,
+    ok = try
+             sys:get_state(Mod)
+         of
+             [] ->
+                 ok
+         catch
+             error:{callback_failed, {Mod, system_get_state}, {throw, fail}} ->
+                 ok
+         end,
     ok = sync_terminate(Mod),
     {ok,_} = Mod:start_link(4),
-    ok = case catch sys:replace_state(Mod, fun(_) -> {} end) of
-	     {} ->
-		 ok;
-	     {'EXIT',{{callback_failed,
-		       {Mod,system_replace_state},{throw,fail}},_}} ->
-		 ok
-	 end,
+    ok = try
+             sys:replace_state(Mod, fun(_) -> {} end)
+         of
+             {} ->
+                 ok
+         catch
+             error:{callback_failed, {Mod, system_replace_state}, {throw, fail}} ->
+                 ok
+         end,
     ok = sync_terminate(Mod),
     {ok,_} = Mod:start_link(4),
     StateFun = fun(_) -> error(fail) end,
-    ok = case catch sys:replace_state(Mod, StateFun) of
-	     {} ->
-		 ok;
-	     {'EXIT',{{callback_failed,
-		       {Mod,system_replace_state},{error,fail}},_}} ->
-		 ok;
-	     {'EXIT',{{callback_failed,StateFun,{error,fail}},_}} ->
-		 ok
-	 end,
+    ok = try
+             sys:replace_state(Mod, StateFun)
+         of
+             {} ->
+                 ok
+         catch
+             error:{callback_failed, {Mod, system_replace_state}, {error, fail}} ->
+                 ok;
+             error:{callback_failed, StateFun, {error, fail}} ->
+                 ok
+         end,
     ok = sync_terminate(Mod).
 
 sync_terminate(Mod) ->

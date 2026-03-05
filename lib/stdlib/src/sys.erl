@@ -76,8 +76,6 @@ message. The process can also define its own system events. It is always up to
 the process itself to format these events.
 """.
 
--compile(nowarn_deprecated_catch).
-
 %% External exports
 -export([suspend/1, suspend/2, resume/1, resume/2,
 	 get_status/1, get_status/2,
@@ -1073,9 +1071,16 @@ debug_cmd(_Unknown, Debug) ->
 
 
 do_change_code(Mod, Module, Vsn, Extra, Misc) ->
-    case catch Mod:system_code_change(Misc, Module, Vsn, Extra) of
-	{ok, NMisc} -> {ok, NMisc};
-	Else -> {{error, Else}, Misc}
+    try
+        Mod:system_code_change(Misc, Module, Vsn, Extra)
+    of
+        {ok, _} = Res -> Res;
+        Else -> {{error, Else}, Misc}
+    catch
+        throw:{ok, _} = Res -> Res;
+        throw:Else -> {{error, Else}, Misc};
+        error:Reason:Stack -> {{error, {'EXIT', {Reason, Stack}}}, Misc};
+        exit:Exit -> {{error, {'EXIT', Exit}}, Misc}
     end.
 
 print_event(X) -> print_event(standard_io, X).
