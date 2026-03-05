@@ -424,7 +424,11 @@ end_per_group(GroupName, Config) ->
 
 openssl_ocsp_support(Config) ->
     case proplists:get_value(openssl_version, Config) of
-        "OpenSSL 1.1.1" ++ _Rest ->
+        "OpenSSL 3" ++ _Rest ->
+            true;
+        "OpenSSL 1.1.1n" ++ _Rest ->
+            true;
+        "OpenSSL 1.1.1w" ++ _Rest ->
             true;
         _ ->
             false

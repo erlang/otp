@@ -2945,11 +2945,16 @@ options_honor(_Config) ->  %% honor_cipher_order & honor_ecc_order
     ok.
 
 options_debug(_Config) -> %% debug  log_level keep_secrets
-    ?OK(#{log_level := notice}, [], server, [keep_secrets]),
+     ?OK(#{log_level := notice}, [], server, [keep_secrets]),
     ?OK(#{log_level := debug, keep_secrets := true},
         [{log_level, debug}, {keep_secrets, true}], server),
+    Fun = fun(_KeyLogItems) -> _KeyLogItems end,
+    ?OK(#{log_level := debug, keep_secrets := {keylog_hs, Fun}},
+        [{log_level, debug}, {keep_secrets, {keylog_hs, Fun}}], server),
+    ?OK(#{log_level := debug, keep_secrets := {keylog, Fun}},
+        [{log_level, debug}, {keep_secrets, {keylog, Fun}}], server),
     ?OK(#{log_level := info},
-        [{log_level, info}, {keep_secrets, false}], server, [keep_secrets]),
+        [{log_level, info}, {keep_secrets, false}], server, []),
 
     %% Errors
     ?ERR({log_level, foo}, [{log_level, foo}], server),

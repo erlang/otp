@@ -211,7 +211,7 @@ verify_key_update(Keys0, Keys1) ->
     STS1 = proplists:get_value("SERVER_TRAFFIC_SECRET_0", Keys1),
     CTS = lists:zip(CTS0, CTS1),
     STS = lists:zip(STS0, STS1),
-    Pred = fun({A, B}) when A == B ->
+    Pred = fun({A, B}) when A == B andalso A =/= undefined ->
                    ct:fail(no_key_update),
                    false;
               (_) ->
