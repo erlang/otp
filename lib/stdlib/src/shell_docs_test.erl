@@ -384,9 +384,8 @@ rewrite_tokens([H | T]) ->
 rewrite_tokens([]) ->
     [].
 
-format_exception(Class, Reason, [{M,F,A,Info0},Item|_]) ->
-    Info = lists:keydelete(line, 1, Info0),
-    Stacktrace = [{M,F,A,Info},Item],
+format_exception(Class, Reason, [Top,Next|_]) ->
+    Stacktrace = [clean_stacktrace_item(Item) || Item <- [Top,Next]],
     Tag = "** ",
     I = iolist_size(Tag) + 1,
     PF = fun pp/2,
@@ -394,6 +393,10 @@ format_exception(Class, Reason, [{M,F,A,Info0},Item|_]) ->
     Enc = unicode,
     Str = erl_error:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
     Tag ++ string:trim(lists:flatten(Str), trailing).
+
+clean_stacktrace_item({M,F,A,Info0}) ->
+    Info = lists:keydelete(line, 1, Info0),
+    {M,F,A,Info}.
 
 pp(V, I) ->
     D = 30,
