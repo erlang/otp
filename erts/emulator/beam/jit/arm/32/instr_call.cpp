@@ -149,6 +149,8 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
         mov_imm(ARG3, 0);
     }
 
+    mov_imm(ARG4, 0);
+
     comment("apply()");
     // Using the basic runtime_call instead of the BeamModuleAssembler version
     // allows to skip veneer management
