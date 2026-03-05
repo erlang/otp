@@ -23,33 +23,43 @@
 -module(compile_prop).
 -compile([export_all, nowarn_export_all]).
 
-%% This module only supports proper, as we don't have an eqc license to test
-%% with.
+%% This module only supports proper, it requires
+%% the  'proper_erlang_abstract_code' functionality
 
--proptest([proper]).
-
--ifdef(PROPER).
+-include_lib("common_test/include/ct_property_test.hrl").
 
 -define(BEAM_TYPES_INTERNAL, true).
 -include_lib("compiler/src/beam_types.hrl").
 
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc, proper).
-
 -import(lists, [duplicate/2,foldl/3]).
 
-compile() ->
+-ifdef(PROPER).
+
+prop_compile() ->
     %% {weight, {yes_multi_field_init, 0}}
     Opts = [{weight, {yes_multi_field_init, 0}},
             {resize,true}],
     ?FORALL(Abstr, proper_erlang_abstract_code:module(Opts),
-            compile(Abstr)).
+            compile(noenv_forms, Abstr, compiler_variants())).
 
-compile(Forms) ->
-    compile(Forms, compiler_variants()).
+-else.
+-ifdef(EQC).
 
-compile(Forms, [Opts|OptsL]) ->
-    case spawn_compile(Forms, [return, binary | Opts]) of
+prop_compile() ->
+    Opts = [{macros, false}],
+    ?FORALL(String, eqc_erlang_program:module(eqc_generated_module, Opts),
+            begin
+                ok = file:write_file("eqc_generated_module.erl", String),
+                compile(noenv_file, "eqc_generated_module.erl", compiler_variants())
+            end).
+
+-endif.
+-endif.
+
+
+compile(Function, FileOrForms, [Opts|OptsL]) ->
+    AllOpts = [report_errors, return, binary, {feature,compr_assign,enable} | Opts],
+    case spawn_compile(Function, FileOrForms, AllOpts) of
         {ok,_Mod,Bin,_EsWs} when is_binary(Bin) ->
             %% Uncomment the following lines to print
             %% the generated source code.
@@ -59,20 +69,26 @@ compile(Forms, [Opts|OptsL]) ->
             %% Uncomment the following line to print the
             %% generated abstract code.
             %% io:format("<abstr>\n~p\n</abstr>\n", [Forms]),
-            compile(Forms, OptsL);
+            compile(Function, FileOrForms, OptsL);
         Err ->
             io:format("compile: ~p\n", [Err]),
             io:format("with options ~p\n", [Opts]),
-            io:format("<S>\n~ts\n</S>\n",
-                      [[erl_pp:form(F) || F <- Forms]]),
+            case Function of
+                noenv_file ->
+                    {ok, Str} = file:read_file(FileOrForms),
+                    io:format("~s",[Str]);
+                noenv_forms ->
+                    io:format("<S>\n~ts\n</S>\n",
+                              [[erl_pp:form(F) || F <- FileOrForms]])
+            end,
             false
     end;
-compile(_Forms, []) ->
+compile(_, _FileOrForms, []) ->
     true.
 
-spawn_compile(Forms, Options) ->
+spawn_compile(Compile, Forms, Options) ->
     {Pid,Ref} = spawn_monitor(fun() ->
-                                      exit(compile:noenv_forms(Forms, Options))
+                                      exit(compile:Compile(Forms, Options))
                               end),
     receive
         {'DOWN',Ref,process,Pid,Ret} ->
@@ -95,5 +111,3 @@ compiler_variants() ->
      [no_copt,no_bool_opt,no_share_opt,no_bsm_opt,no_fun_opt,
       no_ssa_opt,no_recv_opt,ssalint,clint0]
     ].
-
--endif.

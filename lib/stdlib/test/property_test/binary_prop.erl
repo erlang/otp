@@ -20,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(binary_prop).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 
@@ -33,7 +34,7 @@ prop_at() ->
         {Bin, Pos, Byte},
         ?LET(
             {B1, Bt, B2},
-            {binary(), byte(), binary()},
+            {binary(), ?CT_BYTE(), binary()},
             {<<B1/binary, Bt, B2/binary>>, byte_size(B1), Bt}
         ),
         Byte =:= binary:at(Bin, Pos)
@@ -63,7 +64,7 @@ prop_bin_to_list_1() ->
         {Bin, List},
         ?LET(
             L,
-            list(byte()),
+            list(?CT_BYTE()),
             {<< <<Bt>> || Bt <- L >>, L}
         ),
         List =:= binary:bin_to_list(Bin)
@@ -75,7 +76,7 @@ prop_bin_to_list_2_3() ->
         {Bin, List, {Pos, Len}=PosLen},
         ?LET(
             {L1, L, L2},
-            {list(byte()), list(byte()), list(byte())},
+           {list(?CT_BYTE()), list(?CT_BYTE()), list(?CT_BYTE())},
             {<< <<Bt>> || Bt <- L1 ++ L ++ L2 >>, L, {length(L1), length(L)}}
         ),
         List =:= binary:bin_to_list(Bin, PosLen) andalso
@@ -122,7 +123,7 @@ prop_compile_pattern_invalid_pattern() ->
 prop_copy() ->
     ?FORALL(
         {Bin, N},
-        {binary(), ?SUCHTHAT(N, non_neg_integer(), N =/= 1)},
+        {binary(), ?SUCHTHAT(N, nat(), N =/= 1)},
         begin
             Copy1 = binary:copy(Bin),
             Copy2 = binary:copy(Bin, 1),
@@ -137,14 +138,14 @@ prop_copy() ->
 prop_copy_2_invalid_n() ->
     ?FORALL(
         {Bin, N},
-        {binary(), neg_integer()},
+        {binary(), ?SUCHTHAT(N, int(), N < 0)},
         expect_error(fun binary:copy/2, [Bin, N])
     ).
 
 prop_copy_invalid_subject() ->
     ?FORALL(
         {Bin, N},
-        {gen_subject_invalid(), non_neg_integer()},
+        {gen_subject_invalid(), nat()},
         expect_error(fun binary:copy/1, [Bin]) andalso
         expect_error(fun binary:copy/2, [Bin, N])
     ).
@@ -155,7 +156,7 @@ prop_decode_hex() ->
         {BR, BE},
         ?LET(
             L,
-            list({oneof([lower, upper]), range(16#0, 16#f)}),
+            list({oneof([lower, upper]), choose(16#0, 16#f)}),
             lists:foldl(
                 fun
                     ({_, Nib}, {AccR, AccE}) when Nib < 10 ->
@@ -207,7 +208,7 @@ prop_decode_unsigned() ->
 prop_decode_unsigned_2_invalid_endianness() ->
     ?FORALL(
         {Bin, Endianness},
-        {binary(), ?SUCHTHAT(E, ct_proper_ext:safe_any(), E =/= big andalso E =/= little)},
+        {binary(), ?SUCHTHAT(E, ?CT_SAFE_ANY(), E =/= big andalso E =/= little)},
         expect_error(fun binary:decode_unsigned/2, [Bin, Endianness])
     ).
 
@@ -238,7 +239,7 @@ prop_encode_hex() ->
 prop_encode_hex_2_invalid_case() ->
     ?FORALL(
         {Bin, Case},
-        {binary(), ?SUCHTHAT(C, ct_proper_ext:safe_any(), C =/= lowercase andalso C =/= uppercase)},
+        {binary(), ?SUCHTHAT(C, ?CT_SAFE_ANY(), C =/= lowercase andalso C =/= uppercase)},
         expect_error(fun binary:encode_hex/2, [Bin, Case])
     ).
 
@@ -255,7 +256,7 @@ prop_encode_hex_invalid_subject() ->
 prop_encode_unsigned() ->
     ?FORALL(
         I,
-        non_neg_integer(),
+        nat(),
         begin
             Size = max(8, int_bitsize(I)),
             Big = <<I:Size/integer-unsigned-big>>,
@@ -269,7 +270,7 @@ prop_encode_unsigned() ->
 prop_encode_unsigned_invalid_integer() ->
     ?FORALL(
         I,
-        neg_integer(),
+        ?SUCHTHAT(N, int(), N < 0),
         expect_error(fun binary:encode_unsigned/1, [I]) andalso
         expect_error(fun binary:encode_unsigned/2, [I, big]) andalso
         expect_error(fun binary:encode_unsigned/2, [I, little])
@@ -278,7 +279,7 @@ prop_encode_unsigned_invalid_integer() ->
 prop_encode_unsigned_2_invalid_endianness() ->
     ?FORALL(
         {I, Endianness},
-        {non_neg_integer(), ?SUCHTHAT(E, ct_proper_ext:safe_any(), E =/= big andalso E =/= little)},
+        {nat(), ?SUCHTHAT(E, ?CT_SAFE_ANY(), E =/= big andalso E =/= little)},
         expect_error(fun binary:encode_unsigned/2, [I, Endianness])
     ).
 
@@ -288,7 +289,7 @@ prop_first() ->
         {Bin, Byte},
         ?LET(
             {B, Bt},
-            {binary(), byte()},
+            {binary(), ?CT_BYTE()},
             {<<Bt, B/binary>>, Bt}
         ),
         Byte =:= binary:first(Bin)
@@ -307,7 +308,7 @@ prop_last() ->
         {Bin, Byte},
         ?LET(
             {B, Bt},
-            {binary(), byte()},
+            {binary(), ?CT_BYTE()},
             {<<B/binary, Bt>>, Bt}
         ),
         Byte =:= binary:last(Bin)
@@ -337,7 +338,7 @@ prop_list_to_bin_invalid_bytes() ->
         List,
         ?SUCHTHAT(
             L,
-            non_empty(list(integer())),
+            non_empty(list(int())),
             lists:any(fun(I) -> I < 16#00 orelse I > 16#ff end, L)
         ),
         expect_error(fun binary:list_to_bin/1, [List])
@@ -662,7 +663,7 @@ prop_split_invalid_subject() ->
 gen_opts(RequiredOpts, MaybeOpts) ->
     ?LET(
         {UseOpts, Shuffles},
-        {vector(length(MaybeOpts), boolean()), vector(length(RequiredOpts) + length(MaybeOpts), integer())},
+        {vector(length(MaybeOpts), bool()), vector(length(RequiredOpts) + length(MaybeOpts), int())},
         begin
             UsedMaybeOpts = [Opt || {true, Opt} <- lists:zip(UseOpts, MaybeOpts)],
             UsedOpts = RequiredOpts ++ UsedMaybeOpts,
@@ -684,8 +685,8 @@ gen_part(Bin) ->
     Size = byte_size(Bin),
     ?LET(
         S,
-        range(0, Size),
-        {S, range(-S, Size-S)}
+        choose(0, Size),
+        {S, choose(-S, Size-S)}
     ).
 
 %% Generator for a part range, invalid for the binary given in Bin
@@ -693,29 +694,29 @@ gen_part_invalid(Bin) ->
     Size = byte_size(Bin),
     ?SUCHTHAT(
         {S, L},
-        {integer(), integer()},
+        {int(), int()},
         S < 0 orelse S > Size orelse S + L < 0 orelse S + L > Size
     ).
 
 %% Generator for an index within the binary given in Bin
 gen_index(Bin) ->
-    range(0, byte_size(Bin)).
+    choose(0, byte_size(Bin)).
 
 %% Generator for an index outside the binary given in Bin
 gen_index_invalid(Bin) ->
-    oneof([neg_integer(), range(byte_size(Bin) + 1, inf)]).
+    oneof([?CT_NEG_INT(), ?LET(N, nat(), (N+byte_size(Bin) + 1))]).
 
 %% Generator for insert_replaced options, valid for the binary given in Replacement
 gen_insert_replaced_opt(Replacement) when is_binary(Replacement) ->
     {insert_replaced, oneof([gen_index(Replacement), list(gen_index(Replacement))])};
 gen_insert_replaced_opt(_Replacement) ->
-    {insert_replaced, oneof([non_neg_integer(), list(non_neg_integer())])}.
+    {insert_replaced, oneof([nat(), list(nat())])}.
 
 %% Generator for insert_replaced options, invalid for the binary given in Replacement
 gen_insert_replaced_invalid_opt(Replacement) when is_binary(Replacement) ->
     {insert_replaced, oneof([gen_index_invalid(Replacement), non_empty(list(gen_index_invalid(Replacement)))])};
 gen_insert_replaced_invalid_opt(_Replacement) ->
-    {insert_replaced, oneof([neg_integer(), non_empty(list(neg_integer()))])}.
+    {insert_replaced, oneof([?CT_NEG_INT(), non_empty(list(?CT_NEG_INT()))])}.
 
 %% Generator for patterns, that is a single or a list of pattern binaries,
 %% which may or may not be present in the optionally binary given in Bin.
@@ -736,10 +737,10 @@ gen_pattern(Bin) ->
     oneof([non_empty(binary()),
            ?LET(
                S,
-               range(0, byte_size(Bin) - 1),
+               choose(0, byte_size(Bin) - 1),
                ?LET(
                    L,
-                   range(1, byte_size(Bin) - S),
+                   choose(1, byte_size(Bin) - S),
                    begin
                        <<_:S/binary, P:L/binary, _/binary>> = Bin,
                        P
@@ -750,7 +751,7 @@ gen_pattern(Bin) ->
 %% Generator for invalid patterns
 gen_patterns_invalid() ->
     oneof([
-        ?SUCHTHAT(T, ct_proper_ext:safe_any(), T =:= <<>> orelse not is_binary(T) andalso not is_list(T)),
+        ?SUCHTHAT(T, ?CT_SAFE_ANY(), T =:= <<>> orelse not is_binary(T) andalso not is_list(T)),
         ?LET(
             L,
             list(binary()),
@@ -763,12 +764,12 @@ gen_patterns_invalid() ->
         ),
         ?LET(
             L,
-            list(ct_proper_ext:safe_any()),
+            list(?CT_SAFE_ANY()),
             case L =:= [] orelse lists:any(fun(<<_, _/binary>>) -> false; (_) -> true end, L) of
                 true ->
                         L;
                 false ->
-                    [?SUCHTHAT(T, ct_proper_ext:safe_any(), T =:= <<>> orelse not is_binary(T)) | L]
+                    [?SUCHTHAT(T, ?CT_SAFE_ANY(), T =:= <<>> orelse not is_binary(T)) | L]
             end
         )
     ]).
@@ -778,7 +779,7 @@ gen_subject_invalid() ->
     oneof([
         ?LET(
             {B, FillInt, FillSize},
-            {bitstring(), range(0, 16#7f), range(1, 7)},
+            {bitstring(), choose(0, 16#7f), choose(1, 7)},
             case bit_size(B) rem 8 of
                 0 ->
                     <<B/binary, FillInt:FillSize/integer>>;
@@ -786,7 +787,7 @@ gen_subject_invalid() ->
                     B
             end
         ),
-        ?SUCHTHAT(T, ct_proper_ext:safe_any(), not is_binary(T))
+        ?SUCHTHAT(T, ?CT_SAFE_ANY(), not is_binary(T))
     ]).
 
 %% Generator for invalid subjects or lists containing at least one
@@ -794,7 +795,7 @@ gen_subject_invalid() ->
 gen_subjects_invalid() ->
     ?LET(
         T,
-        ct_proper_ext:safe_any(),
+        ?CT_SAFE_ANY(),
         case T of
             [_|_] ->
                 case lists:all(fun erlang:is_binary/1, T) of
@@ -814,7 +815,7 @@ gen_replacement() ->
 
 %% Generator for invalid replacements
 gen_replacement_invalid() ->
-    ?SUCHTHAT(T, ct_proper_ext:safe_any(), not is_binary(T) andalso not is_function(T, 1)).
+    ?SUCHTHAT(T, ?CT_SAFE_ANY(), not is_binary(T) andalso not is_function(T, 1)).
 
 %%%%%%%%%%%%%%%
 %%% Helpers %%%

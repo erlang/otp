@@ -20,8 +20,11 @@
 %% %CopyrightEnd%
 %%
 -module(sets_prop).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
+
+-record(model, {type, module, content=#{}}).
 
 %%%%%%%%%%%%%%%%%%
 %%% Properties %%%
@@ -36,9 +39,9 @@ subprop_add_element(Mod) ->
         {{S0, M0}, Es},
         ?LET(
             {L1, L2, B},
-            {ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST()},
             {gen_set(Mod, L1 ++ B), L2 ++ B}
         ),
         begin
@@ -62,9 +65,9 @@ subprop_del_element(Mod) ->
         {{S0, M0}, Es},
         ?LET(
             {L1, L2, B},
-            {ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST()},
             {gen_set(Mod, L1 ++ B), L2 ++ B}
         ),
         begin
@@ -86,7 +89,7 @@ prop_filter() ->
 subprop_filter(Mod) ->
     ?FORALL(
         {{S0, M0}, Fun},
-        {gen_set(Mod), function1(boolean())},
+        {gen_set(Mod), function1(bool())},
         is_equal(Mod:filter(Fun, S0),
                  model_filter(Fun, M0))
     ).
@@ -99,10 +102,10 @@ prop_filtermap() ->
 subprop_filtermap(Mod) ->
     ?FORALL(
         {{S0, M0}, Fun},
-	{gen_set(Mod),
-         function1(oneof([true, false, {true, ct_proper_ext:safe_any()}]))},
-	is_equal(Mod:filtermap(Fun, S0),
-                 model_filtermap(Fun, M0))
+        {gen_set(Mod),
+         function1(oneof([true, false, {true, ?CT_SAFE_ANY()}]))},
+        is_equal(Mod:filtermap(wrap(Fun), S0),
+                 model_filtermap(wrap(Fun), M0))
     ).
 
 
@@ -115,7 +118,7 @@ subprop_fold(Mod) ->
         {S, M},
         gen_set(Mod),
         begin
-            Fun = fun(E, Acc) -> Acc + erlang:phash2(E) end,
+            Fun = fun(E, Acc) -> Acc + erlang:phash2(trunc_float(E)) end,
             Mod:fold(Fun, 0, S) =:= model_fold(Fun, 0, M)
         end
     ).
@@ -128,14 +131,14 @@ prop_from_list() ->
 subprop_from_list(sets) ->
     ?FORALL(
         {L, V},
-        {ct_proper_ext:safe_list(), gen_version()},
+        {?CT_SAFE_LIST(), gen_version()},
         is_equal(sets:from_list(L, [{version, V}]),
                  model_from_list(sets, L))
     );
 subprop_from_list(Mod) ->
     ?FORALL(
         L,
-        ct_proper_ext:safe_list(),
+        ?CT_SAFE_LIST(),
         is_equal(Mod:from_list(L),
                  model_from_list(Mod, L))
     ).
@@ -150,8 +153,8 @@ subprop_intersection_1(Mod) ->
         SMs,
         ?LET(
             {Ls, A},
-            {non_empty(list(ct_proper_ext:safe_list())),
-             ct_proper_ext:safe_list()},
+            {non_empty(list(?CT_SAFE_LIST())),
+             ?CT_SAFE_LIST()},
             [gen_set(Mod, L ++ A) || L <- Ls]
         ),
         begin
@@ -171,9 +174,9 @@ subprop_intersection_2(Mod) ->
         {{S1, M1}, {S2, M2}},
         ?LET(
             {L1, L2, B},
-            {ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST()},
             {gen_set(Mod, L1 ++ B), gen_set(Mod, L2 ++ B)}
         ),
         is_equal(Mod:intersection(S1, S2),
@@ -190,9 +193,9 @@ subprop_is_disjoint(Mod) ->
         {{S1, M1}, {S2, M2}},
         ?LET(
             {L1, L2, B},
-            {ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST()},
             begin
                 {gen_set(Mod, L1 ++ B), gen_set(Mod, L2 ++ B)}
             end
@@ -210,7 +213,7 @@ subprop_is_element(Mod) ->
         {{S, M}, Es},
         ?LET(
             {L, Extra},
-            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(), ?CT_SAFE_LIST()},
             {gen_set(Mod, L), L ++ Extra}
         ),
         lists:all(fun(E) ->
@@ -254,7 +257,7 @@ subprop_is_set(sets) ->
         {Exp, {S, _M}},
         oneof([{true, gen_set(sets)},
                {false, {?SUCHTHAT(T,
-                                  ct_proper_ext:safe_any(),
+                                  ?CT_SAFE_ANY(),
                                   not (is_map(T) orelse
                                        is_tuple(T) andalso
                                        tuple_size(T)=:=9 andalso
@@ -267,7 +270,7 @@ subprop_is_set(ordsets) ->
         {Exp, {S, _M}},
         oneof([{true, gen_set(ordsets)},
                {false, {?SUCHTHAT(T,
-                                  ct_proper_ext:safe_any(),
+                                  ?CT_SAFE_ANY(),
                                   not is_list(T)),
                         undefined}}]),
         Exp =:= ordsets:is_set(S)
@@ -277,7 +280,7 @@ subprop_is_set(gb_sets) ->
         {Exp, {S, _M}},
         oneof([{true, gen_set(gb_sets)},
                {false, {?SUCHTHAT(T,
-                                  ct_proper_ext:safe_any(),
+                                  ?CT_SAFE_ANY(),
                                   not (is_tuple(T) andalso
                                        tuple_size(T) =:= 2 andalso
                                        is_integer(element(1, T)) andalso
@@ -320,7 +323,7 @@ subprop_is_subset(Mod) ->
         SMs,
         ?LET(
             {L1, L2},
-            {ct_proper_ext:safe_list(), ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(), ?CT_SAFE_LIST()},
             begin
                 L3Extra = [make_ref()|L2],
                 L2Extra = [make_ref()|L1],
@@ -347,9 +350,9 @@ prop_map() ->
 subprop_map(Mod) ->
     ?FORALL(
         {{S0, M0}, Fun},
-        {gen_set(Mod), function1(ct_proper_ext:safe_any())},
-        is_equal(Mod:map(Fun, S0),
-                 model_map(Fun, M0))
+        {gen_set(Mod), function1(?CT_SAFE_ANY())},
+        is_equal(Mod:map(wrap(Fun), S0),
+                 model_map(wrap(Fun), M0))
     ).
 
 
@@ -374,9 +377,9 @@ subprop_subtract(Mod) ->
         {{S1, M1}, {S2, M2}},
         ?LET(
             {L1, L2, B},
-            {ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST()},
             {gen_set(Mod, L1 ++ B), gen_set(Mod, L2 ++ B)}
         ),
         is_equal(Mod:subtract(S1, S2),
@@ -394,7 +397,7 @@ subprop_to_list(Mod) ->
     ?FORALL(
         {S, M},
         gen_set(Mod),
-        list_matchsort(Mod:to_list(S)) =:= list_matchsort(model_to_list(M))
+        list_matchsort(Mod:to_list(S), match) =:= list_matchsort(model_to_list(M), match)
     ).
 
 
@@ -407,7 +410,7 @@ subprop_union_1(Mod) ->
         SMs,
         ?LET(
             {Ls, A},
-            {list(ct_proper_ext:safe_list()), ct_proper_ext:safe_list()},
+            {list(?CT_SAFE_LIST()), ?CT_SAFE_LIST()},
             [gen_set(Mod, L ++ A) || L <- Ls]
         ),
         begin
@@ -427,9 +430,9 @@ subprop_union_2(Mod) ->
         {{S1, M1}, {S2, M2}},
         ?LET(
             {L1, L2, B},
-            {ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list(),
-             ct_proper_ext:safe_list()},
+            {?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST(),
+             ?CT_SAFE_LIST()},
             {gen_set(Mod, L1 ++ B), gen_set(Mod, L2 ++ B)}
         ),
         is_equal(Mod:union(S1, S2),
@@ -444,14 +447,14 @@ subprop_operations(Mod) ->
     ?FORALL(
         {SM0, Ops},
         {gen_set(Mod),
-         list(oneof([{add_element, ct_proper_ext:safe_any()},
-                     {del_element, ct_proper_ext:safe_any()},
-                     {filter, function1(boolean())},
+         list(oneof([{add_element, ?CT_SAFE_ANY()},
+                     {del_element, ?CT_SAFE_ANY()},
+                     {filter, function1(bool())},
                      {filtermap, function1(oneof([true,
                                                   false,
-                                                  {true, ct_proper_ext:safe_any()}]))},
+                                                  {true, ?CT_SAFE_ANY()}]))},
                      {intersection, gen_set(Mod)},
-                     {map, function1(ct_proper_ext:safe_any())},
+                     {map, function1(?CT_SAFE_ANY())},
                      {subtract, gen_set(Mod)},
                      {union, gen_set(Mod)}]))},
         begin
@@ -466,14 +469,14 @@ subprop_operations(Mod) ->
                                            {Mod:filter(Fun, SAcc),
                                             model_filter(Fun, MAcc)};
                                        ({filtermap, Fun}, {SAcc, MAcc}) ->
-                                           {Mod:filtermap(Fun, SAcc),
-                                            model_filtermap(Fun, MAcc)};
+                                           {Mod:filtermap(wrap(Fun), SAcc),
+                                            model_filtermap(wrap(Fun), MAcc)};
                                        ({intersection, {S, M}}, {SAcc, MAcc}) ->
                                            {Mod:intersection(SAcc, S),
                                             model_intersection(MAcc, M)};
                                        ({map, Fun}, {SAcc, MAcc}) ->
-                                           {Mod:map(Fun, SAcc),
-                                            model_map(Fun, MAcc)};
+                                           {Mod:map(wrap(Fun), SAcc),
+                                            model_map(wrap(Fun), MAcc)};
                                        ({subtract, {S, M}}, {SAcc, MAcc}) ->
                                            {Mod:subtract(SAcc, S),
                                             model_subtract(MAcc, M)};
@@ -497,13 +500,13 @@ gen_version() ->
 gen_set(sets) ->
     ?LET(
         {L, V},
-        {ct_proper_ext:safe_list(), gen_version()},
+        {?CT_SAFE_LIST(), gen_version()},
         gen_set(sets, L, V)
     );
 gen_set(Mod) ->
     ?LET(
         L,
-        ct_proper_ext:safe_list(),
+        ?CT_SAFE_LIST(),
         gen_set(Mod, L, 0)
     ).
 
@@ -518,7 +521,7 @@ gen_set(Mod, List) when is_list(List) ->
 gen_set(Mod, Version) when is_integer(Version) ->
     ?LET(
         L,
-        ct_proper_ext:safe_list(),
+        ?CT_SAFE_LIST(),
         gen_set(Mod, L, Version)
     ).
 
@@ -534,8 +537,6 @@ gen_set(Mod, List, _Version) ->
 %%% Model %%%
 %%%%%%%%%%%%%
 
--record(model, {type, module, content=#{}}).
-
 model_new(sets) ->
     #model{type=match, module=sets};
 model_new(ordsets) ->
@@ -543,13 +544,30 @@ model_new(ordsets) ->
 model_new(gb_sets) ->
     #model{type=equal, module=gb_sets}.
 
-model_add_element(E, #model{type=equal, content=C}=M) when is_float(E), trunc(E) == E ->
-    M#model{content=C#{trunc(E) => E}};
+model_add_element(E0, #model{type=equal, content=C}=M) ->
+    E = trunc_float(E0),
+    case maps:is_key(E, C) of
+        true ->
+            M;
+        false ->
+            M#model{content=C#{E => E0}}
+    end;
 model_add_element(E, #model{content=C}=M) ->
     M#model{content=C#{E => E}}.
 
-model_del_element(E, #model{type=equal, content=C}=M) when is_float(E), trunc(E) == E ->
-    M#model{content=maps:remove(trunc(E), C)};
+trunc_float(E) when is_float(E) ->
+    if E == trunc(E) -> trunc(E);
+       true -> E
+    end;
+trunc_float(L) when is_list(L) ->
+    [trunc_float(X) || X <- L];
+trunc_float(T) when is_tuple(T) ->
+    list_to_tuple([trunc_float(X) || X <- tuple_to_list(T)]);
+trunc_float(E) ->
+    E.
+
+model_del_element(E, #model{type=equal, content=C}=M) ->
+    M#model{content=maps:remove(trunc_float(E), C)};
 model_del_element(E, #model{content=C}=M) ->
     M#model{content=maps:remove(E, C)}.
 
@@ -559,8 +577,8 @@ model_from_list(Mod, L) ->
 model_to_list(#model{content=C}) ->
     maps:values(C).
 
-model_is_element(E, #model{type=equal, content=C}) when is_float(E), trunc(E) == E ->
-    maps:is_key(trunc(E), C);
+model_is_element(E, #model{type=equal, content=C}) ->
+    maps:is_key(trunc_float(E), C);
 model_is_element(E, #model{content=C}) ->
     maps:is_key(E, C).
 
@@ -602,7 +620,8 @@ model_intersection(M1, M2) ->
 model_intersection_1([], Acc) ->
     Acc;
 model_intersection_1([#model{module=Mod, content=C1}|Ms], #model{module=Mod, content=C2}=Acc) ->
-    model_intersection_1(Ms, Acc#model{content=maps:with(maps:keys(C2), maps:with(maps:keys(C1), C2))}).
+    C = maps:with(maps:keys(C2), maps:with(maps:keys(C1), C2)),
+    model_intersection_1(Ms, Acc#model{content=C}).
 
 model_union(Mod, []) ->
     model_new(Mod);
@@ -615,7 +634,8 @@ model_union(_Mod, M1, M2) ->
 model_union_1([], Acc) ->
     Acc;
 model_union_1([#model{module=Mod, content=C1}|Ms], #model{module=Mod, content=C2}=Acc) ->
-    model_union_1(Ms, Acc#model{content=maps:merge(C2, C1)}).
+    C = maps:merge(C2, C1),
+    model_union_1(Ms, Acc#model{content=C}).
 
 model_is_subset(#model{module=Mod, content=C1}, #model{module=Mod, content=C2}) ->
     [] =:= maps:keys(C1) -- maps:keys(C2).
@@ -631,23 +651,29 @@ model_is_disjoint(M1, M2) ->
 %%% Helpers %%%
 %%%%%%%%%%%%%%%
 
+wrap(Fun) ->
+    %% For the tests to work, funs need to generate
+    %% the same answer if it contains keys that can be
+    %% either float or int. For example after a union
+    %% it is not known/specified from which argument the kept
+    %% the element.
+    fun(X0) -> Fun(trunc_float(X0)) end.
+
 test_all(Fun) ->
     conjunction([{T, Fun(T)} || T <- [sets, ordsets, gb_sets]]).
 
-list_matchsort(L) ->
-    lists:sort(fun
-                   (A, B) when is_float(A), is_integer(B) ->
-                       true;
-                   (A, B) when is_integer(A), is_float(B) ->
-                       false;
-                   (A, B) ->
-                       A =< B
-               end,
-               L).
+list_matchsort(L, equal) ->
+    lists:sort(L);
+list_matchsort(L, match) ->
+    %% Ugly hack or clever cheat, you decide
+    %% We really need to sort: [ [1], [1.0] ] and [ [1.0], [1] ]
+    %% and [0.0, -0.0] floats include inside deep structures.
+    Map = #{E => [] || E <- L},
+    [E || E := _ <- maps:iterator(Map, ordered)].
 
 is_equal(S, #model{type=T, module=Mod, content=C}) ->
-    L1 = list_matchsort(Mod:to_list(S)),
-    L2 = list_matchsort(maps:keys(C)),
+    L1 = list_matchsort(Mod:to_list(S), T),
+    L2 = list_matchsort(maps:keys(C), T),
     case T of
         match -> L1 =:= L2;
         equal -> L1 == L2

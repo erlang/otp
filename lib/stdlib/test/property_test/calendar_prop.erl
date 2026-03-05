@@ -29,15 +29,15 @@
 %%%%%%%%%%%%%%%%%%
 
 between_40_years_ago_and_in_40_years(Unit) ->
-    integer(erlang:system_time(Unit) - erlang:convert_time_unit(40*60*60*24*365, second, Unit),
-            erlang:system_time(Unit) + erlang:convert_time_unit(40*60*60*24*365, second, Unit)).
+    choose(erlang:system_time(Unit) - erlang:convert_time_unit(40*60*60*24*365, second, Unit),
+           erlang:system_time(Unit) + erlang:convert_time_unit(40*60*60*24*365, second, Unit)).
 
 unit() ->
-    proper_types:oneof([second,
-                        millisecond,
-                        microsecond,
-                        nanosecond,
-                        native]).
+    oneof([second,
+           millisecond,
+           microsecond,
+           nanosecond,
+           native]).
 
 rfc3339_lists_binaries() ->
     Unit = millisecond,
@@ -78,8 +78,12 @@ local_time_system_time_symmetry() ->
         begin
             Options = [{unit, Unit}],
             UTime = calendar:system_time_to_local_time(SystemTime0, Unit),
-            SystemTime = calendar:local_time_to_system_time(UTime, Options),
-            loss(SystemTime0, Unit) =:= (SystemTime0 - SystemTime)
+            try
+                SystemTime = calendar:local_time_to_system_time(UTime, Options),
+                loss(SystemTime0, Unit) =:= (SystemTime0 - SystemTime)
+            catch error:{non_existing_local_time, UTime} -> true; %% Just ignore daylight saving times
+                  error:{ambiguous_local_time, UTime} -> true
+            end
         end
     ).
 

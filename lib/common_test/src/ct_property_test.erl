@@ -204,10 +204,10 @@ init_tool(Config) ->
             {skip, "No property testing tool found"}
     end.
 
-init_tool_extensions(proper) ->
-    ProperExtDir = filename:join(code:lib_dir(common_test), proper_ext),
-    true = code:add_patha(ProperExtDir),
-    ct:log("Added ~ts to code path~n", [ProperExtDir]),
+init_tool_extensions(ToolModule) when ToolModule =:= eqc; ToolModule =:= proper ->
+    ExtDir = filename:join(code:lib_dir(common_test), proper_ext),
+    true = code:add_patha(ExtDir),
+    ct:log("Added ~ts to code path~n", [ExtDir]),
     ok;
 init_tool_extensions(_) ->
     ok.

@@ -20,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(json_prop).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 
@@ -33,12 +34,12 @@ prop_string_roundtrip() ->
     end).
 
 prop_integer_roundtrip() ->
-    ?FORALL(Int, integer(), begin
+    ?FORALL(Int, int(), begin
         equals(Int, decode_io(json:encode(Int)))
     end).
 
 prop_float_roundtrip() ->
-    ?FORALL(Float, float(), begin
+    ?FORALL(Float, real(), begin
         equals(Float, decode_io(json:encode(Float)))
     end).
 
@@ -60,17 +61,17 @@ prop_escape_all() ->
 printable_string() ->
     Chars = oneof([
         oneof("\n\r\t\v\b\f\e\d"),
-        range(16#20, 16#7E),
-        range(16#A0, 16#D7FF),
-        range(16#E000, 16#FFFD),
-        range(16#10000, 16#10FFFF)
+        choose(16#20, 16#7E),
+        choose(16#A0, 16#D7FF),
+        choose(16#E000, 16#FFFD),
+        choose(16#10000, 16#10FFFF)
     ]),
     ?LET(L, list(Chars), unicode:characters_to_binary(L)).
 
 object() -> ?SIZED(Size, object(Size)).
 
 object(Size) ->
-    FlatTypes = oneof([integer(), float(), printable_string(), boolean(), null]),
+    FlatTypes = oneof([int(), real(), printable_string(), bool(), null]),
     case Size =:= 0 of
         true ->
             FlatTypes;

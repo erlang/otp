@@ -20,12 +20,15 @@
 %% %CopyrightEnd%
 %%
 -module(ets_prop).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 
--type table_type() :: set | ordered_set | bag | duplicate_bag.
 
--define(ETS_TAB_DATA, proper_types:list({ct_proper_ext:safe_any(), ct_proper_ext:safe_any()})).
+-define(ETS_TAB_DATA, list({?CT_SAFE_ANY(), ?CT_SAFE_ANY()})).
+
+table_type() ->
+    oneof([set, ordered_set, bag, duplicate_bag]).
 
 %%%%%%%%%%%%%%%%%%
 %%% Properties %%%

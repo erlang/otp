@@ -39,7 +39,8 @@ PROPEREXTDIR = $(RELEASE_PATH)/lib/common_test-$(VSN)/proper_ext
 EBIN=.
 
 MODULES= \
-	ct_proper_ext
+	ct_proper_ext \
+	ct_quickcheck_ext
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)

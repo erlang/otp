@@ -53,13 +53,13 @@ iv(Cipher) ->
     %% Can't be shrunk
     crypto:strong_rand_bytes( iv_length(Cipher) ).
 
-iolist() -> frequency([{5, list( oneof([list(byte()),
+iolist() -> frequency([{5, list( oneof([list(?CT_BYTE()),
                                         binary(),
                                         list(binary())]))},
                        {1, mybinary(50000)}
                       ]).
 
-mybinary(MaxSize) -> ?LET(Sz, integer(0,MaxSize), binary(Sz)).
+mybinary(MaxSize) -> ?LET(Sz, choose(0,MaxSize), binary(Sz)).
 
 padding() -> oneof([pkcs_padding, none,
                     zero, random,

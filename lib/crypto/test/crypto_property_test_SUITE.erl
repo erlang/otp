@@ -76,8 +76,13 @@ init_update(Config) ->
      ).
 
 init_update_multi(Config) ->
-    ct_property_test:quickcheck(
-      crypto_ng_api_stateful:prop__crypto_init_multi(Config),
-      Config
-     ).
+    case proplists:get_value(property_test_tool, Config, undefined) of
+        proper ->
+            ct_property_test:quickcheck(
+              crypto_ng_api_stateful:prop__crypto_init_multi(Config),
+              Config
+             );
+        _ ->
+            {skip, "proper required, not found"}
+    end.
 

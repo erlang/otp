@@ -23,7 +23,9 @@
 
 -module(crypto_ng_api_stateful).
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
+
+-ifdef(PROPER).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 -include("crypto_prop_generators.hrl").
@@ -161,3 +163,5 @@ decrypt({_EncRef,DecRef}, CT) ->
 %%%----------------------------------------------------------------
 refs(S) -> [Refs || {Refs,_} <- maps:to_list(S)].
 
+
+-endif.

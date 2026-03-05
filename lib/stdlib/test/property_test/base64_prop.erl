@@ -20,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(base64_prop).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 
@@ -30,7 +31,7 @@
 prop_encode_1() ->
     ?FORALL(
         Str,
-        oneof([list(byte()), binary()]),
+        oneof([list(choose(0, 255)), binary()]),
         begin
             Enc = base64:encode(Str),
             Dec = base64:decode(Enc),
@@ -41,7 +42,7 @@ prop_encode_1() ->
 prop_encode_2() ->
     ?FORALL(
         {Str, Mode},
-        {oneof([list(byte()), binary()]), mode()},
+        {oneof([list(choose(0, 255)), binary()]), mode()},
         begin
             Enc = base64:encode(Str, #{mode => Mode}),
             Dec = base64:decode(Enc, #{mode => Mode}),
@@ -52,7 +53,7 @@ prop_encode_2() ->
 prop_encode_to_string_1() ->
     ?FORALL(
         Str,
-        oneof([list(byte()), binary()]),
+        oneof([list(choose(0, 255)), binary()]),
         begin
             Enc = base64:encode_to_string(Str),
             Dec = base64:decode_to_string(Enc),
@@ -63,7 +64,7 @@ prop_encode_to_string_1() ->
 prop_encode_to_string_2() ->
     ?FORALL(
         {Str, Mode},
-        {oneof([list(byte()), binary()]), mode()},
+        {oneof([list(choose(0, 255)), binary()]), mode()},
         begin
             Enc = base64:encode_to_string(Str, #{mode => Mode}),
             Dec = base64:decode_to_string(Enc, #{mode => Mode}),
@@ -247,7 +248,7 @@ common_decode_malformed(DataGen, ModeGen, Fn) ->
                             [b64_char(Mode), b64_char(Mode), b64_char(Mode)]
                         ]
                     ),
-                    function1(boolean())
+                    function1(bool())
                 },
                 {{NormalizedB64, insert_noise(NoisyB64, Malformings, InsertFn)}, Mode}
             )
@@ -309,7 +310,7 @@ b64(Mode) ->
 wsped_b64(Mode) ->
     ?LET(
         {B64, Wsps, InsertFn},
-        {b64(Mode), list(oneof([$\t, $\r, $\n, $\s])), function1(boolean())},
+        {b64(Mode), list(oneof([$\t, $\r, $\n, $\s])), function1(bool())},
         {B64, insert_noise(B64, Wsps, InsertFn)}
     ).
 
@@ -326,7 +327,7 @@ non_b64_char(Mode) ->
 noisy_b64(Mode) ->
     ?LET(
         {{B64, WspedB64}, Noise, InsertFn},
-        {wsped_b64(Mode), non_empty(list(non_b64_char(Mode))), function1(boolean())},
+        {wsped_b64(Mode), non_empty(list(non_b64_char(Mode))), function1(bool())},
         {B64, insert_noise(WspedB64, Noise, InsertFn)}
     ).
 
