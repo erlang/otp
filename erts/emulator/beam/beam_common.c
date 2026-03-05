@@ -540,7 +540,9 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 	reg[3] = exception_tag[GET_EXC_CLASS(c_p->freason)];
         if ((new_pc = next_catch(c_p, reg))) {
 
-#if defined(BEAMASM) && (defined(NATIVE_ERLANG_STACK) || defined(__aarch64__))
+#if defined(BEAMASM) && (defined(NATIVE_ERLANG_STACK) || \
+                         defined(__aarch64__) || \
+                         defined(__arm__))
             /* In order to make use of native call and return
              * instructions, when beamasm uses the native stack it
              * doesn't include the CP in the current stack frame,
