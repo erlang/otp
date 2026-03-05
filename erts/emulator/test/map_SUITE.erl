@@ -84,6 +84,7 @@
          t_dets/1,
          t_tracing/1,
          t_hash_entropy/1,
+         t_empty_map_literal/1,
 
          %% instruction-level tests
          t_has_map_fields/1,
@@ -167,6 +168,7 @@ groups() ->
        t_ets,
        t_tracing,
        t_hash_entropy,
+       t_empty_map_literal,
 
        %% instruction-level tests
        t_has_map_fields,
@@ -4076,6 +4078,30 @@ literal_multi(N, Map, _) ->
        (?SMALL_MAP_SIZE div 2 + 2) := Same,
        (?SMALL_MAP_SIZE div 2 - 2) := Same } = Map,
     literal_multi(N - 1, Map, Same).
+
+%% Verify that all empty maps use the global literal and have zero heap size.
+t_empty_map_literal(Config) when is_list(Config) ->
+    assert_empty_map_literal(#{}),
+    assert_empty_map_literal(maps:new()),
+    assert_empty_map_literal(maps:remove(key, #{key => val})),
+    {val, Empty1} = maps:take(key, #{key => val}),
+    assert_empty_map_literal(Empty1),
+    assert_empty_map_literal(maps:merge(#{}, #{})),
+    assert_empty_map_literal(maps:from_list([])),
+    assert_empty_map_literal(maps:from_keys([], default)),
+    assert_empty_map_literal(maps:filter(fun(_, _) -> false end, #{a => 1})),
+    assert_empty_map_literal(maps:filtermap(fun(_, _) -> false end, #{a => 1})),
+    assert_empty_map_literal(#{K => V || K := V <- #{}, K =/= anything}),
+    assert_empty_map_literal(binary_to_term(term_to_binary(#{}))),
+    assert_empty_map_literal(maps:without([a, b], #{a => 1, b => 2})),
+    assert_empty_map_literal(maps:intersect(#{a => 1}, #{b => 2})),
+    ok.
+
+assert_empty_map_literal(Map) ->
+    #{} = Map,
+    0 = map_size(Map),
+    0 = erts_debug:size(Map),
+    0 = erts_debug:flat_size(Map).
 
 time(Name, F, Iterations) ->
     Time = element(1, timer:tc(F, [Iterations])),
