@@ -33,7 +33,8 @@
 	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1,
          dot_erlang/1, unknown_module/1, dash_S/1, dash_extra/1,
          dash_run/1, dash_s/1,
-	 find_system_processes/0
+	 find_system_processes/0,
+         stop_flush/1
          ]).
 -export([boot1/1, boot2/1]).
 -export([test_dash_S/1, test_dash_s/1, test_dash_extra/0,
@@ -50,11 +51,11 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,2}}].
 
-all() -> 
+all() ->
     [get_arguments, get_argument, boot_var,
      many_restarts, restart_with_mode,
      get_plain_arguments, init_group_history_deadlock,
-     restart, stop_status, get_status, script_id,
+     restart, stop_status, stop_flush, get_status, script_id,
      dot_erlang, unknown_module, {group, boot},
      dash_S, dash_extra, dash_run, dash_s].
 
@@ -648,7 +649,30 @@ stop(Config) when is_list(Config) ->
     ok.
 
 %% ------------------------------------------------
-%% 
+%% Verify that init:stop() does not sleep for a fixed
+%% duration when flushing user_drv output. Shutdown
+%% should complete well under 1 second for an idle node.
+%% ------------------------------------------------
+stop_flush(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(#{connection => standard_io}),
+    erlang:monitor_node(Node, true),
+    T0 = erlang:monotonic_time(millisecond),
+    ok = rpc:call(Node, init, stop, []),
+    receive
+        {nodedown, Node} ->
+            Elapsed = erlang:monotonic_time(millisecond) - T0,
+            ct:pal("Shutdown took ~b ms", [Elapsed]),
+            ?assert(Elapsed < 900,
+                    lists:flatten(
+                      io_lib:format("Shutdown took ~b ms, expected < 900 ms",
+                                    [Elapsed])))
+    after 10000 ->
+        peer:stop(Peer),
+        ct:fail(not_stopping)
+    end.
+
+%% ------------------------------------------------
+%%
 %% ------------------------------------------------
 get_status(Config) when is_list(Config) ->
     {Start, _} = init:get_status(),
