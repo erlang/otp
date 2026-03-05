@@ -136,7 +136,7 @@ test(BootArgs) ->
     swapping(),
     apply_test(),
     guard_bif_test(),
-%    test_catches(),
+    test_catches(),
 %    test_try_catch(),
 %    test_return_yielding(),
 %    test_jmp(),
@@ -480,20 +480,20 @@ gbif_nofail(Tuple0) ->
     false = id(Tuple =:= 42),
     ok.
 
-%test_catches() ->
-%    thrown = catch do_throw(id(thrown)),
-%
-%    {'EXIT',{{badmatch,b},[_|_]}} =
-%    id(catch a = id(b)),
-%    {'EXIT',whatever} = catch exit(id(whatever)),
-%
-%    22 = catch id(22),
-%
-%    ok.
-%
-%do_throw(What) ->
-%    throw(What).
-%
+test_catches() ->
+    thrown = catch do_throw(id(thrown)),
+
+    {'EXIT',{{badmatch,b},[_|_]}} =
+    id(catch a = id(b)),
+     {'EXIT',whatever} = catch exit(id(whatever)),
+
+    22 = catch id(22),
+
+    ok.
+
+do_throw(What) ->
+    throw(What).
+
 %test_try_catch() ->
 %    try foobar(id({a,b}), id({x,y})) of
 %        _ ->
