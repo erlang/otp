@@ -546,6 +546,64 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_bsl");
+    auto dst = init_destination(Dst, ARG1);
+
+    if (is_bsl_small(LHS, RHS)) {
+        comment("skipped tests because operands and result are always small");
+        if (RHS.isSmall()) {
+            auto lhs = load_source(LHS);
+            a.bic(TMP, lhs.reg, imm(_TAG_IMMED1_MASK));
+            a.lsl(TMP, TMP, imm(RHS.as<ArgSmall>().getSigned()));
+        } else {
+            auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+            a.bic(TMP, lhs.reg, imm(_TAG_IMMED1_MASK));
+            a.lsr(VAR, rhs.reg, imm(_TAG_IMMED1_SIZE));
+            a.lsl(TMP, TMP, VAR);
+        }
+        a.orr(dst.reg, TMP, imm(_TAG_IMMED1_SMALL));
+        flush_var(dst);
+        return;
+    }
+
+    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+
+    mov_var(ARG2, lhs);
+    mov_var(ARG3, rhs);
+
+    if (Fail.get() != 0) {
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erts_bsl);
+        emit_leave_runtime();
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        Label error = a.newLabel(), done = a.newLabel();
+        static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsl, 2};
+
+        /* Save original arguments for an accurate exception path. */
+        a.str(ARG2, getXRef(0));
+        a.str(ARG3, getXRef(1));
+
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erts_bsl);
+        emit_leave_runtime();
+
+        emit_branch_if_not_value(ARG1, error);
+        mov_var(dst, ARG1);
+        flush_var(dst);
+        a.b(done);
+
+        a.bind(error);
+        mov_imm(ARG4, &bif_mfa);
+        emit_raise_exception();
+
+        a.bind(done);
+        return;
+    }
+
+    mov_var(dst, ARG1);
+    flush_var(dst);
+
+    (void)Live;
 }
