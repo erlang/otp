@@ -1506,18 +1506,90 @@ void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,
 }
 
 void BeamGlobalAssembler::emit_catch_end_shared() {
-    // TODO
-    emit_nyi("emit_catch_end_shared");
+    Label not_throw = a.newLabel(), not_error = a.newLabel(),
+          after_gc = a.newLabel();
+
+    /* X0 = THE_NON_VALUE
+     * X1 = error reason/thrown value
+     * X2 = raw stacktrace.
+     * X3 = class
+     */
+    a.ldr(ARG1, getXRef(1));
+    a.ldr(TMP, getXRef(3));
+    mov_imm(ARG2, am_throw);
+    a.cmp(TMP, ARG2);
+    a.b_ne(not_throw);
+
+    /* Thrown value: return it in X0. */
+    a.str(ARG1, getXRef(0));
+    a.bx(a32::lr);
+
+    a.bind(not_throw);
+    {
+        emit_enter_runtime_frame();
+
+        a.ldr(TMP, getXRef(3));
+        mov_imm(ARG2, am_error);
+        a.cmp(TMP, ARG2);
+        a.b_ne(not_error);
+
+        /* Attach stacktrace for error class. */
+        a.mov(ARG2, ARG1);
+        a.ldr(ARG3, getXRef(2));
+
+        emit_enter_runtime<Update::eHeapAlloc>();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(add_stacktrace);
+        emit_leave_runtime<Update::eHeapAlloc>();
+    }
+
+    /* Error term from exit/1 or stacktrace-attached reason from error. */
+    a.bind(not_error);
+    {
+        const int32_t bytes_needed = (3 + S_RESERVED) * sizeof(Eterm);
+        add(ARG3, HTOP, bytes_needed);
+        a.cmp(ARG3, E);
+        a.b_ls(after_gc);
+        {
+            /* Preserve reason/stacktrace term across GC. */
+            a.str(ARG1, TMP_MEM1q);
+            mov_imm(ARG4, 1);
+            a.bl(labels[garbage_collect]);
+            a.ldr(ARG1, TMP_MEM1q);
+        }
+        a.bind(after_gc);
+
+        a.add(ARG3, HTOP, imm(TAG_PRIMARY_BOXED));
+        mov_imm(TMP, make_arityval(2));
+        a.str(TMP, arm::Mem(HTOP).post(sizeof(Eterm)));
+        mov_imm(TMP, am_EXIT);
+        a.str(TMP, arm::Mem(HTOP).post(sizeof(Eterm)));
+        a.str(ARG1, arm::Mem(HTOP).post(sizeof(Eterm)));
+
+        a.mov(ARG1, ARG3);
+        a.str(ARG1, getXRef(0));
+    }
+
+    emit_leave_runtime_frame();
+    a.bx(a32::lr);
 }
 
 void BeamModuleAssembler::emit_catch_end(const ArgYRegister &CatchTag) {
-    // TODO
-    emit_nyi("emit_catch_end");
+    Label next = a.newLabel();
+
+    emit_try_end(CatchTag);
+    a.ldr(TMP, getXRef(0));
+    emit_branch_if_value(TMP, next);
+    fragment_call(ga->get_catch_end_shared());
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
-    // TODO
-    emit_nyi("emit_try_end");
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+    a.sub(TMP, TMP, imm(1));
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, catches)));
+    mov_imm(TMP, NIL);
+    a.str(TMP, getArgRef(CatchTag));
 }
 
 void BeamModuleAssembler::emit_try_end_deallocate(const ArgWord &Deallocate) {
