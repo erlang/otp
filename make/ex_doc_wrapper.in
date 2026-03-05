@@ -22,8 +22,6 @@
 
 ARGS=("$@")
 
-set -eo pipefail {0}
-
 ## If EX_DOC is not set to a file, we search the PATH for it using command -v
 if [ ! -f "${EX_DOC}" ]; then
    EX_DOC=$(command -v ex_doc || true)
@@ -51,19 +49,6 @@ fi
 ## This is currently used to handle search engine changes in v0.39.0
 export EX_DOC_VERSION=$($EX_DOC --version)
 
-## The below bash magic captures the output of stderr into OUTPUT while still printing
-## everything we get to stdout and stderr. This is done by:
-
-## 1. duplicating the stdout (1) and stderr (2) streams to fd 3 and 4 respectively.
-exec 3>&1 4>&2
-
-## Running the command where we redirect stderr to fd 1 and stdout to fd 3.
-## We then use tee on the stderr (which is now fd 1) to print that to fd 4
-OUTPUT="$( { escript@EXEEXT@ "${EX_DOC}" "${ARGS[@]}"; } 2>&1 1>&3 | tee /dev/fd/4 )"
-
-## Close fd 3 and 4
-exec 3>&- 4>&-
-
 ## If EX_DOC_WARNINGS_AS_ERRORS is not explicitly turned on
 ## and any .app file is missing, we turn off warnings as errors
 if [ "${EX_DOC_WARNINGS_AS_ERRORS}" != "true" ]; then
@@ -74,13 +59,12 @@ if [ "${EX_DOC_WARNINGS_AS_ERRORS}" != "true" ]; then
     done
 fi
 
-if [ "${EX_DOC_WARNINGS_AS_ERRORS}" != "false" ]; then
-    if echo "${OUTPUT}" | grep "warning:" 1>/dev/null; then
-        echo "ex_doc emitted warnings"
-        ## Touch the config file in order to re-trigger make
-        if [ -f "docs.exs" ]; then
-            touch "docs.exs"
-        fi
-        exit 1;
+escript@EXEEXT@ "${EX_DOC}" "${ARGS[@]}"
+
+if [ "$?" != "0" ]; then
+    ## Touch the config file in order to re-trigger make
+    if [ -f "docs.exs" ]; then
+        touch "docs.exs"
     fi
+    exit 1;
 fi
