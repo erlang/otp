@@ -137,7 +137,7 @@ test(BootArgs) ->
     apply_test(),
     guard_bif_test(),
     test_catches(),
-%    test_try_catch(),
+    test_try_catch(),
 %    test_return_yielding(),
 %    test_jmp(),
 %    test_length(BootArgs),
@@ -494,116 +494,116 @@ test_catches() ->
 do_throw(What) ->
     throw(What).
 
-%test_try_catch() ->
-%    try foobar(id({a,b}), id({x,y})) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:function_clause:Stk1 ->
-%            [{?MODULE,foobar,[{a,b},{x,y}],_},{?MODULE,test_try_catch,0,_}|_] = Stk1
-%    end,
-%
-%    try implicit_rethrow() of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:something_wrong ->
-%            ok
-%    end,
-%
-%    try explicit_rethrow() of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:something_wrong ->
-%            ok
-%    end,
-%
-%    badarg = try
-%                 foobar(error, something_wrong)
-%             catch error:Reason:Stk2 ->
-%                     %% Test a raw_raise with an error return of badarg.
-%                     erlang:raise(id(bad_class), Reason, Stk2)
-%             end,
-%
-%    try try_clause() of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:{try_clause,{sum,12}}:Stk3 ->
-%            [{?MODULE,try_clause,0,_}|_] = Stk3
-%    end,
-%
-%    ok = case_clause(42),
-%    try case_clause({id(p),q}) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:{case_clause,{p,q}}:Stk4 ->
-%            [{?MODULE,case_clause,1,_}|_] = Stk4
-%    end,
-%
-%    ok = if_clause(true),
-%    try if_clause(other) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:if_clause:Stk5 ->
-%            [{?MODULE,if_clause,1,_}|_] = Stk5
-%    end,
-%
-%    try id(1 bsl (1 bsl id(1024))) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:system_limit ->
-%            ok
-%    end,
-%
-%    ok.
-%
-%implicit_rethrow() ->
-%    try
-%        foobar(error, something_wrong)
-%    catch throw:not_matching ->
-%            %% Will not match. The exception will be implicitly rethrown
-%            %% using a 'raise' instruction.
-%            ok
-%    end.
-%
-%explicit_rethrow() ->
-%    try
-%        foobar(error, something_wrong)
-%    catch error:Reason:Stk ->
-%            %% Explicitly rethrow the exception, using the instruction
-%            %% 'raw_raise'.
-%            erlang:raise(error, Reason, Stk)
-%    end.
-%
-%try_clause() ->
-%    try foobar(3, 9) of
-%        {sum,not_the_sum_we_are_looking_for} ->
-%            ok
-%    catch
-%        _:_ ->
-%            error
-%    end.
-%
-%case_clause(Arg) ->
-%    case Arg of
-%        42 -> ok
-%    end.
-%
-%if_clause(Arg) ->
-%    if
-%        Arg -> ok
-%    end.
-%
-%foobar(A, B) when is_integer(A + B) ->
-%    {sum,A + B};
-%foobar(error, Reason) ->
-%    error(Reason).
-%
+test_try_catch() ->
+    try foobar(id({a,b}), id({x,y})) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:function_clause:Stk1 ->
+            [{?MODULE,foobar,[{a,b},{x,y}],_},{?MODULE,test_try_catch,0,_}|_] = Stk1
+    end,
+
+    try implicit_rethrow() of
+        _ ->
+            error(expected_failure)
+    catch
+        error:something_wrong ->
+            ok
+    end,
+
+    try explicit_rethrow() of
+        _ ->
+            error(expected_failure)
+    catch
+        error:something_wrong ->
+            ok
+    end,
+
+    badarg = try
+                 foobar(error, something_wrong)
+             catch error:Reason:Stk2 ->
+                     %% Test a raw_raise with an error return of badarg.
+                     erlang:raise(id(bad_class), Reason, Stk2)
+             end,
+
+    try try_clause() of
+        _ ->
+            error(expected_failure)
+    catch
+        error:{try_clause,{sum,12}}:Stk3 ->
+            [{?MODULE,try_clause,0,_}|_] = Stk3
+    end,
+
+    ok = case_clause(42),
+    try case_clause({id(p),q}) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:{case_clause,{p,q}}:Stk4 ->
+            [{?MODULE,case_clause,1,_}|_] = Stk4
+    end,
+
+    ok = if_clause(true),
+    try if_clause(other) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:if_clause:Stk5 ->
+            [{?MODULE,if_clause,1,_}|_] = Stk5
+    end,
+
+    try id(1 bsl (1 bsl id(1024))) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:system_limit ->
+            ok
+    end,
+
+    ok.
+
+implicit_rethrow() ->
+    try
+        foobar(error, something_wrong)
+    catch throw:not_matching ->
+            %% Will not match. The exception will be implicitly rethrown
+            %% using a 'raise' instruction.
+            ok
+    end.
+
+explicit_rethrow() ->
+    try
+        foobar(error, something_wrong)
+    catch error:Reason:Stk ->
+            %% Explicitly rethrow the exception, using the instruction
+            %% 'raw_raise'.
+            erlang:raise(error, Reason, Stk)
+    end.
+
+try_clause() ->
+    try foobar(3, 9) of
+        {sum,not_the_sum_we_are_looking_for} ->
+            ok
+    catch
+        _:_ ->
+            error
+    end.
+
+case_clause(Arg) ->
+    case Arg of
+        42 -> ok
+    end.
+
+if_clause(Arg) ->
+    if
+        Arg -> ok
+    end.
+
+foobar(A, B) when is_integer(A + B) ->
+    {sum,A + B};
+foobar(error, Reason) ->
+    error(Reason).
+
 %test_return_yielding() ->
 %    12502500 = ret_yield(5000).
 %
