@@ -350,8 +350,8 @@ explain_reason({badarity,{Fun,As}}, error, [], _PF, _S, Enc, _CL)
     %% Only the arity is displayed, not the arguments As.
     io_lib:fwrite(<<"~ts called with ~s">>,
                   [format_fun(Fun, Enc), argss(length(As))]);
-explain_reason({badfield,F}, error=Cl, [], PF, S, _Enc, CL) ->
-    format_value(F, <<"bad field name: ">>, Cl, PF, S, CL);
+explain_reason({badfield,F}, error, [], _PF, _S, _Enc, _CL) ->
+    io_lib:bformat(<<"bad field name: ~ts">>, [format_record(F)]);
 explain_reason({badfun,Term}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(Term, <<"bad function ">>, Cl, PF, S, CL);
 explain_reason({badmatch,Term}, error=Cl, [], PF, S, _Enc, CL) ->
@@ -421,11 +421,14 @@ explain_reason(restricted_shell_stopped, exit, [], _PF, _S, _Enc, _CL) ->
 explain_reason(calling_self, exit, [], _PF, _S, _Enc, _CL) ->
     <<"the current process attempted to call itself">>;
 explain_reason({novalue,Name}, error, [], _PF, _S, _Enc, _CL) ->
-    io_lib:fwrite(~"no value provided for field ~w", [Name]);
+    io_lib:fwrite(~"no value provided for field ~ts", [format_record(Name)]);
 %% Other exit code:
 explain_reason(Reason, Class, [], PF, S, _Enc, CL) ->
     {L, _} = PF(Reason, (iolist_size(S)+1) + exited_size(Class), CL),
     L.
+
+format_record({{M, N},F}) ->
+    io_lib:bformat(~"~w in #~w:~w{}", [F, M, N]).
 
 n_args(A) when is_integer(A) ->
     A;

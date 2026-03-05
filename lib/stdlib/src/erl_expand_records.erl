@@ -421,6 +421,11 @@ expr({map_field_exact,Anno,K0,V0}, St0) ->
 expr({record_index,Anno,Name,F}, St) ->
     I = index_expr(Anno, F, Name, record_fields(Name, Anno, St)),
     expr(I, St);
+expr({record,Anno0,{shell_default,N},Is}, St0) ->
+    #{N := {local, Inits}} = St0#exprec.rec_mod,
+    {yes,{record,Anno1,{M,N},Es0}} = maybe_expand_inits(Anno0, N, Inits, Is, St0),
+    {Es1, St1} = expr_list(Es0, St0),
+    {{record,Anno1,{M,N},Es1},St1};
 expr({record,Anno,{M,N},Inits}, St0) ->
     {Es1, St1} = expr_list(Inits, St0),
     {{record,Anno,{M,N},Es1},St1};
