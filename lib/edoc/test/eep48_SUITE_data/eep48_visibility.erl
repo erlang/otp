@@ -3,7 +3,6 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 %%
-%% Copyright 2019-2021 Radek Szymczyszyn
 %% Copyright Ericsson AB 2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,45 +28,36 @@
 %% either the Apache License or the LGPL.
 %%
 %% %CopyrightEnd%
-%%
-%% @author Radek Szymczyszyn <lavrin@gmail.com>
-%% @end
 %% =====================================================================
--module(eep48_redundant).
 
--export([f_redundant_spec/0,
-         f_only_attr/0,
-         f_only_tag/0,
-         f_prefixed_spec/0]).
+%% @doc Test visibility of various kinds of items in the generated docs.
+-module(eep48_visibility).
 
--export_type([t_only_attr/0,
-	      t_only_tag/0,
-	      t_redundant/0]).
+-export([public_function/0, hidden_function/0, private_function/0]).
 
--type t_only_attr() :: any().
-%% Type `t_only_attr' defined with an attribute.
+-export_type([public_type/0]).
 
-%% @type t_only_tag() = any().
-%% Type `t_only_tag' defined with a tag.
+%% Note: There is no such thing as a hidden or private type.
 
--type t_redundant() :: any().
-%% Type `t_redundant' defined with an attribute, redundant with a tag.
+-type public_type() :: {}.
+%% This type should be visible in the generated docs.
+-type non_exported_type() :: ok.
+%% This type should not be visible in the generated docs.
 
-%% @type t_redundant() = any().
-%% Type `t_redundant' defined with a tag, redundant with an attribute.
+%% @doc This function should be visible in the generated docs.
+-spec public_function() -> ok.
+public_function() -> ok.
 
--spec f_redundant_spec() -> atom().
-%% @doc Function with a redundant spec.
-%% @spec f_redundant_spec() -> tag()
-f_redundant_spec() -> ok.
+%% @doc This function should not be visible in the generated docs.
+%% @hidden
+-spec hidden_function() -> ok.
+hidden_function() -> ok.
 
--spec f_only_attr() -> atom().
-%% @doc Function with only a spec attribute.
-f_only_attr() -> ok.
+%% @doc This function should not be visible in the generated docs.
+%% @private
+-spec private_function() -> non_exported_type().
+private_function() -> non_exported_function().
 
-%% @spec f_only_tag() -> atom()
-%% @doc Function with only a spec tag.
-f_only_tag() -> ok.
-
--spec eep48_redundant:f_prefixed_spec() -> any().
-f_prefixed_spec() -> ok.
+%% @doc This type should not be visible in the generated docs.
+-spec non_exported_function() -> non_exported_type().
+non_exported_function() -> ok.

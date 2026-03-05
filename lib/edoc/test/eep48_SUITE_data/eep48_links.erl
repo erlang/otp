@@ -1,6 +1,42 @@
+%% =====================================================================
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2019-2021 Radek Szymczyszyn
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
+%% %CopyrightEnd%
+%%
+%% =====================================================================
+%% 
 %% @doc Fixtures for chunk links.
 %% See http://erlang.org/doc/apps/erl_docgen/inline_tags.html#%3Csee*%3E---see-tags for
 %% the description of `seemfa', `seetype', etc link types.
+%% @author Radek Szymczyszyn <lavrin@gmail.com>
+%% @end
 -module(eep48_links).
 
 -export([f/0,
@@ -12,7 +48,10 @@
 	 local_function_link/0,
 	 local_type_link/0,
 	 local_type_link_macro/0,
-	 external_type_link/0]).
+	 external_type_link/0,
+	 fun_with_equiv_tag/0,
+	 fun_with_non_call_equiv_tag/0,
+	 fun_with_equiv_doc_and_see/0]).
 
 -export([see_module/0,
 	 see_app/0,
