@@ -418,6 +418,7 @@ bad_generators(Config) when is_list(Config) ->
     {'EXIT',{{bad_generator,a},_}} = catch [X || X := X <- a && _Y <- [1]],
     {'EXIT',{{bad_generators,{[d],[]}},_}} =
         catch #{X => Y || X <- [a,b,c,d] && Y <- [1,2,3], Y > 1},
+    ?assertError({bad_generator,gen}, [ok || 0 <:- [a] && _ := true <- gen]),
 
     %% Make sure that line numbers point out the generator.
     case ?MODULE of
