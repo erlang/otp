@@ -1477,8 +1477,8 @@ void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
 }
 
 void BeamModuleAssembler::emit_case_end(const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_case_end");
+    emit_error(EXC_CASE_CLAUSE, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_system_limit_body() {
@@ -1487,8 +1487,8 @@ void BeamModuleAssembler::emit_system_limit_body() {
 }
 
 void BeamModuleAssembler::emit_if_end() {
-    // TODO
-    emit_nyi("emit_if_end");
+    emit_error(EXC_IF_CLAUSE);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_badrecord(const ArgSource &Src) {
@@ -1647,19 +1647,35 @@ void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
 }
 
 void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_try_case_end");
+    emit_error(EXC_TRY_CLAUSE, Src);
 }
 
 void BeamGlobalAssembler::emit_raise_shared() {
-    // TODO
-    emit_nyi("emit_raise_shared");
+    a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
+    a.str(ARG2, arm::Mem(c_p, offsetof(Process, ftrace)));
+
+    emit_enter_runtime();
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_sanitize_freason);
+    emit_leave_runtime();
+
+    mov_imm(ARG4, 0);
+    a.mov(ARG2, a32::lr);
+    a.b(labels[raise_exception_shared]);
 }
 
 void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
                                      const ArgSource &Value) {
-    // TODO
-    emit_nyi("emit_raise");
+    auto [value, trace] = load_sources(Value, ARG1, Trace, ARG2);
+    mov_var(ARG1, value);
+    mov_var(ARG2, trace);
+    fragment_call(ga->get_raise_shared());
+
+    mark_unreachable();
+
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {
@@ -1676,8 +1692,25 @@ void BeamModuleAssembler::emit_build_stacktrace() {
 /* This instruction has the same semantics as the erlang:raise/3 BIF,
  * except that it can rethrow a raw stack backtrace. */
 void BeamModuleAssembler::emit_raw_raise() {
-    // TODO
-    emit_nyi("emit_raw_raise");
+    Label next = a.newLabel();
+
+    a.ldr(ARG1, getXRef(2));
+    a.ldr(ARG2, getXRef(0));
+    a.ldr(ARG3, getXRef(1));
+    a.mov(ARG4, c_p);
+
+    emit_enter_runtime();
+    runtime_call<4>(raw_raise);
+    emit_leave_runtime();
+
+    a.tst(ARG1, ARG1);
+    a.b_ne(next);
+
+    emit_raise_exception();
+
+    a.bind(next);
+    mov_imm(ARG1, am_badarg);
+    a.str(ARG1, getXRef(0));
 }
 
 #define TEST_YIELD_RETURN_OFFSET                                               \
