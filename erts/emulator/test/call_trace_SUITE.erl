@@ -27,14 +27,15 @@
          init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
          init_per_testcase/2,end_per_testcase/2,
-         process_specs/1,basic/1,flags/1,errors/1,pam/1,change_pam/1,
+         process_specs/1,basic/1,flags/1,errors/1,pam/1,pam_prefix/1,change_pam/1,
          return_trace/1,exception_trace/1,on_load/1,deep_exception/1,
          upgrade/1,
          exception_nocatch/1,bit_syntax/1]).
 
 %% Helper functions.
 
--export([bar/0,foo/0,foo/1,foo/2,expect/1,worker_foo/1,pam_foo/2,nasty/0,
+-export([bar/0,foo/0,foo/1,foo/2,expect/1,worker_foo/1,pam_foo/2,
+         prefix_foo/1,prefix_foo/2,prefix_foo/3,nasty/0,
          id/1,deep/3,deep_1/3,deep_2/2,deep_3/2,deep_4/1,deep_5/1,
          bs_sum_a/2,bs_sum_b/2]).
 
@@ -61,7 +62,7 @@ groups() ->
     trace_sessions:groups(testcases()).
 
 testcases() ->
-    [process_specs, basic, flags, pam, change_pam,
+    [process_specs, basic, flags, pam, pam_prefix, change_pam,
      upgrade,
      return_trace, exception_trace, deep_exception,
      exception_nocatch, bit_syntax, errors, on_load].
@@ -565,7 +566,115 @@ pam_foo(A, B) ->
     {ok,A,B}.
 
 
-%% Test changing PAM programs for a function.
+%% Test prefix matching in PAM (match on argument prefix).
+pam_prefix(Config) when is_list(Config) ->
+    start_tracer(),
+    Self = self(),
+    trace_pid(Self, true, [call]),
+
+    %% Test Prog1: prefix match on first argument being {a, tuple}
+    Prog1 = {[{a,tuple} | '_'],[],[]},
+    trace_func({?MODULE,prefix_foo,'_'}, [Prog1]),
+
+    ?MODULE:prefix_foo(not_a_tuple),
+    ?MODULE:prefix_foo({a,tuple}),
+    ?MODULE:prefix_foo({a,tuple}, extra_arg),
+    ?MODULE:prefix_foo({a,tuple}, extra1, extra2),
+    ?MODULE:prefix_foo(something_else, extra_arg),
+
+    expect({trace,Self,call,{?MODULE,prefix_foo,[{a,tuple}]}}),
+    expect({trace,Self,call,{?MODULE,prefix_foo,[{a,tuple},extra_arg]}}),
+    expect({trace,Self,call,{?MODULE,prefix_foo,[{a,tuple},extra1,extra2]}}),
+
+    trace_func({?MODULE,prefix_foo,'_'}, false),
+
+    %% Test Prog2: prefix match with guard on first argument
+    Prog2 = {['$1' | '_'],[{'>','$1',5}],[{message,'$1'}]},
+    trace_func({?MODULE,prefix_foo,'_'}, [Prog2]),
+
+    ?MODULE:prefix_foo(3),
+    ?MODULE:prefix_foo(10),
+    ?MODULE:prefix_foo(7, second),
+    ?MODULE:prefix_foo(2, second, third),
+    ?MODULE:prefix_foo(100, second, third),
+
+    expect({trace,Self,call,{?MODULE,prefix_foo,[10]},10}),
+    expect({trace,Self,call,{?MODULE,prefix_foo,[7,second]},7}),
+    expect({trace,Self,call,{?MODULE,prefix_foo,[100,second,third]},100}),
+
+    trace_func({?MODULE,prefix_foo,'_'}, false),
+
+    %% Test empty prefix: ['_'] matches any arity (equivalent to '_')
+    Prog3 = {['$1' | '_'],[],[{message,'$1'}]},
+    trace_func({?MODULE,prefix_foo,'_'}, [Prog3]),
+
+    ?MODULE:prefix_foo(single),
+    ?MODULE:prefix_foo(first, second_arg),
+
+    expect({trace,Self,call,{?MODULE,prefix_foo,[single]},single}),
+    expect({trace,Self,call,{?MODULE,prefix_foo,[first,second_arg]},first}),
+
+    trace_func({?MODULE,prefix_foo,'_'}, false),
+
+    %% Test '$_' (whole expression) in prefix matches.
+    %% '$_' should return ALL actual arguments, not just the matched prefix.
+    Prog4 = {['$1' | '_'],[],[{message,'$_'}]},
+    trace_func({?MODULE,prefix_foo,'_'}, [Prog4]),
+
+    ?MODULE:prefix_foo(single),
+    ?MODULE:prefix_foo(first, second_arg),
+    ?MODULE:prefix_foo(first, second_arg, third_arg),
+
+    expect({trace,Self,call,{?MODULE,prefix_foo,[single]},[single]}),
+    expect({trace,Self,call,{?MODULE,prefix_foo,[first,second_arg]},
+            [first,second_arg]}),
+    expect({trace,Self,call,{?MODULE,prefix_foo,[first,second_arg,third_arg]},
+            [first,second_arg,third_arg]}),
+
+    trace_func({?MODULE,prefix_foo,'_'}, false),
+
+    %% Test '$$' (all bindings) in prefix matches.
+    %% '$$' should return only variables bound in the prefix head.
+    Prog5 = {['$1','$2' | '_'],[],[{message,'$$'}]},
+    trace_func({?MODULE,prefix_foo,'_'}, [Prog5]),
+
+    %% prefix_foo/1 should NOT match (only 1 arg, prefix needs at least 2)
+    ?MODULE:prefix_foo(only_one),
+    %% prefix_foo/2 and /3 should match
+    ?MODULE:prefix_foo(first, second_arg),
+    ?MODULE:prefix_foo(first, second_arg, third_arg),
+
+    expect({trace,Self,call,{?MODULE,prefix_foo,[first,second_arg]},
+            [first,second_arg]}),
+    expect({trace,Self,call,{?MODULE,prefix_foo,[first,second_arg,third_arg]},
+            [first,second_arg]}),
+
+    trace_func({?MODULE,prefix_foo,'_'}, false),
+
+    %% Test erlang:match_spec_test with prefix match
+    {ok,a,[],[]} = erlang:match_spec_test(
+        [a,b,c], [{['$1' | '_'],[],[{message,'$1'}]}], trace),
+    {ok,false,[],[]} = erlang:match_spec_test(
+        [3], [{['$1' | '_'],[{'>','$1',5}],[{message,'$1'}]}], trace),
+    {ok,10,[],[]} = erlang:match_spec_test(
+        [10,extra], [{['$1' | '_'],[{'>','$1',5}],[{message,'$1'}]}], trace),
+    {ok,[a,b,c],[],[]} = erlang:match_spec_test(
+        [a,b,c], [{['$1' | '_'],[],[{message,'$_'}]}], trace),
+    {ok,[a,b],[],[]} = erlang:match_spec_test(
+        [a,b], [{['$1' | '_'],[],[{message,'$_'}]}], trace),
+    {ok,[a,b],[],[]} = erlang:match_spec_test(
+        [a,b,c], [{['$1','$2' | '_'],[],[{message,'$$'}]}], trace),
+    {ok,[a],[],[]} = erlang:match_spec_test(
+        [a,b,c], [{['$1' | '_'],[],[{message,'$$'}]}], trace),
+    ok.
+
+prefix_foo(A) ->
+    {ok, A}.
+prefix_foo(A, B) ->
+    {ok, A, B}.
+prefix_foo(A, B, C) ->
+    {ok, A, B, C}.
+
 change_pam(_Config) ->
     start_tracer(),
     Self = self(),

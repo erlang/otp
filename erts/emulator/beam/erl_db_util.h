@@ -568,7 +568,8 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 Eterm *body, int num_matches, 
 			 Uint flags, 
 			 DMCErrInfo *err_info,
-                         Uint *freasonp);
+                         Uint *freasonp,
+                         const bool *is_prefix);
 /* Returns newly allocated MatchProg binary with refc == 0*/
 
 Eterm db_match_dbterm_uncompressed(DbTableCommon* tb, Process* c_p, Binary* bprog,
