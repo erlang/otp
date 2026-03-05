@@ -1663,8 +1663,14 @@ void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {
-    // TODO
-    emit_nyi("emit_build_stacktrace");
+    a.ldr(ARG2, getXRef(0));
+
+    emit_enter_runtime<Update::eHeapAlloc>();
+    a.mov(ARG1, c_p);
+    runtime_call<2>(build_stacktrace);
+    emit_leave_runtime<Update::eHeapAlloc>();
+
+    a.str(ARG1, getXRef(0));
 }
 
 /* This instruction has the same semantics as the erlang:raise/3 BIF,
