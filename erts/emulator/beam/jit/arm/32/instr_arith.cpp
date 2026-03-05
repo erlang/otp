@@ -32,8 +32,30 @@ void BeamModuleAssembler::emit_add_sub_types(bool is_small_result,
                                              const ArgSource &RHS,
                                              const a32::Gp rhs_reg,
                                              const Label next) {
-    // TODO
-    emit_nyi("emit_add_sub_types");
+    if (is_small_result) {
+        comment("skipped overflow test because the result is always small");
+        emit_are_both_small(LHS, lhs_reg, RHS, rhs_reg, next);
+    } else if (RHS.isLiteral()) {
+        /* Skipping test for small */
+    } else {
+        Label overflow = a.newLabel();
+
+        if (always_small(RHS)) {
+            a.and_(TMP, lhs_reg, imm(_TAG_IMMED1_MASK));
+        } else if (always_small(LHS)) {
+            a.and_(TMP, rhs_reg, imm(_TAG_IMMED1_MASK));
+        } else {
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP, lhs_reg, rhs_reg);
+            a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+        }
+
+        comment("test for not overflow and small operands");
+        a.b_vs(overflow);
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_eq(next);
+        a.bind(overflow);
+    }
 }
 
 void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
@@ -41,8 +63,42 @@ void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
                                               const ArgSource &RHS,
                                               const a32::Gp rhs_reg,
                                               const Label next) {
-    // TODO
-    emit_nyi("emit_are_both_small");
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (always_small(RHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS)) {
+        comment("simplified test for small operand since other types are "
+                "boxed");
+        emit_is_boxed(next, lhs_reg);
+    } else if (always_small(LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
+        comment("simplified test for small operand since other types are "
+                "boxed");
+        emit_is_boxed(next, rhs_reg);
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
+        comment("simplified test for small operands since other types are "
+                "boxed");
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.and_(TMP, lhs_reg, rhs_reg);
+        emit_is_boxed(next, TMP);
+    } else {
+        if (always_small(RHS)) {
+            a.and_(TMP, lhs_reg, imm(_TAG_IMMED1_MASK));
+        } else if (always_small(LHS)) {
+            a.and_(TMP, rhs_reg, imm(_TAG_IMMED1_MASK));
+        } else {
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP, lhs_reg, rhs_reg);
+            a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+        }
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_eq(next);
+    }
 }
 
 /*
@@ -64,8 +120,61 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_plus");
+    bool rhs_is_arm_literal =
+            RHS.isSmall() && Support::isUInt12(RHS.as<ArgSmall>().get());
+    bool is_small_result = is_sum_small_if_args_are_small(LHS, RHS);
+
+    if (always_small(LHS) && always_small(RHS) && is_small_result) {
+        auto dst = init_destination(Dst, ARG1);
+        if (rhs_is_arm_literal) {
+            auto lhs = load_source(LHS);
+            Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
+            comment("add small constant without overflow check");
+            a.add(dst.reg, lhs.reg, imm(cleared_tag));
+        } else {
+            auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+            comment("addition without overflow check");
+            a.bic(TMP, rhs.reg, imm(_TAG_IMMED1_MASK));
+            a.add(dst.reg, lhs.reg, TMP);
+        }
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel();
+
+    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (rhs_is_arm_literal) {
+        Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
+        a.adds(ARG1, lhs.reg, imm(cleared_tag));
+    } else {
+        a.bic(TMP, rhs.reg, imm(_TAG_IMMED1_MASK));
+        a.adds(ARG1, lhs.reg, TMP);
+    }
+
+    emit_add_sub_types(is_small_result, LHS, lhs.reg, RHS, rhs.reg, next);
+
+    mov_var(ARG2, lhs);
+    mov_var(ARG3, rhs);
+
+    if (Fail.get() != 0) {
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erts_mixed_plus);
+        emit_leave_runtime();
+
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime();
+        fragment_call(ga->get_plus_body_shared());
+        emit_leave_runtime();
+    }
+
+    a.bind(next);
+    mov_arg(Dst, ARG1);
 }
 
 /*
