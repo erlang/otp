@@ -81,14 +81,16 @@ void BeamGlobalAssembler::emit_i_bif_body_shared() {
 
     a.bind(error);
     {
-        /* Reload arguments into x_reg_array for exception handling. */
+        /* Copy arguments into x-registers from the argument vector. We don't
+         * need to care about actual arity since x-registers are clobbered
+         * on exceptions. */
         a.ldr(ARG2, TMP_MEM1q);
-        a.ldr(TMP, arm::Mem(ARG2, 0 * sizeof(Eterm)));
-        a.str(TMP, getXRef(0));
-        a.ldr(TMP, arm::Mem(ARG2, 1 * sizeof(Eterm)));
-        a.str(TMP, getXRef(1));
-        a.ldr(TMP, arm::Mem(ARG2, 2 * sizeof(Eterm)));
-        a.str(TMP, getXRef(2));
+        a.ldr(ARG1, arm::Mem(ARG2, 0 * sizeof(Eterm)));
+        a.str(ARG1, getXRef(0));
+        a.ldr(ARG1, arm::Mem(ARG2, 1 * sizeof(Eterm)));
+        a.str(ARG1, getXRef(1));
+        a.ldr(ARG1, arm::Mem(ARG2, 2 * sizeof(Eterm)));
+        a.str(ARG1, getXRef(2));
 
         /* Find the correct MFA from the BIF's function address. */
         a.ldr(ARG1, TMP_MEM2q);
@@ -284,11 +286,8 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
     /* Spill everything we may need on the error and GC paths. */
     a.ldr(TMP, arm::Mem(c_p, offsetof(Process, mbuf)));
     a.str(TMP, mbuf_mem);
-    //make TMP point to TMP_MEM1q, stmia does not support offsets
-    arm::Mem tmp_mem1q = arm::Mem(TMP);
-    a.mov(TMP, scheduler_registers);
-    a.add(TMP, TMP, offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[0]));
-    a.stmia(tmp_mem1q, a32::GpList({ARG3, ARG4}));
+    lea(TMP, TMP_MEM1q);
+    a.stmia(arm::Mem(TMP), a32::GpList({ARG3, ARG4}));
 
     /* Check if we should trace this bif call or handle save_calls. Both
      * variants dispatch through the export entry. */
