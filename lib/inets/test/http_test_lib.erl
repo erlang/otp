@@ -202,3 +202,65 @@ dummy_server_stop(Pid) ->
 	{stopped, Pid} ->
 	    ok
     end.
+
+open_big_data_socket(gen_tcp, Pid, _Config) ->
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
+                                        {active, false}]),
+    {ok, Port} = inet:port(LSock),
+    Pid ! {started_listen, Port},
+    (fun F() ->
+        receive
+            {stop_listen, CleanupPid} ->
+                gen_tcp:close(LSock),
+                CleanupPid ! stopped_listen
+        after 0 ->
+            accept_and_send_data(gen_tcp, LSock),
+            F()
+        end
+    end)();
+
+open_big_data_socket(ssl, Pid, Config) ->
+    SSLOptions =  Config ++ [{verify, verify_none}, {reuseaddr, true}, binary, {packet, 0}, {active, false}],
+    {ok, LSock} = ssl:listen(0, SSLOptions),
+    {ok, {_, Port}} = ssl:sockname(LSock),
+    Pid ! {started_listen, Port},
+    (fun F() ->
+        receive
+            {stop_listen, CleanupPid} ->
+                ssl:close(LSock),
+                CleanupPid ! stopped_listen
+        after 0 ->
+            accept_and_send_data(ssl, LSock),
+            F()
+        end
+    end)().
+
+accept_and_send_data(gen_tcp, Sock) ->
+    {ok, Sock1} = gen_tcp:accept(Sock),
+    F = fun() ->
+        receive start -> ok end,
+        gen_tcp:recv(Sock1, 0),
+        gen_tcp:send(Sock1, ["HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"]),
+        ChunkSize = 1024*64*8, % 64KB
+        << begin gen_tcp:send(Sock1, <<Chunk:ChunkSize>>), <<>> end || <<Chunk:ChunkSize>> <= ?DATA_20MB>>,
+        receive after 10000 -> ok end,
+        gen_tcp:close(Sock1)
+    end,
+    HandlerPid = spawn(F),
+    gen_tcp:controlling_process(Sock1, HandlerPid),
+    HandlerPid ! start;
+accept_and_send_data(ssl, LSock) ->
+    {ok, Sock1} = ssl:transport_accept(LSock),
+    F = fun() ->
+        receive start -> ok end,
+        {ok, Sock} = ssl:handshake(Sock1),
+        ssl:recv(Sock, 0),
+        ssl:send(Sock, ["HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"]),
+        ChunkSize = 1024*64*8, % 64KB
+        << begin ssl:send(Sock, <<Chunk:ChunkSize>>), <<>> end || <<Chunk:ChunkSize>> <= ?DATA_20MB>>,
+        receive after 5000 -> ok end,
+        ssl:close(Sock)
+     end,
+    HandlerPid = spawn(F),
+    ssl:controlling_process(Sock1, HandlerPid),
+    HandlerPid ! start.
