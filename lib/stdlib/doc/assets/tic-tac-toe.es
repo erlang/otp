@@ -23,16 +23,18 @@
 main(_Args) ->
     ok = shell:start_interactive({noshell, raw}),
     
-    io:put_chars("\e[?1049h"), %% Enable alternate screen buffer
-    io:put_chars("\e[?25l"), %% Hide the cursor
-    draw_board(),
-    loop({0, "X", list_to_tuple(lists:duplicate(9, ""))}),
-    io:put_chars("\e[?25h"), %% Show the cursor
-    io:put_chars("\e[?1049l"), %% Disable alternate screen buffer
-    ok.
+    try
+        %% Enable alternate screen buffer, hide cursor and enable keypad_transmit_mode
+        io_ansi:fwrite([alternate_screen, cursor_hide, keypad_transmit_mode]),
+        draw_board(),
+        loop({0, "X", list_to_tuple(lists:duplicate(9, ""))}),
+        timer:sleep(5000)
+    after ->
+        io_ansi:fwrite([alternate_screen_off, cursor_show, keypad_transmit_mode_off])
+    end.
 
 draw_board() ->
-    io:put_chars("\e[5;0H"), %% Move cursor to top left
+    io_ansi:fwrite([{cursor, 6, 0}]),
     io:put_chars(
       ["     ╔═══════╤═══════╤═══════╗\r\n",
        "     ║       │       │       ║\r\n",
@@ -50,76 +52,81 @@ draw_board() ->
     ok.
 
 loop(State) ->
-    io:put_chars(draw_state(State)),
-    case handle_input(io:get_chars("", 30), State) of
-        stop -> stop;
-        NewState ->
-            io:put_chars(clear_selection(State)),
-            loop(NewState)
+    io_ansi:fwrite(lists:flatten(draw_state(State))),
+    case io:get_chars("", 1024) of
+        eof -> stop;
+        Chars ->
+            case handle_input(io_ansi:scan(Chars), State) of
+                stop -> stop;
+                NewState ->
+                    io_ansi:fwrite(clear_selection(State)),
+                    loop(NewState)
+            end
     end.
 
 %% Clear/draw the selection markers, making sure
 %% not to overwrite if a X or O exists.
-%%   \b = Move cursor left
-%%   \e[C = Move cursor right
-%%   \n = Move cursor down
 clear_selection({Pos, _, _}) ->
     [set_position(Pos),
-     "       ","\b\b\b\b\b\b\b\n",
-     " \e[C\e[C\e[C\e[C\e[C ",
-     "\b\b\b\b\b\b\b\n","       "].
+     "       ",{cursor_backward, 7}, cursor_down,
+     " ",{cursor_forward,5}," ",
+     {cursor_backward, 7}, cursor_down,
+     "       "].
 
 draw_selection({Pos, _, _}) ->
     [set_position(Pos),
-     "┌─────┐","\b\b\b\b\b\b\b\n",
-     "│\e[C\e[C\e[C\e[C\e[C│",
-     "\b\b\b\b\b\b\b\n","└─────┘"].
+     "┌─────┐",
+     {cursor_backward, 7}, cursor_down,
+     "│",{cursor_forward,5},"│",
+     {cursor_backward, 7}, cursor_down,
+     "└─────┘"].
 
 %% Set the cursor position to be at the top
 %% left of the field of the given position
 set_position(Pos) ->
     Row = 6 + (Pos div 3) * 4,
     Col = 7 + (Pos rem 3) * 8,
-    io_lib:format("\e[~p;~pH",[Row, Col]).
+    {cursor, Row + 1, Col - 1}.
 
 %% Update selection and whos turn it is
 draw_state({_, Turn, _} = State) ->
     [draw_selection(State),
-     io_lib:format("\e[7;45H~s",[Turn])].
+     {cursor, 8, 44}, Turn].
 
 %% Draw X or O
 draw_marker(Pos, Turn) ->
-    [set_position(Pos), "\e[C\e[C\e[C\n", Turn].
+    [set_position(Pos), {cursor_forward, 3}, cursor_down, Turn].
 
-handle_input(eof, _State) ->
-    stop;
-handle_input("\e[A" ++ Rest, {Pos, Turn, State}) ->
+handle_input([kcursor_up | Rest], {Pos, Turn, State}) ->
     %% Up key
     handle_input(Rest, {max(0, Pos - 3), Turn, State});
-handle_input("\e[B" ++ Rest, {Pos, Turn, State}) ->
+handle_input([kcursor_down | Rest], {Pos, Turn, State}) ->
     %% Down key
     handle_input(Rest, {min(8, Pos + 3), Turn, State});
-handle_input("\e[C" ++ Rest, {Pos, Turn, State}) ->
+handle_input([kcursor_forward | Rest], {Pos, Turn, State}) ->
     %% right key
     handle_input(Rest, {min(8, Pos + 1), Turn, State});
-handle_input("\e[D" ++ Rest, {Pos, Turn, State}) ->
+handle_input([kcursor_backward | Rest], {Pos, Turn, State}) ->
     %% left key
     handle_input(Rest, {max(0, Pos - 1), Turn, State});
-handle_input("\r" ++ Rest, {Pos, Turn, State} = OldState) ->
+handle_input([<<"\r",Rest/binary>> | T], {Pos, Turn, State} = OldState) ->
     NewState =
         case element(Pos+1, State) of
             "" when Turn =:= "X" ->
-                io:put_chars(draw_marker(Pos, Turn)),
+                io_ansi:fwrite(draw_marker(Pos, Turn)),
                 {Pos, "O", setelement(Pos+1, State, Turn)};
             "" when Turn =:= "O" ->
-                io:put_chars(draw_marker(Pos, Turn)),
+                io_ansi:fwrite(draw_marker(Pos, Turn)),
                 {Pos, "X", setelement(Pos+1, State, Turn)};
-            _ -> io:put_chars("\^G"), OldState
+            _ -> io_ansi:fwrite("\^G"), OldState
         end,
-    handle_input(Rest, NewState);
-handle_input("q" ++ _, _State) ->
+    handle_input([Rest | T], NewState);
+handle_input([<<"q",_Rest/binary>> | _T], _State) ->
     stop;
-handle_input([_ | T], State) ->
+handle_input([<<>> | T], State) ->
+    handle_input(T, State);
+handle_input([C | T], State) ->
+    io_ansi:fwrite([cursor_save, {cursor, 40, 0}, "Unknown character: ~p", cursor_restore],[C]),
     handle_input(T, State);
 handle_input([], State) ->
     State.

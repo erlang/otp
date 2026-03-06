@@ -41,7 +41,7 @@
          xterm/3, dumb/3, handle_info/3]).
 
 %% gen statem callbacks
--export([init/1, callback_mode/0]).
+-export([init/1, callback_mode/0, format_status/1]).
 
 %% Logger report format fun
 -export([format_io_request_log/1, log_io_request/3]).
@@ -49,7 +49,9 @@
 -type mfargs() :: {module(), atom(), [term()]}.
 -type nmfargs() :: {node(), module(), atom(), [term()]}.
 
--define(IS_PUTC_REQ(Req), element(1, Req) =:= put_chars orelse element(1, Req) =:= requests).
+-define(IS_PUTC_REQ(Req), element(1, Req) =:= put_chars orelse
+        element(1, Req) =:= requests orelse
+        element(1, Req) =:= put_ansi).
 -define(IS_INPUT_REQ(Req),
         element(1, Req) =:= get_chars orelse element(1, Req) =:= get_line orelse
         element(1, Req) =:= get_until orelse element(1, Req) =:= get_password).
@@ -154,6 +156,9 @@ init([Drv, Shell, Options]) ->
     edlin:init(),
 
     {ok, init, State, {next_event, internal, [Shell, Options]}}.
+
+format_status(#{state := State}) ->
+    State#state{ line_history = undefined }.
 
 init(internal, [Shell, Options], State = #state{ dumb = Dumb }) ->
 
@@ -606,6 +611,9 @@ putc_request(Req, From, ReplyAs, State) ->
 %%
 %% These put requests have to be synchronous to the driver as otherwise
 %% there is no guarantee that the data has actually been printed.
+putc_request({put_ansi, Opts, Ansi}, Drv, From) ->
+    send_drv(Drv, {put_ansi_sync, Opts, Ansi, From}),
+    noreply;
 putc_request({put_chars,unicode,Chars}, Drv, From) ->
     case catch unicode:characters_to_binary(Chars,utf8) of
         Binary when is_binary(Binary) ->
