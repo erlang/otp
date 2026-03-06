@@ -45,8 +45,13 @@ void BeamModuleAssembler::emit_float_instr(uint32_t instId,
 
 void BeamModuleAssembler::emit_fload(const ArgSource &Src,
                                      const ArgFRegister &Dst) {
-    // TODO
-    emit_nyi("emit_fload");
+    auto src = load_source(Src, TMP);
+    auto dst = init_destination(Dst, a32::d0);
+    a32::Gp float_ptr = emit_ptr_val(TMP, src.reg);
+
+    lea(TMP, emit_boxed_val(float_ptr, sizeof(Eterm)));
+    a.vldr_64(dst.reg, arm::Mem(TMP));
+    flush_var(dst);
 }
 
 void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,

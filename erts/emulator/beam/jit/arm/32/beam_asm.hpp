@@ -1355,8 +1355,10 @@ protected:
     }
 
     void flush_var(const Variable<a32::VecD> &to) {
-        // TODO
-        ASSERT(false);
+        if (to.mem.hasBase()) {
+            lea(TMP, to.mem);
+            a.vstr_64(to.reg, arm::Mem(TMP));
+        }
     }
 
     enum Relation { none, consecutive, reverse_consecutive };
