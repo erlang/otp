@@ -1390,15 +1390,15 @@ protected:
     void flush_vars(const Variable<a32::Gp> &to1,
                     const Variable<a32::Gp> &to2,
                     const Variable<a32::Gp> &to3) {
-        if (memory_relation(to2.mem, to3.mem) != Relation::none) {
-            flush_vars(to2, to3);
-            flush_var(to1);
-        } else if (memory_relation(to1.mem, to3.mem) != Relation::none) {
-            flush_vars(to1, to3);
-            flush_var(to2);
-        } else {
+        if (memory_relation(to1.mem, to2.mem) != Relation::none) {
             flush_vars(to1, to2);
             flush_var(to3);
+        } else if (memory_relation(to2.mem, to3.mem) != Relation::none) {
+            flush_vars(to2, to3);
+            flush_var(to1);
+        } else {
+            flush_vars(to1, to3);
+            flush_var(to2);
         }
     }
 

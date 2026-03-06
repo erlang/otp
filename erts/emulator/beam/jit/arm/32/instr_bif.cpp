@@ -206,8 +206,30 @@ void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
 void BeamModuleAssembler::emit_i_length_setup(const ArgLabel &Fail,
                                               const ArgWord &Live,
                                               const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_i_length_setup");
+    /* Store trap state after the currently live registers. There are
+     * 3 extra registers beyond the ordinary ones that we're free to
+     * use for whatever purpose. */
+    ERTS_CT_ASSERT(ERTS_X_REGS_ALLOCATED - MAX_REG >= 3);
+    auto trap_reg1 = ArgXRegister(Live.get() + 0);
+    auto trap_reg2 = ArgXRegister(Live.get() + 1);
+    auto trap_reg3 = ArgXRegister(Live.get() + 2);
+
+    auto src = load_source(Src, ARG1);
+    auto dst1 = init_destination(trap_reg1, src.reg);
+    auto dst2 = init_destination(trap_reg2, ARG2);
+
+    mov_imm(dst2.reg, make_small(0));
+    mov_var(dst1, src);
+
+    /* Store original argument. This is only needed for exceptions and
+     * can be safely skipped in guards. */
+    if (Fail.get() != 0) {
+        flush_vars(dst1, dst2);
+    } else {
+        auto dst3 = init_destination(trap_reg3, src.reg);
+        mov_var(dst3, src);
+        flush_vars(dst1, dst2, dst3);
+    }
 }
 
 /* ARG2 = live registers, ARG3 = entry address
