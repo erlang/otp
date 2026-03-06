@@ -217,8 +217,61 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
                                        const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_minus");
+    bool rhs_is_arm_literal =
+            RHS.isSmall() && Support::isUInt12(RHS.as<ArgSmall>().get());
+    bool is_small_result = is_diff_small_if_args_are_small(LHS, RHS);
+
+    if (always_small(LHS) && always_small(RHS) && is_small_result) {
+        auto dst = init_destination(Dst, ARG1);
+        if (rhs_is_arm_literal) {
+            auto lhs = load_source(LHS);
+            Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
+            comment("subtract small constant without overflow check");
+            a.sub(dst.reg, lhs.reg, imm(cleared_tag));
+        } else {
+            auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+            comment("subtraction without overflow check");
+            a.bic(TMP, rhs.reg, imm(_TAG_IMMED1_MASK));
+            a.sub(dst.reg, lhs.reg, TMP);
+        }
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel();
+    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (rhs_is_arm_literal) {
+        Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
+        a.subs(ARG1, lhs.reg, imm(cleared_tag));
+    } else {
+        a.bic(TMP, rhs.reg, imm(_TAG_IMMED1_MASK));
+        a.subs(ARG1, lhs.reg, TMP);
+    }
+
+    emit_add_sub_types(is_small_result, LHS, lhs.reg, RHS, rhs.reg, next);
+
+    mov_var(ARG2, lhs);
+    mov_var(ARG3, rhs);
+
+    if (Fail.get() != 0) {
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erts_mixed_minus);
+        emit_leave_runtime();
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime();
+        fragment_call(ga->get_minus_body_shared());
+        emit_leave_runtime();
+    }
+
+    a.bind(next);
+    mov_arg(Dst, ARG1);
+
+    (void)Live;
 }
 
 /*
