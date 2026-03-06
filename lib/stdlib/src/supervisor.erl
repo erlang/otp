@@ -1292,7 +1292,7 @@ handle_info(Msg, State) ->
 %% Terminate this server.
 %%
 -doc false.
--spec terminate(term(), state()) -> 'ok'.
+-spec terminate(term(), state()) -> term().
 
 terminate(_Reason, State) when ?is_simple(State) ->
     terminate_dynamic_children(State);
@@ -1558,13 +1558,8 @@ restarting(RPid) -> RPid.
 try_again_restart(TryAgainId, Tag) ->
     gen_server:cast(self(), {try_again_restart, Tag, TryAgainId}).
 
-%%-----------------------------------------------------------------
-%% Func: terminate_children/2
-%% Args: Children = children() % Ids in termination order
-%%       SupName = {local, atom()} | {global, term()} | {pid(),Mod}
-%% Returns: NChildren = children() % Ids in startup order
-%%                                 % (reversed termination order)
-%%-----------------------------------------------------------------
+-spec terminate_children(children(), SupName) -> children() when
+      SupName :: {local, atom()} | {global, term()} | {pid(), module()}.
 terminate_children(Children, SupName) ->
     Terminate =
         fun(_Id,Child) when ?is_temporary(Child) ->
