@@ -83,7 +83,8 @@ _Step 3._ Start the Erlang `ssh` daemon:
 1> ssh:start().
 ok
 2> {ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
-                                  {user_dir, "/tmp/otptest_user/.ssh"}]).
+                                  {user_dir, "/tmp/otptest_user/.ssh"},
+                                  {shell, {shell, start, []}}]).
 {ok,<0.54.0>}
 3>
 ```

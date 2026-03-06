@@ -179,9 +179,10 @@ setup_tty(Config) ->
                 PrivDir = filename:join(proplists:get_value(priv_dir, Config), "nopubkey"),
                 file:make_dir(PrivDir),
                 SysDir = proplists:get_value(data_dir, Config),
-                {ok, _Sshd} = ssh:daemon(8989, [{system_dir, SysDir},
-                                    {user_dir, PrivDir},
-                                    {password, "bar"}])
+                {ok, _Sshd} = ssh:daemon(8989, [{shell, {shell, start, []}},
+                                                {system_dir, SysDir},
+                                                {user_dir, PrivDir},
+                                                {password, "bar"}])
             end),
             os:cmd(os:find_executable("tmux") ++ " new-window -n " ++ ClientName ++ " -d -- "++
                 "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null localhost -p 8989 -l foo"),
