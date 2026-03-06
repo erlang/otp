@@ -123,7 +123,7 @@ a
 """.
 -doc #{since => ~"OTP @OTP-19785@"}.
 -spec get_name(Record) -> Name when
-      Record :: record,
+      Record :: record(),
       Name :: atom().
 get_name(_Record) ->
     erlang:nif_error(undefined).

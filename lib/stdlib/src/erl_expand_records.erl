@@ -52,6 +52,9 @@ Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
                  %% Compiler option 'dialyzer'.
                  dialyzer=false :: boolean(),
 
+                 %% Option 'expand_inits'.
+                 expand_inits=false :: boolean(),
+
                  %% Whether the size of the tuple should be tested.
                  strict_rec_tests=true :: boolean(),
 
@@ -85,6 +88,7 @@ module(Fs0, Opts0) ->
     put(erl_expand_records_in_guard, false),
     Opts = Opts0 ++ compiler_options(Fs0),
     St0 = #exprec{dialyzer = lists:member(dialyzer, Opts),
+                  expand_inits = lists:member(expand_inits, Opts),
                   calltype = init_calltype(Fs0),
                   rec_mod = init_rec_mod(Fs0),
                   strict_rec_tests = strict_record_tests(Opts)},
@@ -423,14 +427,12 @@ expr({record,Anno,{M,N},Inits}, St0) ->
 expr({record,Anno0,Name,Is}, St0) when is_atom(Name) ->
     case St0#exprec.rec_mod of
         #{Name := {local, Inits}} ->
-            M = St0#exprec.module,
-            case M of
-                shell_default ->
-                    Fs = native_record_inits(Anno0, Inits, Is),
-                    expr({record,Anno0,{M,Name},Fs}, St0);
-                _ ->
+            case maybe_expand_inits(Anno0, Name, Inits, Is, St0) of
+                no ->
                     {Es1, St1} = expr_list(Is, St0),
-                    {{record,Anno0,Name,Es1},St1}
+                    {{record,Anno0,Name,Es1},St1};
+                {yes,Record} ->
+                    expr(Record, St0)
             end;
         #{Name := {imported, M}} ->
             expr({record,Anno0,{M,Name},Is}, St0);
@@ -683,6 +685,21 @@ strict_record_access(E0, St0) ->
     St1 = St0#exprec{check_needed=[], checked_access=NRC},
     expr(E1, St1).
 
+maybe_expand_inits(Anno0, Name, Inits, Is, St) ->
+    M = St#exprec.module,
+    case St of
+        #exprec{dialyzer=true} when is_list(Inits) ->
+            Fs0 = native_record_inits(Anno0, Inits, Is),
+            Fs1 = [F|| {record_field, _, _, V} =F <- Fs0,
+                       V =/= {nil,novalue} andalso V =/= {nil,badfield}],
+            {yes, {record,Anno0,{M,Name},Fs1}};
+        #exprec{expand_inits=true} ->
+            Fs = native_record_inits(Anno0, Inits, Is),
+            {yes, {record,Anno0,{M,Name},Fs}};
+        #exprec{} ->
+            no
+    end.
+
 %% Make it look nice (?) when compiled with the 'E' flag
 %% ('and'/2 is left recursive).
 conj([], __E) ->
@@ -931,27 +948,35 @@ record_inits(Fs, Is) ->
 	end, Fs).
 
 native_record_inits(Anno0, Inits0, Is) ->
-    Inits1 = native_record_inits_1(Anno0, Inits0, []),
-    WildcardInit = record_wildcard_init(Is),
+    Inits1 = native_record_no_type(Inits0, []),
+    Inits2 = native_record_inits_1(Anno0, Inits1, []),
     IsKeys = [F || {record_field,_,{atom,_,F},_} <- Is],
-    InitKeys = [F || {record_field,_,{atom,_,F},_} <- Inits0] ++
-        [F || {record_field,_,{atom,_,F}} <- Inits0],
+    InitKeys = [F || {record_field,_,{atom,_,F},_} <- Inits1] ++
+        [F || {record_field,_,{atom,_,F}} <- Inits1],
     NoDef = ordsets:subtract(ordsets:from_list(IsKeys),
                              ordsets:from_list(InitKeys)),
     [{record_field,Anno0,{atom,Anno0,F},{nil,badfield}} || F <- NoDef] ++
         map(fun ({record_field,A1,{atom,A2,F},D}) ->
                     case find_field(F, Is) of
                         {ok,Init} -> {record_field,A1,{atom,A2,F},Init};
-                        error when WildcardInit =:= none ->
-                            {record_field,A1,{atom,A2,F},D};
-                        error -> {record_field,A1,{atom,A2,F},WildcardInit}
+                        error ->
+                            {record_field,A1,{atom,A2,F},D}
                     end;
                 ({record_field,A1,{atom,A2,F}}) ->
                     case find_field(F, Is) of
                         {ok,Init} -> {record_field,A1,{atom,A2,F},Init};
                         error -> {record_field,A1,{atom,A2,F},{nil,novalue}}
                     end
-            end, Inits1).
+            end, Inits2).
+
+native_record_no_type([{typed_record_field,Field,_Type} | Fs], Acc) ->
+    native_record_no_type([Field | Fs], Acc);
+native_record_no_type([{record_field,_,_,_}=F|Fs], Acc) ->
+    native_record_no_type(Fs, [F|Acc]);
+native_record_no_type([{record_field,_,_}=F|Fs], Acc) ->
+    native_record_no_type(Fs, [F|Acc]);
+native_record_no_type([], Acc) ->
+    reverse(Acc).
 
 native_record_inits_1(Anno0, [{record_field,_,{atom,_,F},Di}|Fs], Acc) ->
     native_record_inits_1(Anno0, Fs,

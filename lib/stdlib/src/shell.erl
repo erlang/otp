@@ -1229,7 +1229,8 @@ expand_records(UsedRecords, E0) ->
     RecordDefs = [{attribute,A,module,shell_default}] ++
                  [Def || {_Name,Def} <- UsedRecords],
     Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[E]}]}],
-    Forms = erl_expand_records:module(Forms0, [strict_record_tests]),
+    Forms = erl_expand_records:module(Forms0, [strict_record_tests,
+                                               expand_inits]),
     {function,A,foo,0,[{clause,A,[],[],[NE]}]} = lists:last(Forms),
     prep_rec(NE).
 
