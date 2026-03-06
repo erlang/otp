@@ -3910,6 +3910,18 @@ Sets an [`ErlNifPid`](erl_nif.md#ErlNifPid) variable as undefined. See
 
 Available since OTP 22.0
 
+## enif_term_size()
+
+```c
+unsigned enif_term_size(
+        ERL_NIF_TERM term);
+```
+
+Gets the number of bytes used to store term. The size does not include
+ERL_NIF_TERM itself or binary data held by the term.
+
+Available since OTP 29.0
+
 ## enif_sizeof_resource()
 
 ```c

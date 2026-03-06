@@ -1576,6 +1576,11 @@ ErlNifUInt64 enif_hash(ErlNifHash type, Eterm term, ErlNifUInt64 salt)
     }
 }
 
+size_t enif_term_size(Eterm term)
+{
+    return size_object(term) * sizeof(ERL_NIF_TERM);
+}
+
 int enif_get_tuple(ErlNifEnv* env, Eterm tpl, int* arity, const Eterm** array)
 {
     Eterm* ptr;
