@@ -195,11 +195,10 @@
 -type user_data() :: term().
 
 %% Type for the I/O primitive wrapper function
--type file_op() :: fun((write | close | read2 | position,
-                       {user_data(), iodata()} | user_data() | {user_data(), non_neg_integer()}
-                        | {user_data(), non_neg_integer()}) ->
-                              ok | eof | {ok, string() | binary()} | {ok, non_neg_integer()}
-                                 | {error, term()}).
+-type file_op() :: fun((close, file:io_device()) -> ok | {error, term()})
+                 | fun((position, {file:io_device(), file:location()}) -> {ok, integer()} | {error, term()})
+                 | fun((read2, {file:io_device(), non_neg_integer()}) -> {ok, string() | binary()} | eof | {error, term()})
+                 | fun((write, {file:io_device(), iodata()}) -> ok | {error, term()}).
 
 %% These constants (except S_IFMT) are
 %% used to determine what type of device
