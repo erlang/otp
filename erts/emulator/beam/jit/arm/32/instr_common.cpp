@@ -1719,7 +1719,6 @@ void BeamModuleAssembler::emit_raw_raise() {
 
 /* ARG3 = current_label */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
-    emit_nyi("emit_i_test_yield_shared");
     a.sub(ARG2, ARG3, imm(sizeof(ErtsCodeMFA)));
     a.add(ARG3, ARG3, imm(TEST_YIELD_RETURN_OFFSET));
 
