@@ -20,9 +20,9 @@
  * %CopyrightEnd%
  */
 
-#include "common.h"
 #include "pbkdf2_hmac.h"
-#include "digest.h"
+#include "algorithms_digest.h"
+#include "common.h"
 
 #ifdef HAS_PKCS5_PBKDF2_HMAC
 static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
@@ -30,14 +30,14 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
 {
     ErlNifBinary pass, salt, out;
     ErlNifUInt64 iter, keylen;
-    struct digest_type_t* digp = NULL;
 
-    if ((digp = get_digest_type(argv[0])) == NULL)
+    digest_type_C* digp = get_digest_type(env, argv[0]);
+    if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
-    if (digp->md.p == NULL)
-        return EXCP_BADARG_N(env, 0, "md.p is not NULL");
-    if ((digp->flags & PBKDF2_ELIGIBLE_DIGEST) == 0)
-        return EXCP_BADARG_N(env, 0, "Not eligible digest type");
+    if (get_digest_type_resource(digp) == NULL)
+        return EXCP_BADARG_N(env, 0, "md.p is expected to be not NULL");
+    if (!is_digest_eligible_for_pbkdf2(digp))
+        return EXCP_BADARG_N(env, 0, "Digest type is not eligible for PBKDF2");
 
     if (!enif_inspect_binary(env, argv[1], &pass))
         return EXCP_BADARG_N(env, 1, "Not binary");
@@ -57,7 +57,7 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
 
     if (!PKCS5_PBKDF2_HMAC((const char *)pass.data, pass.size,
                            salt.data, salt.size, iter,
-                           digp->md.p,
+                           get_digest_type_resource(digp),
                            keylen, out.data)) {
         enif_release_binary(&out);
         return EXCP_ERROR(env, "Low-level call failed");

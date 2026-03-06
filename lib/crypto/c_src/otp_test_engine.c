@@ -446,6 +446,7 @@ int test_rsa_sign(int dtype,
 
         printf("To be faked\r\n");
         /* To be faked */
+        // TODO: OpenSSL 3.0 Use EVP_PKEY_get_bits(3), EVP_PKEY_get_security_bits(3) and EVP_PKEY_get_size(3).
         if ((slen = RSA_size(rsa)) < 0)
             goto err;
         add_test_data(sigret, (unsigned int)slen); /* The signature is 0,1,2...255,0,1... */
@@ -472,6 +473,7 @@ int test_rsa_verify(int dtype,
         && memcmp(m,fake_flag,m_len) == 0) {
         int size;
 
+        // TODO: OpenSSL 3.0 Use EVP_PKEY_get_bits(3), EVP_PKEY_get_security_bits(3) and EVP_PKEY_get_size(3).
         if ((size = RSA_size(rsa)) < 0)
             return 0;
 
