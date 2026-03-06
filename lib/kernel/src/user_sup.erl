@@ -82,16 +82,9 @@ relay1(Pid) ->
 	    relay1(Pid)
     end.
 
-
-%%-----------------------------------------------------------------
-%% Sleep a while in order to let user write all (some) buffered 
-%% information before termination.
-%%-----------------------------------------------------------------
-
 -spec terminate(term(), pid()) -> 'ok'.
 
 terminate(_Reason, UserPid) ->
-    receive after 1000 -> ok end,
     exit(UserPid, kill),
     ok.
 
