@@ -631,8 +631,8 @@ void BeamModuleAssembler::emit_is_nonempty_list(const ArgLabel &Fail,
 }
 
 void BeamModuleAssembler::emit_jump(const ArgLabel &Fail) {
-    // TODO
-    emit_nyi("emit_jump");
+    a.b(resolve_beam_label(Fail, disp32MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_is_atom(const ArgLabel &Fail,
