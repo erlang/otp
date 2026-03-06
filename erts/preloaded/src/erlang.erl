@@ -8242,6 +8242,7 @@ process_flag(_Flag, _Value) ->
       async_dist |
       backtrace |
       binary |
+      binary_full |
       catchlevel |
       current_function |
       current_location |
@@ -8284,6 +8285,11 @@ process_flag(_Flag, _Value) ->
       {binary, BinInfo :: [{non_neg_integer(),
                             non_neg_integer(),
                             non_neg_integer()}]} |
+      {binary_full, FullBinInfo :: [{non_neg_integer(),
+                                     non_neg_integer(),
+                                     non_neg_integer(),
+                                     bitstring(),
+                                     [{non_neg_integer(), non_neg_integer()}]}]} |
       {catchlevel, CatchLevel :: non_neg_integer()} |
       {current_function,
        {Module :: module(), Function :: atom(), Arity :: arity()} | undefined} |
@@ -8384,6 +8390,24 @@ Valid `InfoTuple`s with corresponding `Item`s:
   Depending on the value of the
   [`message_queue_data`](#process_flag_message_queue_data) process
   flag the message queue may be stored on the heap.
+
+- **`{binary_full, FullBinInfo}`** - `FullBinInfo` is a list containing
+  comprehensive information about binaries on the heap of this process.
+  This `InfoTuple` can be changed or removed without prior notice. In the
+  current implementation `FullBinInfo` is a list of tuples. The tuples begin
+  the same way as the `BinInfo` tuples with `BinaryId`, `BinarySize`,
+  `BinaryRefcCount`, followed by the binary itself and a list of bit ranges
+  for each reference held by the process.
+
+  > #### Warning {: .warning }
+  >
+  > The message will contain the binary itself, meaning the calling process will
+  > hold a new reference to this binary preventing it from being freed, even if the
+  > target process released all references. It is recommended to immediately call
+  > `erlang:garbage_collect/0` from the caller process as soon as it finishes handling
+  > the result of this call to release those extra references.
+
+  Since: OTP 29
 
 - **`{catchlevel, CatchLevel}`** - `CatchLevel` is the number of currently
   active catches in this process. This `InfoTuple` can be changed or removed
