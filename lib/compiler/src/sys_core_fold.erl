@@ -2241,7 +2241,7 @@ opt_lc_body_1(Apply, #c_var{name=Name}, Fun0) ->
     maybe
         %% Look for a letrec body that constructs a list
         %% with a single element.
-        #c_apply{op=#c_var{name=Name},args=[Arg|_]} ?= Apply,
+        #c_apply{op=#c_var{name=Name},args=[Arg]} ?= Apply,
         true ?= cerl:is_c_list(Arg) andalso cerl:list_length(Arg) =:= 1,
 
         %% Now we know that the letrec body is suitable. Try to
@@ -2261,11 +2261,11 @@ opt_lc_definition(#c_fun{body=Case}=Fun, Name) ->
     maybe
         %% Match the case used in a list comprehension generator.
         #c_case{clauses=Cs0} ?= Case,
-        [#c_clause{pats=[#c_cons{tl=Tail}|_],body=C1Body0}=C1,
-         #c_clause{pats=[#c_cons{tl=Tail}|_],guard=#c_literal{val=true},
+        [#c_clause{pats=[#c_cons{tl=Tail}],body=C1Body0}=C1,
+         #c_clause{pats=[#c_cons{tl=Tail}],guard=#c_literal{val=true},
                    body=#c_apply{op=#c_var{name=Name},
                                  args=[Tail|_]}}=C2,
-         #c_clause{pats=[#c_literal{val=[]}|_],body=Iterate}|_] ?= Cs0,
+         #c_clause{pats=[#c_literal{val=[]}],body=Iterate}|_] ?= Cs0,
 
         %% Replace self-recursion with the body of the clause matching
         %% the empty list.
