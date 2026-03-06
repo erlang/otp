@@ -45,7 +45,7 @@ handler.
 Such another callback module could be used by setting the option
 [`key_cb`](`t:ssh:key_cb_common_option/0`) when starting a client or a server
 (with for example [ssh:connect](`ssh:connect/3`), [ssh:daemon](`ssh:daemon/2`)
-of [ssh:shell](`ssh:shell/1`) ).
+or [ssh:shell](`ssh:shell/1`) ).
 
 > #### Note {: .info }
 >
@@ -263,6 +263,8 @@ call that initiates an ssh connection.
 
 %%%---------------- SERVER API ------------------------------------
 -doc """
+Fetches the private key of the host.
+
 **Types and description**
 
 See the api description in
@@ -291,6 +293,8 @@ host_key(Algorithm, Opts) ->
 
 %%%................................................................
 -doc """
+Checks if the user key is authorized.
+
 **Types and description**
 
 See the api description in
@@ -327,6 +331,8 @@ is_auth_key(Key0, User, Opts) ->
 
 %%%---------------- CLIENT API ------------------------------------
 -doc """
+Fetches the users public key matching the Algorithm.
+
 **Types and description**
 
 See the api description in
@@ -362,6 +368,8 @@ user_key(Algorithm, Opts) ->
 %%%................................................................
 %%% New style (with port number)
 -doc """
+Checks if a host key is trusted.
+
 **Types and description**
 
 See the api description in
@@ -401,6 +409,8 @@ is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
 
 %%%----------------------------------------------------------------
 -doc """
+Adds a host key to the set of trusted host keys.
+
 **Types and description**
 
 See the api description in
