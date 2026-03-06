@@ -142,7 +142,7 @@ test(BootArgs) ->
     test_jmp(),
     test_length(BootArgs),
     test_float(),
-%    test_funs(),
+    test_funs(),
 %
 %    %% From this point on, EARLY_DAYS must be set false so that
 %    %% it is possible to define an error_handler similar to the
@@ -708,46 +708,46 @@ test_float() ->
 
     ok.
 
-%test_funs() ->
-%    F = fun(X) -> X + 42 end,
-%    44 = F(2),
-%    50 = tail_call_fun(F),
-%
-%    AF1 = adder(1),
-%    AF2 = adder(10),
-%    3 = AF1(2),
-%    9 = tail_call_fun(AF1),
-%    109 = AF2(99),
-%
-%    MA = mul_adder(id(3), id(7)),
-%    10 = MA(1),
-%    13 = MA(2),
-%    31 = tail_call_fun(MA),
-%
-%    45 = apply(F, id([3])),
-%    37 = apply_fun_last(MA, id([10])),
-%    28 = apply_fun_only(MA, id([7])),
-%
-%    ok = (id(fun() -> ok end))(),
-%
-%    ok.
-%
-%adder(N) ->
-%    fun(X) -> N + X end.
-%
-%mul_adder(F, N) ->
-%    fun(X) -> F * X + N end.
-%
-%tail_call_fun(F) ->
-%    F(8).
-%
-%apply_fun_last(F, Args) ->
-%    _ = id(42),
-%    apply(F, Args).
-%
-%apply_fun_only(F, Args) ->
-%    apply(F, Args).
-%
+test_funs() ->
+    F = fun(X) -> X + 42 end,
+    44 = F(2),
+    50 = tail_call_fun(F),
+
+    AF1 = adder(1),
+    AF2 = adder(10),
+    3 = AF1(2),
+    9 = tail_call_fun(AF1),
+    109 = AF2(99),
+
+    MA = mul_adder(id(3), id(7)),
+    10 = MA(1),
+    13 = MA(2),
+    31 = tail_call_fun(MA),
+
+    45 = apply(F, id([3])),
+    37 = apply_fun_last(MA, id([10])),
+    28 = apply_fun_only(MA, id([7])),
+
+    ok = (id(fun() -> ok end))(),
+
+    ok.
+
+adder(N) ->
+    fun(X) -> N + X end.
+
+mul_adder(F, N) ->
+    fun(X) -> F * X + N end.
+
+tail_call_fun(F) ->
+    F(8).
+
+apply_fun_last(F, Args) ->
+    _ = id(42),
+    apply(F, Args).
+
+apply_fun_only(F, Args) ->
+    apply(F, Args).
+
 %test_apply_errors() ->
 %    M = id(bad_module),
 %
