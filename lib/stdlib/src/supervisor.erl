@@ -911,7 +911,7 @@ check_childspecs2(ChildSpecs, AutoShutdown) ->
     of
         {ok, _} -> ok
     catch
-        error:Error -> {error, Error}
+        throw:Error -> {error, Error}
     end.
 
 %%%-----------------------------------------------------------------
@@ -981,7 +981,7 @@ init_children(State, StartSpec) ->
                     {stop, {shutdown, Reason}}
             end
     catch
-        error:Error ->
+        throw:Error ->
             {stop, {start_spec, Error}}
     end.
 
@@ -992,7 +992,7 @@ init_dynamic(State, [StartSpec]) ->
         {ok, Children} ->
 	    {ok, dyn_init(State#state{children = Children}), hibernate_after_action(State)}
     catch
-        error:Error ->
+        throw:Error ->
             {stop, {start_spec, Error}}
     end;
 init_dynamic(_State, StartSpec) ->
@@ -1041,15 +1041,14 @@ do_start_child(SupName, Child, Report) ->
     end.
 
 do_start_child_i(M, F, A) ->
-    try
-        apply(M, F, A)
-    of
-        Result -> handle_start_child_result(Result)
-    catch
-        throw:Result -> handle_start_child_result(Result);
-	exit:Reason -> {error, Reason};
-	error:Reason -> {error, Reason}
-    end.
+    Result = try
+                 apply(M, F, A)
+             catch
+                 throw:Thrown -> Thrown;
+                 exit:Reason -> {error, {'EXIT', Reason}};
+                 error:Reason:StackTrace -> {error, {'EXIT', {Reason, StackTrace}}}
+             end,
+    handle_start_child_result(Result).
 
 handle_start_child_result({ok, Pid} = Result) when is_pid(Pid) ->
     Result;
@@ -1099,7 +1098,7 @@ handle_call({start_child, ChildSpec}, _From, State) ->
 	    {Resp, NState} = handle_start_child(Child, State),
 	    {reply, Resp, NState, hibernate_after_action(State)}
     catch
-	error:Error ->
+	throw:Error ->
 	    {reply, {error, Error}, State, hibernate_after_action(State)}
     end;
 
@@ -1364,7 +1363,7 @@ update_childspec(State, StartSpec) when ?is_simple(State) ->
         Other ->
             {error, Other}
     catch
-        error:Error ->
+        throw:Error ->
             {error, Error}
     end;
 update_childspec(State, StartSpec) ->
@@ -1376,7 +1375,7 @@ update_childspec(State, StartSpec) ->
 	    NewC = update_childspec1(OldC, Children, []),
 	    {ok, State#state{children = NewC}}
     catch
-        error:Error ->
+        throw:Error ->
 	    {error, Error}
     end.
 
@@ -2048,7 +2047,7 @@ set_flags(Flags, State) ->
 			     auto_shutdown = AutoShutdown,
 			     hibernate_after = HibernateAfter}}
     catch
-	Thrown -> Thrown
+	throw:Thrown -> Thrown
     end.
 
 check_flags(SupFlags) when is_map(SupFlags) ->
@@ -2134,18 +2133,18 @@ check_startspec(Children, AutoShutdown) ->
     check_startspec(Children, [], #{}, AutoShutdown).
 
 check_startspec([ChildSpec|T], Ids, Db, AutoShutdown) ->
-    case
-        check_childspec(ChildSpec, AutoShutdown)
-    of
+    case check_childspec(ChildSpec, AutoShutdown) of
         {ok, #child{id = Id} = Child} ->
             case maps:is_key(Id, Db) of
                 %% The error message duplicate_child_name is kept for
                 %% backwards compatibility, although
                 %% duplicate_child_id would be more correct.
-                true -> error({duplicate_child_name, Id});
+                true -> throw({duplicate_child_name, Id});
                 false -> check_startspec(T, [Id | Ids], Db#{Id=>Child},
                                          AutoShutdown)
-            end
+            end;
+        Error ->
+            Error
     end;
 check_startspec([], Ids, Db, _AutoShutdown) ->
     {ok, {lists:reverse(Ids), Db}}.
@@ -2163,18 +2162,18 @@ check_childspec({Id, Func, RestartType, Shutdown, ChildType, Mods},
 		      type => ChildType,
 		      modules => Mods},
 		    AutoShutdown);
-check_childspec(X, _AutoShutdown) -> error({invalid_child_spec, X}).
+check_childspec(X, _AutoShutdown) -> throw({invalid_child_spec, X}).
 
 do_check_childspec(#{restart := RestartType,
 		     type := ChildType} = ChildSpec,
 		   AutoShutdown)->
     Id = case ChildSpec of
 	       #{id := I} -> I;
-	       _ -> error(missing_id)
+	       _ -> throw(missing_id)
 	   end,
     Func = case ChildSpec of
 	       #{start := F} -> F;
-	       _ -> error(missing_start)
+	       _ -> throw(missing_start)
 	   end,
     true = validId(Id),
     true = validFunc(Func),
@@ -2202,44 +2201,44 @@ do_check_childspec(#{restart := RestartType,
 
 validChildType(supervisor) -> true;
 validChildType(worker) -> true;
-validChildType(What) -> error({invalid_child_type, What}).
+validChildType(What) -> throw({invalid_child_type, What}).
 
 validId(_Id) -> true.
 
 validFunc({M, F, A}) when is_atom(M), 
                           is_atom(F), 
                           is_list(A) -> true;
-validFunc(Func)                      -> error({invalid_mfa, Func}).
+validFunc(Func)                      -> throw({invalid_mfa, Func}).
 
 validRestartType(permanent)   -> true;
 validRestartType(temporary)   -> true;
 validRestartType(transient)   -> true;
-validRestartType(RestartType) -> error({invalid_restart_type, RestartType}).
+validRestartType(RestartType) -> throw({invalid_restart_type, RestartType}).
 
 validSignificant(true, _RestartType, never) ->
-    error({bad_combination, [{auto_shutdown, never}, {significant, true}]});
+    throw({bad_combination, [{auto_shutdown, never}, {significant, true}]});
 validSignificant(true, permanent, _AutoShutdown) ->
-    error({bad_combination, [{restart, permanent}, {significant, true}]});
+    throw({bad_combination, [{restart, permanent}, {significant, true}]});
 validSignificant(Significant, _RestartType, _AutoShutdown)
   when is_boolean(Significant) ->
     true;
 validSignificant(Significant, _RestartType, _AutoShutdown) ->
-    error({invalid_significant, Significant}).
+    throw({invalid_significant, Significant}).
 
 validShutdown(Shutdown)
   when is_integer(Shutdown), Shutdown >= 0 -> true;
 validShutdown(infinity)             -> true;
 validShutdown(brutal_kill)          -> true;
-validShutdown(Shutdown)             -> error({invalid_shutdown, Shutdown}).
+validShutdown(Shutdown)             -> throw({invalid_shutdown, Shutdown}).
 
 validMods(dynamic) -> true;
 validMods(Mods) when is_list(Mods) ->
     lists:all(fun
                   (Mod) when is_atom(Mod) -> true;
-                  (Mod) -> error({invalid_module, Mod})
+                  (Mod) -> throw({invalid_module, Mod})
               end,
               Mods);
-validMods(Mods) -> error({invalid_modules, Mods}).
+validMods(Mods) -> throw({invalid_modules, Mods}).
 
 child_to_spec(#child{id = Id,
 		    mfargs = Func,
