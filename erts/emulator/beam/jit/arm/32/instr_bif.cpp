@@ -236,31 +236,115 @@ void BeamModuleAssembler::emit_i_length_setup(const ArgLabel &Fail,
  *
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_length_common(Label fail, int state_size) {
-    // TODO
-    emit_nyi("emit_i_length_common");
+    Label trap_or_error = a.newLabel();
+
+    ASSERT(state_size >= 2 && state_size <= ERTS_X_REGS_ALLOCATED - MAX_REG);
+
+    /* Save arguments for error/trapping path. */
+    a.str(ARG2, TMP_MEM1q);
+    a.str(ARG3, TMP_MEM2q);
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime<Update::eReductions>();
+
+    a.mov(ARG1, c_p);
+    lea(TMP, getXRef(0));
+    a.add(ARG2, TMP, ARG2, arm::lsl(2));
+    runtime_call<2>(erts_trapping_length_1);
+
+    emit_branch_if_not_value(ARG1, trap_or_error);
+
+    emit_leave_runtime<Update::eReductions>();
+    emit_leave_runtime_frame();
+
+    a.bx(a32::lr);
+
+    a.bind(trap_or_error);
+    {
+        a.ldr(ARG2, TMP_MEM1q);
+        a.ldr(ARG3, TMP_MEM2q);
+        a.ldr(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+        a.cmp(TMP, imm(TRAP));
+        a.b_ne(fail);
+
+        emit_leave_runtime<Update::eReductions>();
+        emit_leave_runtime_frame();
+
+        /* The trap state is stored in the registers above the current live
+         * ones, so we add the state size (in words) to keep it alive. */
+        a.add(ARG2, ARG2, imm(state_size));
+
+        mov_imm(TMP, 0);
+        a.str(TMP, arm::Mem(c_p, offsetof(Process, current)));
+        a.strb(ARG2, arm::Mem(c_p, offsetof(Process, arity)));
+
+        /* We'll find our way back through the entry address (ARG3). */
+        a.b(labels[context_switch_simplified]);
+    }
 }
 
 /* ARG2 = live registers, ARG3 = entry address
  *
- * Result is returned in RET. */
+ * Result is returned in ARG1. */
 void BeamGlobalAssembler::emit_i_length_body_shared() {
-    // TODO
-    emit_nyi("emit_i_length_body_shared");
+    Label error = a.newLabel();
+    /* `state_size = 3` to include the original argument. */
+    emit_i_length_common(error, 3);
+
+    a.bind(error);
+    {
+        static const ErtsCodeMFA bif_mfa = {am_erlang, am_length, 1};
+
+        /* Move the original argument to x0. It's stored in the third word of
+         * the trap state. */
+        lea(TMP, getXRef(0));
+        a.add(ARG2, TMP, ARG2, arm::lsl(2));
+        a.ldr(TMP, arm::Mem(ARG2, sizeof(Eterm[2])));
+
+        emit_leave_runtime<Update::eReductions>();
+        emit_leave_runtime_frame();
+
+        a.str(TMP, getXRef(0));
+
+        mov_imm(ARG4, &bif_mfa);
+        emit_raise_exception();
+    }
 }
 
 /* ARG2 = live registers, ARG3 = entry address
  *
  * Result is returned in ARG. Error is indicated by THE_NON_VALUE. */
 void BeamGlobalAssembler::emit_i_length_guard_shared() {
-    // TODO
-    emit_nyi("emit_i_length_guard_shared");
+    Label error = a.newLabel();
+
+    emit_i_length_common(error, 2);
+
+    a.bind(error);
+    {
+        emit_leave_runtime<Update::eReductions>();
+        emit_leave_runtime_frame();
+
+        a.bx(a32::lr);
+    }
 }
 
 void BeamModuleAssembler::emit_i_length(const ArgLabel &Fail,
                                         const ArgWord &Live,
                                         const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_length");
+    Label entry = a.newLabel();
+
+    a.bind(entry);
+
+    mov_arg(ARG2, Live);
+    a.adr(ARG3, entry);
+    if (Fail.get() != 0) {
+        fragment_call(ga->get_i_length_guard_shared());
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        fragment_call(ga->get_i_length_body_shared());
+    }
+
+    mov_arg(Dst, ARG1);
 }
 
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
