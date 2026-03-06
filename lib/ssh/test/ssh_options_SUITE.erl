@@ -91,7 +91,10 @@
          daemon_replace_options_algs/1,
          daemon_replace_options_algs_connect/1,
          daemon_replace_options_algs_conf_file/1,
-         daemon_replace_options_not_found/1
+         daemon_replace_options_not_found/1,
+         max_auth_request_size_large_enough/1,
+         max_auth_request_size_too_small/1,
+         max_auth_request_size_invalid_option/1
 	]).
 
 %%% Common test callbacks
@@ -164,7 +167,8 @@ all() ->
      daemon_replace_options_algs_connect,
      daemon_replace_options_algs_conf_file,
      daemon_replace_options_not_found,
-     {group, hardening_tests}
+     {group, hardening_tests},
+     {group, max_auth_request_size}
     ].
 
 groups() ->
@@ -180,7 +184,10 @@ groups() ->
 			   ]},
      {dir_options, [], [user_dir_option,
                         user_dir_fun_option,
-			system_dir_option]}
+			system_dir_option]},
+     {max_auth_request_size, [], [max_auth_request_size_large_enough,
+                                  max_auth_request_size_too_small,
+                                  max_auth_request_size_invalid_option]}
     ].
 
 
@@ -2086,6 +2093,68 @@ daemon_replace_options_not_found(_Config) ->
     %% which is {error, bad_daemon_ref}
     Error = ssh:daemon_info(self()),
     Error = ssh:daemon_replace_options(self(), []).
+
+
+%%--------------------------------------------------------------------
+%%% Test that a normal-sized auth request succeeds with an explicit large limit
+max_auth_request_size_large_enough(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Set a large enough limit that normal auth requests pass through
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {max_auth_request_size, 1024},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_interaction, false},
+					  {user_dir, UserDir}]),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that a normal-sized auth request is rejected when max_auth_request_size
+%%% is set to small value
+max_auth_request_size_too_small(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Set a very small limit so that even a normal password auth request
+    %% exceeds the max_auth_request_size and the server disconnects
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {max_auth_request_size, 1},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {error, "Auth length exceeded."} =
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
+				 {user, "foo"},
+				 {password, "morot"},
+				 {user_interaction, false},
+				 {user_dir, UserDir}]),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that the option validation rejects invalid max_auth_request_size values
+max_auth_request_size_invalid_option(Config) when is_list(Config) ->
+    SysDir = proplists:get_value(data_dir, Config),
+    %% zero value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, 0}]),
+    %% Negative value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, -1}]),
+    %% Non-integer value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, "not_an_integer"}]),
+    %% Atom value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, infinity}]).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
