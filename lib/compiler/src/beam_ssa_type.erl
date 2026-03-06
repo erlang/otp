@@ -2961,17 +2961,18 @@ join_types(Ts, Ts) ->
 join_types(LHS, RHS) ->
     if
         map_size(LHS) < map_size(RHS) ->
-            join_types_1(maps:keys(LHS), RHS, LHS);
+            join_types_1(maps:next(maps:iterator(LHS)), RHS, LHS);
         true ->
-            join_types_1(maps:keys(RHS), LHS, RHS)
+            join_types_1(maps:next(maps:iterator(RHS)), LHS, RHS)
     end.
 
 %% Joins two type maps, keeping the variables that are common to both maps.
-join_types_1([V | Vs], Bigger, Smaller) ->
-    case {Bigger, Smaller} of
-        {#{ V := Same }, #{ V := Same }} ->
-            join_types_1(Vs, Bigger, Smaller);
-        {#{ V := LHS0 }, #{ V := RHS0 }} ->
+join_types_1({V, RHS0, Iter0}, Bigger, Smaller) ->
+    Iter = maps:next(Iter0),
+    case Bigger of
+        #{V := RHS0} ->
+            join_types_1(Iter, Bigger, Smaller);
+        #{V := LHS0} ->
             %% Inlined concrete_type/2 for performance.
             LHS = case is_function(LHS0) of
                       true -> LHS0(Bigger);
@@ -2982,11 +2983,11 @@ join_types_1([V | Vs], Bigger, Smaller) ->
                       false -> RHS0
                   end,
             T = beam_types:join(LHS, RHS),
-            join_types_1(Vs, Bigger, Smaller#{ V := T });
-        {#{}, #{ V := _ }} ->
-            join_types_1(Vs, Bigger, maps:remove(V, Smaller))
+            join_types_1(Iter, Bigger, Smaller#{V := T});
+        #{} ->
+            join_types_1(Iter, Bigger, maps:remove(V, Smaller))
     end;
-join_types_1([], _Bigger, Smaller) ->
+join_types_1(none, _Bigger, Smaller) ->
     Smaller.
 
 meet_types([{#b_literal{}=Lit, T0} | Vs], Ts) ->
