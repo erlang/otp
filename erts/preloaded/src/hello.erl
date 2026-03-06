@@ -141,7 +141,7 @@ test(BootArgs) ->
     test_return_yielding(),
     test_jmp(),
     test_length(BootArgs),
-%    test_float(),
+    test_float(),
 %    test_funs(),
 %
 %    %% From this point on, EARLY_DAYS must be set false so that
@@ -674,40 +674,40 @@ seq_loop(0, _, L) ->
 seq_loop(N, X, L) ->
     seq_loop(N - 1, X, [X|L]).
 
-%test_float() ->
-%    Float = id(42.0),
-%    Zero = id(0.0),
-%
-%    true = is_float(Float),
-%    true = is_float(Zero),
-%
-%    Mul3 = Float * 3,
-%    0.0 = Mul3 * Zero,
-%    42.0 = Mul3 / 3.0,
-%    126.0 = Mul3,
-%
-%    Div3 = Float / 3.0,
-%    42.0 = Div3 * 3.0,
-%    14.0 = Div3,
-%
-%    Add3 = Float + 3.0,
-%    Add3 = Add3 + Zero,
-%    42.0 = Add3 - 3.0,
-%    45.0 = Add3,
-%
-%    Sub3 = Float - 3.0,
-%    Sub3 = Sub3 - Zero,
-%    42.0 = Sub3 + 3.0,
-%    39.0 = Sub3,
-%
-%    Neg = -Float,
-%    42.0 = -Neg,
-%    -42.0 = Neg,
-%
-%    {'EXIT', {badarith,_}} = catch Float / Zero,
-%
-%    ok.
-%
+test_float() ->
+    Float = id(42.0),
+    Zero = id(0.0),
+
+    true = is_float(Float),
+    true = is_float(Zero),
+
+    Mul3 = Float * 3,
+    0.0 = Mul3 * Zero,
+    42.0 = Mul3 / 3.0,
+    126.0 = Mul3,
+
+    Div3 = Float / 3.0,
+    42.0 = Div3 * 3.0,
+    14.0 = Div3,
+
+    Add3 = Float + 3.0,
+    Add3 = Add3 + Zero,
+    42.0 = Add3 - 3.0,
+    45.0 = Add3,
+
+    Sub3 = Float - 3.0,
+    Sub3 = Sub3 - Zero,
+    42.0 = Sub3 + 3.0,
+    39.0 = Sub3,
+
+    Neg = -Float,
+    42.0 = -Neg,
+    -42.0 = Neg,
+
+    {'EXIT', {badarith,_}} = catch Float / Zero,
+
+    ok.
+
 %test_funs() ->
 %    F = fun(X) -> X + 42 end,
 %    44 = F(2),
