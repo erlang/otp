@@ -3221,7 +3221,19 @@ getopts(#sslsocket{}, OptionTags) ->
 
 %%--------------------------------------------------------------------
 -doc(#{group => <<"Client and Server API">>}).
--doc "Sets options according to `Options` for socket `SslSocket`.".
+-doc """
+Sets options according to `Options` for socket `SslSocket`.
+
+> #### Note {: .info }
+Note that setting low level transport protocol specific options
+may or may not work in a TLS-environment. And even if they work it
+may make your code platform specific, or stop working in later
+version of this application. Such options could make sense for
+some special corner cases although it is not a general viable option.
+Such trade-offs must be carefully considered by the user that need
+to fully understand the consequences of setting such options.
+""".
+%%--------------------------------------------------------------------
 -spec setopts(SslSocket, Options) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Options :: [gen_tcp:option()].
