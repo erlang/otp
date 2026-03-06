@@ -140,7 +140,7 @@ test(BootArgs) ->
     test_try_catch(),
     test_return_yielding(),
     test_jmp(),
-%    test_length(BootArgs),
+    test_length(BootArgs),
 %    test_float(),
 %    test_funs(),
 %
@@ -621,59 +621,59 @@ test_jmp() ->
              end,
     ok = id(Result).
 
-%test_length(L) ->
-%    N = len(L),
-%    N = length(L),
-%
-%    LongLen = 4000*16,
-%    LongList = seq(1, LongLen),
-%    LongLen = len(LongList),
-%    LongLen = length(LongList),
-%
-%    BadList = id(append(LongList, bad_tail)),
-%
-%    try length(BadList) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:badarg:Stk ->
-%            [{erlang,length,[BadList],_},{?MODULE,test_length,1,_}|_] = Stk
-%    end,
-%
-%    if
-%        length(LongList) =:= LongLen ->
-%            ok
-%    end,
-%
-%    OneValue = {id(a),b},
-%    error = if
-%                length(BadList) =:= 0 ->
-%                    ok;
-%                true ->
-%                    error
-%            end,
-%    {a,b} = id(OneValue),
-%    ok.
-%
-%len(L) ->
-%    len(L, 0).
-%
-%len([_|T], N) -> len(T, N + 1);
-%len([], N) -> N.
-%
-%append([H|T], Tail) ->
-%    append(T, [H|Tail]);
-%append([], Tail) ->
-%    Tail.
-%
-%seq(First, Last) ->
-%    seq_loop(Last-First+1, Last, []).
-%
-%seq_loop(0, _, L) ->
-%    L;
-%seq_loop(N, X, L) ->
-%    seq_loop(N - 1, X, [X|L]).
-%
+test_length(L) ->
+    N = len(L),
+    N = length(L),
+
+    LongLen = 4000*16,
+    LongList = seq(1, LongLen),
+    LongLen = len(LongList),
+    LongLen = length(LongList),
+
+    BadList = id(append(LongList, bad_tail)),
+
+    try length(BadList) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:badarg:Stk ->
+            [{erlang,length,[BadList],_},{?MODULE,test_length,1,_}|_] = Stk
+    end,
+
+    if
+        length(LongList) =:= LongLen ->
+            ok
+    end,
+
+    OneValue = {id(a),b},
+    error = if
+                length(BadList) =:= 0 ->
+                    ok;
+                true ->
+                    error
+            end,
+    {a,b} = id(OneValue),
+    ok.
+
+len(L) ->
+    len(L, 0).
+
+len([_|T], N) -> len(T, N + 1);
+len([], N) -> N.
+
+append([H|T], Tail) ->
+    append(T, [H|Tail]);
+append([], Tail) ->
+    Tail.
+
+seq(First, Last) ->
+    seq_loop(Last-First+1, Last, []).
+
+seq_loop(0, _, L) ->
+    L;
+seq_loop(N, X, L) ->
+    seq_loop(N - 1, X, [X|L]).
+
 %test_float() ->
 %    Float = id(42.0),
 %    Zero = id(0.0),
