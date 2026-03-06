@@ -77,20 +77,6 @@ void BeamModuleAssembler::emit_float_instr(uint32_t instId,
         return;
     }
 
- //   emit_assert_redzone_unused();
-//#if defined(JIT_HARD_DEBUG)
-//    {
-//        Label next = a.newLabel();
-//        int sp_offset = offsetof(ErtsSchedulerRegisters, initial_sp);
-//        mov_imm(TMP, sp_offset);
-//        a.add(TMP, scheduler_registers, TMP);
-//        a.ldr(TMP, arm::Mem(TMP));
-//        a.cmp(a32::sp, TMP);
-//        a.b_eq(next);
-//        a.udf(0xdea7);
-//        a.bind(next);
-//    }
-//#endif 
     fragment_call(ga->get_check_float_error());
     a.vmov_f64(dst.reg, a32::d0);
     flush_var(dst);
@@ -141,15 +127,13 @@ void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
 void BeamModuleAssembler::emit_i_fadd(const ArgFRegister &LHS,
                                       const ArgFRegister &RHS,
                                       const ArgFRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_fadd");
+    emit_float_instr(a32::Inst::kIdVadd, LHS, RHS, Dst);
 }
 
 void BeamModuleAssembler::emit_i_fsub(const ArgFRegister &LHS,
                                       const ArgFRegister &RHS,
                                       const ArgFRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_fsub");
+    emit_float_instr(a32::Inst::kIdVsub, LHS, RHS, Dst);
 }
 
 void BeamModuleAssembler::emit_i_fmul(const ArgFRegister &LHS,
@@ -161,12 +145,17 @@ void BeamModuleAssembler::emit_i_fmul(const ArgFRegister &LHS,
 void BeamModuleAssembler::emit_i_fdiv(const ArgFRegister &LHS,
                                       const ArgFRegister &RHS,
                                       const ArgFRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_fdiv");
+    emit_float_instr(a32::Inst::kIdVdiv, LHS, RHS, Dst);
 }
 
 void BeamModuleAssembler::emit_i_fnegate(const ArgFRegister &Src,
                                          const ArgFRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_fnegate");
+    auto src = load_source(Src, a32::d0);
+    auto dst = init_destination(Dst, a32::d1);
+
+    /* Note that there is no need to check for errors since flipping the sign
+     * of a finite float is guaranteed to produce a finite float. */
+    a.vneg_f64(a32::d0, src.reg);
+    a.vmov_f64(dst.reg, a32::d0);
+    flush_var(dst);
 }
