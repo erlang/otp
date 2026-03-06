@@ -29,16 +29,71 @@ extern "C"
  *
  * Clobbers d30 and d31. */
 void BeamGlobalAssembler::emit_check_float_error() {
-    // TODO
-    emit_nyi("emit_check_float_error");
+    Label error = a.newLabel();
+
+    /* ARM64 uses FCMP against DBL_MAX. On ARM32 we keep the same semantics
+     * (error on non-finite values) by checking the exponent field after fabs:
+     * exponent == 0x7ff means NaN or infinity. */
+    a.vabs_f64(a32::d30, a32::d0);
+    a.vmov(TMP, VAR, a32::d30);
+    mov_imm(ARG1, 0x7FF00000u);
+    a.and_(VAR, VAR, ARG1);
+    a.cmp(VAR, ARG1);
+    a.b_eq(error);
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        mov_imm(ARG4, 0);
+        mov_imm(TMP, EXC_BADARITH);
+        a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamModuleAssembler::emit_float_instr(uint32_t instId,
                                            const ArgFRegister &LHS,
                                            const ArgFRegister &RHS,
                                            const ArgFRegister &Dst) {
-    // TODO
-    emit_nyi("emit_float_instr");
+    auto lhs = load_source(LHS, a32::d0);
+    auto rhs = load_source(RHS, a32::d1);
+    auto dst = init_destination(Dst, a32::d2);
+
+    switch (instId) {
+    case a32::Inst::kIdVadd:
+        a.vadd_f64(a32::d0, lhs.reg, rhs.reg);
+        break;
+    case a32::Inst::kIdVsub:
+        a.vsub_f64(a32::d0, lhs.reg, rhs.reg);
+        break;
+    case a32::Inst::kIdVmul:
+        a.vmul_f64(a32::d0, lhs.reg, rhs.reg);
+        break;
+    case a32::Inst::kIdVdiv:
+        a.vdiv_f64(a32::d0, lhs.reg, rhs.reg);
+        break;
+    default:
+        emit_nyi("emit_float_instr(instId)");
+        return;
+    }
+
+ //   emit_assert_redzone_unused();
+//#if defined(JIT_HARD_DEBUG)
+//    {
+//        Label next = a.newLabel();
+//        int sp_offset = offsetof(ErtsSchedulerRegisters, initial_sp);
+//        mov_imm(TMP, sp_offset);
+//        a.add(TMP, scheduler_registers, TMP);
+//        a.ldr(TMP, arm::Mem(TMP));
+//        a.cmp(a32::sp, TMP);
+//        a.b_eq(next);
+//        a.udf(0xdea7);
+//        a.bind(next);
+//    }
+//#endif 
+    fragment_call(ga->get_check_float_error());
+    a.vmov_f64(dst.reg, a32::d0);
+    flush_var(dst);
 }
 
 /* * * * */
@@ -89,8 +144,7 @@ void BeamModuleAssembler::emit_i_fsub(const ArgFRegister &LHS,
 void BeamModuleAssembler::emit_i_fmul(const ArgFRegister &LHS,
                                       const ArgFRegister &RHS,
                                       const ArgFRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_fmul");
+    emit_float_instr(a32::Inst::kIdVmul, LHS, RHS, Dst);
 }
 
 void BeamModuleAssembler::emit_i_fdiv(const ArgFRegister &LHS,

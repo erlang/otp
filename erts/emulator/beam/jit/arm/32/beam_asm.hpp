@@ -1312,8 +1312,13 @@ protected:
     }
 
     Variable<a32::VecD> load_source(const ArgVal &arg, a32::VecD tmp) {
-        // TODO
-        ASSERT(false);
+        arm::Mem mem = getArgRef(arg);
+        if (mem.hasOffset()) {
+            a32::Gp base = a32::Gp(mem.baseId());
+            lea(TMP, mem);
+            mem = arm::Mem(TMP);
+        }
+        a.vldr_64(tmp, mem);
         return Variable<a32::VecD>(tmp);
     }
 
