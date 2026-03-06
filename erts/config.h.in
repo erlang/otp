@@ -953,6 +953,9 @@
 /* Define to 1 if you have the 'pwrite' function. */
 #undef HAVE_PWRITE
 
+/* Define to 1 if you have the 'recvmmsg' function. */
+#undef HAVE_RECVMMSG
+
 /* Define to 1 if you have the 'res_gethostbyname' function. */
 #undef HAVE_RES_GETHOSTBYNAME
 
@@ -997,6 +1000,9 @@
 
 /* Define to 1 if you have the `sendfilev' function. */
 #undef HAVE_SENDFILEV
+
+/* Define to 1 if you have the 'sendmmsg' function. */
+#undef HAVE_SENDMMSG
 
 /* Define to 1 if you have the 'setlocale' function. */
 #undef HAVE_SETLOCALE

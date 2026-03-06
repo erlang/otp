@@ -2117,6 +2117,15 @@ AS_CASE([$host_os],
 		LIBS="$LIBS -lmswsock"
 	])
 
+dnl Check for recvmmsg and sendmmsg (Linux and BSD, not Darwin/Windows)
+AS_CASE([$host_os],
+        [linux*|freebsd*|dragonfly*|openbsd*|netbsd*],
+        [
+                AC_CHECK_FUNCS([recvmmsg sendmmsg], [], [],
+                        [[#include <sys/socket.h>]])
+        ])
+
+
 dnl ----------------------------------------------------------------------
 dnl Checks for library functions.
 dnl ----------------------------------------------------------------------

@@ -21076,6 +21076,28 @@ fi
      ;;
 esac
 
+case $host_os in #(
+  linux*|freebsd*|dragonfly*|openbsd*|netbsd*) :
+
+                ac_fn_c_check_func "$LINENO" "recvmmsg" "ac_cv_func_recvmmsg"
+if test "x$ac_cv_func_recvmmsg" = xyes
+then :
+  printf "%s\n" "#define HAVE_RECVMMSG 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "sendmmsg" "ac_cv_func_sendmmsg"
+if test "x$ac_cv_func_sendmmsg" = xyes
+then :
+  printf "%s\n" "#define HAVE_SENDMMSG 1" >>confdefs.h
+
+fi
+
+         ;; #(
+  *) :
+     ;;
+esac
+
+
 
 saved_cppflags=$CPPFLAGS
 CPPFLAGS="$CPPFLAGS $EMU_THR_DEFS"

@@ -466,6 +466,9 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
 #define ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT 1024
 
+/* Threshold for rescheduling sendmmsg/recvmmsg to dirty I/O scheduler. */
+#define ESOCK_MMSG_DIRTY_THRESHOLD 64
+
 
 /*----------------------------------------------------------------------------
  * Interface constants.
@@ -1088,9 +1091,11 @@ ESockSendfileCounters initESockSendfileCounters =
     ESOCK_NIF_FUNC_DEF(send);                       \
     ESOCK_NIF_FUNC_DEF(sendto);                     \
     ESOCK_NIF_FUNC_DEF(sendmsg);                    \
+    ESOCK_NIF_FUNC_DEF(sendmmsg);                   \
     ESOCK_NIF_FUNC_DEF(recv);                       \
     ESOCK_NIF_FUNC_DEF(recvfrom);                   \
     ESOCK_NIF_FUNC_DEF(recvmsg);                    \
+    ESOCK_NIF_FUNC_DEF(recvmmsg);                   \
     ESOCK_NIF_FUNC_DEF(close);                      \
     ESOCK_NIF_FUNC_DEF(shutdown);                   \
     ESOCK_NIF_FUNC_DEF(setopt);                     \
@@ -1147,6 +1152,7 @@ typedef struct {
     ESockIOSend                  send;
     ESockIOSendTo                sendto;
     ESockIOSendMsg               sendmsg;
+    ESockIOSendMMsg              sendmmsg;
     ESockIOSendv                 sendv;
     ESockIOSendFileStart         sendfile_start;
     ESockIOSendFileContinue      sendfile_cont;
@@ -1155,6 +1161,7 @@ typedef struct {
     ESockIORecv                  recv;
     ESockIORecvFrom              recvfrom;
     ESockIORecvMsg               recvmsg;
+    ESockIORecvMMsg              recvmmsg;
 
     ESockIOClose                 close;
     ESockIOFinClose              fin_close;
@@ -2488,6 +2495,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(recvfrom);                        \
     GLOBAL_ATOM_DECL(recvhoplimit);                    \
     GLOBAL_ATOM_DECL(recvif);                          \
+    GLOBAL_ATOM_DECL(recvmmsg);                        \
     GLOBAL_ATOM_DECL(recvmsg);                         \
     GLOBAL_ATOM_DECL(recvopts);                        \
     GLOBAL_ATOM_DECL(recvorigdstaddr);                 \
@@ -2532,6 +2540,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(sendfile_pkg_max);                \
     GLOBAL_ATOM_DECL(sendfile_tries);                  \
     GLOBAL_ATOM_DECL(sendfile_waits);                  \
+    GLOBAL_ATOM_DECL(sendmmsg);                        \
     GLOBAL_ATOM_DECL(sendmsg);                         \
     GLOBAL_ATOM_DECL(sendsrcaddr);                     \
     GLOBAL_ATOM_DECL(sendto);                          \
@@ -2960,6 +2969,13 @@ static ESockIoBackend io_backend = {0};
                         (SOCKR), (SENDR),               \
                         (EM), (F), (EIOV), &data) :     \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_SENDMMSG(ENV, D,                        \
+                          SOCKR, SENDR, EMS, F)         \
+    ((io_backend.sendmmsg != NULL) ?                    \
+     io_backend.sendmmsg((ENV), (D),                    \
+                         (SOCKR), (SENDR),               \
+                         (EMS), (F), &data) :           \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SENDV(ENV, D,                   \
                        SOCKR, SENDR, EIOV)               \
     ((io_backend.sendv != NULL) ?                        \
@@ -3005,6 +3021,13 @@ static ESockIoBackend io_backend = {0};
      io_backend.recvmsg((ENV), (D),                       \
                         (SR), (RR),                       \
                         (BL), (CL), (F)) :                \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_RECVMMSG(ENV, D,                         \
+                          SR, RR, VL, BL, CL, F)         \
+    ((io_backend.recvmmsg != NULL) ?                     \
+     io_backend.recvmmsg((ENV), (D),                      \
+                         (SR), (RR),                      \
+                         (VL), (BL), (CL), (F)) :         \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_CLOSE(ENV, D)                          \
     ((io_backend.close != NULL) ?                       \
@@ -6557,6 +6580,90 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 }
 
 
+/* ----------------------------------------------------------------------
+ * nif_sendmmsg
+ *
+ * Description:
+ * Send multiple messages on a socket (Linux/BSD only).
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ * SendRef      - A unique id reference() for this (sendmmsg) request.
+ * Messages     - List of message maps (each with iov, optionally addr and ctrl).
+ * Flags        - Send flags.
+ */
+
+ERL_NIF_TERM nif_sendmmsg(ErlNifEnv*         env,
+                          int                argc,
+                          const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM     res, sockRef, sendRef, eMsgs;
+    ESockDescriptor* descP;
+    int              flags;
+
+    ESOCK_ASSERT( argc == 4 );
+
+    SGDBG( ("SOCKET", "nif_sendmmsg -> entry with argc: %d\r\n", argc) );
+
+    sockRef = argv[0];
+    eMsgs   = argv[1];
+    sendRef = argv[3];
+
+    if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
+        SGDBG( ("SOCKET", "nif_sendmmsg -> get resource failed\r\n") );
+        return enif_make_badarg(env);
+    }
+
+    /* Extract arguments and perform preliminary validation */
+
+    if ((! enif_is_ref(env, sendRef)) ||
+        (! enif_is_list(env, eMsgs))) {
+        SSDBG( descP, ("SOCKET", "nif_sendmmsg -> argv decode failed\r\n") );
+        return enif_make_badarg(env);
+    }
+    if (! GET_INT(env, argv[2], &flags)) {
+        if (IS_INTEGER(env, argv[2]))
+            return esock_make_error_integer_range(env, argv[2]);
+        else
+            return enif_make_badarg(env);
+    }
+
+    if (enif_thread_type() == ERL_NIF_THR_NORMAL_SCHEDULER) {
+        unsigned int msgCount;
+        if (!enif_get_list_length(env, eMsgs, &msgCount)) {
+            return enif_make_badarg(env);
+        }
+        if (msgCount > ESOCK_MMSG_DIRTY_THRESHOLD) {
+            SGDBG( ("SOCKET",
+                    "nif_sendmmsg -> rescheduling to dirty I/O scheduler "
+                    "(msgCount > %d)\r\n", ESOCK_MMSG_DIRTY_THRESHOLD) );
+            return enif_schedule_nif(env, "sendmmsg",
+                                     ERL_NIF_DIRTY_JOB_IO_BOUND,
+                                     nif_sendmmsg, argc, argv);
+        }
+    }
+
+    MLOCK(descP->writeMtx);
+
+    SSDBG( descP,
+           ("SOCKET", "nif_sendmmsg(%T), {%d,0x%X} ->"
+            "\r\n   SendRef:   %T"
+            "\r\n   flags:     0x%X"
+            "\r\n",
+            sockRef, descP->sock, descP->writeState,
+            sendRef, flags) );
+
+    res = ESOCK_IO_SENDMMSG(env, descP, sockRef, sendRef, eMsgs, flags);
+
+    MUNLOCK(descP->writeMtx);
+
+    SSDBG( descP, ("SOCKET", "nif_sendmmsg(%T) -> done with"
+                   "\r\n   res: %T"
+                   "\r\n", sockRef, res) );
+
+    return res;
+}
+
 
 /* ----------------------------------------------------------------------
  * nif_sendv
@@ -7219,6 +7326,118 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     res = ESOCK_IO_RECVMSG(env, descP, sockRef, recvRef, bufSz, ctrlSz, flags);
 
     SSDBG( descP, ("SOCKET", "nif_recvmsg(%T) -> done"
+                   "\r\n", sockRef) );
+
+    MUNLOCK(descP->readMtx);
+
+    return res;
+}
+
+
+/* ----------------------------------------------------------------------
+ * nif_recvmmsg
+ *
+ * Description:
+ * Receive multiple messages on a socket (Linux/BSD only).
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ * RecvRef     - A unique id reference() for this (recvmmsg) request.
+ * VLen        - Maximum number of messages to receive.
+ * BufSz       - Buffer size for each message.
+ * CtrlSz      - Control message buffer size for each message.
+ * Flags       - Receive flags.
+ */
+
+ERL_NIF_TERM nif_recvmmsg(ErlNifEnv*         env,
+                          int                argc,
+                          const ERL_NIF_TERM argv[])
+{
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef, recvRef;
+    ErlNifUInt64     eVLen, eBufSz, eCtrlSz;
+    unsigned int     vlen;
+    ssize_t          bufSz, ctrlSz;
+    int              flags;
+    ERL_NIF_TERM     res;
+    BOOLEAN_T        a1ok, a2ok, a3ok = FALSE;
+
+    ESOCK_ASSERT( argc == 6 );
+
+    SGDBG( ("SOCKET", "nif_recvmmsg -> entry with argc: %d\r\n", argc) );
+
+    sockRef = argv[0];
+    recvRef = argv[5];
+
+    if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
+        return enif_make_badarg(env);
+    }
+
+    if ((! enif_is_ref(env, recvRef)) &&
+        (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        return enif_make_badarg(env);
+    }
+
+    a1ok = GET_UINT64(env, argv[1], &eVLen);
+    a2ok = GET_UINT64(env, argv[2], &eBufSz);
+    a3ok = GET_UINT64(env, argv[3], &eCtrlSz);
+
+    if (!a1ok || !a2ok || !a3ok ||
+        (! GET_INT(env, argv[4], &flags))) {
+        if ((! IS_INTEGER(env, argv[1])) ||
+            (! IS_INTEGER(env, argv[2])) ||
+            (! IS_INTEGER(env, argv[3])) ||
+            (! IS_INTEGER(env, argv[4])))
+            return enif_make_badarg(env);
+
+        if (! a1ok)
+            return esock_make_error_integer_range(env, argv[1]);
+        if (! a2ok)
+            return esock_make_error_integer_range(env, argv[2]);
+        if (! a3ok)
+            return esock_make_error_integer_range(env, argv[3]);
+        return
+            esock_make_error_integer_range(env, argv[4]);
+    }
+
+    vlen = (unsigned int) eVLen;
+    if (eVLen != (ErlNifUInt64) vlen || vlen == 0)
+        return esock_make_error_integer_range(env, argv[1]);
+
+    bufSz  = (ssize_t) eBufSz;
+    if (eBufSz  != (ErlNifUInt64) bufSz)
+        return esock_make_error_integer_range(env, eBufSz);
+
+    ctrlSz = (ssize_t) eCtrlSz;
+    if (eCtrlSz != (ErlNifUInt64) ctrlSz)
+        return esock_make_error_integer_range(env, eCtrlSz);
+
+    if (vlen > ESOCK_MMSG_DIRTY_THRESHOLD &&
+        enif_thread_type() == ERL_NIF_THR_NORMAL_SCHEDULER) {
+        SGDBG( ("SOCKET",
+                "nif_recvmmsg -> rescheduling to dirty I/O scheduler "
+                "(vlen %u > %d)\r\n", vlen, ESOCK_MMSG_DIRTY_THRESHOLD) );
+        return enif_schedule_nif(env, "recvmmsg",
+                                 ERL_NIF_DIRTY_JOB_IO_BOUND,
+                                 nif_recvmmsg, argc, argv);
+    }
+
+    MLOCK(descP->readMtx);
+
+    SSDBG( descP,
+           ("SOCKET", "nif_recvmmsg(%T), {%d,0x%X} ->"
+            "\r\n   recvRef: %T"
+            "\r\n   vlen:    %u"
+            "\r\n   bufSz:   %ld"
+            "\r\n   ctrlSz:  %ld"
+            "\r\n   flags:   0x%X"
+            "\r\n",
+            sockRef, descP->sock, descP->readState,
+            recvRef, vlen, (long) bufSz, (long) ctrlSz, flags) );
+
+    res = ESOCK_IO_RECVMMSG(env, descP, sockRef, recvRef, vlen, bufSz, ctrlSz, flags);
+
+    SSDBG( descP, ("SOCKET", "nif_recvmmsg(%T) -> done"
                    "\r\n", sockRef) );
 
     MUNLOCK(descP->readMtx);
@@ -13624,35 +13843,77 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
      * </KOLLA>
      */
 
-    /* Hand crafted binary search */
+    /*
+     * Hand crafted binary search
+     * This is the order:
+     * accept | connect |
+     * recv | recvfrom | recvmmsg | recvmsg |
+     * send | sendfile | sendmmsg | sendmsg | sendto | sendv
+     */
+
+    /*
+     * Initial check ('recvmsg' is "right" in the middle)
+     * Check if Op is esock_atom_recvmsg
+     */
     if ((cmp = COMPARE(op, esock_atom_recvmsg)) == 0) {
         MLOCK(descP->readMtx);
         result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
         MUNLOCK(descP->readMtx);
         return result;
     }
+    /*
+     * Check if Op < esock_atom_recvmsg
+     * That is, if Op is one of:
+     * accept | connect | recv | recvfrom | recvmmsg
+     */
     if (cmp < 0) {
+        /*
+         * It *may* be one of: 
+         * accept | connect | recv | recvfrom | recvmmsg
+         *
+         * Check if it is recv
+         */
         if ((cmp = COMPARE(op, esock_atom_recv)) == 0) {
             MLOCK(descP->readMtx);
             result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
             MUNLOCK(descP->readMtx);
             return result;
         }
+        /*
+         * It is *not* recv.
+         * Check if Op < esock_atom_recv
+         */
         if (cmp < 0) {
-            if (COMPARE(op, esock_atom_connect) == 0) {
+            /*
+             * Op < esock_atom_recv
+             * Check if Op is one of:
+             * accept | connect
+             */
+            if (IS_IDENTICAL(op, esock_atom_connect)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_CONNECT(env, descP, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
-            if (COMPARE(op, esock_atom_accept) == 0) {
+            if (IS_IDENTICAL(op, esock_atom_accept)) {
                 MLOCK(descP->readMtx);
                 result = ESOCK_IO_CANCEL_ACCEPT(env, descP, sockRef, opRef);
                 MUNLOCK(descP->readMtx);
                 return result;
             }
         } else {
-            if (COMPARE(op, esock_atom_recvfrom) == 0) {
+            /*
+             * Op > esock_atom_recv
+             * Check if Op is one of:
+             * recvfrom | recvmmsg
+             */
+            if (IS_IDENTICAL(op, esock_atom_recvfrom)) {
+                MLOCK(descP->readMtx);
+                result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
+                MUNLOCK(descP->readMtx);
+                return result;
+            }
+            if (IS_IDENTICAL(op, esock_atom_recvmmsg)) {
                 MLOCK(descP->readMtx);
                 result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
                 MUNLOCK(descP->readMtx);
@@ -13660,33 +13921,58 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
             }
         }
     } else {
+        /*
+         * Op > esock_atom_recvmsg
+         * Check if Op is sendmsg
+         */
         if ((cmp = COMPARE(op, esock_atom_sendmsg)) == 0) {
             MLOCK(descP->writeMtx);
             result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
             MUNLOCK(descP->writeMtx);
             return result;
         }
+        /*
+         * Check if Op < esock_atom_sendmsg
+         * That is, if Op is one of:
+         * send | sendfile | sendmmsg
+         */
         if (cmp < 0) {
-            if (COMPARE(op, esock_atom_send) == 0) {
+            /*
+             * Op < esock_atom_sendmsg
+             * Check if Op is one of:
+             * send | sendfile | sendmmsg
+             */
+            if (IS_IDENTICAL(op, esock_atom_send)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
-            if (COMPARE(op, esock_atom_sendfile) == 0) {
+            if (IS_IDENTICAL(op, esock_atom_sendfile)) {
+                MLOCK(descP->writeMtx);
+                result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
+                MUNLOCK(descP->writeMtx);
+                return result;
+            }
+            if (IS_IDENTICAL(op, esock_atom_sendmmsg)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
         } else {
-            if (COMPARE(op, esock_atom_sendto) == 0) {
+            /*
+             * Op > esock_atom_sendmsg
+             * Check if Op is one of:
+             * sendto | sendv
+             */
+            if (IS_IDENTICAL(op, esock_atom_sendto)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
-            if (COMPARE(op, esock_atom_sendv) == 0) {
+            if (IS_IDENTICAL(op, esock_atom_sendv)) {
                 MLOCK(descP->writeMtx);
                 result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
@@ -17894,6 +18180,7 @@ ErlNifFunc esock_funcs[] =
     {"nif_send",                4, nif_send, 0},
     {"nif_sendto",              5, nif_sendto, 0},
     {"nif_sendmsg",             5, nif_sendmsg, 0},
+    {"nif_sendmmsg",            4, nif_sendmmsg, 0},
     {"nif_sendv",               3, nif_sendv, 0},
     {"nif_sendfile",            5, nif_sendfile, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_sendfile",            4, nif_sendfile, ERL_NIF_DIRTY_JOB_IO_BOUND},
@@ -17901,6 +18188,7 @@ ErlNifFunc esock_funcs[] =
     {"nif_recv",                4, nif_recv, 0},
     {"nif_recvfrom",            4, nif_recvfrom, 0},
     {"nif_recvmsg",             5, nif_recvmsg, 0},
+    {"nif_recvmmsg",            6, nif_recvmmsg, 0},
     {"nif_close",               1, nif_close, 0},
     {"nif_shutdown",            2, nif_shutdown, 0},
     {"nif_setopt",              5, nif_setopt, 0},
@@ -18216,6 +18504,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.send           = esaio_send;
     io_backend.sendto         = esaio_sendto;
     io_backend.sendmsg        = esaio_sendmsg;
+    io_backend.sendmmsg       = NULL;  // essio_sendmmsg
     io_backend.sendv          = esaio_sendv;
     io_backend.sendfile_start = NULL;
     io_backend.sendfile_cont  = NULL;
@@ -18223,6 +18512,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.recv           = esaio_recv;
     io_backend.recvfrom       = esaio_recvfrom;
     io_backend.recvmsg        = esaio_recvmsg;
+    io_backend.recvmmsg       = NULL;  // essio_recvmmsg
     io_backend.close          = esaio_close;
     io_backend.fin_close      = esaio_fin_close;
     io_backend.shutdown       = esock_shutdown;
@@ -18284,6 +18574,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.send           = essio_send;
     io_backend.sendto         = essio_sendto;
     io_backend.sendmsg        = essio_sendmsg;
+    io_backend.sendmmsg       = essio_sendmmsg;
     io_backend.sendv          = essio_sendv;
     io_backend.sendfile_start = essio_sendfile_start;
     io_backend.sendfile_cont  = essio_sendfile_cont;
@@ -18291,6 +18582,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.recv           = essio_recv;
     io_backend.recvfrom       = essio_recvfrom;
     io_backend.recvmsg        = essio_recvmsg;
+    io_backend.recvmmsg       = essio_recvmmsg;
     io_backend.close          = essio_close;
     io_backend.fin_close      = essio_fin_close;
     io_backend.shutdown       = esock_shutdown;
