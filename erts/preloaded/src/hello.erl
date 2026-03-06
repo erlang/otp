@@ -138,8 +138,8 @@ test(BootArgs) ->
     guard_bif_test(),
     test_catches(),
     test_try_catch(),
-%    test_return_yielding(),
-%    test_jmp(),
+    test_return_yielding(),
+    test_jmp(),
 %    test_length(BootArgs),
 %    test_float(),
 %    test_funs(),
@@ -604,22 +604,23 @@ foobar(A, B) when is_integer(A + B) ->
 foobar(error, Reason) ->
     error(Reason).
 
-%test_return_yielding() ->
-%    12502500 = ret_yield(5000).
-%
-%ret_yield(0) -> 0;
-%ret_yield(N) -> N + ret_yield(N - 1).
-%
-%test_jmp() ->
-%    Arg = id(true),
-%    Result = if
-%                 Arg ->
-%                     ok;
-%                 true ->
-%                     error
-%             end,
-%    ok = id(Result).
-%
+test_return_yielding() ->
+    12502500 = ret_yield(5000).
+
+ret_yield(0) -> 0;
+ret_yield(N) ->
+    N + ret_yield(N - 1).
+
+test_jmp() ->
+    Arg = id(true),
+    Result = if
+                 Arg ->
+                     ok;
+                 true ->
+                     error
+             end,
+    ok = id(Result).
+
 %test_length(L) ->
 %    N = len(L),
 %    N = length(L),
