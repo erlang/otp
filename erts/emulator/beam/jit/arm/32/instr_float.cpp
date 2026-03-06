@@ -111,8 +111,19 @@ void BeamModuleAssembler::emit_fload(const ArgSource &Src,
 
 void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_fstore");
+    auto src = load_source(Src, a32::d0);
+    auto dst = init_destination(Dst, VAR);
+
+    a.add(dst.reg, HTOP, imm(TAG_PRIMARY_BOXED));
+
+    mov_imm(TMP, HEADER_FLONUM);
+    a.str(TMP, arm::Mem(HTOP).post(sizeof(Eterm)));
+
+    a.vstr_64(src.reg, arm::Mem(HTOP));
+    ERTS_CT_ASSERT(sizeof(Eterm) == 4);
+    a.add(HTOP, HTOP, imm(2 * sizeof(Eterm)));
+
+    flush_var(dst);
 }
 
 /* ARG1 = source term */
