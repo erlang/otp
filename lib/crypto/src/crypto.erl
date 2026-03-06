@@ -677,11 +677,40 @@ support all of them.
                      | aes_256_gcm
                      | aes_gcm
 
+                     | aes_128_gcm_siv
+                     | aes_192_gcm_siv
+                     | aes_256_gcm_siv
+                     | aes_gcm_siv
+
                      | sm4_gcm
                      | sm4_ccm
 
                      | chacha20_poly1305 .
 
+-doc(#{group => <<"Ciphers">>}).
+-type cipher_info() :: #{
+    key_length := integer(),
+    iv_length := integer(),
+    block_size := integer(),
+    mode := undefined | cipher_mode(),
+    type := undefined | integer(),
+    prop_aead := boolean()
+}.
+
+-doc(#{group => <<"Ciphers">>}).
+-type cipher_mode() :: cbc_mode
+                     | ccm_mode
+                     | cfb_mode
+                     | ctr_mode
+                     | ecb_mode
+                     | gcm_mode
+                     | gcm_siv_mode
+                     | ige_mode
+                     | ocb_mode
+                     | ofb_mode
+                     | wrap_mode
+                     | xts_mode
+                       .
 
 %%%----------------------------------------------------------------
 
@@ -1437,10 +1466,10 @@ support and possibly other properties of the cipher algorithm in question.
 > #### Note {: .info }
 >
 > The ciphers `aes_cbc`, `aes_cfb8`, `aes_cfb128`, `aes_ctr`, `aes_ecb`,
-> `aes_gcm` and `aes_ccm` has no keylength in the `Type` as opposed to for
-> example `aes_128_ctr`. They adapt to the length of the key provided in the
-> encrypt and decrypt function. Therefore it is impossible to return a valid
-> keylength in the map.
+> `aes_gcm`, `aes_gcm_siv`, and `aes_ccm` has no keylength in the `Type` as
+> opposed to for example `aes_128_ctr`. They adapt to the length of the key
+> provided in the encrypt and decrypt function. Therefore it is impossible
+> to return a valid keylength in the map.
 >
 > Always use a `Type` with an explicit key length,
 
@@ -1449,51 +1478,56 @@ For a list of supported cipher algorithms, see
 """.
 -doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
--spec cipher_info(Type) -> Result
-                               when Type :: cipher(),
-                                    Result :: #{key_length := integer(),
-                                                iv_length := integer(),
-                                                block_size := integer(),
-                                                mode := CipherModes,
-                                                type := undefined | integer(),
-                                                prop_aead := boolean()
-                                               },
-                                    CipherModes :: undefined
-                                                 | cbc_mode
-                                                 | ccm_mode
-                                                 | cfb_mode
-                                                 | ctr_mode
-                                                 | ecb_mode
-                                                 | gcm_mode
-                                                 | ige_mode
-                                                 | ocb_mode
-                                                 | ofb_mode
-                                                 | wrap_mode
-                                                 | xts_mode
-                                                   .
-
+-spec cipher_info(Type) -> CipherInfo when
+    Type :: cipher(),
+    CipherInfo :: cipher_info().
 cipher_info(Type) ->
+    case cipher_info_compat([Type], badarg) of
+        badarg ->
+            %% Maybe an alias: we don't know the key length...
+            Aliases = [alias1(Type, KeyLength) || KeyLength <- [16, 24, 32]],
+            Candidates = [Alias || Alias <- Aliases, Alias =/= Type],
+            case cipher_info_compat(Candidates, badarg) of
+                badarg ->
+                    %% Not found, propagate
+                    error(badarg, [Type]);
+                notsup ->
+                    %% Not supported, propagate
+                    error(notsup, [Type]);
+                CipherInfo ->
+                    CipherInfo
+            end;
+        notsup ->
+            %% Not supported, propagate
+            error(notsup, [Type]);
+        CipherInfo ->
+            CipherInfo
+    end.
+
+-spec cipher_info_compat([Type], ErrorKind) -> ErrorKind | CipherInfo when
+    Type :: cipher(),
+    ErrorKind :: badarg | notsup,
+    CipherInfo :: cipher_info().
+cipher_info_compat([], ErrorKind) ->
+    ErrorKind;
+cipher_info_compat([Type | Types], ErrorKind) ->
     try cipher_info_nif(Type)
     catch
         %% These ciphers are not available via the EVP interface on older cryptolibs.
         error:notsup when Type == aes_128_ctr ->
-            #{block_size => 1,iv_length => 16,key_length => 16,mode => ctr_mode,type => undefined};
+            #{block_size => 1, iv_length => 16, key_length => 16, mode => ctr_mode, prop_aead => false, type => undefined};
 
         error:notsup when Type == aes_192_ctr ->
-            #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
+            #{block_size => 1, iv_length => 16, key_length => 24, mode => ctr_mode, prop_aead => false, type => undefined};
 
         error:notsup when Type == aes_256_ctr ->
-            #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
+            #{block_size => 1, iv_length => 16, key_length => 32, mode => ctr_mode, prop_aead => false, type => undefined};
 
         error:badarg ->
-            %% Maybe an alias: we don't know the key length..
-            case alias1(Type, 16) of
-                Type ->
-                    %% Not found, propagate
-                    error(badarg);
-                NewType ->
-                    cipher_info(NewType)
-            end
+            cipher_info_compat(Types, ErrorKind);
+
+        error:notsup ->
+            cipher_info_compat(Types, notsup)
     end.
 
 %%%================================================================
@@ -1839,6 +1873,10 @@ aead_tag_len(aes_gcm    ) -> 16;
 aead_tag_len(aes_128_gcm) -> 16;
 aead_tag_len(aes_192_gcm) -> 16;
 aead_tag_len(aes_256_gcm) -> 16;
+aead_tag_len(aes_gcm_siv) -> 16;
+aead_tag_len(aes_128_gcm_siv) -> 16;
+aead_tag_len(aes_192_gcm_siv) -> 16;
+aead_tag_len(aes_256_gcm_siv) -> 16;
 aead_tag_len(chacha20_poly1305) -> 16;
 aead_tag_len(sm4_gcm) -> 16;
 aead_tag_len(sm4_ccm) -> 16;
@@ -1933,6 +1971,7 @@ alias(aes_cfb128, Key) -> alias1(aes_cfb128, iolist_size(Key));
 alias(aes_ctr, Key)    -> alias1(aes_ctr, iolist_size(Key));
 alias(aes_ecb, Key)    -> alias1(aes_ecb, iolist_size(Key));
 alias(aes_gcm, Key)    -> alias1(aes_gcm, iolist_size(Key));
+alias(aes_gcm_siv, Key) -> alias1(aes_gcm_siv, iolist_size(Key));
 alias(aes_ccm, Key)    -> alias1(aes_ccm, iolist_size(Key));
 alias(Alg, _) -> Alg.
 
@@ -1960,6 +1999,10 @@ alias1(aes_ecb, 32)  -> aes_256_ecb;
 alias1(aes_gcm, 16)  -> aes_128_gcm;
 alias1(aes_gcm, 24)  -> aes_192_gcm;
 alias1(aes_gcm, 32)  -> aes_256_gcm;
+
+alias1(aes_gcm_siv, 16) -> aes_128_gcm_siv;
+alias1(aes_gcm_siv, 24) -> aes_192_gcm_siv;
+alias1(aes_gcm_siv, 32) -> aes_256_gcm_siv;
 
 alias1(aes_ccm, 16)  -> aes_128_ccm;
 alias1(aes_ccm, 24)  -> aes_192_ccm;
@@ -1991,6 +2034,10 @@ alias1_rev(aes_256_ecb)    -> aes_ecb;
 alias1_rev(aes_128_gcm)    -> aes_gcm;
 alias1_rev(aes_192_gcm)    -> aes_gcm;
 alias1_rev(aes_256_gcm)    -> aes_gcm;
+
+alias1_rev(aes_128_gcm_siv) -> aes_gcm_siv;
+alias1_rev(aes_192_gcm_siv) -> aes_gcm_siv;
+alias1_rev(aes_256_gcm_siv) -> aes_gcm_siv;
 
 alias1_rev(aes_128_ccm)    -> aes_ccm;
 alias1_rev(aes_192_ccm)    -> aes_ccm;
