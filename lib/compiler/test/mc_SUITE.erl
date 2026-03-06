@@ -30,6 +30,8 @@
          shadow/1,bad_generators/1,multi/1,from_keys_optimization/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include("test_lib.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -137,9 +139,9 @@ basic(_Config) ->
     #{4 := 8} = #{X+1 => Y*2 || X := Y <:- #{1 => 2, 3 => 4}, X > 1},
 
     %% Non-matching elements cause a badmatch error for strict generators
-    {'EXIT',{{badmatch,2},_}} = (catch #{X => X+1 || {ok, X} <:- [{ok,1},2,{ok,3}]}),
-    {'EXIT',{{badmatch,<<128,2>>},_}} = (catch #{X => X+1 || <<0:1, X:7>> <:= <<1,128,2>>}),
-    {'EXIT',{{badmatch,{2,error}},_}} = (catch #{X => X+1 || X := ok <:-#{1 => ok, 2 => error, 3 => ok}}),
+    ?assertError({badmatch,2}, #{X => X+1 || {ok, X} <:- [{ok,1},2,{ok,3}]}),
+    ?assertError({badmatch,<<128,2>>}, #{X => X+1 || <<0:1, X:7>> <:= <<1,128,2>>}),
+    ?assertError({badmatch,{2,error}}, #{X => X+1 || X := ok <:-#{1 => ok, 2 => error, 3 => ok}}),
 
     ok.
 
@@ -268,37 +270,37 @@ bad_generators(_Config) ->
         mc_inline_SUITE ->
             ok;
         _ ->
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,4}]}|_]}} =
-                catch id(bad_generator(a)),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,4}]}|_],
+                              id(bad_generator(a))),
 
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,7}]}|_]}} =
-                catch id(bad_generator_bc(a)),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,7}]}|_],
+                              id(bad_generator_bc(a))),
 
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,10}]}|_]}} =
-                catch id(bad_generator_mc(a)),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,10}]}|_],
+                              id(bad_generator_mc(a))),
 
             BadIterator = [16#ffff|#{}],
 
-            {'EXIT',{{bad_generator,BadIterator},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,4}]}|_]}} =
-                catch id(bad_generator(BadIterator)),
+            ?AssertErrorStack({bad_generator,BadIterator},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,4}]}|_],
+                              id(bad_generator(BadIterator))),
 
-            {'EXIT',{{bad_generator,BadIterator},
-                     [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,7}]}|_]}} =
-                catch id(bad_generator_bc(BadIterator)),
+            ?AssertErrorStack({bad_generator,BadIterator},
+                              [{?MODULE,_,_,
+                                [{file,"bad_mc.erl"},{line,7}]}|_],
+                              id(bad_generator_bc(BadIterator))),
 
-            {'EXIT',{{bad_generator,BadIterator},
+            ?AssertErrorStack({bad_generator,BadIterator},
                      [{?MODULE,_,_,
-                       [{file,"bad_mc.erl"},{line,10}]}|_]}} =
-                catch id(bad_generator_mc(BadIterator))
+                       [{file,"bad_mc.erl"},{line,10}]}|_],
+                              id(bad_generator_mc(BadIterator)))
     end,
     ok.
 

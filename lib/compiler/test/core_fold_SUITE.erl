@@ -37,6 +37,7 @@
 -export([foo/0,foo/1,foo/2,foo/3]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -90,17 +91,17 @@ t_element(Config) when is_list(Config) ->
     z = id(element(Pos, Tuple)),
 
     %% Calls that will fail.
-    {'EXIT',{badarg,_}} = (catch element(5, {a,b,c,d})),
-    {'EXIT',{badarg,_}} = (catch element(5, {a,b,X,d})),
-    {'EXIT',{badarg,_}} = (catch element(5.0, {a,b,X,d})),
-    {'EXIT',{badarg,_}} = (catch element(2, not_a_tuple)),
-    {'EXIT',{badarg,_}} = (catch element(2, [])),
-    {'EXIT',{badarg,_}} = (catch element(2, Tuple == 3)),
+    ?assertError(badarg, element(5, {a,b,c,d})),
+    ?assertError(badarg, element(5, {a,b,X,d})),
+    ?assertError(badarg, element(5.0, {a,b,X,d})),
+    ?assertError(badarg, element(2, not_a_tuple)),
+    ?assertError(badarg, element(2, [])),
+    ?assertError(badarg, element(2, Tuple == 3)),
     case id({a,b,c}) of
 	{_,_,_}=Tup ->
-	    {'EXIT',{badarg,_}} = (catch element(4, Tup))
+            ?assertError(badarg, element(4, Tup))
     end,
-    {'EXIT',{badarg,_}} = (catch element(1, tuple_size(Tuple))),
+    ?assertError(badarg, element(1, tuple_size(Tuple))),
 
     ok.
 
@@ -117,11 +118,11 @@ setelement(Config) when is_list(Config) ->
 
     {{d,c,b,a,x}, {z,c,b,a,x}} = setelement_cover(erlang:make_tuple(5, x)),
 
-    {'EXIT',{badarg,_}} = (catch setelement_crash({a,b,c,d,e,f})),
+    ?assertError(badarg, setelement_crash({a,b,c,d,e,f})),
     error = setelement_crash_2({a,b,c,d,e,f}, <<42>>),
 
-    {'EXIT',{badarg,_}} = (catch setelement(1, not_a_tuple, New)),
-    {'EXIT',{badarg,_}} = (catch setelement(3, {a,b}, New)),
+    ?assertError(badarg, setelement(1, not_a_tuple, New)),
+    ?assertError(badarg, setelement(3, {a,b}, New)),
 
     ok.
 
@@ -163,9 +164,9 @@ t_length(Config) when is_list(Config) ->
     5 = id(length([x|Tail])),
 
     %% Will fail.
-    {'EXIT',{badarg,_}} = (catch id(length([a,b|c]))),
-    {'EXIT',{badarg,_}} = (catch id(length([a,Blurf|c]))),
-    {'EXIT',{badarg,_}} = (catch id(length(atom))),
+    ?assertError(badarg, id(length([a,b|c]))),
+    ?assertError(badarg, id(length([a,Blurf|c]))),
+    ?assertError(badarg, id(length(atom))),
 
     ok.
 
@@ -180,7 +181,7 @@ append(Config) when is_list(Config) ->
     [a,b,c,d,e,f,g,h,i,j,k] = id(?APPEND([a,b,c,d,e,f],[g,h,i,j,k])),
     [a,b,c,d,e] = id(?APPEND([a,b,c],id([d,e]))),
     [0,1,2,3,4,5,6] = id(?APPEND([A,1,2,3],[4,5,6])),
-    {'EXIT',{badarg,_}} = (catch id(?APPEND([A|blurf],[4,5,6]))),
+    ?assertError(badarg, id(?APPEND([A|blurf],[4,5,6]))),
     ok.
 
 t_apply(Config) when is_list(Config) ->
@@ -198,13 +199,13 @@ t_apply(Config) when is_list(Config) ->
     16.0 = apply(M, foo, [12.0,4]),
 
     %% Will fail.
-    {'EXIT',{badarg,_}} = (catch apply([a,b,c], foo, [])),
-    {'EXIT',{badarg,_}} = (catch apply(42, foo, [])),
-    {'EXIT',{badarg,_}} = (catch apply(?MODULE, 45, [xx])),
-    {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, {a,b})),
-    {'EXIT',{badarg,_}} = (catch apply(M, M, [1009|10010])),
-    {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, [10000|9999])),
-    {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, a)),
+    ?assertError(badarg, apply([a,b,c], foo, [])),
+    ?assertError(badarg, apply(42, foo, [])),
+    ?assertError(badarg, apply(?MODULE, 45, [xx])),
+    ?assertError(badarg, apply(?MODULE, foo, {a,b})),
+    ?assertError(badarg, apply(M, M, [1009|10010])),
+    ?assertError(badarg, apply(?MODULE, foo, [10000|9999])),
+    ?assertError(badarg, apply(?MODULE, foo, a)),
 
     ok.
 
@@ -266,7 +267,7 @@ nested_call_in_case(Config) when is_list(Config) ->
     {ok,Mod} = c:c(Core, Opts),
     yes = Mod:a([1,2,3], 2),
     no = Mod:a([1,2,3], 4),
-    {'EXIT',_} = (catch Mod:a(not_a_list, 42)),
+    ?assertError(_, Mod:a(not_a_list, 42)),
     _ = code:delete(Mod),
     _ = code:purge(Mod),
     ok.
@@ -324,7 +325,7 @@ coverage(Config) when is_list(Config) ->
 	    end,
 
     %% Cover is literal_fun/1.
-    {'EXIT',{{case_clause,42},_}} = (catch cover_is_literal_fun()),
+    ?assertError({case_clause,42}, cover_is_literal_fun()),
 
     %% Cover core_lib.
     ok = cover_core_lib([ok,nok]),
@@ -524,11 +525,11 @@ do_unnecessary_building_2({a,_,_}=T) ->
 %% sys_core_fold will have proper filenames and line numbers. Thus, no
 %% "no_file" warnings.
 no_no_file(_Config) ->
-    {'EXIT',{{case_clause,0},_}} = (catch source(true, any)),
+    ?assertError({case_clause,0}, source(true, any)),
     surgery = (tim(#{reduction => any}))(),
 
     false = soul(#{[] => true}),
-    {'EXIT',{{case_clause,true},_}} = (catch soul(#{[] => false})),
+    ?assertError({case_clause,true}, soul(#{[] => false})),
 
     ok = experiment(),
     ok.
@@ -565,7 +566,7 @@ experiment() ->
 
 %% Make sure we don't try to move a fun into a guard.
 configuration(_Config) ->
-    {'EXIT',_} = (catch configuration()),
+    ?assertError(_, configuration()),
     ok.
 
 configuration() ->
@@ -582,9 +583,9 @@ supplies(_Config) ->
 	    %% Other error behaviour when inlined.
 	    ok;
 	_ ->
-	    {'EXIT',{function_clause,_}} = (catch do_supplies(#{1 => <<1,2,3>>})),
-	    {'EXIT',{function_clause,_}} = (catch do_supplies(#{1 => a})),
-	    {'EXIT',{function_clause,_}} = (catch do_supplies(42)),
+            ?assertError(function_clause, do_supplies(#{1 => <<1,2,3>>})),
+            ?assertError(function_clause, do_supplies(#{1 => a})),
+            ?assertError(function_clause, do_supplies(42)),
 	    ok
     end.
 
@@ -592,8 +593,8 @@ do_supplies(#{1 := Value}) when byte_size(Value), byte_size(kg) -> working.
 
 redundant_stack_frame(_Config) ->
     {1,2} = do_redundant_stack_frame(#{x=>1,y=>2}),
-    {'EXIT',{{badkey,_,x},_}} = (catch do_redundant_stack_frame(#{y=>2})),
-    {'EXIT',{{badkey,_,y},_}} = (catch do_redundant_stack_frame(#{x=>1})),
+    ?assertError({badkey,_,x}, do_redundant_stack_frame(#{y=>2})),
+    ?assertError({badkey,_,y}, do_redundant_stack_frame(#{x=>1})),
     ok.
 
 do_redundant_stack_frame(Map) ->
@@ -648,9 +649,9 @@ export_from_case_2(Bool, Rec) ->
 empty_values(_Config) ->
     case ?MODULE of
         core_fold_inline_SUITE ->
-            {'EXIT',_} = (catch do_empty_values());
+            ?assertError(_, do_empty_values());
         _ ->
-            {'EXIT',{function_clause,_}} = (catch do_empty_values())
+            ?assertError(function_clause, do_empty_values())
     end,
     ok.
 
@@ -711,12 +712,12 @@ do_receive_effect() ->
     {} = receive _ -> {} = {} end.
 
 nested_lets(_Config) ->
-    {'EXIT',{{case_clause,ok},_}} = catch nested_lets_1(<<42>>),
-    {'EXIT',{badarith,_}} = catch nested_lets_2(id(0), id(0)),
-    {'EXIT',{badarith,_}} = catch nested_lets_3(),
-    {'EXIT',{undef,_}} = catch nested_lets_4(),
-    {'EXIT',{{case_clause,_},_}} = catch nested_lets_5(),
-    {'EXIT',{badarith,_}} = catch nested_lets_6(),
+    ?assertError({case_clause,ok}, nested_lets_1(<<42>>)),
+    ?assertError(badarith, nested_lets_2(id(0), id(0))),
+    ?assertError(badarith, nested_lets_3()),
+    ?assertError(undef, nested_lets_4()),
+    ?assertError({case_clause,_}, nested_lets_5()),
+    ?assertError(badarith, nested_lets_6()),
 
     ok.
 
@@ -859,10 +860,10 @@ nested_lets_6() ->
     end.
 
 map_effect(_Config) ->
-    {'EXIT',{{badkey,key},_}} = catch map_effect_1(),
+    ?assertError({badkey,key}, map_effect_1()),
 
-    {'EXIT',{{badkey,key},_}} = catch map_effect_2(#{}),
-    {'EXIT',{{badmap,no_map},_}} = catch map_effect_2(no_map),
+    ?assertError({badkey,key}, map_effect_2(#{})),
+    ?assertError({badmap,no_map}, map_effect_2(no_map)),
 
     ok.
 

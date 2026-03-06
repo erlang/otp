@@ -20,6 +20,8 @@
 %% %CopyrightEnd%
 %%
 -module(beam_except_SUITE).
+-include_lib("stdlib/include/assert.hrl").
+-include("test_lib.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -53,10 +55,9 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 multiple_allocs(_Config) ->
-    {'EXIT',{{badmatch,#{true:=[p]}},_}} =
-	 (catch could(pda, 0.0, {false,true}, {p})),
-    {'EXIT',{{bad_generator,0},_}} = (catch place(lee)),
-    {'EXIT',{{badmatch,wanted},_}} = (catch conditions()),
+    ?assertError({badmatch,#{true:=[p]}}, could(pda, 0.0, {false,true}, {p})),
+    ?assertError({bad_generator,0}, place(lee)),
+    ?assertError({badmatch,wanted}, conditions()),
 
     ok.
 
@@ -71,17 +72,16 @@ conditions() ->
 
 bs_get_tail(Config) ->
     {<<"abc">>,0,0,Config} = bs_get_tail_1(id(<<0:32, "abc">>), 0, 0, Config),
-    {'EXIT',
-     {function_clause,
-      [{?MODULE,bs_get_tail_1,[<<>>,0,0,Config],_}|_]}} =
-        (catch bs_get_tail_1(id(<<>>), 0, 0, Config)),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,bs_get_tail_1,[<<>>,0,0,Config],_}|_],
+                      bs_get_tail_1(id(<<>>), 0, 0, Config)),
 
     ok = bs_get_tail_2(<<"W">>, <<"X">>, <<"Z">>),
     ok = bs_get_tail_2(<<"M">>, <<"X">>, <<"Z">>),
-    {'EXIT',
-     {function_clause,
-      [{?MODULE,do_get_bs_tail_2,[<<"A">>,<<"B">>,[],<<"C">>],_}|_]}} =
-        (catch bs_get_tail_2(<<"A">>, <<"B">>, <<"C">>)),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,do_get_bs_tail_2,
+                        [<<"A">>,<<"B">>,[],<<"C">>],_}|_],
+                      bs_get_tail_2(<<"A">>, <<"B">>, <<"C">>)),
 
     ok.
 
@@ -97,61 +97,74 @@ do_get_bs_tail_2(<<"M">>, <<"X">>, _, <<"Z">>) -> ok.
 coverage(_) ->
     File = {file,"fake.erl"},
     ok = fc(a),
-    {'EXIT',{function_clause,
-	     [{?MODULE,fc,[[x]],[File,{line,2}]}|_]}} =
-	(catch fc([x])),
-    {'EXIT',{function_clause,
-	     [{?MODULE,fc,[y],[File,{line,2}]}|_]}} =
-	(catch fc(y)),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,fc,[[x]],[File,{line,2}]}|_],
+                      fc([x])),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,fc,[y],[File,{line,2}]}|_],
+                      fc(y)),
     case ?MODULE of
         beam_except_no_opt_SUITE ->
             %% There will be a different stack fram in
             %% unoptimized code.
             ok;
         _ ->
-            {'EXIT',{function_clause,
-                     [{?MODULE,fc,[[a,b,c]],[File,{line,6}]}|_]}} =
-                (catch fc([a,b,c]))
+            ?AssertErrorStack(function_clause,
+                              [{?MODULE,fc,[[a,b,c]],[File,{line,6}]}|_],
+                              fc([a,b,c]))
     end,
 
-    {'EXIT',{undef,[{erlang,error,[a,b,c,d],_}|_]}} =
-	(catch erlang:error(a, b, c, d)),
+    ?AssertErrorStack(undef,
+                      [{erlang,error,[a,b,c,d],_}|_],
+                      erlang:error(a, b, c, d)),
 
     %% The stacktrace for operators such a '+' can vary depending on
     %% whether the JIT is used or not.
-    case catch bar(x) of
-        {'EXIT',{badarith,[{erlang,'+',[x,1],[_|_]},
-                           {?MODULE,bar,1,[File,{line,9}]}|_]}} ->
+    try bar(x) of
+        Success ->
+            error({unexpected_success,Success})
+    catch
+        error:badarith:Stack ->
+            [{erlang,'+',[x,1],[_|_]},
+             {?MODULE,bar,1,[File,{line,9}]}|_] = Stack,
             ok;
-        {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} ->
+        error:badarith:Stack ->
+            [{?MODULE,bar,1,[File,{line,9}]}|_] = Stack,
             ok
     end,
 
-    {'EXIT',{{case_clause,{1}},[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
-	(catch bar(0)),
+    ?AssertErrorStack({case_clause,{1}},
+
+                      [{?MODULE,bar,1,[File,{line,9}]}|_],
+                      bar(0)),
 
     Self = self(),
-    {'EXIT',{{strange,Self},[{?MODULE,foo,[any],[File,{line,14}]}|_]}} =
-        (catch foo(any)),
+    ?AssertErrorStack({strange,Self},
+                      [{?MODULE,foo,[any],[File,{line,14}]}|_],
+                      foo(any)),
 
     {ok,succeed,1,2} = foobar(succeed, 1, 2),
-    {'EXIT',{function_clause,[{?MODULE,foobar,[[fail],1,2],
-                               [{file,"fake.erl"},{line,16}]}|_]}} =
-        (catch foobar([fail], 1, 2)),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,foobar,[[fail],1,2],
+                        [{file,"fake.erl"},{line,16}]}|_],
+                      foobar([fail], 1, 2)),
 
-    {'EXIT',{function_clause,[{?MODULE,fake_function_clause1,[{a,b},42.0],_}|_]}} =
-        (catch fake_function_clause1({a,b})),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,fake_function_clause1,[{a,b},42.0],_}|_],
+                      fake_function_clause1({a,b})),
 
-    {'EXIT',{function_clause,[{?MODULE,fake_function_clause2,[42|bad_tl],_}|_]}} =
-        (catch fake_function_clause2(42, bad_tl)),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,fake_function_clause2,[42|bad_tl],_}|_],
+                      fake_function_clause2(42, bad_tl)),
 
-    {'EXIT',{function_clause,[{?MODULE,fake_function_clause3,[x,y],_}|_]}} =
-        (catch fake_function_clause3(42, id([x,y]))),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,fake_function_clause3,[x,y],_}|_],
+                      fake_function_clause3(42, id([x,y]))),
 
-    {'EXIT',{{function_clause,a,b,c}, _}} = catch fake_function_clause4(),
+    ?assertError({function_clause,a,b,c}, fake_function_clause4()),
 
-    {'EXIT',{{badmatch,0.0},_}} = (catch coverage_1(id(42))),
-    {'EXIT',{badarith,_}} = (catch coverage_1(id(a))),
+    ?assertError({badmatch,0.0}, coverage_1(id(42))),
+    ?assertError(badarith, coverage_1(id(a))),
 
     ok.
 
@@ -182,7 +195,7 @@ do_binary_construction_allocation(Req) ->
 
 unfold_literals(_Config) ->
     a = do_unfold_literals(badarg, id({a,b})),
-    {'EXIT',{badarg,_}} = catch do_unfold_literals(badarg, id(a)),
+    ?assertError(badarg, do_unfold_literals(badarg, id(a))),
 
     ok.
 

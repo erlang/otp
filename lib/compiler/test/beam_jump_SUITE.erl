@@ -20,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_jump_SUITE).
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -58,7 +59,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 undefined_label(_Config) ->
-    {'EXIT',{function_clause,_}} = (catch flights(0, [], [])),
+    ?assertError(function_clause, flights(0, [], [])),
     ok.
 
 %% Would lose a label when compiled with no_copt.
@@ -75,15 +76,15 @@ ambiguous_catch_try_state(Config) ->
     {{'EXIT',{{case_clause,song},_}},{'EXIT',{{case_clause,song},_}}} =
 	checks(42),
 
-    {'EXIT',{{try_clause,42},_}} = (catch unsafe_sharing()),
+    ?assertError({try_clause,42}, unsafe_sharing()),
 
-    {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(<<>>)),
-    {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(Config)),
+    ?assertError({badmatch,b}, ambiguous_catch_try_state_1(<<>>)),
+    ?assertError({badmatch,b}, ambiguous_catch_try_state_1(Config)),
 
-    {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_2()),
-    {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_3()),
+    ?assertError({badmatch,0}, ambiguous_catch_try_state_2()),
+    ?assertError({badmatch,0}, ambiguous_catch_try_state_3()),
 
-    {'EXIT',{badarg,_}} = catch ambiguous_catch_try_state_4(),
+    ?assertError(badarg, ambiguous_catch_try_state_4()),
 
     ok.
 
@@ -243,7 +244,7 @@ ambiguous_catch_try_state_4() ->
 
 build_tuple(_Config) ->
     Message2 = #message2{},
-    {'EXIT',{{badrecord,Message2},_}} = (catch do_build_tuple(#message2{})),
+    ?assertError({badrecord,Message2}, do_build_tuple(#message2{})),
     ok.
 
 do_build_tuple(Message) ->
@@ -327,8 +328,8 @@ call_sharing(_Config) ->
 
     C_2 = {c, 1},
     C_3 = {c, 1, 2},
-    {'EXIT',_} = (catch (cs_1(id(C_2)))),
-    {'EXIT',_} = (catch (cs_1(id(C_3)))),
+    ?assertError(_, (cs_1(id(C_2)))),
+    ?assertError(_, (cs_1(id(C_3)))),
 
     ok.
 
@@ -342,18 +343,18 @@ cs_1(Key) ->
 cs_2(I) -> I.
 
 undecided_allocation(_Config) ->
-    ok = catch undecided_allocation_1(<<10:(3*7)>>),
-    {'EXIT',{{badrecord,<<0>>},_}} = catch undecided_allocation_1(8),
+    ok = undecided_allocation_1(<<10:(3*7)>>),
+    ?assertError({badrecord,<<0>>}, undecided_allocation_1(8)),
 
     {bar,1} = undecided_allocation_2(id(<<"bar">>)),
     {foo,2} = undecided_allocation_2(id(<<"foo">>)),
-    {'EXIT',_} = catch undecided_allocation_2(id(<<"foobar">>)),
-    {'EXIT',{{badmatch,error},_}} = catch undecided_allocation_2(id("foo,bar")),
-    {'EXIT',_} = catch undecided_allocation_2(id(foobar)),
-    {'EXIT',_} = catch undecided_allocation_2(id(make_ref())),
+    ?assertError(_, undecided_allocation_2(id(<<"foobar">>))),
+    ?assertError({badmatch,error}, undecided_allocation_2(id("foo,bar"))),
+    ?assertError(_, undecided_allocation_2(id(foobar))),
+    ?assertError(_, undecided_allocation_2(id(make_ref()))),
 
     ok = undecided_allocation_3(id(<<0>>), gurka),
-    {'EXIT', {badarith, _}} = catch undecided_allocation_3(id(<<>>), gurka),
+    ?assertError(badarith, undecided_allocation_3(id(<<>>), gurka)),
 
     ok.
 

@@ -20,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(warnings_SUITE).
+-include_lib("stdlib/include/assert.hrl").
 
 %%-define(STANDALONE, true).
 
@@ -602,7 +603,7 @@ bin_opt_info(Config) when is_list(Config) ->
                  split_binary(T, 4).
            ">>,
 
-    Ws = (catch run_test(Config, Code, [bin_opt_info])),
+    Ws = run_test(Config, Code, [bin_opt_info]),
 
     %% This is an inexact match since the pass reports exact instructions as
     %% part of the warnings, which may include annotations that vary from run
@@ -624,7 +625,7 @@ bin_opt_info(Config) when is_list(Config) ->
      ]} = Ws,
 
     %% For coverage: don't give the bin_opt_info option.
-    [] = (catch run_test(Config, Code, [])),
+    [] = run_test(Config, Code, []),
 
     %% Now try with abstract code and no location.
     %%
@@ -654,7 +655,7 @@ bin_opt_info(Config) when is_list(Config) ->
                                [],
                                [{call,0,{atom,0,t1},[{var,0,'T'}]}]},
                            {clause,0,[{bin,0,[]}],[],[{atom,0,ok}]}]}]}]}],
-    Wsf = (catch run_forms(Forms, [bin_opt_info])),
+    Wsf = run_forms(Forms, [bin_opt_info]),
 
     {warnings,
      [{none,beam_ssa_bsm,{unsuitable_call,
@@ -1192,7 +1193,7 @@ recv_opt_info(Config) when is_list(Config) ->
                     end.
            ">>,
 
-    Ws = (catch run_test(Config, Code, [recv_opt_info])),
+    Ws = run_test(Config, Code, [recv_opt_info]),
 
     %% This is an inexact match since the pass reports exact instructions as
     %% part of the warnings, which may include annotations that vary from run
@@ -1212,7 +1213,7 @@ recv_opt_info(Config) when is_list(Config) ->
          {23,beam_ssa_recv,{used_receive_marker,_}}]} = Ws,
 
     %% For coverage: don't give the recv_opt_info option.
-    [] = (catch run_test(Config, Code, [])),
+    [] = run_test(Config, Code, []),
 
     %% Now try with abstract code and no location.
     %%
@@ -1233,7 +1234,7 @@ recv_opt_info(Config) when is_list(Config) ->
                                      [{var,0,'Msg'}]}]}]}]}]}
     ],
 
-    Wsf = (catch run_forms(Forms, [recv_opt_info])),
+    Wsf = run_forms(Forms, [recv_opt_info]),
     {warnings, [{none,beam_ssa_recv,matches_any_message}]} = Wsf,
 
     ok.
@@ -1393,12 +1394,13 @@ lines_only_1({Loc,Mod,Error}) ->
 do_run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
                 io:format("### ~s\n", [N]),
-                case catch run_test(Config, P, Ws) of
-                    E -> 
-                        BadL;
-                    Bad -> 
+                try run_test(Config, P, Ws) of
+                    E ->
+                        BadL
+                catch
+                    error:Bad:Stack ->
                         io:format("~nTest ~p failed. Expected~n  ~p~n"
-                                  "but got~n  ~p~n", [N, E, Bad]),
+                                  "but got~n  ~p ~p~n", [N, E, Bad, Stack]),
 			fail()
                 end
         end,

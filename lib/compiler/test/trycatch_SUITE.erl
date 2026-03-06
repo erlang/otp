@@ -37,6 +37,7 @@
          throw_opt_funs/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -963,7 +964,7 @@ bool(Config) when is_list(Config) ->
     error = do_bool(true, false),
     error = do_bool(true, true),
     error = do_bool(true, blurf),
-    {'EXIT',_} = (catch do_bool(blurf, false)),
+    ?assertError(_, do_bool(blurf, false)),
     ok.
 
 %% The following function used to cause a crash in beam_bool.
@@ -1126,7 +1127,7 @@ grab_bag(_Config) ->
 
     <<>> = grab_bag_2(whatever),
 
-    {'EXIT',_} = (catch grab_bag_3()),
+    ?assertError(_, grab_bag_3()),
 
     true = grab_bag_4(),
 
@@ -1558,7 +1559,7 @@ throw_opt_crash_1(false, _Term) ->
     ok.
 
 coverage(Config) ->
-    {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),
+    ?assertError({badfun,true}, coverage_1()),
     ok = coverage_ssa_throw(),
     error = coverage_pre_codegen(),
     {a,[42]} = do_plain_catch_list(42),

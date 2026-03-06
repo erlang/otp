@@ -704,10 +704,10 @@ slim_option(_Config) ->
 
 fixed_bugs(_Config) ->
     ok = unassigned_yreg(ok),
-    {'EXIT',_} = catch unassigned_yreg(not_ok),
+    ?assertError(_, unassigned_yreg(not_ok)),
 
     ~"xyz" = wrong_frame_size(id(~"xyz")),
-    boom = catch wrong_frame_size(id(42)),
+    ?assertThrow(boom, wrong_frame_size(id(42))),
 
     {ok,error} = no_function(ok),
 

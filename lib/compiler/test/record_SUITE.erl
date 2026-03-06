@@ -24,6 +24,7 @@
 -module(record_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -77,17 +78,16 @@ errors(Config) when is_list(Config) ->
     Foo = #foo{a=1,b=2,c=3,d=4},
     #foo{a=19,b=42,c=3,d=4} = update_foo(Foo, 19, 42),
 
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_bar(Foo, 19)),
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_bar(Foo, 19, 35)),
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_bar(Foo, 19, 35, 17)),
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_bar(Foo, 19, 35, 17, 42)),
+    ?assertError({badrecord,Foo}, update_foo_bar(Foo, 19)),
+    ?assertError({badrecord,Foo}, update_foo_bar(Foo, 19, 35)),
+    ?assertError({badrecord,Foo}, update_foo_bar(Foo, 19, 35, 17)),
+    ?assertError({badrecord,Foo}, update_foo_bar(Foo, 19, 35, 17, 42)),
 
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19)),
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19, 35)),
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19, 35, 17)),
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19, 35, 17, 42)),
-    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19,
-                                                          35, 17, 42, -2)),
+    ?assertError({badrecord,Foo}, update_foo_barf(Foo, 19)),
+    ?assertError({badrecord,Foo}, update_foo_barf(Foo, 19, 35)),
+    ?assertError({badrecord,Foo}, update_foo_barf(Foo, 19, 35, 17)),
+    ?assertError({badrecord,Foo}, update_foo_barf(Foo, 19, 35, 17, 42)),
+    ?assertError({badrecord,Foo}, update_foo_barf(Foo, 19, 35, 17, 42, -2)),
 
     ok.
 
@@ -252,7 +252,7 @@ record_test_2(Config) when is_list(Config) ->
 
     %% Call is_record/2 with illegal arguments.
     [] = [X || X <- [], is_record(t, id(X))],
-    {'EXIT',{badarg,_}} = (catch [X || X <- [1], is_record(t, id(X))]),
+    ?assertError(badarg, [X || X <- [1], is_record(t, id(X))]),
 
     %% Update several fields with a string literal.
     #barf{} = Barf0 = id(#barf{}),
@@ -458,7 +458,7 @@ guard_opt(Config) when is_list(Config) ->
 		     end,
 		 [#r{a=4,b=7},#r{a=1,b=42}] =
 		     F(F, [#r{a=4,b=7},#r{a=4,b=7},#r{a=1,b=42}]),
-		 {'EXIT',_} = (catch F(F, [#r1{}])),
+                 ?assertError(_, F(F, [#r1{}])),
 		 ok
 	 end(),
 
@@ -473,8 +473,8 @@ guard_opt(Config) when is_list(Config) ->
 		     end,
 		 ok = F(true, #r1{a=true}),
 		 error = F(false, anything_goes),
-		 {'EXIT',_} = (catch F(true, #r1{})),
-		 {'EXIT',_} = (catch F(true, #r{})),
+                 ?assertError(_, F(true, #r1{})),
+                 ?assertError(_, F(true, #r{})),
 		 ok
 	 end(),
 
@@ -648,7 +648,7 @@ coverage(Config) when is_list(Config) ->
     error3 = check_file_header(#fileheader{}),
 
     %% Cover sanitization of is_tagged_tuple in beam_ssa_pre_codegen.
-    {'EXIT',_} = catch id((catch 22)#rr.a),
+    ?assertError(_, id((catch 22)#rr.a)),
 
     %% Cover beam_ssa_bool.
     error = coverage_1(true),
@@ -762,10 +762,10 @@ grab_bag(_Config) ->
                          error
                  end
          end,
-    error = catch T6(100),
-    error = catch T6([a,b,c]),
-    error = catch T6(#bar{}),
-    {'EXIT',{{try_clause,#foo{}},_}} = catch T6(#foo{}),
+    error = T6(100),
+    error = T6([a,b,c]),
+    error = T6(#bar{}),
+    ?assertError({try_clause,#foo{}}, T6(#foo{})),
 
     ok.
 
@@ -854,7 +854,7 @@ duplicate_update_record(Config) when is_list(Config) ->
 
     DuplicateUR1 = erlang:setelement(2, DuplicateUR0, false),
     DuplicateUR = erlang:setelement(2, DuplicateUR1, false),
-    {'EXIT', _} = catch duplicate_update_record_1(DuplicateUR),
+    ?assertError(_, duplicate_update_record_1(DuplicateUR)),
 
     ok.
 

@@ -20,6 +20,8 @@
 %% %CopyrightEnd%
 %%
 -module(beam_ssa_SUITE).
+-include_lib("stdlib/include/assert.hrl").
+-include("test_lib.hrl").
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -74,13 +76,13 @@ calls(Config) ->
     Ret = fun_call(fun(42) -> ok end, Ret),
     Ret = apply_fun(fun(a, b) -> ok end, [a,b], Ret),
     Ret = apply_mfa(test_lib, id, [anything], Ret),
-    {'EXIT',{badarg,_}} = (catch call_error()),
-    {'EXIT',{badarg,_}} = (catch call_error(42)),
+    ?assertError(badarg, call_error()),
+    ?assertError(badarg, call_error(42)),
     5 = start_it([erlang,length,1,2,3,4,5]),
 
     {_,ok} = cover_call(id(true)),
     {_,ok} = cover_call(id(false)),
-    {'EXIT',{{case_clause,ok},_}} = catch cover_call(id(ok)),
+    ?assertError({case_clause,ok}, cover_call(id(ok))),
 
     ok.
 
@@ -462,7 +464,7 @@ recv_coverage_2() ->
     end.
 
 maps(_Config) ->
-    {'EXIT',{{badmatch,#{}},_}} = (catch maps_1(any)),
+    ?assertError({badmatch,#{}}, maps_1(any)),
 
     {jkl,nil,nil} = maps_2(#{abc => 0, jkl => 0}),
     {def,ghi,abc} = maps_2(#{abc => 0, def => 0}),
@@ -473,7 +475,7 @@ maps(_Config) ->
 
     [] = maps_3(),
 
-    {'EXIT',{{badmap,true},_}} = catch maps_4(id(true), id(true)),
+    ?assertError({badmap,true}, maps_4(id(true), id(true))),
     error = maps_4(id(#{}), id(true)),
     error = maps_4(id(#{}), id(#{})),
 
@@ -610,7 +612,7 @@ cover_ssa_dead(_Config) ->
     40.0 = percentage(4.0, 10.0),
     60.0 = percentage(6, 10),
 
-    {'EXIT',{{badmatch,42},_}} = (catch #{key => abs(("a" = id(42)) /= teacher)}),
+    ?assertError({badmatch,42}, #{key => abs(("a" = id(42)) /= teacher)}),
 
     <<>> = id(<< V || V <- [], V andalso false >>),
 
@@ -904,12 +906,13 @@ fast_mapfoldl(F, Acc0, [Hd|Tail]) ->
 fast_mapfoldl(F, Acc, []) when is_function(F, 2) -> {[],Acc}.
 
 grab_bag(_Config) ->
-    {'EXIT',_} = (catch grab_bag_1()),
-    {'EXIT',_} = (catch grab_bag_2()),
-    {'EXIT',_} = (catch grab_bag_3()),
-    {'EXIT',_} = (catch grab_bag_4()),
-    {'EXIT',{function_clause,[{?MODULE,grab_bag_5,[a,17],_}|_]}} =
-        (catch grab_bag_5(a, 17)),
+    ?assertError(_, grab_bag_1()),
+    ?assertError(_, grab_bag_2()),
+    ?assertError(_, grab_bag_3()),
+    ?assertError(_, grab_bag_4()),
+    ?AssertErrorStack(function_clause,
+                      [{?MODULE,grab_bag_5,[a,17],_}|_],
+                      grab_bag_5(a, 17)),
     way = grab_bag_6(face),
     no_match = grab_bag_6("ABC"),
     no_match = grab_bag_6(any),
@@ -918,26 +921,26 @@ grab_bag(_Config) ->
     ok = grab_bag_9(),
     whatever = grab_bag_10(ignore, whatever),
     other = grab_bag_11(),
-    {'EXIT',_} = (catch grab_bag_12()),
-    {'EXIT',{{badmatch,[]},_}} = (catch grab_bag_13()),
+    ?assertError(_, grab_bag_12()),
+    ?assertError({badmatch,[]}, grab_bag_13()),
     timeout = grab_bag_14(),
     ?MODULE = grab_bag_15(?MODULE),
 
     error = grab_bag_16a(timeout_value),
-    {'EXIT',{timeout_value,_}} = (catch grab_bag_16a(whatever)),
-    {'EXIT',{timeout_value,_}} = (catch grab_bag_16b(whatever)),
+    ?assertError(timeout_value, grab_bag_16a(whatever)),
+    ?assertError(timeout_value, grab_bag_16b(whatever)),
     timeout_value = grab_bag_16b(error),
 
     fact = grab_bag_17(),
 
-    {'EXIT',{{try_clause,[]},[_|_]}} = catch grab_bag_18(),
+    ?assertError({try_clause,[]}, grab_bag_18()),
 
-    {'EXIT',{{badmatch,[whatever]},[_|_]}} = catch grab_bag_19(),
+    ?assertError({badmatch,[whatever]}, grab_bag_19()),
 
-    {'EXIT',{if_clause,[_|_]}} = catch grab_bag_20(),
+    ?assertError(if_clause, grab_bag_20()),
 
     6 = grab_bag_21(id(64)),
-    {'EXIT',{badarith,_}} = catch grab_bag_21(id(a)),
+    ?assertError(badarith, grab_bag_21(id(a))),
 
     false = grab_bag_22(),
 
@@ -1254,7 +1257,7 @@ grab_bag_23(#{page_title := unset} = State1) ->
 %% GH-8818: The CSE pass in beam_ssa_opt failed to intersect candidates on
 %% the failure path, crashing the type optimization pass.
 grab_bag_24() ->
-    {'EXIT', _} = catch do_grab_bag_24(id(0), id(0), id(0), id(0)),
+    ?assertError(_, do_grab_bag_24(id(0), id(0), id(0), id(0))),
     ok.
 
 do_grab_bag_24(A, B, C, D) ->
@@ -1294,12 +1297,12 @@ coverage(_Config) ->
                    <<$f:1.7>> -> ok;
                    _ -> no_match
                end,
-    {'EXIT',{{badmatch,$T},_}} = (catch coverage_1()),
+    ?assertError({badmatch,$T}, coverage_1()),
 
     error = coverage_2(),
     ok = coverage_3(),
     #coverage{name=whatever} = coverage_4(),
-    {'EXIT',{{badrecord,ok},_}} = catch coverage_5(),
+    ?assertError({badrecord,ok}, coverage_5()),
 
     ok.
 
@@ -1481,21 +1484,21 @@ gh_6599(_Config) ->
     ok = gh_6599_1(id(42), id(42)),
     #{ok := ok} = gh_6599_1(id(#{ok => 0}), id(#{ok => 0})),
 
-    {'EXIT',{{try_clause,#{ok:=ok}},_}} =
-        catch gh_6599_2(id(whatever), id(#{0 => whatever})),
+    ?assertError({try_clause,#{ok:=ok}},
+                 gh_6599_2(id(whatever), id(#{0 => whatever}))),
 
     ok = gh_6599_3(id(true), id(true)),
-    {'EXIT',{function_clause,_}} = catch gh_6599_3(id(false), id(false)),
+    ?assertError(function_clause, gh_6599_3(id(false), id(false))),
     0.0 = gh_6599_3(id(0.0), id(0.0)),
 
-    {'EXIT',{{badmatch,true},_}} = catch gh_6599_4(id(false)),
+    ?assertError({badmatch,true}, gh_6599_4(id(false))),
 
-    {'EXIT',{{badmatch,ok},_}} = catch gh_6599_5(id([a]), id(#{0 => [a]}), id([a])),
+    ?assertError({badmatch,ok}, gh_6599_5(id([a]), id(#{0 => [a]}), id([a]))),
 
     #{ok := ok} = gh_6599_6(id(#{}), id(#{})),
-    {'EXIT',{{badmap,a},_}} = catch gh_6599_6(id(a), id(a)),
+    ?assertError({badmap,a}, gh_6599_6(id(a), id(a))),
 
-    {'EXIT',{{badarg,ok},_}} = catch gh_6599_7(id([a]), id([a])),
+    ?assertError({badarg,ok}, gh_6599_7(id([a]), id([a]))),
 
     ok.
 

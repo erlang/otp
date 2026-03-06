@@ -187,6 +187,7 @@ DIALYZER_ERL_FILES= $(DIALYZER_MODULES:%=%.erl)
 COVER_MODULES= $(COVER:%=%_cover_SUITE)
 COVER_ERL_FILES= $(COVER_MODULES:%=%.erl)
 
+HRL_FILES= test_lib.hrl
 ERL_FILES= $(MODULES:%=%.erl)
 CORE_FILES= $(CORE_MODULES:%=%.core)
 ERL_DUMMY_FILES= $(CORE_MODULES:%=%.erl)
@@ -328,6 +329,7 @@ release_tests_spec: make_emakefile
 	        $(NO_TYPE_OPT_ERL_FILES) \
 	        $(COVER_ERL_FILES) \
 	        $(DIALYZER_ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(CORE_FILES) "$(RELSYSDIR)"
 	for file in $(ERL_DUMMY_FILES); do \
 	    module=`basename $$file .erl`; \

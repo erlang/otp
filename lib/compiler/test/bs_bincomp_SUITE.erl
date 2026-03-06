@@ -23,6 +23,7 @@
 %%
 
 -module(bs_bincomp_SUITE).
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -152,14 +153,14 @@ mixed(Config) when is_list(Config) ->
     <<4,5,6>> = cs_default(match_context_2(<<4,5,6>>)),
 
     <<255>> = over_complex_generator(),
-    {'EXIT',_} = catch float_segment_size(),
+    ?assertError(_, float_segment_size()),
 
     <<>> = inconsistent_types_1([]),
-    {'EXIT',{{bad_generator,42},_}} = catch inconsistent_types_1(42),
+    ?assertError({bad_generator,42}, inconsistent_types_1(42)),
     Self = self(),
-    {'EXIT',{{bad_generator,Self},_}} = catch inconsistent_types_1(Self),
+    ?assertError({bad_generator,Self}, inconsistent_types_1(Self)),
 
-    {'EXIT',{{bad_filter,<<>>},_}} = catch inconsistent_types_2(),
+    ?assertError({bad_filter,<<>>}, inconsistent_types_2()),
 
     %% Cover some code in beam_ssa_pre_codegen.
     [] = fun(A) ->
@@ -374,7 +375,7 @@ nomatch(Config) when is_list(Config) ->
     <<>> = id(<< <<C:8>> || C <- [], _ <- ok >>),
     <<>> = id(<<0 || _ <- [], _ <- ok, false>>),
 
-    {'EXIT',{{bad_generator,false},_}} = catch << [] || <<0:0>> <= false >>,
+    ?assertError({bad_generator,false}, << [] || <<0:0>> <= false >>),
 
     ok.
 
@@ -503,13 +504,13 @@ sizes(Config) when is_list(Config) ->
     <<"Foundation"/utf8>> = Fun15(<<"Foundation"/utf32>>),
     <<"Основание"/utf8>> = Fun15(<<"Основание"/utf32>>),
 
-    {'EXIT',_} = (catch << <<C:4>> || <<C:8>> <= {1,2,3} >>),
+    ?assertError(_, << <<C:4>> || <<C:8>> <= {1,2,3} >>),
 
     cs_end(),
     ok.
 
--define(BAD(E),   {'EXIT',{badarg,_}} = (catch << (E) || _ <- [1,2,3] >>)).
--define(BAD_V(E), {'EXIT',{badarg,_}} = (catch << (E) || I <- [1,2,3] >>)).
+-define(BAD(E),   ?assertError(badarg, << (E) || _ <- [1,2,3] >>)).
+-define(BAD_V(E), ?assertError(badarg, << (E) || I <- [1,2,3] >>)).
 
 general_expressions(_) ->
     cs_init(),
@@ -580,7 +581,7 @@ no_generator(_Config) ->
     {<<>>} = {<<(id(<<"abc">>)) || false >>},
 
     %% Would crash the compiler when compiled with +no_type_opt.
-    {'EXIT',{badarg,_}} = (catch << (catch "\001") || true >>),
+    ?assertError(badarg, << (catch "\001") || true >>),
 
     ok.
 
@@ -643,12 +644,12 @@ do_multiple_segments_2(Gen) ->
     List.
 
 grab_bag(_Config) ->
-    {'EXIT',{function_clause,_}} = catch grab_bag_gh_6553(<<>>),
-    {'EXIT',{function_clause,_}} = catch grab_bag_gh_6553(a),
-    {'EXIT',{{badmatch,<<>>},_}} = catch grab_bag_gh_6553(<<42>>),
+    ?assertError(function_clause, grab_bag_gh_6553(<<>>)),
+    ?assertError(function_clause, grab_bag_gh_6553(a)),
+    ?assertError({badmatch,<<>>}, grab_bag_gh_6553(<<42>>)),
 
     %% Cover a line v3_kernel:get_line/1.
-    _ = catch << ok || <<>> <= ok, ok >>,
+    ?assertError(_, << ok || <<>> <= ok, ok >>),
 
     [] = grab_bag_gh_8617(<<>>),
     [0] = grab_bag_gh_8617(<<1:1>>),
@@ -679,13 +680,13 @@ strict_generators(_Config) ->
     <<12>> = << <<(X*Y)>> || X := Y <:- #{1 => 2, 3 => 4}, X > 1 >>,
 
     %% Non-matching elements cause a badmatch error for strict generators
-    {'EXIT',{{badmatch,2},_}} = (catch << <<X>> || {ok, X} <:- [{ok,1},2,{ok,3}] >>),
-    {'EXIT',{{badmatch,<<128,2>>},_}} = (catch << <<X>> || <<0:1, X:7>> <:= <<1,128,2>> >>),
-    {'EXIT',{{badmatch,{2,error}},_}} = (catch << <<X>> || X := ok <:- #{1 => ok, 2 => error, 3 => ok} >>),
+    ?assertError({badmatch,2}, << <<X>> || {ok, X} <:- [{ok,1},2,{ok,3}] >>),
+    ?assertError({badmatch,<<128,2>>}, << <<X>> || <<0:1, X:7>> <:= <<1,128,2>> >>),
+    ?assertError({badmatch,{2,error}}, << <<X>> || X := ok <:- #{1 => ok, 2 => error, 3 => ok} >>),
 
     %% Extra bits cannot be skipped at the end of the binary either
-    {'EXIT',{{badmatch,<<0:2>>},_}} = (catch [X || <<X:3>> <:= <<0>>]),
-    {'EXIT',{{badmatch,<<9,2>>},_}} = (catch [Y || <<X, Y:X>> <:= <<8,1,9,2>>]),
+    ?assertError({badmatch,<<0:2>>}, [X || <<X:3>> <:= <<0>>]),
+    ?assertError({badmatch,<<9,2>>}, [Y || <<X, Y:X>> <:= <<8,1,9,2>>]),
 
     ok.
 

@@ -28,6 +28,7 @@
 -export([foo/0,bar/1,baz/2,get_callback/0]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -78,10 +79,10 @@ mfa(Config) when is_list(Config) ->
     {[a,b]} = ?APPLY1(Mod, (id(bar)), [a,b]),
     {39,{a}} = ?APPLY2(Mod, (id(baz)), 39, {a}),
 
-    {'EXIT',_} = (catch ?APPLY2(Mod, (id(bazzzzzz)), a, b)),
-    {'EXIT',_} = (catch ?APPLY2({}, baz, a, b)),
-    {'EXIT',_} = (catch ?APPLY2(?MODULE, [], a, b)),
-    {'EXIT',_} = (catch bad_literal_call(1)),
+    ?assertError(_, ?APPLY2(Mod, (id(bazzzzzz)), a, b)),
+    ?assertError(_, ?APPLY2({}, baz, a, b)),
+    ?assertError(_, ?APPLY2(?MODULE, [], a, b)),
+    ?assertError(_, bad_literal_call(1)),
 
     ok = apply(Mod, foo, id([])),
     {[a,b|c]} = apply(Mod, bar, id([[a,b|c]])),

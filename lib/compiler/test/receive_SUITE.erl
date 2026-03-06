@@ -35,6 +35,7 @@
          bs_get_tail/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -144,7 +145,7 @@ coverage(Config) when is_list(Config) ->
     61 = tuple_to_values(999999, x),
     0 = tuple_to_values(1, x),
 
-    {'EXIT',{{badmap,[]},_}} = (catch monitor_plus_badmap(self())),
+    ?assertError({badmap,[]}, monitor_plus_badmap(self())),
 
 
     self() ! {data,no_data},
@@ -192,7 +193,7 @@ coverage(Config) when is_list(Config) ->
 
     %% Cover code for handling a non-boolean `br` in beam_ssa_dead.
     self() ! whatever,
-    {'EXIT',{{badmatch,_},_}} = (catch [a || true =:= (other = receive whatever -> false end)]),
+    ?assertError({badmatch,_}, [a || true =:= (other = receive whatever -> false end)]),
 
     %% Cover code in beam_ssa_pre_codegen.
     self() ! 0,
@@ -519,7 +520,7 @@ wait(Config) when is_list(Config) ->
     self() ! <<42>>,
     <<42>> = wait_1(r, 1, 2),
     {1,2,3} = wait_1(1, 2, 3),
-    {'EXIT',{timeout_value,_}} = (catch receive after [] -> timeout end),
+    ?assertError(timeout_value, receive after [] -> timeout end),
     ok.
 
 wait_1(r, _, _) ->
@@ -850,8 +851,8 @@ in_after(_Config) ->
     do_in_after(fun() -> ok end),
     do_in_after(fun() -> ok end),
     self() ! message,
-    catch do_in_after(fun() -> error(bad) end),
-    catch do_in_after(fun() -> error(bad) end),
+    ?assertError(bad, do_in_after(fun() -> error(bad) end)),
+    ?assertError(bad, do_in_after(fun() -> error(bad) end)),
     self() ! last,
     first = receive M1 -> M1 end,
     last = receive M2 -> M2 end,

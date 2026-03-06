@@ -20,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_reorder_SUITE).
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -69,7 +70,7 @@ alloc_b(_U1, _U2, R) ->
     Res.
 
 confused_beam_validator(_Config) ->
-    {'EXIT',{{badmap,{any}},_}} = (catch efficient({any})),
+    ?assertError({badmap,{any}}, efficient({any})),
     ok.
 
 efficient({Var}=God) ->

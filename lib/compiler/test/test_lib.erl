@@ -28,7 +28,9 @@
          smoke_disasm/1,
          p_run/2,
          highest_opcode/1,
-         get_unique_files/1,get_unique_files/2]).
+         get_unique_files/1,get_unique_files/2,
+         assert_error_stack/3
+        ]).
 
 %% Used by test case that override BIFs.
 -export([binary_part/2,binary/1]).
@@ -259,3 +261,32 @@ binary_part(_A,_B) ->
 %% This is for overridden_bif_SUITE.
 binary(N) ->
     N rem 10 =:= 0.
+
+%% Helper for ?AssertErrorStack().
+assert_error_stack(ErrorFun, StackFun, ExprFun) ->
+    try ExprFun() of
+        Result ->
+            error({unexpected_success,Result})
+    catch
+        error:Error:Stack ->
+            case {ErrorFun(Error),StackFun(Stack)} of
+                {ok,ok} ->
+                    ok;
+                {ActualError,ActualStack} ->
+                    Args = case ActualError of
+                               ok ->
+                                   [];
+                               _ ->
+                                   [{unexpected_error, Error},
+                                    {expected, ActualError}]
+                           end ++
+                        case ActualStack of
+                            ok ->
+                                [];
+                            _ ->
+                                [{unexpected_stack, Stack},
+                                 {expected_stack, ActualStack}]
+                        end,
+                    error(assertException, Args)
+            end
+    end.

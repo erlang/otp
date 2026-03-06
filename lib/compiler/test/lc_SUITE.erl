@@ -29,10 +29,11 @@
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1,no_export/1,shadow/1,
 	 effect/1,singleton_generator/1,assignment_generator/1,gh10020/1,
-     multi/1]).
+         multi/1]).
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include("test_lib.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -123,42 +124,42 @@ basic(Config) when is_list(Config) ->
 
     %% Error cases.
     [] = [{xx,X} || X <- L0, element(2, X) == no_no_no],
-    {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
+    ?assertError(_, [X || X <- L1, list_to_atom(X) == dum]),
     [] = [X || X <- L1, X+1 < 2],
-    {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
-    {'EXIT',{{bad_generator,x},_}} = (catch [E || E <- id(x)]),
-    {'EXIT',{{bad_filter,not_bool},_}} = (catch [E || E <- [1,2], id(not_bool)]),
+    ?assertError(_, [X || X <- L1, odd(X)]),
+    ?assertError({bad_generator,x}, [E || E <- id(x)]),
+    ?assertError({bad_filter,not_bool}, [E || E <- [1,2], id(not_bool)]),
 
     %% Non-matching elements cause a badmatch error for strict generators
-    {'EXIT',{{badmatch,2},_}} = (catch [X || {ok, X} <:- [{ok,1},2,{ok,3}]]),
-    {'EXIT',{{badmatch,<<128,2>>},_}} = (catch [X || <<0:1, X:7>> <:= <<1,128,2>>]),
-    {'EXIT',{{badmatch,{2,error}},_}} = (catch [X || X := ok <:- #{1 => ok, 2 => error, 3 => ok}]),
+    ?assertError({badmatch,2}, [X || {ok, X} <:- [{ok,1},2,{ok,3}]]),
+    ?assertError({badmatch,<<128,2>>}, [X || <<0:1, X:7>> <:= <<1,128,2>>]),
+    ?assertError({badmatch,{2,error}}, [X || X := ok <:- #{1 => ok, 2 => error, 3 => ok}]),
 
     %% Make sure that line numbers point out the generator.
     case ?MODULE of
         lc_inline_SUITE ->
             ok;
         _ ->
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_lc.erl"},{line,4}]}|_]}} =
-                (catch id(bad_generator(a))),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_lc.erl"},{line,4}]}|_],
+                              id(bad_generator(a))),
 
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_lc.erl"},{line,7}]}|_]}} =
-                (catch id(bad_generator_bc(a))),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_lc.erl"},{line,7}]}|_],
+                              id(bad_generator_bc(a))),
 
-            {'EXIT',{{bad_generator,a},
-                     [{?MODULE,_,_,
-                       [{file,"bad_lc.erl"},{line,10}]}|_]}} =
-                (catch id(bad_generator_mc(a))),
+            ?AssertErrorStack({bad_generator,a},
+                              [{?MODULE,_,_,
+                                [{file,"bad_lc.erl"},{line,10}]}|_],
+                              id(bad_generator_mc(a))),
 
             %% List comprehensions with improper lists.
-            {'EXIT',{{bad_generator,d},
-                     [{?MODULE,_,_,
-                       [{file,"bad_lc.erl"},{line,4}]}|_]}} =
-                (catch bad_generator(id([a,b,c|d])))
+            ?AssertErrorStack({bad_generator,d},
+                              [{?MODULE,_,_,
+                                [{file,"bad_lc.erl"},{line,4}]}|_],
+                              bad_generator(id([a,b,c|d])))
     end,
 
     ok.
