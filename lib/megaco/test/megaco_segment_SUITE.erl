@@ -6348,8 +6348,8 @@ rsmos_mg_verify_notify_reply_fun(SN, Tid) ->
 	     
 rsmos_mg_verify_notify_reply(
   {handle_trans_reply, _CH, ?VERSION, {ok, {SN, Last, [AR]}}, _}, SN, Tid) 
-  when ((SN == 1) and (Last == true)) or 
-       ((SN =/= 1) and (Last == false)) ->
+  when SN == 1, Last == true;
+       SN =/= 1, Last == false ->
     (catch rsmos_mg_do_verify_notify_reply(Tid, AR));
 rsmos_mg_verify_notify_reply(Crap, SN, Tid) ->
     io:format("rsmos_mg_verify_notify_reply -> unknown reply"
@@ -7921,8 +7921,8 @@ cre_transaction(Trans) when is_record(Trans, 'TransactionRequest') ->
 cre_transaction(Trans) when is_record(Trans, 'TransactionPending') ->
     {transactionPending, Trans};
 cre_transaction(Trans) 
-  when is_record(Trans, 'TransactionReply') or
-       (is_tuple(Trans) and (element(1, Trans) == 'TransactionReply')) ->
+  when is_record(Trans, 'TransactionReply');
+       is_tuple(Trans), element(1, Trans) == 'TransactionReply' ->
     {transactionReply, Trans};
 cre_transaction(Trans) when is_list(Trans) ->
     {transactionResponseAck, Trans};

@@ -449,7 +449,7 @@ populate([{Key,Val}|Env]) ->
     put(Key, Val),
     populate(Env).
 
-load_controller(Config, Fun) when is_list(Config) and is_function(Fun) ->
+load_controller(Config, Fun) when is_list(Config), is_function(Fun) ->
     process_flag(trap_exit, true),
     {value, {tc_timeout, TcTimeout}} = 
 	lists:keysearch(tc_timeout, 1, Config),

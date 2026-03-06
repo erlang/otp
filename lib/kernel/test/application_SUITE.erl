@@ -3726,7 +3726,7 @@ loop2973() ->
 wait_for_ready_net() ->
     Nodes = lists:sort([node() | nodes()]),
     ?UNTIL(begin
-               lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
+               lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) andalso
                lists:all(fun(N) ->
                                  LNs = rpc:call(N, erlang, nodes, []),
                                  Nodes =:= lists:sort([N | LNs])

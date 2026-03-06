@@ -2431,8 +2431,8 @@ strar_mgc_do_verify_notify_request(AR) ->
     {Cid, CR} =
 	case AR of
 	    #'ActionRequest'{contextId       = CtxID, 
-			     commandRequests = [CmdReq]} when (CtxID == 1) or
-							      (CtxID == 2) ->
+			     commandRequests = [CmdReq]} when CtxID == 1;
+							      CtxID == 2 ->
 		{CtxID, CmdReq};
 	    _ ->
                 Err1      = {invalid_action_request, AR},
@@ -2949,8 +2949,8 @@ straro_mgc_do_verify_notify_request(AR) ->
     {Cid, CR} =
 	case AR of
 	    #'ActionRequest'{contextId       = CtxID, 
-			     commandRequests = [CmdReq]} when (CtxID == 1) or
-							      (CtxID == 2) ->
+			     commandRequests = [CmdReq]} when CtxID == 1;
+							      CtxID == 2 ->
 		{CtxID, CmdReq};
 	    _ ->
                 Err1      = {invalid_action_request, AR},
