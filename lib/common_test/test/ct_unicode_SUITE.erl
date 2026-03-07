@@ -74,7 +74,6 @@ all() ->
 %%--------------------------------------------------------------------
 unicode_atoms_SUITE(Config) ->
     DataDir = ?config(data_dir,Config),
-    PrivDir = ?config(priv_dir,Config),
     run_test(unicode_atoms_SUITE,
              [{dir,DataDir},{suite,unicode_atoms_SUITE}], Config).
 
