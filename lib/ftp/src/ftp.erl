@@ -85,6 +85,10 @@ The possible error reasons and the corresponding diagnostic strings returned by
 -removed([{start_service, 1, "use ftp:open/2 instead"},
           {stop_service, 1,  "use ftp:close/1 instead"}]).
 
+-deprecated([{'_','_',"Legacy protocol support will be dropped in OTP-30, use more modern "
+              "approach for file transfer as for instance SFTP (SSH File Transfer Protocol)."
+             }]).
+
 -export([start/0,
          stop/0
         ]).
