@@ -165,7 +165,7 @@ xm_sig_order_test(Node) ->
     P ! may_reach,
     P ! may_reach,
     P ! may_reach,
-    exit(P, good_signal_order),
+    exit_signal(P, good_signal_order),
     P ! may_not_reach,
     P ! may_not_reach,
     P ! may_not_reach,
@@ -215,7 +215,7 @@ check_exit(Node, Type, N) ->
     if Type == other_exit2 ->
             receive
                 {end_of_line, EOL} ->
-                    exit(EOL, kill)
+                    exit_signal(EOL, kill)
             end;
        true -> ok
     end,
@@ -234,7 +234,7 @@ spawn_link_line(_NodeA, _NodeB, other_exit2, 0, Tester) ->
 spawn_link_line(_NodeA, _NodeB, exit1, 0, _Tester) ->
     exit(kill);
 spawn_link_line(_NodeA, _NodeB, exit2, 0, _Tester) ->
-    exit(self(), kill);
+    exit_signal(self(), kill);
 spawn_link_line(NodeA, NodeB, Type, N, Tester) ->
     spawn_link(NodeA,
                fun () ->
@@ -383,8 +383,8 @@ dirty_signal_handling_race(Config) ->
         end,
         unlink(Pid),
         unlink(Port),
-        exit(Pid, kill),
-        exit(Port, kill),
+        exit_signal(Pid, kill),
+        exit_signal(Port, kill),
         false = erlang:is_process_alive(Pid)
     after
         ok = erl_ddll:unload_driver(Drv)
@@ -461,9 +461,9 @@ dirty_signal_handling_race_dirty_access_test(Config) ->
         end,
         unlink(P1),
         unlink(Port),
-        exit(P0, kill),
-        exit(P1, kill),
-        exit(Port, kill),
+        exit_signal(P0, kill),
+        exit_signal(P1, kill),
+        exit_signal(Port, kill),
         false = erlang:is_process_alive(P0),
         false = erlang:is_process_alive(P1),
         _ = id(Data)
@@ -516,7 +516,7 @@ dirty_signal_handling(Config) when is_list(Config) ->
     [{status,runnable},{current_function, _}] = process_info(P, [status,current_function]),
     receive after 1000 -> ok end,
     [{status,running},{current_function, _}] = process_info(P, [status,current_function]),
-    lists:foreach(fun (X) -> exit(X, kill) end, [P|Ps]),
+    lists:foreach(fun (X) -> exit_signal(X, kill) end, [P|Ps]),
     lists:foreach(fun (X) -> false = is_process_alive(X) end, [P|Ps]),
     ok.
 
@@ -552,7 +552,7 @@ busy_dist_exit_signal(Config) when is_list(Config) ->
                                 end
                          end),
     make_busy(BusyChannelNode, OtherNode, BusyTime),
-    exit(Exiter, tester_killed_me),
+    exit_signal(Exiter, tester_killed_me),
     receive
         {Linker, got_exiter_exit_message} ->
             unlink(Linker),
@@ -603,7 +603,7 @@ busy_dist_demonitor_signal(Config) when is_list(Config) ->
     Demonitorer ! {self(), monitor, Demonitoree},
     receive {Demonitoree, monitored} -> ok end,
     make_busy(BusyChannelNode, OtherNode, BusyTime),
-    exit(Demonitorer, tester_killed_me),
+    exit_signal(Demonitorer, tester_killed_me),
     receive
         {Demonitoree, got_demonitorer_demonitor_signal} ->
             unlink(Demonitoree),
@@ -648,7 +648,7 @@ busy_dist_down_signal(Config) when is_list(Config) ->
                                 end
                          end),
     make_busy(BusyChannelNode, OtherNode, BusyTime),
-    exit(Exiter, tester_killed_me),
+    exit_signal(Exiter, tester_killed_me),
     receive
         {Monitorer, got_exiter_down_message} ->
             unlink(Monitorer),
@@ -1052,7 +1052,7 @@ move_msgs_off_heap_signal_test(RecvPair, Exit) ->
     if Exit ->
             _ = lists:foldl(fun (P, N) when N rem 10 ->
                                     unlink(P),
-                                    exit(P, terminated),
+                                    exit_signal(P, terminated),
                                     N+1;
                                 (_P, N) ->
                                     N+1
@@ -1067,7 +1067,7 @@ move_msgs_off_heap_signal_test(RecvPair, Exit) ->
     erlang:trace(new_processes, false, [running_procs]),
     lists:foreach(fun (P) ->
                           unlink(P),
-                          exit(P, kill)
+                          exit_signal(P, kill)
                   end, Ps),
     lists:foreach(fun (P) ->
                           false = is_process_alive(P)
@@ -1166,7 +1166,7 @@ copy_literal_area_signal_test(RecvPair, Exit) ->
     if Exit ->
             _ = lists:foldl(fun ({P, _M}, N) when N rem 10 ->
                                     unlink(P),
-                                    exit(P, terminated),
+                                    exit_signal(P, terminated),
                                     N+1;
                                 (_PM, N) ->
                                     N+1
@@ -1271,7 +1271,7 @@ simultaneous_signals_test(RecvPairs, Exit) ->
     if Exit ->
             _ = lists:foldl(fun ({P, _M}, N) when N rem 10 ->
                                     unlink(P),
-                                    exit(P, terminated),
+                                    exit_signal(P, terminated),
                                     N+1;
                                 (_PM, N) ->
                                     N+1
@@ -1380,12 +1380,12 @@ parallel_signal_enqueue_race_1_test() ->
     %% triggered and the test case would time out.
     true = is_process_alive(R),
     unlink(R),
-    exit(R, kill),
+    exit_signal(R, kill),
     false = is_process_alive(R),
 
     true = is_process_alive(T),
     unlink(T),
-    exit(T, kill),
+    exit_signal(T, kill),
     false = is_process_alive(T),
 
     ok.
@@ -1477,13 +1477,13 @@ parallel_signal_enqueue_race_2_test() ->
     TriggerLoop(400000),
 
     unlink(PI),
-    exit(PI, kill),
+    exit_signal(PI, kill),
     false = is_process_alive(PI),
     unlink(LU),
-    exit(LU, kill),
+    exit_signal(LU, kill),
     false = is_process_alive(LU),
     unlink(R),
-    exit(R, kill),
+    exit_signal(R, kill),
     false = is_process_alive(R),
     ok.
 
@@ -1559,7 +1559,7 @@ dirty_schedule_test() ->
     lists:foreach(Go, PM3s),
     lists:foreach(WaitProcs, PM3s),
     unlink(Proc),
-    exit(Proc, kill),
+    exit_signal(Proc, kill),
     false = is_process_alive(Proc),
     ok.
 
@@ -1608,7 +1608,7 @@ priority_messages_link_enable_disable_test(Node) ->
     P2 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
                    [{link, [priority]}]),
     {priority_messages, true} = process_info(self(), priority_messages),
-    exit(P2, bye),
+    exit_signal(P2, bye),
     receive {'EXIT', P2, bye} -> ok end,
     {priority_messages, false} = process_info(self(), priority_messages),
     erlang:yield(),
@@ -1680,7 +1680,7 @@ priority_messages_monitor_enable_disable_test(Node) ->
     {P2, M3} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
                          [{monitor, [priority]}]),
     {priority_messages, true} = process_info(self(), priority_messages),
-    exit(P2, bye),
+    exit_signal(P2, bye),
     receive {'DOWN', M3, process, P2, bye} -> ok end,
     {priority_messages, false} = process_info(self(), priority_messages),
     erlang:yield(),
@@ -1729,7 +1729,7 @@ priority_messages_alias_enable_disable_test(Node) ->
                                end, [monitor,link]),
     {PE, ME} = spawn_opt(Node, fun ExitPrioAlias () ->
                                        receive
-                                           A -> erlang:exit(A, A, [priority])
+                                           A -> erlang:exit_signal(A, A, [priority])
                                        end,
                                        ExitPrioAlias()
                                end, [monitor,link]),
@@ -1768,8 +1768,8 @@ priority_messages_alias_enable_disable_test(Node) ->
 
     unlink(PS),
     unlink(PE),
-    exit(PS, kill),
-    exit(PE, kill),
+    exit_signal(PS, kill),
+    exit_signal(PE, kill),
     receive {'DOWN', MS, process, PS, killed} -> ok end,
     receive {'DOWN', ME, process, PE, killed} -> ok end.
 
@@ -1831,21 +1831,21 @@ priority_messages_order_test(Node) ->
 
     Rcvr ! {msg, 1},
     wait_until(fun () -> msg_received(Rcvr, {msg, 1}) end),
-    exit(LinkProc2, link_exit_1),
+    exit_signal(LinkProc2, link_exit_1),
     wait_until(fun () -> exit_received(Rcvr, LinkProc2) end),
-    exit(LinkProc1, prio_link_exit_1),
+    exit_signal(LinkProc1, prio_link_exit_1),
     wait_until(fun () -> exit_received(Rcvr, LinkProc1) end),
-    exit(MonProc2, down_1),
+    exit_signal(MonProc2, down_1),
     wait_until(fun () -> down_received(Rcvr, MonProc2) end),
-    exit(MonProc1, prio_down_1),
+    exit_signal(MonProc1, prio_down_1),
     wait_until(fun () -> down_received(Rcvr, MonProc1) end),
     Rcvr ! {msg, 2},
     Rcvr ! {msg, 3},
-    exit(PrioAlias, func_exit_1),
+    exit_signal(PrioAlias, func_exit_1),
     Rcvr ! {msg, 4},
-    exit(PrioAlias, prio_func_exit_1, [priority]),
-    exit(Rcvr, {func_exit, 2}, [priority]),
-    exit(PrioAlias, func_exit_3),
+    exit_signal(PrioAlias, prio_func_exit_1, [priority]),
+    exit_signal(Rcvr, {func_exit, 2}, [priority]),
+    exit_signal(PrioAlias, func_exit_3),
     Rcvr ! {msg, 5},
     PrioAlias ! {msg, 6},
     erlang:send(PrioAlias, {prio_msg, 1}, [priority]),
@@ -1853,13 +1853,13 @@ priority_messages_order_test(Node) ->
     erlang:send(PrioAlias, prio_msg_2, [priority]),
     erlang:send(Rcvr, {msg, 8}, [priority]),
     wait_until(fun () -> msg_received(Rcvr, {msg, 8}) end),
-    exit(LinkProc4, {link_exit, 2}),
+    exit_signal(LinkProc4, {link_exit, 2}),
     wait_until(fun () -> exit_received(Rcvr, LinkProc4) end),
-    exit(LinkProc3, {prio_link_exit, 2}),
+    exit_signal(LinkProc3, {prio_link_exit, 2}),
     wait_until(fun () -> exit_received(Rcvr, LinkProc3) end),
-    exit(MonProc4, {down, 2}),
+    exit_signal(MonProc4, {down, 2}),
     wait_until(fun () -> down_received(Rcvr, MonProc4) end),
-    exit(MonProc3, {prio_down, 2}),
+    exit_signal(MonProc3, {prio_down, 2}),
     wait_until(fun () -> down_received(Rcvr, MonProc3) end),
 
     Expect = [
@@ -1918,8 +1918,8 @@ priority_messages_order_test(Node) ->
 
     Rcvr ! a_message,
 
-    exit(PrioAlias, {prio_func_exit, 2}, [priority]),
-    exit(PrioAlias, {func_exit, 2}),
+    exit_signal(PrioAlias, {prio_func_exit, 2}, [priority]),
+    exit_signal(PrioAlias, {func_exit, 2}),
     erlang:send(PrioAlias, {prio_msg, 3}, [priority]),
     erlang:send(PrioAlias, {msg, 9}, []),
 
@@ -1931,7 +1931,7 @@ priority_messages_order_test(Node) ->
                    end,
 
     unlink(Rcvr),
-    exit(Rcvr, kill),
+    exit_signal(Rcvr, kill),
     ok.
 
 priority_messages_hopefull_encoding(Config) when is_list(Config) ->
@@ -2006,16 +2006,16 @@ priority_messages_hopefull_encoding_test(RmDFlags, SeqTrace) ->
 
     node_disconnect(Node),
     ST4 = setup_seq_trace(SeqTrace, 4),
-    exit(Alias, prio_exit_1, [priority]),
+    exit_signal(Alias, prio_exit_1, [priority]),
     wait_until(fun () -> lists:member(Node, nodes()) end),
-    exit(Alias, prio_exit_2, [priority]),
+    exit_signal(Alias, prio_exit_2, [priority]),
     finish_seq_trace(ST4),
 
     node_disconnect(Node),
     ST5 = setup_seq_trace(SeqTrace, 5),
-    exit(Pid, prio_exit_3, [priority]),
+    exit_signal(Pid, prio_exit_3, [priority]),
     wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_3}) end),
-    exit(Pid, prio_exit_4, [priority]),
+    exit_signal(Pid, prio_exit_4, [priority]),
     wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_4}) end),
     {messages, [msg_1, prio_msg_1, prio_msg_2, prio_msg_3, prio_msg_4,
                 prio_msg_5, prio_msg_6, {'EXIT', Self, prio_exit_3},
@@ -2216,16 +2216,16 @@ priority_messages_old_nodes_test(Config, Node) ->
     end,
 
     node_disconnect(Node),
-    exit(Alias, prio_exit_1, [priority]),
+    exit_signal(Alias, prio_exit_1, [priority]),
     wait_until(fun () -> lists:member(Node, nodes()) end),
-    exit(Alias, prio_exit_2, [priority]),
+    exit_signal(Alias, prio_exit_2, [priority]),
     Pid ! msg_2,
     wait_until(fun () -> msg_received(Pid, msg_2) end),
 
     node_disconnect(Node),
-    exit(Pid, prio_exit_3, [priority]),
+    exit_signal(Pid, prio_exit_3, [priority]),
     wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_3}) end),
-    exit(Pid, prio_exit_4, [priority]),
+    exit_signal(Pid, prio_exit_4, [priority]),
     wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_4}) end),
     case PrioMsgSupport of
         true ->
