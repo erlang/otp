@@ -100,8 +100,9 @@
 
 	<tag><c>compression</c></tag>
 	<item>
-	  <p>If and how to compress the message. Examples are <c>none</c>, that is, no compression and
-	  <c>zlib</c>.</p>
+	  <p>If and how to compress the message. Examples are <c>none</c>, that is, no compression,
+	  <c>zlib</c> for pre-authentication compression (disabled by default), and <c>'zlib@openssh.com'</c>
+	  for post-authentication compression.</p>
 	  <p>This list is also divided into two for the both directions</p>
 	</item>
 	
@@ -145,8 +146,8 @@
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 
       </code>
       <p>To change the algorithm list, there are two options which can be used in 
@@ -196,8 +197,8 @@
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
       </code>
       <p>Note that the unmentioned lists (<c>public_key</c>, <c>cipher</c>, <c>mac</c> and <c>compression</c>)
       are un-changed.</p>
@@ -230,8 +231,8 @@
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
       </code>
       <p>Note that both lists in <c>cipher</c> has been changed to the provided value (<c>'aes128-ctr'</c>).</p>
     </section>
@@ -265,8 +266,8 @@
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
       </code>
     </section>
 
@@ -353,8 +354,8 @@
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 
       </code>
       <p>And the result shows that the Diffie-Hellman Group1 is added at the head of the kex list</p>

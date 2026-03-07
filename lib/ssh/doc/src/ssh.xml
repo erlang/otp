@@ -1080,7 +1080,7 @@
 	  {cipher,[{client2server,['aes128-ctr']},
           {server2client,['aes128-cbc','3des-cbc']}]},
 	  {mac,['hmac-sha2-256','hmac-sha1']},
-	  {compression,[none,zlib]}
+	  {compression,[none,'zlib@openssh.com']}
 	  ]
 	  }
 	</code>

@@ -275,8 +275,17 @@
 	<list type="bulleted">
 	  <item>none</item>
 	  <item>zlib@openssh.com</item>
-	  <item>zlib</item>
 	</list>
+	<p>The following compression algorithm is disabled by default:</p>
+	<list>
+	  <item>(zlib)</item>
+	</list>
+	<p>It can be enabled with the
+	<seetype marker="ssh:ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
+	or
+	<seetype marker="ssh:ssh#modify_algorithms_common_option">modify_algorithms</seetype>
+	options.
+	</p>
       </item>
     </taglist>
   </section>
