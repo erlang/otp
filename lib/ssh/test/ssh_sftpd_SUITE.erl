@@ -83,7 +83,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,20}}].
+    [{ct_hooks,[cth_fips]}, {timetrap,{seconds,20}}].
 
 all() -> 
     [open_close_file, 
