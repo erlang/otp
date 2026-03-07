@@ -221,6 +221,12 @@ extern void esock_encode_timeval(ErlNifEnv*      env,
 extern BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
                                       ERL_NIF_TERM    eTime,
                                       struct timeval* timeP);
+extern void esock_encode_timespec(ErlNifEnv*       env,
+                                  struct timespec* timeP,
+                                  ERL_NIF_TERM*    eTime);
+extern BOOLEAN_T esock_decode_timespec(ErlNifEnv*       env,
+                                       ERL_NIF_TERM     eTime,
+                                       struct timespec* timeP);
 
 extern
 char* esock_domain_to_string(int domain);
