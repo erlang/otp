@@ -904,6 +904,8 @@ lib(Conf) when is_list(Conf) ->
           {{lib2,unknown,0},0}, {{lib3,f,0},0}]} = xref:q(s,"(Lin)LM"),
     {ok,[lib1,lib2,lib3,t,unknown]} = xref:q(s,"M"),
     {ok,[{lib2,f,0},{lib3,f,0},{t,t,0}]} = xref:q(s,"X * M"),
+    {ok, ExportsNotUsed} = xref:analyze(s, exports_not_used),
+    [{t,t,0}] = ExportsNotUsed,
     check_state(s),
 
     copy_file(fname(Dir, "lib1.erl"), fname(Dir,"lib1.beam")),
@@ -2508,12 +2510,11 @@ eval(Query, S) ->
     unsetify(Answer).
 
 add_module(S, XMod, DefAt, X, LCallAt, XCallAt, XC, LC) ->
-    Attr = {[], [], []},
     Depr0 = {[], [], [], []},
     DBad = [],
     Depr = {Depr0,DBad},
     OL = [],
-    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attr, Depr, OL},
+    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Depr, OL},
     Unres = [],
     {ok, _Module, _Bad, State} =
     xref_base:do_add_module(S, XMod, Unres, Data),
