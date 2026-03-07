@@ -318,6 +318,8 @@ bif(error, 3) -> true;
 bif(exit, 1) -> true;
 bif(exit, 2) -> true;
 bif(exit, 3) -> true;
+bif(exit_signal, 2) -> true;
+bif(exit_signal, 3) -> true;
 bif(float, 1) -> true;
 bif(float_to_list, 1) -> true;
 bif(float_to_list, 2) -> true;

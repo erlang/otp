@@ -1872,6 +1872,10 @@ BIF_RETTYPE exit_signal_2(BIF_ALIST_2)
     return send_exit_signal_bif(BIF_P, BIF_ARG_1, BIF_ARG_2, NIL, 0);
 }
 
+BIF_RETTYPE exit_signal_3(BIF_ALIST_3)
+{
+    return send_exit_signal_bif(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 0);
+}
 
 /**********************************************************************/
 /* this sets some process info- trapping exits or the error handler */
