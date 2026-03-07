@@ -2012,10 +2012,12 @@ make_safe_path(Path0, #read_opts{cwd=Cwd}) ->
         Path -> filename:absname(Path, Cwd)
     end.
 
-safe_link_name(#tar_header{linkname=Path0},#read_opts{cwd=Cwd} ) ->
-    case filelib:safe_relative_path(Path0, Cwd) of
+safe_link_name(#tar_header{name=Name,linkname=Path0},#read_opts{cwd=Cwd} ) ->
+    ParentDir = filename:dirname(Name),
+    ResolvedTarget = filename:join(ParentDir, Path0),
+    case filelib:safe_relative_path(ResolvedTarget, Cwd) of
         unsafe -> throw({error,{Path0,unsafe_symlink}});
-        Path -> Path
+        _Path -> Path0
     end.
 
 create_regular(Name, NameInArchive, Bin, Opts) ->
