@@ -32,7 +32,7 @@
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
          incompatible_options/1, table_absolute_names/1,
-         streamed_extract/1]).
+         streamed_extract/1, symlink_parent_dir/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -48,7 +48,7 @@ all() ->
      read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
      apply_file_info_opts,incompatible_options, table_absolute_names,
-     streamed_extract].
+     streamed_extract, symlink_parent_dir].
 
 groups() -> 
     [].
@@ -718,6 +718,78 @@ symlink_vulnerability(Dir) ->
     ok = file:make_dir("tar"),
     ok = file:set_cwd("tar"),
     {error,{"..",unsafe_symlink}} = erl_tar:extract("../my.tar"),
+
+    ok.
+
+symlink_parent_dir(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, "symlink_parent_dir"),
+    ok = file:make_dir(Dir),
+    Res = case make_symlink("dummy_target", filename:join(Dir, "test_link")) of
+              {error, enotsup} ->
+                  {skip, "Symbolic links not supported on this platform"};
+              ok ->
+                  file:delete(filename:join(Dir, "test_link")),
+                  symlink_parent_dir_safe(Dir),
+                  symlink_parent_dir_unsafe(Dir)
+          end,
+    delete_files([Dir]),
+    verify_ports(Config),
+    Res.
+
+symlink_parent_dir_safe(Dir) ->
+    %% dir/link -> ../file is safe (resolves to file within extraction dir)
+    SafeDir1 = filename:join(Dir, "safe1"),
+    ok = file:make_dir(SafeDir1),
+    ok = file:set_cwd(SafeDir1),
+    ok = file:make_dir("dir"),
+    ok = file:write_file("file", <<"safe1">>),
+    ok = file:make_symlink("../file", filename:join("dir", "link")),
+    ok = erl_tar:create("test.tar", ["dir/link", "file"]),
+    ExtractDir1 = filename:join(SafeDir1, "extracted"),
+    ok = file:make_dir(ExtractDir1),
+    ok = erl_tar:extract("test.tar", [{cwd, ExtractDir1}]),
+    {ok, #file_info{type=symlink}} = file:read_link_info(filename:join([ExtractDir1, "dir", "link"])),
+    {ok, "../file"} = file:read_link(filename:join([ExtractDir1, "dir", "link"])),
+
+    %% a/b/link -> ../../file is safe (resolves to file within extraction dir)
+    SafeDir2 = filename:join(Dir, "safe2"),
+    ok = file:make_dir(SafeDir2),
+    ok = file:set_cwd(SafeDir2),
+    ok = filelib:ensure_dir(filename:join(["a", "b", "dummy"])),
+    ok = file:write_file("file", <<"safe2">>),
+    ok = file:make_symlink("../../file", filename:join(["a", "b", "link"])),
+    ok = erl_tar:create("test.tar", ["a/b/link", "file"]),
+    ExtractDir2 = filename:join(SafeDir2, "extracted"),
+    ok = file:make_dir(ExtractDir2),
+    ok = erl_tar:extract("test.tar", [{cwd, ExtractDir2}]),
+    {ok, #file_info{type=symlink}} = file:read_link_info(filename:join([ExtractDir2, "a", "b", "link"])),
+    {ok, "../../file"} = file:read_link(filename:join([ExtractDir2, "a", "b", "link"])),
+
+    ok.
+
+symlink_parent_dir_unsafe(Dir) ->
+    %% dir/link -> ../../escape is unsafe (escapes extraction dir)
+    UnsafeDir2 = filename:join(Dir, "unsafe2"),
+    ok = file:make_dir(UnsafeDir2),
+    ok = file:set_cwd(UnsafeDir2),
+    ok = file:make_dir("dir"),
+    ok = file:make_symlink("../../escape", filename:join("dir", "link")),
+    ok = erl_tar:create("test.tar", ["dir/link"]),
+    ExtractDir2 = filename:join(UnsafeDir2, "extracted"),
+    ok = file:make_dir(ExtractDir2),
+    {error,{"../../escape",unsafe_symlink}} = erl_tar:extract("test.tar", [{cwd, ExtractDir2}]),
+
+    %% dir/link -> /etc/passwd is unsafe (absolute path)
+    UnsafeDir3 = filename:join(Dir, "unsafe3"),
+    ok = file:make_dir(UnsafeDir3),
+    ok = file:set_cwd(UnsafeDir3),
+    ok = file:make_dir("dir"),
+    ok = file:make_symlink("/etc/passwd", filename:join("dir", "link")),
+    ok = erl_tar:create("test.tar", ["dir/link"]),
+    ExtractDir3 = filename:join(UnsafeDir3, "extracted"),
+    ok = file:make_dir(ExtractDir3),
+    {error,{"/etc/passwd",unsafe_symlink}} = erl_tar:extract("test.tar", [{cwd, ExtractDir3}]),
 
     ok.
 
