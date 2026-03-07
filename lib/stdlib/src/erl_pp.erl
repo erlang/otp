@@ -491,6 +491,8 @@ ltype({type,_Anno,range,[_I1,_I2]=Es}, Prec) ->
     F = fun(E, Opts) -> lexpr(E, R, Opts) end,
     E = expr_list(Es, '..', F, options(none)),
     maybe_paren(P, Prec, E);
+ltype({bin_type, _Anno, Bin}, _) ->
+    leaf(["<<", io_lib:write_string(binary_to_list(Bin), $"), ">>"]);
 ltype({type,_Anno,binary,[I1,I2]}, _) ->
     binary_type(I1, I2); % except binary()
 ltype({type,_Anno,'fun',[]}, _) ->

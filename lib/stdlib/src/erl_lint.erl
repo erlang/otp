@@ -3895,6 +3895,8 @@ check_type_2({remote_type, A, [{atom, _, Mod}, {atom, _, Name}, Args]},
     end;
 check_type_2({integer, _A, _}, SeenVars, St) -> {SeenVars, St};
 check_type_2({atom, _A, _}, SeenVars, St) -> {SeenVars, St};
+check_type_2({bin_type, _A, Value}, SeenVars, St) when is_binary(Value) ->
+    {SeenVars, St};
 check_type_2({var, _A, '_'}, SeenVars, St) -> {SeenVars, St};
 check_type_2({var, A, Name}, SeenVars, St) ->
     NewSeenVars =

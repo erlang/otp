@@ -1291,6 +1291,25 @@ types(Config) ->
            {warnings,[{{1,22},erl_lint,
                        {redefine_builtin_type,{nonempty_bitstring,0}}}]}},
 
+          %% Singleton binary literal types.
+          {bin_type1,
+           <<"-type cmd() :: <<\"start\">> | <<\"stop\">>.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type2,
+           <<"-export([f/1]).\n"
+             "-spec f(<<\"hello\">> | <<\"world\">>) -> ok.\n"
+             "f(<<\"hello\">>) -> ok;\n"
+             "f(<<\"world\">>) -> ok.\n">>,
+           [],
+           []},
+
+          {bin_type3,
+           <<"-callback cb(<<\"x\">>) -> ok.\n">>,
+           [nowarn_unused_type],
+           []},
+
           %% Test for bad types.
           {bad_export_type1,
            <<"-export_type(no_arity).

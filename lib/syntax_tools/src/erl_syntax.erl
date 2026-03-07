@@ -147,6 +147,8 @@ trees.
 	 binary_generator/2,
 	 binary_generator_body/1,
 	 binary_generator_pattern/1,
+	 binary_literal_type/1,
+	 binary_literal_type_value/1,
          bitstring_type/2,
          bitstring_type_m/1,
          bitstring_type_n/1,
@@ -503,6 +505,7 @@ reason `badarg`. Node types currently defined by this module are:
 * `attribute`
 * `binary`
 * `binary_field`
+* `binary_literal_type`
 * `bitstring_type`
 * `block_expr`
 * `case_expr`
@@ -577,7 +580,8 @@ Note: The primary constructor functions for a node type should always have the
 same name as the node type itself.
 
 _See also: _`annotated_type/2`, `application/3`, `arity_qualifier/2`, `atom/1`,
-`attribute/2`, `binary/1`, `binary_field/2`, `bitstring_type/2`, `block_expr/1`,
+`attribute/2`, `binary/1`, `binary_field/2`, `binary_literal_type/1`,
+`bitstring_type/2`, `block_expr/1`,
 `case_expr/2`, `catch_expr/1`, `char/1`, `class_qualifier/2`, `clause/3`,
 `comment/2`, `conjunction/1`, `constrained_function_type/2`, `constraint/2`,
 `disjunction/1`, `else_expr/1`, `eof_marker/0`, `error_marker/1`, `float/1`,
@@ -610,6 +614,7 @@ type(Node) ->
 	{float, _, _} -> float;
 	{integer, _, _} -> integer;
 	{nil, _} -> nil;
+	{bin_type, _, V} when is_binary(V) -> binary_literal_type;
 	{string, _, _} -> string;
 	{var, _, Name} ->
 	    if Name =:= '_' -> underscore;
@@ -695,6 +700,7 @@ Returns `true` if `Node` is a leaf node, otherwise `false`.
 The currently recognised leaf node types are:
 
 * `atom`
+* `binary_literal_type`
 * `char`
 * `comment`
 * `eof_marker`
@@ -728,6 +734,7 @@ _See also: _`is_literal/1`, `type/1`.
 is_leaf(Node) ->
     case type(Node) of
 	atom -> true;
+	binary_literal_type -> true;
 	char -> true;
 	comment -> true;	% nonstandard type
 	eof_marker -> true;
@@ -4890,6 +4897,39 @@ bitstring_type_n(Node) ->
     end.
 
 
+-doc """
+Creates an abstract singleton binary literal type.
+
+The result represents `<<"Value">>`.
+
+_See also: _`binary_literal_type_value/1`.
+""".
+-spec binary_literal_type(binary()) -> syntaxTree().
+
+binary_literal_type(Value) ->
+    tree(binary_literal_type, Value).
+
+revert_binary_literal_type(Node) ->
+    Pos = get_pos(Node),
+    Value = binary_literal_type_value(Node),
+    {bin_type, Pos, Value}.
+
+-doc """
+Returns the binary value of a `binary_literal_type` node.
+
+_See also: _`binary_literal_type/1`.
+""".
+-spec binary_literal_type_value(syntaxTree()) -> binary().
+
+binary_literal_type_value(Node) ->
+    case unwrap(Node) of
+        {bin_type, _, Value} ->
+            Value;
+        Node1 ->
+            data(Node1)
+    end.
+
+
 -record(constrained_function_type, {body :: syntaxTree(),
                                     argument :: syntaxTree()}).
 
@@ -7607,6 +7647,8 @@ revert_root(Node) ->
 	    revert_binary_field(Node);
         binary_generator ->
 	    revert_binary_generator(Node);
+        binary_literal_type ->
+            revert_binary_literal_type(Node);
         bitstring_type ->
             revert_bitstring_type(Node);
 	block_expr ->

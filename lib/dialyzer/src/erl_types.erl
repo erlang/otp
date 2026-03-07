@@ -4391,6 +4391,8 @@ from_form({paren_type, _Anno, [Type]}, S, D, L, C) ->
 from_form({remote_type, Anno, [{atom, _, Module}, {atom, _, Type}, Args]},
 	    S, D, L, C) ->
   remote_from_form(Anno, Module, Type, Args, S, D, L, C);
+from_form({bin_type, _Anno, Bin}, _S, _D, L, C) ->
+  {t_bitstr(0, bit_size(Bin)), L, C};
 from_form({atom, _Anno, Atom}, _S, _D, L, C) ->
   {t_atom(Atom), L, C};
 from_form({integer, _Anno, Int}, _S, _D, L, C) ->
@@ -5115,6 +5117,8 @@ t_form_to_string({var, _Anno, Name}) -> atom_to_list(Name);
 t_form_to_string({atom, _Anno, Atom}) ->
   io_lib:write_string(atom_to_list(Atom), $'); % To quote or not to quote... '
 t_form_to_string({integer, _Anno, Int}) -> integer_to_list(Int);
+t_form_to_string({bin_type, _Anno, Bin}) ->
+  "<<" ++ io_lib:write_string(binary_to_list(Bin), $") ++ ">>";
 t_form_to_string({char, _Anno, Char}) -> integer_to_list(Char);
 t_form_to_string({op, _Anno, _Op, _Arg} = Op) ->
   case erl_eval:partial_eval(Op) of

@@ -52,8 +52,9 @@ Predefined types represent a typically infinite set of Erlang terms that belong
 to this type. For example, the type `t:atom/0` denotes the set of all Erlang
 atoms.
 
-For integers and atoms, it is allowed for singleton types; for example, the
-integers `-1` and `42`, or the atoms `'foo'` and `'bar'`. All other types are
+For integers, atoms, and binaries, it is allowed for singleton types; for
+example, the integers `-1` and `42`, the atoms `'foo'` and `'bar'`, or the
+binaries `<<"hello">>` and `<<"ok">>`. All other types are
 built using unions of either predefined types or singleton types. In a type
 union between a type and one of its subtypes, the subtype is absorbed by the
 supertype. Thus, the union is then treated as if the subtype was not a
@@ -115,6 +116,7 @@ Bitstring :: <<>>
            | <<_:M>>          %% M is an Integer_Value that evaluates to a positive integer
            | <<_:_*N>>        %% N is an Integer_Value that evaluates to a positive integer
            | <<_:M, _:_*N>>
+           | Erlang_Binary_String    %% <<"foo">>, <<"bar">>, ...
 
 Fun :: fun()                  %% any function
      | fun((...) -> Type)     %% any arity, returning Type

@@ -930,7 +930,9 @@ type_examples() ->
            "f17 :: 'undefined',"
            "f18 :: 1 | 2 | 'undefined',"
            "f19 = 3 :: integer()|undefined,"
-           "f5 = 3 :: undefined|integer()}). ">>}].
+           "f5 = 3 :: undefined|integer()}). ">>},
+     {ex_bin_type1,<<"-type cmd() :: <<\"start\">> | <<\"stop\">>. ">>},
+     {ex_bin_type2,<<"-spec f(<<\"hello\">>) -> ok. ">>}].
 
 %% OTP_8473. Bugfix abstract type 'fun'.
 otp_8473(Config) when is_list(Config) ->
