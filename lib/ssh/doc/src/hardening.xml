@@ -117,6 +117,28 @@
 	<icaption>SSH server timeouts</icaption>
       </image>
     </section>
+    <section>
+      <title>Resilience to compression-based attacks</title>
+      <p>SSH supports compression of the data stream.
+      </p>
+      <p>Reasonable finite
+      <seeerl marker="ssh#hardening_daemon_options--max_sessions">max_sessions</seeerl>
+      option is highly recommended if compression is used to prevent excessive resource
+      usage by the compression library.
+      See <seeguide marker="#counters-and-parallelism">Counters and parallelism</seeguide>.
+      </p>
+      <p>The <c>'zlib@openssh.com'</c> algorithm is recommended because it only activates
+      after successful authentication.
+      </p>
+      <p>The <c>'zlib'</c> algorithm is not recommended because it activates before
+      authentication completes, allowing unauthenticated clients to expose potential
+      vulnerabilities in compression libraries, and increases attack surface of
+      compression-based side-channel and traffic-analysis attacks.
+      </p>
+      <p>In both algorithms decompression is protected by a size limit that prevents
+      excessive memory consumption.
+      </p>
+    </section>
   </section>
 
   
