@@ -16,6 +16,7 @@
 
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
          consistency_and_to_string/1,misc/1,map_multiple_representations/1,
+         bin_type_modules_mentioned/1,
          absorption/1,associativity/1,commutativity/1,idempotence/1,
          identity/1,limit/1
         ]).
@@ -29,6 +30,7 @@ all() ->
     [consistency_and_to_string,
      misc,
      map_multiple_representations,
+     bin_type_modules_mentioned,
      {group,property_tests}
     ].
 
@@ -355,6 +357,29 @@ map_multiple_representations(_Config) ->
             T = erl_types:t_map(Ps, DefK, DefV),
             "#{'a'=>atom(), 'b'=>atom()}" = erl_types:t_to_string(T)
     end(),
+    ok.
+
+bin_type_modules_mentioned(_Config) ->
+    %% A standalone bin_type form has no module dependencies.
+    [] = ?M:type_form_to_remote_modules({bin_type, 0, <<"foo">>}),
+
+    %% A union of bin_type forms has no module dependencies.
+    [] = ?M:type_form_to_remote_modules(
+           {type, 0, union, [{bin_type, 0, <<"a">>},
+                             {bin_type, 0, <<"b">>}]}),
+
+    %% A union of bin_type and remote_type extracts the remote module.
+    [some_mod] = ?M:type_form_to_remote_modules(
+                   {type, 0, union,
+                    [{bin_type, 0, <<"foo">>},
+                     {remote_type, 0, [{atom, 0, some_mod},
+                                       {atom, 0, some_type},
+                                       []]}]}),
+
+    %% bin_type inside a list type has no module dependencies.
+    [] = ?M:type_form_to_remote_modules(
+           {type, 0, list, [{bin_type, 0, <<"x">>}]}),
+
     ok.
 
 absorption(Config) ->

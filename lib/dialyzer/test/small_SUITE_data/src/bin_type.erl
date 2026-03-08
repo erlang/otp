@@ -1,6 +1,6 @@
 -module(bin_type).
 
--export([handle/1, status/0, map_key/1]).
+-export([handle/1, status/0, map_key/1, mixed/1]).
 
 -type cmd() :: <<"start">> | <<"stop">>.
 
@@ -13,3 +13,10 @@ status() -> <<"ok">>.
 
 -spec map_key(#{<<"name">> := binary()}) -> binary().
 map_key(#{<<"name">> := V}) -> V.
+
+%% Exercises get_modules_mentioned with bin_type + remote type in a union.
+-type mixed() :: <<"hello">> | binary:part().
+
+-spec mixed(mixed()) -> binary().
+mixed(<<"hello">>) -> <<"greeting">>;
+mixed({Pos, Len}) when is_integer(Pos), is_integer(Len) -> <<"part">>.
