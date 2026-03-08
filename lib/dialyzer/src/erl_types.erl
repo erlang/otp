@@ -5029,6 +5029,7 @@ check_record_fields({remote_type, _Anno, [{atom, _, _}, {atom, _, _}, Args]},
 check_record_fields({atom, _Anno, _}, _S, C) -> C;
 check_record_fields({integer, _Anno, _}, _S, C) -> C;
 check_record_fields({char, _Anno, _}, _S, C) -> C;
+check_record_fields({bin_type, _Anno, _}, _S, C) -> C;
 check_record_fields({op, _Anno, _Op, _Arg}, _S, C) -> C;
 check_record_fields({op, _Anno, _Op, _Arg1, _Arg2}, _S, C) -> C;
 check_record_fields({type, _Anno, tuple, any}, _S, C) -> C;

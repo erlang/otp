@@ -1,6 +1,8 @@
 -module(bin_type).
 
--export([handle/1, status/0, map_key/1, mixed/1]).
+-export([handle/1, status/0, map_key/1, mixed/1, make_msg/1]).
+
+-record(msg, {tag :: <<"hello">> | <<"world">>, payload :: binary()}).
 
 -type cmd() :: <<"start">> | <<"stop">>.
 
@@ -20,3 +22,6 @@ map_key(#{<<"name">> := V}) -> V.
 -spec mixed(mixed()) -> binary().
 mixed(<<"hello">>) -> <<"greeting">>;
 mixed({Pos, Len}) when is_integer(Pos), is_integer(Len) -> <<"part">>.
+
+-spec make_msg(binary()) -> #msg{}.
+make_msg(Payload) -> #msg{tag = <<"hello">>, payload = Payload}.

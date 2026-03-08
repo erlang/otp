@@ -1315,6 +1315,13 @@ types(Config) ->
            [nowarn_unused_type],
            []},
 
+          {bin_type5,
+           <<"-record(msg, {tag :: <<\"hello\">> | <<\"world\">>}).\n"
+             "-export([f/0]).\n"
+             "f() -> #msg{tag = <<\"hello\">>}.\n">>,
+           [],
+           []},
+
           %% Test for bad types.
           {bad_export_type1,
            <<"-export_type(no_arity).
