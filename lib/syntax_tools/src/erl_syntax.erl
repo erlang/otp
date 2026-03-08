@@ -7503,6 +7503,8 @@ concrete(Node) ->
                 _ ->
                     erlang:error({badarg, Node})
             end;
+        binary_literal_type ->
+            binary_literal_type_value(Node);
         _ ->
 	    erlang:error({badarg, Node})
     end.
@@ -7548,6 +7550,8 @@ is_literal(T) ->
 	    end andalso lists:all(fun is_literal_map_field/1, map_expr_fields(T));
 	binary ->
 	    lists:all(fun is_literal_binary_field/1, binary_fields(T));
+	binary_literal_type ->
+	    true;
 	_ ->
 	    false
     end.

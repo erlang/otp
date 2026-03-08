@@ -275,6 +275,15 @@ t_type(Config) when is_list(Config) ->
                     ,{"fun((integer()) -> atom())", function_type, false}
                     ,{"V", variable, true}
                     ]),
+
+    %% Test concrete/1 and is_literal/1 for binary_literal_type.
+    BinLitNode = erl_syntax:binary_literal_type(<<"hello">>),
+    true = erl_syntax:is_literal(BinLitNode),
+    <<"hello">> = erl_syntax:concrete(BinLitNode),
+    EmptyBinNode = erl_syntax:binary_literal_type(<<"">>),
+    true = erl_syntax:is_literal(EmptyBinNode),
+    <<"">> = erl_syntax:concrete(EmptyBinNode),
+
     ok.
 
 validate_basic_type({String, Tree}) ->

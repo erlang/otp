@@ -1310,6 +1310,11 @@ types(Config) ->
            [nowarn_unused_type],
            []},
 
+          {bin_type4,
+           <<"-type empty() :: <<\"\">>.\n">>,
+           [nowarn_unused_type],
+           []},
+
           %% Test for bad types.
           {bad_export_type1,
            <<"-export_type(no_arity).

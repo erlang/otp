@@ -16,7 +16,7 @@
 
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
          consistency_and_to_string/1,misc/1,map_multiple_representations/1,
-         bin_type_modules_mentioned/1,
+         bin_type_modules_mentioned/1,bin_type_operations/1,
          absorption/1,associativity/1,commutativity/1,idempotence/1,
          identity/1,limit/1
         ]).
@@ -31,6 +31,7 @@ all() ->
      misc,
      map_multiple_representations,
      bin_type_modules_mentioned,
+     bin_type_operations,
      {group,property_tests}
     ].
 
@@ -379,6 +380,57 @@ bin_type_modules_mentioned(_Config) ->
     %% bin_type inside a list type has no module dependencies.
     [] = ?M:type_form_to_remote_modules(
            {type, 0, list, [{bin_type, 0, <<"x">>}]}),
+
+    ok.
+
+bin_type_operations(_Config) ->
+    %% Construction and t_to_string.
+    Foo = ?M:t_binary_val(<<"foo">>),
+    Bar = ?M:t_binary_val(<<"bar">>),
+    Baz = ?M:t_binary_val(<<"baz">>),
+    Empty = ?M:t_binary_val(<<"">>),
+    "<<\"foo\">>" = ?M:t_to_string(Foo),
+    "<<\"bar\">>" = ?M:t_to_string(Bar),
+    "<<\"\">>" = ?M:t_to_string(Empty),
+
+    %% t_is_binary / t_is_bitstr.
+    true = ?M:t_is_binary(Foo),
+    true = ?M:t_is_bitstr(Foo),
+
+    %% t_from_term for binaries.
+    Foo = ?M:t_from_term(<<"foo">>),
+    Empty = ?M:t_from_term(<<"">>),
+
+    %% t_sup — same-size vals merge into a multi-val type.
+    FooBar = ?M:t_sup(Foo, Bar),
+    "<<\"bar\">> | <<\"foo\">>" = ?M:t_to_string(FooBar),
+    %% t_sup — different-size vals fall back to generic binary.
+    Hi = ?M:t_binary_val(<<"hi">>),
+    FooHi = ?M:t_sup(Foo, Hi),
+    true = ?M:t_is_binary(FooHi),
+
+    %% t_inf — val∩val.
+    None = ?M:t_none(),
+    Foo = ?M:t_inf(Foo, Foo),
+    None = ?M:t_inf(Foo, Bar),
+    %% t_inf — val∩binary().
+    Foo = ?M:t_inf(Foo, ?M:t_binary()),
+    %% t_inf — val∩incompatible.
+    None = ?M:t_inf(Foo, ?M:t_atom()),
+
+    %% t_subtract.
+    FooBarBaz = ?M:t_sup([Foo, Bar, Baz]),
+    FooBaz = ?M:t_subtract(FooBarBaz, Bar),
+    "<<\"baz\">> | <<\"foo\">>" = ?M:t_to_string(FooBaz),
+
+    %% t_elements — decompose into individual vals.
+    [Foo] = ?M:t_elements(Foo),
+    2 = length(?M:t_elements(FooBar)),
+
+    %% is_singleton_type — single vs multiple vals.
+    %% (is_singleton_type is not exported, test indirectly via t_elements)
+    [_] = ?M:t_elements(Foo),
+    [_, _] = ?M:t_elements(FooBar),
 
     ok.
 
