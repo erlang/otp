@@ -1322,6 +1322,34 @@ types(Config) ->
            [],
            []},
 
+          %% Singleton binary literal types with encoding.
+          {bin_type6,
+           <<"-type utf8_str() :: <<\"é\"/utf8>>.\n"/utf8>>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type7,
+           <<"-type greeting() :: ~\"hello\".\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type8,
+           <<"-type t() :: ~\"café\".\n"/utf8>>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type9,
+           <<"-type t() :: <<\"hello\"/utf16>>.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type10,
+           <<"-type t() :: <<\"hello\"/integer>>.\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,34},erl_parse,
+                     "unsupported encoding in binary literal type"}],
+            []}},
+
           %% Test for bad types.
           {bad_export_type1,
            <<"-export_type(no_arity).

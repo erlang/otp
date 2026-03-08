@@ -432,6 +432,11 @@ bin_type_operations(_Config) ->
     [_] = ?M:t_elements(Foo),
     [_, _] = ?M:t_elements(FooBar),
 
+    %% UTF-8 encoded binary literal types produce the same type as raw bytes.
+    %% <<"é"/utf8>> encodes to <<195,169>> — same as the raw binary.
+    Utf8Bin = ?M:t_binary_val(<<195,169>>),
+    Utf8Bin = ?M:t_binary_val(unicode:characters_to_binary([233], unicode, utf8)),
+
     ok.
 
 absorption(Config) ->
