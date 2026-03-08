@@ -147,8 +147,8 @@ trees.
 	 binary_generator/2,
 	 binary_generator_body/1,
 	 binary_generator_pattern/1,
-	 binary_literal_type/1,
-	 binary_literal_type_value/1,
+         binary_literal_type/1,
+         binary_literal_type_value/1,
          bitstring_type/2,
          bitstring_type_m/1,
          bitstring_type_n/1,
@@ -614,7 +614,7 @@ type(Node) ->
 	{float, _, _} -> float;
 	{integer, _, _} -> integer;
 	{nil, _} -> nil;
-	{bin_type, _, V} when is_binary(V) -> binary_literal_type;
+        {bin_type, _, V} when is_binary(V) -> binary_literal_type;
 	{string, _, _} -> string;
 	{var, _, Name} ->
 	    if Name =:= '_' -> underscore;
@@ -734,7 +734,7 @@ _See also: _`is_literal/1`, `type/1`.
 is_leaf(Node) ->
     case type(Node) of
 	atom -> true;
-	binary_literal_type -> true;
+        binary_literal_type -> true;
 	char -> true;
 	comment -> true;	% nonstandard type
 	eof_marker -> true;
@@ -7550,8 +7550,8 @@ is_literal(T) ->
 	    end andalso lists:all(fun is_literal_map_field/1, map_expr_fields(T));
 	binary ->
 	    lists:all(fun is_literal_binary_field/1, binary_fields(T));
-	binary_literal_type ->
-	    true;
+        binary_literal_type ->
+            true;
 	_ ->
 	    false
     end.

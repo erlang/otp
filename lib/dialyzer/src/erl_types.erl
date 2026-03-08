@@ -51,7 +51,7 @@
 	 t_atoms/1,
 	 t_atom_vals/1,
 	 t_binary/0,
-	 t_binary_val/1,
+         t_binary_val/1,
 	 t_bitstr/0,
 	 t_bitstr/2,
 	 t_bitstr_base/1,
