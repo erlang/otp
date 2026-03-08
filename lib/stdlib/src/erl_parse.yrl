@@ -262,12 +262,9 @@ binary_type -> '<<' bin_unit_type '>>'    : {type, ?anno('$1'),binary,
                                              [abstract2(0, ?anno('$1')), '$2']}.
 binary_type -> '<<' bin_base_type ',' bin_unit_type '>>'
                                     : {type, ?anno('$1'), binary, ['$2', '$4']}.
-binary_type -> '<<' string '>>'     : build_bin_literal_type(?anno('$1'), '$2').
-binary_type -> '<<' string '/' atom '>>'
-                                   : build_bin_literal_type(?anno('$1'), '$2', '$4').
-binary_type -> sigil_prefix string sigil_suffix
-                                   : build_bin_literal_type_sigil(?anno('$1'),
-                                       '$1', '$2', '$3').
+binary_type -> '<<' string opt_bit_type_list '>>'
+                                   : build_bin_literal_type(?anno('$1'), '$2', '$3').
+binary_type -> sigil              : sigil_to_bin_type('$1').
 
 bin_base_type -> var ':' type          : build_bin_type(['$1'], '$3').
 
@@ -1596,13 +1593,12 @@ build_bin_type([], Int) ->
 build_bin_type([{var, Aa, _}|_], _) ->
     ret_err(Aa, "Bad binary type").
 
-build_bin_literal_type(Anno, {string, _SAnno, Chars}) ->
+build_bin_literal_type(Anno, {string, _SAnno, Chars}, default) ->
     case lists:all(fun(C) -> C >= 0 andalso C =< 255 end, Chars) of
         true  -> {bin_type, Anno, list_to_binary(Chars)};
         false -> ret_err(Anno, "binary literal type with characters > 255")
-    end.
-
-build_bin_literal_type(Anno, {string, _, Chars}, {atom, _, Enc})
+    end;
+build_bin_literal_type(Anno, {string, _, Chars}, [Enc])
   when Enc =:= utf8; Enc =:= utf16; Enc =:= utf32 ->
     case unicode:characters_to_binary(Chars, unicode, Enc) of
         Bin when is_binary(Bin) ->
@@ -1610,31 +1606,21 @@ build_bin_literal_type(Anno, {string, _, Chars}, {atom, _, Enc})
         _ ->
             ret_err(Anno, "invalid characters for encoding")
     end;
-build_bin_literal_type(Anno, {string, _, Chars}, {atom, _, latin1}) ->
-    build_bin_literal_type(Anno, {string, unused, Chars});
-build_bin_literal_type(Anno, _String, {atom, _, _}) ->
+build_bin_literal_type(Anno, {string, _, Chars}, [latin1]) ->
+    build_bin_literal_type(Anno, {string, unused, Chars}, default);
+build_bin_literal_type(Anno, _String, _Other) ->
     ret_err(Anno, "unsupported encoding in binary literal type").
 
-build_bin_literal_type_sigil(Anno, SigilPrefix, {string, _, Chars},
-                             SigilSuffix) ->
-    Type = element(3, SigilPrefix),
-    Suffix = element(3, SigilSuffix),
-    if
-        (Type =:= '' orelse Type =:= 'b' orelse Type =:= 'B'),
-        Suffix =:= "" ->
-            case unicode:characters_to_binary(Chars, unicode, utf8) of
-                Bin when is_binary(Bin) ->
-                    {bin_type, Anno, Bin};
-                _ ->
-                    ret_err(Anno, "invalid characters in sigil type")
-            end;
-        Type =:= '' orelse Type =:= 'b' orelse Type =:= 'B' ->
-            ret_err(element(2, SigilSuffix),
-                    "illegal sigil suffix in type spec");
-        true ->
-            ret_err(element(2, SigilPrefix),
-                    "illegal sigil prefix in type spec")
-    end.
+sigil_to_bin_type({bin, Anno,
+                   [{bin_element, _, {string, _, Chars}, default, [utf8]}]}) ->
+    case unicode:characters_to_binary(Chars, unicode, utf8) of
+        Bin when is_binary(Bin) ->
+            {bin_type, Anno, Bin};
+        _ ->
+            ret_err(Anno, "invalid characters in sigil type")
+    end;
+sigil_to_bin_type(Node) ->
+    ret_err(element(2, Node), "illegal sigil prefix in type spec").
 
 build_atom({atom, _Aa, _Name} = Atom) -> Atom;
 build_atom({var, Aa, Name}) -> {atom, Aa, Name};
