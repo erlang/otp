@@ -311,6 +311,9 @@ The following options modify the defaults for the extraction as follows:
 
 - **`verbose`** - Prints an informational message for each extracted file.
 
+- **`{chunks,ChunkSize}`** - Sets the chunk size, in bytes, for writing extracted
+  file data to disk. Defaults to 65536 bytes.
+
 > #### Warning {: .warning }
 >
 > The `compressed` and `cooked` flags are invalid when passing a file descriptor
@@ -345,12 +348,18 @@ extract1(eof, Reader, _, Acc) ->
 extract1(#tar_header{name=Name,size=Size}=Header, Reader0, Opts, Acc0) ->
     case check_extract(Name, Opts) of
         true ->
-            case do_read(Reader0, Size) of
-                {ok, Bin, Reader1} ->
-                    Acc = extract2(Header, Bin, Opts, Acc0),
-                    {ok, Acc, Reader1};
-                {error, _} = Err ->
-                    throw(Err)
+            case Opts#read_opts.output of
+                memory ->
+                    case do_read(Reader0, Size) of
+                        {ok, Bin, Reader1} ->
+                            Acc = extract2(Header, Bin, Opts, Acc0),
+                            {ok, Acc, Reader1};
+                        {error, _} = Err ->
+                            throw(Err)
+                    end;
+                file ->
+                    Reader1 = extract_to_file(Header, Reader0, Opts),
+                    {ok, Acc0, Reader1}
             end;
         false ->
             {ok, Acc0, skip_file(Reader0)}
@@ -369,6 +378,79 @@ extract2(Header, Bin, Opts, Acc) ->
             [NameBin | Acc];
         {error, _} = Err ->
             throw(Err)
+    end.
+
+extract_to_file(#tar_header{name=Name0}=Header, Reader0, Opts) ->
+    case typeflag(Header#tar_header.typeflag) of
+        regular ->
+            Name1 = make_safe_path(Name0, Opts),
+            case stream_to_file(Name1, Reader0, Opts) of
+                {ok, Reader1} ->
+                    read_verbose(Opts, "x ~ts~n", [Name0]),
+                    _ = set_extracted_file_info(Name1, Header),
+                    Reader1;
+                {error, _} = Err ->
+                    throw(Err)
+            end;
+        _ ->
+            Reader1 = skip_file(Reader0),
+            _ = write_extracted_element(Header, <<>>, Opts),
+            Reader1
+    end.
+
+stream_to_file(Name, Reader0, Opts) ->
+    Write =
+        case Opts#read_opts.keep_old_files of
+            true ->
+                case file:read_file_info(Name) of
+                    {ok, _} -> false;
+                    _ -> true
+                end;
+            false -> true
+        end,
+    case Write of
+        true ->
+            ChunkSize = Opts#read_opts.chunk_size,
+            case open_output_file(Name) of
+                {ok, Fd} ->
+                    try
+                        stream_to_file_loop(Fd, Reader0, ChunkSize)
+                    after
+                        file:close(Fd)
+                    end;
+                {error, _} = Err ->
+                    Err
+            end;
+        false ->
+            {ok, skip_file(Reader0)}
+    end.
+
+open_output_file(Name) ->
+    case file:open(Name, [write, raw, binary]) of
+        {ok, _} = Ok ->
+            Ok;
+        {error, enoent} ->
+            ok = make_dirs(Name, file),
+            file:open(Name, [write, raw, binary]);
+        {error, _} = Err ->
+            Err
+    end.
+
+stream_to_file_loop(_Fd, #reg_file_reader{num_bytes=0}=Reader, _ChunkSize) ->
+    {ok, Reader};
+stream_to_file_loop(_Fd, #sparse_file_reader{num_bytes=0}=Reader, _ChunkSize) ->
+    {ok, Reader};
+stream_to_file_loop(Fd, Reader, ChunkSize) ->
+    case do_read(Reader, ChunkSize) of
+        {ok, Bin, Reader1} ->
+            case file:write(Fd, Bin) of
+                ok ->
+                    stream_to_file_loop(Fd, Reader1, ChunkSize);
+                {error, _} = Err ->
+                    Err
+            end;
+        {error, _} = Err ->
+            Err
     end.
 
 %% Checks if the file Name should be extracted.
@@ -784,9 +866,8 @@ Options:
 
 - **`verbose`** - Prints an informational message about the added file.
 
-- **`{chunks,ChunkSize}`** - Reads data in parts from the file. This is intended
-  for memory-limited machines that, for example, builds a tar file on a remote
-  machine over SFTP, see `ssh_sftp:open_tar/3`.
+- **`{chunks,ChunkSize}`** - Sets the chunk size, in bytes, for reading data
+  from the file. Defaults to 65536 bytes.
 - **`{atime,non_neg_integer()}`** - Sets the last time, as
   [POSIX time](`e:erts:time_correction.md#posix-time`), when the file was read.
   See also `file:read_file_info/1`.
@@ -2135,9 +2216,6 @@ do_write(#reader{handle=Handle,func=Fun}=Reader0, Data)
             Err
     end.
 
-do_copy(#reader{func=Fun}=Reader, Source, #add_opts{chunk_size=0}=Opts)
-  when is_function(Fun, 2) ->
-    do_copy(Reader, Source, Opts#add_opts{chunk_size=65536});
 do_copy(#reader{func=Fun}=Reader, Source, #add_opts{chunk_size=ChunkSize})
     when is_function(Fun, 2) ->
     case file:open(Source, [read, binary]) of
@@ -2311,6 +2389,8 @@ extract_opts([cooked|Rest], Opts=#read_opts{open_mode=OpenMode}) ->
     extract_opts(Rest, Opts#read_opts{open_mode=[cooked|OpenMode]});
 extract_opts([verbose|Rest], Opts) ->
     extract_opts(Rest, Opts#read_opts{verbose=true});
+extract_opts([{chunks,N}|Rest], Opts) ->
+    extract_opts(Rest, Opts#read_opts{chunk_size=N});
 extract_opts([Other|Rest], Opts) ->
     extract_opts(Rest, read_opts([Other], Opts));
 extract_opts([], Opts) ->

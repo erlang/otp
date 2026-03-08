@@ -21,7 +21,7 @@
 %%
 -module(tar_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2,
          init_per_testcase/2,
          borderline/1, atomic/1, long_names/1,
@@ -31,7 +31,8 @@
 	 memory/1,unicode/1,read_other_implementations/1,bsdtgz/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
-         incompatible_options/1, table_absolute_names/1]).
+         incompatible_options/1, table_absolute_names/1,
+         streamed_extract/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -46,7 +47,8 @@ all() ->
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
-     apply_file_info_opts,incompatible_options, table_absolute_names].
+     apply_file_info_opts,incompatible_options, table_absolute_names,
+     streamed_extract].
 
 groups() -> 
     [].
@@ -1090,6 +1092,81 @@ table_absolute_names(Config) ->
 
     ok = file:delete(TarTestFileName),
     ok = file:delete(TarName),
+
+    ok.
+
+%% Test that extracting to disk streams file entries in chunks
+%% instead of loading them fully into memory.
+streamed_extract(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Dir),
+
+    %% Create test files of various sizes.
+    EmptyFile = filename:join(Dir, "empty"),
+    ok = file:write_file(EmptyFile, <<>>),
+
+    %% A file larger than the default chunk size (65536 bytes).
+    LargeSize = 200000,
+    LargeData = crypto:strong_rand_bytes(LargeSize),
+    LargeFile = filename:join(Dir, "large"),
+    ok = file:write_file(LargeFile, LargeData),
+
+    %% A file exactly equal to a small chunk size we'll use (1024 bytes).
+    ChunkSize = 1024,
+    BoundaryData = crypto:strong_rand_bytes(ChunkSize),
+    BoundaryFile = filename:join(Dir, "boundary"),
+    ok = file:write_file(BoundaryFile, BoundaryData),
+
+    %% A small file (less than one chunk).
+    SmallData = <<"hello">>,
+    SmallFile = filename:join(Dir, "small"),
+    ok = file:write_file(SmallFile, SmallData),
+
+    %% Create a tar archive containing all test files.
+    TarFile = filename:join(Dir, "test.tar"),
+    ok = erl_tar:create(TarFile, [
+        {"empty", EmptyFile},
+        {"large", LargeFile},
+        {"boundary", BoundaryFile},
+        {"small", SmallFile}
+    ]),
+
+    %% Extract with default chunk size and verify contents.
+    ExtractDir1 = filename:join(Dir, "extract_default"),
+    ok = file:make_dir(ExtractDir1),
+    ok = erl_tar:extract(TarFile, [{cwd, ExtractDir1}]),
+    {ok, <<>>} = file:read_file(filename:join(ExtractDir1, "empty")),
+    {ok, LargeData} = file:read_file(filename:join(ExtractDir1, "large")),
+    {ok, BoundaryData} = file:read_file(filename:join(ExtractDir1, "boundary")),
+    {ok, SmallData} = file:read_file(filename:join(ExtractDir1, "small")),
+
+    %% Extract with a small {chunks, N} to exercise multi-chunk streaming.
+    ExtractDir2 = filename:join(Dir, "extract_chunked"),
+    ok = file:make_dir(ExtractDir2),
+    ok = erl_tar:extract(TarFile, [{cwd, ExtractDir2}, {chunks, ChunkSize}]),
+    {ok, <<>>} = file:read_file(filename:join(ExtractDir2, "empty")),
+    {ok, LargeData} = file:read_file(filename:join(ExtractDir2, "large")),
+    {ok, BoundaryData} = file:read_file(filename:join(ExtractDir2, "boundary")),
+    {ok, SmallData} = file:read_file(filename:join(ExtractDir2, "small")),
+
+    %% Extract from binary with {chunks, N} (binary input, disk output).
+    {ok, TarBin} = file:read_file(TarFile),
+    ExtractDir3 = filename:join(Dir, "extract_binary"),
+    ok = file:make_dir(ExtractDir3),
+    ok = erl_tar:extract({binary, TarBin}, [{cwd, ExtractDir3}, {chunks, ChunkSize}]),
+    {ok, <<>>} = file:read_file(filename:join(ExtractDir3, "empty")),
+    {ok, LargeData} = file:read_file(filename:join(ExtractDir3, "large")),
+    {ok, BoundaryData} = file:read_file(filename:join(ExtractDir3, "boundary")),
+    {ok, SmallData} = file:read_file(filename:join(ExtractDir3, "small")),
+
+    %% Verify that memory extraction still works (not affected by streaming).
+    {ok, MemFiles} = erl_tar:extract(TarFile, [memory]),
+    MemMap = maps:from_list(MemFiles),
+    <<>> = maps:get("empty", MemMap),
+    LargeData = maps:get("large", MemMap),
+    BoundaryData = maps:get("boundary", MemMap),
+    SmallData = maps:get("small", MemMap),
 
     ok.
 

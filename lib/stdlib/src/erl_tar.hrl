@@ -21,8 +21,8 @@
 
 %% Options used when adding files to a tar archive.
 -record(add_opts, {
-	 read_info,          %% Fun to use for read file/link info.
-	 chunk_size = 0,     %% For file reading when sending to sftp. 0=do not chunk
+         read_info,          %% Fun to use for read file/link info.
+         chunk_size = 65536, %% Chunk size for reading files.
          verbose = false,    %% Verbose on/off.
          atime = undefined,
          mtime = undefined,
@@ -39,7 +39,8 @@
           files = all,                         %% Set of files to extract (or all)
           output = file :: 'file' | 'memory',
           open_mode = [],                      %% Open mode options.
-          verbose = false :: boolean()}).      %% Verbose on/off.
+          verbose = false :: boolean(),        %% Verbose on/off.
+          chunk_size = 65536}).                 %% Chunk size for streaming to disk.
 -type read_opts() :: #read_opts{}.
 
 -type add_opt() :: dereference |
@@ -56,6 +57,7 @@
 
 -type extract_opt() :: {cwd, string()} |
                        {files, [name_in_archive()]} |
+                       {chunks, pos_integer()} |
                        compressed |
                        cooked |
                        memory |
