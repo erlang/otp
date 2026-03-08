@@ -2711,14 +2711,14 @@ t_inf_aux(?bitstr_vals(_U1, _B1, V1), ?bitstr_vals(_U2, _B2, V2))
   when is_list(V1), is_list(V2) ->
   case ordsets:intersection(V1, V2) of
     [] -> ?none;
-    NewVals -> ?bitstr_vals(0, bit_size(hd(NewVals)), NewVals)
+    NewVals -> make_bitstr_vals(NewVals)
   end;
 t_inf_aux(?bitstr_vals(_U1, _B1, Vals), ?bitstr(U2, B2))
   when is_list(Vals) ->
   Filtered = [V || V <- Vals, bitstr_val_matches(V, U2, B2)],
   case Filtered of
     [] -> ?none;
-    _  -> ?bitstr_vals(0, bit_size(hd(Filtered)), Filtered)
+    _  -> make_bitstr_vals(Filtered)
   end;
 t_inf_aux(?bitstr(U1, B1), ?bitstr_vals(U2, B2, Vals))
   when is_list(Vals) ->
@@ -3192,6 +3192,12 @@ bitstr_val_matches(Bin, Unit, Base) ->
     0 -> Sz =:= Base;
     _ -> Sz >= Base andalso (Sz - Base) rem Unit =:= 0
   end.
+
+make_bitstr_vals(Vals) ->
+  Sizes = [bit_size(V) || V <- Vals],
+  Base = lists:min(Sizes),
+  Unit = lists:foldl(fun(S, U) -> gcd(abs(S - Base), U) end, 0, Sizes),
+  ?bitstr_vals(Unit, Base, Vals).
 
 %%-----------------------------------------------------------------------------
 %% Substitution of variables
