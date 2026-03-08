@@ -932,11 +932,10 @@ type_examples() ->
            "f19 = 3 :: integer()|undefined,"
            "f5 = 3 :: undefined|integer()}). ">>},
      {ex_bin_type1,<<"-type cmd() :: <<\"start\">> | <<\"stop\">>. ">>},
-     {ex_bin_type2,<<"-spec f(<<\"hello\">>) -> ok. ">>},
+     {ex_bin_type2,<<"-type bin_arg() :: <<\"hello\">>. ">>},
      {ex_bin_type3,<<"-type empty() :: <<\"\">>. ">>},
-     {ex_bin_type4,<<"-type t() :: <<\"hello\"/utf8>>. ">>},
-     {ex_bin_type5,<<"-type t() :: ~\"hello\". ">>},
-     {ex_bin_type6,<<"-type t() :: ~\"caf", 233, "\". ">>}].
+     {ex_bin_type4,<<"-type bin_utf8() :: <<\"hello\"/utf8>>. ">>},
+     {ex_bin_type5,<<"-type bin_sigil() :: ~\"hello\". ">>}].
 
 %% OTP_8473. Bugfix abstract type 'fun'.
 otp_8473(Config) when is_list(Config) ->
