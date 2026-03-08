@@ -116,7 +116,13 @@ Bitstring :: <<>>
            | <<_:M>>          %% M is an Integer_Value that evaluates to a positive integer
            | <<_:_*N>>        %% N is an Integer_Value that evaluates to a positive integer
            | <<_:M, _:_*N>>
-           | Erlang_Binary_String    %% <<"foo">>, <<"bar">>, ...
+           | <<Erlang_Binary_String>>                %% <<"foo">>, <<"bar">>, ...
+           | <<Erlang_Binary_String / Encoding>>     %% <<"café"/utf8>>, ...
+           | Sigil                                   %% ~"hello", ~b"hello", ~B"hello"
+
+Encoding :: utf8 | utf16 | utf32 | latin1
+
+Sigil :: ~"Erlang_String" | ~b"Erlang_String" | ~B"Erlang_String"
 
 Fun :: fun()                  %% any function
      | fun((...) -> Type)     %% any arity, returning Type
@@ -170,6 +176,16 @@ long (that is, a bit string that starts with `M` bits and continues with `k`
 segments of `N` bits each, where `k` is also a positive integer). The notations
 `<<_:_*N>>`, `<<_:M>>`, and `<<>>` are convenient shorthands for the cases that
 `M` or `N`, or both, are zero.
+
+Singleton binary types denote a specific binary value. The bare form
+`<<"hello">>` requires all characters to be in the range 0-255 (Latin-1).
+The `<<"café"/utf8>>` form converts the string using the named encoding
+(`utf8`, `utf16`, `utf32`, or `latin1`) at parse time. The sigil forms
+`~"hello"`, `~b"hello"`, and `~B"hello"` encode the string as UTF-8.
+All forms produce the same AST node; encoding is applied at parse time
+and not preserved. Only string literals are accepted — binary
+construction syntax such as `<<$h, $i>>` is not valid in type
+specifications.
 
 Because lists are commonly used, they have shorthand type notations. The types
 [`list(T)`](`t:list/1`) and [`nonempty_list(T)`](`t:nonempty_list/1`) have the
