@@ -111,8 +111,36 @@ void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
  * The result is returned in ARG1.
  */
 void BeamGlobalAssembler::emit_plus_body_shared() {
-    // TODO
-    emit_nyi("emit_plus_body_shared");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_Plus, 2};
+    Label error = a.newLabel();
+
+    /* Save original arguments for the error path. */
+    a.str(ARG2, TMP_MEM1q);
+    a.str(ARG3, TMP_MEM2q);
+
+    emit_enter_runtime_frame();
+
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_mixed_plus);
+
+    emit_leave_runtime_frame();
+
+    emit_branch_if_not_value(ARG1, error);
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        /* emit_enter_runtime() was done in the module code. */
+        emit_leave_runtime();
+
+        /* Place the original arguments in X registers. */
+        a.ldr(ARG1, TMP_MEM1q);
+        a.str(ARG1, getXRef(0));
+        a.ldr(ARG1, TMP_MEM2q);
+        a.str(ARG1, getXRef(1));
+        mov_imm(ARG4, &bif_mfa);
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
