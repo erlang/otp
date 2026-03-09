@@ -1773,43 +1773,33 @@ verified_normal_type(#t_record{type=Type}=T) ->
 -define(BEAM_TYPE_PORT,          (1 bsl 9)).
 -define(BEAM_TYPE_REFERENCE,     (1 bsl 10)).
 -define(BEAM_TYPE_TUPLE,         (1 bsl 11)).
+-define(BEAM_TYPE_RECORD,        (1 bsl 12)).
 
--define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 12)).
--define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 13)).
--define(BEAM_TYPE_HAS_UNIT,        (1 bsl 14)).
+-define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 13)).
+-define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 14)).
+-define(BEAM_TYPE_HAS_UNIT,        (1 bsl 15)).
 
--define(BEAM_TYPES_VERSION_27, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_29, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_27, 3).
 -define(BEAM_TYPES_VERSION_26, 2).
--define(BEAM_TYPES_VERSION_25, 1).
 
 -spec convert_ext(pos_integer(), binary()) -> binary() | 'none'.
-convert_ext(?BEAM_TYPES_VERSION_27, Types) ->
+convert_ext(?BEAM_TYPES_VERSION_29, Types) ->
     Types;
-convert_ext(?BEAM_TYPES_VERSION_26, Types) ->
-    convert_ext(?BEAM_TYPES_VERSION_27, convert_ext_26(Types, <<>>));
-convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
-    NumberMask = (?BEAM_TYPE_FLOAT bor ?BEAM_TYPE_INTEGER),
-    Types = << case Min =< Max of
-                   true ->
-                       true = 0 =/= (TypeBits0 band NumberMask), %Assertion.
-                       TypeBits = TypeBits0 bor
-                           ((?BEAM_TYPE_HAS_LOWER_BOUND bor
-                                 ?BEAM_TYPE_HAS_UPPER_BOUND) bsl 1),
-                       <<TypeBits:16,Min:64/signed,Max:64/signed>>;
-                   false ->
-                       <<TypeBits0:16>>
-               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <:= Types0 >>,
-    convert_ext(?BEAM_TYPES_VERSION_26, Types);
+convert_ext(?BEAM_TYPES_VERSION_27=Version, Types) ->
+    do_convert_ext(Version, Types);
+convert_ext(?BEAM_TYPES_VERSION_26=Version, Types) ->
+    do_convert_ext(Version, Types);
 convert_ext(_Version, _Types) ->
     none.
 
-convert_ext_26(<<TypeBits0:16/big,More/binary>>, Types) ->
+do_convert_ext(Version, Types) ->
+    Rearrange = rearrange_fun(Version),
+    do_convert_ext(Rearrange, Types, <<>>).
+
+do_convert_ext(Rearrange, <<TypeBits0:16/big,More/binary>>, Types) ->
     true = TypeBits0 =/= 0,                      %Assertion.
-    %% OTP 27 removed #t_bs_context{} from the type information, which used to
-    %% occupy bit 2. As these are now considered to be a regular bitstring that
-    %% happens to be mutable, we'll combine it with the #t_bitstring{} type
-    %% bit.
-    TypeBits = (TypeBits0 band 3) bor ((TypeBits0 band (bnot 3)) bsr 1),
+    TypeBits = Rearrange(TypeBits0),
 
     Res = foldl(fun({Id, Type}, Acc) ->
                         decode_ext_bits(TypeBits, Id, Type, Acc)
@@ -1821,9 +1811,26 @@ convert_ext_26(<<TypeBits0:16/big,More/binary>>, Types) ->
         end,
 
     Encoded = encode_ext(decode_fix(Res, R, Unit)),
-    convert_ext_26(Rest, <<Types/bits, Encoded/bits>>);
-convert_ext_26(<<>>, Types) ->
+    do_convert_ext(Rearrange, Rest, <<Types/bits, Encoded/bits>>);
+do_convert_ext(_Rearrange, <<>>, Types) ->
     Types.
+
+rearrange_fun(?BEAM_TYPES_VERSION_27) ->
+    fun(Bits) ->
+            %% OTP 29 added a type bit for native records.
+            (Bits band 16#0fff) bor ((Bits bsl 1) band 16#e000)
+    end;
+rearrange_fun(?BEAM_TYPES_VERSION_26) ->
+    ToOtp29 = rearrange_fun(?BEAM_TYPES_VERSION_27),
+    fun(Bits0) ->
+            %% OTP 27 removed #t_bs_context{} from the type
+            %% information, which used to occupy bit 2. As these
+            %% are now considered to be a regular bitstring that
+            %% happens to be mutable, we'll combine it with the
+            %% #t_bitstring{} type bit.
+            Bits = (Bits0 band 3) bor ((Bits0 band (bnot 3)) bsr 1),
+            ToOtp29(Bits)
+    end.
 
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
@@ -1837,7 +1844,8 @@ ext_type_mapping() ->
      {?BEAM_TYPE_PID,           pid},
      {?BEAM_TYPE_PORT,          port},
      {?BEAM_TYPE_REFERENCE,     reference},
-     {?BEAM_TYPE_TUPLE,         #t_tuple{}}].
+     {?BEAM_TYPE_TUPLE,         #t_tuple{}},
+     {?BEAM_TYPE_RECORD,        #t_record{}}].
 
 -spec decode_ext(binary()) -> {type(),binary()} | 'done'.
 decode_ext(<<TypeBits:16/big,More/binary>>) ->

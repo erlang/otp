@@ -51,10 +51,11 @@
       Level :: strong | weak,
       Result :: ok | {error, [{atom(), list()}]}.
 
-validate({Mod,Exp,Attr,Anno, Fs,Lc}, Level)
+validate({Mod,Exp,Attr,Anno,Fs,Lc}, Level)
   when is_atom(Mod), is_list(Exp), is_list(Attr), is_map(Anno), is_integer(Lc) ->
+    RecDefaults = record_defaults(Anno),
     Ft = build_function_table(Fs, #{}),
-    case validate_0(Fs, Mod, Level, Ft) of
+    case validate_0(Fs, Mod, RecDefaults, Level, Ft) of
         [] ->
             ok;
         Es0 ->
@@ -93,7 +94,15 @@ format_error(Error) ->
 
 %%%
 %%% Local functions follow.
-%%% 
+%%%
+
+record_defaults(#{records := Records}) ->
+    #{Name =>
+          #{F => {present, beam_types:make_type_from_value(Val)} ||
+            {F,Val} <- Fs} ||
+        {Name,_,Fs} <:- Records};
+record_defaults(#{}) ->
+    #{}.
 
 %%%
 %%% The validator follows.
@@ -114,17 +123,18 @@ format_error(Error) ->
 %%  format as used in the compiler and in .S files.
 
 
-validate_0([], _Module, _Level, _Ft) ->
+validate_0([], _Module, _RecDefaults, _Level, _Ft) ->
     [];
-validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
+validate_0([{function, Name, Arity, Entry, Code} | Fs],
+           Module, RecDefaults, Level, Ft) ->
     MFA = {Module, Name, Arity},
-    try validate_1(Code, MFA, Entry, Level, Ft) of
+    try validate_1(Code, MFA, RecDefaults, Entry, Level, Ft) of
         _ ->
-            validate_0(Fs, Module, Level, Ft)
+            validate_0(Fs, Module, RecDefaults, Level, Ft)
     catch
         throw:Error ->
             %% Controlled error.
-            [Error | validate_0(Fs, Module, Level, Ft)];
+            [Error | validate_0(Fs, Module, RecDefaults, Level, Ft)];
         Class:Error:Stack ->
             %% Crash.
             io:fwrite("Function: ~w/~w\n", [Name,Arity]),
@@ -235,7 +245,11 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% Information of other functions in the module
          ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
-         ref_ctr=0                 :: index()
+         ref_ctr=0                 :: index(),
+         %% Module name of module being checked
+         module                    :: module(),
+         %% Types for default native records default values
+         rec_defaults              :: #{ atom() => type() }
         }).
 
 build_function_table([{function,Name,Arity,Entry,Code0}|Fs], Acc) ->
@@ -269,10 +283,10 @@ find_parameter_info(_, Acc) ->
 always_fails([{jump,_}|_]) -> true;
 always_fails(_) -> false.
 
-validate_1(Is, MFA0, Entry, Level, Ft) ->
+validate_1(Is, MFA0, RecDefaults, Entry, Level, Ft) ->
     {Offset, MFA, Header, Body} = extract_header(Is, MFA0, Entry, 1, []),
 
-    Vst0 = init_vst(MFA, Level, Ft),
+    Vst0 = init_vst(MFA, RecDefaults, Level, Ft),
 
     %% We validate the header after the body as the latter may jump to the
     %% former to raise 'function_clause' exceptions.
@@ -296,12 +310,14 @@ extract_header([{line,_}=I | Is], MFA, Entry, Offset, Acc) ->
 extract_header(_Is, MFA, _Entry, _Offset, _Acc) ->
     error({MFA, invalid_function_header}).
 
-init_vst({_, _, Arity}, Level, Ft) ->
+init_vst({Mod, _, Arity}, RecDefaults, Level, Ft) when is_atom(Mod) ->
     Vst = #vst{branched=#{},
                current=#st{},
                ft=Ft,
                labels=sets:new(),
-               level=Level},
+               level=Level,
+               module=Mod,
+               rec_defaults=RecDefaults},
     init_function_args(Arity - 1, Vst).
 
 init_function_args(-1, Vst) ->
@@ -472,6 +488,10 @@ vi({test,is_function2,{f,Lbl},[Src0,_Arity]}, Vst) ->
            end);
 vi({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_tuple{}, Src, Vst);
+vi({test,is_any_native_record,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_record{}, Src, Vst);
+vi({test,is_native_record,{f,Lbl},[Src,{atom,Mod},{atom,Name}]}, Vst) ->
+    type_test(Lbl, #t_record{name={Mod,Name}}, Src, Vst);
 vi({test,is_integer,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_integer{}, Src, Vst);
 vi({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
@@ -1407,18 +1427,6 @@ pmt_1([], _Vst, Acc) ->
     Acc.
 
 verify_put_record(Fail, Id, Src, Dst, Live, List, Vst0) ->
-    case Id of
-        {literal,{Mod,Name}} when is_atom(Mod), is_atom(Name) ->
-            %% Externally defined record.
-            ok;
-        {atom,Name} when is_atom(Name) ->
-            %% Locally defined record.
-            ok;
-        {atom,'_'} ->
-            ok;
-        _ ->
-            error({bad_record_id,Id})
-    end,
     assert_term(Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -1435,15 +1443,46 @@ verify_put_record(Fail, Id, Src, Dst, Live, List, Vst0) ->
                                       end,
                       verify_keys(only_literals, EmptyHandling, Keys),
 
-                      Type = put_record_type(Src, List, Vst),
+                      Type = put_record_type(Src, Id, List, Vst),
                       create_term(Type, put_record, [Src], Dst, SuccVst, SuccVst0)
               end,
     branch(Fail, Vst, SuccFun).
 
-put_record_type(_Rec0, _List, _Vst) ->
-    %% TODO: We currently don't have any representation for records in the
-    %% type lattice.
-    any.
+put_record_type(Src, Id, Fs0, Vst) ->
+    Defs = case Src of
+               nil ->
+                   case Id of
+                       {atom,'_'} ->
+                           error(invalid_underscore_name);
+                       {atom,Tag0} ->
+                           map_get(Tag0, Vst#vst.rec_defaults);
+                       _ ->
+                           #{}
+                   end;
+               _ ->
+                   case get_term_type(Src, Vst) of
+                       #t_record{type=Defs0} -> Defs0;
+                       _ -> error(not_a_native_record)
+                   end
+           end,
+
+    Fs = record_field_types(Fs0, Vst, Defs),
+
+    case Id of
+        {literal,{Mod,Tag}} when is_atom(Mod), is_atom(Tag) ->
+            #t_record{name={Mod,Tag},type=Fs};
+        {atom,'_'} ->
+            #t_record{name=nil,type=Fs};
+        {atom,Tag} when is_atom(Tag) ->
+            Mod = Vst#vst.module,
+            #t_record{name={Mod,Tag},type=Fs}
+    end.
+
+record_field_types([{atom,Key}, Value0 | Fs], Vst, Acc) ->
+    Value = get_term_type(Value0, Vst),
+    record_field_types(Fs, Vst, Acc#{Key => {present, Value}});
+record_field_types([], _Vst, Acc) ->
+    Acc.
 
 verify_get_record_elements(Fail, Src, List, Vst0) ->
     assert_no_exception(Fail),
@@ -1452,11 +1491,32 @@ verify_get_record_elements(Fail, Src, List, Vst0) ->
            fun(FailVst) ->
                    clobber_record_vals(List, Src, FailVst)
            end,
-           fun(SuccVst) ->
-                   Keys = extract_keys(List, SuccVst),
+           fun(SuccVst0) ->
+                   Keys = extract_keys(List, SuccVst0),
                    verify_keys(only_literals, forbid_empty, Keys),
-                   extract_vals(record_get, List, Src, SuccVst)
+                   SuccVst = extract_vals(record_get, List, Src, SuccVst0),
+                   update_native_record_type(List, Src, SuccVst)
            end).
+
+update_native_record_type([_|_]=Updates, Src, Vst) ->
+    {Type0, Es0} = case get_term_type(Src, Vst) of
+                       #t_record{type=F}=T -> {T, F};
+                       _ -> {#t_record{name=nil,type=#{}}, #{}}
+                   end,
+    Es = update_record_type_1(Updates, Es0, Vst),
+    Type = Type0#t_record{type=Es},
+    create_term(Type, update_native_record, [], Src, Vst).
+
+update_record_type_1([{atom,Key}, _Dst | Updates], Es0, Vst) ->
+    case Es0 of
+        #{Key := {present, _}} ->
+            update_record_type_1(Updates, Es0, Vst);
+        _ ->
+            Es1 = Es0#{Key => {present, any}},
+            update_record_type_1(Updates, Es1, Vst)
+    end;
+update_record_type_1([], Es, _Vst) ->
+    Es.
 
 %% Check an update of a traditional tuple record.
 verify_update_record(Size, Src0, Dst, List0, Vst0) ->
@@ -2421,6 +2481,12 @@ infer_types_1(#value{op={bif,element},args=[{integer,Index}, Tuple]},
         false ->
             Vst
     end;
+infer_types_1(#value{op=get_record_element,args=[Src,{atom,F}]},
+              Val, eq_exact, Vst) ->
+    ValType = get_term_type(Val, Vst),
+    Es = #{F => {present,ValType}},
+    RecordType = #t_record{type=Es},
+    update_type(fun meet/2, RecordType, Src, Vst);
 infer_types_1(_, _, _, Vst) ->
     Vst.
 

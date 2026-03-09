@@ -21,7 +21,7 @@
 %%
 
 %% Type version, must be bumped whenever the external type format changes.
--define(BEAM_TYPES_VERSION, 3).
+-define(BEAM_TYPES_VERSION, 4).
 
 %% Common term types for passes operating on beam SSA and assembly. Helper
 %% functions for wrangling these can be found in beam_types.erl

@@ -1159,6 +1159,21 @@ simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts, Ds)
         _ ->
             eval_bif(I0, Ts, Ds)
     end;
+simplify(#b_set{op={bif,get_record_field},
+                args=[Term,#b_literal{val=Name},#b_literal{val=F}=F0],
+                anno=Anno}=I0, Ts, Ds) when is_atom(Name) ->
+    case {map_get(record_module, Anno), normalized_type(Term, Ts)} of
+        {Mod, #t_record{name={Mod,Name},type=Es}} ->
+            case Es of
+                #{F := {present,_Type}} ->
+                    I = I0#b_set{anno=Anno#{blurf => true},op=get_record_element,args=[Term,F0]},
+                    simplify(I, Ts, Ds);
+                #{} ->
+                    I0
+            end;
+        _ ->
+            I0
+    end;
 simplify(#b_set{op={bif,hd},args=[List]}=I, Ts, Ds) ->
     case normalized_type(List, Ts) of
         #t_cons{} ->
@@ -2314,6 +2329,8 @@ type(put_list, [Head, Tail], _Anno, Ts, _Ds) ->
     HeadType = concrete_type(Head, Ts),
     TailType = concrete_type(Tail, Ts),
     beam_types:make_cons(HeadType, TailType);
+type(put_record, Args, Anno, Ts, _Ds) ->
+    put_record_type(Args, Anno, Ts);
 type(put_tuple, Args, _Anno, Ts, _Ds) ->
     {Es, _} = foldl(fun(Arg, {Es0, Index}) ->
                             Type = concrete_type(Arg, Ts),
@@ -2370,6 +2387,37 @@ join_tuple_elements(I, Tuple, Type0) ->
     Type1 = beam_types:make_type_from_value(element(I, Tuple)),
     Type = beam_types:join(Type0, Type1),
     join_tuple_elements(I - 1, Tuple, Type).
+
+put_record_type(Args, Anno, Ts) ->
+    [Src, Name | Fs0] = Args,
+
+    Defs = case Src of
+               #b_literal{val=empty} ->
+                   map_get(record_defaults, Anno);
+               #b_var{}=Var ->
+                   case Ts of
+                       #{Var := #t_record{type=Defs0}} -> Defs0;
+                       #{} -> #{}
+                   end
+           end,
+
+    Fs = record_field_types(Fs0, Ts, Defs),
+
+    case Name of
+        #b_literal{val={Mod,Tag}} when is_atom(Mod), is_atom(Tag) ->
+            #t_record{name={Mod,Tag}, type=Fs};
+        #b_literal{val='_'} ->
+            #t_record{name=nil, type=Fs};
+        #b_literal{val=Tag} when is_atom(Tag) ->
+            Mod = map_get(record_module, Anno),
+            #t_record{name={Mod,Tag}, type=Fs}
+    end.
+
+record_field_types([#b_literal{val=Key}, Value0 | Fs], Ts, Acc) ->
+    Value = concrete_type(Value0, Ts),
+    record_field_types(Fs, Ts, Acc#{Key => {present, Value}});
+record_field_types([], _Ts, Acc) ->
+    Acc.
 
 put_map_type(Map, Ss, Ts) ->
     pmt_1(Ss, Ts, concrete_type(Map, Ts)).
@@ -2864,6 +2912,15 @@ infer_type({bif,is_reference}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_tuple}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
     {[T], [T]};
+infer_type({bif,is_record}, [#b_var{}=Arg], _Ts, _Ds) ->
+    T = {Arg, #t_record{}},
+    {[T], [T]};
+infer_type({bif,is_record}, [#b_var{}=Arg,
+                             #b_literal{val=Mod},
+                             #b_literal{val=Name}],
+           _Ts, _Ds) ->
+    T = {Arg, #t_record{name={Mod,Name}}},
+    {[T], [T]};
 infer_type({bif,'and'}, [#b_var{}=LHS,#b_var{}=RHS], Ts, Ds) ->
     %% When this BIF yields true, we know that both `LHS` and `RHS` are 'true'
     %% and should infer accordingly, lest we break later optimizations that
@@ -2907,6 +2964,17 @@ infer_success_type(bs_match, [#b_literal{val=binary},
     %% position, so we know that Ctx has the same unit.
     T = {Ctx, #t_bs_context{tail_unit=OpUnit}},
     {[T], [T]};
+infer_success_type(get_record_element, [#b_var{}=Arg,
+                                        #b_literal{val=F}],
+                   Ts, _Ds) ->
+    case concrete_type(Arg, Ts) of
+        #t_record{type=#{F := {present,_}}} ->
+            {[], []};
+        _ ->
+            Es = #{F => {present,any}},
+            T = {Arg, #t_record{type=Es}},
+            {[T], []}
+    end;
 infer_success_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
