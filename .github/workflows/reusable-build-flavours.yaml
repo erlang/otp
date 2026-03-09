@@ -1,0 +1,114 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Build Erlang/OTP (Types and Flavors)
+run-name: "[${{ inputs.base_branch }}] Build Erlang/OTP (Types and Flavors)"
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        required: true
+        type: string
+
+env:
+  BASE_BRANCH: ${{ inputs.base_branch }}
+
+# NOTE: This job should only be executed on the callee with `needs: pack`
+jobs:
+  build-flavors:
+    name: Build Erlang/OTP (Types and Flavors)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        flavor: [jit, emu]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+      - name: Build Erlang/OTP flavors and types
+        run: |
+            TYPES="opt debug lcnt asan gcov valgrind"
+            FLAVORS="${{ matrix.flavor }}"
+            for TYPE in ${TYPES}; do
+              for FLAVOR in ${FLAVORS}; do
+                echo "::group::{TYPE=$TYPE FLAVOR=$FLAVOR}"
+                docker run otp \
+                  "set -xe;
+
+                   if [ '${TYPE}' = 'valgrind' ]; then sudo apt-get install -y valgrind bc; fi;
+
+                   echo 'Setup start flags';
+                   if [ '$TYPE' != 'opt' ]; then EMU_TYPE='-emu_type $TYPE'; fi;
+                   if [ '$FLAVOR' = 'jit' ]; then
+                      EMU_FLAVOR='smp'
+                   else
+                      EMU_FLAVOR='$FLAVOR'
+                   fi;
+
+                   echo 'Build type and flavor and test starting in source tree';
+                   TYPE=$TYPE FLAVOR=$FLAVOR ./otp_build boot -a;
+                   cerl -$TYPE -emu_flavor \$EMU_FLAVOR -noshell -s init stop;
+
+                   echo 'Install and test installation';
+                   sudo make install TYPE=$TYPE FLAVOR=$FLAVOR;
+                   if [ $TYPE != 'valgrind' ] && [ $TYPE != 'asan' ]; then
+                       erl \$EMU_TYPE -emu_flavor \$EMU_FLAVOR -noshell -s init stop;
+                   fi
+
+                   echo 'Release and test release'
+                   ./otp_build release -a \$(pwd)/test_release/;
+                   (cd \$(pwd)/test_release/ && ./Install -minimal \$(pwd));
+                   TYPE=$TYPE FLAVOR=$FLAVOR ./otp_build release -a \$(pwd)/test_release;
+                   if [ $TYPE != 'valgrind' ] && [ $TYPE != 'asan' ]; then
+                       test_release/bin/erl \$EMU_TYPE -emu_flavor \$EMU_FLAVOR -noshell -s init stop;
+                   fi"
+                echo "::endgroup::"
+              done
+            done
+      - name: Build Erlang/OTP JIT Win32 ABI
+        if: ${{ matrix.flavor == 'jit' }}
+        run: >
+            docker run otp \
+                'set -xe;
+                 ./configure CFLAGS="$CFLAGS -DERTS_JIT_ABI_WIN32=1";
+                 make && make TYPE=debug;
+                 cerl -noshell -s init stop && cerl -debug -noshell -s init stop'
+
+      - name: Build Erlang/OTP with LTTNG
+        if: ${{ matrix.flavor == 'jit' }}
+        run: >
+            docker run otp \
+                'set -xe;
+                 sudo apt-get install -y lttng-tools;
+                 ./configure --enable-dynamic-trace=lttng;
+                 make && make TYPE=debug;
+                 cerl -noshell -s init stop && cerl -debug -noshell -s init stop'
+
+      - name: Start Erlang with various start options
+        if: ${{ matrix.flavor == 'jit' }}
+        run: |
+            OPTIONS=("+JPperf true" "+JMsingle true" "+JDdump true")
+            for OPTION in "${OPTIONS[@]}"; do
+                docker run otp "erl ${OPTION} -noshell -s init stop"
+            done
