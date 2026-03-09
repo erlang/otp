@@ -155,13 +155,8 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
         Label unpack_next = a.newLabel(), malformed_list = a.newLabel(),
               raise_error = a.newLabel();
 
-        auto x_register = arm::Mem(scheduler_registers);
-
-        ASSERT(x_register.shift() == 0);
-        x_register.setIndex(ARG3);
-        x_register.setShift(2);
-
         a.mov(ARG1, ARG2);
+        lea(VAR, getXRef(0));
         a.bind(unpack_next);
         {
             a.cmp(ARG1, imm(NIL));
@@ -174,7 +169,7 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
             emit_ptr_val(ARG1, ARG1);
             a.ldr(TMP, getCARRef(ARG1));
             a.ldr(ARG1, getCDRRef(ARG1));
-            a.str(TMP, x_register);
+            a.str(TMP, arm::Mem(VAR).post(sizeof(Eterm)));
 
             /* We bail at MAX_REG-1 rather than MAX_REG as the highest register
              * is reserved for the loader. */
