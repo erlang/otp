@@ -292,8 +292,6 @@ but the map is preferred.
 `m:gen_event`, `m:gen_statem`, `m:gen_server`, `m:sys`
 """.
 
--compile(nowarn_deprecated_catch).
-
 -behaviour(gen_server).
 
 %% External exports
@@ -1034,18 +1032,30 @@ do_start_child(SupName, Child, Report) ->
     end.
 
 do_start_child_i(M, F, A) ->
-    case catch apply(M, F, A) of
-	{ok, Pid} when is_pid(Pid) ->
-	    {ok, Pid};
-	{ok, Pid, Extra} when is_pid(Pid) ->
-	    {ok, Pid, Extra};
-	ignore ->
-	    {ok, undefined};
-	{error, Error} ->
-	    {error, Error};
-	What ->
-	    {error, What}
+    try
+        apply(M, F, A)
+    of
+        Result ->
+            handle_do_start_child_i_result(Result)
+    catch
+        throw:Result ->
+            handle_do_start_child_i_result(Result);
+        exit:Reason ->
+            {error, {'EXIT', Reason}};
+        error:Reason:StackTrace ->
+            {error, {'EXIT', {Reason, StackTrace}}}
     end.
+
+handle_do_start_child_i_result({ok, Pid} = Result) when is_pid(Pid) ->
+    Result;
+handle_do_start_child_i_result({ok, Pid, _Extra} = Result) when is_pid(Pid) ->
+    Result;
+handle_do_start_child_i_result(ignore) ->
+    {ok, undefined};
+handle_do_start_child_i_result({error, _Reason} = Error) ->
+    Error;
+handle_do_start_child_i_result(Other) ->
+    {error, Other}.
 
 %%% ---------------------------------------------------
 %%% 
@@ -2022,7 +2032,7 @@ set_flags(Flags, State) ->
 			     auto_shutdown = AutoShutdown,
 			     hibernate_after = HibernateAfter}}
     catch
-	Thrown -> Thrown
+        throw:Thrown -> Thrown
     end.
 
 check_flags(SupFlags) when is_map(SupFlags) ->
@@ -2114,7 +2124,7 @@ check_startspec([ChildSpec|T], Ids, Db, AutoShutdown) ->
 		%% The error message duplicate_child_name is kept for
 		%% backwards compatibility, although
 		%% duplicate_child_id would be more correct.
-		true -> {duplicate_child_name, Id};
+                true -> {duplicate_child_name, Id};
 		false -> check_startspec(T, [Id | Ids], Db#{Id=>Child},
 					 AutoShutdown)
 	    end;
@@ -2124,8 +2134,13 @@ check_startspec([], Ids, Db, _AutoShutdown) ->
     {ok, {lists:reverse(Ids),Db}}.
 
 check_childspec(ChildSpec, AutoShutdown) when is_map(ChildSpec) ->
-    catch do_check_childspec(maps:merge(?default_child_spec,ChildSpec),
-			     AutoShutdown);
+    try
+        do_check_childspec(maps:merge(?default_child_spec,ChildSpec),
+                           AutoShutdown)
+    catch
+        throw:Error ->
+            Error
+    end;
 check_childspec({Id, Func, RestartType, Shutdown, ChildType, Mods},
 		AutoShutdown) ->
     check_childspec(#{id => Id,
@@ -2149,26 +2164,26 @@ do_check_childspec(#{restart := RestartType,
 	       #{start := F} -> F;
 	       _ -> throw(missing_start)
 	   end,
-    validId(Id),
-    validFunc(Func),
-    validRestartType(RestartType),
+    true = validId(Id),
+    true = validFunc(Func),
+    true = validRestartType(RestartType),
     Significant = case ChildSpec of
 		      #{significant := Signf} -> Signf;
 		      _ -> false
                   end,
-    validSignificant(Significant, RestartType, AutoShutdown),
-    validChildType(ChildType),
+    true = validSignificant(Significant, RestartType, AutoShutdown),
+    true = validChildType(ChildType),
     Shutdown = case ChildSpec of
 		   #{shutdown := S} -> S;
 		   #{type := worker} -> 5000;
 		   #{type := supervisor} -> infinity
 	       end,
-    validShutdown(Shutdown),
+    true = validShutdown(Shutdown),
     Mods = case ChildSpec of
 	       #{modules := Ms} -> Ms;
 	       _ -> {M,_,_} = Func, [M]
 	   end,
-    validMods(Mods),
+    true = validMods(Mods),
     {ok, #child{id = Id, mfargs = Func, restart_type = RestartType,
 		significant = Significant, shutdown = Shutdown,
 		child_type = ChildType, modules = Mods}}.
@@ -2207,13 +2222,13 @@ validShutdown(Shutdown)             -> throw({invalid_shutdown, Shutdown}).
 
 validMods(dynamic) -> true;
 validMods(Mods) when is_list(Mods) ->
-    lists:foreach(fun(Mod) ->
-		    if
-			is_atom(Mod) -> ok;
-			true -> throw({invalid_module, Mod})
-		    end
-		  end,
-		  Mods);
+    lists:all(fun
+                  (Mod) when is_atom(Mod) ->
+                      true;
+                  (Mod) ->
+                      throw({invalid_module, Mod})
+              end,
+              Mods);
 validMods(Mods) -> throw({invalid_modules, Mods}).
 
 child_to_spec(#child{id = Id,
