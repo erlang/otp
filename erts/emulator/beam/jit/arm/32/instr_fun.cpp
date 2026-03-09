@@ -67,6 +67,16 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
                                                    const ArgLabel &Lbl,
                                                    const ArgWord &Arity,
                                                    const ArgWord &NumFree) {
+    /* Even while NYI, we must bind the per-lambda trampoline label created in
+     * BeamAssembler::initialize() for closures with free vars. Otherwise AsmJit
+     * aborts with "Label ... is not bound" during finalization. */
+    const auto &lambda = lambdas[Lambda.get()];
+    a.bind(lambda.trampoline);
+
+    (void)Lbl;
+    (void)Arity;
+    (void)NumFree;
+
     // TODO
     emit_nyi("emit_i_lambda_trampoline");
 }
