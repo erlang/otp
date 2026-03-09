@@ -153,113 +153,17 @@ jobs:
     name: Build Erlang/OTP (iOS)
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
+    uses: ./.github/workflows/reusable-build-ios.yaml
+    with:
+      base_branch: ${{ needs.setup.outputs.base_branch }}
 
   build-windows:
-    defaults:
-      run:
-        shell: wsl-bash {0}
-    env:
-      WXWIDGETS_VERSION: 3.2.6
     name: Build Erlang/OTP (Windows)
-    runs-on: windows-2025
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
-    steps:
-      - uses: Vampire/setup-wsl@6a8db447be7ed35f2f499c02c6e60ff77ef11278 # v6.0.0
-        with:
-          distribution: Ubuntu-18.04
-
-      - name: Install WSL dependencies
-        run: apt update && apt install -y make autoconf unzip
-
-      - name: Install NSIS
-        shell: cmd
-        run: |
-          choco install nsis --version 3.11.0
-
-      - name: Install openssl
-        shell: cmd
-        run: |
-          choco install openssl --version=3.1.1
-          IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
-
-      - name: Cache wxWidgets
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
-
-      # actions/cache on Windows sometimes does not set cache-hit even though there was one. Setting it manually.
-      - name: Set wxWidgets cache
-        id: wxwidgets-cache
-        env:
-          WSLENV: GITHUB_OUTPUT/p
-        run: |
-          if [ -d wxWidgets ]; then
-            echo "cache-hit=true" >> $GITHUB_OUTPUT
-          else
-            echo "cache-hit=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Download wxWidgets
-        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
-        run: |
-          wget https://github.com/wxWidgets/wxWidgets/releases/download/v${{ env.WXWIDGETS_VERSION }}/wxWidgets-${{ env.WXWIDGETS_VERSION }}.zip
-          unzip wxWidgets-${{ env.WXWIDGETS_VERSION }}.zip -d wxWidgets
-          sed -i -r -e 's/wxUSE_POSTSCRIPT +0/wxUSE_POSTSCRIPT 1/' wxWidgets/include/wx/msw/setup.h
-          sed -i -r -e 's/wxUSE_WEBVIEW_EDGE +0/wxUSE_WEBVIEW_EDGE 1/' wxWidgets/include/wx/msw/setup.h
-
-      - name: Install WebView2
-        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
-        shell: cmd
-        run: |
-          cd wxWidgets\\3rdparty
-          nuget install Microsoft.Web.WebView2 -Version 1.0.705.50 -Source https://api.nuget.org/v3/index.json
-          rename Microsoft.Web.WebView2.1.0.705.50 webview2
-
-      - name: Build wxWidgets
-        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
-        shell: cmd
-        run: |
-          cd wxWidgets\\build\\msw
-          call "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\Auxiliary\\Build\\vcvars64.bat"
-          nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
-
-      - name: Download source archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: otp_prebuilt
-
-      - name: Compile Erlang
-        run: |
-          mkdir -p /mnt/c/opt/local64/pgm/
-          cp -R wxWidgets /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}
-          tar -xzf ./otp_src.tar.gz
-          cd otp
-          export PATH="/mnt/c/Program Files (x86)/NSIS/bin":$PATH
-          export ERL_TOP=`pwd`
-          export MAKEFLAGS=-j$(($(nproc) + 2))
-          export ERLC_USE_SERVER=true
-          export ERTS_SKIP_DEPEND=true
-          eval `./otp_build env_win32 x64`
-          ./otp_build configure
-          if cat erts/CONF_INFO ||
-             grep -v "Static linking with OpenSSL 3.0" lib/*/CONF_INFO ||
-             cat lib/*/SKIP ||
-             cat lib/SKIP-APPLICATIONS; then
-             exit 1
-          fi
-          ./otp_build boot -a
-          ./otp_build release -a
-          cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
-          ./otp_build debuginfo_win32
-          ./otp_build installer_win32
-
-      - name: Upload installer
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: otp_win32_installer
-          path: otp/release/win32/otp*.exe
+    uses: ./.github/workflows/reusable-build-windows.yaml
+    with:
+      base_branch: ${{ needs.setup.outputs.base_branch }}
 
   build-flavors:
     name: Build Erlang/OTP (Types and Flavors)
@@ -461,121 +365,26 @@ jobs:
 
   test:
     name: Test Erlang/OTP
-    runs-on: ubuntu-latest
-    needs: pack
+    needs:
+      - setup
+      - pack
     if: needs.pack.outputs.changes != '[]'
-    strategy:
-      matrix:
-        # type: ${{ fromJson(needs.pack.outputs.all) }}
-        type: ${{ fromJson(needs.pack.outputs.changes) }}
-        # type: ["os_mon","sasl"]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/build-base-image
-        with:
-            BASE_BRANCH: ${{ env.BASE_BRANCH }}
-      - name: Run tests
-        id: run-tests
-        run: |
-          set -x
-          mkdir $PWD/make_test_dir
-          APP="${{ matrix.type }}"
-          ## Need to specialize for epmd, emulator and debug
-          case "${APP}" in
-            emulator) DIR=erts/emulator/ ;;
-            epmd) DIR=erts/epmd ;;
-            debug) DIR=lib/os_mon; APP=os_mon; TYPE=debug ;;
-            *) DIR=lib/${{ matrix.type }} ;;
-          esac
-          ## Remove systemd-coredump
-          ! sudo apt remove systemd-coredump
-          ## Removing systemd-coredump, caused apport to be installed instead, so we disable it
-          ! sudo service apport stop
-          sudo sysctl -w dev.tty.legacy_tiocsti=1
-          sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
-          docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 1024 \
-            -e CTRUN_TIMEOUT=90 -e SPEC_POSTFIX=gh \
-            -e TEST_NEEDS_RELEASE=true -e "RELEASE_ROOT=/buildroot/otp/Erlang ∅⊤℞" \
-            -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/$DIR/make_test_dir/${{ matrix.type }}_junit.xml\"}]" \
-            -v "$PWD/make_test_dir:/buildroot/otp/$DIR/make_test_dir" \
-            -v "$PWD/scripts:/buildroot/otp/scripts" \
-            otp "./otp_build download_gdb_tools && make emulator && make TYPE=${TYPE} && make ${APP}_test TYPE=${TYPE}"
-          ## Rename os_mon to debug for debug build
-          if [ "$APP" != "${{ matrix.type }}" ]; then
-            mv make_test_dir/${APP}_test "make_test_dir/${{ matrix.type }}_test"
-          fi
-      - name: Cleanup tests
-        if: ${{ !cancelled() }}
-        run: |
-          rm -rf make_test_dir/otp || true
-          sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
-          tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
-      - name: Upload test results
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        if: ${{ !cancelled() }}
-        with:
-          name: ${{ matrix.type }}_test_results
-          path: ${{ matrix.type }}_test_results.tar.gz
+    uses: ./.github/workflows/reusable-test.yaml
+    with:
+      changes:     ${{ needs.pack.outputs.changes }}
+      base_branch: ${{ needs.setup.outputs.base_branch }}
 
   system-test:
     name: Test Erlang/OTP (system)
     runs-on: ubuntu-latest
     if: ${{ !cancelled() }} # Run even if the need has failed
-    needs: test
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/build-base-image
-        with:
-            BASE_BRANCH: ${{ env.BASE_BRANCH }}
-      - name: Download test results
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-      - name: Merge test results
-        run: |
-          shopt -s nullglob
-          mkdir -p make_test_dir
-          for file in *_test_results/*.tar.gz; do
-            tar xzf $file
-          done
-          docker run -v $PWD/make_test_dir:/buildroot/otp/erts/make_test_dir otp \
-            "ct_run -refresh_logs /buildroot/otp/erts/make_test_dir"
-      - name: Run system tests
-        run: |
-          ## Remove systemd-coredump
-          ! sudo apt remove systemd-coredump
-          ## Removing systemd-coredump, caused apport to be installed instead, so we disable it
-          ! sudo service apport stop
-          sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
-          docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 512 \
-            -e CTRUN_TIMEOUT=90 -e SPEC_POSTFIX=gh \
-            -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/erts/make_test_dir/system_junit.xml\"}]" \
-            -e OTP_DAILY_BUILD_TOP_DIR=/buildroot/otp/erts/make_test_dir \
-            -v $PWD/make_test_dir:/buildroot/otp/erts/make_test_dir otp \
-            "make system_test"
-      - name: Cleanup tests
-        if: ${{ !cancelled() }}
-        run: |
-          rm -rf make_test_dir/otp || true
-          tar czf test_results.tar.gz make_test_dir
-          # Translate file="/buildroot/otp/lib/os_mon/make_test_dir/os_mon_test/cpu_sup_SUITE.erl"
-          # to file="lib/os_mon/test/cpu_sup_SUITE.erl"
-          sed -i -e 's:file="/buildroot/otp/:file=":g' \
-              -e 's:\(file="[^/]*/[^/]*/\)make_test_dir/[^/]*:\1test:g' \
-              -e 's:\(file="erts/\)make_test_dir/[^/]*:\1test:g' \
-              make_test_dir/*_junit.xml
-      - name: Upload test results
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        if: ${{ !cancelled() }}
-        with:
-          name: test_results
-          path: test_results.tar.gz
-      - name: Upload Test Results
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: Unit Test Results
-          path: |
-            make_test_dir/*_junit.xml
+    needs:
+      - setup
+      - test
+    uses: ./.github/workflows/reusable-system-test.yaml
+    with:
+      base_branch: ${{ needs.setup.outputs.base_branch }}
+
 
   ## If you want to speedup this step for testing the easiest way is to create
   ## these two commits:
