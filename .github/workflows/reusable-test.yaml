@@ -39,7 +39,6 @@ jobs:
   test:
     name: Test Erlang/OTP
     runs-on: ubuntu-latest
-    if: needs.pack.outputs.changes != '[]'
     strategy:
       matrix:
         # type: ${{ fromJson(needs.pack.outputs.all) }}

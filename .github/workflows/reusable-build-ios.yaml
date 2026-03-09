@@ -36,7 +36,6 @@ jobs:
       TARGET_ARCH: aarch64-apple-ios
     name: Build Erlang/OTP (iOS)
     runs-on: macos-15
-    if: needs.pack.outputs.build-c-code == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Download source archive
