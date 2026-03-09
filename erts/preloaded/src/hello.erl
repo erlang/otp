@@ -143,11 +143,11 @@ test(BootArgs) ->
     test_length(BootArgs),
     test_float(),
     test_funs(),
-%
-%    %% From this point on, EARLY_DAYS must be set false so that
-%    %% it is possible to define an error_handler similar to the
-%    %% error_handler in the KERNEL application.
-%    test_apply_errors(),
+
+    %% From this point on, EARLY_DAYS must be set false so that
+    %% it is possible to define an error_handler similar to the
+    %% error_handler in the KERNEL application.
+    test_apply_errors(),
 %    test_fun_call_errors(),
 %    test_processes(),
 %    test_set_tuple_element(),
@@ -748,34 +748,34 @@ apply_fun_last(F, Args) ->
 apply_fun_only(F, Args) ->
     apply(F, Args).
 
-%test_apply_errors() ->
-%    M = id(bad_module),
-%
-%    %% If running hello as the only one module in the system,
-%    %% there is no error_handler module. Set up this module
-%    %% as the error_handler module to ensure that the we
-%    %% always get the same type of `undef` exception.
-%    OldErrorHandler = erlang:process_flag(error_handler, ?MODULE),
-%
-%    try M:whatever(42) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:undef:Stk1 ->
-%            [{M,whatever,[42],_}|_] = Stk1
-%    end,
-%
-%    try apply(M, whatever, id([42])) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:undef:Stk2 ->
-%            [{M,whatever,[42],_}|_] = Stk2
-%    end,
-%
-%    erlang:process_flag(error_handler, OldErrorHandler),
-%    ok.
-%
+test_apply_errors() ->
+    M = id(bad_module),
+
+    %% If running hello as the only one module in the system,
+    %% there is no error_handler module. Set up this module
+    %% as the error_handler module to ensure that the we
+    %% always get the same type of `undef` exception.
+    OldErrorHandler = erlang:process_flag(error_handler, ?MODULE),
+
+    try M:whatever(42) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:undef:Stk1 ->
+            [{M,whatever,[42],_}|_] = Stk1
+    end,
+
+    try apply(M, whatever, id([42])) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:undef:Stk2 ->
+            [{M,whatever,[42],_}|_] = Stk2
+    end,
+
+    erlang:process_flag(error_handler, OldErrorHandler),
+    ok.
+
 %test_fun_call_errors() ->
 %    F = id(bad_fun),
 %    G = id(fun() -> ok end),
@@ -798,7 +798,7 @@ apply_fun_only(F, Args) ->
 %    end,
 %
 %    ok.
-%
+
 %test_processes() ->
 %    start_logger(),
 %    ExitData = {data,make_ref()},
