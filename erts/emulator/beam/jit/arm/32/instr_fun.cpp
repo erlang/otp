@@ -86,8 +86,32 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgWord &Arity,
                                            const ArgWord &NumFree,
                                            const Span<ArgVal> &env) {
-    // TODO
-    emit_nyi("emit_i_make_fun3");
+    ASSERT((NumFree.get() + 1) == env.size() &&
+           (NumFree.get() + Arity.get()) < MAX_ARG);
+
+    mov_arg(ARG2, Lambda);
+
+    comment("Create fun thing");
+    mov_imm(ARG1, MAKE_FUN_HEADER(Arity.get(), NumFree.get(), 0));
+    a.str(ARG1, arm::Mem(HTOP, offsetof(ErlFunThing, thing_word)));
+    a.str(ARG2, arm::Mem(HTOP, offsetof(ErlFunThing, entry.fun)));
+
+    comment("Move fun environment");
+    add(ARG2, HTOP, offsetof(ErlFunThing, env));
+    for (Uint i = 0; i < env.size(); i++) {
+        if ((i % 128) == 0) {
+            check_pending_stubs();
+        }
+
+        mov_arg(ARG1, env[i]);
+        a.str(ARG1, arm::Mem(ARG2).post(sizeof(Eterm)));
+    }
+
+    comment("Create boxed ptr");
+    auto dst = init_destination(Dst, VAR);
+    a.orr(dst.reg, HTOP, imm(TAG_PRIMARY_BOXED));
+    add(HTOP, HTOP, (ERL_FUN_SIZE + env.size()) * sizeof(Eterm));
+    flush_var(dst);
 }
 
 void BeamGlobalAssembler::emit_apply_fun_shared() {
