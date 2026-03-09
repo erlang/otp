@@ -810,7 +810,7 @@ switch_cmd(r, Gr0, _Dumb) ->
 	    Gr = gr_add_cur(Gr0, Pid, {Node,shell,start,[]}),
 	    {retry, [], Gr};
 	false ->
-	    {retry, [{put_chars,unicode,~"Node is not alive\n"}]}
+            {retry, [{put_chars,unicode,~"Node is not alive\n"}]}
     end;
 switch_cmd({r, Node}, Gr, Dumb) when is_atom(Node)->
     switch_cmd({r, Node, shell}, Gr, Dumb);
@@ -833,7 +833,7 @@ switch_cmd({r,Node,Shell}, Gr0, Dumb) when is_atom(Node), is_atom(Shell) ->
 switch_cmd(q, _Gr, _Dumb) ->
     case erlang:system_info(break_ignored) of
 	true ->					% noop
-	    {retry, [{put_chars,unicode,~"Unknown command\n"}]};
+            {retry, [{put_chars,unicode,~"Unknown command\n"}]};
 	false ->
 	    halt()
     end;
@@ -849,11 +849,11 @@ unknown_group() ->
 
 list_commands() ->
     QuitReq = case erlang:system_info(break_ignored) of
-		  true ->
-		      [];
-		  false ->
-		      [{put_chars, unicode,~"  q                 - quit erlang\n"}]
-	      end,
+                  true ->
+                      [];
+                  false ->
+                      [{put_chars, unicode,~"  q                 - quit erlang\n"}]
+              end,
     [{put_chars, unicode,~"  c [nn]            - connect to job\n"},
      {put_chars, unicode,~"  i [nn]            - interrupt job\n"},
      {put_chars, unicode,~"  k [nn]            - kill job\n"},
