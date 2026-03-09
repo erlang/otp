@@ -32,7 +32,8 @@
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
          incompatible_options/1, table_absolute_names/1,
-         streamed_extract/1, symlink_parent_dir/1]).
+         streamed_extract/1, symlink_parent_dir/1,
+         streamed_extract/1, max_size/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -48,7 +49,8 @@ all() ->
      read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
      apply_file_info_opts,incompatible_options, table_absolute_names,
-     streamed_extract, symlink_parent_dir].
+     streamed_extract, symlink_parent_dir,
+     max_size].
 
 groups() -> 
     [].
@@ -1241,6 +1243,74 @@ streamed_extract(Config) ->
     SmallData = maps:get("small", MemMap),
 
     ok.
+
+max_size(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, "max_size"),
+    ok = file:make_dir(Dir),
+
+    Data1 = crypto:strong_rand_bytes(1000),
+    Data2 = crypto:strong_rand_bytes(2000),
+    FileBins = [{"file1", Data1}, {"file2", Data2}],
+    TotalSize = byte_size(Data1) + byte_size(Data2),
+
+    TarName = filename:join(Dir, "test.tar"),
+    ok = erl_tar:create(TarName, FileBins),
+
+    %% Memory extraction: limit smaller than total should fail.
+    {error, too_big} = erl_tar:extract(TarName,
+                                       [memory, {max_size, TotalSize - 1}]),
+
+    %% Memory extraction: limit equal to total should succeed.
+    {ok, _} = erl_tar:extract(TarName, [memory, {max_size, TotalSize}]),
+
+    %% Memory extraction: infinity (default) should succeed.
+    {ok, _} = erl_tar:extract(TarName, [memory]),
+
+    %% Disk extraction: limit smaller than total should fail.
+    ExtractDir1 = filename:join(Dir, "extract1"),
+    ok = file:make_dir(ExtractDir1),
+    {error, too_big} = erl_tar:extract(TarName,
+                                       [{cwd, ExtractDir1},
+                                        {max_size, TotalSize - 1}]),
+
+    %% Disk extraction: limit equal to total should succeed.
+    ExtractDir2 = filename:join(Dir, "extract2"),
+    ok = file:make_dir(ExtractDir2),
+    ok = erl_tar:extract(TarName, [{cwd, ExtractDir2},
+                                   {max_size, TotalSize}]),
+
+    %% Binary extraction: limit should work.
+    {ok, TarBin} = file:read_file(TarName),
+    {error, too_big} = erl_tar:extract({binary, TarBin},
+                                       [memory, {max_size, TotalSize - 1}]),
+    {ok, _} = erl_tar:extract({binary, TarBin},
+                              [memory, {max_size, TotalSize}]),
+
+    %% Compressed binary: limit should apply to decompressed data.
+    %% The decompressed tar includes headers and padding so it's larger
+    %% than just the file content. A very small limit should still trigger
+    %% too_big during decompression.
+    GzTarName = filename:join(Dir, "test.tar.gz"),
+    ok = erl_tar:create(GzTarName, FileBins, [compressed]),
+    {ok, GzBin} = file:read_file(GzTarName),
+    {error, too_big} = erl_tar:extract({binary, GzBin},
+                                       [memory, compressed,
+                                        {max_size, 1}]),
+    %% A large enough limit should succeed (tar overhead is headers + padding).
+    {ok, _} = erl_tar:extract({binary, GzBin},
+                              [memory, compressed, {max_size, 10 * TotalSize}]),
+
+    %% File path extraction with max_size.
+    {error, too_big} = erl_tar:extract(TarName,
+                                       [memory, {max_size, 1}]),
+    {ok, _} = erl_tar:extract(TarName,
+                              [memory, {max_size, TotalSize}]),
+
+    %% Clean up.
+    ok = delete_files([Dir]),
+
+    verify_ports(Config).
 
 %% Delete the given list of files.
 delete_files([]) -> ok;

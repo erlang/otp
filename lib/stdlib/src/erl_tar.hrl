@@ -40,7 +40,8 @@
           output = file :: 'file' | 'memory',
           open_mode = [],                      %% Open mode options.
           verbose = false :: boolean(),        %% Verbose on/off.
-          chunk_size = 65536}).                 %% Chunk size for streaming to disk.
+          chunk_size = 65536,                  %% Chunk size for streaming to disk.
+          max_size = infinity :: pos_integer() | 'infinity'}).
 -type read_opts() :: #read_opts{}.
 
 -type add_opt() :: dereference |
@@ -58,6 +59,7 @@
 -type extract_opt() :: {cwd, string()} |
                        {files, [name_in_archive()]} |
                        {chunks, pos_integer()} |
+                       {max_size, pos_integer() | infinity} |
                        compressed |
                        cooked |
                        memory |
