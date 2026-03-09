@@ -56,6 +56,7 @@
          double_close/1,
          exec/1,
          exec_compressed/1,
+         exec_compressed_post_auth_compression/1,
          exec_with_io_in/1,
          exec_with_io_out/1,
          host_equal/2,
@@ -153,7 +154,7 @@ groups() ->
                                            ]},
      
      {p_basic, [?PARALLEL], [send, peername_sockname,
-                             exec, exec_compressed, 
+                             exec, exec_compressed, exec_compressed_post_auth_compression,
                              exec_with_io_out, exec_with_io_in,
                              cli, cli_exit_normal, cli_exit_status,
                              idle_time_client, idle_time_server,
@@ -401,19 +402,29 @@ exec_with_io_in(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% Test that compression option works
 exec_compressed(Config) when is_list(Config) ->
+    exec_compressed_helper(Config, 'zlib').
+
+%%--------------------------------------------------------------------
+%%% Test that post authentication compression option works
+exec_compressed_post_auth_compression(Config) when is_list(Config) ->
+    exec_compressed_helper(Config, 'zlib@openssh.com').
+
+%%--------------------------------------------------------------------
+%%% Exec compressed helper
+exec_compressed_helper(Config, CompressAlgorithm) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-                                             {preferred_algorithms,[{compression, [zlib]}]},
+                                             {preferred_algorithms,[{compression, [CompressAlgorithm]}]},
                                              {failfun, fun ssh_test_lib:failfun/2}]),
 
     ConnectionRef =
         ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},
                                           {user_interaction, false},
-                                          {preferred_algorithms,[{compression, [zlib]}]}]),
+                                          {preferred_algorithms,[{compression, [CompressAlgorithm]}]}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId,
                                   "1+1.", infinity),
