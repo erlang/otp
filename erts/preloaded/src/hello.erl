@@ -148,7 +148,7 @@ test(BootArgs) ->
     %% it is possible to define an error_handler similar to the
     %% error_handler in the KERNEL application.
     test_apply_errors(),
-%    test_fun_call_errors(),
+    test_fun_call_errors(),
 %    test_processes(),
 %    test_set_tuple_element(),
 %    test_tagged_tuple(),
@@ -776,28 +776,28 @@ test_apply_errors() ->
     erlang:process_flag(error_handler, OldErrorHandler),
     ok.
 
-%test_fun_call_errors() ->
-%    F = id(bad_fun),
-%    G = id(fun() -> ok end),
-%
-%    try F(42) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:{badfun,bad_fun}:Stk1 ->
-%            [{?MODULE,test_fun_call_errors,0,_}|_] = Stk1
-%    end,
-%
-%    Arg = {id(a),b},
-%    try G(Arg) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:{badarity,{G,[Arg]}}:Stk2 ->
-%            [{?MODULE,test_fun_call_errors,0,_}|_] = Stk2
-%    end,
-%
-%    ok.
+test_fun_call_errors() ->
+    F = id(bad_fun),
+    G = id(fun() -> ok end),
+
+    try F(42) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:{badfun,bad_fun}:Stk1 ->
+            [{?MODULE,test_fun_call_errors,0,_}|_] = Stk1
+    end,
+
+    Arg = {id(a),b},
+    try G(Arg) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:{badarity,{G,[Arg]}}:Stk2 ->
+            [{?MODULE,test_fun_call_errors,0,_}|_] = Stk2
+    end,
+
+    ok.
 
 %test_processes() ->
 %    start_logger(),
