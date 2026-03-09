@@ -102,10 +102,10 @@ Options:
     data provided by the SFTP client. (Note: limitations might be also
     enforced by underlying operating system)
 
-- **`root`** - Sets the SFTP root directory. The user cannot access files
-  outside this directory tree. If, for example, the root directory is set to
-  `/tmp`, then the user sees this directory as `/`. If the user then writes
-  `cd /etc`, the user moves to `/tmp/etc`.
+- **`root`** - Sets the SFTP root directory. Must be an absolute path (e.g., `/tmp`).
+  Then the user cannot see any files above this root. If, for example, the root
+  directory is set to `/tmp`, then the user sees this directory as `/`. If the
+  user then writes `cd /etc`, the user moves to `/tmp/etc`.
 
   Note: This provides application-level isolation. For additional security,
   consider using OS-level chroot or similar mechanisms. See the
@@ -144,14 +144,14 @@ subsystem_spec(Options) ->
 %%--------------------------------------------------------------------
 -doc false.
 init(Options) ->
-    {FileMod, FS0} = case proplists:get_value(file_handler, Options, 
-					      {ssh_sftpd_file,[]}) of
-			 {F, S} ->
-			     {F, S};
-			 F ->
-			     {F, []}
-		     end,
-    
+    {FileMod, FS0} =
+        case proplists:get_value(file_handler, Options,
+                                 {ssh_sftpd_file,[]}) of
+            {F, S} ->
+                {F, S};
+            F ->
+                {F, []}
+        end,
     {{ok, Default}, FS1} = FileMod:get_cwd(FS0),
     CWD = proplists:get_value(cwd, Options, Default),
     
