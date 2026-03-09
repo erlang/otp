@@ -147,7 +147,7 @@ jobs:
     if: needs.pack.outputs.build-c-code == 'true'
     uses: ./.github/workflows/reusable-build-macos.yaml
     with:
-      base_branch: ${{ needs.setup.outputs.base_branch }}
+      base_branch: ${{ needs.pack.outputs.base_branch }}
 
   build-ios:
     name: Build Erlang/OTP (iOS)
@@ -155,7 +155,7 @@ jobs:
     if: needs.pack.outputs.build-c-code == 'true'
     uses: ./.github/workflows/reusable-build-ios.yaml
     with:
-      base_branch: ${{ needs.setup.outputs.base_branch }}
+      base_branch: ${{ needs.pack.outputs.base_branch }}
 
   build-windows:
     name: Build Erlang/OTP (Windows)
@@ -163,7 +163,7 @@ jobs:
     if: needs.pack.outputs.build-c-code == 'true'
     uses: ./.github/workflows/reusable-build-windows.yaml
     with:
-      base_branch: ${{ needs.setup.outputs.base_branch }}
+      base_branch: ${{ needs.pack.outputs.base_branch }}
 
   build-flavors:
     name: Build Erlang/OTP (Types and Flavors)
@@ -266,7 +266,9 @@ jobs:
 
   # this is a call to a workflow_call
   pr-vendor-vulnerability-analysis:
-    needs: modified-vendor-files
+    needs:
+      - pack
+      - modified-vendor-files
     if: ${{ needs.modified-vendor-files.outputs.vendor-files == 'true' && github.event_name == 'pull_request' && github.repository == 'erlang/otp'}}
     permissions:
       actions: read
@@ -275,7 +277,7 @@ jobs:
     with:
       fail_if_cve: false
       checkout:    true
-      version:     ${{ needs.setup.outputs.base_branch }}
+      version:     ${{ needs.pack.outputs.base_branch }}
       # `fail_if_cve` must always be `false`. the reason is that the reusable workflow tries to open
       # a GH Issue if it finds a vulnerability. however, this can only work on internal PRs or PRs coming
       # from a repo branch. this is a security limitation as otherwise, forked repos could create pull
@@ -302,33 +304,11 @@ jobs:
 
   freebsd:
     name: Build Erlang/OTP (FreeBSD)
-    runs-on: ubuntu-latest
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
-    steps:
-      - name: Download source archive
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: otp_prebuilt
-      - name: Build on FreeBSD
-        uses: vmactions/freebsd-vm@c9f815bc7aa0d34c9fdd0619b034a32d6ca7b57e # v1
-        with:
-            usesh: true
-            copyback: false
-            prepare: |
-              pkg update
-              pkg upgrade -y
-              pkg install -y bash gmake gtar autoconf ncurses pkgconf
-
-            run: |
-                tar -xzf ./otp_src.tar.gz
-                cd otp
-                export ERL_TOP=`pwd`
-                export MAKEFLAGS=-j$(($(nproc) + 2))
-                export ERLC_USE_SERVER=true
-                export ERTS_SKIP_DEPEND=true
-                ./configure
-                gmake
+    uses: ./.github/workflows/reusable-freebsd.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
 
   documentation:
     name: Build and Check Documentation
@@ -365,25 +345,22 @@ jobs:
 
   test:
     name: Test Erlang/OTP
-    needs:
-      - setup
-      - pack
+    needs: pack
     if: needs.pack.outputs.changes != '[]'
     uses: ./.github/workflows/reusable-test.yaml
     with:
       changes:     ${{ needs.pack.outputs.changes }}
-      base_branch: ${{ needs.setup.outputs.base_branch }}
+      base_branch: ${{ needs.pack.outputs.base_branch }}
 
   system-test:
     name: Test Erlang/OTP (system)
-    runs-on: ubuntu-latest
     if: ${{ !cancelled() }} # Run even if the need has failed
     needs:
-      - setup
+      - pack
       - test
     uses: ./.github/workflows/reusable-system-test.yaml
     with:
-      base_branch: ${{ needs.setup.outputs.base_branch }}
+      base_branch: ${{ needs.pack.outputs.base_branch }}
 
 
   ## If you want to speedup this step for testing the easiest way is to create
@@ -445,9 +422,9 @@ jobs:
   release:
     name: Release Erlang/OTP
     needs:
-      - setup
       - sbom
       - documentation
+      - release-setup
     permissions:
       contents:     write
       attestations: write

@@ -78,7 +78,7 @@ jobs:
           PR_REPO:       ${{ github.event.pull_request.head.repo.full_name }}
           PR_HEAD_REF:   ${{ github.event.pull_request.head.ref }}
           REPO:          ${{ github.repository }}
-          REF_NAME:      ${{ inputs.BASE_BRANCH }}
+          REF_NAME:      ${{ env.BASE_BRANCH }}
         run: |
           echo "base_branch=${{ env.BASE_BRANCH }}" >> $GITHUB_OUTPUT
           echo "full_build_and_check=${{ env.FULL_BUILD_AND_CHECK }}" >> $GITHUB_OUTPUT
@@ -175,7 +175,7 @@ jobs:
       contents:     write
       attestations: write
       id-token:     write
-    if: startsWith(needs.pack.outputs.base_branch, 'OTP-')
+    if: startsWith(needs.release-setup.outputs.base_branch, 'OTP-')
     uses: ./.github/workflows/reusable-release.yaml
     with:
       otp_sbom_version: ${{ needs.release-setup.outputs.otp_sbom_version }}
