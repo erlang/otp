@@ -1,0 +1,59 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Build Erlang/OTP (FreeBSD)
+run-name: "[${{ inputs.base_branch }}] Build Erlang/OTP (FreeBSD)"
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        required: true
+        type: string
+
+# NOTE: This job should only be executed on the callee with `needs: pack`
+jobs:
+  freebsd:
+    name: Build Erlang/OTP (FreeBSD)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download source archive
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: otp_prebuilt
+      - name: Build on FreeBSD
+        uses: vmactions/freebsd-vm@c9f815bc7aa0d34c9fdd0619b034a32d6ca7b57e # v1
+        with:
+            usesh: true
+            copyback: false
+            prepare: |
+              pkg update
+              pkg upgrade -y
+              pkg install -y bash gmake gtar autoconf ncurses pkgconf
+
+            run: |
+                tar -xzf ./otp_src.tar.gz
+                cd otp
+                export ERL_TOP=`pwd`
+                export MAKEFLAGS=-j$(($(nproc) + 2))
+                export ERLC_USE_SERVER=true
+                export ERTS_SKIP_DEPEND=true
+                ./configure
+                gmake
