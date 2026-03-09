@@ -295,8 +295,65 @@ void BeamGlobalAssembler::emit_int128_to_big_shared() {
  * The result is returned in ARG1.
  */
 void BeamGlobalAssembler::emit_mul_add_body_shared() {
-    // TODO
-    emit_nyi("emit_mul_add_body_shared");
+    Label mul_only = a.newLabel(), error = a.newLabel(),
+          mul_error = a.newLabel(), do_error = a.newLabel();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    /* Save original arguments. */
+    a.str(ARG2, TMP_MEM1q);
+    a.str(ARG3, TMP_MEM2q);
+    a.mov(ARG1, c_p);
+    a.cmp(ARG4, imm(make_small(0)));
+    a.b_eq(mul_only);
+    a.str(ARG4, TMP_MEM4q);
+
+    lea(TMP, TMP_MEM3q);
+    a.sub(a32::sp, a32::sp, imm(8));
+    a.str(TMP, arm::Mem(a32::sp, 0));
+    runtime_call<5>(erts_mul_add);
+    a.add(a32::sp, a32::sp, imm(8));
+
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    emit_branch_if_not_value(ARG1, error);
+    a.bx(a32::lr);
+
+    a.bind(mul_only);
+    {
+        runtime_call<3>(erts_mixed_times);
+
+        emit_leave_runtime();
+        emit_leave_runtime_frame();
+
+        emit_branch_if_not_value(ARG1, mul_error);
+        a.bx(a32::lr);
+    }
+
+    a.bind(error);
+    {
+        static const ErtsCodeMFA mul_mfa = {am_erlang, am_Times, 2};
+        static const ErtsCodeMFA add_mfa = {am_erlang, am_Plus, 2};
+
+        a.ldr(ARG1, TMP_MEM3q);
+        a.str(ARG1, getXRef(0));
+        a.ldr(ARG1, TMP_MEM4q);
+        a.str(ARG1, getXRef(1));
+        mov_imm(ARG4, &add_mfa);
+        emit_branch_if_value(ARG1, do_error);
+
+        a.bind(mul_error);
+        a.ldr(ARG1, TMP_MEM1q);
+        a.str(ARG1, getXRef(0));
+        a.ldr(ARG1, TMP_MEM2q);
+        a.str(ARG1, getXRef(1));
+        mov_imm(ARG4, &mul_mfa);
+
+        a.bind(do_error);
+        a.b(labels[raise_exception]);
+    }
 }
 
 /* ARG2 = Src1
@@ -338,8 +395,141 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                                          const ArgSource &Src3,
                                          const ArgSource &Src4,
                                          const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_mul_add");
+    bool is_product_small = is_product_small_if_args_are_small(Src1, Src2);
+    bool is_sum_small = is_sum_small_if_args_are_small(Src3, Src4);
+    bool sometimes_small = !(Src2.isLiteral() || Src4.isLiteral());
+    bool is_increment_zero =
+            Src4.isSmall() && Src4.as<ArgSmall>().getSigned() == 0;
+    Sint factor = 0;
+    int left_shift = -1;
+
+    if (is_increment_zero) {
+        comment("(adding zero)");
+    }
+
+    if (Src2.isSmall()) {
+        factor = Src2.as<ArgSmall>().getSigned();
+        if (Support::isPowerOf2(factor)) {
+            left_shift = Support::ctz<Eterm>(factor);
+        }
+    }
+
+    if (always_small(Src1) && Src2.isSmall() && always_small(Src4) &&
+        is_product_small && is_sum_small) {
+        auto dst = init_destination(Dst, ARG1);
+        auto [src1, src4] = load_sources(Src1, ARG2, Src4, ARG3);
+
+        comment("multiplication and addition without overflow check");
+        a.bic(TMP, src1.reg, imm(_TAG_IMMED1_MASK));
+        if (left_shift > 0) {
+            comment("optimized multiplication by replacing with left shift");
+            a.add(dst.reg, src4.reg, TMP, arm::lsl(left_shift));
+        } else {
+            mov_imm(VAR, factor);
+            a.mul(dst.reg, TMP, VAR);
+            a.add(dst.reg, dst.reg, src4.reg);
+        }
+        flush_var(dst);
+        return;
+    }
+
+    Label mixed = a.newLabel(), small = a.newLabel(), next = a.newLabel();
+    auto [src1, src2] = load_sources(Src1, ARG2, Src2, ARG3);
+    auto src4 = load_source(ArgXRegister(0), ARG4);
+
+    if (!is_increment_zero) {
+        src4 = load_source(Src4, ARG4);
+    }
+
+    /* Preserve original arguments for the mixed fallback path. */
+    mov_var(ARG2, src1);
+    mov_var(ARG3, src2);
+    if (!is_increment_zero) {
+        mov_var(ARG4, src4);
+    }
+
+    if (sometimes_small) {
+        if (always_small(Src1) && always_small(Src2) && always_small(Src4)) {
+            comment("skipped test for small operands since they are always "
+                    "small");
+            a.b(small);
+        } else {
+            if (always_small(Src4)) {
+                emit_are_both_small(Src1, src1.reg, Src2, src2.reg, small);
+            } else if (always_small(Src2)) {
+                emit_are_both_small(Src1, src1.reg, Src4, src4.reg, small);
+            } else {
+                ASSERT(!is_increment_zero);
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.and_(TMP, src1.reg, src2.reg);
+                a.and_(TMP, TMP, src4.reg);
+                if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                            Src1) &&
+                    always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                            Src2) &&
+                    always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                            Src4)) {
+                    emit_is_boxed(mixed, TMP);
+                    a.b(small);
+                } else {
+                    a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+                    a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+                    a.b_eq(small);
+                    a.b_ne(mixed);
+                }
+            }
+        }
+
+        a.bind(small);
+
+        /* Small-only fast path: keep logic conservative and fall back when
+         * range analysis doesn't guarantee a small result. */
+        if (!(is_product_small && is_sum_small)) {
+            a.b(mixed);
+        }
+
+        if (is_increment_zero) {
+            mov_imm(ARG4, make_small(0));
+        }
+
+        a.bic(TMP, src1.reg, imm(_TAG_IMMED1_MASK));
+        if (left_shift > 0) {
+            comment("optimized multiplication by replacing with left shift");
+            a.add(ARG1, ARG4, TMP, arm::lsl(left_shift));
+        } else {
+            if (Src2.isSmall()) {
+                mov_imm(VAR, factor);
+            } else {
+                a.asr(VAR, src2.reg, imm(_TAG_IMMED1_SIZE));
+            }
+            a.mul(ARG1, TMP, VAR);
+            a.add(ARG1, ARG1, ARG4);
+        }
+
+        a.b(next);
+    }
+
+    /* Mixed multiplication/addition fallback. */
+    a.bind(mixed);
+    {
+        if (Fail.get() != 0) {
+            if (is_increment_zero) {
+                fragment_call(ga->get_mul_guard_shared());
+            } else {
+                fragment_call(ga->get_mul_add_guard_shared());
+            }
+            emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+        } else {
+            if (is_increment_zero) {
+                fragment_call(ga->get_mul_body_shared());
+            } else {
+                fragment_call(ga->get_mul_add_body_shared());
+            }
+        }
+    }
+
+    a.bind(next);
+    mov_arg(Dst, ARG1);
 }
 
 /*
