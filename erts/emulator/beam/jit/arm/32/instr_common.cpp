@@ -403,8 +403,45 @@ void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
                                              const ArgYRegister &Src2,
                                              const ArgRegister &Dst2,
                                              const ArgWord &Words) {
-    // TODO
-    emit_nyi("emit_move_two_trim");
+    auto dst1 = init_destination(Dst1, ARG1);
+    auto dst2 = init_destination(Dst2, ARG2);
+    Sint trim = Words.get() * sizeof(Eterm);
+    auto src_index = Src1.get();
+
+    ASSERT(ArgVal::memory_relation(Src1, Src2) ==
+           ArgVal::Relation::consecutive);
+
+    if (src_index == 0 && Support::isInt9(trim)) {
+        /* Equivalent to ARM64's post-index pair load path:
+         * fetch y0/y1 from current E, then trim E once. */
+        a.ldr(dst1.reg, arm::Mem(E, 0));
+        a.ldr(dst2.reg, arm::Mem(E, sizeof(Eterm)));
+        add(E, E, trim);
+
+        dst1 = init_destination(Dst1.trimmed(Words.get()), ARG1);
+        dst2 = init_destination(Dst2.trimmed(Words.get()), ARG2);
+        flush_vars(dst1, dst2);
+    } else {
+        safe_ldmia(dst1.reg, dst2.reg, Src1, Src2);
+
+        /* Try to combine trimming with storing to one of destination
+         * registers. */
+        if (Dst1.isYRegister() && Dst1.as<ArgYRegister>().get() == Words.get() &&
+            Support::isInt9(trim)) {
+            const arm::Mem dst_ref = arm::Mem(E, trim).pre();
+            flush_var(dst2);
+            a.str(dst1.reg, dst_ref);
+        } else if (Dst2.isYRegister() &&
+                   Dst2.as<ArgYRegister>().get() == Words.get() &&
+                   Support::isInt9(trim)) {
+            const arm::Mem dst_ref = arm::Mem(E, trim).pre();
+            flush_var(dst1);
+            a.str(dst2.reg, dst_ref);
+        } else {
+            flush_vars(dst1, dst2);
+            trim_preserve_cache(Words);
+        }
+    }
 }
 
 void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
