@@ -63,7 +63,7 @@
 **            enif_make_new_atom_len, ERL_NIF_UTF8
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 17
+#define ERL_NIF_MINOR_VERSION 18
 
 /*
  * WHEN CHANGING INTERFACE VERSION, also replace erts version below with

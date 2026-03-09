@@ -225,6 +225,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_get_string_length, (ErlNifEnv *env, ERL_NIF_TERM
 ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom, (ErlNifEnv *env, const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
 ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom_len, (ErlNifEnv *env, const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
 ERL_NIF_API_FUNC_DECL(int, enif_set_option, (ErlNifEnv *env, ErlNifOption opt, ...));
+ERL_NIF_API_FUNC_DECL(size_t,enif_term_size,(ERL_NIF_TERM term));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -419,6 +420,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_set_option, (ErlNifEnv *env, ErlNifOption opt, .
 #  define enif_make_new_atom ERL_NIF_API_FUNC_MACRO(enif_make_new_atom)
 #  define enif_make_new_atom_len ERL_NIF_API_FUNC_MACRO(enif_make_new_atom_len)
 #  define enif_set_option ERL_NIF_API_FUNC_MACRO(enif_set_option)
+#  define enif_term_size ERL_NIF_API_FUNC_MACRO(enif_term_size)
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
 */
