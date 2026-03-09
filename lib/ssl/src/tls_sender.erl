@@ -589,6 +589,15 @@ send_or_buffer(Transport, Socket, Msgs, From, #data{buff = undefined} = StateDat
         ok ->
             send_reply(From, ok),
             {ok, StateData0};
+        {error, timeout} = Error ->
+            %% This clause is to retain some backwards compatibility with
+            %% inet-driver behavior for gen_tcp:send timeout. That
+            %% happened to work before OTP-28, due to the fact that
+            %% the inet-driver always buffers and will not return rest data.
+            %% Buy time for people that might have relied on this behavior
+            %% for better solutions to be crated.
+            send_reply(From, Error),
+            {ok, StateData0};
         {error, _Err} = Error ->
             send_reply(From, Error),
             Error;
