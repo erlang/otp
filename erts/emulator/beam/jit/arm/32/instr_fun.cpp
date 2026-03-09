@@ -27,8 +27,8 @@
  *
  * ARG3 = lower 16 bits of expected header, containing FUN_SUBTAG and arity
  * ARG4 = fun thing
- * ARG5 = address of the call_fun instruction that got us here. Note that we
- *        can't use LR (x30) for this because tail calls point elsewhere. */
+ *
+ * ARM32 has no ARG5 register. */
 void BeamGlobalAssembler::emit_unloaded_fun() {
     // TODO
     emit_nyi("emit_unloaded_fun");
@@ -39,8 +39,8 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
  *
  * ARG3 = lower 16 bits of expected header, containing FUN_SUBTAG and arity
  * ARG4 = fun thing
- * ARG5 = address of the call_fun instruction that got us here. Note that we
- *        can't use LR (x30) for this because tail calls point elsewhere. */
+ *
+ * ARM32 has no ARG5 register. */
 void BeamGlobalAssembler::emit_handle_call_fun_error() {
     // TODO
     emit_nyi("emit_handle_call_fun_error");
@@ -168,7 +168,7 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
             a.b_eq(finished);
 
             ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST == (1 << 1));
-            a.tst(ARG1, imm(1));
+            a.tst(ARG1, imm(1 << 1));
             a.b_ne(malformed_list);
 
             emit_ptr_val(ARG1, ARG1);
@@ -215,8 +215,8 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
 }
 
 void BeamModuleAssembler::emit_i_apply_fun() {
-    // TODO
-    emit_nyi("emit_i_apply_fun");
+    fragment_call(ga->get_apply_fun_shared());
+    erlang_call(emit_call_fun());
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_last(const ArgWord &Deallocate) {
@@ -241,16 +241,13 @@ a32::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     emit_untag_ptr(TMP, ARG4);
 
     if (can_fail) {
-        /* Load the error fragment so we can land there on any failure. */
-        a.adr(ARG1,
-              resolve_fragment(ga->get_handle_call_fun_error(), disp32MB));
+        /* Load the error fragment address directly. Using ADR with a resolved
+         * fragment label can overflow its displacement during finalization. */
+        mov_imm(ARG1, ga->get_handle_call_fun_error());
     }
 
-    /* Error fragments expect current PC in ARG5. */
-    a.adr(VAR, next);
-    // Maybe allocate it on the stack ?
-    //a.sub(a32::sp, a32::sp, imm(8));
-    //a.str(VAR, arm::Mem(a32::sp));
+    /* ARM32 has no ARG5 register, so we don't materialize a synthetic call
+     * site pointer here. */
 
     if (skip_box_test) {
         comment("skipped box test since source is always boxed");
