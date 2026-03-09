@@ -90,7 +90,7 @@ relay1(Pid) ->
 -spec terminate(term(), pid()) -> 'ok'.
 
 terminate(_Reason, UserPid) ->
-    user_drv:flush(),
+    _ = user_drv:flush(),
     exit(UserPid, kill),
     ok.
 

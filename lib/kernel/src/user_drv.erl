@@ -1032,7 +1032,7 @@ handle_req(next, TTYState, {false, IOQ} = IOQueue) ->
                 {Reply, MonitorRef, NewTTYState} ->
                     {NewTTYState, {{Origin, MonitorRef, Reply}, ExecQ}};
                 {Reply, {error, Reason}} ->
-                    reply_to_origin(Origin, Reply, {error, Reason}),
+                    _ = reply_to_origin(Origin, Reply, {error, Reason}),
                     handle_req(next, TTYState, {false, ExecQ})
             end
     end;
@@ -1045,7 +1045,7 @@ handle_req(Msg, TTYState, {false, IOQ} = IOQueue) ->
         {Reply, MonitorRef, NewTTYState} ->
             {NewTTYState, {{Origin, MonitorRef, Reply}, IOQ}};
         {Reply, {error, Reason}} ->
-            reply_to_origin(Origin, Reply, {error, Reason}),
+            _ = reply_to_origin(Origin, Reply, {error, Reason}),
             {TTYState, IOQueue}
     end;
 handle_req(Msg,TTYState,{Resp, IOQ}) ->
