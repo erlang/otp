@@ -1,0 +1,78 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Build Erlang/OTP (macOS)
+run-name: "[${{ inputs.base_branch }}] Build Erlang/OTP (macOS)"
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        required: true
+        type: string
+
+# NOTE: This job should only be executed on the callee with `needs: pack`
+jobs:
+  build-macos:
+    name: Build Erlang/OTP (macOS)
+    runs-on: macos-15
+    env:
+      WXWIDGETS_VERSION: 3.2.9
+      MACOS_VERSION: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download source archive
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: otp_prebuilt
+
+      - name: Cache wxWidgets
+        id: wxwidgets-cache
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: wxWidgets
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
+
+      - name: Compile wxWidgets
+        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
+        run: .github/scripts/build-macos-wxwidgets.sh
+
+      - name: Compile Erlang
+        run: |
+          tar -xzf ./otp_src.tar.gz
+          export PATH=$PWD/wxWidgets/release/bin:$PATH
+          cd otp
+          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh build_docs --disable-dynamic-ssl-lib
+          tar -czf otp_macos_$(cat OTP_VERSION)_x86-64.tar.gz -C release .
+
+      - name: Test Erlang
+        run: |
+          cd otp/release
+          ./Install -sasl $PWD
+          ./bin/erl -noshell -eval 'io:format("~s", [erlang:system_info(system_version)]), halt().'
+          ./bin/erl -noshell -eval 'ok = application:start(crypto), io:format("crypto ok~n"), halt().'
+          ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_prebuilt_macos_x86-64
+          path: otp/otp_macos_*_x86-64.tar.gz

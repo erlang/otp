@@ -143,87 +143,16 @@ jobs:
 
   build-macos:
     name: Build Erlang/OTP (macOS)
-    runs-on: macos-15
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
-    env:
-      WXWIDGETS_VERSION: 3.2.9
-      MACOS_VERSION: 15
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Download source archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: otp_prebuilt
-
-      - name: Cache wxWidgets
-        id: wxwidgets-cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
-
-      - name: Compile wxWidgets
-        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
-        run: .github/scripts/build-macos-wxwidgets.sh
-
-      - name: Compile Erlang
-        run: |
-          tar -xzf ./otp_src.tar.gz
-          export PATH=$PWD/wxWidgets/release/bin:$PATH
-          cd otp
-          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh build_docs --disable-dynamic-ssl-lib
-          tar -czf otp_macos_$(cat OTP_VERSION)_x86-64.tar.gz -C release .
-
-      - name: Test Erlang
-        run: |
-          cd otp/release
-          ./Install -sasl $PWD
-          ./bin/erl -noshell -eval 'io:format("~s", [erlang:system_info(system_version)]), halt().'
-          ./bin/erl -noshell -eval 'ok = application:start(crypto), io:format("crypto ok~n"), halt().'
-          ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
-
-      - name: Upload tarball
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: otp_prebuilt_macos_x86-64
-          path: otp/otp_macos_*_x86-64.tar.gz
+    uses: ./.github/workflows/reusable-build-macos.yaml
+    with:
+      base_branch: ${{ needs.setup.outputs.base_branch }}
 
   build-ios:
-    env:
-      RELEASE_LIBBEAM: yes
-      TARGET_ARCH: aarch64-apple-ios
     name: Build Erlang/OTP (iOS)
-    runs-on: macos-15
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Download source archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: otp_prebuilt
-
-      - name: Compile Erlang
-        run: |
-          tar -xzf ./otp_src.tar.gz
-          cd otp
-          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh --xcomp-conf=./xcomp/erl-xcomp-arm64-ios.conf --without-ssl
-
-      - name: Package .xcframework
-        run: |
-          cd otp
-          export BUILD_ARCH=`./erts/autoconf/config.guess`
-          export LIBS=`find . -not -path "*${BUILD_ARCH}*" -path "*${TARGET_ARCH}*" -not -name "*_st.a" -not -name "*_r.a" -name "*.a" | awk '{ "basename " $1 | getline name; names[name] = $1 } END { for (n in names) { print names[n] }}'`
-          libtool -static -o liberlang.a $LIBS
-          xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
-
-      - name: Upload framework
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: ios_framework_${{ env.TARGET_ARCH }}
-          path: otp/liberlang.xcframework
 
   build-windows:
     defaults:
@@ -683,6 +612,8 @@ jobs:
                                          github.event.action == 'closed'     &&
                                          github.event.pull_request.merged == true }}
 
+  # this is needed before every release job.
+  # sets up variables for the release
   release-setup:
     name: Setup Release variables
     runs-on: ubuntu-latest
