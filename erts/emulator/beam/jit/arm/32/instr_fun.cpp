@@ -67,18 +67,46 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
                                                    const ArgLabel &Lbl,
                                                    const ArgWord &Arity,
                                                    const ArgWord &NumFree) {
-    /* Even while NYI, we must bind the per-lambda trampoline label created in
-     * BeamAssembler::initialize() for closures with free vars. Otherwise AsmJit
-     * aborts with "Label ... is not bound" during finalization. */
+    const ssize_t env_offset = offsetof(ErlFunThing, env) - TAG_PRIMARY_BOXED;
+    const ssize_t fun_arity = Arity.get() - NumFree.get();
+    const ssize_t total_arity = Arity.get();
+
     const auto &lambda = lambdas[Lambda.get()];
     a.bind(lambda.trampoline);
 
-    (void)Lbl;
-    (void)Arity;
-    (void)NumFree;
+    if (NumFree.get() == 1) {
+        auto first = init_destination(ArgXRegister(fun_arity), TMP);
 
-    // TODO
-    emit_nyi("emit_i_lambda_trampoline");
+        /* Don't bother untagging when there's only a single element, it's
+         * guaranteed to be within range of LDR. */
+        emit_ptr_val(ARG4, ARG4);
+        a.ldr(first.reg, arm::Mem(ARG4, env_offset));
+        flush_var(first);
+    } else if (NumFree.get() >= 2) {
+        ssize_t i;
+
+        emit_ptr_val(ARG4, ARG4);
+        a.add(ARG4, ARG4, imm(env_offset));
+
+        for (i = fun_arity; i < total_arity - 1; i += 2) {
+            auto first = init_destination(ArgXRegister(i), VAR);
+            auto second = init_destination(ArgXRegister(i + 1), TMP);
+
+            a.ldr(first.reg, arm::Mem(ARG4).post(sizeof(Eterm)));
+            a.ldr(second.reg, arm::Mem(ARG4).post(sizeof(Eterm)));
+            flush_var(first);
+            flush_var(second);
+        }
+
+        if (i < total_arity) {
+            auto last = init_destination(ArgXRegister(i), TMP);
+            a.ldr(last.reg, arm::Mem(ARG4));
+            flush_var(last);
+        }
+    }
+
+    a.b(resolve_beam_label(Lbl, disp32MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
@@ -206,25 +234,107 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
  *   ARG4 = fun thing */
 a32::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
                                            bool skip_header_test) {
-    // TODO
-    emit_nyi("emit_call_fun");
-    a32::Gp reg;
-    return reg;
+    const bool can_fail = !(skip_box_test && skip_header_test);
+    Label next = a.newLabel();
+
+    /* Speculatively untag the ErlFunThing. */
+    emit_untag_ptr(TMP, ARG4);
+
+    if (can_fail) {
+        /* Load the error fragment so we can land there on any failure. */
+        a.adr(ARG1,
+              resolve_fragment(ga->get_handle_call_fun_error(), disp32MB));
+    }
+
+    /* Error fragments expect current PC in ARG5. */
+    a.adr(VAR, next);
+    // Maybe allocate it on the stack ?
+    //a.sub(a32::sp, a32::sp, imm(8));
+    //a.str(VAR, arm::Mem(a32::sp));
+
+    if (skip_box_test) {
+        comment("skipped box test since source is always boxed");
+    } else {
+        /* As emit_is_boxed(), but explicitly sets flags so we can rely on them
+         * for error checking at `next`. */
+        a.tst(ARG4, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+        a.b_ne(next);
+    }
+
+    if (skip_header_test) {
+        comment("skipped fun/arity test since source is always a fun of the "
+                "right arity when boxed");
+        a.ldr(ARG1, arm::Mem(TMP, offsetof(ErlFunThing, entry)));
+    } else {
+        /* Load header and entry, then compare low 16 bits of header with ARG3
+         * (FUN_SUBTAG + arity). */
+        a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlFunThing, thing_word)));
+        a.ldr(ARG1, arm::Mem(TMP, offsetof(ErlFunThing, entry)));
+        a.lsl(ARG2, ARG2, imm(16));
+        a.lsr(ARG2, ARG2, imm(16));
+        a.cmp(ARG3, ARG2);
+        a.b_ne(next);
+    }
+
+    a.ldr(ARG1, emit_setup_dispatchable_call(ARG1));
+
+    a.bind(next);
+    return ARG1;
 }
 
 void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
                                            const ArgWord &Arity,
                                            const ArgRegister &Func) {
-    // TODO
-    emit_nyi("emit_i_call_fun2");
+    mov_arg(ARG4, Func);
+
+    if (Tag.isAtom()) {
+        /* Make the lower 16 bits of ARG3 equal those of the header word of all
+         * funs with the same arity. */
+        mov_imm(ARG3, MAKE_FUN_HEADER(Arity.get(), 0, 0) & 0xFFFF);
+
+        ASSERT(Tag.as<ArgImmed>().get() != am_safe || beam->types.fallback ||
+               exact_type<BeamTypeId::Fun>(Func));
+        auto target =
+                emit_call_fun(always_one_of<BeamTypeId::AlwaysBoxed>(Func),
+                              Tag.as<ArgAtom>().get() == am_safe);
+
+        erlang_call(target);
+    } else {
+        const auto &trampoline = lambdas[Tag.as<ArgLambda>().get()].trampoline;
+        erlang_call(resolve_label(trampoline, disp32MB));
+    }
 }
 
 void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
                                                 const ArgWord &Arity,
                                                 const ArgRegister &Func,
                                                 const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_i_call_fun2_last");
+    mov_arg(ARG4, Func);
+
+    if (Tag.isAtom()) {
+        /* Make the lower 16 bits of ARG3 equal those of the header word of all
+         * funs with the same arity. */
+        mov_imm(ARG3, MAKE_FUN_HEADER(Arity.get(), 0, 0) & 0xFFFF);
+
+        ASSERT(Tag.as<ArgImmed>().get() != am_safe || beam->types.fallback ||
+               exact_type<BeamTypeId::Fun>(Func));
+        auto target =
+                emit_call_fun(always_one_of<BeamTypeId::AlwaysBoxed>(Func),
+                              Tag.as<ArgAtom>().get() == am_safe);
+
+        emit_deallocate(Deallocate);
+        emit_leave_erlang_frame();
+
+        a.bx(target);
+        mark_unreachable();
+    } else {
+        emit_deallocate(Deallocate);
+        emit_leave_erlang_frame();
+
+        const auto &trampoline = lambdas[Tag.as<ArgLambda>().get()].trampoline;
+        a.b(resolve_label(trampoline, disp32MB));
+        mark_unreachable();
+    }
 }
 
 void BeamModuleAssembler::emit_i_call_fun(const ArgWord &Arity) {
