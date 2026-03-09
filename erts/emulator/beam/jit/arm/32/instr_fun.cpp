@@ -215,13 +215,14 @@ void BeamModuleAssembler::emit_i_apply_fun() {
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_last(const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_i_apply_fun_last");
+    emit_deallocate(Deallocate);
+    emit_i_apply_fun_only();
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_only() {
-    // TODO
-    emit_nyi("emit_i_apply_fun_only");
+    fragment_call(ga->get_apply_fun_shared());
+    emit_leave_erlang_frame();
+    a.bx(emit_call_fun());
 }
 
 /* Assumes that:
@@ -330,14 +331,18 @@ void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
 }
 
 void BeamModuleAssembler::emit_i_call_fun(const ArgWord &Arity) {
-    // TODO
-    emit_nyi("emit_i_call_fun");
+    const ArgXRegister Func(Arity.get());
+    const ArgAtom Tag(am_unsafe);
+
+    emit_i_call_fun2(Tag, Arity, Func);
 }
 
 void BeamModuleAssembler::emit_i_call_fun_last(const ArgWord &Arity,
                                                const ArgWord &Deallocate) {
-    // TODO
-    emit_nyi("emit_i_call_fun_last");
+    const ArgXRegister Func(Arity.get());
+    const ArgAtom Tag(am_unsafe);
+
+    emit_i_call_fun2_last(Tag, Arity, Func, Deallocate);
 }
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
