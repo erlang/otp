@@ -870,15 +870,38 @@ static ERL_NIF_TERM tty_tigetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 #ifdef HAVE_TERMCAP
 static ErlNifMutex *tputs_mutex;
 static int tputs_buffer_index;
-static unsigned char tputs_buffer[1024];
+static int tputs_buffer_size;
+#ifdef DEBUG
+static unsigned char static_tputs_buffer[2];
+#else
+static unsigned char static_tputs_buffer[1024];
+#endif
+static unsigned char *tputs_buffer;
 
 #if defined(__sun) && defined(__SVR4) /* Solaris */
 static int tty_puts_putc(char c) {
 #else
 static int tty_puts_putc(int c) {
 #endif
+
+    /* If we have a terminal that does a lot of padding, then it might be
+       that a lot of text is generated here. Those types of terminals are
+       ancient and most likely not in use anymore, but just to be safe we
+       handle it by dynamically resizing the buffer. */
+    if (tputs_buffer_index == tputs_buffer_size) {
+        if (tputs_buffer == static_tputs_buffer) {
+            tputs_buffer = enif_alloc(tputs_buffer_size * 2);
+            memcpy(tputs_buffer, static_tputs_buffer, tputs_buffer_size);
+            tputs_buffer_size *= 2;
+        } else {
+            tputs_buffer = enif_realloc(tputs_buffer, tputs_buffer_size * 2);
+            tputs_buffer_size *= 2;
+        }
+    }
+
     tputs_buffer[tputs_buffer_index++] = (unsigned char)c;
     return 0;
+
 }
 #endif
 
@@ -928,11 +951,17 @@ static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 
     tputs_buffer_index = 0;
+    tputs_buffer_size = sizeof(static_tputs_buffer);
+    tputs_buffer = static_tputs_buffer;
     (void)tputs(ent, 1, tty_puts_putc); /* tputs only fails if ent is null,
                                            which is cannot be. */
 
     buff = enif_make_new_binary(env, tputs_buffer_index, &ret);
     memcpy(buff, tputs_buffer, tputs_buffer_index);
+
+    if (tputs_buffer != static_tputs_buffer) {
+        enif_free(tputs_buffer);
+    }
 
     enif_mutex_unlock(tputs_mutex);
 
