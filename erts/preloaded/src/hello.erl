@@ -32,7 +32,7 @@
 -export([start/0, start/2, hello/1, undefined_function/3, id/1]).
 %
 %%% Internal exports.
-%-export([process_main/1, basic_hibernator/1]).
+-export([process_main/1]).% basic_hibernator/1]).
 %
 %%% Internal exports for estone.
 %-compile({no_auto_import,[max/2]}).
@@ -150,7 +150,7 @@ test(BootArgs) ->
     test_apply_errors(),
     test_fun_call_errors(),
     test_processes(),
-%    test_set_tuple_element(),
+    test_set_tuple_element(),
 %    test_tagged_tuple(),
 %    test_select_val(),
 %    test_external_call_errors(),
@@ -856,33 +856,33 @@ insert_a_lot(T, N) ->
     ets:insert(T, {N,value}),
     insert_a_lot(T, N - 1).
 
-%-record(huge, {f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,
-%               f11,f12,f13,f14,f15,f16,f17,f18,f19,f20,
-%               f21,f22,f23,f24,f25,f26,f27,f28,f29,f30,
-%               f31,f32,f33,f34,f35,f36,f37,f38,f39,f40}).
-%
-%test_set_tuple_element() ->
-%    Huge = id(#huge{}),
-%
-%    #huge{f31={u,31},f32={u,32}} = update31(Huge),
-%    #huge{f32={u,32},f33={u,33}} = update32(Huge),
-%    #huge{f33={u,33},f34={u,34}} = update33(Huge),
-%    #huge{f34={u,34},f35={u,35}} = update34(Huge),
-%
-%    ok.
-%
-%update31(#huge{}=Huge) ->
-%    Huge#huge{f31={u,31},f32={u,32}}.
-%
-%update32(#huge{}=Huge) ->
-%    Huge#huge{f32={u,32},f33={u,33}}.
-%
-%update33(#huge{}=Huge) ->
-%    Huge#huge{f33={u,33},f34={u,34}}.
-%
-%update34(#huge{}=Huge) ->
-%    Huge#huge{f34={u,34},f35={u,35}}.
-%
+-record(huge, {f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,
+               f11,f12,f13,f14,f15,f16,f17,f18,f19,f20,
+               f21,f22,f23,f24,f25,f26,f27,f28,f29,f30,
+               f31,f32,f33,f34,f35,f36,f37,f38,f39,f40}).
+
+test_set_tuple_element() ->
+    Huge = id(#huge{}),
+
+    #huge{f31={u,31},f32={u,32}} = update31(Huge),
+    #huge{f32={u,32},f33={u,33}} = update32(Huge),
+    #huge{f33={u,33},f34={u,34}} = update33(Huge),
+    #huge{f34={u,34},f35={u,35}} = update34(Huge),
+
+    ok.
+
+update31(#huge{}=Huge) ->
+    Huge#huge{f31={u,31},f32={u,32}}.
+
+update32(#huge{}=Huge) ->
+    Huge#huge{f32={u,32},f33={u,33}}.
+
+update33(#huge{}=Huge) ->
+    Huge#huge{f33={u,33},f34={u,34}}.
+
+update34(#huge{}=Huge) ->
+    Huge#huge{f34={u,34},f35={u,35}}.
+
 %%% Test i_is_tagged_tuple_ff.
 %test_tagged_tuple() ->
 %    a = error_info(id({error_info,a})),
