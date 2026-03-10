@@ -1165,8 +1165,33 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgLabel &NotTuple,
                                                     const ArgSource &Src,
                                                     const ArgWord &Arity,
                                                     const ArgAtom &Tag) {
-    // TODO
-    emit_nyi("emit_i_is_tagged_tuple_ff");
+    Label correct_arity = a.newLabel();
+    auto src = load_source(Src, ARG1);
+
+    emit_is_boxed(resolve_beam_label(NotTuple, dispUnknown), Src, src.reg);
+
+    emit_untag_ptr(ARG1, src.reg);
+
+    /* It is safe to fetch the both the header word and the first
+     * element of the tuple with ldp because the empty tuple is always
+     * a literal that is padded so that the word after arity is
+     * allocated. */
+    a.ldmia(arm::Mem(ARG1), a32::GpList({ARG3, ARG4}));
+
+    cmp_arg(ARG3, Arity);
+    a.b_eq(correct_arity);
+
+    /* Not a tuple or the wrong arity. Decide which. */
+    ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+    a.tst(ARG3, imm(_TAG_HEADER_MASK));
+    a.b_eq(resolve_beam_label(NotRecord, disp32MB));
+    a.b(resolve_beam_label(NotTuple, disp32MB));
+
+    a.bind(correct_arity);
+    {
+        cmp_arg(ARG4, Tag);
+        a.b_ne(resolve_beam_label(NotRecord, disp32MB));
+    }
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
