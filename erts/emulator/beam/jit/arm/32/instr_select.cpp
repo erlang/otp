@@ -206,8 +206,25 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
                                                     const ArgLabel &Fail,
                                                     const ArgWord &Size,
                                                     const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_i_select_tuple_arity");
+    auto src = load_source(Src);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    a32::Gp boxed_ptr = emit_ptr_val(VAR, src.reg);
+    a.ldr(VAR, emit_boxed_val(boxed_ptr, 0));
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
+        comment("simplified tuple test since the source is always a tuple "
+                "when boxed");
+    } else {
+        ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+        a.tst(VAR, imm(_TAG_HEADER_MASK));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
+
+    ASSERT(Size.get() == args.size());
+    Label fail = rawLabels[Fail.get()];
+    emit_binsearch_nodes(VAR, 0, args.size() / 2 - 1, fail, args);
 }
 
 void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
