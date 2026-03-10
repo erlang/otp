@@ -93,6 +93,62 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
 #endif
 }
 
+void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
+                                              a32::Gp reg) {
+    /* Keep short sequences close for fast indexed loads and to avoid
+     * extra section switching. */
+    Label data = a.newLabel(), next = a.newLabel();
+
+    a.adr(reg, data);
+    a.b(next);
+
+    a.align(AlignMode::kData, 4);
+    a.bind(data);
+
+    for (const ArgVal &arg : args) {
+        union {
+            BeamInstr as_beam;
+            char as_char[1];
+        } data;
+
+        a.align(AlignMode::kData, 4);
+        switch (arg.getType()) {
+        case ArgVal::Literal: {
+            auto &patches = literals[arg.as<ArgLiteral>().get()].patches;
+            Label patch = a.newLabel();
+
+            a.bind(patch);
+            a.embedUInt64(INT_MAX);
+            patches.push_back({patch, 0, 0});
+            break;
+        }
+        case ArgVal::XReg:
+            data.as_beam = make_loader_x_reg(arg.as<ArgXRegister>().get());
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
+        case ArgVal::YReg:
+            data.as_beam = make_loader_y_reg(arg.as<ArgYRegister>().get());
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
+        case ArgVal::Label:
+            a.embedLabel(rawLabels[arg.as<ArgLabel>().get()], 4);
+            break;
+        case ArgVal::Immediate:
+            data.as_beam = arg.as<ArgImmed>().get();
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
+        case ArgVal::Word:
+            data.as_beam = arg.as<ArgWord>().get();
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
+        default:
+            ERTS_ASSERT(!"error");
+        }
+    }
+
+    a.bind(next);
+}
+
 void BeamModuleAssembler::emit_i_nif_padding() {
     // TODO
     emit_nyi("emit_i_nif_padding");

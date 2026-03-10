@@ -389,8 +389,84 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
                                              const ArgWord &Base,
                                              const ArgWord &Size,
                                              const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_i_jump_on_val");
+    Label fail;
+    Label data = a.newLabel();
+    auto src = load_source(Src, TMP);
+
+    ASSERT(Size.get() == args.size());
+
+    if (Fail.isNil()) {
+        /* NIL means fallthrough to the next instruction. This label must
+         * always be valid, even when we skip the type test. */
+        fail = a.newLabel();
+    }
+
+    /* Keep a stable local copy so type checks don't accidentally clobber
+     * the original source register. */
+    if (src.reg != TMP) {
+        a.mov(TMP, src.reg);
+    }
+
+    if (always_small(Src)) {
+        comment("(skipped type test)");
+    } else {
+        a.and_(VAR, TMP, imm(_TAG_IMMED1_MASK));
+        a.cmp(VAR, imm(_TAG_IMMED1_SMALL));
+
+        if (Fail.isLabel()) {
+            a.b_ne(resolve_beam_label(Fail, disp32MB));
+        } else {
+            ASSERT(Fail.isNil());
+            a.b_ne(fail);
+        }
+    }
+
+    a.asr(TMP, TMP, imm(_TAG_IMMED1_SIZE));
+
+    if (Base.get() != 0) {
+        if (Support::isUInt12((Sint)Base.get())) {
+            a.sub(TMP, TMP, imm(Base.get()));
+        } else {
+            mov_imm(VAR, Base.get());
+            a.sub(TMP, TMP, VAR);
+        }
+    }
+
+    if (Support::isUInt12(args.size())) {
+        a.cmp(TMP, imm(args.size()));
+    } else {
+        mov_imm(VAR, args.size());
+        a.cmp(TMP, VAR);
+    }
+    if (Fail.isLabel()) {
+        a.b_hs(resolve_beam_label(Fail, disp32MB));
+    } else {
+        a.b_hs(fail);
+    }
+
+    bool embedInText = args.size() <= 6;
+    if (embedInText) {
+        a.adr(VAR, data);
+    } else {
+        embed_vararg_rodata(args, VAR);
+    }
+
+    a.ldr(VAR, arm::Mem(VAR, TMP, arm::lsl(2)));
+    a.bx(VAR);
+
+    mark_unreachable_check_pending_stubs();
+
+    a.bind(data);
+    if (embedInText) {
+        for (const ArgVal &arg : args) {
+            ASSERT(arg.getType() == ArgVal::Label);
+            a.embedLabel(rawLabels[arg.as<ArgLabel>().get()], 4);
+        }
+    }
+
+    if (Fail.getType() == ArgVal::Immediate) {
+        a.bind(fail);
+    }
 }
 
 /*
