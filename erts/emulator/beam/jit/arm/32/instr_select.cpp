@@ -312,8 +312,59 @@ void BeamModuleAssembler::emit_binsearch_nodes(a32::Gp reg,
                                                size_t Right,
                                                Label fail,
                                                const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_binsearch_nodes");
+    ASSERT(Left <= Right);
+    ASSERT(Right < args.size() / 2);
+
+    const size_t remaining = (Right - Left + 1);
+    const size_t mid = (Left + Right) >> 1;
+    const size_t count = args.size() / 2;
+
+    if (remaining <= 10) {
+        /* Measurements on randomly generated select_val instructions
+           have shown that linear search is faster than binary search
+           when there are ten or less elements. */
+        std::vector<ArgVal> shrunk;
+
+        comment("Linear search in [%lu..%lu], %lu elements",
+                Left,
+                Right,
+                remaining);
+
+        shrunk.reserve(remaining * 2);
+        shrunk.insert(shrunk.end(),
+                      args.begin() + Left,
+                      args.begin() + Left + remaining);
+        shrunk.insert(shrunk.end(),
+                      args.begin() + Left + count,
+                      args.begin() + count + Left + remaining);
+
+        emit_linear_search(reg, fail, shrunk);
+        return;
+    }
+
+    comment("Subtree [%lu..%lu], pivot %lu", Left, Right, mid);
+
+    check_pending_stubs();
+
+    cmp_arg(reg, args[mid]);
+
+    auto &lbl = args[mid + count];
+
+    /* The search has failed if Left == Right, but that should never
+     * happen since we revert to a linear search when there are
+     * ten or less elements. */
+    ASSERT(Left != Right);
+    ASSERT(Left != mid);
+
+    a.b_eq(resolve_beam_label(lbl, disp32MB));
+
+    Label right_tree = a.newLabel();
+    a.b_hs(resolve_label(right_tree, disp32MB));
+
+    emit_binsearch_nodes(reg, Left, mid - 1, fail, args);
+
+    bind_veneer_target(right_tree);
+    emit_binsearch_nodes(reg, mid + 1, Right, fail, args);
 }
 
 void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
