@@ -220,9 +220,20 @@ void BeamModuleAssembler::emit_normal_exit() {
 }
 
 void BeamModuleAssembler::emit_continue_exit() {
-    // TODO
-    emit_nyi("emit_continue_exit");
-}
+    /* This is implicitly global; it does not normally appear in modules and
+     * doesn't require size optimization. */
+
+     emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+     emit_proc_lc_unrequire();
+ 
+     a.mov(ARG1, c_p);
+     runtime_call<1>(erts_continue_exit_process);
+ 
+     emit_proc_lc_require();
+     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
+ 
+     a.b(resolve_fragment(ga->get_do_schedule(), disp32MB));
+ }
 
 void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
                                         const ArgRegister &Hd,
