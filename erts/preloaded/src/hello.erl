@@ -152,7 +152,7 @@ test(BootArgs) ->
     test_processes(),
     test_set_tuple_element(),
     test_tagged_tuple(),
-%    test_select_val(),
+    test_select_val(),
 %    test_external_call_errors(),
 %    test_is_lt(),
 %    test_is_ge(),
@@ -901,82 +901,82 @@ error_info(Arg) ->
             Other
     end.
 
-%test_select_val() ->
-%    1 = sel_atom5(id(a)),
-%    2 = sel_atom5(id(b)),
-%    3 = sel_atom5(id(c)),
-%    4 = sel_atom5(id(d)),
-%    5 = sel_atom5(id(e)),
-%
-%    6 = sel_atom(id(f)),
-%
-%    1 = sel_atom(id(a)),
-%    2 = sel_atom(id(b)),
-%    3 = sel_atom(id(c)),
-%    4 = sel_atom(id(d)),
-%    5 = sel_atom(id(e)),
-%    6 = sel_atom(id(f)),
-%    7 = sel_atom(id(g)),
-%    8 = sel_atom(id(h)),
-%    9 = sel_atom(id(i)),
-%    10 = sel_atom(id(j)),
-%    11 = sel_atom(id(k)),
-%
-%    5 = select_tuple_arity({id(2),3}),
-%    9 = select_tuple_arity({id(2),3,4}),
-%    error = select_tuple_arity(id({a})),
-%    error = select_tuple_arity(id(1 bsl 128)),
-%    error = select_tuple_arity(id(a)),
-%
-%    a = sel_int(id(1)),
-%    b = sel_int(id(2)),
-%    c = sel_int(id(3)),
-%    d = sel_int(id(4)),
-%    e = sel_int(id(5)),
-%    f = sel_int(id(6)),
-%    g = sel_int(id(7)),
-%    h = sel_int(id(8)),
-%    i = sel_int(id(9)),
-%    error = sel_int(id(10)),
-%
-%    ok.
-%
-%sel_atom5(a) -> 1;
-%sel_atom5(b) -> 2;
-%sel_atom5(c) -> 3;
-%sel_atom5(d) -> 4;
-%sel_atom5(e) -> 5.
-%
-%sel_atom(a) -> 1;
-%sel_atom(b) -> 2;
-%sel_atom(c) -> 3;
-%sel_atom(d) -> 4;
-%sel_atom(e) -> 5;
-%sel_atom(f) -> 6;
-%sel_atom(g) -> 7;
-%sel_atom(h) -> 8;
-%sel_atom(i) -> 9;
-%sel_atom(j) -> 10;
-%sel_atom(k) -> 11.
-%
-%sel_int(1) -> a;
-%sel_int(2) -> b;
-%sel_int(3) -> c;
-%sel_int(4) -> d;
-%sel_int(5) -> e;
-%sel_int(6) -> f;
-%sel_int(7) -> g;
-%sel_int(8) -> h;
-%sel_int(9) -> i;
-%sel_int(_) -> error.
-%
-%select_tuple_arity({A,B}) ->
-%    A + B;
-%select_tuple_arity({A,B,C}) ->
-%    A + B + C;
-%select_tuple_arity(_) ->
-%    error.
-%
+test_select_val() ->
+    1 = sel_atom5(id(a)),
+    2 = sel_atom5(id(b)),
+    3 = sel_atom5(id(c)),
+    4 = sel_atom5(id(d)),
+    5 = sel_atom5(id(e)),
+
+    6 = sel_atom(id(f)),
+
+    1 = sel_atom(id(a)),
+    2 = sel_atom(id(b)),
+    3 = sel_atom(id(c)),
+    4 = sel_atom(id(d)),
+    5 = sel_atom(id(e)),
+    6 = sel_atom(id(f)),
+    7 = sel_atom(id(g)),
+    8 = sel_atom(id(h)),
+    9 = sel_atom(id(i)),
+    10 = sel_atom(id(j)),
+    11 = sel_atom(id(k)),
+
+    5 = select_tuple_arity({id(2),3}),
+    9 = select_tuple_arity({id(2),3,4}),
+    error = select_tuple_arity(id({a})),
+    error = select_tuple_arity(id(1 bsl 128)),
+    error = select_tuple_arity(id(a)),
+
+    a = sel_int(id(1)),
+    b = sel_int(id(2)),
+    c = sel_int(id(3)),
+    d = sel_int(id(4)),
+    e = sel_int(id(5)),
+    f = sel_int(id(6)),
+    g = sel_int(id(7)),
+    h = sel_int(id(8)),
+    i = sel_int(id(9)),
+    error = sel_int(id(10)),
+
+    ok.
+
+sel_atom5(a) -> 1;
+sel_atom5(b) -> 2;
+sel_atom5(c) -> 3;
+sel_atom5(d) -> 4;
+sel_atom5(e) -> 5.
+
+sel_atom(a) -> 1;
+sel_atom(b) -> 2;
+sel_atom(c) -> 3;
+sel_atom(d) -> 4;
+sel_atom(e) -> 5;
+sel_atom(f) -> 6;
+sel_atom(g) -> 7;
+sel_atom(h) -> 8;
+sel_atom(i) -> 9;
+sel_atom(j) -> 10;
+sel_atom(k) -> 11.
+
+sel_int(1) -> a;
+sel_int(2) -> b;
+sel_int(3) -> c;
+sel_int(4) -> d;
+sel_int(5) -> e;
+sel_int(6) -> f;
+sel_int(7) -> g;
+sel_int(8) -> h;
+sel_int(9) -> i;
+sel_int(_) -> error.
+
+select_tuple_arity({A,B}) ->
+    A + B;
+select_tuple_arity({A,B,C}) ->
+    A + B + C;
+select_tuple_arity(_) ->
+    error.
+
 %test_external_call_errors() ->
 %    try no_module:no_function({id(ok),42}) of
 %        _ ->
