@@ -244,8 +244,19 @@ void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
 }
 
 void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
-    // TODO
-    emit_nyi("emit_wait_locked");
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    a.ldr(ARG2, embed_constant(Dest, disp4KB));
+    runtime_call<2>(beam_jit_wait_locked);
+
+    emit_leave_runtime();
+
+    a.b(resolve_fragment(ga->get_do_schedule(), disp32MB));
+
+    /* Must check stubs here because this branch is followed by
+     * a label when part of `wait_timeout_locked`. */
+    mark_unreachable_check_pending_stubs();
 }
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
