@@ -50,6 +50,7 @@
          shell_history_custom/1, shell_history_custom_errors/1,
          shell_history_toggle/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
+         kitty_keyboard_protocol/1, kitty_keyboard_normalization/1,
          get_columns_and_rows_escript/1,
          shell_get_password/1,
          shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1, shell_multiline_prompt_ssh/1,
@@ -174,6 +175,8 @@ groups() ->
        shell_xnfix, shell_delete, shell_format,
        shell_combining_unicode,
        shell_transpose, shell_search, shell_insert,
+       kitty_keyboard_normalization,
+       kitty_keyboard_protocol,
        shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
        shell_receive_standard_out,
@@ -1539,6 +1542,53 @@ test_invalid_keymap(Config) when is_list(Config) ->
         shell_test_lib:stop_tty(Term1),
         ok
     end.
+
+kitty_keyboard_protocol(Config) ->
+    Term = start_tty(Config),
+    try
+        shell_test_lib:send_tty(Term, "1+23"),
+        shell_test_lib:send_tty(Term, "\e[127u"),
+        shell_test_lib:send_tty(Term, "."),
+        shell_test_lib:send_tty(Term, "Enter"),
+        shell_test_lib:check_content(Term, "1\\+2\\.\\n3\\n"),
+
+        shell_test_lib:send_tty(Term, "123"),
+        shell_test_lib:send_tty(Term, "\e[7~"),
+        shell_test_lib:send_tty(Term, "a"),
+        shell_test_lib:send_tty(Term, "\e[8~"),
+        shell_test_lib:send_tty(Term, "b"),
+        shell_test_lib:send_tty(Term, "Enter"),
+        shell_test_lib:check_content(Term, "a123b\\n"),
+
+        shell_test_lib:send_tty(Term, "\e[99;5u"),
+        timer:sleep(250),
+        shell_test_lib:send_tty(Term, "4+4"),
+        shell_test_lib:send_tty(Term, "Enter"),
+        shell_test_lib:check_content(Term, "4\\+4\\n8\\n"),
+
+        shell_test_lib:send_tty(Term, "123+456"),
+        shell_test_lib:send_tty(Term, "\e[98;3:98u"),
+        shell_test_lib:send_tty(Term, "7"),
+        shell_test_lib:send_tty(Term, "Enter"),
+        shell_test_lib:check_content(Term, "123\\+7456\\n7579\\n"),
+
+        shell_test_lib:send_tty(Term, "\e[99;5u"),
+        shell_test_lib:check_content(Term, "BREAK: \\(a\\)bort"),
+        shell_test_lib:send_tty(Term, "c"),
+        shell_test_lib:check_content(Term, "4> $"),
+        ok
+    after
+        shell_test_lib:stop_tty(Term),
+        ok
+    end.
+
+kitty_keyboard_normalization(_Config) ->
+    "\^[b" = edlin_key:normalize_kitty_key("\e[98;3u"),
+    "\^[b" = edlin_key:normalize_kitty_key("\e[98;3;98u"),
+    "\^[B" = edlin_key:normalize_kitty_key("\e[66:98;3u"),
+    "\^G" = edlin_key:normalize_kitty_key("\e[71:103;5u"),
+    {key, "\e[98;3:98u", []} = edlin_key:get_valid_escape_key("\e[98;3:98u", none),
+    ok.
 external_editor(Config) ->
     case os:find_executable("nano") of
         false -> {skip, "nano is not installed"};

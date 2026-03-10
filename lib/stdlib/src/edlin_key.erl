@@ -21,7 +21,7 @@
 %%
 -module(edlin_key).
 -moduledoc false.
--export([get_key_map/0, get_valid_escape_key/2]).
+-export([get_key_map/0, get_valid_escape_key/2, normalize_kitty_key/1]).
 -import(lists, [reverse/1, reverse/2]).
 get_key_map() ->
     KeyMap = application:get_env(stdlib, shell_keymap, none),
@@ -92,6 +92,11 @@ get_valid_escape_key([C|Rest], meta_left_sq_bracket) ->
         _ when $a =< C, C =< $z; $A =< C, C =< $Z -> get_valid_escape_key(Rest, {finished, "\e["++[C]});
         _ -> get_valid_escape_key(Rest, {invalid, "\e["++[C]})
     end;
+get_valid_escape_key([C|Rest], {csi, [$:|Acc]}) ->
+    case C of
+        _ when $0 =< C, C =< $9 -> get_valid_escape_key(Rest, {csi, [C,$:|Acc]});
+        _ -> get_valid_escape_key(Rest, {invalid, "\e["++reverse([$:|Acc])++[C]})
+    end;
 get_valid_escape_key([C|Rest], {csi, [$;|Acc]}) ->
     case C of
         _ when $0 =< C, C =< $9 -> get_valid_escape_key(Rest, {csi, [C,$;|Acc]});
@@ -100,6 +105,7 @@ get_valid_escape_key([C|Rest], {csi, [$;|Acc]}) ->
 get_valid_escape_key([C|Rest], {csi, Acc}) ->
     case C of
         $~ -> get_valid_escape_key(Rest, {finished, "\e["++reverse([$~|Acc])});
+        $: -> get_valid_escape_key(Rest, {csi, [$:|Acc]});
         $; -> get_valid_escape_key(Rest, {csi, [$;|Acc]});
         _ when $0 =< C, C =< $9 -> get_valid_escape_key(Rest, {csi, [C|Acc]});
         $m -> {invalid, "\e["++reverse([$m|Acc]), [$m|Rest]};
@@ -114,6 +120,186 @@ get_valid_escape_key(Rest, {invalid, Acc}) ->
     {invalid, Acc, Rest};
 get_valid_escape_key(Rest, Acc) ->
     {invalid, Acc, Rest}.
+
+normalize_kitty_key("\e[" ++ _ = Key) ->
+    case parse_kitty_key(Key) of
+        {ok, Codepoint, Modifiers} ->
+            kitty_to_legacy_key(Codepoint, Modifiers, Key);
+        error ->
+            case normalize_kitty_function_key(Key) of
+                undefined -> Key;
+                Normalized -> Normalized
+            end
+    end;
+normalize_kitty_key(Key) ->
+    Key.
+
+parse_kitty_key("\e[" ++ Rest) ->
+    case take_decimal(Rest) of
+        error ->
+            error;
+        {Codepoint, Rest1} ->
+            parse_kitty_key_tail(Codepoint, Rest1)
+    end;
+parse_kitty_key(_) ->
+    error.
+
+parse_kitty_key_tail(Codepoint, ":" ++ Rest) ->
+    parse_kitty_key_tail(Codepoint, skip_decimal(Rest));
+parse_kitty_key_tail(Codepoint, "u") ->
+    {ok, Codepoint, 1};
+parse_kitty_key_tail(Codepoint, ";" ++ Rest) ->
+    case take_decimal(Rest) of
+        error ->
+            error;
+        {Modifiers, Rest1} ->
+            case skip_kitty_key_suffix(Codepoint, Rest1) of
+                {ok, Codepoint, _} ->
+                    {ok, Codepoint, Modifiers};
+                error ->
+                    error
+            end
+    end;
+parse_kitty_key_tail(_, _) ->
+    error.
+
+skip_kitty_key_suffix(Codepoint, ":" ++ Rest) ->
+    skip_kitty_key_suffix(Codepoint, skip_decimal(Rest));
+skip_kitty_key_suffix(Codepoint, ";" ++ Rest) ->
+    skip_kitty_key_suffix(Codepoint, skip_decimal(Rest));
+skip_kitty_key_suffix(Codepoint, "u") ->
+    {ok, Codepoint, 1};
+skip_kitty_key_suffix(_, _) ->
+    error.
+
+take_decimal([C | Rest]) when $0 =< C, C =< $9 ->
+    take_decimal(Rest, C - $0);
+take_decimal(_) ->
+    error.
+
+take_decimal([C | Rest], Acc) when $0 =< C, C =< $9 ->
+    take_decimal(Rest, Acc * 10 + C - $0);
+take_decimal(Rest, Acc) ->
+    {Acc, Rest}.
+
+skip_decimal([C | Rest]) when $0 =< C, C =< $9 ->
+    skip_decimal(Rest);
+skip_decimal(Rest) ->
+    Rest.
+
+kitty_to_legacy_key(Codepoint, Modifiers, Fallback) ->
+    Flags = Modifiers - 1,
+    Alt = (Flags band 2) =/= 0,
+    Ctrl = (Flags band 4) =/= 0,
+    case kitty_base_key(Codepoint) of
+        undefined ->
+            case kitty_ctrl_key(Codepoint, Ctrl) of
+                undefined ->
+                    case kitty_alt_key(Codepoint, Alt, Ctrl) of
+                        undefined -> Fallback;
+                        Key when Alt -> "\e" ++ Key;
+                        Key -> Key
+                    end;
+                Key ->
+                    case Alt of
+                        true -> "\e" ++ Key;
+                        false -> Key
+                    end
+            end;
+        Key when Alt ->
+            "\e" ++ Key;
+        Key ->
+            Key
+    end.
+
+kitty_base_key(8) -> "\^H";
+kitty_base_key(9) -> "\t";
+kitty_base_key(13) -> "\r";
+kitty_base_key(27) -> "\e";
+kitty_base_key(127) -> "\^?";
+kitty_base_key(_) -> undefined.
+
+kitty_ctrl_key(127, true) ->
+    "\^?";
+kitty_ctrl_key(Codepoint, true) when $a =< Codepoint, Codepoint =< $z ->
+    [Codepoint band 31];
+kitty_ctrl_key(Codepoint, true) when $A =< Codepoint, Codepoint =< $Z ->
+    [Codepoint band 31];
+kitty_ctrl_key($@, true) -> [0];
+kitty_ctrl_key($[, true) -> [27];
+kitty_ctrl_key($\\, true) -> [28];
+kitty_ctrl_key($], true) -> [29];
+kitty_ctrl_key($^, true) -> [30];
+kitty_ctrl_key($_, true) -> [31];
+kitty_ctrl_key($?, true) -> [127];
+kitty_ctrl_key(_, _) -> undefined.
+
+kitty_alt_key(Codepoint, true, _Ctrl) when 32 =< Codepoint, Codepoint =< 126 ->
+    [Codepoint];
+kitty_alt_key(_, _, _) ->
+    undefined.
+
+normalize_kitty_function_key("\e[" ++ Rest) ->
+    case parse_kitty_function_key(Rest) of
+        {ok, Sequence} -> "\e[" ++ Sequence;
+        error -> undefined
+    end;
+normalize_kitty_function_key(_) ->
+    undefined.
+
+parse_kitty_function_key("1~") ->
+    {ok, "H"};
+parse_kitty_function_key("4~") ->
+    {ok, "F"};
+parse_kitty_function_key("7~") ->
+    {ok, "H"};
+parse_kitty_function_key("8~") ->
+    {ok, "F"};
+parse_kitty_function_key(Rest) ->
+    case take_decimal(Rest) of
+        error ->
+            error;
+        {1, ";" ++ Rest1} ->
+            parse_kitty_function_suffix(Rest1);
+        {Codepoint, ";" ++ Rest1} when Codepoint =:= 2;
+                                        Codepoint =:= 3;
+                                        Codepoint =:= 5;
+                                        Codepoint =:= 6;
+                                        Codepoint =:= 7;
+                                        Codepoint =:= 8;
+                                        11 =< Codepoint, Codepoint =< 24 ->
+            parse_kitty_function_tilde(Codepoint, Rest1);
+        _ ->
+            error
+    end.
+
+parse_kitty_function_suffix(Rest) ->
+    case take_decimal(Rest) of
+        error ->
+            error;
+        {Modifiers, [Suffix]} when Suffix =:= $A;
+                                   Suffix =:= $B;
+                                   Suffix =:= $C;
+                                   Suffix =:= $D;
+                                   Suffix =:= $F;
+                                   Suffix =:= $H;
+                                   Suffix =:= $P;
+                                   Suffix =:= $Q;
+                                   Suffix =:= $S ->
+            {ok, "1;" ++ integer_to_list(Modifiers) ++ [Suffix]};
+        _ ->
+            error
+    end.
+
+parse_kitty_function_tilde(Codepoint, Rest) ->
+    case take_decimal(Rest) of
+        error ->
+            error;
+        {Modifiers, "~"} ->
+            {ok, integer_to_list(Codepoint) ++ ";" ++ integer_to_list(Modifiers) ++ "~"};
+        _ ->
+            error
+    end.
 
 merge(KeyMap) ->
     merge(KeyMap, [normal, search, tab_expand, help], key_map()).

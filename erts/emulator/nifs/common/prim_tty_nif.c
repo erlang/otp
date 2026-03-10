@@ -116,6 +116,8 @@ typedef struct {
 #endif
 } TTYResource;
 
+static void tty_set_kitty_keyboard(TTYResource *tty, int enable);
+
 // #define HARD_DEBUG
 #ifdef HARD_DEBUG
 static FILE *logFile = NULL;
@@ -957,6 +959,7 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     ERL_NIF_TERM input;
     TTYResource *tty;
+    enum TTYState previous_tty;
 
     debug("tty_init_nif(%T,%T)\r\n", argv[0], argv[1]);
 
@@ -978,6 +981,7 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 #if defined(HAVE_TERMCAP) || defined(__WIN32__)
 
+    previous_tty = tty->tty;
     tty->tty = enif_is_identical(input, atom_raw) ? enabled : disabled;
 
 #ifndef __WIN32__
@@ -1040,6 +1044,12 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 
 #endif /* __WIN32__ */
+
+    if (previous_tty != enabled && tty->tty == enabled) {
+        tty_set_kitty_keyboard(tty, 1);
+    } else if (previous_tty == enabled && tty->tty != enabled) {
+        tty_set_kitty_keyboard(tty, 0);
+    }
 
     enif_self(env, &tty->self);
     enif_monitor_process(env, tty, &tty->self, NULL);
@@ -1116,11 +1126,19 @@ static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 static void tty_monitor_down(ErlNifEnv* caller_env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon) {
     TTYResource *tty = obj;
-#ifdef HAVE_TERMCAP
     if (enif_compare_pids(pid, &tty->self) == 0) {
+        tty_set_kitty_keyboard(tty, 0);
+#ifdef HAVE_TERMCAP
         tcsetattr(tty->ifd, TCSANOW, &tty->tty_rmode);
-    }
+#elif defined(__WIN32__)
+        if (tty->ifd != INVALID_HANDLE_VALUE) {
+            SetConsoleMode(tty->ifd, tty->dwOriginalInMode);
+        }
+        if (tty->ofd != INVALID_HANDLE_VALUE) {
+            SetConsoleMode(tty->ofd, tty->dwOriginalOutMode);
+        }
 #endif
+    }
     if (enif_compare_pids(pid, &tty->reader) == 0) {
         enif_select(caller_env, tty->ifd, ERL_NIF_SELECT_STOP, tty, NULL, atom_undefined);
     }
@@ -1131,6 +1149,45 @@ static void tty_select_stop(ErlNifEnv* caller_env, void* obj, ErlNifEvent event,
 #ifndef __WIN32__
     if (event != 0)
         close(event);
+#endif
+}
+
+static void tty_set_kitty_keyboard(TTYResource *tty, int enable) {
+    static const char kitty_enable[] = "\x1b[>1u";
+    static const char kitty_disable[] = "\x1b[<u";
+    const char *seq = enable ? kitty_enable : kitty_disable;
+    size_t len = enable ? sizeof(kitty_enable) - 1 : sizeof(kitty_disable) - 1;
+
+#ifdef __WIN32__
+    if (tty->ofd == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    while (len > 0) {
+        DWORD written = 0;
+        if (!WriteFile(tty->ofd, seq, (DWORD)len, &written, NULL) || written == 0) {
+            return;
+        }
+        seq += written;
+        len -= written;
+    }
+#else
+    if (tty->ofd < 0) {
+        return;
+    }
+    while (len > 0) {
+        ssize_t written = write(tty->ofd, seq, len);
+        if (written < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return;
+        }
+        if (written == 0) {
+            return;
+        }
+        seq += written;
+        len -= written;
+    }
 #endif
 }
 

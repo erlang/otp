@@ -352,10 +352,16 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode1, EscapePrefix}, Rs0) ->
             KeyMap = get(key_map),
             Value = case maps:find(Key, maps:get(ShellMode, KeyMap)) of
                 error ->
-                    %% Default handling for shell modes
-                    case maps:find(default, maps:get(ShellMode, KeyMap)) of
-                        error -> none;
-                        {ok, Value0} -> Value0
+                    NormalizedKey = edlin_key:normalize_kitty_key(Key),
+                    case maps:find(NormalizedKey, maps:get(ShellMode, KeyMap)) of
+                        error ->
+                            %% Default handling for shell modes
+                            case maps:find(default, maps:get(ShellMode, KeyMap)) of
+                                error -> none;
+                                {ok, Value0} -> Value0
+                            end;
+                        {ok, Value0} ->
+                            Value0
                     end;
                 {ok, Value0} -> Value0
             end,

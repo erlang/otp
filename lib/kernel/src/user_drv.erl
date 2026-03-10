@@ -460,6 +460,9 @@ server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }) ->
     case contains_ctrl_g_or_ctrl_c(UTF8Binary) of
         ctrl_g -> {next_state, switch_loop, State, {next_event, internal, init}};
+        kitty_ctrl_c ->
+            send_break(State),
+            keep_state_and_data;
         ctrl_c ->
             case gr_get_info(State#state.groups, State#state.current_group) of
                 undefined -> ok;
@@ -639,10 +642,103 @@ contains_ctrl_g_or_ctrl_c(<<$\^G,_/binary>>) ->
     ctrl_g;
 contains_ctrl_g_or_ctrl_c(<<$\^C,_/binary>>) ->
     ctrl_c;
+contains_ctrl_g_or_ctrl_c(<<$\e,$[,Rest/binary>>) ->
+    case contains_kitty_ctrl_g_or_ctrl_c(Rest) of
+        none ->
+            contains_ctrl_g_or_ctrl_c(Rest);
+        Ctrl ->
+            Ctrl
+    end;
 contains_ctrl_g_or_ctrl_c(<<_/utf8,T/binary>>) ->
     contains_ctrl_g_or_ctrl_c(T);
 contains_ctrl_g_or_ctrl_c(<<>>) ->
     none.
+
+send_break(#state{terminal_mode = raw, tty = TTYState, write = WriteRef}) ->
+    case os:type() of
+        {unix, _} ->
+            %% Kitty keyboard protocol turns Ctrl+C into input data, so emulate
+            %% the terminal-generated SIGINT that would normally trigger BREAK.
+            %% Disable kitty keyboard protocol while the BREAK handler is active,
+            %% since the emulator break menu reads stdin directly and does not
+            %% understand CSI-u sequences.
+            ok = tty_write_sync(TTYState, WriteRef, <<"\e[<u">>),
+            _ = os:cmd("kill -INT " ++ os:getpid()),
+            ok = tty_write_sync(TTYState, WriteRef, <<"\e[>1u">>),
+            ok;
+        _ ->
+            ok
+    end;
+send_break(_) ->
+    ok.
+
+tty_write_sync(TTYState, WriteRef, Chars) ->
+    {ok, MonitorRef} = prim_tty:write(TTYState, Chars, self()),
+    receive
+        {WriteRef, ok} ->
+            erlang:demonitor(MonitorRef, [flush]),
+            ok;
+        {'DOWN', MonitorRef, _, _, Reason} ->
+            exit(Reason)
+    end.
+
+contains_kitty_ctrl_g_or_ctrl_c(Bin) ->
+    case take_kitty_decimal(Bin) of
+        {ok, Codepoint, Rest} ->
+            case take_kitty_modifiers(Rest) of
+                {ok, Modifiers} when (Modifiers band 4) =/= 0 ->
+                    case Codepoint of
+                        $c -> kitty_ctrl_c;
+                        $C -> kitty_ctrl_c;
+                        $g -> ctrl_g;
+                        $G -> ctrl_g;
+                        _ -> none
+                    end;
+                _ ->
+                    none
+            end;
+        error ->
+            none
+    end.
+
+take_kitty_modifiers(<<$u>>) ->
+    {ok, 0};
+take_kitty_modifiers(<<$:, Rest/binary>>) ->
+    take_kitty_modifiers(skip_kitty_decimal(Rest));
+take_kitty_modifiers(<<$;, Rest/binary>>) ->
+    case take_kitty_decimal(Rest) of
+        {ok, Modifiers, Rest1} ->
+            case skip_kitty_suffix(Rest1) of
+                ok -> {ok, Modifiers - 1};
+                error -> error
+            end;
+        error ->
+            error
+    end;
+take_kitty_modifiers(_) ->
+    error.
+
+skip_kitty_suffix(<<$u>>) ->
+    ok;
+skip_kitty_suffix(<<$:, Rest/binary>>) ->
+    skip_kitty_suffix(skip_kitty_decimal(Rest));
+skip_kitty_suffix(_) ->
+    error.
+
+take_kitty_decimal(<<C, Rest/binary>>) when $0 =< C, C =< $9 ->
+    take_kitty_decimal(Rest, C - $0);
+take_kitty_decimal(_) ->
+    error.
+
+take_kitty_decimal(<<C, Rest/binary>>, Acc) when $0 =< C, C =< $9 ->
+    take_kitty_decimal(Rest, Acc * 10 + C - $0);
+take_kitty_decimal(Rest, Acc) ->
+    {ok, Acc, Rest}.
+
+skip_kitty_decimal(<<C, Rest/binary>>) when $0 =< C, C =< $9 ->
+    skip_kitty_decimal(Rest);
+skip_kitty_decimal(Rest) ->
+    Rest.
 
 switch_loop(internal, init, State) ->
     case application:get_env(stdlib, shell_esc, jcl) of
