@@ -161,7 +161,10 @@ representations.
 -type set() :: set(_).
 
 -doc "As returned by `new/0`.".
--opaque set(Element) :: #set{segs :: segs(Element)} | #{Element => ?VALUE}.
+-opaque set(Element) :: set_v1(Element) | set_v2(Element).
+
+-type set_v1(Element) :: #set{segs :: segs(Element)}.
+-type set_v2(Element) :: #{Element => ?VALUE}.
 
 %%------------------------------------------------------------------------------
 
@@ -465,8 +468,8 @@ del_element(E, #set{}=S0) ->
 %% update_bucket(Set, Slot, NewBucket) -> UpdatedSet.
 %%  Replace bucket in Slot by NewBucket
 -spec update_bucket(Set1, Slot, Bkt) -> Set2 when
-      Set1 :: set(Element),
-      Set2 :: set(Element),
+      Set1 :: set_v1(Element),
+      Set2 :: set_v1(Element),
       Slot :: non_neg_integer(),
       Bkt :: [Element].
 update_bucket(Set, Slot, NewBucket) ->
@@ -946,7 +949,7 @@ filtermap(F, #set{}=D) when is_function(F, 1) ->
 %% get_slot(Hashdb, Key) -> Slot.
 %%  Get the slot.  First hash on the new range, if we hit a bucket
 %%  which has not been split use the unsplit buddy bucket.
--spec get_slot(set(E), E) -> non_neg_integer().
+-spec get_slot(set_v1(E), E) -> non_neg_integer().
 get_slot(T, Key) ->
     H = erlang:phash(Key, T#set.maxn),
     if
@@ -955,7 +958,7 @@ get_slot(T, Key) ->
     end.
 
 %% get_bucket(Hashdb, Slot) -> Bucket.
--spec get_bucket(set(), non_neg_integer()) -> term().
+-spec get_bucket(set_v1(_), non_neg_integer()) -> term().
 get_bucket(T, Slot) -> get_bucket_s(T#set.segs, Slot).
 
 %% fold_set(Fun, Acc, Dictionary) -> Dictionary.
@@ -1022,7 +1025,7 @@ put_bucket_s(Segs, Slot, Bkt) ->
     Seg = setelement(BktI, element(SegI, Segs), Bkt),
     setelement(SegI, Segs, Seg).
 
--spec maybe_expand(set(E)) -> set(E).
+-spec maybe_expand(set_v1(E)) -> set_v1(E).
 maybe_expand(T0) when T0#set.size + 1 > T0#set.exp_size ->
     T = maybe_expand_segs(T0),			%Do we need more segments.
     N = T#set.n + 1,				%Next slot to expand into
@@ -1040,14 +1043,14 @@ maybe_expand(T0) when T0#set.size + 1 > T0#set.exp_size ->
 	  segs = Segs2};
 maybe_expand(T) -> T#set{size = T#set.size + 1}.
 
--spec maybe_expand_segs(set(E)) -> set(E).
+-spec maybe_expand_segs(set_v1(E)) -> set_v1(E).
 maybe_expand_segs(T) when T#set.n =:= T#set.maxn ->
     T#set{maxn = 2 * T#set.maxn,
 	  bso  = 2 * T#set.bso,
 	  segs = expand_segs(T#set.segs, T#set.empty)};
 maybe_expand_segs(T) -> T.
 
--spec maybe_contract(set(E), non_neg_integer()) -> set(E).
+-spec maybe_contract(set_v1(E), non_neg_integer()) -> set(E).
 maybe_contract(T, Dc) when T#set.size - Dc < T#set.con_size,
 			   T#set.n > ?seg_size ->
     N = T#set.n,
