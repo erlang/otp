@@ -657,8 +657,31 @@ void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
 void BeamModuleAssembler::emit_copy_words_increment(a32::Gp from,
                                                     a32::Gp to,
                                                     size_t count) {
-    // TODO
-    emit_nyi("emit_copy_words_increment");
+    check_pending_stubs();
+
+    if (count == 0) {
+        return;
+    }
+
+    /* Inline small copies to avoid loop overhead. */
+    if (count <= 16) {
+        while (count--) {
+            a.ldr(TMP, arm::Mem(from).post(sizeof(Eterm)));
+            a.str(TMP, arm::Mem(to).post(sizeof(Eterm)));
+        }
+        return;
+    }
+
+    /* Larger copies use a tiny runtime loop to keep code size reasonable. */
+    Label copy_next = a.newLabel();
+    ASSERT(Support::isUInt16(count));
+    mov_imm(VAR, count);
+
+    a.bind(copy_next);
+    a.ldr(TMP, arm::Mem(from).post(sizeof(Eterm)));
+    a.str(TMP, arm::Mem(to).post(sizeof(Eterm)));
+    a.subs(VAR, VAR, imm(1));
+    a.b_ne(copy_next);
 }
 
 void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
@@ -667,8 +690,99 @@ void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
                                              const ArgRegister &Dst,
                                              const ArgWord &UpdateCount,
                                              const Span<ArgVal> &updates) {
-    // TODO
-    emit_nyi("emit_update_record");
+    const size_t size_on_heap = TupleSize.get() + 1;
+    Label next = a.newLabel();
+
+    ASSERT(UpdateCount.get() == updates.size());
+    ASSERT((UpdateCount.get() % 2) == 0);
+    ASSERT(size_on_heap > 2);
+
+    auto destination = init_destination(Dst, ARG1);
+    auto src = load_source(Src, ARG2);
+
+    a32::Gp untagged_src = ARG3;
+    emit_untag_ptr(untagged_src, src.reg);
+
+    /* Reuse fast-path for single-field updates. */
+    if (Hint.get() == am_reuse && updates.size() == 2) {
+        const auto next_index = updates[0].as<ArgWord>().get();
+        const auto &next_value = updates[1].as<ArgSource>();
+
+        a.ldr(TMP, arm::Mem(untagged_src, next_index * sizeof(Eterm)));
+        cmp_arg(TMP, next_value);
+
+        if (destination.reg != src.reg) {
+            Label keep_new = a.newLabel();
+            a.b_ne(keep_new);
+            a.mov(destination.reg, src.reg);
+            a.bind(keep_new);
+        }
+        a.b_eq(next);
+    }
+
+    size_t copy_index = 0;
+
+    for (size_t i = 0; i < updates.size(); i += 2) {
+        const auto next_index = updates[i].as<ArgWord>().get();
+        const auto &next_value = updates[i + 1].as<ArgSource>();
+        bool odd_copy;
+
+        ASSERT(next_index > 0 && next_index >= copy_index);
+
+        odd_copy = (next_index - copy_index) & 1;
+        emit_copy_words_increment(untagged_src,
+                                  HTOP,
+                                  (next_index - copy_index) & ~1);
+
+        if ((i + 2) < updates.size()) {
+            const auto adjacent_index = updates[i + 2].as<ArgWord>().get();
+            const auto &adjacent_value = updates[i + 3].as<ArgSource>();
+
+            if (adjacent_index == next_index + 1) {
+                auto [first, second] =
+                        load_sources(next_value, ARG1, adjacent_value, ARG2);
+
+                if (odd_copy) {
+                    a.ldr(TMP, arm::Mem(untagged_src).post(sizeof(Eterm)));
+                    a.str(TMP, arm::Mem(HTOP).post(sizeof(Eterm)));
+                    a.str(first.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+                    a.str(second.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+                    add(untagged_src, untagged_src, sizeof(Eterm[2]));
+                } else {
+                    add(untagged_src, untagged_src, sizeof(Eterm[2]));
+                    a.str(first.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+                    a.str(second.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+                }
+
+                copy_index = next_index + 2;
+                i += 2;
+                continue;
+            }
+        }
+
+        auto value = load_source(next_value, ARG1);
+
+        if ((next_index - copy_index) & 1) {
+            a.ldr(ARG2, arm::Mem(untagged_src).post(sizeof(Eterm)));
+            a.str(ARG2, arm::Mem(HTOP).post(sizeof(Eterm)));
+            a.str(value.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+            add(untagged_src, untagged_src, sizeof(Eterm));
+        } else {
+            add(untagged_src, untagged_src, sizeof(Eterm));
+            a.str(value.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+        }
+
+        copy_index = next_index + 1;
+    }
+
+    emit_copy_words_increment(untagged_src, HTOP, size_on_heap - copy_index);
+
+    sub(destination.reg,
+        HTOP,
+        (size_on_heap * sizeof(Eterm)) - TAG_PRIMARY_BOXED);
+
+    a.bind(next);
+    flush_var(destination);
 }
 
 void BeamModuleAssembler::emit_update_record_in_place(
