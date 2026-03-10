@@ -149,7 +149,7 @@ test(BootArgs) ->
     %% error_handler in the KERNEL application.
     test_apply_errors(),
     test_fun_call_errors(),
-%    test_processes(),
+    test_processes(),
 %    test_set_tuple_element(),
 %    test_tagged_tuple(),
 %    test_select_val(),
@@ -799,63 +799,63 @@ test_fun_call_errors() ->
 
     ok.
 
-%test_processes() ->
-%    start_logger(),
-%    ExitData = {data,make_ref()},
-%    normal = process_call(fun() -> ok end),
-%    ExitData = process_call(fun() -> exit(ExitData) end),
-%
-%    {badarg,[{erlang,process_flag,[_,_],_}|_]} =
-%        process_call(fun() ->
-%                             %% Fail in a BIF.
-%                             process_flag(self(), trap_exit)
-%                     end),
-%
-%    {{badmatch,b},[{?MODULE,_,_,_}|_]} =
-%        process_call(fun() ->
-%                             a = id(b)
-%                     end),
-%
-%    normal = process_call(fun test_continue_exit/0),
-%
-%    erlang:system_flag(system_logger, logger),
-%    ok.
-%
-%my_spawn_opt(F, Opt) ->
-%    spawn_opt(?MODULE, process_main, [F], Opt).
-%
-%process_call(F) ->
-%    {Pid,Ref} = spawn_opt(?MODULE, process_main, [F], [monitor]),
-%    receive
-%        {'DOWN',Ref,process,Pid,ExitData} ->
-%            ExitData
-%    end.
-%
-%process_main(F) ->
-%    F().
-%
-%start_logger() ->
-%    Logger = my_spawn_opt(fun logger_main/0, [link]),
-%    erlang:system_flag(system_logger, Logger).
-%
-%logger_main() ->
-%    receive
-%        _Any ->
-%            %% erlang:display(_Any),
-%            logger_main()
-%    end.
-%
-%test_continue_exit() ->
-%    T = ets:new(foo, []),
-%    insert_a_lot(T, 10_000),
-%    ok.
-%
-%insert_a_lot(_, 0) ->
-%    ok;
-%insert_a_lot(T, N) ->
-%    ets:insert(T, {N,value}),
-%    insert_a_lot(T, N - 1).
-%
+test_processes() ->
+    start_logger(),
+    ExitData = {data,make_ref()},
+    normal = process_call(fun() -> ok end),
+    ExitData = process_call(fun() -> exit(ExitData) end),
+
+    {badarg,[{erlang,process_flag,[_,_],_}|_]} =
+        process_call(fun() ->
+                             %% Fail in a BIF.
+                             process_flag(self(), trap_exit)
+                     end),
+
+    {{badmatch,b},[{?MODULE,_,_,_}|_]} =
+        process_call(fun() ->
+                             a = id(b)
+                     end),
+
+    normal = process_call(fun test_continue_exit/0),
+
+    erlang:system_flag(system_logger, logger),
+    ok.
+
+my_spawn_opt(F, Opt) ->
+    spawn_opt(?MODULE, process_main, [F], Opt).
+
+process_call(F) ->
+    {Pid,Ref} = spawn_opt(?MODULE, process_main, [F], [monitor]),
+    receive
+        {'DOWN',Ref,process,Pid,ExitData} ->
+            ExitData
+    end.
+
+process_main(F) ->
+    F().
+
+start_logger() ->
+    Logger = my_spawn_opt(fun logger_main/0, [link]),
+    erlang:system_flag(system_logger, Logger).
+
+logger_main() ->
+    receive
+        _Any ->
+            %% erlang:display(_Any),
+            logger_main()
+    end.
+
+test_continue_exit() ->
+    T = ets:new(foo, []),
+    insert_a_lot(T, 10_000),
+    ok.
+
+insert_a_lot(_, 0) ->
+    ok;
+insert_a_lot(T, N) ->
+    ets:insert(T, {N,value}),
+    insert_a_lot(T, N - 1).
+
 %-record(huge, {f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,
 %               f11,f12,f13,f14,f15,f16,f17,f18,f19,f20,
 %               f21,f22,f23,f24,f25,f26,f27,f28,f29,f30,
