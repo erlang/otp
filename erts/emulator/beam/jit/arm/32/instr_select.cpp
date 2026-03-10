@@ -27,9 +27,10 @@ using namespace asmjit;
 
 template<typename T>
 static constexpr bool isInt13(T value) {
-    // TODO
-    ASSERT(false);
-    return false;
+    typedef typename std::make_unsigned<T>::type U;
+    typedef typename std::make_signed<T>::type S;
+
+    return Support::isUInt12(U(value)) || Support::isUInt12(-S(value));
 }
 
 /* The `cmp`/`cmn` instructions in AArch64 only accept 12-bit unsigned immediate
@@ -43,9 +44,61 @@ static constexpr bool isInt13(T value) {
  * This function finds the `base` and `shift` that result in the most number
  * of elements fitting in a 13-bit immediate. */
 static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
-    // TODO
-    ASSERT(false);
-    return std::pair<UWord, int>();
+    auto left = args.begin(), right = args.begin();
+    auto best_left = left, best_right = right;
+    int count, shift;
+
+    count = args.size() / 2;
+
+    ASSERT(left->isImmed() && (args.begin() + count)->isLabel());
+    ASSERT(left->isSmall() || right->isAtom());
+
+    shift = left->isSmall() ? _TAG_IMMED1_SIZE : _TAG_IMMED2_SIZE;
+
+    while (right < (args.begin() + count)) {
+        auto distance = std::distance(left, right);
+        UWord left_value, mid_value, right_value;
+
+        left_value = left->as<ArgImmed>().get() >> shift;
+        mid_value = (left + distance / 2)->as<ArgImmed>().get() >> shift;
+        right_value = right->as<ArgImmed>().get() >> shift;
+
+        if (isInt13(left_value - mid_value) &&
+            isInt13(right_value - mid_value)) {
+            if (distance > std::distance(best_left, best_right)) {
+                best_right = right;
+                best_left = left;
+            }
+
+            right++;
+        } else {
+            left++;
+        }
+    }
+
+    auto distance = std::distance(best_left, best_right);
+
+    /* Skip everything if the best run is too short, untagging has its costs
+     * too. */
+    if (distance <= 6) {
+        return std::make_pair(0, 0);
+    }
+
+    /* Apply neither shift nor base if the best run doesn't need it: we're more
+     * likely to lose by rebasing/shifting. */
+    if (isInt13(best_left->as<ArgImmed>().get()) &&
+        isInt13(best_right->as<ArgImmed>().get())) {
+        return std::make_pair(0, 0);
+    }
+
+    /* Skip rebasing if the best run doesn't need it after shifting. */
+    if (isInt13(best_left->as<ArgImmed>().get() >> shift) &&
+        isInt13(best_right->as<ArgImmed>().get() >> shift)) {
+        return std::make_pair(0, shift);
+    }
+
+    auto mid_value = (best_left + distance / 2)->as<ArgImmed>().get();
+    return std::make_pair(mid_value, shift);
 }
 
 const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
@@ -55,16 +108,98 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
         Label fail,
         UWord base,
         int shift) {
-    // TODO
-    ASSERT(false);
-    return std::vector<ArgVal>();
+    ASSERT(base != 0 || shift > 0);
+
+    comment("(comparing untagged+rebased values)");
+    if ((args.front().isSmall() && always_small(Src)) ||
+        (args.front().isAtom() && exact_type<BeamTypeId::Atom>(Src))) {
+        comment("(skipped type test)");
+    } else {
+        if (args.front().isSmall()) {
+            a.and_(TMP, comparand, imm(_TAG_IMMED1_MASK));
+            a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        } else {
+            ASSERT(args.front().isAtom());
+            a.and_(TMP, comparand, imm(_TAG_IMMED2_MASK));
+            a.cmp(TMP, imm(_TAG_IMMED2_ATOM));
+        }
+
+        a.b_ne(resolve_label(fail, disp32MB));
+    }
+
+    if (shift != 0) {
+        a.lsr(ARG1, comparand, imm(shift));
+        base >>= shift;
+        comparand = ARG1;
+    }
+
+    std::vector<ArgVal> result(args.begin(), args.end());
+    int count = args.size() / 2;
+
+    if (base != 0) {
+        sub(ARG1, comparand, base);
+
+        std::vector<int> sorted_indexes(count);
+        std::iota(sorted_indexes.begin(), sorted_indexes.end(), 0);
+        std::sort(sorted_indexes.begin(),
+                  sorted_indexes.end(),
+                  [&](int lhs, int rhs) {
+                      auto lhs_value =
+                              (args[lhs].as<ArgImmed>().get() >> shift) - base;
+                      auto rhs_value =
+                              (args[rhs].as<ArgImmed>().get() >> shift) - base;
+                      return lhs_value < rhs_value;
+                  });
+
+        for (auto i = 0; i < count; i++) {
+            const auto &src_value = args[sorted_indexes[i]];
+            const auto &src_label = args[sorted_indexes[i] + count];
+            auto &dst_value = result[i];
+            auto &dst_label = result[i + count];
+
+            dst_value =
+                    ArgWord((src_value.as<ArgImmed>().get() >> shift) - base);
+            dst_label = src_label;
+        }
+    } else {
+        for (auto i = 0; i < count; i++) {
+            auto &dst_value = result[i];
+            auto &dst_label = result[i + count];
+
+            dst_value = ArgWord(args[i].as<ArgImmed>().get() >> shift);
+            dst_label = args[i + count];
+        }
+    }
+
+    ASSERT(std::is_sorted(result.begin(),
+                          result.begin() + count,
+                          [](const ArgWord &lhs, const ArgWord &rhs) {
+                              return lhs.get() < rhs.get();
+                          }));
+
+    return result;
 }
 
 void BeamModuleAssembler::emit_linear_search(a32::Gp comparand,
                                              Label fail,
                                              const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_linear_search");
+    int count = args.size() / 2;
+
+    ASSERT(count < 128);
+    check_pending_stubs();
+
+    for (int i = 0; i < count; i++) {
+        const ArgVal &value = args[i];
+        const ArgVal &label = args[i + count];
+        cmp_arg(comparand, value);
+        a.b_eq(resolve_beam_label(label, disp32MB));
+    }
+
+    /* Invalid label means fallthrough to next instruction. */
+    if (fail.isValid()) {
+        a.b(resolve_label(fail, disp32MB));
+        mark_unreachable_check_pending_stubs();
+    }
 }
 
 void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
@@ -79,16 +214,93 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
                                                  const ArgVal &Fail,
                                                  const ArgWord &Size,
                                                  const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_i_select_val_lins");
+    ASSERT(Size.get() == args.size());
+    Label fail, next;
+
+    /*
+     * To keep the code simpler, we will drop down a level and
+     * use rawLabels. That will allow us to use Label to represent
+     * a label present in the BEAM file or a label created here.
+     */
+
+    if (Fail.isLabel()) {
+        next = fail = rawLabels[Fail.as<ArgLabel>().get()];
+    } else {
+        ASSERT(Fail.isNil());
+
+        /* Fail is [], meaning that if none of the values match,
+         * we should fall through to the next instruction.
+         *
+         * We set `next` to a label that will be located after the
+         * instructions for the linear search. That label is needed if
+         * values are untagged and a type test is emitted to skip the
+         * comparisons of the untagged values in case the type is
+         * wrong.
+         *
+         * We intentionally do not initialize the Label `fail`
+         * as an indication for emit_optimized_three_way_select() and
+         * emit_linear_search() that not branch is needed at the end
+         * of the linear search.
+         */
+        next = a.newLabel();
+    }
+
+    auto src = load_source(Src, ARG1);
+
+    auto plan = plan_untag(args);
+    auto base = plan.first;
+    auto shift = plan.second;
+
+    if (base == 0 && shift == 0) {
+        emit_linear_search(src.reg, fail, args);
+    } else {
+        auto untagged =
+                emit_select_untag(Src, args, src.reg, next, base, shift);
+        emit_linear_search(ARG1, fail, untagged);
+    }
+
+    if (!Fail.isLabel()) {
+        bind_veneer_target(next);
+    }
 }
 
 void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
                                                  const ArgVal &Fail,
                                                  const ArgWord &Size,
                                                  const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_i_select_val_bins");
+    ASSERT(Size.get() == args.size());
+
+    int count = args.size() / 2;
+    Label fail;
+
+    /* See the comment in emit_i_select_val_lins() for an explanation
+     * why we use raw labels. */
+    if (Fail.isLabel()) {
+        fail = rawLabels[Fail.as<ArgLabel>().get()];
+    } else {
+        ASSERT(Fail.isNil());
+        fail = a.newLabel();
+    }
+
+    comment("Binary search in table of %lu elements", count);
+
+    auto src = load_source(Src, ARG1);
+
+    auto plan = plan_untag(args);
+    auto base = plan.first;
+    auto shift = plan.second;
+
+    if (base == 0 && shift == 0) {
+        emit_binsearch_nodes(src.reg, 0, count - 1, fail, args);
+    } else {
+        auto untagged =
+                emit_select_untag(Src, args, src.reg, fail, base, shift);
+        emit_binsearch_nodes(ARG1, 0, count - 1, fail, untagged);
+    }
+
+    if (!Fail.isLabel()) {
+        bind_veneer_target(fail);
+    }
 }
 
 /*
