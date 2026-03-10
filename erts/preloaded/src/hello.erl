@@ -151,7 +151,7 @@ test(BootArgs) ->
     test_fun_call_errors(),
     test_processes(),
     test_set_tuple_element(),
-%    test_tagged_tuple(),
+    test_tagged_tuple(),
 %    test_select_val(),
 %    test_external_call_errors(),
 %    test_is_lt(),
@@ -883,24 +883,24 @@ update33(#huge{}=Huge) ->
 update34(#huge{}=Huge) ->
     Huge#huge{f34={u,34},f35={u,35}}.
 
-%%% Test i_is_tagged_tuple_ff.
-%test_tagged_tuple() ->
-%    a = error_info(id({error_info,a})),
-%    false = error_info(id(false)),
-%    {a,b} = error_info(id({a,b})),
-%    other = error_info(id(other)),
-%    ok.
-%
-%error_info(Arg) ->
-%    case Arg of
-%        {error_info,Info} ->
-%            Info;
-%        false ->
-%            false;
-%        Other ->
-%            Other
-%    end.
-%
+%% Test i_is_tagged_tuple_ff.
+test_tagged_tuple() ->
+    a = error_info(id({error_info,a})),
+    false = error_info(id(false)),
+    {a,b} = error_info(id({a,b})),
+    other = error_info(id(other)),
+    ok.
+
+error_info(Arg) ->
+    case Arg of
+        {error_info,Info} ->
+            Info;
+        false ->
+            false;
+        Other ->
+            Other
+    end.
+
 %test_select_val() ->
 %    1 = sel_atom5(id(a)),
 %    2 = sel_atom5(id(b)),
