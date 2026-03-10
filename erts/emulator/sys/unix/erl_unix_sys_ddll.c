@@ -130,7 +130,7 @@ int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
     int ret = ERL_DE_NO_ERROR;
     char *str;
     dlerror();
-    if ((*handle = dlopen(dlname, RTLD_NOW)) == NULL) {
+    if ((*handle = dlopen(dlname, RTLD_NOW | RTLD_LOCAL)) == NULL) {
 	str = dlerror();
 
 	if (err == NULL) {
