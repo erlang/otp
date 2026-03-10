@@ -1653,11 +1653,12 @@ rur_args([], _) ->
 %% forcibly alias the variable when it is defined.
 %%
 forced_aliasing(Linear) ->
-    forced_aliasing(Linear, #{0=>#{}}, sets:new()).
+    SeenDb0 = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
+    forced_aliasing(Linear, SeenDb0, sets:new()).
 
-forced_aliasing([{Lbl,#b_blk{last=Last,is=Is}}|Rest], SeenDb0, ToExtend0) ->
+forced_aliasing([{Lbl,#b_blk{is=Is}=Block}|Rest], SeenDb0, ToExtend0) ->
     #{Lbl:=Seen0} = SeenDb0,
-    Successors = fa_successors(Last),
+    Successors = beam_ssa:successors(Block),
     {Seen,ToExtend} = forced_aliasing_is(Is, Seen0, ToExtend0),
     SeenDb = foldl(fun(Succ, Acc) -> fa_merge(Seen, Succ, Acc) end,
                    SeenDb0, Successors),
@@ -1710,18 +1711,11 @@ forced_aliasing_extend_to(Dst, Aliases, ToExtend) ->
     foldl(fun sets:add_element/2,
           sets:add_element(Dst, ToExtend), Aliases).
 
-fa_successors(#b_ret{}) ->
-    [];
-fa_successors(#b_br{succ=S,fail=F}) ->
-    [S,F];
-fa_successors(#b_switch{list=Ls,fail=F}) ->
-    [F|[L || {_,L} <:- Ls]].
-
-fa_merge(Seen, Succ, SeenDb) ->
+fa_merge(_Seen, ?EXCEPTION_BLOCK, SeenDb) ->
+    SeenDb;
+fa_merge(Seen0, Succ, SeenDb) ->
     Other = maps:get(Succ, SeenDb, #{}),
-    SeenDb#{Succ=>maps:merge_with(
-                    fun(_, A, B) ->
-                            ordsets:union(A, B)
-                    end,
-                    Seen, Other)}.
-
+    Seen = maps:merge_with(fun(_, A, A) -> A;
+                              (_, A, B) -> ordsets:union(A, B)
+                           end, Seen0, Other),
+    SeenDb#{Succ=>Seen}.
