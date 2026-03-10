@@ -40,12 +40,82 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
  * ARG3 = lower 16 bits of expected header, containing FUN_SUBTAG and arity
  * ARG4 = fun thing
  *
- * ARM32 has no ARG5 register. */
+ * The call-site PC is passed via TMP_MEM2q (ARM32 has no ARG5 register). */
 void BeamGlobalAssembler::emit_handle_call_fun_error() {
-    // TODO
-    emit_nyi("emit_handle_call_fun_error");
-}
+    Label bad_arity = a.newLabel(), bad_fun = a.newLabel();
 
+    emit_is_boxed(bad_fun, ARG4);
+
+    a32::Gp fun_thing = emit_ptr_val(TMP, ARG4);
+    a.ldr(TMP, emit_boxed_val(fun_thing));
+    a.and_(TMP, TMP, imm(0xFF));
+    a.cmp(TMP, imm(FUN_SUBTAG));
+    a.b_eq(bad_arity);
+
+    a.bind(bad_fun);
+    {
+        mov_imm(TMP, EXC_BADFUN);
+        a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+        a.str(ARG4, arm::Mem(c_p, offsetof(Process, fvalue)));
+
+        a.ldr(ARG2, TMP_MEM2q);
+        mov_imm(ARG4, nullptr);
+        a.b(labels[raise_exception_shared]);
+    }
+
+    a.bind(bad_arity);
+    {
+        /* Stash Fun across runtime/GC work. call-site PC is in TMP_MEM2q. */
+        a.str(ARG4, TMP_MEM1q);
+
+        emit_enter_runtime<Update::eHeapAlloc>();
+
+        a.mov(ARG1, c_p);
+        load_x_reg_array(ARG2);
+        a.lsr(ARG3, ARG3, imm(FUN_HEADER_ARITY_OFFS));
+        runtime_call<3>(beam_jit_build_argument_list);
+
+        emit_leave_runtime<Update::eHeapAlloc>();
+
+        /* X0 = Fun, X1 = Args */
+        a.ldr(VAR, TMP_MEM1q);
+        a.str(VAR, getXRef(0));
+        a.str(ARG1, getXRef(1));
+
+        /* Create the {Fun, Args} tuple. */
+        {
+            const int32_t bytes_needed = (3 + S_RESERVED) * sizeof(Eterm);
+            Label after_gc = a.newLabel();
+
+            add(ARG3, HTOP, bytes_needed);
+            a.cmp(ARG3, E);
+            a.b_ls(after_gc);
+            {
+                mov_imm(ARG4, 2);
+                a.bl(labels[garbage_collect]);
+            }
+            a.bind(after_gc);
+
+            a.ldr(ARG1, getXRef(0));
+            a.ldr(ARG2, getXRef(1));
+            a.add(VAR, HTOP, imm(TAG_PRIMARY_BOXED));
+
+            mov_imm(TMP, make_arityval(2));
+            a.str(TMP, arm::Mem(HTOP).post(sizeof(Eterm)));
+            a.str(ARG1, arm::Mem(HTOP).post(sizeof(Eterm)));
+            a.str(ARG2, arm::Mem(HTOP).post(sizeof(Eterm)));
+            a.mov(ARG1, VAR);
+        }
+
+        mov_imm(TMP, EXC_BADARITY);
+        a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+        a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
+
+        a.ldr(ARG2, TMP_MEM2q);
+        mov_imm(ARG4, nullptr);
+        a.b(labels[raise_exception_shared]);
+    }
+}
 /* Handles save_calls for local funs, which is a side-effect of our calling
  * convention. Fun entry is in ARG1.
  *
@@ -242,8 +312,10 @@ a32::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         mov_imm(ARG1, ga->get_handle_call_fun_error());
     }
 
-    /* ARM32 has no ARG5 register, so we don't materialize a synthetic call
-     * site pointer here. */
+    /* ARM32 has no ARG5 register, so stash current call-site PC in TMP_MEM2q
+     * for emit_handle_call_fun_error(). */
+    a.adr(VAR, next);
+    a.str(VAR, TMP_MEM2q);
 
     if (skip_box_test) {
         comment("skipped box test since source is always boxed");
@@ -257,19 +329,20 @@ a32::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     if (skip_header_test) {
         comment("skipped fun/arity test since source is always a fun of the "
                 "right arity when boxed");
-        a.ldr(ARG1, arm::Mem(TMP, offsetof(ErlFunThing, entry)));
+        a.ldr(VAR, arm::Mem(TMP, offsetof(ErlFunThing, entry)));
     } else {
         /* Load header and entry, then compare low 16 bits of header with ARG3
          * (FUN_SUBTAG + arity). */
         a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlFunThing, thing_word)));
-        a.ldr(ARG1, arm::Mem(TMP, offsetof(ErlFunThing, entry)));
+        a.ldr(VAR, arm::Mem(TMP, offsetof(ErlFunThing, entry)));
         a.lsl(ARG2, ARG2, imm(16));
         a.lsr(ARG2, ARG2, imm(16));
         a.cmp(ARG3, ARG2);
         a.b_ne(next);
     }
 
-    a.ldr(ARG1, emit_setup_dispatchable_call(ARG1));
+    /* On success, switch call target from error fragment to fun entry. */
+    a.ldr(ARG1, emit_setup_dispatchable_call(VAR));
 
     a.bind(next);
     return ARG1;
