@@ -575,6 +575,7 @@ jobs:
         with:
             usesh: true
             copyback: false
+            disable-cache: true
             prepare: |
               pkg update
               pkg upgrade -y
@@ -604,6 +605,7 @@ jobs:
         with:
             usesh: true
             copyback: false
+            disable-cache: true
             prepare: |
                 pkg_add -I bash gmake gtar autoconf ncurses pkgconf
             run: |
@@ -631,6 +633,7 @@ jobs:
         with:
             usesh: true
             copyback: false
+            disable-cache: true
             prepare: |
                 pkg refresh --full && pkg install --accept bash developer/build/gnu-make archiver/gnu-tar autoconf ncurses developer/build/pkg-config developer/gcc
             run: |
