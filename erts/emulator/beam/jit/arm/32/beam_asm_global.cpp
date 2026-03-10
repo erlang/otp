@@ -318,13 +318,19 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
 }
 
 void BeamModuleAssembler::emit_proc_lc_unrequire(void) {
-    // TODO
-    emit_nyi("emit_proc_lc_unrequire");
+    #ifdef ERTS_ENABLE_LOCK_CHECK
+    a.mov(ARG1, c_p);
+    mov_imm(ARG2, ERTS_PROC_LOCK_MAIN);
+    runtime_call<2>(erts_proc_lc_unrequire_lock);
+#endif
 }
 
 void BeamModuleAssembler::emit_proc_lc_require(void) {
-    // TODO
-    emit_nyi("emit_proc_lc_require");
+    #ifdef ERTS_ENABLE_LOCK_CHECK
+    a.mov(ARG1, c_p);
+    mov_imm(ARG2, ERTS_PROC_LOCK_MAIN);
+    runtime_call<4>(erts_proc_lc_require_lock);
+#endif
 }
 
 extern "C"

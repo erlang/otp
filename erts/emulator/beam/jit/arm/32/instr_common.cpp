@@ -199,8 +199,24 @@ void BeamModuleAssembler::emit_test_heap(const ArgWord &Nh,
 }
 
 void BeamModuleAssembler::emit_normal_exit() {
-    // TODO
-    emit_nyi("emit_normal_exit");
+    /* This is implicitly global; it does not normally appear in modules and
+     * doesn't require size optimization. */
+
+    emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
+    emit_proc_lc_unrequire();
+
+    mov_imm(TMP, EXC_NORMAL);
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+    mov_imm(TMP, 0);
+    a.strb(TMP, arm::Mem(c_p, offsetof(Process, arity)));
+    a.mov(ARG1, c_p);
+    mov_imm(ARG2, am_normal);
+    runtime_call<2>(erts_do_exit_process);
+
+    emit_proc_lc_require();
+    emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
+
+    a.b(resolve_fragment(ga->get_do_schedule(), disp32MB));
 }
 
 void BeamModuleAssembler::emit_continue_exit() {
