@@ -153,7 +153,7 @@ test(BootArgs) ->
     test_set_tuple_element(),
     test_tagged_tuple(),
     test_select_val(),
-%    test_external_call_errors(),
+    test_external_call_errors(),
 %    test_is_lt(),
 %    test_is_ge(),
 %    test_is_ne_exact(),
@@ -977,39 +977,39 @@ select_tuple_arity({A,B,C}) ->
 select_tuple_arity(_) ->
     error.
 
-%test_external_call_errors() ->
-%    try no_module:no_function({id(ok),42}) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:undef:Stk1 ->
-%            [{no_module,no_function,_,_}|_] = Stk1
-%    end,
-%
-%    OldErrorHandler = erlang:process_flag(error_handler, ?MODULE),
-%
-%    try no_module:no_function({id(ok),42}) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:undef:Stk2 ->
-%            [{no_module,no_function,[{ok,42}],_}|_] = Stk2
-%    end,
-%
-%    try tail_call_external_error({id(ok),100}) of
-%        _ ->
-%            error(expected_failure)
-%    catch
-%        error:undef:Stk3 ->
-%            [{no_module,no_function,[{ok,100}],_}|_] = Stk3
-%    end,
-%
-%    erlang:process_flag(error_handler, OldErrorHandler),
-%    ok.
-%
-%tail_call_external_error(Arg) ->
-%    no_module:no_function(Arg).
-%
+test_external_call_errors() ->
+    try no_module:no_function({id(ok),42}) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:undef:Stk1 ->
+            [{no_module,no_function,_,_}|_] = Stk1
+    end,
+
+    OldErrorHandler = erlang:process_flag(error_handler, ?MODULE),
+
+    try no_module:no_function({id(ok),42}) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:undef:Stk2 ->
+            [{no_module,no_function,[{ok,42}],_}|_] = Stk2
+    end,
+
+    try tail_call_external_error({id(ok),100}) of
+        _ ->
+            error(expected_failure)
+    catch
+        error:undef:Stk3 ->
+            [{no_module,no_function,[{ok,100}],_}|_] = Stk3
+    end,
+
+    erlang:process_flag(error_handler, OldErrorHandler),
+    ok.
+
+tail_call_external_error(Arg) ->
+    no_module:no_function(Arg).
+
 %test_is_lt() ->
 %    true = id(4) < 5,
 %    true = id(1) < 16#07ff_ffff_ffff_ffff,
