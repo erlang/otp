@@ -156,11 +156,16 @@ verbose_option(Config) ->
                          [{verbose, true}]).
 
 skipped_blocks_option(_Config) ->
-    expect_exception(ct_doctest_skipped_block_mod, [],
-                     error, {unexpected_skipped_blocks, 0, 1}),
+    ok = ct_doctest:module(ct_doctest_skipped_block_mod),
     ok = ct_doctest:module(ct_doctest_skipped_block_mod, [{skipped_blocks, false}]),
     ok = ct_doctest:module(ct_doctest_skipped_block_mod,
-                           [{skipped_blocks, 1}]).
+                           [{skipped_blocks, 1}]),
+    %% Wrong skipped_blocks count should raise an error.
+    try ct_doctest:module(ct_doctest_skipped_block_mod, [{skipped_blocks, 0}]) of
+        _ -> ct:fail(expected_error)
+    catch
+        error:{unexpected_skipped_blocks, 0, 1} -> ok
+    end.
 
 integration_smoke(_Config) ->
     Bindings = [{moduledoc, [{'Prebound', hello}]}],

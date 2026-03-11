@@ -307,8 +307,7 @@ Options for doctest execution.
   The code blocks are then checked to determine whether they should be run as doctests.
   If no parser is provided, a built-in markdown parser will be used.
 * `skipped_blocks` - Sets the exact number of Erlang code blocks that are allowed
-  to be skipped because no runnable shell prompts were found. It defaults to `0`.
-  Set it to `false` to disable this check.
+  to be skipped because no runnable shell prompts were found. It defaults to `false`.
 * `verbose` - Print detailed information while running doctests, including each
   block run and skipped block details.
 """.
@@ -594,7 +593,7 @@ extract_erlang_code_blocks(_Other) ->
     [].
 
 options_skipped_blocks(Options) ->
-    proplists:get_value(skipped_blocks, Options, 0).
+    proplists:get_value(skipped_blocks, Options, false).
 
 options_verbose(Options) ->
     proplists:get_value(verbose, Options, false) =:= true.
