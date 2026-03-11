@@ -647,9 +647,12 @@ cert_auths() ->
     certificate_authorities(?TLS_1_3).
 
 certificate_request_1_3() ->
-    #certificate_request_1_3{certificate_request_context = <<>>,
-                             extensions = #{certificate_authorities => certificate_authorities(?TLS_1_3)}
-                            }.
+    ?LET(Algs, signature_algs_cert(),
+         #certificate_request_1_3{certificate_request_context = <<>>,
+                                  extensions = #{certificate_authorities =>
+                                                     certificate_authorities(?TLS_1_3),
+                                                 signature_algs_cert =>
+                                                     Algs}}).
 certificate_request(Version) ->
     #certificate_request{certificate_types = certificate_types(Version),
 			 hashsign_algorithms = hashsign_algorithms(Version),
