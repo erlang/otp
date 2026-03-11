@@ -196,6 +196,8 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.bind(error_handler);
     {
+        Label handle = a.newLabel(), dispatch = a.newLabel();
+
         emit_enter_runtime_frame();
         emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -211,8 +213,27 @@ void BeamGlobalAssembler::emit_export_trampoline() {
         emit_leave_runtime_frame();
 
         a.tst(ARG1, ARG1);
-        a.b_eq(labels[process_exit]);
+        a.b_eq(handle);
+        a.b(dispatch);
 
+        a.bind(handle);
+        {
+            /* Match interpreter error_action_code semantics:
+             * handle_error(c_p, NULL, reg, NULL), then schedule or continue. */
+            emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
+            a.mov(ARG1, c_p);
+            mov_imm(ARG2, 0);
+            load_x_reg_array(ARG3);
+            mov_imm(ARG4, 0);
+            runtime_call<4>(handle_error);
+            emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
+
+            a.tst(ARG1, ARG1);
+            a.b_eq(labels[do_schedule]);
+            a.bx(ARG1);
+        }
+
+        a.bind(dispatch);
         branch(emit_setup_dispatchable_call(ARG1));
     }
 }
@@ -260,6 +281,7 @@ void BeamGlobalAssembler::emit_process_exit() {
     runtime_call<4>(handle_error);
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
+
 
     a.tst(ARG1, ARG1);
     a.b_eq(labels[do_schedule]);
