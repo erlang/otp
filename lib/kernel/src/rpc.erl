@@ -31,7 +31,7 @@ some specific side effects on the remote node.
 
 > #### Note {: .info }
 >
- `rpc:call/4` and related functions make it difficult to distinguish
+> `rpc:call/4` and related functions make it difficult to distinguish
 > between successful results, raised exceptions, and other errors. This
 > behavior cannot be changed for compatibility reasons.
 >
@@ -69,8 +69,6 @@ some specific side effects on the remote node.
 -define(TAB_NAME, rex_nodes_observer).
 
 -behaviour(gen_server).
-
--compile(nowarn_deprecated_catch).
 
 -export([start/0, start_link/0, stop/0,
 	 call/4, call/5,
@@ -242,19 +240,22 @@ handle_info({'DOWN', M, process, _, Reason}, S) ->
 	    {noreply, maps:remove(M, S)}
     end;
 handle_info({From, {sbcast, Name, Msg}}, S) ->
-    _ = case catch Name ! Msg of  %% use catch to get the printout
-            {'EXIT', _} ->
-                From ! {?NAME, node(), {nonexisting_name, Name}};
-            _ ->
-                From ! {?NAME, node(), node()}
-        end,
+    Node = node(),
+    Payload = try
+                  Name ! Msg,
+                  Node
+              catch
+                  error:_ ->
+                      {nonexisting_name, Name}
+              end,
+    From ! {?NAME, Node, Payload},
     {noreply, S};
 handle_info({From, {send, Name, Msg}}, S) ->
-    _ = case catch Name ! {From, Msg} of %% use catch to get the printout
-            {'EXIT', _} ->
-                From ! {?NAME, node(), {nonexisting_name, Name}};
-            _ ->
-                ok    %% It's up to Name to respond !!!!!
+    _ = try
+            Name ! {From, Msg}
+        catch
+            error:_ ->
+                From ! {?NAME, node(), {nonexisting_name, Name}}
         end,
     {noreply, S};
 handle_info({From, {call, Mod, Fun, Args, Gleader}}, S) ->
@@ -562,40 +563,21 @@ rpcify_exception(error, {erpc, Error}) ->
 rpcify_exception(error, Reason) ->
     error(Reason).
 
-do_srv_call(Node, Request, infinity) ->
-    rpc_check(catch gen_server:call({?NAME,Node}, Request, infinity));
 do_srv_call(Node, Request, Timeout) ->
-    Tag = make_ref(),
-    {Receiver,Mref} =
-	erlang:spawn_monitor(
-	  fun() ->
-		  %% Middleman process. Should be unsensitive to regular
-		  %% exit signals.
-		  process_flag(trap_exit, true),
-		  Result = gen_server:call({?NAME,Node}, Request, Timeout),
-		  exit({self(),Tag,Result})
-	  end),
-    receive
-	{'DOWN',Mref,_,_,{Receiver,Tag,Result}} ->
-	    rpc_check(Result);
-	{'DOWN',Mref,_,_,Reason} ->
-	    %% The middleman code failed. Or someone did 
-	    %% exit(_, kill) on the middleman process => Reason==killed
-	    rpc_check_t({'EXIT',Reason})
+    try
+        gen_server:call({?NAME, Node}, Request, Timeout)
+    of
+        {'EXIT', _} = Exit -> {badrpc, Exit};
+        Result -> Result
+    catch
+        throw:{'EXIT', _} = Exit -> {badrpc, Exit};
+        throw:Result -> Result;
+        exit:{timeout, _} -> {badrpc, timeout};
+        exit:{timeout_value, _} -> error(badarg);
+        exit:{{nodedown, _}, _} -> {badrpc, nodedown};
+        exit:Reason -> {badrpc, {'EXIT', Reason}};
+        error:Reason:StackTrace -> {badrpc, {'EXIT', {Reason, StackTrace}}}
     end.
-
-rpc_check_t({'EXIT', {timeout,_}}) -> {badrpc, timeout};
-rpc_check_t({'EXIT', {timeout_value,_}}) -> error(badarg);
-rpc_check_t(X) -> rpc_check(X).
-	    
-rpc_check({'EXIT', {{nodedown,_},_}}) ->
-    {badrpc, nodedown};
-rpc_check({'EXIT', _}=Exit) ->
-    %% Should only happen if the rex process on the other node
-    %% died.
-    {badrpc, Exit};
-rpc_check(X) -> X.
-
 
 %% This is a real handy function to be used when interacting with
 %% a server called Name at node Node. It is assumed that the server
@@ -764,7 +746,7 @@ eval_everywhere(Nodes, Mod, Fun, Args) ->
 send_nodes([Node|Tail], Name, Msg, Monitors) when is_atom(Node) ->
     Monitor = start_monitor(Node, Name),
     %% Handle non-existing names in rec_nodes.
-    catch {Name, Node} ! {self(), Msg},
+    _ = try {Name, Node} ! {self(), Msg} catch _:_ -> ok end,
     send_nodes(Tail, Name, Msg, [Monitor | Monitors]);
 send_nodes([_Node|Tail], Name, Msg, Monitors) ->
     %% Skip non-atom _Node
