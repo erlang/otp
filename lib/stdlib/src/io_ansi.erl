@@ -82,7 +82,7 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 [terminfo]: https://man7.org/linux/man-pages/man5/terminfo.5.html
 [ANSI escape codes]: https://en.wikipedia.org/wiki/ANSI_escape_code
 """.
-
+-moduledoc(#{since => "OTP @OTP-20028@"}).
 
 -export([tput/1, tput/2, tigetnum/1, tigetflag/1, tinfo/0]).
 -export([format/1, format/2, format/3, fwrite/1, fwrite/2, fwrite/3, fwrite/4,

@@ -117,8 +117,8 @@ fwrite(Config) ->
         try
             shell_test_lib:send_tty(Term, atom_to_list(Node) ++ "\n"),
 
-            shell_test_lib:check_content(Term, "\n\e\\[4m\e\\[34mblue", #{ args => "-e" }),
-            shell_test_lib:check_content(Term, "\n\e\\[(0;)?1m\e\\[31m(\e\\[49m)?red", #{ args => "-e" })
+            shell_test_lib:check_content(Term, "\n\e\\[4m\e\\[3(8;5;)?4mblue", #{ args => "-e" }),
+            shell_test_lib:check_content(Term, "\n\e\\[(0;)?1m\e\\[3(8;5;)?1m(\e\\[49m)?red", #{ args => "-e" })
 
         after
             shell_test_lib:stop_tty(Term)
@@ -200,6 +200,10 @@ format_no_color_env(Config) ->
     %% - {color,true} overrides NO_COLOR
     %% - empty NO_COLOR keeps colors enabled by default
     NoColorTerm = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR","1"}]}|Config]),
+    ExpectedColorString = case os:type() of
+        {unix,freebsd} -> <<"\e[38;5;4m\e[4mx">>;
+        _ -> <<"\e[34m\e[4mx">>
+    end,
     try
         ?assertEqual(<<"\e[4mx">>,
                      shell_test_lib:rpc(
@@ -209,7 +213,7 @@ format_no_color_env(Config) ->
                                io_ansi:format([blue, underline, "x"], [],
                                               [{enabled,true}, {reset,false}])
                        end)),
-        ?assertEqual(<<"\e[34m\e[4mx">>,
+        ?assertEqual(ExpectedColorString,
                      shell_test_lib:rpc(
                        NoColorTerm,
                        fun() ->
@@ -223,7 +227,8 @@ format_no_color_env(Config) ->
 
     EmptyNoColorTerm = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR",""}]}|Config]),
     try
-        ?assertEqual(<<"\e[34m\e[4mx">>,
+
+        ?assertEqual(ExpectedColorString,
                      shell_test_lib:rpc(
                        EmptyNoColorTerm,
                        fun() ->
