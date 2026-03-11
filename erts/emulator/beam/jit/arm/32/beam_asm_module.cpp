@@ -334,11 +334,8 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
         a.udf(0xF1F0);
     }
     ERTS_CT_ASSERT(ERTS_ASM_BP_FLAG_NONE == 0);
-    /*
-      On Arm32 we do not need to add padding space here.
-      The metadata struct inside ErtsCodeInfo is 4 bytes long (UInt).
-      The BL instruction is already 4 bytes.
-    */
+    /* Keep breakpoint_flag in a dedicated metadata word on ARM32. */
+    a.embedUInt32(0);
     ASSERT(a.offset() % sizeof(UWord) == 0);
     a.embed(&info.gen_bp, sizeof(info.gen_bp));
     a.embed(&info.mfa, sizeof(info.mfa));

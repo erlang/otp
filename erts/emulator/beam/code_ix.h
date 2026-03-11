@@ -111,8 +111,19 @@ typedef struct ErtsCodeInfo_ {
         BeamInstr op;
 #else
         struct {
+#if defined(__arm__)
+            /*
+             * On ARM32 we keep the instruction word intact and store
+             * breakpoint_flag in a separate metadata word to avoid aliasing
+             * with BL opcode bytes.
+             */
+            char raise_function_clause[sizeof(BeamInstr)];
+            char breakpoint_flag;
+            char padding[sizeof(BeamInstr) - 1];
+#else
             char raise_function_clause[sizeof(BeamInstr) - 1];
             char breakpoint_flag;
+#endif
         } metadata;
 #endif
     } u;

@@ -190,6 +190,15 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
 
         /* Reroute the initial jump instruction to `.enabled`. */
         rw_code[1] = 0x14000001;
+#    elif defined(__arm__)
+        Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
+
+        /* B .next, .enabled: BL breakpoint_handler, .next: */
+        ASSERT(rw_code[1] == 0xEA000000);
+
+        /* Reroute the initial jump instruction to `.enabled`.
+         * ARM branch at +4 has PC base +8, so .enabled at +8 is imm -1. */
+        rw_code[1] = 0xEAFFFFFF;
 #    else /* x86_64 */
         byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
 
@@ -226,6 +235,15 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
         /* Reroute the initial jump instruction back to `.next`. */
         ERTS_CT_ASSERT(BEAM_ASM_FUNC_PROLOGUE_SIZE == sizeof(Uint32[3]));
         rw_code[1] = 0x14000002;
+#    elif defined(__arm__)
+        Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
+
+        /* B .enabled, .enabled: BL breakpoint_handler, .next: */
+        ASSERT(rw_code[1] == 0xEAFFFFFF);
+
+        /* Reroute the initial jump instruction back to `.next`. */
+        ERTS_CT_ASSERT(BEAM_ASM_FUNC_PROLOGUE_SIZE == sizeof(Uint32[3]));
+        rw_code[1] = 0xEA000000;
 #    else /* x86_64 */
         byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
 

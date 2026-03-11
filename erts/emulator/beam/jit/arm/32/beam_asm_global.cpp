@@ -142,8 +142,11 @@ void BeamGlobalAssembler::emit_garbage_collect() {
  *
  * Assumes that c_p->current points into the MFA of an export entry. */
 void BeamGlobalAssembler::emit_bif_export_trap() {
-    // TODO
-    emit_nyi("emit_bif_export_trap");
+    a.ldr(ARG1, arm::Mem(c_p, offsetof(Process, current)));
+    sub(ARG1, ARG1, offsetof(Export, info.mfa));
+
+    emit_leave_erlang_frame();
+    branch(emit_setup_dispatchable_call(ARG1));
 }
 
 /* Handles export breakpoints, error handler, jump tracing, and so on.

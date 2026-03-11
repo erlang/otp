@@ -675,7 +675,8 @@ void BeamGlobalAssembler::emit_call_bif_shared(void) {
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, current)));
 
     a.ldr(TMP, arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
-    a.strb(TMP, arm::Mem(c_p, offsetof(Process, arity)));
+    a.mov(VAR, TMP);
+    a.strb(VAR, arm::Mem(c_p, offsetof(Process, arity)));
     a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
  
     /* The corresponding leave can be found in the epilogue. */
@@ -695,7 +696,7 @@ void BeamGlobalAssembler::emit_call_bif_shared(void) {
      * This requires us to allocate it on the stack.
      */
     a.sub(a32::sp, a32::sp, imm(8)); // keep 8-byte alignment
-    a.str(TMP, arm::Mem(a32::sp, 0)); // store arity on the stack
+    a.str(VAR, arm::Mem(a32::sp, 0)); // store arity on the stack
     runtime_call<5>(beam_jit_call_bif);
     a.add(a32::sp, a32::sp, imm(8)); // delete arity from the stack
  
