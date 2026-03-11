@@ -164,9 +164,9 @@ test(BootArgs) ->
     test_is_ne_arith(),
     test_trace_breakpoint(),
     test_remove_message(),
-%    test_receive_optimizations(),
-%    test_is_function(),
-%    test_bs_match(),
+    test_receive_optimizations(),
+    test_is_function(),
+    test_bs_match(),
 %    test_bs_construct(),
 %    test_yield(),
 %    test_maps(),
@@ -1016,6 +1016,7 @@ test_is_lt() ->
     true = id(-2) < 1,
     true = id(-1) < 1,
     false = id(42) < 42,
+    
 
     true = 4 < id(5),
     true = 1 < id(16#07ff_ffff_ffff_ffff),
@@ -1311,141 +1312,142 @@ rm_message() ->
             {Msg, A, B, C, D}
     end.
 
-%test_receive_optimizations() ->
-%    Pid = my_spawn_opt(fun recv_opt_loop/0, [link]),
-%    {request_received, {a,b}} = recv_opt_req(Pid, {id(a),b}),
-%    recv_opt_req(Pid, stop),
-%
-%    ok.
-%
-%recv_opt_req(Name, Req) ->
-%    Ref = make_ref(),
-%    Name ! {self(), Ref, Req},
-%    receive
-%        {Name, Ref, Reply} -> Reply
-%    after 10000 ->
-%            error(expected_message)
-%    end.
-%
-%recv_opt_loop() ->
-%    receive
-%        {Caller, Ref, Req} ->
-%            Caller ! {self(), Ref, {request_received, Req}},
-%            case Req of
-%                stop -> ok;
-%                _ -> recv_opt_loop()
-%            end
-%    end.
-%
-%test_is_function() ->
-%    true = is_function(id(fun() -> ok end)),
-%    true = is_function(id(fun hello:start/2)),
-%    false = is_function(id({a,b,c})),
-%    false = is_function(id(self())),
-%    false = is_function(id(a)),
-%
-%    true = is_function(id(fun() -> ok end), id(0)),
-%    false = is_function(id({a,b,c}), id(0)),
-%
-%    false = is_function(id(fun() -> ok end), 1024),
-%
-%    true = is_function(id(fun() -> ok end), 0),
-%    true = is_function(id(fun(X) -> X + 1 end), 1),
-%    true = is_function(id(fun hello:start/0), 0),
-%    true = is_function(id(fun hello:start/2), 2),
-%    false = is_function(id(a), 0),
-%    false = is_function(id(self()), 0),
-%    false = is_function(id({a,b,c}), 0),
-%
-%    false = is_function(id(fun() -> ok end), 1),
-%    false = is_function(id(fun hello:start/2), 0),
-%
-%    ok.
-%
-%
-%-define(UNICODE_MAX, 16#10FFFF).
-%
-%test_bs_match() ->
-%    basic_bs_match(),
-%    complex_bs_match(),
-%
-%    ok.
-%
-%basic_bs_match() ->
-%    Simple = <<1, 1:16,
-%               2, 2:32,
-%               3, 3:64,
-%               1.67/float>>,
-%
-%    <<A, A:16, B, B:32, C, C:64, D/float>> = id(Simple),
-%
-%    A = 1,
-%    B = 2,
-%    C = 3,
-%    D = 1.67,
-%
-%    ok.
-%
-%complex_bs_match() ->
-%    14 = cbm_mixed(id(<<"alpha",1,
-%                        "beta",1,
-%                        "set_position_test",1,
-%                        "set_position_test",1.67/float,
-%                        "skip_bits",1:256,
-%                        "get_binary_fixed16",128:128,
-%                        "get_binary_variable",2,2:16, %% Size in bytes
-%                        "get_binary_variable",4,4:32,
-%                        "get_bits_fixed128",128:128,
-%                        "get_bits_variable",16,16:16,
-%                        "get_bits_variable",32,32:32,
-%                        "utf8",$z/utf8,$ö/utf8,?UNICODE_MAX/utf8,
-%                        "utf16",$z/utf16,$ö/utf16,?UNICODE_MAX/utf16,
-%                        "utf32",$z/utf32,$ö/utf32,?UNICODE_MAX/utf32>>)),
-%
-%    <<"16">> = cbm_tail(id(<<16:16,"16">>)),
-%    <<"1">> = cbm_tail(<<1:1,"1">>),
-%
-%    ok.
-%
-%cbm_mixed(<<"alpha", N, Rest/binary>>) ->
-%    cbm_mixed(Rest) + N;
-%cbm_mixed(<<"beta", N, Rest/binary>>) ->
-%    cbm_mixed(Rest) + N;
-%cbm_mixed(<<"set_position_test", 1, Rest/binary>>) ->
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"set_position_test", 1.67/float, Rest/binary>>) ->
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"skip_bits", _:256/bits, Rest/binary>>) ->
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"get_binary_fixed16", Bin:16/binary, Rest/binary>>) ->
-%    <<128:128>> = id(Bin),
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"get_binary_variable", Size, Bin:Size/binary, Rest/binary>>) ->
-%    <<Size:(Size * 8)>> = id(Bin),
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"get_bits_fixed128", Bin:128/bits, Rest/binary>>) ->
-%    <<128:128>> = id(Bin),
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"get_bits_variable", Size, Bin:Size/bits, Rest/binary>>) ->
-%    <<Size:Size>> = id(Bin),
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"utf8", A/utf8, B/utf8, C/utf8, Rest/binary>>) ->
-%    A = $z, B = $ö, C = ?UNICODE_MAX,
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"utf16", A/utf16, B/utf16, C/utf16, Rest/binary>>) ->
-%    A = $z, B = $ö, C = ?UNICODE_MAX,
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<"utf32", A/utf32, B/utf32, C/utf32, Rest/binary>>) ->
-%    A = $z, B = $ö, C = ?UNICODE_MAX,
-%    cbm_mixed(Rest) + 1;
-%cbm_mixed(<<>>) ->
-%    0.
-%
-%cbm_tail(<<16:16, Rest/binary-unit:16>>) ->
-%    Rest;
-%cbm_tail(<<1:1, Rest/bits>>) ->
-%    Rest.
-%
+test_receive_optimizations() ->
+    Pid = my_spawn_opt(fun recv_opt_loop/0, [link]),
+    {request_received, {a,b}} = recv_opt_req(Pid, {id(a),b}),
+    recv_opt_req(Pid, stop),
+
+    ok.
+
+recv_opt_req(Name, Req) ->
+    Ref = make_ref(),
+    Name ! {self(), Ref, Req},
+    receive
+        {Name, Ref, Reply} -> Reply
+    after 10000 ->
+            error(expected_message)
+    end.
+
+recv_opt_loop() ->
+    receive
+        {Caller, Ref, Req} ->
+            Caller ! {self(), Ref, {request_received, Req}},
+            case Req of
+                stop -> ok;
+                _ -> recv_opt_loop()
+            end
+    end.
+
+test_is_function() ->
+    true = is_function(id(fun() -> ok end)),
+    true = is_function(id(fun hello:start/2)),
+    false = is_function(id({a,b,c})),
+    false = is_function(id(self())),
+    false = is_function(id(a)),
+
+    true = is_function(id(fun() -> ok end), id(0)),
+    false = is_function(id({a,b,c}), id(0)),
+
+    false = is_function(id(fun() -> ok end), 1024),
+
+    true = is_function(id(fun() -> ok end), 0),
+    true = is_function(id(fun(X) -> X + 1 end), 1),
+    true = is_function(id(fun hello:start/0), 0),
+    true = is_function(id(fun hello:start/2), 2),
+    false = is_function(id(a), 0),
+    false = is_function(id(self()), 0),
+    false = is_function(id({a,b,c}), 0),
+
+    false = is_function(id(fun() -> ok end), 1),
+    false = is_function(id(fun hello:start/2), 0),
+    ok.
+
+
+-define(UNICODE_MAX, 16#10FFFF).
+
+test_bs_match() ->
+    basic_bs_match(),
+    erlang:display_string("basic_bs_match done\n"),
+    complex_bs_match(),
+
+    ok.
+
+basic_bs_match() ->
+    Simple = <<1, 1:16,
+               2, 2:32,
+               3, 3:64,
+               1.67/float>>,
+
+    <<A, A:16, B, B:32, C, C:64, D/float>> = id(Simple),
+
+    A = 1,
+    B = 2,
+    C = 3,
+    D = 1.67,
+
+    ok.
+
+complex_bs_match() ->
+    14 = cbm_mixed(id(<<"alpha",1,
+                        "beta",1,
+                        "set_position_test",1,
+                        "set_position_test",1.67/float,
+                        "skip_bits",1:256,
+                        "get_binary_fixed16",128:128,
+                        "get_binary_variable",2,2:16, %% Size in bytes
+                        "get_binary_variable",4,4:32,
+                        "get_bits_fixed128",128:128,
+                        "get_bits_variable",16,16:16,
+                        "get_bits_variable",32,32:32,
+                        "utf8",$z/utf8,$ö/utf8,?UNICODE_MAX/utf8,
+                        "utf16",$z/utf16,$ö/utf16,?UNICODE_MAX/utf16,
+                        "utf32",$z/utf32,$ö/utf32,?UNICODE_MAX/utf32>>)),
+    erlang:display_string("complex_bs_match done\n"),
+    <<"16">> = cbm_tail(id(<<16:16,"16">>)),
+    <<"1">> = cbm_tail(<<1:1,"1">>),
+    erlang:display_string("cbm_tail done\n"),
+    ok.
+
+
+cbm_mixed(<<"alpha", N, Rest/binary>>) ->
+    cbm_mixed(Rest) + N;
+cbm_mixed(<<"beta", N, Rest/binary>>) ->
+    cbm_mixed(Rest) + N;
+cbm_mixed(<<"set_position_test", 1, Rest/binary>>) ->
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"set_position_test", 1.67/float, Rest/binary>>) ->
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"skip_bits", _:256/bits, Rest/binary>>) ->
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"get_binary_fixed16", Bin:16/binary, Rest/binary>>) ->
+    <<128:128>> = id(Bin),
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"get_binary_variable", Size, Bin:Size/binary, Rest/binary>>) ->
+    <<Size:(Size * 8)>> = id(Bin),
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"get_bits_fixed128", Bin:128/bits, Rest/binary>>) ->
+    <<128:128>> = id(Bin),
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"get_bits_variable", Size, Bin:Size/bits, Rest/binary>>) ->
+    <<Size:Size>> = id(Bin),
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"utf8", A/utf8, B/utf8, C/utf8, Rest/binary>>) ->
+    A = $z, B = $ö, C = ?UNICODE_MAX,
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"utf16", A/utf16, B/utf16, C/utf16, Rest/binary>>) ->
+    A = $z, B = $ö, C = ?UNICODE_MAX,
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<"utf32", A/utf32, B/utf32, C/utf32, Rest/binary>>) ->
+    A = $z, B = $ö, C = ?UNICODE_MAX,
+    cbm_mixed(Rest) + 1;
+cbm_mixed(<<>>) ->
+    0.
+
+cbm_tail(<<16:16, Rest/binary-unit:16>>) ->
+    Rest;
+cbm_tail(<<1:1, Rest/bits>>) ->
+    Rest.
+
 %test_bs_construct() ->
 %    basic_bs_construct(),
 %    complex_bs_construct(),
