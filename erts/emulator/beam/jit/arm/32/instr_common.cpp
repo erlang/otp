@@ -1523,8 +1523,45 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
-    // TODO
-    emit_nyi("emit_is_ne_exact");
+    auto x = load_source(X, ARG1);
+
+    /* If either argument is known to be an immediate, a direct term compare is
+     * sufficient for exact non-equality. */
+    if (always_immediate(X) || always_immediate(Y)) {
+        if (!X.isImmed() && !Y.isImmed()) {
+            comment("simplified check since one argument is an immediate");
+        }
+
+        preserve_cache([&]() {
+            cmp_arg(x.reg, Y);
+            a.b_eq(resolve_beam_label(Fail, disp32MB));
+        });
+
+        return;
+    }
+
+    auto y = load_source(Y, ARG2);
+
+    /* Pointer/term identity implies exact equality. */
+    a.cmp(x.reg, y.reg);
+    a.b_eq(resolve_beam_label(Fail, disp32MB));
+
+    /* Values differ by identity; use deep exact comparison for boxed terms. */
+    mov_var(ARG1, x);
+    mov_var(ARG2, y);
+
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::Float>(X) ||
+        always_one_of<BeamTypeId::Integer, BeamTypeId::Float>(Y)) {
+        fragment_call(ga->get_is_eq_exact_shallow_boxed_shared());
+        a.b_eq(resolve_beam_label(Fail, disp32MB));
+    } else {
+        emit_enter_runtime();
+        runtime_call<2>(eq);
+        emit_leave_runtime();
+        mov_imm(TMP, 0);
+        a.cmp(ARG1, TMP);
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_eq(const ArgLabel &Fail,
