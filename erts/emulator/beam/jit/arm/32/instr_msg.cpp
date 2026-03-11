@@ -234,13 +234,28 @@ void BeamModuleAssembler::emit_remove_message() {
 }
 
 void BeamModuleAssembler::emit_loop_rec_end(const ArgLabel &Dest) {
-    // TODO
-    emit_nyi("emit_loop_rec_end");
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<1>(erts_msgq_set_save_next);
+
+    emit_leave_runtime();
+
+    sub(FCALLS, FCALLS, 1);
+    a.b(resolve_beam_label(Dest, disp32MB));
 }
 
 void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
-    // TODO
-    emit_nyi("emit_wait_unlocked");
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    a.ldr(ARG2, embed_constant(Dest, disp4KB));
+    runtime_call<2>(beam_jit_wait_unlocked);
+
+    emit_leave_runtime();
+
+    a.b(resolve_fragment(ga->get_do_schedule(), disp32MB));
+    mark_unreachable_check_pending_stubs();
 }
 
 void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
@@ -261,22 +276,57 @@ void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
                                                      const ArgLabel &Dest) {
-    // TODO
-    emit_nyi("emit_wait_timeout_unlocked");
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<1>(beam_jit_take_receive_lock);
+
+    emit_leave_runtime();
+
+    emit_wait_timeout_locked(Src, Dest);
 }
 
 void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
                                                    const ArgLabel &Dest) {
-    // TODO
-    emit_nyi("emit_wait_timeout_locked");
+    Label wait = a.newLabel(), next = a.newLabel();
+
+    mov_arg(ARG2, Src);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    a.adr(ARG3, next);
+    runtime_call<3>(beam_jit_wait_timeout);
+
+    emit_leave_runtime();
+
+    ERTS_CT_ASSERT(RET_next < RET_wait && RET_wait < RET_badarg);
+    a.cmp(ARG1, imm(RET_wait));
+    a.b_eq(wait);
+    a.b_lt(next);
+
+    emit_raise_exception();
+
+    a.bind(wait);
+    emit_wait_locked(Dest);
+
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_timeout_locked() {
-    // TODO
-    emit_nyi("emit_timeout_locked");
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<1>(beam_jit_timeout_locked);
+
+    emit_leave_runtime();
 }
 
 void BeamModuleAssembler::emit_timeout() {
-    // TODO
-    emit_nyi("emit_timeout");
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<1>(beam_jit_timeout);
+
+    emit_leave_runtime();
 }
