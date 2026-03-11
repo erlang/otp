@@ -533,12 +533,19 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 
     a.bind(trace);
     {
-        emit_nyi("emit_call_light_bif_trace");
+        /* Call the export entry instead of the BIF. */
+        branch(emit_setup_dispatchable_call(ARG4));
     }
 
     a.bind(yield);
     {
-        emit_nyi("emit_call_light_bif_yield");
+        a.ldrb(ARG2, arm::Mem(ARG4, offsetof(Export, info.mfa.arity)));
+        add(ARG4, ARG4, offsetof(Export, info.mfa));
+        a.strb(ARG2, arm::Mem(c_p, offsetof(Process, arity)));
+        a.str(ARG4, arm::Mem(c_p, offsetof(Process, current)));
+
+        /* We'll find our way back through ARG3 (entry address). */
+        a.b(labels[context_switch_simplified]);
     }
 }
 
@@ -611,19 +618,43 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     a.b_ne(error);
     {
         comment("yield");
-        emit_nyi("emit_bif_nif_epilogue_yield");
-        
+
+        comment("test trap to hibernate");
+        a.ldr(TMP, arm::Mem(c_p, offsetof(Process, flags)));
+        a.tst(TMP, imm(F_HIBERNATE_SCHED));
+        a.b_eq(trap);
+
+        comment("do hibernate trap");
+        mov_imm(VAR, ~F_HIBERNATE_SCHED);
+        a.and_(TMP, TMP, VAR);
+        a.str(TMP, arm::Mem(c_p, offsetof(Process, flags)));
+        a.b(labels[do_schedule]);
     }
 
     a.bind(trap);
     {
         comment("do normal trap");
-        emit_nyi("emit_bif_nif_epilogue_normal_trap");
+
+        /* The BIF_TRAP macros all set up c_p->arity and c_p->current, so we
+         * can use a simplified context switch. */
+        a.ldr(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+        a.b(labels[context_switch_simplified]);
     }
 
     a.bind(error);
     {
-        emit_nyi("emit_bif_nif_epilogue_error");
+        a.mov(ARG2, E);
+
+        emit_enter_runtime();
+
+        a.mov(ARG1, c_p);
+        runtime_call<2>(erts_printable_return_address);
+
+        emit_leave_runtime();
+
+        a.mov(ARG2, ARG1);
+        a.ldr(ARG4, arm::Mem(c_p, offsetof(Process, current)));
+        a.b(labels[raise_exception_shared]);
     }
 }
 
