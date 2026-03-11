@@ -154,7 +154,7 @@ test(BootArgs) ->
     test_tagged_tuple(),
     test_select_val(),
     test_external_call_errors(),
-%    test_is_lt(),
+    test_is_lt(),
 %    test_is_ge(),
 %    test_is_ne_exact(),
 %    test_selective_receive(),
@@ -1010,92 +1010,92 @@ test_external_call_errors() ->
 tail_call_external_error(Arg) ->
     no_module:no_function(Arg).
 
-%test_is_lt() ->
-%    true = id(4) < 5,
-%    true = id(1) < 16#07ff_ffff_ffff_ffff,
-%    true = id(-2) < 1,
-%    true = id(-1) < 1,
-%    false = id(42) < 42,
-%
-%    true = 4 < id(5),
-%    true = 1 < id(16#07ff_ffff_ffff_ffff),
-%    true = -2 < id(1),
-%    true = -1 < id(1),
-%    false = 42 < id(42),
-%
-%    true = id(4) < id(5),
-%    true = id(1) < id(16#07ff_ffff_ffff_ffff),
-%    true = id(-2) < id(1),
-%    true = id(-1) < id(1),
-%    false = id(42) < id(42),
-%
-%    %% Atoms.
-%    A = id(a),
-%    B = id(b),
-%
-%    true = A < b,
-%    true = a < B,
-%    true = A < B,
-%
-%    false = A < a,
-%    false = a < A,
-%    false = A < A,
-%    false = id(a) < A,
-%
-%    test_is_lt_atoms(A, B, id(c), id(d), id(e), id(f), id(g), id(h)),
-%
-%    false = B < a,
-%    false = B < A,
-%    false = B < A,
-%
-%    %% Floats.
-%    Two = id(2.0),
-%    Three = id(3.0),
-%
-%    true = 2.0 < Three,
-%    true = Two < 3.0,
-%    true = Two < Three,
-%
-%    false = 3.0 < Two,
-%    false = Three < 2.0,
-%    false = Three < Two,
-%
-%    false = 2.0 < Two,
-%    false = Two < 2.0,
-%    false = Two < Two,
-%    false = id(2.0) < Two,
-%
-%    %% Mixed.
-%    true = Two < 3,
-%    true = 2 < Three,
-%    true = id({a,b}) < id({x,y}),
-%
-%    true = Two < {a,b},
-%    false = [a,b] < Two,
-%
-%    Args = get_args8(?FUNCTION_NAME),
-%    {V1,V2,V3,V4,V5,V6,V7,V8} = Args,
-%    test_is_lt_mixed(V1, V2, V3, V4, V5, V6, V7, V8),
-%
-%    ok.
-%
-%%% Test that high-numbered X registers work/are not clobbered.
-%test_is_lt_atoms(V1, V2, V3, V4, V5, V6, V7, V8) ->
-%    true = V1 < V2,
-%    true = V3 < V4,
-%    true = V5 < V6,
-%    true = V6 < V7,
-%    false = V8 < V7.
-%
-%%% Test that high-numbered X registers work/are not clobbered.
-%test_is_lt_mixed(V1, V2, V3, V4, V5, V6, V7, V8) ->
-%    true = V1 < V2,
-%    true = V3 < V4,
-%    false = V5 < V5,
-%    false = V6 < V7,                         %Tuple is less than list.
-%    true = V7 < V8,
-%    ok.
-%
+test_is_lt() ->
+    true = id(4) < 5,
+    true = id(1) < 16#07ff_ffff_ffff_ffff,
+    true = id(-2) < 1,
+    true = id(-1) < 1,
+    false = id(42) < 42,
+
+    true = 4 < id(5),
+    true = 1 < id(16#07ff_ffff_ffff_ffff),
+    true = -2 < id(1),
+    true = -1 < id(1),
+    false = 42 < id(42),
+
+    true = id(4) < id(5),
+    true = id(1) < id(16#07ff_ffff_ffff_ffff),
+    true = id(-2) < id(1),
+    true = id(-1) < id(1),
+    false = id(42) < id(42),
+
+    %% Atoms.
+    A = id(a),
+    B = id(b),
+
+    true = A < b,
+    true = a < B,
+    true = A < B,
+
+    false = A < a,
+    false = a < A,
+    false = A < A,
+    false = id(a) < A,
+
+    test_is_lt_atoms(A, B, id(c), id(d), id(e), id(f), id(g), id(h)),
+
+    false = B < a,
+    false = B < A,
+    false = B < A,
+
+    %% Floats.
+    Two = id(2.0),
+    Three = id(3.0),
+
+    true = 2.0 < Three,
+    true = Two < 3.0,
+    true = Two < Three,
+
+    false = 3.0 < Two,
+    false = Three < 2.0,
+    false = Three < Two,
+
+    false = 2.0 < Two,
+    false = Two < 2.0,
+    false = Two < Two,
+    false = id(2.0) < Two,
+
+    %% Mixed.
+    true = Two < 3,
+    true = 2 < Three,
+    true = id({a,b}) < id({x,y}),
+
+    true = Two < {a,b},
+    false = [a,b] < Two,
+
+    Args = get_args8(?FUNCTION_NAME),
+    {V1,V2,V3,V4,V5,V6,V7,V8} = Args,
+    test_is_lt_mixed(V1, V2, V3, V4, V5, V6, V7, V8),
+
+    ok.
+
+%% Test that high-numbered X registers work/are not clobbered.
+test_is_lt_atoms(V1, V2, V3, V4, V5, V6, V7, V8) ->
+    true = V1 < V2,
+    true = V3 < V4,
+    true = V5 < V6,
+    true = V6 < V7,
+    false = V8 < V7.
+
+%% Test that high-numbered X registers work/are not clobbered.
+test_is_lt_mixed(V1, V2, V3, V4, V5, V6, V7, V8) ->
+    true = V1 < V2,
+    true = V3 < V4,
+    false = V5 < V5,
+    false = V6 < V7,                         %Tuple is less than list.
+    true = V7 < V8,
+    ok.
+
 %test_is_ge() ->
 %    false = id(4) >= 5,
 %    false = id(1) >= 16#07ff_ffff_ffff_ffff,
@@ -1132,7 +1132,7 @@ tail_call_external_error(Arg) ->
 %
 %    ok.
 %
-%%% Test that high-numbered X registers work/are not clobbered.
+%% Test that high-numbered X registers work/are not clobbered.
 %test_is_ge_mixed(V1, V2, V3, V4, V5, V6, V7, V8) ->
 %    false = V1 >= V2,
 %    false = V3 >= V4,
