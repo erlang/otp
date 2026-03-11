@@ -930,15 +930,62 @@ void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
                                            const ArgRegister &Src) {
-    // TODO
-    emit_nyi("emit_is_function");
+    auto src = load_source(Src, TMP);
+    auto fail = resolve_beam_label(Fail, disp32MB);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Fun) {
+        comment("skipped header test since we know it's a fun when boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(VAR, src.reg);
+        a.ldr(TMP, emit_boxed_val(boxed_ptr));
+        mov_imm(VAR, 0xFF);
+        a.and_(TMP, TMP, VAR);
+        a.cmp(TMP, imm(FUN_SUBTAG));
+        a.b_ne(fail);
+    }
 }
 
 void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgSource &Arity) {
-    // TODO
-    emit_nyi("emit_is_function2");
+    auto fail = resolve_beam_label(Fail, disp32MB);
+
+    if (!Arity.isSmall()) {
+        /* Non-small arity - uncommon; defer to runtime helper. */
+        mov_arg(ARG2, Src);
+        mov_arg(ARG3, Arity);
+
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erl_is_function);
+        emit_leave_runtime();
+
+        mov_imm(TMP, am_true);
+        a.cmp(ARG1, TMP);
+        a.b_ne(fail);
+        return;
+    }
+
+    unsigned arity = Arity.as<ArgSmall>().getUnsigned();
+    if (arity > MAX_ARG) {
+        a.b(fail);
+        return;
+    }
+
+    auto src = load_source(Src, ARG1);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    a32::Gp boxed_ptr = emit_ptr_val(VAR, src.reg);
+
+    /* Combined header word and arity check (lowest 16 bits). */
+    a.ldr(TMP, emit_boxed_val(boxed_ptr));
+    mov_imm(VAR, 0xFFFF);
+    a.and_(TMP, TMP, VAR);
+    mov_imm(VAR, MAKE_FUN_HEADER(arity, 0, 0) & 0xFFFF);
+    a.cmp(TMP, VAR);
+    a.b_ne(fail);
 }
 
 void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,

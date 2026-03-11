@@ -31,24 +31,49 @@ extern "C"
 }
 
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_recv_marker_reserve");
+    emit_enter_runtime<Update::eHeapAlloc>();
+
+    a.mov(ARG1, c_p);
+    runtime_call<1>(erts_msgq_recv_marker_insert);
+
+    emit_leave_runtime<Update::eHeapAlloc>();
+
+    mov_arg(Dst, ARG1);
 }
 
 void BeamModuleAssembler::emit_recv_marker_bind(const ArgRegister &Marker,
                                                 const ArgRegister &Reference) {
-    // TODO
-    emit_nyi("emit_recv_marker_bind");
+    mov_arg(ARG2, Marker);
+    mov_arg(ARG3, Reference);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_msgq_recv_marker_bind);
+
+    emit_leave_runtime();
 }
 
 void BeamModuleAssembler::emit_recv_marker_clear(const ArgRegister &Reference) {
-    // TODO
-    emit_nyi("emit_recv_marker_clear");
+    mov_arg(ARG2, Reference);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_msgq_recv_marker_clear);
+
+    emit_leave_runtime();
 }
 
 void BeamModuleAssembler::emit_recv_marker_use(const ArgRegister &Reference) {
-    // TODO
-    emit_nyi("emit_recv_marker_use");
+    mov_arg(ARG2, Reference);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_msgq_recv_marker_set_save);
+
+    emit_leave_runtime();
 }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
