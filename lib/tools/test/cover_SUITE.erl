@@ -36,7 +36,7 @@ all() ->
                    compile_beam_missing_backend,
                    otp_13277, otp_13289, guard_in_lc, gh_4796,
                    eep49, gh_8159, gh_8867],
-    StartStop = [start, compile, analyse, misc, stop,
+    StartStop = [start, compile, analyse, misc, stop, native_coverage,
                  distribution, distribution_export, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
                  export_import, otp_5031, otp_6115,
@@ -109,6 +109,25 @@ do_coverage(Config) ->
             %% Cover server was started by common_test; don't stop it.
             ok
     end.
+
+native_coverage(Config) when is_list(Config) ->
+    {ok, Cwd} = file:get_cwd(),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
+    code:purge(t),
+    code:delete(t),
+
+    {ok,_} = file:copy("compile_beam/t.erl", "t.erl"),
+    {ok,t} = compile:file(t, [debug_info]),
+    {module,t} = code:load_file(t),
+    cover:native_coverage(),
+    {ok,t} = cover:compile_beam(t),
+    Options = proplists:get_value(options, t:module_info(compile)),
+    true = lists:member(line_coverage, Options),
+    ok = cover:export("t.coverdata"),
+
+    code:purge(t),
+    code:delete(t),
+    ok.
 
 %% This test case will only be run when common_test is running cover.
 coverage_analysis(Config) when is_list(Config) ->

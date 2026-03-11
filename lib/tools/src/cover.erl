@@ -192,7 +192,7 @@ period will be included in the analysis.
 	 reset/1, reset/0,
 	 flush/1,
 	 stop/0, stop/1,
-         local_only/0]).
+     local_only/0, native_coverage/0]).
 -export([remote_start/1,get_main_node/0]).
 
 %% Used internally to ensure we upgrade the code to the latest version.
@@ -201,7 +201,8 @@ period will be included in the analysis.
 -record(main_state, {compiled=[],           % [{Module,File}]
 		     imported=[],           % [{Module,File,ImportFile}]
 		     stopper,               % undefined | pid()
-                     local_only=false,      % true | false
+             native_coverage=false, % true | false
+             local_only=false,      % true | false
 		     nodes=[],              % [Node]
 		     lost_nodes=[]}).       % [Node]
 
@@ -288,6 +289,18 @@ start(Node) when is_atom(Node) ->
     start([Node]);
 start(Nodes) ->
     call({start_nodes,remove_myself(Nodes,[])}).
+
+-doc """
+Enable native coverage on cover compiled modules.
+
+All modules compiled after this function call will
+have the `line_coverage` option.
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec native_coverage() -> 'ok'.
+
+native_coverage() ->
+    call(native_coverage).
 
 -doc """
 Only support running Cover on the local node.
@@ -1228,6 +1241,9 @@ init_main(Starter) ->
 -doc false.
 main_process_loop(State) ->
     receive
+        {From, native_coverage} ->
+            reply(From, ok),
+            main_process_loop(State#main_state{native_coverage=true});
         {From, local_only} ->
             case State of
                 #main_state{compiled=[],nodes=[]} ->
@@ -2047,9 +2063,10 @@ do_compile_beam(Module,BeamFile0,State) ->
     case get_beam_file(Module,BeamFile0,State#main_state.compiled) of
 	{ok,BeamFile} ->
             LocalOnly = State#main_state.local_only,
-	    UserOptions = get_compile_options(Module,BeamFile),
+            UserOptions = get_compile_options(Module,BeamFile),
+            AllOptions = prepend_native_coverage(State, UserOptions),
 	    case do_compile_beam1(Module,BeamFile,
-                                  UserOptions,LocalOnly) of
+                                  AllOptions,LocalOnly) of
 		{ok, Module} ->
 		    {ok,Module,BeamFile};
 		error ->
@@ -2074,7 +2091,13 @@ fix_state_and_result([],State,Acc) ->
     {lists:reverse(Acc),State}.
 
 
-do_compile(Files, Options, State) ->
+prepend_native_coverage(#main_state{native_coverage=true}, Opts) ->
+    [line_coverage | Opts];
+prepend_native_coverage(#main_state{}, Opts) ->
+    Opts.
+
+do_compile(Files, BareOptions, State) ->
+    Options = prepend_native_coverage(State, BareOptions),
     LocalOnly = State#main_state.local_only,
     Result0 = pmap(fun(File) ->
 			   do_compile1(File, Options, LocalOnly)
