@@ -735,7 +735,7 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
 	{listen, MFA} ->
 	    run_server(ListenSocket, [MFA | proplists:delete(mfa, Opts)]);
 	close ->
-	    ?CT_LOG("~nServer closing~n", []),
+	    ?CT_LOG("~nServer closing (~w, ~w, ~w) ~n", [Transport, AcceptSocket, ListenSocket]),
 	    Result = Transport:close(AcceptSocket),
 	    Result1 = Transport:close(ListenSocket),
 	    ?CT_LOG("~nResult ~p : ~p ~n", [Result, Result1])
