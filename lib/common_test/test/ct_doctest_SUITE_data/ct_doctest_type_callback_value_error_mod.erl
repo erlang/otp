@@ -33,6 +33,14 @@
 """.
 -type sample() :: integer().
 
+-doc """
+```
+1> 1 + 2.
+4
+```
+""".
+-callback sample_cb(sample()) -> sample().
+
 -doc false.
 f() ->
     ok.

@@ -74,26 +74,48 @@ api_branches(_Config) ->
 module_result_modes(_Config) ->
     ok = ct_doctest:module(ct_doctest_none_mod),
     {comment, _} = ct_doctest:module(ct_doctest_no_tests_mod),
-    expect_error_count(ct_doctest_module_doc_parse_error_mod, [], 1).
+    expect_error_count(ct_doctest_module_doc_parse_error_mod, [], 1,
+                       ["A test failed in moduledoc on line 0",
+                        "syntax error before: ')'"]).
 
 docs_filtering_and_error_formatting(_Config) ->
-    expect_error_count(ct_doctest_module_doc_value_error_mod, [], 1),
-    expect_error_count(ct_doctest_function_parse_error_mod, [], 1),
-    expect_error_count(ct_doctest_function_value_error_mod, [], 1),
-    expect_error_count(ct_doctest_bad_line_numbers_mod, [], 1).
+    expect_error_count(ct_doctest_module_doc_value_error_mod, [], 1,
+                       ["A test failed in moduledoc",
+                        "no match of right hand side value 2"]),
+    expect_error_count(ct_doctest_function_parse_error_mod, [], 1,
+                       ["A test failed in function f/0 on line 0",
+                        "syntax error before: ')'"]),
+    expect_error_count(ct_doctest_function_value_error_mod, [], 1,
+                       ["A test failed in function f/0",
+                        "no match of right hand side value 4"]),
+    expect_error_count(ct_doctest_bad_line_numbers_mod, [], 1,
+                       ["A test failed in moduledoc",
+                        "Bad prompt number 3; expected 2"]).
 
 parser_prompt_parsing(_Config) ->
-    expect_error_count(ct_doctest_prompt_parser_mod, [], 3),
+    expect_error_count(ct_doctest_prompt_parser_mod, [], 3,
+                       ["A test failed in function h/0",
+                        "Bad prompt number 3; expected 2",
+                        "A test failed in function g/0",
+                        "Bad prompt number 2; expected 1",
+                        "A test failed in function f/0"]),
     ok = ct_doctest:module(ct_doctest_non_erlang_block_mod).
 
 runtime_failure_matching(_Config) ->
     ok = ct_doctest:module(ct_doctest_failure_match_mod),
-    expect_error_count(ct_doctest_failure_unexpected_success_mod, [], 1),
+    expect_error_count(ct_doctest_failure_unexpected_success_mod, [], 1,
+                       ["A test failed in function f/0",
+                        "Expected failure got ok"]),
     expect_exception(ct_doctest_failure_mismatch_mod, [], error, badarg).
 
 parse_rewrite_helpers(_Config) ->
-    expect_error_count(ct_doctest_parse_rewrite_mod, [{verbose, true}], 2),
-    expect_error_count(ct_doctest_scan_error_mod, [], 1).
+    expect_error_count(ct_doctest_parse_rewrite_mod, [{verbose, true}], 2,
+                       ["A test failed in function h/0",
+                        "A test failed in function g/0",
+                        "illegal_pattern"]),
+    expect_error_count(ct_doctest_scan_error_mod, [], 1,
+                       ["A test failed in function f/0 on line 0",
+                        "unterminated string"]).
 
 file_support(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -105,23 +127,12 @@ file_support(Config) ->
     {error, enoent} = ct_doctest:file(filename:join(DataDir, "missing_*.md"), []).
 
 module(_Config) ->
-    ct:capture_start(),
-    expect_error_count(ct_doctest_module_mod, [], 3),
-    ct:capture_stop(),
-    OutputData = ct:capture_get(),
 
-    ExpectedSubstrings = ["h/0:2","unterminated atom starting with 'ok.\\n'",
-                          "g/0:2","syntax error before: ok",
+    ExpectedSubstrings = ["unknown:2: unterminated atom starting with 'ok.\\n'",
+                          "unknown:2: syntax error before: ok",
                           "test.erl:2: function f/0 undefined"],
 
-    lists:foreach(fun(Expected) ->
-                            case string:find(OutputData, Expected) of
-                                nomatch ->
-                                    ct:fail({expected_output, Expected, got, OutputData});
-                                _ ->
-                                    ok
-                            end
-                  end, ExpectedSubstrings).
+    expect_error_count(ct_doctest_module_mod, [], 3, ExpectedSubstrings).
 
 external_parser(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -129,27 +140,35 @@ external_parser(Config) ->
     ok = ct_doctest:module(ct_doctest_external_parser_mod, [ParserOpt]),
     ok = ct_doctest:file(filename:join(DataDir, "custom_parser.txt"),
                          [ParserOpt]),
-    expect_error_count(ct_doctest_external_parser_mod, [{parser, not_a_fun}], 1),
+    expect_error_count(ct_doctest_external_parser_mod, [{parser, not_a_fun}], 1,
+                       ["Invalid parser provided: not_a_fun"]),
     expect_error_count(ct_doctest_external_parser_mod,
-                       [{parser, fun(_) -> {error, bad_parser} end}], 1),
+                       [{parser, fun(_) -> {error, bad_parser} end}], 1,
+                       ["Parser returned an error: bad_parser"]),
     expect_error_count(ct_doctest_external_parser_mod,
-                       [{parser, fun(_) -> bad_result end}], 1),
+                       [{parser, fun(_) -> bad_result end}], 1,
+                       ["Parser returned invalid result: bad_result"]),
     expect_error_count(ct_doctest_external_parser_mod,
-                       [{parser, fun(_) -> [not_binary] end}], 1),
+                       [{parser, fun(_) -> [not_binary] end}], 1,
+                       ["Invalid code block: not_binary"]),
     expect_exception(filename:join(DataDir, "doctest_ok.md"),
                      [{parser, fun(_) -> erlang:error(boom) end}],
                      error, boom).
 
 type_and_callback_docs(_Config) ->
     ok = ct_doctest:module(ct_doctest_type_callback_mod),
-    expect_error_count(ct_doctest_type_callback_value_error_mod, [], 1).
+    expect_error_count(ct_doctest_type_callback_value_error_mod, [], 2,
+                       ["A test failed in type sample/0",
+                        "A test failed in callback sample_cb/1"]).
 
 verbose_option(Config) ->
     DataDir = ?config(data_dir, Config),
     Bindings = [{'Prebound', hello}],
     ok = ct_doctest:module(ct_doctest_type_callback_mod, [{verbose, true}]),
     expect_error_count(ct_doctest_type_callback_value_error_mod,
-                       [{verbose, true}], 1),
+                       [{verbose, true}], 2,
+                       ["A test failed in type sample/0",
+                        "A test failed in callback sample_cb/1"]),
     ok = ct_doctest:module(ct_doctest_skipped_block_mod,
                            [{skipped_blocks, 1}, {verbose, true}]),
     ok = ct_doctest:file(filename:join(DataDir, "doctest_ok.md"), Bindings,
@@ -182,11 +201,24 @@ compile_fixture(File, OutDir) ->
     Module.
 
 expect_error_count(Module, Bindings, ExpectedErrors) ->
+    expect_error_count(Module, Bindings, ExpectedErrors, []).
+expect_error_count(Module, Bindings, ExpectedErrors, ExpectedSubstrings) ->
+    ct:capture_start(),
     try run_target(Module, Bindings) of
         Result ->
             ct:fail({expected_error_count, ExpectedErrors, got_result, Result})
     catch
         error:{ExpectedErrors, errors} ->
+            ct:capture_stop(),
+            OutputData = ct:capture_get(),
+            lists:foreach(fun(Expected) ->
+                                case string:find(OutputData, Expected) of
+                                    nomatch ->
+                                        ct:fail({expected_output, Expected, got, OutputData});
+                                    _ ->
+                                        ok
+                                end
+                          end, ExpectedSubstrings),
             ok;
         Class:Reason:Stacktrace ->
             ct:fail({unexpected_exception, Module,

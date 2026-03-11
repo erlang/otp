@@ -408,7 +408,7 @@ file(File, Bindings, Options) ->
                 ok
             catch
                 throw:{error, Error} ->
-                    print_error({file, File, Error}),
+                    format_error({file, File, Error}),
                     error({1, errors});
                 C:R:ST ->
                     io:format("Uncaught exception in file ~ts~n", [File]),
@@ -427,9 +427,9 @@ run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
               {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs,
               is_map(EntryDocs)]),
     Errors =
-        [{{F,A},E} || {{_,F,A},[{error,E}],_} <- Res] ++
+        [{{T,F,A},E} || {{T,F,A},[{error,E}],_} <- Res] ++
         [{moduledoc,E} || {moduledoc,[{error,E}],_} <- MDRes],
-    _ = [print_error(E) || E <- Errors],
+    _ = [io:put_chars(format_error(E)) || E <- Errors],
     case length(Errors) of
         0 ->
             Skipped = lists:sum([Count || {_, _, Count} <- MDRes ++ Res]),
@@ -452,18 +452,28 @@ run_module_docs(#docs_v1{ docs = Docs, module_doc = MD },
             error({N,errors})
     end.
 
-print_error({moduledoc,{Message,Line,Context}}) ->
-    io:format("Module Doc:~p: ~ts~n~ts~n", [Line,Context,Message]);
-print_error({moduledoc,{Message,Context}}) ->
-    io:format("Module Doc: ~ts~n~ts~n", [Context,Message]);
-print_error({file, Path, {Message,Line,Context}}) ->
-    io:format("File ~ts:~p: ~ts~n~ts~n", [Path,Line,Context,Message]);
-print_error({file, Path, {Message,Context}}) ->
-    io:format("File ~ts: ~ts~n~ts~n", [Path,Context,Message]);
-print_error({{Name,Arity},{Message,Line,Context}}) ->
-    io:format("~p/~p:~p: ~ts~n~ts~n", [Name,Arity,Line,Context,Message]);
-print_error({{Name,Arity},{Message,Context}}) ->
-    io:format("~p/~p: ~ts~n~ts~n", [Name,Arity,Context,Message]).
+format_error({moduledoc, Context}) ->
+    [a_test_failed("moduledoc", Context), format_error_context(Context)];
+format_error({{Type, Name, Arity}, Context}) ->
+    [a_test_failed(io_lib:format("~p ~p/~p", [Type, Name, Arity]), Context), format_error_context(Context)];
+format_error({file, Path, Context}) ->
+    [a_test_failed(io_lib:format("file ~ts", [Path]), Context), format_error_context(Context)].
+
+a_test_failed(Where, Context) ->
+    LineNo =
+        if is_map_key(line, Context) ->
+            [" on line ", integer_to_list(maps:get(line, Context))];
+           true ->
+            ""
+        end,
+    io_lib:format("A test failed in ~ts~ts:~n~n", [Where, LineNo]).
+
+format_error_context(#{ test := {test, Index, Test, Match}, message := Message }) ->
+    io_lib:format("~ts> ~ts~n~ts~n~n~ts~n", [Index, Test, string:trim(Match), string:trim(Message)]);
+format_error_context(#{ message := Message, context := Context }) ->
+    io_lib:format("~ts~n~n~ts~n", [string:trim(Context), string:trim(Message)]);
+format_error_context(#{ message := Message }) ->
+    io_lib:format("~ts~n", [string:trim(Message)]).
 
 parse_and_run(_, hidden, _, _, _) -> [];
 parse_and_run(_, none, _, _, _) -> [];
@@ -497,7 +507,7 @@ run_blocks(Blocks, Bindings, Context, Verbose) ->
 test_block(Code, Bindings, Context, Index, Skipped, Verbose) when is_binary(Code) ->
     ContextLabel = context_label(Context),
     FirstLines = first_lines(Code),
-    verbose_log(Verbose, "running block ~p in ~ts: ~ts",
+    verbose_log(Verbose, "running block ~p in ~ts:~n~ts",
                 [Index, ContextLabel, Code]),
     try run_test(Code, Bindings, Verbose) of
         [] ->
@@ -508,11 +518,11 @@ test_block(Code, Bindings, Context, Index, Skipped, Verbose) when is_binary(Code
             verbose_log(Verbose, "passed block ~p in ~ts", [Index, ContextLabel]),
             {Result, Skipped}
     catch
-        throw:{error, _} = Error ->
+        throw:{error, ErrorContext} = Error ->
             verbose_log(Verbose,
-                        "failed block ~p in ~ts:~n~ts~nblock snippet:~n~ts",
+                        "failed block ~p in ~ts:~n~ts~n",
                         [Index, ContextLabel,
-                         format_error_for_verbose(Error), Code]),
+                         format_error_context(ErrorContext)]),
             throw(Error);
         C:R:ST ->
             verbose_log(Verbose,
@@ -536,18 +546,12 @@ first_lines(Code) ->
     Lines = string:split(Code, "\n", all),
     lists:join($\n, lists:sublist(Lines, 5)).
 
-format_error_for_verbose({error, {Message, Line, Source}}) ->
-    iolist_to_binary(io_lib:format("~ts (line ~p): ~ts",
-                                   [Message, Line, Source]));
-format_error_for_verbose({error, {Message, Source}}) ->
-    iolist_to_binary(io_lib:format("~ts: ~ts", [Message, Source]));
-format_error_for_verbose(Other) ->
-    iolist_to_binary(io_lib:format("~tp", [Other])).
-
 verbose_log(false, _Fmt, _Args) ->
     ok;
 verbose_log(true, Fmt, Args) ->
-    io:format("ct_doctest(verbose): " ++ Fmt ++ "~n", Args).
+    Str = io_lib:format("ct_doctest(verbose): " ++ Fmt, Args),
+    [First | Rest] = string:split(string:trim(Str), "\n", all),
+    io:put_chars([First, [["\n    ", Line] || Line <- Rest], "\n"]).
 
 parse(Content, ParserFun) ->
     validate_code_blocks(run_parser(ParserFun, Content)).
@@ -555,19 +559,22 @@ parse(Content, ParserFun) ->
 run_parser(ParserFun, Content) when is_function(ParserFun, 1) ->
     ParserFun(Content);
 run_parser(Parser, _Content) ->
-    throw({error, {unsupported_parser, Parser}}).
+    Msg = io_lib:format("Invalid parser provided: ~p. Parser must be a fun/1.", [Parser]),
+    throw({error, #{ message => Msg }}).
 
 validate_code_blocks({error, Reason}) ->
-    throw({error, {parser_error, Reason}});
+    Msg = io_lib:format("Parser returned an error: ~p.", [Reason]),
+    throw({error, #{ message => Msg }});
 validate_code_blocks(Blocks) when is_list(Blocks) ->
     [validate_code_block(Block) || Block <- Blocks];
 validate_code_blocks(Other) ->
-    throw({error, {invalid_parser_result, Other}}).
+    Msg = io_lib:format("Parser returned invalid result: ~p.", [Other]),
+    throw({error, #{ message => Msg }}).
 
 validate_code_block(Block) when is_binary(Block) ->
     Block;
 validate_code_block(Other) ->
-    throw({error, {invalid_code_block, Other}}).
+    throw({error, #{ message => io_lib:format("Invalid code block: ~p.", [Other]) }}).
 
 options_parser(Options) ->
     proplists:get_value(parser, Options,
@@ -623,10 +630,13 @@ run_test(Code, InitialBindings, Verbose) ->
             case re:run(FirstLine, ?RE_CAPTURE, ?RE_OPTIONS) of
                 {match, [_Line_Number, _Prefix = <<"> ">>, _Code]} ->
                     ReLines = [re:run(Line, ?RE_CAPTURE, ?RE_OPTIONS) || Line <- CollapsedComments],
-                    check_prompt_numbers(ReLines, 1),
-                    Tests = inspect(parse_tests(ReLines, [])),
+                    Tests = inspect(parse_tests(ReLines, [], 1)),
+                    check_prompt_numbers(Tests),
                     _ = lists:foldl(fun(Test, Bindings) ->
-                                            run_tests(Test, Bindings, Verbose)
+                                            try run_tests(Test, Bindings, Verbose)
+                                            catch throw:{error, Error} ->
+                                                    throw({error, Error#{ test => Test}})
+                                            end
                                     end, InitialBindings, Tests),
                     [ok];
                 {match, [_Line_Number, _Prefix = <<"-module(">>, _Code]} ->
@@ -645,8 +655,8 @@ compile_string(Code) ->
             {ok, T, _} ->
                 T;
             {error, {Line,Mod,Reason}, _} ->
-                Message = Mod:format_error(Reason),
-                throw({error,{Message,Line,Code}})
+                Message = io_lib:format("unknown:~p: ~ts",[Line, Mod:format_error(Reason)]),
+                throw({error,#{ message => Message, context => Code}})
         end,
 
     Forms = parse_tokens(Code, Toks),
@@ -659,7 +669,7 @@ compile_string(Code) ->
             ok;
         {error, Errors, Warnings} ->
             Messages = [begin [{_, M}] = sys_messages:format_messages(File, "", Msgs, []), M end || {File, Msgs} <- Errors ++ Warnings],
-            throw({error, {Messages, Code}})
+            throw({error,#{ message => Messages, context => Code}})
     end.
 
 parse_tokens(_Code, []) -> [];
@@ -672,41 +682,42 @@ parse_tokens(Code, Toks) ->
                 {ok, Forms} ->
                     [Forms | parse_tokens(Code, Rest)];
                 {error, {Line, Mod, Reason}} ->
-                    Message = Mod:format_error(Reason),
-                    throw({error,{Message,Line,Code}})
+                    Message = io_lib:format("unknown:~p: ~ts",[Line, Mod:format_error(Reason)]),
+                    throw({error,#{ message => Message, context => Code}})
             end
     end.
 
+check_prompt_numbers(Tests) ->
+    check_prompt_numbers(Tests, 1).
+
 check_prompt_numbers([], _Expected) ->
     ok;
-check_prompt_numbers([{match, [<<>>|_]} | T], Expected) ->
-    check_prompt_numbers(T, Expected);
-check_prompt_numbers([{match, [LineNumber, _, Code]} | T], Expected) ->
+check_prompt_numbers([{test, LineNumber, _, _} = Test | T], Expected) ->
     case binary_to_integer(LineNumber) of
         Expected ->
             check_prompt_numbers(T, Expected + 1);
         Actual ->
             Message = io_lib:format("Bad prompt number ~p; expected ~p",
                                     [Actual,Expected]),
-            throw({error,{Message,Code}})
+            throw({error,#{ message => Message, test => Test }})
     end.
 
-parse_tests([], []) ->
+parse_tests([], [], _) ->
     [];
-parse_tests([], Cmd) ->
-    [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
-parse_tests([{match, [<<>>, <<>>, <<>>]} | T], Cmd) ->
-    parse_tests(T, Cmd);
-parse_tests([{match, [_, <<"> ">>, NewCmd]} | T], []) ->
-    parse_tests(T, [NewCmd]);
-parse_tests([{match, [_, <<"> ">>, NewCmd]} | T], Cmd) ->
-    [{test, lists:join($\n, lists:reverse(Cmd)), "_"} | parse_tests(T, [NewCmd])];
-parse_tests([{match, [<<>>, <<>>, <<" ", _/binary>> = More]} | T], Acc) ->
-    parse_tests(T, [More | Acc]);
-parse_tests([{match, [<<>>, <<>>, NewMatch]} | T], Cmd) ->
+parse_tests([], Cmd, No) ->
+    [{test, No, lists:join($\n, lists:reverse(Cmd)), "_"}];
+parse_tests([{match, [<<>>, <<>>, <<>>]} | T], Cmd, No) ->
+    parse_tests(T, Cmd, No);
+parse_tests([{match, [PromptNo, <<"> ">>, NewCmd]} | T], [], _) ->
+    parse_tests(T, [NewCmd], PromptNo);
+parse_tests([{match, [PromptNo, <<"> ">>, NewCmd]} | T], Cmd, No) ->
+    [{test, No, lists:join($\n, lists:reverse(Cmd)), "_"} | parse_tests(T, [NewCmd], PromptNo)];
+parse_tests([{match, [<<>>, <<>>, <<" ", _/binary>> = More]} | T], Acc, No) ->
+    parse_tests(T, [More | Acc], No);
+parse_tests([{match, [<<>>, <<>>, NewMatch]} | T], Cmd, No) ->
     {Match, Rest} = parse_match(T, [NewMatch]),
-    [{test, lists:join($\n, lists:reverse(Cmd)),
-      lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])].
+    [{test, No, lists:join($\n, lists:reverse(Cmd)),
+      lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [], No)].
 
 parse_match([{match, [<<>>, <<>>, <<>>]} | T], Acc) ->
     parse_match(T, Acc);
@@ -715,7 +726,7 @@ parse_match([{match, [<<>>, <<>>, <<" ", _/binary>> = More]} | T], Acc) ->
 parse_match(Rest, Acc) ->
     {Acc, Rest}.
 
-run_tests({test, Test0, Match0}, Bindings, Verbose) ->
+run_tests({test, _Index, Test0, Match0}, Bindings, Verbose) ->
     Test1 = unicode:characters_to_list(Test0),
     Test = string:trim(string:trim(Test1), trailing, "."),
     case Match0 of
@@ -733,11 +744,7 @@ run_successful(Test, Match, Bindings, Verbose) ->
         {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast, Bindings)),
         NewBindings
     catch C:R:ST ->
-            Actual = format_exception(C, R, ST),
-            Message = io_lib:format("Expected value:~n~ts~n"
-                                    "Got failure:~n~ts~n",
-                                    [Match,Actual]),
-            throw({error,{Message,Match}})
+            throw({error,#{ message => format_exception(C, R, ST) }})
     end.
 
 run_failing(Test, Match, Bindings, Verbose) ->
@@ -745,17 +752,16 @@ run_failing(Test, Match, Bindings, Verbose) ->
     Ast = parse_exprs(Test, "_"),
     try inspect(erl_eval:exprs(Ast, Bindings)) of
         {value, Res, _} ->
-            Message = io_lib:format("Expected failure ~ts; got ~ts",
-                                    [Match,Res]),
-            throw({error,{Message,Match}})
+            Message = io_lib:format("Expected failure got ~ts",
+                                    [Res]),
+            throw({error,#{ message => Message, context => Match}})
     catch C:R:ST ->
             Actual = format_exception(C, R, ST),
             case string:prefix(Actual,  Match) of
                 nomatch ->
-                    Message = io_lib:format("Expected failure:~n~ts~n"
-                                            "Got failure:~n~ts~n",
-                                            [Match,Actual]),
-                    throw({error,{Message,Match}});
+                    Message = io_lib:format("Failure did not match:~n~ts~n",
+                                            [Actual]),
+                    throw({error,#{ message => Message, context => Match}});
                 _ ->
                     Bindings
             end
@@ -766,10 +772,11 @@ run_failing(Test, Match, Bindings, Verbose) ->
 %% evaluate it first, and if that fails we convert it to a literal
 %% and try again.
 parse_exprs(Test, Match0) ->
-    try parse_exprs(Match0 ++ " = 1.") of
-        Ast ->
+    try {parse_exprs(Match0 ++ " = 1."),
+         parse_exprs("1 = begin " ++ Test ++ " end.")} of
+        {MatchAst, _TestAst} ->
             Match =
-                try erl_eval:exprs(Ast, #{}) of
+                try erl_eval:exprs(MatchAst, #{}) of
                     {value, _Res, _} ->
                         Match0
                 catch
@@ -778,7 +785,7 @@ parse_exprs(Test, Match0) ->
                 end,
             parse_exprs(Match ++ " = begin " ++ Test ++ " end.")
     catch throw:_ ->
-            parse_exprs(Match0 ++ " = begin " ++ Test ++ " end.")
+            parse_exprs(Match0 ++ " = " ++ Test ++ ".")
     end.
 
 parse_exprs(Str) ->
@@ -791,10 +798,10 @@ parse_exprs(Str) ->
     else
         {error, {Line,Mod,Reason}, _} ->
             Message = Mod:format_error(Reason),
-            throw({error,{Message,Line,Cmd}});
+            throw({error,#{ message => Message, line => Line}});
         {error, {Line,Mod,Reason}} ->
             Message = Mod:format_error(Reason),
-            throw({error,{Message,Line,Cmd}})
+            throw({error,#{ message => Message, line => Line}})
     end.
 
 %% We rewrite ...>> to _/binary>> to match shell syntax better
