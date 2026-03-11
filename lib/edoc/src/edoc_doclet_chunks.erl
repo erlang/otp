@@ -116,8 +116,7 @@ source({_M, Name, Path}, Dir, Suffix, Env, OkSet, ErrorFlag, Options0) ->
     try
 	%% Without these opts the entries returned by EDoc core (`edoc_extract:source1/5') won't have
 	%% all the necessary data to generate chunks.
-	RequiredChunkOpts = [return_entries, private, hidden],
-	%% But we also want to have the real user-defined `private' accessible.
+	RequiredChunkOpts = [return_entries],
 	Options = ([{show_private, proplists:get_bool(private, Options0)}]
 		   ++ RequiredChunkOpts
 		   ++ Options0),
