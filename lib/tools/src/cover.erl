@@ -2165,7 +2165,7 @@ do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile,LocalOnly) ->
     case code:load_binary(Module, ?TAG, Binary) of
 	{module, Module} ->
 	    %% Store binary code so it can be loaded on remote nodes.
-	    ets:insert(?BINARY_TABLE, {Module, Binary}),
+        ets:insert(?BINARY_TABLE, {Module, (not LocalOnly) andalso Binary}),
 	    {ok, Module};
 	_Error ->
 	    do_clear(Module),
@@ -2440,7 +2440,7 @@ delete_all_counters() ->
 
 %% Collect data for all modules
 collect(Nodes) ->
-    Modules = [Module || {Module,_} <- ets:tab2list(?BINARY_TABLE)],
+    Modules = [Module || [Module] <- ets:match(?BINARY_TABLE, {'$1', '_'})],
     collect_modules(Modules, Nodes).
 
 %% Collect data for a list of modules
@@ -2537,8 +2537,8 @@ analyse_list(Modules, Analysis, Level, State) ->
 
 analyse_all(Analysis, Level, State) ->
     collect(State#main_state.nodes),
-    All = ets:tab2list(?BINARY_TABLE),
-    Fun = fun({Module,_}) ->
+    All = ets:match(?BINARY_TABLE, {'$1', '_'}),
+    Fun = fun([Module]) ->
 		  do_analyse(Module, Analysis, Level)
 	  end,
     {result, lists:flatten(pmap(Fun, All)), []}.
