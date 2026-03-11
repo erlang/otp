@@ -88,8 +88,46 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
                                                 const ArgWord &Live,
                                                 const ArgSource &Preserve,
                                                 a32::Gp preserve_reg) {
-    // TODO
-    emit_nyi("emit_gc_test_preserve");
+    const int32_t bytes_needed = (Need.get() + S_RESERVED) * sizeof(Eterm);
+    Label after_gc_check = a.newLabel();
+
+    ASSERT(preserve_reg != ARG3);
+
+#ifdef DEBUG
+    comment("(debug: fill dead X registers with garbage)");
+    const a32::Gp garbage_reg = preserve_reg == ARG4 ? ARG3 : ARG4;
+    mov_imm(garbage_reg, ERTS_HOLE_MARKER);
+    if (!(Preserve.isXRegister() &&
+          Preserve.as<ArgXRegister>().get() >= Live.get())) {
+        mov_arg(ArgXRegister(Live.get()), garbage_reg);
+        mov_arg(ArgXRegister(Live.get() + 1), garbage_reg);
+    } else {
+        mov_arg(ArgXRegister(Live.get() + 1), garbage_reg);
+        mov_arg(ArgXRegister(Live.get() + 2), garbage_reg);
+    }
+#endif
+
+    add(ARG3, HTOP, bytes_needed);
+    a.cmp(ARG3, E);
+    a.b_ls(after_gc_check);
+
+    ASSERT(Live.get() < ERTS_X_REGS_ALLOCATED);
+
+    /* We don't need to stash the preserved term if it's currently live, making
+     * the code slightly shorter. */
+    if (!(Preserve.isXRegister() &&
+          Preserve.as<ArgXRegister>().get() >= Live.get())) {
+        mov_imm(ARG4, Live.get());
+        fragment_call(ga->get_garbage_collect());
+        mov_arg(preserve_reg, Preserve);
+    } else {
+        mov_arg(ArgXRegister(Live.get()), preserve_reg);
+        mov_imm(ARG4, Live.get() + 1);
+        fragment_call(ga->get_garbage_collect());
+        mov_arg(preserve_reg, ArgXRegister(Live.get()));
+    }
+
+    a.bind(after_gc_check);
 }
 
 void BeamModuleAssembler::emit_gc_test(const ArgWord &Ns,
