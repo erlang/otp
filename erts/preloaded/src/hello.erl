@@ -155,15 +155,15 @@ test(BootArgs) ->
     test_select_val(),
     test_external_call_errors(),
     test_is_lt(),
-%    test_is_ge(),
-%    test_is_ne_exact(),
-%    test_selective_receive(),
-%    test_receive_timeout(),
-%    test_error_action_code(),
-%    test_is_eq_arith(),
-%    test_is_ne_arith(),
-%    test_trace_breakpoint(),
-%    test_remove_message(),
+    test_is_ge(),
+    test_is_ne_exact(),
+    test_selective_receive(),
+    test_receive_timeout(),
+    test_error_action_code(),
+    test_is_eq_arith(),
+    test_is_ne_arith(),
+    test_trace_breakpoint(),
+    test_remove_message(),
 %    test_receive_optimizations(),
 %    test_is_function(),
 %    test_bs_match(),
@@ -1096,221 +1096,221 @@ test_is_lt_mixed(V1, V2, V3, V4, V5, V6, V7, V8) ->
     true = V7 < V8,
     ok.
 
-%test_is_ge() ->
-%    false = id(4) >= 5,
-%    false = id(1) >= 16#07ff_ffff_ffff_ffff,
-%    true = 16#07ff_ffff_ffff_ffff >= id(1),
-%    false = id(-2) >= 1,
-%    false = id(-1) >= 1,
-%    true = id(42) >= 42,
-%
-%    false = 4 >= id(5),
-%    false = 1 >= id(16#07ff_ffff_ffff_ffff),
-%    false = -2 >= id(1),
-%    false = -1 >= id(1),
-%    true = 42 >= id(42),
-%
-%    false = id(4) >= id(5),
-%    false = id(1) >= id(16#07ff_ffff_ffff_ffff),
-%    false = id(-2) >= id(1),
-%    false = id(-1) >= id(1),
-%    true = id(42) >= id(42),
-%
-%    %% Mixed.
-%    Two = id(2.0),
-%    Three = id(3.0),
-%    false = Two >= 3,
-%    false = 2 >= Three,
-%    false = id({a,b}) >= id({x,y}),
-%
-%    false = Two >= {a,b},
-%    true = [a,b] >= Two,
-%
-%    Args = get_args8(?FUNCTION_NAME),
-%    {V1,V2,V3,V4,V5,V6,V7,V8} = Args,
-%    test_is_ge_mixed(V1, V2, V3, V4, V5, V6, V7, V8),
-%
-%    ok.
-%
-%% Test that high-numbered X registers work/are not clobbered.
-%test_is_ge_mixed(V1, V2, V3, V4, V5, V6, V7, V8) ->
-%    false = V1 >= V2,
-%    false = V3 >= V4,
-%    true = V5 >= V5,
-%    true = V6 >= V7,                         %Tuple is less than list.
-%    false = V7 >= V8,
-%    ok.
-%
-%test_is_ne_exact() ->
-%    ok = ne_exact(id(0), id([])),
-%    ok = ne_exact(id(42), id([42])),
-%    error = ne_exact(id(42), id([42,43])),
-%    ok.
-%
-%ne_exact(0, _) ->
-%    ok;
-%ne_exact(_, [_]) ->
-%    ok;
-%ne_exact(_, [_|_]) ->
-%    error.
-%
-%test_selective_receive() ->
-%    %% A selective receive will test the loop_rec_end instruction.
-%    Self = self(),
-%    Echo = my_spawn_opt(fun() ->
-%                                Self ! {self(),started},
-%                                echo_server_loop()
-%                       end, [link]),
-%
-%    receive
-%        {Echo,started} -> ok
-%    end,
-%
-%    Echo ! {echo,Self,{id(a),b}},
-%    receive {a,b} -> ok end,
-%
-%    Echo ! {echo,Self,whatever},
-%    receive whatever -> ok end,
-%
-%    Echo ! stop,
-%
-%    ok.
-%
-%echo_server_loop() ->
-%    receive
-%        {echo,Pid,Msg} ->
-%            Pid ! Msg,
-%            echo_server_loop();
-%        stop ->
-%            ok
-%    end.
-%
-%test_receive_timeout() ->
-%    receive after 1 -> ok end,
-%
-%    try
-%        receive after id(bad_timeout) -> ok end,
-%        error(expected_failure)
-%    catch
-%        error:timeout_value:Stk ->
-%            [{?MODULE,?FUNCTION_NAME,0,_}|_] = Stk
-%    end,
-%
-%    Pid = my_spawn_opt(fun() -> sleep_forever() end, []),
-%    receive after 2 -> ok end,
-%    exit(Pid, kill),
-%
-%    self() ! id(message),
-%    true = timeout_locked(),
-%    false = timeout_locked(),
-%
-%    ok.
-%
-%sleep_forever() ->
-%    %% Test wait_unlocked.
-%    receive
-%    after infinity ->
-%            ok
-%    end.
-%
-%timeout_locked() ->
-%    %% Test timeout_locked.
-%    receive
-%        message ->
-%            true
-%    after 0 ->
-%            false
-%    end.
-%
-%test_error_action_code() ->
-%    Body2 = fun() ->
-%                    exit(bad)
-%            end,
-%    Body1 = fun() ->
-%                    my_spawn_opt(Body2, [link]),
-%                    receive _ -> ok end
-%            end,
-%    process_flag(trap_exit, true),
-%    Pid = my_spawn_opt(Body1, [link]),
-%    receive
-%        {'EXIT',Pid,bad} ->
-%            ok
-%    end,
-%    process_flag(trap_exit, false),
-%
-%    ok.
-%
-%test_is_eq_arith() ->
-%    true = id(42) == 42,
-%    true = id(42.0) == 42,
-%    true = id(42.5) == 42.5,
-%    false = id(42.5) == 100.0,
-%    false = 100 == id(42),
-%    false = id(42.5) == 42,
-%
-%    A = id(a),
-%    B = id(b),
-%
-%    false = A == b,
-%    false = a == B,
-%    false = A == B,
-%
-%    true = A == a,
-%    true = a == A,
-%    true = A == A,
-%    true = id(a) == A,
-%
-%    true = id({a,b}) == {id(a),b},
-%    false = id({a,b}) == {id(x),y},
-%
-%    ok.
-%
-%test_is_ne_arith() ->
-%    false = ne(42, 42),
-%    false = ne(42.0, 42),
-%    false = ne(42.5, 42.5),
-%    true = ne(42.5, 100.0),
-%    true = ne(100, 42),
-%    true = ne(42.5, 42),
-%
-%    true = ne(a, b),
-%    false = ne(a, a),
-%
-%    false = id({a,b}) /= {id(a),b},
-%    true = id({a,b}) /= {id(x),y},
-%
-%    ok.
-%
-%ne(A, B) ->
-%    ne_1([id(A)], id(B)).
-%
-%ne_1([A], B) when A /= B ->
-%    id(true);
-%ne_1(_, _) ->
-%    id(false).
-%
-%test_trace_breakpoint() ->
-%    erts_internal:trace_pattern({hello,id,1}, true, [local]),
-%    42 = id(42),
-%    erts_internal:trace_pattern({hello,id,1}, false, [local]),
-%    17 = id(17),
-%    ok.
-%
-%test_remove_message() ->
-%    Msg = {id(procs), 42, [a], {a,b,c}, {x,y,z}},
-%    self() ! Msg,
-%    {Msg, 42, [a], {a,b,c}, {x,y,z}} = rm_message(),
-%    ok.
-%
-%rm_message() ->
-%    %% Ensure that remove_message does not kill the caller-saved X
-%    %% registers.
-%    receive
-%        {procs, A, B, C, D} = Msg
-%          when is_integer(A), is_list(B), is_tuple(C), is_tuple(D) ->
-%            {Msg, A, B, C, D}
-%    end.
-%
+test_is_ge() ->
+    false = id(4) >= 5,
+    false = id(1) >= 16#07ff_ffff_ffff_ffff,
+    true = 16#07ff_ffff_ffff_ffff >= id(1),
+    false = id(-2) >= 1,
+    false = id(-1) >= 1,
+    true = id(42) >= 42,
+
+    false = 4 >= id(5),
+    false = 1 >= id(16#07ff_ffff_ffff_ffff),
+    false = -2 >= id(1),
+    false = -1 >= id(1),
+    true = 42 >= id(42),
+
+    false = id(4) >= id(5),
+    false = id(1) >= id(16#07ff_ffff_ffff_ffff),
+    false = id(-2) >= id(1),
+    false = id(-1) >= id(1),
+    true = id(42) >= id(42),
+
+    %% Mixed.
+    Two = id(2.0),
+    Three = id(3.0),
+    false = Two >= 3,
+    false = 2 >= Three,
+    false = id({a,b}) >= id({x,y}),
+
+    false = Two >= {a,b},
+    true = [a,b] >= Two,
+
+    Args = get_args8(?FUNCTION_NAME),
+    {V1,V2,V3,V4,V5,V6,V7,V8} = Args,
+    test_is_ge_mixed(V1, V2, V3, V4, V5, V6, V7, V8),
+
+    ok.
+
+% Test that high-numbered X registers work/are not clobbered.
+test_is_ge_mixed(V1, V2, V3, V4, V5, V6, V7, V8) ->
+    false = V1 >= V2,
+    false = V3 >= V4,
+    true = V5 >= V5,
+    true = V6 >= V7,                         %Tuple is less than list.
+    false = V7 >= V8,
+    ok.
+
+test_is_ne_exact() ->
+    ok = ne_exact(id(0), id([])),
+    ok = ne_exact(id(42), id([42])),
+    error = ne_exact(id(42), id([42,43])),
+    ok.
+
+ne_exact(0, _) ->
+    ok;
+ne_exact(_, [_]) ->
+    ok;
+ne_exact(_, [_|_]) ->
+    error.
+
+test_selective_receive() ->
+    %% A selective receive will test the loop_rec_end instruction.
+    Self = self(),
+    Echo = my_spawn_opt(fun() ->
+                                Self ! {self(),started},
+                                echo_server_loop()
+                       end, [link]),
+
+    receive
+        {Echo,started} -> ok
+    end,
+
+    Echo ! {echo,Self,{id(a),b}},
+    receive {a,b} -> ok end,
+
+    Echo ! {echo,Self,whatever},
+    receive whatever -> ok end,
+
+    Echo ! stop,
+
+    ok.
+
+echo_server_loop() ->
+    receive
+        {echo,Pid,Msg} ->
+            Pid ! Msg,
+            echo_server_loop();
+        stop ->
+            ok
+    end.
+
+test_receive_timeout() ->
+    receive after 1 -> ok end,
+
+    try
+        receive after id(bad_timeout) -> ok end,
+        error(expected_failure)
+    catch
+        error:timeout_value:Stk ->
+            [{?MODULE,?FUNCTION_NAME,0,_}|_] = Stk
+    end,
+
+    Pid = my_spawn_opt(fun() -> sleep_forever() end, []),
+    receive after 2 -> ok end,
+    exit(Pid, kill),
+
+    self() ! id(message),
+    true = timeout_locked(),
+    false = timeout_locked(),
+
+    ok.
+
+sleep_forever() ->
+    %% Test wait_unlocked.
+    receive
+    after infinity ->
+            ok
+    end.
+
+timeout_locked() ->
+    %% Test timeout_locked.
+    receive
+        message ->
+            true
+    after 0 ->
+            false
+    end.
+
+test_error_action_code() ->
+    Body2 = fun() ->
+                    exit(bad)
+            end,
+    Body1 = fun() ->
+                    my_spawn_opt(Body2, [link]),
+                    receive _ -> ok end
+            end,
+    process_flag(trap_exit, true),
+    Pid = my_spawn_opt(Body1, [link]),
+    receive
+        {'EXIT',Pid,bad} ->
+            ok
+    end,
+    process_flag(trap_exit, false),
+
+    ok.
+
+test_is_eq_arith() ->
+    true = id(42) == 42,
+    true = id(42.0) == 42,
+    true = id(42.5) == 42.5,
+    false = id(42.5) == 100.0,
+    false = 100 == id(42),
+    false = id(42.5) == 42,
+
+    A = id(a),
+    B = id(b),
+
+    false = A == b,
+    false = a == B,
+    false = A == B,
+
+    true = A == a,
+    true = a == A,
+    true = A == A,
+    true = id(a) == A,
+
+    true = id({a,b}) == {id(a),b},
+    false = id({a,b}) == {id(x),y},
+
+    ok.
+
+test_is_ne_arith() ->
+    false = ne(42, 42),
+    false = ne(42.0, 42),
+    false = ne(42.5, 42.5),
+    true = ne(42.5, 100.0),
+    true = ne(100, 42),
+    true = ne(42.5, 42),
+
+    true = ne(a, b),
+    false = ne(a, a),
+
+    false = id({a,b}) /= {id(a),b},
+    true = id({a,b}) /= {id(x),y},
+
+    ok.
+
+ne(A, B) ->
+    ne_1([id(A)], id(B)).
+
+ne_1([A], B) when A /= B ->
+    id(true);
+ne_1(_, _) ->
+    id(false).
+
+test_trace_breakpoint() ->
+    erts_internal:trace_pattern({hello,id,1}, true, [local]),
+    42 = id(42),
+    erts_internal:trace_pattern({hello,id,1}, false, [local]),
+    17 = id(17),
+    ok.
+
+test_remove_message() ->
+    Msg = {id(procs), 42, [a], {a,b,c}, {x,y,z}},
+    self() ! Msg,
+    {Msg, 42, [a], {a,b,c}, {x,y,z}} = rm_message(),
+    ok.
+
+rm_message() ->
+    %% Ensure that remove_message does not kill the caller-saved X
+    %% registers.
+    receive
+        {procs, A, B, C, D} = Msg
+          when is_integer(A), is_list(B), is_tuple(C), is_tuple(D) ->
+            {Msg, A, B, C, D}
+    end.
+
 %test_receive_optimizations() ->
 %    Pid = my_spawn_opt(fun recv_opt_loop/0, [link]),
 %    {request_received, {a,b}} = recv_opt_req(Pid, {id(a),b}),
