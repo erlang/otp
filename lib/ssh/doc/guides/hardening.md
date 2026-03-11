@@ -120,6 +120,93 @@ compression-based side-channel and traffic-analysis attacks.
 In both algorithms decompression is protected by a size limit that prevents
 excessive memory consumption.
 
+### SFTP Server Resource Limits
+
+When running an SFTP server via `ssh_sftpd:subsystem_spec/1`, additional
+resource limits can be configured to protect against resource exhaustion attacks:
+
+#### max_handles
+
+Limits the maximum number of file and directory handles that can be opened
+simultaneously per SFTP connection. The default is 1000.
+
+Recommended values by deployment type:
+
+- **High-security/restricted environments**: 100-256
+  - Minimal attack surface
+  - Suitable for simple file transfers
+  - May impact batch operations
+
+- **Standard production**: 500-1000
+  - Balances security and functionality
+  - Supports most legitimate use cases
+  - Recommended for general deployments
+  - Note: The default value is 1000
+
+- **High-throughput automation**: 1000-2000
+  - For backup systems, CI/CD pipelines
+  - Parallel file operations
+  - Monitor actual usage before increasing
+
+#### max_path
+
+Limits the maximum path length accepted from SFTP clients. The default is
+4096 bytes.
+
+Recommended values:
+
+- **Standard**: 4096 (default)
+  - Accommodates most filesystem limits
+  - Linux: typically 4096 bytes
+  - Windows: 260 characters (legacy), 32767 (extended)
+
+- **Restricted environments**: 1024-2048
+  - If application uses shorter paths
+  - Additional defense layer
+  - Verify compatibility first
+
+#### max_files
+
+Limits the number of filenames returned per READDIR request. The default is
+0 (unlimited).
+
+This option prevents memory exhaustion from large directory listings. Unlike
+max_handles and max_path, this is primarily a performance/memory protection
+rather than security mitigation.
+
+Recommended values:
+
+- **Standard**: 0 (unlimited, default)
+  - No artificial restrictions
+  - Client handles pagination
+
+- **Large directories**: 1000-10000
+  - Prevents memory spikes
+  - Improves response time
+
+- **Memory-constrained systems**: 100-1000
+  - Embedded systems
+  - Resource-limited containers
+
+#### Example Configuration
+
+```erlang
+ssh:daemon(Port, [
+    {system_dir, "/etc/ssh"},
+    {subsystems, [
+        ssh_sftpd:subsystem_spec([
+            {root, "/sftp/chroot"},
+            {max_handles, 256},
+            {max_path, 4096},
+            {max_files, 1000}
+        ])
+    ]},
+    {max_sessions, 10}
+]).
+```
+
+See `m:ssh_sftpd` for complete documentation of subsystem options.
+
 ## Verifying the remote daemon (server) in an SSH client
 
 Every SSH server presents a public key - the _host key_ \- to the client while

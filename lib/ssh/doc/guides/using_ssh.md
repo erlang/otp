@@ -439,8 +439,11 @@ Start the Erlang `ssh` daemon with the SFTP subsystem:
 ok
 2> ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
                      {user_dir, "/tmp/otptest_user/.ssh"},
-                     {subsystems, [ssh_sftpd:subsystem_spec(
-                                            [{cwd, "/tmp/sftp/example"}])
+                     {subsystems, [ssh_sftpd:subsystem_spec([
+                                            {cwd, "/tmp/sftp/example"},
+                                            {max_handles, 1000},  % default
+                                            {max_path, 4096}      % default
+                                           ])
                                   ]}]).
 {ok,<0.54.0>}
 3>

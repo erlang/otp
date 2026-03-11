@@ -102,7 +102,7 @@ limitations under the License.
 
 ### Fixed Bugs and Malfunctions
 
-- Option max_handles can be configured for sshd running SFTP. The positive integer value limits amount of file handles opened for a connection (by default 4096 is used).
+- Option max_handles can be configured for sshd running SFTP. The positive integer value limits amount of file handles opened for a connection (by default 1000 is used).
 
   *** POTENTIAL INCOMPATIBILITY ***
 
@@ -264,7 +264,7 @@ limitations under the License.
 
 ### Fixed Bugs and Malfunctions
 
-- Option max_handles can be configured for sshd running SFTP. The positive integer value limits amount of file handles opened for a connection (by default 4096 is used).
+- Option max_handles can be configured for sshd running SFTP. The positive integer value limits amount of file handles opened for a connection (by default 1000 is used).
 
   *** POTENTIAL INCOMPATIBILITY ***
 
@@ -543,7 +543,7 @@ limitations under the License.
 
 ### Fixed Bugs and Malfunctions
 
-* Option max_handles can be configured for sshd running SFTP. The positive integer value limits amount of file handles opened for a connection (by default 4096 is used).
+* Option max_handles can be configured for sshd running SFTP. The positive integer value limits amount of file handles opened for a connection (by default 1000 is used).
 
   \*** POTENTIAL INCOMPATIBILITY ***
 
