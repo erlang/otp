@@ -392,10 +392,10 @@ extern "C" ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, const bool fips
     return curve_collection.to_list(env, fips_enabled);
 }
 
-#ifdef HAVE_EC
 // Check if the curve in nid is supported by the current cryptolib and current FIPS state.
-bool curve_probe_t::is_curve_valid_by_nid() const {
-#ifdef HAVE_AUTO_PKEY_T
+bool curve_probe_t::is_curve_valid() const {
+#if defined(HAVE_DH)
+# if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_DH)
     auto_pkey_t pkey;
     auto_pkey_t params;
 
@@ -420,7 +420,6 @@ bool curve_probe_t::is_curve_valid_by_nid() const {
 
     return true;
 #else
-#ifdef HAVE_AUTO_KEY_V1_T
     auto_key_v1_t key(EC_KEY_new_by_curve_name(nid));
 
     if (!key)
@@ -428,11 +427,11 @@ bool curve_probe_t::is_curve_valid_by_nid() const {
     if (1 != EC_KEY_generate_key(key.pointer))
         return false;
     return true;
-#endif
-#endif // HAVE_AUTO_PKEY_T
+#endif // HAS_EVP_PKEY_CTX && ! DISABLE_EVP_DH
+#else
     return false;
+#endif // HAVE_DH
 }
-#endif // HAVE_EC
 
 ERL_NIF_TERM curve_type_t::get_atom() const { return this->init->atom; }
 
@@ -463,21 +462,44 @@ void curve_type_t::check_fips_availability(const bool fips_mode) {
     if (EVP_PKEY_generate(pctx.pointer, &pkey.pointer) <= 0) {
         this->flags.algorithm_init_failed = true;
     }
+#else
 #endif
 }
 
 void curve_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<curve_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->sn, this->atom);
-
+    this->resolve_nid();
 #ifdef HAVE_EC
     // Some curves can be pre-checked by their NID. Passing NID=0 will skip this check
-    if (nid && !this->is_curve_valid_by_nid()) {
+    if (nid && !this->is_curve_valid()) {
         return; // invalid/unsupported curves are skipped
     }
 #endif // HAVE_EC
+    if (this->nid != NID_undef && !this->is_ec_group_supported()) {
+        return;
+    }
 
     // Construct in the container directly, passing 'this' to the ctor
     output.emplace_back(this);
     auto &algo = output.back();
     algo.check_fips_availability(fips_mode);
+}
+
+bool curve_probe_t::is_ec_group_supported() const {
+    EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
+    if (!group) {
+        return false;
+    }
+    EC_GROUP_free(group);
+    return true; // curve is supported
+}
+
+void curve_probe_t::resolve_nid() {
+    if (this->nid != NID_undef)
+        return;
+    int guess_nid = OBJ_sn2nid(this->sn); // resolve from short name
+    if (guess_nid == NID_undef) {
+        guess_nid = OBJ_ln2nid(this->sn); // resolve from long name
+    }
+    this->nid = guess_nid;
 }

@@ -89,9 +89,7 @@ struct pkey_type_t {
         return false;
 #    endif
     }
-    bool is_available() const {
-        return !this->flags.algorithm_init_failed;
-    }
+    constexpr bool is_available() const { return true; }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
 #    if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)

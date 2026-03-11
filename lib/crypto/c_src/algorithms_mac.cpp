@@ -96,7 +96,7 @@ void mac_type_t::update_flags_check_fips_availability(const bool fips_enabled) {
 
 void mac_type_t::update_flags(const bool fips_enabled) {
 #if defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
-    alg.update_flags_check_fips_availability(fips_enabled);
+    this->update_flags_check_fips_availability(fips_enabled);
 #endif // defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
 
 #if defined(HAS_3_0_API)

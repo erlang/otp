@@ -73,7 +73,7 @@ struct curve_type_t {
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
 struct curve_probe_t {
-    int nid; // NID_xxxx value (an OpenSSL macro)
+    int nid = NID_undef; // NID_xxxx value (an OpenSSL macro)
     const char *sn; // serves as Erlang atom name, also equal to SN_xxxxx macro of OpenSSL
     ERL_NIF_TERM atom = CRYPTOENIF_BAD_ATOM_VALUE; // Atom for this->sn is cached here
 
@@ -85,10 +85,10 @@ struct curve_probe_t {
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_type_t> &output);
 
     static void post_lazy_init(std::vector<curve_type_t> &) {}
-#ifdef HAVE_EC
 private:
-    bool is_curve_valid_by_nid() const; // used by the probe() to check this->nid
-#endif // HAVE_EC
+    bool is_curve_valid() const;
+    bool is_ec_group_supported() const;
+    void resolve_nid();
 };
 
 // Forward declaration, find

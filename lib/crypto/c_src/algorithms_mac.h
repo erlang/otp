@@ -86,7 +86,7 @@ struct mac_type_t {
 
     bool is_forbidden_in_fips() const {
 #    ifdef FIPS_SUPPORT
-        return this->flags.fips_forbidden && FIPS_MODE();
+        return this->flags.fips_forbidden && FIPS_MODE() || this->flags.algorithm_init_failed;
 #    else
         return false;
 #    endif

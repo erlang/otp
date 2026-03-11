@@ -22,7 +22,7 @@
 -module(crypto_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
-
+-include_lib("stdlib/include/assert.hrl").
 
 -export([
          %% CT callbacks:
@@ -5308,17 +5308,21 @@ openssl_version() ->
 
 %% The key must appear in supports[fips_forbidden][section] and NOT appear in supports[section]
 assert_forbidden_or_not_supported(Section, Key, Supports) ->
-    SupportedSection = proplists:get_value(Section, Supports),
-    AllForbidden = proplists:get_value(fips_forbidden, Supports),
-    ForbiddenSection = proplists:get_value(Section, AllForbidden),
-    true = lists:member(Key, ForbiddenSection),
-    false = lists:member(Key, SupportedSection).
+  SupportedSection = proplists:get_value(Section, Supports),
+  AllForbidden = proplists:get_value(fips_forbidden, Supports),
+  ForbiddenSection = proplists:get_value(Section, AllForbidden),
+
+  ?assert(lists:member(Key, ForbiddenSection) and not lists:member(Key, SupportedSection),
+    lists:flatten(io_lib:format(
+      "Key ~p is expected to be listed in the forbidden section ~p, "
+      "and NOT listed in the supported section ~p", [Key, Section, Section]))).
 
 %% When FIPS is enabled, crypto:supports() returns a section with forbidden algorithms
 %% Check for a few algorithms that we know always exist and always forbidden in FIPS
 fips_forbidden_algorithms(Config) when is_list(Config) ->
-    enabled = crypto:info_fips(),
+    ?assertEqual(enabled, crypto:info_fips(), "FIPS must be compiled in and enabled for this test"),
     Supports = crypto:supports(),
+    ct:log("crypto:supports() returns: ~120p", [Supports]),
 
     assert_forbidden_or_not_supported(hashs, blake2s, Supports),
     assert_forbidden_or_not_supported(hashs, md4, Supports),
@@ -5331,5 +5335,7 @@ fips_forbidden_algorithms(Config) when is_list(Config) ->
 
 %% When FIPS is disabled, crypto:supports() should not return forbidden algorithms section
 nofips_no_forbidden_algorithms(Config) when is_list(Config) ->
-    true = lists:member(crypto:info_fips(), [not_supported, not_enabled]),
-    undefined = proplists:get_value(fips_forbidden, crypto:supports()).
+    ?assert(lists:member(crypto:info_fips(), [not_supported, not_enabled]),
+      "FIPS must either be not compiled in or disabled for this test"),
+    ?assertEqual(undefined, proplists:get_value(fips_forbidden, crypto:supports()),
+      "The crypto:supports() result must not contain 'fips_forbidden' section at all").
