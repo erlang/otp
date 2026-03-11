@@ -1548,36 +1548,104 @@ void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
  * Result is returned in the flags.
  */
 void BeamGlobalAssembler::emit_arith_compare_shared() {
-    // We directly call erts_cmp_compound here instead of
-    // trying to use faster alternatives.
-    emit_enter_runtime_frame();
-    emit_enter_runtime();
+    Label generic_compare = a.newLabel();
 
+    emit_enter_runtime_frame();
+
+    /* Are both atoms? */
+    a.and_(TMP, ARG1, imm(_TAG_IMMED2_MASK));
+    a.cmp(TMP, imm(_TAG_IMMED2_ATOM));
+    a.b_ne(generic_compare);
+    a.and_(TMP, ARG2, imm(_TAG_IMMED2_MASK));
+    a.cmp(TMP, imm(_TAG_IMMED2_ATOM));
+    a.b_ne(generic_compare);
+
+    emit_enter_runtime();
+    runtime_call<2>(erts_cmp_atoms);
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    /* erts_cmp_atoms returns int. */
+    a.cmp(ARG1, imm(0));
+    a.bx(a32::lr);
+
+    a.bind(generic_compare);
+    emit_enter_runtime();
     comment("erts_cmp_compound(X, Y, 0, 0);");
     mov_imm(ARG3, 0);
     mov_imm(ARG4, 0);
     runtime_call<4>(erts_cmp_compound);
-
     emit_leave_runtime();
     emit_leave_runtime_frame();
 
-    a.tst(ARG1, ARG1);
-
+    a.cmp(ARG1, imm(0));
     a.bx(a32::lr);
 }
 
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
-    // TODO
-    emit_nyi("emit_is_lt");
+    Label generic = a.newLabel(), done = a.newLabel();
+    const bool both_small = always_small(LHS) && always_small(RHS);
+
+    mov_arg(ARG2, RHS); /* May clobber ARG1. */
+    mov_arg(ARG1, LHS);
+
+    if (!both_small) {
+        /* Fast path: tagged compare is valid only when both are small. */
+        a.and_(TMP, ARG1, ARG2);
+        a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    /* LHS < RHS succeeds, so fail on LHS >= RHS. */
+    a.cmp(ARG1, ARG2);
+    a.b_ge(resolve_beam_label(Fail, disp32MB));
+    a.b(done);
+
+    if (!both_small) {
+        a.bind(generic);
+        fragment_call(ga->get_arith_compare_shared());
+        a.b_ge(resolve_beam_label(Fail, disp32MB));
+    } else {
+        a.bind(generic);
+    }
+
+    a.bind(done);
 }
 
 void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
-    // TODO
-    emit_nyi("emit_is_ge");
+    Label generic = a.newLabel(), done = a.newLabel();
+    const bool both_small = always_small(LHS) && always_small(RHS);
+
+    mov_arg(ARG2, RHS); /* May clobber ARG1. */
+    mov_arg(ARG1, LHS);
+
+    if (!both_small) {
+        /* Fast path: tagged compare is valid only when both are small. */
+        a.and_(TMP, ARG1, ARG2);
+        a.and_(TMP, TMP, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    /* LHS >= RHS succeeds, so fail on LHS < RHS. */
+    a.cmp(ARG1, ARG2);
+    a.b_lt(resolve_beam_label(Fail, disp32MB));
+    a.b(done);
+
+    if (!both_small) {
+        a.bind(generic);
+        fragment_call(ga->get_arith_compare_shared());
+        a.b_lt(resolve_beam_label(Fail, disp32MB));
+    } else {
+        a.bind(generic);
+    }
+
+    a.bind(done);
 }
 
 /*
