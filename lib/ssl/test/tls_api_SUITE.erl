@@ -576,10 +576,12 @@ tls_reset_in_active_once(Config) when is_list(Config) ->
     {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
     Port = ssl_test_lib:inet_port(node()),
+    Me = self(),
     Server = fun() ->
                      case proplists:get_value(transport, Config) of
                          socket ->
                              {ok, Listen} = tls_socket_tcp:listen(Port, TcpOpts),
+                             Me ! continue,
                              {ok, TcpServerSocket} = socket:accept(Listen),
                              {ok, ServerSocket} = ssl:handshake(TcpServerSocket, ServerOpts),
                              lists:foreach(
@@ -591,6 +593,7 @@ tls_reset_in_active_once(Config) when is_list(Config) ->
                              socket:close(Listen);
                          _ ->
                              {ok, Listen} = gen_tcp:listen(Port, TcpOpts),
+                             Me ! continue,
                              {ok, TcpServerSocket} = gen_tcp:accept(Listen),
                              {ok, ServerSocket} = ssl:handshake(TcpServerSocket, ServerOpts),
                              lists:foreach(
@@ -603,7 +606,8 @@ tls_reset_in_active_once(Config) when is_list(Config) ->
                      end
 	     end,
     spawn_link(Server),
-    {ok, Socket} = ssl:connect(Hostname, Port, [{active, false} | ClientOpts]),
+    receive continue -> ok end,
+    {ok, Socket} = ssl:connect(Hostname, Port, [{active, false}, {reuseaddr, true} | ClientOpts]),
     Result = tls_closed_in_active_once_loop(Socket),
     ssl:close(Socket),
     case Result of

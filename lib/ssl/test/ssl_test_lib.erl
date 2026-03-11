@@ -3558,6 +3558,7 @@ openssl_allows_server_renegotiate(Config) ->
 
 
 enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
+enough_openssl_crl_support("OpenSSL 1.0." ++ _) -> false;
 enough_openssl_crl_support(_) -> true.
 
 wait_for_openssl_server(Port, tls) ->
