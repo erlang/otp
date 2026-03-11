@@ -1567,15 +1567,50 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_eq(const ArgLabel &Fail,
                                      const ArgSource &X,
                                      const ArgSource &Y) {
-    // TODO
-    emit_nyi("emit_is_eq");
+    Label next = a.newLabel();
+
+    mov_arg(ARG2, Y); /* May clobber ARG1. */
+    mov_arg(ARG1, X);
+
+    /* Pointer/term identity implies equality for '=='. */
+    a.cmp(ARG1, ARG2);
+    a.b_eq(next);
+
+    emit_enter_runtime();
+    /* Arithmetic equality compare (==): 0 means equal. */
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 1);
+    runtime_call<4>(erts_cmp_compound);
+    emit_leave_runtime();
+
+    /* erts_cmp_compound(..., eq_only=1) returns 0 when equal. */
+    mov_imm(TMP, 0);
+    a.cmp(ARG1, TMP);
+    a.b_ne(resolve_beam_label(Fail, disp32MB));
+
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
                                      const ArgSource &X,
                                      const ArgSource &Y) {
-    // TODO
-    emit_nyi("emit_is_ne");
+    mov_arg(ARG2, Y); /* May clobber ARG1. */
+    mov_arg(ARG1, X);
+
+    /* Pointer/term identity implies equality, so '/=' fails. */
+    a.cmp(ARG1, ARG2);
+    a.b_eq(resolve_beam_label(Fail, disp32MB));
+
+    emit_enter_runtime();
+    /* Arithmetic equality compare (/=): 0 means equal and must fail. */
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 1);
+    runtime_call<4>(erts_cmp_compound);
+    emit_leave_runtime();
+
+    mov_imm(TMP, 0);
+    a.cmp(ARG1, TMP);
+    a.b_eq(resolve_beam_label(Fail, disp32MB));
 }
 
 /*
