@@ -114,14 +114,110 @@ void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
 
 /* ARG1 = source term */
 void BeamGlobalAssembler::emit_fconv_shared() {
-    // TODO
-    emit_nyi("emit_fconv_shared");
+    Label error = a.newLabel();
+
+    /* Is the source a bignum? */
+    {
+        emit_is_boxed(error, ARG1);
+
+        emit_untag_ptr(TMP, ARG1);
+        a.ldr(TMP, arm::Mem(TMP));
+
+        /* The mask (0b111011) cannot be encoded directly on ARM32. */
+        mov_imm(VAR, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
+        a.and_(VAR, TMP, VAR);
+        a.cmp(VAR, imm(_TAG_HEADER_POS_BIG));
+        a.b_ne(error);
+    }
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    /* ARG1 already contains the source term. */
+    lea(ARG2, TMP_MEM1q);
+    runtime_call<2>(big_to_double);
+
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    a.tst(ARG1, ARG1);
+    a.b_mi(error);
+
+    lea(TMP, TMP_MEM1q);
+    a.vldr_64(a32::d0, arm::Mem(TMP));
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        mov_imm(ARG4, 0);
+        mov_imm(TMP, EXC_BADARITH);
+        a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
                                      const ArgFRegister &Dst) {
-    // TODO
-    emit_nyi("emit_fconv");
+    auto dst = init_destination(Dst, a32::d0);
+    auto src = load_source(Src, ARG1);
+
+    if (always_small(Src)) {
+        comment("skipped test for small operand since it is always small");
+        a.asr(TMP, src.reg, imm(_TAG_IMMED1_SIZE));
+        a.vmov_s32(a32::s0, TMP);
+        a.vcvt_f64_s32(dst.reg, a32::s0);
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel(), not_small = a.newLabel(),
+          fallback = a.newLabel();
+
+    a.and_(TMP, src.reg, imm(_TAG_IMMED1_MASK));
+    a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+    a.b_ne(not_small);
+
+    a.asr(TMP, src.reg, imm(_TAG_IMMED1_SIZE));
+    a.vmov_s32(a32::s0, TMP);
+    a.vcvt_f64_s32(dst.reg, a32::s0);
+    a.b(next);
+
+    a.bind(not_small);
+    {
+        if (never_one_of<BeamTypeId::Float>(Src)) {
+            comment("skipped float path since source cannot be a float");
+        } else {
+            /* If the source is always a number, we can skip the box test when
+             * it's not a small. */
+            if (always_one_of<BeamTypeId::Number>(Src)) {
+                comment("skipped box test since source is always a number");
+            } else {
+                emit_is_boxed(fallback, Src, src.reg);
+            }
+
+            emit_untag_ptr(TMP, src.reg);
+
+            /* Speculatively load the float value, this is safe since all boxed
+             * terms are at least two words long. */
+            lea(VAR, arm::Mem(TMP, sizeof(Eterm)));
+            a.vldr_64(dst.reg, arm::Mem(VAR));
+
+            a.ldr(TMP, arm::Mem(TMP));
+            mov_imm(VAR, HEADER_FLONUM);
+            a.cmp(TMP, VAR);
+            a.b_eq(next);
+        }
+
+        a.bind(fallback);
+        {
+            mov_var(ARG1, src);
+            fragment_call(ga->get_fconv_shared());
+            a.vmov_f64(dst.reg, a32::d0);
+        }
+    }
+
+    a.bind(next);
+    flush_var(dst);
 }
 
 void BeamModuleAssembler::emit_i_fadd(const ArgFRegister &LHS,
