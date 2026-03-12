@@ -170,7 +170,7 @@ test(BootArgs) ->
     test_bs_construct(),
     test_yield(),
     test_maps(),
-%    test_is_port(),
+    test_is_port(),
 %
 %    %% From this point on, the `erlang` and `erts_internal` modules
 %    %% must be loaded.
@@ -1447,13 +1447,9 @@ cbm_tail(<<1:1, Rest/bits>>) ->
     Rest.
 
 test_bs_construct() ->
-    erlang:display_string("starting basic_bs_construct\n"),
     basic_bs_construct(),
-    erlang:display_string("starting complex_bs_construct\n"),
     complex_bs_construct(),
-    erlang:display_string("starting bs_comprehension\n"),
     bs_comprehension(),
-    erlang:display_string("test_bs_construct done\n"),
 
     ok.
 
@@ -1586,32 +1582,32 @@ test_maps() ->
 make_map(0, Acc) -> Acc;
 make_map(N, Acc) -> make_map(N - 1, Acc#{ N => N }).
 
-%-ifdef(RUN_AS_TESTCASE).
-%%% Spawning /bin/cat does not work on all platforms.
-%test_is_port() ->
-%    erlang:display_string("(test_is_port/0 test not run.)\n").
-%-else.
-%test_is_port() ->
-%    Port = open_port({spawn_executable,"/bin/cat"}, []),
-%    true = is_port(Port),
-%    unlink(Port),
-%    erlang:port_close(Port),
-%
-%    ExtPort = external_port(),
-%    true = is_port(ExtPort),
-%
-%    false = is_port(id({a,b})),
-%    false = is_port(id(external_pid())),
-%    false = is_port(id(a)),
-%
-%    ok.
-%-endif.
-%
-%external_port() ->
-%    B = <<131,89,100,0,11,97,114,110,101,64,122,97,112,104,111,
-%          100,0,0,0,11,96,96,14,189>>,
-%    binary_to_term(B).
-%
+-ifdef(RUN_AS_TESTCASE).
+%% Spawning /bin/cat does not work on all platforms.
+test_is_port() ->
+    erlang:display_string("(test_is_port/0 test not run.)\n").
+-else.
+test_is_port() ->
+    Port = open_port({spawn_executable,"/bin/cat"}, []),
+    true = is_port(Port),
+    unlink(Port),
+    erlang:port_close(Port),
+
+    ExtPort = external_port(),
+    true = is_port(ExtPort),
+
+    false = is_port(id({a,b})),
+    false = is_port(id(external_pid())),
+    false = is_port(id(a)),
+
+    ok.
+-endif.
+
+external_port() ->
+    B = <<131,89,100,0,11,97,114,110,101,64,122,97,112,104,111,
+          100,0,0,0,11,96,96,14,189>>,
+    binary_to_term(B).
+
 %%%%
 %%%% From this point, heavy bifs are used. Heavy BIFs are only
 %%%% possible to call if their module has been loaded. Therefore,

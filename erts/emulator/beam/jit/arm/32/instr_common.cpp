@@ -1193,8 +1193,32 @@ void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_port(const ArgLabel &Fail,
                                        const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_is_port");
+    auto src = load_source(Src, TMP);
+    Label next = a.newLabel();
+
+    if (always_one_of<BeamTypeId::Port, BeamTypeId::AlwaysBoxed>(Src)) {
+        comment("simplified local port test since all other types are boxed");
+        emit_is_boxed(next, Src, src.reg);
+    } else {
+        a.and_(VAR, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(VAR, imm(_TAG_IMMED1_PORT));
+        a.b_eq(next);
+
+        /* Reuse VAR as the important bits are still available. */
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, VAR);
+    }
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Port) {
+        comment("skipped header test since we know it's a port when boxed");
+    } else {
+        a32::Gp boxed_ptr = emit_ptr_val(TMP, src.reg);
+        a.ldr(VAR, emit_boxed_val(boxed_ptr));
+        a.and_(VAR, VAR, imm(_TAG_HEADER_MASK));
+        a.cmp(VAR, imm(_TAG_HEADER_EXTERNAL_PORT));
+        a.b_ne(resolve_beam_label(Fail, disp32MB));
+    }
+
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_reference(const ArgLabel &Fail,
