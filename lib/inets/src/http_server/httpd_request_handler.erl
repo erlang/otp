@@ -262,12 +262,16 @@ handle_info({Proto, Socket, Data},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr, {max_size, MaxSize}),
 	    {stop, normal, State#state{response_sent = true,
 				       mod = NewModData}};
-
-    {error, {version_error, ErrCode, ErrStr}, Version} ->
+        {error, {version_error, ErrCode, ErrStr}, Version} ->
         NewModData =  ModData#mod{http_version = Version},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr),
 	    {stop, normal, State#state{response_sent = true,
-				                   mod = NewModData}};
+				       mod = NewModData}};
+        {error, {bad_request, ErrCode, ErrStr}, Version} ->
+            NewModData =  ModData#mod{http_version = Version},
+            httpd_response:send_status(NewModData, ErrCode, ErrStr),
+            {stop, normal, State#state{response_sent = true,
+                                       mod = NewModData}};
 
     {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
         NewState = handle_chunk(Module, Function, Args, State),
