@@ -151,6 +151,25 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {
-    // TODO
-    emit_nyi("emit_i_hibernate");
+    Label error = a.newLabel();
+
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    runtime_call<2>(erts_hibernate);
+
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
+
+    a.tst(ARG1, ARG1);
+    a.b_eq(error);
+
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, flags)));
+    mov_imm(VAR, ~F_HIBERNATE_SCHED);
+    a.and_(TMP, TMP, VAR);
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, flags)));
+    a.b(resolve_fragment(ga->get_do_schedule(), disp32MB));
+
+    a.bind(error);
+    emit_raise_exception(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
 }

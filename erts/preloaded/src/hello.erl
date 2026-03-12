@@ -32,7 +32,7 @@
 -export([start/0, start/2, hello/1, undefined_function/3, id/1]).
 %
 %%% Internal exports.
--export([process_main/1]).% basic_hibernator/1]).
+-export([process_main/1, basic_hibernator/1]).
 %
 %%% Internal exports for estone.
 %-compile({no_auto_import,[max/2]}).
@@ -177,7 +177,7 @@ test(BootArgs) ->
     test_heavy_bifs(BootArgs),
     test_get(),
     test_process_info(),
-%    test_hibernate(),
+    test_hibernate(),
 %    test_load_nif(),
 %
     ok.
@@ -1649,130 +1649,130 @@ test_process_info() ->
 waiting_process() ->
     receive _ -> ok end.
 
-%test_hibernate() ->
-%    Ref = make_ref(),
-%    Info = {self(),Ref},
-%    MaxHeapSz = maximum_hibernate_heap_size([Info]),
-%    Child = spawn_link(fun() ->
-%                               basic_hibernator(Info)
-%                       end),
-%    hibernate_wake_up(100, MaxHeapSz, Child),
-%    Child ! please_quit_now,
-%    ok.
-%
-%maximum_hibernate_heap_size(Term) ->
-%    %% When hibernating, a few extra words will be allocated to hold the
-%    %% continuation pointer as well as scratch space for the interpreter/jit.
-%    erts_debug:flat_size(Term) + 8.
-%
-%hibernate_wake_up(0, _, _) -> ok;
-%hibernate_wake_up(N, MaxHeapSz, Child) ->
-%    {heap_size,_Before} = process_info(Child, heap_size),
-%    case N rem 2 of
-%        0 ->
-%            Child ! {acquire_old_heap,self()},
-%            receive
-%                done -> ok
-%            end;
-%        1 -> ok
-%    end,
-%    Child ! {hibernate,self()},
-%    wait_until(fun () ->
-%                       {current_function,{erlang,hibernate,3}} ==
-%                           process_info(Child, current_function)
-%               end),
-%    {message_queue_len,0} = process_info(Child, message_queue_len),
-%    {status,waiting} = process_info(Child, status),
-%    {heap_size,After} = process_info(Child, heap_size),
-%    true = After =< MaxHeapSz,
-%    Child ! {whats_up,self()},
-%    receive
-%        {all_fine,_,Child,_Ref} ->
-%            {backtrace,Bin} = process_info(Child, backtrace),
-%            if
-%                byte_size(Bin) > 1000 ->
-%                    error(stack_is_growing);
-%                true ->
-%                    hibernate_wake_up(N-1, MaxHeapSz, Child)
-%            end;
-%        Other ->
-%            error({unexpected_message,Other})
-%    end.
-%
-%basic_hibernator(Info) ->
-%    {catchlevel,0} = process_info(self(), catchlevel),
-%    receive
-%        Any ->
-%            basic_hibernator_msg(Any, Info),
-%            basic_hibernator(Info)
-%    end.
-%
-%basic_hibernator_msg({hibernate,_}, Info) ->
-%    catch erlang:hibernate(?MODULE, basic_hibernator, [Info]),
-%    exit(hibernate_returned);
-%basic_hibernator_msg({acquire_old_heap,Parent}, _) ->
-%    acquire_old_heap(),
-%    Parent ! done;
-%basic_hibernator_msg({whats_up,Parent}, {Parent,Ref}) ->
-%    {heap_size,_HeapSize} = process_info(self(), heap_size),
-%    X = whats_up_calc(5000, 2, math:pi(), 4, 5, 6, 7, 8.5, 9, []),
-%    Parent ! {all_fine,X,self(),Ref};
-%basic_hibernator_msg(please_quit_now, _) ->
-%    exit(normal);
-%basic_hibernator_msg(Other, _) ->
-%    exit({unexpected,Other}).
-%
-%acquire_old_heap() ->
-%    case process_info(self(), [heap_size,total_heap_size]) of
-%        [{heap_size,Sz},{total_heap_size,Total}] when Sz < Total ->
-%            ok;
-%        _ ->
-%            acquire_old_heap()
-%    end.
-%
-%%% The point with this calculation is to force memory to be
-%%% allocated for the argument registers in the process structure.
-%%% The allocation will be forced if the process is scheduled out
-%%% while calling a function with more than 6 arguments.
-%whats_up_calc(0, A2, A3, A4, A5, A6, A7, A8, A9, Acc) ->
-%    {Acc,A2+A3+A4+A5+A6+A7+A8+A9};
-%whats_up_calc(A1, A2, A3, A4, A5, A6, A7, A8, A9, Acc) ->
-%    whats_up_calc(A1-1, A2+1, A3+2, A4+3, A5+4, A6+5, A7+6, A8+7, A9+8, [A1,A2|Acc]).
-%
-%wait_until(Fun) ->
-%    case catch Fun() of
-%        true -> ok;
-%        _ -> receive after 10 -> wait_until(Fun) end
-%    end.
-%
-%test_load_nif() ->
-%    case whereis(code_server) of
-%        Pid when is_pid(Pid) ->
-%            %% This test is run in a booted OTP system. Attempting
-%            %% to load the same NIF again would fail.
-%            ok;
-%        undefined ->
-%            prim_file:on_load(),
-%            prim_buffer:on_load(),
-%            call_nifs(),
-%
-%            %% Wait for call_nif instruction to be patched in
-%            receive after 100 -> ok end,
-%            call_nifs()
-%    end,
-%
-%    ok.
-%
-%call_nifs() ->
-%    B = prim_buffer:new(),
-%    0 = prim_buffer:size(B),
-%    ok = prim_buffer:write(B, [<<1,2,3,4,5>>]),
-%    5 = prim_buffer:size(B),
-%
-%    {ok,Cwd} = prim_file:get_cwd(),
-%    erlang:display_string("CWD = " ++ Cwd ++ "\n"),
-%    ok.
-%
+test_hibernate() ->
+    Ref = make_ref(),
+    Info = {self(),Ref},
+    MaxHeapSz = maximum_hibernate_heap_size([Info]),
+    Child = spawn_link(fun() ->
+                               basic_hibernator(Info)
+                       end),
+    hibernate_wake_up(100, MaxHeapSz, Child),
+    Child ! please_quit_now,
+    ok.
+
+maximum_hibernate_heap_size(Term) ->
+    %% When hibernating, a few extra words will be allocated to hold the
+    %% continuation pointer as well as scratch space for the interpreter/jit.
+    erts_debug:flat_size(Term) + 8.
+
+hibernate_wake_up(0, _, _) -> ok;
+hibernate_wake_up(N, MaxHeapSz, Child) ->
+    {heap_size,_Before} = process_info(Child, heap_size),
+    case N rem 2 of
+        0 ->
+            Child ! {acquire_old_heap,self()},
+            receive
+                done -> ok
+            end;
+        1 -> ok
+    end,
+    Child ! {hibernate,self()},
+    wait_until(fun () ->
+                       {current_function,{erlang,hibernate,3}} ==
+                           process_info(Child, current_function)
+               end),
+    {message_queue_len,0} = process_info(Child, message_queue_len),
+    {status,waiting} = process_info(Child, status),
+    {heap_size,After} = process_info(Child, heap_size),
+    true = After =< MaxHeapSz,
+    Child ! {whats_up,self()},
+    receive
+        {all_fine,_,Child,_Ref} ->
+            {backtrace,Bin} = process_info(Child, backtrace),
+            if
+                byte_size(Bin) > 1000 ->
+                    error(stack_is_growing);
+                true ->
+                    hibernate_wake_up(N-1, MaxHeapSz, Child)
+            end;
+        Other ->
+            error({unexpected_message,Other})
+    end.
+
+basic_hibernator(Info) ->
+    {catchlevel,0} = process_info(self(), catchlevel),
+    receive
+        Any ->
+            basic_hibernator_msg(Any, Info),
+            basic_hibernator(Info)
+    end.
+
+basic_hibernator_msg({hibernate,_}, Info) ->
+    catch erlang:hibernate(?MODULE, basic_hibernator, [Info]),
+    exit(hibernate_returned);
+basic_hibernator_msg({acquire_old_heap,Parent}, _) ->
+    acquire_old_heap(),
+    Parent ! done;
+basic_hibernator_msg({whats_up,Parent}, {Parent,Ref}) ->
+    {heap_size,_HeapSize} = process_info(self(), heap_size),
+    X = whats_up_calc(5000, 2, math:pi(), 4, 5, 6, 7, 8.5, 9, []),
+    Parent ! {all_fine,X,self(),Ref};
+basic_hibernator_msg(please_quit_now, _) ->
+    exit(normal);
+basic_hibernator_msg(Other, _) ->
+    exit({unexpected,Other}).
+
+acquire_old_heap() ->
+    case process_info(self(), [heap_size,total_heap_size]) of
+        [{heap_size,Sz},{total_heap_size,Total}] when Sz < Total ->
+            ok;
+        _ ->
+            acquire_old_heap()
+    end.
+
+%% The point with this calculation is to force memory to be
+%% allocated for the argument registers in the process structure.
+%% The allocation will be forced if the process is scheduled out
+%% while calling a function with more than 6 arguments.
+whats_up_calc(0, A2, A3, A4, A5, A6, A7, A8, A9, Acc) ->
+    {Acc,A2+A3+A4+A5+A6+A7+A8+A9};
+whats_up_calc(A1, A2, A3, A4, A5, A6, A7, A8, A9, Acc) ->
+    whats_up_calc(A1-1, A2+1, A3+2, A4+3, A5+4, A6+5, A7+6, A8+7, A9+8, [A1,A2|Acc]).
+
+wait_until(Fun) ->
+    case catch Fun() of
+        true -> ok;
+        _ -> receive after 10 -> wait_until(Fun) end
+    end.
+
+test_load_nif() ->
+    case whereis(code_server) of
+        Pid when is_pid(Pid) ->
+            %% This test is run in a booted OTP system. Attempting
+            %% to load the same NIF again would fail.
+            ok;
+        undefined ->
+            prim_file:on_load(),
+            prim_buffer:on_load(),
+            call_nifs(),
+
+            %% Wait for call_nif instruction to be patched in
+            receive after 100 -> ok end,
+            call_nifs()
+    end,
+
+    ok.
+
+call_nifs() ->
+    B = prim_buffer:new(),
+    0 = prim_buffer:size(B),
+    ok = prim_buffer:write(B, [<<1,2,3,4,5>>]),
+    5 = prim_buffer:size(B),
+
+    {ok,Cwd} = prim_file:get_cwd(),
+    erlang:display_string("CWD = " ++ Cwd ++ "\n"),
+    ok.
+
 %%%%
 %%%% Here follows Estone, extracted from estone_SUITE. It's main
 %%%% purpose in this context is to test more instructions and
