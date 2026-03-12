@@ -94,7 +94,7 @@
         new_prompt.
 
 -export_type([message/0, request/0]).
--export([start/0, start/1, start_shell/0, start_shell/1, whereis_group/0]).
+-export([start/0, start/1, start_shell/0, start_shell/1, whereis_group/0, flush/0]).
 
 %% gen_statem state callbacks
 -behaviour(gen_statem).
@@ -141,6 +141,14 @@ start_shell() ->
 -spec start_shell(arguments()) -> ok | {error, already_started}.
 start_shell(Args) ->
     gen_statem:call(?MODULE, {start_shell, Args}).
+
+-spec flush() -> ok | {error, term()}.
+flush() ->
+    try
+        gen_statem:call(?MODULE, flush, 1000)
+    catch
+        _:_ -> ok
+    end.
 
 -spec whereis_group() -> pid() | undefined.
 whereis_group() ->
@@ -453,6 +461,10 @@ server({call, From}, {start_shell, Args},
 server({call, From}, {start_shell, _Args}, _State) ->
     gen_statem:reply(From, {error, already_started}),
     keep_state_and_data;
+server({call, From}, flush, #state{ tty = TTYState, queue = Queue } = State) ->
+    Msg = {{statem_reply, From}, {put_chars_sync, unicode, <<>>, noreply}},
+    {NewTTYState, NewQueue} = handle_req(Msg, TTYState, Queue),
+    {keep_state, State#state{ tty = NewTTYState, queue = NewQueue }};
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle })
   when State#state.current_group =:= State#state.user ->
     State#state.current_group ! {self(), {data,UTF8Binary}},
@@ -529,6 +541,12 @@ server(info, Req, State = #state{ user = User, current_group = Curr, editor = un
     {NewTTYState, NewQueue} = handle_req(Req, State#state.tty, State#state.queue),
     {keep_state, State#state{ tty = NewTTYState, queue = NewQueue }};
 server(info, {WriteRef, ok}, State = #state{ write = WriteRef,
+                                             queue = {{{statem_reply, From}, MonitorRef, _Reply}, IOQ} }) ->
+    gen_statem:reply(From, ok),
+    erlang:demonitor(MonitorRef, [flush]),
+    {NewTTYState, NewQueue} = handle_req(next, State#state.tty, {false, IOQ}),
+    {keep_state, State#state{ tty = NewTTYState, queue = NewQueue }};
+server(info, {WriteRef, ok}, State = #state{ write = WriteRef,
                                              queue = {{Origin, MonitorRef, Reply}, IOQ} }) ->
     %% We get this ok from the user_drv_writer, in io_request we store
     %% info about where to send reply at head of queue
@@ -536,6 +554,11 @@ server(info, {WriteRef, ok}, State = #state{ write = WriteRef,
     erlang:demonitor(MonitorRef, [flush]),
     {NewTTYState, NewQueue} = handle_req(next, State#state.tty, {false, IOQ}),
     {keep_state, State#state{ tty = NewTTYState, queue = NewQueue }};
+server(info, {'DOWN', MonitorRef, _, _, Reason},
+       #state{ queue = {{{statem_reply, From}, MonitorRef, _Reply}, _IOQ} }) ->
+    gen_statem:reply(From, {error, Reason}),
+    ?LOG_INFO("Failed to write to standard out (~p)", [Reason]),
+    stop;
 server(info, {'DOWN', MonitorRef, _, _, Reason},
        #state{ queue = {{Origin, MonitorRef, Reply}, _IOQ} }) ->
     %% The writer process died, we send the correct error to the caller and
@@ -745,6 +768,10 @@ switch_loop(info, {Requester, tty_geometry}, {_Cont, #state{ tty = TTYState }}) 
 switch_loop(timeout, _, {_Cont, State}) ->
     {keep_state_and_data,
      {next_event, info, {State#state.read,{data,[]}}}};
+switch_loop({call, From}, flush, {Cont, State = #state{ tty = TTYState, queue = Queue }}) ->
+    Msg = {{statem_reply, From}, {put_chars_sync, unicode, <<>>, noreply}},
+    {NewTTYState, NewQueue} = handle_req(Msg, TTYState, Queue),
+    {keep_state, {Cont, State#state{ tty = NewTTYState, queue = NewQueue }}};
 switch_loop(info, _Unknown, _State) ->
     {keep_state_and_data, postpone}.
 
@@ -1005,7 +1032,7 @@ handle_req(next, TTYState, {false, IOQ} = IOQueue) ->
                 {Reply, MonitorRef, NewTTYState} ->
                     {NewTTYState, {{Origin, MonitorRef, Reply}, ExecQ}};
                 {Reply, {error, Reason}} ->
-                    Origin ! {reply, Reply, {error, Reason}},
+                    _ = reply_to_origin(Origin, Reply, {error, Reason}),
                     handle_req(next, TTYState, {false, ExecQ})
             end
     end;
@@ -1018,12 +1045,17 @@ handle_req(Msg, TTYState, {false, IOQ} = IOQueue) ->
         {Reply, MonitorRef, NewTTYState} ->
             {NewTTYState, {{Origin, MonitorRef, Reply}, IOQ}};
         {Reply, {error, Reason}} ->
-            Origin ! {reply, Reply, {error, Reason}},
+            _ = reply_to_origin(Origin, Reply, {error, Reason}),
             {TTYState, IOQueue}
     end;
 handle_req(Msg,TTYState,{Resp, IOQ}) ->
     %% All requests are queued when we have outstanding sync put_chars
     {TTYState, {Resp, queue:in(Msg,IOQ)}}.
+
+reply_to_origin({statem_reply, From}, _Reply, Resp) ->
+    gen_statem:reply(From, Resp);
+reply_to_origin(Origin, Reply, Resp) ->
+    Origin ! {reply, Reply, Resp}.
 
 %% gr_new()
 %% gr_get_num(Group, Index)

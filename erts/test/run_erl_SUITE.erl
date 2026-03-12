@@ -104,7 +104,7 @@ count_new_lines(P, N) ->
     receive
 	{P,{data,S}} ->
 	    count_new_lines(P, count_new_lines_1(S, N))
-    after 0 ->
+    after 10 ->
 	    N
     end.
 
