@@ -252,6 +252,22 @@ obsolete(zlib, setBufSize, 2) ->
     {removed, "this function has been removed"};
 obsolete(erlang, list_to_atom, 1) ->
     {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
+obsolete(public_key, decrypt_private, 2) ->
+    {unsafe, "see the documentation for details"};
+obsolete(public_key, decrypt_private, 3) ->
+    {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
+obsolete(public_key, decrypt_public, 2) ->
+    {unsafe, "see the documentation for details"};
+obsolete(public_key, decrypt_public, 3) ->
+    {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
+obsolete(public_key, encrypt_private, 2) ->
+    {unsafe, "see the documentation for details"};
+obsolete(public_key, encrypt_private, 3) ->
+    {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
+obsolete(public_key, encrypt_public, 2) ->
+    {unsafe, "see the documentation for details"};
+obsolete(public_key, encrypt_public, 3) ->
+    {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 obsolete(mnesia_registry, create_table, _) ->
@@ -274,6 +290,14 @@ obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl:handshake/1,2,3 instead"};
 obsolete(erlang, binary_to_atom, _) ->
     {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
+obsolete(erlang, binary_to_term, _) ->
+    {unsafe, "however, it is possible to use it safely under some conditions. See the documentation for details"};
+obsolete(file, consult, _) ->
+    {unsafe, "see the documentation for details"};
+obsolete(file, path_consult, _) ->
+    {unsafe, "see the documentation for details"};
+obsolete(os, cmd, _) ->
+    {unsafe, "use open_port/2 with {spawn_executable, _} argument"};
 obsolete(ct_slave, _, _) ->
     {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 29"};
 obsolete(gen_fsm, _, _) ->
@@ -288,6 +312,8 @@ obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
 obsolete(pg2, _, _) ->
     {removed, "this module was removed in OTP 24. Use 'pg' instead"};
+obsolete(http_uri, _, _) ->
+    {unsafe, "use uri_string instead"};
 obsolete(_,_,_) -> no.
 
 -dialyzer({no_match, obsolete_type/3}).
