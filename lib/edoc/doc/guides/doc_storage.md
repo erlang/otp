@@ -37,7 +37,7 @@ When generating documentation for EEP-48 edoc uses the format mime type
 <<"application/erlang+html">>. The documentation content is an Erlang term that
 represents an HTML like structure.
 
-```text
+```erlang
 -type chunk_elements() :: [chunk_element()].
 -type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
                           chunk_elements()} | unicode:unicode_binary().
