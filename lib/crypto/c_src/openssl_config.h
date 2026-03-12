@@ -384,7 +384,7 @@
 /* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
    So if EC is disabled, you can't use Engine either....
 */
-#if !defined(OPENSSL_NO_ENGINE)
+#if !defined(OPENSSL_NO_ENGINE) && !defined(__WIN32__)
 # define HAS_ENGINE_SUPPORT
 #endif
 #endif
