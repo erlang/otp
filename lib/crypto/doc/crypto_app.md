@@ -69,6 +69,21 @@ parameters.
   rounded up to an integral number of words of the size these seed functions
   use.
 
+> #### Change {: .info }
+>
+> From Erlang/OTP 29, in [interactive mode](`e:system:system_principles.md#code_loading`),
+> application `crypto` will be automatically loaded if needed when module
+> `crypto` is loaded. In [embedded mode](`e:system:system_principles.md#code_loading`),
+> module `crypto` will fail to load if application `crypto` has not been
+> loaded by the boot script. This is all done to make sure `crypto` is not
+> initialized with incorrect configuration parameters.
+>
+> In Erlang/OTP 28 and earlier, no automatic loading of the application is done.
+> If module `crypto` is then loaded (by a first call for example) before the
+> application has been loaded, it will initialize with possibly incorrect
+> configuration parameters. In particular, `fips_mode` will then default to
+> `false` even if configured to be `true`.
+
 ## SEE ALSO
 
 application(3)
