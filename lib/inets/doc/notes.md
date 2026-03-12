@@ -19,6 +19,17 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.3.2.3
+
+### Fixed Bugs and Malfunctions
+
+- The httpd server now rejects HTTP requests containing multiple Content-Length headers with different values, returning a 400 Bad Request response. This prevents potential HTTP request smuggling attacks. Thanks Luigino Camastra at Aisle Research for responsibly disclosing this vulnerability
+
+  Own Id: OTP-20007 Aux Id: [PR-10833], [CVE-2026-23941]
+
+[PR-10833]: https://github.com/erlang/otp/pull/10833
+[CVE-2026-23941]: https://nvd.nist.gov/vuln/detail/2026-23941
+
 ## Inets 9.3.2.2
 
 ### Fixed Bugs and Malfunctions

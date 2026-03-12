@@ -19,6 +19,25 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.11.6
+
+### Fixed Bugs and Malfunctions
+
+- Fixed path traversal vulnerability in SFTP server's root option allowing authenticated users to access sibling directories with matching name prefixes. The root option used string prefix matching instead of path component validation. With \{root, "/home/user1"\}, attackers could access /home/user10/ or /home/user123/. Thanks to Luigino Camastra, Aisle Research.
+
+  Own Id: OTP-20009 Aux Id: [PR-10811], [CVE-2026-23942]
+
+- Fixed excessive memory usage vulnerability in SSH compression allowing attackers to consume system resources through decompression bombs. The 'zlib' and 'zlib@openssh.com' algorithms lacked decompression size limits, allowing 256 KB packets to expand to 255 MB (1029:1 ratio). This could lead to crashes on systems with limited memory.
+  
+  The fix removes zlib from default compression algorithms and implements decompression size limits for both algorithms. Thanks to Igor Morgenstern at Aisle Research
+
+  Own Id: OTP-20011 Aux Id: [PR-10813], [CVE-2026-23943]
+
+[PR-10811]: https://github.com/erlang/otp/pull/10811
+[CVE-2026-23942]: https://nvd.nist.gov/vuln/detail/2026-23942
+[PR-10813]: https://github.com/erlang/otp/pull/10813
+[CVE-2026-23943]: https://nvd.nist.gov/vuln/detail/2026-23943
+
 ## Ssh 5.2.11.5
 
 ### Fixed Bugs and Malfunctions

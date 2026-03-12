@@ -21,6 +21,23 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.12.6
+
+### Fixed Bugs and Malfunctions
+
+- The NSS Keylogging refactoring mixed up of Read and Write connection states, could cause wrong NSS keylog labels, or `{error, closed}` returned without keylog.
+
+  Own Id: OTP-19990 Aux Id: [PR-10723], [GH-10698]
+
+- TLS-1.3 certificate request now preserves the order of signature algorithms in certificate request extension to be in the servers preferred order, which might affect the choice made by some TLS clients.
+
+  Own Id: OTP-20022 Aux Id: [GH-10694], [PR-10707], ERIERL-1305
+
+[PR-10723]: https://github.com/erlang/otp/pull/10723
+[GH-10698]: https://github.com/erlang/otp/issues/10698
+[GH-10694]: https://github.com/erlang/otp/issues/10694
+[PR-10707]: https://github.com/erlang/otp/pull/10707
+
 ## SSL 11.2.12.5
 
 ### Fixed Bugs and Malfunctions
