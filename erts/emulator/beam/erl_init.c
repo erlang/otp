@@ -2492,7 +2492,6 @@ erl_start(int argc, char **argv)
     erts_init_process_id = erl_first_process_otp(init, boot_argc, boot_argv);
     ASSERT(erts_init_process_id != ERTS_INVALID_PID);
 
-#if !defined(__arm__) && !defined(BEAMASM)
     {
 	/*
 	 * System processes that are *always* alive. If they terminate
@@ -2559,7 +2558,6 @@ erl_start(int argc, char **argv)
         erts_proc_inc_refc(erts_trace_cleaner);
 
     }
-#endif
     erts_start_schedulers();
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
