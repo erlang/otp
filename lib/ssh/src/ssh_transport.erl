@@ -201,6 +201,9 @@ default_algorithms1(public_key) ->
                                       'ssh-dss'
                                      ]);
 
+default_algorithms1(compression) ->
+    supported_algorithms(compression, same(['zlib']));
+
 default_algorithms1(Alg) ->
     supported_algorithms(Alg, []).
 
@@ -1556,8 +1559,12 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, #ssh{decryp
     case unpack(pkt_type(CryptoAlg), mac_type(MacAlg),
                 DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0) of
         {ok, Payload, NextPacketBytes, Ssh1} ->
-            {Ssh, DecompressedPayload} = decompress(Ssh1, Payload),
-            {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh};
+            case decompress(Ssh1, Payload) of
+                {ok, Ssh, DecompressedPayload} ->
+                    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh};
+                Other ->
+                    Other
+            end;
         Other ->
             Other
     end.
@@ -2071,15 +2078,56 @@ decompress_final(#ssh{decompress = 'zlib@openssh.com', decompress_ctx = Context,
     {ok, Ssh#ssh{decompress = none, decompress_ctx = undefined}}.
 
 decompress(#ssh{decompress = none} = Ssh, Data) ->
-    {Ssh, Data};
+    {ok, Ssh, Data};
 decompress(#ssh{decompress = zlib, decompress_ctx = Context} = Ssh, Data) ->
-    Decompressed = zlib:inflate(Context, Data),
-    {Ssh, list_to_binary(Decompressed)};
+    case safe_zlib_inflate(Context, Data) of
+        {ok, Decompressed} ->
+            {ok, Ssh, Decompressed};
+        Other ->
+            Other
+    end;
 decompress(#ssh{decompress = 'zlib@openssh.com', authenticated = false} = Ssh, Data) ->
-    {Ssh, Data};
+    {ok, Ssh, Data};
 decompress(#ssh{decompress = 'zlib@openssh.com', decompress_ctx = Context, authenticated = true} = Ssh, Data) ->
-    Decompressed = zlib:inflate(Context, Data),
-    {Ssh, list_to_binary(Decompressed)}.
+    case safe_zlib_inflate(Context, Data) of
+        {ok, Decompressed} ->
+            {ok, Ssh, Decompressed};
+        Other ->
+            Other
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Safe decompression loop
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+safe_zlib_inflate(Context, Data) ->
+    safe_zlib_inflate_loop(Context, {0, []}, zlib:safeInflate(Context, Data)).
+
+safe_zlib_inflate_loop(Context, {AccLen0, AccData}, {Status, Chunk})
+  when Status == continue; Status == finished ->
+    ChunkLen = iolist_size(Chunk),
+    AccLen = AccLen0 + ChunkLen,
+    %% RFC 4253 section 6
+    %% Align with packets that don't use compression, we can process payloads with length
+    %% that required minimum padding.
+    %% From ?SSH_MAX_PACKET_SIZE subtract:
+    %% 1 byte for length of padding_length field
+    %% 4 bytes for minimum allowed length of padding
+    %% We don't subtract:
+    %% 4 bytes for packet_length field - not included in packet_length
+    %% x bytes for mac (size depends on type of used mac) - not included in packet_length
+    case AccLen > (?SSH_MAX_PACKET_SIZE - 5) of
+        true ->
+            {error, exceeds_max_decompressed_size};
+        false when Status == continue ->
+            Next = zlib:safeInflate(Context, []),
+            safe_zlib_inflate_loop(Context, {AccLen, [Chunk | AccData]}, Next);
+        false when Status == finished ->
+            Reversed = lists:reverse([Chunk | AccData]),
+            {ok, iolist_to_binary(Reversed)}
+    end;
+safe_zlib_inflate_loop(_Context, {_AccLen, _AccData}, {need_dictionary, Adler, _Chunk}) ->
+    erlang:error({need_dictionary, Adler}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

@@ -57,6 +57,10 @@
          client_handles_keyboard_interactive_0_pwds/1,
          client_handles_banner_keyboard_interactive/1,
          client_info_line/1,
+         decompression_bomb_client/1,
+         decompression_bomb_client_after_auth/1,
+         decompression_bomb_server/1,
+         decompression_bomb_server_after_auth/1,
          do_gex_client_init/3,
          do_gex_client_init_old/3,
          empty_service_name/1,
@@ -188,7 +192,11 @@ groups() ->
 		       lib_no_match
 		      ]},
      {packet_size_error, [], [packet_length_too_large,
-			      packet_length_too_short]},
+			      packet_length_too_short,
+			      decompression_bomb_client,
+			      decompression_bomb_client_after_auth,
+			      decompression_bomb_server,
+			      decompression_bomb_server_after_auth]},
      {field_size_error, [], [service_name_length_too_large,
 			     service_name_length_too_short]},
      {kex, [], [custom_kexinit,
@@ -321,6 +329,8 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 		     [{preferred_algorithms,[{cipher,?DEFAULT_CIPHERS}
                                             ]}
 		      | Opts]);
+init_per_testcase(decompression_bomb_client, Config) ->
+    start_std_daemon(Config, [{preferred_algorithms, [{compression, ['zlib']}]}]);
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
@@ -335,6 +345,8 @@ end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_server_gex_limit ;
 				  TC == gex_client_old_request_exact ;
 				  TC == gex_client_old_request_noexact ->
+    stop_std_daemon(Config);
+end_per_testcase(decompression_bomb_client, Config) ->
     stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
@@ -772,6 +784,138 @@ bad_packet_length(Config, LengthExcess) ->
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
 	   {match, disconnect(), receive_msg}
 	  ], InitialState).
+
+%%%--------------------------------------------------------------------
+decompression_bomb_client(Config) ->
+    {ok, InitialState} = connect_and_kex(Config, ssh_trpt_test_lib:exec([]),
+                                         [{kex, [?DEFAULT_KEX]},
+                                          {cipher, ?DEFAULT_CIPHERS},
+                                          {compression, ['zlib']}], dh),
+    %% ?SSH_MAX_PACKET_SIZE - 9 is enough to trigger disconnect because Payload of ssh packet becomes:
+    %% 1 byte message identifier
+    %% 4 bytes length of data field
+    %% ?SSH_MAX_PACKET_SIZE - 9 bytes of data
+    %% This is longer than max decompressed Payload length which is ?SSH_MAX_PACKET_SIZE - 5
+    %% See more in ssh_transport:safe_zlib_inflate_loop
+    Data = binary:copy(<<0>>, ?SSH_MAX_PACKET_SIZE - 9),
+    {ok, _} =
+        ssh_trpt_test_lib:exec([
+                                {send, #ssh_msg_ignore{data = Data}},
+                                {match, disconnect(), receive_msg}
+                               ], InitialState).
+
+%%%--------------------------------------------------------------------
+decompression_bomb_client_after_auth(Config) ->
+    {ok, InitialState} = connect_and_kex(Config, ssh_trpt_test_lib:exec([]),
+                                         [{kex, [?DEFAULT_KEX]},
+                                          {cipher, ?DEFAULT_CIPHERS},
+                                          {compression, ['zlib@openssh.com']}], dh),
+    {User, Pwd} = server_user_password(Config),
+    {ok, AfterAuthState} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+           {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+           {send, #ssh_msg_userauth_request{user = User,
+                                            service = "ssh-connection",
+                                            method = "password",
+                                            data = <<?BOOLEAN(?FALSE),
+                                                     ?STRING(unicode:characters_to_binary(Pwd))>>
+                                           }},
+           {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+          ], InitialState),
+    %% See explanation in decompression_bomb_client
+    Data = binary:copy(<<0>>, ?SSH_MAX_PACKET_SIZE - 9),
+    {ok, _} =
+        ssh_trpt_test_lib:exec([
+                                {send, #ssh_msg_ignore{data = Data}},
+                                {match, disconnect(), receive_msg}
+                               ], AfterAuthState).
+
+%%%--------------------------------------------------------------------
+decompression_bomb_server(Config) ->
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    %% See explanation in decompression_bomb_client
+    Data = binary:copy(<<0>>, ?SSH_MAX_PACKET_SIZE - 9),
+    ServerPid =
+        spawn_link(
+          fun() ->
+                  {ok, _} =
+                      ssh_trpt_test_lib:exec(
+                        [{set_options, [print_ops, print_messages]},
+                         {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+                                   {user_dir, ssh_test_lib:user_dir(Config)},
+                                   {preferred_algorithms,[{kex, [?DEFAULT_KEX]},
+                                                          {cipher, ?DEFAULT_CIPHERS},
+                                                          {compression, ['zlib']}]}]},
+                         receive_hello,
+                         {send, hello},
+                         {send, ssh_msg_kexinit},
+                         {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                         {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                         {send, ssh_msg_kexdh_reply},
+                         {send, #ssh_msg_newkeys{}},
+                         {match, #ssh_msg_newkeys{_='_'}, receive_msg},
+                         {send, #ssh_msg_ignore{data = Data}},
+                         {match, disconnect(), receive_msg}
+                        ], InitialState)
+          end),
+    Ref = monitor(process, ServerPid),
+    {error, "Protocol error"} =
+        std_connect(HostPort, Config,
+                    [{silently_accept_hosts, true},
+                     {user_dir, ssh_test_lib:user_dir(Config)},
+                     {user_interaction, false},
+                     {preferred_algorithms, [{compression,['zlib']}]}]),
+    receive
+        {'DOWN', Ref, process, ServerPid, normal} -> ok
+    end.
+
+%%%--------------------------------------------------------------------
+decompression_bomb_server_after_auth(Config) ->
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    %% See explanation in decompression_bomb_client
+    Data = binary:copy(<<0>>, ?SSH_MAX_PACKET_SIZE - 9),
+    ServerPid =
+        spawn_link(
+          fun() ->
+                  {ok ,_} =
+                      ssh_trpt_test_lib:exec(
+                        [{set_options, [print_ops, print_messages]},
+                         {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+                                   {user_dir, ssh_test_lib:user_dir(Config)},
+                                   {preferred_algorithms,[{kex, [?DEFAULT_KEX]},
+                                                          {cipher, ?DEFAULT_CIPHERS},
+                                                          {compression, ['zlib@openssh.com']}]}]},
+                         receive_hello,
+                         {send, hello},
+                         {send, ssh_msg_kexinit},
+                         {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                         {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                         {send, ssh_msg_kexdh_reply},
+                         {send, #ssh_msg_newkeys{}},
+                         {match, #ssh_msg_newkeys{_='_'}, receive_msg},
+                         {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+                         {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+                         {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                                           method="none",
+                                                           _='_'}, receive_msg},
+                         {send, #ssh_msg_userauth_success{}},
+                         {send, #ssh_msg_ignore{data = Data}},
+                         {match, disconnect(), receive_msg}
+                        ], InitialState)
+          end),
+    Ref = monitor(process, ServerPid),
+    {ok, _} =
+        std_connect(HostPort, Config,
+                    [{silently_accept_hosts, true},
+                     {user_dir, ssh_test_lib:user_dir(Config)},
+                     {user_interaction, false},
+                     {preferred_algorithms, [{compression, ['zlib@openssh.com']}]}]),
+    receive
+        {'DOWN', Ref, process, ServerPid, normal} -> ok
+    end.
 
 %%%--------------------------------------------------------------------
 service_name_length_too_large(Config) -> bad_service_name_length(Config, +4).

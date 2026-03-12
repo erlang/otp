@@ -1253,6 +1253,13 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                                  io_lib:format("Bad packet: Size (~p bytes) exceeds max size",
                                                [PacketLen]),
                                  StateName, D1),
+            {stop, Shutdown, D};
+
+    {error, exceeds_max_decompressed_size} ->
+            {Shutdown, D} =
+                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                                 "Bad packet: Size after decompression exceeds max size",
+                                 StateName, D1),
             {stop, Shutdown, D}
     catch
 	Class:Reason0:Stacktrace ->

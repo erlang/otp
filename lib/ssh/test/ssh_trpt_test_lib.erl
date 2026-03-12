@@ -449,7 +449,13 @@ send(S0, #ssh_msg_newkeys{} = Msg) ->
 	    fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
     {ok, Packet, C} = ssh_transport:new_keys_message(S#s.ssh),
     send_bytes(Packet, S#s{ssh = C});
-    
+
+send(S0, #ssh_msg_userauth_success{} = Msg) ->
+    S = opt(print_messages, S0,
+        fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
+    {Packet, C} = ssh_transport:ssh_packet(Msg, S#s.ssh),
+    send_bytes(Packet, S#s{ssh = C#ssh{authenticated = true}, return_value = Msg});
+
 send(S0, Msg) when is_tuple(Msg) ->
     S = opt(print_messages, S0,
 	    fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
@@ -522,6 +528,9 @@ recv(S0 = #s{}) ->
 		#ssh_msg_newkeys{} ->
 		    {ok, C} = ssh_transport:handle_new_keys(PeerMsg, S#s.ssh),
 		    S#s{ssh=C};
+		#ssh_msg_userauth_success{} -> % Always the client
+		    C = S#s.ssh,
+		    S#s{ssh = C#ssh{authenticated = true}};
 		_ ->
 		    S
 	    end
