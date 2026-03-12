@@ -95,6 +95,26 @@ A figure clarifies when a timeout is started and when it triggers:
 
 ![SSH server timeouts](assets/ssh_timeouts.jpg "SSH server timeouts")
 
+### Resilience to compression-based attacks
+
+SSH supports compression of the data stream.
+
+Reasonable finite [max_sessions](`m:ssh#hardening_daemon_options-max_sessions`)
+option is highly recommended if compression is used to prevent excessive resource
+usage by the compression library.
+See [Counters and parallelism](#counters-and-parallelism).
+
+The `'zlib@openssh.com'` algorithm is recommended because it only activates
+after successful authentication.
+
+The `'zlib'` algorithm is not recommended because it activates before
+authentication completes, allowing unauthenticated clients to expose potential
+vulnerabilities in compression libraries, and increases attack surface of
+compression-based side-channel and traffic-analysis attacks.
+
+In both algorithms decompression is protected by a size limit that prevents
+excessive memory consumption.
+
 ## Verifying the remote daemon (server) in an SSH client
 
 Every SSH server presents a public key - the _host key_ \- to the client while
