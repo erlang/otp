@@ -773,6 +773,17 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.12
+
+### Fixed Bugs and Malfunctions
+
+* Correct TLS-1.3 alert handling so server will always send the alert with the encryption keys that the client is expecting, that is if for instance if client certification fails the alert will be sent using application traffic encryption keys.
+
+  Own Id: OTP-19795 Aux Id: PR-10465
+* TLS-1.3 certificate request now preserves the order of signature algorithms in certificate request extension to be in the servers preferred order, which might affect the choice made by some TLS clients.
+
+  Own Id: OTP-20022 Aux Id: GH-10694, PR-10707, ERIERL-1305
+
 ## SSL 11.1.4.11
 
 ### Fixed Bugs and Malfunctions
