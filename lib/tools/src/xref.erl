@@ -103,6 +103,24 @@ module. All unknown functions are also undefined functions; there is a
 [figure](xref_chapter.md#venn2) in the User's Guide that illustrates
 this relationship.
 
+The module attribute `ignore_xref` can be used to suppress warnings for
+certain modules or functions in your modules. The following forms are
+understood by Xref:
+
+```erlang
+-ignore_xref(module).
+-ignore_xref([module1, module2, module3]).
+
+-ignore_xref(function/0).
+-ignore_xref([function1/0, function2/1, function3/2]).
+-ignore_xref({function,0}).
+-ignore_xref([{function1,0}, {function2,1}, {function3,2}]).
+
+%% ignoring calls/references to other modules from the current
+-ignore_xref({other_mod1, func1, 0}).
+-ignore_xref([{other_mod1, func1, 0}, {other_mod2, func2, 1}]).
+```
+
 The module attribute tag `deprecated` can be used to inform
 Xref about _deprecated functions_{: #deprecated_function } and optionally when
 functions are planned to be removed. A few examples show the idea:
@@ -594,6 +612,8 @@ called, all user variables are forgotten.
 -import(lists, [keydelete/3, keysearch/3]).
 
 -import(sofs, [to_external/1, is_sofs_set/1]).
+
+-include("xref.hrl").
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -1965,16 +1985,16 @@ handle_call({variables, Options}, _From, State) ->
     {reply, Reply, NewState};
 handle_call({analyze, What}, _From, State) ->
     {Reply, NewState} = xref_base:analyze(State, What),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({analyze, What, Options}, _From, State) ->
     {Reply, NewState} = xref_base:analyze(State, What, Options),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({qry, Q}, _From, State) ->
     {Reply, NewState} = xref_base:q(State, Q),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call({qry, Q, Options}, _From, State) ->
     {Reply, NewState} = xref_base:q(State, Q, Options),
-    {reply, unsetify(Reply), NewState};
+    {reply, finalize(Reply, NewState), NewState};
 handle_call(get_default, _From, State) ->
     Reply = xref_base:get_default(State),
     {reply, Reply, State};
@@ -2075,10 +2095,72 @@ do_analysis(State, Analysis) ->
 	    throw(Error)
     end.
 
-unsetify(Reply={ok, X}) ->
+finalize({ok, X}, #xref{ignores = Ignores}) ->
+    {ok, filter_xref_results(Ignores, unsetify(X))};
+finalize(Error, _State) ->
+    Error.
+
+unsetify(X) ->
     case is_sofs_set(X) of
-	true -> {ok, to_external(X)};
-	false -> Reply
-    end;
-unsetify(Reply) ->
-    Reply.
+        true -> to_external(X);
+        false -> X
+    end.
+
+%% Filters out behaviour functions and explicitly marked functions
+%% For example: `-ignore_xref([{F, A}, {M, F, A}, M, ...]).`
+filter_xref_results(_Ignores, Results) when not is_list(Results) ->
+    Results;
+filter_xref_results(Ignores, Results) ->
+    SearchModules = lists:usort(
+                      lists:map(
+                        fun({Mt,_Ft,_At}) -> Mt;
+                           ({{Ms,_Fs,_As},{_Mt,_Ft,_At}}) -> Ms;
+                           (_) -> undefined
+                        end, Results)),
+
+    Ignores1 = Ignores ++ lists:flatmap(fun(Module) ->
+                                    get_xref_ignorelist(Module)
+                            end, SearchModules),
+
+    lists:filter( fun(Result) -> pred_xref_result(Result, Ignores1) end, Results).
+
+pred_xref_result({Src, Dest}, Ignores) ->
+    pred_xref_result1(Src, Ignores)
+        andalso pred_xref_result1(Dest, Ignores);
+pred_xref_result(Vertex, Ignores) ->
+    pred_xref_result1(Vertex, Ignores).
+
+pred_xref_result1(Vertex, Ignores) ->
+    Mod = case Vertex of
+              {Module, _Func, _Arity} -> Module;
+              _ -> Vertex
+          end,
+    not lists:member(Vertex, Ignores) andalso not lists:member(Mod, Ignores).
+
+get_xref_ignorelist(Mod) ->
+    %% Get ignore_xref attribute and combine them in one list
+    Attributes = get_module_attrs(Mod),
+    IgnoreXref = keyall(ignore_xref, Attributes),
+    lists:foldl(
+      fun({F, A}, Acc) -> [{Mod,F,A} | Acc];
+         ({M, F, A}, Acc) -> [{M,F,A} | Acc];
+         (M, Acc) when is_atom(M) -> [M | Acc]
+      end, [], lists:flatten([IgnoreXref])).
+
+keyall(Key, List) ->
+    lists:flatmap(fun({K, L}) when Key =:= K -> L; (_) -> [] end, List).
+
+get_module_attrs(Mod) ->
+    case erlang:module_loaded(Mod) of
+        true ->
+            erlang:get_module_info(Mod, attributes);
+        false ->
+            case code:which(Mod) of
+                non_existing -> [];
+                Path ->
+                    case beam_lib:chunks(Path, [attributes]) of
+                        {ok, {Mod, [{attributes,As}]}} -> As;
+                        _ -> []
+                    end
+            end
+    end.
