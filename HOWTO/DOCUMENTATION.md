@@ -287,7 +287,7 @@ For code examples with several steps and for long examples:
 - Ensure that it is obvious for the reader what belongs to the example.
 - Use a subheading `## Examples`.
 
-All examples should be tested if possible using [`shell_docs:test/2`](../lib/stdlib/src/shell_docs.erl).
+All examples should be tested if possible using [`ct_doctest:module/2`](../lib/common_test/src/ct_doctest.erl).
 See [lists_SUITE:doctests/1](../lib/stdlib/test/lists_SUITE.erl) for an example
 on how to do that.
 

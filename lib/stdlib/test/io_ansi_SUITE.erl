@@ -257,7 +257,7 @@ doctests(Config) ->
     try
         shell_test_lib:rpc(Term, fun() ->
             group_leader(whereis(user), self()),
-            shell_docs:test(io_ansi, [])
+            ct_doctest:module(io_ansi, [])
         end)
     after
         shell_test_lib:stop_tty(Term)
