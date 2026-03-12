@@ -759,8 +759,20 @@ void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
 }
 
 void BeamGlobalAssembler::emit_call_nif_early() {
-    // TODO
-    emit_nyi("emit_call_nif_early");
+    a.mov(ARG2, a32::lr);
+    a.sub(ARG2, ARG2, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(ErtsCodeInfo)));
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_call_nif_early);
+
+    emit_leave_runtime();
+
+    /* Emulate `emit_call_nif`, loading the current (phony) instruction
+     * pointer into ARG3. */
+    a.mov(ARG3, ARG1);
+    a.b(labels[call_nif_shared]);
 }
 
 /* Used by call_nif, call_nif_early, and dispatch_nif.
@@ -784,10 +796,16 @@ void BeamGlobalAssembler::emit_call_nif_shared(void) {
     a.mov(ARG1, c_p);
     a.mov(ARG2, ARG3);
     load_x_reg_array(ARG3);
-    ERTS_CT_ASSERT((4 + BEAM_ASM_FUNC_PROLOGUE_SIZE) % sizeof(UWord) == 0);
-    a.ldr(ARG4, arm::Mem(ARG2, 4 + BEAM_ASM_FUNC_PROLOGUE_SIZE));
+    /* The call_nif trampoline overlays ErtsNativeFunc:
+     *
+     *   [call_bif_nif (BEAM_ASM_NFUNC_SIZE bytes)][dfunc][m][func]
+     *
+     * For op_call_nif_WWW, "dfunc" carries the normal NIF function pointer and
+     * "m" carries NifMod. */
+    ERTS_CT_ASSERT(BEAM_ASM_NFUNC_SIZE % sizeof(UWord) == 0);
+    a.ldr(ARG4, arm::Mem(ARG2, BEAM_ASM_NFUNC_SIZE));
     // Loading NifMod as ARG5
-    a.ldr(TMP, arm::Mem(ARG2, 12 + BEAM_ASM_FUNC_PROLOGUE_SIZE));
+    a.ldr(TMP, arm::Mem(ARG2, BEAM_ASM_NFUNC_SIZE + sizeof(UWord)));
     
     a.sub(a32::sp, a32::sp, imm(8));        // keep AAPCS alignment
     a.str(TMP, arm::Mem(a32::sp, 0));       // arg5 at [sp]
@@ -798,13 +816,43 @@ void BeamGlobalAssembler::emit_call_nif_shared(void) {
 }
 
 void BeamGlobalAssembler::emit_dispatch_nif(void) {
-    // TODO
-    emit_nyi("emit_dispatch_nif");
+    /* c_p->i points into the trampoline of a ErtsNativeFunc, right after the
+     * `info` structure.
+     *
+     * ErtsNativeFunc follows the call_nif layout, so we don't need to do
+     * anything beyond loading the address. */
+    a.ldr(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+    a.b(labels[call_nif_shared]);
 }
 
 void BeamGlobalAssembler::emit_call_nif_yield_helper() {
-    // TODO
-    emit_nyi("emit_call_nif_yield_helper");
+    Label yield = a.newLabel();
+
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
+    a.subs(FCALLS, FCALLS, imm(1));
+    a.b_le(yield);
+    a.b(labels[call_nif_shared]);
+
+    a.bind(yield);
+    {
+        int mfa_offset = sizeof(ErtsCodeMFA);
+        int arity_offset = offsetof(ErtsCodeMFA, arity) - mfa_offset;
+
+        a.ldrb(TMP, arm::Mem(ARG3, arity_offset));
+        a.strb(TMP, arm::Mem(c_p, offsetof(Process, arity)));
+
+        a.sub(TMP, ARG3, imm(mfa_offset));
+        a.str(TMP, arm::Mem(c_p, offsetof(Process, current)));
+
+        /* Yield to `dispatch` rather than `entry` to avoid pushing too many
+         * frames to the stack. See `emit_call_nif` for details. */
+        a.add(ARG3, ARG3, imm(BEAM_ASM_NFUNC_SIZE + sizeof(UWord[3])));
+        a.b(labels[context_switch_simplified]);
+    }
 }
 
 /* WARNING: This stub is memcpy'd, so all code herein must be explicitly
@@ -812,8 +860,40 @@ void BeamGlobalAssembler::emit_call_nif_yield_helper() {
 void BeamModuleAssembler::emit_call_nif(const ArgWord &Func,
                                         const ArgWord &NifMod,
                                         const ArgWord &DirtyFunc) {
-    // TODO
-    emit_nyi("emit_call_nif");
+    Label entry = a.newLabel(), dispatch = a.newLabel();
+
+    /* The start of this function must mimic the layout of ErtsNativeFunc.
+     *
+     * We jump here on the very first entry. */
+    a.bind(entry);
+    {
+        a.b(dispatch);
+        a.nop();
+
+        /* Everything prior to this is part of the `call_bif_nif` field. */
+        ASSERT(a.offset() % sizeof(UWord) == 0);
+
+        /* ErtsNativeFunc.trampoline.dfunc */
+        a.embedUInt32(Func.get());
+
+        /* ErtsNativeFunc.m */
+        a.embedUInt32(NifMod.get());
+
+        /* ErtsNativeFunc.func */
+        a.embedUInt32(DirtyFunc.get());
+    }
+
+    /* `emit_call_nif_yield_helper` relies on this to compute the address of
+     * `dispatch`. */
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
+           BEAM_ASM_NFUNC_SIZE + sizeof(UWord[3]));
+
+    a.bind(dispatch);
+    {
+        a.adr(ARG3, current_label);
+        mov_imm(TMP, (UWord)ga->get_call_nif_yield_helper());
+        a.bx(TMP);
+    }
 }
 
 static ErtsCodePtr get_on_load_address(Process *c_p, Eterm module) {
