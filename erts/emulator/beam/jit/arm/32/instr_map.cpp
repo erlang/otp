@@ -154,6 +154,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
 
     if (dst_is_src) {
         add(TMP, HTOP, TAG_PRIMARY_BOXED);
+        a.str(TMP, TMP_MEM5q);
     } else {
         auto ptr = init_destination(Dst, TMP);
         add(ptr.reg, HTOP, TAG_PRIMARY_BOXED);
@@ -167,6 +168,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
 
     if (dst_is_src) {
         auto ptr = init_destination(Dst, TMP);
+        a.ldr(TMP, TMP_MEM5q);
         mov_var(ptr, TMP);
         flush_var(ptr);
     }
