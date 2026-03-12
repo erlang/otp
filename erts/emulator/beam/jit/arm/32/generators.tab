@@ -525,17 +525,23 @@ gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
         if (op->a[i+fixed_args+0].val == am_string) {
             Sint num_chars = op->a[i+fixed_args+5].val;
             if (num_chars <= 4) {
+                Sint original_num_chars = num_chars;
                 Sint index = op->a[i+fixed_args+4].val;
                 const byte* s = S->beam.strings.data + index;
                 Uint num = 0;
-                op->a[i+fixed_args+0].val = am_integer;
-                op->a[i+fixed_args+2].val = 8;
-                op->a[i+fixed_args+5].val = num_chars;
                 while (num_chars-- > 0) {
                     num = num << 8 | *s++;
                 }
-                op->a[i+fixed_args+4].type = TAG_i;
-                op->a[i+fixed_args+4].val = num;
+                /* TAG_i operands are materialized as small immediates by the
+                 * loader; keep short strings as strings when the folded value
+                 * doesn't fit a small (common on 32-bit). */
+                if (IS_SSMALL((Sint)num)) {
+                    op->a[i+fixed_args+0].val = am_integer;
+                    op->a[i+fixed_args+2].val = 8;
+                    op->a[i+fixed_args+5].val = original_num_chars;
+                    op->a[i+fixed_args+4].type = TAG_i;
+                    op->a[i+fixed_args+4].val = num;
+                }
             }
         }
     }

@@ -858,16 +858,55 @@ void BeamModuleAssembler::emit_bs_init_writable() {
 }
 
 void BeamGlobalAssembler::emit_bs_create_bin_error_shared() {
-    // TODO
-    emit_nyi("emit_bs_create_bin_error_shared");
+    a.str(a32::lr, TMP_MEM5q);
+
+    emit_enter_runtime<Update::eHeapAlloc>();
+
+    /* ARG3 is already set by the caller */
+    a.mov(ARG2, ARG4);
+    a.mov(ARG4, ARG1);
+    a.mov(ARG1, c_p);
+    runtime_call<4>(beam_jit_bs_construct_fail_info);
+
+    emit_leave_runtime<Update::eHeapAlloc>();
+
+    mov_imm(ARG4, 0);
+    a.ldr(ARG2, TMP_MEM5q);
+    a.b(labels[raise_exception_shared]);
 }
 
 /*
  * ARG1 = tagged bignum term
  */
 void BeamGlobalAssembler::emit_get_sint64_shared() {
-    // TODO
-    emit_nyi("emit_get_sint64_shared");
+    Label success = a.newLabel();
+    Label fail = a.newLabel();
+
+    emit_is_boxed(fail, ARG1);
+    emit_ptr_val(TMP, ARG1);
+    a.ldr(ARG2, emit_boxed_val(TMP));
+    a.ldr(ARG3, emit_boxed_val(TMP, sizeof(Eterm)));
+    mov_imm(TMP, _TAG_HEADER_MASK);
+    a.and_(ARG2, ARG2, TMP);
+    mov_imm(TMP, POS_BIG_SUBTAG);
+    a.cmp(ARG2, TMP);
+    a.b_eq(success);
+
+    mov_imm(TMP, NEG_BIG_SUBTAG);
+    a.cmp(ARG2, TMP);
+    a.b_ne(fail);
+
+    a.rsb(ARG3, ARG3, 0);
+
+    a.bind(success);
+    a.mov(ARG1, ARG3);
+    a.tst(ARG2, ARG2); /* Clear Z for success. */
+    a.bx(a32::lr);
+
+    a.bind(fail);
+    mov_imm(ARG2, 0);
+    a.tst(ARG2, ARG2); /* Set Z for failure. */
+    a.bx(a32::lr);
 }
 
 struct BscSegment {
@@ -904,9 +943,70 @@ struct BscSegment {
 
 static std::vector<BscSegment> bs_combine_segments(
         const std::vector<BscSegment> segments) {
-    // TODO
-    ASSERT(false);
-    return std::vector<BscSegment>();
+    std::vector<BscSegment> segs;
+
+    for (auto seg : segments) {
+        switch (seg.type) {
+        case am_integer: {
+            if (!(0 < seg.effectiveSize && seg.effectiveSize <= 64)) {
+                segs.push_back(seg);
+                continue;
+            }
+
+            if (seg.flags & BSF_LITTLE || segs.empty() ||
+                segs.back().action == BscSegment::action::DIRECT) {
+                seg.action = BscSegment::action::ACCUMULATE;
+                segs.push_back(seg);
+                seg.action = BscSegment::action::STORE;
+                segs.push_back(seg);
+                continue;
+            }
+
+            auto prev = segs.back();
+            if (prev.flags & BSF_LITTLE) {
+                seg.action = BscSegment::action::ACCUMULATE;
+                segs.push_back(seg);
+                seg.action = BscSegment::action::STORE;
+                segs.push_back(seg);
+                continue;
+            }
+
+            if (prev.effectiveSize + seg.effectiveSize <= 64) {
+                segs.pop_back();
+                prev.effectiveSize += seg.effectiveSize;
+                seg.action = BscSegment::action::ACCUMULATE;
+                segs.push_back(seg);
+                segs.push_back(prev);
+            } else {
+                seg.action = BscSegment::action::ACCUMULATE;
+                segs.push_back(seg);
+                seg.action = BscSegment::action::STORE;
+                segs.push_back(seg);
+            }
+            break;
+        }
+        default:
+            segs.push_back(seg);
+            break;
+        }
+    }
+
+    Uint offset = 0;
+    for (int i = segs.size() - 1; i >= 0; i--) {
+        switch (segs[i].action) {
+        case BscSegment::action::STORE:
+            offset = 64 - segs[i].effectiveSize;
+            break;
+        case BscSegment::action::ACCUMULATE:
+            segs[i].offsetInAccumulator = offset;
+            offset += segs[i].effectiveSize;
+            break;
+        default:
+            break;
+        }
+    }
+
+    return segs;
 }
 
 /*
@@ -929,16 +1029,104 @@ void BeamModuleAssembler::update_bin_state(a32::Gp bin_offset,
                                            Sint bit_offset,
                                            Sint size,
                                            a32::Gp size_reg) {
-    // TODO
-    emit_nyi("update_bin_state");
+    int cur_bin_offset = offsetof(ErtsSchedulerRegisters,
+                                  aux_regs.d.erl_bits_state.erts_current_bin_);
+    arm::Mem mem_bin_base = arm::Mem(scheduler_registers, cur_bin_offset);
+    arm::Mem mem_bin_offset =
+            arm::Mem(scheduler_registers, cur_bin_offset + sizeof(Eterm));
+
+    if (bit_offset % 8 != 0) {
+        a.ldr(VAR, mem_bin_base);
+        a.ldr(bin_offset, mem_bin_offset);
+
+        if (size_reg.isValid()) {
+            a.add(TMP, bin_offset, size_reg);
+        } else {
+            add(TMP, bin_offset, size);
+        }
+        a.str(TMP, mem_bin_offset);
+
+        a.lsr(TMP, bin_offset, imm(3));
+        a.add(VAR, VAR, TMP);
+    } else {
+        comment("optimized updating of binary construction state");
+        ASSERT(size >= 0 || size_reg.isValid());
+        ASSERT(bit_offset % 8 == 0);
+
+        a.ldr(VAR, mem_bin_base);
+        if (size_reg.isValid()) {
+            if (bit_offset == 0) {
+                a.str(size_reg, mem_bin_offset);
+            } else {
+                add(TMP, size_reg, bit_offset);
+                a.str(TMP, mem_bin_offset);
+            }
+        } else {
+            mov_imm(TMP, bit_offset + size);
+            a.str(TMP, mem_bin_offset);
+        }
+        if (bit_offset != 0) {
+            add(VAR, VAR, bit_offset >> 3);
+        }
+    }
+
+    a.str(VAR, TMP_MEM4q);
 }
 
 /*
  * The size of the segment is assumed to be in ARG3.
  */
 void BeamModuleAssembler::set_zero(Sint effectiveSize) {
-    // TODO
-    emit_nyi("set_zero");
+    Label loop_words = a.newLabel();
+    Label after_words = a.newLabel();
+    Label byte_loop = a.newLabel();
+    Label done = a.newLabel();
+
+    update_bin_state(ARG2, -1, -1, ARG3);
+    a.ldr(VAR, TMP_MEM4q);
+    mov_imm(TMP, 0);
+
+    if (effectiveSize < 0 || effectiveSize > 128) {
+        a.tst(ARG3, ARG3);
+        a.b_eq(done);
+
+        a.bind(loop_words);
+        mov_imm(ARG2, 32);
+        a.cmp(ARG3, ARG2);
+        a.b_lt(after_words);
+        a.str(TMP, arm::Mem(VAR).post(4));
+        a.sub(ARG3, ARG3, imm(32));
+        a.b(loop_words);
+    } else {
+        Sint rem = effectiveSize;
+        while (rem >= 32) {
+            a.str(TMP, arm::Mem(VAR).post(4));
+            rem -= 32;
+        }
+        if (rem >= 16) {
+            a.strh(TMP, arm::Mem(VAR).post(2));
+            rem -= 16;
+        }
+        if (rem >= 8) {
+            a.strb(TMP, arm::Mem(VAR).post(1));
+            rem -= 8;
+        }
+        if (rem > 0) {
+            a.strb(TMP, arm::Mem(VAR));
+        }
+        a.b(done);
+    }
+
+    a.bind(after_words);
+    a.tst(ARG3, ARG3);
+    a.b_eq(done);
+
+    a.bind(byte_loop);
+    a.strb(TMP, arm::Mem(VAR).post(1));
+    a.subs(ARG3, ARG3, imm(8));
+    a.b_gt(byte_loop);
+
+    a.bind(done);
 }
 
 /*
@@ -954,15 +1142,120 @@ void BeamModuleAssembler::set_zero(Sint effectiveSize) {
  *   Preserves other ARG* registers, clobbers TMP* registers
  */
 void BeamGlobalAssembler::emit_construct_utf8_shared() {
-    // TODO
-    emit_nyi("emit_bs_init_bits_shared");
+    Label more_than_two_bytes = a.newLabel();
+    Label four_bytes = a.newLabel();
+
+    mov_imm(TMP, 0x800);
+    a.cmp(ARG1, TMP);
+    a.b_hs(more_than_two_bytes);
+
+    a.and_(VAR, ARG1, imm(0x3f));
+    a.lsl(VAR, VAR, imm(8));
+    a.lsr(ARG1, ARG1, imm(6));
+    a.orr(ARG1, ARG1, VAR);
+    mov_imm(TMP, 0x80c0);
+    a.orr(ARG1, ARG1, TMP);
+    mov_imm(ARG4, 16);
+    a.bx(a32::lr);
+
+    a.bind(more_than_two_bytes);
+    mov_imm(TMP, 0x10000);
+    a.cmp(ARG1, TMP);
+    a.b_hs(four_bytes);
+
+    a.and_(VAR, ARG1, imm(0x3f));
+    a.lsl(VAR, VAR, imm(16));
+    a.add(TMP, ARG1, ARG1, arm::lsl(1));
+    a.and_(TMP, TMP, imm(0x3f00));
+    a.lsr(ARG1, ARG1, imm(12));
+    a.orr(ARG1, ARG1, TMP);
+    a.orr(ARG1, ARG1, VAR);
+    mov_imm(TMP, 0x8080e0);
+    a.orr(ARG1, ARG1, TMP);
+    mov_imm(ARG4, 24);
+    a.bx(a32::lr);
+
+    a.bind(four_bytes);
+    a.and_(VAR, ARG1, imm(0x3f));
+    a.lsl(VAR, VAR, imm(24));
+
+    a.mov(TMP, ARG1);
+    a.lsl(TMP, TMP, imm(10));
+    mov_imm(ARG2, 0x3f0000);
+    a.and_(TMP, TMP, ARG2);
+
+    a.mov(ARG2, ARG1);
+    a.lsr(ARG2, ARG2, imm(4));
+    a.and_(ARG2, ARG2, imm(0x3f00));
+
+    a.lsr(ARG1, ARG1, imm(18));
+    a.orr(ARG1, ARG1, VAR);
+    a.orr(ARG1, ARG1, TMP);
+    a.orr(ARG1, ARG1, ARG2);
+    mov_imm(TMP, 0x808080f0);
+    a.orr(ARG1, ARG1, TMP);
+    mov_imm(ARG4, 32);
+    a.bx(a32::lr);
 }
 
 void BeamModuleAssembler::emit_construct_utf8(const ArgVal &Src,
                                               Sint bit_offset,
                                               bool is_byte_aligned) {
-    // TODO
-    emit_nyi("emit_construct_utf8");
+    Label store = a.newLabel();
+    Label next = a.newLabel();
+
+    comment("construct utf8 segment");
+    auto src = load_source(Src, ARG1);
+    a.asr(ARG1, src.reg, imm(_TAG_IMMED1_SIZE));
+    mov_imm(ARG4, 8);
+    mov_imm(TMP, 0x80);
+    a.cmp(ARG1, TMP);
+    a.b_lo(store);
+
+    fragment_call(ga->get_construct_utf8_shared());
+
+    a.bind(store);
+    update_bin_state(ARG3, bit_offset, -1, ARG4);
+    a.ldr(VAR, TMP_MEM4q);
+
+    if (!is_byte_aligned) {
+        Label aligned = a.newLabel();
+
+        a.and_(TMP, ARG3, imm(7));
+        a.b_eq(aligned);
+
+        a.mov(ARG2, ARG1);
+        a.mov(ARG3, TMP);
+        fragment_call(ga->get_store_unaligned());
+        a.b(next);
+
+        a.bind(aligned);
+    }
+
+    Label do_store_1 = a.newLabel();
+    Label do_store_2 = a.newLabel();
+    mov_imm(TMP, 8);
+    a.cmp(ARG4, TMP);
+    a.b_ne(do_store_1);
+    a.strb(ARG1, arm::Mem(VAR));
+    a.b(next);
+
+    a.bind(do_store_1);
+    mov_imm(TMP, 24);
+    a.cmp(ARG4, TMP);
+    a.b_hi(do_store_2);
+    a.strh(ARG1, arm::Mem(VAR));
+    mov_imm(TMP, 16);
+    a.cmp(ARG4, TMP);
+    a.b_eq(next);
+    a.lsr(ARG1, ARG1, imm(16));
+    a.strb(ARG1, arm::Mem(VAR, 2));
+    a.b(next);
+
+    a.bind(do_store_2);
+    a.str(ARG1, arm::Mem(VAR));
+
+    a.bind(next);
 }
 
 /*
@@ -973,8 +1266,42 @@ void BeamModuleAssembler::emit_construct_utf8(const ArgVal &Src,
  *   ARG8 = data to write
  */
 void BeamGlobalAssembler::emit_store_unaligned() {
-    // TODO
-    emit_nyi("emit_store_unaligned");
+    Label loop = a.newLabel();
+    Label done = a.newLabel();
+
+    a.ldr(ARG1, TMP_MEM4q);
+    a.str(ARG1, TMP_MEM4q);
+    a.ldrb(VAR, arm::Mem(ARG1));
+
+    a.and_(TMP, ARG2, imm(0xff));
+    a.lsr(TMP, TMP, ARG3);
+
+    a.lsl(VAR, VAR, ARG3);
+    mov_imm(ARG1, 0xff);
+    a.bic(VAR, VAR, ARG1);
+    a.ldr(ARG1, TMP_MEM4q);
+    a.lsr(VAR, VAR, ARG3);
+
+    a.orr(VAR, VAR, TMP);
+    a.strb(VAR, arm::Mem(ARG1).post(1));
+
+    mov_imm(TMP, 8);
+    a.sub(TMP, TMP, ARG3);
+
+    a.rev(ARG2, ARG2);
+    a.lsl(ARG2, ARG2, TMP);
+
+    a.subs(ARG4, ARG4, TMP);
+    a.b_le(done);
+
+    a.bind(loop);
+    a.ror(ARG2, ARG2, imm(24));
+    a.strb(ARG2, arm::Mem(ARG1).post(1));
+    a.subs(ARG4, ARG4, imm(8));
+    a.b_gt(loop);
+
+    a.bind(done);
+    a.bx(a32::lr);
 }
 
 /*
@@ -988,8 +1315,34 @@ void BeamGlobalAssembler::emit_store_unaligned() {
  */
 
 void BeamGlobalAssembler::emit_bs_init_bits_shared() {
-    // TODO
-    emit_nyi("emit_bs_get_utf8_short_shared");
+    emit_enter_runtime_frame();
+
+    lea(ARG3,
+        getSchedulerRegRef(offsetof(ErtsSchedulerRegisters,
+                                    aux_regs.d.erl_bits_state)));
+    load_x_reg_array(ARG2);
+    a.mov(ARG1, c_p);
+
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+
+    a.sub(a32::sp, a32::sp, imm(8));
+    a.ldr(TMP, TMP_MEM2q);
+    a.str(TMP, arm::Mem(a32::sp, 0)); /* arg5 */
+    a.ldr(TMP, TMP_MEM3q);
+    a.str(TMP, arm::Mem(a32::sp, 4)); /* arg6 */
+    runtime_call<6>(beam_jit_bs_init_bits);
+    a.add(a32::sp, a32::sp, imm(8));
+
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
+
+    emit_leave_runtime_frame();
+
+    a.ldr(TMP, arm::Mem(c_p, offsetof(Process, state.value)));
+    mov_imm(VAR, ERTS_PSFLG_EXITING);
+    a.tst(TMP, VAR);
+    a.b_ne(labels[do_schedule]);
+
+    a.bx(a32::lr);
 }
 
 void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
@@ -997,8 +1350,581 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                const ArgWord &Live0,
                                                const ArgRegister &Dst,
                                                const Span<ArgVal> &args) {
-    // TODO
-    emit_nyi("emit_i_bs_create_bin");
+    Uint num_bits = 0;
+    std::size_t n = args.size();
+    std::vector<BscSegment> segments;
+    Label error; /* Intentionally uninitialized */
+    bool dynamic_size = false;
+    ArgWord Live = Live0;
+
+    for (std::size_t i = 0; i < n; i += 6) {
+        BscSegment seg;
+        JitBSCOp bsc_op;
+        Uint bsc_segment;
+
+        seg.type = args[i].as<ArgImmed>().get();
+        bsc_segment = args[i + 1].as<ArgWord>().get();
+        seg.unit = args[i + 2].as<ArgWord>().get();
+        seg.flags = args[i + 3].as<ArgWord>().get();
+        seg.src = args[i + 4];
+        seg.size = args[i + 5];
+
+        switch (seg.type) {
+        case am_float:
+            bsc_op = BSC_OP_FLOAT;
+            break;
+        case am_integer:
+            bsc_op = BSC_OP_INTEGER;
+            break;
+        case am_utf8:
+            bsc_op = BSC_OP_UTF8;
+            break;
+        case am_utf16:
+            bsc_op = BSC_OP_UTF16;
+            break;
+        case am_utf32:
+            bsc_op = BSC_OP_UTF32;
+            break;
+        default:
+            bsc_op = BSC_OP_BITSTRING;
+            break;
+        }
+        seg.error_info = beam_jit_set_bsc_segment_op(bsc_segment, bsc_op);
+
+        if (seg.size.isSmall() && seg.unit != 0) {
+            Uint unsigned_size = seg.size.as<ArgSmall>().getUnsigned();
+            if ((unsigned_size >> (sizeof(Eterm) - 1) * 8) == 0) {
+                Uint seg_size = seg.unit * unsigned_size;
+                seg.effectiveSize = seg_size;
+                num_bits += seg_size;
+            }
+        } else if (seg.type == am_binary && seg.size.isAtom() &&
+                   seg.size.as<ArgAtom>().get() == am_all) {
+            dynamic_size = true;
+        } else if (seg.type == am_append || seg.type == am_private_append) {
+            dynamic_size = true;
+        } else {
+            dynamic_size = true;
+        }
+
+        segments.push_back(seg);
+    }
+
+    if (Fail.get() != 0) {
+        error = resolve_beam_label(Fail, dispUnknown);
+    } else {
+        Label past_error = a.newLabel();
+        a.b(past_error);
+        error = a.newLabel();
+        a.bind(error);
+        fragment_call(ga->get_bs_create_bin_error_shared());
+        last_error_offset = a.offset();
+        a.bind(past_error);
+    }
+
+    if (dynamic_size) {
+        mov_imm(TMP, num_bits);
+        a.str(TMP, TMP_MEM5q);
+
+        for (auto seg : segments) {
+            if (seg.effectiveSize >= 0) {
+                continue;
+            }
+
+            if (seg.type == am_append || seg.type == am_private_append ||
+                (seg.type == am_binary && seg.size.isAtom() &&
+                 seg.size.as<ArgAtom>().get() == am_all)) {
+                Label not_sub_bits = a.newLabel();
+
+                mov_arg(ARG1, seg.src);
+
+                if (!exact_type<BeamTypeId::Bitstring>(seg.src)) {
+                    if (Fail.get() == 0) {
+                        mov_imm(ARG4,
+                                beam_jit_update_bsc_reason_info(
+                                        seg.error_info,
+                                        BSC_REASON_BADARG,
+                                        BSC_INFO_TYPE,
+                                        BSC_VALUE_ARG1));
+                    }
+
+                    emit_is_boxed(resolve_label(error, dispUnknown), seg.src, ARG1);
+                }
+
+                emit_untag_ptr(TMP, ARG1);
+
+                ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
+                a.ldr(ARG2, arm::Mem(TMP));
+                a.ldr(ARG3, arm::Mem(TMP, sizeof(Eterm)));
+
+                if (masked_types<BeamTypeId::MaybeBoxed>(seg.src) !=
+                    BeamTypeId::Bitstring) {
+                    const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
+                    ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+                    ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS ==
+                                   (_TAG_HEADER_HEAP_BITS & mask));
+
+                    a.and_(ARG1, ARG2, imm(mask));
+                    mov_imm(VAR, _TAG_HEADER_HEAP_BITS);
+                    a.cmp(ARG1, VAR);
+                    a.b_ne(resolve_label(error, dispUnknown));
+                }
+
+                mov_imm(ARG1, HEADER_SUB_BITS);
+                a.cmp(ARG2, ARG1);
+                a.b_ne(not_sub_bits);
+                ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+                a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlSubBits, start)));
+                a.ldr(ARG3, arm::Mem(TMP, offsetof(ErlSubBits, end)));
+                a.sub(ARG3, ARG3, ARG2);
+                a.bind(not_sub_bits);
+
+                a.ldr(TMP, TMP_MEM5q);
+                a.add(TMP, TMP, ARG3);
+                a.str(TMP, TMP_MEM5q);
+                continue;
+            }
+
+            if (seg.unit != 0) {
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_DEPENDS,
+                                                            BSC_INFO_SIZE,
+                                                            BSC_VALUE_ARG3));
+                }
+
+                mov_arg(ARG3, seg.size);
+                a.and_(ARG2, ARG3, imm(_TAG_IMMED1_MASK));
+                mov_imm(ARG1, _TAG_IMMED1_SMALL);
+                a.cmp(ARG2, ARG1);
+                a.b_ne(resolve_label(error, dispUnknown));
+                a.tst(ARG3, imm(0x80000000u));
+                a.b_ne(resolve_label(error, dispUnknown));
+
+                a.asr(ARG3, ARG3, imm(_TAG_IMMED1_SIZE));
+                if (seg.unit != 1) {
+                    mov_imm(ARG2, seg.unit);
+                    a.mul(ARG3, ARG3, ARG2);
+                }
+                a.ldr(TMP, TMP_MEM5q);
+                a.add(TMP, TMP, ARG3);
+                a.str(TMP, TMP_MEM5q);
+                continue;
+            }
+
+            switch (seg.type) {
+            case am_utf8: {
+                Label next = a.newLabel();
+                Label one_byte = a.newLabel();
+                Label two_bytes = a.newLabel();
+                Label three_or_four = a.newLabel();
+
+                mov_arg(ARG3, seg.src);
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_TYPE,
+                                                            BSC_VALUE_ARG3));
+                }
+
+                a.and_(ARG2, ARG3, imm(_TAG_IMMED1_MASK));
+                mov_imm(ARG1, _TAG_IMMED1_SMALL);
+                a.cmp(ARG2, ARG1);
+                a.b_ne(resolve_label(error, dispUnknown));
+
+                a.asr(ARG1, ARG3, imm(_TAG_IMMED1_SIZE));
+                mov_imm(ARG2, 8);
+                mov_imm(TMP, 0x7f);
+                a.cmp(ARG1, TMP);
+                a.b_ls(one_byte);
+
+                mov_imm(ARG2, 16);
+                mov_imm(TMP, 0x7ff);
+                a.cmp(ARG1, TMP);
+                a.b_ls(two_bytes);
+
+                a.b(three_or_four);
+
+                a.bind(one_byte);
+                a.b(next);
+
+                a.bind(two_bytes);
+                a.b(next);
+
+                a.bind(three_or_four);
+                a.lsr(TMP, ARG1, imm(11));
+                mov_imm(ARG3, 0x1b);
+                a.cmp(TMP, ARG3);
+                a.b_eq(resolve_label(error, dispUnknown));
+
+                mov_imm(ARG2, 24);
+                mov_imm(TMP, 0x10000);
+                a.cmp(ARG1, TMP);
+                a.b_lo(next);
+                mov_imm(ARG2, 32);
+                mov_imm(TMP, 0x110000);
+                a.cmp(ARG1, TMP);
+                a.b_hs(resolve_label(error, dispUnknown));
+
+                a.bind(next);
+                a.ldr(TMP, TMP_MEM5q);
+                a.add(TMP, TMP, ARG2);
+                a.str(TMP, TMP_MEM5q);
+                continue;
+            }
+            case am_utf16: {
+                /* Mirrors ARM64 behavior: non-small values are handled by
+                 * runtime helper later; size prepass uses 16/32 estimate. */
+                Label utf16_add = a.newLabel();
+                mov_arg(ARG3, seg.src);
+                a.asr(ARG3, ARG3, imm(_TAG_IMMED1_SIZE));
+                mov_imm(ARG2, 16);
+                mov_imm(TMP, 0x10000);
+                a.cmp(ARG3, TMP);
+                a.b_lo(utf16_add);
+                mov_imm(ARG2, 32);
+                a.bind(utf16_add);
+                a.ldr(TMP, TMP_MEM5q);
+                a.add(TMP, TMP, ARG2);
+                a.str(TMP, TMP_MEM5q);
+                continue;
+            }
+            case am_utf32: {
+                Label utf32_next = a.newLabel();
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_TYPE,
+                                                            BSC_VALUE_ARG3));
+                }
+
+                mov_arg(ARG3, seg.src);
+                a.ldr(TMP, TMP_MEM5q);
+                add(TMP, TMP, 32);
+                a.str(TMP, TMP_MEM5q);
+
+                a.and_(ARG2, ARG3, imm(_TAG_IMMED1_MASK));
+                mov_imm(ARG1, _TAG_IMMED1_SMALL);
+                a.cmp(ARG2, ARG1);
+                a.b_ne(resolve_label(error, dispUnknown));
+
+                mov_imm(ARG2, make_small(0xD800));
+                a.cmp(ARG3, ARG2);
+                a.b_lo(utf32_next);
+                mov_imm(ARG2, make_small(0xDFFF));
+                a.cmp(ARG3, ARG2);
+                a.b_ls(resolve_label(error, dispUnknown));
+                mov_imm(ARG2, make_small(0x10FFFF));
+                a.cmp(ARG3, ARG2);
+                a.b_hi(resolve_label(error, dispUnknown));
+                a.bind(utf32_next);
+                continue;
+            }
+            default:
+                break;
+            }
+
+            if (Fail.get() != 0) {
+                a.b(resolve_beam_label(Fail, dispUnknown));
+            } else {
+                mov_imm(ARG1, NIL);
+                mov_imm(ARG4, 0);
+                mov_imm(ARG3, BADARG);
+                a.b(resolve_label(error, dispUnknown));
+            }
+            return;
+        }
+    }
+
+    if (!dynamic_size && num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+        static constexpr auto cur_bin_offset =
+                offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
+                offsetof(struct erl_bits_state, erts_current_bin_);
+        arm::Mem mem_bin_base = arm::Mem(scheduler_registers, cur_bin_offset);
+        Uint heap_size = heap_bits_size(num_bits);
+        Uint allocated_size = (heap_size - heap_bits_size(0)) * sizeof(Eterm);
+
+        emit_gc_test(ArgWord(0), ArgWord(heap_size + Alloc.get()), Live);
+        mov_imm(TMP, header_heap_bits(num_bits));
+        mov_imm(VAR, num_bits);
+        a.add(ARG1, HTOP, imm(TAG_PRIMARY_BOXED));
+        a.str(TMP, arm::Mem(HTOP).post(sizeof(Eterm)));
+        a.str(VAR, arm::Mem(HTOP).post(sizeof(Eterm)));
+        a.str(HTOP, mem_bin_base);
+        mov_imm(TMP, 0);
+        a.str(TMP, arm::Mem(scheduler_registers, cur_bin_offset + sizeof(Eterm)));
+        add(HTOP, HTOP, allocated_size);
+    } else if (!dynamic_size) {
+        mov_imm(ARG4, num_bits);
+        mov_imm(TMP, Alloc.get());
+        a.str(TMP, TMP_MEM2q);
+        mov_imm(TMP, Live.get());
+        a.str(TMP, TMP_MEM3q);
+        fragment_call(ga->get_bs_init_bits_shared());
+    } else {
+        a.ldr(ARG4, TMP_MEM5q);
+        mov_imm(TMP, Alloc.get());
+        a.str(TMP, TMP_MEM2q);
+        mov_imm(TMP, Live.get());
+        a.str(TMP, TMP_MEM3q);
+        fragment_call(ga->get_bs_init_bits_shared());
+    }
+
+    a.str(ARG1, TMP_MEM1q);
+
+    for (auto seg : segments) {
+        switch (seg.type) {
+        case am_append:
+        case am_private_append:
+        case am_binary:
+            {
+                Label ok = a.newLabel();
+                if (seg.type == am_append || seg.type == am_private_append) {
+                    mov_imm(ARG3, seg.unit);
+                    mov_arg(ARG2, seg.src);
+                    a.mov(ARG1, c_p);
+                    emit_enter_runtime<Update::eReductions>();
+                    runtime_call<3>(erts_new_bs_put_binary_all);
+                    emit_leave_runtime<Update::eReductions>();
+                } else if (seg.effectiveSize >= 0) {
+                    mov_imm(ARG3, seg.effectiveSize);
+                    mov_arg(ARG2, seg.src);
+                    a.mov(ARG1, c_p);
+                    emit_enter_runtime<Update::eReductions>();
+                    runtime_call<3>(erts_new_bs_put_binary);
+                    emit_leave_runtime<Update::eReductions>();
+                } else if (seg.size.isAtom() &&
+                           seg.size.as<ArgAtom>().get() == am_all) {
+                    mov_imm(ARG3, seg.unit);
+                    mov_arg(ARG2, seg.src);
+                    a.mov(ARG1, c_p);
+                    emit_enter_runtime<Update::eReductions>();
+                    runtime_call<3>(erts_new_bs_put_binary_all);
+                    emit_leave_runtime<Update::eReductions>();
+                } else {
+                    mov_arg(ARG3, seg.size);
+                    a.asr(ARG3, ARG3, imm(_TAG_IMMED1_SIZE));
+                    if (seg.unit != 1) {
+                        mov_imm(ARG2, seg.unit);
+                        a.mul(ARG3, ARG3, ARG2);
+                    }
+                    mov_arg(ARG2, seg.src);
+                    a.mov(ARG1, c_p);
+                    emit_enter_runtime<Update::eReductions>();
+                    runtime_call<3>(erts_new_bs_put_binary);
+                    emit_leave_runtime<Update::eReductions>();
+                }
+
+                a.tst(ARG1, ARG1);
+                a.b_ne(ok);
+                if (Fail.get() == 0) {
+                    Uint error_info =
+                            (seg.type == am_binary && seg.size.isAtom() &&
+                             seg.size.as<ArgAtom>().get() == am_all) ||
+                                            seg.type == am_append ||
+                                            seg.type == am_private_append
+                                    ? beam_jit_update_bsc_reason_info(
+                                              seg.error_info,
+                                              BSC_REASON_BADARG,
+                                              BSC_INFO_UNIT,
+                                              BSC_VALUE_FVALUE)
+                                    : beam_jit_update_bsc_reason_info(
+                                              seg.error_info,
+                                              BSC_REASON_BADARG,
+                                              BSC_INFO_DEPENDS,
+                                              BSC_VALUE_FVALUE);
+                    mov_imm(ARG4,
+                            error_info);
+                    mov_arg(ARG1, seg.src);
+                }
+                a.b(resolve_label(error, dispUnknown));
+                a.bind(ok);
+            }
+            break;
+        case am_float:
+            {
+                if (seg.effectiveSize >= 0) {
+                    mov_imm(ARG3, seg.effectiveSize);
+                } else {
+                    mov_arg(ARG3, seg.size);
+                    a.asr(ARG3, ARG3, imm(_TAG_IMMED1_SIZE));
+                    if (seg.unit != 1) {
+                        mov_imm(ARG2, seg.unit);
+                        a.mul(ARG3, ARG3, ARG2);
+                    }
+                }
+                mov_arg(ARG2, seg.src);
+                mov_imm(ARG4, seg.flags);
+                a.mov(ARG1, c_p);
+                emit_enter_runtime();
+                runtime_call<4>(erts_new_bs_put_float);
+                emit_leave_runtime();
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_FVALUE,
+                                                            BSC_VALUE_ARG1));
+                }
+                emit_branch_if_value(ARG1, resolve_label(error, dispUnknown));
+            }
+            break;
+        case am_integer:
+            if (seg.effectiveSize >= 0) {
+                mov_imm(ARG3, seg.effectiveSize);
+            } else {
+                mov_arg(ARG3, seg.size);
+                a.asr(ARG3, ARG3, imm(_TAG_IMMED1_SIZE));
+                if (seg.unit != 1) {
+                    mov_imm(ARG2, seg.unit);
+                    a.mul(ARG3, ARG3, ARG2);
+                }
+            }
+
+            if (seg.effectiveSize >= 0 && seg.src.isSmall() &&
+                seg.src.as<ArgSmall>().getSigned() == 0 &&
+                (seg.effectiveSize % 8) == 0) {
+                set_zero(seg.effectiveSize);
+            } else {
+                Label ok = a.newLabel();
+                mov_arg(ARG2, seg.src);
+                mov_imm(ARG4, seg.flags);
+                lea(ARG1,
+                    getSchedulerRegRef(offsetof(ErtsSchedulerRegisters,
+                                                aux_regs.d.erl_bits_state)));
+                emit_enter_runtime();
+                runtime_call<4>(erts_new_bs_put_integer);
+                emit_leave_runtime();
+                a.tst(ARG1, ARG1);
+                a.b_ne(ok);
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_TYPE,
+                                                            BSC_VALUE_ARG1));
+                    mov_arg(ARG1, seg.src);
+                }
+                a.b(resolve_label(error, dispUnknown));
+                a.bind(ok);
+            }
+            break;
+        case am_string: {
+            ArgBytePtr string_ptr(
+                    ArgVal(ArgVal::BytePtr, seg.src.as<ArgWord>().get()));
+            Label no_prefix = a.newLabel();
+            mov_imm(ARG3, seg.effectiveSize / 8);
+            mov_arg(ARG2, string_ptr);
+
+            /* Some short string operands can be emitted as length-prefixed
+             * blobs on ARM32. Detect that form and skip the prefix byte. */
+            a.ldrb(TMP, arm::Mem(ARG2));
+            add(VAR, ARG3, 1);
+            a.cmp(TMP, VAR);
+            a.b_ne(no_prefix);
+            add(ARG2, ARG2, 1);
+            a.bind(no_prefix);
+
+            lea(ARG1,
+                getSchedulerRegRef(offsetof(ErtsSchedulerRegisters,
+                                            aux_regs.d.erl_bits_state)));
+            emit_enter_runtime();
+            runtime_call<3>(erts_new_bs_put_string);
+            emit_leave_runtime();
+            break;
+        }
+        case am_utf8:
+            mov_arg(ARG2, seg.src);
+            lea(ARG1,
+                getSchedulerRegRef(offsetof(ErtsSchedulerRegisters,
+                                            aux_regs.d.erl_bits_state)));
+            emit_enter_runtime();
+            runtime_call<2>(erts_bs_put_utf8);
+            emit_leave_runtime();
+            if (Fail.get() == 0) {
+                mov_imm(ARG4,
+                        beam_jit_update_bsc_reason_info(seg.error_info,
+                                                        BSC_REASON_BADARG,
+                                                        BSC_INFO_TYPE,
+                                                        BSC_VALUE_ARG1));
+                mov_arg(ARG1, seg.src);
+            }
+            a.tst(ARG1, ARG1);
+            a.b_eq(resolve_label(error, dispUnknown));
+            break;
+        case am_utf16:
+            {
+                Label ok = a.newLabel();
+                mov_arg(ARG2, seg.src);
+                mov_imm(ARG3, seg.flags);
+                lea(ARG1,
+                    getSchedulerRegRef(offsetof(ErtsSchedulerRegisters,
+                                                aux_regs.d.erl_bits_state)));
+                emit_enter_runtime();
+                runtime_call<3>(erts_bs_put_utf16);
+                emit_leave_runtime();
+                a.tst(ARG1, ARG1);
+                a.b_ne(ok);
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_TYPE,
+                                                            BSC_VALUE_ARG1));
+                    mov_arg(ARG1, seg.src);
+                }
+                a.b(resolve_label(error, dispUnknown));
+                a.bind(ok);
+            }
+            break;
+        case am_utf32:
+            {
+                Label ok = a.newLabel();
+                mov_arg(ARG2, seg.src);
+                mov_imm(ARG3, 4 * 8);
+                mov_imm(ARG4, seg.flags);
+                lea(ARG1,
+                    getSchedulerRegRef(offsetof(ErtsSchedulerRegisters,
+                                                aux_regs.d.erl_bits_state)));
+                emit_enter_runtime();
+                runtime_call<4>(erts_new_bs_put_integer);
+                emit_leave_runtime();
+                a.tst(ARG1, ARG1);
+                a.b_ne(ok);
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_TYPE,
+                                                            BSC_VALUE_ARG1));
+                    mov_arg(ARG1, seg.src);
+                }
+                a.b(resolve_label(error, dispUnknown));
+                a.bind(ok);
+            }
+            break;
+        default:
+            if (Fail.get() != 0) {
+                a.b(resolve_beam_label(Fail, dispUnknown));
+            } else {
+                mov_imm(ARG4,
+                        beam_jit_update_bsc_reason_info(seg.error_info,
+                                                        BSC_REASON_BADARG,
+                                                        BSC_INFO_TYPE,
+                                                        BSC_VALUE_ARG1));
+                mov_arg(ARG1, seg.src);
+                mov_imm(ARG3, BADARG);
+                a.b(resolve_label(error, dispUnknown));
+            }
+            return;
+        }
+    }
+
+    a.ldr(ARG1, TMP_MEM1q);
+    mov_arg(Dst, ARG1);
 }
 
 /*

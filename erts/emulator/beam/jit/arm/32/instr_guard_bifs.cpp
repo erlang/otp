@@ -267,20 +267,104 @@ void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
  * ================================================================
  */
 void BeamGlobalAssembler::emit_bif_bit_size_helper(Label error) {
-    // TODO
-    emit_nyi("emit_bif_bit_size_helper");
+    emit_is_boxed(error, ARG1);
+    emit_untag_ptr(TMP, ARG1);
+
+    ERTS_CT_ASSERT(offsetof(ErlHeapBits, thing_word) == 0);
+    ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
+    a.ldr(ARG3, arm::Mem(TMP, offsetof(ErlHeapBits, thing_word)));
+    a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlHeapBits, size)));
+
+    Label not_sub_bits = a.newLabel();
+    mov_imm(VAR, HEADER_SUB_BITS);
+    a.cmp(ARG3, VAR);
+    a.b_ne(not_sub_bits);
+    {
+        ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+        a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlSubBits, start)));
+        a.ldr(VAR, arm::Mem(TMP, offsetof(ErlSubBits, end)));
+        a.sub(ARG2, VAR, ARG2);
+    }
+    a.bind(not_sub_bits);
+
+    const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
+    ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+    ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS == (_TAG_HEADER_HEAP_BITS & mask));
+    mov_imm(VAR, mask);
+    a.and_(ARG3, ARG3, VAR);
+    mov_imm(VAR, _TAG_HEADER_HEAP_BITS);
+    a.cmp(ARG3, VAR);
+    a.b_ne(error);
 }
 
 void BeamGlobalAssembler::emit_bif_bit_size_body() {
-    // TODO
-    emit_nyi("emit_bif_bit_size_body");
+    Label error = a.newLabel();
+
+    emit_bif_bit_size_helper(error);
+
+    a.lsl(ARG2, ARG2, imm(_TAG_IMMED1_SIZE));
+    a.orr(ARG1, ARG2, imm(_TAG_IMMED1_SMALL));
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        static ErtsCodeMFA mfa = {am_erlang, am_bit_size, 1};
+        a.str(ARG1, getXRef(0));
+        emit_raise_badarg(&mfa);
+    }
 }
 
 void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_bit_size");
+    auto src = load_source(Src, ARG1);
+    auto dst = init_destination(Dst, ARG1);
+
+    if ((Fail.get() != 0) || exact_type<BeamTypeId::Bitstring>(Src)) {
+        if (Fail.get() != 0) {
+            emit_is_boxed(resolve_beam_label(Fail, disp32MB), Src, src.reg);
+        }
+
+        emit_untag_ptr(TMP, src.reg);
+
+        ERTS_CT_ASSERT(offsetof(ErlHeapBits, thing_word) == 0);
+        ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
+        a.ldr(ARG3, arm::Mem(TMP, offsetof(ErlHeapBits, thing_word)));
+        a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlHeapBits, size)));
+
+        Label not_sub_bits = a.newLabel();
+        mov_imm(VAR, HEADER_SUB_BITS);
+        a.cmp(ARG3, VAR);
+        a.b_ne(not_sub_bits);
+        {
+            a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlSubBits, start)));
+            a.ldr(VAR, arm::Mem(TMP, offsetof(ErlSubBits, end)));
+            a.sub(ARG2, VAR, ARG2);
+        }
+        a.bind(not_sub_bits);
+
+        if (masked_types<BeamTypeId::MaybeBoxed>(Src) ==
+            BeamTypeId::Bitstring) {
+            comment("skipped header test since we know it's a bitstring when "
+                    "boxed");
+        } else {
+            const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
+            mov_imm(VAR, mask);
+            a.and_(ARG3, ARG3, VAR);
+            mov_imm(VAR, _TAG_HEADER_HEAP_BITS);
+            a.cmp(ARG3, VAR);
+            a.b_ne(resolve_beam_label(Fail, disp32MB));
+        }
+
+        a.lsl(dst.reg, ARG2, imm(_TAG_IMMED1_SIZE));
+        a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+    } else {
+        mov_var(ARG1, src);
+        fragment_call(ga->get_bif_bit_size_body());
+        mov_var(dst, ARG1);
+    }
+
+    flush_var(dst);
 }
 
 /* ================================================================
@@ -289,15 +373,77 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
  */
 
 void BeamGlobalAssembler::emit_bif_byte_size_body() {
-    // TODO
-    emit_nyi("emit_bif_byte_size_body");
+    Label error = a.newLabel();
+
+    emit_bif_bit_size_helper(error);
+
+    /* Round up to the next byte. */
+    add(ARG2, ARG2, 7);
+    a.lsl(ARG2, ARG2, imm(_TAG_IMMED1_SIZE - 3));
+    a.orr(ARG1, ARG2, imm(_TAG_IMMED1_SMALL));
+    a.bx(a32::lr);
+
+    a.bind(error);
+    {
+        static ErtsCodeMFA mfa = {am_erlang, am_byte_size, 1};
+        a.str(ARG1, getXRef(0));
+        emit_raise_badarg(&mfa);
+    }
 }
 
 void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
                                              const ArgSource &Src,
                                              const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_bif_byte_size");
+    auto src = load_source(Src, ARG1);
+    auto dst = init_destination(Dst, ARG1);
+
+    if ((Fail.get() != 0) || exact_type<BeamTypeId::Bitstring>(Src)) {
+        if (Fail.get() != 0) {
+            emit_is_boxed(resolve_beam_label(Fail, disp32MB), Src, src.reg);
+        }
+
+        emit_untag_ptr(TMP, src.reg);
+
+        ERTS_CT_ASSERT(offsetof(ErlHeapBits, thing_word) == 0);
+        ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
+        a.ldr(ARG3, arm::Mem(TMP, offsetof(ErlHeapBits, thing_word)));
+        a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlHeapBits, size)));
+
+        Label not_sub_bits = a.newLabel();
+        mov_imm(VAR, HEADER_SUB_BITS);
+        a.cmp(ARG3, VAR);
+        a.b_ne(not_sub_bits);
+        {
+            a.ldr(ARG2, arm::Mem(TMP, offsetof(ErlSubBits, start)));
+            a.ldr(VAR, arm::Mem(TMP, offsetof(ErlSubBits, end)));
+            a.sub(ARG2, VAR, ARG2);
+        }
+        a.bind(not_sub_bits);
+
+        if (masked_types<BeamTypeId::MaybeBoxed>(Src) ==
+            BeamTypeId::Bitstring) {
+            comment("skipped header test since we know it's a bitstring when "
+                    "boxed");
+        } else {
+            const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
+            mov_imm(VAR, mask);
+            a.and_(ARG3, ARG3, VAR);
+            mov_imm(VAR, _TAG_HEADER_HEAP_BITS);
+            a.cmp(ARG3, VAR);
+            a.b_ne(resolve_beam_label(Fail, disp32MB));
+        }
+
+        /* Round up to the next byte. */
+        add(ARG2, ARG2, 7);
+        a.lsl(dst.reg, ARG2, imm(_TAG_IMMED1_SIZE - 3));
+        a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+    } else {
+        mov_var(ARG1, src);
+        fragment_call(ga->get_bif_byte_size_body());
+        mov_var(dst, ARG1);
+    }
+
+    flush_var(dst);
 }
 
 /* ================================================================
