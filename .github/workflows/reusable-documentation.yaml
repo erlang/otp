@@ -19,6 +19,7 @@
 # %CopyrightEnd%
 
 name: Build and Check Documentation
+run-name: "[${{ inputs.base_branch }}] Build and Check Documentation"
 
 on:
   workflow_call:

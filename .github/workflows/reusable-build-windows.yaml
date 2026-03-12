@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 
 name: Build Erlang/OTP (Windows)
-run-name: "[${{ inputs.base_branch }}] name: Build Erlang/OTP (Windows)"
+run-name: "[${{ inputs.base_branch }}] Build Erlang/OTP (Windows)"
 
 on:
   workflow_call:
