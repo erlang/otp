@@ -59,6 +59,7 @@ MODULES= \
 	ct_telnet \
 	ct_util \
 	ct_cover \
+	ct_doctest \
 	ct_testspec \
 	ct_event \
 	ct_master_event \

@@ -19,37 +19,50 @@
 %%
 %% %CopyrightEnd%
 %%
--module(records_SUITE).
--export([all/0, suite/0,
-         init_per_suite/1, end_per_suite/1,
-	 init_per_group/2, end_per_group/2,
-         init_per_testcase/2, end_per_testcase/2]).
--export([doctests/1]).
 
-suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+-module(ct_doctest_module_mod).
+-moduledoc """
+Here we test miss-compilation of the module due to syntax error,
+which should be properly reported as a doctest parsing error,
+not a compilation error.
+""".
 
-all() ->
-    [doctests].
+-export([f/0, g/0, h/0]).
 
-init_per_suite(Config) ->
-    Config.
+-doc """
+Failure in compile:forms
 
-end_per_suite(_Config) ->
+```
+-module(test).
+%% Comment before syntax error
+-export([f/0]).
+```
+
+""".
+f() ->
     ok.
 
-init_per_group(_GroupName, Config) ->
-    Config.
+-doc """
+Failure in erl_parse:parse_form
 
-end_per_group(_GroupName, Config) ->
-    Config.
-
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
+```
+-module(test).
+%% Comment before syntax error
+foo() ok.
+```
+""".
+g() ->
     ok.
 
-doctests(_Config) ->
-   ct_doctest:module(records).
+-doc """
+Failure in erl_scan:string
+
+```
+-module(test).
+%% Comment before syntax error
+foo() -> 'ok.
+```
+
+""".
+h() ->
+    ok.

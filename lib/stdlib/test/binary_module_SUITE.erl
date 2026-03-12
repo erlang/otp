@@ -1598,7 +1598,7 @@ join(Config) when is_list(Config) ->
     ~"" = binary:join([], ~", ").
 
 doctests(_Config) ->
-    shell_docs:test(binary, []).
+    ct_doctest:module(binary, [{skipped_blocks, 1}]).
 
 %%%
 %%% Utilities.

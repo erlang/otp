@@ -19,37 +19,25 @@
 %%
 %% %CopyrightEnd%
 %%
--module(records_SUITE).
--export([all/0, suite/0,
-         init_per_suite/1, end_per_suite/1,
-	 init_per_group/2, end_per_group/2,
-         init_per_testcase/2, end_per_testcase/2]).
--export([doctests/1]).
 
-suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+-module(ct_doctest_failure_mismatch_mod).
+-moduledoc false.
+-export([unexpected_success/0, wrong_exception/0]).
 
-all() ->
-    [doctests].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
+-doc """
+```
+1> 1 + 1.
+** exception error: badarith
+```
+""".
+unexpected_success() ->
     ok.
 
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
+-doc """
+```
+1> hello + 1.
+** exception error: no function clause matching lists:last([])
+```
+""".
+wrong_exception() ->
     ok.
-
-doctests(_Config) ->
-   ct_doctest:module(records).

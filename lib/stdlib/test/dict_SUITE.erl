@@ -120,13 +120,13 @@ remove_2([], D, M) ->
     D.
 
 doctests_dict(_Config) ->
-    shell_docs:test(dict, []).
+    ct_doctest:module(dict).
 
 doctests_gb_trees(_Config) ->
-    shell_docs:test(gb_trees, []).
+    ct_doctest:module(gb_trees).
 
 doctests_orddict(_Config) ->
-    shell_docs:test(orddict, []).
+    ct_doctest:module(orddict, [{skipped_blocks, 2}]).
 
 %%%
 %%% Test specifics for gb_trees.

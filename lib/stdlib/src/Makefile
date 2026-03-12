@@ -127,7 +127,6 @@ MODULES= \
 	shell_default \
 	shell_docs \
 	shell_docs_markdown \
-	shell_docs_test \
 	slave \
 	sofs \
 	string \

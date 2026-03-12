@@ -1779,7 +1779,15 @@ node_error(E0) ->
     end.
 
 doctests(_Config) ->
-    shell_docs:test(erlang, []).
+    Dict = erase(),
+    try
+        ct_doctest:module(erlang, [], [{skipped_blocks, 96}])
+    after
+        code:purge(test),
+        code:delete(test),
+        code:purge(test),
+        [put(Key, Val) || {Key, Val} <- Dict]
+    end.
 
 is_integer_3_test(_Config) ->
     _ = [is_between_ten(X) || X <- lists:seq(-2, 12)],

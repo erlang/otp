@@ -102,7 +102,7 @@ in the description of each individual BIF.
 %% Built-in datatypes
 -doc "All possible Erlang terms. Synonym for `t:term/0`.".
 -type any() :: any().
--doc "The arity of a function or type.".
+-doc "The arity of a function, type or callback.".
 -type arity() :: arity().
 -doc "An Erlang [atom](`e:system:data_types.md#atom`).".
 -type atom() :: atom().
@@ -648,7 +648,18 @@ A extended `t:stacktrace/0` that can be passed to `raise/3`.
 
 %% Specs and stubs
 %% adler32/1
--doc "Computes and returns the adler32 checksum for `Data`.".
+-doc """
+Computes and returns the adler32 checksum for `Data`.
+
+## Examples
+
+```erlang
+1> Data = ~"abc".
+2> erlang:adler32(Data).
+38600999
+```
+
+""".
 -doc #{ category => checksum }.
 -spec adler32(Data) -> non_neg_integer() when
       Data :: iodata().
@@ -663,14 +674,19 @@ Continues computing the adler32 checksum by combining the previous checksum,
 The following code:
 
 ```erlang
-X = erlang:adler32(Data1),
-Y = erlang:adler32(X,Data2).
+1> Data1 = ~"abc", Data2 = ~"def".
+2> X = erlang:adler32(Data1).
+38600999
+3> Y = erlang:adler32(X,Data2).
+136184406
 ```
 
 assigns the same value to `Y` as this:
 
 ```erlang
-Y = erlang:adler32([Data1,Data2]).
+1> Data1 = ~"abc", Data2 = ~"def".
+2> Y = erlang:adler32([Data1,Data2]).
+136184406
 ```
 """.
 -doc #{ category => checksum }.
@@ -690,16 +706,23 @@ to be known.
 The following code:
 
 ```erlang
-Y = erlang:adler32(Data1),
-Z = erlang:adler32(Y,Data2).
+1> Data1 = ~"abc", Data2 = ~"def".
+2> X = erlang:adler32(Data1).
+38600999
+3> Z = erlang:adler32(X,Data2).
+136184406
 ```
 
 assigns the same value to `Z` as this:
 
 ```erlang
-X = erlang:adler32(Data1),
-Y = erlang:adler32(Data2),
-Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).
+1> Data1 = ~"abc", Data2 = ~"def".
+2> X = erlang:adler32(Data1).
+38600999
+3> Y = erlang:adler32(Data2).
+39780656
+4> Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).
+136184406
 ```
 """.
 -doc #{ category => checksum }.
@@ -1661,7 +1684,17 @@ check_process_code(Pid, Module, OptionList)  ->
     end.
 
 %% crc32/1
--doc "Computes and returns the crc32 (IEEE 802.3 style) checksum for `Data`.".
+-doc """
+Computes and returns the crc32 (IEEE 802.3 style) checksum for `Data`.
+
+## Examples:
+
+```erlang
+1> Data = ~"abc".
+2> erlang:crc32(Data).
+891568578
+```
+""".
 -doc #{ category => checksum }.
 -spec crc32(Data) -> non_neg_integer() when
       Data :: iodata().
@@ -1676,14 +1709,19 @@ Continues computing the crc32 checksum by combining the previous checksum,
 The following code:
 
 ```erlang
-X = erlang:crc32(Data1),
-Y = erlang:crc32(X,Data2).
+1> Data1 = ~"abc", Data2 = ~"def".
+2> X = erlang:crc32(Data1).
+891568578
+3> Y = erlang:crc32(X,Data2).
+1267612143
 ```
 
 assigns the same value to `Y` as this:
 
 ```erlang
-Y = erlang:crc32([Data1,Data2]).
+1> Data1 = ~"abc", Data2 = ~"def".
+2> Y = erlang:crc32([Data1,Data2]).
+1267612143
 ```
 """.
 -doc #{ category => checksum }.
@@ -1703,16 +1741,23 @@ to be known.
 The following code:
 
 ```erlang
-Y = erlang:crc32(Data1),
-Z = erlang:crc32(Y,Data2).
+1> Data1 = ~"abc", Data2 = ~"def".
+2> X = erlang:crc32(Data1).
+891568578
+3> Y = erlang:crc32(X,Data2).
+1267612143
 ```
 
 assigns the same value to `Z` as this:
 
 ```erlang
-X = erlang:crc32(Data1),
-Y = erlang:crc32(Data2),
-Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).
+1> Data1 = ~"abc", Data2 = ~"def".
+2> X = erlang:crc32(Data1).
+891568578
+3> Y = erlang:crc32(Data2).
+214229345
+4> Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).
+1267612143
 ```
 """.
 -doc #{ category => checksum }.
@@ -2268,9 +2313,9 @@ Returns the process dictionary and deletes it.
 For example:
 
 ```erlang
-> put(key1, {1, 2, 3}),
-put(key2, [a, b, c]),
-erase().
+1> put(key1, {1, 2, 3}).
+2> put(key2, [a, b, c]).
+3> lists:sort(erase()).
 [{key1,{1,2,3}},{key2,[a,b,c]}]
 ```
 """.
@@ -2293,10 +2338,11 @@ items in the process dictionary.
 For example:
 
 ```erlang
-> put(key1, {merry, lambs, are, playing}),
-X = erase(key1),
-{X, erase(key1)}.
-{{merry,lambs,are,playing},undefined}
+1> put(key1, {merry, lambs, are, playing}).
+2> X = erase(key1).
+{merry,lambs,are,playing}
+3> erase(key1).
+undefined
 ```
 """.
 -doc #{ category => processes }.
@@ -2320,14 +2366,8 @@ incorrect type). See the guide about
 Example:
 
 ```erlang
-> catch error(foobar).
-{'EXIT',{foobar,[{shell,apply_fun,3,
-                        [{file,"shell.erl"},{line,906}]},
-                 {erl_eval,do_apply,6,[{file,"erl_eval.erl"},{line,677}]},
-                 {erl_eval,expr,5,[{file,"erl_eval.erl"},{line,430}]},
-                 {shell,exprs,7,[{file,"shell.erl"},{line,687}]},
-                 {shell,eval_exprs,7,[{file,"shell.erl"},{line,642}]},
-                 {shell,eval_loop,3,[{file,"shell.erl"},{line,627}]}]}}
+1> catch error(foobar).
+{'EXIT',{foobar, _StackTrace}}
 ```
 """.
 -doc #{ category => processes }.
@@ -2367,13 +2407,11 @@ example_fun(A1, A2) ->
 
 Erlang shell:
 
-```text
-1> c(test).
-{ok,test}
-2> test:example_fun(arg1, "this is the second argument").
+```erlang
+1> test:example_fun(arg1, "this is the second argument").
 ** exception error: my_error
      in function  test:example_fun/2
-         called as test:example_fun(arg1,"this is the second argument")
+        called as test:example_fun(arg1,"this is the second argument")
 ```
 """.
 -spec error(Reason, Args) -> no_return() when
@@ -2443,9 +2481,9 @@ additional information.
 Example:
 
 ```erlang
-> exit(foobar).
+1> exit(foobar).
 ** exception exit: foobar
-> catch exit(foobar).
+2> catch exit(foobar).
 {'EXIT',foobar}
 ```
 
@@ -2598,10 +2636,9 @@ in the Erlang external term format.
 The following condition applies always:
 
 ```erlang
-> Size1 = byte_size(term_to_binary(Term)),
-> Size2 = erlang:external_size(Term),
-> true = Size1 =< Size2.
-true
+Size1 = byte_size(term_to_binary(Term)),
+Size2 = erlang:external_size(Term),
+true = Size1 =< Size2.
 ```
 
 ## Examples
@@ -2628,10 +2665,9 @@ in the Erlang external term format.
 The following condition applies always:
 
 ```erlang
-> Size1 = byte_size(term_to_binary(Term, Options)),
-> Size2 = erlang:external_size(Term, Options),
-> true = Size1 =< Size2.
-true
+Size1 = byte_size(term_to_binary(Term, Options)),
+Size2 = erlang:external_size(Term, Options),
+true = Size1 =< Size2.
 ```
 
 See `term_to_binary/2` for a description of the options.
@@ -3104,11 +3140,14 @@ the returned list can be in any order.
 For example:
 
 ```erlang
-> put(key1, merry),
-put(key2, lambs),
-put(key3, {are, playing}),
-get().
+1> put(key1, merry).
+2> put(key2, lambs).
+3> put(key3, {are, playing}).
+4> lists:sort(get()).
 [{key1,merry},{key2,lambs},{key3,{are,playing}}]
+5> erase().
+6> get().
+[]
 ```
 """.
 -doc #{ category => processes }.
@@ -3130,11 +3169,14 @@ items in the process dictionary.
 For example:
 
 ```erlang
-> put(key1, merry),
-put(key2, lambs),
-put({any, [valid, term]}, {are, playing}),
-get({any, [valid, term]}).
+1> put(key1, merry).
+2> put(key2, lambs).
+3> put({any, [valid, term]}, {are, playing}).
+4> get({any, [valid, term]}).
 {are,playing}
+5> erase().
+6> get({any, [valid, term]}).
+undefined
 ```
 """.
 -doc #{ category => processes }.
@@ -3152,11 +3194,14 @@ returned list can be in any order.
 For example:
 
 ```erlang
-> put(dog, {animal,1}),
-put(cow, {animal,2}),
-put(lamb, {animal,3}),
-get_keys().
-[dog,cow,lamb]
+1> put(dog, '🐶').
+2> put(cow, '🐄').
+3> put(lamb, '🐑').
+4> lists:sort(get_keys()).
+[cow,dog,lamb]
+5> erase().
+6> get_keys().
+[]
 ```
 """.
 -doc(#{since => <<"OTP 18.0">>}).
@@ -3174,14 +3219,17 @@ dictionary. The items in the returned list can be in any order.
 For example:
 
 ```erlang
-> put(mary, {1, 2}),
-put(had, {1, 2}),
-put(a, {1, 2}),
-put(little, {1, 2}),
-put(dog, {1, 3}),
-put(lamb, {1, 2}),
-get_keys({1, 2}).
-[mary,had,a,little,lamb]
+1> put(allosaurus, '🦕').
+2> put(brachiosaurus, '🦕').
+3> put(carnotaurus, '🦕').
+4> put(diplodocus, '🦕').
+5> put(euoplocephalus, '🦕').
+6> put(fox, '🦊').
+7> lists:sort(get_keys('🦕')).
+[allosaurus,brachiosaurus,carnotaurus,diplodocus,euoplocephalus]
+8> erase().
+9> get_keys('🦕').
+[]
 ```
 """.
 -doc #{ category => processes }.
@@ -3622,9 +3670,8 @@ If you pass larger binaries, they are split and returned in a form
 optimized for calling the C function `writev()`.
 
 ```erlang
-> erlang:iolist_to_iovec([<<1>>,<<2:8096>>,<<3:8096>>]).
-[<<1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-   0,...>>,
+1> erlang:iolist_to_iovec([<<1>>,<<2:8096>>,<<3:8096>>]).
+[<<1>>,
  <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
    ...>>,
  <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...>>]
@@ -3659,6 +3706,15 @@ This BIF is useful for builders of cross-reference tools.
 
 Returns `true` if `Module:Function/Arity` is a BIF implemented in C, otherwise
 `false`.
+
+## Examples:
+
+```erlang
+1> erlang:is_builtin(lists, keyfind, 3).
+true
+2> erlang:is_builtin(lists, reverse, 1).
+false
+```
 """.
 -doc #{ category => code }.
 -spec is_builtin(Module, Function, Arity) -> boolean() when
@@ -3678,13 +3734,13 @@ Failure: A `{badmap,Map}` exception is raised if `Map` is not a map.
 ## Examples
 
 ```erlang
-> Map = #{"42" => value}.
+1> Map = #{"42" => value}.
 #{"42" => value}
-1> is_map_key("42", Map).
+2> is_map_key("42", Map).
 true
-2> is_map_key(value, Map).
+3> is_map_key(value, Map).
 false
-3> is_map_key(value, no_map).
+4> is_map_key(value, no_map).
 ** exception error: bad map: no_map
      in function  is_map_key/2
         called as is_map_key(value,no_map)
@@ -3717,9 +3773,12 @@ killed.
 For example:
 
 ```erlang
-exit(P2Pid, kill),
+1> P2Pid = spawn(fun() -> receive after infinity -> ok end end).
+2> exit(P2Pid, kill).
+true
 % P2 might not be killed
-is_process_alive(P2Pid),
+3> is_process_alive(P2Pid).
+false
 % P2 is not alive (the call above always return false)
 ```
 
@@ -4114,7 +4173,7 @@ identifier.
 ## Examples
 
 ```erlang
-> list_to_pid("<0.4.1>").
+1> list_to_pid("<0.4.1>").
 <0.4.1>
 ```
 """.
@@ -4138,7 +4197,7 @@ identifier.
 ## Examples
 
 ```erlang
-> list_to_port("#Port<0.4>").
+1> list_to_port("#Port<0.4>").
 #Port<0.4>
 ```
 
@@ -4163,7 +4222,7 @@ Failure: `badarg` if `String` contains a bad representation of a reference.
 ## Examples
 
 ```erlang
-> list_to_ref("#Ref<0.4192537678.4073193475.71181>").
+1> list_to_ref("#Ref<0.4192537678.4073193475.71181>").
 #Ref<0.4192537678.4073193475.71181>
 ```
 """.
@@ -4964,7 +5023,7 @@ Returns a string corresponding to the text representation of `Pid`.
 ## Examples
 
 ```erlang
-> erlang:pid_to_list(self()).
+1> erlang:pid_to_list(<0.85.0>).
 "<0.85.0>"
 ```
 """.
@@ -4977,6 +5036,13 @@ pid_to_list(_Pid) ->
 -doc """
 Returns a string corresponding to the text representation of the port identifier
 `Port`.
+
+## Examples
+
+```erlang
+1> erlang:port_to_list(#Port<0.85>).
+"#Port<0.85>"
+```
 """.
 -doc #{ category => terms }.
 -spec port_to_list(Port) -> string() when
@@ -5620,10 +5686,15 @@ items in the process dictionary.
 For example:
 
 ```erlang
-> X = put(name, walrus), Y = put(name, carpenter),
-Z = get(name),
-{X, Y, Z}.
-{undefined,walrus,carpenter}
+1> X = put(name, walrus).
+undefined
+2> Y = put(name, carpenter).
+walrus
+3> Z = get(name).
+carpenter
+4> erase(name).
+5> get(name).
+undefined
 ```
 
 > #### Note {: .info }
@@ -5761,6 +5832,13 @@ Returns a string corresponding to the text representation of `Ref`.
 >
 > This BIF is intended for debugging and is not to be used in application
 > programs.
+
+## Examples
+
+```erlang
+1> ref_to_list(#Ref<0.4192537678.4073193475.71181>).
+"#Ref<0.4192537678.4073193475.71181>"
+```
 """.
 -doc #{ category => terms }.
 -spec ref_to_list(Ref) -> string() when
@@ -5780,7 +5858,8 @@ a pid or port identifies as an argument.
 For example:
 
 ```erlang
-> register(db, Pid).
+1> Pid = spawn(fun() -> receive after infinity -> ok end end).
+2> register(db, Pid).
 true
 ```
 
@@ -6485,8 +6564,8 @@ catch expression returns value `Any`.
 For example:
 
 ```erlang
-> catch throw({hello, there}).
-        {hello,there}
+1> catch throw({hello, there}).
+{hello,there}
 ```
 
 If evaluated within a `try`\-block of a
@@ -6496,12 +6575,13 @@ within the catch block.
 For example:
 
 ```erlang
-try
-    throw({my_exception, "Something happened"})
-catch
-    throw:{my_exception, Desc} ->
-        io:format(standard_error, "Error: ~s~n", [Desc])
-end
+1>  try
+        throw({my_exception, "Something happened"})
+    catch
+        throw:{my_exception, Desc} ->
+            io:format(standard_error, "Error: ~s~n", [Desc])
+    end.
+%% Output to standard error: Error: Something happened
 ```
 
 If `throw/1` is not evaluated within a catch, a `nocatch` run-time error occurs.
@@ -8832,7 +8912,7 @@ The possible flags are:
                    port => 221631,
                    sleep => 5150294100},
      id => 1,
-     type => scheduler}|...]
+     type => scheduler}, ...]
   ```
 
   The time unit is the same as returned by `os:perf_counter/0`. So, to convert it
@@ -10458,9 +10538,9 @@ of `Args`.
 For example:
 
 ```erlang
-> apply(lists, reverse, [[a, b, c]]).
+1> apply(lists, reverse, [[a, b, c]]).
 [c,b,a]
-> apply(erlang, atom_to_list, ['Erlang']).
+2> apply(erlang, atom_to_list, ['Erlang']).
 "Erlang"
 ```
 
@@ -12728,13 +12808,13 @@ descriptions of the `==` operator and how terms are ordered.
 ## Examples
 
 ```erlang
-> min(1, 2).
+1> min(1, 2).
 1
-> min(1.0, 1).
+2> min(1.0, 1).
 1.0
-> min(1, 1.0).
+3> min(1, 1.0).
 1
-> min("abc", "b").
+4> min("abc", "b").
 "abc"
 ```
 """.

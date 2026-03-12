@@ -2267,7 +2267,7 @@ partition_family(Conf) when is_list(Conf) ->
     ok.
 
 doctests(_Config) ->
-    shell_docs:test(sofs, []).
+    ct_doctest:module(sofs, [{skipped_blocks, 2}]).
 
 %% Not meant to be efficient...
 local_adjoin(S, C) ->
