@@ -176,7 +176,7 @@ test(BootArgs) ->
     %% must be loaded.
     test_heavy_bifs(BootArgs),
     test_get(),
-%    test_process_info(),
+    test_process_info(),
 %    test_hibernate(),
 %    test_load_nif(),
 %
@@ -1637,18 +1637,18 @@ test_get() ->
 
     ok.
 
-%test_process_info() ->
-%    Pid = spawn(fun waiting_process/0),
-%    receive after 1 -> ok end,
-%    {current_function,{?MODULE,waiting_process,0}} =
-%        process_info(Pid, current_function),
-%    exit(Pid, kill),
-%
-%    ok.
-%
-%waiting_process() ->
-%    receive _ -> ok end.
-%
+test_process_info() ->
+    Pid = spawn(fun waiting_process/0),
+    receive after 1 -> ok end,
+    {current_function,{?MODULE,waiting_process,0}} =
+        process_info(Pid, current_function),
+    exit(Pid, kill),
+
+    ok.
+
+waiting_process() ->
+    receive _ -> ok end.
+
 %test_hibernate() ->
 %    Ref = make_ref(),
 %    Info = {self(),Ref},
