@@ -185,8 +185,8 @@ Eshell V10.6.4  (abort with ^G)
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 ```
 
 Note that the algorithms in the file `ex2.config` is not yet applied. They will
@@ -202,8 +202,8 @@ ok
           {server2client,['aes192-ctr']}]},
  {mac,[{client2server,['hmac-sha1']},
        {server2client,['hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 4>
 ```
 

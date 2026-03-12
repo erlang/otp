@@ -78,7 +78,9 @@ The lists are (named as in the SSH application's options):
   This list is also divided into two for the both directions
 
 - **`compression`** - If and how to compress the message. Examples are `none`,
-  that is, no compression and `zlib`.
+  that is, no compression,
+  `zlib` for pre-authentication compression (disabled by default),
+  and `'zlib@openssh.com'` for post-authentication compression.
 
   This list is also divided into two for the both directions
 
@@ -120,8 +122,8 @@ There is an important command to list the actual algorithms and their ordering:
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 ```
 
 {: #example_default_algorithms }
@@ -174,8 +176,8 @@ Replace the kex algorithms list with the single algorithm
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 ```
 
 Note that the unmentioned lists (`public_key`, `cipher`, `mac` and
@@ -209,8 +211,8 @@ possible to change both directions at once:
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 ```
 
 Note that both lists in `cipher` has been changed to the provided value
@@ -246,8 +248,8 @@ possible to change only one of the directions:
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 ```
 
 ### Example 4
@@ -341,8 +343,8 @@ supported according to [Supported algorithms](ssh_app.md#supported_algos).
                        'hmac-sha1']},
        {server2client,['hmac-sha2-256','hmac-sha2-512',
                        'hmac-sha1']}]},
- {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
-               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+ {compression,[{client2server,[none,'zlib@openssh.com']},
+               {server2client,[none,'zlib@openssh.com']}]}]
 ```
 
 And the result shows that the Diffie-Hellman Group1 is added at the head of the
