@@ -171,11 +171,11 @@ test(BootArgs) ->
     test_yield(),
     test_maps(),
     test_is_port(),
-%
-%    %% From this point on, the `erlang` and `erts_internal` modules
-%    %% must be loaded.
-%    test_heavy_bifs(BootArgs),
-%    test_get(),
+
+    %% From this point on, the `erlang` and `erts_internal` modules
+    %% must be loaded.
+    test_heavy_bifs(BootArgs),
+    test_get(),
 %    test_process_info(),
 %    test_hibernate(),
 %    test_load_nif(),
@@ -1608,35 +1608,35 @@ external_port() ->
           100,0,0,0,11,96,96,14,189>>,
     binary_to_term(B).
 
-%%%%
-%%%% From this point, heavy bifs are used. Heavy BIFs are only
-%%%% possible to call if their module has been loaded. Therefore,
-%%%% `erlang` and `erts_internal` must be loaded.
-%%%%
-%
-%test_heavy_bifs(BinList) ->
-%    MD5 = erlang:md5(BinList),
-%
-%    undefined = put(?FUNCTION_NAME, {id(x),y}),
-%    erlang:garbage_collect(),
-%    {x,y} = erase(?FUNCTION_NAME),
-%
-%    MD5 = erlang:md5(BinList),
-%
-%    {current_function,{?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY}} =
-%        process_info(self(), current_function),
-%
-%    ok.
-%
-%test_get() ->
-%    put(?FUNCTION_NAME, id({a,b,c})),
-%
-%    {a,b,c} = get(?FUNCTION_NAME),
-%    {a,b,c} = get(id(?FUNCTION_NAME)),
-%    {a,b,c} = erase(?FUNCTION_NAME),
-%
-%    ok.
-%
+%%%
+%%% From this point, heavy bifs are used. Heavy BIFs are only
+%%% possible to call if their module has been loaded. Therefore,
+%%% `erlang` and `erts_internal` must be loaded.
+%%%
+
+test_heavy_bifs(BinList) ->
+    MD5 = erlang:md5(BinList),
+
+    undefined = put(?FUNCTION_NAME, {id(x),y}),
+    erlang:garbage_collect(),
+    {x,y} = erase(?FUNCTION_NAME),
+
+    MD5 = erlang:md5(BinList),
+
+    {current_function,{?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY}} =
+        process_info(self(), current_function),
+
+    ok.
+
+test_get() ->
+    put(?FUNCTION_NAME, id({a,b,c})),
+
+    {a,b,c} = get(?FUNCTION_NAME),
+    {a,b,c} = get(id(?FUNCTION_NAME)),
+    {a,b,c} = erase(?FUNCTION_NAME),
+
+    ok.
+
 %test_process_info() ->
 %    Pid = spawn(fun waiting_process/0),
 %    receive after 1 -> ok end,
