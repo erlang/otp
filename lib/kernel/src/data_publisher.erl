@@ -189,10 +189,33 @@ handle_call({unsubscribe, Ref}, _From, State) ->
     {reply, ok, remove_subscribe(Ref, State)}.
 
 -spec handle_cast(Message, state()) -> {noreply, state()} when
+    Message :: {local_data, pid(), version(), local_data()} | dynamic().
+handle_cast(Message, State) ->
+    handle_info(Message, State).
+
+-spec handle_info(Message, state()) -> {noreply, state()} when
     Message ::
-        {local_data, pid(), version(), local_data()}
+        {discover, pid(), version()}
+        | {local_data, pid(), version(), local_data()}
+        | {update, pid(), update()}
+        | {nodeup, node()}
+        | {nodedown, node()}
+        | {{'DOWN', subscribe}, reference(), process, pid(), dynamic()}
+        | {{'DOWN', peer}, reference(), process, pid(), dynamic()}
         | dynamic().
-handle_cast({local_data, Peer, Version, LocalState}, #state{module = Module} = State) ->
+handle_info({discover, Peer, _Version}, #state{options = #{standalone := true}} = State) when is_pid(Peer) ->
+    {noreply, State};
+handle_info({discover, Peer, Version}, #state{module = Module} = State) ->
+    gen_server:cast(Peer, translate_local_data(State#state.local_data, Version, State)),
+    case is_map_key(Peer, State#state.peers) of
+        true ->
+            {noreply, State};
+        _ ->
+            Ref = erlang:monitor(process, Peer, [{tag, {'DOWN', peer}}]),
+            do_send(Peer, {discover, self(), State#state.version}),
+            {noreply, State#state{peers = (State#state.peers)#{Peer => {Ref, Version, Module:init_local_data()}}}}
+    end;
+handle_info({local_data, Peer, Version, LocalState}, #state{module = Module} = State) ->
     case Peers = State#state.peers of
         #{Peer := {Ref, _Version, OldLocalState}} ->
             Update = Module:data_diff(OldLocalState, LocalState),
@@ -209,30 +232,6 @@ handle_cast({local_data, Peer, Version, LocalState}, #state{module = Module} = S
             ),
             NewPeers = Peers#{Peer => {Ref, Version, LocalState}},
             {noreply, State#state{global_view = NewGlobalView, peers = NewPeers}}
-    end;
-handle_cast(Message, State) ->
-    do_message(Message, State).
-
--spec handle_info(Message, state()) -> {noreply, state()} when
-    Message ::
-        {discover, pid(), version()}
-        | {update, pid(), update()}
-        | {nodeup, node()}
-        | {nodedown, node()}
-        | {{'DOWN', subscribe}, reference(), process, pid(), dynamic()}
-        | {{'DOWN', peer}, reference(), process, pid(), dynamic()}
-        | dynamic().
-handle_info({discover, Peer, _Version}, #state{options = #{standalone := true}} = State) when is_pid(Peer) ->
-    {noreply, State};
-handle_info({discover, Peer, Version}, #state{module = Module} = State) ->
-    gen_server:cast(Peer, translate_local_data(State#state.local_data, Version, State)),
-    case is_map_key(Peer, State#state.peers) of
-        true ->
-            {noreply, State};
-        _ ->
-            Ref = erlang:monitor(process, Peer, [{tag, {'DOWN', peer}}]),
-            erlang:send(Peer, {discover, self(), State#state.version}, [noconnect]),
-            {noreply, State#state{peers = (State#state.peers)#{Peer => {Ref, Version, Module:init_local_data()}}}}
     end;
 handle_info({update, Peer, Update}, #state{module = Module} = State) ->
     case State#state.peers of
@@ -255,7 +254,7 @@ handle_info({update, Peer, Update}, #state{module = Module} = State) ->
 handle_info({nodeup, Node}, State) when Node =:= node() ->
     {noreply, State};
 handle_info({nodeup, Node}, State) ->
-    erlang:send({State#state.scope, Node}, {discover, self(), State#state.version}, [noconnect]),
+    do_send({State#state.scope, Node}, {discover, self(), State#state.version}),
     {noreply, State};
 handle_info({nodedown, _Node}, State) ->
     {noreply, State};
@@ -273,15 +272,7 @@ handle_info({{'DOWN', peer}, Ref, process, Peer, _Info}, #state{module = Module}
             % should never happen
             {noreply, State}
     end;
-handle_info(Message, State) ->
-    do_message(Message, State).
-
--spec terminate(dynamic(), state()) -> term().
-terminate(_Reasion, #state{module = Module} = State) ->
-    Module:stop_global_view(State#state.global_view).
-
--spec do_message(dynamic(), state()) -> {noreply, state()}.
-do_message(Message, #state{module = Module} = State) ->
+handle_info(Message, #state{module = Module} = State) ->
     case
         erlang:function_exported(Module, translate_message, 2) andalso
             Module:translate_message(Message, State#state.global_view)
@@ -295,13 +286,17 @@ do_message(Message, #state{module = Module} = State) ->
             handle_info({update, Peer, Update}, State#state{global_view = GlobalView});
         % legacy support, to be removed
         {local_data, Peer, Version, LocalState, GlobalView} ->
-            handle_cast({local_data, Peer, Version, LocalState}, State#state{global_view = GlobalView});
+            handle_info({local_data, Peer, Version, LocalState}, State#state{global_view = GlobalView});
         % legacy support, to be removed
         {discover, Peer, Version, GlobalView} ->
             handle_info({discover, Peer, Version}, State#state{global_view = GlobalView});
         _ ->
             {noreply, State}
     end.
+
+-spec terminate(dynamic(), state()) -> term().
+terminate(_Reasion, #state{module = Module} = State) ->
+    Module:stop_global_view(State#state.global_view).
 
 -spec translate_update(update(), version(), state()) -> {update, pid(), update()} | [dynamic()].
 translate_update(Update, Version, #state{module = Module} = State) ->
