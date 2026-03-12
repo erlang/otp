@@ -739,8 +739,23 @@ void BeamModuleAssembler::emit_call_bif(const ArgWord &Func) {
 void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
                                             const ArgAtom &F,
                                             const ArgWord &A) {
-    // TODO
-    emit_nyi("emit_call_bif_mfa");
+    BeamInstr func;
+    Export *e;
+
+    e = erts_active_export_entry(M.get(), F.get(), A.get());
+    ASSERT(e != NULL && e->bif_number != -1);
+
+    func = (BeamInstr)bif_table[e->bif_number].f;
+
+    a.adr(ARG3, current_label);
+    a.sub(ARG2, ARG3, imm(sizeof(ErtsCodeMFA)));
+    comment("HBIF: %T:%T/%d",
+            e->info.mfa.module,
+            e->info.mfa.function,
+            A.get());
+    mov_imm(ARG4, (UWord)func);
+
+    a.b(resolve_fragment(ga->get_call_bif_shared(), disp32MB));
 }
 
 void BeamGlobalAssembler::emit_call_nif_early() {
