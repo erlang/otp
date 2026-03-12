@@ -319,15 +319,32 @@ void BeamModuleAssembler::emit_get_tl(const ArgRegister &Src,
 
 void BeamModuleAssembler::emit_i_get(const ArgSource &Src,
                                      const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_get");
+    mov_arg(ARG2, Src);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_pd_hash_get);
+
+    emit_leave_runtime();
+
+    mov_arg(Dst, ARG1);
 }
 
 void BeamModuleAssembler::emit_i_get_hash(const ArgConstant &Src,
                                           const ArgWord &Hash,
                                           const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_get_hash");
+    mov_arg(ARG2, Hash);
+    mov_arg(ARG3, Src);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_pd_hash_get_with_hx);
+
+    emit_leave_runtime();
+
+    mov_arg(Dst, ARG1);
 }
 
 /* Store the untagged pointer to a tuple in ARG1. */
