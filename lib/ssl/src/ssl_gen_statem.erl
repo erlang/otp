@@ -2186,17 +2186,22 @@ keylog_1_3(Info) ->
 keylog_1_3(ClientRandom, Prf, Role, Sender, Info) ->
     {ok, SecretWrite, NWrite} = call(Sender, get_application_traffic_secret),
     EarlySecret = proplists:get_value(client_early_data_secret, Info, undefined),
+    %% Note the current role is the writer, and the opposite role is the reader
     case Role of
         client ->
-            {server_traffic_secret, SecretRead, NRead} = lists:keyfind(server_traffic_secret, 1, Info),
+            {server_traffic_secret, SecretRead, NRead} =
+                lists:keyfind(server_traffic_secret, 1, Info),
             hs_logs(NRead, ClientRandom, Prf, EarlySecret, Info) ++
-                ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, SecretRead, NRead) ++
-                ssl_logger:keylog_traffic_1_3(server, ClientRandom, Prf, SecretWrite, NWrite);
+                ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, SecretWrite, NWrite) ++
+                ssl_logger:keylog_traffic_1_3(opposite_role(Role), ClientRandom,
+                                              Prf, SecretRead, NRead);
         server ->
-            {client_traffic_secret, SecretRead, NRead} = lists:keyfind(client_traffic_secret, 1, Info),
+            {client_traffic_secret, SecretRead, NRead} =
+                lists:keyfind(client_traffic_secret, 1, Info),
             hs_logs(NRead, ClientRandom, Prf, EarlySecret, Info) ++
-                ssl_logger:keylog_traffic_1_3(client, ClientRandom, Prf, SecretWrite, NWrite) ++
-                ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, SecretRead, NRead)
+                ssl_logger:keylog_traffic_1_3(opposite_role(Role), ClientRandom,
+                                              Prf, SecretRead, NRead) ++
+                ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, SecretWrite, NWrite)
     end.
 
 hs_logs(0, ClientRandom, Prf, EarlySecret, Info) ->
@@ -2209,7 +2214,7 @@ hs_logs(0, ClientRandom, Prf, EarlySecret, Info) ->
         undefined ->
             HSItems;
         _  ->
-            [ssl_logger:keylog_early_data(ClientRandom, Prf, EarlySecret) | HSItems]
+            ssl_logger:keylog_early_data(ClientRandom, Prf, EarlySecret) ++ HSItems
     end;
 hs_logs(_,_,_,_, _) ->
     [].
@@ -2257,13 +2262,13 @@ keylog_hs_alert(negotiated, #state{static_env = #static_env{role = server},
                                                          current_write := Write
                                                         }})
   when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
-     #{server_handshake_traffic_secret := ServerHSSecret,
-      security_parameters :=
-          #security_parameters{client_random = ClientRandomBin,
-                               client_early_data_secret = EarlySecret,
-                               prf_algorithm = Prf
-                              }} = Write,
-    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+    #{server_handshake_traffic_secret := ServerHSSecret} = Write,
+    #{client_handshake_traffic_secret := ClientHSSecret,
+      security_parameters := #security_parameters{client_random = ClientRandomBin,
+                                                  client_early_data_secret = EarlySecret,
+                                                  prf_algorithm = Prf
+                                                 }
+     } = Read,
     {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret),
      ClientRandomBin};
 keylog_hs_alert(wait_eoed, #state{static_env = #static_env{role = server},
@@ -2291,15 +2296,15 @@ keylog_hs_alert(connection, #state{static_env = #static_env{role = client},
   when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
     #{server_handshake_traffic_secret := ServerHSSecret,
       security_parameters :=
-          #security_parameters{client_random = ClientRandomBin,
-                               client_early_data_secret = EarlySecret,
-                               prf_algorithm = Prf,
-                               master_secret = {master_secret, STrafficSecret}
+          #security_parameters{master_secret = {master_secret, STrafficSecret}
                               }}
         = Read,
     #{client_handshake_traffic_secret := ClientHSSecret,
        security_parameters :=
-          #security_parameters{master_secret = {master_secret, CTrafficSecret}
+          #security_parameters{master_secret = {master_secret, CTrafficSecret},
+                               client_random = ClientRandomBin,
+                               client_early_data_secret = EarlySecret,
+                               prf_algorithm = Prf
                               }} = Write,
 
     {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret) ++
@@ -2313,14 +2318,14 @@ keylog_hs_alert(_, #state{static_env = #static_env{role = client},
                                                 current_write := Write
                                                }})
   when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
-   #{server_handshake_traffic_secret := ServerHSSecret,
+    #{server_handshake_traffic_secret := ServerHSSecret} = Read,
+    #{client_handshake_traffic_secret := ClientHSSecret,
       security_parameters :=
-                   #security_parameters{client_random = ClientRandomBin,
-                                        client_early_data_secret = EarlySecret,
-                                        prf_algorithm = Prf
-                                       }}
-        = Write,
-    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+          #security_parameters{client_random = ClientRandomBin,
+                               client_early_data_secret = EarlySecret,
+                               prf_algorithm = Prf
+                              }
+     } = Write,
     {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret),
      ClientRandomBin};
 keylog_hs_alert(_, _) -> % NOT Relevant pre TLS-1.3
@@ -2333,19 +2338,20 @@ keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientSecret, ServerSecret) ->
         undefined ->
             HSItems;
         _  ->
-            [ssl_logger:keylog_early_data(ClientRandomBin, Prf, EarlySecret) | HSItems]
+            ssl_logger:keylog_early_data(ClientRandomBin, Prf, EarlySecret) ++ HSItems
     end.
 
 keylog_1_3_client_finished(Read, Write) ->
     #{server_handshake_traffic_secret := ServerHSSecret,
-      security_parameters :=
-                   #security_parameters{client_random = ClientRandomBin,
-                                        client_early_data_secret = EarlySecret,
-                                        prf_algorithm = Prf,
-                                        master_secret = {master_secret, TrafficSecret}
-                                       }}
+      security_parameters := #security_parameters{client_random = ClientRandomBin,
+                                                  prf_algorithm = Prf,
+                                                  master_secret = {master_secret, TrafficSecret}
+                                                 }}
         = Write,
-    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+    #{client_handshake_traffic_secret := ClientHSSecret,
+      security_parameters :=
+          #security_parameters{client_early_data_secret = EarlySecret}
+     } = Read,
     {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret) ++
          ssl_logger:keylog_traffic_1_3(server, ClientRandomBin, Prf, TrafficSecret, 0),
      ClientRandomBin}.
