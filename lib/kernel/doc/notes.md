@@ -23,6 +23,20 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.6.1
+
+### Fixed Bugs and Malfunctions
+
+- A vulnerability has been resolved in the (undocumented, unsupported and unused in OTP) inet_dns_tsig module that leads to a validation bypass.
+  
+  If a request contained an error code (forbidden by spec), it was treated as a response and skipped the verification of the MAC. The user of the module would then receive an "all ok" response, depending on the use case, this could lead to such things as AXFR or UPDATE being allowed.
+  
+  The code has also been tightening up of the client side to make sure too large (bad) MAC sizes cannot be selected and the limit is the output size of the algorithm chosen.
+
+  Own Id: OTP-20012 Aux Id: [PR-10825]
+
+[PR-10825]: https://github.com/erlang/otp/pull/10825
+
 ## Kernel 10.6
 
 ### Fixed Bugs and Malfunctions

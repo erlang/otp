@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.8.3
+
+### Fixed Bugs and Malfunctions
+
+- Fix memory leak in `crypo:engine_load` if called with incorrect commands.
+
+  Own Id: OTP-20014 Aux Id: [PR-10798]
+
+[PR-10798]: https://github.com/erlang/otp/pull/10798
+
 ## Crypto 5.8.2
 
 ### Fixed Bugs and Malfunctions
