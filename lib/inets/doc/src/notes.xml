@@ -33,7 +33,26 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 9.1.0.4</title>
+  <section><title>Inets 9.1.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The httpd server now rejects HTTP requests containing
+	    multiple Content-Length headers with different values,
+	    returning a 400 Bad Request response. This prevents
+	    potential HTTP request smuggling attacks. Thanks Luigino
+	    Camastra at Aisle Research for responsibly disclosing
+	    this vulnerability</p>
+          <p>
+	    Own Id: OTP-20007 Aux Id: PR-10833, CVE-2026-23941 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 9.1.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
