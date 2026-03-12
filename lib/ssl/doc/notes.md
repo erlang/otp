@@ -23,6 +23,25 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.5.3
+
+### Fixed Bugs and Malfunctions
+
+- TLS-1.3 certificate request now preserves the order of signature algorithms in certificate request extension to be in the servers preferred order, which might affect the choice made by some TLS clients.
+
+  Own Id: OTP-20022 Aux Id: [GH-10694], [PR-10707], ERIERL-1305
+
+[GH-10694]: https://github.com/erlang/otp/issues/10694
+[PR-10707]: https://github.com/erlang/otp/pull/10707
+
+### Improvements and New Features
+
+- Document that setting transport protocol specific socket options is not generally expected to work for TLS and if it happens to work it comes with consequences that should be understood an accepted by the user. Also retain some backwards compatibility with such an option that happened to work to buy time for people to come up with better solutions.
+
+  Own Id: OTP-20018 Aux Id: [PR-10809], ERIERL-1303
+
+[PR-10809]: https://github.com/erlang/otp/pull/10809
+
 ## SSL 11.5.2
 
 ### Fixed Bugs and Malfunctions
