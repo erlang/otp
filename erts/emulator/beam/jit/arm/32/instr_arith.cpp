@@ -568,8 +568,25 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
  * Error is indicated by the Z flag.
  */
 void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
-    // TODO
-    emit_nyi("emit_int_div_rem_guard_shared");
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    lea(ARG4, TMP_MEM4q); /* quotient out */
+    lea(TMP, TMP_MEM5q);  /* remainder out */
+    a.sub(a32::sp, a32::sp, imm(8)); /* keep AAPCS alignment */
+    a.str(TMP, arm::Mem(a32::sp, 0)); /* arg5 */
+    runtime_call<5>(erts_int_div_rem);
+    a.add(a32::sp, a32::sp, imm(8));
+
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    /* Z=1 signals error, Z=0 success. */
+    a.tst(ARG1, ARG1);
+    a.ldr(ARG1, TMP_MEM4q);
+    a.ldr(ARG2, TMP_MEM5q);
+    a.bx(a32::lr);
 }
 
 /* ARG2 = LHS
@@ -579,8 +596,41 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
  * Quotient is returned in ARG1, remainder in ARG2.
  */
 void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
-    // TODO
-    emit_nyi("emit_int_div_rem_body_shared");
+    Label generic_error = a.newLabel();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    /* Save original args and MFA for the error path. */
+    a.str(ARG2, TMP_MEM1q);
+    a.str(ARG3, TMP_MEM2q);
+    a.str(ARG4, TMP_MEM3q);
+
+    a.mov(ARG1, c_p);
+    lea(ARG4, TMP_MEM4q); /* quotient out */
+    lea(TMP, TMP_MEM5q);  /* remainder out */
+    a.sub(a32::sp, a32::sp, imm(8)); /* keep AAPCS alignment */
+    a.str(TMP, arm::Mem(a32::sp, 0)); /* arg5 */
+    runtime_call<5>(erts_int_div_rem);
+    a.add(a32::sp, a32::sp, imm(8));
+
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    a.tst(ARG1, ARG1);
+    a.b_eq(generic_error);
+
+    a.ldr(ARG1, TMP_MEM4q);
+    a.ldr(ARG2, TMP_MEM5q);
+    a.bx(a32::lr);
+
+    a.bind(generic_error);
+    a.ldr(ARG1, TMP_MEM1q);
+    a.str(ARG1, getXRef(0));
+    a.ldr(ARG1, TMP_MEM2q);
+    a.str(ARG1, getXRef(1));
+    a.ldr(ARG4, TMP_MEM3q); /* MFA */
+    a.b(labels[raise_exception]);
 }
 
 void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
@@ -603,8 +653,90 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                                        const ArgRegister &Remainder,
                                        bool need_div,
                                        bool need_rem) {
-    // TODO
-    emit_nyi("emit_div_rem");
+    if (!need_div && need_rem) {
+        Label generic = a.newLabel(), next = a.newLabel(), div_zero = a.newLabel();
+
+        auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+        mov_var(ARG2, lhs);
+        mov_var(ARG3, rhs);
+
+        /* Quick small/small path to avoid erts_int_rem() debug assertions for
+         * ordinary small divisors. Test both operands explicitly. */
+        a.and_(TMP, ARG2, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+        a.and_(TMP, ARG3, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+
+        a.cmp(ARG3, imm(make_small(0)));
+        a.b_eq(div_zero);
+
+        /* Keep rhs = -1 in generic path; runtime handles edge-cases there. */
+        mov_imm(TMP, make_small(-1));
+        a.cmp(ARG3, TMP);
+        a.b_eq(generic);
+
+        a.asr(TMP, ARG2, imm(_TAG_IMMED1_SIZE)); /* lhs int */
+        a.asr(VAR, ARG3, imm(_TAG_IMMED1_SIZE)); /* rhs int */
+        a.sdiv(ARG1, TMP, VAR);                  /* quotient int */
+        a.mul(ARG1, ARG1, VAR);                  /* quotient * rhs */
+        a.sub(ARG1, TMP, ARG1);                  /* remainder int */
+        a.lsl(ARG1, ARG1, imm(_TAG_IMMED1_SIZE));
+        a.orr(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+        a.b(next);
+
+        a.bind(generic);
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<3>(erts_int_rem);
+        emit_leave_runtime();
+
+        mov_imm(TMP, THE_NON_VALUE);
+        a.cmp(ARG1, TMP);
+        if (Fail.get() != 0) {
+            a.b_eq(resolve_beam_label(Fail, dispUnknown));
+        } else {
+            a.b_ne(next);
+            mov_arg(ArgXRegister(0), LHS);
+            mov_arg(ArgXRegister(1), RHS);
+            emit_raise_exception(error_mfa);
+        }
+
+        a.bind(div_zero);
+        if (Fail.get() != 0) {
+            a.b(resolve_beam_label(Fail, dispUnknown));
+        } else {
+            mov_imm(TMP, EXC_BADARITH);
+            a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+            mov_arg(ArgXRegister(0), LHS);
+            mov_arg(ArgXRegister(1), RHS);
+            emit_raise_exception(error_mfa);
+        }
+
+        a.bind(next);
+        mov_arg(Remainder, ARG1);
+        return;
+    }
+
+    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+    mov_var(ARG2, lhs);
+    mov_var(ARG3, rhs);
+
+    if (Fail.get() != 0) {
+        fragment_call(ga->get_int_div_rem_guard_shared());
+        a.b_eq(resolve_beam_label(Fail, dispUnknown));
+    } else {
+        mov_imm(ARG4, error_mfa);
+        fragment_call(ga->get_int_div_rem_body_shared());
+    }
+
+    if (need_div) {
+        mov_arg(Quotient, ARG1);
+    }
+    if (need_rem) {
+        mov_arg(Remainder, ARG2);
+    }
 }
 
 void BeamModuleAssembler::emit_i_rem_div(const ArgLabel &Fail,
@@ -613,8 +745,10 @@ void BeamModuleAssembler::emit_i_rem_div(const ArgLabel &Fail,
                                          const ArgSource &RHS,
                                          const ArgRegister &Remainder,
                                          const ArgRegister &Quotient) {
-    // TODO
-    emit_nyi("emit_i_rem_div");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_rem, 2};
+    bool need_rem = Quotient != Remainder;
+
+    emit_div_rem(Fail, LHS, RHS, &bif_mfa, Quotient, Remainder, true, need_rem);
 }
 
 void BeamModuleAssembler::emit_i_div_rem(const ArgLabel &Fail,
@@ -623,8 +757,10 @@ void BeamModuleAssembler::emit_i_div_rem(const ArgLabel &Fail,
                                          const ArgSource &RHS,
                                          const ArgRegister &Quotient,
                                          const ArgRegister &Remainder) {
-    // TODO
-    emit_nyi("emit_i_div_rem");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_div, 2};
+    bool need_div = Quotient != Remainder;
+
+    emit_div_rem(Fail, LHS, RHS, &bif_mfa, Quotient, Remainder, need_div, true);
 }
 
 void BeamModuleAssembler::emit_i_int_div(const ArgLabel &Fail,
@@ -632,8 +768,10 @@ void BeamModuleAssembler::emit_i_int_div(const ArgLabel &Fail,
                                          const ArgSource &LHS,
                                          const ArgSource &RHS,
                                          const ArgRegister &Quotient) {
-    // TODO
-    emit_nyi("emit_i_int_div");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_div, 2};
+    ArgYRegister Dummy(0);
+
+    emit_div_rem(Fail, LHS, RHS, &bif_mfa, Quotient, Dummy, true, false);
 }
 
 void BeamModuleAssembler::emit_i_rem(const ArgLabel &Fail,
@@ -641,8 +779,10 @@ void BeamModuleAssembler::emit_i_rem(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Remainder) {
-    // TODO
-    emit_nyi("emit_i_rem");
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_rem, 2};
+    ArgYRegister Dummy(0);
+
+    emit_div_rem(Fail, LHS, RHS, &bif_mfa, Dummy, Remainder, false, true);
 }
 
 void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
