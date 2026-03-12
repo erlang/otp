@@ -128,7 +128,7 @@ groups() ->
            disturbing_1_0,
 		   reload_config_file
 		  ]},
-     {post, [], [chunked_post, chunked_chunked_encoded_post, post_204]},
+     {post, [], [chunked_post, chunked_chunked_encoded_post, post_204, multiple_content_length_header]},
      {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, verify_href_1_1]},
      {auth_api, [], [auth_api_1_1, auth_api_1_0]},
      {auth_api_dets, [], [auth_api_1_1, auth_api_1_0]},
@@ -2029,6 +2029,28 @@ tls_alert(Config) when is_list(Config) ->
     Port = proplists:get_value(port, Config),    
     {error, {tls_alert, _}} = ssl:connect("localhost", Port, [{verify, verify_peer} | SSLOpts]).
 
+%%-------------------------------------------------------------------------
+multiple_content_length_header() ->
+    [{doc, "Test Content-Length header"}].
+
+multiple_content_length_header(Config) when is_list(Config) ->
+    ok = http_status("POST / ",
+                     {"Content-Length:0" ++ "\r\n",
+                      ""},
+                     [{http_version, "HTTP/1.1"} |Config],
+                     [{statuscode, 501}]),
+    ok = http_status("POST / ",
+                     {"Content-Length:0" ++ "\r\n" ++
+                      "Content-Length:0" ++ "\r\n",
+                      ""},
+                     [{http_version, "HTTP/1.1"} |Config],
+                     [{statuscode, 501}]),
+    ok = http_status("POST / ",
+                     {"Content-Length:1" ++ "\r\n" ++
+                      "Content-Length:0" ++ "\r\n",
+                      "Z"},
+                     [{http_version, "HTTP/1.1"} |Config],
+                     [{statuscode, 400}]).
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
