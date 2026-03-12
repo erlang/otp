@@ -322,6 +322,14 @@ limitations under the License.
 [PR-8029]: https://github.com/erlang/otp/pull/8029
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Inets 9.1.0.5
+
+### Fixed Bugs and Malfunctions
+
+* The httpd server now rejects HTTP requests containing multiple Content-Length headers with different values, returning a 400 Bad Request response. This prevents potential HTTP request smuggling attacks. Thanks Luigino Camastra at Aisle Research for responsibly disclosing this vulnerability
+
+  Own Id: OTP-20007 Aux Id: PR-10833, CVE-2026-23941
+
 ## Inets 9.1.0.4
 
 ### Fixed Bugs and Malfunctions
