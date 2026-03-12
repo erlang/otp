@@ -162,7 +162,8 @@
          public_key/1,
          state/1,
          new_config/2,
-         node_to_hostip/2
+         node_to_hostip/2,
+         keylog_prefixes/2
        ]).
 
 -export([make_rsa_cert/1,
@@ -423,7 +424,11 @@ end_per_group(GroupName, Config) ->
 
 openssl_ocsp_support(Config) ->
     case proplists:get_value(openssl_version, Config) of
-        "OpenSSL 1.1.1" ++ _Rest ->
+        "OpenSSL 3" ++ _Rest ->
+            true;
+        "OpenSSL 1.1.1n" ++ _Rest ->
+            true;
+        "OpenSSL 1.1.1w" ++ _Rest ->
             true;
         _ ->
             false
@@ -569,6 +574,15 @@ normalize_loopback({127,_,_,_}, client) ->
 normalize_loopback(Address, _) ->
     Address.
 
+keylog_prefixes([], []) ->
+    true;
+keylog_prefixes([Prefix | Prefixes], [Secret | Secrets]) ->
+    case lists:prefix(Prefix, Secret) of
+        true  ->
+            keylog_prefixes(Prefixes, Secrets);
+        false ->
+            false
+    end.
 
 start_server(Args0, Config) ->
     {_, ServerNode, _} = run_where(Config),

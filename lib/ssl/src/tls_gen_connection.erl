@@ -62,7 +62,8 @@
 -export([socket/4,
          setopts/3,
          getopts/3,
-         handle_info/3]).
+         handle_info/3,
+         gen_info/3]).
 
 %% Alert and close handling
 -export([send_alert/2,
@@ -162,6 +163,12 @@ initialize_tls_sender(#state{static_env = #static_env{
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
     HibernateAfter = maps:get(hibernate_after, SSLOpts, infinity),
+    KeyLogFun = case maps:get(keep_secrets, SSLOpts, false) of
+                    {keylog, Fun} ->
+                        Fun;
+                    _ ->
+                        undefined
+                end,
     Init = #{current_write => ConnectionWriteState,
              role => Role,
              socket => Socket,
@@ -173,7 +180,8 @@ initialize_tls_sender(#state{static_env = #static_env{
              renegotiate_at => RenegotiateAt,
              key_update_at => KeyUpdateAt,
              log_level => LogLevel,
-             hibernate_after => HibernateAfter},
+             hibernate_after => HibernateAfter,
+             keylog_fun => KeyLogFun},
     tls_sender:initialize(Sender, Init).
 
 %%====================================================================
@@ -280,6 +288,28 @@ setopts(Transport, Socket, Other) ->
 
 getopts(Transport, Socket, Tag) ->
     tls_socket:getopts(Transport, Socket, Tag).
+
+
+gen_info(Event, connection = StateName, State) ->
+    try
+        handle_info(Event, StateName, State)
+    catch
+        _:Reason:ST ->
+            ?SSL_LOG(info, internal_error, [{error, Reason}, {stacktrace, ST}]),
+	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
+						       malformed_data),
+					    StateName, State)
+    end;
+gen_info(Event, StateName, State) ->
+    try
+        handle_info(Event, StateName, State)
+    catch
+        _:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
+	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+						       malformed_handshake_data),
+					    StateName, State)
+    end.
 
 %% raw data from socket, upack records
 handle_info({Protocol, _, Data}, StateName,
