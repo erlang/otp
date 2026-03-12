@@ -641,6 +641,7 @@ ac_includes_default="\
 ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+ODBC_CAN_BUILD_DRIVER
 ODBC_INCLUDE
 ODBC_LIB
 TARGET_FLAGS
@@ -6003,7 +6004,15 @@ fi
 
 
 # ODBC
-$RM -f "$ERL_TOP/lib/odbc/SKIP"
+if test -f ./CONF_INFO; then
+   rm ./CONF_INFO
+fi
+
+ODBC_CAN_BUILD_DRIVER=true
+
+
+
+#$RM -f "$ERL_TOP/lib/odbc/SKIP"
 
 
 
@@ -6861,9 +6870,15 @@ fi
   yes-yes | yes-) :
 
 			msg="Dont know where to search for odbc (setting erl_xcomp_sysroot will help)"
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: $msg" >&5
+				echo "$msg" >> ./CONF_INFO
+    ODBC_CAN_BUILD_DRIVER=false
+    if test X"$with_odbc" = X"yes" ; then
+        as_fn_error $? "$msg" "$LINENO" 5
+    else
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: $msg" >&5
 printf "%s\n" "$as_me: WARNING: $msg" >&2;}
-			echo "$msg" > "$ERL_TOP/lib/odbc/SKIP"
+    fi
+
 			odbc_lib_link_success=wont_try
                      ;; #(
   no-yes | no-) :
@@ -6925,9 +6940,15 @@ printf %s "checking for odbc in standard locations... " >&6; }
 			if  test "x$is_odbc_std_location" != "xyes"; then
 			    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-			    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: No odbc library found skipping odbc" >&5
+			    	echo "No odbc library found skipping odbc" >> ./CONF_INFO
+    ODBC_CAN_BUILD_DRIVER=false
+    if test X"$with_odbc" = X"yes" ; then
+        as_fn_error $? "No odbc library found skipping odbc" "$LINENO" 5
+    else
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: No odbc library found skipping odbc" >&5
 printf "%s\n" "$as_me: WARNING: No odbc library found skipping odbc" >&2;}
-			    echo "No odbc library found" > "$ERL_TOP/lib/odbc/SKIP"
+    fi
+
 			else
 			    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ODBC_LIB" >&5
 printf "%s\n" "$ODBC_LIB" >&6; }
@@ -7169,15 +7190,28 @@ done
 CFLAGS="$save_CFLAGS"
 
 if test $odbc_required_headers = no;  then
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: \"ODBC library - header check failed\"" >&5
+    	echo ""ODBC library - header check failed"" >> ./CONF_INFO
+    ODBC_CAN_BUILD_DRIVER=false
+    if test X"$with_odbc" = X"yes" ; then
+        as_fn_error $? "\"ODBC library - header check failed\"" "$LINENO" 5
+    else
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: \"ODBC library - header check failed\"" >&5
 printf "%s\n" "$as_me: WARNING: \"ODBC library - header check failed\"" >&2;}
-    echo "ODBC library - header check failed" > $ERL_TOP/lib/odbc/SKIP
+    fi
+
 fi
 if test $odbc_lib_link_success = no;  then
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: \"ODBC library - link check failed\"" >&5
+    	echo ""ODBC library - link check failed"" >> ./CONF_INFO
+    ODBC_CAN_BUILD_DRIVER=false
+    if test X"$with_odbc" = X"yes" ; then
+        as_fn_error $? "\"ODBC library - link check failed\"" "$LINENO" 5
+    else
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: \"ODBC library - link check failed\"" >&5
 printf "%s\n" "$as_me: WARNING: \"ODBC library - link check failed\"" >&2;}
-    echo "ODBC library - link check failed" > $ERL_TOP/lib/odbc/SKIP
+    fi
+
 fi
+
 
 
 
