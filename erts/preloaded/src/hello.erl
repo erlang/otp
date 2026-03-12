@@ -169,7 +169,7 @@ test(BootArgs) ->
     test_bs_match(),
     test_bs_construct(),
     test_yield(),
-%    test_maps(),
+    test_maps(),
 %    test_is_port(),
 %
 %    %% From this point on, the `erlang` and `erts_internal` modules
@@ -1556,36 +1556,36 @@ do_yield() ->
     self() ! back_from_yield,
     ok.
 
-%test_maps() ->
-%    Gurka = id(gurka),
-%    Gaffel = id(gaffel),
-%
-%    #{ gurka := gaffel,
-%       gaffel := gurka } = id(#{ gurka => Gaffel,
-%                                 gaffel => Gurka }),
-%
-%    #{ gurka := Gaffel,
-%       gaffel := Gurka } = id(#{ gurka => Gaffel,
-%                                  gaffel => Gurka }),
-%
-%    One = id(1),
-%    HashMap = make_map(64, #{}),
-%    #{ 1 := gurka } = id(HashMap#{ 1 => gurka }),
-%    #{ 1 := gaffel } = id(HashMap#{ 1 := gaffel }),
-%    #{ One := gurka } = id(HashMap#{ 1 => gurka }),
-%    #{ One := gaffel } = id(HashMap#{ 1 := gaffel }),
-%
-%    FlatMap = make_map(1, #{}),
-%    #{ 1 := gurka } = id(FlatMap#{ 1 => gurka }),
-%    #{ 1 := gaffel } = id(FlatMap#{ 1 := gaffel }),
-%    #{ One := gurka } = id(FlatMap#{ 1 => gurka }),
-%    #{ One := gaffel } = id(FlatMap#{ 1 := gaffel }),
-%
-%    ok.
-%
-%make_map(0, Acc) -> Acc;
-%make_map(N, Acc) -> make_map(N - 1, Acc#{ N => N }).
-%
+test_maps() ->
+    Gurka = id(gurka),
+    Gaffel = id(gaffel),
+
+    #{ gurka := gaffel,
+       gaffel := gurka } = id(#{ gurka => Gaffel,
+                                 gaffel => Gurka }),
+
+    #{ gurka := Gaffel,
+       gaffel := Gurka } = id(#{ gurka => Gaffel,
+                                  gaffel => Gurka }),
+
+    One = id(1),
+    HashMap = make_map(64, #{}),
+    #{ 1 := gurka } = id(HashMap#{ 1 => gurka }),
+    #{ 1 := gaffel } = id(HashMap#{ 1 := gaffel }),
+    #{ One := gurka } = id(HashMap#{ 1 => gurka }),
+    #{ One := gaffel } = id(HashMap#{ 1 := gaffel }),
+
+    FlatMap = make_map(1, #{}),
+    #{ 1 := gurka } = id(FlatMap#{ 1 => gurka }),
+    #{ 1 := gaffel } = id(FlatMap#{ 1 := gaffel }),
+    #{ One := gurka } = id(FlatMap#{ 1 => gurka }),
+    #{ One := gaffel } = id(FlatMap#{ 1 := gaffel }),
+
+    ok.
+
+make_map(0, Acc) -> Acc;
+make_map(N, Acc) -> make_map(N - 1, Acc#{ N => N }).
+
 %-ifdef(RUN_AS_TESTCASE).
 %%% Spawning /bin/cat does not work on all platforms.
 %test_is_port() ->
