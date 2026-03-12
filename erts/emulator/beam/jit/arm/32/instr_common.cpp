@@ -2182,8 +2182,9 @@ void BeamModuleAssembler::emit_i_test_yield() {
 }
 
 void BeamModuleAssembler::emit_i_yield() {
-    // TODO
-    emit_nyi("emit_i_yield");
+    mov_imm(ARG1, am_true);
+    mov_arg(ArgXRegister(0), ARG1);
+    fragment_call(ga->get_dispatch_return());
 }
 
 void BeamModuleAssembler::emit_i_perf_counter() {
