@@ -178,8 +178,8 @@ test(BootArgs) ->
     test_get(),
     test_process_info(),
     test_hibernate(),
-%    test_load_nif(),
-%
+    test_load_nif(),
+
     ok.
 
 %% Test external calls, as well as '!', receive, self/0, and node/0.
@@ -1754,6 +1754,7 @@ test_load_nif() ->
         undefined ->
             prim_file:on_load(),
             prim_buffer:on_load(),
+            erlang:display_string("call_nifs\n"),
             call_nifs(),
 
             %% Wait for call_nif instruction to be patched in
