@@ -102,10 +102,15 @@ Options:
     data provided by the SFTP client. (Note: limitations might be also
     enforced by underlying operating system)
 
-- **`root`** - Sets the SFTP root directory. Then the user cannot see any files
-  above this root. If, for example, the root directory is set to `/tmp`, then
-  the user sees this directory as `/`. If the user then writes `cd /etc`, the
-  user moves to `/tmp/etc`.
+- **`root`** - Sets the SFTP root directory. The user cannot access files
+  outside this directory tree. If, for example, the root directory is set to
+  `/tmp`, then the user sees this directory as `/`. If the user then writes
+  `cd /etc`, the user moves to `/tmp/etc`.
+
+  Note: This provides application-level isolation. For additional security,
+  consider using OS-level chroot or similar mechanisms. See the
+  [SFTP Security](hardening.md#sftp-security) section in the Hardening guide
+  for deployment recommendations.
 
 - **`sftpd_vsn`** - Sets the SFTP version to use. Defaults to 5. Version 6 is
   under development and limited.
@@ -928,7 +933,17 @@ relate_file_name(File, #state{cwd = CWD, root = Root}, Canonicalize) ->
     end.
 
 is_within_root(Root, File) ->
-    lists:prefix(Root, File).
+    RootParts = filename:split(Root),
+    FileParts = filename:split(File),
+    is_prefix_components(RootParts, FileParts).
+
+%% Verify if request file path is within configured root directory
+is_prefix_components([], _) ->
+    true;
+is_prefix_components([H|T1], [H|T2]) ->
+    is_prefix_components(T1, T2);
+is_prefix_components(_, _) ->
+    false.
 
 %% Remove leading slash (/), if any, in order to make the filename
 %% relative (to the root)

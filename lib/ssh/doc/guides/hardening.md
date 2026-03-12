@@ -248,3 +248,28 @@ is in milliseconds, and the initial value is infinity.
 The negotiation (session setup time) time can be limited with the _parameter_
 `NegotiationTimeout` in a call establishing an ssh session, for example
 `ssh:connect/3`.
+
+## SFTP Security
+
+### Root Directory Isolation
+
+The `root` option (see `m:ssh_sftpd`) restricts SFTP users to a
+specific directory tree, preventing access to files outside that directory.
+
+**Example:**
+
+```erlang
+ssh:daemon(Port, [
+    {subsystems, [ssh_sftpd:subsystem_spec([{root, "/home/sftpuser"}])]},
+    ...
+]).
+```
+
+**Important:** The `root` option is configured per daemon, not per user. All
+users connecting to the same daemon share the same root directory. For per-user
+isolation, consider running separate daemon instances on different ports or
+using OS-level mechanisms (PAM chroot, containers, file permissions).
+
+**Defense-in-depth:** For high-security deployments, combine the `root` option
+with OS-level isolation mechanisms such as chroot jails, containers, or
+mandatory access control (SELinux, AppArmor).
