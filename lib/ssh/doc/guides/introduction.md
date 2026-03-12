@@ -117,12 +117,13 @@ Channels come in the following three flavors:
   as SFTP [(ssh_sftpd)](`m:ssh_sftpd`), that is built into the SSH daemon
   (server) by default, but it can be disabled. The Erlang `ssh` daemon can be
   configured to run any Erlang- implemented SSH subsystem.
-- _Shell_ \- Interactive shell. By default the Erlang daemon runs the Erlang
-  shell. The shell can be customized by providing your own read-eval-print loop.
+- _Shell_ \- Interactive shell. By default the Erlang daemon does not expose the Erlang
+  shell. It can be enabled with option `{shell, {shell, start, []}}`
+  The shell can be customized by providing your own read-eval-print loop.
   You can also provide your own Command-Line Interface (CLI) implementation, but
   that is much more work.
-- _Exec_ \- One-time remote execution of commands. See function
-  `ssh_connection:exec/4` for more information.
+- _Exec_ \- By default one-time remote execution of commands is disabled.
+  See function `ssh_connection:exec/4` for more information.
 
 ## Where to Find More Information
 
