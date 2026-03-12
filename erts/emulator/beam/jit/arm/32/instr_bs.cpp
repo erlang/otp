@@ -853,8 +853,15 @@ void BeamModuleAssembler::emit_i_bs_private_append(const ArgLabel &Fail,
 }
 
 void BeamModuleAssembler::emit_bs_init_writable() {
-    // TODO
-    emit_nyi("emit_bs_init_writable");
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+
+    /* Implicit liveness is 0, so no X-reg stashing needed. */
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+    runtime_call<2>(erts_bs_init_writable);
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
+
+    mov_arg(ArgXRegister(0), ARG1);
 }
 
 void BeamGlobalAssembler::emit_bs_create_bin_error_shared() {
