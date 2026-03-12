@@ -830,6 +830,36 @@ void BeamModuleAssembler::emit_i_call_on_load_function() {
 }
 
 void BeamModuleAssembler::emit_i_load_nif() {
-    // TODO
-    emit_nyi("emit_i_load_nif");
+    static ErtsCodeMFA mfa = {am_erlang, am_load_nif, 2};
+
+    Label entry = a.newLabel(), next = a.newLabel(), schedule = a.newLabel();
+
+    a.bind(entry);
+
+    emit_enter_runtime<Update::eHeapAlloc>();
+
+    a.mov(ARG1, c_p);
+    a.adr(ARG2, current_label);
+    load_x_reg_array(ARG3);
+    runtime_call<3>(beam_jit_load_nif);
+
+    emit_leave_runtime<Update::eHeapAlloc>();
+
+    mov_imm(TMP, (UWord)RET_NIF_yield);
+    a.cmp(ARG1, TMP);
+    a.b_eq(schedule);
+
+    mov_imm(TMP, (UWord)RET_NIF_success);
+    a.cmp(ARG1, TMP);
+    a.b_eq(next);
+
+    emit_raise_exception(current_label, &mfa);
+
+    a.bind(schedule);
+    {
+        a.adr(ARG3, entry);
+        a.b(resolve_fragment(ga->get_context_switch_simplified(), disp32MB));
+    }
+
+    a.bind(next);
 }
