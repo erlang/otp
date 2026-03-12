@@ -167,7 +167,7 @@ test(BootArgs) ->
     test_receive_optimizations(),
     test_is_function(),
     test_bs_match(),
-%    test_bs_construct(),
+    test_bs_construct(),
 %    test_yield(),
 %    test_maps(),
 %    test_is_port(),
@@ -1448,98 +1448,102 @@ cbm_tail(<<16:16, Rest/binary-unit:16>>) ->
 cbm_tail(<<1:1, Rest/bits>>) ->
     Rest.
 
-%test_bs_construct() ->
-%    basic_bs_construct(),
-%    complex_bs_construct(),
-%    bs_comprehension(),
-%
-%    ok.
-%
-%basic_bs_construct() ->
-%    A = id(1),
-%    B = id(2),
-%    C = id(3),
-%    D = id(1.67),
-%
-%    Binary = id(<<"just a binary">>),
-%    BinarySize = 13 = byte_size(Binary),
-%
-%    <<1, 1:16,
-%      2, 2:32,
-%      3, 3:64,
-%      1.67/float,
-%      1.67/float,
-%      "this is a long string",
-%      "just a binary",
-%      "just a binary",
-%      "just a binary">> = id(<<A, A:16,
-%                                       B, B:32,
-%                                       C, C:64,
-%                                       D/float,
-%                                       D:(id(64))/float,
-%                                       "this is a long string",
-%                                       Binary/binary,
-%                                       Binary:BinarySize/binary,
-%                                       Binary:(id(BinarySize))/binary>>),
-%
-%    ok.
-%
-%complex_bs_construct() ->
-%    A = id($z),
-%    B = id($ö),
-%    C = id(?UNICODE_MAX),
-%
-%    UtfBin = <<"utf8", A/utf8, B/utf8, C/utf8,
-%               "utf16", A/utf16, B/utf16, C/utf16,
-%               "utf32", A/utf32, B/utf32, C/utf32>>,
-%
-%    <<"utf8", A/utf8, B/utf8, C/utf8,
-%      "utf16", A/utf16, B/utf16, C/utf16,
-%      "utf32", A/utf32, B/utf32, C/utf32>> = id(UtfBin),
-%
-%    1 = cbc_guard(id(1), <<1:1, 1, 1>>),
-%    2 = cbc_guard(id(2), <<2:2, 2, 2>>),
-%
-%    {<<1:1>>} = cbc_heap_variable(id(1)),
-%    {<<2:2>>} = cbc_heap_variable(id(2)),
-%
-%    {<<1:7>>} = cbc_heap_fixed(id(1)),
-%    {<<2:7>>} = cbc_heap_fixed(id(2)),
-%
-%    42 = cbc_append(id(<<"gurka",42>>), id(<<"gurka">>)),
-%    nope = cbc_append(id(<<"gurka",42>>), id(<<"gaffel">>)),
-%    nope = cbc_append(id(<<"gurka",42>>), id(not_a_binary)),
-%    nope = cbc_append(id(<<"gurka",1>>), id(<<"gurka">>)),
-%
-%    ok.
-%
-%cbc_guard(A, B) when B =:= <<A:A, A, A>> ->
-%    A.
-%
-%%% bs_init_heap, variable
-%cbc_heap_variable(A) ->
-%    {<<A:A>>}.
-%
-%%% bs_init_heap_bits
-%cbc_heap_fixed(A) ->
-%    {<<A:7>>}.
-%
-%%% test bs_append
-%cbc_append(Bin, A) when <<A/binary,42>> =:= Bin -> 42;
-%cbc_append(_, _) -> nope.
-%
-%bs_comprehension() ->
-%    <<1, 2, 3, 4, 5, 6>> = id(<< <<N>> || N <- [1, 2, 3, 4, 5, 6] >>),
-%
-%    <<1.0/float,
-%      2.0/float,
-%      3.0/float,
-%      4.0/float,
-%      5.0/float,
-%      6.0/float>> = id(<< <<N/float>> || N <- [1, 2, 3, 4, 5, 6] >>),
-%
-%    ok.
-%
+test_bs_construct() ->
+    erlang:display_string("starting basic_bs_construct\n"),
+    basic_bs_construct(),
+    erlang:display_string("starting complex_bs_construct\n"),
+    complex_bs_construct(),
+    erlang:display_string("starting bs_comprehension\n"),
+    bs_comprehension(),
+    erlang:display_string("test_bs_construct done\n"),
+
+    ok.
+
+basic_bs_construct() ->
+    A = id(1),
+    B = id(2),
+    C = id(3),
+    D = id(1.67),
+
+    Binary = id(<<"just a binary">>),
+    BinarySize = 13 = byte_size(Binary),
+
+    <<1, 1:16,
+      2, 2:32,
+      3, 3:64,
+      1.67/float,
+      1.67/float,
+      "this is a long string",
+      "just a binary",
+      "just a binary",
+      "just a binary">> = id(<<A, A:16,
+                                       B, B:32,
+                                       C, C:64,
+                                       D/float,
+                                       D:(id(64))/float,
+                                       "this is a long string",
+                                       Binary/binary,
+                                       Binary:BinarySize/binary,
+                                       Binary:(id(BinarySize))/binary>>),
+
+    ok.
+
+complex_bs_construct() ->
+    A = id($z),
+    B = id($ö),
+    C = id(?UNICODE_MAX),
+
+    UtfBin = <<"utf8", A/utf8, B/utf8, C/utf8,
+               "utf16", A/utf16, B/utf16, C/utf16,
+               "utf32", A/utf32, B/utf32, C/utf32>>,
+
+    <<"utf8", A/utf8, B/utf8, C/utf8,
+      "utf16", A/utf16, B/utf16, C/utf16,
+      "utf32", A/utf32, B/utf32, C/utf32>> = id(UtfBin),
+
+    1 = cbc_guard(id(1), <<1:1, 1, 1>>),
+    2 = cbc_guard(id(2), <<2:2, 2, 2>>),
+
+    {<<1:1>>} = cbc_heap_variable(id(1)),
+    {<<2:2>>} = cbc_heap_variable(id(2)),
+
+    {<<1:7>>} = cbc_heap_fixed(id(1)),
+    {<<2:7>>} = cbc_heap_fixed(id(2)),
+
+    42 = cbc_append(id(<<"gurka",42>>), id(<<"gurka">>)),
+    nope = cbc_append(id(<<"gurka",42>>), id(<<"gaffel">>)),
+    nope = cbc_append(id(<<"gurka",42>>), id(not_a_binary)),
+    nope = cbc_append(id(<<"gurka",1>>), id(<<"gurka">>)),
+
+    ok.
+
+cbc_guard(A, B) when B =:= <<A:A, A, A>> ->
+    A.
+
+%% bs_init_heap, variable
+cbc_heap_variable(A) ->
+    {<<A:A>>}.
+
+%% bs_init_heap_bits
+cbc_heap_fixed(A) ->
+    {<<A:7>>}.
+
+%% test bs_append
+cbc_append(Bin, A) when <<A/binary,42>> =:= Bin -> 42;
+cbc_append(_, _) -> nope.
+
+bs_comprehension() ->
+    <<1, 2, 3, 4, 5, 6>> = id(<< <<N>> || N <- [1, 2, 3, 4, 5, 6] >>),
+
+    <<1.0/float,
+      2.0/float,
+      3.0/float,
+      4.0/float,
+      5.0/float,
+      6.0/float>> = id(<< <<N/float>> || N <- [1, 2, 3, 4, 5, 6] >>),
+
+    ok.
+
 %test_yield() ->
 %    do_yield(),
 %    receive
