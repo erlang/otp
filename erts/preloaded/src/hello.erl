@@ -168,7 +168,7 @@ test(BootArgs) ->
     test_is_function(),
     test_bs_match(),
     test_bs_construct(),
-%    test_yield(),
+    test_yield(),
 %    test_maps(),
 %    test_is_port(),
 %
@@ -1367,7 +1367,6 @@ test_is_function() ->
 
 test_bs_match() ->
     basic_bs_match(),
-    erlang:display_string("basic_bs_match done\n"),
     complex_bs_match(),
 
     ok.
@@ -1402,10 +1401,9 @@ complex_bs_match() ->
                         "utf8",$z/utf8,$ö/utf8,?UNICODE_MAX/utf8,
                         "utf16",$z/utf16,$ö/utf16,?UNICODE_MAX/utf16,
                         "utf32",$z/utf32,$ö/utf32,?UNICODE_MAX/utf32>>)),
-    erlang:display_string("complex_bs_match done\n"),
+
     <<"16">> = cbm_tail(id(<<16:16,"16">>)),
     <<"1">> = cbm_tail(<<1:1,"1">>),
-    erlang:display_string("cbm_tail done\n"),
     ok.
 
 
@@ -1544,20 +1542,20 @@ bs_comprehension() ->
 
     ok.
 
-%test_yield() ->
-%    do_yield(),
-%    receive
-%        back_from_yield ->
-%            ok
-%    after 2000 ->
-%            exit(yield_did_not_return_to_caller)
-%    end.
-%
-%do_yield() ->
-%    true = erlang:yield(),
-%    self() ! back_from_yield,
-%    ok.
-%
+test_yield() ->
+    do_yield(),
+    receive
+        back_from_yield ->
+            ok
+    after 2000 ->
+            exit(yield_did_not_return_to_caller)
+    end.
+
+do_yield() ->
+    true = erlang:yield(),
+    self() ! back_from_yield,
+    ok.
+
 %test_maps() ->
 %    Gurka = id(gurka),
 %    Gaffel = id(gaffel),
