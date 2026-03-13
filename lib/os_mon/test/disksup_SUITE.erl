@@ -31,7 +31,7 @@
 -export([api/1, config/1, alarm/1]).
 -export([port/1]).
 -export([terminate/1, unavailable/1, restart/1]).
--export([otp_5910/1]).
+-export([otp_5910/1, unicode_directories/1]).
 -export([posix_only/1, parse_df_output_posix/1, parse_df_output_susv3/1]).
 
 init_per_suite(Config) when is_list(Config) ->
@@ -60,7 +60,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    Bugs = [otp_5910],
+    Bugs = [otp_5910, unicode_directories],
     Always = [api, config, alarm, port, posix_only, unavailable,
               parse_df_output_posix, parse_df_output_susv3] ++ Bugs,
     case os:type() of
@@ -508,3 +508,10 @@ parse_df_output_susv3(Config) when is_list(Config) ->
     Darwin2 = "/dev/disk1   243949060 157002380  86690680    65% 2029724 " ++
               "4292937555    0%   /spaces 1 2\n",
     {ok, {243949060, 86690680, 65, "/spaces 1 2"}, ""} = disksup:parse_df(Darwin2, susv3).
+
+unicode_directories(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UnicodeDir = filename:join(PrivDir, "yo🏴‍☠️ho"),
+    ok = file:make_dir(UnicodeDir),
+    _ = disksup:get_disk_info(UnicodeDir),
+    ok.
