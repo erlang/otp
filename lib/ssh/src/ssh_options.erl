@@ -623,6 +623,12 @@ default(server) ->
             class => user_option
            },
 
+      max_auth_request_size =>
+          #{default => ?SSH_MAX_PACKET_SIZE,
+            chk => fun(V) -> check_pos_integer(V) end,
+            class => user_option
+           },
+
 %%%%% Undocumented
       infofun =>
           #{default => fun(_,_,_) -> void end,
