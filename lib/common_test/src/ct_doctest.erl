@@ -278,13 +278,14 @@ if it were in a file. For example:
 -module(my_module).
 -export([foo/0]).
 foo() ->
-    ok.
+    {?MODULE, ?FUNCTION_NAME, ?LINE}.
 ```
 
 The module is then available for use in following prompts. For example:
 
 ```
 1> my_module:foo().
+{my_module, foo, 4}
 ```
 
 ### Edge cases
@@ -752,52 +753,23 @@ run_test(Code, InitialBindings, Options) ->
                                             end
                                     end, InitialBindings, Tests),
                     [ok];
-                {match, [_Line_Number, _Prefix = <<"-module(">>, _Code]} ->
-                    [compile_string(Code)];
+                {match, [_Line_Number, _Prefix = <<"-module(">>, ModContent]} ->
+                    [ModName | _] = binary:split(ModContent, [<<")">>]),
+                    [compile_string(Code, ModName)];
                 _ ->
                     []
             end
     end.
 
-compile_string(Code) ->
-
-    Toks =
-        case erl_scan:string(unicode:characters_to_list(Code),
-                             0,
-                             [text]) of
-            {ok, T, _} ->
-                T;
-            {error, {Line,Mod,Reason}, _} ->
-                Message = io_lib:format("unknown:~p: ~ts",[Line, Mod:format_error(Reason)]),
-                throw({error,#{ message => Message, context => Code}})
-        end,
-
-    Forms = parse_tokens(Code, Toks),
-
-    {attribute,_,module,ModuleName} = lists:keyfind(module, 3, Forms),
-
-    case compile:forms(Forms, [binary, return_errors, {source, atom_to_list(ModuleName) ++ ".erl"}]) of
+compile_string(Code, ModName) ->
+    FileName = unicode:characters_to_list(ModName) ++ ".erl",
+    case compile:string(Code, [binary, return_errors, {source, FileName}]) of
         {ok, Module, Binary} ->
-            {module, Module} = code:load_binary(Module, "nofile", Binary),
+            {module, Module} = code:load_binary(Module, FileName, Binary),
             ok;
         {error, Errors, Warnings} ->
             Messages = [begin [{_, M}] = sys_messages:format_messages(File, "", Msgs, []), M end || {File, Msgs} <- Errors ++ Warnings],
             throw({error,#{ message => Messages, context => Code}})
-    end.
-
-parse_tokens(_Code, []) -> [];
-parse_tokens(Code, Toks) ->
-    case lists:splitwith(fun(T) ->
-            element(1, T) =/= dot
-        end, Toks) of
-        {Ts, [{dot, _} = Dot | Rest]} ->
-            case erl_parse:parse_form(Ts ++ [Dot]) of
-                {ok, Forms} ->
-                    [Forms | parse_tokens(Code, Rest)];
-                {error, {Line, Mod, Reason}} ->
-                    Message = io_lib:format("unknown:~p: ~ts",[Line, Mod:format_error(Reason)]),
-                    throw({error,#{ message => Message, context => Code}})
-            end
     end.
 
 check_prompt_numbers(Tests) ->
