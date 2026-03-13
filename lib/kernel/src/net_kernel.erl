@@ -71,6 +71,7 @@ in the Erlang Reference Manual.
 """.
 
 -compile(nowarn_deprecated_catch).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -behaviour(gen_server).
 

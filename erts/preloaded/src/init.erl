@@ -254,6 +254,8 @@ error
 `m:erl_prim_loader`, `m:heart`
 """.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([restart/1,restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0,script_name/0]).

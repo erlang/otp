@@ -23,6 +23,7 @@
 -moduledoc({file, "../doc/src/shell.md"}).
 
 -compile(nowarn_deprecated_catch).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -export([start/0, start/1, start/2, server/1, server/2, history/1, results/1]).
 -export([get_state/0, get_function/2]).

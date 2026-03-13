@@ -107,6 +107,8 @@
 %%      * Same problem as insert mode, it only deleted current line, and does not move
 %%        to previous line automatically.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([load/0, init/1, init_ssh/3, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
          handle_signal/2, window_size/1, update_geometry/3, handle_request/2,
          write/2, write/3,

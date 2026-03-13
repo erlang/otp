@@ -107,6 +107,7 @@ In the following descriptions, all functions fail with reason `badarg` if
 """.
 
 -compile(nowarn_deprecated_catch).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 %%%--------------------------------------------------------------------
 %%% This is a rewrite of pre_heart from BS.3.

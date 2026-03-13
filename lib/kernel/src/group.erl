@@ -23,6 +23,7 @@
 -moduledoc false.
 
 -compile(nowarn_deprecated_catch).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -include_lib("kernel/include/logger.hrl").
 

@@ -40,6 +40,8 @@
 # Added in OTP 29.
 #
 lists:zf/2 since=29
+erlang:exit/2 since=29
+erlang:exit/3 since=29
 
 #
 # Added in OTP 28.

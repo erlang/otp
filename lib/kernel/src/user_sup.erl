@@ -29,6 +29,8 @@
 
 -behaviour(supervisor_bridge).
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([start/0]).
 
 %% Internal exports.
