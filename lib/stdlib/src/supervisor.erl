@@ -292,6 +292,8 @@ but the map is preferred.
 `m:gen_event`, `m:gen_statem`, `m:gen_server`, `m:sys`
 """.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(gen_server).
 
 %% External exports
