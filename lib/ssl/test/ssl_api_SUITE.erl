@@ -1025,11 +1025,14 @@ handshake_continue_timeout(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
 
-    ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
-                                     {host, Hostname},
-                                     {from, self()},
-                                     {options, [{verify, verify_peer} | ClientOpts]}]),
-    
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                              {host, Hostname},
+                                              {from, self()},
+                                              {options, [{verify, verify_peer} | ClientOpts]}]),
+    receive {Client, {error,_}} -> ok
+    after 500 -> ct:log("Didn't get any client msg", [])
+    end,
+
     ssl_test_lib:check_result(Server, {error,timeout}),
     ssl_test_lib:close(Server).
 %%------------------------------------------------------------------
@@ -1137,14 +1140,17 @@ hello_server_cancel(Config) when is_list(Config) ->
     
     Port = ssl_test_lib:inet_port(Server),
 
-    ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
-                                     {host, Hostname},
-                                     {from, self()}, 
-                                     {options, ssl_test_lib:ssl_options([{handshake, hello},
-                                                                         {verify, verify_peer} | ClientOpts
-                                                                        ], Config)},
-                                     {continue_options, proplists:delete(reuseaddr, ClientOpts)}]),
-    
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                              {host, Hostname},
+                                              {from, self()}, 
+                                              {options, ssl_test_lib:ssl_options([{handshake, hello},
+                                                                                  {verify, verify_peer} | ClientOpts
+                                                                                 ], Config)},
+                                              {continue_options, proplists:delete(reuseaddr, ClientOpts)}]),
+    receive {Client, {error,_}} -> ok
+    after 500 -> ct:log("Didn't get any client msg", [])
+    end,
+
     ssl_test_lib:check_result(Server, ok).
 
 %%--------------------------------------------------------------------

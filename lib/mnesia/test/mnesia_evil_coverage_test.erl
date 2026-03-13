@@ -1474,12 +1474,11 @@ wait_for_tables(Config) when is_list(Config) ->
 
     ?match(stopped, erpc:call(Node2, mnesia, stop, [])),
     fun Wait () ->  %% Sync node_down
+            timer:sleep(200),
+            _ = mnesia_controller:get_info(1000),
             case mnesia:table_info(schema, active_replicas) of
                 [Node1] -> ok;
-                _ ->
-                    timer:sleep(100),
-                    _ = mnesia_controller:get_info(1000),
-                    Wait()
+                _ -> Wait()
             end
     end (),
     {ok, foo, _} = mnesia:activate_checkpoint([{name, foo}, {max, Tabs}, {ram_overrides_dump, true}]),

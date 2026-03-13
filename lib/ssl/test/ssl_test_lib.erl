@@ -735,7 +735,7 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
 	{listen, MFA} ->
 	    run_server(ListenSocket, [MFA | proplists:delete(mfa, Opts)]);
 	close ->
-	    ?CT_LOG("~nServer closing~n", []),
+	    ?CT_LOG("~nServer closing (~w, ~w, ~w) ~n", [Transport, AcceptSocket, ListenSocket]),
 	    Result = Transport:close(AcceptSocket),
 	    Result1 = Transport:close(ListenSocket),
 	    ?CT_LOG("~nResult ~p : ~p ~n", [Result, Result1])
@@ -3558,6 +3558,7 @@ openssl_allows_server_renegotiate(Config) ->
 
 
 enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
+enough_openssl_crl_support("OpenSSL 1.0." ++ _) -> false;
 enough_openssl_crl_support(_) -> true.
 
 wait_for_openssl_server(Port, tls) ->
