@@ -422,17 +422,24 @@ common reasons.
 -type coverage_mode() :: 'none' | 'function' | 'function_counters' |
                          'line' | 'line_counters'.
 
--export_type([debug_line/0, debug_frame/0, debug_name/0, debug_source/0,
-              debug_value/0, debug_info/0]).
+-export_type([debug_line/0, debug_frame/0, debug_var/0, debug_name/0, debug_source/0,
+              debug_value/0, debug_atom_or_var/0, debug_call/0, debug_info/0]).
 
 -nominal debug_line() :: pos_integer().
 -nominal debug_frame() :: non_neg_integer() | 'entry' | 'none'.
--nominal debug_name() :: binary() | 1..255.
+-nominal debug_var() :: binary().
+-nominal debug_name() :: debug_var() | 1..255.
 -nominal debug_source() :: {'x',non_neg_integer()}
                          | {'y',non_neg_integer()}
                          | {value, _}.
 -nominal debug_value() :: {debug_name(), debug_source()}.
--nominal debug_info() :: [{debug_line(), {debug_frame(), [debug_value()]}}].
+-nominal debug_atom_or_var() :: atom() | debug_var().
+-nominal debug_call() :: MFA :: {debug_atom_or_var(), debug_atom_or_var(), arity()}
+                       | FA :: {debug_atom_or_var(), arity()}
+                       | debug_var().
+-nominal debug_info() :: [{debug_line(), #{frame_size => debug_frame(),
+                                           vars => [debug_value()],
+                                           calls => [debug_call()]}}].
 
 -export([coverage_support/0,
          get_coverage/2,
