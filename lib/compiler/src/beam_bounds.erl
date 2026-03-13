@@ -48,13 +48,9 @@
 -spec bounds(op(), range()) -> range_result().
 
 bounds('bnot', R0) ->
-    case R0 of
-        {A,B} ->
-            R = {inf_add(inf_neg(B), -1), inf_add(inf_neg(A), -1)},
-            normalize(R);
-        _ ->
-            any
-    end;
+    [A,B] = canonical_arg(R0),
+    R = {inf_add(inf_neg(B), -1), inf_add(inf_neg(A), -1)},
+    normalize(R);
 bounds(abs, R) ->
     case R of
         {A,B} when is_integer(A), is_integer(B) ->
@@ -146,68 +142,29 @@ bounds('div', R1, R2) ->
 bounds('rem', R1, R2) ->
     rem_bounds(R1, R2);
 bounds('band', R1, R2) ->
-    case {R1,R2} of
-        {{A,B}, {C,D}} when A bsr ?NUM_BITS =:= 0, A >= 0,
-                            C bsr ?NUM_BITS =:= 0, C >= 0,
-                            is_integer(B), is_integer(D) ->
-            Min = min_band(A, B, C, D),
-            Max = max_band(A, B, C, D),
-            {Min,Max};
-        {_, {C,D}} when is_integer(C), C >= 0 ->
-            {0,D};
-        {{A,B}, _} when is_integer(A), A >= 0 ->
-            {0,B};
-        {_, _} ->
-            any
-    end;
+    [A,B,C,D] = canonical_args(R1, R2),
+    normalize(min_max_band(A, B, C, D));
 bounds('bor', R1, R2) ->
-    case {R1,R2} of
-        {{A,B}, {C,D}} when A =:= '-inf' orelse abs(A) bsr ?NUM_BITS =:= 0,
-                            C =:= '-inf' orelse abs(C) bsr ?NUM_BITS =:= 0,
-                            B =:= '+inf' orelse abs(B) bsr ?NUM_BITS =:= 0,
-                            D =:= '+inf' orelse abs(D) bsr ?NUM_BITS =:= 0 ->
-            Min = min_bor(A, B, C, D),
-            Max = max_bor(A, B, C, D),
-            normalize({Min,Max});
-        {_, _} ->
-            any
-    end;
+    [A,B,C,D] = canonical_args(R1, R2),
+    normalize(min_max_bor(A, B, C, D));
 bounds('bxor', R1, R2) ->
-    case {R1,R2} of
-        {{A,B}, {C,D}} when A bsr ?NUM_BITS =:= 0, A >= 0,
-                            C bsr ?NUM_BITS =:= 0, C >= 0,
-                            is_integer(B), is_integer(D) ->
-            Max = max_bxor(A, B, C, D),
-            {0,Max};
-        {_, _} ->
-            any
-    end;
+    [A,B,C,D] = canonical_args(R1, R2),
+    normalize(min_max_bxor(A, B, C, D));
 bounds('bsr', R1, R2) ->
-    case {R1,R2} of
-        {{A,B}, {C,D}} when is_integer(C), C >= 0 ->
-            Min = inf_min(inf_bsr(A, C), inf_bsr(A, D)),
-            Max = inf_max(inf_bsr(B, C), inf_bsr(B, D)),
-            normalize({Min,Max});
-        {_, _} ->
-            any
-    end;
+    [A,B,C,D] = canonical_args(R1, R2),
+    Min = inf_min(inf_bsr(A, C), inf_bsr(A, D)),
+    Max = inf_max(inf_bsr(B, C), inf_bsr(B, D)),
+    normalize({Min,Max});
 bounds('bsl', R1, R2) ->
-    case {R1,R2} of
-        {{A,B}, {C,D}} when A =:= '-inf' orelse abs(A) bsr ?NUM_BITS =:= 0,
-                            B =:= '+inf' orelse abs(B) bsr ?NUM_BITS =:= 0 ->
-            Min = inf_min(inf_bsl(A, C), inf_bsl(A, D)),
-            Max = inf_max(inf_bsl(B, C), inf_bsl(B, D)),
-            normalize({Min,Max});
-        {_, _} ->
-            any
-    end;
+    [A,B,C,D] = canonical_args(R1, R2),
+    Min = inf_min(inf_bsl(A, C), inf_bsl(A, D)),
+    Max = inf_max(inf_bsl(B, C), inf_bsl(B, D)),
+    normalize({Min,Max});
 bounds(max, R1, R2) ->
-    {A,B} = expand(R1),
-    {C,D} = expand(R2),
+    [A,B,C,D] = canonical_args(R1, R2),
     normalize({inf_max(A, C),inf_max(B, D)});
 bounds(min, R1, R2) ->
-    {A,B} = expand(R1),
-    {C,D} = expand(R2),
+    [A,B,C,D] = canonical_args(R1, R2),
     normalize({inf_min(A, C),inf_min(B, D)}).
 
 -spec relop(relop(), range(), range()) -> bool_result().
@@ -338,6 +295,99 @@ rem_bounds({A,B}, _) ->
 rem_bounds(_, _) ->
     any.
 
+-if(false).
+min_max_band(A, B, C, D) ->
+    {Min,Max} = min_max_bor(inf_bnot(B), inf_bnot(A),
+                            inf_bnot(D), inf_bnot(C)),
+    {inf_bnot(Max),inf_bnot(Min)}.
+
+-else.
+%% For testing, we calculate the bounds both directly and by using the
+%% `bor` bounds calculation. It is the intention to remove this code
+%% in separate commit after testing (thus keeping it in the git
+%% history but not in the compiler code).
+min_max_band(A, B, C, D) ->
+    Res = old_min_max_band(A, B, C, D),
+    case new_min_max_band(A, B, C, D) of
+        Res ->
+            Res;
+        Other ->
+            error({A,B,C,D,Res,Other})
+    end.
+
+new_min_max_band(A, B, C, D) ->
+    {Min,Max} = min_max_bor(inf_bnot(B), inf_bnot(A),
+                            inf_bnot(D), inf_bnot(C)),
+    {inf_bnot(Max),inf_bnot(Min)}.
+
+old_min_max_band(A, B, C, D) ->
+    case inf_le(A, C) of
+        true ->
+            do_min_max_band(A, B, C, D);
+        false ->
+            do_min_max_band(C, D, A, B)
+    end.
+
+do_min_max_band(A, B, C, D) when is_integer(A),
+                                 is_integer(B),
+                                 is_integer(C),
+                                 is_integer(D) ->
+    case {inf_sign(A),inf_sign(B),inf_sign(C),inf_sign(D)} of
+        {'-','-','-','-'} ->
+            {min_band(A, B, C, D),
+             max_band(A, B, C, D)};
+        {'-','-','-','+'} ->
+            {min_band(A, B, C, D),
+             max_band(A, B, C, D)};
+        {'-','-','+','+'} ->
+            {min_band(A, B, C, D),
+             max_band(A, B, C, D)};
+        {'-','+','-','-'} ->
+            {min_band(A, B, C, D),
+             max_band(0, B, C, D)};
+        {'-','+','-','+'} ->
+            {min_band(A, -1, C, -1),
+             inf_max(B, D)};
+        {'-','+','+','+'} ->
+            {0, D};
+        {'+','+','+','+'} ->
+            {min_band(A, B, C, D),
+             max_band(A, B, C, D)}
+    end;
+do_min_max_band(A, B, C, D) ->
+    case {inf_sign(A),inf_sign(B),inf_sign(C),inf_sign(D)} of
+        {'-','-','-','-'} ->
+            {'-inf',max_band(A, B, C, D)};
+        {'-','-','-','+'} when is_integer(A),
+                               is_integer(C) ->
+            {min_band(A, B, C, D),D};
+        {'-','-','-','+'} ->
+            {'-inf',D};
+        {'-','-','+','+'} when is_integer(D) ->
+            {0,max_band(A, B, C, D)};
+        {'-','-','+','+'} when is_integer(A) ->
+            {min_band(A, B, C, D),D};
+        {'-','-','+','+'} ->
+            {0,D};
+        {'-','+','-','-'} when is_integer(A),
+                               is_integer(C) ->
+            {min_band(A, B, C, D),B};
+        {'-','+','-','-'} when is_integer(B) ->
+            {'-inf',max_band(A, B, C, D)};
+        {'-','+','-','-'} ->
+            {'-inf',B};
+        {'-','+','-','+'} when is_integer(A),
+                               is_integer(C) ->
+            {min_band(A, B, C, D),inf_max(B, D)};
+        {'-','+','-','+'} ->
+            {'-inf',inf_max(B, D)};
+        {'-','+','+','+'} ->
+            {0,D};
+        {'+','+','+','+'} ->
+            {min_band(A, B, C, D),
+             inf_min(B, D)}
+    end.
+
 min_band(A, B, C, D) ->
     M = 1 bsl (upper_bit(A bor C) + 1),
     min_band(A, B, C, D, M).
@@ -347,14 +397,16 @@ min_band(A, _B, C, _D, 0) ->
 min_band(A, B, C, D, M) ->
     if
         (bnot A) band (bnot C) band M =/= 0 ->
-            case (A bor M) band -M of
-                NewA when NewA =< B ->
+            NewA = (A bor M) band -M,
+            case inf_le(NewA, B) of
+                true ->
                     min_band(NewA, B, C, D, 0);
-                _ ->
-                    case (C bor M) band -M of
-                        NewC when NewC =< D ->
+                false ->
+                    NewC = (C bor M) band -M,
+                    case inf_le(NewC, D) of
+                        true ->
                             min_band(A, B, NewC, D, 0);
-                        _ ->
+                        false ->
                             min_band(A, B, C, D, M bsr 1)
                     end
             end;
@@ -371,28 +423,64 @@ max_band(_A, B, _C, D, 0) ->
 max_band(A, B, C, D, M) ->
     if
         B band (bnot D) band M =/= 0 ->
-            case (B band (bnot M)) bor (M - 1) of
-                NewB when NewB >= A ->
+            NewB = (B band (bnot M)) bor (M - 1),
+            case inf_ge(NewB, A) of
+                true ->
                     max_band(A, NewB, C, D, 0);
-                _ ->
+                false ->
                     max_band(A, B, C, D, M bsr 1)
             end;
         (bnot B) band D band M =/= 0 ->
-            case (D band (bnot M)) bor (M - 1) of
-                NewD when NewD >= C ->
+            NewD = (D band (bnot M)) bor (M - 1),
+            case inf_ge(NewD, C) of
+                true ->
                     max_band(A, B, C, NewD, 0);
-                _ ->
+                false ->
                     max_band(A, B, C, D, M bsr 1)
             end;
         true ->
             max_band(A, B, C, D, M bsr 1)
     end.
+-endif.
 
-min_bor(A, B, C, D) ->
-    case inf_lt(inf_min(A, C), 0) of
+min_max_bor(A, B, C, D) ->
+    case inf_le(A, C) of
         true ->
-            '-inf';
+            do_min_max_bor(A, B, C, D);
         false ->
+            do_min_max_bor(C, D, A, B)
+    end.
+
+do_min_max_bor(A, B, C, D) ->
+    case {inf_sign(A),inf_sign(B),inf_sign(C),inf_sign(D)} of
+        {'-','-','-','-'} ->
+            {min_bor(A, B, C, D),
+             max_bor(A, B, C, D)};
+        {'-','-','-','+'} ->
+            {A, -1};
+        {'-','-','+','+'} ->
+            {min_bor(A, B, C, D),
+             max_bor(A, B, C, D)};
+        {'-','+','-','-'} ->
+            {C, -1};
+        {'-','+','-','+'} ->
+            {inf_min(A, C), max_bor(0, B, 0, D)};
+        {'-','+','+','+'} ->
+            {min_bor(A, -1, C, D),
+             max_bor(A, B, C, D)};
+        {'+','+','+','+'} ->
+            {min_bor(A, B, C, D),
+             max_bor(A, B, C, D)}
+    end.
+
+min_bor('-inf', B, C, D) when is_integer(C), C < 0 ->
+    M = 1 bsl upper_bit(C),
+    min_bor(0, B, C, D, M);
+min_bor(A, B, C, D) ->
+    case inf_min(A, C) of
+        '-inf' ->
+            '-inf';
+        _ ->
             M = 1 bsl upper_bit(A bxor C),
             min_bor(A, B, C, D, M)
     end.
@@ -419,20 +507,20 @@ min_bor(A, B, C, D, M) ->
             min_bor(A, B, C, D, M bsr 1)
     end.
 
-max_bor(A0, B, C0, D) ->
-    A = inf_max(A0, 0),
-    C = inf_max(C0, 0),
-    case inf_max(B, D) of
+max_bor(A, B0, C, D0) ->
+    {Intersection,B,D} =
+        case {B0,D0} of
+            {_,'+inf'} when B0 < 0 ->
+                {B0,B0,-1};
+            {_,_} when is_integer(B0), is_integer(D0) ->
+                {B0 band D0,B0,D0};
+            {_,_} ->
+                {'+inf',B0,D0}
+        end,
+    case Intersection of
         '+inf' ->
             '+inf';
-        Max when Max < 0 ->
-            %% Both B and D are negative. The intersection would be
-            %% infinite.
-            -1;
         _ ->
-            %% At least one of B and D are positive. The intersection
-            %% has a finite size.
-            Intersection = B band D,
             M = 1 bsl upper_bit(Intersection),
             max_bor(Intersection, A, B, C, D, M)
     end.
@@ -442,19 +530,105 @@ max_bor(_Intersection, _A, B, _C, D, 0) ->
 max_bor(Intersection, A, B, C, D, M) ->
     if
         Intersection band M =/= 0 ->
-            case (B - M) bor (M - 1) of
-                NewB when NewB >= A ->
+            NewM = M - 1,
+            NewB = (B - M) bor NewM,
+            case inf_ge(NewB, A) of
+                true ->
                     max_bor(Intersection, A, NewB, C, D, 0);
-                _ ->
-                    case (D - M) bor (M - 1) of
-                        NewD when NewD >= C ->
+                false ->
+                    NewD = (D - M) bor NewM,
+                    case inf_ge(NewD, C) of
+                        true ->
                             max_bor(Intersection, A, B, C, NewD, 0);
-                        _ ->
+                        false ->
                             max_bor(Intersection, A, B, C, D, M bsr 1)
                     end
             end;
         true ->
             max_bor(Intersection, A, B, C, D, M bsr 1)
+    end.
+
+min_max_bxor(A, B, C, D) ->
+    case inf_le(A, C) of
+        true ->
+            do_min_max_bxor(A, B, C, D);
+        false ->
+            do_min_max_bxor(C, D, A, B)
+    end.
+
+do_min_max_bxor(A, B, C, D) when is_integer(A),
+                                 is_integer(B),
+                                 is_integer(C),
+                                 is_integer(D) ->
+    case {inf_sign(A),inf_sign(B),inf_sign(C),inf_sign(D)} of
+        {'-','-','-','-'} ->
+            {min_bxor(A, B, C, D),
+             max_bxor(A, B, C, D)};
+        {'-','-','-','+'} ->
+            %% Bounds are not tight.
+            MinMin = min(A, C),
+            Max = max(bnot MinMin, D),
+            {min_bxor(MinMin, -1, 0, D),
+             max_bxor(0, Max, 0, Max)};
+        {'-','-','+','+'} ->
+            {min_bxor(A, B, C, D),
+             max_bxor(A, B, C, D)};
+        {'-','+','-','-'} ->
+            %% Bounds are not tight.
+            MinMin = min(A, C),
+            Max = max(bnot MinMin, B),
+            {min_bxor(MinMin, -1, 0, B),
+             max_bxor(0, Max, 0, Max)};
+        {'-','+','-','+'} ->
+            %% Bounds are not tight.
+            MinMin = min(A, C),
+            MaxMax = max(B, D),
+            Max = max(bnot MinMin, MaxMax),
+            {min_bxor(MinMin, -1, 0, MaxMax),
+             max_bxor(0, Max, 0, Max)};
+        {'-','+','+','+'} ->
+            {min_bxor(A, -1, C, D),
+             max_bxor(A, B, C, D)};
+        {'+','+','+','+'} ->
+            {min_bxor(A, B, C, D),
+             max_bxor(A, B, C, D)}
+    end;
+do_min_max_bxor(A, B, C, D) ->
+    case {inf_sign(A),inf_sign(B),inf_sign(C),inf_sign(D)} of
+        {'+','+','+','+'} ->
+            {min_bxor(A, B, C, D), '+inf'};
+        {'-','-','+','+'} when is_integer(D) ->
+            {'-inf',max_bxor(A, B, C, D)};
+        {'-','-','+','+'} ->
+            {'-inf',-1};
+        _ ->
+            {'-inf','+inf'}
+    end.
+
+min_bxor(A, B, C, D) ->
+    M = 1 bsl upper_bit(A bor C),
+    min_bxor(A, B, C, D, M).
+
+min_bxor(A, _B, C, _D, 0) ->
+    A bxor C;
+min_bxor(A, B, C, D, M) ->
+    if
+        (bnot A) band C band M =/= 0 ->
+            case (A bor M) band -M of
+                NewA when NewA =< B ->
+                    min_bxor(NewA, B, C, D, M bsr 1);
+                _ ->
+                    min_bxor(A, B, C, D, M bsr 1)
+            end;
+        A band (bnot C) band M =/= 0 ->
+            case (C bor M) band -M of
+                NewC when NewC =< D ->
+                    min_bxor(A, B, NewC, D, M bsr 1);
+                _ ->
+                    min_bxor(A, B, C, D, M bsr 1)
+            end;
+        true ->
+            min_bxor(A, B, C, D, M bsr 1)
     end.
 
 max_bxor(A, B, C, D) ->
@@ -466,14 +640,16 @@ max_bxor(_A, B, _C, D, 0) ->
 max_bxor(A, B, C, D, M) ->
     if
         B band D band M =/= 0 ->
-            case (B - M) bor (M - 1) of
-                NewB when NewB >= A ->
+            NewB = (B - M) bor (M - 1),
+            case inf_ge(NewB, A) of
+                true ->
                     max_bxor(A, NewB, C, D, M bsr 1);
-                _ ->
-                    case (D - M) bor (M - 1) of
-                        NewD when NewD >= C ->
+                false ->
+                    NewD = (D - M) bor (M - 1),
+                    case inf_ge(NewD, C) of
+                        true ->
                             max_bxor(A, B, C, NewD, M bsr 1);
-                        _ ->
+                        false ->
                             max_bxor(A, B, C, D, M bsr 1)
                     end
             end;
@@ -481,6 +657,8 @@ max_bxor(A, B, C, D, M) ->
             max_bxor(A, B, C, D, M bsr 1)
     end.
 
+upper_bit(Val) when Val < 0 ->
+    ?NUM_BITS + 1;
 upper_bit(Val) ->
     upper_bit_1(Val, 0).
 
@@ -506,6 +684,20 @@ infer_relop_types_1('>', {A,B}, {C,D}) ->
     Left = normalize({clamp(inf_add(C, 1), A, B), B}),
     Right = normalize({C,clamp(inf_add(B, -1), C, D)}),
     {Left,Right}.
+
+canonical_args(R1, R2) ->
+    canonical_arg(R1) ++ canonical_arg(R2).
+
+canonical_arg(R0) ->
+    {A,B} = expand(R0),
+    case [inf_cap(A),inf_cap(B)] of
+        ['-inf','-inf'] ->
+            ['-inf',-1];
+        ['+inf','+inf'] ->
+            [0,'+inf'];
+        R ->
+            R
+    end.
 
 %%%
 %%% Handling of ranges.
@@ -581,3 +773,20 @@ inf_ge(A, B) -> A >= B.
 inf_le(A, B) -> inf_ge(B, A).
 
 inf_gt(A, B) -> inf_lt(B, A).
+
+inf_sign('-inf') -> '-';
+inf_sign('+inf') -> '+';
+inf_sign(N) when N < 0 -> '-';
+inf_sign(_) -> '+'.
+
+inf_cap(N) when abs(N) bsr ?NUM_BITS =/= 0 ->
+    case inf_lt(N, 0) of
+        true -> '-inf';
+        false -> '+inf'
+    end;
+inf_cap(N) ->
+    N.
+
+inf_bnot('-inf') -> '+inf';
+inf_bnot('+inf') -> '-inf';
+inf_bnot(N) -> bnot N.

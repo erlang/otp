@@ -197,43 +197,222 @@ rem_bounds(_Config) ->
     ok.
 
 band_bounds(_Config) ->
-    test_commutative('band'),
+    test_commutative('band', {-15,15}),
 
-    %% Coverage.
-    {0,17} = beam_bounds:bounds('band', any, {7,17}),
-    {0,42} = beam_bounds:bounds('band', {0,42}, any),
-    any = beam_bounds:bounds('band', {-1,1}, any),
-    any = beam_bounds:bounds('band', any, {-10,0}),
-    any = beam_bounds:bounds('band', {-10,0}, {-1,10}),
-    any = beam_bounds:bounds('band', {-20,-10}, {-1,10}),
+    Big = 1 bsl 512,
+    NegBig = -Big,
+
+    %% -- --
+    {'-inf',-7} = do_band({'-inf',-7}, {'-inf',-1}),
+    {'-inf',-155} = do_band({'-inf',-7}, {-300,-155}),
+    {-116,'+inf'} = do_band({-99,'+inf'}, {-18,-5}),
+    {-256,'+inf'} = do_band({-99,'+inf'}, {-179,-5}),
+    {'-inf',-1} = do_band({NegBig,NegBig}, {-10,-1}),
+    do_rand_band('-inf', '-', '-inf', '-'),
+    do_rand_band('-inf', '-', '-', '-'),
+
+    %% -- -+
+    {'-inf',25} = do_band({'-inf',-37}, {'-inf',25}),
+    {'-inf',15} = do_band({'-inf',-10}, {-11,15}),
+    any = do_band({-8,-8}, any),
+    do_rand_band('-', '-', '-inf', '+inf'),
+    do_rand_band('-inf', '-', '-inf', '+'),
+    do_rand_band('-inf', '-', '-', '+'),
+
+    %% -+ -+
+    {'-inf',37} = do_band({'-inf',37}, {'-inf',25}),
+
+    {'-inf',15} = do_band({'-inf',10}, {-11,15}),
+    {'-inf',66} = do_band({'-inf',66}, {-11,17}),
+
+    {-2,'+inf'} = do_band({-1,1}, {-2,'+inf'}),
+    {-112,'+inf'} = do_band({-99,10}, {-15,'+inf'}),
+    {-512,'+inf'} = do_band({-500,7}, {-57,'+inf'}),
+    {0,'+inf'} = do_band({-10,10}, {27,'+inf'}),
+    {0,'+inf'} = do_band({-10,27}, {10,'+inf'}),
+
+    any = do_band({'-inf',0}, {-1,'+inf'}),
+    any = do_band({'-inf',11}, {-17,'+inf'}),
+    any = do_band({-10,27}, any),
+    any = do_band(rand_r('-', '+'), any),
+
+    do_rand_band('-inf', '+', '-inf', '+'),
+    do_rand_band('-inf', '+', '-', '+'),
+    do_rand_band('-', '+', '-', '+inf'),
+    any = do_band(rand_r('-inf', '+'), rand_r('-', '+inf')),
+
+    %% -- ++
+    {0,'+inf'} = do_band({'-inf',-17}, {1,'+inf'}),
+    {0,'+inf'} = do_band({'-inf',-17}, {7,'+inf'}),
+    {0,14} = do_band({'-inf',-17}, {7,14}),
+    {0,255} = do_band({'-inf',-1}, {255,255}),
+    {0,'+inf'} = do_band({-77,-10}, {15,'+inf'}),
+    do_rand_band('-inf', '-', '+', '+'),
+    do_rand_band('-', '-', '+', '+inf'),
+    do_rand_band('-inf', '-', '+', '+inf'),
+    do_rand_band('-', '+', '+', '+inf'),
+
+    %% -+ ++
+    {0,13} = do_band({-10,'+inf'}, {7,13}),
+    {0,'+inf'} = do_band({-10,'+inf'}, {7,'+inf'}),
+    {0,'+inf'} = do_band(any, {7,'+inf'}),
+    do_rand_band('-inf', '+', '+', '+'),
+    do_rand_band('-', '+', '+', '+inf'),
+    do_rand_band('-', '+inf', '+', '+inf'),
+    do_rand_band('-inf', '+inf', '+', '+inf'),
+
+    %% ++++
+    {0,'+inf'} = do_band({1,'+inf'}, {1,'+inf'}),
+    {0,10} = do_band({7,'+inf'}, {5,10}),
+    {0,'+inf'} = do_band({7,'+inf'}, {Big,Big}),
+    do_rand_band('+', '+inf', '+', '+inf'),
+    do_rand_band('+', '+inf', '+', '+'),
 
     ok.
+
+do_band(R0, R1) ->
+    test_commutative_inf('band', R0, R1).
+
+do_rand_band(A, B, C, D) ->
+    test_rand('band', A, B, C, D).
 
 bor_bounds(_Config) ->
-    test_commutative('bor'),
+    test_commutative('bor', {-15,15}),
 
-    {'-inf',15} = beam_bounds:bounds('bor', {-10,7},{3,10}),
-    {'-inf',11} = beam_bounds:bounds('bor', {-10,1},{-1,10}),
-    {'-inf',-1} = beam_bounds:bounds('bor', {-20,-10}, {-2,10}),
+    %% --  --
+    {'-inf',-1} = do_bor({'-inf',-1}, {'-inf',-1}),
+    {'-inf',-1} = do_bor({'-inf',-1}, {'-inf',-10}),
+    {'-inf',-1} = do_bor({'-inf',-177}, {'-inf',-17}),
+    do_rand_bor('-inf', '-', '-inf', '-'),
+    do_rand_bor('-inf', '-', '-', '-'),
 
-    {'-inf',15} = beam_bounds:bounds('bor', {'-inf',10}, {3,5}),
-    {'-inf',-1} = beam_bounds:bounds('bor', {-20,-10}, {-100,-50}),
+    %% -- -+ and -+ --
+    {'-inf',-1} = do_bor({'-inf',-1}, {'-inf',0}),
+    {'-inf',-1} = do_bor({'-inf',-1}, {'-inf',1}),
+    {'-inf',-1} = do_bor({'-inf',-9}, {'-inf',58}),
+    {'-inf',-1} = do_bor({'-inf',-177}, {'-inf',19}),
+    {-500,-1} = do_bor({-500,-100}, {'-inf',10}),
+    {-20,-1} = do_bor({-20,-10}, {-2,'+inf'}),
+    {'-inf',-1} = do_bor({'-inf',-177}, {-5,'+inf'}),
+    do_rand_bor('-inf', '-', '-inf', '+'),
+    do_rand_bor('-inf', '-', '-', '+'),
 
-    any = beam_bounds:bounds('bor', {-20,-10}, {-2,'+inf'}),
-    any = beam_bounds:bounds('bor', {-20,'+inf'}, {-7,-3}),
+    %% -+ -+
+    {'-inf',1} = do_bor({'-inf',1}, {'-inf',1}),
+    {'-inf',7} = do_bor({'-inf',1}, {'-inf',7}),
+    {'-inf',63} = do_bor({'-inf',63}, {'-inf',21}),
+    {'-inf',1} = do_bor({'-inf',1}, {-500,1}),
+    {'-inf',7} = do_bor({'-inf',5}, {-500,2}),
+    {-12,'+inf'} = do_bor({-1,10}, {-12,'+inf'}),
+    {-16,'+inf'} = do_bor({-7,'+inf'}, {-16,'+inf'}),
+    any = do_bor({'-inf',1}, {-1,'+inf'}),
+    any = do_bor({'-inf',37}, {-8,'+inf'}),
 
-    {16,'+inf'} = beam_bounds:bounds('bor', {0,8}, {16,'+inf'}),
-    {16,'+inf'} = beam_bounds:bounds('bor', {3,'+inf'}, {16,'+inf'}),
+    do_rand_bor('-inf', '+', '-inf', '+'),
+    do_rand_bor('-inf', '+', '-', '+'),
+    do_rand_bor('-', '+', '-', '+inf'),
+    any = do_bor(rand_r('-inf', '+'), rand_r('-', '+inf')),
+
+    %% -- ++ and ++ --
+    {-7,-1} = do_bor({-7,-7}, {0,'+inf'}),
+    {-256,-1} = do_bor({-256,-256}, {200,'+inf'}),
+    {'-inf',-9} = do_bor({'-inf',-10}, {3,5}),
+    {-20,-1} = do_bor({-20,-10}, {5,'+inf'}),
+    {-1,'+inf'} = do_bor({1,10}, {-1,'+inf'}),
+    {'-inf',-1} = do_bor({'-inf',-97}, {42,'+inf'}),
+    {'-inf',-1} = do_bor({'-inf',-1}, {1,'+inf'}),
+    {'-inf',-1} = do_bor({'-inf',-777}, {100,'+inf'}),
+    do_rand_bor('-inf', '-', '+', '+'),
+    do_rand_bor('-', '-', '+', '+inf'),
+    do_rand_bor('-inf', '-', '+', '+inf'),
+
+    %% -+ ++ and ++ -+
+    {'-inf',15} = do_bor({'-inf',10}, {3,5}),
+    {-3,'+inf'} = do_bor({-3,10}, {17,'+inf'}),
+    {-8,'+inf'} = do_bor({-8,'+inf'}, {17,'+inf'}),
+    {-32,'+inf'} = do_bor({-32,'+inf'}, {5,'+inf'}),
+    do_rand_bor('-inf', '+', '+', '+'),
+    do_rand_bor('-', '+', '+', '+inf'),
+    do_rand_bor('-', '+inf', '+', '+inf'),
+
+    any = do_bor({'-inf',0}, {0,'+inf'}),
+    any = do_bor({'-inf',1}, {1,'+inf'}),
+    any = do_bor({'-inf',47}, {99,'+inf'}),
+    any = do_bor(rand_r('-inf', '+'), rand_r('+', '+inf')),
+
+    %% ++ ++
+    {52,'+inf'} = do_bor({20,25}, {33,'+inf'}),
+    {16,'+inf'} = do_bor({3,'+inf'}, {16,'+inf'}),
+    do_rand_bor('+', '+inf', '+', '+inf'),
+    do_rand_bor('+', '+inf', '+', '+'),
 
     ok.
+
+do_bor(R0, R1) ->
+    test_commutative_inf('bor', R0, R1).
+
+do_rand_bor(A, B, C, D) ->
+    test_rand('bor', A, B, C, D).
 
 bxor_bounds(_Config) ->
-    test_commutative('bxor'),
+    test_commutative('bxor', {-15,15}),
 
-    any = beam_bounds:bounds('bxor', {-10,0}, {-1,10}),
-    any = beam_bounds:bounds('bxor', {-20,-10}, {-1,10}),
+    %% -- --
+    any = do_bxor({'-inf',-177}, {'-inf',-17}),
+    any = do_bxor({'-inf',-103}, {-17,-5}),
+    any = do_bxor(rand_r('-inf', '-'), rand_r('-inf', '-')),
+    any = do_bxor(rand_r('-inf', '-'), rand_r('-', '-')),
+
+    %% -- -+
+    any = do_bxor({'-inf',-177}, {'-inf',19}),
+    any = do_bxor({'-inf',-9}, {'-inf',58}),
+    any = do_bxor({-500,-100}, {'-inf',10}),
+    any = do_bxor({-20,-10}, {-2,'+inf'}),
+    any = do_bxor({'-inf',-177}, {-5,'+inf'}),
+    any = do_bxor(rand_r('-inf', '-'), rand_r('-inf', '+')),
+    any = do_bxor(rand_r('-inf', '-'), rand_r('-', '+')),
+
+    %% -+ -+
+    any = do_bxor({'-inf',63}, {'-inf',21}),
+    any = do_bxor({'-inf',5}, {-500,2}),
+    any = do_bxor({-1,10}, {-12,'+inf'}),
+    any = do_bxor({-7,'+inf'}, {-16,'+inf'}),
+    any = do_bxor({-8,'+inf'}, {17,'+inf'}),
+    any = do_bxor({'-inf',37}, {-8,'+inf'}),
+    any = do_bxor(rand_r('-inf', '+'), rand_r('-inf', '+')),
+    any = do_bxor(rand_r('-inf', '+'), rand_r('-', '+')),
+
+    %% -- ++
+    {'-inf',-9} = do_bxor({'-inf',-10}, {3,5}),
+    {'-inf',-97} = do_bxor({'-inf',-100}, {10,20}),
+    {'-inf',-1} = do_bxor({-20,-10}, {5,'+inf'}),
+    {'-inf',-1} = do_bxor({'-inf',-97}, {42,'+inf'}),
+    do_rand_bxor('-inf', '+', '-inf', '+'),
+    do_rand_bxor('-inf', '+', '-', '+'),
+
+    %% -+ ++
+    any = do_bxor({'-inf',10}, {3,5}),
+    any = do_bxor({-3,10}, {17,'+inf'}),
+    any = do_bxor({-1,'+inf'}, {1,10}),
+    any = do_bxor({-32,'+inf'}, {5,'+inf'}),
+    any = do_bxor({'-inf',47}, {99,'+inf'}),
+    any = do_bxor(rand_r('-inf', '+'), rand_r('+', '+')),
+
+    %% ++ ++
+    {32,'+inf'} = do_bxor({20,25}, {33,'+inf'}),
+    {0,'+inf'} = do_bxor({3,'+inf'}, {16,'+inf'}),
+    do_rand_bxor('+', '+inf', '+', '+inf'),
+    do_rand_bxor('+', '+inf', '+', '+'),
+
+    any = do_bxor(any, {1,10}),
 
     ok.
+
+do_rand_bxor(A, B, C, D) ->
+    test_rand('bxor', A, B, C, D).
+
+do_bxor(R0, R1) ->
+    test_commutative_inf('bxor', R0, R1).
 
 bnot_bounds(_Config) ->
     Min = -7,
@@ -248,6 +427,14 @@ bnot_bounds(_Config) ->
     {'-inf',-8} = beam_bounds:bounds('bnot', {7,'+inf'}),
     {'-inf',9} = beam_bounds:bounds('bnot', {-10,'+inf'}),
     {-1114111,'+inf'} = beam_bounds:bounds('bnot', {'-inf', 1114110}),
+
+    Big = 1 bsl 512,
+    {1,'+inf'} = beam_bounds:bounds('bnot', {-Big, -2}),
+    {'-inf',-11} = beam_bounds:bounds('bnot', {10, Big}),
+    {'-inf',9} = beam_bounds:bounds('bnot', {-10, Big}),
+    {'-inf',-1} = beam_bounds:bounds('bnot', {Big, Big}),
+
+    any = beam_bounds:bounds('bnot', any),
 
     -1 = bnot_bounds_2(0),
     -43 = bnot_bounds_2_coverage(id(42)),
@@ -265,7 +452,7 @@ bnot_bounds_1(R) ->
     {HighestMin,LowestMax} = min_max_unary_op('bnot', R),
     {Min,Max} = beam_bounds:bounds('bnot', R),
     if
-        Min =< HighestMin, LowestMax =< Max ->
+        Min =:= HighestMin, LowestMax =:= Max ->
             ok;
         true ->
             io:format("bnot(~p) evaluates to ~p; should be ~p\n",
@@ -289,50 +476,63 @@ bnot_bounds_4() ->
 
 
 bsr_bounds(_Config) ->
-    test_noncommutative('bsr', {-12,12}, {0,7}),
+    test_noncommutative('bsr', {-12,12}, {-7,7}),
 
-    {0,10} = beam_bounds:bounds('bsr', {0,10}, {0,'+inf'}),
-    {0,2} = beam_bounds:bounds('bsr', {0,10}, {2,'+inf'}),
+    {0,10} = do_bsr({0,10}, {0,'+inf'}),
+    {0,2} = do_bsr({0,10}, {2,'+inf'}),
 
-    {-1,10} = beam_bounds:bounds('bsr', {-1,10}, {0,'+inf'}),
-    {-100,900} = beam_bounds:bounds('bsr', {-100,900}, {0,'+inf'}),
-    {-50,450} = beam_bounds:bounds('bsr', {-100,900}, {1,'+inf'}),
+    {-1,10} = do_bsr({-1,10}, {0,'+inf'}),
+    {-100,900} = do_bsr({-100,900}, {0,'+inf'}),
+    {-50,450} = do_bsr({-100,900}, {1,'+inf'}),
 
-    {'-inf',16} = beam_bounds:bounds('bsr', {'-inf',32}, {1,10}),
-    {-5,'+inf'} = beam_bounds:bounds('bsr', {-10,'+inf'}, {1,10}),
+    {'-inf',16} = do_bsr({'-inf',32}, {1,10}),
+    {-5,'+inf'} = do_bsr({-10,'+inf'}, {1,10}),
+
+    {0,'+inf'} = do_bsr({17,'+inf'}, any),
+    {'-inf',-1} = do_bsr({'-inf',-10}, any),
 
     ok.
+
+do_bsr(R0, R1) ->
+    test_noncommutative_inf('bsr', R0, R1).
 
 bsl_bounds(_Config) ->
     test_noncommutative('bsl', {-12,12}, {-7,7}),
 
-    {2,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {1,10_000}),
-    {0,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {-10,10_000}),
-    {'-inf',-20} = beam_bounds:bounds('bsl', {-30,-10}, {1,10_000}),
-    {'-inf',-2} = beam_bounds:bounds('bsl', {-9,-1}, {1,10_000}),
-    any = beam_bounds:bounds('bsl', {-7,10}, {1,10_000}),
+    {2,'+inf'} = do_bsl({1,10}, {1,10_000}),
+    {0,'+inf'} = do_bsl({1,10}, {-10,10_000}),
+    {'-inf',-20} = do_bsl({-30,-10}, {1,10_000}),
+    {'-inf',-2} = do_bsl({-9,-1}, {1,10_000}),
+    any = do_bsl({-7,10}, {1,10_000}),
 
-    {0,'+inf'} = beam_bounds:bounds('bsl', {0,'+inf'}, {0,'+inf'}),
-    {20,'+inf'} = beam_bounds:bounds('bsl', {20,30}, {0,'+inf'}),
+    {0,'+inf'} = do_bsl({0,'+inf'}, {0,'+inf'}),
+    {20,'+inf'} = do_bsl({20,30}, {0,'+inf'}),
 
-    any = beam_bounds:bounds('bsl', {-10,100}, {0,'+inf'}),
-    any = beam_bounds:bounds('bsl', {-10,100}, {1,'+inf'}),
-    any = beam_bounds:bounds('bsl', {-10,100}, {-1,'+inf'}),
+    any = do_bsl({-10,100}, {0,'+inf'}),
+    any = do_bsl({-10,100}, {1,'+inf'}),
+    any = do_bsl({-10,100}, {-1,'+inf'}),
 
-    {0,10} = beam_bounds:bounds('bsl', {1,10}, {'-inf',0}),
-    {0,20} = beam_bounds:bounds('bsl', {1,10}, {'-inf',1}),
-    {-7,10} = beam_bounds:bounds('bsl', {-7,10}, {'-inf',0}),
-    {-28,40} = beam_bounds:bounds('bsl', {-7,10}, {'-inf',2}),
+    {0,10} = do_bsl({1,10}, {'-inf',0}),
+    {0,20} = do_bsl({1,10}, {'-inf',1}),
+    {-7,10} = do_bsl({-7,10}, {'-inf',0}),
+    {-28,40} = do_bsl({-7,10}, {'-inf',2}),
 
-    {'-inf',-1} = beam_bounds:bounds('bsl', {-10,-1}, {500,1024}),
-    {0,'+inf'} = beam_bounds:bounds('bsl', {1,10}, {500,1024}),
+    {'-inf',-1} = do_bsl({-10,-1}, {500,1024}),
+    {0,'+inf'} = do_bsl({1,10}, {500,1024}),
 
-    {'-inf',-40} = beam_bounds:bounds('bsl', {'-inf',-10}, {2,64}),
-    {'-inf',224} = beam_bounds:bounds('bsl', {'-inf',7}, {3,5}),
+    {'-inf',-40} = do_bsl({'-inf',-10}, {2,64}),
+    {'-inf',224} = do_bsl({'-inf',7}, {3,5}),
 
-    any = beam_bounds:bounds('bsl', {'-inf',7}, {3,'+inf'}),
+    {'-inf',-88} = do_bsl({'-inf',-11}, {3,'+inf'}),
+    any = do_bsl({'-inf',7}, {3,'+inf'}),
+
+    {0,'+inf'} = do_bsl({17,'+inf'}, any),
+    {'-inf',-1} = do_bsl({'-inf',-10}, any),
 
     ok.
+
+do_bsl(R0, R1) ->
+    test_noncommutative_inf('bsl', R0, R1).
 
 lt_bounds(_Config) ->
     test_relop('<').
@@ -364,13 +564,12 @@ min_bounds(_Config) ->
 
     {'-inf',10} = min_bounds({1,10}, any),
     any = min_bounds({1,'+inf'}, any),
-    {'-inf',777} = min_bounds(any, {'-inf',777}),
+    {'-inf',777} = min_bounds({'-inf',777}, any),
 
     ok.
 
-min_bounds(R1, R2) ->
-    Result = beam_bounds:bounds(min, R1, R2),
-    Result = beam_bounds:bounds(min, R2, R1).
+min_bounds(R0, R1) ->
+    test_commutative_inf('min', R0, R1).
 
 max_bounds(_Config) ->
     test_commutative(max, {-12,12}),
@@ -394,9 +593,8 @@ max_bounds(_Config) ->
 
     ok.
 
-max_bounds(R1, R2) ->
-    Result = beam_bounds:bounds(max, R1, R2),
-    Result = beam_bounds:bounds(max, R2, R1).
+max_bounds(R0, R1) ->
+    test_commutative_inf('max', R0, R1).
 
 abs_bounds(_Config) ->
     Min = -7,
@@ -515,6 +713,119 @@ do_bench(F) ->
 %%% Common utilities.
 %%%
 
+test_rand(Op, A, B, C, D) ->
+    R0 = rand_r(A, B),
+    R1 = rand_r(C, D),
+    Res = beam_bounds:bounds(Op, R0, R1),
+    Res = beam_bounds:bounds(Op, R1, R0),
+    test_random_pairs(Op, R0, R1, Res).
+
+test_commutative_inf(Op, {A0,B0}=R0, {C0,D0}=R1) ->
+    Res = beam_bounds:bounds(Op, R0, R1),
+    Res = beam_bounds:bounds(Op, R1, R0),
+    [A,B,C,D] = [case N of
+                     '-inf' -> -1 bsl 512;
+                     '+inf' ->  1 bsl 512;
+                     _ ->       N
+                 end || N <- [A0,B0,C0,D0]],
+    Res = beam_bounds:bounds(Op, {A,B}, {C,D}),
+    Res = beam_bounds:bounds(Op, {C,D}, {A,B}),
+    test_random_pairs(Op, R0, R1, Res),
+    Res;
+test_commutative_inf(Op, {A0,B0}=R0, R1) ->
+    Res = beam_bounds:bounds(Op, R0, R1),
+    Res = beam_bounds:bounds(Op, R1, R0),
+    [A,B] = [case N of
+                 '-inf' -> -1 bsl 512;
+                 '+inf' ->  1 bsl 512;
+                 _ ->       N
+             end || N <- [A0,B0]],
+    Res = beam_bounds:bounds(Op, {A,B}, R1),
+    Res = beam_bounds:bounds(Op, R1, {A,B}),
+    test_random_pairs(Op, R0, R1, Res),
+    Res;
+test_commutative_inf(Op, any, R) ->
+    test_commutative_inf(Op, R, any).
+
+test_noncommutative_inf(Op, {A0,B0}=R0, {C0,D0}=R1) ->
+    Res = beam_bounds:bounds(Op, R0, R1),
+    [A,B,C,D] = [case N of
+                     '-inf' -> -1 bsl 512;
+                     '+inf' ->  1 bsl 512;
+                     _ ->       N
+                 end || N <- [A0,B0,C0,D0]],
+    Res = beam_bounds:bounds(Op, {A,B}, {C,D}),
+    test_random_pairs(Op, R0, R1, Res),
+    Res;
+test_noncommutative_inf(Op, {A0,B0}=R0, R1) ->
+    Res = beam_bounds:bounds(Op, R0, R1),
+    [A,B] = [case N of
+                 '-inf' -> -1 bsl 512;
+                 '+inf' ->  1 bsl 512;
+                 _ ->       N
+             end || N <- [A0,B0]],
+    Res = beam_bounds:bounds(Op, {A,B}, R1),
+    test_random_pairs(Op, R0, R1, Res),
+    Res;
+test_noncommutative_inf(Op, any, R) ->
+    test_commutative_inf(Op, R, any).
+
+rand_r(A0, B0) ->
+    A = case A0 of
+            '-' -> -rand:uniform(1000);
+            '+' -> rand:uniform(1000);
+            _ -> A0
+        end,
+    B = case B0 of
+            '-' when is_integer(A) ->
+                -rand:uniform(-A);
+            '-' ->
+                -rand:uniform(1000);
+            '+' when is_integer(A), A >= 0 ->
+                A + rand:uniform(1000);
+            '+' ->
+                rand:uniform(1000);
+            _ ->
+                B0
+        end,
+    {A,B}.
+
+test_random_pairs(_Op, _R0, _R1, any) ->
+    ok;
+test_random_pairs(Op, R0, R1, Range) ->
+    {A,B} = eliminate_infinity(R0),
+    {C,D} = eliminate_infinity(R1),
+    L0 = [{A,C}, {A,D}, {B,C}, {B,D} |
+          [random_pair(A, B, C, D) ||
+              _ <- lists:seq(1, 10)]],
+    L1 = lists:usort(L0),
+    L = [{N0,N1,Result,Range} ||
+            {N0,N1} <- L1,
+            Result = erlang:Op(N0, N1),
+            not inf_in_range(Result, Range)],
+    [] = L,
+    ok.
+
+eliminate_infinity({'-inf','+inf'}) ->
+    A = rand:uniform(100),
+    B = A + rand:uniform(100),
+    {A,B};
+eliminate_infinity({'-inf',B}) ->
+    {B - rand:uniform(100), B};
+eliminate_infinity({A,'+inf'}) ->
+    {A, A + rand:uniform(100)};
+eliminate_infinity(any) ->
+    eliminate_infinity({'-inf','+inf'});
+eliminate_infinity(R) ->
+    R.
+
+random_pair(A, B, C, D) ->
+    {random_in_range(A, B),
+     random_in_range(C, D)}.
+
+random_in_range(A, B) ->
+    A + rand:uniform(B - A + 1) - 1.
+
 infer_lt_gt(R1, R2) ->
     case beam_bounds:infer_relop_types('>', R2, R1) of
         {Rb,Ra} ->
@@ -523,15 +834,13 @@ infer_lt_gt(R1, R2) ->
             any = beam_bounds:infer_relop_types('<', R1, R2)
     end.
 
-test_commutative(Op) ->
-    test_commutative(Op, {0,32}).
-
 test_commutative(Op, {Min,Max}) ->
     Seq = lists:seq(Min, Max),
     _ = [test_commutative_1(Op, {A,B}, {C,D}) ||
             A <- Seq,
-            B <- lists:nthtail(A-Min, Seq),
-            C <- lists:nthtail(A-Min, Seq),
+            Reduced = lists:nthtail(A-Min, Seq),
+            B <- Reduced,
+            C <- Reduced,
             D <- lists:nthtail(C-Min, Seq),
             {A,B} =< {C,D}],
     ok.
@@ -541,8 +850,29 @@ test_commutative_1(Op, R1, R2) ->
     {Min,Max} = beam_bounds:bounds(Op, R1, R2),
     {Min,Max} = beam_bounds:bounds(Op, R2, R1),
     if
-        Min =< HighestMin, LowestMax =< Max ->
+        Min =:= HighestMin, LowestMax =:= Max ->
+            %% The bounds are as tight as possible.
             ok;
+        Min =< HighestMin, LowestMax =< Max ->
+            %% The bounds are correct, but not as tight as possible.
+            %%
+            %% We haven't figured out how to compute tight bounds for
+            %% bxor when one range includes zero and the other range
+            %% can be negative.
+            case {Op,R1,R2} of
+                {'bxor',{A,B},{C,D}} when A < 0, B < 0, C < 0, D >= 0 ->
+                    ok;
+                {'bxor',{A,B},{C,D}} when A < 0, B >= 0, C < 0, D < 0 ->
+                    ok;
+                {'bxor',{A,B},{C,D}} when A < 0, B >= 0, C < 0, D >= 0 ->
+                    ok;
+                _ ->
+                    io:format("~p(~p, ~p): bounds are not tight;\n"
+                              "  evaluates to ~p; should be ~p\n",
+                              [Op,R1,R2,{Min,Max},
+                               {HighestMin,LowestMax}]),
+                    ct:fail(bounds_are_not_tight)
+            end;
         true ->
             io:format("~p(~p, ~p) evaluates to ~p; should be ~p\n",
                       [Op,R1,R2,{Min,Max},{HighestMin,LowestMax}]),
@@ -665,6 +995,13 @@ test_infer_relop('maybe', Op, {A0,B0}=R1, {C0,D0}=R2) ->
     ok.
 
 in_range(Int, {A,B}) ->
+    A =< Int andalso Int =< B.
+
+inf_in_range(Int, {'-inf',B}) ->
+    Int =< B;
+inf_in_range(Int, {A,'+inf'}) ->
+    A =< Int;
+inf_in_range(Int, {A,B}) ->
     A =< Int andalso Int =< B.
 
 rel_op(Op, {A,B}, {C,D}) ->
