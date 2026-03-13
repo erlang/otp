@@ -980,15 +980,12 @@ file(File, Opts) when is_list(Opts) ->
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
--doc """
-Is the same as
-[`forms(Forms, [verbose,report_errors,report_warnings])`](`forms/2`).
-""".
+-doc #{ equiv => forms(Forms, ?DEFAULT_OPTIONS) }.
 -spec forms(forms()) -> CompRet :: comp_ret().
 
 forms(Forms) -> forms(Forms, ?DEFAULT_OPTIONS).
 
--doc """
+-doc """"
 Analogous to [`file/1`](`file/1`), but takes a list of forms (in either Erlang
 abstract or Core Erlang format representation) as first argument.
 
@@ -996,7 +993,63 @@ Option `binary` is implicit, that is, no object code file is
 produced. For options that normally produce a listing file, such as
 'E', the internal format for that compiler pass (an Erlang term,
 usually not a binary) is returned instead of a binary.
-""".
+
+## Examples
+
+Parsing using `m:erl_scan` and `m:erl_parse`:
+
+```erlang
+1> Program = """
+ -module(test).
+ -export([foo/0]).
+ foo() -> bar.
+
+ """.
+2> ParseForms =
+    fun 
+        Parse("", Loc) ->
+            [];
+        Parse(String, Loc) ->
+            case erl_scan:tokens("", String, Loc) of
+                {done, {ok, Tokens, NewLoc}, Cont} ->
+                    {ok, Form} = erl_parse:parse_form(Tokens),
+                    [Form | Parse(Cont, NewLoc)]
+            end
+    end.
+3> Forms = ParseForms(Program, {1,1}).
+[{attribute,{1,2},module,test},
+ {attribute,{2,2},export,[{foo,0}]},
+ {function,{3,1},
+           foo,0,
+           [{clause,{3,1},[],[],[{atom,{3,10},bar}]}]}]
+4> compile:forms(Forms).
+{ok,test,
+    <<70,79,82,49,0,0,1,196,66,69,65,77,65,116,85,56,0,0,0,
+      52,255,255,255,250,64,116,...>>}
+```
+
+Parsing using `epp`:
+
+```erlang
+1> Program = ~"""
+ -module(test).
+ -export([foo/0]).
+ foo() -> bar.
+
+ """.
+2> {ok, IoServer} = file:open(Program, [read, binary, ram, cooked]).
+3> {ok, Forms} = epp:parse_file("test.erl", [{fd, IoServer}]).
+{ok,[{attribute,1,file,{"test.erl",1}},
+     {attribute,1,module,test},
+     {attribute,2,export,[{foo,0}]},
+     {function,3,foo,0,[{clause,3,[],[],[{atom,3,bar}]}]},
+     {eof,4}]}
+4> compile:forms(Forms).
+{ok,test,
+    <<70,79,82,49,0,0,1,196,66,69,65,77,65,116,85,56,0,0,0,
+      52,255,255,255,250,64,116,...>>}
+```
+"""".
 -spec forms(Forms :: forms(), Options :: [option()] | option()) -> CompRet :: comp_ret().
 
 forms(Forms, Opts) when is_list(Opts) ->
@@ -1051,7 +1104,6 @@ noenv_forms(Forms, Opt) when is_atom(Opt) ->
 -doc #{ equiv => string(String, []) }.
 -doc #{ since => <<"OTP @OTP-20337@">> }.
 -spec string(String :: unicode:chardata()) -> CompRet :: comp_ret().
-
 string(String) -> string(String, ?DEFAULT_OPTIONS).
 
 -doc """
@@ -1062,25 +1114,29 @@ Erlang source code as first argument. The source code is run through the
 Erlang preprocessor (`epp`) just as when compiling a file, so directives
 such as `-include`, `-define`, and `-ifdef` are supported.
 
-Option `binary` is implicit, that is, no object code file is produced.
-
-The `source` option can be used to set the source file name that will
-appear in error messages and the `module_info/1` function. If not given,
-it defaults to the module name with a `.erl` extension.
+Option `binary` is implicit, that is, no object code file is
+produced. For options that normally produce a listing file, such as
+'E', the internal format for that compiler pass (an Erlang term,
+usually not a binary) is returned instead of a binary.
 
 The `{include_path_open, Fun}` option can be used to provide a custom function
 for opening include files (see `epp:open/1`), allowing compilation
 entirely in memory without touching the file system.
 
+## Examples
+
 ```erlang
-1> compile:string("-module(foo). -export([bar/0]). bar() -> ok.").
+1> {ok, foo, Bin} = compile:string("-module(foo). -export([bar/0]). bar() -> ok.").
 {ok,foo,<<...>>}
+2> code:load_binary(foo, "foo.erl", Bin).
+{module, foo}
+3> foo:bar().
+ok
 ```
 """.
 -doc #{ since => <<"OTP @OTP-20337@">> }.
 -spec string(String :: unicode:chardata(), Options :: [option()] | option()) ->
           CompRet :: comp_ret().
-
 string(String, Opts) when is_list(Opts) ->
     do_compile({string,String}, [binary|Opts++env_default_opts()]);
 string(String, Opt) when is_atom(Opt) ->

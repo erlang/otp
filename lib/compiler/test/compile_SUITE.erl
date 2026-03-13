@@ -45,7 +45,7 @@
          compile_attribute/1, message_printing/1, other_options/1,
          transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
          annotations_pp/1, option_order/1,
-         sys_coverage/1
+         sys_coverage/1, doctests/1
 	]).
 
 -import_record(v3_core, [c_case, c_clause, c_fun, c_literal,
@@ -72,7 +72,7 @@ all() ->
      deterministic_docs,
      compile_attribute, message_printing, other_options, transforms,
      erl_compile_api, types_pp, bs_init_writable, annotations_pp,
-     option_order, sys_coverage].
+     option_order, sys_coverage, doctests].
 
 groups() -> 
     [].
@@ -2553,6 +2553,17 @@ sys_coverage_2(DataDir) ->
     true = lists:keymember(executable_line, 1, Is),
 
     ok.
+
+doctests(_Config) ->
+    PathOpen = fun(Path, Filename, Modes) ->
+                       case file:path_open(Path, Filename, Modes) of
+                           {error, enoent} ->
+                               {ok, FD} = file:open(~"", [ram, cooked | Modes]),
+                               {ok, FD, filename:basename(Filename)};
+                           Else -> Else
+                       end
+               end,
+    ct_doctest:module(compile, [], [{compile_options, [{include_path_open, PathOpen}]}]).
 
 %%%
 %%% Utilities.
