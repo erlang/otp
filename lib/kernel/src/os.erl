@@ -35,8 +35,6 @@ a program to run on most platforms.
 > Types" section.
 """.
 
--compile(nowarn_deprecated_catch).
-
 %% Provides a common operating system interface.
 
 -export([type/0, version/0, cmd/1, cmd/2, find_executable/1, find_executable/2]).
@@ -728,7 +726,7 @@ get_data(Port, MonRef, Eot, Sofar, Size, Max, ExitStatus) ->
                     get_data(Port, MonRef, Eot, [Sofar, Bytes],
                              Size + byte_size(Bytes), Max, ExitStatus);
                 {Last, Remain} ->
-                    catch port_close(Port),
+                    try port_close(Port) catch _:_ -> true end,
                     flush_until_down(Port, MonRef),
                     Result = [Sofar, Last],
                     case ExitStatus andalso eot(Remain, Eot, byte_size(Remain), Max) of

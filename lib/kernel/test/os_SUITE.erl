@@ -200,10 +200,10 @@ space_in_name(Config) when is_list(Config) ->
     [] = receive_all(),
     ok.
 
-%% Check that a bad command doesn't crasch the server or the emulator (it used to).
+%% Check that a bad command doesn't crash the server or the emulator (it used to).
 bad_command(Config) when is_list(Config) ->
-    catch os:cmd([a|b]),
-    catch os:cmd({bad, thing}),
+    ok = ?assertError(badarg, os:cmd([a|b])),
+    ok = ?assertError(badarg, os:cmd({bad, thing})),
 
     %% This should at least not crash (on Unix it typically returns
     %% a message from the shell).
