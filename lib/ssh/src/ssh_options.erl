@@ -408,10 +408,11 @@ default(server) ->
           #{default => [ssh_sftpd:subsystem_spec([])],
             chk => fun(L) ->
                            is_list(L) andalso
-                               lists:all(fun({Name,{CB,Args}}) ->
+                               lists:all(fun(SubSystem = {Name,{CB,Args}}) ->
                                                  check_string(Name) andalso
                                                      is_atom(CB) andalso
-                                                     is_list(Args);
+                                                     is_list(Args) andalso
+                                                     check_subsystem(SubSystem);
                                             (_) ->
                                                  false
                                          end, L)
@@ -1334,4 +1335,15 @@ error_if_empty([_|T]) ->
 error_if_empty([]) ->
     ok.
 
-%%%----------------------------------------------------------------
+check_subsystem({"sftp", {ssh_sftpd, Args}}) ->
+    Root = proplists:get_value(root, Args, ""),
+    case Root =:= "" orelse filename:pathtype(Root) =:= absolute of
+        true ->
+            true;
+        false ->
+            error_in_check(
+              {"sftp", {ssh_sftpd, Args}},
+              io_lib:format("SFTP root option must be an absolute path, got: ~p", [Root]))
+    end;
+check_subsystem(_) ->
+    true.

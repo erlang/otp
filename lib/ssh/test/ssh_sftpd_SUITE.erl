@@ -35,7 +35,9 @@
          end_per_testcase/2
         ]).
 
--export([access_outside_root/1,
+-export([
+         access_outside_root/1,
+         relative_root/1,
          links/1,
          mk_rm_dir/1,
          open_close_dir/1,
@@ -103,6 +105,7 @@ all() ->
      relpath,
      ver6_basic,
      access_outside_root,
+     relative_root,
      root_with_cwd,
      relative_path,
      open_file_dir_v5,
@@ -141,6 +144,10 @@ end_per_group(_GroupName, Config) ->
 
 %%--------------------------------------------------------------------
 
+init_per_testcase(relative_root, Config) ->
+    ssh:start(),
+    prep(Config),
+    Config;
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
     prep(Config),
@@ -222,12 +229,14 @@ init_per_testcase(TestCase, Config) ->
 
     [{sftp, {Cm, Channel}}, {sftpd, Sftpd }| Config].
 
+end_per_testcase(relative_root, Config) ->
+    ssh:stop();
 end_per_testcase(_TestCase, Config) ->
     try
         ssh:stop_daemon(proplists:get_value(sftpd, Config))
     catch
-        Class:Error:_Stack ->
-            ?CT_LOG("Class = ~p Error = ~p", [Class, Error])
+        C:E:St ->
+            ?CT_LOG("~p:~p~n~p", [C, E, St])
     end,
     {Cm, Channel} = proplists:get_value(sftp, Config),
     ssh_connection:close(Cm, Channel),
@@ -694,8 +703,10 @@ ver6_basic(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 access_outside_root(Config) when is_list(Config) ->
     PrivDir  =  proplists:get_value(priv_dir, Config),
-    BaseDir  = filename:join(PrivDir, access_outside_root),
-    BadFilePath = filename:join([BaseDir, bad]),
+    BaseDir  = filename:join(PrivDir, ?FUNCTION_NAME),
+    %% A file outside the tree below RootDir which is BaseDir/a
+    %% Make the file  BaseDir/bad :
+    BadFilePath = filename:join([BaseDir, "bad.txt"]),
     ok = file:write_file(BadFilePath, <<>>),
     FileInSiblingDir = filename:join([BaseDir, a2, "secret.txt"]),
     ok = filelib:ensure_dir(FileInSiblingDir),
@@ -718,6 +729,24 @@ access_outside_root(Config) when is_list(Config) ->
     %% Try to access sibling folder name prefixed with root dir
     try_access("/../a2/secret.txt", Cm, Channel, 2),
     try_access("../../a2/secret.txt", Cm, Channel, 3).
+
+relative_root(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    %% ClientUserDir = filename:join(PrivDir, nopubkey),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    Options = [{system_dir, SystemDir},
+               {user_dir, PrivDir},
+               {user_passwords,[{?USER, ?PASSWD}]},
+               {pwdfun, fun(_,_) -> true end}],
+    RootDir = "a/b",
+    SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir}])],
+    ExpectedErrMsg = "SFTP root option must be an absolute path, got: \"" ++ RootDir ++ "\"",
+    ?assertMatch(
+       {error, {eoptions,
+                {{subsystems, {"sftp", {ssh_sftpd,[{root, RootDir}]}}},
+                 ExpectedErrMsg}}},
+       ssh:daemon(0, [{subsystems, SubSystems}|Options])),
+    ok.
 
 try_access(Path, Cm, Channel, ReqId) ->
     Return = 
