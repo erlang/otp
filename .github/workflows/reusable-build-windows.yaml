@@ -1,0 +1,136 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2024-2026. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
+name: Build Erlang/OTP (Windows)
+run-name: "[${{ inputs.base_branch }}] Build Erlang/OTP (Windows)"
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        required: true
+        type: string
+
+# NOTE: This job should only be executed on the callee with `needs: pack`
+jobs:
+  build-windows:
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    env:
+      WXWIDGETS_VERSION: 3.2.6
+    name: Build Erlang/OTP (Windows)
+    runs-on: windows-2025
+    steps:
+      - uses: Vampire/setup-wsl@6a8db447be7ed35f2f499c02c6e60ff77ef11278 # v6.0.0
+        with:
+          distribution: Ubuntu-18.04
+
+      - name: Install WSL dependencies
+        run: apt update && apt install -y make autoconf unzip
+
+      - name: Install NSIS
+        shell: cmd
+        run: |
+          choco install nsis --version 3.11.0
+
+      - name: Install openssl
+        shell: cmd
+        run: |
+          choco install openssl --version=3.1.1
+          IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
+
+      - name: Cache wxWidgets
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: wxWidgets
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
+
+      # actions/cache on Windows sometimes does not set cache-hit even though there was one. Setting it manually.
+      - name: Set wxWidgets cache
+        id: wxwidgets-cache
+        env:
+          WSLENV: GITHUB_OUTPUT/p
+        run: |
+          if [ -d wxWidgets ]; then
+            echo "cache-hit=true" >> $GITHUB_OUTPUT
+          else
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download wxWidgets
+        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
+        run: |
+          wget https://github.com/wxWidgets/wxWidgets/releases/download/v${{ env.WXWIDGETS_VERSION }}/wxWidgets-${{ env.WXWIDGETS_VERSION }}.zip
+          unzip wxWidgets-${{ env.WXWIDGETS_VERSION }}.zip -d wxWidgets
+          sed -i -r -e 's/wxUSE_POSTSCRIPT +0/wxUSE_POSTSCRIPT 1/' wxWidgets/include/wx/msw/setup.h
+          sed -i -r -e 's/wxUSE_WEBVIEW_EDGE +0/wxUSE_WEBVIEW_EDGE 1/' wxWidgets/include/wx/msw/setup.h
+
+      - name: Install WebView2
+        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          cd wxWidgets\\3rdparty
+          nuget install Microsoft.Web.WebView2 -Version 1.0.705.50 -Source https://api.nuget.org/v3/index.json
+          rename Microsoft.Web.WebView2.1.0.705.50 webview2
+
+      - name: Build wxWidgets
+        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          cd wxWidgets\\build\\msw
+          call "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\Auxiliary\\Build\\vcvars64.bat"
+          nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
+
+      - name: Download source archive
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: otp_prebuilt
+
+      - name: Compile Erlang
+        run: |
+          mkdir -p /mnt/c/opt/local64/pgm/
+          cp -R wxWidgets /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}
+          tar -xzf ./otp_src.tar.gz
+          cd otp
+          export PATH="/mnt/c/Program Files (x86)/NSIS/bin":$PATH
+          export ERL_TOP=`pwd`
+          export MAKEFLAGS=-j$(($(nproc) + 2))
+          export ERLC_USE_SERVER=true
+          export ERTS_SKIP_DEPEND=true
+          eval `./otp_build env_win32 x64`
+          ./otp_build configure
+          if cat erts/CONF_INFO ||
+             grep -v "Static linking with OpenSSL 3.0" lib/*/CONF_INFO ||
+             cat lib/*/SKIP ||
+             cat lib/SKIP-APPLICATIONS; then
+             exit 1
+          fi
+          ./otp_build boot -a
+          ./otp_build release -a
+          cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
+          ./otp_build debuginfo_win32
+          ./otp_build installer_win32
+
+      - name: Upload installer
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: otp_win32_installer
+          path: otp/release/win32/otp*.exe
