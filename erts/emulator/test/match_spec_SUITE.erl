@@ -1155,6 +1155,25 @@ maps(Config) when is_list(Config) ->
                      {ok,M0#{1:=1,2:=N},[],[]} == erlang:match_spec_test(M0#{1=>1,2=>5},[{'$1',[],[M0#{1=>1,2=>2,{const,2}=>3,{'+',1,1}=>4,{'*',2,1}=>5}]}], table)
              end,[2,3,4,5]),
 
+    %% Empty map constructed in match spec body should be a global literal
+    {ok, EmptyMap,[],[]} = erlang:match_spec_test({}, [{{},[],[#{}]}], table),
+    #{} = EmptyMap,
+    0 = map_size(EmptyMap),
+    0 = erts_debug:flat_size(EmptyMap),
+
+    %% Empty map used as a constant in match spec body ({const, #{}})
+    {ok, EmptyMap2,[],[]} = erlang:match_spec_test({}, [{{},[],[{const, #{}}]}], table),
+    #{} = EmptyMap2,
+    0 = map_size(EmptyMap2),
+    0 = erts_debug:flat_size(EmptyMap2),
+
+    %% Empty map as a constant value inside a constructed map
+    {ok, #{a := EmptyMap3},[],[]} =
+        erlang:match_spec_test({}, [{{},[],[#{a => {const, #{}}}]}], table),
+    #{} = EmptyMap3,
+    0 = map_size(EmptyMap3),
+    0 = erts_debug:flat_size(EmptyMap3),
+
     ok.
 
 maps_check_loop(M) ->
