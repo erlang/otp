@@ -20,6 +20,7 @@
 %% %CopyrightEnd%
 %%
 -module(slave).
+-moduledoc(#{ deprecated => ~"Use the module 'peer' instead" }).
 -moduledoc """
 This module provides functions for starting Erlang slave nodes.
 

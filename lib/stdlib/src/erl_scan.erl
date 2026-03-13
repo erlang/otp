@@ -56,7 +56,7 @@ The Erlang token scanner.
 This module contains functions for tokenizing (scanning) characters into Erlang
 tokens.
 
-## Error Information
+### Error Information
 
 `ErrorInfo` is the standard `ErrorInfo` structure that is returned from all I/O
 modules. The format is as follows:
@@ -71,13 +71,13 @@ A string describing the error is obtained with the following call:
 Module:format_error(ErrorDescriptor)
 ```
 
-## Notes
+### Notes
 
 The continuation of the first call to the re-entrant input functions must be
 `[]`. For a complete description of how the re-entrant input scheme works, see
 Armstrong, Virding and Williams: 'Concurrent Programming in Erlang', Chapter 13.
 
-## See Also
+### See Also
 
 `m:erl_anno`, `m:erl_parse`, `m:io`
 """.

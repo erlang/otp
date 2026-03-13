@@ -665,17 +665,14 @@ identifies an association for an SCTP socket. The term is opaque except for the
 special value `0`, which has a meaning such as "the whole endpoint" or "all
 future associations".
 """.
--doc(#{group => <<"Exported data types">>}).
 -type assoc_id() :: term().
 
 -doc "[SCTP Socket Option](#options) name and value, to set.".
--doc(#{group => <<"Exported data types">>}).
 -type option() ::
         elementary_option() |
         record_option().
 
 -doc "[SCTP Socket Option](#options) name, to get.".
--doc(#{group => <<"Exported data types">>}).
 -type option_name() ::
         elementary_option_name() |
         record_option() |
@@ -684,13 +681,11 @@ future associations".
 -doc """
 [SCTP Socket Option](#options) name and value, what you get.
 """.
--doc(#{group => <<"Exported data types">>}).
 -type option_value() ::
         elementary_option() |
         record_option() |
         ro_option().
 
--doc(#{group => <<"Internal data types">>}).
 -type elementary_option() ::
         {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
@@ -721,7 +716,6 @@ future associations".
         {recvtclass, boolean()} |
         {recvttl, boolean()}.
 
--doc(#{group => <<"Internal data types">>}).
 -type elementary_option_name() ::
         active |
         buffer |
@@ -752,7 +746,6 @@ future associations".
         recvtclass |
         recvttl.
 
--doc(#{group => <<"Internal data types">>}).
 -type record_option() ::
         {sctp_adaptation_layer, #sctp_setadaptation{}} |
         {sctp_associnfo, #sctp_assocparams{}} |
@@ -765,13 +758,11 @@ future associations".
         {sctp_rtoinfo, #sctp_rtoinfo{}} |
         {sctp_set_peer_primary_addr, #sctp_setpeerprim{}}.
 
--doc(#{group => <<"Internal data types">>}).
 -type ro_option() ::
         {sctp_get_peer_addr_info, #sctp_paddrinfo{}} |
         {sctp_status, #sctp_status{}}.
 
 -doc "Socket identifier returned from [`open/*`](`open/0`).".
--doc(#{group => <<"Exported data types">>}).
 -type sctp_socket() :: port().
 
 -export_type(

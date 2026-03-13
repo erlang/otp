@@ -46,10 +46,6 @@ Lexical analyzer generator for Erlang
 A regular expression based lexical analyzer generator for Erlang, similar to
 `lex` or `flex`.
 
-> #### Note {: .info }
->
-> The `leex` module was considered experimental when it was introduced.
-
 ## Default Leex Options
 
 The (host operating system) environment variable `ERL_COMPILER_OPTIONS` can be

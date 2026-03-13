@@ -576,7 +576,7 @@ variables assigned to by the `:=` operator can only be removed by calls to
 if any of the functions that make it necessary to set up module data again is
 called, all user variables are forgotten.
 
-## See Also
+### See Also
 
 `m:beam_lib`, `m:digraph`, `m:digraph_utils`, `m:re`,
 [User's Guide for Xref](xref_chapter.md)

@@ -26,7 +26,7 @@
 -moduledoc """
 This module expands records in a module.
 
-## See Also
+### See Also
 
 Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
 """.

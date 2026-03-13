@@ -34,7 +34,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 
 To configure the Logger backend, use
 [Kernel configuration parameters](kernel_app.md#logger) or
-[configuration functions](#configuration-api-functions) in the Logger API.
+configuration functions in the `m:logger` API.
 
 By default, the Kernel application installs one log handler at system start.
 This handler is named `default`. It receives and processes standard log events
@@ -96,7 +96,7 @@ is added to the metadata as described under the `t:metadata/0` type definition.
 The call is wrapped in a case statement and will be evaluated only if `Level` is
 equal to or below the configured log level.
 
-## See Also
+### See Also
 
 [`config`](config.md), `m:erlang`, `m:io`, `m:logger_disk_log_h`,
 `m:logger_filters`, `m:logger_handler`, `m:logger_formatter`, `m:logger_std_h`,
@@ -664,7 +664,7 @@ printed with `~ts` and other terms with `~tp`.
 If `Report` is a map, it is converted to a key-value list before formatting as
 such.
 """.
--doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec format_report(Report) -> FormatArgs when
       Report :: report(),
       FormatArgs :: {io:format(),[term()]}.
@@ -723,7 +723,7 @@ Notice that Logger automatically inserts a timestamp in the meta data unless it
 already exists. This function is exported for the rare case when the timestamp
 must be taken at a different point in time than when the log event is issued.
 """.
--doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 21.3">>}).
+-doc(#{since => <<"OTP 21.3">>}).
 -spec timestamp() -> timestamp().
 timestamp() ->
     os:system_time(microsecond).
@@ -756,7 +756,7 @@ information about filters.
 
 Some built-in filters exist. These are defined in `m:logger_filters`.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec add_primary_filter(FilterId,Filter) -> ok | {error,term()} when
       FilterId :: filter_id(),
       Filter :: filter().
@@ -790,7 +790,7 @@ information about filters.
 
 Some built-in filters exist. These are defined in `m:logger_filters`.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec add_handler_filter(HandlerId,FilterId,Filter) -> ok | {error,term()} when
       HandlerId :: logger_handler:id(),
       FilterId :: filter_id(),
@@ -800,7 +800,7 @@ add_handler_filter(HandlerId,FilterId,Filter) ->
 
 
 -doc "Remove the primary filter identified by `FilterId` from Logger.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec remove_primary_filter(FilterId) -> ok | {error,term()} when
       FilterId :: filter_id().
 remove_primary_filter(FilterId) ->
@@ -810,7 +810,7 @@ remove_primary_filter(FilterId) ->
 Remove the filter identified by `FilterId` from the handler identified by
 `HandlerId`.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec remove_handler_filter(HandlerId,FilterId) -> ok | {error,term()} when
       HandlerId :: logger_handler:id(),
       FilterId :: filter_id().
@@ -823,7 +823,7 @@ Add a handler with the given configuration.
 `HandlerId` is a unique identifier which must be used in all subsequent calls
 referring to this handler.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec add_handler(HandlerId,Module,Config) -> ok | {error,term()} when
       HandlerId :: logger_handler:id(),
       Module :: module(),
@@ -850,7 +850,7 @@ add_handler(HandlerId,Module,Config) ->
     logger_server:add_handler(HandlerId,Module,Config).
 
 -doc "Remove the handler identified by `HandlerId`.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec remove_handler(HandlerId) -> ok | {error,term()} when
       HandlerId :: logger_handler:id().
 remove_handler(HandlerId) ->
@@ -863,8 +863,7 @@ exist, it will be added.
 
 The `metadata` key was added in OTP 24.0.
 """.
--doc(#{group => <<"Configuration API functions">>,
-       since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">> }).
 -spec set_primary_config(level,Level) -> ok | {error,term()} when
       Level :: level() | all | none;
                         (filter_default,FilterDefault) -> ok | {error,term()} when
@@ -888,7 +887,7 @@ writing the new configuration back with this function.
 If a key is removed compared to the current configuration, the default value is
 used.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec set_primary_config(Config) -> ok | {error,term()} when
       Config :: primary_config().
 set_primary_config(Config) ->
@@ -909,7 +908,7 @@ existing configuration for the rest, use `update_handler_config/3`.
 See the definition of the `t:logger_handler:config/0` type for more information
 about the different parameters.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec set_handler_config(HandlerId,level,Level) -> Return when
       HandlerId :: logger_handler:id(),
       Level :: level() | all | none,
@@ -947,7 +946,7 @@ by Logger, the default value is used. If it is a custom key, then it is up to
 the handler implementation if the value is removed or a default value is
 inserted.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec set_handler_config(HandlerId,Config) -> ok | {error,term()} when
       HandlerId :: logger_handler:id(),
       Config :: logger_handler:config().
@@ -967,7 +966,7 @@ the new configuration back with this function.
 For more information about the proxy, see section
 [Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
+-doc(#{since => <<"OTP 21.3">>}).
 -spec set_proxy_config(Config) -> ok | {error,term()} when
       Config :: olp_config().
 set_proxy_config(Config) ->
@@ -985,7 +984,7 @@ logger:set_primary_config(maps:merge(Old, Config)).
 To overwrite the existing configuration without any merge, use
 [`set_primary_config/1` ](`set_primary_config/1`).
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec update_primary_config(Config) -> ok | {error,term()} when
       Config :: primary_config().
 update_primary_config(Config) ->
@@ -1005,7 +1004,7 @@ key is not changed. To reset unspecified data to default values, use
 See the definition of the `t:logger_handler:config/0` type for more information
 about the different parameters.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.2">>}).
+-doc(#{since => <<"OTP 21.2">>}).
 -spec update_handler_config(HandlerId,level,Level) -> Return when
       HandlerId :: logger_handler:id(),
       Level :: level() | all | none,
@@ -1041,7 +1040,7 @@ logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
 To overwrite the existing configuration without any merge, use
 [`set_handler_config/2` ](`set_handler_config/2`).
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec update_handler_config(HandlerId,Config) -> ok | {error,term()} when
       HandlerId :: logger_handler:id(),
       Config :: logger_handler:config().
@@ -1063,14 +1062,14 @@ To overwrite the existing configuration without any merge, use
 For more information about the proxy, see section
 [Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
+-doc(#{since => <<"OTP 21.3">>}).
 -spec update_proxy_config(Config) -> ok | {error,term()} when
       Config :: olp_config().
 update_proxy_config(Config) ->
     logger_server:update_config(proxy,Config).
 
 -doc "Look up the current primary configuration for Logger.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec get_primary_config() -> Config when
       Config :: primary_config().
 get_primary_config() ->
@@ -1078,7 +1077,7 @@ get_primary_config() ->
     maps:remove(handlers,Config).
 
 -doc "Look up the current configuration for the given handler.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec get_handler_config(HandlerId) -> {ok,Config} | {error,term()} when
       HandlerId :: logger_handler:id(),
       Config :: logger_handler:config().
@@ -1096,7 +1095,7 @@ filter_config(#{module:=Module}=Config) ->
     end.
 
 -doc "Look up the current configuration for all handlers.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec get_handler_config() -> [Config] when
       Config :: logger_handler:config().
 get_handler_config() ->
@@ -1105,7 +1104,7 @@ get_handler_config() ->
     lists:sort(fun(#{ id := LHS }, #{ id := RHS }) -> LHS =< RHS end, Configs).
 
 -doc "Look up the identities for all installed handlers.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec get_handler_ids() -> [HandlerId] when
       HandlerId :: logger_handler:id().
 get_handler_ids() ->
@@ -1118,7 +1117,7 @@ Look up the current configuration for the Logger proxy.
 For more information about the proxy, see section
 [Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
+-doc(#{since => <<"OTP 21.3">>}).
 -spec get_proxy_config() -> Config when
       Config :: olp_config().
 get_proxy_config() ->
@@ -1137,7 +1136,7 @@ set_handler_config(HandlerId, formatter,
 	      {FormatterModule, FormatterConfig}).
 ```
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec update_formatter_config(HandlerId,FormatterConfig) ->
                                      ok | {error,term()} when
       HandlerId :: logger_handler:id(),
@@ -1146,7 +1145,7 @@ update_formatter_config(HandlerId,FormatterConfig) ->
     logger_server:update_formatter_config(HandlerId,FormatterConfig).
 
 -doc(#{ equiv => update_formatter_config(HandlerId, #{ Key => Value })}).
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec update_formatter_config(HandlerId,Key,Value) ->
                                      ok | {error,term()} when
       HandlerId :: logger_handler:id(),
@@ -1189,7 +1188,7 @@ To change the log level for a handler, use
 > logging client must explicitly add this information if module levels shall
 > have any effect.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec set_module_level(Modules,Level) -> ok | {error,term()} when
       Modules :: [module()] | module(),
       Level :: level() | all | none.
@@ -1202,7 +1201,7 @@ set_module_level(Modules,Level) ->
 Remove module specific log settings. After this, the primary log level is used
 for the specified modules.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec unset_module_level(Modules) -> ok when
       Modules :: [module()] | module().
 unset_module_level(Module) when is_atom(Module) ->
@@ -1214,7 +1213,7 @@ unset_module_level(Modules) ->
 Remove module specific log settings. After this, the primary log level is used
 for all modules.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec unset_module_level() -> ok.
 unset_module_level() ->
     logger_server:unset_module_level().
@@ -1226,7 +1225,7 @@ This function is a convenience function that calls
 [logger:set_module_level/2](`set_module_level/2`) for each module associated
 with an application.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.1">>}).
+-doc(#{since => <<"OTP 21.1">>}).
 -spec set_application_level(Application,Level) -> ok | {error, not_loaded} when
       Application :: atom(),
       Level :: level() | all | none.
@@ -1245,7 +1244,7 @@ This function is a utility function that calls
 [logger:unset_module_level/2](`unset_module_level/1`) for each module associated
 with an application.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.1">>}).
+-doc(#{since => <<"OTP 21.1">>}).
 -spec unset_application_level(Application) ->
          ok | {error, {not_loaded, Application}} when Application :: atom().
 unset_application_level(App) ->
@@ -1261,7 +1260,7 @@ Look up the current level for the given modules. Returns a list containing one
 `{Module,Level}` element for each of the given modules for which the module
 level was previously set with `set_module_level/2`.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec get_module_level(Modules) -> [{Module,Level}] when
       Modules :: [Module] | Module,
       Module :: module(),
@@ -1277,7 +1276,7 @@ Look up all current module levels. Returns a list containing one
 `{Module,Level}` element for each module for which the module level was
 previously set with `set_module_level/2`.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec get_module_level() -> [{Module,Level}] when
       Module :: module(),
       Level :: level() | all | none.
@@ -1291,7 +1290,7 @@ Compare the severity of two log levels. Returns `gt` if `Level1` is more severe
 than `Level2`, `lt` if `Level1` is less severe, and `eq` if the levels are
 equal.
 """.
--doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec compare_levels(Level1,Level2) -> eq | gt | lt when
       Level1 :: level() | all | none,
       Level2 :: level() | all | none.
@@ -1319,7 +1318,7 @@ location data.
 Subsequent calls to this function overwrites previous data set. To update
 existing data instead of overwriting it, see `update_process_metadata/1`.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec set_process_metadata(Meta) -> ok when
       Meta :: metadata().
 set_process_metadata(Meta) when is_map(Meta) ->
@@ -1341,7 +1340,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 If no process metadata exists, the function behaves as
 [`set_process_metadata/1` ](`set_process_metadata/1`).
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec update_process_metadata(Meta) -> ok when
       Meta :: metadata().
 update_process_metadata(Meta) when is_map(Meta) ->
@@ -1356,14 +1355,14 @@ update_process_metadata(Meta) ->
     erlang:error(badarg,[Meta]).
 
 -doc "Retrieve data set with `set_process_metadata/1` or `update_process_metadata/1`.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec get_process_metadata() -> Meta | undefined when
       Meta :: metadata().
 get_process_metadata() ->
     get(?LOGGER_META_KEY).
 
 -doc "Delete data set with `set_process_metadata/1` or `update_process_metadata/1`.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec unset_process_metadata() -> ok.
 unset_process_metadata() ->
     _ = erase(?LOGGER_META_KEY),
@@ -1373,7 +1372,7 @@ unset_process_metadata() ->
 Look up all current Logger configuration, including primary, handler, and proxy
 configuration, and module level settings.
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec get_config() -> #{primary=>primary_config(),
                         handlers=>[logger_handler:config()],
                         proxy=>olp_config(),
@@ -1385,7 +1384,7 @@ get_config() ->
       module_levels=>lists:keysort(1,get_module_level())}.
 
 -doc "Pretty print all Logger configuration.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
+-doc(#{since => <<"OTP 21.3">>}).
 -spec i() -> ok.
 i() ->
     #{primary := Primary,
@@ -1399,7 +1398,7 @@ i() ->
     i_modules(Modules,M).
 
 -doc "Pretty print the Logger configuration.".
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
+-doc(#{since => <<"OTP 21.3">>}).
 -spec i(What) -> ok when
       What :: primary | handlers | proxy | modules | logger_handler:id().
 i(primary) ->
@@ -1538,7 +1537,7 @@ the `simple` handler are replayed to the `default` handler, and the `simple`
 handler is removed. Notice that if you don't add the `default` handler,
 `simple` handler will persist.
 """.
--doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 24.2">>}).
+-doc(#{since => <<"OTP 24.2">>}).
 -spec reconfigure() -> ok | {error,term()}.
 %% This function is meant to be used by the build tools like Rebar3 or Mix
 %% to ensure that the logger configuration is reset to the expected state
@@ -1661,7 +1660,7 @@ that disables the Kernel handler and adds a custom handler could look like this:
     [{handler, default, my_handler, #{}}]}]}].
 ```
 """.
--doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec add_handlers(Application) -> ok | {error,term()} when
       Application :: atom();
                     (HandlerConfig) -> ok | {error,term()} when

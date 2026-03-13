@@ -89,7 +89,7 @@ so that environment variables surrounded by `%` can be expanded to their values.
 For more information on the Windows registry, see consult the Win32 Programmer's
 Reference.
 
-## See Also
+### See Also
 
 `erl_posix_msg`, The Windows 95 Registry (book from O'Reilly), Win32
 Programmer's Reference (from Microsoft)

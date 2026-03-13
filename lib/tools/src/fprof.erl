@@ -395,7 +395,7 @@ through `prim_file:open_int_setopts/3`, which complicates the picture.
   {{prim_file,open_int_setopts,3},        1,    0.000,    0.016}]}.
 ```
 
-## Notes
+## Notes on accuracy of measurements
 
 The actual supervision of execution times is in itself a CPU-intensive activity.
 A message is written on the trace file for every function call that is made by
@@ -418,7 +418,7 @@ resolution CPU time measurements `fprof` will use wallclock time for its
 calculations, and it will appear as if functions are randomly burning virtual
 machine time.
 
-## See Also
+### See Also
 
 [fprof - The File Trace Profiler](fprof_chapter.md), `m:dbg`, `m:eprof`
 """.

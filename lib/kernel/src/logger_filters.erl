@@ -30,7 +30,7 @@ more information about how filters are added.
 Filters are removed with `logger:remove_primary_filter/1` and
 `logger:remove_handler_filter/2`.
 
-## See Also
+### See Also
 
 `m:logger`
 """.

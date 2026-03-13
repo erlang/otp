@@ -287,7 +287,7 @@ but the map is preferred.
 - Internally, the supervisor also keeps track of the pid `Child` of the child
   process, or `undefined` if no pid exists.
 
-## See Also
+### See Also
 
 `m:gen_event`, `m:gen_statem`, `m:gen_server`, `m:sys`
 """.

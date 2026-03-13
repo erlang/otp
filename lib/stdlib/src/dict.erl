@@ -51,7 +51,7 @@ different if and only if they do not compare equal (`==`).
 >
 > For new code, prefer `m:maps` over this module.
 
-## See Also
+### See Also
 
 `m:gb_trees`, `m:orddict`, `m:maps`
 """.

@@ -53,7 +53,7 @@ The original balance condition `h(T) <= ceil(c * log(|T|))` has been changed to
 the similar (but not quite equivalent) condition `2 ^ h(T) <= |T| ^ c`. This
 should also be OK.
 
-## See Also
+### See Also
 
 `m:dict`, `m:gb_sets`, `m:maps`
 """.
