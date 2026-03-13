@@ -3822,6 +3822,17 @@ is_limited(?map(Pairs, DefK, DefV), K) ->
                     is_limited(Key, K1) andalso is_limited(Value, K1)
             end, Pairs)
     andalso is_limited(DefK, K1) andalso is_limited(DefV, K1);
+is_limited(?record(nil, #{}=M), _K) when map_size(M) =:= 0 ->
+  true;
+is_limited(?record(Name, _), 1) when Name =/= nil ->
+  false;
+is_limited(?record(_, T), K) ->
+  Values = [V || _Key := {present, V} <- T],
+  are_all_limited(Values, K - 1);
+is_limited(?record_set(_), 1) ->
+  false;
+is_limited(?record_set(Records), K) ->
+  are_all_limited(Records, K);
 is_limited(_, _K) -> true.
 
 are_all_limited([E | Es], K) ->
@@ -3874,6 +3885,20 @@ t_limit_k(?map(Pairs0, DefK0, DefV0), K) ->
         end,
   {Pairs, DefK2, DefV2} = lists:foldr(Fun, {[], DefK0, DefV0}, Pairs0),
   t_map(Pairs, t_limit_k(DefK2, K - 1), t_limit_k(DefV2, K - 1));
+t_limit_k(?record(Name, Type), K) ->
+  if
+    K =:= 1 -> ?record(nil, #{});
+    true ->
+      ?record(Name, #{Key => {present, t_limit_k(V, K - 1)} || Key := {present, V} <- Type})
+  end;
+t_limit_k(?record_set(_), 1) ->
+  ?record(nil, #{});
+t_limit_k(?record_set(Records), K) ->
+  Set = [t_limit_k(R, K) || R <- Records],
+  case lists:any(fun(R) -> R =:= ?record(nil, #{}) end, Set) of
+    true -> ?record(nil, #{});
+    false -> ?record_set(Set)
+  end;
 t_limit_k(T, _K) ->
   T.
 
