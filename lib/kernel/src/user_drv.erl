@@ -96,6 +96,8 @@
 -export_type([message/0, request/0]).
 -export([start/0, start/1, start_shell/0, start_shell/1, whereis_group/0]).
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %% gen_statem state callbacks
 -behaviour(gen_statem).
 -export([init/3,server/3,switch_loop/3]).

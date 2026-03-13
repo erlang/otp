@@ -69,6 +69,8 @@ The `erl_prim_loader` module interprets the following command-line flags:
 `m:init`, `m:erl_boot_server`
 """.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %% If the macro DEBUG is defined during compilation, 
 %% debug printouts are done through erlang:display/1.
 %% Activate this feature by starting the compiler 

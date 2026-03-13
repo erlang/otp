@@ -26,6 +26,8 @@
 -include("logger_olp.hrl").
 -include("logger_internal.hrl").
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %% API
 -export([start_link/4, load/2, info/1, reset/1, stop/1, restart/1,
          set_opts/2, get_opts/1, get_default_opts/0, get_pid/1,

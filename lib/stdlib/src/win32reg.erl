@@ -95,6 +95,8 @@ Reference.
 Programmer's Reference (from Microsoft)
 """.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([open/1, close/1,
 	 current_key/1, change_key/2, change_key_create/2,
 	 sub_keys/1, delete_key/1,

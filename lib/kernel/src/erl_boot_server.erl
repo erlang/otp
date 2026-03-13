@@ -75,6 +75,8 @@ and `m:erl_prim_loader` in ERTS.
 -export([code_change/3]).
 -export([boot_init/1, boot_accept/3]).
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -record(state, 
 	{
 	  priority = 0,  %% priority of this server
