@@ -787,7 +787,7 @@ and exec-options.
 -doc(#{group => <<"Daemon Options">>}).
 -type exec_daemon_option()      :: {exec, exec_spec()} .
 -doc(#{group => <<"Daemon Options">>}).
--type exec_spec()               :: {direct, exec_fun()} | disabled | deprecated_exec_opt().
+-type exec_spec()               :: {direct, exec_fun() | exec_extended_fun()} | disabled | deprecated_exec_opt().
 -doc(#{group => <<"Daemon Options">>}).
 -type exec_fun()                :: 'exec_fun/1'() | 'exec_fun/2'() | 'exec_fun/3'().
 -doc(#{group => <<"Daemon Options">>}).
@@ -796,6 +796,17 @@ and exec-options.
 -type 'exec_fun/2'() :: fun((Cmd::string(), User::string()) -> exec_result()) .
 -doc(#{group => <<"Daemon Options">>}).
 -type 'exec_fun/3'() :: fun((Cmd::string(), User::string(), ClientAddr::ip_port()) -> exec_result()) .
+-doc(#{group => <<"Daemon Options">>}).
+-type exec_extended_fun() :: fun((Args::exec_extended_args()) -> exec_result()).
+-doc(#{group => <<"Daemon Options">>}).
+-type client_public_key() :: public_key:public_key().
+-doc(#{group => <<"Daemon Options">>}).
+-type exec_extended_args() :: #{
+    version => non_neg_integer(),
+    cmd => string(),
+    client_address => ip_port(),
+    public_key => client_public_key()
+}.
 -doc """
 This option changes how the daemon executes exec-requests from clients. The term
 in the return value is formatted to a string if it is a non-string type. No
@@ -1292,7 +1303,8 @@ Experimental options that should not to be used in products.
 	  available_host_keys,
 	  pwdfun_user_state,
 	  authenticated = false,
-	  userauth_banner_sent = false
+	  userauth_banner_sent = false,
+	  authenticated_public_key          % user's public key that was authenticated
 	 }).
 
 -record(alg,
