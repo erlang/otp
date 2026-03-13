@@ -15033,7 +15033,7 @@ BOOLEAN_T esock_cmsg_decode_sctp_prinfo(ErlNifEnv*      env,
 }
 #endif
 
-#if defined(SCTP_AUTHINFO)
+#if defined(SCTP_AUTHINFO) && !(defined(__sun) && defined(__SVR4))
 /* Do we actually need this function since this info is for sendmsg: decode */
 static
 BOOLEAN_T esock_cmsg_encode_sctp_authinfo(ErlNifEnv     *env,
@@ -15784,7 +15784,7 @@ static ESockCmsgSpec cmsgLevelSCTP[] =
          &esock_atom_prinfo},
 #endif
 
-#if defined(SCTP_AUTHINFO)
+#if defined(SCTP_AUTHINFO) && !(defined(__sun) && defined(__SVR4))
         /*
          * Intended for: sendmsg()
          *
