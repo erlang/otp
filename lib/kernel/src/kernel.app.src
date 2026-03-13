@@ -32,6 +32,7 @@
 	     auth,
 	     code,
 	     code_server,
+             data_publisher,
 	     dist_util,
 	     erl_boot_server,
 	     erl_compile_server,
